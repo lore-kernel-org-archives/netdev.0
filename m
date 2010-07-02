@@ -1,96 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [stable] [stable-2.6.32 PATCH] ixgbe: backport bug fix for tx
-	panic
-Date: Fri, 2 Jul 2010 14:37:13 -0700
-Message-ID: <AANLkTimr7-8TIjuCjIbqrJSVH4VI-Pjp8plpjTubuTfE@mail.gmail.com>
-References: <20100511004655.30590.74584.stgit@localhost.localdomain>
-	<AANLkTinHm8ukQ3KlcrMKWvQ-QrlmBcWeVD-i99Q9Z7JL@mail.gmail.com>
-	<alpine.WNT.2.00.1005250926320.2708@jbrandeb-desk1.amr.corp.intel.com>
-	<20100525201837.GA13821@kroah.com>
+Subject: Re: e1000e: receives no packets after resume
+	(2.6.35-rc3-00262-g984bc96)
+Date: Fri, 2 Jul 2010 14:47:26 -0700
+Message-ID: <AANLkTikO8yXXBC9Wt4LKZeu1JD5TKMOW5reB3jpk8Ahp@mail.gmail.com>
+References: <20100702072826.GB16856@schottelius.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"stable@kernel.org" <stable@kernel.org>,
-	Brandon <brandon@ifup.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100525201837.GA13821@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>
+To: Nico Schottelius <nico-linux-20100702@schottelius.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20100702072826.GB16856@schottelius.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 25, 2010 at 13:18, Greg KH <greg@kroah.com> wrote:
-> On Tue, May 25, 2010 at 09:27:25AM -0700, Brandeburg, Jesse wrote:
->>
->>
->> On Tue, 25 May 2010, Jeff Kirsher wrote:
->>
->> > On Mon, May 10, 2010 at 17:46, Jeff Kirsher <jeffrey.t.kirsher@int=
-el.com> wrote:
->> > > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> > >
->> > > backporting this commit:
->> > >
->> > > commit fdd3d631cddad20ad9d3e1eb7dbf26825a8a121f
->> > > Author: Krishna Kumar <krkumar2@in.ibm.com>
->> > > Date: =C2=A0 Wed Feb 3 13:13:10 2010 +0000
->> > >
->> > > =C2=A0 =C2=A0ixgbe: Fix return of invalid txq
->> > >
->> > > =C2=A0 =C2=A0a developer had complained of getting lots of warni=
-ngs:
->> > >
->> > > =C2=A0 =C2=A0"eth16 selects TX queue 98, but real number of TX q=
-ueues is 64"
->> > >
->> > > =C2=A0 =C2=A0http://www.mail-archive.com/e1000-devel@lists.sourc=
-eforge.net/msg02200.html
->> > >
->> > > =C2=A0 =C2=A0As there was no follow up on that bug, I am submitt=
-ing this
->> > > =C2=A0 =C2=A0patch assuming that the other return points will no=
-t return
->> > > =C2=A0 =C2=A0invalid txq's, and also that this fixes the bug (no=
-t tested).
->> > >
->> > > =C2=A0 =C2=A0Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
->> > > =C2=A0 =C2=A0Signed-off-by: Jesse Brandeburg <jesse.brandeburg@i=
-ntel.com>
->> > > =C2=A0 =C2=A0Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz=
-=2Ejr@intel.com>
->> > > =C2=A0 =C2=A0Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@inte=
-l.com>
->> > > =C2=A0 =C2=A0Signed-off-by: David S. Miller <davem@davemloft.net=
+On Fri, Jul 2, 2010 at 00:28, Nico Schottelius
+<nico-linux-20100702@schottelius.org> wrote:
+> Good morning hackers,
 >
->> > >
->> > > CC: Brandon <brandon@ifup.org>
->> > > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> > > ---
->> > >
->> > > =C2=A0drivers/net/ixgbe/ixgbe_main.c | =C2=A0 =C2=A08 ++++++--
->> > > =C2=A01 files changed, 6 insertions(+), 2 deletions(-)
->> > >
->> >
->> > Greg - status? =C2=A0Did you queue this patch for the stable relea=
-se and I missed it?
->>
->> Maybe we didn't say (and we should have) that this fixes a panic on
->> machines with > 64 cores. =C2=A0Please apply to -stable 32.
+> I've seen that in kernels before, but now suffering from it:
+> e1000e does not receive any packets after third resume:
 >
-> I'll get to it for the next release after this one, if that's ok.
+> --------------------------------------------------------------------------------
+> [8:16] kr:clyde# dhcpcd eth0
+> dhcpcd[11589]: version 5.2.5 starting
+> dhcpcd[11589]: eth0: rebinding lease of 129.132.102.115
+> dhcpcd[11589]: eth0: broadcasting for a lease
+> ^Cdhcpcd[11589]: received SIGINT, stopping
+> dhcpcd[11589]: eth0: removing interface
+> [8:16] kr:clyde# dhcpcd eth0
+> dhcpcd[11601]: version 5.2.5 starting
+> dhcpcd[11601]: eth0: rebinding lease of 129.132.102.115
+> dhcpcd[11601]: eth0: broadcasting for a lease
+> ^Cdhcpcd[11601]: received SIGINT, stopping
+> dhcpcd[11601]: eth0: removing interface
+> [8:16] kr:clyde# dhcpcd eth0
+> dhcpcd[11784]: version 5.2.5 starting
+> dhcpcd[11784]: eth0: rebinding lease of 129.132.102.115
+> ^Cdhcpcd[11784]: received SIGINT, stopping
+> dhcpcd[11784]: eth0: removing interface
+> [8:16] kr:clyde# dhcpcd eth0
+> dhcpcd[11830]: version 5.2.5 starting
+> dhcpcd[11830]: eth0: rebinding lease of 129.132.102.115
+> dhcpcd[11830]: eth0: broadcasting for a lease
+> dhcpcd[11830]: timed out
+> [8:17] kr:clyde# rmmod e1000e
+> [8:18] kr:clyde# modprobe e1000e
+> [8:18] kr:clyde# dhcpcd eth0
+> dhcpcd[11855]: version 5.2.5 starting
+> dhcpcd[11855]: eth0: waiting for carrier
+> ^Cdhcpcd[11855]: received SIGINT, stopping
+> dhcpcd[11855]: eth0: removing interface
+> [8:18] kr:clyde# dhcpcd eth0
+> dhcpcd[11871]: version 5.2.5 starting
+> dhcpcd[11871]: eth0: rebinding lease of 129.132.102.115
+> dhcpcd[11871]: eth0: acknowledged 129.132.102.115 from 129.132.57.97
+> dhcpcd[11871]: eth0: checking for 129.132.102.115
+> dhcpcd[11871]: eth0: leased 129.132.102.115 for 86400 seconds
+> dhcpcd[11871]: forked to background, child pid 11892
+> [8:18] kr:clyde#
+> --------------------------------------------------------------------------------
 >
-> thanks,
+> Are you aware of this issues?
 >
-> greg k-h
+> Cheers,
+>
+> Nico
+>
 > --
 
-I did not see this patch in the list of patches for the next release
-of the stable kernel.  Just want to make sure this patch makes it this
-time... :)
+Adding the Networking Kernel mailing list (netdev) and Intel Linux LAN
+Driver mailing list (e1000-patches)...
 
---=20
+Would it be possible to get more information about the system/setup?
+
+For example, can you provide the following information:
+     - full lspci output (lspci -vvv)
+     - ethtool -i ethX
+     - dmesg  - after loading the driver and configuring the interfaces
+     - kernel config
+
+-- 
 Cheers,
 Jeff
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Sprint
+What will you do first with EVO, the first 4G phone?
+Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
