@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 9/9] bridge: add per bridge device controls for invoking iptables
-Date: Fri,  2 Jul 2010 11:52:22 +0200
-Message-ID: <1278064342-19059-10-git-send-email-kaber@trash.net>
+Subject: [PATCH 1/9] netfilter: nf_nat: support user-specified SNAT rules in LOCAL_IN
+Date: Fri,  2 Jul 2010 11:52:14 +0200
+Message-ID: <1278064342-19059-2-git-send-email-kaber@trash.net>
 References: <1278064342-19059-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -12,196 +12,148 @@ List-Id: netdev.vger.kernel.org
 
 From: Patrick McHardy <kaber@trash.net>
 
-Support more fine grained control of bridge netfilter iptables invocation
-by adding seperate brnf_call_*tables parameters for each device using the
-sysfs interface. Packets are passed to layer 3 netfilter when either the
-global parameter or the per bridge parameter is enabled.
+2.6.34 introduced 'conntrack zones' to deal with cases where packets
+from multiple identical networks are handled by conntrack/NAT. Packets
+are looped through veth devices, during which they are NATed to private
+addresses, after which they can continue normally through the stack
+and possibly have NAT rules applied a second time.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-Acked-by: David S. Miller <davem@davemloft.net>
+This works well, but is needlessly complicated for cases where only
+a single SNAT/DNAT mapping needs to be applied to these packets. In that
+case, all that needs to be done is to assign each network to a seperate
+zone and perform NAT as usual. However this doesn't work for packets
+destined for the machine performing NAT itself since its corrently not
+possible to configure SNAT mappings for the LOCAL_IN chain.
+
+This patch adds a new INPUT chain to the NAT table and changes the
+targets performing SNAT to be usable in that chain.
+
+Example usage with two identical networks (192.168.0.0/24) on eth0/eth1:
+
+iptables -t raw -A PREROUTING -i eth0 -j CT --zone 1
+iptables -t raw -A PREROUTING -i eth0 -j MARK --set-mark 1
+iptables -t raw -A PREROUTING -i eth1 -j CT --zone 2
+iptabels -t raw -A PREROUTING -i eth1 -j MARK --set-mark 2
+
+iptables -t nat -A INPUT       -m mark --mark 1 -j NETMAP --to 10.0.0.0/24
+iptables -t nat -A POSTROUTING -m mark --mark 1 -j NETMAP --to 10.0.0.0/24
+iptables -t nat -A INPUT       -m mark --mark 2 -j NETMAP --to 10.0.1.0/24
+iptables -t nat -A POSTROUTING -m mark --mark 2 -j NETMAP --to 10.0.1.0/24
+
+iptables -t raw -A PREROUTING -d 10.0.0.0/24 -j CT --zone 1
+iptables -t raw -A OUTPUT     -d 10.0.0.0/24 -j CT --zone 1
+iptables -t raw -A PREROUTING -d 10.0.1.0/24 -j CT --zone 2
+iptables -t raw -A OUTPUT     -d 10.0.1.0/24 -j CT --zone 2
+
+iptables -t nat -A PREROUTING -d 10.0.0.0/24 -j NETMAP --to 192.168.0.0/24
+iptables -t nat -A OUTPUT     -d 10.0.0.0/24 -j NETMAP --to 192.168.0.0/24
+iptables -t nat -A PREROUTING -d 10.0.1.0/24 -j NETMAP --to 192.168.0.0/24
+iptables -t nat -A OUTPUT     -d 10.0.1.0/24 -j NETMAP --to 192.168.0.0/24
+
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/bridge/br_netfilter.c |   31 ++++++++++++++-----
- net/bridge/br_private.h   |    3 ++
- net/bridge/br_sysfs_br.c  |   72 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 97 insertions(+), 9 deletions(-)
+ include/net/netfilter/nf_nat_rule.h    |    2 --
+ net/ipv4/netfilter/ipt_NETMAP.c        |    6 ++++--
+ net/ipv4/netfilter/nf_nat_rule.c       |   10 ++++++----
+ net/ipv4/netfilter/nf_nat_standalone.c |    8 +-------
+ 4 files changed, 11 insertions(+), 15 deletions(-)
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 6bb6f7c..f1d49ae 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -55,6 +55,9 @@ static int brnf_call_arptables __read_mostly = 1;
- static int brnf_filter_vlan_tagged __read_mostly = 0;
- static int brnf_filter_pppoe_tagged __read_mostly = 0;
- #else
-+#define brnf_call_iptables 1
-+#define brnf_call_ip6tables 1
-+#define brnf_call_arptables 1
- #define brnf_filter_vlan_tagged 0
- #define brnf_filter_pppoe_tagged 0
- #endif
-@@ -543,25 +546,30 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
- {
-+	struct net_bridge_port *p;
-+	struct net_bridge *br;
- 	struct iphdr *iph;
- 	__u32 len = nf_bridge_encap_header_len(skb);
+diff --git a/include/net/netfilter/nf_nat_rule.h b/include/net/netfilter/nf_nat_rule.h
+index e4a18ae..2890bdc 100644
+--- a/include/net/netfilter/nf_nat_rule.h
++++ b/include/net/netfilter/nf_nat_rule.h
+@@ -12,6 +12,4 @@ extern int nf_nat_rule_find(struct sk_buff *skb,
+ 			    const struct net_device *out,
+ 			    struct nf_conn *ct);
  
- 	if (unlikely(!pskb_may_pull(skb, len)))
- 		goto out;
+-extern unsigned int
+-alloc_null_binding(struct nf_conn *ct, unsigned int hooknum);
+ #endif /* _NF_NAT_RULE_H */
+diff --git a/net/ipv4/netfilter/ipt_NETMAP.c b/net/ipv4/netfilter/ipt_NETMAP.c
+index f43867d..6cdb298 100644
+--- a/net/ipv4/netfilter/ipt_NETMAP.c
++++ b/net/ipv4/netfilter/ipt_NETMAP.c
+@@ -48,7 +48,8 @@ netmap_tg(struct sk_buff *skb, const struct xt_action_param *par)
  
-+	p = rcu_dereference(in->br_port);
-+	if (p == NULL)
-+		goto out;
-+	br = p->br;
-+
- 	if (skb->protocol == htons(ETH_P_IPV6) || IS_VLAN_IPV6(skb) ||
- 	    IS_PPPOE_IPV6(skb)) {
--#ifdef CONFIG_SYSCTL
--		if (!brnf_call_ip6tables)
-+		if (!brnf_call_ip6tables && !br->nf_call_ip6tables)
- 			return NF_ACCEPT;
--#endif
-+
- 		nf_bridge_pull_encap_header_rcsum(skb);
- 		return br_nf_pre_routing_ipv6(hook, skb, in, out, okfn);
- 	}
--#ifdef CONFIG_SYSCTL
--	if (!brnf_call_iptables)
-+
-+	if (!brnf_call_iptables && !br->nf_call_iptables)
- 		return NF_ACCEPT;
--#endif
+ 	NF_CT_ASSERT(par->hooknum == NF_INET_PRE_ROUTING ||
+ 		     par->hooknum == NF_INET_POST_ROUTING ||
+-		     par->hooknum == NF_INET_LOCAL_OUT);
++		     par->hooknum == NF_INET_LOCAL_OUT ||
++		     par->hooknum == NF_INET_LOCAL_IN);
+ 	ct = nf_ct_get(skb, &ctinfo);
  
- 	if (skb->protocol != htons(ETH_P_IP) && !IS_VLAN_IP(skb) &&
- 	    !IS_PPPOE_IP(skb))
-@@ -714,12 +722,17 @@ static unsigned int br_nf_forward_arp(unsigned int hook, struct sk_buff *skb,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
- {
-+	struct net_bridge_port *p;
-+	struct net_bridge *br;
- 	struct net_device **d = (struct net_device **)(skb->cb);
- 
--#ifdef CONFIG_SYSCTL
--	if (!brnf_call_arptables)
-+	p = rcu_dereference(out->br_port);
-+	if (p == NULL)
-+		return NF_ACCEPT;
-+	br = p->br;
-+
-+	if (!brnf_call_arptables && !br->nf_call_arptables)
- 		return NF_ACCEPT;
--#endif
- 
- 	if (skb->protocol != htons(ETH_P_ARP)) {
- 		if (!IS_VLAN_ARP(skb))
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index c83519b..7484065 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -164,6 +164,9 @@ struct net_bridge
- 	unsigned long			feature_mask;
- #ifdef CONFIG_BRIDGE_NETFILTER
- 	struct rtable 			fake_rtable;
-+	bool				nf_call_iptables;
-+	bool				nf_call_ip6tables;
-+	bool				nf_call_arptables;
- #endif
- 	unsigned long			flags;
- #define BR_SET_MAC_ADDR		0x00000001
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 486b8f3..5c1e555 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -611,6 +611,73 @@ static DEVICE_ATTR(multicast_startup_query_interval, S_IRUGO | S_IWUSR,
- 		   show_multicast_startup_query_interval,
- 		   store_multicast_startup_query_interval);
- #endif
-+#ifdef CONFIG_BRIDGE_NETFILTER
-+static ssize_t show_nf_call_iptables(
-+	struct device *d, struct device_attribute *attr, char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%u\n", br->nf_call_iptables);
-+}
-+
-+static int set_nf_call_iptables(struct net_bridge *br, unsigned long val)
-+{
-+	br->nf_call_iptables = val ? true : false;
-+	return 0;
-+}
-+
-+static ssize_t store_nf_call_iptables(
-+	struct device *d, struct device_attribute *attr, const char *buf,
-+	size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_nf_call_iptables);
-+}
-+static DEVICE_ATTR(nf_call_iptables, S_IRUGO | S_IWUSR,
-+		   show_nf_call_iptables, store_nf_call_iptables);
-+
-+static ssize_t show_nf_call_ip6tables(
-+	struct device *d, struct device_attribute *attr, char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%u\n", br->nf_call_ip6tables);
-+}
-+
-+static int set_nf_call_ip6tables(struct net_bridge *br, unsigned long val)
-+{
-+	br->nf_call_ip6tables = val ? true : false;
-+	return 0;
-+}
-+
-+static ssize_t store_nf_call_ip6tables(
-+	struct device *d, struct device_attribute *attr, const char *buf,
-+	size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_nf_call_ip6tables);
-+}
-+static DEVICE_ATTR(nf_call_ip6tables, S_IRUGO | S_IWUSR,
-+		   show_nf_call_ip6tables, store_nf_call_ip6tables);
-+
-+static ssize_t show_nf_call_arptables(
-+	struct device *d, struct device_attribute *attr, char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%u\n", br->nf_call_arptables);
-+}
-+
-+static int set_nf_call_arptables(struct net_bridge *br, unsigned long val)
-+{
-+	br->nf_call_arptables = val ? true : false;
-+	return 0;
-+}
-+
-+static ssize_t store_nf_call_arptables(
-+	struct device *d, struct device_attribute *attr, const char *buf,
-+	size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_nf_call_arptables);
-+}
-+static DEVICE_ATTR(nf_call_arptables, S_IRUGO | S_IWUSR,
-+		   show_nf_call_arptables, store_nf_call_arptables);
-+#endif
- 
- static struct attribute *bridge_attrs[] = {
- 	&dev_attr_forward_delay.attr,
-@@ -645,6 +712,11 @@ static struct attribute *bridge_attrs[] = {
- 	&dev_attr_multicast_query_response_interval.attr,
- 	&dev_attr_multicast_startup_query_interval.attr,
- #endif
-+#ifdef CONFIG_BRIDGE_NETFILTER
-+	&dev_attr_nf_call_iptables.attr,
-+	&dev_attr_nf_call_ip6tables.attr,
-+	&dev_attr_nf_call_arptables.attr,
-+#endif
- 	NULL
+ 	netmask = ~(mr->range[0].min_ip ^ mr->range[0].max_ip);
+@@ -77,7 +78,8 @@ static struct xt_target netmap_tg_reg __read_mostly = {
+ 	.table		= "nat",
+ 	.hooks		= (1 << NF_INET_PRE_ROUTING) |
+ 			  (1 << NF_INET_POST_ROUTING) |
+-			  (1 << NF_INET_LOCAL_OUT),
++			  (1 << NF_INET_LOCAL_OUT) |
++			  (1 << NF_INET_LOCAL_IN),
+ 	.checkentry 	= netmap_tg_check,
+ 	.me 		= THIS_MODULE
  };
+diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
+index 98ed782..ebbd319 100644
+--- a/net/ipv4/netfilter/nf_nat_rule.c
++++ b/net/ipv4/netfilter/nf_nat_rule.c
+@@ -28,7 +28,8 @@
  
+ #define NAT_VALID_HOOKS ((1 << NF_INET_PRE_ROUTING) | \
+ 			 (1 << NF_INET_POST_ROUTING) | \
+-			 (1 << NF_INET_LOCAL_OUT))
++			 (1 << NF_INET_LOCAL_OUT) | \
++			 (1 << NF_INET_LOCAL_IN))
+ 
+ static const struct xt_table nat_table = {
+ 	.name		= "nat",
+@@ -45,7 +46,8 @@ ipt_snat_target(struct sk_buff *skb, const struct xt_action_param *par)
+ 	enum ip_conntrack_info ctinfo;
+ 	const struct nf_nat_multi_range_compat *mr = par->targinfo;
+ 
+-	NF_CT_ASSERT(par->hooknum == NF_INET_POST_ROUTING);
++	NF_CT_ASSERT(par->hooknum == NF_INET_POST_ROUTING ||
++		     par->hooknum == NF_INET_LOCAL_IN);
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 
+@@ -99,7 +101,7 @@ static int ipt_dnat_checkentry(const struct xt_tgchk_param *par)
+ 	return 0;
+ }
+ 
+-unsigned int
++static unsigned int
+ alloc_null_binding(struct nf_conn *ct, unsigned int hooknum)
+ {
+ 	/* Force range to this IP; let proto decide mapping for
+@@ -141,7 +143,7 @@ static struct xt_target ipt_snat_reg __read_mostly = {
+ 	.target		= ipt_snat_target,
+ 	.targetsize	= sizeof(struct nf_nat_multi_range_compat),
+ 	.table		= "nat",
+-	.hooks		= 1 << NF_INET_POST_ROUTING,
++	.hooks		= (1 << NF_INET_POST_ROUTING) | (1 << NF_INET_LOCAL_IN),
+ 	.checkentry	= ipt_snat_checkentry,
+ 	.family		= AF_INET,
+ };
+diff --git a/net/ipv4/netfilter/nf_nat_standalone.c b/net/ipv4/netfilter/nf_nat_standalone.c
+index 6723c68..95481fe 100644
+--- a/net/ipv4/netfilter/nf_nat_standalone.c
++++ b/net/ipv4/netfilter/nf_nat_standalone.c
+@@ -131,13 +131,7 @@ nf_nat_fn(unsigned int hooknum,
+ 		if (!nf_nat_initialized(ct, maniptype)) {
+ 			unsigned int ret;
+ 
+-			if (hooknum == NF_INET_LOCAL_IN)
+-				/* LOCAL_IN hook doesn't have a chain!  */
+-				ret = alloc_null_binding(ct, hooknum);
+-			else
+-				ret = nf_nat_rule_find(skb, hooknum, in, out,
+-						       ct);
+-
++			ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
+ 		} else
 -- 
 1.7.0.4
 
