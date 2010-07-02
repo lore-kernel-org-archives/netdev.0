@@ -1,71 +1,52 @@
-From: Peter Kosyh <p.kosyh@gmail.com>
-Subject: Re: [PATCH] xfrm bugs with mark logic
-Date: Fri, 2 Jul 2010 20:24:03 +0400
-Message-ID: <20100702162403.GA10809@myhost>
-References: <AANLkTimsVHoNk3B1oTI6awlNtrmNED7vwe2flzTap9aP@mail.gmail.com> <1278082898.2530.37.camel@edumazet-laptop>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: iwl3945: HARDWARE GONE??
+Date: Fri, 2 Jul 2010 12:26:50 -0400
+Message-ID: <20100702162650.GC2381@tuxdriver.com>
+References: <1278086575.2889.8.camel@chi>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="liOOAslEiF7prFVr"
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:49031 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759079Ab0GBQYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 12:24:12 -0400
-Received: by bwz1 with SMTP id 1so1684212bwz.19
-        for <netdev@vger.kernel.org>; Fri, 02 Jul 2010 09:24:10 -0700 (PDT)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Priit Laes <plaes@plaes.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1278082898.2530.37.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1278086575.2889.8.camel@chi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 02, 2010 at 07:02:55PM +0300, Priit Laes wrote:
+> Heya!
+> 
+> Bumped my kernel to version 2.6.35-rc3-00391-g97e0214 and ran into
+> HARDWARE GONE error message..
+> 
+> Hardware is Lenovo x60s and wireless card is intel 3945:
+> 
+> 03:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG [Golan] Network Connection (rev 02)
+> 	Subsystem: Intel Corporation ThinkPad R60e/X60s
+> 	Flags: bus master, fast devsel, latency 0, IRQ 47
+> 	Memory at edf00000 (32-bit, non-prefetchable) [size=4K]
+> 	Capabilities: [c8] Power Management version 2
+> 	Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+> 	Capabilities: [e0] Express Legacy Endpoint, MSI 00
+> 	Capabilities: [100] Advanced Error Reporting
+> 	Capabilities: [140] Device Serial Number 00-xx-xx-xx-xx-xx-xx-xx
+> 	Kernel driver in use: iwl3945
+> 	Kernel modules: iwl3945
+> 
+> I have attached dmesg error message...
+> 
+> Cheers,
+> Priit :)
 
---liOOAslEiF7prFVr
-Content-Type: text/plain; charset=koi8-r
-Content-Disposition: inline
+> [13813.347617] Uhhuh. NMI received for unknown reason a1 on CPU 0.
+> [13813.347617] You have some hardware problem, likely on the PCI bus.
+> [13813.347617] Dazed and confused, but trying to continue
+> [13813.347617] iwl3945 0000:03:00.0: HARDWARE GONE?? INTA == 0xffffffff
 
-> 
-> Hi Peter
-> 
-> XFRMA_MARK part already in net-2.6 tree :
-> 
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=4efd7e833591721bec21cc4730a7f6261417840f
-> 
-> Please submit another patch the second problem you spotted ?
-> 
+We've been seeing this sort of thing a lot -- somehow the iwl3945 gets
+disconnected from the PCI bus.  Anyone have any clue how that happens?
 
-Yes, i see. Here it is, but i am little unsure about ipv6 fix.
-
+John
 -- 
-w.b.r. Peter Kosyh
-
---liOOAslEiF7prFVr
-Content-Type: text/plain; charset=koi8-r
-Content-Disposition: attachment; filename="linux-2.6.36-xfrm-mark.patch"
-
-diff -Nur linux-2.6.35-rc3.orig/net/ipv4/xfrm4_policy.c linux-2.6.35-rc3/net/ipv4/xfrm4_policy.c
---- linux-2.6.35-rc3.orig/net/ipv4/xfrm4_policy.c	2010-06-12 06:14:04.000000000 +0400
-+++ linux-2.6.35-rc3/net/ipv4/xfrm4_policy.c	2010-07-02 20:20:49.000000000 +0400
-@@ -108,6 +108,8 @@
- 	u8 *xprth = skb_network_header(skb) + iph->ihl * 4;
- 
- 	memset(fl, 0, sizeof(struct flowi));
-+	fl->mark = skb->mark;
-+
- 	if (!(iph->frag_off & htons(IP_MF | IP_OFFSET))) {
- 		switch (iph->protocol) {
- 		case IPPROTO_UDP:
-diff -Nur linux-2.6.35-rc3.orig/net/ipv6/xfrm6_policy.c linux-2.6.35-rc3/net/ipv6/xfrm6_policy.c
---- linux-2.6.35-rc3.orig/net/ipv6/xfrm6_policy.c	2010-06-12 06:14:04.000000000 +0400
-+++ linux-2.6.35-rc3/net/ipv6/xfrm6_policy.c	2010-07-02 20:20:22.000000000 +0400
-@@ -124,6 +124,8 @@
- 	u8 nexthdr = nh[IP6CB(skb)->nhoff];
- 
- 	memset(fl, 0, sizeof(struct flowi));
-+	fl->mark = skb->mark;
-+
- 	ipv6_addr_copy(&fl->fl6_dst, reverse ? &hdr->saddr : &hdr->daddr);
- 	ipv6_addr_copy(&fl->fl6_src, reverse ? &hdr->daddr : &hdr->saddr);
- 
-
---liOOAslEiF7prFVr--
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
