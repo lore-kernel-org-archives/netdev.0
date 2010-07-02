@@ -1,107 +1,60 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: [PATCH] usbnet: remove direct access to urb->status
-Date: Fri, 2 Jul 2010 15:58:25 +0200
-Message-ID: <201007021558.25774.oneukum@suse.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/9] netfilter: nf_nat: support user-specified SNAT rules
+ in LOCAL_IN
+Date: Fri, 02 Jul 2010 16:07:16 +0200
+Message-ID: <4C2DF294.5010206@trash.net>
+References: <1278064342-19059-1-git-send-email-kaber@trash.net> <1278064342-19059-2-git-send-email-kaber@trash.net> <alpine.LSU.2.01.1007021212490.16691@obet.zrqbmnf.qr> <4C2DBCD3.20208@trash.net> <alpine.LSU.2.01.1007021416120.30410@obet.zrqbmnf.qr> <4C2DDD29.7030503@trash.net> <alpine.LSU.2.01.1007021452430.11763@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42024 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756247Ab0GBN7e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 09:59:34 -0400
+Received: from stinky.trash.net ([213.144.137.162]:50433 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757172Ab0GBOHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 10:07:17 -0400
+In-Reply-To: <alpine.LSU.2.01.1007021452430.11763@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From a2e8da61490cba876b1b4814c4832822527c43dd Mon Sep 17 00:00:00 2001
-From: Oliver Neukum <oliver@neukum.org>
-Date: Fri, 2 Jul 2010 15:51:55 +0200
-Subject: [PATCH] usbnet: remove direct access to urb->status
+Jan Engelhardt wrote:
+> On Friday 2010-07-02 14:35, Patrick McHardy wrote:
+>  =20
+>>>> Sure they do, if they are destined for the host itself. I'm not su=
+re
+>>>> what's so hard to understand about this patch, you have f.i. multi=
+ple
+>>>> tunnels using the same remote network, on INPUT and POSTROUTING yo=
+u SNAT
+>>>> them to seperate networks based on criteria like the network devic=
+e or
+>>>> the IPsec tunnel to be able to distinguish them.
+>>>>   =20
+>>>>        =20
+>>> But they are already distinguishable by the ctmark that is applied
+>>> to these connections to do routing of the reply, are they not?
+>>> =20
+>>>      =20
+>> Its not (only) about routing, you simply can't have two connections =
+using
+>> the same identity.
+>>    =20
+>
+> Which is why the zone thing is added.
+>  =20
 
-USB drivers should not use urb->status directly because
-it is scheduled to become a parameter. This does the conversion
-for drivers/net/usb
+I'm not talking about conntrack at all. A connection needs
+a unique identity. Just look at the socket lookup code.
 
-Signed-off-by: Oliver Neukum <oneukum@suse.de>
----
- drivers/net/usb/cdc-phonet.c |    8 +++++---
- drivers/net/usb/ipheth.c     |   13 +++++++------
- 2 files changed, 12 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
-index dc94445..109751b 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -97,8 +97,9 @@ static void tx_complete(struct urb *req)
- 	struct sk_buff *skb = req->context;
- 	struct net_device *dev = skb->dev;
- 	struct usbpn_dev *pnd = netdev_priv(dev);
-+	int status = req->status;
- 
--	switch (req->status) {
-+	switch (status) {
- 	case 0:
- 		dev->stats.tx_bytes += skb->len;
- 		break;
-@@ -109,7 +110,7 @@ static void tx_complete(struct urb *req)
- 		dev->stats.tx_aborted_errors++;
- 	default:
- 		dev->stats.tx_errors++;
--		dev_dbg(&dev->dev, "TX error (%d)\n", req->status);
-+		dev_dbg(&dev->dev, "TX error (%d)\n", status);
- 	}
- 	dev->stats.tx_packets++;
- 
-@@ -150,8 +151,9 @@ static void rx_complete(struct urb *req)
- 	struct page *page = virt_to_page(req->transfer_buffer);
- 	struct sk_buff *skb;
- 	unsigned long flags;
-+	int status = req->status;
- 
--	switch (req->status) {
-+	switch (status) {
- 	case 0:
- 		spin_lock_irqsave(&pnd->rx_lock, flags);
- 		skb = pnd->rx_skb;
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index 197c352..08e7b6a 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -193,7 +193,7 @@ static void ipheth_rcvbulk_callback(struct urb *urb)
- 	case 0:
- 		break;
- 	default:
--		err("%s: urb status: %d", __func__, urb->status);
-+		err("%s: urb status: %d", __func__, status);
- 		return;
- 	}
- 
-@@ -222,16 +222,17 @@ static void ipheth_rcvbulk_callback(struct urb *urb)
- static void ipheth_sndbulk_callback(struct urb *urb)
- {
- 	struct ipheth_device *dev;
-+	int status = urb->status;
- 
- 	dev = urb->context;
- 	if (dev == NULL)
- 		return;
- 
--	if (urb->status != 0 &&
--	    urb->status != -ENOENT &&
--	    urb->status != -ECONNRESET &&
--	    urb->status != -ESHUTDOWN)
--		err("%s: urb status: %d", __func__, urb->status);
-+	if (status != 0 &&
-+	    status != -ENOENT &&
-+	    status != -ECONNRESET &&
-+	    status != -ESHUTDOWN)
-+		err("%s: urb status: %d", __func__, status);
- 
- 	dev_kfree_skb_irq(dev->tx_skb);
- 	netif_wake_queue(dev->net);
--- 
-1.7.1
+> Ah, but I now see that you need to select a zone for it first.. touch=
+=C3=A9.
+>
+> Still this SNAT-on-INPUT leaves a second taste. Adding another addres=
+s=20
+> to the tunnel master and using DNAT-on-PREROUTING for local deliverie=
+s=20
+> would have also made the connections unambiguous
 
