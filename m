@@ -1,49 +1,96 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Fri, 2 Jul 2010 23:06:37 +0200
-Message-ID: <20100702210637.GA12433@redhat.com>
-References: <1277988395.1917.47.camel@laptop> <20100701130816.GB32223@redhat.com> <1277991024.1917.108.camel@laptop> <20100701133956.GD32223@redhat.com> <4C2CA5C5.4040402@kernel.org> <20100701144624.GA11171@redhat.com> <4C2CABF2.2020801@kernel.org> <1277996135.1917.198.camel@laptop> <4C2E2987.9040702@us.ibm.com> <1278094270.1917.288.camel@laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [stable] [stable-2.6.32 PATCH] ixgbe: backport bug fix for tx
+	panic
+Date: Fri, 2 Jul 2010 14:37:13 -0700
+Message-ID: <AANLkTimr7-8TIjuCjIbqrJSVH4VI-Pjp8plpjTubuTfE@mail.gmail.com>
+References: <20100511004655.30590.74584.stgit@localhost.localdomain>
+	<AANLkTinHm8ukQ3KlcrMKWvQ-QrlmBcWeVD-i99Q9Z7JL@mail.gmail.com>
+	<alpine.WNT.2.00.1005250926320.2708@jbrandeb-desk1.amr.corp.intel.com>
+	<20100525201837.GA13821@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>, Tejun Heo <tj@kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"stable@kernel.org" <stable@kernel.org>,
+	Brandon <brandon@ifup.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Greg KH <greg@kroah.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1278094270.1917.288.camel@laptop>
+In-Reply-To: <20100525201837.GA13821@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/02, Peter Zijlstra wrote:
+On Tue, May 25, 2010 at 13:18, Greg KH <greg@kroah.com> wrote:
+> On Tue, May 25, 2010 at 09:27:25AM -0700, Brandeburg, Jesse wrote:
+>>
+>>
+>> On Tue, 25 May 2010, Jeff Kirsher wrote:
+>>
+>> > On Mon, May 10, 2010 at 17:46, Jeff Kirsher <jeffrey.t.kirsher@int=
+el.com> wrote:
+>> > > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> > >
+>> > > backporting this commit:
+>> > >
+>> > > commit fdd3d631cddad20ad9d3e1eb7dbf26825a8a121f
+>> > > Author: Krishna Kumar <krkumar2@in.ibm.com>
+>> > > Date: =C2=A0 Wed Feb 3 13:13:10 2010 +0000
+>> > >
+>> > > =C2=A0 =C2=A0ixgbe: Fix return of invalid txq
+>> > >
+>> > > =C2=A0 =C2=A0a developer had complained of getting lots of warni=
+ngs:
+>> > >
+>> > > =C2=A0 =C2=A0"eth16 selects TX queue 98, but real number of TX q=
+ueues is 64"
+>> > >
+>> > > =C2=A0 =C2=A0http://www.mail-archive.com/e1000-devel@lists.sourc=
+eforge.net/msg02200.html
+>> > >
+>> > > =C2=A0 =C2=A0As there was no follow up on that bug, I am submitt=
+ing this
+>> > > =C2=A0 =C2=A0patch assuming that the other return points will no=
+t return
+>> > > =C2=A0 =C2=A0invalid txq's, and also that this fixes the bug (no=
+t tested).
+>> > >
+>> > > =C2=A0 =C2=A0Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+>> > > =C2=A0 =C2=A0Signed-off-by: Jesse Brandeburg <jesse.brandeburg@i=
+ntel.com>
+>> > > =C2=A0 =C2=A0Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz=
+=2Ejr@intel.com>
+>> > > =C2=A0 =C2=A0Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@inte=
+l.com>
+>> > > =C2=A0 =C2=A0Signed-off-by: David S. Miller <davem@davemloft.net=
 >
-> On Fri, 2010-07-02 at 11:01 -0700, Sridhar Samudrala wrote:
-> >
-> >  Does  it (Tejun's kthread_clone() patch) also  inherit the
-> > cgroup of the caller?
+>> > >
+>> > > CC: Brandon <brandon@ifup.org>
+>> > > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> > > ---
+>> > >
+>> > > =C2=A0drivers/net/ixgbe/ixgbe_main.c | =C2=A0 =C2=A08 ++++++--
+>> > > =C2=A01 files changed, 6 insertions(+), 2 deletions(-)
+>> > >
+>> >
+>> > Greg - status? =C2=A0Did you queue this patch for the stable relea=
+se and I missed it?
+>>
+>> Maybe we didn't say (and we should have) that this fixes a panic on
+>> machines with > 64 cores. =C2=A0Please apply to -stable 32.
 >
-> Of course, its a simple do_fork() which inherits everything just as you
-> would expect from a similar sys_clone()/sys_fork() call.
+> I'll get to it for the next release after this one, if that's ok.
+>
+> thanks,
+>
+> greg k-h
+> --
 
-Yes. And I'm afraid it can inherit more than we want. IIUC, this is called
-from ioctl(), right?
+I did not see this patch in the list of patches for the next release
+of the stable kernel.  Just want to make sure this patch makes it this
+time... :)
 
-Then the new thread becomes the natural child of the caller, and it shares
-->mm with the parent. And files, dup_fd() without CLONE_FS.
-
-Signals. Say, if you send SIGKILL to this new thread, it can't sleep in
-TASK_INTERRUPTIBLE or KILLABLE after that. And this SIGKILL can be sent
-just because the parent gets SIGQUIT or abother coredumpable signal.
-Or the new thread can recieve SIGSTOP via ^Z.
-
-Perhaps this is OK, I do not know. Just to remind that kernel_thread()
-is merely clone(CLONE_VM).
-
-Oleg.
+--=20
+Cheers,
+Jeff
