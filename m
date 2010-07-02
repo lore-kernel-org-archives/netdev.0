@@ -1,103 +1,131 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: e1000e: receives no packets after resume
-	(2.6.35-rc3-00262-g984bc96)
-Date: Fri, 2 Jul 2010 14:47:26 -0700
-Message-ID: <AANLkTikO8yXXBC9Wt4LKZeu1JD5TKMOW5reB3jpk8Ahp@mail.gmail.com>
-References: <20100702072826.GB16856@schottelius.org>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: [rft]testers for suspend/resume support for cdc-phonet
+Date: Fri, 2 Jul 2010 23:46:53 +0200
+Message-ID: <201007022346.53635.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>
-To: Nico Schottelius <nico-linux-20100702@schottelius.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20100702072826.GB16856@schottelius.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 2, 2010 at 00:28, Nico Schottelius
-<nico-linux-20100702@schottelius.org> wrote:
-> Good morning hackers,
->
-> I've seen that in kernels before, but now suffering from it:
-> e1000e does not receive any packets after third resume:
->
-> --------------------------------------------------------------------------------
-> [8:16] kr:clyde# dhcpcd eth0
-> dhcpcd[11589]: version 5.2.5 starting
-> dhcpcd[11589]: eth0: rebinding lease of 129.132.102.115
-> dhcpcd[11589]: eth0: broadcasting for a lease
-> ^Cdhcpcd[11589]: received SIGINT, stopping
-> dhcpcd[11589]: eth0: removing interface
-> [8:16] kr:clyde# dhcpcd eth0
-> dhcpcd[11601]: version 5.2.5 starting
-> dhcpcd[11601]: eth0: rebinding lease of 129.132.102.115
-> dhcpcd[11601]: eth0: broadcasting for a lease
-> ^Cdhcpcd[11601]: received SIGINT, stopping
-> dhcpcd[11601]: eth0: removing interface
-> [8:16] kr:clyde# dhcpcd eth0
-> dhcpcd[11784]: version 5.2.5 starting
-> dhcpcd[11784]: eth0: rebinding lease of 129.132.102.115
-> ^Cdhcpcd[11784]: received SIGINT, stopping
-> dhcpcd[11784]: eth0: removing interface
-> [8:16] kr:clyde# dhcpcd eth0
-> dhcpcd[11830]: version 5.2.5 starting
-> dhcpcd[11830]: eth0: rebinding lease of 129.132.102.115
-> dhcpcd[11830]: eth0: broadcasting for a lease
-> dhcpcd[11830]: timed out
-> [8:17] kr:clyde# rmmod e1000e
-> [8:18] kr:clyde# modprobe e1000e
-> [8:18] kr:clyde# dhcpcd eth0
-> dhcpcd[11855]: version 5.2.5 starting
-> dhcpcd[11855]: eth0: waiting for carrier
-> ^Cdhcpcd[11855]: received SIGINT, stopping
-> dhcpcd[11855]: eth0: removing interface
-> [8:18] kr:clyde# dhcpcd eth0
-> dhcpcd[11871]: version 5.2.5 starting
-> dhcpcd[11871]: eth0: rebinding lease of 129.132.102.115
-> dhcpcd[11871]: eth0: acknowledged 129.132.102.115 from 129.132.57.97
-> dhcpcd[11871]: eth0: checking for 129.132.102.115
-> dhcpcd[11871]: eth0: leased 129.132.102.115 for 86400 seconds
-> dhcpcd[11871]: forked to background, child pid 11892
-> [8:18] kr:clyde#
-> --------------------------------------------------------------------------------
->
-> Are you aware of this issues?
->
-> Cheers,
->
-> Nico
->
-> --
+Hi,
 
-Adding the Networking Kernel mailing list (netdev) and Intel Linux LAN
-Driver mailing list (e1000-patches)...
+I am looking for someone who is willing to test a patch for cdc-phonet
+implementing suspend/resume.
 
-Would it be possible to get more information about the system/setup?
+	Regards
+		Oliver
 
-For example, can you provide the following information:
-     - full lspci output (lspci -vvv)
-     - ethtool -i ethX
-     - dmesg  - after loading the driver and configuring the interfaces
-     - kernel config
-
--- 
-Cheers,
-Jeff
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Sprint
-What will you do first with EVO, the first 4G phone?
-Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
+index 109751b..d182835 100644
+--- a/drivers/net/usb/cdc-phonet.c
++++ b/drivers/net/usb/cdc-phonet.c
+@@ -42,9 +42,12 @@ struct usbpn_dev {
+ 	unsigned int		tx_pipe, rx_pipe;
+ 	u8 active_setting;
+ 	u8 disconnected;
++	u8 suspended;
++	u8 opened;
+ 
+ 	unsigned		tx_queue;
+ 	spinlock_t		tx_lock;
++	struct usb_anchor	tx_anchor;
+ 
+ 	spinlock_t		rx_lock;
+ 	struct sk_buff		*rx_skb;
+@@ -73,8 +76,10 @@ static netdev_tx_t usbpn_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	usb_fill_bulk_urb(req, pnd->usb, pnd->tx_pipe, skb->data, skb->len,
+ 				tx_complete, skb);
+ 	req->transfer_flags = URB_ZERO_PACKET;
++	usb_anchor_urb(req, &pnd->tx_anchor);
+ 	err = usb_submit_urb(req, GFP_ATOMIC);
+ 	if (err) {
++		usb_unanchor_urb(req);
+ 		usb_free_urb(req);
+ 		goto drop;
+ 	}
+@@ -235,6 +240,7 @@ static int usbpn_open(struct net_device *dev)
+ 		pnd->urbs[i] = req;
+ 	}
+ 
++	pnd->opened = 1;
+ 	netif_wake_queue(dev);
+ 	return 0;
+ }
+@@ -256,6 +262,7 @@ static int usbpn_close(struct net_device *dev)
+ 		usb_free_urb(req);
+ 		pnd->urbs[i] = NULL;
+ 	}
++	pnd->opened = 0;
+ 
+ 	return usb_set_interface(pnd->usb, num, !pnd->active_setting);
+ }
+@@ -400,6 +407,7 @@ int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
+ 	pnd->data_intf = data_intf;
+ 	spin_lock_init(&pnd->tx_lock);
+ 	spin_lock_init(&pnd->rx_lock);
++	init_usb_anchor(&pnd->tx_anchor);
+ 	/* Endpoints */
+ 	if (usb_pipein(data_desc->endpoint[0].desc.bEndpointAddress)) {
+ 		pnd->rx_pipe = usb_rcvbulkpipe(usbdev,
+@@ -453,10 +461,52 @@ static void usbpn_disconnect(struct usb_interface *intf)
+ 	usb_put_dev(usb);
+ }
+ 
++static int usbpn_suspend(struct usb_interface *intf, pm_message_t message)
++{
++	struct usbpn_dev *pnd = usb_get_intfdata(intf);
++	int i;
++
++	if (pnd->suspended++)
++		return 0;
++	if (!pnd->opened)
++		return 0;
++	
++	for (i = 0; i < rxq_size; i++) {
++		struct urb *req = pnd->urbs[i];
++		usb_kill_urb(req);
++	}
++
++	usb_kill_anchored_urbs(&pnd->tx_anchor);
++	return 0;
++}
++
++static int usbpn_resume(struct usb_interface *intf)
++{
++	struct usbpn_dev *pnd = usb_get_intfdata(intf);
++	int i, r, rv = 0;
++
++	if (--pnd->suspended)
++		return 0;
++	if (!pnd->opened)
++		return 0;
++
++	for (i = 0; i < rxq_size; i++) {
++		struct urb *req = pnd->urbs[i];
++
++		r = rx_submit(pnd, req, GFP_NOIO);
++		if (r)
++			rv++;
++	}
++
++	return rv ? -EIO : 0;
++}
++
+ static struct usb_driver usbpn_driver = {
+ 	.name =		"cdc_phonet",
+ 	.probe =	usbpn_probe,
+ 	.disconnect =	usbpn_disconnect,
++	.suspend =	usbpn_suspend,
++	.resume =	usbpn_resume,
+ 	.id_table =	usbpn_ids,
+ };
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
