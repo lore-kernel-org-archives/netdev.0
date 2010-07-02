@@ -1,41 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv4: use skb_dst_copy() in ip_copy_metadata()
-Date: Fri, 02 Jul 2010 11:48:22 +0200
-Message-ID: <1278064102.2530.29.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: kaber@trash.net
+Subject: [PATCH 0/9] netfilter: netfilter update
+Date: Fri,  2 Jul 2010 11:52:13 +0200
+Message-ID: <1278064342-19059-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42683 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756910Ab0GBJs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 05:48:27 -0400
-Received: by fxm14 with SMTP id 14so2137366fxm.19
-        for <netdev@vger.kernel.org>; Fri, 02 Jul 2010 02:48:25 -0700 (PDT)
+Received: from stinky.trash.net ([213.144.137.162]:46382 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753272Ab0GBJwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 05:52:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid touching dst refcount in ip_fragment().
+Hi Dave,
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/ip_output.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+following is a small netfilter update for net-next, containing:
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 7d1f4b4..d647852 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -411,7 +411,7 @@ static void ip_copy_metadata(struct sk_buff *to, struct sk_buff *from)
- 	to->priority = from->priority;
- 	to->protocol = from->protocol;
- 	skb_dst_drop(to);
--	skb_dst_set(to, dst_clone(skb_dst(from)));
-+	skb_dst_copy(to, from);
- 	to->dev = from->dev;
- 	to->mark = from->mark;
- 
+- a patch to support user-defined SNAT rules in the nat/INPUT chain,
+  from myself
 
+- one-packet scheduling for IPVS from Nick Chalk
+
+- missing kdev_t.h inclusion in xt_IDLETIMER from Randy Dunlap
+
+- the removal of CONFIG_NF_CT_ACCT, originally scheduled for 2.6.29,
+  from Tim Gardner
+
+- a patch to support MAC header decoding in the netfilter LOG targets,
+  from myself
+
+- a patch for per bridge device controls for iptables invocation, from
+  myself
+
+
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
+
+
+Arnd Hannemann (1):
+      netfilter: fix simple typo in KConfig for netfiltert xt_TEE
+
+Nick Chalk (1):
+      IPVS: one-packet scheduling
+
+Patrick McHardy (4):
+      netfilter: nf_nat: support user-specified SNAT rules in LOCAL_IN
+      netfilter: ipt_LOG/ip6t_LOG: remove comparison within loop
+      netfilter: ipt_LOG/ip6t_LOG: add option to print decoded MAC header
+      bridge: add per bridge device controls for invoking iptables
+
+Randy Dunlap (1):
+      netfilter: xt_IDLETIMER needs kdev_t.h
+
+Tim Gardner (2):
+      netfilter: xt_connbytes: Force CT accounting to be enabled
+      netfilter: complete the deprecation of CONFIG_NF_CT_ACCT
 
