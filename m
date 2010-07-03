@@ -1,43 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Introduce and use printk pointer extension %pV
-Date: Fri, 02 Jul 2010 22:32:44 -0700 (PDT)
-Message-ID: <20100702.223244.193707555.davem@davemloft.net>
-References: <cover.1277636090.git.joe@perches.com>
-	<20100630.130709.93452021.davem@davemloft.net>
+Subject: Re: [PATCH 0/9] netfilter: netfilter update
+Date: Fri, 02 Jul 2010 22:44:34 -0700 (PDT)
+Message-ID: <20100702.224434.226764333.davem@davemloft.net>
+References: <1278064342-19059-1-git-send-email-kaber@trash.net>
+	<20100702.220408.112596216.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, greg@kroah.com
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40949
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751707Ab0GCFcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jul 2010 01:32:31 -0400
-In-Reply-To: <20100630.130709.93452021.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100702.220408.112596216.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Miller <davem@davemloft.net>
-Date: Wed, 30 Jun 2010 13:07:09 -0700 (PDT)
+Date: Fri, 02 Jul 2010 22:04:08 -0700 (PDT)
 
-> From: Joe Perches <joe@perches.com>
-> Date: Sun, 27 Jun 2010 04:02:32 -0700
+> From: kaber@trash.net
+> Date: Fri,  2 Jul 2010 11:52:13 +0200
 > 
->> Recursive printk can reduce the total image size of an x86 defconfig about 1% 
->> by reducing duplicated KERN_<level> strings and centralizing the functions
->> used by macros in new separate functions.
+>> Please apply or pull from:
 >> 
->> Joe Perches (4):
->>   vsprintf: Recursive vsnprintf: Add "%pV", struct va_format
->>   device.h drivers/base/core.c Convert dev_<level> logging macros to functions
->>   netdevice.h net/core/dev.c: Convert netdev_<level> logging macros to functions
->>   netdevice.h: Change netif_<level> macros to call netdev_<level> functions
+>> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 > 
-> I'm fine with this, thanks Joe.
-> 
-> Greg, could you ACK this and let me know if it's OK if it swings
-> through my net-next-2.6 tree?
+> Looks good, pulled, thanks Patrick.
 
-Greg, ping?
+The br_netfilter changes don't build against net-next-2.6:
+
+net/bridge/br_netfilter.c: In function 'br_nf_pre_routing':
+net/bridge/br_netfilter.c:558:6: error: 'const struct net_device' has no member named 'br_port'
+net/bridge/br_netfilter.c:558:6: warning: type defaults to 'int' in declaration of '_________p1'
+net/bridge/br_netfilter.c:558:6: error: 'const struct net_device' has no member named 'br_port'
+net/bridge/br_netfilter.c:558:6: error: 'const struct net_device' has no member named 'br_port'
+net/bridge/br_netfilter.c:558:2: warning: type defaults to 'int' in type name
+net/bridge/br_netfilter.c:558:4: warning: assignment makes pointer from integer without a cast
+net/bridge/br_netfilter.c: In function 'br_nf_forward_arp':
+net/bridge/br_netfilter.c:730:6: error: 'const struct net_device' has no member named 'br_port'
+net/bridge/br_netfilter.c:730:6: warning: type defaults to 'int' in declaration of '_________p1'
+
+The br_port accessors got changed in net-next-2.6, so you have to do it using
+br_port_get_rcu(netdev) et al.
+
+I'll fix this up in the merge commit when I pull.
