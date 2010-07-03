@@ -1,80 +1,93 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [Linux-ATM-General] [PATCH 0/6] atm: propagate atm_dev signal
- carrier to LOWER_UP of netdevice
-Date: Sat, 3 Jul 2010 16:09:20 -0400
-Message-ID: <20100703160920.13bb0540@thirdoffive.cmf.nrl.navy.mil>
-References: <1278092830-10473-1-git-send-email-karl@hiramoto.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6] IB/{nes,
+ ipoib}: Pass supported flags to ethtool_op_set_flags()
+Date: Sat, 03 Jul 2010 21:40:26 +0100
+Message-ID: <1278189626.4878.574.camel@localhost>
+References: <1277901872.2082.10.camel@achroite.uk.solarflarecom.com>
+	<20100702095514.7fb324c8.randy.dunlap@oracle.com>
+	<20100702.220711.39188625.davem@davemloft.net>
+	<20100703120729.f2a2715b.randy.dunlap@oracle.com>
+	<1278184884.4878.559.camel@localhost>
+	<1278186089.4878.570.camel@localhost>
+	<adask40nxaa.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: Karl Hiramoto <karl@hiramoto.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:59629 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753593Ab0GCUJ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jul 2010 16:09:57 -0400
-In-Reply-To: <1278092830-10473-1-git-send-email-karl@hiramoto.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>, amit.salecha@qlogic.com,
+	Chien Tung <chien.tin.tung@intel.com>, sgruszka@redhat.com,
+	amwang@redhat.com, dm@chelsio.com, brice@myri.com,
+	gallatin@myri.com, shemminger@linux-foundation.org,
+	jgarzik@redhat.com, roprabhu@cisco.com,
+	e1000-devel@lists.sourceforge.net, scofeldm@cisco.com,
+	Roland Dreier <rolandd@cisco.com>, buytenh@wantstofly.org,
+	Faisal Latif <faisal.latif@intel.com>, vkolluri@cisco.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	anirban.chakraborty@qlogic.com, linux-rdma@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <adask40nxaa.fsf@roland-alpha.cisco.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-thanks for writing this.  this is something that has been missing for
-some time in the atm stack.  however, i was hoping it could take a
-different approach.  i would prefer this mechanism to be more generic
-instead of being only suitable for signalling carrier changes.   take a
-look at the notifier/register_netdevice_notifier scheme.
+On Sat, 2010-07-03 at 13:08 -0700, Roland Dreier wrote:
+> > Following commit 1437ce3983bcbc0447a0dedcd644c14fe833d266 "ethtool:
+>  > Change ethtool_op_set_flags to validate flags", ethtool_op_set_flags
+>  > takes a third parameter and cannot be used directly as an
+>  > implementation of ethtool_ops::set_flags.
+> 
+> I assume this commit is in one of Dave's trees and breaks nes and ipoib
+> because it changed the ethtool_op_set_flags prototype?
 
-clients (like br2684) who wish to get these notifications, would need
-to call register_atmdevice_notifier().  and yes, instead of handling
-setting the signal flag yourself, everyone (including the drivers in
-usb/atm) should be using the atm_dev_signal_change().
+Right.
 
-i am not fond of the idea of adding to the vcc struct something that
-is really per device, not per vcc.
+>  > Dave, Roland, you'd better decide between yourselves should apply this.
+> 
+> Since this depends on a commit already in Dave's tree, Dave should
+> probably take it into the same tree.  I guess there's no way to roll
+> this into the original patch to avoid breaking bisects once this ends up
+> upstream?
 
-On Fri,  2 Jul 2010 19:47:04 +0200
-Karl Hiramoto <karl@hiramoto.org> wrote:
+Unfortunately it's too late to do that.
 
-> In userspace it's helpfull to know if a network device has a carrier
-> signal. Often it is monitored via netlink.  This patchset allows a
-> way for the struct atm_dev drivers to pass carrier on/off to the
-> netdevice.
+> anyway,
 > 
-> For DSL, carrier is on when the line has reached showtime state.
+> Acked-by: Roland Dreier <rolandd@cisco.com>
 > 
-> Currently this patchset only propagates the changes to br2684 vccs,
-> as this is the only type of hardware I have to test.
+>  > +static int nes_netdev_set_flags(struct net_device *netdev, u32 flags)
+>  > +{
+>  > +	return ethtool_op_set_flags(netdev, flags, ETH_FLAG_LRO);
+>  > +}
+>  > +
+>  > +
+>  >  static const struct ethtool_ops nes_ethtool_ops = {
 > 
-> If you prefer git you can pull from:
-> git://github.com/karlhiramoto/linux-2.6.git linux-atm
-> 
-> Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
-> 
-> Karl Hiramoto (6):
->   atm: add hooks to propagate signal changes to netdevice
->   atm br2684: add callback for carrier signal changes.
->   atm/idt77105.c: call atm_dev_signal_change() when signal changes.
->   atm/solos-pci: call atm_dev_signal_change() when signal changes.
->   atm/suni.c: call atm_dev_signal_change() when signal changes.
->   atm/adummy: add syfs DEVICE_ATTR to change signal
-> 
->  drivers/atm/adummy.c    |   39
-> +++++++++++++++++++++++++++++++++++++++ drivers/atm/idt77105.c  |
-> 11 ++++++----- drivers/atm/solos-pci.c |    6 +++---
->  drivers/atm/suni.c      |    5 +++--
->  include/linux/atmdev.h  |    5 +++++
->  net/atm/br2684.c        |   13 +++++++++++++
->  net/atm/common.c        |   33 +++++++++++++++++++++++++++++++++
->  7 files changed, 102 insertions(+), 10 deletions(-)
-> 
-> 
-> ------------------------------------------------------------------------------
-> This SF.net email is sponsored by Sprint
-> What will you do first with EVO, the first 4G phone?
-> Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
-> _______________________________________________
-> Linux-atm-general mailing list
-> Linux-atm-general@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/linux-atm-general
-> 
+> Also would have been a bit nicer to avoid adding a double blank line
+> here, although that's obviously a trivial issue.
 
+This spacing is consistent with the surrounding code.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Sprint
+What will you do first with EVO, the first 4G phone?
+Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
