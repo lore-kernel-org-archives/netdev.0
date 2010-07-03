@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] qlge: fix a eeh handler to not add a pending timer
-Date: Fri, 02 Jul 2010 21:59:31 -0700 (PDT)
-Message-ID: <20100702.215931.226773854.davem@davemloft.net>
-References: <e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
-	<e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
-	<3d4d609f65c74c269e056c5fbe2fe4b174023059.1277936929.git.root@sanx1002.austin.ibm.com>
+Subject: Re: [net-2.6 PATCH 1/2] sched: qdisc_reset_all_tx is calling
+ qdisc_reset without qdisc_lock
+Date: Fri, 02 Jul 2010 21:59:50 -0700 (PDT)
+Message-ID: <20100702.215950.104057517.davem@davemloft.net>
+References: <20100701232103.15685.48453.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: leitao@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	john.r.fastabend@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48989
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48997
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751441Ab0GCE7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jul 2010 00:59:17 -0400
-In-Reply-To: <3d4d609f65c74c269e056c5fbe2fe4b174023059.1277936929.git.root@sanx1002.austin.ibm.com>
+	by vger.kernel.org with ESMTP id S1750742Ab0GCE7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jul 2010 00:59:36 -0400
+In-Reply-To: <20100701232103.15685.48453.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: leitao@linux.vnet.ibm.com
-Date: Thu,  1 Jul 2010 10:00:18 -0300
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 01 Jul 2010 16:21:35 -0700
 
-> On some ocasions the function qlge_io_resume() tries to add a
-> pending timer, which causes the system to hit the BUG() on
-> add_timer() function.
+> From: John Fastabend <john.r.fastabend@intel.com>
 > 
-> This patch removes the timer during the EEH recovery.
+> When calling qdisc_reset() the qdisc lock needs to be held.  In
+> this case there is at least one driver i4l which is using this
+> without holding the lock.  Add the locking here.
 > 
-> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
