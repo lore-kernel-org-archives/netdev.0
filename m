@@ -1,17 +1,18 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: [PATCH net-next-2.6] IB/{nes,ipoib}: Pass supported flags to
- ethtool_op_set_flags()
-Date: Sat, 03 Jul 2010 20:41:29 +0100
-Message-ID: <1278186089.4878.570.camel@localhost>
+From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6] IB/{nes,ipoib}: Pass supported flags to ethtool_op_set_flags()
+Date: Sat, 03 Jul 2010 13:08:29 -0700
+Message-ID: <adask40nxaa.fsf@roland-alpha.cisco.com>
 References: <1277901872.2082.10.camel@achroite.uk.solarflarecom.com>
-	 <20100702095514.7fb324c8.randy.dunlap@oracle.com>
-	 <20100702.220711.39188625.davem@davemloft.net>
-	 <20100703120729.f2a2715b.randy.dunlap@oracle.com>
-	 <1278184884.4878.559.camel@localhost>
+	<20100702095514.7fb324c8.randy.dunlap@oracle.com>
+	<20100702.220711.39188625.davem@davemloft.net>
+	<20100703120729.f2a2715b.randy.dunlap@oracle.com>
+	<1278184884.4878.559.camel@localhost>
+	<1278186089.4878.570.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
 	amit.salecha-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
 	anirban.chakraborty-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, scofeldm-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
@@ -21,92 +22,47 @@ Cc: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, netdev-
 	jgarzik-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 	Chien Tung <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1278184884.4878.559.camel@localhost>
+In-Reply-To: <1278186089.4878.570.camel@localhost> (Ben Hutchings's message of
+	"Sat, 03 Jul 2010 20:41:29 +0100")
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Following commit 1437ce3983bcbc0447a0dedcd644c14fe833d266 "ethtool:
-Change ethtool_op_set_flags to validate flags", ethtool_op_set_flags
-takes a third parameter and cannot be used directly as an
-implementation of ethtool_ops::set_flags.
+ > Following commit 1437ce3983bcbc0447a0dedcd644c14fe833d266 "ethtool:
+ > Change ethtool_op_set_flags to validate flags", ethtool_op_set_flags
+ > takes a third parameter and cannot be used directly as an
+ > implementation of ethtool_ops::set_flags.
 
-Changes nes and ipoib driver to pass in the appropriate value.
+I assume this commit is in one of Dave's trees and breaks nes and ipoib
+because it changed the ethtool_op_set_flags prototype?
 
-Signed-off-by: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
----
-This is compile-tested only.
+ > Dave, Roland, you'd better decide between yourselves should apply this.
 
-Dave, Roland, you'd better decide between yourselves should apply this.
+Since this depends on a commit already in Dave's tree, Dave should
+probably take it into the same tree.  I guess there's no way to roll
+this into the original patch to avoid breaking bisects once this ends up
+upstream?
 
-Ben.
+anyway,
 
- drivers/infiniband/hw/nes/nes_nic.c          |    8 +++++++-
- drivers/infiniband/ulp/ipoib/ipoib_ethtool.c |    7 ++++++-
- 2 files changed, 13 insertions(+), 2 deletions(-)
+Acked-by: Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
 
-diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
-index 5cc0a9a..42e7aad 100644
---- a/drivers/infiniband/hw/nes/nes_nic.c
-+++ b/drivers/infiniband/hw/nes/nes_nic.c
-@@ -1567,6 +1567,12 @@ static int nes_netdev_set_settings(struct net_device *netdev, struct ethtool_cmd
- }
- 
+ > +static int nes_netdev_set_flags(struct net_device *netdev, u32 flags)
+ > +{
+ > +	return ethtool_op_set_flags(netdev, flags, ETH_FLAG_LRO);
+ > +}
+ > +
+ > +
+ >  static const struct ethtool_ops nes_ethtool_ops = {
 
-+static int nes_netdev_set_flags(struct net_device *netdev, u32 flags)
-+{
-+	return ethtool_op_set_flags(netdev, flags, ETH_FLAG_LRO);
-+}
-+
-+
- static const struct ethtool_ops nes_ethtool_ops = {
- 	.get_link = ethtool_op_get_link,
- 	.get_settings = nes_netdev_get_settings,
-@@ -1588,7 +1594,7 @@ static const struct ethtool_ops nes_ethtool_ops = {
- 	.get_tso = ethtool_op_get_tso,
- 	.set_tso = ethtool_op_set_tso,
- 	.get_flags = ethtool_op_get_flags,
--	.set_flags = ethtool_op_set_flags,
-+	.set_flags = nes_netdev_set_flags,
- };
- 
+Also would have been a bit nicer to avoid adding a double blank line
+here, although that's obviously a trivial issue.
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c b/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
-index 40e8584..1a1657c 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
-@@ -147,6 +147,11 @@ static void ipoib_get_ethtool_stats(struct net_device *dev,
- 	data[index++] = priv->lro.lro_mgr.stats.no_desc;
- }
- 
-+static int ipoib_set_flags(struct net_device *dev, u32 flags)
-+{
-+	return ethtool_op_set_flags(dev, flags, ETH_FLAG_LRO);
-+}
-+
- static const struct ethtool_ops ipoib_ethtool_ops = {
- 	.get_drvinfo		= ipoib_get_drvinfo,
- 	.get_rx_csum		= ipoib_get_rx_csum,
-@@ -154,7 +159,7 @@ static const struct ethtool_ops ipoib_ethtool_ops = {
- 	.get_coalesce		= ipoib_get_coalesce,
- 	.set_coalesce		= ipoib_set_coalesce,
- 	.get_flags		= ethtool_op_get_flags,
--	.set_flags		= ethtool_op_set_flags,
-+	.set_flags		= ipoib_set_flags,
- 	.get_strings		= ipoib_get_strings,
- 	.get_sset_count		= ipoib_get_sset_count,
- 	.get_ethtool_stats	= ipoib_get_ethtool_stats,
+ - R.
 -- 
-1.7.1
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
