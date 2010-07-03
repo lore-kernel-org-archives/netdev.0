@@ -1,99 +1,58 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [stable-2.6.32 PATCH] ixgbe: backport bug fix for tx
- panic
-Date: Fri, 2 Jul 2010 19:28:09 -0700
-Message-ID: <20100703022809.GA24141@kroah.com>
-References: <20100511004655.30590.74584.stgit@localhost.localdomain>
- <AANLkTinHm8ukQ3KlcrMKWvQ-QrlmBcWeVD-i99Q9Z7JL@mail.gmail.com>
- <alpine.WNT.2.00.1005250926320.2708@jbrandeb-desk1.amr.corp.intel.com>
- <20100525201837.GA13821@kroah.com>
- <AANLkTimr7-8TIjuCjIbqrJSVH4VI-Pjp8plpjTubuTfE@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH 1/2] virtio_net: do not reschedule rx refill forever
+Date: Sat, 3 Jul 2010 12:32:55 +1000
+Message-ID: <201007031232.56510.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"stable@kernel.org" <stable@kernel.org>,
-	Brandon <brandon@ifup.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTimr7-8TIjuCjIbqrJSVH4VI-Pjp8plpjTubuTfE@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:46154 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756911Ab0GCCdD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jul 2010 22:33:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 02, 2010 at 02:37:13PM -0700, Jeff Kirsher wrote:
-> On Tue, May 25, 2010 at 13:18, Greg KH <greg@kroah.com> wrote:
-> > On Tue, May 25, 2010 at 09:27:25AM -0700, Brandeburg, Jesse wrote:
-> >>
-> >>
-> >> On Tue, 25 May 2010, Jeff Kirsher wrote:
-> >>
-> >> > On Mon, May 10, 2010 at 17:46, Jeff Kirsher <jeffrey.t.kirsher@i=
-ntel.com> wrote:
-> >> > > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> >> > >
-> >> > > backporting this commit:
-> >> > >
-> >> > > commit fdd3d631cddad20ad9d3e1eb7dbf26825a8a121f
-> >> > > Author: Krishna Kumar <krkumar2@in.ibm.com>
-> >> > > Date: =A0 Wed Feb 3 13:13:10 2010 +0000
-> >> > >
-> >> > > =A0 =A0ixgbe: Fix return of invalid txq
-> >> > >
-> >> > > =A0 =A0a developer had complained of getting lots of warnings:
-> >> > >
-> >> > > =A0 =A0"eth16 selects TX queue 98, but real number of TX queue=
-s is 64"
-> >> > >
-> >> > > =A0 =A0http://www.mail-archive.com/e1000-devel@lists.sourcefor=
-ge.net/msg02200.html
-> >> > >
-> >> > > =A0 =A0As there was no follow up on that bug, I am submitting =
-this
-> >> > > =A0 =A0patch assuming that the other return points will not re=
-turn
-> >> > > =A0 =A0invalid txq's, and also that this fixes the bug (not te=
-sted).
-> >> > >
-> >> > > =A0 =A0Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> >> > > =A0 =A0Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel=
-=2Ecom>
-> >> > > =A0 =A0Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@=
-intel.com>
-> >> > > =A0 =A0Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.co=
-m>
-> >> > > =A0 =A0Signed-off-by: David S. Miller <davem@davemloft.net>
-> >> > >
-> >> > > CC: Brandon <brandon@ifup.org>
-> >> > > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> >> > > ---
-> >> > >
-> >> > > =A0drivers/net/ixgbe/ixgbe_main.c | =A0 =A08 ++++++--
-> >> > > =A01 files changed, 6 insertions(+), 2 deletions(-)
-> >> > >
-> >> >
-> >> > Greg - status? =A0Did you queue this patch for the stable releas=
-e and I missed it?
-> >>
-> >> Maybe we didn't say (and we should have) that this fixes a panic o=
-n
-> >> machines with > 64 cores. =A0Please apply to -stable 32.
-> >
-> > I'll get to it for the next release after this one, if that's ok.
-> >
-> > thanks,
-> >
-> > greg k-h
-> > --
->=20
-> I did not see this patch in the list of patches for the next release
-> of the stable kernel.  Just want to make sure this patch makes it thi=
-s
-> time... :)
+From: "Michael S. Tsirkin" <mst@redhat.com>
 
-Ick, I missed it, let me go queue it up right now, sorry about that.
+We currently fill all of RX ring, then add_buf
+returns ENOSPC, which gets mis-detected as an out of
+memory condition and causes us to reschedule the work,
+and so on forever. Fix this by oom = err == -ENOMEM;
 
-greg k-h
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Cc: stable@kernel.org # .34.x
+---
+ drivers/net/virtio_net.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 06c30df..85615a3 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -416,7 +416,7 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
+ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+ {
+ 	int err;
+-	bool oom = false;
++	bool oom;
+ 
+ 	do {
+ 		if (vi->mergeable_rx_bufs)
+@@ -426,10 +426,9 @@ static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
+ 		else
+ 			err = add_recvbuf_small(vi, gfp);
+ 
+-		if (err < 0) {
+-			oom = true;
++		oom = err == -ENOMEM;
++		if (err < 0)
+ 			break;
+-		}
+ 		++vi->num;
+ 	} while (err > 0);
+ 	if (unlikely(vi->num > vi->max))
