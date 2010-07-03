@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 2/2] usbnet: Set parent device early for
- netdev_printk()
-Date: Fri, 02 Jul 2010 21:49:47 -0700 (PDT)
-Message-ID: <20100702.214947.184435911.davem@davemloft.net>
-References: <1278110361.4878.73.camel@localhost>
-	<1278110450.4878.75.camel@localhost>
-	<1278111386.4878.77.camel@localhost>
+Subject: Re: [PATCH 1/2] qlge: Replacing add_timer() to mod_timer()
+Date: Fri, 02 Jul 2010 21:59:25 -0700 (PDT)
+Message-ID: <20100702.215925.193715679.davem@davemloft.net>
+References: <e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, pitxyoki@gmail.com, joe@perches.com
-To: ben@decadent.org.uk
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: leitao@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57799
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48983
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751002Ab0GCEtd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jul 2010 00:49:33 -0400
-In-Reply-To: <1278111386.4878.77.camel@localhost>
+	by vger.kernel.org with ESMTP id S1751749Ab0GCE7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jul 2010 00:59:12 -0400
+In-Reply-To: <e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ben Hutchings <ben@decadent.org.uk>
-Date: Fri, 02 Jul 2010 23:56:26 +0100
+From: leitao@linux.vnet.ibm.com
+Date: Thu,  1 Jul 2010 10:00:17 -0300
 
-> On Fri, 2010-07-02 at 23:40 +0100, Ben Hutchings wrote:
->> netdev_printk() follows the net_device's parent device pointer, so
->> we must set that earlier than we previously did.
->>=20
->> Reported-by: Lu=EDs Picciochi Oliveira <pitxyoki@gmail.com>
->> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> [...]
->=20
-> This should also go into a stable update for 2.6.34.
+> Currently qlge driver calls add_timer() instead of mod_timer().
+> This patch changes add_timer() to mod_timer(), which seems a better
+> solution.
+> 
+> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 
-
-Ok, queued up.
+Applied.
