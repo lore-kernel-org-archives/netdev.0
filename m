@@ -1,50 +1,59 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: Re: [RESEND][PATCH] cxgb4: Use kfree_skb for skb pointers
-Date: Sat, 03 Jul 2010 10:56:06 +0400
-Message-ID: <4C2EDF06.1000706@kernel.org>
-References: <20100701094552.GA6188@hera.kernel.org>	<20100702.222851.59693056.davem@davemloft.net>	<8A71B368A89016469F72CD08050AD334081E3D00@maui.asicdesigners.com> <20100702.234342.71126498.davem@davemloft.net>
+From: Andreas Steffen <andreas.steffen@strongswan.org>
+Subject: Re: [PATCHv2] xfrm: fix xfrm by MARK logic
+Date: Sat, 03 Jul 2010 09:02:33 +0200
+Message-ID: <4C2EE089.6040604@strongswan.org>
+References: <20100702174755.GA12509@myhost> <1278139083.2474.42.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dm@chelsio.com, dkirjanov@hera.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Peter Kosyh <p.kosyh@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:46172 "EHLO hera.kernel.org"
+Received: from sitav-80024.hsr.ch ([152.96.80.24]:42810 "EHLO strongswan.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751775Ab0GCGzW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jul 2010 02:55:22 -0400
-In-Reply-To: <20100702.234342.71126498.davem@davemloft.net>
+	id S1751201Ab0GCHCg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jul 2010 03:02:36 -0400
+In-Reply-To: <1278139083.2474.42.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/03/2010 10:43 AM, David Miller wrote:
-> From: "Dimitrios Michailidis"<dm@chelsio.com>
-> Date: Fri, 2 Jul 2010 22:51:17 -0700
->
->>
->>> From: Denis Kirjanov<dkirjanov@hera.kernel.org>
->>> Date: Thu, 1 Jul 2010 09:45:52 +0000
->>>
->>>> Use kfree_skb for skb pointers
->>>>
->>>> Acked-by: Dimitris Michailidis<dm@chelsio.com>
->>>> Signed-off-by: Denis Kirjanov<dkirjanov@kernel.org>
->>>
->>> The code is completely different in this part of the driver now, this
->>> patch does not apply.
->>>
->>> In fact there is no reference to the string "kfree" at all in the
->>> l2t.c file of the cxgb4 driver :)
->>
->> This patch is for net-next and it should apply there, I see the wrong
->> kfree (there's only one kfree).  Denis didn't mention net-next, maybe
->> you tried to apply it to net-2.6?
->
-> Yes, I did.
->
-> That's why people should always indicate what tree a patch is for
-> in the subject line or similar.
->
-Yes, I'll be more accurate next time.
+Great,
 
-Thanks.
+this was the second bug [besides the xfrm_mark_get issue] I was looking
+for this week and which prevented strongSwan from successfully using
+mark-based IPsec policies. It works like a charm now.
+
+Thanks!
+
+On 07/03/2010 08:38 AM, Eric Dumazet wrote:
+> Le vendredi 02 juillet 2010 =C3=A0 21:47 +0400, Peter Kosyh a =C3=A9c=
+rit :
+>> From: Peter Kosyh <p.kosyh@gmail.com>
+>>
+>> While using xfrm by MARK feature in
+>> 2.6.34 - 2.6.35 kernels, the mark=20
+>> is always cleared in flowi structure via memset in=20
+>> _decode_session4 (net/ipv4/xfrm4_policy.c), so
+>> the policy lookup fails.
+>> IPv6 code is affected by this bug too.
+>>
+>> Signed-off-by: Peter Kosyh <p.kosyh@gmail.com>
+>> ---
+>>
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Thanks !
+
+--=20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+Andreas Steffen                         andreas.steffen@strongswan.org
+strongSwan - the Linux VPN Solution!                www.strongswan.org
+Institute for Internet Technologies and Applications
+University of Applied Sciences Rapperswil
+CH-8640 Rapperswil (Switzerland)
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D[ITA-HSR]=3D=3D
