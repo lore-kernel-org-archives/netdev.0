@@ -1,41 +1,76 @@
-From: Alexander Clouter <alex@digriz.org.uk>
-Subject: Re: setsockopt(IP_TOS) being privileged or distinct capability?
-Date: Sat, 3 Jul 2010 19:55:30 +0100
-Message-ID: <2md4g7-3s3.ln1@chipmunk.wormnet.eu>
-References: <4C2F7A55.5090700@redfish-solutions.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:40316 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755629Ab0GCTIW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jul 2010 15:08:22 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1OV84X-0001NP-MK
-	for netdev@vger.kernel.org; Sat, 03 Jul 2010 21:08:17 +0200
-Received: from chipmunk.wormnet.eu ([195.195.131.226])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 03 Jul 2010 21:08:17 +0200
-Received: from alex by chipmunk.wormnet.eu with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 03 Jul 2010 21:08:17 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH net-next-2.6 1/3] ethtool: Change
+ ethtool_op_set_flags to validate flags
+Date: Sat, 3 Jul 2010 12:07:29 -0700
+Message-ID: <20100703120729.f2a2715b.randy.dunlap@oracle.com>
+References: <1277901872.2082.10.camel@achroite.uk.solarflarecom.com>
+	<20100702095514.7fb324c8.randy.dunlap@oracle.com>
+	<20100702.220711.39188625.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: amit.salecha@qlogic.com, linux-net-drivers@solarflare.com, dm@chelsio.com,
+	sgruszka@redhat.com, amwang@redhat.com,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	anirban.chakraborty@qlogic.com, vkolluri@cisco.com,
+	brice@myri.com, gallatin@myri.com, bhutchings@solarflare.com,
+	scofeldm@cisco.com, shemminger@linux-foundation.org,
+	jgarzik@redhat.com, buytenh@wantstofly.org, roprabhu@cisco.com
+To: David Miller <davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20100702.220711.39188625.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Philip Prindeville <philipp_subx@redfish-solutions.com> wrote:
->
-> Does anyone else think that setsockopt(IP_TOS) should be a privileged 
-> operation, perhaps using CAP_NET_ADMIN, or maybe even adding separate 
-> granularity as CAP_NET_TOS?
+On Fri, 02 Jul 2010 22:07:11 -0700 (PDT) David Miller wrote:
+
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> Date: Fri, 2 Jul 2010 09:55:14 -0700
 > 
-I really would prefer not having to run telnet and ssh *clients* as 
-root. :)
+> > On Wed, 30 Jun 2010 13:44:32 +0100 Ben Hutchings wrote:
+> >> @@ -457,7 +457,7 @@ int ethtool_op_set_tso(struct net_device *dev, u32 data);
+> >>  u32 ethtool_op_get_ufo(struct net_device *dev);
+> >>  int ethtool_op_set_ufo(struct net_device *dev, u32 data);
+> >>  u32 ethtool_op_get_flags(struct net_device *dev);
+> >> -int ethtool_op_set_flags(struct net_device *dev, u32 data);
+> >> +int ethtool_op_set_flags(struct net_device *dev, u32 data, u32 supported);
+> > 
+> > That one-line change is missing from linux-next-20100702, causing:
+> > 
+> > drivers/infiniband/ulp/ipoib/ipoib_ethtool.c:157: warning: initialization from incompatible pointer type
+> 
+> Strange, it's in net-next-2.6 for sure:
+> 
+> davem@sunset:~/src/GIT/net-next-2.6$ egrep ethtool_op_set_flags include/linux/ethtool.h
+> int ethtool_op_set_flags(struct net_device *dev, u32 data, u32 supported);
 
-Cheers
+Yep, my bad.
 
--- 
-Alexander Clouter
-.sigmonster says: Someday your prints will come.
-                  		-- Kodak
+In include/linux/ethtool.h, struct ethtool_ops, field/member 'set_flags':
 
+	int	(*set_flags)(struct net_device *, u32);
+
+Does that need another u32 for 'supported'?  This is where the linux-next
+warnings are coming from.
+
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Sprint
+What will you do first with EVO, the first 4G phone?
+Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
