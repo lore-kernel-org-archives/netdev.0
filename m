@@ -1,47 +1,48 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH 11/19] drivers/net/irda: use for_each_pci_dev()
-Date: Sat,  3 Jul 2010 20:04:15 +0400
-Message-ID: <1278173056-11779-1-git-send-email-segooon@gmail.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jiri Kosina <jkosina@suse.cz>, Joe Perches <joe@perches.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Kernel Janitors <kernel-janitors@vger.kernel.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 0/4] Introduce and use printk pointer extension %pV
+Date: Sat, 3 Jul 2010 09:08:57 -0700
+Message-ID: <20100703160857.GA29043@kroah.com>
+References: <cover.1277636090.git.joe@perches.com>
+ <20100630.130709.93452021.davem@davemloft.net>
+ <20100702.223244.193707555.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: joe@perches.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100702.223244.193707555.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use for_each_pci_dev() to simplify the code.
+On Fri, Jul 02, 2010 at 10:32:44PM -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 30 Jun 2010 13:07:09 -0700 (PDT)
+> 
+> > From: Joe Perches <joe@perches.com>
+> > Date: Sun, 27 Jun 2010 04:02:32 -0700
+> > 
+> >> Recursive printk can reduce the total image size of an x86 defconfig about 1% 
+> >> by reducing duplicated KERN_<level> strings and centralizing the functions
+> >> used by macros in new separate functions.
+> >> 
+> >> Joe Perches (4):
+> >>   vsprintf: Recursive vsnprintf: Add "%pV", struct va_format
+> >>   device.h drivers/base/core.c Convert dev_<level> logging macros to functions
+> >>   netdevice.h net/core/dev.c: Convert netdev_<level> logging macros to functions
+> >>   netdevice.h: Change netif_<level> macros to call netdev_<level> functions
+> > 
+> > I'm fine with this, thanks Joe.
+> > 
+> > Greg, could you ACK this and let me know if it's OK if it swings
+> > through my net-next-2.6 tree?
+> 
+> Greg, ping?
 
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
----
- drivers/net/irda/smsc-ircc2.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+Sorry about the delay.
 
-diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
-index d67e484..850ca1c 100644
---- a/drivers/net/irda/smsc-ircc2.c
-+++ b/drivers/net/irda/smsc-ircc2.c
-@@ -2848,9 +2848,7 @@ static int __init smsc_ircc_preconfigure_subsystems(unsigned short ircc_cfg,
- 	unsigned short ss_device = 0x0000;
- 	int ret = 0;
- 
--	dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev);
--
--	while (dev != NULL) {
-+	for_each_pci_dev(dev) {
- 		struct smsc_ircc_subsystem_configuration *conf;
- 
- 		/*
-@@ -2899,7 +2897,6 @@ static int __init smsc_ircc_preconfigure_subsystems(unsigned short ircc_cfg,
- 					ret = -ENODEV;
- 			}
- 		}
--		dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev);
- 	}
- 
- 	return ret;
--- 
-1.7.0.4
+Yes, that's fine to take it through your tree, thanks for doing that:
+	Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+greg k-h
