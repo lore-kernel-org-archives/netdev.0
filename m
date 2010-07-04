@@ -1,70 +1,143 @@
-From: Alexander Clouter <alex@digriz.org.uk>
-Subject: Re: setsockopt(IP_TOS) being privileged or distinct capability?
-Date: Sun, 4 Jul 2010 00:48:13 +0100
-Message-ID: <20100703234813.GJ24655@chipmunk>
-References: <4C2F7A55.5090700@redfish-solutions.com> <2md4g7-3s3.ln1@chipmunk.wormnet.eu> <4C2FC2C8.8080203@redfish-solutions.com>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: RE: [REGRESSION] e1000e stopped working
+Date: Sun, 04 Jul 2010 03:41:46 +0300
+Message-ID: <1278204106.21020.0.camel@localhost.localdomain>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	 <1277807529.19417.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	 <1277938757.4138.3.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chipmunk.wormnet.eu ([195.195.131.226]:54774 "EHLO
-	chipmunk.wormnet.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756118Ab0GCX5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jul 2010 19:57:08 -0400
-Content-Disposition: inline
-In-Reply-To: <4C2FC2C8.8080203@redfish-solutions.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:62999 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756390Ab0GDAlv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jul 2010 20:41:51 -0400
+Received: by fxm14 with SMTP id 14so3025616fxm.19
+        for <netdev@vger.kernel.org>; Sat, 03 Jul 2010 17:41:50 -0700 (PDT)
+In-Reply-To: <1277938757.4138.3.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 2010-07-01 at 01:59 +0300, Maxim Levitsky wrote:
+> On Tue, 2010-06-29 at 12:37 -0600, Tantilov, Emil S wrote:
+> > Maxim Levitsky wrote:
+> > > On Mon, 2010-06-28 at 18:09 -0700, Allan, Bruce W wrote:
+> > >> On Monday, June 28, 2010 10:14 AM, Maxim Levitsky wrote:
+> > >>> On Mon, 2010-06-28 at 10:04 -0700, Allan, Bruce W wrote:
+> > >>>> On Sunday, June 27, 2010 10:47 AM, Maxim Levitsky wrote:
+> > >>>>> On Sun, 2010-06-27 at 20:43 +0300, Maxim Levitsky wrote:
+> > >>>>>> On Sun, 2010-06-27 at 20:29 +0300, Maxim Levitsky wrote:
+> > >>>>>>> On Sun, 2010-06-27 at 20:27 +0300, Maxim Levitsky wrote:
+> > >>>>>>>> Just that,
+> > >>>>>>>> 
+> > >>>>>>>> It doesn't receive anything from my internet router during
+> > >>>>>>>> DHCP. 
+> > >>>>>>>> 
+> > >>>>>>>> 
+> > >>>>>>>> 00:19.0 Ethernet controller [0200]: Intel Corporation 82566DC
+> > >>>>>>>> 	Gigabit Network Connection [8086:104b] (rev 02) Subsystem:
+> > >>>>>>>> 	Intel Corporation Device [8086:0001] Control: I/O+ Mem+
+> > >>>>>>>> 	BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping-
+> > >>>>>>>> 	SERR- FastB2B- DisINTx+ Status: Cap+ 66MHz- UDF- FastB2B-
+> > >>>>>>>> 	ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> > >>>>>>>> 	INTx- 	Latency: 0 Interrupt: pin A routed to IRQ 47 Region 0:
+> > >>>>>>>> 	Memory at 50300000 (32-bit, non-prefetchable) [size=128K]
+> > >>>>>>>> 	Region 1: Memory at 50324000 (32-bit, non-prefetchable)
+> > >>>>>>>> 		[size=4K] Region 2: I/O ports at 30e0 [size=32]
+> > >>>>>>>> 		Capabilities: [c8] Power Management version 2 Flags: PMEClk-
+> > >>>>>>>> 	DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+> > >>>>>>>> 		Status: D0 PME-Enable- DSel=0 DScale=1 PME- Capabilities:
+> > >>>>>>>> 	[d0] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0
+> > >>>>>>>> 	Enable+ Address: 00000000fee0100c  Data: 41c9 Kernel driver
+> > >>>>>>>> in use: e1000e Kernel modules: e1000e 
+> > >>>>>>>> 
+> > >>>>>>>> I use vanilla tree, commit
+> > >>>>>>>> bf2937695fe2330bfd8933a2310e7bdd2581dc2e
+> > >>>>>>>> 
+> > >>>>>>>> 
+> > >>>>>>>> Best regards,
+> > >>>>>>>> 	Maxim Levitsky
+> > >>>>>>>> 
+> > >>>>>>> 
+> > >>>>>>> It appears to work now after reboot.
+> > >>>>>>> Will keep a look for this.
+> > >>>>>>> 
+> > >>>>>>> Disregard for now.
+> > >>>>>> 
+> > >>>>>> 
+> > >>>>>> Just s2ram cycle, problem is back.
+> > >>>>>> Did full reboot (power off then on), same thing card doesn't
+> > >>>>>> work... 
+> > >>>>>> 
+> > >>>>> 
+> > >>>>> Yep, s2ram sometimes 'fixes', sometimes breaks the card.
+> > >>>>> Something got broken in device initialization path.
+> > >>>>> 
+> > >>>>> Best regards,
+> > >>>>>  	Maxim Levitsky
+> > >>>> 
+> > >>>> What distro are you using?  If RedHat, since you are using DHCP
+> > >>>> will you please try putting a "LINKDELAY=10" in the
+> > >>>> /etc/sysconfig/network-scripts/ifcfg-ethX config file.
+> > >>>> 
+> > >>> I use ubuntu 9.10
+> > >>> 
+> > >>>> Is there anything in the system log that might help narrow down the
+> > >>>> issue?
+> > >>> 
+> > >>> Nothing, really nothing.
+> > >>> It seems to detect link, dhcp client sends requests, but doesn't
+> > >>> recieve a thing (even tried promisc mode - doesn't help)
+> > >>> 
+> > >>> 
+> > >>> 
+> > >>> Best regards,
+> > >>> 	Maxim Levitsky
+> > >> 
+> > >> Since you say this is a regression, when did this last work for you
+> > >> without this problem, i.e. which distro, which kernel? 
+> > > 
+> > > I always compile kernel, and last kernel I compiled here was vanilla
+> > > 2.6.33-rc4.
+> > > It works just fine.
+> > > 
+> > > I mostly use my laptop, and therefore didn't update kernel on my
+> > > desktop for long time.
+> > > 
+> > > If I find some free time I try to bisect the problem.
+> > 
+> > Could you provide some additional info about your setup:
+> > ethtool -e eth0
+> > ethtool -d eth0
+> > kernel config (if possible)
+> > 
+> > What is the model of your system/MB?
+> 
+> 
+> Sure,
+> 
+> 
+> My motherboard on this system is Intel DG965RY
+> 
+> The bug in about 90% reproducible.
+> Doing several s2ram cycles, its possible to catch a moment when the
+> device starts working.
+> 
 
-* Philip Prindeville <philipp_subx@redfish-solutions.com> [2010-07-03 17:07:52-0600]:
->
-> On 7/3/10 12:55 PM, Alexander Clouter wrote:
->>    
->>> Does anyone else think that setsockopt(IP_TOS) should be a privileged
->>> operation, perhaps using CAP_NET_ADMIN, or maybe even adding separate
->>> granularity as CAP_NET_TOS?
->>>
->>>      
->> I really would prefer not having to run telnet and ssh *clients* as
->> root. :)
->
-> Don't ping and traceroute -I currently run as root?
->
-Indeed, but I have no idea what that has to do with ToS/DSCP flags?
+Just tested 2.6.34, and it works, so this is 2.6.35 regression.
 
-ping and (old skool) traceroute use ICMP where you need to open a 
-privileged socket; to send and receive ICMP packets.  Opening a UDP/TCP 
-is an unprivileged operation and so is setsockopt(IP_TOS).
+Best regards,
+	Maxim Levitsky
 
-I'm guessing, if you excuse me Google-stalking you), this is all linked 
-to:
-
-https://bugzilla.mindrot.org/show_bug.cgi?id=1733
-
-You have to bear in mind ToS is a marking that userland can utilise to 
-request that the network provides it with a particular QoS, this does 
-not mean for an instant the network has to honour that (I know my ISP 
-does not and neither does my work network I sysadmin for)...otherwise 
-nothing would stop me using:
-
-iptables -t mangle -I POSTROUTING -j DSCP --set-dscp-class EF
-
-QoS is meaningless unless you place boundaries on the policies; the 
-ToS/DSCP marking should only be used as a *hint* for classification of 
-traffic flows.
-
-For example, 'interactive' and 'low latency' (in the case of SSH or 
-telnet) should not exceed 10kB/s...unless you like to play 0verkill :)  
-Anything marking it's traffic as interactive but shutting traffic at 
-500kB/s is obviously telling lies.  If you build your policing rules to 
-blindly accept whatever is in the ToS/DSCP field, you are configuring a 
-DoS vector on your network.
-
-Cheers
-
--- 
-Alexander Clouter
-.sigmonster says: A rolling stone gathers momentum.
