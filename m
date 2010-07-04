@@ -1,43 +1,66 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/4] bnx2: Always enable MSI-X on 5709.
-Date: Sat, 3 Jul 2010 23:42:15 -0700
-Message-ID: <1278225738-7795-1-git-send-email-mchan@broadcom.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: Kconfig cleanup
+Date: Sun, 4 Jul 2010 16:05:16 +0900
+Message-ID: <20100704070516.GA9437@verge.net.au>
+References: <1278102728-20217-1-git-send-email-mmarek@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	linux-kernel@vger.kernel.org
+To: Michal Marek <mmarek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3306 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754967Ab0GDGjt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Jul 2010 02:39:49 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:51602 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756290Ab0GDHFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jul 2010 03:05:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1278102728-20217-1-git-send-email-mmarek@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Minor change to use MSI-X even if there is only one CPU.  This allows
-the CNIC driver to always have a dedicated MSI-X vector to handle
-iSCSI events, instead of sharing the MSI vector.
+On Fri, Jul 02, 2010 at 10:32:08PM +0200, Michal Marek wrote:
+> IP_VS_PROTO_AH_ESP should be set iff either of IP_VS_PROTO_{AH,ESP} is
+> selected. Express this with standard kconfig syntax.
+> 
+> Signed-off-by: Michal Marek <mmarek@suse.cz>
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Acked-by: Simon Horman <horms@verge.net.au>
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index a5dd81f..0614ca0 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6185,7 +6185,7 @@ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
- 	bp->irq_nvecs = 1;
- 	bp->irq_tbl[0].vector = bp->pdev->irq;
- 
--	if ((bp->flags & BNX2_FLAG_MSIX_CAP) && !dis_msi && cpus > 1)
-+	if ((bp->flags & BNX2_FLAG_MSIX_CAP) && !dis_msi)
- 		bnx2_enable_msix(bp, msix_vecs);
- 
- 	if ((bp->flags & BNX2_FLAG_MSI_CAP) && !dis_msi &&
--- 
-1.6.4.GIT
-
-
+> ---
+>  net/netfilter/ipvs/Kconfig |    5 +----
+>  1 files changed, 1 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+> index f2d7623..91e7373 100644
+> --- a/net/netfilter/ipvs/Kconfig
+> +++ b/net/netfilter/ipvs/Kconfig
+> @@ -83,19 +83,16 @@ config	IP_VS_PROTO_UDP
+>  	  protocol. Say Y if unsure.
+>  
+>  config	IP_VS_PROTO_AH_ESP
+> -	bool
+> -	depends on UNDEFINED
+> +	def_bool IP_VS_PROTO_ESP || IP_VS_PROTO_AH
+>  
+>  config	IP_VS_PROTO_ESP
+>  	bool "ESP load balancing support"
+> -	select IP_VS_PROTO_AH_ESP
+>  	---help---
+>  	  This option enables support for load balancing ESP (Encapsulation
+>  	  Security Payload) transport protocol. Say Y if unsure.
+>  
+>  config	IP_VS_PROTO_AH
+>  	bool "AH load balancing support"
+> -	select IP_VS_PROTO_AH_ESP
+>  	---help---
+>  	  This option enables support for load balancing AH (Authentication
+>  	  Header) transport protocol. Say Y if unsure.
+> -- 
+> 1.7.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
