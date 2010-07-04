@@ -1,71 +1,126 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Sun, 4 Jul 2010 12:00:05 +0300
-Message-ID: <20100704090005.GA8078@redhat.com>
-References: <20100701130816.GB32223@redhat.com>
- <1277991024.1917.108.camel@laptop>
- <20100701133956.GD32223@redhat.com>
- <4C2CA5C5.4040402@kernel.org>
- <20100701144624.GA11171@redhat.com>
- <4C2CABF2.2020801@kernel.org>
- <1277996135.1917.198.camel@laptop>
- <4C2E2987.9040702@us.ibm.com>
- <1278094270.1917.288.camel@laptop>
- <20100702210637.GA12433@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Sridhar Samudrala <sri@us.ibm.com>, Tejun Heo <tj@kernel.org>,
-	Ingo Molnar <mingo@elte.hu>, netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33575 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757160Ab0GDJII (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Jul 2010 05:08:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20100702210637.GA12433@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [patch v2.3 0/4]
+Date: Sun, 04 Jul 2010 20:32:46 +0900
+Message-ID: <20100704113246.562399500@vergenet.net>
+Cc: Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Eder <heder@google.com>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Subject: [patch v2.3 0/4] IPVS full NAT support + netfilter 'ipvs' match support
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 02, 2010 at 11:06:37PM +0200, Oleg Nesterov wrote:
-> On 07/02, Peter Zijlstra wrote:
-> >
-> > On Fri, 2010-07-02 at 11:01 -0700, Sridhar Samudrala wrote:
-> > >
-> > >  Does  it (Tejun's kthread_clone() patch) also  inherit the
-> > > cgroup of the caller?
-> >
-> > Of course, its a simple do_fork() which inherits everything just as you
-> > would expect from a similar sys_clone()/sys_fork() call.
-> 
-> Yes. And I'm afraid it can inherit more than we want. IIUC, this is called
-> from ioctl(), right?
-> 
-> Then the new thread becomes the natural child of the caller, and it shares
-> ->mm with the parent. And files, dup_fd() without CLONE_FS.
-> 
-> Signals. Say, if you send SIGKILL to this new thread, it can't sleep in
-> TASK_INTERRUPTIBLE or KILLABLE after that. And this SIGKILL can be sent
-> just because the parent gets SIGQUIT or abother coredumpable signal.
-> Or the new thread can recieve SIGSTOP via ^Z.
-> 
-> Perhaps this is OK, I do not know. Just to remind that kernel_thread()
-> is merely clone(CLONE_VM).
-> 
-> Oleg.
+This is a repost of a patch-series posted by Hannes Eder last September.
+This is v2 of the patch series and I don't see any outstanding objections to
+it in the mailing list archives.
+
+After I posted v2.2 of this series in May several concerns were raised
+by Patrick McHardy. This series should address all of those concerns.
+
+Malcolm Turnbull has offered to test this code so I'd like to get
+a Reviewed-by from him before the code gets merged. In other words,
+at this stage these patches are for review not merging.
+
+The original cover-email from Hannes follows.
+The diffstat output has been updated to reflect minor up-porting by me.
+
+From:	Hannes Eder <heder@google.com>
+
+The following series implements full NAT support for IPVS.  The
+approach is via a minimal change to IPVS (make friends with
+nf_conntrack) and adding a netfilter matcher, kernel- and user-space
+part, i.e. xt_ipvs and libxt_ipvs.
+
+Example usage:
+
+% ipvsadm -A -t 192.168.100.30:80 -s rr
+% ipvsadm -a -t 192.168.100.30:80 -r 192.168.10.20:80 -m
+# ...
+
+# Source NAT for VIP 192.168.100.30:80
+% iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+> --vport 80 -j SNAT --to-source 192.168.10.10
+
+or SNAT-ing only a specific real server:
+
+% iptables -t nat -A POSTROUTING --dst 192.168.11.20 \
+> -m ipvs --vaddr 192.168.100.30/32 -j SNAT --to-source 192.168.10.10
 
 
-Right. Doing this might break things like flush.  The signal and exit
-behaviour needs to be examined carefully. I am also unsure whether
-using such threads might be more expensive than inheriting kthreadd.
+First of all, thanks for all the feedback.  This is the changelog for v2:
 
--- 
-MST
+- Make ip_vs_ftp work again.  Setup nf_conntrack expectations for
+  related data connections (based on Julian's patch see
+  http://www.ssi.bg/~ja/nfct/) and let nf_conntrack/nf_nat do the
+  packet mangling and the TCP sequence adjusting.
+
+  This change rises the question how to deal with ip_vs_sync?  Does it
+  work together with conntrackd?  Wild idea: what about getting rid of
+  ip_vs_sync and piggy packing all on nf_conntrack and use conntrackd?
+
+  Any comments on this?
+
+- xt_ipvs: add new rule '--vportctl port' to match the VIP port of the
+  controlling connection, e.g. port 21 for FTP.  Can be used to match
+  a related data connection for FTP:
+
+  # SNAT FTP control connection
+  % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+  > --vport 21 -j SNAT --to-source 192.168.10.10
+  
+  # SNAT FTP passive data connection
+  % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+  > --vportctl 21 -j SNAT --to-source 192.168.10.10
+
+- xt_ipvs: use 'par->family' instead of 'skb->protocol'
+
+- xt_ipvs: add ipvs_mt_check and restrict to NFPROTO_IPV4 and NFPROTO_IPV6
+
+- Call nf_conntrack_alter_reply(), so helper lookup is performed based
+  on the changed tuple.
+
+Changes to the linux kernel
+(nf-next-2.6, "bridge: add per bridge device controls for invoking iptables")
+
+Hannes Eder (3):
+      netfilter: xt_ipvs (netfilter matcher for IPVS)
+      IPVS: make friends with nf_conntrack
+      IPVS: make FTP work with full NAT support
+
+
+ include/linux/netfilter/xt_ipvs.h |   25 +++++
+ include/net/ip_vs.h              |    2 
+ net/netfilter/Kconfig            |   10 ++
+ net/netfilter/Makefile           |    1 
+ net/netfilter/ipvs/Kconfig       |    4 
+ net/netfilter/ipvs/ip_vs_app.c   |   43 ---------
+ net/netfilter/ipvs/ip_vs_core.c  |   37 --------
+ net/netfilter/ipvs/ip_vs_ftp.c   |  173 +++++++++++++++++++++++++++++++++++---
+ net/netfilter/ipvs/ip_vs_proto.c |    1 
+ net/netfilter/ipvs/ip_vs_xmit.c  |   30 ++++++
+ net/netfilter/xt_ipvs.c           |  189 +++++++++++++++++++++++++++++++++++++
+ 11 files changed, 419 insertions(+), 96 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_ipvs.h
+ create mode 100644 net/netfilter/xt_ipvs.c
+
+
+Changes to iptables
+(iptables.git, "xt_quota: also document negation")
+
+Hannes Eder (1):
+      libxt_ipvs: user-space lib for netfilter matcher xt_ipvs
+
+ configure.ac                      |   10 1
+ extensions/libxt_ipvs.c           |  365 +++++++++++++++++++++++++++++++++++++
+ extensions/libxt_ipvs.man         |   24 ++
+ include/linux/netfilter/xt_ipvs.h |   25 +++
+ 4 files changed, 422 insertions(+), 2 deletions(-)
+ create mode 100644 extensions/libxt_ipvs.c
+ create mode 100644 extensions/libxt_ipvs.man
+ create mode 100644 include/linux/netfilter/xt_ipvs.h
