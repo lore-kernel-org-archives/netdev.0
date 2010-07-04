@@ -1,176 +1,55 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH] bnx2x: add support for receive hashing
-Date: Sun, 4 Jul 2010 09:46:43 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFD@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <alpine.DEB.1.00.1004222249400.27016@pokey.mtv.corp.google.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] Introduce and use printk pointer extension %pV
+Date: Sun, 04 Jul 2010 10:40:52 -0700 (PDT)
+Message-ID: <20100704.104052.112588682.davem@davemloft.net>
+References: <20100630.130709.93452021.davem@davemloft.net>
+	<20100702.223244.193707555.davem@davemloft.net>
+	<20100703160857.GA29043@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tom Herbert" <therbert@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2286 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751941Ab0GDQq5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jul 2010 12:46:57 -0400
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54237
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757844Ab0GDRkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jul 2010 13:40:39 -0400
+In-Reply-To: <20100703160857.GA29043@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is there any reason not to fill skb->rxhash for LROed packets?
+From: Greg KH <greg@kroah.com>
+Date: Sat, 3 Jul 2010 09:08:57 -0700
 
-Thanks,
-vlad
+> On Fri, Jul 02, 2010 at 10:32:44PM -0700, David Miller wrote:
+>> From: David Miller <davem@davemloft.net>
+>> Date: Wed, 30 Jun 2010 13:07:09 -0700 (PDT)
+>> 
+>> > From: Joe Perches <joe@perches.com>
+>> > Date: Sun, 27 Jun 2010 04:02:32 -0700
+>> > 
+>> >> Recursive printk can reduce the total image size of an x86 defconfig about 1% 
+>> >> by reducing duplicated KERN_<level> strings and centralizing the functions
+>> >> used by macros in new separate functions.
+>> >> 
+>> >> Joe Perches (4):
+>> >>   vsprintf: Recursive vsnprintf: Add "%pV", struct va_format
+>> >>   device.h drivers/base/core.c Convert dev_<level> logging macros to functions
+>> >>   netdevice.h net/core/dev.c: Convert netdev_<level> logging macros to functions
+>> >>   netdevice.h: Change netif_<level> macros to call netdev_<level> functions
+>> > 
+>> > I'm fine with this, thanks Joe.
+>> > 
+>> > Greg, could you ACK this and let me know if it's OK if it swings
+>> > through my net-next-2.6 tree?
+>> 
+>> Greg, ping?
+> 
+> Sorry about the delay.
+> 
+> Yes, that's fine to take it through your tree, thanks for doing that:
+> 	Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> Behalf Of Vladislav Zolotarov
-> Sent: Sunday, July 04, 2010 7:36 PM
-> To: Tom Herbert
-> Cc: netdev@vger.kernel.org
-> Subject: RE: [PATCH] bnx2x: add support for receive hashing
-> 
-> Tom, could u, pls., explain what did u mean by taking the (RSS) flags
-> configuration out of RSS "if"? To recall "if(is_multi(bp))" is true iff RSS
-> is enabled.
-> 
-> Thanks,
-> vlad
-> 
-> > @@ -5750,10 +5757,10 @@ static void bnx2x_init_internal_func(struct bnx2x
-> > *bp)
-> >  	u32 offset;
-> >  	u16 max_agg_size;
-> >
-> > -	if (is_multi(bp)) {
-> > -		tstorm_config.config_flags = MULTI_FLAGS(bp);
-> > +	tstorm_config.config_flags = RSS_FLAGS(bp);
-> > +
-> > +	if (is_multi(bp))
-> >  		tstorm_config.rss_result_mask = MULTI_MASK;
-> > -	}
-> >
-> >  	/* Enable TPA if needed */
-> >  	if (bp->flags & TPA_ENABLE_FLAG)
-> 
-> 
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> > Behalf Of Tom Herbert
-> > Sent: Friday, April 23, 2010 8:54 AM
-> > To: davem@davemloft.net; netdev@vger.kernel.org
-> > Subject: [PATCH] bnx2x: add support for receive hashing
-> >
-> > Add support to bnx2x to extract Toeplitz hash out of the receive descriptor
-> > for use in skb->rxhash.
-> >
-> > Signed-off-by: Tom Herbert <therbert@google.com>
-> > ---
-> > diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-> > index 0819530..8bd2368 100644
-> > --- a/drivers/net/bnx2x.h
-> > +++ b/drivers/net/bnx2x.h
-> > @@ -1330,7 +1330,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg,
-> > u32 expected, int ms,
-> >  		AEU_INPUTS_ATTN_BITS_MCP_LATCHED_UMP_TX_PARITY | \
-> >  		AEU_INPUTS_ATTN_BITS_MCP_LATCHED_SCPAD_PARITY)
-> >
-> > -#define MULTI_FLAGS(bp) \
-> > +#define RSS_FLAGS(bp) \
-> >  		(TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY | \
-> >  		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY | \
-> >  		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_CAPABILITY | \
-> > diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> > index 0c6dba2..613f727 100644
-> > --- a/drivers/net/bnx2x_main.c
-> > +++ b/drivers/net/bnx2x_main.c
-> > @@ -1582,7 +1582,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp,
-> int
-> > budget)
-> >  		struct sw_rx_bd *rx_buf = NULL;
-> >  		struct sk_buff *skb;
-> >  		union eth_rx_cqe *cqe;
-> > -		u8 cqe_fp_flags;
-> > +		u8 cqe_fp_flags, cqe_fp_status_flags;
-> >  		u16 len, pad;
-> >
-> >  		comp_ring_cons = RCQ_BD(sw_comp_cons);
-> > @@ -1598,6 +1598,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp,
-> int
-> > budget)
-> >
-> >  		cqe = &fp->rx_comp_ring[comp_ring_cons];
-> >  		cqe_fp_flags = cqe->fast_path_cqe.type_error_flags;
-> > +		cqe_fp_status_flags = cqe->fast_path_cqe.status_flags;
-> >
-> >  		DP(NETIF_MSG_RX_STATUS, "CQE type %x  err %x  status %x"
-> >  		   "  queue %x  vlan %x  len %u\n", CQE_TYPE(cqe_fp_flags),
-> > @@ -1727,6 +1728,12 @@ reuse_rx:
-> >
-> >  			skb->protocol = eth_type_trans(skb, bp->dev);
-> >
-> > +			if ((bp->dev->features & ETH_FLAG_RXHASH) &&
-> > +			    (cqe_fp_status_flags &
-> > +			     ETH_FAST_PATH_RX_CQE_RSS_HASH_FLG))
-> > +				skb->rxhash = le32_to_cpu(
-> > +				    cqe->fast_path_cqe.rss_hash_result);
-> > +
-> >  			skb->ip_summed = CHECKSUM_NONE;
-> >  			if (bp->rx_csum) {
-> >  				if (likely(BNX2X_RX_CSUM_OK(cqe)))
-> > @@ -5750,10 +5757,10 @@ static void bnx2x_init_internal_func(struct bnx2x
-> > *bp)
-> >  	u32 offset;
-> >  	u16 max_agg_size;
-> >
-> > -	if (is_multi(bp)) {
-> > -		tstorm_config.config_flags = MULTI_FLAGS(bp);
-> > +	tstorm_config.config_flags = RSS_FLAGS(bp);
-> > +
-> > +	if (is_multi(bp))
-> >  		tstorm_config.rss_result_mask = MULTI_MASK;
-> > -	}
-> >
-> >  	/* Enable TPA if needed */
-> >  	if (bp->flags & TPA_ENABLE_FLAG)
-> > @@ -6629,10 +6636,8 @@ static int bnx2x_init_common(struct bnx2x *bp)
-> >  	bnx2x_init_block(bp, PBF_BLOCK, COMMON_STAGE);
-> >
-> >  	REG_WR(bp, SRC_REG_SOFT_RST, 1);
-> > -	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4) {
-> > -		REG_WR(bp, i, 0xc0cac01a);
-> > -		/* TODO: replace with something meaningful */
-> > -	}
-> > +	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4)
-> > +		REG_WR(bp, i, random32());
-> >  	bnx2x_init_block(bp, SRCH_BLOCK, COMMON_STAGE);
-> >  #ifdef BCM_CNIC
-> >  	REG_WR(bp, SRC_REG_KEYSEARCH_0, 0x63285672);
-> > @@ -11001,6 +11006,11 @@ static int bnx2x_set_flags(struct net_device *dev,
-> > u32 data)
-> >  		changed = 1;
-> >  	}
-> >
-> > +	if (data & ETH_FLAG_RXHASH)
-> > +		dev->features |= NETIF_F_RXHASH;
-> > +	else
-> > +		dev->features &= ~NETIF_F_RXHASH;
-> > +
-> >  	if (changed && netif_running(dev)) {
-> >  		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
-> >  		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+Thanks!  I've added this set to my tree.
