@@ -1,143 +1,55 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: RE: [REGRESSION] e1000e stopped working
-Date: Sun, 04 Jul 2010 03:41:46 +0300
-Message-ID: <1278204106.21020.0.camel@localhost.localdomain>
-References: <1277659633.2989.2.camel@localhost.localdomain>
-	 <1277659785.4028.1.camel@localhost.localdomain>
-	 <1277660638.3321.1.camel@localhost.localdomain>
-	 <1277660831.3321.3.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
-	 <1277745247.12841.1.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
-	 <1277807529.19417.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
-	 <1277938757.4138.3.camel@localhost.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 3/4] bnx2: Dump some config space registers
+ during TX timeout.
+Date: Sat, 3 Jul 2010 23:42:17 -0700
+Message-ID: <1278225738-7795-3-git-send-email-mchan@broadcom.com>
+References: <1278225738-7795-1-git-send-email-mchan@broadcom.com>
+ <1278225738-7795-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:62999 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756390Ab0GDAlv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jul 2010 20:41:51 -0400
-Received: by fxm14 with SMTP id 14so3025616fxm.19
-        for <netdev@vger.kernel.org>; Sat, 03 Jul 2010 17:41:50 -0700 (PDT)
-In-Reply-To: <1277938757.4138.3.camel@localhost.localdomain>
+Received: from mms2.broadcom.com ([216.31.210.18]:1338 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754633Ab0GDGjk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Jul 2010 02:39:40 -0400
+In-Reply-To: <1278225738-7795-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-07-01 at 01:59 +0300, Maxim Levitsky wrote:
-> On Tue, 2010-06-29 at 12:37 -0600, Tantilov, Emil S wrote:
-> > Maxim Levitsky wrote:
-> > > On Mon, 2010-06-28 at 18:09 -0700, Allan, Bruce W wrote:
-> > >> On Monday, June 28, 2010 10:14 AM, Maxim Levitsky wrote:
-> > >>> On Mon, 2010-06-28 at 10:04 -0700, Allan, Bruce W wrote:
-> > >>>> On Sunday, June 27, 2010 10:47 AM, Maxim Levitsky wrote:
-> > >>>>> On Sun, 2010-06-27 at 20:43 +0300, Maxim Levitsky wrote:
-> > >>>>>> On Sun, 2010-06-27 at 20:29 +0300, Maxim Levitsky wrote:
-> > >>>>>>> On Sun, 2010-06-27 at 20:27 +0300, Maxim Levitsky wrote:
-> > >>>>>>>> Just that,
-> > >>>>>>>> 
-> > >>>>>>>> It doesn't receive anything from my internet router during
-> > >>>>>>>> DHCP. 
-> > >>>>>>>> 
-> > >>>>>>>> 
-> > >>>>>>>> 00:19.0 Ethernet controller [0200]: Intel Corporation 82566DC
-> > >>>>>>>> 	Gigabit Network Connection [8086:104b] (rev 02) Subsystem:
-> > >>>>>>>> 	Intel Corporation Device [8086:0001] Control: I/O+ Mem+
-> > >>>>>>>> 	BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping-
-> > >>>>>>>> 	SERR- FastB2B- DisINTx+ Status: Cap+ 66MHz- UDF- FastB2B-
-> > >>>>>>>> 	ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> > >>>>>>>> 	INTx- 	Latency: 0 Interrupt: pin A routed to IRQ 47 Region 0:
-> > >>>>>>>> 	Memory at 50300000 (32-bit, non-prefetchable) [size=128K]
-> > >>>>>>>> 	Region 1: Memory at 50324000 (32-bit, non-prefetchable)
-> > >>>>>>>> 		[size=4K] Region 2: I/O ports at 30e0 [size=32]
-> > >>>>>>>> 		Capabilities: [c8] Power Management version 2 Flags: PMEClk-
-> > >>>>>>>> 	DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-> > >>>>>>>> 		Status: D0 PME-Enable- DSel=0 DScale=1 PME- Capabilities:
-> > >>>>>>>> 	[d0] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0
-> > >>>>>>>> 	Enable+ Address: 00000000fee0100c  Data: 41c9 Kernel driver
-> > >>>>>>>> in use: e1000e Kernel modules: e1000e 
-> > >>>>>>>> 
-> > >>>>>>>> I use vanilla tree, commit
-> > >>>>>>>> bf2937695fe2330bfd8933a2310e7bdd2581dc2e
-> > >>>>>>>> 
-> > >>>>>>>> 
-> > >>>>>>>> Best regards,
-> > >>>>>>>> 	Maxim Levitsky
-> > >>>>>>>> 
-> > >>>>>>> 
-> > >>>>>>> It appears to work now after reboot.
-> > >>>>>>> Will keep a look for this.
-> > >>>>>>> 
-> > >>>>>>> Disregard for now.
-> > >>>>>> 
-> > >>>>>> 
-> > >>>>>> Just s2ram cycle, problem is back.
-> > >>>>>> Did full reboot (power off then on), same thing card doesn't
-> > >>>>>> work... 
-> > >>>>>> 
-> > >>>>> 
-> > >>>>> Yep, s2ram sometimes 'fixes', sometimes breaks the card.
-> > >>>>> Something got broken in device initialization path.
-> > >>>>> 
-> > >>>>> Best regards,
-> > >>>>>  	Maxim Levitsky
-> > >>>> 
-> > >>>> What distro are you using?  If RedHat, since you are using DHCP
-> > >>>> will you please try putting a "LINKDELAY=10" in the
-> > >>>> /etc/sysconfig/network-scripts/ifcfg-ethX config file.
-> > >>>> 
-> > >>> I use ubuntu 9.10
-> > >>> 
-> > >>>> Is there anything in the system log that might help narrow down the
-> > >>>> issue?
-> > >>> 
-> > >>> Nothing, really nothing.
-> > >>> It seems to detect link, dhcp client sends requests, but doesn't
-> > >>> recieve a thing (even tried promisc mode - doesn't help)
-> > >>> 
-> > >>> 
-> > >>> 
-> > >>> Best regards,
-> > >>> 	Maxim Levitsky
-> > >> 
-> > >> Since you say this is a regression, when did this last work for you
-> > >> without this problem, i.e. which distro, which kernel? 
-> > > 
-> > > I always compile kernel, and last kernel I compiled here was vanilla
-> > > 2.6.33-rc4.
-> > > It works just fine.
-> > > 
-> > > I mostly use my laptop, and therefore didn't update kernel on my
-> > > desktop for long time.
-> > > 
-> > > If I find some free time I try to bisect the problem.
-> > 
-> > Could you provide some additional info about your setup:
-> > ethtool -e eth0
-> > ethtool -d eth0
-> > kernel config (if possible)
-> > 
-> > What is the model of your system/MB?
-> 
-> 
-> Sure,
-> 
-> 
-> My motherboard on this system is Intel DG965RY
-> 
-> The bug in about 90% reproducible.
-> Doing several s2ram cycles, its possible to catch a moment when the
-> device starts working.
-> 
+These config register values will be useful when the memory registers
+are returning 0xffffffff which has been reported.
 
-Just tested 2.6.34, and it works, so this is 2.6.35 regression.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-Best regards,
-	Maxim Levitsky
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index ae0a9af..22fa1e9 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6313,9 +6313,14 @@ static void
+ bnx2_dump_state(struct bnx2 *bp)
+ {
+ 	struct net_device *dev = bp->dev;
+-	u32 mcp_p0, mcp_p1;
+-
+-	netdev_err(dev, "DEBUG: intr_sem[%x]\n", atomic_read(&bp->intr_sem));
++	u32 mcp_p0, mcp_p1, val1, val2;
++
++	pci_read_config_dword(bp->pdev, PCI_COMMAND, &val1);
++	netdev_err(dev, "DEBUG: intr_sem[%x] PCI_CMD[%08x]\n",
++		   atomic_read(&bp->intr_sem), val1);
++	pci_read_config_dword(bp->pdev, bp->pm_cap + PCI_PM_CTRL, &val1);
++	pci_read_config_dword(bp->pdev, BNX2_PCICFG_MISC_CONFIG, &val2);
++	netdev_err(dev, "DEBUG: PCI_PM[%08x] PCI_MISC_CFG[%08x]\n", val1, val2);
+ 	netdev_err(dev, "DEBUG: EMAC_TX_STATUS[%08x] EMAC_RX_STATUS[%08x]\n",
+ 		   REG_RD(bp, BNX2_EMAC_TX_STATUS),
+ 		   REG_RD(bp, BNX2_EMAC_RX_STATUS));
+-- 
+1.6.4.GIT
+
 
