@@ -1,12 +1,11 @@
 From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH] starfire: Use the instance of net_device_stats from net_device.
-Date: Mon,  5 Jul 2010 16:14:34 +0400
-Message-ID: <1278332077-18431-1-git-send-email-segooon@gmail.com>
-Cc: Ion Badulescu <ionut@badula.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>, Jiri Pirko <jpirko@redhat.com>,
+Subject: [PATCH] ns83820: Use the instance of net_device_stats from net_device.
+Date: Mon,  5 Jul 2010 16:14:28 +0400
+Message-ID: <1278332071-17865-1-git-send-email-segooon@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
 	Stephen Hemminger <shemminger@vyatta.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>, Jiri Pirko <jpirko@redhat.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -18,131 +17,114 @@ we can remove the instance of this from the adapter structure.
 
 Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 ---
- drivers/net/starfire.c |   47 +++++++++++++++++++++++------------------------
- 1 files changed, 23 insertions(+), 24 deletions(-)
+ drivers/net/ns83820.c |   44 ++++++++++++++++++++++----------------------
+ 1 files changed, 22 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
-index 74b7ae7..a42b687 100644
---- a/drivers/net/starfire.c
-+++ b/drivers/net/starfire.c
-@@ -562,7 +562,6 @@ struct netdev_private {
- 	unsigned int tx_done;
- 	struct napi_struct napi;
- 	struct net_device *dev;
--	struct net_device_stats stats;
- 	struct pci_dev *pci_dev;
- #ifdef VLAN_SUPPORT
- 	struct vlan_group *vlgrp;
-@@ -1174,7 +1173,7 @@ static void tx_timeout(struct net_device *dev)
- 	/* Trigger an immediate transmit demand. */
+diff --git a/drivers/net/ns83820.c b/drivers/net/ns83820.c
+index e88e97c..5a3488f 100644
+--- a/drivers/net/ns83820.c
++++ b/drivers/net/ns83820.c
+@@ -424,7 +424,6 @@ struct rx_info {
  
- 	dev->trans_start = jiffies; /* prevent tx timeout */
--	np->stats.tx_errors++;
-+	dev->stats.tx_errors++;
- 	netif_wake_queue(dev);
- }
  
-@@ -1265,7 +1264,7 @@ static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev)
- 			}
- 			if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 				status |= TxCalTCP;
--				np->stats.tx_compressed++;
-+				dev->stats.tx_compressed++;
- 			}
- 			status |= skb_first_frag_len(skb) | (skb_num_frags(skb) << 16);
+ struct ns83820 {
+-	struct net_device_stats	stats;
+ 	u8			__iomem *base;
  
-@@ -1374,7 +1373,7 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
- 				printk(KERN_DEBUG "%s: Tx completion #%d entry %d is %#8.8x.\n",
- 				       dev->name, np->dirty_tx, np->tx_done, tx_status);
- 			if ((tx_status & 0xe0000000) == 0xa0000000) {
--				np->stats.tx_packets++;
-+				dev->stats.tx_packets++;
- 			} else if ((tx_status & 0xe0000000) == 0x80000000) {
- 				u16 entry = (tx_status & 0x7fff) / sizeof(starfire_tx_desc);
- 				struct sk_buff *skb = np->tx_info[entry].skb;
-@@ -1462,9 +1461,9 @@ static int __netdev_rx(struct net_device *dev, int *quota)
- 			/* There was an error. */
- 			if (debug > 2)
- 				printk(KERN_DEBUG "  netdev_rx() Rx error was %#8.8x.\n", desc_status);
--			np->stats.rx_errors++;
-+			dev->stats.rx_errors++;
- 			if (desc_status & RxFIFOErr)
--				np->stats.rx_fifo_errors++;
-+				dev->stats.rx_fifo_errors++;
- 			goto next_rx;
- 		}
- 
-@@ -1515,7 +1514,7 @@ static int __netdev_rx(struct net_device *dev, int *quota)
+ 	struct pci_dev		*pci_dev;
+@@ -918,9 +917,9 @@ static void rx_irq(struct net_device *ndev)
+ 			if (unlikely(!skb))
+ 				goto netdev_mangle_me_harder_failed;
+ 			if (cmdsts & CMDSTS_DEST_MULTI)
+-				dev->stats.multicast ++;
+-			dev->stats.rx_packets ++;
+-			dev->stats.rx_bytes += len;
++				ndev->stats.multicast++;
++			ndev->stats.rx_packets++;
++			ndev->stats.rx_bytes += len;
+ 			if ((extsts & 0x002a0000) && !(extsts & 0x00540000)) {
+ 				skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 			} else {
+@@ -940,7 +939,7 @@ static void rx_irq(struct net_device *ndev)
  #endif
- 		if (le16_to_cpu(desc->status2) & 0x0100) {
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
--			np->stats.rx_compressed++;
-+			dev->stats.rx_compressed++;
- 		}
- 		/*
- 		 * This feature doesn't seem to be working, at least
-@@ -1547,7 +1546,7 @@ static int __netdev_rx(struct net_device *dev, int *quota)
- 		} else
- #endif /* VLAN_SUPPORT */
- 			netif_receive_skb(skb);
--		np->stats.rx_packets++;
-+		dev->stats.rx_packets++;
+ 			if (NET_RX_DROP == rx_rc) {
+ netdev_mangle_me_harder_failed:
+-				dev->stats.rx_dropped ++;
++				ndev->stats.rx_dropped++;
+ 			}
+ 		} else {
+ 			kfree_skb(skb);
+@@ -1008,11 +1007,11 @@ static void do_tx_done(struct net_device *ndev)
+ 		dma_addr_t addr;
  
- 	next_rx:
- 		np->cur_rx++;
-@@ -1717,12 +1716,12 @@ static void netdev_error(struct net_device *dev, int intr_status)
- 			printk(KERN_WARNING "%s: PCI Tx underflow -- adapter is probably malfunctioning\n", dev->name);
- 	}
- 	if (intr_status & IntrRxGFPDead) {
--		np->stats.rx_fifo_errors++;
--		np->stats.rx_errors++;
-+		dev->stats.rx_fifo_errors++;
-+		dev->stats.rx_errors++;
- 	}
- 	if (intr_status & (IntrNoTxCsum | IntrDMAErr)) {
--		np->stats.tx_fifo_errors++;
--		np->stats.tx_errors++;
-+		dev->stats.tx_fifo_errors++;
-+		dev->stats.tx_errors++;
- 	}
- 	if ((intr_status & ~(IntrNormalMask | IntrAbnormalSummary | IntrLinkChange | IntrStatsMax | IntrTxDataLow | IntrRxGFPDead | IntrNoTxCsum | IntrPCIPad)) && debug)
- 		printk(KERN_ERR "%s: Something Wicked happened! %#8.8x.\n",
-@@ -1736,24 +1735,24 @@ static struct net_device_stats *get_stats(struct net_device *dev)
- 	void __iomem *ioaddr = np->base;
+ 		if (cmdsts & CMDSTS_ERR)
+-			dev->stats.tx_errors ++;
++			ndev->stats.tx_errors++;
+ 		if (cmdsts & CMDSTS_OK)
+-			dev->stats.tx_packets ++;
++			ndev->stats.tx_packets++;
+ 		if (cmdsts & CMDSTS_OK)
+-			dev->stats.tx_bytes += cmdsts & 0xffff;
++			ndev->stats.tx_bytes += cmdsts & 0xffff;
  
- 	/* This adapter architecture needs no SMP locks. */
--	np->stats.tx_bytes = readl(ioaddr + 0x57010);
--	np->stats.rx_bytes = readl(ioaddr + 0x57044);
--	np->stats.tx_packets = readl(ioaddr + 0x57000);
--	np->stats.tx_aborted_errors =
-+	dev->stats.tx_bytes = readl(ioaddr + 0x57010);
-+	dev->stats.rx_bytes = readl(ioaddr + 0x57044);
-+	dev->stats.tx_packets = readl(ioaddr + 0x57000);
-+	dev->stats.tx_aborted_errors =
- 		readl(ioaddr + 0x57024) + readl(ioaddr + 0x57028);
--	np->stats.tx_window_errors = readl(ioaddr + 0x57018);
--	np->stats.collisions =
-+	dev->stats.tx_window_errors = readl(ioaddr + 0x57018);
-+	dev->stats.collisions =
- 		readl(ioaddr + 0x57004) + readl(ioaddr + 0x57008);
+ 		dprintk("tx_done_idx=%d free_idx=%d cmdsts=%08x\n",
+ 			tx_done_idx, dev->tx_free_idx, cmdsts);
+@@ -1212,20 +1211,21 @@ again:
  
- 	/* The chip only need report frame silently dropped. */
--	np->stats.rx_dropped += readw(ioaddr + RxDMAStatus);
-+	dev->stats.rx_dropped += readw(ioaddr + RxDMAStatus);
- 	writew(0, ioaddr + RxDMAStatus);
--	np->stats.rx_crc_errors = readl(ioaddr + 0x5703C);
--	np->stats.rx_frame_errors = readl(ioaddr + 0x57040);
--	np->stats.rx_length_errors = readl(ioaddr + 0x57058);
--	np->stats.rx_missed_errors = readl(ioaddr + 0x5707C);
-+	dev->stats.rx_crc_errors = readl(ioaddr + 0x5703C);
-+	dev->stats.rx_frame_errors = readl(ioaddr + 0x57040);
-+	dev->stats.rx_length_errors = readl(ioaddr + 0x57058);
-+	dev->stats.rx_missed_errors = readl(ioaddr + 0x5707C);
+ static void ns83820_update_stats(struct ns83820 *dev)
+ {
++	struct net_device *ndev = dev->ndev;
+ 	u8 __iomem *base = dev->base;
  
--	return &np->stats;
-+	return &dev->stats;
+ 	/* the DP83820 will freeze counters, so we need to read all of them */
+-	dev->stats.rx_errors		+= readl(base + 0x60) & 0xffff;
+-	dev->stats.rx_crc_errors	+= readl(base + 0x64) & 0xffff;
+-	dev->stats.rx_missed_errors	+= readl(base + 0x68) & 0xffff;
+-	dev->stats.rx_frame_errors	+= readl(base + 0x6c) & 0xffff;
+-	/*dev->stats.rx_symbol_errors +=*/ readl(base + 0x70);
+-	dev->stats.rx_length_errors	+= readl(base + 0x74) & 0xffff;
+-	dev->stats.rx_length_errors	+= readl(base + 0x78) & 0xffff;
+-	/*dev->stats.rx_badopcode_errors += */ readl(base + 0x7c);
+-	/*dev->stats.rx_pause_count += */  readl(base + 0x80);
+-	/*dev->stats.tx_pause_count += */  readl(base + 0x84);
+-	dev->stats.tx_carrier_errors	+= readl(base + 0x88) & 0xff;
++	ndev->stats.rx_errors		+= readl(base + 0x60) & 0xffff;
++	ndev->stats.rx_crc_errors	+= readl(base + 0x64) & 0xffff;
++	ndev->stats.rx_missed_errors	+= readl(base + 0x68) & 0xffff;
++	ndev->stats.rx_frame_errors	+= readl(base + 0x6c) & 0xffff;
++	/*ndev->stats.rx_symbol_errors +=*/ readl(base + 0x70);
++	ndev->stats.rx_length_errors	+= readl(base + 0x74) & 0xffff;
++	ndev->stats.rx_length_errors	+= readl(base + 0x78) & 0xffff;
++	/*ndev->stats.rx_badopcode_errors += */ readl(base + 0x7c);
++	/*ndev->stats.rx_pause_count += */  readl(base + 0x80);
++	/*ndev->stats.tx_pause_count += */  readl(base + 0x84);
++	ndev->stats.tx_carrier_errors	+= readl(base + 0x88) & 0xff;
  }
  
+ static struct net_device_stats *ns83820_get_stats(struct net_device *ndev)
+@@ -1237,7 +1237,7 @@ static struct net_device_stats *ns83820_get_stats(struct net_device *ndev)
+ 	ns83820_update_stats(dev);
+ 	spin_unlock_irq(&dev->misc_lock);
  
+-	return &dev->stats;
++	return &ndev->stats;
+ }
+ 
+ /* Let ethtool retrieve info */
+@@ -1464,12 +1464,12 @@ static void ns83820_do_isr(struct net_device *ndev, u32 isr)
+ 
+ 	if (unlikely(ISR_RXSOVR & isr)) {
+ 		//printk("overrun: rxsovr\n");
+-		dev->stats.rx_fifo_errors ++;
++		ndev->stats.rx_fifo_errors++;
+ 	}
+ 
+ 	if (unlikely(ISR_RXORN & isr)) {
+ 		//printk("overrun: rxorn\n");
+-		dev->stats.rx_fifo_errors ++;
++		ndev->stats.rx_fifo_errors++;
+ 	}
+ 
+ 	if ((ISR_RXRCMP & isr) && dev->rx_info.up)
 -- 
 1.7.0.4
