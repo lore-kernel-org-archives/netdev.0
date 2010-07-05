@@ -1,12 +1,12 @@
 From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH] ns83820: Use the instance of net_device_stats from net_device.
-Date: Mon,  5 Jul 2010 16:14:28 +0400
-Message-ID: <1278332071-17865-1-git-send-email-segooon@gmail.com>
+Subject: [PATCH] ni52: Use the instance of net_device_stats from net_device.
+Date: Mon,  5 Jul 2010 16:14:23 +0400
+Message-ID: <1278332065-17831-1-git-send-email-segooon@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
+	Joe Perches <joe@perches.com>, Jiri Pirko <jpirko@redhat.com>,
 	Stephen Hemminger <shemminger@vyatta.com>,
-	Tejun Heo <tj@kernel.org>, Jiri Pirko <jpirko@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+	Jiri Kosina <jkosina@suse.cz>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -17,114 +17,113 @@ we can remove the instance of this from the adapter structure.
 
 Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 ---
- drivers/net/ns83820.c |   44 ++++++++++++++++++++++----------------------
- 1 files changed, 22 insertions(+), 22 deletions(-)
+ drivers/net/ni52.c |   37 ++++++++++++++++++-------------------
+ 1 files changed, 18 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ns83820.c b/drivers/net/ns83820.c
-index e88e97c..5a3488f 100644
---- a/drivers/net/ns83820.c
-+++ b/drivers/net/ns83820.c
-@@ -424,7 +424,6 @@ struct rx_info {
+diff --git a/drivers/net/ni52.c b/drivers/net/ni52.c
+index 9bddb5f..33618ed 100644
+--- a/drivers/net/ni52.c
++++ b/drivers/net/ni52.c
+@@ -185,7 +185,6 @@ static void    ni52_xmt_int(struct net_device *dev);
+ static void    ni52_rnr_int(struct net_device *dev);
  
- 
- struct ns83820 {
--	struct net_device_stats	stats;
- 	u8			__iomem *base;
- 
- 	struct pci_dev		*pci_dev;
-@@ -918,9 +917,9 @@ static void rx_irq(struct net_device *ndev)
- 			if (unlikely(!skb))
- 				goto netdev_mangle_me_harder_failed;
- 			if (cmdsts & CMDSTS_DEST_MULTI)
--				dev->stats.multicast ++;
--			dev->stats.rx_packets ++;
--			dev->stats.rx_bytes += len;
-+				ndev->stats.multicast++;
-+			ndev->stats.rx_packets++;
-+			ndev->stats.rx_bytes += len;
- 			if ((extsts & 0x002a0000) && !(extsts & 0x00540000)) {
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
+ struct priv {
+-	struct net_device_stats stats;
+ 	char __iomem *base;
+ 	char __iomem *mapped;
+ 	char __iomem *memtop;
+@@ -972,10 +971,10 @@ static void ni52_rcv_int(struct net_device *dev)
+ 					memcpy_fromio(skb->data, p->base + readl(&rbd->buffer), totlen);
+ 					skb->protocol = eth_type_trans(skb, dev);
+ 					netif_rx(skb);
+-					p->stats.rx_packets++;
+-					p->stats.rx_bytes += totlen;
++					dev->stats.rx_packets++;
++					dev->stats.rx_bytes += totlen;
+ 				} else
+-					p->stats.rx_dropped++;
++					dev->stats.rx_dropped++;
  			} else {
-@@ -940,7 +939,7 @@ static void rx_irq(struct net_device *ndev)
- #endif
- 			if (NET_RX_DROP == rx_rc) {
- netdev_mangle_me_harder_failed:
--				dev->stats.rx_dropped ++;
-+				ndev->stats.rx_dropped++;
- 			}
- 		} else {
- 			kfree_skb(skb);
-@@ -1008,11 +1007,11 @@ static void do_tx_done(struct net_device *ndev)
- 		dma_addr_t addr;
- 
- 		if (cmdsts & CMDSTS_ERR)
--			dev->stats.tx_errors ++;
-+			ndev->stats.tx_errors++;
- 		if (cmdsts & CMDSTS_OK)
--			dev->stats.tx_packets ++;
-+			ndev->stats.tx_packets++;
- 		if (cmdsts & CMDSTS_OK)
--			dev->stats.tx_bytes += cmdsts & 0xffff;
-+			ndev->stats.tx_bytes += cmdsts & 0xffff;
- 
- 		dprintk("tx_done_idx=%d free_idx=%d cmdsts=%08x\n",
- 			tx_done_idx, dev->tx_free_idx, cmdsts);
-@@ -1212,20 +1211,21 @@ again:
- 
- static void ns83820_update_stats(struct ns83820 *dev)
+ 				int rstat;
+ 				 /* free all RBD's until RBD_LAST is set */
+@@ -993,12 +992,12 @@ static void ni52_rcv_int(struct net_device *dev)
+ 				writew(0, &rbd->status);
+ 				printk(KERN_ERR "%s: received oversized frame! length: %d\n",
+ 					dev->name, totlen);
+-				p->stats.rx_dropped++;
++				dev->stats.rx_dropped++;
+ 			 }
+ 		} else {/* frame !(ok), only with 'save-bad-frames' */
+ 			printk(KERN_ERR "%s: oops! rfd-error-status: %04x\n",
+ 				dev->name, status);
+-			p->stats.rx_errors++;
++			dev->stats.rx_errors++;
+ 		}
+ 		writeb(0, &p->rfd_top->stat_high);
+ 		writeb(RFD_SUSP, &p->rfd_top->last); /* maybe exchange by RFD_LAST */
+@@ -1043,7 +1042,7 @@ static void ni52_rnr_int(struct net_device *dev)
  {
-+	struct net_device *ndev = dev->ndev;
- 	u8 __iomem *base = dev->base;
+ 	struct priv *p = netdev_priv(dev);
  
- 	/* the DP83820 will freeze counters, so we need to read all of them */
--	dev->stats.rx_errors		+= readl(base + 0x60) & 0xffff;
--	dev->stats.rx_crc_errors	+= readl(base + 0x64) & 0xffff;
--	dev->stats.rx_missed_errors	+= readl(base + 0x68) & 0xffff;
--	dev->stats.rx_frame_errors	+= readl(base + 0x6c) & 0xffff;
--	/*dev->stats.rx_symbol_errors +=*/ readl(base + 0x70);
--	dev->stats.rx_length_errors	+= readl(base + 0x74) & 0xffff;
--	dev->stats.rx_length_errors	+= readl(base + 0x78) & 0xffff;
--	/*dev->stats.rx_badopcode_errors += */ readl(base + 0x7c);
--	/*dev->stats.rx_pause_count += */  readl(base + 0x80);
--	/*dev->stats.tx_pause_count += */  readl(base + 0x84);
--	dev->stats.tx_carrier_errors	+= readl(base + 0x88) & 0xff;
-+	ndev->stats.rx_errors		+= readl(base + 0x60) & 0xffff;
-+	ndev->stats.rx_crc_errors	+= readl(base + 0x64) & 0xffff;
-+	ndev->stats.rx_missed_errors	+= readl(base + 0x68) & 0xffff;
-+	ndev->stats.rx_frame_errors	+= readl(base + 0x6c) & 0xffff;
-+	/*ndev->stats.rx_symbol_errors +=*/ readl(base + 0x70);
-+	ndev->stats.rx_length_errors	+= readl(base + 0x74) & 0xffff;
-+	ndev->stats.rx_length_errors	+= readl(base + 0x78) & 0xffff;
-+	/*ndev->stats.rx_badopcode_errors += */ readl(base + 0x7c);
-+	/*ndev->stats.rx_pause_count += */  readl(base + 0x80);
-+	/*ndev->stats.tx_pause_count += */  readl(base + 0x84);
-+	ndev->stats.tx_carrier_errors	+= readl(base + 0x88) & 0xff;
+-	p->stats.rx_errors++;
++	dev->stats.rx_errors++;
+ 
+ 	wait_for_scb_cmd(dev);		/* wait for the last cmd, WAIT_4_FULLSTAT?? */
+ 	writeb(RUC_ABORT, &p->scb->cmd_ruc); /* usually the RU is in the 'no resource'-state .. abort it now. */
+@@ -1076,29 +1075,29 @@ static void ni52_xmt_int(struct net_device *dev)
+ 		printk(KERN_ERR "%s: strange .. xmit-int without a 'COMPLETE'\n", dev->name);
+ 
+ 	if (status & STAT_OK) {
+-		p->stats.tx_packets++;
+-		p->stats.collisions += (status & TCMD_MAXCOLLMASK);
++		dev->stats.tx_packets++;
++		dev->stats.collisions += (status & TCMD_MAXCOLLMASK);
+ 	} else {
+-		p->stats.tx_errors++;
++		dev->stats.tx_errors++;
+ 		if (status & TCMD_LATECOLL) {
+ 			printk(KERN_ERR "%s: late collision detected.\n",
+ 				dev->name);
+-			p->stats.collisions++;
++			dev->stats.collisions++;
+ 		} else if (status & TCMD_NOCARRIER) {
+-			p->stats.tx_carrier_errors++;
++			dev->stats.tx_carrier_errors++;
+ 			printk(KERN_ERR "%s: no carrier detected.\n",
+ 				dev->name);
+ 		} else if (status & TCMD_LOSTCTS)
+ 			printk(KERN_ERR "%s: loss of CTS detected.\n",
+ 				dev->name);
+ 		else if (status & TCMD_UNDERRUN) {
+-			p->stats.tx_fifo_errors++;
++			dev->stats.tx_fifo_errors++;
+ 			printk(KERN_ERR "%s: DMA underrun detected.\n",
+ 				dev->name);
+ 		} else if (status & TCMD_MAXCOLL) {
+ 			printk(KERN_ERR "%s: Max. collisions exceeded.\n",
+ 				dev->name);
+-			p->stats.collisions += 16;
++			dev->stats.collisions += 16;
+ 		}
+ 	}
+ #if (NUM_XMIT_BUFFS > 1)
+@@ -1286,12 +1285,12 @@ static struct net_device_stats *ni52_get_stats(struct net_device *dev)
+ 	ovrn = readw(&p->scb->ovrn_errs);
+ 	writew(0, &p->scb->ovrn_errs);
+ 
+-	p->stats.rx_crc_errors += crc;
+-	p->stats.rx_fifo_errors += ovrn;
+-	p->stats.rx_frame_errors += aln;
+-	p->stats.rx_dropped += rsc;
++	dev->stats.rx_crc_errors += crc;
++	dev->stats.rx_fifo_errors += ovrn;
++	dev->stats.rx_frame_errors += aln;
++	dev->stats.rx_dropped += rsc;
+ 
+-	return &p->stats;
++	return &dev->stats;
  }
  
- static struct net_device_stats *ns83820_get_stats(struct net_device *ndev)
-@@ -1237,7 +1237,7 @@ static struct net_device_stats *ns83820_get_stats(struct net_device *ndev)
- 	ns83820_update_stats(dev);
- 	spin_unlock_irq(&dev->misc_lock);
- 
--	return &dev->stats;
-+	return &ndev->stats;
- }
- 
- /* Let ethtool retrieve info */
-@@ -1464,12 +1464,12 @@ static void ns83820_do_isr(struct net_device *ndev, u32 isr)
- 
- 	if (unlikely(ISR_RXSOVR & isr)) {
- 		//printk("overrun: rxsovr\n");
--		dev->stats.rx_fifo_errors ++;
-+		ndev->stats.rx_fifo_errors++;
- 	}
- 
- 	if (unlikely(ISR_RXORN & isr)) {
- 		//printk("overrun: rxorn\n");
--		dev->stats.rx_fifo_errors ++;
-+		ndev->stats.rx_fifo_errors++;
- 	}
- 
- 	if ((ISR_RXRCMP & isr) && dev->rx_info.up)
+ /********************************************************
 -- 
 1.7.0.4
