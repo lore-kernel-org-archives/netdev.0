@@ -1,152 +1,126 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Possible bug in net/ipv4/route.c?
-Date: Mon, 5 Jul 2010 11:03:28 -0700
-Message-ID: <20100705110328.65702fc1@nehalam>
-References: <CB2DD11991B27C4F99935E6229450D3205B28E91@STORK.scenix.com>
-	<20100705120413.GA6219@gondor.apana.org.au>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: Re: setsockopt(IP_TOS) being privileged or distinct capability?
+Date: Mon, 05 Jul 2010 12:04:31 -0600
+Message-ID: <4C321EAF.9000508@redfish-solutions.com>
+References: <4C2F7A55.5090700@redfish-solutions.com> <2md4g7-3s3.ln1@chipmunk.wormnet.eu> <4C2FC2C8.8080203@redfish-solutions.com> <20100703234813.GJ24655@chipmunk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sol Kavy <skavy@ubicom.com>, linux-kernel@vger.kernel.org,
-	gren@ubicom.com, gjin@ubicom.com, msezgin@ubicom.com,
-	silgen@ubicom.com, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Alexander Clouter <alex@digriz.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39378 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751695Ab0GESDe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 14:03:34 -0400
-In-Reply-To: <20100705120413.GA6219@gondor.apana.org.au>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:46950 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752043Ab0GESEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 14:04:40 -0400
+In-Reply-To: <20100703234813.GJ24655@chipmunk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 5 Jul 2010 20:04:13 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On 7/3/10 5:48 PM, Alexander Clouter wrote:
+> Hi,
+>
+> * Philip Prindeville<philipp_subx@redfish-solutions.com>  [2010-07-03 17:07:52-0600]:
+>    
+>> On 7/3/10 12:55 PM, Alexander Clouter wrote:
+>>      
+>>>
+>>>        
+>>>> Does anyone else think that setsockopt(IP_TOS) should be a privileged
+>>>> operation, perhaps using CAP_NET_ADMIN, or maybe even adding separate
+>>>> granularity as CAP_NET_TOS?
+>>>>
+>>>>
+>>>>          
+>>> I really would prefer not having to run telnet and ssh *clients* as
+>>> root. :)
+>>>        
+>> Don't ping and traceroute -I currently run as root?
+>>
+>>      
+> Indeed, but I have no idea what that has to do with ToS/DSCP flags?
+>    
 
-> Sol Kavy <skavy@ubicom.com> wrote:
-> > Found Linux: 2.6.28
-> > Arch: Ubicom32 <not yet pushed>
-> > Project: uCLinux based Router
-> > Test: Bit torrent Stress Test
-> >=20
-> > Note: The top of Linus git net/ipv4/route.c appears to have the sam=
-e issue.
-> >=20
-> > The following is a patch for clearing out IP options area in an inp=
-ut skb during link failure processing.=A0 Without this patch, the icmp_=
-send() can result in a call to ip_options_echo() where the common buffe=
-r area of the skb is incorrectly interpreted.=A0 Depending on the previ=
-ous use of the skb->cb[], the interpreted option length values can caus=
-e stack corruption by copying more than 40 bytes to the output options.
-> >=20
-> > In our case, a driver is using the skb->cb[] area to hold driver sp=
-ecific data.   The driver is not zeroing out the area after use.  I can=
- see three basic solutions:
-> >=20
-> > 1) Drivers are not allowed to use the skb->cb[] area at all.  Ubico=
-m should modify the driver to use a different approach.
-> >=20
-> > 2) The layer using skb->cb[] should clear this area after use and b=
-efore handing the skb to another layer.  Ubicom should modify the drive=
-r to clear the skb->cb[] area before sending it up the line.
-> >=20
-> > 3) Any layer that "uses" the skb->cb[] area must clear the area bef=
-ore use.  In which case, the proposed patch would fix the problem for t=
-he ipv4_link_failure().  I believe that this is the correct fix because=
- I see ip_rcv() clears the skb->cb[] before using it.
-> >=20
-> > Can someone confirm that this is the appropriate fix?=A0 If this is=
- documented somewhere, please direct me to the documentation.
->=20
-> Thanks for the report!
-> =20
-> > Patch:=A0=20
-> >=20
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index 125ee64..d13805f 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -1606,6 +1606,14 @@ static void ipv4_link_failure(struct sk_buff=
- *skb)
-> > {
-> > =A0=A0=A0=A0=A0=A0=A0 struct rtable *rt;
-> >=20
-> > +=A0=A0=A0=A0 =A0=A0/*
-> > +=A0=A0=A0=A0=A0=A0=A0=A0 * Since link failure can be called with s=
-kbs from many layers (see arp)
-> > +=A0=A0=A0=A0=A0=A0=A0=A0 * the cb area of the skb must be cleared =
-before use. Because the cb area=20
-> > +=A0=A0=A0=A0=A0=A0=A0=A0 * can be formatted according to the calle=
-r layer's cb area format and it may cause
-> > +=A0=A0=A0=A0=A0=A0=A0=A0 * corruptions when it is handled in a dif=
-ferent network layer.
-> > +=A0=A0=A0=A0=A0=A0=A0=A0 */
-> > +=A0=A0=A0=A0=A0=A0 memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->=
-opt));
-> > =A0=A0=A0=A0=A0=A0=A0 icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_U=
-NREACH, 0);
-> > =A0=A0=A0=A0=A0=A0=A0=A0rt =3D skb->rtable;
-> >=20
-> > The packet is enqueud by:
-> > do_IRQ()->do_softirq()->__do_softirq()->net_rx_action()->ubi32_eth_=
-napi_poll()->ubi32_eth_receive()->__vlan_hwaccel_rx()->netif_receive_sk=
-b()->br_handle_frame()->nf_hook_slow()->br_nf_pre_routing_finish()->br_=
-nfr_pre_routing_finish_bridge()->neight_resolve_output()->__neigh_event=
-_send().
-> >=20
-> > The packet is then dequeued by:=20
-> > do_IRQ() -> irq_exit() -> do_softirq() -> run_timer_softirq() -> ne=
-igh_timer_handler() -> arp_error_report() -> ipv4_link_failure() -> icm=
-p_send() -> ip_options_echo().
-> >=20
-> > Because the Ubicom Ethernet driver overwrites the common buffer are=
-a, the enqueued packet contains garbage when casted as an IP options da=
-ta structure.  This results in ip_options_echo() miss reading the optio=
-n length information and overwriting memory.=A0 By clearing the skb->cb=
-[] before processing the icmp_send() against the packet, we ensure that=
- ip_options_echo() does not corrupt memory.=A0=A0=20
->=20
-> Generally this area should be cleared on entry to each stack
-> intending on using it.  So in this case, I'd point the finger
-> of blame at the bridge stack for letting this packet into the
-> IP stack through the back entrance without taking the proper
-> precautions.
+The logic being that if having a RAW socket requires privilege, but it's 
+necessary to have reasonable security for user-invokable programs... and 
+we manage to do this without too much trouble for those to programs, 
+then it shouldn't be an undue hardship to do the same for ssh.
 
-The CB is used in two places in the bridge code.
-1) The recent multicast changes (IGMP)
-2) Netfilter / ebtables to store header.
+> ping and (old skool) traceroute use ICMP where you need to open a
+> privileged socket; to send and receive ICMP packets.  Opening a UDP/TCP
+> is an unprivileged operation and so is setsockopt(IP_TOS).
+>    
 
-Ebtables is okay because the only part of the cb[] it uses
-is the incoming device (brdev) which is always initialized coming into
-the bridge: br_dev_xmit and br_handle_frame_finish
+Right.  And I'm saying because of the potentially disruptive nature of 
+setsockopt(IP_TOS), perhaps it should require privilege.
 
-The IGMP code looks buggy.
 
-/* net device transmit always called with no BH (preempt_disabled) */
-netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-=2E.. [A]
-	BR_INPUT_SKB_CB(skb)->brdev =3D dev;
+> I'm guessing, if you excuse me Google-stalking you), this is all linked
+> to:
+>
+> https://bugzilla.mindrot.org/show_bug.cgi?id=1733
+>    
 
-	skb_reset_mac_header(skb);
-	skb_pull(skb, ETH_HLEN);
+That would be a very good guess.
 
-	if (is_multicast_ether_addr(dest)) {
-		if (br_multicast_rcv(br, NULL, skb))
-			goto out;
+And google-stalking is fine.  I draw the line at leaving dead cats at my 
+front door.
 
-		mdst =3D br_mdb_get(br, skb);
-		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
-			... [B]
 
-The problem is that br_dev_xmit is looking at flags in the CB[] that
-are uninitialized.
+> You have to bear in mind ToS is a marking that userland can utilise to
+> request that the network provides it with a particular QoS, this does
+> not mean for an instant the network has to honour that (I know my ISP
+> does not and neither does my work network I sysadmin for)...otherwise
+> nothing would stop me using:
+>    
 
-if br_dev_xmit cleared the CB at [A] the mrouters_only would always be =
-zero
-at [B].
+I understand that.  That's part of the reason that I've submitted 
+patches for APR, Apache, Thunderbird, Firefox, Proftpd, Curl, wget, 
+etc.  There is pressure within certain technical groups to get ISP's to 
+voluntarily implement RFC-4594... that's the carrot.  The stick being 
+FCC heavy-handed regulation of the ISP's if they don't.
 
-Where should the mrouters and igmp_only fields in skb be initialized?
+Once QoS markings actually *are* implemented in carrier networks, the 
+potential for abuse is non-insignificant.  Hence the suggestion to make 
+it privileged.
 
+
+> iptables -t mangle -I POSTROUTING -j DSCP --set-dscp-class EF
+>    
+
+Except that "iptables" is also a privileged operation.
+
+
+> QoS is meaningless unless you place boundaries on the policies; the
+> ToS/DSCP marking should only be used as a *hint* for classification of
+> traffic flows.
+>    
+
+Like I said, there's an effort to push the ISP's into implementing 
+RFC-4594 widespread.  Their previous arguments for not doing so were (a) 
+most software doesn't implement QoS (hence the scrub I did above), and 
+(b) there were no standard markings.  RFC-4594 attempts to impose a 
+standard.
+
+
+> For example, 'interactive' and 'low latency' (in the case of SSH or
+> telnet) should not exceed 10kB/s...unless you like to play 0verkill :)
+> Anything marking it's traffic as interactive but shutting traffic at
+> 500kB/s is obviously telling lies.  If you build your policing rules to
+> blindly accept whatever is in the ToS/DSCP field, you are configuring a
+> DoS vector on your network.
+>
+> Cheers
+>
+>    
+
+When you say "interactive" and "low latency" are you referring to the 
+RFC-791 mappings for those, or to the RFC-4594 mappings of those classes?
+
+Here we use Arno's Iptables Firewall with the traffic-shaper plugin I 
+wrote.  This does shaping and policing within traffic classes.
+
+And yes, doing an out-of-the-box shaper for Fedora is on my TODO list.
+
+-Philip
 
