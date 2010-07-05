@@ -1,60 +1,37 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next-2.6 v2] ipv6: adding ip_nonlocal_bind option
-	from ipv4
-Date: Mon, 05 Jul 2010 19:30:32 +0900
-Message-ID: <1278325832.19358.33.camel@sylph.linux-ipv6.org>
-References: <201007051212.31554.michal.humpula@web4u.cz>
+From: "Lloyds Tsb Bank Plc" <digitsoft@digitsoft.dk>
+Subject: Partnership Request
+Date: Mon, 5 Jul 2010 11:30:37 +0100
+Message-ID: <20100705103328.BB34B5868A1@smtp1.cybercity.dk>
+Reply-To: <jwdjames@qatar.io>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="Windows-1251"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Michal Humpula <michal.humpula@web4u.cz>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:47925 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755244Ab0GEK3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 06:29:17 -0400
-In-Reply-To: <201007051212.31554.michal.humpula@web4u.cz>
+Received: from cicero-fbr1.cybercity.dk ([212.242.40.5]:54071 "EHLO
+	cicero-fbr1.cybercity.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752984Ab0GEKbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 06:31:47 -0400
+Received: from smtp1.cybercity.dk (smtp1.cybercity.dk [212.242.43.251])
+	by cicero-fbr1.cybercity.dk (Postfix) with ESMTP id F3D733D2503
+	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 12:31:46 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hello,
 
-Mails are crossing, but additional comments below.
+I am Mr. Jawad James, Credit Accounting officer of Lloyds TSB Bank.
+I am contacting you for a possible business transfer worth 122.5 Million Pounds. 
+It will be in my interest to finish this transaction with you hoping that you will not cheat or blackmail me at the conclusion of this goal because i have planned it for long.
 
-Michal Humpula wrote:
+If you can be a collaborator to this transaction, please indicate your positive interest immediately for us to proceed. Remember this is absolutely confidential because my Bank does not know about it. 
 
-> diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
-> index 1357c57..525edae 100644
-> --- a/kernel/sysctl_binary.c
-> +++ b/kernel/sysctl_binary.c
-> @@ -559,6 +559,7 @@ static const struct bin_table bin_net_ipv6_table[] = {
->  	{ CTL_DIR,	NET_IPV6_ROUTE,		"route",	bin_net_ipv6_route_table },
->  	{ CTL_DIR,	NET_IPV6_ICMP,		"icmp",		bin_net_ipv6_icmp_table },
->  	{ CTL_INT,	NET_IPV6_BINDV6ONLY,		"bindv6only" },
-> +	{ CTL_INT,	NET_IPV6_NONLOCAL_BIND,		"ipv6_nonlocal_bind" },
->  	{ CTL_INT,	NET_IPV6_IP6FRAG_HIGH_THRESH,	"ip6frag_high_thresh" },
->  	{ CTL_INT,	NET_IPV6_IP6FRAG_LOW_THRESH,	"ip6frag_low_thresh" },
->  	{ CTL_INT,	NET_IPV6_IP6FRAG_TIME,		"ip6frag_time" },
+Your contact phone numbers and name will be necessary for this effect.
+Thank you for your time and attention.
 
-No more binary interface.
+Warmest regards,
 
-> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> index e830cd4..ed59ec4 100644
-> --- a/net/ipv6/af_inet6.c
-> +++ b/net/ipv6/af_inet6.c
-> @@ -252,6 +252,8 @@ out_rcu_unlock:
->  	goto out;
->  }
->  
-> +int sysctl_ipv6_nonlocal_bind __read_mostly;
-> +EXPORT_SYMBOL(sysctl_ipv6_nonlocal_bind);
->  
-
-why?
-
-In IPv4 it seems to be exported for SCTP. Probably you need to
-look into SCTP as well.
-
---yoshfuji
-
+Mr. Jawad James
+Credit Accounting Officer,
+Lloyds TSB Bank
