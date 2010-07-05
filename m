@@ -1,37 +1,48 @@
-From: "Lloyds Tsb Bank Plc" <digitsoft@digitsoft.dk>
-Subject: Partnership Request
-Date: Mon, 5 Jul 2010 11:30:37 +0100
-Message-ID: <20100705103328.BB34B5868A1@smtp1.cybercity.dk>
-Reply-To: <jwdjames@qatar.io>
+From: Ofer Heifetz <oferh@marvell.com>
+Subject: RE: Splice status
+Date: Mon, 5 Jul 2010 13:52:06 +0300
+Message-ID: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
+References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
+ <AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cicero-fbr1.cybercity.dk ([212.242.40.5]:54071 "EHLO
-	cicero-fbr1.cybercity.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752984Ab0GEKbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 06:31:47 -0400
-Received: from smtp1.cybercity.dk (smtp1.cybercity.dk [212.242.43.251])
-	by cicero-fbr1.cybercity.dk (Postfix) with ESMTP id F3D733D2503
-	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 12:31:46 +0200 (CEST)
+Received: from galiil.marvell.com ([199.203.130.254]:63081 "EHLO
+	galiil.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750733Ab0GEKxT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 06:53:19 -0400
+In-Reply-To: <AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+I am using Samba, so from my understanding of the source code, it loops and performs splice(sock, pipe) and splice(pipe, fd). There is no flush of any sort in between.
 
-I am Mr. Jawad James, Credit Accounting officer of Lloyds TSB Bank.
-I am contacting you for a possible business transfer worth 122.5 Million Pounds. 
-It will be in my interest to finish this transaction with you hoping that you will not cheat or blackmail me at the conclusion of this goal because i have planned it for long.
+When you say drain you mean to flush all data to pipe?
 
-If you can be a collaborator to this transaction, please indicate your positive interest immediately for us to proceed. Remember this is absolutely confidential because my Bank does not know about it. 
+-Ofer
 
-Your contact phone numbers and name will be necessary for this effect.
-Thank you for your time and attention.
+-----Original Message-----
+From: Changli Gao [mailto:xiaosuo@gmail.com] 
+Sent: Monday, July 05, 2010 12:59 PM
+To: Ofer Heifetz
+Cc: netdev@vger.kernel.org
+Subject: Re: Splice status
 
-Warmest regards,
+On Mon, Jul 5, 2010 at 5:26 PM, Ofer Heifetz <oferh@marvell.com> wrote:
+> Hi
+>
+> I have been trying to test splice on kernel 2.6.35_4 (x86) from Samba (v3.4.7) but could not copy more than ~60MB to the Samba server share.
+>
+> Strace shows that the splice got stuck in blocking mode on the splice call from socket to pipe.
+>
 
-Mr. Jawad James
-Credit Accounting Officer,
-Lloyds TSB Bank
+Did you drain the pipe before calling splice(2) to move data from
+socket to pipe?
+
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
