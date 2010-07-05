@@ -1,13 +1,12 @@
 From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH] lance: Use the instance of net_device_stats from net_device.
-Date: Mon,  5 Jul 2010 16:14:03 +0400
-Message-ID: <1278332046-17195-1-git-send-email-segooon@gmail.com>
+Subject: [PATCH] hamachi: Use the instance of net_device_stats from net_device.
+Date: Mon,  5 Jul 2010 16:13:41 +0400
+Message-ID: <1278332023-16524-1-git-send-email-segooon@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
+	Joe Perches <joe@perches.com>, Jiri Pirko <jpirko@redhat.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
 	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -18,158 +17,138 @@ we can remove the instance of this from the adapter structure.
 
 Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 ---
- drivers/net/lance.c |   56 +++++++++++++++++++++++++++++---------------------
- 1 files changed, 32 insertions(+), 24 deletions(-)
+ drivers/net/hamachi.c |   63 ++++++++++++++++++++++++++++--------------------
+ 1 files changed, 37 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/lance.c b/drivers/net/lance.c
-index 21f8ada..f06296b 100644
---- a/drivers/net/lance.c
-+++ b/drivers/net/lance.c
-@@ -248,7 +248,6 @@ struct lance_private {
- 	int cur_rx, cur_tx;			/* The next free ring entry */
- 	int dirty_rx, dirty_tx;		/* The ring entries to be free()ed. */
- 	int dma;
+diff --git a/drivers/net/hamachi.c b/drivers/net/hamachi.c
+index 61f2b1c..49aac70 100644
+--- a/drivers/net/hamachi.c
++++ b/drivers/net/hamachi.c
+@@ -492,7 +492,6 @@ struct hamachi_private {
+ 	struct sk_buff* tx_skbuff[TX_RING_SIZE];
+ 	dma_addr_t tx_ring_dma;
+ 	dma_addr_t rx_ring_dma;
 -	struct net_device_stats stats;
- 	unsigned char chip_version;	/* See lance_chip_type. */
- 	spinlock_t devlock;
- };
-@@ -925,7 +924,7 @@ static void lance_tx_timeout (struct net_device *dev)
- 	printk ("%s: transmit timed out, status %4.4x, resetting.\n",
- 		dev->name, inw (ioaddr + LANCE_DATA));
- 	outw (0x0004, ioaddr + LANCE_DATA);
--	lp->stats.tx_errors++;
+ 	struct timer_list timer;		/* Media selection timer. */
+ 	/* Frequently used and paired value: keep adjacent for cache effect. */
+ 	spinlock_t lock;
+@@ -1036,7 +1035,7 @@ static inline int hamachi_tx(struct net_device *dev)
+ 		if (entry >= TX_RING_SIZE-1)
+ 			hmp->tx_ring[TX_RING_SIZE-1].status_n_length |=
+ 				cpu_to_le32(DescEndRing);
+-		hmp->stats.tx_packets++;
++		dev->stats.tx_packets++;
+ 	}
+ 
+ 	return 0;
+@@ -1167,7 +1166,7 @@ static void hamachi_tx_timeout(struct net_device *dev)
+ 
+ 	/* Trigger an immediate transmit demand. */
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
+-	hmp->stats.tx_errors++;
 +	dev->stats.tx_errors++;
- #ifndef final_version
- 	if (lance_debug > 3) {
- 		int i;
-@@ -989,7 +988,7 @@ static netdev_tx_t lance_start_xmit(struct sk_buff *skb,
  
- 	lp->tx_ring[entry].misc = 0x0000;
- 
--	lp->stats.tx_bytes += skb->len;
-+	dev->stats.tx_bytes += skb->len;
- 
- 	/* If any part of this buffer is >16M we must copy it to a low-memory
- 	   buffer. */
-@@ -1062,13 +1061,16 @@ static irqreturn_t lance_interrupt(int irq, void *dev_id)
- 				if (status & 0x40000000) {
- 					/* There was an major error, log it. */
- 					int err_status = lp->tx_ring[entry].misc;
--					lp->stats.tx_errors++;
--					if (err_status & 0x0400) lp->stats.tx_aborted_errors++;
--					if (err_status & 0x0800) lp->stats.tx_carrier_errors++;
--					if (err_status & 0x1000) lp->stats.tx_window_errors++;
-+					dev->stats.tx_errors++;
-+					if (err_status & 0x0400)
-+						dev->stats.tx_aborted_errors++;
-+					if (err_status & 0x0800)
-+						dev->stats.tx_carrier_errors++;
-+					if (err_status & 0x1000)
-+						dev->stats.tx_window_errors++;
- 					if (err_status & 0x4000) {
- 						/* Ackk!  On FIFO errors the Tx unit is turned off! */
--						lp->stats.tx_fifo_errors++;
-+						dev->stats.tx_fifo_errors++;
- 						/* Remove this verbosity later! */
- 						printk("%s: Tx FIFO error! Status %4.4x.\n",
- 							   dev->name, csr0);
-@@ -1077,8 +1079,8 @@ static irqreturn_t lance_interrupt(int irq, void *dev_id)
- 					}
- 				} else {
- 					if (status & 0x18000000)
--						lp->stats.collisions++;
--					lp->stats.tx_packets++;
-+						dev->stats.collisions++;
+ 	/* Restart the chip's Tx/Rx processes . */
+ 	writew(0x0002, ioaddr + TxCmd); /* STOP Tx */
+@@ -1434,7 +1433,7 @@ static irqreturn_t hamachi_interrupt(int irq, void *dev_instance)
+ 					if (entry >= TX_RING_SIZE-1)
+ 						hmp->tx_ring[TX_RING_SIZE-1].status_n_length |=
+ 							cpu_to_le32(DescEndRing);
+-					hmp->stats.tx_packets++;
 +					dev->stats.tx_packets++;
  				}
- 
- 				/* We must free the original skb if it's not a data-only copy
-@@ -1108,8 +1110,10 @@ static irqreturn_t lance_interrupt(int irq, void *dev_id)
- 		}
- 
- 		/* Log misc errors. */
--		if (csr0 & 0x4000) lp->stats.tx_errors++; /* Tx babble. */
--		if (csr0 & 0x1000) lp->stats.rx_errors++; /* Missed a Rx frame. */
-+		if (csr0 & 0x4000)
-+			dev->stats.tx_errors++; /* Tx babble. */
-+		if (csr0 & 0x1000)
-+			dev->stats.rx_errors++; /* Missed a Rx frame. */
- 		if (csr0 & 0x0800) {
- 			printk("%s: Bus master arbitration failure, status %4.4x.\n",
- 				   dev->name, csr0);
-@@ -1155,11 +1159,15 @@ lance_rx(struct net_device *dev)
- 			   buffers it's possible for a jabber packet to use two
- 			   buffers, with only the last correctly noting the error. */
- 			if (status & 0x01)	/* Only count a general error at the */
--				lp->stats.rx_errors++; /* end of a packet.*/
--			if (status & 0x20) lp->stats.rx_frame_errors++;
--			if (status & 0x10) lp->stats.rx_over_errors++;
--			if (status & 0x08) lp->stats.rx_crc_errors++;
--			if (status & 0x04) lp->stats.rx_fifo_errors++;
-+				dev->stats.rx_errors++; /* end of a packet.*/
-+			if (status & 0x20)
+ 				if (hmp->cur_tx - hmp->dirty_tx < TX_RING_SIZE - 4){
+ 					/* The ring is no longer full */
+@@ -1525,18 +1524,22 @@ static int hamachi_rx(struct net_device *dev)
+ 				   le32_to_cpu(hmp->rx_ring[(hmp->cur_rx+1) % RX_RING_SIZE].status_n_length) & 0xffff0000,
+ 				   le32_to_cpu(hmp->rx_ring[(hmp->cur_rx+1) % RX_RING_SIZE].status_n_length) & 0x0000ffff,
+ 				   le32_to_cpu(hmp->rx_ring[(hmp->cur_rx-1) % RX_RING_SIZE].status_n_length));
+-			hmp->stats.rx_length_errors++;
++			dev->stats.rx_length_errors++;
+ 		} /* else  Omit for prototype errata??? */
+ 		if (frame_status & 0x00380000) {
+ 			/* There was an error. */
+ 			if (hamachi_debug > 2)
+ 				printk(KERN_DEBUG "  hamachi_rx() Rx error was %8.8x.\n",
+ 					   frame_status);
+-			hmp->stats.rx_errors++;
+-			if (frame_status & 0x00600000) hmp->stats.rx_length_errors++;
+-			if (frame_status & 0x00080000) hmp->stats.rx_frame_errors++;
+-			if (frame_status & 0x00100000) hmp->stats.rx_crc_errors++;
+-			if (frame_status < 0) hmp->stats.rx_dropped++;
++			dev->stats.rx_errors++;
++			if (frame_status & 0x00600000)
++				dev->stats.rx_length_errors++;
++			if (frame_status & 0x00080000)
 +				dev->stats.rx_frame_errors++;
-+			if (status & 0x10)
-+				dev->stats.rx_over_errors++;
-+			if (status & 0x08)
++			if (frame_status & 0x00100000)
 +				dev->stats.rx_crc_errors++;
-+			if (status & 0x04)
-+				dev->stats.rx_fifo_errors++;
- 			lp->rx_ring[entry].base &= 0x03ffffff;
++			if (frame_status < 0)
++				dev->stats.rx_dropped++;
+ 		} else {
+ 			struct sk_buff *skb;
+ 			/* Omit CRC */
+@@ -1654,7 +1657,7 @@ static int hamachi_rx(struct net_device *dev)
+ #endif  /* RX_CHECKSUM */
+ 
+ 			netif_rx(skb);
+-			hmp->stats.rx_packets++;
++			dev->stats.rx_packets++;
  		}
- 		else
-@@ -1171,7 +1179,7 @@ lance_rx(struct net_device *dev)
- 			if(pkt_len<60)
- 			{
- 				printk("%s: Runt packet!\n",dev->name);
--				lp->stats.rx_errors++;
-+				dev->stats.rx_errors++;
- 			}
- 			else
- 			{
-@@ -1185,7 +1193,7 @@ lance_rx(struct net_device *dev)
- 
- 					if (i > RX_RING_SIZE -2)
- 					{
--						lp->stats.rx_dropped++;
-+						dev->stats.rx_dropped++;
- 						lp->rx_ring[entry].base |= 0x80000000;
- 						lp->cur_rx++;
- 					}
-@@ -1198,8 +1206,8 @@ lance_rx(struct net_device *dev)
- 					pkt_len);
- 				skb->protocol=eth_type_trans(skb,dev);
- 				netif_rx(skb);
--				lp->stats.rx_packets++;
--				lp->stats.rx_bytes+=pkt_len;
-+				dev->stats.rx_packets++;
-+				dev->stats.rx_bytes += pkt_len;
- 			}
- 		}
- 		/* The docs say that the buffer length isn't touched, but Andrew Boyd
-@@ -1225,7 +1233,7 @@ lance_close(struct net_device *dev)
- 
- 	if (chip_table[lp->chip_version].flags & LANCE_HAS_MISSED_FRAME) {
- 		outw(112, ioaddr+LANCE_ADDR);
--		lp->stats.rx_missed_errors = inw(ioaddr+LANCE_DATA);
-+		dev->stats.rx_missed_errors = inw(ioaddr+LANCE_DATA);
+ 		entry = (++hmp->cur_rx) % RX_RING_SIZE;
  	}
- 	outw(0, ioaddr+LANCE_ADDR);
+@@ -1724,9 +1727,9 @@ static void hamachi_error(struct net_device *dev, int intr_status)
+ 		       dev->name, intr_status);
+ 	/* Hmmmmm, it's not clear how to recover from PCI faults. */
+ 	if (intr_status & (IntrTxPCIErr | IntrTxPCIFault))
+-		hmp->stats.tx_fifo_errors++;
++		dev->stats.tx_fifo_errors++;
+ 	if (intr_status & (IntrRxPCIErr | IntrRxPCIFault))
+-		hmp->stats.rx_fifo_errors++;
++		dev->stats.rx_fifo_errors++;
+ }
  
-@@ -1262,12 +1270,12 @@ static struct net_device_stats *lance_get_stats(struct net_device *dev)
- 		spin_lock_irqsave(&lp->devlock, flags);
- 		saved_addr = inw(ioaddr+LANCE_ADDR);
- 		outw(112, ioaddr+LANCE_ADDR);
--		lp->stats.rx_missed_errors = inw(ioaddr+LANCE_DATA);
-+		dev->stats.rx_missed_errors = inw(ioaddr+LANCE_DATA);
- 		outw(saved_addr, ioaddr+LANCE_ADDR);
- 		spin_unlock_irqrestore(&lp->devlock, flags);
- 	}
- 
--	return &lp->stats;
+ static int hamachi_close(struct net_device *dev)
+@@ -1828,19 +1831,27 @@ static struct net_device_stats *hamachi_get_stats(struct net_device *dev)
+            so I think I'll comment it out here and see if better things
+            happen.
+         */
+-	/* hmp->stats.tx_packets	= readl(ioaddr + 0x000); */
+-
+-	hmp->stats.rx_bytes = readl(ioaddr + 0x330); /* Total Uni+Brd+Multi */
+-	hmp->stats.tx_bytes = readl(ioaddr + 0x3B0); /* Total Uni+Brd+Multi */
+-	hmp->stats.multicast		= readl(ioaddr + 0x320); /* Multicast Rx */
+-
+-	hmp->stats.rx_length_errors	= readl(ioaddr + 0x368); /* Over+Undersized */
+-	hmp->stats.rx_over_errors	= readl(ioaddr + 0x35C); /* Jabber */
+-	hmp->stats.rx_crc_errors	= readl(ioaddr + 0x360); /* Jabber */
+-	hmp->stats.rx_frame_errors	= readl(ioaddr + 0x364); /* Symbol Errs */
+-	hmp->stats.rx_missed_errors	= readl(ioaddr + 0x36C); /* Dropped */
+-
+-	return &hmp->stats;
++	/* dev->stats.tx_packets	= readl(ioaddr + 0x000); */
++
++	/* Total Uni+Brd+Multi */
++	dev->stats.rx_bytes = readl(ioaddr + 0x330);
++	/* Total Uni+Brd+Multi */
++	dev->stats.tx_bytes = readl(ioaddr + 0x3B0);
++	/* Multicast Rx */
++	dev->stats.multicast = readl(ioaddr + 0x320);
++
++	/* Over+Undersized */
++	dev->stats.rx_length_errors = readl(ioaddr + 0x368);
++	/* Jabber */
++	dev->stats.rx_over_errors = readl(ioaddr + 0x35C);
++	/* Jabber */
++	dev->stats.rx_crc_errors = readl(ioaddr + 0x360);
++	/* Symbol Errs */
++	dev->stats.rx_frame_errors = readl(ioaddr + 0x364);
++	/* Dropped */
++	dev->stats.rx_missed_errors = readl(ioaddr + 0x36C);
++
 +	return &dev->stats;
  }
  
- /* Set or clear the multicast filter for this adaptor.
+ static void set_rx_mode(struct net_device *dev)
 -- 
 1.7.0.4
