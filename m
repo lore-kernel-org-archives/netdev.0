@@ -1,11 +1,11 @@
 From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH] epic100: Use the instance of net_device_stats from net_device.
-Date: Mon,  5 Jul 2010 16:13:20 +0400
-Message-ID: <1278332002-15860-1-git-send-email-segooon@gmail.com>
+Subject: [PATCH] ksz884x: Use the instance of net_device_stats from net_device.
+Date: Mon,  5 Jul 2010 16:13:58 +0400
+Message-ID: <1278332040-17160-1-git-send-email-segooon@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>, Jiri Pirko <jpirko@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Denis Kirjanov <dkirjanov@kernel.org>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -17,153 +17,135 @@ we can remove the instance of this from the adapter structure.
 
 Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 ---
- drivers/net/epic100.c |   47 ++++++++++++++++++++++-------------------------
- 1 files changed, 22 insertions(+), 25 deletions(-)
+ drivers/net/ksz884x.c |   46 ++++++++++++++++++++++------------------------
+ 1 files changed, 22 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/epic100.c b/drivers/net/epic100.c
-index 4c27465..57c8ac0 100644
---- a/drivers/net/epic100.c
-+++ b/drivers/net/epic100.c
-@@ -278,7 +278,6 @@ struct epic_private {
- 	struct pci_dev *pci_dev;			/* PCI bus location. */
- 	int chip_id, chip_flags;
- 
+diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
+index f715348..1d998e1 100644
+--- a/drivers/net/ksz884x.c
++++ b/drivers/net/ksz884x.c
+@@ -1457,7 +1457,6 @@ struct dev_info {
+  * @adapter:		Adapter device information.
+  * @port:		Port information.
+  * @monitor_time_info:	Timer to monitor ports.
+- * @stats:		Network statistics.
+  * @proc_sem:		Semaphore for proc accessing.
+  * @id:			Device ID.
+  * @mii_if:		MII interface information.
+@@ -1471,7 +1470,6 @@ struct dev_priv {
+ 	struct dev_info *adapter;
+ 	struct ksz_port port;
+ 	struct ksz_timer_info monitor_timer_info;
 -	struct net_device_stats stats;
- 	struct timer_list timer;			/* Media selection timer. */
- 	int tx_threshold;
- 	unsigned char mc_filter[8];
-@@ -770,7 +769,6 @@ static int epic_open(struct net_device *dev)
- static void epic_pause(struct net_device *dev)
- {
- 	long ioaddr = dev->base_addr;
--	struct epic_private *ep = netdev_priv(dev);
  
- 	netif_stop_queue (dev);
+ 	struct semaphore proc_sem;
+ 	int id;
+@@ -4751,8 +4749,8 @@ static void send_packet(struct sk_buff *skb, struct net_device *dev)
+ 	hw_send_pkt(hw);
  
-@@ -781,9 +779,9 @@ static void epic_pause(struct net_device *dev)
- 
- 	/* Update the error counts. */
- 	if (inw(ioaddr + COMMAND) != 0xffff) {
--		ep->stats.rx_missed_errors += inb(ioaddr + MPCNT);
--		ep->stats.rx_frame_errors += inb(ioaddr + ALICNT);
--		ep->stats.rx_crc_errors += inb(ioaddr + CRCCNT);
-+		dev->stats.rx_missed_errors += inb(ioaddr + MPCNT);
-+		dev->stats.rx_frame_errors += inb(ioaddr + ALICNT);
-+		dev->stats.rx_crc_errors += inb(ioaddr + CRCCNT);
- 	}
- 
- 	/* Remove the packets on the Rx queue. */
-@@ -900,7 +898,7 @@ static void epic_tx_timeout(struct net_device *dev)
- 		}
- 	}
- 	if (inw(ioaddr + TxSTAT) & 0x10) {		/* Tx FIFO underflow. */
--		ep->stats.tx_fifo_errors++;
-+		dev->stats.tx_fifo_errors++;
- 		outl(RestartTx, ioaddr + COMMAND);
- 	} else {
- 		epic_restart(dev);
-@@ -908,7 +906,7 @@ static void epic_tx_timeout(struct net_device *dev)
- 	}
- 
- 	dev->trans_start = jiffies; /* prevent tx timeout */
--	ep->stats.tx_errors++;
-+	dev->stats.tx_errors++;
- 	if (!ep->tx_full)
- 		netif_wake_queue(dev);
+ 	/* Update transmit statistics. */
+-	priv->stats.tx_packets++;
+-	priv->stats.tx_bytes += len;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += len;
  }
-@@ -1016,7 +1014,7 @@ static netdev_tx_t epic_start_xmit(struct sk_buff *skb, struct net_device *dev)
- static void epic_tx_error(struct net_device *dev, struct epic_private *ep,
- 			  int status)
- {
--	struct net_device_stats *stats = &ep->stats;
-+	struct net_device_stats *stats = &dev->stats;
  
- #ifndef final_version
- 	/* There was an major error, log it. */
-@@ -1053,9 +1051,9 @@ static void epic_tx(struct net_device *dev, struct epic_private *ep)
- 			break;	/* It still hasn't been Txed */
- 
- 		if (likely(txstatus & 0x0001)) {
--			ep->stats.collisions += (txstatus >> 8) & 15;
--			ep->stats.tx_packets++;
--			ep->stats.tx_bytes += ep->tx_skbuff[entry]->len;
-+			dev->stats.collisions += (txstatus >> 8) & 15;
-+			dev->stats.tx_packets++;
-+			dev->stats.tx_bytes += ep->tx_skbuff[entry]->len;
- 		} else
- 			epic_tx_error(dev, ep, txstatus);
- 
-@@ -1125,12 +1123,12 @@ static irqreturn_t epic_interrupt(int irq, void *dev_instance)
- 			goto out;
- 
- 		/* Always update the error counts to avoid overhead later. */
--		ep->stats.rx_missed_errors += inb(ioaddr + MPCNT);
--		ep->stats.rx_frame_errors += inb(ioaddr + ALICNT);
--		ep->stats.rx_crc_errors += inb(ioaddr + CRCCNT);
-+		dev->stats.rx_missed_errors += inb(ioaddr + MPCNT);
-+		dev->stats.rx_frame_errors += inb(ioaddr + ALICNT);
-+		dev->stats.rx_crc_errors += inb(ioaddr + CRCCNT);
- 
- 		if (status & TxUnderrun) { /* Tx FIFO underflow. */
--			ep->stats.tx_fifo_errors++;
-+			dev->stats.tx_fifo_errors++;
- 			outl(ep->tx_threshold += 128, ioaddr + TxThresh);
- 			/* Restart the transmit process. */
- 			outl(RestartTx, ioaddr + COMMAND);
-@@ -1183,10 +1181,10 @@ static int epic_rx(struct net_device *dev, int budget)
- 			if (status & 0x2000) {
- 				printk(KERN_WARNING "%s: Oversized Ethernet frame spanned "
- 					   "multiple buffers, status %4.4x!\n", dev->name, status);
--				ep->stats.rx_length_errors++;
-+				dev->stats.rx_length_errors++;
- 			} else if (status & 0x0006)
- 				/* Rx Frame errors are counted in hardware. */
--				ep->stats.rx_errors++;
-+				dev->stats.rx_errors++;
- 		} else {
- 			/* Malloc up new buffer, compatible with net-2e. */
- 			/* Omit the four octet CRC from the length. */
-@@ -1223,8 +1221,8 @@ static int epic_rx(struct net_device *dev, int budget)
- 			}
- 			skb->protocol = eth_type_trans(skb, dev);
- 			netif_receive_skb(skb);
--			ep->stats.rx_packets++;
--			ep->stats.rx_bytes += pkt_len;
-+			dev->stats.rx_packets++;
-+			dev->stats.rx_bytes += pkt_len;
+ /**
+@@ -5030,7 +5028,7 @@ static inline int rx_proc(struct net_device *dev, struct ksz_hw* hw,
+ 		/* skb->data != skb->head */
+ 		skb = dev_alloc_skb(packet_len + 2);
+ 		if (!skb) {
+-			priv->stats.rx_dropped++;
++			dev->stats.rx_dropped++;
+ 			return -ENOMEM;
  		}
- 		work_done++;
- 		entry = (++ep->cur_rx) % RX_RING_SIZE;
-@@ -1259,7 +1257,7 @@ static void epic_rx_err(struct net_device *dev, struct epic_private *ep)
- 	if (status == EpicRemoved)
- 		return;
- 	if (status & RxOverflow) 	/* Missed a Rx frame. */
--		ep->stats.rx_errors++;
-+		dev->stats.rx_errors++;
- 	if (status & (RxOverflow | RxFull))
- 		outw(RxQueued, ioaddr + COMMAND);
- }
-@@ -1357,17 +1355,16 @@ static int epic_close(struct net_device *dev)
  
- static struct net_device_stats *epic_get_stats(struct net_device *dev)
- {
--	struct epic_private *ep = netdev_priv(dev);
- 	long ioaddr = dev->base_addr;
+@@ -5050,8 +5048,8 @@ static inline int rx_proc(struct net_device *dev, struct ksz_hw* hw,
+ 		csum_verified(skb);
  
- 	if (netif_running(dev)) {
- 		/* Update the error counts. */
--		ep->stats.rx_missed_errors += inb(ioaddr + MPCNT);
--		ep->stats.rx_frame_errors += inb(ioaddr + ALICNT);
--		ep->stats.rx_crc_errors += inb(ioaddr + CRCCNT);
-+		dev->stats.rx_missed_errors += inb(ioaddr + MPCNT);
-+		dev->stats.rx_frame_errors += inb(ioaddr + ALICNT);
-+		dev->stats.rx_crc_errors += inb(ioaddr + CRCCNT);
+ 	/* Update receive statistics. */
+-	priv->stats.rx_packets++;
+-	priv->stats.rx_bytes += packet_len;
++	dev->stats.rx_packets++;
++	dev->stats.rx_bytes += packet_len;
+ 
+ 	/* Notify upper layer for received packet. */
+ 	rx_status = netif_rx(skb);
+@@ -5291,7 +5289,7 @@ static irqreturn_t netdev_intr(int irq, void *dev_id)
+ 		}
+ 
+ 		if (unlikely(int_enable & KS884X_INT_RX_OVERRUN)) {
+-			priv->stats.rx_fifo_errors++;
++			dev->stats.rx_fifo_errors++;
+ 			hw_resume_rx(hw);
+ 		}
+ 
+@@ -5522,7 +5520,7 @@ static int netdev_open(struct net_device *dev)
+ 	priv->promiscuous = 0;
+ 
+ 	/* Reset device statistics. */
+-	memset(&priv->stats, 0, sizeof(struct net_device_stats));
++	memset(&dev->stats, 0, sizeof(struct net_device_stats));
+ 	memset((void *) port->counter, 0,
+ 		(sizeof(u64) * OID_COUNTER_LAST));
+ 
+@@ -5622,42 +5620,42 @@ static struct net_device_stats *netdev_query_statistics(struct net_device *dev)
+ 	int i;
+ 	int p;
+ 
+-	priv->stats.rx_errors = port->counter[OID_COUNTER_RCV_ERROR];
+-	priv->stats.tx_errors = port->counter[OID_COUNTER_XMIT_ERROR];
++	dev->stats.rx_errors = port->counter[OID_COUNTER_RCV_ERROR];
++	dev->stats.tx_errors = port->counter[OID_COUNTER_XMIT_ERROR];
+ 
+ 	/* Reset to zero to add count later. */
+-	priv->stats.multicast = 0;
+-	priv->stats.collisions = 0;
+-	priv->stats.rx_length_errors = 0;
+-	priv->stats.rx_crc_errors = 0;
+-	priv->stats.rx_frame_errors = 0;
+-	priv->stats.tx_window_errors = 0;
++	dev->stats.multicast = 0;
++	dev->stats.collisions = 0;
++	dev->stats.rx_length_errors = 0;
++	dev->stats.rx_crc_errors = 0;
++	dev->stats.rx_frame_errors = 0;
++	dev->stats.tx_window_errors = 0;
+ 
+ 	for (i = 0, p = port->first_port; i < port->mib_port_cnt; i++, p++) {
+ 		mib = &hw->port_mib[p];
+ 
+-		priv->stats.multicast += (unsigned long)
++		dev->stats.multicast += (unsigned long)
+ 			mib->counter[MIB_COUNTER_RX_MULTICAST];
+ 
+-		priv->stats.collisions += (unsigned long)
++		dev->stats.collisions += (unsigned long)
+ 			mib->counter[MIB_COUNTER_TX_TOTAL_COLLISION];
+ 
+-		priv->stats.rx_length_errors += (unsigned long)(
++		dev->stats.rx_length_errors += (unsigned long)(
+ 			mib->counter[MIB_COUNTER_RX_UNDERSIZE] +
+ 			mib->counter[MIB_COUNTER_RX_FRAGMENT] +
+ 			mib->counter[MIB_COUNTER_RX_OVERSIZE] +
+ 			mib->counter[MIB_COUNTER_RX_JABBER]);
+-		priv->stats.rx_crc_errors += (unsigned long)
++		dev->stats.rx_crc_errors += (unsigned long)
+ 			mib->counter[MIB_COUNTER_RX_CRC_ERR];
+-		priv->stats.rx_frame_errors += (unsigned long)(
++		dev->stats.rx_frame_errors += (unsigned long)(
+ 			mib->counter[MIB_COUNTER_RX_ALIGNMENT_ERR] +
+ 			mib->counter[MIB_COUNTER_RX_SYMBOL_ERR]);
+ 
+-		priv->stats.tx_window_errors += (unsigned long)
++		dev->stats.tx_window_errors += (unsigned long)
+ 			mib->counter[MIB_COUNTER_TX_LATE_COLLISION];
  	}
  
--	return &ep->stats;
+-	return &priv->stats;
 +	return &dev->stats;
  }
  
- /* Set or clear the multicast filter for this adaptor.
+ /**
 -- 
 1.7.0.4
