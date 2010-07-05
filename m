@@ -1,11 +1,11 @@
 From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH] ksz884x: Use the instance of net_device_stats from net_device.
-Date: Mon,  5 Jul 2010 16:13:58 +0400
-Message-ID: <1278332040-17160-1-git-send-email-segooon@gmail.com>
+Subject: [PATCH] fealnx: Use the instance of net_device_stats from net_device.
+Date: Mon,  5 Jul 2010 16:13:36 +0400
+Message-ID: <1278332018-16490-1-git-send-email-segooon@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Denis Kirjanov <dkirjanov@kernel.org>, netdev@vger.kernel.org,
+	Joe Perches <joe@perches.com>, Jiri Pirko <jpirko@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -17,135 +17,172 @@ we can remove the instance of this from the adapter structure.
 
 Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 ---
- drivers/net/ksz884x.c |   46 ++++++++++++++++++++++------------------------
- 1 files changed, 22 insertions(+), 24 deletions(-)
+ drivers/net/fealnx.c |   68 ++++++++++++++++++++++++++-----------------------
+ 1 files changed, 36 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
-index f715348..1d998e1 100644
---- a/drivers/net/ksz884x.c
-+++ b/drivers/net/ksz884x.c
-@@ -1457,7 +1457,6 @@ struct dev_info {
-  * @adapter:		Adapter device information.
-  * @port:		Port information.
-  * @monitor_time_info:	Timer to monitor ports.
-- * @stats:		Network statistics.
-  * @proc_sem:		Semaphore for proc accessing.
-  * @id:			Device ID.
-  * @mii_if:		MII interface information.
-@@ -1471,7 +1470,6 @@ struct dev_priv {
- 	struct dev_info *adapter;
- 	struct ksz_port port;
- 	struct ksz_timer_info monitor_timer_info;
+diff --git a/drivers/net/fealnx.c b/drivers/net/fealnx.c
+index 15f4f8d..d7e8f6b 100644
+--- a/drivers/net/fealnx.c
++++ b/drivers/net/fealnx.c
+@@ -382,8 +382,6 @@ struct netdev_private {
+ 
+ 	spinlock_t lock;
+ 
 -	struct net_device_stats stats;
+-
+ 	/* Media monitoring timer. */
+ 	struct timer_list timer;
  
- 	struct semaphore proc_sem;
- 	int id;
-@@ -4751,8 +4749,8 @@ static void send_packet(struct sk_buff *skb, struct net_device *dev)
- 	hw_send_pkt(hw);
+@@ -1234,7 +1232,7 @@ static void fealnx_tx_timeout(struct net_device *dev)
+ 	spin_unlock_irqrestore(&np->lock, flags);
  
- 	/* Update transmit statistics. */
--	priv->stats.tx_packets++;
--	priv->stats.tx_bytes += len;
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += len;
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
+-	np->stats.tx_errors++;
++	dev->stats.tx_errors++;
+ 	netif_wake_queue(dev); /* or .._start_.. ?? */
  }
  
- /**
-@@ -5030,7 +5028,7 @@ static inline int rx_proc(struct net_device *dev, struct ksz_hw* hw,
- 		/* skb->data != skb->head */
- 		skb = dev_alloc_skb(packet_len + 2);
- 		if (!skb) {
--			priv->stats.rx_dropped++;
-+			dev->stats.rx_dropped++;
- 			return -ENOMEM;
+@@ -1479,10 +1477,11 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
+ 
+ 		if (intr_status & CNTOVF) {
+ 			/* missed pkts */
+-			np->stats.rx_missed_errors += ioread32(ioaddr + TALLY) & 0x7fff;
++			dev->stats.rx_missed_errors +=
++				ioread32(ioaddr + TALLY) & 0x7fff;
+ 
+ 			/* crc error */
+-			np->stats.rx_crc_errors +=
++			dev->stats.rx_crc_errors +=
+ 			    (ioread32(ioaddr + TALLY) & 0x7fff0000) >> 16;
  		}
  
-@@ -5050,8 +5048,8 @@ static inline int rx_proc(struct net_device *dev, struct ksz_hw* hw,
- 		csum_verified(skb);
+@@ -1513,30 +1512,30 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
  
- 	/* Update receive statistics. */
--	priv->stats.rx_packets++;
--	priv->stats.rx_bytes += packet_len;
-+	dev->stats.rx_packets++;
-+	dev->stats.rx_bytes += packet_len;
+ 			if (!(np->crvalue & CR_W_ENH)) {
+ 				if (tx_status & (CSL | LC | EC | UDF | HF)) {
+-					np->stats.tx_errors++;
++					dev->stats.tx_errors++;
+ 					if (tx_status & EC)
+-						np->stats.tx_aborted_errors++;
++						dev->stats.tx_aborted_errors++;
+ 					if (tx_status & CSL)
+-						np->stats.tx_carrier_errors++;
++						dev->stats.tx_carrier_errors++;
+ 					if (tx_status & LC)
+-						np->stats.tx_window_errors++;
++						dev->stats.tx_window_errors++;
+ 					if (tx_status & UDF)
+-						np->stats.tx_fifo_errors++;
++						dev->stats.tx_fifo_errors++;
+ 					if ((tx_status & HF) && np->mii.full_duplex == 0)
+-						np->stats.tx_heartbeat_errors++;
++						dev->stats.tx_heartbeat_errors++;
  
- 	/* Notify upper layer for received packet. */
- 	rx_status = netif_rx(skb);
-@@ -5291,7 +5289,7 @@ static irqreturn_t netdev_intr(int irq, void *dev_id)
+ 				} else {
+-					np->stats.tx_bytes +=
++					dev->stats.tx_bytes +=
+ 					    ((tx_control & PKTSMask) >> PKTSShift);
+ 
+-					np->stats.collisions +=
++					dev->stats.collisions +=
+ 					    ((tx_status & NCRMask) >> NCRShift);
+-					np->stats.tx_packets++;
++					dev->stats.tx_packets++;
+ 				}
+ 			} else {
+-				np->stats.tx_bytes +=
++				dev->stats.tx_bytes +=
+ 				    ((tx_control & PKTSMask) >> PKTSShift);
+-				np->stats.tx_packets++;
++				dev->stats.tx_packets++;
+ 			}
+ 
+ 			/* Free the original skb. */
+@@ -1564,10 +1563,12 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
+ 			long data;
+ 
+ 			data = ioread32(ioaddr + TSR);
+-			np->stats.tx_errors += (data & 0xff000000) >> 24;
+-			np->stats.tx_aborted_errors += (data & 0xff000000) >> 24;
+-			np->stats.tx_window_errors += (data & 0x00ff0000) >> 16;
+-			np->stats.collisions += (data & 0x0000ffff);
++			dev->stats.tx_errors += (data & 0xff000000) >> 24;
++			dev->stats.tx_aborted_errors +=
++				(data & 0xff000000) >> 24;
++			dev->stats.tx_window_errors +=
++				(data & 0x00ff0000) >> 16;
++			dev->stats.collisions += (data & 0x0000ffff);
  		}
  
- 		if (unlikely(int_enable & KS884X_INT_RX_OVERRUN)) {
--			priv->stats.rx_fifo_errors++;
-+			dev->stats.rx_fifo_errors++;
- 			hw_resume_rx(hw);
+ 		if (--boguscnt < 0) {
+@@ -1593,10 +1594,11 @@ static irqreturn_t intr_handler(int irq, void *dev_instance)
+ 
+ 	/* read the tally counters */
+ 	/* missed pkts */
+-	np->stats.rx_missed_errors += ioread32(ioaddr + TALLY) & 0x7fff;
++	dev->stats.rx_missed_errors += ioread32(ioaddr + TALLY) & 0x7fff;
+ 
+ 	/* crc error */
+-	np->stats.rx_crc_errors += (ioread32(ioaddr + TALLY) & 0x7fff0000) >> 16;
++	dev->stats.rx_crc_errors +=
++		(ioread32(ioaddr + TALLY) & 0x7fff0000) >> 16;
+ 
+ 	if (debug)
+ 		printk(KERN_DEBUG "%s: exiting interrupt, status=%#4.4x.\n",
+@@ -1635,13 +1637,13 @@ static int netdev_rx(struct net_device *dev)
+ 					       "%s: Receive error, Rx status %8.8x.\n",
+ 					       dev->name, rx_status);
+ 
+-				np->stats.rx_errors++;	/* end of a packet. */
++				dev->stats.rx_errors++;	/* end of a packet. */
+ 				if (rx_status & (LONG | RUNT))
+-					np->stats.rx_length_errors++;
++					dev->stats.rx_length_errors++;
+ 				if (rx_status & RXER)
+-					np->stats.rx_frame_errors++;
++					dev->stats.rx_frame_errors++;
+ 				if (rx_status & CRC)
+-					np->stats.rx_crc_errors++;
++					dev->stats.rx_crc_errors++;
+ 			} else {
+ 				int need_to_reset = 0;
+ 				int desno = 0;
+@@ -1667,7 +1669,7 @@ static int netdev_rx(struct net_device *dev)
+ 				if (need_to_reset == 0) {
+ 					int i;
+ 
+-					np->stats.rx_length_errors++;
++					dev->stats.rx_length_errors++;
+ 
+ 					/* free all rx descriptors related this long pkt */
+ 					for (i = 0; i < desno; ++i) {
+@@ -1733,8 +1735,8 @@ static int netdev_rx(struct net_device *dev)
+ 			}
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 			netif_rx(skb);
+-			np->stats.rx_packets++;
+-			np->stats.rx_bytes += pkt_len;
++			dev->stats.rx_packets++;
++			dev->stats.rx_bytes += pkt_len;
  		}
  
-@@ -5522,7 +5520,7 @@ static int netdev_open(struct net_device *dev)
- 	priv->promiscuous = 0;
+ 		np->cur_rx = np->cur_rx->next_desc_logical;
+@@ -1754,11 +1756,13 @@ static struct net_device_stats *get_stats(struct net_device *dev)
  
- 	/* Reset device statistics. */
--	memset(&priv->stats, 0, sizeof(struct net_device_stats));
-+	memset(&dev->stats, 0, sizeof(struct net_device_stats));
- 	memset((void *) port->counter, 0,
- 		(sizeof(u64) * OID_COUNTER_LAST));
- 
-@@ -5622,42 +5620,42 @@ static struct net_device_stats *netdev_query_statistics(struct net_device *dev)
- 	int i;
- 	int p;
- 
--	priv->stats.rx_errors = port->counter[OID_COUNTER_RCV_ERROR];
--	priv->stats.tx_errors = port->counter[OID_COUNTER_XMIT_ERROR];
-+	dev->stats.rx_errors = port->counter[OID_COUNTER_RCV_ERROR];
-+	dev->stats.tx_errors = port->counter[OID_COUNTER_XMIT_ERROR];
- 
- 	/* Reset to zero to add count later. */
--	priv->stats.multicast = 0;
--	priv->stats.collisions = 0;
--	priv->stats.rx_length_errors = 0;
--	priv->stats.rx_crc_errors = 0;
--	priv->stats.rx_frame_errors = 0;
--	priv->stats.tx_window_errors = 0;
-+	dev->stats.multicast = 0;
-+	dev->stats.collisions = 0;
-+	dev->stats.rx_length_errors = 0;
-+	dev->stats.rx_crc_errors = 0;
-+	dev->stats.rx_frame_errors = 0;
-+	dev->stats.tx_window_errors = 0;
- 
- 	for (i = 0, p = port->first_port; i < port->mib_port_cnt; i++, p++) {
- 		mib = &hw->port_mib[p];
- 
--		priv->stats.multicast += (unsigned long)
-+		dev->stats.multicast += (unsigned long)
- 			mib->counter[MIB_COUNTER_RX_MULTICAST];
- 
--		priv->stats.collisions += (unsigned long)
-+		dev->stats.collisions += (unsigned long)
- 			mib->counter[MIB_COUNTER_TX_TOTAL_COLLISION];
- 
--		priv->stats.rx_length_errors += (unsigned long)(
-+		dev->stats.rx_length_errors += (unsigned long)(
- 			mib->counter[MIB_COUNTER_RX_UNDERSIZE] +
- 			mib->counter[MIB_COUNTER_RX_FRAGMENT] +
- 			mib->counter[MIB_COUNTER_RX_OVERSIZE] +
- 			mib->counter[MIB_COUNTER_RX_JABBER]);
--		priv->stats.rx_crc_errors += (unsigned long)
-+		dev->stats.rx_crc_errors += (unsigned long)
- 			mib->counter[MIB_COUNTER_RX_CRC_ERR];
--		priv->stats.rx_frame_errors += (unsigned long)(
-+		dev->stats.rx_frame_errors += (unsigned long)(
- 			mib->counter[MIB_COUNTER_RX_ALIGNMENT_ERR] +
- 			mib->counter[MIB_COUNTER_RX_SYMBOL_ERR]);
- 
--		priv->stats.tx_window_errors += (unsigned long)
-+		dev->stats.tx_window_errors += (unsigned long)
- 			mib->counter[MIB_COUNTER_TX_LATE_COLLISION];
+ 	/* The chip only need report frame silently dropped. */
+ 	if (netif_running(dev)) {
+-		np->stats.rx_missed_errors += ioread32(ioaddr + TALLY) & 0x7fff;
+-		np->stats.rx_crc_errors += (ioread32(ioaddr + TALLY) & 0x7fff0000) >> 16;
++		dev->stats.rx_missed_errors +=
++			ioread32(ioaddr + TALLY) & 0x7fff;
++		dev->stats.rx_crc_errors +=
++			(ioread32(ioaddr + TALLY) & 0x7fff0000) >> 16;
  	}
  
--	return &priv->stats;
+-	return &np->stats;
 +	return &dev->stats;
  }
  
- /**
+ 
 -- 
 1.7.0.4
