@@ -1,34 +1,87 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Splice status
-Date: Mon, 5 Jul 2010 17:59:19 +0800
-Message-ID: <AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
-References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-next-2.6] ipv6: adding ip_nonlocal_bind option from
+	ipv4
+Date: Mon, 05 Jul 2010 19:13:42 +0900
+Message-ID: <1278324822.19358.24.camel@sylph.linux-ipv6.org>
+References: <201007032238.28344.michal.humpula@web4u.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ofer Heifetz <oferh@marvell.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: Michal Humpula <michal.humpula@web4u.cz>, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:39088 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754596Ab0GEJ7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 05:59:40 -0400
-Received: by vws5 with SMTP id 5so5849534vws.19
-        for <netdev@vger.kernel.org>; Mon, 05 Jul 2010 02:59:39 -0700 (PDT)
-In-Reply-To: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56989 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751799Ab0GEKM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 06:12:28 -0400
+In-Reply-To: <201007032238.28344.michal.humpula@web4u.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 5, 2010 at 5:26 PM, Ofer Heifetz <oferh@marvell.com> wrote:
-> Hi
->
-> I have been trying to test splice on kernel 2.6.35_4 (x86) from Samba (v3.4.7) but could not copy more than ~60MB to the Samba server share.
->
-> Strace shows that the splice got stuck in blocking mode on the splice call from socket to pipe.
->
+Hello.
 
-Did you drain the pipe before calling splice(2) to move data from
-socket to pipe?
+Michal Humpula wrote:
+> Adds ability to bind non-local IPv6 address the same way as for IPv4
+> 
+> Signed-off-by: Michal Humpula <michal.humpula@web4u.cz>
+> 
+> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> index e830cd4..55b3552 100644
+> --- a/net/ipv6/af_inet6.c
+> +++ b/net/ipv6/af_inet6.c
+> @@ -252,6 +252,8 @@ out_rcu_unlock:
+>  	goto out;
+>  }
+>  
+> +int sysctl_ipv6_nonlocal_bind __read_mostly;
+> +EXPORT_SYMBOL(sysctl_ipv6_nonlocal_bind);
+>  
+>  /* bind for INET6 API */
+>  int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int
+> addr_len)
+> @@ -345,8 +347,10 @@ int inet6_bind(struct socket *sock, struct
+> sockaddr *uaddr, int addr_len)
+>  			if (!(addr_type &I do think i IPV6_ADDR_MULTICAST))	{
+>  				if (!ipv6_chk_addr(net, &addr->sin6_addr,
+>  						   dev, 0)) {
+> -					err = -EADDRNOTAVAIL;
+> -					goto out_unlock;
+> +					if (!sysctl_ipv6_nonlocal_bind) {
+> +						err = -EADDRNOTAVAIL;
+> +						goto out_unlock;
+> +					}
+>  				}
+>  			}
+>  			rcu_read_unlock();
+> diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+> index fa1d8f4..56bfe76 100644
+> --- a/net/ipv6/sysctl_net_ipv6.c
+> +++ b/net/ipv6/sysctl_net_ipv6.c
+> @@ -35,6 +35,13 @@ static ctl_table ipv6_table_template[] = {
+>  		.mode		= 0644,When you try to send packets / connect to
+remote address, 
+>  		.proc_handler	= proc_dointvec
+>  	}, so far.
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+> +	{
+> +		.procname = "ipv6_nonlocal_bind",
+> +		.data   = &sysctl_ipv6_nonlocal_bind,
+> +		.maxlen   = sizeof(int),
+> +		.mode   = 0644,
+> +		.proc_handler = proc_dointvec
+> +	},
+>  	{ }
+>  };
+
+This is not sufficient.
+
+In IPv4, even if you do non-local bind, you cannot connect/send
+packets from that address until the admin really assigns that
+address on the node.  Local address is checked when you try to
+connect (or to send), and this is important thing to do.
+
+But in IPv6, it is not checked, and it is very bad to open
+this "hole".
+
+--yoshfuji
+
