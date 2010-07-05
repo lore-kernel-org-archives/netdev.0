@@ -1,31 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Fwd: Possible bug in net/ipv4/route.c?
-Date: Mon, 5 Jul 2010 21:22:45 +0800
-Message-ID: <20100705132245.GA6876@gondor.apana.org.au>
-References: <20100705120617.GA6267@gondor.apana.org.au> <1278334754.2877.173.camel@edumazet-laptop>
+Date: Mon, 05 Jul 2010 14:59:14 +0200
+Message-ID: <1278334754.2877.173.camel@edumazet-laptop>
+References: <20100705120617.GA6267@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1278334754.2877.173.camel@edumazet-laptop>
+In-Reply-To: <20100705120617.GA6267@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 05, 2010 at 02:59:14PM +0200, Eric Dumazet wrote:
->
-> Why do we clear full 48 bytes skb->cb[] in skb_alloc(), if no protocol
-> stack should rely it being zero ?
+Le lundi 05 juillet 2010 =C3=A0 20:06 +0800, Herbert Xu a =C3=A9crit :
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> >> 2) The layer using skb->cb[] should clear this area after use and
+> >> before handing the skb to another layer.  Ubicom should modify the
+> >> driver to clear the skb->cb[] area before sending it up the line.
+> >>=20
+> >=20
+> > This is the right option. If you use one word in cb[], only your dr=
+iver
+> > knows how to clear it efficiently.
+>=20
+> Absolutely not! No protocol stack should rely on an external skb
+> having a zero cb.
+>=20
 
-Unless a protocol is allocating the skb itself, then the fact
-that skb_alloc clears skb->cb is no guarantee that the skb->cb
-will be zero.
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Why do we clear full 48 bytes skb->cb[] in skb_alloc(), if no protocol
+stack should rely it being zero ?
