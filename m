@@ -1,13 +1,12 @@
 From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH] ethoc: Use the instance of net_device_stats from net_device.
-Date: Mon,  5 Jul 2010 16:13:31 +0400
-Message-ID: <1278332012-16456-1-git-send-email-segooon@gmail.com>
+Subject: [PATCH] mac89x0: Use the instance of net_device_stats from net_device.
+Date: Mon,  5 Jul 2010 16:14:09 +0400
+Message-ID: <1278332051-17760-1-git-send-email-segooon@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Chou <thomas@wytron.com.tw>,
-	Jonas Bonn <jonas@southpole.se>,
+	Joe Perches <joe@perches.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Julia Lawall <julia@diku.dk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+	Patrick McHardy <kaber@trash.net>, Tejun Heo <tj@kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -18,170 +17,128 @@ we can remove the instance of this from the adapter structure.
 
 Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 ---
- drivers/net/ethoc.c |   47 ++++++++++++++++++++++-------------------------
- 1 files changed, 22 insertions(+), 25 deletions(-)
+ drivers/net/mac89x0.c |   52 +++++++++++++++++++++++++++---------------------
+ 1 files changed, 29 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index 37ce8ac..db519a8 100644
---- a/drivers/net/ethoc.c
-+++ b/drivers/net/ethoc.c
-@@ -183,7 +183,6 @@ MODULE_PARM_DESC(buffer_size, "DMA buffer allocation size");
-  * @vma:        pointer to array of virtual memory addresses for buffers
-  * @netdev:	pointer to network device structure
-  * @napi:	NAPI structure
-- * @stats:	network device statistics
-  * @msg_enable:	device state flags
-  * @rx_lock:	receive lock
-  * @lock:	device lock
-@@ -208,7 +207,6 @@ struct ethoc {
+diff --git a/drivers/net/mac89x0.c b/drivers/net/mac89x0.c
+index 69fa4ef..669b317 100644
+--- a/drivers/net/mac89x0.c
++++ b/drivers/net/mac89x0.c
+@@ -110,7 +110,6 @@ static unsigned int net_debug = NET_DEBUG;
  
- 	struct net_device *netdev;
- 	struct napi_struct napi;
+ /* Information that need to be kept for each board. */
+ struct net_local {
 -	struct net_device_stats stats;
- 	u32 msg_enable;
- 
- 	spinlock_t rx_lock;
-@@ -367,39 +365,39 @@ static unsigned int ethoc_update_rx_stats(struct ethoc *dev,
- 
- 	if (bd->stat & RX_BD_TL) {
- 		dev_err(&netdev->dev, "RX: frame too long\n");
--		dev->stats.rx_length_errors++;
-+		netdev->stats.rx_length_errors++;
- 		ret++;
- 	}
- 
- 	if (bd->stat & RX_BD_SF) {
- 		dev_err(&netdev->dev, "RX: frame too short\n");
--		dev->stats.rx_length_errors++;
-+		netdev->stats.rx_length_errors++;
- 		ret++;
- 	}
- 
- 	if (bd->stat & RX_BD_DN) {
- 		dev_err(&netdev->dev, "RX: dribble nibble\n");
--		dev->stats.rx_frame_errors++;
-+		netdev->stats.rx_frame_errors++;
- 	}
- 
- 	if (bd->stat & RX_BD_CRC) {
- 		dev_err(&netdev->dev, "RX: wrong CRC\n");
--		dev->stats.rx_crc_errors++;
-+		netdev->stats.rx_crc_errors++;
- 		ret++;
- 	}
- 
- 	if (bd->stat & RX_BD_OR) {
- 		dev_err(&netdev->dev, "RX: overrun\n");
--		dev->stats.rx_over_errors++;
-+		netdev->stats.rx_over_errors++;
- 		ret++;
- 	}
- 
- 	if (bd->stat & RX_BD_MISS)
--		dev->stats.rx_missed_errors++;
-+		netdev->stats.rx_missed_errors++;
- 
- 	if (bd->stat & RX_BD_LC) {
- 		dev_err(&netdev->dev, "RX: late collision\n");
--		dev->stats.collisions++;
-+		netdev->stats.collisions++;
- 		ret++;
- 	}
- 
-@@ -431,15 +429,15 @@ static int ethoc_rx(struct net_device *dev, int limit)
- 				void *src = priv->vma[entry];
- 				memcpy_fromio(skb_put(skb, size), src, size);
- 				skb->protocol = eth_type_trans(skb, dev);
--				priv->stats.rx_packets++;
--				priv->stats.rx_bytes += size;
-+				dev->stats.rx_packets++;
-+				dev->stats.rx_bytes += size;
- 				netif_receive_skb(skb);
- 			} else {
- 				if (net_ratelimit())
- 					dev_warn(&dev->dev, "low on memory - "
- 							"packet dropped\n");
- 
--				priv->stats.rx_dropped++;
-+				dev->stats.rx_dropped++;
- 				break;
- 			}
+ 	int chip_type;		/* one of: CS8900, CS8920, CS8920M */
+ 	char chip_revision;	/* revision letter of the chip ('A'...) */
+ 	int send_cmd;		/* the propercommand used to send a packet. */
+@@ -444,13 +443,18 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
+ 			net_rx(dev);
+ 			break;
+ 		case ISQ_TRANSMITTER_EVENT:
+-			lp->stats.tx_packets++;
++			dev->stats.tx_packets++;
+ 			netif_wake_queue(dev);
+-			if ((status & TX_OK) == 0) lp->stats.tx_errors++;
+-			if (status & TX_LOST_CRS) lp->stats.tx_carrier_errors++;
+-			if (status & TX_SQE_ERROR) lp->stats.tx_heartbeat_errors++;
+-			if (status & TX_LATE_COL) lp->stats.tx_window_errors++;
+-			if (status & TX_16_COL) lp->stats.tx_aborted_errors++;
++			if ((status & TX_OK) == 0)
++				dev->stats.tx_errors++;
++			if (status & TX_LOST_CRS)
++				dev->stats.tx_carrier_errors++;
++			if (status & TX_SQE_ERROR)
++				dev->stats.tx_heartbeat_errors++;
++			if (status & TX_LATE_COL)
++				dev->stats.tx_window_errors++;
++			if (status & TX_16_COL)
++				dev->stats.tx_aborted_errors++;
+ 			break;
+ 		case ISQ_BUFFER_EVENT:
+ 			if (status & READY_FOR_TX) {
+@@ -469,10 +473,10 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
+                         }
+ 			break;
+ 		case ISQ_RX_MISS_EVENT:
+-			lp->stats.rx_missed_errors += (status >>6);
++			dev->stats.rx_missed_errors += (status >> 6);
+ 			break;
+ 		case ISQ_TX_COL_EVENT:
+-			lp->stats.collisions += (status >>6);
++			dev->stats.collisions += (status >> 6);
+ 			break;
  		}
-@@ -460,30 +458,30 @@ static int ethoc_update_tx_stats(struct ethoc *dev, struct ethoc_bd *bd)
+ 	}
+@@ -483,19 +487,22 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
+ static void
+ net_rx(struct net_device *dev)
+ {
+-	struct net_local *lp = netdev_priv(dev);
+ 	struct sk_buff *skb;
+ 	int status, length;
  
- 	if (bd->stat & TX_BD_LC) {
- 		dev_err(&netdev->dev, "TX: late collision\n");
--		dev->stats.tx_window_errors++;
-+		netdev->stats.tx_window_errors++;
+ 	status = readreg(dev, PP_RxStatus);
+ 	if ((status & RX_OK) == 0) {
+-		lp->stats.rx_errors++;
+-		if (status & RX_RUNT) lp->stats.rx_length_errors++;
+-		if (status & RX_EXTRA_DATA) lp->stats.rx_length_errors++;
+-		if (status & RX_CRC_ERROR) if (!(status & (RX_EXTRA_DATA|RX_RUNT)))
++		dev->stats.rx_errors++;
++		if (status & RX_RUNT)
++				dev->stats.rx_length_errors++;
++		if (status & RX_EXTRA_DATA)
++				dev->stats.rx_length_errors++;
++		if ((status & RX_CRC_ERROR) &&
++		    !(status & (RX_EXTRA_DATA|RX_RUNT)))
+ 			/* per str 172 */
+-			lp->stats.rx_crc_errors++;
+-		if (status & RX_DRIBBLE) lp->stats.rx_frame_errors++;
++			dev->stats.rx_crc_errors++;
++		if (status & RX_DRIBBLE)
++				dev->stats.rx_frame_errors++;
+ 		return;
  	}
  
- 	if (bd->stat & TX_BD_RL) {
- 		dev_err(&netdev->dev, "TX: retransmit limit\n");
--		dev->stats.tx_aborted_errors++;
-+		netdev->stats.tx_aborted_errors++;
+@@ -504,7 +511,7 @@ net_rx(struct net_device *dev)
+ 	skb = alloc_skb(length, GFP_ATOMIC);
+ 	if (skb == NULL) {
+ 		printk("%s: Memory squeeze, dropping packet.\n", dev->name);
+-		lp->stats.rx_dropped++;
++		dev->stats.rx_dropped++;
+ 		return;
  	}
+ 	skb_put(skb, length);
+@@ -519,8 +526,8 @@ net_rx(struct net_device *dev)
  
- 	if (bd->stat & TX_BD_UR) {
- 		dev_err(&netdev->dev, "TX: underrun\n");
--		dev->stats.tx_fifo_errors++;
-+		netdev->stats.tx_fifo_errors++;
- 	}
- 
- 	if (bd->stat & TX_BD_CS) {
- 		dev_err(&netdev->dev, "TX: carrier sense lost\n");
--		dev->stats.tx_carrier_errors++;
-+		netdev->stats.tx_carrier_errors++;
- 	}
- 
- 	if (bd->stat & TX_BD_STATS)
--		dev->stats.tx_errors++;
-+		netdev->stats.tx_errors++;
- 
--	dev->stats.collisions += (bd->stat >> 4) & 0xf;
--	dev->stats.tx_bytes += bd->stat >> 16;
--	dev->stats.tx_packets++;
-+	netdev->stats.collisions += (bd->stat >> 4) & 0xf;
-+	netdev->stats.tx_bytes += bd->stat >> 16;
-+	netdev->stats.tx_packets++;
- 	return 0;
+         skb->protocol=eth_type_trans(skb,dev);
+ 	netif_rx(skb);
+-	lp->stats.rx_packets++;
+-	lp->stats.rx_bytes += length;
++	dev->stats.rx_packets++;
++	dev->stats.rx_bytes += length;
  }
  
-@@ -514,7 +512,7 @@ static void ethoc_tx(struct net_device *dev)
- 
- static irqreturn_t ethoc_interrupt(int irq, void *dev_id)
+ /* The inverse routine to net_open(). */
+@@ -548,16 +555,15 @@ net_close(struct net_device *dev)
+ static struct net_device_stats *
+ net_get_stats(struct net_device *dev)
  {
--	struct net_device *dev = (struct net_device *)dev_id;
-+	struct net_device *dev = dev_id;
- 	struct ethoc *priv = netdev_priv(dev);
- 	u32 pending;
+-	struct net_local *lp = netdev_priv(dev);
+ 	unsigned long flags;
  
-@@ -529,7 +527,7 @@ static irqreturn_t ethoc_interrupt(int irq, void *dev_id)
+ 	local_irq_save(flags);
+ 	/* Update the statistics from the device registers. */
+-	lp->stats.rx_missed_errors += (readreg(dev, PP_RxMiss) >> 6);
+-	lp->stats.collisions += (readreg(dev, PP_TxCol) >> 6);
++	dev->stats.rx_missed_errors += (readreg(dev, PP_RxMiss) >> 6);
++	dev->stats.collisions += (readreg(dev, PP_TxCol) >> 6);
+ 	local_irq_restore(flags);
  
- 	if (pending & INT_MASK_BUSY) {
- 		dev_err(&dev->dev, "packet dropped\n");
--		priv->stats.rx_dropped++;
-+		dev->stats.rx_dropped++;
- 	}
- 
- 	if (pending & INT_MASK_RX) {
-@@ -810,8 +808,7 @@ static void ethoc_tx_timeout(struct net_device *dev)
- 
- static struct net_device_stats *ethoc_stats(struct net_device *dev)
- {
--	struct ethoc *priv = netdev_priv(dev);
--	return &priv->stats;
+-	return &lp->stats;
 +	return &dev->stats;
  }
  
- static netdev_tx_t ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -822,7 +819,7 @@ static netdev_tx_t ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	void *dest;
- 
- 	if (unlikely(skb->len > ETHOC_BUFSIZ)) {
--		priv->stats.tx_errors++;
-+		dev->stats.tx_errors++;
- 		goto out;
- 	}
- 
+ static void set_multicast_list(struct net_device *dev)
 -- 
 1.7.0.4
