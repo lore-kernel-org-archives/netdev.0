@@ -1,143 +1,73 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v2 2/9] atm/br2684: register notifier event for carrier signal changes.
-Date: Mon,  5 Jul 2010 10:45:54 +0200
-Message-ID: <1278319561-23548-3-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v2 4/9] atm/idt77105.c: call atm_dev_signal_change() when signal changes.
+Date: Mon,  5 Jul 2010 10:45:56 +0200
+Message-ID: <1278319561-23548-5-git-send-email-karl@hiramoto.org>
 References: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
 Cc: nathan@traverse.com.au, Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:39575 "EHLO
+Received: from hapkido.dreamhost.com ([66.33.216.122]:50677 "EHLO
 	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758089Ab0GEIrM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 04:47:12 -0400
-Received: from homiemail-a30.g.dreamhost.com (caiajhbdcbef.dreamhost.com [208.97.132.145])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id 3BF7E179F1E
-	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 01:47:12 -0700 (PDT)
+	with ESMTP id S1758089Ab0GEIrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 04:47:22 -0400
+Received: from homiemail-a30.g.dreamhost.com (caiajhbdcbbj.dreamhost.com [208.97.132.119])
+	by hapkido.dreamhost.com (Postfix) with ESMTP id 404F817A217
+	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 01:47:20 -0700 (PDT)
 In-Reply-To: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a signal change event occurs call netif_carrier_on/off.
+Propagate changes to upper atm layer.
 
 Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
- net/atm/br2684.c |   66 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 64 insertions(+), 2 deletions(-)
+ drivers/atm/idt77105.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index 6719af6..5afa512 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -139,6 +139,42 @@ static struct net_device *br2684_find_dev(const struct br2684_if_spec *s)
- 	return NULL;
- }
- 
-+static int atm_dev_event(struct notifier_block *this, unsigned long event,
-+		 void *arg)
-+{
-+	struct atm_dev *atm_dev = arg;
-+	struct list_head *lh;
-+	struct net_device *net_dev;
-+	struct br2684_vcc *brvcc;
-+	struct atm_vcc *atm_vcc;
-+
-+	pr_debug("event=%ld dev=%p\n", event, atm_dev);
-+
-+	read_lock(&devs_lock);
-+	list_for_each(lh, &br2684_devs) {
-+		net_dev = list_entry_brdev(lh);
-+
-+		list_for_each_entry(brvcc, &BRPRIV(net_dev)->brvccs, brvccs) {
-+			atm_vcc = brvcc->atmvcc;
-+			if (atm_vcc && brvcc->atmvcc->dev == atm_dev) {
-+
-+				if (atm_vcc->dev->signal == ATM_PHY_SIG_LOST)
-+					netif_carrier_off(net_dev);
-+				else
-+					netif_carrier_on(net_dev);
-+
-+			}
-+		}
-+	}
-+	read_unlock(&devs_lock);
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block atm_dev_notifier = {
-+	.notifier_call = atm_dev_event,
-+};
-+
- /* chained vcc->pop function.  Check if we should wake the netif_queue */
- static void br2684_pop(struct atm_vcc *vcc, struct sk_buff *skb)
- {
-@@ -362,6 +398,12 @@ static void br2684_push(struct atm_vcc *atmvcc, struct sk_buff *skb)
- 			unregister_netdev(net_dev);
- 			free_netdev(net_dev);
- 		}
-+		read_lock_irq(&devs_lock);
-+		if (list_empty(&br2684_devs)) {
-+			/* last br2684 device */
-+			unregister_atmdevice_notifier(&atm_dev_notifier);
-+		}
-+		read_unlock_irq(&devs_lock);
- 		return;
- 	}
- 
-@@ -530,6 +572,13 @@ static int br2684_regvcc(struct atm_vcc *atmvcc, void __user * arg)
- 
- 		br2684_push(atmvcc, skb);
- 	}
-+
-+	/* initialize netdev carrier state */
-+	if (atmvcc->dev->signal == ATM_PHY_SIG_LOST)
-+		netif_carrier_off(net_dev);
-+	else
-+		netif_carrier_on(net_dev);
-+
- 	__module_get(THIS_MODULE);
- 	return 0;
- 
-@@ -620,9 +669,16 @@ static int br2684_create(void __user *arg)
- 	}
- 
- 	write_lock_irq(&devs_lock);
-+
- 	brdev->payload = payload;
--	brdev->number = list_empty(&br2684_devs) ? 1 :
--	    BRPRIV(list_entry_brdev(br2684_devs.prev))->number + 1;
-+
-+	if (list_empty(&br2684_devs)) {
-+		/* 1st br2684 device */
-+		register_atmdevice_notifier(&atm_dev_notifier);
-+		brdev->number = 1;
-+	} else
-+		brdev->number = BRPRIV(list_entry_brdev(br2684_devs.prev))->number + 1;
-+
- 	list_add_tail(&brdev->br2684_devs, &br2684_devs);
- 	write_unlock_irq(&devs_lock);
- 	return 0;
-@@ -758,6 +814,7 @@ static int __init br2684_init(void)
- 		return -ENOMEM;
- #endif
- 	register_atm_ioctl(&br2684_ioctl_ops);
-+
- 	return 0;
- }
- 
-@@ -772,6 +829,11 @@ static void __exit br2684_exit(void)
- 	remove_proc_entry("br2684", atm_proc_root);
- #endif
- 
-+
-+	/* if not already empty */
-+	if (!list_empty(&br2684_devs))
-+		unregister_atmdevice_notifier(&atm_dev_notifier);
-+
- 	while (!list_empty(&br2684_devs)) {
- 		net_dev = list_entry_brdev(br2684_devs.next);
- 		brdev = BRPRIV(net_dev);
+diff --git a/drivers/atm/idt77105.c b/drivers/atm/idt77105.c
+index dab5cf5..bca9cb8 100644
+--- a/drivers/atm/idt77105.c
++++ b/drivers/atm/idt77105.c
+@@ -126,7 +126,7 @@ static void idt77105_restart_timer_func(unsigned long dummy)
+                 istat = GET(ISTAT); /* side effect: clears all interrupt status bits */
+                 if (istat & IDT77105_ISTAT_GOODSIG) {
+                     /* Found signal again */
+-                    dev->signal = ATM_PHY_SIG_FOUND;
++                    atm_dev_signal_change(dev, ATM_PHY_SIG_FOUND);
+ 	            printk(KERN_NOTICE "%s(itf %d): signal detected again\n",
+                         dev->type,dev->number);
+                     /* flush the receive FIFO */
+@@ -222,7 +222,7 @@ static void idt77105_int(struct atm_dev *dev)
+             /* Rx Signal Condition Change - line went up or down */
+             if (istat & IDT77105_ISTAT_GOODSIG) {   /* signal detected again */
+                 /* This should not happen (restart timer does it) but JIC */
+-                dev->signal = ATM_PHY_SIG_FOUND;
++		atm_dev_signal_change(dev, ATM_PHY_SIG_FOUND);
+             } else {    /* signal lost */
+                 /*
+                  * Disable interrupts and stop all transmission and
+@@ -235,7 +235,7 @@ static void idt77105_int(struct atm_dev *dev)
+                     IDT77105_MCR_DRIC|
+                     IDT77105_MCR_HALTTX
+                     ) & ~IDT77105_MCR_EIP, MCR);
+-                dev->signal = ATM_PHY_SIG_LOST;
++		atm_dev_signal_change(dev, ATM_PHY_SIG_LOST);
+ 	        printk(KERN_NOTICE "%s(itf %d): signal lost\n",
+                     dev->type,dev->number);
+             }
+@@ -272,8 +272,9 @@ static int idt77105_start(struct atm_dev *dev)
+ 	memset(&PRIV(dev)->stats,0,sizeof(struct idt77105_stats));
+         
+         /* initialise dev->signal from Good Signal Bit */
+-        dev->signal = GET(ISTAT) & IDT77105_ISTAT_GOODSIG ? ATM_PHY_SIG_FOUND :
+-	  ATM_PHY_SIG_LOST;
++	atm_dev_signal_change(dev,
++		GET(ISTAT) & IDT77105_ISTAT_GOODSIG ?
++		ATM_PHY_SIG_FOUND : ATM_PHY_SIG_LOST);
+ 	if (dev->signal == ATM_PHY_SIG_LOST)
+ 		printk(KERN_WARNING "%s(itf %d): no signal\n",dev->type,
+ 		    dev->number);
 -- 
 1.7.1
 
