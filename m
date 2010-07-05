@@ -1,46 +1,53 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Distributed Switch Architecture(DSA)
-Date: Mon, 5 Jul 2010 19:24:04 +0200
-Message-ID: <20100705172404.GG14513@mail.wantstofly.org>
-References: <20100618095923.GC14513@mail.wantstofly.org> <OF8E185B56.9B8AB610-ONC1257746.003A78DF-C1257746.003D4C6C@transmode.se> <20100618121223.GH14513@mail.wantstofly.org> <OF4FC7639D.8FBCAF3B-ONC1257746.004AF9D3-C1257746.005397F6@transmode.se> <20100618201243.GK14513@mail.wantstofly.org> <OF27FDE4E4.06C565FF-ONC1257747.004A175A-C1257747.004EF252@transmode.se> <20100619165642.GP14513@mail.wantstofly.org> <OF9D3E1FC3.D7320E72-ONC1257747.0066095A-C1257747.006751E1@transmode.se> <20100619185739.GQ14513@mail.wantstofly.org> <OFE5DDA53C.8EDE0B1A-ONC1257748.00467368-C1257748.0050B4A2@transmode.se>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6] tg3: 64bits stats
+Date: Mon, 05 Jul 2010 18:31:10 +0100
+Message-ID: <1278351070.2087.70.camel@achroite.uk.solarflarecom.com>
+References: <1278321242.2877.18.camel@edumazet-laptop>
+	 <1278345780.2877.376.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:36878 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349Ab0GERYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 13:24:13 -0400
-Content-Disposition: inline
-In-Reply-To: <OFE5DDA53C.8EDE0B1A-ONC1257748.00467368-C1257748.0050B4A2@transmode.se>
+Received: from mail.solarflare.com ([216.237.3.220]:58706 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752960Ab0GERbN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 13:31:13 -0400
+In-Reply-To: <1278345780.2877.376.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 20, 2010 at 04:41:31PM +0200, Joakim Tjernlund wrote:
+On Mon, 2010-07-05 at 18:03 +0200, Eric Dumazet wrote:
+> Le lundi 05 juillet 2010 =C3=A0 11:14 +0200, Eric Dumazet a =C3=A9cri=
+t :
+> > After commit be1f3c2c027c (net: Enable 64-bit net device statistics=
+ on
+> > 32-bit architectures), we can now provide 64bit stats, even on 32bi=
+t
+> > arches.
+> >=20
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > ---
+>=20
+> Please disregard this patch.
+>=20
+> There is small possibility a reader might read a 64bit value while
+> another writer makes a change to it, changing high 32bit value.
+>=20
+> A change in core network would be needed to make this 100% safe,
+> possibly using a seqlock to protect dev->stats64
 
-> > > If not, what is the point of DSA then if it doesn't use the native
-> > > forwarding capabilities of the HW switch?
-> >
-> > The point is and always was to provide a framework for proper integration
-> > of hardware switch chips into the Linux kernel.  This framework doesn't
-> > become useless just because it doesn't already support every single
-> > hardware feature at this point.
-> 
-> Right, sorry if I sounded a bit harsh.
-> 
-> So DSA currently does a very minimal config of the HW switch to get
-> things going.
+I really didn't want to add this overhead and complication to readers
+when only some drivers need it.
 
-Correct.
+Ben.
 
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-> If you want to do something more fancy one has to
-> add a control plane to DSA which would possibly talk
-> to a user space app. Is that correct?
-
-Yes and no -- yes in the sense that if you want to use more functionality
-of the switch chip, you'll have to add some code that extracts that info
-from the Linux network interface config and turns it into commands for the
-switch chip, and no in the sense that I'm not sure yet what the best way
-to implement this would be.  (Doing it all in userspace is one option.)
