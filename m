@@ -1,224 +1,487 @@
-From: Frank Arnold <frank.arnold@amd.com>
-Subject: bridge br_multicast: BUG: unable to handle kernel NULL pointer
- dereference
-Date: Mon, 5 Jul 2010 21:05:37 +0200
-Message-ID: <1278356737.2163.45.camel@mendozza.osrc.amd.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6 V2] net:  fix 64 bit counters on 32 bit arches
+Date: Mon, 05 Jul 2010 22:05:22 +0200
+Message-ID: <1278360322.2466.90.camel@edumazet-laptop>
+References: <1276017594.2185.11.camel@achroite.uk.solarflarecom.com>
+	 <1276017672.2185.12.camel@achroite.uk.solarflarecom.com>
+	 <1278353780.2877.620.camel@edumazet-laptop>
+	 <1278354682.2877.639.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.31]:17877
-	"EHLO VA3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751422Ab0GETUu convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jul 2010 15:20:50 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:57502 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752467Ab0GEUFe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 16:05:34 -0400
+Received: by fxm14 with SMTP id 14so4037939fxm.19
+        for <netdev@vger.kernel.org>; Mon, 05 Jul 2010 13:05:32 -0700 (PDT)
+In-Reply-To: <1278354682.2877.639.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le lundi 05 juillet 2010 =C3=A0 20:31 +0200, Eric Dumazet a =C3=A9crit =
+:
 
-we see a kernel NULL pointer dereference during testing of the KVM tree=
+> One other way would be to add a rtnl_link_stats64 param to
+> ndo_get_stats64() method, and ask drivers to copy their stats in this
+> zone, instead of returning &dev->stats64 or something...
+>=20
+> And also change dev_get_stats() with this new parameter.
+>=20
+> Each caller would use a private copy, with no risk of concurrent
+> updates.
+>=20
+>=20
+
+Here is an updated patch, without added lock but temp storage.
+
+Thanks
+
+[PATCH net-next-2.6 V2] net: fix 64 bit counters on 32 bit arches
+
+There is a small possibility that a reader gets incorrect values on 32
+bit arches. SNMP applications could catch incorrect counters when a
+32bit high part is changed by another stats consumer/provider.
+
+One way to solve this is to add a rtnl_link_stats64 param to all=20
+ndo_get_stats64() methods, and also add such a parameter to
+dev_get_stats().
+
+Rule is that we are not allowed to use dev->stats64 as a temporary
+storage for 64bit stats, but a caller provided area (usually on stack)
+
+Old drivers (only providing get_stats() method) need no changes.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/bonding/bond_main.c   |   64 +++++++++++++---------------
+ drivers/net/ixgbe/ixgbe_ethtool.c |    8 ++-
+ drivers/net/loopback.c            |    4 -
+ drivers/net/macvlan.c             |    6 +-
+ drivers/net/sfc/efx.c             |    3 -
+ drivers/net/sfc/ethtool.c         |    3 -
+ include/linux/netdevice.h         |   12 +++--
+ net/8021q/vlan_dev.c              |    6 --
+ net/8021q/vlanproc.c              |    3 -
+ net/bridge/br_device.c            |    4 -
+ net/core/dev.c                    |   25 +++++++---
+ net/core/net-sysfs.c              |    4 +
+ net/core/rtnetlink.c              |    3 -
+ 13 files changed, 79 insertions(+), 66 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index a95a41b..9bb9bfa 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3804,51 +3804,49 @@ static int bond_close(struct net_device *bond_d=
+ev)
+ 	return 0;
+ }
+=20
+-static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bon=
+d_dev)
++static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bon=
+d_dev,
++						struct rtnl_link_stats64 *stats)
+ {
+ 	struct bonding *bond =3D netdev_priv(bond_dev);
+-	struct rtnl_link_stats64 *stats =3D &bond_dev->stats64;
+-	struct rtnl_link_stats64 local_stats;
++	struct rtnl_link_stats64 temp;
+ 	struct slave *slave;
+ 	int i;
+=20
+-	memset(&local_stats, 0, sizeof(local_stats));
++	memset(stats, 0, sizeof(*stats));
+=20
+ 	read_lock_bh(&bond->lock);
+=20
+ 	bond_for_each_slave(bond, slave, i) {
+ 		const struct rtnl_link_stats64 *sstats =3D
+-			dev_get_stats(slave->dev);
+-
+-		local_stats.rx_packets +=3D sstats->rx_packets;
+-		local_stats.rx_bytes +=3D sstats->rx_bytes;
+-		local_stats.rx_errors +=3D sstats->rx_errors;
+-		local_stats.rx_dropped +=3D sstats->rx_dropped;
+-
+-		local_stats.tx_packets +=3D sstats->tx_packets;
+-		local_stats.tx_bytes +=3D sstats->tx_bytes;
+-		local_stats.tx_errors +=3D sstats->tx_errors;
+-		local_stats.tx_dropped +=3D sstats->tx_dropped;
+-
+-		local_stats.multicast +=3D sstats->multicast;
+-		local_stats.collisions +=3D sstats->collisions;
+-
+-		local_stats.rx_length_errors +=3D sstats->rx_length_errors;
+-		local_stats.rx_over_errors +=3D sstats->rx_over_errors;
+-		local_stats.rx_crc_errors +=3D sstats->rx_crc_errors;
+-		local_stats.rx_frame_errors +=3D sstats->rx_frame_errors;
+-		local_stats.rx_fifo_errors +=3D sstats->rx_fifo_errors;
+-		local_stats.rx_missed_errors +=3D sstats->rx_missed_errors;
+-
+-		local_stats.tx_aborted_errors +=3D sstats->tx_aborted_errors;
+-		local_stats.tx_carrier_errors +=3D sstats->tx_carrier_errors;
+-		local_stats.tx_fifo_errors +=3D sstats->tx_fifo_errors;
+-		local_stats.tx_heartbeat_errors +=3D sstats->tx_heartbeat_errors;
+-		local_stats.tx_window_errors +=3D sstats->tx_window_errors;
++			dev_get_stats(slave->dev, &temp);
++
++		stats->rx_packets +=3D sstats->rx_packets;
++		stats->rx_bytes +=3D sstats->rx_bytes;
++		stats->rx_errors +=3D sstats->rx_errors;
++		stats->rx_dropped +=3D sstats->rx_dropped;
++
++		stats->tx_packets +=3D sstats->tx_packets;
++		stats->tx_bytes +=3D sstats->tx_bytes;
++		stats->tx_errors +=3D sstats->tx_errors;
++		stats->tx_dropped +=3D sstats->tx_dropped;
++
++		stats->multicast +=3D sstats->multicast;
++		stats->collisions +=3D sstats->collisions;
++
++		stats->rx_length_errors +=3D sstats->rx_length_errors;
++		stats->rx_over_errors +=3D sstats->rx_over_errors;
++		stats->rx_crc_errors +=3D sstats->rx_crc_errors;
++		stats->rx_frame_errors +=3D sstats->rx_frame_errors;
++		stats->rx_fifo_errors +=3D sstats->rx_fifo_errors;
++		stats->rx_missed_errors +=3D sstats->rx_missed_errors;
++
++		stats->tx_aborted_errors +=3D sstats->tx_aborted_errors;
++		stats->tx_carrier_errors +=3D sstats->tx_carrier_errors;
++		stats->tx_fifo_errors +=3D sstats->tx_fifo_errors;
++		stats->tx_heartbeat_errors +=3D sstats->tx_heartbeat_errors;
++		stats->tx_window_errors +=3D sstats->tx_window_errors;
+ 	}
+=20
+-	memcpy(stats, &local_stats, sizeof(struct net_device_stats));
+-
+ 	read_unlock_bh(&bond->lock);
+=20
+ 	return stats;
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgb=
+e_ethtool.c
+index 5275e9c..7e85e61 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -55,7 +55,7 @@ struct ixgbe_stats {
+ 				offsetof(struct ixgbe_adapter, m)
+ #define IXGBE_NETDEV_STAT(m)	NETDEV_STATS, \
+ 				sizeof(((struct net_device *)0)->m), \
+-				offsetof(struct net_device, m)
++				offsetof(struct net_device, m) - offsetof(struct net_device, stats=
+)
+=20
+ static struct ixgbe_stats ixgbe_gstrings_stats[] =3D {
+ 	{"rx_packets", IXGBE_NETDEV_STAT(stats.rx_packets)},
+@@ -998,16 +998,18 @@ static void ixgbe_get_ethtool_stats(struct net_de=
+vice *netdev,
+ 	struct ixgbe_adapter *adapter =3D netdev_priv(netdev);
+ 	u64 *queue_stat;
+ 	int stat_count =3D sizeof(struct ixgbe_queue_stats) / sizeof(u64);
++	struct rtnl_link_stats64 temp;
++	const struct rtnl_link_stats64 *net_stats;
+ 	int j, k;
+ 	int i;
+ 	char *p =3D NULL;
+=20
+ 	ixgbe_update_stats(adapter);
+-	dev_get_stats(netdev);
++	net_stats =3D dev_get_stats(netdev, &temp);
+ 	for (i =3D 0; i < IXGBE_GLOBAL_STATS_LEN; i++) {
+ 		switch (ixgbe_gstrings_stats[i].type) {
+ 		case NETDEV_STATS:
+-			p =3D (char *) netdev +
++			p =3D (char *) net_stats +
+ 					ixgbe_gstrings_stats[i].stat_offset;
+ 			break;
+ 		case IXGBE_STATS:
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 4dd0510..9a09967 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -98,10 +98,10 @@ static netdev_tx_t loopback_xmit(struct sk_buff *sk=
+b,
+ 	return NETDEV_TX_OK;
+ }
+=20
+-static struct rtnl_link_stats64 *loopback_get_stats64(struct net_devic=
+e *dev)
++static struct rtnl_link_stats64 *loopback_get_stats64(struct net_devic=
+e *dev,
++						      struct rtnl_link_stats64 *stats)
+ {
+ 	const struct pcpu_lstats __percpu *pcpu_lstats;
+-	struct rtnl_link_stats64 *stats =3D &dev->stats64;
+ 	u64 bytes =3D 0;
+ 	u64 packets =3D 0;
+ 	u64 drops =3D 0;
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index e6d626e..6112f14 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -431,12 +431,12 @@ static void macvlan_uninit(struct net_device *dev=
+)
+ 	free_percpu(vlan->rx_stats);
+ }
+=20
+-static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_de=
+vice *dev)
++static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_de=
+vice *dev,
++							 struct rtnl_link_stats64 *stats)
+ {
+-	struct rtnl_link_stats64 *stats =3D &dev->stats64;
+ 	struct macvlan_dev *vlan =3D netdev_priv(dev);
+=20
+-	dev_txq_stats_fold(dev, &dev->stats);
++	dev_txq_stats_fold(dev, (struct net_device_stats *)stats);
+=20
+ 	if (vlan->rx_stats) {
+ 		struct macvlan_rx_stats *p, accum =3D {0};
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 35b3f29..ba674c5 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1533,11 +1533,10 @@ static int efx_net_stop(struct net_device *net_=
+dev)
+ }
+=20
+ /* Context: process, dev_base_lock or RTNL held, non-blocking. */
+-static struct rtnl_link_stats64 *efx_net_stats(struct net_device *net_=
+dev)
++static struct rtnl_link_stats64 *efx_net_stats(struct net_device *net_=
+dev, struct rtnl_link_stats64 *stats)
+ {
+ 	struct efx_nic *efx =3D netdev_priv(net_dev);
+ 	struct efx_mac_stats *mac_stats =3D &efx->mac_stats;
+-	struct rtnl_link_stats64 *stats =3D &net_dev->stats64;
+=20
+ 	spin_lock_bh(&efx->stats_lock);
+ 	efx->type->update_stats(efx);
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index 3b8b0a0..fd19d6a 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -469,12 +469,13 @@ static void efx_ethtool_get_stats(struct net_devi=
+ce *net_dev,
+ 	struct efx_mac_stats *mac_stats =3D &efx->mac_stats;
+ 	struct efx_ethtool_stat *stat;
+ 	struct efx_channel *channel;
++	struct rtnl_link_stats64 temp;
+ 	int i;
+=20
+ 	EFX_BUG_ON_PARANOID(stats->n_stats !=3D EFX_ETHTOOL_NUM_STATS);
+=20
+ 	/* Update MAC and NIC statistics */
+-	dev_get_stats(net_dev);
++	dev_get_stats(net_dev, &temp);
+=20
+ 	/* Fill detailed statistics buffer */
+ 	for (i =3D 0; i < EFX_ETHTOOL_NUM_STATS; i++) {
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4d27368..60de653 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -666,7 +666,8 @@ struct netdev_rx_queue {
+  *	Callback uses when the transmitter has not made any progress
+  *	for dev->watchdog ticks.
+  *
+- * struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev=
+);
++ * struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev
++ *                      struct rtnl_link_stats64 *storage);
+  * struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
+  *	Called when a user wants to get the network device usage
+  *	statistics. Drivers must do one of the following:
+@@ -733,7 +734,8 @@ struct net_device_ops {
+ 						   struct neigh_parms *);
+ 	void			(*ndo_tx_timeout) (struct net_device *dev);
+=20
+-	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev);
++	struct rtnl_link_stats64* (*ndo_get_stats64)(struct net_device *dev,
++						     struct rtnl_link_stats64 *storage);
+ 	struct net_device_stats* (*ndo_get_stats)(struct net_device *dev);
+=20
+ 	void			(*ndo_vlan_rx_register)(struct net_device *dev,
+@@ -2139,8 +2141,10 @@ extern void		netdev_features_change(struct net_d=
+evice *dev);
+ /* Load a device via the kmod */
+ extern void		dev_load(struct net *net, const char *name);
+ extern void		dev_mcast_init(void);
+-extern const struct rtnl_link_stats64 *dev_get_stats(struct net_device=
+ *dev);
+-extern void		dev_txq_stats_fold(const struct net_device *dev, struct n=
+et_device_stats *stats);
++extern const struct rtnl_link_stats64 *dev_get_stats(struct net_device=
+ *dev,
++						     struct rtnl_link_stats64 *storage);
++extern void		dev_txq_stats_fold(const struct net_device *dev,
++					   struct net_device_stats *stats);
+=20
+ extern int		netdev_max_backlog;
+ extern int		netdev_tstamp_prequeue;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index c6456cb..7865a4c 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -803,11 +803,9 @@ static u32 vlan_ethtool_get_flags(struct net_devic=
+e *dev)
+ 	return dev_ethtool_get_flags(vlan->real_dev);
+ }
+=20
+-static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_devic=
+e *dev)
++static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_devic=
+e *dev, struct rtnl_link_stats64 *stats)
+ {
+-	struct rtnl_link_stats64 *stats =3D &dev->stats64;
+-
+-	dev_txq_stats_fold(dev, &dev->stats);
++	dev_txq_stats_fold(dev, (struct net_device_stats *)stats);
+=20
+ 	if (vlan_dev_info(dev)->vlan_rx_stats) {
+ 		struct vlan_rx_stats *p, accum =3D {0};
+diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
+index df56f5c..80e280f 100644
+--- a/net/8021q/vlanproc.c
++++ b/net/8021q/vlanproc.c
+@@ -278,6 +278,7 @@ static int vlandev_seq_show(struct seq_file *seq, v=
+oid *offset)
+ {
+ 	struct net_device *vlandev =3D (struct net_device *) seq->private;
+ 	const struct vlan_dev_info *dev_info =3D vlan_dev_info(vlandev);
++	struct rtnl_link_stats64 temp;
+ 	const struct rtnl_link_stats64 *stats;
+ 	static const char fmt[] =3D "%30s %12lu\n";
+ 	static const char fmt64[] =3D "%30s %12llu\n";
+@@ -286,7 +287,7 @@ static int vlandev_seq_show(struct seq_file *seq, v=
+oid *offset)
+ 	if (!is_vlan_dev(vlandev))
+ 		return 0;
+=20
+-	stats =3D dev_get_stats(vlandev);
++	stats =3D dev_get_stats(vlandev, &temp);
+ 	seq_printf(seq,
+ 		   "%s  VID: %d	 REORDER_HDR: %i  dev->priv_flags: %hx\n",
+ 		   vlandev->name, dev_info->vlan_id,
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index edf639e..075c435 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -98,10 +98,10 @@ static int br_dev_stop(struct net_device *dev)
+ 	return 0;
+ }
+=20
+-static struct rtnl_link_stats64 *br_get_stats64(struct net_device *dev=
+)
++static struct rtnl_link_stats64 *br_get_stats64(struct net_device *dev=
 ,
-currently based on 2.6.35-rc3. We are using bridge to connect the KVM
-guests through the hosts network interface. Here is the trace:
-
-BUG: unable to handle kernel NULL pointer dereference at
-0000000000000028                                              =20
-IP: [<ffffffffa0196da0>] __br_ip4_hash+0x0/0x7c [bridge]               =
-                                                =20
-PGD 0                                                                  =
-                                                =20
-Oops: 0000 [#1] SMP                                                    =
-                                                =20
-last sysfs file: /sys/module/lockd/initstate                           =
-                                                =20
-CPU 3                                                                  =
-                                                =20
-Modules linked in: nfsd exportfs nfs lockd nfs_acl auth_rpcgss sunrpc b=
-ridge stp ipv6 kvm_amd kvm snd_hda_codec_atihdmi=20
-snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm sn=
-d_timer snd pcspkr serio_raw ata_generic r8169 so
-undcore i2c_piix4 pata_acpi i2c_core joydev snd_page_alloc mii pata_ati=
-ixp shpchp [last unloaded: scsi_wait_scan]      =20
-                                                                       =
-                                                =20
-Pid: 0, comm: swapper Not tainted 2.6.35.20100705_8dea564-1.fc11.osrc.x=
-86_64 #1 GA-MA74GM-S2H/GA-MA74GM-S2H            =20
-RIP: 0010:[<ffffffffa0196da0>]  [<ffffffffa0196da0>] __br_ip4_hash+0x0/=
-0x7c [bridge]                                   =20
-RSP: 0018:ffff880001b838a8  EFLAGS: 00010246                           =
-                                                =20
-RAX: ffff880126028000 RBX: 0000000000000000 RCX: ffff880127b3a828      =
-                                                =20
-RDX: 0000000001b80008 RSI: 0000000064ffffef RDI: 0000000000000000      =
-                                                =20
-RBP: ffff880001b838b0 R08: ffff8800054c3870 R09: 0000000000000000      =
-                                                =20
-R10: 0000000000000000 R11: 0000000000000000 R12: ffff880001b83a00      =
-                                                =20
-R13: ffff880001b83a00 R14: ffff880127b3a800 R15: ffff880125ccc400      =
-                                                =20
-=46S:  00007f17d45ea6f0(0000) GS:ffff880001b80000(0000) knlGS:000000000=
-0000000                                           =20
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b                      =
-                                                =20
-CR2: 0000000000000028 CR3: 00000000016b0000 CR4: 00000000000006e0      =
-                                                =20
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000      =
-                                                =20
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400      =
-                                                =20
-Process swapper (pid: 0, threadinfo ffff880127ab4000, task ffff880127ab=
-96b0)                                           =20
-Stack:                                                                 =
-                                                =20
- ffffffffa0196f48 ffff880001b838d0 ffffffffa01970be ffff880126028640   =
-                                                =20
-<0> ffff880125ccc400 ffff880001b83910 ffffffffa0197511 ffff880001b83900=
-                                                =20
-<0> ffff880127b3a800 ffff8800054c3868 ffff880126028640 ffff880127b3a800=
-                                                =20
-Call Trace:                                                            =
-                                                =20
- <IRQ>                                                                 =
-                                                =20
- [<ffffffffa0196f48>] ? br_ip_hash+0x1f/0x28 [bridge]                  =
-                                                =20
- [<ffffffffa01970be>] br_mdb_ip_get+0x12/0x24 [bridge]                 =
-                                                =20
- [<ffffffffa0197511>] br_multicast_leave_group+0x62/0x160 [bridge]     =
-                                                =20
- [<ffffffffa0199028>] br_multicast_rcv+0x60e/0xcda [bridge]            =
-                                                =20
- [<ffffffff81043320>] ? local_bh_enable_ip+0x9/0xb                     =
-                                                =20
- [<ffffffff81369f85>] ? _raw_spin_unlock_bh+0xf/0x11                   =
-                                                =20
- [<ffffffff812f9a1a>] ? packet+0x1a/0x24                               =
-                                                =20
- [<ffffffff812f777b>] ? nf_conntrack_in+0x4ee/0x59f                    =
-                                                =20
- [<ffffffffa01907d5>] ? fdb_create+0x28/0x73 [bridge]                  =
-                                                =20
- [<ffffffffa0190945>] ? br_fdb_update+0x125/0x134 [bridge]             =
-                                                =20
- [<ffffffffa0191e74>] br_handle_frame_finish+0x6d/0x1ba [bridge]       =
-                                                =20
- [<ffffffffa0191e07>] ? br_handle_frame_finish+0x0/0x1ba [bridge]      =
-                                                =20
- [<ffffffffa0195c79>] NF_HOOK_THRESH+0x46/0x4d [bridge]                =
-                                                =20
- [<ffffffffa0195ed2>] ? nf_bridge_push_encap_header+0x2f/0x3c [bridge] =
-                                                =20
- [<ffffffffa0196c65>] br_nf_pre_routing_finish+0x222/0x231 [bridge]    =
-                                                =20
- [<ffffffff812f4a10>] ? nf_hook_slow+0x65/0xc6                         =
-                                                =20
- [<ffffffffa0196a43>] ? br_nf_pre_routing_finish+0x0/0x231 [bridge]    =
-                                                =20
- [<ffffffffa0196a43>] ? br_nf_pre_routing_finish+0x0/0x231 [bridge]    =
-                                                =20
- [<ffffffffa0195c79>] NF_HOOK_THRESH+0x46/0x4d [bridge]                =
-                                                =20
- [<ffffffffa019609a>] ? nf_bridge_alloc+0x1d/0x3a [bridge]             =
-                                                =20
- [<ffffffffa0196a26>] br_nf_pre_routing+0x550/0x56d [bridge]           =
-                                                =20
- [<ffffffff812f4968>] nf_iterate+0x41/0x84                             =
-                                                =20
- [<ffffffffa0191e07>] ? br_handle_frame_finish+0x0/0x1ba [bridge]      =
-                                                =20
- [<ffffffff812f4a10>] nf_hook_slow+0x65/0xc6                           =
-                                                =20
- [<ffffffffa0191e07>] ? br_handle_frame_finish+0x0/0x1ba [bridge]      =
-                                                =20
- [<ffffffffa0191e07>] ? br_handle_frame_finish+0x0/0x1ba [bridge]      =
-                                                =20
- [<ffffffffa0191df5>] NF_HOOK.clone.0+0x41/0x53 [bridge]               =
-                                                =20
- [<ffffffffa0192137>] br_handle_frame+0x176/0x18f [bridge]             =
-                                                =20
- [<ffffffff812d54e5>] __netif_receive_skb+0x2b0/0x3f5                  =
-                                                =20
- [<ffffffff810592d2>] ? ktime_get_real+0x11/0x3e                       =
-                                                =20
- [<ffffffff812d612c>] netif_receive_skb+0x52/0x59                      =
-                                                =20
- [<ffffffff812d0ce6>] ? __netdev_alloc_skb+0x2f/0x4b                   =
-                                                =20
- [<ffffffffa0054ff1>] rtl8169_rx_interrupt+0x385/0x4d6 [r8169]         =
-                                                =20
- [<ffffffff81222203>] ? scsi_next_command+0x3e/0x46                    =
-                                                =20
- [<ffffffff812354b3>] ? __ata_qc_complete+0xdf/0xe7                    =
-                                                =20
- [<ffffffffa0057614>] rtl8169_poll+0x37/0x1a1 [r8169]                  =
-                                                =20
- [<ffffffff812d62ed>] net_rx_action+0xab/0x18c                         =
-                                                =20
- [<ffffffffa00565f4>] ? rtl8169_interrupt+0x2cb/0x36e [r8169]          =
-                                                =20
- [<ffffffff81043446>] __do_softirq+0x97/0x125                          =
-                                                =20
- [<ffffffff8101a026>] ? ack_apic_level+0x78/0x1ce                      =
-                                                =20
- [<ffffffff810038dc>] call_softirq+0x1c/0x28                           =
-                                                =20
- [<ffffffff81004e61>] do_softirq+0x41/0x7e                             =
-                                                =20
- [<ffffffff810431ce>] irq_exit+0x36/0x78                               =
-                                                =20
- [<ffffffff8100459c>] do_IRQ+0xa7/0xbe                                 =
-                                                =20
- [<ffffffff8136a1d3>] ret_from_intr+0x0/0x11                           =
-                                                =20
- <EOI>                                                                 =
-                                                =20
- [<ffffffff8102036c>] ? native_safe_halt+0x6/0x8                       =
-                                                =20
- [<ffffffff8136d161>] ? atomic_notifier_call_chain+0x13/0x15           =
-                                                =20
- [<ffffffff81009696>] default_idle+0x27/0x44                           =
-                                                =20
- [<ffffffff81001d3a>] cpu_idle+0x58/0x93                               =
-                                                =20
- [<ffffffff81364944>] start_secondary+0x1a4/0x1a8                      =
-                                                =20
-Code: 7e 66 81 fa 81 00 74 0d 31 c0 66 81 fa 88 64 0f 94 c0 c1 e0 03 89=
- c2 48 29 93 e0 00 00 00 01 43 68 31 c0 5b 41 5c=20
-c9 c3 90 90 90 <8b> 47 28 89 f1 ba b9 79 37 9e c1 e9 0d 29 f2 55 29 f0 =
-48 89 e5                                        =20
-RIP  [<ffffffffa0196da0>] __br_ip4_hash+0x0/0x7c [bridge]              =
-                                                =20
- RSP <ffff880001b838a8>                                                =
-                                                =20
-CR2: 0000000000000028                                                  =
-                                                =20
----[ end trace c0f05a4e3727475d ]---                                   =
-                                                =20
-Kernel panic - not syncing: Fatal exception in interrupt               =
-                                                =20
-
-
---=20
-=46rank Arnold=20
-Systems Design Technician, Software Test
-AMD Operating System Research Center
-Dresden, Germany
-Tel: +49 351 448 356702
-
-
-Legal Information:
-Advanced Micro Devices GmbH
-Einsteinring 24
-85609 Dornach b. M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Alberto Bozzo, Andrew Bowd
-Sitz: Dornach, Gemeinde Aschheim, Landkreis M=C3=BCnchen
-Registergericht M=C3=BCnchen, HRB Nr. 43632
++						struct rtnl_link_stats64 *stats)
+ {
+ 	struct net_bridge *br =3D netdev_priv(dev);
+-	struct rtnl_link_stats64 *stats =3D &dev->stats64;
+ 	struct br_cpu_netstats tmp, sum =3D { 0 };
+ 	unsigned int cpu;
+=20
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 93b8929..b6d570a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3703,7 +3703,8 @@ void dev_seq_stop(struct seq_file *seq, void *v)
+=20
+ static void dev_seq_printf_stats(struct seq_file *seq, struct net_devi=
+ce *dev)
+ {
+-	const struct rtnl_link_stats64 *stats =3D dev_get_stats(dev);
++	struct rtnl_link_stats64 temp;
++	const struct rtnl_link_stats64 *stats =3D dev_get_stats(dev, &temp);
+=20
+ 	seq_printf(seq, "%6s: %7llu %7llu %4llu %4llu %4llu %5llu %10llu %9ll=
+u "
+ 		   "%8llu %7llu %4llu %4llu %4llu %5llu %7llu %10llu\n",
+@@ -5281,23 +5282,29 @@ EXPORT_SYMBOL(dev_txq_stats_fold);
+ /**
+  *	dev_get_stats	- get network device statistics
+  *	@dev: device to get statistics from
++ *	@storage: place to store stats
+  *
+  *	Get network statistics from device. The device driver may provide
+  *	its own method by setting dev->netdev_ops->get_stats64 or
+  *	dev->netdev_ops->get_stats; otherwise the internal statistics
+  *	structure is used.
+  */
+-const struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev)
++const struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
++					      struct rtnl_link_stats64 *storage)
+ {
+ 	const struct net_device_ops *ops =3D dev->netdev_ops;
+=20
+-	if (ops->ndo_get_stats64)
+-		return ops->ndo_get_stats64(dev);
+-	if (ops->ndo_get_stats)
+-		return (struct rtnl_link_stats64 *)ops->ndo_get_stats(dev);
+-
+-	dev_txq_stats_fold(dev, &dev->stats);
+-	return &dev->stats64;
++	if (ops->ndo_get_stats64) {
++		memset(storage, 0, sizeof(*storage));
++		return ops->ndo_get_stats64(dev, storage);
++	}
++	if (ops->ndo_get_stats) {
++		memcpy(storage, ops->ndo_get_stats(dev), sizeof(*storage));
++		return storage;
++	}
++	memcpy(storage, &dev->stats, sizeof(*storage));
++	dev_txq_stats_fold(dev, (struct net_device_stats *)storage);
++	return storage;
+ }
+ EXPORT_SYMBOL(dev_get_stats);
+=20
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index ea3bb4c..914f42b 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -330,7 +330,9 @@ static ssize_t netstat_show(const struct device *d,
+=20
+ 	read_lock(&dev_base_lock);
+ 	if (dev_isalive(dev)) {
+-		const struct rtnl_link_stats64 *stats =3D dev_get_stats(dev);
++		struct rtnl_link_stats64 temp;
++		const struct rtnl_link_stats64 *stats =3D dev_get_stats(dev, &temp);
++
+ 		ret =3D sprintf(buf, fmt_u64, *(u64 *)(((u8 *) stats) + offset));
+ 	}
+ 	read_unlock(&dev_base_lock);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e645778..5e773ea 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -791,6 +791,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, st=
+ruct net_device *dev,
+ {
+ 	struct ifinfomsg *ifm;
+ 	struct nlmsghdr *nlh;
++	struct rtnl_link_stats64 temp;
+ 	const struct rtnl_link_stats64 *stats;
+ 	struct nlattr *attr;
+=20
+@@ -847,7 +848,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, st=
+ruct net_device *dev,
+ 	if (attr =3D=3D NULL)
+ 		goto nla_put_failure;
+=20
+-	stats =3D dev_get_stats(dev);
++	stats =3D dev_get_stats(dev, &temp);
+ 	copy_rtnl_link_stats(nla_data(attr), stats);
+=20
+ 	attr =3D nla_reserve(skb, IFLA_STATS64,
 
 
