@@ -1,62 +1,138 @@
-From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v2 5/9] atm/solos-pci: call atm_dev_signal_change() when signal changes.
-Date: Mon,  5 Jul 2010 10:45:57 +0200
-Message-ID: <1278319561-23548-6-git-send-email-karl@hiramoto.org>
-References: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
-Cc: nathan@traverse.com.au, Karl Hiramoto <karl@hiramoto.org>
-To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	chas@cmf.nrl.navy.mil
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] tg3: 64bits stats
+Date: Mon, 05 Jul 2010 11:14:02 +0200
+Message-ID: <1278321242.2877.18.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:44166 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758160Ab0GEIsI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 04:48:08 -0400
-Received: from homiemail-a30.g.dreamhost.com (caiajhbdcbhh.dreamhost.com [208.97.132.177])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id 834A817A217
-	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 01:48:06 -0700 (PDT)
-In-Reply-To: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:65274 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753042Ab0GEJOH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 05:14:07 -0400
+Received: by fxm14 with SMTP id 14so3456685fxm.19
+        for <netdev@vger.kernel.org>; Mon, 05 Jul 2010 02:14:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Propagate changes to upper atm layer, so userspace netmontor knows when DSL
-showtime reached.
+After commit be1f3c2c027c (net: Enable 64-bit net device statistics on
+32-bit architectures), we can now provide 64bit stats, even on 32bit
+arches.
 
-Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/atm/solos-pci.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/tg3.c |   32 ++++++++++----------------------
+ drivers/net/tg3.h |    4 ++--
+ 2 files changed, 12 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index ded76c4..6174965 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -383,7 +383,7 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 289cdc5..d1430f9 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -9021,7 +9021,7 @@ err_out1:
+ 	return err;
+ }
  
- 	/* Anything but 'Showtime' is down */
- 	if (strcmp(state_str, "Showtime")) {
--		card->atmdev[port]->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
- 		release_vccs(card->atmdev[port]);
- 		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
- 		return 0;
-@@ -401,7 +401,7 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
- 		 snr[0]?", SNR ":"", snr, attn[0]?", Attn ":"", attn);
- 	
- 	card->atmdev[port]->link_rate = rate_down / 424;
--	card->atmdev[port]->signal = ATM_PHY_SIG_FOUND;
-+	atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_FOUND);
+-static struct net_device_stats *tg3_get_stats(struct net_device *);
++static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *);
+ static struct tg3_ethtool_stats *tg3_get_estats(struct tg3 *);
  
+ static int tg3_close(struct net_device *dev)
+@@ -9055,7 +9055,7 @@ static int tg3_close(struct net_device *dev)
+ 
+ 	tg3_ints_fini(tp);
+ 
+-	memcpy(&tp->net_stats_prev, tg3_get_stats(tp->dev),
++	memcpy(&tp->net_stats_prev, tg3_get_stats64(tp->dev),
+ 	       sizeof(tp->net_stats_prev));
+ 	memcpy(&tp->estats_prev, tg3_get_estats(tp),
+ 	       sizeof(tp->estats_prev));
+@@ -9069,24 +9069,12 @@ static int tg3_close(struct net_device *dev)
  	return 0;
  }
-@@ -1246,7 +1246,7 @@ static int atm_init(struct solos_card *card)
- 		card->atmdev[i]->ci_range.vci_bits = 16;
- 		card->atmdev[i]->dev_data = card;
- 		card->atmdev[i]->phy_data = (void *)(unsigned long)i;
--		card->atmdev[i]->signal = ATM_PHY_SIG_UNKNOWN;
-+		atm_dev_signal_change(card->atmdev[i], ATM_PHY_SIG_UNKNOWN);
  
- 		skb = alloc_skb(sizeof(*header), GFP_ATOMIC);
- 		if (!skb) {
--- 
-1.7.1
+-static inline unsigned long get_stat64(tg3_stat64_t *val)
+-{
+-	unsigned long ret;
+-
+-#if (BITS_PER_LONG == 32)
+-	ret = val->low;
+-#else
+-	ret = ((u64)val->high << 32) | ((u64)val->low);
+-#endif
+-	return ret;
+-}
+-
+-static inline u64 get_estat64(tg3_stat64_t *val)
++static inline u64 get_stat64(tg3_stat64_t *val)
+ {
+        return ((u64)val->high << 32) | ((u64)val->low);
+ }
+ 
+-static unsigned long calc_crc_errors(struct tg3 *tp)
++static u64 calc_crc_errors(struct tg3 *tp)
+ {
+ 	struct tg3_hw_stats *hw_stats = tp->hw_stats;
+ 
+@@ -9114,7 +9102,7 @@ static unsigned long calc_crc_errors(struct tg3 *tp)
+ 
+ #define ESTAT_ADD(member) \
+ 	estats->member =	old_estats->member + \
+-				get_estat64(&hw_stats->member)
++				get_stat64(&hw_stats->member)
+ 
+ static struct tg3_ethtool_stats *tg3_get_estats(struct tg3 *tp)
+ {
+@@ -9204,11 +9192,11 @@ static struct tg3_ethtool_stats *tg3_get_estats(struct tg3 *tp)
+ 	return estats;
+ }
+ 
+-static struct net_device_stats *tg3_get_stats(struct net_device *dev)
++static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+-	struct net_device_stats *stats = &tp->net_stats;
+-	struct net_device_stats *old_stats = &tp->net_stats_prev;
++	struct rtnl_link_stats64 *stats = &tp->net_stats;
++	struct rtnl_link_stats64 *old_stats = &tp->net_stats_prev;
+ 	struct tg3_hw_stats *hw_stats = tp->hw_stats;
+ 
+ 	if (!hw_stats)
+@@ -14317,7 +14305,7 @@ static const struct net_device_ops tg3_netdev_ops = {
+ 	.ndo_open		= tg3_open,
+ 	.ndo_stop		= tg3_close,
+ 	.ndo_start_xmit		= tg3_start_xmit,
+-	.ndo_get_stats		= tg3_get_stats,
++	.ndo_get_stats64	= tg3_get_stats64,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_multicast_list	= tg3_set_rx_mode,
+ 	.ndo_set_mac_address	= tg3_set_mac_addr,
+@@ -14336,7 +14324,7 @@ static const struct net_device_ops tg3_netdev_ops_dma_bug = {
+ 	.ndo_open		= tg3_open,
+ 	.ndo_stop		= tg3_close,
+ 	.ndo_start_xmit		= tg3_start_xmit_dma_bug,
+-	.ndo_get_stats		= tg3_get_stats,
++	.ndo_get_stats64	= tg3_get_stats64,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_multicast_list	= tg3_set_rx_mode,
+ 	.ndo_set_mac_address	= tg3_set_mac_addr,
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 6b6af76..b72ac52 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2772,8 +2772,8 @@ struct tg3 {
+ 
+ 
+ 	/* begin "everything else" cacheline(s) section */
+-	struct net_device_stats		net_stats;
+-	struct net_device_stats		net_stats_prev;
++	struct rtnl_link_stats64	net_stats;
++	struct rtnl_link_stats64	net_stats_prev;
+ 	struct tg3_ethtool_stats	estats;
+ 	struct tg3_ethtool_stats	estats_prev;
+ 
+
 
