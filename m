@@ -1,94 +1,62 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v2 7/9] usb/atm/cxacru.c: call atm_dev_signal_change() when signal changes.
-Date: Mon,  5 Jul 2010 10:45:59 +0200
-Message-ID: <1278319561-23548-8-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v2 5/9] atm/solos-pci: call atm_dev_signal_change() when signal changes.
+Date: Mon,  5 Jul 2010 10:45:57 +0200
+Message-ID: <1278319561-23548-6-git-send-email-karl@hiramoto.org>
 References: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
 Cc: nathan@traverse.com.au, Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:54213 "EHLO
+Received: from hapkido.dreamhost.com ([66.33.216.122]:44166 "EHLO
 	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758171Ab0GEIsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 04:48:03 -0400
-Received: from homiemail-a30.g.dreamhost.com (caiajhbdcbbj.dreamhost.com [208.97.132.119])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id BC37017A217
-	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 01:48:03 -0700 (PDT)
+	with ESMTP id S1758160Ab0GEIsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 04:48:08 -0400
+Received: from homiemail-a30.g.dreamhost.com (caiajhbdcbhh.dreamhost.com [208.97.132.177])
+	by hapkido.dreamhost.com (Postfix) with ESMTP id 834A817A217
+	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 01:48:06 -0700 (PDT)
 In-Reply-To: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Propagate signal changes to upper atm layer.
+Propagate changes to upper atm layer, so userspace netmontor knows when DSL
+showtime reached.
 
 Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
- drivers/usb/atm/cxacru.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/atm/solos-pci.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
-index c89990f..101ffc9 100644
---- a/drivers/usb/atm/cxacru.c
-+++ b/drivers/usb/atm/cxacru.c
-@@ -866,50 +866,50 @@ static void cxacru_poll_status(struct work_struct *work)
- 	instance->line_status = buf[CXINF_LINE_STATUS];
- 	switch (instance->line_status) {
- 	case 0:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: down\n");
- 		break;
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index ded76c4..6174965 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -383,7 +383,7 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
  
- 	case 1:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: attempting to activate\n");
- 		break;
+ 	/* Anything but 'Showtime' is down */
+ 	if (strcmp(state_str, "Showtime")) {
+-		card->atmdev[port]->signal = ATM_PHY_SIG_LOST;
++		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
+ 		release_vccs(card->atmdev[port]);
+ 		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
+ 		return 0;
+@@ -401,7 +401,7 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+ 		 snr[0]?", SNR ":"", snr, attn[0]?", Attn ":"", attn);
+ 	
+ 	card->atmdev[port]->link_rate = rate_down / 424;
+-	card->atmdev[port]->signal = ATM_PHY_SIG_FOUND;
++	atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_FOUND);
  
- 	case 2:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: training\n");
- 		break;
+ 	return 0;
+ }
+@@ -1246,7 +1246,7 @@ static int atm_init(struct solos_card *card)
+ 		card->atmdev[i]->ci_range.vci_bits = 16;
+ 		card->atmdev[i]->dev_data = card;
+ 		card->atmdev[i]->phy_data = (void *)(unsigned long)i;
+-		card->atmdev[i]->signal = ATM_PHY_SIG_UNKNOWN;
++		atm_dev_signal_change(card->atmdev[i], ATM_PHY_SIG_UNKNOWN);
  
- 	case 3:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: channel analysis\n");
- 		break;
- 
- 	case 4:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: exchange\n");
- 		break;
- 
- 	case 5:
- 		atm_dev->link_rate = buf[CXINF_DOWNSTREAM_RATE] * 1000 / 424;
--		atm_dev->signal = ATM_PHY_SIG_FOUND;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_FOUND);
- 
- 		atm_info(usbatm, "ADSL line: up (%d kb/s down | %d kb/s up)\n",
- 		     buf[CXINF_DOWNSTREAM_RATE], buf[CXINF_UPSTREAM_RATE]);
- 		break;
- 
- 	case 6:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: waiting\n");
- 		break;
- 
- 	case 7:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: initializing\n");
- 		break;
- 
- 	default:
--		atm_dev->signal = ATM_PHY_SIG_UNKNOWN;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_UNKNOWN);
- 		atm_info(usbatm, "Unknown line state %02x\n", instance->line_status);
- 		break;
- 	}
+ 		skb = alloc_skb(sizeof(*header), GFP_ATOMIC);
+ 		if (!skb) {
 -- 
 1.7.1
 
