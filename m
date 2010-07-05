@@ -1,60 +1,125 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v2 0/9]  atm:  propagate atm_dev signal carrier to LOWER_UP of netdevice
-Date: Mon,  5 Jul 2010 10:45:52 +0200
-Message-ID: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v2 1/9] atm: propagate signal changes via notifier
+Date: Mon,  5 Jul 2010 10:45:53 +0200
+Message-ID: <1278319561-23548-2-git-send-email-karl@hiramoto.org>
+References: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
 Cc: nathan@traverse.com.au, Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:41922 "EHLO
+Received: from hapkido.dreamhost.com ([66.33.216.122]:56967 "EHLO
 	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753042Ab0GEIqy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 04:46:54 -0400
-Received: from homiemail-a30.g.dreamhost.com (caiajhbdcbhh.dreamhost.com [208.97.132.177])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id 7514A17A217
-	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 01:46:54 -0700 (PDT)
+	with ESMTP id S1758089Ab0GEIq6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 04:46:58 -0400
+Received: from homiemail-a30.g.dreamhost.com (caiajhbdcbef.dreamhost.com [208.97.132.145])
+	by hapkido.dreamhost.com (Postfix) with ESMTP id 9B27F17A470
+	for <netdev@vger.kernel.org>; Mon,  5 Jul 2010 01:46:58 -0700 (PDT)
+In-Reply-To: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes from v1:
-Use atm_dev notifier chain  instead of callback function pointer in struct vcc.
-In drivers/usb/atm call atm_dev_signal_change().
+Add notifier chain for changes in atm_dev.
 
-In userspace it's helpfull to know if a network device has a carrier signal. 
-Often it is monitored via netlink.  This patchset allows a way for the 
-struct atm_dev drivers to pass carrier on/off to the netdevice.
+Clients like br2684 will call register_atmdevice_notifier() to be notified of
+changes. Drivers will call atm_dev_signal_change() to notify clients like
+br2684 of the change.
 
-For DSL, carrier is on when the line has reached showtime state.
+On DSL and ATM devices it's usefull to have a know if you have a carrier
+signal. netdevice LOWER_UP changes can be propagated to userspace via netlink
+monitor.
 
-Currently this patchset only propagates the changes to br2684 vccs,
-as this is the only type of hardware I have to test.
+Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
+---
+ include/linux/atmdev.h |   12 ++++++++++++
+ net/atm/common.c       |   31 +++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+), 0 deletions(-)
 
-If you prefer git you can pull from:
-git://github.com/karlhiramoto/linux-2.6.git atm-v2
-
-
-
-Karl Hiramoto (9):
-  atm: propagate signal changes via notifier
-  atm/br2684: register notifier event for carrier signal changes.
-  atm/adummy: add syfs DEVICE_ATTR to change signal
-  atm/idt77105.c: call atm_dev_signal_change() when signal changes.
-  atm/solos-pci: call atm_dev_signal_change() when signal changes.
-  atm/suni.c: call atm_dev_signal_change() when signal changes.
-  usb/atm/cxacru.c: call atm_dev_signal_change() when signal changes.
-  usb/atm/speedtch.c: call atm_dev_signal_change() when signal changes.
-  usb/atm/ueagle-atm.c: call atm_dev_signal_change() when signal
-    changes.
-
- drivers/atm/adummy.c         |   39 ++++++++++++++++++++++++
- drivers/atm/idt77105.c       |   11 ++++---
- drivers/atm/solos-pci.c      |    6 ++--
- drivers/atm/suni.c           |    5 ++-
- drivers/usb/atm/cxacru.c     |   18 ++++++------
- drivers/usb/atm/speedtch.c   |   10 +++---
- drivers/usb/atm/ueagle-atm.c |   13 ++++++--
- include/linux/atmdev.h       |   12 +++++++
- net/atm/br2684.c             |   66 ++++++++++++++++++++++++++++++++++++++++-
- net/atm/common.c             |   31 +++++++++++++++++++
- 10 files changed, 182 insertions(+), 29 deletions(-)
+diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
+index 817b237..30890bc 100644
+--- a/include/linux/atmdev.h
++++ b/include/linux/atmdev.h
+@@ -431,6 +431,10 @@ struct atm_dev *atm_dev_register(const char *type,const struct atmdev_ops *ops,
+     int number,unsigned long *flags); /* number == -1: pick first available */
+ struct atm_dev *atm_dev_lookup(int number);
+ void atm_dev_deregister(struct atm_dev *dev);
++/**
++* Propagate lower layer signal change in atm_dev->signal to netdevice.
++*/
++void atm_dev_signal_change(struct atm_dev *dev, char signal);
+ void vcc_insert_socket(struct sock *sk);
+ 
+ 
+@@ -510,6 +514,14 @@ void register_atm_ioctl(struct atm_ioctl *);
+  */
+ void deregister_atm_ioctl(struct atm_ioctl *);
+ 
++
++/**
++* register_atmdevice_notifier - register atm_dev notify events
++* Currently we notify of signal found/lost
++*/
++int register_atmdevice_notifier(struct notifier_block *nb);
++void unregister_atmdevice_notifier(struct notifier_block *nb);
++
+ #endif /* __KERNEL__ */
+ 
+ #endif
+diff --git a/net/atm/common.c b/net/atm/common.c
+index b43feb1..cfa342e 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -37,6 +37,8 @@ EXPORT_SYMBOL(vcc_hash);
+ DEFINE_RWLOCK(vcc_sklist_lock);
+ EXPORT_SYMBOL(vcc_sklist_lock);
+ 
++static BLOCKING_NOTIFIER_HEAD(atm_dev_notify_chain);
++
+ static void __vcc_insert_socket(struct sock *sk)
+ {
+ 	struct atm_vcc *vcc = atm_sk(sk);
+@@ -212,6 +214,23 @@ void vcc_release_async(struct atm_vcc *vcc, int reply)
+ }
+ EXPORT_SYMBOL(vcc_release_async);
+ 
++void atm_dev_signal_change(struct atm_dev *dev, char signal)
++{
++	int i;
++	pr_debug("%s signal=%d dev=%p number=%d dev->signal=%d\n",
++		__func__, signal, dev, dev->number, dev->signal);
++
++	/* atm driver sending invalid signal */
++	WARN_ON(signal < ATM_PHY_SIG_LOST || signal > ATM_PHY_SIG_FOUND);
++
++	if (dev->signal == signal)
++		return; /* no change */
++
++	dev->signal = signal;
++
++	blocking_notifier_call_chain(&atm_dev_notify_chain, signal, dev);
++}
++EXPORT_SYMBOL(atm_dev_signal_change);
+ 
+ void atm_dev_release_vccs(struct atm_dev *dev)
+ {
+@@ -781,6 +800,18 @@ int vcc_getsockopt(struct socket *sock, int level, int optname,
+ 	return vcc->dev->ops->getsockopt(vcc, level, optname, optval, len);
+ }
+ 
++int register_atmdevice_notifier(struct notifier_block *nb)
++{
++	return blocking_notifier_chain_register(&atm_dev_notify_chain, nb);
++}
++EXPORT_SYMBOL_GPL(register_atmdevice_notifier);
++
++void unregister_atmdevice_notifier(struct notifier_block *nb)
++{
++	blocking_notifier_chain_unregister(&atm_dev_notify_chain, nb);
++}
++EXPORT_SYMBOL_GPL(unregister_atmdevice_notifier);
++
+ static int __init atm_init(void)
+ {
+ 	int error;
+-- 
+1.7.1
 
