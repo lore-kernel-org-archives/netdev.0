@@ -1,95 +1,59 @@
-From: Michal Humpula <michal.humpula@web4u.cz>
-Subject: Re: [PATCH net-next-2.6] ipv6: adding ip_nonlocal_bind option from ipv4
-Date: Mon, 5 Jul 2010 08:56:12 +0200
-Message-ID: <201007050856.12576.michal.humpula@web4u.cz>
-References: <201007032238.28344.michal.humpula@web4u.cz> <20100705020333.GA14260@verge.net.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
+Date: Mon, 5 Jul 2010 01:13:41 -0700
+Message-ID: <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	<1277659785.4028.1.camel@localhost.localdomain>
+	<1277660638.3321.1.camel@localhost.localdomain>
+	<1277660831.3321.3.camel@localhost.localdomain>
+	<8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	<1277745247.12841.1.camel@localhost.localdomain>
+	<8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	<1277807529.19417.2.camel@localhost.localdomain>
+	<EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	<1277938757.4138.3.camel@localhost.localdomain>
+	<1278204106.21020.0.camel@localhost.localdomain>
+	<1278283714.3444.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hudrydum.cz ([88.208.90.178]:58927 "EHLO hudrydum.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753163Ab0GEG4R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jul 2010 02:56:17 -0400
-In-Reply-To: <20100705020333.GA14260@verge.net.au>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:57733 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781Ab0GEINm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 04:13:42 -0400
+Received: by iwn7 with SMTP id 7so5268361iwn.19
+        for <netdev@vger.kernel.org>; Mon, 05 Jul 2010 01:13:41 -0700 (PDT)
+In-Reply-To: <1278283714.3444.1.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 05 of July 2010 04:03:36 Simon Horman wrote:
-> On Sat, Jul 03, 2010 at 10:38:28PM +0200, Michal Humpula wrote:
-> > Adds ability to bind non-local IPv6 address the same way as for IPv4
-> > 
-> > Signed-off-by: Michal Humpula <michal.humpula@web4u.cz>
-> > 
-> > diff --git a/Documentation/networking/ip-sysctl.txt
-> > b/Documentation/networking/ip-sysctl.txt index f350c69..27fa09a 100644
-> > --- a/Documentation/networking/ip-sysctl.txt
-> > +++ b/Documentation/networking/ip-sysctl.txt
-> > @@ -962,6 +962,10 @@ bindv6only - BOOLEAN
-> > 
-> >  		FALSE: enable IPv4-mapped address feature
-> >  	
-> >  	Default: FALSE (as specified in RFC2553bis)
-> 
-> I think a blank line here would be nice.
-> 
-> > +ipv6_nonlocal_bind - BOOLEAN
-> > +	If set, allows processes to bind() to non-local IPv6 addresses,
-> > +	which can be quite useful - but may break some applications.
-> > +	Default: 0
-> > 
-> >  IPv6 Fragmentation:
-> > 
-> > diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> > index e830cd4..55b3552 100644
-> > --- a/net/ipv6/af_inet6.c
-> > +++ b/net/ipv6/af_inet6.c
-> > 
-> > @@ -345,8 +347,10 @@ int inet6_bind(struct socket *sock, struct sockaddr
-> > *uaddr, int addr_len)
-> > 
-> >  			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
-> >  			
-> >  				if (!ipv6_chk_addr(net, &addr->sin6_addr,
-> >  				
-> >  						   dev, 0)) {
-> > 
-> > -					err = -EADDRNOTAVAIL;
-> > -					goto out_unlock;
-> > +					if (!sysctl_ipv6_nonlocal_bind) {
-> > +						err = -EADDRNOTAVAIL;
-> > +						goto out_unlock;
-> > +					}
-> > 
-> >  				}
-> >  			
-> >  			}
-> >  			rcu_read_unlock();
-> 
-> Perhaps the inner two if statements could be combined to remove
-> unnecessary nesting? And perhaps check for sysctl_ipv6_nonlocal_bind first,
-> as presumably its a cheaper, though less likely to succeed check.
-> 
-> 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
-> 				if (!sysctl_ipv6_nonlocal_bind &&
-> 				    !ipv6_chk_addr(net, &addr->sin6_addr,
-> 						   dev, 0)) {
-> 					err = -EADDRNOTAVAIL;
-> 					goto out_unlock;
-> 				}
-> 			}
-> 
-> Actually, I wonder if all three if statements could be combined.
-> 
-> 			if (!(addr_type & IPV6_ADDR_MULTICAST) &&
-> 		            !sysctl_ipv6_nonlocal_bind &&
-> 			    !ipv6_chk_addr(net, &addr->sin6_addr, dev, 0)) {
-> 				err = -EADDRNOTAVAIL;
-> 				goto out_unlock;
-> 			}
-> 
+On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky <maximlevitsky@gmail.com> =
+wrote:
+> Did few guesses, and now I see that reverting the below commit fixes =
+the
+> problem.
+>
+> "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
+> e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
+>
+>
+> Best regards,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0Maxim Levitsky
+>
+> --
 
-Thanks you for review, I agree with the objections. I'll send a corrected version.
+Can you give us till Tuesday to respond?  I know that there are some
+additional e1000e patches in my queue, which may resolve the issue,
+but this weekend the power is down to do some infrastructure upgrades
+which prevents us from doing any investigation.debugging until
+Tuesday.
+
+--=20
+Cheers,
+Jeff
