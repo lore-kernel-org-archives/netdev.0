@@ -1,33 +1,63 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: Re: setsockopt(IP_TOS) being privileged or distinct capability?
-Date: Mon, 05 Jul 2010 12:08:17 -0600
-Message-ID: <4C321F91.90304@redfish-solutions.com>
-References: <4C2F7A55.5090700@redfish-solutions.com> <2md4g7-3s3.ln1@chipmunk.wormnet.eu> <4C2FC2C8.8080203@redfish-solutions.com> <20100703234813.GJ24655@chipmunk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] tg3: 64bits stats
+Date: Mon, 05 Jul 2010 20:07:10 +0200
+Message-ID: <1278353230.2877.601.camel@edumazet-laptop>
+References: <1278321242.2877.18.camel@edumazet-laptop>
+	 <1278345780.2877.376.camel@edumazet-laptop>
+	 <1278351070.2087.70.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexander Clouter <alex@digriz.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:53512 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751695Ab0GESIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 14:08:21 -0400
-In-Reply-To: <20100703234813.GJ24655@chipmunk>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:41044 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752043Ab0GESN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 14:13:58 -0400
+Received: by ewy23 with SMTP id 23so1662980ewy.19
+        for <netdev@vger.kernel.org>; Mon, 05 Jul 2010 11:13:57 -0700 (PDT)
+In-Reply-To: <1278351070.2087.70.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Say, on a slightly different subject... but still having to do with 
-setsockopt(IP_TOS)... is it intentional that system call effectively 
-does nothing if the socket is in listen(), connect(), or bind() states?
+Le lundi 05 juillet 2010 =C3=A0 18:31 +0100, Ben Hutchings a =C3=A9crit=
+ :
+> On Mon, 2010-07-05 at 18:03 +0200, Eric Dumazet wrote:
+> > Le lundi 05 juillet 2010 =C3=A0 11:14 +0200, Eric Dumazet a =C3=A9c=
+rit :
+> > > After commit be1f3c2c027c (net: Enable 64-bit net device statisti=
+cs on
+> > > 32-bit architectures), we can now provide 64bit stats, even on 32=
+bit
+> > > arches.
+> > >=20
+> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > > ---
+> >=20
+> > Please disregard this patch.
+> >=20
+> > There is small possibility a reader might read a 64bit value while
+> > another writer makes a change to it, changing high 32bit value.
+> >=20
+> > A change in core network would be needed to make this 100% safe,
+> > possibly using a seqlock to protect dev->stats64
+>=20
+> I really didn't want to add this overhead and complication to readers
+> when only some drivers need it.
+>=20
 
-In other words, you have to issue the setsockopt() immediately after the 
-socket() call, or it doesn't do anything.
+Overhead would be minimal, only in get_stats() method and only for
+drivers that want to provide 64 bit stats...
 
-As I remember, that's slightly different semantics from BSD, which 
-allows you to change the markings on a bound or listening socket.
+Clearly, rx/tx path must not have any overhead.
 
-I've not walked through the kernel sources to see why this is.
+Right now, even RTNL 64bit stats are not safe.
 
--Philip
+Should we revert prior patches or try to make progress ?
+
+
 
