@@ -1,67 +1,95 @@
-From: sbs <gexlie@gmail.com>
-Subject: Re: IGB driver upgrade
-Date: Mon, 5 Jul 2010 10:45:54 +0400
-Message-ID: <AANLkTim37IrxmK9EinvGDwx91D0V1P1Ll3jRhNVy-dtX@mail.gmail.com>
-References: <AANLkTim6kfnr6yNeUXlLHOztB-qjyvj50D4p7nebqj9r@mail.gmail.com>
-	<AANLkTinUoQG4BWC4Q2UFDwGvAwYujlUXz6P-ZLkZozaQ@mail.gmail.com>
-	<4C293792.6070508@intel.com> <AANLkTim4zvNHegMqBnQG5jNGFU8nsaZbx83gv7FZuznu@mail.gmail.com>
-	<4C2A1C3C.3040403@intel.com>
+From: Michal Humpula <michal.humpula@web4u.cz>
+Subject: Re: [PATCH net-next-2.6] ipv6: adding ip_nonlocal_bind option from ipv4
+Date: Mon, 5 Jul 2010 08:56:12 +0200
+Message-ID: <201007050856.12576.michal.humpula@web4u.cz>
+References: <201007032238.28344.michal.humpula@web4u.cz> <20100705020333.GA14260@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:43783 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751580Ab0GEGq0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 02:46:26 -0400
-Received: by bwz1 with SMTP id 1so2508241bwz.19
-        for <netdev@vger.kernel.org>; Sun, 04 Jul 2010 23:46:24 -0700 (PDT)
-In-Reply-To: <4C2A1C3C.3040403@intel.com>
+Received: from hudrydum.cz ([88.208.90.178]:58927 "EHLO hudrydum.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753163Ab0GEG4R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jul 2010 02:56:17 -0400
+In-Reply-To: <20100705020333.GA14260@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have tested 2.0.6 and 2.1.9 modules for 4 days and there were no any
-issues detected :)
+On Monday 05 of July 2010 04:03:36 Simon Horman wrote:
+> On Sat, Jul 03, 2010 at 10:38:28PM +0200, Michal Humpula wrote:
+> > Adds ability to bind non-local IPv6 address the same way as for IPv4
+> > 
+> > Signed-off-by: Michal Humpula <michal.humpula@web4u.cz>
+> > 
+> > diff --git a/Documentation/networking/ip-sysctl.txt
+> > b/Documentation/networking/ip-sysctl.txt index f350c69..27fa09a 100644
+> > --- a/Documentation/networking/ip-sysctl.txt
+> > +++ b/Documentation/networking/ip-sysctl.txt
+> > @@ -962,6 +962,10 @@ bindv6only - BOOLEAN
+> > 
+> >  		FALSE: enable IPv4-mapped address feature
+> >  	
+> >  	Default: FALSE (as specified in RFC2553bis)
+> 
+> I think a blank line here would be nice.
+> 
+> > +ipv6_nonlocal_bind - BOOLEAN
+> > +	If set, allows processes to bind() to non-local IPv6 addresses,
+> > +	which can be quite useful - but may break some applications.
+> > +	Default: 0
+> > 
+> >  IPv6 Fragmentation:
+> > 
+> > diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> > index e830cd4..55b3552 100644
+> > --- a/net/ipv6/af_inet6.c
+> > +++ b/net/ipv6/af_inet6.c
+> > 
+> > @@ -345,8 +347,10 @@ int inet6_bind(struct socket *sock, struct sockaddr
+> > *uaddr, int addr_len)
+> > 
+> >  			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+> >  			
+> >  				if (!ipv6_chk_addr(net, &addr->sin6_addr,
+> >  				
+> >  						   dev, 0)) {
+> > 
+> > -					err = -EADDRNOTAVAIL;
+> > -					goto out_unlock;
+> > +					if (!sysctl_ipv6_nonlocal_bind) {
+> > +						err = -EADDRNOTAVAIL;
+> > +						goto out_unlock;
+> > +					}
+> > 
+> >  				}
+> >  			
+> >  			}
+> >  			rcu_read_unlock();
+> 
+> Perhaps the inner two if statements could be combined to remove
+> unnecessary nesting? And perhaps check for sysctl_ipv6_nonlocal_bind first,
+> as presumably its a cheaper, though less likely to succeed check.
+> 
+> 			if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+> 				if (!sysctl_ipv6_nonlocal_bind &&
+> 				    !ipv6_chk_addr(net, &addr->sin6_addr,
+> 						   dev, 0)) {
+> 					err = -EADDRNOTAVAIL;
+> 					goto out_unlock;
+> 				}
+> 			}
+> 
+> Actually, I wonder if all three if statements could be combined.
+> 
+> 			if (!(addr_type & IPV6_ADDR_MULTICAST) &&
+> 		            !sysctl_ipv6_nonlocal_bind &&
+> 			    !ipv6_chk_addr(net, &addr->sin6_addr, dev, 0)) {
+> 				err = -EADDRNOTAVAIL;
+> 				goto out_unlock;
+> 			}
+> 
 
-
-On Tue, Jun 29, 2010 at 8:15 PM, Alexander Duyck
-<alexander.h.duyck@intel.com> wrote:
-> sbs wrote:
->>
->> We're running 2.6.33.2 kernel version.
->> I have compiled and installed 2.0.6 and 2.1.9 modules on two our ser=
-vers.
->>
->> Strange freezes usually appears in several (1 or 2) days.
->> So I'll let you know when it happen and what module version will be
->> responsible for that
->
-> Since the issue is being seen with the in-kernel driver and not the
-> standalone module one other possibility is that this could be an issu=
-e that
-> is specific to multi-queue. =A0You can test for this by setting the R=
-SS
-> parameter to 0 for the standalone module to enable multiple queues on=
- the
-> 2.2.9 driver.
-
-Thank you, I'll install 2.6.35-rc4 today on several servers with both
-standalone(with RSS=3D0) and static driver and let you know after.
-
->
-> One other thing you might want to try would be to test the latest rel=
-ease
-> candidate kernel from kernel.org. =A0This would help to tell us if th=
-is is
-> still an issue in the current kernel, or an issue that is present in =
-just
-> 2.6.33.
->
-> Thanks,
->
-> Alex
->
+Thanks you for review, I agree with the objections. I'll send a corrected version.
