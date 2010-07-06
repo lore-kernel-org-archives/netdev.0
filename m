@@ -1,30 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 05/11] isdn/gigaset: improve CAPI message debugging
-Date: Tue, 06 Jul 2010 10:44:11 -0700 (PDT)
-Message-ID: <20100706.104411.235698140.davem@davemloft.net>
-References: <20100705-patch-gigaset-05.tilman@imap.cc>
-	<20100705.192356.52184135.davem@davemloft.net>
-	<4C32E5FD.70103@imap.cc>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] gre: propagate ipv6 transport class
+Date: Tue, 6 Jul 2010 10:58:21 -0700
+Message-ID: <20100706105821.7b0e2538@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tilman@imap.cc
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C32E5FD.70103@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:57589 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752907Ab0GFR6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jul 2010 13:58:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Tue, 06 Jul 2010 10:14:53 +0200
+This patch makes IPV6 over IPv4 GRE tunnel propagate the transport
+class field from the underlying IPV6 header to the IPV4 Type Of Service
+field. Without the patch, all IPV6 packets in tunnel look the same to QoS.
 
-> So if you'll postpone applying last night's series until
-> after your next merge of net-2.6 into net-next-2.6, it
-> should then apply cleanly.
+This assumes that IPV6 transport class is exactly the same
+as IPv4 TOS. Not sure if that is always the case?  Maybe need
+to mask off some bits.
 
-That's the kind of information I'd like to see from you when you
-post patches which have such dependencies.
+The mask and shift to get tclass is copied from ipv6/datagram.c
 
-Thanks.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+--- a/net/ipv4/ip_gre.c	2010-07-06 08:52:03.702096234 -0700
++++ b/net/ipv4/ip_gre.c	2010-07-06 08:59:18.416738831 -0700
+@@ -731,6 +731,8 @@ static netdev_tx_t ipgre_tunnel_xmit(str
+ 		tos = 0;
+ 		if (skb->protocol == htons(ETH_P_IP))
+ 			tos = old_iph->tos;
++		else if (skb->protocol == htons(ETH_P_IPV6))
++			tos = (ntohl(*(__be32 *)ipv6_hdr(skb)) >> 20) & 0xff;
+ 	}
+ 
+ 	{
