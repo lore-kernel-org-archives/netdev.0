@@ -1,38 +1,46 @@
-From: Robert Hancock <hancockrwd@gmail.com>
-Subject: Re: iwl3945: HARDWARE GONE??
-Date: Mon, 05 Jul 2010 18:18:52 -0600
-Message-ID: <4C32766C.4080305@gmail.com>
-References: <1278086575.2889.8.camel@chi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Priit Laes <plaes@plaes.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH 00/11] ISDN patches for 2.6.36
+Date: Tue,  6 Jul 2010 02:18:32 +0200 (CEST)
+Message-ID: <20100705-patch-gigaset-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1278086575.2889.8.camel@chi>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/02/2010 10:02 AM, Priit Laes wrote:
-> Heya!
->
-> Bumped my kernel to version 2.6.35-rc3-00391-g97e0214 and ran into
-> HARDWARE GONE error message..
->
-> Hardware is Lenovo x60s and wireless card is intel 3945:
->
-> 03:00.0 Network controller: Intel Corporation PRO/Wireless 3945ABG [Golan] Network Connection (rev 02)
-> 	Subsystem: Intel Corporation ThinkPad R60e/X60s
-> 	Flags: bus master, fast devsel, latency 0, IRQ 47
-> 	Memory at edf00000 (32-bit, non-prefetchable) [size=4K]
-> 	Capabilities: [c8] Power Management version 2
-> 	Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-> 	Capabilities: [e0] Express Legacy Endpoint, MSI 00
-> 	Capabilities: [100] Advanced Error Reporting
-> 	Capabilities: [140] Device Serial Number 00-xx-xx-xx-xx-xx-xx-xx
-> 	Kernel driver in use: iwl3945
-> 	Kernel modules: iwl3945
+Karsten, David,
 
-Wonder if somehow an ACPI power resource powering the wireless card got 
-switched off? What previous kernel version was working, can you try 
-bisecting?
+following are a series of patches to the Gigaset driver I'd like
+to see included in kernel release 2.6.36.
+
+Thanks,
+Tilman
+
+Tilman Schmidt (11):
+      isdn/gigaset: make tty write buffer limit consistent
+      isdn/gigaset: avoid copying AT commands twice
+      isdn/gigaset: ignore irrelevant device responses
+      isdn/gigaset: drop debug check on isochronous write
+      isdn/gigaset: improve CAPI message debugging
+      isdn/gigaset: handle Supplementary Service Listen
+      isdn/gigaset: remove obsolete compile time options
+      isdn/gigaset: reduce syslog spam
+      isdn/gigaset: fix leaks in error path
+      isdn/gigaset: document dial-out number format
+      isdn/gigaset: remove EXPERIMENTAL tag from GIGASET_CAPI option
+
+ Documentation/isdn/README.gigaset  |  117 +++++++++++++++++------------
+ drivers/isdn/gigaset/Kconfig       |    4 -
+ drivers/isdn/gigaset/bas-gigaset.c |   69 ++---------------
+ drivers/isdn/gigaset/capi.c        |   70 ++++++++++++-----
+ drivers/isdn/gigaset/common.c      |    2 
+ drivers/isdn/gigaset/ev-layer.c    |  148 ++++++++++++-------------------------
+ drivers/isdn/gigaset/gigaset.h     |   16 ----
+ drivers/isdn/gigaset/i4l.c         |    4 -
+ drivers/isdn/gigaset/interface.c   |   37 +++++++--
+ drivers/isdn/gigaset/ser-gigaset.c |   27 +-----
+ drivers/isdn/gigaset/usb-gigaset.c |   29 +------
+ 11 files changed, 226 insertions(+), 297 deletions(-)
