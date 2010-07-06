@@ -1,23 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ns83820: Use the instance of net_device_stats from
+Subject: Re: [PATCH] starfire: Use the instance of net_device_stats from
  net_device.
-Date: Mon, 05 Jul 2010 19:07:45 -0700 (PDT)
-Message-ID: <20100705.190745.233678562.davem@davemloft.net>
-References: <1278332071-17865-1-git-send-email-segooon@gmail.com>
+Date: Mon, 05 Jul 2010 19:07:51 -0700 (PDT)
+Message-ID: <20100705.190751.02296179.davem@davemloft.net>
+References: <1278332077-18431-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, adobriyan@gmail.com,
-	shemminger@vyatta.com, tj@kernel.org, jpirko@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, ionut@badula.org, joe@perches.com,
+	jpirko@redhat.com, shemminger@vyatta.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: segooon@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1278332071-17865-1-git-send-email-segooon@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53007
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757053Ab0GFCHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 22:07:38 -0400
+In-Reply-To: <1278332077-18431-1-git-send-email-segooon@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kulikov Vasiliy <segooon@gmail.com>
-Date: Mon,  5 Jul 2010 16:14:28 +0400
+Date: Mon,  5 Jul 2010 16:14:34 +0400
 
 > Since net_device has an instance of net_device_stats,
 > we can remove the instance of this from the adapter structure.
