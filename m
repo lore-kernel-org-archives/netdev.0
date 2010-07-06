@@ -1,43 +1,32 @@
-From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
-Subject: Re: =?UTF-8?Q?setsockopt=28IP=5FTOS=29=20being=20privileged=20or=20distin?=
- =?UTF-8?Q?ct=20capability=3F?=
-Date: Tue, 06 Jul 2010 10:17:26 +0200
-Message-ID: <839e715080d03a9334b4a66553cdfcd4@chewa.net>
-References: <4C2F7A55.5090700@redfish-solutions.com>
+From: mamudadiallo <mamuda_diallo_2003@hotmail.fr>
+Subject: Dear friend,
+Date: Tue, 6 Jul 2010 03:17:35 -0700 (PDT)
+Message-ID: <195244.57766.qm@web120216.mail.ne1.yahoo.com>
+Reply-To: mamuda_diallo_2003@hotmail.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Content-Type: text/plain; charset=us-ascii
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:41148 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754021Ab0GFIR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jul 2010 04:17:27 -0400
-In-Reply-To: <4C2F7A55.5090700@redfish-solutions.com>
+Received: from n8.bullet.mail.mud.yahoo.com ([209.191.86.156]:29803 "HELO
+	n8.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754036Ab0GFKRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 06:17:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dear friend, 
+I want to transfer ($2,500.000.00) Two million Five hundred thousand United States Dollars to overseas account. 
+  
+Your assistance as a foreigner is necessary because the management of the bank will welcome any foreigner who has correct information to this account which I will give to you immediately, if you are interested to do this business with me please reply with the assurance, include your private telephone and fax numbers as it is necessary to facilitate an easy communication in this transaction. 
+  
+As soon as you reply, I will let you know the next step to follow in order to finalize this transaction immediately. I expect your urgent communication. 
+  
+Upon your response and strong assurance that you will not let me down once the fund goes into your account. 
+  
+I will let you know the origin of the fund and the transfer procedures without delay. 
+Yours sincerely. 
+MAMUDA DIALLO
 
-=0D
-=0D
-On Sat, 03 Jul 2010 11:58:45 -0600, Philip Prindeville=0D
-<philipp_subx@redfish-solutions.com> wrote:=0D
-> Does anyone else think that setsockopt(IP_TOS) should be a privileged=
-=0D
-> operation, perhaps using CAP_NET_ADMIN, or maybe even adding separate=
-=0D
-> granularity as CAP_NET_TOS?=0D
-=0D
-That's a terribly idea.=0D
-Some applications do rely on this to set their TOS "correctly". If you=0D
-don't want unprivileged applications to be able to affect the queuing=0D
-policy, then don't use the TOS bits in your queuing policy - as simple =
-as=0D
-that.=0D
-=0D
--- =0D
-R=C3=A9mi Denis-Courmont=0D
-http://www.remlab.net=0D
-http://fi.linkedin.com/in/remidenis
+
+      
 
