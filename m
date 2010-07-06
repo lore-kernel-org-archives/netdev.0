@@ -1,38 +1,49 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-next PATCH 6/6] qlge: Change version to v1.00.00.25.00.00-01.
-Date: Mon,  5 Jul 2010 15:19:42 -0700
-Message-ID: <1278368382-23887-7-git-send-email-ron.mercer@qlogic.com>
-References: <1278368382-23887-1-git-send-email-ron.mercer@qlogic.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cain.qlogic.com ([198.70.193.223]:42713 "EHLO cain.qlc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754951Ab0GEXFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jul 2010 19:05:17 -0400
-In-Reply-To: <1278368382-23887-1-git-send-email-ron.mercer@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH 1/2] Documentation/isdn: CAPI controller interface amendment
+Date: Tue,  6 Jul 2010 02:18:22 +0200 (CEST)
+Message-ID: <20100705-patch-isdn-01.tilman@imap.cc>
+References: <20100705-patch-isdn-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100705-patch-isdn-00.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Mention that the CAPI controller methods load_firmware() and
+reset_ctr() are asynchronous, and should signal completion.
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+Impact: documentation
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/net/qlge/qlge.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ Documentation/isdn/INTERFACE.CAPI |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 27f83d6..06b2188 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -16,7 +16,7 @@
-  */
- #define DRV_NAME  	"qlge"
- #define DRV_STRING 	"QLogic 10 Gigabit PCI-E Ethernet Driver "
--#define DRV_VERSION	"v1.00.00.23.00.00-01"
-+#define DRV_VERSION	"v1.00.00.25.00.00-01"
+diff --git a/Documentation/isdn/INTERFACE.CAPI b/Documentation/isdn/INTERFACE.CAPI
+index f172091..309eb5e 100644
+--- a/Documentation/isdn/INTERFACE.CAPI
++++ b/Documentation/isdn/INTERFACE.CAPI
+@@ -113,12 +113,16 @@ char *driver_name
+ int (*load_firmware)(struct capi_ctr *ctrlr, capiloaddata *ldata)
+ 	(optional) pointer to a callback function for sending firmware and
+ 	configuration data to the device
++	The function may return before the operation has completed.
++	Completion must be signalled by a call to capi_ctr_ready().
+ 	Return value: 0 on success, error code on error
+ 	Called in process context.
  
- #define PFX "qlge: "
+ void (*reset_ctr)(struct capi_ctr *ctrlr)
+-	(optional) pointer to a callback function for performing a reset on
+-	the device, releasing all registered applications
++	(optional) pointer to a callback function for stopping the device,
++	releasing all registered applications
++	The function may return before the operation has completed.
++	Completion must be signalled by a call to capi_ctr_down().
+ 	Called in process context.
  
+ void (*register_appl)(struct capi_ctr *ctrlr, u16 applid,
 -- 
-1.6.0.2
-
+1.6.5.3.298.g39add
