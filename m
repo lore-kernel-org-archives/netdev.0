@@ -1,35 +1,112 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: NET: SB1250: Initialize .owner
-Date: Tue, 6 Jul 2010 16:18:11 +0100
-Message-ID: <20100706151811.GA4829@linux-mips.org>
+From: Richard =?ISO-8859-1?Q?R=F6jfors?=
+	<richard.rojfors@pelagicore.com>
+Subject: [PATCH] ks8842: Do the TX timeout work in workqueue context.
+Date: Tue, 06 Jul 2010 17:20:25 +0200
+Message-ID: <1278429625.32432.10.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org,
-	"Maciej W. Rozycki" <macro@linux-mips.org>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:60436 "EHLO h5.dl5rb.org.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752106Ab0GFPSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jul 2010 11:18:20 -0400
-Content-Disposition: inline
+Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:36470 "EHLO
+	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753912Ab0GFP0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 11:26:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Currently all code that needs to be run at TX timeout is done in the
+calling context, where bottom halves are disabled. Some of the code
+blocks, so it needs to be done in a different context. This patch
+adds in a work struct which is scheduled at TX timeout. Then the
+timeout code is executed within work queue context.
 
- drivers/net/sb1250-mac.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-index 1f3acc3..79eee30 100644
---- a/drivers/net/sb1250-mac.c
-+++ b/drivers/net/sb1250-mac.c
-@@ -2671,6 +2671,7 @@ static struct platform_driver sbmac_driver = {
- 	.remove = __exit_p(sbmac_remove),
- 	.driver = {
- 		.name = sbmac_string,
-+		.owner  = THIS_MODULE,
- 	},
+Signed-off-by: Richard R=C3=B6jfors <richard.rojfors@pelagicore.com>
+---
+diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
+index d47bba9..0be9261 100644
+--- a/drivers/net/ks8842.c
++++ b/drivers/net/ks8842.c
+@@ -119,6 +119,8 @@ struct ks8842_adapter {
+ 	int		irq;
+ 	struct tasklet_struct	tasklet;
+ 	spinlock_t	lock; /* spinlock to be interrupt safe */
++	struct work_struct timeout_work;
++	struct net_device *netdev;
  };
- 
+=20
+ static inline void ks8842_select_bank(struct ks8842_adapter *adapter,
+u16 bank)
+@@ -197,7 +199,6 @@ static void ks8842_reset(struct ks8842_adapter
+*adapter)
+ 	msleep(10);
+ 	iowrite16(0, adapter->hw_addr + REG_GRR);
+ 	*/
+-	iowrite16(32, adapter->hw_addr + REG_SELECT_BANK);
+ 	iowrite32(0x1, adapter->hw_addr + REG_TIMB_RST);
+ 	msleep(20);
+ }
+@@ -553,6 +554,8 @@ static int ks8842_close(struct net_device *netdev)
+=20
+ 	netdev_dbg(netdev, "%s - entry\n", __func__);
+=20
++	cancel_work_sync(&adapter->timeout_work);
++
+ 	/* free the irq */
+ 	free_irq(adapter->irq, netdev);
+=20
+@@ -595,9 +598,11 @@ static int ks8842_set_mac(struct net_device
+*netdev, void *p)
+ 	return 0;
+ }
+=20
+-static void ks8842_tx_timeout(struct net_device *netdev)
++static void ks8842_tx_timeout_work(struct work_struct *work)
+ {
+-	struct ks8842_adapter *adapter =3D netdev_priv(netdev);
++	struct ks8842_adapter *adapter =3D
++		container_of(work, struct ks8842_adapter, timeout_work);
++	struct net_device *netdev =3D adapter->netdev;
+ 	unsigned long flags;
+=20
+ 	netdev_dbg(netdev, "%s: entry\n", __func__);
+@@ -606,6 +611,9 @@ static void ks8842_tx_timeout(struct net_device
+*netdev)
+ 	/* disable interrupts */
+ 	ks8842_write16(adapter, 18, 0, REG_IER);
+ 	ks8842_write16(adapter, 18, 0xFFFF, REG_ISR);
++
++	netif_stop_queue(netdev);
++
+ 	spin_unlock_irqrestore(&adapter->lock, flags);
+=20
+ 	ks8842_reset_hw(adapter);
+@@ -615,6 +623,15 @@ static void ks8842_tx_timeout(struct net_device
+*netdev)
+ 	ks8842_update_link_status(netdev, adapter);
+ }
+=20
++static void ks8842_tx_timeout(struct net_device *netdev)
++{
++	struct ks8842_adapter *adapter =3D netdev_priv(netdev);
++
++	netdev_dbg(netdev, "%s: entry\n", __func__);
++
++	schedule_work(&adapter->timeout_work);
++}
++
+ static const struct net_device_ops ks8842_netdev_ops =3D {
+ 	.ndo_open		=3D ks8842_open,
+ 	.ndo_stop		=3D ks8842_close,
+@@ -649,6 +666,8 @@ static int __devinit ks8842_probe(struct
+platform_device *pdev)
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+=20
+ 	adapter =3D netdev_priv(netdev);
++	adapter->netdev =3D netdev;
++	INIT_WORK(&adapter->timeout_work, ks8842_tx_timeout_work);
+ 	adapter->hw_addr =3D ioremap(iomem->start, resource_size(iomem));
+ 	if (!adapter->hw_addr)
+ 		goto err_ioremap;
+
