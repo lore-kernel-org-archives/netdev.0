@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 06/11] isdn/gigaset: handle Supplementary Service Listen
-Date: Tue,  6 Jul 2010 02:19:04 +0200 (CEST)
-Message-ID: <20100705-patch-gigaset-06.tilman@imap.cc>
+Subject: [PATCH 07/11] isdn/gigaset: remove obsolete compile time options
+Date: Tue,  6 Jul 2010 02:19:09 +0200 (CEST)
+Message-ID: <20100705-patch-gigaset-07.tilman@imap.cc>
 References: <20100705-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -13,68 +13,99 @@ In-Reply-To: <20100705-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add minimal handling for the non-optional CAPI FACILITY_REQ
-Supplementary Service function Listen.
+Remove compile time options in the Gigaset ISDN driver that aren't
+going to be changed anymore, and an obsolete FIXME comment.
 
-Impact: bugfix
+Impact: cleanup
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/capi.c |   27 ++++++++++++++++++++++++++-
- 1 files changed, 26 insertions(+), 1 deletions(-)
+ drivers/isdn/gigaset/common.c    |    2 --
+ drivers/isdn/gigaset/ev-layer.c  |    6 ------
+ drivers/isdn/gigaset/gigaset.h   |    7 -------
+ drivers/isdn/gigaset/i4l.c       |    2 --
+ drivers/isdn/gigaset/interface.c |    1 -
+ 5 files changed, 0 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index ff074e9..3714aef 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -45,6 +45,7 @@
- #define CAPI_FACILITY_LI	0x0005
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index 5d4befb..3ca561e 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -791,8 +791,6 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
+ 	spin_unlock_irqrestore(&cs->lock, flags);
+ 	setup_timer(&cs->timer, timer_tick, (unsigned long) cs);
+ 	cs->timer.expires = jiffies + msecs_to_jiffies(GIG_TICK);
+-	/* FIXME: can jiffies increase too much until the timer is added?
+-	 * Same problem(?) with mod_timer() in timer_tick(). */
+ 	add_timer(&cs->timer);
  
- #define CAPI_SUPPSVC_GETSUPPORTED	0x0000
-+#define CAPI_SUPPSVC_LISTEN		0x0001
+ 	gig_dbg(DEBUG_INIT, "cs initialized");
+diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
+index 657757b..a230ba7 100644
+--- a/drivers/isdn/gigaset/ev-layer.c
++++ b/drivers/isdn/gigaset/ev-layer.c
+@@ -1809,19 +1809,13 @@ static void process_command_flags(struct cardstate *cs)
+ 				gig_dbg(DEBUG_EVENT, "Scheduling PC_CIDMODE");
+ 				cs->commands_pending = 1;
+ 				return;
+-#ifdef GIG_MAYINITONDIAL
+ 			case M_UNKNOWN:
+ 				schedule_init(cs, MS_INIT);
+ 				return;
+-#endif
+ 			}
+ 			bcs->at_state.pending_commands &= ~PC_CID;
+ 			cs->curchannel = bcs->channel;
+-#ifdef GIG_RETRYCID
+ 			cs->retry_count = 2;
+-#else
+-			cs->retry_count = 1;
+-#endif
+ 			schedule_sequence(cs, &cs->at_state, SEQ_CID);
+ 			return;
+ 		}
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index ba9547b..a69512f 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -46,13 +46,6 @@
  
- /* missing from capiutil.h */
- #define CAPIMSG_PLCI_PART(m)	CAPIMSG_U8(m, 9)
-@@ -1151,7 +1152,7 @@ static void do_facility_req(struct gigaset_capi_ctr *iif,
- 	case CAPI_FACILITY_SUPPSVC:
- 		/* decode Function parameter */
- 		pparam = cmsg->FacilityRequestParameter;
--		if (pparam == NULL || *pparam < 2) {
-+		if (pparam == NULL || pparam[0] < 2) {
- 			dev_notice(cs->dev, "%s: %s missing\n", "FACILITY_REQ",
- 				   "Facility Request Parameter");
- 			send_conf(iif, ap, skb, CapiIllMessageParmCoding);
-@@ -1168,8 +1169,32 @@ static void do_facility_req(struct gigaset_capi_ctr *iif,
- 			/* Supported Services: none */
- 			capimsg_setu32(confparam, 6, 0);
- 			break;
-+		case CAPI_SUPPSVC_LISTEN:
-+			if (pparam[0] < 7 || pparam[3] < 4) {
-+				dev_notice(cs->dev, "%s: %s missing\n",
-+					   "FACILITY_REQ", "Notification Mask");
-+				send_conf(iif, ap, skb,
-+					  CapiIllMessageParmCoding);
-+				return;
-+			}
-+			if (CAPIMSG_U32(pparam, 4) != 0) {
-+				dev_notice(cs->dev,
-+	"%s: unsupported supplementary service notification mask 0x%x\n",
-+				   "FACILITY_REQ", CAPIMSG_U32(pparam, 4));
-+				info = CapiFacilitySpecificFunctionNotSupported;
-+				confparam[3] = 2;	/* length */
-+				capimsg_setu16(confparam, 4,
-+					CapiSupplementaryServiceNotSupported);
-+			}
-+			info = CapiSuccess;
-+			confparam[3] = 2;	/* length */
-+			capimsg_setu16(confparam, 4, CapiSuccess);
-+			break;
- 		/* ToDo: add supported services */
- 		default:
-+			dev_notice(cs->dev,
-+		"%s: unsupported supplementary service function 0x%04x\n",
-+				   "FACILITY_REQ", function);
- 			info = CapiFacilitySpecificFunctionNotSupported;
- 			/* Supplementary Service specific parameter */
- 			confparam[3] = 2;	/* length */
+ #define RBUFSIZE 8192
+ 
+-/* compile time options */
+-#define GIG_MAJOR 0
+-
+-#define GIG_MAYINITONDIAL
+-#define GIG_RETRYCID
+-#define GIG_X75
+-
+ #define GIG_TICK 100		/* in milliseconds */
+ 
+ /* timeout values (unit: 1 sec) */
+diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
+index f01c3c2..1d084bb 100644
+--- a/drivers/isdn/gigaset/i4l.c
++++ b/drivers/isdn/gigaset/i4l.c
+@@ -643,9 +643,7 @@ int gigaset_isdn_regdev(struct cardstate *cs, const char *isdnid)
+ 	iif->maxbufsize = MAX_BUF_SIZE;
+ 	iif->features = ISDN_FEATURE_L2_TRANS |
+ 		ISDN_FEATURE_L2_HDLC |
+-#ifdef GIG_X75
+ 		ISDN_FEATURE_L2_X75I |
+-#endif
+ 		ISDN_FEATURE_L3_TRANS |
+ 		ISDN_FEATURE_P_EURO;
+ 	iif->hl_hdrlen = HW_HDR_LEN;		/* Area for storing ack */
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index f45d686..bb710d1 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -677,7 +677,6 @@ void gigaset_if_initdriver(struct gigaset_driver *drv, const char *procname,
+ 		goto enomem;
+ 
+ 	tty->magic =		TTY_DRIVER_MAGIC,
+-	tty->major =		GIG_MAJOR,
+ 	tty->type =		TTY_DRIVER_TYPE_SERIAL,
+ 	tty->subtype =		SERIAL_TYPE_NORMAL,
+ 	tty->flags =		TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
 -- 
 1.6.5.3.298.g39add
