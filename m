@@ -1,68 +1,80 @@
-From: Jon Mason <jon.mason@exar.com>
-Subject: Re: [PATCH] vxge: show startup message with KERN_INFO
-Date: Tue, 6 Jul 2010 11:08:25 -0500
-Message-ID: <20100706160824.GA31635@exar.com>
-References: <20100706130203.GA31471@localhost>
+From: James Bottomley <James.Bottomley@suse.de>
+Subject: Re: [linux-pm] [PATCH 3/3] pm_qos: get rid of the allocation in
+ pm_qos_add_request()
+Date: Tue, 06 Jul 2010 11:12:48 -0500
+Message-ID: <1278432768.2854.92.camel@mulgrave.site>
+References: <1277746434.10879.191.camel@mulgrave.site>
+	 <s5hvd8ubfcz.wl%tiwai@suse.de> <1278338568.2850.1.camel@mulgrave.site>
+	 <201007052307.07655.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wu Fengguang <fengguang.wu@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-pm@lists.linux-foundation.org, Takashi Iwai <tiwai@suse.de>,
+	netdev@vger.kernel.org, markgross@thegnar.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:25138 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752838Ab0GFQHw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 12:07:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20100706130203.GA31471@localhost>
+Received: from cantor.suse.de ([195.135.220.2]:60107 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753053Ab0GFQMy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jul 2010 12:12:54 -0400
+In-Reply-To: <201007052307.07655.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 06, 2010 at 06:02:03AM -0700, Wu Fengguang wrote:
-> The original KERN_CRIT will mess up terminals.
+On Mon, 2010-07-05 at 23:07 +0200, Rafael J. Wysocki wrote:
+> On Monday, July 05, 2010, James Bottomley wrote:
+> > On Mon, 2010-07-05 at 08:41 +0200, Takashi Iwai wrote:
+> > > sorry for the late reply, as I've been on vacation in the last week
+> > > (and shut off mails intentionally :)
+> > 
+> > Envy forbids me from saying that's OK.
+> > 
+> > > At Mon, 28 Jun 2010 12:44:48 -0500,
+> > > James Bottomley wrote:
+> > > > 
+> > > > Since every caller has to squirrel away the returned pointer anyway,
+> > > > they might as well supply the memory area.  This fixes a bug in a few of
+> > > > the call sites where the returned pointer was dereferenced without
+> > > > checking it for NULL (which gets returned if the kzalloc failed).
+> > > > 
+> > > > I'd like to hear how sound and netdev feels about this: it will add
+> > > > about two more pointers worth of data to struct netdev and struct
+> > > > snd_pcm_substream .. but I think it's worth it.  If you're OK, I'll add
+> > > > your acks and send through the pm tree.
+> > > > 
+> > > > This also looks to me like an android independent clean up (even though
+> > > > it renders the request_add atomically callable).  I also added include
+> > > > guards to include/linux/pm_qos_params.h
+> > > 
+> > > I like the patch very well, too.
+> > > But, just wondering...
+> > > 
+> > > > @@ -262,6 +260,11 @@ void pm_qos_update_request(struct pm_qos_request_list *pm_qos_req,
+> > > >  	if (!pm_qos_req) /*guard against callers passing in null */
+> > > >  		return;
+> > > >  
+> > > > +	if (pm_qos_request_active(pm_qos_req)) {
+> > > > +		WARN(1, KERN_ERR "pm_qos_update_request() called for unknown object\n");
+> > > > +		return;
+> > > > +	}
+> > > > +
+> > > 
+> > > Is this correct...?  Shouldn't it be a negative check?
+> > 
+> > Yes, it should be a negative check ... I'll update the patch.
+> 
+> I've already fixed it in my tree.
 
-Looks reasonable to me.
+Ah, OK, thanks ... so that would explain why we haven't been getting
+floods of reports (instead of me thinking no-one has tested it).
 
-Thanks,
-Jon
+> > I guess this still means that no-one has managed to test it on a functional
+> > system ...
+> 
+> Well, it's been for a while in linux-next ...
 
->
-> CC: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
-> ---
->  drivers/net/vxge/vxge-main.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-> index 45c5dc2..93a9147 100644
-> --- a/drivers/net/vxge/vxge-main.c
-> +++ b/drivers/net/vxge/vxge-main.c
-> @@ -4515,9 +4515,9 @@ vxge_starter(void)
->       char version[32];
->       snprintf(version, 32, "%s", DRV_VERSION);
->
-> -     printk(KERN_CRIT "%s: Copyright(c) 2002-2009 Neterion Inc\n",
-> +     printk(KERN_INFO "%s: Copyright(c) 2002-2009 Neterion Inc\n",
->               VXGE_DRIVER_NAME);
-> -     printk(KERN_CRIT "%s: Driver version: %s\n",
-> +     printk(KERN_INFO "%s: Driver version: %s\n",
->                       VXGE_DRIVER_NAME, version);
->
->       verify_bandwidth();
-> --
-> 1.6.6
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So here's hoping ...
 
-The information and any attached documents contained in this message
-may be confidential and/or legally privileged.  The message is
-intended solely for the addressee(s).  If you are not the intended
-recipient, you are hereby notified that any use, dissemination, or
-reproduction is strictly prohibited and may be unlawful.  If you are
-not the intended recipient, please contact the sender immediately by
-return e-mail and destroy all copies of the original message.
+James
+
+
