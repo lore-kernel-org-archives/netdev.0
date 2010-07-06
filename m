@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 05/11] isdn/gigaset: improve CAPI message debugging
-Date: Tue,  6 Jul 2010 02:18:59 +0200 (CEST)
-Message-ID: <20100705-patch-gigaset-05.tilman@imap.cc>
+Subject: [PATCH 03/11] isdn/gigaset: ignore irrelevant device responses
+Date: Tue,  6 Jul 2010 02:18:48 +0200 (CEST)
+Message-ID: <20100705-patch-gigaset-03.tilman@imap.cc>
 References: <20100705-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -13,102 +13,177 @@ In-Reply-To: <20100705-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide better control of debugging output for DATA_B3 CAPI messages
-which tend to occur very frequently.
+Downgrade the Gigaset driver's reaction to unknown AT responses from
+the device from warning to debug level, and remove the handling of
+some device responses which aren't relevant for the driver's
+operation.
 
-Impact: logging
+Impact: cleanup
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/capi.c |   27 ++++++++++++++++-----------
- 1 files changed, 16 insertions(+), 11 deletions(-)
+ drivers/isdn/gigaset/ev-layer.c |   67 ++++++++------------------------------
+ drivers/isdn/gigaset/gigaset.h  |    5 +--
+ 2 files changed, 16 insertions(+), 56 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index c38750c..ff074e9 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -270,9 +270,13 @@ static inline void dump_rawmsg(enum debuglevel level, const char *tag,
- 	kfree(dbgline);
- 	if (CAPIMSG_COMMAND(data) == CAPI_DATA_B3 &&
- 	    (CAPIMSG_SUBCOMMAND(data) == CAPI_REQ ||
--	     CAPIMSG_SUBCOMMAND(data) == CAPI_IND) &&
--	    CAPIMSG_DATALEN(data) > 0) {
-+	     CAPIMSG_SUBCOMMAND(data) == CAPI_IND)) {
- 		l = CAPIMSG_DATALEN(data);
-+		gig_dbg(level, "   DataLength=%d", l);
-+		if (l <= 0 || !(gigaset_debuglevel & DEBUG_LLDATA))
-+			return;
-+		if (l > 64)
-+			l = 64; /* arbitrary limit */
- 		dbgline = kmalloc(3*l, GFP_ATOMIC);
- 		if (!dbgline)
- 			return;
-@@ -384,7 +388,7 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *dskb)
+diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
+index 0d5984a..657757b 100644
+--- a/drivers/isdn/gigaset/ev-layer.c
++++ b/drivers/isdn/gigaset/ev-layer.c
+@@ -35,53 +35,40 @@
+ #define RT_RING		2
+ #define RT_NUMBER	3
+ #define RT_STRING	4
+-#define RT_HEX		5
+ #define RT_ZCAU		6
  
- 	/* don't send further B3 messages if disconnected */
- 	if (bcs->apconnstate < APCONN_ACTIVE) {
--		gig_dbg(DEBUG_LLDATA, "disconnected, discarding ack");
-+		gig_dbg(DEBUG_MCMD, "disconnected, discarding ack");
- 		return;
- 	}
- 
-@@ -428,7 +432,7 @@ void gigaset_skb_rcvd(struct bc_state *bcs, struct sk_buff *skb)
- 
- 	/* don't send further B3 messages if disconnected */
- 	if (bcs->apconnstate < APCONN_ACTIVE) {
--		gig_dbg(DEBUG_LLDATA, "disconnected, discarding data");
-+		gig_dbg(DEBUG_MCMD, "disconnected, discarding data");
- 		dev_kfree_skb_any(skb);
- 		return;
- 	}
-@@ -454,7 +458,7 @@ void gigaset_skb_rcvd(struct bc_state *bcs, struct sk_buff *skb)
- 	/* Data64 parameter not present */
- 
- 	/* emit message */
--	dump_rawmsg(DEBUG_LLDATA, "DATA_B3_IND", skb->data);
-+	dump_rawmsg(DEBUG_MCMD, __func__, skb->data);
- 	capi_ctr_handle_message(&iif->ctr, ap->id, skb);
- }
- EXPORT_SYMBOL_GPL(gigaset_skb_rcvd);
-@@ -978,6 +982,9 @@ static void gigaset_register_appl(struct capi_ctr *ctr, u16 appl,
- 	struct cardstate *cs = ctr->driverdata;
- 	struct gigaset_capi_appl *ap;
- 
-+	gig_dbg(DEBUG_CMD, "%s [%u] l3cnt=%u blkcnt=%u blklen=%u",
-+		__func__, appl, rp->level3cnt, rp->datablkcnt, rp->datablklen);
+ /* Possible ASCII responses */
+ #define RSP_OK		0
+-#define RSP_BUSY	1
+-#define RSP_CONNECT	2
++#define RSP_ERROR	1
+ #define RSP_ZGCI	3
+ #define RSP_RING	4
+-#define RSP_ZAOC	5
+-#define RSP_ZCSTR	6
+-#define RSP_ZCFGT	7
+-#define RSP_ZCFG	8
+-#define RSP_ZCCR	9
+-#define RSP_EMPTY	10
+-#define RSP_ZLOG	11
+-#define RSP_ZCAU	12
+-#define RSP_ZMWI	13
+-#define RSP_ZABINFO	14
+-#define RSP_ZSMLSTCHG	15
++#define RSP_ZVLS	5
++#define RSP_ZCAU	6
 +
- 	list_for_each_entry(ap, &iif->appls, ctrlist)
- 		if (ap->id == appl) {
- 			dev_notice(cs->dev,
-@@ -1062,6 +1069,8 @@ static void gigaset_release_appl(struct capi_ctr *ctr, u16 appl)
- 	struct gigaset_capi_appl *ap, *tmp;
- 	unsigned ch;
- 
-+	gig_dbg(DEBUG_CMD, "%s [%u]", __func__, appl);
++/* responses with values to store in at_state */
++/* - numeric */
+ #define RSP_VAR		100
+ #define RSP_ZSAU	(RSP_VAR + VAR_ZSAU)
+ #define RSP_ZDLE	(RSP_VAR + VAR_ZDLE)
+-#define RSP_ZVLS	(RSP_VAR + VAR_ZVLS)
+ #define RSP_ZCTP	(RSP_VAR + VAR_ZCTP)
++/* - string */
+ #define RSP_STR		(RSP_VAR + VAR_NUM)
+ #define RSP_NMBR	(RSP_STR + STR_NMBR)
+ #define RSP_ZCPN	(RSP_STR + STR_ZCPN)
+ #define RSP_ZCON	(RSP_STR + STR_ZCON)
+ #define RSP_ZBC		(RSP_STR + STR_ZBC)
+ #define RSP_ZHLC	(RSP_STR + STR_ZHLC)
+-#define RSP_ERROR	-1	/* ERROR              */
 +
- 	list_for_each_entry_safe(ap, tmp, &iif->appls, ctrlist)
- 		if (ap->id == appl) {
- 			/* remove from any channels */
-@@ -1951,11 +1960,7 @@ static void do_data_b3_req(struct gigaset_capi_ctr *iif,
- 	u16 handle = CAPIMSG_HANDLE_REQ(skb->data);
+ #define RSP_WRONG_CID	-2	/* unknown cid in cmd */
+-#define RSP_UNKNOWN	-4	/* unknown response   */
+-#define RSP_FAIL	-5	/* internal error     */
+ #define RSP_INVAL	-6	/* invalid response   */
++#define RSP_NODEV	-9	/* device not connected */
  
- 	/* frequent message, avoid _cmsg overhead */
--	dump_rawmsg(DEBUG_LLDATA, "DATA_B3_REQ", skb->data);
+ #define RSP_NONE	-19
+ #define RSP_STRING	-20
+ #define RSP_NULL	-21
+-#define RSP_RETRYFAIL	-22
+-#define RSP_RETRY	-23
+-#define RSP_SKIP	-24
+ #define RSP_INIT	-27
+ #define RSP_ANY		-26
+ #define RSP_LAST	-28
+-#define RSP_NODEV	-9
+ 
+ /* actions for process_response */
+ #define ACT_NOTHING		0
+@@ -259,13 +246,6 @@ struct reply_t gigaset_tab_nocid[] =
+ 
+ /* misc. */
+ {RSP_ERROR,	 -1,  -1, -1,			 -1, -1, {ACT_ERROR} },
+-{RSP_ZCFGT,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-{RSP_ZCFG,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-{RSP_ZLOG,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-{RSP_ZMWI,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-{RSP_ZABINFO,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-{RSP_ZSMLSTCHG,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
 -
--	gig_dbg(DEBUG_LLDATA,
--		"Receiving data from LL (ch: %d, flg: %x, sz: %d|%d)",
--		channel, flags, msglen, datalen);
-+	dump_rawmsg(DEBUG_MCMD, __func__, skb->data);
+ {RSP_ZCAU,	 -1,  -1, -1,			 -1, -1, {ACT_ZCAU} },
+ {RSP_NONE,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+ {RSP_ANY,	 -1,  -1, -1,			 -1, -1, {ACT_WARN} },
+@@ -361,10 +341,6 @@ struct reply_t gigaset_tab_cid[] =
  
- 	/* check parameters */
- 	if (channel == 0 || channel > cs->channels || ncci != 1) {
-@@ -2064,7 +2069,7 @@ static void do_data_b3_resp(struct gigaset_capi_ctr *iif,
- 			    struct gigaset_capi_appl *ap,
- 			    struct sk_buff *skb)
- {
--	dump_rawmsg(DEBUG_LLDATA, __func__, skb->data);
-+	dump_rawmsg(DEBUG_MCMD, __func__, skb->data);
- 	dev_kfree_skb_any(skb);
- }
+ /* misc. */
+ {RSP_ZCON,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-{RSP_ZCCR,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-{RSP_ZAOC,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-{RSP_ZCSTR,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+-
+ {RSP_ZCAU,	 -1,  -1, -1,			 -1, -1, {ACT_ZCAU} },
+ {RSP_NONE,	 -1,  -1, -1,			 -1, -1, {ACT_DEBUG} },
+ {RSP_ANY,	 -1,  -1, -1,			 -1, -1, {ACT_WARN} },
+@@ -387,20 +363,11 @@ static const struct resp_type_t {
+ 	{"ZVLS",	RSP_ZVLS,	RT_NUMBER},
+ 	{"ZCTP",	RSP_ZCTP,	RT_NUMBER},
+ 	{"ZDLE",	RSP_ZDLE,	RT_NUMBER},
+-	{"ZCFGT",	RSP_ZCFGT,	RT_NUMBER},
+-	{"ZCCR",	RSP_ZCCR,	RT_NUMBER},
+-	{"ZMWI",	RSP_ZMWI,	RT_NUMBER},
+ 	{"ZHLC",	RSP_ZHLC,	RT_STRING},
+ 	{"ZBC",		RSP_ZBC,	RT_STRING},
+ 	{"NMBR",	RSP_NMBR,	RT_STRING},
+ 	{"ZCPN",	RSP_ZCPN,	RT_STRING},
+ 	{"ZCON",	RSP_ZCON,	RT_STRING},
+-	{"ZAOC",	RSP_ZAOC,	RT_STRING},
+-	{"ZCSTR",	RSP_ZCSTR,	RT_STRING},
+-	{"ZCFG",	RSP_ZCFG,	RT_HEX},
+-	{"ZLOG",	RSP_ZLOG,	RT_NOTHING},
+-	{"ZABINFO",	RSP_ZABINFO,	RT_NOTHING},
+-	{"ZSMLSTCHG",	RSP_ZSMLSTCHG,	RT_NOTHING},
+ 	{NULL,		0,		0}
+ };
  
+@@ -588,10 +555,10 @@ void gigaset_handle_modem_response(struct cardstate *cs)
+ 					break;
+ 
+ 			if (!rt->response) {
+-				event->type = RSP_UNKNOWN;
+-				dev_warn(cs->dev,
+-					 "unknown modem response: %s\n",
+-					 argv[curarg]);
++				event->type = RSP_NONE;
++				gig_dbg(DEBUG_EVENT,
++					"unknown modem response: '%s'\n",
++					argv[curarg]);
+ 				break;
+ 			}
+ 
+@@ -655,14 +622,8 @@ void gigaset_handle_modem_response(struct cardstate *cs)
+ 				curarg = params - 1;
+ 			break;
+ 		case RT_NUMBER:
+-		case RT_HEX:
+ 			if (curarg < params) {
+-				if (param_type == RT_HEX)
+-					event->parameter =
+-						isdn_gethex(argv[curarg]);
+-				else
+-					event->parameter =
+-						isdn_getnum(argv[curarg]);
++				event->parameter = isdn_getnum(argv[curarg]);
+ 				++curarg;
+ 			} else
+ 				event->parameter = -1;
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index 1d0999b..add3d0c 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -193,9 +193,8 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
+ /* variables in struct at_state_t */
+ #define VAR_ZSAU	0
+ #define VAR_ZDLE	1
+-#define VAR_ZVLS	2
+-#define VAR_ZCTP	3
+-#define VAR_NUM		4
++#define VAR_ZCTP	2
++#define VAR_NUM		3
+ 
+ #define STR_NMBR	0
+ #define STR_ZCPN	1
 -- 
 1.6.5.3.298.g39add
