@@ -1,183 +1,62 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH] bnx2x: add support for receive hashing
-Date: Tue, 6 Jul 2010 00:16:42 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <alpine.DEB.1.00.1004222249400.27016@pokey.mtv.corp.google.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Possible bug in net/ipv4/route.c?
+Date: Tue, 6 Jul 2010 15:29:28 +0800
+Message-ID: <20100706072928.GB14612@gondor.apana.org.au>
+References: <CB2DD11991B27C4F99935E6229450D3205B28E91@STORK.scenix.com> <20100705120413.GA6219@gondor.apana.org.au> <20100705110328.65702fc1@nehalam> <20100706002813.GA11194@gondor.apana.org.au> <CB2DD11991B27C4F99935E6229450D3203950BE5@STORK.scenix.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tom Herbert" <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2876 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754812Ab0GFHQv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 03:16:51 -0400
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Sol Kavy <skavy@ubicom.com>, linux-kernel@vger.kernel.org,
+	Greg Ren <gren@ubicom.com>, Murat Sezgin <msezgin@ubicom.com>,
+	Sener Ilgen <silgen@ubicom.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Guojun Jin <gjin@ubicom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CB2DD11991B27C4F99935E6229450D3203950BE5@STORK.scenix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Let me rephrase: the part of your patch below enables RSS flow in our FW even if there is only one HW queue and I wonder why? 
-To refresh:
-	1) FW won't provide Toeplitz hash on CQE if RSS is not enabled.
-	2) There can be one HW queue in only 2 cases:
-		- There is only one CPU in the system. In that case I wonder if u have anything to do with Toeplitz hash on the skb at all.
-		- User has explicitly requested 1 HW queue with module parameter (num_queues=1). In that case if u r going to use the RSS hash on the skb means that u r actually going to do SW RSS instead of HW RSS, which sounds strange to me.
+On Mon, Jul 05, 2010 at 11:06:30PM -0700, Guojun Jin wrote:
+>
+> Would you please point to where is the best place that CB should be cleared for this case?
+> 
+> I also wonder why IP packet is routed through ARP queue for ICMP delievry.
 
-So, Herbert, could u, pls., explain, what was your original idea about these code lines?
+I was hoping that you guys would figure this out :)
 
-Thanks,
-vlad
+Anyway, this patch should fix the crash.
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> Behalf Of Vladislav Zolotarov
-> Sent: Sunday, July 04, 2010 7:36 PM
-> To: Tom Herbert
-> Cc: netdev@vger.kernel.org
-> Subject: RE: [PATCH] bnx2x: add support for receive hashing
-> 
-> Tom, could u, pls., explain what did u mean by taking the (RSS) flags
-> configuration out of RSS "if"? To recall "if(is_multi(bp))" is true iff RSS
-> is enabled.
-> 
-> Thanks,
-> vlad
-> 
-> > @@ -5750,10 +5757,10 @@ static void bnx2x_init_internal_func(struct bnx2x
-> > *bp)
-> >  	u32 offset;
-> >  	u16 max_agg_size;
-> >
-> > -	if (is_multi(bp)) {
-> > -		tstorm_config.config_flags = MULTI_FLAGS(bp);
-> > +	tstorm_config.config_flags = RSS_FLAGS(bp);
-> > +
-> > +	if (is_multi(bp))
-> >  		tstorm_config.rss_result_mask = MULTI_MASK;
-> > -	}
-> >
-> >  	/* Enable TPA if needed */
-> >  	if (bp->flags & TPA_ENABLE_FLAG)
-> 
-> 
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> > Behalf Of Tom Herbert
-> > Sent: Friday, April 23, 2010 8:54 AM
-> > To: davem@davemloft.net; netdev@vger.kernel.org
-> > Subject: [PATCH] bnx2x: add support for receive hashing
-> >
-> > Add support to bnx2x to extract Toeplitz hash out of the receive descriptor
-> > for use in skb->rxhash.
-> >
-> > Signed-off-by: Tom Herbert <therbert@google.com>
-> > ---
-> > diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-> > index 0819530..8bd2368 100644
-> > --- a/drivers/net/bnx2x.h
-> > +++ b/drivers/net/bnx2x.h
-> > @@ -1330,7 +1330,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg,
-> > u32 expected, int ms,
-> >  		AEU_INPUTS_ATTN_BITS_MCP_LATCHED_UMP_TX_PARITY | \
-> >  		AEU_INPUTS_ATTN_BITS_MCP_LATCHED_SCPAD_PARITY)
-> >
-> > -#define MULTI_FLAGS(bp) \
-> > +#define RSS_FLAGS(bp) \
-> >  		(TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY | \
-> >  		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY | \
-> >  		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_CAPABILITY | \
-> > diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> > index 0c6dba2..613f727 100644
-> > --- a/drivers/net/bnx2x_main.c
-> > +++ b/drivers/net/bnx2x_main.c
-> > @@ -1582,7 +1582,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp,
-> int
-> > budget)
-> >  		struct sw_rx_bd *rx_buf = NULL;
-> >  		struct sk_buff *skb;
-> >  		union eth_rx_cqe *cqe;
-> > -		u8 cqe_fp_flags;
-> > +		u8 cqe_fp_flags, cqe_fp_status_flags;
-> >  		u16 len, pad;
-> >
-> >  		comp_ring_cons = RCQ_BD(sw_comp_cons);
-> > @@ -1598,6 +1598,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp,
-> int
-> > budget)
-> >
-> >  		cqe = &fp->rx_comp_ring[comp_ring_cons];
-> >  		cqe_fp_flags = cqe->fast_path_cqe.type_error_flags;
-> > +		cqe_fp_status_flags = cqe->fast_path_cqe.status_flags;
-> >
-> >  		DP(NETIF_MSG_RX_STATUS, "CQE type %x  err %x  status %x"
-> >  		   "  queue %x  vlan %x  len %u\n", CQE_TYPE(cqe_fp_flags),
-> > @@ -1727,6 +1728,12 @@ reuse_rx:
-> >
-> >  			skb->protocol = eth_type_trans(skb, bp->dev);
-> >
-> > +			if ((bp->dev->features & ETH_FLAG_RXHASH) &&
-> > +			    (cqe_fp_status_flags &
-> > +			     ETH_FAST_PATH_RX_CQE_RSS_HASH_FLG))
-> > +				skb->rxhash = le32_to_cpu(
-> > +				    cqe->fast_path_cqe.rss_hash_result);
-> > +
-> >  			skb->ip_summed = CHECKSUM_NONE;
-> >  			if (bp->rx_csum) {
-> >  				if (likely(BNX2X_RX_CSUM_OK(cqe)))
-> > @@ -5750,10 +5757,10 @@ static void bnx2x_init_internal_func(struct bnx2x
-> > *bp)
-> >  	u32 offset;
-> >  	u16 max_agg_size;
-> >
-> > -	if (is_multi(bp)) {
-> > -		tstorm_config.config_flags = MULTI_FLAGS(bp);
-> > +	tstorm_config.config_flags = RSS_FLAGS(bp);
-> > +
-> > +	if (is_multi(bp))
-> >  		tstorm_config.rss_result_mask = MULTI_MASK;
-> > -	}
-> >
-> >  	/* Enable TPA if needed */
-> >  	if (bp->flags & TPA_ENABLE_FLAG)
-> > @@ -6629,10 +6636,8 @@ static int bnx2x_init_common(struct bnx2x *bp)
-> >  	bnx2x_init_block(bp, PBF_BLOCK, COMMON_STAGE);
-> >
-> >  	REG_WR(bp, SRC_REG_SOFT_RST, 1);
-> > -	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4) {
-> > -		REG_WR(bp, i, 0xc0cac01a);
-> > -		/* TODO: replace with something meaningful */
-> > -	}
-> > +	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4)
-> > +		REG_WR(bp, i, random32());
-> >  	bnx2x_init_block(bp, SRCH_BLOCK, COMMON_STAGE);
-> >  #ifdef BCM_CNIC
-> >  	REG_WR(bp, SRC_REG_KEYSEARCH_0, 0x63285672);
-> > @@ -11001,6 +11006,11 @@ static int bnx2x_set_flags(struct net_device *dev,
-> > u32 data)
-> >  		changed = 1;
-> >  	}
-> >
-> > +	if (data & ETH_FLAG_RXHASH)
-> > +		dev->features |= NETIF_F_RXHASH;
-> > +	else
-> > +		dev->features &= ~NETIF_F_RXHASH;
-> > +
-> >  	if (changed && netif_running(dev)) {
-> >  		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
-> >  		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+bridge: Clear IPCB before possible entry into IP stack
 
+The bridge protocol lives dangerously by having incestuous relations
+with the IP stack.  In this instance an abomination has been created
+where a bogus IPCB area from a bridged packet leads to a crash in
+the IP stack because it's interpreted as IP options.
 
+This patch papers over the problem by clearing the IPCB area in that
+particular spot.  To fix this properly we'd also need to parse any
+IP options if present but I'm way too lazy for that.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 4442099..8fb75f8 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -591,6 +591,9 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
+ 
+ 	pskb_trim_rcsum(skb, len);
+ 
++	/* BUG: Should really parse the IP options here. */
++	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
++
+ 	nf_bridge_put(skb->nf_bridge);
+ 	if (!nf_bridge_alloc(skb))
+ 		return NF_DROP;
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
