@@ -1,54 +1,37 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 1/2] Documentation/isdn: CAPI controller interface amendment
-Date: Tue, 06 Jul 2010 22:38:51 +0200
-Message-ID: <4C33945B.1000007@imap.cc>
-References: <20100705-patch-isdn-00.tilman@imap.cc>	<20100705-patch-isdn-01.tilman@imap.cc> <20100705.192426.13754108.davem@davemloft.net>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [Bugme-new] [Bug 16293] New: 82545GM in newest kernel not
+ working.
+Date: Tue, 6 Jul 2010 15:16:27 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FF491F8E1@rrsmsx501.amr.corp.intel.com>
+References: <bug-16293-10286@https.bugzilla.kernel.org/>
+ <20100701140041.df2d147c.akpm@linux-foundation.org>
+ <EA929A9653AAE14F841771FB1DE5A1365FF47D4E36@rrsmsx501.amr.corp.intel.com>
+ <web-435085375@be3.mail.zoznam.sk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig455A81FC2CA936D2087E1E86"
-Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100705.192426.13754108.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: NetDev <netdev@vger.kernel.org>
+To: "lukas.valach@zoznam.sk" <lukas.valach@zoznam.sk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:37772 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753418Ab0GFVQt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jul 2010 17:16:49 -0400
+In-Reply-To: <web-435085375@be3.mail.zoznam.sk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig455A81FC2CA936D2087E1E86
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Am 06.07.2010 04:24 schrieb David Miller:
-> Please stop using "Impact: " tags, I just edit them out when
-> I add your changes.
-
-Gladly.
-
-Thanks,
-Tilman
-
---=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
-
-
---------------enig455A81FC2CA936D2087E1E86
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.12 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkwzlFsACgkQQ3+did9BuFsg0gCfUJ/JkVMWSxmc7L8OnLPexvHO
-V+gAn21nq6yqaCR+vweCgAktWrCZ79gw
-=rRCo
------END PGP SIGNATURE-----
-
---------------enig455A81FC2CA936D2087E1E86--
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbHVrYXMudmFsYWNoQHpvem5hbS5z
+ayBbbWFpbHRvOmx1a2FzLnZhbGFjaEB6b3puYW0uc2tdDQo+U2VudDogVHVlc2RheSwgSnVseSAw
+NiwgMjAxMCAxMjozNSBQTQ0KPlRvOiBUYW50aWxvdiwgRW1pbCBTDQo+U3ViamVjdDogUmU6IFtC
+dWdtZS1uZXddIFtCdWcgMTYyOTNdIE5ldzogODI1NDVHTSBpbiBuZXdlc3Qga2VybmVsIG5vdA0K
+PndvcmtpbmcuDQo+DQo+SGksDQo+DQo+cGluZyBoYXMgMTAwJSBwYWNrZXQgbG9zcy4gTGluayBp
+cyB1cC4gTHNwY2kgLS12dnYgaXMgT0ssIHdoZW4gaGF2ZSBrZXJuZWwNCj4yLjYuMjYuDQoNCkNv
+dWxkIHlvdSBwcm92aWRlIHRoZSBpbmZvcm1hdGlvbiBJIGFza2VkIGluIHRoZSBwcmV2aW91cyBl
+bWFpbD8NCg0KMS4gZnVsbCBsc3BjaSBvdXRwdXQgKGxzcGNpIC12dnYpDQoyLiBldGh0b29sIC1p
+IGV0aFgNCjMuIGV0aHRvb2wgLWQgZXRoWA0KNC4gZXRodG9vbCAtZSBldGhYDQo1LiBkbWVzZyAt
+IGFmdGVyIGxvYWRpbmcgdGhlIGRyaXZlciBhbmQgY29uZmlndXJpbmcgdGhlIGludGVyZmFjZXMN
+CjYuIGtlcm5lbCBjb25maWcNCg0KQXJlIHlvdSB1c2luZyBhIG5ldHdvcmsgYWRhcHRlciBvciBp
+cyB0aGUgaW50ZXJmYWNlIG9uIHRoZSBtb3RoZXJib2FyZD8NCg0KQWxzbyBwbGVhc2UgY29weSBu
+ZXRkZXYgdG8geW91ciByZXBsaWVzLg0KDQpUaGFua3MsDQpFbWlsDQoNCg==
