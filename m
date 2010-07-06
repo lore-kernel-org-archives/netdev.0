@@ -1,9 +1,9 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: bridge br_multicast: BUG: unable to handle kernel NULL pointer
 	dereference
-Date: Tue, 6 Jul 2010 08:48:35 +0800
-Message-ID: <20100706004835.GA11611@gondor.apana.org.au>
-References: <1278356737.2163.45.camel@mendozza.osrc.amd.com>
+Date: Tue, 6 Jul 2010 08:50:08 +0800
+Message-ID: <20100706005008.GA11699@gondor.apana.org.au>
+References: <1278356737.2163.45.camel@mendozza.osrc.amd.com> <20100706004835.GA11611@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
@@ -11,28 +11,20 @@ Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 To: Frank Arnold <frank.arnold@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:47115 "EHLO
+Received: from helcar.apana.org.au ([209.40.204.226]:59370 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752453Ab0GFAso (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 20:48:44 -0400
+	with ESMTP id S1757264Ab0GFAuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 20:50:13 -0400
 Content-Disposition: inline
-In-Reply-To: <1278356737.2163.45.camel@mendozza.osrc.amd.com>
+In-Reply-To: <20100706004835.GA11611@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 05, 2010 at 09:05:37PM +0200, Frank Arnold wrote:
-> Hi,
+On Tue, Jul 06, 2010 at 08:48:35AM +0800, Herbert Xu wrote:
 > 
-> we see a kernel NULL pointer dereference during testing of the KVM tree,
-> currently based on 2.6.35-rc3. We are using bridge to connect the KVM
-> guests through the hosts network interface. Here is the trace:
-> 
-> BUG: unable to handle kernel NULL pointer dereference at
-> 0000000000000028                                               
-> IP: [<ffffffffa0196da0>] __br_ip4_hash+0x0/0x7c [bridge]                                                                
+> bridge: Restore NULL check in br_mdb_ip_get
 
-Thanks for the report! Luckily this bug was introduced after
-2.6.34 so we don't need it in stable.
+Resend with proper attribution.
 
 bridge: Restore NULL check in br_mdb_ip_get
 
@@ -43,6 +35,7 @@ multicast table allocated.
 This patch restores it and ensures all br_mdb_*_get functions
 use it.
 
+Reported-by: Frank Arnold <frank.arnold@amd.com>
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
