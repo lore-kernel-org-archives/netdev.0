@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 10/11] isdn/gigaset: document dial-out number format
-Date: Tue,  6 Jul 2010 02:19:25 +0200 (CEST)
-Message-ID: <20100705-patch-gigaset-10.tilman@imap.cc>
+Subject: [PATCH 08/11] isdn/gigaset: reduce syslog spam
+Date: Tue,  6 Jul 2010 02:19:14 +0200 (CEST)
+Message-ID: <20100705-patch-gigaset-08.tilman@imap.cc>
 References: <20100705-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -9,51 +9,93 @@ Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 To: Karsten Keil <isdn@linux-pingi.de>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pxnet.com ([89.1.7.7]:42012 "EHLO mail.pxnet.com"
+Received: from gimli.pxnet.com ([89.1.7.7]:41997 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757096Ab0GFATo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jul 2010 20:19:44 -0400
+	id S1756993Ab0GFATb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jul 2010 20:19:31 -0400
 In-Reply-To: <20100705-patch-gigaset-00.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a paragraph to the driver documentation describing how to make
-internal and external calls.
+Downgrade some error messages which occur frequently during
+normal operation to debug messages.
 
-Impact: documentation
+Impact: logging
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- Documentation/isdn/README.gigaset |   17 ++++++++++++++++-
- 1 files changed, 16 insertions(+), 1 deletions(-)
+ drivers/isdn/gigaset/capi.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/Documentation/isdn/README.gigaset b/Documentation/isdn/README.gigaset
-index e472df8..702c046 100644
---- a/Documentation/isdn/README.gigaset
-+++ b/Documentation/isdn/README.gigaset
-@@ -263,7 +263,22 @@ GigaSet 307x Device Driver
-      change its CID mode while the driver is loaded, eg.
-         echo 0 > /sys/class/tty/ttyGU0/cidmode
+diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
+index 3714aef..b459ed3 100644
+--- a/drivers/isdn/gigaset/capi.c
++++ b/drivers/isdn/gigaset/capi.c
+@@ -383,13 +383,13 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *dskb)
+ 	++bcs->trans_up;
  
--2.7. Unregistered Wireless Devices (M101/M105)
-+2.7. Dialing Numbers
-+     ---------------
-+     The called party number provided by an application for dialing out must
-+     be a public network number according to the local dialing plan, without
-+     any dial prefix for getting an outside line.
-+
-+     Internal calls can be made by providing an internal extension number
-+     prefixed with "**" (two asterisks) as the called party number. So to dial
-+     eg. the first registered DECT handset, give "**11" as the called party
-+     number. Dialing "***" (three asterisks) calls all extensions
-+     simultaneously (global call).
-+
-+     This holds for both CAPI 2.0 and ISDN4Linux applications. Unimodem mode
-+     does not support internal calls.
-+
-+2.8. Unregistered Wireless Devices (M101/M105)
-      -----------------------------------------
-      The main purpose of the ser_gigaset and usb_gigaset drivers is to allow
-      the M101 and M105 wireless devices to be used as ISDN devices for ISDN
+ 	if (!ap) {
+-		dev_err(cs->dev, "%s: no application\n", __func__);
++		gig_dbg(DEBUG_MCMD, "%s: application gone", __func__);
+ 		return;
+ 	}
+ 
+ 	/* don't send further B3 messages if disconnected */
+ 	if (bcs->apconnstate < APCONN_ACTIVE) {
+-		gig_dbg(DEBUG_MCMD, "disconnected, discarding ack");
++		gig_dbg(DEBUG_MCMD, "%s: disconnected", __func__);
+ 		return;
+ 	}
+ 
+@@ -427,13 +427,14 @@ void gigaset_skb_rcvd(struct bc_state *bcs, struct sk_buff *skb)
+ 	bcs->trans_down++;
+ 
+ 	if (!ap) {
+-		dev_err(cs->dev, "%s: no application\n", __func__);
++		gig_dbg(DEBUG_MCMD, "%s: application gone", __func__);
++		dev_kfree_skb_any(skb);
+ 		return;
+ 	}
+ 
+ 	/* don't send further B3 messages if disconnected */
+ 	if (bcs->apconnstate < APCONN_ACTIVE) {
+-		gig_dbg(DEBUG_MCMD, "disconnected, discarding data");
++		gig_dbg(DEBUG_MCMD, "%s: disconnected", __func__);
+ 		dev_kfree_skb_any(skb);
+ 		return;
+ 	}
+@@ -752,7 +753,7 @@ void gigaset_isdn_connD(struct bc_state *bcs)
+ 	ap = bcs->ap;
+ 	if (!ap) {
+ 		spin_unlock_irqrestore(&bcs->aplock, flags);
+-		dev_err(cs->dev, "%s: no application\n", __func__);
++		gig_dbg(DEBUG_CMD, "%s: application gone", __func__);
+ 		return;
+ 	}
+ 	if (bcs->apconnstate == APCONN_NONE) {
+@@ -848,7 +849,7 @@ void gigaset_isdn_connB(struct bc_state *bcs)
+ 	ap = bcs->ap;
+ 	if (!ap) {
+ 		spin_unlock_irqrestore(&bcs->aplock, flags);
+-		dev_err(cs->dev, "%s: no application\n", __func__);
++		gig_dbg(DEBUG_CMD, "%s: application gone", __func__);
+ 		return;
+ 	}
+ 	if (!bcs->apconnstate) {
+@@ -906,13 +907,12 @@ void gigaset_isdn_connB(struct bc_state *bcs)
+  */
+ void gigaset_isdn_hupB(struct bc_state *bcs)
+ {
+-	struct cardstate *cs = bcs->cs;
+ 	struct gigaset_capi_appl *ap = bcs->ap;
+ 
+ 	/* ToDo: assure order of DISCONNECT_B3_IND and DISCONNECT_IND ? */
+ 
+ 	if (!ap) {
+-		dev_err(cs->dev, "%s: no application\n", __func__);
++		gig_dbg(DEBUG_CMD, "%s: application gone", __func__);
+ 		return;
+ 	}
+ 
 -- 
 1.6.5.3.298.g39add
 
