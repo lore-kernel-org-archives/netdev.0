@@ -1,80 +1,126 @@
-From: James Bottomley <James.Bottomley@suse.de>
-Subject: Re: [linux-pm] [PATCH 3/3] pm_qos: get rid of the allocation in
- pm_qos_add_request()
-Date: Tue, 06 Jul 2010 11:12:48 -0500
-Message-ID: <1278432768.2854.92.camel@mulgrave.site>
-References: <1277746434.10879.191.camel@mulgrave.site>
-	 <s5hvd8ubfcz.wl%tiwai@suse.de> <1278338568.2850.1.camel@mulgrave.site>
-	 <201007052307.07655.rjw@sisk.pl>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH net-next-2.6] IB/{nes,
+ ipoib}: Pass supported flags to ethtool_op_set_flags()
+Date: Tue, 06 Jul 2010 09:22:58 -0700
+Message-ID: <4C335862.5060703@oracle.com>
+References: <1277901872.2082.10.camel@achroite.uk.solarflarecom.com>	
+	<20100702095514.7fb324c8.randy.dunlap@oracle.com>	
+	<20100702.220711.39188625.davem@davemloft.net>	
+	<20100703120729.f2a2715b.randy.dunlap@oracle.com>	
+	<1278184884.4878.559.camel@localhost>
+	<1278186089.4878.570.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-pm@lists.linux-foundation.org, Takashi Iwai <tiwai@suse.de>,
-	netdev@vger.kernel.org, markgross@thegnar.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:60107 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753053Ab0GFQMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jul 2010 12:12:54 -0400
-In-Reply-To: <201007052307.07655.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: amit.salecha@qlogic.com, linux-net-drivers@solarflare.com, dm@chelsio.com,
+	sgruszka@redhat.com, amwang@redhat.com,
+	Faisal Latif <faisal.latif@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	anirban.chakraborty@qlogic.com, jgarzik@redhat.com,
+	vkolluri@cisco.com, Chien Tung <chien.tin.tung@intel.com>,
+	brice@myri.com, gallatin@myri.com, linux-rdma@vger.kernel.org,
+	scofeldm@cisco.com, Roland Dreier <rolandd@cisco.com>,
+	shemminger@linux-foundation.org,
+	David Miller <davem@davemloft.net>, buytenh@wantstofly.org,
+	roprabhu@cisco.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1278186089.4878.570.camel@localhost>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-07-05 at 23:07 +0200, Rafael J. Wysocki wrote:
-> On Monday, July 05, 2010, James Bottomley wrote:
-> > On Mon, 2010-07-05 at 08:41 +0200, Takashi Iwai wrote:
-> > > sorry for the late reply, as I've been on vacation in the last week
-> > > (and shut off mails intentionally :)
-> > 
-> > Envy forbids me from saying that's OK.
-> > 
-> > > At Mon, 28 Jun 2010 12:44:48 -0500,
-> > > James Bottomley wrote:
-> > > > 
-> > > > Since every caller has to squirrel away the returned pointer anyway,
-> > > > they might as well supply the memory area.  This fixes a bug in a few of
-> > > > the call sites where the returned pointer was dereferenced without
-> > > > checking it for NULL (which gets returned if the kzalloc failed).
-> > > > 
-> > > > I'd like to hear how sound and netdev feels about this: it will add
-> > > > about two more pointers worth of data to struct netdev and struct
-> > > > snd_pcm_substream .. but I think it's worth it.  If you're OK, I'll add
-> > > > your acks and send through the pm tree.
-> > > > 
-> > > > This also looks to me like an android independent clean up (even though
-> > > > it renders the request_add atomically callable).  I also added include
-> > > > guards to include/linux/pm_qos_params.h
-> > > 
-> > > I like the patch very well, too.
-> > > But, just wondering...
-> > > 
-> > > > @@ -262,6 +260,11 @@ void pm_qos_update_request(struct pm_qos_request_list *pm_qos_req,
-> > > >  	if (!pm_qos_req) /*guard against callers passing in null */
-> > > >  		return;
-> > > >  
-> > > > +	if (pm_qos_request_active(pm_qos_req)) {
-> > > > +		WARN(1, KERN_ERR "pm_qos_update_request() called for unknown object\n");
-> > > > +		return;
-> > > > +	}
-> > > > +
-> > > 
-> > > Is this correct...?  Shouldn't it be a negative check?
-> > 
-> > Yes, it should be a negative check ... I'll update the patch.
+On 07/03/10 12:41, Ben Hutchings wrote:
+> Following commit 1437ce3983bcbc0447a0dedcd644c14fe833d266 "ethtool:
+> Change ethtool_op_set_flags to validate flags", ethtool_op_set_flags
+> takes a third parameter and cannot be used directly as an
+> implementation of ethtool_ops::set_flags.
 > 
-> I've already fixed it in my tree.
-
-Ah, OK, thanks ... so that would explain why we haven't been getting
-floods of reports (instead of me thinking no-one has tested it).
-
-> > I guess this still means that no-one has managed to test it on a functional
-> > system ...
+> Changes nes and ipoib driver to pass in the appropriate value.
 > 
-> Well, it's been for a while in linux-next ...
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+> This is compile-tested only.
 
-So here's hoping ...
+Ack, thanks.
 
-James
+> Dave, Roland, you'd better decide between yourselves should apply this.
+> 
+> Ben.
+> 
+>  drivers/infiniband/hw/nes/nes_nic.c          |    8 +++++++-
+>  drivers/infiniband/ulp/ipoib/ipoib_ethtool.c |    7 ++++++-
+>  2 files changed, 13 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+> index 5cc0a9a..42e7aad 100644
+> --- a/drivers/infiniband/hw/nes/nes_nic.c
+> +++ b/drivers/infiniband/hw/nes/nes_nic.c
+> @@ -1567,6 +1567,12 @@ static int nes_netdev_set_settings(struct net_device *netdev, struct ethtool_cmd
+>  }
+>  
+> 
+> +static int nes_netdev_set_flags(struct net_device *netdev, u32 flags)
+> +{
+> +	return ethtool_op_set_flags(netdev, flags, ETH_FLAG_LRO);
+> +}
+> +
+> +
+>  static const struct ethtool_ops nes_ethtool_ops = {
+>  	.get_link = ethtool_op_get_link,
+>  	.get_settings = nes_netdev_get_settings,
+> @@ -1588,7 +1594,7 @@ static const struct ethtool_ops nes_ethtool_ops = {
+>  	.get_tso = ethtool_op_get_tso,
+>  	.set_tso = ethtool_op_set_tso,
+>  	.get_flags = ethtool_op_get_flags,
+> -	.set_flags = ethtool_op_set_flags,
+> +	.set_flags = nes_netdev_set_flags,
+>  };
+>  
+> 
+> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c b/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
+> index 40e8584..1a1657c 100644
+> --- a/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
+> +++ b/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
+> @@ -147,6 +147,11 @@ static void ipoib_get_ethtool_stats(struct net_device *dev,
+>  	data[index++] = priv->lro.lro_mgr.stats.no_desc;
+>  }
+>  
+> +static int ipoib_set_flags(struct net_device *dev, u32 flags)
+> +{
+> +	return ethtool_op_set_flags(dev, flags, ETH_FLAG_LRO);
+> +}
+> +
+>  static const struct ethtool_ops ipoib_ethtool_ops = {
+>  	.get_drvinfo		= ipoib_get_drvinfo,
+>  	.get_rx_csum		= ipoib_get_rx_csum,
+> @@ -154,7 +159,7 @@ static const struct ethtool_ops ipoib_ethtool_ops = {
+>  	.get_coalesce		= ipoib_get_coalesce,
+>  	.set_coalesce		= ipoib_set_coalesce,
+>  	.get_flags		= ethtool_op_get_flags,
+> -	.set_flags		= ethtool_op_set_flags,
+> +	.set_flags		= ipoib_set_flags,
+>  	.get_strings		= ipoib_get_strings,
+>  	.get_sset_count		= ipoib_get_sset_count,
+>  	.get_ethtool_stats	= ipoib_get_ethtool_stats,
 
 
+-- 
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Sprint
+What will you do first with EVO, the first 4G phone?
+Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
