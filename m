@@ -1,32 +1,43 @@
-From: mamudadiallo <mamuda_diallo_2003@hotmail.fr>
-Subject: Dear friend,
-Date: Tue, 6 Jul 2010 03:17:35 -0700 (PDT)
-Message-ID: <195244.57766.qm@web120216.mail.ne1.yahoo.com>
-Reply-To: mamuda_diallo_2003@hotmail.fr
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: setsockopt(IP_TOS) being privileged or distinct capability?
+Date: Tue, 06 Jul 2010 12:56:06 +0200
+Message-ID: <m37hl8j2ux.fsf@ursa.amorsen.dk>
+References: <4C2F7A55.5090700@redfish-solutions.com>
+	<2md4g7-3s3.ln1@chipmunk.wormnet.eu>
+	<4C2FC2C8.8080203@redfish-solutions.com>
+	<20100703234813.GJ24655@chipmunk>
+	<4C321EAF.9000508@redfish-solutions.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: undisclosed recipients:;
+Cc: Alexander Clouter <alex@digriz.org.uk>, netdev@vger.kernel.org
+To: Philip Prindeville <philipp_subx@redfish-solutions.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n8.bullet.mail.mud.yahoo.com ([209.191.86.156]:29803 "HELO
-	n8.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754036Ab0GFKRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 06:17:37 -0400
+Received: from gate1.ipvision.dk ([94.127.49.2]:55206 "EHLO gate1.ipvision.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753063Ab0GFLLW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jul 2010 07:11:22 -0400
+In-Reply-To: <4C321EAF.9000508@redfish-solutions.com> (Philip Prindeville's
+	message of "Mon, 05 Jul 2010 12:04:31 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear friend, 
-I want to transfer ($2,500.000.00) Two million Five hundred thousand United States Dollars to overseas account. 
-  
-Your assistance as a foreigner is necessary because the management of the bank will welcome any foreigner who has correct information to this account which I will give to you immediately, if you are interested to do this business with me please reply with the assurance, include your private telephone and fax numbers as it is necessary to facilitate an easy communication in this transaction. 
-  
-As soon as you reply, I will let you know the next step to follow in order to finalize this transaction immediately. I expect your urgent communication. 
-  
-Upon your response and strong assurance that you will not let me down once the fund goes into your account. 
-  
-I will let you know the origin of the fund and the transfer procedures without delay. 
-Yours sincerely. 
-MAMUDA DIALLO
+Philip Prindeville <philipp_subx@redfish-solutions.com> writes:
+
+> Once QoS markings actually *are* implemented in carrier networks, the
+> potential for abuse is non-insignificant.  Hence the suggestion to
+> make it privileged.
+
+I think you are overestimating the potential for abuse. ISP's who
+oversubscribe enough to suffer from heavy congestion internally should
+stop doing that and most likely have fancy congestion control equipment
+installed. That equipment can apply all sorts of limits to prioritized
+traffic.
+
+For a more typical ISP, marking TCP packets with EF means you get
+marginally lower and more stable latency but risk increased packet loss.
+TCP does not mind a little extra latency and suffers badly from packet
+loss, so that behaviour should be self-limiting.
 
 
-      
+/Benny
 
