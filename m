@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 01/11] isdn/gigaset: adjust usb_gigaset tty write buffer limit
-Date: Tue,  6 Jul 2010 02:18:37 +0200 (CEST)
-Message-ID: <20100705-patch-gigaset-01.tilman@imap.cc>
+Subject: [PATCH 04/11] isdn/gigaset: drop debug check on isochronous write
+Date: Tue,  6 Jul 2010 02:18:53 +0200 (CEST)
+Message-ID: <20100705-patch-gigaset-04.tilman@imap.cc>
 References: <20100705-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -13,29 +13,44 @@ In-Reply-To: <20100705-patch-gigaset-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The usb_gigaset driver's write buffer limit was different from those
-of the others for no good reason. Set it to the same value, derived
-from the Siemens documentation.
+With CONFIG_GIGASET_DEBUG set, every isochronous USB frame after
+an erroneous one was checked for more errors. This produced only
+noise messages in practice, so drop it.
 
-Impact: cosmetic
+Impact: cleanup
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/usb-gigaset.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/isdn/gigaset/bas-gigaset.c |   18 ------------------
+ 1 files changed, 0 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
-index 76dbb20..f65cf7d 100644
---- a/drivers/isdn/gigaset/usb-gigaset.c
-+++ b/drivers/isdn/gigaset/usb-gigaset.c
-@@ -39,7 +39,8 @@ MODULE_PARM_DESC(cidmode, "Call-ID mode");
- #define GIGASET_MODULENAME "usb_gigaset"
- #define GIGASET_DEVNAME    "ttyGU"
- 
--#define IF_WRITEBUF 2000	/* arbitrary limit */
-+/* length limit according to Siemens 3070usb-protokoll.doc ch. 2.1 */
-+#define IF_WRITEBUF 264
- 
- /* Values for the Gigaset M105 Data */
- #define USB_M105_VENDOR_ID	0x0681
+diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
+index 2dab531..0ded364 100644
+--- a/drivers/isdn/gigaset/bas-gigaset.c
++++ b/drivers/isdn/gigaset/bas-gigaset.c
+@@ -1188,24 +1188,6 @@ static void write_iso_tasklet(unsigned long data)
+ 					break;
+ 				}
+ 			}
+-#ifdef CONFIG_GIGASET_DEBUG
+-			/* check assumption on remaining frames */
+-			for (; i < BAS_NUMFRAMES; i++) {
+-				ifd = &urb->iso_frame_desc[i];
+-				if (ifd->status != -EINPROGRESS
+-				    || ifd->actual_length != 0) {
+-					dev_warn(cs->dev,
+-					     "isochronous write: frame %d: %s, "
+-					     "%d of %d bytes sent\n",
+-					     i, get_usb_statmsg(ifd->status),
+-					     ifd->actual_length, ifd->length);
+-					offset = (ifd->offset +
+-						  ifd->actual_length)
+-						 % BAS_OUTBUFSIZE;
+-					break;
+-				}
+-			}
+-#endif
+ 			break;
+ 		case -EPIPE:			/* stall - probably underrun */
+ 			dev_err(cs->dev, "isochronous write stalled\n");
 -- 
 1.6.5.3.298.g39add
