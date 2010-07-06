@@ -1,37 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] net: Fix definition of netif_vdbg() when
- VERBOSE_DEBUG is defined
-Date: Mon, 05 Jul 2010 20:08:33 -0700 (PDT)
-Message-ID: <20100705.200833.42782495.davem@davemloft.net>
-References: <1278090524.2095.41.camel@achroite.uk.solarflarecom.com>
+Subject: Re: setsockopt(IP_TOS) being privileged or distinct capability?
+Date: Mon, 05 Jul 2010 20:13:24 -0700 (PDT)
+Message-ID: <20100705.201324.214230349.davem@davemloft.net>
+References: <4C321EAF.9000508@redfish-solutions.com>
+	<20100706020734.GA2972@nuttenaction>
+	<4C329E15.2000601@redfish-solutions.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	joe@perches.com
-To: bhutchings@solarflare.com
+Cc: hagen@jauu.net, alex@digriz.org.uk, netdev@vger.kernel.org
+To: philipp_subx@redfish-solutions.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37166
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45209
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757084Ab0GFDIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 23:08:19 -0400
-In-Reply-To: <1278090524.2095.41.camel@achroite.uk.solarflarecom.com>
+	by vger.kernel.org with ESMTP id S1754834Ab0GFDNL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 23:13:11 -0400
+In-Reply-To: <4C329E15.2000601@redfish-solutions.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 02 Jul 2010 18:08:44 +0100
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Date: Mon, 05 Jul 2010 21:08:05 -0600
 
-> netif_vdbg() was originally defined as entirely equivalent to
-> netdev_vdbg(), but I assume that it was intended to take the same
-> parameters as netif_dbg() etc.  (Currently it is only used by the
-> sfc driver, in which I worked on that assumption.)
-> 
-> In commit a4ed89c I changed the definition used when VERBOSE_DEBUG is
-> not defined, but I failed to notice that the definition used when
-> VERBOSE_DEBUG is defined was also not as I expected.  Change that to
-> match netif_dbg() as well.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Yes, most users have admin/privileged rights on their machines, but
+> don't know enough to exploit that.
 
-Applied to net-2.6, thanks.
+Even "stupid" users are a very slim, marginal, step away from making
+use of it once they get shown with a HOWTO on some web site what is
+possible with this if QoS is being abided by on their network.
+
+Look, this discussion seems completely pointless.  The behavior is
+never changing, setting the TOS will always be non-privileged.
+
+We cannot change the current behavior no matter what political or
+other motivation we might have for doing so.  It's been non-privileged
+for more than 15 years, and we'd knowingly break applications with the
+change.
+
+And I don't even agree with the arguments being proposed for doing
+this.  Users can control their packets however they wish.  The only
+thing the ISP can do to prevent toying with the TOS bits is putting
+logic into your little black box that hooks up to your cable/dsl line.
+
+So this TOS being privileged proposal it's a "no go" from any angle as
+far as I'm concerned.
