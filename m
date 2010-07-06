@@ -1,101 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: bridge br_multicast: BUG: unable to handle kernel NULL pointer
-	dereference
-Date: Tue, 6 Jul 2010 08:50:08 +0800
-Message-ID: <20100706005008.GA11699@gondor.apana.org.au>
-References: <1278356737.2163.45.camel@mendozza.osrc.amd.com> <20100706004835.GA11611@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers/net: correct valid flag
+Date: Mon, 05 Jul 2010 18:03:49 -0700 (PDT)
+Message-ID: <20100705.180349.112607097.davem@davemloft.net>
+References: <Pine.LNX.4.64.1007051706530.15185@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Frank Arnold <frank.arnold@amd.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:59370 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757264Ab0GFAuN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 20:50:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20100706004835.GA11611@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40641
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753056Ab0GFBDg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 21:03:36 -0400
+In-Reply-To: <Pine.LNX.4.64.1007051706530.15185@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 06, 2010 at 08:48:35AM +0800, Herbert Xu wrote:
+From: Julia Lawall <julia@diku.dk>
+Date: Mon, 5 Jul 2010 17:07:15 +0200 (CEST)
+
+> From: Julia Lawall <julia@diku.dk>
 > 
-> bridge: Restore NULL check in br_mdb_ip_get
+> Elsewhere in the "optimized" functions, the "2" constants are used.
+> NV_TX_VALID and NV_TX2_VALID have the same value.
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> ---
+> diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+> index 268ea4d..870c18b 100644
+> --- a/drivers/net/forcedeth.c
+> +++ b/drivers/net/forcedeth.c
+> @@ -2468,7 +2468,8 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
+>  	struct ring_desc_ex* orig_get_tx = np->get_tx.ex;
+>  
+>  	while ((np->get_tx.ex != np->put_tx.ex) &&
+> -	       !((flags = le32_to_cpu(np->get_tx.ex->flaglen)) & NV_TX_VALID) &&
+> +	       !((flags = le32_to_cpu(np->get_tx.ex->flaglen)) & NV_TX2_VALID)
+> +	       &&
+>  	       (tx_work < limit)) {
 
-Resend with proper attribution.
-
-bridge: Restore NULL check in br_mdb_ip_get
-
-Somewhere along the line the NULL check in br_mdb_ip_get went
-AWOL, causing crashes when we receive an IGMP packet with no
-multicast table allocated.
-
-This patch restores it and ensures all br_mdb_*_get functions
-use it.
-
-Reported-by: Frank Arnold <frank.arnold@amd.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 9d21d98..27ae946 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -99,6 +99,15 @@ static struct net_bridge_mdb_entry *__br_mdb_ip_get(
- 	return NULL;
- }
- 
-+static struct net_bridge_mdb_entry *br_mdb_ip_get(
-+	struct net_bridge_mdb_htable *mdb, struct br_ip *dst)
-+{
-+	if (!mdb)
-+		return NULL;
-+
-+	return __br_mdb_ip_get(mdb, dst, br_ip_hash(mdb, dst));
-+}
-+
- static struct net_bridge_mdb_entry *br_mdb_ip4_get(
- 	struct net_bridge_mdb_htable *mdb, __be32 dst)
- {
-@@ -107,7 +116,7 @@ static struct net_bridge_mdb_entry *br_mdb_ip4_get(
- 	br_dst.u.ip4 = dst;
- 	br_dst.proto = htons(ETH_P_IP);
- 
--	return __br_mdb_ip_get(mdb, &br_dst, __br_ip4_hash(mdb, dst));
-+	return br_mdb_ip_get(mdb, &br_dst);
- }
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-@@ -119,23 +128,17 @@ static struct net_bridge_mdb_entry *br_mdb_ip6_get(
- 	ipv6_addr_copy(&br_dst.u.ip6, dst);
- 	br_dst.proto = htons(ETH_P_IPV6);
- 
--	return __br_mdb_ip_get(mdb, &br_dst, __br_ip6_hash(mdb, dst));
-+	return br_mdb_ip_get(mdb, &br_dst);
- }
- #endif
- 
--static struct net_bridge_mdb_entry *br_mdb_ip_get(
--	struct net_bridge_mdb_htable *mdb, struct br_ip *dst)
--{
--	return __br_mdb_ip_get(mdb, dst, br_ip_hash(mdb, dst));
--}
--
- struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
- 					struct sk_buff *skb)
- {
- 	struct net_bridge_mdb_htable *mdb = br->mdb;
- 	struct br_ip ip;
- 
--	if (!mdb || br->multicast_disabled)
-+	if (br->multicast_disabled)
- 		return NULL;
- 
- 	if (BR_INPUT_SKB_CB(skb)->igmp)
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Please don't put that "&&" on a line by itself.  I don't care if leaving it
+on the previous line makes it exceed 80 columns, what you're doing here is
+infinitely less pleasant to read.
