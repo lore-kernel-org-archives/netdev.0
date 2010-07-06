@@ -1,48 +1,55 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH v2 1/9] atm: propagate signal changes via notifier
-Date: Tue, 6 Jul 2010 15:41:58 -0400
-Message-ID: <20100706154158.542551c7@thirdoffive.cmf.nrl.navy.mil>
-References: <1278319561-23548-1-git-send-email-karl@hiramoto.org>
-	<1278319561-23548-2-git-send-email-karl@hiramoto.org>
+From: Adam Gundy <arg@cyberscience.com>
+Subject: Re: soft lockup with conntrackd / keepalived / VLAN
+Date: Tue, 06 Jul 2010 13:56:41 -0600
+Message-ID: <4C338A79.10404@cyberscience.com>
+References: <4C2E0E0B.8040903@cyberscience.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	nathan@traverse.com.au
-To: Karl Hiramoto <karl@hiramoto.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:52405 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754776Ab0GFTmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 15:42:43 -0400
-In-Reply-To: <1278319561-23548-2-git-send-email-karl@hiramoto.org>
+Received: from cliff.us.cyberscience.com ([66.250.49.68]:51339 "EHLO
+	mail.us.cyberscience.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754412Ab0GFT4w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 15:56:52 -0400
+Received: from hermes.us.cyberscience.com ([172.17.10.11]:33587)
+	by mail.us.cyberscience.com with esmtps (TLS-1.0:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <arg@cyberscience.com>)
+	id 1OWEGC-0003FE-0P
+	for netdev@vger.kernel.org; Tue, 06 Jul 2010 13:56:52 -0600
+Received: from cheetah.dev.us.cyberscience.com ([172.19.30.21])
+	by hermes.us.cyberscience.com with esmtpsa (SSL 3.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	(envelope-from <arg@cyberscience.com>)
+	id 1OWEG1-0004iB-UG
+	for netdev@vger.kernel.org; Tue, 06 Jul 2010 13:56:51 -0600
+In-Reply-To: <4C2E0E0B.8040903@cyberscience.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  5 Jul 2010 10:45:53 +0200
-Karl Hiramoto <karl@hiramoto.org> wrote:
+Adam Gundy wrote:
+> I've built a pair of router boxes which are using keepalived and 
+> conntrackd to provide a redundant router setup. we're also using a 
+> single 802.1Q VLAN on the box.
+> 
+> occasionally, the box will lockup for 5 minutes, during which time 
+> routed traffic is extremely delayed (2 or 3 second ping times). 
+> initially, there were no log messages about the lockup. we switched from 
+> using an internal nvidia (forcedeth) NIC in the belief that it may have 
+> been causing the problem.. however: with the new gigabit NICs, we still 
+> see the hangs, but we also get this in the kernel log:
 
-> +void atm_dev_signal_change(struct atm_dev *dev, char signal)
-> +{
-> +	int i;
-> +	pr_debug("%s signal=%d dev=%p number=%d dev->signal=%d\n",
-> +		__func__, signal, dev, dev->number, dev->signal);
-> +
-> +	/* atm driver sending invalid signal */
-> +	WARN_ON(signal < ATM_PHY_SIG_LOST || signal >
-> ATM_PHY_SIG_FOUND); +
-> +	if (dev->signal == signal)
-> +		return; /* no change */
-> +
-> +	dev->signal = signal;
-> +
-> +	&atm_dev_notify_chain, signal,
-> dev); +}
+> PS: this is a Ubuntu Lucid kernel - 2.6.32. I'm working on a stock 
+> kernel to see if it still happens..
 
-i am not sure that you can use blocking_notifier_call_chain() here.
-atm_dev_signal_change() might be called from an interrupt context in
-some of the drivers.
+the issue appears to be IPSEC. pings across an IPSEC tunnel get slower and 
+slower until the 'five minute fit', then ALL pings (IPSEC or not), plus the 
+machine itself are extremely slow or non-responsive.
 
-this implies that the notifier functions themselves must also not block.
-so in br2684 you probably want to use read_lock_irq() instead of just
-read_lock()
+this behavior is also visible with a stock 2.6.32.15 kernel, but not 
+reproducible with 2.6.33.5.
+
+it looks like there were some IPSEC locking changes between those two kernels, 
+but I couldn't find any obvious bug reports with similar symptoms..
+
