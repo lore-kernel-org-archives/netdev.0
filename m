@@ -1,112 +1,68 @@
-From: Richard =?ISO-8859-1?Q?R=F6jfors?=
-	<richard.rojfors@pelagicore.com>
-Subject: [PATCH] ks8842: Do the TX timeout work in workqueue context.
-Date: Tue, 06 Jul 2010 17:20:25 +0200
-Message-ID: <1278429625.32432.10.camel@debian>
+From: Jon Mason <jon.mason@exar.com>
+Subject: Re: [PATCH] vxge: show startup message with KERN_INFO
+Date: Tue, 6 Jul 2010 11:08:25 -0500
+Message-ID: <20100706160824.GA31635@exar.com>
+References: <20100706130203.GA31471@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wu Fengguang <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:36470 "EHLO
-	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753912Ab0GFP0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 11:26:42 -0400
+Received: from webmail.exar.com ([204.154.183.83]:25138 "EHLO smtp1.exar.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752838Ab0GFQHw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jul 2010 12:07:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20100706130203.GA31471@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently all code that needs to be run at TX timeout is done in the
-calling context, where bottom halves are disabled. Some of the code
-blocks, so it needs to be done in a different context. This patch
-adds in a work struct which is scheduled at TX timeout. Then the
-timeout code is executed within work queue context.
+On Tue, Jul 06, 2010 at 06:02:03AM -0700, Wu Fengguang wrote:
+> The original KERN_CRIT will mess up terminals.
 
-Signed-off-by: Richard R=C3=B6jfors <richard.rojfors@pelagicore.com>
----
-diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
-index d47bba9..0be9261 100644
---- a/drivers/net/ks8842.c
-+++ b/drivers/net/ks8842.c
-@@ -119,6 +119,8 @@ struct ks8842_adapter {
- 	int		irq;
- 	struct tasklet_struct	tasklet;
- 	spinlock_t	lock; /* spinlock to be interrupt safe */
-+	struct work_struct timeout_work;
-+	struct net_device *netdev;
- };
-=20
- static inline void ks8842_select_bank(struct ks8842_adapter *adapter,
-u16 bank)
-@@ -197,7 +199,6 @@ static void ks8842_reset(struct ks8842_adapter
-*adapter)
- 	msleep(10);
- 	iowrite16(0, adapter->hw_addr + REG_GRR);
- 	*/
--	iowrite16(32, adapter->hw_addr + REG_SELECT_BANK);
- 	iowrite32(0x1, adapter->hw_addr + REG_TIMB_RST);
- 	msleep(20);
- }
-@@ -553,6 +554,8 @@ static int ks8842_close(struct net_device *netdev)
-=20
- 	netdev_dbg(netdev, "%s - entry\n", __func__);
-=20
-+	cancel_work_sync(&adapter->timeout_work);
-+
- 	/* free the irq */
- 	free_irq(adapter->irq, netdev);
-=20
-@@ -595,9 +598,11 @@ static int ks8842_set_mac(struct net_device
-*netdev, void *p)
- 	return 0;
- }
-=20
--static void ks8842_tx_timeout(struct net_device *netdev)
-+static void ks8842_tx_timeout_work(struct work_struct *work)
- {
--	struct ks8842_adapter *adapter =3D netdev_priv(netdev);
-+	struct ks8842_adapter *adapter =3D
-+		container_of(work, struct ks8842_adapter, timeout_work);
-+	struct net_device *netdev =3D adapter->netdev;
- 	unsigned long flags;
-=20
- 	netdev_dbg(netdev, "%s: entry\n", __func__);
-@@ -606,6 +611,9 @@ static void ks8842_tx_timeout(struct net_device
-*netdev)
- 	/* disable interrupts */
- 	ks8842_write16(adapter, 18, 0, REG_IER);
- 	ks8842_write16(adapter, 18, 0xFFFF, REG_ISR);
-+
-+	netif_stop_queue(netdev);
-+
- 	spin_unlock_irqrestore(&adapter->lock, flags);
-=20
- 	ks8842_reset_hw(adapter);
-@@ -615,6 +623,15 @@ static void ks8842_tx_timeout(struct net_device
-*netdev)
- 	ks8842_update_link_status(netdev, adapter);
- }
-=20
-+static void ks8842_tx_timeout(struct net_device *netdev)
-+{
-+	struct ks8842_adapter *adapter =3D netdev_priv(netdev);
-+
-+	netdev_dbg(netdev, "%s: entry\n", __func__);
-+
-+	schedule_work(&adapter->timeout_work);
-+}
-+
- static const struct net_device_ops ks8842_netdev_ops =3D {
- 	.ndo_open		=3D ks8842_open,
- 	.ndo_stop		=3D ks8842_close,
-@@ -649,6 +666,8 @@ static int __devinit ks8842_probe(struct
-platform_device *pdev)
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
-=20
- 	adapter =3D netdev_priv(netdev);
-+	adapter->netdev =3D netdev;
-+	INIT_WORK(&adapter->timeout_work, ks8842_tx_timeout_work);
- 	adapter->hw_addr =3D ioremap(iomem->start, resource_size(iomem));
- 	if (!adapter->hw_addr)
- 		goto err_ioremap;
+Looks reasonable to me.
 
+Thanks,
+Jon
+
+>
+> CC: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
+> Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+> ---
+>  drivers/net/vxge/vxge-main.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+> index 45c5dc2..93a9147 100644
+> --- a/drivers/net/vxge/vxge-main.c
+> +++ b/drivers/net/vxge/vxge-main.c
+> @@ -4515,9 +4515,9 @@ vxge_starter(void)
+>       char version[32];
+>       snprintf(version, 32, "%s", DRV_VERSION);
+>
+> -     printk(KERN_CRIT "%s: Copyright(c) 2002-2009 Neterion Inc\n",
+> +     printk(KERN_INFO "%s: Copyright(c) 2002-2009 Neterion Inc\n",
+>               VXGE_DRIVER_NAME);
+> -     printk(KERN_CRIT "%s: Driver version: %s\n",
+> +     printk(KERN_INFO "%s: Driver version: %s\n",
+>                       VXGE_DRIVER_NAME, version);
+>
+>       verify_bandwidth();
+> --
+> 1.6.6
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+The information and any attached documents contained in this message
+may be confidential and/or legally privileged.  The message is
+intended solely for the addressee(s).  If you are not the intended
+recipient, you are hereby notified that any use, dissemination, or
+reproduction is strictly prohibited and may be unlawful.  If you are
+not the intended recipient, please contact the sender immediately by
+return e-mail and destroy all copies of the original message.
