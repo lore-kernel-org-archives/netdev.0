@@ -1,62 +1,98 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Possible bug in net/ipv4/route.c?
-Date: Tue, 6 Jul 2010 15:29:28 +0800
-Message-ID: <20100706072928.GB14612@gondor.apana.org.au>
-References: <CB2DD11991B27C4F99935E6229450D3205B28E91@STORK.scenix.com> <20100705120413.GA6219@gondor.apana.org.au> <20100705110328.65702fc1@nehalam> <20100706002813.GA11194@gondor.apana.org.au> <CB2DD11991B27C4F99935E6229450D3203950BE5@STORK.scenix.com>
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Subject: [PATCH -net-2.6] ll_temac: Fix missing iounmaps
+Date: Tue, 6 Jul 2010 07:44:20 +0000
+Message-ID: <20100706074420.GA15451@hera.kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Sol Kavy <skavy@ubicom.com>, linux-kernel@vger.kernel.org,
-	Greg Ren <gren@ubicom.com>, Murat Sezgin <msezgin@ubicom.com>,
-	Sener Ilgen <silgen@ubicom.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Guojun Jin <gjin@ubicom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: john.linn@xilinx.com, brian.hill@xilinx.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:48975 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751835Ab0GFHoW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jul 2010 03:44:22 -0400
 Content-Disposition: inline
-In-Reply-To: <CB2DD11991B27C4F99935E6229450D3203950BE5@STORK.scenix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 05, 2010 at 11:06:30PM -0700, Guojun Jin wrote:
->
-> Would you please point to where is the best place that CB should be cleared for this case?
-> 
-> I also wonder why IP packet is routed through ARP queue for ICMP delievry.
+Fix missing iounmaps.
 
-I was hoping that you guys would figure this out :)
+Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+---
+ drivers/net/ll_temac_main.c |   18 +++++++++++++-----
+ 1 files changed, 13 insertions(+), 5 deletions(-)
 
-Anyway, this patch should fix the crash.
-
-bridge: Clear IPCB before possible entry into IP stack
-
-The bridge protocol lives dangerously by having incestuous relations
-with the IP stack.  In this instance an abomination has been created
-where a bogus IPCB area from a bridged packet leads to a crash in
-the IP stack because it's interpreted as IP options.
-
-This patch papers over the problem by clearing the IPCB area in that
-particular spot.  To fix this properly we'd also need to parse any
-IP options if present but I'm way too lazy for that.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 4442099..8fb75f8 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -591,6 +591,9 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index 52dcc84..6474c49 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -964,7 +964,7 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 	np = of_parse_phandle(op->dev.of_node, "llink-connected", 0);
+ 	if (!np) {
+ 		dev_err(&op->dev, "could not find DMA node\n");
+-		goto nodev;
++		goto err_iounmap;
+ 	}
  
- 	pskb_trim_rcsum(skb, len);
+ 	/* Setup the DMA register accesses, could be DCR or memory mapped */
+@@ -978,7 +978,7 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 			dev_dbg(&op->dev, "MEM base: %p\n", lp->sdma_regs);
+ 		} else {
+ 			dev_err(&op->dev, "unable to map DMA registers\n");
+-			goto nodev;
++			goto err_iounmap;
+ 		}
+ 	}
  
-+	/* BUG: Should really parse the IP options here. */
-+	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+
- 	nf_bridge_put(skb->nf_bridge);
- 	if (!nf_bridge_alloc(skb))
- 		return NF_DROP;
-
-Cheers,
+@@ -987,7 +987,7 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 	if ((lp->rx_irq == NO_IRQ) || (lp->tx_irq == NO_IRQ)) {
+ 		dev_err(&op->dev, "could not determine irqs\n");
+ 		rc = -ENOMEM;
+-		goto nodev;
++		goto err_iounmap_2;
+ 	}
+ 
+ 	of_node_put(np); /* Finished with the DMA node; drop the reference */
+@@ -997,7 +997,7 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 	if ((!addr) || (size != 6)) {
+ 		dev_err(&op->dev, "could not find MAC address\n");
+ 		rc = -ENODEV;
+-		goto nodev;
++		goto err_iounmap_2;
+ 	}
+ 	temac_set_mac_address(ndev, (void *)addr);
+ 
+@@ -1013,7 +1013,7 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 	rc = sysfs_create_group(&lp->dev->kobj, &temac_attr_group);
+ 	if (rc) {
+ 		dev_err(lp->dev, "Error creating sysfs files\n");
+-		goto nodev;
++		goto err_iounmap_2;
+ 	}
+ 
+ 	rc = register_netdev(lp->ndev);
+@@ -1026,6 +1026,11 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 
+  err_register_ndev:
+ 	sysfs_remove_group(&lp->dev->kobj, &temac_attr_group);
++ err_iounmap_2:
++	if (lp->sdma_regs)
++		iounmap(lp->sdma_regs);
++ err_iounmap:
++	iounmap(lp->regs);
+  nodev:
+ 	free_netdev(ndev);
+ 	ndev = NULL;
+@@ -1044,6 +1049,9 @@ static int __devexit temac_of_remove(struct of_device *op)
+ 		of_node_put(lp->phy_node);
+ 	lp->phy_node = NULL;
+ 	dev_set_drvdata(&op->dev, NULL);
++	iounmap(lp->regs);
++	if (lp->sdma_regs)
++		iounmap(lp->sdma_regs);
+ 	free_netdev(ndev);
+ 	return 0;
+ }
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.4.4
+
