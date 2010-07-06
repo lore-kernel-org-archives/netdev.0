@@ -1,46 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: setsockopt(IP_TOS) being privileged or distinct capability?
-Date: Mon, 05 Jul 2010 20:13:24 -0700 (PDT)
-Message-ID: <20100705.201324.214230349.davem@davemloft.net>
-References: <4C321EAF.9000508@redfish-solutions.com>
-	<20100706020734.GA2972@nuttenaction>
-	<4C329E15.2000601@redfish-solutions.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Splice status
+Date: Tue, 06 Jul 2010 05:56:20 +0200
+Message-ID: <1278388580.2466.305.camel@edumazet-laptop>
+References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
+	 <AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
+	 <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
+	 <1278334254.2877.158.camel@edumazet-laptop>
+	 <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hagen@jauu.net, alex@digriz.org.uk, netdev@vger.kernel.org
-To: philipp_subx@redfish-solutions.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jens Axboe <axboe@kernel.dk>, Ofer Heifetz <oferh@marvell.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45209
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754834Ab0GFDNL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 23:13:11 -0400
-In-Reply-To: <4C329E15.2000601@redfish-solutions.com>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:53189 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752897Ab0GFD41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jul 2010 23:56:27 -0400
+Received: by gxk23 with SMTP id 23so2756969gxk.19
+        for <netdev@vger.kernel.org>; Mon, 05 Jul 2010 20:56:26 -0700 (PDT)
+In-Reply-To: <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Date: Mon, 05 Jul 2010 21:08:05 -0600
+Le mardi 06 juillet 2010 =C3=A0 10:01 +0800, Changli Gao a =C3=A9crit :
+> On Mon, Jul 5, 2010 at 8:50 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> > Le lundi 05 juillet 2010 =C3=A0 13:52 +0300, Ofer Heifetz a =C3=A9c=
+rit :
+> >> I am using Samba, so from my understanding of the source code, it
+> > loops and performs splice(sock, pipe) and splice(pipe, fd). There i=
+s no
+> > flush of any sort in between.
+> >>
+> >> When you say drain you mean to flush all data to pipe?
+> >>
+> >
+> > Draining pipe before splice() call would only trigger the bug less
+> > often.
+>=20
+> If we don't drain the pipe before calling splice(2), the data spliced
+> from pipe maybe not be what we expect. Then data corruption occurs.
+>=20
 
-> Yes, most users have admin/privileged rights on their machines, but
-> don't know enough to exploit that.
+This is not true. A pipe is a pipe is a buffer. You dont need it to be
+empty when using it. Nowhere in documentation its stated.
 
-Even "stupid" users are a very slim, marginal, step away from making
-use of it once they get shown with a HOWTO on some web site what is
-possible with this if QoS is being abided by on their network.
+However, a single skb can fill a pipe, even if "its empty"
 
-Look, this discussion seems completely pointless.  The behavior is
-never changing, setting the TOS will always be non-privileged.
 
-We cannot change the current behavior no matter what political or
-other motivation we might have for doing so.  It's been non-privileged
-for more than 15 years, and we'd knowingly break applications with the
-change.
 
-And I don't even agree with the arguments being proposed for doing
-this.  Users can control their packets however they wish.  The only
-thing the ISP can do to prevent toying with the TOS bits is putting
-logic into your little black box that hooks up to your cable/dsl line.
+> >
+> > splice(sock, pipe) can block if caller dont use appropriate "non
+> > blocking pipe' splice() mode, even if pipe is empty before a splice=
+()
+> > call.
+>=20
+> I don't think it is expected. The code of sys_recvfile is much like
+> the sendfile(2) implementation in kernel. If sys_recvfile may block
+> without non_block flag, sendfile(2) may block too.
 
-So this TOS being privileged proposal it's a "no go" from any angle as
-far as I'm concerned.
+Then it would be a bug. You might fix it easily.
+
+Using splice() correctly (ie, not blocking on sock->pipe) should work
+too.
+
+Again, you can block on splice(sock, pipe), iff you have a second threa=
+d
+doing the opposite (pipe->file) in parallel to unblock you. But samba
+recvfile algo is using a single thread.
+
+>=20
+> BTW: Samba can use sendfile(2) instead in sys_recvfile.
+>=20
+
+
