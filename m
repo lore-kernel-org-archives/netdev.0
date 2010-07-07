@@ -1,82 +1,70 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v3 3/9] atm/adummy: add syfs DEVICE_ATTR to change signal
-Date: Wed,  7 Jul 2010 10:50:30 +0200
-Message-ID: <1278492636-11094-4-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v3 4/9] atm/idt77105.c: call atm_dev_signal_change() when signal changes.
+Date: Wed,  7 Jul 2010 10:50:31 +0200
+Message-ID: <1278492636-11094-5-git-send-email-karl@hiramoto.org>
 References: <1278492636-11094-1-git-send-email-karl@hiramoto.org>
 Cc: Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcbbj.dreamhost.com ([208.97.132.119]:48966 "EHLO
+Received: from caiajhbdccah.dreamhost.com ([208.97.132.207]:48975 "EHLO
 	homiemail-a30.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751539Ab0GGIuy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 04:50:54 -0400
+	by vger.kernel.org with ESMTP id S1752870Ab0GGIu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 04:50:56 -0400
 In-Reply-To: <1278492636-11094-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Propagate changes to upper atm layer.
+
 Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
- drivers/atm/adummy.c |   39 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 39 insertions(+), 0 deletions(-)
+ drivers/atm/idt77105.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/atm/adummy.c b/drivers/atm/adummy.c
-index 6d44f07..46b9476 100644
---- a/drivers/atm/adummy.c
-+++ b/drivers/atm/adummy.c
-@@ -40,6 +40,42 @@ struct adummy_dev {
- 
- static LIST_HEAD(adummy_devs);
- 
-+static ssize_t __set_signal(struct device *dev,
-+		struct device_attribute *attr,
-+		const char *buf, size_t len)
-+{
-+	struct atm_dev *atm_dev = container_of(dev, struct atm_dev, class_dev);
-+	int signal;
-+
-+	if (sscanf(buf, "%d", &signal) == 1) {
-+
-+		if (signal < ATM_PHY_SIG_LOST || signal > ATM_PHY_SIG_FOUND)
-+			signal = ATM_PHY_SIG_UNKNOWN;
-+
-+		atm_dev_signal_change(atm_dev, signal);
-+		return 1;
-+	}
-+	return -EINVAL;
-+}
-+
-+static ssize_t __show_signal(struct device *dev,
-+	struct device_attribute *attr, char *buf)
-+{
-+	struct atm_dev *atm_dev = container_of(dev, struct atm_dev, class_dev);
-+	return sprintf(buf, "%d\n", atm_dev->signal);
-+}
-+static DEVICE_ATTR(signal, 0644, __show_signal, __set_signal);
-+
-+static struct attribute *adummy_attrs[] = {
-+	&dev_attr_signal.attr,
-+	NULL
-+};
-+
-+static struct attribute_group adummy_group_attrs = {
-+	.name = NULL, /* We want them in dev's root folder */
-+	.attrs = adummy_attrs
-+};
-+
- static int __init
- adummy_start(struct atm_dev *dev)
- {
-@@ -128,6 +164,9 @@ static int __init adummy_init(void)
- 	adummy_dev->atm_dev = atm_dev;
- 	atm_dev->dev_data = adummy_dev;
- 
-+	if (sysfs_create_group(&atm_dev->class_dev.kobj, &adummy_group_attrs))
-+		dev_err(&atm_dev->class_dev, "Could not register attrs for adummy\n");
-+
- 	if (adummy_start(atm_dev)) {
- 		printk(KERN_ERR DEV_LABEL ": adummy_start() failed\n");
- 		err = -ENODEV;
+diff --git a/drivers/atm/idt77105.c b/drivers/atm/idt77105.c
+index dab5cf5..bca9cb8 100644
+--- a/drivers/atm/idt77105.c
++++ b/drivers/atm/idt77105.c
+@@ -126,7 +126,7 @@ static void idt77105_restart_timer_func(unsigned long dummy)
+                 istat = GET(ISTAT); /* side effect: clears all interrupt status bits */
+                 if (istat & IDT77105_ISTAT_GOODSIG) {
+                     /* Found signal again */
+-                    dev->signal = ATM_PHY_SIG_FOUND;
++                    atm_dev_signal_change(dev, ATM_PHY_SIG_FOUND);
+ 	            printk(KERN_NOTICE "%s(itf %d): signal detected again\n",
+                         dev->type,dev->number);
+                     /* flush the receive FIFO */
+@@ -222,7 +222,7 @@ static void idt77105_int(struct atm_dev *dev)
+             /* Rx Signal Condition Change - line went up or down */
+             if (istat & IDT77105_ISTAT_GOODSIG) {   /* signal detected again */
+                 /* This should not happen (restart timer does it) but JIC */
+-                dev->signal = ATM_PHY_SIG_FOUND;
++		atm_dev_signal_change(dev, ATM_PHY_SIG_FOUND);
+             } else {    /* signal lost */
+                 /*
+                  * Disable interrupts and stop all transmission and
+@@ -235,7 +235,7 @@ static void idt77105_int(struct atm_dev *dev)
+                     IDT77105_MCR_DRIC|
+                     IDT77105_MCR_HALTTX
+                     ) & ~IDT77105_MCR_EIP, MCR);
+-                dev->signal = ATM_PHY_SIG_LOST;
++		atm_dev_signal_change(dev, ATM_PHY_SIG_LOST);
+ 	        printk(KERN_NOTICE "%s(itf %d): signal lost\n",
+                     dev->type,dev->number);
+             }
+@@ -272,8 +272,9 @@ static int idt77105_start(struct atm_dev *dev)
+ 	memset(&PRIV(dev)->stats,0,sizeof(struct idt77105_stats));
+         
+         /* initialise dev->signal from Good Signal Bit */
+-        dev->signal = GET(ISTAT) & IDT77105_ISTAT_GOODSIG ? ATM_PHY_SIG_FOUND :
+-	  ATM_PHY_SIG_LOST;
++	atm_dev_signal_change(dev,
++		GET(ISTAT) & IDT77105_ISTAT_GOODSIG ?
++		ATM_PHY_SIG_FOUND : ATM_PHY_SIG_LOST);
+ 	if (dev->signal == ATM_PHY_SIG_LOST)
+ 		printk(KERN_WARNING "%s(itf %d): no signal\n",dev->type,
+ 		    dev->number);
 -- 
 1.7.1
 
