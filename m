@@ -1,65 +1,53 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: Report for 2.6.35-rc3-00262-g984bc96
-Date: Tue, 6 Jul 2010 19:42:22 -0700
-Message-ID: <20100706194222.fcf16e13.akpm@linux-foundation.org>
-References: <20100701074052.GA3501@schottelius.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the net tree
+Date: Wed, 7 Jul 2010 14:30:45 +1000
+Message-ID: <20100707143045.0c472f5d.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, dri-devel@lists.freedesktop.org,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: Nico Schottelius <nico-linux-2010-07-01@schottelius.org>
-Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
-In-Reply-To: <20100701074052.GA3501@schottelius.org>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__7_Jul_2010_14_30_45_+1000_0o6T=ZOCeMRirle2"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jonas Bonn <jonas@southpole.se>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Jul 2010 09:40:52 +0200 Nico Schottelius <nico-linux-2010-07-01@schottelius.org> wrote:
+--Signature=_Wed__7_Jul_2010_14_30_45_+1000_0o6T=ZOCeMRirle2
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Good morning!
-> 
-> A short report on what's broken in 2.6.35-rc3-00262-g984bc96 with
-> the Lenovo X201:
+Hi Dave,
 
-So you see two post-2.6.34 regressions?
+After merging the net tree, today's linux-next build (x86_64
+allmodconfig) produced this warning:
 
-> == xrandr ==
-> 
-> After using xrandr several times in xorg, the screen gets
-> "fancy": blue/white/black changing patterns.
-> Getting even more weired when changing to a conosle.
-> 
-> The only thing that keeps on working is the mouse cursor
-> in xorg. This did not happen with 2.6.34-rcsomething, neither
-> with 2.6.33 iirc.
-> 
-> This is a Intel Corporation Core Processor Integrated Graphics Controller (rev 02),
-> attached xorg.log.
+drivers/net/ethoc.c: In function 'ethoc_init_ring':
+drivers/net/ethoc.c:302: warning: assignment makes integer from pointer wit=
+hout a cast
 
-(cc dri-devel)
+Introduced by commit f8555ad0cfb0ba6cbc8729f337341fb11c82db89 ("ethoc:
+Write bus addresses to registers").
 
-> == netlink/carrier messag ==
-> 
-> dhcpcd does not get updated when the link is established,
-> need to restart it. 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-(cc netdev)
+--Signature=_Wed__7_Jul_2010_14_30_45_+1000_0o6T=ZOCeMRirle2
+Content-Type: application/pgp-signature
 
-> == suspend/resume (to ram) ==
-> 
-> So far no real crash! Only xorg is sometimes not coming up
-> again, but this may be related to the first issue.
-> 
-> == wifi / intel 6000 ==
-> 
-> Works! Works! (Besides the netlink issue, which is annoying,
-> but for all devices).
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMNAL1AAoJEDMEi1NhKgbsLJwH/3G76rFeIds4FeW7yXK5SMe7
+buiRLklzCVeUOP+DeNHCjFWH0+CXl5cEcZer8ef974VVi/PJezqn2Ef5vlH8Fs82
+oJOdaFtb0DFXd57TLcSvFoXQUbS5/4j6l4QX+hKhF92ZXHJ1b8YBROLvuR0LRr0N
+vbEtbnghp1P/WlYRmD4u5OSGaw5xpkwiHpL6OQNtmMdFuQQLIkoruJzHUngEI25s
+YncF9LcebmCQOyn4yCwOynrDVWigSf9G9aflDcpm0Y91ybqobxU9KJcWVxGP0qfB
+pzSP+0D84bVS3wQXV3rRa+/AKbqHlt0kC0EjrxA9VPD9hvNyBTDPji0gbV1uyT0=
+=jH/W
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__7_Jul_2010_14_30_45_+1000_0o6T=ZOCeMRirle2--
