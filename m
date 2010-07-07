@@ -1,67 +1,45 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: QoS weirdness : HTB accuracy
-Date: Wed, 7 Jul 2010 11:40:22 +0000 (UTC)
-Message-ID: <loom.20100707T130832-691@post.gmane.org>
-References: <067c83163988908ef546d7ff7f560a17@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:47487 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754939Ab0GGMpI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jul 2010 08:45:08 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1OWTzs-0003Y2-DJ
-	for netdev@vger.kernel.org; Wed, 07 Jul 2010 14:45:04 +0200
-Received: from nat-dhcp.lanfw.cxnet.dk ([87.72.215.200])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 07 Jul 2010 14:45:04 +0200
-Received: from hawk by nat-dhcp.lanfw.cxnet.dk with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 07 Jul 2010 14:45:04 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: [PATCH] NET: nl80211, fix lock imbalance and netdev referencing
+Date: Wed,  7 Jul 2010 15:02:46 +0200
+Message-ID: <1278507766-309-1-git-send-email-jirislaby@gmail.com>
+Cc: jirislaby@gmail.com, linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>, Jouni Malinen <j@w1.fi>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Julien Vehent <julien <at> linuxwall.info> writes:
+Stanse found that nl80211_set_wiphy imporperly handles a lock and netdev
+reference and contains unreachable code. It is because there return statement
+isntead of assignment to result variable. Fix that.
 
-> I observe unused bandwidth on my QoS policy that I cannot explain.
-> Conditions are: I have a HTB tree with 8 classes and a total rate of
-> 768kbits. I use the ATM option so I assume the real rate to be something
-> close to 675kbits (about 88% of the ethernet rate).
-> 
-> The sum of my 8 rates is exactly 768kbits. Some have ceil values up to
-> 768kbits.
-> 
-> When class 20 "tcp_acks" starts borrowing, TC reduces the total bandwidth
-> down to 595kbits/S (minus 79kbits/s). And I can't explain why....
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Jouni Malinen <j@w1.fi>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
+ net/wireless/nl80211.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Fortunately, I can explain why.  This is actually the expected/correct
-behavior.  The "tcp_acks" class only receives small packets, and small
-packets have a significantly higher overhead than larger packets.
-
-The simple explanation is that small packets will (almost) always
-result in two ATM frames being transmittet, thus resulting in 106
-bytes (2x 53 bytes) being used on the link.
-
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index 85285b4..fbfac58 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -877,7 +877,7 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
+ 		int idx, mbm = 0;
  
-> The attached graph "tc_htb_weirdness.png" shows the result: there are
-> 'holes' in the sending rate. 
-
-This is as explained above the behavior I expected to see.  As the
-small packets eats/consumes more bandwidth on the physical link, and
-your observations are based upon what happens on the Ethernet layer.
-
+ 		if (!rdev->ops->set_tx_power) {
+-			return -EOPNOTSUPP;
++			result = -EOPNOTSUPP;
+ 			goto bad_res;
+ 		}
+ 
 -- 
-Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
+1.7.1
