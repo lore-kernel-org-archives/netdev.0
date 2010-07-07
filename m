@@ -1,58 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] vlan: allow TSO setting on vlan interfaces
-Date: Wed, 07 Jul 2010 18:25:11 +0100
-Message-ID: <1278523511.2080.3.camel@achroite.uk.solarflarecom.com>
-References: <1278522874.5906.9.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2.6.35-rc1] net: vmxnet3 fixes [1/5] Spare skb to avoid
+ starvation
+Date: Wed, 7 Jul 2010 10:46:39 -0700
+Message-ID: <20100707104639.28f69b57@s6510>
+References: <alpine.LRH.2.00.1007070214400.6105@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, pv-drivers@vmware.com
+To: Shreyas Bhatewara <sbhatewara@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:47085 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751394Ab0GGRZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 13:25:14 -0400
-In-Reply-To: <1278522874.5906.9.camel@edumazet-laptop>
+Received: from mail.vyatta.com ([76.74.103.46]:50400 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754680Ab0GGRql (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jul 2010 13:46:41 -0400
+In-Reply-To: <alpine.LRH.2.00.1007070214400.6105@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-07-07 at 19:14 +0200, Eric Dumazet wrote:
-> When we need to shape traffic with low speeds, we need to disable tso on
-> network interface :
-> 
-> ethtool -K eth0.2240 tso off
-> 
-> It seems vlan interfaces miss the set_tso() ethtool method.
-> Propagating tso changes from lower device is not always wanted, some
-> vlan want TSO on, other want TSO off.
+On Wed, 7 Jul 2010 02:21:55 -0700 (PDT)
+Shreyas Bhatewara <sbhatewara@vmware.com> wrote:
 
-But it should not be possible to enable TSO if the underlying device
-doesn't support it.
-
-Ben.
-
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
 > 
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index c6456cb..d827c2e 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -844,6 +844,7 @@ static const struct ethtool_ops vlan_ethtool_ops = {
->  	.get_link		= ethtool_op_get_link,
->  	.get_rx_csum		= vlan_ethtool_get_rx_csum,
->  	.get_flags		= vlan_ethtool_get_flags,
-> +	.set_tso		= ethtool_op_set_tso,
->  };
+> 
+> From: Shreyas Bhatewara <sbhatewara@vmware.com>
+> 
+> skb_alloc() failure can cause the recv ring to loose all packet reception.
+> Avoid this by introducing a spare buffer.
+> 
+> Signed-off-by: Michael Stolarchuk <stolarchuk@vmware.com>
+> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+> 
+
+I don't see how this fixes the problem, what happens when
+the spare buffer is used up? Better to design a flow control algorithm
+that holds off sender if allocation fails, and retry allocation later
+(for example with a work queue).
+
+> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+> index 989b742..5a50d10 100644
+...
+
+>  /*
+> @@ -149,6 +149,13 @@ vmxnet3_cmd_ring_desc_avail(struct vmxnet3_cmd_ring *ring)
+>  		ring->next2comp - ring->next2fill - 1;
+>  }
 >  
->  static const struct net_device_ops vlan_netdev_ops = {
-> 
+> +static inline bool
+> +vmxnet3_cmd_ring_desc_empty(struct vmxnet3_cmd_ring *ring)
+> +{
+> +	return (ring->next2comp == ring->next2fill);
+> +}
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+const is good practice on functions like this.
 
