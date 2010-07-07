@@ -1,21 +1,18 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Missing regression fix in 2.6.34.1
-Date: Wed, 07 Jul 2010 01:57:53 -0700 (PDT)
-Message-ID: <20100707.015753.43026977.davem@davemloft.net>
-References: <87lj9nkah1.fsf@small.ssi.corp>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: [PATCH 2.6.35-rc1] net: vmxnet3 fixes [0/5]
+Date: Wed, 7 Jul 2010 02:19:45 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1007070215160.6105@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org, brian.haley@hp.com, netdev@vger.kernel.org
-To: arno@natisbad.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55457
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751666Ab0GGI5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 04:57:39 -0400
-In-Reply-To: <87lj9nkah1.fsf@small.ssi.corp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, pv-drivers@vmware.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-I submitted this fix to Greg last night.
+This series of patches provide minor fixes to the vmxnet3 driver. Each 
+patch updates the driver version number. Let me know your comments / 
+feedback if any.
+
+->Shreyas
