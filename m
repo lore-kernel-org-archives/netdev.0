@@ -1,46 +1,40 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 14/18] irda/irnet: use noop_llseek
-Date: Wed,  7 Jul 2010 23:40:16 +0200
-Message-ID: <1278538820-1392-15-git-send-email-arnd@arndb.de>
-References: <1278538820-1392-1-git-send-email-arnd@arndb.de>
-Cc: John Kacur <jkacur@redhat.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>, Christoph Hellwig <hch@lst.de>,
-	Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: Possible bug in net/ipv4/route.c?
+Date: Wed, 07 Jul 2010 14:46:11 -0700 (PDT)
+Message-ID: <20100707.144611.63043873.davem@davemloft.net>
+References: <20100706002813.GA11194@gondor.apana.org.au>
+	<CB2DD11991B27C4F99935E6229450D3203950BE5@STORK.scenix.com>
+	<20100706072928.GB14612@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gjin@ubicom.com, shemminger@vyatta.com, skavy@ubicom.com,
+	linux-kernel@vger.kernel.org, gren@ubicom.com, msezgin@ubicom.com,
+	silgen@ubicom.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:61792 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757881Ab0GGVk4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 17:40:56 -0400
-In-Reply-To: <1278538820-1392-1-git-send-email-arnd@arndb.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40287
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757825Ab0GGVp5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 17:45:57 -0400
+In-Reply-To: <20100706072928.GB14612@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There may be applications trying to seek
-on the irnet character device, so we should
-use noop_llseek to avoid returning an error
-when the default llseek changes to no_llseek.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 6 Jul 2010 15:29:28 +0800
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Cc: netdev@vger.kernel.org
----
- net/irda/irnet/irnet_ppp.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> bridge: Clear IPCB before possible entry into IP stack
+> 
+> The bridge protocol lives dangerously by having incestuous relations
+> with the IP stack.  In this instance an abomination has been created
+> where a bogus IPCB area from a bridged packet leads to a crash in
+> the IP stack because it's interpreted as IP options.
+> 
+> This patch papers over the problem by clearing the IPCB area in that
+> particular spot.  To fix this properly we'd also need to parse any
+> IP options if present but I'm way too lazy for that.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/net/irda/irnet/irnet_ppp.h b/net/irda/irnet/irnet_ppp.h
-index b5df241..7b9949e 100644
---- a/net/irda/irnet/irnet_ppp.h
-+++ b/net/irda/irnet/irnet_ppp.h
-@@ -104,6 +104,7 @@ static const struct file_operations irnet_device_fops =
- 	.unlocked_ioctl	= dev_irnet_ioctl,
- 	.open		= dev_irnet_open,
- 	.release	= dev_irnet_close
-+	.llseek		= noop_llseek,
-   /* Also : llseek, readdir, mmap, flush, fsync, fasync, lock, readv, writev */
- };
- 
--- 
-1.7.1
-
+Applied, thanks a lot!
