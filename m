@@ -1,61 +1,67 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: IPVS: Incorrect helper use for SCTP [was:
- wensong@linux-vs.org, horms@verge.net.au]
-Date: Wed, 7 Jul 2010 21:21:11 +0900
-Message-ID: <20100707122110.GF17967@verge.net.au>
-References: <AANLkTinEKn_UBpjf3k2DZn1euMM6z2UM_yeDPvdEQkav@mail.gmail.com>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: QoS weirdness : HTB accuracy
+Date: Wed, 7 Jul 2010 11:40:22 +0000 (UTC)
+Message-ID: <loom.20100707T130832-691@post.gmane.org>
+References: <067c83163988908ef546d7ff7f560a17@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lvs-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: xiaoyu Du <tingsrain@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:45626 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752438Ab0GGMVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 08:21:14 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTinEKn_UBpjf3k2DZn1euMM6z2UM_yeDPvdEQkav@mail.gmail.com>
+Received: from lo.gmane.org ([80.91.229.12]:47487 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754939Ab0GGMpI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jul 2010 08:45:08 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1OWTzs-0003Y2-DJ
+	for netdev@vger.kernel.org; Wed, 07 Jul 2010 14:45:04 +0200
+Received: from nat-dhcp.lanfw.cxnet.dk ([87.72.215.200])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 07 Jul 2010 14:45:04 +0200
+Received: from hawk by nat-dhcp.lanfw.cxnet.dk with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 07 Jul 2010 14:45:04 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[CCed netdev]
+Julien Vehent <julien <at> linuxwall.info> writes:
 
-Thanks,
+> I observe unused bandwidth on my QoS policy that I cannot explain.
+> Conditions are: I have a HTB tree with 8 classes and a total rate of
+> 768kbits. I use the ATM option so I assume the real rate to be something
+> close to 675kbits (about 88% of the ethernet rate).
+> 
+> The sum of my 8 rates is exactly 768kbits. Some have ceil values up to
+> 768kbits.
+> 
+> When class 20 "tcp_acks" starts borrowing, TC reduces the total bandwidth
+> down to 595kbits/S (minus 79kbits/s). And I can't explain why....
 
-that looks correct to me. Have you tested this change?
-If so could you provided a Signed-off-by line
-as per section 12 of Documentation/SubmittingPatches?
+Fortunately, I can explain why.  This is actually the expected/correct
+behavior.  The "tcp_acks" class only receives small packets, and small
+packets have a significantly higher overhead than larger packets.
 
-On Wed, Jul 07, 2010 at 05:19:06PM +0800, xiaoyu Du wrote:
-> Hi=EF=BC=8Call
->=20
-> After I compared the sctp with tcp and udp, I thinkt his a bug that
-> sctp_dnat_handler Incorrectly invoked ip_vs_app_pkt_out.
-> below is the patch.
->=20
-> ---
->  net/netfilter/ipvs/ip_vs_proto_sctp.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-> b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-> index c9a3f7a..db55759 100644
-> --- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-> +++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-> @@ -173,7 +173,7 @@ sctp_dnat_handler(struct sk_buff *skb,
->                        return 0;
->=20
->                /* Call application helper if needed */
-> -               if (!ip_vs_app_pkt_out(cp, skb))
-> +               if (!ip_vs_app_pkt_in(cp, skb))
->                        return 0;
->        }
->=20
-> --
-> --
-> To unsubscribe from this list: send the line "unsubscribe lvs-devel" =
-in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The simple explanation is that small packets will (almost) always
+result in two ATM frames being transmittet, thus resulting in 106
+bytes (2x 53 bytes) being used on the link.
+
+ 
+> The attached graph "tc_htb_weirdness.png" shows the result: there are
+> 'holes' in the sending rate. 
+
+This is as explained above the behavior I expected to see.  As the
+small packets eats/consumes more bandwidth on the physical link, and
+your observations are based upon what happens on the Ethernet layer.
+
+-- 
+Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
