@@ -1,73 +1,59 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v3 8/9] usb/atm/speedtch.c: call atm_dev_signal_change() when signal changes.
-Date: Wed,  7 Jul 2010 10:50:35 +0200
-Message-ID: <1278492636-11094-9-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v3 5/9] atm/solos-pci: call atm_dev_signal_change() when signal changes.
+Date: Wed,  7 Jul 2010 10:50:32 +0200
+Message-ID: <1278492636-11094-6-git-send-email-karl@hiramoto.org>
 References: <1278492636-11094-1-git-send-email-karl@hiramoto.org>
 Cc: Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcbef.dreamhost.com ([208.97.132.145]:49002 "EHLO
+Received: from caiajhbdcbhh.dreamhost.com ([208.97.132.177]:48980 "EHLO
 	homiemail-a30.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752870Ab0GGIvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 04:51:06 -0400
+	by vger.kernel.org with ESMTP id S1753208Ab0GGIu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 04:50:59 -0400
 In-Reply-To: <1278492636-11094-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Propagate signal changes to upper atm layer.
+Propagate changes to upper atm layer, so userspace netmontor knows when DSL
+showtime reached.
 
 Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
- drivers/usb/atm/speedtch.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/atm/solos-pci.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/usb/atm/speedtch.c b/drivers/usb/atm/speedtch.c
-index 1335456..80f9617 100644
---- a/drivers/usb/atm/speedtch.c
-+++ b/drivers/usb/atm/speedtch.c
-@@ -525,7 +525,7 @@ static void speedtch_check_status(struct work_struct *work)
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index ded76c4..6174965 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -383,7 +383,7 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
  
- 		switch (status) {
- 		case 0:
--			atm_dev->signal = ATM_PHY_SIG_LOST;
-+			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 			if (instance->last_status)
- 				atm_info(usbatm, "ADSL line is down\n");
- 			/* It may never resync again unless we ask it to... */
-@@ -533,12 +533,12 @@ static void speedtch_check_status(struct work_struct *work)
- 			break;
+ 	/* Anything but 'Showtime' is down */
+ 	if (strcmp(state_str, "Showtime")) {
+-		card->atmdev[port]->signal = ATM_PHY_SIG_LOST;
++		atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_LOST);
+ 		release_vccs(card->atmdev[port]);
+ 		dev_info(&card->dev->dev, "Port %d: %s\n", port, state_str);
+ 		return 0;
+@@ -401,7 +401,7 @@ static int process_status(struct solos_card *card, int port, struct sk_buff *skb
+ 		 snr[0]?", SNR ":"", snr, attn[0]?", Attn ":"", attn);
+ 	
+ 	card->atmdev[port]->link_rate = rate_down / 424;
+-	card->atmdev[port]->signal = ATM_PHY_SIG_FOUND;
++	atm_dev_signal_change(card->atmdev[port], ATM_PHY_SIG_FOUND);
  
- 		case 0x08:
--			atm_dev->signal = ATM_PHY_SIG_UNKNOWN;
-+			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_UNKNOWN);
- 			atm_info(usbatm, "ADSL line is blocked?\n");
- 			break;
+ 	return 0;
+ }
+@@ -1246,7 +1246,7 @@ static int atm_init(struct solos_card *card)
+ 		card->atmdev[i]->ci_range.vci_bits = 16;
+ 		card->atmdev[i]->dev_data = card;
+ 		card->atmdev[i]->phy_data = (void *)(unsigned long)i;
+-		card->atmdev[i]->signal = ATM_PHY_SIG_UNKNOWN;
++		atm_dev_signal_change(card->atmdev[i], ATM_PHY_SIG_UNKNOWN);
  
- 		case 0x10:
--			atm_dev->signal = ATM_PHY_SIG_LOST;
-+			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 			atm_info(usbatm, "ADSL line is synchronising\n");
- 			break;
- 
-@@ -554,7 +554,7 @@ static void speedtch_check_status(struct work_struct *work)
- 			}
- 
- 			atm_dev->link_rate = down_speed * 1000 / 424;
--			atm_dev->signal = ATM_PHY_SIG_FOUND;
-+			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_FOUND);
- 
- 			atm_info(usbatm,
- 				 "ADSL line is up (%d kb/s down | %d kb/s up)\n",
-@@ -562,7 +562,7 @@ static void speedtch_check_status(struct work_struct *work)
- 			break;
- 
- 		default:
--			atm_dev->signal = ATM_PHY_SIG_UNKNOWN;
-+			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_UNKNOWN);
- 			atm_info(usbatm, "unknown line state %02x\n", status);
- 			break;
- 		}
+ 		skb = alloc_skb(sizeof(*header), GFP_ATOMIC);
+ 		if (!skb) {
 -- 
 1.7.1
 
