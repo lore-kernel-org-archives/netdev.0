@@ -1,85 +1,62 @@
-From: Narendra K <Narendra_K@dell.com>
-Subject: Re: [PATCH 1/2] Export firmware assigned labels of network devices to sysfs
-Date: Wed, 7 Jul 2010 12:48:26 -0500
-Message-ID: <20100707174826.GA1046@auslistsprd01.us.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE612B27@blrx3m08.blr.amer.dell.com>
+From: Anton Vorontsov <cbouatmailru@gmail.com>
+Subject: Re: [PATCH RFC 0/4] ARM/KGDB: Some fixes for SMP
+	machines
+Date: Wed, 7 Jul 2010 21:54:06 +0400
+Message-ID: <20100707175406.GA28424@oksana.dev.rtsoft.ru>
+References: <20100707171222.GA16448@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, matt_domsch@dell.com,
-	jordan_hargrave@dell.com, charles_rose@dell.com,
-	vijay_nijhawan@dell.com
-To: greg@kroah.com
-Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Russell King <linux@arm.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org,
+	Jason Wessel <jason.wessel@windriver.com>
+To: kgdb-bugreport@lists.sourceforge.net
+Return-path: <kgdb-bugreport-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE612B27@blrx3m08.blr.amer.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <20100707171222.GA16448@oksana.dev.rtsoft.ru>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
+	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=kgdb-bugreport>
+List-Post: <mailto:kgdb-bugreport@lists.sourceforge.net>
+List-Help: <mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
+	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: kgdb-bugreport-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Greg KH [mailto:greg@kroah.com] 
-> Sent: Wednesday, July 07, 2010 4:52 AM
-> To: K, Narendra
-> Cc: netdev@vger.kernel.org; linux-hotplug@vger.kernel.org;
-> linux-pci@vger.kernel.org; Domsch, Matt; Hargrave, Jordan; Rose,
-> Charles; Nijhawan, Vijay
-> Subject: Re: [PATCH 1/2] Export firmware assigned labels of network
-> devices to sysfs
-> 
-> On Tue, Jul 06, 2010 at 01:52:18PM -0500, Narendra K wrote:
-> > 
-> > 'device_create_file' takes 'struct device_attribute *' as a param
-> which 
-> > we have not used here because  'struct device_attribute' does not have
-> .test
-> > member which we needed in this patch.
-> 
-> Why do you need it?  What is calling that function?  What am I missing
-> here?
+On Wed, Jul 07, 2010 at 09:12:22PM +0400, Anton Vorontsov wrote:
+[...] 
+> 2. The patches are against a heavily patched kernel, and so far
+>    I didn't rebase them onto the 'debug core' rework as found
+>    in the very latest mainline kernels. I'll rebase the patches
+>    soon, so for now this is just an RFC.
 
-The function 'pci_create_smbiosname_file' below is calling the .test method.
-For every pdev the function checks if it has a SMBIOS string associated
-with it or not. If there is no string (and instance) associated, then the
-attributes 'label' and 'instance' are not created for that pdev.
-To check for the existance of the string, the .test method is needed and
-it is not available in 'struct device_attribute'. It provides 
-.show and .store. We need a .show and .test. So we defined 
+BTW, I'm testing with another small fixup applied, I didn't send
+it as a patch because this deadlock was already fixed in the
+debug_core implementation (which KGDB is using nowadays). But
+for the completeness, here it is:
 
-+struct smbios_attribute smbios_attr_label = {
-+	.attr = {.name = "label", .mode = 0444, .owner = THIS_MODULE},
-+	.show = smbiosname_show,
-+	.test = smbios_instance_string_exist,
-+};
+(Don't deadlock if there's a wannabe-master CPUs, which entered
+KGDB via exception, not NMI/IPI).
 
-'smbios_instance_string_exist' checks if the pdev has a 'string' and 'instance'.
+diff --git a/kernel/kgdb.c b/kernel/kgdb.c
+index e7a2274..65bf75d 100644
+--- a/kernel/kgdb.c
++++ b/kernel/kgdb.c
+@@ -1522,7 +1522,9 @@ return_normal:
+ 		 * from the debugger.
+ 		 */
+ 		for_each_online_cpu(i) {
+-			while (atomic_read(&cpu_in_kgdb[i]))
++			while (atomic_read(&cpu_in_kgdb[i]) &&
++					!(kgdb_info[i].exception_state &
++						DCPU_WANT_MASTER))
+ 				cpu_relax();
+ 		}
+ 	}
 
-+static int 
-+pci_create_smbiosname_file(struct pci_dev *pdev)
-+{
-+	if (smbios_attr_label.test && smbios_attr_label.test(&pdev->dev, NULL, NULL)) {
-+		if (sysfs_create_file(&pdev->dev.kobj, &smbios_attr_label.attr))
-+			return -1;
-+		if (sysfs_create_file(&pdev->dev.kobj, &smbios_attr_instance.attr))
-+			return -1;
-+		return 0;
-+	}
-+	return -1;	
-+}
-
-
-+int pci_create_firmware_label_files(struct pci_dev *pdev)
-+{
-+	if (!pci_create_smbiosname_file(pdev))
-
-> 
-> Please always run your patches through scripts/checkpatch.pl and fix up
-> the issues it finds before sending it out and having everyone else point
-> them out to you :)
-> 
-> Also, a new thread is nice at times for new versions of patches...
-
-Thanks for the feedback. Sorry for missing this.I would address all the issues 
-and post the patch in a new thread.
-
-With regards,
-Narendra K
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Sprint
+What will you do first with EVO, the first 4G phone?
+Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
