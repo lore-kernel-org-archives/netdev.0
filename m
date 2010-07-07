@@ -1,54 +1,61 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: Re: [PATCH v2 1/9] atm: propagate signal changes via notifier
-Date: Wed, 07 Jul 2010 09:40:37 +0200
-Message-ID: <4C342F75.3000500@hiramoto.org>
-References: <1278319561-23548-1-git-send-email-karl@hiramoto.org>	<1278319561-23548-2-git-send-email-karl@hiramoto.org> <20100706154158.542551c7@thirdoffive.cmf.nrl.navy.mil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: [PATCH v3 0/9] atm:  propagate atm_dev signal carrier to LOWER_UP of netdevice
+Date: Wed,  7 Jul 2010 10:50:27 +0200
+Message-ID: <1278492636-11094-1-git-send-email-karl@hiramoto.org>
+Cc: Karl Hiramoto <karl@hiramoto.org>
+To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcbbj.dreamhost.com ([208.97.132.119]:56186 "EHLO
-	homiemail-a33.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752490Ab0GGHkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 03:40:46 -0400
-In-Reply-To: <20100706154158.542551c7@thirdoffive.cmf.nrl.navy.mil>
+Received: from caiajhbdcaib.dreamhost.com ([208.97.132.81]:48944 "EHLO
+	homiemail-a30.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751539Ab0GGIuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 04:50:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  On 07/06/2010 09:41 PM, chas williams - CONTRACTOR wrote:
-> On Mon,  5 Jul 2010 10:45:53 +0200
-> Karl Hiramoto<karl@hiramoto.org>  wrote:
->
->> +void atm_dev_signal_change(struct atm_dev *dev, char signal)
->> +{
->> +	int i;
->> +	pr_debug("%s signal=%d dev=%p number=%d dev->signal=%d\n",
->> +		__func__, signal, dev, dev->number, dev->signal);
->> +
->> +	/* atm driver sending invalid signal */
->> +	WARN_ON(signal<  ATM_PHY_SIG_LOST || signal>
->> ATM_PHY_SIG_FOUND); +
->> +	if (dev->signal == signal)
->> +		return; /* no change */
->> +
->> +	dev->signal = signal;
->> +
->> +	&atm_dev_notify_chain, signal,
->> dev); +}
-> i am not sure that you can use blocking_notifier_call_chain() here.
-> atm_dev_signal_change() might be called from an interrupt context in
-> some of the drivers.
->
-> this implies that the notifier functions themselves must also not block.
-> so in br2684 you probably want to use read_lock_irq() instead of just
-> read_lock()
+Changes from v2:
+ * use atomic instead of blocking notifier
+ * use read_lock_irq() instead of read_lock() in atm/br2684
+ * clean up comments
+ * remove unused variable.  I feel really bad about missing that last time.
+ 
+Changes from v1:
+Use atm_dev notifier chain  instead of callback function pointer in struct vcc.
+In drivers/usb/atm call atm_dev_signal_change().
 
-Chas,
-I'll change to an atomic notifier, fix these issues, your other comments and send a new version of the patchset.
+In userspace it's helpful to know if a network device has a carrier signal.
+Often it is monitored via netlink.  This patchset allows a way for the
+struct atm_dev drivers to pass carrier on/off to the netdevice.
 
-Thanks.
+For DSL, carrier is on when the line has reached showtime state.
 
---
-Karl
+Currently this patchset only propagates the changes to br2684 vccs,
+as this is the only type of hardware I have to test.
+
+If you prefer git you can pull from:
+git://github.com/karlhiramoto/linux-2.6.git atm-v3
+
+Karl Hiramoto (9):
+  atm: propagate signal changes via notifier
+  atm/br2684: register notifier event for carrier signal changes.
+  atm/adummy: add syfs DEVICE_ATTR to change signal
+  atm/idt77105.c: call atm_dev_signal_change() when signal changes.
+  atm/solos-pci: call atm_dev_signal_change() when signal changes.
+  atm/suni.c: call atm_dev_signal_change() when signal changes.
+  usb/atm/cxacru.c: call atm_dev_signal_change() when signal changes.
+  usb/atm/speedtch.c: call atm_dev_signal_change() when signal changes.
+  usb/atm/ueagle-atm.c: call atm_dev_signal_change() when signal
+    changes.
+
+ drivers/atm/adummy.c         |   39 ++++++++++++++++++++++++
+ drivers/atm/idt77105.c       |   11 ++++---
+ drivers/atm/solos-pci.c      |    6 ++--
+ drivers/atm/suni.c           |    5 ++-
+ drivers/usb/atm/cxacru.c     |   18 ++++++------
+ drivers/usb/atm/speedtch.c   |   10 +++---
+ drivers/usb/atm/ueagle-atm.c |   13 ++++++--
+ include/linux/atmdev.h       |   19 ++++++++++++
+ net/atm/br2684.c             |   66 ++++++++++++++++++++++++++++++++++++++++-
+ net/atm/common.c             |   30 +++++++++++++++++++
+ 10 files changed, 188 insertions(+), 29 deletions(-)
+
