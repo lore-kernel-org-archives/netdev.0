@@ -1,16 +1,16 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v3 7/9] usb/atm/cxacru.c: call atm_dev_signal_change() when signal changes.
-Date: Wed,  7 Jul 2010 10:50:34 +0200
-Message-ID: <1278492636-11094-8-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v3 9/9] usb/atm/ueagle-atm.c: call atm_dev_signal_change() when signal changes.
+Date: Wed,  7 Jul 2010 10:50:36 +0200
+Message-ID: <1278492636-11094-10-git-send-email-karl@hiramoto.org>
 References: <1278492636-11094-1-git-send-email-karl@hiramoto.org>
 Cc: Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcaib.dreamhost.com ([208.97.132.81]:48996 "EHLO
+Received: from caiajhbdcagg.dreamhost.com ([208.97.132.66]:49008 "EHLO
 	homiemail-a30.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753508Ab0GGIvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 04:51:03 -0400
+	by vger.kernel.org with ESMTP id S1752870Ab0GGIvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 04:51:09 -0400
 In-Reply-To: <1278492636-11094-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,73 +19,54 @@ Propagate signal changes to upper atm layer.
 
 Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
- drivers/usb/atm/cxacru.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/usb/atm/ueagle-atm.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
-index c89990f..101ffc9 100644
---- a/drivers/usb/atm/cxacru.c
-+++ b/drivers/usb/atm/cxacru.c
-@@ -866,50 +866,50 @@ static void cxacru_poll_status(struct work_struct *work)
- 	instance->line_status = buf[CXINF_LINE_STATUS];
- 	switch (instance->line_status) {
- 	case 0:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: down\n");
- 		break;
+diff --git a/drivers/usb/atm/ueagle-atm.c b/drivers/usb/atm/ueagle-atm.c
+index e213d3f..ebae944 100644
+--- a/drivers/usb/atm/ueagle-atm.c
++++ b/drivers/usb/atm/ueagle-atm.c
+@@ -575,6 +575,13 @@ MODULE_PARM_DESC(annex,
+ 			sc->usbatm->atm_dev->type = val; \
+ 	} while (0)
  
- 	case 1:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: attempting to activate\n");
- 		break;
++#define UPDATE_ATM_SIGNAL(val) \
++	do { \
++		if (sc->usbatm->atm_dev) \
++			atm_dev_signal_change(sc->usbatm->atm_dev, val); \
++	} while (0)
++
++
+ /* Firmware loading */
+ #define LOAD_INTERNAL     0xA0
+ #define F8051_USBCS       0x7f92
+@@ -1359,7 +1366,7 @@ static int uea_stat_e1(struct uea_softc *sc)
+ 	/* always update it as atm layer could not be init when we switch to
+ 	 * operational state
+ 	 */
+-	UPDATE_ATM_STAT(signal, ATM_PHY_SIG_FOUND);
++	UPDATE_ATM_SIGNAL(ATM_PHY_SIG_FOUND);
  
- 	case 2:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: training\n");
- 		break;
+ 	/* wake up processes waiting for synchronization */
+ 	wake_up(&sc->sync_q);
+@@ -1498,7 +1505,7 @@ static int uea_stat_e4(struct uea_softc *sc)
+ 	/* always update it as atm layer could not be init when we switch to
+ 	 * operational state
+ 	 */
+-	UPDATE_ATM_STAT(signal, ATM_PHY_SIG_FOUND);
++	UPDATE_ATM_SIGNAL(ATM_PHY_SIG_FOUND);
  
- 	case 3:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: channel analysis\n");
- 		break;
+ 	/* wake up processes waiting for synchronization */
+ 	wake_up(&sc->sync_q);
+@@ -1825,7 +1832,7 @@ static int uea_start_reset(struct uea_softc *sc)
+ 	 * So we will failed to wait Ready CMV.
+ 	 */
+ 	sc->cmv_ack = 0;
+-	UPDATE_ATM_STAT(signal, ATM_PHY_SIG_LOST);
++	UPDATE_ATM_SIGNAL(ATM_PHY_SIG_LOST);
  
- 	case 4:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: exchange\n");
- 		break;
- 
- 	case 5:
- 		atm_dev->link_rate = buf[CXINF_DOWNSTREAM_RATE] * 1000 / 424;
--		atm_dev->signal = ATM_PHY_SIG_FOUND;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_FOUND);
- 
- 		atm_info(usbatm, "ADSL line: up (%d kb/s down | %d kb/s up)\n",
- 		     buf[CXINF_DOWNSTREAM_RATE], buf[CXINF_UPSTREAM_RATE]);
- 		break;
- 
- 	case 6:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: waiting\n");
- 		break;
- 
- 	case 7:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: initializing\n");
- 		break;
- 
- 	default:
--		atm_dev->signal = ATM_PHY_SIG_UNKNOWN;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_UNKNOWN);
- 		atm_info(usbatm, "Unknown line state %02x\n", instance->line_status);
- 		break;
- 	}
+ 	/* reset statistics */
+ 	memset(&sc->stats, 0, sizeof(struct uea_stats));
 -- 
 1.7.1
 
