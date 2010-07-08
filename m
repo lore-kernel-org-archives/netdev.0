@@ -1,116 +1,97 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: [RFC PATCH]: Fix a warning in the niu driver
-Date: Wed, 07 Jul 2010 19:59:41 -0400
-Message-ID: <4C3514ED.2060904@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH]: Fix a warning in the niu driver
+Date: Wed, 07 Jul 2010 17:08:20 -0700 (PDT)
+Message-ID: <20100707.170820.146356362.davem@davemloft.net>
+References: <4C3514ED.2060904@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: prarit@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36122 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753392Ab0GHAAu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jul 2010 20:00:50 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57647
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756105Ab0GHAIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jul 2010 20:08:09 -0400
+In-Reply-To: <4C3514ED.2060904@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an RFC to fix the mismatch compile warning in the niu driver.
+From: Prarit Bhargava <prarit@redhat.com>
+Date: Wed, 07 Jul 2010 19:59:41 -0400
 
-drivers/net/niu.c: In function 'niu_process_rx_pkt':
-drivers/net/niu.c:3490: warning: 'link' may be used uninitialized in this function
+> This is an RFC to fix the mismatch compile warning in the niu driver.
+> 
+> drivers/net/niu.c: In function 'niu_process_rx_pkt':
+> drivers/net/niu.c:3490: warning: 'link' may be used uninitialized in this function
+> 
+> AFAICT, link is unused.  It is set in several places but never consumed by
+> any code.  Additionally, the value of page is unchecked in the functions that
+> call niu_find_rx_page().  This could lead to a NULL pointer.  However, in
+> both cases it seems like if !page then the rx ring is corrupt.  I *think* a
+> BUG() is appropriate, but one of you may have a better suggestion as to
+> what to do in that case.  Maybe leaving the while loops with a break?
+> 
+> Checking for !page is probably overkill -- maybe the fix is to just remove
+> link?
+> 
+> Any suggestions or advice is appreciated,
 
-AFAICT, link is unused.  It is set in several places but never consumed by
-any code.  Additionally, the value of page is unchecked in the functions that
-call niu_find_rx_page().  This could lead to a NULL pointer.  However, in
-both cases it seems like if !page then the rx ring is corrupt.  I *think* a
-BUG() is appropriate, but one of you may have a better suggestion as to
-what to do in that case.  Maybe leaving the while loops with a break?
+You completely removed the unlinking of the page from the hash chain
+list.
 
-Checking for !page is probably overkill -- maybe the fix is to just remove
-link?
+That's the side effect you're missing.
 
-Any suggestions or advice is appreciated,
+niu_rx_pkt_ignore() {
+ ...
+		page = niu_find_rxpage(rp, addr, &link);
+ ...
+			*link = (struct page *) page->mapping;
+ ...
+}
 
-P.
+niu_process_rx_pkt() {
+ ...
+		page = niu_find_rxpage(rp, addr, &link);
+ ...
+			*link = (struct page *) page->mapping;
+ ...
+}
+
+Your patch would corrupt the list state, since we'd leave
+pages in the rx page hash which have only externally references
+and thus will be freed up.
+
+Just BUG() if the loop terminates without finding a page.
+
+--------------------
+niu: BUG on inability to find page in rx page hashes.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 
 diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 961b9ea..8f2251d 100644
+index 3d523cb..5d36531 100644
 --- a/drivers/net/niu.c
 +++ b/drivers/net/niu.c
-@@ -3353,19 +3353,17 @@ static unsigned int niu_hash_rxaddr(struct rx_ring_info *rp, u64 a)
- 	return (a & (MAX_RBR_RING_SIZE - 1));
+@@ -3330,10 +3330,12 @@ static struct page *niu_find_rxpage(struct rx_ring_info *rp, u64 addr,
+ 	for (; (p = *pp) != NULL; pp = (struct page **) &p->mapping) {
+ 		if (p->index == addr) {
+ 			*link = pp;
+-			break;
++			goto found;
+ 		}
+ 	}
++	BUG();
+ 
++found:
+ 	return p;
  }
  
--static struct page *niu_find_rxpage(struct rx_ring_info *rp, u64 addr,
--				    struct page ***link)
-+static struct page *niu_find_rxpage(struct rx_ring_info *rp, u64 addr)
- {
- 	unsigned int h = niu_hash_rxaddr(rp, addr);
--	struct page *p, **pp;
-+	struct page *p = NULL;
-+	struct page **pp;
- 
- 	addr &= PAGE_MASK;
- 	pp = &rp->rxhash[h];
- 	for (; (p = *pp) != NULL; pp = (struct page **) &p->mapping) {
--		if (p->index == addr) {
--			*link = pp;
-+		if (p->index == addr)
- 			break;
--		}
- 	}
- 
- 	return p;
-@@ -3441,7 +3439,7 @@ static int niu_rx_pkt_ignore(struct niu *np, struct rx_ring_info *rp)
- 
- 	rp->rx_dropped++;
- 	while (1) {
--		struct page *page, **link;
-+		struct page *page;
- 		u64 addr, val;
- 		u32 rcr_size;
- 
-@@ -3450,12 +3448,12 @@ static int niu_rx_pkt_ignore(struct niu *np, struct rx_ring_info *rp)
- 		val = le64_to_cpup(&rp->rcr[index]);
+@@ -3417,7 +3419,6 @@ static int niu_rx_pkt_ignore(struct niu *np, struct rx_ring_info *rp)
  		addr = (val & RCR_ENTRY_PKT_BUF_ADDR) <<
  			RCR_ENTRY_PKT_BUF_ADDR_SHIFT;
--		page = niu_find_rxpage(rp, addr, &link);
-+		page = niu_find_rxpage(rp, addr);
-+		BUG_ON(!page); /* page cannot be NULL, rx_ring is corrupt */
- 
+ 		page = niu_find_rxpage(rp, addr, &link);
+-
  		rcr_size = rp->rbr_sizes[(val & RCR_ENTRY_PKTBUFSZ) >>
  					 RCR_ENTRY_PKTBUFSZ_SHIFT];
  		if ((page->index + PAGE_SIZE) - rcr_size == addr) {
--			*link = (struct page *) page->mapping;
- 			np->ops->unmap_page(np->device, page->index,
- 					    PAGE_SIZE, DMA_FROM_DEVICE);
- 			page->index = 0;
-@@ -3487,7 +3485,7 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 
- 	num_rcr = 0;
- 	while (1) {
--		struct page *page, **link = NULL;
-+		struct page *page;
- 		u32 rcr_size, append_size;
- 		u64 addr, val, off;
- 
-@@ -3501,7 +3499,8 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 
- 		addr = (val & RCR_ENTRY_PKT_BUF_ADDR) <<
- 			RCR_ENTRY_PKT_BUF_ADDR_SHIFT;
--		page = niu_find_rxpage(rp, addr, &link);
-+		page = niu_find_rxpage(rp, addr);
-+		BUG_ON(!page); /* page cannot be NULL, rx_ring is corrupt */
- 
- 		rcr_size = rp->rbr_sizes[(val & RCR_ENTRY_PKTBUFSZ) >>
- 					 RCR_ENTRY_PKTBUFSZ_SHIFT];
-@@ -3528,7 +3527,6 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 
- 		niu_rx_skb_append(skb, page, off, append_size);
- 		if ((page->index + rp->rbr_block_size) - rcr_size == addr) {
--			*link = (struct page *) page->mapping;
- 			np->ops->unmap_page(np->device, page->index,
- 					    PAGE_SIZE, DMA_FROM_DEVICE);
- 			page->index = 0;
-
