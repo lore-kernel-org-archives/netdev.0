@@ -1,303 +1,326 @@
-From: "Choi, David" <David.Choi@Micrel.Com>
-Subject: RE: [PATCH linux-2.6.35-rc3] ks8842 driver
-Date: Thu, 8 Jul 2010 12:01:51 -0700
-Message-ID: <C43529A246480145B0A6D0234BDB0F0D481D67@MELANITE.micrel.com>
-References: <C43529A246480145B0A6D0234BDB0F0D0212A4@MELANITE.micrel.com> <20100708075245.GA21371@verge.net.au>
+From: Jon Mason <jon.mason@exar.com>
+Subject: [PATCH 1/6 net-next-2.6] vxge: Remove queue_state references
+Date: Thu, 8 Jul 2010 14:19:57 -0500
+Message-ID: <20100708191957.GA15167@exar.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "Li, Charles" <Charles.Li@Micrel.Com>
-To: "Simon Horman" <horms@verge.net.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
+	Ramkrishna Vepa <ram.vepa@exar.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p01c12o145.mxlogic.net ([208.65.145.68]:51725 "EHLO
-	p01c12o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757106Ab0GHTCD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 15:02:03 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20100708075245.GA21371@verge.net.au>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:38689 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755742Ab0GHTTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 15:19:20 -0400
+Received: by pvc7 with SMTP id 7so447703pvc.19
+        for <netdev@vger.kernel.org>; Thu, 08 Jul 2010 12:19:19 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Simon,
+Remove queue_state references, as they are no longer necessary.
 
-Thank you for your comments.
+Also, The driver needs to start/stop the queue regardless of which type
+of steering is enabled.  Remove checks for TX_MULTIQ_STEERING only and
+start/stop for all steering types.
 
-The original ks8842 driver is designed to work on the customized bus
-interface based on an FPGA. This patch is intended to address the more
-commonly used generic bus interface available on the majority of SoC in
-the market.
+Signed-off-by: Jon Mason <jon.mason@exar.com>
+Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@exar.com>
+Signed-off-by: Ramkrishna Vepa <ram.vepa@exar.com>
+---
+ drivers/net/vxge/vxge-main.c |  118 +++++++++++++++---------------------------
+ drivers/net/vxge/vxge-main.h |   10 +---
+ 2 files changed, 42 insertions(+), 86 deletions(-)
 
-It is unlikely that for a system to use both FPGA based and generic bus
-interface for ks8842, I am quite certain that those 2 devices are used
-mutual exclusively.
-
-Regards,
-David J. Choi
-
-
------Original Message-----
-From: Simon Horman [mailto:horms@verge.net.au] 
-Sent: Thursday, July 08, 2010 12:53 AM
-To: Choi, David
-Cc: netdev@vger.kernel.org; Li, Charles
-Subject: Re: [PATCH linux-2.6.35-rc3] ks8842 driver
-
-On Wed, Jul 07, 2010 at 08:24:33AM -0700, Choi, David wrote:
-> To whom it may have concerned,
-> 
-> It seems that there are differences between Micrel ks8842 device and
-Timberdale FPGA based device with generic bus interface. In order to
-check the differences, I have sent several times but have not received
-any response. This patch is to support ks8841/ks8842 device from Micrel.
-
-Is it desirable that the code can never be compiled to work with both
-devices?
-Is this code likely to be included in a generic/distro kernel?
-
-> 
-> From: David J. Choi <david.choi@micrel.com>
-> 
-> Body of the explanation: 
->    -support 16bit and 32bit bus width.
->    -add device reset for ks8842/8841 Micrel device.
->    -set 100Mbps as a default for Micrel device.
->    -set MAC address in both MAC/Switch layer with different sequence
-for Micrel device, 
->     as mentioned in data sheet.
-> 
-> Signed-off-by: David J. Choi <david.choi@micrel.com>
-> 
-> ---
-> --- linux-2.6.35-rc3/drivers/net/ks8842.c.orig	2010-07-01
-16:26:50.000000000 -0700
-> +++ linux-2.6.35-rc3/drivers/net/ks8842.c	2010-07-07
-07:41:03.000000000 -0700
-> @@ -18,6 +18,7 @@
->  
->  /* Supports:
->   * The Micrel KS8842 behind the timberdale FPGA
-> + * The genuine Micrel KS8841/42 device with ISA 16/32bit bus
-interface
->   */
->  
->  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> @@ -191,6 +192,12 @@ static inline u32 ks8842_read32(struct k
->  
->  static void ks8842_reset(struct ks8842_adapter *adapter)
->  {
-> +#ifdef CONFIG_MICREL_KS884X
-> +	ks8842_write16(adapter, 3, 1, REG_GRR);
-> +	msleep(10);
-> +	iowrite16(0, adapter->hw_addr + REG_GRR);
-> +
-> +#else
->  	/* The KS8842 goes haywire when doing softare reset
->  	 * a work around in the timberdale IP is implemented to
->  	 * do a hardware reset instead
-> @@ -201,6 +208,7 @@ static void ks8842_reset(struct ks8842_a
->  	iowrite16(32, adapter->hw_addr + REG_SELECT_BANK);
->  	iowrite32(0x1, adapter->hw_addr + REG_TIMB_RST);
->  	msleep(20);
-> +#endif
->  }
->  
->  static void ks8842_update_link_status(struct net_device *netdev,
-> @@ -269,8 +277,11 @@ static void ks8842_reset_hw(struct ks884
->  
->  	/* restart port auto-negotiation */
->  	ks8842_enable_bits(adapter, 49, 1 << 13, REG_P1CR4);
-> +
-> +#ifndef CONFIG_MICREL_KS884X
->  	/* only advertise 10Mbps */
->  	ks8842_clear_bits(adapter, 49, 3 << 2, REG_P1CR4);
-> +#endif
->  
->  	/* Enable the transmitter */
->  	ks8842_enable_tx(adapter);
-> @@ -296,6 +307,20 @@ static void ks8842_read_mac_addr(struct 
->  	for (i = 0; i < ETH_ALEN; i++)
->  		dest[ETH_ALEN - i - 1] = ks8842_read8(adapter, 2,
-REG_MARL + i);
->  
-> +#ifdef CONFIG_MICREL_KS884X
-> +	/*
-> +		the sequence of saving mac addr between MAC and Switch
-is
-> +		different.
-> +	*/
-> +
-> +	mac = ks8842_read16(adapter, 2, REG_MARL);
-> +	ks8842_write16(adapter, 39, mac, REG_MACAR3);
-> +	mac = ks8842_read16(adapter, 2, REG_MARM);
-> +	ks8842_write16(adapter, 39, mac, REG_MACAR2);
-> +	mac = ks8842_read16(adapter, 2, REG_MARH);
-> +	ks8842_write16(adapter, 39, mac, REG_MACAR1);
-> +#else
-> +
->  	/* make sure the switch port uses the same MAC as the QMU */
->  	mac = ks8842_read16(adapter, 2, REG_MARL);
->  	ks8842_write16(adapter, 39, mac, REG_MACAR1);
-> @@ -303,6 +328,7 @@ static void ks8842_read_mac_addr(struct 
->  	ks8842_write16(adapter, 39, mac, REG_MACAR2);
->  	mac = ks8842_read16(adapter, 2, REG_MARH);
->  	ks8842_write16(adapter, 39, mac, REG_MACAR3);
-> +#endif
->  }
->  
->  static void ks8842_write_mac_addr(struct ks8842_adapter *adapter, u8
-*mac)
-> @@ -313,8 +339,13 @@ static void ks8842_write_mac_addr(struct
->  	spin_lock_irqsave(&adapter->lock, flags);
->  	for (i = 0; i < ETH_ALEN; i++) {
->  		ks8842_write8(adapter, 2, mac[ETH_ALEN - i - 1],
-REG_MARL + i);
-> +#ifdef CONFIG_MICREL_KS884X
-> +		ks8842_write8(adapter, 39, mac[ETH_ALEN - i - 1],
-> +			REG_MACAR3 + 1 - i);
-> +#else
->  		ks8842_write8(adapter, 39, mac[ETH_ALEN - i - 1],
->  			REG_MACAR1 + i);
-> +#endif
->  	}
->  	spin_unlock_irqrestore(&adapter->lock, flags);
->  }
-> @@ -328,8 +359,12 @@ static int ks8842_tx_frame(struct sk_buf
->  {
->  	struct ks8842_adapter *adapter = netdev_priv(netdev);
->  	int len = skb->len;
-> +#ifdef CONFIG_KS884X_16BIT
-> +	u16 *ptr16 = (u16 *)skb->data;
-> +#else
->  	u32 *ptr = (u32 *)skb->data;
->  	u32 ctrl;
-> +#endif
->  
->  	dev_dbg(&adapter->pdev->dev,
->  		"%s: len %u head %p data %p tail %p end %p\n",
-> @@ -340,6 +375,18 @@ static int ks8842_tx_frame(struct sk_buf
->  	if (ks8842_tx_fifo_space(adapter) < len + 8)
->  		return NETDEV_TX_BUSY;
->  
-> +#ifdef CONFIG_KS884X_16BIT
-> +	ks8842_write16(adapter, 17, 0x8000 | 0x100, REG_QMU_DATA_LO);
-> +	ks8842_write16(adapter, 17, (u16)len, REG_QMU_DATA_HI);
-> +	netdev->stats.tx_bytes += len;
-> +
-> +	/* copy buffer */
-> +	while (len > 0) {
-> +		iowrite16(*ptr16++, adapter->hw_addr + REG_QMU_DATA_LO);
-> +		iowrite16(*ptr16++, adapter->hw_addr + REG_QMU_DATA_HI);
-> +		len -= sizeof(u32);
-> +	}
-> +#else
->  	/* the control word, enable IRQ, port 1 and the length */
->  	ctrl = 0x8000 | 0x100 | (len << 16);
->  	ks8842_write32(adapter, 17, ctrl, REG_QMU_DATA_LO);
-> @@ -352,6 +399,7 @@ static int ks8842_tx_frame(struct sk_buf
->  		len -= sizeof(u32);
->  		ptr++;
->  	}
-> +#endif
->  
->  	/* enqueue packet */
->  	ks8842_write16(adapter, 17, 1, REG_TXQCR);
-> @@ -364,10 +412,15 @@ static int ks8842_tx_frame(struct sk_buf
->  static void ks8842_rx_frame(struct net_device *netdev,
->  	struct ks8842_adapter *adapter)
->  {
-> +#ifdef CONFIG_KS884X_16BIT
-> +	u16 status = ks8842_read16(adapter, 17, REG_QMU_DATA_LO);
-> +	int len  = (int)ks8842_read16(adapter, 17, REG_QMU_DATA_HI) &
-0xffff;
-> +#else
->  	u32 status = ks8842_read32(adapter, 17, REG_QMU_DATA_LO);
->  	int len = (status >> 16) & 0x7ff;
->  
->  	status &= 0xffff;
-> +#endif
->  
->  	dev_dbg(&adapter->pdev->dev, "%s - rx_data: status: %x\n",
->  		__func__, status);
-> @@ -379,13 +432,28 @@ static void ks8842_rx_frame(struct net_d
->  		dev_dbg(&adapter->pdev->dev, "%s, got package, len:
-%d\n",
->  			__func__, len);
->  		if (skb) {
-> +#ifdef CONFIG_KS884X_16BIT
-> +			u16 *data16;
-> +#else
->  			u32 *data;
-> +#endif
->  
->  			netdev->stats.rx_packets++;
->  			netdev->stats.rx_bytes += len;
->  			if (status & RXSR_MULTICAST)
->  				netdev->stats.multicast++;
->  
-> +#ifdef CONFIG_KS884X_16BIT
-> +			data16 = (u16 *)skb_put(skb, len);
-> +			ks8842_select_bank(adapter, 17);
-> +			while (len > 0) {
-> +				*data16++ = ioread16(adapter->hw_addr +
-> +					REG_QMU_DATA_LO);
-> +				*data16++ = ioread16(adapter->hw_addr +
-> +					REG_QMU_DATA_HI);
-> +				len -= sizeof(u32);
-> +			}
-> +#else
->  			data = (u32 *)skb_put(skb, len);
->  
->  			ks8842_select_bank(adapter, 17);
-> @@ -397,6 +465,7 @@ static void ks8842_rx_frame(struct net_d
->  
->  			skb->protocol = eth_type_trans(skb, netdev);
->  			netif_rx(skb);
-> +#endif
->  		} else
->  			netdev->stats.rx_dropped++;
->  	} else {
-> --- linux-2.6.35-rc3/drivers/net/Kconfig.orig	2010-07-02
-15:52:41.000000000 -0700
-> +++ linux-2.6.35-rc3/drivers/net/Kconfig	2010-07-07
-07:45:47.000000000 -0700
-> @@ -1748,11 +1748,29 @@ config TLAN
->  	  Please email feedback to <torben.mathiasen@compaq.com>.
->  
->  config KS8842
-> -	tristate "Micrel KSZ8842"
-> +	tristate "Micrel KSZ8841/42 with generic bus interface"
->  	depends on HAS_IOMEM
->  	help
-> -	  This platform driver is for Micrel KSZ8842 / KS8842
-> -	  2-port ethernet switch chip (managed, VLAN, QoS).
-> +	  This platform driver is for KSZ8841(1-port) / KS8842(2-port) 
-> +	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
-> +	  Timberdale(FPGA).
-> +
-> +if KS8842
-> +config MICREL_KS884X
-> +	boolean "KSZ8841/42 device from Micrel"
-> +	default n
-> +	help
-> +	  Say Y to use Micrel device. Otherwise Timberdale(FPGA) device
-is 
-> +	  selected.
-> +
-> +config KS884X_16BIT
-> +	boolean "16bit bus width"
-> +	default y
-> +	help
-> +	  This option specifies 16bit or 32bit bus interface. Say Y to
-use 
-> +	  16bit bus. Otherwise 32bit bus is selected.
-> +
-> +endif # KS8842
->  
->  config KS8851
->         tristate "Micrel KS8851 SPI"
-> ---
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+index ed17865..e78703d 100644
+--- a/drivers/net/vxge/vxge-main.c
++++ b/drivers/net/vxge/vxge-main.c
+@@ -133,75 +133,48 @@ static inline void VXGE_COMPLETE_ALL_RX(struct vxgedev *vdev)
+ /*
+  * MultiQ manipulation helper functions
+  */
+-void vxge_stop_all_tx_queue(struct vxgedev *vdev)
++static inline int vxge_netif_queue_stopped(struct vxge_fifo *fifo)
+ {
+-	int i;
+-	struct net_device *dev = vdev->ndev;
++	struct net_device *dev = fifo->ndev;
++	struct netdev_queue *txq = NULL;
++	int vpath_no = fifo->driver_id;
++	int ret = 0;
+ 
+-	if (vdev->config.tx_steering_type != TX_MULTIQ_STEERING) {
+-		for (i = 0; i < vdev->no_of_vpath; i++)
+-			vdev->vpaths[i].fifo.queue_state = VPATH_QUEUE_STOP;
+-	}
+-	netif_tx_stop_all_queues(dev);
++	if (fifo->tx_steering_type)
++		txq = netdev_get_tx_queue(dev, vpath_no);
++	else
++		txq = netdev_get_tx_queue(dev, 0);
++
++	ret = netif_tx_queue_stopped(txq);
++	return ret;
+ }
+ 
+ void vxge_stop_tx_queue(struct vxge_fifo *fifo)
+ {
+ 	struct net_device *dev = fifo->ndev;
+-
+ 	struct netdev_queue *txq = NULL;
+-	if (fifo->tx_steering_type == TX_MULTIQ_STEERING)
++
++	if (fifo->tx_steering_type)
+ 		txq = netdev_get_tx_queue(dev, fifo->driver_id);
+-	else {
++	else
+ 		txq = netdev_get_tx_queue(dev, 0);
+-		fifo->queue_state = VPATH_QUEUE_STOP;
+-	}
+ 
+ 	netif_tx_stop_queue(txq);
+ }
+ 
+-void vxge_start_all_tx_queue(struct vxgedev *vdev)
+-{
+-	int i;
+-	struct net_device *dev = vdev->ndev;
+-
+-	if (vdev->config.tx_steering_type != TX_MULTIQ_STEERING) {
+-		for (i = 0; i < vdev->no_of_vpath; i++)
+-			vdev->vpaths[i].fifo.queue_state = VPATH_QUEUE_START;
+-	}
+-	netif_tx_start_all_queues(dev);
+-}
+-
+-static void vxge_wake_all_tx_queue(struct vxgedev *vdev)
+-{
+-	int i;
+-	struct net_device *dev = vdev->ndev;
+-
+-	if (vdev->config.tx_steering_type != TX_MULTIQ_STEERING) {
+-		for (i = 0; i < vdev->no_of_vpath; i++)
+-			vdev->vpaths[i].fifo.queue_state = VPATH_QUEUE_START;
+-	}
+-	netif_tx_wake_all_queues(dev);
+-}
+-
+-void vxge_wake_tx_queue(struct vxge_fifo *fifo, struct sk_buff *skb)
++void vxge_wake_tx_queue(struct vxge_fifo *fifo)
+ {
+ 	struct net_device *dev = fifo->ndev;
+-
+-	int vpath_no = fifo->driver_id;
+ 	struct netdev_queue *txq = NULL;
+-	if (fifo->tx_steering_type == TX_MULTIQ_STEERING) {
++	int vpath_no = fifo->driver_id;
++
++	if (fifo->tx_steering_type)
+ 		txq = netdev_get_tx_queue(dev, vpath_no);
+-		if (netif_tx_queue_stopped(txq))
+-			netif_tx_wake_queue(txq);
+-	} else {
++	else
+ 		txq = netdev_get_tx_queue(dev, 0);
+-		if (fifo->queue_state == VPATH_QUEUE_STOP)
+-			if (netif_tx_queue_stopped(txq)) {
+-				fifo->queue_state = VPATH_QUEUE_START;
+-				netif_tx_wake_queue(txq);
+-			}
+-	}
++
++	if (netif_tx_queue_stopped(txq))
++		netif_tx_wake_queue(txq);
+ }
+ 
+ /*
+@@ -222,7 +195,7 @@ vxge_callback_link_up(struct __vxge_hw_device *hldev)
+ 	vdev->stats.link_up++;
+ 
+ 	netif_carrier_on(vdev->ndev);
+-	vxge_wake_all_tx_queue(vdev);
++	netif_tx_wake_all_queues(vdev->ndev);
+ 
+ 	vxge_debug_entryexit(VXGE_TRACE,
+ 		"%s: %s:%d Exiting...", vdev->ndev->name, __func__, __LINE__);
+@@ -246,7 +219,7 @@ vxge_callback_link_down(struct __vxge_hw_device *hldev)
+ 
+ 	vdev->stats.link_down++;
+ 	netif_carrier_off(vdev->ndev);
+-	vxge_stop_all_tx_queue(vdev);
++	netif_tx_stop_all_queues(vdev->ndev);
+ 
+ 	vxge_debug_entryexit(VXGE_TRACE,
+ 		"%s: %s:%d Exiting...", vdev->ndev->name, __func__, __LINE__);
+@@ -677,7 +650,7 @@ vxge_xmit_compl(struct __vxge_hw_fifo *fifo_hw, void *dtr,
+ 				&dtr, &t_code) == VXGE_HW_OK);
+ 
+ 	*skb_ptr = done_skb;
+-	vxge_wake_tx_queue(fifo, skb);
++	vxge_wake_tx_queue(fifo);
+ 
+ 	vxge_debug_entryexit(VXGE_TRACE,
+ 				"%s: %s:%d  Exiting...",
+@@ -881,17 +854,11 @@ vxge_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			return NETDEV_TX_LOCKED;
+ 	}
+ 
+-	if (vdev->config.tx_steering_type == TX_MULTIQ_STEERING) {
+-		if (netif_subqueue_stopped(dev, skb)) {
+-			spin_unlock_irqrestore(&fifo->tx_lock, flags);
+-			return NETDEV_TX_BUSY;
+-		}
+-	} else if (unlikely(fifo->queue_state == VPATH_QUEUE_STOP)) {
+-		if (netif_queue_stopped(dev)) {
+-			spin_unlock_irqrestore(&fifo->tx_lock, flags);
+-			return NETDEV_TX_BUSY;
+-		}
++	if (vxge_netif_queue_stopped(fifo)) {
++		spin_unlock_irqrestore(&fifo->tx_lock, flags);
++		return NETDEV_TX_BUSY;
+ 	}
++
+ 	avail = vxge_hw_fifo_free_txdl_count_get(fifo_hw);
+ 	if (avail == 0) {
+ 		vxge_debug_tx(VXGE_ERR,
+@@ -1478,7 +1445,7 @@ static int vxge_reset_vpath(struct vxgedev *vdev, int vp_id)
+ 	clear_bit(vp_id, &vdev->vp_reset);
+ 
+ 	/* Start the vpath queue */
+-	vxge_wake_tx_queue(&vdev->vpaths[vp_id].fifo, NULL);
++	vxge_wake_tx_queue(&vdev->vpaths[vp_id].fifo);
+ 
+ 	return ret;
+ }
+@@ -1513,7 +1480,7 @@ static int do_vxge_reset(struct vxgedev *vdev, int event)
+ 				"%s: execution mode is debug, returning..",
+ 				vdev->ndev->name);
+ 		clear_bit(__VXGE_STATE_CARD_UP, &vdev->state);
+-		vxge_stop_all_tx_queue(vdev);
++		netif_tx_stop_all_queues(vdev->ndev);
+ 		return 0;
+ 		}
+ 	}
+@@ -1523,7 +1490,7 @@ static int do_vxge_reset(struct vxgedev *vdev, int event)
+ 
+ 		switch (vdev->cric_err_event) {
+ 		case VXGE_HW_EVENT_UNKNOWN:
+-			vxge_stop_all_tx_queue(vdev);
++			netif_tx_stop_all_queues(vdev->ndev);
+ 			vxge_debug_init(VXGE_ERR,
+ 				"fatal: %s: Disabling device due to"
+ 				"unknown error",
+@@ -1544,7 +1511,7 @@ static int do_vxge_reset(struct vxgedev *vdev, int event)
+ 		case VXGE_HW_EVENT_VPATH_ERR:
+ 			break;
+ 		case VXGE_HW_EVENT_CRITICAL_ERR:
+-			vxge_stop_all_tx_queue(vdev);
++			netif_tx_stop_all_queues(vdev->ndev);
+ 			vxge_debug_init(VXGE_ERR,
+ 				"fatal: %s: Disabling device due to"
+ 				"serious error",
+@@ -1554,7 +1521,7 @@ static int do_vxge_reset(struct vxgedev *vdev, int event)
+ 			ret = -EPERM;
+ 			goto out;
+ 		case VXGE_HW_EVENT_SERR:
+-			vxge_stop_all_tx_queue(vdev);
++			netif_tx_stop_all_queues(vdev->ndev);
+ 			vxge_debug_init(VXGE_ERR,
+ 				"fatal: %s: Disabling device due to"
+ 				"serious error",
+@@ -1566,7 +1533,7 @@ static int do_vxge_reset(struct vxgedev *vdev, int event)
+ 			ret = -EPERM;
+ 			goto out;
+ 		case VXGE_HW_EVENT_SLOT_FREEZE:
+-			vxge_stop_all_tx_queue(vdev);
++			netif_tx_stop_all_queues(vdev->ndev);
+ 			vxge_debug_init(VXGE_ERR,
+ 				"fatal: %s: Disabling device due to"
+ 				"slot freeze",
+@@ -1580,7 +1547,7 @@ static int do_vxge_reset(struct vxgedev *vdev, int event)
+ 	}
+ 
+ 	if ((event == VXGE_LL_FULL_RESET) || (event == VXGE_LL_START_RESET))
+-		vxge_stop_all_tx_queue(vdev);
++		netif_tx_stop_all_queues(vdev->ndev);
+ 
+ 	if (event == VXGE_LL_FULL_RESET) {
+ 		status = vxge_reset_all_vpaths(vdev);
+@@ -1640,7 +1607,7 @@ static int do_vxge_reset(struct vxgedev *vdev, int event)
+ 			vxge_hw_vpath_rx_doorbell_init(vdev->vpaths[i].handle);
+ 		}
+ 
+-		vxge_wake_all_tx_queue(vdev);
++		netif_tx_wake_all_queues(vdev->ndev);
+ 	}
+ 
+ out:
+@@ -2779,7 +2746,7 @@ vxge_open(struct net_device *dev)
+ 		vxge_hw_vpath_rx_doorbell_init(vdev->vpaths[i].handle);
+ 	}
+ 
+-	vxge_start_all_tx_queue(vdev);
++	netif_tx_start_all_queues(vdev->ndev);
+ 	goto out0;
+ 
+ out2:
+@@ -2902,7 +2869,7 @@ int do_vxge_close(struct net_device *dev, int do_io)
+ 
+ 	netif_carrier_off(vdev->ndev);
+ 	printk(KERN_NOTICE "%s: Link Down\n", vdev->ndev->name);
+-	vxge_stop_all_tx_queue(vdev);
++	netif_tx_stop_all_queues(vdev->ndev);
+ 
+ 	/* Note that at this point xmit() is stopped by upper layer */
+ 	if (do_io)
+@@ -3215,7 +3182,7 @@ int __devinit vxge_device_register(struct __vxge_hw_device *hldev,
+ 	u64 stat;
+ 
+ 	*vdev_out = NULL;
+-	if (config->tx_steering_type == TX_MULTIQ_STEERING)
++	if (config->tx_steering_type)
+ 		no_of_queue = no_of_vpath;
+ 
+ 	ndev = alloc_etherdev_mq(sizeof(struct vxgedev),
+@@ -3284,9 +3251,6 @@ int __devinit vxge_device_register(struct __vxge_hw_device *hldev,
+ 	if (vdev->config.gro_enable)
+ 		ndev->features |= NETIF_F_GRO;
+ 
+-	if (vdev->config.tx_steering_type == TX_MULTIQ_STEERING)
+-		ndev->real_num_tx_queues = no_of_vpath;
+-
+ #ifdef NETIF_F_LLTX
+ 	ndev->features |= NETIF_F_LLTX;
+ #endif
+diff --git a/drivers/net/vxge/vxge-main.h b/drivers/net/vxge/vxge-main.h
+index 60276b2..a384582 100644
+--- a/drivers/net/vxge/vxge-main.h
++++ b/drivers/net/vxge/vxge-main.h
+@@ -228,10 +228,6 @@ struct vxge_fifo {
+ 	int tx_steering_type;
+ 	int indicate_max_pkts;
+ 	spinlock_t tx_lock;
+-	/* flag used to maintain queue state when MULTIQ is not enabled */
+-#define VPATH_QUEUE_START       0
+-#define VPATH_QUEUE_STOP        1
+-	int queue_state;
+ 
+ 	/* Tx stats */
+ 	struct vxge_fifo_stats stats;
+@@ -447,13 +443,9 @@ int vxge_open_vpaths(struct vxgedev *vdev);
+ 
+ enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev);
+ 
+-void vxge_stop_all_tx_queue(struct vxgedev *vdev);
+-
+ void vxge_stop_tx_queue(struct vxge_fifo *fifo);
+ 
+-void vxge_start_all_tx_queue(struct vxgedev *vdev);
+-
+-void vxge_wake_tx_queue(struct vxge_fifo *fifo, struct sk_buff *skb);
++void vxge_wake_tx_queue(struct vxge_fifo *fifo);
+ 
+ enum vxge_hw_status vxge_add_mac_addr(struct vxgedev *vdev,
+ 	struct macInfo *mac);
