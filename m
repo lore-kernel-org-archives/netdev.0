@@ -1,77 +1,50 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Bugme-new] [Bug 16257] New: sysfs changes break hwsim and bnep drivers
-Date: Thu, 08 Jul 2010 09:55:55 -0700
-Message-ID: <m1wrt56hgk.fsf@fess.ebiederm.org>
-References: <bug-16257-10286@https.bugzilla.kernel.org/>
-	<20100621150826.762ac9f2.akpm@linux-foundation.org>
-	<m1mxuodo0n.fsf@fess.ebiederm.org> <20100621222938.GA20583@suse.de>
-	<m1eig0dmhk.fsf@fess.ebiederm.org> <20100621231058.GA1066@suse.de>
-	<m14ogwc4ou.fsf@fess.ebiederm.org> <20100622035631.GA3755@suse.de>
+From: =?ISO-8859-1?Q?Mart=EDn_Ferrari?= <martin.ferrari@gmail.com>
+Subject: Bug handling devices with weird names
+Date: Thu, 8 Jul 2010 19:08:07 +0200
+Message-ID: <AANLkTinBvzfdiAldJkXfH_vOkCv_cK7hBhjmH1l2vHTd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Greg KH <gregkh@suse.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:54756 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754756Ab0GHQ4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 12:56:04 -0400
-In-Reply-To: <20100622035631.GA3755@suse.de> (Greg KH's message of "Mon\, 21 Jun 2010 20\:56\:31 -0700")
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:34546 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753851Ab0GHRIJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 13:08:09 -0400
+Received: by fxm14 with SMTP id 14so553309fxm.19
+        for <netdev@vger.kernel.org>; Thu, 08 Jul 2010 10:08:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg KH <gregkh@suse.de> writes:
+According to dev_valid_name (net/core/dev.c), a valid device name is
+one that doesn't include spaces, slashes, and is not "." or "..". But
+if I create a device called "foo:", some operations fail:
 
-> Does this only show up if you enable network namespaces?  Or is it a
-> problem with the "normal" kernel configuration of no network namespaces?
+# ip link add name foo: type dummy
+# ip link list foo:
+155: foo:: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN ioctl(SIOCG=
+IFXQLEN)
+failed: No such device
 
-It is a problem with the normal kernel configuration.  In that case
-we have a single network namespace.  
+    link/ether 92:7f:4d:0d:8f:57 brd ff:ff:ff:ff:ff:ff
 
-> The only thing that changed here was your network namespace work, what
-> caused this problem to show up?  Was it bisectable down to a single
-> patch?
+Strace reveals that the problem occurs when executing an ioctl:
 
-The problem is that when we remove symlinks we look at the target of
-the symlink to see which tag to remove it in it's parent directory.
-Because the target of the symlink was not in a class directory because
-of that crazy class on class stacking exception in get_device_parent
-we fail to find the symlink when we attempt to remove it.
+ioctl(4, SIOCGIFTXQLEN, {ifr_name=3D"foo:", ???}) =3D -1 ENODEV (No suc=
+h device)
 
-My one line patch to get_device_parent really does fix this.  I have
-just sent you a patch to prevent the creation of these crazy symlinks
-in sysfs, which at least clearly isolates this to a handful of drivers.
+ifconfig gets completely lost, of course:
 
-> Classes on top of classes should never have originally worked, I guess
-> we just let them slide by accident, and we can go and fix them up as
-> they are found.  But for now, for .35, it would be good to find the root
-> cause of the problem here.  It might be as simple as putting a
-> CONFIG_BROKEN on network namespaces until we get this working, right?
+$ /sbin/ifconfig foo:
+foo:: error fetching interface information: Device not found
 
-Nope, it isn't as simple as disabling network namespaces.
+ioctl(5, SIOCGIFFLAGS, {ifr_name=3D"foo:", ???}) =3D -1 ENODEV (No such=
+ device)
 
-For the mac80211_hwsim we can just remove the device parent, and all will
-be well for the moment.
 
-For the bnep code we could also not set the parent but I don't know if
-that would have undesirable complications for power management or not.
-I don't have a bluetooth attached network device so I don't even know how
-to test that code.
+So, is this fixable or iproute should stop using the ioctl interface?
+(dunno if netlink provides everything already)
 
-My preferred fix is the one liner I set you to get_device_parent.  It
-is no worse than the magic device_is_not_partition checks then we
-already have in sysfs.  Especially when it is a bug that
-get_device_parent does that early return in the first place.  To fix
-this we will have to introduce the missing subdirectory one way or
-another.
-
-With SYSFS_DEPRECATED enabled I don't believe this problem can actually
-happen, as all network devices are placed immediately under
-/sys/class/net/ in sysfs.
-
-Eric
+--=20
+Mart=EDn Ferrari
