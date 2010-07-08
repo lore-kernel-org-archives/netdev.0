@@ -1,147 +1,157 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: Re: [PATCH 3/4] ll_temac: free everything on error path
-Date: Thu, 8 Jul 2010 17:46:54 +0400
-Message-ID: <20100708134651.GA27196@shinshilla>
-References: <1278591012-3213-1-git-send-email-segooon@gmail.com>
- <AANLkTilm1b61ikLi28We3aLrF3Ld4c05oFZlh3K1pORe@mail.gmail.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
+ (802.1p packet)
+Date: Thu, 8 Jul 2010 06:51:07 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE6470199@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
+ <1276466190.14011.223.camel@localhost>
+ <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com>
+ <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>
+ <4C1662C3.3070708@trash.net> <1276542772.2444.13.camel@edumazet-laptop>
+ <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kernel Janitors <kernel-janitors@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Linn <john.linn@xilinx.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Brian Hill <brian.hill@xilinx.com>, netdev@vger.kernel.org
-To: dkirjanov@kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
+To: "Pedro Garcia" <pedro.netdev@dondevamos.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:58230 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753453Ab0GHNrD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 09:47:03 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTilm1b61ikLi28We3aLrF3Ld4c05oFZlh3K1pORe@mail.gmail.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:3178 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756052Ab0GHNvT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jul 2010 09:51:19 -0400
+In-Reply-To: <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 08, 2010 at 17:16 +0400, Denis Kirjanov wrote:
-> On Thu, Jul 8, 2010 at 4:10 PM, Kulikov Vasiliy <segooon@gmail.com> w=
-rote:
-> > temac_dma_bd_init() must free all allocated resources: memory, dma,=
- skbs.
-> >
-> > Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
-> > ---
-> > =A0drivers/net/ll_temac_main.c | =A0 30 +++++++++++++++++++++++++--=
----
-> > =A01 files changed, 25 insertions(+), 5 deletions(-)
-> >
-> > diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_mai=
-n.c
-> > index a2da3d7..38d658a 100644
-> > --- a/drivers/net/ll_temac_main.c
-> > +++ b/drivers/net/ll_temac_main.c
-> > @@ -200,6 +200,7 @@ static int temac_dma_bd_init(struct net_device =
-*ndev)
-> > =A0 =A0 =A0 =A0struct temac_local *lp =3D netdev_priv(ndev);
-> > =A0 =A0 =A0 =A0struct sk_buff *skb;
-> > =A0 =A0 =A0 =A0int i;
-> > + =A0 =A0 =A0 int tx_bd_v_size, rx_bd_v_size;
-> >
-> > =A0 =A0 =A0 =A0lp->rx_skb =3D kzalloc(sizeof(*lp->rx_skb) * RX_BD_N=
-UM, GFP_KERNEL);
-> > =A0 =A0 =A0 =A0if (!lp->rx_skb) {
-> > @@ -209,21 +210,23 @@ static int temac_dma_bd_init(struct net_devic=
-e *ndev)
-> > =A0 =A0 =A0 =A0}
-> > =A0 =A0 =A0 =A0/* allocate the tx and rx ring buffer descriptors. *=
-/
-> > =A0 =A0 =A0 =A0/* returns a virtual addres and a physical address. =
-*/
-> > + =A0 =A0 =A0 tx_bd_v_size =3D sizeof(*lp->tx_bd_v) * TX_BD_NUM;
-> > =A0 =A0 =A0 =A0lp->tx_bd_v =3D dma_alloc_coherent(ndev->dev.parent,
-           ^^^^^^^^^^^
-            1st
-> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0sizeof(*lp->tx_bd_v) * TX_BD_NUM,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 tx_bd_v_size,
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 &lp->tx_bd_p, GFP_KERNEL);
-> > =A0 =A0 =A0 =A0if (!lp->tx_bd_v) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev,
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"una=
-ble to allocate DMA TX buffer descriptors");
-> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_rx_skb;
-> > =A0 =A0 =A0 =A0}
-> > + =A0 =A0 =A0 rx_bd_v_size =3D sizeof(*lp->rx_bd_v) * RX_BD_NUM;
-> > =A0 =A0 =A0 =A0lp->rx_bd_v =3D dma_alloc_coherent(ndev->dev.parent,
-           ^^^^^^^^^^^
-            2nd
-> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0sizeof(*lp->rx_bd_v) * RX_BD_NUM,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0rx_bd_v_size,
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 &lp->rx_bd_p, GFP_KERNEL);
-> > =A0 =A0 =A0 =A0if (!lp->rx_bd_v) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev,
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"una=
-ble to allocate DMA RX buffer descriptors");
-> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_tx_bd;
-> > =A0 =A0 =A0 =A0}
-> >
-> > =A0 =A0 =A0 =A0memset(lp->tx_bd_v, 0, sizeof(*lp->tx_bd_v) * TX_BD_=
-NUM);
-> > @@ -242,7 +245,7 @@ static int temac_dma_bd_init(struct net_device =
-*ndev)
-> >
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (skb =3D=3D 0) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev, =
-"alloc_skb error %d\n", i);
-> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_dma_single;
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0lp->rx_skb[i] =3D skb;
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* returns physical address of skb->=
-data */
-> > @@ -274,6 +277,23 @@ static int temac_dma_bd_init(struct net_device=
- *ndev)
-> >
-> > =A0 =A0 =A0 =A0return 0;
-> >
-> > +err_dma_single:
-> > + =A0 =A0 =A0 for (i =3D 0; i < RX_BD_NUM; i++) {
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (lp->rx_skb[i] =3D=3D NULL)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> > +
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree_skb(lp->rx_skb[i]);
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(ndev->dev.parent, lp=
-->rx_bd_v[i].phys,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 XTE_M=
-AX_JUMBO_FRAME_SIZE, DMA_FROM_DEVICE);
-> > + =A0 =A0 =A0 }
-> > +
-> > + =A0 =A0 =A0 dma_free_coherent(ndev->dev.parent, rx_bd_v_size,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->r=
-x_bd_v, lp->rx_bd_p);
-                                    ^^^^^^^^^^^
-                                     2nd
-> > +err_tx_bd:
-> > + =A0 =A0 =A0 dma_free_coherent(ndev->dev.parent, tx_bd_v_size,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->t=
-x_bd_v, lp->tx_bd_p);
-                                    ^^^^^^^^^^^
-                                     1st
-> > +err_rx_skb:
-> > + =A0 =A0 =A0 kfree(lp->rx_skb);
-> > =A0out:
-> > =A0 =A0 =A0 =A0return -ENOMEM;
-> > =A0}
-> > --
-> > 1.7.0.4
-> This is not enough. DMA resources also must be released on exit.
-Could you point to it? I see only two variables with allocated DMA (see=
- above).
+SSd2ZSBjaGVja2VkIHlvdXIgcGF0Y2ggb24gYm54MnggSFcgYWNjZWxlcmF0aW9uIGNhcGFibGUg
+ZGV2aWNlIGluIGJvdGggSFcgYWNjZWxlcmF0ZWQgYW5kIG5vbmUtYWNjZWxlcmF0ZWQgbW9kZXMg
+YW5kIGl0IGxvb2tzIGdvb2QuDQoNClRoYW5rcywNCnZsYWQNCg0KPiAtLS0tLU9yaWdpbmFsIE1l
+c3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86
+bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj4gQmVoYWxmIE9mIFBlZHJvIEdhcmNp
+YQ0KPiBTZW50OiBXZWRuZXNkYXksIEp1bmUgMTYsIDIwMTAgMTE6NDkgQU0NCj4gVG86IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IFBhdHJpY2sgTWNIYXJkeTsgQmVuIEh1dGNoaW5nczsg
+RXJpYyBEdW1hemV0DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIHZsYW5fZGV2OiBWTEFOIDAgc2hv
+dWxkIGJlIHRyZWF0ZWQgYXMgIm5vIHZsYW4gdGFnIg0KPiAoODAyLjFwIHBhY2tldCkNCj4gDQo+
+IE9uIE1vbiwgMTQgSnVuIDIwMTAgMjE6MTI6NTIgKzAyMDAsIEVyaWMgRHVtYXpldCA8ZXJpYy5k
+dW1hemV0QGdtYWlsLmNvbT4NCj4gd3JvdGU6DQo+ID4gTGUgbHVuZGkgMTQganVpbiAyMDEwIMOg
+IDE5OjExICswMjAwLCBQYXRyaWNrIE1jSGFyZHkgYSDDqWNyaXQgOg0KPiA+PiBCZW4gSHV0Y2hp
+bmdzIHdyb3RlOg0KPiA+PiA+IE9uIE1vbiwgMjAxMC0wNi0xNCBhdCAxODo0OSArMDIwMCwgUGVk
+cm8gR2FyY2lhIHdyb3RlOg0KPiA+PiA+DQo+ID4+ID4+IE9uIFN1biwgMTMgSnVuIDIwMTAgMjI6
+NTY6MzAgKzAxMDAsIEJlbiBIdXRjaGluZ3MNCj4gPj4gPj4gPGJodXRjaGluZ3NAc29sYXJmbGFy
+ZS5jb20+IHdyb3RlOg0KPiA+PiA+Pg0KPiA+PiA+Pj4gSSBoYXZlIG5vIHBhcnRpY3VsYXIgb3Bp
+bmlvbiBvbiB0aGlzIGNoYW5nZSwgYnV0IHlvdSBuZWVkIHRvIHJlYWQgYW5kDQo+ID4+ID4+PiBm
+b2xsb3cgRG9jdW1lbnRhdGlvbi9TdWJtaXR0aW5nUGF0Y2hlcy4NCj4gPj4gPj4+DQo+ID4+ID4+
+PiBCZW4uDQo+ID4+ID4+Pg0KPiA+PiA+PiBTb3JyeSwgZmlyc3Qga2VybmVsIHBhdGNoLCBhbmQg
+SSBkaWQgbm90IGtub3cgYWJvdXQgaXQuIEkgcmVzdWJtaXQNCj4gPj4gPj4gd2l0aA0KPiA+PiA+
+PiB0aGUgY29ycmVjdCBzdHlsZSAvIGZvcm1hdDoNCj4gPj4gPj4NCj4gPj4gPiBbLi4uXQ0KPiA+
+PiA+DQo+ID4+ID4gU29ycnksIG5vIHlvdSBoYXZlbid0Lg0KPiA+PiA+DQo+ID4+ID4gLSBOZXR3
+b3JraW5nIGNoYW5nZXMgZ28gdGhyb3VnaCBEYXZpZCBNaWxsZXIncyBuZXQtbmV4dC0yLjYgdHJl
+ZSBzbyB5b3UNCj4gPj4gPiBuZWVkIHRvIHVzZSB0aGF0IGFzIHRoZSBiYXNlbGluZSwgbm90IDIu
+Ni4yNg0KPiA+PiA+IC0gUGF0Y2hlcyBzaG91bGQgYmUgYXBwbGljYWJsZSB3aXRoIC1wMSwgbm90
+IC1wMCAoc28gaWYgeW91IHVzZSBkaWZmLA0KPiA+PiA+IHlvdSBzaG91bGQgcnVuIGl0IGZyb20g
+b25lIGRpcmVjdG9yeSBsZXZlbCB1cCkNCj4gPj4gPiAtIFRoZSBwYXRjaCB3YXMgd29yZC13cmFw
+cGVkDQo+ID4+DQo+ID4+IEFkZGl0aW9uYWxseToNCj4gPj4NCj4gPj4gLSBwbGVhc2UgdXNlIHRo
+ZSBwcm9wZXIgY29tbWVudCBzdHlsZSwgbWVhbmluZyBlYWNoIGxpbmUgYmVnaW5zDQo+ID4+ICAg
+d2l0aCBhICcqJw0KPiA+Pg0KPiA+PiAtIHRoZSBwcl9kZWJ1ZyBzdGF0ZW1lbnRzIG1heSBiZSB1
+c2VmdWwgZm9yIGRlYnVnZ2luZywgYnV0IGFyZQ0KPiA+PiAgIGEgYml0IGV4Y2Vzc2l2ZSBmb3Ig
+dGhlIGZpbmFsIHZlcnNpb24NCj4gPj4NCj4gPj4gLSArIC8qIDIwMTAtMDYtMTM6IFBlZHJvIEdh
+cmNpYQ0KPiA+Pg0KPiA+PiAgICBXZSBoYXZlIGNoYW5nZWxvZ3MgZm9yIHRoaXMsIHNpbXBseSBl
+eHBsYWluaW5nIHdoYXQgdGhlIGNvZGUNCj4gPj4gICAgZG9lcyBpcyBlbm91Z2guDQo+ID4+DQo+
+ID4+IC0gUGxlYXNlIENDIHRoZSBtYWludGFpbmVyICh3aGljaCBpcyBtZSkNCj4gPj4gLS0NCj4g
+Pg0KPiA+IFBlZHJvLCB3ZSBoYXZlIHR3byBraW5kIG9mIHZsYW4gc2V0dXBzIDoNCj4gPg0KPiA+
+IGFjY2VsZXJhdGVkIGFuZCBub24gYWNjZWxlcmF0ZWQgb25lcy4NCj4gPg0KPiA+IFlvdXIgcGF0
+Y2ggYWRkcmVzcyBub24gYWNjZWxhdGVkIG9uZXMgb25seSwgc2luY2UgeW91IG9ubHkgdG91Y2gN
+Cj4gPiB2bGFuX3NrYl9yZWN2KCkNCj4gPg0KPiA+IEFjY2VsZXJhdGVkIHZsYW4gY2FuIGZvbGxv
+dyB0aGVzZSBwYXRocyA6DQo+ID4NCj4gPiAxKSBOQVBJIGRldmljZXMNCj4gPg0KPiA+IHZsYW5f
+Z3JvX3JlY2VpdmUoKSAtPiB2bGFuX2dyb19jb21tb24oKQ0KPiA+DQo+ID4gMikgbm9uIE5BUEkg
+ZGV2aWNlcw0KPiA+DQo+ID4gX192bGFuX2h3YWNjZWxfcngoKQ0KPiA+DQo+ID4gU28geW91IG1p
+Z2h0IGFsc28gcGF0Y2ggX192bGFuX2h3YWNjZWxfcngoKSBhbmQgdmxhbl9ncm9fY29tbW9uKCkN
+Cj4gPg0KPiA+IFBsZWFzZSBtZXJnZSBmb2xsb3dpbmcgYml0cyB0byB5b3VyIHBhdGNoIHN1Ym1p
+c3Npb24gOg0KPiA+DQo+ID4gaHR0cDovL2tlcm5lbHRyYXAub3JnL21haWxhcmNoaXZlL2xpbnV4
+LW5ldGRldi8yMDEwLzUvMjMvNjI3Nzg2OA0KPiA+DQo+ID4NCj4gPiBHb29kIGx1Y2sgZm9yIHlv
+dXIgZmlyc3QgcGF0Y2ggIQ0KPiANCj4gSGVyZSBpdCBpcyBhZ2Fpbi4gSSBhZGRlZCB0aGUgbW9k
+aWZpY2F0aW9ucyBpbg0KPiBodHRwOi8va2VybmVsdHJhcC5vcmcvbWFpbGFyY2hpdmUvbGludXgt
+bmV0ZGV2LzIwMTAvNS8yMy82Mjc3ODY4IGZvciBIVw0KPiBhY2NlbGVyYXRlZCBpbmNvbWluZyBw
+YWNrZXRzIChpdCBkaWQgbm90IGFwcGx5IGNsZWFubHkgb24gdGhlIGxhc3QgdmVyc2lvbiBvZg0K
+PiB0aGUga2VybmVsLCBzbyBJIGFwcGxpZWQgbWFudWFsbHkpLiBOb3csIGlmIHRoZSBWTEFOIDAg
+aXMgbm90IGV4cGxpY2l0bHkNCj4gY3JlYXRlZCBieSB0aGUgdXNlciwgVkxBTiAwIHBhY2tldHMg
+d2lsbCBiZSB0cmVhdGVkIGFzIG5vIFZMQU4gKDgwMi4xcA0KPiBwYWNrZXRzKSwgaW5zdGVhZCBv
+ZiBkcm9wcGluZyB0aGVtLg0KPiANCj4gVGhlIHBhdGNoIGlzIG5vdyBmb3IgdHdvIGZpbGVzOiB2
+bGFuX2NvcmUgKGFjY2VsKSBhbmQgdmxhbl9kZXYgKG5vbiBhY2NlbCkNCj4gDQo+IEkgY2FuIG5v
+dCB0ZXN0IG9uIEhXIGFjY2VsZXJhdGVkIGRldmljZXMsIHNvIGlmIHNvbWVvbmUgY2FuIGNoZWNr
+IGl0IEkgd2lsbA0KPiBhcHByZWNpYXRlIChldmVuIHRob3VnaCBpbiB0aGUgdGhyZWFkIGFib3Zl
+IGl0IGxvb2tlZCBsaWtlIHllcykuIEZvciBub24NCj4gYWNjZWwgSSB0ZXNzdGVkIGluIDIuNi4y
+Ni4gTm93IHRoZSBwYXRjaCBpcyBmb3INCj4gbmV0LW5leHQtMi42LCBhbmQgaXQgY29tcGlsZXMg
+T0ssIGJ1dCBJIGEgaGF2ZSB0byBzZXR1cCBhIHRlc3QgZW52aXJvbm1lbnQgdG8NCj4gY2hlY2sg
+aXQgaXMgc3RpbGwgT0sgKHNob3VsZCwgYnV0IGJldHRlciB0byB0ZXN0KS4NCj4gDQo+IFNpZ25l
+ZC1vZmYtYnk6IFBlZHJvIEdhcmNpYSA8cGVkcm8ubmV0ZGV2QGRvbmRldmFtb3MuY29tPg0KPiAt
+LQ0KPiBkaWZmIC0tZ2l0IGEvbmV0LzgwMjFxL3ZsYW5fY29yZS5jIGIvbmV0LzgwMjFxL3ZsYW5f
+Y29yZS5jDQo+IGluZGV4IDUwZjU4ZjUuLmRhYWNhMzEgMTAwNjQ0DQo+IC0tLSBhL25ldC84MDIx
+cS92bGFuX2NvcmUuYw0KPiArKysgYi9uZXQvODAyMXEvdmxhbl9jb3JlLmMNCj4gQEAgLTgsNiAr
+OCw5IEBADQo+ICBpbnQgX192bGFuX2h3YWNjZWxfcngoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3Ry
+dWN0IHZsYW5fZ3JvdXAgKmdycCwNCj4gICAgICAgICAgICAgICAgICAgICAgIHUxNiB2bGFuX3Rj
+aSwgaW50IHBvbGxpbmcpDQo+ICB7DQo+ICsgICAgICAgc3RydWN0IG5ldF9kZXZpY2UgKnZsYW5f
+ZGV2Ow0KPiArICAgICAgIHUxNiB2bGFuX2lkOw0KPiArDQo+ICAgICAgICAgaWYgKG5ldHBvbGxf
+cngoc2tiKSkNCj4gICAgICAgICAgICAgICAgIHJldHVybiBORVRfUlhfRFJPUDsNCj4gDQo+IEBA
+IC0xNiwxMCArMTksMTQgQEAgaW50IF9fdmxhbl9od2FjY2VsX3J4KHN0cnVjdCBza19idWZmICpz
+a2IsIHN0cnVjdA0KPiB2bGFuX2dyb3VwICpncnAsDQo+IA0KPiAgICAgICAgIHNrYi0+c2tiX2lp
+ZiA9IHNrYi0+ZGV2LT5pZmluZGV4Ow0KPiAgICAgICAgIF9fdmxhbl9od2FjY2VsX3B1dF90YWco
+c2tiLCB2bGFuX3RjaSk7DQo+IC0gICAgICAgc2tiLT5kZXYgPSB2bGFuX2dyb3VwX2dldF9kZXZp
+Y2UoZ3JwLCB2bGFuX3RjaSAmIFZMQU5fVklEX01BU0spOw0KPiArICAgICAgIHZsYW5faWQgPSB2
+bGFuX3RjaSAmIFZMQU5fVklEX01BU0s7DQo+ICsgICAgICAgdmxhbl9kZXYgPSB2bGFuX2dyb3Vw
+X2dldF9kZXZpY2UoZ3JwLCB2bGFuX2lkKTsNCj4gDQo+IC0gICAgICAgaWYgKCFza2ItPmRldikN
+Cj4gLSAgICAgICAgICAgICAgIGdvdG8gZHJvcDsNCj4gKyAgICAgICBpZiAodmxhbl9kZXYpDQo+
+ICsgICAgICAgICAgICAgICBza2ItPmRldiA9IHZsYW5fZGV2Ow0KPiArICAgICAgIGVsc2UNCj4g
+KyAgICAgICAgICAgICAgIGlmICh2bGFuX2lkKQ0KPiArICAgICAgICAgICAgICAgICAgICAgICBn
+b3RvIGRyb3A7DQo+IA0KPiAgICAgICAgIHJldHVybiAocG9sbGluZyA/IG5ldGlmX3JlY2VpdmVf
+c2tiKHNrYikgOiBuZXRpZl9yeChza2IpKTsNCj4gDQo+IEBAIC04MiwxNiArODksMjIgQEAgdmxh
+bl9ncm9fY29tbW9uKHN0cnVjdCBuYXBpX3N0cnVjdCAqbmFwaSwgc3RydWN0DQo+IHZsYW5fZ3Jv
+dXAgKmdycCwNCj4gICAgICAgICAgICAgICAgIHVuc2lnbmVkIGludCB2bGFuX3RjaSwgc3RydWN0
+IHNrX2J1ZmYgKnNrYikNCj4gIHsNCj4gICAgICAgICBzdHJ1Y3Qgc2tfYnVmZiAqcDsNCj4gKyAg
+ICAgICBzdHJ1Y3QgbmV0X2RldmljZSAqdmxhbl9kZXY7DQo+ICsgICAgICAgdTE2IHZsYW5faWQ7
+DQo+IA0KPiAgICAgICAgIGlmIChza2JfYm9uZF9zaG91bGRfZHJvcChza2IsIEFDQ0VTU19PTkNF
+KHNrYi0+ZGV2LT5tYXN0ZXIpKSkNCj4gICAgICAgICAgICAgICAgIHNrYi0+ZGVsaXZlcl9ub193
+Y2FyZCA9IDE7DQo+IA0KPiAgICAgICAgIHNrYi0+c2tiX2lpZiA9IHNrYi0+ZGV2LT5pZmluZGV4
+Ow0KPiAgICAgICAgIF9fdmxhbl9od2FjY2VsX3B1dF90YWcoc2tiLCB2bGFuX3RjaSk7DQo+IC0g
+ICAgICAgc2tiLT5kZXYgPSB2bGFuX2dyb3VwX2dldF9kZXZpY2UoZ3JwLCB2bGFuX3RjaSAmIFZM
+QU5fVklEX01BU0spOw0KPiAtDQo+IC0gICAgICAgaWYgKCFza2ItPmRldikNCj4gLSAgICAgICAg
+ICAgICAgIGdvdG8gZHJvcDsNCj4gKyAgICAgICB2bGFuX2lkID0gdmxhbl90Y2kgJiBWTEFOX1ZJ
+RF9NQVNLOw0KPiArICAgICAgIHZsYW5fZGV2ID0gdmxhbl9ncm91cF9nZXRfZGV2aWNlKGdycCwg
+dmxhbl9pZCk7DQo+ICsNCj4gKyAgICAgICBpZiAodmxhbl9kZXYpDQo+ICsgICAgICAgICAgICAg
+ICBza2ItPmRldiA9IHZsYW5fZGV2Ow0KPiArICAgICAgIGVsc2UNCj4gKyAgICAgICAgICAgICAg
+IGlmICh2bGFuX2lkKQ0KPiArICAgICAgICAgICAgICAgICAgICAgICBnb3RvIGRyb3A7DQo+IA0K
+PiAgICAgICAgIGZvciAocCA9IG5hcGktPmdyb19saXN0OyBwOyBwID0gcC0+bmV4dCkgew0KPiAg
+ICAgICAgICAgICAgICAgTkFQSV9HUk9fQ0IocCktPnNhbWVfZmxvdyA9DQo+IGRpZmYgLS1naXQg
+YS9uZXQvODAyMXEvdmxhbl9kZXYuYyBiL25ldC84MDIxcS92bGFuX2Rldi5jDQo+IGluZGV4IDUy
+OTg0MjYuLjY1NTEyYzMgMTAwNjQ0DQo+IC0tLSBhL25ldC84MDIxcS92bGFuX2Rldi5jDQo+ICsr
+KyBiL25ldC84MDIxcS92bGFuX2Rldi5jDQo+IEBAIC0xNDIsNiArMTQyLDcgQEAgaW50IHZsYW5f
+c2tiX3JlY3Yoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UNCj4gKmRldiwN
+Cj4gIHsNCj4gICAgICAgICBzdHJ1Y3Qgdmxhbl9oZHIgKnZoZHI7DQo+ICAgICAgICAgc3RydWN0
+IHZsYW5fcnhfc3RhdHMgKnJ4X3N0YXRzOw0KPiArICAgICAgIHN0cnVjdCBuZXRfZGV2aWNlICp2
+bGFuX2RldjsNCj4gICAgICAgICB1MTYgdmxhbl9pZDsNCj4gICAgICAgICB1MTYgdmxhbl90Y2k7
+DQo+IA0KPiBAQCAtMTU3LDggKzE1OCwxOCBAQCBpbnQgdmxhbl9za2JfcmVjdihzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZQ0KPiAqZGV2LA0KPiAgICAgICAgIHZsYW5faWQg
+PSB2bGFuX3RjaSAmIFZMQU5fVklEX01BU0s7DQo+IA0KPiAgICAgICAgIHJjdV9yZWFkX2xvY2so
+KTsNCj4gLSAgICAgICBza2ItPmRldiA9IF9fZmluZF92bGFuX2RldihkZXYsIHZsYW5faWQpOw0K
+PiAtICAgICAgIGlmICghc2tiLT5kZXYpIHsNCj4gKyAgICAgICB2bGFuX2RldiA9IF9fZmluZF92
+bGFuX2RldihkZXYsIHZsYW5faWQpOw0KPiArDQo+ICsgICAgICAgLyogSWYgdGhlIFZMQU4gZGV2
+aWNlIGlzIGRlZmluZWQsIHdlIHVzZSBpdC4NCj4gKyAgICAgICAgKiBJZiBub3QsIGFuZCB0aGUg
+VklEIGlzIDAsIGl0IGlzIGEgODAyLjFwIHBhY2tldCAobm90DQo+ICsgICAgICAgICogcmVhbGx5
+IGEgVkxBTiksIHNvIHdlIHdpbGwganVzdCBuZXRpZl9yeCBpdCBsYXRlciB0byB0aGUNCj4gKyAg
+ICAgICAgKiBvcmlnaW5hbCBpbnRlcmZhY2UsIGJ1dCB3aXRoIHRoZSBza2ItPnByb3RvIHNldCB0
+byB0aGUNCj4gKyAgICAgICAgKiB3cmFwcGVkIHByb3RvOiB3ZSBkbyBub3RoaW5nIGhlcmUuDQo+
+ICsgICAgICAgICovDQo+ICsNCj4gKyAgICAgICBpZiAodmxhbl9kZXYpIHsNCj4gKyAgICAgICAg
+ICAgICAgIHNrYi0+ZGV2ID0gdmxhbl9kZXY7DQo+ICsgICAgICAgfSBlbHNlIGlmICh2bGFuX2lk
+KSB7DQo+ICAgICAgICAgICAgICAgICBwcl9kZWJ1ZygiJXM6IEVSUk9SOiBObyBuZXRfZGV2aWNl
+IGZvciBWSUQ6ICV1IG9uIGRldjogJXNcbiIsDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICBf
+X2Z1bmNfXywgdmxhbl9pZCwgZGV2LT5uYW1lKTsNCj4gICAgICAgICAgICAgICAgIGdvdG8gZXJy
+X3VubG9jazsNCj4gDQo+IA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDog
+c2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1l
+c3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9tbyBpbmZv
+IGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0K
+
