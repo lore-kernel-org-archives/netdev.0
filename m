@@ -1,73 +1,50 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 2/2] net: Document that dev_get_stats()
- returns the given pointer
-Date: Fri, 09 Jul 2010 00:30:18 +0100
-Message-ID: <1278631818.16013.308.camel@achroite.uk.solarflarecom.com>
-References: <1278631762.16013.307.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-next-2.6] sfc: Remove unused field left from mis-merge
+Date: Fri, 09 Jul 2010 00:36:32 +0100
+Message-ID: <1278632192.16013.309.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:25657 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:26013 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753383Ab0GHXaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 19:30:21 -0400
-In-Reply-To: <1278631762.16013.307.camel@achroite.uk.solarflarecom.com>
+	with ESMTP id S1751778Ab0GHXgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 19:36:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Document that dev_get_stats() returns the same stats pointer it was
-given.  Remove const qualification from the returned pointer since the
-caller may do what it likes with that structure.
+Commit eedc765ca4b19a41cf0b921a492ac08d640060d1 merged changes from
+net-2.6 that added and then removed efx_nic::port_num, which was also
+added in net-next-2.6.  The end result should be that it is removed,
+since it is now unused.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/netdevice.h |    4 ++--
- net/core/dev.c            |   12 ++++++------
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/sfc/net_driver.h |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 17e95e3..c4fedf0 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2130,8 +2130,8 @@ extern void		netdev_features_change(struct net_device *dev);
- /* Load a device via the kmod */
- extern void		dev_load(struct net *net, const char *name);
- extern void		dev_mcast_init(void);
--extern const struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
--						     struct rtnl_link_stats64 *storage);
-+extern struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
-+					       struct rtnl_link_stats64 *storage);
- extern void		dev_txq_stats_fold(const struct net_device *dev,
- 					   struct rtnl_link_stats64 *stats);
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5ec2eec..2605a68 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5302,13 +5302,13 @@ EXPORT_SYMBOL(dev_txq_stats_fold);
-  *	@dev: device to get statistics from
-  *	@storage: place to store stats
-  *
-- *	Get network statistics from device. The device driver may provide
-- *	its own method by setting dev->netdev_ops->get_stats64 or
-- *	dev->netdev_ops->get_stats; otherwise the internal statistics
-- *	structure is used.
-+ *	Get network statistics from device. Return @storage.
-+ *	The device driver may provide its own method by setting
-+ *	dev->netdev_ops->get_stats64 or dev->netdev_ops->get_stats;
-+ *	otherwise the internal statistics structure is used.
-  */
--const struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
--					      struct rtnl_link_stats64 *storage)
-+struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
-+					struct rtnl_link_stats64 *storage)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 	size_t i, n = sizeof(*storage) / sizeof(u64);
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index bab836c..64e7caa 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -622,7 +622,6 @@ union efx_multicast_hash {
+  * struct efx_nic - an Efx NIC
+  * @name: Device name (net device name or bus id before net device registered)
+  * @pci_dev: The PCI device
+- * @port_num: Index of this host port within the controller
+  * @type: Controller type attributes
+  * @legacy_irq: IRQ number
+  * @workqueue: Workqueue for port reconfigures and the HW monitor.
+@@ -708,7 +707,6 @@ union efx_multicast_hash {
+ struct efx_nic {
+ 	char name[IFNAMSIZ];
+ 	struct pci_dev *pci_dev;
+-	unsigned port_num;
+ 	const struct efx_nic_type *type;
+ 	int legacy_irq;
+ 	struct workqueue_struct *workqueue;
 -- 
 1.6.2.5
 
