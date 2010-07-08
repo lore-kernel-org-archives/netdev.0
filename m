@@ -1,55 +1,49 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6] sfc: Remove unused field left from mis-merge
-Date: Fri, 09 Jul 2010 00:36:32 +0100
-Message-ID: <1278632192.16013.309.camel@achroite.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Pull request: bluetooth-2.6 2010-07-08
+Date: Thu,  8 Jul 2010 20:40:50 -0300
+Message-ID: <cover.1278632276.git.marcel@holtmann.org>
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:26013 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751778Ab0GHXgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 19:36:35 -0400
+Received: from senator.holtmann.net ([87.106.208.187]:34264 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757184Ab0GHXlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 19:41:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit eedc765ca4b19a41cf0b921a492ac08d640060d1 merged changes from
-net-2.6 that added and then removed efx_nic::port_num, which was also
-added in net-next-2.6.  The end result should be that it is removed,
-since it is now unused.
+Hi Dave,
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/net_driver.h |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+so I took the two security fixes and the interoperability fix for basic
+mode L2CAP connections and combined them here.
 
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index bab836c..64e7caa 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -622,7 +622,6 @@ union efx_multicast_hash {
-  * struct efx_nic - an Efx NIC
-  * @name: Device name (net device name or bus id before net device registered)
-  * @pci_dev: The PCI device
-- * @port_num: Index of this host port within the controller
-  * @type: Controller type attributes
-  * @legacy_irq: IRQ number
-  * @workqueue: Workqueue for port reconfigures and the HW monitor.
-@@ -708,7 +707,6 @@ union efx_multicast_hash {
- struct efx_nic {
- 	char name[IFNAMSIZ];
- 	struct pci_dev *pci_dev;
--	unsigned port_num;
- 	const struct efx_nic_type *type;
- 	int legacy_irq;
- 	struct workqueue_struct *workqueue;
--- 
-1.6.2.5
+All the other patches where bug fixes with L2CAP ERTM support and I will
+send them separately.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards
+
+Marcel
+
+
+Please pull from
+
+    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
+
+This will update the following files:
+
+ net/bluetooth/hci_conn.c  |    5 +++++
+ net/bluetooth/hci_event.c |    2 ++
+ net/bluetooth/l2cap.c     |   14 +++++++++++---
+ 3 files changed, 18 insertions(+), 3 deletions(-)
+
+through these ChangeSets:
+
+Andrei Emeltchenko (1):
+    Bluetooth: Check L2CAP pending status before sending connect request
+
+Johan Hedberg (1):
+    Bluetooth: Reset the security level after an authentication failure
+
+Ville Tervo (1):
+    Bluetooth: Update sec_level/auth_type for already existing connections
 
