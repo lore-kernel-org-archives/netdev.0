@@ -1,100 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] tg3: allow TSO on vlan devices
-Date: Thu, 08 Jul 2010 18:14:55 +0200
-Message-ID: <1278605695.2651.48.camel@edumazet-laptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] sysfs: Don't allow the creation of symlinks we can't remove
+Date: Thu, 08 Jul 2010 09:31:24 -0700
+Message-ID: <m1630q7x5v.fsf_-_@fess.ebiederm.org>
+References: <bug-16257-10286@https.bugzilla.kernel.org/>
+	<20100621150826.762ac9f2.akpm@linux-foundation.org>
+	<m1mxuodo0n.fsf@fess.ebiederm.org> <20100621222938.GA20583@suse.de>
+	<m1eig0dmhk.fsf@fess.ebiederm.org> <20100621231058.GA1066@suse.de>
+	<m14ogwc4ou.fsf@fess.ebiederm.org> <20100622035631.GA3755@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:42289 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754628Ab0GHQO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 12:14:59 -0400
-Received: by mail-wy0-f174.google.com with SMTP id 23so695017wyf.19
-        for <netdev@vger.kernel.org>; Thu, 08 Jul 2010 09:14:58 -0700 (PDT)
+Received: from out02.mta.xmission.com ([166.70.13.232]:34234 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754873Ab0GHQbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 12:31:47 -0400
+In-Reply-To: <20100622035631.GA3755@suse.de> (Greg KH's message of "Mon\, 21 Jun 2010 20\:56\:31 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to commit 72dccb01e8632aa (bnx2: Update vlan_features)
 
-In order to enable TSO on vlan devices, tg3 needs to update
-dev->vlan_features.
+Recently my tagged sysfs support revealed a flaw in the device core
+that a few rare drivers are running into such that we don't always put
+network devices in a class subdirectory named net/.
 
-Tested on HP NC326m (aka BCM5715S (rev a3))
+Since we are not creating the class directory the network devices wind
+up in a non-tagged directory, but the symlinks to the network devices
+from /sys/class/net are in a tagged directory.  All of which works
+until we go to remove or rename the symlink.  When we remove or rename
+a symlink we look in the namespace of the target of the symlink.
+Since the target of the symlink is in a non-tagged sysfs directory we
+don't have a namespace to look in, and we fail to remove the symlink.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Detect this problem up front and simply don't create symlinks we won't
+be able to remove later.  This prevents symlink leakage and fails in
+a much clearer and more understandable way.
+
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/net/tg3.c |   28 +++++++++++++++++++++-------
- 1 file changed, 21 insertions(+), 7 deletions(-)
+ fs/sysfs/symlink.c |   23 ++++++++++++++++++-----
+ 1 files changed, 18 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 289cdc5..68329a9 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -12800,6 +12800,13 @@ done:
+diff --git a/fs/sysfs/symlink.c b/fs/sysfs/symlink.c
+index f71246b..44bca5f 100644
+--- a/fs/sysfs/symlink.c
++++ b/fs/sysfs/symlink.c
+@@ -28,6 +28,7 @@ static int sysfs_do_create_link(struct kobject *kobj, struct kobject *target,
+ 	struct sysfs_dirent *target_sd = NULL;
+ 	struct sysfs_dirent *sd = NULL;
+ 	struct sysfs_addrm_cxt acxt;
++	enum kobj_ns_type ns_type;
+ 	int error;
  
- static struct pci_dev * __devinit tg3_find_peer(struct tg3 *);
+ 	BUG_ON(!name);
+@@ -58,16 +59,28 @@ static int sysfs_do_create_link(struct kobject *kobj, struct kobject *target,
+ 	if (!sd)
+ 		goto out_put;
  
-+static void inline vlan_features_add(struct net_device *dev, unsigned long flags)
-+{
-+#if TG3_VLAN_TAG_USED
-+	dev->vlan_features |= flags;
-+#endif
-+}
-+
- static int __devinit tg3_get_invariants(struct tg3 *tp)
- {
- 	static struct pci_device_id write_reorder_chipsets[] = {
-@@ -13032,11 +13039,13 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	if (tp->pci_chip_rev_id == CHIPREV_ID_5700_B0)
- 		tp->tg3_flags |= TG3_FLAG_BROKEN_CHECKSUMS;
- 	else {
-+		unsigned long features = NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_GRO;
-+
- 		tp->tg3_flags |= TG3_FLAG_RX_CHECKSUMS;
--		tp->dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
- 		if (tp->tg3_flags3 & TG3_FLG3_5755_PLUS)
--			tp->dev->features |= NETIF_F_IPV6_CSUM;
--		tp->dev->features |= NETIF_F_GRO;
-+			features |= NETIF_F_IPV6_CSUM;
-+		tp->dev->features |= features;
-+		vlan_features_add(tp->dev, features);
- 	}
+-	if (sysfs_ns_type(parent_sd))
++	ns_type = sysfs_ns_type(parent_sd);
++	if (ns_type)
+ 		sd->s_ns = target->ktype->namespace(target);
+ 	sd->s_symlink.target_sd = target_sd;
+ 	target_sd = NULL;	/* reference is now owned by the symlink */
  
- 	/* Determine TSO capabilities */
-@@ -14525,20 +14534,25 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	 * is off by default, but can be enabled using ethtool.
- 	 */
- 	if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO) &&
--	    (dev->features & NETIF_F_IP_CSUM))
-+	    (dev->features & NETIF_F_IP_CSUM)) {
- 		dev->features |= NETIF_F_TSO;
--
-+		vlan_features_add(dev, NETIF_F_TSO);
+ 	sysfs_addrm_start(&acxt, parent_sd);
+-	if (warn)
+-		error = sysfs_add_one(&acxt, sd);
+-	else
+-		error = __sysfs_add_one(&acxt, sd);
++	/* Symlinks must be between directories with the same ns_type */
++	if (ns_type == sysfs_ns_type(sd->s_symlink.target_sd->s_parent)) {
++		if (warn)
++			error = sysfs_add_one(&acxt, sd);
++		else
++			error = __sysfs_add_one(&acxt, sd);
++	} else {
++		error = -EINVAL;
++		WARN(1, KERN_WARNING
++			"sysfs: symlink across ns_types %s/%s -> %s/%s\n",
++			parent_sd->s_name,
++			sd->s_name,
++			sd->s_symlink.target_sd->s_parent->s_name,
++			sd->s_symlink.target_sd->s_name);
 +	}
- 	if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO_2) ||
- 	    (tp->tg3_flags2 & TG3_FLG2_HW_TSO_3)) {
--		if (dev->features & NETIF_F_IPV6_CSUM)
-+		if (dev->features & NETIF_F_IPV6_CSUM) {
- 			dev->features |= NETIF_F_TSO6;
-+			vlan_features_add(dev, NETIF_F_TSO6);
-+		}
- 		if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO_3) ||
- 		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761 ||
- 		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784 &&
- 		     GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_5784_AX) ||
- 			GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785 ||
--		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780)
-+		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780) {
- 			dev->features |= NETIF_F_TSO_ECN;
-+			vlan_features_add(dev, NETIF_F_TSO_ECN);
-+		}
- 	}
+ 	sysfs_addrm_finish(&acxt);
  
- 	if (tp->pci_chip_rev_id == CHIPREV_ID_5705_A1 &&
-
+ 	if (error)
+-- 
+1.6.5.2.143.g8cc62
 
