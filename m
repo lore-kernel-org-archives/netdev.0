@@ -1,182 +1,144 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
- (802.1p packet)
-Date: Thu, 8 Jul 2010 05:58:42 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE6470191@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
- <1276466190.14011.223.camel@localhost>
- <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com>
- <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>
- <4C1662C3.3070708@trash.net> <1276542772.2444.13.camel@edumazet-laptop>
- <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE647018F@SJEXCHCCR02.corp.ad.broadcom.com>
+From: Denis Kirjanov <kirjanov@gmail.com>
+Subject: Re: [PATCH 3/4] ll_temac: free everything on error path
+Date: Thu, 8 Jul 2010 17:16:02 +0400
+Message-ID: <AANLkTilm1b61ikLi28We3aLrF3Ld4c05oFZlh3K1pORe@mail.gmail.com>
+References: <1278591012-3213-1-git-send-email-segooon@gmail.com>
+Reply-To: dkirjanov@kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "Patrick McHardy" <kaber@trash.net>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
-To: "Vladislav Zolotarov" <vladz@broadcom.com>,
-	"Pedro Garcia" <pedro.netdev@dondevamos.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kernel Janitors <kernel-janitors@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Linn <john.linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Brian Hill <brian.hill@xilinx.com>, netdev@vger.kernel.org
+To: Kulikov Vasiliy <segooon@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1372 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753645Ab0GHM66 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jul 2010 08:58:58 -0400
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE647018F@SJEXCHCCR02.corp.ad.broadcom.com>
-Content-Language: en-US
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:34536 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755171Ab0GHNQH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 09:16:07 -0400
+In-Reply-To: <1278591012-3213-1-git-send-email-segooon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T3Bwcy4uLg0KU29ycnkuIFdyb25nIHRocmVhZC4gOikNCg0KUGxzLiwgZGlzY2FyZCENCg0KPiAt
-LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJu
-ZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj4gQmVoYWxm
-IE9mIFZsYWRpc2xhdiBab2xvdGFyb3YNCj4gU2VudDogVGh1cnNkYXksIEp1bHkgMDgsIDIwMTAg
-Mzo1NSBQTQ0KPiBUbzogUGVkcm8gR2FyY2lhOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENj
-OiBQYXRyaWNrIE1jSGFyZHk7IEJlbiBIdXRjaGluZ3M7IEVyaWMgRHVtYXpldA0KPiBTdWJqZWN0
-OiBSRTogW1BBVENIXSB2bGFuX2RldjogVkxBTiAwIHNob3VsZCBiZSB0cmVhdGVkIGFzICJubyB2
-bGFuIHRhZyINCj4gKDgwMi4xcCBwYWNrZXQpDQo+IA0KPiBNYXJnYXJldCwNCj4gSW4gb3JkZXIg
-dG8ga2VlcCBleHBsb3JpbmcgdGhpcyB3ZSBuZWVkIHRoZSBmb2xsb3dpbmcgZGF0YToNCj4gMS4g
-V2hhdCBpcyB0aGUgc2NlbmFyaW8gZXhhY3RseT8gV2hhdCBpcyB2TW90aW9uPyBXaGljaCBraW5k
-IG9mIG9wZXJhdGlvbg0KPiBkb2VzIGl0IGRvPyBXaGljaCBraW5kIG9mIHRyYWZmaWMgZG9lcyBp
-dCBwYXNzPw0KPiAyLiBXaGF0IGlzIHRoZSBuYXR1cmUgb2YgdGhlIGZhaWx1cmUtIGRyaXZlciBo
-YW5nPyBQU09EPyBMb3NzIG9mIHRyYWZmaWM/DQo+IDMuIFdlIG5lZWQgYSBncmNkdW1wIGFmdGVy
-IHRoZSBmYWlsdXJlLg0KPiANCj4gVGhhbmtzLA0KPiB2bGFkDQo+IA0KPiA+IC0tLS0tT3JpZ2lu
-YWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBb
-bWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+ID4gQmVoYWxmIE9mIFBl
-ZHJvIEdhcmNpYQ0KPiA+IFNlbnQ6IFdlZG5lc2RheSwgSnVuZSAxNiwgMjAxMCAxMTo0OSBBTQ0K
-PiA+IFRvOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4gQ2M6IFBhdHJpY2sgTWNIYXJkeTsg
-QmVuIEh1dGNoaW5nczsgRXJpYyBEdW1hemV0DQo+ID4gU3ViamVjdDogUmU6IFtQQVRDSF0gdmxh
-bl9kZXY6IFZMQU4gMCBzaG91bGQgYmUgdHJlYXRlZCBhcyAibm8gdmxhbiB0YWciDQo+ID4gKDgw
-Mi4xcCBwYWNrZXQpDQo+ID4NCj4gPiBPbiBNb24sIDE0IEp1biAyMDEwIDIxOjEyOjUyICswMjAw
-LCBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+DQo+ID4gd3JvdGU6DQo+ID4g
-PiBMZSBsdW5kaSAxNCBqdWluIDIwMTAgw6AgMTk6MTEgKzAyMDAsIFBhdHJpY2sgTWNIYXJkeSBh
-IMOpY3JpdCA6DQo+ID4gPj4gQmVuIEh1dGNoaW5ncyB3cm90ZToNCj4gPiA+PiA+IE9uIE1vbiwg
-MjAxMC0wNi0xNCBhdCAxODo0OSArMDIwMCwgUGVkcm8gR2FyY2lhIHdyb3RlOg0KPiA+ID4+ID4N
-Cj4gPiA+PiA+PiBPbiBTdW4sIDEzIEp1biAyMDEwIDIyOjU2OjMwICswMTAwLCBCZW4gSHV0Y2hp
-bmdzDQo+ID4gPj4gPj4gPGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb20+IHdyb3RlOg0KPiA+ID4+
-ID4+DQo+ID4gPj4gPj4+IEkgaGF2ZSBubyBwYXJ0aWN1bGFyIG9waW5pb24gb24gdGhpcyBjaGFu
-Z2UsIGJ1dCB5b3UgbmVlZCB0byByZWFkDQo+IGFuZA0KPiA+ID4+ID4+PiBmb2xsb3cgRG9jdW1l
-bnRhdGlvbi9TdWJtaXR0aW5nUGF0Y2hlcy4NCj4gPiA+PiA+Pj4NCj4gPiA+PiA+Pj4gQmVuLg0K
-PiA+ID4+ID4+Pg0KPiA+ID4+ID4+IFNvcnJ5LCBmaXJzdCBrZXJuZWwgcGF0Y2gsIGFuZCBJIGRp
-ZCBub3Qga25vdyBhYm91dCBpdC4gSSByZXN1Ym1pdA0KPiA+ID4+ID4+IHdpdGgNCj4gPiA+PiA+
-PiB0aGUgY29ycmVjdCBzdHlsZSAvIGZvcm1hdDoNCj4gPiA+PiA+Pg0KPiA+ID4+ID4gWy4uLl0N
-Cj4gPiA+PiA+DQo+ID4gPj4gPiBTb3JyeSwgbm8geW91IGhhdmVuJ3QuDQo+ID4gPj4gPg0KPiA+
-ID4+ID4gLSBOZXR3b3JraW5nIGNoYW5nZXMgZ28gdGhyb3VnaCBEYXZpZCBNaWxsZXIncyBuZXQt
-bmV4dC0yLjYgdHJlZSBzbw0KPiB5b3UNCj4gPiA+PiA+IG5lZWQgdG8gdXNlIHRoYXQgYXMgdGhl
-IGJhc2VsaW5lLCBub3QgMi42LjI2DQo+ID4gPj4gPiAtIFBhdGNoZXMgc2hvdWxkIGJlIGFwcGxp
-Y2FibGUgd2l0aCAtcDEsIG5vdCAtcDAgKHNvIGlmIHlvdSB1c2UgZGlmZiwNCj4gPiA+PiA+IHlv
-dSBzaG91bGQgcnVuIGl0IGZyb20gb25lIGRpcmVjdG9yeSBsZXZlbCB1cCkNCj4gPiA+PiA+IC0g
-VGhlIHBhdGNoIHdhcyB3b3JkLXdyYXBwZWQNCj4gPiA+Pg0KPiA+ID4+IEFkZGl0aW9uYWxseToN
-Cj4gPiA+Pg0KPiA+ID4+IC0gcGxlYXNlIHVzZSB0aGUgcHJvcGVyIGNvbW1lbnQgc3R5bGUsIG1l
-YW5pbmcgZWFjaCBsaW5lIGJlZ2lucw0KPiA+ID4+ICAgd2l0aCBhICcqJw0KPiA+ID4+DQo+ID4g
-Pj4gLSB0aGUgcHJfZGVidWcgc3RhdGVtZW50cyBtYXkgYmUgdXNlZnVsIGZvciBkZWJ1Z2dpbmcs
-IGJ1dCBhcmUNCj4gPiA+PiAgIGEgYml0IGV4Y2Vzc2l2ZSBmb3IgdGhlIGZpbmFsIHZlcnNpb24N
-Cj4gPiA+Pg0KPiA+ID4+IC0gKyAvKiAyMDEwLTA2LTEzOiBQZWRybyBHYXJjaWENCj4gPiA+Pg0K
-PiA+ID4+ICAgIFdlIGhhdmUgY2hhbmdlbG9ncyBmb3IgdGhpcywgc2ltcGx5IGV4cGxhaW5pbmcg
-d2hhdCB0aGUgY29kZQ0KPiA+ID4+ICAgIGRvZXMgaXMgZW5vdWdoLg0KPiA+ID4+DQo+ID4gPj4g
-LSBQbGVhc2UgQ0MgdGhlIG1haW50YWluZXIgKHdoaWNoIGlzIG1lKQ0KPiA+ID4+IC0tDQo+ID4g
-Pg0KPiA+ID4gUGVkcm8sIHdlIGhhdmUgdHdvIGtpbmQgb2YgdmxhbiBzZXR1cHMgOg0KPiA+ID4N
-Cj4gPiA+IGFjY2VsZXJhdGVkIGFuZCBub24gYWNjZWxlcmF0ZWQgb25lcy4NCj4gPiA+DQo+ID4g
-PiBZb3VyIHBhdGNoIGFkZHJlc3Mgbm9uIGFjY2VsYXRlZCBvbmVzIG9ubHksIHNpbmNlIHlvdSBv
-bmx5IHRvdWNoDQo+ID4gPiB2bGFuX3NrYl9yZWN2KCkNCj4gPiA+DQo+ID4gPiBBY2NlbGVyYXRl
-ZCB2bGFuIGNhbiBmb2xsb3cgdGhlc2UgcGF0aHMgOg0KPiA+ID4NCj4gPiA+IDEpIE5BUEkgZGV2
-aWNlcw0KPiA+ID4NCj4gPiA+IHZsYW5fZ3JvX3JlY2VpdmUoKSAtPiB2bGFuX2dyb19jb21tb24o
-KQ0KPiA+ID4NCj4gPiA+IDIpIG5vbiBOQVBJIGRldmljZXMNCj4gPiA+DQo+ID4gPiBfX3ZsYW5f
-aHdhY2NlbF9yeCgpDQo+ID4gPg0KPiA+ID4gU28geW91IG1pZ2h0IGFsc28gcGF0Y2ggX192bGFu
-X2h3YWNjZWxfcngoKSBhbmQgdmxhbl9ncm9fY29tbW9uKCkNCj4gPiA+DQo+ID4gPiBQbGVhc2Ug
-bWVyZ2UgZm9sbG93aW5nIGJpdHMgdG8geW91ciBwYXRjaCBzdWJtaXNzaW9uIDoNCj4gPiA+DQo+
-ID4gPiBodHRwOi8va2VybmVsdHJhcC5vcmcvbWFpbGFyY2hpdmUvbGludXgtbmV0ZGV2LzIwMTAv
-NS8yMy82Mjc3ODY4DQo+ID4gPg0KPiA+ID4NCj4gPiA+IEdvb2QgbHVjayBmb3IgeW91ciBmaXJz
-dCBwYXRjaCAhDQo+ID4NCj4gPiBIZXJlIGl0IGlzIGFnYWluLiBJIGFkZGVkIHRoZSBtb2RpZmlj
-YXRpb25zIGluDQo+ID4gaHR0cDovL2tlcm5lbHRyYXAub3JnL21haWxhcmNoaXZlL2xpbnV4LW5l
-dGRldi8yMDEwLzUvMjMvNjI3Nzg2OCBmb3IgSFcNCj4gPiBhY2NlbGVyYXRlZCBpbmNvbWluZyBw
-YWNrZXRzIChpdCBkaWQgbm90IGFwcGx5IGNsZWFubHkgb24gdGhlIGxhc3QgdmVyc2lvbg0KPiBv
-Zg0KPiA+IHRoZSBrZXJuZWwsIHNvIEkgYXBwbGllZCBtYW51YWxseSkuIE5vdywgaWYgdGhlIFZM
-QU4gMCBpcyBub3QgZXhwbGljaXRseQ0KPiA+IGNyZWF0ZWQgYnkgdGhlIHVzZXIsIFZMQU4gMCBw
-YWNrZXRzIHdpbGwgYmUgdHJlYXRlZCBhcyBubyBWTEFOICg4MDIuMXANCj4gPiBwYWNrZXRzKSwg
-aW5zdGVhZCBvZiBkcm9wcGluZyB0aGVtLg0KPiA+DQo+ID4gVGhlIHBhdGNoIGlzIG5vdyBmb3Ig
-dHdvIGZpbGVzOiB2bGFuX2NvcmUgKGFjY2VsKSBhbmQgdmxhbl9kZXYgKG5vbiBhY2NlbCkNCj4g
-Pg0KPiA+IEkgY2FuIG5vdCB0ZXN0IG9uIEhXIGFjY2VsZXJhdGVkIGRldmljZXMsIHNvIGlmIHNv
-bWVvbmUgY2FuIGNoZWNrIGl0IEkgd2lsbA0KPiA+IGFwcHJlY2lhdGUgKGV2ZW4gdGhvdWdoIGlu
-IHRoZSB0aHJlYWQgYWJvdmUgaXQgbG9va2VkIGxpa2UgeWVzKS4gRm9yIG5vbg0KPiA+IGFjY2Vs
-IEkgdGVzc3RlZCBpbiAyLjYuMjYuIE5vdyB0aGUgcGF0Y2ggaXMgZm9yDQo+ID4gbmV0LW5leHQt
-Mi42LCBhbmQgaXQgY29tcGlsZXMgT0ssIGJ1dCBJIGEgaGF2ZSB0byBzZXR1cCBhIHRlc3QgZW52
-aXJvbm1lbnQNCj4gdG8NCj4gPiBjaGVjayBpdCBpcyBzdGlsbCBPSyAoc2hvdWxkLCBidXQgYmV0
-dGVyIHRvIHRlc3QpLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogUGVkcm8gR2FyY2lhIDxwZWRy
-by5uZXRkZXZAZG9uZGV2YW1vcy5jb20+DQo+ID4gLS0NCj4gPiBkaWZmIC0tZ2l0IGEvbmV0Lzgw
-MjFxL3ZsYW5fY29yZS5jIGIvbmV0LzgwMjFxL3ZsYW5fY29yZS5jDQo+ID4gaW5kZXggNTBmNThm
-NS4uZGFhY2EzMSAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvODAyMXEvdmxhbl9jb3JlLmMNCj4gPiAr
-KysgYi9uZXQvODAyMXEvdmxhbl9jb3JlLmMNCj4gPiBAQCAtOCw2ICs4LDkgQEANCj4gPiAgaW50
-IF9fdmxhbl9od2FjY2VsX3J4KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCB2bGFuX2dyb3Vw
-ICpncnAsDQo+ID4gICAgICAgICAgICAgICAgICAgICAgIHUxNiB2bGFuX3RjaSwgaW50IHBvbGxp
-bmcpDQo+ID4gIHsNCj4gPiArICAgICAgIHN0cnVjdCBuZXRfZGV2aWNlICp2bGFuX2RldjsNCj4g
-PiArICAgICAgIHUxNiB2bGFuX2lkOw0KPiA+ICsNCj4gPiAgICAgICAgIGlmIChuZXRwb2xsX3J4
-KHNrYikpDQo+ID4gICAgICAgICAgICAgICAgIHJldHVybiBORVRfUlhfRFJPUDsNCj4gPg0KPiA+
-IEBAIC0xNiwxMCArMTksMTQgQEAgaW50IF9fdmxhbl9od2FjY2VsX3J4KHN0cnVjdCBza19idWZm
-ICpza2IsIHN0cnVjdA0KPiA+IHZsYW5fZ3JvdXAgKmdycCwNCj4gPg0KPiA+ICAgICAgICAgc2ti
-LT5za2JfaWlmID0gc2tiLT5kZXYtPmlmaW5kZXg7DQo+ID4gICAgICAgICBfX3ZsYW5faHdhY2Nl
-bF9wdXRfdGFnKHNrYiwgdmxhbl90Y2kpOw0KPiA+IC0gICAgICAgc2tiLT5kZXYgPSB2bGFuX2dy
-b3VwX2dldF9kZXZpY2UoZ3JwLCB2bGFuX3RjaSAmIFZMQU5fVklEX01BU0spOw0KPiA+ICsgICAg
-ICAgdmxhbl9pZCA9IHZsYW5fdGNpICYgVkxBTl9WSURfTUFTSzsNCj4gPiArICAgICAgIHZsYW5f
-ZGV2ID0gdmxhbl9ncm91cF9nZXRfZGV2aWNlKGdycCwgdmxhbl9pZCk7DQo+ID4NCj4gPiAtICAg
-ICAgIGlmICghc2tiLT5kZXYpDQo+ID4gLSAgICAgICAgICAgICAgIGdvdG8gZHJvcDsNCj4gPiAr
-ICAgICAgIGlmICh2bGFuX2RldikNCj4gPiArICAgICAgICAgICAgICAgc2tiLT5kZXYgPSB2bGFu
-X2RldjsNCj4gPiArICAgICAgIGVsc2UNCj4gPiArICAgICAgICAgICAgICAgaWYgKHZsYW5faWQp
-DQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgZ290byBkcm9wOw0KPiA+DQo+ID4gICAgICAg
-ICByZXR1cm4gKHBvbGxpbmcgPyBuZXRpZl9yZWNlaXZlX3NrYihza2IpIDogbmV0aWZfcngoc2ti
-KSk7DQo+ID4NCj4gPiBAQCAtODIsMTYgKzg5LDIyIEBAIHZsYW5fZ3JvX2NvbW1vbihzdHJ1Y3Qg
-bmFwaV9zdHJ1Y3QgKm5hcGksIHN0cnVjdA0KPiA+IHZsYW5fZ3JvdXAgKmdycCwNCj4gPiAgICAg
-ICAgICAgICAgICAgdW5zaWduZWQgaW50IHZsYW5fdGNpLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQ0K
-PiA+ICB7DQo+ID4gICAgICAgICBzdHJ1Y3Qgc2tfYnVmZiAqcDsNCj4gPiArICAgICAgIHN0cnVj
-dCBuZXRfZGV2aWNlICp2bGFuX2RldjsNCj4gPiArICAgICAgIHUxNiB2bGFuX2lkOw0KPiA+DQo+
-ID4gICAgICAgICBpZiAoc2tiX2JvbmRfc2hvdWxkX2Ryb3Aoc2tiLCBBQ0NFU1NfT05DRShza2It
-PmRldi0+bWFzdGVyKSkpDQo+ID4gICAgICAgICAgICAgICAgIHNrYi0+ZGVsaXZlcl9ub193Y2Fy
-ZCA9IDE7DQo+ID4NCj4gPiAgICAgICAgIHNrYi0+c2tiX2lpZiA9IHNrYi0+ZGV2LT5pZmluZGV4
-Ow0KPiA+ICAgICAgICAgX192bGFuX2h3YWNjZWxfcHV0X3RhZyhza2IsIHZsYW5fdGNpKTsNCj4g
-PiAtICAgICAgIHNrYi0+ZGV2ID0gdmxhbl9ncm91cF9nZXRfZGV2aWNlKGdycCwgdmxhbl90Y2kg
-JiBWTEFOX1ZJRF9NQVNLKTsNCj4gPiAtDQo+ID4gLSAgICAgICBpZiAoIXNrYi0+ZGV2KQ0KPiA+
-IC0gICAgICAgICAgICAgICBnb3RvIGRyb3A7DQo+ID4gKyAgICAgICB2bGFuX2lkID0gdmxhbl90
-Y2kgJiBWTEFOX1ZJRF9NQVNLOw0KPiA+ICsgICAgICAgdmxhbl9kZXYgPSB2bGFuX2dyb3VwX2dl
-dF9kZXZpY2UoZ3JwLCB2bGFuX2lkKTsNCj4gPiArDQo+ID4gKyAgICAgICBpZiAodmxhbl9kZXYp
-DQo+ID4gKyAgICAgICAgICAgICAgIHNrYi0+ZGV2ID0gdmxhbl9kZXY7DQo+ID4gKyAgICAgICBl
-bHNlDQo+ID4gKyAgICAgICAgICAgICAgIGlmICh2bGFuX2lkKQ0KPiA+ICsgICAgICAgICAgICAg
-ICAgICAgICAgIGdvdG8gZHJvcDsNCj4gPg0KPiA+ICAgICAgICAgZm9yIChwID0gbmFwaS0+Z3Jv
-X2xpc3Q7IHA7IHAgPSBwLT5uZXh0KSB7DQo+ID4gICAgICAgICAgICAgICAgIE5BUElfR1JPX0NC
-KHApLT5zYW1lX2Zsb3cgPQ0KPiA+IGRpZmYgLS1naXQgYS9uZXQvODAyMXEvdmxhbl9kZXYuYyBi
-L25ldC84MDIxcS92bGFuX2Rldi5jDQo+ID4gaW5kZXggNTI5ODQyNi4uNjU1MTJjMyAxMDA2NDQN
-Cj4gPiAtLS0gYS9uZXQvODAyMXEvdmxhbl9kZXYuYw0KPiA+ICsrKyBiL25ldC84MDIxcS92bGFu
-X2Rldi5jDQo+ID4gQEAgLTE0Miw2ICsxNDIsNyBAQCBpbnQgdmxhbl9za2JfcmVjdihzdHJ1Y3Qg
-c2tfYnVmZiAqc2tiLCBzdHJ1Y3QNCj4gbmV0X2RldmljZQ0KPiA+ICpkZXYsDQo+ID4gIHsNCj4g
-PiAgICAgICAgIHN0cnVjdCB2bGFuX2hkciAqdmhkcjsNCj4gPiAgICAgICAgIHN0cnVjdCB2bGFu
-X3J4X3N0YXRzICpyeF9zdGF0czsNCj4gPiArICAgICAgIHN0cnVjdCBuZXRfZGV2aWNlICp2bGFu
-X2RldjsNCj4gPiAgICAgICAgIHUxNiB2bGFuX2lkOw0KPiA+ICAgICAgICAgdTE2IHZsYW5fdGNp
-Ow0KPiA+DQo+ID4gQEAgLTE1Nyw4ICsxNTgsMTggQEAgaW50IHZsYW5fc2tiX3JlY3Yoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwgc3RydWN0DQo+IG5ldF9kZXZpY2UNCj4gPiAqZGV2LA0KPiA+ICAgICAg
-ICAgdmxhbl9pZCA9IHZsYW5fdGNpICYgVkxBTl9WSURfTUFTSzsNCj4gPg0KPiA+ICAgICAgICAg
-cmN1X3JlYWRfbG9jaygpOw0KPiA+IC0gICAgICAgc2tiLT5kZXYgPSBfX2ZpbmRfdmxhbl9kZXYo
-ZGV2LCB2bGFuX2lkKTsNCj4gPiAtICAgICAgIGlmICghc2tiLT5kZXYpIHsNCj4gPiArICAgICAg
-IHZsYW5fZGV2ID0gX19maW5kX3ZsYW5fZGV2KGRldiwgdmxhbl9pZCk7DQo+ID4gKw0KPiA+ICsg
-ICAgICAgLyogSWYgdGhlIFZMQU4gZGV2aWNlIGlzIGRlZmluZWQsIHdlIHVzZSBpdC4NCj4gPiAr
-ICAgICAgICAqIElmIG5vdCwgYW5kIHRoZSBWSUQgaXMgMCwgaXQgaXMgYSA4MDIuMXAgcGFja2V0
-IChub3QNCj4gPiArICAgICAgICAqIHJlYWxseSBhIFZMQU4pLCBzbyB3ZSB3aWxsIGp1c3QgbmV0
-aWZfcnggaXQgbGF0ZXIgdG8gdGhlDQo+ID4gKyAgICAgICAgKiBvcmlnaW5hbCBpbnRlcmZhY2Us
-IGJ1dCB3aXRoIHRoZSBza2ItPnByb3RvIHNldCB0byB0aGUNCj4gPiArICAgICAgICAqIHdyYXBw
-ZWQgcHJvdG86IHdlIGRvIG5vdGhpbmcgaGVyZS4NCj4gPiArICAgICAgICAqLw0KPiA+ICsNCj4g
-PiArICAgICAgIGlmICh2bGFuX2Rldikgew0KPiA+ICsgICAgICAgICAgICAgICBza2ItPmRldiA9
-IHZsYW5fZGV2Ow0KPiA+ICsgICAgICAgfSBlbHNlIGlmICh2bGFuX2lkKSB7DQo+ID4gICAgICAg
-ICAgICAgICAgIHByX2RlYnVnKCIlczogRVJST1I6IE5vIG5ldF9kZXZpY2UgZm9yIFZJRDogJXUg
-b24gZGV2Og0KPiAlc1xuIiwNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgX19mdW5jX18s
-IHZsYW5faWQsIGRldi0+bmFtZSk7DQo+ID4gICAgICAgICAgICAgICAgIGdvdG8gZXJyX3VubG9j
-azsNCj4gPg0KPiA+DQo+ID4gLS0NCj4gPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDog
-c2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiA+IHRoZSBib2R5IG9mIGEg
-bWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+ID4gTW9yZSBtYWpvcmRvbW8g
-aW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo+IA0K
-PiBO77+977+977+977+977+9cu+/ve+/vXnvv73vv73vv71i77+9WO+/ve+/vcendu+/vV7vv70p
-3rp7Lm7vv70r77+977+977+9eu+/vV7vv70p77+977+977+9dyoNCj4gamfvv73vv73vv70e77+9
-77+977+977+977+93aJqL++/ve+/ve+/vXrvv73elu+/ve+/vTLvv73eme+/ve+/ve+/vSbvv70p
-36Hvv71h77+977+9f++/ve+/vR7vv71H77+977+977+9aO+/vQ/vv71qOit277+977+977+9d++/
-vdmlDQo=
+On Thu, Jul 8, 2010 at 4:10 PM, Kulikov Vasiliy <segooon@gmail.com> wro=
+te:
+> temac_dma_bd_init() must free all allocated resources: memory, dma, s=
+kbs.
+>
+> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+> ---
+> =A0drivers/net/ll_temac_main.c | =A0 30 +++++++++++++++++++++++++----=
+-
+> =A01 files changed, 25 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.=
+c
+> index a2da3d7..38d658a 100644
+> --- a/drivers/net/ll_temac_main.c
+> +++ b/drivers/net/ll_temac_main.c
+> @@ -200,6 +200,7 @@ static int temac_dma_bd_init(struct net_device *n=
+dev)
+> =A0 =A0 =A0 =A0struct temac_local *lp =3D netdev_priv(ndev);
+> =A0 =A0 =A0 =A0struct sk_buff *skb;
+> =A0 =A0 =A0 =A0int i;
+> + =A0 =A0 =A0 int tx_bd_v_size, rx_bd_v_size;
+>
+> =A0 =A0 =A0 =A0lp->rx_skb =3D kzalloc(sizeof(*lp->rx_skb) * RX_BD_NUM=
+, GFP_KERNEL);
+> =A0 =A0 =A0 =A0if (!lp->rx_skb) {
+> @@ -209,21 +210,23 @@ static int temac_dma_bd_init(struct net_device =
+*ndev)
+> =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0/* allocate the tx and rx ring buffer descriptors. */
+> =A0 =A0 =A0 =A0/* returns a virtual addres and a physical address. */
+> + =A0 =A0 =A0 tx_bd_v_size =3D sizeof(*lp->tx_bd_v) * TX_BD_NUM;
+> =A0 =A0 =A0 =A0lp->tx_bd_v =3D dma_alloc_coherent(ndev->dev.parent,
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0sizeof(*lp->tx_bd_v) * TX_BD_NUM,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 tx_bd_v_size,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 &lp->tx_bd_p, GFP_KERNEL);
+> =A0 =A0 =A0 =A0if (!lp->tx_bd_v) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"unabl=
+e to allocate DMA TX buffer descriptors");
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_rx_skb;
+> =A0 =A0 =A0 =A0}
+> + =A0 =A0 =A0 rx_bd_v_size =3D sizeof(*lp->rx_bd_v) * RX_BD_NUM;
+> =A0 =A0 =A0 =A0lp->rx_bd_v =3D dma_alloc_coherent(ndev->dev.parent,
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0sizeof(*lp->rx_bd_v) * RX_BD_NUM,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0rx_bd_v_size,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 &lp->rx_bd_p, GFP_KERNEL);
+> =A0 =A0 =A0 =A0if (!lp->rx_bd_v) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"unabl=
+e to allocate DMA RX buffer descriptors");
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_tx_bd;
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0memset(lp->tx_bd_v, 0, sizeof(*lp->tx_bd_v) * TX_BD_NU=
+M);
+> @@ -242,7 +245,7 @@ static int temac_dma_bd_init(struct net_device *n=
+dev)
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (skb =3D=3D 0) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev, "a=
+lloc_skb error %d\n", i);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_dma_single;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0lp->rx_skb[i] =3D skb;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* returns physical address of skb->da=
+ta */
+> @@ -274,6 +277,23 @@ static int temac_dma_bd_init(struct net_device *=
+ndev)
+>
+> =A0 =A0 =A0 =A0return 0;
+>
+> +err_dma_single:
+> + =A0 =A0 =A0 for (i =3D 0; i < RX_BD_NUM; i++) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (lp->rx_skb[i] =3D=3D NULL)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree_skb(lp->rx_skb[i]);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(ndev->dev.parent, lp->=
+rx_bd_v[i].phys,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 XTE_MAX=
+_JUMBO_FRAME_SIZE, DMA_FROM_DEVICE);
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 dma_free_coherent(ndev->dev.parent, rx_bd_v_size,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->rx_=
+bd_v, lp->rx_bd_p);
+> +err_tx_bd:
+> + =A0 =A0 =A0 dma_free_coherent(ndev->dev.parent, tx_bd_v_size,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->tx_=
+bd_v, lp->tx_bd_p);
+> +err_rx_skb:
+> + =A0 =A0 =A0 kfree(lp->rx_skb);
+> =A0out:
+> =A0 =A0 =A0 =A0return -ENOMEM;
+> =A0}
+> --
+> 1.7.0.4
+This is not enough. DMA resources also must be released on exit.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
 
+
+
+--=20
+Regards,
+Denis
