@@ -1,91 +1,160 @@
-From: sbs <gexlie@gmail.com>
-Subject: Re: IGB driver upgrade
-Date: Thu, 8 Jul 2010 16:45:09 +0400
-Message-ID: <AANLkTimXkE12FH6D4XXZu6h8vxfaKp-wWVZTvydBx6WE@mail.gmail.com>
-References: <AANLkTim6kfnr6yNeUXlLHOztB-qjyvj50D4p7nebqj9r@mail.gmail.com>
-	<AANLkTinUoQG4BWC4Q2UFDwGvAwYujlUXz6P-ZLkZozaQ@mail.gmail.com>
-	<4C293792.6070508@intel.com>
-	<AANLkTim4zvNHegMqBnQG5jNGFU8nsaZbx83gv7FZuznu@mail.gmail.com>
-	<4C2A1C3C.3040403@intel.com>
-	<AANLkTim37IrxmK9EinvGDwx91D0V1P1Ll3jRhNVy-dtX@mail.gmail.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
+ (802.1p packet)
+Date: Thu, 8 Jul 2010 05:54:44 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE647018F@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
+ <1276466190.14011.223.camel@localhost>
+ <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com>
+ <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>
+ <4C1662C3.3070708@trash.net> <1276542772.2444.13.camel@edumazet-laptop>
+ <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
+To: "Pedro Garcia" <pedro.netdev@dondevamos.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <AANLkTim37IrxmK9EinvGDwx91D0V1P1Ll3jRhNVy-dtX@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3950 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755189Ab0GHMzF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jul 2010 08:55:05 -0400
+In-Reply-To: <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-i have tested next configurations for several days:
+TWFyZ2FyZXQsDQpJbiBvcmRlciB0byBrZWVwIGV4cGxvcmluZyB0aGlzIHdlIG5lZWQgdGhlIGZv
+bGxvd2luZyBkYXRhOg0KMS4gV2hhdCBpcyB0aGUgc2NlbmFyaW8gZXhhY3RseT8gV2hhdCBpcyB2
+TW90aW9uPyBXaGljaCBraW5kIG9mIG9wZXJhdGlvbiBkb2VzIGl0IGRvPyBXaGljaCBraW5kIG9m
+IHRyYWZmaWMgZG9lcyBpdCBwYXNzPw0KMi4gV2hhdCBpcyB0aGUgbmF0dXJlIG9mIHRoZSBmYWls
+dXJlLSBkcml2ZXIgaGFuZz8gUFNPRD8gTG9zcyBvZiB0cmFmZmljPw0KMy4gV2UgbmVlZCBhIGdy
+Y2R1bXAgYWZ0ZXIgdGhlIGZhaWx1cmUuDQoNClRoYW5rcywNCnZsYWQNCg0KPiAtLS0tLU9yaWdp
+bmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFtt
+YWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj4gQmVoYWxmIE9mIFBlZHJv
+IEdhcmNpYQ0KPiBTZW50OiBXZWRuZXNkYXksIEp1bmUgMTYsIDIwMTAgMTE6NDkgQU0NCj4gVG86
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IFBhdHJpY2sgTWNIYXJkeTsgQmVuIEh1dGNo
+aW5nczsgRXJpYyBEdW1hemV0DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIHZsYW5fZGV2OiBWTEFO
+IDAgc2hvdWxkIGJlIHRyZWF0ZWQgYXMgIm5vIHZsYW4gdGFnIg0KPiAoODAyLjFwIHBhY2tldCkN
+Cj4gDQo+IE9uIE1vbiwgMTQgSnVuIDIwMTAgMjE6MTI6NTIgKzAyMDAsIEVyaWMgRHVtYXpldCA8
+ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4NCj4gd3JvdGU6DQo+ID4gTGUgbHVuZGkgMTQganVpbiAy
+MDEwIMOgIDE5OjExICswMjAwLCBQYXRyaWNrIE1jSGFyZHkgYSDDqWNyaXQgOg0KPiA+PiBCZW4g
+SHV0Y2hpbmdzIHdyb3RlOg0KPiA+PiA+IE9uIE1vbiwgMjAxMC0wNi0xNCBhdCAxODo0OSArMDIw
+MCwgUGVkcm8gR2FyY2lhIHdyb3RlOg0KPiA+PiA+DQo+ID4+ID4+IE9uIFN1biwgMTMgSnVuIDIw
+MTAgMjI6NTY6MzAgKzAxMDAsIEJlbiBIdXRjaGluZ3MNCj4gPj4gPj4gPGJodXRjaGluZ3NAc29s
+YXJmbGFyZS5jb20+IHdyb3RlOg0KPiA+PiA+Pg0KPiA+PiA+Pj4gSSBoYXZlIG5vIHBhcnRpY3Vs
+YXIgb3BpbmlvbiBvbiB0aGlzIGNoYW5nZSwgYnV0IHlvdSBuZWVkIHRvIHJlYWQgYW5kDQo+ID4+
+ID4+PiBmb2xsb3cgRG9jdW1lbnRhdGlvbi9TdWJtaXR0aW5nUGF0Y2hlcy4NCj4gPj4gPj4+DQo+
+ID4+ID4+PiBCZW4uDQo+ID4+ID4+Pg0KPiA+PiA+PiBTb3JyeSwgZmlyc3Qga2VybmVsIHBhdGNo
+LCBhbmQgSSBkaWQgbm90IGtub3cgYWJvdXQgaXQuIEkgcmVzdWJtaXQNCj4gPj4gPj4gd2l0aA0K
+PiA+PiA+PiB0aGUgY29ycmVjdCBzdHlsZSAvIGZvcm1hdDoNCj4gPj4gPj4NCj4gPj4gPiBbLi4u
+XQ0KPiA+PiA+DQo+ID4+ID4gU29ycnksIG5vIHlvdSBoYXZlbid0Lg0KPiA+PiA+DQo+ID4+ID4g
+LSBOZXR3b3JraW5nIGNoYW5nZXMgZ28gdGhyb3VnaCBEYXZpZCBNaWxsZXIncyBuZXQtbmV4dC0y
+LjYgdHJlZSBzbyB5b3UNCj4gPj4gPiBuZWVkIHRvIHVzZSB0aGF0IGFzIHRoZSBiYXNlbGluZSwg
+bm90IDIuNi4yNg0KPiA+PiA+IC0gUGF0Y2hlcyBzaG91bGQgYmUgYXBwbGljYWJsZSB3aXRoIC1w
+MSwgbm90IC1wMCAoc28gaWYgeW91IHVzZSBkaWZmLA0KPiA+PiA+IHlvdSBzaG91bGQgcnVuIGl0
+IGZyb20gb25lIGRpcmVjdG9yeSBsZXZlbCB1cCkNCj4gPj4gPiAtIFRoZSBwYXRjaCB3YXMgd29y
+ZC13cmFwcGVkDQo+ID4+DQo+ID4+IEFkZGl0aW9uYWxseToNCj4gPj4NCj4gPj4gLSBwbGVhc2Ug
+dXNlIHRoZSBwcm9wZXIgY29tbWVudCBzdHlsZSwgbWVhbmluZyBlYWNoIGxpbmUgYmVnaW5zDQo+
+ID4+ICAgd2l0aCBhICcqJw0KPiA+Pg0KPiA+PiAtIHRoZSBwcl9kZWJ1ZyBzdGF0ZW1lbnRzIG1h
+eSBiZSB1c2VmdWwgZm9yIGRlYnVnZ2luZywgYnV0IGFyZQ0KPiA+PiAgIGEgYml0IGV4Y2Vzc2l2
+ZSBmb3IgdGhlIGZpbmFsIHZlcnNpb24NCj4gPj4NCj4gPj4gLSArIC8qIDIwMTAtMDYtMTM6IFBl
+ZHJvIEdhcmNpYQ0KPiA+Pg0KPiA+PiAgICBXZSBoYXZlIGNoYW5nZWxvZ3MgZm9yIHRoaXMsIHNp
+bXBseSBleHBsYWluaW5nIHdoYXQgdGhlIGNvZGUNCj4gPj4gICAgZG9lcyBpcyBlbm91Z2guDQo+
+ID4+DQo+ID4+IC0gUGxlYXNlIENDIHRoZSBtYWludGFpbmVyICh3aGljaCBpcyBtZSkNCj4gPj4g
+LS0NCj4gPg0KPiA+IFBlZHJvLCB3ZSBoYXZlIHR3byBraW5kIG9mIHZsYW4gc2V0dXBzIDoNCj4g
+Pg0KPiA+IGFjY2VsZXJhdGVkIGFuZCBub24gYWNjZWxlcmF0ZWQgb25lcy4NCj4gPg0KPiA+IFlv
+dXIgcGF0Y2ggYWRkcmVzcyBub24gYWNjZWxhdGVkIG9uZXMgb25seSwgc2luY2UgeW91IG9ubHkg
+dG91Y2gNCj4gPiB2bGFuX3NrYl9yZWN2KCkNCj4gPg0KPiA+IEFjY2VsZXJhdGVkIHZsYW4gY2Fu
+IGZvbGxvdyB0aGVzZSBwYXRocyA6DQo+ID4NCj4gPiAxKSBOQVBJIGRldmljZXMNCj4gPg0KPiA+
+IHZsYW5fZ3JvX3JlY2VpdmUoKSAtPiB2bGFuX2dyb19jb21tb24oKQ0KPiA+DQo+ID4gMikgbm9u
+IE5BUEkgZGV2aWNlcw0KPiA+DQo+ID4gX192bGFuX2h3YWNjZWxfcngoKQ0KPiA+DQo+ID4gU28g
+eW91IG1pZ2h0IGFsc28gcGF0Y2ggX192bGFuX2h3YWNjZWxfcngoKSBhbmQgdmxhbl9ncm9fY29t
+bW9uKCkNCj4gPg0KPiA+IFBsZWFzZSBtZXJnZSBmb2xsb3dpbmcgYml0cyB0byB5b3VyIHBhdGNo
+IHN1Ym1pc3Npb24gOg0KPiA+DQo+ID4gaHR0cDovL2tlcm5lbHRyYXAub3JnL21haWxhcmNoaXZl
+L2xpbnV4LW5ldGRldi8yMDEwLzUvMjMvNjI3Nzg2OA0KPiA+DQo+ID4NCj4gPiBHb29kIGx1Y2sg
+Zm9yIHlvdXIgZmlyc3QgcGF0Y2ggIQ0KPiANCj4gSGVyZSBpdCBpcyBhZ2Fpbi4gSSBhZGRlZCB0
+aGUgbW9kaWZpY2F0aW9ucyBpbg0KPiBodHRwOi8va2VybmVsdHJhcC5vcmcvbWFpbGFyY2hpdmUv
+bGludXgtbmV0ZGV2LzIwMTAvNS8yMy82Mjc3ODY4IGZvciBIVw0KPiBhY2NlbGVyYXRlZCBpbmNv
+bWluZyBwYWNrZXRzIChpdCBkaWQgbm90IGFwcGx5IGNsZWFubHkgb24gdGhlIGxhc3QgdmVyc2lv
+biBvZg0KPiB0aGUga2VybmVsLCBzbyBJIGFwcGxpZWQgbWFudWFsbHkpLiBOb3csIGlmIHRoZSBW
+TEFOIDAgaXMgbm90IGV4cGxpY2l0bHkNCj4gY3JlYXRlZCBieSB0aGUgdXNlciwgVkxBTiAwIHBh
+Y2tldHMgd2lsbCBiZSB0cmVhdGVkIGFzIG5vIFZMQU4gKDgwMi4xcA0KPiBwYWNrZXRzKSwgaW5z
+dGVhZCBvZiBkcm9wcGluZyB0aGVtLg0KPiANCj4gVGhlIHBhdGNoIGlzIG5vdyBmb3IgdHdvIGZp
+bGVzOiB2bGFuX2NvcmUgKGFjY2VsKSBhbmQgdmxhbl9kZXYgKG5vbiBhY2NlbCkNCj4gDQo+IEkg
+Y2FuIG5vdCB0ZXN0IG9uIEhXIGFjY2VsZXJhdGVkIGRldmljZXMsIHNvIGlmIHNvbWVvbmUgY2Fu
+IGNoZWNrIGl0IEkgd2lsbA0KPiBhcHByZWNpYXRlIChldmVuIHRob3VnaCBpbiB0aGUgdGhyZWFk
+IGFib3ZlIGl0IGxvb2tlZCBsaWtlIHllcykuIEZvciBub24NCj4gYWNjZWwgSSB0ZXNzdGVkIGlu
+IDIuNi4yNi4gTm93IHRoZSBwYXRjaCBpcyBmb3INCj4gbmV0LW5leHQtMi42LCBhbmQgaXQgY29t
+cGlsZXMgT0ssIGJ1dCBJIGEgaGF2ZSB0byBzZXR1cCBhIHRlc3QgZW52aXJvbm1lbnQgdG8NCj4g
+Y2hlY2sgaXQgaXMgc3RpbGwgT0sgKHNob3VsZCwgYnV0IGJldHRlciB0byB0ZXN0KS4NCj4gDQo+
+IFNpZ25lZC1vZmYtYnk6IFBlZHJvIEdhcmNpYSA8cGVkcm8ubmV0ZGV2QGRvbmRldmFtb3MuY29t
+Pg0KPiAtLQ0KPiBkaWZmIC0tZ2l0IGEvbmV0LzgwMjFxL3ZsYW5fY29yZS5jIGIvbmV0LzgwMjFx
+L3ZsYW5fY29yZS5jDQo+IGluZGV4IDUwZjU4ZjUuLmRhYWNhMzEgMTAwNjQ0DQo+IC0tLSBhL25l
+dC84MDIxcS92bGFuX2NvcmUuYw0KPiArKysgYi9uZXQvODAyMXEvdmxhbl9jb3JlLmMNCj4gQEAg
+LTgsNiArOCw5IEBADQo+ICBpbnQgX192bGFuX2h3YWNjZWxfcngoc3RydWN0IHNrX2J1ZmYgKnNr
+Yiwgc3RydWN0IHZsYW5fZ3JvdXAgKmdycCwNCj4gICAgICAgICAgICAgICAgICAgICAgIHUxNiB2
+bGFuX3RjaSwgaW50IHBvbGxpbmcpDQo+ICB7DQo+ICsgICAgICAgc3RydWN0IG5ldF9kZXZpY2Ug
+KnZsYW5fZGV2Ow0KPiArICAgICAgIHUxNiB2bGFuX2lkOw0KPiArDQo+ICAgICAgICAgaWYgKG5l
+dHBvbGxfcngoc2tiKSkNCj4gICAgICAgICAgICAgICAgIHJldHVybiBORVRfUlhfRFJPUDsNCj4g
+DQo+IEBAIC0xNiwxMCArMTksMTQgQEAgaW50IF9fdmxhbl9od2FjY2VsX3J4KHN0cnVjdCBza19i
+dWZmICpza2IsIHN0cnVjdA0KPiB2bGFuX2dyb3VwICpncnAsDQo+IA0KPiAgICAgICAgIHNrYi0+
+c2tiX2lpZiA9IHNrYi0+ZGV2LT5pZmluZGV4Ow0KPiAgICAgICAgIF9fdmxhbl9od2FjY2VsX3B1
+dF90YWcoc2tiLCB2bGFuX3RjaSk7DQo+IC0gICAgICAgc2tiLT5kZXYgPSB2bGFuX2dyb3VwX2dl
+dF9kZXZpY2UoZ3JwLCB2bGFuX3RjaSAmIFZMQU5fVklEX01BU0spOw0KPiArICAgICAgIHZsYW5f
+aWQgPSB2bGFuX3RjaSAmIFZMQU5fVklEX01BU0s7DQo+ICsgICAgICAgdmxhbl9kZXYgPSB2bGFu
+X2dyb3VwX2dldF9kZXZpY2UoZ3JwLCB2bGFuX2lkKTsNCj4gDQo+IC0gICAgICAgaWYgKCFza2It
+PmRldikNCj4gLSAgICAgICAgICAgICAgIGdvdG8gZHJvcDsNCj4gKyAgICAgICBpZiAodmxhbl9k
+ZXYpDQo+ICsgICAgICAgICAgICAgICBza2ItPmRldiA9IHZsYW5fZGV2Ow0KPiArICAgICAgIGVs
+c2UNCj4gKyAgICAgICAgICAgICAgIGlmICh2bGFuX2lkKQ0KPiArICAgICAgICAgICAgICAgICAg
+ICAgICBnb3RvIGRyb3A7DQo+IA0KPiAgICAgICAgIHJldHVybiAocG9sbGluZyA/IG5ldGlmX3Jl
+Y2VpdmVfc2tiKHNrYikgOiBuZXRpZl9yeChza2IpKTsNCj4gDQo+IEBAIC04MiwxNiArODksMjIg
+QEAgdmxhbl9ncm9fY29tbW9uKHN0cnVjdCBuYXBpX3N0cnVjdCAqbmFwaSwgc3RydWN0DQo+IHZs
+YW5fZ3JvdXAgKmdycCwNCj4gICAgICAgICAgICAgICAgIHVuc2lnbmVkIGludCB2bGFuX3RjaSwg
+c3RydWN0IHNrX2J1ZmYgKnNrYikNCj4gIHsNCj4gICAgICAgICBzdHJ1Y3Qgc2tfYnVmZiAqcDsN
+Cj4gKyAgICAgICBzdHJ1Y3QgbmV0X2RldmljZSAqdmxhbl9kZXY7DQo+ICsgICAgICAgdTE2IHZs
+YW5faWQ7DQo+IA0KPiAgICAgICAgIGlmIChza2JfYm9uZF9zaG91bGRfZHJvcChza2IsIEFDQ0VT
+U19PTkNFKHNrYi0+ZGV2LT5tYXN0ZXIpKSkNCj4gICAgICAgICAgICAgICAgIHNrYi0+ZGVsaXZl
+cl9ub193Y2FyZCA9IDE7DQo+IA0KPiAgICAgICAgIHNrYi0+c2tiX2lpZiA9IHNrYi0+ZGV2LT5p
+ZmluZGV4Ow0KPiAgICAgICAgIF9fdmxhbl9od2FjY2VsX3B1dF90YWcoc2tiLCB2bGFuX3RjaSk7
+DQo+IC0gICAgICAgc2tiLT5kZXYgPSB2bGFuX2dyb3VwX2dldF9kZXZpY2UoZ3JwLCB2bGFuX3Rj
+aSAmIFZMQU5fVklEX01BU0spOw0KPiAtDQo+IC0gICAgICAgaWYgKCFza2ItPmRldikNCj4gLSAg
+ICAgICAgICAgICAgIGdvdG8gZHJvcDsNCj4gKyAgICAgICB2bGFuX2lkID0gdmxhbl90Y2kgJiBW
+TEFOX1ZJRF9NQVNLOw0KPiArICAgICAgIHZsYW5fZGV2ID0gdmxhbl9ncm91cF9nZXRfZGV2aWNl
+KGdycCwgdmxhbl9pZCk7DQo+ICsNCj4gKyAgICAgICBpZiAodmxhbl9kZXYpDQo+ICsgICAgICAg
+ICAgICAgICBza2ItPmRldiA9IHZsYW5fZGV2Ow0KPiArICAgICAgIGVsc2UNCj4gKyAgICAgICAg
+ICAgICAgIGlmICh2bGFuX2lkKQ0KPiArICAgICAgICAgICAgICAgICAgICAgICBnb3RvIGRyb3A7
+DQo+IA0KPiAgICAgICAgIGZvciAocCA9IG5hcGktPmdyb19saXN0OyBwOyBwID0gcC0+bmV4dCkg
+ew0KPiAgICAgICAgICAgICAgICAgTkFQSV9HUk9fQ0IocCktPnNhbWVfZmxvdyA9DQo+IGRpZmYg
+LS1naXQgYS9uZXQvODAyMXEvdmxhbl9kZXYuYyBiL25ldC84MDIxcS92bGFuX2Rldi5jDQo+IGlu
+ZGV4IDUyOTg0MjYuLjY1NTEyYzMgMTAwNjQ0DQo+IC0tLSBhL25ldC84MDIxcS92bGFuX2Rldi5j
+DQo+ICsrKyBiL25ldC84MDIxcS92bGFuX2Rldi5jDQo+IEBAIC0xNDIsNiArMTQyLDcgQEAgaW50
+IHZsYW5fc2tiX3JlY3Yoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UNCj4g
+KmRldiwNCj4gIHsNCj4gICAgICAgICBzdHJ1Y3Qgdmxhbl9oZHIgKnZoZHI7DQo+ICAgICAgICAg
+c3RydWN0IHZsYW5fcnhfc3RhdHMgKnJ4X3N0YXRzOw0KPiArICAgICAgIHN0cnVjdCBuZXRfZGV2
+aWNlICp2bGFuX2RldjsNCj4gICAgICAgICB1MTYgdmxhbl9pZDsNCj4gICAgICAgICB1MTYgdmxh
+bl90Y2k7DQo+IA0KPiBAQCAtMTU3LDggKzE1OCwxOCBAQCBpbnQgdmxhbl9za2JfcmVjdihzdHJ1
+Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZQ0KPiAqZGV2LA0KPiAgICAgICAgIHZs
+YW5faWQgPSB2bGFuX3RjaSAmIFZMQU5fVklEX01BU0s7DQo+IA0KPiAgICAgICAgIHJjdV9yZWFk
+X2xvY2soKTsNCj4gLSAgICAgICBza2ItPmRldiA9IF9fZmluZF92bGFuX2RldihkZXYsIHZsYW5f
+aWQpOw0KPiAtICAgICAgIGlmICghc2tiLT5kZXYpIHsNCj4gKyAgICAgICB2bGFuX2RldiA9IF9f
+ZmluZF92bGFuX2RldihkZXYsIHZsYW5faWQpOw0KPiArDQo+ICsgICAgICAgLyogSWYgdGhlIFZM
+QU4gZGV2aWNlIGlzIGRlZmluZWQsIHdlIHVzZSBpdC4NCj4gKyAgICAgICAgKiBJZiBub3QsIGFu
+ZCB0aGUgVklEIGlzIDAsIGl0IGlzIGEgODAyLjFwIHBhY2tldCAobm90DQo+ICsgICAgICAgICog
+cmVhbGx5IGEgVkxBTiksIHNvIHdlIHdpbGwganVzdCBuZXRpZl9yeCBpdCBsYXRlciB0byB0aGUN
+Cj4gKyAgICAgICAgKiBvcmlnaW5hbCBpbnRlcmZhY2UsIGJ1dCB3aXRoIHRoZSBza2ItPnByb3Rv
+IHNldCB0byB0aGUNCj4gKyAgICAgICAgKiB3cmFwcGVkIHByb3RvOiB3ZSBkbyBub3RoaW5nIGhl
+cmUuDQo+ICsgICAgICAgICovDQo+ICsNCj4gKyAgICAgICBpZiAodmxhbl9kZXYpIHsNCj4gKyAg
+ICAgICAgICAgICAgIHNrYi0+ZGV2ID0gdmxhbl9kZXY7DQo+ICsgICAgICAgfSBlbHNlIGlmICh2
+bGFuX2lkKSB7DQo+ICAgICAgICAgICAgICAgICBwcl9kZWJ1ZygiJXM6IEVSUk9SOiBObyBuZXRf
+ZGV2aWNlIGZvciBWSUQ6ICV1IG9uIGRldjogJXNcbiIsDQo+ICAgICAgICAgICAgICAgICAgICAg
+ICAgICBfX2Z1bmNfXywgdmxhbl9pZCwgZGV2LT5uYW1lKTsNCj4gICAgICAgICAgICAgICAgIGdv
+dG8gZXJyX3VubG9jazsNCj4gDQo+IA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMg
+bGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBv
+ZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9t
+byBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0K
 
-standalone 2.2.9 driver with 2.6.35-rc4 and RSS=3D0
-standalone 2.2.9 driver with 2.6.33.2 and RSS=3D0
-statically linked driver with 2.6.35-rc4 kernel
-
-all three configurations had no any problems.
-seems that IGB was fixed in 35-rc4.
-
-gonna try 2.6.34.1 with static drivers tomorrow night.
-
-
-On Mon, Jul 5, 2010 at 10:45 AM, sbs <gexlie@gmail.com> wrote:
-> I have tested 2.0.6 and 2.1.9 modules for 4 days and there were no any
-> issues detected :)
->
->
-> On Tue, Jun 29, 2010 at 8:15 PM, Alexander Duyck
-> <alexander.h.duyck@intel.com> wrote:
->> sbs wrote:
->>>
->>> We're running 2.6.33.2 kernel version.
->>> I have compiled and installed 2.0.6 and 2.1.9 modules on two our server=
-s.
->>>
->>> Strange freezes usually appears in several (1 or 2) days.
->>> So I'll let you know when it happen and what module version will be
->>> responsible for that
->>
->> Since the issue is being seen with the in-kernel driver and not the
->> standalone module one other possibility is that this could be an issue t=
-hat
->> is specific to multi-queue. =A0You can test for this by setting the RSS
->> parameter to 0 for the standalone module to enable multiple queues on the
->> 2.2.9 driver.
->
-> Thank you, I'll install 2.6.35-rc4 today on several servers with both
-> standalone(with RSS=3D0) and static driver and let you know after.
->
->>
->> One other thing you might want to try would be to test the latest release
->> candidate kernel from kernel.org. =A0This would help to tell us if this =
-is
->> still an issue in the current kernel, or an issue that is present in just
->> 2.6.33.
->>
->> Thanks,
->>
->> Alex
->>
->
-
----------------------------------------------------------------------------=
----
-This SF.net email is sponsored by Sprint
-What will you do first with EVO, the first 4G phone?
-Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
-m/community/wired
