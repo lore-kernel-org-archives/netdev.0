@@ -1,169 +1,105 @@
-From: Denis Kirjanov <kirjanov@gmail.com>
-Subject: Re: [PATCH 3/4] ll_temac: free everything on error path
-Date: Thu, 8 Jul 2010 17:56:09 +0400
-Message-ID: <AANLkTilMaITOMsn_9MmZ7-zHwpvTd2ZYjj4UUWOloYsn@mail.gmail.com>
-References: <1278591012-3213-1-git-send-email-segooon@gmail.com>
-	<AANLkTilm1b61ikLi28We3aLrF3Ld4c05oFZlh3K1pORe@mail.gmail.com>
-	<20100708134651.GA27196@shinshilla>
-Reply-To: dkirjanov@kernel.org
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next-2.6] bnx2: 64 bit stats on all arches
+Date: Thu, 8 Jul 2010 07:00:37 -0700
+Message-ID: <C27F8246C663564A84BB7AB3439772421B842BD250@IRVEXCHCCR01.corp.ad.broadcom.com>
+References: <1278583542.2651.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kernel Janitors <kernel-janitors@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Linn <john.linn@xilinx.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Brian Hill <brian.hill@xilinx.com>, netdev@vger.kernel.org
-To: Kulikov Vasiliy <segooon@gmail.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	"Matthew Carlson" <mcarlson@broadcom.com>
+To: "'Eric Dumazet'" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:64058 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753851Ab0GHN4M convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 09:56:12 -0400
-In-Reply-To: <20100708134651.GA27196@shinshilla>
+Received: from mms1.broadcom.com ([216.31.210.17]:3520 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753261Ab0GHOAt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 10:00:49 -0400
+In-Reply-To: <1278583542.2651.19.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 8, 2010 at 5:46 PM, Kulikov Vasiliy <segooon@gmail.com> wro=
-te:
-> On Thu, Jul 08, 2010 at 17:16 +0400, Denis Kirjanov wrote:
->> On Thu, Jul 8, 2010 at 4:10 PM, Kulikov Vasiliy <segooon@gmail.com> =
-wrote:
->> > temac_dma_bd_init() must free all allocated resources: memory, dma=
-, skbs.
->> >
->> > Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
->> > ---
->> > =A0drivers/net/ll_temac_main.c | =A0 30 +++++++++++++++++++++++++-=
-----
->> > =A01 files changed, 25 insertions(+), 5 deletions(-)
->> >
->> > diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_ma=
-in.c
->> > index a2da3d7..38d658a 100644
->> > --- a/drivers/net/ll_temac_main.c
->> > +++ b/drivers/net/ll_temac_main.c
->> > @@ -200,6 +200,7 @@ static int temac_dma_bd_init(struct net_device=
- *ndev)
->> > =A0 =A0 =A0 =A0struct temac_local *lp =3D netdev_priv(ndev);
->> > =A0 =A0 =A0 =A0struct sk_buff *skb;
->> > =A0 =A0 =A0 =A0int i;
->> > + =A0 =A0 =A0 int tx_bd_v_size, rx_bd_v_size;
->> >
->> > =A0 =A0 =A0 =A0lp->rx_skb =3D kzalloc(sizeof(*lp->rx_skb) * RX_BD_=
-NUM, GFP_KERNEL);
->> > =A0 =A0 =A0 =A0if (!lp->rx_skb) {
->> > @@ -209,21 +210,23 @@ static int temac_dma_bd_init(struct net_devi=
-ce *ndev)
->> > =A0 =A0 =A0 =A0}
->> > =A0 =A0 =A0 =A0/* allocate the tx and rx ring buffer descriptors. =
-*/
->> > =A0 =A0 =A0 =A0/* returns a virtual addres and a physical address.=
- */
->> > + =A0 =A0 =A0 tx_bd_v_size =3D sizeof(*lp->tx_bd_v) * TX_BD_NUM;
->> > =A0 =A0 =A0 =A0lp->tx_bd_v =3D dma_alloc_coherent(ndev->dev.parent=
-,
-> =A0 =A0 =A0 =A0 =A0 ^^^^^^^^^^^
-> =A0 =A0 =A0 =A0 =A0 =A01st
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0sizeof(*lp->tx_bd_v) * TX_BD_NUM,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 tx_bd_v_size,
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 &lp->tx_bd_p, GFP_KERNEL);
->> > =A0 =A0 =A0 =A0if (!lp->tx_bd_v) {
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev,
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"un=
-able to allocate DMA TX buffer descriptors");
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_rx_skb;
->> > =A0 =A0 =A0 =A0}
->> > + =A0 =A0 =A0 rx_bd_v_size =3D sizeof(*lp->rx_bd_v) * RX_BD_NUM;
->> > =A0 =A0 =A0 =A0lp->rx_bd_v =3D dma_alloc_coherent(ndev->dev.parent=
-,
-> =A0 =A0 =A0 =A0 =A0 ^^^^^^^^^^^
-> =A0 =A0 =A0 =A0 =A0 =A02nd
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0sizeof(*lp->rx_bd_v) * RX_BD_NUM,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0rx_bd_v_size,
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 &lp->rx_bd_p, GFP_KERNEL);
->> > =A0 =A0 =A0 =A0if (!lp->rx_bd_v) {
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev,
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"un=
-able to allocate DMA RX buffer descriptors");
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_tx_bd;
->> > =A0 =A0 =A0 =A0}
->> >
->> > =A0 =A0 =A0 =A0memset(lp->tx_bd_v, 0, sizeof(*lp->tx_bd_v) * TX_BD=
-_NUM);
->> > @@ -242,7 +245,7 @@ static int temac_dma_bd_init(struct net_device=
- *ndev)
->> >
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (skb =3D=3D 0) {
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev_err(&ndev->dev,=
- "alloc_skb error %d\n", i);
->> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err_dma_single;
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0lp->rx_skb[i] =3D skb;
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* returns physical address of skb-=
->data */
->> > @@ -274,6 +277,23 @@ static int temac_dma_bd_init(struct net_devic=
-e *ndev)
->> >
->> > =A0 =A0 =A0 =A0return 0;
->> >
->> > +err_dma_single:
->> > + =A0 =A0 =A0 for (i =3D 0; i < RX_BD_NUM; i++) {
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (lp->rx_skb[i] =3D=3D NULL)
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
->> > +
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree_skb(lp->rx_skb[i]);
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(ndev->dev.parent, l=
-p->rx_bd_v[i].phys,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 XTE_=
-MAX_JUMBO_FRAME_SIZE, DMA_FROM_DEVICE);
->> > + =A0 =A0 =A0 }
->> > +
->> > + =A0 =A0 =A0 dma_free_coherent(ndev->dev.parent, rx_bd_v_size,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->=
-rx_bd_v, lp->rx_bd_p);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-^^^^^^^^^^^
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- 2nd
->> > +err_tx_bd:
->> > + =A0 =A0 =A0 dma_free_coherent(ndev->dev.parent, tx_bd_v_size,
->> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 lp->=
-tx_bd_v, lp->tx_bd_p);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-^^^^^^^^^^^
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- 1st
->> > +err_rx_skb:
->> > + =A0 =A0 =A0 kfree(lp->rx_skb);
->> > =A0out:
->> > =A0 =A0 =A0 =A0return -ENOMEM;
->> > =A0}
->> > --
->> > 1.7.0.4
->> This is not enough. DMA resources also must be released on exit.
-> Could you point to it? I see only two variables with allocated DMA (s=
-ee above).
-> --
-I just sent a patch that fixes this.
+Eric Dumazet wrote:
 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Now core network is able to handle 64 bit netdevice stats on 32 bit
+> arches, we can provide them for bnx2, since hardware maintains some 64
+> bit counters.
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  drivers/net/bnx2.c |   22 +++++++---------------
+>  1 file changed, 7 insertions(+), 15 deletions(-)
+>
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index 22fa1e9..2975bf9 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -6589,36 +6589,28 @@ bnx2_save_stats(struct bnx2 *bp)
+>               temp_stats[i] += hw_stats[i];
+>  }
+>
+> -#define GET_64BIT_NET_STATS64(ctr)                           \
+> -     (unsigned long) ((unsigned long) (ctr##_hi) << 32) +    \
+> -     (unsigned long) (ctr##_lo)
+> +#define GET_64BIT_NET_STATS64(ctr)           \
+> +     (((u64) (ctr##_hi) << 32) + (u64) (ctr##_lo))
+>
+>  #define GET_64BIT_NET_STATS32(ctr)                           \
+>       (ctr##_lo)
+
+It seems that GET_64BIT_NET_STATS32 is no longer needed.
+Other than that,
+
+Acked-by: Michael Chan <mchan@broadcom.com>
+
+Thanks.
+
+>
+> -#if (BITS_PER_LONG == 64)
+>  #define GET_64BIT_NET_STATS(ctr)                             \
+>       GET_64BIT_NET_STATS64(bp->stats_blk->ctr) +             \
+>       GET_64BIT_NET_STATS64(bp->temp_stats_blk->ctr)
+> -#else
+> -#define GET_64BIT_NET_STATS(ctr)                             \
+> -     GET_64BIT_NET_STATS32(bp->stats_blk->ctr) +             \
+> -     GET_64BIT_NET_STATS32(bp->temp_stats_blk->ctr)
+> -#endif
+>
+>  #define GET_32BIT_NET_STATS(ctr)                             \
+>       (unsigned long) (bp->stats_blk->ctr +                   \
+>                        bp->temp_stats_blk->ctr)
+>
+> -static struct net_device_stats *
+> -bnx2_get_stats(struct net_device *dev)
+> +static struct rtnl_link_stats64 *
+> +bnx2_get_stats64(struct net_device *dev, struct
+> rtnl_link_stats64 *net_stats)
+>  {
+>       struct bnx2 *bp = netdev_priv(dev);
+> -     struct net_device_stats *net_stats = &dev->stats;
+>
+> -     if (bp->stats_blk == NULL) {
+> +     if (bp->stats_blk == NULL)
+>               return net_stats;
+> -     }
+> +
+>       net_stats->rx_packets =
+>               GET_64BIT_NET_STATS(stat_IfHCInUcastPkts) +
+>               GET_64BIT_NET_STATS(stat_IfHCInMulticastPkts) +
+> @@ -8289,7 +8281,7 @@ static const struct net_device_ops
+> bnx2_netdev_ops = {
+>       .ndo_open               = bnx2_open,
+>       .ndo_start_xmit         = bnx2_start_xmit,
+>       .ndo_stop               = bnx2_close,
+> -     .ndo_get_stats          = bnx2_get_stats,
+> +     .ndo_get_stats64        = bnx2_get_stats64,
+>       .ndo_set_rx_mode        = bnx2_set_rx_mode,
+>       .ndo_do_ioctl           = bnx2_ioctl,
+>       .ndo_validate_addr      = eth_validate_addr,
+>
+>
+>
 >
 
-
-
---=20
-Regards,
-Denis
