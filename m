@@ -1,36 +1,43 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH] cxgb4vf: remove obsolete DECLARE_PCI_UNMAP_ADDR usage
-Date: Thu, 08 Jul 2010 19:01:26 +0900
-Message-ID: <20100708190126X.fujita.tomonori@lab.ntt.co.jp>
-References: <20100708185111D.fujita.tomonori@lab.ntt.co.jp>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: leedom@chelsio.com
+From: Kulikov Vasiliy <segooon@gmail.com>
+Subject: [PATCH 1/4] ax88796: free irq on error
+Date: Thu,  8 Jul 2010 16:09:54 +0400
+Message-ID: <1278590996-3122-1-git-send-email-segooon@gmail.com>
+Cc: Paul Gortmaker <p_gortmaker@yahoo.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Julia Lawall <julia@diku.dk>, Tejun Heo <tj@kernel.org>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org
+To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:39398 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756011Ab0GHK0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 06:26:52 -0400
-In-Reply-To: <20100708185111D.fujita.tomonori@lab.ntt.co.jp>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:54488 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756450Ab0GHMKE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 08:10:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 8 Jul 2010 18:52:37 +0900
-FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+If ax_ei_open() failed we must free previously requested irq.
 
-> We could use DEFINE_DMA_UNMAP_ADDR instead but using
-> CONFIG_NEED_DMA_MAP_STATE is a simpler way to see if a platform does
-> real DMA unmapping.
-> 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> ---
->  drivers/net/cxgb4vf/sge.c |   14 +++++---------
->  1 files changed, 5 insertions(+), 9 deletions(-)
+Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+---
+ drivers/net/ax88796.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-btw, I'm not sure that seeing if a platform does real DMA unmapping in
-a driver is a good thing. But I suppose that we need to accept it if
-this leads to big performance boost.
+diff --git a/drivers/net/ax88796.c b/drivers/net/ax88796.c
+index 55c9958..20e946b 100644
+--- a/drivers/net/ax88796.c
++++ b/drivers/net/ax88796.c
+@@ -481,8 +481,10 @@ static int ax_open(struct net_device *dev)
+ 		return ret;
+ 
+ 	ret = ax_ei_open(dev);
+-	if (ret)
++	if (ret) {
++		free_irq(dev->irq, dev);
+ 		return ret;
++	}
+ 
+ 	/* turn the phy on (if turned off) */
+ 
+-- 
+1.7.0.4
 
-Both can be applied to net-next.
