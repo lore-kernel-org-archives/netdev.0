@@ -1,20 +1,22 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] netfilter: add CHECKSUM target
-Date: Fri, 9 Jul 2010 01:29:13 +0300
-Message-ID: <20100708222913.GA4475__36795.1585598805$1278628559$gmane$org@redhat.com>
+Subject: [PATCH] extensions: libipt_CHECKSUM extension
+Date: Fri, 9 Jul 2010 01:35:24 +0300
+Message-ID: <20100708223524.GA4614__33835.4504005567$1278628942$gmane$org@redhat.com>
+References: <20100708222913.GA4475@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
+To: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pek
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27320 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11061 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755665Ab0GHWfg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jul 2010 18:35:36 -0400
+	id S1755966Ab0GHWls (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jul 2010 18:41:48 -0400
 Content-Disposition: inline
+In-Reply-To: <20100708222913.GA4475@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,170 +26,143 @@ table.
 You can use this target to compute and fill in the checksum in
 an IP packet that lacks a checksum.  This is particularly useful,
 if you need to work around old applications such as dhcp clients,
-that do not work well with checksum offloads, but don't want to
-disable checksum offload in your device.
+that do not work well with checksum offloads, but don't want to disable
+checksum offload in your device.
 
 The problem happens in the field with virtualized applications.
 For reference, see Red Hat bz 605555, as well as
 http://www.spinics.net/lists/kvm/msg37660.html
 
-Typical expected use (helps old dhclient binary running in a VM):
-iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM
---checksum-fill
-
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
 
-Lightly tested. Please review for 2.6.36. Thanks!
+This patch adds userspace support for the CHECKSUM kernel module I sent previously.
 
- include/linux/netfilter_ipv4/ipt_CHECKSUM.h |   18 +++++++
- net/ipv4/netfilter/Kconfig                  |   16 ++++++
- net/ipv4/netfilter/Makefile                 |    1 +
- net/ipv4/netfilter/ipt_CHECKSUM.c           |   72 +++++++++++++++++++++++++++
- 4 files changed, 107 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/netfilter_ipv4/ipt_CHECKSUM.h
- create mode 100644 net/ipv4/netfilter/ipt_CHECKSUM.c
+ extensions/libipt_CHECKSUM.c   |  100 ++++++++++++++++++++++++++++++++++++++++
+ extensions/libipt_CHECKSUM.man |    8 +++
+ 2 files changed, 108 insertions(+), 0 deletions(-)
+ create mode 100644 extensions/libipt_CHECKSUM.c
+ create mode 100644 extensions/libipt_CHECKSUM.man
 
-diff --git a/include/linux/netfilter_ipv4/ipt_CHECKSUM.h b/include/linux/netfilter_ipv4/ipt_CHECKSUM.h
+diff --git a/extensions/libipt_CHECKSUM.c b/extensions/libipt_CHECKSUM.c
 new file mode 100644
-index 0000000..0b0f660
+index 0000000..93d3e3f
 --- /dev/null
-+++ b/include/linux/netfilter_ipv4/ipt_CHECKSUM.h
-@@ -0,0 +1,18 @@
-+/* Header file for iptables ipt_CHECKSUM target
++++ b/extensions/libipt_CHECKSUM.c
+@@ -0,0 +1,100 @@
++/* Shared library add-on to iptables for CHECKSUM
 + *
 + * (C) 2002 by Harald Welte <laforge@gnumonks.org>
-+ * (C) 2010 Red Hat Inc
++ * (C) 2010 by Red Hat, Inc
 + * Author: Michael S. Tsirkin <mst@redhat.com>
 + *
-+ * This software is distributed under GNU GPL v2, 1991
-+*/
-+#ifndef _IPT_CHECKSUM_TARGET_H
-+#define _IPT_CHECKSUM_TARGET_H
-+
-+#define IPT_CHECKSUM_OP_FILL	0x01	/* fill in checksum in IPv4 header */
-+
-+struct ipt_CHECKSUM_info {
-+	u_int8_t operation;	/* bitset of operations */
-+};
-+
-+#endif /* _IPT_CHECKSUM_TARGET_H */
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index 1833bdb..2fb979b 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -322,6 +322,22 @@ config IP_NF_TARGET_ECN
- 
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
-+config IP_NF_TARGET_CHECKSUM
-+	tristate "CHECKSUM target support"
-+	depends on IP_NF_MANGLE
-+	depends on NETFILTER_ADVANCED
-+	---help---
-+	  This option adds a `CHECKSUM' target, which can be used in the iptables mangle
-+	  table.  
-+
-+	  You can use this target to compute and fill in the checksum in
-+	  an IP packet that lacks a checksum.  This is particularly useful,
-+	  if you need to work around old applications such as dhcp clients,
-+	  that do not work well with checksum offloads, but don't want to disable
-+	  checksum offload in your device.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config IP_NF_TARGET_TTL
- 	tristate '"TTL" target support'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 4811159..d7047bb 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -55,6 +55,7 @@ obj-$(CONFIG_IP_NF_MATCH_ECN) += ipt_ecn.o
- # targets
- obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) += ipt_CLUSTERIP.o
- obj-$(CONFIG_IP_NF_TARGET_ECN) += ipt_ECN.o
-+obj-$(CONFIG_IP_NF_TARGET_CHECKSUM) += ipt_CHECKSUM.o
- obj-$(CONFIG_IP_NF_TARGET_LOG) += ipt_LOG.o
- obj-$(CONFIG_IP_NF_TARGET_MASQUERADE) += ipt_MASQUERADE.o
- obj-$(CONFIG_IP_NF_TARGET_NETMAP) += ipt_NETMAP.o
-diff --git a/net/ipv4/netfilter/ipt_CHECKSUM.c b/net/ipv4/netfilter/ipt_CHECKSUM.c
-new file mode 100644
-index 0000000..b8346a1
---- /dev/null
-+++ b/net/ipv4/netfilter/ipt_CHECKSUM.c
-@@ -0,0 +1,72 @@
-+/* iptables module for the IPv4 CHECKSUM
++ * This program is distributed under the terms of GNU GPL v2, 1991
 + *
-+ * (C) 2002 by Harald Welte <laforge@netfilter.org>
-+ * (C) 2010 Red Hat, Inc.
++ * libipt_CHECKSUM.c borrowed heavily from libipt_ECN.c
 + *
-+ * Author: Michael S. Tsirkin <mst@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+*/
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+#include <linux/in.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
++ * $Id$
++ */
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <getopt.h>
 +
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter_ipv4/ip_tables.h>
++#include <xtables.h>
 +#include <linux/netfilter_ipv4/ipt_CHECKSUM.h>
 +
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Michael S. Tsirkin <mst@redhat.com>");
-+MODULE_DESCRIPTION("Xtables: checksum modification");
-+
-+static unsigned int
-+checksum_tg(struct sk_buff *skb, const struct xt_action_param *par)
++static void CHECKSUM_help(void)
 +{
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		skb_checksum_help(skb);
-+	}
-+
-+	return XT_CONTINUE;
++	printf(
++"CHECKSUM target options\n"
++"  --checksum-fill			Fill in packet checksum.\n");
 +}
 +
-+static int checksum_tg_check(const struct xt_tgchk_param *par)
-+{
-+	const struct ipt_CHECKSUM_info *einfo = par->targinfo;
-+
-+	if (einfo->operation & ~IPT_CHECKSUM_OP_FILL) {
-+		pr_info("unsupported CHECKSUM operation %x\n", einfo->operation);
-+		return -EINVAL;
-+	}
-+	if (!einfo->operation) {
-+		pr_info("no CHECKSUM operation enabled\n");
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static struct xt_target checksum_tg_reg __read_mostly = {
-+	.name		= "CHECKSUM",
-+	.family		= NFPROTO_IPV4,
-+	.target		= checksum_tg,
-+	.targetsize	= sizeof(struct ipt_CHECKSUM_info),
-+	.table		= "mangle",
-+	.checkentry	= checksum_tg_check,
-+	.me		= THIS_MODULE,
++static const struct option CHECKSUM_opts[] = {
++	{ "checksum-fill", 0, NULL, 'F' },
++	{ .name = NULL }
 +};
 +
-+static int __init checksum_tg_init(void)
++static int CHECKSUM_parse(int c, char **argv, int invert, unsigned int *flags,
++                     const void *entry, struct xt_entry_target **target)
 +{
-+	return xt_register_target(&checksum_tg_reg);
++	unsigned int result;
++	struct ipt_CHECKSUM_info *einfo
++		= (struct ipt_CHECKSUM_info *)(*target)->data;
++
++	switch (c) {
++	case 'F':
++		if (*flags)
++			xtables_error(PARAMETER_PROBLEM,
++			        "CHECKSUM target: Only use --checksum-fill ONCE!");
++		einfo->operation = IPT_CHECKSUM_OP_FILL;
++		*flags |= IPT_CHECKSUM_OP_FILL;
++		break;
++	default:
++		return 0;
++	}
++
++	return 1;
 +}
 +
-+static void __exit checksum_tg_exit(void)
++static void CHECKSUM_check(unsigned int flags)
 +{
-+	xt_unregister_target(&checksum_tg_reg);
++	if (!flags)
++		xtables_error(PARAMETER_PROBLEM,
++		           "CHECKSUM target: Parameter --checksum-fill is required");
 +}
 +
-+module_init(checksum_tg_init);
-+module_exit(checksum_tg_exit);
++static void CHECKSUM_print(const void *ip, const struct xt_entry_target *target,
++                      int numeric)
++{
++	const struct ipt_CHECKSUM_info *einfo =
++		(const struct ipt_CHECKSUM_info *)target->data;
++
++	printf("CHECKSUM ");
++
++	if (einfo->operation & IPT_CHECKSUM_OP_FILL)
++		printf("fill ");
++}
++
++static void CHECKSUM_save(const void *ip, const struct xt_entry_target *target)
++{
++	const struct ipt_CHECKSUM_info *einfo =
++		(const struct ipt_CHECKSUM_info *)target->data;
++
++	if (einfo->operation & IPT_CHECKSUM_OP_FILL)
++		printf("--checksum-fill ");
++}
++
++static struct xtables_target checksum_tg_reg = {
++	.name		= "CHECKSUM",
++	.version	= XTABLES_VERSION,
++	.family		= NFPROTO_IPV4,
++	.size		= XT_ALIGN(sizeof(struct ipt_CHECKSUM_info)),
++	.userspacesize	= XT_ALIGN(sizeof(struct ipt_CHECKSUM_info)),
++	.help		= CHECKSUM_help,
++	.parse		= CHECKSUM_parse,
++	.final_check	= CHECKSUM_check,
++	.print		= CHECKSUM_print,
++	.save		= CHECKSUM_save,
++	.extra_opts	= CHECKSUM_opts,
++};
++
++void _init(void)
++{
++	xtables_register_target(&checksum_tg_reg);
++}
+diff --git a/extensions/libipt_CHECKSUM.man b/extensions/libipt_CHECKSUM.man
+new file mode 100644
+index 0000000..4f83335
+--- /dev/null
++++ b/extensions/libipt_CHECKSUM.man
+@@ -0,0 +1,8 @@
++This target allows to selectively work around broken/old applications.
++It can only be used in the mangle table.
++.TP
++\fB\-\-checksum\-fill\fP
++Compute and fill in the checksum in an IP packet that lacks a checksum.
++This is particularly useful, if you need to work around old applications
++such as dhcp clients, that do not work well with checksum offloads,
++but don't want to disable checksum offload in your device.
 -- 
 1.7.2.rc0.14.g41c1c
