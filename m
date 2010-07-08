@@ -1,8 +1,7 @@
 From: "Will Deacon" <will.deacon@arm.com>
-Subject: Re: [PATCH RFC 0/4] ARM/KGDB: Some fixes for SMP
-	machines
+Subject: RE: [PATCH RFC 0/4] ARM/KGDB: Some fixes for SMP machines
 Date: Thu, 8 Jul 2010 09:48:56 +0100
-Message-ID: <45011.6204367534$1278578979@news.gmane.org>
+Message-ID: <27118.9785366461$1278579013@news.gmane.org>
 References: <20100707171222.GA16448@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -13,17 +12,18 @@ Cc: netdev@vger.kernel.org, Russell King <linux@arm.linux.org.uk>,
 	Jason Wessel <jason.wessel@windriver.com>
 To: "'Anton Vorontsov'" <cbouatmailru@gmail.com>,
 	<kgdb-bugreport@lists.sourceforge.net>
-Return-path: <kgdb-bugreport-bounces@lists.sourceforge.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20100707171222.GA16448@oksana.dev.rtsoft.ru>
 Content-Language: en-gb
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
-	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=kgdb-bugreport>
-List-Post: <mailto:kgdb-bugreport@lists.sourceforge.net>
-List-Help: <mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kgdb-bugreport>,
-	<mailto:kgdb-bugreport-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: kgdb-bugreport-bounces@lists.sourceforge.net
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 Hi Anton,
@@ -50,11 +50,3 @@ http://lists.infradead.org/pipermail/linux-arm-kernel/2010-May/016567.html
 Hope that helps,
 
 Will
-
-
-
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Sprint
-What will you do first with EVO, the first 4G phone?
-Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
