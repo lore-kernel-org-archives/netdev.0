@@ -1,43 +1,56 @@
 From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH 1/4] ax88796: free irq on error
-Date: Thu,  8 Jul 2010 16:09:54 +0400
-Message-ID: <1278590996-3122-1-git-send-email-segooon@gmail.com>
-Cc: Paul Gortmaker <p_gortmaker@yahoo.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julia Lawall <julia@diku.dk>, Tejun Heo <tj@kernel.org>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org
+Subject: [PATCH 2/4] ll_temac: fix memory leak
+Date: Thu,  8 Jul 2010 16:10:03 +0400
+Message-ID: <1278591006-3156-1-git-send-email-segooon@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	John Linn <john.linn@xilinx.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Brian Hill <brian.hill@xilinx.com>, netdev@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:54488 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756450Ab0GHMKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 08:10:04 -0400
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:42704 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756577Ab0GHMKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 08:10:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If ax_ei_open() failed we must free previously requested irq.
+If of_iomap() or irq_of_parse_and_map() fail then np must be freed.
 
 Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 ---
- drivers/net/ax88796.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/ll_temac_main.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ax88796.c b/drivers/net/ax88796.c
-index 55c9958..20e946b 100644
---- a/drivers/net/ax88796.c
-+++ b/drivers/net/ax88796.c
-@@ -481,8 +481,10 @@ static int ax_open(struct net_device *dev)
- 		return ret;
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index 5bca20b..a2da3d7 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -999,19 +999,22 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
+ 			dev_dbg(&op->dev, "MEM base: %p\n", lp->sdma_regs);
+ 		} else {
+ 			dev_err(&op->dev, "unable to map DMA registers\n");
++			of_node_put(np);
+ 			goto err_iounmap;
+ 		}
+ 	}
  
- 	ret = ax_ei_open(dev);
--	if (ret)
-+	if (ret) {
-+		free_irq(dev->irq, dev);
- 		return ret;
-+	}
+ 	lp->rx_irq = irq_of_parse_and_map(np, 0);
+ 	lp->tx_irq = irq_of_parse_and_map(np, 1);
++
++	of_node_put(np); /* Finished with the DMA node; drop the reference */
++
+ 	if ((lp->rx_irq == NO_IRQ) || (lp->tx_irq == NO_IRQ)) {
+ 		dev_err(&op->dev, "could not determine irqs\n");
+ 		rc = -ENOMEM;
+ 		goto err_iounmap_2;
+ 	}
  
- 	/* turn the phy on (if turned off) */
+-	of_node_put(np); /* Finished with the DMA node; drop the reference */
  
+ 	/* Retrieve the MAC address */
+ 	addr = of_get_property(op->dev.of_node, "local-mac-address", &size);
 -- 
 1.7.0.4
 
