@@ -1,46 +1,60 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH] b44: remove unused dma_desc_align_mask
-Date: Thu, 8 Jul 2010 09:55:58 +0900
-Message-ID: <20100708095537B.fujita.tomonori@lab.ntt.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build warning after merge of the net tree
+Date: Wed, 07 Jul 2010 18:18:47 -0700 (PDT)
+Message-ID: <20100707.181847.62350965.davem@davemloft.net>
+References: <20100706142542.d723903f.sfr@canb.auug.org.au>
+	<20100707.174522.148565561.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zambrano@broadcom.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:50645 "EHLO sh.osrg.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755609Ab0GHA4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jul 2010 20:56:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, joe@perches.com, gregkh@suse.de
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100707.174522.148565561.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: David Miller <davem@davemloft.net>
+Date: Wed, 07 Jul 2010 17:45:22 -0700 (PDT)
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
----
- drivers/net/b44.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 6 Jul 2010 14:25:42 +1000
+> 
+>> After merging the net tree, today's linux-next build (powerpc
+>> ppc64_defconfig) produced these warnings:
+>> 
+>> drivers/scsi/sym53c8xx_2/sym_hipd.c: In function 'sym_print_msg':
+>> drivers/scsi/sym53c8xx_2/sym_hipd.c:78: warning: zero-length gnu_printf format string
+> 
+> Thanks Stephen I'll look into this.
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 3d52538..37617ab 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -135,7 +135,6 @@ static void b44_init_rings(struct b44 *);
- 
- static void b44_init_hw(struct b44 *, int);
- 
--static int dma_desc_align_mask;
- static int dma_desc_sync_size;
- static int instance;
- 
-@@ -2340,7 +2339,6 @@ static int __init b44_init(void)
- 	int err;
- 
- 	/* Setup paramaters for syncing RX/TX DMA descriptors */
--	dma_desc_align_mask = ~(dma_desc_align_size - 1);
- 	dma_desc_sync_size = max_t(unsigned int, dma_desc_align_size, sizeof(struct dma_desc));
- 
- 	err = b44_pci_init();
--- 
-1.6.5
+Yeah this is a bit ugly.
 
+It used to be that the dev_*() format string was CPP pasted to whatever
+format string the user gave.  So if the user gave an empty string it
+still looked like a non-empty printf string.
+
+But that no longer happens because we hide the implementation, and thus
+the top-level printf format string, in the external functions.
+
+It seems the construction:
+
+/*
+ * Stupid hackaround for existing uses of non-printk uses dev_info
+ *
+ * Note that the definition of dev_info below is actually _dev_info
+ * and a macro is used to avoid redefining dev_info
+ */
+
+#define dev_info(dev, fmt, arg...) _dev_info(dev, fmt, ##arg)
+
+added to linux/device.h was meant to handle these cases, but as we see
+it doesn't.
+
+It looks like there are just a hand-ful of cases, so maybe we can tweak
+them by hand.  For example, in the sym53c8xx_2 driver bits we can replace
+the NULL labels passed to sym_print_msg() with a real string and therefore
+remove the "" case.
+
+Joe, any better ideas?
