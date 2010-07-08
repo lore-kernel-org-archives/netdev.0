@@ -1,92 +1,303 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v3] vlan: allow TSO setting on vlan interfaces
-Date: Thu, 08 Jul 2010 19:25:48 +0100
-Message-ID: <1278613548.16013.193.camel@achroite.uk.solarflarecom.com>
-References: <1278522874.5906.9.camel@edumazet-laptop>
-	 <1278523511.2080.3.camel@achroite.uk.solarflarecom.com>
-	 <1278571587.2543.9.camel@edumazet-laptop>
-	 <1278581971.2651.10.camel@edumazet-laptop>
-	 <1278603804.16013.24.camel@achroite.uk.solarflarecom.com>
-	 <1278604985.2651.35.camel@edumazet-laptop>
-	 <1278607037.2651.57.camel@edumazet-laptop>
+From: "Choi, David" <David.Choi@Micrel.Com>
+Subject: RE: [PATCH linux-2.6.35-rc3] ks8842 driver
+Date: Thu, 8 Jul 2010 12:01:51 -0700
+Message-ID: <C43529A246480145B0A6D0234BDB0F0D481D67@MELANITE.micrel.com>
+References: <C43529A246480145B0A6D0234BDB0F0D0212A4@MELANITE.micrel.com> <20100708075245.GA21371@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "Li, Charles" <Charles.Li@Micrel.Com>
+To: "Simon Horman" <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:5188 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754075Ab0GHSZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 14:25:52 -0400
-In-Reply-To: <1278607037.2651.57.camel@edumazet-laptop>
+Received: from p01c12o145.mxlogic.net ([208.65.145.68]:51725 "EHLO
+	p01c12o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757106Ab0GHTCD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 15:02:03 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20100708075245.GA21371@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-07-08 at 18:37 +0200, Eric Dumazet wrote:
-> When we need to shape traffic using low speeds, we need to
-> disable tso on network interface :
-> 
-> ethtool -K eth0.2240 tso off
-> 
-> It seems vlan interfaces miss the set_tso() ethtool method.
-> 
-> Before enabling TSO, we must check real device supports 
-> TSO for VLAN-tagged packets and enables TSO.
-> 
-> Note that a TSO change on real device propagates TSO setting
-> on all vlans, even if admin selected a different TSO setting.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Hi Simon,
 
-> ---
->  net/8021q/vlan_dev.c |   20 ++++++++++++++++++++
->  1 file changed, 20 insertions(+)
+Thank you for your comments.
+
+The original ks8842 driver is designed to work on the customized bus
+interface based on an FPGA. This patch is intended to address the more
+commonly used generic bus interface available on the majority of SoC in
+the market.
+
+It is unlikely that for a system to use both FPGA based and generic bus
+interface for ks8842, I am quite certain that those 2 devices are used
+mutual exclusively.
+
+Regards,
+David J. Choi
+
+
+-----Original Message-----
+From: Simon Horman [mailto:horms@verge.net.au] 
+Sent: Thursday, July 08, 2010 12:53 AM
+To: Choi, David
+Cc: netdev@vger.kernel.org; Li, Charles
+Subject: Re: [PATCH linux-2.6.35-rc3] ks8842 driver
+
+On Wed, Jul 07, 2010 at 08:24:33AM -0700, Choi, David wrote:
+> To whom it may have concerned,
 > 
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index 7865a4c..a1b8171 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -836,12 +836,32 @@ static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, st
->  	return stats;
+> It seems that there are differences between Micrel ks8842 device and
+Timberdale FPGA based device with generic bus interface. In order to
+check the differences, I have sent several times but have not received
+any response. This patch is to support ks8841/ks8842 device from Micrel.
+
+Is it desirable that the code can never be compiled to work with both
+devices?
+Is this code likely to be included in a generic/distro kernel?
+
+> 
+> From: David J. Choi <david.choi@micrel.com>
+> 
+> Body of the explanation: 
+>    -support 16bit and 32bit bus width.
+>    -add device reset for ks8842/8841 Micrel device.
+>    -set 100Mbps as a default for Micrel device.
+>    -set MAC address in both MAC/Switch layer with different sequence
+for Micrel device, 
+>     as mentioned in data sheet.
+> 
+> Signed-off-by: David J. Choi <david.choi@micrel.com>
+> 
+> ---
+> --- linux-2.6.35-rc3/drivers/net/ks8842.c.orig	2010-07-01
+16:26:50.000000000 -0700
+> +++ linux-2.6.35-rc3/drivers/net/ks8842.c	2010-07-07
+07:41:03.000000000 -0700
+> @@ -18,6 +18,7 @@
+>  
+>  /* Supports:
+>   * The Micrel KS8842 behind the timberdale FPGA
+> + * The genuine Micrel KS8841/42 device with ISA 16/32bit bus
+interface
+>   */
+>  
+>  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> @@ -191,6 +192,12 @@ static inline u32 ks8842_read32(struct k
+>  
+>  static void ks8842_reset(struct ks8842_adapter *adapter)
+>  {
+> +#ifdef CONFIG_MICREL_KS884X
+> +	ks8842_write16(adapter, 3, 1, REG_GRR);
+> +	msleep(10);
+> +	iowrite16(0, adapter->hw_addr + REG_GRR);
+> +
+> +#else
+>  	/* The KS8842 goes haywire when doing softare reset
+>  	 * a work around in the timberdale IP is implemented to
+>  	 * do a hardware reset instead
+> @@ -201,6 +208,7 @@ static void ks8842_reset(struct ks8842_a
+>  	iowrite16(32, adapter->hw_addr + REG_SELECT_BANK);
+>  	iowrite32(0x1, adapter->hw_addr + REG_TIMB_RST);
+>  	msleep(20);
+> +#endif
 >  }
 >  
-> +static int vlan_ethtool_set_tso(struct net_device *dev, u32 data)
-> +{
-> +       if (data) {
-> +		struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
-> +
-> +		/* Underlying device must support TSO for VLAN-tagged packets
-> +		 * and must have TSO enabled now.
-> +		 */
-> +		if (!(real_dev->vlan_features & NETIF_F_TSO))
-> +			return -EOPNOTSUPP;
-> +		if (!(real_dev->features & NETIF_F_TSO))
-> +			return -EINVAL;
-> +		dev->features |= NETIF_F_TSO;
-> +	} else {
-> +		dev->features &= ~NETIF_F_TSO;
-> +	}
-> +	return 0;
-> +}
-> +
->  static const struct ethtool_ops vlan_ethtool_ops = {
->  	.get_settings	        = vlan_ethtool_get_settings,
->  	.get_drvinfo	        = vlan_ethtool_get_drvinfo,
->  	.get_link		= ethtool_op_get_link,
->  	.get_rx_csum		= vlan_ethtool_get_rx_csum,
->  	.get_flags		= vlan_ethtool_get_flags,
-> +	.set_tso                = vlan_ethtool_set_tso,
->  };
+>  static void ks8842_update_link_status(struct net_device *netdev,
+> @@ -269,8 +277,11 @@ static void ks8842_reset_hw(struct ks884
 >  
->  static const struct net_device_ops vlan_netdev_ops = {
-> 
-> 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+>  	/* restart port auto-negotiation */
+>  	ks8842_enable_bits(adapter, 49, 1 << 13, REG_P1CR4);
+> +
+> +#ifndef CONFIG_MICREL_KS884X
+>  	/* only advertise 10Mbps */
+>  	ks8842_clear_bits(adapter, 49, 3 << 2, REG_P1CR4);
+> +#endif
+>  
+>  	/* Enable the transmitter */
+>  	ks8842_enable_tx(adapter);
+> @@ -296,6 +307,20 @@ static void ks8842_read_mac_addr(struct 
+>  	for (i = 0; i < ETH_ALEN; i++)
+>  		dest[ETH_ALEN - i - 1] = ks8842_read8(adapter, 2,
+REG_MARL + i);
+>  
+> +#ifdef CONFIG_MICREL_KS884X
+> +	/*
+> +		the sequence of saving mac addr between MAC and Switch
+is
+> +		different.
+> +	*/
+> +
+> +	mac = ks8842_read16(adapter, 2, REG_MARL);
+> +	ks8842_write16(adapter, 39, mac, REG_MACAR3);
+> +	mac = ks8842_read16(adapter, 2, REG_MARM);
+> +	ks8842_write16(adapter, 39, mac, REG_MACAR2);
+> +	mac = ks8842_read16(adapter, 2, REG_MARH);
+> +	ks8842_write16(adapter, 39, mac, REG_MACAR1);
+> +#else
+> +
+>  	/* make sure the switch port uses the same MAC as the QMU */
+>  	mac = ks8842_read16(adapter, 2, REG_MARL);
+>  	ks8842_write16(adapter, 39, mac, REG_MACAR1);
+> @@ -303,6 +328,7 @@ static void ks8842_read_mac_addr(struct 
+>  	ks8842_write16(adapter, 39, mac, REG_MACAR2);
+>  	mac = ks8842_read16(adapter, 2, REG_MARH);
+>  	ks8842_write16(adapter, 39, mac, REG_MACAR3);
+> +#endif
+>  }
+>  
+>  static void ks8842_write_mac_addr(struct ks8842_adapter *adapter, u8
+*mac)
+> @@ -313,8 +339,13 @@ static void ks8842_write_mac_addr(struct
+>  	spin_lock_irqsave(&adapter->lock, flags);
+>  	for (i = 0; i < ETH_ALEN; i++) {
+>  		ks8842_write8(adapter, 2, mac[ETH_ALEN - i - 1],
+REG_MARL + i);
+> +#ifdef CONFIG_MICREL_KS884X
+> +		ks8842_write8(adapter, 39, mac[ETH_ALEN - i - 1],
+> +			REG_MACAR3 + 1 - i);
+> +#else
+>  		ks8842_write8(adapter, 39, mac[ETH_ALEN - i - 1],
+>  			REG_MACAR1 + i);
+> +#endif
+>  	}
+>  	spin_unlock_irqrestore(&adapter->lock, flags);
+>  }
+> @@ -328,8 +359,12 @@ static int ks8842_tx_frame(struct sk_buf
+>  {
+>  	struct ks8842_adapter *adapter = netdev_priv(netdev);
+>  	int len = skb->len;
+> +#ifdef CONFIG_KS884X_16BIT
+> +	u16 *ptr16 = (u16 *)skb->data;
+> +#else
+>  	u32 *ptr = (u32 *)skb->data;
+>  	u32 ctrl;
+> +#endif
+>  
+>  	dev_dbg(&adapter->pdev->dev,
+>  		"%s: len %u head %p data %p tail %p end %p\n",
+> @@ -340,6 +375,18 @@ static int ks8842_tx_frame(struct sk_buf
+>  	if (ks8842_tx_fifo_space(adapter) < len + 8)
+>  		return NETDEV_TX_BUSY;
+>  
+> +#ifdef CONFIG_KS884X_16BIT
+> +	ks8842_write16(adapter, 17, 0x8000 | 0x100, REG_QMU_DATA_LO);
+> +	ks8842_write16(adapter, 17, (u16)len, REG_QMU_DATA_HI);
+> +	netdev->stats.tx_bytes += len;
+> +
+> +	/* copy buffer */
+> +	while (len > 0) {
+> +		iowrite16(*ptr16++, adapter->hw_addr + REG_QMU_DATA_LO);
+> +		iowrite16(*ptr16++, adapter->hw_addr + REG_QMU_DATA_HI);
+> +		len -= sizeof(u32);
+> +	}
+> +#else
+>  	/* the control word, enable IRQ, port 1 and the length */
+>  	ctrl = 0x8000 | 0x100 | (len << 16);
+>  	ks8842_write32(adapter, 17, ctrl, REG_QMU_DATA_LO);
+> @@ -352,6 +399,7 @@ static int ks8842_tx_frame(struct sk_buf
+>  		len -= sizeof(u32);
+>  		ptr++;
+>  	}
+> +#endif
+>  
+>  	/* enqueue packet */
+>  	ks8842_write16(adapter, 17, 1, REG_TXQCR);
+> @@ -364,10 +412,15 @@ static int ks8842_tx_frame(struct sk_buf
+>  static void ks8842_rx_frame(struct net_device *netdev,
+>  	struct ks8842_adapter *adapter)
+>  {
+> +#ifdef CONFIG_KS884X_16BIT
+> +	u16 status = ks8842_read16(adapter, 17, REG_QMU_DATA_LO);
+> +	int len  = (int)ks8842_read16(adapter, 17, REG_QMU_DATA_HI) &
+0xffff;
+> +#else
+>  	u32 status = ks8842_read32(adapter, 17, REG_QMU_DATA_LO);
+>  	int len = (status >> 16) & 0x7ff;
+>  
+>  	status &= 0xffff;
+> +#endif
+>  
+>  	dev_dbg(&adapter->pdev->dev, "%s - rx_data: status: %x\n",
+>  		__func__, status);
+> @@ -379,13 +432,28 @@ static void ks8842_rx_frame(struct net_d
+>  		dev_dbg(&adapter->pdev->dev, "%s, got package, len:
+%d\n",
+>  			__func__, len);
+>  		if (skb) {
+> +#ifdef CONFIG_KS884X_16BIT
+> +			u16 *data16;
+> +#else
+>  			u32 *data;
+> +#endif
+>  
+>  			netdev->stats.rx_packets++;
+>  			netdev->stats.rx_bytes += len;
+>  			if (status & RXSR_MULTICAST)
+>  				netdev->stats.multicast++;
+>  
+> +#ifdef CONFIG_KS884X_16BIT
+> +			data16 = (u16 *)skb_put(skb, len);
+> +			ks8842_select_bank(adapter, 17);
+> +			while (len > 0) {
+> +				*data16++ = ioread16(adapter->hw_addr +
+> +					REG_QMU_DATA_LO);
+> +				*data16++ = ioread16(adapter->hw_addr +
+> +					REG_QMU_DATA_HI);
+> +				len -= sizeof(u32);
+> +			}
+> +#else
+>  			data = (u32 *)skb_put(skb, len);
+>  
+>  			ks8842_select_bank(adapter, 17);
+> @@ -397,6 +465,7 @@ static void ks8842_rx_frame(struct net_d
+>  
+>  			skb->protocol = eth_type_trans(skb, netdev);
+>  			netif_rx(skb);
+> +#endif
+>  		} else
+>  			netdev->stats.rx_dropped++;
+>  	} else {
+> --- linux-2.6.35-rc3/drivers/net/Kconfig.orig	2010-07-02
+15:52:41.000000000 -0700
+> +++ linux-2.6.35-rc3/drivers/net/Kconfig	2010-07-07
+07:45:47.000000000 -0700
+> @@ -1748,11 +1748,29 @@ config TLAN
+>  	  Please email feedback to <torben.mathiasen@compaq.com>.
+>  
+>  config KS8842
+> -	tristate "Micrel KSZ8842"
+> +	tristate "Micrel KSZ8841/42 with generic bus interface"
+>  	depends on HAS_IOMEM
+>  	help
+> -	  This platform driver is for Micrel KSZ8842 / KS8842
+> -	  2-port ethernet switch chip (managed, VLAN, QoS).
+> +	  This platform driver is for KSZ8841(1-port) / KS8842(2-port) 
+> +	  ethernet switch chip (managed, VLAN, QoS) from Micrel or
+> +	  Timberdale(FPGA).
+> +
+> +if KS8842
+> +config MICREL_KS884X
+> +	boolean "KSZ8841/42 device from Micrel"
+> +	default n
+> +	help
+> +	  Say Y to use Micrel device. Otherwise Timberdale(FPGA) device
+is 
+> +	  selected.
+> +
+> +config KS884X_16BIT
+> +	boolean "16bit bus width"
+> +	default y
+> +	help
+> +	  This option specifies 16bit or 32bit bus interface. Say Y to
+use 
+> +	  16bit bus. Otherwise 32bit bus is selected.
+> +
+> +endif # KS8842
+>  
+>  config KS8851
+>         tristate "Micrel KS8851 SPI"
+> ---
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
