@@ -1,61 +1,68 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] sysfs: Don't allow the creation of symlinks we can't
- remove
-Date: Thu, 8 Jul 2010 14:19:30 -0700
-Message-ID: <20100708211930.GA15385@kroah.com>
-References: <bug-16257-10286@https.bugzilla.kernel.org/>
- <20100621150826.762ac9f2.akpm@linux-foundation.org>
- <m1mxuodo0n.fsf@fess.ebiederm.org>
- <20100621222938.GA20583@suse.de>
- <m1eig0dmhk.fsf@fess.ebiederm.org>
- <20100621231058.GA1066@suse.de>
- <m14ogwc4ou.fsf@fess.ebiederm.org>
- <20100622035631.GA3755@suse.de>
- <m1630q7x5v.fsf_-_@fess.ebiederm.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 16350] New: RTL8103EL interface new tcp
+ connections get stuck on SYN_SENT state after 10 hours uptime
+Date: Thu, 8 Jul 2010 14:25:26 -0700
+Message-ID: <20100708142526.5bf5938e.akpm@linux-foundation.org>
+References: <bug-16350-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>, zic422@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:58535 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756874Ab0GHVTe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jul 2010 17:19:34 -0400
-Content-Disposition: inline
-In-Reply-To: <m1630q7x5v.fsf_-_@fess.ebiederm.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:46243 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756874Ab0GHV1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 17:27:06 -0400
+In-Reply-To: <bug-16350-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 08, 2010 at 09:31:24AM -0700, Eric W. Biederman wrote:
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Wed, 7 Jul 2010 14:04:59 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=16350
 > 
-> Recently my tagged sysfs support revealed a flaw in the device core
-> that a few rare drivers are running into such that we don't always put
-> network devices in a class subdirectory named net/.
+>            Summary: RTL8103EL interface new tcp connections get stuck on
+>                     SYN_SENT state after 10 hours uptime
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.34.1
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: zic422@gmail.com
+>         Regression: No
 > 
-> Since we are not creating the class directory the network devices wind
-> up in a non-tagged directory, but the symlinks to the network devices
-> from /sys/class/net are in a tagged directory.  All of which works
-> until we go to remove or rename the symlink.  When we remove or rename
-> a symlink we look in the namespace of the target of the symlink.
-> Since the target of the symlink is in a non-tagged sysfs directory we
-> don't have a namespace to look in, and we fail to remove the symlink.
 > 
-> Detect this problem up front and simply don't create symlinks we won't
-> be able to remove later.  This prevents symlink leakage and fails in
-> a much clearer and more understandable way.
+> Created an attachment (id=27038)
+>  --> (https://bugzilla.kernel.org/attachment.cgi?id=27038)
+> ioports, iomem, lspci, ver_linux and kernel config
+> 
+> After 9-11 hours uptime network interface of RTL8103EL card cannot make new tcp
+> connections to internet and correctly close existing ones. ICMP and UDP works
+> fine. Besides r8169 driver I tried also the r8101-1.015.00 one from realtek
+> site with older kernel and bug were in place.
+> 
+> Connections inside home network work normally. I tried to reboot router but 
+> nor reconnecting ethernet cable nor restarting network daemon nor reloading
+> kernel module does not make any help. Bug disappears only after rebooting my
+> pc.
+> 
+> repeatability of bug is 100% on arch, debian and gentoo
+> 
+> default kernel config
+> 
+> http://bugs.archlinux.org/task/19162  (this bug)
 
-With this patch, how does the existing code fail as the drivers aren't
-fixed up?
-
-I like this change, just worried it will cause problems if it gets into
-.35, without your RFC patch.  Will it?
-
-thanks,
-
-greg k-h
