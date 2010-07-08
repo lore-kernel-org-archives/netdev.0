@@ -1,84 +1,62 @@
-From: Denis Kirjanov <dkirjanov@hera.kernel.org>
-Subject: [PATCH v2 -net-2.6] ll_temac: fix DMA resources leak
-Date: Thu, 8 Jul 2010 20:24:51 +0000
-Message-ID: <20100708202451.GA4062@hera.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw
+ HIDIOCGFEATURE and HIDIOCSFEATURE
+Date: Thu, 08 Jul 2010 18:08:52 -0300
+Message-ID: <1278623332.10421.71.camel@localhost.localdomain>
+References: <1276467601-9066-1-git-send-email-alan@signal11.us>
+	 <20100628131437.bde782b6.ospite@studenti.unina.it>
+	 <20100629.001216.91341775.davem@davemloft.net>
+	 <AANLkTiktvYWdZmpQs_k7mJRqMCqgfhy1b0T8tX8emmtU@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: segooon@gmail.com, john.linn@xilinx.com, brian.hill@xilinx.com,
-	grant.likely@secretlab.ca, jpirko@redhat.com,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ospite@studenti.unina.it,
+	alan@signal11.us, jkosina@suse.cz, mdpoole@troilus.org,
+	hadess@hadess.net, eric.dumazet@gmail.com,
+	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: davem@davemloft.net
+To: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:54878 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752152Ab0GHUZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jul 2010 16:25:06 -0400
-Content-Disposition: inline
+Received: from senator.holtmann.net ([87.106.208.187]:51234 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758626Ab0GHVLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 17:11:41 -0400
+In-Reply-To: <AANLkTiktvYWdZmpQs_k7mJRqMCqgfhy1b0T8tX8emmtU@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V2: Check pointers before releasing resources.
+Hi Andrei,
 
-Fix DMA resources leak.
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
----
- 1 files changed, 32 insertions(+), 0 deletions(-)
+> >> On Sun, 13 Jun 2010 18:20:01 -0400
+> >> Alan Ott <alan@signal11.us> wrote:
+> >>
+> >>> This patch adds support or getting and setting feature reports for bluetooth
+> >>> HID devices from HIDRAW.
+> >>>
+> >>> Signed-off-by: Alan Ott <alan@signal11.us>
+> >>> ---
+> >>
+> >> Ping.
+> >
+> > We effectively don't have a bluetooth maintainer at the current point
+> > in time.  I've tried to let patches sit for a while hoping the listed
+> > maintainer would do something, at least occaisionally, but that simply
+> > isn't happening.
+> > So I'll just pick patches up directly as I find time to review them,
+> > but I have to warn that for me it's going to be done in a very low
+> > priority way because I really don't find bluetooth all that exciting. :-)
+> 
+> This would be good. We have a backlog of bluetooth kernel patches
+> waiting for several months.
+> This takes too much time to return to them again and again...
+> 
+> Please keep this ML informed.
 
-diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-index fa303c8..b57d0ff 100644
---- a/drivers/net/ll_temac_main.c
-+++ b/drivers/net/ll_temac_main.c
-@@ -193,6 +193,35 @@ static int temac_dcr_setup(struct temac_local *lp, struct of_device *op,
- #endif
- 
- /**
-+ *  * temac_dma_bd_release - Release buffer descriptor rings
-+ */
-+static void temac_dma_bd_release(struct net_device *ndev)
-+{
-+	struct temac_local *lp = netdev_priv(ndev);
-+	int i;
-+
-+	for (i = 0; i < RX_BD_NUM; i++) {
-+		if (!lp->rx_skb[i])
-+			break;
-+		else {
-+			dma_unmap_single(ndev->dev.parent, lp->rx_bd_v[i].phys,
-+					XTE_MAX_JUMBO_FRAME_SIZE, DMA_FROM_DEVICE);
-+			dev_kfree_skb(lp->rx_skb[i]);
-+		}
-+	}
-+	if (lp->rx_bd_v)
-+		dma_free_coherent(ndev->dev.parent,
-+				sizeof(*lp->rx_bd_v) * RX_BD_NUM,
-+				lp->rx_bd_v, lp->rx_bd_p);
-+	if (lp->tx_bd_v)
-+		dma_free_coherent(ndev->dev.parent,
-+				sizeof(*lp->tx_bd_v) * TX_BD_NUM,
-+				lp->tx_bd_v, lp->tx_bd_p);
-+	if (lp->rx_skb)
-+		kfree(lp->rx_skb);
-+}
-+
-+/**
-  * temac_dma_bd_init - Setup buffer descriptor rings
-  */
- static int temac_dma_bd_init(struct net_device *ndev)
-@@ -275,6 +304,7 @@ static int temac_dma_bd_init(struct net_device *ndev)
- 	return 0;
- 
- out:
-+	temac_dma_bd_release(ndev);
- 	return -ENOMEM;
- }
- 
-@@ -858,6 +888,8 @@ static int temac_stop(struct net_device *ndev)
- 		phy_disconnect(lp->phy_dev);
- 	lp->phy_dev = NULL;
- 
-+	temac_dma_bd_release(ndev);
-+
- 	return 0;
- }
- 
+as soon as Ville is back from vacation, he should be helping out with
+patch review and maintenance.
+
+Regards
+
+Marcel
+
+
