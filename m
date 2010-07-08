@@ -1,57 +1,84 @@
-From: Christophe Ngo Van Duc <cngovanduc@gmail.com>
-Subject: Re: bnx2/5709: Strange interrupts spread
-Date: Thu, 8 Jul 2010 17:06:44 -0300
-Message-ID: <AANLkTim3_Gge_neL1v5VTWH-k1x6oAqZVNpu7GFs5nGl@mail.gmail.com>
-References: <AANLkTiniNNPV9ztxXHtX4np7PIZabkm0I4v5O29chf8i@mail.gmail.com>
-	<1278104311.11828.12.camel@HP1>
-	<AANLkTimTcqANb3HQuC1W6VHWTh0ixO1lXAmVrmP6OZy2@mail.gmail.com>
-	<AANLkTillLjztYe7mmyO_LoTXavDtTd2nsaAsd22z0dG-@mail.gmail.com>
-	<4C326318.8050006@hp.com>
+From: Denis Kirjanov <dkirjanov@hera.kernel.org>
+Subject: [PATCH v2 -net-2.6] ll_temac: fix DMA resources leak
+Date: Thu, 8 Jul 2010 20:24:51 +0000
+Message-ID: <20100708202451.GA4062@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: segooon@gmail.com, john.linn@xilinx.com, brian.hill@xilinx.com,
+	grant.likely@secretlab.ca, jpirko@redhat.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60645 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752438Ab0GHUGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 16:06:46 -0400
-Received: by wyf23 with SMTP id 23so901411wyf.19
-        for <netdev@vger.kernel.org>; Thu, 08 Jul 2010 13:06:44 -0700 (PDT)
-In-Reply-To: <4C326318.8050006@hp.com>
+Received: from hera.kernel.org ([140.211.167.34]:54878 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752152Ab0GHUZG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jul 2010 16:25:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Traffic is IP no doubt about that. Lots of TCP and UDP traffic. I can
-provide a very short pcap if you want (lots of traffic so pcap can be
-big really quickly).
+V2: Check pointers before releasing resources.
 
-- The 2 interfaces that have this problems are running in promiscuous
-mode (without having an assiged IP address to the interface) inside a
-linux bridge interface (br0), but the traffic that is bridged is IP.
+Fix DMA resources leak.
+Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+---
+ 1 files changed, 32 insertions(+), 0 deletions(-)
 
-- The other 2 that works correctly: are not in promiscuous and have an
-IP assigned to the network card.
-
-So I am thinking that for some reason the RSS is activating only when
-a specific configuration is set on the interface but not just on if it
-is IP traffic or not.
-
-Best Regards,
-Christophe.
-
-On Mon, Jul 5, 2010 at 7:56 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> Christophe Ngo Van Duc wrote:
->>
->> Is it a requirement that the interface has an IP address for the TX
->> and RX hash to work?
->
-> At the risk of typing into Michael's keyboard, chances are, what the NIC
-> does is follow Microsoft's specs for RSS, which as far as I can tell,
-> discusses hashing either just on the IP addresses (v4 or v6) or the IP
-> addresses and TCP port numbers, so unless Broadcom has an
-> enhancement/extension, if the traffic arriving is not TCP/IP and not
-> multiple connections, it probably does not get spread-out.
->
-> rick jones
->
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index fa303c8..b57d0ff 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -193,6 +193,35 @@ static int temac_dcr_setup(struct temac_local *lp, struct of_device *op,
+ #endif
+ 
+ /**
++ *  * temac_dma_bd_release - Release buffer descriptor rings
++ */
++static void temac_dma_bd_release(struct net_device *ndev)
++{
++	struct temac_local *lp = netdev_priv(ndev);
++	int i;
++
++	for (i = 0; i < RX_BD_NUM; i++) {
++		if (!lp->rx_skb[i])
++			break;
++		else {
++			dma_unmap_single(ndev->dev.parent, lp->rx_bd_v[i].phys,
++					XTE_MAX_JUMBO_FRAME_SIZE, DMA_FROM_DEVICE);
++			dev_kfree_skb(lp->rx_skb[i]);
++		}
++	}
++	if (lp->rx_bd_v)
++		dma_free_coherent(ndev->dev.parent,
++				sizeof(*lp->rx_bd_v) * RX_BD_NUM,
++				lp->rx_bd_v, lp->rx_bd_p);
++	if (lp->tx_bd_v)
++		dma_free_coherent(ndev->dev.parent,
++				sizeof(*lp->tx_bd_v) * TX_BD_NUM,
++				lp->tx_bd_v, lp->tx_bd_p);
++	if (lp->rx_skb)
++		kfree(lp->rx_skb);
++}
++
++/**
+  * temac_dma_bd_init - Setup buffer descriptor rings
+  */
+ static int temac_dma_bd_init(struct net_device *ndev)
+@@ -275,6 +304,7 @@ static int temac_dma_bd_init(struct net_device *ndev)
+ 	return 0;
+ 
+ out:
++	temac_dma_bd_release(ndev);
+ 	return -ENOMEM;
+ }
+ 
+@@ -858,6 +888,8 @@ static int temac_stop(struct net_device *ndev)
+ 		phy_disconnect(lp->phy_dev);
+ 	lp->phy_dev = NULL;
+ 
++	temac_dma_bd_release(ndev);
++
+ 	return 0;
+ }
+ 
