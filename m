@@ -1,129 +1,133 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v4 1/9] atm: propagate signal changes via notifier
-Date: Thu,  8 Jul 2010 10:34:47 +0200
-Message-ID: <1278578095-25324-2-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v4 2/9] atm/br2684: register notifier event for carrier signal changes.
+Date: Thu,  8 Jul 2010 10:34:48 +0200
+Message-ID: <1278578095-25324-3-git-send-email-karl@hiramoto.org>
 References: <1278578095-25324-1-git-send-email-karl@hiramoto.org>
 Cc: Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcagg.dreamhost.com ([208.97.132.66]:57465 "EHLO
+Received: from caiajhbdcbbj.dreamhost.com ([208.97.132.119]:57475 "EHLO
 	homiemail-a36.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754984Ab0GHIfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 04:35:05 -0400
+	by vger.kernel.org with ESMTP id S1755041Ab0GHIfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 04:35:08 -0400
 In-Reply-To: <1278578095-25324-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add notifier chain for changes in atm_dev.
-
-Clients like br2684 will call register_atmdevice_notifier() to be notified of
-changes. Drivers will call atm_dev_signal_change() to notify clients like
-br2684 of the change.
-
-On DSL and ATM devices it's usefull to have a know if you have a carrier
-signal. netdevice LOWER_UP changes can be propagated to userspace via netlink
-monitor.
+When a signal change event occurs call netif_carrier_on/off.
 
 Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
- include/linux/atmdev.h |   20 ++++++++++++++++++++
- net/atm/common.c       |   30 ++++++++++++++++++++++++++++++
- 2 files changed, 50 insertions(+), 0 deletions(-)
+ net/atm/br2684.c |   66 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 64 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
-index 817b237..649dd24 100644
---- a/include/linux/atmdev.h
-+++ b/include/linux/atmdev.h
-@@ -431,6 +431,15 @@ struct atm_dev *atm_dev_register(const char *type,const struct atmdev_ops *ops,
-     int number,unsigned long *flags); /* number == -1: pick first available */
- struct atm_dev *atm_dev_lookup(int number);
- void atm_dev_deregister(struct atm_dev *dev);
-+
-+/*
-+ * atm_dev_signal_change
-+ *
-+ * Propagate lower layer signal change in atm_dev->signal to netdevice.
-+ * The event will be sent via a notifier call chain.
-+ */
-+void atm_dev_signal_change(struct atm_dev *dev, char signal);
-+
- void vcc_insert_socket(struct sock *sk);
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 6719af6..651babd 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -139,6 +139,43 @@ static struct net_device *br2684_find_dev(const struct br2684_if_spec *s)
+ 	return NULL;
+ }
  
- 
-@@ -510,6 +519,17 @@ void register_atm_ioctl(struct atm_ioctl *);
-  */
- void deregister_atm_ioctl(struct atm_ioctl *);
- 
++static int atm_dev_event(struct notifier_block *this, unsigned long event,
++		 void *arg)
++{
++	struct atm_dev *atm_dev = arg;
++	struct list_head *lh;
++	struct net_device *net_dev;
++	struct br2684_vcc *brvcc;
++	struct atm_vcc *atm_vcc;
++	unsigned long flags;
 +
++	pr_debug("event=%ld dev=%p\n", event, atm_dev);
 +
-+/*
-+ * register_atmdevice_notifier - register atm_dev notify events
-+ *
-+ * Clients like br2684 will register notify events
-+ * Currently we notify of signal found/lost
-+ */
-+int register_atmdevice_notifier(struct notifier_block *nb);
-+void unregister_atmdevice_notifier(struct notifier_block *nb);
++	read_lock_irqsave(&devs_lock, flags);
++	list_for_each(lh, &br2684_devs) {
++		net_dev = list_entry_brdev(lh);
 +
- #endif /* __KERNEL__ */
++		list_for_each_entry(brvcc, &BRPRIV(net_dev)->brvccs, brvccs) {
++			atm_vcc = brvcc->atmvcc;
++			if (atm_vcc && brvcc->atmvcc->dev == atm_dev) {
++
++				if (atm_vcc->dev->signal == ATM_PHY_SIG_LOST)
++					netif_carrier_off(net_dev);
++				else
++					netif_carrier_on(net_dev);
++
++			}
++		}
++	}
++	read_unlock_irqrestore(&devs_lock, flags);
++
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block atm_dev_notifier = {
++	.notifier_call = atm_dev_event,
++};
++
+ /* chained vcc->pop function.  Check if we should wake the netif_queue */
+ static void br2684_pop(struct atm_vcc *vcc, struct sk_buff *skb)
+ {
+@@ -362,6 +399,12 @@ static void br2684_push(struct atm_vcc *atmvcc, struct sk_buff *skb)
+ 			unregister_netdev(net_dev);
+ 			free_netdev(net_dev);
+ 		}
++		read_lock_irq(&devs_lock);
++		if (list_empty(&br2684_devs)) {
++			/* last br2684 device */
++			unregister_atmdevice_notifier(&atm_dev_notifier);
++		}
++		read_unlock_irq(&devs_lock);
+ 		return;
+ 	}
  
+@@ -530,6 +573,13 @@ static int br2684_regvcc(struct atm_vcc *atmvcc, void __user * arg)
+ 
+ 		br2684_push(atmvcc, skb);
+ 	}
++
++	/* initialize netdev carrier state */
++	if (atmvcc->dev->signal == ATM_PHY_SIG_LOST)
++		netif_carrier_off(net_dev);
++	else
++		netif_carrier_on(net_dev);
++
+ 	__module_get(THIS_MODULE);
+ 	return 0;
+ 
+@@ -620,9 +670,16 @@ static int br2684_create(void __user *arg)
+ 	}
+ 
+ 	write_lock_irq(&devs_lock);
++
+ 	brdev->payload = payload;
+-	brdev->number = list_empty(&br2684_devs) ? 1 :
+-	    BRPRIV(list_entry_brdev(br2684_devs.prev))->number + 1;
++
++	if (list_empty(&br2684_devs)) {
++		/* 1st br2684 device */
++		register_atmdevice_notifier(&atm_dev_notifier);
++		brdev->number = 1;
++	} else
++		brdev->number = BRPRIV(list_entry_brdev(br2684_devs.prev))->number + 1;
++
+ 	list_add_tail(&brdev->br2684_devs, &br2684_devs);
+ 	write_unlock_irq(&devs_lock);
+ 	return 0;
+@@ -772,6 +829,11 @@ static void __exit br2684_exit(void)
+ 	remove_proc_entry("br2684", atm_proc_root);
  #endif
-diff --git a/net/atm/common.c b/net/atm/common.c
-index b43feb1..940404a 100644
---- a/net/atm/common.c
-+++ b/net/atm/common.c
-@@ -37,6 +37,8 @@ EXPORT_SYMBOL(vcc_hash);
- DEFINE_RWLOCK(vcc_sklist_lock);
- EXPORT_SYMBOL(vcc_sklist_lock);
  
-+static ATOMIC_NOTIFIER_HEAD(atm_dev_notify_chain);
 +
- static void __vcc_insert_socket(struct sock *sk)
- {
- 	struct atm_vcc *vcc = atm_sk(sk);
-@@ -212,6 +214,22 @@ void vcc_release_async(struct atm_vcc *vcc, int reply)
- }
- EXPORT_SYMBOL(vcc_release_async);
- 
-+void atm_dev_signal_change(struct atm_dev *dev, char signal)
-+{
-+	pr_debug("%s signal=%d dev=%p number=%d dev->signal=%d\n",
-+		__func__, signal, dev, dev->number, dev->signal);
++	/* if not already empty */
++	if (!list_empty(&br2684_devs))
++		unregister_atmdevice_notifier(&atm_dev_notifier);
 +
-+	/* atm driver sending invalid signal */
-+	WARN_ON(signal < ATM_PHY_SIG_LOST || signal > ATM_PHY_SIG_FOUND);
-+
-+	if (dev->signal == signal)
-+		return; /* no change */
-+
-+	dev->signal = signal;
-+
-+	atomic_notifier_call_chain(&atm_dev_notify_chain, signal, dev);
-+}
-+EXPORT_SYMBOL(atm_dev_signal_change);
- 
- void atm_dev_release_vccs(struct atm_dev *dev)
- {
-@@ -781,6 +799,18 @@ int vcc_getsockopt(struct socket *sock, int level, int optname,
- 	return vcc->dev->ops->getsockopt(vcc, level, optname, optval, len);
- }
- 
-+int register_atmdevice_notifier(struct notifier_block *nb)
-+{
-+	return atomic_notifier_chain_register(&atm_dev_notify_chain, nb);
-+}
-+EXPORT_SYMBOL_GPL(register_atmdevice_notifier);
-+
-+void unregister_atmdevice_notifier(struct notifier_block *nb)
-+{
-+	atomic_notifier_chain_unregister(&atm_dev_notify_chain, nb);
-+}
-+EXPORT_SYMBOL_GPL(unregister_atmdevice_notifier);
-+
- static int __init atm_init(void)
- {
- 	int error;
+ 	while (!list_empty(&br2684_devs)) {
+ 		net_dev = list_entry_brdev(br2684_devs.next);
+ 		brdev = BRPRIV(net_dev);
 -- 
 1.7.1
 
