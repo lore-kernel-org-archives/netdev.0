@@ -1,44 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] vlan: allow TSO setting on vlan interfaces
-Date: Thu, 08 Jul 2010 08:46:27 +0200
-Message-ID: <1278571587.2543.9.camel@edumazet-laptop>
-References: <1278522874.5906.9.camel@edumazet-laptop>
-	 <1278523511.2080.3.camel@achroite.uk.solarflarecom.com>
+From: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Subject: [PATCH net-2.6] Phonet: fix skb leak in pipe endpoint accept()
+Date: Thu,  8 Jul 2010 09:56:53 +0300
+Message-ID: <1278572213-6239-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35782 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753225Ab0GHGqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 02:46:35 -0400
-Received: by wyf23 with SMTP id 23so278226wyf.19
-        for <netdev@vger.kernel.org>; Wed, 07 Jul 2010 23:46:34 -0700 (PDT)
-In-Reply-To: <1278523511.2080.3.camel@achroite.uk.solarflarecom.com>
+Received: from smtp.nokia.com ([192.100.105.134]:55276 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753225Ab0GHG6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 02:58:23 -0400
+Received: from esebh106.NOE.Nokia.com (esebh106.ntc.nokia.com [172.21.138.213])
+	by mgw-mx09.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id o686tTwF029971
+	for <netdev@vger.kernel.org>; Thu, 8 Jul 2010 01:58:22 -0500
+Received: from localhost.localdomain (esdhcp037110.research.nokia.com [172.21.37.110])
+	by mgw-da02.ext.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id o686ukCL006964
+	for <netdev@vger.kernel.org>; Thu, 8 Jul 2010 09:56:47 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 07 juillet 2010 =C3=A0 18:25 +0100, Ben Hutchings a =C3=A9c=
-rit :
-> On Wed, 2010-07-07 at 19:14 +0200, Eric Dumazet wrote:
-> > When we need to shape traffic with low speeds, we need to disable t=
-so on
-> > network interface :
-> >=20
-> > ethtool -K eth0.2240 tso off
-> >=20
-> > It seems vlan interfaces miss the set_tso() ethtool method.
-> > Propagating tso changes from lower device is not always wanted, som=
-e
-> > vlan want TSO on, other want TSO off.
->=20
-> But it should not be possible to enable TSO if the underlying device
-> doesn't support it.
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Yes indeed, I'll provide a more generic patch, thanks !
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/pep.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index 94d72e8..b2a3ae6 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -698,6 +698,7 @@ static struct sock *pep_sock_accept(struct sock *sk=
+, int flags, int *errp)
+ 		newsk =3D NULL;
+ 		goto out;
+ 	}
++	kfree_skb(oskb);
+=20
+ 	sock_hold(sk);
+ 	pep_sk(newsk)->listener =3D sk;
+--=20
+1.7.0.4
 
