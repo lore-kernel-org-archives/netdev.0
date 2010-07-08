@@ -1,49 +1,77 @@
-From: Jon Mason <jon.mason@exar.com>
-Subject: [PATCH 6/6 net-next-2.6] vxge: Version update
-Date: Thu, 8 Jul 2010 14:24:03 -0500
-Message-ID: <20100708192403.GF15167@exar.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: =?UTF-8?q?Pull=20request=3A=20bluetooth-2=2E6=202010-07-08?=
+Date: Thu,  8 Jul 2010 16:59:49 -0300
+Message-ID: <cover.1278619047.git.marcel@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
-	Ramkrishna Vepa <ram.vepa@exar.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:61336 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757419Ab0GHTXZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 15:23:25 -0400
-Received: by pvc7 with SMTP id 7so448876pvc.19
-        for <netdev@vger.kernel.org>; Thu, 08 Jul 2010 12:23:25 -0700 (PDT)
-Content-Disposition: inline
+Received: from senator.holtmann.net ([87.106.208.187]:36208 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758540Ab0GHUAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 16:00:19 -0400
+MIME-Version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Version update
+Hi Dave,
 
-Signed-off-by: Jon Mason <jon.mason@exar.com>
-Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@exar.com>
-Signed-off-by: Ramkrishna Vepa <ram.vepa@exar.com>
----
- drivers/net/vxge/vxge-version.h |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+these patches fix a few bugs and crashes and also two security related
+issues with the authentication procedure.
 
-diff --git a/drivers/net/vxge/vxge-version.h b/drivers/net/vxge/vxge-version.h
-index 4008e6b..7b9047c 100644
---- a/drivers/net/vxge/vxge-version.h
-+++ b/drivers/net/vxge/vxge-version.h
-@@ -12,12 +12,11 @@
-  * Copyright(c) 2002-2010 Exar Corp.
-  ******************************************************************************/
- #ifndef VXGE_VERSION_H
--
- #define VXGE_VERSION_H
- 
- #define VXGE_VERSION_MAJOR	"2"
- #define VXGE_VERSION_MINOR	"0"
--#define VXGE_VERSION_FIX	"8"
--#define VXGE_VERSION_BUILD	"20182"
-+#define VXGE_VERSION_FIX	"9"
-+#define VXGE_VERSION_BUILD	"20670"
- #define VXGE_VERSION_FOR	"k"
- #endif
+This will also be my last pull request for you. From now on all future
+patches will be submitted towards John's wireless trees. That way we
+can coordindate the development of Bluetooth 3.0 (Bluetooth over WiFi)
+and avoid any kind of conflicts.
+
+Regards
+
+Marcel
+
+
+Please pull from
+
+    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.=
+6.git master
+
+This will update the following files:
+
+ net/bluetooth/Kconfig     |   13 ----
+ net/bluetooth/hci_conn.c  |    5 ++
+ net/bluetooth/hci_event.c |    2 +
+ net/bluetooth/l2cap.c     |  138 +++++++++++++++++++++++++++----------=
+--------
+ 4 files changed, 90 insertions(+), 68 deletions(-)
+
+through these ChangeSets:
+
+Andrei Emeltchenko (1):
+    Bluetooth: Check L2CAP pending status before sending connect reques=
+t
+
+Gustavo F. Padovan (8):
+    Bluetooth: Remove max_tx and tx_window module paramenters from L2CA=
+P
+    Bluetooth: Remove L2CAP Extended Features from Kconfig
+    Bluetooth: Fix drop of packets with invalid req_seq/tx_seq
+    Bluetooth: Fix bug with ERTM vars increment
+    Bluetooth: Only check SAR bits if frame is an I-frame
+    Bluetooth: Fix bug in l2cap_ertm_send() behavior
+    Bluetooth: Proper shutdown ERTM when closing the channel
+    Bluetooth: Fix L2CAP control bit field corruption
+
+Johan Hedberg (1):
+    Bluetooth: Reset the security level after an authentication failure
+
+Jo=C3=A3o Paulo Rechi Vita (1):
+    Bluetooth: Fix SREJ_QUEUE corruption in L2CAP
+
+Nathan Holstein (1):
+    Bluetooth: Fix bug with ERTM minimum packet length
+
+Ville Tervo (1):
+    Bluetooth: Update sec_level/auth_type for already existing connecti=
+ons
+
