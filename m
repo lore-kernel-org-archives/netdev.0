@@ -1,74 +1,81 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 02/13] Bluetooth: Remove L2CAP Extended Features from Kconfig
-Date: Thu,  8 Jul 2010 16:59:51 -0300
-Message-ID: <f681fb7be711495fab80ad7ef22ad672d40b484b.1278619047.git.marcel@holtmann.org>
+Subject: [PATCH 06/13] Bluetooth: Fix bug in l2cap_ertm_send() behavior
+Date: Thu,  8 Jul 2010 16:59:55 -0300
+Message-ID: <0808eb79b486a9730b3423d94ed6568544422a3f.1278619047.git.marcel@holtmann.org>
 References: <cover.1278619047.git.marcel@holtmann.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:36213 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:36223 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758543Ab0GHUAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 16:00:30 -0400
+	with ESMTP id S1758543Ab0GHUAg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 16:00:36 -0400
 In-Reply-To: <cover.1278619047.git.marcel@holtmann.org>
 In-Reply-To: <cover.1278619047.git.marcel@holtmann.org>
 References: <cover.1278619047.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gustavo F. Padovan <padovan@profusion.mobi>
+=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-This reverts commit 84fb0a6334af0ccad3544f6972c055d90fbb9fbe which adds
-the L2CAP Extended Features to the Kconfig, that is actually not needed.
-One can use other mechanisms to enable L2CAP Extended Features.
+This patch makes l2cap_ertm_send() similar to the Send-Data action of
+the ERTM spec. We shall not check for RemoteBusy or WAIT_F state
+inside l2cap_ertm_send().
+
+Such checks were causing a bug in the retransmission logic of ERTM and
+making ERTM stalls until the ACL is dropped.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
+Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/Kconfig |   13 -------------
- net/bluetooth/l2cap.c |    4 ----
- 2 files changed, 0 insertions(+), 17 deletions(-)
+ net/bluetooth/l2cap.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
-index ee3b304..ed37168 100644
---- a/net/bluetooth/Kconfig
-+++ b/net/bluetooth/Kconfig
-@@ -43,19 +43,6 @@ config BT_L2CAP
- 	  Say Y here to compile L2CAP support into the kernel or say M to
- 	  compile it as module (l2cap).
- 
--config BT_L2CAP_EXT_FEATURES
--	bool "L2CAP Extended Features support (EXPERIMENTAL)"
--	depends on BT_L2CAP && EXPERIMENTAL
--	help
--	  This option enables the L2CAP Extended Features support. These
--	  new features include the Enhanced Retransmission and Streaming
--	  Modes, the Frame Check Sequence (FCS), and Segmentation and
--	  Reassembly (SAR) for L2CAP packets. They are a required for the
--	  new Alternate MAC/PHY and the Bluetooth Medical Profile.
--
--	  You should say N unless you know what you are doing. Note that
--	  this is in an experimental state yet.
--
- config BT_SCO
- 	tristate "SCO links support"
- 	depends on BT
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 5c636b3..e036419 100644
+index fa842cc..4df5473 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -55,11 +55,7 @@
- 
- #define VERSION "2.14"
- 
--#ifdef CONFIG_BT_L2CAP_EXT_FEATURES
--static int enable_ertm = 1;
--#else
- static int enable_ertm = 0;
--#endif
- 
- static u32 l2cap_feat_mask = L2CAP_FEAT_FIXED_CHAN;
- static u8 l2cap_fixed_chan[8] = { 0x02, };
--- 
+@@ -1407,11 +1407,8 @@ static int l2cap_ertm_send(struct sock *sk)
+ 	u16 control, fcs;
+ 	int nsent =3D 0;
+=20
+-	if (pi->conn_state & L2CAP_CONN_WAIT_F)
+-		return 0;
+=20
+-	while ((skb =3D sk->sk_send_head) && (!l2cap_tx_window_full(sk)) &&
+-			!(pi->conn_state & L2CAP_CONN_REMOTE_BUSY)) {
++	while ((skb =3D sk->sk_send_head) && (!l2cap_tx_window_full(sk))) {
+=20
+ 		if (pi->remote_max_tx &&
+ 				bt_cb(skb)->retries =3D=3D pi->remote_max_tx) {
+@@ -1784,6 +1781,11 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb=
+, struct socket *sock, struct ms
+ 		if (pi->mode =3D=3D L2CAP_MODE_STREAMING) {
+ 			err =3D l2cap_streaming_send(sk);
+ 		} else {
++			if (pi->conn_state & L2CAP_CONN_REMOTE_BUSY &&
++					pi->conn_state && L2CAP_CONN_WAIT_F) {
++				err =3D len;
++				break;
++			}
+ 			spin_lock_bh(&pi->send_lock);
+ 			err =3D l2cap_ertm_send(sk);
+ 			spin_unlock_bh(&pi->send_lock);
+@@ -3371,8 +3373,6 @@ static inline void l2cap_send_i_or_rr_or_rnr(stru=
+ct sock *sk)
+ 	if (pi->conn_state & L2CAP_CONN_REMOTE_BUSY && pi->unacked_frames > 0=
+)
+ 		__mod_retrans_timer();
+=20
+-	pi->conn_state &=3D ~L2CAP_CONN_REMOTE_BUSY;
+-
+ 	spin_lock_bh(&pi->send_lock);
+ 	l2cap_ertm_send(sk);
+ 	spin_unlock_bh(&pi->send_lock);
+--=20
 1.7.1.1
 
