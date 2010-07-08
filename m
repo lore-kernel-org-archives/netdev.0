@@ -1,48 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: bluetooth-2.6 2010-07-08
-Date: Thu, 08 Jul 2010 15:46:37 -0700 (PDT)
-Message-ID: <20100708.154637.71104736.davem@davemloft.net>
-References: <cover.1278619047.git.marcel@holtmann.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] sysfs: Don't allow the creation of symlinks we can't
+ remove
+Date: Thu, 8 Jul 2010 16:06:01 -0700
+Message-ID: <20100708230601.GB17002@kroah.com>
+References: <20100621150826.762ac9f2.akpm@linux-foundation.org>
+ <m1mxuodo0n.fsf@fess.ebiederm.org>
+ <20100621222938.GA20583@suse.de>
+ <m1eig0dmhk.fsf@fess.ebiederm.org>
+ <20100621231058.GA1066@suse.de>
+ <m14ogwc4ou.fsf@fess.ebiederm.org>
+ <20100622035631.GA3755@suse.de>
+ <m1630q7x5v.fsf_-_@fess.ebiederm.org>
+ <20100708211930.GA15385@kroah.com>
+ <m1r5jdbobe.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: marcel@holtmann.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41943
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756211Ab0GHWqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 18:46:23 -0400
-In-Reply-To: <cover.1278619047.git.marcel@holtmann.org>
+Received: from kroah.org ([198.145.64.141]:46398 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757178Ab0GHXGT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jul 2010 19:06:19 -0400
+Content-Disposition: inline
+In-Reply-To: <m1r5jdbobe.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Thu,  8 Jul 2010 16:59:49 -0300
+On Thu, Jul 08, 2010 at 03:28:53PM -0700, Eric W. Biederman wrote:
+> Greg KH <greg@kroah.com> writes:
+> 
+> > With this patch, how does the existing code fail as the drivers aren't
+> > fixed up?
+> >
+> > I like this change, just worried it will cause problems if it gets into
+> > .35, without your RFC patch.  Will it?
+> 
+> It don't expect this patch to be worse than where we are current at.
+> Network devices are renamed, and come and go enough that both the
+> mac80211_hwsim and the bnep driver are currently unusable with a
+> failure only the rename and remove.
+> 
+> This patch simply moves the failure into creation where we are a little more
+> prepared to deal with problems, and this patch is limited to mac80211_hwsim,
+> bnep, and any hypothetically undiscovered other network devices that
+> have the same problem.
+> 
+> mac80211_hwsim with just this patch becomes somewhat usable as it's primary
+> network device gets registered and the module can be loaded and unloaded.  It
+> just doesn't create the wlan0 and wlan1 interfaces for the wifi interfaces.
 
-> these patches fix a few bugs and crashes and also two security related
-> issues with the authentication procedure.
+Fair enough, I've commited it now, let's see what happens :)
 
-13 changes is too much this late in the -RC series.  Fixes need to
-trickle in, in small quantities, and therefore it's critical that
-maintainers submit fixes often and as soon as they are ready.
+> On a slightly unrelated note, what got us on trying to convert
+> mac80211_hwsim was that everything happens in a single module which
+> makes avoiding cleanup races hard.  I am hoping bnep is structured
+> enough differently so we can convert it to a bus device using the
+> existing infrastructure.  I haven't figured out bnep yet though ;(
 
-Please pick a small number of the most critical fixes, say 3 or 4.  An
-easy way to roughly quantify which ones shoule be included is:
+Yeah, good luck with that...
 
-1) Is there an OOPS or crash regression reported by real users and
-   listed in the official lkml regression list which is caused by this
-   problem?
-
-2) Is there an exploitable security concern fixed by this change?
-
-Else, it's only net-next-2.6 material.
-
-For example:
-
-    Bluetooth: Remove max_tx and tx_window module paramenters from L2CAP
-
-Things like that change are absolutely not appropriate at this
-stage in the post merge-window development environment.
-
-Thanks.
+greg k-h
