@@ -1,51 +1,33 @@
-From: Karl Hiramoto <karl@hiramoto.org>
-Subject: Re: [PATCH v4 1/9] atm: propagate signal changes via notifier
-Date: Fri, 09 Jul 2010 08:36:03 +0200
-Message-ID: <4C36C353.9080501@hiramoto.org>
-References: <1278578095-25324-1-git-send-email-karl@hiramoto.org>	<1278578095-25324-2-git-send-email-karl@hiramoto.org> <20100708.214745.48520104.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 1/2] ks8842: Do the TX timeout work in workqueue
+ context.
+Date: Thu, 08 Jul 2010 23:36:39 -0700 (PDT)
+Message-ID: <20100708.233639.200387221.davem@davemloft.net>
+References: <1278656894.6953.14.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	chas@cmf.nrl.navy.mil
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: richard.rojfors@pelagicore.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcaib.dreamhost.com ([208.97.132.81]:45513 "EHLO
-	homiemail-a25.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751333Ab0GIGgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:36:08 -0400
-In-Reply-To: <20100708.214745.48520104.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45339
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751337Ab0GIGgZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jul 2010 02:36:25 -0400
+In-Reply-To: <1278656894.6953.14.camel@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- On 07/09/2010 06:47 AM, David Miller wrote:
-> From: Karl Hiramoto <karl@hiramoto.org>
-> Date: Thu,  8 Jul 2010 10:34:47 +0200
->
->> +
->> +/*
->> + * atm_dev_signal_change
->> + *
->> + * Propagate lower layer signal change in atm_dev->signal to netdevice.
->> + * The event will be sent via a notifier call chain.
->> + */
-> I said to format comments:
->
-> /* Like
->  * this.
->  */
->
-> not:
->
-> /*
->  * Like
->  * this.
->  */
->
-> Honestly, I don't know how I can be more clear about this :-)
+=46rom: Richard R=F6jfors <richard.rojfors@pelagicore.com>
+Date: Fri, 09 Jul 2010 08:28:14 +0200
 
+> Currently all code that needs to be run at TX timeout is done in the
+> calling context, where bottom halves are disabled. Some of the code
+> blocks, so it needs to be done in a different context. This patch
+> adds in a work struct which is scheduled at TX timeout. Then the
+> timeout code is executed within work queue context.
+>=20
+> Signed-off-by: Richard R=F6jfors <richard.rojfors@pelagicore.com>
 
-Ok, fixing it,  but there are 100's of occurences in net/ like i had it. :-)
-
---
-Karl
+Applied.
