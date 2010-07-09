@@ -1,42 +1,46 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] tproxy: the length of lines should be within 80
-Date: Fri,  9 Jul 2010 13:31:20 +0800
-Message-ID: <1278653480-21304-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ks8842: Do the TX timeout work in workqueue context.
+Date: Thu, 08 Jul 2010 23:07:20 -0700 (PDT)
+Message-ID: <20100708.230720.260093060.davem@davemloft.net>
+References: <1278655286.5481.4.camel@debian>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: richard.rojfors@pelagicore.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:37791 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171Ab0GIFe6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 01:34:58 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57830
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751375Ab0GIGHG convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jul 2010 02:07:06 -0400
+In-Reply-To: <1278655286.5481.4.camel@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tproxy: the length of lines should be within 80
+=46rom: Richard R=F6jfors <richard.rojfors@pelagicore.com>
+Date: Fri, 09 Jul 2010 08:01:26 +0200
 
-According to the Documentation/CodingStyle, the length of lines should be
-within 80.
+> Currently all code that needs to be run at TX timeout is done in the
+> calling context, where bottom halves are disabled. Some of the code
+> blocks, so it needs to be done in a different context. This patch
+> adds in a work struct which is scheduled at TX timeout. Then the
+> timeout code is executed within work queue context.
+>=20
+> In the process an unnecessary bank change before resetting the
+> controller was removed.
+>=20
+> Signed-off-by: Richard R=F6jfors <richard.rojfors@pelagicore.com>
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/netfilter/xt_TPROXY.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index e1a0ded..c61294d 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -37,8 +37,10 @@ tproxy_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 		return NF_DROP;
- 
- 	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
--				   iph->saddr, tgi->laddr ? tgi->laddr : iph->daddr,
--				   hp->source, tgi->lport ? tgi->lport : hp->dest,
-+				   iph->saddr,
-+				   tgi->laddr ? tgi->laddr : iph->daddr,
-+				   hp->source,
-+				   tgi->lport ? tgi->lport : hp->dest,
- 				   par->in, true);
- 
- 	/* NOTE: assign_sock consumes our sk reference */
+If the bank change removal is unrelated to this change you should
+do it in a seperate change.
+
+This way it's easy for someone to find out if a regression is
+caused by the TX workqueue bits, rather than this bank change
+removal.
+
+So, please submit this as a two patch sequence, one that does
+the bank change line removal.  And then a second that does
+the TX workqueue bits.
+
+Thanks.
