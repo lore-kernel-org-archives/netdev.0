@@ -1,72 +1,50 @@
-From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v5 9/9] usb/atm/ueagle-atm.c: call atm_dev_signal_change() when signal changes.
-Date: Fri,  9 Jul 2010 08:55:38 +0200
-Message-ID: <1278658538-6769-10-git-send-email-karl@hiramoto.org>
-References: <1278658538-6769-1-git-send-email-karl@hiramoto.org>
-Cc: Karl Hiramoto <karl@hiramoto.org>
-To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	chas@cmf.nrl.navy.mil, davem@davemloft.net
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v4 1/9] atm: propagate signal changes via notifier
+Date: Fri, 9 Jul 2010 16:04:08 +0900
+Message-ID: <20100709070408.GE24576@verge.net.au>
+References: <4C36C353.9080501@hiramoto.org>
+ <20100708.233801.258129125.davem@davemloft.net>
+ <20100709065012.GB24576@verge.net.au>
+ <20100708.235314.241453003.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: karl@hiramoto.org, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, chas@cmf.nrl.navy.mil
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcbhh.dreamhost.com ([208.97.132.177]:35255 "EHLO
-	homiemail-a64.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753818Ab0GIG4G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:56:06 -0400
-In-Reply-To: <1278658538-6769-1-git-send-email-karl@hiramoto.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:48876 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751333Ab0GIHEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 03:04:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20100708.235314.241453003.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Propagate signal changes to upper atm layer.
+On Thu, Jul 08, 2010 at 11:53:14PM -0700, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Fri, 9 Jul 2010 15:50:13 +0900
+> 
+> > On Thu, Jul 08, 2010 at 11:38:01PM -0700, David Miller wrote:
+> >> From: Karl Hiramoto <karl@hiramoto.org>
+> >> Date: Fri, 09 Jul 2010 08:36:03 +0200
+> >> 
+> >> > Ok, fixing it,  but there are 100's of occurences in net/ like i had it. :-)
+> >> 
+> >> I would be happy to see a patch which fixes them up :-)
+> > 
+> > Really? By my calculations it would be an awful lot of churn.
+> > 
+> > $ find net/ -type f -name "*.[chS]" | xargs grep "\/\* *$" | wc -l
+> > 6833
+> > $ find net/ -type f -name "*.[chS]" | xargs grep -l "\/\* *$" | wc -l
+> > 929
+> 
+> I didn't mean "one patch" which fixes them up :)
+> 
+> Done graudually in chunks over a period of time, it's not likely
+> to be so much churn.
+> 
+> This is how every other coding style malfeasance gets handled.
 
-Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
----
- drivers/usb/atm/ueagle-atm.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/usb/atm/ueagle-atm.c b/drivers/usb/atm/ueagle-atm.c
-index e213d3f..ebae944 100644
---- a/drivers/usb/atm/ueagle-atm.c
-+++ b/drivers/usb/atm/ueagle-atm.c
-@@ -575,6 +575,13 @@ MODULE_PARM_DESC(annex,
- 			sc->usbatm->atm_dev->type = val; \
- 	} while (0)
- 
-+#define UPDATE_ATM_SIGNAL(val) \
-+	do { \
-+		if (sc->usbatm->atm_dev) \
-+			atm_dev_signal_change(sc->usbatm->atm_dev, val); \
-+	} while (0)
-+
-+
- /* Firmware loading */
- #define LOAD_INTERNAL     0xA0
- #define F8051_USBCS       0x7f92
-@@ -1359,7 +1366,7 @@ static int uea_stat_e1(struct uea_softc *sc)
- 	/* always update it as atm layer could not be init when we switch to
- 	 * operational state
- 	 */
--	UPDATE_ATM_STAT(signal, ATM_PHY_SIG_FOUND);
-+	UPDATE_ATM_SIGNAL(ATM_PHY_SIG_FOUND);
- 
- 	/* wake up processes waiting for synchronization */
- 	wake_up(&sc->sync_q);
-@@ -1498,7 +1505,7 @@ static int uea_stat_e4(struct uea_softc *sc)
- 	/* always update it as atm layer could not be init when we switch to
- 	 * operational state
- 	 */
--	UPDATE_ATM_STAT(signal, ATM_PHY_SIG_FOUND);
-+	UPDATE_ATM_SIGNAL(ATM_PHY_SIG_FOUND);
- 
- 	/* wake up processes waiting for synchronization */
- 	wake_up(&sc->sync_q);
-@@ -1825,7 +1832,7 @@ static int uea_start_reset(struct uea_softc *sc)
- 	 * So we will failed to wait Ready CMV.
- 	 */
- 	sc->cmv_ack = 0;
--	UPDATE_ATM_STAT(signal, ATM_PHY_SIG_LOST);
-+	UPDATE_ATM_SIGNAL(ATM_PHY_SIG_LOST);
- 
- 	/* reset statistics */
- 	memset(&sc->stats, 0, sizeof(struct uea_stats));
--- 
-1.7.1
-
+Understood
