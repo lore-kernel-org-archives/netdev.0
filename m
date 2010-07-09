@@ -1,46 +1,61 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: add CHECKSUM target
-Date: Fri, 09 Jul 2010 17:17:36 +0200
-Message-ID: <4C373D90.8070000@trash.net>
-References: <20100708222913.GA4475@redhat.com>
+Subject: Re: [patch v2.3 3/4] IPVS: make FTP work with full NAT support
+Date: Fri, 09 Jul 2010 17:24:56 +0200
+Message-ID: <4C373F48.8080504@trash.net>
+References: <20100704113246.562399500@vergenet.net> <20100704114808.932594876@vergenet.net> <4C3316F0.2030807@trash.net> <20100707065324.GC20424@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, herbert.xu@redhat.com, kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Eder <heder@google.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100708222913.GA4475@redhat.com>
+In-Reply-To: <20100707065324.GC20424@verge.net.au>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 09.07.2010 00:29, schrieb Michael S. Tsirkin:
-> This adds a `CHECKSUM' target, which can be used in the iptables mangle
-> table.
+Am 07.07.2010 08:53, schrieb Simon Horman:
+> On Tue, Jul 06, 2010 at 01:43:44PM +0200, Patrick McHardy wrote:
+>> Simon Horman wrote:
+>>> @@ -219,19 +358,23 @@ static int ip_vs_ftp_out(struct ip_vs_ap
+>>> 		buf_len = strlen(buf);
+>>> +		ct = nf_ct_get(skb, &ctinfo);
+>>> +		ret = nf_nat_mangle_tcp_packet(skb,
+>>> +					       ct,
+>>> +					       ctinfo,
+>>> +					       start-data,
+>>> +					       end-start,
+>>> +					       buf,
+>>> +					       buf_len);
+>>> +
+>>> +		if (ct && ct != &nf_conntrack_untracked)
+>> This does not make sense, you're already using the conntrack above
+>> in the call to nf_nat_mangle_tcp_packet(), so the check should
+>> probably happen before that. You also should be checking the
+>> return value of nf_nat_mangle_tcp_packet() before setting up the
+>> expectation.
+>>
+>>> +			ip_vs_expect_related(skb, ct, n_cp,
+>>> +					     IPPROTO_TCP, NULL, 0);
 > 
-> You can use this target to compute and fill in the checksum in
-> an IP packet that lacks a checksum.  This is particularly useful,
-> if you need to work around old applications such as dhcp clients,
-> that do not work well with checksum offloads, but don't want to
-> disable checksum offload in your device.
+> Good point. Is this better?
 > 
-> The problem happens in the field with virtualized applications.
-> For reference, see Red Hat bz 605555, as well as
-> http://www.spinics.net/lists/kvm/msg37660.html
-> 
-> Typical expected use (helps old dhclient binary running in a VM):
-> iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM
-> --checksum-fill
+> 		ct = nf_ct_get(skb, &ctinfo);
+> 		if (ct && !nf_ct_is_untracked()) {
+> 			ret = nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
+> 						       start-data, end-start,
+> 						       buf, buf_len);
+> 			if (ret)
+> 				ip_vs_expect_related(skb, ct, n_cp,
+> 						     IPPROTO_TCP, NULL, 0);
 
-I'm not sure this is something we want to merge upstream and
-support indefinitely. Dave suggested this as a temporary
-out-of-tree workaround until the majority of guest dhcp clients
-are fixed. Has anything changed that makes this course of
-action impractical?
-
+Yes, that's better, although we're usually dropping packets
+when mangling fails. This can only happen under memory pressure,
+the assumption is that we might be able to properly mangle
+the packet when it is retransmitted.
