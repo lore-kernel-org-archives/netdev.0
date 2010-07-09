@@ -1,36 +1,27 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] lvs sctp protocol handler is incorrectly invoked ip_vs_app_pkt_out
-Date: Fri, 09 Jul 2010 17:29:56 +0200
-Message-ID: <4C374074.8000103@trash.net>
-References: <AANLkTikS9SSVT5soWZYmzxeJkR5vO__cuedk7ZgmTx5y@mail.gmail.com> <20100708121319.GC17985@verge.net.au>
+Subject: Re: [PATCH] tproxy: the length of lines should be within 80
+Date: Fri, 09 Jul 2010 17:33:04 +0200
+Message-ID: <4C374130.6020709@trash.net>
+References: <1278653480-21304-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: xiaoyu Du <tingsrain@gmail.com>, linux-kernel@vger.kernel.org,
-	lvs-devel@vger.kernel.org, wensong@linux-vs.org,
-	NetDev <netdev@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20100708121319.GC17985@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:38984 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757229Ab0GIPdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 11:33:06 -0400
+In-Reply-To: <1278653480-21304-1-git-send-email-xiaosuo@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 08.07.2010 14:13, schrieb Simon Horman:
-> On Thu, Jul 08, 2010 at 09:55:04AM +0800, xiaoyu Du wrote:
->> lvs sctp protocol handler is incorrectly invoked ip_vs_app_pkt_out
->> Since there's no sctp helpers at present, it does the same thing as
->> ip_vs_app_pkt_in.
->>
->> Signed-off-by: Xiaoyu Du <tingsrain@gmail.com>
+Am 09.07.2010 07:31, schrieb Changli Gao:
+> tproxy: the length of lines should be within 80
 > 
-> Thanks Xiaoyu.
-> 
-> Acked-by: Simon Horman <horms@verge.net.au>
-> 
-> Patrick, please consider applying this.
-> nf-next should be sufficient, as according
-> to Xiaoyu there aren't actually helpers
-> that exercise this code at the moment.
+> According to the Documentation/CodingStyle, the length of lines should be
+> within 80.
 
 Applied, thanks.
-
