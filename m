@@ -1,101 +1,40 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: Re: [PATCH v2 -net-2.6] ll_temac: fix DMA resources leak
-Date: Fri, 9 Jul 2010 21:59:52 +0400
-Message-ID: <20100709175952.GA5450@albatros>
-References: <20100708202451.GA4062@hera.kernel.org>
- <20100709114347.GA3553@albatros>
+From: Felipe W Damasio <felipewd@gmail.com>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Fri, 9 Jul 2010 15:16:17 -0300
+Message-ID: <AANLkTilwWI7wt-Bo45S_bpDV8MEu67jyB63kiZHB-C-P@mail.gmail.com>
+References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
+	<AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
+	<1278626921.2435.73.camel@edumazet-laptop>
+	<AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
+	<1278695580.2696.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, john.linn@xilinx.com, brian.hill@xilinx.com,
-	grant.likely@secretlab.ca, jpirko@redhat.com,
-	netdev@vger.kernel.org
-To: Denis Kirjanov <dkirjanov@hera.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:56217 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754023Ab0GISAY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 14:00:24 -0400
-Received: by vws5 with SMTP id 5so2797477vws.19
-        for <netdev@vger.kernel.org>; Fri, 09 Jul 2010 11:00:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20100709114347.GA3553@albatros>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1278695580.2696.55.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 09, 2010 at 15:43 +0400, Kulikov Vasiliy wrote:
-> On Thu, Jul 08, 2010 at 20:24 +0000, Denis Kirjanov wrote:
-> > V2: Check pointers before releasing resources.
-> > 
-> > Fix DMA resources leak.
-> > Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
-> > Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
-> > ---
-> >  1 files changed, 32 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-> > index fa303c8..b57d0ff 100644
-> > --- a/drivers/net/ll_temac_main.c
-> > +++ b/drivers/net/ll_temac_main.c
-> > @@ -193,6 +193,35 @@ static int temac_dcr_setup(struct temac_local *lp, struct of_device *op,
-> >  #endif
-> >  
-> >  /**
-> > + *  * temac_dma_bd_release - Release buffer descriptor rings
-> > + */
-> > +static void temac_dma_bd_release(struct net_device *ndev)
-> > +{
-> > +	struct temac_local *lp = netdev_priv(ndev);
-> > +	int i;
-> > +
-> > +	for (i = 0; i < RX_BD_NUM; i++) {
-> > +		if (!lp->rx_skb[i])
-> > +			break;
-> > +		else {
-> > +			dma_unmap_single(ndev->dev.parent, lp->rx_bd_v[i].phys,
-> > +					XTE_MAX_JUMBO_FRAME_SIZE, DMA_FROM_DEVICE);
-> > +			dev_kfree_skb(lp->rx_skb[i]);
-> > +		}
-> > +	}
-> This cycle is needed only if (lp->rx_skb != NULL).
-> 
-> > +	if (lp->rx_bd_v)
-> > +		dma_free_coherent(ndev->dev.parent,
-> > +				sizeof(*lp->rx_bd_v) * RX_BD_NUM,
-> > +				lp->rx_bd_v, lp->rx_bd_p);
-> > +	if (lp->tx_bd_v)
-> > +		dma_free_coherent(ndev->dev.parent,
-> > +				sizeof(*lp->tx_bd_v) * TX_BD_NUM,
-> > +				lp->tx_bd_v, lp->tx_bd_p);
-> After temac_dma_bd_release() lp->rx_bd_v and lp->rx_bd_p are freed but
-> are nonzero. If lp->rx_skb allocation fails second time then these DMA's
-> would be freed second time.
-> lp->tx_bd_v = lp->rx_bd_v = NULL here fixes this.
-> 
-> > +	if (lp->rx_skb)
-> > +		kfree(lp->rx_skb);
-> > +}
-> > +
-> > +/**
-> >   * temac_dma_bd_init - Setup buffer descriptor rings
-> >   */
-> >  static int temac_dma_bd_init(struct net_device *ndev)
-> > @@ -275,6 +304,7 @@ static int temac_dma_bd_init(struct net_device *ndev)
-> >  	return 0;
-> >  
-> >  out:
-> > +	temac_dma_bd_release(ndev);
-> >  	return -ENOMEM;
-> >  }
-> >  
-> > @@ -858,6 +888,8 @@ static int temac_stop(struct net_device *ndev)
-> >  		phy_disconnect(lp->phy_dev);
-> >  	lp->phy_dev = NULL;
-> >  
-> > +	temac_dma_bd_release(ndev);
-> > +
-> >  	return 0;
-> >  }
-> >  
-I've fixed it in PATCH v3.
+Hi,
 
-http://marc.info/?l=kernel-janitors&m=127869815002994&w=2
+2010/7/9 Eric Dumazet <eric.dumazet@gmail.com>:
+> Reviewing tproxy stuff I spotted a problem in nf_tproxy_assign_sock()
+> but I could not see how it could explain your crash.
+>
+> We can read uninitialized memory and trigger a fault in
+> nf_tproxy_assign_sock(), not later in tcp_recvmsg()...
+
+Well, since I can't reproduce the bug, if you think this patch solves
+my problem, I'll tell my bosses that we can put back the production
+machine online.
+
+But anyway, if there's test you think I can run, I have same the same
+hardware on a lab using the same setup as the production
+environment...
+
+Thanks,
+
+Felipe Damasio
