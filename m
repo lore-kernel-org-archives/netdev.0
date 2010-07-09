@@ -1,50 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netfilter: add CHECKSUM target
-Date: Fri, 9 Jul 2010 15:18:14 +0800
-Message-ID: <20100709071814.GA27964@gondor.apana.org.au>
-References: <20100708222913.GA4475@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100708222913.GA4475@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH]: rfs: record flow in TCP receiving and sending pathes
+Date: Fri,  9 Jul 2010 15:28:18 +0800
+Message-ID: <1278660498-26587-1-git-send-email-xiaosuo@gmail.com>
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:53091 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751411Ab0GIHcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 03:32:00 -0400
+Received: by pzk26 with SMTP id 26so351953pzk.19
+        for <netdev@vger.kernel.org>; Fri, 09 Jul 2010 00:31:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 09, 2010 at 01:29:13AM +0300, Michael S. Tsirkin wrote:
-> This adds a `CHECKSUM' target, which can be used in the iptables mangle
-> table.
-> 
-> You can use this target to compute and fill in the checksum in
-> an IP packet that lacks a checksum.  This is particularly useful,
-> if you need to work around old applications such as dhcp clients,
-> that do not work well with checksum offloads, but don't want to
-> disable checksum offload in your device.
-> 
-> The problem happens in the field with virtualized applications.
-> For reference, see Red Hat bz 605555, as well as
-> http://www.spinics.net/lists/kvm/msg37660.html
-> 
-> Typical expected use (helps old dhclient binary running in a VM):
-> iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM
-> --checksum-fill
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+rfs: record flow in TCP receiving and sending pathes
 
-I'd think that this target would be protocol-agnostic, no?
+call sock_rps_record_flow() in function tcp_splice_read(), tcp_sendpage() and
+tcp_sendmsg().
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/ipv4/tcp.c |    3 +++
+ 1 file changed, 3 insertions(+)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 4e6ddfb..47537d8 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -608,6 +608,7 @@ ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
+ 	ssize_t spliced;
+ 	int ret;
+ 
++	sock_rps_record_flow(sk);
+ 	/*
+ 	 * We can't seek on a socket input
+ 	 */
+@@ -862,6 +863,7 @@ ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
+ 	ssize_t res;
+ 	struct sock *sk = sock->sk;
+ 
++	sock_rps_record_flow(sk);
+ 	if (!(sk->sk_route_caps & NETIF_F_SG) ||
+ 	    !(sk->sk_route_caps & NETIF_F_ALL_CSUM))
+ 		return sock_no_sendpage(sock, page, offset, size, flags);
+@@ -909,6 +911,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+ 	int sg, err, copied;
+ 	long timeo;
+ 
++	sock_rps_record_flow(sk);
+ 	lock_sock(sk);
+ 	TCP_CHECK_TIMER(sk);
+ 
