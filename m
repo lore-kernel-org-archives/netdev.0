@@ -1,43 +1,29 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: add CHECKSUM target
-Date: Fri, 09 Jul 2010 18:36:42 +0200
-Message-ID: <4C37501A.3070807@trash.net>
-References: <20100708222913.GA4475@redhat.com> <4C373D90.8070000@trash.net> <alpine.LSU.2.01.1007091824520.1835@obet.zrqbmnf.qr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 1/9] atm: propagate signal changes via notifier
+Date: Fri, 09 Jul 2010 09:48:56 -0700 (PDT)
+Message-ID: <20100709.094856.193707207.davem@davemloft.net>
+References: <1278578095-25324-2-git-send-email-karl@hiramoto.org>
+	<20100708.214745.48520104.davem@davemloft.net>
+	<20100709071610.42473d6c@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, herbert.xu@redhat.com, kvm@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1007091824520.1835@obet.zrqbmnf.qr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: karl@hiramoto.org, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: chas@cmf.nrl.navy.mil
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48328
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756021Ab0GIQsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 12:48:42 -0400
+In-Reply-To: <20100709071610.42473d6c@thirdoffive.cmf.nrl.navy.mil>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 09.07.2010 18:26, schrieb Jan Engelhardt:
-> 
-> On Friday 2010-07-09 17:17, Patrick McHardy wrote:
->>
->>> This adds a `CHECKSUM' target, which can be used in the iptables mangle
->>> table.
->>>
->>> You can use this target to compute and fill in the checksum in
->>> an IP packet that lacks a checksum.  This is particularly useful,
->>> if you need to work around old applications such as dhcp clients,
->>> that do not work well with checksum offloads, but don't want to
->>> disable checksum offload in your device.
->>
->> I'm not sure this is something we want to merge upstream and
->> support indefinitely.
-> 
-> We could put it into Xtables-addons. That would also be consistent
-> with Dave's suggestion.
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Date: Fri, 9 Jul 2010 07:16:10 -0400
 
-Sure, that would be fine with me.
+> The preferred style for long (multi-line) comments is:
+
+Which is stupid because it causes one to be able to keep less actual
+code on the screen at a time.
