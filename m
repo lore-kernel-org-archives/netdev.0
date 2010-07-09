@@ -1,57 +1,66 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [PATCH] at1700: fix double free_irq
-Date: Fri, 9 Jul 2010 18:58:17 +0200
-Message-ID: <20100709165817.GN19184@bicker>
-References: <1278678686-7215-1-git-send-email-segooon@gmail.com>
+From: rpartearroyo@albentia.com
+Subject: [PATCH 001/001] QoS and/or fair queueing: Stateless NAT BUG
+Date: Fri, 9 Jul 2010 18:35:59 +0200 (CEST)
+Message-ID: <25524.83.175.223.254.1278693359.squirrel@mail.albentia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Kulikov Vasiliy <segooon@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54575 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757583Ab0GIRAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 13:00:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1278678686-7215-1-git-send-email-segooon@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	"Iratxo Pichel Ortiz" <ipichel@albentia.com>,
+	Noelia =?iso-8859-1?Q?Mor=F3n?= <nmoron@albentia.com>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 09, 2010 at 04:31:26PM +0400, Kulikov Vasiliy wrote:
-> free_irq() is called both in net_close() and cleanup_card().  Since it
-> is requested in at1700_probe1(), leave free_irq() only in cleanup_card()
-> for balance.
-> 
+Hi all,
+I have been testing Stateless NAT and found that ICMP packets with leng=
+th
+less than 20 bytes were not correctly NAT'ed. I have found a BUG that
+makes taking into account IP header length twice, so ICMP packets small=
+er
+than 20 bytes were being dropped.
 
-Are you sure?  I would think that we should make the free_irq() in
-cleanup_card() conditional instead.
+Proposed formal patch is below, as suggested by Eric Dumazet, thanks.
+It is taken from 2.6.34.1 stable version.
 
-> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
-> ---
->  drivers/net/at1700.c |    4 +---
->  1 files changed, 1 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/at1700.c b/drivers/net/at1700.c
-> index 93185f5..8987689 100644
-> --- a/drivers/net/at1700.c
-> +++ b/drivers/net/at1700.c
-> @@ -811,10 +811,8 @@ static int net_close(struct net_device *dev)
->  	/* No statistic counters on the chip to update. */
->  
->  	/* Disable the IRQ on boards of fmv18x where it is feasible. */
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Signed-off-by: Rodrigo Partearroyo Gonz=E1lez <rpartearroyo@albentia.co=
+m>
+---
+diff -uprN a/net/sched/act_nat.c b/net/sched/act_nat.c
+--- a/net/sched/act_nat.c    2010-07-09 18:25:18.000000000 +0200
++++ b/net/sched/act_nat.c 2010-07-09 18:26:16.000000000 +0200
+@@ -202,7 +202,7 @@ static int tcf_nat(struct sk_buff *skb,
+        {
+                struct icmphdr *icmph;
 
-It seems like this comment should be updated?
+-               if (!pskb_may_pull(skb, ihl + sizeof(*icmph) + sizeof(*=
+iph)))
++               if (!pskb_may_pull(skb, ihl + sizeof(*icmph)))
+                        goto drop;
 
-> -	if (lp->jumpered) {
-> +	if (lp->jumpered)
->  		outb(0x00, ioaddr + IOCONFIG1);
-> -		free_irq(dev->irq, dev);
-> -	}
+                icmph =3D (void *)(skb_network_header(skb) + ihl);
+@@ -223,7 +223,7 @@ static int tcf_nat(struct sk_buff *skb,
 
-regards,
-dan carpenter
+                if (skb_cloned(skb) &&
+                    !skb_clone_writable(skb,
+-                                       ihl + sizeof(*icmph) +
+sizeof(*iph)) &&
++                                       ihl + sizeof(*icmph) ) &&
+                    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+                        goto drop;
+---
+
+--=20
+Rodrigo Partearroyo Gonz=E1lez
+
+Albentia Systems S.A.
+http://www.albentia.com
+
+C\Margarita Salas 22
+Parque Tecnol=F3gico de Legan=E9s
+Legan=E9s (28918)
+Madrid
+Spain
