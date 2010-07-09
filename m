@@ -1,82 +1,126 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v5 3/9] atm/adummy: add syfs DEVICE_ATTR to change signal
-Date: Fri,  9 Jul 2010 08:55:32 +0200
-Message-ID: <1278658538-6769-4-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v5 1/9] atm: propagate signal changes via notifier
+Date: Fri,  9 Jul 2010 08:55:30 +0200
+Message-ID: <1278658538-6769-2-git-send-email-karl@hiramoto.org>
 References: <1278658538-6769-1-git-send-email-karl@hiramoto.org>
 Cc: Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcaid.dreamhost.com ([208.97.132.83]:35207 "EHLO
+Received: from caiajhbdcagg.dreamhost.com ([208.97.132.66]:35190 "EHLO
 	homiemail-a64.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753673Ab0GIGzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:55:52 -0400
+	by vger.kernel.org with ESMTP id S1753323Ab0GIGzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:55:46 -0400
 In-Reply-To: <1278658538-6769-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add notifier chain for changes in atm_dev.
+
+Clients like br2684 will call register_atmdevice_notifier() to be notified of
+changes. Drivers will call atm_dev_signal_change() to notify clients like
+br2684 of the change.
+
+On DSL and ATM devices it's usefull to have a know if you have a carrier
+signal. netdevice LOWER_UP changes can be propagated to userspace via netlink
+monitor.
+
 Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
- drivers/atm/adummy.c |   39 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 39 insertions(+), 0 deletions(-)
+ include/linux/atmdev.h |   17 +++++++++++++++++
+ net/atm/common.c       |   30 ++++++++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/atm/adummy.c b/drivers/atm/adummy.c
-index 6d44f07..46b9476 100644
---- a/drivers/atm/adummy.c
-+++ b/drivers/atm/adummy.c
-@@ -40,6 +40,42 @@ struct adummy_dev {
+diff --git a/include/linux/atmdev.h b/include/linux/atmdev.h
+index 817b237..f6481da 100644
+--- a/include/linux/atmdev.h
++++ b/include/linux/atmdev.h
+@@ -431,6 +431,14 @@ struct atm_dev *atm_dev_register(const char *type,const struct atmdev_ops *ops,
+     int number,unsigned long *flags); /* number == -1: pick first available */
+ struct atm_dev *atm_dev_lookup(int number);
+ void atm_dev_deregister(struct atm_dev *dev);
++
++/* atm_dev_signal_change
++ *
++ * Propagate lower layer signal change in atm_dev->signal to netdevice.
++ * The event will be sent via a notifier call chain.
++ */
++void atm_dev_signal_change(struct atm_dev *dev, char signal);
++
+ void vcc_insert_socket(struct sock *sk);
  
- static LIST_HEAD(adummy_devs);
  
-+static ssize_t __set_signal(struct device *dev,
-+		struct device_attribute *attr,
-+		const char *buf, size_t len)
-+{
-+	struct atm_dev *atm_dev = container_of(dev, struct atm_dev, class_dev);
-+	int signal;
+@@ -510,6 +518,15 @@ void register_atm_ioctl(struct atm_ioctl *);
+  */
+ void deregister_atm_ioctl(struct atm_ioctl *);
+ 
 +
-+	if (sscanf(buf, "%d", &signal) == 1) {
++/* register_atmdevice_notifier - register atm_dev notify events
++ *
++ * Clients like br2684 will register notify events
++ * Currently we notify of signal found/lost
++ */
++int register_atmdevice_notifier(struct notifier_block *nb);
++void unregister_atmdevice_notifier(struct notifier_block *nb);
 +
-+		if (signal < ATM_PHY_SIG_LOST || signal > ATM_PHY_SIG_FOUND)
-+			signal = ATM_PHY_SIG_UNKNOWN;
+ #endif /* __KERNEL__ */
+ 
+ #endif
+diff --git a/net/atm/common.c b/net/atm/common.c
+index b43feb1..940404a 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -37,6 +37,8 @@ EXPORT_SYMBOL(vcc_hash);
+ DEFINE_RWLOCK(vcc_sklist_lock);
+ EXPORT_SYMBOL(vcc_sklist_lock);
+ 
++static ATOMIC_NOTIFIER_HEAD(atm_dev_notify_chain);
 +
-+		atm_dev_signal_change(atm_dev, signal);
-+		return 1;
-+	}
-+	return -EINVAL;
-+}
-+
-+static ssize_t __show_signal(struct device *dev,
-+	struct device_attribute *attr, char *buf)
-+{
-+	struct atm_dev *atm_dev = container_of(dev, struct atm_dev, class_dev);
-+	return sprintf(buf, "%d\n", atm_dev->signal);
-+}
-+static DEVICE_ATTR(signal, 0644, __show_signal, __set_signal);
-+
-+static struct attribute *adummy_attrs[] = {
-+	&dev_attr_signal.attr,
-+	NULL
-+};
-+
-+static struct attribute_group adummy_group_attrs = {
-+	.name = NULL, /* We want them in dev's root folder */
-+	.attrs = adummy_attrs
-+};
-+
- static int __init
- adummy_start(struct atm_dev *dev)
+ static void __vcc_insert_socket(struct sock *sk)
  {
-@@ -128,6 +164,9 @@ static int __init adummy_init(void)
- 	adummy_dev->atm_dev = atm_dev;
- 	atm_dev->dev_data = adummy_dev;
+ 	struct atm_vcc *vcc = atm_sk(sk);
+@@ -212,6 +214,22 @@ void vcc_release_async(struct atm_vcc *vcc, int reply)
+ }
+ EXPORT_SYMBOL(vcc_release_async);
  
-+	if (sysfs_create_group(&atm_dev->class_dev.kobj, &adummy_group_attrs))
-+		dev_err(&atm_dev->class_dev, "Could not register attrs for adummy\n");
++void atm_dev_signal_change(struct atm_dev *dev, char signal)
++{
++	pr_debug("%s signal=%d dev=%p number=%d dev->signal=%d\n",
++		__func__, signal, dev, dev->number, dev->signal);
 +
- 	if (adummy_start(atm_dev)) {
- 		printk(KERN_ERR DEV_LABEL ": adummy_start() failed\n");
- 		err = -ENODEV;
++	/* atm driver sending invalid signal */
++	WARN_ON(signal < ATM_PHY_SIG_LOST || signal > ATM_PHY_SIG_FOUND);
++
++	if (dev->signal == signal)
++		return; /* no change */
++
++	dev->signal = signal;
++
++	atomic_notifier_call_chain(&atm_dev_notify_chain, signal, dev);
++}
++EXPORT_SYMBOL(atm_dev_signal_change);
+ 
+ void atm_dev_release_vccs(struct atm_dev *dev)
+ {
+@@ -781,6 +799,18 @@ int vcc_getsockopt(struct socket *sock, int level, int optname,
+ 	return vcc->dev->ops->getsockopt(vcc, level, optname, optval, len);
+ }
+ 
++int register_atmdevice_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_register(&atm_dev_notify_chain, nb);
++}
++EXPORT_SYMBOL_GPL(register_atmdevice_notifier);
++
++void unregister_atmdevice_notifier(struct notifier_block *nb)
++{
++	atomic_notifier_chain_unregister(&atm_dev_notify_chain, nb);
++}
++EXPORT_SYMBOL_GPL(unregister_atmdevice_notifier);
++
+ static int __init atm_init(void)
+ {
+ 	int error;
 -- 
 1.7.1
 
