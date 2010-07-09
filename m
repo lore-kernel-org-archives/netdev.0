@@ -1,46 +1,73 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw
- HIDIOCGFEATURE  and HIDIOCSFEATURE
-Date: Fri, 09 Jul 2010 05:01:37 -0300
-Message-ID: <1278662497.10421.94.camel@localhost.localdomain>
-References: <1276467601-9066-1-git-send-email-alan@signal11.us>
-	 <1278623485.10421.73.camel@localhost.localdomain>
-	 <4C369CDC.9080104@signal11.us>
+From: Stefan Assmann <sassmann@redhat.com>
+Subject: Re: [PATCH] igbvf: avoid name clash between PF and VF
+Date: Fri, 09 Jul 2010 11:31:41 +0200
+Message-ID: <4C36EC7D.5080800@redhat.com>
+References: <4C2B0614.9040004@redhat.com> <201007081541.57685.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David S Miller <davem@davemloft.net>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Michael Poole <mdpoole@troilus.org>,
-	Bastien Nocera <hadess@hadess.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alan Ott <alan@signal11.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C369CDC.9080104@signal11.us>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>,
+	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
+	Andy Gospodarek <gospo@redhat.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <201007081541.57685.arnd@arndb.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Alan,
-
-> > I looked at this and I am bit worried that this should not be done in
-> > this detail in the HIDP driver. Essentially HIDP is a pure transport
-> > driver. It should not handle all these details. Can we make this a bit
-> > easier for the transport drivers to support such features?
+On 08.07.2010 15:41, Arnd Bergmann wrote:
+> On Wednesday 30 June 2010, Stefan Assmann wrote:
+>> diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+>> index 5e2b2a8..2fb665b 100644
+>> --- a/drivers/net/igbvf/netdev.c
+>> +++ b/drivers/net/igbvf/netdev.c
+>> @@ -2787,7 +2787,7 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
+>>         netif_carrier_off(netdev);
+>>         netif_stop_queue(netdev);
+>>
+>> -       strcpy(netdev->name, "eth%d");
+>> +       strcpy(netdev->name, "veth%d");
+>>         err = register_netdev(netdev);
+>>         if (err)
+>>                 goto err_hw_init;
 > 
-> I put these changes (most notably the addition of hidp_get_raw_report()) 
-> in hidp because that's where the parallel function 
-> hidp_output_raw_report() was already located. I figured the input should 
-> go with the output. That said, if there's a better place for both of 
-> them (input and output) to go, let me know where you think it should be, 
-> and I'll get them moved into the proper spot.
-> 
-> I'm not sure what you mean about HIDP being a pure transport driver.
+> Note that 'veth' is the name used for a virtual ethernet pair by
+> drivers/net/veth.c. If a variant of your patch gets applied, it would
+> probably be useful to use a different naming scheme to avoid confusion
+> with the veth driver.
 
-what is usb-hid.ko doing here? I would expect a bunch of code
-duplication with minor difference between USB and Bluetooth.
+Good point!
+Greg suggested vfeth, that should be more descriptive and unique.
 
-Regards
+  Stefan
+---
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index 5e2b2a8..4d02af8 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -2787,7 +2787,7 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
+ 	netif_carrier_off(netdev);
+ 	netif_stop_queue(netdev);
 
-Marcel
+-	strcpy(netdev->name, "eth%d");
++	strcpy(netdev->name, "vfeth%d");
+ 	err = register_netdev(netdev);
+ 	if (err)
+ 		goto err_hw_init;
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Sprint
+What will you do first with EVO, the first 4G phone?
+Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
