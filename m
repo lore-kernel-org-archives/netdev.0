@@ -1,40 +1,39 @@
-From: Richard =?ISO-8859-1?Q?R=F6jfors?=
-	<richard.rojfors@pelagicore.com>
-Subject: [PATCH v3 2/2] ks8842: Remove unnecessary bank select.
-Date: Fri, 09 Jul 2010 08:28:16 +0200
-Message-ID: <1278656896.6953.15.camel@debian>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v4 1/9] atm: propagate signal changes via notifier
+Date: Fri, 9 Jul 2010 15:50:13 +0900
+Message-ID: <20100709065012.GB24576@verge.net.au>
+References: <1278578095-25324-2-git-send-email-karl@hiramoto.org>
+ <20100708.214745.48520104.davem@davemloft.net>
+ <4C36C353.9080501@hiramoto.org>
+ <20100708.233801.258129125.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: karl@hiramoto.org, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, chas@cmf.nrl.navy.mil
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-h21.telenor.se ([195.54.99.196]:53186 "EHLO
-	smtprelay-h21.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753151Ab0GIGtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:49:08 -0400
-Received: from ipb3.telenor.se (ipb3.telenor.se [195.54.127.166])
-	by smtprelay-h21.telenor.se (Postfix) with ESMTP id 56351E8FB8
-	for <netdev@vger.kernel.org>; Fri,  9 Jul 2010 08:28:17 +0200 (CEST)
+Received: from kirsty.vergenet.net ([202.4.237.240]:57856 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751411Ab0GIGuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:50:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20100708.233801.258129125.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes an unnecessary bank select before resetting the
-controller.
+On Thu, Jul 08, 2010 at 11:38:01PM -0700, David Miller wrote:
+> From: Karl Hiramoto <karl@hiramoto.org>
+> Date: Fri, 09 Jul 2010 08:36:03 +0200
+> 
+> > Ok, fixing it,  but there are 100's of occurences in net/ like i had it. :-)
+> 
+> I would be happy to see a patch which fixes them up :-)
 
-Signed-off-by: Richard R=C3=B6jfors <richard.rojfors@pelagicore.com>
----
-diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
-index 5191af2..0be9261 100644
---- a/drivers/net/ks8842.c
-+++ b/drivers/net/ks8842.c
-@@ -199,7 +199,6 @@ static void ks8842_reset(struct ks8842_adapter *ada=
-pter)
- 	msleep(10);
- 	iowrite16(0, adapter->hw_addr + REG_GRR);
- 	*/
--	iowrite16(32, adapter->hw_addr + REG_SELECT_BANK);
- 	iowrite32(0x1, adapter->hw_addr + REG_TIMB_RST);
- 	msleep(20);
- }
+Really? By my calculations it would be an awful lot of churn.
+
+$ find net/ -type f -name "*.[chS]" | xargs grep "\/\* *$" | wc -l
+6833
+$ find net/ -type f -name "*.[chS]" | xargs grep -l "\/\* *$" | wc -l
+929
+
 
