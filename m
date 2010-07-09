@@ -1,67 +1,84 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.35-rc4-git3: Reported regressions from 2.6.34
-Date: Fri, 9 Jul 2010 23:35:50 +0200
-Message-ID: <201007092335.50486.rjw@sisk.pl>
-References: <-IGZ64uxA6G.A.P0H.bLmNMB@chimera> <AANLkTiknnzWyVpqnPCpyiEVHLgkewd0zaGzLInABRe2G@mail.gmail.com> <20100709020440.GJ6405@nowhere>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: [PATCH net-next-2.6 1/2] qlcnic: Check FW capability for TSO
+Date: Fri, 9 Jul 2010 16:14:58 -0700
+Message-ID: <alpine.OSX.2.00.1007091544370.44317@macintosh-2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Shawn Starr <shawn.starr@rogers.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Dave Airlie <airlied@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, Jens Axboe <axboe@kernel.dk>
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100709020440.GJ6405@nowhere>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:24519 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754927Ab0GIXPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 19:15:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, July 09, 2010, Frederic Weisbecker wrote:
-> On Thu, Jul 08, 2010 at 06:34:25PM -0700, Linus Torvalds wrote:
-> > On Thu, Jul 8, 2010 at 4:33 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> > > Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=16284
-> > > Subject         : Hitting WARN_ON in hw_breakpoint code
-> > > Submitter       : Paul Mackerras <paulus@samba.org>
-> > > Date            : 2010-06-23 12:57 (16 days old)
-> > > Message-ID      : <20100623125740.GA3368@brick.ozlabs.ibm.com>
-> > > References      : http://marc.info/?l=linux-kernel&m=127729789113432&w=2
-> > 
-> > This has "I have a fix, will post it very soon." in the thread from
-> > Frederic, but I'm not seeing anything else. Frederic?
-> 
-> 
-> 
-> Right. In fact it wasn't a regression. The per task breakpoint reservation
-> design was broken from the beginning and this warning has revealed the
-> problem. This only touched perf, and it did since perf support breakpoints.
-> Fortunately ptrace wasn't concerned by this problem, even not by side effects
-> of this.
-> 
-> The fix is invasive as it's a rewrite of a (little) part of the breakpoint
-> reservation. And since the symptom is only a warning and also breakpoints
-> never released from the constraint table (just a counter, no memory leak),
-> the fix is headed for 2.6.36.
-> 
-> It is ready in tip:/perf/core:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/tip/linux-2.6-tip.git;a=commitdiff;h=45a73372efe4a63f44aa2e1125d4a777c2fdc8d8
-> 
-> I think this ticket can be safely closed.
 
-OK, closing.
+Driver checks TSO capability from FW before enabling it.
 
-Rafael
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic.h         |    7 ++++---
+ drivers/net/qlcnic/qlcnic_ethtool.c |    3 +++
+ drivers/net/qlcnic/qlcnic_main.c    |   10 +++++++---
+ 3 files changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index 60ea7cb..02a50e6 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -821,9 +821,10 @@ struct qlcnic_nic_intr_coalesce {
+ #define QLCNIC_LRO_REQUEST_CLEANUP	4
+ 
+ /* Capabilites received */
+-#define QLCNIC_FW_CAPABILITY_BDG		(1 << 8)
+-#define QLCNIC_FW_CAPABILITY_FVLANTX		(1 << 9)
+-#define QLCNIC_FW_CAPABILITY_HW_LRO		(1 << 10)
++#define QLCNIC_FW_CAPABILITY_TSO		BIT_1
++#define QLCNIC_FW_CAPABILITY_BDG		BIT_8
++#define QLCNIC_FW_CAPABILITY_FVLANTX		BIT_9
++#define QLCNIC_FW_CAPABILITY_HW_LRO		BIT_10
+ 
+ /* module types */
+ #define LINKEVENT_MODULE_NOT_PRESENT			1
+diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
+index f8e39e4..baf5a52 100644
+--- a/drivers/net/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/qlcnic/qlcnic_ethtool.c
+@@ -820,6 +820,9 @@ static u32 qlcnic_get_tso(struct net_device *dev)
+ 
+ static int qlcnic_set_tso(struct net_device *dev, u32 data)
+ {
++	struct qlcnic_adapter *adapter = netdev_priv(dev);
++	if (!(adapter->capabilities & QLCNIC_FW_CAPABILITY_TSO))
++		return -EOPNOTSUPP;
+ 	if (data)
+ 		dev->features |= (NETIF_F_TSO | NETIF_F_TSO6);
+ 	else
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 18e2b2e..c334f1a 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -1226,10 +1226,14 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter,
+ 	SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_ops);
+ 
+ 	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM |
+-		NETIF_F_IPV6_CSUM | NETIF_F_GRO | NETIF_F_TSO | NETIF_F_TSO6);
+-
++		NETIF_F_IPV6_CSUM | NETIF_F_GRO);
+ 	netdev->vlan_features |= (NETIF_F_SG | NETIF_F_IP_CSUM |
+-		NETIF_F_IPV6_CSUM | NETIF_F_TSO | NETIF_F_TSO6);
++		NETIF_F_IPV6_CSUM);
++
++	if (adapter->capabilities & QLCNIC_FW_CAPABILITY_TSO) {
++		netdev->features |= (NETIF_F_TSO | NETIF_F_TSO6);
++		netdev->vlan_features |= (NETIF_F_TSO | NETIF_F_TSO6);
++	}
+ 
+ 	if (pci_using_dac) {
+ 		netdev->features |= NETIF_F_HIGHDMA;
+-- 
+1.7.1
+
