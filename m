@@ -1,58 +1,79 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next-2.6 2/2] qlcnic: Disable admin tools interface for
- VF driver mode
-Date: Fri, 9 Jul 2010 16:15:05 -0700
-Message-ID: <alpine.OSX.2.00.1007091611371.44317@macintosh-2.qlogic.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: net/sched/act_nat.c BUG
+Date: Sat, 10 Jul 2010 07:23:59 +0800
+Message-ID: <20100709232359.GA2501@gondor.apana.org.au>
+References: <201007091637.57660.rpartearroyo@albentia.com> <1278688420.2696.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:24526 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754922Ab0GIXPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 19:15:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rodrigo Partearroyo =?iso-8859-1?Q?Gonz=E1lez?=
+	<rpartearroyo@albentia.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Iratxo Pichel Ortiz <ipichel@albentia.com>,
+	Noelia =?iso-8859-1?Q?Mor=F3n?= <nmoron@albentia.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1278688420.2696.7.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 09, 2010 at 05:13:40PM +0200, Eric Dumazet wrote:
+> Le vendredi 09 juillet 2010 =E0 16:37 +0200, Rodrigo Partearroyo Gonz=
+=E1lez
+> a =E9crit :
+> > Hi all,
+> >=20
+> > I have been testing Stateless NAT and found that ICMP packets with =
+length less=20
+> > than 20 bytes were not correctly NAT'ed. I have found a BUG that ma=
+kes taking=20
+> > into account IP header length twice, so ICMP packets smaller than 2=
+0 bytes=20
+> > were being dropped.
+> >=20
+>=20
+> CC netdev
+>=20
+> > The proposed fix is:
+> >=20
+> > Index: net/sched/act_nat.c
+> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > --- net/sched/act_nat.c
+> > +++ net/sched/act_nat.c
+> > @@ -202,7 +202,7 @@
+> >         {
+> >                 struct icmphdr *icmph;
+> > =20
+> > -               if (!pskb_may_pull(skb, ihl + sizeof(*icmph) + size=
+of(*iph)))
+> > +               if (!pskb_may_pull(skb, ihl + sizeof(*icmph)))
+> >                         goto drop;
+> > =20
+> >                 icmph =3D (void *)(skb_network_header(skb) + ihl);
+> >=20
+> > Please, consider applying it.
+>=20
+> Nice catch, but take a look at next lines too,
+> when call to skb_clone_writable() is done, since same error is presen=
+t.
+>=20
+> 	skb_clone_writable(skb,
+> 			   ihl + sizeof(*icmph) + sizeof(*iph))
+>=20
+> Please submit a formal patch, with your "Signed-off-by: ...", as
+> documented in Documentation/SubmittingPatches
 
-Non privileged (VF) driver will not be able to carry out any of the FW update,
-etc. operations. Disable the tools interface by not creating the sysfs nodes.
+No we do need the second IP header, think about it...
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/qlcnic/qlcnic_main.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+However, we should only drop it only if it's long enough and
+pskb_may_pull fails.
 
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index c334f1a..4d18313 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -3272,6 +3272,8 @@ qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
- 
-+	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC)
-+		return;
- 	if (device_create_file(dev, &dev_attr_diag_mode))
- 		dev_info(dev, "failed to create diag_mode sysfs entry\n");
- 	if (device_create_bin_file(dev, &bin_attr_crb))
-@@ -3292,12 +3294,13 @@ qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- 
- }
- 
--
- static void
- qlcnic_remove_diag_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
- 
-+	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC)
-+		return;
- 	device_remove_file(dev, &dev_attr_diag_mode);
- 	device_remove_bin_file(dev, &bin_attr_crb);
- 	device_remove_bin_file(dev, &bin_attr_mem);
--- 
-1.7.1
-
+Thanks,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
