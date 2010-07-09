@@ -1,48 +1,39 @@
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Subject: Re: 2.6.35-rc4-git3: Reported regressions from 2.6.34
-Date: Fri, 9 Jul 2010 02:16:57 +0200
-Message-ID: <AANLkTimmGRikJAWmVeYRkvr9-3AoeO9APN-oDlCJUpvl@mail.gmail.com>
-References: <-IGZ64uxA6G.A.P0H.bLmNMB@chimera>
-Reply-To: sedat.dilek@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/6 net-next-2.6] vxge: Remove queue_state references
+Date: Thu, 08 Jul 2010 17:27:24 -0700 (PDT)
+Message-ID: <20100708.172724.104050663.davem@davemloft.net>
+References: <20100708191957.GA15167@exar.com>
+	<20100708231936.GA19237@exar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <-IGZ64uxA6G.A.P0H.bLmNMB@chimera>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Sreenivasa.Honnur@exar.com,
+	ramkrishna.vepa@exar.com
+To: jon.mason@exar.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50736
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751744Ab0GIA1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 20:27:11 -0400
+In-Reply-To: <20100708231936.GA19237@exar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rafael,
+From: Jon Mason <jon.mason@exar.com>
+Date: Thu, 8 Jul 2010 18:19:37 -0500
 
-On Fri, Jul 9, 2010 at 1:33 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-[...]
-Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=16169
-Subject         : Complain from preemptive debug
-Submitter       : Sedat Dilek <sedat.dilek@googlemail.com>
-Date            : 2010-05-31 10:10 (39 days old)
-Message-ID      : <AANLkTilTnAAZIizKinYsxFkNTkrmPqk6XJJuUjjhJ7EP@mail.gmail.com>
-References      : http://lkml.org/lkml/2010/5/31/77
-Handled-By      : Dmitry Monakhov <dmonakhov@openvz.org>
-                 Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Patch           : http://www.spinics.net/lists/cpufreq/msg01631.html
-                 https://patchwork.kernel.org/patch/106555/
+> On Thu, Jul 08, 2010 at 12:19:57PM -0700, Jon Mason wrote:
+>> Remove queue_state references, as they are no longer necessary.
+>> 
+>> Also, The driver needs to start/stop the queue regardless of which type
+>> of steering is enabled.  Remove checks for TX_MULTIQ_STEERING only and
+>> start/stop for all steering types.
+>> 
+>> Signed-off-by: Jon Mason <jon.mason@exar.com>
+>> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@exar.com>
+>> Signed-off-by: Ramkrishna Vepa <ram.vepa@exar.com>
+> 
+> Ram's e-mail address is incorrect in this series.  Would you like me
+> to resubmit with it corrected?
 
-This bug is fixed Upstream [1]:
-
-commit 8c215bd3890c347dfb6a2db4779755f8b9c298a9
-"sched: Cure nr_iowait_cpu() users"
-
-- Sedat -
-
-[1] http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=8c215bd3890c347dfb6a2db4779755f8b9c298a9
+I can fix it up.
