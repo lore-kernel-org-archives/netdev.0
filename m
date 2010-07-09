@@ -1,81 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] gre: propagate ipv6 transport class
-Date: Thu, 08 Jul 2010 21:36:45 -0700 (PDT)
-Message-ID: <20100708.213645.183036637.davem@davemloft.net>
-References: <20100706105821.7b0e2538@nehalam>
+Subject: Re: [PATCH linux-2.6.35-rc3] ks8842 driver
+Date: Thu, 08 Jul 2010 21:41:01 -0700 (PDT)
+Message-ID: <20100708.214101.39178389.davem@davemloft.net>
+References: <C43529A246480145B0A6D0234BDB0F0D0212A4@MELANITE.micrel.com>
+	<20100708075245.GA21371@verge.net.au>
+	<C43529A246480145B0A6D0234BDB0F0D481D67@MELANITE.micrel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: horms@verge.net.au, netdev@vger.kernel.org, Charles.Li@Micrel.Com
+To: David.Choi@Micrel.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53445
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57101
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750815Ab0GIEgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 00:36:31 -0400
-In-Reply-To: <20100706105821.7b0e2538@nehalam>
+	by vger.kernel.org with ESMTP id S1750936Ab0GIEkq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 00:40:46 -0400
+In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D481D67@MELANITE.micrel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 6 Jul 2010 10:58:21 -0700
+From: "Choi, David" <David.Choi@Micrel.Com>
+Date: Thu, 8 Jul 2010 12:01:51 -0700
 
-> This patch makes IPV6 over IPv4 GRE tunnel propagate the transport
-> class field from the underlying IPV6 header to the IPV4 Type Of Service
-> field. Without the patch, all IPV6 packets in tunnel look the same to QoS.
+> The original ks8842 driver is designed to work on the customized bus
+> interface based on an FPGA. This patch is intended to address the more
+> commonly used generic bus interface available on the majority of SoC in
+> the market.
 > 
-> This assumes that IPV6 transport class is exactly the same
-> as IPv4 TOS. Not sure if that is always the case?  Maybe need
-> to mask off some bits.
-> 
-> The mask and shift to get tclass is copied from ipv6/datagram.c
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> It is unlikely that for a system to use both FPGA based and generic bus
+> interface for ks8842, I am quite certain that those 2 devices are used
+> mutual exclusively.
 
-Looks good, but we should use ipv6_get_dsfield() just like
-ipgre_ecn_encapsulate() does.
+Like Simon, I'm not to thrilled with this approach.
 
-Note that this also influences the route since this 'tos' feeds
-into the flowi lookup key.  We should make sure that this is OK
-too.
+Any flag bit test you'd need to add to the driver to handle both cases
+will have zero performance impact since the cost of the MMIO accesses
+will dominate such tests entirely.
 
-Anyways, I've committed the following to net-next-2.6, thanks!
+Add a boolean flag bit to the driver software state, set it based upon
+some platform_device private setting, and test it in these paths to
+device what to do.
 
---------------------
-gre: propagate ipv6 transport class
+As a bonus, anyone who enables this driver at all in their build will
+test the compilation of both code paths.  And to me, that extra
+compilation testing trumps whatever arguments you may make for not
+making this support dynamic.
 
-This patch makes IPV6 over IPv4 GRE tunnel propagate the transport
-class field from the underlying IPV6 header to the IPV4 Type Of Service
-field. Without the patch, all IPV6 packets in tunnel look the same to QoS.
-
-This assumes that IPV6 transport class is exactly the same
-as IPv4 TOS. Not sure if that is always the case?  Maybe need
-to mask off some bits.
-
-The mask and shift to get tclass is copied from ipv6/datagram.c
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/ip_gre.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 749e548..945b20a 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -731,6 +731,8 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 		tos = 0;
- 		if (skb->protocol == htons(ETH_P_IP))
- 			tos = old_iph->tos;
-+		else if (skb->protocol == htons(ETH_P_IPV6))
-+			tos = ipv6_get_dsfield((struct ipv6hdr *)old_iph);
- 	}
- 
- 	{
--- 
-1.7.1.1
-
-
-
+Thanks.
