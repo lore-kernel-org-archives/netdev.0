@@ -1,7 +1,7 @@
 From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH 1/2] 82596: do not panic on out of memory
-Date: Fri,  9 Jul 2010 16:25:22 +0400
-Message-ID: <1278678323-6848-1-git-send-email-segooon@gmail.com>
+Subject: [PATCH 2/2] 82596: free resources on error
+Date: Fri,  9 Jul 2010 16:25:40 +0400
+Message-ID: <1278678340-6889-1-git-send-email-segooon@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Jiri Pirko <jpirko@redhat.com>,
 	Stephen Hemminger <shemminger@vyatta.com>,
@@ -10,97 +10,79 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	netdev@vger.kernel.org
 To: kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:47850 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754752Ab0GIMZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 08:25:41 -0400
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:36803 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755910Ab0GIMZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 08:25:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If dev_alloc_skb() failed then free already allocated skbs.
-remove_rx_bufs() can be called multiple times, so set rbd->skb to NULL
-to avoid double free. remove_rx_bufs() was moved upwards to be seen by
-init_rx_bufs().
+IRQ 56 was not freed anywhere (neither in i596_open() on error nor in
+i596_close()), rx_bufs were not freed if init_i596_mem() fails,
+netif_stop_queue() was not called.
 
 Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 ---
- drivers/net/82596.c |   42 ++++++++++++++++++++++++++----------------
- 1 files changed, 26 insertions(+), 16 deletions(-)
+ drivers/net/82596.c |   30 ++++++++++++++++++++++--------
+ 1 files changed, 22 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/82596.c b/drivers/net/82596.c
-index dd8dc15..73073d0 100644
+index 73073d0..89e43d7 100644
 --- a/drivers/net/82596.c
 +++ b/drivers/net/82596.c
-@@ -525,7 +525,21 @@ static irqreturn_t i596_error(int irq, void *dev_id)
- }
- #endif
- 
--static inline void init_rx_bufs(struct net_device *dev)
-+static inline void remove_rx_bufs(struct net_device *dev)
-+{
-+	struct i596_private *lp = dev->ml_priv;
-+	struct i596_rbd *rbd;
-+	int i;
-+
-+	for (i = 0, rbd = lp->rbds; i < rx_ring_size; i++, rbd++) {
-+		if (rbd->skb == NULL)
-+			break;
-+		dev_kfree_skb(rbd->skb);
-+		rbd->skb = NULL;
-+	}
-+}
-+
-+static inline int init_rx_bufs(struct net_device *dev)
- {
- 	struct i596_private *lp = dev->ml_priv;
- 	int i;
-@@ -537,8 +551,11 @@ static inline void init_rx_bufs(struct net_device *dev)
- 	for (i = 0, rbd = lp->rbds; i < rx_ring_size; i++, rbd++) {
- 		struct sk_buff *skb = dev_alloc_skb(PKT_BUF_SZ);
- 
--		if (skb == NULL)
--			panic("82596: alloc_skb() failed");
-+		if (skb == NULL) {
-+			remove_rx_bufs(dev);
-+			return -ENOMEM;
+@@ -1015,24 +1015,35 @@ static int i596_open(struct net_device *dev)
+ 	}
+ #ifdef ENABLE_MVME16x_NET
+ 	if (MACH_IS_MVME16x) {
+-		if (request_irq(0x56, i596_error, 0, "i82596_error", dev))
+-			return -EAGAIN;
++		if (request_irq(0x56, i596_error, 0, "i82596_error", dev)) {
++			res = -EAGAIN;
++			goto err_irq_dev;
 +		}
-+
- 		skb->dev = dev;
- 		rbd->v_next = rbd+1;
- 		rbd->b_next = WSWAPrbd(virt_to_bus(rbd+1));
-@@ -574,19 +591,8 @@ static inline void init_rx_bufs(struct net_device *dev)
- 	rfd->v_next = lp->rfds;
- 	rfd->b_next = WSWAPrfd(virt_to_bus(lp->rfds));
- 	rfd->cmd = CMD_EOL|CMD_FLEX;
--}
--
--static inline void remove_rx_bufs(struct net_device *dev)
--{
--	struct i596_private *lp = dev->ml_priv;
--	struct i596_rbd *rbd;
--	int i;
- 
--	for (i = 0, rbd = lp->rbds; i < rx_ring_size; i++, rbd++) {
--		if (rbd->skb == NULL)
--			break;
--		dev_kfree_skb(rbd->skb);
--	}
-+	return 0;
- }
- 
- 
-@@ -1013,7 +1019,11 @@ static int i596_open(struct net_device *dev)
- 			return -EAGAIN;
  	}
  #endif
--	init_rx_bufs(dev);
-+	res = init_rx_bufs(dev);
-+	if (res) {
-+		free_irq(dev->irq, dev);
-+		return res;
-+	}
+ 	res = init_rx_bufs(dev);
+-	if (res) {
+-		free_irq(dev->irq, dev);
+-		return res;
+-	}
++	if (res)
++		goto err_irq_56;
  
  	netif_start_queue(dev);
+ 
+-	/* Initialize the 82596 memory */
+ 	if (init_i596_mem(dev)) {
+ 		res = -EAGAIN;
+-		free_irq(dev->irq, dev);
++		goto err_queue;
+ 	}
+ 
++	return 0;
++
++err_queue:
++	netif_stop_queue(dev);
++	remove_rx_bufs(dev);
++err_irq_56:
++#ifdef ENABLE_MVME16x_NET
++	free_irq(0x56, dev);
++#endif
++err_irq_dev:
++	free_irq(dev->irq, dev);
++
+ 	return res;
+ }
+ 
+@@ -1498,6 +1509,9 @@ static int i596_close(struct net_device *dev)
+ 	}
+ #endif
+ 
++#ifdef ENABLE_MVME16x_NET
++	free_irq(0x56, dev);
++#endif
+ 	free_irq(dev->irq, dev);
+ 	remove_rx_bufs(dev);
  
 -- 
 1.7.0.4
