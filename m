@@ -1,35 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 001/001] QoS and/or fair queueing: Stateless NAT BUG
-Date: Fri, 09 Jul 2010 10:52:53 -0700 (PDT)
-Message-ID: <20100709.105253.71108558.davem@davemloft.net>
-References: <201007091937.17349.rpartearroyo@albentia.com>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Fri, 09 Jul 2010 10:53:30 -0700 (PDT)
+Message-ID: <20100709.105330.104045737.davem@davemloft.net>
+References: <1278626921.2435.73.camel@edumazet-laptop>
+	<AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
+	<1278695580.2696.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
-	linux-kernel@vger.kernel.org, ipichel@albentia.com,
-	nmoron@albentia.com, netdev@vger.kernel.org
-To: rpartearroyo@albentia.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201007091937.17349.rpartearroyo@albentia.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: felipewd@gmail.com, kaber@trash.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48284
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752749Ab0GIRxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 13:53:16 -0400
+In-Reply-To: <1278695580.2696.55.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rodrigo Partearroyo Gonz=E1lez <rpartearroyo@albentia.com>
-Date: Fri, 9 Jul 2010 19:37:16 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 09 Jul 2010 19:13:00 +0200
 
-> Hi all,
-> I have been testing Stateless NAT and found that ICMP packets with le=
-ngth
-> less than 20 bytes were not correctly NAT'ed. I have found a BUG that
-> makes taking into account IP header length twice, so ICMP packets sma=
-ller
-> than 20 bytes were being dropped.
->=20
-> Proposed formal patch is below, as suggested by Eric Dumazet, thanks.
-> It is taken from 2.6.34.1 stable version.
->=20
-> Signed-off-by: Rodrigo Partearroyo Gonz=E1lez <rpartearroyo@albentia.=
-com>
+> Reviewing tproxy stuff I spotted a problem in nf_tproxy_assign_sock()
+> but I could not see how it could explain your crash.
+> 
+> We can read uninitialized memory and trigger a fault in
+> nf_tproxy_assign_sock(), not later in tcp_recvmsg()...
+> 
+> David, Patrick, what do you think ?
+> 
+> Thanks
+> 
+> [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+> 
+> transparent field of a socket is either inet_twsk(sk)->tw_transparent
+> for timewait sockets, or inet_sk(sk)->transparent for other sockets
+> (TCP/UDP).
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
+Looks fine to me:
+
+Acked-by: David S. Miller <davem@davemloft.net>
