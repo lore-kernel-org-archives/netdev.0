@@ -1,35 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4vf: Implement "Unhandled Interrupts"
- statistic
-Date: Thu, 08 Jul 2010 23:48:55 -0700 (PDT)
-Message-ID: <20100708.234855.98876757.davem@davemloft.net>
-References: <201007081107.45287.leedom@chelsio.com>
+From: Richard =?ISO-8859-1?Q?R=F6jfors?=
+	<richard.rojfors@pelagicore.com>
+Subject: [PATCH v3 0/2] ks8842: Do the TX timeout work in workqueue context.
+Date: Fri, 09 Jul 2010 08:28:09 +0200
+Message-ID: <1278656889.6953.13.camel@debian>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: leedom@chelsio.com
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44965
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751375Ab0GIGsk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:48:40 -0400
-In-Reply-To: <201007081107.45287.leedom@chelsio.com>
+Received: from smtprelay-h21.telenor.se ([195.54.99.196]:52967 "EHLO
+	smtprelay-h21.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751375Ab0GIGsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:48:55 -0400
+Received: from ipb1.telenor.se (ipb1.telenor.se [195.54.127.164])
+	by smtprelay-h21.telenor.se (Postfix) with ESMTP id 10EB2E8FAF
+	for <netdev@vger.kernel.org>; Fri,  9 Jul 2010 08:28:11 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Casey Leedom <leedom@chelsio.com>
-Date: Thu, 8 Jul 2010 11:07:44 -0700
+To follow are two patches. One that schedules tx timeout to be done
+in work queue context.
 
->>From 6c9cc1b5441afb32ecfcd10ac3060452e3c4df6f Mon Sep 17 00:00:00 2001
-> From: Casey Leedom <leedom@chelsio.com>
-> Date: Thu, 8 Jul 2010 10:05:48 -0700
-> Subject: [PATCH net-next] cxgb4vf: Implement "Unhandled Interrupts" statistic
-> 
-> Implement "Unhandled Interrupts" statistic so we can detect when the
-> hardware tells us that it things we have work to do but we don't find
-> anything ...
-> 
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+The other removed an unnecessary bank select before reset.
 
-Applied, thanks.
+--Richard
+
