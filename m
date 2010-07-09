@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: rfs: record flow in TCP receiving and sending pathes
-Date: Fri, 09 Jul 2010 10:51:06 -0700 (PDT)
-Message-ID: <20100709.105106.226773972.davem@davemloft.net>
-References: <1278660498-26587-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH 001/001] QoS and/or fair queueing: Stateless NAT BUG
+Date: Fri, 09 Jul 2010 10:52:53 -0700 (PDT)
+Message-ID: <20100709.105253.71108558.davem@davemloft.net>
+References: <201007091937.17349.rpartearroyo@albentia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40750
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751840Ab0GIRuv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 13:50:51 -0400
-In-Reply-To: <1278660498-26587-1-git-send-email-xiaosuo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, ipichel@albentia.com,
+	nmoron@albentia.com, netdev@vger.kernel.org
+To: rpartearroyo@albentia.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201007091937.17349.rpartearroyo@albentia.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Fri,  9 Jul 2010 15:28:18 +0800
+=46rom: Rodrigo Partearroyo Gonz=E1lez <rpartearroyo@albentia.com>
+Date: Fri, 9 Jul 2010 19:37:16 +0200
 
-> rfs: record flow in TCP receiving and sending pathes
-> 
-> call sock_rps_record_flow() in function tcp_splice_read(), tcp_sendpage() and
-> tcp_sendmsg().
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Hi all,
+> I have been testing Stateless NAT and found that ICMP packets with le=
+ngth
+> less than 20 bytes were not correctly NAT'ed. I have found a BUG that
+> makes taking into account IP header length twice, so ICMP packets sma=
+ller
+> than 20 bytes were being dropped.
+>=20
+> Proposed formal patch is below, as suggested by Eric Dumazet, thanks.
+> It is taken from 2.6.34.1 stable version.
+>=20
+> Signed-off-by: Rodrigo Partearroyo Gonz=E1lez <rpartearroyo@albentia.=
+com>
 
-I don't think it's wise to pepper these calls all over the place if it
-is not necessary.
-
-The only reason we vector straight to the TCP implementations of these
-I/O routines is to avoid the port autobinding made by the inet_*()
-functions.
-
-But now that avoids also the RPS calls.
-
-So it makes sense to just add a boolean state bit flag of some sort
-to "struct proto" which says to avoid the autobind calls, then
-make TCP vector through the inet_*() functions just like the other
-inet protocols do.
-
-Then these extra send_rps_record_flow() annotations will not be
-necessary.
+Applied, thanks.
