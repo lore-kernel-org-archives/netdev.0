@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] fec_mpc52xx: fix error path
-Date: Thu, 08 Jul 2010 23:44:42 -0700 (PDT)
-Message-ID: <20100708.234442.68149385.davem@davemloft.net>
-References: <1278591018-3724-1-git-send-email-segooon@gmail.com>
+Subject: Re: [PATCH net-next-2.6 1/2] net: Get rid of rtnl_link_stats64 /
+ net_device_stats union
+Date: Thu, 08 Jul 2010 23:46:56 -0700 (PDT)
+Message-ID: <20100708.234656.27794492.davem@davemloft.net>
+References: <1278631762.16013.307.camel@achroite.uk.solarflarecom.com>
+	<1278649543.2435.105.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, grant.likely@secretlab.ca,
-	jpirko@redhat.com, eric.dumazet@gmail.com, smaclennan@pikatech.com,
-	netdev@vger.kernel.org
-To: segooon@gmail.com
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35822
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35825
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751308Ab0GIGoa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:44:30 -0400
-In-Reply-To: <1278591018-3724-1-git-send-email-segooon@gmail.com>
+	by vger.kernel.org with ESMTP id S1752093Ab0GIGql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:46:41 -0400
+In-Reply-To: <1278649543.2435.105.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kulikov Vasiliy <segooon@gmail.com>
-Date: Thu,  8 Jul 2010 16:10:16 +0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 09 Jul 2010 06:25:43 +0200
 
-> Error path in mpc52xx_fec_probe() is broken.
-> We must free everything that we've allocated.
+> This could be a small helper function, to hide the sizeof(*storage) /
+> sizeof(u64) magic..
 > 
-> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+> static void stats_to_stats64(struct rtnl_link_stats64 *dst,
+> 			     const net_device_stats *src)
+> {
 
-Also applied, thanks.
+Ben, please add Eric' suggestion and respin your second patch as
+well.
+
+Thanks!
