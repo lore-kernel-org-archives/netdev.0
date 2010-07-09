@@ -1,47 +1,81 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.35-rc4-git3: Reported regressions from 2.6.34
-Date: Thu, 08 Jul 2010 21:34:20 -0700 (PDT)
-Message-ID: <20100708.213420.112614033.davem@davemloft.net>
-References: <-IGZ64uxA6G.A.P0H.bLmNMB@chimera>
-	<AANLkTiknnzWyVpqnPCpyiEVHLgkewd0zaGzLInABRe2G@mail.gmail.com>
+Subject: Re: [RFC] gre: propagate ipv6 transport class
+Date: Thu, 08 Jul 2010 21:36:45 -0700 (PDT)
+Message-ID: <20100708.213645.183036637.davem@davemloft.net>
+References: <20100706105821.7b0e2538@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rjw@sisk.pl, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org, kaber@trash.net,
-	jengelh@medozas.de
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTiknnzWyVpqnPCpyiEVHLgkewd0zaGzLInABRe2G@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53445
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750815Ab0GIEgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 00:36:31 -0400
+In-Reply-To: <20100706105821.7b0e2538@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 8 Jul 2010 18:34:25 -0700
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 6 Jul 2010 10:58:21 -0700
 
-> On Thu, Jul 8, 2010 at 4:33 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote=
-:
->>
->> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
-16187
->> Subject =A0 =A0 =A0 =A0 : Carrier detection failed in dhcpcd when li=
-nk is up
->> Submitter =A0 =A0 =A0 : Christian Casteyde <casteyde.christian@free.=
-fr>
->> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-06-12 15:15 (27 days old)
->> First-Bad-Commit: http://git.kernel.org/linus/10708f37ae729baba9b67b=
-d134c3720709d4ae62
->> Handled-By =A0 =A0 =A0: Andrew Morton <akpm@linux-foundation.org>
->=20
-> David? This bisects to a networking commit. Doesn't look sensible, bu=
-t
-> what do I know?
+> This patch makes IPV6 over IPv4 GRE tunnel propagate the transport
+> class field from the underlying IPV6 header to the IPV4 Type Of Service
+> field. Without the patch, all IPV6 packets in tunnel look the same to QoS.
+> 
+> This assumes that IPV6 transport class is exactly the same
+> as IPv4 TOS. Not sure if that is always the case?  Maybe need
+> to mask off some bits.
+> 
+> The mask and shift to get tclass is copied from ipv6/datagram.c
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-My suspicion is that dhcpd uses netlink to dump the info of the
-available links, and due to some bug gets confused with the new 64-bit
-statistic netlink attribute being there now.
+Looks good, but we should use ipv6_get_dsfield() just like
+ipgre_ecn_encapsulate() does.
 
-That shouldn't happen, applications should just ignore the attributes
-which they don't understand.
+Note that this also influences the route since this 'tos' feeds
+into the flowi lookup key.  We should make sure that this is OK
+too.
 
-I'll try to find a second to have a look at this.
+Anyways, I've committed the following to net-next-2.6, thanks!
+
+--------------------
+gre: propagate ipv6 transport class
+
+This patch makes IPV6 over IPv4 GRE tunnel propagate the transport
+class field from the underlying IPV6 header to the IPV4 Type Of Service
+field. Without the patch, all IPV6 packets in tunnel look the same to QoS.
+
+This assumes that IPV6 transport class is exactly the same
+as IPv4 TOS. Not sure if that is always the case?  Maybe need
+to mask off some bits.
+
+The mask and shift to get tclass is copied from ipv6/datagram.c
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/ip_gre.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 749e548..945b20a 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -731,6 +731,8 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 		tos = 0;
+ 		if (skb->protocol == htons(ETH_P_IP))
+ 			tos = old_iph->tos;
++		else if (skb->protocol == htons(ETH_P_IPV6))
++			tos = ipv6_get_dsfield((struct ipv6hdr *)old_iph);
+ 	}
+ 
+ 	{
+-- 
+1.7.1.1
+
+
+
