@@ -1,16 +1,16 @@
 From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH v5 7/9] usb/atm/cxacru.c: call atm_dev_signal_change() when signal changes.
-Date: Fri,  9 Jul 2010 08:55:36 +0200
-Message-ID: <1278658538-6769-8-git-send-email-karl@hiramoto.org>
+Subject: [PATCH v5 8/9] usb/atm/speedtch.c: call atm_dev_signal_change() when signal changes.
+Date: Fri,  9 Jul 2010 08:55:37 +0200
+Message-ID: <1278658538-6769-9-git-send-email-karl@hiramoto.org>
 References: <1278658538-6769-1-git-send-email-karl@hiramoto.org>
 Cc: Karl Hiramoto <karl@hiramoto.org>
 To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	chas@cmf.nrl.navy.mil, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdccah.dreamhost.com ([208.97.132.207]:35242 "EHLO
+Received: from caiajhbdccac.dreamhost.com ([208.97.132.202]:35248 "EHLO
 	homiemail-a64.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753815Ab0GIG4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:56:03 -0400
+	by vger.kernel.org with ESMTP id S1753897Ab0GIG4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:56:04 -0400
 In-Reply-To: <1278658538-6769-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,73 +19,55 @@ Propagate signal changes to upper atm layer.
 
 Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
- drivers/usb/atm/cxacru.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/usb/atm/speedtch.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
-index c89990f..101ffc9 100644
---- a/drivers/usb/atm/cxacru.c
-+++ b/drivers/usb/atm/cxacru.c
-@@ -866,50 +866,50 @@ static void cxacru_poll_status(struct work_struct *work)
- 	instance->line_status = buf[CXINF_LINE_STATUS];
- 	switch (instance->line_status) {
- 	case 0:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: down\n");
- 		break;
+diff --git a/drivers/usb/atm/speedtch.c b/drivers/usb/atm/speedtch.c
+index 1335456..80f9617 100644
+--- a/drivers/usb/atm/speedtch.c
++++ b/drivers/usb/atm/speedtch.c
+@@ -525,7 +525,7 @@ static void speedtch_check_status(struct work_struct *work)
  
- 	case 1:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: attempting to activate\n");
- 		break;
+ 		switch (status) {
+ 		case 0:
+-			atm_dev->signal = ATM_PHY_SIG_LOST;
++			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
+ 			if (instance->last_status)
+ 				atm_info(usbatm, "ADSL line is down\n");
+ 			/* It may never resync again unless we ask it to... */
+@@ -533,12 +533,12 @@ static void speedtch_check_status(struct work_struct *work)
+ 			break;
  
- 	case 2:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: training\n");
- 		break;
+ 		case 0x08:
+-			atm_dev->signal = ATM_PHY_SIG_UNKNOWN;
++			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_UNKNOWN);
+ 			atm_info(usbatm, "ADSL line is blocked?\n");
+ 			break;
  
- 	case 3:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: channel analysis\n");
- 		break;
+ 		case 0x10:
+-			atm_dev->signal = ATM_PHY_SIG_LOST;
++			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
+ 			atm_info(usbatm, "ADSL line is synchronising\n");
+ 			break;
  
- 	case 4:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: exchange\n");
- 		break;
+@@ -554,7 +554,7 @@ static void speedtch_check_status(struct work_struct *work)
+ 			}
  
- 	case 5:
- 		atm_dev->link_rate = buf[CXINF_DOWNSTREAM_RATE] * 1000 / 424;
--		atm_dev->signal = ATM_PHY_SIG_FOUND;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_FOUND);
+ 			atm_dev->link_rate = down_speed * 1000 / 424;
+-			atm_dev->signal = ATM_PHY_SIG_FOUND;
++			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_FOUND);
  
- 		atm_info(usbatm, "ADSL line: up (%d kb/s down | %d kb/s up)\n",
- 		     buf[CXINF_DOWNSTREAM_RATE], buf[CXINF_UPSTREAM_RATE]);
- 		break;
+ 			atm_info(usbatm,
+ 				 "ADSL line is up (%d kb/s down | %d kb/s up)\n",
+@@ -562,7 +562,7 @@ static void speedtch_check_status(struct work_struct *work)
+ 			break;
  
- 	case 6:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: waiting\n");
- 		break;
- 
- 	case 7:
--		atm_dev->signal = ATM_PHY_SIG_LOST;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_LOST);
- 		atm_info(usbatm, "ADSL line: initializing\n");
- 		break;
- 
- 	default:
--		atm_dev->signal = ATM_PHY_SIG_UNKNOWN;
-+		atm_dev_signal_change(atm_dev, ATM_PHY_SIG_UNKNOWN);
- 		atm_info(usbatm, "Unknown line state %02x\n", instance->line_status);
- 		break;
- 	}
+ 		default:
+-			atm_dev->signal = ATM_PHY_SIG_UNKNOWN;
++			atm_dev_signal_change(atm_dev, ATM_PHY_SIG_UNKNOWN);
+ 			atm_info(usbatm, "unknown line state %02x\n", status);
+ 			break;
+ 		}
 -- 
 1.7.1
 
