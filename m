@@ -1,49 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH linux-2.6.35-rc3] ks8842 driver
-Date: Thu, 08 Jul 2010 21:41:01 -0700 (PDT)
-Message-ID: <20100708.214101.39178389.davem@davemloft.net>
-References: <C43529A246480145B0A6D0234BDB0F0D0212A4@MELANITE.micrel.com>
-	<20100708075245.GA21371@verge.net.au>
-	<C43529A246480145B0A6D0234BDB0F0D481D67@MELANITE.micrel.com>
+Subject: Re: [PATCH] ks8842: Do the TX timeout work in workqueue context.
+Date: Thu, 08 Jul 2010 21:43:53 -0700 (PDT)
+Message-ID: <20100708.214353.59675307.davem@davemloft.net>
+References: <1278429625.32432.10.camel@debian>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, netdev@vger.kernel.org, Charles.Li@Micrel.Com
-To: David.Choi@Micrel.Com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: richard.rojfors@pelagicore.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57101
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57794
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750936Ab0GIEkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 00:40:46 -0400
-In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D481D67@MELANITE.micrel.com>
+	by vger.kernel.org with ESMTP id S1751337Ab0GIEnj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jul 2010 00:43:39 -0400
+In-Reply-To: <1278429625.32432.10.camel@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Choi, David" <David.Choi@Micrel.Com>
-Date: Thu, 8 Jul 2010 12:01:51 -0700
+=46rom: Richard R=F6jfors <richard.rojfors@pelagicore.com>
+Date: Tue, 06 Jul 2010 17:20:25 +0200
 
-> The original ks8842 driver is designed to work on the customized bus
-> interface based on an FPGA. This patch is intended to address the more
-> commonly used generic bus interface available on the majority of SoC in
-> the market.
-> 
-> It is unlikely that for a system to use both FPGA based and generic bus
-> interface for ks8842, I am quite certain that those 2 devices are used
-> mutual exclusively.
+> Currently all code that needs to be run at TX timeout is done in the
+> calling context, where bottom halves are disabled. Some of the code
+> blocks, so it needs to be done in a different context. This patch
+> adds in a work struct which is scheduled at TX timeout. Then the
+> timeout code is executed within work queue context.
+>=20
+> Signed-off-by: Richard R=F6jfors <richard.rojfors@pelagicore.com>
 
-Like Simon, I'm not to thrilled with this approach.
+Your patch is corrupted by your email client, and it does more than
+you say it does in this commit message:
 
-Any flag bit test you'd need to add to the driver to handle both cases
-will have zero performance impact since the cost of the MMIO accesses
-will dominate such tests entirely.
+>  static inline void ks8842_select_bank(struct ks8842_adapter *adapter=
+,
+> u16 bank)
+> @@ -197,7 +199,6 @@ static void ks8842_reset(struct ks8842_adapter
+> *adapter)
 
-Add a boolean flag bit to the driver software state, set it based upon
-some platform_device private setting, and test it in these paths to
-device what to do.
+Your email client is wrapping long lines in the patch, corrupting it
+and making it unusable.  Please fix your email client to not molest
+the patch in any way.
 
-As a bonus, anyone who enables this driver at all in their build will
-test the compilation of both code paths.  And to me, that extra
-compilation testing trumps whatever arguments you may make for not
-making this support dynamic.
+>  	msleep(10);
+>  	iowrite16(0, adapter->hw_addr + REG_GRR);
+>  	*/
+> -	iowrite16(32, adapter->hw_addr + REG_SELECT_BANK);
+>  	iowrite32(0x1, adapter->hw_addr + REG_TIMB_RST);
+>  	msleep(20);
+>  }
+
+Your commit message fails to describe what this REG_SELECT_BANK write
+removal is needed for.  It must be accounted for in your log message
+otherwise other developers won't understand why this line gets
+removed in your change.
 
 Thanks.
