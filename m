@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/6 net-next-2.6] vxge: Remove queue_state references
-Date: Thu, 08 Jul 2010 17:27:24 -0700 (PDT)
-Message-ID: <20100708.172724.104050663.davem@davemloft.net>
-References: <20100708191957.GA15167@exar.com>
-	<20100708231936.GA19237@exar.com>
+Subject: Re: Pull request: bluetooth-2.6 2010-07-08
+Date: Thu, 08 Jul 2010 17:28:47 -0700 (PDT)
+Message-ID: <20100708.172847.189716720.davem@davemloft.net>
+References: <cover.1278632276.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sreenivasa.Honnur@exar.com,
-	ramkrishna.vepa@exar.com
-To: jon.mason@exar.com
+Cc: netdev@vger.kernel.org
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50736
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55367
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751744Ab0GIA1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 20:27:11 -0400
-In-Reply-To: <20100708231936.GA19237@exar.com>
+	by vger.kernel.org with ESMTP id S1754443Ab0GIA2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jul 2010 20:28:33 -0400
+In-Reply-To: <cover.1278632276.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Mason <jon.mason@exar.com>
-Date: Thu, 8 Jul 2010 18:19:37 -0500
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Thu,  8 Jul 2010 20:40:50 -0300
 
-> On Thu, Jul 08, 2010 at 12:19:57PM -0700, Jon Mason wrote:
->> Remove queue_state references, as they are no longer necessary.
->> 
->> Also, The driver needs to start/stop the queue regardless of which type
->> of steering is enabled.  Remove checks for TX_MULTIQ_STEERING only and
->> start/stop for all steering types.
->> 
->> Signed-off-by: Jon Mason <jon.mason@exar.com>
->> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@exar.com>
->> Signed-off-by: Ramkrishna Vepa <ram.vepa@exar.com>
+> Hi Dave,
 > 
-> Ram's e-mail address is incorrect in this series.  Would you like me
-> to resubmit with it corrected?
+> so I took the two security fixes and the interoperability fix for basic
+> mode L2CAP connections and combined them here.
+> 
+> All the other patches where bug fixes with L2CAP ERTM support and I will
+> send them separately.
+ ...
+> Please pull from
+> 
+>     git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git master
 
-I can fix it up.
+Pulled, thanks.
