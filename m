@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/9] atm: propagate signal changes via notifier
-Date: Thu, 08 Jul 2010 23:38:01 -0700 (PDT)
-Message-ID: <20100708.233801.258129125.davem@davemloft.net>
-References: <1278578095-25324-2-git-send-email-karl@hiramoto.org>
-	<20100708.214745.48520104.davem@davemloft.net>
-	<4C36C353.9080501@hiramoto.org>
+Subject: Re: [PATCH 1/4] ax88796: free irq on error
+Date: Thu, 08 Jul 2010 23:42:51 -0700 (PDT)
+Message-ID: <20100708.234251.233681044.davem@davemloft.net>
+References: <1278590996-3122-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	chas@cmf.nrl.navy.mil
-To: karl@hiramoto.org
+Cc: kernel-janitors@vger.kernel.org, p_gortmaker@yahoo.com,
+	julia@diku.dk, tj@kernel.org, joe@perches.com,
+	netdev@vger.kernel.org
+To: segooon@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55263
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35801
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751375Ab0GIGhr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:37:47 -0400
-In-Reply-To: <4C36C353.9080501@hiramoto.org>
+	by vger.kernel.org with ESMTP id S1751544Ab0GIGmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 02:42:37 -0400
+In-Reply-To: <1278590996-3122-1-git-send-email-segooon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karl Hiramoto <karl@hiramoto.org>
-Date: Fri, 09 Jul 2010 08:36:03 +0200
+From: Kulikov Vasiliy <segooon@gmail.com>
+Date: Thu,  8 Jul 2010 16:09:54 +0400
 
-> Ok, fixing it,  but there are 100's of occurences in net/ like i had it. :-)
+> If ax_ei_open() failed we must free previously requested irq.
+> 
+> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 
-I would be happy to see a patch which fixes them up :-)
+Applied.
