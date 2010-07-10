@@ -1,28 +1,40 @@
-From: prajakta chaudhari <prajakta.chaudhari@nil-labs.com>
-Subject: : Question regarding ports and process
-Date: Sat, 10 Jul 2010 03:03:39 -0500
-Message-ID: <645185a3a29810c1b041aea5ab9282b7@mail.gmail.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] 9p: strlen() doesn't count the terminator
+Date: Sat, 10 Jul 2010 11:51:54 +0200
+Message-ID: <20100710095154.GU19184@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:40258 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751856Ab0GJIDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 04:03:38 -0400
-Received: by iwn7 with SMTP id 7so3014228iwn.19
-        for <netdev@vger.kernel.org>; Sat, 10 Jul 2010 01:03:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Abhishek Kulkarni <adkulkar@umail.iu.edu>,
+	Venkateswararao Jujjuri <jvrao@us.ibm.com>,
+	linux-kernel@vger.kernel.org,
+	Tilman Sauerbeck <tilman@code-monkey.de>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Eric Van Hensbergen <ericvh@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear All:
+This is an off by one bug because strlen() doesn't count the NULL
+terminator.  We strcpy() addr into a fixed length array of size
+UNIX_PATH_MAX later on.
 
-I am looking for unix system calls that will find the port used by a
-process. I don't want to use the proc file. I want to know if this can be
-done using unix system calls, or rtnetlink. I am not getting any clues to
-start.
+The addr variable is the name of the device being mounted.
 
-Any help will be highly appreciated.
+CC: stable@kernel.org
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Thank you,
-Prajakta
+diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
+index 98ce9bc..c85109d 100644
+--- a/net/9p/trans_fd.c
++++ b/net/9p/trans_fd.c
+@@ -948,7 +948,7 @@ p9_fd_create_unix(struct p9_client *client, const char *addr, char *args)
+ 
+ 	csocket = NULL;
+ 
+-	if (strlen(addr) > UNIX_PATH_MAX) {
++	if (strlen(addr) >= UNIX_PATH_MAX) {
+ 		P9_EPRINTK(KERN_ERR, "p9_trans_unix: address too long: %s\n",
+ 			addr);
+ 		return -ENAMETOOLONG;
