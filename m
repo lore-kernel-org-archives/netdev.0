@@ -1,45 +1,39 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] hostap: fixup strlen() math
-Date: Sun, 11 Jul 2010 00:10:42 +0200
-Message-ID: <20100710221042.GA14911@bicker>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH] sysfs: Don't allow the creation of symlinks we can't
+ remove
+Date: Sat, 10 Jul 2010 23:30:15 +0100 (BST)
+Message-ID: <alpine.LFD.2.00.1007102329000.11778@eddie.linux-mips.org>
+References: <bug-16257-10286@https.bugzilla.kernel.org/>        <20100621150826.762ac9f2.akpm@linux-foundation.org>        <m1mxuodo0n.fsf@fess.ebiederm.org> <20100621222938.GA20583@suse.de>        <m1eig0dmhk.fsf@fess.ebiederm.org> <20100621231058.GA1066@suse.de>
+        <m14ogwc4ou.fsf@fess.ebiederm.org> <20100622035631.GA3755@suse.de> <m1630q7x5v.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Martin Decky <martin@decky.cz>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Jouni Malinen <j@w1.fi>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:60431 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035Ab0GJWTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 18:19:30 -0400
-Content-Disposition: inline
+Received: from eddie.linux-mips.org ([78.24.191.182]:51171 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753190Ab0GJWfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 18:35:19 -0400
+Received: from localhost.localdomain ([127.0.0.1]:51220 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S1492164Ab0GJWaP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 00:30:15 +0200
+In-Reply-To: <m1630q7x5v.fsf_-_@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In hostap_add_interface() we do:
-	sprintf(dev->name, "%s%s", prefix, name);
+On Thu, 8 Jul 2010, Eric W. Biederman wrote:
 
-dev->name has IFNAMSIZ (16) characters.
-prefix is local->dev->name.
-name is "wds%d"
+> Recently my tagged sysfs support revealed a flaw in the device core
+> that a few rare drivers are running into such that we don't always put
+> network devices in a class subdirectory named net/.
 
-strlen() returns the number of characters in the string not counting the
-NULL so if we have a string with 11 characters we get "12345678901wds%d"
-which is 16 characters and a NULL so we're past the end of the array.
+ I've been cc-ed for a reason I suppose -- any network driver I should be 
+looking into?  What's the actual problem?
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
-
-diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
-index eb57d1e..f1bc258 100644
---- a/drivers/net/wireless/hostap/hostap_main.c
-+++ b/drivers/net/wireless/hostap/hostap_main.c
-@@ -186,7 +186,7 @@ int prism2_wds_add(local_info_t *local, u8 *remote_addr,
- 		return -ENOBUFS;
- 
- 	/* verify that there is room for wds# postfix in the interface name */
--	if (strlen(local->dev->name) > IFNAMSIZ - 5) {
-+	if (strlen(local->dev->name) >= IFNAMSIZ - 5) {
- 		printk(KERN_DEBUG "'%s' too long base device name\n",
- 		       local->dev->name);
- 		return -EINVAL;
+  Maciej
