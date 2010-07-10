@@ -1,76 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net/sched/act_nat.c BUG
-Date: Fri, 09 Jul 2010 17:00:18 -0700 (PDT)
-Message-ID: <20100709.170018.189701063.davem@davemloft.net>
-References: <201007091637.57660.rpartearroyo@albentia.com>
-	<1278688420.2696.7.camel@edumazet-laptop>
-	<20100709232359.GA2501@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: why doesn't close() wake a blocked read() --- and what should
+ i do  about it?
+Date: Sat, 10 Jul 2010 01:18:37 +0100
+Message-ID: <1278721117.2078.43.camel@achroite.uk.solarflarecom.com>
+References: <AANLkTin4ugMqekRX389XxPx_R8Nu2cWYCLYtpU5rSrsU@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, rpartearroyo@albentia.com,
-	linux-kernel@vger.kernel.org, ipichel@albentia.com,
-	nmoron@albentia.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100709232359.GA2501@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: enh <enh@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:42900 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752959Ab0GJASk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jul 2010 20:18:40 -0400
+In-Reply-To: <AANLkTin4ugMqekRX389XxPx_R8Nu2cWYCLYtpU5rSrsU@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 10 Jul 2010 07:23:59 +0800
+On Fri, 2010-07-09 at 16:38 -0700, enh wrote:
+> on Android (Linux 2.6.32), if one thread is in accept(2) and another
+> thread calls close(2) on that socket, the first thread returns with an
+> error.
 
-> On Fri, Jul 09, 2010 at 05:13:40PM +0200, Eric Dumazet wrote:
->> Le vendredi 09 juillet 2010 =E0 16:37 +0200, Rodrigo Partearroyo Gon=
-z=E1lez
->> a =E9crit :
->> > Hi all,
->> >=20
->> > I have been testing Stateless NAT and found that ICMP packets with=
- length less=20
->> > than 20 bytes were not correctly NAT'ed. I have found a BUG that m=
-akes taking=20
->> > into account IP header length twice, so ICMP packets smaller than =
-20 bytes=20
->> > were being dropped.
->> >=20
->>=20
->> CC netdev
->>=20
->> > The proposed fix is:
->> >=20
->> > Index: net/sched/act_nat.c
->> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->> > --- net/sched/act_nat.c
->> > +++ net/sched/act_nat.c
->> > @@ -202,7 +202,7 @@
->> >         {
->> >                 struct icmphdr *icmph;
->> > =20
->> > -               if (!pskb_may_pull(skb, ihl + sizeof(*icmph) + siz=
-eof(*iph)))
->> > +               if (!pskb_may_pull(skb, ihl + sizeof(*icmph)))
->> >                         goto drop;
->> > =20
->> >                 icmph =3D (void *)(skb_network_header(skb) + ihl);
->> >=20
->> > Please, consider applying it.
->>=20
->> Nice catch, but take a look at next lines too,
->> when call to skb_clone_writable() is done, since same error is prese=
-nt.
->>=20
->> 	skb_clone_writable(skb,
->> 			   ihl + sizeof(*icmph) + sizeof(*iph))
->>=20
->> Please submit a formal patch, with your "Signed-off-by: ...", as
->> documented in Documentation/SubmittingPatches
->=20
-> No we do need the second IP header, think about it...
->=20
-> However, we should only drop it only if it's long enough and
-> pskb_may_pull fails.
+This suffers from the same race condition you describe below: you don't
+know whether the first thread is actually in accept() or is just about
+to call it using the file descriptor you're invalidating.
 
-Ok, I've reverted until we come up with the proper fix, thanks.
+> likewise if the first thread is in recv(2) waiting for a
+> datagram packet. but if the first thread is just doing a regular
+> read(2), it's not woken. (similarly for write(2).) this is unfortunate
+> for me, because that's not how Java is supposed to work
+> (http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4344135); calling
+> Socket.close from another thread is the way you're supposed to unblock
+> such things. apps need this so they can free up threads. (and i'm
+> trying to fix the VM so apps can do this.)
+> 
+> it's well documented on the web that this is how linux behaves, though
+> i didn't find any explanation of why, or why there's the discrepancy
+> between read(2) and other similar operations. or is this just a bug?
+
+I don't see any good reason for this behaviour, but even if the
+behaviour was as you want it would not make it safe to call close() on a
+socket used by another thread.
+
+> on the assumption that this is something i need to work around in
+> userspace, what's my best choice? i can pthread_kill the stuck
+> threads, but that means they need to be somewhat aware of this hack.
+> 
+> if they just TEMP_FAILURE_RETRY, there's a race condition if the fd
+> has been reopened as something else between the close(2) and their
+> retry. it also means i'm out of luck for code i don't control, such as
+> openssl: that code is always going to be open to the race.
+
+I don't see why you as the platform provider cannot modify your version
+of OpenSSL.
+
+> alternatively, i could have a pipe per thread, select(2) on both the
+> pipe and the socket rather than read(2) directly, and then examine my
+> fd_sets to see whether it's time to read or time to give up, but that
+> seems unnecessarily resource-intensive, and also doesn't address the
+> openssl case.
+> 
+> alternatively, there's shutdown(2), but i'm not sure that really does
+> what i want either.
+
+I think this may be the way to go.
+
+> for one thing, it's not clear what the interaction
+> between shutdown(2) and SO_LINGER is (i'm thinking of write(2) here).
+> i also find my unblocked read(2) returns 0 rather than -1 and some
+> recognizable value of errno -- which isn't unreasonable in general,
+> just for this particular use  -- so i'd need to do some bookkeeping to
+> check what that 0 really means.
+
+You already need to mark the file descriptor in the Socket object as
+invalid at the start of the close() method, to prevent any further calls
+using it.  Other methods can then check whether the file descriptor is
+still valid after the system call if they need to distinguish error
+cases.
+
+> any comments on these ideas, or other ideas i haven't thought of?
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
