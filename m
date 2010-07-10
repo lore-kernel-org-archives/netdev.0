@@ -1,54 +1,53 @@
-From: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] atmel: unregister_netdev() on error
-Date: Sat, 10 Jul 2010 16:12:04 +0200
-Message-ID: <20100710141204.GY19184@bicker>
-References: <1278767508-10164-1-git-send-email-segooon@gmail.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] isdn: fix strlen() usage
+Date: Sat, 10 Jul 2010 16:31:11 +0200
+Message-ID: <20100710143111.GA19184@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kulikov Vasiliy <segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dirk Hohndel <hohndel@infradead.org>,
+	Jiri Kosina <jkosina@suse.cz>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:38548 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002Ab0GJOco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 10:32:44 -0400
 Content-Disposition: inline
-In-Reply-To: <1278767508-10164-1-git-send-email-segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 10, 2010 at 05:11:47PM +0400, Kulikov Vasiliy wrote:
-> We must unregister registered device if probe_atmel_card() fails.
+There was a missing "else" statement so the original code overflowed if
+->master->name was too long.  Also the ->slave and ->master buffers can
+hold names with 9 characters and a NULL so I cleaned it up to allow
+another character.
 
-I think you hit send accidentally on this one?
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
->  	if (!probe_atmel_card(dev)) {
->  		unregister_netdev(dev);
-		^^^^^^^^^^^^^^^^^^^^^^^
-
-> -		goto err_out_res;
-> +		goto err_out_unreg;
->  	}
->  
->  	netif_carrier_off(dev);
-> @@ -1640,6 +1640,9 @@ struct net_device *init_atmel_card(unsigned short irq, unsigned long port,
->  
->  	return dev;
->  
-> +err_out_unreg:
-> +	unregister_netdev(dev);
-	^^^^^^^^^^^^^^^^^^^^^^
-> +
-
-What the pants?  :P
-
-regards,
-dan carpenter
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
+index 8c85d1e..26d44c3 100644
+--- a/drivers/isdn/i4l/isdn_net.c
++++ b/drivers/isdn/i4l/isdn_net.c
+@@ -2924,16 +2924,17 @@ isdn_net_getcfg(isdn_net_ioctl_cfg * cfg)
+ 		cfg->dialtimeout = lp->dialtimeout >= 0 ? lp->dialtimeout / HZ : -1;
+ 		cfg->dialwait = lp->dialwait / HZ;
+ 		if (lp->slave) {
+-			if (strlen(lp->slave->name) > 8)
++			if (strlen(lp->slave->name) >= 10)
+ 				strcpy(cfg->slave, "too-long");
+ 			else
+ 				strcpy(cfg->slave, lp->slave->name);
+ 		} else
+ 			cfg->slave[0] = '\0';
+ 		if (lp->master) {
+-			if (strlen(lp->master->name) > 8)
++			if (strlen(lp->master->name) >= 10)
+ 				strcpy(cfg->master, "too-long");
+-			strcpy(cfg->master, lp->master->name);
++			else
++				strcpy(cfg->master, lp->master->name);
+ 		} else
+ 			cfg->master[0] = '\0';
+ 		return 0;
