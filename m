@@ -1,35 +1,82 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch] netfilter: default to NF_DROP in sip_help_tcp()
-Date: Sat, 10 Jul 2010 12:16:04 +0900
-Message-ID: <20100710031604.GA26990@verge.net.au>
+From: Felipe W Damasio <felipewd@gmail.com>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Sat, 10 Jul 2010 00:18:28 -0300
+Message-ID: <AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
+References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
+	<AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
+	<1278626921.2435.73.camel@edumazet-laptop>
+	<AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
+	<1278695580.2696.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1278695580.2696.55.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I initially noticed this because of the compiler warning below, but it does
-seem to be a valid concern in the case where ct_sip_get_header() returns 0
-in the first iteration of the while loop.
+Hi Mr. Dumazet,
 
-net/netfilter/nf_conntrack_sip.c: In function 'sip_help_tcp':
-net/netfilter/nf_conntrack_sip.c:1379: warning: 'ret' may be used uninitialized in this function
+2010/7/9 Eric Dumazet <eric.dumazet@gmail.com>:
+> Reviewing tproxy stuff I spotted a problem in nf_tproxy_assign_sock()
+> but I could not see how it could explain your crash.
+>
+> We can read uninitialized memory and trigger a fault in
+> nf_tproxy_assign_sock(), not later in tcp_recvmsg()...
+>
+> David, Patrick, what do you think ?
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+But do you think that the bug that squid triggered was caused by the
+TProxy code?
 
-Index: nf-next-2.6/net/netfilter/nf_conntrack_sip.c
-===================================================================
---- nf-next-2.6.orig/net/netfilter/nf_conntrack_sip.c	2010-07-10 12:11:52.000000000 +0900
-+++ nf-next-2.6/net/netfilter/nf_conntrack_sip.c	2010-07-10 12:11:57.000000000 +0900
-@@ -1376,7 +1376,7 @@ static int sip_help_tcp(struct sk_buff *
- 	unsigned int msglen, origlen;
- 	const char *dptr, *end;
- 	s16 diff, tdiff = 0;
--	int ret;
-+	int ret = NF_DROP;
- 	typeof(nf_nat_sip_seq_adjust_hook) nf_nat_sip_seq_adjust;
- 
- 	if (ctinfo != IP_CT_ESTABLISHED &&
+Or is related to the network-stack in some other point.
+
+I don't know if this helps, but I'm using ebtables to remove the
+packets from the bridge, and iptables to redirect the traffic to
+squid.
+
+ebtables rules are:
+
+-p IPv4 -i eth0 --ip-proto tcp --ip-dport 80 -j redirect  --redirect-target DROP
+-p IPv4 -i eth1 --ip-proto tcp --ip-sport 80 -j redirect  --redirect-target DROP
+
+
+iptables -t mangle -L -n is:
+
+iptables -t mangle -L -n
+Chain PREROUTING (policy ACCEPT)
+target     prot opt source               destination
+DIVERT     tcp  --  0.0.0.0/0            0.0.0.0/0           socket
+extrachain  tcp  --  0.0.0.0/0            0.0.0.0/0           tcp
+dpt:80 ctstate NEW
+TPROXY     tcp  --  0.0.0.0/0           !201.40.162.5        tcp
+dpt:80 connmark match 0x0 TPROXY redirect 127.0.0.1:3127 mark 0x1/0x1
+TPROXY     tcp  --  0.0.0.0/0           !201.40.162.5        tcp
+dpt:80 connmark match 0x1 TPROXY redirect 127.0.0.1:3128 mark 0x1/0x1
+TPROXY     tcp  --  0.0.0.0/0           !201.40.162.5        tcp
+dpt:80 connmark match 0x2 TPROXY redirect 127.0.0.1:3129 mark 0x1/0x1
+
+Chain DIVERT (1 references)
+target     prot opt source               destination
+MARK       all  --  0.0.0.0/0            0.0.0.0/0           MARK xset
+0x1/0xffffffff
+ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0
+
+Chain extrachain (1 references)
+target     prot opt source               destination
+CONNMARK   all  --  0.0.0.0/0            0.0.0.0/0           statistic
+mode nth every 35 CONNMARK and 0x0
+CONNMARK   all  --  0.0.0.0/0            0.0.0.0/0           statistic
+mode nth every 35 packet 1 CONNMARK xset 0x1/0xffffffff
+CONNMARK   all  --  0.0.0.0/0            0.0.0.0/0           statistic
+mode nth every 35 packet 2 CONNMARK xset 0x2/0xffffffff
+
+Don't know if the code on these can be traced back to tcp_recvmsg()
+accessing some wrong memory address...
+
+Cheers,
+
+Felipe Damasio
