@@ -1,40 +1,50 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] 9p: strlen() doesn't count the terminator
-Date: Sat, 10 Jul 2010 11:51:54 +0200
-Message-ID: <20100710095154.GU19184@bicker>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Kulikov Vasiliy <segooon@gmail.com>
+Subject: [PATCH] tc35815: fix iomap leak
+Date: Sat, 10 Jul 2010 14:03:18 +0400
+Message-ID: <1278756199-4636-1-git-send-email-segooon@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Abhishek Kulkarni <adkulkar@umail.iu.edu>,
-	Venkateswararao Jujjuri <jvrao@us.ibm.com>,
-	linux-kernel@vger.kernel.org,
-	Tilman Sauerbeck <tilman@code-monkey.de>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Eric Van Hensbergen <ericvh@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Atsushi Nemoto <anemo@mba.ocn.ne.jp>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org
+To: kernel-janitors@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:64749 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752596Ab0GJKDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 06:03:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an off by one bug because strlen() doesn't count the NULL
-terminator.  We strcpy() addr into a fixed length array of size
-UNIX_PATH_MAX later on.
+If tc35815_init_one() fails we must unmap mapped regions.
 
-The addr variable is the name of the device being mounted.
+Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+---
+ drivers/net/tc35815.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-CC: stable@kernel.org
-Signed-off-by: Dan Carpenter <error27@gmail.com>
-
-diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
-index 98ce9bc..c85109d 100644
---- a/net/9p/trans_fd.c
-+++ b/net/9p/trans_fd.c
-@@ -948,7 +948,7 @@ p9_fd_create_unix(struct p9_client *client, const char *addr, char *args)
+diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
+index be08b75..99afa5c 100644
+--- a/drivers/net/tc35815.c
++++ b/drivers/net/tc35815.c
+@@ -854,7 +854,7 @@ static int __devinit tc35815_init_one(struct pci_dev *pdev,
  
- 	csocket = NULL;
+ 	rc = register_netdev(dev);
+ 	if (rc)
+-		goto err_out;
++		goto err_out_iounmap;
  
--	if (strlen(addr) > UNIX_PATH_MAX) {
-+	if (strlen(addr) >= UNIX_PATH_MAX) {
- 		P9_EPRINTK(KERN_ERR, "p9_trans_unix: address too long: %s\n",
- 			addr);
- 		return -ENAMETOOLONG;
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 	printk(KERN_INFO "%s: %s at 0x%lx, %pM, IRQ %d\n",
+@@ -872,6 +872,8 @@ static int __devinit tc35815_init_one(struct pci_dev *pdev,
+ 
+ err_out_unregister:
+ 	unregister_netdev(dev);
++err_out_iounmap:
++	pcim_iounmap_regions(pdev, 1 << 1);
+ err_out:
+ 	free_netdev(dev);
+ 	return rc;
+-- 
+1.7.0.4
+
