@@ -1,39 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: add support for receive hashing
-Date: Sat, 10 Jul 2010 19:12:42 -0700 (PDT)
-Message-ID: <20100710.191242.70196353.davem@davemloft.net>
-References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
-	<8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
-	<AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
+From: "Robert P. J. Day" <rpjday@crashcourse.ca>
+Subject: a couple questions about drivers/net/macv*.c
+Date: Sat, 10 Jul 2010 19:44:59 -0400 (EDT)
+Message-ID: <alpine.DEB.2.00.1007101652030.7658@lynx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vladz@broadcom.com, netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42506
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752646Ab0GKCM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 22:12:27 -0400
-In-Reply-To: <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
+Received: from astoria.ccjclearline.com ([64.235.106.9]:41621 "EHLO
+	astoria.ccjclearline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840Ab0GKCRa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 22:17:30 -0400
+Received: from dsl-173-206-152-127.tor.primus.ca ([173.206.152.127] helo=crashcourse.ca)
+	by astoria.ccjclearline.com with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.69)
+	(envelope-from <rpjday@crashcourse.ca>)
+	id 1OXjjE-0001u4-Ax
+	for netdev@vger.kernel.org; Sat, 10 Jul 2010 19:45:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 7 Jul 2010 12:17:31 -0700
 
-> It is to enable the device to provide the RSS hash in RX descriptor.
-> The hash severs two purposes now, it's used internally in the device
-> to perform RSS table lookup and also value in RX descriptor.  The
-> latter does not require multi-queue.  Strictly speaking, on a single
-> processor system without multqueue, it would be true that enabling the
-> RX hash on bnx2x is currently superfluous (notwithstanding some other
-> use of the hash might be implemented).
+  first (trivial) point, i notice that both macvlan.c and macvtap.c
+are still both listed as EXPERIMENTAL -- is that still accurate?
 
-We intend to use the card provided RSS hash to optimize GSO
-flow comparisons at some point.
+  bigger issue in macvtap.c -- notice this declaration:
 
-There are other possible uses as well.
+static unsigned int macvtap_major;
 
-Therefore even in a single RX queue configuration, the driver
-should provide the hash if it can.
+that seems like a violation of coding style since that variable is
+used later on in:
+
+        devt = MKDEV(MAJOR(macvtap_major), dev->ifindex);
+ and
+
+       err = alloc_chrdev_region(&macvtap_major, 0,
+                                MACVTAP_NUM_DEVS, "macvtap");
+
+where its type should simply be the typedef "dev_t" for transparency,
+should it not?  hardcoding that variable as an unsigned int seems like
+a bad idea.
+
+rday
+
+-- 
+
+========================================================================
+Robert P. J. Day                               Waterloo, Ontario, CANADA
+
+        Top-notch, inexpensive online Linux/OSS/kernel courses
+                        http://crashcourse.ca
+
+Twitter:                                       http://twitter.com/rpjday
+LinkedIn:                               http://ca.linkedin.com/in/rpjday
+========================================================================
