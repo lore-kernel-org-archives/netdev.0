@@ -1,34 +1,71 @@
-From: "Mr Ronald Ben." <ronaldben@w.cn>
-Subject: Payment!!
-Date: Sat, 10 Jul 2010 07:16:07 -0600
-Message-ID: <20100710130311.M71278__25548.803775064$1278768048$gmane$org@w.cn>
-Reply-To: ronaldben0@w.cn
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=iso-8859-1
-To: undisclosed-recipients:;
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH net-next-2.6][atm]: remove IRQF_DISABLED in combination with IRQF_SHARED
+Date: Sat, 10 Jul 2010 09:42:02 -0400
+Message-ID: <201007101342.o6ADg2wx019157@cmf.nrl.navy.mil>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from uniplac.net ([200.135.4.9]:52074 "EHLO uniplac.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755207Ab0GJNUW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jul 2010 09:20:22 -0400
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:48319 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754791Ab0GJNm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 09:42:29 -0400
+Received: from cmf.nrl.navy.mil (thirdoffive.cmf.nrl.navy.mil [134.207.12.180])
+	by hedwig.cmf.nrl.navy.mil (8.14.2/8.14.2) with ESMTP id o6ADg278014330
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Sat, 10 Jul 2010 09:42:03 -0400
+Received: from thirdoffive.cmf.nrl.navy.mil (chas@localhost)
+	by cmf.nrl.navy.mil (8.14.3/8.14.3/Submit) with ESMTP id o6ADg2wx019157
+	for <netdev@vger.kernel.org>; Sat, 10 Jul 2010 09:42:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have sent $5,000USD already via western union,as we are mandated to transfer you the 
-total sum of $150,000Usd via Western Union by the United Nations,(ECOWAS).Send 
-Names,Address, Phone number.Processing your first payment of $5,000Usd to collect/
-Sender:  Valentine  Melikam  MTCN 3752160290..
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
-You are required to check your transfer status online at our weblink for confirmation 
-by clicking on this link:
+commit 2fae0433cf7febc4b69ff58730de1ca412846743
+Author: chas williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
+Date:   Sat Jul 10 09:38:05 2010 -0400
 
-https://wumt.westernunion.com/asp/orderStatus.asp?country=global 
+    [atm]: remove IRQF_DISABLED in combination with IRQF_SHARED
+    
+    Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
-Regard
-Mr. Ronald Ben
-
-Tel: +234-7065215864
-Email:ronaldben0@w.cn
-Email:ronaldben@w.cn
-
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index ea9cbe5..fa4d600 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -967,7 +967,8 @@ he_init_irq(struct he_dev *he_dev)
+ 	he_writel(he_dev, 0x0, GRP_54_MAP);
+ 	he_writel(he_dev, 0x0, GRP_76_MAP);
+ 
+-	if (request_irq(he_dev->pci_dev->irq, he_irq_handler, IRQF_DISABLED|IRQF_SHARED, DEV_LABEL, he_dev)) {
++	if (request_irq(he_dev->pci_dev->irq,
++			he_irq_handler, IRQF_SHARED, DEV_LABEL, he_dev)) {
+ 		hprintk("irq %d already in use\n", he_dev->pci_dev->irq);
+ 		return -EINVAL;
+ 	}   
+diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
+index 98657a6..558ad18 100644
+--- a/drivers/atm/idt77252.c
++++ b/drivers/atm/idt77252.c
+@@ -3364,7 +3364,7 @@ init_card(struct atm_dev *dev)
+ 		writel(SAR_STAT_TMROF, SAR_REG_STAT);
+ 	}
+ 	IPRINTK("%s: Request IRQ ... ", card->name);
+-	if (request_irq(pcidev->irq, idt77252_interrupt, IRQF_DISABLED|IRQF_SHARED,
++	if (request_irq(pcidev->irq, idt77252_interrupt, IRQF_SHARED,
+ 			card->name, card) != 0) {
+ 		printk("%s: can't allocate IRQ.\n", card->name);
+ 		deinit_card(card);
+diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
+index 59876c6..cff337e 100644
+--- a/drivers/atm/nicstar.c
++++ b/drivers/atm/nicstar.c
+@@ -765,8 +765,7 @@ static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
+ 
+ 	card->intcnt = 0;
+ 	if (request_irq
+-	    (pcidev->irq, &ns_irq_handler, IRQF_DISABLED | IRQF_SHARED,
+-	     "nicstar", card) != 0) {
++	    (pcidev->irq, &ns_irq_handler, IRQF_SHARED, "nicstar", card) != 0) {
+ 		printk("nicstar%d: can't allocate IRQ %d.\n", i, pcidev->irq);
+ 		error = 9;
+ 		ns_init_card_error(card, error);
