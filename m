@@ -1,92 +1,46 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH] bnx2x: add support for receive hashing
-Date: Sun, 11 Jul 2010 06:16:37 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704FA@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
- <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
- <20100710.191242.70196353.davem@davemloft.net>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] netfilter: add CHECKSUM target
+Date: Sun, 11 Jul 2010 16:19:15 +0300
+Message-ID: <20100711131914.GA3461@redhat.com>
+References: <20100708222913.GA4475@redhat.com>
+ <alpine.LSU.2.01.1007091154120.7235@obet.zrqbmnf.qr>
+ <20100711122708.GA3573@redhat.com>
+ <alpine.LSU.2.01.1007111445320.6015@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Vladislav Zolotarov" <vladz@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	"therbert@google.com" <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1096 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752188Ab0GKNRF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 09:17:05 -0400
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, herbert.xu@redhat.com, kvm@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LSU.2.01.1007111445320.6015@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave, it's obvious that there a demand for a new HW/FW configuration from our side - "rx hash enable" which is currently tightly coupled with the RSS capability. As long as RSS flow in our FW includes a few more things apart from just creating an RSS hash and as long as there are flows (even hypothetical) that demand the RSS hash regardless the RSS itself we started to work on separation of these two features from FW perspective. This of course will demand a new FW version but once we have it we'll be able to be more specific in HW configuration and have a cleaner code.
-
-Technically, our FW may provide the Rx HASH always and in a current driver configuration this is what it does.
-I wonder if the driver always provides the HW RX HASH in the skb->rxhash regardless the value of NETIF_F_RXHASH bit in a netdev->features will it cause any harm? If not we can get rid of two extra conditionals in the bnx2x_rx_int().
-
-Thanks,
-vlad
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> Behalf Of Vladislav Zolotarov
-> Sent: Sunday, July 11, 2010 1:02 PM
-> To: David Miller; therbert@google.com
-> Cc: netdev@vger.kernel.org
-> Subject: RE: [PATCH] bnx2x: add support for receive hashing
+On Sun, Jul 11, 2010 at 02:45:49PM +0200, Jan Engelhardt wrote:
 > 
-> 
-> 
-> > -----Original Message-----
-> > From: David Miller [mailto:davem@davemloft.net]
-> > Sent: Sunday, July 11, 2010 5:13 AM
-> > To: therbert@google.com
-> > Cc: Vladislav Zolotarov; netdev@vger.kernel.org
-> > Subject: Re: [PATCH] bnx2x: add support for receive hashing
+> On Sunday 2010-07-11 14:27, Michael S. Tsirkin wrote:
+> >> >
+> >> > include/linux/netfilter_ipv4/ipt_CHECKSUM.h |   18 +++++++
+> >> > net/ipv4/netfilter/Kconfig                  |   16 ++++++
+> >> > net/ipv4/netfilter/Makefile                 |    1 +
+> >> > net/ipv4/netfilter/ipt_CHECKSUM.c           |   72 +++++++++++++++++++++++++++
+> >> 
+> >> New modules should use xt.
 > >
-> > From: Tom Herbert <therbert@google.com>
-> > Date: Wed, 7 Jul 2010 12:17:31 -0700
-> >
-> > > It is to enable the device to provide the RSS hash in RX descriptor.
-> > > The hash severs two purposes now, it's used internally in the device
-> > > to perform RSS table lookup and also value in RX descriptor.  The
-> > > latter does not require multi-queue.  Strictly speaking, on a single
-> > > processor system without multqueue, it would be true that enabling the
-> > > RX hash on bnx2x is currently superfluous (notwithstanding some other
-> > > use of the hash might be implemented).
-> >
-> > We intend to use the card provided RSS hash to optimize GSO
-> > flow comparisons at some point.
+> >I tried moving the module to xt_CHECKSUM but now
+> >	iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM --checksum-fill
+> >does not to load the module.
+> >It seems that xt_request_find_target in x_tables uses the prefix 'ip' for a module.
+> >What am I missing?
 > 
-> Could u explain what did u mean here, pls.? GSO is a Tx flow while RSS hash
-> is generated for the ingress traffic.
-> 
-> >
-> > There are other possible uses as well.
-> 
-> Could u elaborate, pls?
-> 
-> >
-> > Therefore even in a single RX queue configuration, the driver
-> > should provide the hash if it can.
-> 
-> Providing an RSS hash adds an additional work to our FW and HW. We would like
-> to understand why do we need to pay this penalty. And surely we don't want to
-> pay it for a possible use. We'd prefer to pay it when it's really needed.
-> 
-> Thanks,
-> vlad
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> MODULE_ALIAS like the others have.
 
-
+Worked for me, thanks!
