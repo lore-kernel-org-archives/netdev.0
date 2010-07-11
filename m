@@ -1,41 +1,31 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 5/5] cxgb4: exclude registers with read side
- effects from register dumps
-Date: Sun, 11 Jul 2010 23:17:06 +0100
-Message-ID: <1278886626.6139.87.camel@localhost>
-References: <1278885679-3738-1-git-send-email-dm@chelsio.com>
-	 <1278885679-3738-2-git-send-email-dm@chelsio.com>
-	 <1278885679-3738-3-git-send-email-dm@chelsio.com>
-	 <1278885679-3738-4-git-send-email-dm@chelsio.com>
-	 <1278885679-3738-5-git-send-email-dm@chelsio.com>
-	 <1278885679-3738-6-git-send-email-dm@chelsio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2x: add support for receive hashing
+Date: Sun, 11 Jul 2010 15:34:37 -0700 (PDT)
+Message-ID: <20100711.153437.02281455.davem@davemloft.net>
+References: <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
+	<20100710.191242.70196353.davem@davemloft.net>
+	<8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:12689 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751111Ab0GKWRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 18:17:11 -0400
-In-Reply-To: <1278885679-3738-6-git-send-email-dm@chelsio.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52967
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752568Ab0GKWeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 18:34:22 -0400
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-07-11 at 15:01 -0700, Dimitris Michailidis wrote:
-> A few registers have side effects on reads, eg FIFO pointers that
-> auto advance or mailboxes which change ownership when read.  They are
-> unsafe to read so exclude them from ethtool register dumps.
-[...]
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Sun, 11 Jul 2010 03:02:17 -0700
 
-If you change the set of registers in the dump, you need to increment
-the version number.
+>> We intend to use the card provided RSS hash to optimize GSO
+>> flow comparisons at some point.
+> 
+> Could u explain what did u mean here, pls.? GSO is a Tx flow while
+> RSS hash is generated for the ingress traffic.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+I of course meant GRO, not GSO.
