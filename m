@@ -1,54 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] netfilter: add CHECKSUM target
-Date: Sun, 11 Jul 2010 12:21:17 +0300
-Message-ID: <20100711092117.GA16502@redhat.com>
-References: <20100708222913.GA4475@redhat.com>
- <20100709071814.GA27964@gondor.apana.org.au>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] bnx2x: add support for receive hashing
+Date: Sun, 11 Jul 2010 03:02:17 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
+ <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
+ <20100710.191242.70196353.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100709071814.GA27964@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>,
+	"therbert@google.com" <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3679 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752617Ab0GKKC0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 06:02:26 -0400
+In-Reply-To: <20100710.191242.70196353.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 09, 2010 at 03:18:14PM +0800, Herbert Xu wrote:
-> On Fri, Jul 09, 2010 at 01:29:13AM +0300, Michael S. Tsirkin wrote:
-> > This adds a `CHECKSUM' target, which can be used in the iptables mangle
-> > table.
-> > 
-> > You can use this target to compute and fill in the checksum in
-> > an IP packet that lacks a checksum.  This is particularly useful,
-> > if you need to work around old applications such as dhcp clients,
-> > that do not work well with checksum offloads, but don't want to
-> > disable checksum offload in your device.
-> > 
-> > The problem happens in the field with virtualized applications.
-> > For reference, see Red Hat bz 605555, as well as
-> > http://www.spinics.net/lists/kvm/msg37660.html
-> > 
-> > Typical expected use (helps old dhclient binary running in a VM):
-> > iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM
-> > --checksum-fill
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Sunday, July 11, 2010 5:13 AM
+> To: therbert@google.com
+> Cc: Vladislav Zolotarov; netdev@vger.kernel.org
+> Subject: Re: [PATCH] bnx2x: add support for receive hashing
 > 
-> I'd think that this target would be protocol-agnostic, no?
+> From: Tom Herbert <therbert@google.com>
+> Date: Wed, 7 Jul 2010 12:17:31 -0700
+> 
+> > It is to enable the device to provide the RSS hash in RX descriptor.
+> > The hash severs two purposes now, it's used internally in the device
+> > to perform RSS table lookup and also value in RX descriptor.  The
+> > latter does not require multi-queue.  Strictly speaking, on a single
+> > processor system without multqueue, it would be true that enabling the
+> > RX hash on bnx2x is currently superfluous (notwithstanding some other
+> > use of the hash might be implemented).
+> 
+> We intend to use the card provided RSS hash to optimize GSO
+> flow comparisons at some point.
 
-Meaning it should go into net/netfilter/? Will do.
+Could u explain what did u mean here, pls.? GSO is a Tx flow while RSS hash is generated for the ingress traffic.
 
-> Cheers,
-> -- 
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> There are other possible uses as well.
+
+Could u elaborate, pls?
+
+> 
+> Therefore even in a single RX queue configuration, the driver
+> should provide the hash if it can.
+
+Providing an RSS hash adds an additional work to our FW and HW. We would like to understand why do we need to pay this penalty. And surely we don't want to pay it for a possible use. We'd prefer to pay it when it's really needed.
+
+Thanks,
+vlad
+
+
