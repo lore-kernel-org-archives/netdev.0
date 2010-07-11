@@ -1,79 +1,107 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH] bnx2x: add support for receive hashing
-Date: Sun, 11 Jul 2010 10:22:15 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE6470521@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
- <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
- <20100710.191242.70196353.davem@davemloft.net>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704FA@SJEXCHCCR02.corp.ad.broadcom.com>
- <1278866713.2538.148.camel@edumazet-laptop>
+From: Michael Leun <lkml20100708@newton.leun.net>
+Subject: FW: NET_NS: unregister_netdevice: waiting for lo to become free
+ (after using openvpn) (was Re: sysfs bug when using tun with network
+ namespaces)
+Date: Sun, 11 Jul 2010 19:29:39 +0200
+Message-ID: <20100711192939.1c25dcaf@xenia.leun.net>
+References: <loom.20100708T183152-326@post.gmane.org>
+ <20100709235744.GA12752@kroah.com>
+ <20100710101540.2799c9ef@xenia.leun.net>
+ <20100710140800.GA20424@kroah.com>
+ <20100710165208.59272ae6@xenia.leun.net>
+ <20100710235323.5336f627@xenia.leun.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"therbert@google.com" <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1255 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752997Ab0GKRWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jul 2010 13:22:25 -0400
-In-Reply-To: <1278866713.2538.148.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100710235323.5336f627@xenia.leun.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+
-IEJlaGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogU3VuZGF5LCBKdWx5IDExLCAyMDEwIDc6
-NDUgUE0NCj4gVG86IFZsYWRpc2xhdiBab2xvdGFyb3YNCj4gQ2M6IERhdmlkIE1pbGxlcjsgdGhl
-cmJlcnRAZ29vZ2xlLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSRTog
-W1BBVENIXSBibngyeDogYWRkIHN1cHBvcnQgZm9yIHJlY2VpdmUgaGFzaGluZw0KPiANCj4gTGUg
-ZGltYW5jaGUgMTEganVpbGxldCAyMDEwIMOgIDA2OjE2IC0wNzAwLCBWbGFkaXNsYXYgWm9sb3Rh
-cm92IGEgw6ljcml0IDoNCj4gPiBEYXZlLCBpdCdzIG9idmlvdXMgdGhhdCB0aGVyZSBhIGRlbWFu
-ZCBmb3IgYSBuZXcgSFcvRlcgY29uZmlndXJhdGlvbg0KPiA+IGZyb20gb3VyIHNpZGUgLSAicngg
-aGFzaCBlbmFibGUiIHdoaWNoIGlzIGN1cnJlbnRseSB0aWdodGx5IGNvdXBsZWQNCj4gPiB3aXRo
-IHRoZSBSU1MgY2FwYWJpbGl0eS4gQXMgbG9uZyBhcyBSU1MgZmxvdyBpbiBvdXIgRlcgaW5jbHVk
-ZXMgYSBmZXcNCj4gPiBtb3JlIHRoaW5ncyBhcGFydCBmcm9tIGp1c3QgY3JlYXRpbmcgYW4gUlNT
-IGhhc2ggYW5kIGFzIGxvbmcgYXMgdGhlcmUNCj4gPiBhcmUgZmxvd3MgKGV2ZW4gaHlwb3RoZXRp
-Y2FsKSB0aGF0IGRlbWFuZCB0aGUgUlNTIGhhc2ggcmVnYXJkbGVzcyB0aGUNCj4gPiBSU1MgaXRz
-ZWxmIHdlIHN0YXJ0ZWQgdG8gd29yayBvbiBzZXBhcmF0aW9uIG9mIHRoZXNlIHR3byBmZWF0dXJl
-cyBmcm9tDQo+ID4gRlcgcGVyc3BlY3RpdmUuIFRoaXMgb2YgY291cnNlIHdpbGwgZGVtYW5kIGEg
-bmV3IEZXIHZlcnNpb24gYnV0IG9uY2UNCj4gPiB3ZSBoYXZlIGl0IHdlJ2xsIGJlIGFibGUgdG8g
-YmUgbW9yZSBzcGVjaWZpYyBpbiBIVyBjb25maWd1cmF0aW9uIGFuZA0KPiA+IGhhdmUgYSBjbGVh
-bmVyIGNvZGUuDQo+ID4NCj4gPiBUZWNobmljYWxseSwgb3VyIEZXIG1heSBwcm92aWRlIHRoZSBS
-eCBIQVNIIGFsd2F5cyBhbmQgaW4gYSBjdXJyZW50DQo+ID4gZHJpdmVyIGNvbmZpZ3VyYXRpb24g
-dGhpcyBpcyB3aGF0IGl0IGRvZXMuDQo+ID4gSSB3b25kZXIgaWYgdGhlIGRyaXZlciBhbHdheXMg
-cHJvdmlkZXMgdGhlIEhXIFJYIEhBU0ggaW4gdGhlDQo+ID4gc2tiLT5yeGhhc2ggcmVnYXJkbGVz
-cyB0aGUgdmFsdWUgb2YgTkVUSUZfRl9SWEhBU0ggYml0IGluIGENCj4gPiBuZXRkZXYtPmZlYXR1
-cmVzIHdpbGwgaXQgY2F1c2UgYW55IGhhcm0/IElmIG5vdCB3ZSBjYW4gZ2V0IHJpZCBvZiB0d28N
-Cj4gPiBleHRyYSBjb25kaXRpb25hbHMgaW4gdGhlIGJueDJ4X3J4X2ludCgpLg0KPiANCj4gSGkN
-Cj4gDQo+IFBsZWFzZSBkb250IHRvcC1wb3N0IG9uIG5ldGRldiwgdGhhbmtzLg0KDQpUaGlzIGRp
-c2N1c3Npb24gaXMgZGlyZWN0bHkgcmVsYXRlZCB0byBUb20ncyBwYXRjaCB0aGF0J3Mgd2h5IEkn
-bSBwb3N0aW5nIG9uIHRoaXMgdGhyZWFkLiANCg0KPiANCj4gTkVUSUZfUlhfSEFTSCBiaXQgaXMg
-bmVlZGVkIHNvIHRoYXQgd2UgY2FuIGRpc2FibGUgc2tiLT5yeGhhc2ggZnJvbSBhDQo+IHBhcnRp
-Y3VsYXIgTklDIGlmIHdlIGtub3cgdGhlIGhhcmR3YXJlIHByb3ZpZGVkIHJ4aGFzaCBpcyBub3Qg
-ZnVsZmlsbGluZw0KPiBvdXIgbmVlZHMgKFdlIHByZWZlciBzcGVuZCBzb21lIGNwdSBjeWNsZXMg
-dG8gcmVjb21wdXRlIGEgc29mdHdhcmUNCj4gcnhoYXNoKS4NCj4gDQo+IFNvZnR3YXJlIG9uZSBm
-b3IgZXhhbXBsZSBkZWxpdmVyIHNhbWUgcnhoYXNoIHZhbHVlcyBmb3IgYm90aCB3YXlzIG9mIGEN
-Cj4gVENQIGZsb3csIGl0IGNhbiBoZWxwIGNvbm50cmFja2luZyBmb3IgZXhhbXBsZS4NCg0KSSB1
-bmRlcnN0YW5kIHRoYXQsIGluIHRoYXQgY2FzZSB0aGUgcHJvcGVyIGltcGxlbWVudGF0aW9uIHdv
-dWxkIGJlIHRvIGNoZWNrIHRoZSBuZXRkZXYtPmZlYXR1cmVzIHdoZW4gdSBkZWNpZGUgdG8gY2Fs
-Y3VsYXRlIHRoZSBTVyByeGhhc2gsIGlzbid0IGl0Pw0KDQo+IA0KPiBUaGUgY29uZGl0aW9uYWwg
-aW4gZHJpdmVyIHJ4IGlzIGNoZWFwLCBzaW5jZSB0aGUgY29uZGl0aW9uIGlzIHRoZSBzYW1lDQo+
-IGZvciBhbGwgcGFja2V0cyBhbmQgQ1BVIGNhbiBwcmVkaWN0cyB0aGUgYnJhbmNoLg0KDQpOb3Qg
-ZXhhY3RseS4gT3VyIEZXL0hXIHdvbid0IHByb3ZpZGUgdGhlIHJ4aGFzaCBmb3Igbm9uZS1JUCBw
-YWNrZXRzIHNldHRpbmcgdGhlIGhhc2ggQ1FFIGZpZWxkIHRvIHplcm8gYW5kIGNsZWFyaW5nIHRo
-ZSBFVEhfRkFTVF9QQVRIX1JYX0NRRV9SU1NfSEFTSF9GTEcgaW4gdGhlIENRRSBzdGF0c3VfZmxh
-Z3MgKGZvciBBUlBzIGZvciBpbnN0YW5jZSkuIEJyYW5jaCBwcmVkaWN0aW9uIGlzIG5pY2UgYnV0
-IGNvbnNpZGVyaW5nIG15IHByZXZpb3VzIHJlbWFyayB3aHkgZG8gd2UgbmVlZCB0aGlzIGJyYW5j
-aCBhdCBhbGw/DQoNCj4gDQo+IA0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlz
-IGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gdGhlIGJvZHkg
-b2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRv
-bW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoN
-Cg==
+Hi,
 
+On Sat, 10 Jul 2010 16:52:08 +0200
+Michael Leun <lkml20100708@newton.leun.net> wrote:
+
+> # tunctl -u ml -t tap1  
+
+> works as expected, but  
+
+> # unshare -n /bin/bash
+> # tunctl -u ml -t tap1  
+[bug  (no sysfs support for net namespaces at all) solved in 2.6.35-rcX
+- I used 2.6.34.1]
+
+Now that we have solved that last one I've another glitch (this time using 2.6.35-rc4):
+
+In an network namespace I can use an tun/tap tunnel through ssh and
+when closing that namespace then eveything is fine.
+
+But when using openvpn (also tunnel trough tun/tap) in an network
+namespace and then closing that namespace I get:
+
+unregister_netdevice: waiting for lo to become free
+[repeated]
+
+Please see the following two examples showing that difference:
+
+# > unshare -n /bin/bash
+# > # how to setup veth device pair to get connectivity into namespace not shown here
+# > tunctl -u ml -t tap1
+# > ssh -o Tunnel=Ethernet -w 1:1 somewhere
+[ running some traffic over tap1 not shown here ]
+^d # logging out from somewhere
+# > tunctl -d tap1
+# > exit # logging out from shell in network namespace
+
+Now the veth device pair used automagically vanishes and nothing
+from that different network namespace remains - very well.
+
+but
+
+# > unshare -n /bin/bash
+# > # how to setup veth device pair to get connectivity into namespace not shown here
+# > openvpn --config some.config
+[ running some traffic over vpn device not shown here ]
+^c # stopping openvpn
+# > lsof -i
+# > netstat -an
+Active Internet connections (servers and established)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+Active UNIX domain sockets (servers and established)
+Proto RefCnt Flags       Type       State         I-Node Path
+# > ps ax|grep openvpn|grep -v grep
+# > # cannot find anything that suggests there is anything left from that openvpn session
+# > exit # logging out from shell in network namespace
+
+Now I get
+
+Jul 10 20:02:36 doris kernel: unregister_netdevice: waiting for lo to become free. Usage count = 3
+[repeated]
+
+Now one might say it is fault of openvpn (used OpenVPN 2.1_rc20
+i586-suse-linux - the one in openSuSE 11.2 package), openvpn didn't
+close some ressource and ssh does fine.
+
+But: should'nt kernel clean up after process when it exits?
+And/or: Should'nt kernel clean up if last process in network namespace
+exits - there is nothing left which might use that interface?!
+
+Greg KH <greg@kroah.com> wrote:
+
+> Yes, you are correct.  Care to resend all of this to the
+> network-namespace developer(s) and the netdev mailing list so that the
+> correct people are notified so they can fix it all?
+
+[X] done - hopefully, cannot find a particular network namespace
+developer in MAINTAINERS or source files. If such a one exists, please
+forward.
+
+Thanks.
+
+-- 
+MfG,
+
+Michael Leun
