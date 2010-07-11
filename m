@@ -1,14 +1,11 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
 Subject: Re: [PATCH] netfilter: add CHECKSUM target
-Date: Sun, 11 Jul 2010 20:45:01 +0800
-Message-ID: <AANLkTikamhUUuoQ8EjwPn9gB4zHZkeDuzpiqd4XcN3lx@mail.gmail.com>
-References: <20100708222913.GA4475@redhat.com> <alpine.LSU.2.01.1007091154120.7235@obet.zrqbmnf.qr>
-	<20100711122708.GA3573@redhat.com>
+Date: Sun, 11 Jul 2010 14:45:49 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007111445320.6015@obet.zrqbmnf.qr>
+References: <20100708222913.GA4475@redhat.com> <alpine.LSU.2.01.1007091154120.7235@obet.zrqbmnf.qr> <20100711122708.GA3573@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
@@ -18,44 +15,25 @@ Cc: Jan Engelhardt <jengelh@medozas.de>,
 	netfilter@vger.kernel.org, coreteam@netfilter.org,
 	netdev@vger.kernel.org, herbert.xu@redhat.com, kvm@vger.kernel.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:39951 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751523Ab0GKMpW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 08:45:22 -0400
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <20100711122708.GA3573@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 11, 2010 at 8:27 PM, Michael S. Tsirkin <mst@redhat.com> wr=
-ote:
-> On Fri, Jul 09, 2010 at 11:56:26AM +0200, Jan Engelhardt wrote:
->>
->> On Friday 2010-07-09 00:29, Michael S. Tsirkin wrote:
+
+On Sunday 2010-07-11 14:27, Michael S. Tsirkin wrote:
 >> >
->> > include/linux/netfilter_ipv4/ipt_CHECKSUM.h | =A0 18 +++++++
->> > net/ipv4/netfilter/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0=
- 16 ++++++
->> > net/ipv4/netfilter/Makefile =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =
-=A01 +
->> > net/ipv4/netfilter/ipt_CHECKSUM.c =A0 =A0 =A0 =A0 =A0 | =A0 72 +++=
-++++++++++++++++++++++++
->>
+>> > include/linux/netfilter_ipv4/ipt_CHECKSUM.h |   18 +++++++
+>> > net/ipv4/netfilter/Kconfig                  |   16 ++++++
+>> > net/ipv4/netfilter/Makefile                 |    1 +
+>> > net/ipv4/netfilter/ipt_CHECKSUM.c           |   72 +++++++++++++++++++++++++++
+>> 
 >> New modules should use xt.
 >
-> I tried moving the module to xt_CHECKSUM but now
-> =A0 =A0 =A0 =A0iptables -A POSTROUTING -t mangle -p udp --dport 68 -j=
- CHECKSUM --checksum-fill
-> does not to load the module.
-> It seems that xt_request_find_target in x_tables uses the prefix 'ip'=
- for a module.
-> What am I missing?
->
+>I tried moving the module to xt_CHECKSUM but now
+>	iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM --checksum-fill
+>does not to load the module.
+>It seems that xt_request_find_target in x_tables uses the prefix 'ip' for a module.
+>What am I missing?
 
-You should add MODULE_ALIAS clause, i.e.
-
-MODULE_ALIAS("ipt_CHECKSUM");
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+MODULE_ALIAS like the others have.
