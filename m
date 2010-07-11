@@ -1,112 +1,66 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: oops in tcp_xmit_retransmit_queue() w/ v2.6.32.15
-Date: Sun, 11 Jul 2010 19:09:42 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi>
-References: <4C358AAA.9080400@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] bnx2x: add support for receive hashing
+Date: Sun, 11 Jul 2010 18:45:13 +0200
+Message-ID: <1278866713.2538.148.camel@edumazet-laptop>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
+	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
+	 <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
+	 <20100710.191242.70196353.davem@davemloft.net>
+	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
+	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704FA@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C358AAA.9080400@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"therbert@google.com" <therbert@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vladislav Zolotarov <vladz@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:58808 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752929Ab0GKQpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 12:45:17 -0400
+Received: by wyf23 with SMTP id 23so2820424wyf.19
+        for <netdev@vger.kernel.org>; Sun, 11 Jul 2010 09:45:15 -0700 (PDT)
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704FA@SJEXCHCCR02.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 8 Jul 2010, Tejun Heo wrote:
+Le dimanche 11 juillet 2010 =C3=A0 06:16 -0700, Vladislav Zolotarov a =C3=
+=A9crit :
+> Dave, it's obvious that there a demand for a new HW/FW configuration
+> from our side - "rx hash enable" which is currently tightly coupled
+> with the RSS capability. As long as RSS flow in our FW includes a few
+> more things apart from just creating an RSS hash and as long as there
+> are flows (even hypothetical) that demand the RSS hash regardless the
+> RSS itself we started to work on separation of these two features fro=
+m
+> FW perspective. This of course will demand a new FW version but once
+> we have it we'll be able to be more specific in HW configuration and
+> have a cleaner code.
+>=20
+> Technically, our FW may provide the Rx HASH always and in a current
+> driver configuration this is what it does.
+> I wonder if the driver always provides the HW RX HASH in the
+> skb->rxhash regardless the value of NETIF_F_RXHASH bit in a
+> netdev->features will it cause any harm? If not we can get rid of two
+> extra conditionals in the bnx2x_rx_int().
 
-> We've been seeing oops in tcp_xmit_retransmit_queue() w/ 2.6.32.15.
-> Please see the attached photoshoot.  This is happening on a HPC
-> cluster and very interestingly caused by one particular job.  How long
-> it takes isn't clear yet (at least more than a day) but when it
-> happens it happens on a lot of machines in relatively short time.
-> 
-> With a bit of disassemblying, I've found that the oops is happening
-> during tcp_for_write_queue_from() because the skb->next points to
-> NULL.
-> 
->  void tcp_xmit_retransmit_queue(struct sock *sk)
->  {
->  ...
-> 	if (tp->retransmit_skb_hint) {
-> 		skb = tp->retransmit_skb_hint;
-> 		last_lost = TCP_SKB_CB(skb)->end_seq;
-> 		if (after(last_lost, tp->retransmit_high))
-> 			last_lost = tp->retransmit_high;
-> 	} else {
-> 		skb = tcp_write_queue_head(sk);
-> 		last_lost = tp->snd_una;
-> 	}
-> 
->  =>	tcp_for_write_queue_from(skb, sk) {
-> 		 __u8 sacked = TCP_SKB_CB(skb)->sacked;
-> 
-> 		 if (skb == tcp_send_head(sk))
-> 			 break;
-> 		 /* we could do better than to assign each time */
-> 		 if (hole == NULL)
-> 
-> This can happen for one of the following reasons,
-> 
-> 1. tp->retransmit_skb_hint is NULL and tcp_write_queue_head() is NULL
->    too.  ie. tcp_xmit_retransmit_queue() is called on an empty write
->    queue for some reason.
-> 
-> 2. tp->retransmit_skb_hint is pointing to a skb which is not on the
->    write_queue.  ie. somebody forgot to update hint while removing the
->    skb from the write queue.
+Hi
 
-Once again I've read the unlinkers through, and only thing that could 
-cause this is tcp_send_synack (others do deal with the hints) but I think 
-Eric already proposed a patch to that but we never got anywhere due to 
-some counterargument why it wouldn't take place (too far away for me to 
-remember, see archives about the discussions). ...But if you want be dead 
-sure some WARN_ON there might not hurt. Also the purging of the whole 
-queue was a similar suspect I then came across (but that would only 
-materialize with sk reuse happening e.g., with nfs which the other guys 
-weren't using).
+Please dont top-post on netdev, thanks.
 
-> 3. The hint is pointing to a skb on the list but the list itself is
->    corrupt.
-> 
-> I added some debug code and the crash is happening when
-> tp->retransmit_skb_hint is not NULL but tp->retransmit_skb_hint->next
-> is NULL.  So, #1 is out; unfortunately, I didn't have debug code in
-> place to discern between #2 and #3.
-> 
-> Does anything ring a bell?  This is a production system and debugging
-> affects quite a number of people.  I can put debug code in to discern
-> between #2 and #3 but I'm basically shooting in the dark and it would
-> be great if someone has a better idea.
+NETIF_RX_HASH bit is needed so that we can disable skb->rxhash from a
+particular NIC if we know the hardware provided rxhash is not fulfillin=
+g
+our needs (We prefer spend some cpu cycles to recompute a software
+rxhash).
 
-Thanks for taking this up. I've been kind of waiting somebody to show up 
-who actually has some way of reproducing it. Once I had one guy in the 
-hook but his ability to reproduce was for some reason lost when he tried 
-with a debug patch [1]. 
+Software one for example deliver same rxhash values for both ways of a
+TCP flow, it can help conntracking for example.
 
-I now realize that the debug patch should probably also print the write 
-queue too when the problem is caught in order to discern the cases you 
-mention.
+The conditional in driver rx is cheap, since the condition is the same
+for all packets and CPU can predicts the branch.
 
-Something along these lines:
 
-tcp_for_write_queue(skb, sk) {
-	printk("skb %p (%u-%u) next %p prev %p sacked %u\n", ...);
-}
 
-Anyway, my debugging patch should be such that in a lucky case it avoids 
-crashing the system too, though price to pay might then be a stuck 
-connection. In case #3 I'd expect the box to die elsewhere in TCP code 
-pretty soon anyway so it depends whether avoiding oops is really so 
-useful, but if you're lucky other mechanism in TCP will recover 
-the lost one for you (basically RTO driven retransmission).
-
--- 
- i.
-
-[1] http://marc.info/?l=linux-kernel&m=126624014117610&w=2
