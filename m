@@ -1,77 +1,118 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 3/8] tg3: Fix IPv6 TSO code in
- tg3_start_xmit_dma_bug()
-Date: Sun, 11 Jul 2010 12:31:42 -0700
-Message-ID: <1278876707-21390-4-git-send-email-mcarlson@broadcom.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: oops in tcp_xmit_retransmit_queue() w/ v2.6.32.15
+Date: Sun, 11 Jul 2010 22:44:37 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1007112230460.15736@melkinpaasi.cs.helsinki.fi>
+References: <4C358AAA.9080400@kernel.org>  <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi>  <1278867977.2538.167.camel@edumazet-laptop>  <1278870382.2538.180.camel@edumazet-laptop> <1278872990.2538.189.camel@edumazet-laptop>
+ <alpine.DEB.2.00.1007112214250.15736@melkinpaasi.cs.helsinki.fi> <alpine.DEB.2.00.1007112224110.15736@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1308 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754613Ab0GKTb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jul 2010 15:31:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696250871-1941238658-1278877477=:15736"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1007112224110.15736@melkinpaasi.cs.helsinki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The tg3_start_xmit_dma_bug() function was missing code to process IPv6
-TSO packets.  This patch adds the missing support.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/tg3.c |   20 ++++++++++++++------
- 1 files changed, 14 insertions(+), 6 deletions(-)
+---696250871-1941238658-1278877477=:15736
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 57dba79..efac448 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -5779,7 +5779,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 
- 	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
- 		struct iphdr *iph;
--		u32 tcp_opt_len, ip_tcp_len, hdr_len;
-+		u32 tcp_opt_len, hdr_len;
- 
- 		if (skb_header_cloned(skb) &&
- 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
-@@ -5787,10 +5787,21 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 			goto out_unlock;
- 		}
- 
-+		iph = ip_hdr(skb);
- 		tcp_opt_len = tcp_optlen(skb);
--		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
- 
--		hdr_len = ip_tcp_len + tcp_opt_len;
-+		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
-+			hdr_len = skb_headlen(skb) - ETH_HLEN;
-+		} else {
-+			u32 ip_tcp_len;
-+
-+			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
-+			hdr_len = ip_tcp_len + tcp_opt_len;
-+
-+			iph->check = 0;
-+			iph->tot_len = htons(mss + hdr_len);
-+		}
-+
- 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
- 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
- 			return tg3_tso_bug(tp, skb);
-@@ -5798,9 +5809,6 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
- 			       TXD_FLAG_CPU_POST_DMA);
- 
--		iph = ip_hdr(skb);
--		iph->check = 0;
--		iph->tot_len = htons(mss + hdr_len);
- 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
- 			tcp_hdr(skb)->check = 0;
- 			base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
+On Sun, 11 Jul 2010, Ilpo Järvinen wrote:
+
+> On Sun, 11 Jul 2010, Ilpo Järvinen wrote:
+> 
+> > On Sun, 11 Jul 2010, Eric Dumazet wrote:
+> > 
+> > > Le dimanche 11 juillet 2010 à 19:46 +0200, Eric Dumazet a écrit :
+> > > > Le dimanche 11 juillet 2010 à 19:06 +0200, Eric Dumazet a écrit :
+> > > > > Le dimanche 11 juillet 2010 à 19:09 +0300, Ilpo Järvinen a écrit :
+> > > > > > On Thu, 8 Jul 2010, Tejun Heo wrote:
+> > > > > > 
+> > > > > > > We've been seeing oops in tcp_xmit_retransmit_queue() w/ 2.6.32.15.
+> > > > > > > Please see the attached photoshoot.  This is happening on a HPC
+> > > > > > > cluster and very interestingly caused by one particular job.  How long
+> > > > > > > it takes isn't clear yet (at least more than a day) but when it
+> > > > > > > happens it happens on a lot of machines in relatively short time.
+> > > > > > > 
+> > > > > > > With a bit of disassemblying, I've found that the oops is happening
+> > > > > > > during tcp_for_write_queue_from() because the skb->next points to
+> > > > > > > NULL.
+> > > > > > > 
+> > > > > > >  void tcp_xmit_retransmit_queue(struct sock *sk)
+> > > > > > >  {
+> > > > > > >  ...
+> > > > > > > 	if (tp->retransmit_skb_hint) {
+> > > > > > > 		skb = tp->retransmit_skb_hint;
+> > > > > > > 		last_lost = TCP_SKB_CB(skb)->end_seq;
+> > > > > > > 		if (after(last_lost, tp->retransmit_high))
+> > > > > > > 			last_lost = tp->retransmit_high;
+> > > > > > > 	} else {
+> > > > > > > 		skb = tcp_write_queue_head(sk);
+> > > > > > > 		last_lost = tp->snd_una;
+> > > > > > > 	}
+> > > > > > > 
+> > > > > > >  =>	tcp_for_write_queue_from(skb, sk) {
+> > > > > > > 		 __u8 sacked = TCP_SKB_CB(skb)->sacked;
+> > > > > > > 
+> > > > > > > 		 if (skb == tcp_send_head(sk))
+> > > > > > > 			 break;
+> > > > > > > 		 /* we could do better than to assign each time */
+> > > > > > > 		 if (hole == NULL)
+> > > > > > > 
+> > > > > > > This can happen for one of the following reasons,
+> > > > > > > 
+> > > > > > > 1. tp->retransmit_skb_hint is NULL and tcp_write_queue_head() is NULL
+> > > > > > >    too.  ie. tcp_xmit_retransmit_queue() is called on an empty write
+> > > > > > >    queue for some reason.
+> > > > > > > 
+> > > > > > > 2. tp->retransmit_skb_hint is pointing to a skb which is not on the
+> > > > > > >    write_queue.  ie. somebody forgot to update hint while removing the
+> > > > > > >    skb from the write queue.
+> > > > > > 
+> > > > > > Once again I've read the unlinkers through, and only thing that could 
+> > > > > > cause this is tcp_send_synack (others do deal with the hints) but I think 
+> > > > > > Eric already proposed a patch to that but we never got anywhere due to 
+> > > > > > some counterargument why it wouldn't take place (too far away for me to 
+> > > > > > remember, see archives about the discussions). ...But if you want be dead 
+> > > > > > sure some WARN_ON there might not hurt. Also the purging of the whole 
+> > > > > > queue was a similar suspect I then came across (but that would only 
+> > > > > > materialize with sk reuse happening e.g., with nfs which the other guys 
+> > > > > > weren't using).
+> > > > > > 
+> > > > > 
+> > > > > Hmm.
+> > > > > 
+> > > > > This sounds familiar to me, but I cannot remember the discussion you
+> > > > > mention or the patch.
+> > > > > 
+> > > > > Or maybe it was the TCP transaction thing ? (including data in SYN or
+> > > > > SYN-ACK packet)
+> > 
+> > No. That's another thing. ...I've already found it with google today but 
+> > cannot seem to find it again. I thought I used tcp_make_synack eric but 
+> > for some reason I only get these transaction fix hits. I'll keep looking.
+> 
+> Right, this one:
+> 
+> http://kerneltrap.org/mailarchive/linux-netdev/2009/10/29/6259073
+
+Hmm, another idea... It might be useful to try to disable 
+tcp_retrans_try_collapse in tcp_retransmit_skb as a test. I think that it 
+might be possible that tcp_xmit_retransmit_queue might end up holding 
+a stale reference either in hole or skb. Kind of shot into the dark still, 
+no actual theory on how that could happen but that 
+tcp_xmit_retransmit_queue logic is rather tricky because of returning to 
+the first hole if such exists so that I couldn't immediately rule out the 
+possibility.
+
 -- 
-1.6.4.4
-
-
+ i.
+---696250871-1941238658-1278877477=:15736--
