@@ -1,244 +1,109 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 2/2] inet, inet6: make tcp_sendmsg() and tcp_sendpage() through inet_sendmsg() and inet_sendpage()
-Date: Sun, 11 Jul 2010 14:41:55 +0800
-Message-ID: <1278830515-22422-1-git-send-email-xiaosuo@gmail.com>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:59700 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221Ab0GKGot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 02:44:49 -0400
-Received: by pvc7 with SMTP id 7so1399462pvc.19
-        for <netdev@vger.kernel.org>; Sat, 10 Jul 2010 23:44:47 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Felipe W Damasio <felipewd@gmail.com>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Sun, 11 Jul 2010 04:11:45 -0300
+Message-ID: <AANLkTikqNLp5HN0Puu00_bbJEQCUNCCtSsOFxuxfX5g0@mail.gmail.com>
+References: <1278695580.2696.55.camel@edumazet-laptop>
+	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
+	<1278742649.2538.17.camel@edumazet-laptop>
+	<20100710.123011.260095467.davem@davemloft.net>
+	<AANLkTilQbM8F27a5SLZLMzndLYfz-eRhzyxP18KCFz2K@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, kaber@trash.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTilQbM8F27a5SLZLMzndLYfz-eRhzyxP18KCFz2K@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-inet, inet6: make tcp_sendmsg() and tcp_sendpage() through inet_sendmsg() and
-inet_sendpage()
+Hi,
 
-a new boolean flag no_autobind is added to structure proto to avoid the autobind
-calls when the protocol is TCP. Then sock_rps_record_flow() is called int the
-TCP's sendmsg() and sendpage() pathes.
+2010/7/11 Felipe W Damasio <felipewd@gmail.com>:
+> What do you mean "from elsewhere"? You mean elsewhere on the network code?
+>
+> Since the function that had the problem was tcp_recvmsg and we're
+> talking about a squid process, we're either talking about a typical
+> webserver-objet response, or about about an incorrect/faulty http
+> request from the user.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/net/inet_common.h |    4 ++++
- include/net/sock.h        |    1 +
- include/net/tcp.h         |    8 ++++----
- net/ipv4/af_inet.c        |   15 +++++++++------
- net/ipv4/tcp.c            |   11 +++++------
- net/ipv4/tcp_ipv4.c       |    3 +++
- net/ipv6/af_inet6.c       |    8 ++++----
- net/ipv6/tcp_ipv6.c       |    3 +++
- 8 files changed, 33 insertions(+), 20 deletions(-)
-diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-index 140c1ec..22fac98 100644
---- a/include/net/inet_common.h
-+++ b/include/net/inet_common.h
-@@ -21,6 +21,10 @@ extern int inet_dgram_connect(struct socket *sock, struct sockaddr * uaddr,
- extern int inet_accept(struct socket *sock, struct socket *newsock, int flags);
- extern int inet_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			struct msghdr *msg, size_t size);
-+extern ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
-+			     size_t size, int flags);
-+extern int inet_recvmsg(struct kiocb *iocb, struct socket *sock,
-+			struct msghdr *msg, size_t size, int flags);
- extern int inet_shutdown(struct socket *sock, int how);
- extern int inet_listen(struct socket *sock, int backlog);
- extern void inet_sock_destruct(struct sock *sk);
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 4f26f2f..3100e71 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -772,6 +772,7 @@ struct proto {
- 	int			*sysctl_wmem;
- 	int			*sysctl_rmem;
- 	int			max_header;
-+	bool			no_autobind;
- 
- 	struct kmem_cache	*slab;
- 	unsigned int		obj_size;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 33ce524..468b01f 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -304,10 +304,10 @@ extern int tcp_v4_rcv(struct sk_buff *skb);
- 
- extern int tcp_v4_remember_stamp(struct sock *sk);
- extern int tcp_v4_tw_remember_stamp(struct inet_timewait_sock *tw);
--extern int tcp_sendmsg(struct kiocb *iocb, struct socket *sock,
--		       struct msghdr *msg, size_t size);
--extern ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
--			    size_t size, int flags);
-+extern int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-+		       size_t size);
-+extern int tcp_sendpage(struct sock *sk, struct page *page, int offset,
-+			size_t size, int flags);
- extern int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg);
- extern int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 				 struct tcphdr *th, unsigned len);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 3ceb025..6a1100c 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -727,28 +727,31 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
- 	sock_rps_record_flow(sk);
- 
- 	/* We may need to bind the socket. */
--	if (!inet_sk(sk)->inet_num && inet_autobind(sk))
-+	if (!inet_sk(sk)->inet_num && !sk->sk_prot->no_autobind &&
-+	    inet_autobind(sk))
- 		return -EAGAIN;
- 
- 	return sk->sk_prot->sendmsg(iocb, sk, msg, size);
- }
- EXPORT_SYMBOL(inet_sendmsg);
- 
--static ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
--			     size_t size, int flags)
-+ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
-+		      size_t size, int flags)
- {
- 	struct sock *sk = sock->sk;
- 
- 	sock_rps_record_flow(sk);
- 
- 	/* We may need to bind the socket. */
--	if (!inet_sk(sk)->inet_num && inet_autobind(sk))
-+	if (!inet_sk(sk)->inet_num && !sk->sk_prot->no_autobind &&
-+	    inet_autobind(sk))
- 		return -EAGAIN;
- 
- 	if (sk->sk_prot->sendpage)
- 		return sk->sk_prot->sendpage(sk, page, offset, size, flags);
- 	return sock_no_sendpage(sock, page, offset, size, flags);
- }
-+EXPORT_SYMBOL(inet_sendpage);
- 
- int inet_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
- 		 size_t size, int flags)
-@@ -894,10 +897,10 @@ const struct proto_ops inet_stream_ops = {
- 	.shutdown	   = inet_shutdown,
- 	.setsockopt	   = sock_common_setsockopt,
- 	.getsockopt	   = sock_common_getsockopt,
--	.sendmsg	   = tcp_sendmsg,
-+	.sendmsg	   = inet_sendmsg,
- 	.recvmsg	   = inet_recvmsg,
- 	.mmap		   = sock_no_mmap,
--	.sendpage	   = tcp_sendpage,
-+	.sendpage	   = inet_sendpage,
- 	.splice_read	   = tcp_splice_read,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_sock_common_setsockopt,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 4e6ddfb..f21e03c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -856,15 +856,15 @@ out_err:
- 	return sk_stream_error(sk, flags, err);
- }
- 
--ssize_t tcp_sendpage(struct socket *sock, struct page *page, int offset,
--		     size_t size, int flags)
-+int tcp_sendpage(struct sock *sk, struct page *page, int offset,
-+		 size_t size, int flags)
- {
- 	ssize_t res;
--	struct sock *sk = sock->sk;
- 
- 	if (!(sk->sk_route_caps & NETIF_F_SG) ||
- 	    !(sk->sk_route_caps & NETIF_F_ALL_CSUM))
--		return sock_no_sendpage(sock, page, offset, size, flags);
-+		return sock_no_sendpage(sk->sk_socket, page, offset, size,
-+					flags);
- 
- 	lock_sock(sk);
- 	TCP_CHECK_TIMER(sk);
-@@ -897,10 +897,9 @@ static inline int select_size(struct sock *sk, int sg)
- 	return tmp;
- }
- 
--int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
-+int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		size_t size)
- {
--	struct sock *sk = sock->sk;
- 	struct iovec *iov;
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *skb;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 8fa32f5..f7eb3a6 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2595,6 +2595,8 @@ struct proto tcp_prot = {
- 	.setsockopt		= tcp_setsockopt,
- 	.getsockopt		= tcp_getsockopt,
- 	.recvmsg		= tcp_recvmsg,
-+	.sendmsg		= tcp_sendmsg,
-+	.sendpage		= tcp_sendpage,
- 	.backlog_rcv		= tcp_v4_do_rcv,
- 	.hash			= inet_hash,
- 	.unhash			= inet_unhash,
-@@ -2613,6 +2615,7 @@ struct proto tcp_prot = {
- 	.twsk_prot		= &tcp_timewait_sock_ops,
- 	.rsk_prot		= &tcp_request_sock_ops,
- 	.h.hashinfo		= &tcp_hashinfo,
-+	.no_autobind		= true,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt	= compat_tcp_setsockopt,
- 	.compat_getsockopt	= compat_tcp_getsockopt,
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index e830cd4..56b9bf2 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -522,10 +522,10 @@ const struct proto_ops inet6_stream_ops = {
- 	.shutdown	   = inet_shutdown,		/* ok		*/
- 	.setsockopt	   = sock_common_setsockopt,	/* ok		*/
- 	.getsockopt	   = sock_common_getsockopt,	/* ok		*/
--	.sendmsg	   = tcp_sendmsg,		/* ok		*/
--	.recvmsg	   = sock_common_recvmsg,	/* ok		*/
-+	.sendmsg	   = inet_sendmsg,		/* ok		*/
-+	.recvmsg	   = inet_recvmsg,		/* ok		*/
- 	.mmap		   = sock_no_mmap,
--	.sendpage	   = tcp_sendpage,
-+	.sendpage	   = inet_sendpage,
- 	.splice_read	   = tcp_splice_read,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_sock_common_setsockopt,
-@@ -549,7 +549,7 @@ const struct proto_ops inet6_dgram_ops = {
- 	.setsockopt	   = sock_common_setsockopt,	/* ok		*/
- 	.getsockopt	   = sock_common_getsockopt,	/* ok		*/
- 	.sendmsg	   = inet_sendmsg,		/* ok		*/
--	.recvmsg	   = sock_common_recvmsg,	/* ok		*/
-+	.recvmsg	   = inet_recvmsg,		/* ok		*/
- 	.mmap		   = sock_no_mmap,
- 	.sendpage	   = sock_no_sendpage,
- #ifdef CONFIG_COMPAT
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5ebc27e..fe6d404 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -2142,6 +2142,8 @@ struct proto tcpv6_prot = {
- 	.setsockopt		= tcp_setsockopt,
- 	.getsockopt		= tcp_getsockopt,
- 	.recvmsg		= tcp_recvmsg,
-+	.sendmsg		= tcp_sendmsg,
-+	.sendpage		= tcp_sendpage,
- 	.backlog_rcv		= tcp_v6_do_rcv,
- 	.hash			= tcp_v6_hash,
- 	.unhash			= inet_unhash,
-@@ -2160,6 +2162,7 @@ struct proto tcpv6_prot = {
- 	.twsk_prot		= &tcp6_timewait_sock_ops,
- 	.rsk_prot		= &tcp6_request_sock_ops,
- 	.h.hashinfo		= &tcp_hashinfo,
-+	.no_autobind		= true,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt	= compat_tcp_setsockopt,
- 	.compat_getsockopt	= compat_tcp_getsockopt,
+I'm trying to understand the network code to see if I can help track
+this down...
+
+So I looked at the code of tcp_recvmsg, and I saw that the function
+that calls __kfree_skb is sk_eat_skb, which is called in tcp_recvmsg:
+
+                if (tcp_hdr(skb)->fin)
+                        goto found_fin_ok;
+                if (!(flags & MSG_PEEK)) {
+                        sk_eat_skb(sk, skb, copied_early);
+                        copied_early = 0;
+                }
+                continue;
+
+        found_fin_ok:
+                /* Process the FIN. */
+                ++*seq;
+                if (!(flags & MSG_PEEK)) {
+                        sk_eat_skb(sk, skb, copied_early);
+                        copied_early = 0;
+                }
+                break;
+
+
+  Now, I'm no kernel programmer, but I saw the "Process the FIN" thing
+on the code. I'm tuning these proc parameters....maybe some of these
+are triggering the bug?
+
+   The production machine has 8GB of RAM:
+
+
+echo 1 >  /proc/sys/net/ipv4/ip_forward
+echo 0 > /proc/sys/net/ipv4/conf/lo/rp_filter
+echo 1 > /proc/sys/net/ipv4/ip_nonlocal_bind
+echo 1 >  /proc/sys/net/ipv4/tcp_low_latency
+
+echo 0 > /proc/sys/net/ipv4/conf/eth2/rp_filter
+echo 0 > /proc/sys/net/ipv4/conf/eth1/rp_filter
+echo 0 > /proc/sys/net/ipv4/conf/eth0/rp_filter
+echo 0 > /proc/sys/net/ipv4/conf/br0/rp_filter
+
+echo 1 > /proc/sys/net/ipv4/conf/all/forwarding
+echo 1 > /proc/sys/net/ipv4/conf/all/send_redirects
+echo 1 > /proc/sys/net/ipv4/conf/eth0/send_redirects
+
+echo 16384 > /proc/sys/net/ipv4/neigh/default/gc_thresh1
+echo 32768 > /proc/sys/net/ipv4/neigh/default/gc_thresh2
+echo 65535 > /proc/sys/net/ipv4/neigh/default/gc_thresh3
+
+echo 1024 65535 > /proc/sys/net/ipv4/ip_local_port_range
+
+echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
+echo 0 > /proc/sys/net/ipv4/tcp_ecn
+echo 1 > /proc/sys/net/ipv4/tcp_low_latency
+echo 100000 > /proc/sys/net/core/netdev_max_backlog
+echo 409600  > /proc/sys/net/ipv4/tcp_max_syn_backlog
+
+
+echo 3 > /proc/sys/net/ipv4/tcp_fin_timeout
+echo 15 > /proc/sys/net/ipv4/tcp_keepalive_intvl
+echo 3 > /proc/sys/net/ipv4/tcp_keepalive_probes
+echo 65536 > /proc/sys/vm/min_free_kbytes
+echo "262144 1024000 4194304" > /proc/sys/net/ipv4/tcp_rmem
+echo "262144 1024000 4194304" > /proc/sys/net/ipv4/tcp_wmem
+echo "1024000" > /proc/sys/net/core/rmem_max
+echo "1024000" > /proc/sys/net/core/wmem_max
+echo "512000" > /proc/sys/net/core/rmem_default
+echo "512000" > /proc/sys/net/core/wmem_default
+echo "524288" > /proc/sys/net/ipv4/netfilter/ip_conntrack_max
+
+echo "2" > /proc/sys/net/ipv4/tcp_synack_retries
+echo "2" > /proc/sys/net/ipv4/tcp_syn_retries
+echo "262144" > /proc/sys/net/ipv4/tcp_max_orphans
+echo "262144" > /proc/sys/net/core/somaxconn
+
+  Maybe these can help?
+
+  Cheers,
+
+Felipe Damasio
