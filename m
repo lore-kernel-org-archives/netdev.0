@@ -1,49 +1,53 @@
-From: Felipe W Damasio <felipewd@gmail.com>
-Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
-Date: Sun, 11 Jul 2010 00:11:20 -0300
-Message-ID: <AANLkTilQbM8F27a5SLZLMzndLYfz-eRhzyxP18KCFz2K@mail.gmail.com>
-References: <1278695580.2696.55.camel@edumazet-laptop>
-	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
-	<1278742649.2538.17.camel@edumazet-laptop>
-	<20100710.123011.260095467.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH kernel 2.6.35-rc3-git7] axnet_cs: use spin_lock_irqsave
+ in ax_interrupt
+Date: Sun, 11 Jul 2010 04:12:34 +0100
+Message-ID: <1278817954.6139.24.camel@localhost>
+References: <20100706202243.95319ab4.ken_kawasaki@spring.nifty.jp>
+	 <20100710201813.a3e5c79c.ken_kawasaki@spring.nifty.jp>
+	 <1278816388.6139.10.camel@localhost>
+	 <20100710.194928.116377282.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, kaber@trash.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ken_kawasaki@spring.nifty.jp, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100710.123011.260095467.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:41366 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754207Ab0GKDMj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 23:12:39 -0400
+In-Reply-To: <20100710.194928.116377282.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Mr. Miller,
+On Sat, 2010-07-10 at 19:49 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Sun, 11 Jul 2010 03:46:28 +0100
+> 
+> > On Sat, 2010-07-10 at 20:18 +0900, Ken Kawasaki wrote:
+> >> axnet_cs:
+> >>     use spin_lock_irqsave instead of spin_lock in ax_interrupt
+> > [...]
+> > 
+> > I assume this is because it's now called from ei_watchdog() and not only
+> > from interrupt context.  Perhaps you should explain that in the commit
+> > message.
+> 
+> No, interrupt handlers in general may not assume that interrupts
+> are off or on when they are invoked.
+> 
+> Therefore they must use irqflags saving/restoring.
 
-2010/7/10 David Miller <davem@davemloft.net>:
-> It could be corruption from elsewhere. =A0Those last four hex
-> digits (0x5d415d41) are "]A]A" in ascii, but that could just
-> be coincidence.
+But an interrupt handler will not be called recursively for the same
+IRQ.  Since this device only uses one IRQ, surely it was OK to use
+spin_lock() in this function so long as it was only called from the
+interrupt handler.
 
-What do you mean "from elsewhere"? You mean elsewhere on the network co=
-de?
+Ben.
 
-Since the function that had the problem was tcp_recvmsg and we're
-talking about a squid process, we're either talking about a typical
-webserver-objet response, or about about an incorrect/faulty http
-request from the user.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Like I told Mr. Dumazet, since on the squid logs I got a:
-
-2010/07/08 14:51:10| clientTryParseRequest: FD 6088
-(187.16.240.122:2035) Invalid Request
-
-Only a second before the bug entry on syslog, I suppose that this
-invalid request caused the problem (more like a guess, really).
-
-If you think there's a way I can help reproduce/trigger and fix this
-bug, please let me know, since the production machine is down until I
-can ensure my bosses that this particular crash won't happen again.
-
-Thanks,
-
-=46elipe Damasio
