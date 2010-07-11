@@ -1,134 +1,116 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH] bnx2x: add support for receive hashing
-Date: Sun, 11 Jul 2010 19:41:33 +0200
-Message-ID: <1278870093.2538.175.camel@edumazet-laptop>
-References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
-	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
-	 <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
-	 <20100710.191242.70196353.davem@davemloft.net>
-	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
-	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704FA@SJEXCHCCR02.corp.ad.broadcom.com>
-	 <1278866713.2538.148.camel@edumazet-laptop>
-	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDE6470521@SJEXCHCCR02.corp.ad.broadcom.com>
+Subject: Re: oops in tcp_xmit_retransmit_queue() w/ v2.6.32.15
+Date: Sun, 11 Jul 2010 19:46:22 +0200
+Message-ID: <1278870382.2538.180.camel@edumazet-laptop>
+References: <4C358AAA.9080400@kernel.org>
+	 <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi>
+	 <1278867977.2538.167.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"therbert@google.com" <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vladislav Zolotarov <vladz@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:61359 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752646Ab0GKRlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 13:41:37 -0400
-Received: by wwb13 with SMTP id 13so2598545wwb.1
-        for <netdev@vger.kernel.org>; Sun, 11 Jul 2010 10:41:35 -0700 (PDT)
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE6470521@SJEXCHCCR02.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tejun Heo <tj@kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1278867977.2538.167.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 11 juillet 2010 =C3=A0 10:22 -0700, Vladislav Zolotarov a =C3=
-=A9crit :
->=20
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
-=2Eorg] On
-> > Behalf Of Eric Dumazet
-> > Sent: Sunday, July 11, 2010 7:45 PM
-> > To: Vladislav Zolotarov
-> > Cc: David Miller; therbert@google.com; netdev@vger.kernel.org
-> > Subject: RE: [PATCH] bnx2x: add support for receive hashing
+Le dimanche 11 juillet 2010 =C3=A0 19:06 +0200, Eric Dumazet a =C3=A9cr=
+it :
+> Le dimanche 11 juillet 2010 =C3=A0 19:09 +0300, Ilpo J=C3=A4rvinen a =
+=C3=A9crit :
+> > On Thu, 8 Jul 2010, Tejun Heo wrote:
 > >=20
-> > Le dimanche 11 juillet 2010 =C3=A0 06:16 -0700, Vladislav Zolotarov=
- a =C3=A9crit :
-> > > Dave, it's obvious that there a demand for a new HW/FW configurat=
-ion
-> > > from our side - "rx hash enable" which is currently tightly coupl=
-ed
-> > > with the RSS capability. As long as RSS flow in our FW includes a=
- few
-> > > more things apart from just creating an RSS hash and as long as t=
-here
-> > > are flows (even hypothetical) that demand the RSS hash regardless=
- the
-> > > RSS itself we started to work on separation of these two features=
- from
-> > > FW perspective. This of course will demand a new FW version but o=
-nce
-> > > we have it we'll be able to be more specific in HW configuration =
-and
-> > > have a cleaner code.
-> > >
-> > > Technically, our FW may provide the Rx HASH always and in a curre=
-nt
-> > > driver configuration this is what it does.
-> > > I wonder if the driver always provides the HW RX HASH in the
-> > > skb->rxhash regardless the value of NETIF_F_RXHASH bit in a
-> > > netdev->features will it cause any harm? If not we can get rid of=
- two
-> > > extra conditionals in the bnx2x_rx_int().
+> > > We've been seeing oops in tcp_xmit_retransmit_queue() w/ 2.6.32.1=
+5.
+> > > Please see the attached photoshoot.  This is happening on a HPC
+> > > cluster and very interestingly caused by one particular job.  How=
+ long
+> > > it takes isn't clear yet (at least more than a day) but when it
+> > > happens it happens on a lot of machines in relatively short time.
+> > >=20
+> > > With a bit of disassemblying, I've found that the oops is happeni=
+ng
+> > > during tcp_for_write_queue_from() because the skb->next points to
+> > > NULL.
+> > >=20
+> > >  void tcp_xmit_retransmit_queue(struct sock *sk)
+> > >  {
+> > >  ...
+> > > 	if (tp->retransmit_skb_hint) {
+> > > 		skb =3D tp->retransmit_skb_hint;
+> > > 		last_lost =3D TCP_SKB_CB(skb)->end_seq;
+> > > 		if (after(last_lost, tp->retransmit_high))
+> > > 			last_lost =3D tp->retransmit_high;
+> > > 	} else {
+> > > 		skb =3D tcp_write_queue_head(sk);
+> > > 		last_lost =3D tp->snd_una;
+> > > 	}
+> > >=20
+> > >  =3D>	tcp_for_write_queue_from(skb, sk) {
+> > > 		 __u8 sacked =3D TCP_SKB_CB(skb)->sacked;
+> > >=20
+> > > 		 if (skb =3D=3D tcp_send_head(sk))
+> > > 			 break;
+> > > 		 /* we could do better than to assign each time */
+> > > 		 if (hole =3D=3D NULL)
+> > >=20
+> > > This can happen for one of the following reasons,
+> > >=20
+> > > 1. tp->retransmit_skb_hint is NULL and tcp_write_queue_head() is =
+NULL
+> > >    too.  ie. tcp_xmit_retransmit_queue() is called on an empty wr=
+ite
+> > >    queue for some reason.
+> > >=20
+> > > 2. tp->retransmit_skb_hint is pointing to a skb which is not on t=
+he
+> > >    write_queue.  ie. somebody forgot to update hint while removin=
+g the
+> > >    skb from the write queue.
 > >=20
-> > Hi
+> > Once again I've read the unlinkers through, and only thing that cou=
+ld=20
+> > cause this is tcp_send_synack (others do deal with the hints) but I=
+ think=20
+> > Eric already proposed a patch to that but we never got anywhere due=
+ to=20
+> > some counterargument why it wouldn't take place (too far away for m=
+e to=20
+> > remember, see archives about the discussions). ...But if you want b=
+e dead=20
+> > sure some WARN_ON there might not hurt. Also the purging of the who=
+le=20
+> > queue was a similar suspect I then came across (but that would only=
+=20
+> > materialize with sk reuse happening e.g., with nfs which the other =
+guys=20
+> > weren't using).
 > >=20
-> > Please dont top-post on netdev, thanks.
 >=20
-> This discussion is directly related to Tom's patch that's why I'm pos=
-ting on this thread.=20
+> Hmm.
 >=20
-
-Thats not the question. I am saying "dont top-post", not "dont change
-the subject"
-
-> >=20
-> > NETIF_RX_HASH bit is needed so that we can disable skb->rxhash from=
- a
-> > particular NIC if we know the hardware provided rxhash is not fulfi=
-lling
-> > our needs (We prefer spend some cpu cycles to recompute a software
-> > rxhash).
-> >=20
-> > Software one for example deliver same rxhash values for both ways o=
-f a
-> > TCP flow, it can help conntracking for example.
+> This sounds familiar to me, but I cannot remember the discussion you
+> mention or the patch.
 >=20
-> I understand that, in that case the proper implementation would be to=
- check the netdev->features when u decide to calculate the SW rxhash, i=
-sn't it?
->=20
+> Or maybe it was the TCP transaction thing ? (including data in SYN or
+> SYN-ACK packet)
 
-Nope, please check get_rps_cpus()
+Hmm, I cannot find where we reset restransmit_skb_hint in
+tcp_mtu_probe(), if we call tcp_unlink_write_queue().
 
-We only do :
-
-if (skb->rxhash)
-	goto got_hash; /* Skip hash computation on packet header */
-
-That means if skb->rxhash is set, we dont force a recompute.
-
-Your suggestion would move a test from device driver into
-get_rps_cpus() ?
-
-Given RPS is more targeted to old devices (not able to provide rxhash),
-I am not sure it brings anything.
-
-> >=20
-> > The conditional in driver rx is cheap, since the condition is the s=
-ame
-> > for all packets and CPU can predicts the branch.
->=20
-> Not exactly. Our FW/HW won't provide the rxhash for none-IP packets
-> setting the hash CQE field to zero and clearing the
-> ETH_FAST_PATH_RX_CQE_RSS_HASH_FLG in the CQE statsu_flags (for ARPs
-> for instance). Branch prediction is nice but considering my previous
-> remark why do we need this branch at all?
-
-Please limit your lines to 70 chars
-
-We want drivers to set skb->rxhash only if allowed to.
-
-If you feel this is bad for your firmware/hardware/driver, dont set
-skb->rxhash.
+if (skb->len <=3D copy) {
+	/* We've eaten all the data from this skb.
+	 * Throw it away. */
+	TCP_SKB_CB(nskb)->flags |=3D TCP_SKB_CB(skb)->flags;
+<<>>	tcp_unlink_write_queue(skb, sk);
+	sk_wmem_free_skb(sk, skb);
+} else {
 
 
-
+Sorry if this was already discussed. We might add a comment here in any=
+case ;)
