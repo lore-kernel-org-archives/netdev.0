@@ -1,21 +1,105 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 0/8] tg3 bugfixes
-Date: Sun, 11 Jul 2010 12:31:39 -0700
-Message-ID: <1278876707-21390-1-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 6/8] tg3: Revert PCIe tx glitch fix
+Date: Sun, 11 Jul 2010 12:31:45 -0700
+Message-ID: <1278876707-21390-7-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1311 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1308 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754638Ab0GKTb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jul 2010 15:31:59 -0400
+	id S1754823Ab0GKTcD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jul 2010 15:32:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset fixes a few MSI-X related problems and performs a
-few driver enhancements.
+This patch reverts commit 52cdf8526fe24f11d300b75458ddee017f3f4c88,
+entitled "tg3: Prevent a PCIe tx glitch".  The problem does not have
+any visible side-effects and happens too early for the driver to do
+anything about it.  The proper place for this code is within the
+device's bootcode.
+
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/tg3.c |   24 ------------------------
+ drivers/net/tg3.h |   22 ----------------------
+ 2 files changed, 0 insertions(+), 46 deletions(-)
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index e6da16a..f61a4d8 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -7072,30 +7072,6 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 
+ 	tg3_mdio_start(tp);
+ 
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780) {
+-		u8 phy_addr;
+-
+-		phy_addr = tp->phy_addr;
+-		tp->phy_addr = TG3_PHY_PCIE_ADDR;
+-
+-		tg3_writephy(tp, TG3_PCIEPHY_BLOCK_ADDR,
+-			     TG3_PCIEPHY_TXB_BLK << TG3_PCIEPHY_BLOCK_SHIFT);
+-		val = TG3_PCIEPHY_TX0CTRL1_TXOCM | TG3_PCIEPHY_TX0CTRL1_RDCTL |
+-		      TG3_PCIEPHY_TX0CTRL1_TXCMV | TG3_PCIEPHY_TX0CTRL1_TKSEL |
+-		      TG3_PCIEPHY_TX0CTRL1_NB_EN;
+-		tg3_writephy(tp, TG3_PCIEPHY_TX0CTRL1, val);
+-		udelay(10);
+-
+-		tg3_writephy(tp, TG3_PCIEPHY_BLOCK_ADDR,
+-			     TG3_PCIEPHY_XGXS_BLK1 << TG3_PCIEPHY_BLOCK_SHIFT);
+-		val = TG3_PCIEPHY_PWRMGMT4_LOWPWR_EN |
+-		      TG3_PCIEPHY_PWRMGMT4_L1PLLPD_EN;
+-		tg3_writephy(tp, TG3_PCIEPHY_PWRMGMT4, val);
+-		udelay(10);
+-
+-		tp->phy_addr = phy_addr;
+-	}
+-
+ 	if ((tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) &&
+ 	    tp->pci_chip_rev_id != CHIPREV_ID_5750_A0 &&
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5785 &&
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index be7ab91..0432399 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2032,31 +2032,9 @@
+ 
+ 
+ /* Currently this is fixed. */
+-#define TG3_PHY_PCIE_ADDR		0x00
+ #define TG3_PHY_MII_ADDR		0x01
+ 
+ 
+-/*** Tigon3 specific PHY PCIE registers. ***/
+-
+-#define TG3_PCIEPHY_BLOCK_ADDR		0x1f
+-#define  TG3_PCIEPHY_XGXS_BLK1		0x0801
+-#define  TG3_PCIEPHY_TXB_BLK		0x0861
+-#define  TG3_PCIEPHY_BLOCK_SHIFT	4
+-
+-/* TG3_PCIEPHY_TXB_BLK */
+-#define TG3_PCIEPHY_TX0CTRL1		0x15
+-#define  TG3_PCIEPHY_TX0CTRL1_TXOCM	0x0003
+-#define  TG3_PCIEPHY_TX0CTRL1_RDCTL	0x0008
+-#define  TG3_PCIEPHY_TX0CTRL1_TXCMV	0x0030
+-#define  TG3_PCIEPHY_TX0CTRL1_TKSEL	0x0040
+-#define  TG3_PCIEPHY_TX0CTRL1_NB_EN	0x0400
+-
+-/* TG3_PCIEPHY_XGXS_BLK1 */
+-#define TG3_PCIEPHY_PWRMGMT4		0x1a
+-#define TG3_PCIEPHY_PWRMGMT4_L1PLLPD_EN	0x0038
+-#define TG3_PCIEPHY_PWRMGMT4_LOWPWR_EN	0x4000
+-
+-
+ /*** Tigon3 specific PHY MII registers. ***/
+ #define  TG3_BMCR_SPEED1000		0x0040
+ 
+-- 
+1.6.4.4
 
 
