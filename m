@@ -1,103 +1,154 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH] bnx2x: add support for receive hashing
-Date: Sun, 11 Jul 2010 11:18:02 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE6470528@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
- <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
- <20100710.191242.70196353.davem@davemloft.net>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704FA@SJEXCHCCR02.corp.ad.broadcom.com>
- <1278866713.2538.148.camel@edumazet-laptop>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDE6470521@SJEXCHCCR02.corp.ad.broadcom.com>
- <1278870093.2538.175.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: oops in tcp_xmit_retransmit_queue() w/ v2.6.32.15
+Date: Sun, 11 Jul 2010 20:29:50 +0200
+Message-ID: <1278872990.2538.189.camel@edumazet-laptop>
+References: <4C358AAA.9080400@kernel.org>
+	 <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi>
+	 <1278867977.2538.167.camel@edumazet-laptop>
+	 <1278870382.2538.180.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"therbert@google.com" <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3011 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753983Ab0GKSSN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jul 2010 14:18:13 -0400
-In-Reply-To: <1278870093.2538.175.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tejun Heo <tj@kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1278870382.2538.180.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogU3VuZGF5LCBKdWx5IDExLCAy
-MDEwIDg6NDIgUE0NCj4gVG86IFZsYWRpc2xhdiBab2xvdGFyb3YNCj4gQ2M6IERhdmlkIE1pbGxl
-cjsgdGhlcmJlcnRAZ29vZ2xlLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0
-OiBSRTogW1BBVENIXSBibngyeDogYWRkIHN1cHBvcnQgZm9yIHJlY2VpdmUgaGFzaGluZw0KPiAN
-Cj4gTGUgZGltYW5jaGUgMTEganVpbGxldCAyMDEwIMOgIDEwOjIyIC0wNzAwLCBWbGFkaXNsYXYg
-Wm9sb3Rhcm92IGEgw6ljcml0IDoNCj4gPg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
-LS0NCj4gPiA+IEZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRk
-ZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXQ0KPiBPbg0KPiA+ID4gQmVoYWxmIE9mIEVyaWMgRHVt
-YXpldA0KPiA+ID4gU2VudDogU3VuZGF5LCBKdWx5IDExLCAyMDEwIDc6NDUgUE0NCj4gPiA+IFRv
-OiBWbGFkaXNsYXYgWm9sb3Rhcm92DQo+ID4gPiBDYzogRGF2aWQgTWlsbGVyOyB0aGVyYmVydEBn
-b29nbGUuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4gPiBTdWJqZWN0OiBSRTogW1BB
-VENIXSBibngyeDogYWRkIHN1cHBvcnQgZm9yIHJlY2VpdmUgaGFzaGluZw0KPiA+ID4NCj4gPiA+
-IExlIGRpbWFuY2hlIDExIGp1aWxsZXQgMjAxMCDDoCAwNjoxNiAtMDcwMCwgVmxhZGlzbGF2IFpv
-bG90YXJvdiBhIMOpY3JpdCA6DQo+ID4gPiA+IERhdmUsIGl0J3Mgb2J2aW91cyB0aGF0IHRoZXJl
-IGEgZGVtYW5kIGZvciBhIG5ldyBIVy9GVyBjb25maWd1cmF0aW9uDQo+ID4gPiA+IGZyb20gb3Vy
-IHNpZGUgLSAicnggaGFzaCBlbmFibGUiIHdoaWNoIGlzIGN1cnJlbnRseSB0aWdodGx5IGNvdXBs
-ZWQNCj4gPiA+ID4gd2l0aCB0aGUgUlNTIGNhcGFiaWxpdHkuIEFzIGxvbmcgYXMgUlNTIGZsb3cg
-aW4gb3VyIEZXIGluY2x1ZGVzIGEgZmV3DQo+ID4gPiA+IG1vcmUgdGhpbmdzIGFwYXJ0IGZyb20g
-anVzdCBjcmVhdGluZyBhbiBSU1MgaGFzaCBhbmQgYXMgbG9uZyBhcyB0aGVyZQ0KPiA+ID4gPiBh
-cmUgZmxvd3MgKGV2ZW4gaHlwb3RoZXRpY2FsKSB0aGF0IGRlbWFuZCB0aGUgUlNTIGhhc2ggcmVn
-YXJkbGVzcyB0aGUNCj4gPiA+ID4gUlNTIGl0c2VsZiB3ZSBzdGFydGVkIHRvIHdvcmsgb24gc2Vw
-YXJhdGlvbiBvZiB0aGVzZSB0d28gZmVhdHVyZXMgZnJvbQ0KPiA+ID4gPiBGVyBwZXJzcGVjdGl2
-ZS4gVGhpcyBvZiBjb3Vyc2Ugd2lsbCBkZW1hbmQgYSBuZXcgRlcgdmVyc2lvbiBidXQgb25jZQ0K
-PiA+ID4gPiB3ZSBoYXZlIGl0IHdlJ2xsIGJlIGFibGUgdG8gYmUgbW9yZSBzcGVjaWZpYyBpbiBI
-VyBjb25maWd1cmF0aW9uIGFuZA0KPiA+ID4gPiBoYXZlIGEgY2xlYW5lciBjb2RlLg0KPiA+ID4g
-Pg0KPiA+ID4gPiBUZWNobmljYWxseSwgb3VyIEZXIG1heSBwcm92aWRlIHRoZSBSeCBIQVNIIGFs
-d2F5cyBhbmQgaW4gYSBjdXJyZW50DQo+ID4gPiA+IGRyaXZlciBjb25maWd1cmF0aW9uIHRoaXMg
-aXMgd2hhdCBpdCBkb2VzLg0KPiA+ID4gPiBJIHdvbmRlciBpZiB0aGUgZHJpdmVyIGFsd2F5cyBw
-cm92aWRlcyB0aGUgSFcgUlggSEFTSCBpbiB0aGUNCj4gPiA+ID4gc2tiLT5yeGhhc2ggcmVnYXJk
-bGVzcyB0aGUgdmFsdWUgb2YgTkVUSUZfRl9SWEhBU0ggYml0IGluIGENCj4gPiA+ID4gbmV0ZGV2
-LT5mZWF0dXJlcyB3aWxsIGl0IGNhdXNlIGFueSBoYXJtPyBJZiBub3Qgd2UgY2FuIGdldCByaWQg
-b2YgdHdvDQo+ID4gPiA+IGV4dHJhIGNvbmRpdGlvbmFscyBpbiB0aGUgYm54MnhfcnhfaW50KCku
-DQo+ID4gPg0KPiA+ID4gSGkNCj4gPiA+DQo+ID4gPiBQbGVhc2UgZG9udCB0b3AtcG9zdCBvbiBu
-ZXRkZXYsIHRoYW5rcy4NCj4gPg0KPiA+IFRoaXMgZGlzY3Vzc2lvbiBpcyBkaXJlY3RseSByZWxh
-dGVkIHRvIFRvbSdzIHBhdGNoIHRoYXQncyB3aHkgSSdtIHBvc3RpbmcNCj4gb24gdGhpcyB0aHJl
-YWQuDQo+ID4NCj4gDQo+IFRoYXRzIG5vdCB0aGUgcXVlc3Rpb24uIEkgYW0gc2F5aW5nICJkb250
-IHRvcC1wb3N0Iiwgbm90ICJkb250IGNoYW5nZQ0KPiB0aGUgc3ViamVjdCINCj4gDQo+ID4gPg0K
-PiA+ID4gTkVUSUZfUlhfSEFTSCBiaXQgaXMgbmVlZGVkIHNvIHRoYXQgd2UgY2FuIGRpc2FibGUg
-c2tiLT5yeGhhc2ggZnJvbSBhDQo+ID4gPiBwYXJ0aWN1bGFyIE5JQyBpZiB3ZSBrbm93IHRoZSBo
-YXJkd2FyZSBwcm92aWRlZCByeGhhc2ggaXMgbm90IGZ1bGZpbGxpbmcNCj4gPiA+IG91ciBuZWVk
-cyAoV2UgcHJlZmVyIHNwZW5kIHNvbWUgY3B1IGN5Y2xlcyB0byByZWNvbXB1dGUgYSBzb2Z0d2Fy
-ZQ0KPiA+ID4gcnhoYXNoKS4NCj4gPiA+DQo+ID4gPiBTb2Z0d2FyZSBvbmUgZm9yIGV4YW1wbGUg
-ZGVsaXZlciBzYW1lIHJ4aGFzaCB2YWx1ZXMgZm9yIGJvdGggd2F5cyBvZiBhDQo+ID4gPiBUQ1Ag
-ZmxvdywgaXQgY2FuIGhlbHAgY29ubnRyYWNraW5nIGZvciBleGFtcGxlLg0KPiA+DQo+ID4gSSB1
-bmRlcnN0YW5kIHRoYXQsIGluIHRoYXQgY2FzZSB0aGUgcHJvcGVyIGltcGxlbWVudGF0aW9uIHdv
-dWxkIGJlIHRvIGNoZWNrDQo+IHRoZSBuZXRkZXYtPmZlYXR1cmVzIHdoZW4gdSBkZWNpZGUgdG8g
-Y2FsY3VsYXRlIHRoZSBTVyByeGhhc2gsIGlzbid0IGl0Pw0KPiA+DQo+IA0KPiBOb3BlLCBwbGVh
-c2UgY2hlY2sgZ2V0X3Jwc19jcHVzKCkNCj4gDQo+IFdlIG9ubHkgZG8gOg0KPiANCj4gaWYgKHNr
-Yi0+cnhoYXNoKQ0KPiAJZ290byBnb3RfaGFzaDsgLyogU2tpcCBoYXNoIGNvbXB1dGF0aW9uIG9u
-IHBhY2tldCBoZWFkZXIgKi8NCj4gDQo+IFRoYXQgbWVhbnMgaWYgc2tiLT5yeGhhc2ggaXMgc2V0
-LCB3ZSBkb250IGZvcmNlIGEgcmVjb21wdXRlLg0KDQpPay4gTm8sIHByb2IuIEluIHRoYXQgY2Fz
-ZSB3ZSBqdXN0IG5lZWQgdG8gY2hlY2sgdGhlIG5ldGRldi0+ZmVhdHVyZSBpbg0KdGhlIGJueDJ4
-X3J4X2ludCgpLiBDaGVja2luZyBvbiBDUUUgZmxhZ3MgaXMgYSBub3QgbmVlZGVkLg0KSSdsbCBw
-b3N0IGEgcGF0Y2ggc2hvcnRseS4gDQoNClRoYW5rcywNCnZsYWQNCg0KPiANCj4gWW91ciBzdWdn
-ZXN0aW9uIHdvdWxkIG1vdmUgYSB0ZXN0IGZyb20gZGV2aWNlIGRyaXZlciBpbnRvDQo+IGdldF9y
-cHNfY3B1cygpID8NCj4gDQo+IEdpdmVuIFJQUyBpcyBtb3JlIHRhcmdldGVkIHRvIG9sZCBkZXZp
-Y2VzIChub3QgYWJsZSB0byBwcm92aWRlIHJ4aGFzaCksDQo+IEkgYW0gbm90IHN1cmUgaXQgYnJp
-bmdzIGFueXRoaW5nLg0KPiANCj4gPiA+DQo+ID4gPiBUaGUgY29uZGl0aW9uYWwgaW4gZHJpdmVy
-IHJ4IGlzIGNoZWFwLCBzaW5jZSB0aGUgY29uZGl0aW9uIGlzIHRoZSBzYW1lDQo+ID4gPiBmb3Ig
-YWxsIHBhY2tldHMgYW5kIENQVSBjYW4gcHJlZGljdHMgdGhlIGJyYW5jaC4NCj4gPg0KPiA+IE5v
-dCBleGFjdGx5LiBPdXIgRlcvSFcgd29uJ3QgcHJvdmlkZSB0aGUgcnhoYXNoIGZvciBub25lLUlQ
-IHBhY2tldHMNCj4gPiBzZXR0aW5nIHRoZSBoYXNoIENRRSBmaWVsZCB0byB6ZXJvIGFuZCBjbGVh
-cmluZyB0aGUNCj4gPiBFVEhfRkFTVF9QQVRIX1JYX0NRRV9SU1NfSEFTSF9GTEcgaW4gdGhlIENR
-RSBzdGF0c3VfZmxhZ3MgKGZvciBBUlBzDQo+ID4gZm9yIGluc3RhbmNlKS4gQnJhbmNoIHByZWRp
-Y3Rpb24gaXMgbmljZSBidXQgY29uc2lkZXJpbmcgbXkgcHJldmlvdXMNCj4gPiByZW1hcmsgd2h5
-IGRvIHdlIG5lZWQgdGhpcyBicmFuY2ggYXQgYWxsPw0KPiANCj4gUGxlYXNlIGxpbWl0IHlvdXIg
-bGluZXMgdG8gNzAgY2hhcnMNCj4gDQo+IFdlIHdhbnQgZHJpdmVycyB0byBzZXQgc2tiLT5yeGhh
-c2ggb25seSBpZiBhbGxvd2VkIHRvLg0KPiANCj4gSWYgeW91IGZlZWwgdGhpcyBpcyBiYWQgZm9y
-IHlvdXIgZmlybXdhcmUvaGFyZHdhcmUvZHJpdmVyLCBkb250IHNldA0KIHNrYi0+cnhoYXNoLg0K
-PiANCj4gDQo+IA0KDQo=
+Le dimanche 11 juillet 2010 =C3=A0 19:46 +0200, Eric Dumazet a =C3=A9cr=
+it :
+> Le dimanche 11 juillet 2010 =C3=A0 19:06 +0200, Eric Dumazet a =C3=A9=
+crit :
+> > Le dimanche 11 juillet 2010 =C3=A0 19:09 +0300, Ilpo J=C3=A4rvinen =
+a =C3=A9crit :
+> > > On Thu, 8 Jul 2010, Tejun Heo wrote:
+> > >=20
+> > > > We've been seeing oops in tcp_xmit_retransmit_queue() w/ 2.6.32=
+=2E15.
+> > > > Please see the attached photoshoot.  This is happening on a HPC
+> > > > cluster and very interestingly caused by one particular job.  H=
+ow long
+> > > > it takes isn't clear yet (at least more than a day) but when it
+> > > > happens it happens on a lot of machines in relatively short tim=
+e.
+> > > >=20
+> > > > With a bit of disassemblying, I've found that the oops is happe=
+ning
+> > > > during tcp_for_write_queue_from() because the skb->next points =
+to
+> > > > NULL.
+> > > >=20
+> > > >  void tcp_xmit_retransmit_queue(struct sock *sk)
+> > > >  {
+> > > >  ...
+> > > > 	if (tp->retransmit_skb_hint) {
+> > > > 		skb =3D tp->retransmit_skb_hint;
+> > > > 		last_lost =3D TCP_SKB_CB(skb)->end_seq;
+> > > > 		if (after(last_lost, tp->retransmit_high))
+> > > > 			last_lost =3D tp->retransmit_high;
+> > > > 	} else {
+> > > > 		skb =3D tcp_write_queue_head(sk);
+> > > > 		last_lost =3D tp->snd_una;
+> > > > 	}
+> > > >=20
+> > > >  =3D>	tcp_for_write_queue_from(skb, sk) {
+> > > > 		 __u8 sacked =3D TCP_SKB_CB(skb)->sacked;
+> > > >=20
+> > > > 		 if (skb =3D=3D tcp_send_head(sk))
+> > > > 			 break;
+> > > > 		 /* we could do better than to assign each time */
+> > > > 		 if (hole =3D=3D NULL)
+> > > >=20
+> > > > This can happen for one of the following reasons,
+> > > >=20
+> > > > 1. tp->retransmit_skb_hint is NULL and tcp_write_queue_head() i=
+s NULL
+> > > >    too.  ie. tcp_xmit_retransmit_queue() is called on an empty =
+write
+> > > >    queue for some reason.
+> > > >=20
+> > > > 2. tp->retransmit_skb_hint is pointing to a skb which is not on=
+ the
+> > > >    write_queue.  ie. somebody forgot to update hint while remov=
+ing the
+> > > >    skb from the write queue.
+> > >=20
+> > > Once again I've read the unlinkers through, and only thing that c=
+ould=20
+> > > cause this is tcp_send_synack (others do deal with the hints) but=
+ I think=20
+> > > Eric already proposed a patch to that but we never got anywhere d=
+ue to=20
+> > > some counterargument why it wouldn't take place (too far away for=
+ me to=20
+> > > remember, see archives about the discussions). ...But if you want=
+ be dead=20
+> > > sure some WARN_ON there might not hurt. Also the purging of the w=
+hole=20
+> > > queue was a similar suspect I then came across (but that would on=
+ly=20
+> > > materialize with sk reuse happening e.g., with nfs which the othe=
+r guys=20
+> > > weren't using).
+> > >=20
+> >=20
+> > Hmm.
+> >=20
+> > This sounds familiar to me, but I cannot remember the discussion yo=
+u
+> > mention or the patch.
+> >=20
+> > Or maybe it was the TCP transaction thing ? (including data in SYN =
+or
+> > SYN-ACK packet)
+>=20
+> Hmm, I cannot find where we reset restransmit_skb_hint in
+> tcp_mtu_probe(), if we call tcp_unlink_write_queue().
+>=20
+> if (skb->len <=3D copy) {
+> 	/* We've eaten all the data from this skb.
+> 	 * Throw it away. */
+> 	TCP_SKB_CB(nskb)->flags |=3D TCP_SKB_CB(skb)->flags;
+> <<>>	tcp_unlink_write_queue(skb, sk);
+> 	sk_wmem_free_skb(sk, skb);
+> } else {
+>=20
+>=20
+> Sorry if this was already discussed. We might add a comment here in a=
+nycase ;)
+>=20
 
+Just in case, here is a patch for this issue, if Tejun wants to try it.
+
+Thanks
+
+[PATCH] tcp: tcp_mtu_probe() and retransmit hints
+
+When removing an skb from tcp write queue, we must take care of various
+hints that could be kept on this skb. tcp_mtu_probe() misses this
+cleanup.
+
+lkml reference : http://lkml.org/lkml/2010/7/8/63
+
+Reported-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index b4ed957..187453f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1666,6 +1666,9 @@ static int tcp_mtu_probe(struct sock *sk)
+ 			 * Throw it away. */
+ 			TCP_SKB_CB(nskb)->flags |=3D TCP_SKB_CB(skb)->flags;
+ 			tcp_unlink_write_queue(skb, sk);
++			tcp_clear_retrans_hints_partial(tp);
++			if (skb =3D=3D tp->retransmit_skb_hint)
++				tp->retransmit_skb_hint =3D nskb;
+ 			sk_wmem_free_skb(sk, skb);
+ 		} else {
+ 			TCP_SKB_CB(nskb)->flags |=3D TCP_SKB_CB(skb)->flags &
