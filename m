@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2] extensions: libxt_CHECKSUM extension
-Date: Sun, 11 Jul 2010 18:08:53 +0300
-Message-ID: <20100711150853.GA7493__19218.8439461917$1278861288$gmane$org@redhat.com>
+Subject: [PATCHv3] extensions: libxt_CHECKSUM extension
+Date: Sun, 11 Jul 2010 18:14:53 +0300
+Message-ID: <20100711151453.GA7563@redhat.com>
 References: <20100711150623.GA7420@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,10 +11,10 @@ To: Patrick McHardy <kaber@trash.net>,
 	Randy Dunlap <randy.dunlap@oracle.com>,
 	netfilter-devel@vger.kernel.o
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1028 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:18345 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754160Ab0GKPOW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jul 2010 11:14:22 -0400
+	id S1753406Ab0GKPU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jul 2010 11:20:29 -0400
 Content-Disposition: inline
 In-Reply-To: <20100711150623.GA7420@redhat.com>
 Sender: netdev-owner@vger.kernel.org
@@ -33,32 +33,26 @@ The problem happens in the field with virtualized applications.
 For reference, see Red Hat bz 605555, as well as
 http://www.spinics.net/lists/kvm/msg37660.html
 
+Typical expected use (helps old dhclient binary running in a VM):
+iptables -A POSTROUTING -t mangle -p udp --dport bootpc \
+        -j CHECKSUM --checksum-fill
+
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
 
+Correction in the documentation. Sorry about the noise.
+
+Changes from v2:
+	updated man file
 Changes from v1:
-	switched from ipt to xt target
+	switched from ipt to xt
 
- extensions/libipt_CHECKSUM.man |    8 +++
- extensions/libxt_CHECKSUM.c    |   99 ++++++++++++++++++++++++++++++++++++++++
+ extensions/libxt_CHECKSUM.c   |   99 +++++++++++++++++++++++++++++++++++++++++
+ extensions/libxt_CHECKSUM.man |    8 +++
  2 files changed, 107 insertions(+), 0 deletions(-)
- create mode 100644 extensions/libipt_CHECKSUM.man
  create mode 100644 extensions/libxt_CHECKSUM.c
+ create mode 100644 extensions/libxt_CHECKSUM.man
 
-diff --git a/extensions/libipt_CHECKSUM.man b/extensions/libipt_CHECKSUM.man
-new file mode 100644
-index 0000000..4f83335
---- /dev/null
-+++ b/extensions/libipt_CHECKSUM.man
-@@ -0,0 +1,8 @@
-+This target allows to selectively work around broken/old applications.
-+It can only be used in the mangle table.
-+.TP
-+\fB\-\-checksum\-fill\fP
-+Compute and fill in the checksum in a packet that lacks a checksum.
-+This is particularly useful, if you need to work around old applications
-+such as dhcp clients, that do not work well with checksum offloads,
-+but don't want to disable checksum offload in your device.
 diff --git a/extensions/libxt_CHECKSUM.c b/extensions/libxt_CHECKSUM.c
 new file mode 100644
 index 0000000..00fbd8f
@@ -164,3 +158,19 @@ index 0000000..00fbd8f
 +{
 +	xtables_register_target(&checksum_tg_reg);
 +}
+diff --git a/extensions/libxt_CHECKSUM.man b/extensions/libxt_CHECKSUM.man
+new file mode 100644
+index 0000000..92ae700
+--- /dev/null
++++ b/extensions/libxt_CHECKSUM.man
+@@ -0,0 +1,8 @@
++This target allows to selectively work around broken/old applications.
++It can only be used in the mangle table.
++.TP
++\fB\-\-checksum\-fill\fP
++Compute and fill in the checksum in a packet that lacks a checksum.
++This is particularly useful, if you need to work around old applications
++such as dhcp clients, that do not work well with checksum offloads,
++but don't want to disable checksum offload in your device.
+-- 
+1.7.2.rc0.14.g41c1c
