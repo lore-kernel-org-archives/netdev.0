@@ -1,81 +1,92 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Splice status
-Date: Sun, 11 Jul 2010 21:08:33 +0800
-Message-ID: <AANLkTinRnDwMOS5NrmzKqYZpczG4nfHSvKA9Gw-_UUzO@mail.gmail.com>
-References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
-	<AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
-	<EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
-	<1278334254.2877.158.camel@edumazet-laptop> <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
-	<1278388580.2466.305.camel@edumazet-laptop>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] bnx2x: add support for receive hashing
+Date: Sun, 11 Jul 2010 06:16:37 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704FA@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
+ <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
+ <20100710.191242.70196353.davem@davemloft.net>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jens Axboe <axboe@kernel.dk>, Ofer Heifetz <oferh@marvell.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Vladislav Zolotarov" <vladz@broadcom.com>,
+	"David Miller" <davem@davemloft.net>,
+	"therbert@google.com" <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:60284 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751720Ab0GKNIz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 09:08:55 -0400
-Received: by vws5 with SMTP id 5so3408944vws.19
-        for <netdev@vger.kernel.org>; Sun, 11 Jul 2010 06:08:54 -0700 (PDT)
-In-Reply-To: <1278388580.2466.305.camel@edumazet-laptop>
+Received: from mms2.broadcom.com ([216.31.210.18]:1096 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752188Ab0GKNRF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 09:17:05 -0400
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 6, 2010 at 11:56 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mardi 06 juillet 2010 =E0 10:01 +0800, Changli Gao a =E9crit :
->>
->> If we don't drain the pipe before calling splice(2), the data splice=
-d
->> from pipe maybe not be what we expect. Then data corruption occurs.
->>
->
-> This is not true. A pipe is a pipe is a buffer. You dont need it to b=
-e
-> empty when using it. Nowhere in documentation its stated.
+Dave, it's obvious that there a demand for a new HW/FW configuration from our side - "rx hash enable" which is currently tightly coupled with the RSS capability. As long as RSS flow in our FW includes a few more things apart from just creating an RSS hash and as long as there are flows (even hypothetical) that demand the RSS hash regardless the RSS itself we started to work on separation of these two features from FW perspective. This of course will demand a new FW version but once we have it we'll be able to be more specific in HW configuration and have a cleaner code.
 
-Do you mean splice(2) empties the pipe buffer before using it as an
-output buffer? If not, the pipe draining is needed to avoid data
-corruption.
+Technically, our FW may provide the Rx HASH always and in a current driver configuration this is what it does.
+I wonder if the driver always provides the HW RX HASH in the skb->rxhash regardless the value of NETIF_F_RXHASH bit in a netdev->features will it cause any harm? If not we can get rid of two extra conditionals in the bnx2x_rx_int().
 
->
-> However, a single skb can fill a pipe, even if "its empty"
->
+Thanks,
+vlad
 
-Yea. Because tcp_splice_read() doesn't know if the __tcp_splice_read
-returns due to pipe fulling.
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+> Behalf Of Vladislav Zolotarov
+> Sent: Sunday, July 11, 2010 1:02 PM
+> To: David Miller; therbert@google.com
+> Cc: netdev@vger.kernel.org
+> Subject: RE: [PATCH] bnx2x: add support for receive hashing
+> 
+> 
+> 
+> > -----Original Message-----
+> > From: David Miller [mailto:davem@davemloft.net]
+> > Sent: Sunday, July 11, 2010 5:13 AM
+> > To: therbert@google.com
+> > Cc: Vladislav Zolotarov; netdev@vger.kernel.org
+> > Subject: Re: [PATCH] bnx2x: add support for receive hashing
+> >
+> > From: Tom Herbert <therbert@google.com>
+> > Date: Wed, 7 Jul 2010 12:17:31 -0700
+> >
+> > > It is to enable the device to provide the RSS hash in RX descriptor.
+> > > The hash severs two purposes now, it's used internally in the device
+> > > to perform RSS table lookup and also value in RX descriptor.  The
+> > > latter does not require multi-queue.  Strictly speaking, on a single
+> > > processor system without multqueue, it would be true that enabling the
+> > > RX hash on bnx2x is currently superfluous (notwithstanding some other
+> > > use of the hash might be implemented).
+> >
+> > We intend to use the card provided RSS hash to optimize GSO
+> > flow comparisons at some point.
+> 
+> Could u explain what did u mean here, pls.? GSO is a Tx flow while RSS hash
+> is generated for the ingress traffic.
+> 
+> >
+> > There are other possible uses as well.
+> 
+> Could u elaborate, pls?
+> 
+> >
+> > Therefore even in a single RX queue configuration, the driver
+> > should provide the hash if it can.
+> 
+> Providing an RSS hash adds an additional work to our FW and HW. We would like
+> to understand why do we need to pay this penalty. And surely we don't want to
+> pay it for a possible use. We'd prefer to pay it when it's really needed.
+> 
+> Thanks,
+> vlad
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
->
->> >
->> > splice(sock, pipe) can block if caller dont use appropriate "non
->> > blocking pipe' splice() mode, even if pipe is empty before a splic=
-e()
->> > call.
->>
->> I don't think it is expected. The code of sys_recvfile is much like
->> the sendfile(2) implementation in kernel. If sys_recvfile may block
->> without non_block flag, sendfile(2) may block too.
->
-> Then it would be a bug. You might fix it easily.
 
-It seems reasonable. I'll fix it.
-
->
-> Using splice() correctly (ie, not blocking on sock->pipe) should work
-> too.
->
-> Again, you can block on splice(sock, pipe), iff you have a second thr=
-ead
-> doing the opposite (pipe->file) in parallel to unblock you. But samba
-> recvfile algo is using a single thread.
->
-
-
-
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
