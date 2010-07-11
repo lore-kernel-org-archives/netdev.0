@@ -1,70 +1,79 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: Re: [REGRESSION,BISECTED] Panic on ifup
-Date: 11 Jul 2010 13:09:08 -0400
-Message-ID: <20100711170908.5770.qmail@science.horizon.com>
-References: <4C39D834.8080206@iki.fi>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: linux@horizon.com, timo.teras@iki.fi
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] bnx2x: add support for receive hashing
+Date: Sun, 11 Jul 2010 10:22:15 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE6470521@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FBFB@SJEXCHCCR02.corp.ad.broadcom.com>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDE646FD52@SJEXCHCCR02.corp.ad.broadcom.com>
+ <AANLkTinRUJS6e8dwqvIMhtAUWBcj5oTk-D9MMrhbL9Bk@mail.gmail.com>
+ <20100710.191242.70196353.davem@davemloft.net>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704DC@SJEXCHCCR02.corp.ad.broadcom.com>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDE64704FA@SJEXCHCCR02.corp.ad.broadcom.com>
+ <1278866713.2538.148.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem@davemloft.net>,
+	"therbert@google.com" <therbert@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([71.41.210.146]:61515 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751683Ab0GKRPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 13:15:50 -0400
-In-Reply-To: <4C39D834.8080206@iki.fi>
+Received: from mms3.broadcom.com ([216.31.210.19]:1255 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752997Ab0GKRWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jul 2010 13:22:25 -0400
+In-Reply-To: <1278866713.2538.148.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On 07/11/2010 03:38 PM, George Spelvin wrote:
->> No, although /etc/ipec-tools.conf runs setkey.  As I said,
->> I was mostly running in single-user mode; a ps axf
->> output is appended.
->> 
->> Ah!  A discovery!  There are rules for the gateway!
->> 
->> add <my_ip> <gw_ip> esp 0x200 -E aes-cbc
->> 	<key>;
->> add <gw_ip> <my_ip> esp 0x300 -E aes-cbc
->> 	<key>;
->> spdadd <gw_ip> <my_ip> any -P in ipsec
->> 	esp/transport//use;
->> spdadd <my_ip> <gw_ip> any -P out ipsec
->> 	esp/transport//use;
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+
+IEJlaGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogU3VuZGF5LCBKdWx5IDExLCAyMDEwIDc6
+NDUgUE0NCj4gVG86IFZsYWRpc2xhdiBab2xvdGFyb3YNCj4gQ2M6IERhdmlkIE1pbGxlcjsgdGhl
+cmJlcnRAZ29vZ2xlLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSRTog
+W1BBVENIXSBibngyeDogYWRkIHN1cHBvcnQgZm9yIHJlY2VpdmUgaGFzaGluZw0KPiANCj4gTGUg
+ZGltYW5jaGUgMTEganVpbGxldCAyMDEwIMOgIDA2OjE2IC0wNzAwLCBWbGFkaXNsYXYgWm9sb3Rh
+cm92IGEgw6ljcml0IDoNCj4gPiBEYXZlLCBpdCdzIG9idmlvdXMgdGhhdCB0aGVyZSBhIGRlbWFu
+ZCBmb3IgYSBuZXcgSFcvRlcgY29uZmlndXJhdGlvbg0KPiA+IGZyb20gb3VyIHNpZGUgLSAicngg
+aGFzaCBlbmFibGUiIHdoaWNoIGlzIGN1cnJlbnRseSB0aWdodGx5IGNvdXBsZWQNCj4gPiB3aXRo
+IHRoZSBSU1MgY2FwYWJpbGl0eS4gQXMgbG9uZyBhcyBSU1MgZmxvdyBpbiBvdXIgRlcgaW5jbHVk
+ZXMgYSBmZXcNCj4gPiBtb3JlIHRoaW5ncyBhcGFydCBmcm9tIGp1c3QgY3JlYXRpbmcgYW4gUlNT
+IGhhc2ggYW5kIGFzIGxvbmcgYXMgdGhlcmUNCj4gPiBhcmUgZmxvd3MgKGV2ZW4gaHlwb3RoZXRp
+Y2FsKSB0aGF0IGRlbWFuZCB0aGUgUlNTIGhhc2ggcmVnYXJkbGVzcyB0aGUNCj4gPiBSU1MgaXRz
+ZWxmIHdlIHN0YXJ0ZWQgdG8gd29yayBvbiBzZXBhcmF0aW9uIG9mIHRoZXNlIHR3byBmZWF0dXJl
+cyBmcm9tDQo+ID4gRlcgcGVyc3BlY3RpdmUuIFRoaXMgb2YgY291cnNlIHdpbGwgZGVtYW5kIGEg
+bmV3IEZXIHZlcnNpb24gYnV0IG9uY2UNCj4gPiB3ZSBoYXZlIGl0IHdlJ2xsIGJlIGFibGUgdG8g
+YmUgbW9yZSBzcGVjaWZpYyBpbiBIVyBjb25maWd1cmF0aW9uIGFuZA0KPiA+IGhhdmUgYSBjbGVh
+bmVyIGNvZGUuDQo+ID4NCj4gPiBUZWNobmljYWxseSwgb3VyIEZXIG1heSBwcm92aWRlIHRoZSBS
+eCBIQVNIIGFsd2F5cyBhbmQgaW4gYSBjdXJyZW50DQo+ID4gZHJpdmVyIGNvbmZpZ3VyYXRpb24g
+dGhpcyBpcyB3aGF0IGl0IGRvZXMuDQo+ID4gSSB3b25kZXIgaWYgdGhlIGRyaXZlciBhbHdheXMg
+cHJvdmlkZXMgdGhlIEhXIFJYIEhBU0ggaW4gdGhlDQo+ID4gc2tiLT5yeGhhc2ggcmVnYXJkbGVz
+cyB0aGUgdmFsdWUgb2YgTkVUSUZfRl9SWEhBU0ggYml0IGluIGENCj4gPiBuZXRkZXYtPmZlYXR1
+cmVzIHdpbGwgaXQgY2F1c2UgYW55IGhhcm0/IElmIG5vdCB3ZSBjYW4gZ2V0IHJpZCBvZiB0d28N
+Cj4gPiBleHRyYSBjb25kaXRpb25hbHMgaW4gdGhlIGJueDJ4X3J4X2ludCgpLg0KPiANCj4gSGkN
+Cj4gDQo+IFBsZWFzZSBkb250IHRvcC1wb3N0IG9uIG5ldGRldiwgdGhhbmtzLg0KDQpUaGlzIGRp
+c2N1c3Npb24gaXMgZGlyZWN0bHkgcmVsYXRlZCB0byBUb20ncyBwYXRjaCB0aGF0J3Mgd2h5IEkn
+bSBwb3N0aW5nIG9uIHRoaXMgdGhyZWFkLiANCg0KPiANCj4gTkVUSUZfUlhfSEFTSCBiaXQgaXMg
+bmVlZGVkIHNvIHRoYXQgd2UgY2FuIGRpc2FibGUgc2tiLT5yeGhhc2ggZnJvbSBhDQo+IHBhcnRp
+Y3VsYXIgTklDIGlmIHdlIGtub3cgdGhlIGhhcmR3YXJlIHByb3ZpZGVkIHJ4aGFzaCBpcyBub3Qg
+ZnVsZmlsbGluZw0KPiBvdXIgbmVlZHMgKFdlIHByZWZlciBzcGVuZCBzb21lIGNwdSBjeWNsZXMg
+dG8gcmVjb21wdXRlIGEgc29mdHdhcmUNCj4gcnhoYXNoKS4NCj4gDQo+IFNvZnR3YXJlIG9uZSBm
+b3IgZXhhbXBsZSBkZWxpdmVyIHNhbWUgcnhoYXNoIHZhbHVlcyBmb3IgYm90aCB3YXlzIG9mIGEN
+Cj4gVENQIGZsb3csIGl0IGNhbiBoZWxwIGNvbm50cmFja2luZyBmb3IgZXhhbXBsZS4NCg0KSSB1
+bmRlcnN0YW5kIHRoYXQsIGluIHRoYXQgY2FzZSB0aGUgcHJvcGVyIGltcGxlbWVudGF0aW9uIHdv
+dWxkIGJlIHRvIGNoZWNrIHRoZSBuZXRkZXYtPmZlYXR1cmVzIHdoZW4gdSBkZWNpZGUgdG8gY2Fs
+Y3VsYXRlIHRoZSBTVyByeGhhc2gsIGlzbid0IGl0Pw0KDQo+IA0KPiBUaGUgY29uZGl0aW9uYWwg
+aW4gZHJpdmVyIHJ4IGlzIGNoZWFwLCBzaW5jZSB0aGUgY29uZGl0aW9uIGlzIHRoZSBzYW1lDQo+
+IGZvciBhbGwgcGFja2V0cyBhbmQgQ1BVIGNhbiBwcmVkaWN0cyB0aGUgYnJhbmNoLg0KDQpOb3Qg
+ZXhhY3RseS4gT3VyIEZXL0hXIHdvbid0IHByb3ZpZGUgdGhlIHJ4aGFzaCBmb3Igbm9uZS1JUCBw
+YWNrZXRzIHNldHRpbmcgdGhlIGhhc2ggQ1FFIGZpZWxkIHRvIHplcm8gYW5kIGNsZWFyaW5nIHRo
+ZSBFVEhfRkFTVF9QQVRIX1JYX0NRRV9SU1NfSEFTSF9GTEcgaW4gdGhlIENRRSBzdGF0c3VfZmxh
+Z3MgKGZvciBBUlBzIGZvciBpbnN0YW5jZSkuIEJyYW5jaCBwcmVkaWN0aW9uIGlzIG5pY2UgYnV0
+IGNvbnNpZGVyaW5nIG15IHByZXZpb3VzIHJlbWFyayB3aHkgZG8gd2UgbmVlZCB0aGlzIGJyYW5j
+aCBhdCBhbGw/DQoNCj4gDQo+IA0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlz
+IGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gdGhlIGJvZHkg
+b2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRv
+bW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoN
+Cg==
 
-> This means optional encryption. Probably something goes wrong
-> constructing the bundle which results in encryption not being applied.
-> And it would look like xfrm_resolve_and_create_bundle() does not take
-> this into account properly. I need to fix it with optional policies.
-> 
-> In the mean while, could confirm if everything works if you change the
-> last line to:
-> 	esp/transport//require;
-
-Will do.
-
-This might lead to no traffic if there's something else broken, however
-it should not crash. This change is needed only for the 'out' policy, as
-the bundles are used only on xmit code paths.
-
-> yup, xfrm_resolve_and_create_bundle looks to be the culprit. I'll try to
-> figure out a patch for testing.
-
-> Ok, this is basically what setkey did for you. Looks like it was ran
-> twice and you are missing flush and spdflush from setkey, so you get
-> duplicates here. Otherwise it's ok.
-
-Um, I am *not* missing flush and spdflush.  The entire file, with comments
-and blank lines stripped, and some details censored, is:
-
-#!/usr/sbin/setkey -f
-flush;
-spdflush;
-add $LOCALNET.1 $LOCALNET.62 esp 0x200 -E aes-cbc <key redacted>;
-add $LOCALNET.62 $LOCALNET.1 esp 0x300 -E aes-cbc <key redacted>;
-add $LOCALNET.3 $LOCALNET.62 esp 0x400 -E aes-cbc <key redacted>;
-add $LOCALNET.62 $LOCALNET.3 esp 0x500 -E aes-cbc <key redacted>;
-spdadd $LOCALNET.1 $LOCALNET.62 any -P in ipsec esp/transport//use;
-spdadd $LOCALNET.62 $LOCALNET.1 any -P out ipsec esp/transport//use;
-spdadd $LOCALNET.3 $LOCALNET.62 any -P in ipsec esp/transport//use;
-spdadd $LOCALNET.62 $LOCALNET.3 any -P out ipsec esp/transport//use;
-
-Anyway, thank you very much!
