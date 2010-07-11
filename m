@@ -1,43 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: sock_free() optimizations
-Date: Sun, 11 Jul 2010 10:45:17 +0200
-Message-ID: <1278837917.2538.138.camel@edumazet-laptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch v2.5 3/4] IPVS: make FTP work with full NAT support
+Date: Sun, 11 Jul 2010 18:01:31 +0900
+Message-ID: <20100711085959.GA28199@verge.net.au>
+References: <20100710030057.731118760@vergenet.net>
+ <20100710030222.732009020@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61743 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500Ab0GKIpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 04:45:21 -0400
-Received: by wwb24 with SMTP id 24so105589wwb.1
-        for <netdev@vger.kernel.org>; Sun, 11 Jul 2010 01:45:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Eder <heder@google.com>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100710030222.732009020@vergenet.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Avoid two extra instructions in sock_free(), to reload
-skb->truesize and skb->sk
+On Sat, Jul 10, 2010 at 12:01:00PM +0900, Simon Horman wrote:
+> From:	Hannes Eder <heder@google.com>
+> 
+> Use nf_conntrack/nf_nat code to do the packet mangling and the TCP
+> sequence adjusting.  The function 'ip_vs_skb_replace' is now dead
+> code, so it is removed.
+> 
+> To SNAT FTP, use something like:
+> 
+> % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+> > --vport 21 -j SNAT --to-source 192.168.10.10
+> 
+> and for the data connections in passive mode:
+> 
+> % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+> > --vportctl 21 -j SNAT --to-source 192.168.10.10
+> 
+> using '-m state --state RELATED' would also works.
+> 
+> Make sure the kernel modules ip_vs_ftp, nf_conntrack_ftp, and
+> nf_nat_ftp are loaded.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/net/core/sock.c b/net/core/sock.c
-index fef2434..363bc26 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1339,9 +1339,10 @@ EXPORT_SYMBOL(sock_wfree);
- void sock_rfree(struct sk_buff *skb)
- {
- 	struct sock *sk = skb->sk;
-+	unsigned int len = skb->truesize;
- 
--	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
--	sk_mem_uncharge(skb->sk, skb->truesize);
-+	atomic_sub(len, &sk->sk_rmem_alloc);
-+	sk_mem_uncharge(sk, len);
- }
- EXPORT_SYMBOL(sock_rfree);
- 
+[snip]
 
+> Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_ftp.c
+> ===================================================================
+> --- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_ftp.c	2010-07-10 11:48:54.000000000 +0900
+> +++ nf-next-2.6/net/netfilter/ipvs/ip_vs_ftp.c	2010-07-10 11:59:19.000000000 +0900
 
+[snip]
+
+> @@ -43,6 +57,16 @@
+>  #define SERVER_STRING "227 Entering Passive Mode ("
+>  #define CLIENT_STRING "PORT "
+>  
+> +#define FMT_TUPLE	"%pI4:%u->%pI4:%u/%u"
+> +#define ARG_TUPLE(T)	(T)->src.u3.ip, ntohs((T)->src.u.all), \
+> +			(T)->dst.u3.ip, ntohs((T)->dst.u.all), \
+> +			(T)->dst.protonum
+> +
+> +#define FMT_CONN	"%pI4:%u->%pI4:%u->%pI4:%u/%u:%u"
+> +#define ARG_CONN(C)	(C)->caddr, ntohs((C)->cport), \
+> +			(C)->vaddr, ntohs((C)->vport), \
+> +			(C)->daddr, ntohs((C)->dport), \
+> +			(C)->protocol, (C)->state
+>  
+>  /*
+>   * List of ports (up to IP_VS_APP_MAX_PORTS) to be handled by helper
+
+The argument to the %pI4 needs to be a pointer
+so (T)->src.u3.ip should be &(T)->src.u3.ip and
+(C)->caddr should be &(C)->caddr.ip.
+
+I'm not sure how this slipped through the cracks so far.
+I will repost.
