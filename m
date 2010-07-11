@@ -1,38 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH kernel 2.6.35-rc3-git7] axnet_cs: use spin_lock_irqsave
- in ax_interrupt
-Date: Sat, 10 Jul 2010 19:49:28 -0700 (PDT)
-Message-ID: <20100710.194928.116377282.davem@davemloft.net>
-References: <20100706202243.95319ab4.ken_kawasaki@spring.nifty.jp>
-	<20100710201813.a3e5c79c.ken_kawasaki@spring.nifty.jp>
-	<1278816388.6139.10.camel@localhost>
+Subject: Re: linux-next: build warning after merge of the net tree
+Date: Sat, 10 Jul 2010 19:52:10 -0700 (PDT)
+Message-ID: <20100710.195210.200371025.davem@davemloft.net>
+References: <20100707.174522.148565561.davem@davemloft.net>
+	<20100707.181847.62350965.davem@davemloft.net>
+	<1278562423.1712.43.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ken_kawasaki@spring.nifty.jp, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33954
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753240Ab0GKCtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jul 2010 22:49:15 -0400
-In-Reply-To: <1278816388.6139.10.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gregkh@suse.de
+To: joe@perches.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1278562423.1712.43.camel@Joe-Laptop>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sun, 11 Jul 2010 03:46:28 +0100
+From: Joe Perches <joe@perches.com>
+Date: Wed, 07 Jul 2010 21:13:42 -0700
 
-> On Sat, 2010-07-10 at 20:18 +0900, Ken Kawasaki wrote:
->> axnet_cs:
->>     use spin_lock_irqsave instead of spin_lock in ax_interrupt
-> [...]
+> On Wed, 2010-07-07 at 18:18 -0700, David Miller wrote:
+>> It looks like there are just a hand-ful of cases, so maybe we can tweak
+>> them by hand.  For example, in the sym53c8xx_2 driver bits we can replace
+>> the NULL labels passed to sym_print_msg() with a real string and therefore
+>> remove the "" case.
+>> 
+>> Joe, any better ideas?
 > 
-> I assume this is because it's now called from ei_watchdog() and not only
-> from interrupt context.  Perhaps you should explain that in the commit
-> message.
+> You're right there are just a few cases where dev_info
+> is uses as a preface for a hex_dump style display.
+> 
+> Maybe it'd be OK to simply add a trailing space to the
+> preface and remove any leading spaces from the subsequent
+> initial printks.
+> 
+> dev_info(dev, " ");
 
-No, interrupt handlers in general may not assume that interrupts
-are off or on when they are invoked.
+That might work.
 
-Therefore they must use irqflags saving/restoring.
+The sym53c8xx_2 doesn't even need this, like I said, you could
+just remove the NULL 'label' argument cases and then have that
+bit cured.
+
+Could you take a stab at this and the other scsi bits that
+trigger this warning?
+
+Thanks Joe!
