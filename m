@@ -1,44 +1,69 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] r8169: incorrect identifier for a 8168dp
-Date: Sun, 11 Jul 2010 23:48:43 +0200
-Message-ID: <20100711214843.GA7922@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Hayes <hayeswang@realtek.com>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net-next 1/5] cxgb4: move the choice of interrupt type before net_device registration
+Date: Sun, 11 Jul 2010 15:01:15 -0700
+Message-ID: <1278885679-3738-2-git-send-email-dm@chelsio.com>
+References: <1278885679-3738-1-git-send-email-dm@chelsio.com>
+Cc: Dimitris Michailidis <dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 88-137-244-105.adslgp.cegetel.net ([88.137.244.105]:36076 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754740Ab0GKV4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 17:56:39 -0400
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([67.207.112.58]:15494 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755192Ab0GKWBU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jul 2010 18:01:20 -0400
+Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o6BM1JNR021624
+	for <netdev@vger.kernel.org>; Sun, 11 Jul 2010 15:01:20 -0700
+In-Reply-To: <1278885679-3738-1-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Merge error.
+We need to settle on the kind of interrupts we'll be using, a choice that
+also impacts the number of queues, before registering and making visible
+the net_devices.  Move the relevant code up a bit.
 
-See CFG_METHOD_8 (0x3c800000 + 0x00300000) since version 8.002.00
-of Realtek's driver.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Hayes <hayeswang@realtek.com>
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/r8169.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/cxgb4/cxgb4_main.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 96b6cfb..cdc6a5c 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1316,7 +1316,7 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		{ 0x7c800000, 0x28000000,	RTL_GIGA_MAC_VER_26 },
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index 2619997..743dc6f 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -3507,6 +3507,12 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		adapter->params.offload = 0;
+ 	}
  
- 		/* 8168C family. */
--		{ 0x7cf00000, 0x3ca00000,	RTL_GIGA_MAC_VER_24 },
-+		{ 0x7cf00000, 0x3cb00000,	RTL_GIGA_MAC_VER_24 },
- 		{ 0x7cf00000, 0x3c900000,	RTL_GIGA_MAC_VER_23 },
- 		{ 0x7cf00000, 0x3c800000,	RTL_GIGA_MAC_VER_18 },
- 		{ 0x7c800000, 0x3c800000,	RTL_GIGA_MAC_VER_24 },
++	/* See what interrupts we'll be using */
++	if (msi > 1 && enable_msix(adapter) == 0)
++		adapter->flags |= USING_MSIX;
++	else if (msi > 0 && pci_enable_msi(pdev) == 0)
++		adapter->flags |= USING_MSI;
++
+ 	/*
+ 	 * The card is now ready to go.  If any errors occur during device
+ 	 * registration we do not fail the whole card but rather proceed only
+@@ -3542,12 +3548,6 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		setup_debugfs(adapter);
+ 	}
+ 
+-	/* See what interrupts we'll be using */
+-	if (msi > 1 && enable_msix(adapter) == 0)
+-		adapter->flags |= USING_MSIX;
+-	else if (msi > 0 && pci_enable_msi(pdev) == 0)
+-		adapter->flags |= USING_MSI;
+-
+ 	if (is_offload(adapter))
+ 		attach_ulds(adapter);
+ 
+@@ -3571,6 +3571,7 @@ sriov:
+ 			free_netdev(adapter->port[i]);
+ 	if (adapter->flags & FW_OK)
+ 		t4_fw_bye(adapter, 0);
++	disable_msi(adapter);
+  out_unmap_bar:
+ 	iounmap(adapter->regs);
+  out_free_adapter:
 -- 
-1.7.1.1
+1.5.4
 
