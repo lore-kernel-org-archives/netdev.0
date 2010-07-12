@@ -1,40 +1,79 @@
-From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-Subject: Re: [PATCH] adm8211: fix memory leak
-Date: Mon, 12 Jul 2010 07:51:49 -0700
-Message-ID: <20100712145149.GA2273@tux>
-References: <1278764938-9417-1-git-send-email-segooon@gmail.com>
+From: Kulikov Vasiliy <segooon@gmail.com>
+Subject: [PATCH v2] depca: fix leaks in depca_module_init()
+Date: Mon, 12 Jul 2010 18:52:33 +0400
+Message-ID: <20100712145233.GA30504@albatros>
+References: <1278678986-7725-1-git-send-email-segooon@gmail.com>
+ <20100711.181300.58435799.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	Michael Wu <flamingice@sourmilk.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kulikov Vasiliy <segooon@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-janitors@vger.kernel.org, jpirko@redhat.com,
+	joe@perches.com, shemminger@vyatta.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.atheros.com ([12.36.123.2]:35171 "EHLO mail.atheros.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755809Ab0GLOvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jul 2010 10:51:51 -0400
-Received: from mail.atheros.com ([10.10.20.105])
-	by sidewinder.atheros.com
-	for <netdev@vger.kernel.org>; Mon, 12 Jul 2010 07:51:51 -0700
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:59794 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755814Ab0GLOxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 10:53:03 -0400
 Content-Disposition: inline
-In-Reply-To: <1278764938-9417-1-git-send-email-segooon@gmail.com>
+In-Reply-To: <20100711.181300.58435799.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 10, 2010 at 05:28:57AM -0700, Kulikov Vasiliy wrote:
-> We must free priv->eeprom allocated in adm8211_read_eeprom().
-> 
-> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+Since some of xxx_register_driver() can return error we must unregister
+already registered drivers.
 
-Acked-by: Luis R. Rodriguez <lrodriguez@atheros.com>
+Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+---
+ drivers/net/depca.c |   29 +++++++++++++++++++++++------
+ 1 files changed, 23 insertions(+), 6 deletions(-)
 
-Good catch.
+diff --git a/drivers/net/depca.c b/drivers/net/depca.c
+index bf66e9b..44c0694 100644
+--- a/drivers/net/depca.c
++++ b/drivers/net/depca.c
+@@ -2061,18 +2061,35 @@ static int depca_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 
+ static int __init depca_module_init (void)
+ {
+-        int err = 0;
++	int err = 0;
+ 
+ #ifdef CONFIG_MCA
+-        err = mca_register_driver (&depca_mca_driver);
++	err = mca_register_driver(&depca_mca_driver);
++	if (err)
++		goto err;
+ #endif
+ #ifdef CONFIG_EISA
+-        err |= eisa_driver_register (&depca_eisa_driver);
++	err = eisa_driver_register(&depca_eisa_driver);
++	if (err)
++		goto err_mca;
+ #endif
+-	err |= platform_driver_register (&depca_isa_driver);
+-	depca_platform_probe ();
++	err = platform_driver_register(&depca_isa_driver);
++	if (err)
++		goto err_eisa;
+ 
+-        return err;
++	depca_platform_probe();
++	return 0;
++
++err_eisa:
++#ifdef CONFIG_EISA
++	eisa_driver_unregister(&depca_eisa_driver);
++err_mca:
++#endif
++#ifdef CONFIG_MCA
++	mca_unregister_driver(&depca_mca_driver);
++err:
++#endif
++	return err;
+ }
+ 
+ static void __exit depca_module_exit (void)
+-- 
+1.7.0.4
 
-  Luis
