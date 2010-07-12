@@ -1,121 +1,92 @@
-From: Michael Leun <lkml20100708@newton.leun.net>
-Subject: Re: sysfs bug when using tun with network namespaces
-Date: Mon, 12 Jul 2010 22:07:27 +0200
-Message-ID: <20100712220727.1be49d54@xenia.leun.net>
-References: <20100709132919.7871bee6@xenia.leun.net>
-	<4C3B5D68.5010809@qualcomm.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6 2010-07-12
+Date: Mon, 12 Jul 2010 16:16:38 -0400
+Message-ID: <20100712201637.GD2442@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lkml@vger.kernel.org, netdev@vger.kernel.org
-To: Max Krasnyansky <maxk@qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from serv04.lahn.de ([213.239.197.57]:50777 "EHLO serv04.lahn.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750920Ab0GLUKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jul 2010 16:10:25 -0400
-In-Reply-To: <4C3B5D68.5010809@qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Max,
+Dave,
 
-On Mon, 12 Jul 2010 11:22:32 -0700
-Max Krasnyansky <maxk@qualcomm.com> wrote:
+Here are a couple of small fixes for resource leaks in 2.6.35.
 
-> Thanks for forwarding this report. I'll take a look and try to
-> reproduce and fix it when I get a chance.
+Please let me know if there are problems!
 
-Sorry, I should have send the further communication CC: to you.
+Thanks,
 
-This one is resolved, it is due to missing support for namespaces
-almost at all in sysfs prior to 2.6.35-rc, bug does not appear
-in .35-rcX anymore.
+John
 
-But I have found another one:
+---
 
-On Sat, 10 Jul 2010 16:52:08 +0200
-Michael Leun <lkml20100708@newton.leun.net> wrote:
+The following changes since commit 17c99297212a2d1b1779a08caf4b0d83a85545df:
 
-> # tunctl -u ml -t tap1    
+  r8169: incorrect identifier for a 8168dp (2010-07-11 17:10:09 -0700)
 
-> works as expected, but    
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-> # unshare -n /bin/bash
-> # tunctl -u ml -t tap1    
-[bug  (no sysfs support for net namespaces at all) solved in 2.6.35-rcX
-- I used 2.6.34.1]
+Rajkumar Manoharan (1):
+      ath9k_htc: fix memory leak in ath9k_hif_usb_alloc_urbs
 
-Now that we have solved that last one I've another glitch (this time using 2.6.35-rc4):
+Reinette Chatre (1):
+      iwlwifi: remove key information during device restart
 
-In an network namespace I can use an tun/tap tunnel through ssh and
-when closing that namespace then eveything is fine.
+ drivers/net/wireless/ath/ath9k/hif_usb.c |    8 ++++++--
+ drivers/net/wireless/iwlwifi/iwl-sta.h   |   11 +++++++++++
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
-But when using openvpn (also tunnel trough tun/tap) in an network
-namespace and then closing that namespace I get:
-
-unregister_netdevice: waiting for lo to become free
-[repeated]
-
-Please see the following two examples showing that difference:
-
-# > unshare -n /bin/bash
-# > # how to setup veth device pair to get connectivity into namespace not shown here
-# > tunctl -u ml -t tap1
-# > ssh -o Tunnel=Ethernet -w 1:1 somewhere
-[ running some traffic over tap1 not shown here ]
-^d # logging out from somewhere
-# > tunctl -d tap1
-# > exit # logging out from shell in network namespace
-
-Now the veth device pair used automagically vanishes and nothing
-from that different network namespace remains - very well.
-
-but
-
-# > unshare -n /bin/bash
-# > # how to setup veth device pair to get connectivity into namespace not shown here
-# > openvpn --config some.config
-[ running some traffic over vpn device not shown here ]
-^c # stopping openvpn
-# > lsof -i
-# > netstat -an
-Active Internet connections (servers and established)
-Proto Recv-Q Send-Q Local Address           Foreign Address         State
-Active UNIX domain sockets (servers and established)
-Proto RefCnt Flags       Type       State         I-Node Path
-# > ps ax|grep openvpn|grep -v grep
-# > # cannot find anything that suggests there is anything left from that openvpn session
-# > exit # logging out from shell in network namespace
-
-Now I get
-
-Jul 10 20:02:36 doris kernel: unregister_netdevice: waiting for lo to become free. Usage count = 3
-[repeated]
-
-Now one might say it is fault of openvpn (used OpenVPN 2.1_rc20
-i586-suse-linux - the one in openSuSE 11.2 package), openvpn didn't
-close some ressource and ssh does fine.
-
-But: should'nt kernel clean up after process when it exits?
-And/or: Should'nt kernel clean up if last process in network namespace
-exits - there is nothing left which might use that interface?!
-
-Greg KH <greg@kroah.com> wrote:
-
-> Yes, you are correct.  Care to resend all of this to the
-> network-namespace developer(s) and the netdev mailing list so that the
-> correct people are notified so they can fix it all?  
-
-[X] done - hopefully, cannot find a particular network namespace
-developer in MAINTAINERS or source files. If such a one exists, please
-forward.
-
-Thanks.
-
-
+diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
+index 77b3591..23c15aa 100644
+--- a/drivers/net/wireless/ath/ath9k/hif_usb.c
++++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+@@ -730,13 +730,17 @@ static int ath9k_hif_usb_alloc_urbs(struct hif_device_usb *hif_dev)
+ 
+ 	/* RX */
+ 	if (ath9k_hif_usb_alloc_rx_urbs(hif_dev) < 0)
+-		goto err;
++		goto err_rx;
+ 
+ 	/* Register Read */
+ 	if (ath9k_hif_usb_alloc_reg_in_urb(hif_dev) < 0)
+-		goto err;
++		goto err_reg;
+ 
+ 	return 0;
++err_reg:
++	ath9k_hif_usb_dealloc_rx_urbs(hif_dev);
++err_rx:
++	ath9k_hif_usb_dealloc_tx_urbs(hif_dev);
+ err:
+ 	return -ENOMEM;
+ }
+diff --git a/drivers/net/wireless/iwlwifi/iwl-sta.h b/drivers/net/wireless/iwlwifi/iwl-sta.h
+index c2a453a..dc43ebd 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-sta.h
++++ b/drivers/net/wireless/iwlwifi/iwl-sta.h
+@@ -97,6 +97,17 @@ static inline void iwl_clear_driver_stations(struct iwl_priv *priv)
+ 	spin_lock_irqsave(&priv->sta_lock, flags);
+ 	memset(priv->stations, 0, sizeof(priv->stations));
+ 	priv->num_stations = 0;
++
++	/*
++	 * Remove all key information that is not stored as part of station
++	 * information since mac80211 may not have had a
++	 * chance to remove all the keys. When device is reconfigured by
++	 * mac80211 after an error all keys will be reconfigured.
++	 */
++	priv->ucode_key_table = 0;
++	priv->key_mapping_key = 0;
++	memset(priv->wep_keys, 0, sizeof(priv->wep_keys));
++
+ 	spin_unlock_irqrestore(&priv->sta_lock, flags);
+ }
+ 
 -- 
-MfG,
-
-Michael Leun
-
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
