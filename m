@@ -1,46 +1,40 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC][PATCH] mac80211_hwsim: No parent is better than an
- illegimate one.
-Date: Mon, 12 Jul 2010 16:29:15 +0200
-Message-ID: <1278944955.5870.29.camel@jlt3.sipsolutions.net>
-References: <bug-16257-10286@https.bugzilla.kernel.org/>
-	 <20100621150826.762ac9f2.akpm@linux-foundation.org>
-	 <m1mxuodo0n.fsf@fess.ebiederm.org> <20100621222938.GA20583@suse.de>
-	 <m1eig0dmhk.fsf@fess.ebiederm.org> <20100621231058.GA1066@suse.de>
-	 <m14ogwc4ou.fsf@fess.ebiederm.org> <20100622035631.GA3755@suse.de>
-	 <m1630q7x5v.fsf_-_@fess.ebiederm.org> <m1zky26iaw.fsf_-_@fess.ebiederm.org>
-	 <1278917200.3667.1.camel@jlt3.sipsolutions.net>
-	 <m11vb8u6cy.fsf@fess.ebiederm.org>
+From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Subject: Re: [PATCH] adm8211: fix memory leak
+Date: Mon, 12 Jul 2010 07:51:49 -0700
+Message-ID: <20100712145149.GA2273@tux>
+References: <1278764938-9417-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>,
-	"Greg KH <gregkh@suse.de> netdev" <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Michael Wu <flamingice@sourmilk.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Kalle Valo <kalle.valo@iki.fi>,
+	Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Kulikov Vasiliy <segooon@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:36186 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755357Ab0GLOaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 10:30:08 -0400
-In-Reply-To: <m11vb8u6cy.fsf@fess.ebiederm.org>
+Received: from mail.atheros.com ([12.36.123.2]:35171 "EHLO mail.atheros.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755809Ab0GLOvv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jul 2010 10:51:51 -0400
+Received: from mail.atheros.com ([10.10.20.105])
+	by sidewinder.atheros.com
+	for <netdev@vger.kernel.org>; Mon, 12 Jul 2010 07:51:51 -0700
+Content-Disposition: inline
+In-Reply-To: <1278764938-9417-1-git-send-email-segooon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-07-12 at 07:23 -0700, Eric W. Biederman wrote:
-
-> > It'll probably work, but anything in userspace relying on it will fail,
-> > and you'll have some unused virtual devices in sysfs?
+On Sat, Jul 10, 2010 at 05:28:57AM -0700, Kulikov Vasiliy wrote:
+> We must free priv->eeprom allocated in adm8211_read_eeprom().
 > 
-> Well anything in userspace that isn't mac80211_hwsim specific will
-> likely already fail because the format of the link is different for
-> mac80211_hwsim then for every other wireless device.
+> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 
-Well, I seem to have a vague memory of network-manager for example
-requiring the link but not really caring much what it is, but I might
-remember something else that wasn't hwsim related.
+Acked-by: Luis R. Rodriguez <lrodriguez@atheros.com>
 
-johannes
+Good catch.
 
+  Luis
