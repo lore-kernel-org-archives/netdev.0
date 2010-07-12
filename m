@@ -1,46 +1,47 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 33/36] net/sunrpc: Remove unnecessary casts of private_data
-Date: Mon, 12 Jul 2010 13:50:25 -0700
-Message-ID: <08a3bf26a7a95d9e89662bd4cd00ddccadcd1636.1278967121.git.joe@perches.com>
+Subject: [PATCH 31/36] net/core: Remove unnecessary casts of private_data
+Date: Mon, 12 Jul 2010 13:50:23 -0700
+Message-ID: <217e404708d336ed1ad3254c5ea6626ee94b6a3d.1278967121.git.joe@perches.com>
 References: <cover.1278967120.git.joe@perches.com>
 Cc: linux-kernel@vger.kernel.org,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1799 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755106Ab0GLUvH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jul 2010 16:51:07 -0400
 In-Reply-To: <cover.1278967120.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/sunrpc/rpc_pipe.c |    4 ++--
+ net/core/pktgen.c |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 95ccbcf..1f7fc50 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -204,7 +204,7 @@ rpc_pipe_release(struct inode *inode, struct file *filp)
- 	mutex_lock(&inode->i_mutex);
- 	if (rpci->ops == NULL)
- 		goto out;
--	msg = (struct rpc_pipe_msg *)filp->private_data;
-+	msg = filp->private_data;
- 	if (msg != NULL) {
- 		spin_lock(&inode->i_lock);
- 		msg->errno = -EAGAIN;
-@@ -322,7 +322,7 @@ rpc_pipe_ioctl_unlocked(struct file *filp, unsigned int cmd, unsigned long arg)
- 		len = rpci->pipelen;
- 		if (filp->private_data) {
- 			struct rpc_pipe_msg *msg;
--			msg = (struct rpc_pipe_msg *)filp->private_data;
-+			msg = filp->private_data;
- 			len += msg->len - msg->copied;
- 		}
- 		return put_user(len, (int __user *)arg);
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 1ee2ebd..24a19de 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -846,7 +846,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 			       const char __user * user_buffer, size_t count,
+ 			       loff_t * offset)
+ {
+-	struct seq_file *seq = (struct seq_file *)file->private_data;
++	struct seq_file *seq = file->private_data;
+ 	struct pktgen_dev *pkt_dev = seq->private;
+ 	int i = 0, max, len;
+ 	char name[16], valstr[32];
+@@ -1776,7 +1776,7 @@ static ssize_t pktgen_thread_write(struct file *file,
+ 				   const char __user * user_buffer,
+ 				   size_t count, loff_t * offset)
+ {
+-	struct seq_file *seq = (struct seq_file *)file->private_data;
++	struct seq_file *seq = file->private_data;
+ 	struct pktgen_thread *t = seq->private;
+ 	int i = 0, max, len, ret;
+ 	char name[40];
 -- 
 1.7.1.337.g6068.dirty
+
