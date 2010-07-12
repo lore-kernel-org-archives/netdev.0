@@ -1,60 +1,31 @@
-From: Felipe W Damasio <felipewd@gmail.com>
-Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
-Date: Mon, 12 Jul 2010 15:49:41 -0300
-Message-ID: <AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
-References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
-	<AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
-	<1278626921.2435.73.camel@edumazet-laptop>
-	<AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
-	<1278695580.2696.55.camel@edumazet-laptop>
-	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
-	<1278742649.2538.17.camel@edumazet-laptop>
-	<4C395459.6080407@redhat.com>
-	<1278835332.2538.51.camel@edumazet-laptop>
-	<AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 linux-2.6.35-rc3] ks8842 driver
+Date: Mon, 12 Jul 2010 12:56:11 -0700 (PDT)
+Message-ID: <20100712.125611.71576310.davem@davemloft.net>
+References: <20100708.214101.39178389.davem@davemloft.net>
+	<20100709060808.GA20370@verge.net.au>
+	<C43529A246480145B0A6D0234BDB0F0D0212A5@MELANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, netdev@vger.kernel.org, Charles.Li@Micrel.Com
+To: David.Choi@Micrel.Com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39266
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752791Ab0GLTz4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 15:55:56 -0400
+In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D0212A5@MELANITE.micrel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Mr. Dumazet,
+From: "Choi, David" <David.Choi@Micrel.Com>
+Date: Fri, 9 Jul 2010 14:22:35 -0700
 
-2010/7/11 Felipe W Damasio <felipewd@gmail.com>:
-> We're using eth1 facing the user and eth2 facing the internet.
+> I change the ks8842 driver so that the platform private data is used to pass
+> different parameters like selection of 16/32bit, as suggested.
 
-Here's the result using ethtool-2.6.34:
+This looks good, could you submit this formally with a proper full
+commit message and signoff?
 
-./ethtool -k eth1
-
-Offload parameters for eth1:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp-segmentation-offload: on
-udp-fragmentation-offload: off
-generic-segmentation-offload: on
-generic-receive-offload: off
-large-receive-offload: off
-ntuple-filters: off
-receive-hashing: off
-
-
-./ethtool -k eth2
-
-Offload parameters for eth2:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp-segmentation-offload: on
-udp-fragmentation-offload: off
-generic-segmentation-offload: on
-generic-receive-offload: off
-large-receive-offload: off
-ntuple-filters: off
-receive-hashing: off
+THanks!
