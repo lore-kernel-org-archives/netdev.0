@@ -1,29 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net/ipv4: EXPORT_SYMBOL cleanups
-Date: Mon, 12 Jul 2010 12:58:11 -0700 (PDT)
-Message-ID: <20100712.125811.123990117.davem@davemloft.net>
-References: <1278746530.2538.41.camel@edumazet-laptop>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch] 9p: strlen() doesn't count the terminator
+Date: Mon, 12 Jul 2010 13:04:58 -0700
+Message-ID: <20100712130458.bb8ae751.akpm@linux-foundation.org>
+References: <20100710095154.GU19184@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37198
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752784Ab0GLT54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 15:57:56 -0400
-In-Reply-To: <1278746530.2538.41.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Van Hensbergen <ericvh@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Abhishek Kulkarni <adkulkar@umail.iu.edu>,
+	Venkateswararao Jujjuri <jvrao@us.ibm.com>,
+	linux-kernel@vger.kernel.org,
+	Tilman Sauerbeck <tilman@code-monkey.de>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100710095154.GU19184@bicker>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 10 Jul 2010 09:22:10 +0200
+On Sat, 10 Jul 2010 11:51:54 +0200
+Dan Carpenter <error27@gmail.com> wrote:
 
-> CodingStyle cleanups
+> This is an off by one bug because strlen() doesn't count the NULL
+> terminator.  We strcpy() addr into a fixed length array of size
+> UNIX_PATH_MAX later on.
 > 
-> EXPORT_SYMBOL should immediately follow the symbol declaration.
+> The addr variable is the name of the device being mounted.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: stable@kernel.org
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> 
+> diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
+> index 98ce9bc..c85109d 100644
+> --- a/net/9p/trans_fd.c
+> +++ b/net/9p/trans_fd.c
+> @@ -948,7 +948,7 @@ p9_fd_create_unix(struct p9_client *client, const char *addr, char *args)
+>  
+>  	csocket = NULL;
+>  
+> -	if (strlen(addr) > UNIX_PATH_MAX) {
+> +	if (strlen(addr) >= UNIX_PATH_MAX) {
+>  		P9_EPRINTK(KERN_ERR, "p9_trans_unix: address too long: %s\n",
+>  			addr);
+>  		return -ENAMETOOLONG;
 
-Applied.
+This bug doesn't strike me as serious enough to warrant backporting the fix
+into -stable.  What was your thinking there?
