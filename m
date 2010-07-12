@@ -1,92 +1,74 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2010-07-12
-Date: Mon, 12 Jul 2010 16:16:38 -0400
-Message-ID: <20100712201637.GD2442@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 32/36] net/irda: Remove unnecessary casts of private_data
+Date: Mon, 12 Jul 2010 13:50:24 -0700
+Message-ID: <0f791bb0d02971908720f0d09b4d8ff9140bb6d0.1278967121.git.joe@perches.com>
+References: <cover.1278967120.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1800 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755109Ab0GLUvI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jul 2010 16:51:08 -0400
+In-Reply-To: <cover.1278967120.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
-
-Here are a couple of small fixes for resource leaks in 2.6.35.
-
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
+ net/irda/irnet/irnet_ppp.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-The following changes since commit 17c99297212a2d1b1779a08caf4b0d83a85545df:
-
-  r8169: incorrect identifier for a 8168dp (2010-07-11 17:10:09 -0700)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Rajkumar Manoharan (1):
-      ath9k_htc: fix memory leak in ath9k_hif_usb_alloc_urbs
-
-Reinette Chatre (1):
-      iwlwifi: remove key information during device restart
-
- drivers/net/wireless/ath/ath9k/hif_usb.c |    8 ++++++--
- drivers/net/wireless/iwlwifi/iwl-sta.h   |   11 +++++++++++
- 2 files changed, 17 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
-index 77b3591..23c15aa 100644
---- a/drivers/net/wireless/ath/ath9k/hif_usb.c
-+++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-@@ -730,13 +730,17 @@ static int ath9k_hif_usb_alloc_urbs(struct hif_device_usb *hif_dev)
+diff --git a/net/irda/irnet/irnet_ppp.c b/net/irda/irnet/irnet_ppp.c
+index 6a1a202..800bc53 100644
+--- a/net/irda/irnet/irnet_ppp.c
++++ b/net/irda/irnet/irnet_ppp.c
+@@ -527,7 +527,7 @@ static int
+ dev_irnet_close(struct inode *	inode,
+ 		struct file *	file)
+ {
+-  irnet_socket *	ap = (struct irnet_socket *) file->private_data;
++  irnet_socket *	ap = file->private_data;
  
- 	/* RX */
- 	if (ath9k_hif_usb_alloc_rx_urbs(hif_dev) < 0)
--		goto err;
-+		goto err_rx;
+   DENTER(FS_TRACE, "(file=0x%p, ap=0x%p)\n",
+ 	 file, ap);
+@@ -564,7 +564,7 @@ dev_irnet_write(struct file *	file,
+ 		size_t		count,
+ 		loff_t *	ppos)
+ {
+-  irnet_socket *	ap = (struct irnet_socket *) file->private_data;
++  irnet_socket *	ap = file->private_data;
  
- 	/* Register Read */
- 	if (ath9k_hif_usb_alloc_reg_in_urb(hif_dev) < 0)
--		goto err;
-+		goto err_reg;
+   DPASS(FS_TRACE, "(file=0x%p, ap=0x%p, count=%Zd)\n",
+ 	file, ap, count);
+@@ -588,7 +588,7 @@ dev_irnet_read(struct file *	file,
+ 	       size_t		count,
+ 	       loff_t *		ppos)
+ {
+-  irnet_socket *	ap = (struct irnet_socket *) file->private_data;
++  irnet_socket *	ap = file->private_data;
  
- 	return 0;
-+err_reg:
-+	ath9k_hif_usb_dealloc_rx_urbs(hif_dev);
-+err_rx:
-+	ath9k_hif_usb_dealloc_tx_urbs(hif_dev);
- err:
- 	return -ENOMEM;
- }
-diff --git a/drivers/net/wireless/iwlwifi/iwl-sta.h b/drivers/net/wireless/iwlwifi/iwl-sta.h
-index c2a453a..dc43ebd 100644
---- a/drivers/net/wireless/iwlwifi/iwl-sta.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-sta.h
-@@ -97,6 +97,17 @@ static inline void iwl_clear_driver_stations(struct iwl_priv *priv)
- 	spin_lock_irqsave(&priv->sta_lock, flags);
- 	memset(priv->stations, 0, sizeof(priv->stations));
- 	priv->num_stations = 0;
-+
-+	/*
-+	 * Remove all key information that is not stored as part of station
-+	 * information since mac80211 may not have had a
-+	 * chance to remove all the keys. When device is reconfigured by
-+	 * mac80211 after an error all keys will be reconfigured.
-+	 */
-+	priv->ucode_key_table = 0;
-+	priv->key_mapping_key = 0;
-+	memset(priv->wep_keys, 0, sizeof(priv->wep_keys));
-+
- 	spin_unlock_irqrestore(&priv->sta_lock, flags);
- }
+   DPASS(FS_TRACE, "(file=0x%p, ap=0x%p, count=%Zd)\n",
+ 	file, ap, count);
+@@ -609,7 +609,7 @@ static unsigned int
+ dev_irnet_poll(struct file *	file,
+ 	       poll_table *	wait)
+ {
+-  irnet_socket *	ap = (struct irnet_socket *) file->private_data;
++  irnet_socket *	ap = file->private_data;
+   unsigned int		mask;
  
+   DENTER(FS_TRACE, "(file=0x%p, ap=0x%p)\n",
+@@ -638,7 +638,7 @@ dev_irnet_ioctl(
+ 		unsigned int	cmd,
+ 		unsigned long	arg)
+ {
+-  irnet_socket *	ap = (struct irnet_socket *) file->private_data;
++  irnet_socket *	ap = file->private_data;
+   int			err;
+   int			val;
+   void __user *argp = (void __user *)arg;
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+1.7.1.337.g6068.dirty
+
