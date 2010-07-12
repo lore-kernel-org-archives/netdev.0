@@ -1,79 +1,48 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH v2] depca: fix leaks in depca_module_init()
-Date: Mon, 12 Jul 2010 18:52:33 +0400
-Message-ID: <20100712145233.GA30504@albatros>
-References: <1278678986-7725-1-git-send-email-segooon@gmail.com>
- <20100711.181300.58435799.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: enable rx/tx in sky2_phy_reinit()
+Date: Mon, 12 Jul 2010 08:48:54 -0700
+Message-ID: <20100712084854.7e4f2e4d@nehalam>
+References: <20100617022158.GA4135@jenkins.ifup.org>
+	<AANLkTilzHA_URoZONtMf6A9-IRV4wA2ncr0b8Jff1ge9@mail.gmail.com>
+	<20100623170008.GN14143@jenkins.ifup.org>
+	<20100712110410.GA13679@chota.scz.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org, jpirko@redhat.com,
-	joe@perches.com, shemminger@vyatta.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Mike McCormack <mikem@ring3k.org>
+To: Brandon Philips <brandon@ifup.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:59794 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755814Ab0GLOxD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 10:53:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20100711.181300.58435799.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:51809 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756117Ab0GLPtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 11:49:18 -0400
+In-Reply-To: <20100712110410.GA13679@chota.scz.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since some of xxx_register_driver() can return error we must unregister
-already registered drivers.
+On Mon, 12 Jul 2010 04:04:10 -0700
+Brandon Philips <brandon@ifup.org> wrote:
 
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
----
- drivers/net/depca.c |   29 +++++++++++++++++++++++------
- 1 files changed, 23 insertions(+), 6 deletions(-)
+> On 10:00 Wed 23 Jun 2010, Brandon Philips wrote:
+> > While testing this I just noticed that if I turn off speed autoneg the
+> > interface stops sending packets until I turn off pause autoneg too.
+> > 
+> > To illustrate start pinging some machine and run this:
+> > 
+> >  $ ethtool --change eth0 speed 100 duplex full autoneg off
+> >  # At this point the ping stops
+> > 
+> >  $ ethtool -A eth0 autoneg off
+> >  # Ping starts up again
+> > 
+> > When I tried capturing packets nothing was coming from the device.
+> > 
+> > 0ea065e52eb6a0f029b5fa5ed2f142be1b66a153 implemeneted the behaviour of
+> > having seperate pause and speed ethtool controls for sky2. Reverting
+> > this (see quick ugly revert below) obviously fixes the issue.
+> > 
+> > Any ideas on how to fix this in a proper way though?
 
-diff --git a/drivers/net/depca.c b/drivers/net/depca.c
-index bf66e9b..44c0694 100644
---- a/drivers/net/depca.c
-+++ b/drivers/net/depca.c
-@@ -2061,18 +2061,35 @@ static int depca_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 
- static int __init depca_module_init (void)
- {
--        int err = 0;
-+	int err = 0;
- 
- #ifdef CONFIG_MCA
--        err = mca_register_driver (&depca_mca_driver);
-+	err = mca_register_driver(&depca_mca_driver);
-+	if (err)
-+		goto err;
- #endif
- #ifdef CONFIG_EISA
--        err |= eisa_driver_register (&depca_eisa_driver);
-+	err = eisa_driver_register(&depca_eisa_driver);
-+	if (err)
-+		goto err_mca;
- #endif
--	err |= platform_driver_register (&depca_isa_driver);
--	depca_platform_probe ();
-+	err = platform_driver_register(&depca_isa_driver);
-+	if (err)
-+		goto err_eisa;
- 
--        return err;
-+	depca_platform_probe();
-+	return 0;
-+
-+err_eisa:
-+#ifdef CONFIG_EISA
-+	eisa_driver_unregister(&depca_eisa_driver);
-+err_mca:
-+#endif
-+#ifdef CONFIG_MCA
-+	mca_unregister_driver(&depca_mca_driver);
-+err:
-+#endif
-+	return err;
- }
- 
- static void __exit depca_module_exit (void)
--- 
-1.7.0.4
-
+No quick ideas; try doing walkthrough with debugging to see what PHY
+interrupt status is.
