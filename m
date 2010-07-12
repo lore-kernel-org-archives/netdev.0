@@ -1,50 +1,54 @@
-From: Jon Smirl <jonsmirl@gmail.com>
-Subject: USB attached microcontroller with net interface
-Date: Mon, 12 Jul 2010 09:55:20 -0400
-Message-ID: <AANLkTilFk5FJENjQ-mafUeqvs9V4zcxhY-PEW3mcCcYK@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][PATCH] mac80211_hwsim: No parent is better than an illegimate one.
+Date: Mon, 12 Jul 2010 07:23:09 -0700
+Message-ID: <m11vb8u6cy.fsf@fess.ebiederm.org>
+References: <bug-16257-10286@https.bugzilla.kernel.org/>
+	<20100621150826.762ac9f2.akpm@linux-foundation.org>
+	<m1mxuodo0n.fsf@fess.ebiederm.org> <20100621222938.GA20583@suse.de>
+	<m1eig0dmhk.fsf@fess.ebiederm.org> <20100621231058.GA1066@suse.de>
+	<m14ogwc4ou.fsf@fess.ebiederm.org> <20100622035631.GA3755@suse.de>
+	<m1630q7x5v.fsf_-_@fess.ebiederm.org>
+	<m1zky26iaw.fsf_-_@fess.ebiederm.org>
+	<1278917200.3667.1.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>,
+	Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>,
+	"Greg KH \<gregkh\@suse.de\> netdev" <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:40819 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753355Ab0GLNzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 09:55:21 -0400
-Received: by qwh6 with SMTP id 6so1314721qwh.19
-        for <netdev@vger.kernel.org>; Mon, 12 Jul 2010 06:55:20 -0700 (PDT)
+Received: from out01.mta.xmission.com ([166.70.13.231]:57929 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754359Ab0GLOXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 10:23:33 -0400
+In-Reply-To: <1278917200.3667.1.camel@jlt3.sipsolutions.net> (Johannes Berg's message of "Mon\, 12 Jul 2010 08\:46\:40 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a USB stick with a microcontroller and a 802.15.4 radio on it.
-The USB stick is fixed as a standard USB serial device by the hardware
-but the device has a unique USB ID. What is the best strategy for
-integrating this stick into Linux?
+Johannes Berg <johannes@sipsolutions.net> writes:
 
-One option is the linux-zigbee model. The microcontroller runs a small
-program which implements a private serial line protocol. On the Linux
-side there is a device driver that understands this protocol and
-implements a net device. The serial line protocol is implemented as a
-line discipline - which requires a user space component to hold the
-ttyUSBx device open. The protocol passes things like send packet,
-receive packet, etc.. This implies that the 6lowpan/RPL support in
-Linux gets finished.
+> On Thu, 2010-07-08 at 09:37 -0700, Eric W. Biederman wrote:
+>> Don't call SET_IEEE80211_DEV.  This weakens the connections between
+>> the phy files in sysfs slightly but otherwise it makes the driver work
+>> in the face of tagged sysfs support.
+>> 
+>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+>> ---
+>> 
+>> Johannes does this change look usable?
+>
+> It'll probably work, but anything in userspace relying on it will fail,
+> and you'll have some unused virtual devices in sysfs?
 
-Second option is to run TCP in the microcontroller. This model has
-already been implemented in Contiki (a small OS for microcontrollers).
-Contiki supports two network interfaces - SLIP and radio. It routes
-everything between the interfaces. 6lowpan/RPL are running on the
-microcontroller.  After you plug the device in you use ldattach on
-ttyUSBx to get SLIP running over the USB serial port.
+Well anything in userspace that isn't mac80211_hwsim specific will
+likely already fail because the format of the link is different for
+mac80211_hwsim then for every other wireless device.
 
-The 802.15.4 nets are running IPv6. A complicating factor is routing.
-Say you have a building covered by a 802.15.4 RPL mesh. Now you plug
-802.15.4 USB sticks into some PCs and create multiple gateways into
-the RPL network. You want to use the closest gateway since mesh hops
-are quite slow.
+> Not too keen on it, but if we really can't fix it ....
 
-Is there another, better option? I'd like to get this working without
-requiring a user space component.
+Perhaps.  I'm not familiar enough with the details of the device layer
+to promise an eta on anything like that.
 
--- 
-Jon Smirl
-jonsmirl@gmail.com
+Eric
