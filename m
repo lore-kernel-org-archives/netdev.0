@@ -1,26 +1,45 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH net-next] cxgb4vf: fix TX Queue restart
-Date: Mon, 12 Jul 2010 14:51:15 -0700
-Message-ID: <201007121451.15482.leedom@chelsio.com>
-References: <201007121443.09841.leedom@chelsio.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [patch] 9p: strlen() doesn't count the terminator
+Date: Mon, 12 Jul 2010 23:51:01 +0200
+Message-ID: <20100712215101.GG5658@bicker>
+References: <20100710095154.GU19184@bicker> <20100712130458.bb8ae751.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:17546 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753467Ab0GLVvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 17:51:16 -0400
-Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o6CLpGLe031553
-	for <netdev@vger.kernel.org>; Mon, 12 Jul 2010 14:51:16 -0700
-In-Reply-To: <201007121443.09841.leedom@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Van Hensbergen <ericvh@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Abhishek Kulkarni <adkulkar@umail.iu.edu>,
+	Venkateswararao Jujjuri <jvrao@us.ibm.com>,
+	linux-kernel@vger.kernel.org,
+	Tilman Sauerbeck <tilman@code-monkey.de>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100712130458.bb8ae751.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  Please drop the previous patch.  My nacscent efforts at getting correctly 
-formatted patches out have failed yet again.  I missed the "Signed-off-by" (sigh)
+On Mon, Jul 12, 2010 at 01:04:58PM -0700, Andrew Morton wrote:
+> > diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
+> > index 98ce9bc..c85109d 100644
+> > --- a/net/9p/trans_fd.c
+> > +++ b/net/9p/trans_fd.c
+> > @@ -948,7 +948,7 @@ p9_fd_create_unix(struct p9_client *client, const char *addr, char *args)
+> >  
+> >  	csocket = NULL;
+> >  
+> > -	if (strlen(addr) > UNIX_PATH_MAX) {
+> > +	if (strlen(addr) >= UNIX_PATH_MAX) {
+> >  		P9_EPRINTK(KERN_ERR, "p9_trans_unix: address too long: %s\n",
+> >  			addr);
+> >  		return -ENAMETOOLONG;
+> 
+> This bug doesn't strike me as serious enough to warrant backporting the fix
+> into -stable.  What was your thinking there?
 
-Casey
+I don't feel strongly about it.  It's safe enough and it applies
+cleanly.  On the other hand, root should always control the name of the
+device to mount so it's not a big deal.
+
+regards,
+dan carpenter
