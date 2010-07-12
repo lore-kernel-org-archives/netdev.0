@@ -1,188 +1,101 @@
-From: Brandon Philips <brandon@ifup.org>
-Subject: Re: [PATCH] sky2: enable rx/tx in sky2_phy_reinit()
-Date: Mon, 12 Jul 2010 04:04:10 -0700
-Message-ID: <20100712110410.GA13679@chota.scz.novell.com>
-References: <20100617022158.GA4135@jenkins.ifup.org>
- <AANLkTilzHA_URoZONtMf6A9-IRV4wA2ncr0b8Jff1ge9@mail.gmail.com>
- <20100623170008.GN14143@jenkins.ifup.org>
+From: Yanko Kaneti <yaneti@declera.com>
+Subject: [REGRESSION] 2.6.35-rc crash in br_deliver  (netpoll related)
+Date: Mon, 12 Jul 2010 15:54:49 +0300
+Message-ID: <1278939289.3557.15.camel@d2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Mike McCormack <mikem@ring3k.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omnifario.us ([198.145.64.139]:58640 "EHLO ifup.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751793Ab0GLLNx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jul 2010 07:13:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20100623170008.GN14143@jenkins.ifup.org>
+Received: from indigo.declera.com ([212.116.131.21]:51296 "HELO
+	indigo.declera.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754061Ab0GLMxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 08:53:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10:00 Wed 23 Jun 2010, Brandon Philips wrote:
-> While testing this I just noticed that if I turn off speed autoneg the
-> interface stops sending packets until I turn off pause autoneg too.
-> 
-> To illustrate start pinging some machine and run this:
-> 
->  $ ethtool --change eth0 speed 100 duplex full autoneg off
->  # At this point the ping stops
-> 
->  $ ethtool -A eth0 autoneg off
->  # Ping starts up again
-> 
-> When I tried capturing packets nothing was coming from the device.
-> 
-> 0ea065e52eb6a0f029b5fa5ed2f142be1b66a153 implemeneted the behaviour of
-> having seperate pause and speed ethtool controls for sky2. Reverting
-> this (see quick ugly revert below) obviously fixes the issue.
-> 
-> Any ideas on how to fix this in a proper way though?
+This is quite reliably reproducible in Fedora rawhide acting as a host
+for a kvm guest Fedora 13 netinstall (over libvirt created bridged vm
+network). Its not reproducible with the same scenario on any of the
+2.6.34 fedora kernels.
 
-Hello Stephen-
+In a brief experiment I tried pulling the netpoll/bridge fixes from
+Herbert Xu http://www.spinics.net/lists/netdev/msg132556.html from
+net-next along with nearby patches to make it apply/build. The crash was
+gone but there were some new warnings 
+WARNING: at kernel/softirq.c:88 __local_bh_disable+0x42/0xbe()
+perhaps I didn't pull all the related rcu fixes..
 
-Any ideas on how to fix this properly?
+general protection fault: 0000 [#1] SMP 
+last sysfs file: /sys/devices/platform/it87.552/temp3_input
+CPU 3 
+Modules linked in: tun nfs lockd fscache nfs_acl auth_rpcgss sunrpc fuse pppoe pppox ppp_synctty ppp_async crc_ccitt ppp_generic slhc ip6table_filter ip6_tables ebtable_nat ebtables bridge it87 hwmon_vid 8021q garp stp llc ipv6 nf_conntrack_netbios_ns ipt_MASQUERADE iptable_nat nf_nat xt_physdev kvm_amd kvm uinput snd_hda_codec_atihdmi snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm snd_timer snd soundcore snd_page_alloc ppdev parport_pc i2c_piix4 parport shpchp edac_core k10temp edac_mce_amd wmi raid1 ata_generic pata_acpi usb_storage 3c59x firewire_ohci firewire_core crc_itu_t tulip pata_atiixp r8169 mii radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded: scsi_wait_scan]
 
-Thanks,
+Pid: 3278, comm: qemu-kvm Not tainted 2.6.35-0.31.rc4.git4.fc14.x86_64 #1 GA-MA78GM-S2H/GA-MA78GM-S2H
+RIP: 0010:[<ffffffffa0394529>]  [<ffffffffa0394529>] __br_deliver+0x82/0xa2 [bridge]
+RSP: 0018:ffff880003203b30  EFLAGS: 00010246
+RAX: 6b6b6b6b6b6b6b6b RBX: ffff8801cf8caf00 RCX: 0000000000000000
+RDX: ffff8802045330e0 RSI: ffff88020133a168 RDI: ffffffff80000000
+RBP: ffff880003203b40 R08: ffff8802077d07a0 R09: ffff8800032039b0
+R10: ffff8802045330e0 R11: ffff8801cf8caf00 R12: ffff880220c6a9e0
+R13: ffff8801cf8caf28 R14: ffff88020133a168 R15: ffff880220e6bbd8
+FS:  00007f08fb362700(0000) GS:ffff880003200000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000ffedd0 CR3: 0000000201163000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process qemu-kvm (pid: 3278, threadinfo ffff8802013c4000, task ffff8801fdd38000)
+Stack:
+ ffff8801cf8caf00 ffff880220c6a9e0 ffff880003203b50 ffffffffa03945e5
+<0> ffff880003203b80 ffffffffa0393561 ffff8801cf8caf00 ffff880220c6a060
+<0> ffff880220c6a060 ffff880220e6bbd8 ffff880003203bd0 ffffffff813e85a0
+Call Trace:
+ <IRQ> 
+ [<ffffffffa03945e5>] br_deliver+0x27/0x33 [bridge]
+ [<ffffffffa0393561>] br_dev_xmit+0x10a/0x122 [bridge]
+ [<ffffffff813e85a0>] dev_hard_start_xmit+0x237/0x30e
+ [<ffffffff813e89e3>] dev_queue_xmit+0x36c/0x434
+ [<ffffffff813e8751>] ? dev_queue_xmit+0xda/0x434
+ [<ffffffff81408aba>] ? nf_hook_slow+0xd1/0xe3
+ [<ffffffff8141d438>] ? ip_finish_output+0x0/0x71
+ [<ffffffff8141d3f5>] ip_finish_output2+0x1df/0x222
+ [<ffffffff8141d4a4>] ip_finish_output+0x6c/0x71
+ [<ffffffff8141dd29>] ip_output+0x96/0x9a
+ [<ffffffff8141b318>] ip_forward_finish+0x4e/0x53
+ [<ffffffff8141b5fb>] ip_forward+0x2de/0x34b
+ [<ffffffff814198bd>] ? rcu_read_lock_held+0xe/0x27
+ [<ffffffff81419d25>] ip_rcv_finish+0x387/0x3b9
+ [<ffffffff8141999e>] ? ip_rcv_finish+0x0/0x3b9
+ [<ffffffff8141a026>] NF_HOOK.clone.6+0x51/0x59
+ [<ffffffff8141a3c6>] ip_rcv+0x21f/0x24d
+ [<ffffffff813e4df8>] __netif_receive_skb+0x470/0x49a
+ [<ffffffff813e6724>] process_backlog+0x99/0x17b
+ [<ffffffff813e68b7>] net_rx_action+0xb1/0x1f5
+ [<ffffffff8107ae11>] ? print_lock_contention_bug+0x1b/0xd5
+ [<ffffffff8100abdc>] ? call_softirq+0x1c/0x30
+ [<ffffffff81056660>] __do_softirq+0xfa/0x1cf
+ [<ffffffff8107d358>] ? lock_release+0x19a/0x1a6
+ [<ffffffff8100abdc>] call_softirq+0x1c/0x30
+ [<ffffffff8100c375>] do_softirq+0x4b/0xa2
+ [<ffffffff81056806>] irq_exit+0x4a/0x8c
+ [<ffffffff8149d6c5>] do_IRQ+0x9d/0xb4
+ [<ffffffff81497853>] ret_from_intr+0x0/0x16
+ <EOI> 
+ [<ffffffffa0319044>] ? kvm_arch_vcpu_ioctl_run+0x7a5/0xadd [kvm]
+ [<ffffffffa030cc31>] ? raw_local_irq_enable+0xd/0x12 [kvm]
+ [<ffffffff8107d886>] ? trace_hardirqs_on+0xd/0xf
+ [<ffffffffa0319049>] kvm_arch_vcpu_ioctl_run+0x7aa/0xadd [kvm]
+ [<ffffffffa0306320>] kvm_vcpu_ioctl+0x103/0x5d7 [kvm]
+ [<ffffffff81081e40>] ? do_futex+0x7c0/0x895
+ [<ffffffff81128174>] ? generic_file_llseek+0x2f/0x60
+ [<ffffffff81135cd4>] vfs_ioctl+0x36/0xa7
+ [<ffffffff8113664d>] do_vfs_ioctl+0x47c/0x4af
+ [<ffffffff8107d358>] ? lock_release+0x19a/0x1a6
+ [<ffffffff8112931a>] ? rcu_read_unlock+0x21/0x23
+ [<ffffffff811366d6>] sys_ioctl+0x56/0x7c
+ [<ffffffff81009c72>] system_call_fastpath+0x16/0x1b
+Code: 66 81 88 7e 01 00 00 00 10 48 8b 4f 08 31 d2 49 c7 c0 82 44 39 a0 48 89 de bf 03 00 00 00 48 89 4b 20 e8 04 ff ff ff 48 8b 43 20 <48> 8b 80 08 05 00 00 48 85 c0 74 0f 48 8b 80 d0 01 00 00 49 8b 
+...
 
-	Brandon
 
-> From 8de50faa1911933dc545f663a24f32d0caeea3b4 Mon Sep 17 00:00:00 2001
-> From: Brandon Philips <brandon@ifup.org>
-> Date: Wed, 23 Jun 2010 09:56:20 -0700
-> Subject: [PATCH] sky2: revert "fix pause negotiation"
-> 
-> Revert 0ea065e52eb6a0f029b5fa5ed2f142be1b66a153
-> ---
->  drivers/net/sky2.c |   31 ++++++++++++-------------------
->  drivers/net/sky2.h |    2 ++
->  2 files changed, 14 insertions(+), 19 deletions(-)
-> 
-> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-> index 7985165..a638171 100644
-> --- a/drivers/net/sky2.c
-> +++ b/drivers/net/sky2.c
-> @@ -333,7 +333,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
->  	struct sky2_port *sky2 = netdev_priv(hw->dev[port]);
->  	u16 ctrl, ct1000, adv, pg, ledctrl, ledover, reg;
->  
-> -	if ( (sky2->flags & SKY2_FLAG_AUTO_SPEED) &&
-> +	if (sky2->autoneg == AUTONEG_ENABLE &&
->  	    !(hw->flags & SKY2_HW_NEWER_PHY)) {
->  		u16 ectrl = gm_phy_read(hw, port, PHY_MARV_EXT_CTRL);
->  
-> @@ -375,7 +375,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
->  			ctrl |= PHY_M_PC_MDI_XMODE(PHY_M_PC_ENA_AUTO);
->  
->  			/* downshift on PHY 88E1112 and 88E1149 is changed */
-> -			if ( (sky2->flags & SKY2_FLAG_AUTO_SPEED) &&
-> +			if (sky2->autoneg == AUTONEG_ENABLE &&
->  			     (hw->flags & SKY2_HW_NEWER_PHY)) {
->  				/* set downshift counter to 3x and enable downshift */
->  				ctrl &= ~PHY_M_PC_DSC_MSK;
-> @@ -420,7 +420,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
->  	adv = PHY_AN_CSMA;
->  	reg = 0;
->  
-> -	if (sky2->flags & SKY2_FLAG_AUTO_SPEED) {
-> +	if (sky2->autoneg == AUTONEG_ENABLE) {
->  		if (sky2_is_copper(hw)) {
->  			if (sky2->advertising & ADVERTISED_1000baseT_Full)
->  				ct1000 |= PHY_M_1000C_AFD;
-> @@ -435,11 +435,14 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
->  			if (sky2->advertising & ADVERTISED_10baseT_Half)
->  				adv |= PHY_M_AN_10_HD;
->  
-> +			adv |= copper_fc_adv[sky2->flow_mode];
->  		} else {	/* special defines for FIBER (88E1040S only) */
->  			if (sky2->advertising & ADVERTISED_1000baseT_Full)
->  				adv |= PHY_M_AN_1000X_AFD;
->  			if (sky2->advertising & ADVERTISED_1000baseT_Half)
->  				adv |= PHY_M_AN_1000X_AHD;
-> +
-> +			adv |= fiber_fc_adv[sky2->flow_mode];
->  		}
->  
->  		/* Restart Auto-negotiation */
-> @@ -448,8 +451,8 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
->  		/* forced speed/duplex settings */
->  		ct1000 = PHY_M_1000C_MSE;
->  
-> -		/* Disable auto update for duplex flow control and duplex */
-> -		reg |= GM_GPCR_AU_DUP_DIS | GM_GPCR_AU_SPD_DIS;
-> +		/* Disable auto update for duplex flow control and speed */
-> +		reg |= GM_GPCR_AU_ALL_DIS;
->  
->  		switch (sky2->speed) {
->  		case SPEED_1000:
-> @@ -467,15 +470,8 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
->  			ctrl |= PHY_CT_DUP_MD;
->  		} else if (sky2->speed < SPEED_1000)
->  			sky2->flow_mode = FC_NONE;
-> -	}
->  
-> -	if (sky2->flags & SKY2_FLAG_AUTO_PAUSE) {
-> -		if (sky2_is_copper(hw))
-> -			adv |= copper_fc_adv[sky2->flow_mode];
-> -		else
-> -			adv |= fiber_fc_adv[sky2->flow_mode];
-> -	} else {
-> -		reg |= GM_GPCR_AU_FCT_DIS;
-> +
->   		reg |= gm_fc_disable[sky2->flow_mode];
->  
->  		/* Forward pause packets to GMAC? */
-> @@ -620,8 +616,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
->  		/* no effect on Yukon-XL */
->  		gm_phy_write(hw, port, PHY_MARV_LED_CTRL, ledctrl);
->  
-> -		if (!(sky2->flags & SKY2_FLAG_AUTO_SPEED) ||
-> -		    sky2->speed == SPEED_100) {
-> +		if (sky2->autoneg == AUTONEG_DISABLE || sky2->speed == SPEED_100) {
->  			/* turn on 100 Mbps LED (LED_LINK100) */
->  			ledover |= PHY_M_LED_MO_100(MO_LED_ON);
->  		}
-> @@ -632,7 +627,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
->  	}
->  
->  	/* Enable phy interrupt on auto-negotiation complete (or link up) */
-> -	if (sky2->flags & SKY2_FLAG_AUTO_SPEED)
-> +	if (sky2->autoneg == AUTONEG_ENABLE)
->  		gm_phy_write(hw, port, PHY_MARV_INT_MASK, PHY_M_IS_AN_COMPL);
->  	else
->  		gm_phy_write(hw, port, PHY_MARV_INT_MASK, PHY_M_DEF_MSK);
-> @@ -688,9 +683,7 @@ static void sky2_phy_power_down(struct sky2_hw *hw, unsigned port)
->  
->  	/* setup General Purpose Control Register */
->  	gma_write16(hw, port, GM_GP_CTRL,
-> -		    GM_GPCR_FL_PASS | GM_GPCR_SPEED_100 |
-> -		    GM_GPCR_AU_DUP_DIS | GM_GPCR_AU_FCT_DIS |
-> -		    GM_GPCR_AU_SPD_DIS);
-> +		    GM_GPCR_FL_PASS | GM_GPCR_SPEED_100 | GM_GPCR_AU_ALL_DIS);
->  
->  	if (hw->chip_id != CHIP_ID_YUKON_EC) {
->  		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
-> diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-> index 084eff2..db0b2ad 100644
-> --- a/drivers/net/sky2.h
-> +++ b/drivers/net/sky2.h
-> @@ -1755,6 +1755,7 @@ enum {
->  };
->  
->  #define GM_GPCR_SPEED_1000	(GM_GPCR_GIGS_ENA | GM_GPCR_SPEED_100)
-> +#define GM_GPCR_AU_ALL_DIS	(GM_GPCR_AU_DUP_DIS | GM_GPCR_AU_FCT_DIS|GM_GPCR_AU_SPD_DIS)
->  
->  /*	GM_TX_CTRL			16 bit r/w	Transmit Control Register */
->  enum {
-> @@ -2247,6 +2248,7 @@ struct sky2_port {
->  	u16		     speed;		/* SPEED_1000, SPEED_100, ... */
->  	u8		     wol;		/* WAKE_ bits */
->  	u8		     duplex;		/* DUPLEX_HALF, DUPLEX_FULL */
-> +	u8		     autoneg;	/* AUTONEG_ENABLE, AUTONEG_DISABLE */
->  	u16		     flags;
->  #define SKY2_FLAG_RX_CHECKSUM		0x0001
->  #define SKY2_FLAG_AUTO_SPEED		0x0002
-> -- 
-> 1.7.1
-> 
+
