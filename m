@@ -1,75 +1,60 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
-Date: Mon, 12 Jul 2010 18:56:18 +0300
-Message-ID: <1278950178.17933.2.camel@localhost.localdomain>
-References: <1277659633.2989.2.camel@localhost.localdomain>
-	 <1277659785.4028.1.camel@localhost.localdomain>
-	 <1277660638.3321.1.camel@localhost.localdomain>
-	 <1277660831.3321.3.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
-	 <1277745247.12841.1.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
-	 <1277807529.19417.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
-	 <1277938757.4138.3.camel@localhost.localdomain>
-	 <1278204106.21020.0.camel@localhost.localdomain>
-	 <1278283714.3444.1.camel@localhost.localdomain>
-	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
-	 <1278323885.5277.0.camel@localhost.localdomain>
+From: Felipe W Damasio <felipewd@gmail.com>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Mon, 12 Jul 2010 15:49:41 -0300
+Message-ID: <AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
+References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
+	<AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
+	<1278626921.2435.73.camel@edumazet-laptop>
+	<AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
+	<1278695580.2696.55.camel@edumazet-laptop>
+	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
+	<1278742649.2538.17.camel@edumazet-laptop>
+	<4C395459.6080407@redhat.com>
+	<1278835332.2538.51.camel@edumazet-laptop>
+	<AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:64972 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752997Ab0GLP4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 11:56:24 -0400
-Received: by bwz1 with SMTP id 1so2444049bwz.19
-        for <netdev@vger.kernel.org>; Mon, 12 Jul 2010 08:56:22 -0700 (PDT)
-In-Reply-To: <1278323885.5277.0.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-07-05 at 12:58 +0300, Maxim Levitsky wrote:
-> On Mon, 2010-07-05 at 01:13 -0700, Jeff Kirsher wrote:
-> > On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky <maximlevitsky@gmail.com> wrote:
-> > > Did few guesses, and now I see that reverting the below commit fixes the
-> > > problem.
-> > >
-> > > "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
-> > > e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
-> > >
-> > >
-> > > Best regards,
-> > >        Maxim Levitsky
-> > >
-> > > --
-> > 
-> > Can you give us till Tuesday to respond?  I know that there are some
-> > additional e1000e patches in my queue, which may resolve the issue,
-> > but this weekend the power is down to do some infrastructure upgrades
-> > which prevents us from doing any investigation.debugging until
-> > Tuesday.
-> > 
-> 
-> Sure.
-> 
-> Best regards,
-> 	Maxim Levitsky
-> 
+Hi Mr. Dumazet,
 
-Updates?
+2010/7/11 Felipe W Damasio <felipewd@gmail.com>:
+> We're using eth1 facing the user and eth2 facing the internet.
 
-or 2.6.35 will ship with e0000e ? :-)
+Here's the result using ethtool-2.6.34:
 
-I really have very little time to help further with that for now.
+./ethtool -k eth1
+
+Offload parameters for eth1:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: on
+udp-fragmentation-offload: off
+generic-segmentation-offload: on
+generic-receive-offload: off
+large-receive-offload: off
+ntuple-filters: off
+receive-hashing: off
 
 
-Best regards,
-	Maxim Levitsky
+./ethtool -k eth2
 
+Offload parameters for eth2:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: on
+udp-fragmentation-offload: off
+generic-segmentation-offload: on
+generic-receive-offload: off
+large-receive-offload: off
+ntuple-filters: off
+receive-hashing: off
