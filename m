@@ -1,48 +1,75 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: enable rx/tx in sky2_phy_reinit()
-Date: Mon, 12 Jul 2010 08:48:54 -0700
-Message-ID: <20100712084854.7e4f2e4d@nehalam>
-References: <20100617022158.GA4135@jenkins.ifup.org>
-	<AANLkTilzHA_URoZONtMf6A9-IRV4wA2ncr0b8Jff1ge9@mail.gmail.com>
-	<20100623170008.GN14143@jenkins.ifup.org>
-	<20100712110410.GA13679@chota.scz.novell.com>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
+Date: Mon, 12 Jul 2010 18:56:18 +0300
+Message-ID: <1278950178.17933.2.camel@localhost.localdomain>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	 <1277807529.19417.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	 <1277938757.4138.3.camel@localhost.localdomain>
+	 <1278204106.21020.0.camel@localhost.localdomain>
+	 <1278283714.3444.1.camel@localhost.localdomain>
+	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
+	 <1278323885.5277.0.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Mike McCormack <mikem@ring3k.org>
-To: Brandon Philips <brandon@ifup.org>
+Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:51809 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756117Ab0GLPtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 11:49:18 -0400
-In-Reply-To: <20100712110410.GA13679@chota.scz.novell.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:64972 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752997Ab0GLP4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 11:56:24 -0400
+Received: by bwz1 with SMTP id 1so2444049bwz.19
+        for <netdev@vger.kernel.org>; Mon, 12 Jul 2010 08:56:22 -0700 (PDT)
+In-Reply-To: <1278323885.5277.0.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Jul 2010 04:04:10 -0700
-Brandon Philips <brandon@ifup.org> wrote:
+On Mon, 2010-07-05 at 12:58 +0300, Maxim Levitsky wrote:
+> On Mon, 2010-07-05 at 01:13 -0700, Jeff Kirsher wrote:
+> > On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky <maximlevitsky@gmail.com> wrote:
+> > > Did few guesses, and now I see that reverting the below commit fixes the
+> > > problem.
+> > >
+> > > "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
+> > > e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
+> > >
+> > >
+> > > Best regards,
+> > >        Maxim Levitsky
+> > >
+> > > --
+> > 
+> > Can you give us till Tuesday to respond?  I know that there are some
+> > additional e1000e patches in my queue, which may resolve the issue,
+> > but this weekend the power is down to do some infrastructure upgrades
+> > which prevents us from doing any investigation.debugging until
+> > Tuesday.
+> > 
+> 
+> Sure.
+> 
+> Best regards,
+> 	Maxim Levitsky
+> 
 
-> On 10:00 Wed 23 Jun 2010, Brandon Philips wrote:
-> > While testing this I just noticed that if I turn off speed autoneg the
-> > interface stops sending packets until I turn off pause autoneg too.
-> > 
-> > To illustrate start pinging some machine and run this:
-> > 
-> >  $ ethtool --change eth0 speed 100 duplex full autoneg off
-> >  # At this point the ping stops
-> > 
-> >  $ ethtool -A eth0 autoneg off
-> >  # Ping starts up again
-> > 
-> > When I tried capturing packets nothing was coming from the device.
-> > 
-> > 0ea065e52eb6a0f029b5fa5ed2f142be1b66a153 implemeneted the behaviour of
-> > having seperate pause and speed ethtool controls for sky2. Reverting
-> > this (see quick ugly revert below) obviously fixes the issue.
-> > 
-> > Any ideas on how to fix this in a proper way though?
+Updates?
 
-No quick ideas; try doing walkthrough with debugging to see what PHY
-interrupt status is.
+or 2.6.35 will ship with e0000e ? :-)
+
+I really have very little time to help further with that for now.
+
+
+Best regards,
+	Maxim Levitsky
+
