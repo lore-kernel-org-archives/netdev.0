@@ -1,61 +1,58 @@
-From: Felipe W Damasio <felipewd@gmail.com>
-Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
-Date: Tue, 13 Jul 2010 18:06:52 -0300
-Message-ID: <AANLkTilAHH_qUL481bG7R5lU9jDGK9_364SR-73oHoMb@mail.gmail.com>
-References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
-	<AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
-	<1278626921.2435.73.camel@edumazet-laptop>
-	<AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
-	<1278695580.2696.55.camel@edumazet-laptop>
-	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
-	<1278742649.2538.17.camel@edumazet-laptop>
-	<4C395459.6080407@redhat.com>
-	<1278835332.2538.51.camel@edumazet-laptop>
-	<AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
-	<AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
-	<AANLkTimn9x17g-4K7fS4MjmCgzHuBARurEoFVd_gId7m@mail.gmail.com>
-	<1279032023.2634.384.camel@edumazet-laptop>
-	<AANLkTilrIByt4xAHhsBsKo3nDfv0_c3sF-dCiTiYiPnu@mail.gmail.com>
-	<1279036193.2634.468.camel@edumazet-laptop>
-	<AANLkTilgxvDPpBJvwbw3PHZfXDaa2_6-TbJ8lujz5y3V@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tc35815: fix iomap leak
+Date: Tue, 13 Jul 2010 14:24:28 -0700 (PDT)
+Message-ID: <20100713.142428.193704758.davem@davemloft.net>
+References: <1278756199-4636-1-git-send-email-segooon@gmail.com>
+	<20100713.221428.74744945.anemo@mba.ocn.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTilgxvDPpBJvwbw3PHZfXDaa2_6-TbJ8lujz5y3V@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: segooon@gmail.com, kernel-janitors@vger.kernel.org,
+	jpirko@redhat.com, eric.dumazet@gmail.com, adobriyan@gmail.com,
+	netdev@vger.kernel.org
+To: anemo@mba.ocn.ne.jp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37188
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752035Ab0GMVYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 17:24:13 -0400
+In-Reply-To: <20100713.221428.74744945.anemo@mba.ocn.ne.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Date: Tue, 13 Jul 2010 22:14:28 +0900 (JST)
 
-2010/7/13 Felipe W Damasio <felipewd@gmail.com>:
-> This is the dmesg message:
+> On Sat, 10 Jul 2010 14:03:18 +0400, Kulikov Vasiliy <segooon@gmail.com> wrote:
+>> If tc35815_init_one() fails we must unmap mapped regions.
+>> 
+>> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+>> ---
+>>  drivers/net/tc35815.c |    4 +++-
+>>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> No, pcim_xxx APIs are _managed_ interfaces.  These resources are
+> released automatically.  Actually currently nobody in kernel call
+> pcim_iounmap_regions() now.
+> 
+> And _if_ there is any reason to call pcim_iounmap_regions()
+> explicitly, it should be called in tc35815_remove_one() too.
+> 
+> So, NAK.
 
-This error happened at 17:19:59.
+I've reverted this patch, thanks.
 
-A few seconds earlier, I have these on squid's logs:
+Can someone go over the other similar patches I applied already to
+net-next-2.6 to see if they have the same problem?  If so I'll revert
+them too.
 
-2010/07/13 17:19:50| clientTryParseRequest: FD 1690
-(189.113.65.55:52681) Invalid Request
-2010/07/13 17:19:50| clientTryParseRequest: FD 5056
-(189.113.74.101:2420) Invalid Request
-2010/07/13 17:19:52| clientTryParseRequest: FD 26923
-(189.113.74.101:2419) Invalid Request
-2010/07/13 17:19:57| parseHttpRequest: Unsupported method 'PASS'
-2010/07/13 17:19:57| clientTryParseRequest: FD 17786
-(189.113.69.194:2422) Invalid Request
-2010/07/13 17:19:57| parseHttpRequest: Unsupported method '<D2>Yk'
-2010/07/13 17:19:57| clientTryParseRequest: FD 22554
-(189.113.79.151:4225) Invalid Request
-2010/07/13 17:19:59| httpReadReply: Excess data from "GET
-http://webcs.msg.yahoo.com/crossdomain.xml"
+BTW, I think from one perspective the pcim_*() APIs make it harder to
+audit a driver because resource management is magic and implicit
+rather than explicit.  It adds an extra step to the audit, and I
+don't see any effort being made to do a mass conversion of all
+drivers to pcim_xxx which would be the only way in my mind for this
+to truly make it easier to audit drivers for resource leak problems.
 
- Maybe with these two errors we can create some kind of trigger
-program to help us duplicate this on the lab setup?
-
- Cheers,
-
-Felipe Damasio
+If both driver types (pcim_xxx and non-pcim_xxx) exist, it just means
+more work for auditors as they have oen more thing to check for
+instead of less things.
