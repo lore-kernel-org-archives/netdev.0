@@ -1,59 +1,64 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: IPVS scheduler algorithms (was: [PATCH] ipvs: Kconfig cleanup)
-Date: Tue, 13 Jul 2010 21:29:25 +0900
-Message-ID: <20100713122925.GA8903@verge.net.au>
-References: <1278102728-20217-1-git-send-email-mmarek@suse.cz>
- <20100704070516.GA9437@verge.net.au>
- <20100704071347.GB9437@verge.net.au>
- <4C319B18.10409@trash.net>
- <AANLkTim3FfgxTzQ36YYYA8QG605oNW3skHZlSLKAZcjl@mail.gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: Splice status
+Date: Tue, 13 Jul 2010 20:32:17 +0800
+Message-ID: <AANLkTimRXMivugXHJswrT5FA93PIjSjU-RneFKs1bkLL@mail.gmail.com>
+References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
+	<AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
+	<EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
+	<1278334254.2877.158.camel@edumazet-laptop> <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
+	<1278388580.2466.305.camel@edumazet-laptop> <AANLkTinRnDwMOS5NrmzKqYZpczG4nfHSvKA9Gw-_UUzO@mail.gmail.com>
+	<EE71107DF0D1F24FA2D95041E64AB9E8ED254E7B66@IL-MB01.marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, Michal Marek <mmarek@suse.cz>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Julian Anastasov <ja@ssi.bg>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	linux-kernel@vger.kernel.org
-To: Ismael Luque Valencia <isma.luque@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTim3FfgxTzQ36YYYA8QG605oNW3skHZlSLKAZcjl@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jens Axboe <axboe@kernel.dk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ofer Heifetz <oferh@marvell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:38045 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754787Ab0GMMci convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 08:32:38 -0400
+Received: by vws5 with SMTP id 5so5741210vws.19
+        for <netdev@vger.kernel.org>; Tue, 13 Jul 2010 05:32:37 -0700 (PDT)
+In-Reply-To: <EE71107DF0D1F24FA2D95041E64AB9E8ED254E7B66@IL-MB01.marvell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 11, 2010 at 07:15:21PM -0500, Ismael Luque Valencia wrote:
-> Hi my name is Ismael, I am doing a paper about lvs algorithms but I dont
-> undernstand two of them Locality-Based Least-Connection and Locality-Based
-> Least-Connection with Replication
-> Someone, who can explain me that algorithms please
-> If it is in Spanish will better because my English is not good
+On Tue, Jul 13, 2010 at 7:41 PM, Ofer Heifetz <oferh@marvell.com> wrote=
+:
+> Hi,
+>
+> I wanted to let you know that I have been testing Samba splice on Mar=
+vell 6282 SoC on 2.6.35_rc3 and noticed that it gave worst performance =
+than not using it and also noticed that on re-writing file the iowait i=
+s high.
+>
+> iometer using 2G file (file is created before test)
+>
+> Splice =A0write cpu% iow%
+> -----------------------
+> =A0No =A0 =A0 58 =A0 =A098 =A0 =A00
+> Yes =A0 =A0 14 =A0 100 =A0 48
+>
+> iozone using 2G file (file created during test)
+>
+> Splice =A0write cpu% iow% =A0re-write cpu% iow%
+> -------------------------------------------
+> =A0No =A0 =A0 35 =A0 =A085 =A0 =A04 =A0 =A058.2 =A0 =A0 70 =A0 =A00
+> Yes =A0 =A0 33 =A0 =A085 =A0 =A04 =A0 =A015.7 =A0 =A0100 =A0 58
+>
+> Any clue why splice introduces a high iowait?
+> I noticed samba uses up to 16K per splice syscall, changing the samba=
+ to try more did not help, so I guess it is a kernel limitation.
+>
+> -Ofer
+>
 
-Hi,
+What does the column write means? And what do you mean by saying
+re-write? Thanks.
 
-Firstly, please don't reply to emails unless you are actually
-replying to the topic at hand. Instead just compose a fresh
-message to the people/lists that you want to address.
-This helps keep threads in mail-readers that support them sane.
-
-In any case this question would be better sent to the lvs-users list.
-
-But to your question.
-
-These schedulers are described briefly in the ipvsadm(8) man page
-and in pseudo code in the source files (ip_vs_lblc.c and ip_vs_lblcr.c)
-in the Linux kernel tree. And there is some discussion in the howto
-http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.ipvsadm.html#DH
-
-The way that I think of these schedulers is as enhanced versions of wlc
-designed for use with transparent proxies. That is situations where
-there will be a lot of destination addresses.
-
-lblc works by keeping a cache that associates destination addresses with
-a real server. This allows accesses, potentially from different end-users,
-to be sent to the same real-server. As this is designed to be used
-with proxies, this means the request will be sent to a proxy that may
-have already retrieved the result.
-
-lblcr is similar, but instead of one real-server per destination, it
-allows for multiple real-servers per destination.
-
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
