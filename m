@@ -1,100 +1,82 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
-Date: Tue, 13 Jul 2010 03:38:03 +0300
-Message-ID: <1278981483.23017.4.camel@localhost.localdomain>
-References: <1277659633.2989.2.camel@localhost.localdomain>
-	 <1277659785.4028.1.camel@localhost.localdomain>
-	 <1277660638.3321.1.camel@localhost.localdomain>
-	 <1277660831.3321.3.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
-	 <1277745247.12841.1.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
-	 <1277807529.19417.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
-	 <1277938757.4138.3.camel@localhost.localdomain>
-	 <1278204106.21020.0.camel@localhost.localdomain>
-	 <1278283714.3444.1.camel@localhost.localdomain>
-	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
-	 <1278323885.5277.0.camel@localhost.localdomain>
-	 <1278950178.17933.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+From: "George Spelvin" <linux@horizon.com>
+Subject: Re: [REGRESSION,BISECTED] Panic on ifup
+Date: 12 Jul 2010 21:50:29 -0400
+Message-ID: <20100713015029.2897.qmail@science.horizon.com>
+References: <4C3ABDC3.3000408@iki.fi>
+Cc: davem@davemloft.net, linux@horizon.com, netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:61162 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752978Ab0GMAiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 20:38:08 -0400
-Received: by bwz1 with SMTP id 1so2717484bwz.19
-        for <netdev@vger.kernel.org>; Mon, 12 Jul 2010 17:38:06 -0700 (PDT)
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
+Received: from science.horizon.com ([71.41.210.146]:55858 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751116Ab0GMBub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 21:50:31 -0400
+In-Reply-To: <4C3ABDC3.3000408@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-07-12 at 15:23 -0600, Tantilov, Emil S wrote:
-> Maxim Levitsky wrote:
-> > On Mon, 2010-07-05 at 12:58 +0300, Maxim Levitsky wrote:
-> >> On Mon, 2010-07-05 at 01:13 -0700, Jeff Kirsher wrote:
-> >>> On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky
-> >>> <maximlevitsky@gmail.com> wrote: 
-> >>>> Did few guesses, and now I see that reverting the below commit
-> >>>> fixes the problem. 
-> >>>> 
-> >>>> "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
-> >>>> e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
-> >>>> 
-> >>>> 
-> >>>> Best regards,
-> >>>>        Maxim Levitsky
-> >>>> 
-> >>>> --
-> >>> 
-> >>> Can you give us till Tuesday to respond?  I know that there are some
-> >>> additional e1000e patches in my queue, which may resolve the issue,
-> >>> but this weekend the power is down to do some infrastructure
-> >>> upgrades 
-> >>> which prevents us from doing any investigation.debugging until
-> >>> Tuesday.
-> >>> 
-> >> 
-> >> Sure.
-> >> 
-> >> Best regards,
-> >> 	Maxim Levitsky
-> >> 
-> > 
-> > Updates?
+> And here goes the patch (which I've only compile tested so far).
+
+That does indeed fix it!  Also applies and works with -rc5.
+Please queue for -rc6.  (Unless you want to tweak the patch a bit;
+I haven't done any sort of code review on it.)
+
+Tested-by: George Spelvin <linux@horizon.com>
+
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index af1c173..200f8d7 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -1598,7 +1598,8 @@ xfrm_resolve_and_create_bundle(struct xfrm_policy
+> **pols, int num_pols,
+>  		if (err != -EAGAIN)
+>  			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTPOLERROR);
+>  		return ERR_PTR(err);
+> -	}
+> +	} else if (err == 0)
+> +		return NULL;
 > 
-> We are working on reproducing the issue. So far we have not seen the problem when testing with net-next.
+>  	dst = xfrm_bundle_create(pols[0], xfrm, err, fl, dst_orig);
+>  	if (IS_ERR(dst)) {
+
+This could be simplified to (if you want; it's smaller but uglier)
+
+	if (err <= 0) {
+		if (err != 0 && err != -EAGAIN)
+			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTPOLERROR);
+		return ERR_PTR(err);	/* Correctly returns NULL if err == 0 */
+	}
+
+> @@ -1678,6 +1679,13 @@ xfrm_bundle_lookup(struct net *net, struct flowi
+> *fl, u16 family, u8 dir,
+>  			goto make_dummy_bundle;
+>  		dst_hold(&xdst->u.dst);
+>  		return oldflo;
+> +	} else if (new_xdst == NULL) {
+> +		num_xfrms = 0;
+> +		if (oldflo == NULL)
+> +			goto make_dummy_bundle;
+> +		xdst->num_xfrms = 0;
+> +		dst_hold(&xdst->u.dst);
+> +		return oldflo;
+>  	}
 > 
-> I asked in previous email about some additional info from ethtool (-d, -e, -S) and kernel config. That would help us to narrow it down.
+>  	/* Kill the previous bundle */
+
+This I'm having a hard time simplifying.  It resembles the previous
+block, but not enough.
+
+> @@ -1760,6 +1768,10 @@ restart:
+>  				xfrm_pols_put(pols, num_pols);
+>  				err = PTR_ERR(xdst);
+>  				goto dropdst;
+> +			} else if (xdst == NULL) {
+> +				num_xfrms = 0;
+> +				drop_pols = num_pols;
+> +				goto no_transform;
+>  			}
 > 
-> Thanks,
-> Emil
-I did send -e and -d output.
+>  			spin_lock_bh(&xfrm_policy_sk_bundle_lock);
+> 
 
-Since you probably want -S output during failure, I need to recompile
-kernel for that. I will do that soon.
-
-
-One question, in two weeks I hope 2.6.35 won't be released?
-If so, I will have enough free time then to narrow down this issue.
-
-Other solution, is to revert this commit.
-(I have never seen this problem with it reverted).
-
-
-Best regards,
-	Maxim Levitsky
-
-
-
-
-
-
+I see two nearby tests for xdst == NULL ("To accelerate a bit..."); I take it
+they can't be combined?
