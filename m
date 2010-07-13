@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/12] net: autoconvert trivial BKL users to private
- mutex
-Date: Mon, 12 Jul 2010 20:35:51 -0700 (PDT)
-Message-ID: <20100712.203551.176666384.davem@davemloft.net>
-References: <1278883143-29035-1-git-send-email-arnd@arndb.de>
-	<1278883143-29035-7-git-send-email-arnd@arndb.de>
+Subject: Re: [PATCH] fec: use interrupt for MDIO completion indication
+Date: Mon, 12 Jul 2010 20:36:11 -0700 (PDT)
+Message-ID: <20100712.203611.67894902.davem@davemloft.net>
+References: <006416d38a8e51ba8dd8631613a991528dc7976a.1278918594.git.baruch@tkos.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jkacur@redhat.com,
-	fweisbec@gmail.com, netdev@vger.kernel.org
-To: arnd@arndb.de
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	kernel@pengutronix.de, bryan.wu@canonical.com, gerg@uclinux.org
+To: baruch@tkos.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41490
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41495
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754100Ab0GMDfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:35:36 -0400
-In-Reply-To: <1278883143-29035-7-git-send-email-arnd@arndb.de>
+	by vger.kernel.org with ESMTP id S1753909Ab0GMDf4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:35:56 -0400
+In-Reply-To: <006416d38a8e51ba8dd8631613a991528dc7976a.1278918594.git.baruch@tkos.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Sun, 11 Jul 2010 23:18:57 +0200
+From: Baruch Siach <baruch@tkos.co.il>
+Date: Mon, 12 Jul 2010 10:12:51 +0300
 
-> All these files use the big kernel lock in a trivial
-> way to serialize their private file operations,
-> typically resulting from an earlier semi-automatic
-> pushdown from VFS.
+> With the move to phylib (commit e6b043d) I was seeing sporadic "MDIO write
+> timeout" messages. Measure of the actual time spent showed latency times of
+> more than 1600us.
 > 
-> None of these drivers appears to want to lock against
-> other code, and they all use the BKL as the top-level
-> lock in their file operations, meaning that there
-> is no lock-order inversion problem.
+> This patch uses the MII event indication of the FEC hardware to detect
+> completion of MDIO transactions.
 > 
-> Consequently, we can remove the BKL completely,
-> replacing it with a per-file mutex in every case.
-> Using a scripted approach means we can avoid
-> typos.
- ...
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 
 Applied.
