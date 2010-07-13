@@ -1,82 +1,89 @@
-From: Ofer Heifetz <oferh@marvell.com>
-Subject: RE: Splice status
-Date: Tue, 13 Jul 2010 15:42:25 +0300
-Message-ID: <EE71107DF0D1F24FA2D95041E64AB9E8ED254E7BAB@IL-MB01.marvell.com>
-References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
- 	<AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
- 	<EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
- 	<1278334254.2877.158.camel@edumazet-laptop>
- <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
- 	<1278388580.2466.305.camel@edumazet-laptop>
- <AANLkTinRnDwMOS5NrmzKqYZpczG4nfHSvKA9Gw-_UUzO@mail.gmail.com>
- 	<EE71107DF0D1F24FA2D95041E64AB9E8ED254E7B66@IL-MB01.marvell.com>
- <AANLkTimRXMivugXHJswrT5FA93PIjSjU-RneFKs1bkLL@mail.gmail.com>
+From: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH -mmotm 00/30] [RFC] swap over nfs -v21
+Date: Tue, 13 Jul 2010 20:53:43 +0800
+Message-ID: <AANLkTil9hGHoomM9LlhURipKO7_sTON09JHP3zDwOLgI@mail.gmail.com>
+References: <20100713101650.2835.15245.sendpatchset@danny.redhat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jens Axboe <axboe@kernel.dk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from galiil.marvell.com ([199.203.130.254]:51302 "EHLO
-	galiil.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755900Ab0GMMnr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 08:43:47 -0400
-In-Reply-To: <AANLkTimRXMivugXHJswrT5FA93PIjSjU-RneFKs1bkLL@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, riel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	lwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100713101650.2835.15245.sendpatchset-bd3XojVv5Xrm7B5McmCzzQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Write and re-write numbers are in MBps.
-Iozone performs re-write meaning reads a chunk of data and writes it ba=
-ck, so basically the performance for this operation should be quiet hig=
-h since kernel caches usage.
-
-I forgot to mention that I used EXT4 fs.
-
--Ofer
-
------Original Message-----
-=46rom: Changli Gao [mailto:xiaosuo@gmail.com]=20
-Sent: Tuesday, July 13, 2010 3:32 PM
-To: Ofer Heifetz
-Cc: Eric Dumazet; Jens Axboe; netdev@vger.kernel.org
-Subject: Re: Splice status
-
-On Tue, Jul 13, 2010 at 7:41 PM, Ofer Heifetz <oferh@marvell.com> wrote=
+On Tue, Jul 13, 2010 at 6:16 PM, Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote=
 :
 > Hi,
 >
-> I wanted to let you know that I have been testing Samba splice on Mar=
-vell 6282 SoC on 2.6.35_rc3 and noticed that it gave worst performance =
-than not using it and also noticed that on re-writing file the iowait i=
-s high.
+> Here's the latest version of swap over NFS series since -v20 last Oct=
+ober. We decide to push
+> this feature as it is useful for NAS or virt environment.
 >
-> iometer using 2G file (file is created before test)
+> The patches are against the mmotm-2010-07-01. We can split the patchs=
+et into following parts:
 >
-> Splice =A0write cpu% iow%
-> -----------------------
-> =A0No =A0 =A0 58 =A0 =A098 =A0 =A00
-> Yes =A0 =A0 14 =A0 100 =A0 48
+> Patch 1 - 12: provides a generic reserve framework. This framework
+> could also be used to get rid of some of the __GFP_NOFAIL users.
 >
-> iozone using 2G file (file created during test)
+> Patch 13 - 15: Provide some generic network infrastructure needed lat=
+er on.
 >
-> Splice =A0write cpu% iow% =A0re-write cpu% iow%
-> -------------------------------------------
-> =A0No =A0 =A0 35 =A0 =A085 =A0 =A04 =A0 =A058.2 =A0 =A0 70 =A0 =A00
-> Yes =A0 =A0 33 =A0 =A085 =A0 =A04 =A0 =A015.7 =A0 =A0100 =A0 58
+> Patch 16 - 21: reserve a little pool to act as a receive buffer, this=
+ allows us to
+> inspect packets before tossing them.
 >
-> Any clue why splice introduces a high iowait?
-> I noticed samba uses up to 16K per splice syscall, changing the samba=
- to try more did not help, so I guess it is a kernel limitation.
+> Patch 22 - 23: Generic vm infrastructure to handle swapping to a file=
+system instead of a block
+> device.
 >
-> -Ofer
+> Patch 24 - 27: convert NFS to make use of the new network and vm infr=
+astructure to
+> provide swap over NFS.
 >
+> Patch 28 - 30: minor bug fixing with latest -mmotm.
+>
+> [some history]
+> v19: http://lwn.net/Articles/301915/
+> v20: http://lwn.net/Articles/355350/
+>
+> Changes since v20:
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0- rebased to mmotm-2010-07-01
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0- dropped the null pointer deref patch for=
+ the root cause is wrong SWP_FILE enum
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0- some minor build fixes
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0- fix a null pointer deref with mmotm-2010=
+-07-01
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0- fix a bug when swap with multi files on =
+the same nfs server
 
-What does the column write means? And what do you mean by saying
-re-write? Thanks.
+Please use the "From:" line correctly, as stated in
+Documentation/SubmittingPatches:
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+The "from" line must be the very first line in the message body,
+and has the form:
+
+        From: Original Author <author-hcDgGtZH8xNBDgjK7y7TUQ@public.gmane.org>
+
+The "from" line specifies who will be credited as the author of the
+patch in the permanent changelog.  If the "from" line is missing,
+then the "From:" line from the email header will be used to determine
+the patch author in the changelog.
+
+
+I think you are using git format-patch to generate those patches, pleas=
+e supply
+--author=3D<author> to git commit when you commit them to your local
+tree. (or git am
+if the patches you received already had the correct From: line.)
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
