@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/12] isdn: autoconvert trivial BKL users to private
+Subject: Re: [PATCH 06/12] net: autoconvert trivial BKL users to private
  mutex
-Date: Mon, 12 Jul 2010 20:35:40 -0700 (PDT)
-Message-ID: <20100712.203540.26940801.davem@davemloft.net>
+Date: Mon, 12 Jul 2010 20:35:51 -0700 (PDT)
+Message-ID: <20100712.203551.176666384.davem@davemloft.net>
 References: <1278883143-29035-1-git-send-email-arnd@arndb.de>
-	<1278883143-29035-3-git-send-email-arnd@arndb.de>
+	<1278883143-29035-7-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, jkacur@redhat.com,
-	fweisbec@gmail.com, isdn@linux-pingi.de, netdev@vger.kernel.org
+	fweisbec@gmail.com, netdev@vger.kernel.org
 To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41483
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41490
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752349Ab0GMDfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:35:25 -0400
-In-Reply-To: <1278883143-29035-3-git-send-email-arnd@arndb.de>
+	by vger.kernel.org with ESMTP id S1754100Ab0GMDfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:35:36 -0400
+In-Reply-To: <1278883143-29035-7-git-send-email-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Sun, 11 Jul 2010 23:18:53 +0200
+Date: Sun, 11 Jul 2010 23:18:57 +0200
 
 > All these files use the big kernel lock in a trivial
 > way to serialize their private file operations,
@@ -37,7 +37,7 @@ Date: Sun, 11 Jul 2010 23:18:53 +0200
 > replacing it with a per-file mutex in every case.
 > Using a scripted approach means we can avoid
 > typos.
-...
+ ...
 > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
 Applied.
