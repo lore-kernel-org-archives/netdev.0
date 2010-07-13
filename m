@@ -1,53 +1,53 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] net/sched: potential data corruption
-Date: Tue, 13 Jul 2010 15:21:52 +0200
-Message-ID: <20100713132152.GL5658@bicker>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH] netfilter: xtables: userspace notification target
+Date: Tue, 13 Jul 2010 16:24:33 +0300
+Message-ID: <1279027474.12673.61.camel@chilepepper>
+References: <20100713001115.GA3751@sortiz-mobl>
+	 <AANLkTil2EgQbzUqYNHAYpIWJvyyE6AWq1TpvxrqVsD7k@mail.gmail.com>
+	 <4C3C28EC.2000302@netfilter.org> <1279016596.12673.11.camel@chilepepper>
+	 <alpine.LSU.2.01.1007131349120.778@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	matthew@wil.cx
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:37793 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756615Ab0GMNX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 09:23:29 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ext Pablo Neira Ayuso <pablo@netfilter.org>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1007131349120.778@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The reset_policy() does:
-        memset(d->tcfd_defdata, 0, SIMP_MAX_DATA);
-        strlcpy(d->tcfd_defdata, defdata, SIMP_MAX_DATA);
+On Tue, 2010-07-13 at 13:49 +0200, ext Jan Engelhardt wrote:
+> On Tuesday 2010-07-13 12:23, Luciano Coelho wrote:
+> >> 
+> >> Indeed, this looks to me like something that you can do with NFLOG and
+> >> some combination of matches.
+> >
+> >Is it possible to have the NFLOG send only one notification to the
+> >userspace? In the example above, once the quota exceeds, the userspace
+> >will be notified of every packet arriving, won't it?  That would cause
+> >unnecessary processing in the userspace.
+> >
+> >The userspace could remove the rule when it gets the first notification
+> >and only add it again when it needs to get the information again (as a
+> >"toggle" functionality), but I think that would take too long and there
+> >would be several packets going through before the rule could be removed.
+> 
+> With xt_condition that should not be a problem
+> (-A INPUT -m condition --name ruleXYZ -j NFLOG..)
+> This is settable through procfs.
 
-In the original code, the size of d->tcfd_defdata wasn't fixed and if
-strlen(defdata) was less than 31, reset_policy() would cause memory
-corruption.
+Right.  I didn't know about the condition match, because I can't see it
+either on net-next-2.6 nor on nf-next-2.6.  I found your patch in the
+netfilter-devel archives, though.  Any idea when it will be applied?
 
-Please Note:  The original alloc_defdata() assumes defdata is 32
-characters and a NUL terminator while reset_policy() assumes defdata is
-31 characters and a NUL.  This patch updates alloc_defdata() to match
-reset_policy() (ie a shorter string).  I'm not very familiar with this
-code so please review carefully.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+-- 
+Cheers,
+Luca.
 
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index 1b4bc69..4a1d640 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -73,10 +73,10 @@ static int tcf_simp_release(struct tcf_defact *d, int bind)
- 
- static int alloc_defdata(struct tcf_defact *d, char *defdata)
- {
--	d->tcfd_defdata = kstrndup(defdata, SIMP_MAX_DATA, GFP_KERNEL);
-+	d->tcfd_defdata = kzalloc(SIMP_MAX_DATA, GFP_KERNEL);
- 	if (unlikely(!d->tcfd_defdata))
- 		return -ENOMEM;
--
-+	strlcpy(d->tcfd_defdata, defdata, SIMP_MAX_DATA);
- 	return 0;
- }
- 
