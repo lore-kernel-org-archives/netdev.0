@@ -1,15 +1,15 @@
 From: amit.salecha@qlogic.com
-Subject: [PATCH NEXT 2/5] qlcnic: disable tx timeout recovery
-Date: Tue, 13 Jul 2010 02:46:57 -0700
-Message-ID: <1279014420-8829-3-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 3/5] qlcnic: fix netdev notifier in error path
+Date: Tue, 13 Jul 2010 02:46:58 -0700
+Message-ID: <1279014420-8829-4-git-send-email-amit.salecha@qlogic.com>
 References: <1279014420-8829-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
 	Amit Kumar Salecha <amit.salecha@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:46090 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:40567 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754416Ab0GMJrD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754928Ab0GMJrD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 13 Jul 2010 05:47:03 -0400
 In-Reply-To: <1279014420-8829-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,37 +17,42 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-Disable tx timeout recovery, if auto_fw_reset is disable
+netdev notifier are not unregistered if pci_register_driver fails.
 
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 4d18313..d511fd1 100644
+index d511fd1..c8275f0 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2581,7 +2581,8 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 		if (adapter->need_fw_reset)
- 			goto detach;
+@@ -3451,6 +3451,7 @@ static struct pci_driver qlcnic_driver = {
  
--		if (adapter->reset_context) {
-+		if (adapter->reset_context &&
-+				auto_fw_reset == AUTO_FW_RESET_ENABLED) {
- 			qlcnic_reset_hw_context(adapter);
- 			adapter->netdev->trans_start = jiffies;
- 		}
-@@ -2594,7 +2595,8 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
+ static int __init qlcnic_init_module(void)
+ {
++	int ret;
  
- 	qlcnic_dev_request_reset(adapter);
+ 	printk(KERN_INFO "%s\n", qlcnic_driver_string);
  
--	clear_bit(__QLCNIC_FW_ATTACHED, &adapter->state);
-+	if ((auto_fw_reset == AUTO_FW_RESET_ENABLED))
-+		clear_bit(__QLCNIC_FW_ATTACHED, &adapter->state);
+@@ -3459,8 +3460,15 @@ static int __init qlcnic_init_module(void)
+ 	register_inetaddr_notifier(&qlcnic_inetaddr_cb);
+ #endif
  
- 	dev_info(&netdev->dev, "firmware hang detected\n");
++	ret = pci_register_driver(&qlcnic_driver);
++	if (ret) {
++#ifdef CONFIG_INET
++		unregister_inetaddr_notifier(&qlcnic_inetaddr_cb);
++		unregister_netdevice_notifier(&qlcnic_netdev_cb);
++#endif
++	}
  
+-	return pci_register_driver(&qlcnic_driver);
++	return ret;
+ }
+ 
+ module_init(qlcnic_init_module);
 -- 
 1.6.0.2
 
