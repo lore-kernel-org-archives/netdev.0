@@ -1,78 +1,85 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Re: [PATCH -mmotm 12/30] selinux: tag avc cache alloc as non-critical
-Date: Tue, 13 Jul 2010 03:55:55 -0700
-Message-ID: <6E38A74E-B033-4D2A-9620-2A8BDF9E0AD1@earthlink.net>
-References: <20100713101650.2835.15245.sendpatchset@danny.redhat> <20100713101906.2835.83443.sendpatchset@danny.redhat>
-Mime-Version: 1.0 (Apple Message framework v1081)
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Tue, 13 Jul 2010 14:09:39 +0300
+Message-ID: <20100713110939.GA3446@redhat.com>
+References: <20100701133956.GD32223@redhat.com>
+ <4C2CA5C5.4040402@kernel.org>
+ <20100701144624.GA11171@redhat.com>
+ <4C2CABF2.2020801@kernel.org>
+ <1277996135.1917.198.camel@laptop>
+ <4C2E2987.9040702@us.ibm.com>
+ <1278094270.1917.288.camel@laptop>
+ <20100702210637.GA12433@redhat.com>
+ <20100704090005.GA8078@redhat.com>
+ <4C3C0EBC.40305@us.ibm.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-mm@kvack.org,
- linux-nfs@vger.kernel.org,
- netdev@vger.kernel.org,
- riel@redhat.com,
- cl@linux-foundation.org,
- a.p.zijlstra@chello.nl,
- linux-kernel@vger.kernel.org,
- lwang@redhat.com,
- penberg@cs.helsinki.fi,
- akpm@linux-foundation.org,
- davem@davemloft.net
-To: Xiaotian Feng <dfeng@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20100713101906.2835.83443.sendpatchset@danny.redhat>
-Sender: owner-linux-mm@kvack.org
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C3C0EBC.40305@us.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Jul 12, 2010 at 11:59:08PM -0700, Sridhar Samudrala wrote:
+> On 7/4/2010 2:00 AM, Michael S. Tsirkin wrote:
+> >On Fri, Jul 02, 2010 at 11:06:37PM +0200, Oleg Nesterov wrote:
+> >>On 07/02, Peter Zijlstra wrote:
+> >>>On Fri, 2010-07-02 at 11:01 -0700, Sridhar Samudrala wrote:
+> >>>>  Does  it (Tejun's kthread_clone() patch) also  inherit the
+> >>>>cgroup of the caller?
+> >>>Of course, its a simple do_fork() which inherits everything just as you
+> >>>would expect from a similar sys_clone()/sys_fork() call.
+> >>Yes. And I'm afraid it can inherit more than we want. IIUC, this is called
+> >>from ioctl(), right?
+> >>
+> >>Then the new thread becomes the natural child of the caller, and it shares
+> >>->mm with the parent. And files, dup_fd() without CLONE_FS.
+> >>
+> >>Signals. Say, if you send SIGKILL to this new thread, it can't sleep in
+> >>TASK_INTERRUPTIBLE or KILLABLE after that. And this SIGKILL can be sent
+> >>just because the parent gets SIGQUIT or abother coredumpable signal.
+> >>Or the new thread can recieve SIGSTOP via ^Z.
+> >>
+> >>Perhaps this is OK, I do not know. Just to remind that kernel_thread()
+> >>is merely clone(CLONE_VM).
+> >>
+> >>Oleg.
+> >
+> >Right. Doing this might break things like flush.  The signal and exit
+> >behaviour needs to be examined carefully. I am also unsure whether
+> >using such threads might be more expensive than inheriting kthreadd.
+> >
+> Should we just leave it to the userspace to set the cgroup/cpumask
+> after qemu starts the guest and
+> the vhost threads?
+> 
+> Thanks
+> Sridhar
 
-On Jul 13, 2010, at 3:19 AM, Xiaotian Feng wrote:
+Yes but we can't trust userspace to do this. It's important
+to do it on thread creation: if we don't, malicious userspace
+can create large amount of work exceeding the cgroup limits.
 
-> =46rom 6c3a91091b2910c23908a9f9953efcf3df14e522 Mon Sep 17 00:00:00 =
-2001
-> From: Xiaotian Feng <dfeng@redhat.com>
-> Date: Tue, 13 Jul 2010 11:02:41 +0800
-> Subject: [PATCH 12/30] selinux: tag avc cache alloc as non-critical
->=20
-> Failing to allocate a cache entry will only harm performance not =
-correctness.
-> Do not consume valuable reserve pages for something like that.
->=20
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Signed-off-by: Suresh Jayaraman <sjayaraman@suse.de>
-> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-> ---
-> security/selinux/avc.c |    2 +-
-> 1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> diff --git a/security/selinux/avc.c b/security/selinux/avc.c
-> index 3662b0f..9029395 100644
-> --- a/security/selinux/avc.c
-> +++ b/security/selinux/avc.c
-> @@ -284,7 +284,7 @@ static struct avc_node *avc_alloc_node(void)
-> {
-> 	struct avc_node *node;
->=20
-> -	node =3D kmem_cache_zalloc(avc_node_cachep, GFP_ATOMIC);
-> +	node =3D kmem_cache_zalloc(avc_node_cachep, =
-GFP_ATOMIC|__GFP_NOMEMALLOC);
-> 	if (!node)
-> 		goto out;
->=20
-> --=20
-> 1.7.1.1
->=20
+And the same applies so the affinity: if the qemu process
+is limited to a set of CPUs, it's important to make
+the kernel thread that does work our behalf limited to the same
+set of CPUs.
 
-Why not just replace GFP_ATOMIC with GFP_NOWAIT?
+This is not unique to vhost, it's just that virt scenarious are affected
+by this more: people seem to run untrusted applications and expect the
+damage to be contained.
 
-This would NOT consume the valuable last pages.
-
-Mitchell Erblich
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+MST
