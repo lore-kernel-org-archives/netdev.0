@@ -1,45 +1,53 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v3 linux-2.6.35-rc3] ks8842 driver
-Date: Tue, 13 Jul 2010 11:06:43 +0900
-Message-ID: <20100713020642.GH18341@verge.net.au>
-References: <C43529A246480145B0A6D0234BDB0F0D481D72@MELANITE.micrel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] act_nat: not all of the ICMP packets need an IP header
+ payload
+Date: Mon, 12 Jul 2010 20:02:12 -0700 (PDT)
+Message-ID: <20100712.200212.235693051.davem@davemloft.net>
+References: <1278725605-28598-1-git-send-email-xiaosuo@gmail.com>
+	<1278742953.2538.24.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	"Li, Charles" <Charles.Li@Micrel.Com>
-To: "Choi, David" <David.Choi@Micrel.Com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiaosuo@gmail.com, hadi@cyberus.ca, rpartearroyo@albentia.com,
+	herbert@gondor.apana.org.au, ipichel@albentia.com,
+	nmoron@albentia.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46789 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753301Ab0GMCGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 22:06:47 -0400
-Content-Disposition: inline
-In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D481D72@MELANITE.micrel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60012
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752442Ab0GMDB6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jul 2010 23:01:58 -0400
+In-Reply-To: <1278742953.2538.24.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 12, 2010 at 05:11:40PM -0700, Choi, David wrote:
-> Hi David & Simon and all,
-> 
->  
-> 
-> Thank you very much for your interests and comments for this patch.
-> 
->  
-> 
-> It seems that there are differences between Micrel ks8842 device and
-> Timberdale FPGA based device 
-> 
-> with generic bus interface. In order to check the differences, I have
-> sent several times but have not 
-> 
-> received any response. This patch is to support ks8841/ks8842 device
-> from Micrel.
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 10 Jul 2010 08:22:33 +0200
 
-Hi David,
+> Rodrigo spent lot of time to find the problem and is willing to fix i=
+t.
 
-your mail client seems to have mangled your patches and is
-providing an HTML version of the mail. I don't think this
-was the case with the v2 patches. Did you change the
-way that you are sending your email?
+I gave Rodrigo suitable credit in the final commit message.
 
+--------------------
+=46rom 70c2efa5a32a7d38e66224844032160317fa7887 Mon Sep 17 00:00:00 200=
+1
+=46rom: Changli Gao <xiaosuo@gmail.com>
+Date: Fri, 9 Jul 2010 15:33:25 +0000
+Subject: [PATCH] act_nat: not all of the ICMP packets need an IP header=
+ payload
+MIME-Version: 1.0
+Content-Type: text/plain; charset=3DUTF-8
+Content-Transfer-Encoding: 8bit
+
+not all of the ICMP packets need an IP header payload, so we check the =
+length
+of the skbs only when the packets should have an IP header payload.
+
+Based upon analysis and initial patch by Rodrigo Partearroyo Gonz=E1lez=
+=2E
+
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+--------------------
