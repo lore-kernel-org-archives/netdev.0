@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4vf: fix TX Queue restart
-Date: Mon, 12 Jul 2010 20:32:56 -0700 (PDT)
-Message-ID: <20100712.203256.43024261.davem@davemloft.net>
-References: <201007121502.54176.leedom@chelsio.com>
+Subject: Re: [PATCH -net-next-2.6] ll_temac: Fix missing validate_addr hook
+Date: Mon, 12 Jul 2010 20:33:13 -0700 (PDT)
+Message-ID: <20100712.203313.90807303.davem@davemloft.net>
+References: <20100710211044.GA24861@hera.kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: leedom@chelsio.com
+To: dkirjanov@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41414
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41418
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751868Ab0GMDcl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:32:41 -0400
-In-Reply-To: <201007121502.54176.leedom@chelsio.com>
+	by vger.kernel.org with ESMTP id S1751868Ab0GMDc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:32:58 -0400
+In-Reply-To: <20100710211044.GA24861@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Casey Leedom <leedom@chelsio.com>
-Date: Mon, 12 Jul 2010 15:02:53 -0700
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Date: Sat, 10 Jul 2010 21:10:44 +0000
 
->>From e1c7a6e339a47c42aaf3e425fa3228b33a425a8f Mon Sep 17 00:00:00 2001
-> From: Casey Leedom <leedom@chelsio.com>
-> Date: Mon, 12 Jul 2010 14:39:07 -0700
-> Subject: [PATCH net-next] cxgb4vf: fix TX Queue restart
+> Fix missing validate_addr hook
 > 
-> Fix up TX Queue Host Flow Control to cause an Egress Queue Status Update to
-> be generated when we run out of TX Queue Descriptors.  This will, in turn,
-> allow us to restart a stopped TX Queue.
-> 
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 
 Applied, thanks.
