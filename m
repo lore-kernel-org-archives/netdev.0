@@ -1,70 +1,53 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: Re: [PATCH] netfilter: xtables: userspace notification target
-Date: Tue, 13 Jul 2010 15:19:43 +0200
-Message-ID: <20100713131942.GA2641@sortiz-mobl>
-References: <20100713001115.GA3751@sortiz-mobl>
- <alpine.LSU.2.01.1007130751360.19472@obet.zrqbmnf.qr>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] net/sched: potential data corruption
+Date: Tue, 13 Jul 2010 15:21:52 +0200
+Message-ID: <20100713132152.GL5658@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Luciano Coelho <luciano.coelho@nokia.com>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	matthew@wil.cx
+To: Jamal Hadi Salim <hadi@cyberus.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:37793 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756615Ab0GMNX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 09:23:29 -0400
 Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.01.1007130751360.19472@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jan,
+The reset_policy() does:
+        memset(d->tcfd_defdata, 0, SIMP_MAX_DATA);
+        strlcpy(d->tcfd_defdata, defdata, SIMP_MAX_DATA);
 
-On Tue, Jul 13, 2010 at 07:56:31AM +0200, Jan Engelhardt wrote:
-> 
-> On Tuesday 2010-07-13 02:11, Samuel Ortiz wrote:
-> >
-> >The userspace notification Xtables target sends a netlink notification
-> >whenever a packet hits the target. Notifications have a label attribute
-> >for userspace to match it against a previously set rule. The rules also
-> >take a --all option to switch between sending a notification for all
-> >packets or for the first one only.
-> >Userspace can also send a netlink message to toggle this switch while the
-> >target is in place. This target uses the nefilter netlink framework.
-> 
-> Would it not make sense to modify that module?
-> Sounds an awful lot like NFQUEUE without passing the payload :)
-yes, except for the payload, the missing "send one" packet toggle, and the
-verdict we'd have to send back, it's almost identical ;)
+In the original code, the size of d->tcfd_defdata wasn't fixed and if
+strlen(defdata) was less than 31, reset_policy() would cause memory
+corruption.
 
-What I'm trying to achieve with this target is a simple way to send a
-userspace notification to userspace, without having to define a complex set of
-rules, matches and having to pass some initial netlink message to set the
-target properly (to avoid the payload passing in the NFLOG case).
+Please Note:  The original alloc_defdata() assumes defdata is 32
+characters and a NUL terminator while reset_policy() assumes defdata is
+31 characters and a NUL.  This patch updates alloc_defdata() to match
+reset_policy() (ie a shorter string).  I'm not very familiar with this
+code so please review carefully.
 
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-> >+++ b/net/netfilter/xt_NFNOTIF.c
-> >+struct nfnotif_tg {
-> >+	struct list_head entry;
-> >+	struct work_struct work;
-> >+
-> >+	char *label;
-> >+	__u8 all_packets;
-> >+	struct net *net;
-> >+
-> >+	__u8 send_notif;
-> >+
-> >+	unsigned int refcnt;
-> >+};
-> 
-> Has unnecessary padding holes.
-
-Right, I will send a v2 later today.
-
-Thanks for your comments and review.
-
-Cheers,
-Samuel.
-
--- 
-Intel Open Source Technology Centre
-http://oss.intel.com/
+diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
+index 1b4bc69..4a1d640 100644
+--- a/net/sched/act_simple.c
++++ b/net/sched/act_simple.c
+@@ -73,10 +73,10 @@ static int tcf_simp_release(struct tcf_defact *d, int bind)
+ 
+ static int alloc_defdata(struct tcf_defact *d, char *defdata)
+ {
+-	d->tcfd_defdata = kstrndup(defdata, SIMP_MAX_DATA, GFP_KERNEL);
++	d->tcfd_defdata = kzalloc(SIMP_MAX_DATA, GFP_KERNEL);
+ 	if (unlikely(!d->tcfd_defdata))
+ 		return -ENOMEM;
+-
++	strlcpy(d->tcfd_defdata, defdata, SIMP_MAX_DATA);
+ 	return 0;
+ }
+ 
