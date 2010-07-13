@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] depca: fix leaks in depca_module_init()
-Date: Mon, 12 Jul 2010 20:32:03 -0700 (PDT)
-Message-ID: <20100712.203203.137829316.davem@davemloft.net>
-References: <1278678986-7725-1-git-send-email-segooon@gmail.com>
-	<20100711.181300.58435799.davem@davemloft.net>
-	<20100712145233.GA30504@albatros>
+Subject: Re: [PATCH net-next] cxgb4vf: fix TX Queue restart
+Date: Mon, 12 Jul 2010 20:32:56 -0700 (PDT)
+Message-ID: <20100712.203256.43024261.davem@davemloft.net>
+References: <201007121502.54176.leedom@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, jpirko@redhat.com,
-	joe@perches.com, shemminger@vyatta.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: segooon@gmail.com
+Cc: netdev@vger.kernel.org
+To: leedom@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51358
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41414
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751399Ab0GMDbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:31:48 -0400
-In-Reply-To: <20100712145233.GA30504@albatros>
+	by vger.kernel.org with ESMTP id S1751868Ab0GMDcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:32:41 -0400
+In-Reply-To: <201007121502.54176.leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kulikov Vasiliy <segooon@gmail.com>
-Date: Mon, 12 Jul 2010 18:52:33 +0400
+From: Casey Leedom <leedom@chelsio.com>
+Date: Mon, 12 Jul 2010 15:02:53 -0700
 
-> Since some of xxx_register_driver() can return error we must unregister
-> already registered drivers.
+>>From e1c7a6e339a47c42aaf3e425fa3228b33a425a8f Mon Sep 17 00:00:00 2001
+> From: Casey Leedom <leedom@chelsio.com>
+> Date: Mon, 12 Jul 2010 14:39:07 -0700
+> Subject: [PATCH net-next] cxgb4vf: fix TX Queue restart
 > 
-> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+> Fix up TX Queue Host Flow Control to cause an Egress Queue Status Update to
+> be generated when we run out of TX Queue Descriptors.  This will, in turn,
+> allow us to restart a stopped TX Queue.
+> 
+> Signed-off-by: Casey Leedom <leedom@chelsio.com>
 
-Applied.
+Applied, thanks.
