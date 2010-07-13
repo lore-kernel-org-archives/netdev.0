@@ -1,30 +1,48 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Splice status
-Date: Tue, 13 Jul 2010 20:32:17 +0800
-Message-ID: <AANLkTimRXMivugXHJswrT5FA93PIjSjU-RneFKs1bkLL@mail.gmail.com>
+From: Ofer Heifetz <oferh@marvell.com>
+Subject: RE: Splice status
+Date: Tue, 13 Jul 2010 15:42:25 +0300
+Message-ID: <EE71107DF0D1F24FA2D95041E64AB9E8ED254E7BAB@IL-MB01.marvell.com>
 References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
-	<AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
-	<EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
-	<1278334254.2877.158.camel@edumazet-laptop> <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
-	<1278388580.2466.305.camel@edumazet-laptop> <AANLkTinRnDwMOS5NrmzKqYZpczG4nfHSvKA9Gw-_UUzO@mail.gmail.com>
-	<EE71107DF0D1F24FA2D95041E64AB9E8ED254E7B66@IL-MB01.marvell.com>
+ 	<AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
+ 	<EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
+ 	<1278334254.2877.158.camel@edumazet-laptop>
+ <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
+ 	<1278388580.2466.305.camel@edumazet-laptop>
+ <AANLkTinRnDwMOS5NrmzKqYZpczG4nfHSvKA9Gw-_UUzO@mail.gmail.com>
+ 	<EE71107DF0D1F24FA2D95041E64AB9E8ED254E7B66@IL-MB01.marvell.com>
+ <AANLkTimRXMivugXHJswrT5FA93PIjSjU-RneFKs1bkLL@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Jens Axboe <axboe@kernel.dk>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ofer Heifetz <oferh@marvell.com>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:38045 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754787Ab0GMMci convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 08:32:38 -0400
-Received: by vws5 with SMTP id 5so5741210vws.19
-        for <netdev@vger.kernel.org>; Tue, 13 Jul 2010 05:32:37 -0700 (PDT)
-In-Reply-To: <EE71107DF0D1F24FA2D95041E64AB9E8ED254E7B66@IL-MB01.marvell.com>
+Received: from galiil.marvell.com ([199.203.130.254]:51302 "EHLO
+	galiil.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755900Ab0GMMnr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 08:43:47 -0400
+In-Reply-To: <AANLkTimRXMivugXHJswrT5FA93PIjSjU-RneFKs1bkLL@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Write and re-write numbers are in MBps.
+Iozone performs re-write meaning reads a chunk of data and writes it ba=
+ck, so basically the performance for this operation should be quiet hig=
+h since kernel caches usage.
+
+I forgot to mention that I used EXT4 fs.
+
+-Ofer
+
+-----Original Message-----
+=46rom: Changli Gao [mailto:xiaosuo@gmail.com]=20
+Sent: Tuesday, July 13, 2010 3:32 PM
+To: Ofer Heifetz
+Cc: Eric Dumazet; Jens Axboe; netdev@vger.kernel.org
+Subject: Re: Splice status
 
 On Tue, Jul 13, 2010 at 7:41 PM, Ofer Heifetz <oferh@marvell.com> wrote=
 :
