@@ -1,47 +1,196 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH v2] eth16i: fix memory leak
-Date: Tue, 13 Jul 2010 23:49:23 +0400
-Message-ID: <1279050563-15759-1-git-send-email-segooon@gmail.com>
-References: <20100713114347.GK5658@bicker>
-Cc: Mika Kuoppala <miku@iki.fi>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tejun Heo <tj@kernel.org>, Jiri Pirko <jpirko@redhat.com>,
-	netdev@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:56270 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753316Ab0GMTt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 15:49:28 -0400
-In-Reply-To: <20100713114347.GK5658@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
+Subject: Re: [PATCH -mmotm 05/30] mm: sl[au]b: add knowledge of reserve pages
+Date: Tue, 13 Jul 2010 23:33:14 +0300
+Message-ID: <AANLkTilj5GrhbRJZfSsfXP1v9cQSRlARFmxpys1vUelr@mail.gmail.com>
+References: <20100713101650.2835.15245.sendpatchset@danny.redhat>
+	<20100713101747.2835.45722.sendpatchset@danny.redhat>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, riel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	lwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100713101747.2835.45722.sendpatchset-bd3XojVv5Xrm7B5McmCzzQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Free allocated netdev if no probe is expected.
+Hi Xiaotian!
 
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
----
- drivers/net/eth16i.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+I would actually prefer that the SLAB, SLOB, and SLUB changes were in
+separate patches to make reviewing easier.
 
-diff --git a/drivers/net/eth16i.c b/drivers/net/eth16i.c
-index 874973f..10e39f2 100644
---- a/drivers/net/eth16i.c
-+++ b/drivers/net/eth16i.c
-@@ -1442,8 +1442,10 @@ int __init init_module(void)
- 		dev->if_port = eth16i_parse_mediatype(mediatype[this_dev]);
- 
- 		if(io[this_dev] == 0) {
--			if(this_dev != 0) /* Only autoprobe 1st one */
-+			if (this_dev != 0) { /* Only autoprobe 1st one */
-+				free_netdev(dev);
- 				break;
-+			}
- 
- 			printk(KERN_NOTICE "eth16i.c: Presently autoprobing (not recommended) for a single card.\n");
- 		}
--- 
-1.7.0.4
+Looking at SLUB:
 
+On Tue, Jul 13, 2010 at 1:17 PM, Xiaotian Feng <dfeng-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote=
+:
+> diff --git a/mm/slub.c b/mm/slub.c
+> index 7bb7940..7a5d6dc 100644
+> --- a/mm/slub.c
+> +++ b/mm/slub.c
+> @@ -27,6 +27,8 @@
+> =A0#include <linux/memory.h>
+> =A0#include <linux/math64.h>
+> =A0#include <linux/fault-inject.h>
+> +#include "internal.h"
+> +
+>
+> =A0/*
+> =A0* Lock order:
+> @@ -1139,7 +1141,8 @@ static void setup_object(struct kmem_cache *s, =
+struct page *page,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0s->ctor(object);
+> =A0}
+>
+> -static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int =
+node)
+> +static
+> +struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node, i=
+nt *reserve)
+> =A0{
+> =A0 =A0 =A0 =A0struct page *page;
+> =A0 =A0 =A0 =A0void *start;
+> @@ -1153,6 +1156,8 @@ static struct page *new_slab(struct kmem_cache =
+*s, gfp_t flags, int node)
+> =A0 =A0 =A0 =A0if (!page)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto out;
+>
+> + =A0 =A0 =A0 *reserve =3D page->reserve;
+> +
+> =A0 =A0 =A0 =A0inc_slabs_node(s, page_to_nid(page), page->objects);
+> =A0 =A0 =A0 =A0page->slab =3D s;
+> =A0 =A0 =A0 =A0page->flags |=3D 1 << PG_slab;
+> @@ -1606,10 +1611,20 @@ static void *__slab_alloc(struct kmem_cache *=
+s, gfp_t gfpflags, int node,
+> =A0{
+> =A0 =A0 =A0 =A0void **object;
+> =A0 =A0 =A0 =A0struct page *new;
+> + =A0 =A0 =A0 int reserve;
+>
+> =A0 =A0 =A0 =A0/* We handle __GFP_ZERO in the caller */
+> =A0 =A0 =A0 =A0gfpflags &=3D ~__GFP_ZERO;
+>
+> + =A0 =A0 =A0 if (unlikely(c->reserve)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* If the current slab is a reserve s=
+lab and the current
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* allocation context does not allow =
+access to the reserves we
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* must force an allocation to test t=
+he current levels.
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!(gfp_to_alloc_flags(gfpflags) & AL=
+LOC_NO_WATERMARKS))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto grow_slab;
+
+OK, so assume that:
+
+  (1) c->reserve is set to one
+
+  (2) GFP flags don't allow dipping into the reserves
+
+  (3) we've managed to free enough pages so normal
+       allocations are fine
+
+  (4) the page from reserves is not yet empty
+
+we will call flush_slab() and put the "emergency page" on partial list
+and clear c->reserve. This effectively means that now some other
+allocation can fetch the partial page and start to use it. Is this OK?
+Who makes sure the emergency reserves are large enough for the next
+out-of-memory condition where we swap over NFS?
+
+> + =A0 =A0 =A0 }
+> =A0 =A0 =A0 =A0if (!c->page)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto new_slab;
+>
+> @@ -1623,8 +1638,8 @@ load_freelist:
+> =A0 =A0 =A0 =A0object =3D c->page->freelist;
+> =A0 =A0 =A0 =A0if (unlikely(!object))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto another_slab;
+> - =A0 =A0 =A0 if (unlikely(SLABDEBUG && PageSlubDebug(c->page)))
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto debug;
+> + =A0 =A0 =A0 if (unlikely(SLABDEBUG && PageSlubDebug(c->page) || c->=
+reserve))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto slow_path;
+>
+> =A0 =A0 =A0 =A0c->freelist =3D get_freepointer(s, object);
+> =A0 =A0 =A0 =A0c->page->inuse =3D c->page->objects;
+> @@ -1646,16 +1661,18 @@ new_slab:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto load_freelist;
+> =A0 =A0 =A0 =A0}
+>
+> +grow_slab:
+> =A0 =A0 =A0 =A0if (gfpflags & __GFP_WAIT)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0local_irq_enable();
+>
+> - =A0 =A0 =A0 new =3D new_slab(s, gfpflags, node);
+> + =A0 =A0 =A0 new =3D new_slab(s, gfpflags, node, &reserve);
+>
+> =A0 =A0 =A0 =A0if (gfpflags & __GFP_WAIT)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0local_irq_disable();
+>
+> =A0 =A0 =A0 =A0if (new) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0c =3D __this_cpu_ptr(s->cpu_slab);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 c->reserve =3D reserve;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0stat(s, ALLOC_SLAB);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (c->page)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0flush_slab(s, c);
+> @@ -1667,10 +1684,20 @@ new_slab:
+> =A0 =A0 =A0 =A0if (!(gfpflags & __GFP_NOWARN) && printk_ratelimit())
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0slab_out_of_memory(s, gfpflags, node);
+> =A0 =A0 =A0 =A0return NULL;
+> -debug:
+> - =A0 =A0 =A0 if (!alloc_debug_processing(s, c->page, object, addr))
+> +
+> +slow_path:
+> + =A0 =A0 =A0 if (!c->reserve && !alloc_debug_processing(s, c->page, =
+object, addr))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto another_slab;
+>
+> + =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0* Avoid the slub fast path in slab_alloc() by not se=
+tting
+> + =A0 =A0 =A0 =A0* c->freelist and the fast path in slab_free() by ma=
+king
+> + =A0 =A0 =A0 =A0* node_match() fail by setting c->node to -1.
+> + =A0 =A0 =A0 =A0*
+> + =A0 =A0 =A0 =A0* We use this for for debug and reserve checks which=
+ need
+> + =A0 =A0 =A0 =A0* to be done for each allocation.
+> + =A0 =A0 =A0 =A0*/
+> +
+> =A0 =A0 =A0 =A0c->page->inuse++;
+> =A0 =A0 =A0 =A0c->page->freelist =3D get_freepointer(s, object);
+> =A0 =A0 =A0 =A0c->node =3D -1;
+> @@ -2095,10 +2122,11 @@ static void early_kmem_cache_node_alloc(gfp_t=
+ gfpflags, int node)
+> =A0 =A0 =A0 =A0struct page *page;
+> =A0 =A0 =A0 =A0struct kmem_cache_node *n;
+> =A0 =A0 =A0 =A0unsigned long flags;
+> + =A0 =A0 =A0 int reserve;
+>
+> =A0 =A0 =A0 =A0BUG_ON(kmalloc_caches->size < sizeof(struct kmem_cache=
+_node));
+>
+> - =A0 =A0 =A0 page =3D new_slab(kmalloc_caches, gfpflags, node);
+> + =A0 =A0 =A0 page =3D new_slab(kmalloc_caches, gfpflags, node, &rese=
+rve);
+>
+> =A0 =A0 =A0 =A0BUG_ON(!page);
+> =A0 =A0 =A0 =A0if (page_to_nid(page) !=3D node) {
+> --
+> 1.7.1.1
+>
+> --
+> To unsubscribe, send a message with 'unsubscribe linux-mm' in
+> the body to majordomo-Bw31MaZKKs0EbZ0PF+XxCw@public.gmane.org =A0For more info on Linux MM,
+> see: http://www.linux-mm.org/ .
+> Don't email: <a href=3Dmailto:"dont-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org"> email-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org </a>
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
