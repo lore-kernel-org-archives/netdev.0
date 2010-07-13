@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] isdn: fix strlen() usage
-Date: Mon, 12 Jul 2010 20:34:40 -0700 (PDT)
-Message-ID: <20100712.203440.35813617.davem@davemloft.net>
-References: <20100710143111.GA19184@bicker>
+Subject: Re: [patch] 9p: strlen() doesn't count the terminator
+Date: Mon, 12 Jul 2010 20:34:31 -0700 (PDT)
+Message-ID: <20100712.203431.216748245.davem@davemloft.net>
+References: <20100710095154.GU19184@bicker>
+	<20100712130458.bb8ae751.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, shemminger@vyatta.com, hohndel@infradead.org,
-	jkosina@suse.cz, netdev@vger.kernel.org,
+Cc: error27@gmail.com, ericvh@gmail.com, adkulkar@umail.iu.edu,
+	jvrao@us.ibm.com, linux-kernel@vger.kernel.org,
+	tilman@code-monkey.de, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: error27@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41457
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753467Ab0GMDeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 23:34:25 -0400
-In-Reply-To: <20100710143111.GA19184@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100712130458.bb8ae751.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Sat, 10 Jul 2010 16:31:11 +0200
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 12 Jul 2010 13:04:58 -0700
 
-> There was a missing "else" statement so the original code overflowed if
-> ->master->name was too long.  Also the ->slave and ->master buffers can
-> hold names with 9 characters and a NULL so I cleaned it up to allow
-> another character.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> This bug doesn't strike me as serious enough to warrant backporting the fix
+> into -stable.  What was your thinking there?
 
-Applied.
+Meanwhile I'll queue this up to net-next-2.6, thanks.
