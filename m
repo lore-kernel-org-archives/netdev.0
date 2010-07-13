@@ -1,72 +1,68 @@
-From: Xiaotian Feng <dfeng@redhat.com>
-Subject: [PATCH -mmotm 30/30] fix mess up on swap with multi files from same nfs server
-Date: Tue, 13 Jul 2010 06:22:29 -0400
-Message-ID: <20100713102228.2835.64815.sendpatchset@danny.redhat>
-References: <20100713101650.2835.15245.sendpatchset@danny.redhat>
-Cc: riel@redhat.com, cl@linux-foundation.org, a.p.zijlstra@chello.nl,
-        Xiaotian Feng <dfeng@redhat.com>, linux-kernel@vger.kernel.org,
-        lwang@redhat.com, penberg@cs.helsinki.fi, akpm@linux-foundation.org,
-        davem@davemloft.net
-To: linux-mm@kvack.org, linux-nfs@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20100713101650.2835.15245.sendpatchset@danny.redhat>
-Sender: owner-linux-mm@kvack.org
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH] netfilter: xtables: userspace notification target
+Date: Tue, 13 Jul 2010 13:23:16 +0300
+Message-ID: <1279016596.12673.11.camel@chilepepper>
+References: <20100713001115.GA3751@sortiz-mobl>
+	 <AANLkTil2EgQbzUqYNHAYpIWJvyyE6AWq1TpvxrqVsD7k@mail.gmail.com>
+	 <4C3C28EC.2000302@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: ext Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4C3C28EC.2000302@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From fd03848cadf5719228f617b72039cc8302d892ef Mon Sep 17 00:00:00 2001
-From: Xiaotian Feng <dfeng@redhat.com>
-Date: Tue, 13 Jul 2010 14:00:02 +0800
-Subject: [PATCH 30/30] fix mess up on swap with multi files from same nfs server
+On Tue, 2010-07-13 at 10:50 +0200, ext Pablo Neira Ayuso wrote:
+> On 13/07/10 08:18, Changli Gao wrote:
+> > On Tue, Jul 13, 2010 at 8:11 AM, Samuel Ortiz <sameo@linux.intel.com> wrote:
+> >>
+> >> The userspace notification Xtables target sends a netlink notification
+> >> whenever a packet hits the target. Notifications have a label attribute
+> >> for userspace to match it against a previously set rule. The rules also
+> >> take a --all option to switch between sending a notification for all
+> >> packets or for the first one only.
+> >> Userspace can also send a netlink message to toggle this switch while the
+> >> target is in place. This target uses the nefilter netlink framework.
+> >>
+> >> This target combined with various matches (quota, rateest, etc..) allows
+> >> userspace to make decisions on interfaces handling. One could for example
+> >> decide to switch between power saving modes depending on estimated rate
+> >> thresholds.
+> >>
+> > 
+> > It much like the following iptables rules.
+> > 
+> > iptables -N log_and_drop
+> > iptables -A log_and_drop -j NFLOG --nflog-group 1 --nflog-prefix "log_and_drop"
+> > iptables -A log_and_drop -j DROP
+> > 
+> > ...
+> > iptables ... -m quota --quota-bytes 20000 -j log_and_drop
+> > ...
+> 
+> Indeed, this looks to me like something that you can do with NFLOG and
+> some combination of matches.
 
-xs_swapper() will set xprt->swapper when swapon nfs files, unset xprt->swapper
-when swapoff nfs files. This will lead a bug if we swapon multi files from
-the same nfs server, they had the same xprt, then the reserved memory could
-not be disconnected when we swapoff all files.
+Is it possible to have the NFLOG send only one notification to the
+userspace? In the example above, once the quota exceeds, the userspace
+will be notified of every packet arriving, won't it?  That would cause
+unnecessary processing in the userspace.
 
-Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
----
- include/linux/sunrpc/xprt.h |    4 ++--
- net/sunrpc/xprtsock.c       |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+The userspace could remove the rule when it gets the first notification
+and only add it again when it needs to get the information again (as a
+"toggle" functionality), but I think that would take too long and there
+would be several packets going through before the rule could be removed.
 
-diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
-index ba2330d..bc49091 100644
---- a/include/linux/sunrpc/xprt.h
-+++ b/include/linux/sunrpc/xprt.h
-@@ -171,8 +171,8 @@ struct rpc_xprt {
- 	unsigned int		max_reqs;	/* total slots */
- 	unsigned long		state;		/* transport state */
- 	unsigned char		shutdown   : 1,	/* being shut down */
--				resvport   : 1, /* use a reserved port */
--				swapper    : 1; /* we're swapping over this
-+				resvport   : 1;	/* use a reserved port */
-+	unsigned int		swapper;	/* we're swapping over this
- 						   transport */
- 	unsigned int		bind_index;	/* bind function index */
- 
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 5c8b918..30bb8ce 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -1662,11 +1662,11 @@ int xs_swapper(struct rpc_xprt *xprt, int enable)
- 		 */
- 		err = sk_adjust_memalloc(1, RPC_RESERVE_PAGES);
- 		if (!err) {
--			xprt->swapper = 1;
-+			xprt->swapper++;
- 			xs_set_memalloc(xprt);
- 		}
- 	} else if (xprt->swapper) {
--		xprt->swapper = 0;
-+		xprt->swapper--;
- 		sk_clear_memalloc(transport->inet);
- 		sk_adjust_memalloc(-1, -RPC_RESERVE_PAGES);
- 	}
+
 -- 
-1.7.1.1
+Cheers,
+Luca.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
