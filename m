@@ -1,74 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: skb_tx_hash() fix relative to skb_orphan_try()
-Date: Tue, 13 Jul 2010 17:24:20 +0200
-Message-ID: <1279034660.2634.439.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] net/core: neighbour update Oops
+Date: Tue, 13 Jul 2010 17:38:31 +0200
+Message-ID: <1279035511.2634.456.camel@edumazet-laptop>
+References: <734423.1943.qm@web52004.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Doug Kehn <rdkehn@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:53349 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753965Ab0GMPax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 11:30:53 -0400
-Received: by wwi17 with SMTP id 17so1144747wwi.1
-        for <netdev@vger.kernel.org>; Tue, 13 Jul 2010 08:30:50 -0700 (PDT)
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:42839 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755931Ab0GMPif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 11:38:35 -0400
+Received: by wwi18 with SMTP id 18so560140wwi.1
+        for <netdev@vger.kernel.org>; Tue, 13 Jul 2010 08:38:34 -0700 (PDT)
+In-Reply-To: <734423.1943.qm@web52004.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit fc6055a5ba31e2 (net: Introduce skb_orphan_try()) added early
-orphaning of skbs.
+Le mardi 13 juillet 2010 =C3=A0 08:23 -0700, Doug Kehn a =C3=A9crit :
+> When configuring DMVPN (GRE + openNHRP) and a GRE remote
+> address is configured a kernel Oops is observed.  The
+> obserseved Oops is caused by a NULL header_ops pointer
+> (neigh->dev->header_ops) in neigh_update_hhs() when
+>=20
+> void (*update)(struct hh_cache*, const struct net_device*, const unsi=
+gned char *)
+> =3D neigh->dev->header_ops->cache_update;
+>=20
+> is executed.  The dev associated with the NULL header_ops is
+> the GRE interface.  This patch guards against the
+> possibility that header_ops is NULL.
+>=20
+> This Oops was first observed in kernel version 2.6.26.8.
+>=20
+> Signed-off-by: Doug Kehn <rdkehn@yahoo.com>
 
-This unfortunately added a performance regression in skb_tx_hash() in
-case of stacked devices (bonding, vlans, ...)
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Since skb->sk is now NULL, we cannot access sk->sk_hash anymore to
-spread tx packets to multiple NIC queues on multiqueue devices.
-
-skb_tx_hash() in this case only uses skb->protocol, same value for all
-flows.
-
-skb_orphan_try() can copy sk->sk_hash into skb->rxhash and skb_tx_hash()
-can use this saved sk_hash value to compute its internal hash value.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/dev.c |   13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 723a347..70a900a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1911,8 +1911,16 @@ static int dev_gso_segment(struct sk_buff *skb)
-  */
- static inline void skb_orphan_try(struct sk_buff *skb)
- {
--	if (!skb_tx(skb)->flags)
-+	struct sock *sk = skb->sk;
-+
-+	if (sk && !skb_tx(skb)->flags) {
-+		/* skb_tx_hash() wont be able to get sk.
-+		 * We copy sk_hash into skb->rxhash
-+		 */ 
-+		if (!skb->rxhash)
-+			skb->rxhash = sk->sk_hash;
- 		skb_orphan(skb);
-+	}
- }
- 
- int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
-@@ -1998,8 +2006,7 @@ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
- 	if (skb->sk && skb->sk->sk_hash)
- 		hash = skb->sk->sk_hash;
- 	else
--		hash = (__force u16) skb->protocol;
--
-+		hash = (__force u16) skb->protocol ^ skb->rxhash;
- 	hash = jhash_1word(hash, hashrnd);
- 
- 	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
-
+> ---
+>  net/core/neighbour.c |    5 ++++-
+>  1 files changed, 4 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 6ba1c0e..a4e0a74 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -949,7 +949,10 @@ static void neigh_update_hhs(struct neighbour *n=
+eigh)
+>  {
+>  	struct hh_cache *hh;
+>  	void (*update)(struct hh_cache*, const struct net_device*, const un=
+signed char *)
+> -		=3D neigh->dev->header_ops->cache_update;
+> +		=3D NULL;
+> +
+> +	if (neigh->dev->header_ops)
+> +		update =3D neigh->dev->header_ops->cache_update;
+> =20
+>  	if (update) {
+>  		for (hh =3D neigh->hh; hh; hh =3D hh->hh_next) {
 
 
