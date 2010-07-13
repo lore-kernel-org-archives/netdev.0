@@ -1,82 +1,45 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: Re: [REGRESSION,BISECTED] Panic on ifup
-Date: 12 Jul 2010 21:50:29 -0400
-Message-ID: <20100713015029.2897.qmail@science.horizon.com>
-References: <4C3ABDC3.3000408@iki.fi>
-Cc: davem@davemloft.net, linux@horizon.com, netdev@vger.kernel.org
-To: timo.teras@iki.fi
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v3 linux-2.6.35-rc3] ks8842 driver
+Date: Tue, 13 Jul 2010 11:06:43 +0900
+Message-ID: <20100713020642.GH18341@verge.net.au>
+References: <C43529A246480145B0A6D0234BDB0F0D481D72@MELANITE.micrel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	"Li, Charles" <Charles.Li@Micrel.Com>
+To: "Choi, David" <David.Choi@Micrel.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([71.41.210.146]:55858 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751116Ab0GMBub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 21:50:31 -0400
-In-Reply-To: <4C3ABDC3.3000408@iki.fi>
+Received: from kirsty.vergenet.net ([202.4.237.240]:46789 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753301Ab0GMCGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jul 2010 22:06:47 -0400
+Content-Disposition: inline
+In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D481D72@MELANITE.micrel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> And here goes the patch (which I've only compile tested so far).
-
-That does indeed fix it!  Also applies and works with -rc5.
-Please queue for -rc6.  (Unless you want to tweak the patch a bit;
-I haven't done any sort of code review on it.)
-
-Tested-by: George Spelvin <linux@horizon.com>
-
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index af1c173..200f8d7 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -1598,7 +1598,8 @@ xfrm_resolve_and_create_bundle(struct xfrm_policy
-> **pols, int num_pols,
->  		if (err != -EAGAIN)
->  			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTPOLERROR);
->  		return ERR_PTR(err);
-> -	}
-> +	} else if (err == 0)
-> +		return NULL;
+On Mon, Jul 12, 2010 at 05:11:40PM -0700, Choi, David wrote:
+> Hi David & Simon and all,
 > 
->  	dst = xfrm_bundle_create(pols[0], xfrm, err, fl, dst_orig);
->  	if (IS_ERR(dst)) {
-
-This could be simplified to (if you want; it's smaller but uglier)
-
-	if (err <= 0) {
-		if (err != 0 && err != -EAGAIN)
-			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTPOLERROR);
-		return ERR_PTR(err);	/* Correctly returns NULL if err == 0 */
-	}
-
-> @@ -1678,6 +1679,13 @@ xfrm_bundle_lookup(struct net *net, struct flowi
-> *fl, u16 family, u8 dir,
->  			goto make_dummy_bundle;
->  		dst_hold(&xdst->u.dst);
->  		return oldflo;
-> +	} else if (new_xdst == NULL) {
-> +		num_xfrms = 0;
-> +		if (oldflo == NULL)
-> +			goto make_dummy_bundle;
-> +		xdst->num_xfrms = 0;
-> +		dst_hold(&xdst->u.dst);
-> +		return oldflo;
->  	}
+>  
 > 
->  	/* Kill the previous bundle */
-
-This I'm having a hard time simplifying.  It resembles the previous
-block, but not enough.
-
-> @@ -1760,6 +1768,10 @@ restart:
->  				xfrm_pols_put(pols, num_pols);
->  				err = PTR_ERR(xdst);
->  				goto dropdst;
-> +			} else if (xdst == NULL) {
-> +				num_xfrms = 0;
-> +				drop_pols = num_pols;
-> +				goto no_transform;
->  			}
+> Thank you very much for your interests and comments for this patch.
 > 
->  			spin_lock_bh(&xfrm_policy_sk_bundle_lock);
+>  
 > 
+> It seems that there are differences between Micrel ks8842 device and
+> Timberdale FPGA based device 
+> 
+> with generic bus interface. In order to check the differences, I have
+> sent several times but have not 
+> 
+> received any response. This patch is to support ks8841/ks8842 device
+> from Micrel.
 
-I see two nearby tests for xdst == NULL ("To accelerate a bit..."); I take it
-they can't be combined?
+Hi David,
+
+your mail client seems to have mangled your patches and is
+providing an HTML version of the mail. I don't think this
+was the case with the v2 patches. Did you change the
+way that you are sending your email?
+
