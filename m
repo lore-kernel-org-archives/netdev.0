@@ -1,40 +1,59 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] netfilter: xtables: userspace notification target
-Date: Tue, 13 Jul 2010 13:49:46 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1007131349120.778@obet.zrqbmnf.qr>
-References: <20100713001115.GA3751@sortiz-mobl>  <AANLkTil2EgQbzUqYNHAYpIWJvyyE6AWq1TpvxrqVsD7k@mail.gmail.com>  <4C3C28EC.2000302@netfilter.org> <1279016596.12673.11.camel@chilepepper>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: IPVS scheduler algorithms (was: [PATCH] ipvs: Kconfig cleanup)
+Date: Tue, 13 Jul 2010 21:29:25 +0900
+Message-ID: <20100713122925.GA8903@verge.net.au>
+References: <1278102728-20217-1-git-send-email-mmarek@suse.cz>
+ <20100704070516.GA9437@verge.net.au>
+ <20100704071347.GB9437@verge.net.au>
+ <4C319B18.10409@trash.net>
+ <AANLkTim3FfgxTzQ36YYYA8QG605oNW3skHZlSLKAZcjl@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ext Pablo Neira Ayuso <pablo@netfilter.org>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Luciano Coelho <luciano.coelho@nokia.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1279016596.12673.11.camel@chilepepper>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, Michal Marek <mmarek@suse.cz>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	linux-kernel@vger.kernel.org
+To: Ismael Luque Valencia <isma.luque@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTim3FfgxTzQ36YYYA8QG605oNW3skHZlSLKAZcjl@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Jul 11, 2010 at 07:15:21PM -0500, Ismael Luque Valencia wrote:
+> Hi my name is Ismael, I am doing a paper about lvs algorithms but I dont
+> undernstand two of them Locality-Based Least-Connection and Locality-Based
+> Least-Connection with Replication
+> Someone, who can explain me that algorithms please
+> If it is in Spanish will better because my English is not good
 
-On Tuesday 2010-07-13 12:23, Luciano Coelho wrote:
->> 
->> Indeed, this looks to me like something that you can do with NFLOG and
->> some combination of matches.
->
->Is it possible to have the NFLOG send only one notification to the
->userspace? In the example above, once the quota exceeds, the userspace
->will be notified of every packet arriving, won't it?  That would cause
->unnecessary processing in the userspace.
->
->The userspace could remove the rule when it gets the first notification
->and only add it again when it needs to get the information again (as a
->"toggle" functionality), but I think that would take too long and there
->would be several packets going through before the rule could be removed.
+Hi,
 
-With xt_condition that should not be a problem
-(-A INPUT -m condition --name ruleXYZ -j NFLOG..)
-This is settable through procfs.
+Firstly, please don't reply to emails unless you are actually
+replying to the topic at hand. Instead just compose a fresh
+message to the people/lists that you want to address.
+This helps keep threads in mail-readers that support them sane.
+
+In any case this question would be better sent to the lvs-users list.
+
+But to your question.
+
+These schedulers are described briefly in the ipvsadm(8) man page
+and in pseudo code in the source files (ip_vs_lblc.c and ip_vs_lblcr.c)
+in the Linux kernel tree. And there is some discussion in the howto
+http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.ipvsadm.html#DH
+
+The way that I think of these schedulers is as enhanced versions of wlc
+designed for use with transparent proxies. That is situations where
+there will be a lot of destination addresses.
+
+lblc works by keeping a cache that associates destination addresses with
+a real server. This allows accesses, potentially from different end-users,
+to be sent to the same real-server. As this is designed to be used
+with proxies, this means the request will be sent to a proxy that may
+have already retrieved the result.
+
+lblcr is similar, but instead of one real-server per destination, it
+allows for multiple real-servers per destination.
 
