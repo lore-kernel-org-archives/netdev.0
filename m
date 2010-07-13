@@ -1,70 +1,48 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Mon, 12 Jul 2010 22:16:55 -0700
-Message-ID: <20100712221655.1873954d@nehalam>
-References: <20100504230225.GP8323@vmware.com>
-	<201005051029.42052.dtor@vmware.com>
-	<20100505173120.GA1752@infradead.org>
-	<201005051035.29831.dtor@vmware.com>
-	<20100505173951.GA8388@infradead.org>
-	<20100505105253.0a8bc465@nehalam>
-	<20100506202113.GC17922@infradead.org>
-	<1278990388.32650.22.camel@eng-rhel5-64>
+Subject: Re: iproute, batch-cmds, and mac-vlans.
+Date: Mon, 12 Jul 2010 22:19:58 -0700
+Message-ID: <20100712221958.2a87b0e3@nehalam>
+References: <4C3BF050.7040206@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Pankaj Thakkar <pthakkar@vmware.com>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1278990388.32650.22.camel@eng-rhel5-64>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:47268 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751540Ab0GMFUA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jul 2010 01:20:00 -0400
+In-Reply-To: <4C3BF050.7040206@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Jul 2010 20:06:28 -0700
-Shreyas Bhatewara <sbhatewara@vmware.com> wrote:
+On Mon, 12 Jul 2010 21:49:20 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
+> After too much time debugging, I finally realized that the ip
+> tool was truncating my command because the mac-vlan device name
+> had a '#' in it.
 > 
-> On Thu, 2010-05-06 at 13:21 -0700, Christoph Hellwig wrote:
-> > On Wed, May 05, 2010 at 10:52:53AM -0700, Stephen Hemminger wrote:
-> > > Let me put it bluntly. Any design that allows external code to run
-> > > in the kernel is not going to be accepted.  Out of tree kernel modules are enough
-> > > of a pain already, why do you expect the developers to add another
-> > > interface.
-> > 
-> > Exactly.  Until our friends at VMware get this basic fact it's useless
-> > to continue arguing.
-> > 
-> > Pankaj and Dmitry: you're fine to waste your time on this, but it's not
-> > going to go anywhere until you address that fundamental problem.  The
-> > first thing you need to fix in your archicture is to integrate the VF
-> > function code into the kernel tree, and we can work from there.
-> > 
-> > Please post patches doing this if you want to resume the discussion.
-> > 
-> > _______________________________________________
-> > Pv-drivers mailing list
-> > Pv-drivers@vmware.com
-> > http://mailman2.vmware.com/mailman/listinfo/pv-drivers
+> ]# cat /tmp/foo.txt
+> ru add to 10.99.21.1 iif eth0#0 lookup local pref 11
 > 
 > 
-> As discussed, following is the patch to give you an idea
-> about implementation of NPA for vmxnet3 driver. Although the
-> patch is big, I have verified it with checkpatch.pl. It gave
-> 0 errors / warnings.
+> # IP tool has some hacked up debugging code
+> ]# ip -batch /tmp/foo.txt
+>   argc: 4
+>   arg -:to:-
+>   arg -:iif:-
+> WARNING:  Using TABLE_MAIN in iprule_modify, table_ok: 0  cmd: 32
 > 
-> Signed-off-by: Matthieu Bucchaineri <matthieu@vmware.com>
-> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+> 
+> So, it acts on eth0 instead of eth0#0, and silently ignores the 'lookup local pref 11'.
+> 
+> I understand that it is trying to parse # as comments, but would you
+> all be interested in a patch that allowed ignoring '#' except
+> when it is the first non-whitespace character on a line, and maybe
+> when preceded by whitespace?  This would of course have the possibility
+> of breaking someone's script somewhere, so it could be enabled with
+> a new command line arg, perhaps.
 
-I think the concept won't fly.
-
-But you should really at least try running checkpatch to make sure
-the style conforms.
-
-
--- 
+Putting # in device name just sounds like a bad idea.
