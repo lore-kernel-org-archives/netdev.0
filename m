@@ -1,60 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: xtables: userspace notification target
-Date: Wed, 14 Jul 2010 18:34:29 +0200
-Message-ID: <4C3DE715.8070502@netfilter.org>
-References: <20100713001115.GA3751@sortiz-mobl>	 <AANLkTil2EgQbzUqYNHAYpIWJvyyE6AWq1TpvxrqVsD7k@mail.gmail.com>	 <4C3C28EC.2000302@netfilter.org> <1279016596.12673.11.camel@chilepepper>	 <4C3C9671.5090503@netfilter.org>  <4C3DA3F4.1060807@trash.net> <1279110169.20985.41.camel@chilepepper>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for
+ vmxnet3
+Date: Wed, 14 Jul 2010 10:19:10 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1007141015330.1613@localhost.localdomain>
+References: <20100504230225.GP8323@vmware.com> <201005051029.42052.dtor@vmware.com> <20100505173120.GA1752@infradead.org> <201005051035.29831.dtor@vmware.com> <20100505173951.GA8388@infradead.org> <20100505105253.0a8bc465@nehalam> <20100506202113.GC17922@infradead.org>
+ <1278990388.32650.22.camel@eng-rhel5-64> <20100714094952.GA16209@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: ext Patrick McHardy <kaber@trash.net>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Pankaj Thakkar <pthakkar@vmware.com>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Luciano Coelho <luciano.coelho@nokia.com>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:56007 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751962Ab0GNQeh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jul 2010 12:34:37 -0400
-In-Reply-To: <1279110169.20985.41.camel@chilepepper>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:32420 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751786Ab0GNRTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 13:19:11 -0400
+In-Reply-To: <20100714094952.GA16209@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Luciano,
 
-On 14/07/10 14:22, Luciano Coelho wrote:
-> On Wed, 2010-07-14 at 13:48 +0200, ext Patrick McHardy wrote:
->> If you're using connection tracking, you can use conntrack marks
->> to avoid sending more than a single message:
->>
->> iptables ... -m connmark --mark 0x1/0x1 -j RETURN
->> iptables ... -j NFLOG ...
->> iptables ... -j CONNMARK --set-mark 0x1/0x1
-> 
-> Cool, thanks.
-> 
-> It seems that there are lots of possibilities to get this to work, but
-> this is starting to get quite complex.  I would still prefer having the
-> NFNOTIF module included, since we would be able to do what we want in a
-> very simple way.  It's also probably much more efficient that using
-> several rules, which would increase the CPU usage considerably (in our
-> device we are already reaching the limit of a reasonable CPU resource
-> usage with high throughput WLAN connections).
-> 
-> While I agree that it is possible to achieve the NFNOTIF functionality
-> with existing modules, I still think there is a "niche" for such module,
-> because it is very simple, has a very clear purpose and would make the
-> ruleset simpler and more efficient.
-> 
-> Does this make any sense?
 
-I don't think that the NFNOTIF infrastructure fulfill the policy for
-inclusion. It seems to me like something quite specific for your needs.
-It is simple, yes, but we already have this feature into the kernel. I
-don't think that this will reduce CPU usage considerably with regards to
-the NFLOG way.
+On Wed, 14 Jul 2010, Greg KH wrote:
 
-I would still prefer adding the once-per-matching notification feature
-to NFLOG than these extra lines in the kernel, Patrick?
+> On Mon, Jul 12, 2010 at 08:06:28PM -0700, Shreyas Bhatewara wrote:
+> >  drivers/net/vmxnet3/vmxnet3_drv.c     | 1845
+> > +++++++++++++++++++--------------
+> 
+> Your patch is line-wrapped and can not be applied :(
+> 
+> Care to fix your email client?
+> 
+> One thing just jumped out at me when glancing at this:
+> 
+> > +static INLINE void
+> > +MoveMemory(void *dst,
+> > +		void *src,
+> > +		size_t length)
+> > +{
+> > +	size_t i;
+> > +	for (i = 0; i < length; ++i)
+> > +		((u8 *)dst)[i] = ((u8 *)src)[i];
+> > +}
+> > +
+> > +static INLINE void
+> > +ZeroMemory(void *memory,
+> > +		size_t length)
+> > +{
+> > +	size_t i;
+> > +	for (i = 0; i < length; ++i)
+> > +		((u8 *)memory)[i] = 0;
+> > +}
+> 
+> Is there some reason that our in-kernel functions that do this type of
+> logic are not working for you to require you to reimplement this?
+> 
+> thanks,
+> 
+> greg k-h
+> 
+
+Greg,
+
+Thanks for pointing out. I will fix both these issues and repost the patch.
+
+->Shreyas
