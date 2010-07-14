@@ -1,57 +1,58 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Wed, 14 Jul 2010 02:49:52 -0700
-Message-ID: <20100714094952.GA16209@kroah.com>
-References: <20100504230225.GP8323@vmware.com> <201005051029.42052.dtor@vmware.com> <20100505173120.GA1752@infradead.org> <201005051035.29831.dtor@vmware.com> <20100505173951.GA8388@infradead.org> <20100505105253.0a8bc465@nehalam> <20100506202113.GC17922@infradead.org> <1278990388.32650.22.camel@eng-rhel5-64>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Wed, 14 Jul 2010 13:41:28 +0200
+Message-ID: <4C3DA268.20008@trash.net>
+References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>	 <AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>	 <1278626921.2435.73.camel@edumazet-laptop>	 <AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com> <1278695580.2696.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Pankaj Thakkar <pthakkar@vmware.com>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: Shreyas Bhatewara <sbhatewara@vmware.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Felipe W Damasio <felipewd@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1278990388.32650.22.camel@eng-rhel5-64>
+In-Reply-To: <1278695580.2696.55.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 12, 2010 at 08:06:28PM -0700, Shreyas Bhatewara wrote:
->  drivers/net/vmxnet3/vmxnet3_drv.c     | 1845
-> +++++++++++++++++++--------------
+On 09.07.2010 19:13, Eric Dumazet wrote:
+> Le vendredi 09 juillet 2010 =E0 12:03 -0300, Felipe W Damasio a =E9cr=
+it :
+>> Hi,
+>>
+>> 2010/7/8 Eric Dumazet <eric.dumazet@gmail.com>:
+>>> Please try to reproduce a new report.
+>>>
+>>> It looks like a memory corruption, and it would be good to see if a
+>>> common pattern is occurring.
+>>
+>> I'm trying..the thing is the freeze occured on the machine that sits
+>> on a 200Mbps ISP in bridge-mode. Since the machine frooze, and the
+>> whole ISP went down for a few minutes, I'm not allowed to run any
+>> tests on it.
+>>
+>> I've setup the same scenario on a lab, but since last night been
+>> unable to reproduce the bug. Maybe there's a clue on the this crash
+>> below that can help me write some program to trigger the problem?
+>>
+>=20
+> Reviewing tproxy stuff I spotted a problem in nf_tproxy_assign_sock()
+> but I could not see how it could explain your crash.
+>=20
+> We can read uninitialized memory and trigger a fault in
+> nf_tproxy_assign_sock(), not later in tcp_recvmsg()...
+>=20
+> David, Patrick, what do you think ?
+>=20
+> Thanks
+>=20
+> [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+>=20
+> transparent field of a socket is either inet_twsk(sk)->tw_transparent
+> for timewait sockets, or inet_sk(sk)->transparent for other sockets
+> (TCP/UDP).
 
-Your patch is line-wrapped and can not be applied :(
+I don't see anything preventing use of timewait sockets, so the
+patch looks correct to me.
 
-Care to fix your email client?
-
-One thing just jumped out at me when glancing at this:
-
-> +static INLINE void
-> +MoveMemory(void *dst,
-> +		void *src,
-> +		size_t length)
-> +{
-> +	size_t i;
-> +	for (i = 0; i < length; ++i)
-> +		((u8 *)dst)[i] = ((u8 *)src)[i];
-> +}
-> +
-> +static INLINE void
-> +ZeroMemory(void *memory,
-> +		size_t length)
-> +{
-> +	size_t i;
-> +	for (i = 0; i < length; ++i)
-> +		((u8 *)memory)[i] = 0;
-> +}
-
-Is there some reason that our in-kernel functions that do this type of
-logic are not working for you to require you to reimplement this?
-
-thanks,
-
-greg k-h
+Applied to nf-2.6.git, thanks Eric.
