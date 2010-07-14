@@ -1,234 +1,250 @@
 From: amit.salecha@qlogic.com
-Subject: [PATCHv3 NEXT 4/5] qlcnic: aer support
-Date: Tue, 13 Jul 2010 23:33:34 -0700
-Message-ID: <1279089215-23231-5-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCHv3 NEXT 5/5] qlcnic: restore NPAR config data after recovery
+Date: Tue, 13 Jul 2010 23:33:35 -0700
+Message-ID: <1279089215-23231-6-git-send-email-amit.salecha@qlogic.com>
 References: <1279089215-23231-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
 	Amit Kumar Salecha <amit.salecha@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:7903 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:44362 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752389Ab0GNGdg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jul 2010 02:33:36 -0400
+	id S1752412Ab0GNGdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jul 2010 02:33:37 -0400
 In-Reply-To: <1279089215-23231-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 
-Pci error recovery support added.
+o NPAR configuration which is programmed in fw, need to
+  restore after fw recovery.
+o Update version to 5.0.7
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    1 +
- drivers/net/qlcnic/qlcnic_main.c |  137 +++++++++++++++++++++++++++++++++++++-
- 2 files changed, 137 insertions(+), 1 deletions(-)
+ drivers/net/qlcnic/qlcnic.h      |    7 ++-
+ drivers/net/qlcnic/qlcnic_ctx.c  |    2 +
+ drivers/net/qlcnic/qlcnic_main.c |   86 +++++++++++++++++++++++++++++---------
+ 3 files changed, 72 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 02a50e6..0644642 100644
+index 0644642..e189477 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -911,6 +911,7 @@ struct qlcnic_mac_req {
- #define __QLCNIC_DEV_UP 		1
- #define __QLCNIC_RESETTING		2
- #define __QLCNIC_START_FW 		4
-+#define __QLCNIC_AER			5
+@@ -51,8 +51,8 @@
  
- #define QLCNIC_INTERRUPT_TEST		1
- #define QLCNIC_LOOPBACK_TEST		2
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 0
+-#define _QLCNIC_LINUX_SUBVERSION 6
+-#define QLCNIC_LINUX_VERSIONID  "5.0.6"
++#define _QLCNIC_LINUX_SUBVERSION 7
++#define QLCNIC_LINUX_VERSIONID  "5.0.7"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ 
+ #define QLCNIC_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
+@@ -949,7 +949,6 @@ struct qlcnic_adapter {
+ 	u8 has_link_events;
+ 	u8 fw_type;
+ 	u16 tx_context_id;
+-	u16 mtu;
+ 	u16 is_up;
+ 
+ 	u16 link_speed;
+@@ -1044,6 +1043,8 @@ struct qlcnic_pci_info {
+ 
+ struct qlcnic_npar_info {
+ 	u16	vlan_id;
++	u16	min_bw;
++	u16	max_bw;
+ 	u8	phy_port;
+ 	u8	type;
+ 	u8	active;
+diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
+index cdd44b4..cc5d861 100644
+--- a/drivers/net/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/qlcnic/qlcnic_ctx.c
+@@ -636,6 +636,8 @@ int qlcnic_get_nic_info(struct qlcnic_adapter *adapter,
+ 			QLCNIC_CDRP_CMD_GET_NIC_INFO);
+ 
+ 	if (err == QLCNIC_RCODE_SUCCESS) {
++		npar_info->pci_func = le16_to_cpu(nic_info->pci_func);
++		npar_info->op_mode = le16_to_cpu(nic_info->op_mode);
+ 		npar_info->phys_port = le16_to_cpu(nic_info->phys_port);
+ 		npar_info->switch_mode = le16_to_cpu(nic_info->switch_mode);
+ 		npar_info->max_tx_ques = le16_to_cpu(nic_info->max_tx_ques);
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 0995f90..d5c94a3 100644
+index d5c94a3..8d2d62f 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -34,6 +34,7 @@
- #include <linux/ipv6.h>
- #include <linux/inetdevice.h>
- #include <linux/sysfs.h>
-+#include <linux/aer.h>
+@@ -507,6 +507,8 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+ 			adapter->npars[pfn].type = pci_info[i].type;
+ 			adapter->npars[pfn].phy_port = pci_info[i].default_port;
+ 			adapter->npars[pfn].mac_learning = DEFAULT_MAC_LEARN;
++			adapter->npars[pfn].min_bw = pci_info[i].tx_min_bw;
++			adapter->npars[pfn].max_bw = pci_info[i].tx_max_bw;
+ 		}
  
- MODULE_DESCRIPTION("QLogic 1/10 GbE Converged/Intelligent Ethernet Driver");
- MODULE_LICENSE("GPL");
-@@ -1306,6 +1307,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out_disable_pdev;
- 
- 	pci_set_master(pdev);
-+	pci_enable_pcie_error_reporting(pdev);
- 
- 	netdev = alloc_etherdev(sizeof(struct qlcnic_adapter));
- 	if (!netdev) {
-@@ -1437,6 +1439,7 @@ static void __devexit qlcnic_remove(struct pci_dev *pdev)
- 
- 	qlcnic_release_firmware(adapter);
- 
-+	pci_disable_pcie_error_reporting(pdev);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
-@@ -2521,6 +2524,9 @@ static void
- qlcnic_schedule_work(struct qlcnic_adapter *adapter,
- 		work_func_t func, int delay)
- {
-+	if (test_bit(__QLCNIC_AER, &adapter->state))
-+		return;
-+
- 	INIT_DELAYED_WORK(&adapter->fw_work, func);
- 	schedule_delayed_work(&adapter->fw_work, round_jiffies_relative(delay));
- }
-@@ -2631,6 +2637,128 @@ reschedule:
- 	qlcnic_schedule_work(adapter, qlcnic_fw_poll_work, FW_POLL_DELAY);
+ 		for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
+@@ -771,6 +773,50 @@ qlcnic_check_options(struct qlcnic_adapter *adapter)
  }
  
-+static int qlcnic_is_first_func(struct pci_dev *pdev)
+ static int
++qlcnic_reset_npar_config(struct qlcnic_adapter *adapter)
 +{
-+	struct pci_dev *oth_pdev;
-+	int val = pdev->devfn;
++	int i, err = 0;
++	struct qlcnic_npar_info *npar;
++	struct qlcnic_info nic_info;
 +
-+	while (val-- > 0) {
-+		oth_pdev = pci_get_domain_bus_and_slot(pci_domain_nr
-+			(pdev->bus), pdev->bus->number,
-+			PCI_DEVFN(PCI_SLOT(pdev->devfn), val));
++	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED) ||
++	    !adapter->need_fw_reset)
++		return 0;
 +
-+		if (oth_pdev && (oth_pdev->current_state != PCI_D3cold))
-+			return 0;
-+	}
-+	return 1;
-+}
++	if (adapter->op_mode == QLCNIC_MGMT_FUNC) {
++		/* Set the NPAR config data after FW reset */
++		for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
++			npar = &adapter->npars[i];
++			if (npar->type != QLCNIC_TYPE_NIC)
++				continue;
++			err = qlcnic_get_nic_info(adapter, &nic_info, i);
++			if (err)
++				goto err_out;
++			nic_info.min_tx_bw = npar->min_bw;
++			nic_info.max_tx_bw = npar->max_bw;
++			err = qlcnic_set_nic_info(adapter, &nic_info);
++			if (err)
++				goto err_out;
 +
-+static int qlcnic_attach_func(struct pci_dev *pdev)
-+{
-+	int err, first_func;
-+	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
-+	struct net_device *netdev = adapter->netdev;
++			if (npar->enable_pm) {
++				err = qlcnic_config_port_mirroring(adapter,
++						npar->dest_npar, 1, i);
++				if (err)
++					goto err_out;
 +
-+	pdev->error_state = pci_channel_io_normal;
-+
-+	err = pci_enable_device(pdev);
-+	if (err)
-+		return err;
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_set_master(pdev);
-+	pci_restore_state(pdev);
-+
-+	first_func = qlcnic_is_first_func(pdev);
-+
-+	if (qlcnic_api_lock(adapter))
-+		return -EINVAL;
-+
-+	if (first_func) {
-+		adapter->need_fw_reset = 1;
-+		set_bit(__QLCNIC_START_FW, &adapter->state);
-+		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_INITIALIZING);
-+		QLCDB(adapter, DRV, "Restarting fw\n");
-+	}
-+	qlcnic_api_unlock(adapter);
-+
-+	err = adapter->nic_ops->start_firmware(adapter);
-+	if (err)
-+		return err;
-+
-+	qlcnic_clr_drv_state(adapter);
-+	qlcnic_setup_intr(adapter);
-+
-+	if (netif_running(netdev)) {
-+		err = qlcnic_attach(adapter);
-+		if (err) {
-+			qlcnic_clr_all_drv_state(adapter);
-+			clear_bit(__QLCNIC_AER, &adapter->state);
-+			netif_device_attach(netdev);
-+			return err;
++			}
++			npar->mac_learning = DEFAULT_MAC_LEARN;
++			npar->host_vlan_tag = 0;
++			npar->promisc_mode = 0;
++			npar->discard_tagged = 0;
++			npar->vlan_id = 0;
 +		}
-+
-+		err = qlcnic_up(adapter, netdev);
-+		if (err)
-+			goto done;
-+
-+		qlcnic_config_indev_addr(netdev, NETDEV_UP);
 +	}
-+ done:
-+	netif_device_attach(netdev);
++err_out:
 +	return err;
 +}
 +
-+static pci_ers_result_t qlcnic_io_error_detected(struct pci_dev *pdev,
-+						pci_channel_state_t state)
-+{
-+	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
-+	struct net_device *netdev = adapter->netdev;
-+
-+	if (state == pci_channel_io_perm_failure)
-+		return PCI_ERS_RESULT_DISCONNECT;
-+
-+	if (state == pci_channel_io_normal)
-+		return PCI_ERS_RESULT_RECOVERED;
-+
-+	set_bit(__QLCNIC_AER, &adapter->state);
-+	netif_device_detach(netdev);
-+
-+	cancel_delayed_work_sync(&adapter->fw_work);
-+
-+	if (netif_running(netdev))
-+		qlcnic_down(adapter, netdev);
-+
-+	qlcnic_detach(adapter);
-+	qlcnic_teardown_intr(adapter);
-+
-+	clear_bit(__QLCNIC_RESETTING, &adapter->state);
-+
-+	pci_save_state(pdev);
-+	pci_disable_device(pdev);
-+
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+static pci_ers_result_t qlcnic_io_slot_reset(struct pci_dev *pdev)
-+{
-+	return qlcnic_attach_func(pdev) ? PCI_ERS_RESULT_DISCONNECT :
-+				PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+static void qlcnic_io_resume(struct pci_dev *pdev)
-+{
-+	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
-+
-+	pci_cleanup_aer_uncorrect_error_status(pdev);
-+
-+	if (QLCRD32(adapter, QLCNIC_CRB_DEV_STATE) == QLCNIC_DEV_READY &&
-+	    test_and_clear_bit(__QLCNIC_AER, &adapter->state))
-+		qlcnic_schedule_work(adapter, qlcnic_fw_poll_work,
-+						FW_POLL_DELAY);
-+}
-+
-+
- static int
- qlcnicvf_start_firmware(struct qlcnic_adapter *adapter)
++static int
+ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
  {
-@@ -3436,6 +3564,11 @@ static void
- qlcnic_config_indev_addr(struct net_device *dev, unsigned long event)
- { }
- #endif
-+static struct pci_error_handlers qlcnic_err_handler = {
-+	.error_detected = qlcnic_io_error_detected,
-+	.slot_reset = qlcnic_io_slot_reset,
-+	.resume = qlcnic_io_resume,
-+};
+ 	int val, err, first_boot;
+@@ -834,10 +880,9 @@ wait_init:
+ 	qlcnic_idc_debug_info(adapter, 1);
  
- static struct pci_driver qlcnic_driver = {
- 	.name = qlcnic_driver_name,
-@@ -3446,7 +3579,9 @@ static struct pci_driver qlcnic_driver = {
- 	.suspend = qlcnic_suspend,
- 	.resume = qlcnic_resume,
- #endif
--	.shutdown = qlcnic_shutdown
-+	.shutdown = qlcnic_shutdown,
-+	.err_handler = &qlcnic_err_handler
-+
+ 	qlcnic_check_options(adapter);
+-
+-	if (adapter->flags & QLCNIC_ESWITCH_ENABLED &&
+-		adapter->op_mode != QLCNIC_NON_PRIV_FUNC)
+-		qlcnic_dev_set_npar_ready(adapter);
++	if (qlcnic_reset_npar_config(adapter))
++		goto err_out;
++	qlcnic_dev_set_npar_ready(adapter);
+ 
+ 	adapter->need_fw_reset = 0;
+ 
+@@ -2486,6 +2531,7 @@ qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
+ {
+ 	u32 state;
+ 
++	adapter->need_fw_reset = 1;
+ 	if (qlcnic_api_lock(adapter))
+ 		return;
+ 
+@@ -2506,6 +2552,9 @@ qlcnic_dev_set_npar_ready(struct qlcnic_adapter *adapter)
+ {
+ 	u32 state;
+ 
++	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED) ||
++		adapter->op_mode == QLCNIC_NON_PRIV_FUNC)
++		return;
+ 	if (qlcnic_api_lock(adapter))
+ 		return;
+ 
+@@ -3019,7 +3068,7 @@ static struct bin_attribute bin_attr_mem = {
+ 	.write = qlcnic_sysfs_write_mem,
  };
  
- static int __init qlcnic_init_module(void)
+-int
++static int
+ validate_pm_config(struct qlcnic_adapter *adapter,
+ 			struct qlcnic_pm_func_cfg *pm_cfg, int count)
+ {
+@@ -3118,7 +3167,7 @@ qlcnic_sysfs_read_pm_config(struct file *filp, struct kobject *kobj,
+ 	return size;
+ }
+ 
+-int
++static int
+ validate_esw_config(struct qlcnic_adapter *adapter,
+ 			struct qlcnic_esw_func_cfg *esw_cfg, int count)
+ {
+@@ -3154,9 +3203,8 @@ qlcnic_sysfs_write_esw_config(struct file *file, struct kobject *kobj,
+ 	struct device *dev = container_of(kobj, struct device, kobj);
+ 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+ 	struct qlcnic_esw_func_cfg *esw_cfg;
+-	u8 id, discard_tagged, promsc_mode, mac_learn;
+-	u8 vlan_tagging, pci_func, vlan_id;
+ 	int count, rem, i, ret;
++	u8 id, pci_func;
+ 
+ 	count	= size / sizeof(struct qlcnic_esw_func_cfg);
+ 	rem	= size % sizeof(struct qlcnic_esw_func_cfg);
+@@ -3171,17 +3219,13 @@ qlcnic_sysfs_write_esw_config(struct file *file, struct kobject *kobj,
+ 	for (i = 0; i < count; i++) {
+ 		pci_func = esw_cfg[i].pci_func;
+ 		id = adapter->npars[pci_func].phy_port;
+-		vlan_tagging = esw_cfg[i].host_vlan_tag;
+-		promsc_mode = esw_cfg[i].promisc_mode;
+-		mac_learn = esw_cfg[i].mac_learning;
+-		vlan_id	= esw_cfg[i].vlan_id;
+-		discard_tagged = esw_cfg[i].discard_tagged;
+-		ret = qlcnic_config_switch_port(adapter, id, vlan_tagging,
+-						discard_tagged,
+-						promsc_mode,
+-						mac_learn,
+-						pci_func,
+-						vlan_id);
++		ret = qlcnic_config_switch_port(adapter, id,
++						esw_cfg[i].host_vlan_tag,
++						esw_cfg[i].discard_tagged,
++						esw_cfg[i].promisc_mode,
++						esw_cfg[i].mac_learning,
++						esw_cfg[i].pci_func,
++						esw_cfg[i].vlan_id);
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -3227,7 +3271,7 @@ qlcnic_sysfs_read_esw_config(struct file *file, struct kobject *kobj,
+ 	return size;
+ }
+ 
+-int
++static int
+ validate_npar_config(struct qlcnic_adapter *adapter,
+ 				struct qlcnic_npar_func_cfg *np_cfg, int count)
+ {
+@@ -3282,6 +3326,8 @@ qlcnic_sysfs_write_npar_config(struct file *file, struct kobject *kobj,
+ 		ret = qlcnic_set_nic_info(adapter, &nic_info);
+ 		if (ret)
+ 			return ret;
++		adapter->npars[i].min_bw = nic_info.min_tx_bw;
++		adapter->npars[i].max_bw = nic_info.max_tx_bw;
+ 	}
+ 
+ 	return size;
 -- 
 1.6.0.2
 
