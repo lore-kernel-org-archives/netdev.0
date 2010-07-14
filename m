@@ -1,158 +1,116 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Wed, 14 Jul 2010 16:26:36 -0700
-Message-ID: <1279149996.32374.5.camel@w-sridhar.beaverton.ibm.com>
-References: <20100701133956.GD32223@redhat.com>
-	 <4C2CA5C5.4040402@kernel.org> <20100701144624.GA11171@redhat.com>
-	 <4C2CABF2.2020801@kernel.org> <1277996135.1917.198.camel@laptop>
-	 <4C2E2987.9040702@us.ibm.com> <1278094270.1917.288.camel@laptop>
-	 <20100702210637.GA12433@redhat.com> <20100704090005.GA8078@redhat.com>
-	 <4C3C0EBC.40305@us.ibm.com>  <20100713110939.GA3446@redhat.com>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
+Date: Thu, 15 Jul 2010 02:33:00 +0300
+Message-ID: <1279150380.7810.2.camel@localhost.localdomain>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	 <1277807529.19417.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	 <1277938757.4138.3.camel@localhost.localdomain>
+	 <1278204106.21020.0.camel@localhost.localdomain>
+	 <1278283714.3444.1.camel@localhost.localdomain>
+	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
+	 <1278323885.5277.0.camel@localhost.localdomain>
+	 <1278950178.17933.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
+	 <1278981483.23017.4.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100713110939.GA3446@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:57172 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757491Ab0GNXdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 19:33:05 -0400
+Received: by mail-bw0-f46.google.com with SMTP id 1so261475bwz.19
+        for <netdev@vger.kernel.org>; Wed, 14 Jul 2010 16:33:04 -0700 (PDT)
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-07-13 at 14:09 +0300, Michael S. Tsirkin wrote: 
-> On Mon, Jul 12, 2010 at 11:59:08PM -0700, Sridhar Samudrala wrote:
-> > On 7/4/2010 2:00 AM, Michael S. Tsirkin wrote:
-> > >On Fri, Jul 02, 2010 at 11:06:37PM +0200, Oleg Nesterov wrote:
-> > >>On 07/02, Peter Zijlstra wrote:
-> > >>>On Fri, 2010-07-02 at 11:01 -0700, Sridhar Samudrala wrote:
-> > >>>>  Does  it (Tejun's kthread_clone() patch) also  inherit the
-> > >>>>cgroup of the caller?
-> > >>>Of course, its a simple do_fork() which inherits everything just as you
-> > >>>would expect from a similar sys_clone()/sys_fork() call.
-> > >>Yes. And I'm afraid it can inherit more than we want. IIUC, this is called
-> > >>from ioctl(), right?
-> > >>
-> > >>Then the new thread becomes the natural child of the caller, and it shares
-> > >>->mm with the parent. And files, dup_fd() without CLONE_FS.
-> > >>
-> > >>Signals. Say, if you send SIGKILL to this new thread, it can't sleep in
-> > >>TASK_INTERRUPTIBLE or KILLABLE after that. And this SIGKILL can be sent
-> > >>just because the parent gets SIGQUIT or abother coredumpable signal.
-> > >>Or the new thread can recieve SIGSTOP via ^Z.
-> > >>
-> > >>Perhaps this is OK, I do not know. Just to remind that kernel_thread()
-> > >>is merely clone(CLONE_VM).
-> > >>
-> > >>Oleg.
-> > >
-> > >Right. Doing this might break things like flush.  The signal and exit
-> > >behaviour needs to be examined carefully. I am also unsure whether
-> > >using such threads might be more expensive than inheriting kthreadd.
-> > >
-> > Should we just leave it to the userspace to set the cgroup/cpumask
-> > after qemu starts the guest and
-> > the vhost threads?
+On Wed, 2010-07-14 at 16:56 -0600, Tantilov, Emil S wrote:
+> Maxim Levitsky wrote:
+> > On Mon, 2010-07-12 at 15:23 -0600, Tantilov, Emil S wrote:
+> >> Maxim Levitsky wrote:
+> >>> On Mon, 2010-07-05 at 12:58 +0300, Maxim Levitsky wrote:
+> >>>> On Mon, 2010-07-05 at 01:13 -0700, Jeff Kirsher wrote:
+> >>>>> On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky
+> >>>>> <maximlevitsky@gmail.com> wrote:
+> >>>>>> Did few guesses, and now I see that reverting the below commit
+> >>>>>> fixes the problem. 
+> >>>>>> 
+> >>>>>> "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
+> >>>>>> e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
+> >>>>>> 
+> >>>>>> 
+> >>>>>> Best regards,
+> >>>>>>        Maxim Levitsky
+> >>>>>> 
+> >>>>>> --
+> >>>>> 
+> >>>>> Can you give us till Tuesday to respond?  I know that there are
+> >>>>> some additional e1000e patches in my queue, which may resolve the
+> >>>>> issue, but this weekend the power is down to do some
+> >>>>> infrastructure upgrades which prevents us from doing any
+> >>>>> investigation.debugging until Tuesday. 
+> >>>>> 
+> >>>> 
+> >>>> Sure.
+> >>>> 
+> >>>> Best regards,
+> >>>> 	Maxim Levitsky
+> >>>> 
+> >>> 
+> >>> Updates?
+> >> 
+> >> We are working on reproducing the issue. So far we have not seen the
+> >> problem when testing with net-next. 
+> >> 
+> >> I asked in previous email about some additional info from ethtool
+> >> (-d, -e, -S) and kernel config. That would help us to narrow it
+> >> down.  
+> >> 
+> >> Thanks,
+> >> Emil
+> > I did send -e and -d output.
+> 
+> Sorry, looks like I lost the email with the attachements. 
+> 
+> Could you provide the output of dmesg after the failure occurs?
+>  
+> > Since you probably want -S output during failure, I need to recompile
+> > kernel for that. I will do that soon.
 > > 
-> > Thanks
-> > Sridhar
+> > 
+> > One question, in two weeks I hope 2.6.35 won't be released?
+> > If so, I will have enough free time then to narrow down this issue.
+> > 
+> > Other solution, is to revert this commit.
+> > (I have never seen this problem with it reverted).
 > 
-> Yes but we can't trust userspace to do this. It's important
-> to do it on thread creation: if we don't, malicious userspace
-> can create large amount of work exceeding the cgroup limits.
+> We have been running reboot tests on 2 separate systems with recent net-next kernels 
+> using your config and so far no luck in reproducing this issue. 
 > 
-> And the same applies so the affinity: if the qemu process
-> is limited to a set of CPUs, it's important to make
-> the kernel thread that does work our behalf limited to the same
-> set of CPUs.
-> 
-> This is not unique to vhost, it's just that virt scenarious are affected
-> by this more: people seem to run untrusted applications and expect the
-> damage to be contained.
+> What is the make model of your system (or MB)?
 
-OK. So we want to create a thread that is a child of kthreadd, but inherits the cgroup/cpumask
-from the caller. How about an exported kthread function kthread_create_in_current_cg() 
-that does this?
+the motherboard is Intel DG965RY.
 
-diff --git a/include/linux/kthread.h b/include/linux/kthread.h
-index aabc8a1..e0616f0 100644
---- a/include/linux/kthread.h
-+++ b/include/linux/kthread.h
-@@ -9,6 +9,9 @@ struct task_struct *kthread_create(int (*threadfn)(void *data),
- 				   const char namefmt[], ...)
- 	__attribute__((format(printf, 3, 4)));
- 
-+struct task_struct *kthread_create_in_current_cg(int (*threadfn)(void *data),
-+						 void *data, char *name);
-+
- /**
-  * kthread_run - create and wake a thread.
-  * @threadfn: the function to run until signal_pending(current).
-diff --git a/kernel/kthread.c b/kernel/kthread.c
-index 83911c7..ea4e737 100644
---- a/kernel/kthread.c
-+++ b/kernel/kthread.c
-@@ -15,6 +15,7 @@
- #include <linux/module.h>
- #include <linux/mutex.h>
- #include <trace/events/sched.h>
-+#include <linux/cgroup.h>
- 
- static DEFINE_SPINLOCK(kthread_create_lock);
- static LIST_HEAD(kthread_create_list);
-@@ -149,6 +150,42 @@ struct task_struct *kthread_create(int (*threadfn)(void *data),
- }
- EXPORT_SYMBOL(kthread_create);
- 
-+struct task_struct *kthread_create_in_current_cg(int (*threadfn)(void *data),
-+						 void *data, char *name)
-+{
-+	struct task_struct *worker;
-+	cpumask_var_t mask;
-+	int ret = -ENOMEM;
-+
-+	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-+		goto out_free_mask;
-+
-+	worker = kthread_create(threadfn, data, "%s-%d", name, current->pid);
-+	if (IS_ERR(worker))
-+		goto out_free_mask;
-+
-+	ret = sched_getaffinity(current->pid, mask);
-+	if (ret)
-+		goto out_stop_worker;
-+
-+	ret = sched_setaffinity(worker->pid, mask);
-+	if (ret)
-+		goto out_stop_worker;
-+
-+	ret = cgroup_attach_task_current_cg(worker);
-+	if (ret)
-+		goto out_stop_worker;
-+
-+	return worker;
-+
-+out_stop_worker:
-+	kthread_stop(worker);
-+out_free_mask:
-+	free_cpumask_var(mask);
-+	return ERR_PTR(ret);
-+}
-+EXPORT_SYMBOL(kthread_create_in_current_cg);
-+
- /**
-  * kthread_bind - bind a just-created kthread to a cpu.
-  * @p: thread created by kthread_create().
+However, I am using vanilla kernel.
+net-next might contain further fixes.
 
+I see if net-next works here.
 
-Thanks
-Sridhar
+Best regards,
+	Maxim Levitsky
 
