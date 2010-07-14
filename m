@@ -1,43 +1,57 @@
-From: Wan ZongShun <mcuos.com@gmail.com>
-Subject: [PATCH] net/nuc900: enable Mac driver clock
-Date: Wed, 14 Jul 2010 17:48:45 +0800
-Message-ID: <4C3D87FD.6030101@gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
+Date: Wed, 14 Jul 2010 02:49:52 -0700
+Message-ID: <20100714094952.GA16209@kroah.com>
+References: <20100504230225.GP8323@vmware.com> <201005051029.42052.dtor@vmware.com> <20100505173120.GA1752@infradead.org> <201005051035.29831.dtor@vmware.com> <20100505173951.GA8388@infradead.org> <20100505105253.0a8bc465@nehalam> <20100506202113.GC17922@infradead.org> <1278990388.32650.22.camel@eng-rhel5-64>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Pankaj Thakkar <pthakkar@vmware.com>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: Shreyas Bhatewara <sbhatewara@vmware.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1278990388.32650.22.camel@eng-rhel5-64>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixed a bug that Mac driver does not work,because I missed the clk enable.
+On Mon, Jul 12, 2010 at 08:06:28PM -0700, Shreyas Bhatewara wrote:
+>  drivers/net/vmxnet3/vmxnet3_drv.c     | 1845
+> +++++++++++++++++++--------------
 
-I have ever tested the driver when I submitted previous Mac driver patch,
-and it worked good, since my bootloader has enabled the clock in advance.
+Your patch is line-wrapped and can not be applied :(
 
-But when I try to use other bootloader where clock engine was disabled,the
-Mac driver does not work, so I send this patch to fix this issue.
+Care to fix your email client?
 
-Signed-off-by: Wan ZongShun <mcuos.com@gmail.com>
+One thing just jumped out at me when glancing at this:
 
----
- drivers/net/arm/w90p910_ether.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+> +static INLINE void
+> +MoveMemory(void *dst,
+> +		void *src,
+> +		size_t length)
+> +{
+> +	size_t i;
+> +	for (i = 0; i < length; ++i)
+> +		((u8 *)dst)[i] = ((u8 *)src)[i];
+> +}
+> +
+> +static INLINE void
+> +ZeroMemory(void *memory,
+> +		size_t length)
+> +{
+> +	size_t i;
+> +	for (i = 0; i < length; ++i)
+> +		((u8 *)memory)[i] = 0;
+> +}
 
-diff --git a/drivers/net/arm/w90p910_ether.c b/drivers/net/arm/w90p910_ether.c
-index 2e85246..4545d5a 100644
---- a/drivers/net/arm/w90p910_ether.c
-+++ b/drivers/net/arm/w90p910_ether.c
-@@ -822,6 +822,9 @@ static int w90p910_ether_open(struct net_device *dev)
- 	w90p910_set_global_maccmd(dev);
- 	w90p910_enable_rx(dev, 1);
+Is there some reason that our in-kernel functions that do this type of
+logic are not working for you to require you to reimplement this?
 
-+	clk_enable(ether->rmiiclk);
-+	clk_enable(ether->clk);
-+
- 	ether->rx_packets = 0x0;
- 	ether->rx_bytes = 0x0;
+thanks,
 
--- 
-1.6.3.3
+greg k-h
