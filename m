@@ -1,81 +1,85 @@
 From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [2/5] Interrupt control
- bitmap
-Date: Tue, 13 Jul 2010 17:48:04 -0700 (PDT)
-Message-ID: <alpine.LRH.2.00.1007131746370.32055@localhost.localdomain>
-References: <alpine.LRH.2.00.1007070125440.4652@localhost.localdomain> <alpine.LRH.2.00.1007070222110.6105@localhost.localdomain>
+Subject: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [3/5] Initialize link
+ state at probe time
+Date: Tue, 13 Jul 2010 17:48:55 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1007131748180.32055@localhost.localdomain>
+References: <alpine.LRH.2.00.1007070125440.4652@localhost.localdomain> <alpine.LRH.2.00.1007070202080.5939@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, pv-drivers@vmware.com,
-	ronghua@vmware.com
+Cc: linux-kernel@vger.kernel.org, pv-drivers@vmware.com
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.1007070222110.6105@localhost.localdomain>
+In-Reply-To: <alpine.LRH.2.00.1007070202080.5939@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-A new bit map 'intrCtrl' is introduced in the DriverShared area. The driver
-should update VMXNET3_IC_DISABLE_ALL bit before writing IMR.
+Initialize vmxnet3 link state at probe time
 
-Signed-off-by: Ronghua Zang <ronghua@vmware.com>
+This change initializes the state of link at the time when driver is
+loaded. The ethtool output for 'link detected' and 'link speed'
+is thus valid even before the interface is brought up.
+
 Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
 
 ---
+ drivers/net/vmxnet3/vmxnet3_drv.c |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
 
- drivers/net/vmxnet3/vmxnet3_defs.h |    6 +++++-
- drivers/net/vmxnet3/vmxnet3_drv.c  |    3 +++
- 2 files changed, 8 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
-index b4889e6..ca7727b 100644
---- a/drivers/net/vmxnet3/vmxnet3_defs.h
-+++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-@@ -464,6 +464,9 @@ enum vmxnet3_intr_type {
- /* addition 1 for events */
- #define VMXNET3_MAX_INTRS      25
- 
-+/* value of intrCtrl */
-+#define VMXNET3_IC_DISABLE_ALL  0x1   /* bit 0 */
-+
- 
- struct Vmxnet3_IntrConf {
- 	bool		autoMask;
-@@ -471,7 +474,8 @@ struct Vmxnet3_IntrConf {
- 	u8		eventIntrIdx;
- 	u8		modLevels[VMXNET3_MAX_INTRS];	/* moderation level for
- 							 * each intr */
--	__le32		reserved[3];
-+	__le32		intrCtrl;
-+	__le32		reserved[2];
- };
- 
- /* one bit per VLAN ID, the size is in the units of u32	*/
 diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 5a50d10..7792a44 100644
+index 7792a44..1e31d40 100644
 --- a/drivers/net/vmxnet3/vmxnet3_drv.c
 +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -72,6 +72,7 @@ vmxnet3_enable_all_intrs(struct vmxnet3_adapter *adapter)
- 
- 	for (i = 0; i < adapter->intr.num_intrs; i++)
- 		vmxnet3_enable_intr(adapter, i);
-+	adapter->shared->devRead.intrConf.intrCtrl &= ~VMXNET3_IC_DISABLE_ALL;
- }
- 
- 
-@@ -80,6 +81,7 @@ vmxnet3_disable_all_intrs(struct vmxnet3_adapter *adapter)
+@@ -130,7 +130,7 @@ vmxnet3_tq_stop(struct vmxnet3_tx_queue *tq, struct vmxnet3_adapter *adapter)
+  * Check the link state. This may start or stop the tx queue.
+  */
+ static void
+-vmxnet3_check_link(struct vmxnet3_adapter *adapter)
++vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool affectTxQueue)
  {
- 	int i;
+ 	u32 ret;
  
-+	adapter->shared->devRead.intrConf.intrCtrl |= VMXNET3_IC_DISABLE_ALL;
- 	for (i = 0; i < adapter->intr.num_intrs; i++)
- 		vmxnet3_disable_intr(adapter, i);
+@@ -143,14 +143,16 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter)
+ 		if (!netif_carrier_ok(adapter->netdev))
+ 			netif_carrier_on(adapter->netdev);
+ 
+-		vmxnet3_tq_start(&adapter->tx_queue, adapter);
++		if (affectTxQueue)
++			vmxnet3_tq_start(&adapter->tx_queue, adapter);
+ 	} else {
+ 		printk(KERN_INFO "%s: NIC Link is Down\n",
+ 		       adapter->netdev->name);
+ 		if (netif_carrier_ok(adapter->netdev))
+ 			netif_carrier_off(adapter->netdev);
+ 
+-		vmxnet3_tq_stop(&adapter->tx_queue, adapter);
++		if (affectTxQueue)
++			vmxnet3_tq_stop(&adapter->tx_queue, adapter);
+ 	}
  }
-@@ -1880,6 +1882,7 @@ vmxnet3_setup_driver_shared(struct vmxnet3_adapter *adapter)
- 		devRead->intrConf.modLevels[i] = adapter->intr.mod_levels[i];
  
- 	devRead->intrConf.eventIntrIdx = adapter->intr.event_intr_idx;
-+	devRead->intrConf.intrCtrl |= VMXNET3_IC_DISABLE_ALL;
+@@ -165,7 +167,7 @@ vmxnet3_process_events(struct vmxnet3_adapter *adapter)
  
- 	/* rx filter settings */
- 	devRead->rxFilterConf.rxMode = 0;
+ 	/* Check if link state has changed */
+ 	if (events & VMXNET3_ECR_LINK)
+-		vmxnet3_check_link(adapter);
++		vmxnet3_check_link(adapter, true);
+ 
+ 	/* Check if there is an error on xmit/recv queues */
+ 	if (events & (VMXNET3_ECR_TQERR | VMXNET3_ECR_RQERR)) {
+@@ -1947,7 +1949,7 @@ vmxnet3_activate_dev(struct vmxnet3_adapter *adapter)
+ 	 * Check link state when first activating device. It will start the
+ 	 * tx queue if the link is up.
+ 	 */
+-	vmxnet3_check_link(adapter);
++	vmxnet3_check_link(adapter, true);
+ 
+ 	napi_enable(&adapter->napi);
+ 	vmxnet3_enable_all_intrs(adapter);
+@@ -2549,6 +2551,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 	}
+ 
+ 	set_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
++	vmxnet3_check_link(adapter, false);
+ 	atomic_inc(&devices_found);
+ 	return 0;
