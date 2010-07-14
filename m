@@ -1,74 +1,44 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
-Date: Wed, 14 Jul 2010 02:56:18 -0400
-Message-ID: <20100714025618.181eacc5.billfink@mindspring.com>
-References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
-	<1278695580.2696.55.camel@edumazet-laptop>
-	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
-	<1278742649.2538.17.camel@edumazet-laptop>
-	<4C395459.6080407@redhat.com>
-	<1278835332.2538.51.camel@edumazet-laptop>
-	<AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
-	<AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
-	<AANLkTimn9x17g-4K7fS4MjmCgzHuBARurEoFVd_gId7m@mail.gmail.com>
-	<1279032023.2634.384.camel@edumazet-laptop>
-	<AANLkTilrIByt4xAHhsBsKo3nDfv0_c3sF-dCiTiYiPnu@mail.gmail.com>
-	<1279036193.2634.468.camel@edumazet-laptop>
-	<AANLkTilgxvDPpBJvwbw3PHZfXDaa2_6-TbJ8lujz5y3V@mail.gmail.com>
-	<1279077678.2444.95.camel@edumazet-laptop>
-	<AANLkTikkcaionMp3SJLgo3JmCjxQ7rPZv3-3_RbxCx_4@mail.gmail.com>
-	<1279078985.2444.105.camel@edumazet-laptop>
-	<AANLkTikmuK0iWDjmG6lVgPyoZAHQ7ZdJmQobVrAQmgNh@mail.gmail.com>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next-2.6] xfrm: cleanup of xfrm_input.c.
+Date: Wed, 14 Jul 2010 11:18:41 +0300
+Message-ID: <AANLkTik6qHgbCVwZfMGXpso4p2DTC9w6U9agdFVl1ZbN@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Avi Kivity <avi@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Felipe W Damasio <felipewd@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikmuK0iWDjmG6lVgPyoZAHQ7ZdJmQobVrAQmgNh@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=001636832e5e321a6f048b54a240
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:54835 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752702Ab0GNISo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 04:18:44 -0400
+Received: by wwi17 with SMTP id 17so1758958wwi.1
+        for <netdev@vger.kernel.org>; Wed, 14 Jul 2010 01:18:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jul 2010, Felipe W Damasio wrote:
+--001636832e5e321a6f048b54a240
+Content-Type: text/plain; charset=ISO-8859-1
 
-> Hi,
-> 
-> 2010/7/14 Eric Dumazet <eric.dumazet@gmail.com>:
-> >> I can, but my bosses will kick my ass if I bring down the ISP again :)
-> >
-> > I have no guarantee at all, even if we find the bug.
-> 
-> Ok :-)
-> 
-> >> If you think it's the only way to find the problem I'll tell them that
-> >> I need to do it. In this case, please tell me what other config
-> >> options/tools I can use to get as much info as possible...since I'll
-> >> probably be able to test this only once more on the production
-> >> environment for debugging purposes.
-> >
-> > You really should try to setup a lab to trigger the bug, and not doing
-> > experiments on production :)
-> 
-> Right, I'm trying.
-> 
-> The thing is: The ISP is a 200Mbps network with 10,000 users. The
-> first time it took around 2 minutes to trigger the bug. The second
-> time it took around 17 minutes.
-> 
-> So I *think* it's some TCP flag with some weird content...but I can't
-> find out what it is so I can trigger it on the lab.
-> 
-> So my only guess is to enable every possible debug flag I can think of
-> to track the bug down on the production environment. Any hints here
-> would be appreciated :)
+Hi,
+ The patch removes unneeded inclusion of header files
+(linux/module.h, linux/netdevice.h, net/dst.h and net/ip.h)
+ in net/xfrm/xfrm_input.c
 
-Is it possible for you to mirror the production traffic to another
-port, and then do a tcpdump capture to a series of files, so that
-you might possibly be able to correlate the kernel crash to the
-actual packets on the wire (and the Invalid Request squid errors)?
-Just a suggestion.
+Regards,
+Rami Rosen
 
-						-Bill
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+--001636832e5e321a6f048b54a240
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gblwe5nl0
+
+ZGlmZiAtLWdpdCBhL25ldC94ZnJtL3hmcm1faW5wdXQuYyBiL25ldC94ZnJtL3hmcm1faW5wdXQu
+YwppbmRleCA0NWYxYzk4Li42NjJkM2ZlIDEwMDY0NAotLS0gYS9uZXQveGZybS94ZnJtX2lucHV0
+LmMKKysrIGIvbmV0L3hmcm0veGZybV9pbnB1dC5jCkBAIC04LDEwICs4LDYgQEAKICAqLwogCiAj
+aW5jbHVkZSA8bGludXgvc2xhYi5oPgotI2luY2x1ZGUgPGxpbnV4L21vZHVsZS5oPgotI2luY2x1
+ZGUgPGxpbnV4L25ldGRldmljZS5oPgotI2luY2x1ZGUgPG5ldC9kc3QuaD4KLSNpbmNsdWRlIDxu
+ZXQvaXAuaD4KICNpbmNsdWRlIDxuZXQveGZybS5oPgogCiBzdGF0aWMgc3RydWN0IGttZW1fY2Fj
+aGUgKnNlY3BhdGhfY2FjaGVwIF9fcmVhZF9tb3N0bHk7Cg==
+--001636832e5e321a6f048b54a240--
