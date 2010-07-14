@@ -1,21 +1,58 @@
 From: amit.salecha@qlogic.com
-Subject: [PATCHv2 NEXT 0/5]qlcnic: aer state
-Date: Tue, 13 Jul 2010 22:54:48 -0700
-Message-ID: <1279086893-22523-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+Subject: [PATCHv2 NEXT 3/5] qlcnic: fix netdev notifier in error path
+Date: Tue, 13 Jul 2010 22:54:51 -0700
+Message-ID: <1279086893-22523-4-git-send-email-amit.salecha@qlogic.com>
+References: <1279086893-22523-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:21257 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:44562 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1750975Ab0GNFyx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jul 2010 01:54:53 -0400
+	id S1751380Ab0GNFyy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jul 2010 01:54:54 -0400
+In-Reply-To: <1279086893-22523-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-  Resending series of 5 to support aer and minor fixes.
-  Please ignore earlier patches, this fixes minor sparse warning
-  and version update.
-  Please apply them on net-next.
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
--Amit
+netdev notifier are not unregistered if pci_register_driver fails.
+
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic_main.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index d511fd1..c8275f0 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -3451,6 +3451,7 @@ static struct pci_driver qlcnic_driver = {
+ 
+ static int __init qlcnic_init_module(void)
+ {
++	int ret;
+ 
+ 	printk(KERN_INFO "%s\n", qlcnic_driver_string);
+ 
+@@ -3459,8 +3460,15 @@ static int __init qlcnic_init_module(void)
+ 	register_inetaddr_notifier(&qlcnic_inetaddr_cb);
+ #endif
+ 
++	ret = pci_register_driver(&qlcnic_driver);
++	if (ret) {
++#ifdef CONFIG_INET
++		unregister_inetaddr_notifier(&qlcnic_inetaddr_cb);
++		unregister_netdevice_notifier(&qlcnic_netdev_cb);
++#endif
++	}
+ 
+-	return pci_register_driver(&qlcnic_driver);
++	return ret;
+ }
+ 
+ module_init(qlcnic_init_module);
+-- 
+1.6.0.2
+
