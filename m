@@ -1,35 +1,76 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch] netfilter: default to NF_DROP in sip_help_tcp()
-Date: Wed, 14 Jul 2010 21:38:48 +0900
-Message-ID: <20100714123846.GA16045@verge.net.au>
-References: <20100710031604.GA26990@verge.net.au>
- <4C3DAC25.3050401@trash.net>
+From: Christoph Egger <siccegge@cs.fau.de>
+Subject: [PATCH 00/11] Removing dead code
+Date: Wed, 14 Jul 2010 14:39:29 +0200
+Message-ID: <cover.1279110894.git.siccegge__3162.20946047014$1279111196$gmane$org@cs.fau.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: vamos-dev@i4.informatik.uni-erlangen.de
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>, Joe Perches <joe@perches.com>,
+	Stephen Hemminger <shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:37069 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753588Ab0GNMix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 08:38:53 -0400
+Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:43507 "EHLO
+	faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753553Ab0GNMjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 08:39:35 -0400
 Content-Disposition: inline
-In-Reply-To: <4C3DAC25.3050401@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 14, 2010 at 02:23:01PM +0200, Patrick McHardy wrote:
-> On 10.07.2010 05:16, Simon Horman wrote:
-> > I initially noticed this because of the compiler warning below, but it does
-> > seem to be a valid concern in the case where ct_sip_get_header() returns 0
-> > in the first iteration of the while loop.
-> > 
-> > net/netfilter/nf_conntrack_sip.c: In function 'sip_help_tcp':
-> > net/netfilter/nf_conntrack_sip.c:1379: warning: 'ret' may be used uninitialized in this function
-> 
-> Thanks Simon. I've applied the patch, but changed NF_DROP to
-> NF_ACCEPT since we should avoid dropping packets with unknown
-> contents (not SIP) if possible.
+Hi all!
+       
+        As part of the VAMOS[0] research project at the University of
+Erlangen we are looking at multiple integrity errors in linux'
+configuration system.
 
-Thanks, to be honest I was a bit unsure of what policy was best.
+        I've been running a check on the drivers/net sourcetree for
+config Items not defined in Kconfig and found 11 such
+cases. Sourcecode blocks depending on these Items are not reachable
+from a vanilla kernel -- dead code. I've seen such dead blocks made on
+purpose e.g. while integrating new features into the kernel but
+generally they're just useless.
+
+        Each of the patches in this patchset removes on such dead
+config Item, I'd be glad if you consider applying them. I've been
+doing deeper analysis of such issues before and can do so again but
+I'm not so sure they were fastly usefull.
+
+        I build the patches against a vanilla kernel in order to
+try if the kernel compiles with this patches
+
+        Please keep me informed of this patch getting confirmed /
+merged so we can keep track of it.
+
+Regards
+
+        Christoph Egger
+
+[0] http://vamos1.informatik.uni-erlangen.de/
+
+Christoph Egger (11):
+  Removing dead RT2800PCI_SOC
+  Removing dead {AR,WAVE}LAN
+  Removing dead CASSINI_QGE_DEBUG
+  Removing dead CASSINI_MULTICAST_REG_WRITE
+  Removing dead CASSINI_NAPI
+  Removing dead CHELSIO_T1_COUGAR
+  Removing dead ARCH_PNX010X
+  Removing dead SH_HICOSH4
+  Removing dead ETRAX_NETWORK_RED_ON_NO_CONNECTION
+  Removing dead NETWINDER_{T,R}X_DMA_PROBLEMS
+  Removing dead REDWOOD_{5,6}
+
+ drivers/net/Space.c                     |    6 --
+ drivers/net/cassini.c                   |   25 +--------
+ drivers/net/cassini.h                   |    4 -
+ drivers/net/chelsio/subr.c              |   48 +---------------
+ drivers/net/cris/eth_v10.c              |    4 -
+ drivers/net/cs89x0.c                    |   96 +------------------------------
+ drivers/net/cs89x0.h                    |    4 -
+ drivers/net/irda/w83977af_ir.c          |   33 +---------
+ drivers/net/smc91x.h                    |   37 ------------
+ drivers/net/wireless/rt2x00/Kconfig     |    5 --
+ drivers/net/wireless/rt2x00/rt2800pci.c |   39 -------------
+ 11 files changed, 9 insertions(+), 292 deletions(-)
 
