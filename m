@@ -1,72 +1,131 @@
-From: Felipe W Damasio <felipewd@gmail.com>
-Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
-Date: Wed, 14 Jul 2010 00:51:33 -0300
-Message-ID: <AANLkTikmuK0iWDjmG6lVgPyoZAHQ7ZdJmQobVrAQmgNh@mail.gmail.com>
-References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
-	<AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
-	<1278626921.2435.73.camel@edumazet-laptop>
-	<AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
-	<1278695580.2696.55.camel@edumazet-laptop>
-	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
-	<1278742649.2538.17.camel@edumazet-laptop>
-	<4C395459.6080407@redhat.com>
-	<1278835332.2538.51.camel@edumazet-laptop>
-	<AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
-	<AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
-	<AANLkTimn9x17g-4K7fS4MjmCgzHuBARurEoFVd_gId7m@mail.gmail.com>
-	<1279032023.2634.384.camel@edumazet-laptop>
-	<AANLkTilrIByt4xAHhsBsKo3nDfv0_c3sF-dCiTiYiPnu@mail.gmail.com>
-	<1279036193.2634.468.camel@edumazet-laptop>
-	<AANLkTilgxvDPpBJvwbw3PHZfXDaa2_6-TbJ8lujz5y3V@mail.gmail.com>
-	<1279077678.2444.95.camel@edumazet-laptop>
-	<AANLkTikkcaionMp3SJLgo3JmCjxQ7rPZv3-3_RbxCx_4@mail.gmail.com>
-	<1279078985.2444.105.camel@edumazet-laptop>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH RFC] act_cpu: packet distributing
+Date: Wed, 14 Jul 2010 12:17:57 +0800
+Message-ID: <AANLkTimPmXWyAspJqnya7aM_vDRNzDdJJf2bl7CYrAXN@mail.gmail.com>
+References: <1279077475-2956-1-git-send-email-xiaosuo@gmail.com>
+	<1279078875.2444.103.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	"David S. Miller" <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:39093 "EHLO
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:35104 "EHLO
 	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121Ab0GNDvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 23:51:35 -0400
-In-Reply-To: <1279078985.2444.105.camel@edumazet-laptop>
+	with ESMTP id S1750758Ab0GNESS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 00:18:18 -0400
+Received: by vws5 with SMTP id 5so6727784vws.19
+        for <netdev@vger.kernel.org>; Tue, 13 Jul 2010 21:18:18 -0700 (PDT)
+In-Reply-To: <1279078875.2444.103.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-2010/7/14 Eric Dumazet <eric.dumazet@gmail.com>:
->> I can, but my bosses will kick my ass if I bring down the ISP again :)
+On Wed, Jul 14, 2010 at 11:41 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le mercredi 14 juillet 2010 =E0 11:17 +0800, Changli Gao a =E9crit :
+>> I want to know if I can assign the sk to skb as nf_tproxy_core does =
+to avoid
+>> the duplicate search later. Thanks.
+>>
 >
-> I have no guarantee at all, even if we find the bug.
-
-Ok :-)
-
->> If you think it's the only way to find the problem I'll tell them that
->> I need to do it. In this case, please tell me what other config
->> options/tools I can use to get as much info as possible...since I'll
->> probably be able to test this only once more on the production
->> environment for debugging purposes.
+> I suggest we first correct bugs before adding new features.
 >
-> You really should try to setup a lab to trigger the bug, and not doing
-> experiments on production :)
+> For me, tproxy is a high suspect at this moment, I would not use it o=
+n
+> production machine.
+>
+>> act_cpu: packet distributing
+>>
+>> This TC action can be used to redirect packets to the CPU:
+>> =A0* specified by the cpuid option
+>> =A0* specified by the class minor ID obtained previously
+>> =A0* on which the corresponding application runs
+>>
+>> It supports the similar functions of RPS and RFS, but is more flexib=
+le.
+>>
+>
+> Thins kind of claims is disgusting.
+>
+> No documentation, =A0I have no idea how you setup the thing.
 
-Right, I'm trying.
+for example:
 
-The thing is: The ISP is a 200Mbps network with 10,000 users. The
-first time it took around 2 minutes to trigger the bug. The second
-time it took around 17 minutes.
+redirect packets to the CPU on which the corresponding application runs
 
-So I *think* it's some TCP flag with some weird content...but I can't
-find out what it is so I can trigger it on the lab.
+tc qdisc add dev eth0 ingress
+tc filter add dev eth0 parent ffff:0 protocol ip basic action cpu socke=
+t
 
-So my only guess is to enable every possible debug flag I can think of
-to track the bug down on the production environment. Any hints here
-would be appreciated :)
+redirect packets to special CPU.
 
-Cheers,
+tc filter add dev eth0 parent ffff:0 protocol ip basic action cpu cpuid=
+ 1
 
-Felipe Damasio
+sport hash packet distributing among CPU 0-1.
+
+tc filter add dev eth0 parent ffff:0 protocol ip handle 1 flow hash
+keys proto-src divisor 2 action cpu map 1
+
+>> +static inline void sock_save_cpu(struct sock *sk)
+>> +{
+>> +#if defined(CONFIG_NET_ACT_CPU) || defined(CONFIG_NET_ACT_CPU_MODUL=
+E)
+>> + =A0 =A0 int cpu =3D get_cpu();
+>> + =A0 =A0 if (sk->sk_cpu !=3D cpu)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 sk->sk_cpu =3D cpu;
+>> + =A0 =A0 put_cpu();
+>
+> sk->sk_cpu =3D raw_smp_processor_id();
+
+Thanks.
+
+>
+> Why doing the search again, in case skb->sk already set by another
+> module before you, like tproxy ?
+>
+
+Although it is unlikely skb->sk is non null, as tc is before
+netfilter, I will handle this case. Thanks.
+
+>> +static int tcf_cpu(struct sk_buff *skb, struct tc_action *a,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct tcf_result *res)
+>> +{
+>> + =A0 =A0 struct tcf_cpu *p =3D a->priv;
+>> + =A0 =A0 u32 type;
+>> + =A0 =A0 u32 value;
+>> + =A0 =A0 int cpu, action;
+>> + =A0 =A0 struct sk_buff *nskb;
+>> + =A0 =A0 unsigned int qtail;
+>> +
+>> + =A0 =A0 spin_lock(&p->tcf_lock);
+>
+> Ok, the big lock...
+>
+> We have a lockless TCP/UDP input path, and this modules adds a lock
+> again.
+>
+>> + =A0 =A0 p->tcf_tm.lastuse =3D jiffies;
+>> + =A0 =A0 p->tcf_bstats.bytes +=3D qdisc_pkt_len(skb);
+>> + =A0 =A0 p->tcf_bstats.packets++;
+>> + =A0 =A0 type =3D p->type;
+>> + =A0 =A0 value =3D p->value;
+>> + =A0 =A0 action =3D p->tcf_action;
+>> + =A0 =A0 spin_unlock(&p->tcf_lock);
+>> +
+>
+> Please change all this crap =A0(legacy crap, copied from other tc
+> modules), by modern one, using RCU and no locking in hot path.
+>
+
+Thanks, I'll try. It is a write critical section, and for me it is
+difficult to convert this lock to RCU. Could you show me some
+examples?
+ Thanks.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
