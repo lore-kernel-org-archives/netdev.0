@@ -1,53 +1,74 @@
-From: amit.salecha@qlogic.com
-Subject: [PATCHv3 NEXT 2/5] qlcnic: disable tx timeout recovery
-Date: Tue, 13 Jul 2010 23:33:32 -0700
-Message-ID: <1279089215-23231-3-git-send-email-amit.salecha@qlogic.com>
-References: <1279089215-23231-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:37212 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752372Ab0GNGdg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jul 2010 02:33:36 -0400
-In-Reply-To: <1279089215-23231-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Wed, 14 Jul 2010 02:56:18 -0400
+Message-ID: <20100714025618.181eacc5.billfink@mindspring.com>
+References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
+	<1278695580.2696.55.camel@edumazet-laptop>
+	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
+	<1278742649.2538.17.camel@edumazet-laptop>
+	<4C395459.6080407@redhat.com>
+	<1278835332.2538.51.camel@edumazet-laptop>
+	<AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
+	<AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
+	<AANLkTimn9x17g-4K7fS4MjmCgzHuBARurEoFVd_gId7m@mail.gmail.com>
+	<1279032023.2634.384.camel@edumazet-laptop>
+	<AANLkTilrIByt4xAHhsBsKo3nDfv0_c3sF-dCiTiYiPnu@mail.gmail.com>
+	<1279036193.2634.468.camel@edumazet-laptop>
+	<AANLkTilgxvDPpBJvwbw3PHZfXDaa2_6-TbJ8lujz5y3V@mail.gmail.com>
+	<1279077678.2444.95.camel@edumazet-laptop>
+	<AANLkTikkcaionMp3SJLgo3JmCjxQ7rPZv3-3_RbxCx_4@mail.gmail.com>
+	<1279078985.2444.105.camel@edumazet-laptop>
+	<AANLkTikmuK0iWDjmG6lVgPyoZAHQ7ZdJmQobVrAQmgNh@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Avi Kivity <avi@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Felipe W Damasio <felipewd@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikmuK0iWDjmG6lVgPyoZAHQ7ZdJmQobVrAQmgNh@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+On Wed, 14 Jul 2010, Felipe W Damasio wrote:
 
-Disable tx timeout recovery, if auto_fw_reset is disable
+> Hi,
+> 
+> 2010/7/14 Eric Dumazet <eric.dumazet@gmail.com>:
+> >> I can, but my bosses will kick my ass if I bring down the ISP again :)
+> >
+> > I have no guarantee at all, even if we find the bug.
+> 
+> Ok :-)
+> 
+> >> If you think it's the only way to find the problem I'll tell them that
+> >> I need to do it. In this case, please tell me what other config
+> >> options/tools I can use to get as much info as possible...since I'll
+> >> probably be able to test this only once more on the production
+> >> environment for debugging purposes.
+> >
+> > You really should try to setup a lab to trigger the bug, and not doing
+> > experiments on production :)
+> 
+> Right, I'm trying.
+> 
+> The thing is: The ISP is a 200Mbps network with 10,000 users. The
+> first time it took around 2 minutes to trigger the bug. The second
+> time it took around 17 minutes.
+> 
+> So I *think* it's some TCP flag with some weird content...but I can't
+> find out what it is so I can trigger it on the lab.
+> 
+> So my only guess is to enable every possible debug flag I can think of
+> to track the bug down on the production environment. Any hints here
+> would be appreciated :)
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+Is it possible for you to mirror the production traffic to another
+port, and then do a tcpdump capture to a series of files, so that
+you might possibly be able to correlate the kernel crash to the
+actual packets on the wire (and the Invalid Request squid errors)?
+Just a suggestion.
 
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 4d18313..0fef8c3 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2581,7 +2581,8 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 		if (adapter->need_fw_reset)
- 			goto detach;
- 
--		if (adapter->reset_context) {
-+		if (adapter->reset_context &&
-+		    auto_fw_reset == AUTO_FW_RESET_ENABLED) {
- 			qlcnic_reset_hw_context(adapter);
- 			adapter->netdev->trans_start = jiffies;
- 		}
-@@ -2594,7 +2595,8 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 
- 	qlcnic_dev_request_reset(adapter);
- 
--	clear_bit(__QLCNIC_FW_ATTACHED, &adapter->state);
-+	if ((auto_fw_reset == AUTO_FW_RESET_ENABLED))
-+		clear_bit(__QLCNIC_FW_ATTACHED, &adapter->state);
- 
- 	dev_info(&netdev->dev, "firmware hang detected\n");
- 
--- 
-1.6.0.2
-
+						-Bill
