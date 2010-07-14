@@ -1,116 +1,88 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
-Date: Thu, 15 Jul 2010 02:33:00 +0300
-Message-ID: <1279150380.7810.2.camel@localhost.localdomain>
-References: <1277659633.2989.2.camel@localhost.localdomain>
-	 <1277659785.4028.1.camel@localhost.localdomain>
-	 <1277660638.3321.1.camel@localhost.localdomain>
-	 <1277660831.3321.3.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
-	 <1277745247.12841.1.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
-	 <1277807529.19417.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
-	 <1277938757.4138.3.camel@localhost.localdomain>
-	 <1278204106.21020.0.camel@localhost.localdomain>
-	 <1278283714.3444.1.camel@localhost.localdomain>
-	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
-	 <1278323885.5277.0.camel@localhost.localdomain>
-	 <1278950178.17933.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
-	 <1278981483.23017.4.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
+From: Eldon Koyle <esk-netdev@esk.cs.usu.edu>
+Subject: multiqueue, skb_get_queue_mapping() and netdev_get_tx_queue()
+Date: Wed, 14 Jul 2010 17:13:53 -0600
+Message-ID: <20100714231352.GA32397@esk.cs.usu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:57172 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757491Ab0GNXdF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 19:33:05 -0400
-Received: by mail-bw0-f46.google.com with SMTP id 1so261475bwz.19
-        for <netdev@vger.kernel.org>; Wed, 14 Jul 2010 16:33:04 -0700 (PDT)
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
+Received: from esk.cs.usu.edu ([129.123.28.15]:36351 "EHLO esk.cs.usu.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757614Ab0GNXle (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jul 2010 19:41:34 -0400
+Received: from esk by esk.cs.usu.edu with local (Exim 4.69)
+	(envelope-from <esk@esk.cs.usu.edu>)
+	id 1OZB9F-0000Kc-1W
+	for netdev@vger.kernel.org; Wed, 14 Jul 2010 17:13:53 -0600
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-07-14 at 16:56 -0600, Tantilov, Emil S wrote:
-> Maxim Levitsky wrote:
-> > On Mon, 2010-07-12 at 15:23 -0600, Tantilov, Emil S wrote:
-> >> Maxim Levitsky wrote:
-> >>> On Mon, 2010-07-05 at 12:58 +0300, Maxim Levitsky wrote:
-> >>>> On Mon, 2010-07-05 at 01:13 -0700, Jeff Kirsher wrote:
-> >>>>> On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky
-> >>>>> <maximlevitsky@gmail.com> wrote:
-> >>>>>> Did few guesses, and now I see that reverting the below commit
-> >>>>>> fixes the problem. 
-> >>>>>> 
-> >>>>>> "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
-> >>>>>> e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
-> >>>>>> 
-> >>>>>> 
-> >>>>>> Best regards,
-> >>>>>>        Maxim Levitsky
-> >>>>>> 
-> >>>>>> --
-> >>>>> 
-> >>>>> Can you give us till Tuesday to respond?  I know that there are
-> >>>>> some additional e1000e patches in my queue, which may resolve the
-> >>>>> issue, but this weekend the power is down to do some
-> >>>>> infrastructure upgrades which prevents us from doing any
-> >>>>> investigation.debugging until Tuesday. 
-> >>>>> 
-> >>>> 
-> >>>> Sure.
-> >>>> 
-> >>>> Best regards,
-> >>>> 	Maxim Levitsky
-> >>>> 
-> >>> 
-> >>> Updates?
-> >> 
-> >> We are working on reproducing the issue. So far we have not seen the
-> >> problem when testing with net-next. 
-> >> 
-> >> I asked in previous email about some additional info from ethtool
-> >> (-d, -e, -S) and kernel config. That would help us to narrow it
-> >> down.  
-> >> 
-> >> Thanks,
-> >> Emil
-> > I did send -e and -d output.
-> 
-> Sorry, looks like I lost the email with the attachements. 
-> 
-> Could you provide the output of dmesg after the failure occurs?
->  
-> > Since you probably want -S output during failure, I need to recompile
-> > kernel for that. I will do that soon.
-> > 
-> > 
-> > One question, in two weeks I hope 2.6.35 won't be released?
-> > If so, I will have enough free time then to narrow down this issue.
-> > 
-> > Other solution, is to revert this commit.
-> > (I have never seen this problem with it reverted).
-> 
-> We have been running reboot tests on 2 separate systems with recent net-next kernels 
-> using your config and so far no luck in reproducing this issue. 
-> 
-> What is the make model of your system (or MB)?
+It looks like there is a potential for an out of bounds index anywhere
+skb_get_queue_mapping(skb) (which just returns skb->queue_mapping) is
+used to get an index for netdev_get_tx_queue() (and probably other
+places) on a device with multiple rx/tx queues.
 
-the motherboard is Intel DG965RY.
+As I understand it, skb->queue_mapping should contain rx_queue + 1,
+which can be out of range for netdev_get_tx_queue (which expects a
+0-based index).
 
-However, I am using vanilla kernel.
-net-next might contain further fixes.
+Am I misunderstanding something, or should all of these occurrences be
+replaced with something more like the following?
 
-I see if net-next works here.
+static inline u16 skb_get_queue_index(const struct sk_buff *skb)
+{
+        return skb->queue_mapping ? skb->queue_mapping - 1 : 0;
+}
 
-Best regards,
-	Maxim Levitsky
+Here is how it is commonly used (which looks incorrect to me):
+In net/8021q/vlan_dev.c:
+	static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
+						    struct net_device *dev)
+	{
+		int i = skb_get_queue_mapping(skb);
+		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+	...
 
+
+And here is some other possibly pertinent code:
+In include/linux/netdevice.h:
+	static inline
+	struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
+						 unsigned int index)
+	{
+		return &dev->_tx[index];
+	}
+
+In net/core/dev.c:
+	struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+			void (*setup)(struct net_device *), unsigned int queue_count)
+	...
+		tx = kcalloc(queue_count, sizeof(struct netdev_queue), GFP_KERNEL);
+	...
+		dev->_tx = tx;
+	...
+
+In include/linux/skbuff.h:
+	static inline u16 skb_get_queue_mapping(const struct sk_buff *skb)
+	{
+		return skb->queue_mapping;
+	}
+	...
+	static inline void skb_record_rx_queue(struct sk_buff *skb, u16 rx_queue)
+	{
+		skb->queue_mapping = rx_queue + 1;
+	}
+
+	static inline u16 skb_get_rx_queue(const struct sk_buff *skb)
+	{
+		return skb->queue_mapping - 1;
+	}
+
+
+-- 
+Eldon Koyle
+-- 
+Politicians are the same all over.  They promise to build a bridge even
+where there is no river.
+		-- Nikita Khrushchev
