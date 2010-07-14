@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: do not assume that template resolving always
- returns xfrms
-Date: Wed, 14 Jul 2010 14:17:07 -0700 (PDT)
-Message-ID: <20100714.141707.246527574.davem@davemloft.net>
-References: <20100712.212041.236240543.davem@davemloft.net>
-	<1279006182-11421-1-git-send-email-timo.teras@iki.fi>
+Subject: Re: [PATCH] rfs: call sock_rps_record_flow() in tcp_splice_read()
+Date: Wed, 14 Jul 2010 14:45:27 -0700 (PDT)
+Message-ID: <20100714.144527.28803131.davem@davemloft.net>
+References: <1279004412-11094-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux@horizon.com
-To: timo.teras@iki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, therbert@google.com,
+	netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49181
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59951
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754050Ab0GNVQw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jul 2010 17:16:52 -0400
-In-Reply-To: <1279006182-11421-1-git-send-email-timo.teras@iki.fi>
+	by vger.kernel.org with ESMTP id S1757277Ab0GNVpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 17:45:13 -0400
+In-Reply-To: <1279004412-11094-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Tue, 13 Jul 2010 10:29:42 +0300
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Tue, 13 Jul 2010 15:00:12 +0800
 
-> xfrm_resolve_and_create_bundle() assumed that, if policies indicated
-> presence of xfrms, bundle template resolution would always return
-> some xfrms. This is not true for 'use' level policies which can
-> result in no xfrm's being applied if there is no suitable xfrm states=
-=2E
-> This fixes a crash by this incorrect assumption.
->=20
-> Reported-by: George Spelvin <linux@horizon.com>
-> Bisected-by: George Spelvin <linux@horizon.com>
-> Tested-by: George Spelvin <linux@horizon.com>
-> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
+> rfs: call sock_rps_record_flow() in tcp_splice_read()
+> 
+> call sock_rps_record_flow() in tcp_splice_read(), so the applications using
+> splice(2) or sendfile(2) can utilize RFS.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Applied, thanks Timo.
+Applied, thanks.
