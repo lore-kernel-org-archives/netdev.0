@@ -1,151 +1,55 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH RFC] act_cpu: packet distributing
-Date: Wed, 14 Jul 2010 11:27:05 +0800
-Message-ID: <AANLkTikXCWHO7xDKUPRi7ReAG8egmSfMAOfR9TlmhxWj@mail.gmail.com>
-References: <1279077475-2956-1-git-send-email-xiaosuo@gmail.com>
+From: Felipe W Damasio <felipewd@gmail.com>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Wed, 14 Jul 2010 00:27:56 -0300
+Message-ID: <AANLkTikkcaionMp3SJLgo3JmCjxQ7rPZv3-3_RbxCx_4@mail.gmail.com>
+References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
+	<AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
+	<1278626921.2435.73.camel@edumazet-laptop>
+	<AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
+	<1278695580.2696.55.camel@edumazet-laptop>
+	<AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
+	<1278742649.2538.17.camel@edumazet-laptop>
+	<4C395459.6080407@redhat.com>
+	<1278835332.2538.51.camel@edumazet-laptop>
+	<AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
+	<AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
+	<AANLkTimn9x17g-4K7fS4MjmCgzHuBARurEoFVd_gId7m@mail.gmail.com>
+	<1279032023.2634.384.camel@edumazet-laptop>
+	<AANLkTilrIByt4xAHhsBsKo3nDfv0_c3sF-dCiTiYiPnu@mail.gmail.com>
+	<1279036193.2634.468.camel@edumazet-laptop>
+	<AANLkTilgxvDPpBJvwbw3PHZfXDaa2_6-TbJ8lujz5y3V@mail.gmail.com>
+	<1279077678.2444.95.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0016e6475534883fd0048b5090a1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:43607 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754261Ab0GND10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 23:27:26 -0400
-Received: by vws5 with SMTP id 5so6676129vws.19
-        for <netdev@vger.kernel.org>; Tue, 13 Jul 2010 20:27:25 -0700 (PDT)
-In-Reply-To: <1279077475-2956-1-git-send-email-xiaosuo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---0016e6475534883fd0048b5090a1
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1279077678.2444.95.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 14, 2010 at 11:17 AM, Changli Gao <xiaosuo@gmail.com> wrote:
-> I want to know if I can assign the sk to skb as nf_tproxy_core does to av=
-oid
-> the duplicate search later. Thanks.
+Hi Mr. Dumazet,
+
+2010/7/14 Eric Dumazet <eric.dumazet@gmail.com>:
+> RDX being the sk pointer (and sk+0x38 contains the corrupted "sk_prot=
+" value)
+> , we notice RBP contains same "sk" value + 0x200000 =A0(2 Mbytes).
 >
-> act_cpu: packet distributing
+> (same remark on your initial bug report)
 >
-> This TC action can be used to redirect packets to the CPU:
-> =A0* specified by the cpuid option
-> =A0* specified by the class minor ID obtained previously
-> =A0* on which the corresponding application runs
->
-> It supports the similar functions of RPS and RFS, but is more flexible.
->
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Could you enable CONFIG_FRAME_POINTER=3Dy in your config ?
 
-The iproute2 patch against 2.6.31 is attached
+I can, but my bosses will kick my ass if I bring down the ISP again :)
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+If you think it's the only way to find the problem I'll tell them that
+I need to do it. In this case, please tell me what other config
+options/tools I can use to get as much info as possible...since I'll
+probably be able to test this only once more on the production
+environment for debugging purposes.
 
---0016e6475534883fd0048b5090a1
-Content-Type: text/plain; charset=US-ASCII; name="iproute2-act_cpu.diff"
-Content-Disposition: attachment; filename="iproute2-act_cpu.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gbllyvye0
+Cheers,
 
-ZGlmZiAtdXJOIGlwcm91dGUyLTIuNi4zMS5vcmlnL2luY2x1ZGUvbGludXgvdGNfYWN0L3RjX2Nw
-dS5oIGlwcm91dGUyLTIuNi4zMS9pbmNsdWRlL2xpbnV4L3RjX2FjdC90Y19jcHUuaAotLS0gaXBy
-b3V0ZTItMi42LjMxLm9yaWcvaW5jbHVkZS9saW51eC90Y19hY3QvdGNfY3B1LmgJMTk3MC0wMS0w
-MSAwODowMDowMC4wMDAwMDAwMDAgKzA4MDAKKysrIGlwcm91dGUyLTIuNi4zMS9pbmNsdWRlL2xp
-bnV4L3RjX2FjdC90Y19jcHUuaAkyMDEwLTA3LTAyIDE2OjU3OjEwLjAwMDAwMDAwMCArMDgwMApA
-QCAtMCwwICsxLDMxIEBACisjaWZuZGVmIF9fTElOVVhfVENfQ1BVX0gKKyNkZWZpbmUgX19MSU5V
-WF9UQ19DUFVfSAorCisjaW5jbHVkZSA8bGludXgvcGt0X2Nscy5oPgorI2luY2x1ZGUgPGxpbnV4
-L3R5cGVzLmg+CisKKyNkZWZpbmUgVENBX0FDVF9DUFUgMTIKKworZW51bSB7CisJVENBX0NQVV9V
-TlNQRUMsCisJVENBX0NQVV9QQVJNUywKKwlUQ0FfQ1BVX1RNLAorCV9fVENBX0NQVV9NQVgKK307
-CisjZGVmaW5lIFRDQV9DUFVfTUFYIChfX1RDQV9DUFVfTUFYIC0gMSkKKworZW51bSB7CisJVENB
-X0NQVV9UWVBFX01BUCwKKwlUQ0FfQ1BVX1RZUEVfQ1BVSUQsCisJVENBX0NQVV9UWVBFX1NPQ0tF
-VCwKKwlfX1RDQV9DUFVfVFlQRV9NQVgKK307CisjZGVmaW5lIFRDQV9DUFVfVFlQRV9NQVggKF9f
-VENBX0NQVV9UWVBFX01BWCAtIDEpCisKK3N0cnVjdCB0Y19jcHUgeworCXRjX2dlbjsKKwlfX3Uz
-MgkJdHlwZTsKKwlfX3UzMgkJdmFsdWU7Cit9OworCisjZW5kaWYgLyogX19MSU5VWF9UQ19DUFVf
-SCAqLwpkaWZmIC11ck4gaXByb3V0ZTItMi42LjMxLm9yaWcvdGMvTWFrZWZpbGUgaXByb3V0ZTIt
-Mi42LjMxL3RjL01ha2VmaWxlCi0tLSBpcHJvdXRlMi0yLjYuMzEub3JpZy90Yy9NYWtlZmlsZQky
-MDEwLTA3LTE0IDExOjIxOjA1LjAwMDAwMDAwMCArMDgwMAorKysgaXByb3V0ZTItMi42LjMxL3Rj
-L01ha2VmaWxlCTIwMTAtMDctMDIgMTY6NTY6NDEuMDAwMDAwMDAwICswODAwCkBAIC0zMiw2ICsz
-Miw3IEBACiBUQ01PRFVMRVMgKz0gbV9nYWN0Lm8KIFRDTU9EVUxFUyArPSBtX21pcnJlZC5vCiBU
-Q01PRFVMRVMgKz0gbV9uYXQubworVENNT0RVTEVTICs9IG1fY3B1Lm8KIFRDTU9EVUxFUyArPSBt
-X3BlZGl0Lm8KIFRDTU9EVUxFUyArPSBtX3NrYmVkaXQubwogVENNT0RVTEVTICs9IHBfaXAubwpk
-aWZmIC11ck4gaXByb3V0ZTItMi42LjMxLm9yaWcvdGMvbV9jcHUuYyBpcHJvdXRlMi0yLjYuMzEv
-dGMvbV9jcHUuYwotLS0gaXByb3V0ZTItMi42LjMxLm9yaWcvdGMvbV9jcHUuYwkxOTcwLTAxLTAx
-IDA4OjAwOjAwLjAwMDAwMDAwMCArMDgwMAorKysgaXByb3V0ZTItMi42LjMxL3RjL21fY3B1LmMJ
-MjAxMC0wNy0xMiAxNjozODo1Ni4wMDAwMDAwMDAgKzA4MDAKQEAgLTAsMCArMSwxODYgQEAKKy8q
-CisgKiBtX2NwdS5jCVBhY2tldCBkaXN0cmlidXRpbmcgbW9kdWxlCisgKgorICoJCVRoaXMgcHJv
-Z3JhbSBpcyBmcmVlIHNvZnR3YXJlOyB5b3UgY2FuIGRpc3RyaWJ1dGUgaXQgYW5kL29yCisgKgkJ
-bW9kaWZ5IGl0IHVuZGVyIHRoZSB0ZXJtcyBvZiB0aGUgR05VIEdlbmVyYWwgUHVibGljIExpY2Vu
-c2UKKyAqCQlhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlvbjsgZWl0
-aGVyIHZlcnNpb24KKyAqCQkyIG9mIHRoZSBMaWNlbnNlLCBvciAoYXQgeW91ciBvcHRpb24pIGFu
-eSBsYXRlciB2ZXJzaW9uLgorICoKKyAqIEF1dGhvcnM6CUNoYW5nbGkgR2FvIDx4aWFvc3VvQGdt
-YWlsLmNvbT4KKyAqCisgKi8KKworI2luY2x1ZGUgPHN0ZGlvLmg+CisjaW5jbHVkZSA8c3RkbGli
-Lmg+CisjaW5jbHVkZSA8dW5pc3RkLmg+CisjaW5jbHVkZSA8c3lzbG9nLmg+CisjaW5jbHVkZSA8
-ZmNudGwuaD4KKyNpbmNsdWRlIDxzeXMvc29ja2V0Lmg+CisjaW5jbHVkZSA8bmV0aW5ldC9pbi5o
-PgorI2luY2x1ZGUgPGFycGEvaW5ldC5oPgorI2luY2x1ZGUgPHN0cmluZy5oPgorI2luY2x1ZGUg
-InV0aWxzLmgiCisjaW5jbHVkZSAidGNfdXRpbC5oIgorI2luY2x1ZGUgPGxpbnV4L3RjX2FjdC90
-Y19jcHUuaD4KKworc3RhdGljIHZvaWQKK2V4cGxhaW4odm9pZCkKK3sKKwlmcHJpbnRmKHN0ZGVy
-ciwgIlVzYWdlOiAuLi4gY3B1IE1FVEhPRFxuIgorCQkJIk1FVEhPRCA6PSB7IENQVUlELVNQRUMg
-fCBNQVAtU1BFQyB8IFNPQ0tFVC1TUEVDIH1cbiIKKwkJCSJDUFVJRC1TUEVDIDo9IGNwdWlkIENQ
-VUlEXG4iCisJCQkiTUFQLVNQRUMgOj0gbWFwIE9GRlNFVFxuIgorCQkJIlNPQ0tFVC1TUEVDIDo9
-IHNvY2tldFxuIik7Cit9CisKK3N0YXRpYyB2b2lkCit1c2FnZSh2b2lkKQoreworCWV4cGxhaW4o
-KTsKKwlleGl0KC0xKTsKK30KKworc3RhdGljIGludAorcGFyc2VfY3B1X2FyZ3MoaW50ICphcmdj
-X3AsIGNoYXIgKioqYXJndl9wLHN0cnVjdCB0Y19jcHUgKnNlbCkKK3sKKwlpbnQgYXJnYyA9ICph
-cmdjX3A7CisJY2hhciAqKmFyZ3YgPSAqYXJndl9wOworCisJaWYgKGFyZ2MgPD0gMCkKKwkJcmV0
-dXJuIC0xOworCisJaWYgKG1hdGNoZXMoKmFyZ3YsICJtYXAiKSA9PSAwKQorCQlzZWwtPnR5cGUg
-PSBUQ0FfQ1BVX1RZUEVfTUFQOworCWVsc2UgaWYgKG1hdGNoZXMoKmFyZ3YsICJjcHVpZCIpID09
-IDApCisJCXNlbC0+dHlwZSA9IFRDQV9DUFVfVFlQRV9DUFVJRDsKKwllbHNlIGlmIChtYXRjaGVz
-KCphcmd2LCAic29ja2V0IikgPT0gMCkgeworCQlzZWwtPnR5cGUgPSBUQ0FfQ1BVX1RZUEVfU09D
-S0VUOworCQlnb3RvIG91dDsKKwl9IGVsc2UKKwkJcmV0dXJuIC0xOworCisJTkVYVF9BUkcoKTsK
-KworCWlmIChnZXRfdTMyKCZzZWwtPnZhbHVlLCAqYXJndiwgMTApKSB7CisJCWZwcmludGYoc3Rk
-ZXJyLCAiQ3B1OiBJbGxlZ2FsIFwiJXNcIlxuIiwKKwkJCXNlbC0+dHlwZSA9PSBUQ0FfQ1BVX1RZ
-UEVfQ1BVSUQgPyAiQ1BVSUQiIDogIk9GRlNFVCIpOworCQlyZXR1cm4gLTE7CisJfQorCitvdXQ6
-CisJYXJnYy0tOworCWFyZ3YrKzsKKworCSphcmdjX3AgPSBhcmdjOworCSphcmd2X3AgPSBhcmd2
-OworCXJldHVybiAwOworfQorCitzdGF0aWMgaW50CitwYXJzZV9jcHUoc3RydWN0IGFjdGlvbl91
-dGlsICphLCBpbnQgKmFyZ2NfcCwgY2hhciAqKiphcmd2X3AsIGludCB0Y2FfaWQsIHN0cnVjdCBu
-bG1zZ2hkciAqbikKK3sKKwlzdHJ1Y3QgdGNfY3B1IHNlbDsKKwlpbnQgYXJnYyA9ICphcmdjX3A7
-CisJY2hhciAqKmFyZ3YgPSAqYXJndl9wOworCXN0cnVjdCBydGF0dHIgKnRhaWw7CisKKwltZW1z
-ZXQoJnNlbCwgMCwgc2l6ZW9mKHNlbCkpOworCXNlbC5hY3Rpb24gPSBUQ19BQ1RfU1RPTEVOOwor
-CisJaWYgKGFyZ2MgPD0gMCkgeworCQlleHBsYWluKCk7CisJCXJldHVybiAtMTsKKwl9CisKKwlp
-ZiAobWF0Y2hlcygqYXJndiwgImNwdSIpID09IDApIHsKKwkJTkVYVF9BUkcoKTsKKwl9IGVsc2Ug
-eworCQlmcHJpbnRmKHN0ZGVyciwgImNwdSBiYWQgYXJndW1lbnRzICVzXG4iLCAqYXJndik7CisJ
-CXJldHVybiAtMTsKKwl9CisKKwlpZiAobWF0Y2hlcygqYXJndiwgImhlbHAiKSA9PSAwKQorCQl1
-c2FnZSgpOworCWlmIChwYXJzZV9jcHVfYXJncygmYXJnYywgJmFyZ3YsICZzZWwpKSB7CisJCWZw
-cmludGYoc3RkZXJyLCAiSWxsZWdhbCBjcHUgY29uc3RydWN0ICglcykgXG4iLCAqYXJndik7CisJ
-CWV4cGxhaW4oKTsKKwkJcmV0dXJuIC0xOworCX0KKworCXdoaWxlIChhcmdjID4gMCkgeworCQlp
-ZiAobWF0Y2hlcygqYXJndiwgImRyb3AiKSA9PSAwIHx8CisJCSAgICBtYXRjaGVzKCphcmd2LCAi
-c2hvdCIpID09IDApIHsKKwkJICAgIAkvKiBJIGhhdmUgc2V0IGl0IGFib3ZlICovCisJCQlhcmdj
-LS07CisJCQlhcmd2Kys7CisJCQljb250aW51ZTsKKwkJfSBlbHNlIGlmIChtYXRjaGVzKCphcmd2
-LCAiaW5kZXgiKSA9PSAwKSB7CisJCQlORVhUX0FSRygpOworCQkJaWYgKGdldF91MzIoJnNlbC5p
-bmRleCwgKmFyZ3YsIDEwKSkgeworCQkJCWZwcmludGYoc3RkZXJyLCAiQ3B1OiBJbGxlZ2FsIFwi
-aW5kZXhcIlxuIik7CisJCQkJcmV0dXJuIC0xOworCQkJfQorCQkJYXJnYy0tOworCQkJYXJndisr
-OworCQl9IGVsc2UgeworCQkJZnByaW50ZihzdGRlcnIsICJJbnZhbGlkIG9wdGlvbjogJXNcbiIs
-ICphcmd2KTsKKwkJCXVzYWdlKCk7CisJCX0KKwl9CisKKwl0YWlsID0gTkxNU0dfVEFJTChuKTsK
-KwlhZGRhdHRyX2wobiwgTUFYX01TRywgdGNhX2lkLCBOVUxMLCAwKTsKKwlhZGRhdHRyX2wobiwg
-TUFYX01TRywgVENBX0NQVV9QQVJNUywgJnNlbCwgc2l6ZW9mKHNlbCkpOworCXRhaWwtPnJ0YV9s
-ZW4gPSAoY2hhciAqKU5MTVNHX1RBSUwobikgLSAoY2hhciAqKXRhaWw7CisKKwkqYXJnY19wID0g
-YXJnYzsKKwkqYXJndl9wID0gYXJndjsKKwlyZXR1cm4gMDsKK30KKworc3RhdGljIGludAorcHJp
-bnRfY3B1KHN0cnVjdCBhY3Rpb25fdXRpbCAqYXUsRklMRSAqIGYsIHN0cnVjdCBydGF0dHIgKmFy
-ZykKK3sKKwlzdHJ1Y3QgdGNfY3B1ICpzZWw7CisJc3RydWN0IHJ0YXR0ciAqdGJbVENBX0NQVV9N
-QVggKyAxXTsKKwljaGFyIGJ1ZlsxMl07CisJY29uc3Qgc3RhdGljIGNoYXIgKnR5cGVfc3RyW10g
-PSB7CisJCVtUQ0FfQ1BVX1RZUEVfTUFQXSA9ICJtYXAiLAorCQlbVENBX0NQVV9UWVBFX0NQVUlE
-XSA9ICJjcHVpZCIsCisJCVtUQ0FfQ1BVX1RZUEVfU09DS0VUXSA9ICJzb2NrZXQiCisJfTsKKwor
-CWlmIChhcmcgPT0gTlVMTCkKKwkJcmV0dXJuIC0xOworCisJcGFyc2VfcnRhdHRyX25lc3RlZCh0
-YiwgVENBX0NQVV9NQVgsIGFyZyk7CisKKwlpZiAodGJbVENBX0NQVV9QQVJNU10gPT0gTlVMTCkg
-eworCQlmcHJpbnRmKGYsICJbTlVMTCBjcHUgcGFyYW1ldGVyc10iKTsKKwkJcmV0dXJuIC0xOwor
-CX0KKwlzZWwgPSBSVEFfREFUQSh0YltUQ0FfQ1BVX1BBUk1TXSk7CisKKwlpZiAoc2VsLT50eXBl
-ICE9IFRDQV9DUFVfVFlQRV9TT0NLRVQpCisJCXNwcmludGYoYnVmLCAiJXUiLCBzZWwtPnZhbHVl
-KTsKKwllbHNlCisJCWJ1ZlswXSA9ICdcMCc7CisKKwlmcHJpbnRmKGYsICIgY3B1ICVzJXMlcyIs
-IHR5cGVfc3RyW3NlbC0+dHlwZV0sCisJCXNlbC0+dHlwZSA9PSBUQ0FfQ1BVX1RZUEVfU09DS0VU
-ID8gIiIgOiAiICIsIGJ1Zik7CisKKwlpZiAoc2hvd19zdGF0cykgeworCQlpZiAodGJbVENBX0NQ
-VV9UTV0pIHsKKwkJCXN0cnVjdCB0Y2ZfdCAqdG0gPSBSVEFfREFUQSh0YltUQ0FfQ1BVX1RNXSk7
-CisJCQlwcmludF90bShmLHRtKTsKKwkJfQorCX0KKworCXJldHVybiAwOworfQorCitzdHJ1Y3Qg
-YWN0aW9uX3V0aWwgY3B1X2FjdGlvbl91dGlsID0geworCS5pZAkJPSAiY3B1IiwKKwkucGFyc2Vf
-YW9wdAk9IHBhcnNlX2NwdSwKKwkucHJpbnRfYW9wdAk9IHByaW50X2NwdSwKK307Cg==
---0016e6475534883fd0048b5090a1--
+=46elipe Damasio
