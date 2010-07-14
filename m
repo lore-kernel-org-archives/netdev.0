@@ -1,62 +1,46 @@
 From: Chihau Chau <chihau@gmail.com>
-Subject: [PATCH] Net: ethernet: eth: fix some code style issues
-Date: Wed, 14 Jul 2010 16:22:17 -0400
-Message-ID: <1279138937-12985-1-git-send-email-chihau@gmail.com>
-Cc: eric.dumazet@gmail.com, opurdila@ixiacom.com,
-	netdev@vger.kernel.org, linux-devel@vger.kernel.org,
-	mitov@issp.bas.bg, Chihau Chau <chihau@gmail.com>
+Subject: [PATCH] Net: ethernet: pe2.c: fix EXPORT_SYMBOL macro code style issue
+Date: Wed, 14 Jul 2010 16:24:34 -0400
+Message-ID: <1279139074-13040-1-git-send-email-chihau@gmail.com>
+Cc: tj@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Chihau Chau <chihau@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:52306 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404Ab0GNUWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 16:22:24 -0400
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:59401 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756791Ab0GNUYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 16:24:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Chihau Chau <chihau@gmail.com>
 
-This fixes to include <linux/uaccess.h> instead <asm/uaccess.h> and some
-code style issues like space before close parenthesis and space before
-tabs.
+This patch fix a code style issuei, if a function is exported, the
+EXPORT_SYMBOL macro for it should follow immediately after the closing
+function brace line.
 
 Signed-off-by: Chihau Chau <chihau@gmail.com>
 ---
- net/ethernet/eth.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ net/ethernet/pe2.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 61ec032..25ccce0 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -58,7 +58,7 @@
- #include <net/ipv6.h>
- #include <net/ip.h>
- #include <net/dsa.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- #include <asm/system.h>
+diff --git a/net/ethernet/pe2.c b/net/ethernet/pe2.c
+index eb00796..85d574a 100644
+--- a/net/ethernet/pe2.c
++++ b/net/ethernet/pe2.c
+@@ -28,11 +28,10 @@ struct datalink_proto *make_EII_client(void)
  
- __setup("ether=", netdev_boot_setup);
-@@ -180,7 +180,8 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	 *      seems to set IFF_PROMISC.
- 	 */
+ 	return proto;
+ }
++EXPORT_SYMBOL(make_EII_client);
  
--	else if (1 /*dev->flags&IFF_PROMISC */ ) {
-+	/*dev->flags&IFF_PROMISC */
-+	else if (1) {
- 		if (unlikely(compare_ether_addr_64bits(eth->h_dest, dev->dev_addr)))
- 			skb->pkt_type = PACKET_OTHERHOST;
- 	}
-@@ -338,7 +339,7 @@ void ether_setup(struct net_device *dev)
+ void destroy_EII_client(struct datalink_proto *dl)
  {
- 	dev->header_ops		= &eth_header_ops;
- 	dev->type		= ARPHRD_ETHER;
--	dev->hard_header_len 	= ETH_HLEN;
-+	dev->hard_header_len	= ETH_HLEN;
- 	dev->mtu		= ETH_DATA_LEN;
- 	dev->addr_len		= ETH_ALEN;
- 	dev->tx_queue_len	= 1000;	/* Ethernet wants good queues */
+ 	kfree(dl);
+ }
+-
+ EXPORT_SYMBOL(destroy_EII_client);
+-EXPORT_SYMBOL(make_EII_client);
 -- 
 1.5.6.3
 
