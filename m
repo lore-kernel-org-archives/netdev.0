@@ -1,50 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [5/5] Respect the
- interrupt type in VM configuration
-Date: Wed, 14 Jul 2010 14:11:18 -0700 (PDT)
-Message-ID: <20100714.141118.260092331.davem@davemloft.net>
-References: <alpine.LRH.2.00.1007070202080.5939@localhost.localdomain>
-	<alpine.LRH.2.00.1007070232300.5939@localhost.localdomain>
-	<alpine.LRH.2.00.1007131750060.32055@localhost.localdomain>
+Subject: Re: [PATCH] xfrm: do not assume that template resolving always
+ returns xfrms
+Date: Wed, 14 Jul 2010 14:17:07 -0700 (PDT)
+Message-ID: <20100714.141707.246527574.davem@davemloft.net>
+References: <20100712.212041.236240543.davem@davemloft.net>
+	<1279006182-11421-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com
-To: sbhatewara@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.1007131750060.32055@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux@horizon.com
+To: timo.teras@iki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49181
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754050Ab0GNVQw convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jul 2010 17:16:52 -0400
+In-Reply-To: <1279006182-11421-1-git-send-email-timo.teras@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Tue, 13 Jul 2010 17:51:39 -0700 (PDT)
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Tue, 13 Jul 2010 10:29:42 +0300
 
-> 
-> Do not ignore interrupt type in VM configuration
-> 
-> When interrupt type is not auto, do not ignore the interrupt type set from
-> VM configuration.
-> Driver may not always respect the interrupt type in configuration but it 
-> will certainly try to. Eg: if MSIx is configured and enabling MSIx fails 
-> in driver, it fall back on MSI and then on INTx.
-> 
-> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
- ...
-> @@ -291,7 +291,7 @@ vmxnet3_set_flags(struct net_device *netdev, u32 data)
->  
->  		/* update harware LRO capability accordingly */
->  		if (lro_requested)
-> -			adapter->shared->devRead.misc.uptFeatures &= UPT1_F_LRO;
-> +			adapter->shared->devRead.misc.uptFeatures |= UPT1_F_LRO;
->  		else
+> xfrm_resolve_and_create_bundle() assumed that, if policies indicated
+> presence of xfrms, bundle template resolution would always return
+> some xfrms. This is not true for 'use' level policies which can
+> result in no xfrm's being applied if there is no suitable xfrm states=
+=2E
+> This fixes a crash by this incorrect assumption.
+>=20
+> Reported-by: George Spelvin <linux@horizon.com>
+> Bisected-by: George Spelvin <linux@horizon.com>
+> Tested-by: George Spelvin <linux@horizon.com>
+> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
 
-This change has nothing to do with respecting the VM interrupt setting.
-
-Do not stuff unrelated changes into a commit.
-
-I have to be frank with you, this patch series... it stinks.
-
-It papers over races with incorrect tests, unrelated changes are mixed
-together, it fixes RX ring exhaustion incorrectly, it illegals starts a
-transmit queue before the device is every brought up, etc.
+Applied, thanks Timo.
