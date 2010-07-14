@@ -1,50 +1,30 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Thu, 15 Jul 2010 00:13:01 +0200
-Message-ID: <20100714221301.GI6682@nuttenaction>
-References: <4C3E0684.5060409@wildgooses.com>
- <4C3E1B54.40604@hp.com>
- <20100714203919.GD6682@nuttenaction>
- <20100714.145547.102555471.davem@davemloft.net>
+Date: Wed, 14 Jul 2010 15:19:35 -0700
+Message-ID: <4C3E37F7.3020607@hp.com>
+References: <4C3E0684.5060409@wildgooses.com> <4C3E1B54.40604@hp.com>	<20100714203919.GD6682@nuttenaction>	<20100714.145547.102555471.davem@davemloft.net> <20100714221301.GI6682@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, lists@wildgooses.com, davidsen@tmr.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, lists@wildgooses.com,
+	davidsen@tmr.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100714.145547.102555471.davem@davemloft.net>
+In-Reply-To: <20100714221301.GI6682@nuttenaction>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller | 2010-07-14 14:55:47 [-0700]:
+Hagen Paul Pfeifer wrote:
+> * David Miller | 2010-07-14 14:55:47 [-0700]:
+>>But for all we know this side discussion about initial CWND settings
+>>could have nothing to do with the issue being reported at the start of
+>>this thread. :-)
+> 
+> 
+> ;-) sure, but it is often wise to thwart these kind of discussions. It seems
+> these CWND discussions turn up once every other month. ;-)
 
->Although section 3 of RFC 5681 is a great text, it does not say at all
->that increasing the initial CWND would lead to fairness issues.
+Which suggests there is a constant "force" out there yet to be rekoned with. :)
 
-Because it is only one side of the medal, probing conservative the available
-link capacity in conjunction with n simultaneous probing TCP/SCTP/DCCP
-instances is another.
-
->To be honest, I think google's proposal holds a lot of weight.  If
->over time link sizes and speeds are increasing (they are) then nudging
->the initial CWND every so often is a legitimate proposal.  Were
->someone to claim that utilization is lower than it could be because of
->the currenttly specified initial CWND, I would have no problem
->believing them.
->
->And I'm happy to make Linux use an increased value once it has
->traction in the standardization community.
-
-Currently I know no working link capacity probing approach, without active
-network feedback, to conservatively probing the available link capacity with a
-high CWND. I am curious about any future trends.
-
->But for all we know this side discussion about initial CWND settings
->could have nothing to do with the issue being reported at the start of
->this thread. :-)
-
-;-) sure, but it is often wise to thwart these kind of discussions. It seems
-these CWND discussions turn up once every other month. ;-)
-
-Hagen
+rick jones
