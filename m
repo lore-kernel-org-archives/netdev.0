@@ -1,71 +1,175 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Tue, 13 Jul 2010 17:31:00 -0700
-Message-ID: <20100713173100.1d4fb42d@nehalam>
-References: <20100504230225.GP8323@vmware.com>
-	<201005051029.42052.dtor@vmware.com>
-	<20100505173120.GA1752@infradead.org>
-	<201005051035.29831.dtor@vmware.com>
-	<20100505173951.GA8388@infradead.org>
-	<20100505105253.0a8bc465@nehalam>
-	<20100506202113.GC17922@infradead.org>
-	<1278990388.32650.22.camel@eng-rhel5-64>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [1/5] Spare skb to avoid
+ starvation
+Date: Tue, 13 Jul 2010 17:46:19 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1007131743520.32055@localhost.localdomain>
+References: <alpine.LRH.2.00.1007070214400.6105@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Pankaj Thakkar <pthakkar@vmware.com>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: Shreyas Bhatewara <sbhatewara@vmware.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: pv-drivers@vmware.com
+To: netdev@vger.kernel.org, davidm@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59018 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751525Ab0GNAbF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jul 2010 20:31:05 -0400
-In-Reply-To: <1278990388.32650.22.camel@eng-rhel5-64>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:54673 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752040Ab0GNAqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jul 2010 20:46:19 -0400
+In-Reply-To: <alpine.LRH.2.00.1007070214400.6105@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Jul 2010 20:06:28 -0700
-Shreyas Bhatewara <sbhatewara@vmware.com> wrote:
 
-> 
-> On Thu, 2010-05-06 at 13:21 -0700, Christoph Hellwig wrote:
-> > On Wed, May 05, 2010 at 10:52:53AM -0700, Stephen Hemminger wrote:
-> > > Let me put it bluntly. Any design that allows external code to run
-> > > in the kernel is not going to be accepted.  Out of tree kernel modules are enough
-> > > of a pain already, why do you expect the developers to add another
-> > > interface.
-> > 
-> > Exactly.  Until our friends at VMware get this basic fact it's useless
-> > to continue arguing.
-> > 
-> > Pankaj and Dmitry: you're fine to waste your time on this, but it's not
-> > going to go anywhere until you address that fundamental problem.  The
-> > first thing you need to fix in your archicture is to integrate the VF
-> > function code into the kernel tree, and we can work from there.
-> > 
-> > Please post patches doing this if you want to resume the discussion.
-> > 
-> > _______________________________________________
-> > Pv-drivers mailing list
-> > Pv-drivers@vmware.com
-> > http://mailman2.vmware.com/mailman/listinfo/pv-drivers
-> 
-> 
-> As discussed, following is the patch to give you an idea
-> about implementation of NPA for vmxnet3 driver. Although the
-> patch is big, I have verified it with checkpatch.pl. It gave
-> 0 errors / warnings.
-> 
-> Signed-off-by: Matthieu Bucchaineri <matthieu@vmware.com>
-> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-> ---
+skb_alloc() failure can cause the ring to loose all packet reception. Avoid
+this by introducing a spare buffer. The spare skb is only used when the ring
+is "empty" and an skb allocation failure would cause the ring to starve. It is
+never handed up to netif_rx(), and instead, when the rx_interrupt occurs, the
+skb is shuffled back to reuse. Further use the incoming receive packet
+interrupts as events to poll for skb allocation.
 
-I am surprised, the code seems to use lots of mixed case in places
-that don't really follow current kernel practice.
+
+Signed-off-by: Michael Stolarchuk <stolarchuk@vmware.com>
+Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c |   61 +++++++++++++++++++++++++++++++++++--
+ drivers/net/vmxnet3/vmxnet3_int.h |   12 ++++++-
+ 2 files changed, 68 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 989b742..5a50d10 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -541,7 +541,12 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
+ 							 NET_IP_ALIGN);
+ 				if (unlikely(rbi->skb == NULL)) {
+ 					rq->stats.rx_buf_alloc_failure++;
+-					break;
++					/* starvation prevention */
++					if (vmxnet3_cmd_ring_desc_empty(
++							rq->rx_ring + ring_idx))
++						rbi->skb = rq->spare_skb;
++					else
++						break;
+ 				}
+ 				rbi->skb->dev = adapter->netdev;
+ 
+@@ -611,6 +616,29 @@ vmxnet3_append_frag(struct sk_buff *skb, struct Vmxnet3_RxCompDesc *rcd,
+ }
+ 
+ 
++/*
++ * Free any pages which were attached to the frags of the spare skb.  This can
++ * happen when the spare skb is attached to the rx ring to prevent starvation,
++ * but there was no issue with page allocation.
++ */
++
++static void
++vmxnet3_rx_spare_skb_free_frags(struct vmxnet3_adapter *adapter)
++{
++	struct sk_buff *skb = adapter->rx_queue.spare_skb;
++	int i;
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
++		BUG_ON(frag->page != 0);
++		put_page(frag->page);
++		frag->page = 0;
++		frag->size = 0;
++	}
++	skb_shinfo(skb)->nr_frags = 0;
++	skb->data_len = 0;
++}
++
++
+ static void
+ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 		struct vmxnet3_tx_queue *tq, struct pci_dev *pdev,
+@@ -1060,8 +1088,12 @@ vmxnet3_rx_error(struct vmxnet3_rx_queue *rq, struct Vmxnet3_RxCompDesc *rcd,
+ 	 * ctx->skb may be NULL if this is the first and the only one
+ 	 * desc for the pkt
+ 	 */
+-	if (ctx->skb)
+-		dev_kfree_skb_irq(ctx->skb);
++	if (ctx->skb) {
++		if (ctx->skb == rq->spare_skb)
++			vmxnet3_rx_spare_skb_free_frags(adapter);
++		else
++			dev_kfree_skb_irq(ctx->skb);
++	}
+ 
+ 	ctx->skb = NULL;
+ }
+@@ -1159,6 +1191,12 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 
+ 		skb = ctx->skb;
+ 		if (rcd->eop) {
++			if (skb == rq->spare_skb) {
++				rq->stats.drop_total++;
++				vmxnet3_rx_spare_skb_free_frags(adapter);
++				ctx->skb = NULL;
++				goto rcd_done;
++			}
+ 			skb->len += skb->data_len;
+ 			skb->truesize += skb->data_len;
+ 
+@@ -1244,6 +1282,14 @@ vmxnet3_rq_cleanup(struct vmxnet3_rx_queue *rq,
+ 		rq->uncommitted[ring_idx] = 0;
+ 	}
+ 
++	/* free starvation prevention skb if allocated */
++	if (rq->spare_skb) {
++		vmxnet3_rx_spare_skb_free_frags(adapter);
++		dev_kfree_skb(rq->spare_skb);
++		rq->spare_skb = NULL;
++	}
++
++
+ 	rq->comp_ring.gen = VMXNET3_INIT_GEN;
+ 	rq->comp_ring.next2proc = 0;
+ }
+@@ -1325,6 +1371,15 @@ vmxnet3_rq_init(struct vmxnet3_rx_queue *rq,
+ 	}
+ 	vmxnet3_rq_alloc_rx_buf(rq, 1, rq->rx_ring[1].size - 1, adapter);
+ 
++	/* allocate ring starvation protection */
++	rq->spare_skb = dev_alloc_skb(PAGE_SIZE);
++	if (rq->spare_skb == NULL) {
++		vmxnet3_rq_cleanup(rq, adapter);
++		return -ENOMEM;
++	}
++
++
++
+ 	/* reset the comp ring */
+ 	rq->comp_ring.next2proc = 0;
+ 	memset(rq->comp_ring.base, 0, rq->comp_ring.size *
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 34f392f..bbed330 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -149,6 +149,13 @@ vmxnet3_cmd_ring_desc_avail(struct vmxnet3_cmd_ring *ring)
+ 		ring->next2comp - ring->next2fill - 1;
+ }
+ 
++static inline bool
++vmxnet3_cmd_ring_desc_empty(struct vmxnet3_cmd_ring *ring)
++{
++	return (ring->next2comp == ring->next2fill);
++}
++
++
+ struct vmxnet3_comp_ring {
+ 	union Vmxnet3_GenericDesc *base;
+ 	u32               size;
+@@ -266,9 +273,10 @@ struct vmxnet3_rx_queue {
+ 	u32 qid2;           /* rqID in RCD for buffer from 2nd ring */
+ 	u32 uncommitted[2]; /* # of buffers allocated since last RXPROD
+ 				* update */
+-	struct vmxnet3_rx_buf_info     *buf_info[2];
+-	struct Vmxnet3_RxQueueCtrl            *shared;
++	struct vmxnet3_rx_buf_info	*buf_info[2];
++	struct Vmxnet3_RxQueueCtrl	*shared;
+ 	struct vmxnet3_rq_driver_stats  stats;
++	struct sk_buff			*spare_skb;      /* starvation skb */
+ } __attribute__((__aligned__(SMP_CACHE_BYTES)));
+ 
+ #define VMXNET3_LINUX_MAX_MSIX_VECT     1
 
