@@ -1,88 +1,107 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCHv3] extensions: libxt_CHECKSUM extension
-Date: Thu, 15 Jul 2010 11:39:48 +0200
-Message-ID: <4C3ED764.3060301@trash.net>
-References: <20100711150623.GA7420@redhat.com> <20100711151453.GA7563@redhat.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] CAN: Add Flexcan CAN controller driver
+Date: Thu, 15 Jul 2010 12:06:41 +0200
+Message-ID: <4C3EDDB1.5040109@pengutronix.de>
+References: <1279144811-12251-1-git-send-email-mkl@pengutronix.de>
+	<4C3ED6F5.7040606@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	herbert@gondor.hengli.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100711151453.GA7563@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============3085278365651692246=="
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4C3ED6F5.7040606-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am 11.07.2010 17:14, schrieb Michael S. Tsirkin:
-> diff --git a/extensions/libxt_CHECKSUM.c b/extensions/libxt_CHECKSUM.c
-> new file mode 100644
-> index 0000000..00fbd8f
-> --- /dev/null
-> +++ b/extensions/libxt_CHECKSUM.c
-> @@ -0,0 +1,99 @@
-> +/* Shared library add-on to xtables for CHECKSUM
-> + *
-> + * (C) 2002 by Harald Welte <laforge@gnumonks.org>
-> + * (C) 2010 by Red Hat, Inc
-> + * Author: Michael S. Tsirkin <mst@redhat.com>
-> + *
-> + * This program is distributed under the terms of GNU GPL v2, 1991
-> + *
-> + * libxt_CHECKSUM.c borrowed some bits from libipt_ECN.c
-> + *
-> + * $Id$
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============3085278365651692246==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigB303FDF1CB769B8CA7AC1B46"
 
-Please no CVS IDs.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigB303FDF1CB769B8CA7AC1B46
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> + */
-> +#include <stdio.h>
-> +#include <string.h>
-> +#include <stdlib.h>
-> +#include <getopt.h>
-> +
-> +#include <xtables.h>
-> +#include <linux/netfilter/xt_CHECKSUM.h>
-> +
-> +static void CHECKSUM_help(void)
-> +{
-> +	printf(
-> +"CHECKSUM target options\n"
-> +"  --checksum-fill			Fill in packet checksum.\n");
-> +}
-> +
-> +static const struct option CHECKSUM_opts[] = {
-> +	{ "checksum-fill", 0, NULL, 'F' },
-> +	{ .name = NULL }
-> +};
-> +
-> +static int CHECKSUM_parse(int c, char **argv, int invert, unsigned int *flags,
-> +                     const void *entry, struct xt_entry_target **target)
-> +{
-> +	struct xt_CHECKSUM_info *einfo
-> +		= (struct xt_CHECKSUM_info *)(*target)->data;
-> +
-> +	switch (c) {
-> +	case 'F':
-> +		if (*flags)
-> +			xtables_error(PARAMETER_PROBLEM,
-> +			        "CHECKSUM target: Only use --checksum-fill ONCE!");
+Hey Wolfgang,
 
-There is a helper function called xtables_param_act for checking double
-arguments and printing a standarized error message.
+Wolfgang Grandegger wrote:
+>> This core is found on some Freescale SoCs and also some Coldfire
+>> SoCs. Support for Coldfire is missing though at the moment as
+>> they have an older revision of the core which does not have RX FIFO
+>> support.
+>>
+>> Signed-off-by: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+>> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+>> ---
+>>
+>> Changes to prev version:
+>> * The is now GPLv2 (only) as no one complained.
+>>
+>> The patch applies to current net-next-2.6/master.
+>> If there aren't any objections please consider applying this patch.
+>> Wolfgang, can I an Acked-by?
+>=20
+> I already had a look to the previous version and I realized that
+> accessing reg_esr is racy. I will dig out my notes and come up with a
+> full review later today or tomorrow.
 
-> +		einfo->operation = XT_CHECKSUM_OP_FILL;
-> +		*flags |= XT_CHECKSUM_OP_FILL;
-> +		break;
-> +	default:
-> +		return 0;
-> +	}
-> +
-> +	return 1;
-> +}
-> +
+Let me have a look....
+
+I think I should remove the read reg_esr in "flexcan_irq_err()" and use
+the value read in "flexcan_irq()"
+
+Without the fix, there's a race window that we loose some error bits
+from the interrupt handler to the napi function, because the error bits
+are cleared on read.
+
+Regarding the upcoming improvement of the can error frames upon state
+changes, I'd first like to get this driver merged and then discuss a
+solution for the error frames.
+
+cheers, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigB303FDF1CB769B8CA7AC1B46
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iEYEARECAAYFAkw+3bEACgkQjTAFq1RaXHOIjgCgiXko1bNigoyf3/Exq5yy/I/Y
+xNgAoJfyzfre0zYb800DczT7+AmRreyb
+=ZHYj
+-----END PGP SIGNATURE-----
+
+--------------enigB303FDF1CB769B8CA7AC1B46--
+
+--===============3085278365651692246==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
+
+--===============3085278365651692246==--
