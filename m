@@ -1,61 +1,41 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Wed, 14 Jul 2010 23:49:17 -0400
-Message-ID: <20100714234917.924f420d.billfink@mindspring.com>
-References: <4C3E0684.5060409@wildgooses.com>
-	<4C3E1B54.40604@hp.com>
-	<20100714203919.GD6682@nuttenaction>
-	<20100714.145547.102555471.davem@davemloft.net>
-	<20100714221301.GI6682@nuttenaction>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix problem in reading sock TX queue
+Date: Wed, 14 Jul 2010 20:50:41 -0700 (PDT)
+Message-ID: <20100714.205041.246520770.davem@davemloft.net>
+References: <alpine.DEB.1.00.1007142025430.22782@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	lists@wildgooses.com, davidsen@tmr.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:36383 "EHLO
-	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932260Ab0GODtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 23:49:21 -0400
-In-Reply-To: <20100714221301.GI6682@nuttenaction>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47813
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932260Ab0GODu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 23:50:26 -0400
+In-Reply-To: <alpine.DEB.1.00.1007142025430.22782@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Jul 2010, Hagen Paul Pfeifer wrote:
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 14 Jul 2010 20:48:08 -0700 (PDT)
 
-> * David Miller | 2010-07-14 14:55:47 [-0700]:
+> Fix problem in reading the tx_queue recorded in a socket.  In
+> dev_pick_tx, the TX queue is read by doing a check with
+> sk_tx_queue_recorded on the socket, followed by a sk_tx_queue_get.
+> The problem is that there is not mutual exclusion across these
+> calls in the socket so it it is possible that the queue in the
+> sock can be invalidated after sk_tx_queue_recorded is called so
+> that sk_tx_queue get returns -1, which sets 65535 in queue_index
+> and thus dev_pick_tx returns 65536 which is a bogus queue and
+> can cause crash in dev_queue_xmit.
 > 
-> >Although section 3 of RFC 5681 is a great text, it does not say at all
-> >that increasing the initial CWND would lead to fairness issues.
+> We fix this by only calling sk_tx_queue_get which does the proper
+> checks.  The interface is that sk_tx_queue_get returns the TX queue
+> if the sock argument is non-NULL and TX queue is recorded, else it
+> returns -1.  sk_tx_queue_recorded is no longer used so it can be
+> completely removed.
 > 
-> Because it is only one side of the medal, probing conservative the available
-> link capacity in conjunction with n simultaneous probing TCP/SCTP/DCCP
-> instances is another.
-> 
-> >To be honest, I think google's proposal holds a lot of weight.  If
-> >over time link sizes and speeds are increasing (they are) then nudging
-> >the initial CWND every so often is a legitimate proposal.  Were
-> >someone to claim that utilization is lower than it could be because of
-> >the currenttly specified initial CWND, I would have no problem
-> >believing them.
-> >
-> >And I'm happy to make Linux use an increased value once it has
-> >traction in the standardization community.
-> 
-> Currently I know no working link capacity probing approach, without active
-> network feedback, to conservatively probing the available link capacity with a
-> high CWND. I am curious about any future trends.
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-A long, long time ago, I suggested a Path BW Discovery mechanism
-to the IETF, analogous to the Path MTU Discovery mechanism, but
-it didn't get any traction.  Such information could be extremely
-useful to TCP endpoints, to determine a maximum window size to
-use, to effectively rate limit a much stronger sender from
-overpowering a much weaker receiver (for example 10-GigE -> GigE),
-resulting in abominable performance across large RTT paths
-(as low as 12 Mbps), even in the absence of any real network
-contention.
-
-						-Bill
+Applied, thanks Tom!
