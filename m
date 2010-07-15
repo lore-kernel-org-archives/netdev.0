@@ -1,121 +1,96 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Re: [PATCH 1/2] bnx2: allocate with GFP_KERNEL flag on RX path init
-Date: Thu, 15 Jul 2010 11:57:59 -0700
-Message-ID: <5AD9FE05-1F9B-44DE-8CC4-4D63F43E79C8@earthlink.net>
-References: <20100715142530.12504.80404.send-patch@dhcp-lab-109.englab.brq.redhat.com> <20100715142537.12504.60051.send-patch@dhcp-lab-109.englab.brq.redhat.com>
-Mime-Version: 1.0 (Apple Message framework v1081)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, Michael Chan <mchan@broadcom.com>
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
+Date: Thu, 15 Jul 2010 13:02:28 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FF4B860D9@rrsmsx501.amr.corp.intel.com>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	 <1277807529.19417.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	 <1277938757.4138.3.camel@localhost.localdomain>
+	 <1278204106.21020.0.camel@localhost.localdomain>
+	 <1278283714.3444.1.camel@localhost.localdomain>
+	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
+	 <1278323885.5277.0.camel@localhost.localdomain>
+	 <1278950178.17933.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
+	 <1278981483.23017.4.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
+	 <1279150380.7810.2.camel@localhost.localdomain>
+ <1279220266.4411.2.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-dupuy.atl.sa.earthlink.net ([209.86.89.62]:34870 "EHLO
-	elasmtp-dupuy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934343Ab0GOS6U convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jul 2010 14:58:20 -0400
-In-Reply-To: <20100715142537.12504.60051.send-patch@dhcp-lab-109.englab.brq.redhat.com>
+Received: from mga09.intel.com ([134.134.136.24]:34766 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934313Ab0GOTCb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jul 2010 15:02:31 -0400
+In-Reply-To: <1279220266.4411.2.camel@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Jul 15, 2010, at 7:25 AM, Stanislaw Gruszka wrote:
-
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> ---
-> drivers/net/bnx2.c |   17 +++++++++--------
-> 1 files changed, 9 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index a203f39..6de4cb7 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-> @@ -2664,13 +2664,13 @@ bnx2_set_mac_addr(struct bnx2 *bp, u8 *mac_addr, u32 pos)
-> }
-> 
-> static inline int
-> -bnx2_alloc_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
-> +bnx2_alloc_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index, gfp_t gfp)
-> {
-> 	dma_addr_t mapping;
-> 	struct sw_pg *rx_pg = &rxr->rx_pg_ring[index];
-> 	struct rx_bd *rxbd =
-> 		&rxr->rx_pg_desc_ring[RX_RING(index)][RX_IDX(index)];
-> -	struct page *page = alloc_page(GFP_ATOMIC);
-> +	struct page *page = alloc_page(gfp);
-> 
-> 	if (!page)
-> 		return -ENOMEM;
-> @@ -2705,7 +2705,7 @@ bnx2_free_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
-> }
-> 
-> static inline int
-> -bnx2_alloc_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
-> +bnx2_alloc_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index, gfp_t gfp)
-> {
-> 	struct sk_buff *skb;
-> 	struct sw_bd *rx_buf = &rxr->rx_buf_ring[index];
-> @@ -2713,7 +2713,7 @@ bnx2_alloc_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
-> 	struct rx_bd *rxbd = &rxr->rx_desc_ring[RX_RING(index)][RX_IDX(index)];
-> 	unsigned long align;
-> 
-> -	skb = netdev_alloc_skb(bp->dev, bp->rx_buf_size);
-> +	skb = __netdev_alloc_skb(bp->dev, bp->rx_buf_size, gfp);
-> 	if (skb == NULL) {
-> 		return -ENOMEM;
-> 	}
-> @@ -2974,7 +2974,7 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, struct sk_buff *skb,
-> 	int err;
-> 	u16 prod = ring_idx & 0xffff;
-> 
-> -	err = bnx2_alloc_rx_skb(bp, rxr, prod);
-> +	err = bnx2_alloc_rx_skb(bp, rxr, prod, GFP_KERNEL);
-> 	if (unlikely(err)) {
-> 		bnx2_reuse_rx_skb(bp, rxr, skb, (u16) (ring_idx >> 16), prod);
-> 		if (hdr_len) {
-> @@ -3039,7 +3039,8 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, struct sk_buff *skb,
-> 			rx_pg->page = NULL;
-> 
-> 			err = bnx2_alloc_rx_page(bp, rxr,
-> -						 RX_PG_RING_IDX(pg_prod));
-> +						 RX_PG_RING_IDX(pg_prod),
-> +	
-
-> 					 GFP_ATOMIC);
-
-Why not GFP_NOWAIT here?
-This would then not use the last reserved pages of memory.
-This still would remove the possibe sleep asociated with GFP_KERNEL.
-
-Mitchell Erblich
-
-
-> 			if (unlikely(err)) {
-> 				rxr->rx_pg_cons = pg_cons;
-> 				rxr->rx_pg_prod = pg_prod;
-> @@ -5179,7 +5180,7 @@ bnx2_init_rx_ring(struct bnx2 *bp, int ring_num)
-> 
-> 	ring_prod = prod = rxr->rx_pg_prod;
-> 	for (i = 0; i < bp->rx_pg_ring_size; i++) {
-> -		if (bnx2_alloc_rx_page(bp, rxr, ring_prod) < 0) {
-> +		if (bnx2_alloc_rx_page(bp, rxr, ring_prod, GFP_KERNEL) < 0) {
-> 			netdev_warn(bp->dev, "init'ed rx page ring %d with %d/%d pages only\n",
-> 				    ring_num, i, bp->rx_pg_ring_size);
-> 			break;
-> @@ -5191,7 +5192,7 @@ bnx2_init_rx_ring(struct bnx2 *bp, int ring_num)
-> 
-> 	ring_prod = prod = rxr->rx_prod;
-> 	for (i = 0; i < bp->rx_ring_size; i++) {
-> -		if (bnx2_alloc_rx_skb(bp, rxr, ring_prod) < 0) {
-> +		if (bnx2_alloc_rx_skb(bp, rxr, ring_prod, GFP_KERNEL) < 0) {
-> 			netdev_warn(bp->dev, "init'ed rx ring %d with %d/%d skbs only\n",
-> 				    ring_num, i, bp->rx_ring_size);
-> 			break;
-> -- 
-> 1.7.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+TWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+IE9uIFRodSwgMjAxMC0wNy0xNSBhdCAwMjozMyArMDMw
+MCwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+PiBPbiBXZWQsIDIwMTAtMDctMTQgYXQgMTY6NTYg
+LTA2MDAsIFRhbnRpbG92LCBFbWlsIFMgd3JvdGU6DQo+Pj4gTWF4aW0gTGV2aXRza3kgd3JvdGU6
+DQo+Pj4+IE9uIE1vbiwgMjAxMC0wNy0xMiBhdCAxNToyMyAtMDYwMCwgVGFudGlsb3YsIEVtaWwg
+UyB3cm90ZToNCj4+Pj4+IE1heGltIExldml0c2t5IHdyb3RlOg0KPj4+Pj4+IE9uIE1vbiwgMjAx
+MC0wNy0wNSBhdCAxMjo1OCArMDMwMCwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+Pj4+Pj4+IE9u
+IE1vbiwgMjAxMC0wNy0wNSBhdCAwMToxMyAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPj4+
+Pj4+Pj4gT24gU3VuLCBKdWwgNCwgMjAxMCBhdCAxNTo0OCwgTWF4aW0gTGV2aXRza3kNCj4+Pj4+
+Pj4+IDxtYXhpbWxldml0c2t5QGdtYWlsLmNvbT4gd3JvdGU6DQo+Pj4+Pj4+Pj4gRGlkIGZldyBn
+dWVzc2VzLCBhbmQgbm93IEkgc2VlIHRoYXQgcmV2ZXJ0aW5nIHRoZSBiZWxvdw0KPj4+Pj4+Pj4+
+IGNvbW1pdCBmaXhlcyB0aGUgcHJvYmxlbS4gDQo+Pj4+Pj4+Pj4gDQo+Pj4+Pj4+Pj4gImUxMDAw
+ZTogRml4L2NsZWFudXAgUEhZIHJlc2V0IGNvZGUgZm9yIElDSHgvUENIeCINCj4+Pj4+Pj4+PiBl
+OThjYWM0NDdjYzFjYzQxOGRmZjFkNjEwYTVjNzljNGYyYmRlYzdmLg0KPj4+Pj4+Pj4+IA0KPj4+
+Pj4+Pj4+IA0KPj4+Pj4+Pj4+IEJlc3QgcmVnYXJkcywNCj4+Pj4+Pj4+PiAgICAgICAgTWF4aW0g
+TGV2aXRza3kNCj4+Pj4+Pj4+PiANCj4+Pj4+Pj4+PiAtLQ0KPj4+Pj4+Pj4gDQo+Pj4+Pj4+PiBD
+YW4geW91IGdpdmUgdXMgdGlsbCBUdWVzZGF5IHRvIHJlc3BvbmQ/ICBJIGtub3cgdGhhdCB0aGVy
+ZSBhcmUNCj4+Pj4+Pj4+IHNvbWUgYWRkaXRpb25hbCBlMTAwMGUgcGF0Y2hlcyBpbiBteSBxdWV1
+ZSwgd2hpY2ggbWF5IHJlc29sdmUNCj4+Pj4+Pj4+IHRoZSBpc3N1ZSwgYnV0IHRoaXMgd2Vla2Vu
+ZCB0aGUgcG93ZXIgaXMgZG93biB0byBkbyBzb21lDQo+Pj4+Pj4+PiBpbmZyYXN0cnVjdHVyZSB1
+cGdyYWRlcyB3aGljaCBwcmV2ZW50cyB1cyBmcm9tIGRvaW5nIGFueQ0KPj4+Pj4+Pj4gaW52ZXN0
+aWdhdGlvbi5kZWJ1Z2dpbmcgdW50aWwgVHVlc2RheS4NCj4+Pj4+Pj4+IA0KPj4+Pj4+PiANCj4+
+Pj4+Pj4gU3VyZS4NCj4+Pj4+Pj4gDQo+Pj4+Pj4+IEJlc3QgcmVnYXJkcywNCj4+Pj4+Pj4gCU1h
+eGltIExldml0c2t5DQo+Pj4+Pj4+IA0KPj4+Pj4+IA0KPj4+Pj4+IFVwZGF0ZXM/DQo+Pj4+PiAN
+Cj4+Pj4+IFdlIGFyZSB3b3JraW5nIG9uIHJlcHJvZHVjaW5nIHRoZSBpc3N1ZS4gU28gZmFyIHdl
+IGhhdmUgbm90IHNlZW4NCj4+Pj4+IHRoZSBwcm9ibGVtIHdoZW4gdGVzdGluZyB3aXRoIG5ldC1u
+ZXh0Lg0KPj4+Pj4gDQo+Pj4+PiBJIGFza2VkIGluIHByZXZpb3VzIGVtYWlsIGFib3V0IHNvbWUg
+YWRkaXRpb25hbCBpbmZvIGZyb20gZXRodG9vbA0KPj4+Pj4gKC1kLCAtZSwgLVMpIGFuZCBrZXJu
+ZWwgY29uZmlnLiBUaGF0IHdvdWxkIGhlbHAgdXMgdG8gbmFycm93IGl0DQo+Pj4+PiBkb3duLiAN
+Cj4+Pj4+IA0KPj4+Pj4gVGhhbmtzLA0KPj4+Pj4gRW1pbA0KPj4+PiBJIGRpZCBzZW5kIC1lIGFu
+ZCAtZCBvdXRwdXQuDQo+Pj4gDQo+Pj4gU29ycnksIGxvb2tzIGxpa2UgSSBsb3N0IHRoZSBlbWFp
+bCB3aXRoIHRoZSBhdHRhY2hlbWVudHMuDQo+Pj4gDQo+Pj4gQ291bGQgeW91IHByb3ZpZGUgdGhl
+IG91dHB1dCBvZiBkbWVzZyBhZnRlciB0aGUgZmFpbHVyZSBvY2N1cnM/DQo+Pj4gDQo+Pj4+IFNp
+bmNlIHlvdSBwcm9iYWJseSB3YW50IC1TIG91dHB1dCBkdXJpbmcgZmFpbHVyZSwgSSBuZWVkIHRv
+DQo+Pj4+IHJlY29tcGlsZSBrZXJuZWwgZm9yIHRoYXQuIEkgd2lsbCBkbyB0aGF0IHNvb24uDQo+
+Pj4+IA0KPj4+PiANCj4+Pj4gT25lIHF1ZXN0aW9uLCBpbiB0d28gd2Vla3MgSSBob3BlIDIuNi4z
+NSB3b24ndCBiZSByZWxlYXNlZD8NCj4+Pj4gSWYgc28sIEkgd2lsbCBoYXZlIGVub3VnaCBmcmVl
+IHRpbWUgdGhlbiB0byBuYXJyb3cgZG93biB0aGlzIGlzc3VlLg0KPj4+PiANCj4+Pj4gT3RoZXIg
+c29sdXRpb24sIGlzIHRvIHJldmVydCB0aGlzIGNvbW1pdC4NCj4+Pj4gKEkgaGF2ZSBuZXZlciBz
+ZWVuIHRoaXMgcHJvYmxlbSB3aXRoIGl0IHJldmVydGVkKS4NCj4+PiANCj4+PiBXZSBoYXZlIGJl
+ZW4gcnVubmluZyByZWJvb3QgdGVzdHMgb24gMiBzZXBhcmF0ZSBzeXN0ZW1zIHdpdGggcmVjZW50
+DQo+Pj4gbmV0LW5leHQga2VybmVscyB1c2luZyB5b3VyIGNvbmZpZyBhbmQgc28gZmFyIG5vIGx1
+Y2sgaW4NCj4+PiByZXByb2R1Y2luZyB0aGlzIGlzc3VlLiANCj4+PiANCj4+PiBXaGF0IGlzIHRo
+ZSBtYWtlIG1vZGVsIG9mIHlvdXIgc3lzdGVtIChvciBNQik/DQo+PiANCj4+IHRoZSBtb3RoZXJi
+b2FyZCBpcyBJbnRlbCBERzk2NVJZLg0KPj4gDQo+PiBIb3dldmVyLCBJIGFtIHVzaW5nIHZhbmls
+bGEga2VybmVsLg0KPj4gbmV0LW5leHQgbWlnaHQgY29udGFpbiBmdXJ0aGVyIGZpeGVzLg0KPj4g
+DQo+PiBJIHNlZSBpZiBuZXQtbmV4dCB3b3JrcyBoZXJlLg0KPiANCj4gWWVwLCBuZXQtbmV4dCB3
+b3JrcyBoZXJlLg0KPiANCj4gDQo+IEkgaGF2ZSB0aGUgcHJvYmxlbSBvbiB2YW5pbGxhIGtlcm5l
+bC4NCj4gTGFzdCByZXZpc2lvbiBvZiBpdCwgSSB0ZXN0ZWQgaXMgMi42LjM1LXJjNCBleGFjdGx5
+DQo+ICg4MTVjNDE2M2I2YzhlYmY4MTUyZjQyYjBhNWZkMDE1Y2ZkY2VkYzc4KQ0KPiANCj4gDQo+
+IE1heWJlIHZhbmlsbGEgZ2l0IG1hc3RlciB3b3JrcywgSSB0ZXN0IGl0IHRvbyBzb29uLg0KDQpU
+aGFua3MgZm9yIHRoZSBpbmZvcm1hdGlvbiEgR29vZCB0byBrbm93IHRoYXQgdGhpcyBpc3N1ZSBk
+b2VzIG5vdCBleGlzdCBpbiB0aGUgbGF0ZXN0IGJyYW5jaC4NCg0KSGF2ZSB5b3UgYnkgYW55IGNo
+YW5jZSB0ZXN0ZWQgYSBzdGFibGUgYnJhbmNoICgyLjYuMzQueCk/DQoNCj4gDQo+IA0KPiBCZXN0
+IHJlZ2FyZHMsDQo+IAlNYXhpbSBMZXZpdHNreQ0KDQpUaGFua3MsDQpFbWlsDQo=
