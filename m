@@ -1,98 +1,95 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Thu, 15 Jul 2010 10:36:01 -0700
-Message-ID: <AANLkTikF0RVNAhJTyA1PJThAbqY7U5Pei13umU6qWfsZ@mail.gmail.com>
-References: <4C3D94E3.9080103@wildgooses.com>
-	<4C3DD5EB.9070908@tmr.com>
-	<20100714.111553.104052157.davem@davemloft.net>
-	<4C3E0684.5060409@wildgooses.com>
-	<4C3E1B54.40604@hp.com>
-	<20100714203919.GD6682@nuttenaction>
-	<AANLkTikTyZGQWWIBzYSQWpUK30xxbMXLbJXeHahWnlIi@mail.gmail.com>
-	<4C3EBD51.80406@wildgooses.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv4] netfilter: add CHECKSUM target
+Date: Thu, 15 Jul 2010 20:42:16 +0300
+Message-ID: <20100715174216.GA16216@redhat.com>
+References: <20100715115217.GA6737@redhat.com>
+ <4C3F27A2.3030207@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>, davidsen@tmr.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Nandita Dukkipati <nanditad@google.com>
-To: Ed W <lists@wildgooses.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Daniel P. Berrange" <berrange@redhat.com>,
+	Jes Sorensen <Jes.Sorensen@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:45790 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758643Ab0GORgH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 13:36:07 -0400
-In-Reply-To: <4C3EBD51.80406@wildgooses.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59815 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933810Ab0GORrv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jul 2010 13:47:51 -0400
+Content-Disposition: inline
+In-Reply-To: <4C3F27A2.3030207@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 15, 2010 at 12:48 AM, Ed W <lists@wildgooses.com> wrote:
->
-> On 15/07/2010 05:12, Tom Herbert wrote:
->>
->> There is an Internet draft
->> (http://datatracker.ietf.org/doc/draft-hkchu-tcpm-initcwnd/) on
->> raising the default Initial Congestion window to 10 segments, as wel=
-l
->> as a SIGCOMM paper (http://ccr.sigcomm.org/online/?q=3Dnode/621).
->>
->
-> You guys have obviously done a lot of work on this, however, it seems=
- that there is a case for introducing some heuristics into the choice o=
-f init cwnd as well as offering the option to go larger? =A0An initial =
-size of 10 packets is just another magic number that obviously works wi=
-th the median bandwidth delay product on today's networks - can we not =
-do better still?
->
-> Seems like a bunch of clever folks have already suggested tweaks to t=
-he steady stage congestion avoidance, but so far everyone is afraid to =
-touch the early stage heuristics?
+On Thu, Jul 15, 2010 at 05:22:10PM +0200, Patrick McHardy wrote:
+> Am 15.07.2010 13:52, schrieb Michael S. Tsirkin:
+> > This adds a `CHECKSUM' target, which can be used in the iptables mangle
+> > table.
+> > 
+> > You can use this target to compute and fill in the checksum in
+> > a packet that lacks a checksum.  This is particularly useful,
+> > if you need to work around old applications such as dhcp clients,
+> > that do not work well with checksum offloads, but don't want to
+> > disable checksum offload in your device.
+> > 
+> > The problem happens in the field with virtualized applications.
+> > For reference, see Red Hat bz 605555, as well as
+> > http://www.spinics.net/lists/kvm/msg37660.html
+> > 
+> > Typical expected use (helps old dhclient binary running in a VM):
+> > iptables -A POSTROUTING -t mangle -p udp --dport bootpc \
+> > 	-j CHECKSUM --checksum-fill
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > Includes fixes by Jan Engelhardt <jengelh@medozas.de>
+> 
+> Applied, thanks Michael.
 
-This is because there is not enough info for deriving any heuristic.
-=46or initcwnd one is constrained to
-only info from 3WHS. This includes a rough estimate of RTT plus all
-the bits in the SYN/SYN-ACK
-headers. I'm assuming a stateless approach. We've tried a stateful
-solution (i.e., seeding initcwnd from
-past history) but found its complexity outweigh the gain.
-(See http://www.ietf.org/proceedings/77/slides/tcpm-4.pdf)
+I forgot to export the header. And once I added it, I got warning
+on header_check, so here's a fixup. Sorry about the noise.
 
->
-> Also would you guys not benefit from wider deployment of ECN? =A0Can =
-you not help find some ways that deployment could be increased? =A0At p=
-resent there are big warnings all over the option that it causes some p=
-roblems, but there is no quantification of how much and really whether =
-this warning is still appropriate?
+netfilter: correct CHECKSUM header and export it
 
-That will add yet another hoop for us to jump over. Also I'm not sure
-a couple of bits are sufficient for a
-guesstimate of what initcwnd ought to be.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Our reasoning is simple - there has been tremendous b/w growth since
-rfc2414 was published. Even the
-lowest common denominator (i.e., dialup links) has moved from 9.6Kbps
-to 56Kbps. That's a six fold
-increase. If you believe initcwnd should grow proportionally to the
-buffer sizes in access links, and the
-buffer sizes grows proportionally to b/w, then the initcwnd outght to
-be 3*6 =3D 18 today.
+--
 
-We chose a modest increase (10) with the hope to expedite the
-standardization process (and would
-certainly appreciate helps from folks on this list). 10 is very
-conservative considering many deployment
-has gone beyond 3, including Linux stack, which allows one additional
-pkt if it's the last data pkt.
-
-Longer term it will be nice to find a way to get rid of this fixed,
-somewhat arbitrary initcwnd. Mark
-Allman's JumpStart is one idea, but it'd be a much longer route.
-
-Jerry
-
->
-> Ed W
->
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+index 48767cd..0c3098f 100644
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -3,6 +3,7 @@ header-y += nf_conntrack_tuple_common.h
+ header-y += nfnetlink_conntrack.h
+ header-y += nfnetlink_log.h
+ header-y += nfnetlink_queue.h
++header-y += xt_CHECKSUM.h
+ header-y += xt_CLASSIFY.h
+ header-y += xt_CONNMARK.h
+ header-y += xt_CONNSECMARK.h
+diff --git a/include/linux/netfilter/xt_CHECKSUM.h b/include/linux/netfilter/xt_CHECKSUM.h
+index 3b4fb77..9a2e466 100644
+--- a/include/linux/netfilter/xt_CHECKSUM.h
++++ b/include/linux/netfilter/xt_CHECKSUM.h
+@@ -6,8 +6,10 @@
+  *
+  * This software is distributed under GNU GPL v2, 1991
+ */
+-#ifndef _IPT_CHECKSUM_TARGET_H
+-#define _IPT_CHECKSUM_TARGET_H
++#ifndef _XT_CHECKSUM_TARGET_H
++#define _XT_CHECKSUM_TARGET_H
++
++#include <linux/types.h>
+ 
+ #define XT_CHECKSUM_OP_FILL	0x01	/* fill in checksum in IP header */
+ 
+@@ -15,4 +17,4 @@ struct xt_CHECKSUM_info {
+ 	__u8 operation;	/* bitset of operations */
+ };
+ 
+-#endif /* _IPT_CHECKSUM_TARGET_H */
++#endif /* _XT_CHECKSUM_TARGET_H */
