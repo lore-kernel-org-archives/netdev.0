@@ -1,41 +1,46 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH 3/8] drivers: irda: fix sign bug
-Date: Thu, 15 Jul 2010 22:44:54 +0400
-Message-ID: <1279219494-12408-1-git-send-email-segooon@gmail.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>,
+From: Peter Huewe <PeterHuewe@gmx.de>
+Subject: [PATCH 08/25] atm: Convert pci_table entries to PCI_VDEVICE (if PCI_ANY_ID is used)
+Date: Thu, 15 Jul 2010 20:45:32 +0200
+Message-ID: <201007152045.33543.PeterHuewe@gmx.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
 	"David S. Miller" <davem@davemloft.net>,
-	Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>,
-	netdev@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:44479 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934118Ab0GOSp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 14:45:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	H Hartley Sweeten <hsweeten@visionengravers.com>,
+	Tejun Heo <tj@kernel.org>,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Kernel Janitors <kernel-janitors@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-platform_get_irq_byname() can return negative results, it is not seen to
-unsigned irq. Make it signed.
+From: Peter Huewe <peterhuewe@gmx.de>
 
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+This patch converts pci_table entries, where .subvendor=PCI_ANY_ID and
+.subdevice=PCI_ANY_ID, .class=0 and .class_mask=0, to use the
+PCI_VDEVICE macro, and thus improves readability.
+
+Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 ---
- drivers/net/irda/sh_irda.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/atm/idt77252.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/irda/sh_irda.c b/drivers/net/irda/sh_irda.c
-index 9a828b0..edd5666 100644
---- a/drivers/net/irda/sh_irda.c
-+++ b/drivers/net/irda/sh_irda.c
-@@ -749,7 +749,7 @@ static int __devinit sh_irda_probe(struct platform_device *pdev)
- 	struct sh_irda_self *self;
- 	struct resource *res;
- 	char clk_name[8];
--	unsigned int irq;
-+	int irq;
- 	int err = -ENOMEM;
+diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
+index 558ad18..1679cbf 100644
+--- a/drivers/atm/idt77252.c
++++ b/drivers/atm/idt77252.c
+@@ -3779,8 +3779,7 @@ err_out_disable_pdev:
  
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ static struct pci_device_id idt77252_pci_tbl[] =
+ {
+-	{ PCI_VENDOR_ID_IDT, PCI_DEVICE_ID_IDT_IDT77252,
+-	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	{ PCI_VDEVICE(IDT, PCI_DEVICE_ID_IDT_IDT77252), 0 },
+ 	{ 0, }
+ };
+ 
 -- 
-1.7.0.4
-
+1.7.1
