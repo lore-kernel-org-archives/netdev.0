@@ -1,65 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost-net: avoid flush under lock
-Date: Thu, 15 Jul 2010 15:37:44 +0300
-Message-ID: <20100715123744.GA7831__35249.5698760778$1279197853$gmane$org@redhat.com>
-References: <20100715121912.GA7176@redhat.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH RFC] act_cpu: packet distributing
+Date: Thu, 15 Jul 2010 08:48:59 -0400
+Message-ID: <1279198139.4510.710.camel@bigi>
+References: <1279077475-2956-1-git-send-email-xiaosuo@gmail.com>
+	 <1279078875.2444.103.camel@edumazet-laptop>
+	 <AANLkTimPmXWyAspJqnya7aM_vDRNzDdJJf2bl7CYrAXN@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Sridhar Samudrala <samudrala@us.ibm.com>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	kvm@vger.kernel.org
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43517 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933142Ab0GOMns (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jul 2010 08:43:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20100715121912.GA7176@redhat.com>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:41015 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933137Ab0GOMtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 08:49:06 -0400
+Received: by gwj18 with SMTP id 18so399069gwj.19
+        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 05:49:03 -0700 (PDT)
+In-Reply-To: <AANLkTimPmXWyAspJqnya7aM_vDRNzDdJJf2bl7CYrAXN@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 15, 2010 at 03:19:12PM +0300, Michael S. Tsirkin wrote:
-> We flush under vq mutex when changing backends.
-> This creates a deadlock as workqueue being flushed
-> needs this lock as well.
-> 
-> https://bugzilla.redhat.com/show_bug.cgi?id=612421
-> 
-> Drop the vq mutex before flush: we have the device mutex
-> which is sufficient to prevent another ioctl from touching
-> the vq.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+On Wed, 2010-07-14 at 12:17 +0800, Changli Gao wrote:
 
-Dave, just to clarify, I'll send pull request to merge it through my tree,
-there's no need for you to bother with this.
+> Thanks, I'll try. It is a write critical section, and for me it is
+> difficult to convert this lock to RCU. Could you show me some
+> examples?
 
-> ---
->  drivers/vhost/net.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 28d7786..50df58e6 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -534,11 +534,16 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->  	rcu_assign_pointer(vq->private_data, sock);
->  	vhost_net_enable_vq(n, vq);
->  done:
-> +	mutex_unlock(&vq->mutex);
-> +
->  	if (oldsock) {
->  		vhost_net_flush_vq(n, index);
->  		fput(oldsock->file);
->  	}
->  
-> +	mutex_unlock(&n->dev.mutex);
-> +	return 0;
-> +
->  err_vq:
->  	mutex_unlock(&vq->mutex);
->  err:
-> -- 
-> 1.7.2.rc0.14.g41c1c
+RCU maybe a little trickier here Eric. Actions could be shared i.e. 
+example, it is possible to have a policer action restricting rates for a
+group of flows  across multiple netdevices etc. Since action stats get
+written to by different CPUs concurrently. It could be probably done if
+one was to implement per-cpu stats which get summed-up when user space
+asks.
+
+cheers,
+jamal
+
