@@ -1,17 +1,16 @@
-From: Peter =?iso-8859-1?q?H=FCwe?= <PeterHuewe@gmx.de>
-Subject: [PATCH 20/25] mISDN: Convert pci_table entries to PCI_VDEVICE (if PCI_ANY_ID is used)
-Date: Thu, 15 Jul 2010 21:04:07 +0200
-Message-ID: <201007152104.08458.PeterHuewe@gmx.de>
+From: Peter Huewe <PeterHuewe@gmx.de>
+Subject: [PATCH 21/25] isdn/hardware/eicon: Convert pci_table entries to PCI_VDEVICE (if PCI_ANY_ID is used)
+Date: Thu, 15 Jul 2010 21:04:45 +0200
+Message-ID: <201007152104.45958.PeterHuewe@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Uwe =?iso-8859-1?q?Kleine-K=F6nig?="
-	<u.kleine-koenig@pengutronix.de>,
-	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -25,63 +24,88 @@ PCI_VDEVICE macro, and thus improves readability.
 
 Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 ---
- drivers/isdn/hardware/mISDN/mISDNinfineon.c |   39 +++++++++-----------------
- 1 files changed, 14 insertions(+), 25 deletions(-)
+ drivers/isdn/hardware/eicon/divasmain.c |   69 +++++++++++++++----------------
+ 1 files changed, 34 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/isdn/hardware/mISDN/mISDNinfineon.c b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
-index 4975976..d2dd61d 100644
---- a/drivers/isdn/hardware/mISDN/mISDNinfineon.c
-+++ b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
-@@ -125,36 +125,25 @@ struct inf_hw {
- #define PCI_SUB_ID_SEDLBAUER            0x01
- 
- static struct pci_device_id infineon_ids[] __devinitdata = {
--	{ PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_DIVA20,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_DIVA20},
--	{ PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_DIVA20_U,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_DIVA20U},
--	{ PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_DIVA201,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_DIVA201},
--	{ PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_DIVA202,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_DIVA202},
-+	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_DIVA20), INF_DIVA20 },
-+	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_DIVA20_U), INF_DIVA20U },
-+	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_DIVA201), INF_DIVA201 },
-+	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_DIVA202), INF_DIVA202 },
- 	{ PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_100,
- 	  PCI_SUBVENDOR_SEDLBAUER_PCI, PCI_SUB_ID_SEDLBAUER, 0, 0,
--	  INF_SPEEDWIN},
-+	  INF_SPEEDWIN },
- 	{ PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_100,
--	  PCI_SUBVENDOR_HST_SAPHIR3, PCI_SUB_ID_SEDLBAUER, 0, 0, INF_SAPHIR3},
--	{ PCI_VENDOR_ID_ELSA, PCI_DEVICE_ID_ELSA_MICROLINK,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_QS1000},
--	{ PCI_VENDOR_ID_ELSA, PCI_DEVICE_ID_ELSA_QS3000,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_QS3000},
--	{ PCI_VENDOR_ID_SATSAGEM, PCI_DEVICE_ID_SATSAGEM_NICCY,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_NICCY},
-+	  PCI_SUBVENDOR_HST_SAPHIR3, PCI_SUB_ID_SEDLBAUER, 0, 0, INF_SAPHIR3 },
-+	{ PCI_VDEVICE(ELSA, PCI_DEVICE_ID_ELSA_MICROLINK), INF_QS1000 },
-+	{ PCI_VDEVICE(ELSA, PCI_DEVICE_ID_ELSA_QS3000), INF_QS3000 },
-+	{ PCI_VDEVICE(SATSAGEM, PCI_DEVICE_ID_SATSAGEM_NICCY), INF_NICCY },
- 	{ PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9050,
- 	  PCI_VENDOR_ID_BERKOM, PCI_DEVICE_ID_BERKOM_SCITEL_QUADRO, 0, 0,
--	  INF_SCT_1},
--	{ PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_R685,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_GAZEL_R685},
--	{ PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_R753,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_GAZEL_R753},
--	{ PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_DJINN_ITOO,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_GAZEL_R753},
--	{ PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_OLITEC,
--	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, INF_GAZEL_R753},
-+	  INF_SCT_1 },
-+	{ PCI_VDEVICE(PLX, PCI_DEVICE_ID_PLX_R685), INF_GAZEL_R685 },
-+	{ PCI_VDEVICE(PLX, PCI_DEVICE_ID_PLX_R753), INF_GAZEL_R753 },
-+	{ PCI_VDEVICE(PLX, PCI_DEVICE_ID_PLX_DJINN_ITOO), INF_GAZEL_R753 },
-+	{ PCI_VDEVICE(PLX, PCI_DEVICE_ID_PLX_OLITEC), INF_GAZEL_R753 },
- 	{ }
+diff --git a/drivers/isdn/hardware/eicon/divasmain.c b/drivers/isdn/hardware/eicon/divasmain.c
+index 16a874b..ed9c555 100644
+--- a/drivers/isdn/hardware/eicon/divasmain.c
++++ b/drivers/isdn/hardware/eicon/divasmain.c
+@@ -112,41 +112,40 @@ typedef struct _diva_os_thread_dpc {
+   This table should be sorted by PCI device ID
+   */
+ static struct pci_device_id divas_pci_tbl[] = {
+-/* Diva Server BRI-2M PCI 0xE010 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_MAESTRA,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_MAESTRA_PCI},
+-/* Diva Server 4BRI-8M PCI 0xE012 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_MAESTRAQ,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_Q_8M_PCI},
+-/* Diva Server 4BRI-8M 2.0 PCI 0xE013 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_MAESTRAQ_U,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_Q_8M_V2_PCI},
+-/* Diva Server PRI-30M PCI 0xE014 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_MAESTRAP,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_P_30M_PCI},
+-/* Diva Server PRI 2.0 adapter 0xE015 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_MAESTRAP_2,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_P_30M_V2_PCI},
+-/* Diva Server Voice 4BRI-8M PCI 0xE016 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_4BRI_VOIP,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_VOICE_Q_8M_PCI},
+-/* Diva Server Voice 4BRI-8M 2.0 PCI 0xE017 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_4BRI_2_VOIP,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_VOICE_Q_8M_V2_PCI},
+-/* Diva Server BRI-2M 2.0 PCI 0xE018 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_BRI2M_2,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_B_2M_V2_PCI},
+-/* Diva Server Voice PRI 2.0 PCI 0xE019 */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_MAESTRAP_2_VOIP,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+-	 CARDTYPE_DIVASRV_VOICE_P_30M_V2_PCI},
+-/* Diva Server 2FX 0xE01A */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_2F,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_B_2F_PCI},
+-/* Diva Server Voice BRI-2M 2.0 PCI 0xE01B */
+-	{PCI_VENDOR_ID_EICON, PCI_DEVICE_ID_EICON_BRI2M_2_VOIP,
+-	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, CARDTYPE_DIVASRV_VOICE_B_2M_V2_PCI},
+-	{0,}			/* 0 terminated list. */
++	/* Diva Server BRI-2M PCI 0xE010 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_MAESTRA),
++		CARDTYPE_MAESTRA_PCI },
++	/* Diva Server 4BRI-8M PCI 0xE012 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_MAESTRAQ),
++		CARDTYPE_DIVASRV_Q_8M_PCI },
++	/* Diva Server 4BRI-8M 2.0 PCI 0xE013 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_MAESTRAQ_U),
++		CARDTYPE_DIVASRV_Q_8M_V2_PCI },
++	/* Diva Server PRI-30M PCI 0xE014 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_MAESTRAP),
++		CARDTYPE_DIVASRV_P_30M_PCI },
++	/* Diva Server PRI 2.0 adapter 0xE015 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_MAESTRAP_2),
++		CARDTYPE_DIVASRV_P_30M_V2_PCI },
++	/* Diva Server Voice 4BRI-8M PCI 0xE016 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_4BRI_VOIP),
++		CARDTYPE_DIVASRV_VOICE_Q_8M_PCI },
++	/* Diva Server Voice 4BRI-8M 2.0 PCI 0xE017 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_4BRI_2_VOIP),
++		CARDTYPE_DIVASRV_VOICE_Q_8M_V2_PCI },
++	/* Diva Server BRI-2M 2.0 PCI 0xE018 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_BRI2M_2),
++		CARDTYPE_DIVASRV_B_2M_V2_PCI },
++	/* Diva Server Voice PRI 2.0 PCI 0xE019 */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_MAESTRAP_2_VOIP),
++		CARDTYPE_DIVASRV_VOICE_P_30M_V2_PCI },
++	/* Diva Server 2FX 0xE01A */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_2F),
++		CARDTYPE_DIVASRV_B_2F_PCI },
++	/* Diva Server Voice BRI-2M 2.0 PCI 0xE01B */
++	{ PCI_VDEVICE(EICON, PCI_DEVICE_ID_EICON_BRI2M_2_VOIP),
++		CARDTYPE_DIVASRV_VOICE_B_2M_V2_PCI },
++	{ 0, }			/* 0 terminated list. */
  };
- MODULE_DEVICE_TABLE(pci, infineon_ids);
+ MODULE_DEVICE_TABLE(pci, divas_pci_tbl);
+ 
 -- 
 1.7.1
