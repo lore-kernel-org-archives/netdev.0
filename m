@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net/core: neighbour update Oops
-Date: Wed, 14 Jul 2010 18:02:46 -0700 (PDT)
-Message-ID: <20100714.180246.39175076.davem@davemloft.net>
-References: <734423.1943.qm@web52004.mail.re2.yahoo.com>
-	<1279035511.2634.456.camel@edumazet-laptop>
+Subject: Re: [PATCH] bonding: fix a buffer overflow in
+ bonding_show_queue_id.
+Date: Wed, 14 Jul 2010 18:25:05 -0700 (PDT)
+Message-ID: <20100714.182505.115922952.davem@davemloft.net>
+References: <1279146277-9381-1-git-send-email-nicolas.2p.debian@free.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rdkehn@yahoo.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: bonding-devel@lists.sourceforge.net, andy@greyhouse.net,
+	fubar@us.ibm.com, netdev@vger.kernel.org
+To: nicolas.2p.debian@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54315
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41654
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757942Ab0GOBCb convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1758098Ab0GOBYt convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jul 2010 21:02:31 -0400
-In-Reply-To: <1279035511.2634.456.camel@edumazet-laptop>
+	Wed, 14 Jul 2010 21:24:49 -0400
+In-Reply-To: <1279146277-9381-1-git-send-email-nicolas.2p.debian@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 13 Jul 2010 17:38:31 +0200
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+Date: Thu, 15 Jul 2010 00:24:37 +0200
 
-> Le mardi 13 juillet 2010 =E0 08:23 -0700, Doug Kehn a =E9crit :
->> When configuring DMVPN (GRE + openNHRP) and a GRE remote
->> address is configured a kernel Oops is observed.  The
->> obserseved Oops is caused by a NULL header_ops pointer
->> (neigh->dev->header_ops) in neigh_update_hhs() when
->>=20
->> void (*update)(struct hh_cache*, const struct net_device*, const uns=
-igned char *)
->> =3D neigh->dev->header_ops->cache_update;
->>=20
->> is executed.  The dev associated with the NULL header_ops is
->> the GRE interface.  This patch guards against the
->> possibility that header_ops is NULL.
->>=20
->> This Oops was first observed in kernel version 2.6.26.8.
->>=20
->> Signed-off-by: Doug Kehn <rdkehn@yahoo.com>
+> The test for buffer overflow ensures we have room for 6 more bytes.
+> sprintf, called with %s:%d, slave->dev->name, slave->queue_id may yie=
+ld
+> far more than 6 bytes.
 >=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> The correct test is res > (PAGE_SIZE - IFNAMSIZ - 6) .
+>=20
+> Signed-off-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
 
-Applied and queued up for -stable, thanks!
+Applied to net-next-2.6, thanks.
