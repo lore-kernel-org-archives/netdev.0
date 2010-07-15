@@ -1,38 +1,56 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 1/2] bnx2: allocate with GFP_KERNEL flag on RX path
- init
-Date: Thu, 15 Jul 2010 07:48:40 -0700
-Message-ID: <C27F8246C663564A84BB7AB3439772421B842BD26F@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <20100715142537.12504.60051.send-patch@dhcp-lab-109.englab.brq.redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/2] netfilter: nfnetlink_queue: add definition of	aligned_be64
+ for user-space apps
+Date: Thu, 15 Jul 2010 17:07:00 +0200
+Message-ID: <4C3F2414.9090606@trash.net>
+References: <20100712165241.4026.83949.stgit@decadence> <20100712170019.4026.55069.stgit@decadence> <4C3ED2A7.1090300@trash.net> <4C3EF819.8080801@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: "'Stanislaw Gruszka'" <sgruszka@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4161 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933380Ab0GOOsp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 10:48:45 -0400
-In-Reply-To: <20100715142537.12504.60051.send-patch@dhcp-lab-109.englab.brq.redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netfilter-devel@vger.kernel.org, NetDev <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4C3EF819.8080801@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stanislaw Gruszka wrote:
-
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> ---
-> @@ -2974,7 +2974,7 @@ bnx2_rx_skb(struct bnx2 *bp, struct
-> bnx2_rx_ring_info *rxr, struct sk_buff *skb,
->       int err;
->       u16 prod = ring_idx & 0xffff;
+Am 15.07.2010 13:59, schrieb Pablo Neira Ayuso:
+> On 15/07/10 11:19, Patrick McHardy wrote:
+>> Am 12.07.2010 19:00, schrieb Pablo Neira Ayuso:
+>>> Currently, libnl and libnetfilter_queue include in one of their
+>>> user-space header files an ad-hoc definition of aligned_be64.
+>>> However, applications that use the BSD socket API to communicate
+>>> via Netlink sockets (ie. those that do not use these libraries)
+>>> would need to define this type by hand if they include the
+>>> kernel-space header nfnetlink_queue.h.
+>>>
+>>> This patch adds the definition of aligned_bed64 for user-space
+>>> applications in the kernel header. Otherwise, they have to define
+>>> it to avoid the following compilation problem:
+>>>
+>>> /usr/include/linux/netfilter/nfnetlink_queue.h:28: error: expected =
+specifier-qualifier-list before =E2=80=98aligned_be64=E2=80=99
+>>
+>> Why can't these applications simply include linux/types.h?
+>=20
+> Including it doesn't fix the problem here:
+>=20
+> #include <linux/types.h>
+> #include <linux/netfilter/nfnetlink_queue.h>
+>=20
+> I still get:
+>=20
+> /usr/include/linux/netfilter/nfnetlink_queue.h:28: error: expected
+> specifier-qualifier-list before =E2=80=98aligned_be64=E2=80=99
+>=20
+> aligned_be64 is only define in the kernel (it's included under the
+> __KERNEL__ definition).
 >
-> -     err = bnx2_alloc_rx_skb(bp, rxr, prod);
-> +     err = bnx2_alloc_rx_skb(bp, rxr, prod, GFP_KERNEL);
 
-This should be GFP_ATOMIC since it is called from NAPI softirq
-context.
-
-
+In that case I think we should export a __aligned_be64 in types.h
+and use that instead of aligned_be64.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
