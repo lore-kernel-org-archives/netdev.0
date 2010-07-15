@@ -1,50 +1,59 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Thu, 15 Jul 2010 19:14:24 -0400
-Message-ID: <4C3F9650.1040800@tmr.com>
-References: <4C3D94E3.9080103@wildgooses.com>	<4C3DD5EB.9070908@tmr.com> <20100714.111553.104052157.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100714.111553.104052157.davem@davemloft.net>
-Cc: linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: [ipmr] ipmr:  Don't leak memory if fib lookup fails.
+Date: Thu, 15 Jul 2010 16:22:33 -0700
+Message-ID: <1279236153-23699-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:58554 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933661Ab0GOXWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 19:22:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Bill Davidsen <davidsen@tmr.com>
-> Date: Wed, 14 Jul 2010 11:21:15 -0400
-> 
->> You may have to go into /proc/sys/net/core and crank up the
->> rmem_* settings, depending on your distribution.
-> 
-> You should never, ever, have to touch the various networking sysctl
-> values to get good performance in any normal setup.  If you do, it's a
-> bug, report it so we can fix it.
-> 
-> I cringe every time someone says to do this, so please do me a favor
-> and don't spread this further. :-)
-> 
-I think transit time measured in 1/10th sec would disqualify this as a "normal 
-setup."
+This was detected using two mcast router tables.  The
+pimreg for the second interface did not have a specific
+mrule, so packets received by it were handled by the
+default table, which had nothing configured.
 
-High bandwidth and high latency don't work well because you get "send until the 
-window is full then wait for ack" and poor performance. I saw this with sat feed 
-to Wyoming from GE's Research Center in upstate NY in the late 80's or early 
-90's. (I think this was NYserNet at that time). I did feeds from NYC area to 
-California and Hawaii with SBC in the early to mid 2k years. In every case 
-SunOS, Solaris, AIX and Linux all failed to hit anything like reasonable 
-transfer speeds without manually tweaking, and I got the advice on increasing 
-window size from network engineers at ISPs and backbone providers.
+This caused the ipmr_fib_lookup to fail, causing
+the memory leak.
 
-The O.P. may have other issues, and may benefit from doing other things as well, 
-but raising window size is a reasonable thing to do on links with RTT in 
-hundreds of ms, and it's easy to try without changing config files.
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 ed2f911... f112ad8... M	net/ipv4/ipmr.c
+ net/ipv4/ipmr.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index ed2f911..f112ad8 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -442,8 +442,10 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int err;
+ 
+ 	err = ipmr_fib_lookup(net, &fl, &mrt);
+-	if (err < 0)
++	if (err < 0) {
++		kfree_skb(skb);
+ 		return err;
++	}
+ 
+ 	read_lock(&mrt_lock);
+ 	dev->stats.tx_bytes += skb->len;
+@@ -1729,8 +1731,10 @@ int ip_mr_input(struct sk_buff *skb)
+ 		goto dont_forward;
+ 
+ 	err = ipmr_fib_lookup(net, &skb_rtable(skb)->fl, &mrt);
+-	if (err < 0)
++	if (err < 0) {
++		kfree_skb(skb);
+ 		return err;
++	}
+ 
+ 	if (!local) {
+ 		    if (IPCB(skb)->opt.router_alert) {
 -- 
-Bill Davidsen <davidsen@tmr.com>
-   "We have more to fear from the bungling of the incompetent than from
-the machinations of the wicked."  - from Slashdot
+1.6.2.5
+
