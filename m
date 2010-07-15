@@ -1,69 +1,54 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] CAN: Add Flexcan CAN controller driver
-Date: Thu, 15 Jul 2010 12:21:30 +0200
-Message-ID: <4C3EE12A.1030307@grandegger.com>
-References: <1279144811-12251-1-git-send-email-mkl@pengutronix.de>	<4C3ED6F5.7040606@grandegger.com>
-	<4C3EDDB1.5040109@pengutronix.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: Raise initial congestion window size / speedup slow start?
+Date: Thu, 15 Jul 2010 11:33:34 +0100
+Message-ID: <20100715113334.46c440b8@lxorguk.ukuu.org.uk>
+References: <4C3E0684.5060409@wildgooses.com>
+	<4C3E1B54.40604@hp.com>
+	<20100714203919.GD6682@nuttenaction>
+	<20100714.145547.102555471.davem@davemloft.net>
+	<20100714221301.GI6682@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4C3EDDB1.5040109-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	lists@wildgooses.com, davidsen@tmr.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100714221301.GI6682@nuttenaction>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/15/2010 12:06 PM, Marc Kleine-Budde wrote:
-> Hey Wolfgang,
-> 
-> Wolfgang Grandegger wrote:
->>> This core is found on some Freescale SoCs and also some Coldfire
->>> SoCs. Support for Coldfire is missing though at the moment as
->>> they have an older revision of the core which does not have RX FIFO
->>> support.
->>>
->>> Signed-off-by: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->>> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->>> ---
->>>
->>> Changes to prev version:
->>> * The is now GPLv2 (only) as no one complained.
->>>
->>> The patch applies to current net-next-2.6/master.
->>> If there aren't any objections please consider applying this patch.
->>> Wolfgang, can I an Acked-by?
->>
->> I already had a look to the previous version and I realized that
->> accessing reg_esr is racy. I will dig out my notes and come up with a
->> full review later today or tomorrow.
-> 
-> Let me have a look....
-> 
-> I think I should remove the read reg_esr in "flexcan_irq_err()" and use
-> the value read in "flexcan_irq()"
-> 
-> Without the fix, there's a race window that we loose some error bits
-> from the interrupt handler to the napi function, because the error bits
-> are cleared on read.
+On Thu, 15 Jul 2010 00:13:01 +0200
+Hagen Paul Pfeifer <hagen@jauu.net> wrote:
 
-Right, that is my concern. reg_esr should only be read and handled
-*once*. Currently it's read *3* times! I would read it in the ISR and
-handle it in the NAPI poll function, including state change
-notification. But I need a closer look...
+> * David Miller | 2010-07-14 14:55:47 [-0700]:
+> 
+> >Although section 3 of RFC 5681 is a great text, it does not say at all
+> >that increasing the initial CWND would lead to fairness issues.
+> 
+> Because it is only one side of the medal, probing conservative the available
+> link capacity in conjunction with n simultaneous probing TCP/SCTP/DCCP
+> instances is another.
+> 
+> >To be honest, I think google's proposal holds a lot of weight.  If
+> >over time link sizes and speeds are increasing (they are) then nudging
+> >the initial CWND every so often is a legitimate proposal.  Were
+> >someone to claim that utilization is lower than it could be because of
+> >the currenttly specified initial CWND, I would have no problem
+> >believing them.
+> >
+> >And I'm happy to make Linux use an increased value once it has
+> >traction in the standardization community.
+> 
+> Currently I know no working link capacity probing approach, without active
+> network feedback, to conservatively probing the available link capacity with a
+> high CWND. I am curious about any future trends.
 
-> Regarding the upcoming improvement of the can error frames upon state
-> changes, I'd first like to get this driver merged and then discuss a
-> solution for the error frames.
+Given perfect information from the network nodes you still need to
+traverse the network each direction and then return an answer which means
+with a 0.5sec end to end time as in the original posting causality itself
+demands 1.5 seconds to get an answer which is itself incomplete and
+obsolete.
 
-Fine for me. I'm currently preparing a RFC patch for SJA1000 and MSCAN.
-
-Wolfgang.
+Causality isn't showing any signs of going away soon.
