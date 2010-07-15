@@ -1,75 +1,199 @@
-From: Xiaotian Feng <dfeng@redhat.com>
-Subject: Re: [PATCH -mmotm 12/30] selinux: tag avc cache alloc as non-critical
-Date: Thu, 15 Jul 2010 19:51:32 +0800
-Message-ID: <4C3EF644.1070505@redhat.com>
-References: <20100713101650.2835.15245.sendpatchset@danny.redhat> <20100713101906.2835.83443.sendpatchset@danny.redhat> <6E38A74E-B033-4D2A-9620-2A8BDF9E0AD1@earthlink.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv4] netfilter: add CHECKSUM target
+Date: Thu, 15 Jul 2010 14:52:18 +0300
+Message-ID: <20100715115217.GA6737@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-        riel@redhat.com, cl@linux-foundation.org, a.p.zijlstra@chello.nl,
-        linux-kernel@vger.kernel.org, lwang@redhat.com, penberg@cs.helsinki.fi,
-        akpm@linux-foundation.org, davem@davemloft.net
-To: Mitchell Erblich <erblichs@earthlink.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <6E38A74E-B033-4D2A-9620-2A8BDF9E0AD1@earthlink.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Daniel P. Berrange" <berrange@redhat.com>,
+	Jes Sorensen <Jes.Sorensen@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/13/2010 06:55 PM, Mitchell Erblich wrote:
->
-> On Jul 13, 2010, at 3:19 AM, Xiaotian Feng wrote:
->
->>  From 6c3a91091b2910c23908a9f9953efcf3df14e522 Mon Sep 17 00:00:00 2001
->> From: Xiaotian Feng<dfeng@redhat.com>
->> Date: Tue, 13 Jul 2010 11:02:41 +0800
->> Subject: [PATCH 12/30] selinux: tag avc cache alloc as non-critical
->>
->> Failing to allocate a cache entry will only harm performance not correctness.
->> Do not consume valuable reserve pages for something like that.
->>
->> Signed-off-by: Peter Zijlstra<a.p.zijlstra@chello.nl>
->> Signed-off-by: Suresh Jayaraman<sjayaraman@suse.de>
->> Signed-off-by: Xiaotian Feng<dfeng@redhat.com>
->> ---
->> security/selinux/avc.c |    2 +-
->> 1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/security/selinux/avc.c b/security/selinux/avc.c
->> index 3662b0f..9029395 100644
->> --- a/security/selinux/avc.c
->> +++ b/security/selinux/avc.c
->> @@ -284,7 +284,7 @@ static struct avc_node *avc_alloc_node(void)
->> {
->> 	struct avc_node *node;
->>
->> -	node = kmem_cache_zalloc(avc_node_cachep, GFP_ATOMIC);
->> +	node = kmem_cache_zalloc(avc_node_cachep, GFP_ATOMIC|__GFP_NOMEMALLOC);
->> 	if (!node)
->> 		goto out;
->>
->> -- 
->> 1.7.1.1
->>
->
-> Why not just replace GFP_ATOMIC with GFP_NOWAIT?
->
-> This would NOT consume the valuable last pages.
+This adds a `CHECKSUM' target, which can be used in the iptables mangle
+table.
 
-But replace GFP_ATOMIC with GFP_NOWAIT can not prevent avc_alloc_node 
-consume reserved pages.
+You can use this target to compute and fill in the checksum in
+a packet that lacks a checksum.  This is particularly useful,
+if you need to work around old applications such as dhcp clients,
+that do not work well with checksum offloads, but don't want to
+disable checksum offload in your device.
 
->
-> Mitchell Erblich
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+The problem happens in the field with virtualized applications.
+For reference, see Red Hat bz 605555, as well as
+http://www.spinics.net/lists/kvm/msg37660.html
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Typical expected use (helps old dhclient binary running in a VM):
+iptables -A POSTROUTING -t mangle -p udp --dport bootpc \
+	-j CHECKSUM --checksum-fill
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Includes fixes by Jan Engelhardt <jengelh@medozas.de>
+---
+
+Changes from v3: fix issues pointed out by Patrick McHardy:
+fixed by Jan Engelhardt
+	use __u8 in public header files
+	remove in.h
+fixed by me
+	kill change that does not belong into this patch
+	add a dependency on the mangle table
+
+ include/linux/netfilter/xt_CHECKSUM.h |   18 ++++++++
+ net/netfilter/Kconfig                 |   16 +++++++
+ net/netfilter/Makefile                |    1 +
+ net/netfilter/xt_CHECKSUM.c           |   70 +++++++++++++++++++++++++++++++++
+ 4 files changed, 105 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_CHECKSUM.h
+ create mode 100644 net/netfilter/xt_CHECKSUM.c
+
+diff --git a/include/linux/netfilter/xt_CHECKSUM.h b/include/linux/netfilter/xt_CHECKSUM.h
+new file mode 100644
+index 0000000..3b4fb77
+--- /dev/null
++++ b/include/linux/netfilter/xt_CHECKSUM.h
+@@ -0,0 +1,18 @@
++/* Header file for iptables ipt_CHECKSUM target
++ *
++ * (C) 2002 by Harald Welte <laforge@gnumonks.org>
++ * (C) 2010 Red Hat Inc
++ * Author: Michael S. Tsirkin <mst@redhat.com>
++ *
++ * This software is distributed under GNU GPL v2, 1991
++*/
++#ifndef _IPT_CHECKSUM_TARGET_H
++#define _IPT_CHECKSUM_TARGET_H
++
++#define XT_CHECKSUM_OP_FILL	0x01	/* fill in checksum in IP header */
++
++struct xt_CHECKSUM_info {
++	__u8 operation;	/* bitset of operations */
++};
++
++#endif /* _IPT_CHECKSUM_TARGET_H */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 8593a77..16b2078 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -347,6 +347,22 @@ config NETFILTER_XT_CONNMARK
+ 
+ comment "Xtables targets"
+ 
++config NETFILTER_XT_TARGET_CHECKSUM
++	tristate "CHECKSUM target support"
++	depends on IP_NF_MANGLE || IP6_NF_MANGLE
++	depends on NETFILTER_ADVANCED
++	---help---
++	  This option adds a `CHECKSUM' target, which can be used in the iptables mangle
++	  table.  
++
++	  You can use this target to compute and fill in the checksum in
++	  a packet that lacks a checksum.  This is particularly useful,
++	  if you need to work around old applications such as dhcp clients,
++	  that do not work well with checksum offloads, but don't want to disable
++	  checksum offload in your device.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_TARGET_CLASSIFY
+ 	tristate '"CLASSIFY" target support'
+ 	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 14e3a8f..8eb541d 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -45,6 +45,7 @@ obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
+ obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
+ 
+ # targets
++obj-$(CONFIG_NETFILTER_XT_TARGET_CHECKSUM) += xt_CHECKSUM.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
+diff --git a/net/netfilter/xt_CHECKSUM.c b/net/netfilter/xt_CHECKSUM.c
+new file mode 100644
+index 0000000..0f642ef
+--- /dev/null
++++ b/net/netfilter/xt_CHECKSUM.c
+@@ -0,0 +1,70 @@
++/* iptables module for the packet checksum mangling
++ *
++ * (C) 2002 by Harald Welte <laforge@netfilter.org>
++ * (C) 2010 Red Hat, Inc.
++ *
++ * Author: Michael S. Tsirkin <mst@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++#include <linux/module.h>
++#include <linux/skbuff.h>
++
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_CHECKSUM.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Michael S. Tsirkin <mst@redhat.com>");
++MODULE_DESCRIPTION("Xtables: checksum modification");
++MODULE_ALIAS("ipt_CHECKSUM");
++MODULE_ALIAS("ip6t_CHECKSUM");
++
++static unsigned int
++checksum_tg(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		skb_checksum_help(skb);
++
++	return XT_CONTINUE;
++}
++
++static int checksum_tg_check(const struct xt_tgchk_param *par)
++{
++	const struct xt_CHECKSUM_info *einfo = par->targinfo;
++
++	if (einfo->operation & ~XT_CHECKSUM_OP_FILL) {
++		pr_info("unsupported CHECKSUM operation %x\n", einfo->operation);
++		return -EINVAL;
++	}
++	if (!einfo->operation) {
++		pr_info("no CHECKSUM operation enabled\n");
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static struct xt_target checksum_tg_reg __read_mostly = {
++	.name		= "CHECKSUM",
++	.family		= NFPROTO_UNSPEC,
++	.target		= checksum_tg,
++	.targetsize	= sizeof(struct xt_CHECKSUM_info),
++	.table		= "mangle",
++	.checkentry	= checksum_tg_check,
++	.me		= THIS_MODULE,
++};
++
++static int __init checksum_tg_init(void)
++{
++	return xt_register_target(&checksum_tg_reg);
++}
++
++static void __exit checksum_tg_exit(void)
++{
++	xt_unregister_target(&checksum_tg_reg);
++}
++
++module_init(checksum_tg_init);
++module_exit(checksum_tg_exit);
+-- 
+1.7.2.rc0.14.g41c1c
