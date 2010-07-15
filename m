@@ -1,66 +1,98 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC] act_cpu: packet distributing
-Date: Thu, 15 Jul 2010 18:54:57 +0200
-Message-ID: <1279212897.2496.133.camel@edumazet-laptop>
-References: <1279077475-2956-1-git-send-email-xiaosuo@gmail.com>
-	 <1279078875.2444.103.camel@edumazet-laptop>
-	 <AANLkTimPmXWyAspJqnya7aM_vDRNzDdJJf2bl7CYrAXN@mail.gmail.com>
-	 <1279198139.4510.710.camel@bigi>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: Raise initial congestion window size / speedup slow start?
+Date: Thu, 15 Jul 2010 10:36:01 -0700
+Message-ID: <AANLkTikF0RVNAhJTyA1PJThAbqY7U5Pei13umU6qWfsZ@mail.gmail.com>
+References: <4C3D94E3.9080103@wildgooses.com>
+	<4C3DD5EB.9070908@tmr.com>
+	<20100714.111553.104052157.davem@davemloft.net>
+	<4C3E0684.5060409@wildgooses.com>
+	<4C3E1B54.40604@hp.com>
+	<20100714203919.GD6682@nuttenaction>
+	<AANLkTikTyZGQWWIBzYSQWpUK30xxbMXLbJXeHahWnlIi@mail.gmail.com>
+	<4C3EBD51.80406@wildgooses.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: Tom Herbert <therbert@google.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Rick Jones <rick.jones2@hp.com>,
+	David Miller <davem@davemloft.net>, davidsen@tmr.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Nandita Dukkipati <nanditad@google.com>
+To: Ed W <lists@wildgooses.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47465 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933756Ab0GOQzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 12:55:02 -0400
-Received: by wyb42 with SMTP id 42so913015wyb.19
-        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 09:55:01 -0700 (PDT)
-In-Reply-To: <1279198139.4510.710.camel@bigi>
+Received: from smtp-out.google.com ([74.125.121.35]:45790 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758643Ab0GORgH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 13:36:07 -0400
+In-Reply-To: <4C3EBD51.80406@wildgooses.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 15 juillet 2010 =C3=A0 08:48 -0400, jamal a =C3=A9crit :
-> On Wed, 2010-07-14 at 12:17 +0800, Changli Gao wrote:
->=20
-> > Thanks, I'll try. It is a write critical section, and for me it is
-> > difficult to convert this lock to RCU. Could you show me some
-> > examples?
->=20
-> RCU maybe a little trickier here Eric. Actions could be shared i.e.=20
-> example, it is possible to have a policer action restricting rates fo=
-r a
-> group of flows  across multiple netdevices etc. Since action stats ge=
-t
-> written to by different CPUs concurrently. It could be probably done =
-if
-> one was to implement per-cpu stats which get summed-up when user spac=
-e
-> asks.
+On Thu, Jul 15, 2010 at 12:48 AM, Ed W <lists@wildgooses.com> wrote:
+>
+> On 15/07/2010 05:12, Tom Herbert wrote:
+>>
+>> There is an Internet draft
+>> (http://datatracker.ietf.org/doc/draft-hkchu-tcpm-initcwnd/) on
+>> raising the default Initial Congestion window to 10 segments, as wel=
+l
+>> as a SIGCOMM paper (http://ccr.sigcomm.org/online/?q=3Dnode/621).
+>>
+>
+> You guys have obviously done a lot of work on this, however, it seems=
+ that there is a case for introducing some heuristics into the choice o=
+f init cwnd as well as offering the option to go larger? =A0An initial =
+size of 10 packets is just another magic number that obviously works wi=
+th the median bandwidth delay product on today's networks - can we not =
+do better still?
+>
+> Seems like a bunch of clever folks have already suggested tweaks to t=
+he steady stage congestion avoidance, but so far everyone is afraid to =
+touch the early stage heuristics?
 
-It's certainly tricky, but is act_cpu useful in its current shape, base=
-d
-on an infrastructure that had to use a lock because of exact
-rates/accounting ?
+This is because there is not enough info for deriving any heuristic.
+=46or initcwnd one is constrained to
+only info from 3WHS. This includes a rough estimate of RTT plus all
+the bits in the SYN/SYN-ACK
+headers. I'm assuming a stateless approach. We've tried a stateful
+solution (i.e., seeding initcwnd from
+past history) but found its complexity outweigh the gain.
+(See http://www.ietf.org/proceedings/77/slides/tcpm-4.pdf)
 
-I dont understand how distributing packets to different cpus, if going
-through a central lock can be an improvement. Changli patches are most
-of the time not documented, and no performance data is provided.
+>
+> Also would you guys not benefit from wider deployment of ECN? =A0Can =
+you not help find some ways that deployment could be increased? =A0At p=
+resent there are big warnings all over the option that it causes some p=
+roblems, but there is no quantification of how much and really whether =
+this warning is still appropriate?
 
-Even if we solve this locking problem, using percpu variables, act_cpu
-hits another problem :
+That will add yet another hoop for us to jump over. Also I'm not sure
+a couple of bits are sufficient for a
+guesstimate of what initcwnd ought to be.
 
-The socket refcount, taken by the 'master' cpu, and released by the
-consumer cpu.
+Our reasoning is simple - there has been tremendous b/w growth since
+rfc2414 was published. Even the
+lowest common denominator (i.e., dialup links) has moved from 9.6Kbps
+to 56Kbps. That's a six fold
+increase. If you believe initcwnd should grow proportionally to the
+buffer sizes in access links, and the
+buffer sizes grows proportionally to b/w, then the initcwnd outght to
+be 3*6 =3D 18 today.
 
-RFS provides sort of a lazy flow-based distribution without central loc=
-k
-or cache line ping pongs. Why Changli dont use this, we dont know yet.
+We chose a modest increase (10) with the hope to expedite the
+standardization process (and would
+certainly appreciate helps from folks on this list). 10 is very
+conservative considering many deployment
+has gone beyond 3, including Linux stack, which allows one additional
+pkt if it's the last data pkt.
 
+Longer term it will be nice to find a way to get rid of this fixed,
+somewhat arbitrary initcwnd. Mark
+Allman's JumpStart is one idea, but it'd be a much longer route.
 
+Jerry
 
+>
+> Ed W
+>
