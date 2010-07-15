@@ -1,88 +1,38 @@
-From: Eldon Koyle <esk-netdev@esk.cs.usu.edu>
-Subject: multiqueue, skb_get_queue_mapping() and netdev_get_tx_queue()
-Date: Wed, 14 Jul 2010 17:13:53 -0600
-Message-ID: <20100714231352.GA32397@esk.cs.usu.edu>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Thu, 15 Jul 2010 02:05:07 +0200
+Message-ID: <20100715000506.GB27258@redhat.com>
+References: <20100701144624.GA11171@redhat.com> <4C2CABF2.2020801@kernel.org> <1277996135.1917.198.camel@laptop> <4C2E2987.9040702@us.ibm.com> <1278094270.1917.288.camel@laptop> <20100702210637.GA12433@redhat.com> <20100704090005.GA8078@redhat.com> <4C3C0EBC.40305@us.ibm.com> <20100713110939.GA3446@redhat.com> <1279149996.32374.5.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esk.cs.usu.edu ([129.123.28.15]:36351 "EHLO esk.cs.usu.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757614Ab0GNXle (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jul 2010 19:41:34 -0400
-Received: from esk by esk.cs.usu.edu with local (Exim 4.69)
-	(envelope-from <esk@esk.cs.usu.edu>)
-	id 1OZB9F-0000Kc-1W
-	for netdev@vger.kernel.org; Wed, 14 Jul 2010 17:13:53 -0600
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1279149996.32374.5.camel@w-sridhar.beaverton.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It looks like there is a potential for an out of bounds index anywhere
-skb_get_queue_mapping(skb) (which just returns skb->queue_mapping) is
-used to get an index for netdev_get_tx_queue() (and probably other
-places) on a device with multiple rx/tx queues.
+On 07/14, Sridhar Samudrala wrote:
+>
+> OK. So we want to create a thread that is a child of kthreadd, but inherits the cgroup/cpumask
+> from the caller. How about an exported kthread function kthread_create_in_current_cg()
+> that does this?
 
-As I understand it, skb->queue_mapping should contain rx_queue + 1,
-which can be out of range for netdev_get_tx_queue (which expects a
-0-based index).
+Well. I must admit, this looks a bit strange to me ;)
 
-Am I misunderstanding something, or should all of these occurrences be
-replaced with something more like the following?
+Instead of exporting sched_xxxaffinity() we export the new function
+which calls them. And I don't think this new helper is very useful
+in general. May be I am wrong...
 
-static inline u16 skb_get_queue_index(const struct sk_buff *skb)
-{
-        return skb->queue_mapping ? skb->queue_mapping - 1 : 0;
-}
-
-Here is how it is commonly used (which looks incorrect to me):
-In net/8021q/vlan_dev.c:
-	static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
-						    struct net_device *dev)
-	{
-		int i = skb_get_queue_mapping(skb);
-		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-	...
-
-
-And here is some other possibly pertinent code:
-In include/linux/netdevice.h:
-	static inline
-	struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
-						 unsigned int index)
-	{
-		return &dev->_tx[index];
-	}
-
-In net/core/dev.c:
-	struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
-			void (*setup)(struct net_device *), unsigned int queue_count)
-	...
-		tx = kcalloc(queue_count, sizeof(struct netdev_queue), GFP_KERNEL);
-	...
-		dev->_tx = tx;
-	...
-
-In include/linux/skbuff.h:
-	static inline u16 skb_get_queue_mapping(const struct sk_buff *skb)
-	{
-		return skb->queue_mapping;
-	}
-	...
-	static inline void skb_record_rx_queue(struct sk_buff *skb, u16 rx_queue)
-	{
-		skb->queue_mapping = rx_queue + 1;
-	}
-
-	static inline u16 skb_get_rx_queue(const struct sk_buff *skb)
-	{
-		return skb->queue_mapping - 1;
-	}
-
-
--- 
-Eldon Koyle
--- 
-Politicians are the same all over.  They promise to build a bridge even
-where there is no river.
-		-- Nikita Khrushchev
+Oleg.
