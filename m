@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv4] netfilter: add CHECKSUM target
-Date: Thu, 15 Jul 2010 14:52:18 +0300
-Message-ID: <20100715115217.GA6737@redhat.com>
+Subject: [PATCHv4] extensions: libxt_CHECKSUM extension
+Date: Thu, 15 Jul 2010 14:52:29 +0300
+Message-ID: <20100715115229.GB6737@redhat.com>
+References: <20100715114434.GA6415@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Patrick McHardy <kaber@trash.net>,
@@ -14,9 +15,10 @@ Cc: Patrick McHardy <kaber@trash.net>,
 	netdev@vger.kernel.org
 To: "Daniel P. Berrange" <berrange@redhat.com>,
 	Jes Sorensen <Jes.Sorensen@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netfilter-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <20100715114434.GA6415@redhat.com>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This adds a `CHECKSUM' target, which can be used in the iptables mangle
@@ -25,8 +27,8 @@ table.
 You can use this target to compute and fill in the checksum in
 a packet that lacks a checksum.  This is particularly useful,
 if you need to work around old applications such as dhcp clients,
-that do not work well with checksum offloads, but don't want to
-disable checksum offload in your device.
+that do not work well with checksum offloads, but don't want to disable
+checksum offload in your device.
 
 The problem happens in the field with virtualized applications.
 For reference, see Red Hat bz 605555, as well as
@@ -34,166 +36,138 @@ http://www.spinics.net/lists/kvm/msg37660.html
 
 Typical expected use (helps old dhclient binary running in a VM):
 iptables -A POSTROUTING -t mangle -p udp --dport bootpc \
-	-j CHECKSUM --checksum-fill
+-j CHECKSUM --checksum-fill
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Includes fixes by Jan Engelhardt <jengelh@medozas.de>
 ---
 
-Changes from v3: fix issues pointed out by Patrick McHardy:
-fixed by Jan Engelhardt
-	use __u8 in public header files
-	remove in.h
-fixed by me
-	kill change that does not belong into this patch
-	add a dependency on the mangle table
+Changes from v3: fixed issues from review by Patrick McHardy
+Applied these fixes by Jan Engelhardt
+	Remove $$ cvs tags
+	Use xtables_param_act
 
- include/linux/netfilter/xt_CHECKSUM.h |   18 ++++++++
- net/netfilter/Kconfig                 |   16 +++++++
- net/netfilter/Makefile                |    1 +
- net/netfilter/xt_CHECKSUM.c           |   70 +++++++++++++++++++++++++++++++++
- 4 files changed, 105 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/netfilter/xt_CHECKSUM.h
- create mode 100644 net/netfilter/xt_CHECKSUM.c
+ extensions/libxt_CHECKSUM.c   |   96 +++++++++++++++++++++++++++++++++++++++++
+ extensions/libxt_CHECKSUM.man |    8 +++
+ 2 files changed, 104 insertions(+), 0 deletions(-)
+ create mode 100644 extensions/libxt_CHECKSUM.c
+ create mode 100644 extensions/libxt_CHECKSUM.man
 
-diff --git a/include/linux/netfilter/xt_CHECKSUM.h b/include/linux/netfilter/xt_CHECKSUM.h
+diff --git a/extensions/libxt_CHECKSUM.c b/extensions/libxt_CHECKSUM.c
 new file mode 100644
-index 0000000..3b4fb77
+index 0000000..9a24443
 --- /dev/null
-+++ b/include/linux/netfilter/xt_CHECKSUM.h
-@@ -0,0 +1,18 @@
-+/* Header file for iptables ipt_CHECKSUM target
++++ b/extensions/libxt_CHECKSUM.c
+@@ -0,0 +1,96 @@
++/* Shared library add-on to xtables for CHECKSUM
 + *
 + * (C) 2002 by Harald Welte <laforge@gnumonks.org>
-+ * (C) 2010 Red Hat Inc
++ * (C) 2010 by Red Hat, Inc
 + * Author: Michael S. Tsirkin <mst@redhat.com>
 + *
-+ * This software is distributed under GNU GPL v2, 1991
-+*/
-+#ifndef _IPT_CHECKSUM_TARGET_H
-+#define _IPT_CHECKSUM_TARGET_H
-+
-+#define XT_CHECKSUM_OP_FILL	0x01	/* fill in checksum in IP header */
-+
-+struct xt_CHECKSUM_info {
-+	__u8 operation;	/* bitset of operations */
-+};
-+
-+#endif /* _IPT_CHECKSUM_TARGET_H */
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 8593a77..16b2078 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -347,6 +347,22 @@ config NETFILTER_XT_CONNMARK
- 
- comment "Xtables targets"
- 
-+config NETFILTER_XT_TARGET_CHECKSUM
-+	tristate "CHECKSUM target support"
-+	depends on IP_NF_MANGLE || IP6_NF_MANGLE
-+	depends on NETFILTER_ADVANCED
-+	---help---
-+	  This option adds a `CHECKSUM' target, which can be used in the iptables mangle
-+	  table.  
-+
-+	  You can use this target to compute and fill in the checksum in
-+	  a packet that lacks a checksum.  This is particularly useful,
-+	  if you need to work around old applications such as dhcp clients,
-+	  that do not work well with checksum offloads, but don't want to disable
-+	  checksum offload in your device.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_TARGET_CLASSIFY
- 	tristate '"CLASSIFY" target support'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 14e3a8f..8eb541d 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -45,6 +45,7 @@ obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
- obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
- 
- # targets
-+obj-$(CONFIG_NETFILTER_XT_TARGET_CHECKSUM) += xt_CHECKSUM.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
-diff --git a/net/netfilter/xt_CHECKSUM.c b/net/netfilter/xt_CHECKSUM.c
-new file mode 100644
-index 0000000..0f642ef
---- /dev/null
-+++ b/net/netfilter/xt_CHECKSUM.c
-@@ -0,0 +1,70 @@
-+/* iptables module for the packet checksum mangling
++ * This program is distributed under the terms of GNU GPL v2, 1991
 + *
-+ * (C) 2002 by Harald Welte <laforge@netfilter.org>
-+ * (C) 2010 Red Hat, Inc.
-+ *
-+ * Author: Michael S. Tsirkin <mst@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+*/
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
++ * libxt_CHECKSUM.c borrowed some bits from libipt_ECN.c
++ */
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <getopt.h>
 +
-+#include <linux/netfilter/x_tables.h>
++#include <xtables.h>
 +#include <linux/netfilter/xt_CHECKSUM.h>
 +
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Michael S. Tsirkin <mst@redhat.com>");
-+MODULE_DESCRIPTION("Xtables: checksum modification");
-+MODULE_ALIAS("ipt_CHECKSUM");
-+MODULE_ALIAS("ip6t_CHECKSUM");
-+
-+static unsigned int
-+checksum_tg(struct sk_buff *skb, const struct xt_action_param *par)
++static void CHECKSUM_help(void)
 +{
-+	if (skb->ip_summed == CHECKSUM_PARTIAL)
-+		skb_checksum_help(skb);
-+
-+	return XT_CONTINUE;
++	printf(
++"CHECKSUM target options\n"
++"  --checksum-fill			Fill in packet checksum.\n");
 +}
 +
-+static int checksum_tg_check(const struct xt_tgchk_param *par)
-+{
-+	const struct xt_CHECKSUM_info *einfo = par->targinfo;
-+
-+	if (einfo->operation & ~XT_CHECKSUM_OP_FILL) {
-+		pr_info("unsupported CHECKSUM operation %x\n", einfo->operation);
-+		return -EINVAL;
-+	}
-+	if (!einfo->operation) {
-+		pr_info("no CHECKSUM operation enabled\n");
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static struct xt_target checksum_tg_reg __read_mostly = {
-+	.name		= "CHECKSUM",
-+	.family		= NFPROTO_UNSPEC,
-+	.target		= checksum_tg,
-+	.targetsize	= sizeof(struct xt_CHECKSUM_info),
-+	.table		= "mangle",
-+	.checkentry	= checksum_tg_check,
-+	.me		= THIS_MODULE,
++static const struct option CHECKSUM_opts[] = {
++	{ "checksum-fill", 0, NULL, 'F' },
++	{ .name = NULL }
 +};
 +
-+static int __init checksum_tg_init(void)
++static int CHECKSUM_parse(int c, char **argv, int invert, unsigned int *flags,
++                     const void *entry, struct xt_entry_target **target)
 +{
-+	return xt_register_target(&checksum_tg_reg);
++	struct xt_CHECKSUM_info *einfo
++		= (struct xt_CHECKSUM_info *)(*target)->data;
++
++	switch (c) {
++	case 'F':
++		xtables_param_act(XTF_ONLY_ONCE, "CHECKSUM", "--checksum-fill",
++			*flags & XT_CHECKSUM_OP_FILL);
++		einfo->operation = XT_CHECKSUM_OP_FILL;
++		*flags |= XT_CHECKSUM_OP_FILL;
++		break;
++	default:
++		return 0;
++	}
++
++	return 1;
 +}
 +
-+static void __exit checksum_tg_exit(void)
++static void CHECKSUM_check(unsigned int flags)
 +{
-+	xt_unregister_target(&checksum_tg_reg);
++	if (!flags)
++		xtables_error(PARAMETER_PROBLEM,
++		           "CHECKSUM target: Parameter --checksum-fill is required");
 +}
 +
-+module_init(checksum_tg_init);
-+module_exit(checksum_tg_exit);
++static void CHECKSUM_print(const void *ip, const struct xt_entry_target *target,
++                      int numeric)
++{
++	const struct xt_CHECKSUM_info *einfo =
++		(const struct xt_CHECKSUM_info *)target->data;
++
++	printf("CHECKSUM ");
++
++	if (einfo->operation & XT_CHECKSUM_OP_FILL)
++		printf("fill ");
++}
++
++static void CHECKSUM_save(const void *ip, const struct xt_entry_target *target)
++{
++	const struct xt_CHECKSUM_info *einfo =
++		(const struct xt_CHECKSUM_info *)target->data;
++
++	if (einfo->operation & XT_CHECKSUM_OP_FILL)
++		printf("--checksum-fill ");
++}
++
++static struct xtables_target checksum_tg_reg = {
++	.name		= "CHECKSUM",
++	.version	= XTABLES_VERSION,
++	.family		= NFPROTO_UNSPEC,
++	.size		= XT_ALIGN(sizeof(struct xt_CHECKSUM_info)),
++	.userspacesize	= XT_ALIGN(sizeof(struct xt_CHECKSUM_info)),
++	.help		= CHECKSUM_help,
++	.parse		= CHECKSUM_parse,
++	.final_check	= CHECKSUM_check,
++	.print		= CHECKSUM_print,
++	.save		= CHECKSUM_save,
++	.extra_opts	= CHECKSUM_opts,
++};
++
++void _init(void)
++{
++	xtables_register_target(&checksum_tg_reg);
++}
+diff --git a/extensions/libxt_CHECKSUM.man b/extensions/libxt_CHECKSUM.man
+new file mode 100644
+index 0000000..92ae700
+--- /dev/null
++++ b/extensions/libxt_CHECKSUM.man
+@@ -0,0 +1,8 @@
++This target allows to selectively work around broken/old applications.
++It can only be used in the mangle table.
++.TP
++\fB\-\-checksum\-fill\fP
++Compute and fill in the checksum in a packet that lacks a checksum.
++This is particularly useful, if you need to work around old applications
++such as dhcp clients, that do not work well with checksum offloads,
++but don't want to disable checksum offload in your device.
 -- 
 1.7.2.rc0.14.g41c1c
