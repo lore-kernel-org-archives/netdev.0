@@ -1,73 +1,131 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH 5/8] drivers: ixgbevf: fix unsigned underflow
-Date: Thu, 15 Jul 2010 11:52:54 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755EA96143E@orsmsx508.amr.corp.intel.com>
-References: <1279219557-12525-1-git-send-email-segooon@gmail.com>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
+Date: Thu, 15 Jul 2010 21:57:46 +0300
+Message-ID: <1279220266.4411.2.camel@localhost.localdomain>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	 <1277807529.19417.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	 <1277938757.4138.3.camel@localhost.localdomain>
+	 <1278204106.21020.0.camel@localhost.localdomain>
+	 <1278283714.3444.1.camel@localhost.localdomain>
+	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
+	 <1278323885.5277.0.camel@localhost.localdomain>
+	 <1278950178.17933.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
+	 <1278981483.23017.4.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
+	 <1279150380.7810.2.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kulikov Vasiliy <segooon@gmail.com>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:23257 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934137Ab0GOSxQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 14:53:16 -0400
-In-Reply-To: <1279219557-12525-1-git-send-email-segooon@gmail.com>
-Content-Language: en-US
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:47493 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934137Ab0GOS5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 14:57:52 -0400
+Received: by fxm14 with SMTP id 14so641189fxm.19
+        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 11:57:50 -0700 (PDT)
+In-Reply-To: <1279150380.7810.2.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Kulikov Vasiliy [mailto:segooon@gmail.com]
->Sent: Thursday, July 15, 2010 11:46 AM
->To: kernel-janitors@vger.kernel.org
->Cc: David S. Miller; Kirsher, Jeffrey T; Rose, Gregory V; Eric Dumazet;
->Joe Perches; netdev@vger.kernel.org
->Subject: [PATCH 5/8] drivers: ixgbevf: fix unsigned underflow
->
->'count' is unsigned. It is initialized to zero, then it can be increased
->multiple times, and finally it is used in such a way:
->
->   >>>> count--;
->   |
->   |    /* clear timestamp and dma mappings for remaining portion of
->packet */
->   |    while (count >= 0) {
->   |            count--;
->   |            ...
->   ^
->If count is zero here (so, it was never increased), we would have a very
->long loop :)
->
->Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
->---
-> drivers/net/ixgbevf/ixgbevf_main.c |    3 ++-
-> 1 files changed, 2 insertions(+), 1 deletions(-)
->
->diff --git a/drivers/net/ixgbevf/ixgbevf_main.c
->b/drivers/net/ixgbevf/ixgbevf_main.c
->index 73f1e75..af49135 100644
->--- a/drivers/net/ixgbevf/ixgbevf_main.c
->+++ b/drivers/net/ixgbevf/ixgbevf_main.c
->@@ -2935,7 +2935,8 @@ static int ixgbevf_tx_map(struct ixgbevf_adapter
->*adapter,
-> 	struct ixgbevf_tx_buffer *tx_buffer_info;
-> 	unsigned int len;
-> 	unsigned int total = skb->len;
->-	unsigned int offset = 0, size, count = 0;
->+	unsigned int offset = 0, size;
->+	int count = 0;
-> 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
-> 	unsigned int f;
-> 	int i;
->--
->1.7.0.4
+On Thu, 2010-07-15 at 02:33 +0300, Maxim Levitsky wrote:
+> On Wed, 2010-07-14 at 16:56 -0600, Tantilov, Emil S wrote:
+> > Maxim Levitsky wrote:
+> > > On Mon, 2010-07-12 at 15:23 -0600, Tantilov, Emil S wrote:
+> > >> Maxim Levitsky wrote:
+> > >>> On Mon, 2010-07-05 at 12:58 +0300, Maxim Levitsky wrote:
+> > >>>> On Mon, 2010-07-05 at 01:13 -0700, Jeff Kirsher wrote:
+> > >>>>> On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky
+> > >>>>> <maximlevitsky@gmail.com> wrote:
+> > >>>>>> Did few guesses, and now I see that reverting the below commit
+> > >>>>>> fixes the problem. 
+> > >>>>>> 
+> > >>>>>> "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
+> > >>>>>> e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
+> > >>>>>> 
+> > >>>>>> 
+> > >>>>>> Best regards,
+> > >>>>>>        Maxim Levitsky
+> > >>>>>> 
+> > >>>>>> --
+> > >>>>> 
+> > >>>>> Can you give us till Tuesday to respond?  I know that there are
+> > >>>>> some additional e1000e patches in my queue, which may resolve the
+> > >>>>> issue, but this weekend the power is down to do some
+> > >>>>> infrastructure upgrades which prevents us from doing any
+> > >>>>> investigation.debugging until Tuesday. 
+> > >>>>> 
+> > >>>> 
+> > >>>> Sure.
+> > >>>> 
+> > >>>> Best regards,
+> > >>>> 	Maxim Levitsky
+> > >>>> 
+> > >>> 
+> > >>> Updates?
+> > >> 
+> > >> We are working on reproducing the issue. So far we have not seen the
+> > >> problem when testing with net-next. 
+> > >> 
+> > >> I asked in previous email about some additional info from ethtool
+> > >> (-d, -e, -S) and kernel config. That would help us to narrow it
+> > >> down.  
+> > >> 
+> > >> Thanks,
+> > >> Emil
+> > > I did send -e and -d output.
+> > 
+> > Sorry, looks like I lost the email with the attachements. 
+> > 
+> > Could you provide the output of dmesg after the failure occurs?
+> >  
+> > > Since you probably want -S output during failure, I need to recompile
+> > > kernel for that. I will do that soon.
+> > > 
+> > > 
+> > > One question, in two weeks I hope 2.6.35 won't be released?
+> > > If so, I will have enough free time then to narrow down this issue.
+> > > 
+> > > Other solution, is to revert this commit.
+> > > (I have never seen this problem with it reverted).
+> > 
+> > We have been running reboot tests on 2 separate systems with recent net-next kernels 
+> > using your config and so far no luck in reproducing this issue. 
+> > 
+> > What is the make model of your system (or MB)?
+> 
+> the motherboard is Intel DG965RY.
+> 
+> However, I am using vanilla kernel.
+> net-next might contain further fixes.
+> 
+> I see if net-next works here.
 
-Acked By: Greg Rose <gregory.v.rose@intel.com>
+Yep, net-next works here.
+
+
+I have the problem on vanilla kernel.
+Last revision of it, I tested is 2.6.35-rc4 exactly
+(815c4163b6c8ebf8152f42b0a5fd015cfdcedc78)
+
+
+Maybe vanilla git master works, I test it too soon.
+
+
+Best regards,
+	Maxim Levitsky
+
+
 
