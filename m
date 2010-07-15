@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 1/1] netxen: fix for kdump
-Date: Wed, 14 Jul 2010 17:55:44 -0700 (PDT)
-Message-ID: <20100714.175544.104047399.davem@davemloft.net>
-References: <1279020822-10419-1-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [patch] net/sched: potential data corruption
+Date: Wed, 14 Jul 2010 17:56:45 -0700 (PDT)
+Message-ID: <20100714.175645.189713068.davem@davemloft.net>
+References: <20100713132152.GL5658@bicker>
+	<1279036694.16376.0.camel@bigi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	rajesh.borundia@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: error27@gmail.com, shemminger@vyatta.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, matthew@wil.cx
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38982
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38987
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757614Ab0GOAz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 20:55:28 -0400
-In-Reply-To: <1279020822-10419-1-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S1757577Ab0GOA43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 20:56:29 -0400
+In-Reply-To: <1279036694.16376.0.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Tue, 13 Jul 2010 04:33:42 -0700
+From: jamal <hadi@cyberus.ca>
+Date: Tue, 13 Jul 2010 11:58:14 -0400
 
-> From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+> On Tue, 2010-07-13 at 15:21 +0200, Dan Carpenter wrote:
+>> The reset_policy() does:
+>>         memset(d->tcfd_defdata, 0, SIMP_MAX_DATA);
+>>         strlcpy(d->tcfd_defdata, defdata, SIMP_MAX_DATA);
+>> 
+>> In the original code, the size of d->tcfd_defdata wasn't fixed and if
+>> strlen(defdata) was less than 31, reset_policy() would cause memory
+>> corruption.
+>> 
+>> Please Note:  The original alloc_defdata() assumes defdata is 32
+>> characters and a NUL terminator while reset_policy() assumes defdata is
+>> 31 characters and a NUL.  This patch updates alloc_defdata() to match
+>> reset_policy() (ie a shorter string).  I'm not very familiar with this
+>> code so please review carefully.
+>> 
+>> Signed-off-by: Dan Carpenter <error27@gmail.com>
 > 
-> When the crash kernel is loaded after crash, the device is in unknown state.
-> So reset the device contexts prior to its creation in case of kdump,
-> depending upon kernel parameter reset_devices.
 > 
-> Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
 Applied, thanks.
