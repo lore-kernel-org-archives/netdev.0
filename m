@@ -1,83 +1,44 @@
-From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Wed, 14 Jul 2010 22:29:21 -0700
-Message-ID: <AANLkTinbtGuMTPNyJqJtx_bqfQDPqbA1XqjhLe_pj1mX@mail.gmail.com>
-References: <4C3E0684.5060409@wildgooses.com>
-	<4C3E1B54.40604@hp.com>
-	<20100714203919.GD6682@nuttenaction>
-	<20100714.145547.102555471.davem@davemloft.net>
-	<20100714221301.GI6682@nuttenaction>
-	<20100714234917.924f420d.billfink@mindspring.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Wed, 14 Jul 2010 22:29:31 -0700
+Message-ID: <4C3E9CBB.202@us.ibm.com>
+References: <20100701144624.GA11171@redhat.com> <4C2CABF2.2020801@kernel.org> <1277996135.1917.198.camel@laptop> <4C2E2987.9040702@us.ibm.com> <1278094270.1917.288.camel@laptop> <20100702210637.GA12433@redhat.com> <20100704090005.GA8078@redhat.com> <4C3C0EBC.40305@us.ibm.com> <20100713110939.GA3446@redhat.com> <1279149996.32374.5.camel@w-sridhar.beaverton.ibm.com> <20100715000506.GB27258@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	lists@wildgooses.com, davidsen@tmr.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100714234917.924f420d.billfink@mindspring.com>
+In-Reply-To: <20100715000506.GB27258@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 14, 2010 at 8:49 PM, Bill Fink <billfink@mindspring.com> wr=
-ote:
-> On Thu, 15 Jul 2010, Hagen Paul Pfeifer wrote:
+On 7/14/2010 5:05 PM, Oleg Nesterov wrote:
+> On 07/14, Sridhar Samudrala wrote:
+>    
+>> OK. So we want to create a thread that is a child of kthreadd, but inherits the cgroup/cpumask
+>> from the caller. How about an exported kthread function kthread_create_in_current_cg()
+>> that does this?
+>>      
+> Well. I must admit, this looks a bit strange to me ;)
 >
->> * David Miller | 2010-07-14 14:55:47 [-0700]:
->>
->> >Although section 3 of RFC 5681 is a great text, it does not say at =
-all
->> >that increasing the initial CWND would lead to fairness issues.
->>
->> Because it is only one side of the medal, probing conservative the a=
-vailable
->> link capacity in conjunction with n simultaneous probing TCP/SCTP/DC=
-CP
->> instances is another.
->>
->> >To be honest, I think google's proposal holds a lot of weight. =A0I=
-f
->> >over time link sizes and speeds are increasing (they are) then nudg=
-ing
->> >the initial CWND every so often is a legitimate proposal. =A0Were
->> >someone to claim that utilization is lower than it could be because=
- of
->> >the currenttly specified initial CWND, I would have no problem
->> >believing them.
->> >
->> >And I'm happy to make Linux use an increased value once it has
->> >traction in the standardization community.
->>
->> Currently I know no working link capacity probing approach, without =
-active
->> network feedback, to conservatively probing the available link capac=
-ity with a
->> high CWND. I am curious about any future trends.
->
-> A long, long time ago, I suggested a Path BW Discovery mechanism
-> to the IETF, analogous to the Path MTU Discovery mechanism, but
-> it didn't get any traction. =A0Such information could be extremely
-> useful to TCP endpoints, to determine a maximum window size to
-> use, to effectively rate limit a much stronger sender from
-> overpowering a much weaker receiver (for example 10-GigE -> GigE),
-> resulting in abominable performance across large RTT paths
-> (as low as 12 Mbps), even in the absence of any real network
-> contention.
+> Instead of exporting sched_xxxaffinity() we export the new function
+> which calls them. And I don't think this new helper is very useful
+> in general. May be I am wrong...
+>    
+If we agree on exporting sched_xxxaffinity() functions, we don't need 
+this new kthread function and we
+can do the same in vhost as the original patch did.
 
-Unfortunately that is not going to help initcwnd (unless one can invent=
- a
-PBWD protocol from just 3WHS), and the web is dominated by short-lived
-connections so the small initcwnd becomes a choke point.
-
-Jerry
-
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0-Bill
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+Thanks
+Sridhar
