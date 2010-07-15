@@ -1,84 +1,174 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Wed, 14 Jul 2010 22:52:40 -0400
-Message-ID: <20100714225240.e1bf8679.billfink@mindspring.com>
-References: <4C3D94E3.9080103@wildgooses.com>
-	<4C3DD5EB.9070908@tmr.com>
-	<20100714.111553.104052157.davem@davemloft.net>
+From: Bryan Wu <bryan.wu@canonical.com>
+Subject: Re: [PATCH] fec: use interrupt for MDIO completion indication
+Date: Thu, 15 Jul 2010 11:31:56 +0800
+Message-ID: <4C3E812C.10303@canonical.com>
+References: <006416d38a8e51ba8dd8631613a991528dc7976a.1278918594.git.baruch@tkos.co.il>
+Reply-To: bryan.wu@canonical.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davidsen@tmr.com, lists@wildgooses.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100714.111553.104052157.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Greg Ungerer <gerg@uclinux.org>,
+	Wolfram Sang <w.sang@pengutronix.de>
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from adelie.canonical.com ([91.189.90.139]:60747 "EHLO
+	adelie.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932293Ab0GODcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 23:32:14 -0400
+In-Reply-To: <006416d38a8e51ba8dd8631613a991528dc7976a.1278918594.git.baruch@tkos.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jul 2010, David Miller wrote:
+Baruch,
 
-> From: Bill Davidsen <davidsen@tmr.com>
-> Date: Wed, 14 Jul 2010 11:21:15 -0400
+Thanks for this patch, we tested on our i.MX51 board with Ubuntu. It works fine.
+
+Wolfram, you can pick up this, too. -;)
+
+-Bryan
+
+On 07/12/2010 03:12 PM, Baruch Siach wrote:
+> With the move to phylib (commit e6b043d) I was seeing sporadic "MDIO write
+> timeout" messages. Measure of the actual time spent showed latency times of
+> more than 1600us.
 > 
-> > You may have to go into /proc/sys/net/core and crank up the
-> > rmem_* settings, depending on your distribution.
+> This patch uses the MII event indication of the FEC hardware to detect
+> completion of MDIO transactions.
 > 
-> You should never, ever, have to touch the various networking sysctl
-> values to get good performance in any normal setup.  If you do, it's a
-> bug, report it so we can fix it.
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> ---
+>  drivers/net/fec.c |   55 ++++++++++++++++++++++++----------------------------
+>  1 files changed, 25 insertions(+), 30 deletions(-)
 > 
-> I cringe every time someone says to do this, so please do me a favor
-> and don't spread this further. :-)
-> 
-> For one thing, TCP dynamically adjusts the socket buffer sizes based
-> upon the behavior of traffic on the connection.
-> 
-> And the TCP memory limit sysctls (not the core socket ones) are sized
-> based upon available memory.  They are there to protect you from
-> situations such as having so much memory dedicated to socket buffers
-> that there is none left to do other things effectively.  It's a
-> protective limit, rather than a setting meant to increase or improve
-> performance.  So like the others, leave these alone too.
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index edfff92..89f3393 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -187,6 +187,7 @@ struct fec_enet_private {
+>  	int	index;
+>  	int	link;
+>  	int	full_duplex;
+> +	struct	completion mdio_done;
+>  };
+>  
+>  static irqreturn_t fec_enet_interrupt(int irq, void * dev_id);
+> @@ -205,7 +206,7 @@ static void fec_stop(struct net_device *dev);
+>  #define FEC_MMFR_TA		(2 << 16)
+>  #define FEC_MMFR_DATA(v)	(v & 0xffff)
+>  
+> -#define FEC_MII_TIMEOUT		10000
+> +#define FEC_MII_TIMEOUT		1000 /* us */
+>  
+>  /* Transmitter timeout */
+>  #define TX_TIMEOUT (2 * HZ)
+> @@ -334,6 +335,11 @@ fec_enet_interrupt(int irq, void * dev_id)
+>  			ret = IRQ_HANDLED;
+>  			fec_enet_tx(dev);
+>  		}
+> +
+> +		if (int_events & FEC_ENET_MII) {
+> +			ret = IRQ_HANDLED;
+> +			complete(&fep->mdio_done);
+> +		}
+>  	} while (int_events);
+>  
+>  	return ret;
+> @@ -608,18 +614,13 @@ spin_unlock:
+>  		phy_print_status(phy_dev);
+>  }
+>  
+> -/*
+> - * NOTE: a MII transaction is during around 25 us, so polling it...
+> - */
+>  static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+>  {
+>  	struct fec_enet_private *fep = bus->priv;
+> -	int timeout = FEC_MII_TIMEOUT;
+> +	unsigned long time_left;
+>  
+>  	fep->mii_timeout = 0;
+> -
+> -	/* clear MII end of transfer bit*/
+> -	writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
+> +	init_completion(&fep->mdio_done);
+>  
+>  	/* start a read op */
+>  	writel(FEC_MMFR_ST | FEC_MMFR_OP_READ |
+> @@ -627,13 +628,12 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+>  		FEC_MMFR_TA, fep->hwp + FEC_MII_DATA);
+>  
+>  	/* wait for end of transfer */
+> -	while (!(readl(fep->hwp + FEC_IEVENT) & FEC_ENET_MII)) {
+> -		cpu_relax();
+> -		if (timeout-- < 0) {
+> -			fep->mii_timeout = 1;
+> -			printk(KERN_ERR "FEC: MDIO read timeout\n");
+> -			return -ETIMEDOUT;
+> -		}
+> +	time_left = wait_for_completion_timeout(&fep->mdio_done,
+> +			usecs_to_jiffies(FEC_MII_TIMEOUT));
+> +	if (time_left == 0) {
+> +		fep->mii_timeout = 1;
+> +		printk(KERN_ERR "FEC: MDIO read timeout\n");
+> +		return -ETIMEDOUT;
+>  	}
+>  
+>  	/* return value */
+> @@ -644,12 +644,10 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+>  			   u16 value)
+>  {
+>  	struct fec_enet_private *fep = bus->priv;
+> -	int timeout = FEC_MII_TIMEOUT;
+> +	unsigned long time_left;
+>  
+>  	fep->mii_timeout = 0;
+> -
+> -	/* clear MII end of transfer bit*/
+> -	writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
+> +	init_completion(&fep->mdio_done);
+>  
+>  	/* start a read op */
+>  	writel(FEC_MMFR_ST | FEC_MMFR_OP_READ |
+> @@ -658,13 +656,12 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+>  		fep->hwp + FEC_MII_DATA);
+>  
+>  	/* wait for end of transfer */
+> -	while (!(readl(fep->hwp + FEC_IEVENT) & FEC_ENET_MII)) {
+> -		cpu_relax();
+> -		if (timeout-- < 0) {
+> -			fep->mii_timeout = 1;
+> -			printk(KERN_ERR "FEC: MDIO write timeout\n");
+> -			return -ETIMEDOUT;
+> -		}
+> +	time_left = wait_for_completion_timeout(&fep->mdio_done,
+> +			usecs_to_jiffies(FEC_MII_TIMEOUT));
+> +	if (time_left == 0) {
+> +		fep->mii_timeout = 1;
+> +		printk(KERN_ERR "FEC: MDIO write timeout\n");
+> +		return -ETIMEDOUT;
+>  	}
+>  
+>  	return 0;
+> @@ -1222,7 +1219,8 @@ fec_restart(struct net_device *dev, int duplex)
+>  	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
+>  
+>  	/* Enable interrupts we wish to service */
+> -	writel(FEC_ENET_TXF | FEC_ENET_RXF, fep->hwp + FEC_IMASK);
+> +	writel(FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII,
+> +			fep->hwp + FEC_IMASK);
+>  }
+>  
+>  static void
+> @@ -1242,9 +1240,6 @@ fec_stop(struct net_device *dev)
+>  	writel(1, fep->hwp + FEC_ECNTRL);
+>  	udelay(10);
+>  
+> -	/* Clear outstanding MII command interrupts. */
+> -	writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
+> -
+>  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+>  }
+>  
 
-What's normal?  :-)
-
-netem1% cat /proc/version 
-Linux version 2.6.30.10-105.2.23.fc11.x86_64 (mockbuild@x86-01.phx2.fedoraproject.org) (gcc version 4.4.1 20090725 (Red Hat 4.4.1-2) (GCC) ) #1 SMP Thu Feb 11 07:06:34 UTC 2010
-
-Linux TCP autotuning across an 80 ms RTT cross country network path:
-
-netem1% nuttcp -T10 -i1 192.168.1.18
-   14.1875 MB /   1.00 sec =  119.0115 Mbps     0 retrans
-  558.0000 MB /   1.00 sec = 4680.7169 Mbps     0 retrans
-  872.8750 MB /   1.00 sec = 7322.3527 Mbps     0 retrans
-  869.6875 MB /   1.00 sec = 7295.5478 Mbps     0 retrans
-  858.4375 MB /   1.00 sec = 7201.0165 Mbps     0 retrans
-  857.3750 MB /   1.00 sec = 7192.2116 Mbps     0 retrans
-  865.5625 MB /   1.00 sec = 7260.7193 Mbps     0 retrans
-  872.3750 MB /   1.00 sec = 7318.2095 Mbps     0 retrans
-  862.7500 MB /   1.00 sec = 7237.2571 Mbps     0 retrans
-  857.6250 MB /   1.00 sec = 7194.1864 Mbps     0 retrans
-
- 7504.2771 MB /  10.09 sec = 6236.5068 Mbps 11 %TX 25 %RX 0 retrans 80.59 msRTT
-
-Manually specified 100 MB TCP socket buffer on the same path:
-
-netem1% nuttcp -T10 -i1 -w100m 192.168.1.18
-  106.8125 MB /   1.00 sec =  895.9598 Mbps     0 retrans
- 1092.0625 MB /   1.00 sec = 9160.3254 Mbps     0 retrans
- 1111.2500 MB /   1.00 sec = 9322.6424 Mbps     0 retrans
- 1115.4375 MB /   1.00 sec = 9356.2569 Mbps     0 retrans
- 1116.4375 MB /   1.00 sec = 9365.6937 Mbps     0 retrans
- 1115.3125 MB /   1.00 sec = 9356.2749 Mbps     0 retrans
- 1121.2500 MB /   1.00 sec = 9405.6233 Mbps     0 retrans
- 1125.5625 MB /   1.00 sec = 9441.6949 Mbps     0 retrans
- 1130.0000 MB /   1.00 sec = 9478.7479 Mbps     0 retrans
- 1139.0625 MB /   1.00 sec = 9555.8559 Mbps     0 retrans
-
-10258.5120 MB /  10.20 sec = 8440.3558 Mbps 15 %TX 40 %RX 0 retrans 80.59 msRTT
-
-The manually selected TCP socket buffer size both ramps up
-quicker and achieves a much higher steady state rate.
-
-					-Bill
