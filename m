@@ -1,55 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] Question about tcp_sendmsg()
-Date: Thu, 15 Jul 2010 15:14:48 +0200
-Message-ID: <1279199688.2496.32.camel@edumazet-laptop>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: Question about way that NICs deliver packets to the kernel
+Date: Thu, 15 Jul 2010 22:24:23 +0800
+Message-ID: <20100715142418.GA26491@host-a-229.ustcsz.edu.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Krishna Kumar <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+To: romieu@fr.zoreil.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64547 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933202Ab0GONOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 09:14:52 -0400
-Received: by wyb42 with SMTP id 42so695903wyb.19
-        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 06:14:51 -0700 (PDT)
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:41176 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933300Ab0GOOYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 10:24:55 -0400
+Received: by pwi5 with SMTP id 5so271796pwi.19
+        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 07:24:55 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While investigating for various bug reports in tcp stack, I looked at
-commit def87cf42069a (tcp: Slightly optimize tcp_sendmsg)
+Hi list,
+My understand of the way that NICs deliver packets to the kernel is
+as follows. Correct me if any of this is wrong. Thanks.
 
-One question I have is that the 
+1) The device buffer is fixed. When the kernel is acknowledged arrival of a 
+new packet, it dynamically allocate a new skb and copy the packet into it. 
+For example, 8139too.
 
-sg = sk->sk_route_caps & NETIF_F_SG;
+2) The device buffer is mapped by streaming DMA. When the kernel is 
+acknowledged arrival of a new packet, it unmaps the region previously mapped. 
+Obviously, there is NO memcpy operation. Additional cost is streaming DMA 
+map/unmap operations. For example, e100 and e1000.
 
-is now done at the beginning of tcp_sendmsg(), and kept in sg variable
-for the whole tcp_sendmsg() duration, even if task has to wait for
-space.
+Here comes my question:
+1) Is there a principle indicating which one is better? Is streaming DMA
+map/unmap operations more expensive than memcpy operation?
 
-Previously sk->sk_route_caps & NETIF_F_SG was done in select_size()
-itself.
 
-I am wondering if this can have a side effect, if SG capability changes
-while a thread has to wait in sk_stream_wait_memory(), and socket route
-changes (sk_route_caps flips NETIF_F_SG bit)
+2) Why does r8169 bias towards the first approach even if it support both? I 
+convert r8169 to the second one and get a 5% performance boost. Below is result
+running netperf TCP_STREAM test with 1.6K byte packet length.
+        scheme 1    scheme 2    Imp.
+r8169     683M        718M       5%
 
-Thanks
+The following patch shows what I did:
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 9fce8a8..8a4d9bd 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1093,6 +1093,7 @@ wait_for_memory:
- 				goto do_error;
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 239d7ef..707876f 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -4556,15 +4556,9 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
  
- 			mss_now = tcp_send_mss(sk, &size_goal, flags);
-+			sg = sk->sk_route_caps & NETIF_F_SG;
- 		}
- 	}
+ 			rtl8169_rx_csum(skb, desc);
  
+-			if (rtl8169_try_rx_copy(&skb, tp, pkt_size, addr)) {
+-				pci_dma_sync_single_for_device(pdev, addr,
+-					pkt_size, PCI_DMA_FROMDEVICE);
+-				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+-			} else {
+-				pci_unmap_single(pdev, addr, tp->rx_buf_sz,
+-						 PCI_DMA_FROMDEVICE);
+-				tp->Rx_skbuff[entry] = NULL;
+-			}
++			pci_unmap_single(pdev, addr, tp->rx_buf_sz,
++					 PCI_DMA_FROMDEVICE);
++			tp->Rx_skbuff[entry] = NULL;
+ 
+ 			skb_put(skb, pkt_size);
+ 			skb->protocol = eth_type_trans(skb, dev);
 
+Thanks in advance.
 
+--Junchang
