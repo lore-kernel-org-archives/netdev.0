@@ -1,54 +1,41 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 7/8] net: bridge: fix sign bug
-Date: Thu, 15 Jul 2010 12:21:44 -0700
-Message-ID: <20100715122144.0f2cf5cf@nehalam>
-References: <1279219653-12791-1-git-send-email-segooon@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Raise initial congestion window size / speedup slow start?
+Date: Thu, 15 Jul 2010 12:51:22 -0700
+Message-ID: <4C3F66BA.8010002@hp.com>
+References: <4C3E0684.5060409@wildgooses.com> <4C3E1B54.40604@hp.com>	<20100714203919.GD6682@nuttenaction>	<20100714.145547.102555471.davem@davemloft.net>	<20100714221301.GI6682@nuttenaction>	<20100714234917.924f420d.billfink@mindspring.com> <AANLkTinbtGuMTPNyJqJtx_bqfQDPqbA1XqjhLe_pj1mX@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Kulikov Vasiliy <segooon@gmail.com>
+Cc: Bill Fink <billfink@mindspring.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	David Miller <davem@davemloft.net>, lists@wildgooses.com,
+	davidsen@tmr.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58053 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934103Ab0GOTWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 15:22:35 -0400
-In-Reply-To: <1279219653-12791-1-git-send-email-segooon@gmail.com>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:37848 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934564Ab0GOTv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 15:51:26 -0400
+In-Reply-To: <AANLkTinbtGuMTPNyJqJtx_bqfQDPqbA1XqjhLe_pj1mX@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Jul 2010 22:47:33 +0400
-Kulikov Vasiliy <segooon@gmail.com> wrote:
+I have to wonder if the only heuristic one could employ for divining the initial 
+congestion window is to be either pessimistic/conservative or 
+optimistic/liberal.  Or for that matter the only one one really needs here?
 
-> ipv6_skip_exthdr() can return error code that is below zero.
-> 'offset' is unsigned, so it makes no sense.
-> ipv6_skip_exthdr() returns 'int' so we can painlessly change type of
-> offset to int.
-> 
-> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
-> ---
->  net/bridge/br_multicast.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index 27ae946..85afcda 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -1435,7 +1435,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
->  	struct icmp6hdr *icmp6h;
->  	u8 nexthdr;
->  	unsigned len;
-> -	unsigned offset;
-> +	int offset;
->  	int err;
->  
->  	if (!pskb_may_pull(skb, sizeof(*ip6h)))
+That's what it comes down to doesn't it?  At any one point in time, we don't 
+*really* know the state of the network and whether it can handle the load we 
+might wish to put upon it.  We are always reacting to it. Up until now, it has 
+been felt necessary to be pessimistic/conservative at time of connection 
+establishment and not rely as much on the robustness of the "control" part of 
+avoidance and control.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Now, the folks at Google have lots of data to suggest we don't need to be so 
+pessimistic/conservative and so we have to decide if we are willing to be more 
+optimistic/liberal.  Broadly handwaving, the "netdev we" seems to be willing to 
+be more optimistic/liberal in at least a few cases, and the question comes down 
+to whether or not the "IETF we" will be similarly willing.
 
--- 
+rick jones
