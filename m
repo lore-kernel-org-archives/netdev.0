@@ -1,23 +1,21 @@
 From: Peter Huewe <PeterHuewe@gmx.de>
-Subject: [PATCH 09/25] atm: Convert pci_table entries to PCI_VDEVICE (if PCI_ANY_ID is used)
-Date: Thu, 15 Jul 2010 20:48:26 +0200
-Message-ID: <201007152048.27535.PeterHuewe@gmx.de>
+Subject: [PATCH 10/25] atm: Convert pci_table entries to PCI_VDEVICE (if PCI_ANY_ID is used)
+Date: Thu, 15 Jul 2010 20:49:32 +0200
+Message-ID: <201007152049.33395.PeterHuewe@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
-	"David S. Miller" <davem@davemloft.net>,
-	H Hartley Sweeten <hsweeten@visionengravers.com>,
-	Tejun Heo <tj@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
 	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Kernel Janitors <kernel-janitors@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:41769 "HELO mail.gmx.net"
+Received: from mail.gmx.net ([213.165.64.20]:37685 "HELO mail.gmx.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S934126Ab0GOSsa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jul 2010 14:48:30 -0400
+	id S934217Ab0GOStf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jul 2010 14:49:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -29,23 +27,26 @@ PCI_VDEVICE macro, and thus improves readability.
 
 Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 ---
- drivers/atm/nicstar.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/atm/zatm.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index cff337e..729a149 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -264,8 +264,7 @@ static void __devexit nicstar_remove_one(struct pci_dev *pcidev)
- }
+diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
+index 702acce..4e885d2 100644
+--- a/drivers/atm/zatm.c
++++ b/drivers/atm/zatm.c
+@@ -1637,10 +1637,8 @@ out_free:
+ MODULE_LICENSE("GPL");
  
- static struct pci_device_id nicstar_pci_tbl[] __devinitdata = {
--	{PCI_VENDOR_ID_IDT, PCI_DEVICE_ID_IDT_IDT77201,
--	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-+	{ PCI_VDEVICE(IDT, PCI_DEVICE_ID_IDT_IDT77201), 0 },
- 	{0,}			/* terminate list */
+ static struct pci_device_id zatm_pci_tbl[] __devinitdata = {
+-	{ PCI_VENDOR_ID_ZEITNET, PCI_DEVICE_ID_ZEITNET_1221,
+-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, ZATM_COPPER },
+-	{ PCI_VENDOR_ID_ZEITNET, PCI_DEVICE_ID_ZEITNET_1225,
+-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	{ PCI_VDEVICE(ZEITNET, PCI_DEVICE_ID_ZEITNET_1221), ZATM_COPPER },
++	{ PCI_VDEVICE(ZEITNET, PCI_DEVICE_ID_ZEITNET_1225), 0 },
+ 	{ 0, }
  };
- 
+ MODULE_DEVICE_TABLE(pci, zatm_pci_tbl);
 -- 
 1.7.1
 
