@@ -1,71 +1,131 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] net: fix problem in reading sock TX queue
-Date: Wed, 14 Jul 2010 20:48:08 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.1007142025430.22782@pokey.mtv.corp.google.com>
+From: Ofer Heifetz <oferh@marvell.com>
+Subject: RE: Splice status
+Date: Thu, 15 Jul 2010 06:47:43 +0300
+Message-ID: <EE71107DF0D1F24FA2D95041E64AB9E8ED254E7E76@IL-MB01.marvell.com>
+References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
+	 <AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
+	 <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
+	 <1278334254.2877.158.camel@edumazet-laptop>
+	 <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
+	 <1278388580.2466.305.camel@edumazet-laptop>
+	 <AANLkTinRnDwMOS5NrmzKqYZpczG4nfHSvKA9Gw-_UUzO@mail.gmail.com>
+	 <EE71107DF0D1F24FA2D95041E64AB9E8ED254E7B66@IL-MB01.marvell.com>
+ <1279030308.2634.349.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Changli Gao <xiaosuo@gmail.com>, Jens Axboe <axboe@kernel.dk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:57792 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758196Ab0GODsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 23:48:19 -0400
+Received: from galiil.marvell.com ([199.203.130.254]:46840 "EHLO
+	galiil.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932260Ab0GODtG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 23:49:06 -0400
+In-Reply-To: <1279030308.2634.349.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix problem in reading the tx_queue recorded in a socket.  In
-dev_pick_tx, the TX queue is read by doing a check with
-sk_tx_queue_recorded on the socket, followed by a sk_tx_queue_get.
-The problem is that there is not mutual exclusion across these
-calls in the socket so it it is possible that the queue in the
-sock can be invalidated after sk_tx_queue_recorded is called so
-that sk_tx_queue get returns -1, which sets 65535 in queue_index
-and thus dev_pick_tx returns 65536 which is a bogus queue and
-can cause crash in dev_queue_xmit.
+Hi,
 
-We fix this by only calling sk_tx_queue_get which does the proper
-checks.  The interface is that sk_tx_queue_get returns the TX queue
-if the sock argument is non-NULL and TX queue is recorded, else it
-returns -1.  sk_tx_queue_recorded is no longer used so it can be
-completely removed.
+I managed to get splice use up to 64K which look to me as a samba limit=
+ation (smb.conf SO_RCVBUF limitation I think) but still do not get any =
+performance improvement using splice, the write numbers for splice are =
+in about the same as for regular read/write though refraining from copy=
+_to_user and copy_from_user.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 3100e71..a441c9c 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1226,12 +1226,7 @@ static inline void sk_tx_queue_clear(struct sock *sk)
- 
- static inline int sk_tx_queue_get(const struct sock *sk)
- {
--	return sk->sk_tx_queue_mapping;
--}
--
--static inline bool sk_tx_queue_recorded(const struct sock *sk)
--{
--	return (sk && sk->sk_tx_queue_mapping >= 0);
-+	return sk ? sk->sk_tx_queue_mapping : -1;
- }
- 
- static inline void sk_set_socket(struct sock *sk, struct socket *sock)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e2b9fa2..f071252 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2053,12 +2053,11 @@ static inline u16 dev_cap_txqueue(struct net_device *dev, u16 queue_index)
- static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 					struct sk_buff *skb)
- {
--	u16 queue_index;
-+	int queue_index;
- 	struct sock *sk = skb->sk;
- 
--	if (sk_tx_queue_recorded(sk)) {
--		queue_index = sk_tx_queue_get(sk);
--	} else {
-+	queue_index = sk_tx_queue_get(sk);
-+	if (queue_index < 0) {
- 		const struct net_device_ops *ops = dev->netdev_ops;
- 
- 		if (ops->ndo_select_queue) {
+-Ofer
+
+-----Original Message-----
+=46rom: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
+Sent: Tuesday, July 13, 2010 5:12 PM
+To: Ofer Heifetz
+Cc: Changli Gao; Jens Axboe; netdev@vger.kernel.org
+Subject: RE: Splice status
+
+Le mardi 13 juillet 2010 =E0 14:41 +0300, Ofer Heifetz a =E9crit :
+> Hi,
+>=20
+> I wanted to let you know that I have been testing Samba splice on Mar=
+vell 6282 SoC on 2.6.35_rc3 and noticed that it gave worst performance =
+than not using it and also noticed that on re-writing file the iowait i=
+s high.
+>=20
+> iometer using 2G file (file is created before test)
+>=20
+> Splice  write cpu% iow%
+> -----------------------
+>  No     58    98    0
+> Yes     14   100   48
+>=20
+> iozone using 2G file (file created during test)
+>=20
+> Splice  write cpu% iow%  re-write cpu% iow% =20
+> -------------------------------------------
+>  No     35    85    4    58.2     70    0
+> Yes     33    85    4    15.7    100   58
+>=20
+> Any clue why splice introduces a high iowait?
+> I noticed samba uses up to 16K per splice syscall, changing the samba=
+ to try more did not help, so I guess it is a kernel limitation.
+>=20
+
+splice(socket -> pipe) provides partial buffers (depending on the MTU)
+
+With typical MTU=3D1500 and tcp timestamps, each network frame contains
+1448 bytes of payload, partially filling one page (of 4096 bytes)
+
+When doing the splice(pipe -> file), kernel has to coalesce partial
+data, but amount of written data per syscall() is small (about 20
+Kbytes)
+
+Without splice(), the write() syscall provides more data, and vfs
+overhead is smaller as buffer size is a power of two.
+
+Samba uses a 128 KBytes TRANSFER_BUF_SIZE in its default_sys_recvfile()
+implementation, it easily outperforms splice() implementation.
+
+You could try extending pipe size (fcntl(fd, F_SETPIPE_SZ, 256)), maybe
+it will be a bit better. (and ask 256*4096 bytes to splice())
+
+I tried this and got about 256Kbytes per splice() call...
+
+# perf report
+# Events: 13K
+#
+# Overhead         Command      Shared Object  Symbol
+# ........  ..............  .................  ......
+#
+     8.69%  splice-fromnet  [kernel.kallsyms]  [k] memcpy
+     3.82%  splice-fromnet  [kernel.kallsyms]  [k] kunmap_atomic
+     3.51%  splice-fromnet  [kernel.kallsyms]  [k] __block_prepare_writ=
+e
+     2.79%  splice-fromnet  [kernel.kallsyms]  [k] __skb_splice_bits
+     2.58%  splice-fromnet  [kernel.kallsyms]  [k] ext3_mark_iloc_dirty
+     2.45%  splice-fromnet  [kernel.kallsyms]  [k] do_get_write_access
+     2.04%  splice-fromnet  [kernel.kallsyms]  [k] __find_get_block
+     1.89%  splice-fromnet  [kernel.kallsyms]  [k] _raw_spin_lock
+     1.83%  splice-fromnet  [kernel.kallsyms]  [k] journal_add_journal_=
+head
+     1.46%  splice-fromnet  [bnx2x]            [k] bnx2x_rx_int
+     1.46%  splice-fromnet  [kernel.kallsyms]  [k] kfree
+     1.42%  splice-fromnet  [kernel.kallsyms]  [k] journal_put_journal_=
+head
+     1.29%  splice-fromnet  [kernel.kallsyms]  [k] __ext3_get_inode_loc
+     1.26%  splice-fromnet  [kernel.kallsyms]  [k] journal_dirty_metada=
+ta
+     1.25%  splice-fromnet  [kernel.kallsyms]  [k] page_address
+     1.20%  splice-fromnet  [kernel.kallsyms]  [k] journal_cancel_revok=
+e
+     1.15%  splice-fromnet  [kernel.kallsyms]  [k] tcp_read_sock
+     1.09%  splice-fromnet  [kernel.kallsyms]  [k] unlock_buffer
+     1.09%  splice-fromnet  [kernel.kallsyms]  [k] pipe_to_file
+     1.05%  splice-fromnet  [kernel.kallsyms]  [k] radix_tree_lookup_el=
+ement
+     1.04%  splice-fromnet  [kernel.kallsyms]  [k] kmap_atomic_prot
+     1.04%  splice-fromnet  [kernel.kallsyms]  [k] kmem_cache_free
+     1.03%  splice-fromnet  [kernel.kallsyms]  [k] kmem_cache_alloc
+     1.01%  splice-fromnet  [bnx2x]            [k] bnx2x_poll
+
+
