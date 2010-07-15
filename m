@@ -1,41 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix problem in reading sock TX queue
-Date: Wed, 14 Jul 2010 20:50:41 -0700 (PDT)
-Message-ID: <20100714.205041.246520770.davem@davemloft.net>
-References: <alpine.DEB.1.00.1007142025430.22782@pokey.mtv.corp.google.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH] fec: use interrupt for MDIO completion indication
+Date: Thu, 15 Jul 2010 07:09:56 +0300
+Message-ID: <20100715040956.GA7690@jasper.tkos.co.il>
+References: <006416d38a8e51ba8dd8631613a991528dc7976a.1278918594.git.baruch@tkos.co.il>
+ <4C3E812C.10303@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Greg Ungerer <gerg@uclinux.org>,
+	Wolfram Sang <w.sang@pengutronix.de>
+To: Bryan Wu <bryan.wu@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47813
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932260Ab0GODu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jul 2010 23:50:26 -0400
-In-Reply-To: <alpine.DEB.1.00.1007142025430.22782@pokey.mtv.corp.google.com>
+Received: from tango.tkos.co.il ([62.219.50.35]:34295 "EHLO tango.tkos.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750707Ab0GOEKY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jul 2010 00:10:24 -0400
+Content-Disposition: inline
+In-Reply-To: <4C3E812C.10303@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 14 Jul 2010 20:48:08 -0700 (PDT)
+Hi Bryan,
 
-> Fix problem in reading the tx_queue recorded in a socket.  In
-> dev_pick_tx, the TX queue is read by doing a check with
-> sk_tx_queue_recorded on the socket, followed by a sk_tx_queue_get.
-> The problem is that there is not mutual exclusion across these
-> calls in the socket so it it is possible that the queue in the
-> sock can be invalidated after sk_tx_queue_recorded is called so
-> that sk_tx_queue get returns -1, which sets 65535 in queue_index
-> and thus dev_pick_tx returns 65536 which is a bogus queue and
-> can cause crash in dev_queue_xmit.
+On Thu, Jul 15, 2010 at 11:31:56AM +0800, Bryan Wu wrote:
+> Thanks for this patch, we tested on our i.MX51 board with Ubuntu. It works 
+> fine.
 > 
-> We fix this by only calling sk_tx_queue_get which does the proper
-> checks.  The interface is that sk_tx_queue_get returns the TX queue
-> if the sock argument is non-NULL and TX queue is recorded, else it
-> returns -1.  sk_tx_queue_recorded is no longer used so it can be
-> completely removed.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Wolfram, you can pick up this, too. -;)
 
-Applied, thanks Tom!
+Dave has already applied this patch to his net-next tree.
+
+baruch
+
+> On 07/12/2010 03:12 PM, Baruch Siach wrote:
+> > With the move to phylib (commit e6b043d) I was seeing sporadic "MDIO write
+> > timeout" messages. Measure of the actual time spent showed latency times of
+> > more than 1600us.
+> > 
+> > This patch uses the MII event indication of the FEC hardware to detect
+> > completion of MDIO transactions.
+> > 
+> > Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> > ---
+> >  drivers/net/fec.c |   55 ++++++++++++++++++++++++----------------------------
+> >  1 files changed, 25 insertions(+), 30 deletions(-)
+> > 
+
+-- 
+                                                     ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
