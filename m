@@ -1,59 +1,79 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: [ipmr] ipmr:  Don't leak memory if fib lookup fails.
-Date: Thu, 15 Jul 2010 16:22:33 -0700
-Message-ID: <1279236153-23699-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH RFC] act_cpu: packet distributing
+Date: Fri, 16 Jul 2010 07:30:10 +0800
+Message-ID: <AANLkTiljdBpQkZAGybwFQtej-_j7sFtD72CTErT9TaOX@mail.gmail.com>
+References: <1279077475-2956-1-git-send-email-xiaosuo@gmail.com>
+	<1279078875.2444.103.camel@edumazet-laptop> <AANLkTimPmXWyAspJqnya7aM_vDRNzDdJJf2bl7CYrAXN@mail.gmail.com>
+	<1279198139.4510.710.camel@bigi> <1279212897.2496.133.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hadi@cyberus.ca, "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:58554 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933661Ab0GOXWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 19:22:36 -0400
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:50259 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933661Ab0GOXad convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 19:30:33 -0400
+Received: by vws5 with SMTP id 5so1789112vws.19
+        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 16:30:32 -0700 (PDT)
+In-Reply-To: <1279212897.2496.133.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was detected using two mcast router tables.  The
-pimreg for the second interface did not have a specific
-mrule, so packets received by it were handled by the
-default table, which had nothing configured.
+On Fri, Jul 16, 2010 at 12:54 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le jeudi 15 juillet 2010 =E0 08:48 -0400, jamal a =E9crit :
+>>
+>> RCU maybe a little trickier here Eric. Actions could be shared i.e.
+>> example, it is possible to have a policer action restricting rates f=
+or a
+>> group of flows =A0across multiple netdevices etc. Since action stats=
+ get
+>> written to by different CPUs concurrently. It could be probably done=
+ if
+>> one was to implement per-cpu stats which get summed-up when user spa=
+ce
+>> asks.
+>
+> It's certainly tricky, but is act_cpu useful in its current shape, ba=
+sed
+> on an infrastructure that had to use a lock because of exact
+> rates/accounting ?
+>
+> I dont understand how distributing packets to different cpus, if goin=
+g
+> through a central lock can be an improvement. Changli patches are mos=
+t
+> of the time not documented, and no performance data is provided.
+>
+The tcf_lock is per-instance, so I should not an issue here if the
+corresponding NIC isn't an multiqueue NIC or the instance is
+per-rx-queue. I agree
+the performance data is necessary and I'll publish it in the formal
+patch.
 
-This caused the ipmr_fib_lookup to fail, causing
-the memory leak.
+> Even if we solve this locking problem, using percpu variables, act_cp=
+u
+> hits another problem :
+>
+> The socket refcount, taken by the 'master' cpu, and released by the
+> consumer cpu.
+This is why I asked if I can assign sk to skb.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 ed2f911... f112ad8... M	net/ipv4/ipmr.c
- net/ipv4/ipmr.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+>
+> RFS provides sort of a lazy flow-based distribution without central l=
+ock
+> or cache line ping pongs. Why Changli dont use this, we dont know yet=
+=2E
+>
+The fact is I don't know how to do this. I'll work on this issue later.
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index ed2f911..f112ad8 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -442,8 +442,10 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int err;
- 
- 	err = ipmr_fib_lookup(net, &fl, &mrt);
--	if (err < 0)
-+	if (err < 0) {
-+		kfree_skb(skb);
- 		return err;
-+	}
- 
- 	read_lock(&mrt_lock);
- 	dev->stats.tx_bytes += skb->len;
-@@ -1729,8 +1731,10 @@ int ip_mr_input(struct sk_buff *skb)
- 		goto dont_forward;
- 
- 	err = ipmr_fib_lookup(net, &skb_rtable(skb)->fl, &mrt);
--	if (err < 0)
-+	if (err < 0) {
-+		kfree_skb(skb);
- 		return err;
-+	}
- 
- 	if (!local) {
- 		    if (IPCB(skb)->opt.router_alert) {
--- 
-1.6.2.5
+Thanks.
 
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
