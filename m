@@ -1,47 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: [iproute2] iproute2:  Fix batch-mode for mrules.
-Date: Thu, 15 Jul 2010 15:48:10 -0700
-Message-ID: <1279234090-18624-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: [PATCH] cxgb4vf: fix SGE resource resource deallocation bug
+Date: Thu, 15 Jul 2010 15:54:43 -0700
+Message-ID: <201007151554.43269.leedom@chelsio.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:57154 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934934Ab0GOWsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 18:48:13 -0400
+Received: from stargate.chelsio.com ([67.207.112.58]:18097 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933621Ab0GOW5W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 18:57:22 -0400
+Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o6FMvMFr002985
+	for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 15:57:22 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The do_multirule logic was broken in batch mode because
-it expected the preferred_family to be AF_INET or AF_INET6,
-but it then assigned it to RTNL_FAMILY_IPMR or RTNL_FAMILY_IP6MR.
-So, the next iteration of the batch processing, it failed
-the check for AF_INET or AF_INET6.
+>From 1ecf246196c43d75e75525211450a64d650f4fbc Mon Sep 17 00:00:00 2001
+From: Casey Leedom <leedom@chelsio.com>
+Date: Thu, 15 Jul 2010 15:50:16 -0700
+Subject: [PATCH] cxgb4vf: fix SGE resource resource deallocation bug
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
+Fix SGE resource resource deallocation bug.  Forgot to increment the RXQ and
+TXQ cursors in the loop ...
+
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
 ---
-:100644 100644 9c8c6ef... d3b97e2... M	ip/iprule.c
- ip/iprule.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ drivers/net/cxgb4vf/sge.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/ip/iprule.c b/ip/iprule.c
-index 9c8c6ef..d3b97e2 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -446,8 +446,12 @@ int do_multirule(int argc, char **argv)
- 	case AF_INET6:
- 		preferred_family = RTNL_FAMILY_IP6MR;
- 		break;
-+	case RTNL_FAMILY_IPMR:
-+	case RTNL_FAMILY_IP6MR:
-+		break;
- 	default:
--		fprintf(stderr, "Multicast rules are only supported for IPv4/IPv6\n");
-+		fprintf(stderr, "Multicast rules are only supported for IPv4/IPv6, was: %i\n",
-+			preferred_family);
- 		exit(-1);
- 	}
+diff --git a/drivers/net/cxgb4vf/sge.c b/drivers/net/cxgb4vf/sge.c
+index f2ee9b0..eb5a1c9 100644
+--- a/drivers/net/cxgb4vf/sge.c
++++ b/drivers/net/cxgb4vf/sge.c
+@@ -2351,7 +2351,7 @@ void t4vf_free_sge_resources(struct adapter *adapter)
+ 	struct sge_rspq *intrq = &s->intrq;
+ 	int qs;
  
+-	for (qs = 0; qs < adapter->sge.ethqsets; qs++) {
++	for (qs = 0; qs < adapter->sge.ethqsets; qs++, rxq++, txq++) {
+ 		if (rxq->rspq.desc)
+ 			free_rspq_fl(adapter, &rxq->rspq, &rxq->fl);
+ 		if (txq->q.desc) {
 -- 
-1.6.2.5
+1.7.0.4
 
