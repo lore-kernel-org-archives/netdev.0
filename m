@@ -1,45 +1,74 @@
-From: Ed W <lists@wildgooses.com>
-Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Thu, 15 Jul 2010 08:48:33 +0100
-Message-ID: <4C3EBD51.80406@wildgooses.com>
-References: <4C3D94E3.9080103@wildgooses.com>	<4C3DD5EB.9070908@tmr.com>	<20100714.111553.104052157.davem@davemloft.net>	<4C3E0684.5060409@wildgooses.com>	<4C3E1B54.40604@hp.com>	<20100714203919.GD6682@nuttenaction> <AANLkTikTyZGQWWIBzYSQWpUK30xxbMXLbJXeHahWnlIi@mail.gmail.com>
+From: Bartlomiej Zolnierkiewicz <bzolnier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 01/11] Removing dead RT2800PCI_SOC
+Date: Thu, 15 Jul 2010 10:41:55 +0200
+Message-ID: <201007151041.55112.bzolnier@gmail.com>
+References: <cover.1279110894.git.siccegge@cs.fau.de> <20100714131527.GB2352@tuxdriver.com> <4C3DCD5C.1080705@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>, davidsen@tmr.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jerry Chu <hkchu@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikTyZGQWWIBzYSQWpUK30xxbMXLbJXeHahWnlIi@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Ivo Van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Christoph Egger <siccegge-n+aIp8eCc/CzQB+pC5nmwQ@public.gmane.org>,
+	Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	vamos-dev-DSeRVwK2yFR7NQr57o4jwX20dTPRyWU8FLXUG6abMr4@public.gmane.org,
+	Luis Correia <luis.f.correia-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4C3DCD5C.1080705-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 15/07/2010 05:12, Tom Herbert wrote:
-> There is an Internet draft
-> (http://datatracker.ietf.org/doc/draft-hkchu-tcpm-initcwnd/) on
-> raising the default Initial Congestion window to 10 segments, as well
-> as a SIGCOMM paper (http://ccr.sigcomm.org/online/?q=node/621).
->    
+On Wednesday 14 July 2010 04:44:44 pm Felix Fietkau wrote:
+> On 2010-07-14 3:15 PM, John W. Linville wrote:
+> > On Wed, Jul 14, 2010 at 02:52:14PM +0200, Ivo Van Doorn wrote:
+> >> On Wed, Jul 14, 2010 at 2:46 PM, Luis Correia <luis.f.correia-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> >> > On Wed, Jul 14, 2010 at 13:39, Christoph Egger <siccegge-n+aIp8eCc/CzQB+pC5nmwQ@public.gmane.org> wrote:
+> >> >> While RT2800PCI_SOC exists in Kconfig, it depends on either
+> >> >> RALINK_RT288X or RALINK_RT305X which are both not available in Kconfig
+> >> >> so all Code depending on that can't ever be selected and, if there's
+> >> >> no plan to add these options, should be cleaned up
+> >> >>
+> >> >> Signed-off-by: Christoph Egger <siccegge-n+aIp8eCc/CzQB+pC5nmwQ@public.gmane.org>
+> >> >
+> >> > NAK,
+> >> >
+> >> > this is not dead code, it is needed for the Ralink System-on-Chip
+> >> > Platform devices.
+> >> >
+> >> > While I can't fix Kconfig errors and the current KConfig file may be
+> >> > wrong, this code cannot and will not be deleted.
+> >> 
+> >> When the config option was introduced, the config options RALINK_RT288X and
+> >> RALINK_RT305X were supposed to be merged as well soon after by somebody (Felix?)
+> >> 
+> >> But since testing is done on SoC boards by Helmut and Felix, I assume the code
+> >> isn't dead but actually in use.
+> > 
+> > Perhaps Helmut and Felix can send us the missing code?
+> The missing code is a MIPS platform port, which is currently being
+> maintained in OpenWrt, but is not ready for upstream submission yet.
+> I'm not working on this code at the moment, but I think it will be
+> submitted once it's ready.
 
-You guys have obviously done a lot of work on this, however, it seems 
-that there is a case for introducing some heuristics into the choice of 
-init cwnd as well as offering the option to go larger?  An initial size 
-of 10 packets is just another magic number that obviously works with the 
-median bandwidth delay product on today's networks - can we not do 
-better still?
+People are using automatic scripts to catch unused config options nowadays
+so the issue is quite likely to come back again sooner or later..
 
-Seems like a bunch of clever folks have already suggested tweaks to the 
-steady stage congestion avoidance, but so far everyone is afraid to 
-touch the early stage heuristics?
+Would it be possible to improve situation somehow till the missing parts
+get merged?  Maybe by adding a tiny comment documenting RT2800PCI_SOC
+situation to Kconfig (if the config option itself really cannot be removed)
+until all code is ready etc.?
 
-Also would you guys not benefit from wider deployment of ECN?  Can you 
-not help find some ways that deployment could be increased?  At present 
-there are big warnings all over the option that it causes some problems, 
-but there is no quantification of how much and really whether this 
-warning is still appropriate?
+I bet that Christoph would be willing to update his patch if you ask him
+nicely..
 
-Ed W
+Thanks,
+--
+Bartlomiej Zolnierkiewicz
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
