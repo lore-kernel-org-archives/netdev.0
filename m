@@ -1,148 +1,150 @@
-From: Peter Huewe <PeterHuewe@gmx.de>
-Subject: [PATCH 23/25] isdn/hisax: Convert pci_table entries to PCI_VDEVICE (if PCI_ANY_ID is used)
-Date: Thu, 15 Jul 2010 21:07:30 +0200
-Message-ID: <201007152107.31524.PeterHuewe@gmx.de>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
+Date: Thu, 15 Jul 2010 22:09:05 +0300
+Message-ID: <1279220945.4411.6.camel@localhost.localdomain>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	 <1277807529.19417.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	 <1277938757.4138.3.camel@localhost.localdomain>
+	 <1278204106.21020.0.camel@localhost.localdomain>
+	 <1278283714.3444.1.camel@localhost.localdomain>
+	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
+	 <1278323885.5277.0.camel@localhost.localdomain>
+	 <1278950178.17933.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
+	 <1278981483.23017.4.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
+	 <1279150380.7810.2.camel@localhost.localdomain>
+	 <1279220266.4411.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B860D9@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>, Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kernel Janitors <kernel-janitors@vger.kernel.org>
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:38562 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S934334Ab0GOTHf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jul 2010 15:07:35 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:65111 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934274Ab0GOTJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 15:09:10 -0400
+Received: by fxm14 with SMTP id 14so647578fxm.19
+        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 12:09:08 -0700 (PDT)
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FF4B860D9@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Huewe <peterhuewe@gmx.de>
+On Thu, 2010-07-15 at 13:02 -0600, Tantilov, Emil S wrote:
+> Maxim Levitsky wrote:
+> > On Thu, 2010-07-15 at 02:33 +0300, Maxim Levitsky wrote:
+> >> On Wed, 2010-07-14 at 16:56 -0600, Tantilov, Emil S wrote:
+> >>> Maxim Levitsky wrote:
+> >>>> On Mon, 2010-07-12 at 15:23 -0600, Tantilov, Emil S wrote:
+> >>>>> Maxim Levitsky wrote:
+> >>>>>> On Mon, 2010-07-05 at 12:58 +0300, Maxim Levitsky wrote:
+> >>>>>>> On Mon, 2010-07-05 at 01:13 -0700, Jeff Kirsher wrote:
+> >>>>>>>> On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky
+> >>>>>>>> <maximlevitsky@gmail.com> wrote:
+> >>>>>>>>> Did few guesses, and now I see that reverting the below
+> >>>>>>>>> commit fixes the problem. 
+> >>>>>>>>> 
+> >>>>>>>>> "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
+> >>>>>>>>> e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
+> >>>>>>>>> 
+> >>>>>>>>> 
+> >>>>>>>>> Best regards,
+> >>>>>>>>>        Maxim Levitsky
+> >>>>>>>>> 
+> >>>>>>>>> --
+> >>>>>>>> 
+> >>>>>>>> Can you give us till Tuesday to respond?  I know that there are
+> >>>>>>>> some additional e1000e patches in my queue, which may resolve
+> >>>>>>>> the issue, but this weekend the power is down to do some
+> >>>>>>>> infrastructure upgrades which prevents us from doing any
+> >>>>>>>> investigation.debugging until Tuesday.
+> >>>>>>>> 
+> >>>>>>> 
+> >>>>>>> Sure.
+> >>>>>>> 
+> >>>>>>> Best regards,
+> >>>>>>> 	Maxim Levitsky
+> >>>>>>> 
+> >>>>>> 
+> >>>>>> Updates?
+> >>>>> 
+> >>>>> We are working on reproducing the issue. So far we have not seen
+> >>>>> the problem when testing with net-next.
+> >>>>> 
+> >>>>> I asked in previous email about some additional info from ethtool
+> >>>>> (-d, -e, -S) and kernel config. That would help us to narrow it
+> >>>>> down. 
+> >>>>> 
+> >>>>> Thanks,
+> >>>>> Emil
+> >>>> I did send -e and -d output.
+> >>> 
+> >>> Sorry, looks like I lost the email with the attachements.
+> >>> 
+> >>> Could you provide the output of dmesg after the failure occurs?
+> >>> 
+> >>>> Since you probably want -S output during failure, I need to
+> >>>> recompile kernel for that. I will do that soon.
+> >>>> 
+> >>>> 
+> >>>> One question, in two weeks I hope 2.6.35 won't be released?
+> >>>> If so, I will have enough free time then to narrow down this issue.
+> >>>> 
+> >>>> Other solution, is to revert this commit.
+> >>>> (I have never seen this problem with it reverted).
+> >>> 
+> >>> We have been running reboot tests on 2 separate systems with recent
+> >>> net-next kernels using your config and so far no luck in
+> >>> reproducing this issue. 
+> >>> 
+> >>> What is the make model of your system (or MB)?
+> >> 
+> >> the motherboard is Intel DG965RY.
+> >> 
+> >> However, I am using vanilla kernel.
+> >> net-next might contain further fixes.
+> >> 
+> >> I see if net-next works here.
+> > 
+> > Yep, net-next works here.
+> > 
+> > 
+> > I have the problem on vanilla kernel.
+> > Last revision of it, I tested is 2.6.35-rc4 exactly
+> > (815c4163b6c8ebf8152f42b0a5fd015cfdcedc78)
+> > 
+> > 
+> > Maybe vanilla git master works, I test it too soon.
+> 
+> Thanks for the information! Good to know that this issue does not exist in the latest branch.
+> 
+> Have you by any chance tested a stable branch (2.6.34.x)?
 
-This patch converts pci_table entries, where .subvendor=PCI_ANY_ID and
-.subdevice=PCI_ANY_ID, .class=0 and .class_mask=0, to use the
-PCI_VDEVICE macro, and thus improves readability.
+I only did test plain 2.6.34 (v2.6.34)
 
-Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
----
- drivers/isdn/hisax/config.c |   84 +++++++++++++++++++++---------------------
- 1 files changed, 42 insertions(+), 42 deletions(-)
+Also I repeat that revert of e98cac447cc1cc418dff1d610a5c79c4f2bdec7f 
+(e1000e: Fix/cleanup PHY reset code for ICHx/PCHx) fixes the bug on
+vanilla kernel.
 
-diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
-index 544cf4b..f4ac548 100644
---- a/drivers/isdn/hisax/config.c
-+++ b/drivers/isdn/hisax/config.c
-@@ -1909,68 +1909,68 @@ static void EChannel_proc_rcv(struct hisax_d_if *d_if)
- 
- static struct pci_device_id hisax_pci_tbl[] __devinitdata = {
- #ifdef CONFIG_HISAX_FRITZPCI
--	{PCI_VENDOR_ID_AVM,      PCI_DEVICE_ID_AVM_A1,           PCI_ANY_ID, PCI_ANY_ID},
-+	{PCI_VDEVICE(AVM,      PCI_DEVICE_ID_AVM_A1)			},
- #endif
- #ifdef CONFIG_HISAX_DIEHLDIVA
--	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20,     PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA20_U,   PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA201,    PCI_ANY_ID, PCI_ANY_ID},
--//#########################################################################################	
--	{PCI_VENDOR_ID_EICON,    PCI_DEVICE_ID_EICON_DIVA202,    PCI_ANY_ID, PCI_ANY_ID},
--//#########################################################################################	
-+	{PCI_VDEVICE(EICON,    PCI_DEVICE_ID_EICON_DIVA20)		},
-+	{PCI_VDEVICE(EICON,    PCI_DEVICE_ID_EICON_DIVA20_U)	},
-+	{PCI_VDEVICE(EICON,    PCI_DEVICE_ID_EICON_DIVA201)		},
-+/*##########################################################################*/
-+	{PCI_VDEVICE(EICON,    PCI_DEVICE_ID_EICON_DIVA202)		},
-+/*##########################################################################*/
- #endif
- #ifdef CONFIG_HISAX_ELSA
--	{PCI_VENDOR_ID_ELSA,     PCI_DEVICE_ID_ELSA_MICROLINK,   PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_ELSA,     PCI_DEVICE_ID_ELSA_QS3000,      PCI_ANY_ID, PCI_ANY_ID},
-+	{PCI_VDEVICE(ELSA,     PCI_DEVICE_ID_ELSA_MICROLINK)	},
-+	{PCI_VDEVICE(ELSA,     PCI_DEVICE_ID_ELSA_QS3000)		},
- #endif
- #ifdef CONFIG_HISAX_GAZEL
--	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_R685,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_R753,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_DJINN_ITOO,   PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_OLITEC,       PCI_ANY_ID, PCI_ANY_ID},
-+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_R685)			},
-+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_R753)			},
-+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_DJINN_ITOO)	},
-+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_OLITEC)		},
- #endif
- #ifdef CONFIG_HISAX_SCT_QUADRO
--	{PCI_VENDOR_ID_PLX,      PCI_DEVICE_ID_PLX_9050,         PCI_ANY_ID, PCI_ANY_ID},
-+	{PCI_VDEVICE(PLX,      PCI_DEVICE_ID_PLX_9050)			},
- #endif
- #ifdef CONFIG_HISAX_NICCY
--	{PCI_VENDOR_ID_SATSAGEM, PCI_DEVICE_ID_SATSAGEM_NICCY,   PCI_ANY_ID,PCI_ANY_ID},
-+	{PCI_VDEVICE(SATSAGEM, PCI_DEVICE_ID_SATSAGEM_NICCY)	},
- #endif
- #ifdef CONFIG_HISAX_SEDLBAUER
--	{PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_100,     PCI_ANY_ID,PCI_ANY_ID},
-+	{PCI_VDEVICE(TIGERJET, PCI_DEVICE_ID_TIGERJET_100)		},
- #endif
- #if defined(CONFIG_HISAX_NETJET) || defined(CONFIG_HISAX_NETJET_U)
--	{PCI_VENDOR_ID_TIGERJET, PCI_DEVICE_ID_TIGERJET_300,     PCI_ANY_ID,PCI_ANY_ID},
-+	{PCI_VDEVICE(TIGERJET, PCI_DEVICE_ID_TIGERJET_300)		},
- #endif
- #if defined(CONFIG_HISAX_TELESPCI) || defined(CONFIG_HISAX_SCT_QUADRO)
--	{PCI_VENDOR_ID_ZORAN,    PCI_DEVICE_ID_ZORAN_36120,      PCI_ANY_ID,PCI_ANY_ID},
-+	{PCI_VDEVICE(ZORAN,    PCI_DEVICE_ID_ZORAN_36120)		},
- #endif
- #ifdef CONFIG_HISAX_W6692
--	{PCI_VENDOR_ID_DYNALINK, PCI_DEVICE_ID_DYNALINK_IS64PH,  PCI_ANY_ID,PCI_ANY_ID},
--	{PCI_VENDOR_ID_WINBOND2, PCI_DEVICE_ID_WINBOND2_6692,    PCI_ANY_ID,PCI_ANY_ID},
-+	{PCI_VDEVICE(DYNALINK, PCI_DEVICE_ID_DYNALINK_IS64PH)	},
-+	{PCI_VDEVICE(WINBOND2, PCI_DEVICE_ID_WINBOND2_6692)		},
- #endif
- #ifdef CONFIG_HISAX_HFC_PCI
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_2BD0,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B000,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B006,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B007,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B008,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B009,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00A,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00B,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B00C,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B100,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B700,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_CCD,      PCI_DEVICE_ID_CCD_B701,         PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_ABOCOM,   PCI_DEVICE_ID_ABOCOM_2BD1,      PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_ASUSTEK,  PCI_DEVICE_ID_ASUSTEK_0675,     PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_BERKOM,   PCI_DEVICE_ID_BERKOM_T_CONCEPT, PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_BERKOM,   PCI_DEVICE_ID_BERKOM_A1T,       PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_ANIGMA,   PCI_DEVICE_ID_ANIGMA_MC145575,  PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_ZOLTRIX,  PCI_DEVICE_ID_ZOLTRIX_2BD0,     PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_E, PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_E,      PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_A, PCI_ANY_ID, PCI_ANY_ID},
--	{PCI_VENDOR_ID_DIGI,     PCI_DEVICE_ID_DIGI_DF_M_A,      PCI_ANY_ID, PCI_ANY_ID},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_2BD0)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B000)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B006)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B007)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B008)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B009)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B00A)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B00B)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B00C)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B100)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B700)			},
-+	{PCI_VDEVICE(CCD,      PCI_DEVICE_ID_CCD_B701)			},
-+	{PCI_VDEVICE(ABOCOM,   PCI_DEVICE_ID_ABOCOM_2BD1)		},
-+	{PCI_VDEVICE(ASUSTEK,  PCI_DEVICE_ID_ASUSTEK_0675)		},
-+	{PCI_VDEVICE(BERKOM,   PCI_DEVICE_ID_BERKOM_T_CONCEPT)	},
-+	{PCI_VDEVICE(BERKOM,   PCI_DEVICE_ID_BERKOM_A1T)		},
-+	{PCI_VDEVICE(ANIGMA,   PCI_DEVICE_ID_ANIGMA_MC145575)	},
-+	{PCI_VDEVICE(ZOLTRIX,  PCI_DEVICE_ID_ZOLTRIX_2BD0)		},
-+	{PCI_VDEVICE(DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_E)	},
-+	{PCI_VDEVICE(DIGI,     PCI_DEVICE_ID_DIGI_DF_M_E)		},
-+	{PCI_VDEVICE(DIGI,     PCI_DEVICE_ID_DIGI_DF_M_IOM2_A)	},
-+	{PCI_VDEVICE(DIGI,     PCI_DEVICE_ID_DIGI_DF_M_A)		},
- #endif
- 	{ }				/* Terminating entry */
- };
--- 
-1.7.1
+Also I just pulled latest vanilla git, and I according to diffstat I see
+no changes in e1000e, so its likely that bug remains there.
+I will test that soon.
+
+
+
+Best regards,
+	Maxim Levitsky
+
 
