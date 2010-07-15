@@ -1,84 +1,55 @@
-From: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
-Subject: Re: oops in tcp_xmit_retransmit_queue() w/ v2.6.32.15
-Date: Thu, 15 Jul 2010 14:55:27 +0200
-Message-ID: <4C3F053F.7090704@nets.rwth-aachen.de>
-References: <4C358AAA.9080400@kernel.org> <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi> <4C3EF7EA.2040900@nets.rwth-aachen.de> <1279195528.2496.2.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] Question about tcp_sendmsg()
+Date: Thu, 15 Jul 2010 15:14:48 +0200
+Message-ID: <1279199688.2496.32.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
-	Tejun Heo <tj@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-i4.nets.RWTH-Aachen.DE ([137.226.12.21]:44298 "EHLO
-	MAIL-i4.nets.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933120Ab0GOMz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 08:55:29 -0400
-In-Reply-To: <1279195528.2496.2.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64547 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933202Ab0GONOw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 09:14:52 -0400
+Received: by wyb42 with SMTP id 42so695903wyb.19
+        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 06:14:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since tcp_xmit_retransmit_queue also gets skb =3D=3D NULL I'm pretty su=
-re it=20
-is the same bug.
-Up to now I only experienced the problem with ACK loss (without ACK los=
-s=20
-the test ran about 30min without problems, with ACK loss it had paniced=
-=20
-within 10min).
-The data sender only has a HTB queue for traffic shaping (set to 20=20
-Mbit/s). The ACK loss is done by another router.
-The setup looks like this. This way it seems to be the most realistic.
+While investigating for various bug reports in tcp stack, I looked at
+commit def87cf42069a (tcp: Slightly optimize tcp_sendmsg)
 
-o sender with HTB
-|
-|
-o netem queue for forward path delay
-|
-o netem queue for a queue limit
-|
-o netem queue for backward path delay
-|
-o netem queue for ACK loss
-|
-|
-o receiver with HTB
+One question I have is that the 
 
-Perhaps now it is a little big clearer.
+sg = sk->sk_route_caps & NETIF_F_SG;
+
+is now done at the beginning of tcp_sendmsg(), and kept in sg variable
+for the whole tcp_sendmsg() duration, even if task has to wait for
+space.
+
+Previously sk->sk_route_caps & NETIF_F_SG was done in select_size()
+itself.
+
+I am wondering if this can have a side effect, if SG capability changes
+while a thread has to wait in sk_stream_wait_memory(), and socket route
+changes (sk_route_caps flips NETIF_F_SG bit)
+
+Thanks
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 9fce8a8..8a4d9bd 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1093,6 +1093,7 @@ wait_for_memory:
+ 				goto do_error;
+ 
+ 			mss_now = tcp_send_mss(sk, &size_goal, flags);
++			sg = sk->sk_route_caps & NETIF_F_SG;
+ 		}
+ 	}
+ 
 
 
-On 15.07.2010 14:05, Eric Dumazet wrote:
-> Le jeudi 15 juillet 2010 =C3=A0 13:58 +0200, Lennart Schulte a =C3=A9=
-crit :
->   =20
->> I'm testing new reordering algorithms in a virtual testbed, that is =
-the
->> nodes are emulated with xen and all the network parameters can be tu=
-ned
->> with queues.
->> With one of the algorithms I also got tracebacks which include
->> tcp_xmit_retransmit_queue. It only happens with ACK loss. The kernel
->> version however is 2.6.31.
->> When I read this thread I tried the debug patch and got the followin=
-g:
->>
->> [ 2754.413150] NULL head, pkts 0
->> [ 2754.413156] Errors caught so far 1
->>
->> Hope that is of any help.
->>     =20
-> Not sure I understand.
->
-> Are you saying you reproduce same tcp_xmit_retransmit_queue()  bug, w=
-ith
-> a special tc qdisc/class droppping some ACK frames ?
->
-> Could it be some sched problem and incorrect return codes in case of
-> congestion ?
->   =20
