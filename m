@@ -1,79 +1,94 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH RFC] act_cpu: packet distributing
-Date: Fri, 16 Jul 2010 07:30:10 +0800
-Message-ID: <AANLkTiljdBpQkZAGybwFQtej-_j7sFtD72CTErT9TaOX@mail.gmail.com>
-References: <1279077475-2956-1-git-send-email-xiaosuo@gmail.com>
-	<1279078875.2444.103.camel@edumazet-laptop> <AANLkTimPmXWyAspJqnya7aM_vDRNzDdJJf2bl7CYrAXN@mail.gmail.com>
-	<1279198139.4510.710.camel@bigi> <1279212897.2496.133.camel@edumazet-laptop>
+From: Ben Greear <greearb@candelatech.com>
+Subject: igb:  2.6.34.1: kernel warning at igb_main.c:2080
+Date: Thu, 15 Jul 2010 16:56:46 -0700
+Message-ID: <4C3FA03E.9090802@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:50259 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933661Ab0GOXad convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 19:30:33 -0400
-Received: by vws5 with SMTP id 5so1789112vws.19
-        for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 16:30:32 -0700 (PDT)
-In-Reply-To: <1279212897.2496.133.camel@edumazet-laptop>
+Received: from mail.candelatech.com ([208.74.158.172]:44609 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934004Ab0GOX4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 19:56:47 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id o6FNukQA004984
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 16:56:46 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 16, 2010 at 12:54 AM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> Le jeudi 15 juillet 2010 =E0 08:48 -0400, jamal a =E9crit :
->>
->> RCU maybe a little trickier here Eric. Actions could be shared i.e.
->> example, it is possible to have a policer action restricting rates f=
-or a
->> group of flows =A0across multiple netdevices etc. Since action stats=
- get
->> written to by different CPUs concurrently. It could be probably done=
- if
->> one was to implement per-cpu stats which get summed-up when user spa=
-ce
->> asks.
->
-> It's certainly tricky, but is act_cpu useful in its current shape, ba=
-sed
-> on an infrastructure that had to use a lock because of exact
-> rates/accounting ?
->
-> I dont understand how distributing packets to different cpus, if goin=
-g
-> through a central lock can be an improvement. Changli patches are mos=
-t
-> of the time not documented, and no performance data is provided.
->
-The tcf_lock is per-instance, so I should not an issue here if the
-corresponding NIC isn't an multiqueue NIC or the instance is
-per-rx-queue. I agree
-the performance data is necessary and I'll publish it in the formal
-patch.
+We just saw this kernel warning on 2.6.34.1 + a few patches from the pending stable queue,
+plus our own hacks (though none to igb).
 
-> Even if we solve this locking problem, using percpu variables, act_cp=
-u
-> hits another problem :
->
-> The socket refcount, taken by the 'master' cpu, and released by the
-> consumer cpu.
-This is why I asked if I can assign sk to skb.
+We were running a modified version of pktgen traffic and at the same time
+bounced the port.
 
->
-> RFS provides sort of a lazy flow-based distribution without central l=
-ock
-> or cache line ping pongs. Why Changli dont use this, we dont know yet=
-=2E
->
-The fact is I don't know how to do this. I'll work on this issue later.
+This warning didn't seem to cause any real problems.
 
-Thanks.
+Please let us know if you would like any additional information.
+
+]# lspci|grep Ethern
+01:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network Connection
+02:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network Connection
+05:00.0 Ethernet controller: Intel Corporation 82575EB Gigabit Network Connection (rev 02)
+05:00.1 Ethernet controller: Intel Corporation 82575EB Gigabit Network Connection (rev 02)
+06:00.0 Ethernet controller: Intel Corporation 82575EB Gigabit Network Connection (rev 02)
+06:00.1 Ethernet controller: Intel Corporation 82575EB Gigabit Network Connection (rev 02)
 
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Jul 15 16:36:01 localhost kernel: ------------[ cut here ]------------
+Jul 15 16:36:01 localhost kernel: WARNING: at /home/greearb/git/linux-2.6.dev.34.y/drivers/net/igb/igb_main.c:2080 igb_close+0x28/0x9f [igb]()
+Jul 15 16:36:01 localhost kernel: Hardware name: X8STi
+Jul 15 16:36:01 localhost kernel: Modules linked in: bridge arc4 michael_mic wanlink(P) 8021q garp xt_CT iptable_raw ipt_addrtype xt_DSCP xt_dscp xt_string 
+xt_owner xt_NFQUEUE xt_multiport xt_mark xt_iprange xt_hashlimit xt_CONNMARK xt_connmark stp llc veth fuse macvlan bpctl_mod pktgen iscsi_tcp libiscsi_tcp 
+libiscsi scsi_transport_iscsi nfs lockd fscache nfs_acl auth_rpcgss sunrpc ipv6 dm_multipath uinput i2c_i801 iTCO_wdt i2c_core ioatdma e1000e igb pcspkr 
+iTCO_vendor_support dca ata_generic pata_acpi [last unloaded: nf_nat]
+Jul 15 16:36:01 localhost kernel: Pid: 17516, comm: ip Tainted: P           2.6.34.1 #2
+Jul 15 16:36:01 localhost kernel: Call Trace:
+Jul 15 16:36:01 localhost kernel: [<ffffffffa002a37f>] ? igb_close+0x28/0x9f [igb]
+Jul 15 16:36:01 localhost kernel: [<ffffffff81041bb6>] warn_slowpath_common+0x77/0x8f
+Jul 15 16:36:01 localhost kernel: [<ffffffff81041bdd>] warn_slowpath_null+0xf/0x11
+Jul 15 16:36:01 localhost kernel: [<ffffffffa002a37f>] igb_close+0x28/0x9f [igb]
+Jul 15 16:36:01 localhost kernel: [<ffffffff8133c626>] __dev_close+0x73/0x86
+Jul 15 16:36:01 localhost kernel: [<ffffffff8133a719>] __dev_change_flags+0xa8/0x12b
+Jul 15 16:36:01 localhost kernel: [<ffffffff8133c2aa>] dev_change_flags+0x1c/0x51
+Jul 15 16:36:01 localhost kernel: [<ffffffff813466bc>] do_setlink+0x273/0x482
+Jul 15 16:36:01 localhost kernel: [<ffffffff810ab1bb>] ? zone_statistics+0x5e/0x63
+Jul 15 16:36:01 localhost kernel: [<ffffffff8134755e>] rtnl_newlink+0x26c/0x422
+Jul 15 16:36:01 localhost kernel: [<ffffffff81345a06>] ? nla_nest_start+0x1d/0x31
+Jul 15 16:36:01 localhost kernel: [<ffffffff810ca997>] ? virt_to_head_page+0x9/0x2a
+Jul 15 16:36:01 localhost kernel: [<ffffffff813dd1f5>] ? __mutex_lock_common+0x38e/0x3ac
+Jul 15 16:36:01 localhost kernel: [<ffffffff81346ffb>] rtnetlink_rcv_msg+0x1d9/0x1f7
+Jul 15 16:36:01 localhost kernel: [<ffffffff81346e22>] ? rtnetlink_rcv_msg+0x0/0x1f7
+Jul 15 16:36:01 localhost kernel: [<ffffffff81356939>] netlink_rcv_skb+0x3e/0x8e
+Jul 15 16:36:01 localhost kernel: [<ffffffff81346cc9>] rtnetlink_rcv+0x20/0x29
+Jul 15 16:36:01 localhost kernel: [<ffffffff813567b2>] netlink_unicast+0xea/0x151
+Jul 15 16:36:01 localhost kernel: [<ffffffff8133545c>] ? memcpy_fromiovec+0x42/0x73
+Jul 15 16:36:01 localhost kernel: [<ffffffff81357bc8>] netlink_sendmsg+0x242/0x255
+Jul 15 16:36:01 localhost kernel: [<ffffffff8132a771>] ? __sock_recvmsg_nosec+0x29/0x2b
+Jul 15 16:36:01 localhost kernel: [<ffffffff8132bd02>] __sock_sendmsg+0x56/0x5f
+Jul 15 16:36:01 localhost kernel: [<ffffffff8132c127>] sock_sendmsg+0xa3/0xbc
+Jul 15 16:36:01 localhost kernel: [<ffffffff813351e5>] ? copy_from_user+0x28/0x30
+Jul 15 16:36:01 localhost kernel: [<ffffffff8133555e>] ? verify_iovec+0x52/0x95
+Jul 15 16:36:01 localhost kernel: [<ffffffff8132c368>] sys_sendmsg+0x1c6/0x22a
+Jul 15 16:36:01 localhost kernel: [<ffffffff810a277f>] ? lru_cache_add_lru+0x38/0x3d
+Jul 15 16:36:01 localhost kernel: [<ffffffff813de23e>] ? _raw_spin_unlock+0x2d/0x38
+Jul 15 16:36:01 localhost kernel: [<ffffffff810ad802>] ? spin_unlock+0x9/0xb
+Jul 15 16:36:01 localhost kernel: [<ffffffff810b0138>] ? handle_mm_fault+0x6d3/0x6f3
+Jul 15 16:36:01 localhost kernel: [<ffffffff810b3a0a>] ? __vma_link_rb+0x2b/0x2d
+Jul 15 16:36:01 localhost kernel: [<ffffffff810b45f7>] ? vma_link+0xcd/0xcf
+Jul 15 16:36:01 localhost kernel: [<ffffffff810d9369>] ? fget_light+0x39/0x87
+Jul 15 16:36:01 localhost kernel: [<ffffffff81083b91>] ? audit_syscall_entry+0xfe/0x12a
+Jul 15 16:36:01 localhost kernel: [<ffffffff81009ac2>] system_call_fastpath+0x16/0x1b
+Jul 15 16:36:01 localhost kernel: ---[ end trace 75242fae6dbfdf6d ]---
+
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
