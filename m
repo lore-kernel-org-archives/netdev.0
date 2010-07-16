@@ -1,108 +1,220 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
-Date: Fri, 16 Jul 2010 17:52:35 +0200
-Message-ID: <1279295555.2549.244.camel@edumazet-laptop>
-References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
-	 <AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
-	 <1278626921.2435.73.camel@edumazet-laptop>
-	 <AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
-	 <1278695580.2696.55.camel@edumazet-laptop>
-	 <AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
-	 <1278742649.2538.17.camel@edumazet-laptop> <4C395459.6080407@redhat.com>
-	 <1278835332.2538.51.camel@edumazet-laptop>
-	 <AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
-	 <AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
-	 <AANLkTimn9x17g-4K7fS4MjmCgzHuBARurEoFVd_gId7m@mail.gmail.com>
-	 <1279032023.2634.384.camel@edumazet-laptop>
-	 <AANLkTilrIByt4xAHhsBsKo3nDfv0_c3sF-dCiTiYiPnu@mail.gmail.com>
-	 <1279036193.2634.468.camel@edumazet-laptop>
-	 <AANLkTilgxvDPpBJvwbw3PHZfXDaa2_6-TbJ8lujz5y3V@mail.gmail.com>
-	 <1279077678.2444.95.camel@edumazet-laptop>
-	 <AANLkTikkcaionMp3SJLgo3JmCjxQ7rPZv3-3_RbxCx_4@mail.gmail.com>
-	 <AANLkTik3Lf9IbgFiagZ-oTDsqzHhhuH2B0DL6PFyZVeV@mail.gmail.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [RFC] LSM hook for post recvmsg.
+Date: Sat, 17 Jul 2010 01:14:38 +0900
+Message-ID: <201007170114.GFC57373.SQJHOVtLFMOFFO@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Felipe W Damasio <felipewd@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTik3Lf9IbgFiagZ-oTDsqzHhhuH2B0DL6PFyZVeV@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:51384 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965948Ab0GPQOm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jul 2010 12:14:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 16 juillet 2010 =C3=A0 12:41 -0300, Felipe W Damasio a =C3=A9=
-crit :
-> Hi All,
->=20
-> 2010/7/14 Felipe W Damasio <felipewd@gmail.com>:
-> > Hi Mr. Dumazet,
-> >
-> > 2010/7/14 Eric Dumazet <eric.dumazet@gmail.com>:
-> >> RDX being the sk pointer (and sk+0x38 contains the corrupted "sk_p=
-rot" value)
-> >> , we notice RBP contains same "sk" value + 0x200000  (2 Mbytes).
-> >>
-> >> (same remark on your initial bug report)
-> >>
-> >> Could you enable CONFIG_FRAME_POINTER=3Dy in your config ?
->=20
-> I did, this is the new bug:
->=20
-> general protection fault: 0000 [#1] SMP
-> last sysfs file: /sys/devices/pci0000:00/0000:00:1f.3/i2c-0/name
-> CPU 2
-> Modules linked in: e1000e
->=20
-> Pid: 4209, comm: squid Not tainted 2.6.34 #4 DX58SO/
-> RIP: 0010:[<ffffffff8137a887>]  [<ffffffff8137a887>] sock_rfree+0x2a/=
-0x3c
-> RSP: 0018:ffff88042d781ba8  EFLAGS: 00010282
-> RAX: 9a7e7f4602400d48 RBX: ffff88034c918e00 RCX: 0000000000000720
-> RDX: ffff880413a82e00 RSI: ffff8804161e5e2a RDI: ffff88034c918e00
-> RBP: ffff88042d781ba8 R08: ffff88042d781b98 R09: 0000000000000000
-> R10: 0000000000040570 R11: 0000000000000000 R12: ffff880413882e00
-> R13: 00000000000005a8 R14: 00000000000005a8 R15: 000000000000a84d
-> FS:  00007f9aa0007710(0000) GS:ffff880001a80000(0000) knlGS:000000000=
-0000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 00007f11f831f020 CR3: 000000042d5f8000 CR4: 00000000000006e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process squid (pid: 4209, threadinfo ffff88042d780000, task ffff88042=
-e325620)
-> Stack:
->  ffff88042d781bc8 ffffffff8137fda0 ffff880413882e00 ffff88034c918e00
-> <0> ffff88042d781be8 ffffffff8137fb3b ffff88034c918e00 ffff88034c918e=
-00
-> <0> ffff88042d781cd8 ffffffff813be69b ffff88042d781c38 ffffffff813c76=
-e4
-> Call Trace:
->  [<ffffffff8137fda0>] skb_release_head_state+0x75/0xc0
->  [<ffffffff8137fb3b>] __kfree_skb+0x11/0x86
->  [<ffffffff813be69b>] tcp_recvmsg+0x6b9/0x8be
->  [<ffffffff813c76e4>] ? tcp_current_mss+0x46/0x65
->  [<ffffffff8137ab89>] sock_common_recvmsg+0x32/0x47
->  [<ffffffff811bafb6>] ? selinux_socket_recvmsg+0x1d/0x1f
->  [<ffffffff81378752>] __sock_recvmsg+0x6a/0x76
->  [<ffffffff81378847>] sock_aio_read+0xe9/0x102
->  [<ffffffff811b9d68>] ? avc_has_perm+0x4e/0x60
->  [<ffffffff810b63f6>] do_sync_read+0xc7/0x10d
->  [<ffffffff811bdb17>] ? selinux_file_permission+0xa5/0xb2
->  [<ffffffff811b7917>] ? security_file_permission+0x11/0x13
->  [<ffffffff810b6e7b>] vfs_read+0xbb/0x102
->  [<ffffffff810b6f86>] sys_read+0x47/0x70
->  [<ffffffff810029eb>] system_call_fastpath+0x16/0x1b
-> Code: c3 48 8b 57 18 55 8b 87 d8 00 00 00 48 89 e5 48 8d 8a ac 00 00
-> 00 f0 29 82 ac 00 00 00 48 8b 57 18 8b 8f d8 00 00 00 48 8b 42 38 <48=
->
-> 83 b8 b0 00 00 00 00 74 06 01 8a f4 00 00 00 c9 c3 55 48 89
-> RIP  [<ffffffff8137a887>] sock_rfree+0x2a/0x3c
->  RSP <ffff88042d781ba8>
-> ---[ end trace 8932efc1ba58ce6e ]---
->=20
-> Does this tell you anything?
->=20
+Hello, David. Thank you for giving me suggestions at Japan Linux Symposium 2009.
+As TOMOYO is getting functional and AppArmor is about to join mainline, I'd like
+to resume discussions regarding LSM hooks for post accept()/recvmsg() operations.
 
-Could you privatly send me the vmlinux file ?
+Below is a patch for post recvmsg() operation. I modified the patch to call
+skb_recv_datagram() again (for udp_recvmsg(), raw_recvmsg(), udpv6_recvmsg())
+if LSM dicided to drop the message. (Regarding rawv6_recvmsg(), I didn't do so
+in accordance with the comment at "csum_copy_err:".)
+What do you think about this verion?
+
+Regards.
+
+diff --git a/include/linux/security.h b/include/linux/security.h
+index 723a93d..409c44d 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -879,6 +879,12 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+  *	@size contains the size of message structure.
+  *	@flags contains the operational flags.
+  *	Return 0 if permission is granted.
++ * @socket_post_recvmsg:
++ *	Check permission after receiving a message from a socket.
++ *	The message is discarded if permission is not granted.
++ *	@sk contains the sock structure.
++ *	@skb contains the sk_buff structure.
++ *	Return 0 if permission is granted.
+  * @socket_getsockname:
+  *	Check permission before the local address (name) of the socket object
+  *	@sock is retrieved.
+@@ -1575,6 +1581,7 @@ struct security_operations {
+ 			       struct msghdr *msg, int size);
+ 	int (*socket_recvmsg) (struct socket *sock,
+ 			       struct msghdr *msg, int size, int flags);
++	int (*socket_post_recvmsg) (struct sock *sk, struct sk_buff *skb);
+ 	int (*socket_getsockname) (struct socket *sock);
+ 	int (*socket_getpeername) (struct socket *sock);
+ 	int (*socket_getsockopt) (struct socket *sock, int level, int optname);
+@@ -2526,6 +2533,7 @@ int security_socket_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
++int security_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb);
+ int security_socket_getsockname(struct socket *sock);
+ int security_socket_getpeername(struct socket *sock);
+ int security_socket_getsockopt(struct socket *sock, int level, int optname);
+@@ -2617,6 +2625,12 @@ static inline int security_socket_recvmsg(struct socket *sock,
+ 	return 0;
+ }
+ 
++static inline int security_socket_post_recvmsg(struct sock *sk,
++					       struct sk_buff *skb)
++{
++	return 0;
++}
++
+ static inline int security_socket_getsockname(struct socket *sock)
+ {
+ 	return 0;
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 2c7a163..69652d4 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -676,9 +676,15 @@ static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		goto out;
+ 	}
+ 
+-	skb = skb_recv_datagram(sk, flags, noblock, &err);
+-	if (!skb)
+-		goto out;
++	for (;;) {
++		skb = skb_recv_datagram(sk, flags, noblock, &err);
++		if (!skb)
++			goto out;
++		err = security_socket_post_recvmsg(sk, skb);
++		if (likely(!err))
++			break;
++		skb_kill_datagram(sk, skb, flags);
++	}
+ 
+ 	copied = skb->len;
+ 	if (len < copied) {
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 5858574..9145685 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1125,6 +1125,7 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	int err;
+ 	int is_udplite = IS_UDPLITE(sk);
+ 	bool slow;
++	bool update_stat;
+ 
+ 	/*
+ 	 *	Check any passed addresses
+@@ -1140,6 +1141,12 @@ try_again:
+ 				  &peeked, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recvmsg(sk, skb);
++	if (err) {
++		update_stat = false;
++		goto csum_copy_err;
++	}
++	update_stat = true;
+ 
+ 	ulen = skb->len - sizeof(struct udphdr);
+ 	if (len > ulen)
+@@ -1200,7 +1207,7 @@ out:
+ 
+ csum_copy_err:
+ 	slow = lock_sock_fast(sk);
+-	if (!skb_kill_datagram(sk, skb, flags))
++	if (!skb_kill_datagram(sk, skb, flags) && update_stat)
+ 		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 	unlock_sock_fast(sk, slow);
+ 
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 4a4dcbe..135d4ed 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -467,6 +467,9 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recvmsg(sk, skb);
++	if (unlikely(err))
++		goto csum_copy_err;
+ 
+ 	copied = skb->len;
+ 	if (copied > len) {
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 87be586..6cae276 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -329,6 +329,7 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	int is_udplite = IS_UDPLITE(sk);
+ 	int is_udp4;
+ 	bool slow;
++	bool update_stat;
+ 
+ 	if (addr_len)
+ 		*addr_len=sizeof(struct sockaddr_in6);
+@@ -344,6 +345,12 @@ try_again:
+ 				  &peeked, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recvmsg(sk, skb);
++	if (err) {
++		update_stat = false;
++		goto csum_copy_err;
++	}
++	update_stat = true;
+ 
+ 	ulen = skb->len - sizeof(struct udphdr);
+ 	if (len > ulen)
+@@ -426,7 +433,7 @@ out:
+ 
+ csum_copy_err:
+ 	slow = lock_sock_fast(sk);
+-	if (!skb_kill_datagram(sk, skb, flags)) {
++	if (!skb_kill_datagram(sk, skb, flags) && update_stat) {
+ 		if (is_udp4)
+ 			UDP_INC_STATS_USER(sock_net(sk),
+ 					UDP_MIB_INERRORS, is_udplite);
+diff --git a/security/capability.c b/security/capability.c
+index 4aeb699..709aea3 100644
+--- a/security/capability.c
++++ b/security/capability.c
+@@ -597,6 +597,11 @@ static int cap_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 	return 0;
+ }
+ 
++static int cap_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb)
++{
++	return 0;
++}
++
+ static int cap_socket_getsockname(struct socket *sock)
+ {
+ 	return 0;
+@@ -1001,6 +1006,7 @@ void __init security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, socket_accept);
+ 	set_to_cap_if_null(ops, socket_sendmsg);
+ 	set_to_cap_if_null(ops, socket_recvmsg);
++	set_to_cap_if_null(ops, socket_post_recvmsg);
+ 	set_to_cap_if_null(ops, socket_getsockname);
+ 	set_to_cap_if_null(ops, socket_getpeername);
+ 	set_to_cap_if_null(ops, socket_setsockopt);
+diff --git a/security/security.c b/security/security.c
+index e8c87b8..4291bd7 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -1037,6 +1037,12 @@ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 	return security_ops->socket_recvmsg(sock, msg, size, flags);
+ }
+ 
++int security_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb)
++{
++	return security_ops->socket_post_recvmsg(sk, skb);
++}
++EXPORT_SYMBOL(security_socket_post_recvmsg);
++
+ int security_socket_getsockname(struct socket *sock)
+ {
+ 	return security_ops->socket_getsockname(sock);
