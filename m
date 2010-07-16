@@ -1,23 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 22/25] mISDN: Convert pci_table entries to PCI_VDEVICE
- (if PCI_ANY_ID is used)
-Date: Thu, 15 Jul 2010 19:07:16 -0700 (PDT)
-Message-ID: <20100715.190716.102544882.davem@davemloft.net>
-References: <201007152105.39404.PeterHuewe@gmx.de>
+Subject: Re: [PATCH 23/25] isdn/hisax: Convert pci_table entries to
+ PCI_VDEVICE (if PCI_ANY_ID is used)
+Date: Thu, 15 Jul 2010 19:07:22 -0700 (PDT)
+Message-ID: <20100715.190722.179928719.davem@davemloft.net>
+References: <201007152107.31524.PeterHuewe@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, isdn@linux-pingi.de,
-	akpm@linux-foundation.org, jkosina@suse.cz, roel.kluin@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+	tj@kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: PeterHuewe@gmx.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201007152105.39404.PeterHuewe@gmx.de>
+In-Reply-To: <201007152107.31524.PeterHuewe@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Peter Huewe <PeterHuewe@gmx.de>
-Date: Thu, 15 Jul 2010 21:05:38 +0200
+Date: Thu, 15 Jul 2010 21:07:30 +0200
 
 > From: Peter Huewe <peterhuewe@gmx.de>
 > 
