@@ -1,59 +1,162 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH RFC] act_cpu: packet distributing
-Date: Fri, 16 Jul 2010 09:16:08 -0400
-Message-ID: <1279286168.4303.118.camel@bigi>
-References: <1279077475-2956-1-git-send-email-xiaosuo@gmail.com>
-	 <1279078875.2444.103.camel@edumazet-laptop>
-	 <AANLkTimPmXWyAspJqnya7aM_vDRNzDdJJf2bl7CYrAXN@mail.gmail.com>
-	 <1279198139.4510.710.camel@bigi>
-	 <1279212897.2496.133.camel@edumazet-laptop>
-	 <AANLkTiljdBpQkZAGybwFQtej-_j7sFtD72CTErT9TaOX@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Chetan Loke <chetanloke@gmail.com>
+Subject: [RFC] Enhance dev_ioctl to return <hwaddr>:<if_name::if_index>
+	mapping
+Date: Fri, 16 Jul 2010 09:18:04 -0400
+Message-ID: <AANLkTinxLy2noL0GcZyVtMsEndxseCr6kkxuvyBNIfHr@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: chetanloke@gmail.com, "Loke, Chetan" <chetan.loke@netscout.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f174.google.com ([209.85.161.174]:60645 "EHLO
-	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965234Ab0GPNQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 09:16:11 -0400
-Received: by gxk23 with SMTP id 23so1189294gxk.19
-        for <netdev@vger.kernel.org>; Fri, 16 Jul 2010 06:16:11 -0700 (PDT)
-In-Reply-To: <AANLkTiljdBpQkZAGybwFQtej-_j7sFtD72CTErT9TaOX@mail.gmail.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:36623 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965485Ab0GPNSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 09:18:05 -0400
+Received: by vws5 with SMTP id 5so2516124vws.19
+        for <netdev@vger.kernel.org>; Fri, 16 Jul 2010 06:18:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-07-16 at 07:30 +0800, Changli Gao wrote:
+Hello All,
 
-> The tcf_lock is per-instance, so I should not an issue here if the
-> corresponding NIC isn't an multiqueue NIC or the instance is
-> per-rx-queue. 
+I meant to 'CC' netdev earlier(http://lkml.org/lkml/2010/7/15/334).
+Please 'CC' me.
 
-It has more to do with config. Actions can be explicitly pointed to 
-using the index parameter. Example for configuring two flows using an
-aggregate rate with a policer instance 1:
-tc filter add dev eth0 ... u32 flow1 action police blah index 1
-tc filter add dev eth2 .... u32 flow2 action police blah index 1
+LKML Post:
+http://kerneltrap.org/mailarchive/linux-kernel/2010/7/12/4592938
 
-If you dont configure it such that multiple tc flows share the same
-action as above, then likely the same cpu will always grab the lock. It
-is still costly as Eric points out - but i will be very curious to find
-out the results.
 
-> I agree
-> the performance data is necessary and I'll publish it in the formal
-> patch.
+This proposal will provide the ability to shoot an
+(early?/prep-time?)'ioctl' via an 'ethX'
+agnostic naming scheme.
 
-If you do this, please compare against rps and non-rps and then i feel
-motivated to volunteer to create a setup (not in July unfortunately) to
-do a similar test on your code and compare against rps on a
-nehalem-with-shitty-sky2 that i can get time on.
+Requirement:
+R1)Ability to address NICs/interfaces using a mac-addr in ioctls. This
+is required because we don't have a consistent naming scheme for
+Ethernet devices.Asking customers and/or field-engineers to change
+udev rules and
+other config files is not feasible.
 
-cheers,
-jamal
+Existing pain-points:
+P1) ioctl needs either i) if-name or ii) if-index before we can invoke
+bind() etc.This works fine if you know your configuration and it is not going
+to change.However,if we hot-add a NIC and if you have adapters from multiple
+vendors(think:driver load order) then upon a reboot,the 'eth'
+interfaces can be re-mapped.
 
+Existing work-around(s):
+W1) user-apps scan /sys/class/net/ethX/address nodes, grep the hw-addrs
+till they find a hwaddr-match and then internally create a hwaddr-ethX
+mapping table.
+W2) change udev-70..persistent rules file and 'rename' the interfaces
+according to your needs.
+  W2.1) If renaming were to even succeed then none of the existing
+drivers re-register their msix-vectors.
+  NETDEV_RENAME(or _CHANGE ) handler in the driver does not tear down
+the interrupts etc.Some of the sample msix-vectors are as follows : ethX-rx-0,
+ethX-rx-1 ... ethX-rx-N
+  So if the interface is renamed then how do we measure/correlate the
+interrupt-count?
+
+But there is no programmatic way of deriving the 'ethX' name. I got a
+few offline replies to the above post, asking me to continue using W1)
+from above.Sorry but that was an ugly hack. Also why not replace the
+get-ioctls to a 'sys' read everywhere?? ;).
+
+Solution/Proposal:
+S1)   Introduce a new ioctl(SIOCGHWADDR_TO_IFNAMEINDEX_MAP[or pick your
+name])
+S1.1) Enhance dev_ioctl to handle this new case.
+S1.2  Re-use for_each_netdev_rcu::is_etherdev_addr(this will iterate
+through dev_addrs). By using the above for_each loop we don't need to
+re-invent the
+wheel.
+
+Input(ifr->hw_addr) : output -> if_name and if_index if ifr->hw_addr is
+found.
+
+This way an app can first shoot down an ioctl(sock_fd,
+SIOCGHWADDR_TO_IFNAMEINDEX_MAP,ifr), where ifr.ifr_hwaddr is populated
+w/ the mac_addr whose mapping you would like.
+Then once the if_name and if_index is known, using other ioctls is easy.
+
+
+Please review the proposal and the sample code below. If this is not a
+good approach and if there is a simple workaround then please let me
+know.
+
+
+Regards
+Chetan Loke
+
+
+----------------------------------------------------------
+
+Sample code(PS- I used a quick and dirty driver to demonstrate the
+concept rather than modifying the kernel)
+
+
+Copyright NetScout Systems
+Chetan Loke <loke.c@alumni.neu.edu>
+
+struct foo {
+      char name[IFNAMSIZ];
+      int  index;
+};
+
+/* shamelessly copied from compare_etherdev */
+/* eventually is_etherdev_equal will be called by dev_ioctl */
+int ntct_is_etherdev_equal(u16 *a,u16 *b) {
+      return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) == 0;
+}
+
+/* eventually enhance dev_ioctl */
+int _do_ioctl(unsigned long arg) {
+
+      struct foo my_foo;
+      struct net_device *dev;
+      int ret=0;
+      int found=0;
+      int i=0;
+
+      /* eventually sent via
+ioctl(sock_fd)->SIOCG_HWADDR_TO_NAMEIDX_MAP and ifr->hw_addr */
+      unsigned char mac_addr[]={0x00,0x50,0x56,0xBB,0x52,0xF7};
+
+      /* eventually use rcu_read_lock(); */
+      read_lock(&dev_base_lock);
+
+      /* 2.6.31 doesn't have this defined. eventually use
+for_each_netdev_rcu. */
+      for_each_netdev(&init_net, dev) {
+              dev_hold(dev);
+
+              /* eventually use is_etherdev_addr(addr1,addr2) */
+              ret = ntct_is_etherdev_equal((u16 *)dev->dev_addr,(u16*)mac_addr);
+              if (ret) {
+                      printk("<%s> Found
+eth-if:%sifindex:%d\n",__func__,dev->name,dev->ifindex);
+                      printk("Mac:");
+                      for (i=0;i<ETH_ALEN;i++)
+                              printk("%02x%c",(unsigned
+char)dev->dev_addr[i],((i < 5)? ':':' '));
+                      printk("\n");
+                      strcpy(my_foo.name,dev->name);
+                      my_foo.index=dev->ifindex;
+                      dev_put(dev);
+                      found=1;
+                      break;
+              }
+              dev_put(dev);
+      }
+
+      /* eventually use rcu_read_unlock(); */
+      read_unlock(&dev_base_lock);
+
+      if (!found) {
+              printk("<%s> hwaddr<->name mapping not found\n",__func__);
+              return -EINVAL;
+      }
+
+      return copy_to_user((char *)arg,&my_foo,sizeof(struct foo)) ? -EFAULT : 0;
+}
