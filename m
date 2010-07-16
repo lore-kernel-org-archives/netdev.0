@@ -1,73 +1,83 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [ipmr] ipmr:  Don't leak memory if fib lookup fails.
-Date: Thu, 15 Jul 2010 17:04:58 -0700
-Message-ID: <4C3FA22A.7090706@candelatech.com>
-References: <1279236153-23699-1-git-send-email-greearb@candelatech.com>
+From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
+Subject: Re: Raise initial congestion window size / speedup slow start?
+Date: Thu, 15 Jul 2010 17:23:40 -0700
+Message-ID: <AANLkTikLBZ7E7iUR8fibVoYPDi5JBgC53tH6FMy1f8yZ@mail.gmail.com>
+References: <4C3E0684.5060409@wildgooses.com>
+	<4C3E1B54.40604@hp.com>
+	<20100714203919.GD6682@nuttenaction>
+	<20100714.145547.102555471.davem@davemloft.net>
+	<20100714221301.GI6682@nuttenaction>
+	<20100714234917.924f420d.billfink@mindspring.com>
+	<AANLkTinbtGuMTPNyJqJtx_bqfQDPqbA1XqjhLe_pj1mX@mail.gmail.com>
+	<4C3F66BA.8010002@hp.com>
+	<20100715134857.38d519c5@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:40942 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934010Ab0GPAFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 20:05:03 -0400
-In-Reply-To: <1279236153-23699-1-git-send-email-greearb@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Bill Fink <billfink@mindspring.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	David Miller <davem@davemloft.net>, lists@wildgooses.com,
+	davidsen@tmr.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100715134857.38d519c5@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/15/2010 04:22 PM, Ben Greear wrote:
-> This was detected using two mcast router tables.  The
-> pimreg for the second interface did not have a specific
-> mrule, so packets received by it were handled by the
-> default table, which had nothing configured.
+I don't even consider a modest IW increase to 10 is aggressive. The sca=
+ling
+of IW is only adequate IMO given the huge b/w growth in the past
+decade. Remember there could be plenty of flows sending large cwnd
+bursts at
+twice the bottleneck link rate at any point of time in the network anyw=
+ay so
+the "fairness" question may already be ill-defined. In any case we're
+trying to conduct some experiment in a private testbed to hopefully
+get some insights
+with real data.
 
-I just realized this should be applied against 2.6.35-pre, not 2.6.34.
+Jerry
 
-Thanks,
-Ben
-
-> This caused the ipmr_fib_lookup to fail, causing
-> the memory leak.
+On Thu, Jul 15, 2010 at 1:48 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> On Thu, 15 Jul 2010 12:51:22 -0700
+> Rick Jones <rick.jones2@hp.com> wrote:
 >
-> Signed-off-by: Ben Greear<greearb@candelatech.com>
-> ---
-> :100644 100644 ed2f911... f112ad8... M	net/ipv4/ipmr.c
->   net/ipv4/ipmr.c |    8 ++++++--
->   1 files changed, 6 insertions(+), 2 deletions(-)
+>> I have to wonder if the only heuristic one could employ for divining=
+ the initial
+>> congestion window is to be either pessimistic/conservative or
+>> optimistic/liberal. =A0Or for that matter the only one one really ne=
+eds here?
+>>
+>> That's what it comes down to doesn't it? =A0At any one point in time=
+, we don't
+>> *really* know the state of the network and whether it can handle the=
+ load we
+>> might wish to put upon it. =A0We are always reacting to it. Up until=
+ now, it has
+>> been felt necessary to be pessimistic/conservative at time of connec=
+tion
+>> establishment and not rely as much on the robustness of the "control=
+" part of
+>> avoidance and control.
+>>
+>> Now, the folks at Google have lots of data to suggest we don't need =
+to be so
+>> pessimistic/conservative and so we have to decide if we are willing =
+to be more
+>> optimistic/liberal. =A0Broadly handwaving, the "netdev we" seems to =
+be willing to
+>> be more optimistic/liberal in at least a few cases, and the question=
+ comes down
+>> to whether or not the "IETF we" will be similarly willing.
 >
-> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-> index ed2f911..f112ad8 100644
-> --- a/net/ipv4/ipmr.c
-> +++ b/net/ipv4/ipmr.c
-> @@ -442,8 +442,10 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb, struct net_device *dev)
->   	int err;
+> I am not convinced that a host being aggressive with initial cwnd (Li=
+nux) would
+> not end up unfairly monopolizing available bandwidth compared to olde=
+r more conservative
+> implementations (Windows). Whether fairness is important or not is an=
+other debate.
 >
->   	err = ipmr_fib_lookup(net,&fl,&mrt);
-> -	if (err<  0)
-> +	if (err<  0) {
-> +		kfree_skb(skb);
->   		return err;
-> +	}
 >
->   	read_lock(&mrt_lock);
->   	dev->stats.tx_bytes += skb->len;
-> @@ -1729,8 +1731,10 @@ int ip_mr_input(struct sk_buff *skb)
->   		goto dont_forward;
->
->   	err = ipmr_fib_lookup(net,&skb_rtable(skb)->fl,&mrt);
-> -	if (err<  0)
-> +	if (err<  0) {
-> +		kfree_skb(skb);
->   		return err;
-> +	}
->
->   	if (!local) {
->   		    if (IPCB(skb)->opt.router_alert) {
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
