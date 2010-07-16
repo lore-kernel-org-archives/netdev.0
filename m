@@ -1,100 +1,108 @@
-From: Gertjan van Wingerde <gwingerde@gmail.com>
-Subject: Re: [PATCH 01/11] Removing dead RT2800PCI_SOC
-Date: Fri, 16 Jul 2010 17:46:28 +0200
-Message-ID: <4C407ED4.6000002@gmail.com>
-References: <cover.1279110894.git.siccegge@cs.fau.de>	<20100714131527.GB2352@tuxdriver.com>	<4C3DCD5C.1080705@openwrt.org>	<201007151041.55112.bzolnier@gmail.com>	<AANLkTilqoYMMKYJT-YYbEzdnytUSYa0EylEiJ4x5xXXH@mail.gmail.com>	<4C4007CD.2070504@gmail.com> <AANLkTik8M0gNipi_rwVJYbmo_3FfdHs-H4H_XDgTcbhI@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Fri, 16 Jul 2010 17:52:35 +0200
+Message-ID: <1279295555.2549.244.camel@edumazet-laptop>
+References: <AANLkTimn8A0cYZmwNZYitRkBHKKFe4HQ5GU626DLugkk@mail.gmail.com>
+	 <AANLkTil49m6Ul2bauiH4Pwn-6ykrYTFmSO6_SxqQgD_e@mail.gmail.com>
+	 <1278626921.2435.73.camel@edumazet-laptop>
+	 <AANLkTiliBClahTfb41M5BDi1etg5pgkqEz_VfGrn_mK4@mail.gmail.com>
+	 <1278695580.2696.55.camel@edumazet-laptop>
+	 <AANLkTil39xHOhcdAo4h_jWtx_UuYdFHGdQVAdwPMd7QJ@mail.gmail.com>
+	 <1278742649.2538.17.camel@edumazet-laptop> <4C395459.6080407@redhat.com>
+	 <1278835332.2538.51.camel@edumazet-laptop>
+	 <AANLkTikEGuFtTlIKUfti6GDsdBz99PpKRCs5lEeEM86u@mail.gmail.com>
+	 <AANLkTilbEkJWPqvJE72r9HdFQSU84S02BKZB0CH-8QwB@mail.gmail.com>
+	 <AANLkTimn9x17g-4K7fS4MjmCgzHuBARurEoFVd_gId7m@mail.gmail.com>
+	 <1279032023.2634.384.camel@edumazet-laptop>
+	 <AANLkTilrIByt4xAHhsBsKo3nDfv0_c3sF-dCiTiYiPnu@mail.gmail.com>
+	 <1279036193.2634.468.camel@edumazet-laptop>
+	 <AANLkTilgxvDPpBJvwbw3PHZfXDaa2_6-TbJ8lujz5y3V@mail.gmail.com>
+	 <1279077678.2444.95.camel@edumazet-laptop>
+	 <AANLkTikkcaionMp3SJLgo3JmCjxQ7rPZv3-3_RbxCx_4@mail.gmail.com>
+	 <AANLkTik3Lf9IbgFiagZ-oTDsqzHhhuH2B0DL6PFyZVeV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Ivo Van Doorn <ivdoorn@gmail.com>,
-	Christoph Egger <siccegge@cs.fau.de>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vamos-dev@i4.informatik.uni-erlangen.de,
-	Luis Correia <luis.f.correia@gmail.com>
-To: Helmut Schaa <helmut.schaa@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpb-ews05.kpnxchange.com ([213.75.39.8]:4219 "EHLO
-	cpsmtpb-ews05.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965833Ab0GPPqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 11:46:31 -0400
-In-Reply-To: <AANLkTik8M0gNipi_rwVJYbmo_3FfdHs-H4H_XDgTcbhI@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Felipe W Damasio <felipewd@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTik3Lf9IbgFiagZ-oTDsqzHhhuH2B0DL6PFyZVeV@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/16/10 12:08, Helmut Schaa wrote:
-> On Fri, Jul 16, 2010 at 9:18 AM, Gertjan van Wingerde
-> <gwingerde@gmail.com> wrote:
->>
->> On 07/16/10 08:57, Helmut Schaa wrote:
->>> On Thu, Jul 15, 2010 at 10:41 AM, Bartlomiej Zolnierkiewicz <bzolnier@gmail.com <mailto:bzolnier@gmail.com>> wrote:
->>>
->>>     On Wednesday 14 July 2010 04:44:44 pm Felix Fietkau wrote:
->>>     > On 2010-07-14 3:15 PM, John W. Linville wrote:
->>>     > > On Wed, Jul 14, 2010 at 02:52:14PM +0200, Ivo Van Doorn wrote:
->>>     > >> On Wed, Jul 14, 2010 at 2:46 PM, Luis Correia <luis.f.correia@gmail.com <mailto:luis.f.correia@gmail.com>> wrote:
->>>     > >> > On Wed, Jul 14, 2010 at 13:39, Christoph Egger <siccegge@cs.fau.de <mailto:siccegge@cs.fau.de>> wrote:
->>>     > >> >> While RT2800PCI_SOC exists in Kconfig, it depends on either
->>>     > >> >> RALINK_RT288X or RALINK_RT305X which are both not available in Kconfig
->>>     > >> >> so all Code depending on that can't ever be selected and, if there's
->>>     > >> >> no plan to add these options, should be cleaned up
->>>     > >> >>
->>>     > >> >> Signed-off-by: Christoph Egger <siccegge@cs.fau.de <mailto:siccegge@cs.fau.de>>
->>>     > >> >
->>>     > >> > NAK,
->>>     > >> >
->>>     > >> > this is not dead code, it is needed for the Ralink System-on-Chip
->>>     > >> > Platform devices.
->>>     > >> >
->>>     > >> > While I can't fix Kconfig errors and the current KConfig file may be
->>>     > >> > wrong, this code cannot and will not be deleted.
->>>     > >>
->>>     > >> When the config option was introduced, the config options RALINK_RT288X and
->>>     > >> RALINK_RT305X were supposed to be merged as well soon after by somebody (Felix?)
->>>     > >>
->>>     > >> But since testing is done on SoC boards by Helmut and Felix, I assume the code
->>>     > >> isn't dead but actually in use.
->>>     > >
->>>     > > Perhaps Helmut and Felix can send us the missing code?
->>>     > The missing code is a MIPS platform port, which is currently being
->>>     > maintained in OpenWrt, but is not ready for upstream submission yet.
->>>     > I'm not working on this code at the moment, but I think it will be
->>>     > submitted once it's ready.
->>>
->>>     People are using automatic scripts to catch unused config options nowadays
->>>     so the issue is quite likely to come back again sooner or later..
->>>
->>>     Would it be possible to improve situation somehow till the missing parts
->>>     get merged?  Maybe by adding a tiny comment documenting RT2800PCI_SOC
->>>     situation to Kconfig (if the config option itself really cannot be removed)
->>>     until all code is ready etc.?
->>>
->>>
->>> Or we could just remove RT2800PCI_SOC completely and build the soc specific
->>> parts always as part of rt2800pci. I mean it's not much code, just the platform
->>> driver stuff and the eeprom access.
->>>
->>
->> I'm not sure if that is feasible. Sure, we can reduce the usage of the variable by
->> unconditionally compiling in the generic SOC code, but we should not unconditionally
->> register the SOC platform device, which is currently also under the scope of this
->> Kconfig variable.
-> 
-> Ehm, no, the platform device is not registered in rt2800pci at all,
-> it's just the platform
-> driver that gets registered there. The platform device will be
-> registered in the according
-> board init code (that only resides in openwrt at the moment).
-> 
+Le vendredi 16 juillet 2010 =C3=A0 12:41 -0300, Felipe W Damasio a =C3=A9=
+crit :
+> Hi All,
+>=20
+> 2010/7/14 Felipe W Damasio <felipewd@gmail.com>:
+> > Hi Mr. Dumazet,
+> >
+> > 2010/7/14 Eric Dumazet <eric.dumazet@gmail.com>:
+> >> RDX being the sk pointer (and sk+0x38 contains the corrupted "sk_p=
+rot" value)
+> >> , we notice RBP contains same "sk" value + 0x200000  (2 Mbytes).
+> >>
+> >> (same remark on your initial bug report)
+> >>
+> >> Could you enable CONFIG_FRAME_POINTER=3Dy in your config ?
+>=20
+> I did, this is the new bug:
+>=20
+> general protection fault: 0000 [#1] SMP
+> last sysfs file: /sys/devices/pci0000:00/0000:00:1f.3/i2c-0/name
+> CPU 2
+> Modules linked in: e1000e
+>=20
+> Pid: 4209, comm: squid Not tainted 2.6.34 #4 DX58SO/
+> RIP: 0010:[<ffffffff8137a887>]  [<ffffffff8137a887>] sock_rfree+0x2a/=
+0x3c
+> RSP: 0018:ffff88042d781ba8  EFLAGS: 00010282
+> RAX: 9a7e7f4602400d48 RBX: ffff88034c918e00 RCX: 0000000000000720
+> RDX: ffff880413a82e00 RSI: ffff8804161e5e2a RDI: ffff88034c918e00
+> RBP: ffff88042d781ba8 R08: ffff88042d781b98 R09: 0000000000000000
+> R10: 0000000000040570 R11: 0000000000000000 R12: ffff880413882e00
+> R13: 00000000000005a8 R14: 00000000000005a8 R15: 000000000000a84d
+> FS:  00007f9aa0007710(0000) GS:ffff880001a80000(0000) knlGS:000000000=
+0000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 00007f11f831f020 CR3: 000000042d5f8000 CR4: 00000000000006e0
+> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> Process squid (pid: 4209, threadinfo ffff88042d780000, task ffff88042=
+e325620)
+> Stack:
+>  ffff88042d781bc8 ffffffff8137fda0 ffff880413882e00 ffff88034c918e00
+> <0> ffff88042d781be8 ffffffff8137fb3b ffff88034c918e00 ffff88034c918e=
+00
+> <0> ffff88042d781cd8 ffffffff813be69b ffff88042d781c38 ffffffff813c76=
+e4
+> Call Trace:
+>  [<ffffffff8137fda0>] skb_release_head_state+0x75/0xc0
+>  [<ffffffff8137fb3b>] __kfree_skb+0x11/0x86
+>  [<ffffffff813be69b>] tcp_recvmsg+0x6b9/0x8be
+>  [<ffffffff813c76e4>] ? tcp_current_mss+0x46/0x65
+>  [<ffffffff8137ab89>] sock_common_recvmsg+0x32/0x47
+>  [<ffffffff811bafb6>] ? selinux_socket_recvmsg+0x1d/0x1f
+>  [<ffffffff81378752>] __sock_recvmsg+0x6a/0x76
+>  [<ffffffff81378847>] sock_aio_read+0xe9/0x102
+>  [<ffffffff811b9d68>] ? avc_has_perm+0x4e/0x60
+>  [<ffffffff810b63f6>] do_sync_read+0xc7/0x10d
+>  [<ffffffff811bdb17>] ? selinux_file_permission+0xa5/0xb2
+>  [<ffffffff811b7917>] ? security_file_permission+0x11/0x13
+>  [<ffffffff810b6e7b>] vfs_read+0xbb/0x102
+>  [<ffffffff810b6f86>] sys_read+0x47/0x70
+>  [<ffffffff810029eb>] system_call_fastpath+0x16/0x1b
+> Code: c3 48 8b 57 18 55 8b 87 d8 00 00 00 48 89 e5 48 8d 8a ac 00 00
+> 00 f0 29 82 ac 00 00 00 48 8b 57 18 8b 8f d8 00 00 00 48 8b 42 38 <48=
+>
+> 83 b8 b0 00 00 00 00 74 06 01 8a f4 00 00 00 c9 c3 55 48 89
+> RIP  [<ffffffff8137a887>] sock_rfree+0x2a/0x3c
+>  RSP <ffff88042d781ba8>
+> ---[ end trace 8932efc1ba58ce6e ]---
+>=20
+> Does this tell you anything?
+>=20
 
-OK. Didn't know that. Sounds good then.
-
-However, I've tried this in my local tree, and now compilation fails on the x86 platform
-due to a missing KSEG1ADDR macro. How do you suggest to handle the potentially missing
-macro?
-
----
-Gertjan.
+Could you privatly send me the vmlinux file ?
