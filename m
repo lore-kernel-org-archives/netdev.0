@@ -1,78 +1,100 @@
-From: Milton Miller <miltonm@bga.com>
-Subject: Re: [PATCH 1/2] Remove REDWOOD_[456] config options and conditional code
-Date: Fri, 16 Jul 2010 10:45:27 -0500
-Message-ID: <redwood56-reply-2-miltonm@bga.com>
-References: <4f07b3092cafbbba37d61d367cc7484e24d18d2a.1279116162.git.qy03fugy@stud.informatik.uni-erlangen.de>
-	<ae6929d3206f6a282f2b0bf2621a05af45d892ff.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
-	<ca1bb25d203618c3548748f5efb6f125a96c89e0.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
-	<redwood56-reply-1-miltonm@bga.com>
-	<cover.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
-	<20100716142055.GA11736@zod.rchland.ibm.com>
-Cc: Milton Miller <miltonm@bga.com>,
-	Josh Boyer <jwboyer@linux.vnet.ibm.com>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Solomon Peachy <solomon@linux-wlan.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Artem Bityutskiy <Artem.Bityutskiy@nokia.com>,
-	Alexander Kurz <linux@kbdbabel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	John Linn <john.linn@xilinx.com>,
-	Florian Fainelli <florian@openwrt.org>,
-	Nicolas Pitre <nico@fluxnic.net>,
-	Joe Perches <joe@perches.com>,
-	Ladislav Michl <ladis@linux-mips.org>,
-	David Brown <davidb@quicinc.com>, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, linux-mtd@lists.infradead.org,
-	netdev@vger.kernel.org, vamos-dev@i4.informatik.uni-erlangen.de
-To: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100716142055.GA11736@zod.rchland.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gertjan van Wingerde <gwingerde@gmail.com>
+Subject: Re: [PATCH 01/11] Removing dead RT2800PCI_SOC
+Date: Fri, 16 Jul 2010 17:46:28 +0200
+Message-ID: <4C407ED4.6000002@gmail.com>
+References: <cover.1279110894.git.siccegge@cs.fau.de>	<20100714131527.GB2352@tuxdriver.com>	<4C3DCD5C.1080705@openwrt.org>	<201007151041.55112.bzolnier@gmail.com>	<AANLkTilqoYMMKYJT-YYbEzdnytUSYa0EylEiJ4x5xXXH@mail.gmail.com>	<4C4007CD.2070504@gmail.com> <AANLkTik8M0gNipi_rwVJYbmo_3FfdHs-H4H_XDgTcbhI@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Ivo Van Doorn <ivdoorn@gmail.com>,
+	Christoph Egger <siccegge@cs.fau.de>,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vamos-dev@i4.informatik.uni-erlangen.de,
+	Luis Correia <luis.f.correia@gmail.com>
+To: Helmut Schaa <helmut.schaa@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cpsmtpb-ews05.kpnxchange.com ([213.75.39.8]:4219 "EHLO
+	cpsmtpb-ews05.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965833Ab0GPPqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 11:46:31 -0400
+In-Reply-To: <AANLkTik8M0gNipi_rwVJYbmo_3FfdHs-H4H_XDgTcbhI@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Fri, 16 Jul 2010 at about 08:20:55 -0600 Josh Boyer wrote:
-> On Fri, Jul 16, 2010 at 02:29:02PM +0200, Christian Dietrich wrote: 
-> > The config options for REDWOOD_[456] were commented out in the powerpc
-> > Kconfig. The ifdefs referencing this options therefore are dead and all
-> > references to this can be removed (Also dependencies in other KConfig
-> > files).
-
-> This seems fine with me.
+On 07/16/10 12:08, Helmut Schaa wrote:
+> On Fri, Jul 16, 2010 at 9:18 AM, Gertjan van Wingerde
+> <gwingerde@gmail.com> wrote:
+>>
+>> On 07/16/10 08:57, Helmut Schaa wrote:
+>>> On Thu, Jul 15, 2010 at 10:41 AM, Bartlomiej Zolnierkiewicz <bzolnier@gmail.com <mailto:bzolnier@gmail.com>> wrote:
+>>>
+>>>     On Wednesday 14 July 2010 04:44:44 pm Felix Fietkau wrote:
+>>>     > On 2010-07-14 3:15 PM, John W. Linville wrote:
+>>>     > > On Wed, Jul 14, 2010 at 02:52:14PM +0200, Ivo Van Doorn wrote:
+>>>     > >> On Wed, Jul 14, 2010 at 2:46 PM, Luis Correia <luis.f.correia@gmail.com <mailto:luis.f.correia@gmail.com>> wrote:
+>>>     > >> > On Wed, Jul 14, 2010 at 13:39, Christoph Egger <siccegge@cs.fau.de <mailto:siccegge@cs.fau.de>> wrote:
+>>>     > >> >> While RT2800PCI_SOC exists in Kconfig, it depends on either
+>>>     > >> >> RALINK_RT288X or RALINK_RT305X which are both not available in Kconfig
+>>>     > >> >> so all Code depending on that can't ever be selected and, if there's
+>>>     > >> >> no plan to add these options, should be cleaned up
+>>>     > >> >>
+>>>     > >> >> Signed-off-by: Christoph Egger <siccegge@cs.fau.de <mailto:siccegge@cs.fau.de>>
+>>>     > >> >
+>>>     > >> > NAK,
+>>>     > >> >
+>>>     > >> > this is not dead code, it is needed for the Ralink System-on-Chip
+>>>     > >> > Platform devices.
+>>>     > >> >
+>>>     > >> > While I can't fix Kconfig errors and the current KConfig file may be
+>>>     > >> > wrong, this code cannot and will not be deleted.
+>>>     > >>
+>>>     > >> When the config option was introduced, the config options RALINK_RT288X and
+>>>     > >> RALINK_RT305X were supposed to be merged as well soon after by somebody (Felix?)
+>>>     > >>
+>>>     > >> But since testing is done on SoC boards by Helmut and Felix, I assume the code
+>>>     > >> isn't dead but actually in use.
+>>>     > >
+>>>     > > Perhaps Helmut and Felix can send us the missing code?
+>>>     > The missing code is a MIPS platform port, which is currently being
+>>>     > maintained in OpenWrt, but is not ready for upstream submission yet.
+>>>     > I'm not working on this code at the moment, but I think it will be
+>>>     > submitted once it's ready.
+>>>
+>>>     People are using automatic scripts to catch unused config options nowadays
+>>>     so the issue is quite likely to come back again sooner or later..
+>>>
+>>>     Would it be possible to improve situation somehow till the missing parts
+>>>     get merged?  Maybe by adding a tiny comment documenting RT2800PCI_SOC
+>>>     situation to Kconfig (if the config option itself really cannot be removed)
+>>>     until all code is ready etc.?
+>>>
+>>>
+>>> Or we could just remove RT2800PCI_SOC completely and build the soc specific
+>>> parts always as part of rt2800pci. I mean it's not much code, just the platform
+>>> driver stuff and the eeprom access.
+>>>
+>>
+>> I'm not sure if that is feasible. Sure, we can reduce the usage of the variable by
+>> unconditionally compiling in the generic SOC code, but we should not unconditionally
+>> register the SOC platform device, which is currently also under the scope of this
+>> Kconfig variable.
 > 
-> The only question is which tree it coms through. I'm happy to take it
-> in via mine if the netdev and MTD people are fine with that. Otherwise,
-> my ack is below.
+> Ehm, no, the platform device is not registered in rt2800pci at all,
+> it's just the platform
+> driver that gets registered there. The platform device will be
+> registered in the according
+> board init code (that only resides in openwrt at the moment).
+> 
 
+OK. Didn't know that. Sounds good then.
 
-> On Fri, 16 Jul 2010 around 14:29:08 +0200 Christian Dietrich wrote:
-> > diff --git a/drivers/mtd/maps/Kconfig b/drivers/mtd/maps/Kconfig
-> > index f22bc9f..6629d09 100644
-> > --- a/drivers/mtd/maps/Kconfig
-> > +++ b/drivers/mtd/maps/Kconfig
-> > @@ -321,7 +321,7 @@ config MTD_CFI_FLAGADM
-> > 
-> >  config MTD_REDWOOD
-> >  	tristate "CFI Flash devices mapped on IBM Redwood"
-> > -	depends on MTD_CFI && ( REDWOOD_4 || REDWOOD_5 || REDWOOD_6 )
-> > +	depends on MTD_CFI
-> >  	help
-> >  	  This enables access routines for the flash chips on the IBM
-> >  	  Redwood board. If you have one of these boards and would like to
-> > diff --git a/drivers/mtd/maps/redwood.c b/drivers/mtd/maps/redwood.c
-> > index 933c0b6..d2c9db0 100644
-> > --- a/drivers/mtd/maps/redwood.c
-> > +++ b/drivers/mtd/maps/redwood.c
-> > @@ -22,8 +22,6 @@
+However, I've tried this in my local tree, and now compilation fails on the x86 platform
+due to a missing KSEG1ADDR macro. How do you suggest to handle the potentially missing
+macro?
 
-The patches are unnecssarly coupled by removing the REDWOOD_* symbols
-in the MTD area before removing the files and Kconfig completely in
-the second patch.  This could easily be eliminated by pushing the
-two fragments into the second patch.
-
-milton
+---
+Gertjan.
