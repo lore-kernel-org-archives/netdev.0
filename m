@@ -1,220 +1,89 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: [RFC] LSM hook for post recvmsg.
-Date: Sat, 17 Jul 2010 01:14:38 +0900
-Message-ID: <201007170114.GFC57373.SQJHOVtLFMOFFO@I-love.SAKURA.ne.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:51384 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965948Ab0GPQOm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jul 2010 12:14:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Boyd <bebarino-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] rt2x00: Fix lockdep warning in rt2x00lib_probe_dev()
+Date: Fri, 16 Jul 2010 09:50:10 -0700
+Message-ID: <1279299010-4723-1-git-send-email-bebarino@gmail.com>
+Cc: Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello, David. Thank you for giving me suggestions at Japan Linux Symposium 2009.
-As TOMOYO is getting functional and AppArmor is about to join mainline, I'd like
-to resume discussions regarding LSM hooks for post accept()/recvmsg() operations.
+The rt2x00dev->intf_work workqueue is never initialized when a driver is
+probed for a non-existent device (in this case rt2500usb). On such a
+path we call rt2x00lib_remove_dev() to free any resources initialized
+during the probe before we use INIT_WORK to initialize the workqueue.
+This causes lockdep to get confused since the lock used in the workqueue
+hasn't been initialized yet but is now being acquired during
+cancel_work_sync() called by rt2x00lib_remove_dev().
 
-Below is a patch for post recvmsg() operation. I modified the patch to call
-skb_recv_datagram() again (for udp_recvmsg(), raw_recvmsg(), udpv6_recvmsg())
-if LSM dicided to drop the message. (Regarding rawv6_recvmsg(), I didn't do so
-in accordance with the comment at "csum_copy_err:".)
-What do you think about this verion?
+Fix this by initializing the workqueue first before we attempt to probe
+the device. This should make lockdep happy and avoid breaking any
+assumptions about how the library cleans up after a probe fails.
 
-Regards.
+phy0 -> rt2x00lib_probe_dev: Error - Failed to allocate device.
+INFO: trying to register non-static key.
+the code is fine but needs lockdep annotation.
+turning off the locking correctness validator.
+Pid: 2027, comm: modprobe Not tainted 2.6.35-rc5+ #60
+Call Trace:
+ [<ffffffff8105fe59>] register_lock_class+0x152/0x31f
+ [<ffffffff81344a00>] ? usb_control_msg+0xd5/0x111
+ [<ffffffff81061bde>] __lock_acquire+0xce/0xcf4
+ [<ffffffff8105f6fd>] ? trace_hardirqs_off+0xd/0xf
+ [<ffffffff81492aef>] ?  _raw_spin_unlock_irqrestore+0x33/0x41
+ [<ffffffff810628d5>] lock_acquire+0xd1/0xf7
+ [<ffffffff8104f037>] ? __cancel_work_timer+0x99/0x17e
+ [<ffffffff8104f06e>] __cancel_work_timer+0xd0/0x17e
+ [<ffffffff8104f037>] ? __cancel_work_timer+0x99/0x17e
+ [<ffffffff8104f136>] cancel_work_sync+0xb/0xd
+ [<ffffffffa0096675>] rt2x00lib_remove_dev+0x25/0xb0 [rt2x00lib]
+ [<ffffffffa0096bf7>] rt2x00lib_probe_dev+0x380/0x3ed [rt2x00lib]
+ [<ffffffff811d78a7>] ? __raw_spin_lock_init+0x31/0x52
+ [<ffffffffa00bbd2c>] ? T.676+0xe/0x10 [rt2x00usb]
+ [<ffffffffa00bbe4f>] rt2x00usb_probe+0x121/0x15e [rt2x00usb]
+ [<ffffffff813468bd>] usb_probe_interface+0x151/0x19e
+ [<ffffffff812ea08e>] driver_probe_device+0xa7/0x136
+ [<ffffffff812ea167>] __driver_attach+0x4a/0x66
+ [<ffffffff812ea11d>] ? __driver_attach+0x0/0x66
+ [<ffffffff812e96ca>] bus_for_each_dev+0x54/0x89
+ [<ffffffff812e9efd>] driver_attach+0x19/0x1b
+ [<ffffffff812e9b64>] bus_add_driver+0xb4/0x204
+ [<ffffffff812ea41b>] driver_register+0x98/0x109
+ [<ffffffff813465dd>] usb_register_driver+0xb2/0x173
+ [<ffffffffa00ca000>] ? rt2500usb_init+0x0/0x20 [rt2500usb]
+ [<ffffffffa00ca01e>] rt2500usb_init+0x1e/0x20 [rt2500usb]
+ [<ffffffff81000203>] do_one_initcall+0x6d/0x17a
+ [<ffffffff8106cae8>] sys_init_module+0x9c/0x1e0
+ [<ffffffff8100296b>] system_call_fastpath+0x16/0x1b
 
-diff --git a/include/linux/security.h b/include/linux/security.h
-index 723a93d..409c44d 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -879,6 +879,12 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
-  *	@size contains the size of message structure.
-  *	@flags contains the operational flags.
-  *	Return 0 if permission is granted.
-+ * @socket_post_recvmsg:
-+ *	Check permission after receiving a message from a socket.
-+ *	The message is discarded if permission is not granted.
-+ *	@sk contains the sock structure.
-+ *	@skb contains the sk_buff structure.
-+ *	Return 0 if permission is granted.
-  * @socket_getsockname:
-  *	Check permission before the local address (name) of the socket object
-  *	@sock is retrieved.
-@@ -1575,6 +1581,7 @@ struct security_operations {
- 			       struct msghdr *msg, int size);
- 	int (*socket_recvmsg) (struct socket *sock,
- 			       struct msghdr *msg, int size, int flags);
-+	int (*socket_post_recvmsg) (struct sock *sk, struct sk_buff *skb);
- 	int (*socket_getsockname) (struct socket *sock);
- 	int (*socket_getpeername) (struct socket *sock);
- 	int (*socket_getsockopt) (struct socket *sock, int level, int optname);
-@@ -2526,6 +2533,7 @@ int security_socket_accept(struct socket *sock, struct socket *newsock);
- int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
- int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
- 			    int size, int flags);
-+int security_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb);
- int security_socket_getsockname(struct socket *sock);
- int security_socket_getpeername(struct socket *sock);
- int security_socket_getsockopt(struct socket *sock, int level, int optname);
-@@ -2617,6 +2625,12 @@ static inline int security_socket_recvmsg(struct socket *sock,
- 	return 0;
- }
- 
-+static inline int security_socket_post_recvmsg(struct sock *sk,
-+					       struct sk_buff *skb)
-+{
-+	return 0;
-+}
-+
- static inline int security_socket_getsockname(struct socket *sock)
- {
- 	return 0;
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 2c7a163..69652d4 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -676,9 +676,15 @@ static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		goto out;
- 	}
- 
--	skb = skb_recv_datagram(sk, flags, noblock, &err);
--	if (!skb)
--		goto out;
-+	for (;;) {
-+		skb = skb_recv_datagram(sk, flags, noblock, &err);
-+		if (!skb)
-+			goto out;
-+		err = security_socket_post_recvmsg(sk, skb);
-+		if (likely(!err))
-+			break;
-+		skb_kill_datagram(sk, skb, flags);
-+	}
- 
- 	copied = skb->len;
- 	if (len < copied) {
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 5858574..9145685 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1125,6 +1125,7 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	int err;
- 	int is_udplite = IS_UDPLITE(sk);
- 	bool slow;
-+	bool update_stat;
+Signed-off-by: Stephen Boyd <bebarino-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/wireless/rt2x00/rt2x00dev.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
+index 3ae468c..f20d3ee 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00dev.c
++++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
+@@ -854,6 +854,11 @@ int rt2x00lib_probe_dev(struct rt2x00_dev *rt2x00dev)
+ 		    BIT(NL80211_IFTYPE_WDS);
  
  	/*
- 	 *	Check any passed addresses
-@@ -1140,6 +1141,12 @@ try_again:
- 				  &peeked, &err);
- 	if (!skb)
- 		goto out;
-+	err = security_socket_post_recvmsg(sk, skb);
-+	if (err) {
-+		update_stat = false;
-+		goto csum_copy_err;
-+	}
-+	update_stat = true;
- 
- 	ulen = skb->len - sizeof(struct udphdr);
- 	if (len > ulen)
-@@ -1200,7 +1207,7 @@ out:
- 
- csum_copy_err:
- 	slow = lock_sock_fast(sk);
--	if (!skb_kill_datagram(sk, skb, flags))
-+	if (!skb_kill_datagram(sk, skb, flags) && update_stat)
- 		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
- 	unlock_sock_fast(sk, slow);
- 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 4a4dcbe..135d4ed 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -467,6 +467,9 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	if (!skb)
- 		goto out;
-+	err = security_socket_post_recvmsg(sk, skb);
-+	if (unlikely(err))
-+		goto csum_copy_err;
- 
- 	copied = skb->len;
- 	if (copied > len) {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 87be586..6cae276 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -329,6 +329,7 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
- 	int is_udplite = IS_UDPLITE(sk);
- 	int is_udp4;
- 	bool slow;
-+	bool update_stat;
- 
- 	if (addr_len)
- 		*addr_len=sizeof(struct sockaddr_in6);
-@@ -344,6 +345,12 @@ try_again:
- 				  &peeked, &err);
- 	if (!skb)
- 		goto out;
-+	err = security_socket_post_recvmsg(sk, skb);
-+	if (err) {
-+		update_stat = false;
-+		goto csum_copy_err;
-+	}
-+	update_stat = true;
- 
- 	ulen = skb->len - sizeof(struct udphdr);
- 	if (len > ulen)
-@@ -426,7 +433,7 @@ out:
- 
- csum_copy_err:
- 	slow = lock_sock_fast(sk);
--	if (!skb_kill_datagram(sk, skb, flags)) {
-+	if (!skb_kill_datagram(sk, skb, flags) && update_stat) {
- 		if (is_udp4)
- 			UDP_INC_STATS_USER(sock_net(sk),
- 					UDP_MIB_INERRORS, is_udplite);
-diff --git a/security/capability.c b/security/capability.c
-index 4aeb699..709aea3 100644
---- a/security/capability.c
-+++ b/security/capability.c
-@@ -597,6 +597,11 @@ static int cap_socket_recvmsg(struct socket *sock, struct msghdr *msg,
- 	return 0;
- }
- 
-+static int cap_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb)
-+{
-+	return 0;
-+}
++	 * Initialize configuration work.
++	 */
++	INIT_WORK(&rt2x00dev->intf_work, rt2x00lib_intf_scheduled);
 +
- static int cap_socket_getsockname(struct socket *sock)
- {
- 	return 0;
-@@ -1001,6 +1006,7 @@ void __init security_fixup_ops(struct security_operations *ops)
- 	set_to_cap_if_null(ops, socket_accept);
- 	set_to_cap_if_null(ops, socket_sendmsg);
- 	set_to_cap_if_null(ops, socket_recvmsg);
-+	set_to_cap_if_null(ops, socket_post_recvmsg);
- 	set_to_cap_if_null(ops, socket_getsockname);
- 	set_to_cap_if_null(ops, socket_getpeername);
- 	set_to_cap_if_null(ops, socket_setsockopt);
-diff --git a/security/security.c b/security/security.c
-index e8c87b8..4291bd7 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -1037,6 +1037,12 @@ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
- 	return security_ops->socket_recvmsg(sock, msg, size, flags);
- }
++	/*
+ 	 * Let the driver probe the device to detect the capabilities.
+ 	 */
+ 	retval = rt2x00dev->ops->lib->probe_hw(rt2x00dev);
+@@ -863,11 +868,6 @@ int rt2x00lib_probe_dev(struct rt2x00_dev *rt2x00dev)
+ 	}
  
-+int security_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb)
-+{
-+	return security_ops->socket_post_recvmsg(sk, skb);
-+}
-+EXPORT_SYMBOL(security_socket_post_recvmsg);
-+
- int security_socket_getsockname(struct socket *sock)
- {
- 	return security_ops->socket_getsockname(sock);
+ 	/*
+-	 * Initialize configuration work.
+-	 */
+-	INIT_WORK(&rt2x00dev->intf_work, rt2x00lib_intf_scheduled);
