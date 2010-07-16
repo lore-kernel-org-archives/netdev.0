@@ -1,49 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] Remove REDWOOD_[456] config options and
- conditional code
-Date: Fri, 16 Jul 2010 13:45:58 -0700 (PDT)
-Message-ID: <20100716.134558.235673512.davem@davemloft.net>
-References: <cover.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
-	<ca1bb25d203618c3548748f5efb6f125a96c89e0.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
-	<20100716142055.GA11736@zod.rchland.ibm.com>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [RFC] Enhance dev_ioctl to return <hwaddr>:<if_name::if_index> mapping
+Date: Fri, 16 Jul 2010 16:49:05 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B90C55C32A@nsmail.netscout.com>
+References: <AANLkTinAiJJqhrro8Jlrb0WgHzDSCx_dtWXL5N9ZKUbd@mail.gmail.com><20100716.130445.149851386.davem@davemloft.net><AANLkTineSDEEKY-9ve2maSBmPWBxkW5XmqnHlLtIOClx@mail.gmail.com> <20100716.131835.124042396.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: qy03fugy@stud.informatik.uni-erlangen.de, miltonm@bga.com,
-	mporter@kernel.crashing.org, benh@kernel.crashing.org,
-	paulus@samba.org, solomon@linux-wlan.com, dwmw2@infradead.org,
-	vapier@gentoo.org, jkosina@suse.cz, Artem.Bityutskiy@nokia.com,
-	linux@kbdbabel.org, randy.dunlap@oracle.com, john.linn@xilinx.com,
-	florian@openwrt.org, nico@fluxnic.net, joe@perches.com,
-	ladis@linux-mips.org, davidb@quicinc.com, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, linux-mtd@lists.infradead.org,
-	netdev@vger.kernel.org, vamos-dev@i4.informatik.uni-erlangen.de
-To: jwboyer@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100716142055.GA11736@zod.rchland.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <shemminger@vyatta.com>, <bhutchings@solarflare.com>,
+	<netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod6og115.obsmtp.com ([64.18.1.35]:51208 "HELO
+	exprod6og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754961Ab0GPUtJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 16:49:09 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20100716.131835.124042396.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Date: Fri, 16 Jul 2010 10:20:55 -0400
+Ooops... I got the 'CC' list this time
 
-> On Fri, Jul 16, 2010 at 02:29:02PM +0200, Christian Dietrich wrote:
->>The config options for REDWOOD_[456] were commented out in the powerpc
->>Kconfig. The ifdefs referencing this options therefore are dead and all
->>references to this can be removed (Also dependencies in other KConfig
->>files).
+
+
+On Fri, Jul 16, 2010 at 4:33 PM, David Miller <davem@davemloft.net>
+wrote:
+> From: Chetan Loke <chetanloke@gmail.com>
+> Date: Fri, 16 Jul 2010 16:24:16 -0400
+>
+>> Thanks for your time guys.
+>
+> You dropped everything from the CC: list, so nobody other
+> than me saw this. :)
+>
+>
+
+On Fri, Jul 16, 2010 at 4:24 PM, Chetan Loke <chetanloke@gmail.com>
+wrote:
+> On Fri, Jul 16, 2010 at 4:18 PM, David Miller <davem@davemloft.net>
+wrote:
+>> From: Chetan Loke <chetanloke@gmail.com>
+>> Date: Fri, 16 Jul 2010 16:15:44 -0400
 >>
->>Signed-off-by: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
->>Signed-off-by: Christoph Egger <siccegge@cs.fau.de>
-> 
-> This seems fine with me.
-> 
-> The only question is which tree it coms through.  I'm happy to take it
-> in via mine if the netdev and MTD people are fine with that.  Otherwise,
-> my ack is below.
-> 
-> Acked-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+>>> Ok, what if, i) ifindex == 0 in the call to SIOCGIFINDEX or ii) if
+the
+>>> ifindex is not found ? May be then in the else clause we could
+search
+>>> using the hw-addr before bailing out ;)? This way we can avoid
+adding
+>>> a new API. Still not a good idea?
+>>
+>> I'm really not going to consider this seriously, sorry.  I've
+>> made my position pretty clear, and gave sufficient reasons for
+>> it.
+>>
+>> Myself and others have also shown you several ways to fetch the
+>> information you need, and of them netlink is probably the most
+>> efficient, but the others work just as well.
+>>
+>> The new interface proposals are just not a good idea.
+>>
+>
+> No problem Dave. I will patch our internal iso and add dev_getbyhwaddr
+> in the else clause.
+>
+> Thanks for your time guys.
+>
+> regards
+> Chetan Loke
+>
 
-Please take it:
-
-Acked-by: David S. Miller <davem@davemloft.net>
