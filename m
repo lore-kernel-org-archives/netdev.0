@@ -1,37 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [2/5] Interrupt
- control bitmap
-Date: Thu, 15 Jul 2010 22:19:02 -0700 (PDT)
-Message-ID: <20100715.221902.13737987.davem@davemloft.net>
-References: <alpine.LRH.2.00.1007131746370.32055@localhost.localdomain>
-	<20100714.140433.59678649.davem@davemloft.net>
-	<alpine.LRH.2.00.1007150121400.25472@localhost.localdomain>
+Subject: [RFC PATCH] ipv6: Make IP6CB(skb)->nhoff 16-bit.
+Date: Thu, 15 Jul 2010 22:30:11 -0700 (PDT)
+Message-ID: <20100715.223011.58409183.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com, ronghua@vmware.com
-To: sbhatewara@vmware.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43786
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34078
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752597Ab0GPFSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 01:18:46 -0400
-In-Reply-To: <alpine.LRH.2.00.1007150121400.25472@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1752779Ab0GPF3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 01:29:55 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 59EFD24C113
+	for <netdev@vger.kernel.org>; Thu, 15 Jul 2010 22:30:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Thu, 15 Jul 2010 18:20:03 -0700 (PDT)
 
-> Reposting the patch with the endianness fix.
-> 
-> ---
-> 
-> A new bit map 'intrCtrl' is introduced in the DriverShared area. The 
-> driver Ashould update VMXNET3_IC_DISABLE_ALL bit before writing IMR.
-> 
-> Signed-off-by: Ronghua Zang <ronghua@vmware.com>
-> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+Even with jumbograms I cannot see any way in which we would need
+to records a larger than 65535 valued next-header offset.
 
-Applied.
+The maximum extension header length is (256 << 3) == 2048.
+There are only a handful of extension headers specified which
+we'd even accept (say 5 or 6), therefore the largest next-header
+offset we'd ever have to contend with is something less than
+say 16k.
+
+Therefore make it a u16 instead of a u32.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+Can anyone find any holes in this?  I want to do this so we
+can legitimately rip ndisc_nodetype out of struct sk_buff
+and stick it into the IP6CB where it belongs.  Currently
+there isn't enough space, but with this change there will
+be.
+
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 940e215..ab9e9e8 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -246,7 +246,7 @@ struct inet6_skb_parm {
+ 	__u16			srcrt;
+ 	__u16			dst1;
+ 	__u16			lastopt;
+-	__u32			nhoff;
++	__u16			nhoff;
+ 	__u16			flags;
+ #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+ 	__u16			dsthao;
