@@ -1,47 +1,26 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: [PATCH 2.6.35-rc1] net-next: fix LRO feature update in vmxnet3
-Date: Thu, 15 Jul 2010 18:28:31 -0700 (PDT)
-Message-ID: <alpine.LRH.2.00.1007151821440.10176@localhost.localdomain>
-References: <alpine.LRH.2.00.1007070202080.5939@localhost.localdomain> <alpine.LRH.2.00.1007070232300.5939@localhost.localdomain> <alpine.LRH.2.00.1007131750060.32055@localhost.localdomain> <20100714.141118.260092331.davem@davemloft.net>
- <alpine.LRH.2.00.1007151458580.10176@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Drivers: net: 8139cp: Fixed 28 style errors, and 119
+ warnings.
+Date: Thu, 15 Jul 2010 18:30:10 -0700 (PDT)
+Message-ID: <20100715.183010.193726592.davem@davemloft.net>
+References: <AANLkTikspw9LxFFsXJgWn30k2qCVu5zkOAq2FhWTpQvW@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joseph.kogut@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.1007151458580.10176@localhost.localdomain>
+In-Reply-To: <AANLkTikspw9LxFFsXJgWn30k2qCVu5zkOAq2FhWTpQvW@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Besides the feedback given by Jeff Garzik, I would like to ask that
+you please post your patches in a format other than as a binary
+attachment.  Plain text attachments are fine, for example.
 
-Fix LRO feature update.
+That way your patch will be properly logged and tracked in
+patchwork, and be easier for people to reply to and comment
+upon.
 
-Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-
----
-
- drivers/net/vmxnet3/vmxnet3_ethtool.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index de1ba14..7e4b5a8 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -291,10 +291,11 @@ vmxnet3_set_flags(struct net_device *netdev, u32 data)
- 
- 		/* update harware LRO capability accordingly */
- 		if (lro_requested)
--			adapter->shared->devRead.misc.uptFeatures &= UPT1_F_LRO;
-+			adapter->shared->devRead.misc.uptFeatures |=
-+						cpu_to_le64(UPT1_F_LRO);
- 		else
- 			adapter->shared->devRead.misc.uptFeatures &=
--								~UPT1_F_LRO;
-+						cpu_to_le64(~UPT1_F_LRO);
- 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
- 				       VMXNET3_CMD_UPDATE_FEATURE);
- 	}
+Thank you.
