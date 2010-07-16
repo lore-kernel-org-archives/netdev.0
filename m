@@ -1,129 +1,105 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [rfc] ipvs: Add ip_vs_onepacket_enabled()
-Date: Fri, 16 Jul 2010 17:30:35 +0900
-Message-ID: <20100716083035.GA30888@verge.net.au>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH v2 1/2] bnx2: allocate with GFP_KERNEL flag on RX path init
+Date: Fri, 16 Jul 2010 10:55:40 +0200
+Message-ID: <20100716105540.613d40cc@dhcp-lab-109.englab.brq.redhat.com>
+References: <20100715142537.12504.60051.send-patch@dhcp-lab-109.englab.brq.redhat.com>
+	<C27F8246C663564A84BB7AB3439772421B842BD26F@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nick Chalk <nick@loadbalancer.org>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@infradead.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Michael Chan" <mchan@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32789 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936025Ab0GPIzt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jul 2010 04:55:49 -0400
+In-Reply-To: <C27F8246C663564A84BB7AB3439772421B842BD26F@IRVEXCHCCR01.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add ip_vs_onepacket_enabled() instead of open-coding the logic three times.
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+v1->v2: use GFP_ATOMIC in bnx2_rx_skb
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+ drivers/net/bnx2.c |   17 +++++++++--------
+ 1 files changed, 9 insertions(+), 8 deletions(-)
 
---- 
-
-Compile tested only.
-
-Extracted from a patch by Thomas Graf <tgraf@infradead.org>.
-Thomas, feel free to make this patch from you and add a signed-off-by line.
-
-Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_core.c
-===================================================================
---- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_core.c	2010-07-16 16:44:49.000000000 +0900
-+++ nf-next-2.6/net/netfilter/ipvs/ip_vs_core.c	2010-07-16 16:45:20.000000000 +0900
-@@ -165,7 +165,6 @@ ip_vs_conn_stats(struct ip_vs_conn *cp,
- 	spin_unlock(&ip_vs_stats.lock);
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index a203f39..a7df539 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -2664,13 +2664,13 @@ bnx2_set_mac_addr(struct bnx2 *bp, u8 *mac_addr, u32 pos)
  }
  
--
  static inline int
- ip_vs_set_state(struct ip_vs_conn *cp, int direction,
- 		const struct sk_buff *skb,
-@@ -176,6 +175,12 @@ ip_vs_set_state(struct ip_vs_conn *cp, i
- 	return pp->state_transition(cp, direction, skb, pp);
+-bnx2_alloc_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
++bnx2_alloc_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index, gfp_t gfp)
+ {
+ 	dma_addr_t mapping;
+ 	struct sw_pg *rx_pg = &rxr->rx_pg_ring[index];
+ 	struct rx_bd *rxbd =
+ 		&rxr->rx_pg_desc_ring[RX_RING(index)][RX_IDX(index)];
+-	struct page *page = alloc_page(GFP_ATOMIC);
++	struct page *page = alloc_page(gfp);
+ 
+ 	if (!page)
+ 		return -ENOMEM;
+@@ -2705,7 +2705,7 @@ bnx2_free_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
  }
  
-+static inline __u16
-+ip_vs_onepacket_enabled(struct ip_vs_service *svc, struct ip_vs_iphdr iph)
-+{
-+	return (svc->flags & IP_VS_SVC_F_ONEPACKET &&
-+		iph->protocol == IPPROTO_UDP) ? IP_VS_CONN_F_ONE_PACKET : 0;
-+}
+ static inline int
+-bnx2_alloc_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
++bnx2_alloc_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index, gfp_t gfp)
+ {
+ 	struct sk_buff *skb;
+ 	struct sw_bd *rx_buf = &rxr->rx_buf_ring[index];
+@@ -2713,7 +2713,7 @@ bnx2_alloc_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
+ 	struct rx_bd *rxbd = &rxr->rx_desc_ring[RX_RING(index)][RX_IDX(index)];
+ 	unsigned long align;
  
- /*
-  *  IPVS persistent scheduling function
-@@ -194,7 +199,6 @@ ip_vs_sched_persist(struct ip_vs_service
- 	struct ip_vs_dest *dest;
- 	struct ip_vs_conn *ct;
- 	__be16  dport;			/* destination port to forward */
--	__be16  flags;
- 	union nf_inet_addr snet;	/* source network of the client,
- 					   after masking */
- 
-@@ -341,10 +345,6 @@ ip_vs_sched_persist(struct ip_vs_service
- 		dport = ports[1];
+-	skb = netdev_alloc_skb(bp->dev, bp->rx_buf_size);
++	skb = __netdev_alloc_skb(bp->dev, bp->rx_buf_size, gfp);
+ 	if (skb == NULL) {
+ 		return -ENOMEM;
  	}
+@@ -2974,7 +2974,7 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, struct sk_buff *skb,
+ 	int err;
+ 	u16 prod = ring_idx & 0xffff;
  
--	flags = (svc->flags & IP_VS_SVC_F_ONEPACKET
--		 && iph.protocol == IPPROTO_UDP)?
--		IP_VS_CONN_F_ONE_PACKET : 0;
--
- 	/*
- 	 *    Create a new connection according to the template
- 	 */
-@@ -352,7 +352,7 @@ ip_vs_sched_persist(struct ip_vs_service
- 			    &iph.saddr, ports[0],
- 			    &iph.daddr, ports[1],
- 			    &dest->addr, dport,
--			    flags,
-+			    ip_vs_onepacket_enabled(svc, &iph),
- 			    dest);
- 	if (cp == NULL) {
- 		ip_vs_conn_put(ct);
-@@ -382,7 +382,7 @@ ip_vs_schedule(struct ip_vs_service *svc
- 	struct ip_vs_conn *cp = NULL;
- 	struct ip_vs_iphdr iph;
- 	struct ip_vs_dest *dest;
--	__be16 _ports[2], *pptr, flags;
-+	__be16 _ports[2], *pptr;
+-	err = bnx2_alloc_rx_skb(bp, rxr, prod);
++	err = bnx2_alloc_rx_skb(bp, rxr, prod, GFP_ATOMIC);
+ 	if (unlikely(err)) {
+ 		bnx2_reuse_rx_skb(bp, rxr, skb, (u16) (ring_idx >> 16), prod);
+ 		if (hdr_len) {
+@@ -3039,7 +3039,8 @@ bnx2_rx_skb(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, struct sk_buff *skb,
+ 			rx_pg->page = NULL;
  
- 	ip_vs_fill_iphdr(svc->af, skb_network_header(skb), &iph);
- 	pptr = skb_header_pointer(skb, iph.len, sizeof(_ports), _ports);
-@@ -412,10 +412,6 @@ ip_vs_schedule(struct ip_vs_service *svc
- 		return NULL;
- 	}
+ 			err = bnx2_alloc_rx_page(bp, rxr,
+-						 RX_PG_RING_IDX(pg_prod));
++						 RX_PG_RING_IDX(pg_prod),
++						 GFP_ATOMIC);
+ 			if (unlikely(err)) {
+ 				rxr->rx_pg_cons = pg_cons;
+ 				rxr->rx_pg_prod = pg_prod;
+@@ -5179,7 +5180,7 @@ bnx2_init_rx_ring(struct bnx2 *bp, int ring_num)
  
--	flags = (svc->flags & IP_VS_SVC_F_ONEPACKET
--		 && iph.protocol == IPPROTO_UDP)?
--		IP_VS_CONN_F_ONE_PACKET : 0;
--
- 	/*
- 	 *    Create a connection entry.
- 	 */
-@@ -423,7 +419,7 @@ ip_vs_schedule(struct ip_vs_service *svc
- 			    &iph.saddr, pptr[0],
- 			    &iph.daddr, pptr[1],
- 			    &dest->addr, dest->port ? dest->port : pptr[1],
--			    flags,
-+			    ip_vs_onepacket_enabled(svc, &iph),
- 			    dest);
- 	if (cp == NULL)
- 		return NULL;
-@@ -473,9 +469,6 @@ int ip_vs_leave(struct ip_vs_service *sv
- 	if (sysctl_ip_vs_cache_bypass && svc->fwmark && unicast) {
- 		int ret, cs;
- 		struct ip_vs_conn *cp;
--		__u16 flags = (svc->flags & IP_VS_SVC_F_ONEPACKET &&
--				iph.protocol == IPPROTO_UDP)?
--				IP_VS_CONN_F_ONE_PACKET : 0;
- 		union nf_inet_addr daddr =  { .all = { 0, 0, 0, 0 } };
+ 	ring_prod = prod = rxr->rx_pg_prod;
+ 	for (i = 0; i < bp->rx_pg_ring_size; i++) {
+-		if (bnx2_alloc_rx_page(bp, rxr, ring_prod) < 0) {
++		if (bnx2_alloc_rx_page(bp, rxr, ring_prod, GFP_KERNEL) < 0) {
+ 			netdev_warn(bp->dev, "init'ed rx page ring %d with %d/%d pages only\n",
+ 				    ring_num, i, bp->rx_pg_ring_size);
+ 			break;
+@@ -5191,7 +5192,7 @@ bnx2_init_rx_ring(struct bnx2 *bp, int ring_num)
  
- 		ip_vs_service_put(svc);
-@@ -486,7 +479,8 @@ int ip_vs_leave(struct ip_vs_service *sv
- 				    &iph.saddr, pptr[0],
- 				    &iph.daddr, pptr[1],
- 				    &daddr, 0,
--				    IP_VS_CONN_F_BYPASS | flags,
-+				    IP_VS_CONN_F_BYPASS,
-+				    ip_vs_onepacket_enabled(svc, &iph),
- 				    NULL);
- 		if (cp == NULL)
- 			return NF_DROP;
+ 	ring_prod = prod = rxr->rx_prod;
+ 	for (i = 0; i < bp->rx_ring_size; i++) {
+-		if (bnx2_alloc_rx_skb(bp, rxr, ring_prod) < 0) {
++		if (bnx2_alloc_rx_skb(bp, rxr, ring_prod, GFP_KERNEL) < 0) {
+ 			netdev_warn(bp->dev, "init'ed rx ring %d with %d/%d skbs only\n",
+ 				    ring_num, i, bp->rx_ring_size);
+ 			break;
+-- 
+1.7.1
+
