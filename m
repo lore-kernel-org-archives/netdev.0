@@ -1,63 +1,60 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: [PATCH] IPv6: fix CoA check in RH2 input handler (mip6_rthdr_input())
-Date: Fri, 16 Jul 2010 12:38:44 +0200
-Message-ID: <87aapr7lu3.fsf@small.ssi.corp>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 4/4] phylib: Allow reading and writing a mii bus from
+ atomic context.
+Date: Fri, 16 Jul 2010 13:25:47 +0200
+Message-ID: <20100716112544.GA2996@riccoc20.at.omicron.at>
+References: <cover.1278307573.git.richard.cochran@omicron.at>
+ <a06cf09ed5096bf8f9434d90828adfa70586e936.1278307573.git.richard.cochran@omicron.at>
+ <AANLkTikEF3B-0JGvqosY5jMaChbpYctOmKW1jJKOWsQE@mail.gmail.com>
+ <20100707071832.GA2816@riccoc20.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Andy Fleming <afleming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:56805 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964971Ab0GPKig (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jul 2010 06:38:36 -0400
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:57446 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965028Ab0GPLZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 07:25:51 -0400
+Received: by bwz1 with SMTP id 1so1154832bwz.19
+        for <netdev@vger.kernel.org>; Fri, 16 Jul 2010 04:25:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20100707071832.GA2816@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jul 07, 2010 at 09:18:32AM +0200, Richard Cochran wrote:
+> Consider the receive path:
+> 
+> 1. PTP Packet passed through PHY. PHY recognizes it and stores a time
+>    stamp along with some UID from the packet.
+> 
+> 2. Napi calls the MAC driver's poll function.
+> 
+> 3. MAC driver acquires packet. At this point, if we want to have a
+>    hardware time stamp, we must read it out over the mdio bus, before
+>    handing the packet over to the stack via netif_receive_skb().
+> 
+> If we decide to defer the packet delivery (in step 3), we have to know
+> whether the PHY will have a time stamp for this packet. The only way
+> to do this is to compare the UIDs, but that requires reading it over
+> the mdio bus.
 
-The input handler for Type 2 Routing Header (mip6_rthdr_input())
-checks if the CoA in the packet matches the CoA in the XFRM state.
+(Forwarding Andy's message to me that was missing a CC to the list)
 
-Current check is buggy: it compares the adddress in the Type 2
-Routing Header, i.e. the HoA, against the expected CoA in the state.
-The comparison should be made against the address in the destination
-field of the IPv6 header.
+On Thu, Jul 08, 2010 at 03:40:41PM -0500, Andy Fleming wrote:
 
-The bug remained unnoticed because the main (and possibly only current)
-user of the code (UMIP MIPv6 Daemon) initializes the XFRM state with the
-unspecified address, i.e. explicitly allows everything.
+Wait, is the intent for this mdio read to be done for *every* packet?
+MDIO is spec'ed out to go up to 2.5MHz.  Each transaction takes 64
+cycles.  And I see that reading the timestamp from the PHY you
+submitted support for takes at *least* 2 transactions.  The fastest
+you can process packets would then be under 20,000 packets per second.
+Even on a 100Mb link with full-sized packets, you would be 40% done
+receiving the next packet before you had passed the packet on to the
+stack.  Each MDIO transaction takes 25,600 cycles on a gigahertz
+processor.  It's just too long, IMO, and it looks like this code will
+end up doing up to...10?
 
-Yoshifuji-san, can you ack that one?
-
-Cheers,
-
-a+
-
-Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
----
- net/ipv6/mip6.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index 2794b60..d6e9599 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -347,11 +347,12 @@ static const struct xfrm_type mip6_destopt_type =
- 
- static int mip6_rthdr_input(struct xfrm_state *x, struct sk_buff *skb)
- {
-+	struct ipv6hdr *iph = ipv6_hdr(skb);
- 	struct rt2_hdr *rt2 = (struct rt2_hdr *)skb->data;
- 	int err = rt2->rt_hdr.nexthdr;
- 
- 	spin_lock(&x->lock);
--	if (!ipv6_addr_equal(&rt2->addr, (struct in6_addr *)x->coaddr) &&
-+	if (!ipv6_addr_equal(&iph->daddr, (struct in6_addr *)x->coaddr) &&
- 	    !ipv6_addr_any((struct in6_addr *)x->coaddr))
- 		err = -ENOENT;
- 	spin_unlock(&x->lock);
--- 
-1.7.1
-
+I wasn't able to find an example of how you were going to use the
+time-stamp functions you provided.  Could you please go into a little
+more detail about how you intended this to work?
