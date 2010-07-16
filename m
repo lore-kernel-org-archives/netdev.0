@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [4/5] Do not reset
- when the device is not opened
-Date: Thu, 15 Jul 2010 18:32:10 -0700 (PDT)
-Message-ID: <20100715.183210.226762655.davem@davemloft.net>
-References: <alpine.LRH.2.00.1007131749030.32055@localhost.localdomain>
-	<20100714.140718.115934967.davem@davemloft.net>
-	<alpine.LRH.2.00.1007151448260.25472@localhost.localdomain>
+Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [1/5] Spare skb to
+ avoid starvation
+Date: Thu, 15 Jul 2010 18:39:13 -0700 (PDT)
+Message-ID: <20100715.183913.71134002.davem@davemloft.net>
+References: <alpine.LRH.2.00.1007070214400.6105@localhost.localdomain>
+	<alpine.LRH.2.00.1007131743520.32055@localhost.localdomain>
+	<alpine.LRH.2.00.1007151656140.10176@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com, ronghua@vmware.com, matthieu@vmware.com
+Cc: netdev@vger.kernel.org, pv-drivers@vmware.com,
+	linux-kernel@vger.kernel.org
 To: sbhatewara@vmware.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.1007151448260.25472@localhost.localdomain>
+In-Reply-To: <alpine.LRH.2.00.1007151656140.10176@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Thu, 15 Jul 2010 18:20:52 -0700 (PDT)
+Date: Thu, 15 Jul 2010 18:19:39 -0700 (PDT)
 
-> Is this what you suggest :
 > 
-> ---
-> 
-> Hold rtnl_lock to get the right link state.
+> Reposting this patch with struct vmxnet3_cmd_ring *ring made const 
+> according to Stephen's feedback.
 
-It ought to work, but make sure that it is legal to take the
-RTNL semaphore in all contexts in which this code block
-might be called.
+Please address my feedback, which is that this is not the way to
+handle this problem.
+
+You can prevent all forms of starvation, without hacky spare-skbs or
+things like that, by trying to allocate the replacement SKB _before_
+sending the packet up to the stack.
+
+If the replacement SKB allocation fails, you do not give the packet to
+the network stack.  Instead, you give it back to the card's RX ring.
+
+See drivers/net/tg3.c, drivers/net/niu.c, etc. for examples of this.
