@@ -1,24 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 07/25] atm: Convert pci_table entries to PCI_VDEVICE
- (if PCI_ANY_ID is used)
-Date: Thu, 15 Jul 2010 19:06:27 -0700 (PDT)
-Message-ID: <20100715.190627.39190842.davem@davemloft.net>
-References: <201007152044.12653.PeterHuewe@gmx.de>
+Subject: Re: [PATCH 19/25] isdn/hardware/mISDN: Convert pci_table entries
+ to PCI_VDEVICE (if PCI_ANY_ID is used)
+Date: Thu, 15 Jul 2010 19:06:53 -0700 (PDT)
+Message-ID: <20100715.190653.260081840.davem@davemloft.net>
+References: <201007152102.38008.PeterHuewe@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	roel.kluin@gmail.com, eric.dumazet@gmail.com, tj@kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, isdn@linux-pingi.de,
+	u.kleine-koenig@pengutronix.de, tj@kernel.org, jkosina@suse.cz,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: PeterHuewe@gmx.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201007152044.12653.PeterHuewe@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49836
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S935205Ab0GPCGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 22:06:38 -0400
+In-Reply-To: <201007152102.38008.PeterHuewe@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Peter Huewe <PeterHuewe@gmx.de>
-Date: Thu, 15 Jul 2010 20:44:11 +0200
+Date: Thu, 15 Jul 2010 21:02:36 +0200
 
 > From: Peter Huewe <peterhuewe@gmx.de>
 > 
