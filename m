@@ -1,60 +1,232 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2] ipt_REJECT: can't work with bridges
-Date: Mon,  5 Jul 2010 15:16:54 +0800
-Message-ID: <1278314214-18469-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/2] Remove REDWOOD_[456] config options and conditional
+	code
+Date: Fri, 16 Jul 2010 10:20:55 -0400
+Message-ID: <20100716142055.GA11736@zod.rchland.ibm.com>
+References: <4f07b3092cafbbba37d61d367cc7484e24d18d2a.1279116162.git.qy03fugy@stud.informatik.uni-erlangen.de>
+	<redwood56-reply-1-miltonm@bga.com>
+	<cover.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
+	<ca1bb25d203618c3548748f5efb6f125a96c89e0.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <randy.dunlap@oracle.com>, linuxppc-dev@ozlabs.org,
+	Alexander Kurz <linux@kbdbabel.org>, Paul Mackerras <paulus@samba.org>,
+	John Linn <john.linn@xilinx.com>, David Brown <davidb@quicinc.com>,
+	Ladislav Michl <ladis@linux-mips.org>,
+	Solomon Peachy <solomon@linux-wlan.com>,
+	vamos-dev@i4.informatik.uni-erlangen.de,
+	Mike Frysinger <vapier@gentoo.org>, Florian Fainelli <florian@openwrt.org>,
+	Artem Bityutskiy <Artem.Bityutskiy@nokia.com>,
+	Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Milton Miller <miltonm@bga.com>,
+	Jiri Kosina <jkosina@suse.cz>, Joe Perches <joe@perches.com>,
+	linux-mtd@lists.infradead.org, David Woodhouse <dwmw2@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <ca1bb25d203618c3548748f5efb6f125a96c89e0.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-ipt_REJECT: can't work with bridges
+On Fri, Jul 16, 2010 at 02:29:02PM +0200, Christian Dietrich wrote:
+>The config options for REDWOOD_[456] were commented out in the powerpc
+>Kconfig. The ifdefs referencing this options therefore are dead and all
+>references to this can be removed (Also dependencies in other KConfig
+>files).
+>
+>Signed-off-by: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
+>Signed-off-by: Christoph Egger <siccegge@cs.fau.de>
 
-ip_route_me_harder can't create the route cache when the outdev is the same with
-the indev for the skbs whichout a valid protocol set.
+This seems fine with me.
 
-__mkroute_input functions has this check:
-1998         if (skb->protocol != htons(ETH_P_IP)) {
-1999                 /* Not IP (i.e. ARP). Do not create route, if it is
-2000                  * invalid for proxy arp. DNAT routes are always valid.
-2001                  *
-2002                  * Proxy arp feature have been extended to allow, ARP
-2003                  * replies back to the same interface, to support
-2004                  * Private VLAN switch technologies. See arp.c.
-2005                  */
-2006                 if (out_dev == in_dev &&
-2007                     IN_DEV_PROXY_ARP_PVLAN(in_dev) == 0) {
-2008                         err = -EINVAL;
-2009                         goto cleanup;
-2010                 }
-2011         }
+The only question is which tree it coms through.  I'm happy to take it
+in via mine if the netdev and MTD people are fine with that.  Otherwise,
+my ack is below.
 
-This patch gives the new skb a valid protocol to bypass this check. In order to
-make ipt_REJECT work with bridges, you also need to enable ip_forward.
+Acked-by: Josh Boyer <jwboyer@linux.vnet.ibm.com>
 
-This patch also fixes a regression. When we used skb_copy_expand(), we didn't
-have this issue stated above, as the protocol was properly set. In fact, the
-regression also affects TC classification and packet sockets.
+josh
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/ipv4/netfilter/ipt_REJECT.c |    1 +
- 1 file changed, 1 insertion(+)
-diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
-index bbbd273..60b8832 100644
---- a/net/ipv4/netfilter/ipt_REJECT.c
-+++ b/net/ipv4/netfilter/ipt_REJECT.c
-@@ -111,6 +111,7 @@ static void send_reset(struct sk_buff *oldskb, int hook)
- 	/* ip_route_me_harder expects skb->dst to be set */
- 	skb_dst_set_noref(nskb, skb_dst(oldskb));
- 
-+	nskb->protocol = htons(ETH_P_IP);
- 	if (ip_route_me_harder(nskb, addr_type))
- 		goto free_nskb;
- 
+>---
+> arch/powerpc/platforms/40x/Kconfig |   16 -------------
+> drivers/mtd/maps/Kconfig           |    2 +-
+> drivers/mtd/maps/redwood.c         |   43 ------------------------------------
+> drivers/net/Kconfig                |    2 +-
+> drivers/net/smc91x.h               |   37 -------------------------------
+> 5 files changed, 2 insertions(+), 98 deletions(-)
+>
+>diff --git a/arch/powerpc/platforms/40x/Kconfig b/arch/powerpc/platforms/40x/Kconfig
+>index ec64264..b721764 100644
+>--- a/arch/powerpc/platforms/40x/Kconfig
+>+++ b/arch/powerpc/platforms/40x/Kconfig
+>@@ -71,22 +71,6 @@ config MAKALU
+> 	help
+> 	  This option enables support for the AMCC PPC405EX board.
+>
+>-#config REDWOOD_5
+>-#	bool "Redwood-5"
+>-#	depends on 40x
+>-#	default n
+>-#	select STB03xxx
+>-#	help
+>-#	  This option enables support for the IBM STB04 evaluation board.
+>-
+>-#config REDWOOD_6
+>-#	bool "Redwood-6"
+>-#	depends on 40x
+>-#	default n
+>-#	select STB03xxx
+>-#	help
+>-#	  This option enables support for the IBM STBx25xx evaluation board.
+>-
+> #config SYCAMORE
+> #	bool "Sycamore"
+> #	depends on 40x
+>diff --git a/drivers/mtd/maps/Kconfig b/drivers/mtd/maps/Kconfig
+>index f22bc9f..6629d09 100644
+>--- a/drivers/mtd/maps/Kconfig
+>+++ b/drivers/mtd/maps/Kconfig
+>@@ -321,7 +321,7 @@ config MTD_CFI_FLAGADM
+>
+> config MTD_REDWOOD
+> 	tristate "CFI Flash devices mapped on IBM Redwood"
+>-	depends on MTD_CFI && ( REDWOOD_4 || REDWOOD_5 || REDWOOD_6 )
+>+	depends on MTD_CFI
+> 	help
+> 	  This enables access routines for the flash chips on the IBM
+> 	  Redwood board. If you have one of these boards and would like to
+>diff --git a/drivers/mtd/maps/redwood.c b/drivers/mtd/maps/redwood.c
+>index 933c0b6..d2c9db0 100644
+>--- a/drivers/mtd/maps/redwood.c
+>+++ b/drivers/mtd/maps/redwood.c
+>@@ -22,8 +22,6 @@
+>
+> #include <asm/io.h>
+>
+>-#if !defined (CONFIG_REDWOOD_6)
+>-
+> #define WINDOW_ADDR 0xffc00000
+> #define WINDOW_SIZE 0x00400000
+>
+>@@ -69,47 +67,6 @@ static struct mtd_partition redwood_flash_partitions[] = {
+> 	}
+> };
+>
+>-#else /* CONFIG_REDWOOD_6 */
+>-/* FIXME: the window is bigger - armin */
+>-#define WINDOW_ADDR 0xff800000
+>-#define WINDOW_SIZE 0x00800000
+>-
+>-#define RW_PART0_OF	0
+>-#define RW_PART0_SZ	0x400000	/* 4 MiB data */
+>-#define RW_PART1_OF	RW_PART0_OF + RW_PART0_SZ
+>-#define RW_PART1_SZ	0x10000		/* 64K VPD */
+>-#define RW_PART2_OF	RW_PART1_OF + RW_PART1_SZ
+>-#define RW_PART2_SZ	0x400000 - (0x10000 + 0x20000)
+>-#define RW_PART3_OF	RW_PART2_OF + RW_PART2_SZ
+>-#define RW_PART3_SZ	0x20000
+>-
+>-static struct mtd_partition redwood_flash_partitions[] = {
+>-	{
+>-		.name = "Redwood filesystem",
+>-		.offset = RW_PART0_OF,
+>-		.size = RW_PART0_SZ
+>-	},
+>-	{
+>-		.name = "Redwood OpenBIOS Vital Product Data",
+>-		.offset = RW_PART1_OF,
+>-		.size = RW_PART1_SZ,
+>-		.mask_flags = MTD_WRITEABLE	/* force read-only */
+>-	},
+>-	{
+>-		.name = "Redwood kernel",
+>-		.offset = RW_PART2_OF,
+>-		.size = RW_PART2_SZ
+>-	},
+>-	{
+>-		.name = "Redwood OpenBIOS",
+>-		.offset = RW_PART3_OF,
+>-		.size = RW_PART3_SZ,
+>-		.mask_flags = MTD_WRITEABLE	/* force read-only */
+>-	}
+>-};
+>-
+>-#endif /* CONFIG_REDWOOD_6 */
+>-
+> struct map_info redwood_flash_map = {
+> 	.name = "IBM Redwood",
+> 	.size = WINDOW_SIZE,
+>diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>index ce2fcdd..313d306 100644
+>--- a/drivers/net/Kconfig
+>+++ b/drivers/net/Kconfig
+>@@ -913,7 +913,7 @@ config SMC91X
+> 	tristate "SMC 91C9x/91C1xxx support"
+> 	select CRC32
+> 	select MII
+>-	depends on ARM || REDWOOD_5 || REDWOOD_6 || M32R || SUPERH || \
+>+	depends on ARM || M32R || SUPERH || \
+> 		MIPS || BLACKFIN || MN10300 || COLDFIRE
+> 	help
+> 	  This is a driver for SMC's 91x series of Ethernet chipsets,
+>diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+>index 8d2772c..ee74791 100644
+>--- a/drivers/net/smc91x.h
+>+++ b/drivers/net/smc91x.h
+>@@ -83,43 +83,6 @@ static inline void SMC_outw(u16 val, void __iomem *ioaddr, int reg)
+> 	}
+> }
+>
+>-#elif defined(CONFIG_REDWOOD_5) || defined(CONFIG_REDWOOD_6)
+>-
+>-/* We can only do 16-bit reads and writes in the static memory space. */
+>-#define SMC_CAN_USE_8BIT	0
+>-#define SMC_CAN_USE_16BIT	1
+>-#define SMC_CAN_USE_32BIT	0
+>-#define SMC_NOWAIT		1
+>-
+>-#define SMC_IO_SHIFT		0
+>-
+>-#define SMC_inw(a, r)		in_be16((volatile u16 *)((a) + (r)))
+>-#define SMC_outw(v, a, r)	out_be16((volatile u16 *)((a) + (r)), v)
+>-#define SMC_insw(a, r, p, l) 						\
+>-	do {								\
+>-		unsigned long __port = (a) + (r);			\
+>-		u16 *__p = (u16 *)(p);					\
+>-		int __l = (l);						\
+>-		insw(__port, __p, __l);					\
+>-		while (__l > 0) {					\
+>-			*__p = swab16(*__p);				\
+>-			__p++;						\
+>-			__l--;						\
+>-		}							\
+>-	} while (0)
+>-#define SMC_outsw(a, r, p, l) 						\
+>-	do {								\
+>-		unsigned long __port = (a) + (r);			\
+>-		u16 *__p = (u16 *)(p);					\
+>-		int __l = (l);						\
+>-		while (__l > 0) {					\
+>-			/* Believe it or not, the swab isn't needed. */	\
+>-			outw( /* swab16 */ (*__p++), __port);		\
+>-			__l--;						\
+>-		}							\
+>-	} while (0)
+>-#define SMC_IRQ_FLAGS		(0)
+>-
+> #elif defined(CONFIG_SA1100_PLEB)
+> /* We can only do 16-bit reads and writes in the static memory space. */
+> #define SMC_CAN_USE_8BIT	1
+>-- 
+>1.7.0.4
+>
