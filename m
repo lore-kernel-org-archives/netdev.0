@@ -1,41 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Enhance dev_ioctl to return <hwaddr>:<if_name::if_index>
- mapping
-Date: Fri, 16 Jul 2010 12:33:06 -0700 (PDT)
-Message-ID: <20100716.123306.232886890.davem@davemloft.net>
-References: <D3F292ADF945FB49B35E96C94C2061B90C55C202@nsmail.netscout.com>
-	<20100716113113.1e2b51c7@nehalam>
-	<AANLkTin3V7LtmhDAOktNF1UITM86sJwButxCQ3vo31lv@mail.gmail.com>
+Subject: Re: [RFC] LSM hook for post recvmsg.
+Date: Fri, 16 Jul 2010 12:35:58 -0700 (PDT)
+Message-ID: <20100716.123558.71592004.davem@davemloft.net>
+References: <201007170114.GFC57373.SQJHOVtLFMOFFO@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, Chetan.Loke@netscout.com,
-	bhutchings@solarflare.com, netdev@vger.kernel.org
-To: chetanloke@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: penguin-kernel@I-love.SAKURA.ne.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41279
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41284
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754806Ab0GPTcv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jul 2010 15:32:51 -0400
-In-Reply-To: <AANLkTin3V7LtmhDAOktNF1UITM86sJwButxCQ3vo31lv@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1754865Ab0GPTfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 15:35:42 -0400
+In-Reply-To: <201007170114.GFC57373.SQJHOVtLFMOFFO@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Chetan Loke <chetanloke@gmail.com>
-Date: Fri, 16 Jul 2010 15:29:06 -0400
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Sat, 17 Jul 2010 01:14:38 +0900
 
-> On Fri, Jul 16, 2010 at 2:31 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
->> Simple way:
->> =A0 Use SIOCGIFCONF to get list of interfaces
->> =A0 Use SIOCGIFHWADDR to read device addresss
->>
-> And interfaces that don't have IP's?
+> Below is a patch for post recvmsg() operation. I modified the patch to call
+> skb_recv_datagram() again (for udp_recvmsg(), raw_recvmsg(), udpv6_recvmsg())
+> if LSM dicided to drop the message. (Regarding rawv6_recvmsg(), I didn't do so
+> in accordance with the comment at "csum_copy_err:".)
+> What do you think about this verion?
 
-There is no requirement that an interface have configured IP addresses
-in order to use those ioctl()'s.
-
-You simply create an arbitrary socket, and use the resulting 'fd' to
-run the ioctl's mentioned to fetch information about any and all
-interfaces which exist in the system.
+This looks fine, but regardless of that comment I think the IPV6 raw recvmsg()
+should loop just as the IPV4 one does in your patch.
