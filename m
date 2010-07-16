@@ -1,32 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [ipmr] ipmr: Don't leak memory if fib lookup fails.
-Date: Thu, 15 Jul 2010 22:39:15 -0700 (PDT)
-Message-ID: <20100715.223915.91352309.davem@davemloft.net>
-References: <1279236153-23699-1-git-send-email-greearb@candelatech.com>
-	<4C3FA22A.7090706@candelatech.com>
+Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [3/5] Initialize
+ link state at probe time
+Date: Thu, 15 Jul 2010 22:44:35 -0700 (PDT)
+Message-ID: <20100715.224435.45920963.davem@davemloft.net>
+References: <alpine.LRH.2.00.1007131748180.32055@localhost.localdomain>
+	<20100714.141054.48510602.davem@davemloft.net>
+	<alpine.LRH.2.00.1007150125240.25472@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com
+To: sbhatewara@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48328
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32892
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753504Ab0GPFjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 01:39:00 -0400
-In-Reply-To: <4C3FA22A.7090706@candelatech.com>
+	by vger.kernel.org with ESMTP id S1753504Ab0GPFoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 01:44:19 -0400
+In-Reply-To: <alpine.LRH.2.00.1007150125240.25472@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Thu, 15 Jul 2010 17:04:58 -0700
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Date: Thu, 15 Jul 2010 18:20:14 -0700 (PDT)
 
-> On 07/15/2010 04:22 PM, Ben Greear wrote:
->> This was detected using two mcast router tables.  The
->> pimreg for the second interface did not have a specific
->> mrule, so packets received by it were handled by the
->> default table, which had nothing configured.
 > 
-> I just realized this should be applied against 2.6.35-pre, not 2.6.34.
+> On Wed, 14 Jul 2010, David Miller wrote:
+> 
+>> From: Shreyas Bhatewara <sbhatewara@vmware.com>
+>> Date: Tue, 13 Jul 2010 17:48:55 -0700 (PDT)
+>> 
+>> > 
+>> > Initialize vmxnet3 link state at probe time
+>> > 
+>> > This change initializes the state of link at the time when driver is
+>> > loaded. The ethtool output for 'link detected' and 'link speed'
+>> > is thus valid even before the interface is brought up.
+>> > 
+>> > Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+>> 
+>> You should never, ever, call netif_start_queue() on a device which has
+>> not been brought up.
+>> 
+>> But that is what this patch is doing.
+>> 
+> 
+> I do not understand why you say so. vmxnet3_check_link() is called in 
+> probe() with affectTxQueue as false. Hence netif_start_queue() will not be 
+> called before device is brought up.
+> vmxnet3_check_link() is again called with affectTxQueue as true in 
+> vmxnet3_activate_dev() after device was activated.
 
-Fix looks good, applied to net-2.6, thanks!
+Aha, I see how the logic works now.
+
+But still there is a problem with this patch, please remove the
+driver version bump and resubmit.
+
+You should only version bump at the last patch in a series.
+
+Thanks.
