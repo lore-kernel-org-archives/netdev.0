@@ -1,137 +1,80 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [3/5] Initialize link
- state at probe time
-Date: Fri, 16 Jul 2010 00:51:14 -0700 (PDT)
-Message-ID: <alpine.LRH.2.00.1007160050030.12503@localhost.localdomain>
-References: <alpine.LRH.2.00.1007131748180.32055@localhost.localdomain> <20100714.141054.48510602.davem@davemloft.net> <alpine.LRH.2.00.1007150125240.25472@localhost.localdomain> <20100715.224435.45920963.davem@davemloft.net>
+From: Helmut Grohne <helmut@subdivi.de>
+Subject: sky2 mac hung again (or still?)
+Date: Fri, 16 Jul 2010 09:44:21 +0200
+Message-ID: <20100716074419.GA32323@alf.mars>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:60857 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935843Ab0GPHvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 03:51:15 -0400
-In-Reply-To: <20100715.224435.45920963.davem@davemloft.net>
+Received: from subdivi.de ([77.37.6.11]:3869 "EHLO subdivi.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935847Ab0GPIRD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jul 2010 04:17:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dear sky2 maintainers,
 
+thanks for all your work on the continuously improving stability issues
+of the sky2 driver. Unfortunately this battle is not yet over. To aid in
+getting this fully working I'd like to give another data point.
 
-On Thu, 15 Jul 2010, David Miller wrote:
+Kernel: vanilla 2.6.33.2
 
-> From: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Date: Thu, 15 Jul 2010 18:20:14 -0700 (PDT)
-> 
-> > 
-> > On Wed, 14 Jul 2010, David Miller wrote:
-> > 
-> >> From: Shreyas Bhatewara <sbhatewara@vmware.com>
-> >> Date: Tue, 13 Jul 2010 17:48:55 -0700 (PDT)
-> >> 
-> >> > 
-> >> > Initialize vmxnet3 link state at probe time
-> >> > 
-> >> > This change initializes the state of link at the time when driver is
-> >> > loaded. The ethtool output for 'link detected' and 'link speed'
-> >> > is thus valid even before the interface is brought up.
-> >> > 
-> >> > Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-> >> 
-> >> You should never, ever, call netif_start_queue() on a device which has
-> >> not been brought up.
-> >> 
-> >> But that is what this patch is doing.
-> >> 
-> > 
-> > I do not understand why you say so. vmxnet3_check_link() is called in 
-> > probe() with affectTxQueue as false. Hence netif_start_queue() will not be 
-> > called before device is brought up.
-> > vmxnet3_check_link() is again called with affectTxQueue as true in 
-> > vmxnet3_activate_dev() after device was activated.
-> 
-> Aha, I see how the logic works now.
-> 
-> But still there is a problem with this patch, please remove the
-> driver version bump and resubmit.
-> 
-> You should only version bump at the last patch in a series.
-> 
-> Thanks.
-> 
+lspci output:
+05:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053 PCI-E Gigabit Ethernet Controller (rev 19)
+        Subsystem: ASUSTeK Computer Inc. Marvell 88E8053 Gigabit Ethernet controller PCIe (Asus)
+        Flags: bus master, fast devsel, latency 0, IRQ 36
+        Memory at d1000000 (64-bit, non-prefetchable) [size=16K]
+        I/O ports at a000 [size=256]
+        [virtual] Expansion ROM at 80800000 [disabled] [size=128K]
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
+        Capabilities: [5c] MSI: Enable- Count=1/2 Maskable- 64bit+
+        Capabilities: [e0] Express Legacy Endpoint, MSI 00
+        Capabilities: [100] Advanced Error Reporting
+        Kernel driver in use: sky2
 
----
+dmesg output after rmmod and modprobe (for a currently very hung card):
+sky2 driver version 1.26
+sky2 0000:05:00.0: PCI INT A -> GSI 36 (level, low) -> IRQ 36
+sky2 0000:05:00.0: setting latency timer to 64
+sky2 0000:05:00.0: PCI: Disallowing DAC for device
+sky2 0000:05:00.0: Yukon-2 EC chip revision 2
+sky2 0000:05:00.0: irq 53 for MSI/MSI-X
+sky2 0000:05:00.0: No interrupt generated using MSI, switching to INTx mode.
+sky2 eth0: addr 00:15:f2:36:00:e9
 
-Initialize vmxnet3 link state at probe time
+The problem (again/still) is as usual:
+sky2 eth0: hung mac 124:91 fifo 194 (182:176)
+sky2 eth0: receiver hang detected
+sky2 eth0: disabling interface
+sky2 eth0: enabling interface
 
-This change initializes the state of link at the time when driver is
-loaded. The ethtool output for 'link detected' and 'link speed'
-is thus valid even before the interface is brought up.
+(I can get you more of these hung mac messages with slightly different
+numbers if need be.)
 
-Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+This kind of hang happens about once a day for me and it kills my pptp vpn
+connection, cause the card takes too long to recover.
 
----
- drivers/net/vmxnet3/vmxnet3_drv.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
+Today in contrast the card took the opportunity to crash a bit harder,
+so I did not get it up again (maybe a reboot can help later). I was
+lucky to have an unused rtl8139too in that machine...
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 7792a44..1e31d40 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -130,7 +130,7 @@ vmxnet3_tq_stop(struct vmxnet3_tx_queue *tq, struct vmxnet3_adapter *adapter)
-  * Check the link state. This may start or stop the tx queue.
-  */
- static void
--vmxnet3_check_link(struct vmxnet3_adapter *adapter)
-+vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool affectTxQueue)
- {
- 	u32 ret;
- 
-@@ -143,14 +143,16 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter)
- 		if (!netif_carrier_ok(adapter->netdev))
- 			netif_carrier_on(adapter->netdev);
- 
--		vmxnet3_tq_start(&adapter->tx_queue, adapter);
-+		if (affectTxQueue)
-+			vmxnet3_tq_start(&adapter->tx_queue, adapter);
- 	} else {
- 		printk(KERN_INFO "%s: NIC Link is Down\n",
- 		       adapter->netdev->name);
- 		if (netif_carrier_ok(adapter->netdev))
- 			netif_carrier_off(adapter->netdev);
- 
--		vmxnet3_tq_stop(&adapter->tx_queue, adapter);
-+		if (affectTxQueue)
-+			vmxnet3_tq_stop(&adapter->tx_queue, adapter);
- 	}
- }
- 
-@@ -165,7 +167,7 @@ vmxnet3_process_events(struct vmxnet3_adapter *adapter)
- 
- 	/* Check if link state has changed */
- 	if (events & VMXNET3_ECR_LINK)
--		vmxnet3_check_link(adapter);
-+		vmxnet3_check_link(adapter, true);
- 
- 	/* Check if there is an error on xmit/recv queues */
- 	if (events & (VMXNET3_ECR_TQERR | VMXNET3_ECR_RQERR)) {
-@@ -1947,7 +1949,7 @@ vmxnet3_activate_dev(struct vmxnet3_adapter *adapter)
- 	 * Check link state when first activating device. It will start the
- 	 * tx queue if the link is up.
- 	 */
--	vmxnet3_check_link(adapter);
-+	vmxnet3_check_link(adapter, true);
- 
- 	napi_enable(&adapter->napi);
- 	vmxnet3_enable_all_intrs(adapter);
-@@ -2549,6 +2551,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 	}
- 
- 	set_bit(VMXNET3_STATE_BIT_QUIESCED, &adapter->state);
-+	vmxnet3_check_link(adapter, false);
- 	atomic_inc(&devices_found);
- 	return 0;
+It seems like a precondition for the card to hang is a bit network
+traffic. I don't remember getting it crashed with a load of less than
+10Mbit symmetric (receive/send) while using this kernel version. On the
+other I have seen the card survive this workload for 8 hours a few
+times. It does not seem to have any problems with a quick and high
+receive load (downloading Debian packages from the next 1Gbit mirror,
+usually around 200Mbit).
 
+To me this sounds like a race condition.
+
+Did I miss out any details?
+
+Thanks in advance
+
+Helmut
