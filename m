@@ -1,46 +1,49 @@
-From: Chetan Loke <chetanloke@gmail.com>
-Subject: Re: [RFC] Enhance dev_ioctl to return <hwaddr>:<if_name::if_index>
-	mapping
-Date: Fri, 16 Jul 2010 16:15:44 -0400
-Message-ID: <AANLkTineSDEEKY-9ve2maSBmPWBxkW5XmqnHlLtIOClx@mail.gmail.com>
-References: <AANLkTilhSSh1kE5ZfqVDbBJJWdP3hDcXRffpQwdyMQua@mail.gmail.com>
-	<20100716.124031.220080717.davem@davemloft.net>
-	<AANLkTinAiJJqhrro8Jlrb0WgHzDSCx_dtWXL5N9ZKUbd@mail.gmail.com>
-	<20100716.130445.149851386.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ibmveth: lost IRQ while closing/opening device leads
+ to service loss
+Date: Fri, 16 Jul 2010 13:16:31 -0700 (PDT)
+Message-ID: <20100716.131631.184859877.davem@davemloft.net>
+References: <20100715202120.GA12770@linux.vnet.ibm.com>
+	<20100716145724.GA25385@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, Chetan.Loke@netscout.com,
-	bhutchings@solarflare.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, santil@linux.vnet.ibm.com,
+	brking@linux.vnet.ibm.com
+To: rcj@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:33391 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966137Ab0GPUPq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 16:15:46 -0400
-Received: by vws5 with SMTP id 5so2954571vws.19
-        for <netdev@vger.kernel.org>; Fri, 16 Jul 2010 13:15:45 -0700 (PDT)
-In-Reply-To: <20100716.130445.149851386.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49708
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S966137Ab0GPUQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 16:16:15 -0400
+In-Reply-To: <20100716145724.GA25385@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 16, 2010 at 4:04 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Chetan Loke <chetanloke@gmail.com>
-> Date: Fri, 16 Jul 2010 16:02:23 -0400
->
->> So all user space apps should replicate code when all of that can be
->> replaced at the cost of a single for-loop in a non fast-path code
->> within the kernel?
->
-> When there is a way to do something already, we don't add "yet anothe=
-r"
-> way to do it. =C2=A0The kernel already suffers from API masterbation =
-as-is.
->
+From: Robert Jennings <rcj@linux.vnet.ibm.com>
+Date: Fri, 16 Jul 2010 09:57:25 -0500
 
-Ok, what if, i) ifindex =3D=3D 0 in the call to SIOCGIFINDEX or ii) if =
-the
-ifindex is not found ? May be then in the else clause we could search
-using the hw-addr before bailing out ;)? This way we can avoid adding
-a new API. Still not a good idea?
+> The order of freeing the IRQ and freeing the device in firmware
+> in ibmveth_close can cause the adapter to become unusable after a
+> subsequent ibmveth_open.  Only a reboot of the OS will make the
+> network device usable again. This is seen when cycling the adapter
+> up and down while there is network activity.
+> 
+> There is a window where an IRQ will be left unserviced (H_EOI will not
+> be called).  The solution is to make a VIO_IRQ_DISABLE h_call, free the
+> device with firmware, and then call free_irq.
+> 
+> Signed-off-by: Robert Jennings <rcj@linux.vnet.ibm.com>
+
+Applied, thanks.
+
+> No changes to the patch, I realized I left out '[PATCH]' in the subject
+> and I didn't want any automated tools missing this fix.
+
+Rules may be sometimes seen as anal, but they are not _that_ anal.
+
+Also you can always look in patchwork to see if your change is
+there, and your original patch was.
+
+You actually make more work for me if you resubmit patches already
+sitting in the queue :-/
