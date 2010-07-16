@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [1/5] Spare skb to
- avoid starvation
-Date: Thu, 15 Jul 2010 18:39:13 -0700 (PDT)
-Message-ID: <20100715.183913.71134002.davem@davemloft.net>
-References: <alpine.LRH.2.00.1007070214400.6105@localhost.localdomain>
-	<alpine.LRH.2.00.1007131743520.32055@localhost.localdomain>
-	<alpine.LRH.2.00.1007151656140.10176@localhost.localdomain>
+Subject: Re: [PATCH 03/25] atm: Convert pci_table entries to PCI_VDEVICE
+ (if PCI_ANY_ID is used)
+Date: Thu, 15 Jul 2010 19:06:04 -0700 (PDT)
+Message-ID: <20100715.190604.189686225.davem@davemloft.net>
+References: <201007152038.21535.PeterHuewe@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pv-drivers@vmware.com,
+Cc: kernel-janitors@vger.kernel.org, chas@cmf.nrl.navy.mil,
+	ben@decadent.org.uk, tj@kernel.org,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: sbhatewara@vmware.com
+To: PeterHuewe@gmx.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.00.1007151656140.10176@localhost.localdomain>
+In-Reply-To: <201007152038.21535.PeterHuewe@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Date: Thu, 15 Jul 2010 18:19:39 -0700 (PDT)
+From: Peter Huewe <PeterHuewe@gmx.de>
+Date: Thu, 15 Jul 2010 20:38:20 +0200
 
+> From: Peter Huewe <peterhuewe@gmx.de>
 > 
-> Reposting this patch with struct vmxnet3_cmd_ring *ring made const 
-> according to Stephen's feedback.
+> This patch converts pci_table entries, where .subvendor=PCI_ANY_ID and
+> .subdevice=PCI_ANY_ID, .class=0 and .class_mask=0, to use the
+> PCI_VDEVICE macro, and thus improves readability.
+> 
+> Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 
-Please address my feedback, which is that this is not the way to
-handle this problem.
-
-You can prevent all forms of starvation, without hacky spare-skbs or
-things like that, by trying to allocate the replacement SKB _before_
-sending the packet up to the stack.
-
-If the replacement SKB allocation fails, you do not give the packet to
-the network stack.  Instead, you give it back to the card's RX ring.
-
-See drivers/net/tg3.c, drivers/net/niu.c, etc. for examples of this.
+Applied.
