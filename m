@@ -1,9 +1,11 @@
 From: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
-Subject: [PATCH 0/2] Removing dead code
-Date: Fri, 16 Jul 2010 14:28:56 +0200
-Message-ID: <cover.1279282865.git.qy03fugy__33178.8671821871$1279283394$gmane$org@stud.informatik.uni-erlangen.de>
+Subject: [PATCH 1/2] Remove REDWOOD_[456] config options and conditional
+ code
+Date: Fri, 16 Jul 2010 14:29:02 +0200
+Message-ID: <ca1bb25d203618c3548748f5efb6f125a96c89e0.1279282865.git.qy03fugy__8550.42795087702$1279283395$gmane$org@stud.informatik.uni-erlangen.de>
 References: <4f07b3092cafbbba37d61d367cc7484e24d18d2a.1279116162.git.qy03fugy@stud.informatik.uni-erlangen.de>
  <redwood56-reply-1-miltonm@bga.com>
+ <cover.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: vamos-dev@i4.informatik.uni-erlangen.de
@@ -13,39 +15,192 @@ To: Milton Miller <miltonm@bga.com>,
 	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
 	Paul Mackerras
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:43399 "EHLO
+Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:43451 "EHLO
 	faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965280Ab0GPM3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 08:29:03 -0400
+	by vger.kernel.org with ESMTP id S965325Ab0GPM3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 08:29:06 -0400
 Content-Disposition: inline
-In-Reply-To: <redwood56-reply-1-miltonm@bga.com>
+In-Reply-To: <cover.1279282865.git.qy03fugy@stud.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all!
+The config options for REDWOOD_[456] were commented out in the powerpc
+Kconfig. The ifdefs referencing this options therefore are dead and all
+references to this can be removed (Also dependencies in other KConfig
+files).
 
-I merged the two patches from Christoph Egger[1] to remove the
-REDWOOD_[456] config depends. And wrote a second patch, which removes
-the redwood/mtd mapping module. I hope this is now acceptable to bring
-it into the kernel, if this options are really dead.       
-
-Regards
-
-        Christian Dietrich
-
-[0] http://vamos1.informatik.uni-erlangen.de/
-[1] Message-Id: <adba61f63f4439ac17f2e428429f01ae5e65ab15.1279110895.git.siccegge@cs.fau.de>
-
-Christian Dietrich (2):
-  Remove REDWOOD_[456] config options and conditional code
-  Removed redwood/mtd mapping
-
- arch/powerpc/platforms/40x/Kconfig |   16 ----
- drivers/mtd/maps/Kconfig           |    8 --
- drivers/mtd/maps/Makefile          |    1 -
- drivers/mtd/maps/redwood.c         |  174 ------------------------------------
+Signed-off-by: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
+Signed-off-by: Christoph Egger <siccegge@cs.fau.de>
+---
+ arch/powerpc/platforms/40x/Kconfig |   16 -------------
+ drivers/mtd/maps/Kconfig           |    2 +-
+ drivers/mtd/maps/redwood.c         |   43 ------------------------------------
  drivers/net/Kconfig                |    2 +-
- drivers/net/smc91x.h               |   37 --------
- 6 files changed, 1 insertions(+), 237 deletions(-)
- delete mode 100644 drivers/mtd/maps/redwood.c
+ drivers/net/smc91x.h               |   37 -------------------------------
+ 5 files changed, 2 insertions(+), 98 deletions(-)
+
+diff --git a/arch/powerpc/platforms/40x/Kconfig b/arch/powerpc/platforms/40x/Kconfig
+index ec64264..b721764 100644
+--- a/arch/powerpc/platforms/40x/Kconfig
++++ b/arch/powerpc/platforms/40x/Kconfig
+@@ -71,22 +71,6 @@ config MAKALU
+ 	help
+ 	  This option enables support for the AMCC PPC405EX board.
+ 
+-#config REDWOOD_5
+-#	bool "Redwood-5"
+-#	depends on 40x
+-#	default n
+-#	select STB03xxx
+-#	help
+-#	  This option enables support for the IBM STB04 evaluation board.
+-
+-#config REDWOOD_6
+-#	bool "Redwood-6"
+-#	depends on 40x
+-#	default n
+-#	select STB03xxx
+-#	help
+-#	  This option enables support for the IBM STBx25xx evaluation board.
+-
+ #config SYCAMORE
+ #	bool "Sycamore"
+ #	depends on 40x
+diff --git a/drivers/mtd/maps/Kconfig b/drivers/mtd/maps/Kconfig
+index f22bc9f..6629d09 100644
+--- a/drivers/mtd/maps/Kconfig
++++ b/drivers/mtd/maps/Kconfig
+@@ -321,7 +321,7 @@ config MTD_CFI_FLAGADM
+ 
+ config MTD_REDWOOD
+ 	tristate "CFI Flash devices mapped on IBM Redwood"
+-	depends on MTD_CFI && ( REDWOOD_4 || REDWOOD_5 || REDWOOD_6 )
++	depends on MTD_CFI
+ 	help
+ 	  This enables access routines for the flash chips on the IBM
+ 	  Redwood board. If you have one of these boards and would like to
+diff --git a/drivers/mtd/maps/redwood.c b/drivers/mtd/maps/redwood.c
+index 933c0b6..d2c9db0 100644
+--- a/drivers/mtd/maps/redwood.c
++++ b/drivers/mtd/maps/redwood.c
+@@ -22,8 +22,6 @@
+ 
+ #include <asm/io.h>
+ 
+-#if !defined (CONFIG_REDWOOD_6)
+-
+ #define WINDOW_ADDR 0xffc00000
+ #define WINDOW_SIZE 0x00400000
+ 
+@@ -69,47 +67,6 @@ static struct mtd_partition redwood_flash_partitions[] = {
+ 	}
+ };
+ 
+-#else /* CONFIG_REDWOOD_6 */
+-/* FIXME: the window is bigger - armin */
+-#define WINDOW_ADDR 0xff800000
+-#define WINDOW_SIZE 0x00800000
+-
+-#define RW_PART0_OF	0
+-#define RW_PART0_SZ	0x400000	/* 4 MiB data */
+-#define RW_PART1_OF	RW_PART0_OF + RW_PART0_SZ
+-#define RW_PART1_SZ	0x10000		/* 64K VPD */
+-#define RW_PART2_OF	RW_PART1_OF + RW_PART1_SZ
+-#define RW_PART2_SZ	0x400000 - (0x10000 + 0x20000)
+-#define RW_PART3_OF	RW_PART2_OF + RW_PART2_SZ
+-#define RW_PART3_SZ	0x20000
+-
+-static struct mtd_partition redwood_flash_partitions[] = {
+-	{
+-		.name = "Redwood filesystem",
+-		.offset = RW_PART0_OF,
+-		.size = RW_PART0_SZ
+-	},
+-	{
+-		.name = "Redwood OpenBIOS Vital Product Data",
+-		.offset = RW_PART1_OF,
+-		.size = RW_PART1_SZ,
+-		.mask_flags = MTD_WRITEABLE	/* force read-only */
+-	},
+-	{
+-		.name = "Redwood kernel",
+-		.offset = RW_PART2_OF,
+-		.size = RW_PART2_SZ
+-	},
+-	{
+-		.name = "Redwood OpenBIOS",
+-		.offset = RW_PART3_OF,
+-		.size = RW_PART3_SZ,
+-		.mask_flags = MTD_WRITEABLE	/* force read-only */
+-	}
+-};
+-
+-#endif /* CONFIG_REDWOOD_6 */
+-
+ struct map_info redwood_flash_map = {
+ 	.name = "IBM Redwood",
+ 	.size = WINDOW_SIZE,
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index ce2fcdd..313d306 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -913,7 +913,7 @@ config SMC91X
+ 	tristate "SMC 91C9x/91C1xxx support"
+ 	select CRC32
+ 	select MII
+-	depends on ARM || REDWOOD_5 || REDWOOD_6 || M32R || SUPERH || \
++	depends on ARM || M32R || SUPERH || \
+ 		MIPS || BLACKFIN || MN10300 || COLDFIRE
+ 	help
+ 	  This is a driver for SMC's 91x series of Ethernet chipsets,
+diff --git a/drivers/net/smc91x.h b/drivers/net/smc91x.h
+index 8d2772c..ee74791 100644
+--- a/drivers/net/smc91x.h
++++ b/drivers/net/smc91x.h
+@@ -83,43 +83,6 @@ static inline void SMC_outw(u16 val, void __iomem *ioaddr, int reg)
+ 	}
+ }
+ 
+-#elif defined(CONFIG_REDWOOD_5) || defined(CONFIG_REDWOOD_6)
+-
+-/* We can only do 16-bit reads and writes in the static memory space. */
+-#define SMC_CAN_USE_8BIT	0
+-#define SMC_CAN_USE_16BIT	1
+-#define SMC_CAN_USE_32BIT	0
+-#define SMC_NOWAIT		1
+-
+-#define SMC_IO_SHIFT		0
+-
+-#define SMC_inw(a, r)		in_be16((volatile u16 *)((a) + (r)))
+-#define SMC_outw(v, a, r)	out_be16((volatile u16 *)((a) + (r)), v)
+-#define SMC_insw(a, r, p, l) 						\
+-	do {								\
+-		unsigned long __port = (a) + (r);			\
+-		u16 *__p = (u16 *)(p);					\
+-		int __l = (l);						\
+-		insw(__port, __p, __l);					\
+-		while (__l > 0) {					\
+-			*__p = swab16(*__p);				\
+-			__p++;						\
+-			__l--;						\
+-		}							\
+-	} while (0)
+-#define SMC_outsw(a, r, p, l) 						\
+-	do {								\
+-		unsigned long __port = (a) + (r);			\
+-		u16 *__p = (u16 *)(p);					\
+-		int __l = (l);						\
+-		while (__l > 0) {					\
+-			/* Believe it or not, the swab isn't needed. */	\
+-			outw( /* swab16 */ (*__p++), __port);		\
+-			__l--;						\
+-		}							\
+-	} while (0)
+-#define SMC_IRQ_FLAGS		(0)
+-
+ #elif defined(CONFIG_SA1100_PLEB)
+ /* We can only do 16-bit reads and writes in the static memory space. */
+ #define SMC_CAN_USE_8BIT	1
+-- 
+1.7.0.4
 
