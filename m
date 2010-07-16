@@ -1,84 +1,158 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: Badness with the kernel version 2.6.35-rc1-git1 running on P6
- box
-Date: Fri, 16 Jul 2010 12:19:30 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1007161217220.21287@chino.kir.corp.google.com>
-References: <4C401D56.3070108@linux.vnet.ibm.com> <1279274185.2549.14.camel@edumazet-laptop> <1279301731.9207.239.camel@nimitz>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
+Date: Fri, 16 Jul 2010 22:25:57 +0300
+Message-ID: <1279308358.3979.0.camel@localhost.localdomain>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	 <1277807529.19417.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	 <1277938757.4138.3.camel@localhost.localdomain>
+	 <1278204106.21020.0.camel@localhost.localdomain>
+	 <1278283714.3444.1.camel@localhost.localdomain>
+	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
+	 <1278323885.5277.0.camel@localhost.localdomain>
+	 <1278950178.17933.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
+	 <1278981483.23017.4.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
+	 <1279150380.7810.2.camel@localhost.localdomain>
+	 <1279220266.4411.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B860D9@rrsmsx501.amr.corp.intel.com>
+	 <1279220945.4411.6.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	divya <dipraksh@linux.vnet.ibm.com>,
-	LKML <linux-kernel@vger.kernel.org>, linuxppc-dev@ozlabs.org,
-	sachinp@linux.vnet.ibm.com, benh@kernel.crashing.org,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jan-Bernd Themann <ossthema@de.ibm.com>
-To: Dave Hansen <dave@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1279301731.9207.239.camel@nimitz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:40542 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759047Ab0GPT0J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 15:26:09 -0400
+Received: by bwz1 with SMTP id 1so1400633bwz.19
+        for <netdev@vger.kernel.org>; Fri, 16 Jul 2010 12:26:06 -0700 (PDT)
+In-Reply-To: <1279220945.4411.6.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 Jul 2010, Dave Hansen wrote:
-
-> > > SLUB: Unable to allocate memory on node -1 (gfp=0x20)
-> > >    cache: kmalloc-16384, object size: 16384, buffer size: 16384,
-> > default order: 2, min order: 0
-> > >    node 0: slabs: 28, objs: 292, free: 0
-> > > ip: page allocation failure. order:0, mode:0x8020
-> > > Call Trace:
-> > > [c000000006a0eb40] [c000000000011c30] .show_stack+0x6c/0x16c (unreliable)
-> > > [c000000006a0ebf0] [c00000000012129c] .__alloc_pages_nodemask+0x6a0/0x75c
-> > > [c000000006a0ed70] [c0000000001527cc] .alloc_pages_current+0xc4/0x104
-> > > [c000000006a0ee10] [c00000000011fca4] .__get_free_pages+0x18/0x90
-> > > [c000000006a0ee90] [c0000000004f7058] .ehea_get_stats+0x4c/0x1bc
-> > > [c000000006a0ef30] [c0000000005a0a04] .dev_get_stats+0x38/0x64
-> > > [c000000006a0efc0] [c0000000005b456c] .rtnl_fill_ifinfo+0x35c/0x85c
-> > > [c000000006a0f150] [c0000000005b5920] .rtmsg_ifinfo+0x164/0x204
-> > > [c000000006a0f210] [c0000000005a6d6c] .dev_change_flags+0x4c/0x7c
-> > > [c000000006a0f2a0] [c0000000005b50b4] .do_setlink+0x31c/0x750
-> > > [c000000006a0f3b0] [c0000000005b6724] .rtnl_newlink+0x388/0x618
-> > > [c000000006a0f5f0] [c0000000005b6350] .rtnetlink_rcv_msg+0x268/0x2b4
-> > > [c000000006a0f6a0] [c0000000005cfdc0] .netlink_rcv_skb+0x74/0x108
-> > > [c000000006a0f730] [c0000000005b60c4] .rtnetlink_rcv+0x38/0x5c
-> > > [c000000006a0f7c0] [c0000000005cf8c8] .netlink_unicast+0x318/0x3f4
-> > > [c000000006a0f890] [c0000000005d05b4] .netlink_sendmsg+0x2d0/0x310
-> > > [c000000006a0f970] [c00000000058e1e8] .sock_sendmsg+0xd4/0x110
-> > > [c000000006a0fb50] [c00000000058e514] .SyS_sendmsg+0x1f4/0x288
-> > > [c000000006a0fd70] [c00000000058c2b8] .SyS_socketcall+0x214/0x280
-> > > [c000000006a0fe30] [c0000000000085b4] syscall_exit+0x0/0x40
-> > > Mem-Info:
-> > > Node 0 DMA per-cpu:
-> > > CPU    0: hi:    0, btch:   1 usd:   0
-> > > CPU    1: hi:    0, btch:   1 usd:   0
-> > > CPU    2: hi:    0, btch:   1 usd:   0
-> > > CPU    3: hi:    0, btch:   1 usd:   0
+On Thu, 2010-07-15 at 22:09 +0300, Maxim Levitsky wrote:
+> On Thu, 2010-07-15 at 13:02 -0600, Tantilov, Emil S wrote:
+> > Maxim Levitsky wrote:
+> > > On Thu, 2010-07-15 at 02:33 +0300, Maxim Levitsky wrote:
+> > >> On Wed, 2010-07-14 at 16:56 -0600, Tantilov, Emil S wrote:
+> > >>> Maxim Levitsky wrote:
+> > >>>> On Mon, 2010-07-12 at 15:23 -0600, Tantilov, Emil S wrote:
+> > >>>>> Maxim Levitsky wrote:
+> > >>>>>> On Mon, 2010-07-05 at 12:58 +0300, Maxim Levitsky wrote:
+> > >>>>>>> On Mon, 2010-07-05 at 01:13 -0700, Jeff Kirsher wrote:
+> > >>>>>>>> On Sun, Jul 4, 2010 at 15:48, Maxim Levitsky
+> > >>>>>>>> <maximlevitsky@gmail.com> wrote:
+> > >>>>>>>>> Did few guesses, and now I see that reverting the below
+> > >>>>>>>>> commit fixes the problem. 
+> > >>>>>>>>> 
+> > >>>>>>>>> "e1000e: Fix/cleanup PHY reset code for ICHx/PCHx"
+> > >>>>>>>>> e98cac447cc1cc418dff1d610a5c79c4f2bdec7f.
+> > >>>>>>>>> 
+> > >>>>>>>>> 
+> > >>>>>>>>> Best regards,
+> > >>>>>>>>>        Maxim Levitsky
+> > >>>>>>>>> 
+> > >>>>>>>>> --
+> > >>>>>>>> 
+> > >>>>>>>> Can you give us till Tuesday to respond?  I know that there are
+> > >>>>>>>> some additional e1000e patches in my queue, which may resolve
+> > >>>>>>>> the issue, but this weekend the power is down to do some
+> > >>>>>>>> infrastructure upgrades which prevents us from doing any
+> > >>>>>>>> investigation.debugging until Tuesday.
+> > >>>>>>>> 
+> > >>>>>>> 
+> > >>>>>>> Sure.
+> > >>>>>>> 
+> > >>>>>>> Best regards,
+> > >>>>>>> 	Maxim Levitsky
+> > >>>>>>> 
+> > >>>>>> 
+> > >>>>>> Updates?
+> > >>>>> 
+> > >>>>> We are working on reproducing the issue. So far we have not seen
+> > >>>>> the problem when testing with net-next.
+> > >>>>> 
+> > >>>>> I asked in previous email about some additional info from ethtool
+> > >>>>> (-d, -e, -S) and kernel config. That would help us to narrow it
+> > >>>>> down. 
+> > >>>>> 
+> > >>>>> Thanks,
+> > >>>>> Emil
+> > >>>> I did send -e and -d output.
+> > >>> 
+> > >>> Sorry, looks like I lost the email with the attachements.
+> > >>> 
+> > >>> Could you provide the output of dmesg after the failure occurs?
+> > >>> 
+> > >>>> Since you probably want -S output during failure, I need to
+> > >>>> recompile kernel for that. I will do that soon.
+> > >>>> 
+> > >>>> 
+> > >>>> One question, in two weeks I hope 2.6.35 won't be released?
+> > >>>> If so, I will have enough free time then to narrow down this issue.
+> > >>>> 
+> > >>>> Other solution, is to revert this commit.
+> > >>>> (I have never seen this problem with it reverted).
+> > >>> 
+> > >>> We have been running reboot tests on 2 separate systems with recent
+> > >>> net-next kernels using your config and so far no luck in
+> > >>> reproducing this issue. 
+> > >>> 
+> > >>> What is the make model of your system (or MB)?
+> > >> 
+> > >> the motherboard is Intel DG965RY.
+> > >> 
+> > >> However, I am using vanilla kernel.
+> > >> net-next might contain further fixes.
+> > >> 
+> > >> I see if net-next works here.
 > > > 
-> > > The mainline 2.6.35-rc5 worked fine.
+> > > Yep, net-next works here.
+> > > 
+> > > 
+> > > I have the problem on vanilla kernel.
+> > > Last revision of it, I tested is 2.6.35-rc4 exactly
+> > > (815c4163b6c8ebf8152f42b0a5fd015cfdcedc78)
+> > > 
+> > > 
+> > > Maybe vanilla git master works, I test it too soon.
 > > 
-> > Maybe you were lucky with 2.6.35-rc5
+> > Thanks for the information! Good to know that this issue does not exist in the latest branch.
 > > 
-> > Anyway ehea should not use GFP_ATOMIC in its ehea_get_stats() method,
-> > called in process context, but GFP_KERNEL.
-> > 
-> > Another patch is needed for ehea_refill_rq_def() as well.
+> > Have you by any chance tested a stable branch (2.6.34.x)?
 > 
-> You're right that this is abusing GFP_ATOMIC.
-> 
-> But is, this is just a normal "GFP_ATOMIC" allocation failure?  "SLUB:
-> Unable to allocate memory on node -1" seems like a somewhat
-> inappropriate error message for that.  
-> 
+> I only did test plain 2.6.34 (v2.6.34)
+And forgot to add, that it did work.
 
-The slub message is seperate and doesn't generate a call trace, even 
-though it is a (minimum) order-0 GFP_ATOMIC allocation as well.  The page 
-allocation failure is seperate instance that is calling the page 
-allocator, not the slab allocator.
-
-> It isn't immediately obvious where the -1 is coming from.  Does it truly
-> mean "allocate from any node" here, or is that a buglet in and of
-> itself?
 > 
+> Also I repeat that revert of e98cac447cc1cc418dff1d610a5c79c4f2bdec7f 
+> (e1000e: Fix/cleanup PHY reset code for ICHx/PCHx) fixes the bug on
+> vanilla kernel.
+> 
+> Also I just pulled latest vanilla git, and I according to diffstat I see
+> no changes in e1000e, so its likely that bug remains there.
+> I will test that soon.
+Tested, broken as expected.
 
-Yes, slub uses -1 to indicate that the allocation need not come from a 
-specific node.
+
+
+
+Best regards,
+	Maxim Levitsky
+
+
+
+
