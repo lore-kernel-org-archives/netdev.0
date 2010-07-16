@@ -1,62 +1,41 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Re: [PATCH 1/2] bnx2: allocate with GFP_KERNEL flag on RX path init
-Date: Thu, 15 Jul 2010 22:57:08 -0700
-Message-ID: <F7629DFD-ACD4-473D-95DC-414294A6DEDB@earthlink.net>
-References: <20100715142537.12504.60051.send-patch@dhcp-lab-109.englab.brq.redhat.com> <C27F8246C663564A84BB7AB3439772421B842BD26F@IRVEXCHCCR01.corp.ad.broadcom.com> <20100715.202537.116398412.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v1081)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, sgruszka@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: Re: Question about way that NICs deliver packets to the kernel
+Date: Fri, 16 Jul 2010 15:05:41 +0800
+Message-ID: <AANLkTild5SQvt7Uw7AAV7BrrSdvPdoglgbm1uJQnigdM@mail.gmail.com>
+References: <20100715142418.GA26491@host-a-229.ustcsz.edu.cn>
+	<1279204417.2118.12.camel@achroite.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:43081 "EHLO
-	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753529Ab0GPF5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 01:57:22 -0400
-In-Reply-To: <20100715.202537.116398412.davem@davemloft.net>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:55308 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935668Ab0GPHFm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 03:05:42 -0400
+Received: by iwn7 with SMTP id 7so1832271iwn.19
+        for <netdev@vger.kernel.org>; Fri, 16 Jul 2010 00:05:41 -0700 (PDT)
+In-Reply-To: <1279204417.2118.12.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>
+> You should also compare the CPU usage.
+>
+> Ben.
+>
+Hi Ben,
+I added options -c -C to netperf's command line. Result is as follows:
+                    scheme 1    scheme 2    Imp.
+Throughput:     683M        718M       5%
+CPU usage:     47.8%       45.6%
 
-On Jul 15, 2010, at 8:25 PM, David Miller wrote:
+That really surprised me because "top" command showed the CPU usage
+was fluctuating between 0.5% and 1.5% rather that between 45% and 50%.
 
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Thu, 15 Jul 2010 07:48:40 -0700
-> 
->> Stanislaw Gruszka wrote:
->> 
->>> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
->>> ---
->>> @@ -2974,7 +2974,7 @@ bnx2_rx_skb(struct bnx2 *bp, struct
->>> bnx2_rx_ring_info *rxr, struct sk_buff *skb,
->>>      int err;
->>>      u16 prod = ring_idx & 0xffff;
->>> 
->>> -     err = bnx2_alloc_rx_skb(bp, rxr, prod);
->>> +     err = bnx2_alloc_rx_skb(bp, rxr, prod, GFP_KERNEL);
->> 
->> This should be GFP_ATOMIC since it is called from NAPI softirq
->> context.
-> 
-> This fatal issue gives me doubts about whether this patch was even
-> tested at all.
-> 
-> Immediately the kernel memory allocator should have issued a warning
-> due to this GFP_KERNEL allocation in a non-sleep'able context.
-> 
-> Stanislaw, how did you test this patch?
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Group,
+How can I get the exact CPU usage?
 
-		Why NOT GFP_NOWAIT. This won't use the last resource pages
-		versus GFP_ATOMIC?
+Thanks.
 
-		GFP_ATOMIC IMO, SHOULD be used in the paths that cleans
-		and frees pages.
-
-Mitchell Erblich
-
-
+-- 
+--Junchang
