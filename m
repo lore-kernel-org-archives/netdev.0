@@ -1,75 +1,77 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ipt_REJECT: can't work with bridges
-Date: Fri, 16 Jul 2010 14:16:32 +0200
-Message-ID: <4C404DA0.1000204@trash.net>
-References: <1279251163-2887-1-git-send-email-xiaosuo@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Badness with the kernel version 2.6.35-rc1-git1 running on P6
+ box
+Date: Fri, 16 Jul 2010 14:20:42 +0200
+Message-ID: <1279282842.2549.16.camel@edumazet-laptop>
+References: <4C401D56.3070108@linux.vnet.ibm.com>
+	 <1279274185.2549.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1279251163-2887-1-git-send-email-xiaosuo@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>, linuxppc-dev@ozlabs.org,
+	sachinp@linux.vnet.ibm.com, benh@kernel.crashing.org,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jan-Bernd Themann <ossthema@de.ibm.com>
+To: divya <dipraksh@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1279274185.2549.14.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 16.07.2010 05:32, schrieb Changli Gao:
-> ipt_REJECT: can't work with bridges
-> 
-> ip_route_me_harder can't create the route cache when the outdev is the same with
-> the indev for the skbs whichout a valid protocol set.
-> 
-> __mkroute_input functions has this check:
-> 1998         if (skb->protocol != htons(ETH_P_IP)) {
-> 1999                 /* Not IP (i.e. ARP). Do not create route, if it is
-> 2000                  * invalid for proxy arp. DNAT routes are always valid.
-> 2001                  *
-> 2002                  * Proxy arp feature have been extended to allow, ARP
-> 2003                  * replies back to the same interface, to support
-> 2004                  * Private VLAN switch technologies. See arp.c.
-> 2005                  */
-> 2006                 if (out_dev == in_dev &&
-> 2007                     IN_DEV_PROXY_ARP_PVLAN(in_dev) == 0) {
-> 2008                         err = -EINVAL;
-> 2009                         goto cleanup;
-> 2010                 }
-> 2011         }
-> 
-> This patch gives the new skb a valid protocol to bypass this check. In order to
-> make ipt_REJECT work with bridges, you also need to enable ip_forward.
+Le vendredi 16 juillet 2010 =C3=A0 11:56 +0200, Eric Dumazet a =C3=A9cr=
+it :
 
-This actually also fixes a regression, back when we used skb_copy_expand
-of the old skb, the protocol was properly set, which not only affects
-bridges, but also TC classification and packet sockets.
+> [PATCH] ehea: ehea_get_stats() should use GFP_KERNEL
+>=20
+> ehea_get_stats() is called in process context and should use GFP_KERN=
+EL
+> allocation instead of GFP_ATOMIC.
+>=20
+> Clearing stats at beginning of ehea_get_stats() is racy in case of
+> concurrent stat readers.
+>=20
+> get_stats() can also use netdev net_device_stats, instead of a privat=
+e
+> copy.
+>=20
+> Reported-by: divya <dipraksh@linux.vnet.ibm.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  drivers/net/ehea/ehea.h      |    1 -
+>  drivers/net/ehea/ehea_main.c |    6 ++----
+>  2 files changed, 2 insertions(+), 5 deletions(-)
+>=20
+>=20
 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ----
->  net/ipv4/netfilter/ipt_REJECT.c |    1 +
->  1 file changed, 1 insertion(+)
-> diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
-> index bbbd273..e0bca39 100644
-> --- a/net/ipv4/netfilter/ipt_REJECT.c
-> +++ b/net/ipv4/netfilter/ipt_REJECT.c
-> @@ -111,6 +111,7 @@ static void send_reset(struct sk_buff *oldskb, int hook)
->  	/* ip_route_me_harder expects skb->dst to be set */
->  	skb_dst_set_noref(nskb, skb_dst(oldskb));
->  
-> +	nskb->protocol = __constant_htons(ETH_P_IP);
+Hmm, net-next-2.6 contains following patch :
 
-You don't need __constant_htons here however, the compiler is smart
-enough to this itself. Please resend and add a note to the changelog
-stating that this fixes a regression and I'll toss it into
-nf-2.6.git.
+commit 3d8009c780ee90fccb5c171caf30aff839f13547
+Author: Brian King <brking@linux.vnet.ibm.com>
+Date:   Wed Jun 30 11:59:12 2010 +0000
 
-Thanks!
+    ehea: Allocate stats buffer with GFP_KERNEL
+   =20
+    Since ehea_get_stats calls ehea_h_query_ehea_port, which
+    can sleep, we can also sleep when allocating a page in
+    this function. This fixes some memory allocation failure
+    warnings seen under low memory conditions.
+   =20
+    Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
->  	if (ip_route_me_harder(nskb, addr_type))
->  		goto free_nskb;
->  
-> 
-
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.=
+c
+index 8b92acb..3beba70 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -335,7 +335,7 @@ static struct net_device_stats
+*ehea_get_stats(struct net_device *dev)
+=20
+        memset(stats, 0, sizeof(*stats));
+=20
+-       cb2 =3D (void *)get_zeroed_page(GFP_ATOMIC);
++       cb2 =3D (void *)get_zeroed_page(GFP_KERNEL);
+        if (!cb2) {
+                ehea_error("no mem for cb2");
+                goto out;
