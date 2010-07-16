@@ -1,166 +1,121 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE:  2.6.34.1: kernel warning at igb_main.c:2080
-Date: Fri, 16 Jul 2010 15:45:35 -0700
-Message-ID: <EDC0E76513226749BFBC9C3FB031318FDAA9B07D@orsmsx508.amr.corp.intel.com>
-References: <4C3FA03E.9090802@candelatech.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
+Date: Fri, 16 Jul 2010 17:23:55 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FFE1B19CD@rrsmsx501.amr.corp.intel.com>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+	 <1277807529.19417.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+	 <1277938757.4138.3.camel@localhost.localdomain>
+	 <1278204106.21020.0.camel@localhost.localdomain>
+	 <1278283714.3444.1.camel@localhost.localdomain>
+	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
+	 <1278323885.5277.0.camel@localhost.localdomain>
+	 <1278950178.17933.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
+	 <1278981483.23017.4.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
+	 <1279150380.7810.2.camel@localhost.localdomain>
+	 <1279220266.4411.2.camel@localhost.localdomain>
+	 <EA929A9653AAE14F841771FB1DE5A1365FF4B860D9@rrsmsx501.amr.corp.intel.com>
+	 <1279220945.4411.6.camel@localhost.localdomain>
+ <1279308358.3979.0.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Ben Greear <greearb@candelatech.com>,
-	NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:5366 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:3970 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754185Ab0GPWpg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 18:45:36 -0400
-In-Reply-To: <4C3FA03E.9090802@candelatech.com>
+	id S1759475Ab0GPXX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jul 2010 19:23:58 -0400
+In-Reply-To: <1279308358.3979.0.camel@localhost.localdomain>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-
->-----Original Message-----
->From: netdev-owner@vger.kernel.org 
->[mailto:netdev-owner@vger.kernel.org] On Behalf Of Ben Greear
->Sent: Thursday, July 15, 2010 4:57 PM
->To: NetDev
->Subject: igb: 2.6.34.1: kernel warning at igb_main.c:2080
->
->We just saw this kernel warning on 2.6.34.1 + a few patches 
->from the pending stable queue,
->plus our own hacks (though none to igb).
->
->We were running a modified version of pktgen traffic and at 
->the same time
->bounced the port.
->
->This warning didn't seem to cause any real problems.
->
->Please let us know if you would like any additional information.
->
->]# lspci|grep Ethern
->01:00.0 Ethernet controller: Intel Corporation 82574L Gigabit 
->Network Connection
->02:00.0 Ethernet controller: Intel Corporation 82574L Gigabit 
->Network Connection
->05:00.0 Ethernet controller: Intel Corporation 82575EB Gigabit 
->Network Connection (rev 02)
->05:00.1 Ethernet controller: Intel Corporation 82575EB Gigabit 
->Network Connection (rev 02)
->06:00.0 Ethernet controller: Intel Corporation 82575EB Gigabit 
->Network Connection (rev 02)
->06:00.1 Ethernet controller: Intel Corporation 82575EB Gigabit 
->Network Connection (rev 02)
->
->
->Jul 15 16:36:01 localhost kernel: ------------[ cut here ]------------
->Jul 15 16:36:01 localhost kernel: WARNING: at 
->/home/greearb/git/linux-2.6.dev.34.y/drivers/net/igb/igb_main.c
->:2080 igb_close+0x28/0x9f [igb]()
->Jul 15 16:36:01 localhost kernel: Hardware name: X8STi
->Jul 15 16:36:01 localhost kernel: Modules linked in: bridge 
->arc4 michael_mic wanlink(P) 8021q garp xt_CT iptable_raw 
->ipt_addrtype xt_DSCP xt_dscp xt_string 
->xt_owner xt_NFQUEUE xt_multiport xt_mark xt_iprange 
->xt_hashlimit xt_CONNMARK xt_connmark stp llc veth fuse macvlan 
->bpctl_mod pktgen iscsi_tcp libiscsi_tcp 
->libiscsi scsi_transport_iscsi nfs lockd fscache nfs_acl 
->auth_rpcgss sunrpc ipv6 dm_multipath uinput i2c_i801 iTCO_wdt 
->i2c_core ioatdma e1000e igb pcspkr 
->iTCO_vendor_support dca ata_generic pata_acpi [last unloaded: nf_nat]
->Jul 15 16:36:01 localhost kernel: Pid: 17516, comm: ip 
->Tainted: P           2.6.34.1 #2
->Jul 15 16:36:01 localhost kernel: Call Trace:
->Jul 15 16:36:01 localhost kernel: [<ffffffffa002a37f>] ? 
->igb_close+0x28/0x9f [igb]
->Jul 15 16:36:01 localhost kernel: [<ffffffff81041bb6>] 
->warn_slowpath_common+0x77/0x8f
->Jul 15 16:36:01 localhost kernel: [<ffffffff81041bdd>] 
->warn_slowpath_null+0xf/0x11
->Jul 15 16:36:01 localhost kernel: [<ffffffffa002a37f>] 
->igb_close+0x28/0x9f [igb]
->Jul 15 16:36:01 localhost kernel: [<ffffffff8133c626>] 
->__dev_close+0x73/0x86
->Jul 15 16:36:01 localhost kernel: [<ffffffff8133a719>] 
->__dev_change_flags+0xa8/0x12b
->Jul 15 16:36:01 localhost kernel: [<ffffffff8133c2aa>] 
->dev_change_flags+0x1c/0x51
->Jul 15 16:36:01 localhost kernel: [<ffffffff813466bc>] 
->do_setlink+0x273/0x482
->Jul 15 16:36:01 localhost kernel: [<ffffffff810ab1bb>] ? 
->zone_statistics+0x5e/0x63
->Jul 15 16:36:01 localhost kernel: [<ffffffff8134755e>] 
->rtnl_newlink+0x26c/0x422
->Jul 15 16:36:01 localhost kernel: [<ffffffff81345a06>] ? 
->nla_nest_start+0x1d/0x31
->Jul 15 16:36:01 localhost kernel: [<ffffffff810ca997>] ? 
->virt_to_head_page+0x9/0x2a
->Jul 15 16:36:01 localhost kernel: [<ffffffff813dd1f5>] ? 
->__mutex_lock_common+0x38e/0x3ac
->Jul 15 16:36:01 localhost kernel: [<ffffffff81346ffb>] 
->rtnetlink_rcv_msg+0x1d9/0x1f7
->Jul 15 16:36:01 localhost kernel: [<ffffffff81346e22>] ? 
->rtnetlink_rcv_msg+0x0/0x1f7
->Jul 15 16:36:01 localhost kernel: [<ffffffff81356939>] 
->netlink_rcv_skb+0x3e/0x8e
->Jul 15 16:36:01 localhost kernel: [<ffffffff81346cc9>] 
->rtnetlink_rcv+0x20/0x29
->Jul 15 16:36:01 localhost kernel: [<ffffffff813567b2>] 
->netlink_unicast+0xea/0x151
->Jul 15 16:36:01 localhost kernel: [<ffffffff8133545c>] ? 
->memcpy_fromiovec+0x42/0x73
->Jul 15 16:36:01 localhost kernel: [<ffffffff81357bc8>] 
->netlink_sendmsg+0x242/0x255
->Jul 15 16:36:01 localhost kernel: [<ffffffff8132a771>] ? 
->__sock_recvmsg_nosec+0x29/0x2b
->Jul 15 16:36:01 localhost kernel: [<ffffffff8132bd02>] 
->__sock_sendmsg+0x56/0x5f
->Jul 15 16:36:01 localhost kernel: [<ffffffff8132c127>] 
->sock_sendmsg+0xa3/0xbc
->Jul 15 16:36:01 localhost kernel: [<ffffffff813351e5>] ? 
->copy_from_user+0x28/0x30
->Jul 15 16:36:01 localhost kernel: [<ffffffff8133555e>] ? 
->verify_iovec+0x52/0x95
->Jul 15 16:36:01 localhost kernel: [<ffffffff8132c368>] 
->sys_sendmsg+0x1c6/0x22a
->Jul 15 16:36:01 localhost kernel: [<ffffffff810a277f>] ? 
->lru_cache_add_lru+0x38/0x3d
->Jul 15 16:36:01 localhost kernel: [<ffffffff813de23e>] ? 
->_raw_spin_unlock+0x2d/0x38
->Jul 15 16:36:01 localhost kernel: [<ffffffff810ad802>] ? 
->spin_unlock+0x9/0xb
->Jul 15 16:36:01 localhost kernel: [<ffffffff810b0138>] ? 
->handle_mm_fault+0x6d3/0x6f3
->Jul 15 16:36:01 localhost kernel: [<ffffffff810b3a0a>] ? 
->__vma_link_rb+0x2b/0x2d
->Jul 15 16:36:01 localhost kernel: [<ffffffff810b45f7>] ? 
->vma_link+0xcd/0xcf
->Jul 15 16:36:01 localhost kernel: [<ffffffff810d9369>] ? 
->fget_light+0x39/0x87
->Jul 15 16:36:01 localhost kernel: [<ffffffff81083b91>] ? 
->audit_syscall_entry+0xfe/0x12a
->Jul 15 16:36:01 localhost kernel: [<ffffffff81009ac2>] 
->system_call_fastpath+0x16/0x1b
->Jul 15 16:36:01 localhost kernel: ---[ end trace 75242fae6dbfdf6d ]---
->
->
->Thanks,
->Ben
->
->-- 
->Ben Greear <greearb@candelatech.com>
->Candela Technologies Inc  http://www.candelatech.com
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-Thanks, I'll take a look at it.
-
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
-
+TWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+IE9uIFRodSwgMjAxMC0wNy0xNSBhdCAyMjowOSArMDMw
+MCwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+PiBPbiBUaHUsIDIwMTAtMDctMTUgYXQgMTM6MDIg
+LTA2MDAsIFRhbnRpbG92LCBFbWlsIFMgd3JvdGU6DQo+Pj4gTWF4aW0gTGV2aXRza3kgd3JvdGU6
+DQo+Pj4+IE9uIFRodSwgMjAxMC0wNy0xNSBhdCAwMjozMyArMDMwMCwgTWF4aW0gTGV2aXRza3kg
+d3JvdGU6DQo+Pj4+PiBPbiBXZWQsIDIwMTAtMDctMTQgYXQgMTY6NTYgLTA2MDAsIFRhbnRpbG92
+LCBFbWlsIFMgd3JvdGU6DQo+Pj4+Pj4gTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+Pj4+Pj4+IE9u
+IE1vbiwgMjAxMC0wNy0xMiBhdCAxNToyMyAtMDYwMCwgVGFudGlsb3YsIEVtaWwgUyB3cm90ZToN
+Cj4+Pj4+Pj4+IE1heGltIExldml0c2t5IHdyb3RlOg0KPj4+Pj4+Pj4+IE9uIE1vbiwgMjAxMC0w
+Ny0wNSBhdCAxMjo1OCArMDMwMCwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+Pj4+Pj4+Pj4+IE9u
+IE1vbiwgMjAxMC0wNy0wNSBhdCAwMToxMyAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPj4+
+Pj4+Pj4+Pj4gT24gU3VuLCBKdWwgNCwgMjAxMCBhdCAxNTo0OCwgTWF4aW0gTGV2aXRza3kNCj4+
+Pj4+Pj4+Pj4+IDxtYXhpbWxldml0c2t5QGdtYWlsLmNvbT4gd3JvdGU6DQo+Pj4+Pj4+Pj4+Pj4g
+RGlkIGZldyBndWVzc2VzLCBhbmQgbm93IEkgc2VlIHRoYXQgcmV2ZXJ0aW5nIHRoZSBiZWxvdw0K
+Pj4+Pj4+Pj4+Pj4+IGNvbW1pdCBmaXhlcyB0aGUgcHJvYmxlbS4gDQo+Pj4+Pj4+Pj4+Pj4gDQo+
+Pj4+Pj4+Pj4+Pj4gImUxMDAwZTogRml4L2NsZWFudXAgUEhZIHJlc2V0IGNvZGUgZm9yIElDSHgv
+UENIeCINCj4+Pj4+Pj4+Pj4+PiBlOThjYWM0NDdjYzFjYzQxOGRmZjFkNjEwYTVjNzljNGYyYmRl
+YzdmLg0KPj4+Pj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4+Pj4+IEJlc3QgcmVn
+YXJkcywNCj4+Pj4+Pj4+Pj4+PiAgICAgICAgTWF4aW0gTGV2aXRza3kNCj4+Pj4+Pj4+Pj4+PiAN
+Cj4+Pj4+Pj4+Pj4+PiAtLQ0KPj4+Pj4+Pj4+Pj4gDQo+Pj4+Pj4+Pj4+PiBDYW4geW91IGdpdmUg
+dXMgdGlsbCBUdWVzZGF5IHRvIHJlc3BvbmQ/ICBJIGtub3cgdGhhdCB0aGVyZQ0KPj4+Pj4+Pj4+
+Pj4gYXJlIHNvbWUgYWRkaXRpb25hbCBlMTAwMGUgcGF0Y2hlcyBpbiBteSBxdWV1ZSwgd2hpY2gg
+bWF5DQo+Pj4+Pj4+Pj4+PiByZXNvbHZlIHRoZSBpc3N1ZSwgYnV0IHRoaXMgd2Vla2VuZCB0aGUg
+cG93ZXIgaXMgZG93biB0byBkbw0KPj4+Pj4+Pj4+Pj4gc29tZSBpbmZyYXN0cnVjdHVyZSB1cGdy
+YWRlcyB3aGljaCBwcmV2ZW50cyB1cyBmcm9tIGRvaW5nDQo+Pj4+Pj4+Pj4+PiBhbnkgaW52ZXN0
+aWdhdGlvbi5kZWJ1Z2dpbmcgdW50aWwgVHVlc2RheS4NCj4+Pj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4+
+PiANCj4+Pj4+Pj4+Pj4gU3VyZS4NCj4+Pj4+Pj4+Pj4gDQo+Pj4+Pj4+Pj4+IEJlc3QgcmVnYXJk
+cywNCj4+Pj4+Pj4+Pj4gCU1heGltIExldml0c2t5DQo+Pj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4+IA0K
+Pj4+Pj4+Pj4+IFVwZGF0ZXM/DQo+Pj4+Pj4+PiANCj4+Pj4+Pj4+IFdlIGFyZSB3b3JraW5nIG9u
+IHJlcHJvZHVjaW5nIHRoZSBpc3N1ZS4gU28gZmFyIHdlIGhhdmUgbm90DQo+Pj4+Pj4+PiBzZWVu
+IHRoZSBwcm9ibGVtIHdoZW4gdGVzdGluZyB3aXRoIG5ldC1uZXh0Lg0KPj4+Pj4+Pj4gDQo+Pj4+
+Pj4+PiBJIGFza2VkIGluIHByZXZpb3VzIGVtYWlsIGFib3V0IHNvbWUgYWRkaXRpb25hbCBpbmZv
+IGZyb20NCj4+Pj4+Pj4+IGV0aHRvb2wgKC1kLCAtZSwgLVMpIGFuZCBrZXJuZWwgY29uZmlnLiBU
+aGF0IHdvdWxkIGhlbHAgdXMgdG8NCj4+Pj4+Pj4+IG5hcnJvdyBpdCBkb3duLiANCj4+Pj4+Pj4+
+IA0KPj4+Pj4+Pj4gVGhhbmtzLA0KPj4+Pj4+Pj4gRW1pbA0KPj4+Pj4+PiBJIGRpZCBzZW5kIC1l
+IGFuZCAtZCBvdXRwdXQuDQo+Pj4+Pj4gDQo+Pj4+Pj4gU29ycnksIGxvb2tzIGxpa2UgSSBsb3N0
+IHRoZSBlbWFpbCB3aXRoIHRoZSBhdHRhY2hlbWVudHMuDQo+Pj4+Pj4gDQo+Pj4+Pj4gQ291bGQg
+eW91IHByb3ZpZGUgdGhlIG91dHB1dCBvZiBkbWVzZyBhZnRlciB0aGUgZmFpbHVyZSBvY2N1cnM/
+DQo+Pj4+Pj4gDQo+Pj4+Pj4+IFNpbmNlIHlvdSBwcm9iYWJseSB3YW50IC1TIG91dHB1dCBkdXJp
+bmcgZmFpbHVyZSwgSSBuZWVkIHRvDQo+Pj4+Pj4+IHJlY29tcGlsZSBrZXJuZWwgZm9yIHRoYXQu
+IEkgd2lsbCBkbyB0aGF0IHNvb24uDQo+Pj4+Pj4+IA0KPj4+Pj4+PiANCj4+Pj4+Pj4gT25lIHF1
+ZXN0aW9uLCBpbiB0d28gd2Vla3MgSSBob3BlIDIuNi4zNSB3b24ndCBiZSByZWxlYXNlZD8NCj4+
+Pj4+Pj4gSWYgc28sIEkgd2lsbCBoYXZlIGVub3VnaCBmcmVlIHRpbWUgdGhlbiB0byBuYXJyb3cg
+ZG93biB0aGlzDQo+Pj4+Pj4+IGlzc3VlLiANCj4+Pj4+Pj4gDQo+Pj4+Pj4+IE90aGVyIHNvbHV0
+aW9uLCBpcyB0byByZXZlcnQgdGhpcyBjb21taXQuDQo+Pj4+Pj4+IChJIGhhdmUgbmV2ZXIgc2Vl
+biB0aGlzIHByb2JsZW0gd2l0aCBpdCByZXZlcnRlZCkuDQo+Pj4+Pj4gDQo+Pj4+Pj4gV2UgaGF2
+ZSBiZWVuIHJ1bm5pbmcgcmVib290IHRlc3RzIG9uIDIgc2VwYXJhdGUgc3lzdGVtcyB3aXRoDQo+
+Pj4+Pj4gcmVjZW50IG5ldC1uZXh0IGtlcm5lbHMgdXNpbmcgeW91ciBjb25maWcgYW5kIHNvIGZh
+ciBubyBsdWNrIGluDQo+Pj4+Pj4gcmVwcm9kdWNpbmcgdGhpcyBpc3N1ZS4gDQo+Pj4+Pj4gDQo+
+Pj4+Pj4gV2hhdCBpcyB0aGUgbWFrZSBtb2RlbCBvZiB5b3VyIHN5c3RlbSAob3IgTUIpPw0KPj4+
+Pj4gDQo+Pj4+PiB0aGUgbW90aGVyYm9hcmQgaXMgSW50ZWwgREc5NjVSWS4NCj4+Pj4+IA0KPj4+
+Pj4gSG93ZXZlciwgSSBhbSB1c2luZyB2YW5pbGxhIGtlcm5lbC4NCj4+Pj4+IG5ldC1uZXh0IG1p
+Z2h0IGNvbnRhaW4gZnVydGhlciBmaXhlcy4NCj4+Pj4+IA0KPj4+Pj4gSSBzZWUgaWYgbmV0LW5l
+eHQgd29ya3MgaGVyZS4NCj4+Pj4gDQo+Pj4+IFllcCwgbmV0LW5leHQgd29ya3MgaGVyZS4NCj4+
+Pj4gDQo+Pj4+IA0KPj4+PiBJIGhhdmUgdGhlIHByb2JsZW0gb24gdmFuaWxsYSBrZXJuZWwuDQo+
+Pj4+IExhc3QgcmV2aXNpb24gb2YgaXQsIEkgdGVzdGVkIGlzIDIuNi4zNS1yYzQgZXhhY3RseQ0K
+Pj4+PiAoODE1YzQxNjNiNmM4ZWJmODE1MmY0MmIwYTVmZDAxNWNmZGNlZGM3OCkNCj4+Pj4gDQo+
+Pj4+IA0KPj4+PiBNYXliZSB2YW5pbGxhIGdpdCBtYXN0ZXIgd29ya3MsIEkgdGVzdCBpdCB0b28g
+c29vbi4NCj4+PiANCj4+PiBUaGFua3MgZm9yIHRoZSBpbmZvcm1hdGlvbiEgR29vZCB0byBrbm93
+IHRoYXQgdGhpcyBpc3N1ZSBkb2VzIG5vdA0KPj4+IGV4aXN0IGluIHRoZSBsYXRlc3QgYnJhbmNo
+LiANCj4+PiANCj4+PiBIYXZlIHlvdSBieSBhbnkgY2hhbmNlIHRlc3RlZCBhIHN0YWJsZSBicmFu
+Y2ggKDIuNi4zNC54KT8NCj4+IA0KPj4gSSBvbmx5IGRpZCB0ZXN0IHBsYWluIDIuNi4zNCAodjIu
+Ni4zNCkNCj4gQW5kIGZvcmdvdCB0byBhZGQsIHRoYXQgaXQgZGlkIHdvcmsuDQo+IA0KPj4gDQo+
+PiBBbHNvIEkgcmVwZWF0IHRoYXQgcmV2ZXJ0IG9mIGU5OGNhYzQ0N2NjMWNjNDE4ZGZmMWQ2MTBh
+NWM3OWM0ZjJiZGVjN2YNCj4+IChlMTAwMGU6IEZpeC9jbGVhbnVwIFBIWSByZXNldCBjb2RlIGZv
+ciBJQ0h4L1BDSHgpIGZpeGVzIHRoZSBidWcgb24NCj4+IHZhbmlsbGEga2VybmVsLiANCj4+IA0K
+Pj4gQWxzbyBJIGp1c3QgcHVsbGVkIGxhdGVzdCB2YW5pbGxhIGdpdCwgYW5kIEkgYWNjb3JkaW5n
+IHRvIGRpZmZzdGF0IEkNCj4+IHNlZSBubyBjaGFuZ2VzIGluIGUxMDAwZSwgc28gaXRzIGxpa2Vs
+eSB0aGF0IGJ1ZyByZW1haW5zIHRoZXJlLg0KPj4gSSB3aWxsIHRlc3QgdGhhdCBzb29uLg0KPiBU
+ZXN0ZWQsIGJyb2tlbiBhcyBleHBlY3RlZC4NCg0KVGhhdCBtYWtlcyBzZW5zZS4gVW5mb3J0dW5h
+dGVseSB3ZSBhcmUgc3RpbGwgbm90IGFibGUgdG8gcmVwcm9kdWNlIGV2ZW4gb24gcmVjZW50IHB1
+bGwgZnJvbSBMaW51cyB0cmVlLg0KDQpJZiB5b3Ugd2FudCAtIHlvdSBjYW4gbG9vayBhdCB0aGUg
+cGF0Y2hlcyBmb3IgZTEwMDBlIGluIG5ldC1uZXh0IGFuZCBzdGFydCBhcHBseWluZyB0aG9zZSB0
+byB5b3VyIHRyZWUgdW50aWwgdGhlIGlzc3VlIGlzIHJlc29sdmVkLg0KDQpJIHdpbGwga2VlcCB0
+cnlpbmcgaXQgaGVyZSwgYnV0IG5vbmUgb2YgdGhlIHN5c3RlbXMgd2UgaGF2ZSBleGhpYml0IHRo
+ZSBpc3N1ZSB5b3UgZGVzY3JpYmVkLCBzbyB0aGUgYnVnIGNvdWxkIGJlIGV4cG9zZWQgYnkgc29t
+ZXRoaW5nIGluIHlvdXIgc3lzdGVtL2NvbmZpZy4NCg0KVGhhbmtzLA0KRW1pbA==
