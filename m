@@ -1,99 +1,44 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH 01/11] Removing dead RT2800PCI_SOC
-Date: Fri, 16 Jul 2010 19:44:45 +0200
-Message-ID: <201007161944.45825.helmut.schaa@googlemail.com>
-References: <cover.1279110894.git.siccegge@cs.fau.de> <AANLkTik8M0gNipi_rwVJYbmo_3FfdHs-H4H_XDgTcbhI@mail.gmail.com> <4C407ED4.6000002@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Question about way that NICs deliver packets to the kernel
+Date: Fri, 16 Jul 2010 10:58:46 -0700
+Message-ID: <4C409DD6.7060903@hp.com>
+References: <20100715142418.GA26491@host-a-229.ustcsz.edu.cn>	<1279204417.2118.12.camel@achroite.uk.solarflarecom.com> <AANLkTild5SQvt7Uw7AAV7BrrSdvPdoglgbm1uJQnigdM@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Ivo Van Doorn <ivdoorn@gmail.com>,
-	Christoph Egger <siccegge@cs.fau.de>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vamos-dev@i4.informatik.uni-erlangen.de,
-	Luis Correia <luis.f.correia@gmail.com>
-To: Gertjan van Wingerde <gwingerde@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C407ED4.6000002@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org
+To: Junchang Wang <junchangwang@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:35675 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757297Ab0GPR6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 13:58:49 -0400
+In-Reply-To: <AANLkTild5SQvt7Uw7AAV7BrrSdvPdoglgbm1uJQnigdM@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Freitag 16 Juli 2010 schrieb Gertjan van Wingerde:
-> On 07/16/10 12:08, Helmut Schaa wrote:
-> > On Fri, Jul 16, 2010 at 9:18 AM, Gertjan van Wingerde
-> > <gwingerde@gmail.com> wrote:
-> >>
-> >> On 07/16/10 08:57, Helmut Schaa wrote:
-> >>> On Thu, Jul 15, 2010 at 10:41 AM, Bartlomiej Zolnierkiewicz <bzolnier@gmail.com <mailto:bzolnier@gmail.com>> wrote:
-> >>>
-> >>>     On Wednesday 14 July 2010 04:44:44 pm Felix Fietkau wrote:
-> >>>     > On 2010-07-14 3:15 PM, John W. Linville wrote:
-> >>>     > > On Wed, Jul 14, 2010 at 02:52:14PM +0200, Ivo Van Doorn wrote:
-> >>>     > >> On Wed, Jul 14, 2010 at 2:46 PM, Luis Correia <luis.f.correia@gmail.com <mailto:luis.f.correia@gmail.com>> wrote:
-> >>>     > >> > On Wed, Jul 14, 2010 at 13:39, Christoph Egger <siccegge@cs.fau.de <mailto:siccegge@cs.fau.de>> wrote:
-> >>>     > >> >> While RT2800PCI_SOC exists in Kconfig, it depends on either
-> >>>     > >> >> RALINK_RT288X or RALINK_RT305X which are both not available in Kconfig
-> >>>     > >> >> so all Code depending on that can't ever be selected and, if there's
-> >>>     > >> >> no plan to add these options, should be cleaned up
-> >>>     > >> >>
-> >>>     > >> >> Signed-off-by: Christoph Egger <siccegge@cs.fau.de <mailto:siccegge@cs.fau.de>>
-> >>>     > >> >
-> >>>     > >> > NAK,
-> >>>     > >> >
-> >>>     > >> > this is not dead code, it is needed for the Ralink System-on-Chip
-> >>>     > >> > Platform devices.
-> >>>     > >> >
-> >>>     > >> > While I can't fix Kconfig errors and the current KConfig file may be
-> >>>     > >> > wrong, this code cannot and will not be deleted.
-> >>>     > >>
-> >>>     > >> When the config option was introduced, the config options RALINK_RT288X and
-> >>>     > >> RALINK_RT305X were supposed to be merged as well soon after by somebody (Felix?)
-> >>>     > >>
-> >>>     > >> But since testing is done on SoC boards by Helmut and Felix, I assume the code
-> >>>     > >> isn't dead but actually in use.
-> >>>     > >
-> >>>     > > Perhaps Helmut and Felix can send us the missing code?
-> >>>     > The missing code is a MIPS platform port, which is currently being
-> >>>     > maintained in OpenWrt, but is not ready for upstream submission yet.
-> >>>     > I'm not working on this code at the moment, but I think it will be
-> >>>     > submitted once it's ready.
-> >>>
-> >>>     People are using automatic scripts to catch unused config options nowadays
-> >>>     so the issue is quite likely to come back again sooner or later..
-> >>>
-> >>>     Would it be possible to improve situation somehow till the missing parts
-> >>>     get merged?  Maybe by adding a tiny comment documenting RT2800PCI_SOC
-> >>>     situation to Kconfig (if the config option itself really cannot be removed)
-> >>>     until all code is ready etc.?
-> >>>
-> >>>
-> >>> Or we could just remove RT2800PCI_SOC completely and build the soc specific
-> >>> parts always as part of rt2800pci. I mean it's not much code, just the platform
-> >>> driver stuff and the eeprom access.
-> >>>
-> >>
-> >> I'm not sure if that is feasible. Sure, we can reduce the usage of the variable by
-> >> unconditionally compiling in the generic SOC code, but we should not unconditionally
-> >> register the SOC platform device, which is currently also under the scope of this
-> >> Kconfig variable.
-> > 
-> > Ehm, no, the platform device is not registered in rt2800pci at all,
-> > it's just the platform
-> > driver that gets registered there. The platform device will be
-> > registered in the according
-> > board init code (that only resides in openwrt at the moment).
-> > 
+Junchang Wang wrote:
+>>You should also compare the CPU usage.
+>>
+>>Ben.
+>>
 > 
-> OK. Didn't know that. Sounds good then.
+> Hi Ben,
+> I added options -c -C to netperf's command line. Result is as follows:
+>                     scheme 1    scheme 2    Imp.
+> Throughput:     683M        718M       5%
+> CPU usage:     47.8%       45.6%
 > 
-> However, I've tried this in my local tree, and now compilation fails on the x86 platform
-> due to a missing KSEG1ADDR macro. How do you suggest to handle the potentially missing
-> macro?
+> That really surprised me because "top" command showed the CPU usage
+> was fluctuating between 0.5% and 1.5% rather that between 45% and 50%.
 
-We can convert it to an ioremap call, that should be available on all platforms.
+Can you tell us a bit more about the system, and which version of netperf you 
+are using?  Any chance that the CPU utilization you were looking at in top was 
+just that being charged to netperf the process?  "Network processing" does not 
+often get charged to the responsible process, so netperf reports system-wide CPU 
+utilization on the assumption it is the only thing causing the CPUs to be utilized.
 
-Helmut
+happy benchmarking,
+
+rick jones
