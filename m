@@ -1,39 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/8] net: bridge: fix sign bug
-Date: Thu, 15 Jul 2010 20:28:53 -0700 (PDT)
-Message-ID: <20100715.202853.233710023.davem@davemloft.net>
-References: <1279219653-12791-1-git-send-email-segooon@gmail.com>
-	<20100715122144.0f2cf5cf@nehalam>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: segooon@gmail.com, kernel-janitors@vger.kernel.org,
-	herbert@gondor.hengli.com.au, yoshfuji@linux-ipv6.org,
-	eric.dumazet@gmail.com, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38430
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935392Ab0GPD2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 23:28:38 -0400
-In-Reply-To: <20100715122144.0f2cf5cf@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] ipt_REJECT: can't work with bridges
+Date: Fri, 16 Jul 2010 11:32:43 +0800
+Message-ID: <1279251163-2887-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Thu, 15 Jul 2010 12:21:44 -0700
+ipt_REJECT: can't work with bridges
 
-> On Thu, 15 Jul 2010 22:47:33 +0400
-> Kulikov Vasiliy <segooon@gmail.com> wrote:
-> 
->> ipv6_skip_exthdr() can return error code that is below zero.
->> 'offset' is unsigned, so it makes no sense.
->> ipv6_skip_exthdr() returns 'int' so we can painlessly change type of
->> offset to int.
->> 
->> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
-...
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+ip_route_me_harder can't create the route cache when the outdev is the same with
+the indev for the skbs whichout a valid protocol set.
 
-Applied.
+__mkroute_input functions has this check:
+1998         if (skb->protocol != htons(ETH_P_IP)) {
+1999                 /* Not IP (i.e. ARP). Do not create route, if it is
+2000                  * invalid for proxy arp. DNAT routes are always valid.
+2001                  *
+2002                  * Proxy arp feature have been extended to allow, ARP
+2003                  * replies back to the same interface, to support
+2004                  * Private VLAN switch technologies. See arp.c.
+2005                  */
+2006                 if (out_dev == in_dev &&
+2007                     IN_DEV_PROXY_ARP_PVLAN(in_dev) == 0) {
+2008                         err = -EINVAL;
+2009                         goto cleanup;
+2010                 }
+2011         }
+
+This patch gives the new skb a valid protocol to bypass this check. In order to
+make ipt_REJECT work with bridges, you also need to enable ip_forward.
+
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/ipv4/netfilter/ipt_REJECT.c |    1 +
+ 1 file changed, 1 insertion(+)
+diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
+index bbbd273..e0bca39 100644
+--- a/net/ipv4/netfilter/ipt_REJECT.c
++++ b/net/ipv4/netfilter/ipt_REJECT.c
+@@ -111,6 +111,7 @@ static void send_reset(struct sk_buff *oldskb, int hook)
+ 	/* ip_route_me_harder expects skb->dst to be set */
+ 	skb_dst_set_noref(nskb, skb_dst(oldskb));
+ 
++	nskb->protocol = __constant_htons(ETH_P_IP);
+ 	if (ip_route_me_harder(nskb, addr_type))
+ 		goto free_nskb;
+ 
