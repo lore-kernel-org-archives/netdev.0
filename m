@@ -1,122 +1,63 @@
-From: Helmut Schaa <helmut.schaa@googlemail.com>
-Subject: Re: [PATCH 01/11] Removing dead RT2800PCI_SOC
-Date: Fri, 16 Jul 2010 12:08:23 +0200
-Message-ID: <AANLkTik8M0gNipi_rwVJYbmo_3FfdHs-H4H_XDgTcbhI@mail.gmail.com>
-References: <cover.1279110894.git.siccegge@cs.fau.de>
-	<20100714131527.GB2352@tuxdriver.com>
-	<4C3DCD5C.1080705@openwrt.org>
-	<201007151041.55112.bzolnier@gmail.com>
-	<AANLkTilqoYMMKYJT-YYbEzdnytUSYa0EylEiJ4x5xXXH@mail.gmail.com>
-	<4C4007CD.2070504@gmail.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: [PATCH] IPv6: fix CoA check in RH2 input handler (mip6_rthdr_input())
+Date: Fri, 16 Jul 2010 12:38:44 +0200
+Message-ID: <87aapr7lu3.fsf@small.ssi.corp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Ivo Van Doorn <ivdoorn@gmail.com>,
-	Christoph Egger <siccegge@cs.fau.de>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vamos-dev@i4.informatik.uni-erlangen.de,
-	Luis Correia <luis.f.correia@gmail.com>
-To: Gertjan van Wingerde <gwingerde@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:61893 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964898Ab0GPKI0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 06:08:26 -0400
-In-Reply-To: <4C4007CD.2070504@gmail.com>
+Received: from copper.chdir.org ([88.191.97.87]:56805 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964971Ab0GPKig (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jul 2010 06:38:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 16, 2010 at 9:18 AM, Gertjan van Wingerde
-<gwingerde@gmail.com> wrote:
->
-> On 07/16/10 08:57, Helmut Schaa wrote:
-> > On Thu, Jul 15, 2010 at 10:41 AM, Bartlomiej Zolnierkiewicz <bzolni=
-er@gmail.com <mailto:bzolnier@gmail.com>> wrote:
-> >
-> > =A0 =A0 On Wednesday 14 July 2010 04:44:44 pm Felix Fietkau wrote:
-> > =A0 =A0 > On 2010-07-14 3:15 PM, John W. Linville wrote:
-> > =A0 =A0 > > On Wed, Jul 14, 2010 at 02:52:14PM +0200, Ivo Van Doorn=
- wrote:
-> > =A0 =A0 > >> On Wed, Jul 14, 2010 at 2:46 PM, Luis Correia <luis.f.=
-correia@gmail.com <mailto:luis.f.correia@gmail.com>> wrote:
-> > =A0 =A0 > >> > On Wed, Jul 14, 2010 at 13:39, Christoph Egger <sicc=
-egge@cs.fau.de <mailto:siccegge@cs.fau.de>> wrote:
-> > =A0 =A0 > >> >> While RT2800PCI_SOC exists in Kconfig, it depends o=
-n either
-> > =A0 =A0 > >> >> RALINK_RT288X or RALINK_RT305X which are both not a=
-vailable in Kconfig
-> > =A0 =A0 > >> >> so all Code depending on that can't ever be selecte=
-d and, if there's
-> > =A0 =A0 > >> >> no plan to add these options, should be cleaned up
-> > =A0 =A0 > >> >>
-> > =A0 =A0 > >> >> Signed-off-by: Christoph Egger <siccegge@cs.fau.de =
-<mailto:siccegge@cs.fau.de>>
-> > =A0 =A0 > >> >
-> > =A0 =A0 > >> > NAK,
-> > =A0 =A0 > >> >
-> > =A0 =A0 > >> > this is not dead code, it is needed for the Ralink S=
-ystem-on-Chip
-> > =A0 =A0 > >> > Platform devices.
-> > =A0 =A0 > >> >
-> > =A0 =A0 > >> > While I can't fix Kconfig errors and the current KCo=
-nfig file may be
-> > =A0 =A0 > >> > wrong, this code cannot and will not be deleted.
-> > =A0 =A0 > >>
-> > =A0 =A0 > >> When the config option was introduced, the config opti=
-ons RALINK_RT288X and
-> > =A0 =A0 > >> RALINK_RT305X were supposed to be merged as well soon =
-after by somebody (Felix?)
-> > =A0 =A0 > >>
-> > =A0 =A0 > >> But since testing is done on SoC boards by Helmut and =
-=46elix, I assume the code
-> > =A0 =A0 > >> isn't dead but actually in use.
-> > =A0 =A0 > >
-> > =A0 =A0 > > Perhaps Helmut and Felix can send us the missing code?
-> > =A0 =A0 > The missing code is a MIPS platform port, which is curren=
-tly being
-> > =A0 =A0 > maintained in OpenWrt, but is not ready for upstream subm=
-ission yet.
-> > =A0 =A0 > I'm not working on this code at the moment, but I think i=
-t will be
-> > =A0 =A0 > submitted once it's ready.
-> >
-> > =A0 =A0 People are using automatic scripts to catch unused config o=
-ptions nowadays
-> > =A0 =A0 so the issue is quite likely to come back again sooner or l=
-ater..
-> >
-> > =A0 =A0 Would it be possible to improve situation somehow till the =
-missing parts
-> > =A0 =A0 get merged? =A0Maybe by adding a tiny comment documenting R=
-T2800PCI_SOC
-> > =A0 =A0 situation to Kconfig (if the config option itself really ca=
-nnot be removed)
-> > =A0 =A0 until all code is ready etc.?
-> >
-> >
-> > Or we could just remove RT2800PCI_SOC completely and build the soc =
-specific
-> > parts always as part of rt2800pci. I mean it's not much code, just =
-the platform
-> > driver stuff and the eeprom access.
-> >
->
-> I'm not sure if that is feasible. Sure, we can reduce the usage of th=
-e variable by
-> unconditionally compiling in the generic SOC code, but we should not =
-unconditionally
-> register the SOC platform device, which is currently also under the s=
-cope of this
-> Kconfig variable.
+Hi,
 
-Ehm, no, the platform device is not registered in rt2800pci at all,
-it's just the platform
-driver that gets registered there. The platform device will be
-registered in the according
-board init code (that only resides in openwrt at the moment).
+The input handler for Type 2 Routing Header (mip6_rthdr_input())
+checks if the CoA in the packet matches the CoA in the XFRM state.
 
-Helmut
+Current check is buggy: it compares the adddress in the Type 2
+Routing Header, i.e. the HoA, against the expected CoA in the state.
+The comparison should be made against the address in the destination
+field of the IPv6 header.
+
+The bug remained unnoticed because the main (and possibly only current)
+user of the code (UMIP MIPv6 Daemon) initializes the XFRM state with the
+unspecified address, i.e. explicitly allows everything.
+
+Yoshifuji-san, can you ack that one?
+
+Cheers,
+
+a+
+
+Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
+---
+ net/ipv6/mip6.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index 2794b60..d6e9599 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -347,11 +347,12 @@ static const struct xfrm_type mip6_destopt_type =
+ 
+ static int mip6_rthdr_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
++	struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	struct rt2_hdr *rt2 = (struct rt2_hdr *)skb->data;
+ 	int err = rt2->rt_hdr.nexthdr;
+ 
+ 	spin_lock(&x->lock);
+-	if (!ipv6_addr_equal(&rt2->addr, (struct in6_addr *)x->coaddr) &&
++	if (!ipv6_addr_equal(&iph->daddr, (struct in6_addr *)x->coaddr) &&
+ 	    !ipv6_addr_any((struct in6_addr *)x->coaddr))
+ 		err = -ENOENT;
+ 	spin_unlock(&x->lock);
+-- 
+1.7.1
+
