@@ -1,83 +1,129 @@
 From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [4/5] Do not reset
- when the device is not opened
-Date: Thu, 15 Jul 2010 18:20:52 -0700 (PDT)
-Message-ID: <alpine.LRH.2.00.1007151448260.25472@localhost.localdomain>
-References: <alpine.LRH.2.00.1007070202080.5939@localhost.localdomain> <alpine.LRH.2.00.1007070229030.5939@localhost.localdomain> <alpine.LRH.2.00.1007131749030.32055@localhost.localdomain> <20100714.140718.115934967.davem@davemloft.net>
+Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [5/5] Respect the
+ interrupt type in VM configuration
+Date: Thu, 15 Jul 2010 18:21:27 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1007151458580.10176@localhost.localdomain>
+References: <alpine.LRH.2.00.1007070202080.5939@localhost.localdomain> <alpine.LRH.2.00.1007070232300.5939@localhost.localdomain> <alpine.LRH.2.00.1007131750060.32055@localhost.localdomain> <20100714.141118.260092331.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	Ronghua Zhang <ronghua@vmware.com>,
-	Matthieu Bucchianeri <matthieu@vmware.com>
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100714.140718.115934967.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:49279 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S935145Ab0GPBV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jul 2010 21:21:27 -0400
+In-Reply-To: <20100714.141118.260092331.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
 On Wed, 14 Jul 2010, David Miller wrote:
 
 > From: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Date: Tue, 13 Jul 2010 17:49:52 -0700 (PDT)
+> Date: Tue, 13 Jul 2010 17:51:39 -0700 (PDT)
 > 
 > > 
-> > Do not reset when the device is not opened
+> > Do not ignore interrupt type in VM configuration
 > > 
-> > If a reset is scheduled, and the device goes thru close and open, it
-> > may happen that reset and open may run in parallel.
-> > The reset code now bails out if the device is not opened.
-> >  
-> > Signed-off-by: Ronghua Zang <ronghua@vmware.com>
-> > Signed-off-by: Matthieu Bucchianeri <matthieu@vmware.com>
+> > When interrupt type is not auto, do not ignore the interrupt type set from
+> > VM configuration.
+> > Driver may not always respect the interrupt type in configuration but it 
+> > will certainly try to. Eg: if MSIx is configured and enabling MSIx fails 
+> > in driver, it fall back on MSI and then on INTx.
+> > 
 > > Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+>  ...
+> > @@ -291,7 +291,7 @@ vmxnet3_set_flags(struct net_device *netdev, u32 data)
+> >  
+> >  		/* update harware LRO capability accordingly */
+> >  		if (lro_requested)
+> > -			adapter->shared->devRead.misc.uptFeatures &= UPT1_F_LRO;
+> > +			adapter->shared->devRead.misc.uptFeatures |= UPT1_F_LRO;
+> >  		else
 > 
-> Testing IFF_UP is just making your race hole a little smaller but
-> it isn't fixing the problem.
+> This change has nothing to do with respecting the VM interrupt setting.
 > 
-> In fact, there really isn't any legitimate reason for a driver
-> to test the IFF_UP state bit.  netif_running() is the correct
-> test, and asynchronous work queue things like resets should
-> synchronize with open/close using the RTNL lock so that your
-> test of netif_running() is a stable one.
-> 
+> Do not stuff unrelated changes into a commit.
+> ...
 
-Is this what you suggest :
+Sorry about that. This is a fix I wanted to add and I did not operate stg
+correctly. Reposting the patch w/o the feature update bits.
+
 
 ---
 
-Hold rtnl_lock to get the right link state.
+Respect the interrupt type set in VM configuration.
 
-While asynchronously resetting the device, hold rtnl_lock to get the 
-right value from netif_running. If a reset is scheduled, and the device
-goes thru close and open, it may happen that reset and open may run in 
-parallel. Holding rtnl_lock will avoid this.
+When interrupt type is not auto, do not ignore the interrupt type set from
+VM configuration.
+
+Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
 
 ---
 
- drivers/net/vmxnet3/vmxnet3_drv.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+
+ drivers/net/vmxnet3/vmxnet3_drv.c |   13 ++++++++++---
+ drivers/net/vmxnet3/vmxnet3_int.h |    4 ++--
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 1b0ce8c..c4d7e42 100644
+index c4d7e42..9282635 100644
 --- a/drivers/net/vmxnet3/vmxnet3_drv.c
 +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2420,6 +2420,7 @@ vmxnet3_reset_work(struct work_struct *data)
- 		return;
+@@ -2357,9 +2357,13 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ 	adapter->intr.mask_mode = (cfg >> 2) & 0x3;
  
- 	/* if the device is closed, we must leave it alone */
-+	rtnl_lock();
- 	if (netif_running(adapter->netdev)) {
- 		printk(KERN_INFO "%s: resetting\n", adapter->netdev->name);
- 		vmxnet3_quiesce_dev(adapter);
-@@ -2428,6 +2429,7 @@ vmxnet3_reset_work(struct work_struct *data)
- 	} else {
- 		printk(KERN_INFO "%s: already closed\n", adapter->netdev->name);
+ 	if (adapter->intr.type == VMXNET3_IT_AUTO) {
+-		int err;
++		adapter->intr.type = VMXNET3_IT_MSIX;
++	}
+ 
+ #ifdef CONFIG_PCI_MSI
++	if (adapter->intr.type == VMXNET3_IT_MSIX) {
++		int err;
++
+ 		adapter->intr.msix_entries[0].entry = 0;
+ 		err = pci_enable_msix(adapter->pdev, adapter->intr.msix_entries,
+ 				      VMXNET3_LINUX_MAX_MSIX_VECT);
+@@ -2368,15 +2372,18 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ 			adapter->intr.type = VMXNET3_IT_MSIX;
+ 			return;
+ 		}
+-#endif
++		adapter->intr.type = VMXNET3_IT_MSI;
++	}
+ 
++	if (adapter->intr.type == VMXNET3_IT_MSI) {
++		int err;
+ 		err = pci_enable_msi(adapter->pdev);
+ 		if (!err) {
+ 			adapter->intr.num_intrs = 1;
+-			adapter->intr.type = VMXNET3_IT_MSI;
+ 			return;
+ 		}
  	}
-+	rtnl_unlock();
++#endif /* CONFIG_PCI_MSI */
  
- 	clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
- }
+ 	adapter->intr.type = VMXNET3_IT_INTX;
+ 
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 9c2fe9a..d17fae6 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -68,10 +68,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.0.5.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.0.13.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01000500
++#define VMXNET3_DRIVER_VERSION_NUM      0x01000B00
+ 
+ 
+ /*
