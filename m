@@ -1,149 +1,122 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Badness with the kernel version 2.6.35-rc1-git1 running on P6
- box
-Date: Fri, 16 Jul 2010 11:56:25 +0200
-Message-ID: <1279274185.2549.14.camel@edumazet-laptop>
-References: <4C401D56.3070108@linux.vnet.ibm.com>
+From: Helmut Schaa <helmut.schaa@googlemail.com>
+Subject: Re: [PATCH 01/11] Removing dead RT2800PCI_SOC
+Date: Fri, 16 Jul 2010 12:08:23 +0200
+Message-ID: <AANLkTik8M0gNipi_rwVJYbmo_3FfdHs-H4H_XDgTcbhI@mail.gmail.com>
+References: <cover.1279110894.git.siccegge@cs.fau.de>
+	<20100714131527.GB2352@tuxdriver.com>
+	<4C3DCD5C.1080705@openwrt.org>
+	<201007151041.55112.bzolnier@gmail.com>
+	<AANLkTilqoYMMKYJT-YYbEzdnytUSYa0EylEiJ4x5xXXH@mail.gmail.com>
+	<4C4007CD.2070504@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel@vger.kernel.org>, linuxppc-dev@ozlabs.org,
-	sachinp@linux.vnet.ibm.com, benh@kernel.crashing.org,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jan-Bernd Themann <ossthema@de.ibm.com>
-To: divya <dipraksh@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C401D56.3070108@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Ivo Van Doorn <ivdoorn@gmail.com>,
+	Christoph Egger <siccegge@cs.fau.de>,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vamos-dev@i4.informatik.uni-erlangen.de,
+	Luis Correia <luis.f.correia@gmail.com>
+To: Gertjan van Wingerde <gwingerde@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:61893 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964898Ab0GPKI0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 06:08:26 -0400
+In-Reply-To: <4C4007CD.2070504@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 16 juillet 2010 =C3=A0 14:20 +0530, divya a =C3=A9crit :
-> Hi ,
->=20
-> With the latest kernel version 2.6.35-rc5-git1(2f7989efd4398) running=
- on power(p6) box came across the following
-> call trace
->=20
-> Call Trace:
-> [c000000006a0e800] [c000000000011c30] .show_stack+0x6c/0x16c (unrelia=
-ble)
-> [c000000006a0e8b0] [c00000000012129c] .__alloc_pages_nodemask+0x6a0/0=
-x75c
-> [c000000006a0ea30] [c0000000001527cc] .alloc_pages_current+0xc4/0x104
-> [c000000006a0ead0] [c00000000015b1a0] .new_slab+0xe0/0x314
-> [c000000006a0eb70] [c00000000015b6fc] .__slab_alloc+0x328/0x644
-> [c000000006a0ec50] [c00000000015cc34] .__kmalloc_node_track_caller+0x=
-114/0x194
-> [c000000006a0ed00] [c000000000599f6c] .__alloc_skb+0x94/0x180
-> [c000000006a0edb0] [c00000000059af5c] .__netdev_alloc_skb+0x3c/0x74
-> [c000000006a0ee30] [c0000000004f9480] .ehea_refill_rq_def+0xf8/0x2d0
-> [c000000006a0ef30] [c0000000004fab8c] .ehea_up+0x5b8/0x69c
-> [c000000006a0f040] [c0000000004facd4] .ehea_open+0x64/0x118
-> [c000000006a0f0e0] [c0000000005a6e9c] .__dev_open+0x100/0x168
-> [c000000006a0f170] [c0000000005a3ac0] .__dev_change_flags+0x10c/0x1ac
-> [c000000006a0f210] [c0000000005a6d44] .dev_change_flags+0x24/0x7c
-> [c000000006a0f2a0] [c0000000005b50b4] .do_setlink+0x31c/0x750
-> [c000000006a0f3b0] [c0000000005b6724] .rtnl_newlink+0x388/0x618
-> [c000000006a0f5f0] [c0000000005b6350] .rtnetlink_rcv_msg+0x268/0x2b4
-> [c000000006a0f6a0] [c0000000005cfdc0] .netlink_rcv_skb+0x74/0x108
-> [c000000006a0f730] [c0000000005b60c4] .rtnetlink_rcv+0x38/0x5c
-> [c000000006a0f7c0] [c0000000005cf8c8] .netlink_unicast+0x318/0x3f4
-> [c000000006a0f890] [c0000000005d05b4] .netlink_sendmsg+0x2d0/0x310
-> [c000000006a0f970] [c00000000058e1e8] .sock_sendmsg+0xd4/0x110
-> [c000000006a0fb50] [c00000000058e514] .SyS_sendmsg+0x1f4/0x288
-> [c000000006a0fd70] [c00000000058c2b8] .SyS_socketcall+0x214/0x280
-> [c000000006a0fe30] [c0000000000085b4] syscall_exit+0x0/0x40
-> Mem-Info:
-> Node 0 DMA per-cpu:
-> CPU    0: hi:    0, btch:   1 usd:   0
-> CPU    1: hi:    0, btch:   1 usd:   0
-> CPU    2: hi:    0, btch:   1 usd:   0
-> CPU    3: hi:    0, btch:   1 usd:   0
-> active_anon:50 inactive_anon:260 isolated_anon:0
->   active_file:159 inactive_file:139 isolated_file:0
->   unevictable:0 dirty:2 writeback:1 unstable:0
->   free:16 slab_reclaimable:66 slab_unreclaimable:502
->   mapped:120 shmem:2 pagetables:37 bounce:0
-> Node 0 DMA free:1024kB min:1408kB low:1728kB high:2112kB active_anon:=
-3200kB inactive_anon:16640kB active_file:10176kB inactive_file:8896kB u=
-nevictable:0kB isolated(anon):0kB isolated(file):0kB present:130944kB m=
-locked:0kB dirty:128kB writeback:64kB mapped:7680kB shmem:128kB slab_re=
-claimable:4224kB slab_unreclaimable:32128kB kernel_stack:2528kB pagetab=
-les:2368kB unstable:0kB bounce:0kB writeback_tmp:0kB pages_scanned:0 al=
-l_unreclaimable? no
-> lowmem_reserve[]: 0 0 0
-> Node 0 DMA: 0*64kB 0*128kB 0*256kB 0*512kB 0*1024kB 0*2048kB 0*4096kB=
- 0*8192kB 0*16384kB =3D 0kB
-> 496 total pagecache pages
-> 178 pages in swap cache
-> Swap cache stats: add 780, delete 602, find 467/551
-> Free swap  =3D 1027904kB
-> Total swap =3D 1044160kB
-> 2048 pages RAM
-> 683 pages reserved
-> 582 pages shared
-> 1075 pages non-shared
-> SLUB: Unable to allocate memory on node -1 (gfp=3D0x20)
->    cache: kmalloc-16384, object size: 16384, buffer size: 16384, defa=
-ult order: 2, min order: 0
->    node 0: slabs: 28, objs: 292, free: 0
-> ip: page allocation failure. order:0, mode:0x8020
-> Call Trace:
-> [c000000006a0eb40] [c000000000011c30] .show_stack+0x6c/0x16c (unrelia=
-ble)
-> [c000000006a0ebf0] [c00000000012129c] .__alloc_pages_nodemask+0x6a0/0=
-x75c
-> [c000000006a0ed70] [c0000000001527cc] .alloc_pages_current+0xc4/0x104
-> [c000000006a0ee10] [c00000000011fca4] .__get_free_pages+0x18/0x90
-> [c000000006a0ee90] [c0000000004f7058] .ehea_get_stats+0x4c/0x1bc
-> [c000000006a0ef30] [c0000000005a0a04] .dev_get_stats+0x38/0x64
-> [c000000006a0efc0] [c0000000005b456c] .rtnl_fill_ifinfo+0x35c/0x85c
-> [c000000006a0f150] [c0000000005b5920] .rtmsg_ifinfo+0x164/0x204
-> [c000000006a0f210] [c0000000005a6d6c] .dev_change_flags+0x4c/0x7c
-> [c000000006a0f2a0] [c0000000005b50b4] .do_setlink+0x31c/0x750
-> [c000000006a0f3b0] [c0000000005b6724] .rtnl_newlink+0x388/0x618
-> [c000000006a0f5f0] [c0000000005b6350] .rtnetlink_rcv_msg+0x268/0x2b4
-> [c000000006a0f6a0] [c0000000005cfdc0] .netlink_rcv_skb+0x74/0x108
-> [c000000006a0f730] [c0000000005b60c4] .rtnetlink_rcv+0x38/0x5c
-> [c000000006a0f7c0] [c0000000005cf8c8] .netlink_unicast+0x318/0x3f4
-> [c000000006a0f890] [c0000000005d05b4] .netlink_sendmsg+0x2d0/0x310
-> [c000000006a0f970] [c00000000058e1e8] .sock_sendmsg+0xd4/0x110
-> [c000000006a0fb50] [c00000000058e514] .SyS_sendmsg+0x1f4/0x288
-> [c000000006a0fd70] [c00000000058c2b8] .SyS_socketcall+0x214/0x280
-> [c000000006a0fe30] [c0000000000085b4] syscall_exit+0x0/0x40
-> Mem-Info:
-> Node 0 DMA per-cpu:
-> CPU    0: hi:    0, btch:   1 usd:   0
-> CPU    1: hi:    0, btch:   1 usd:   0
-> CPU    2: hi:    0, btch:   1 usd:   0
-> CPU    3: hi:    0, btch:   1 usd:   0
->=20
-> The mainline 2.6.35-rc5 worked fine.
+On Fri, Jul 16, 2010 at 9:18 AM, Gertjan van Wingerde
+<gwingerde@gmail.com> wrote:
+>
+> On 07/16/10 08:57, Helmut Schaa wrote:
+> > On Thu, Jul 15, 2010 at 10:41 AM, Bartlomiej Zolnierkiewicz <bzolni=
+er@gmail.com <mailto:bzolnier@gmail.com>> wrote:
+> >
+> > =A0 =A0 On Wednesday 14 July 2010 04:44:44 pm Felix Fietkau wrote:
+> > =A0 =A0 > On 2010-07-14 3:15 PM, John W. Linville wrote:
+> > =A0 =A0 > > On Wed, Jul 14, 2010 at 02:52:14PM +0200, Ivo Van Doorn=
+ wrote:
+> > =A0 =A0 > >> On Wed, Jul 14, 2010 at 2:46 PM, Luis Correia <luis.f.=
+correia@gmail.com <mailto:luis.f.correia@gmail.com>> wrote:
+> > =A0 =A0 > >> > On Wed, Jul 14, 2010 at 13:39, Christoph Egger <sicc=
+egge@cs.fau.de <mailto:siccegge@cs.fau.de>> wrote:
+> > =A0 =A0 > >> >> While RT2800PCI_SOC exists in Kconfig, it depends o=
+n either
+> > =A0 =A0 > >> >> RALINK_RT288X or RALINK_RT305X which are both not a=
+vailable in Kconfig
+> > =A0 =A0 > >> >> so all Code depending on that can't ever be selecte=
+d and, if there's
+> > =A0 =A0 > >> >> no plan to add these options, should be cleaned up
+> > =A0 =A0 > >> >>
+> > =A0 =A0 > >> >> Signed-off-by: Christoph Egger <siccegge@cs.fau.de =
+<mailto:siccegge@cs.fau.de>>
+> > =A0 =A0 > >> >
+> > =A0 =A0 > >> > NAK,
+> > =A0 =A0 > >> >
+> > =A0 =A0 > >> > this is not dead code, it is needed for the Ralink S=
+ystem-on-Chip
+> > =A0 =A0 > >> > Platform devices.
+> > =A0 =A0 > >> >
+> > =A0 =A0 > >> > While I can't fix Kconfig errors and the current KCo=
+nfig file may be
+> > =A0 =A0 > >> > wrong, this code cannot and will not be deleted.
+> > =A0 =A0 > >>
+> > =A0 =A0 > >> When the config option was introduced, the config opti=
+ons RALINK_RT288X and
+> > =A0 =A0 > >> RALINK_RT305X were supposed to be merged as well soon =
+after by somebody (Felix?)
+> > =A0 =A0 > >>
+> > =A0 =A0 > >> But since testing is done on SoC boards by Helmut and =
+=46elix, I assume the code
+> > =A0 =A0 > >> isn't dead but actually in use.
+> > =A0 =A0 > >
+> > =A0 =A0 > > Perhaps Helmut and Felix can send us the missing code?
+> > =A0 =A0 > The missing code is a MIPS platform port, which is curren=
+tly being
+> > =A0 =A0 > maintained in OpenWrt, but is not ready for upstream subm=
+ission yet.
+> > =A0 =A0 > I'm not working on this code at the moment, but I think i=
+t will be
+> > =A0 =A0 > submitted once it's ready.
+> >
+> > =A0 =A0 People are using automatic scripts to catch unused config o=
+ptions nowadays
+> > =A0 =A0 so the issue is quite likely to come back again sooner or l=
+ater..
+> >
+> > =A0 =A0 Would it be possible to improve situation somehow till the =
+missing parts
+> > =A0 =A0 get merged? =A0Maybe by adding a tiny comment documenting R=
+T2800PCI_SOC
+> > =A0 =A0 situation to Kconfig (if the config option itself really ca=
+nnot be removed)
+> > =A0 =A0 until all code is ready etc.?
+> >
+> >
+> > Or we could just remove RT2800PCI_SOC completely and build the soc =
+specific
+> > parts always as part of rt2800pci. I mean it's not much code, just =
+the platform
+> > driver stuff and the eeprom access.
+> >
+>
+> I'm not sure if that is feasible. Sure, we can reduce the usage of th=
+e variable by
+> unconditionally compiling in the generic SOC code, but we should not =
+unconditionally
+> register the SOC platform device, which is currently also under the s=
+cope of this
+> Kconfig variable.
 
-Maybe you were lucky with 2.6.35-rc5
+Ehm, no, the platform device is not registered in rt2800pci at all,
+it's just the platform
+driver that gets registered there. The platform device will be
+registered in the according
+board init code (that only resides in openwrt at the moment).
 
-Anyway ehea should not use GFP_ATOMIC in its ehea_get_stats() method,
-called in process context, but GFP_KERNEL.
-
-Another patch is needed for ehea_refill_rq_def() as well.
-
-
-
-[PATCH] ehea: ehea_get_stats() should use GFP_KERNEL
-
-ehea_get_stats() is called in process context and should use GFP_KERNEL
-allocation instead of GFP_ATOMIC.
-
-Clearing stats at beginning of ehea_get_stats() is racy in case of
-concurrent stat readers.
-
-get_stats() can also use netdev net_device_stats, instead of a private
-copy.
-
-Reported-by: divya <dipraksh@linux.vnet.ibm.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/ehea/ehea.h      |    1 -
- drivers/net/ehea/ehea_main.c |    6 ++----
- 2 files changed, 2 insertions(+), 5 deletions(-)
+Helmut
