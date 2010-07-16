@@ -1,24 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/25] atm: Convert pci_table entries to PCI_VDEVICE
+Subject: Re: [PATCH 07/25] atm: Convert pci_table entries to PCI_VDEVICE
  (if PCI_ANY_ID is used)
-Date: Thu, 15 Jul 2010 19:06:38 -0700 (PDT)
-Message-ID: <20100715.190638.115940666.davem@davemloft.net>
-References: <201007152048.27535.PeterHuewe@gmx.de>
+Date: Thu, 15 Jul 2010 19:06:27 -0700 (PDT)
+Message-ID: <20100715.190627.39190842.davem@davemloft.net>
+References: <201007152044.12653.PeterHuewe@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: kernel-janitors@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	hsweeten@visionengravers.com, tj@kernel.org,
+	roel.kluin@gmail.com, eric.dumazet@gmail.com, tj@kernel.org,
 	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: PeterHuewe@gmx.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201007152048.27535.PeterHuewe@gmx.de>
+In-Reply-To: <201007152044.12653.PeterHuewe@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Peter Huewe <PeterHuewe@gmx.de>
-Date: Thu, 15 Jul 2010 20:48:26 +0200
+Date: Thu, 15 Jul 2010 20:44:11 +0200
 
 > From: Peter Huewe <peterhuewe@gmx.de>
 > 
