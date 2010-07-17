@@ -1,57 +1,110 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] arcnet: fix signed bug in probe function
-Date: Sat, 17 Jul 2010 19:21:28 +0200
-Message-ID: <20100717172127.GI17585@bicker>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH v3 0/4] Extend Time Stamping
+Date: Sat, 17 Jul 2010 20:48:02 +0200
+Message-ID: <cover.1279391885.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:61343 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756047Ab0GQRXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jul 2010 13:23:17 -0400
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:65139 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756493Ab0GQSsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jul 2010 14:48:09 -0400
+Received: by bwz1 with SMTP id 1so1698395bwz.19
+        for <netdev@vger.kernel.org>; Sat, 17 Jul 2010 11:48:07 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-probe_irq_off() returns the first irq found or if two irqs are found
-then it returns the negative of the first irq found.  We can cast
-dev->irq to an int so that the test for negative values works.
+This patch set extends the packet time stamping capabilites of the
+network stack in two ways.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+1. The first patch presents a work-around for the TX software time
+   stamping fallback problem cited in cd4d8fdad1f1. The idea is to add
+   one inline function into each MAC driver. This function will act
+   as hooks for current (and possible future) time stamping needs,
+   once they are placed correctly within each MAC driver.
 
-diff --git a/drivers/net/arcnet/com20020-isa.c b/drivers/net/arcnet/com20020-isa.c
-index 0402da3..3727282 100644
---- a/drivers/net/arcnet/com20020-isa.c
-+++ b/drivers/net/arcnet/com20020-isa.c
-@@ -90,14 +90,14 @@ static int __init com20020isa_probe(struct net_device *dev)
- 		outb(0, _INTMASK);
- 		dev->irq = probe_irq_off(airqmask);
- 
--		if (dev->irq <= 0) {
-+		if ((int)dev->irq <= 0) {
- 			BUGMSG(D_INIT_REASONS, "Autoprobe IRQ failed first time\n");
- 			airqmask = probe_irq_on();
- 			outb(NORXflag, _INTMASK);
- 			udelay(5);
- 			outb(0, _INTMASK);
- 			dev->irq = probe_irq_off(airqmask);
--			if (dev->irq <= 0) {
-+			if ((int)dev->irq <= 0) {
- 				BUGMSG(D_NORMAL, "Autoprobe IRQ failed.\n");
- 				err = -ENODEV;
- 				goto out;
-diff --git a/drivers/net/arcnet/com90io.c b/drivers/net/arcnet/com90io.c
-index 4cb4018..eb27976 100644
---- a/drivers/net/arcnet/com90io.c
-+++ b/drivers/net/arcnet/com90io.c
-@@ -213,7 +213,7 @@ static int __init com90io_probe(struct net_device *dev)
- 		outb(0, _INTMASK);
- 		dev->irq = probe_irq_off(airqmask);
- 
--		if (dev->irq <= 0) {
-+		if ((int)dev->irq <= 0) {
- 			BUGMSG(D_INIT_REASONS, "Autoprobe IRQ failed\n");
- 			goto err_out;
- 		}
+2. The other patches prepare the way for PHY drivers to offer time
+   stamping.
+
+I am preparing a new round of patches for PTP support, but it will
+require the changes in this patch set in order to function. Thus I
+would like to have this patch set reviewed (and hopefully merged) in
+order to go forward.
+
+Thanks,
+Richard
+
+* Patch ChangeLog
+** v3
+   After having received plenty of criticism on the idea of reading
+   from the MDIO bus during the critical paths, this version presents
+   a new approach. Now, when the CONFIG option for PHY time stamping
+   is enabled, likely packets for time stamping are identified by the
+   stack and presented to the PHY driver. The driver may accept the
+   packet and defer its deliverly until the time stamp becomes
+   available at a later time. This approach brings four main
+   advantages.
+
+   1. Now only one MAC driver hook is necessary.
+
+   2. It leaves the option of how to get the time stamps open,
+      allowing, for example, a driver to get them either via MDIO or
+      PHY status frames.
+
+   3. If reading the MDIO bus is required to get the time stamp, this
+      can be done during as a work queue task.
+
+   4. It moves the identification of PTP packets into the stack, so
+      that each new PHY driver that comes only will not have to
+      duplicate this logic again.
+
+** v2
+   Removed the CONFIG option for the driver hooks.
+
+
+Richard Cochran (4):
+  net: add driver hook for tx time stamping.
+  net: preserve ifreq parameter when calling generic phy_mii_ioctl().
+  net: added a BPF to help drivers detect PTP packets.
+  net: support time stamping in phy devices.
+
+ drivers/net/arm/ixp4xx_eth.c           |    3 +-
+ drivers/net/au1000_eth.c               |    2 +-
+ drivers/net/bcm63xx_enet.c             |    2 +-
+ drivers/net/cpmac.c                    |    5 +-
+ drivers/net/dnet.c                     |    2 +-
+ drivers/net/ethoc.c                    |    2 +-
+ drivers/net/fec.c                      |    2 +-
+ drivers/net/fec_mpc52xx.c              |    2 +-
+ drivers/net/fs_enet/fs_enet-main.c     |    3 +-
+ drivers/net/gianfar.c                  |    2 +-
+ drivers/net/macb.c                     |    2 +-
+ drivers/net/mv643xx_eth.c              |    2 +-
+ drivers/net/octeon/octeon_mgmt.c       |    2 +-
+ drivers/net/phy/phy.c                  |    8 ++-
+ drivers/net/phy/phy_device.c           |    2 +
+ drivers/net/sb1250-mac.c               |    2 +-
+ drivers/net/sh_eth.c                   |    2 +-
+ drivers/net/smsc911x.c                 |    2 +-
+ drivers/net/smsc9420.c                 |    2 +-
+ drivers/net/stmmac/stmmac_main.c       |   22 ++----
+ drivers/net/tc35815.c                  |    2 +-
+ drivers/net/tg3.c                      |    2 +-
+ drivers/net/ucc_geth.c                 |    2 +-
+ drivers/staging/octeon/ethernet-mdio.c |    2 +-
+ include/linux/netdevice.h              |    4 +
+ include/linux/phy.h                    |   24 ++++++-
+ include/linux/ptp_classify.h           |  126 ++++++++++++++++++++++++++++++++
+ include/linux/skbuff.h                 |   52 +++++++++++++
+ net/Kconfig                            |   10 +++
+ net/core/Makefile                      |    2 +-
+ net/core/dev.c                         |    3 +
+ net/core/timestamping.c                |  126 ++++++++++++++++++++++++++++++++
+ net/dsa/slave.c                        |    3 +-
+ net/socket.c                           |    4 +
+ 34 files changed, 389 insertions(+), 44 deletions(-)
+ create mode 100644 include/linux/ptp_classify.h
+ create mode 100644 net/core/timestamping.c
+
