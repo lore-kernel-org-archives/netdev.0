@@ -1,66 +1,57 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH 5/5] net: dccp: fix sign bug
-Date: Sat, 17 Jul 2010 19:21:00 +0400
-Message-ID: <1279380060-15394-1-git-send-email-segooon@gmail.com>
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] arcnet: fix signed bug in probe function
+Date: Sat, 17 Jul 2010 19:21:28 +0200
+Message-ID: <20100717172127.GI17585@bicker>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:53990 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755499Ab0GQPVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jul 2010 11:21:17 -0400
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61343 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756047Ab0GQRXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jul 2010 13:23:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'gap' is unsigned, so this code is wrong:
+probe_irq_off() returns the first irq found or if two irqs are found
+then it returns the negative of the first irq found.  We can cast
+dev->irq to an int so that the test for negative values works.
 
-    gap = -new_head;
-    ...
-    if (gap > 0) { ... }
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Make 'gap' signed.
-
-
-The semantic patch that finds this problem (many false-positive results):
-(http://coccinelle.lip6.fr/)
-
-// <smpl>
-@ r1 @
-identifier f;
-@@
-int f(...) { ... }
-
-@@
-identifier r1.f;
-type T;
-unsigned T x;
-@@
-
-*x = f(...)
- ...
-*x > 0
-
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
----
- net/dccp/ackvec.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/dccp/ackvec.c b/net/dccp/ackvec.c
-index 2abddee..92a6fcb 100644
---- a/net/dccp/ackvec.c
-+++ b/net/dccp/ackvec.c
-@@ -201,7 +201,7 @@ static inline int dccp_ackvec_set_buf_head_state(struct dccp_ackvec *av,
- 						 const unsigned int packets,
- 						 const unsigned char state)
- {
--	unsigned int gap;
-+	long gap;
- 	long new_head;
+diff --git a/drivers/net/arcnet/com20020-isa.c b/drivers/net/arcnet/com20020-isa.c
+index 0402da3..3727282 100644
+--- a/drivers/net/arcnet/com20020-isa.c
++++ b/drivers/net/arcnet/com20020-isa.c
+@@ -90,14 +90,14 @@ static int __init com20020isa_probe(struct net_device *dev)
+ 		outb(0, _INTMASK);
+ 		dev->irq = probe_irq_off(airqmask);
  
- 	if (av->av_vec_len + packets > DCCP_MAX_ACKVEC_LEN)
--- 
-1.7.0.4
-
+-		if (dev->irq <= 0) {
++		if ((int)dev->irq <= 0) {
+ 			BUGMSG(D_INIT_REASONS, "Autoprobe IRQ failed first time\n");
+ 			airqmask = probe_irq_on();
+ 			outb(NORXflag, _INTMASK);
+ 			udelay(5);
+ 			outb(0, _INTMASK);
+ 			dev->irq = probe_irq_off(airqmask);
+-			if (dev->irq <= 0) {
++			if ((int)dev->irq <= 0) {
+ 				BUGMSG(D_NORMAL, "Autoprobe IRQ failed.\n");
+ 				err = -ENODEV;
+ 				goto out;
+diff --git a/drivers/net/arcnet/com90io.c b/drivers/net/arcnet/com90io.c
+index 4cb4018..eb27976 100644
+--- a/drivers/net/arcnet/com90io.c
++++ b/drivers/net/arcnet/com90io.c
+@@ -213,7 +213,7 @@ static int __init com90io_probe(struct net_device *dev)
+ 		outb(0, _INTMASK);
+ 		dev->irq = probe_irq_off(airqmask);
+ 
+-		if (dev->irq <= 0) {
++		if ((int)dev->irq <= 0) {
+ 			BUGMSG(D_INIT_REASONS, "Autoprobe IRQ failed\n");
+ 			goto err_out;
+ 		}
