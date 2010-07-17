@@ -1,87 +1,278 @@
-From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Fri, 16 Jul 2010 17:36:46 -0700
-Message-ID: <AANLkTil_c-TH6k2BDW2r5c0HYXFxiu85aMda1bT0nJt3@mail.gmail.com>
-References: <4C3D94E3.9080103@wildgooses.com>
-	<4C3DD5EB.9070908@tmr.com>
-	<20100714.111553.104052157.davem@davemloft.net>
-	<AANLkTil3MVGwJUG12dikut9X1s9Ozc_3GwMjx_gErvxI@mail.gmail.com>
-	<1279299709.2156.5814.camel@tng>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH] LSM: Add post recvmsg() hook.
+Date: Sat, 17 Jul 2010 10:17:10 +0900
+Message-ID: <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp>
+References: <201007170114.GFC57373.SQJHOVtLFMOFFO@I-love.SAKURA.ne.jp>
+	<20100716.123558.71592004.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, davidsen@tmr.com,
-	lists@wildgooses.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Patrick McManus <mcmanus@ducksong.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:50640 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755314Ab0GQAgr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 20:36:47 -0400
-In-Reply-To: <1279299709.2156.5814.camel@tng>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:61486 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759576Ab0GQBRO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jul 2010 21:17:14 -0400
+In-Reply-To: <20100716.123558.71592004.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 16, 2010 at 10:01 AM, Patrick McManus <mcmanus@ducksong.com=
-> wrote:
-> On Wed, 2010-07-14 at 21:51 -0700, H.K. Jerry Chu wrote:
->> =A0except there are indeed bugs in the code today in that the
->> code in various places assumes initcwnd as per RFC3390. So when
->> initcwnd is raised, that actual value may be limited unnecessarily b=
-y
->> the initial wmem/sk_sndbuf.
->
-> Thanks for the discussion!
->
-> can you tell us more about the impl concerns of initcwnd stored on th=
-e
-> route?
+David Miller wrote:
+> From: Tetsuo Handa
+> Date: Sat, 17 Jul 2010 01:14:38 +0900
+> 
+> > Below is a patch for post recvmsg() operation. I modified the patch to call
+> > skb_recv_datagram() again (for udp_recvmsg(), raw_recvmsg(), udpv6_recvmsg())
+> > if LSM dicided to drop the message. (Regarding rawv6_recvmsg(), I didn't do so
+> > in accordance with the comment at "csum_copy_err:".)
+> > What do you think about this verion?
+> 
+> This looks fine, but regardless of that comment I think the IPV6 raw recvmsg()
+> should loop just as the IPV4 one does in your patch.
+> 
+Thank you, David.
+I updated to call skb_recv_datagram() for rawv6_recvmsg() case too.
 
-We have found two issues when altering initcwnd through the ip route cm=
-d:
-1. initcwnd is actually capped by sndbuf (i.e., tcp_wmem[1], which is
-defaulted to a small value of 16KB). This problem has been made obscure=
-d
-by the TSO code, which fudges the flow control limit (and could be a bu=
-g by
-itself).
+NETWORKING [IPv4/IPv6] maintainers and Paul, is below patch fine for you?
 
-2. the congestion backoff code is supposed to take inflight, rather tha=
-n cwnd,
-but initcwnd presents a special case. I don't fully understand the code=
- yet to
-propose a fix.
+Regards.
+----------------------------------------
+>From b43154a90bc7494ec1ee301e692d2bbf29c8f2f8 Mon Sep 17 00:00:00 2001
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Sat, 17 Jul 2010 09:52:38 +0900
+Subject: [PATCH] LSM: Add post recvmsg() hook.
 
->
-> and while I'm asking for info, can you expand on the conclusion
-> regarding poor cache hit rates for reusing learned cwnds? (ok, I admi=
-t I
-> only read the slides.. maybe the paper has more info?)
+Current pre recvmsg hook (i.e. security_socket_recvmsg()) has two problems.
 
-This is partly due to our load balancer policy resulting in poor cache =
-hit,
-partly due to the sheer volumes of remote clients. Some of colleagues
-tried to change the host cache to a /24 subnet cache but the result was=
-n't
-that good either (sorry I don't remember all the details.)
+One is that it will cause eating 100% of CPU time if the caller does not
+close() the socket when recvmsg() failed due to security_socket_recvmsg(), for
+subsequent select() notifies the caller of readiness for recvmsg() since the
+datagram which would have been already picked up if security_socket_recvmsg()
+did not return error is remaining in the queue.
 
->
-> article and slides much appreciated and very interetsing. I've long b=
-een
-> of the opinion that the downsides of being too aggressive once in a
-> while aren't all that serious anymore.. as someone else said in a
-> non-reservation world you are always trying to predict the future any=
-how
-> and therefore overflowing a queue is always possible no matter how
-> conservative.
+The other is that it is racy if LSM module wants to do filtering based on
+"which process can pick up datagrams from which source" because the process
+which picks up the datagram is not known until skb_recv_datagram() and lock
+is not held between security_socket_recvmsg() and skb_recv_datagram().
 
-Please voice your support to TCPM then :)
+This patch introduces post recvmsg hook (i.e. security_socket_post_recvmsg())
+in order to solve above problems at the cost of ability to pick up the datagram
+which would have been picked up if preceding security_socket_post_recvmsg() did
+not return error.
 
-Jerry
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+---
+ include/linux/security.h |   14 ++++++++++++++
+ net/ipv4/raw.c           |   12 +++++++++---
+ net/ipv4/udp.c           |    9 ++++++++-
+ net/ipv6/raw.c           |   12 +++++++++---
+ net/ipv6/udp.c           |    9 ++++++++-
+ security/capability.c    |    6 ++++++
+ security/security.c      |    6 ++++++
+ 7 files changed, 60 insertions(+), 8 deletions(-)
 
->
->
->
->
->
+diff --git a/include/linux/security.h b/include/linux/security.h
+index 723a93d..409c44d 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -879,6 +879,12 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+  *	@size contains the size of message structure.
+  *	@flags contains the operational flags.
+  *	Return 0 if permission is granted.
++ * @socket_post_recvmsg:
++ *	Check permission after receiving a message from a socket.
++ *	The message is discarded if permission is not granted.
++ *	@sk contains the sock structure.
++ *	@skb contains the sk_buff structure.
++ *	Return 0 if permission is granted.
+  * @socket_getsockname:
+  *	Check permission before the local address (name) of the socket object
+  *	@sock is retrieved.
+@@ -1575,6 +1581,7 @@ struct security_operations {
+ 			       struct msghdr *msg, int size);
+ 	int (*socket_recvmsg) (struct socket *sock,
+ 			       struct msghdr *msg, int size, int flags);
++	int (*socket_post_recvmsg) (struct sock *sk, struct sk_buff *skb);
+ 	int (*socket_getsockname) (struct socket *sock);
+ 	int (*socket_getpeername) (struct socket *sock);
+ 	int (*socket_getsockopt) (struct socket *sock, int level, int optname);
+@@ -2526,6 +2533,7 @@ int security_socket_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
++int security_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb);
+ int security_socket_getsockname(struct socket *sock);
+ int security_socket_getpeername(struct socket *sock);
+ int security_socket_getsockopt(struct socket *sock, int level, int optname);
+@@ -2617,6 +2625,12 @@ static inline int security_socket_recvmsg(struct socket *sock,
+ 	return 0;
+ }
+ 
++static inline int security_socket_post_recvmsg(struct sock *sk,
++					       struct sk_buff *skb)
++{
++	return 0;
++}
++
+ static inline int security_socket_getsockname(struct socket *sock)
+ {
+ 	return 0;
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 2c7a163..69652d4 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -676,9 +676,15 @@ static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		goto out;
+ 	}
+ 
+-	skb = skb_recv_datagram(sk, flags, noblock, &err);
+-	if (!skb)
+-		goto out;
++	for (;;) {
++		skb = skb_recv_datagram(sk, flags, noblock, &err);
++		if (!skb)
++			goto out;
++		err = security_socket_post_recvmsg(sk, skb);
++		if (likely(!err))
++			break;
++		skb_kill_datagram(sk, skb, flags);
++	}
+ 
+ 	copied = skb->len;
+ 	if (len < copied) {
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 5858574..9145685 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1125,6 +1125,7 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	int err;
+ 	int is_udplite = IS_UDPLITE(sk);
+ 	bool slow;
++	bool update_stat;
+ 
+ 	/*
+ 	 *	Check any passed addresses
+@@ -1140,6 +1141,12 @@ try_again:
+ 				  &peeked, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recvmsg(sk, skb);
++	if (err) {
++		update_stat = false;
++		goto csum_copy_err;
++	}
++	update_stat = true;
+ 
+ 	ulen = skb->len - sizeof(struct udphdr);
+ 	if (len > ulen)
+@@ -1200,7 +1207,7 @@ out:
+ 
+ csum_copy_err:
+ 	slow = lock_sock_fast(sk);
+-	if (!skb_kill_datagram(sk, skb, flags))
++	if (!skb_kill_datagram(sk, skb, flags) && update_stat)
+ 		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 	unlock_sock_fast(sk, slow);
+ 
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 4a4dcbe..6915b01 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -464,9 +464,15 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	if (np->rxpmtu && np->rxopt.bits.rxpmtu)
+ 		return ipv6_recv_rxpmtu(sk, msg, len);
+ 
+-	skb = skb_recv_datagram(sk, flags, noblock, &err);
+-	if (!skb)
+-		goto out;
++	for (;;) {
++		skb = skb_recv_datagram(sk, flags, noblock, &err);
++		if (!skb)
++			goto out;
++		err = security_socket_post_recvmsg(sk, skb);
++		if (likely(!err))
++			break;
++		skb_kill_datagram(sk, skb, flags);
++	}
+ 
+ 	copied = skb->len;
+ 	if (copied > len) {
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 87be586..6cae276 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -329,6 +329,7 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	int is_udplite = IS_UDPLITE(sk);
+ 	int is_udp4;
+ 	bool slow;
++	bool update_stat;
+ 
+ 	if (addr_len)
+ 		*addr_len=sizeof(struct sockaddr_in6);
+@@ -344,6 +345,12 @@ try_again:
+ 				  &peeked, &err);
+ 	if (!skb)
+ 		goto out;
++	err = security_socket_post_recvmsg(sk, skb);
++	if (err) {
++		update_stat = false;
++		goto csum_copy_err;
++	}
++	update_stat = true;
+ 
+ 	ulen = skb->len - sizeof(struct udphdr);
+ 	if (len > ulen)
+@@ -426,7 +433,7 @@ out:
+ 
+ csum_copy_err:
+ 	slow = lock_sock_fast(sk);
+-	if (!skb_kill_datagram(sk, skb, flags)) {
++	if (!skb_kill_datagram(sk, skb, flags) && update_stat) {
+ 		if (is_udp4)
+ 			UDP_INC_STATS_USER(sock_net(sk),
+ 					UDP_MIB_INERRORS, is_udplite);
+diff --git a/security/capability.c b/security/capability.c
+index 4aeb699..709aea3 100644
+--- a/security/capability.c
++++ b/security/capability.c
+@@ -597,6 +597,11 @@ static int cap_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 	return 0;
+ }
+ 
++static int cap_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb)
++{
++	return 0;
++}
++
+ static int cap_socket_getsockname(struct socket *sock)
+ {
+ 	return 0;
+@@ -1001,6 +1006,7 @@ void __init security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, socket_accept);
+ 	set_to_cap_if_null(ops, socket_sendmsg);
+ 	set_to_cap_if_null(ops, socket_recvmsg);
++	set_to_cap_if_null(ops, socket_post_recvmsg);
+ 	set_to_cap_if_null(ops, socket_getsockname);
+ 	set_to_cap_if_null(ops, socket_getpeername);
+ 	set_to_cap_if_null(ops, socket_setsockopt);
+diff --git a/security/security.c b/security/security.c
+index e8c87b8..4291bd7 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -1037,6 +1037,12 @@ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 	return security_ops->socket_recvmsg(sock, msg, size, flags);
+ }
+ 
++int security_socket_post_recvmsg(struct sock *sk, struct sk_buff *skb)
++{
++	return security_ops->socket_post_recvmsg(sk, skb);
++}
++EXPORT_SYMBOL(security_socket_post_recvmsg);
++
+ int security_socket_getsockname(struct socket *sock)
+ {
+ 	return security_ops->socket_getsockname(sock);
+-- 
+1.6.1
