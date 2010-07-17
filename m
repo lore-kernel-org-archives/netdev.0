@@ -1,121 +1,87 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
-Date: Fri, 16 Jul 2010 17:23:55 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FFE1B19CD@rrsmsx501.amr.corp.intel.com>
-References: <1277659633.2989.2.camel@localhost.localdomain>
-	 <1277659785.4028.1.camel@localhost.localdomain>
-	 <1277660638.3321.1.camel@localhost.localdomain>
-	 <1277660831.3321.3.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
-	 <1277745247.12841.1.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
-	 <1277807529.19417.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
-	 <1277938757.4138.3.camel@localhost.localdomain>
-	 <1278204106.21020.0.camel@localhost.localdomain>
-	 <1278283714.3444.1.camel@localhost.localdomain>
-	 <AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
-	 <1278323885.5277.0.camel@localhost.localdomain>
-	 <1278950178.17933.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
-	 <1278981483.23017.4.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
-	 <1279150380.7810.2.camel@localhost.localdomain>
-	 <1279220266.4411.2.camel@localhost.localdomain>
-	 <EA929A9653AAE14F841771FB1DE5A1365FF4B860D9@rrsmsx501.amr.corp.intel.com>
-	 <1279220945.4411.6.camel@localhost.localdomain>
- <1279308358.3979.0.camel@localhost.localdomain>
+From: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
+Subject: Re: Raise initial congestion window size / speedup slow start?
+Date: Fri, 16 Jul 2010 17:36:46 -0700
+Message-ID: <AANLkTil_c-TH6k2BDW2r5c0HYXFxiu85aMda1bT0nJt3@mail.gmail.com>
+References: <4C3D94E3.9080103@wildgooses.com>
+	<4C3DD5EB.9070908@tmr.com>
+	<20100714.111553.104052157.davem@davemloft.net>
+	<AANLkTil3MVGwJUG12dikut9X1s9Ozc_3GwMjx_gErvxI@mail.gmail.com>
+	<1279299709.2156.5814.camel@tng>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, davidsen@tmr.com,
+	lists@wildgooses.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McManus <mcmanus@ducksong.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:3970 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759475Ab0GPXX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jul 2010 19:23:58 -0400
-In-Reply-To: <1279308358.3979.0.camel@localhost.localdomain>
-Content-Language: en-US
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:50640 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755314Ab0GQAgr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jul 2010 20:36:47 -0400
+In-Reply-To: <1279299709.2156.5814.camel@tng>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+IE9uIFRodSwgMjAxMC0wNy0xNSBhdCAyMjowOSArMDMw
-MCwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+PiBPbiBUaHUsIDIwMTAtMDctMTUgYXQgMTM6MDIg
-LTA2MDAsIFRhbnRpbG92LCBFbWlsIFMgd3JvdGU6DQo+Pj4gTWF4aW0gTGV2aXRza3kgd3JvdGU6
-DQo+Pj4+IE9uIFRodSwgMjAxMC0wNy0xNSBhdCAwMjozMyArMDMwMCwgTWF4aW0gTGV2aXRza3kg
-d3JvdGU6DQo+Pj4+PiBPbiBXZWQsIDIwMTAtMDctMTQgYXQgMTY6NTYgLTA2MDAsIFRhbnRpbG92
-LCBFbWlsIFMgd3JvdGU6DQo+Pj4+Pj4gTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+Pj4+Pj4+IE9u
-IE1vbiwgMjAxMC0wNy0xMiBhdCAxNToyMyAtMDYwMCwgVGFudGlsb3YsIEVtaWwgUyB3cm90ZToN
-Cj4+Pj4+Pj4+IE1heGltIExldml0c2t5IHdyb3RlOg0KPj4+Pj4+Pj4+IE9uIE1vbiwgMjAxMC0w
-Ny0wNSBhdCAxMjo1OCArMDMwMCwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+Pj4+Pj4+Pj4+IE9u
-IE1vbiwgMjAxMC0wNy0wNSBhdCAwMToxMyAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPj4+
-Pj4+Pj4+Pj4gT24gU3VuLCBKdWwgNCwgMjAxMCBhdCAxNTo0OCwgTWF4aW0gTGV2aXRza3kNCj4+
-Pj4+Pj4+Pj4+IDxtYXhpbWxldml0c2t5QGdtYWlsLmNvbT4gd3JvdGU6DQo+Pj4+Pj4+Pj4+Pj4g
-RGlkIGZldyBndWVzc2VzLCBhbmQgbm93IEkgc2VlIHRoYXQgcmV2ZXJ0aW5nIHRoZSBiZWxvdw0K
-Pj4+Pj4+Pj4+Pj4+IGNvbW1pdCBmaXhlcyB0aGUgcHJvYmxlbS4gDQo+Pj4+Pj4+Pj4+Pj4gDQo+
-Pj4+Pj4+Pj4+Pj4gImUxMDAwZTogRml4L2NsZWFudXAgUEhZIHJlc2V0IGNvZGUgZm9yIElDSHgv
-UENIeCINCj4+Pj4+Pj4+Pj4+PiBlOThjYWM0NDdjYzFjYzQxOGRmZjFkNjEwYTVjNzljNGYyYmRl
-YzdmLg0KPj4+Pj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4+Pj4+IEJlc3QgcmVn
-YXJkcywNCj4+Pj4+Pj4+Pj4+PiAgICAgICAgTWF4aW0gTGV2aXRza3kNCj4+Pj4+Pj4+Pj4+PiAN
-Cj4+Pj4+Pj4+Pj4+PiAtLQ0KPj4+Pj4+Pj4+Pj4gDQo+Pj4+Pj4+Pj4+PiBDYW4geW91IGdpdmUg
-dXMgdGlsbCBUdWVzZGF5IHRvIHJlc3BvbmQ/ICBJIGtub3cgdGhhdCB0aGVyZQ0KPj4+Pj4+Pj4+
-Pj4gYXJlIHNvbWUgYWRkaXRpb25hbCBlMTAwMGUgcGF0Y2hlcyBpbiBteSBxdWV1ZSwgd2hpY2gg
-bWF5DQo+Pj4+Pj4+Pj4+PiByZXNvbHZlIHRoZSBpc3N1ZSwgYnV0IHRoaXMgd2Vla2VuZCB0aGUg
-cG93ZXIgaXMgZG93biB0byBkbw0KPj4+Pj4+Pj4+Pj4gc29tZSBpbmZyYXN0cnVjdHVyZSB1cGdy
-YWRlcyB3aGljaCBwcmV2ZW50cyB1cyBmcm9tIGRvaW5nDQo+Pj4+Pj4+Pj4+PiBhbnkgaW52ZXN0
-aWdhdGlvbi5kZWJ1Z2dpbmcgdW50aWwgVHVlc2RheS4NCj4+Pj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4+
-PiANCj4+Pj4+Pj4+Pj4gU3VyZS4NCj4+Pj4+Pj4+Pj4gDQo+Pj4+Pj4+Pj4+IEJlc3QgcmVnYXJk
-cywNCj4+Pj4+Pj4+Pj4gCU1heGltIExldml0c2t5DQo+Pj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4+IA0K
-Pj4+Pj4+Pj4+IFVwZGF0ZXM/DQo+Pj4+Pj4+PiANCj4+Pj4+Pj4+IFdlIGFyZSB3b3JraW5nIG9u
-IHJlcHJvZHVjaW5nIHRoZSBpc3N1ZS4gU28gZmFyIHdlIGhhdmUgbm90DQo+Pj4+Pj4+PiBzZWVu
-IHRoZSBwcm9ibGVtIHdoZW4gdGVzdGluZyB3aXRoIG5ldC1uZXh0Lg0KPj4+Pj4+Pj4gDQo+Pj4+
-Pj4+PiBJIGFza2VkIGluIHByZXZpb3VzIGVtYWlsIGFib3V0IHNvbWUgYWRkaXRpb25hbCBpbmZv
-IGZyb20NCj4+Pj4+Pj4+IGV0aHRvb2wgKC1kLCAtZSwgLVMpIGFuZCBrZXJuZWwgY29uZmlnLiBU
-aGF0IHdvdWxkIGhlbHAgdXMgdG8NCj4+Pj4+Pj4+IG5hcnJvdyBpdCBkb3duLiANCj4+Pj4+Pj4+
-IA0KPj4+Pj4+Pj4gVGhhbmtzLA0KPj4+Pj4+Pj4gRW1pbA0KPj4+Pj4+PiBJIGRpZCBzZW5kIC1l
-IGFuZCAtZCBvdXRwdXQuDQo+Pj4+Pj4gDQo+Pj4+Pj4gU29ycnksIGxvb2tzIGxpa2UgSSBsb3N0
-IHRoZSBlbWFpbCB3aXRoIHRoZSBhdHRhY2hlbWVudHMuDQo+Pj4+Pj4gDQo+Pj4+Pj4gQ291bGQg
-eW91IHByb3ZpZGUgdGhlIG91dHB1dCBvZiBkbWVzZyBhZnRlciB0aGUgZmFpbHVyZSBvY2N1cnM/
-DQo+Pj4+Pj4gDQo+Pj4+Pj4+IFNpbmNlIHlvdSBwcm9iYWJseSB3YW50IC1TIG91dHB1dCBkdXJp
-bmcgZmFpbHVyZSwgSSBuZWVkIHRvDQo+Pj4+Pj4+IHJlY29tcGlsZSBrZXJuZWwgZm9yIHRoYXQu
-IEkgd2lsbCBkbyB0aGF0IHNvb24uDQo+Pj4+Pj4+IA0KPj4+Pj4+PiANCj4+Pj4+Pj4gT25lIHF1
-ZXN0aW9uLCBpbiB0d28gd2Vla3MgSSBob3BlIDIuNi4zNSB3b24ndCBiZSByZWxlYXNlZD8NCj4+
-Pj4+Pj4gSWYgc28sIEkgd2lsbCBoYXZlIGVub3VnaCBmcmVlIHRpbWUgdGhlbiB0byBuYXJyb3cg
-ZG93biB0aGlzDQo+Pj4+Pj4+IGlzc3VlLiANCj4+Pj4+Pj4gDQo+Pj4+Pj4+IE90aGVyIHNvbHV0
-aW9uLCBpcyB0byByZXZlcnQgdGhpcyBjb21taXQuDQo+Pj4+Pj4+IChJIGhhdmUgbmV2ZXIgc2Vl
-biB0aGlzIHByb2JsZW0gd2l0aCBpdCByZXZlcnRlZCkuDQo+Pj4+Pj4gDQo+Pj4+Pj4gV2UgaGF2
-ZSBiZWVuIHJ1bm5pbmcgcmVib290IHRlc3RzIG9uIDIgc2VwYXJhdGUgc3lzdGVtcyB3aXRoDQo+
-Pj4+Pj4gcmVjZW50IG5ldC1uZXh0IGtlcm5lbHMgdXNpbmcgeW91ciBjb25maWcgYW5kIHNvIGZh
-ciBubyBsdWNrIGluDQo+Pj4+Pj4gcmVwcm9kdWNpbmcgdGhpcyBpc3N1ZS4gDQo+Pj4+Pj4gDQo+
-Pj4+Pj4gV2hhdCBpcyB0aGUgbWFrZSBtb2RlbCBvZiB5b3VyIHN5c3RlbSAob3IgTUIpPw0KPj4+
-Pj4gDQo+Pj4+PiB0aGUgbW90aGVyYm9hcmQgaXMgSW50ZWwgREc5NjVSWS4NCj4+Pj4+IA0KPj4+
-Pj4gSG93ZXZlciwgSSBhbSB1c2luZyB2YW5pbGxhIGtlcm5lbC4NCj4+Pj4+IG5ldC1uZXh0IG1p
-Z2h0IGNvbnRhaW4gZnVydGhlciBmaXhlcy4NCj4+Pj4+IA0KPj4+Pj4gSSBzZWUgaWYgbmV0LW5l
-eHQgd29ya3MgaGVyZS4NCj4+Pj4gDQo+Pj4+IFllcCwgbmV0LW5leHQgd29ya3MgaGVyZS4NCj4+
-Pj4gDQo+Pj4+IA0KPj4+PiBJIGhhdmUgdGhlIHByb2JsZW0gb24gdmFuaWxsYSBrZXJuZWwuDQo+
-Pj4+IExhc3QgcmV2aXNpb24gb2YgaXQsIEkgdGVzdGVkIGlzIDIuNi4zNS1yYzQgZXhhY3RseQ0K
-Pj4+PiAoODE1YzQxNjNiNmM4ZWJmODE1MmY0MmIwYTVmZDAxNWNmZGNlZGM3OCkNCj4+Pj4gDQo+
-Pj4+IA0KPj4+PiBNYXliZSB2YW5pbGxhIGdpdCBtYXN0ZXIgd29ya3MsIEkgdGVzdCBpdCB0b28g
-c29vbi4NCj4+PiANCj4+PiBUaGFua3MgZm9yIHRoZSBpbmZvcm1hdGlvbiEgR29vZCB0byBrbm93
-IHRoYXQgdGhpcyBpc3N1ZSBkb2VzIG5vdA0KPj4+IGV4aXN0IGluIHRoZSBsYXRlc3QgYnJhbmNo
-LiANCj4+PiANCj4+PiBIYXZlIHlvdSBieSBhbnkgY2hhbmNlIHRlc3RlZCBhIHN0YWJsZSBicmFu
-Y2ggKDIuNi4zNC54KT8NCj4+IA0KPj4gSSBvbmx5IGRpZCB0ZXN0IHBsYWluIDIuNi4zNCAodjIu
-Ni4zNCkNCj4gQW5kIGZvcmdvdCB0byBhZGQsIHRoYXQgaXQgZGlkIHdvcmsuDQo+IA0KPj4gDQo+
-PiBBbHNvIEkgcmVwZWF0IHRoYXQgcmV2ZXJ0IG9mIGU5OGNhYzQ0N2NjMWNjNDE4ZGZmMWQ2MTBh
-NWM3OWM0ZjJiZGVjN2YNCj4+IChlMTAwMGU6IEZpeC9jbGVhbnVwIFBIWSByZXNldCBjb2RlIGZv
-ciBJQ0h4L1BDSHgpIGZpeGVzIHRoZSBidWcgb24NCj4+IHZhbmlsbGEga2VybmVsLiANCj4+IA0K
-Pj4gQWxzbyBJIGp1c3QgcHVsbGVkIGxhdGVzdCB2YW5pbGxhIGdpdCwgYW5kIEkgYWNjb3JkaW5n
-IHRvIGRpZmZzdGF0IEkNCj4+IHNlZSBubyBjaGFuZ2VzIGluIGUxMDAwZSwgc28gaXRzIGxpa2Vs
-eSB0aGF0IGJ1ZyByZW1haW5zIHRoZXJlLg0KPj4gSSB3aWxsIHRlc3QgdGhhdCBzb29uLg0KPiBU
-ZXN0ZWQsIGJyb2tlbiBhcyBleHBlY3RlZC4NCg0KVGhhdCBtYWtlcyBzZW5zZS4gVW5mb3J0dW5h
-dGVseSB3ZSBhcmUgc3RpbGwgbm90IGFibGUgdG8gcmVwcm9kdWNlIGV2ZW4gb24gcmVjZW50IHB1
-bGwgZnJvbSBMaW51cyB0cmVlLg0KDQpJZiB5b3Ugd2FudCAtIHlvdSBjYW4gbG9vayBhdCB0aGUg
-cGF0Y2hlcyBmb3IgZTEwMDBlIGluIG5ldC1uZXh0IGFuZCBzdGFydCBhcHBseWluZyB0aG9zZSB0
-byB5b3VyIHRyZWUgdW50aWwgdGhlIGlzc3VlIGlzIHJlc29sdmVkLg0KDQpJIHdpbGwga2VlcCB0
-cnlpbmcgaXQgaGVyZSwgYnV0IG5vbmUgb2YgdGhlIHN5c3RlbXMgd2UgaGF2ZSBleGhpYml0IHRo
-ZSBpc3N1ZSB5b3UgZGVzY3JpYmVkLCBzbyB0aGUgYnVnIGNvdWxkIGJlIGV4cG9zZWQgYnkgc29t
-ZXRoaW5nIGluIHlvdXIgc3lzdGVtL2NvbmZpZy4NCg0KVGhhbmtzLA0KRW1pbA==
+On Fri, Jul 16, 2010 at 10:01 AM, Patrick McManus <mcmanus@ducksong.com=
+> wrote:
+> On Wed, 2010-07-14 at 21:51 -0700, H.K. Jerry Chu wrote:
+>> =A0except there are indeed bugs in the code today in that the
+>> code in various places assumes initcwnd as per RFC3390. So when
+>> initcwnd is raised, that actual value may be limited unnecessarily b=
+y
+>> the initial wmem/sk_sndbuf.
+>
+> Thanks for the discussion!
+>
+> can you tell us more about the impl concerns of initcwnd stored on th=
+e
+> route?
+
+We have found two issues when altering initcwnd through the ip route cm=
+d:
+1. initcwnd is actually capped by sndbuf (i.e., tcp_wmem[1], which is
+defaulted to a small value of 16KB). This problem has been made obscure=
+d
+by the TSO code, which fudges the flow control limit (and could be a bu=
+g by
+itself).
+
+2. the congestion backoff code is supposed to take inflight, rather tha=
+n cwnd,
+but initcwnd presents a special case. I don't fully understand the code=
+ yet to
+propose a fix.
+
+>
+> and while I'm asking for info, can you expand on the conclusion
+> regarding poor cache hit rates for reusing learned cwnds? (ok, I admi=
+t I
+> only read the slides.. maybe the paper has more info?)
+
+This is partly due to our load balancer policy resulting in poor cache =
+hit,
+partly due to the sheer volumes of remote clients. Some of colleagues
+tried to change the host cache to a /24 subnet cache but the result was=
+n't
+that good either (sorry I don't remember all the details.)
+
+>
+> article and slides much appreciated and very interetsing. I've long b=
+een
+> of the opinion that the downsides of being too aggressive once in a
+> while aren't all that serious anymore.. as someone else said in a
+> non-reservation world you are always trying to predict the future any=
+how
+> and therefore overflowing a queue is always possible no matter how
+> conservative.
+
+Please voice your support to TCPM then :)
+
+Jerry
+
+>
+>
+>
+>
+>
