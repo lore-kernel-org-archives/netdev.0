@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] net: dccp: fix sign bug
-Date: Sun, 18 Jul 2010 15:07:34 -0700 (PDT)
-Message-ID: <20100718.150734.22057785.davem@davemloft.net>
-References: <1279380060-15394-1-git-send-email-segooon@gmail.com>
+Subject: Re: [patch] arcnet: fix signed bug in probe function
+Date: Sun, 18 Jul 2010 15:07:40 -0700 (PDT)
+Message-ID: <20100718.150740.26966207.davem@davemloft.net>
+References: <20100717172127.GI17585@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, acme@ghostprotocols.net,
-	gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org, netdev@vger.kernel.org
-To: segooon@gmail.com
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37794
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50847
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757383Ab0GRWHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jul 2010 18:07:18 -0400
-In-Reply-To: <1279380060-15394-1-git-send-email-segooon@gmail.com>
+	by vger.kernel.org with ESMTP id S1757435Ab0GRWHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jul 2010 18:07:24 -0400
+In-Reply-To: <20100717172127.GI17585@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kulikov Vasiliy <segooon@gmail.com>
-Date: Sat, 17 Jul 2010 19:21:00 +0400
+From: Dan Carpenter <error27@gmail.com>
+Date: Sat, 17 Jul 2010 19:21:28 +0200
 
-> 'gap' is unsigned, so this code is wrong:
+> probe_irq_off() returns the first irq found or if two irqs are found
+> then it returns the negative of the first irq found.  We can cast
+> dev->irq to an int so that the test for negative values works.
 > 
->     gap = -new_head;
->     ...
->     if (gap > 0) { ... }
-> 
-> Make 'gap' signed.
-> 
-> 
-> The semantic patch that finds this problem (many false-positive results):
-> (http://coccinelle.lip6.fr/)
-...
-> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Applied, thanks.
+Applied.
