@@ -1,96 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Subject: Re: [PATCH] LSM: Add post recvmsg() hook.
-Date: Sun, 18 Jul 2010 10:33:10 +0200
-Message-ID: <1279441990.2476.26.camel@edumazet-laptop>
+Date: Sun, 18 Jul 2010 19:49:11 +0900
+Message-ID: <201007181949.IFC00070.OMHQVSFOLJFFOt@I-love.SAKURA.ne.jp>
 References: <201007170114.GFC57373.SQJHOVtLFMOFFO@I-love.SAKURA.ne.jp>
-	 <20100716.123558.71592004.davem@davemloft.net>
-	 <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp>
+	<20100716.123558.71592004.davem@davemloft.net>
+	<201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp>
+	<1279441990.2476.26.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
 	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
 	paul.moore@hp.com, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:51550 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754181Ab0GRKtO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Jul 2010 06:49:14 -0400
+In-Reply-To: <1279441990.2476.26.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le samedi 17 juillet 2010 =C3=A0 10:17 +0900, Tetsuo Handa a =C3=A9crit=
- :
-> David Miller wrote:
-> > From: Tetsuo Handa
-> > Date: Sat, 17 Jul 2010 01:14:38 +0900
-> >=20
-> > > Below is a patch for post recvmsg() operation. I modified the pat=
-ch to call
-> > > skb_recv_datagram() again (for udp_recvmsg(), raw_recvmsg(), udpv=
-6_recvmsg())
-> > > if LSM dicided to drop the message. (Regarding rawv6_recvmsg(), I=
- didn't do so
-> > > in accordance with the comment at "csum_copy_err:".)
-> > > What do you think about this verion?
-> >=20
-> > This looks fine, but regardless of that comment I think the IPV6 ra=
-w recvmsg()
-> > should loop just as the IPV4 one does in your patch.
-> >=20
-> Thank you, David.
-> I updated to call skb_recv_datagram() for rawv6_recvmsg() case too.
->=20
-> NETWORKING [IPv4/IPv6] maintainers and Paul, is below patch fine for =
-you?
->=20
-> Regards.
-> ----------------------------------------
-> >From b43154a90bc7494ec1ee301e692d2bbf29c8f2f8 Mon Sep 17 00:00:00 20=
-01
-> From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-> Date: Sat, 17 Jul 2010 09:52:38 +0900
-> Subject: [PATCH] LSM: Add post recvmsg() hook.
->=20
-> Current pre recvmsg hook (i.e. security_socket_recvmsg()) has two pro=
-blems.
->=20
-> One is that it will cause eating 100% of CPU time if the caller does =
-not
-> close() the socket when recvmsg() failed due to security_socket_recvm=
-sg(), for
-> subsequent select() notifies the caller of readiness for recvmsg() si=
-nce the
-> datagram which would have been already picked up if security_socket_r=
-ecvmsg()
-> did not return error is remaining in the queue.
->=20
-> The other is that it is racy if LSM module wants to do filtering base=
-d on
-> "which process can pick up datagrams from which source" because the p=
-rocess
-> which picks up the datagram is not known until skb_recv_datagram() an=
-d lock
-> is not held between security_socket_recvmsg() and skb_recv_datagram()=
-=2E
->=20
-> This patch introduces post recvmsg hook (i.e. security_socket_post_re=
-cvmsg())
-> in order to solve above problems at the cost of ability to pick up th=
-e datagram
-> which would have been picked up if preceding security_socket_post_rec=
-vmsg() did
-> not return error.
->=20
-> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Eric Dumazet wrote:
+> I read this patch and could not find out if an SNMP counter was
+> increased in the case a frame was not delivered but dropped in kernel
+> land.
 
-I read this patch and could not find out if an SNMP counter was
-increased in the case a frame was not delivered but dropped in kernel
-land.
+UDP_MIB_INDATAGRAMS and UDP_MIB_INERRORS will not be increased
+if dropped by security_socket_post_recvmsg()'s decision.
+Should we increment UDP_MIB_INDATAGRAMS and/or UDP_MIB_INERRORS?
 
+udpInDatagrams
+    "The total number of UDP datagrams delivered to UDP users."
 
+udpNoPorts
+    "The total number of received UDP datagrams for which there was no
+     application at the destination port."
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+udpInErrors
+    "The number of received UDP datagrams that could not be delivered for
+     reasons other than the lack of an application at the destination port."
