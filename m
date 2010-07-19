@@ -1,213 +1,168 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: oops in tcp_xmit_retransmit_queue() w/ v2.6.32.15
-Date: Mon, 19 Jul 2010 16:57:36 +0200
-Message-ID: <4C4467E0.9080907@kernel.org>
-References: <4C358AAA.9080400@kernel.org> <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi> <4C3EF7EA.2040900@nets.rwth-aachen.de> <1279195528.2496.2.camel@edumazet-laptop> <4C3F053F.7090704@nets.rwth-aachen.de> <alpine.DEB.2.00.1007161448330.13946@melkinpaasi.cs.helsinki.fi>
+From: Christophe Ngo Van Duc <cngovanduc@gmail.com>
+Subject: Re: bnx2/5709: Strange interrupts spread
+Date: Mon, 19 Jul 2010 12:55:57 -0300
+Message-ID: <AANLkTikfEED5Hvt80G6EnMwPBByMuw4r1Xg2ITjuZ0eV@mail.gmail.com>
+References: <AANLkTiniNNPV9ztxXHtX4np7PIZabkm0I4v5O29chf8i@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1007161448330.13946@melkinpaasi.cs.helsinki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39043 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936159Ab0GSPz7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 11:55:59 -0400
+Received: by wwb39 with SMTP id 39so338730wwb.1
+        for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 08:55:57 -0700 (PDT)
+In-Reply-To: <AANLkTiniNNPV9ztxXHtX4np7PIZabkm0I4v5O29chf8i@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Dear list,
 
-On 07/16/2010 02:02 PM, Ilpo J=E4rvinen wrote:
-> Besides, Tejun has also found that it's hint->next ptr which is NULL =
-in=20
-> his case so this won't solve his case anyway. Tejun, can you confirm=20
-> whether it was retransmit_skb_hint->next being NULL on _entry time_ t=
-o=20
-> tcp_xmit_retransmit_queue() or later on in the loop after the updates=
- done=20
-> by the loop itself to the hint (or that your testing didn't conclude=20
-> either)?
+So i've been able to do some test today:
+If I put the 2 interface in a bridge with no IP adress, the interrupts
+are on 1 CPU
+If I put the 2 interface in a bridge with IP adress, the interrupts
+are still on 1 CPU
+If I put the 2 interface outside the bridge with IP address,
+everything works fine the interrupts get spread on the CPU
 
-Sorry about the delay.  I was traveling last week.  Unfortunately, I
-don't know whether ->next was NULL on entry or not.  I hacked up the
-following ugly patch for the next test run.  It should have everything
-which has come up till now + list and hint sanity checking before
-starting processing them.  I'm planning on deploying it w/ crashdump
-enabled in several days.  If I've missed something, please let me
-know.
+So the conclusion seems to be that when the bnx2 is put into
+promiscuous mode by the bridge, the RSS hash stop to work even if
+traffic is IP in nature.
 
-Thanks.
+Best regards,
+Christophe.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index b4ed957..1c8b1e0 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2190,6 +2190,53 @@ static int tcp_can_forward_retransmit(struct soc=
-k *sk)
- 	return 1;
- }
-
-+static void print_queue(struct sock *sk, struct sk_buff *old, struct s=
-k_buff *hole)
-+{
-+	struct tcp_sock *tp =3D tcp_sk(sk);
-+	struct sk_buff *skb, *prev;
-+	bool do_panic =3D false;
-+
-+	skb =3D tcp_write_queue_head(sk);
-+	prev =3D (struct sk_buff *)(&sk->sk_write_queue);
-+
-+	if (skb =3D=3D NULL) {
-+		printk("XXX NULL head, pkts %u\n", tp->packets_out);
-+		do_panic =3D true;
-+	}
-+
-+	printk("XXX head %p tail %p sendhead %p oldhint %p now %p hole %p hig=
-h %u\n",
-+	       tcp_write_queue_head(sk), tcp_write_queue_tail(sk),
-+	       tcp_send_head(sk), old, tp->retransmit_skb_hint, hole,
-+	       tp->retransmit_high);
-+
-+	while (skb) {
-+		printk("XXX skb %p (%u-%u) next %p prev %p sacked %u\n",
-+		       skb, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq,
-+		       skb->next, skb->prev, TCP_SKB_CB(skb)->sacked);
-+		if (prev !=3D skb->prev) {
-+			printk("XXX Inconsistent prev\n");
-+			do_panic =3D true;
-+		}
-+
-+		if (skb =3D=3D tcp_write_queue_tail(sk)) {
-+			if (skb->next !=3D (struct sk_buff *)(&sk->sk_write_queue)) {
-+				printk("XXX Improper next at tail\n");
-+				do_panic =3D true;
-+			}
-+			break;
-+		}
-+
-+		prev =3D skb;
-+		skb =3D skb->next;
-+	}
-+	if (!skb) {
-+		printk("XXX Encountered unexpected NULL\n");
-+		do_panic =3D true;
-+	}
-+	if (do_panic)
-+		panic("XXX panicking");
-+}
-+
- /* This gets called after a retransmit timeout, and the initially
-  * retransmitted data is acknowledged.  It tries to continue
-  * resending the rest of the retransmit queue, until either
-@@ -2198,19 +2245,53 @@ static int tcp_can_forward_retransmit(struct so=
-ck *sk)
-  * based retransmit packet might feed us FACK information again.
-  * If so, we use it to avoid unnecessarily retransmissions.
-  */
-+static unsigned int caught_it;
-+
- void tcp_xmit_retransmit_queue(struct sock *sk)
- {
- 	const struct inet_connection_sock *icsk =3D inet_csk(sk);
- 	struct tcp_sock *tp =3D tcp_sk(sk);
--	struct sk_buff *skb;
-+	struct sk_buff *skb, *prev;
- 	struct sk_buff *hole =3D NULL;
-+	struct sk_buff *old =3D tp->retransmit_skb_hint;
- 	u32 last_lost;
- 	int mib_idx;
- 	int fwd_rexmitting =3D 0;
-+	bool saw_hint =3D false;
-+
-+	if (!tp->packets_out) {
-+		if (net_ratelimit())
-+			printk("XXX !tp->packets_out, retransmit_skb_hint=3D%p, write_queue=
-_head=3D%p\n",
-+			       tp->retransmit_skb_hint, tcp_write_queue_head(sk));
-+		return;
-+	}
-
- 	if (!tp->lost_out)
- 		tp->retransmit_high =3D tp->snd_una;
-
-+	for (skb =3D tcp_write_queue_head(sk),
-+	     prev =3D (struct sk_buff *)&sk->sk_write_queue;
-+	     skb !=3D (struct sk_buff *)&sk->sk_write_queue;
-+	     prev =3D skb, skb =3D skb->next) {
-+		if (prev !=3D skb->prev) {
-+			printk("XXX sanity check: prev corrupt\n");
-+			print_queue(sk, old, hole);
-+		}
-+		if (skb =3D=3D tp->retransmit_skb_hint)
-+			saw_hint =3D true;
-+		if (skb =3D=3D tcp_write_queue_tail(sk) &&
-+		    skb->next !=3D (struct sk_buff *)(&sk->sk_write_queue)) {
-+			printk("XXX sanity check: end corrupt\n");
-+			print_queue(sk, old, hole);
-+		}
-+	}
-+	if (tp->retransmit_skb_hint && !saw_hint) {
-+		printk("XXX sanity check: retransmit_skb_hint=3D%p is not on list, c=
-laring hint\n",
-+		       tp->retransmit_skb_hint);
-+		print_queue(sk, old, hole);
-+		tp->retransmit_skb_hint =3D NULL;
-+	}
-+
- 	if (tp->retransmit_skb_hint) {
- 		skb =3D tp->retransmit_skb_hint;
- 		last_lost =3D TCP_SKB_CB(skb)->end_seq;
-@@ -2218,7 +2299,17 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 			last_lost =3D tp->retransmit_high;
- 	} else {
- 		skb =3D tcp_write_queue_head(sk);
--		last_lost =3D tp->snd_una;
-+		if (skb)
-+			last_lost =3D tp->snd_una;
-+	}
-+
-+checknull:
-+	if (skb =3D=3D NULL) {
-+		print_queue(sk, old, hole);
-+		caught_it++;
-+		if (net_ratelimit())
-+			printk("XXX Errors caught so far %u\n", caught_it);
-+		return;
- 	}
-
- 	tcp_for_write_queue_from(skb, sk) {
-@@ -2261,7 +2352,7 @@ begin_fwd:
- 		} else if (!(sacked & TCPCB_LOST)) {
- 			if (hole =3D=3D NULL && !(sacked & (TCPCB_SACKED_RETRANS|TCPCB_SACK=
-ED_ACKED)))
- 				hole =3D skb;
--			continue;
-+			goto cont;
-
- 		} else {
- 			last_lost =3D TCP_SKB_CB(skb)->end_seq;
-@@ -2272,7 +2363,7 @@ begin_fwd:
- 		}
-
- 		if (sacked & (TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))
--			continue;
-+			goto cont;
-
- 		if (tcp_retransmit_skb(sk, skb))
- 			return;
-@@ -2282,6 +2373,9 @@ begin_fwd:
- 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 						  inet_csk(sk)->icsk_rto,
- 						  TCP_RTO_MAX);
-+cont:
-+		skb =3D skb->next;
-+		goto checknull;
- 	}
- }
-
---=20
-tejun
+On Fri, Jul 2, 2010 at 5:33 PM, Christophe Ngo Van Duc
+<cngovanduc@gmail.com> wrote:
+> Dear list,
+>
+> I hope I am posting to the correct place...
+>
+> I am facing a strange issue on a HP DL 360.
+>
+> I have 2 internal ethernet cards (the one that came by default with
+> the server) and 2 additional ethernet cards for a total for 4 etherne=
+t
+> cards.
+>
+> The 2 internal cards are running fine as of interrupts (for example e=
+th1):
+> =A0 =A0 =A0 =A0 =A0 CPU0 =A0 =A0 =A0 CPU1 =A0 =A0 =A0 CPU2 =A0 =A0 =A0=
+ CPU3 =A0 =A0 =A0 CPU4 =A0 =A0 =A0 CPU5
+> =A0 =A0 =A0CPU6 =A0 =A0 =A0 CPU7
+>
+> =A071: =A0 =A0 =A0 =A0604 =A0 =A0 =A011933 =A0 =A0 =A0 =A0 40 =A0 =A0=
+ =A0 1537 =A0 =A0 =A0 =A0 =A00
+> 0 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 6043 =A0 PCI-MSI-edge =A0 =A0 =A0e=
+th1-0
+> =A072: =A0 =A0 =A024805 =A0 =A0 =A0 9795 =A0 =A0 =A0 3606 =A0 =A0 =A0=
+ =A0 =A00 =A0 =A0 =A0 =A0128
+> 0 =A0 =A0 =A0 3365 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =A0e=
+th1-1
+> =A073: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0279 =A0 =A0 =A0 =A0 =A00 =A0=
+ =A0 =A0 =A0429 =A0 =A0 =A0 =A0 38
+> 16540 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A030843 =A0 PCI-MSI-edge =A0 =A0 =
+=A0eth1-2
+> =A074: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A025365 =A0=
+ =A0 =A0 =A0267 =A0 =A0 =A0 =A0 =A00
+> 0 =A0 =A0 =A0 =A0 89 =A0 =A0 =A015541 =A0 PCI-MSI-edge =A0 =A0 =A0eth=
+1-3
+> =A075: =A0 =A0 =A0 7244 =A0 =A0 =A024108 =A0 =A0 =A0 =A0 =A00 =A0 =A0=
+ =A0 =A0 =A00 =A0 =A0 =A016488
+> 0 =A0 =A0 =A0 =A0240 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =A0=
+eth1-4
+> =A076: =A0 =A0 =A021378 =A0 =A0 =A0 3628 =A0 =A0 =A0 7726 =A0 =A0 =A0=
+ =A0 =A00 =A0 =A0 =A0 =A0 49
+> 247 =A0 =A0 =A0 2871 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =A0=
+eth1-5
+> =A077: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A047199 =A0=
+ =A0 =A0 =A0459 =A0 =A0 =A0 =A0 13
+> 46 =A0 =A0 =A063064 =A0 =A0 =A0 =A0 18 =A0 PCI-MSI-edge =A0 =A0 =A0et=
+h1-6
+> =A078: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 6230 =A0 =A0 =A0 =A0 67 =A0 =A0=
+ =A0 =A0283 =A0 =A0 =A0 =A0259
+> 82 =A0 =A0 =A0 7846 =A0 =A0 =A027130 =A0 PCI-MSI-edge =A0 =A0 =A0eth1=
+-7
+>
+> On eth2 (external card) all interrupts goes to CPU0
+> =A0 =A0 =A0 =A0 =A0 CPU0 =A0 =A0 =A0 CPU1 =A0 =A0 =A0 CPU2 =A0 =A0 =A0=
+ CPU3 =A0 =A0 =A0 CPU4 =A0 =A0 =A0 CPU5
+> =A0 =A0 =A0CPU6 =A0 =A0 =A0 CPU7
+> =A080: =A0 46973077 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0=
+ =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A0 =A00
+> =A0 0 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =A0eth2-0
+> =A081: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00=
+ =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00
+> 0 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =
+=A0eth2-1
+> =A082: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00=
+ =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00
+> 0 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =
+=A0eth2-2
+> =A083: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00=
+ =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00
+> 0 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =
+=A0eth2-3
+> =A084: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00=
+ =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00
+> 0 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =
+=A0eth2-4
+> =A085: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00=
+ =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00
+> 0 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =
+=A0eth2-5
+> =A086: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 2445 =A0=
+ =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 37
+> 0 =A0 =A0 =A0 8463 =A0 =A0 =A0 =A0 13 =A0 PCI-MSI-edge =A0 =A0 =A0eth=
+2-6
+> =A087: =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00=
+ =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00
+> 0 =A0 =A0 =A0 =A0 =A00 =A0 =A0 =A0 =A0 =A00 =A0 PCI-MSI-edge =A0 =A0 =
+=A0eth2-7
+>
+> If I understand correctly the RSS hash is used to dispatch the packet=
+s
+> into the different queues running on the different CPU.
+>
+> Why then my internal cards are running fine but the additional cards
+> (eth2 and eth3) are presenting this behavior where all interrupts goe=
+s
+> to one CPU?
+>
+> Thanks for your help in understanding this. (see below for config det=
+ails)
+>
+> Christophe.
+>
+> All are detected correctly at boot:
+> Broadcom NetXtreme II Gigabit Ethernet Driver bnx2 v2.0.8e (April 13,=
+ 2010)
+> bnx2 0000:02:00.0: PCI INT A -> GSI 31 (level, low) -> IRQ 31
+> bnx2 0000:02:00.0: setting latency timer to 64
+> eth0: Broadcom NetXtreme II BCM5709 1000Base-T (C0) PCI Express found
+> at mem f4000000, IRQ 31, node addr f4:ce:46:86:a1:00
+> bnx2 0000:02:00.1: PCI INT B -> GSI 39 (level, low) -> IRQ 39
+> bnx2 0000:02:00.1: setting latency timer to 64
+> eth1: Broadcom NetXtreme II BCM5709 1000Base-T (C0) PCI Express found
+> at mem f2000000, IRQ 39, node addr f4:ce:46:86:a1:02
+> bnx2 0000:07:00.0: PCI INT A -> GSI 24 (level, low) -> IRQ 24
+> bnx2 0000:07:00.0: setting latency timer to 64
+> eth2: Broadcom NetXtreme II BCM5709 1000Base-T (C0) PCI Express found
+> at mem fa000000, IRQ 24, node addr 00:26:55:87:17:98
+> bnx2 0000:07:00.1: PCI INT B -> GSI 34 (level, low) -> IRQ 34
+> bnx2 0000:07:00.1: setting latency timer to 64
+> eth3: Broadcom NetXtreme II BCM5709 1000Base-T (C0) PCI Express found
+> at mem f8000000, IRQ 34, node addr 00:26:55:87:17:9a
+>
+> Kernel is 2.6.31-13
+> Broadcom driver bnx2 v2.0.8e
+>
+> eth0 is a normal interface with an Ip address
+> eth1 is a normal interface with an Ip address
+> eth2 belongs to a bridge interface without an ip address, running tc =
+(htb)
+> eth3 belongs to the same bridge interface without an ip address
+>
