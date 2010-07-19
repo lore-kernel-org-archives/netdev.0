@@ -1,102 +1,43 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [4/5] Do not reset
- when the device is not opened
-Date: Mon, 19 Jul 2010 10:02:13 -0700 (PDT)
-Message-ID: <alpine.LRH.2.00.1007190958480.9943@localhost.localdomain>
-References: <alpine.LRH.2.00.1007151448260.25472@localhost.localdomain> <20100715.183210.226762655.davem@davemloft.net> <alpine.LRH.2.00.1007160108240.12503@localhost.localdomain> <20100717.163538.137865264.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Very low latency TCP for clusters
+Date: Mon, 19 Jul 2010 10:05:19 -0700
+Message-ID: <AANLkTilNmNZbFWS8LF-UHU65QYIC32HZlgVZ7lXJHxPh@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	Ronghua Zhang <ronghua@vmware.com>,
-	Matthieu Bucchianeri <matthieu@vmware.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:16329 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755167Ab0GSRCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 13:02:14 -0400
-In-Reply-To: <20100717.163538.137865264.davem@davemloft.net>
+Received: from smtp-out.google.com ([74.125.121.35]:32447 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751750Ab0GSRF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 13:05:26 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id o6JH5NbT001337
+	for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 10:05:24 -0700
+Received: from pxi6 (pxi6.prod.google.com [10.243.27.6])
+	by wpaz33.hot.corp.google.com with ESMTP id o6JH5Kvh028838
+	for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 10:05:22 -0700
+Received: by pxi6 with SMTP id 6so2067017pxi.15
+        for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 10:05:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We have been looking at best case TCP latencies that might be achieved
+within a cluster (low loss fabric).  The goal is to have latency
+numbers roughly comparable to that which can be produced using RDMA/IB
+in a low latency configuration  (<5 usecs round trip on netperf TCP_RR
+test with one byte data for directly connected hosts as a starting
+point).  This would be without changing sockets API, fabric, and
+preferably not using TCP offload or a user space stack.
 
+I think there are at least two techniques that will drive down TCP
+latency: per connection queues and polling queues.  Per connection
+queues (supported by device) should eliminate costs of connection
+look-up, hopefully some locking.  Polling becomes viable as core
+counts on systems increase, and burning a few CPUs for networking
+polling on behalf of very low-latency threads would be reasonable.
 
-On Sat, 17 Jul 2010, David Miller wrote:
+Are there any efforts in progress to integrate per connection queues
+in the stack or integrate polling of queues?
 
-> From: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Date: Fri, 16 Jul 2010 01:17:29 -0700 (PDT)
-> 
-> > 
-> > 
-> > On Thu, 15 Jul 2010, David Miller wrote:
-> > 
-> >> From: Shreyas Bhatewara <sbhatewara@vmware.com>
-> >> Date: Thu, 15 Jul 2010 18:20:52 -0700 (PDT)
-> >> 
-> >> > Is this what you suggest :
-> >> > 
-> >> > ---
-> >> > 
-> >> > Hold rtnl_lock to get the right link state.
-> >> 
-> >> It ought to work, but make sure that it is legal to take the
-> >> RTNL semaphore in all contexts in which this code block
-> >> might be called.
-> >> 
-> > 
-> > This code block is called only from the workqueue handler, which runs in
-> > process context, so it is legal to take rtnl semaphore.
-> > Tested this code by simulating event interrupts (which schedule this 
-> > code) at considerable frequency while the interface was brought up and
-> > down in a loop. Similar stress testing had revealed the bug originally. 
-> 
-> Awesome, please submit this formally.  The copy you sent lacked a commit
-> message and signoff.
-> 
-
-Reposting the patch formally.
-
-David,
-Thanks for your coperation.
-
-->Shreyas
-
----
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-
-Hold rtnl_lock to get the right link state.
-
-While asynchronously resetting the device, hold rtnl_lock to get the
-right value from netif_running. If a reset is scheduled, and the device
-goes thru close and open, it may happen that reset and open may run in
-parallel. Holding rtnl_lock will avoid this.
-
-Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-
----
-
- drivers/net/vmxnet3/vmxnet3_drv.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 1b0ce8c..c4d7e42 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2420,6 +2420,7 @@ vmxnet3_reset_work(struct work_struct *data)
- 		return;
- 
- 	/* if the device is closed, we must leave it alone */
-+	rtnl_lock();
- 	if (netif_running(adapter->netdev)) {
- 		printk(KERN_INFO "%s: resetting\n", adapter->netdev->name);
- 		vmxnet3_quiesce_dev(adapter);
-@@ -2428,6 +2429,7 @@ vmxnet3_reset_work(struct work_struct *data)
- 	} else {
- 		printk(KERN_INFO "%s: already closed\n", adapter->netdev->name);
- 	}
-+	rtnl_unlock();
- 
- 	clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
- }
+Thanks,
+Tom
