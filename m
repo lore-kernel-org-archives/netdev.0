@@ -1,97 +1,55 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2010-07-19
-Date: Mon, 19 Jul 2010 15:17:09 -0400
-Message-ID: <20100719191709.GA6115@tuxdriver.com>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [RFC 1/2] netfilter: xt_condition: export list management code
+Date: Mon, 19 Jul 2010 22:31:21 +0300
+Message-ID: <1279567881.11662.104.camel@powerslave>
+References: <1279548947-10470-1-git-send-email-luciano.coelho@nokia.com>
+	 <1279548947-10470-2-git-send-email-luciano.coelho@nokia.com>
+	 <alpine.LSU.2.01.1007191807020.19191@obet.zrqbmnf.qr>
+	 <1279566876.11662.102.camel@powerslave>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"sameo@linux.intel.com" <sameo@linux.intel.com>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1279566876.11662.102.camel@powerslave>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+On Mon, 2010-07-19 at 21:14 +0200, Coelho Luciano (Nokia-MS/Helsinki)
+wrote:
+> On Mon, 2010-07-19 at 18:13 +0200, ext Jan Engelhardt wrote:
+> > On Monday 2010-07-19 16:15, Luciano Coelho wrote:
+> > >@@ -3,12 +3,27 @@
+> > > 
+> > > #include <linux/types.h>
+> > > 
+> > >+#define XT_CONDITION_MAX_NAME_SIZE 30
+> > >+
+> > > struct xt_condition_mtinfo {
+> > >-	char name[31];
+> > >+	char name[XT_CONDITION_MAX_NAME_SIZE + 1];
+> > > 	__u8 invert;
+> > 
+> > Oh noes. Please please avoid any math operations inside []. It has 
+> > already driven XT_FUNCTION_MAXNAMELEN into nuts ("was it now +1 or -1, 
+> > or even -2 that we needed to pass for various functions?"). Just let MAX 
+> > be 31 and have name[MAX].
+> 
+> Yeah, I had already done as you suggested in my previous module
+> (IDLETIMER), I don't know what I had in my head today when I did it
+> differently.  Even the name of the macro is totally wrong (_SIZE), it
+> would make a tiny little bit more sense if it was _LEN.  I'll change it.
 
-In this round we have two more-or-less-one-liners intended for 2.6.25.
+I was not very clear here, I meant I'll change to what you proposed, ie.
+keep it _SIZE and use 31, of course.
 
-The hostap fix is the third (and hopefully final) bite at the apple
-for correcting an initialization failure.  The first two attempts
-created and then reinstated a regression caused by a discrepency
-between the PCI and PCMCIA support within hostap.  The regression
-was caused by checking the value of dev->base_addr, which the PCI
-code was not setting.  Testing by the regression reporter indicates
-that his device is finally working again with this fix.
 
-The rt2x00 fix merely reorders some initialization so that unwinding
-that init in an error path works as expected.
-
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
----
-
-The following changes since commit 91a72a70594e5212c97705ca6a694bd307f7a26b:
-
-  net/core: neighbour update Oops (2010-07-14 18:02:16 -0700)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-John W. Linville (1):
-      hostap_pci: set dev->base_addr during probe
-
-Stephen Boyd (1):
-      rt2x00: Fix lockdep warning in rt2x00lib_probe_dev()
-
- drivers/net/wireless/hostap/hostap_pci.c |    1 +
- drivers/net/wireless/rt2x00/rt2x00dev.c  |   10 +++++-----
- 2 files changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/wireless/hostap/hostap_pci.c b/drivers/net/wireless/hostap/hostap_pci.c
-index d24dc7d..972a9c3 100644
---- a/drivers/net/wireless/hostap/hostap_pci.c
-+++ b/drivers/net/wireless/hostap/hostap_pci.c
-@@ -330,6 +330,7 @@ static int prism2_pci_probe(struct pci_dev *pdev,
- 
-         dev->irq = pdev->irq;
-         hw_priv->mem_start = mem;
-+	dev->base_addr = (unsigned long) mem;
- 
- 	prism2_pci_cor_sreset(local);
- 
-diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
-index 3ae468c..f20d3ee 100644
---- a/drivers/net/wireless/rt2x00/rt2x00dev.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
-@@ -854,6 +854,11 @@ int rt2x00lib_probe_dev(struct rt2x00_dev *rt2x00dev)
- 		    BIT(NL80211_IFTYPE_WDS);
- 
- 	/*
-+	 * Initialize configuration work.
-+	 */
-+	INIT_WORK(&rt2x00dev->intf_work, rt2x00lib_intf_scheduled);
-+
-+	/*
- 	 * Let the driver probe the device to detect the capabilities.
- 	 */
- 	retval = rt2x00dev->ops->lib->probe_hw(rt2x00dev);
-@@ -863,11 +868,6 @@ int rt2x00lib_probe_dev(struct rt2x00_dev *rt2x00dev)
- 	}
- 
- 	/*
--	 * Initialize configuration work.
--	 */
--	INIT_WORK(&rt2x00dev->intf_work, rt2x00lib_intf_scheduled);
--
--	/*
- 	 * Allocate queue array.
- 	 */
- 	retval = rt2x00queue_allocate(rt2x00dev);
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Cheers,
+Luca.
+
