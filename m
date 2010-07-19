@@ -1,89 +1,45 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCHv2] tcp: fix crash in tcp_xmit_retransmit_queue
-Date: Mon, 19 Jul 2010 14:16:18 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1007191319010.13002@wel-95.cs.helsinki.fi>
-References: <4C358AAA.9080400@kernel.org> <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi> <4C3EF7EA.2040900@nets.rwth-aachen.de> <1279195528.2496.2.camel@edumazet-laptop> <4C3F053F.7090704@nets.rwth-aachen.de>
- <alpine.DEB.2.00.1007161448330.13946@melkinpaasi.cs.helsinki.fi> <4C404FC5.6040107@nets.rwth-aachen.de> <alpine.DEB.2.00.1007161602510.13946@melkinpaasi.cs.helsinki.fi> <4C440771.7080107@nets.rwth-aachen.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [0/8] netpoll/bridge fixes
+Date: Mon, 19 Jul 2010 19:54:11 +0800
+Message-ID: <20100719115411.GA22758@gondor.apana.org.au>
+References: <20100610124047.GA16658@gondor.apana.org.au> <20100610074912.1303e3da@nehalam> <20100610215643.GA22048@gondor.apana.org.au> <20100610145915.721a86b7@nehalam> <20100610224839.GA22469@gondor.apana.org.au> <20100611021142.GA24490@gondor.apana.org.au> <20100719101904.GA31743@redhat.com> <20100719105300.GA22179@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-380630650-1279538179=:13002"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Tejun Heo <tj@kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C440771.7080107@nets.rwth-aachen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Qianfeng Zhang <frzhang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	WANG Cong <amwang@redhat.com>, Matt Mackall <mpm@selenic.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:59808 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760598Ab0GSLyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 07:54:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20100719105300.GA22179@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323329-380630650-1279538179=:13002
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-
-On Mon, 19 Jul 2010, Lennart Schulte wrote:
-
-> I ran tests for about 2 hours with this patch and I got no output from the
-> debug patch. This seems to have solved at least my problem :)
+On Mon, Jul 19, 2010 at 06:53:00PM +0800, Herbert Xu wrote:
+>
+> > Meanwhile, should we just disable netpoll for bridge in 2.6.35 and -stable?
+> > We are getting crash reports in virtualization which I suspect are
+> > related to this:
+> > https://bugzilla.kernel.org/show_bug.cgi?id=16413
 > 
-> Thanks!
-> > [PATCH] tcp: fix crash in tcp_xmit_retransmit_queue
-> > 
-> > It can happen that there are no packets in queue while calling
-> > tcp_xmit_retransmit_queue(). tcp_write_queue_head() then returns
-> > NULL and that gets deref'ed to get sacked into a local var.
-> > 
-> > There is no work to do if no packets are outstanding so we just
-> > exit early.
-> > 
-> > There may still be another bug affecting this same function.
+> I think that's probably the best solution, Dave?
 
-Thanks for testing.
+I take that back :)
 
-DaveM, I think this oops was introduced for 2.6.28 (in 
-08ebd1721ab8fd362e90ae17b461c07b23fa2824 it seems, to be exact) so to 
-stables it should go too please. I've only tweaked the message (so no need 
-for Lennart to retest v2 :-)).
+It turns out that 16413 has nothing to do with bridge netpoll
+(which was not merged until after 2.6.34) since he's running
+2.6.34.
 
---
-[PATCHv2] tcp: fix crash in tcp_xmit_retransmit_queue
+Still, it might be a good idea to disable bridge netpoll in
+2.6.35.
 
-It can happen that there are no packets in queue while calling
-tcp_xmit_retransmit_queue(). tcp_write_queue_head() then returns
-NULL and that gets deref'ed to get sacked into a local var.
-
-There is no work to do if no packets are outstanding so we just
-exit early.
-
-This oops was introduced by 08ebd1721ab8fd (tcp: remove tp->lost_out
-guard to make joining diff nicer).
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-Reported-by: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
-Tested-by: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
----
- net/ipv4/tcp_output.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index b4ed957..7ed9dc1 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2208,6 +2208,9 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 	int mib_idx;
- 	int fwd_rexmitting = 0;
- 
-+	if (!tp->packets_out)
-+		return;
-+
- 	if (!tp->lost_out)
- 		tp->retransmit_high = tp->snd_una;
- 
+Thanks,
 -- 
-1.5.6.5
-
---8323329-380630650-1279538179=:13002--
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
