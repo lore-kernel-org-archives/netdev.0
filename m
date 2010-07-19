@@ -1,63 +1,102 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH] Export SMBIOS provided firmware instance and label to sysfs
-Date: Mon, 19 Jul 2010 22:24:39 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE612BD1@blrx3m08.blr.amer.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE612B93@blrx3m08.blr.amer.dell.com> <20100714121345.GA20411@auslistsprd01.us.dell.com>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: Re: [PATCH 2.6.35-rc1] net-next: vmxnet3 fixes [4/5] Do not reset
+ when the device is not opened
+Date: Mon, 19 Jul 2010 10:02:13 -0700 (PDT)
+Message-ID: <alpine.LRH.2.00.1007190958480.9943@localhost.localdomain>
+References: <alpine.LRH.2.00.1007151448260.25472@localhost.localdomain> <20100715.183210.226762655.davem@davemloft.net> <alpine.LRH.2.00.1007160108240.12503@localhost.localdomain> <20100717.163538.137865264.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>, <Matt_Domsch@Dell.com>,
-	<Charles_Rose@Dell.com>, <Jordan_Hargrave@Dell.com>,
-	<Vijay_Nijhawan@Dell.com>
-To: <Narendra_K@Dell.com>, <greg@kroah.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20100714121345.GA20411@auslistsprd01.us.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	Ronghua Zhang <ronghua@vmware.com>,
+	Matthieu Bucchianeri <matthieu@vmware.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:16329 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755167Ab0GSRCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 13:02:14 -0400
+In-Reply-To: <20100717.163538.137865264.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Narendra K
-> Sent: Wednesday, July 14, 2010 5:44 PM
-> To: greg@kroah.com
-> Cc: netdev@vger.kernel.org; linux-hotplug@vger.kernel.org; linux-
-> pci@vger.kernel.org; Domsch, Matt; Rose, Charles; Hargrave, Jordan;
-> Nijhawan, Vijay
-> Subject: Re: [PATCH] Export SMBIOS provided firmware instance and
-label
-> to sysfs
+
+
+On Sat, 17 Jul 2010, David Miller wrote:
+
+> From: Shreyas Bhatewara <sbhatewara@vmware.com>
+> Date: Fri, 16 Jul 2010 01:17:29 -0700 (PDT)
 > 
+> > 
+> > 
+> > On Thu, 15 Jul 2010, David Miller wrote:
+> > 
+> >> From: Shreyas Bhatewara <sbhatewara@vmware.com>
+> >> Date: Thu, 15 Jul 2010 18:20:52 -0700 (PDT)
+> >> 
+> >> > Is this what you suggest :
+> >> > 
+> >> > ---
+> >> > 
+> >> > Hold rtnl_lock to get the right link state.
+> >> 
+> >> It ought to work, but make sure that it is legal to take the
+> >> RTNL semaphore in all contexts in which this code block
+> >> might be called.
+> >> 
+> > 
+> > This code block is called only from the workqueue handler, which runs in
+> > process context, so it is legal to take rtnl semaphore.
+> > Tested this code by simulating event interrupts (which schedule this 
+> > code) at considerable frequency while the interface was brought up and
+> > down in a loop. Similar stress testing had revealed the bug originally. 
 > 
-> V1 -> V2:
-> 
-> 1. The 'smbios_attr' buffer is not being used as mentioned above
-> 
-> 2. The function 'smbios_instance_string_exist' is split into two
-> functions,
-> the other being 'find_smbios_instance_string' which would print the
-> result
-> into the sysfs provided 'buf' of associated device. The function
-> 'smbios_instance_string_exist' would let us know if the label exists
-or
-> not.
-> 
-> Please find the patch with above changes here -
-> 
-> From: Narendra K <narendra_k@dell.com>
-> Subject: [PATCH] Export SMBIOS provided firmware instance and label to
-> sysfs
+> Awesome, please submit this formally.  The copy you sent lacked a commit
+> message and signoff.
 > 
 
-Greg,
+Reposting the patch formally.
 
-Thanks for the review comments. 
+David,
+Thanks for your coperation.
 
-This version of the patch has all the suggestions incorporated. Please
-let us know if there are any concerns. If the approach is acceptable,
-please consider this patch for inclusion.
+->Shreyas
 
-With regards,
-Narendra K
+---
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+
+Hold rtnl_lock to get the right link state.
+
+While asynchronously resetting the device, hold rtnl_lock to get the
+right value from netif_running. If a reset is scheduled, and the device
+goes thru close and open, it may happen that reset and open may run in
+parallel. Holding rtnl_lock will avoid this.
+
+Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+
+---
+
+ drivers/net/vmxnet3/vmxnet3_drv.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 1b0ce8c..c4d7e42 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -2420,6 +2420,7 @@ vmxnet3_reset_work(struct work_struct *data)
+ 		return;
+ 
+ 	/* if the device is closed, we must leave it alone */
++	rtnl_lock();
+ 	if (netif_running(adapter->netdev)) {
+ 		printk(KERN_INFO "%s: resetting\n", adapter->netdev->name);
+ 		vmxnet3_quiesce_dev(adapter);
+@@ -2428,6 +2429,7 @@ vmxnet3_reset_work(struct work_struct *data)
+ 	} else {
+ 		printk(KERN_INFO "%s: already closed\n", adapter->netdev->name);
+ 	}
++	rtnl_unlock();
+ 
+ 	clear_bit(VMXNET3_STATE_BIT_RESETTING, &adapter->state);
+ }
