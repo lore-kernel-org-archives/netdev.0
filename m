@@ -1,38 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Mon, 19 Jul 2010 09:05:03 -0700 (PDT)
-Message-ID: <20100719.090503.73693858.davem@davemloft.net>
-References: <20100719101904.GA31743@redhat.com>
-	<20100719105300.GA22179@gondor.apana.org.au>
-	<20100719115411.GA22758@gondor.apana.org.au>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [RFC 1/2] netfilter: xt_condition: export list management code
+Date: Mon, 19 Jul 2010 18:13:50 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007191807020.19191@obet.zrqbmnf.qr>
+References: <1279548947-10470-1-git-send-email-luciano.coelho@nokia.com> <1279548947-10470-2-git-send-email-luciano.coelho@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, shemminger@vyatta.com, frzhang@redhat.com,
-	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
-To: herbert@gondor.apana.org.au
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, sameo@linux.intel.com
+To: Luciano Coelho <luciano.coelho@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37021
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S936201Ab0GSQEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 12:04:47 -0400
-In-Reply-To: <20100719115411.GA22758@gondor.apana.org.au>
+Received: from borg.medozas.de ([188.40.89.202]:54910 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936320Ab0GSQNv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jul 2010 12:13:51 -0400
+In-Reply-To: <1279548947-10470-2-git-send-email-luciano.coelho@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 19 Jul 2010 19:54:11 +0800
+On Monday 2010-07-19 16:15, Luciano Coelho wrote:
 
-> Still, it might be a good idea to disable bridge netpoll in
-> 2.6.35.
+>From: Luciano Coelho <coelho@testbed>
+>
+>This patch isolates and exports the condition list management code, in
+>preparation for the CONDITION target to use it.  No functional change,
+>just reorganization of the code.
 
-I thought we did that already.... oh I see, we did it for bonding:
+Well, I guess it would make more sense if the two extensions be in a 
+single file. That would alleviate the need for export reorganizations, 
+and also works because the module metadata overhead is large already.
 
-commit c22d7ac844f1cb9c6a5fd20f89ebadc2feef891b
-Author: Andy Gospodarek <andy@greyhouse.net>
-Date:   Fri Jun 25 09:50:44 2010 +0000
+>@@ -3,12 +3,27 @@
+> 
+> #include <linux/types.h>
+> 
+>+#define XT_CONDITION_MAX_NAME_SIZE 30
+>+
+> struct xt_condition_mtinfo {
+>-	char name[31];
+>+	char name[XT_CONDITION_MAX_NAME_SIZE + 1];
+> 	__u8 invert;
 
-    bonding: prevent netpoll over bonded interfaces
+Oh noes. Please please avoid any math operations inside []. It has 
+already driven XT_FUNCTION_MAXNAMELEN into nuts ("was it now +1 or -1, 
+or even -2 that we needed to pass for various functions?"). Just let MAX 
+be 31 and have name[MAX].
 
-I'm fine with disabling it for bridging too, just send me a patch
-similar to the bonding one.
+> MODULE_ALIAS("ip6t_condition");
+> 
+>-struct condition_variable {
+>-	struct list_head list;
+>-	struct proc_dir_entry *status_proc;
+>-	unsigned int refcount;
+>-	bool enabled;
+>-};
+
+Given your excellent usage example of a CONDITION target, I think it 
+even makes sense to enlarge the "enabled" variable to a full-fledged 
+32-bit value that can be &, | and ^'d, similar to nfmark.
