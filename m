@@ -1,291 +1,233 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] sch_atm: Convert to use standard list_head facilities.
-Date: Sun, 18 Jul 2010 19:53:25 -0700 (PDT)
-Message-ID: <20100718.195325.148533291.davem@davemloft.net>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH] LSM: Add post accept() hook.
+Date: Mon, 19 Jul 2010 13:25:25 +0900
+Message-ID: <201007191325.IDI17618.VJStMOFOOLFFHQ@I-love.SAKURA.ne.jp>
+References: <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp>
+	<1279441990.2476.26.camel@edumazet-laptop>
+	<201007181949.IFC00070.OMHQVSFOLJFFOt@I-love.SAKURA.ne.jp>
+	<20100718.142550.25115105.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39120
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758190Ab0GSCxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jul 2010 22:53:09 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 9E90024C090
-	for <netdev@vger.kernel.org>; Sun, 18 Jul 2010 19:53:25 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: davem@davemloft.net, eric.dumazet@gmail.com, jmorris@namei.org,
+	paul.moore@hp.com, sam@synack.fr, serge@hallyn.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20100718.142550.25115105.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+David Miller wrote:
+> > Eric Dumazet wrote:
+> >> I read this patch and could not find out if an SNMP counter was
+> >> increased in the case a frame was not delivered but dropped in kernel
+> >> land.
+> > 
+> > UDP_MIB_INDATAGRAMS and UDP_MIB_INERRORS will not be increased
+> > if dropped by security_socket_post_recvmsg()'s decision.
+> > Should we increment UDP_MIB_INDATAGRAMS and/or UDP_MIB_INERRORS?
+> 
+> This decision should be guided by what we do for in the case
+> of the other existing security hooks.
+> 
+> I don't think it makes any sense to make the post recvmsg() hook
+> behave any differently from the existing hooks in this regard.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+I see. Thank you.
+
+I was misunderstanding assumption on select() -> recvmsg() sequence.
+I was thinking that:
+
+  If select() said "read operation will not block", the caller of recvmsg() can
+  assume that recvmsg() which is preceded by select() will not be blocked.
+  (The caller cannot assume that subsequent recvmsg() preceded by previous
+  recvmsg() will not be blocked.) Therefore, the kernel must not wait for next
+  message if current message was discarded by post recvmsg LSM hook. (And I
+  thought that returning error code to the caller is the only way because the
+  caller might be assuming that recvmsg() preceded by select() will not be
+  blocked.)
+
+But I understood that:
+
+  Even if select() said "read operation will not block", the caller of recvmsg()
+  can't assume that recvmsg() which is preceded by select() will not be blocked
+  unless MSG_DONTWAIT or O_NONBLOCK was set.
+  Therefore, the kernel is allowed to wait for next message if current message
+  was discarded by post recvmsg LSM hook unless MSG_DONTWAIT or O_NONBLOCK was
+  set.
+
+Now, I'm thinking the same thing for select() -> accept() sequence:
+
+  Even if select() said "read operation will not block", the caller of accept()
+  can't assume that accept() which is preceded by select() will not be blocked
+  unless MSG_DONTWAIT or O_NONBLOCK was set.
+  Therefore, the kernel is allowed to wait for next connection if current
+  connection was discarded by post accept LSM hook unless MSG_DONTWAIT or
+  O_NONBLOCK was set.
+
+Although "security_socket_post_accept() without retry loop" was proposed
+in the past ( http://lkml.org/lkml/2010/3/2/297 ), I think I can propose
+"security_socket_post_accept() with retry loop" (patch attached below)
+if select() -> accept() case I wrote above is correct.
+
+I can live with "security_socket_post_accept() without retry loop" by assigning
+magic value to SOCK_INODE("struct socket *")->i_security field
+( tomoyo_dead_sock() in http://lkml.org/lkml/2009/10/4/56 ) but below patch is
+better for me because TOMOYO will not require the i_security field (which will
+make it easier to realize LSM stacking/chaining) and will not need to implement
+all LSM hooks for socket operations only for checking the i_security field.
+
+May I have your opinion for below version?
+
+Regards.
+----------------------------------------
+>From 54bc4ffee7998423e8c2d3a5cc9dfc647d5a892b Mon Sep 17 00:00:00 2001
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Sat, 17 Jul 2010 12:04:18 +0900
+Subject: [PATCH] LSM: Add post accept() hook.
+
+Current pre accept hook (i.e. security_socket_accept()) has two problems.
+
+One is that it will cause eating 100% of CPU time if the caller does not
+close() the socket when accept() failed due to security_socket_accept(), for
+subsequent select() notifies the caller of readiness for accept() since the
+connection which would have been already picked up if security_socket_accept()
+did not return error is remaining in the queue.
+
+The other is that it is racy if LSM module wants to do filtering based on
+"which process can pick up connections from which source" because the process
+which picks up the connection is not known until sock->ops->accept() and lock
+is not held between security_socket_accept() and sock->ops->accept.
+
+This patch introduces post accept hook (i.e. security_socket_post_accept()) in
+order to solve above problems at the cost of ability to pick up the connection
+which would have been picked up if preceding security_socket_post_accept() did
+not return error.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 ---
- net/sched/sch_atm.c |   98 +++++++++++++++++++++-----------------------------
- 1 files changed, 41 insertions(+), 57 deletions(-)
+ include/linux/security.h |   21 +++++++++++++++++++++
+ net/socket.c             |    7 +++++++
+ security/capability.c    |    6 ++++++
+ security/security.c      |    5 +++++
+ 4 files changed, 39 insertions(+), 0 deletions(-)
 
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index fcbb86a..e114f23 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -52,7 +52,7 @@ struct atm_flow_data {
- 	int			ref;		/* reference count */
- 	struct gnet_stats_basic_packed	bstats;
- 	struct gnet_stats_queue	qstats;
--	struct atm_flow_data	*next;
-+	struct list_head	list;
- 	struct atm_flow_data	*excess;	/* flow for excess traffic;
- 						   NULL to set CLP instead */
- 	int			hdr_len;
-@@ -61,34 +61,23 @@ struct atm_flow_data {
- 
- struct atm_qdisc_data {
- 	struct atm_flow_data	link;		/* unclassified skbs go here */
--	struct atm_flow_data	*flows;		/* NB: "link" is also on this
-+	struct list_head	flows;		/* NB: "link" is also on this
- 						   list */
- 	struct tasklet_struct	task;		/* dequeue tasklet */
- };
- 
- /* ------------------------- Class/flow operations ------------------------- */
- 
--static int find_flow(struct atm_qdisc_data *qdisc, struct atm_flow_data *flow)
--{
--	struct atm_flow_data *walk;
--
--	pr_debug("find_flow(qdisc %p,flow %p)\n", qdisc, flow);
--	for (walk = qdisc->flows; walk; walk = walk->next)
--		if (walk == flow)
--			return 1;
--	pr_debug("find_flow: not found\n");
--	return 0;
--}
--
- static inline struct atm_flow_data *lookup_flow(struct Qdisc *sch, u32 classid)
- {
- 	struct atm_qdisc_data *p = qdisc_priv(sch);
- 	struct atm_flow_data *flow;
- 
--	for (flow = p->flows; flow; flow = flow->next)
-+	list_for_each_entry(flow, &p->flows, list) {
- 		if (flow->classid == classid)
--			break;
--	return flow;
-+			return flow;
-+	}
-+	return NULL;
- }
- 
- static int atm_tc_graft(struct Qdisc *sch, unsigned long arg,
-@@ -99,7 +88,7 @@ static int atm_tc_graft(struct Qdisc *sch, unsigned long arg,
- 
- 	pr_debug("atm_tc_graft(sch %p,[qdisc %p],flow %p,new %p,old %p)\n",
- 		sch, p, flow, new, old);
--	if (!find_flow(p, flow))
-+	if (list_empty(&flow->list))
- 		return -EINVAL;
- 	if (!new)
- 		new = &noop_qdisc;
-@@ -146,20 +135,12 @@ static void atm_tc_put(struct Qdisc *sch, unsigned long cl)
- {
- 	struct atm_qdisc_data *p = qdisc_priv(sch);
- 	struct atm_flow_data *flow = (struct atm_flow_data *)cl;
--	struct atm_flow_data **prev;
- 
- 	pr_debug("atm_tc_put(sch %p,[qdisc %p],flow %p)\n", sch, p, flow);
- 	if (--flow->ref)
- 		return;
- 	pr_debug("atm_tc_put: destroying\n");
--	for (prev = &p->flows; *prev; prev = &(*prev)->next)
--		if (*prev == flow)
--			break;
--	if (!*prev) {
--		printk(KERN_CRIT "atm_tc_put: class %p not found\n", flow);
--		return;
--	}
--	*prev = flow->next;
-+	list_del_init(&flow->list);
- 	pr_debug("atm_tc_put: qdisc %p\n", flow->q);
- 	qdisc_destroy(flow->q);
- 	tcf_destroy_chain(&flow->filter_list);
-@@ -274,7 +255,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
- 			error = -EINVAL;
- 			goto err_out;
- 		}
--		if (find_flow(p, flow)) {
-+		if (!list_empty(&flow->list)) {
- 			error = -EEXIST;
- 			goto err_out;
- 		}
-@@ -313,8 +294,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
- 	flow->classid = classid;
- 	flow->ref = 1;
- 	flow->excess = excess;
--	flow->next = p->link.next;
--	p->link.next = flow;
-+	list_add(&flow->list, &p->link.list);
- 	flow->hdr_len = hdr_len;
- 	if (hdr)
- 		memcpy(flow->hdr, hdr, hdr_len);
-@@ -335,7 +315,7 @@ static int atm_tc_delete(struct Qdisc *sch, unsigned long arg)
- 	struct atm_flow_data *flow = (struct atm_flow_data *)arg;
- 
- 	pr_debug("atm_tc_delete(sch %p,[qdisc %p],flow %p)\n", sch, p, flow);
--	if (!find_flow(qdisc_priv(sch), flow))
-+	if (list_empty(&flow->list))
- 		return -EINVAL;
- 	if (flow->filter_list || flow == &p->link)
- 		return -EBUSY;
-@@ -361,12 +341,12 @@ static void atm_tc_walk(struct Qdisc *sch, struct qdisc_walker *walker)
- 	pr_debug("atm_tc_walk(sch %p,[qdisc %p],walker %p)\n", sch, p, walker);
- 	if (walker->stop)
- 		return;
--	for (flow = p->flows; flow; flow = flow->next) {
--		if (walker->count >= walker->skip)
--			if (walker->fn(sch, (unsigned long)flow, walker) < 0) {
--				walker->stop = 1;
--				break;
--			}
-+	list_for_each_entry(flow, &p->flows, list) {
-+		if (walker->count >= walker->skip &&
-+		    walker->fn(sch, (unsigned long)flow, walker) < 0) {
-+			walker->stop = 1;
-+			break;
-+		}
- 		walker->count++;
- 	}
- }
-@@ -385,16 +365,17 @@ static struct tcf_proto **atm_tc_find_tcf(struct Qdisc *sch, unsigned long cl)
- static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	struct atm_qdisc_data *p = qdisc_priv(sch);
--	struct atm_flow_data *flow = NULL;	/* @@@ */
-+	struct atm_flow_data *flow;
- 	struct tcf_result res;
- 	int result;
- 	int ret = NET_XMIT_POLICED;
- 
- 	pr_debug("atm_tc_enqueue(skb %p,sch %p,[qdisc %p])\n", skb, sch, p);
- 	result = TC_POLICE_OK;	/* be nice to gcc */
-+	flow = NULL;
- 	if (TC_H_MAJ(skb->priority) != sch->handle ||
--	    !(flow = (struct atm_flow_data *)atm_tc_get(sch, skb->priority)))
--		for (flow = p->flows; flow; flow = flow->next)
-+	    !(flow = (struct atm_flow_data *)atm_tc_get(sch, skb->priority))) {
-+		list_for_each_entry(flow, &p->flows, list) {
- 			if (flow->filter_list) {
- 				result = tc_classify_compat(skb,
- 							    flow->filter_list,
-@@ -404,8 +385,13 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 				flow = (struct atm_flow_data *)res.class;
- 				if (!flow)
- 					flow = lookup_flow(sch, res.classid);
--				break;
-+				goto done;
- 			}
-+		}
-+		flow = NULL;
-+	done:
-+		;		
-+	}
- 	if (!flow)
- 		flow = &p->link;
- 	else {
-@@ -477,7 +463,9 @@ static void sch_atm_dequeue(unsigned long data)
- 	struct sk_buff *skb;
- 
- 	pr_debug("sch_atm_dequeue(sch %p,[qdisc %p])\n", sch, p);
--	for (flow = p->link.next; flow; flow = flow->next)
-+	list_for_each_entry(flow, &p->flows, list) {
-+		if (flow == &p->link)
-+			continue;
- 		/*
- 		 * If traffic is properly shaped, this won't generate nasty
- 		 * little bursts. Otherwise, it may ... (but that's okay)
-@@ -512,6 +500,7 @@ static void sch_atm_dequeue(unsigned long data)
- 			/* atm.atm_options are already set by atm_tc_enqueue */
- 			flow->vcc->send(flow->vcc, skb);
- 		}
-+	}
- }
- 
- static struct sk_buff *atm_tc_dequeue(struct Qdisc *sch)
-@@ -543,9 +532,10 @@ static unsigned int atm_tc_drop(struct Qdisc *sch)
- 	unsigned int len;
- 
- 	pr_debug("atm_tc_drop(sch %p,[qdisc %p])\n", sch, p);
--	for (flow = p->flows; flow; flow = flow->next)
-+	list_for_each_entry(flow, &p->flows, list) {
- 		if (flow->q->ops->drop && (len = flow->q->ops->drop(flow->q)))
- 			return len;
-+	}
+diff --git a/include/linux/security.h b/include/linux/security.h
+index 409c44d..2ed73c1 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -866,6 +866,19 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+  *	@sock contains the listening socket structure.
+  *	@newsock contains the newly created server socket for connection.
+  *	Return 0 if permission is granted.
++ * @socket_post_accept:
++ *	Check permission after accepting a new connection.
++ *	The connection is discarded if permission is not granted.
++ *	Return 0 after updating security information on the socket if you want
++ *	to restrict some of socket syscalls on the connection (e.g. forbid only
++ *	sending data). But you can't use this hook for updating security
++ *	information of the socket for preventing the connection from receiving
++ *	incoming data, for the kernel already started receiving incoming data
++ *	before accept() syscall. Return error if updating security information
++ *	failed or you want to forbid all of socket syscalls on the connection.
++ *	@sock contains the listening socket structure.
++ *	@newsock contains the accepted socket structure.
++ *	Return 0 if permission is granted.
+  * @socket_sendmsg:
+  *	Check permission before transmitting a message to another socket.
+  *	@sock contains the socket structure.
+@@ -1577,6 +1590,7 @@ struct security_operations {
+ 			       struct sockaddr *address, int addrlen);
+ 	int (*socket_listen) (struct socket *sock, int backlog);
+ 	int (*socket_accept) (struct socket *sock, struct socket *newsock);
++	int (*socket_post_accept) (struct socket *sock, struct socket *newsock);
+ 	int (*socket_sendmsg) (struct socket *sock,
+ 			       struct msghdr *msg, int size);
+ 	int (*socket_recvmsg) (struct socket *sock,
+@@ -2530,6 +2544,7 @@ int security_socket_bind(struct socket *sock, struct sockaddr *address, int addr
+ int security_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen);
+ int security_socket_listen(struct socket *sock, int backlog);
+ int security_socket_accept(struct socket *sock, struct socket *newsock);
++int security_socket_post_accept(struct socket *sock, struct socket *newsock);
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size);
+ int security_socket_recvmsg(struct socket *sock, struct msghdr *msg,
+ 			    int size, int flags);
+@@ -2612,6 +2627,12 @@ static inline int security_socket_accept(struct socket *sock,
  	return 0;
  }
  
-@@ -554,7 +544,9 @@ static int atm_tc_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct atm_qdisc_data *p = qdisc_priv(sch);
++static inline int security_socket_post_accept(struct socket *sock,
++					      struct socket *newsock)
++{
++	return 0;
++}
++
+ static inline int security_socket_sendmsg(struct socket *sock,
+ 					  struct msghdr *msg, int size)
+ {
+diff --git a/net/socket.c b/net/socket.c
+index 367d547..97d644c 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1473,6 +1473,7 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 	if (!sock)
+ 		goto out;
  
- 	pr_debug("atm_tc_init(sch %p,[qdisc %p],opt %p)\n", sch, p, opt);
--	p->flows = &p->link;
-+	INIT_LIST_HEAD(&p->flows);
-+	INIT_LIST_HEAD(&p->link.list);
-+	list_add(&p->link.list, &p->flows);
- 	p->link.q = qdisc_create_dflt(qdisc_dev(sch), sch->dev_queue,
- 				      &pfifo_qdisc_ops, sch->handle);
- 	if (!p->link.q)
-@@ -565,7 +557,6 @@ static int atm_tc_init(struct Qdisc *sch, struct nlattr *opt)
- 	p->link.sock = NULL;
- 	p->link.classid = sch->handle;
- 	p->link.ref = 1;
--	p->link.next = NULL;
- 	tasklet_init(&p->task, sch_atm_dequeue, (unsigned long)sch);
++ retry:
+ 	err = -ENFILE;
+ 	if (!(newsock = sock_alloc()))
+ 		goto out_put;
+@@ -1500,6 +1501,12 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 	err = sock->ops->accept(sock, newsock, sock->file->f_flags);
+ 	if (err < 0)
+ 		goto out_fd;
++	err = security_socket_post_accept(sock, newsock);
++	if (unlikely(err)) {
++		fput(newfile);
++		put_unused_fd(newfd);
++		goto retry;
++	}
+ 
+ 	if (upeer_sockaddr) {
+ 		if (newsock->ops->getname(newsock, (struct sockaddr *)&address,
+diff --git a/security/capability.c b/security/capability.c
+index 709aea3..1fb88f5 100644
+--- a/security/capability.c
++++ b/security/capability.c
+@@ -586,6 +586,11 @@ static int cap_socket_accept(struct socket *sock, struct socket *newsock)
  	return 0;
  }
-@@ -576,7 +567,7 @@ static void atm_tc_reset(struct Qdisc *sch)
- 	struct atm_flow_data *flow;
  
- 	pr_debug("atm_tc_reset(sch %p,[qdisc %p])\n", sch, p);
--	for (flow = p->flows; flow; flow = flow->next)
-+	list_for_each_entry(flow, &p->flows, list)
- 		qdisc_reset(flow->q);
- 	sch->q.qlen = 0;
- }
-@@ -584,24 +575,17 @@ static void atm_tc_reset(struct Qdisc *sch)
- static void atm_tc_destroy(struct Qdisc *sch)
++static int cap_socket_post_accept(struct socket *sock, struct socket *newsock)
++{
++	return 0;
++}
++
+ static int cap_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
  {
- 	struct atm_qdisc_data *p = qdisc_priv(sch);
--	struct atm_flow_data *flow;
-+	struct atm_flow_data *flow, *tmp;
- 
- 	pr_debug("atm_tc_destroy(sch %p,[qdisc %p])\n", sch, p);
--	for (flow = p->flows; flow; flow = flow->next)
-+	list_for_each_entry(flow, &p->flows, list)
- 		tcf_destroy_chain(&flow->filter_list);
- 
--	/* races ? */
--	while ((flow = p->flows)) {
-+	list_for_each_entry_safe(flow, tmp, &p->flows, list) {
- 		if (flow->ref > 1)
- 			printk(KERN_ERR "atm_destroy: %p->ref = %d\n", flow,
- 			       flow->ref);
- 		atm_tc_put(sch, (unsigned long)flow);
--		if (p->flows == flow) {
--			printk(KERN_ERR "atm_destroy: putting flow %p didn't "
--			       "kill it\n", flow);
--			p->flows = flow->next;	/* brute force */
--			break;
--		}
- 	}
- 	tasklet_kill(&p->task);
+ 	return 0;
+@@ -1004,6 +1009,7 @@ void __init security_fixup_ops(struct security_operations *ops)
+ 	set_to_cap_if_null(ops, socket_connect);
+ 	set_to_cap_if_null(ops, socket_listen);
+ 	set_to_cap_if_null(ops, socket_accept);
++	set_to_cap_if_null(ops, socket_post_accept);
+ 	set_to_cap_if_null(ops, socket_sendmsg);
+ 	set_to_cap_if_null(ops, socket_recvmsg);
+ 	set_to_cap_if_null(ops, socket_post_recvmsg);
+diff --git a/security/security.c b/security/security.c
+index 4291bd7..5c9ab0a 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -1026,6 +1026,11 @@ int security_socket_accept(struct socket *sock, struct socket *newsock)
+ 	return security_ops->socket_accept(sock, newsock);
  }
-@@ -615,7 +599,7 @@ static int atm_tc_dump_class(struct Qdisc *sch, unsigned long cl,
  
- 	pr_debug("atm_tc_dump_class(sch %p,[qdisc %p],flow %p,skb %p,tcm %p)\n",
- 		sch, p, flow, skb, tcm);
--	if (!find_flow(p, flow))
-+	if (list_empty(&flow->list))
- 		return -EINVAL;
- 	tcm->tcm_handle = flow->classid;
- 	tcm->tcm_info = flow->q->handle;
++int security_socket_post_accept(struct socket *sock, struct socket *newsock)
++{
++	return security_ops->socket_post_accept(sock, newsock);
++}
++
+ int security_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size)
+ {
+ 	return security_ops->socket_sendmsg(sock, msg, size);
 -- 
-1.7.1.1
-
+1.6.1
