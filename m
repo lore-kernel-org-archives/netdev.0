@@ -1,48 +1,84 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Raise initial congestion window size / speedup slow start?
-Date: Mon, 19 Jul 2010 10:08:24 -0700
-Message-ID: <4C448688.1070507@hp.com>
-References: <4C3D94E3.9080103@wildgooses.com> <4C3DD5EB.9070908@tmr.com>	<20100714.111553.104052157.davem@davemloft.net>	<AANLkTil3MVGwJUG12dikut9X1s9Ozc_3GwMjx_gErvxI@mail.gmail.com>	<1279299709.2156.5814.camel@tng> <AANLkTil_c-TH6k2BDW2r5c0HYXFxiu85aMda1bT0nJt3@mail.gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCHv2] tcp: fix crash in tcp_xmit_retransmit_queue
+Date: Mon, 19 Jul 2010 20:25:06 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1007192013010.30181@melkinpaasi.cs.helsinki.fi>
+References: <4C358AAA.9080400@kernel.org>  <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi>  <4C3EF7EA.2040900@nets.rwth-aachen.de>  <1279195528.2496.2.camel@edumazet-laptop>  <4C3F053F.7090704@nets.rwth-aachen.de>
+ <alpine.DEB.2.00.1007161448330.13946@melkinpaasi.cs.helsinki.fi>  <4C404FC5.6040107@nets.rwth-aachen.de>  <alpine.DEB.2.00.1007161602510.13946@melkinpaasi.cs.helsinki.fi>  <4C440771.7080107@nets.rwth-aachen.de>  <alpine.DEB.2.00.1007191319010.13002@wel-95.cs.helsinki.fi>
+ <1279548555.2553.51.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McManus <mcmanus@ducksong.com>,
-	David Miller <davem@davemloft.net>, davidsen@tmr.com,
-	lists@wildgooses.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:20201 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753705Ab0GSRI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 13:08:27 -0400
-In-Reply-To: <AANLkTil_c-TH6k2BDW2r5c0HYXFxiu85aMda1bT0nJt3@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696250871-1543959423-1279560307=:30181"
+Cc: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>,
+	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1279548555.2553.51.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-H.K. Jerry Chu wrote:
-> On Fri, Jul 16, 2010 at 10:01 AM, Patrick McManus <mcmanus@ducksong.com> wrote:
->>can you tell us more about the impl concerns of initcwnd stored on the
->>route?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696250871-1543959423-1279560307=:30181
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+
+On Mon, 19 Jul 2010, Eric Dumazet wrote:
+
+> Le lundi 19 juillet 2010 à 14:16 +0300, Ilpo Järvinen a écrit :
 > 
+> > Thanks for testing.
+> > 
+> > DaveM, I think this oops was introduced for 2.6.28 (in 
+> > 08ebd1721ab8fd362e90ae17b461c07b23fa2824 it seems, to be exact) so to 
+> > stables it should go too please. I've only tweaked the message (so no need 
+> > for Lennart to retest v2 :-)).
+> > 
+> > --
+> > [PATCHv2] tcp: fix crash in tcp_xmit_retransmit_queue
+> > 
+> > It can happen that there are no packets in queue while calling
+> > tcp_xmit_retransmit_queue(). tcp_write_queue_head() then returns
+> > NULL and that gets deref'ed to get sacked into a local var.
+> > 
+> > There is no work to do if no packets are outstanding so we just
+> > exit early.
+> > 
+> > This oops was introduced by 08ebd1721ab8fd (tcp: remove tp->lost_out
+> > guard to make joining diff nicer).
+> > 
 > 
-> We have found two issues when altering initcwnd through the ip route cmd:
-> 1. initcwnd is actually capped by sndbuf (i.e., tcp_wmem[1], which is
-> defaulted to a small value of 16KB). This problem has been made obscured
-> by the TSO code, which fudges the flow control limit (and could be a bug by
-> itself).
+> But prior to commit 08ebd1721ab8fd3, we were not testing
+> tp->packets_out, but tp->lost_out
 
-I'll ask my Emily Litella question of the day and inquire as to why that would 
-be unique to altering initcwnd via the route?
+That's right, but back then we were not testing it for the same purpose.
+ 
+> if it was 0, we were not doing the tcp_for_write_queue_from() loop.
 
-The slightly less Emily Litella-esque question is why an appliction with a 
-desire to know it could send more than 16K at one time wouldn't have either 
-asked via its install docs to have the minimum tweaked (certainly if one is 
-already tweaking routes...), or "gone all the way" and made an explicit 
-setsockopt(SO_SNDBUF) call?  We are in a realm of applications for which there 
-was a proposal to allow them to pick their own initcwnd right?  Having them pick 
-an SO_SNDBUF size would seem to be no more to ask.
+This invariant _should_ be true all the time:
+ lost_out <= packets_out
 
-rick jones
+...and if it's not we would get Leak printouts every now and then. Thus is 
+packets_out is zero no NULL defer with the if lost_out either. The other 
+loop too (in pre 08eb kernels) will work because of earlier mentioned 
+send_head check side-effects.
 
-sendbuf_init = max(tcp_mem,initcwnd)?
+> Not sure it makes a difference ?
+
+This difference is well thought and intentional, I didn't use different 
+one by accident. We want to make sure we won't use NULL from 
+tcp_write_queue_head() while the pre 08ebd1721ab8fd3 kernels was 
+interested mainly whether the first loop should run or not (and of course 
+ends up avoid the null deref too but it's more optimization like 
+thing in there, ie., if there's no lost packets no work to-do). The deref 
+could have been fixed by moving TCP_SKB_CB(skb)->sacked a bit later but 
+that would again make us depend on the side-effect of the send_head check 
+(in the case of packets_out being zero and wq empty) which is something I 
+don't like too much.
+
+-- 
+ i.
+---696250871-1543959423-1279560307=:30181--
