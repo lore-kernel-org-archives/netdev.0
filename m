@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: 64bit stats for netdev_queue
-Date: Mon, 19 Jul 2010 09:35:49 -0700 (PDT)
-Message-ID: <20100719.093549.223487047.davem@davemloft.net>
-References: <1279546422.2553.45.camel@edumazet-laptop>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: Are concurrent calls to tc action ipt safe?
+Date: Mon, 19 Jul 2010 18:44:33 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007191841500.19191@obet.zrqbmnf.qr>
+References: <201007191623.40423.lists@egidy.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55842
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S936431Ab0GSQfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 12:35:33 -0400
-In-Reply-To: <1279546422.2553.45.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: "Gerd v. Egidy" <lists@egidy.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201007191623.40423.lists@egidy.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 19 Jul 2010 15:33:42 +0200
+On Monday 2010-07-19 16:23, Gerd v. Egidy wrote:
+>AFAIK, current iptables has a short race condition when two rules within the 
+>same table are changed at once.
+>
+>E.g. when two users simultaneously call something like this
+>iptables -t filter -A INPUT -s 192.168.1.1 -j MARK --set-mark 1
+>and
+>iptables -t filter -A INPUT -s 192.168.1.2 -j MARK --set-mark 2
+>one of these entries can get lost.
 
-> Since struct netdev_queue tx_bytes/tx_packets/tx_dropped are already
-> protected by _xmit_lock, its easy to convert these fields to u64 instead
-> of unsigned long.
-> This completes 64bit stats for devices using them (vlan, macvlan, ...)
-> 
-> Strictly, we could avoid the locking in dev_txq_stats_fold() on 64bit
-> arches, but its slow path and we prefer keep it simple.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+There are many serialization techniques possible to serialize iptables 
+execution.
 
-Applied, thanks a lot Eric.
+>tc filter add dev eth0 parent ffff: protocol ip prio 1 u32  \
+>match ip src 192.168.1.1 \
+>action ipt -j MARK --set-mark 1
+>
+>Since this call uses the xtables targets I'm currently not sure if the same 
+>problem regarding concurrent changes exists or not. Can anyone tell me if 
+>concurrent calls like this are safe?
+
+This target invocation is not in any table, thus there is no race 
+condition.
+
