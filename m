@@ -1,38 +1,54 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] s2io: Remove unnecessary memset of netdev private data
-Date: Mon, 19 Jul 2010 10:55:58 +0200
-Message-ID: <1279529758-7901-1-git-send-email-tklauser@distanz.ch>
-Cc: kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [0/8] netpoll/bridge fixes
+Date: Mon, 19 Jul 2010 13:19:04 +0300
+Message-ID: <20100719101904.GA31743@redhat.com>
+References: <20100610124047.GA16658@gondor.apana.org.au>
+ <20100610074912.1303e3da@nehalam>
+ <20100610215643.GA22048@gondor.apana.org.au>
+ <20100610145915.721a86b7@nehalam>
+ <20100610224839.GA22469@gondor.apana.org.au>
+ <20100611021142.GA24490@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Qianfeng Zhang <frzhang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	WANG Cong <amwang@redhat.com>, Matt Mackall <mpm@selenic.com>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:40728 "EHLO mx1.zhaw.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:52093 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760252Ab0GSJEM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jul 2010 05:04:12 -0400
+	id S1760454Ab0GSKYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jul 2010 06:24:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20100611021142.GA24490@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The memory for the private data is allocated using kzalloc in
-alloc_etherdev (or alloc_netdev_mq respectively) so there is no need to
-set it to 0 again.
+On Fri, Jun 11, 2010 at 12:11:42PM +1000, Herbert Xu wrote:
+> On Fri, Jun 11, 2010 at 08:48:39AM +1000, Herbert Xu wrote:
+> > On Thu, Jun 10, 2010 at 02:59:15PM -0700, Stephen Hemminger wrote:
+> > >
+> > > Okay, then add a comment where in_irq is used?
+> > 
+> > Actually let me put it into a wrapper.  I'll respin the patches.
+> 
+> OK here is a repost.  And this time it really is 8 patches :)
+> I've tested it lightly.
+> 
+> Cheers,
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/s2io.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+Meanwhile, should we just disable netpoll for bridge in 2.6.35 and -stable?
+We are getting crash reports in virtualization which I suspect are
+related to this:
+https://bugzilla.kernel.org/show_bug.cgi?id=16413
 
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index d0af924..aa6cbb0 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -7886,7 +7886,6 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 
- 	/*  Private member variable initialized to s2io NIC structure */
- 	sp = netdev_priv(dev);
--	memset(sp, 0, sizeof(struct s2io_nic));
- 	sp->dev = dev;
- 	sp->pdev = pdev;
- 	sp->high_dma_flag = dma_flag;
--- 
-1.7.0.4
-
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
