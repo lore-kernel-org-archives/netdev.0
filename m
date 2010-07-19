@@ -1,75 +1,83 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: 64bit stats for netdev_queue
-Date: Mon, 19 Jul 2010 15:33:42 +0200
-Message-ID: <1279546422.2553.45.camel@edumazet-laptop>
+Subject: Re: [PATCHv2] tcp: fix crash in tcp_xmit_retransmit_queue
+Date: Mon, 19 Jul 2010 16:09:15 +0200
+Message-ID: <1279548555.2553.51.camel@edumazet-laptop>
+References: <4C358AAA.9080400@kernel.org>
+	 <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi>
+	 <4C3EF7EA.2040900@nets.rwth-aachen.de>
+	 <1279195528.2496.2.camel@edumazet-laptop>
+	 <4C3F053F.7090704@nets.rwth-aachen.de>
+	 <alpine.DEB.2.00.1007161448330.13946@melkinpaasi.cs.helsinki.fi>
+	 <4C404FC5.6040107@nets.rwth-aachen.de>
+	 <alpine.DEB.2.00.1007161602510.13946@melkinpaasi.cs.helsinki.fi>
+	 <4C440771.7080107@nets.rwth-aachen.de>
+	 <alpine.DEB.2.00.1007191319010.13002@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59701 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760678Ab0GSNdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 09:33:46 -0400
-Received: by wyb42 with SMTP id 42so4387035wyb.19
-        for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 06:33:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>,
+	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1007191319010.13002@wel-95.cs.helsinki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since struct netdev_queue tx_bytes/tx_packets/tx_dropped are already
-protected by _xmit_lock, its easy to convert these fields to u64 instead
-of unsigned long.
-This completes 64bit stats for devices using them (vlan, macvlan, ...)
+Le lundi 19 juillet 2010 =C3=A0 14:16 +0300, Ilpo J=C3=A4rvinen a =C3=A9=
+crit :
 
-Strictly, we could avoid the locking in dev_txq_stats_fold() on 64bit
-arches, but its slow path and we prefer keep it simple.
+> Thanks for testing.
+>=20
+> DaveM, I think this oops was introduced for 2.6.28 (in=20
+> 08ebd1721ab8fd362e90ae17b461c07b23fa2824 it seems, to be exact) so to=
+=20
+> stables it should go too please. I've only tweaked the message (so no=
+ need=20
+> for Lennart to retest v2 :-)).
+>=20
+> --
+> [PATCHv2] tcp: fix crash in tcp_xmit_retransmit_queue
+>=20
+> It can happen that there are no packets in queue while calling
+> tcp_xmit_retransmit_queue(). tcp_write_queue_head() then returns
+> NULL and that gets deref'ed to get sacked into a local var.
+>=20
+> There is no work to do if no packets are outstanding so we just
+> exit early.
+>=20
+> This oops was introduced by 08ebd1721ab8fd (tcp: remove tp->lost_out
+> guard to make joining diff nicer).
+>=20
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/linux/netdevice.h |    6 +++---
- net/core/dev.c            |    4 +++-
- 2 files changed, 6 insertions(+), 4 deletions(-)
+But prior to commit 08ebd1721ab8fd3, we were not testing
+tp->packets_out, but tp->lost_out
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fdc3f29..b626289 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -501,9 +501,9 @@ struct netdev_queue {
- 	 * please use this field instead of dev->trans_start
- 	 */
- 	unsigned long		trans_start;
--	unsigned long		tx_bytes;
--	unsigned long		tx_packets;
--	unsigned long		tx_dropped;
-+	u64			tx_bytes;
-+	u64			tx_packets;
-+	u64			tx_dropped;
- } ____cacheline_aligned_in_smp;
- 
- #ifdef CONFIG_RPS
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1c002c7..9de75cd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5282,15 +5282,17 @@ void netdev_run_todo(void)
- void dev_txq_stats_fold(const struct net_device *dev,
- 			struct rtnl_link_stats64 *stats)
- {
--	unsigned long tx_bytes = 0, tx_packets = 0, tx_dropped = 0;
-+	u64 tx_bytes = 0, tx_packets = 0, tx_dropped = 0;
- 	unsigned int i;
- 	struct netdev_queue *txq;
- 
- 	for (i = 0; i < dev->num_tx_queues; i++) {
- 		txq = netdev_get_tx_queue(dev, i);
-+		spin_lock_bh(&txq->_xmit_lock);
- 		tx_bytes   += txq->tx_bytes;
- 		tx_packets += txq->tx_packets;
- 		tx_dropped += txq->tx_dropped;
-+		spin_unlock_bh(&txq->_xmit_lock);
- 	}
- 	if (tx_bytes || tx_packets || tx_dropped) {
- 		stats->tx_bytes   = tx_bytes;
+if it was 0, we were not doing the tcp_for_write_queue_from() loop.
 
+Not sure it makes a difference ?
 
+> Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+> Reported-by: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
+> Tested-by: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
+> ---
+>  net/ipv4/tcp_output.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index b4ed957..7ed9dc1 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2208,6 +2208,9 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+>  	int mib_idx;
+>  	int fwd_rexmitting =3D 0;
+> =20
+> +	if (!tp->packets_out)
+> +		return;
+> +
+>  	if (!tp->lost_out)
+>  		tp->retransmit_high =3D tp->snd_una;
+> =20
