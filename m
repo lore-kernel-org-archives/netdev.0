@@ -1,107 +1,78 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: With disable_ipv6 set to 1 on an interface, ff00:/8 and fe80::/64
- are 	still added on device UP
-Date: Tue, 20 Jul 2010 16:34:30 -0400
-Message-ID: <4C460856.5090701@hp.com>
-References: <AANLkTinHkaL49MS9agf525GRhWXSWIvVmn-Qz33Hcg6Y@mail.gmail.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: mmotm 2010-07-19 - e1000e vs. pm_qos_update_request issues
+Date: Tue, 20 Jul 2010 16:35:25 -0400
+Message-ID: <6182.1279658125@localhost>
+References: <201007200007.o6K07Xbg028863@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed; boundary="==_Exmh_1279658125_4591P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Mahesh Kelkar <maheshkelkar@gmail.com>
+Cc: linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org, Thomas Gleixner <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:9292 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755406Ab0GTUed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 16:34:33 -0400
-In-Reply-To: <AANLkTinHkaL49MS9agf525GRhWXSWIvVmn-Qz33Hcg6Y@mail.gmail.com>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:43659 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758174Ab0GTUgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 16:36:18 -0400
+In-Reply-To: Your message of "Mon, 19 Jul 2010 16:38:09 PDT."
+             <201007200007.o6K07Xbg028863@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Mahesh,
+--==_Exmh_1279658125_4591P
+Content-Type: text/plain; charset=us-ascii
 
-Cc-ing netdev...
-
-On 07/20/2010 12:07 PM, Mahesh Kelkar wrote:
-> Brian,
+On Mon, 19 Jul 2010 16:38:09 PDT, akpm@linux-foundation.org said:
+> The mm-of-the-moment snapshot 2010-07-19-16-37 has been uploaded to
 > 
-> I came across a patch that you submitted in 2009 (2009-05-29 20:48:49):
-> IPv6: Add 'autoconf' and 'disable_ipv6' module parameters
-> 
-> Question:
-> With disable_ipv6 set to 1 on the interface, when device/interface
-> reaches UP state, the link local address is not added, but ipv6 routes
-> i.e. ff00::/8 & fe80::/64 routes are still added to the route table:
-> In net/ipv6/addrconf.c
-> addrconf_notify => addrconf_dev_config => addrconf_add_dev =>
-> addrconf_add_mroute & addrconf_add_lroute
-> The link local address is not assigned because of the check
-> (idev->cnf.disable_ipv6) added in ipv6_add_addr.
-> 
-> - Is there any particular reason for doing this? (i.e. not assigning
-> the link local address to interface, but adding link local & mcast
-> routes)
-> - when disable_ipv6 is set to 1, is there any reason not to skip the
-> NETDEV_UP processing in the addrconf_notify in addrconf.c
+>    http://userweb.kernel.org/~akpm/mmotm/
 
-I believe the easiest way to fix this is the following patch, can
-you please test it?
+Throws a warning at boot:
 
-Thanks,
+[    1.786060] WARNING: at kernel/pm_qos_params.c:264 pm_qos_update_request+0x28/0x54()
+[    1.786088] Hardware name: Latitude E6500
+[    1.787045] pm_qos_update_request() called for unknown object
+[    1.787966] Modules linked in:
+[    1.788940] Pid: 1, comm: swapper Not tainted 2.6.35-rc5-mmotm0719 #1
+[    1.790035] Call Trace:
+[    1.791121]  [<ffffffff81037335>] warn_slowpath_common+0x80/0x98
+[    1.792205]  [<ffffffff810373e1>] warn_slowpath_fmt+0x41/0x43
+[    1.793279]  [<ffffffff81057c14>] pm_qos_update_request+0x28/0x54
+[    1.794347]  [<ffffffff8134889e>] e1000_configure+0x421/0x459
+[    1.795393]  [<ffffffff8134afbd>] e1000_open+0xbd/0x37c
+[    1.796436]  [<ffffffff8105743a>] ? raw_notifier_call_chain+0xf/0x11
+[    1.797491]  [<ffffffff8145f948>] __dev_open+0xae/0xe2
+[    1.798547]  [<ffffffff8145f997>] dev_open+0x1b/0x49
+[    1.799612]  [<ffffffff8146e36e>] netpoll_setup+0x84/0x259
+[    1.800685]  [<ffffffff81b5037c>] init_netconsole+0xbc/0x21f
+[    1.801744]  [<ffffffff81b5026c>] ? sir_wq_init+0x0/0x35
+[    1.802793]  [<ffffffff81b502c0>] ? init_netconsole+0x0/0x21f
+[    1.803845]  [<ffffffff810002ff>] do_one_initcall+0x7a/0x12f
+[    1.804885]  [<ffffffff81b2ccae>] kernel_init+0x138/0x1c2
+[    1.805915]  [<ffffffff81003554>] kernel_thread_helper+0x4/0x10
+[    1.806937]  [<ffffffff81590e00>] ? restore_args+0x0/0x30
+[    1.807955]  [<ffffffff81b2cb76>] ? kernel_init+0x0/0x1c2
+[    1.808958]  [<ffffffff81003550>] ? kernel_thread_helper+0x0/0x10
+[    1.809958] ---[ end trace 84b562a00a60539e ]---
 
--Brian
+Looks like a repeat of something I reported against -mmotm 2010-05-11, though a
+WARNING rather than an outright crash - the traceback is pretty much identical.
+ I have *no* idea why -rc3-mmotm0701 doesn't whinge similarly.
 
----
 
-If the interface has IPv6 disabled, don't add a multicast or
-link-local route since we won't be adding a link-local address.
+--==_Exmh_1279658125_4591P
+Content-Type: application/pgp-signature
 
-Reported-by: Mahesh Kelkar <maheshkelkar@gmail.com>
-Signed-off-by: Brian Haley <brian.haley@hp.com>
----
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index e81155d..ab70a3f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1763,7 +1763,10 @@ static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
- 
- 	idev = ipv6_find_idev(dev);
- 	if (!idev)
--		return NULL;
-+		return ERR_PTR(-ENOBUFS);
-+
-+	if (idev->cnf.disable_ipv6)
-+		return ERR_PTR(-EACCES);
- 
- 	/* Add default multicast route */
- 	addrconf_add_mroute(dev);
-@@ -2132,8 +2135,9 @@ static int inet6_addr_add(struct net *net, int ifindex, struct in6_addr *pfx,
- 	if (!dev)
- 		return -ENODEV;
- 
--	if ((idev = addrconf_add_dev(dev)) == NULL)
--		return -ENOBUFS;
-+	idev = addrconf_add_dev(dev);
-+	if (IS_ERR(idev))
-+		return PTR_ERR(idev);
- 
- 	scope = ipv6_addr_scope(pfx);
- 
-@@ -2380,7 +2384,7 @@ static void addrconf_dev_config(struct net_device *dev)
- 	}
- 
- 	idev = addrconf_add_dev(dev);
--	if (idev == NULL)
-+	if (IS_ERR(idev))
- 		return;
- 
- 	memset(&addr, 0, sizeof(struct in6_addr));
-@@ -2471,7 +2475,7 @@ static void addrconf_ip6_tnl_config(struct net_device *dev)
- 	ASSERT_RTNL();
- 
- 	idev = addrconf_add_dev(dev);
--	if (!idev) {
-+	if (IS_ERR(idev)) {
- 		printk(KERN_DEBUG "init ip6-ip6: add_dev failed\n");
- 		return;
- 	}
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFMRgiNcC3lWbTT17ARAlVCAKDQUK86DgOXmSwr4HDgTQ+kMKyEJQCfZIcL
+7jVWay0Ws6H7/jew9M6u9RI=
+=jXbu
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1279658125_4591P--
+
