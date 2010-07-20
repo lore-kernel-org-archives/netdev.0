@@ -1,37 +1,84 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [RFC v2] netfilter: xt_condition: add condition target
-Date: Tue, 20 Jul 2010 13:11:42 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1007201308370.526@obet.zrqbmnf.qr>
-References: <1279619434-11849-1-git-send-email-luciano.coelho@nokia.com>  <alpine.LSU.2.01.1007201235250.20447@obet.zrqbmnf.qr> <1279623855.16431.4.camel@powerslave>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH v3 2/5] napi: convert trace_napi_poll to TRACE_EVENT
+Date: Tue, 20 Jul 2010 07:09:52 -0400
+Message-ID: <20100720110952.GB1995@hmsreliant.think-freely.org>
+References: <4C44F12F.5090908@jp.fujitsu.com>
+ <4C44F1FB.8080309@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"sameo@linux.intel.com" <sameo@linux.intel.com>
-To: Luciano Coelho <luciano.coelho@Nokia.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1279623855.16431.4.camel@powerslave>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, kaneshige.kenji@jp.fujitsu.com,
+	izumi.taku@jp.fujitsu.com, kosaki.motohiro@jp.fujitsu.com,
+	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
+	rostedt@goodmis.org, eric.dumazet@gmail.com, fweisbec@gmail.com,
+	mathieu.desnoyers@polymtl.ca
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C44F1FB.8080309@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Tuesday 2010-07-20 13:04, Luciano Coelho wrote:
->
->Yes, I made this patch on top of the one you have sent earlier for
->upstream inclusion.  There were some comments from Patrick to that one
->and, as I said in my email yesterday, I'll rebase the target patches
->once the original one is included upstream.
-
-The original one won't be - that is, basically you will be making the
-initial upstream submission.
-However, you are right; fabricating two patches is a good idea and
-is in fact what I advertise too (xt_TEE discussion about specifying
-oif..) - avoiding a singular huge patch is a best practice.
-Just be sure to have condition plus its 32-bit upgrade patch merged at
-the same time.
-
->Do you want me to take a look at Patrick's comments and resubmit the
->patch you've sent with the changes Patrick asked for?
-
-Yes. Not obeying His Highness's wishes is a death nail for a module ;-)
+On Tue, Jul 20, 2010 at 09:46:51AM +0900, Koki Sanagi wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> 
+> This patch converts trace_napi_poll from DECLARE_EVENT to TRACE_EVENT to improve
+> the usability of napi_poll tracepoint.
+> 
+>           <idle>-0     [001] 241302.750777: napi_poll: napi poll on napi struct f6acc480 for device eth3
+>           <idle>-0     [000] 241302.852389: napi_poll: napi poll on napi struct f5d0d70c for device eth1
+> 
+> An original patch is below.
+> http://marc.info/?l=linux-kernel&m=126021713809450&w=2
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> And add a fix by Steven Rostedt.
+> http://marc.info/?l=linux-kernel&m=126150506519173&w=2
+> 
+> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> ---
+>  include/trace/events/napi.h |   25 +++++++++++++++++++++++--
+>  1 files changed, 23 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
+> index 188deca..8fe1e93 100644
+> --- a/include/trace/events/napi.h
+> +++ b/include/trace/events/napi.h
+> @@ -6,10 +6,31 @@
+>  
+>  #include <linux/netdevice.h>
+>  #include <linux/tracepoint.h>
+> +#include <linux/ftrace.h>
+> +
+> +#define NO_DEV "(no_device)"
+> +
+> +TRACE_EVENT(napi_poll,
+>  
+> -DECLARE_TRACE(napi_poll,
+>  	TP_PROTO(struct napi_struct *napi),
+> -	TP_ARGS(napi));
+> +
+> +	TP_ARGS(napi),
+> +
+> +	TP_STRUCT__entry(
+> +		__field(	struct napi_struct *,	napi)
+> +		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
+> +	),
+> +
+> +	TP_fast_assign(
+> +		__entry->napi = napi;
+> +		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
+> +	),
+> +
+> +	TP_printk("napi poll on napi struct %p for device %s",
+> +		__entry->napi, __get_str(dev_name))
+> +);
+> +
+> +#undef NO_DEV
+>  
+>  #endif /* _TRACE_NAPI_H_ */
+>  
+> 
+NAK, This change will create a build break in the drop monitor code.  You'll
+need to fix that up if you want to make this change.
+Neil
