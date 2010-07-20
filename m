@@ -1,93 +1,54 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] LSM: Add post accept() hook.
-Date: Tue, 20 Jul 2010 10:36:31 +0900
-Message-ID: <201007200136.o6K1aVc5015269@www262.sakura.ne.jp>
-References: <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp> <20100718.142550.25115105.davem@davemloft.net> <201007191325.IDI17618.VJStMOFOOLFFHQ@I-love.SAKURA.ne.jp> <201007191815.52124.paul.moore@hp.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the net-current tree
+Date: Tue, 20 Jul 2010 12:20:32 +1000
+Message-ID: <20100720122032.88e0fcd9.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, jmorris@namei.org,
-	sam@synack.fr, serge@hallyn.com, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: paul.moore@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:59207 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932088Ab0GTBge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 21:36:34 -0400
-In-Reply-To: <201007191815.52124.paul.moore@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeff Dike <jdike@addtoit.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Paul Moore wrote:
-> I think you need to show how you plan to use this hook in an LSM before we can 
-> consider merging it with mainline.  What you are proposing here is giving an 
-> LSM the ability to drop a connection _after_ allowing it to be established in 
-> the first place; this seems very wrong to me and I want to make sure everyone 
-> else is aware of that before accepting this code into the kernel.  I 
-> understand that TOMOYO's security model does not allow it to reject incoming 
-> connections at the beginning of the connection request like some of the LSMs 
-> currently in use, but I'm just not very happy with the idea of finishing a 
-> connection handshake only to later drop the connection on the floor.
+Hi all,
 
-Yes. I'm planning to use security_socket_post_accept() for two purposes.
+Today's linux-next merge of the net tree got a conflict in
+drivers/vhost/net.c between commit
+1680e9063ea28099a1efa8ca11cee069cc7a9bc3 ("vhost-net: avoid flush under
+lock") from the net-current tree and commit
+dd1f4078f0d2de74a308f00a2dffbd550cfba59f ("vhost-net: minor cleanup")
+from the net tree.
 
+I fixed it up (see below) and can carry the fix as necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-
-One is for dropping connections from unwanted hosts. Administrators define
-policy before enabling enforcing mode (the mode which connections are dropped
-if operation was not granted by policy). Administrators specify acceptable
-hosts (i.e. hosts which this host needs to communicate with) and unacceptable
-hosts (i.e. hosts which this host needn't to communicate with).
-Dropping connections would happen if some process was hijacked and the process
-attempted to communicate with other processes using TCP connections. But
-dropping connections should not happen in normal circumstance.
-
-
-
-The other is for updating process's state variable upon accept() operation.
-LKM version of TOMOYO has per a task_struct variable that is used for
-implementing stateful permissions. (As of now, not implemented for LSM version
-of TOMOYO.) For example,
-
-  allow_network TCP accept 10.0.0.0-10.255.255.255 1024-65535 ; set task.state[0]=1
-  allow_network TCP accept 192.168.0.1-192.168.255.255 1024-65535 ; set task.state[0]=2
-
-will change current thread's task state variable to 1 if current thread
-accepted TCP connection from 10.0.0.0-10.255.255.255 and change it to 2 if from
-192.168.0.1-192.168.255.255 . This variable is used for giving different
-permissions for subsequent operations. For example,
-
-  allow_execute /bin/bash if task.state[0]=1
-  allow_execute /bin/tcsh if task.state[0]=2
-
-will allow execution of /bin/bash if current thread is dealing connections from
-10.0.0.0-10.255.255.255 and allow execution of /bin/tcsh if current thread is
-dealing connections from 192.168.0.1-192.168.255.255 . Another example,
-
-  allow_network TCP accept 0.0.0.0-255.255.255.255 1024-65535 ; set task.state[0]=3
-  allow_network TCP accept 0.0.0.0-255.255.255.255 1-1023 ; set task.state[0]=4
-
-will change it to 3 if from unprivileged port and change it to 4 if from
-privileged port.
-
-  allow_execute /bin/rbash if task.state[0]=3
-  allow_execute /bin/bash if task.state[0]=4
-
-will allow execution of /bin/rbash if dealing connections from unprivileged
-ports and allow execution of /bin/bash if dealing connections from privileged
-ports.
-
-LSM hooks called before sock->ops->accept() cannot change current thread's task
-state variable because it is racy, and LSM hook called after sock->ops->accept()
-is missing.
-
-Strictly speaking, it could be possible to update current thread's task state
-variable in LSM hooks called by subsequent operations (e.g.
-security_dentry_open(), security_bprm_set_creds()) by doing similar approach
-done by tomoyo_dead_sock(), but updating it can fail (e.g. -ENOMEM) since
-credentials are COW. If updating it failed, I want to drop the accept()ed
-connection, but that is impossible from LSM hooks called by subsequent
-operations. Killing current thread when updating it failed is possible, but
-that looks worse for me than dropping connections upon accept() time (because
-such action resembles OOM killer and likely gives larger damage to the caller).
+diff --cc drivers/vhost/net.c
+index d219070,107af9e..0000000
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@@ -527,15 -527,12 +527,14 @@@ static long vhost_net_set_backend(struc
+  
+  	/* start polling new socket */
+  	oldsock = vq->private_data;
+- 	if (sock == oldsock)
+- 		goto done;
++ 	if (sock != oldsock){
++                 vhost_net_disable_vq(n, vq);
++                 rcu_assign_pointer(vq->private_data, sock);
++                 vhost_net_enable_vq(n, vq);
++ 	}
+  
+- 	vhost_net_disable_vq(n, vq);
+- 	rcu_assign_pointer(vq->private_data, sock);
+- 	vhost_net_enable_vq(n, vq);
+- done:
+ +	mutex_unlock(&vq->mutex);
+ +
+  	if (oldsock) {
+  		vhost_net_flush_vq(n, index);
+  		fput(oldsock->file);
