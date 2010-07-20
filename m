@@ -1,119 +1,70 @@
 From: akpm@linux-foundation.org
-Subject: [patch 2/3] arch/um/drivers: remove duplicate structure field initialization
-Date: Tue, 20 Jul 2010 15:25:17 -0700
-Message-ID: <201007202225.o6KMPHA3021446@imap1.linux-foundation.org>
+Subject: [patch 1/3] drivers/net/cxgb3/t3_hw.c: use new hex_to_bin() method
+Date: Tue, 20 Jul 2010 15:25:16 -0700
+Message-ID: <201007202225.o6KMPGnA021443@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, julia@diku.dk,
-	shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	ext-andriy.shevchenko@nokia.com, divy@chelsio.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37016 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:53195 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932818Ab0GTWZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 18:25:58 -0400
+	by vger.kernel.org with ESMTP id S932831Ab0GTWZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 18:25:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+From: Andy Shevchenko <ext-andriy.shevchenko@nokia.com>
 
-There are two initializations of ndo_set_mac_address, one to a local
-function that is not used otherwise and one to a function that is defined
-elsewhere.
+Get rid of own implementation of hex_to_bin().
 
-The semantic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
-
-// <smpl>
-@r@
-identifier I, s, fld;
-position p0,p;
-expression E;
-@@
-
-struct I s =@p0 { ... .fld@p = E, ...};
-
-@s@
-identifier I, s, r.fld;
-position r.p0,p;
-expression E;
-@@
-
-struct I s =@p0 { ... .fld@p = E, ...};
-
-@script:python@
-p0 << r.p0;
-fld << r.fld;
-ps << s.p;
-pr << r.p;
-@@
-
-if int(ps[0].line)<int(pr[0].line) or int(ps[0].column)<int(pr[0].column):
-  cocci.print_main(fld,p0)
-// </smpl>
-
-akpm:
-
-- Use the standard eth_mac_addr() in uml_net_set_mac()
-
-- Remove unneeded and racy local set_ether_mac()
-
-- Remove duplicated (and incorrect)
-  uml_netdev_ops.ndo_set_mac_address initializer.
-
-Fixes 8bb95b39a16ed55226810596f92216c53329d2fe ("uml: convert network
-device to netdevice ops").
-
-[akpm@linux-foundation.org: rework as above]
-Signed-off-by: Julia Lawall <julia@diku.dk>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Andy Shevchenko <ext-andriy.shevchenko@nokia.com>
+Acked-by: Divy Le Ray <divy@chelsio.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- arch/um/drivers/net_kern.c |   10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/cxgb3/t3_hw.c |   16 ++++------------
+ 1 file changed, 4 insertions(+), 12 deletions(-)
 
-diff -puN arch/um/drivers/net_kern.c~arch-um-drivers-remove-duplicate-structure-field-initialization arch/um/drivers/net_kern.c
---- a/arch/um/drivers/net_kern.c~arch-um-drivers-remove-duplicate-structure-field-initialization
-+++ a/arch/um/drivers/net_kern.c
-@@ -25,11 +25,6 @@
- #include "net_kern.h"
- #include "net_user.h"
+diff -puN drivers/net/cxgb3/t3_hw.c~drivers-net-cxgb3-t3_hwc-use-new-hex_to_bin-method drivers/net/cxgb3/t3_hw.c
+--- a/drivers/net/cxgb3/t3_hw.c~drivers-net-cxgb3-t3_hwc-use-new-hex_to_bin-method
++++ a/drivers/net/cxgb3/t3_hw.c
+@@ -679,14 +679,6 @@ int t3_seeprom_wp(struct adapter *adapte
+ 	return t3_seeprom_write(adapter, EEPROM_STAT_ADDR, enable ? 0xc : 0);
+ }
  
--static inline void set_ether_mac(struct net_device *dev, unsigned char *addr)
+-/*
+- * Convert a character holding a hex digit to a number.
+- */
+-static unsigned int hex2int(unsigned char c)
 -{
--	memcpy(dev->dev_addr, addr, ETH_ALEN);
+-	return isdigit(c) ? c - '0' : toupper(c) - 'A' + 10;
 -}
 -
- #define DRIVER_NAME "uml-netdev"
+ /**
+  *	get_vpd_params - read VPD parameters from VPD EEPROM
+  *	@adapter: adapter to read
+@@ -727,15 +719,15 @@ static int get_vpd_params(struct adapter
+ 		p->port_type[0] = uses_xaui(adapter) ? 1 : 2;
+ 		p->port_type[1] = uses_xaui(adapter) ? 6 : 2;
+ 	} else {
+-		p->port_type[0] = hex2int(vpd.port0_data[0]);
+-		p->port_type[1] = hex2int(vpd.port1_data[0]);
++		p->port_type[0] = hex_to_bin(vpd.port0_data[0]);
++		p->port_type[1] = hex_to_bin(vpd.port1_data[0]);
+ 		p->xauicfg[0] = simple_strtoul(vpd.xaui0cfg_data, NULL, 16);
+ 		p->xauicfg[1] = simple_strtoul(vpd.xaui1cfg_data, NULL, 16);
+ 	}
  
- static DEFINE_SPINLOCK(opened_lock);
-@@ -266,7 +261,7 @@ static int uml_net_set_mac(struct net_de
- 	struct sockaddr *hwaddr = addr;
- 
- 	spin_lock_irq(&lp->lock);
--	set_ether_mac(dev, hwaddr->sa_data);
-+	eth_mac_addr(dev, hwaddr->sa_data);
- 	spin_unlock_irq(&lp->lock);
- 
+ 	for (i = 0; i < 6; i++)
+-		p->eth_base[i] = hex2int(vpd.na_data[2 * i]) * 16 +
+-				 hex2int(vpd.na_data[2 * i + 1]);
++		p->eth_base[i] = hex_to_bin(vpd.na_data[2 * i]) * 16 +
++				 hex_to_bin(vpd.na_data[2 * i + 1]);
  	return 0;
-@@ -380,7 +375,6 @@ static const struct net_device_ops uml_n
- 	.ndo_tx_timeout 	= uml_net_tx_timeout,
- 	.ndo_set_mac_address	= uml_net_set_mac,
- 	.ndo_change_mtu 	= uml_net_change_mtu,
--	.ndo_set_mac_address 	= eth_mac_addr,
- 	.ndo_validate_addr	= eth_validate_addr,
- };
+ }
  
-@@ -478,7 +472,7 @@ static void eth_configure(int n, void *i
- 	    ((*transport->user->init)(&lp->user, dev) != 0))
- 		goto out_unregister;
- 
--	set_ether_mac(dev, device->mac);
-+	eth_mac_addr(dev, device->mac);
- 	dev->mtu = transport->user->mtu;
- 	dev->netdev_ops = &uml_netdev_ops;
- 	dev->ethtool_ops = &uml_net_ethtool_ops;
 _
