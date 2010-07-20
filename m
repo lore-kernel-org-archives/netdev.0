@@ -1,31 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Mon, 19 Jul 2010 19:34:00 -0700
-Message-ID: <1279593240.19374.2.camel@Joe-Laptop.home>
-References: <20100720122032.88e0fcd9.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH] e1000: allow option to limit number of
+ descriptors down to 48 per ring
+Date: Mon, 19 Jul 2010 20:24:01 -0700 (PDT)
+Message-ID: <20100719.202401.129745775.davem@davemloft.net>
+References: <20100719234219.13875.90302.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Dike <jdike@addtoit.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100720122032.88e0fcd9.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37845
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758143Ab0GTDXs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 23:23:48 -0400
+In-Reply-To: <20100719234219.13875.90302.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-07-20 at 12:20 +1000, Stephen Rothwell wrote:
-> I fixed it up (see below) and can carry the fix as necessary.
-@@@ -527,15 -527,12 +527,14 @@@ static long vhost_net_set_backend(struc
-  
-        /* start polling new socket */
-        oldsock = vq->private_data;
--       if (sock == oldsock)
--               goto done;
-+       if (sock != oldsock){
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 19 Jul 2010 16:43:47 -0700
 
-Trivial: missing space before open brace in commit
-dd1f4078f0d2de74a308f00a2dffbd550cfba59f
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This change makes it possible to limit the number of descriptors down to 48
+> per ring.  The reason for this change is to address a variation on hardware
+> errata 10 for 82546GB in which descriptors will be lost if more than 32
+> descriptors are fetched and the PCI-X MRBC is 512.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+Applied.
