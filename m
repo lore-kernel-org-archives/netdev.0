@@ -1,63 +1,56 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] drop_monitor: Add error code to detect duplicate state
- changes
-Date: Tue, 20 Jul 2010 10:52:09 -0400
-Message-ID: <20100720145209.GE1995@hmsreliant.think-freely.org>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH] e1000e: Fix irq_synchronize in MSI-X case
+Date: Tue, 20 Jul 2010 17:12:05 +0200
+Message-ID: <201007201712.05671.jdelvare@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60043 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758499Ab0GTOyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 10:54:37 -0400
-Content-Disposition: inline
+Received: from cantor.suse.de ([195.135.220.2]:33294 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760915Ab0GTPMI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jul 2010 11:12:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey-
-	Patch to add -EAGAIN error to dropwatch netlink message handling code.
--EAGAIN will be returned anytime userspace attempts to transition the state of
-the drop monitor service to a state that its already in.  That allows user space
-to detect this condition, so it doesn't wait for a success ACK that will never
-arrive.  Tested successfully by me
+Synchronize all IRQs when in MSI-X IRQ mode.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Cc: Bruce Allan <bruce.w.allan@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+---
+I sent this patch to the e1000-devel list on June 8th, 2010, but
+didn't receive any answer:
+http://sourceforge.net/mailarchive/forum.php?thread_name=201006081818.59098.jdelvare%40suse.de&forum_name=e1000-devel
 
+I don't know how critical synchronize_irq() is, so I don't know if
+this patch should go to stable branches or not.
 
- drop_monitor.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/e1000e/netdev.c |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index ad41529..646ef3b 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -223,6 +223,11 @@ static int set_all_monitor_traces(int state)
- 
- 	spin_lock(&trace_state_lock);
- 
-+	if (state == trace_state) {
-+		rc = -EAGAIN;
-+		goto out_unlock;
-+	}
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -1939,7 +1939,13 @@ static void e1000_irq_disable(struct e10
+ 	if (adapter->msix_entries)
+ 		ew32(EIAC_82574, 0);
+ 	e1e_flush();
+-	synchronize_irq(adapter->pdev->irq);
 +
- 	switch (state) {
- 	case TRACE_ON:
- 		rc |= register_trace_kfree_skb(trace_kfree_skb_hit, NULL);
-@@ -251,11 +256,12 @@ static int set_all_monitor_traces(int state)
- 
- 	if (!rc)
- 		trace_state = state;
-+	else
-+		rc = -EINPROGRESS;
- 
-+out_unlock:
- 	spin_unlock(&trace_state_lock);
- 
--	if (rc)
--		return -EINPROGRESS;
- 	return rc;
++	if (adapter->msix_entries) {
++		synchronize_irq(adapter->msix_entries[0].vector);
++		synchronize_irq(adapter->msix_entries[1].vector);
++		synchronize_irq(adapter->msix_entries[2].vector);
++	} else
++		synchronize_irq(adapter->pdev->irq);
  }
  
+ /**
+
+-- 
+Jean Delvare
+Suse L3
