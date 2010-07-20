@@ -1,90 +1,51 @@
-From: Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org>
-Subject: Re: [PATCH] net: Add batman-adv meshing protocol
-Date: Tue, 20 Jul 2010 19:16:03 +0200
-Message-ID: <201007201919.31993.sven.eckelmann@gmx.de>
-References: <1279291156-5297-2-git-send-email-sven.eckelmann@gmx.de>
-	<201007201028.12470.sven.eckelmann@gmx.de>
-	<20100720.095928.113690788.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Very low latency TCP for clusters
+Date: Tue, 20 Jul 2010 10:24:55 -0700
+Message-ID: <4C45DBE7.8070401@hp.com>
+References: <AANLkTilNmNZbFWS8LF-UHU65QYIC32HZlgVZ7lXJHxPh@mail.gmail.com>	<1279561319.2553.153.camel@edumazet-laptop>	<AANLkTiniRmnwG4vT-MrQQHQjrdQ4sfOn6Uxi42Dsr8nu@mail.gmail.com>	<1279576980.2458.56.camel@edumazet-laptop>	<AANLkTillCVWMHHBImGEeRYy2MJYqtGIvSPvacLKJnpP2@mail.gmail.com> <1279603570.2458.66.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart4257754.bkKK8OoFys";
-	protocol="application/pgp-signature"; micalg=pgp-sha512
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20100720.095928.113690788.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:15037 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753199Ab0GTRY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 13:24:57 -0400
+In-Reply-To: <1279603570.2458.66.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart4257754.bkKK8OoFys
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-On Tuesday 20 July 2010 18:59:28 David Miller wrote:
-> From: Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org>
-> Date: Tue, 20 Jul 2010 10:28:10 +0200
+Eric Dumazet wrote:
+> Le lundi 19 juillet 2010 =E0 16:37 -0700, Tom Herbert a =E9crit :
 >=20
-> > I would leave that to the original author of those functions.
+>>That's pretty pokey ;-) I see numbers around 25 usecs between to
+>>machines, this is with TCP_NBRR.  With TCP_RR it's more like 35 usecs=
+,
+>>so eliminating the scheduler is already a big reduction.  That leaves
+>>18 usecs in device time, interrupt processing, network, and cache
+>>misses; 7 usecs in TCP processing, user space.  While 5 usecs is an
+>>aggressive goal, I am not ready to concede that there's an
+>>architectural limit in either NICs, TCP, or sockets that can't be
+>>overcome.
 >=20
-> Whoever you leave it to, this needs to be fixed up before this
-> code can be integrated.  So if those people are not active or
-> don't have time, you very much should consider the reality that
-> you might have to do these fixups yourself.
+> Last time I tried TCP_NBRR, it was not working (not even compiled in)=
+, I
+> guess I should submit a bug report to Rick ;)
 
-They are active and informed about it. I never wanted that you integrate it=
-=20
-right away, but asked for a review to get everything in shape for the real=
-=20
-move from staging to net.
+Indeed!-)  Actually, my first thought upon reading what Tom wrote was "=
+Wow, I'm=20
+amazed it still works" :)  That code probably hasn't been visited much =
+since the=20
+heydays of T/TCP (transactional).
 
-Maybe there is a misunderstanding who I am. When you look at the MAINTAINER=
-S=20
-file than you will notice that my name doesn't appear. I just volunteered t=
-o=20
-keep the different branches in sync and submitted it for a review to you an=
-d=20
-netdev after a discussion with Marek Lindner. He is together with Simon=20
-Wunderlich the real maintainer of the codebase.
+Getting it compiled-in probably required a hand-editing of the config.h=
+ file=20
+after the ./configure.  Patches to add a --enable-nbrr would be graciou=
+sly accepted.
 
-I will stop here if you prefer not to talk with an intermediary. So Marek o=
-r=20
-Simon have to work directly with you.
+happy benchmarking,
 
-thanks,
-	Sven
-
---nextPart4257754.bkKK8OoFys
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIcBAABCgAGBQJMRdnbAAoJEF2HCgfBJntGnP0QAK+NIV+N5vCtciLlAK7Sf15C
-jGRejgaR/zBEmxvwKzO+zMmhYSWwMfzQaamIzmm+jaJnohLuVoFfqZ0nO3WgkNvq
-//5r/NfyK1I/1/RpNRDaxIeW2mnNvvu7HXhNXqKbG3qi6ZPFyxdXpC6dzy6hlZmG
-lK1BVnEVpYjXYmbgsf+zACa+hpyYFhEgvYazAA9e0hWUoSlwwW1dH7P1bHFWE03n
-YLmc19HTIz0o6jxUExm0GEjDKAj+giW3mGLhL9ka3B5qxcu4qN7qN2Y0A5bGjabd
-+wPt18eoQUTolbGIidks3loMfLS/ykMzB6nsAA1JTCfpcklt3XdjF39CTAXrYAzA
-ZFdVKIkFOKc5O25WJY5udLRKNO72h6wGwXFYuh1SS1kap71POjnOcnHt+TNQxebs
-jp5RTeTEpCPAzW4+/oI+M2LxXVZzOxM2dLqLszr5o3V7FNAbJXwUe4yNiKJdN8jN
-0Q+jCHf0gVTwQsL38PIdGF7DALcdD4rCr4hynWLz609kQe/FOr5eElw6x09YKUpA
-yhiPida6iG6cwRUOTNNrcDdrm/eEEXBbgHHiRpYElKL8tafK3qTIOH8r35KjAIhQ
-q1+0H8cVneXHCOp8kBXqv61e+AT/Bs0WwDE1QtEuHP/1P7hzeyUsHIOyngPB/lmu
-4eZE2KJkPS+iqF5XT11+
-=Mxtn
------END PGP SIGNATURE-----
-
---nextPart4257754.bkKK8OoFys--
+rick jones
