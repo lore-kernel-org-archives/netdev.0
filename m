@@ -1,48 +1,49 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] phy: add suspend/resume in the ic+
-Date: Tue, 20 Jul 2010 08:24:21 -0700
-Message-ID: <20100720082421.c8604af3.randy.dunlap@oracle.com>
-References: <1279609954-30274-1-git-send-email-peppe.cavallaro@st.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH] e1000e: Drop a useless statement
+Date: Tue, 20 Jul 2010 17:30:42 +0200
+Message-ID: <201007201730.42852.jdelvare@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Cc: netdev@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:44749 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932441Ab0GTPYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 11:24:36 -0400
-In-Reply-To: <1279609954-30274-1-git-send-email-peppe.cavallaro@st.com>
+Received: from cantor.suse.de ([195.135.220.2]:34549 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932355Ab0GTPap (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jul 2010 11:30:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Jul 2010 09:12:34 +0200 Giuseppe CAVALLARO wrote:
+err is set again a few lines below.
 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> ---
->  drivers/net/phy/icplus.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-> index 439adaf..3f2583f 100644
-> --- a/drivers/net/phy/icplus.c
-> +++ b/drivers/net/phy/icplus.c
-> @@ -116,6 +116,8 @@ static struct phy_driver ip175c_driver = {
->  	.config_init	= &ip175c_config_init,
->  	.config_aneg	= &ip175c_config_aneg,
->  	.read_status	= &ip175c_read_status,
-> +	.suspend	= genphy_suspend,
-> +	.resume		= genphy_resume,
->  	.driver		= { .owner = THIS_MODULE,},
->  };
->  
-> -- 
-
-I was wondering how that works when CONFIG_PM is disabled, but I did a build
-with it disabled and see that genphy_suspend and genphy_resume are always
-built -- even when PM is disabled.  Interesting.
-
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Cc: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
 ---
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+I sent this patch to the e1000-devel list on June 8th, 2010, but
+didn't receive any answer:
+http://sourceforge.net/mailarchive/forum.php?thread_name=201006081820.25381.jdelvare%40suse.de&forum_name=e1000-devel
+
+ drivers/net/e1000e/netdev.c |    2 --
+ 1 file changed, 2 deletions(-)
+
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -5557,8 +5557,6 @@ static int __devinit e1000_probe(struct
+ 	if (err)
+ 		goto err_sw_init;
+ 
+-	err = -EIO;
+-
+ 	memcpy(&hw->mac.ops, ei->mac_ops, sizeof(hw->mac.ops));
+ 	memcpy(&hw->nvm.ops, ei->nvm_ops, sizeof(hw->nvm.ops));
+ 	memcpy(&hw->phy.ops, ei->phy_ops, sizeof(hw->phy.ops));
+
+-- 
+Jean Delvare
+Suse L3
