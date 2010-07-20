@@ -1,34 +1,52 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next 3/4] bnx2: Remove some unnecessary smp_mb()
- in tx fast path.
-Date: Mon, 19 Jul 2010 22:48:06 -0700
-Message-ID: <C27F8246C663564A84BB7AB3439772421B842BD27B@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <1279604283.2458.68.camel@edumazet-laptop>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [net-next-2.6 PATCH 2/5] ixgbe: drop support for UDP in RSS
+ hash generation
+Date: Tue, 20 Jul 2010 02:07:54 -0400
+Message-ID: <20100720020754.135b5ff7.billfink@mindspring.com>
+References: <20100719235831.14112.14175.stgit@localhost.localdomain>
+	<20100719235925.14112.65890.stgit@localhost.localdomain>
+	<20100719.202417.218061462.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "'Eric Dumazet'" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com, alexander.h.duyck@intel.com,
+	donald.c.skidmore@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3243 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754632Ab0GTFsX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 01:48:23 -0400
-In-Reply-To: <1279604283.2458.68.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from elasmtp-mealy.atl.sa.earthlink.net ([209.86.89.69]:56868 "EHLO
+	elasmtp-mealy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932065Ab0GTGH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 02:07:57 -0400
+In-Reply-To: <20100719.202417.218061462.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
+On Mon, 19 Jul 2010, David Miller wrote:
 
-> Excellent,
->
-> Is similar patch for tg3 planned ?
->
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Mon, 19 Jul 2010 16:59:27 -0700
+> 
+> > From: Alexander Duyck <alexander.h.duyck@intel.com>
+> > 
+> > This change removes UDP from the supported protocols for RSS hashing.  The
+> > reason for removing this protocol is because IP fragmentation was causing a
+> > network flow to be broken into two streams, one for fragmented, and one for
+> > non-fragmented and this in turn was causing out-of-order issues.
+> > 
+> > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> > Acked-by: Don Skidmore <donald.c.skidmore@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> 
+> Applied.
 
-Yes, this performance issue was actually first discovered when
-profiling a new tg3 device.  So Matt should be sending out a
-very similar patch as part of his next patch-set.
+Should there be a /proc or ethtool setting for whether or not to
+use RSS hashing for UDP flows?  I would think that for many common
+UDP applications, IP fragmentation would not be an issue because
+they often tend to use sub-MTU sized datagrams.  And of course
+UDP does not guarantee in-order delivery in any event.  Then a
+remaining issue is what the default setting of such an option
+should be.  I would lean to having it enabled by default, but
+I can also see the safety argument for having it off by default.
 
+						-Bill
