@@ -1,43 +1,54 @@
 From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH net-next 0/3] cxgb4vf: fixes for several small issues discovered by QA
-Date: Tue, 20 Jul 2010 08:50:40 -0700
-Message-ID: <201007200850.40411.leedom@chelsio.com>
-References: <201007191812.10459.leedom@chelsio.com> <20100719.204002.219738044.davem@davemloft.net>
+Subject: [PATCH net-next 3/3] cxgb4vf: add maintainer entry for cxgb4vf
+Date: Tue, 20 Jul 2010 08:59:56 -0700
+Message-ID: <201007200859.57111.leedom@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+  charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:1960 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:5428 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932483Ab0GTPvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 11:51:13 -0400
-In-Reply-To: <20100719.204002.219738044.davem@davemloft.net>
+	with ESMTP id S1754026Ab0GTQHN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 12:07:13 -0400
+Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o6KG7CLu017820
+	for <netdev@vger.kernel.org>; Tue, 20 Jul 2010 09:07:13 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| From: David Miller <davem@davemloft.net>
-| Date: Monday, July 19, 2010 08:40 pm
-| 
-| From: Casey Leedom <leedom@chelsio.com>
-| Date: Mon, 19 Jul 2010 18:12:10 -0700
-| 
-| >   A couple of small (but important) fixes discovered by our QA people. 
-| >   I've also
-| > 
-| > included a patch to add myself as the maintainer of cxgb4vf in the
-| > MAINTAINERS file which I think is the protocol but please correct me if
-| > changes to that file are usually performed by someone else.
-| 
-| Well, where are they?
+>From 7710873beb494b46333fdf9841b4a117bdb66a5a Mon Sep 17 00:00:00 2001
+From: Casey Leedom <leedom@chelsio.com>
+Date: Mon, 19 Jul 2010 17:55:33 -0700
+Subject: [PATCH net-next 3/3] cxgb4vf: add maintainer entry for cxgb4vf
 
-  Oops!  Sorry!!  It was my first effort at using "git send-email" and in my manic 
-attempt to make sure I wasn't screwing it up I had directed the patches to 
-myself to verify that the process worked and then forgot to change the To: 
-address to netdev@vger.kernel.org in my "real attempt."
+Adding myself as the official maintainer of the Chelsio T4 Virtual function
+Driver (cxgb4vf).
 
-  Patches coming forthwith.
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+---
+ MAINTAINERS |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-Casey
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c05b499..aa73c9a 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1767,6 +1767,13 @@ W:	http://www.openfabrics.org
+ S:	Supported
+ F:	drivers/infiniband/hw/cxgb4/
+ 
++CXGB4VF ETHERNET DRIVER (CXGB4VF)
++M:	Casey Leedom <leedom@chelsio.com>
++L:	netdev@vger.kernel.org
++W:	http://www.chelsio.com
++S:	Supported
++F:	drivers/net/cxgb4vf/
++
+ CYBERPRO FB DRIVER
+ M:	Russell King <linux@arm.linux.org.uk>
+ L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+-- 
+1.7.0.4
+
