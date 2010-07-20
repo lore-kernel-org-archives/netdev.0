@@ -1,45 +1,192 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] ipv6: Make IP6CB(skb)->nhoff 16-bit.
-Date: Mon, 19 Jul 2010 22:01:43 -0700 (PDT)
-Message-ID: <20100719.220143.233859017.davem@davemloft.net>
-References: <20100715.223011.58409183.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] drivers/acpi/acpica/utmisc.c: Use printk
+ extension %pV
+Date: Mon, 19 Jul 2010 22:06:07 -0700
+Message-ID: <1279602367.19374.20.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40041
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752271Ab0GTFB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 01:01:27 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id A6AA224C090
-	for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 22:01:43 -0700 (PDT)
-In-Reply-To: <20100715.223011.58409183.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Len Brown <lenb@kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 15 Jul 2010 22:30:11 -0700 (PDT)
+Consolidates the printk messages to a single
+call so the messages can not be interleaved.
 
-> 
-> Even with jumbograms I cannot see any way in which we would need
-> to records a larger than 65535 valued next-header offset.
-> 
-> The maximum extension header length is (256 << 3) == 2048.
-> There are only a handful of extension headers specified which
-> we'd even accept (say 5 or 6), therefore the largest next-header
-> offset we'd ever have to contend with is something less than
-> say 16k.
-> 
-> Therefore make it a u16 instead of a u32.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
-> Can anyone find any holes in this?  I want to do this so we
-> can legitimately rip ndisc_nodetype out of struct sk_buff
-> and stick it into the IP6CB where it belongs.  Currently
-> there isn't enough space, but with this change there will
-> be.
+Reduces text a bit.
 
-No holes claimed by anyone, so... applied :-)
+$ size drivers/acpi/acpica/utmisc.o.*
+   text	   data	    bss	    dec	    hex	filename
+   7822	     56	   1832	   9710	   25ee	drivers/acpi/acpica/utmisc.o.old
+   7748	     56	   1736	   9540	   2544	drivers/acpi/acpica/utmisc.o.new
+
+Depends on net-next commit 7db6f5fb65a82af03229eef104dc9899c5eecf33
+(vsprintf: Recursive vsnprintf: Add "%pV", struct va_format)
+
+Compile tested only
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/acpi/acpica/utmisc.c |   78 ++++++++++++++++++++++++++++--------------
+ 1 files changed, 52 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/acpi/acpica/utmisc.c b/drivers/acpi/acpica/utmisc.c
+index e8d0724..d9a4a64 100644
+--- a/drivers/acpi/acpica/utmisc.c
++++ b/drivers/acpi/acpica/utmisc.c
+@@ -53,8 +53,8 @@ ACPI_MODULE_NAME("utmisc")
+ /*
+  * Common suffix for messages
+  */
+-#define ACPI_COMMON_MSG_SUFFIX \
+-	acpi_os_printf(" (%8.8X/%s-%u)\n", ACPI_CA_VERSION, module_name, line_number)
++#define ACPI_COMMON_MSG_SUFFIX_FMT  " (%8.8X/%s-%u)"
++#define ACPI_COMMON_MSG_SUFFIX_ARGS ACPI_CA_VERSION, module_name, line_number
+ /*******************************************************************************
+  *
+  * FUNCTION:    acpi_ut_validate_exception
+@@ -1063,12 +1063,16 @@ void ACPI_INTERNAL_VAR_XFACE
+ acpi_error(const char *module_name, u32 line_number, const char *format, ...)
+ {
+ 	va_list args;
+-
+-	acpi_os_printf("ACPI Error: ");
++	struct va_format vaf;
+ 
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++
++	vaf.fmt = format;
++	vaf.va = &args;
++
++	acpi_os_printf("ACPI Error: %pV" ACPI_COMMON_MSG_SUFFIX_FMT "\n",
++		       &vaf, ACPI_COMMON_MSG_SUFFIX_ARGS);
++
+ 	va_end(args);
+ }
+ 
+@@ -1077,12 +1081,18 @@ acpi_exception(const char *module_name,
+ 	       u32 line_number, acpi_status status, const char *format, ...)
+ {
+ 	va_list args;
+-
+-	acpi_os_printf("ACPI Exception: %s, ", acpi_format_exception(status));
++	struct va_format vaf;
+ 
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++
++	vaf.fmt = format;
++	vaf.va = &args;
++
++	acpi_os_printf("ACPI Exception: %s, %pV"
++		       ACPI_COMMON_MSG_SUFFIX_FMT "\n",
++		       acpi_format_exception(status), &vaf,
++		       ACPI_COMMON_MSG_SUFFIX_ARGS);
++
+ 	va_end(args);
+ }
+ 
+@@ -1090,12 +1100,16 @@ void ACPI_INTERNAL_VAR_XFACE
+ acpi_warning(const char *module_name, u32 line_number, const char *format, ...)
+ {
+ 	va_list args;
+-
+-	acpi_os_printf("ACPI Warning: ");
++	struct va_format vaf;
+ 
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++
++	vaf.fmt = format;
++	vaf.va = &args;
++
++	acpi_os_printf("ACPI Warning: %pV" ACPI_COMMON_MSG_SUFFIX_FMT "\n",
++		       &vaf, ACPI_COMMON_MSG_SUFFIX_ARGS);
++
+ 	va_end(args);
+ }
+ 
+@@ -1103,12 +1117,15 @@ void ACPI_INTERNAL_VAR_XFACE
+ acpi_info(const char *module_name, u32 line_number, const char *format, ...)
+ {
+ 	va_list args;
+-
+-	acpi_os_printf("ACPI: ");
++	struct va_format vaf;
+ 
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	acpi_os_printf("\n");
++
++	vaf.fmt = format;
++	vaf.va = &args;
++
++	acpi_os_printf("ACPI: %pV\n", &vaf);
++
+ 	va_end(args);
+ }
+ 
+@@ -1143,6 +1160,7 @@ acpi_ut_predefined_warning(const char *module_name,
+ 			   u8 node_flags, const char *format, ...)
+ {
+ 	va_list args;
++	struct va_format vaf;
+ 
+ 	/*
+ 	 * Warning messages for this method/object will be disabled after the
+@@ -1152,11 +1170,15 @@ acpi_ut_predefined_warning(const char *module_name,
+ 		return;
+ 	}
+ 
+-	acpi_os_printf("ACPI Warning for %s: ", pathname);
+-
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++
++	vaf.fmt = format;
++	vaf.va = &args;
++
++	acpi_os_printf("ACPI Warning for %s: %pV"
++		       ACPI_COMMON_MSG_SUFFIX_FMT "\n",
++		       pathname, &vaf, ACPI_COMMON_MSG_SUFFIX_ARGS);
++
+ 	va_end(args);
+ }
+ 
+@@ -1185,6 +1207,7 @@ acpi_ut_predefined_info(const char *module_name,
+ 			char *pathname, u8 node_flags, const char *format, ...)
+ {
+ 	va_list args;
++	struct va_format vaf;
+ 
+ 	/*
+ 	 * Warning messages for this method/object will be disabled after the
+@@ -1194,10 +1217,13 @@ acpi_ut_predefined_info(const char *module_name,
+ 		return;
+ 	}
+ 
+-	acpi_os_printf("ACPI Info for %s: ", pathname);
+-
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++
++	vaf.fmt = format;
++	vaf.va = &args;
++
++	acpi_os_printf("ACPI Info for %s: %pV" ACPI_COMMON_MSG_SUFFIX_FMT "\n",
++		       pathname, &vaf, ACPI_COMMON_MSG_SUFFIX_ARGS);
++
+ 	va_end(args);
+ }
+
+
