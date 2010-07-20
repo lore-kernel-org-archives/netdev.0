@@ -1,97 +1,93 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: Re: Question about way that NICs deliver packets to the kernel
-Date: Tue, 20 Jul 2010 09:15:24 +0800
-Message-ID: <20100720011522.GA4123@host-a-160.ustcsz.edu.cn>
-References: <20100715142418.GA26491@host-a-229.ustcsz.edu.cn>
- <1279204417.2118.12.camel@achroite.uk.solarflarecom.com>
- <AANLkTild5SQvt7Uw7AAV7BrrSdvPdoglgbm1uJQnigdM@mail.gmail.com>
- <4C409DD6.7060903@hp.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] LSM: Add post accept() hook.
+Date: Tue, 20 Jul 2010 10:36:31 +0900
+Message-ID: <201007200136.o6K1aVc5015269@www262.sakura.ne.jp>
+References: <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp> <20100718.142550.25115105.davem@davemloft.net> <201007191325.IDI17618.VJStMOFOOLFFHQ@I-love.SAKURA.ne.jp> <201007191815.52124.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jmorris@namei.org,
+	sam@synack.fr, serge@hallyn.com, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:64800 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757892Ab0GTBPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 21:15:44 -0400
-Received: by pvc7 with SMTP id 7so1907958pvc.19
-        for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 18:15:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4C409DD6.7060903@hp.com>
+Received: from www262.sakura.ne.jp ([202.181.97.72]:59207 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932088Ab0GTBge (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jul 2010 21:36:34 -0400
+In-Reply-To: <201007191815.52124.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 16, 2010 at 10:58:46AM -0700, Rick Jones wrote:
->>Hi Ben,
->>I added options -c -C to netperf's command line. Result is as follows:
->>                    scheme 1    scheme 2    Imp.
->>Throughput:     683M        718M       5%
->>CPU usage:     47.8%       45.6%
->>
->>That really surprised me because "top" command showed the CPU usage
->>was fluctuating between 0.5% and 1.5% rather that between 45% and 50%.
->
+Paul Moore wrote:
+> I think you need to show how you plan to use this hook in an LSM before we can 
+> consider merging it with mainline.  What you are proposing here is giving an 
+> LSM the ability to drop a connection _after_ allowing it to be established in 
+> the first place; this seems very wrong to me and I want to make sure everyone 
+> else is aware of that before accepting this code into the kernel.  I 
+> understand that TOMOYO's security model does not allow it to reject incoming 
+> connections at the beginning of the connection request like some of the LSMs 
+> currently in use, but I'm just not very happy with the idea of finishing a 
+> connection handshake only to later drop the connection on the floor.
 
-Hi rick,
-very sorry for my late reply. Just recovered from the final exam.:)
+Yes. I'm planning to use security_socket_post_accept() for two purposes.
 
->Can you tell us a bit more about the system, and which version of
->netperf you are using?  
 
-The target machine is a Pentium Dual-core E2200 desktop with a r8169 
-gigabit NIC. (I couldn't find a better server with old pci slot.)
 
-Another machine is a Nehalem based system with Intel 82576 NIC.
+One is for dropping connections from unwanted hosts. Administrators define
+policy before enabling enforcing mode (the mode which connections are dropped
+if operation was not granted by policy). Administrators specify acceptable
+hosts (i.e. hosts which this host needs to communicate with) and unacceptable
+hosts (i.e. hosts which this host needn't to communicate with).
+Dropping connections would happen if some process was hijacked and the process
+attempted to communicate with other processes using TCP connections. But
+dropping connections should not happen in normal circumstance.
 
-The target machine executes netserver and Nehalem machine executes netperf.
-The version of netperf is 2.4.5
 
->Any chance that the CPU utilization you were
->looking at in top was just that being charged to netperf the process?
 
-What I see on target machine is as follows:
+The other is for updating process's state variable upon accept() operation.
+LKM version of TOMOYO has per a task_struct variable that is used for
+implementing stateful permissions. (As of now, not implemented for LSM version
+of TOMOYO.) For example,
 
-top - 21:37:12 up 21 min,  6 users,  load average: 0.43, 0.28, 0.19
-Tasks: 152 total,   2 running, 149 sleeping,   0 stopped,   1 zombie
-Cpu(s):  2.3%us,  1.5%sy,  0.1%ni, 89.5%id,  2.7%wa,  0.0%hi,  3.9%si,  0.0%
-Mem:   2074064k total,   690200k used,  1383864k free,    39372k buffers
-Swap:  2096476k total,        0k used,  2096476k free,   435044k cached
+  allow_network TCP accept 10.0.0.0-10.255.255.255 1024-65535 ; set task.state[0]=1
+  allow_network TCP accept 192.168.0.1-192.168.255.255 1024-65535 ; set task.state[0]=2
 
-PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND    
-3916 root      20   0  2228  584  296 R 84.6  0.0   0:07.12 netserver    
+will change current thread's task state variable to 1 if current thread
+accepted TCP connection from 10.0.0.0-10.255.255.255 and change it to 2 if from
+192.168.0.1-192.168.255.255 . This variable is used for giving different
+permissions for subsequent operations. For example,
 
-It shows the CPU usage of taget machine is around 10%.
+  allow_execute /bin/bash if task.state[0]=1
+  allow_execute /bin/tcsh if task.state[0]=2
 
-while Nehalem machine's report is as follows:
+will allow execution of /bin/bash if current thread is dealing connections from
+10.0.0.0-10.255.255.255 and allow execution of /bin/tcsh if current thread is
+dealing connections from 192.168.0.1-192.168.255.255 . Another example,
 
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.2.1 (192.168.2.1) port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+  allow_network TCP accept 0.0.0.0-255.255.255.255 1024-65535 ; set task.state[0]=3
+  allow_network TCP accept 0.0.0.0-255.255.255.255 1-1023 ; set task.state[0]=4
 
-87380  16384  16384    10.05       679.79   1.63     48.27    1.571   11.634 
+will change it to 3 if from unprivileged port and change it to 4 if from
+privileged port.
 
-It shows the CPU usage of target machine is 48.27%.
+  allow_execute /bin/rbash if task.state[0]=3
+  allow_execute /bin/bash if task.state[0]=4
 
->"Network processing" does not often get charged to the responsible
->process, so netperf reports system-wide CPU utilization on the
->assumption it is the only thing causing the CPUs to be utilized.
+will allow execution of /bin/rbash if dealing connections from unprivileged
+ports and allow execution of /bin/bash if dealing connections from privileged
+ports.
 
-My understand of your commends is:
-1)except running in ksoftirqd, network processing cannot be correctly counted
-  because it runs in interrupt contexts that do not get charged to a correct
-  process. So "top" misses lots of CPU usage in high interrupt rate network
-  situation.
-2)As you have mentioned in netperf's manual, netperf uses /proc/stat on Linux
-  to retrieve time spent in idle mode. In other words, it accumulates cpu time
-  spent in all other modes, including hardware interrupt, software interrupt,
-  etc., making the CPU usage more accurate in high interrupt situation.
-3)Since most processes in target machine are in sleeping mode, the CPU usage
-  of network processing is in actually very close to 48.27%. Right?
+LSM hooks called before sock->ops->accept() cannot change current thread's task
+state variable because it is racy, and LSM hook called after sock->ops->accept()
+is missing.
 
-Correct me if any of them are incorrect. Thanks.
-
---Junchang
+Strictly speaking, it could be possible to update current thread's task state
+variable in LSM hooks called by subsequent operations (e.g.
+security_dentry_open(), security_bprm_set_creds()) by doing similar approach
+done by tomoyo_dead_sock(), but updating it can fail (e.g. -ENOMEM) since
+credentials are COW. If updating it failed, I want to drop the accept()ed
+connection, but that is impossible from LSM hooks called by subsequent
+operations. Killing current thread when updating it failed is possible, but
+that looks worse for me than dropping connections upon accept() time (because
+such action resembles OOM killer and likely gives larger damage to the caller).
