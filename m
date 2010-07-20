@@ -1,54 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [net-next-2.6 PATCH 2/5] ixgbe: drop support for UDP in RSS
  hash generation
-Date: Tue, 20 Jul 2010 08:39:40 +0200
-Message-ID: <1279607980.2458.82.camel@edumazet-laptop>
+Date: Mon, 19 Jul 2010 23:44:54 -0700 (PDT)
+Message-ID: <20100719.234454.123445936.davem@davemloft.net>
 References: <20100719235831.14112.14175.stgit@localhost.localdomain>
-	 <20100719235925.14112.65890.stgit@localhost.localdomain>
+	<20100719235925.14112.65890.stgit@localhost.localdomain>
+	<1279607980.2458.82.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	bphilips@novell.com, Alexander Duyck <alexander.h.duyck@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com, alexander.h.duyck@intel.com,
+	donald.c.skidmore@intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:42013 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755356Ab0GTGjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 02:39:44 -0400
-Received: by wwj40 with SMTP id 40so379034wwj.1
-        for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 23:39:43 -0700 (PDT)
-In-Reply-To: <20100719235925.14112.65890.stgit@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57710
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754398Ab0GTGoi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 02:44:38 -0400
+In-Reply-To: <1279607980.2458.82.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 19 juillet 2010 =C3=A0 16:59 -0700, Jeff Kirsher a =C3=A9crit =
-:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
->=20
-> This change removes UDP from the supported protocols for RSS hashing.=
-  The
-> reason for removing this protocol is because IP fragmentation was cau=
-sing a
-> network flow to be broken into two streams, one for fragmented, and o=
-ne for
-> non-fragmented and this in turn was causing out-of-order issues.
->=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 20 Jul 2010 08:39:40 +0200
 
-Jeff, does it mean all UDP packets are going to be delivered to a singl=
-e
-queue ?
+> This would be a serious regression.
 
-This would be a serious regression.
+The regression is in the hardware Eric.
 
-Many UDP applications try hard to not use fragments.=20
+> Many UDP applications try hard to not use fragments. 
+> 
+> They are going to pay the price because some application :
+> - Use big segments, fragmented.
+> - Is subject to OOO artifacts.
 
-They are going to pay the price because some application :
-- Use big segments, fragmented.
-- Is subject to OOO artifacts.
+None of this matters.  If the hardware can't flow seperate properly
+it's tough cookies.
 
-We would like some clarifications please :)
+We never may reorder packets in our stack by our own doing.  The
+only safe default is to turn UDP flow seperation off on chips
+like ixgbe.
 
-
-
+If you want an ethtool knob to turn it back on for your machines,
+fine.  But never can it be enabled by default.
