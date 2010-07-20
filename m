@@ -1,46 +1,168 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/5] ixgbe: drop support for UDP in RSS
- hash generation
-Date: Mon, 19 Jul 2010 23:44:54 -0700 (PDT)
-Message-ID: <20100719.234454.123445936.davem@davemloft.net>
-References: <20100719235831.14112.14175.stgit@localhost.localdomain>
-	<20100719235925.14112.65890.stgit@localhost.localdomain>
-	<1279607980.2458.82.camel@edumazet-laptop>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: Re: [RFC PATCH v3 4/5] skb: add tracepoints to freeing skb
+Date: Tue, 20 Jul 2010 15:47:53 +0900
+Message-ID: <4C454699.8050308@jp.fujitsu.com>
+References: <4C44F12F.5090908@jp.fujitsu.com>	 <4C44F286.1050907@jp.fujitsu.com> <1279601643.2458.64.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com, alexander.h.duyck@intel.com,
-	donald.c.skidmore@intel.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57710
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754398Ab0GTGoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 02:44:38 -0400
-In-Reply-To: <1279607980.2458.82.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, kaneshige.kenji@jp.fujitsu.com,
+	izumi.taku@jp.fujitsu.com, kosaki.motohiro@jp.fujitsu.com,
+	nhorman@tuxdriver.com, laijs@cn.fujitsu.com,
+	scott.a.mcmillan@intel.com, rostedt@goodmis.org,
+	fweisbec@gmail.com, mathieu.desnoyers@polymtl.ca
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1279601643.2458.64.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 20 Jul 2010 08:39:40 +0200
+(2010/07/20 13:54), Eric Dumazet wrote:
+> Le mardi 20 juillet 2010 =C3=A0 09:49 +0900, Koki Sanagi a =C3=A9crit=
+ :
+>> [RFC PATCH v3 4/5] skb: add tracepoints to freeing skb
+>> This patch adds tracepoint to consume_skb, dev_kfree_skb_irq and
+>> skb_free_datagram_locked. Combinating with tracepoint on dev_hard_st=
+art_xmit,
+>> we can check how long it takes to free transmited packets. And using=
+ it, we can
+>> calculate how many packets driver had at that time. It is useful whe=
+n a drop of
+>> transmited packet is a problem.
+>>
+>>           <idle>-0     [001] 241409.218333: consume_skb: skbaddr=3Dd=
+d6b2fb8
+>>           <idle>-0     [001] 241409.490555: dev_kfree_skb_irq: skbad=
+dr=3Df5e29840
+>>
+>>         udp-recv-302   [001] 515031.206008: skb_free_datagram_locked=
+: skbaddr=3Df5b1d900
+>>
+>>
+>> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+>> ---
+>>  include/trace/events/skb.h |   42 +++++++++++++++++++++++++++++++++=
++++++++++
+>>  net/core/datagram.c        |    1 +
+>>  net/core/dev.c             |    2 ++
+>>  net/core/skbuff.c          |    1 +
+>>  4 files changed, 46 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+>> index 4b2be6d..84c9041 100644
+>> --- a/include/trace/events/skb.h
+>> +++ b/include/trace/events/skb.h
+>> @@ -35,6 +35,48 @@ TRACE_EVENT(kfree_skb,
+>>  		__entry->skbaddr, __entry->protocol, __entry->location)
+>>  );
+>> =20
+>> +DECLARE_EVENT_CLASS(free_skb,
+>> +
+>> +	TP_PROTO(struct sk_buff *skb),
+>> +
+>> +	TP_ARGS(skb),
+>> +
+>> +	TP_STRUCT__entry(
+>> +		__field(	void *,	skbaddr	)
+>> +	),
+>> +
+>> +	TP_fast_assign(
+>> +		__entry->skbaddr =3D skb;
+>> +	),
+>> +
+>> +	TP_printk("skbaddr=3D%p", __entry->skbaddr)
+>> +
+>> +);
+>> +
+>> +DEFINE_EVENT(free_skb, consume_skb,
+>> +
+>> +	TP_PROTO(struct sk_buff *skb),
+>> +
+>> +	TP_ARGS(skb)
+>> +
+>> +);
+>> +
+>> +DEFINE_EVENT(free_skb, dev_kfree_skb_irq,
+>> +
+>> +	TP_PROTO(struct sk_buff *skb),
+>> +
+>> +	TP_ARGS(skb)
+>> +
+>> +);
+>> +
+>> +DEFINE_EVENT(free_skb, skb_free_datagram_locked,
+>> +
+>> +	TP_PROTO(struct sk_buff *skb),
+>> +
+>> +	TP_ARGS(skb)
+>> +
+>> +);
+>> +
+>>  TRACE_EVENT(skb_copy_datagram_iovec,
+>> =20
+>>  	TP_PROTO(const struct sk_buff *skb, int len),
+>> diff --git a/net/core/datagram.c b/net/core/datagram.c
+>> index f5b6f43..1ea32a0 100644
+>> --- a/net/core/datagram.c
+>> +++ b/net/core/datagram.c
+>> @@ -231,6 +231,7 @@ void skb_free_datagram_locked(struct sock *sk, s=
+truct sk_buff *skb)
+>>  {
+>>  	bool slow;
+>> =20
+>> +	trace_skb_free_datagram_locked(skb);
+>=20
+> Here you unconditionally trace before the test on skb->users
+>=20
+>>  	if (likely(atomic_read(&skb->users) =3D=3D 1))
+>>  		smp_rmb();
+>>  	else if (likely(!atomic_dec_and_test(&skb->users)))
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 4acfec6..d979847 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -131,6 +131,7 @@
+>>  #include <linux/random.h>
+>>  #include <trace/events/napi.h>
+>>  #include <trace/events/net.h>
+>> +#include <trace/events/skb.h>
+>>  #include <linux/pci.h>
+>> =20
+>>  #include "net-sysfs.h"
+>> @@ -1581,6 +1582,7 @@ void dev_kfree_skb_irq(struct sk_buff *skb)
+>>  		struct softnet_data *sd;
+>>  		unsigned long flags;
+>> =20
+>> +		trace_dev_kfree_skb_irq(skb);
+>>  		local_irq_save(flags);
+>>  		sd =3D &__get_cpu_var(softnet_data);
+>>  		skb->next =3D sd->completion_queue;
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 34432b4..a7b4036 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -466,6 +466,7 @@ void consume_skb(struct sk_buff *skb)
+>>  		smp_rmb();
+>>  	else if (likely(!atomic_dec_and_test(&skb->users)))
+>>  		return;
+>=20
+> While here you trace _after_ the test on skb->users - and a "return;"=
+ ,
+> so you miss some consume_skb() calls
+>=20
+Yeah, I'll move trace_consume_skb() before the test.
 
-> This would be a serious regression.
+Thanks,
+Koki Sanagi.
 
-The regression is in the hardware Eric.
-
-> Many UDP applications try hard to not use fragments. 
-> 
-> They are going to pay the price because some application :
-> - Use big segments, fragmented.
-> - Is subject to OOO artifacts.
-
-None of this matters.  If the hardware can't flow seperate properly
-it's tough cookies.
-
-We never may reorder packets in our stack by our own doing.  The
-only safe default is to turn UDP flow seperation off on chips
-like ixgbe.
-
-If you want an ethtool knob to turn it back on for your machines,
-fine.  But never can it be enabled by default.
+>=20
+>> +	trace_consume_skb(skb);
+>>  	__kfree_skb(skb);
+>>  }
+>>  EXPORT_SYMBOL(consume_skb);
+>>
+>=20
+>=20
+>=20
+>=20
