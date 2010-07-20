@@ -1,60 +1,47 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: netfilter/iptables stopped logging 2.6.35-rc
-Date: Tue, 20 Jul 2010 14:51:03 +0200
-Message-ID: <201007201451.03666.maciej.rutecki@gmail.com>
-References: <20100717072036.1BBE52804B@smtp.hushmail.com>
-Reply-To: maciej.rutecki@gmail.com
+From: Brian Bloniarz <bmb@athenacr.com>
+Subject: Re: Very low latency TCP for clusters
+Date: Tue, 20 Jul 2010 08:57:38 -0400
+Message-ID: <4C459D42.2060402@athenacr.com>
+References: <AANLkTilNmNZbFWS8LF-UHU65QYIC32HZlgVZ7lXJHxPh@mail.gmail.com>	<1279561319.2553.153.camel@edumazet-laptop>	<AANLkTiniRmnwG4vT-MrQQHQjrdQ4sfOn6Uxi42Dsr8nu@mail.gmail.com>	<1279576980.2458.56.camel@edumazet-laptop> <AANLkTillCVWMHHBImGEeRYy2MJYqtGIvSPvacLKJnpP2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: auto401300@hushmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54147 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932155Ab0GTMvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 08:51:12 -0400
-In-Reply-To: <20100717072036.1BBE52804B@smtp.hushmail.com>
+Received: from sprinkles.athenacr.com ([64.95.46.210]:23063 "EHLO
+	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932155Ab0GTM5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 08:57:42 -0400
+In-Reply-To: <AANLkTillCVWMHHBImGEeRYy2MJYqtGIvSPvacLKJnpP2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On sobota, 17 lipca 2010 o 09:20:36 auto401300@hushmail.com wrote:
-> Hi!
-> 
-> Has something broken with netfilter/iptables logging in 2.6.35-rc,
-> or is there something new I should set in .config since .34?
-> 
-> 
-> I just verified that if I boot .34 and ping the pc it does logging:
-> 
-> Jul 17 09:42:49 xxxxx kernel: Linux version 2.6.34-ab (root@xxxxx)
-> (gcc version 4.4.4 (Debian 4.4.4-1) ) #1 SMP PREEMPT Mon May 17
-> 09:15
-> 
-> :15 EEST 2010
-> 
-> ....
-> Jul 17 09:44:52 xxxxx kernel: DENY  in: IN=eth0 OUT= MAC=xxxxx
-> SRC=xxxxx DST=xxxxx LEN=60 TOS=0x00 PREC=0x00 TTL=127 ID=38945
-> PROTO=ICMP TYPE=8 CODE=0 ID=512 SEQ=256
-> 
-> 
-> but if I boot .35-rc4 and ping:
-> 
-> Jul 17 09:48:08 xxxxx kernel: Linux version 2.6.35-rc4-aa
-> (root@xxxxx) (gcc version 4.4.4 (Debian 4.4.4-6) ) #1 SMP PREEMPT
-> Mon Jul 5 15:22:02 EEST 2010
-> ....
-> nothing from iptables in log
-> 
-> 
-> userspace is same, only booted different kernel versions
+Tom Herbert wrote:
+> On Mon, Jul 19, 2010 at 3:03 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+>> Le lundi 19 juillet 2010 =E0 11:44 -0700, Tom Herbert a =E9crit :
+>>
+>>> I see about 7 usecs as best number on loopback, so I believe this i=
+s
+>>> in the ballpark.  As I mentioned above, this about "best case" late=
+ncy
+>>> of a single thread, so we assume any amount of pinning or other
+>>> customized configuration to that purpose.
+>> Well, given I get 29 us on a ping between two machines (Gb link, no
+>> process involved on receiver, only softirq), I really doubt we can r=
+each
+>> 5 us on a tcp test involving a user process on both side ;)
+>>
+> That's pretty pokey ;-) I see numbers around 25 usecs between to
+> machines, this is with TCP_NBRR.  With TCP_RR it's more like 35 usecs=
+,
+> so eliminating the scheduler is already a big reduction.  That leaves
+> 18 usecs in device time, interrupt processing, network, and cache
+> misses; 7 usecs in TCP processing, user space.  While 5 usecs is an
+> aggressive goal, I am not ready to concede that there's an
+> architectural limit in either NICs, TCP, or sockets that can't be
+> overcome.
 
-I created a Bugzilla entry at 
-https://bugzilla.kernel.org/show_bug.cgi?id=16423
-for your bug report, please add your address to the CC list in there, thanks!
-
--- 
-Maciej Rutecki
-http://www.maciek.unixy.pl
+Have you toyed with the NIC's interrupt coalescing yet?
+I'm wondering if any part of the 25usecs is that.
