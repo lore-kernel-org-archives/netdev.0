@@ -1,80 +1,68 @@
-From: auto401300@hushmail.com
-Subject: Re: netfilter/iptables stopped logging 2.6.35-rc
-Date: Tue, 20 Jul 2010 22:22:56 +0300
-Message-ID: <20100720192256.EC3661200AA@smtp.hushmail.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH] LSM: Add post accept() hook.
+Date: Tue, 20 Jul 2010 15:52:29 -0400
+Message-ID: <201007201552.29539.paul.moore@hp.com>
+References: <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp> <201007191815.52124.paul.moore@hp.com> <201007200136.o6K1aVc5015269@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: maciej.rutecki@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp11.hushmail.com ([65.39.178.133]:36517 "EHLO
-	smtp11.hushmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758661Ab0GTTXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 15:23:05 -0400
-Received: from smtp11.hushmail.com (localhost.localdomain [127.0.0.1])
-	by smtp11.hushmail.com (Postfix) with SMTP id 5E3DA1CA35B
-	for <netdev@vger.kernel.org>; Tue, 20 Jul 2010 19:23:01 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jmorris@namei.org,
+	sam@synack.fr, serge@hallyn.com, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201007200136.o6K1aVc5015269@www262.sakura.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Monday, July 19, 2010 09:36:31 pm Tetsuo Handa wrote:
+> Paul Moore wrote:
+> > I think you need to show how you plan to use this hook in an LSM before
+> > we can consider merging it with mainline.  What you are proposing here
+> > is giving an LSM the ability to drop a connection _after_ allowing it to
+> > be established in the first place; this seems very wrong to me and I
+> > want to make sure everyone else is aware of that before accepting this
+> > code into the kernel.  I understand that TOMOYO's security model does
+> > not allow it to reject incoming connections at the beginning of the
+> > connection request like some of the LSMs currently in use, but I'm just
+> > not very happy with the idea of finishing a connection handshake only to
+> > later drop the connection on the floor.
+> 
+> Yes. I'm planning to use security_socket_post_accept() for two purposes.
+> 
+> One is for dropping connections from unwanted hosts. Administrators define
+> policy before enabling enforcing mode (the mode which connections are
+> dropped if operation was not granted by policy). Administrators specify
+> acceptable hosts (i.e. hosts which this host needs to communicate with)
+> and unacceptable hosts (i.e. hosts which this host needn't to communicate
+> with).
 
+You can enforce per-host access controls without the need for a post-accept() 
+hooks, e.g. security_sock_rcv_skb() and the netfilter hooks 
+(NF_INET_POST_ROUTING, NF_INET_FORWARD, NF_INET_LOCAL_OUT).  Or are you 
+interested in controlling which hosts an _application_ can communicate with?
 
-On Tue, 20 Jul 2010 15:51:03 +0300 Maciej Rutecki 
-<maciej.rutecki@gmail.com> wrote:
->On sobota, 17 lipca 2010 o 09:20:36 auto401300@hushmail.com wrote:
->> Hi!
->> 
->> Has something broken with netfilter/iptables logging in 2.6.35-
->rc,
->> or is there something new I should set in .config since .34?
->> 
->> 
->> I just verified that if I boot .34 and ping the pc it does 
->logging:
->> 
->> Jul 17 09:42:49 xxxxx kernel: Linux version 2.6.34-ab 
->(root@xxxxx)
->> (gcc version 4.4.4 (Debian 4.4.4-1) ) #1 SMP PREEMPT Mon May 17
->> 09:15
->> 
->> :15 EEST 2010
->> 
->> ....
->> Jul 17 09:44:52 xxxxx kernel: DENY  in: IN=eth0 OUT= MAC=xxxxx
->> SRC=xxxxx DST=xxxxx LEN=60 TOS=0x00 PREC=0x00 TTL=127 ID=38945
->> PROTO=ICMP TYPE=8 CODE=0 ID=512 SEQ=256
->> 
->> 
->> but if I boot .35-rc4 and ping:
->> 
->> Jul 17 09:48:08 xxxxx kernel: Linux version 2.6.35-rc4-aa
->> (root@xxxxx) (gcc version 4.4.4 (Debian 4.4.4-6) ) #1 SMP 
->PREEMPT
->> Mon Jul 5 15:22:02 EEST 2010
->> ....
->> nothing from iptables in log
->> 
->> 
->> userspace is same, only booted different kernel versions
->
->I created a Bugzilla entry at 
->https://bugzilla.kernel.org/show_bug.cgi?id=16423
->for your bug report, please add your address to the CC list in 
->there, thanks!
->
->-- 
->Maciej Rutecki
->http://www.maciek.unixy.pl
+> Dropping connections would happen if some process was hijacked and the
+> process attempted to communicate with other processes using TCP
+> connections. But dropping connections should not happen in normal
+> circumstance.
 
+It doesn't matter if dropping connections is normal or not, what matters is 
+that it can happen.
 
-I just thought that whole initramfs may be also different and tried 
-to compile
-.34 again to test if it still does iptables logging with current 
-toolchain but
-just now debian kernel-package is broken due to
-http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=589700
-I will try again when that is fixed
+> The other is for updating process's state variable upon accept() operation.
+> LKM version of TOMOYO has per a task_struct variable that is used for
+> implementing stateful permissions. (As of now, not implemented for LSM
+> version of TOMOYO.)
 
-thanks.
+I'm open to re-introducing a post-accept() hook that does not have a return 
+value, in other words, a hook that can only be used to update LSM state and 
+not affect the connection.  Although I do think you could probably achieve the 
+same thing using some of the existing LSM hooks (look at how SELinux updates 
+its state upon accept()) but that is something you would have to look it and 
+see if it works for TOMOYO.
 
+-- 
+paul moore
+linux @ hp
