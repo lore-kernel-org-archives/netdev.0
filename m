@@ -1,88 +1,32 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] drop_monitor: convert some kfree_skb call sites to
- consume_skb
-Date: Tue, 20 Jul 2010 12:45:56 -0400
-Message-ID: <20100720164556.GF1995@hmsreliant.think-freely.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Add batman-adv meshing protocol
+Date: Tue, 20 Jul 2010 09:59:28 -0700 (PDT)
+Message-ID: <20100720.095928.113690788.davem@davemloft.net>
+References: <1279291156-5297-2-git-send-email-sven.eckelmann@gmx.de>
+	<20100719.212625.255369607.davem@davemloft.net>
+	<201007201028.12470.sven.eckelmann@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, viro@zeniv.linux.org.uk, eparis@redhat.com,
-	nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: b.a.t.m.a.n@lists.open-mesh.org, siwu@hrz.tu-chemnitz.de,
+	netdev@vger.kernel.org
+To: sven.eckelmann@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:32783 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761377Ab0GTQs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 12:48:26 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46775
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758478Ab0GTQ7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 12:59:12 -0400
+In-Reply-To: <201007201028.12470.sven.eckelmann@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert a few calls from kfree_skb to consume_skb
+From: Sven Eckelmann <sven.eckelmann@gmx.de>
+Date: Tue, 20 Jul 2010 10:28:10 +0200
 
-Noticed while I was working on dropwatch that I was detecting lots of internal
-skb drops in several places.  While some are legitimate, several were not,
-freeing skbs that were at the end of their life, rather than being discarded due
-to an error.  This patch converts those calls sites from using kfree_skb to
-consume_skb, which quiets the in-kernel drop_monitor code from detecting them as
-drops.  Tested successfully by myself
+> I would leave that to the original author of those functions.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Eric Paris <eparis@redhat.com>
-CC: Al Viro <viro@zeniv.linux.org.uk>
+Whoever you leave it to, this needs to be fixed up before this
+code can be integrated.  So if those people are not active or
+don't have time, you very much should consider the reality that
+you might have to do these fixups yourself.
 
-
- kernel/audit.c           |    2 +-
- net/netlink/af_netlink.c |    9 +++++----
- net/unix/af_unix.c       |    2 +-
- 3 files changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/kernel/audit.c b/kernel/audit.c
-index c71bd26..8296aa5 100644
---- a/kernel/audit.c
-+++ b/kernel/audit.c
-@@ -407,7 +407,7 @@ static void kauditd_send_skb(struct sk_buff *skb)
- 		audit_hold_skb(skb);
- 	} else
- 		/* drop the extra reference if sent ok */
--		kfree_skb(skb);
-+		consume_skb(skb);
- }
- 
- static int kauditd_thread(void *dummy)
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7aeaa83..8648a99 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1076,14 +1076,15 @@ int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb, u32 pid,
- 	sk_for_each_bound(sk, node, &nl_table[ssk->sk_protocol].mc_list)
- 		do_one_broadcast(sk, &info);
- 
--	kfree_skb(skb);
-+	consume_skb(skb);
- 
- 	netlink_unlock_table();
- 
--	kfree_skb(info.skb2);
--
--	if (info.delivery_failure)
-+	if (info.delivery_failure) {
-+		kfree_skb(info.skb2);
- 		return -ENOBUFS;
-+	} else
-+		consume_skb(info.skb2);
- 
- 	if (info.delivered) {
- 		if (info.congested && (allocation & __GFP_WAIT))
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 75ba48b..4414a18 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1906,7 +1906,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 				break;
- 			}
- 
--			kfree_skb(skb);
-+			consume_skb(skb);
- 
- 			if (siocb->scm->fp)
- 				break;
