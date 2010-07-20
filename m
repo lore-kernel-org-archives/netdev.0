@@ -1,67 +1,70 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: net/dsa
-Date: Tue, 20 Jul 2010 15:59:50 +0200
-Message-ID: <20100720135950.GZ14513@mail.wantstofly.org>
-References: <4C3B8231.6020706@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] sysfs: add entry to indicate network
+ interfaces with random MAC address
+Date: Tue, 20 Jul 2010 15:29:54 +0100
+Message-ID: <1279636194.2110.45.camel@achroite.uk.solarflarecom.com>
+References: <4C457F72.8090708@redhat.com>
+	 <1279624844.2110.3.camel@achroite.uk.solarflarecom.com>
+	 <4C458CB7.3030508@redhat.com>
+	 <1279627656.2110.13.camel@achroite.uk.solarflarecom.com>
+	 <4C45996B.3000003@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Karl Beldan <karl.beldan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:55654 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752523Ab0GTN7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 09:59:54 -0400
-Content-Disposition: inline
-In-Reply-To: <4C3B8231.6020706@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	davem@davemloft.net, Andy Gospodarek <gospo@redhat.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	Harald Hoyer <harald@redhat.com>
+To: Stefan Assmann <sassmann@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C45996B.3000003@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 12, 2010 at 10:59:29PM +0200, Karl Beldan wrote:
-
-> Hi,
-
-Hi Karl,
-
-Sorry, I didn't see your mail initially -- please CC me in the future.
-
-
-> I found the dsa code very handy to help manage a switch.
-
-Ah.  What particular part are you using?
-
-
-> Yet I was surprised I had to tweak the code to simply use the phy
-> layer state machine.
-
-You mean that net/dsa uses phy_attach() but not phy_start_machine() ?
-Have you seen problems arising from this?
-
-
-> And I don't see much activity in the code nor any discussion, e.g no
-> follow up to http://patchwork.ozlabs.org/patch/16578.
+On Tue, 2010-07-20 at 14:41 +0200, Stefan Assmann wrote:
+> On 20.07.2010 14:07, Ben Hutchings wrote:
+> > On Tue, 2010-07-20 at 13:47 +0200, Stefan Assmann wrote:
+> >> On 20.07.2010 13:20, Ben Hutchings wrote:
+> >>> On Tue, 2010-07-20 at 12:50 +0200, Stefan Assmann wrote:
+> >>>> From: Stefan Assmann <sassmann@redhat.com>
 > 
-> So I was wondering if there was anybody playing with this code, or
-> having ideas about features to add (vlan/stp callbacks) ?
+> [snip]
+> 
+> >> Actually Dave Miller suggested to put it there. What other place is
+> >> there to put it?
+> > 
+> > If Dave said that then I'm sure it's OK.
+> > 
+> > However, if you define this as an interface flag (net_device::flags;
+> > <linux/if.h>) and add it to the set of changeable flags in
+> > __dev_change_flags(), user-space will be able to clear the flag if it
+> > later sets a stable address.
+> 
+> As I said I'm not that knowledgeable about this MAC address stealing
+> thing and I'm assuming that's what you're aiming at. Would you really
+> want/need it to be user-space writable? Currently all I can think of is
+> the scenario where you set a "stable" address that outlasts a reboot so
+> udev might be able to assign it a permanent name after it gets stable.
+>
+> So it might make sense to have it writable, but I'd like to avoid to add
+> unnecessary complexity that may cause errors if it's not necessary.
+> Read-only is simple, just read the flag and deal with it.
 
-As far as I know, the code currently in the kernel works well for what
-it intends to do (which is to just expose the switch ports), and I'm
-not aware of any bugs in it.
+Once this flag has been added, it may be used by any tool and not just
+udev, so it ought to indicate the status of the currently assigned
+address.  That requires that it be writable.
 
-That said, you're right in that there are several more features that
-the hardware supports that the software could be extended to handle.
+> Btw, the driver itself could also alter the flag. Then we'd have a well
+> defined way of setting a stable address.
 
-For one, I don't have access to any Marvell switch chip hardware
-anymore, so that limits my ability to play with this.  Also, the
-relevant documentation is under a rather restrictive license, so the
-only way I can see net/dsa support for Marvell parts improving is if
-there's pressure from a large enough customer to make this happen.
+The driver can't know whether an address assigned by the user is stable.
 
-If this is about non-Marvell parts, I'd welcome adding support for
-those into net/dsa.  For one, I would really like to see Broadcom
-switch chip support added -- the documentation for those chips is
-under similarly restrictive licensing, though.
+Ben.
 
-
-thanks,
-Lennert
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
