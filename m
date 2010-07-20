@@ -1,114 +1,187 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ixgbe: fix ethtool stats
-Date: Tue, 20 Jul 2010 19:28:26 +0200
-Message-ID: <1279646906.2498.103.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] drivers/acpi/acpica/utmisc.c: Use printk
+ extension %pV
+Date: Tue, 20 Jul 2010 11:16:20 -0700
+Message-ID: <1279649780.22947.38.camel@Joe-Laptop.home>
+References: <1279602367.19374.20.camel@Joe-Laptop.home>
+	 <201007201008.04496.bjorn.helgaas@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+Cc: Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:42873 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754113Ab0GTR2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 13:28:34 -0400
-Received: by wwj40 with SMTP id 40so1119332wwj.1
-        for <netdev@vger.kernel.org>; Tue, 20 Jul 2010 10:28:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <201007201008.04496.bjorn.helgaas@hp.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Note : I am currently unable to test following patch, could you please
-Intel guys test it and Ack (or Nack) it ?
+On Tue, 2010-07-20 at 10:08 -0600, Bjorn Helgaas wrote:
+> On Monday, July 19, 2010 11:06:07 pm Joe Perches wrote:
+> > Consolidates the printk messages to a single
+> > call so the messages can not be interleaved.
+> > 
+> > Reduces text a bit.
+> > 
+> > $ size drivers/acpi/acpica/utmisc.o.*
+> >    text	   data	    bss	    dec	    hex	filename
+> >    7822	     56	   1832	   9710	   25ee	drivers/acpi/acpica/utmisc.o.old
+> >    7748	     56	   1736	   9540	   2544	drivers/acpi/acpica/utmisc.o.new
+> > 
+> > Depends on net-next commit 7db6f5fb65a82af03229eef104dc9899c5eecf33
+> > (vsprintf: Recursive vsnprintf: Add "%pV", struct va_format)
+> 
+> drivers/acpi/acpica/utmisc.c is part of the ACPI CA and is used in
+> several different OSes, but %pV sounds like a Linux-specific feature,
+> so I don't see how this patch can work.
 
-Thanks !
+Well, maybe something like this then.
+It still reduces overall size a little bit, but less.
 
-[PATCH net-next-2.6] ixgbe: fix ethtool stats
+$ size drivers/acpi/acpica/utmisc.o
+   text	   data	    bss	    dec	    hex	filename
+   7816	     56	   1784	   9656	   25b8	drivers/acpi/acpica/utmisc.o
 
-In latest changes about 64bit stats on 32bit arches,
-[commit 28172739f0a276eb8 (net: fix 64 bit counters on 32 bit arches)],
-I missed ixgbe uses a bit of magic in its ixgbe_gstrings_stats
-definition.
-
-IXGBE_NETDEV_STAT() must now assume offsets relative to
-rtnl_link_stats64, not relative do dev->stats.
-
-As a bonus, we also get 64bit stats on ethtool -S
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+I'm not sure that utmisc.c is the right place for an #ifdef though.
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |   42 ++++++++++++++--------------
- 1 file changed, 21 insertions(+), 21 deletions(-)
+ drivers/acpi/acpica/utmisc.c |   76 +++++++++++++++++++++++++++---------------
+ 1 files changed, 49 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index da54b38..dcebc82 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -54,14 +54,14 @@ struct ixgbe_stats {
- 				sizeof(((struct ixgbe_adapter *)0)->m), \
- 				offsetof(struct ixgbe_adapter, m)
- #define IXGBE_NETDEV_STAT(m)	NETDEV_STATS, \
--				sizeof(((struct net_device *)0)->m), \
--				offsetof(struct net_device, m) - offsetof(struct net_device, stats)
-+				sizeof(((struct rtnl_link_stats64 *)0)->m), \
-+				offsetof(struct rtnl_link_stats64, m)
+diff --git a/drivers/acpi/acpica/utmisc.c b/drivers/acpi/acpica/utmisc.c
+index e8d0724..874e4d2 100644
+--- a/drivers/acpi/acpica/utmisc.c
++++ b/drivers/acpi/acpica/utmisc.c
+@@ -51,10 +51,45 @@
+ ACPI_MODULE_NAME("utmisc")
  
- static struct ixgbe_stats ixgbe_gstrings_stats[] = {
--	{"rx_packets", IXGBE_NETDEV_STAT(stats.rx_packets)},
--	{"tx_packets", IXGBE_NETDEV_STAT(stats.tx_packets)},
--	{"rx_bytes", IXGBE_NETDEV_STAT(stats.rx_bytes)},
--	{"tx_bytes", IXGBE_NETDEV_STAT(stats.tx_bytes)},
-+	{"rx_packets", IXGBE_NETDEV_STAT(rx_packets)},
-+	{"tx_packets", IXGBE_NETDEV_STAT(tx_packets)},
-+	{"rx_bytes", IXGBE_NETDEV_STAT(rx_bytes)},
-+	{"tx_bytes", IXGBE_NETDEV_STAT(tx_bytes)},
- 	{"rx_pkts_nic", IXGBE_STAT(stats.gprc)},
- 	{"tx_pkts_nic", IXGBE_STAT(stats.gptc)},
- 	{"rx_bytes_nic", IXGBE_STAT(stats.gorc)},
-@@ -69,27 +69,27 @@ static struct ixgbe_stats ixgbe_gstrings_stats[] = {
- 	{"lsc_int", IXGBE_STAT(lsc_int)},
- 	{"tx_busy", IXGBE_STAT(tx_busy)},
- 	{"non_eop_descs", IXGBE_STAT(non_eop_descs)},
--	{"rx_errors", IXGBE_NETDEV_STAT(stats.rx_errors)},
--	{"tx_errors", IXGBE_NETDEV_STAT(stats.tx_errors)},
--	{"rx_dropped", IXGBE_NETDEV_STAT(stats.rx_dropped)},
--	{"tx_dropped", IXGBE_NETDEV_STAT(stats.tx_dropped)},
--	{"multicast", IXGBE_NETDEV_STAT(stats.multicast)},
-+	{"rx_errors", IXGBE_NETDEV_STAT(rx_errors)},
-+	{"tx_errors", IXGBE_NETDEV_STAT(tx_errors)},
-+	{"rx_dropped", IXGBE_NETDEV_STAT(rx_dropped)},
-+	{"tx_dropped", IXGBE_NETDEV_STAT(tx_dropped)},
-+	{"multicast", IXGBE_NETDEV_STAT(multicast)},
- 	{"broadcast", IXGBE_STAT(stats.bprc)},
- 	{"rx_no_buffer_count", IXGBE_STAT(stats.rnbc[0]) },
--	{"collisions", IXGBE_NETDEV_STAT(stats.collisions)},
--	{"rx_over_errors", IXGBE_NETDEV_STAT(stats.rx_over_errors)},
--	{"rx_crc_errors", IXGBE_NETDEV_STAT(stats.rx_crc_errors)},
--	{"rx_frame_errors", IXGBE_NETDEV_STAT(stats.rx_frame_errors)},
-+	{"collisions", IXGBE_NETDEV_STAT(collisions)},
-+	{"rx_over_errors", IXGBE_NETDEV_STAT(rx_over_errors)},
-+	{"rx_crc_errors", IXGBE_NETDEV_STAT(rx_crc_errors)},
-+	{"rx_frame_errors", IXGBE_NETDEV_STAT(rx_frame_errors)},
- 	{"hw_rsc_aggregated", IXGBE_STAT(rsc_total_count)},
- 	{"hw_rsc_flushed", IXGBE_STAT(rsc_total_flush)},
- 	{"fdir_match", IXGBE_STAT(stats.fdirmatch)},
- 	{"fdir_miss", IXGBE_STAT(stats.fdirmiss)},
--	{"rx_fifo_errors", IXGBE_NETDEV_STAT(stats.rx_fifo_errors)},
--	{"rx_missed_errors", IXGBE_NETDEV_STAT(stats.rx_missed_errors)},
--	{"tx_aborted_errors", IXGBE_NETDEV_STAT(stats.tx_aborted_errors)},
--	{"tx_carrier_errors", IXGBE_NETDEV_STAT(stats.tx_carrier_errors)},
--	{"tx_fifo_errors", IXGBE_NETDEV_STAT(stats.tx_fifo_errors)},
--	{"tx_heartbeat_errors", IXGBE_NETDEV_STAT(stats.tx_heartbeat_errors)},
-+	{"rx_fifo_errors", IXGBE_NETDEV_STAT(rx_fifo_errors)},
-+	{"rx_missed_errors", IXGBE_NETDEV_STAT(rx_missed_errors)},
-+	{"tx_aborted_errors", IXGBE_NETDEV_STAT(tx_aborted_errors)},
-+	{"tx_carrier_errors", IXGBE_NETDEV_STAT(tx_carrier_errors)},
-+	{"tx_fifo_errors", IXGBE_NETDEV_STAT(tx_fifo_errors)},
-+	{"tx_heartbeat_errors", IXGBE_NETDEV_STAT(tx_heartbeat_errors)},
- 	{"tx_timeout_count", IXGBE_STAT(tx_timeout_count)},
- 	{"tx_restart_queue", IXGBE_STAT(restart_queue)},
- 	{"rx_long_length_errors", IXGBE_STAT(stats.roc)},
+ /*
+- * Common suffix for messages
++ * Single line messages, adds a newline after message
+  */
+-#define ACPI_COMMON_MSG_SUFFIX \
+-	acpi_os_printf(" (%8.8X/%s-%u)\n", ACPI_CA_VERSION, module_name, line_number)
++
++static void ACPI_PRINTF_LIKE(5)
++acpi_put_message(const char *module_name, u32 line_number,
++		 const char *fmt, va_list *args, const char *message, ...)
++{
++#ifdef __KERNEL__
++	va_list message_args;
++	struct va_format vaf1;
++	struct va_format vaf2;
++
++	va_start(message_args, message);
++	vaf1.fmt = message;
++	vaf1.va = &message_args;
++	vaf2.fmt = fmt;
++	vaf2.va = args;
++	if (module_name)
++		acpi_os_printf("%pV%pV (%8.8X/%s-%u)\n",
++			       &vaf1, &vaf2,
++			       ACPI_CA_VERSION, module_name, line_number);
++	else
++		acpi_os_printf("%pV%pV\n", &vaf1, &vaf2);
++	va_end(message_args);
++#else
++	va_list message_args;
++
++	va_start(message_args, message);
++	acpi_os_vprintf(message, message_args);
++	acpi_os_vprintf(fmt, *args);
++	if (module_name)
++		acpi_os_printf(" (%8.8X/%s-%u)\n",
++			       ACPI_CA_VERSION, module_name, line_number);
++	else
++		acpi_os_printf("\n");
++	va_end(message_args);
++#endif
++}
++
+ /*******************************************************************************
+  *
+  * FUNCTION:    acpi_ut_validate_exception
+@@ -1064,11 +1099,9 @@ acpi_error(const char *module_name, u32 line_number, const char *format, ...)
+ {
+ 	va_list args;
+ 
+-	acpi_os_printf("ACPI Error: ");
+-
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++	acpi_put_message(module_name, line_number, format, &args,
++			 "ACPI Error: ");
+ 	va_end(args);
+ }
+ 
+@@ -1078,11 +1111,9 @@ acpi_exception(const char *module_name,
+ {
+ 	va_list args;
+ 
+-	acpi_os_printf("ACPI Exception: %s, ", acpi_format_exception(status));
+-
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++	acpi_put_message(module_name, line_number, format, &args,
++			 "ACPI Exception: %s, ", acpi_format_exception(status));
+ 	va_end(args);
+ }
+ 
+@@ -1091,11 +1122,9 @@ acpi_warning(const char *module_name, u32 line_number, const char *format, ...)
+ {
+ 	va_list args;
+ 
+-	acpi_os_printf("ACPI Warning: ");
+-
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++	acpi_put_message(module_name, line_number, format, &args,
++			 "ACPI Warning: ");
+ 	va_end(args);
+ }
+ 
+@@ -1104,11 +1133,8 @@ acpi_info(const char *module_name, u32 line_number, const char *format, ...)
+ {
+ 	va_list args;
+ 
+-	acpi_os_printf("ACPI: ");
+-
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	acpi_os_printf("\n");
++	acpi_put_message(NULL, 0, format, &args, "ACPI: ");
+ 	va_end(args);
+ }
+ 
+@@ -1152,11 +1178,9 @@ acpi_ut_predefined_warning(const char *module_name,
+ 		return;
+ 	}
+ 
+-	acpi_os_printf("ACPI Warning for %s: ", pathname);
+-
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++	acpi_put_message(module_name, line_number, format, &args,
++			 "ACPI Warning for %s: ", pathname);
+ 	va_end(args);
+ }
+ 
+@@ -1194,10 +1218,8 @@ acpi_ut_predefined_info(const char *module_name,
+ 		return;
+ 	}
+ 
+-	acpi_os_printf("ACPI Info for %s: ", pathname);
+-
+ 	va_start(args, format);
+-	acpi_os_vprintf(format, args);
+-	ACPI_COMMON_MSG_SUFFIX;
++	acpi_put_message(module_name, line_number, format, &args,
++			 "ACPI Info for %s: ", pathname);
+ 	va_end(args);
+ }
 
 
