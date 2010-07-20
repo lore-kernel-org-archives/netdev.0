@@ -1,130 +1,106 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Tue, 20 Jul 2010 13:26:45 +0800
-Message-ID: <20100720052645.GA5214@gondor.apana.org.au>
-References: <20100719101904.GA31743@redhat.com> <20100719105300.GA22179@gondor.apana.org.au> <20100719115411.GA22758@gondor.apana.org.au> <20100719.090503.73693858.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/4] bnx2: Remove some unnecessary smp_mb() in
+ tx fast path.
+Date: Tue, 20 Jul 2010 07:38:03 +0200
+Message-ID: <1279604283.2458.68.camel@edumazet-laptop>
+References: <1279584905-15084-1-git-send-email-mchan@broadcom.com>
+	 <1279584905-15084-2-git-send-email-mchan@broadcom.com>
+	 <1279584905-15084-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mst@redhat.com, shemminger@vyatta.com, frzhang@redhat.com,
-	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:48143 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753285Ab0GTF0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 01:26:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20100719.090503.73693858.davem@davemloft.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:61415 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754346Ab0GTFiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 01:38:07 -0400
+Received: by wwj40 with SMTP id 40so330184wwj.1
+        for <netdev@vger.kernel.org>; Mon, 19 Jul 2010 22:38:06 -0700 (PDT)
+In-Reply-To: <1279584905-15084-3-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 19, 2010 at 09:05:03AM -0700, David Miller wrote:
->
-> I thought we did that already.... oh I see, we did it for bonding:
-> 
-> commit c22d7ac844f1cb9c6a5fd20f89ebadc2feef891b
-> Author: Andy Gospodarek <andy@greyhouse.net>
-> Date:   Fri Jun 25 09:50:44 2010 +0000
-> 
->     bonding: prevent netpoll over bonded interfaces
-> 
-> I'm fine with disabling it for bridging too, just send me a patch
-> similar to the bonding one.
+Le lundi 19 juillet 2010 =C3=A0 17:15 -0700, Michael Chan a =C3=A9crit =
+:
+> smp_mb() inside bnx2_tx_avail() is used twice in the normal
+> bnx2_start_xmit() path (see illustration below).  The full memory
+> barrier is only necessary during race conditions with tx completion.
+> We can speed up the tx path by replacing smp_mb() in bnx2_tx_avail()
+> with a compiler barrier.  The compiler barrier is to force the
+> compiler to fetch the tx_prod and tx_cons from memory.
+>=20
+> In the race condition between bnx2_start_xmit() and bnx2_tx_int(),
+> we have the following situation:
+>=20
+> bnx2_start_xmit()                       bnx2_tx_int()
+>     if (!bnx2_tx_avail())
+>             BUG();
+>=20
+>     ...
+>=20
+>     if (!bnx2_tx_avail())
+>             netif_tx_stop_queue();          update_tx_index();
+>             smp_mb();                       smp_mb();
+>             if (bnx2_tx_avail())            if (netif_tx_queue_stoppe=
+d() &&
+>                     netif_tx_wake_queue();      bnx2_tx_avail())
+>=20
+> With smp_mb() removed from bnx2_tx_avail(), we need to add smp_mb() t=
+o
+> bnx2_start_xmit() as shown above to properly order netif_tx_stop_queu=
+e()
+> and bnx2_tx_avail() to check the ring index.  If it is not strictly
+> ordered, the tx queue can be stopped forever.
+>=20
+> This improves performance by about 5% with 2 ports running bi-directi=
+onal
+> 64-byte packets.
+>=20
+> Reviewed-by: Benjamin Li <benli@broadcom.com>
+> Reviewed-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> ---
+>  drivers/net/bnx2.c |   10 +++++++++-
+>  1 files changed, 9 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> index d44ecc3..2af570d 100644
+> --- a/drivers/net/bnx2.c
+> +++ b/drivers/net/bnx2.c
+> @@ -253,7 +253,8 @@ static inline u32 bnx2_tx_avail(struct bnx2 *bp, =
+struct bnx2_tx_ring_info *txr)
+>  {
+>  	u32 diff;
+> =20
+> -	smp_mb();
+> +	/* Tell compiler to fetch tx_prod and tx_cons from memory. */
+> +	barrier();
+> =20
+>  	/* The ring uses 256 indices for 255 entries, one of them
+>  	 * needs to be skipped.
+> @@ -6534,6 +6535,13 @@ bnx2_start_xmit(struct sk_buff *skb, struct ne=
+t_device *dev)
+> =20
+>  	if (unlikely(bnx2_tx_avail(bp, txr) <=3D MAX_SKB_FRAGS)) {
+>  		netif_tx_stop_queue(txq);
+> +
+> +		/* netif_tx_stop_queue() must be done before checking
+> +		 * tx index in bnx2_tx_avail() below, because in
+> +		 * bnx2_tx_int(), we update tx index before checking for
+> +		 * netif_tx_queue_stopped().
+> +		 */
+> +		smp_mb();
+>  		if (bnx2_tx_avail(bp, txr) > bp->tx_wake_thresh)
+>  			netif_tx_wake_queue(txq);
+>  	}
 
-OK, here is a minimal patch to remove the offending bits of the
-bridge netpoll support.
+Excellent,
 
-Note that this patch needs to be reverted in net-next-2.6 as
-bridge netpoll works correctly there.
+Is similar patch for tg3 planned ?
 
-bridge: Partially disable netpoll support
+Thanks
 
-The new netpoll code in bridging contains use-after-free bugs
-that are non-trivial to fix.
 
-This patch fixes this by removing the code that uses skbs after
-they're freed.
 
-As a consequence, this means that we can no longer call bridge
-from the netpoll path, so this patch also removes the controller
-function in order to disable netpoll.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index eedf2c9..753fc42 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -217,14 +217,6 @@ static bool br_devices_support_netpoll(struct net_bridge *br)
- 	return count != 0 && ret;
- }
- 
--static void br_poll_controller(struct net_device *br_dev)
--{
--	struct netpoll *np = br_dev->npinfo->netpoll;
--
--	if (np->real_dev != br_dev)
--		netpoll_poll_dev(np->real_dev);
--}
--
- void br_netpoll_cleanup(struct net_device *dev)
- {
- 	struct net_bridge *br = netdev_priv(dev);
-@@ -295,7 +287,6 @@ static const struct net_device_ops br_netdev_ops = {
- 	.ndo_do_ioctl		 = br_dev_ioctl,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
--	.ndo_poll_controller	 = br_poll_controller,
- #endif
- };
- 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index a4e72a8..595da45 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -50,14 +50,7 @@ int br_dev_queue_push_xmit(struct sk_buff *skb)
- 			kfree_skb(skb);
- 		else {
- 			skb_push(skb, ETH_HLEN);
--
--#ifdef CONFIG_NET_POLL_CONTROLLER
--			if (unlikely(skb->dev->priv_flags & IFF_IN_NETPOLL)) {
--				netpoll_send_skb(skb->dev->npinfo->netpoll, skb);
--				skb->dev->priv_flags &= ~IFF_IN_NETPOLL;
--			} else
--#endif
--				dev_queue_xmit(skb);
-+			dev_queue_xmit(skb);
- 		}
- 	}
- 
-@@ -73,23 +66,9 @@ int br_forward_finish(struct sk_buff *skb)
- 
- static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
- {
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	struct net_bridge *br = to->br;
--	if (unlikely(br->dev->priv_flags & IFF_IN_NETPOLL)) {
--		struct netpoll *np;
--		to->dev->npinfo = skb->dev->npinfo;
--		np = skb->dev->npinfo->netpoll;
--		np->real_dev = np->dev = to->dev;
--		to->dev->priv_flags |= IFF_IN_NETPOLL;
--	}
--#endif
- 	skb->dev = to->dev;
- 	NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_OUT, skb, NULL, skb->dev,
- 		br_forward_finish);
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	if (skb->dev->npinfo)
--		skb->dev->npinfo->netpoll->dev = br->dev;
--#endif
- }
- 
- static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
