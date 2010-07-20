@@ -1,85 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
-Date: Tue, 20 Jul 2010 15:16:29 +0200
-Message-ID: <1279631789.2498.71.camel@edumazet-laptop>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: net/dsa
+Date: Tue, 20 Jul 2010 15:59:50 +0200
+Message-ID: <20100720135950.GZ14513@mail.wantstofly.org>
+References: <4C3B8231.6020706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Karl Beldan <karl.beldan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:41240 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750786Ab0GTNQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 09:16:33 -0400
-Received: by wwj40 with SMTP id 40so829141wwj.1
-        for <netdev@vger.kernel.org>; Tue, 20 Jul 2010 06:16:32 -0700 (PDT)
+Received: from fw.wantstofly.org ([80.101.37.227]:55654 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752523Ab0GTN7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 09:59:54 -0400
+Content-Disposition: inline
+In-Reply-To: <4C3B8231.6020706@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please note following potential bug was discovered by code review, and
-my patch not even tested, please double check !
+On Mon, Jul 12, 2010 at 10:59:29PM +0200, Karl Beldan wrote:
 
-Thanks
+> Hi,
 
-[PATCH net-next-2.6] netlink: netlink_recvmsg() fix
+Hi Karl,
 
-commit 1dacc76d0014 
-(net/compat/wext: send different messages to compat tasks)
-introduced a race condition on netlink, in case MSG_PEEK is used.
-
-An skb given by skb_recv_datagram() might be shared, we must clone it
-before any modification, or risk fatal corruption.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/netlink/af_netlink.c |   19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7aeaa83..dad5e81 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1405,7 +1405,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 	struct netlink_sock *nlk = nlk_sk(sk);
- 	int noblock = flags&MSG_DONTWAIT;
- 	size_t copied;
--	struct sk_buff *skb, *frag __maybe_unused = NULL;
-+	struct sk_buff *skb;
- 	int err;
- 
- 	if (flags&MSG_OOB)
-@@ -1440,8 +1440,17 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 			kfree_skb(skb);
- 			skb = compskb;
- 		} else {
--			frag = skb_shinfo(skb)->frag_list;
--			skb_shinfo(skb)->frag_list = NULL;
-+			struct sk_buff *nskb = skb_clone(skb, GFP_KERNEL);
-+
-+			if (!nskb) {
-+				skb_free_datagram(sk, skb);
-+				err = -ENOMEM;
-+				goto out;
-+			}
-+			kfree_skb(skb);
-+			kfree_skb(skb_shinfo(nskb)->frag_list);
-+			skb_shinfo(nskb)->frag_list = NULL;
-+			skb = nskb;
- 		}
- 	}
- #endif
-@@ -1477,10 +1486,6 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (flags & MSG_TRUNC)
- 		copied = skb->len;
- 
--#ifdef CONFIG_COMPAT_NETLINK_MESSAGES
--	skb_shinfo(skb)->frag_list = frag;
--#endif
--
- 	skb_free_datagram(sk, skb);
- 
- 	if (nlk->cb && atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf / 2)
+Sorry, I didn't see your mail initially -- please CC me in the future.
 
 
+> I found the dsa code very handy to help manage a switch.
+
+Ah.  What particular part are you using?
+
+
+> Yet I was surprised I had to tweak the code to simply use the phy
+> layer state machine.
+
+You mean that net/dsa uses phy_attach() but not phy_start_machine() ?
+Have you seen problems arising from this?
+
+
+> And I don't see much activity in the code nor any discussion, e.g no
+> follow up to http://patchwork.ozlabs.org/patch/16578.
+> 
+> So I was wondering if there was anybody playing with this code, or
+> having ideas about features to add (vlan/stp callbacks) ?
+
+As far as I know, the code currently in the kernel works well for what
+it intends to do (which is to just expose the switch ports), and I'm
+not aware of any bugs in it.
+
+That said, you're right in that there are several more features that
+the hardware supports that the software could be extended to handle.
+
+For one, I don't have access to any Marvell switch chip hardware
+anymore, so that limits my ability to play with this.  Also, the
+relevant documentation is under a rather restrictive license, so the
+only way I can see net/dsa support for Marvell parts improving is if
+there's pressure from a large enough customer to make this happen.
+
+If this is about non-Marvell parts, I'd welcome adding support for
+those into net/dsa.  For one, I would really like to see Broadcom
+switch chip support added -- the documentation for those chips is
+under similarly restrictive licensing, though.
+
+
+thanks,
+Lennert
