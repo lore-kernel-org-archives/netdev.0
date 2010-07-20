@@ -1,98 +1,64 @@
-From: Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org>
-Subject: Re: [PATCH] net: Add batman-adv meshing protocol
-Date: Tue, 20 Jul 2010 10:28:10 +0200
-Message-ID: <201007201028.12470.sven.eckelmann@gmx.de>
-References: <1279291156-5297-1-git-send-email-sven.eckelmann@gmx.de>
-	<1279291156-5297-2-git-send-email-sven.eckelmann@gmx.de>
-	<20100719.212625.255369607.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCHv2] tcp: fix crash in tcp_xmit_retransmit_queue
+Date: Tue, 20 Jul 2010 11:33:38 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1007201101090.14034@wel-95.cs.helsinki.fi>
+References: <1279548555.2553.51.camel@edumazet-laptop> <alpine.DEB.2.00.1007192013010.30181@melkinpaasi.cs.helsinki.fi> <1279561148.2553.150.camel@edumazet-laptop> <20100719.125500.257479409.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart5811515.oMvAPjbWXS";
-	protocol="application/pgp-signature"; micalg=pgp-sha512
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20100719.212625.255369607.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: eric.dumazet@gmail.com, lennart.schulte@nets.rwth-aachen.de,
+	tj@kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>, henning.fehrmann@aei.mpg.de,
+	carsten.aulbert@aei.mpg.de
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100719.125500.257479409.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart5811515.oMvAPjbWXS
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+On Mon, 19 Jul 2010, David Miller wrote:
 
-Thanks a lot for your review and for your hints.
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 19 Jul 2010 19:39:08 +0200
+> 
+> > Do you know in what exact circumstance the bug triggers ?
+> > 
+> > It's hard to believe thousand of machines on the Internet never hit
+> > it :(
+> > 
+> > Maybe another problem in congestion control ?
+> 
+> This is something to investigate, but the conditions under which
+> tcp_fastretrans_alert() (the main invoker of tcp_xmit_retransmit_queue())
+> does it's thing are complicated enough that I'm going to add this fix
+> for the time being and push it out to stable too.
 
-David Miller wrote:
-> From: Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org>
-> Date: Fri, 16 Jul 2010 16:39:16 +0200
-[...]
->=20
-> The kernel has a hamming weight library function which takes advantage
-> of population count instructions on cpus that suport it, and also has
-> a sw version than is faster than what you're doing here, please use
-> it.
->=20
-> The interfaces are called "hweight{8,16,32,64}()" where the number in
-> the name indicates the bit-size of the word the interface operates on.
+This is so true. ...So far I've managed to twice rule out of the 
+possibility of this being really triggerable (ie., it would mean
+Lennart's out of tree changes broke it), and once in the middle came
+into opposite conclusion. Thus by majority voting we can deduce that it 
+won't happen - how reassuring :-/. It seems that tcp_try_undo_recovery 
+causes return if TCP remained in CA_Loss/CA_Recovery and that 
+tcp_time_to_recover won't really let past return either under normal 
+circumstances (more details below), and tcp_simple_retransmit 
+requires lost_out to change; seems safe in mainline to me.
 
-Correct, the inner loop is a quite straight forward implementation without =
-any=20
-kind of optimization. I will change that.
+Hmm... It seems that I've just solved another report too. ...Somebody a 
+while back found out that setting reordering sysctl to zero (ie. to a 
+value which does not make too much sense) crashed the kernel. It seems 
+that at least then tcp_time_to_recover() would return true and trigger 
+this bug (though I'm not sure if that's the only breakage to happen).
 
-> I also notice that this code uses it's own internal buffering scheme
-> with kmalloc()'d buffers, then seperately allocates actual SKB's and
-> copies the data there.
->=20
-> Just use the SKB facilities how they were designed to be used, instead
-> of needlessly inventing new things.  Allocate your initial SKB and put
-> the initial forwarding header in it, then when you want to send a copy
-> off, skb_clone() it, and push the other bits you want at the head
-> and/or the tail of the cloned SKB, then simply send it off.
+Also worth to keep in mind is the bugzilla entry ("New freez in 
+TCP" or something like that) so I'm not really sure I could say for sure 
+nobody never hit it. The bugzilla one goes away by disable SACK (at least 
+for some) but it might mix two different issues. It seems that there 
+really are two different issues, the other may have something to do with 
+SACK though there are other variables then involved, e.g., the changes in 
+retransmission logic/timing, so it's impossible to say if the SACK disable 
+really "fixed" the bugzilla one or not. Also Tejun's ->next == NULL 
+finding points out to a different bug than this Lennart's one.
 
-Good catch. That comes from a time when batman-adv was a minimalistic=20
-conversation of the userspace proof of concept implementation. This happens=
-=20
-for example in vis.c, icmp_socket.c and send.c (just grepping for=20
-send_raw_packet is a good way to find those places). But is also happening=
-=20
-with batman_if->packet_buff in schedule_own_packet and similar places.
 
-I would leave that to the original author of those functions.
-
-thanks,
-	Sven
-
---nextPart5811515.oMvAPjbWXS
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIcBAABCgAGBQJMRV4bAAoJEF2HCgfBJntGScEQAMNQ+GiKsSZ78hHhaYGkkqqq
-xpif8B24NbB0s5hAquZcFQPJKHh+QDs54c0bQQxGmrNx4ycVo/vxEVIVbHdz13Ma
-b1tldA7FwbgLCgWlABC2Ozyj+6cmjpcis1MnL32uv1Tpg+bzOoXaooByxE6g6OnR
-z0Z6uJLw7OUX8z6rOy5rtBTK812fEJl3VjxJEg+BY/MZb4ljyGAONhigJvWyRcor
-7mXn5gsLQiRckWb4Be1bc5wFGgTdkUMAlOK1r95+rucUWMkPhfwqUo0wWXPr3SFh
-eRP61pjQDg3huTteokuPcc5kc9YZMFUKac3sJec6SjEoGJO56CbugW21rh/u6Vs1
-lbZjAvztMNa2WLW1Y8CvhdTzczMaDxz5C28djbrWSvDiY9EQxInFiXgoXv0k+VAx
-1bidgOfiCcE/0kH5LD+vgwagRn3vPNFo6660wiqTsTe9kWuhCYz5de67fdfC9sGK
-OwZziEr2LNWchxdzCVwcsIjbVbVR6dhDupRHQMT2pZDlR6Td2wzMiB4w7uBpZF6d
-PLC5eT+U9NcVgrJ9r9A3qfCZwrK605weE/fyZYDTY2u34gUxyYnetJq2roObVSwE
-IpTX7eMN7m78cwY/khgj9EzJm/SNQPoQuQHehqNDXZqMo3rvuUX7gY6t6DJ83Q0n
-gS6UQPYTMh6bzJ/acXMq
-=GhdV
------END PGP SIGNATURE-----
-
---nextPart5811515.oMvAPjbWXS--
+-- 
+ i.
