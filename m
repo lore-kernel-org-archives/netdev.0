@@ -1,103 +1,53 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC PATCH v3 4/5] skb: add tracepoints to freeing skb
-Date: Tue, 20 Jul 2010 07:50:44 -0400
-Message-ID: <20100720115044.GD1995@hmsreliant.think-freely.org>
-References: <4C44F12F.5090908@jp.fujitsu.com>
- <4C44F286.1050907@jp.fujitsu.com>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [RFC v2] netfilter: xt_condition: add condition target
+Date: Tue, 20 Jul 2010 14:53:34 +0300
+Message-ID: <1279626814.16431.25.camel@powerslave>
+References: <1279619434-11849-1-git-send-email-luciano.coelho@nokia.com>
+	 <alpine.LSU.2.01.1007201235250.20447@obet.zrqbmnf.qr>
+	 <1279623855.16431.4.camel@powerslave>
+	 <alpine.LSU.2.01.1007201308370.526@obet.zrqbmnf.qr>
+	 <1279625526.16431.22.camel@powerslave>
+	 <alpine.LSU.2.01.1007201343470.3843@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, kaneshige.kenji@jp.fujitsu.com,
-	izumi.taku@jp.fujitsu.com, kosaki.motohiro@jp.fujitsu.com,
-	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
-	rostedt@goodmis.org, eric.dumazet@gmail.com, fweisbec@gmail.com,
-	mathieu.desnoyers@polymtl.ca
-To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C44F286.1050907@jp.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"sameo@linux.intel.com" <sameo@linux.intel.com>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1007201343470.3843@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 20, 2010 at 09:49:10AM +0900, Koki Sanagi wrote:
-> [RFC PATCH v3 4/5] skb: add tracepoints to freeing skb
-> This patch adds tracepoint to consume_skb, dev_kfree_skb_irq and
-> skb_free_datagram_locked. Combinating with tracepoint on dev_hard_start_xmit,
-> we can check how long it takes to free transmited packets. And using it, we can
-> calculate how many packets driver had at that time. It is useful when a drop of
-> transmited packet is a problem.
+On Tue, 2010-07-20 at 13:46 +0200, ext Jan Engelhardt wrote:
+> On Tuesday 2010-07-20 13:32, Luciano Coelho wrote:
+> >it in any archives).  Then a few days ago I asked you if you were going
+> >to resend and you answered:
+> >
+> >On Fri, 2010-07-16 at 13:20 +0200, ext Jan Engelhardt wrote:
+> >> On Friday 2010-07-16 13:10, Luciano Coelho wrote:
+> >> >Are you planning to resend this patch with the changes Patrick
+> >> >suggested?
+> >> 
+> >> I can try. 
+> >
+> >So I assumed you would resubmit it for upstream inclusion.  I probably
+> >misunderstood something in the way then ;)
 > 
->           <idle>-0     [001] 241409.218333: consume_skb: skbaddr=dd6b2fb8
->           <idle>-0     [001] 241409.490555: dev_kfree_skb_irq: skbaddr=f5e29840
-> 
->         udp-recv-302   [001] 515031.206008: skb_free_datagram_locked: skbaddr=f5b1d900
-> 
-> 
-> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-> ---
->  include/trace/events/skb.h |   42 ++++++++++++++++++++++++++++++++++++++++++
->  net/core/datagram.c        |    1 +
->  net/core/dev.c             |    2 ++
->  net/core/skbuff.c          |    1 +
->  4 files changed, 46 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-> index 4b2be6d..84c9041 100644
-> --- a/include/trace/events/skb.h
-> +++ b/include/trace/events/skb.h
-> @@ -35,6 +35,48 @@ TRACE_EVENT(kfree_skb,
->  		__entry->skbaddr, __entry->protocol, __entry->location)
->  );
->  
-> +DECLARE_EVENT_CLASS(free_skb,
-> +
-> +	TP_PROTO(struct sk_buff *skb),
-> +
-> +	TP_ARGS(skb),
-> +
-> +	TP_STRUCT__entry(
-> +		__field(	void *,	skbaddr	)
-> +	),
-> +
-> +	TP_fast_assign(
-> +		__entry->skbaddr = skb;
-> +	),
-> +
-> +	TP_printk("skbaddr=%p", __entry->skbaddr)
-> +
-> +);
-> +
-> +DEFINE_EVENT(free_skb, consume_skb,
-> +
-> +	TP_PROTO(struct sk_buff *skb),
-> +
-> +	TP_ARGS(skb)
-> +
-> +);
-> +
-> +DEFINE_EVENT(free_skb, dev_kfree_skb_irq,
-> +
-> +	TP_PROTO(struct sk_buff *skb),
-> +
-> +	TP_ARGS(skb)
-> +
-> +);
-> +
-> +DEFINE_EVENT(free_skb, skb_free_datagram_locked,
-> +
-> +	TP_PROTO(struct sk_buff *skb),
-> +
-> +	TP_ARGS(skb)
-> +
-> +);
-> +
+> It usually means "I'll do it .... unless someone else does first".
+> Since you proposed the condition target, you nicely took all of
+> xt_condition into your hands. Or as Linus once put it:
+> "they are doing all the work, and I get the credit". :-)
 
-Why create these last two tracepoints at all?  dev_kfree_skb_irq will eventually
-pass through kfree_skb anyway, getting picked up by the tracepoint there, the
-while the latter won't (since it uses __kfree_skb instead), I think that could
-be fixed up by add a call to trace_kfree_skb there directly, saving you two
-tracepoints.
+:D
 
-Neil
+I'm fine with that, I just didn't want to jump in and steal somebody
+else's work ;)
 
-> 
+
+-- 
+Cheers,
+Luca.
+
