@@ -1,64 +1,48 @@
-From: Stefan Assmann <sassmann@redhat.com>
-Subject: Re: [PATCH net-next] sysfs: add entry to indicate network interfaces
- with random MAC address
-Date: Tue, 20 Jul 2010 14:41:15 +0200
-Message-ID: <4C45996B.3000003@redhat.com>
-References: <4C457F72.8090708@redhat.com>	 <1279624844.2110.3.camel@achroite.uk.solarflarecom.com>	 <4C458CB7.3030508@redhat.com> <1279627656.2110.13.camel@achroite.uk.solarflarecom.com>
+From: Hannes Eder <heder@google.com>
+Subject: Re: [patch v2.2 1/4] [PATCH v2.1 1/4] netfilter: xt_ipvs (netfilter
+	matcher for IPVS)
+Date: Tue, 20 Jul 2010 14:44:11 +0200
+Message-ID: <AANLkTimUEJGAJ6tsPKGltUGBwrdotK5YyKBIkQWbA8qZ@mail.gmail.com>
+References: <20100501032014.406353538@vergenet.net>
+	<20100501032120.298829234@vergenet.net>
+	<4BDC543F.7060500@trash.net>
+	<AANLkTikIzHuzxo4z1_8_fEGLBC2-0Uz0X8SOc8n2msuX@mail.gmail.com>
+	<20100622071326.GB9928@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	davem@davemloft.net, Andy Gospodarek <gospo@redhat.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Harald Hoyer <harald@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1279627656.2110.13.camel@achroite.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netfilter@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100622071326.GB9928@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20.07.2010 14:07, Ben Hutchings wrote:
-> On Tue, 2010-07-20 at 13:47 +0200, Stefan Assmann wrote:
->> On 20.07.2010 13:20, Ben Hutchings wrote:
->>> On Tue, 2010-07-20 at 12:50 +0200, Stefan Assmann wrote:
->>>> From: Stefan Assmann <sassmann@redhat.com>
+Hi Simon,
 
-[snip]
+On Tue, Jun 22, 2010 at 09:13, Simon Horman <horms@verge.net.au> wrote:
+> On Mon, May 03, 2010 at 01:29:46PM +0200, Hannes Eder wrote:
+>> Thank you for picking this series of patches up again and thanks for
+>> the feedback.
+>>
+>> I'll send an updated version in the next days.
+>
+> Hi Hanes,
+>
+> more than a few days seems to have passed.
+> Do you have time to fix the patches up?
+> If not, I'll take a stab at it.
 
->> Actually Dave Miller suggested to put it there. What other place is
->> there to put it?
-> 
-> If Dave said that then I'm sure it's OK.
-> 
-> However, if you define this as an interface flag (net_device::flags;
-> <linux/if.h>) and add it to the set of changeable flags in
-> __dev_change_flags(), user-space will be able to clear the flag if it
-> later sets a stable address.
+/me working through the backlog of emails after vacation, however this
+email was buried in my inbox before my vacation, my bad.  I've been
+extremely busy lately and I did not have the time to work on the
+patches.  I saw your updated versions, I appreciate very much that you
+are taking it from there.
 
-As I said I'm not that knowledgeable about this MAC address stealing
-thing and I'm assuming that's what you're aiming at. Would you really
-want/need it to be user-space writable? Currently all I can think of is
-the scenario where you set a "stable" address that outlasts a reboot so
-udev might be able to assign it a permanent name after it gets stable.
-
-So it might make sense to have it writable, but I'd like to avoid to add
-unnecessary complexity that may cause errors if it's not necessary.
-Read-only is simple, just read the flag and deal with it.
-
-Btw, the driver itself could also alter the flag. Then we'd have a well
-defined way of setting a stable address.
-
-  Stefan
---
-Stefan Assmann         | Red Hat GmbH
-Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
-                       | HR: Amtsgericht Muenchen HRB 153243
-                       | GF: Brendan Lane, Charlie Peters,
-sassmann at redhat.com |     Michael Cunningham, Charles Cachera
-
-> 
-> Ben.
-> 
+Cheers,
+-Hannes
