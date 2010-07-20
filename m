@@ -1,98 +1,79 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH] __dst_free(): put EXPORT_SYMBOLS after the fct
-Date: Tue, 20 Jul 2010 11:51:38 +0200
-Message-ID: <4C4571AA.5060107@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: recv(2), MSG_TRUNK and kernels older than 2.6.22
+Date: Tue, 20 Jul 2010 12:02:51 +0200
+Message-ID: <1279620171.2498.30.camel@edumazet-laptop>
+References: <4C455DC3.1050304@marples.name>
+	 <1279616099.2498.9.camel@edumazet-laptop>  <4C45678A.4080408@marples.name>
+	 <1279617873.2498.13.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020000030000040608060509"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Roy Marples <roy@marples.name>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:58679 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758545Ab0GTJvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 05:51:42 -0400
-Received: by ewy23 with SMTP id 23so1567047ewy.19
-        for <netdev@vger.kernel.org>; Tue, 20 Jul 2010 02:51:41 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:46321 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757985Ab0GTKCz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 06:02:55 -0400
+Received: by wwj40 with SMTP id 40so608068wwj.1
+        for <netdev@vger.kernel.org>; Tue, 20 Jul 2010 03:02:54 -0700 (PDT)
+In-Reply-To: <1279617873.2498.13.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020000030000040608060509
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
+Le mardi 20 juillet 2010 =C3=A0 11:24 +0200, Eric Dumazet a =C3=A9crit =
+:
+> Le mardi 20 juillet 2010 =C3=A0 10:08 +0100, Roy Marples a =C3=A9crit=
+ :
+> > On 20/07/2010 09:54, Eric Dumazet wrote:
+> > > Is it for the dhcpcd problem we talk about few week ago, disturbe=
+d by
+> > > new 64bit stats ?
+> >=20
+> > Yes
+> >=20
+> > >
+> > > Why do you want to have a fixed size of 256 bytes ?
+> > >
+> > > Using 8192 bytes on stack would avoid MSG_TRUNK mess.
+> >=20
+> > Yes it would, but that doesn't answer my question :)
+>=20
+> Your question might be wrong ? :=3D)
+>=20
+> > I would like to use a buffer big enough, but not a whole 8k in size=
+=2E
+> > dhcpcd has quite a small runtime and I'd like to keep it that way.
+>=20
+> 8192 bytes on stack is too much for you ?
+>=20
+> Then you should automatically resize your buffer, and not using
+> MSG_TRUNK at all (there is no guarantee the information you need will=
+ be
+> part of the truncated part)
+>=20
+>=20
 
-Hi,
+On < 2.6.22 kernels, recv() returns the length of your buffer, not size
+of netlink frame.
 
-this patch is just cosmetic: EXPORT_SYMBOLS(__dst_free) has been put after 
-___dst_free() function instead of __dst_free().
+You'll need something like :
 
-
-Regards,
-
--- 
-Nicolas DICHTEL
-6WIND
-R&D Engineer
-
-Tel: +33 1 39 30 92 10
-Fax: +33 1 39 30 92 11
-nicolas.dichtel@6wind.com
-www.6wind.com
-Join the Multicore Packet Processing Forum: www.multicorepacketprocessing.com
-
-Ce courriel ainsi que toutes les pièces jointes, est uniquement destiné à son ou 
-ses destinataires. Il contient des informations confidentielles qui sont la 
-propriété de 6WIND. Toute révélation, distribution ou copie des informations 
-qu'il contient est strictement interdite. Si vous avez reçu ce message par 
-erreur, veuillez immédiatement le signaler à l'émetteur et détruire toutes les 
-données reçues.
-
-This e-mail message, including any attachments, is for the sole use of the 
-intended recipient(s) and contains information that is confidential and 
-proprietary to 6WIND. All unauthorized review, use, disclosure or distribution 
-is prohibited. If you are not the intended recipient, please contact the sender 
-by reply e-mail and destroy all copies of the original message.
-
---------------020000030000040608060509
-Content-Type: text/x-diff;
- name="0002-__dst_free-put-EXPORT_SYMBOLS-after-the-fct.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="0002-__dst_free-put-EXPORT_SYMBOLS-after-the-fct.patch"
-
->From f96851b4d7e6125d8c0e5f4da7b6fffffd21b642 Mon Sep 17 00:00:00 2001
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 20 Jul 2010 11:38:20 +0200
-Subject: [PATCH] __dst_free(): put EXPORT_SYMBOLS after the fct
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/core/dst.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 9920722..6c41b1f 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -197,7 +197,6 @@ static void ___dst_free(struct dst_entry *dst)
- 		dst->input = dst->output = dst_discard;
- 	dst->obsolete = 2;
- }
--EXPORT_SYMBOL(__dst_free);
- 
- void __dst_free(struct dst_entry *dst)
- {
-@@ -213,6 +212,7 @@ void __dst_free(struct dst_entry *dst)
- 	}
- 	spin_unlock_bh(&dst_garbage.lock);
- }
-+EXPORT_SYMBOL(__dst_free);
- 
- struct dst_entry *dst_destroy(struct dst_entry * dst)
- {
--- 
-1.5.4.5
+size_t sz =3D 256;
+char *buf =3D malloc(sz);
+while (1) {
+	if (!buf) error();
+	len =3D recv(fd, buf, sz, MSG_PEEK | MSG_TRUNC);
+	if (len < sz)
+		break;
+	if (len =3D=3D sz)
+		sz *=3D 2; // old kernel, try to double size
+	else
+		sz =3D len; // recent kernel is nice with us
+	buf =3D realloc(buf, sz);
+}
+len =3D recv(fd, buf, sz, 0);
 
 
---------------020000030000040608060509--
+
+
