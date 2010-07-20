@@ -1,102 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
-Date: Tue, 20 Jul 2010 17:20:32 +0200
-Message-ID: <1279639232.2498.82.camel@edumazet-laptop>
-References: <1279631789.2498.71.camel@edumazet-laptop>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] phy: add suspend/resume in the ic+
+Date: Tue, 20 Jul 2010 08:24:21 -0700
+Message-ID: <20100720082421.c8604af3.randy.dunlap@oracle.com>
+References: <1279609954-30274-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:50438 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932392Ab0GTPUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 11:20:37 -0400
-Received: by eya25 with SMTP id 25so1310293eya.19
-        for <netdev@vger.kernel.org>; Tue, 20 Jul 2010 08:20:35 -0700 (PDT)
-In-Reply-To: <1279631789.2498.71.camel@edumazet-laptop>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:44749 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932441Ab0GTPYg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 11:24:36 -0400
+In-Reply-To: <1279609954-30274-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 20 juillet 2010 =C3=A0 15:16 +0200, Eric Dumazet a =C3=A9crit =
-:
-> Please note following potential bug was discovered by code review, an=
-d
-> my patch not even tested, please double check !
->=20
-> Thanks
->=20
-> [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
->=20
-> commit 1dacc76d0014=20
-> (net/compat/wext: send different messages to compat tasks)
-> introduced a race condition on netlink, in case MSG_PEEK is used.
->=20
-> An skb given by skb_recv_datagram() might be shared, we must clone it
-> before any modification, or risk fatal corruption.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+On Tue, 20 Jul 2010 09:12:34 +0200 Giuseppe CAVALLARO wrote:
+
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 > ---
+>  drivers/net/phy/icplus.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
+> index 439adaf..3f2583f 100644
+> --- a/drivers/net/phy/icplus.c
+> +++ b/drivers/net/phy/icplus.c
+> @@ -116,6 +116,8 @@ static struct phy_driver ip175c_driver = {
+>  	.config_init	= &ip175c_config_init,
+>  	.config_aneg	= &ip175c_config_aneg,
+>  	.read_status	= &ip175c_read_status,
+> +	.suspend	= genphy_suspend,
+> +	.resume		= genphy_resume,
+>  	.driver		= { .owner = THIS_MODULE,},
+>  };
+>  
+> -- 
 
-Oh well, skb_copy() or skb_unshare() is needed.
+I was wondering how that works when CONFIG_PM is disabled, but I did a build
+with it disabled and see that genphy_suspend and genphy_resume are always
+built -- even when PM is disabled.  Interesting.
 
-[PATCH net-next-2.6 v2] netlink: netlink_recvmsg() fix
-
-commit 1dacc76d0014=20
-(net/compat/wext: send different messages to compat tasks)
-introduced a race condition on netlink, in case MSG_PEEK is used.
-
-An skb given by skb_recv_datagram() might be shared, we must copy it
-before any modification, or risk fatal corruption.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/netlink/af_netlink.c |   13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7aeaa83..1537fa5 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1405,7 +1405,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, s=
-truct socket *sock,
- 	struct netlink_sock *nlk =3D nlk_sk(sk);
- 	int noblock =3D flags&MSG_DONTWAIT;
- 	size_t copied;
--	struct sk_buff *skb, *frag __maybe_unused =3D NULL;
-+	struct sk_buff *skb;
- 	int err;
-=20
- 	if (flags&MSG_OOB)
-@@ -1440,7 +1440,12 @@ static int netlink_recvmsg(struct kiocb *kiocb, =
-struct socket *sock,
- 			kfree_skb(skb);
- 			skb =3D compskb;
- 		} else {
--			frag =3D skb_shinfo(skb)->frag_list;
-+			skb =3D skb_unshare(skb, GFP_KERNEL);
-+			if (!skb) {
-+				err =3D -ENOMEM;
-+				goto out;
-+			}
-+			kfree_skb(skb_shinfo(skb)->frag_list);
- 			skb_shinfo(skb)->frag_list =3D NULL;
- 		}
- 	}
-@@ -1477,10 +1482,6 @@ static int netlink_recvmsg(struct kiocb *kiocb, =
-struct socket *sock,
- 	if (flags & MSG_TRUNC)
- 		copied =3D skb->len;
-=20
--#ifdef CONFIG_COMPAT_NETLINK_MESSAGES
--	skb_shinfo(skb)->frag_list =3D frag;
--#endif
--
- 	skb_free_datagram(sk, skb);
-=20
- 	if (nlk->cb && atomic_read(&sk->sk_rmem_alloc) <=3D sk->sk_rcvbuf / 2=
-)
-
-
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
