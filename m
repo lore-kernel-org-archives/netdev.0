@@ -1,53 +1,104 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [RFC v2] netfilter: xt_condition: add condition target
-Date: Tue, 20 Jul 2010 14:53:34 +0300
-Message-ID: <1279626814.16431.25.camel@powerslave>
-References: <1279619434-11849-1-git-send-email-luciano.coelho@nokia.com>
-	 <alpine.LSU.2.01.1007201235250.20447@obet.zrqbmnf.qr>
-	 <1279623855.16431.4.camel@powerslave>
-	 <alpine.LSU.2.01.1007201308370.526@obet.zrqbmnf.qr>
-	 <1279625526.16431.22.camel@powerslave>
-	 <alpine.LSU.2.01.1007201343470.3843@obet.zrqbmnf.qr>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] sysfs: add entry to indicate network
+ interfaces with random MAC address
+Date: Tue, 20 Jul 2010 13:07:36 +0100
+Message-ID: <1279627656.2110.13.camel@achroite.uk.solarflarecom.com>
+References: <4C457F72.8090708@redhat.com>
+	 <1279624844.2110.3.camel@achroite.uk.solarflarecom.com>
+	 <4C458CB7.3030508@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"sameo@linux.intel.com" <sameo@linux.intel.com>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1007201343470.3843@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	davem@davemloft.net, Andy Gospodarek <gospo@redhat.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	Harald Hoyer <harald@redhat.com>
+To: Stefan Assmann <sassmann@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:34292 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761242Ab0GTMHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 08:07:40 -0400
+In-Reply-To: <4C458CB7.3030508@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-07-20 at 13:46 +0200, ext Jan Engelhardt wrote:
-> On Tuesday 2010-07-20 13:32, Luciano Coelho wrote:
-> >it in any archives).  Then a few days ago I asked you if you were going
-> >to resend and you answered:
-> >
-> >On Fri, 2010-07-16 at 13:20 +0200, ext Jan Engelhardt wrote:
-> >> On Friday 2010-07-16 13:10, Luciano Coelho wrote:
-> >> >Are you planning to resend this patch with the changes Patrick
-> >> >suggested?
-> >> 
-> >> I can try. 
-> >
-> >So I assumed you would resubmit it for upstream inclusion.  I probably
-> >misunderstood something in the way then ;)
+On Tue, 2010-07-20 at 13:47 +0200, Stefan Assmann wrote:
+> On 20.07.2010 13:20, Ben Hutchings wrote:
+> > On Tue, 2010-07-20 at 12:50 +0200, Stefan Assmann wrote:
+> >> From: Stefan Assmann <sassmann@redhat.com>
+> >>
+> >> Reserve a bit in struct net_device to indicate whether an interface
+> >> generates its MAC address randomly, and expose the information via
+> >> sysfs.
+> >> May look like this:
+> >> /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0/ifrndmac
+> >>
+> >> By default the value of ifrndmac is 0. Any driver that generates the MAC
+> >> address randomly should return a value to 1.
+> > 
+> > The name should incorporate 'address', not 'mac', for consistency with
+> > the generic 'address' attribute.
 > 
-> It usually means "I'll do it .... unless someone else does first".
-> Since you proposed the condition target, you nicely took all of
-> xt_condition into your hands. Or as Linus once put it:
-> "they are doing all the work, and I get the credit". :-)
+> We can call it "ifrndhwaddr" if that's more consistent.
+> 
+> > 
+> > What about devices that 'steal' MAC addresses from slave devices?
+> > Currently I believe udev has special cases for them but ideally these
+> > drivers would indicate explicitly that their addresses are not stable
+> > identifiers (even though they aren't random).
+> 
+> It's really up to the driver to decide whether it makes sense to set the
+> flag or not. The question is what should udev do with these MAC address
+> stealing devices apart from ignoring them? Sorry I have no higher
+> insight into it.
+> This flag has the purpose to allow udev to explicitly handle devices
+> that generate their MAC address randomly and generate a persistent
+> rule based on the device path instead of the MAC address.
+> I'm open for suggestions but I'm not sure we can handle both cases with
+> a single flag.
 
-:D
+OK, then call it something like 'address_temporary'.
 
-I'm fine with that, I just didn't want to jump in and steal somebody
-else's work ;)
+> JFYI this is an alternative approach to changing the kernel name of VFs
+> to vfeth. The advantage of this way should be that we don't break any
+> user-space applications that rely on network interfaces being names
+> "ethX". Actually this goes in the direction of "fixing udev" which was
+> what you asked for in your comment on my first patch concering vfeth. :)
+> 
+> > 
+> > [...]
+> >> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> >> index b626289..2ea0298 100644
+> >> --- a/include/linux/netdevice.h
+> >> +++ b/include/linux/netdevice.h
+> >> @@ -845,6 +845,7 @@ struct net_device {
+> >>  #define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 bytes*/
+> >>  #define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
+> >>  #define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
+> >> +#define NETIF_F_RNDMAC		(1 << 29) /* Interface with random MAC address */
+> > [...]
+> > 
+> > This is not really a feature, and we are running out of real feature
+> > bits.  Can you find somewhere else to put this flag?
+> 
+> Actually Dave Miller suggested to put it there. What other place is
+> there to put it?
 
+If Dave said that then I'm sure it's OK.
+
+However, if you define this as an interface flag (net_device::flags;
+<linux/if.h>) and add it to the set of changeable flags in
+__dev_change_flags(), user-space will be able to clear the flag if it
+later sets a stable address.
+
+Ben.
 
 -- 
-Cheers,
-Luca.
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
