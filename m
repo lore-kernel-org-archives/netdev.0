@@ -1,44 +1,64 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: Re: [PATCH] net: Add batman-adv meshing protocol
-Date: Tue, 20 Jul 2010 20:23:17 +0200
-Message-ID: <201007202023.17883.lindner_marek@yahoo.de>
+From: Abraham Arce <abraham.arce.moreno@gmail.com>
+Subject: Re: [B.A.T.M.A.N.] [PATCH] net: Add batman-adv meshing protocol
+Date: Tue, 20 Jul 2010 13:41:35 -0500
+Message-ID: <AANLkTim4QSjgC2BbrEJEpefQahbkSgaRPPfJ-N0aPL-E@mail.gmail.com>
 References: <1279291156-5297-2-git-send-email-sven.eckelmann@gmx.de>
 	<201007201028.12470.sven.eckelmann@gmx.de>
 	<20100720.095928.113690788.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+	<201007202023.17883.lindner_marek@yahoo.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20100720.095928.113690788.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: b.a.t.m.a.n@lists.open-mesh.org,
+	David Miller <davem@davemloft.net>, sven.eckelmann@gmx.de,
+	netdev@vger.kernel.org, siwu@hrz.tu-chemnitz.de
+To: Marek Lindner <lindner_marek@yahoo.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:52395 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761404Ab0GTSlg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jul 2010 14:41:36 -0400
+Received: by vws14 with SMTP id 14so595320vws.19
+        for <netdev@vger.kernel.org>; Tue, 20 Jul 2010 11:41:35 -0700 (PDT)
+In-Reply-To: <201007202023.17883.lindner_marek@yahoo.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, July 20, 2010 18:59:28 David Miller wrote:
-> Whoever you leave it to, this needs to be fixed up before this
-> code can be integrated.  So if those people are not active or
-> don't have time, you very much should consider the reality that
-> you might have to do these fixups yourself.
+Hi,
 
-No worries - we are quite alive and follow the discussion closely. The raised 
-issues will be addressed pretty soon.
+On Tue, Jul 20, 2010 at 1:23 PM, Marek Lindner <lindner_marek@yahoo.de>=
+ wrote:
+> On Tuesday, July 20, 2010 18:59:28 David Miller wrote:
+>> Whoever you leave it to, this needs to be fixed up before this
+>> code can be integrated. =A0So if those people are not active or
+>> don't have time, you very much should consider the reality that
+>> you might have to do these fixups yourself.
+>
+> No worries - we are quite alive and follow the discussion closely. Th=
+e raised
+> issues will be addressed pretty soon.
+>
+> @Sven: I think you do a great job integrating all those patches and t=
+rees.
+> Your helping hand would be really missed. =A0:)
 
-@Sven: I think you do a great job integrating all those patches and trees. 
-Your helping hand would be really missed.  :)
+Minor comments...
 
+1. Is it ok to have a README in drivers directory? why not moving it
+to Documentation/networking?
+2. Compilation error, one extra arguments passed
 
-Regards,
-Marek
+- stats =3D (struct net_device_stats *)dev_get_stats(skb->dev, &temp);
++ stats =3D (struct net_device_stats *)dev_get_stats(skb->dev, &temp);
+
+  LD      kernel/built-in.o
+net/batman-adv/hard-interface.c: In function 'batman_skb_recv':
+net/batman-adv/hard-interface.c:482: error: too many arguments to
+function 'dev_get_stats'
+make[2]: *** [net/batman-adv/hard-interface.o] Error 1
+make[2]: *** Waiting for unfinished jobs....
+make[1]: *** [net/batman-adv] Error 2
+make: *** [net] Error 2
+
+Best Regards
+Abraham
