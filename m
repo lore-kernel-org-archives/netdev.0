@@ -1,61 +1,81 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH net-next] sysfs: add entry to indicate network
- interfaces with random MAC address
-Date: Wed, 21 Jul 2010 12:02:17 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755F1846247@orsmsx508.amr.corp.intel.com>
-References: <201007211129.48288.leedom@chelsio.com>
-	<43F901BD926A4E43B106BF17856F0755F184620A@orsmsx508.amr.corp.intel.com>
-	<20100721.114851.200597269.davem@davemloft.net>
- <20100721.115023.69942880.davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 0/2] Support untagged symlinks to tagged directories.
+Date: Wed, 21 Jul 2010 12:02:53 -0700
+Message-ID: <20100721190253.GA25494@kroah.com>
+References: <20100621231058.GA1066@suse.de>
+ <m14ogwc4ou.fsf@fess.ebiederm.org>
+ <20100622035631.GA3755@suse.de>
+ <m1630q7x5v.fsf_-_@fess.ebiederm.org>
+ <20100708211930.GA15385@kroah.com>
+ <m1r5jdbobe.fsf@fess.ebiederm.org>
+ <20100708230601.GB17002@kroah.com>
+ <20100719133451.0862ca62.akpm@linux-foundation.org>
+ <20100720201334.GA11991@suse.de>
+ <m139vd5sms.fsf_-_@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "leedom@chelsio.com" <leedom@chelsio.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"andy@greyhouse.net" <andy@greyhouse.net>,
-	"harald@redhat.com" <harald@redhat.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100721.115023.69942880.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:51887 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752774Ab0GUTC5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jul 2010 15:02:57 -0400
+Content-Disposition: inline
+In-Reply-To: <m139vd5sms.fsf_-_@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Wednesday, July 21, 2010 11:50 AM
->To: Rose, Gregory V
->Cc: leedom@chelsio.com; shemminger@vyatta.com; andy@greyhouse.net;
->harald@redhat.com; bhutchings@solarflare.com; sassmann@redhat.com;
->netdev@vger.kernel.org; linux-kernel@vger.kernel.org; gospo@redhat.com;
->Duyck, Alexander H
->Subject: Re: [PATCH net-next] sysfs: add entry to indicate network
->interfaces with random MAC address
->
->From: David Miller <davem@davemloft.net>
->Date: Wed, 21 Jul 2010 11:48:51 -0700 (PDT)
->
->> You could do things like have the PF controller use the root
->filesystem
->> ID label to construct the VF's MAC address, or something like that.
->
->And here I of course mean the root filesystem of the guest the VF will
->be given to.
+On Tue, Jul 20, 2010 at 10:08:27PM -0700, Eric W. Biederman wrote:
+> 
+> Greg KH <gregkh@suse.de> writes:
+> 
+> > On Mon, Jul 19, 2010 at 01:34:51PM -0700, Andrew Morton wrote:
+> >> On Thu, 8 Jul 2010 16:06:01 -0700
+> >> Greg KH <greg@kroah.com> wrote:
+> >> 
+> >> > On Thu, Jul 08, 2010 at 03:28:53PM -0700, Eric W. Biederman wrote:
+> >> > > Greg KH <greg@kroah.com> writes:
+> >> > > 
+> >> > > > With this patch, how does the existing code fail as the drivers aren't
+> >> > > > fixed up?
+> >> > > >
+> >> > > > I like this change, just worried it will cause problems if it gets into
+> >> > > > .35, without your RFC patch.  Will it?
+> >> > > 
+> >> 
+> >> geethanks!
+> >> 
+> >> On the FC6 test box I have no networking.
+> >
+> > Ick.
+> >
+> > Eric, any ideas?
+> 
+> Yes.  I just found some time to test my fixes and things are looking
+> good.  It really is just two one line fixes.
+> 
+> On the other part of this debug with SYSFS_DEPRECATED enabled it
+> with mac80211_hwsim drivers works fine no problems.  I expect the
+> bnep driver will also be fine.
+> 
+> What is affecting those two is arguably a bug in the non-deprecated
+> sysfs mode.
+> 
+> Regardless here are my fixes.  I have split this into a patch for
+> the warning and a patch for sysfs_delete_link.  Because at least
+> the sysfs_delete_link code needs to make into 2.6.35 if we can.
 
-I suppose you could do that but then the VM is going to have to be allowed to set its own MAC address.  There is a lot of opposition and concern about allowing VMs to set their own MAC address.
+Do these patches obsolete the existing one I have in my tree entitled:
+	Subject: sysfs: Don't allow the creation of symlinks we can't remove
+or are they on top of that one?
 
-Then there's also support in the kernel now for assigning VF MAC and VLAN via the iproute2 package "ip link" commands.  The administrative SW that controls VMs should be assigning MAC addresses to VFs as needed.  When the VF is de-assigned from the guest because the VM is migrating then the administrative SW can assign another VF to the VM at the migration target machine and assign the same MAC address then.  This way it is all done administratively from the (supposedly) secure host VMM domain and we're not allowing VMs to set their own MAC address.
+thanks,
 
-Ultimately I think I agree that some sort of approach such as you and others have been suggesting should be taken.  I'm agnostic about which one because my view of how things should work is a bit different.  But if the community thinks that finding some way to set a persistent MAC address for a VF is useful then I'd more than happy to make sure our drivers support that also.
-
-As soon as it is decided what that is of course.
-
-;-)
-
-- Greg
+greg k-h
