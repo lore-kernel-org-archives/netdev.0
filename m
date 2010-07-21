@@ -1,62 +1,67 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net tree with Linus' tree
-Date: Wed, 21 Jul 2010 13:44:29 +1000
-Message-ID: <20100721134429.93730e40.sfr@canb.auug.org.au>
-References: <20100721120448.31e325fd.sfr@canb.auug.org.au>
-	<20100720.202759.00438343.davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] Export SMBIOS provided firmware instance and label to
+	sysfs
+Date: Tue, 20 Jul 2010 20:54:04 -0700
+Message-ID: <20100721035404.GE16676@kroah.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE612B93@blrx3m08.blr.amer.dell.com> <20100714121345.GA20411@auslistsprd01.us.dell.com> <EDA0A4495861324DA2618B4C45DCB3EE612BD1@blrx3m08.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__21_Jul_2010_13_44_29_+1000_fPHbP4i+HVQ1W5Fo"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:44440 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933266Ab0GUDod (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jul 2010 23:44:33 -0400
-In-Reply-To: <20100720.202759.00438343.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---Signature=_Wed__21_Jul_2010_13_44_29_+1000_fPHbP4i+HVQ1W5Fo
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-pci@vger.kernel.org, Matt_Domsch@Dell.com,
+	Charles_Rose@Dell.com, Jordan_Hargrave@Dell.com,
+	Vijay_Nijhawan@Dell.com
+To: Narendra_K@Dell.com
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE612BD1@blrx3m08.blr.amer.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Mon, Jul 19, 2010 at 10:24:39PM +0530, Narendra_K@Dell.com wrote:
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-
+> > owner@vger.kernel.org] On Behalf Of Narendra K
+> > Sent: Wednesday, July 14, 2010 5:44 PM
+> > To: greg@kroah.com
+> > Cc: netdev@vger.kernel.org; linux-hotplug@vger.kernel.org; linux-
+> > pci@vger.kernel.org; Domsch, Matt; Rose, Charles; Hargrave, Jordan;
+> > Nijhawan, Vijay
+> > Subject: Re: [PATCH] Export SMBIOS provided firmware instance and
+> label
+> > to sysfs
+> > 
+> > 
+> > V1 -> V2:
+> > 
+> > 1. The 'smbios_attr' buffer is not being used as mentioned above
+> > 
+> > 2. The function 'smbios_instance_string_exist' is split into two
+> > functions,
+> > the other being 'find_smbios_instance_string' which would print the
+> > result
+> > into the sysfs provided 'buf' of associated device. The function
+> > 'smbios_instance_string_exist' would let us know if the label exists
+> or
+> > not.
+> > 
+> > Please find the patch with above changes here -
+> > 
+> > From: Narendra K <narendra_k@dell.com>
+> > Subject: [PATCH] Export SMBIOS provided firmware instance and label to
+> > sysfs
+> > 
+> 
+> Greg,
+> 
+> Thanks for the review comments. 
+> 
+> This version of the patch has all the suggestions incorporated. Please
+> let us know if there are any concerns. If the approach is acceptable,
+> please consider this patch for inclusion.
 
-On Tue, 20 Jul 2010 20:27:59 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> The net-2.6 changes should be undone as net-next-2.6 has the fixes
-> that allow bridge netpoll to work properly, thus in net-next-2.6 the
-> net-2.6 commit is completely unnecessary.
->=20
-> I did this when I merged net-2.6 into net-next-2.6 about an hour ago
-> :-)
+What "version"?  The previous one you sent?  I'll look at it, but note
+that I'm not the maintainer who you need to convince to accept it :)
 
-Excellent, thanks.
+thanks,
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__21_Jul_2010_13_44_29_+1000_fPHbP4i+HVQ1W5Fo
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJMRm0dAAoJEDMEi1NhKgbsBKMH/AsmKeS6+Ict0TeeThoKY/W8
-CwnnvCIVs8rP0DvXeC4Nk0GFEKVJC3We6Jouw6vUtaGLCs95U8ewT5eMMXq1XBou
-A0lXDmT7/CcOu7L1taTxhsD1bCYvh9lgwcZjXELHLyOGJWOO8nJJEktwnkDjm/WT
-xOvbuvAgcDvi8y+D643A2OoqegsKwQ/VqCOH3SP7RskE1PBOQCODhiStYEXIsjBZ
-tToIDc5BD6QjNieUL4OpWSoFf2GcBTnvnU5zpL1JsQsLkOuPrLLuRm2+9C80/zcX
-R1jO5T/feRhOMti3+EW/k9PacEqqqcU1uXa3RU8MU8lBwwfY0+xPBcd7i+kSeHM=
-=HJud
------END PGP SIGNATURE-----
-
---Signature=_Wed__21_Jul_2010_13_44_29_+1000_fPHbP4i+HVQ1W5Fo--
+greg k-h
