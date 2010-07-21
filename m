@@ -1,38 +1,39 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [PATCH net-2.6] ixgbe/igb: catch invalid VF settings
-Date: Wed, 21 Jul 2010 09:50:55 -0700
-Message-ID: <20100721165055.GE13188@sequoia.sous-sol.org>
-References: <1279730431-17156-1-git-send-email-andy@greyhouse.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: dsa: introduce MICREL
+ KSZ8893MQL/BL ethernet switch chip support
+Date: Wed, 21 Jul 2010 10:23:38 -0700 (PDT)
+Message-ID: <20100721.102338.160104305.davem@davemloft.net>
+References: <1279719442-10174-1-git-send-email-vapier@gentoo.org>
+	<1279719442-10174-2-git-send-email-vapier@gentoo.org>
+	<20100721151608.GM21121@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, chrisw@sous-sol.org
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:59770 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750986Ab0GUQvA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jul 2010 12:51:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1279730431-17156-1-git-send-email-andy@greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: karl.beldan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        graf.yang-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+To: buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <20100721151608.GM21121-SHk0+jKqY/D5VnbZ9m/NDkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-* Andy Gospodarek (andy@greyhouse.net) wrote:
-> Some ixgbe cards put an invalid VF device ID in the PCIe SR-IOV
-> capability.  The ixgbe driver is only valid for PFs or non SR-IOV
-> hardware.  It seems that the same problem could occur on igb hardware as
-> well, so if we discover we are trying to initialize a VF in ixbge_probe
-> or igb_probe, print an error and exit.
+From: Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
+Date: Wed, 21 Jul 2010 17:16:08 +0200
+
+> On Wed, Jul 21, 2010 at 09:37:22AM -0400, Mike Frysinger wrote:
 > 
-> Based on a patch for ixgbe from Chris Wright <chrisw@sous-sol.org>.
+>> +#define pr_fmt(fmt) "ksz8893m: " fmt
 > 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> Cc: Chris Wright <chrisw@sous-sol.org>
+> This has no users.
 
-Acked-by: Chris Wright <chrisw@sous-sol.org>
+egrep pr_fmt include/linux/kernel.h
 
-Only seen this on ixgbe, but since the result there is a kernel panic
-makes sense to be defensive.
-
-thanks,
--chris
+It feeds into all of the various kernel logging interfaces.
