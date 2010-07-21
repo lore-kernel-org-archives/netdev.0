@@ -1,46 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sysfs: add entry to indicate network
- interfaces with random MAC address
-Date: Tue, 20 Jul 2010 23:34:57 -0700 (PDT)
-Message-ID: <20100720.233457.267367495.davem@davemloft.net>
-References: <20100720141816.16f0a939@nehalam>
-	<20100720.142045.32697196.davem@davemloft.net>
-	<4C469313.6010807@redhat.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [patch v2.6 4/4] libxt_ipvs: user-space lib for netfilter matcher
+ xt_ipvs
+Date: Wed, 21 Jul 2010 08:35:19 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007210834570.10568@obet.zrqbmnf.qr>
+References: <20100711090342.035149543@vergenet.net> <20100711090500.421568837@vergenet.net> <20100721012146.GC22966@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, bhutchings@solarflare.com,
-	sassmann@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, gospo@redhat.com,
-	gregory.v.rose@intel.com, alexander.h.duyck@intel.com,
-	leedom@chelsio.com
-To: harald@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C469313.6010807@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Eder <heder@google.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20100721012146.GC22966@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Hoyer <harald@redhat.com>
-Date: Wed, 21 Jul 2010 08:26:27 +0200
 
-> On 07/20/2010 11:20 PM, David Miller wrote:
->> From: Stephen Hemminger<shemminger@vyatta.com>
->> Date: Tue, 20 Jul 2010 14:18:16 -0700
->>
->>> No one mentioned that the first octet of an Ethernet address already
->>> indicates "software generated" Ethernet address. Per the standard,
->>> if bit 1 is set it means address is locally assigned.
->>>
->>> static inline bool is_locally_assigned_ether(const u8 *addr)
->>> {
->>> 	return (addr[0]&  0x2) != 0;
->>> }
->>
->> W00t!
->>
->> Indeed, can udev just use that?  :-)
-> 
-> It already does:
-> see /lib/udev/rules.d/75-persistent-net-generator.rules
+On Wednesday 2010-07-21 03:21, Simon Horman wrote:
+>> +
+>> +#define XT_IPVS_IPVS_PROPERTY	(1 << 0) /* all other options imply this one */
+>> +#define XT_IPVS_PROTO		(1 << 1)
+>> +#define XT_IPVS_VADDR		(1 << 2)
+>> +#define XT_IPVS_VPORT		(1 << 3)
+>> +#define XT_IPVS_DIR		(1 << 4)
+>> +#define XT_IPVS_METHOD		(1 << 5)
+>> +#define XT_IPVS_VPORTCTL	(1 << 6)
+>> +#define XT_IPVS_MASK		((1 << 7) - 1)
+>> +#define XT_IPVS_ONCE_MASK	(XT_IPVS_MASK & ~XT_IPVS_IPVS_PROPERTY)
 
-So... why doesn't this work?
+Can't these just be an enum?
+
