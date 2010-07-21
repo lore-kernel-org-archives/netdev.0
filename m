@@ -1,64 +1,130 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH 1/2] net: dsa: introduce STPID switch
-	tagging handling code
-Date: Wed, 21 Jul 2010 12:08:58 -0400
-Message-ID: <AANLkTinPtd2xXzq0MpR517OsbZWUZjdp25x8FndhQ2CP@mail.gmail.com>
-References: <1279719442-10174-1-git-send-email-vapier@gentoo.org>
-	<20100721150251.GL21121@mail.wantstofly.org> <AANLkTim1gbnH99GC_dVL8uevRgCRsn7dvAJ_rX-2Xgon@mail.gmail.com>
-	<20100721153531.GN21121@mail.wantstofly.org>
+From: Sonny Rao <sonnyrao@us.ibm.com>
+Subject: [PATCH] Add missing read memory barrier to Intel
+ Ethernet device drivers
+Date: Wed, 21 Jul 2010 11:22:41 -0500
+Message-ID: <20100721162241.GW21853@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Karl Beldan <karl.beldan@gmail.com>, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:45945 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755049Ab0GUQJT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 12:09:19 -0400
-Received: by ewy23 with SMTP id 23so2383957ewy.19
-        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 09:09:18 -0700 (PDT)
-In-Reply-To: <20100721153531.GN21121@mail.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 21, 2010 at 11:35, Lennert Buytenhek wrote:
-> On Wed, Jul 21, 2010 at 11:29:30AM -0400, Mike Frysinger wrote:
->> >> + =C2=A0 =C2=A0 source_port =3D dsa_header[1] & 0x03;
->> >> + =C2=A0 =C2=A0 if (source_port >=3D DSA_MAX_PORTS || ds->ports[s=
-ource_port] =3D=3D NULL)
->> >> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out_drop;
->> >> +
->> >> + =C2=A0 =C2=A0 if (((dsa_header[0] & ETH_P_8021QH) =3D=3D ETH_P_=
-8021QH) &&
->> >
->> > This is bogus -- what it does is:
->> >
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((dsa_header[0] & 0x81) =3D=3D 0x81)
->> >
->> > It doesn't look like you need to mask here at all.
->>
->> where does it say dsa_header[0] will always have 0x81 set ?
->
-> Eh?
->
-> This code is checking whether the packet has a STPID tag on it or not=
-=2E
-> A STPID tag exists if the first 12 nibbles are 0x810.
->
-> You are checking whether the first 8 nibbles of this are equal to 0x8=
-1
-> by doing:
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((byte & 0x81) =3D=3D 0x81)
->
-> What if the first byte is 0x93? =C2=A0Or 0xc5?
+From: Milton Miller <miltonm@bga.com>
 
-that was my point.  should it be masking or doing a raw compare ?
+The PowerPC architecture does not require loads to independent bytes to be
+ordered without adding an explicit barrier.
 
-i have nfc as i had nothing to do with the creation of this code.  i
-dont know the first thing about VLAN tags or anything else at that
-level.
--mike
+In ixgbe_clean_rx_irq we load the status bit then load the packet data.
+With packet split disabled if these loads go out of order we get a
+stale packet, but we will notice the bad sequence numbers and drop it.
+
+The problem occurs with packet split enabled where the TCP/IP header and data
+are in different descriptors. If the reads go out of order we may have data
+that doesn't match the TCP/IP header. Since we use hardware checksumming this
+bad data is never verified and it makes it all the way to the application.
+
+This bug was found during stress testing and adding this barrier has been shown
+to fix it.  The bug can manifest as a data integrity issue (bad payload data)
+or as a BUG in skb_pull().
+
+This was a nasty bug to hunt down, if people agree with the fix I think
+it's a candidate for stable.
+
+Previously Submitted to e1000-devel only for ixgbe
+
+http://marc.info/?l=e1000-devel&m=126593062701537&w=3
+
+We've now seen this problem hit with other device drivers (e1000e mostly)
+So I'm resubmitting with fixes for other Intel Device Drivers with
+similar issues:  ixgb, e100, e1000, and e1000e 
+
+Signed-off-by: Milton Miller <miltonm@bga.com>
+Signed-off-by: Anton Blanchard <anton@samba.org>
+Signed-off-by: Sonny Rao <sonnyrao@us.ibm.com>
+cc: stable <stable@kernel.org>
+
+---
+
+
+
+Index: linux-2.6.35-rc5/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.35-rc5.orig/drivers/net/e1000/e1000_main.c	2010-07-21 11:19:47.000000000 -0500
++++ linux-2.6.35-rc5/drivers/net/e1000/e1000_main.c	2010-07-21 11:19:58.000000000 -0500
+@@ -3448,6 +3448,7 @@ static bool e1000_clean_tx_irq(struct e1
+ 	while ((eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) &&
+ 	       (count < tx_ring->count)) {
+ 		bool cleaned = false;
++		rmb();	/* read buffer_info after eop_desc */
+ 		for ( ; !cleaned; count++) {
+ 			tx_desc = E1000_TX_DESC(*tx_ring, i);
+ 			buffer_info = &tx_ring->buffer_info[i];
+Index: linux-2.6.35-rc5/drivers/net/e1000e/netdev.c
+===================================================================
+--- linux-2.6.35-rc5.orig/drivers/net/e1000e/netdev.c	2010-07-21 11:19:47.000000000 -0500
++++ linux-2.6.35-rc5/drivers/net/e1000e/netdev.c	2010-07-21 11:19:58.000000000 -0500
+@@ -984,6 +984,7 @@ static bool e1000_clean_tx_irq(struct e1
+ 	while ((eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) &&
+ 	       (count < tx_ring->count)) {
+ 		bool cleaned = false;
++		rmb(); /* read buffer_info after eop_desc */
+ 		for (; !cleaned; count++) {
+ 			tx_desc = E1000_TX_DESC(*tx_ring, i);
+ 			buffer_info = &tx_ring->buffer_info[i];
+Index: linux-2.6.35-rc5/drivers/net/ixgb/ixgb_main.c
+===================================================================
+--- linux-2.6.35-rc5.orig/drivers/net/ixgb/ixgb_main.c	2010-07-21 11:19:47.000000000 -0500
++++ linux-2.6.35-rc5/drivers/net/ixgb/ixgb_main.c	2010-07-21 11:19:58.000000000 -0500
+@@ -1816,6 +1816,7 @@ ixgb_clean_tx_irq(struct ixgb_adapter *a
+ 
+ 	while (eop_desc->status & IXGB_TX_DESC_STATUS_DD) {
+ 
++		rmb(); /* read buffer_info after eop_desc */
+ 		for (cleaned = false; !cleaned; ) {
+ 			tx_desc = IXGB_TX_DESC(*tx_ring, i);
+ 			buffer_info = &tx_ring->buffer_info[i];
+Index: linux-2.6.35-rc5/drivers/net/e100.c
+===================================================================
+--- linux-2.6.35-rc5.orig/drivers/net/e100.c	2010-07-21 11:19:47.000000000 -0500
++++ linux-2.6.35-rc5/drivers/net/e100.c	2010-07-21 11:20:04.000000000 -0500
+@@ -1779,6 +1779,7 @@ static int e100_tx_clean(struct nic *nic
+ 	for (cb = nic->cb_to_clean;
+ 	    cb->status & cpu_to_le16(cb_complete);
+ 	    cb = nic->cb_to_clean = cb->next) {
++		rmb(); /* read skb after status */
+ 		netif_printk(nic, tx_done, KERN_DEBUG, nic->netdev,
+ 			     "cb[%d]->status = 0x%04X\n",
+ 			     (int)(((void*)cb - (void*)nic->cbs)/sizeof(struct cb)),
+Index: linux-2.6.35-rc5/drivers/net/ixgbe/ixgbe_main.c
+===================================================================
+--- linux-2.6.35-rc5.orig/drivers/net/ixgbe/ixgbe_main.c	2010-07-21 11:19:47.000000000 -0500
++++ linux-2.6.35-rc5/drivers/net/ixgbe/ixgbe_main.c	2010-07-21 11:19:58.000000000 -0500
+@@ -748,6 +748,7 @@ static bool ixgbe_clean_tx_irq(struct ix
+ 	while ((eop_desc->wb.status & cpu_to_le32(IXGBE_TXD_STAT_DD)) &&
+ 	       (count < tx_ring->work_limit)) {
+ 		bool cleaned = false;
++		rmb(); /* read buffer_info after eop_desc */
+ 		for ( ; !cleaned; count++) {
+ 			struct sk_buff *skb;
+ 			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Sprint
+What will you do first with EVO, the first 4G phone?
+Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
