@@ -1,46 +1,61 @@
-From: Elly Jones <ellyjones@google.com>
-Subject: [patch] usbnet: fix 100% CPU use on suspended device
-Date: Wed, 21 Jul 2010 14:51:48 -0400
-Message-ID: <AANLkTi=pSkOuiFGAK4inPdm-KbLuVrz51e2T6eV51ts0@mail.gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH net-next] sysfs: add entry to indicate network
+ interfaces with random MAC address
+Date: Wed, 21 Jul 2010 12:02:17 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755F1846247@orsmsx508.amr.corp.intel.com>
+References: <201007211129.48288.leedom@chelsio.com>
+	<43F901BD926A4E43B106BF17856F0755F184620A@orsmsx508.amr.corp.intel.com>
+	<20100721.114851.200597269.davem@davemloft.net>
+ <20100721.115023.69942880.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:56918 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752774Ab0GUSvz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 14:51:55 -0400
-Received: from kpbe20.cbf.corp.google.com (kpbe20.cbf.corp.google.com [172.25.105.84])
-	by smtp-out.google.com with ESMTP id o6LIpr0E003697
-	for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 11:51:54 -0700
-Received: from gxk25 (gxk25.prod.google.com [10.202.11.25])
-	by kpbe20.cbf.corp.google.com with ESMTP id o6LIpKtm026557
-	for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 11:51:52 -0700
-Received: by gxk25 with SMTP id 25so4951799gxk.1
-        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 11:51:52 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "leedom@chelsio.com" <leedom@chelsio.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"andy@greyhouse.net" <andy@greyhouse.net>,
+	"harald@redhat.com" <harald@redhat.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100721.115023.69942880.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Subject: [patch] usbnet: fix 100% CPU use on suspended device
-From: Elly Jones <ellyjones@google.com>
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Wednesday, July 21, 2010 11:50 AM
+>To: Rose, Gregory V
+>Cc: leedom@chelsio.com; shemminger@vyatta.com; andy@greyhouse.net;
+>harald@redhat.com; bhutchings@solarflare.com; sassmann@redhat.com;
+>netdev@vger.kernel.org; linux-kernel@vger.kernel.org; gospo@redhat.com;
+>Duyck, Alexander H
+>Subject: Re: [PATCH net-next] sysfs: add entry to indicate network
+>interfaces with random MAC address
+>
+>From: David Miller <davem@davemloft.net>
+>Date: Wed, 21 Jul 2010 11:48:51 -0700 (PDT)
+>
+>> You could do things like have the PF controller use the root
+>filesystem
+>> ID label to construct the VF's MAC address, or something like that.
+>
+>And here I of course mean the root filesystem of the guest the VF will
+>be given to.
 
-This patch causes the usbnet module not to attempt to submit URBs to the device
-if the device is not ready to accept them. This fixes a misbehavior trigged by
-the Qualcomm Gobi driver (released under GPL through their Code Aurora
-initiative) which causes the usbnet core to consume 100% of CPU attempting and
-failing to submit URBs. This patch is against Linus's 2.6 repo commit
-a9f7f2e74ae0e6a801a2433dc8e9124d73da0cb4.
-Signed-off-by: Elizabeth Jones <ellyjones@google.com>
----
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 81c76ad..df7e72e 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1172,6 +1172,7 @@ static void usbnet_bh (unsigned long param)
- 	// or are we maybe short a few urbs?
- 	} else if (netif_running (dev->net) &&
- 		   netif_device_present (dev->net) &&
-+		   dev->udev->can_submit &&
- 		   !timer_pending (&dev->delay) &&
- 		   !test_bit (EVENT_RX_HALT, &dev->flags)) {
- 		int	temp = dev->rxq.qlen;
+I suppose you could do that but then the VM is going to have to be allowed to set its own MAC address.  There is a lot of opposition and concern about allowing VMs to set their own MAC address.
+
+Then there's also support in the kernel now for assigning VF MAC and VLAN via the iproute2 package "ip link" commands.  The administrative SW that controls VMs should be assigning MAC addresses to VFs as needed.  When the VF is de-assigned from the guest because the VM is migrating then the administrative SW can assign another VF to the VM at the migration target machine and assign the same MAC address then.  This way it is all done administratively from the (supposedly) secure host VMM domain and we're not allowing VMs to set their own MAC address.
+
+Ultimately I think I agree that some sort of approach such as you and others have been suggesting should be taken.  I'm agnostic about which one because my view of how things should work is a bit different.  But if the community thinks that finding some way to set a persistent MAC address for a VF is useful then I'd more than happy to make sure our drivers support that also.
+
+As soon as it is decided what that is of course.
+
+;-)
+
+- Greg
