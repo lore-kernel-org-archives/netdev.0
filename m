@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] ixgbe/igb: catch invalid VF settings
-Date: Wed, 21 Jul 2010 13:51:47 -0700 (PDT)
-Message-ID: <20100721.135147.247126008.davem@davemloft.net>
-References: <43F901BD926A4E43B106BF17856F0755F18462F6@orsmsx508.amr.corp.intel.com>
-	<AANLkTi=Z_xSSaATcz-s8FoYcx6EYy+inH7cYZ_2W4AAs@mail.gmail.com>
-	<20100721.134513.200802525.davem@davemloft.net>
+Subject: Re: [PATCH net-next] drivers/net/qlge: Use pr_<level>, shrink text
+ a bit
+Date: Wed, 21 Jul 2010 13:58:00 -0700 (PDT)
+Message-ID: <20100721.135800.43444396.davem@davemloft.net>
+References: <1279576149.5434.59.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chrisw@sous-sol.org, andy@greyhouse.net, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Cc: ron.mercer@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38419
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34174
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752978Ab0GUUvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 16:51:31 -0400
-In-Reply-To: <20100721.134513.200802525.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1750906Ab0GUU5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 16:57:44 -0400
+In-Reply-To: <1279576149.5434.59.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 21 Jul 2010 13:45:13 -0700 (PDT)
+From: Joe Perches <joe@perches.com>
+Date: Mon, 19 Jul 2010 14:49:08 -0700
 
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Wed, 21 Jul 2010 13:31:38 -0700
+> Add and use a few neatening macros
+> Remove PFX
+> Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> Convert printk(KERN_ERR to pr_err(
 > 
->> Dave, I do not plan on adding this patch to my queue, so feel free to
->> take this patch after review.
+> $ size drivers/net/qlge/built-in.o.*
+>   text	   data	    bss	    dec	    hex	filename
+>  116456	   2312	  25712	 144480	  23460	drivers/net/qlge/built-in.o.old
+>  114909	   2312	  25728	 142949	  22e65	drivers/net/qlge/built-in.o.new
 > 
-> Ok, will do.
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thanks everyone.
+Applied, thanks Joe.
