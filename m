@@ -1,166 +1,133 @@
-From: Manuel Lauss <manuel.lauss@googlemail.com>
-Subject: [PATCH] au1000_eth: get ethernet address from platform_data
-Date: Wed, 21 Jul 2010 14:30:50 +0200
-Message-ID: <1279715450-28762-1-git-send-email-manuel.lauss@googlemail.com>
-Cc: netdev@vger.kernel.org, Manuel Lauss <manuel.lauss@googlemail.com>
-To: Linux-MIPS <linux-mips@linux-mips.org>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH] fec: use interrupt for MDIO completion indication
+Date: Wed, 21 Jul 2010 14:51:13 +0200
+Message-ID: <20100721125113.GA2651@pengutronix.de>
+References: <006416d38a8e51ba8dd8631613a991528dc7976a.1278918594.git.baruch@tkos.co.il>
+ <4C3E812C.10303@canonical.com>
+ <20100715040956.GA7690@jasper.tkos.co.il>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="EVF5PPMfhYS0aIcm"
+Cc: Bryan Wu <bryan.wu@canonical.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Greg Ungerer <gerg@uclinux.org>
+To: Baruch Siach <baruch@tkos.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:49578 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751447Ab0GUMa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 08:30:59 -0400
-Received: by bwz1 with SMTP id 1so123805bwz.19
-        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 05:30:57 -0700 (PDT)
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:45481 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210Ab0GUMvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 08:51:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20100715040956.GA7690@jasper.tkos.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-au1000_eth uses firmware calls to get a valid MAC address, and changes
-it depending on platform device id.  This patch moves this logic out
-of the driver into the platform device registration part, where boards
-with supported chips can use whatever firmware interface they need;
-the default implementation maintains compatibility with existing,
-YAMON-based firmware.
 
-Tested-by: Wolfgang Grandegger <wg@denx.de>
-Acked-by: Florian Fainelli <florian@openwrt.org>
-Signed-off-by: Manuel Lauss <manuel.lauss@googlemail.com>
+--EVF5PPMfhYS0aIcm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+
+> > Thanks for this patch, we tested on our i.MX51 board with Ubuntu. It wo=
+rks=20
+> > fine.
+> >=20
+> > Wolfram, you can pick up this, too. -;)
+>=20
+> Dave has already applied this patch to his net-next tree.
+
+Bryan, thanks for letting me know, I missed this one.
+
+However, have you guys ever tried pulling the cable off/on or restarting
+the interface with 'ifconfig down/up'? This always caused a stalled PHY
+for me. This patch helps:
+
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+
+=46rom: Wolfram Sang <w.sang@pengutronix.de>
+Subject: [PATCH] net/fec: restore interrupt mask after software-reset in fe=
+c_stop()
+
+After the change from mdio polling to irq, it became necessary to
+restore the interrupt mask after resetting the chip in fec_stop().
+Otherwise, with all irqs disabled, no communication with the PHY will be
+possible after e.g. un-/replugging the cable and the device gets
+stalled.
+
+Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
 ---
-This patch depends on another patch to the MIPS tree to
-apply cleanly, so I'd prefer if it went in through it as well.
+ drivers/net/fec.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
- arch/mips/alchemy/common/platform.c            |   15 ++++++++++-
- arch/mips/include/asm/mach-au1x00/au1xxx_eth.h |    1 +
- drivers/net/au1000_eth.c                       |   31 +++++------------------
- 3 files changed, 22 insertions(+), 25 deletions(-)
-
-diff --git a/arch/mips/alchemy/common/platform.c b/arch/mips/alchemy/common/platform.c
-index f9e5622..e9c354f 100644
---- a/arch/mips/alchemy/common/platform.c
-+++ b/arch/mips/alchemy/common/platform.c
-@@ -12,6 +12,7 @@
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 391a553..768b840 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -118,6 +118,8 @@ static unsigned char	fec_mac_default[] =3D {
+ #define FEC_ENET_MII	((uint)0x00800000)	/* MII interrupt */
+ #define FEC_ENET_EBERR	((uint)0x00400000)	/* SDMA bus error */
+=20
++#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
++
+ /* The FEC stores dest/src/type, data, and checksum for receive packets.
   */
- 
- #include <linux/dma-mapping.h>
-+#include <linux/etherdevice.h>
- #include <linux/platform_device.h>
- #include <linux/serial_8250.h>
- #include <linux/init.h>
-@@ -21,6 +22,8 @@
- #include <asm/mach-au1x00/au1100_mmc.h>
- #include <asm/mach-au1x00/au1xxx_eth.h>
- 
-+#include <prom.h>
-+
- #define PORT(_base, _irq)					\
- 	{							\
- 		.mapbase	= _base,			\
-@@ -436,17 +439,27 @@ static int __init au1xxx_platform_init(void)
- {
- 	unsigned int uartclk = get_au1x00_uart_baud_base() * 16;
- 	int err, i;
-+	unsigned char ethaddr[6];
- 
- 	/* Fill up uartclk. */
- 	for (i = 0; au1x00_uart_data[i].flags; i++)
- 		au1x00_uart_data[i].uartclk = uartclk;
- 
-+	/* use firmware-provided mac addr if available and necessary */
-+	i = prom_get_ethernet_addr(ethaddr);
-+	if (!i && !is_valid_ether_addr(au1xxx_eth0_platform_data.mac))
-+		memcpy(au1xxx_eth0_platform_data.mac, ethaddr, 6);
-+
- 	err = platform_add_devices(au1xxx_platform_devices,
- 				   ARRAY_SIZE(au1xxx_platform_devices));
- #ifndef CONFIG_SOC_AU1100
-+	ethaddr[5] += 1;	/* next addr for 2nd MAC */
-+	if (!i && !is_valid_ether_addr(au1xxx_eth1_platform_data.mac))
-+		memcpy(au1xxx_eth1_platform_data.mac, ethaddr, 6);
-+
- 	/* Register second MAC if enabled in pinfunc */
- 	if (!err && !(au_readl(SYS_PINFUNC) & (u32)SYS_PF_NI2))
--		platform_device_register(&au1xxx_eth1_device);
-+		err = platform_device_register(&au1xxx_eth1_device);
- #endif
- 
- 	return err;
-diff --git a/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h b/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h
-index bae9b75..49dc8d9 100644
---- a/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h
-+++ b/arch/mips/include/asm/mach-au1x00/au1xxx_eth.h
-@@ -9,6 +9,7 @@ struct au1000_eth_platform_data {
- 	int phy_addr;
- 	int phy_busid;
- 	int phy_irq;
-+	char mac[6];
- };
- 
- void __init au1xxx_override_eth_cfg(unsigned port,
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index ece6128..17e7e27 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -104,14 +104,6 @@ MODULE_VERSION(DRV_VERSION);
-  * complete immediately.
-  */
- 
--/* These addresses are only used if yamon doesn't tell us what
-- * the mac address is, and the mac address is not passed on the
-- * command line.
-- */
--static unsigned char au1000_mac_addr[6] __devinitdata = {
--	0x00, 0x50, 0xc2, 0x0c, 0x30, 0x00
--};
+ #define PKT_MAXBUF_SIZE		1518
+@@ -1213,8 +1215,7 @@ fec_restart(struct net_device *dev, int duplex)
+ 	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
+=20
+ 	/* Enable interrupts we wish to service */
+-	writel(FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII,
+-			fep->hwp + FEC_IMASK);
++	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+ }
+=20
+ static void
+@@ -1233,8 +1234,8 @@ fec_stop(struct net_device *dev)
+ 	/* Whack a reset.  We should wait for this. */
+ 	writel(1, fep->hwp + FEC_ECNTRL);
+ 	udelay(10);
 -
- struct au1000_private *au_macs[NUM_ETH_INTERFACES];
- 
- /*
-@@ -1002,7 +994,6 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 	db_dest_t *pDB, *pDBfree;
- 	int irq, i, err = 0;
- 	struct resource *base, *macen;
--	char ethaddr[6];
- 
- 	base = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!base) {
-@@ -1079,24 +1070,13 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 	}
- 	aup->mac_id = pdev->id;
- 
--	if (pdev->id == 0) {
--		if (prom_get_ethernet_addr(ethaddr) == 0)
--			memcpy(au1000_mac_addr, ethaddr, sizeof(au1000_mac_addr));
--		else {
--			netdev_info(dev, "No MAC address found\n");
--				/* Use the hard coded MAC addresses */
--		}
--
-+	if (pdev->id == 0)
- 		au1000_setup_hw_rings(aup, MAC0_RX_DMA_ADDR, MAC0_TX_DMA_ADDR);
--	} else if (pdev->id == 1)
-+	else if (pdev->id == 1)
- 		au1000_setup_hw_rings(aup, MAC1_RX_DMA_ADDR, MAC1_TX_DMA_ADDR);
- 
--	/*
--	 * Assign to the Ethernet ports two consecutive MAC addresses
--	 * to match those that are printed on their stickers
--	 */
--	memcpy(dev->dev_addr, au1000_mac_addr, sizeof(au1000_mac_addr));
--	dev->dev_addr[5] += pdev->id;
-+	/* set a random MAC now in case platform_data doesn't provide one */
-+	random_ether_addr(dev->dev_addr);
- 
- 	*aup->enable = 0;
- 	aup->mac_enabled = 0;
-@@ -1106,6 +1086,9 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 		dev_info(&pdev->dev, "no platform_data passed, PHY search on MAC0\n");
- 		aup->phy1_search_mac0 = 1;
- 	} else {
-+		if (is_valid_ether_addr(pd->mac))
-+			memcpy(dev->dev_addr, pd->mac, 6);
-+
- 		aup->phy_static_config = pd->phy_static_config;
- 		aup->phy_search_highest_addr = pd->phy_search_highest_addr;
- 		aup->phy1_search_mac0 = pd->phy1_search_mac0;
--- 
-1.7.1.1
+ 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
++	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+ }
+=20
+ static int __devinit
+--=20
+1.7.1
 
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+
+BUT, while it helps and may possibly be a quick fix for 2.6.35,
+resetting the chip in fec_stop() looks like a wrong thing to do for me.
+In the long run, it probably is better to make sure the chip is set up
+correctly during initialization, so the reset in fec_stop() is not
+needed at all. I had a quick shot at this, but seem to have missed
+something as it didn't work. As I will be away from the computers for
+two weeks in about 24 hours, I at least wanted to bring up the issue.
+
+Regards,
+
+   Wolfram
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--EVF5PPMfhYS0aIcm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkxG7UEACgkQD27XaX1/VRsnwwCfTguT90rmNShIpAWhW9DY3KBA
+jeQAn0+qHXH4d77Xtpf4xnCX8LBLm7WY
+=22VA
+-----END PGP SIGNATURE-----
+
+--EVF5PPMfhYS0aIcm--
