@@ -1,66 +1,172 @@
 From: Greg KH <greg@kroah.com>
 Subject: Re: [PATCH] Export SMBIOS provided firmware instance and label to
 	sysfs
-Date: Tue, 20 Jul 2010 20:54:04 -0700
-Message-ID: <20100721035404.GE16676@kroah.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE612B93@blrx3m08.blr.amer.dell.com> <20100714121345.GA20411@auslistsprd01.us.dell.com> <EDA0A4495861324DA2618B4C45DCB3EE612BD1@blrx3m08.blr.amer.dell.com>
+Date: Tue, 20 Jul 2010 20:59:43 -0700
+Message-ID: <20100721035943.GF16676@kroah.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE612B93@blrx3m08.blr.amer.dell.com> <20100714121345.GA20411@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, Matt_Domsch@Dell.com,
-	Charles_Rose@Dell.com, Jordan_Hargrave@Dell.com,
-	Vijay_Nijhawan@Dell.com
-To: Narendra_K@Dell.com
-Return-path: <linux-pci-owner@vger.kernel.org>
+	linux-pci@vger.kernel.org, matt_domsch@dell.com,
+	charles_rose@dell.com, jordan_hargrave@dell.com,
+	vijay_nijhawan@dell.com
+To: Narendra K <Narendra_K@dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE612BD1@blrx3m08.blr.amer.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <20100714121345.GA20411@auslistsprd01.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 19, 2010 at 10:24:39PM +0530, Narendra_K@Dell.com wrote:
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> > owner@vger.kernel.org] On Behalf Of Narendra K
-> > Sent: Wednesday, July 14, 2010 5:44 PM
-> > To: greg@kroah.com
-> > Cc: netdev@vger.kernel.org; linux-hotplug@vger.kernel.org; linux-
-> > pci@vger.kernel.org; Domsch, Matt; Rose, Charles; Hargrave, Jordan;
-> > Nijhawan, Vijay
-> > Subject: Re: [PATCH] Export SMBIOS provided firmware instance and
-> label
-> > to sysfs
-> > 
-> > 
-> > V1 -> V2:
-> > 
-> > 1. The 'smbios_attr' buffer is not being used as mentioned above
-> > 
-> > 2. The function 'smbios_instance_string_exist' is split into two
-> > functions,
-> > the other being 'find_smbios_instance_string' which would print the
-> > result
-> > into the sysfs provided 'buf' of associated device. The function
-> > 'smbios_instance_string_exist' would let us know if the label exists
-> or
-> > not.
-> > 
-> > Please find the patch with above changes here -
-> > 
-> > From: Narendra K <narendra_k@dell.com>
-> > Subject: [PATCH] Export SMBIOS provided firmware instance and label to
-> > sysfs
-> > 
-> 
-> Greg,
-> 
-> Thanks for the review comments. 
-> 
-> This version of the patch has all the suggestions incorporated. Please
-> let us know if there are any concerns. If the approach is acceptable,
-> please consider this patch for inclusion.
+On Wed, Jul 14, 2010 at 07:13:45AM -0500, Narendra K wrote:
+> @@ -333,6 +358,7 @@ static void __init dmi_decode(const struct dmi_header *dm, void *dummy)
+>  		break;
+>  	case 41:	/* Onboard Devices Extended Information */
+>  		dmi_save_extended_devices(dm);
+> +		break;
 
-What "version"?  The previous one you sent?  I'll look at it, but note
-that I'm not the maintainer who you need to convince to accept it :)
+Why make this change?  It's not relevant to your patch, right?
+
+> +enum smbios_attr_enum {
+> +	SMBIOS_ATTR_NONE = 0,
+> +	SMBIOS_ATTR_LABEL_SHOW,
+> +	SMBIOS_ATTR_INSTANCE_SHOW,
+> +};
+> +
+> +static mode_t
+> +find_smbios_instance_string(struct pci_dev *pdev, char *buf, int attribute)
+
+Why isn't 'attribute' an enumerated type like you just defined above?
+Extra type-checking is always good, especially as the variable name
+'attribute' means something totally different in other parts of this
+file.
+
+> +{
+> +	const struct dmi_device *dmi;
+> +	struct dmi_dev_onboard *donboard;
+> +	int bus;
+> +	int devfn;
+> +
+> +	bus = pdev->bus->number;
+> +	devfn = pdev->devfn;
+> +
+> +	dmi = NULL;
+> +	while ((dmi = dmi_find_device(DMI_DEV_TYPE_DEV_ONBOARD,
+> +				      NULL, dmi)) != NULL) {
+> +		donboard = dmi->device_data;
+> +		if (donboard && donboard->bus == bus &&
+> +					donboard->devfn == devfn) {
+> +			if (buf) {
+> +				if (attribute == SMBIOS_ATTR_INSTANCE_SHOW)
+> +					return scnprintf(buf, PAGE_SIZE,
+> +							 "%d\n",
+> +							 donboard->instance);
+> +				else if (attribute == SMBIOS_ATTR_LABEL_SHOW)
+> +					return scnprintf(buf, PAGE_SIZE,
+> +							 "%s\n",
+> +							 dmi->name);
+> +			}
+> +			return strlen(dmi->name);
+> +		}
+> +	}
+> +	return 0;
+> +}
+> +
+> +static mode_t
+> +smbios_instance_string_exist(struct kobject *kobj, struct attribute *attr,
+> +			     int n)
+> +{
+> +	struct device *dev;
+> +	struct pci_dev *pdev;
+> +
+> +	dev = container_of(kobj, struct device, kobj);
+> +	pdev = to_pci_dev(dev);
+> +
+> +	return find_smbios_instance_string(pdev, NULL, SMBIOS_ATTR_NONE);
+> +}
+> +
+> +static ssize_t
+> +smbioslabel_show(struct device *dev, struct device_attribute *attr, char *buf)
+> +{
+> +	struct pci_dev *pdev;
+> +	pdev = to_pci_dev(dev);
+> +
+> +	return find_smbios_instance_string(pdev, buf,
+> +					   SMBIOS_ATTR_LABEL_SHOW);
+> +}
+> +
+> +static ssize_t
+> +smbiosinstance_show(struct device *dev,
+> +		    struct device_attribute *attr, char *buf)
+> +{
+> +	struct pci_dev *pdev;
+> +	pdev = to_pci_dev(dev);
+> +
+> +	return find_smbios_instance_string(pdev, buf,
+> +					   SMBIOS_ATTR_INSTANCE_SHOW);
+> +}
+> +
+> +static struct device_attribute smbios_attr_label = {
+> +	.attr = {.name = "label", .mode = 0444, .owner = THIS_MODULE},
+> +	.show = smbioslabel_show,
+> +};
+> +
+> +static struct device_attribute smbios_attr_instance = {
+> +	.attr = {.name = "index", .mode = 0444, .owner = THIS_MODULE},
+> +	.show = smbiosinstance_show,
+> +};
+> +
+> +static struct attribute *smbios_attributes[] = {
+> +	&smbios_attr_label.attr,
+> +	&smbios_attr_instance.attr,
+> +	NULL,
+> +};
+> +
+> +static struct attribute_group smbios_attr_group = {
+> +	.attrs = smbios_attributes,
+> +	.is_visible = smbios_instance_string_exist,
+> +};
+> +
+> +static int
+> +pci_create_smbiosname_file(struct pci_dev *pdev)
+> +{
+> +	if (!sysfs_create_group(&pdev->dev.kobj, &smbios_attr_group))
+> +		return 0;
+> +	return -ENODEV;
+> +}
+> +
+> +static int
+> +pci_remove_smbiosname_file(struct pci_dev *pdev)
+> +{
+> +		sysfs_remove_group(&pdev->dev.kobj, &smbios_attr_group);
+> +		return 0;
+> +}
+
+What's with the extra indentation?
+
+Why return a value at all here?
+
+> +
+> +int pci_create_firmware_label_files(struct pci_dev *pdev)
+> +{
+> +	if (!pci_create_smbiosname_file(pdev))
+> +		return 0;
+> +	return -ENODEV;
+> +}
+> +
+> +int pci_remove_firmware_label_files(struct pci_dev *pdev)
+> +{
+> +	if (!pci_remove_smbiosname_file(pdev))
+> +		return 0;
+> +	return -ENODEV;
+> +}
+
+Why return values for these two functions if you never check them
+anywhere?  Either check the return value and do something with it, or
+just make them 'void'.
+
+Also, you need to add documentation for what this sysfs file is and does
+in the Documentation/ABI/ directory.  That must be in this patch to have
+it acceptable.
 
 thanks,
 
