@@ -1,60 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] sysfs: add entry to indicate network
- interfaces with random MAC address
-Date: Wed, 21 Jul 2010 14:54:38 +0100
-Message-ID: <1279720478.2089.3.camel@achroite.uk.solarflarecom.com>
-References: <4C458CB7.3030508@redhat.com>	<4C458F50.4070200@ixiacom.com>
-	 <4C4593DA.9040207@redhat.com>
-	 <20100720.131839.134093789.davem@davemloft.net>
-	 <4C46AB60.5060008@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH v3 1/5] irq: add tracepoint to softirq_raise
+Date: Wed, 21 Jul 2010 09:56:54 -0400
+Message-ID: <20100721135654.GE21259@hmsreliant.think-freely.org>
+References: <4C469A41.4020807@jp.fujitsu.com>
+ <20100721111419.GB21259@hmsreliant.think-freely.org>
+ <20100721215836.86F9.A69D9226@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, abadea@ixiacom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gospo@redhat.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com, leedom@chelsio.com, harald@redhat.com
-To: Stefan Assmann <sassmann@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C46AB60.5060008@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
+	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
+	rostedt@goodmis.org, eric.dumazet@gmail.com, fweisbec@gmail.com,
+	mathieu.desnoyers@polymtl.ca
+To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:58050 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719Ab0GUN7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 09:59:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20100721215836.86F9.A69D9226@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-07-21 at 10:10 +0200, Stefan Assmann wrote:
-> On 20.07.2010 22:18, David Miller wrote:
-> > From: Stefan Assmann <sassmann@redhat.com>
-> > Date: Tue, 20 Jul 2010 14:17:30 +0200
-> > 
-> >> On 20.07.2010 13:58, Alex Badea wrote:
-> >>> Hi,
-> >>>
-> >>> On 07/20/2010 02:47 PM, Stefan Assmann wrote:
-> >>>>> What about devices that 'steal' MAC addresses from slave devices?
-> >>>
-> >>> Might I suggest an attribute such as "address_type", which could report
-> >>> "permanent", "random", "stolen", or something else in the future?
-> >>
-> >> In case there's demand for such a multi-purpose attribute I see no
-> >> reason to object. More thoughts on this?
-> > 
-> > I think this is a great idea.
-> > 
-> > Now it makes sense to use a new 'u8' in struct netdevice or similar to
-> > store this, since we'll have more than a boolean here.
-> > 
+On Wed, Jul 21, 2010 at 10:01:34PM +0900, KOSAKI Motohiro wrote:
+> > > >>  #endif /*  _TRACE_IRQ_H */
+> > > >> diff --git a/kernel/softirq.c b/kernel/softirq.c
+> > > >> index 825e112..6790599 100644
+> > > >> --- a/kernel/softirq.c
+> > > >> +++ b/kernel/softirq.c
+> > > >> @@ -215,9 +215,9 @@ restart:
+> > > >>  			int prev_count = preempt_count();
+> > > >>  			kstat_incr_softirqs_this_cpu(h - softirq_vec);
+> > > >>  
+> > > >> -			trace_softirq_entry(h, softirq_vec);
+> > > >> +			trace_softirq_entry(h - softirq_vec);
+> > > >>  			h->action(h);
+> > > >> -			trace_softirq_exit(h, softirq_vec);
+> > > >> +			trace_softirq_exit(h - softirq_vec);
+> > > > 
+> > > > You're loosing information here by reducing the numbers of parameters in this
+> > > > tracepoint.  How many other tracepoint scripts rely on having both pointers
+> > > > handy?  Why not just do the pointer math inside your tracehook instead?
+> > > 
+> > > In __raise_softirq_irqoff macro there is no method to refer softirq_vec, so it
+> > > can't use softirq DECLARE_EVENT_CLASS as is.
+> > > Currently,  there is no script using softirq_entry or softirq_exit.
+> > > 
+> > That shouldn't matter, just pass in NULL for softirq_vec in
+> > __raise_softirq_irqoff as the second argument to the trace function.  You may
+> > need to fix up the class definition so that the assignment or printk doesn't try
+> > to dereference that pointer when its NULL, but thats easy enough, and it avoids
+> > breaking any other perf scripts floating out there.
 > 
-> I put Alex' idea into code for further discussion, keeping the names
-> mentioned here until we agree on the scope of this attribute. When we
-> have settled I'll post a patch with proper patch description.
-[...]
+> please see 5 lines above. we already have 'h - softirq_vec' calculation in
+> this function. so, Sanagi-san's change don't makes any overhead.
+> 
+> So, if the overhead is zero, I'd prefer simplest tracepoint definition :)
+> 
+I never complained about performance here, I complained about information loss.
+You have a tracepoint that provides two arguments here, and you're eliminating
+one of them.  That will potentially break other users of this tracepoint.  I
+understand we don't normally care about that with tracepoints as much, but if we
+can avoid it, why don't we?
+Neil
 
-Just a little nitpick: I think it would be clearer to use a more
-specific term like 'address source' or 'address assignment type' rather
-than 'address type'.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
