@@ -1,57 +1,60 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch v2.6 4/4] libxt_ipvs: user-space lib for netfilter
- matcher xt_ipvs
-Date: Wed, 21 Jul 2010 22:41:03 +0900
-Message-ID: <20100721134102.GA21188@verge.net.au>
-References: <20100711090342.035149543@vergenet.net>
- <20100711090500.421568837@vergenet.net>
- <20100721012146.GC22966@verge.net.au>
- <alpine.LSU.2.01.1007210834570.10568@obet.zrqbmnf.qr>
- <20100721132159.GN6418@verge.net.au>
- <alpine.LSU.2.01.1007211526490.25445@obet.zrqbmnf.qr>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] sysfs: add entry to indicate network
+ interfaces with random MAC address
+Date: Wed, 21 Jul 2010 14:54:38 +0100
+Message-ID: <1279720478.2089.3.camel@achroite.uk.solarflarecom.com>
+References: <4C458CB7.3030508@redhat.com>	<4C458F50.4070200@ixiacom.com>
+	 <4C4593DA.9040207@redhat.com>
+	 <20100720.131839.134093789.davem@davemloft.net>
+	 <4C46AB60.5060008@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Malcolm Turnbull <malcolm@loadbalancer.org>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julius Volz <julius.volz@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Eder <heder@google.com>
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, abadea@ixiacom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gospo@redhat.com, gregory.v.rose@intel.com,
+	alexander.h.duyck@intel.com, leedom@chelsio.com, harald@redhat.com
+To: Stefan Assmann <sassmann@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.01.1007211526490.25445@obet.zrqbmnf.qr>
+In-Reply-To: <4C46AB60.5060008@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 21, 2010 at 03:28:16PM +0200, Jan Engelhardt wrote:
+On Wed, 2010-07-21 at 10:10 +0200, Stefan Assmann wrote:
+> On 20.07.2010 22:18, David Miller wrote:
+> > From: Stefan Assmann <sassmann@redhat.com>
+> > Date: Tue, 20 Jul 2010 14:17:30 +0200
+> > 
+> >> On 20.07.2010 13:58, Alex Badea wrote:
+> >>> Hi,
+> >>>
+> >>> On 07/20/2010 02:47 PM, Stefan Assmann wrote:
+> >>>>> What about devices that 'steal' MAC addresses from slave devices?
+> >>>
+> >>> Might I suggest an attribute such as "address_type", which could report
+> >>> "permanent", "random", "stolen", or something else in the future?
+> >>
+> >> In case there's demand for such a multi-purpose attribute I see no
+> >> reason to object. More thoughts on this?
+> > 
+> > I think this is a great idea.
+> > 
+> > Now it makes sense to use a new 'u8' in struct netdevice or similar to
+> > store this, since we'll have more than a boolean here.
+> > 
 > 
-> On Wednesday 2010-07-21 15:21, Simon Horman wrote:
-> >> On Wednesday 2010-07-21 03:21, Simon Horman wrote:
-> >> >> +
-> >> >> +#define XT_IPVS_IPVS_PROPERTY	(1 << 0) /* all other options imply this one */
-> >> >> +#define XT_IPVS_PROTO		(1 << 1)
-> >> >> +#define XT_IPVS_VADDR		(1 << 2)
-> >> >> +#define XT_IPVS_VPORT		(1 << 3)
-> >> >> +#define XT_IPVS_DIR		(1 << 4)
-> >> >> +#define XT_IPVS_METHOD		(1 << 5)
-> >> >> +#define XT_IPVS_VPORTCTL	(1 << 6)
-> >> >> +#define XT_IPVS_MASK		((1 << 7) - 1)
-> >> >> +#define XT_IPVS_ONCE_MASK	(XT_IPVS_MASK & ~XT_IPVS_IPVS_PROPERTY)
-> >> 
-> >> Can't these just be an enum?
-> >
-> >More than one option can be used at once - they form a mini bitmap -
-> >so no, I don't think we can use an enum.
-> 
-> An enum does not dictate that you cannot combine values of it with itself.
-> 
-> 	enum { A = 1 << 0, B = 1 << 0, };
-> 	unsigned int flags = A | B;
-> 
-> is perfectly fine, which is what other modules do.
+> I put Alex' idea into code for further discussion, keeping the names
+> mentioned here until we agree on the scope of this attribute. When we
+> have settled I'll post a patch with proper patch description.
+[...]
 
-Understood. I'll make it so.
+Just a little nitpick: I think it would be clearer to use a more
+specific term like 'address source' or 'address assignment type' rather
+than 'address type'.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
