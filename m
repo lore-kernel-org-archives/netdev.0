@@ -1,37 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers/net/qlge: Use pr_<level>, shrink text
- a bit
-Date: Wed, 21 Jul 2010 13:58:00 -0700 (PDT)
-Message-ID: <20100721.135800.43444396.davem@davemloft.net>
-References: <1279576149.5434.59.camel@Joe-Laptop.home>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ron.mercer@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+From: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Subject: [PATCH 2/2] net: remove last uses of __attribute__((packed))
+Date: Wed, 21 Jul 2010 17:59:58 -0300
+Message-ID: <1279745998-29694-2-git-send-email-padovan@profusion.mobi>
+References: <1279745998-29694-1-git-send-email-padovan@profusion.mobi>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34174
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750906Ab0GUU5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 16:57:44 -0400
-In-Reply-To: <1279576149.5434.59.camel@Joe-Laptop.home>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:54211 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755949Ab0GUVAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 17:00:17 -0400
+In-Reply-To: <1279745998-29694-1-git-send-email-padovan@profusion.mobi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 19 Jul 2010 14:49:08 -0700
+Network code uses the __packed macro instead of __attribute__((packed)).
 
-> Add and use a few neatening macros
-> Remove PFX
-> Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> Convert printk(KERN_ERR to pr_err(
-> 
-> $ size drivers/net/qlge/built-in.o.*
->   text	   data	    bss	    dec	    hex	filename
->  116456	   2312	  25712	 144480	  23460	drivers/net/qlge/built-in.o.old
->  114909	   2312	  25728	 142949	  22e65	drivers/net/qlge/built-in.o.new
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
+---
+ include/net/mac80211.h             |    2 +-
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Applied, thanks Joe.
+diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+index 7f256e2..23e46ce 100644
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -412,7 +412,7 @@ struct ieee80211_tx_rate {
+ 	s8 idx;
+ 	u8 count;
+ 	u8 flags;
+-} __attribute__((packed));
++} __packed;
+ 
+ /**
+  * struct ieee80211_tx_info - skb transmit information
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 64d0875..3a43cf3 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -469,7 +469,7 @@ struct arp_payload {
+ 	__be32 src_ip;
+ 	u_int8_t dst_hw[ETH_ALEN];
+ 	__be32 dst_ip;
+-} __attribute__ ((packed));
++} __packed;
+ 
+ #ifdef DEBUG
+ static void arp_print(struct arp_payload *payload)
+-- 
+1.7.1.1
+
