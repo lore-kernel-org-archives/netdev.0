@@ -1,93 +1,73 @@
-From: Karl Beldan <karl.beldan@gmail.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH 2/2] net: dsa: introduce MICREL
-	KSZ8893MQL/BL ethernet switch chip support
-Date: Wed, 21 Jul 2010 22:31:37 +0200
-Message-ID: <AANLkTiljQD8CIBtHcMqXdGQILCLDsU-6brjdWB2yB_mN@mail.gmail.com>
-References: <1279719442-10174-1-git-send-email-vapier@gentoo.org>
-	<1279719442-10174-2-git-send-email-vapier@gentoo.org>
-	<20100721151608.GM21121@mail.wantstofly.org>
-	<AANLkTinoVsz1YsWc3VSAqPPgH_L19B541A72zkWPxjM8@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-2.6] ixgbe/igb: catch invalid VF settings
+Date: Wed, 21 Jul 2010 13:31:38 -0700
+Message-ID: <AANLkTi=Z_xSSaATcz-s8FoYcx6EYy+inH7cYZ_2W4AAs@mail.gmail.com>
+References: <1279730431-17156-1-git-send-email-andy@greyhouse.net>
+	<20100721165055.GE13188@sequoia.sous-sol.org>
+	<43F901BD926A4E43B106BF17856F0755F18462F6@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Mike Frysinger <vapier.adi@gmail.com>
+Cc: Chris Wright <chrisw@sous-sol.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:52156 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986Ab0GUUbi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 16:31:38 -0400
-Received: by wyf19 with SMTP id 19so8706wyf.19
-        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 13:31:37 -0700 (PDT)
-In-Reply-To: <AANLkTinoVsz1YsWc3VSAqPPgH_L19B541A72zkWPxjM8@mail.gmail.com>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:36622 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752123Ab0GUUbx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 16:31:53 -0400
+Received: by gyg10 with SMTP id 10so7330gyg.19
+        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 13:31:42 -0700 (PDT)
+In-Reply-To: <43F901BD926A4E43B106BF17856F0755F18462F6@orsmsx508.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 21, 2010 at 6:05 PM, Mike Frysinger <vapier.adi@gmail.com> =
-wrote:
-> On Wed, Jul 21, 2010 at 11:16, Lennert Buytenhek wrote:
->> On Wed, Jul 21, 2010 at 09:37:22AM -0400, Mike Frysinger wrote:
->>> +static int ksz8893m_setup(struct dsa_switch *ds)
->>> +{
->>> + =A0 =A0 int i;
->>> + =A0 =A0 int ret;
->>> +
->>> + =A0 =A0 ret =3D ksz8893m_switch_reset(ds);
->>> + =A0 =A0 if (ret < 0)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 return ret;
+On Wed, Jul 21, 2010 at 13:23, Rose, Gregory V <gregory.v.rose@intel.co=
+m> wrote:
+>>-----Original Message-----
+>>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.o=
+rg]
+>>On Behalf Of Chris Wright
+>>Sent: Wednesday, July 21, 2010 9:51 AM
+>>To: Andy Gospodarek
+>>Cc: netdev@vger.kernel.org; chrisw@sous-sol.org
+>>Subject: Re: [PATCH net-2.6] ixgbe/igb: catch invalid VF settings
 >>
->> It's pretty ugly that the mdiobus is passed in via the normal means,
->> but a reference to the SPI bus to use is just stuffed into some glob=
-al
->> variable.
+>>* Andy Gospodarek (andy@greyhouse.net) wrote:
+>>> Some ixgbe cards put an invalid VF device ID in the PCIe SR-IOV
+>>> capability. =C2=A0The ixgbe driver is only valid for PFs or non SR-=
+IOV
+>>> hardware. =C2=A0It seems that the same problem could occur on igb h=
+ardware
+>>as
+>>> well, so if we discover we are trying to initialize a VF in
+>>ixbge_probe
+>>> or igb_probe, print an error and exit.
+>>>
+>>> Based on a patch for ixgbe from Chris Wright <chrisw@sous-sol.org>.
+>>>
+>>> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>>> Cc: Chris Wright <chrisw@sous-sol.org>
 >>
->> Can you not access all registers via MII?
+>>Acked-by: Chris Wright <chrisw@sous-sol.org>
+>>
+>>Only seen this on ixgbe, but since the result there is a kernel panic
+>>makes sense to be defensive.
+>>
+>>thanks,
+>>-chris
 >
-> it depends on the host mdio bus. =A0if it supports the semi-standard
-> behavior of toggling the OP field of MDIO frames, then yes, you can d=
-o
-> it via MII. =A0but i dont think the current mdio framework in the ker=
-nel
-> keeps track of that functionality, so there isnt a way in the driver
-> to say "is this possible, else fall back to SPI".
+> Acked-by: Greg Rose <gregory.v.rose@intel.com>
 >
-Are you referring to SMI ?
+> Looks good, thanks.
+>
+> - Greg
+>
 
-> certainly the part that was used to develop this driver does not
-> support this behavior thus SPI is the only way of accessing the
-> extended registers. =A0i guess the driver could be extended so that
-> people could pick which mode they want to program the registers via
-> platform resources, but we have no way of testing that, so i say let
-> the person who actually can use & wants that functionality implement
-> it.
->
->> (If not, struct dsa_chip_data will need go be extended with another
->> struct device pointer that we can use to find the spi bus with.)
->
-> if the framework supports, i can convert the driver to it, but i'm no=
-t
-> sure we have the time atm to tackle reworking common frameworks.
->
-If someone tackles this, it would be nice that they bear in mind that
-phylib's drivers also need spi/smi/i2c register access.
-
->>> +static int ksz8893m_port_to_phy_addr(int port)
->>> +{
->>> + =A0 =A0 if (port >=3D 1 && port <=3D KSZ8893M_PORT_NUM)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 return port;
->>> +
->>> + =A0 =A0 pr_warning("use default phy addr 3\n");
->>> + =A0 =A0 return 3;
->>
->> Does this ever happen? =A0You should just be able to return -1 here,=
- IMHO.
->
-> i dont recall seeing a warning, but presumably if it it did occur,
-> something else needs fixing. =A0so -1 is OK.
->
-I would remove this.
+Dave, I do not plan on adding this patch to my queue, so feel free to
+take this patch after review.
 
 --=20
-Karl
+Cheers,
+Jeff
