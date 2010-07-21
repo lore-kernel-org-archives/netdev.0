@@ -1,133 +1,74 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [PATCH] fec: use interrupt for MDIO completion indication
-Date: Wed, 21 Jul 2010 14:51:13 +0200
-Message-ID: <20100721125113.GA2651@pengutronix.de>
-References: <006416d38a8e51ba8dd8631613a991528dc7976a.1278918594.git.baruch@tkos.co.il>
- <4C3E812C.10303@canonical.com>
- <20100715040956.GA7690@jasper.tkos.co.il>
+From: auto401300@hushmail.com
+Subject: Re: netfilter/iptables stopped logging 2.6.35-rc
+Date: Wed, 21 Jul 2010 15:51:39 +0300
+Message-ID: <20100721125139.4CC3C1200A6@smtp.hushmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="EVF5PPMfhYS0aIcm"
-Cc: Bryan Wu <bryan.wu@canonical.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Sascha Hauer <kernel@pengutronix.de>,
-	Greg Ungerer <gerg@uclinux.org>
-To: Baruch Siach <baruch@tkos.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:45481 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751210Ab0GUMvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 08:51:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20100715040956.GA7690@jasper.tkos.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: maciej.rutecki@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---EVF5PPMfhYS0aIcm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+
+On Tue, 20 Jul 2010 15:51:03 +0300 Maciej Rutecki 
+<maciej.rutecki@gmail.com> wrote:
+>On sobota, 17 lipca 2010 o 09:20:36 auto401300@hushmail.com wrote:
+>> Hi!
+>> 
+>> Has something broken with netfilter/iptables logging in 2.6.35-
+>rc,
+>> or is there something new I should set in .config since .34?
+>> 
+>> 
+>> I just verified that if I boot .34 and ping the pc it does 
+>logging:
+>> 
+>> Jul 17 09:42:49 xxxxx kernel: Linux version 2.6.34-ab 
+>(root@xxxxx)
+>> (gcc version 4.4.4 (Debian 4.4.4-1) ) #1 SMP PREEMPT Mon May 17
+>> 09:15
+>> 
+>> :15 EEST 2010
+>> 
+>> ....
+>> Jul 17 09:44:52 xxxxx kernel: DENY  in: IN=eth0 OUT= MAC=xxxxx
+>> SRC=xxxxx DST=xxxxx LEN=60 TOS=0x00 PREC=0x00 TTL=127 ID=38945
+>> PROTO=ICMP TYPE=8 CODE=0 ID=512 SEQ=256
+>> 
+>> 
+>> but if I boot .35-rc4 and ping:
+>> 
+>> Jul 17 09:48:08 xxxxx kernel: Linux version 2.6.35-rc4-aa
+>> (root@xxxxx) (gcc version 4.4.4 (Debian 4.4.4-6) ) #1 SMP 
+>PREEMPT
+>> Mon Jul 5 15:22:02 EEST 2010
+>> ....
+>> nothing from iptables in log
+>> 
+>> 
+>> userspace is same, only booted different kernel versions
+>
+>I created a Bugzilla entry at 
+>https://bugzilla.kernel.org/show_bug.cgi?id=16423
+>for your bug report, please add your address to the CC list in 
+>there, thanks!
+>
+>-- 
+>Maciej Rutecki
+>http://www.maciek.unixy.pl
 
 
-> > Thanks for this patch, we tested on our i.MX51 board with Ubuntu. It wo=
-rks=20
-> > fine.
-> >=20
-> > Wolfram, you can pick up this, too. -;)
->=20
-> Dave has already applied this patch to his net-next tree.
 
-Bryan, thanks for letting me know, I missed this one.
 
-However, have you guys ever tried pulling the cable off/on or restarting
-the interface with 'ifconfig down/up'? This always caused a stalled PHY
-for me. This patch helps:
+Verified now with debian kernel-package 12.036
 
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
+2.6.34 does netfilter/iptables logging
+2.6.35-rc5 does not
+both compiled with same toolchain
 
-=46rom: Wolfram Sang <w.sang@pengutronix.de>
-Subject: [PATCH] net/fec: restore interrupt mask after software-reset in fe=
-c_stop()
 
-After the change from mdio polling to irq, it became necessary to
-restore the interrupt mask after resetting the chip in fec_stop().
-Otherwise, with all irqs disabled, no communication with the PHY will be
-possible after e.g. un-/replugging the cable and the device gets
-stalled.
 
-Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
----
- drivers/net/fec.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 391a553..768b840 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -118,6 +118,8 @@ static unsigned char	fec_mac_default[] =3D {
- #define FEC_ENET_MII	((uint)0x00800000)	/* MII interrupt */
- #define FEC_ENET_EBERR	((uint)0x00400000)	/* SDMA bus error */
-=20
-+#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
-+
- /* The FEC stores dest/src/type, data, and checksum for receive packets.
-  */
- #define PKT_MAXBUF_SIZE		1518
-@@ -1213,8 +1215,7 @@ fec_restart(struct net_device *dev, int duplex)
- 	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
-=20
- 	/* Enable interrupts we wish to service */
--	writel(FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII,
--			fep->hwp + FEC_IMASK);
-+	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
- }
-=20
- static void
-@@ -1233,8 +1234,8 @@ fec_stop(struct net_device *dev)
- 	/* Whack a reset.  We should wait for this. */
- 	writel(1, fep->hwp + FEC_ECNTRL);
- 	udelay(10);
--
- 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
-+	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
- }
-=20
- static int __devinit
---=20
-1.7.1
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-
-BUT, while it helps and may possibly be a quick fix for 2.6.35,
-resetting the chip in fec_stop() looks like a wrong thing to do for me.
-In the long run, it probably is better to make sure the chip is set up
-correctly during initialization, so the reset in fec_stop() is not
-needed at all. I had a quick shot at this, but seem to have missed
-something as it didn't work. As I will be away from the computers for
-two weeks in about 24 hours, I at least wanted to bring up the issue.
-
-Regards,
-
-   Wolfram
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---EVF5PPMfhYS0aIcm
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkxG7UEACgkQD27XaX1/VRsnwwCfTguT90rmNShIpAWhW9DY3KBA
-jeQAn0+qHXH4d77Xtpf4xnCX8LBLm7WY
-=22VA
------END PGP SIGNATURE-----
-
---EVF5PPMfhYS0aIcm--
+thanks. 
