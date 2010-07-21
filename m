@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3 net-2.6] bnx2x: Bug fixes in statistics handling
-Date: Wed, 21 Jul 2010 11:12:43 -0700 (PDT)
-Message-ID: <20100721.111243.112856946.davem@davemloft.net>
-References: <1279727936.14094.41.camel@lb-tlvb-vladz>
+Subject: Re: [patch 1/3] drivers/net/cxgb3/t3_hw.c: use new hex_to_bin()
+ method
+Date: Wed, 21 Jul 2010 11:17:23 -0700 (PDT)
+Message-ID: <20100721.111723.46356003.davem@davemloft.net>
+References: <201007202225.o6KMPGnA021443@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, dmitry@broadcom.com
-To: vladz@broadcom.com
+Cc: netdev@vger.kernel.org, ext-andriy.shevchenko@nokia.com,
+	divy@chelsio.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54946
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54952
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754186Ab0GUSM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 14:12:27 -0400
-In-Reply-To: <1279727936.14094.41.camel@lb-tlvb-vladz>
+	by vger.kernel.org with ESMTP id S1751170Ab0GUSRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 14:17:07 -0400
+In-Reply-To: <201007202225.o6KMPGnA021443@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Date: Wed, 21 Jul 2010 18:58:55 +0300
+From: akpm@linux-foundation.org
+Date: Tue, 20 Jul 2010 15:25:16 -0700
 
-> Dave, pls., consider applying the following patches to the net-2.6 tree.
-> They include 2 bugs fixes in the statistics handling flow:
+> From: Andy Shevchenko <ext-andriy.shevchenko@nokia.com>
+> 
+> Get rid of own implementation of hex_to_bin().
+> 
+> Signed-off-by: Andy Shevchenko <ext-andriy.shevchenko@nokia.com>
+> Acked-by: Divy Le Ray <divy@chelsio.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-All applied.
-
-There is a space character at the beginning of every "Signed-off-by:"
-line in your patch postings, please get rid of them for future
-submissions.
+Applied.
