@@ -1,75 +1,81 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH net-next] sysfs: add entry to indicate network
- interfaces with random MAC address
-Date: Wed, 21 Jul 2010 12:35:36 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755F1846287@orsmsx508.amr.corp.intel.com>
-References: <20100721.114851.200597269.davem@davemloft.net>
-	<20100721.115023.69942880.davem@davemloft.net>
-	<43F901BD926A4E43B106BF17856F0755F1846247@orsmsx508.amr.corp.intel.com>
- <20100721.123324.237334251.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next-2.6] ixgbe: fix ethtool stats
+Date: Wed, 21 Jul 2010 13:17:13 -0700
+Message-ID: <AANLkTinqcK+xO1GH9fA2Wc=2_5W_RBcfS8NyHdxvbwbm@mail.gmail.com>
+References: <1279646906.2498.103.camel@edumazet-laptop>
+	<AANLkTik7JrI3HrtvQRTgrRU30fFb2lrgGxUJsWXedBL0@mail.gmail.com>
+	<1279679904.2492.20.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "leedom@chelsio.com" <leedom@chelsio.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"andy@greyhouse.net" <andy@greyhouse.net>,
-	"harald@redhat.com" <harald@redhat.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:3120 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758916Ab0GUTfq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 15:35:46 -0400
-In-Reply-To: <20100721.123324.237334251.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:45533 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526Ab0GUURR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 16:17:17 -0400
+Received: by yxg6 with SMTP id 6so10971yxg.19
+        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 13:17:16 -0700 (PDT)
+In-Reply-To: <1279679904.2492.20.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Wednesday, July 21, 2010 12:33 PM
->To: Rose, Gregory V
->Cc: leedom@chelsio.com; shemminger@vyatta.com; andy@greyhouse.net;
->harald@redhat.com; bhutchings@solarflare.com; sassmann@redhat.com;
->netdev@vger.kernel.org; linux-kernel@vger.kernel.org; gospo@redhat.com;
->Duyck, Alexander H
->Subject: Re: [PATCH net-next] sysfs: add entry to indicate network
->interfaces with random MAC address
->
->From: "Rose, Gregory V" <gregory.v.rose@intel.com>
->Date: Wed, 21 Jul 2010 12:02:17 -0700
->
->>>From: David Miller <davem@davemloft.net>
->>>Date: Wed, 21 Jul 2010 11:48:51 -0700 (PDT)
->>>
->>>> You could do things like have the PF controller use the root
->>>filesystem
->>>> ID label to construct the VF's MAC address, or something like that.
->>>
->>>And here I of course mean the root filesystem of the guest the VF will
->>>be given to.
+On Tue, Jul 20, 2010 at 19:38, Eric Dumazet <eric.dumazet@gmail.com> wr=
+ote:
+> Le mardi 20 juillet 2010 =C3=A0 15:06 -0700, Jeff Kirsher a =C3=A9cri=
+t :
+>> On Tue, Jul 20, 2010 at 10:28, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+>> > Note : I am currently unable to test following patch, could you pl=
+ease
+>> > Intel guys test it and Ack (or Nack) it ?
+>> >
+>> > Thanks !
+>> >
+>> > [PATCH net-next-2.6] ixgbe: fix ethtool stats
+>> >
+>> > In latest changes about 64bit stats on 32bit arches,
+>> > [commit 28172739f0a276eb8 (net: fix 64 bit counters on 32 bit arch=
+es)],
+>> > I missed ixgbe uses a bit of magic in its ixgbe_gstrings_stats
+>> > definition.
+>> >
+>> > IXGBE_NETDEV_STAT() must now assume offsets relative to
+>> > rtnl_link_stats64, not relative do dev->stats.
+>> >
+>> > As a bonus, we also get 64bit stats on ethtool -S
+>> >
+>> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> > ---
+>> > =C2=A0drivers/net/ixgbe/ixgbe_ethtool.c | =C2=A0 42 ++++++++++++++=
+--------------
+>> > =C2=A01 file changed, 21 insertions(+), 21 deletions(-)
+>> >
 >>
->> I suppose you could do that but then the VM is going to have to be
->> allowed to set its own MAC address.  There is a lot of opposition
->> and concern about allowing VMs to set their own MAC address.
+>> Thanks Eric, I have added it to my queue.
+>>
 >
->Why would that be necessary?  The host with the PF creating the guest
->has access to the "device" and thus the root filesystem of the guest,
->and thus could pull in the root filesystem "key" and instantiate the
->VF's MAC before booting the guest.
+> Thanks !
 >
->That was the idea, the control node sets up the VF MAC before the guest
->boots or can have access to the VF device.
+> By the way, my ixgbe conf doesnt like net-next-2.6 at all.
+> (No link is established in my fiber loop configuration)
+>
+> current linux-2.6 git runs correctly, link at 10Gb, so there is a
+> regression somewhere.
+>
+> As this machine is quite slow (I dont have anymore my Nehalem dev
+> machine, had to use an old setup), a bisection would take one month..=
+=2E
+>
+>
 
-I misunderstood you.  My bad.
+Eric - can you send your setup and .config so that we can take a look
+at why your not getting a link?
 
-Thank for the further explanation.
-
-- Greg
-
+--=20
+Cheers,
+Jeff
