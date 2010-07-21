@@ -1,53 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] dst: check if dst is freed in dst_check()
-Date: Tue, 20 Jul 2010 23:41:16 -0700 (PDT)
-Message-ID: <20100720.234116.184416997.davem@davemloft.net>
-References: <4C457120.9070105@6wind.com>
-	<1279679288.2492.15.camel@edumazet-laptop>
+From: Harald Hoyer <harald@redhat.com>
+Subject: Re: [PATCH net-next] sysfs: add entry to indicate network interfaces
+ with random MAC address
+Date: Wed, 21 Jul 2010 08:47:36 +0200
+Message-ID: <4C469808.5060308@redhat.com>
+References: <20100720141816.16f0a939@nehalam>	<20100720.142045.32697196.davem@davemloft.net>	<4C469313.6010807@redhat.com> <20100720.233457.267367495.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51408
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762569Ab0GUGlA convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jul 2010 02:41:00 -0400
-In-Reply-To: <1279679288.2492.15.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, bhutchings@solarflare.com,
+	sassmann@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gospo@redhat.com,
+	gregory.v.rose@intel.com, alexander.h.duyck@intel.com,
+	leedom@chelsio.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100720.233457.267367495.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 21 Jul 2010 04:28:08 +0200
+On 07/21/2010 08:34 AM, David Miller wrote:
+> From: Harald Hoyer<harald@redhat.com>
+> Date: Wed, 21 Jul 2010 08:26:27 +0200
+>
+>> On 07/20/2010 11:20 PM, David Miller wrote:
+>>> From: Stephen Hemminger<shemminger@vyatta.com>
+>>> Date: Tue, 20 Jul 2010 14:18:16 -0700
+>>>
+>>>> No one mentioned that the first octet of an Ethernet address already
+>>>> indicates "software generated" Ethernet address. Per the standard,
+>>>> if bit 1 is set it means address is locally assigned.
+>>>>
+>>>> static inline bool is_locally_assigned_ether(const u8 *addr)
+>>>> {
+>>>> 	return (addr[0]&   0x2) != 0;
+>>>> }
+>>>
+>>> W00t!
+>>>
+>>> Indeed, can udev just use that?  :-)
+>>
+>> It already does:
+>> see /lib/udev/rules.d/75-persistent-net-generator.rules
+>
+> So... why doesn't this work?
 
-> Le mardi 20 juillet 2010 =E0 11:49 +0200, Nicolas Dichtel a =E9crit :
->> diff --git a/include/net/dst.h b/include/net/dst.h
->> index 81d1413..7bf4f9a 100644
->> --- a/include/net/dst.h
->> +++ b/include/net/dst.h
->> @@ -319,6 +319,8 @@ static inline int dst_input(struct sk_buff *skb)
->> =20
->>  static inline struct dst_entry *dst_check(struct dst_entry *dst, u3=
-2 cookie)
->>  {
->> +	if (dst->obsolete > 1)
->> +		return NULL;
->>  	if (dst->obsolete)
->>  		dst =3D dst->ops->check(dst, cookie);
->>  	return dst;
->=20
-> I believe this is not needed and redundant.
->=20
-> In what case do you think this matters ?
->=20
-> To my knowledge dst_check() is only used by net/xfrm/xfrm_policy.c
->=20
-> And xfrm_dst_check() does the necessary checks.
-
-Right, last time I was snooping around in here I came to the
-same conclusion.  In fact I think I'm the author of that
-enormous comment in xfrm_dst_check(). :-)
-
-
+It works.. but the information, that the MAC is randomly generated would be 
+valuable. So, for the non-random locally assigned MAC (with bit 1), we could 
+easily make persistent rules based on the MAC, instead of completely ignoring 
+them, like we do currently.
