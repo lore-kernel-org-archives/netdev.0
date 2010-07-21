@@ -1,105 +1,158 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
-Date: Wed, 21 Jul 2010 10:43:55 +0200
-Message-ID: <1279701835.2452.17.camel@edumazet-laptop>
-References: <1279631789.2498.71.camel@edumazet-laptop>
-	 <1279639232.2498.82.camel@edumazet-laptop>
-	 <1279699529.3707.5.camel@jlt3.sipsolutions.net>
-	 <1279700420.2452.15.camel@edumazet-laptop>
+Subject: [PATCH iproute2] ip: add RTA_MARK support
+Date: Wed, 21 Jul 2010 11:42:50 +0200
+Message-ID: <1279705370.2452.45.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43248 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63867 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933744Ab0GUIn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 04:43:58 -0400
-Received: by wwj40 with SMTP id 40so1996524wwj.1
-        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 01:43:57 -0700 (PDT)
-In-Reply-To: <1279700420.2452.15.camel@edumazet-laptop>
+	with ESMTP id S1750707Ab0GUJmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 05:42:54 -0400
+Received: by wwj40 with SMTP id 40so2065939wwj.1
+        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 02:42:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 21 juillet 2010 =C3=A0 10:20 +0200, Eric Dumazet a =C3=A9cr=
-it :
+Adds support for RTA_MARK rt attribute added in linux-2.6.36
 
-> Nothing can touch this skb at the same time but us and our friends
-> (consumers that did a skb_recv_datagram( MSG_PEEK ) operation).
->=20
-> Oh well, I see skb_unshare() tests skb_cloned(). This is not what we
-> want.
->=20
+$ ip route get ADDR mark 4
+192.168.20.110 dev eth1  src 192.168.20.108  mark 4
+    cache  mtu 1500 advmss 1460 hoplimit 64
 
-Here is V3 of this patch.
+$ ip route get 192.168.20.108 from ADDR iif STRING mark 256
+local 192.168.20.108 from 192.168.20.110 dev lo  src 192.168.20.108  mark 0x100
+    cache <local,src-direct>  iif eth1
 
-Thanks
+$ ip route list cache [ADDR] mark NUMBER
 
-[PATCH net-next-2.6 v3] netlink: netlink_recvmsg() fix
-
-commit 1dacc76d0014=20
-(net/compat/wext: send different messages to compat tasks)
-introduced a race condition on netlink, in case MSG_PEEK is used.
-
-An skb given by skb_recv_datagram() might be shared, we must copy it
-before any modification, or risk fatal corruption.
+Hexadecimal output if mark >= 16
+null marks are not displayed.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/netlink/af_netlink.c |   22 ++++++++++++++++------
- 1 file changed, 16 insertions(+), 6 deletions(-)
+ include/linux/rtnetlink.h |    1 +
+ ip/iproute.c              |   30 ++++++++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7aeaa83..0c86657 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1405,7 +1405,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, s=
-truct socket *sock,
- 	struct netlink_sock *nlk =3D nlk_sk(sk);
- 	int noblock =3D flags&MSG_DONTWAIT;
- 	size_t copied;
--	struct sk_buff *skb, *frag __maybe_unused =3D NULL;
-+	struct sk_buff *skb;
- 	int err;
-=20
- 	if (flags&MSG_OOB)
-@@ -1440,7 +1440,21 @@ static int netlink_recvmsg(struct kiocb *kiocb, =
-struct socket *sock,
- 			kfree_skb(skb);
- 			skb =3D compskb;
- 		} else {
--			frag =3D skb_shinfo(skb)->frag_list;
-+			/*
-+			 * Before setting frag_list to NULL, we must get a
-+			 * private copy of skb if shared (because of MSG_PEEK)
-+			 */
-+			if (skb_shared(skb) {
-+				struct sk_buff *nskb;
-+
-+				nskb =3D pskb_copy(skb, GFP_KERNEL);
-+				kfree_skb(skb);
-+				skb =3D nskb;
-+				err =3D -ENOMEM;
-+				if (!skb)
-+					goto out;
-+			}
-+			kfree_skb(skb_shinfo(skb)->frag_list);
- 			skb_shinfo(skb)->frag_list =3D NULL;
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 0d8ef9e..a3ccbe4 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -282,6 +282,7 @@ enum rtattr_type_t {
+ 	RTA_SESSION, /* no longer used */
+ 	RTA_MP_ALGO, /* no longer used */
+ 	RTA_TABLE,
++	RTA_MARK,
+ 	__RTA_MAX
+ };
+ 
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 8252e18..cbb89c5 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -55,6 +55,7 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: ip route { list | flush } SELECTOR\n");
+ 	fprintf(stderr, "       ip route get ADDRESS [ from ADDRESS iif STRING ]\n");
+ 	fprintf(stderr, "                            [ oif STRING ]  [ tos TOS ]\n");
++	fprintf(stderr, "                            [ mark NUMBER ]\n");
+ 	fprintf(stderr, "       ip route { add | del | change | append | replace | monitor } ROUTE\n");
+ 	fprintf(stderr, "SELECTOR := [ root PREFIX ] [ match PREFIX ] [ exact PREFIX ]\n");
+ 	fprintf(stderr, "            [ table TABLE_ID ] [ proto RTPROTO ]\n");
+@@ -96,6 +97,7 @@ static struct
+ 	int tos, tosmask;
+ 	int iif, iifmask;
+ 	int oif, oifmask;
++	int mark, markmask;
+ 	int realm, realmmask;
+ 	inet_prefix rprefsrc;
+ 	inet_prefix rvia;
+@@ -273,6 +275,13 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		if ((oif^filter.oif)&filter.oifmask)
+ 			return 0;
+ 	}
++	if (filter.markmask) {
++		int mark = 0;
++		if (tb[RTA_MARK])
++			mark = *(int *)RTA_DATA(tb[RTA_MARK]);
++		if ((mark ^ filter.mark) & filter.markmask)
++			return 0;
++	}
+ 	if (filter.flushb &&
+ 	    r->rtm_family == AF_INET6 &&
+ 	    r->rtm_dst_len == 0 &&
+@@ -384,6 +393,15 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		fprintf(fp, "pervasive ");
+ 	if (r->rtm_flags & RTM_F_NOTIFY)
+ 		fprintf(fp, "notify ");
++	if (tb[RTA_MARK]) {
++		unsigned int mark = *(unsigned int*)RTA_DATA(tb[RTA_MARK]);
++		if (mark) {
++			if (mark >= 16)
++				fprintf(fp, " mark 0x%x", mark);
++			else
++				fprintf(fp, " mark %u", mark);
++		}
++	}
+ 
+ 	if (tb[RTA_FLOW] && filter.realmmask != ~0U) {
+ 		__u32 to = *(__u32*)RTA_DATA(tb[RTA_FLOW]);
+@@ -1047,6 +1065,7 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
+ 	int do_ipv6 = preferred_family;
+ 	char *id = NULL;
+ 	char *od = NULL;
++	unsigned int mark = 0;
+ 
+ 	iproute_reset_filter();
+ 	filter.tb = RT_TABLE_MAIN;
+@@ -1119,6 +1138,10 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
+ 		} else if (strcmp(*argv, "iif") == 0) {
+ 			NEXT_ARG();
+ 			id = *argv;
++		} else if (strcmp(*argv, "mark") == 0) {
++			NEXT_ARG();
++			get_unsigned(&mark, *argv, 0);
++			filter.markmask = -1;
+ 		} else if (strcmp(*argv, "via") == 0) {
+ 			NEXT_ARG();
+ 			get_prefix(&filter.rvia, *argv, do_ipv6);
+@@ -1200,6 +1223,7 @@ static int iproute_list_or_flush(int argc, char **argv, int flush)
+ 			filter.oifmask = -1;
  		}
  	}
-@@ -1477,10 +1491,6 @@ static int netlink_recvmsg(struct kiocb *kiocb, =
-struct socket *sock,
- 	if (flags & MSG_TRUNC)
- 		copied =3D skb->len;
-=20
--#ifdef CONFIG_COMPAT_NETLINK_MESSAGES
--	skb_shinfo(skb)->frag_list =3D frag;
--#endif
--
- 	skb_free_datagram(sk, skb);
-=20
- 	if (nlk->cb && atomic_read(&sk->sk_rmem_alloc) <=3D sk->sk_rcvbuf / 2=
-)
++	filter.mark = mark;
+ 
+ 	if (flush) {
+ 		int round = 0;
+@@ -1289,6 +1313,7 @@ int iproute_get(int argc, char **argv)
+ 	char  *odev = NULL;
+ 	int connected = 0;
+ 	int from_ok = 0;
++	unsigned int mark = 0;
+ 
+ 	memset(&req, 0, sizeof(req));
+ 
+@@ -1329,6 +1354,9 @@ int iproute_get(int argc, char **argv)
+ 		} else if (matches(*argv, "iif") == 0) {
+ 			NEXT_ARG();
+ 			idev = *argv;
++		} else if (matches(*argv, "mark") == 0) {
++			NEXT_ARG();
++			get_unsigned(&mark, *argv, 0);
+ 		} else if (matches(*argv, "oif") == 0 ||
+ 			   strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+@@ -1379,6 +1407,8 @@ int iproute_get(int argc, char **argv)
+ 			addattr32(&req.n, sizeof(req), RTA_OIF, idx);
+ 		}
+ 	}
++	if (mark)
++		addattr32(&req.n, sizeof(req), RTA_MARK, mark);
+ 
+ 	if (req.r.rtm_family == AF_UNSPEC)
+ 		req.r.rtm_family = AF_INET;
 
 
