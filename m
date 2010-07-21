@@ -1,111 +1,96 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH 2/2] net: dsa: introduce MICREL
-	KSZ8893MQL/BL ethernet switch chip support
-Date: Wed, 21 Jul 2010 12:05:43 -0400
-Message-ID: <AANLkTinoVsz1YsWc3VSAqPPgH_L19B541A72zkWPxjM8@mail.gmail.com>
-References: <1279719442-10174-1-git-send-email-vapier@gentoo.org>
-	<1279719442-10174-2-git-send-email-vapier@gentoo.org> <20100721151608.GM21121@mail.wantstofly.org>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH] LSM: Add post accept() hook.
+Date: Wed, 21 Jul 2010 12:06:47 -0400
+Message-ID: <4C471B17.9070202@hp.com>
+References: <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp> <201007191815.52124.paul.moore@hp.com> <201007200136.o6K1aVc5015269@www262.sakura.ne.jp> <201007201552.29539.paul.moore@hp.com> <201007210200.o6L20qjv025112@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Karl Beldan <karl.beldan@gmail.com>, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:44907 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754253Ab0GUQGG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 12:06:06 -0400
-Received: by fxm14 with SMTP id 14so3670893fxm.19
-        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 09:06:03 -0700 (PDT)
-In-Reply-To: <20100721151608.GM21121@mail.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jmorris@namei.org,
+	sam@synack.fr, serge@hallyn.com, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201007210200.o6L20qjv025112@www262.sakura.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 21, 2010 at 11:16, Lennert Buytenhek wrote:
-> On Wed, Jul 21, 2010 at 09:37:22AM -0400, Mike Frysinger wrote:
->> +static int ksz8893m_setup(struct dsa_switch *ds)
->> +{
->> +     int i;
->> +     int ret;
->> +
->> +     ret = ksz8893m_switch_reset(ds);
->> +     if (ret < 0)
->> +             return ret;
->
-> It's pretty ugly that the mdiobus is passed in via the normal means,
-> but a reference to the SPI bus to use is just stuffed into some global
-> variable.
->
-> Can you not access all registers via MII?
+On 07/20/10 22:00, Tetsuo Handa wrote:
+> Paul Moore wrote:
+>> On Monday, July 19, 2010 09:36:31 pm Tetsuo Handa wrote:
+>>> One is for dropping connections from unwanted hosts. Administrators define
+>>> policy before enabling enforcing mode (the mode which connections are
+>>> dropped if operation was not granted by policy). Administrators specify
+>>> acceptable hosts (i.e. hosts which this host needs to communicate with)
+>>> and unacceptable hosts (i.e. hosts which this host needn't to communicate
+>>> with).
+>>
+>> You can enforce per-host access controls without the need for a post-accept() 
+>> hooks, e.g. security_sock_rcv_skb() and the netfilter hooks 
+>> (NF_INET_POST_ROUTING, NF_INET_FORWARD, NF_INET_LOCAL_OUT).  Or are you 
+>> interested in controlling which hosts an _application_ can communicate with?
+> 
+> I'm interested in controlling which ports on which hosts a _process_ can
+> communicate with. In TOMOYO's words, "processes that belong to which TOMOYO's
+> domain can communicate with which ports on which hosts".
 
-it depends on the host mdio bus.  if it supports the semi-standard
-behavior of toggling the OP field of MDIO frames, then yes, you can do
-it via MII.  but i dont think the current mdio framework in the kernel
-keeps track of that functionality, so there isnt a way in the driver
-to say "is this possible, else fall back to SPI".
+...
 
-certainly the part that was used to develop this driver does not
-support this behavior thus SPI is the only way of accessing the
-extended registers.  i guess the driver could be extended so that
-people could pick which mode they want to program the registers via
-platform resources, but we have no way of testing that, so i say let
-the person who actually can use & wants that functionality implement
-it.
+>>> Dropping connections would happen if some process was hijacked and the
+>>> process attempted to communicate with other processes using TCP
+>>> connections. But dropping connections should not happen in normal
+>>> circumstance.
+>>
+>> It doesn't matter if dropping connections is normal or not, what matters is 
+>> that it can happen.
+>>
+>>> The other is for updating process's state variable upon accept() operation.
+>>> LKM version of TOMOYO has per a task_struct variable that is used for
+>>> implementing stateful permissions. (As of now, not implemented for LSM
+>>> version of TOMOYO.)
+>>
+>> I'm open to re-introducing a post-accept() hook that does not have a return 
+>> value, in other words, a hook that can only be used to update LSM state and 
+>> not affect the connection.  Although I do think you could probably achieve the 
+>> same thing using some of the existing LSM hooks (look at how SELinux updates 
+>> its state upon accept()) but that is something you would have to look it and 
+>> see if it works for TOMOYO.
+> 
+> I can't figure out why the hook must not affect the connection.
+> Is it possible to clarify using below players?
 
-> (If not, struct dsa_chip_data will need go be extended with another
-> struct device pointer that we can use to find the spi bus with.)
+I understand what you are trying to accomplish and my concern is that
+(using the example below) ClientApp1 has it's connection with Server1
+dropped suddenly _after_ Server1 successfully completes the TCP
+handshake.  I've stated this concern several times.  I would much prefer
+you reject the incoming connection during the initial TCP handshake.
 
-if the framework supports, i can convert the driver to it, but i'm not
-sure we have the time atm to tackle reworking common frameworks.
+> Server1 and Client1 are hosts which are connected on TCP/IP network.
+> ServerApp1 and ServerApp2 are applications running on Server1 which might call
+> socket(), bind(), listen(), accept(), send(), recv(), shutdown(), close() and
+> execute().
+> ClientApp1 and ClientApp2 are applications running on Client1 which might call
+> socket(), connect(), send(), recv(), shutdown(), close().
+> Router1 and Router2 are routers which exist between Server1 and Client1.
+> 
+>   +-------+   +-------+   +-------+   +-------+
+>   |Server1|---|Router1|---|Router2|---|Client1|
+>   +-------+   +-------+   +-------+   +-------+
 
->> +static int ksz8893m_port_to_phy_addr(int port)
->> +{
->> +     if (port >= 1 && port <= KSZ8893M_PORT_NUM)
->> +             return port;
->> +
->> +     pr_warning("use default phy addr 3\n");
->> +     return 3;
->
-> Does this ever happen?  You should just be able to return -1 here, IMHO.
+...
 
-i dont recall seeing a warning, but presumably if it it did occur,
-something else needs fixing.  so -1 is OK.
+> Router1 and Router2 can inject RST into the already established connections
+> at any time (if they are IDS/IPS or broken or malicious).
+> How does security_socket_post_accept() returning an error differs from these
+> routers injecting RST?
 
->> +/* MII Basic Control */
->> +#define SOFT_RESET        0x8000
->> +#define LOOPBACK          0x4000
->> +#define FORCE_100         0x2000
->> +#define AN_ENABLE         0x1000
->> +#define POWER_DOWN        0x0800
->> +#define ISOLATE           0x0400
->> +#define RESTART_AN        0x0200
->> +#define FORCE_FULL_DUPLEX 0x0100
->> +#define COLLISION_TEST    0x0080
->
-> This part of the MII register is standard, and there are BMCR_*
-> definitions for this in mii.h, no need to duplicate them.
+We can't control all of the different intermediate nodes on a given
+network path and it is true that some of these intermediate nodes
+sometimes do "Bad Things" to network traffic (due either to limitations
+in the design, placement in the network or poor implementation).
+However, just because other nodes do "Bad Things" does not mean we need
+to allow "Bad Things" to happen in the Linux end nodes.
 
-most are copies of the MII headers, so i just converted them all and
-punted the rest
-
->> +#define FAMILY_ID         0x88
->> +#define START_SWITCH      0x01
->> +#define TAG_INSERTION     0x04
->> +#define SPECIAL_TPID_MODE 0x01
->
-> It would be nice to mention what registers these bitfields are part of.
-
-done
-
->> +enum switch_phy_reg {
->> +     /* Global Registers: 0-15 */
->> +     ChipID0 = 0,
->> +     ChipID1_StartSwitch,
->> +     GlobalControl0,
->
-> And here, just define the registers you need only.
-
-i'm not sure that's necessary ... having the complete register layout
-is useful for people who want to extend in the future
--mike
+-- 
+paul moore
+linux @ hp
