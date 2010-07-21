@@ -1,43 +1,73 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH net-next] sysfs: add entry to indicate network interfaces with random MAC address
-Date: Wed, 21 Jul 2010 09:34:27 -0700
-Message-ID: <201007210934.27986.leedom@chelsio.com>
-References: <20100720141816.16f0a939@nehalam> <4C469808.5060308@redhat.com> <20100721150732.GR7497@gospo.rdu.redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Harald Hoyer <harald@redhat.com>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	bhutchings@solarflare.com, sassmann@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gospo@redhat.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com
-To: Andy Gospodarek <andy@greyhouse.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH net-2.6] ixgbe/igb: catch invalid VF settings
+Date: Wed, 21 Jul 2010 12:40:31 -0400
+Message-ID: <1279730431-17156-1-git-send-email-andy@greyhouse.net>
+Cc: chrisw@sous-sol.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:19341 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab0GUQho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 12:37:44 -0400
-In-Reply-To: <20100721150732.GR7497@gospo.rdu.redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27419 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750786Ab0GUQim (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jul 2010 12:38:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| From: Andy Gospodarek <andy@greyhouse.net>
-| Date: Wednesday, July 21, 2010 08:07 am
-| 
-| Agreed.  The subtle difference between a locally assigned address that
-| is persistent and one that is random would be helpful.
+Some ixgbe cards put an invalid VF device ID in the PCIe SR-IOV
+capability.  The ixgbe driver is only valid for PFs or non SR-IOV
+hardware.  It seems that the same problem could occur on igb hardware as
+well, so if we discover we are trying to initialize a VF in ixbge_probe
+or igb_probe, print an error and exit.
 
-  And just to point out that this case _does_ exist: the igb/igbvf drivers use 
-random_ether_addr() to generate a random, locally assigned MAC address for the 
-PCI-E SR-IOV Virtual Function MAC Addresses while the cxgb4/cxgb4vf drivers use 
-a persistent, non-random locally assigned MAC Addresses.
+Based on a patch for ixgbe from Chris Wright <chrisw@sous-sol.org>.
 
-  Note that I am neither arguing for nor against the proposal.  I'm just 
-pointing out an existence case for the distinction.  And yes, bit 1 being set in 
-the first octet of a MAC address for locally assigned MAC Addresses is part of 
-the IEEE 802 specification just as bit 0 being set in the same octet indicates 
-that it's a multi-station address.
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+Cc: Chris Wright <chrisw@sous-sol.org>
 
-Casey
+---
+ drivers/net/igb/igb_main.c     |    9 +++++++++
+ drivers/net/ixgbe/ixgbe_main.c |    9 +++++++++
+ 2 files changed, 18 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 3881918..cea37e0 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1722,6 +1722,15 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	u16 eeprom_apme_mask = IGB_EEPROM_APME;
+ 	u32 part_num;
+ 
++	/* Catch broken hardware that put the wrong VF device ID in
++	 * the PCIe SR-IOV capability.
++	 */
++	if (pdev->is_virtfn) {
++		WARN(1, KERN_ERR "%s (%hx:%hx) should not be a VF!\n",
++		     pci_name(pdev), pdev->vendor, pdev->device);
++		return -EINVAL;
++	}
++
+ 	err = pci_enable_device_mem(pdev);
+ 	if (err)
+ 		return err;
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 7b5d976..74d9b6d 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -6492,6 +6492,15 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ #endif
+ 	u32 part_num, eec;
+ 
++	/* Catch broken hardware that put the wrong VF device ID in
++	 * the PCIe SR-IOV capability.
++	 */
++	if (pdev->is_virtfn) {
++		WARN(1, KERN_ERR "%s (%hx:%hx) should not be a VF!\n",
++		     pci_name(pdev), pdev->vendor, pdev->device);
++		return -EINVAL;
++	}
++
+ 	err = pci_enable_device_mem(pdev);
+ 	if (err)
+ 		return err;
+-- 
+1.6.2.5
+
