@@ -1,60 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] net: dsa: introduce MICREL KSZ8893MQL/BL ethernet
- switch chip support
-Date: Wed, 21 Jul 2010 17:33:13 +0200
-Message-ID: <1279726393.2452.60.camel@edumazet-laptop>
-References: <1279719442-10174-1-git-send-email-vapier@gentoo.org>
-	 <1279719442-10174-2-git-send-email-vapier@gentoo.org>
-	 <20100721151608.GM21121@mail.wantstofly.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [Uclinux-dist-devel] [PATCH 1/2] net: dsa: introduce STPID switch tagging handling code
+Date: Wed, 21 Jul 2010 17:35:31 +0200
+Message-ID: <20100721153531.GN21121@mail.wantstofly.org>
+References: <1279719442-10174-1-git-send-email-vapier@gentoo.org> <20100721150251.GL21121@mail.wantstofly.org> <AANLkTim1gbnH99GC_dVL8uevRgCRsn7dvAJ_rX-2Xgon@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	Karl Beldan <karl.beldan@gmail.com>,
+Cc: Karl Beldan <karl.beldan@gmail.com>, netdev@vger.kernel.org,
 	Graf Yang <graf.yang@analog.com>,
-	Bryan Wu <cooloney@kernel.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+	uclinux-dist-devel@blackfin.uclinux.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Mike Frysinger <vapier.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:43227 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752659Ab0GUPdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 11:33:18 -0400
-Received: by ewy23 with SMTP id 23so2347083ewy.19
-        for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 08:33:17 -0700 (PDT)
-In-Reply-To: <20100721151608.GM21121@mail.wantstofly.org>
+Received: from fw.wantstofly.org ([80.101.37.227]:57105 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751643Ab0GUPfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 11:35:34 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTim1gbnH99GC_dVL8uevRgCRsn7dvAJ_rX-2Xgon@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 21 juillet 2010 =C3=A0 17:16 +0200, Lennert Buytenhek a =C3=
-=A9crit :
+On Wed, Jul 21, 2010 at 11:29:30AM -0400, Mike Frysinger wrote:
 
-> > +#define pr_fmt(fmt) "ksz8893m: " fmt
+> >> + =A0 =A0 source_port =3D dsa_header[1] & 0x03;
+> >> + =A0 =A0 if (source_port >=3D DSA_MAX_PORTS || ds->ports[source_p=
+ort] =3D=3D NULL)
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 goto out_drop;
+> >> +
+> >> + =A0 =A0 if (((dsa_header[0] & ETH_P_8021QH) =3D=3D ETH_P_8021QH)=
+ &&
+> >
+> > This is bogus -- what it does is:
+> >
+> > =A0 =A0 =A0 =A0if ((dsa_header[0] & 0x81) =3D=3D 0x81)
+> >
+> > It doesn't look like you need to mask here at all.
 >=20
-> This has no users.
->=20
+> where does it say dsa_header[0] will always have 0x81 set ?
 
-Dont tell this to Joe Perches ;)
+Eh?
 
-It is used by all pr_err() friends
+This code is checking whether the packet has a STPID tag on it or not.
+A STPID tag exists if the first 12 nibbles are 0x810.
 
-#define pr_emerg(fmt, ...) \
-        printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_alert(fmt, ...) \
-        printk(KERN_ALERT pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_crit(fmt, ...) \
-        printk(KERN_CRIT pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_err(fmt, ...) \
-        printk(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_warning(fmt, ...) \
-        printk(KERN_WARNING pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_warn pr_warning
-#define pr_notice(fmt, ...) \
-        printk(KERN_NOTICE pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_info(fmt, ...) \
-        printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__)
-#define pr_cont(fmt, ...) \
-        printk(KERN_CONT fmt, ##__VA_ARGS__)
+You are checking whether the first 8 nibbles of this are equal to 0x81
+by doing:
 
+	if ((byte & 0x81) =3D=3D 0x81)
 
+What if the first byte is 0x93?  Or 0xc5?
