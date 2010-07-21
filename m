@@ -1,73 +1,148 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH net-2.6] ixgbe/igb: catch invalid VF settings
-Date: Wed, 21 Jul 2010 12:40:31 -0400
-Message-ID: <1279730431-17156-1-git-send-email-andy@greyhouse.net>
-Cc: chrisw@sous-sol.org
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/2] net: dsa: introduce MICREL KSZ8893MQL/BL ethernet
+ switch chip support
+Date: Wed, 21 Jul 2010 09:40:27 -0700
+Message-ID: <1279730427.1714.34.camel@Joe-Laptop.home>
+References: <1279719442-10174-1-git-send-email-vapier@gentoo.org>
+	 <1279719442-10174-2-git-send-email-vapier@gentoo.org>
+	 <20100721151608.GM21121@mail.wantstofly.org>
+	 <1279726393.2452.60.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Karl Beldan <karl.beldan@gmail.com>,
+	Graf Yang <graf.yang@analog.com>,
+	Bryan Wu <cooloney@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27419 "EHLO mx1.redhat.com"
+Received: from mail.perches.com ([173.55.12.10]:2006 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750786Ab0GUQim (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jul 2010 12:38:42 -0400
+	id S1751328Ab0GUQka (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jul 2010 12:40:30 -0400
+In-Reply-To: <1279726393.2452.60.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some ixgbe cards put an invalid VF device ID in the PCIe SR-IOV
-capability.  The ixgbe driver is only valid for PFs or non SR-IOV
-hardware.  It seems that the same problem could occur on igb hardware as
-well, so if we discover we are trying to initialize a VF in ixbge_probe
-or igb_probe, print an error and exit.
+On Wed, 2010-07-21 at 17:33 +0200, Eric Dumazet wrote:
+> It is used by all pr_err() friends
 
-Based on a patch for ixgbe from Chris Wright <chrisw@sous-sol.org>.
+Shouldn't these drivers be moved into
+something like drivers/net/dsa/ rather
+than be kept in net?
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-Cc: Chris Wright <chrisw@sous-sol.org>
+The #define pr_fmt would be more standard as
+	#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+The printks could be netdev_<level>
 
----
- drivers/net/igb/igb_main.c     |    9 +++++++++
- drivers/net/ixgbe/ixgbe_main.c |    9 +++++++++
- 2 files changed, 18 insertions(+), 0 deletions(-)
+Suggested patches:
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 3881918..cea37e0 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -1722,6 +1722,15 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	u16 eeprom_apme_mask = IGB_EEPROM_APME;
- 	u32 part_num;
+diff --git a/net/dsa/ksz8893m.c b/net/dsa/ksz8893m.c
+index 98cce04..80fb0ac 100644
+--- a/net/dsa/ksz8893m.c
++++ b/net/dsa/ksz8893m.c
+@@ -8,7 +8,7 @@
+  * Licensed under the GPL-2 or later.
+  */
  
-+	/* Catch broken hardware that put the wrong VF device ID in
-+	 * the PCIe SR-IOV capability.
-+	 */
-+	if (pdev->is_virtfn) {
-+		WARN(1, KERN_ERR "%s (%hx:%hx) should not be a VF!\n",
-+		     pci_name(pdev), pdev->vendor, pdev->device);
-+		return -EINVAL;
-+	}
-+
- 	err = pci_enable_device_mem(pdev);
- 	if (err)
- 		return err;
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 7b5d976..74d9b6d 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6492,6 +6492,15 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- #endif
- 	u32 part_num, eec;
+-#define pr_fmt(fmt) "ksz8893m: " fmt
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
  
-+	/* Catch broken hardware that put the wrong VF device ID in
-+	 * the PCIe SR-IOV capability.
-+	 */
-+	if (pdev->is_virtfn) {
-+		WARN(1, KERN_ERR "%s (%hx:%hx) should not be a VF!\n",
-+		     pci_name(pdev), pdev->vendor, pdev->device);
-+		return -EINVAL;
+ #include <linux/list.h>
+ #include <linux/netdevice.h>
+@@ -42,11 +42,14 @@ static int ksz8893m_read(unsigned char *din, unsigned char reg, int len)
+ 	spi_message_init(&message);
+ 	spi_message_add_tail(t, &message);
+ 	ret = spi_sync(sw.dev, &message);
+-	if (!ret)
+-		return message.status;
++	if (ret) {
++		pr_err("read reg%d failed, ret=%d\n", reg, ret);
++		return ret;
 +	}
-+
- 	err = pci_enable_device_mem(pdev);
- 	if (err)
- 		return err;
--- 
-1.6.2.5
++	if (message.status)
++		pr_err("read reg%d failed, status=%d\n", reg, message.status);
+ 
+-	pr_err("read reg%d failed, ret=%d\n", reg, ret);
+-	return ret;
++	return message.status;
+ }
+ 
+ static int ksz8893m_write(unsigned char *dout, unsigned char reg, int len)
+@@ -65,11 +68,14 @@ static int ksz8893m_write(unsigned char *dout, unsigned char reg, int len)
+ 	spi_message_init(&message);
+ 	spi_message_add_tail(t, &message);
+ 	ret = spi_sync(sw.dev, &message);
+-	if (!ret)
+-		return message.status;
++	if (ret) {
++		pr_err("write reg%d failed, ret=%d\n", reg, ret);
++		return ret;
++	}
++	if (message.status)
++		pr_err("write reg%d failed, status=%d\n", reg, message.status);
+ 
+-	pr_err("write reg%d failed, ret=%d\n", reg, ret);
+-	return ret;
++	return message.status;
+ }
+ 
+ static char *ksz8893m_probe(struct mii_bus *bus, int sw_addr)
+@@ -168,8 +174,8 @@ static int ksz8893m_setup_port(struct dsa_switch *ds, int p)
+ 	if (val < 0)
+ 		return val;
+ 	val |= AN_ENABLE | FORCE_100 | FORCE_FULL_DUPLEX;
+-	val &= ~(POWER_DOWN | DISABLE_MDIX | DIS_FAR_END_FAULT |\
+-			DISABLE_TRANSMIT | DISABLE_LED);
++	val &= ~(POWER_DOWN | DISABLE_MDIX | DIS_FAR_END_FAULT |
++		 DISABLE_TRANSMIT | DISABLE_LED);
+ 	ret = mdiobus_write(ds->master_mii_bus, p, MII_BMCR, val);
+ 	if (ret < 0)
+ 		return ret;
+@@ -228,8 +234,7 @@ ksz8893m_phy_read(struct dsa_switch *ds, int port, int regnum)
+ }
+ 
+ static int
+-ksz8893m_phy_write(struct dsa_switch *ds,
+-			      int port, int regnum, u16 val)
++ksz8893m_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
+ {
+ 	int phy_addr = ksz8893m_port_to_phy_addr(port);
+ 	return mdiobus_write(ds->master_mii_bus, phy_addr, regnum, val);
+@@ -263,7 +268,7 @@ static void ksz8893m_poll_link(struct dsa_switch *ds)
+ 
+ 		if (!link) {
+ 			if (netif_carrier_ok(dev)) {
+-				printk(KERN_INFO "%s: link down\n", dev->name);
++				netdev_info(dev, "link down\n");
+ 				netif_carrier_off(dev);
+ 			}
+ 			continue;
+@@ -274,8 +279,8 @@ static void ksz8893m_poll_link(struct dsa_switch *ds)
+ 		val = mdiobus_read(ds->master_mii_bus, i, MII_BMSR);
+ 		if (val < 0)
+ 			continue;
+-		val &= HALF_10_CAPABLE | FULL_10_CAPABLE |\
+-		       HALF_100_CAPABLE | FULL_100_CAPABLE;
++		val &= (HALF_10_CAPABLE | FULL_10_CAPABLE |
++			HALF_100_CAPABLE | FULL_100_CAPABLE);
+ 		if (val & FULL_100_CAPABLE) {
+ 			speed = 100;
+ 			duplex = 1;
+@@ -288,8 +293,8 @@ static void ksz8893m_poll_link(struct dsa_switch *ds)
+ 		}
+ 
+ 		if (!netif_carrier_ok(dev)) {
+-			printk(KERN_INFO "%s: link up, %d Mb/s, %s duplex\n",
+-					dev->name, speed, duplex ? "full" : "half");
++			netdev_info(dev, "link up, %d Mb/s, %s duplex\n",
++				    speed, duplex ? "full" : "half");
+ 			netif_carrier_on(dev);
+ 		}
+ 	}
+
+
 
