@@ -1,76 +1,39 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH -next] net: NET_DSA depends on NET_ETHERNET
-Date: Tue, 20 Jul 2010 22:41:23 -0700
-Message-ID: <4C468883.4050207@oracle.com>
-References: <20100706103417.8923b697.randy.dunlap@oracle.com>	<20100710.190954.245403400.davem@davemloft.net>	<4C462B44.5010107@oracle.com> <20100720.174530.139530021.davem@davemloft.net>
+From: Harald Hoyer <harald@redhat.com>
+Subject: Re: [PATCH net-next] sysfs: add entry to indicate network interfaces
+ with random MAC address
+Date: Wed, 21 Jul 2010 08:26:27 +0200
+Message-ID: <4C469313.6010807@redhat.com>
+References: <1279636194.2110.45.camel@achroite.uk.solarflarecom.com>	<20100720.131748.51255156.davem@davemloft.net>	<20100720141816.16f0a939@nehalam> <20100720.142045.32697196.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	buytenh@wantstofly.org
+Cc: shemminger@vyatta.com, bhutchings@solarflare.com,
+	sassmann@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gospo@redhat.com,
+	gregory.v.rose@intel.com, alexander.h.duyck@intel.com,
+	leedom@chelsio.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100720.174530.139530021.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100720.142045.32697196.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/20/10 17:45, David Miller wrote:
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> Date: Tue, 20 Jul 2010 16:03:32 -0700
-> 
->> From: Randy Dunlap <randy.dunlap@oracle.com>
+On 07/20/2010 11:20 PM, David Miller wrote:
+> From: Stephen Hemminger<shemminger@vyatta.com>
+> Date: Tue, 20 Jul 2010 14:18:16 -0700
+>
+>> No one mentioned that the first octet of an Ethernet address already
+>> indicates "software generated" Ethernet address. Per the standard,
+>> if bit 1 is set it means address is locally assigned.
 >>
->> NET_DSA code selects and uses PHYLIB code, but PHYLIB depends on
->> NET_ETHERNET.  However, "select" does not follow kconfig dependencies,
->> so explicitly list that requirement here instead.
->>
->> Fixes this kconfig warning:
->>
->> warning: (NET_DSA && NET && EXPERIMENTAL && !S390 ...) selects PHYLIB which has unmet direct dependencies (!S390 && NET_ETHERNET)
->>
->> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> Randy, this has been fixed in net-2.6 for some time now.
+>> static inline bool is_locally_assigned_ether(const u8 *addr)
+>> {
+>> 	return (addr[0]&  0x2) != 0;
+>> }
+>
+> W00t!
+>
+> Indeed, can udev just use that?  :-)
 
-OK, I did see the commit get merged today.
-
-> And I'm pretty sure I sent a copy of this to you when I
-> checked it in :-)
-
-I missed it somehow.  Thanks.
-
-> --------------------
-> From 336a283b9cbe47748ccd68fd8c5158f67cee644b Mon Sep 17 00:00:00 2001
-> From: David S. Miller <davem@davemloft.net>
-> Date: Mon, 12 Jul 2010 20:03:42 -0700
-> Subject: [PATCH 09/24] dsa: Fix Kconfig dependencies.
-> 
-> Based upon a report by Randy Dunlap.
-> 
-> DSA needs PHYLIB, but PHYLIB needs NET_ETHERNET.  So, in order
-> to select PHYLIB we have to make DSA depend upon NET_ETHERNET.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/dsa/Kconfig |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-> index c51b554..1120178 100644
-> --- a/net/dsa/Kconfig
-> +++ b/net/dsa/Kconfig
-> @@ -1,7 +1,7 @@
->  menuconfig NET_DSA
->  	bool "Distributed Switch Architecture support"
->  	default n
-> -	depends on EXPERIMENTAL && !S390
-> +	depends on EXPERIMENTAL && NET_ETHERNET && !S390
->  	select PHYLIB
->  	---help---
->  	  This allows you to use hardware switch chips that use
-
-
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+It already does:
+see /lib/udev/rules.d/75-persistent-net-generator.rules
