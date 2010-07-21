@@ -1,50 +1,70 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch v2.2 1/4] [PATCH v2.1 1/4] netfilter: xt_ipvs
- (netfilter matcher for IPVS)
-Date: Wed, 21 Jul 2010 08:34:37 +0900
-Message-ID: <20100720233437.GH9569@verge.net.au>
-References: <20100501032014.406353538@vergenet.net>
- <20100501032120.298829234@vergenet.net>
- <4BDC543F.7060500@trash.net>
- <AANLkTikIzHuzxo4z1_8_fEGLBC2-0Uz0X8SOc8n2msuX@mail.gmail.com>
- <20100622071326.GB9928@verge.net.au>
- <AANLkTimUEJGAJ6tsPKGltUGBwrdotK5YyKBIkQWbA8qZ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] net: NET_DSA depends on NET_ETHERNET
+Date: Tue, 20 Jul 2010 17:45:30 -0700 (PDT)
+Message-ID: <20100720.174530.139530021.davem@davemloft.net>
+References: <20100706103417.8923b697.randy.dunlap@oracle.com>
+	<20100710.190954.245403400.davem@davemloft.net>
+	<4C462B44.5010107@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	Julius Volz <julius.volz@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Hannes Eder <heder@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTimUEJGAJ6tsPKGltUGBwrdotK5YyKBIkQWbA8qZ@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	buytenh@wantstofly.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4C462B44.5010107@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 20, 2010 at 02:44:11PM +0200, Hannes Eder wrote:
-> Hi Simon,
-> 
-> On Tue, Jun 22, 2010 at 09:13, Simon Horman <horms@verge.net.au> wrote:
-> > On Mon, May 03, 2010 at 01:29:46PM +0200, Hannes Eder wrote:
-> >> Thank you for picking this series of patches up again and thanks for
-> >> the feedback.
-> >>
-> >> I'll send an updated version in the next days.
-> >
-> > Hi Hanes,
-> >
-> > more than a few days seems to have passed.
-> > Do you have time to fix the patches up?
-> > If not, I'll take a stab at it.
-> 
-> /me working through the backlog of emails after vacation, however this
-> email was buried in my inbox before my vacation, my bad.  I've been
-> extremely busy lately and I did not have the time to work on the
-> patches.  I saw your updated versions, I appreciate very much that you
-> are taking it from there.
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Tue, 20 Jul 2010 16:03:32 -0700
 
-No problem, I assumed that you were busy with something.
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> NET_DSA code selects and uses PHYLIB code, but PHYLIB depends on
+> NET_ETHERNET.  However, "select" does not follow kconfig dependencies,
+> so explicitly list that requirement here instead.
+> 
+> Fixes this kconfig warning:
+> 
+> warning: (NET_DSA && NET && EXPERIMENTAL && !S390 ...) selects PHYLIB which has unmet direct dependencies (!S390 && NET_ETHERNET)
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+
+Randy, this has been fixed in net-2.6 for some time now.
+
+And I'm pretty sure I sent a copy of this to you when I
+checked it in :-)
+
+--------------------
+>From 336a283b9cbe47748ccd68fd8c5158f67cee644b Mon Sep 17 00:00:00 2001
+From: David S. Miller <davem@davemloft.net>
+Date: Mon, 12 Jul 2010 20:03:42 -0700
+Subject: [PATCH 09/24] dsa: Fix Kconfig dependencies.
+
+Based upon a report by Randy Dunlap.
+
+DSA needs PHYLIB, but PHYLIB needs NET_ETHERNET.  So, in order
+to select PHYLIB we have to make DSA depend upon NET_ETHERNET.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/dsa/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index c51b554..1120178 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -1,7 +1,7 @@
+ menuconfig NET_DSA
+ 	bool "Distributed Switch Architecture support"
+ 	default n
+-	depends on EXPERIMENTAL && !S390
++	depends on EXPERIMENTAL && NET_ETHERNET && !S390
+ 	select PHYLIB
+ 	---help---
+ 	  This allows you to use hardware switch chips that use
+-- 
+1.7.1.1
