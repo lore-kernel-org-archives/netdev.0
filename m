@@ -1,217 +1,216 @@
-From: mark gross <markgross@thegnar.org>
-Subject: Re: [PATCH] Re: mmotm 2010-07-19 - e1000e vs.
- pm_qos_update_request issues
-Date: Wed, 21 Jul 2010 15:12:19 -0700
-Message-ID: <20100721221219.GB2610@gvim.org>
-References: <201007200007.o6K07Xbg028863@imap1.linux-foundation.org>
- <6182.1279658125@localhost>
- <20100720140751.71ee83a8.akpm@linux-foundation.org>
- <20100721091200.40c43158@schatten.dmk.lab>
-Reply-To: markgross@thegnar.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, Valdis.Kletnieks@vt.edu,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	mark gross <markgross@thegnar.org>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Mickler <florian@mickler.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100721091200.40c43158@schatten.dmk.lab>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH net-next-2.6 1/2] bonding: change test for presence of VLANs
+Date: Wed, 21 Jul 2010 15:14:47 -0700
+Message-ID: <1279750488-32611-1-git-send-email-fubar@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>,
+	Pedro Garcia <pedro.netdev@dondevamos.com>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:48271 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751559Ab0GUWO6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 18:14:58 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e32.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o6LM70lf029997
+	for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 16:07:00 -0600
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id o6LMEpIP119804
+	for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 16:14:51 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o6LMEpoq002151
+	for <netdev@vger.kernel.org>; Wed, 21 Jul 2010 16:14:51 -0600
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 21, 2010 at 09:12:00AM +0200, Florian Mickler wrote:
-> On Tue, 20 Jul 2010 14:07:51 -0700
-> Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> > On Tue, 20 Jul 2010 16:35:25 -0400
-> > Valdis.Kletnieks@vt.edu wrote:
-> > 
-> > > On Mon, 19 Jul 2010 16:38:09 PDT, akpm@linux-foundation.org said:
-> > > > The mm-of-the-moment snapshot 2010-07-19-16-37 has been uploaded to
-> > > > 
-> > > >    http://userweb.kernel.org/~akpm/mmotm/
-> > > 
-> > > Throws a warning at boot:
-> > > 
-> > > [    1.786060] WARNING: at kernel/pm_qos_params.c:264 pm_qos_update_request+0x28/0x54()
-> > > [    1.786088] Hardware name: Latitude E6500
-> > > [    1.787045] pm_qos_update_request() called for unknown object
-> > > [    1.787966] Modules linked in:
-> > > [    1.788940] Pid: 1, comm: swapper Not tainted 2.6.35-rc5-mmotm0719 #1
-> > > [    1.790035] Call Trace:
-> > > [    1.791121]  [<ffffffff81037335>] warn_slowpath_common+0x80/0x98
-> > > [    1.792205]  [<ffffffff810373e1>] warn_slowpath_fmt+0x41/0x43
-> > > [    1.793279]  [<ffffffff81057c14>] pm_qos_update_request+0x28/0x54
-> > > [    1.794347]  [<ffffffff8134889e>] e1000_configure+0x421/0x459
-> > > [    1.795393]  [<ffffffff8134afbd>] e1000_open+0xbd/0x37c
-> > > [    1.796436]  [<ffffffff8105743a>] ? raw_notifier_call_chain+0xf/0x11
-> > > [    1.797491]  [<ffffffff8145f948>] __dev_open+0xae/0xe2
-> > > [    1.798547]  [<ffffffff8145f997>] dev_open+0x1b/0x49
-> > > [    1.799612]  [<ffffffff8146e36e>] netpoll_setup+0x84/0x259
-> > > [    1.800685]  [<ffffffff81b5037c>] init_netconsole+0xbc/0x21f
-> > > [    1.801744]  [<ffffffff81b5026c>] ? sir_wq_init+0x0/0x35
-> > > [    1.802793]  [<ffffffff81b502c0>] ? init_netconsole+0x0/0x21f
-> > > [    1.803845]  [<ffffffff810002ff>] do_one_initcall+0x7a/0x12f
-> > > [    1.804885]  [<ffffffff81b2ccae>] kernel_init+0x138/0x1c2
-> > > [    1.805915]  [<ffffffff81003554>] kernel_thread_helper+0x4/0x10
-> > > [    1.806937]  [<ffffffff81590e00>] ? restore_args+0x0/0x30
-> > > [    1.807955]  [<ffffffff81b2cb76>] ? kernel_init+0x0/0x1c2
-> > > [    1.808958]  [<ffffffff81003550>] ? kernel_thread_helper+0x0/0x10
-> > > [    1.809958] ---[ end trace 84b562a00a60539e ]---
-> > > 
-> > > Looks like a repeat of something I reported against -mmotm 2010-05-11, though a
-> > > WARNING rather than an outright crash - the traceback is pretty much identical.
-> > >  I have *no* idea why -rc3-mmotm0701 doesn't whinge similarly.
-> > > 
-> > 
-> > I don't recall you reporting that, sorry.
-> > 
-> > The warning was added by
-> > 
-> > : commit 82f682514a5df89ffb3890627eebf0897b7a84ec
-> > : Author:     James Bottomley <James.Bottomley@suse.de>
-> > : AuthorDate: Mon Jul 5 22:53:06 2010 +0200
-> > : Commit:     Rafael J. Wysocki <rjw@sisk.pl>
-> > : CommitDate: Mon Jul 19 02:00:34 2010 +0200
-> > : 
-> > :     pm_qos: Get rid of the allocation in pm_qos_add_request()
-> > 
-> > 
-> > It's a pretty crappy warning too.  Neither the warning nor the code
-> > comments provide developers with any hint as to what they have done
-> > wrong, nor what they must do to fix things.  And the patch changelog
-> > doesn't mention the new warnings *at all*.
-> > 
-> > So one must assume that the people who stuck this thing in the tree
-> > have volunteered to fix e1000e.  Let's cc 'em.
-> > 
-> 
-> e1000 calls update_request before registering said request with pm_qos.
-> This was silently ignored before but now emits a warning. The warning
-> is sound, because it means, that the constraint-request didn't take
-> effect.
-> 
-> The right thing is probably to register the request before
-> calling update_request. 
-> 
-> Attached patch moves the registering from e1000_up to e1000_open and
-> the unregistering from e1000_down to e1000_close. 
-> It is only compile-tested as I don't have the hardware.
-> 
-> Cheers,
-> Flo
-> 
-> p.s.: sorry if this get's mangled or is wrongly formatted, i'm just using
->  the "insert file" option of my mailclient and crossing my fingers...
-> 
-> 
-> From 693c71b911ff0845c872261d5704a1d40960722d Mon Sep 17 00:00:00 2001
-> From: Florian Mickler <florian@mickler.org>
-> Date: Wed, 21 Jul 2010 08:44:21 +0200
-> Subject: [PATCH] e1000e: register pm_qos request on hardware activation
-> 
-> The pm_qos_add_request call has to register the pm_qos request with the pm_qos
-> susbsystem before first use of the pm_qos request via
-> pm_qos_update_request.
-> 
-> As pm_qos changed to use plists there is no benefit in registering and
-> unregistering the pm_qos request on ifup/ifdown and thus we move the
-> registering into e1000_open and the unregistering in e1000_close.
-> 
-> This fixes the following warning:
-> 
-> [    1.786060] WARNING: at kernel/pm_qos_params.c:264
-> pm_qos_update_request+0x28/0x54()
-> [    1.786088] Hardware name: Latitude E6500
-> [    1.787045] pm_qos_update_request() called for unknown object
-> [    1.787966] Modules linked in:
-> [    1.788940] Pid: 1, comm: swapper Not tainted 2.6.35-rc5-mmotm0719 #1
-> [    1.790035] Call Trace:
-> [    1.791121]  [<ffffffff81037335>] warn_slowpath_common+0x80/0x98
-> [    1.792205]  [<ffffffff810373e1>] warn_slowpath_fmt+0x41/0x43
-> [    1.793279]  [<ffffffff81057c14>] pm_qos_update_request+0x28/0x54
-> [    1.794347]  [<ffffffff8134889e>] e1000_configure+0x421/0x459
-> [    1.795393]  [<ffffffff8134afbd>] e1000_open+0xbd/0x37c
-> [    1.796436]  [<ffffffff8105743a>] ? raw_notifier_call_chain+0xf/0x11
-> [    1.797491]  [<ffffffff8145f948>] __dev_open+0xae/0xe2
-> [    1.798547]  [<ffffffff8145f997>] dev_open+0x1b/0x49
-> [    1.799612]  [<ffffffff8146e36e>] netpoll_setup+0x84/0x259
-> [    1.800685]  [<ffffffff81b5037c>] init_netconsole+0xbc/0x21f
-> [    1.801744]  [<ffffffff81b5026c>] ? sir_wq_init+0x0/0x35
-> [    1.802793]  [<ffffffff81b502c0>] ? init_netconsole+0x0/0x21f
-> [    1.803845]  [<ffffffff810002ff>] do_one_initcall+0x7a/0x12f
-> [    1.804885]  [<ffffffff81b2ccae>] kernel_init+0x138/0x1c2
-> [    1.805915]  [<ffffffff81003554>] kernel_thread_helper+0x4/0x10
-> [    1.806937]  [<ffffffff81590e00>] ? restore_args+0x0/0x30
-> [    1.807955]  [<ffffffff81b2cb76>] ? kernel_init+0x0/0x1c2
-> [    1.808958]  [<ffffffff81003550>] ? kernel_thread_helper+0x0/0x10
-> [    1.809958] ---[ end trace 84b562a00a60539e ]---
-> 
-> Signed-off-by: Florian Mickler <florian@mickler.org>
-> ---
->  drivers/net/e1000e/netdev.c |   18 +++++++++---------
->  1 files changed, 9 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-> index 8ba366a..1bd9054 100644
-> --- a/drivers/net/e1000e/netdev.c
-> +++ b/drivers/net/e1000e/netdev.c
-> @@ -3218,12 +3218,6 @@ int e1000e_up(struct e1000_adapter *adapter)
->  {
->  	struct e1000_hw *hw = &adapter->hw;
->  
-> -	/* DMA latency requirement to workaround early-receive/jumbo issue */
-> -	if (adapter->flags & FLAG_HAS_ERT)
-> -		pm_qos_add_request(&adapter->netdev->pm_qos_req,
-> -				   PM_QOS_CPU_DMA_LATENCY,
-> -				   PM_QOS_DEFAULT_VALUE);
-> -
->  	/* hardware has been reset, we need to reload some things */
->  	e1000_configure(adapter);
->  
-> @@ -3287,9 +3281,6 @@ void e1000e_down(struct e1000_adapter *adapter)
->  	e1000_clean_tx_ring(adapter);
->  	e1000_clean_rx_ring(adapter);
->  
-> -	if (adapter->flags & FLAG_HAS_ERT)
-> -		pm_qos_remove_request(&adapter->netdev->pm_qos_req);
-> -
->  	/*
->  	 * TODO: for power management, we could drop the link and
->  	 * pci_disable_device here.
-> @@ -3524,6 +3515,12 @@ static int e1000_open(struct net_device *netdev)
->  	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN))
->  		e1000_update_mng_vlan(adapter);
->  
-> +	/* DMA latency requirement to workaround early-receive/jumbo issue */
-> +	if (adapter->flags & FLAG_HAS_ERT)
-> +		pm_qos_add_request(&adapter->netdev->pm_qos_req,
-> +				   PM_QOS_CPU_DMA_LATENCY,
-> +				   PM_QOS_DEFAULT_VALUE);
-> +
->  	/*
->  	 * before we allocate an interrupt, we must be ready to handle it.
->  	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
-> @@ -3628,6 +3625,9 @@ static int e1000_close(struct net_device *netdev)
->  	if (adapter->flags & FLAG_HAS_AMT)
->  		e1000_release_hw_control(adapter);
->  
-> +	if (adapter->flags & FLAG_HAS_ERT)
-> +		pm_qos_remove_request(&adapter->netdev->pm_qos_req);
-> +
->  	pm_runtime_put_sync(&pdev->dev);
->  
->  	return 0;
-> -- 
-> 1.7.1.1
->
+	After commit:
 
-wow!  thanks!  I'll test this when I get back next tuesday.
+commit ad1afb00393915a51c21b1ae8704562bf036855f
+Author: Pedro Garcia <pedro.netdev@dondevamos.com>
+Date:   Sun Jul 18 15:38:44 2010 -0700
 
---mgross
+    vlan_dev: VLAN 0 should be treated as "no vlan tag" (802.1p packet)
+
+	it is now regular practice for a VLAN "add vid" for VLAN 0 to
+arrive prior to any VLAN registration or creation of a vlan_group.
+
+	This patch updates the bonding code that tests for the presence
+of VLANs configured above bonding.  The new logic tests for bond->vlgrp
+to determine if a registration has occured, instead of testing that
+bonding's internal vlan_list is empty.
+
+	The old code would panic when vlan_list was not empty, but
+vlgrp was still NULL (because only an "add vid" for VLAN 0 had occured).
+
+	Bonding still adds VLAN 0 to its internal list so that 802.1p
+frames are handled correctly on transmit when non-VLAN accelerated
+slaves are members of the bond.  The test against bond->vlan_list
+remains in bond_dev_queue_xmit for this reason.
+
+	Modification to the bond->vlgrp now occurs under lock (in
+addition to RTNL), because not all inspections of it occur under RTNL.
+
+	Additionally, because 8021q will never issue a "kill vid" for
+VLAN 0, there is now logic in bond_uninit to release any remaining
+entries from vlan_list.
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Pedro Garcia <pedro.netdev@dondevamos.com> 
+Cc: Patrick McHardy <kaber@trash.net>
+---
+ drivers/net/bonding/bond_alb.c  |    4 ++--
+ drivers/net/bonding/bond_main.c |   30 +++++++++++++++++++++++-------
+ 2 files changed, 25 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 3662d6e..e3b35d0 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -682,7 +682,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 			client_info->ntt = 0;
+ 		}
+ 
+-		if (!list_empty(&bond->vlan_list)) {
++		if (bond->vlgrp) {
+ 			if (!vlan_get_tag(skb, &client_info->vlan_id))
+ 				client_info->tag = 1;
+ 		}
+@@ -904,7 +904,7 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
+ 		skb->priority = TC_PRIO_CONTROL;
+ 		skb->dev = slave->dev;
+ 
+-		if (!list_empty(&bond->vlan_list)) {
++		if (bond->vlgrp) {
+ 			struct vlan_entry *vlan;
+ 
+ 			vlan = bond_next_vlan(bond,
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 20f45cb..f3b01ce 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -424,6 +424,7 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
+ {
+ 	unsigned short uninitialized_var(vlan_id);
+ 
++	/* Test vlan_list not vlgrp to catch and handle 802.1p tags */
+ 	if (!list_empty(&bond->vlan_list) &&
+ 	    !(slave_dev->features & NETIF_F_HW_VLAN_TX) &&
+ 	    vlan_get_tag(skb, &vlan_id) == 0) {
+@@ -487,7 +488,9 @@ static void bond_vlan_rx_register(struct net_device *bond_dev,
+ 	struct slave *slave;
+ 	int i;
+ 
++	write_lock(&bond->lock);
+ 	bond->vlgrp = grp;
++	write_unlock(&bond->lock);
+ 
+ 	bond_for_each_slave(bond, slave, i) {
+ 		struct net_device *slave_dev = slave->dev;
+@@ -569,7 +572,7 @@ static void bond_add_vlans_on_slave(struct bonding *bond, struct net_device *sla
+ 
+ 	write_lock_bh(&bond->lock);
+ 
+-	if (list_empty(&bond->vlan_list))
++	if (!bond->vlgrp)
+ 		goto out;
+ 
+ 	if ((slave_dev->features & NETIF_F_HW_VLAN_RX) &&
+@@ -596,7 +599,7 @@ static void bond_del_vlans_from_slave(struct bonding *bond,
+ 
+ 	write_lock_bh(&bond->lock);
+ 
+-	if (list_empty(&bond->vlan_list))
++	if (!bond->vlgrp)
+ 		goto out;
+ 
+ 	if (!(slave_dev->features & NETIF_F_HW_VLAN_FILTER) ||
+@@ -604,6 +607,8 @@ static void bond_del_vlans_from_slave(struct bonding *bond,
+ 		goto unreg;
+ 
+ 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
++		if (!vlan->vlan_id)
++			continue;
+ 		/* Save and then restore vlan_dev in the grp array,
+ 		 * since the slave's driver might clear it.
+ 		 */
+@@ -1443,7 +1448,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	/* no need to lock since we're protected by rtnl_lock */
+ 	if (slave_dev->features & NETIF_F_VLAN_CHALLENGED) {
+ 		pr_debug("%s: NETIF_F_VLAN_CHALLENGED\n", slave_dev->name);
+-		if (!list_empty(&bond->vlan_list)) {
++		if (bond->vlgrp) {
+ 			pr_err("%s: Error: cannot enslave VLAN challenged slave %s on VLAN enabled bond %s\n",
+ 			       bond_dev->name, slave_dev->name, bond_dev->name);
+ 			return -EPERM;
+@@ -1942,7 +1947,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		 */
+ 		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
+ 
+-		if (list_empty(&bond->vlan_list)) {
++		if (!bond->vlgrp) {
+ 			bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
+ 		} else {
+ 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+@@ -2134,9 +2139,9 @@ static int bond_release_all(struct net_device *bond_dev)
+ 	 */
+ 	memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
+ 
+-	if (list_empty(&bond->vlan_list))
++	if (!bond->vlgrp) {
+ 		bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
+-	else {
++	} else {
+ 		pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+ 			   bond_dev->name, bond_dev->name);
+ 		pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
+@@ -2569,7 +2574,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 		if (!targets[i])
+ 			break;
+ 		pr_debug("basa: target %x\n", targets[i]);
+-		if (list_empty(&bond->vlan_list)) {
++		if (!bond->vlgrp) {
+ 			pr_debug("basa: empty vlan: arp_send\n");
+ 			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+ 				      bond->master_ip, 0);
+@@ -2658,6 +2663,9 @@ static void bond_send_gratuitous_arp(struct bonding *bond)
+ 				bond->master_ip, 0);
+ 	}
+ 
++	if (!bond->vlgrp)
++		return;
++
+ 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+ 		vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
+ 		if (vlan->vlan_ip) {
+@@ -3590,6 +3598,8 @@ static int bond_inetaddr_event(struct notifier_block *this, unsigned long event,
+ 		}
+ 
+ 		list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
++			if (!bond->vlgrp)
++				continue;
+ 			vlan_dev = vlan_group_get_device(bond->vlgrp, vlan->vlan_id);
+ 			if (vlan_dev == event_dev) {
+ 				switch (event) {
+@@ -4686,6 +4696,7 @@ static void bond_work_cancel_all(struct bonding *bond)
+ static void bond_uninit(struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
++	struct vlan_entry *vlan, *tmp;
+ 
+ 	bond_netpoll_cleanup(bond_dev);
+ 
+@@ -4699,6 +4710,11 @@ static void bond_uninit(struct net_device *bond_dev)
+ 	bond_remove_proc_entry(bond);
+ 
+ 	__hw_addr_flush(&bond->mc_list);
++
++	list_for_each_entry_safe(vlan, tmp, &bond->vlan_list, vlan_list) {
++		list_del(&vlan->vlan_list);
++		kfree(vlan);
++	}
+ }
+ 
+ /*------------------------- Module initialization ---------------------------*/
+-- 
+1.6.0.2
+
