@@ -1,110 +1,118 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [Bugme-new] [Bug 16383] New: Regression with e1000e from
- 2.6.34.1 to 2.6.35-rc5
-Date: Wed, 21 Jul 2010 15:43:58 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FFE8449AA@rrsmsx501.amr.corp.intel.com>
-References: <bug-16383-10286@https.bugzilla.kernel.org/>
- <20100721134843.f8b5b217.akpm@linux-foundation.org>
+From: mark gross <markgross@thegnar.org>
+Subject: Re: mmotm 2010-07-19 - e1000e vs.
+	pm_qos_update_request issues
+Date: Wed, 21 Jul 2010 15:09:26 -0700
+Message-ID: <20100721220926.GA2610@gvim.org>
+References: <201007200007.o6K07Xbg028863@imap1.linux-foundation.org>
+	<6182.1279658125@localhost>
+	<20100720140751.71ee83a8.akpm@linux-foundation.org>
+Reply-To: markgross@thegnar.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"craig@haquarter.de" <craig@haquarter.de>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:52830 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758595Ab0GUVoA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jul 2010 17:44:00 -0400
-In-Reply-To: <20100721134843.f8b5b217.akpm@linux-foundation.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Valdis.Kletnieks@vt.edu,
+	mark gross <markgross@thegnar.org>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20100720140751.71ee83a8.akpm@linux-foundation.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->Behalf Of Andrew Morton
->Sent: Wednesday, July 21, 2010 1:49 PM
->To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Duyck, Alexander
->H; Waskiewicz Jr, Peter P
->Cc: bugzilla-daemon@bugzilla.kernel.org; bugme-daemon@bugzilla.kernel.org;
->netdev@vger.kernel.org; craig@haquarter.de
->Subject: Re: [Bugme-new] [Bug 16383] New: Regression with e1000e from
->2.6.34.1 to 2.6.35-rc5
->
->
->(switched to email.  Please respond via emailed reply-to-all, not via the
->bugzilla web interface).
->
->On Wed, 14 Jul 2010 00:44:51 GMT
->bugzilla-daemon@bugzilla.kernel.org wrote:
->
->> https://bugzilla.kernel.org/show_bug.cgi?id=16383
->>
->>            Summary: Regression with e1000e from 2.6.34.1 to 2.6.35-rc5
->>            Product: Drivers
->>            Version: 2.5
->>     Kernel Version: 2.6.35
->>           Platform: All
->>         OS/Version: Linux
->>               Tree: Mainline
->>             Status: NEW
->>           Severity: high
->>           Priority: P1
->>          Component: Network
->>         AssignedTo: drivers_network@kernel-bugs.osdl.org
->>         ReportedBy: craig@haquarter.de
->>         Regression: Yes
->>
->>
->> Created an attachment (id=27094)
->>  --> (https://bugzilla.kernel.org/attachment.cgi?id=27094)
->> .config
->>
->> Networking stops working with 2.6.35 (tested rc-3 and rc5).
->
->This is a post-2.6.34 regression, guys.  There's some more info in
->bugzilla.
->
->> # egrep "(e1000|eth)" dmesg-2.6.34.1
->> e1000e: Intel(R) PRO/1000 Network Driver - 1.0.2-k2
->> e1000e: Copyright (c) 1999 - 2009 Intel Corporation.
->> e1000e 0000:00:19.0: PCI INT A -> GSI 20 (level, low) -> IRQ 20
->> e1000e 0000:00:19.0: setting latency timer to 64
->> 0000:00:19.0: eth0: (PCI Express:2.5GB/s:Width x1) 5c:ff:35:02:2d:a9
->> 0000:00:19.0: eth0: Intel(R) PRO/1000 Network Connection
->> 0000:00:19.0: eth0: MAC: 9, PHY: 10, PBA No: a002ff-0ff
->> e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX
->>
->> # egrep "(e1000|eth)" dmesg-2.6.35-rc5
->> e1000e: Intel(R) PRO/1000 Network Driver - 1.0.2-k4
->> e1000e: Copyright (c) 1999 - 2009 Intel Corporation.
->> e1000e 0000:00:19.0: PCI INT A -> GSI 20 (level, low) -> IRQ 20
->> e1000e 0000:00:19.0: setting latency timer to 64
->> e1000e 0000:00:19.0: (unregistered net_device): Failed to initialize MSI
->> interrupts.  Falling back to legacy interrupts.
->> e1000e 0000:00:19.0: eth0: (PCI Express:2.5GB/s:Width x1)
->5c:ff:35:02:2d:a9
->> e1000e 0000:00:19.0: eth0: Intel(R) PRO/1000 Network Connection
->> e1000e 0000:00:19.0: eth0: MAC: 9, PHY: 10, PBA No: a002ff-0ff
->> e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX
->>
->> I hadn't set CONFIG_PCI_MSI but enabling it on 2.6.35-rc5 made no
->difference.
+On Tue, Jul 20, 2010 at 02:07:51PM -0700, Andrew Morton wrote:
+> On Tue, 20 Jul 2010 16:35:25 -0400
+> Valdis.Kletnieks@vt.edu wrote:
+> 
+> > On Mon, 19 Jul 2010 16:38:09 PDT, akpm@linux-foundation.org said:
+> > > The mm-of-the-moment snapshot 2010-07-19-16-37 has been uploaded to
+> > > 
+> > >    http://userweb.kernel.org/~akpm/mmotm/
+> > 
+> > Throws a warning at boot:
+> > 
+> > [    1.786060] WARNING: at kernel/pm_qos_params.c:264 pm_qos_update_request+0x28/0x54()
+> > [    1.786088] Hardware name: Latitude E6500
+> > [    1.787045] pm_qos_update_request() called for unknown object
+> > [    1.787966] Modules linked in:
+> > [    1.788940] Pid: 1, comm: swapper Not tainted 2.6.35-rc5-mmotm0719 #1
+> > [    1.790035] Call Trace:
+> > [    1.791121]  [<ffffffff81037335>] warn_slowpath_common+0x80/0x98
+> > [    1.792205]  [<ffffffff810373e1>] warn_slowpath_fmt+0x41/0x43
+> > [    1.793279]  [<ffffffff81057c14>] pm_qos_update_request+0x28/0x54
+> > [    1.794347]  [<ffffffff8134889e>] e1000_configure+0x421/0x459
+> > [    1.795393]  [<ffffffff8134afbd>] e1000_open+0xbd/0x37c
+> > [    1.796436]  [<ffffffff8105743a>] ? raw_notifier_call_chain+0xf/0x11
+> > [    1.797491]  [<ffffffff8145f948>] __dev_open+0xae/0xe2
+> > [    1.798547]  [<ffffffff8145f997>] dev_open+0x1b/0x49
+> > [    1.799612]  [<ffffffff8146e36e>] netpoll_setup+0x84/0x259
+> > [    1.800685]  [<ffffffff81b5037c>] init_netconsole+0xbc/0x21f
+> > [    1.801744]  [<ffffffff81b5026c>] ? sir_wq_init+0x0/0x35
+> > [    1.802793]  [<ffffffff81b502c0>] ? init_netconsole+0x0/0x21f
+> > [    1.803845]  [<ffffffff810002ff>] do_one_initcall+0x7a/0x12f
+> > [    1.804885]  [<ffffffff81b2ccae>] kernel_init+0x138/0x1c2
+> > [    1.805915]  [<ffffffff81003554>] kernel_thread_helper+0x4/0x10
+> > [    1.806937]  [<ffffffff81590e00>] ? restore_args+0x0/0x30
+> > [    1.807955]  [<ffffffff81b2cb76>] ? kernel_init+0x0/0x1c2
+> > [    1.808958]  [<ffffffff81003550>] ? kernel_thread_helper+0x0/0x10
+> > [    1.809958] ---[ end trace 84b562a00a60539e ]---
+> > 
+> > Looks like a repeat of something I reported against -mmotm 2010-05-11, though a
+> > WARNING rather than an outright crash - the traceback is pretty much identical.
+> >  I have *no* idea why -rc3-mmotm0701 doesn't whinge similarly.
+> > 
+> 
+> I don't recall you reporting that, sorry.
+> 
+> The warning was added by
+> 
+> : commit 82f682514a5df89ffb3890627eebf0897b7a84ec
+> : Author:     James Bottomley <James.Bottomley@suse.de>
+> : AuthorDate: Mon Jul 5 22:53:06 2010 +0200
+> : Commit:     Rafael J. Wysocki <rjw@sisk.pl>
+> : CommitDate: Mon Jul 19 02:00:34 2010 +0200
+> : 
+> :     pm_qos: Get rid of the allocation in pm_qos_add_request()
+> 
+> 
+> It's a pretty crappy warning too.  Neither the warning nor the code
+> comments provide developers with any hint as to what they have done
+> wrong, nor what they must do to fix things.  And the patch changelog
+> doesn't mention the new warnings *at all*.
+Sorry about that.  Its my fault, but I thought I had stronger language
+in the original warning text.
 
-On what HW is this issue seen? Please provide the output of:
-lspci -vvv
-ethtool -e 
-ethtool -S
+The warning is for pm_qos users that are attempting to change a request
+that isn't even in the list of request.  It was a silent failure in the
+original code.  The result of the silent fail is that the request is not
+changed as assumed by the caller.
 
-kernel config.
+> So one must assume that the people who stuck this thing in the tree
+> have volunteered to fix e1000e.  Let's cc 'em.
 
-Thanks,
-Emil
+I'll put a 1000e patch together at the airport, but I wont be able to
+test it until tuesday.
 
+--mgross
+
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Sprint
+What will you do first with EVO, the first 4G phone?
+Visit sprint.com/first -- http://p.sf.net/sfu/sprint-com-first
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
