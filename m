@@ -1,78 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 2/2] ethtool: Remove specification of number bases
- for RX-ntuple parameters
-Date: Thu, 22 Jul 2010 20:12:44 +0100
-Message-ID: <1279825964.2104.29.camel@achroite.uk.solarflarecom.com>
-References: <1279825899.2104.28.camel@achroite.uk.solarflarecom.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [RFC 1/1] netfilter: xtables: inclusion of xt_condition
+Date: Thu, 22 Jul 2010 22:19:40 +0300
+Message-ID: <20100722191940.GA10029@x200>
+References: <1279807758-6876-1-git-send-email-luciano.coelho@nokia.com>
+ <1279807758-6876-2-git-send-email-luciano.coelho@nokia.com>
+ <alpine.LSU.2.01.1007221621270.1619@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Jeff Garzik <jgarzik@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:36930 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752768Ab0GVTMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 15:12:47 -0400
-In-Reply-To: <1279825899.2104.28.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Luciano Coelho <luciano.coelho@nokia.com>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, sameo@linux.intel.com
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LSU.2.01.1007221621270.1619@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The numeric parameters for RX n-tuple filters may be specified as
-either decimal or hexadecimal with a '0x' prefix, like most other
-numeric parameters.
+On Thu, Jul 22, 2010 at 04:44:35PM +0200, Jan Engelhardt wrote:
+> 
+> On Thursday 2010-07-22 16:09, Luciano Coelho wrote:
+> >+static int condition_mt_check(const struct xt_mtchk_param *par)
+> >+{
+> >+	struct xt_condition_mtinfo *info = par->matchinfo;
+> >+	struct condition_variable *var;
+> >+	struct condition_net *cond_net =
+> >+		condition_pernet(current->nsproxy->net_ns);
+> 
+> Cc'ing Alexey who has done the netns support.
+> 
+> Alexey, you added par->net, but given Luciano just did it with 
+> current->nsproxy->net_ns, do we really need par->net?
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- ethtool.8 |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+In ->check, maybe, we can get away with current->nsproxy->net_ns.
 
-diff --git a/ethtool.8 b/ethtool.8
-index d0cbc93..98b57fb 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -689,28 +689,28 @@ Includes the destination IP address.
- Specify a mask for the destination IP address.
- .TP
- .BI src-port \ port
--Includes the source port, specified in decimal.
-+Includes the source port.
- .TP
- .BI src-port-mask \ mask
--Specify a mask for the source port, specified in hex.
-+Specify a mask for the source port.
- .TP
- .BI dst-port \ port
--Includes the destination port, specified in decimal.
-+Includes the destination port.
- .TP
- .BI dst-port-mask \ mask
--Specify a mask for the destination port, specified in hex.
-+Specify a mask for the destination port.
- .TP
- .BI vlan \ VLAN-tag
--Includes the VLAN tag, specified in hex.
-+Includes the VLAN tag.
- .TP
- .BI vlan-mask \ mask
--Specify a mask for the VLAN tag, specified in hex.
-+Specify a mask for the VLAN tag.
- .TP
- .BI user-def \ data
--Includes 64-bits of user-specific data, specified in hex.
-+Includes 64-bits of user-specific data.
- .TP
- .BI user-def-mask \ mask
--Specify a mask for the user-specific data, specified in hex.
-+Specify a mask for the user-specific data.
- .TP
- .BI action \ N
- Specifies either the Rx queue to send packets to, or to drop
--- 
-1.6.2.5
+But definitely not in ->destroy(), because destruction can happen
+when _no_ task is in netns, so current->nsproxy->net_ns is 100% bogus.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Steps to reproduce:
+	iptables -A ...
+	exit
 
+->destroy hook gets netns from par->net, ->checkentry does the same
+for symmetry and less confusion.
