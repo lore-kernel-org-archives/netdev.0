@@ -1,82 +1,64 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Fwd: LVS on local node
-Date: Thu, 22 Jul 2010 18:06:20 +0800
-Message-ID: <AANLkTilbAnR1V9DRNAjtfejwNMzXK5tTnRclOrJYGUx9@mail.gmail.com>
-References: <27901279770680@web67.yandex.ru> <1279781811.2405.15.camel@edumazet-laptop>
-	<AANLkTimneLE2xKg6fie5u3Cvjzcrq4VnK6wMT3pno0JK@mail.gmail.com>
-	<1279791964.2467.12.camel@edumazet-laptop> <AANLkTimLZG_-4wbKy8nrajHVKQvvGtRKEd8qHNoU3swJ@mail.gmail.com>
-	<1279792792.2467.15.camel@edumazet-laptop>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: mirred, redirect action vs. dev refcount issue
+Date: Thu, 22 Jul 2010 06:11:21 -0400
+Message-ID: <1279793481.2747.39.camel@bigi>
+References: <20100721162426.5aa4b646@nehalam>
+	 <20100721.163955.12041610.davem@davemloft.net>
+	 <20100721165247.6d1dd879@nehalam>
+	 <20100721.165802.111593910.davem@davemloft.net>
+	 <20100721170024.60cd9ef4@nehalam>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Franchoze Eric <franchoze@yandex.ru>, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1279792792.2467.15.camel@edumazet-laptop>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:57086 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754072Ab0GVKLZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 06:11:25 -0400
+Received: by iwn7 with SMTP id 7so7769426iwn.19
+        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 03:11:25 -0700 (PDT)
+In-Reply-To: <20100721170024.60cd9ef4@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 22, 2010 at 5:59 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le jeudi 22 juillet 2010 =E0 17:52 +0800, Changli Gao a =E9crit :
->
->>
->> FYI: the random option is documented in the manual page of iptables.
->>
->> =A0 =A0REDIRECT
->> =A0 =A0 =A0 =A0This =A0target is only valid in the nat table, in the=
- PREROUTING and OUT-
->> =A0 =A0 =A0 =A0PUT chains, and user-defined chains which are only =A0=
-called =A0from =A0those
->> =A0 =A0 =A0 =A0chains. =A0 It redirects the packet to the machine it=
-self by changing the
->> =A0 =A0 =A0 =A0destination IP =A0to =A0the =A0primary =A0address =A0=
-of =A0the =A0incoming =A0interface
->> =A0 =A0 =A0 =A0(locally-generated packets are mapped to the 127.0.0.=
-1 address).
->>
->> =A0 =A0 =A0 =A0--to-ports port[-port]
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 This =A0specifies =A0a =A0destination =A0=
-port =A0or range of ports to use:
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 without this, the destination port is ne=
-ver =A0altered. =A0 This =A0is
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 only valid if the rule also specifies -p=
- tcp or -p udp.
->>
->> =A0 =A0 =A0 =A0--random
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 If =A0option --random is used then port =
-mapping will be randomized
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 (kernel >=3D 2.6.22).
->>
->>
->
-> Note my patch has nothing to do with the man page, its already up2dat=
-e.
->
-> I usually dont read the Fine manuals, do you ?
+On Wed, 2010-07-21 at 17:00 -0700, Stephen Hemminger wrote:
+> On Wed, 21 Jul 2010 16:58:02 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
 
-Yea. And I don't object your patch. so I add FYI. Thanks.
+> > Whether the ifindex or the global list + delete scheme is better is a
+> > topic for discussion.  Since from the user's perspective it is unclear
+> > which semantic is less surprising, entries disappearing or suddenly
+> > stop working (or start applying to a different device which has taken
+> > a previous one's ifindex!).
+> 
+> ifindex is unique (until integer wraps) so that soft reference
+> works.
 
->
-> Try :
->
-> iptables -t nat -A PREROUTING -p tcp --dport 1234 -j REDIRECT --help
->
-> REDIRECT target options:
-> =A0--to-ports <port>[-<port>]
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Port (=
-range) to map to.
->
->
-> You see [--random] is missing.
->
->
+The proper way to do it is via a notifier since we point to the
+netdev - and yes it is a little more complex thats why i just
+let the admin suffer (IMO) the well deserved consequences[1].
+
+I am in travel mode - but i will do some background thinking and
+come up with a good way to resolve it when i get back. Unless you
+have a patch you want me to look at.
+
+cheers,
+jamal
+
+[1] least element of suprise principle:
+Admin adds a rule which says
+"you see a packet matching blah incoming on eth0,
+do action1 then action2 ... then actionN"
+Say action2 is "mirror to ifb0".
+And then this same admin goes and rmmods ifb0 - it is easier to
+just reject this rmmod operation as we do todau. Maybe we could be 
+kinder and be more informative and syslog something along the lines of
+"rejected to unregister device you rat-bastard because you have a rule
+which says we should mirror to ifb0". 
+Thoughts?
 
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
