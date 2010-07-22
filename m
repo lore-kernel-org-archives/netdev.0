@@ -1,78 +1,138 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: minstrel_tx_status mac80211 WARNINGs in vanilla 2.6.34.1
-Date: Thu, 22 Jul 2010 10:47:23 -0400
-Message-ID: <20100722144723.GA2616@tuxdriver.com>
-References: <20100722123000.GA16657@geggus.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH v3 4/5] skb: add tracepoints to freeing skb
+Date: Thu, 22 Jul 2010 10:57:21 -0400
+Message-ID: <20100722145721.GA20182@hmsreliant.think-freely.org>
+References: <4C44F12F.5090908@jp.fujitsu.com>
+ <4C44F286.1050907@jp.fujitsu.com>
+ <20100720115044.GD1995@hmsreliant.think-freely.org>
+ <4C469BA1.7050900@jp.fujitsu.com>
+ <20100721105645.GA21259@hmsreliant.think-freely.org>
+ <4C4803B3.1020808@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	nbd@openwrt.org
-To: Sven Geggus <sven@gegg.us>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, kaneshige.kenji@jp.fujitsu.com,
+	izumi.taku@jp.fujitsu.com, kosaki.motohiro@jp.fujitsu.com,
+	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
+	rostedt@goodmis.org, eric.dumazet@gmail.com, fweisbec@gmail.com,
+	mathieu.desnoyers@polymtl.ca
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39958 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39953 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751745Ab0GVPAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 11:00:15 -0400
+	with ESMTP id S1751745Ab0GVPAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 11:00:10 -0400
 Content-Disposition: inline
-In-Reply-To: <20100722123000.GA16657@geggus.net>
+In-Reply-To: <4C4803B3.1020808@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 22, 2010 at 02:30:01PM +0200, Sven Geggus wrote:
-> Hello,
+On Thu, Jul 22, 2010 at 05:39:15PM +0900, Koki Sanagi wrote:
+> (2010/07/21 19:56), Neil Horman wrote:
+> > On Wed, Jul 21, 2010 at 04:02:57PM +0900, Koki Sanagi wrote:
+> >> (2010/07/20 20:50), Neil Horman wrote:
+> >>> On Tue, Jul 20, 2010 at 09:49:10AM +0900, Koki Sanagi wrote:
+> >>>> [RFC PATCH v3 4/5] skb: add tracepoints to freeing skb
+> >>>> This patch adds tracepoint to consume_skb, dev_kfree_skb_irq and
+> >>>> skb_free_datagram_locked. Combinating with tracepoint on dev_hard_start_xmit,
+> >>>> we can check how long it takes to free transmited packets. And using it, we can
+> >>>> calculate how many packets driver had at that time. It is useful when a drop of
+> >>>> transmited packet is a problem.
+> >>>>
+> >>>>           <idle>-0     [001] 241409.218333: consume_skb: skbaddr=dd6b2fb8
+> >>>>           <idle>-0     [001] 241409.490555: dev_kfree_skb_irq: skbaddr=f5e29840
+> >>>>
+> >>>>         udp-recv-302   [001] 515031.206008: skb_free_datagram_locked: skbaddr=f5b1d900
+> >>>>
+> >>>>
+> >>>> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> >>>> ---
+> >>>>  include/trace/events/skb.h |   42 ++++++++++++++++++++++++++++++++++++++++++
+> >>>>  net/core/datagram.c        |    1 +
+> >>>>  net/core/dev.c             |    2 ++
+> >>>>  net/core/skbuff.c          |    1 +
+> >>>>  4 files changed, 46 insertions(+), 0 deletions(-)
+> >>>>
+> >>>> diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+> >>>> index 4b2be6d..84c9041 100644
+> >>>> --- a/include/trace/events/skb.h
+> >>>> +++ b/include/trace/events/skb.h
+> >>>> @@ -35,6 +35,48 @@ TRACE_EVENT(kfree_skb,
+> >>>>  		__entry->skbaddr, __entry->protocol, __entry->location)
+> >>>>  );
+> >>>>  
+> >>>> +DECLARE_EVENT_CLASS(free_skb,
+> >>>> +
+> >>>> +	TP_PROTO(struct sk_buff *skb),
+> >>>> +
+> >>>> +	TP_ARGS(skb),
+> >>>> +
+> >>>> +	TP_STRUCT__entry(
+> >>>> +		__field(	void *,	skbaddr	)
+> >>>> +	),
+> >>>> +
+> >>>> +	TP_fast_assign(
+> >>>> +		__entry->skbaddr = skb;
+> >>>> +	),
+> >>>> +
+> >>>> +	TP_printk("skbaddr=%p", __entry->skbaddr)
+> >>>> +
+> >>>> +);
+> >>>> +
+> >>>> +DEFINE_EVENT(free_skb, consume_skb,
+> >>>> +
+> >>>> +	TP_PROTO(struct sk_buff *skb),
+> >>>> +
+> >>>> +	TP_ARGS(skb)
+> >>>> +
+> >>>> +);
+> >>>> +
+> >>>> +DEFINE_EVENT(free_skb, dev_kfree_skb_irq,
+> >>>> +
+> >>>> +	TP_PROTO(struct sk_buff *skb),
+> >>>> +
+> >>>> +	TP_ARGS(skb)
+> >>>> +
+> >>>> +);
+> >>>> +
+> >>>> +DEFINE_EVENT(free_skb, skb_free_datagram_locked,
+> >>>> +
+> >>>> +	TP_PROTO(struct sk_buff *skb),
+> >>>> +
+> >>>> +	TP_ARGS(skb)
+> >>>> +
+> >>>> +);
+> >>>> +
+> >>>
+> >>> Why create these last two tracepoints at all?  dev_kfree_skb_irq will eventually
+> >>> pass through kfree_skb anyway, getting picked up by the tracepoint there, the
+> >>> while the latter won't (since it uses __kfree_skb instead), I think that could
+> >>> be fixed up by add a call to trace_kfree_skb there directly, saving you two
+> >>> tracepoints.
+> >>>
+> >>> Neil
+> >>>
+> >> I think dev_kfree_skb_irq isn't chased by trace_kfree_skb or trace_consume_skb
+> >> completely. Because net_tx_action frees skb by __kfree_skb. So it is better to
+> >> add trace_kfree_skb before it. skb_free_datagram_locked is same.
+> >>
+> > It isn't, you're right, but that was the point I made above.  Those missed areas
+> > could be easily handled by adding calls to trace_kfree_skb which already exists,
+> > to the missed areas.  Then you don't need to create those new tracepoints.  The
+> > way your doing this, if someone wants to trace all skb frees in debugfs, they
+> > would have to enable three tracepoints, not just one.  Not that thats the point
+> > of your patch, but its something to consider, and it simplifies your code.
+> > Neil
+> > 
 > 
-> running vanilla 2.6.34.1 I get the following warnings in  kernel log:
+> O.K. I've re-made a patch to use trace_kfree_skb instead of
+> trace_dev_kfree_skb_irq and trace_skb_free_datagram_locked.
+> But I've got a problem.
+> I should use not __builtin_return_address, but macro or function which returns
+> current address. But I don't know any macro like that. Do you know any solution ?
 > 
-> WARNING: at net/mac80211/rc80211_minstrel.c:70 minstrel_tx_status+0x67/0xd1 [mac80211]()
-> Hardware name: SCENIC E300/E600
-> Modules linked in: i915 drm_kms_helper drm video backlight output lp loop
-> snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm
-> snd_seq_dummy zd1211rw snd_seq_oss usbhid mac80211 option cfg80211
-> snd_seq_midi usbserial snd_rawmidi snd_seq_midi_event snd_seq snd_timer
-> snd_seq_device snd parport_pc ehci_hcd uhci_hcd soundcore intel_agp parport
-> usbcore nls_base snd_page_alloc agpgart rng_core floppy sg
-> Pid: 0, comm: swapper Tainted: G        W  2.6.34.1 #3
-> Call Trace:
->  [<c102af25>] warn_slowpath_common+0x60/0x90
->  [<c102af62>] warn_slowpath_null+0xd/0x10
->  [<f83cbd48>] minstrel_tx_status+0x67/0xd1 [mac80211]
->  [<f83b6eb1>] ieee80211_tx_status+0x1f6/0x5ac [mac80211]
->  [<c1261533>] ? skb_dequeue+0x45/0x4c
->  [<f83b6896>] ieee80211_tasklet_handler+0x61/0xd6 [mac80211]
->  [<c102ed7d>] tasklet_action+0x62/0x9f
->  [<c102f331>] __do_softirq+0x77/0xe5
->  [<c102f3c5>] do_softirq+0x26/0x2b
->  [<c102f52f>] irq_exit+0x29/0x66
->  [<c1003e90>] do_IRQ+0x85/0x9b
->  [<c1002d29>] common_interrupt+0x29/0x30
->  [<c10083ac>] ? default_idle+0x2d/0x42
->  [<c1001a9b>] cpu_idle+0x44/0x71
->  [<c12e00de>] rest_init+0x96/0x98
->  [<c1498862>] start_kernel+0x2a5/0x2aa
->  [<c14980b7>] i386_start_kernel+0xb7/0xbf
-> ---[ end trace f22ceacef336878f ]---
+Since the trace call is the first thing in the function, why not just pass in
+skb_free_datagram_locked as the pointer.  That should work out properly
+Neil
+
 > 
-> Wireless driver is zd1211rw.
-> 
-> Did not test with older kernel because this device has not been in user on
-> this machine before.
-> 
-> WLAN does however seem to work anyway.
-
-Well, I just took a quick look -- so, I'm not 100% sure...
-
-But, it looks to me like zd1211rw is reporting tx status on a rate
-that minstrel didn't expect it to use.  It seems like the hardware
-is pre-wired to do retries on sequentially lower rates, which seems
-a bit incompatible with minstrel's worldview.
-
-Felix, can we accomodate this?  The "WLAN does however seem to work
-anyway" seems to suggest things work, so can we at least not yell
-about it?
-
-Thanks,
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
