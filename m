@@ -1,144 +1,96 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] Driver-core: Fix bluetooth network device rename regression
-Date: Thu, 22 Jul 2010 02:16:02 -0700
-Message-ID: <m1zkxj27xp.fsf_-_@fess.ebiederm.org>
-References: <20100621222938.GA20583@suse.de>
-	<m1eig0dmhk.fsf@fess.ebiederm.org> <20100621231058.GA1066@suse.de>
-	<m14ogwc4ou.fsf@fess.ebiederm.org> <20100622035631.GA3755@suse.de>
-	<m1630q7x5v.fsf_-_@fess.ebiederm.org>
-	<20100708211930.GA15385@kroah.com> <m1r5jdbobe.fsf@fess.ebiederm.org>
-	<20100708230601.GB17002@kroah.com>
-	<20100719133451.0862ca62.akpm@linux-foundation.org>
-	<20100720201334.GA11991@suse.de> <m139vd5sms.fsf_-_@fess.ebiederm.org>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH] CAN: Add Flexcan CAN controller driver
+Date: Thu, 22 Jul 2010 11:25:18 +0200
+Message-ID: <4C480E7E.70607@grandegger.com>
+References: <1279144811-12251-1-git-send-email-mkl@pengutronix.de>	<4C3F55A9.8030307@grandegger.com>	<4C405CEC.3000701@pengutronix.de>
+	<4C475BA6.3030505@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Greg KH <greg@kroah.com>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>
-To: Greg KH <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:47419 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754436Ab0GVJQO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 05:16:14 -0400
-In-Reply-To: <m139vd5sms.fsf_-_@fess.ebiederm.org> (Eric W. Biederman's message of "Tue\, 20 Jul 2010 22\:08\:27 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4C475BA6.3030505-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On 07/21/2010 10:42 PM, Marc Kleine-Budde wrote:
+> Marc Kleine-Budde wrote:
+>> Wolfgang Grandegger wrote:
+>>> I realized a few issues. You can add my "acked-by" when they are fixed.
+>>
+>> thanks for the review.
+> 
+> [...]
+> 
+>>>> +static void flexcan_poll_err_frame(struct net_device *dev,
+>>>> +				   struct can_frame *cf, u32 reg_esr)
+>>>> +{
+>>>> +	struct flexcan_priv *priv = netdev_priv(dev);
+>>>> +	int error_warning = 0, rx_errors = 0, tx_errors = 0;
+>>>> +
+>>>> +	if (reg_esr & FLEXCAN_ESR_BIT1_ERR) {
+>>>> +		rx_errors = 1;
+>>>> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+>>>> +		cf->data[2] |= CAN_ERR_PROT_BIT1;
+>>>> +	}
+>>>> +
+>>>> +	if (reg_esr & FLEXCAN_ESR_BIT0_ERR) {
+>>>> +		rx_errors = 1;
+>>>> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+>>>> +		cf->data[2] |= CAN_ERR_PROT_BIT0;
+>>>> +	}
+>>>> +
+>>>> +	if (reg_esr & FLEXCAN_ESR_FRM_ERR) {
+>>>> +		rx_errors = 1;
+>>>> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+>>>> +		cf->data[2] |= CAN_ERR_PROT_FORM;
+>>>> +	}
+>>>> +
+>>>> +	if (reg_esr & FLEXCAN_ESR_STF_ERR) {
+>>>> +		rx_errors = 1;
+>>>> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+>>>> +		cf->data[2] |= CAN_ERR_PROT_STUFF;
+>>>> +	}
+>>>> +
+>>>> +
+>>>> +	if (reg_esr & FLEXCAN_ESR_ACK_ERR) {
+>>>> +		tx_errors = 1;
+>>>> +		cf->can_id |= CAN_ERR_ACK;
+>>> This is a bus-error as well. Therefore I think it should be:
+>>>
+>>> 	if (reg_esr & FLEXCAN_ESR_ACK_ERR) {
+>>> 		tx_errors = 1;
+>>> 		cf->can_id |= CAN_ERR_ACK;
+>>> 		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+>>> 		cf->data[3] |= CAN_ERR_PROT_LOC_ACK; /* ACK slot */
+>>> 	}
+>>>
+>>> I need to check what CAN_ERR_ACK is intended for. Then, cf->can_id could
+>>> be preset with "CAN_ERR_PROT | CAN_ERR_BUSERROR" at the beginning.
+> 
+> This controller issues an ACK error if there are no other nodes on the
+> CAN bus to send a ACK that the message has been received. Or all
+> remaining Nodes are in bus off state.
 
-With CONFIG_SYSFS_DEPRECATED_V2 enabled I can rename any network device
-anything as long as the new name does not conflict with another network
-device.
+Mainly this bus error can cause the infamous IRQ and message flooding
+when no cable is connected.
 
-With CONFIG_SYSFS_DEPRECATED_V2 disabled without this fix bluetooth benp
-devices, and the mac80211_hwsim driver can not be renamed to any arbitrary
-name that happens to conflict with any other name that is used in their
-parent devices directory.
+> From the datasheet:
+> "This bit indicates that an acknowledge (ACK) error has been detected by
+> the transmitter node; that is, a dominant bit has not been detected
+> during the ACK SLOT."
 
-The device model usage of the bluetooth bnep driver has not changed since
-the current device model sysfs laytout was introduced.   Making this a latent
-and very annoying regression.
+That's what the above error describes, like on the SJA1000, apart from
+setting CAN_ERR_ACK. Setting CAN_ERR_ACK is somehow bogus, but just
+leave it for the time being. I will fix it globally when time permits.
 
-This regression was reported at the time it was introduced and apprently a
-few cases were missed by:
-
-commit 864062457a2e444227bd368ca5f2a2b740de604f
-Author: Kay Sievers <kay.sievers@vrfy.org>
-Date:   Wed Mar 14 03:25:56 2007 +0100
-
-    driver core: fix namespace issue with devices assigned to classes
-
-      - uses a kset in "struct class" to keep track of all directories
-        belonging to this class
-      - merges with the /sys/devices/virtual logic.
-      - removes the namespace-dir if the last member of that class
-        leaves the directory.
-
-    There may be locking or refcounting fixes left, I stopped when it seemed
-    to work with network and sound modules. :)
-
-    From: Kay Sievers <kay.sievers@vrfy.org>
-    Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
-That bug fix had a completely undocumented and apparently deliberate omission
-where it does not apply in some cases.  Those omitted cases cover the
-bluetooth network driver.
-
-What makes this regression a serious issue now is the introduction of network
-namespace support in sysfs took this from a mild bug to complete driver
-non-function.
-
-Several reasons have been put forward not to use this one line bug fix in
-the driver core.
-
-- We don't have special cases in the driver core.
-
-  This is non-sense we currently have special cases for block devices
-  scattered all throughout the driver core.
-
-- The driver is at fault.
-
-  The bluetooth driver's driver core usage predates the introduction of the
-  current sysfs layout.  It has been 3 years and no one has bothered
-  to change the driver in all of this time.
-
-  If this was really a driver issue that someone cared about and not simply
-  an academic issue the driver should have been fixed long since.
-
-I offer these reasons to make the change.
-
-- There is not enough information available for sysfs to support rename
-  or delete of symlinks when only the source directory but not the destination
-  directory is tagged.
-
-- All of the proposals put forth will change the sysfs layout slightly in
-  one way or another.
-
-- A network device special case makes sense as network devices are unique
-  in placing a user choosen name sysfs.
-
-- The driver that are affected are different in sysfs from all other
-  network devices which likely already consuses any userspace software
-  that cares about the exact device layout.
-
-- The change is one line that is obviously correct and has no chance
-  of affecting anything that it is not a network device.
-
-- Real users have hit this problem and reported this bug and those users
-  deserve drivers that work.
-
-The fix is a trivial change to get_device_parent to always create
-the network class directory in any parent of a network device,
-Ignoring the incorrect, non-obvious and esoteric rules that the
-driver core is trying to impose on the creation of class directories.
-
-Ideally I would remove those crazy special cases get_device_parent for all
-devices but in testing it was observed there are other devices such as the
-input layer that don't create the class directories today, and applying the
-change broadly is likely to break something in userspace and there is no
-need to take that risk.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- drivers/base/core.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index 9630fbd..ffb8443 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -673,7 +673,7 @@ static struct kobject *get_device_parent(struct device *dev,
- 		 */
- 		if (parent == NULL)
- 			parent_kobj = virtual_device_parent(dev);
--		else if (parent->class)
-+		else if (parent->class && (strcmp(dev->class->name, "net") != 0))
- 			return &parent->kobj;
- 		else
- 			parent_kobj = &parent->kobj;
--- 
-1.6.5.2.143.g8cc62
-
+Wolfgang.
