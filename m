@@ -1,109 +1,81 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw   
- HIDIOCGFEATURE and HIDIOCSFEATURE
-Date: Thu, 22 Jul 2010 08:21:55 -0700
-Message-ID: <1279812115.2621.6.camel@localhost.localdomain>
-References: <1276467601-9066-1-git-send-email-alan@signal11.us>
-	 <1278623485.10421.73.camel@localhost.localdomain>
-	 <4C369CDC.9080104@signal11.us>
-	 <1278662497.10421.94.camel@localhost.localdomain>
-	 <4C371DE8.9020002@signal11.us>
-	 <1278680790.10421.106.camel@localhost.localdomain>
-	 <4C372CEE.3070109@signal11.us>
-	 <1278696815.10421.137.camel@localhost.localdomain>
-	 <alpine.LNX.2.00.1007221612450.4741@pobox.suse.cz>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [PATCH] Driver-core: Fix bluetooth network device rename
+	regression
+Date: Thu, 22 Jul 2010 17:30:18 +0200
+Message-ID: <AANLkTikYcaZmtvjN1Ah2v2hLcAloLGyhiHPAYLatP5tn@mail.gmail.com>
+References: <20100621222938.GA20583@suse.de> <m1eig0dmhk.fsf@fess.ebiederm.org>
+	<20100621231058.GA1066@suse.de> <m14ogwc4ou.fsf@fess.ebiederm.org>
+	<20100622035631.GA3755@suse.de> <m1630q7x5v.fsf_-_@fess.ebiederm.org>
+	<20100708211930.GA15385@kroah.com> <m1r5jdbobe.fsf@fess.ebiederm.org>
+	<20100708230601.GB17002@kroah.com> <20100719133451.0862ca62.akpm@linux-foundation.org>
+	<20100720201334.GA11991@suse.de> <m139vd5sms.fsf_-_@fess.ebiederm.org>
+	<m1zkxj27xp.fsf_-_@fess.ebiederm.org> <AANLkTimM5Ea8mQ7aX4kDq3dgF3P-t2Wm3dERhckC69Ja@mail.gmail.com>
+	<1279807845.12439.20.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Ott <alan@signal11.us>, David S Miller <davem@davemloft.net>,
-	Michael Poole <mdpoole@troilus.org>,
-	Bastien Nocera <hadess@hadess.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jiri Kosina <jkosina@suse.cz>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Greg KH <greg@kroah.com>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>,
+	netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:35647 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752384Ab0GVPWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 11:22:05 -0400
-In-Reply-To: <alpine.LNX.2.00.1007221612450.4741@pobox.suse.cz>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:40105 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751758Ab0GVPae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 11:30:34 -0400
+Received: by pxi14 with SMTP id 14so3209022pxi.19
+        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 08:30:34 -0700 (PDT)
+In-Reply-To: <1279807845.12439.20.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri,
+On Thu, Jul 22, 2010 at 16:10, Johannes Berg <johannes@sipsolutions.net> wrote:
+> On Thu, 2010-07-22 at 15:38 +0200, Kay Sievers wrote:
+>>
+>> Please try to fix these drivers instead, or mark the broken for
+>> namespaces, if nobody can fix them right now.
+>
+> We've tried. Nobody, including you, has been able to suggest how to fix
+> it.
 
-> > > >>> what is usb-hid.ko doing here? I would expect a bunch of code
-> > > >>> duplication with minor difference between USB and Bluetooth.
-> > > >>>        
-> > > >> usbhid doesn't have a lot of code for hidraw. Two functions are involved:
-> > > >>       usbhid_output_raw_report()
-> > > >>           - calls usb_control_msg() with Get_Report
-> > > >>       usbhid_get_raw_report()
-> > > >>           - calls usb_control_msg() with Set_Report
-> > > >>               OR
-> > > >>           - calls usb_interrupt_msg() on the Ouput pipe.
-> > > >>
-> > > >> This is of course easier than bluetooth because usb_control_msg() is
-> > > >> synchronous, even when requesting reports, mostly because of the nature
-> > > >> of USB, where the request and response are part of the same transfer.
-> > > >>
-> > > >> For Bluetooth, it's a bit more complicated since the kernel treats it
-> > > >> more like a networking interface (and indeed it is). My understanding is
-> > > >> that to make a synchronous transfer in bluetooth, one must:
-> > > >>       - send the request packet
-> > > >>       - block (wait_event_*())
-> > > >>       - when the response is received in the input handler, wake_up_*().
-> > > >>
-> > > >> There's not really any code duplication, mostly because initiating
-> > > >> synchronous USB transfers (input and output) is easy (because of the
-> > > >> usb_*_msg() functions), while making synchronous Bluetooth transfers
-> > > >> must be done manually. If there's a nice, convenient, synchronous
-> > > >> function in Bluetooth similar to usb_control_msg() that I've missed,
-> > > >> then let me know, as it would simplify this whole thing.
-> > > >>      
-> > > > there is not and I don't think we ever get one. My question here was
-> > > > more in the direction why HID core is doing these synchronously in the
-> > > > first place. Especially since USB can do everything async as well.
-> > >
-> > > I'm open to suggestions. The way I see it is from a user space 
-> > > perspective. With Get_Feature being on an ioctl(), I don't see any clean 
-> > > way to do it other than synchronously. Other operating systems (I can 
-> > > say for sure Windows, Mac OS X, and FreeBSD) handle Get/Set Feature the 
-> > > same way (synchronously) from user space.
-> > > 
-> > > You seem to be proposing an asynchronous interface. What would that look 
-> > > like from user space?
-> > 
-> > not necessarily from user space, but at least from HID core to HIDP and
-> > usb-hid transports. At least that is what I would expect, Jiri?
-> 
-> Sorry for this taking too long (vacations, conferences, you name it) for 
-> me to respond.
-> 
-> As all the _raw() callbacks are purely intended for userspace interaction 
-> anyway, it's perfectly fine (and in fact desirable) for the low-level 
-> transport drivers to perform these operations synchronously (and that's 
-> what USB implementation does as well).
-> 
-> Marcel, if your opposition to synchronous interface is strong, we'll have 
-> to think about other aproaches, but from my POV, the patch is fine as-is 
-> for Bluetooth.
+I did, and several times. Here are the options again:
 
-that the ioctl() API is synchronous is fine to me, however pushing that
-down to the transport drivers seems wrong to me. I think the HID core
-should be able to handle a fully asynchronous transport driver. I know
-that with the USB subsystem you are little bit spoiled here, but for
-Bluetooth it is not the case. And in the end even using the asynchronous
-USB URB calls would be nice as well.
+- Split the driver in two modules, so the auto-cleanup of the netdev
+can be done by the second module when the device is force-unloaded
+without taking any references to the code while in use (netdev specif
+behavior).
 
-So why not make the core actually wait for responses from the transport
-driver. I would make the transport drivers a lot simpler in the long
-run. And I know that most likely besides Bluetooth and USB you won't see
-another, but you never know.
+- Move the device cleanup code somehow in the core by adding proper
+functions to bus devices, similar to the completely mis-used
+device_create() function for class devices. This would also be a
+proper fix for the weird driver core use.
 
-Regards
+- Do not allow to force-unload the module while the netdev is in use.
+You would need some "destruct" command for the device then, which
+removes the netdev, and to be able to unload the module.
 
-Marcel
+> And it's not just broken with network namespaces enabled either, as
 
+So what's the problem without the sysfs ns then? I didn't hear any the
+last couple of years.
 
+> Eric explained. I really don't see why you keep asking us to fix it when
+> clearly we cannot -- even you don't know how and you certainly have more
+> insight into the device model than we do.
+
+Sure, and I ask again to fix the drivers, instead of sneaking-in dirty
+hacks into the core, just by calling an expected behavior a
+"regression". This is not a core bug, and should not be worked around
+that way in the core.
+
+If there is a new requirement for the core (like possibly point 2
+above), we can surely look into making this happen.
+
+We can not add lists of individual subsystems to generic core
+functions to work around broken drivers. I hope you will understand
+that.
+
+Thanks,
+Kay
