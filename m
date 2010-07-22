@@ -1,88 +1,84 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [RFC 1/1] netfilter: xtables: inclusion of xt_condition
-Date: Thu, 22 Jul 2010 22:26:51 +0300
-Message-ID: <1279826811.1630.11.camel@powerslave>
-References: <1279807758-6876-1-git-send-email-luciano.coelho@nokia.com>
-	 <1279807758-6876-2-git-send-email-luciano.coelho@nokia.com>
-	 <alpine.LSU.2.01.1007221621270.1619@obet.zrqbmnf.qr>
-	 <1279811808.1630.8.camel@powerslave>
-	 <alpine.LSU.2.01.1007221733360.12308@obet.zrqbmnf.qr>
+From: Karl Beldan <karl.beldan@gmail.com>
+Subject: Re: [Uclinux-dist-devel] [PATCH 2/2] net: dsa: introduce MICREL
+	KSZ8893MQL/BL ethernet switch chip support
+Date: Thu, 22 Jul 2010 21:27:46 +0200
+Message-ID: <AANLkTikidj-RS_sQZ4ppvscwAtxGOnUEw2bYueu7pVvz@mail.gmail.com>
+References: <1279719442-10174-1-git-send-email-vapier@gentoo.org>
+	<1279719442-10174-2-git-send-email-vapier@gentoo.org>
+	<20100721151608.GM21121@mail.wantstofly.org>
+	<AANLkTinoVsz1YsWc3VSAqPPgH_L19B541A72zkWPxjM8@mail.gmail.com>
+	<AANLkTiljQD8CIBtHcMqXdGQILCLDsU-6brjdWB2yB_mN@mail.gmail.com>
+	<AANLkTikoSb8WA40teXaYvaPf1XsC4r7ySWZOBTKug4ip@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"sameo@linux.intel.com" <sameo@linux.intel.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1007221733360.12308@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Mike Frysinger <vapier.adi@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45317 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755198Ab0GVT1s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 15:27:48 -0400
+Received: by wyf19 with SMTP id 19so914535wyf.19
+        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 12:27:46 -0700 (PDT)
+In-Reply-To: <AANLkTikoSb8WA40teXaYvaPf1XsC4r7ySWZOBTKug4ip@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-07-22 at 17:36 +0200, ext Jan Engelhardt wrote:
-> On Thursday 2010-07-22 17:16, Luciano Coelho wrote:
-> >> >+	ret = strict_strtoul(val, 0, &l);
-> >> >+	if (ret == -EINVAL || ((uint)l != l))
-> >> >+		return -EINVAL;
-> >> 
-> >> >+	*((u32 *) ((u8 *) cond_net + (size_t) kp->arg)) = l;
-> >> 
-> >> I don't think we need this level of granularity; let the options be 
-> >> global, similar to what xt_hashlimit does.
-> >
-> >I did this according to Patrick's comment:
-> >> > proc_net_condition is a global variable, so this won't work for
-> >> > namespaces. What the code does is reinitialize it when instantiating
-> >> > a new namespace, so it will always point to the last instantiated
-> >> > namespace.
-> >> > 
-> >> > The same problem exists for the condition_list, each namespace
-> >> > should only be able to access its own conditions.
-> >> 
-> >> This also applies to the permission variables. Basically, we shouldn't
-> >> be having any globals except perhaps the mutex. You probably need a
-> >> module_param_call function to set them for the correct namespace (you
-> >> can access that through current->nsproxy->net_ns).
-> >
-> >I found it a bit strange to be able to change the module params in a
-> >per-netns basis, but it is actually possible if you're changing the
-> >parameters via sysfs.  I tried it and it even seems to work. ;)
-> >
-> >I can't see any module parameters in the xt_hashlimit.c file.  Am I
-> >looking in the wrong place?
-> 
-> Oops, xt_recent.c.
-> 
-> >I would be fine with making the module params global (as they were
-> >before), if that's fine with Patrick too.
-> 
-> "When was the last time you needed to change the default ownership
-> when you _also_ have the possibility to chown each procfs file
-> individually?"
-> 
-> >> (I am not even sure if kp->arg can be non-multiples-of-4, in which case 
-> >> this would be an alignment violation even.)
-> >
-> >I'm passing size_t in kp->arg.  It looks quite ugly, because usually
-> >kp->arg is a pointer to some data.  But at least this way, using
-> >offsetof(), I could avoid lots of repeated code for the options...
-> 
-> if kp->arg is 1, ((u8*)cond_net + kp->arg) yields a pointer that's
-> usually not aligned for u32. (And C pedants would probably argue
-> that is should be char* not u8*, even if the one is a typedef
-> of another.)
+On Wed, Jul 21, 2010 at 11:00 PM, Mike Frysinger <vapier.adi@gmail.com>=
+ wrote:
+> On Wed, Jul 21, 2010 at 16:31, Karl Beldan wrote:
+>> On Wed, Jul 21, 2010 at 6:05 PM, Mike Frysinger wrote:
+>>> On Wed, Jul 21, 2010 at 11:16, Lennert Buytenhek wrote:
+>>>> On Wed, Jul 21, 2010 at 09:37:22AM -0400, Mike Frysinger wrote:
+>>>>> +static int ksz8893m_setup(struct dsa_switch *ds)
+>>>>> +{
+>>>>> + =A0 =A0 int i;
+>>>>> + =A0 =A0 int ret;
+>>>>> +
+>>>>> + =A0 =A0 ret =3D ksz8893m_switch_reset(ds);
+>>>>> + =A0 =A0 if (ret < 0)
+>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 return ret;
+>>>>
+>>>> It's pretty ugly that the mdiobus is passed in via the normal mean=
+s,
+>>>> but a reference to the SPI bus to use is just stuffed into some gl=
+obal
+>>>> variable.
+>>>>
+>>>> Can you not access all registers via MII?
+>>>
+>>> it depends on the host mdio bus. =A0if it supports the semi-standar=
+d
+>>> behavior of toggling the OP field of MDIO frames, then yes, you can=
+ do
+>>> it via MII. =A0but i dont think the current mdio framework in the k=
+ernel
+>>> keeps track of that functionality, so there isnt a way in the drive=
+r
+>>> to say "is this possible, else fall back to SPI".
+>>
+>> Are you referring to SMI ?
+>
+> that is the term the ksz datasheet uses (Serial Management Interface)=
+,
+> but i'm not aware of it being a standardized term. =A0even the ksz
+> datasheet admits that its behavior is a bit non-standard. =A0the
+> Blackfin MAC doesnt support it so we have no way of testing the it as
+> that is the MAC on the board with the ksz switch.
+>
+Can't either, we don't even have mdio, only spi.
+Speaking of which, maybe you can replace this while you are at it :
 
-Oh, I see.  In the current case it works because all the parameters are
-32-bit.
-
-In any case, I'll just remove the per-net module parameters code.  It is
-indeed over-fine-grained as you said earlier.
+--- net/dsa/slave.c	2010-05-22 09:58:34.000000000 +0200
+ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
+ {
+ 	ds->slave_mii_bus->priv =3D (void *)ds;
+-	ds->slave_mii_bus->name =3D "dsa slave smi";
 
 
--- 
-Cheers,
-Luca.
 
+--=20
+Karl
