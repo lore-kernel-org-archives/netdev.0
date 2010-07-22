@@ -1,85 +1,83 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw    HIDIOCGFEATURE
-    and HIDIOCSFEATURE
-Date: Thu, 22 Jul 2010 16:14:57 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1007221612450.4741@pobox.suse.cz>
-References: <1276467601-9066-1-git-send-email-alan@signal11.us>  <1278623485.10421.73.camel@localhost.localdomain>  <4C369CDC.9080104@signal11.us>  <1278662497.10421.94.camel@localhost.localdomain>  <4C371DE8.9020002@signal11.us>  <1278680790.10421.106.camel@localhost.localdomain>
-  <4C372CEE.3070109@signal11.us> <1278696815.10421.137.camel@localhost.localdomain>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH nf-next-2.6] netfilter: add xt_cpu match
+Date: Thu, 22 Jul 2010 16:19:13 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007221611510.1619@obet.zrqbmnf.qr>
+References: <1279807385.2467.67.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alan Ott <alan@signal11.us>, David S Miller <davem@davemloft.net>,
-	Michael Poole <mdpoole@troilus.org>,
-	Bastien Nocera <hadess@hadess.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1278696815.10421.137.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1279807385.2467.67.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 9 Jul 2010, Marcel Holtmann wrote:
+On Thursday 2010-07-22 16:03, Eric Dumazet wrote:
 
-> > >>> what is usb-hid.ko doing here? I would expect a bunch of code
-> > >>> duplication with minor difference between USB and Bluetooth.
-> > >>>        
-> > >> usbhid doesn't have a lot of code for hidraw. Two functions are involved:
-> > >>       usbhid_output_raw_report()
-> > >>           - calls usb_control_msg() with Get_Report
-> > >>       usbhid_get_raw_report()
-> > >>           - calls usb_control_msg() with Set_Report
-> > >>               OR
-> > >>           - calls usb_interrupt_msg() on the Ouput pipe.
-> > >>
-> > >> This is of course easier than bluetooth because usb_control_msg() is
-> > >> synchronous, even when requesting reports, mostly because of the nature
-> > >> of USB, where the request and response are part of the same transfer.
-> > >>
-> > >> For Bluetooth, it's a bit more complicated since the kernel treats it
-> > >> more like a networking interface (and indeed it is). My understanding is
-> > >> that to make a synchronous transfer in bluetooth, one must:
-> > >>       - send the request packet
-> > >>       - block (wait_event_*())
-> > >>       - when the response is received in the input handler, wake_up_*().
-> > >>
-> > >> There's not really any code duplication, mostly because initiating
-> > >> synchronous USB transfers (input and output) is easy (because of the
-> > >> usb_*_msg() functions), while making synchronous Bluetooth transfers
-> > >> must be done manually. If there's a nice, convenient, synchronous
-> > >> function in Bluetooth similar to usb_control_msg() that I've missed,
-> > >> then let me know, as it would simplify this whole thing.
-> > >>      
-> > > there is not and I don't think we ever get one. My question here was
-> > > more in the direction why HID core is doing these synchronously in the
-> > > first place. Especially since USB can do everything async as well.
-> >
-> > I'm open to suggestions. The way I see it is from a user space 
-> > perspective. With Get_Feature being on an ioctl(), I don't see any clean 
-> > way to do it other than synchronously. Other operating systems (I can 
-> > say for sure Windows, Mac OS X, and FreeBSD) handle Get/Set Feature the 
-> > same way (synchronously) from user space.
-> > 
-> > You seem to be proposing an asynchronous interface. What would that look 
-> > like from user space?
-> 
-> not necessarily from user space, but at least from HID core to HIDP and
-> usb-hid transports. At least that is what I would expect, Jiri?
+>This match is a bit strange, being packet content agnostic...
+>+/*
+>+ * Yes, packet content is not interesting for us, we only take care
+>+ * of cpu handling this packet
+>+ */
 
-Sorry for this taking too long (vacations, conferences, you name it) for 
-me to respond.
+That is not so strange after all, we have many packet agnostic matches: 
+xt_time, xt_condition, xt_IDLETIMER, xt_iface.
+So this little comment looks a bit redundant.
 
-As all the _raw() callbacks are purely intended for userspace interaction 
-anyway, it's perfectly fine (and in fact desirable) for the low-level 
-transport drivers to perform these operations synchronously (and that's 
-what USB implementation does as well).
+Or it seems that academia can't come up with enough new protocols in time that
+we have to resort to do -m coffeemaker :)
 
-Marcel, if your opposition to synchronous interface is strong, we'll have 
-to think about other aproaches, but from my POV, the patch is fine as-is 
-for Bluetooth.
+>@@ -0,0 +1,8 @@
+>+#ifndef _XT_CPU_H
+>+#define _XT_CPU_H
+>+
+>+struct xt_cpu_info {
+>+	unsigned int	cpu;
+>+	int		invert;
+>+};
+>+#endif /*_XT_MAC_H*/
 
-Thanks,
+Please take a read in "Writing Netfilter Modules" e-book :-)
+It will tell you that types other than fixed ones are a no-no.
 
--- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
+>diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+>index e28420a..0fe7efd 100644
+>--- a/net/netfilter/Makefile
+>+++ b/net/netfilter/Makefile
+>@@ -79,6 +79,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_IPRANGE) += xt_iprange.o
+> obj-$(CONFIG_NETFILTER_XT_MATCH_LENGTH) += xt_length.o
+> obj-$(CONFIG_NETFILTER_XT_MATCH_LIMIT) += xt_limit.o
+> obj-$(CONFIG_NETFILTER_XT_MATCH_MAC) += xt_mac.o
+>+obj-$(CONFIG_NETFILTER_XT_MATCH_CPU) += xt_cpu.o
+> obj-$(CONFIG_NETFILTER_XT_MATCH_MULTIPORT) += xt_multiport.o
+> obj-$(CONFIG_NETFILTER_XT_MATCH_OSF) += xt_osf.o
+> obj-$(CONFIG_NETFILTER_XT_MATCH_OWNER) += xt_owner.o
+
+Try to keep it alphabetic (KConfig too).
+
+>+ *
+>+ * iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 0 -j REDIRECT --to-port 8080
+>+ * iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 1 -j REDIRECT --to-port 8081
+>+ * iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 2 -j REDIRECT --to-port 8082
+>+ * iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 3 -j REDIRECT --to-port 8083
+>+ *
+>+ */
+
+Well the commands you already have presented in the commit log, and the 
+most efficient place for these is actually the manpage.
+
+>+static bool cpu_mt(const struct sk_buff *skb, struct xt_action_param *par)
+>+{
+>+	const struct xt_cpu_info *info = par->matchinfo;
+>+	bool ret;
+>+
+>+	ret = info->cpu == smp_processor_id();
+>+	ret ^= info->invert;
+>+	return ret;
+>+}
+
+Looks simple enough that it could do it in a single line,
+
+	return (info->cpu == smp_processor_id()) ^ !!info->invert;
