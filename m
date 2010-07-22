@@ -1,83 +1,91 @@
 From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH nf-next-2.6] netfilter: add xt_cpu match
-Date: Thu, 22 Jul 2010 16:19:13 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1007221611510.1619@obet.zrqbmnf.qr>
-References: <1279807385.2467.67.camel@edumazet-laptop>
+Subject: Re: [RFC 1/1] netfilter: xtables: inclusion of xt_condition
+Date: Thu, 22 Jul 2010 16:44:35 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007221621270.1619@obet.zrqbmnf.qr>
+References: <1279807758-6876-1-git-send-email-luciano.coelho@nokia.com> <1279807758-6876-2-git-send-email-luciano.coelho@nokia.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>, sameo@linux.intel.com,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Luciano Coelho <luciano.coelho@nokia.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1279807385.2467.67.camel@edumazet-laptop>
+In-Reply-To: <1279807758-6876-2-git-send-email-luciano.coelho@nokia.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 2010-07-22 16:03, Eric Dumazet wrote:
 
->This match is a bit strange, being packet content agnostic...
->+/*
->+ * Yes, packet content is not interesting for us, we only take care
->+ * of cpu handling this packet
->+ */
-
-That is not so strange after all, we have many packet agnostic matches: 
-xt_time, xt_condition, xt_IDLETIMER, xt_iface.
-So this little comment looks a bit redundant.
-
-Or it seems that academia can't come up with enough new protocols in time that
-we have to resort to do -m coffeemaker :)
-
->@@ -0,0 +1,8 @@
->+#ifndef _XT_CPU_H
->+#define _XT_CPU_H
->+
->+struct xt_cpu_info {
->+	unsigned int	cpu;
->+	int		invert;
->+};
->+#endif /*_XT_MAC_H*/
-
-Please take a read in "Writing Netfilter Modules" e-book :-)
-It will tell you that types other than fixed ones are a no-no.
-
->diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
->index e28420a..0fe7efd 100644
->--- a/net/netfilter/Makefile
->+++ b/net/netfilter/Makefile
->@@ -79,6 +79,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_IPRANGE) += xt_iprange.o
-> obj-$(CONFIG_NETFILTER_XT_MATCH_LENGTH) += xt_length.o
-> obj-$(CONFIG_NETFILTER_XT_MATCH_LIMIT) += xt_limit.o
-> obj-$(CONFIG_NETFILTER_XT_MATCH_MAC) += xt_mac.o
->+obj-$(CONFIG_NETFILTER_XT_MATCH_CPU) += xt_cpu.o
-> obj-$(CONFIG_NETFILTER_XT_MATCH_MULTIPORT) += xt_multiport.o
-> obj-$(CONFIG_NETFILTER_XT_MATCH_OSF) += xt_osf.o
-> obj-$(CONFIG_NETFILTER_XT_MATCH_OWNER) += xt_owner.o
-
-Try to keep it alphabetic (KConfig too).
-
->+ *
->+ * iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 0 -j REDIRECT --to-port 8080
->+ * iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 1 -j REDIRECT --to-port 8081
->+ * iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 2 -j REDIRECT --to-port 8082
->+ * iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 3 -j REDIRECT --to-port 8083
->+ *
->+ */
-
-Well the commands you already have presented in the commit log, and the 
-most efficient place for these is actually the manpage.
-
->+static bool cpu_mt(const struct sk_buff *skb, struct xt_action_param *par)
+On Thursday 2010-07-22 16:09, Luciano Coelho wrote:
+>+static int condition_mt_check(const struct xt_mtchk_param *par)
 >+{
->+	const struct xt_cpu_info *info = par->matchinfo;
->+	bool ret;
+>+	struct xt_condition_mtinfo *info = par->matchinfo;
+>+	struct condition_variable *var;
+>+	struct condition_net *cond_net =
+>+		condition_pernet(current->nsproxy->net_ns);
+
+Cc'ing Alexey who has done the netns support.
+
+Alexey, you added par->net, but given Luciano just did it with 
+current->nsproxy->net_ns, do we really need par->net?
+
+
+>+int xt_condition_set_module_perms(const char *val, struct kernel_param *kp)
+>+{
+>+	unsigned long l;
+>+	int ret;
+>+	struct condition_net *cond_net =
+>+		condition_pernet(current->nsproxy->net_ns);
 >+
->+	ret = info->cpu == smp_processor_id();
->+	ret ^= info->invert;
->+	return ret;
+>+	if (!val) return -EINVAL;
+
+newline before return.
+
+>+	ret = strict_strtoul(val, 0, &l);
+>+	if (ret == -EINVAL || ((uint)l != l))
+>+		return -EINVAL;
+
+>+	*((u32 *) ((u8 *) cond_net + (size_t) kp->arg)) = l;
+
+I don't think we need this level of granularity; let the options be 
+global, similar to what xt_hashlimit does.
+(I am not even sure if kp->arg can be non-multiples-of-4, in which case 
+this would be an alignment violation even.)
+
+>+
+>+	return 0;
 >+}
+>+EXPORT_SYMBOL_GPL(xt_condition_set_module_perms);
+>+
+>+int xt_condition_get_module_perms(char *buffer, struct kernel_param *kp)
+>+{
+>+	struct condition_net *cond_net =
+>+		condition_pernet(current->nsproxy->net_ns);
+>+
+>+	return sprintf(buffer, "%u",
+>+		       *((u32 *) ((u8 *) cond_net + (size_t) kp->arg)));
+>+}
+>+EXPORT_SYMBOL_GPL(xt_condition_get_module_perms);
+>+
+>+module_param_call(list_perms,
+>+		  xt_condition_set_module_perms,
+>+		  xt_condition_get_module_perms,
+>+		  (void *) offsetof(struct condition_net, list_perms),
+>+		  0600);
+>+module_param_call(uid_perms,
+>+		  xt_condition_set_module_perms,
+>+		  xt_condition_get_module_perms,
+>+		  (void *) offsetof(struct condition_net, uid_perms),
+>+		  0600);
+>+module_param_call(gid_perms,
+>+		  xt_condition_set_module_perms,
+>+		  xt_condition_get_module_perms,
+>+		  (void *) offsetof(struct condition_net, gid_perms),
+>+		  0600);
+>+
+>+module_init(condition_mt_init);
+>+module_exit(condition_mt_exit);
+>-- 
+>1.7.0.4
+>
 
-Looks simple enough that it could do it in a single line,
-
-	return (info->cpu == smp_processor_id()) ^ !!info->invert;
