@@ -1,74 +1,88 @@
-From: Andrea Shepard <andrea@persephoneslair.org>
-Subject: [PATCH] Fix corruption of skb csum field in pskb_expand_head() of net/core/skbuff.c
-Date: Thu, 22 Jul 2010 12:12:35 -0700
-Message-ID: <20100722191234.GA832@cronus.persephoneslair.org>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [RFC 1/1] netfilter: xtables: inclusion of xt_condition
+Date: Thu, 22 Jul 2010 22:26:51 +0300
+Message-ID: <1279826811.1630.11.camel@powerslave>
+References: <1279807758-6876-1-git-send-email-luciano.coelho@nokia.com>
+	 <1279807758-6876-2-git-send-email-luciano.coelho@nokia.com>
+	 <alpine.LSU.2.01.1007221621270.1619@obet.zrqbmnf.qr>
+	 <1279811808.1630.8.camel@powerslave>
+	 <alpine.LSU.2.01.1007221733360.12308@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cronus.persephoneslair.org ([216.254.15.24]:45140 "EHLO
-	cronus.persephoneslair.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750776Ab0GVTXh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 15:23:37 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"sameo@linux.intel.com" <sameo@linux.intel.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1007221733360.12308@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make pskb_expand_head() check ip_summed to make sure csum_start is really
-csum_start and not csum before adjusting it.
+On Thu, 2010-07-22 at 17:36 +0200, ext Jan Engelhardt wrote:
+> On Thursday 2010-07-22 17:16, Luciano Coelho wrote:
+> >> >+	ret = strict_strtoul(val, 0, &l);
+> >> >+	if (ret == -EINVAL || ((uint)l != l))
+> >> >+		return -EINVAL;
+> >> 
+> >> >+	*((u32 *) ((u8 *) cond_net + (size_t) kp->arg)) = l;
+> >> 
+> >> I don't think we need this level of granularity; let the options be 
+> >> global, similar to what xt_hashlimit does.
+> >
+> >I did this according to Patrick's comment:
+> >> > proc_net_condition is a global variable, so this won't work for
+> >> > namespaces. What the code does is reinitialize it when instantiating
+> >> > a new namespace, so it will always point to the last instantiated
+> >> > namespace.
+> >> > 
+> >> > The same problem exists for the condition_list, each namespace
+> >> > should only be able to access its own conditions.
+> >> 
+> >> This also applies to the permission variables. Basically, we shouldn't
+> >> be having any globals except perhaps the mutex. You probably need a
+> >> module_param_call function to set them for the correct namespace (you
+> >> can access that through current->nsproxy->net_ns).
+> >
+> >I found it a bit strange to be able to change the module params in a
+> >per-netns basis, but it is actually possible if you're changing the
+> >parameters via sysfs.  I tried it and it even seems to work. ;)
+> >
+> >I can't see any module parameters in the xt_hashlimit.c file.  Am I
+> >looking in the wrong place?
+> 
+> Oops, xt_recent.c.
+> 
+> >I would be fine with making the module params global (as they were
+> >before), if that's fine with Patrick too.
+> 
+> "When was the last time you needed to change the default ownership
+> when you _also_ have the possibility to chown each procfs file
+> individually?"
+> 
+> >> (I am not even sure if kp->arg can be non-multiples-of-4, in which case 
+> >> this would be an alignment violation even.)
+> >
+> >I'm passing size_t in kp->arg.  It looks quite ugly, because usually
+> >kp->arg is a pointer to some data.  But at least this way, using
+> >offsetof(), I could avoid lots of repeated code for the options...
+> 
+> if kp->arg is 1, ((u8*)cond_net + kp->arg) yields a pointer that's
+> usually not aligned for u32. (And C pedants would probably argue
+> that is should be char* not u8*, even if the one is a typedef
+> of another.)
 
-This fixes a bug I encountered using a Sun Quad-Fast Ethernet card and VLANs.
-On my configuration, the sunhme driver produces skbs with differing amounts
-of headroom on receive depending on the packet size.  See line 2030 of
-drivers/net/sunhme.c; packets smaller than RX_COPY_THRESHOLD have 52 bytes
-of headroom but packets larger than that cutoff have only 20 bytes.
+Oh, I see.  In the current case it works because all the parameters are
+32-bit.
 
-When these packets reach the VLAN driver, vlan_check_reorder_header()
-calls skb_cow(), which, if the packet has less than NET_SKB_PAD (== 32) bytes
-of headroom, uses pskb_expand_head() to make more.
+In any case, I'll just remove the per-net module parameters code.  It is
+indeed over-fine-grained as you said earlier.
 
-Then, pskb_expand_head() needs to adjust a lot of offsets into the skb,
-including csum_start.  Since csum_start is a union with csum, if the packet
-has a valid csum value this will corrupt it, which was the effect I observed.
-The sunhme hardware computes receive checksums, so the skbs would be created
-by the driver with ip_summed == CHECKSUM_COMPLETE and a valid csum field, and
-then pskb_expand_head() would corrupt the csum field, leading to an "hw csum
-error" message later on, for example in icmp_rcv() for pings larger than the
-sunhme RX_COPY_THRESHOLD.
-
-On the basis of the comment at the beginning of include/linux/skbuff.h,
-I believe that the csum_start skb field is only meaningful if ip_csummed is
-CSUM_PARTIAL, so this patch makes pskb_expand_head() adjust it only in that
-case to avoid corrupting a valid csum value.
-
-Please see my more in-depth disucssion of tracking down this bug for
-more details if you like:
-
-http://puellavulnerata.livejournal.com/112186.html
-http://puellavulnerata.livejournal.com/112567.html
-http://puellavulnerata.livejournal.com/112891.html
-http://puellavulnerata.livejournal.com/113096.html
-http://puellavulnerata.livejournal.com/113591.html
-
-I am not subscribed to this list, so please CC me on replies.
-
-Signed-off-by: Andrea Shepard <andrea@persephoneslair.org>
-
-diff -Nau linux-2.6.34.1/net/core/skbuff.c linux-2.6.34.1-skb-csum/net/core/skbuff.c
---- linux-2.6.34.1/net/core/skbuff.c    2010-07-05 11:24:10.000000000 -0700
-+++ linux-2.6.34.1-skb-csum/net/core/skbuff.c   2010-07-21 18:42:33.000000000 -0700
-@@ -854,7 +854,9 @@
-        skb->network_header   += off;
-        if (skb_mac_header_was_set(skb))
-                skb->mac_header += off;
--       skb->csum_start       += nhead;
-+       /* Only adjust this if it actually is csum_start rather than csum */
-+       if (skb->ip_summed == CHECKSUM_PARTIAL)
-+               skb->csum_start += nhead;
-        skb->cloned   = 0;
-        skb->hdr_len  = 0;
-        skb->nohdr    = 0;
 
 -- 
-Andrea Shepard
+Cheers,
+Luca.
+
