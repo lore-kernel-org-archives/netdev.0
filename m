@@ -1,87 +1,60 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH nf-next-2.6] netfilter: add xt_cpu match
-Date: Thu, 22 Jul 2010 17:39:34 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1007221736150.12308@obet.zrqbmnf.qr>
-References: <1279807385.2467.67.camel@edumazet-laptop>  <alpine.LSU.2.01.1007221611510.1619@obet.zrqbmnf.qr> <1279811939.2467.79.camel@edumazet-laptop>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: macvtap: Limit packet queue length
+Date: Thu, 22 Jul 2010 08:59:58 -0700
+Message-ID: <1279814398.3211.1.camel@localhost.localdomain>
+References: <20100722064157.GA25913@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>, Mark Wagner <mwagner@redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:39306 "EHLO borg.medozas.de"
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:60072 "EHLO e9.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751989Ab0GVPjf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jul 2010 11:39:35 -0400
-In-Reply-To: <1279811939.2467.79.camel@edumazet-laptop>
+	id S1750743Ab0GVQAE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jul 2010 12:00:04 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e9.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o6MFhb3L024403
+	for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 11:43:37 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o6MG03hk259754
+	for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 12:00:03 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o6MG01sU022750
+	for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 13:00:03 -0300
+In-Reply-To: <20100722064157.GA25913@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 2010-07-22 17:18, Eric Dumazet wrote:
+On Thu, 2010-07-22 at 14:41 +0800, Herbert Xu wrote:
+>  {
+>         struct macvtap_queue *q = macvtap_get_queue(dev, skb);
+>         if (!q)
+> -               return -ENOLINK;
+> +               goto drop;
+> +
+> +       if (skb_queue_len(&q->sk.sk_receive_queue) >=
+> dev->tx_queue_len)
+> +               goto drop;
+> 
 
->Le jeudi 22 juillet 2010 =C3=A0 16:19 +0200, Jan Engelhardt a =C3=A9cr=
-it :
->> On Thursday 2010-07-22 16:03, Eric Dumazet wrote:
->>=20
->> >This match is a bit strange, being packet content agnostic...
->> >+/*
->> >+ * Yes, packet content is not interesting for us, we only take car=
-e
->> >+ * of cpu handling this packet
->> >+ */
->>=20
->> That is not so strange after all, we have many packet agnostic match=
-es:=20
->> xt_time, xt_condition, xt_IDLETIMER, xt_iface.
->> So this little comment looks a bit redundant.
->>=20
->> Or it seems that academia can't come up with enough new protocols in=
- time that
->> we have to resort to do -m coffeemaker :)
->>=20
->> >@@ -0,0 +1,8 @@
->> >+#ifndef _XT_CPU_H
->> >+#define _XT_CPU_H
->> >+
->> >+struct xt_cpu_info {
->> >+	unsigned int	cpu;
->> >+	int		invert;
->> >+};
->> >+#endif /*_XT_MAC_H*/
->>=20
->> Please take a read in "Writing Netfilter Modules" e-book :-)
->> It will tell you that types other than fixed ones are a no-no.
->
->Ok, let's do that, but I doubt sizeof(int) can be different than 4 on =
-a
->Linux 2.6 host right now.
+Do we need to orphan skb here, just like tun?
 
-Never say never. "long" already bit people in the past, and now we
-have that CONFIG_COMPAT stuff.
+>         skb_queue_tail(&q->sk.sk_receive_queue, skb);
+>         wake_up_interruptible_poll(sk_sleep(&q->sk), POLLIN |
+> POLLRDNORM | POLLRDBAND);
+> -       return 0;
+> +       return NET_RX_SUCCESS;
+> +
+> +drop:
 
-If invert is the only flag, perhaps it makes sense to use __u8=20
-for it.=20
+Do we need to increase dropped++ counter here to let user know there are
+packets dropped?
 
->I prefer not doing the !!info->invert, and do the check only once.
-
->+static int cpu_mt_check(const struct xt_mtchk_param *par)
->+{
->+	const struct xt_cpu_info *info =3D par->matchinfo;
->+
->+	if (info->invert & ~1)
->+		return -EINVAL;
->+	return 0;
->+}
->+
->+static bool cpu_mt(const struct sk_buff *skb, struct xt_action_param =
-*par)
->+{
->+	const struct xt_cpu_info *info =3D par->matchinfo;
->+
->+	return (info->cpu =3D=3D smp_processor_id()) ^ info->invert;
->+}
-
-That works nicely indeed. Do you anticipate any future flags?
+> +       kfree_skb(skb);
+> +       return NET_RX_DROP;
+>  }
+> 
+> 
 
