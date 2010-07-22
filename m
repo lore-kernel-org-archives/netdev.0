@@ -1,35 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build warning after merge of the net tree
-Date: Wed, 21 Jul 2010 21:09:47 -0700 (PDT)
-Message-ID: <20100721.210947.00037033.davem@davemloft.net>
-References: <20100722121157.344c8462.sfr@canb.auug.org.au>
+Subject: Re: linux-next: build warning after merge of the nettree
+Date: Wed, 21 Jul 2010 21:11:16 -0700 (PDT)
+Message-ID: <20100721.211116.98027768.davem@davemloft.net>
+References: <20100722120639.cc8d56a5.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+	linux-kernel@vger.kernel.org, richardcochran@gmail.com,
+	florian@openwrt.org
 To: sfr@canb.auug.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37201
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750890Ab0GVEJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 00:09:30 -0400
-In-Reply-To: <20100722121157.344c8462.sfr@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100722120639.cc8d56a5.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 22 Jul 2010 12:11:57 +1000
+Date: Thu, 22 Jul 2010 12:06:39 +1000
 
 > After merging the net tree, today's linux-next build (x86_64 allmodconfig)
 > produced this warning:
 > 
-> drivers/vhost/net.c: In function 'vhost_net_set_backend':
-> drivers/vhost/net.c:536: warning: label 'done' defined but not used
+> drivers/net/r6040.c: In function 'r6040_ioctl':
+> drivers/net/r6040.c:513: warning: passing argument 2 of 'phy_mii_ioctl' from incompatible pointer type
+> include/linux/phy.h:522: note: expected 'struct ifreq *' but argument is of type 'struct mii_ioctl_data *'
 > 
-> Introduced by commit 11fe883936980fe242869d671092a466cf1db3e3 ("Merge
-> branch 'master' of
-> master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6") which
-> kept the unneeded label.  Sorry if I misguided you.
+> Introduced by commit 28b041139e344ecd0f144d6205b004ae354cfa1e ("net:
+> preserve ifreq parameter when calling generic phy_mii_ioctl()") (which
+> changed the phy_mii_ioctl() API) interacting with commit
+> 3831861b4ad8fd0ad7110048eb3e155628799d2b ("r6040: implement phylib")
+> (which added a use of that function).
 
-I've fixed this, thanks Stephen.  Don't worry, not your fault :)
+Thanks Stephen, should be fixed as follows:
+
+--------------------
+r6040: Fix args to phy_mii_ioctl().
+
+Reported by Stephen Rothwell.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/r6040.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 7d482a2..142c381 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -510,7 +510,7 @@ static int r6040_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	if (!lp->phydev)
+ 		return -EINVAL;
+ 
+-	return phy_mii_ioctl(lp->phydev, if_mii(rq), cmd);
++	return phy_mii_ioctl(lp->phydev, rq, cmd);
+ }
+ 
+ static int r6040_rx(struct net_device *dev, int limit)
+-- 
+1.7.1.1
