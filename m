@@ -1,37 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: mirred, redirect action vs. dev refcount issue
-Date: Thu, 22 Jul 2010 14:02:13 -0400
-Message-ID: <1279821733.3808.0.camel@bigi>
-References: <20100721162426.5aa4b646@nehalam>
-	 <20100721.163955.12041610.davem@davemloft.net>
-	 <20100721165247.6d1dd879@nehalam>
-	 <20100721.165802.111593910.davem@davemloft.net>
-	 <20100721170024.60cd9ef4@nehalam> <1279793481.2747.39.camel@bigi>
-	 <20100722104256.5a7e7cb6@nehalam>
-Reply-To: hadi@cyberus.ca
+From: Ben Greear <greearb@candelatech.com>
+Subject: Lost in iptables code.
+Date: Thu, 22 Jul 2010 11:02:56 -0700
+Message-ID: <4C4887D0.3050309@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:64540 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759291Ab0GVSCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 14:02:19 -0400
-Received: by vws3 with SMTP id 3so423965vws.19
-        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 11:02:18 -0700 (PDT)
-In-Reply-To: <20100722104256.5a7e7cb6@nehalam>
+Received: from mail.candelatech.com ([208.74.158.172]:60718 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752566Ab0GVSC5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 14:02:57 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id o6MI2ubE015659
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 11:02:56 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-07-22 at 10:42 -0700, Stephen Hemminger wrote:
-> This is what I am testing now.
-> 
+I'm trying to debug an appearant bug in the "CT zones"
+logic in 2.6.34, and I'm having a hard time figuring out where the
+code enters the iptables logic.  (In case it matters, the
+CT Zones logic is related to the 'raw' table.)
 
-Looks very reasonable to me. Please add my signoff when you 
-submit.
+I assume it would be somewhere in netif_receive_skb,
+but I don't see anything obvious.
 
-cheers,
-jamal
+If anyone has suggestions where to start poking at this,
+please let me know.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
