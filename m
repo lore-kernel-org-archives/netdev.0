@@ -1,64 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] LSM: Add post recvmsg() hook.
-Date: Wed, 21 Jul 2010 21:06:36 -0700 (PDT)
-Message-ID: <20100721.210636.197931242.davem@davemloft.net>
-References: <201007171017.DFC73498.SFFFOMLVJOHOtQ@I-love.SAKURA.ne.jp>
-	<20100721.114509.37203355.davem@davemloft.net>
-	<201007220338.o6M3citW076383@www262.sakura.ne.jp>
+Subject: Re: linux-next: build warning after merge of the net tree
+Date: Wed, 21 Jul 2010 21:09:47 -0700 (PDT)
+Message-ID: <20100721.210947.00037033.davem@davemloft.net>
+References: <20100722121157.344c8462.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, paul.moore@hp.com,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: penguin-kernel@I-love.SAKURA.ne.jp
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201007220338.o6M3citW076383@www262.sakura.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sfr@canb.auug.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37201
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750890Ab0GVEJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 00:09:30 -0400
+In-Reply-To: <20100722121157.344c8462.sfr@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 22 Jul 2010 12:11:57 +1000
 
-Your analysis is wrong, and what Tomoyo is doing is so fundamentally
-different than what the existing SELINUX hooks do.
+> After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+> produced this warning:
+> 
+> drivers/vhost/net.c: In function 'vhost_net_set_backend':
+> drivers/vhost/net.c:536: warning: label 'done' defined but not used
+> 
+> Introduced by commit 11fe883936980fe242869d671092a466cf1db3e3 ("Merge
+> branch 'master' of
+> master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6") which
+> kept the unneeded label.  Sorry if I misguided you.
 
-The existing LSM hooks do not break BSD socket behavior.  Do you know
-why?  Because someone who understood all of this spent a great deal
-of time carefully designing them.
-
-The existing hooks do not drop packets on recvmsg() when a security
-check does not pass, they signal the error long before the socket
-receive queue is even looked at.  It is just like seeing a -EFAULT,
--ENFILE, or similar error.
-
-Checks are always made _BEFORE_ major state changes are made to the
-socket.
-
-That is critically important, and it's what you seem to fail to see.
-
-The hooks you propose _LOSE_ information.  So even if another process
-has the 'fd' for a socket, and they would be allowed to receive the
-packet by LSM checks, the post hook does not allow that to happen
-because the failing 'fd' just frees up the packet and loses it
-forever.
-
-The existing hooks signal before we pull the new connection out of the
-accept queue during accept(), therefore avoiding the illegal situation
-your post ->accept() hook would create since there is absolutely no
-way (and there should not be a way) to push a connection back into the
-sock accept queue after we've taken it from the protocol layer.
-
-And again here, the proposed hooks _LOSE_ information.  The accepted
-connection is lost forever, another process with valid security
-credentials cannot accept the connection.  It is completely gone.
-
-And I'm not even going to entertain adding facilities to allow pushing
-things back into the socket state after they've been removed for
-inspection.
-
-I think we've been through this issue enough times that we have covered
-the issues in their entirety, and nothing you have written convinces
-me that my position is wrong and that it is valid to put the Tomoyo
-post-recvmsg and post-accept hooks into the tree.
-
-Sorry, but I'm not applying your patches, they are fundamentally flawed
-unlike the existing hooks.
+I've fixed this, thanks Stephen.  Don't worry, not your fault :)
