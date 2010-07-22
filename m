@@ -1,90 +1,87 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [PATCH] Driver-core: Fix bluetooth network device rename
-	regression
-Date: Thu, 22 Jul 2010 15:38:54 +0200
-Message-ID: <AANLkTimM5Ea8mQ7aX4kDq3dgF3P-t2Wm3dERhckC69Ja@mail.gmail.com>
-References: <20100621222938.GA20583@suse.de> <m1eig0dmhk.fsf@fess.ebiederm.org>
-	<20100621231058.GA1066@suse.de> <m14ogwc4ou.fsf@fess.ebiederm.org>
-	<20100622035631.GA3755@suse.de> <m1630q7x5v.fsf_-_@fess.ebiederm.org>
-	<20100708211930.GA15385@kroah.com> <m1r5jdbobe.fsf@fess.ebiederm.org>
-	<20100708230601.GB17002@kroah.com> <20100719133451.0862ca62.akpm@linux-foundation.org>
-	<20100720201334.GA11991@suse.de> <m139vd5sms.fsf_-_@fess.ebiederm.org>
-	<m1zkxj27xp.fsf_-_@fess.ebiederm.org>
+From: Mahesh Kelkar <maheshkelkar@gmail.com>
+Subject: Re: With disable_ipv6 set to 1 on an interface, ff00:/8 and fe80::/64
+	are still added on device UP
+Date: Thu, 22 Jul 2010 10:03:03 -0400
+Message-ID: <AANLkTimdY9vKMZAhUUrkB3k-Cx3enaQdT6VKB5KMQZ5_@mail.gmail.com>
+References: <AANLkTinHkaL49MS9agf525GRhWXSWIvVmn-Qz33Hcg6Y@mail.gmail.com>
+	<4C460856.5090701@hp.com>
+	<20100720.134851.09735512.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Greg KH <greg@kroah.com>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:64102 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759371Ab0GVNjK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 09:39:10 -0400
-Received: by gyg10 with SMTP id 10so754552gyg.19
-        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 06:39:09 -0700 (PDT)
-In-Reply-To: <m1zkxj27xp.fsf_-_@fess.ebiederm.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48963 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754855Ab0GVODI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 10:03:08 -0400
+Received: by wwj40 with SMTP id 40so3471089wwj.1
+        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 07:03:03 -0700 (PDT)
+In-Reply-To: <20100720.134851.09735512.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 22, 2010 at 11:16, Eric W. Biederman <ebiederm@xmission.com=
-> wrote:
+Brian,
+
+Overall the patch seem to work.
+
+On one occasion I saw an error when it tried get rtnl_trylock() in
+"addrconf_disable_ipv6" in addrconf.c. I am investigating into it. If
+you could think of anything, please let me know.
+
+I also came across another odd behavior (unrelated to disable_ipv6 but
+related to multicast & link local route):
+A. configure unicast Ipv6 address (say 123:2:3:4:5:6:7:8/64) on an
+interface. (link-local will be assigned when interface comes up)
+B. Bring the interface down (ip link set eth0 down),
+
+you will get following set of netlink notifications (ip monitor all):
+1. Deleted - unicast address connected route (123:2:3:4::/64)
+2. Deleted - link local (fe80::/64) route
+3. Deleted - multicast (ff00::/8) route
+4. Deleted - unicast address (123:2:3:4:5:6:7:8/64)
+5. Deleted - link local address
+
+C. re-configure the unicast Ipv6 address (say 123:2:3:4:5:6:7:8/64) on
+the interface. (link-local will NOT be assigned as interface is down)
+
+You wil see following netlink notifications:
+6. Added - unicast address (123:2:3:4:5:6:7:8/64)
+7. Added - unicast address connected route (123:2:3:4::/64)
+8. Added - multicast (ff00::/8) route
+9. Added - link local (fe80::/64) route
+etc.
+
+I am not sure why #7, #8 & #9 occured. It doesn't happen in case of
+IPv4. The routes show up when interface reaches up state. Perhaps my
+kernel is old and that could be reason for this beahvior.
+
+BTW I am using 2.6.21 with following cherry-picked disable_ipv6 patches=
+:
+- ipv6: Add disable_ipv6 sysctl to disable IPv6 operaion on specific
+interface(commit:778d80be52699596bf70e0eb0761cf5e1e46088d)
+- ipv6: Plug sk_buff leak in ipv6_rcv (net/ipv6/ip6_input.c) (commit:
+71f6f6dfdf7c7a67462386d9ea05c1095a89c555)
+- IPv6: Add 'autoconf' and 'disable_ipv6' module parameters (ONLY
+interface specific behavior)
+
+Thanks very much for your help.
+Mahesh
+
+On Tue, Jul 20, 2010 at 4:48 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Brian Haley <brian.haley@hp.com>
+> Date: Tue, 20 Jul 2010 16:34:30 -0400
 >
-> With CONFIG_SYSFS_DEPRECATED_V2 enabled I can rename any network devi=
-ce
-> anything as long as the new name does not conflict with another netwo=
-rk
-> device.
+>> I believe the easiest way to fix this is the following patch, can
+>> you please test it?
+> =A0...
+>> If the interface has IPv6 disabled, don't add a multicast or
+>> link-local route since we won't be adding a link-local address.
+>>
+>> Reported-by: Mahesh Kelkar <maheshkelkar@gmail.com>
+>> Signed-off-by: Brian Haley <brian.haley@hp.com>
 >
-> With CONFIG_SYSFS_DEPRECATED_V2 disabled without this fix bluetooth b=
-enp
-> devices, and the mac80211_hwsim driver can not be renamed to any arbi=
-trary
-> name that happens to conflict with any other name that is used in the=
-ir
-> parent devices directory.
-
-This is true for all devices, that their children can not carry names
-of existing attributes or directories of the parent. These drivers
-manage the parent-child relation their own and know these limitations
-very well, because they have created the conflicing names themselves.
-The class glue directories which separate these namespaces are there
-to prevent unknown clashes, not clashes originating from the same
-subsystem.
-
-The real fix is that the drivers should not try to stack classes, but
-use buses. This is and never was supported by the core, especially not
-for clashing names.
-
-> --- a/drivers/base/core.c
-> +++ b/drivers/base/core.c
-> @@ -673,7 +673,7 @@ static struct kobject *get_device_parent(struct d=
-evice *dev,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (parent =3D=
-=3D NULL)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0parent_kobj =3D virtual_device_parent(dev);
-> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 else if (parent->c=
-lass)
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 else if (parent->c=
-lass && (strcmp(dev->class->name, "net") !=3D 0))
-
-Subsystems specific code must not leak into core code. We will never
-be able to get rid of these hacks. As mentioned in earlier mails, it's
-just plain wrong to do anything like this. It makes a specific
-subsystem behave different from all others, just to fix some broken
-drivers to work with the newly introduced network sysfs namespaces.
-
-Since the issue is not a regression, and not even a bug in the core,
-it should not be done this way for mainline.
-
-Please try to fix these drivers instead, or mark the broken for
-namespaces, if nobody can fix them right now.
-
-Thanks,
-Kay
+> This looks good to me, let me know when it has been tested.
+>
