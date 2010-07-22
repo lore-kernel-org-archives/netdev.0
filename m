@@ -1,42 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: use interrupt for MDIO completion indication
-Date: Thu, 22 Jul 2010 14:12:45 -0700 (PDT)
-Message-ID: <20100722.141245.165337920.davem@davemloft.net>
-References: <4C3E812C.10303@canonical.com>
-	<20100715040956.GA7690@jasper.tkos.co.il>
-	<20100721125113.GA2651@pengutronix.de>
+Subject: Re: [PATCH net-next-2.6 2/2] bonding: don't lock when
+ copying/clearing VLAN list on slave
+Date: Thu, 22 Jul 2010 14:13:05 -0700 (PDT)
+Message-ID: <20100722.141305.04664571.davem@davemloft.net>
+References: <1279750488-32611-1-git-send-email-fubar@us.ibm.com>
+	<1279750488-32611-2-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: baruch@tkos.co.il, netdev@vger.kernel.org, bryan.wu@canonical.com,
-	kernel@pengutronix.de, gerg@uclinux.org,
-	linux-arm-kernel@lists.infradead.org
-To: w.sang@pengutronix.de
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20100721125113.GA2651@pengutronix.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mchan@broadcom.com
+To: fubar@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47931
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759366Ab0GVVMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 17:12:48 -0400
+In-Reply-To: <1279750488-32611-2-git-send-email-fubar@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfram Sang <w.sang@pengutronix.de>
-Date: Wed, 21 Jul 2010 14:51:13 +0200
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Wed, 21 Jul 2010 15:14:48 -0700
 
-> From: Wolfram Sang <w.sang@pengutronix.de>
-> Subject: [PATCH] net/fec: restore interrupt mask after software-reset in fec_stop()
+> 	When copying VLAN information to or removing from a slave
+> during slave addition or removal, the bonding code currently holds
+> the bond->lock for write to prevent concurrent modification of the
+> vlan_list / vlgrp.
 > 
-> After the change from mdio polling to irq, it became necessary to
-> restore the interrupt mask after resetting the chip in fec_stop().
-> Otherwise, with all irqs disabled, no communication with the PHY will be
-> possible after e.g. un-/replugging the cable and the device gets
-> stalled.
+> 	This is unnecessary, as all of these operations occur under
+> RTNL.  Holding the bond->lock also caused might_sleep issues for
+> some drivers' ndo_vlan_* functions.  This patch removes the extra
+> locking.
 > 
-> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+> 	Problem reported by Michael Chan <mchan@broadcom.com>
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
 Applied.
