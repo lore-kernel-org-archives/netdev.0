@@ -1,147 +1,79 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: mirred, redirect action vs. dev refcount issue
-Date: Thu, 22 Jul 2010 10:42:56 -0700
-Message-ID: <20100722104256.5a7e7cb6@nehalam>
-References: <20100721162426.5aa4b646@nehalam>
-	<20100721.163955.12041610.davem@davemloft.net>
-	<20100721165247.6d1dd879@nehalam>
-	<20100721.165802.111593910.davem@davemloft.net>
-	<20100721170024.60cd9ef4@nehalam>
-	<1279793481.2747.39.camel@bigi>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [PATCH] Driver-core: Fix bluetooth network device rename
+	regression
+Date: Thu, 22 Jul 2010 19:44:37 +0200
+Message-ID: <AANLkTil3Q1Vobw48AvStl9gphaJcyUGlt6ZnMLanDMVn@mail.gmail.com>
+References: <20100621222938.GA20583@suse.de> <m1eig0dmhk.fsf@fess.ebiederm.org>
+	<20100621231058.GA1066@suse.de> <m14ogwc4ou.fsf@fess.ebiederm.org>
+	<20100622035631.GA3755@suse.de> <m1630q7x5v.fsf_-_@fess.ebiederm.org>
+	<20100708211930.GA15385@kroah.com> <m1r5jdbobe.fsf@fess.ebiederm.org>
+	<20100708230601.GB17002@kroah.com> <20100719133451.0862ca62.akpm@linux-foundation.org>
+	<20100720201334.GA11991@suse.de> <m139vd5sms.fsf_-_@fess.ebiederm.org>
+	<m1zkxj27xp.fsf_-_@fess.ebiederm.org> <AANLkTimM5Ea8mQ7aX4kDq3dgF3P-t2Wm3dERhckC69Ja@mail.gmail.com>
+	<m1vd87toy9.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg KH <gregkh@suse.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Greg KH <greg@kroah.com>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39274 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751260Ab0GVRm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jul 2010 13:42:59 -0400
-In-Reply-To: <1279793481.2747.39.camel@bigi>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:54034 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753707Ab0GVRoz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 13:44:55 -0400
+Received: by wyf19 with SMTP id 19so824146wyf.19
+        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 10:44:54 -0700 (PDT)
+In-Reply-To: <m1vd87toy9.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is what I am testing now.
+On Thu, Jul 22, 2010 at 19:18, Eric W. Biederman <ebiederm@xmission.com=
+> wrote:
+> Kay Sievers <kay.sievers@vrfy.org> writes:
 
---- a/include/net/tc_act/tc_mirred.h	2010-07-22 09:17:41.631561924 -0700
-+++ b/include/net/tc_act/tc_mirred.h	2010-07-22 09:49:53.355325645 -0700
-@@ -9,6 +9,7 @@ struct tcf_mirred {
- 	int			tcfm_ifindex;
- 	int			tcfm_ok_push;
- 	struct net_device	*tcfm_dev;
-+	struct list_head	tcfm_list;
- };
- #define to_mirred(pc) \
- 	container_of(pc, struct tcf_mirred, common)
---- a/net/sched/act_mirred.c	2010-07-21 16:10:48.922308036 -0700
-+++ b/net/sched/act_mirred.c	2010-07-22 09:52:32.229910928 -0700
-@@ -1,3 +1,4 @@
-+
- /*
-  * net/sched/mirred.c	packet mirroring and redirect actions
-  *
-@@ -21,6 +22,7 @@
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/gfp.h>
-+#include <linux/notifier.h>
- #include <net/net_namespace.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
-@@ -33,6 +35,7 @@
- static struct tcf_common *tcf_mirred_ht[MIRRED_TAB_MASK + 1];
- static u32 mirred_idx_gen;
- static DEFINE_RWLOCK(mirred_lock);
-+static LIST_HEAD(mirred_list);
- 
- static struct tcf_hashinfo mirred_hash_info = {
- 	.htab	=	tcf_mirred_ht,
-@@ -47,7 +50,10 @@ static inline int tcf_mirred_release(str
- 			m->tcf_bindcnt--;
- 		m->tcf_refcnt--;
- 		if(!m->tcf_bindcnt && m->tcf_refcnt <= 0) {
--			dev_put(m->tcfm_dev);
-+			ASSERT_RTNL();
-+			list_del(&m->tcfm_list);
-+			if (m->tcfm_dev)
-+				dev_put(m->tcfm_dev);
- 			tcf_hash_destroy(&m->common, &mirred_hash_info);
- 			return 1;
- 		}
-@@ -134,8 +140,11 @@ static int tcf_mirred_init(struct nlattr
- 		m->tcfm_ok_push = ok_push;
- 	}
- 	spin_unlock_bh(&m->tcf_lock);
--	if (ret == ACT_P_CREATED)
-+	if (ret == ACT_P_CREATED) {
-+		ASSERT_RTNL();
-+		list_add(&m->tcfm_list, &mirred_list);
- 		tcf_hash_insert(pc, &mirred_hash_info);
-+	}
- 
- 	return ret;
- }
-@@ -164,9 +173,14 @@ static int tcf_mirred(struct sk_buff *sk
- 	m->tcf_bstats.packets++;
- 
- 	dev = m->tcfm_dev;
-+	if (!dev) {
-+		printk_once(KERN_NOTICE "tc mirred: target device is gone\n");
-+		goto out;
-+	}
-+
- 	if (!(dev->flags & IFF_UP)) {
- 		if (net_ratelimit())
--			pr_notice("tc mirred to Houston: device %s is gone!\n",
-+			pr_notice("tc mirred to Houston: device %s is down\n",
- 				  dev->name);
- 		goto out;
- 	}
-@@ -230,6 +244,28 @@ nla_put_failure:
- 	return -1;
- }
- 
-+static int mirred_device_event(struct notifier_block *unused,
-+			       unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = ptr;
-+	struct tcf_mirred *m;
-+
-+	if (event == NETDEV_UNREGISTER)
-+		list_for_each_entry(m, &mirred_list, tcfm_list) {
-+			if (m->tcfm_dev == dev) {
-+				dev_put(dev);
-+				m->tcfm_dev = NULL;
-+			}
-+		}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block mirred_device_notifier = {
-+	.notifier_call = mirred_device_event,
-+};
-+
-+
- static struct tc_action_ops act_mirred_ops = {
- 	.kind		=	"mirred",
- 	.hinfo		=	&mirred_hash_info,
-@@ -250,12 +286,17 @@ MODULE_LICENSE("GPL");
- 
- static int __init mirred_init_module(void)
- {
-+	int err = register_netdevice_notifier(&mirred_device_notifier);
-+	if (err)
-+		return err;
-+
- 	pr_info("Mirror/redirect action on\n");
- 	return tcf_register_action(&act_mirred_ops);
- }
- 
- static void __exit mirred_cleanup_module(void)
- {
-+	unregister_netdevice_notifier(&mirred_device_notifier);
- 	tcf_unregister_action(&act_mirred_ops);
- }
- 
+> Let me get this straight. =C2=A0You believe a non-trival non-obvious
+> complete rewrite of entire subsystems after rc1 is better than
+> a one line bug fix that let's real hardware work for real
+> people?
+
+Yes. The drivers are broken in its core use pattern, and enabling a
+(non-common) new feature exposes this. Users should just not enable
+the new feature until the drivers, they might depend on, are fixed
+properly. That's the rule for all other kernel development too, and I
+don't see what's different here. It's not a regression, and not a bug
+in the core, which needs fixing.
+
+I don't see what would justify subsystem-specific hacks in the core,
+which we will never be able to remove. Your patch exposes sysfs device
+layout for a single subsystem in an unusual manner, and we can not
+change that later. We need to avoid such special cases for all
+reasons.
+
+> You have had 3 years to do better a better job with the bluetooth
+> driver.
+
+I don't know of any real-world problem here.
+
+> Furthermore we fixed the rest of this regression in the core I don't
+> see why we can fix the entirety of it this namespace regression in th=
+e
+> core. =C2=A0Especially since it is an obviously correct one line chan=
+ge.
+
+Oh, no. It's obviously wrong to add specific lists of subsystems to
+generic core code to fix individual drivers. It even implements its
+own sysfs layout rules for a single subsystem.
+
+Please help fixing the drivers, or improving the core where needed, to
+support these drivers better, but don't try to throw quick and dirty
+and wrong fixes at us. Sysfs is already hard to understand and more
+exceptions like this, and subsystem-specific layout rules would
+seriously be the wrong direction.
+
+Thanks,
+Kay
