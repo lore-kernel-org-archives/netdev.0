@@ -1,54 +1,52 @@
-From: Min Zhang <mzhang@mvista.com>
-Subject: [PATCH] ipv6: remove sysctl jiffies conversion on gc_elasticity and
- min_adv_ms
-Date: Thu, 22 Jul 2010 14:39:14 -0700
-Message-ID: <4C48BA82.6020904@mvista.com>
+From: Stuart Sheldon <stu@actusa.net>
+Subject: IPv6 Anycast?
+Date: Thu, 22 Jul 2010 14:32:59 -0700
+Message-ID: <4C48B90B.60304@actusa.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: Stuart Sheldon <stu@actusa.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:60425 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752967Ab0GVVjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 17:39:20 -0400
-Received: by pwi5 with SMTP id 5so3223018pwi.19
-        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 14:39:19 -0700 (PDT)
+Received: from internal.actusa.net ([208.83.100.16]:57687 "EHLO
+	internal.actusa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751386Ab0GVVqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 17:46:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sysctl output ipv6 gc_elasticity and min_adv_mss as values divided by
-HZ. However, they are not in unit of jiffies, since ip6_rt_min_advmss
-refers to packet size and ip6_rt_fc_elasticity is used as scaler as in
-expire>>ip6_rt_gc_elasticity, so replace the jiffies conversion
-handler will regular handler for them.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
 
-This has impact on scripts that are currently working assuming the
-divide by HZ, will yield different results with this patch in place.
+Is IPv6 Anycast supported? And if so, how do I setup the Anycast addresses?
 
-Signed-off-by: Min Zhang <mzhang@mvista.com>
+Please reply to me directly, as I am not on this list...
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 252d761..3b3de49 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2583,7 +2583,7 @@ ctl_table ipv6_route_table_template[] = {
-                .data           =       &init_net.ipv6.sysctl.ip6_rt_gc_elasticity,
-                .maxlen         =       sizeof(int),
-                .mode           =       0644,
--               .proc_handler   =       proc_dointvec_jiffies,
-+               .proc_handler   =       proc_dointvec,
-        },
-        {
-                .procname       =       "mtu_expires",
-@@ -2597,7 +2597,7 @@ ctl_table ipv6_route_table_template[] = {
-                .data           =       &init_net.ipv6.sysctl.ip6_rt_min_advmss,
-                .maxlen         =       sizeof(int),
-                .mode           =       0644,
--               .proc_handler   =       proc_dointvec_jiffies,
-+               .proc_handler   =       proc_dointvec,
-        },
-        {
-                .procname       =       "gc_min_interval_ms",
+Thanks In advance,
 
+Stu Sheldon
+ACT USA
 
+- --
+Every year is getting shorter, never seem to find the time
+Plans that either come to naught or half a page of scribbled lines
+Hanging on in quiet desperation is the english way
+The time is gone, the song is over, thought Id something more to say
+               -- Pink Floyd - "Time Lyrics"
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iQIcBAEBCAAGBQJMSLkLAAoJEFKVLITDJSGSpcwP/0Q9a1PSDE6Iv+ACBo4wfpIV
+vI1jLBF+Fxk7yxte+NdSqXNc8LOzzYaoEy0F1DGW3AZ2+OBoLyb6mY8hoVtrEFHS
+6qXk0DBkqQIZdxLjkuQDpXMKvaHPJplIk2IlaOHAvMP4vmQo1/57mlsDpdgkBetN
+meAj+OXc/aybw4E12ui6Hf6fDHrXyrdhgtUztoSfk6R/w0MBksgbNDQsLW7LJl1l
+1bYWNaiskktn+Y9HwBmrTvL038VA3zy3TuZTn8shNGkpLwzd9qDBUgsS/GqY1v2e
+XXjCMr3kWm6ezsuHKe/ihviSZxFIoXtS50rynDhrA9ZQM930OgcPPB1yRhzUvI6d
+b7jXR25oetW1XLQhjR+4+J301JQh9cPPGhwn3MUh26LdpkUMhpqX7OXfuvCDxxA9
+ktdDK2To/FBUUvNgTFUa4hhH6DSeofjRYtQmafr4YszFbeyGs1ob7yv/CupekZlv
+DYva0fcc7LIT4Lc/9/0D3vkgTnLlhT4u13BY9uTZ9UxbwN2YZ+9j7uk4x+2tMCiN
+t03mot9lP9uQ/g4QYpLF0nsnmHBjzZczS0gYTLy7hkbQRIeu8MiF0jIUtuHvaxZn
+6C9Opki6ZCgXLdkHqPhPNuA58T/7vH7a5ct+2eHHWW5UALngUAsZJnGHaMiBB2pX
+diQHlPmeMTJ8YzqGu/Vz
+=kxGX
+-----END PGP SIGNATURE-----
