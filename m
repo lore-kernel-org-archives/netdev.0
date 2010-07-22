@@ -1,99 +1,66 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH V3] Export SMBIOS provided firmware instance and label
- to sysfs
-Date: Thu, 22 Jul 2010 11:56:03 -0700
-Message-ID: <20100722185603.GA2193@kroah.com>
-References: <20100722184448.GA9122@auslistsprd01.us.dell.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH] Driver-core: Fix bluetooth network device rename
+ regression
+Date: Thu, 22 Jul 2010 11:54:49 -0700
+Message-ID: <20100722185449.GB528@suse.de>
+References: <20100719133451.0862ca62.akpm@linux-foundation.org>
+ <20100720201334.GA11991@suse.de>
+ <m139vd5sms.fsf_-_@fess.ebiederm.org>
+ <m1zkxj27xp.fsf_-_@fess.ebiederm.org>
+ <AANLkTimM5Ea8mQ7aX4kDq3dgF3P-t2Wm3dERhckC69Ja@mail.gmail.com>
+ <m1vd87toy9.fsf@fess.ebiederm.org>
+ <AANLkTil3Q1Vobw48AvStl9gphaJcyUGlt6ZnMLanDMVn@mail.gmail.com>
+ <1279822828.12439.24.camel@jlt3.sipsolutions.net>
+ <20100722182827.GA12821@suse.de>
+ <1279823801.12439.31.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, matt_domsch@dell.com,
-	charles_rose@dell.com, jordan_hargrave@dell.com,
-	vijay_nijhawan@dell.com
-To: Narendra K <Narendra_K@dell.com>
+Cc: Kay Sievers <kay.sievers@vrfy.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Greg KH <greg@kroah.com>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>,
+	netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:55028 "EHLO coco.kroah.org"
+Received: from cantor2.suse.de ([195.135.220.15]:43307 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755198Ab0GVS42 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jul 2010 14:56:28 -0400
+	id S1751730Ab0GVS4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jul 2010 14:56:24 -0400
 Content-Disposition: inline
-In-Reply-To: <20100722184448.GA9122@auslistsprd01.us.dell.com>
+In-Reply-To: <1279823801.12439.31.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 22, 2010 at 01:44:48PM -0500, Narendra K wrote:
-> Hello,
+On Thu, Jul 22, 2010 at 08:36:41PM +0200, Johannes Berg wrote:
+> On Thu, 2010-07-22 at 11:28 -0700, Greg KH wrote:
 > 
-> Resubmitting the patch with suggested changes -
+> > It worked only because no one realized that it was broken with the
+> > DEPRECATED option enabled.  When that is enabled, it is broken, right?
 > 
-> V2 -> V3:
+> I'm pretty sure I always had that enabled, and never had issues. Can't
+> test right now since I don't have that option back yet in the tree I'm
+> using.
 > 
-> 1. Added documentation about the sysfs attributes in Documentation/ABI
-> directory.
-> 2. Changed the type of parameter 'attribute' of the function
-> 'find_smbios_instance_string' from int to enum.
-> 3. Changed the return type of the functions 'pci_create_firmware_label_files'
-> and 'pci_remove_firmware_label_files' from int to void
+> > Eric's changes to sysfs to add namespace support exposed this breakage.
+> > That's not a reason to paper over the problem, but it should be driving
+> > someone to fix it correctly, as has been pointed out a number of times
+> > already.
 > 
-> Please find the patch with above changes -
-> 
->  
-> From: Narendra K <narendra_k@dell.com>
-> Subject: [PATCH] Export SMBIOS provided firmware instance and label to sysfs
-> 
-> This patch exports SMBIOS provided firmware instance and label
-> of onboard pci devices to sysfs
-> 
-> Signed-off-by: Jordan Hargrave <jordan_hargrave@dell.com>
-> Signed-off-by: Narendra K <narendra_k@dell.com>
-> ---
->  Documentation/ABI/testing/sysfs-bus-pci |   26 ++++++
->  drivers/firmware/dmi_scan.c             |   25 ++++++
->  drivers/pci/Makefile                    |    3 +
->  drivers/pci/pci-label.c                 |  143 +++++++++++++++++++++++++++++++
->  drivers/pci/pci-sysfs.c                 |    5 +
->  drivers/pci/pci.h                       |    9 ++
->  include/linux/dmi.h                     |    9 ++
->  7 files changed, 220 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/pci/pci-label.c
-> 
-> diff --git a/Documentation/ABI/testing/sysfs-bus-pci b/Documentation/ABI/testing/sysfs-bus-pci
-> index 428676c..d3eb807 100644
-> --- a/Documentation/ABI/testing/sysfs-bus-pci
-> +++ b/Documentation/ABI/testing/sysfs-bus-pci
-> @@ -179,3 +179,29 @@ Contact:	linux-pci@vger.kernel.org
->  Description:
->  		This symbolic link points to the PCI hotplug controller driver
->  		module that manages the hotplug slot.
-> +
-> +What:		/sys/bus/pci/devices/.../label
-> +Date:		July 2010
-> +Contact:	Linux PCI developers <linux-pci@vger.kernel.org>
+> I'm just contesting that that someone should be me. I don't think you
+> get to blame driver developers for doing something that worked and
+> solved the problem they needed to solve. sysfs is largely opaque to most
+> of us already, and it now sure feels like Kay decided to change the
+> rules underneath the code in saying "this was wrong all along".
 
-Why not contact you?
+Well, if it worked before, and it doesn't now, that's due to Eric's
+changes, nothing Kay and I did here :)
 
-> +Description:
-> +		Reading this attribute will provide the firmware
-> +		given name of the PCI device. The attribute will
-> +		be created only if the firmware has given a name
-> +		to the PCI device.
-
-Where does that "name" come from?  Please describe this.
-
-> +Users:
-> +		Userspace applications interested in knowing the
-> +		firmware assigned name of the PCI device.
-> +
-> +What:		/sys/bus/pci/devices/.../index
-> +Date:		July 2010
-> +Contact:	Linux PCI developers <linux-pci@vger.kernel.org>
-> +Description:
-> +		Reading this attribute will provide the firmware
-> +		given instance of the PCI device. The attribute will
-> +		be created only if the firmware has given a device
-> +		type instance to the PCI device.
-
-Same comments as above.
+But, in looking at it closer, it does seem that the code is doing things
+that was not expected to work at all previously, and It's amazing that
+it did.  I thought Kay offered to help fix it all up, and provided 2
+different ways to do it.  I know they aren't trivial, but then again,
+your usage of sysfs is not trivial either...
 
 thanks,
 
