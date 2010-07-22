@@ -1,67 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fwd: LVS on local node
-Date: Thu, 22 Jul 2010 14:59:43 +0200
-Message-ID: <1279803583.2467.43.camel@edumazet-laptop>
-References: <27901279770680@web67.yandex.ru>
-	 <1279781811.2405.15.camel@edumazet-laptop>
-	 <20100722122422.GD16234@verge.net.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH for-2.6.35] tun: avoid BUG, dump packet on GSO errors
+Date: Thu, 22 Jul 2010 21:05:12 +0800
+Message-ID: <20100722130512.GA29088@gondor.apana.org.au>
+References: <20100721143245.GA8423@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Franchoze Eric <franchoze@yandex.ru>, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20100722122422.GD16234@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:48124 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759295Ab0GVNFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 09:05:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20100721143245.GA8423@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 22 juillet 2010 =C3=A0 21:24 +0900, Simon Horman a =C3=A9crit =
-:
-> On Thu, Jul 22, 2010 at 08:56:51AM +0200, Eric Dumazet wrote:
->=20
-> [snip]
->=20
-> > lvs seems not very SMP friendly and a bit complex.
->=20
-> I'd be interested to hear some thoughts on
-> how the SMP aspect of that statement could
-> be improved.
+Michael S. Tsirkin <mst@redhat.com> wrote:
+> There are still some LRO cards that cause GSO errors in tun,
+> and BUG on this is an unfriendly way to tell the admin
+> to disable LRO.
+> 
+> Further, experience shows we might have more GSO bugs lurking.
+> See https://bugzilla.kernel.org/show_bug.cgi?id=16413
+> as a recent example.
+> dumping a packet will make it easier to figure it out.
+> 
+> Replace BUG with warning+dump+drop the packet to make
+> GSO errors in tun less critical and easier to debug.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Tested-by: Alex Unigovsky <unik@compot.ru>
 
-Hi Simon
-
-I am not familiar with LVS code, so I am probably wrong, but it seems i=
-t
-could be changed a bit.
-
-Some rwlocks might become spinlocks (faster than rwlocks)
-
-__ip_vs_securetcp_lock for example is always used with
-write_lock()/write_unlock().
-This can be a regular spinlock without even knowing the code.
-
-Some lookups could use RCU to avoid cache line misses, and to be able t=
-o
-use spinlocks for the write side.
-
-It would be good to have a bench setup with the case of 16 legacy
-daemons, and check how many new connections per second can be
-established, in an LVS setup and an iptables based one.
-
-With 2.6.35 and RPS, a REDIRECT based solution can chose the target por=
-t
-without taking any lock (not counting conntrack internal costs of
-course), each cpu accessing local memory only.
-
-# No need is eth0 is a multiqueue NIC
-echo ffff >/sys/class/net/eth0/queues/rx-0/rps_cpus
-
-for c in `seq 0 15`
-do
-  iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu $c -j
-REDIRECT --to-port $((1000 + $c))
-done
-
-
-
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
