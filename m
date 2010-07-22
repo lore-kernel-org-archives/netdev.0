@@ -1,40 +1,80 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH for-2.6.35] tun: avoid BUG, dump packet on GSO errors
-Date: Thu, 22 Jul 2010 21:05:12 +0800
-Message-ID: <20100722130512.GA29088@gondor.apana.org.au>
-References: <20100721143245.GA8423@redhat.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Fwd: LVS on local node
+Date: Thu, 22 Jul 2010 22:20:04 +0900
+Message-ID: <20100722132003.GA28362@verge.net.au>
+References: <27901279770680@web67.yandex.ru>
+ <1279781811.2405.15.camel@edumazet-laptop>
+ <20100722122422.GD16234@verge.net.au>
+ <1279803583.2467.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:48124 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759295Ab0GVNFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 09:05:15 -0400
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Franchoze Eric <franchoze@yandex.ru>, wensong@linux-vs.org,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100721143245.GA8423@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1279803583.2467.43.camel@edumazet-laptop>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Michael S. Tsirkin <mst@redhat.com> wrote:
-> There are still some LRO cards that cause GSO errors in tun,
-> and BUG on this is an unfriendly way to tell the admin
-> to disable LRO.
-> 
-> Further, experience shows we might have more GSO bugs lurking.
-> See https://bugzilla.kernel.org/show_bug.cgi?id=16413
-> as a recent example.
-> dumping a packet will make it easier to figure it out.
-> 
-> Replace BUG with warning+dump+drop the packet to make
-> GSO errors in tun less critical and easier to debug.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Tested-by: Alex Unigovsky <unik@compot.ru>
+On Thu, Jul 22, 2010 at 02:59:43PM +0200, Eric Dumazet wrote:
+> Le jeudi 22 juillet 2010 =C3=A0 21:24 +0900, Simon Horman a =C3=A9cri=
+t :
+> > On Thu, Jul 22, 2010 at 08:56:51AM +0200, Eric Dumazet wrote:
+> >=20
+> > [snip]
+> >=20
+> > > lvs seems not very SMP friendly and a bit complex.
+> >=20
+> > I'd be interested to hear some thoughts on
+> > how the SMP aspect of that statement could
+> > be improved.
+>=20
+> Hi Simon
+>=20
+> I am not familiar with LVS code, so I am probably wrong, but it seems=
+ it
+> could be changed a bit.
+>=20
+> Some rwlocks might become spinlocks (faster than rwlocks)
+>=20
+> __ip_vs_securetcp_lock for example is always used with
+> write_lock()/write_unlock().
+> This can be a regular spinlock without even knowing the code.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'll get that fixed.
+
+> Some lookups could use RCU to avoid cache line misses, and to be able=
+ to
+> use spinlocks for the write side.
+
+Agreed. I took a look at RCUing things a while back, but got bogged
+down and then forgot about it. I'll take anther stab at it.
+
+> It would be good to have a bench setup with the case of 16 legacy
+> daemons, and check how many new connections per second can be
+> established, in an LVS setup and an iptables based one.
+>=20
+> With 2.6.35 and RPS, a REDIRECT based solution can chose the target p=
+ort
+> without taking any lock (not counting conntrack internal costs of
+> course), each cpu accessing local memory only.
+>=20
+> # No need is eth0 is a multiqueue NIC
+> echo ffff >/sys/class/net/eth0/queues/rx-0/rps_cpus
+>=20
+> for c in `seq 0 15`
+> do
+>   iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu $c -j
+> REDIRECT --to-port $((1000 + $c))
+> done
+
+Its hard for lvs to compete with those kind of lightweight solutions an=
+d
+it probably shouldn't. However, I'd just like to see LVS working as
+well as it can within the constraint that, as you pointed out, its rath=
+er
+complex. Thanks for your suggestions.
+
