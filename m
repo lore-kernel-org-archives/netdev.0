@@ -1,77 +1,128 @@
-From: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: Re: minstrel_tx_status mac80211 WARNINGs in vanilla 2.6.34.1
-Date: Thu, 22 Jul 2010 21:07:01 +0200
-Message-ID: <4C4896D5.8010802@openwrt.org>
-References: <20100722123000.GA16657@geggus.net> <20100722144723.GA2616@tuxdriver.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH ethtool 1/2] ethtool: Use inet_aton() to parse IPv4
+ addresses for RX n-tuple control
+Date: Thu, 22 Jul 2010 20:11:39 +0100
+Message-ID: <1279825899.2104.28.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Sven Geggus <sven-jQqlrKAAsj0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100722144723.GA2616-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Jeff Garzik <jgarzik@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:36811 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756863Ab0GVTLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 15:11:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2010-07-22 4:47 PM, John W. Linville wrote:
-> On Thu, Jul 22, 2010 at 02:30:01PM +0200, Sven Geggus wrote:
->> Hello,
->> 
->> running vanilla 2.6.34.1 I get the following warnings in  kernel log:
->> 
->> WARNING: at net/mac80211/rc80211_minstrel.c:70 minstrel_tx_status+0x67/0xd1 [mac80211]()
->> Hardware name: SCENIC E300/E600
->> Modules linked in: i915 drm_kms_helper drm video backlight output lp loop
->> snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm
->> snd_seq_dummy zd1211rw snd_seq_oss usbhid mac80211 option cfg80211
->> snd_seq_midi usbserial snd_rawmidi snd_seq_midi_event snd_seq snd_timer
->> snd_seq_device snd parport_pc ehci_hcd uhci_hcd soundcore intel_agp parport
->> usbcore nls_base snd_page_alloc agpgart rng_core floppy sg
->> Pid: 0, comm: swapper Tainted: G        W  2.6.34.1 #3
->> Call Trace:
->>  [<c102af25>] warn_slowpath_common+0x60/0x90
->>  [<c102af62>] warn_slowpath_null+0xd/0x10
->>  [<f83cbd48>] minstrel_tx_status+0x67/0xd1 [mac80211]
->>  [<f83b6eb1>] ieee80211_tx_status+0x1f6/0x5ac [mac80211]
->>  [<c1261533>] ? skb_dequeue+0x45/0x4c
->>  [<f83b6896>] ieee80211_tasklet_handler+0x61/0xd6 [mac80211]
->>  [<c102ed7d>] tasklet_action+0x62/0x9f
->>  [<c102f331>] __do_softirq+0x77/0xe5
->>  [<c102f3c5>] do_softirq+0x26/0x2b
->>  [<c102f52f>] irq_exit+0x29/0x66
->>  [<c1003e90>] do_IRQ+0x85/0x9b
->>  [<c1002d29>] common_interrupt+0x29/0x30
->>  [<c10083ac>] ? default_idle+0x2d/0x42
->>  [<c1001a9b>] cpu_idle+0x44/0x71
->>  [<c12e00de>] rest_init+0x96/0x98
->>  [<c1498862>] start_kernel+0x2a5/0x2aa
->>  [<c14980b7>] i386_start_kernel+0xb7/0xbf
->> ---[ end trace f22ceacef336878f ]---
->> 
->> Wireless driver is zd1211rw.
->> 
->> Did not test with older kernel because this device has not been in user on
->> this machine before.
->> 
->> WLAN does however seem to work anyway.
-> 
-> Well, I just took a quick look -- so, I'm not 100% sure...
-> 
-> But, it looks to me like zd1211rw is reporting tx status on a rate
-> that minstrel didn't expect it to use.  It seems like the hardware
-> is pre-wired to do retries on sequentially lower rates, which seems
-> a bit incompatible with minstrel's worldview.
-> 
-> Felix, can we accomodate this?  The "WLAN does however seem to work
-> anyway" seems to suggest things work, so can we at least not yell
-> about it?
-I think we should just drop that WARN_ON(). It's not problematic if
-minstrel gets feedback for rates that it doesn't have in its list, it
-should just ignore it.
+Note that inet_aton() allows the address to be specified as a single
+32-bit number in the same formats as strtoull(), so this is backward-
+compatible.
 
-- Felix
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ ethtool.8 |    9 +++++----
+ ethtool.c |   25 +++++++++++++++----------
+ 2 files changed, 20 insertions(+), 14 deletions(-)
+
+diff --git a/ethtool.8 b/ethtool.8
+index b0b3c8d..d0cbc93 100644
+--- a/ethtool.8
++++ b/ethtool.8
+@@ -676,16 +676,17 @@ Configure Rx ntuple filters and actions
+ .RE
+ .TP
+ .BI src-ip \ addr
+-Includes the source IP address, specified in hex.
++Includes the source IP address, specified using dotted-quad notation
++or as a single 32-bit number.
+ .TP
+ .BI src-ip-mask \ mask
+-Specify a mask for the source IP address, specified in hex.
++Specify a mask for the source IP address.
+ .TP
+ .BI dst-ip \ addr
+-Includes the destination IP address, specified in hex.
++Includes the destination IP address.
+ .TP
+ .BI dst-ip-mask \ mask
+-Specify a mask for the destination IP address, specified in hex.
++Specify a mask for the destination IP address.
+ .TP
+ .BI src-port \ port
+ Includes the source port, specified in decimal.
+diff --git a/ethtool.c b/ethtool.c
+index 4ab1a41..eef76f9 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -40,6 +40,10 @@
+ #include <limits.h>
+ #include <ctype.h>
+ 
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++
+ #include <linux/sockios.h>
+ #include "ethtool-util.h"
+ 
+@@ -404,7 +408,7 @@ typedef enum {
+ 	CMDL_U32,
+ 	CMDL_U64,
+ 	CMDL_BE16,
+-	CMDL_BE32,
++	CMDL_IP4,
+ 	CMDL_STR,
+ 	CMDL_FLAG,
+ } cmdline_type_t;
+@@ -412,7 +416,7 @@ typedef enum {
+ struct cmdline_info {
+ 	const char *name;
+ 	cmdline_type_t type;
+-	/* Points to int (BOOL), s32, u16, u32 (U32/FLAG), u64 or
++	/* Points to int (BOOL), s32, u16, u32 (U32/FLAG/IP4), u64 or
+ 	 * char * (STR).  For FLAG, the value accumulates all flags
+ 	 * to be set. */
+ 	void *wanted_val;
+@@ -497,10 +501,10 @@ static struct cmdline_info cmdline_coalesce[] = {
+ };
+ 
+ static struct cmdline_info cmdline_ntuple[] = {
+-	{ "src-ip", CMDL_BE32, &ntuple_fs.h_u.tcp_ip4_spec.ip4src, NULL },
+-	{ "src-ip-mask", CMDL_BE32, &ntuple_fs.m_u.tcp_ip4_spec.ip4src, NULL },
+-	{ "dst-ip", CMDL_BE32, &ntuple_fs.h_u.tcp_ip4_spec.ip4dst, NULL },
+-	{ "dst-ip-mask", CMDL_BE32, &ntuple_fs.m_u.tcp_ip4_spec.ip4dst, NULL },
++	{ "src-ip", CMDL_IP4, &ntuple_fs.h_u.tcp_ip4_spec.ip4src, NULL },
++	{ "src-ip-mask", CMDL_IP4, &ntuple_fs.m_u.tcp_ip4_spec.ip4src, NULL },
++	{ "dst-ip", CMDL_IP4, &ntuple_fs.h_u.tcp_ip4_spec.ip4dst, NULL },
++	{ "dst-ip-mask", CMDL_IP4, &ntuple_fs.m_u.tcp_ip4_spec.ip4dst, NULL },
+ 	{ "src-port", CMDL_BE16, &ntuple_fs.h_u.tcp_ip4_spec.psrc, NULL },
+ 	{ "src-port-mask", CMDL_BE16, &ntuple_fs.m_u.tcp_ip4_spec.psrc, NULL },
+ 	{ "dst-port", CMDL_BE16, &ntuple_fs.h_u.tcp_ip4_spec.pdst, NULL },
+@@ -645,11 +649,12 @@ static void parse_generic_cmdline(int argc, char **argp,
+ 							       0xffff));
+ 					break;
+ 				}
+-				case CMDL_BE32: {
++				case CMDL_IP4: {
+ 					u32 *p = info[idx].wanted_val;
+-					*p = cpu_to_be32(
+-						get_uint_range(argp[i], 0,
+-							       0xffffffff));
++					struct in_addr in;
++					if (!inet_aton(argp[i], &in))
++						show_usage(1);
++					*p = in.s_addr;
+ 					break;
+ 				}
+ 				case CMDL_FLAG: {
+-- 
+1.6.2.5
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
