@@ -1,56 +1,74 @@
-From: Franchoze Eric <franchoze@yandex.ru>
-Subject: Fwd: LVS on local node
-Date: Thu, 22 Jul 2010 07:51:20 +0400
-Message-ID: <27901279770680@web67.yandex.ru>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH] Re: mmotm 2010-07-19 - e1000e vs. pm_qos_update_request issues
+Date: Thu, 22 Jul 2010 00:05:03 -0400
+Message-ID: <4222.1279771503@localhost>
+References: <201007200007.o6K07Xbg028863@imap1.linux-foundation.org> <6182.1279658125@localhost> <20100720140751.71ee83a8.akpm@linux-foundation.org>
+            <20100721091200.40c43158@schatten.dmk.lab>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed; boundary="==_Exmh_1279771503_4028P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: wensong@linux-vs.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	mark gross <markgross@thegnar.org>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: Florian Mickler <florian@mickler.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:55665 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751902Ab0GVEFv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 00:05:51 -0400
+In-Reply-To: Your message of "Wed, 21 Jul 2010 09:12:00 +0200."
+             <20100721091200.40c43158@schatten.dmk.lab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+--==_Exmh_1279771503_4028P
+Content-Type: text/plain; charset=us-ascii
 
-I'm trying to do load balancing of incoming traffic to my applications. This applications are not very  smp friendly, and I want try to run some instances according to number of cpus on single machine. And balance load of incoming traffic/connections to this applications.
-Looks like is should be similar to http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.localnode.html
+On Wed, 21 Jul 2010 09:12:00 +0200, Florian Mickler said:
 
- linux kernel 2.6.32 with  or without hide interface patches.  Tried different configurations but could not see packets on application layer.
+> Attached patch moves the registering from e1000_up to e1000_open and
+> the unregistering from e1000_down to e1000_close. 
+> It is only compile-tested as I don't have the hardware.
 
-192.168.1.165 - eth0 - interface for external connections
-195.0.0.1 - dummy0 - virtual interface, real application is binded to that address.
+My laptop has the hardware, so I tested it - system does indeed boot
+without whinging about this issue.  Feel free to stick in a:
 
-Configuration is:
--A -t 192.168.1.165:1234 -s wlc
--a -t 192.168.1.165:1234 -r 195.0.0.1:1234 -g -w
+Tested-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
 
-#ipvsadm -L -n
-IP Virtual Server version 1.2.1 (size=4096)
-Prot LocalAddress:Port Scheduler Flags
-  -> RemoteAddress:Port           Forward Weight ActiveConn InActConn
-TCP  192.168.1.165:1234 wlc
-  -> 195.0.0.1:1234               Local   1      0          0        
-#
+Thanks for the fast fix. :)
 
-Log:
-[ 2106.897409] IPVS: lookup/out TCP 192.168.1.165:44847->192.168.1.165:1234 not hit
-[ 2106.897412] IPVS: lookup service: fwm 0 TCP 192.168.1.165:1234 hit
-[ 2106.897414] IPVS: ip_vs_wlc_schedule(): Scheduling...
-[ 2106.897416] IPVS: WLC: server 195.0.0.1:1234 activeconns 0 refcnt 2 weight 1 overhead 1
-[ 2106.897418] IPVS: Enter: ip_vs_conn_new, net/netfilter/ipvs/ip_vs_conn.c line 693
-[ 2106.897421] IPVS: Bind-dest TCP c:192.168.1.165:44847 v:192.168.1.165:1234 d:195.0.0.1:1234 fwd:L s:0 conn->flags:181 conn->refcnt:1 dest->refcnt:3
-[ 2106.897425] IPVS: Schedule fwd:L c:192.168.1.165:44847 v:192.168.1.165:1234 d:195.0.0.1:1234 conn->flags:1C1 conn->refcnt:2
-[ 2106.897429] IPVS: TCP input  [S...] 195.0.0.1:1234->192.168.1.165:44847 state: NONE->SYN_RECV conn->refcnt:2
-[ 2106.897431] IPVS: Enter: ip_vs_null_xmit, net/netfilter/ipvs/ip_vs_xmit.c line 212
-[ 2106.897439] IPVS: lookup/in TCP 192.168.1.165:1234->192.168.1.165:44847 not hit
-[ 2106.897441] IPVS: lookup/out TCP 192.168.1.165:1234->192.168.1.165:44847 not hit
-[ 2107.277535] IPVS: packet type=1 proto=17 daddr=255.255.255.255 ignored
-[ 2108.542691] IPVS: packet type=1 proto=17 daddr=192.168.1.255 ignored
+> From 693c71b911ff0845c872261d5704a1d40960722d Mon Sep 17 00:00:00 2001
+> From: Florian Mickler <florian@mickler.org>
+> Date: Wed, 21 Jul 2010 08:44:21 +0200
+> Subject: [PATCH] e1000e: register pm_qos request on hardware activation
+> 
+> The pm_qos_add_request call has to register the pm_qos request with the pm_qos
+> susbsystem before first use of the pm_qos request via
+> pm_qos_update_request.
+> 
+> As pm_qos changed to use plists there is no benefit in registering and
+> unregistering the pm_qos request on ifup/ifdown and thus we move the
+> registering into e1000_open and the unregistering in e1000_close.
 
-As the result, server application does receive anything on accept(). I tried to make dummy0 a hidden device and play with arp settings. But without result.
 
-I will be happy to hear any idea how to do connection in this environment.
 
+--==_Exmh_1279771503_4028P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFMR8NvcC3lWbTT17ARAnovAJ4yJGfIiGp4RMZf5LOm9Eq6fyS8BQCfTrsA
+/YP2bqX3IVi2llrnQEHq23M=
+=v8iB
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1279771503_4028P--
 
