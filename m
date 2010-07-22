@@ -1,91 +1,66 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [RFC 1/1] netfilter: xtables: inclusion of xt_condition
-Date: Thu, 22 Jul 2010 16:44:35 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1007221621270.1619@obet.zrqbmnf.qr>
-References: <1279807758-6876-1-git-send-email-luciano.coelho@nokia.com> <1279807758-6876-2-git-send-email-luciano.coelho@nokia.com>
+From: Stefan Assmann <sassmann@redhat.com>
+Subject: Re: [PATCH net-next] sysfs: add attribute to indicate hw address
+ assignment type
+Date: Thu, 22 Jul 2010 16:47:40 +0200
+Message-ID: <4C485A0C.7020500@redhat.com>
+References: <4C458CB7.3030508@redhat.com>	<4C458F50.4070200@ixiacom.com>	 <4C4593DA.9040207@redhat.com>	 <20100720.131839.134093789.davem@davemloft.net>	 <4C46AB60.5060008@redhat.com>	 <1279720478.2089.3.camel@achroite.uk.solarflarecom.com>	 <4C483E8D.4080300@redhat.com> <1279807643.2104.1.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>, sameo@linux.intel.com,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Luciano Coelho <luciano.coelho@nokia.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1279807758-6876-2-git-send-email-luciano.coelho@nokia.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, abadea@ixiacom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gospo@redhat.com, gregory.v.rose@intel.com,
+	alexander.h.duyck@intel.com, leedom@chelsio.com, harald@redhat.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1279807643.2104.1.camel@achroite.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 22.07.2010 16:07, Ben Hutchings wrote:
+> On Thu, 2010-07-22 at 14:50 +0200, Stefan Assmann wrote:
+>> On 21.07.2010 15:54, Ben Hutchings wrote:
+>>> On Wed, 2010-07-21 at 10:10 +0200, Stefan Assmann wrote:
+>>>> I put Alex' idea into code for further discussion, keeping the names
+>>>> mentioned here until we agree on the scope of this attribute. When we
+>>>> have settled I'll post a patch with proper patch description.
+>>> [...]
+>>>
+>>> Just a little nitpick: I think it would be clearer to use a more
+>>> specific term like 'address source' or 'address assignment type' rather
+>>> than 'address type'.
+>>
+>> Here's a proposal for the final patch.
+> 
+> Looks good, but...
+> 
+> [...]
+>>  /**
+>> + * dev_hw_addr_random - Create random MAC and set device flag
+>> + * @dev: pointer to net_device structure
+>> + * @addr: Pointer to a six-byte array containing the Ethernet address
+>> + *
+>> + * Generate random MAC to be used by a device and set addr_assign_type
+>> + * so the state can be read by sysfs and be used by udev.
+>> + */
+>> +static inline void dev_hw_addr_random(struct net_device *dev, u8 *hwaddr)
+>> +{
+>> +	dev->addr_assign_type |= NET_ADDR_RANDOM;
+>> +	random_ether_addr(hwaddr);
+>> +}
+> [...]
+> 
+> ...why '|=' and not '='?
 
-On Thursday 2010-07-22 16:09, Luciano Coelho wrote:
->+static int condition_mt_check(const struct xt_mtchk_param *par)
->+{
->+	struct xt_condition_mtinfo *info = par->matchinfo;
->+	struct condition_variable *var;
->+	struct condition_net *cond_net =
->+		condition_pernet(current->nsproxy->net_ns);
+The intention is to use addr_assign_type as a bit field.
 
-Cc'ing Alexey who has done the netns support.
+Okay it it might not make too much sense to 'steal' a random MAC
+address but in case we add more types later it might get useful.
 
-Alexey, you added par->net, but given Luciano just did it with 
-current->nsproxy->net_ns, do we really need par->net?
-
-
->+int xt_condition_set_module_perms(const char *val, struct kernel_param *kp)
->+{
->+	unsigned long l;
->+	int ret;
->+	struct condition_net *cond_net =
->+		condition_pernet(current->nsproxy->net_ns);
->+
->+	if (!val) return -EINVAL;
-
-newline before return.
-
->+	ret = strict_strtoul(val, 0, &l);
->+	if (ret == -EINVAL || ((uint)l != l))
->+		return -EINVAL;
-
->+	*((u32 *) ((u8 *) cond_net + (size_t) kp->arg)) = l;
-
-I don't think we need this level of granularity; let the options be 
-global, similar to what xt_hashlimit does.
-(I am not even sure if kp->arg can be non-multiples-of-4, in which case 
-this would be an alignment violation even.)
-
->+
->+	return 0;
->+}
->+EXPORT_SYMBOL_GPL(xt_condition_set_module_perms);
->+
->+int xt_condition_get_module_perms(char *buffer, struct kernel_param *kp)
->+{
->+	struct condition_net *cond_net =
->+		condition_pernet(current->nsproxy->net_ns);
->+
->+	return sprintf(buffer, "%u",
->+		       *((u32 *) ((u8 *) cond_net + (size_t) kp->arg)));
->+}
->+EXPORT_SYMBOL_GPL(xt_condition_get_module_perms);
->+
->+module_param_call(list_perms,
->+		  xt_condition_set_module_perms,
->+		  xt_condition_get_module_perms,
->+		  (void *) offsetof(struct condition_net, list_perms),
->+		  0600);
->+module_param_call(uid_perms,
->+		  xt_condition_set_module_perms,
->+		  xt_condition_get_module_perms,
->+		  (void *) offsetof(struct condition_net, uid_perms),
->+		  0600);
->+module_param_call(gid_perms,
->+		  xt_condition_set_module_perms,
->+		  xt_condition_get_module_perms,
->+		  (void *) offsetof(struct condition_net, gid_perms),
->+		  0600);
->+
->+module_init(condition_mt_init);
->+module_exit(condition_mt_exit);
->-- 
->1.7.0.4
->
-
+  Stefan
+--
+Stefan Assmann         | Red Hat GmbH
+Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
+                       | HR: Amtsgericht Muenchen HRB 153243
+                       | GF: Brendan Lane, Charlie Peters,
+sassmann at redhat.com |     Michael Cunningham, Charles Cachera
