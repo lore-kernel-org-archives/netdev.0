@@ -1,34 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] CAN: Add Flexcan CAN controller driver
-Date: Thu, 22 Jul 2010 12:29:06 -0700 (PDT)
-Message-ID: <20100722.122906.149481517.davem@davemloft.net>
-References: <1279816844-12138-1-git-send-email-mkl@pengutronix.de>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [RFC 1/1] netfilter: xtables: inclusion of xt_condition
+Date: Thu, 22 Jul 2010 22:30:07 +0300
+Message-ID: <1279827007.1630.15.camel@powerslave>
+References: <1279807758-6876-1-git-send-email-luciano.coelho@nokia.com>
+	 <1279807758-6876-2-git-send-email-luciano.coelho@nokia.com>
+	 <alpine.LSU.2.01.1007221621270.1619@obet.zrqbmnf.qr>
+	 <20100722191940.GA10029@x200>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, socketcan-core@lists.berlios.de,
-	netdev@vger.kernel.org, s.hauer@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36450
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751555Ab0GVT2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 15:28:50 -0400
-In-Reply-To: <1279816844-12138-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"sameo@linux.intel.com" <sameo@linux.intel.com>
+To: ext Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100722191940.GA10029@x200>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 22 Jul 2010 18:40:44 +0200
+On Thu, 2010-07-22 at 21:19 +0200, ext Alexey Dobriyan wrote:
+> On Thu, Jul 22, 2010 at 04:44:35PM +0200, Jan Engelhardt wrote:
+> > 
+> > On Thursday 2010-07-22 16:09, Luciano Coelho wrote:
+> > >+static int condition_mt_check(const struct xt_mtchk_param *par)
+> > >+{
+> > >+	struct xt_condition_mtinfo *info = par->matchinfo;
+> > >+	struct condition_variable *var;
+> > >+	struct condition_net *cond_net =
+> > >+		condition_pernet(current->nsproxy->net_ns);
+> > 
+> > Cc'ing Alexey who has done the netns support.
+> > 
+> > Alexey, you added par->net, but given Luciano just did it with 
+> > current->nsproxy->net_ns, do we really need par->net?
+> 
+> In ->check, maybe, we can get away with current->nsproxy->net_ns.
+> 
+> But definitely not in ->destroy(), because destruction can happen
+> when _no_ task is in netns, so current->nsproxy->net_ns is 100% bogus.
+> 
+> Steps to reproduce:
+> 	iptables -A ...
+> 	exit
+> 
+> ->destroy hook gets netns from par->net, ->checkentry does the same
+> for symmetry and less confusion.
 
-> The following changes since commit 4cfa580e7eebb8694b875d2caff3b989ada2efac:
-> 
->   r6040: Fix args to phy_mii_ioctl(). (2010-07-21 21:10:49 -0700)
-> 
-> are available in the git repository at:
->   git://git.pengutronix.de/git/mkl/linux-2.6.git for-net-next-2.6
-> 
-> Marc Kleine-Budde (1):
->       CAN: Add Flexcan CAN controller driver
+Very good point.  I guess that when Patrick suggested using
+current->nsproxy->net_ns, he meant only for the module_params part.
+I'll be removing that anyway.  And I'll change the code to use par->net
+instead of current->nsproxy->net_ns to avoid the problem in _destroy.
 
-Pulled, thanks.
+Thanks for your comments!
+
+I must admit that I was a bit insecure about this code.  That's why I
+sent a RFC early enough. ;)
+
+
+-- 
+Cheers,
+Luca.
+
