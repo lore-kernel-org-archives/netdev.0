@@ -1,47 +1,85 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] Driver-core: Fix bluetooth network device rename
- regression
-Date: Thu, 22 Jul 2010 16:10:45 +0200
-Message-ID: <1279807845.12439.20.camel@jlt3.sipsolutions.net>
-References: <20100621222938.GA20583@suse.de>
-	 <m1eig0dmhk.fsf@fess.ebiederm.org>  <20100621231058.GA1066@suse.de>
-	 <m14ogwc4ou.fsf@fess.ebiederm.org>  <20100622035631.GA3755@suse.de>
-	 <m1630q7x5v.fsf_-_@fess.ebiederm.org>  <20100708211930.GA15385@kroah.com>
-	 <m1r5jdbobe.fsf@fess.ebiederm.org>  <20100708230601.GB17002@kroah.com>
-	 <20100719133451.0862ca62.akpm@linux-foundation.org>
-	 <20100720201334.GA11991@suse.de> <m139vd5sms.fsf_-_@fess.ebiederm.org>
-	 <m1zkxj27xp.fsf_-_@fess.ebiederm.org>
-	 <AANLkTimM5Ea8mQ7aX4kDq3dgF3P-t2Wm3dERhckC69Ja@mail.gmail.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw    HIDIOCGFEATURE
+    and HIDIOCSFEATURE
+Date: Thu, 22 Jul 2010 16:14:57 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1007221612450.4741@pobox.suse.cz>
+References: <1276467601-9066-1-git-send-email-alan@signal11.us>  <1278623485.10421.73.camel@localhost.localdomain>  <4C369CDC.9080104@signal11.us>  <1278662497.10421.94.camel@localhost.localdomain>  <4C371DE8.9020002@signal11.us>  <1278680790.10421.106.camel@localhost.localdomain>
+  <4C372CEE.3070109@signal11.us> <1278696815.10421.137.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <gregkh@suse.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Greg KH <greg@kroah.com>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:41735 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759350Ab0GVOMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 10:12:17 -0400
-In-Reply-To: <AANLkTimM5Ea8mQ7aX4kDq3dgF3P-t2Wm3dERhckC69Ja@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alan Ott <alan@signal11.us>, David S Miller <davem@davemloft.net>,
+	Michael Poole <mdpoole@troilus.org>,
+	Bastien Nocera <hadess@hadess.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1278696815.10421.137.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-07-22 at 15:38 +0200, Kay Sievers wrote:
+On Fri, 9 Jul 2010, Marcel Holtmann wrote:
 
+> > >>> what is usb-hid.ko doing here? I would expect a bunch of code
+> > >>> duplication with minor difference between USB and Bluetooth.
+> > >>>        
+> > >> usbhid doesn't have a lot of code for hidraw. Two functions are involved:
+> > >>       usbhid_output_raw_report()
+> > >>           - calls usb_control_msg() with Get_Report
+> > >>       usbhid_get_raw_report()
+> > >>           - calls usb_control_msg() with Set_Report
+> > >>               OR
+> > >>           - calls usb_interrupt_msg() on the Ouput pipe.
+> > >>
+> > >> This is of course easier than bluetooth because usb_control_msg() is
+> > >> synchronous, even when requesting reports, mostly because of the nature
+> > >> of USB, where the request and response are part of the same transfer.
+> > >>
+> > >> For Bluetooth, it's a bit more complicated since the kernel treats it
+> > >> more like a networking interface (and indeed it is). My understanding is
+> > >> that to make a synchronous transfer in bluetooth, one must:
+> > >>       - send the request packet
+> > >>       - block (wait_event_*())
+> > >>       - when the response is received in the input handler, wake_up_*().
+> > >>
+> > >> There's not really any code duplication, mostly because initiating
+> > >> synchronous USB transfers (input and output) is easy (because of the
+> > >> usb_*_msg() functions), while making synchronous Bluetooth transfers
+> > >> must be done manually. If there's a nice, convenient, synchronous
+> > >> function in Bluetooth similar to usb_control_msg() that I've missed,
+> > >> then let me know, as it would simplify this whole thing.
+> > >>      
+> > > there is not and I don't think we ever get one. My question here was
+> > > more in the direction why HID core is doing these synchronously in the
+> > > first place. Especially since USB can do everything async as well.
+> >
+> > I'm open to suggestions. The way I see it is from a user space 
+> > perspective. With Get_Feature being on an ioctl(), I don't see any clean 
+> > way to do it other than synchronously. Other operating systems (I can 
+> > say for sure Windows, Mac OS X, and FreeBSD) handle Get/Set Feature the 
+> > same way (synchronously) from user space.
+> > 
+> > You seem to be proposing an asynchronous interface. What would that look 
+> > like from user space?
+> 
+> not necessarily from user space, but at least from HID core to HIDP and
+> usb-hid transports. At least that is what I would expect, Jiri?
 
-> Please try to fix these drivers instead, or mark the broken for
-> namespaces, if nobody can fix them right now.
+Sorry for this taking too long (vacations, conferences, you name it) for 
+me to respond.
 
-We've tried. Nobody, including you, has been able to suggest how to fix
-it. And it's not just broken with network namespaces enabled either, as
-Eric explained. I really don't see why you keep asking us to fix it when
-clearly we cannot -- even you don't know how and you certainly have more
-insight into the device model than we do.
+As all the _raw() callbacks are purely intended for userspace interaction 
+anyway, it's perfectly fine (and in fact desirable) for the low-level 
+transport drivers to perform these operations synchronously (and that's 
+what USB implementation does as well).
 
-johannes
+Marcel, if your opposition to synchronous interface is strong, we'll have 
+to think about other aproaches, but from my POV, the patch is fine as-is 
+for Bluetooth.
 
+Thanks,
+
+-- 
+Jiri Kosina
+SUSE Labs, Novell Inc.
