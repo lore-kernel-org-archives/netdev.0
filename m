@@ -1,96 +1,67 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] CAN: Add Flexcan CAN controller driver
-Date: Thu, 22 Jul 2010 11:25:18 +0200
-Message-ID: <4C480E7E.70607@grandegger.com>
-References: <1279144811-12251-1-git-send-email-mkl@pengutronix.de>	<4C3F55A9.8030307@grandegger.com>	<4C405CEC.3000701@pengutronix.de>
-	<4C475BA6.3030505@pengutronix.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: macvtap: Limit packet queue length
+Date: Thu, 22 Jul 2010 11:30:53 +0200
+Message-ID: <201007221130.53612.arnd@arndb.de>
+References: <20100722064157.GA25913@gondor.apana.org.au> <20100722074431.GA26744@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4C475BA6.3030505-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mark Wagner <mwagner@redhat.com>,
+	Chris Wright <chrisw@sous-sol.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:51305 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926Ab0GVJbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 05:31:19 -0400
+In-Reply-To: <20100722074431.GA26744@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/21/2010 10:42 PM, Marc Kleine-Budde wrote:
-> Marc Kleine-Budde wrote:
->> Wolfgang Grandegger wrote:
->>> I realized a few issues. You can add my "acked-by" when they are fixed.
->>
->> thanks for the review.
+On Thursday 22 July 2010, Herbert Xu wrote:
+> On Thu, Jul 22, 2010 at 02:41:57PM +0800, Herbert Xu wrote:
+> > Hi:
+> > 
+> > macvtap: Limit packet queue length
 > 
-> [...]
+> Chris has informed me that he's already tried a similar patch
+> and it only makes the problem worse :)
 > 
->>>> +static void flexcan_poll_err_frame(struct net_device *dev,
->>>> +				   struct can_frame *cf, u32 reg_esr)
->>>> +{
->>>> +	struct flexcan_priv *priv = netdev_priv(dev);
->>>> +	int error_warning = 0, rx_errors = 0, tx_errors = 0;
->>>> +
->>>> +	if (reg_esr & FLEXCAN_ESR_BIT1_ERR) {
->>>> +		rx_errors = 1;
->>>> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
->>>> +		cf->data[2] |= CAN_ERR_PROT_BIT1;
->>>> +	}
->>>> +
->>>> +	if (reg_esr & FLEXCAN_ESR_BIT0_ERR) {
->>>> +		rx_errors = 1;
->>>> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
->>>> +		cf->data[2] |= CAN_ERR_PROT_BIT0;
->>>> +	}
->>>> +
->>>> +	if (reg_esr & FLEXCAN_ESR_FRM_ERR) {
->>>> +		rx_errors = 1;
->>>> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
->>>> +		cf->data[2] |= CAN_ERR_PROT_FORM;
->>>> +	}
->>>> +
->>>> +	if (reg_esr & FLEXCAN_ESR_STF_ERR) {
->>>> +		rx_errors = 1;
->>>> +		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
->>>> +		cf->data[2] |= CAN_ERR_PROT_STUFF;
->>>> +	}
->>>> +
->>>> +
->>>> +	if (reg_esr & FLEXCAN_ESR_ACK_ERR) {
->>>> +		tx_errors = 1;
->>>> +		cf->can_id |= CAN_ERR_ACK;
->>> This is a bus-error as well. Therefore I think it should be:
->>>
->>> 	if (reg_esr & FLEXCAN_ESR_ACK_ERR) {
->>> 		tx_errors = 1;
->>> 		cf->can_id |= CAN_ERR_ACK;
->>> 		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
->>> 		cf->data[3] |= CAN_ERR_PROT_LOC_ACK; /* ACK slot */
->>> 	}
->>>
->>> I need to check what CAN_ERR_ACK is intended for. Then, cf->can_id could
->>> be preset with "CAN_ERR_PROT | CAN_ERR_BUSERROR" at the beginning.
+> The issue is that the macvtap TX queue length defaults to zero.
 > 
-> This controller issues an ACK error if there are no other nodes on the
-> CAN bus to send a ACK that the message has been received. Or all
-> remaining Nodes are in bus off state.
+> So here is an updated patch which addresses this:
 
-Mainly this bus error can cause the infamous IRQ and message flooding
-when no cable is connected.
+Thanks for debugging this and coming up with a solution.
+I'm currently travelling, so I can't easily work on it myself.
 
-> From the datasheet:
-> "This bit indicates that an acknowledge (ACK) error has been detected by
-> the transmitter node; that is, a dominant bit has not been detected
-> during the ACK SLOT."
+> Please note that macvtap currently has no way of giving congestion
+> notification, that means the software device TX queue cannot be
+> used and packets will always be dropped once the macvtap driver
+> queue fills up.
 
-That's what the above error describes, like on the SJA1000, apart from
-setting CAN_ERR_ACK. Setting CAN_ERR_ACK is somehow bogus, but just
-leave it for the time being. I will fix it globally when time permits.
+This is something I was planning to look into for doing it right,
+and then I forgot about it. I'll investigate what could be done
+to get proper flow control once I get back to the office.
 
-Wolfgang.
+> Chris Wright noticed that for this patch to work, we need a
+> non-zero TX queue length.  This patch includes his work to change
+> the default macvtap TX queue length to 500.
+
+The only problem I can see with this patch is making it depend on
+the *TX* queue length. The point is that unlike tun/tap, the
+macvtap network interface's point of view is that this is the
+receive queue, not the transmit queue.
+
+In the TX direction, we really don't queue, since we simply forward
+to the lowerdev tx queue, so exposing the tunable to user space
+as the tx queue length is a little bit awkward, as well as inconsistent
+between macvtap and macvlan.
+
+> Reported-by: Mark Wagner <mwagner@redhat.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+As long as we're missing a better solution,
+
+Acked-by: Arnd Bergmann <arnd@arndb.de>
