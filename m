@@ -1,45 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: macvtap: Limit packet queue length
-Date: Fri, 23 Jul 2010 00:08:59 +0800
-Message-ID: <20100722160859.GB30723@gondor.apana.org.au>
-References: <20100722064157.GA25913@gondor.apana.org.au> <20100722074431.GA26744@gondor.apana.org.au> <201007221130.53612.arnd@arndb.de> <1279814726.3211.5.camel@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH nf-next-2.6] netfilter: add xt_cpu match
+Date: Thu, 22 Jul 2010 18:24:14 +0200
+Message-ID: <1279815854.2467.112.camel@edumazet-laptop>
+References: <1279807385.2467.67.camel@edumazet-laptop>
+	 <alpine.LSU.2.01.1007221611510.1619@obet.zrqbmnf.qr>
+	 <1279811939.2467.79.camel@edumazet-laptop>
+	 <alpine.LSU.2.01.1007221736150.12308@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mark Wagner <mwagner@redhat.com>,
-	Chris Wright <chrisw@sous-sol.org>
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:35871 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754781Ab0GVQJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 12:09:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1279814726.3211.5.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1007221736150.12308@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 22, 2010 at 09:05:26AM -0700, Shirley Ma wrote:
-> On Thu, 2010-07-22 at 11:30 +0200, Arnd Bergmann wrote:
-> > In the TX direction, we really don't queue, since we simply forward
-> > to the lowerdev tx queue, so exposing the tunable to user space
-> > as the tx queue length is a little bit awkward, as well as
-> > inconsistent
-> > between macvtap and macvlan.
-> 
-> Maybe we can use lowerdev backlog queue size here from receiving path
-> here?
+Le jeudi 22 juillet 2010 =C3=A0 17:39 +0200, Jan Engelhardt a =C3=A9cri=
+t :
 
-No, you may wish to set different queue lengths for different
-macvtap devices over the same lowerdev so you definitely don't
-want to use any lowerdev parameter for this.
+> Never say never. "long" already bit people in the past, and now we
+> have that CONFIG_COMPAT stuff.
+>=20
 
-I honestly don't see any problems with using tx_queue_len since
-it isn't used by anything else for macvtap.
+I know pretty well the "long" problem, I received one of the first alph=
+a
+machine ever built in the world (DEC 3000 AXP, with a fast 133 MHz
+cpu ;) ), before I began to use Linux :)
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+> If invert is the only flag, perhaps it makes sense to use __u8=20
+> for it.=20
+>=20
+
+Quite frankly it brings more problems than plain u32
+
+- Possible security problems (padding bytes). Not applicable to
+iptables.
+
+- Some arches have slow byte/short accesses (21064 for example :) )
+
+"int" is the natural type, fast on all arches.
+
+- Given alignment requirements of iptables rules, using less than 32bit=
+s
+here saves no ram.
+
+But I dont care that much.
+
+I even see compiler doesnt want to use a XOR instruction :
+
+00000018 <cpu_mt>:
+  18:	55                   	push   %ebp
+  19:	8b 42 04             	mov    0x4(%edx),%eax
+  1c:	64 8b 15 00 00 00 00 	mov    %fs:0x0,%edx
+  23:	89 e5                	mov    %esp,%ebp
+  25:	5d                   	pop    %ebp
+  26:	39 10                	cmp    %edx,(%eax)
+  28:	0f 94 c2             	sete   %dl
+  2b:	0f b6 d2             	movzbl %dl,%edx
+  2e:	3b 50 04             	cmp    0x4(%eax),%edx
+  31:	0f 95 c0             	setne  %al
+  34:	c3                   	ret   =20
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
