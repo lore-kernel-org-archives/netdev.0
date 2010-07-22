@@ -1,77 +1,58 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch v2.6 4/4] libxt_ipvs: user-space lib for netfilter
- matcher xt_ipvs
-Date: Thu, 22 Jul 2010 10:38:17 +0900
-Message-ID: <20100722013817.GB15008@verge.net.au>
-References: <20100711090342.035149543@vergenet.net>
- <20100711090500.421568837@vergenet.net>
- <20100721012146.GC22966@verge.net.au>
- <alpine.LSU.2.01.1007210834570.10568@obet.zrqbmnf.qr>
- <20100721132159.GN6418@verge.net.au>
- <alpine.LSU.2.01.1007211526490.25445@obet.zrqbmnf.qr>
- <20100721134102.GA21188@verge.net.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the  nettree
+Date: Thu, 22 Jul 2010 12:06:39 +1000
+Message-ID: <20100722120639.cc8d56a5.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Malcolm Turnbull <malcolm@loadbalancer.org>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julius Volz <julius.volz@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Eder <heder@google.com>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100721134102.GA21188@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__22_Jul_2010_12_06_39_+1000_A+Y/vdu.lzS0Gq1l"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	Florian Fainelli <florian@openwrt.org>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 21, 2010 at 10:41:03PM +0900, Simon Horman wrote:
-> On Wed, Jul 21, 2010 at 03:28:16PM +0200, Jan Engelhardt wrote:
-> > 
-> > On Wednesday 2010-07-21 15:21, Simon Horman wrote:
-> > >> On Wednesday 2010-07-21 03:21, Simon Horman wrote:
-> > >> >> +
-> > >> >> +#define XT_IPVS_IPVS_PROPERTY	(1 << 0) /* all other options imply this one */
-> > >> >> +#define XT_IPVS_PROTO		(1 << 1)
-> > >> >> +#define XT_IPVS_VADDR		(1 << 2)
-> > >> >> +#define XT_IPVS_VPORT		(1 << 3)
-> > >> >> +#define XT_IPVS_DIR		(1 << 4)
-> > >> >> +#define XT_IPVS_METHOD		(1 << 5)
-> > >> >> +#define XT_IPVS_VPORTCTL	(1 << 6)
-> > >> >> +#define XT_IPVS_MASK		((1 << 7) - 1)
-> > >> >> +#define XT_IPVS_ONCE_MASK	(XT_IPVS_MASK & ~XT_IPVS_IPVS_PROPERTY)
-> > >> 
-> > >> Can't these just be an enum?
-> > >
-> > >More than one option can be used at once - they form a mini bitmap -
-> > >so no, I don't think we can use an enum.
-> > 
-> > An enum does not dictate that you cannot combine values of it with itself.
-> > 
-> > 	enum { A = 1 << 0, B = 1 << 0, };
-> > 	unsigned int flags = A | B;
-> > 
-> > is perfectly fine, which is what other modules do.
-> 
-> Understood. I'll make it so.
+--Signature=_Thu__22_Jul_2010_12_06_39_+1000_A+Y/vdu.lzS0Gq1l
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Hi Jan,
+Hi Dave,
 
-I must confess that I'm not familiar with using enum in this way.
-Can I confirm that you are suggesting the following?
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+produced this warning:
 
-enum {
-	XT_IPVS_IPVS_PROPERTY =	1 << 0, /* all other options imply this one */
-	XT_IPVS_PROTO =		1 << 1,
-	XT_IPVS_VADDR =		1 << 2,
-	XT_IPVS_VPORT =		1 << 3,
-	XT_IPVS_DIR =		1 << 4,
-	XT_IPVS_METHOD =	1 << 5,
-	XT_IPVS_VPORTCTL =	1 << 6,
-	XT_IPVS_MASK =		(1 << 7) - 1,
-	XT_IPVS_ONCE_MASK =	(XT_IPVS_MASK & ~XT_IPVS_IPVS_PROPERTY)
-};
+drivers/net/r6040.c: In function 'r6040_ioctl':
+drivers/net/r6040.c:513: warning: passing argument 2 of 'phy_mii_ioctl' fro=
+m incompatible pointer type
+include/linux/phy.h:522: note: expected 'struct ifreq *' but argument is of=
+ type 'struct mii_ioctl_data *'
 
+Introduced by commit 28b041139e344ecd0f144d6205b004ae354cfa1e ("net:
+preserve ifreq parameter when calling generic phy_mii_ioctl()") (which
+changed the phy_mii_ioctl() API) interacting with commit
+3831861b4ad8fd0ad7110048eb3e155628799d2b ("r6040: implement phylib")
+(which added a use of that function).
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Thu__22_Jul_2010_12_06_39_+1000_A+Y/vdu.lzS0Gq1l
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMR6evAAoJEDMEi1NhKgbsMp0H/2/4hpmW8EHFeoyA5v6L2lfl
+FbiRmU/tVEja4RLlz1sAUV5BgvYWeibmmy0/srNnC84DEMk+chQp1xS3pU2ONyFz
+HqnUJoXsgJcuVQJTbrcr+cX265czLbRRUAXf463OZvYLjJi8OIDB5jGnlaFEUtNm
+F8JkrnndCxJgE803QPJ8nlR3akkjb8Niv99Tn2prh+m7hw3WCx3lZ3gFGSUis9+A
+g+hrQq1zJUvXjzzOImLHLf2FN8LjBQFdDavRLik8FvqvCnY1SEHt30fQeN55TI5h
+3KDZm9pHmxs16wiDYK9NQfcibOoX9l+nE1t74+odHcoUeH95twczC0o4VLdAVqA=
+=DhRj
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__22_Jul_2010_12_06_39_+1000_A+Y/vdu.lzS0Gq1l--
