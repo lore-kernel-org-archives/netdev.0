@@ -1,83 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: macvtap: Limit packet queue length
-Date: Thu, 22 Jul 2010 14:41:57 +0800
-Message-ID: <20100722064157.GA25913@gondor.apana.org.au>
+From: Stefan Assmann <sassmann@redhat.com>
+Subject: Re: [PATCH net-next] sysfs: add entry to indicate network interfaces
+ with random MAC address
+Date: Thu, 22 Jul 2010 08:53:39 +0200
+Message-ID: <4C47EAF3.3080602@redhat.com>
+References: <20100721150732.GR7497@gospo.rdu.redhat.com> <20100721102816.4bef5ada@nehalam> <20100721.103249.107094774.davem@davemloft.net> <201007211129.48288.leedom@chelsio.com> <43F901BD926A4E43B106BF17856F0755F184620A@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Wagner <mwagner@redhat.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:47929 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752564Ab0GVGmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 02:42:01 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Casey Leedom <leedom@chelsio.com>,
+	David Miller <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"andy@greyhouse.net" <andy@greyhouse.net>,
+	"harald@redhat.com" <harald@redhat.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <43F901BD926A4E43B106BF17856F0755F184620A@orsmsx508.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi:
+On 21.07.2010 20:43, Rose, Gregory V wrote:
+> I'm curious, what happens when the VM using the VF migrates to a new machine and has another VF assigned to with a different MAC address?
+> 
+> Intel's view of things is that we don't use persistent MAC addresses in our VFs because the MAC address belongs to the VM and when it migrates it's going to want to use another VF with the same MAC address.  If they're persistent I'm wondering how that can be done.
+> 
+> This discussion has come about because some folks want to use the VF in the Host VMM.  The original design goal for Intel was that VFs would be assigned to VMs and that VMM vendors would want to assign MAC addresses with their own assigned OUI's.
 
-macvtap: Limit packet queue length
+Using the VF in the host is a feature and I'm sure people will think of
+ways to make good use of it. However the actual problem we've seen is a
+more practical one. So to pass-through a VF to a VM the host has to be
+aware that the VF exists. Therefore you usually have to enable the VF in
+the host (i.e. specify the max_vfs parameter). The device will be
+discovered by the system and because of the random MAC address udev
+ignores the new device. With the additional information we provide with
+our solution udev will be able to recognize the device by it's "device
+path" and handle it properly (until you decide to pass it to a VM or
+just be happy with it in the host).
 
-Mark Wagner reported OOM symptoms when sending UDP traffic over
-a macvtap link to a kvm receiver.
+Remember the issue that lead to the proposal of renaming VFs to vfeth?
+That's exactly the problem we try to fix. Additional benefit of an
+"address assignment type" as Ben likes to call it would be the handling
+of MAC address stealing NICs.
 
-This appears to be caused by the fact that macvtap packet queues
-are unlimited in length.  This means that if the receiver can't
-keep up with the rate of flow, then we will hit OOM. Of course
-it gets worse if the OOM killer then decides to kill the receiver.
-
-This patch imposes a cap on the packet queue length, in the same
-way as the tuntap driver, using the device TX queue length.
-
-Please note that macvtap currently has no way of giving congestion
-notification, that means the software device TX queue cannot be
-used and packets will always be dropped once the macvtap driver
-queue fills up.
-
-This shouldn't be a great problem for the scenario where macvtap
-is used to feed a kvm receiver, as the traffic is most likely
-external in origin so congestion notification can't be applied
-anyway.
-
-Of course, if anybody decides to complain about guest-to-guest
-UDP packet loss down the track, then we may have to revisit this.
-
-Incidentally, this patch also fixes a real memory leak when
-macvtap_get_queue fails.
-
-Reported-by: Mark Wagner <mwagner@redhat.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index a8a94e2..488d3b9 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -180,11 +180,18 @@ static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct macvtap_queue *q = macvtap_get_queue(dev, skb);
- 	if (!q)
--		return -ENOLINK;
-+		goto drop;
-+
-+	if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
-+		goto drop;
- 
- 	skb_queue_tail(&q->sk.sk_receive_queue, skb);
- 	wake_up_interruptible_poll(sk_sleep(&q->sk), POLLIN | POLLRDNORM | POLLRDBAND);
--	return 0;
-+	return NET_RX_SUCCESS;
-+
-+drop:
-+	kfree_skb(skb);
-+	return NET_RX_DROP;
- }
- 
- /*
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  Stefan
+--
+Stefan Assmann         | Red Hat GmbH
+Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
+                       | HR: Amtsgericht Muenchen HRB 153243
+                       | GF: Brendan Lane, Charlie Peters,
+sassmann at redhat.com |     Michael Cunningham, Charles Cachera
