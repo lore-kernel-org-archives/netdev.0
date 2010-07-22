@@ -1,44 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: [net 2/2] veth:  Remove redundant timestamp assignment.
-Date: Thu, 22 Jul 2010 12:54:48 -0700
-Message-ID: <1279828488-17800-3-git-send-email-greearb@candelatech.com>
-References: <1279828488-17800-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: macvtap: Limit packet queue length
+Date: Thu, 22 Jul 2010 12:58:08 -0700 (PDT)
+Message-ID: <20100722.125808.232541418.davem@davemloft.net>
+References: <20100722064157.GA25913@gondor.apana.org.au>
+	<1279814398.3211.1.camel@localhost.localdomain>
+	<20100722160731.GA30723@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mashirle@us.ibm.com, netdev@vger.kernel.org, arnd@arndb.de,
+	mwagner@redhat.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54553 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753694Ab0GVTzA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 15:55:00 -0400
-In-Reply-To: <1279828488-17800-1-git-send-email-greearb@candelatech.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35433
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751635Ab0GVT5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 15:57:52 -0400
+In-Reply-To: <20100722160731.GA30723@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The timestamp is already cleared in the dev_forward_skb
-logic.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 23 Jul 2010 00:07:31 +0800
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 0cfbb3d... 161ee02... M	drivers/net/veth.c
- drivers/net/veth.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+> On Thu, Jul 22, 2010 at 08:59:58AM -0700, Shirley Ma wrote:
+>> On Thu, 2010-07-22 at 14:41 +0800, Herbert Xu wrote:
+>> >  {
+>> >         struct macvtap_queue *q = macvtap_get_queue(dev, skb);
+>> >         if (!q)
+>> > -               return -ENOLINK;
+>> > +               goto drop;
+>> > +
+>> > +       if (skb_queue_len(&q->sk.sk_receive_queue) >=
+>> > dev->tx_queue_len)
+>> > +               goto drop;
+>> > 
+>> 
+>> Do we need to orphan skb here, just like tun?
+> 
+> We could, but that is orthogonal to the problem at hand so feel
+> free to do that in another patch.
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 0cfbb3d..161ee02 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -181,11 +181,6 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (dev->features & NETIF_F_NO_CSUM)
- 		skb->ip_summed = rcv_priv->ip_summed;
- 
--	/* Zero out the time-stamp so that receiving code is forced
--	 * to recalculate it.
--	 */
--	skb->tstamp.tv64 = 0;
--
- 	length = skb->len + ETH_HLEN;
- 	if (dev_forward_skb(rcv, skb) != NET_RX_SUCCESS)
- 		goto rx_drop;
--- 
-1.6.2.5
-
+These days, the stack pre-orphans all packets sent to ->ndo_start_xmit()
+in dev_hard_start_xmit() as long as socket based TX timestamping is not
+active for the packet.
