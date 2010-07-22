@@ -1,20 +1,18 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning after merge of the  nettree
-Date: Thu, 22 Jul 2010 12:06:39 +1000
-Message-ID: <20100722120639.cc8d56a5.sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the net tree
+Date: Thu, 22 Jul 2010 12:11:57 +1000
+Message-ID: <20100722121157.344c8462.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA1";
- boundary="Signature=_Thu__22_Jul_2010_12_06_39_+1000_A+Y/vdu.lzS0Gq1l"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	Florian Fainelli <florian@openwrt.org>
+ boundary="Signature=_Thu__22_Jul_2010_12_11_57_+1000_icAvp+NkShx5C8Su"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Thu__22_Jul_2010_12_06_39_+1000_A+Y/vdu.lzS0Gq1l
+--Signature=_Thu__22_Jul_2010_12_11_57_+1000_icAvp+NkShx5C8Su
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -24,35 +22,31 @@ Hi Dave,
 After merging the net tree, today's linux-next build (x86_64 allmodconfig)
 produced this warning:
 
-drivers/net/r6040.c: In function 'r6040_ioctl':
-drivers/net/r6040.c:513: warning: passing argument 2 of 'phy_mii_ioctl' fro=
-m incompatible pointer type
-include/linux/phy.h:522: note: expected 'struct ifreq *' but argument is of=
- type 'struct mii_ioctl_data *'
+drivers/vhost/net.c: In function 'vhost_net_set_backend':
+drivers/vhost/net.c:536: warning: label 'done' defined but not used
 
-Introduced by commit 28b041139e344ecd0f144d6205b004ae354cfa1e ("net:
-preserve ifreq parameter when calling generic phy_mii_ioctl()") (which
-changed the phy_mii_ioctl() API) interacting with commit
-3831861b4ad8fd0ad7110048eb3e155628799d2b ("r6040: implement phylib")
-(which added a use of that function).
+Introduced by commit 11fe883936980fe242869d671092a466cf1db3e3 ("Merge
+branch 'master' of
+master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6") which
+kept the unneeded label.  Sorry if I misguided you.
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 http://www.canb.auug.org.au/~sfr/
 
---Signature=_Thu__22_Jul_2010_12_06_39_+1000_A+Y/vdu.lzS0Gq1l
+--Signature=_Thu__22_Jul_2010_12_11_57_+1000_icAvp+NkShx5C8Su
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iQEcBAEBAgAGBQJMR6evAAoJEDMEi1NhKgbsMp0H/2/4hpmW8EHFeoyA5v6L2lfl
-FbiRmU/tVEja4RLlz1sAUV5BgvYWeibmmy0/srNnC84DEMk+chQp1xS3pU2ONyFz
-HqnUJoXsgJcuVQJTbrcr+cX265czLbRRUAXf463OZvYLjJi8OIDB5jGnlaFEUtNm
-F8JkrnndCxJgE803QPJ8nlR3akkjb8Niv99Tn2prh+m7hw3WCx3lZ3gFGSUis9+A
-g+hrQq1zJUvXjzzOImLHLf2FN8LjBQFdDavRLik8FvqvCnY1SEHt30fQeN55TI5h
-3KDZm9pHmxs16wiDYK9NQfcibOoX9l+nE1t74+odHcoUeH95twczC0o4VLdAVqA=
-=DhRj
+iQEcBAEBAgAGBQJMR6jtAAoJEDMEi1NhKgbsnwQH/j4Fb9LUcVQ/+ST4FIvprO7G
+TLE5keUqKQ55pe6Npl8u52SlG41wHzjjVmw16EFWy9zNcbOIWWkjIUFi3PlHuHEb
+Crmqz/wiLlDbvwM7qARFE0uwpw6aJa2U4LNSO161lvucuMvk7HFYgMkpKHiGJSUe
+gvyZQJbzN7zQeIzONpAU37vXfGdfH473FtwvqricN+P6+3lNOxE2ZyaUc33Xpnq3
+GRKkGGKGTfODNV5creopqVU/wnGpFnYTOllGuQNtr+FDxYvb1H8KMAYPiRhkq4+i
+w5cXjW02QkHcAuBn9X3ZuSRHEgYRMONgI0Nqzl+eE0sja8AkSyyLLYzGtqy1ySE=
+=8Wxn
 -----END PGP SIGNATURE-----
 
---Signature=_Thu__22_Jul_2010_12_06_39_+1000_A+Y/vdu.lzS0Gq1l--
+--Signature=_Thu__22_Jul_2010_12_11_57_+1000_icAvp+NkShx5C8Su--
