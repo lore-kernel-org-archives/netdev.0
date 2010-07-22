@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: With disable_ipv6 set to 1 on an interface, ff00:/8 and
- fe80::/64 are still added on device UP
-Date: Thu, 22 Jul 2010 13:41:53 -0700 (PDT)
-Message-ID: <20100722.134153.214018838.davem@davemloft.net>
-References: <AANLkTinHkaL49MS9agf525GRhWXSWIvVmn-Qz33Hcg6Y@mail.gmail.com>
-	<4C460856.5090701@hp.com>
+Subject: Re: [PATCH net-next-2.6] net: RTA_MARK addition
+Date: Thu, 22 Jul 2010 13:46:32 -0700 (PDT)
+Message-ID: <20100722.134632.15715628.davem@davemloft.net>
+References: <1279699394.2452.6.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maheshkelkar@gmail.com, netdev@vger.kernel.org
-To: brian.haley@hp.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60763
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48328
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756932Ab0GVUlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 16:41:37 -0400
-In-Reply-To: <4C460856.5090701@hp.com>
+	by vger.kernel.org with ESMTP id S1759992Ab0GVUqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 16:46:15 -0400
+In-Reply-To: <1279699394.2452.6.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Tue, 20 Jul 2010 16:34:30 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 21 Jul 2010 10:03:14 +0200
 
-> If the interface has IPv6 disabled, don't add a multicast or
-> link-local route since we won't be adding a link-local address.
+> Add a new rt attribute, RTA_MARK, and use it in
+> rt_fill_info()/inet_rtm_getroute() to support following commands :
 > 
-> Reported-by: Mahesh Kelkar <maheshkelkar@gmail.com>
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> ip route get 192.168.20.110 mark NUMBER
+> ip route get 192.168.20.108 from 192.168.20.110 iif eth1 mark NUMBER
+> ip route list cache [192.168.20.110] mark NUMBER
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks Brian.
+Applied, thanks Eric.
