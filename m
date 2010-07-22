@@ -1,47 +1,55 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [patch v2.6 4/4] libxt_ipvs: user-space lib for netfilter matcher
- xt_ipvs
-Date: Thu, 22 Jul 2010 08:25:01 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1007220823340.4980@obet.zrqbmnf.qr>
-References: <20100711090342.035149543@vergenet.net> <20100711090500.421568837@vergenet.net> <20100721012146.GC22966@verge.net.au> <alpine.LSU.2.01.1007210834570.10568@obet.zrqbmnf.qr> <20100721132159.GN6418@verge.net.au> <alpine.LSU.2.01.1007211526490.25445@obet.zrqbmnf.qr>
- <20100721134102.GA21188@verge.net.au> <20100722013817.GB15008@verge.net.au>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH 0/3 net-2.6] bnx2x: Bug fixes in statistics handling
+Date: Wed, 21 Jul 2010 23:35:10 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDE659E71E@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <1279727936.14094.41.camel@lb-tlvb-vladz>
+ <20100721.111243.112856946.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Malcolm Turnbull <malcolm@loadbalancer.org>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julius Volz <julius.volz@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Eder <heder@google.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:49938 "EHLO borg.medozas.de"
+Received: from mms2.broadcom.com ([216.31.210.18]:3328 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750799Ab0GVGZE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jul 2010 02:25:04 -0400
-In-Reply-To: <20100722013817.GB15008@verge.net.au>
+	id S1751041Ab0GVGfZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 02:35:25 -0400
+In-Reply-To: <20100721.111243.112856946.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, July 21, 2010 9:13 PM
+> To: Vladislav Zolotarov
+> Cc: netdev@vger.kernel.org; Eilon Greenstein; Dmitry Kravkov
+> Subject: Re: [PATCH 0/3 net-2.6] bnx2x: Bug fixes in statistics
+> handling
+> 
+> From: "Vladislav Zolotarov" <vladz@broadcom.com>
+> Date: Wed, 21 Jul 2010 18:58:55 +0300
+> 
+> > Dave, pls., consider applying the following patches to the net-2.6
+> tree.
+> > They include 2 bugs fixes in the statistics handling flow:
+> 
+> All applied.
 
-On Thursday 2010-07-22 03:38, Simon Horman wrote:
->
->I must confess that I'm not familiar with using enum in this way.
->Can I confirm that you are suggesting the following?
->
->enum {
->	XT_IPVS_IPVS_PROPERTY =	1 << 0, /* all other options imply this one */
->	XT_IPVS_PROTO =		1 << 1,
->	XT_IPVS_VADDR =		1 << 2,
->	XT_IPVS_VPORT =		1 << 3,
->	XT_IPVS_DIR =		1 << 4,
->	XT_IPVS_METHOD =	1 << 5,
->	XT_IPVS_VPORTCTL =	1 << 6,
->	XT_IPVS_MASK =		(1 << 7) - 1,
->	XT_IPVS_ONCE_MASK =	(XT_IPVS_MASK & ~XT_IPVS_IPVS_PROPERTY)
->};
+Thanks.
 
-Yes; You may drop the () in ONCE_MASK though.
+> 
+> There is a space character at the beginning of every "Signed-off-by:"
+> line in your patch postings, please get rid of them for future
+> submissions.
+
+Hmmm... No prob., will do. My git creates it this way for some reason.
+Probably some configuration glitch.
+
+Thanks again,
+vlad
+
+
