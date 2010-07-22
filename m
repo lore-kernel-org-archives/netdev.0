@@ -1,133 +1,77 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] LSM: Add post recvmsg() hook.
-Date: Thu, 22 Jul 2010 21:46:55 +0900
-Message-ID: <201007222146.FGC09386.OFOtFQOVFMJSLH@I-love.SAKURA.ne.jp>
-References: <201007220441.o6M4fcmC093106@www262.sakura.ne.jp>
-	<20100721.214517.236270570.davem@davemloft.net>
-	<201007220502.o6M52GJU098071@www262.sakura.ne.jp>
-	<20100721.220611.267376790.davem@davemloft.net>
+From: Sven Geggus <sven@gegg.us>
+Subject: minstrel_tx_status mac80211 WARNINGs in vanilla 2.6.34.1
+Date: Thu, 22 Jul 2010 14:30:01 +0200
+Message-ID: <20100722123000.GA16657@geggus.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, paul.moore@hp.com,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20100721.220611.267376790.davem@davemloft.net>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nerdhammel.gnuher.de ([88.198.0.170]:56130 "EHLO
+	nerdhammel.gnuher.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755530Ab0GVMs6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 08:48:58 -0400
+Received: from ultimate100.geggus.net ([2a01:198:297:1::1])
+	by nerdhammel.gnuher.de (envelope-from
+	<sven@gegg.us>)
+	with esmtpsa (TLS1.0:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.69)
+	id 1Obuua-0003w6-LA
+	for netdev@vger.kernel.org; Thu, 22 Jul 2010 14:30:04 +0200
+Received: from sven  by ultimate100.geggus.net (envelope-from
+	<sven@gegg.us>)
+	with local (Exim 4.69)
+	id 1ObuuX-0004NA-5c
+	for netdev@vger.kernel.org; Thu, 22 Jul 2010 14:30:01 +0200
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> > Then, why does below proposal lose information?
-> 
-> Peek changes state, now it's possible that two processes end up
-> receiving the packet.
+Hello,
 
-Indeed. We will need to protect sock->ops->recvmsg() call using a lock like
+running vanilla 2.6.34.1 I get the following warnings in  kernel log:
 
- static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct socket *sock,
- 				       struct msghdr *msg, size_t size, int flags)
- {
-+	int err;
- 	struct sock_iocb *si = kiocb_to_siocb(iocb);
- 
- 	sock_update_classid(sock->sk);
- 
- 	si->sock = sock;
- 	si->scm = NULL;
- 	si->msg = msg;
- 	si->size = size;
- 	si->flags = flags;
- 
--	return sock->ops->recvmsg(iocb, sock, msg, size, flags);
-+	err = security_socket_read_lock(sock);
-+	if (err)
-+		return err;
-+	err = sock->ops->recvmsg(iocb, sock, msg, size, flags);
-+	security_socket_read_unlock(sock);
-+	return err;
- }
+WARNING: at net/mac80211/rc80211_minstrel.c:70 minstrel_tx_status+0x67/0xd1 [mac80211]()
+Hardware name: SCENIC E300/E600
+Modules linked in: i915 drm_kms_helper drm video backlight output lp loop
+snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm
+snd_seq_dummy zd1211rw snd_seq_oss usbhid mac80211 option cfg80211
+snd_seq_midi usbserial snd_rawmidi snd_seq_midi_event snd_seq snd_timer
+snd_seq_device snd parport_pc ehci_hcd uhci_hcd soundcore intel_agp parport
+usbcore nls_base snd_page_alloc agpgart rng_core floppy sg
+Pid: 0, comm: swapper Tainted: G        W  2.6.34.1 #3
+Call Trace:
+ [<c102af25>] warn_slowpath_common+0x60/0x90
+ [<c102af62>] warn_slowpath_null+0xd/0x10
+ [<f83cbd48>] minstrel_tx_status+0x67/0xd1 [mac80211]
+ [<f83b6eb1>] ieee80211_tx_status+0x1f6/0x5ac [mac80211]
+ [<c1261533>] ? skb_dequeue+0x45/0x4c
+ [<f83b6896>] ieee80211_tasklet_handler+0x61/0xd6 [mac80211]
+ [<c102ed7d>] tasklet_action+0x62/0x9f
+ [<c102f331>] __do_softirq+0x77/0xe5
+ [<c102f3c5>] do_softirq+0x26/0x2b
+ [<c102f52f>] irq_exit+0x29/0x66
+ [<c1003e90>] do_IRQ+0x85/0x9b
+ [<c1002d29>] common_interrupt+0x29/0x30
+ [<c10083ac>] ? default_idle+0x2d/0x42
+ [<c1001a9b>] cpu_idle+0x44/0x71
+ [<c12e00de>] rest_init+0x96/0x98
+ [<c1498862>] start_kernel+0x2a5/0x2aa
+ [<c14980b7>] i386_start_kernel+0xb7/0xbf
+---[ end trace f22ceacef336878f ]---
 
-in addition to security_socket_recvmsg_force_peek() and
-security_socket_post_recvmsg().
+Wireless driver is zd1211rw.
 
-But locks like above break MSG_DONTWAIT since recv() without MSG_DONTWAIT
-calls wait_for_packet() inside __skb_recv_datagram().
-To make MSG_DONTWAIT work, I have to do like below.
+Did not test with older kernel because this device has not been in user on
+this machine before.
 
- struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned flags,
- 				    int *peeked, int *err)
-(...snipped...)
- 	do {
- 		/* Again only user level code calls this function, so nothing
- 		 * interrupt level will suddenly eat the receive_queue.
- 		 *
- 		 * Look at current nfs client by the way...
- 		 * However, this function was corrent in any case. 8)
- 		 */
- 		unsigned long cpu_flags;
- 
-+		/* < 0 if lock failed, 0 if no need to lock, > 0 if locked */
-+		int serialized = security_socket_read_lock(sk);
-+		if (serialized < 0) {
-+			error = serialized;
-+			goto no_packet;
-+		} else if (serialized > 0) {
-+			int err;
-+			spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
-+			skb = skb_peek(&sk->sk_receive_queue);
-+			spin_unlock_irqrestore(&sk->sk_receive_queue.lock,
-+					       cpu_flags);
-+			if (!skb)
-+				goto no_skb;
-+			err = security_socket_pre_recvmsg(sk, skb);
-+			if (err < 0) {
-+				error = err;
-+				security_socket_read_unlock(sk);
-+				goto no_packet;
-+			}
-+		}
-+
- 		spin_lock_irqsave(&sk->sk_receive_queue.lock, cpu_flags);
- 		skb = skb_peek(&sk->sk_receive_queue);
- 		if (skb) {
- 			*peeked = skb->peeked;
- 			if (flags & MSG_PEEK) {
- 				skb->peeked = 1;
- 				atomic_inc(&skb->users);
- 			} else
- 				__skb_unlink(skb, &sk->sk_receive_queue);
- 		}
- 		spin_unlock_irqrestore(&sk->sk_receive_queue.lock, cpu_flags);
- 
-+no_skb:
-+		if (serialized > 0)
-+			security_socket_read_unlock(sk);
- 		if (skb)
- 			return skb;
- 
- 		/* User doesn't want to wait */
- 		error = -EAGAIN;
- 		if (!timeo)
- 			goto no_packet;
- 
- 	} while (!wait_for_packet(sk, err, &timeo));
-(...snipped...)
- }
+WLAN does however seem to work anyway.
 
-Inserting LSM hooks like above will be the only way to work properly (i.e.
-handle MSG_DONTWAIT and avoid showing the same message to multiple readers
-and keep the queue's state unchanged upon error).
-But you said ( http://marc.info/?l=linux-netdev&m=124022463014713&w=2 )
+Regards
 
-> We worked so hard to split out this common code, it is simply
-> a non-starter for anyone to start putting protocol specific test
-> into here, or even worse to move this code back to being locally
-> copied into every protocol implementation.
+Sven
 
-when I proposed inserting LSM hooks into __skb_recv_datagram()
-( http://marc.info/?l=linux-netdev&m=124022463014672&w=2 ).
-So, I have no way to allow performing permission checks based on combination of
-"process who issued recv() request" and "source address/port of the message
-which the process is about to pick up" without breaking things (unless you
-accept inserting LSM hooks into __skb_recv_datagram())...
+-- 
+The source code is not comprehensible
+                 (found in bug section of man 8 telnetd on Redhat Linux)
+
+/me is giggls@ircnet, http://sven.gegg.us/ on the Web
