@@ -1,66 +1,78 @@
-From: Stefan Assmann <sassmann@redhat.com>
-Subject: Re: [PATCH net-next] sysfs: add attribute to indicate hw address
- assignment type
-Date: Thu, 22 Jul 2010 16:47:40 +0200
-Message-ID: <4C485A0C.7020500@redhat.com>
-References: <4C458CB7.3030508@redhat.com>	<4C458F50.4070200@ixiacom.com>	 <4C4593DA.9040207@redhat.com>	 <20100720.131839.134093789.davem@davemloft.net>	 <4C46AB60.5060008@redhat.com>	 <1279720478.2089.3.camel@achroite.uk.solarflarecom.com>	 <4C483E8D.4080300@redhat.com> <1279807643.2104.1.camel@achroite.uk.solarflarecom.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: minstrel_tx_status mac80211 WARNINGs in vanilla 2.6.34.1
+Date: Thu, 22 Jul 2010 10:47:23 -0400
+Message-ID: <20100722144723.GA2616@tuxdriver.com>
+References: <20100722123000.GA16657@geggus.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, abadea@ixiacom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gospo@redhat.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com, leedom@chelsio.com, harald@redhat.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1279807643.2104.1.camel@achroite.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	nbd@openwrt.org
+To: Sven Geggus <sven@gegg.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39958 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751745Ab0GVPAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jul 2010 11:00:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20100722123000.GA16657@geggus.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22.07.2010 16:07, Ben Hutchings wrote:
-> On Thu, 2010-07-22 at 14:50 +0200, Stefan Assmann wrote:
->> On 21.07.2010 15:54, Ben Hutchings wrote:
->>> On Wed, 2010-07-21 at 10:10 +0200, Stefan Assmann wrote:
->>>> I put Alex' idea into code for further discussion, keeping the names
->>>> mentioned here until we agree on the scope of this attribute. When we
->>>> have settled I'll post a patch with proper patch description.
->>> [...]
->>>
->>> Just a little nitpick: I think it would be clearer to use a more
->>> specific term like 'address source' or 'address assignment type' rather
->>> than 'address type'.
->>
->> Here's a proposal for the final patch.
+On Thu, Jul 22, 2010 at 02:30:01PM +0200, Sven Geggus wrote:
+> Hello,
 > 
-> Looks good, but...
+> running vanilla 2.6.34.1 I get the following warnings in  kernel log:
 > 
-> [...]
->>  /**
->> + * dev_hw_addr_random - Create random MAC and set device flag
->> + * @dev: pointer to net_device structure
->> + * @addr: Pointer to a six-byte array containing the Ethernet address
->> + *
->> + * Generate random MAC to be used by a device and set addr_assign_type
->> + * so the state can be read by sysfs and be used by udev.
->> + */
->> +static inline void dev_hw_addr_random(struct net_device *dev, u8 *hwaddr)
->> +{
->> +	dev->addr_assign_type |= NET_ADDR_RANDOM;
->> +	random_ether_addr(hwaddr);
->> +}
-> [...]
+> WARNING: at net/mac80211/rc80211_minstrel.c:70 minstrel_tx_status+0x67/0xd1 [mac80211]()
+> Hardware name: SCENIC E300/E600
+> Modules linked in: i915 drm_kms_helper drm video backlight output lp loop
+> snd_intel8x0 snd_ac97_codec ac97_bus snd_pcm_oss snd_mixer_oss snd_pcm
+> snd_seq_dummy zd1211rw snd_seq_oss usbhid mac80211 option cfg80211
+> snd_seq_midi usbserial snd_rawmidi snd_seq_midi_event snd_seq snd_timer
+> snd_seq_device snd parport_pc ehci_hcd uhci_hcd soundcore intel_agp parport
+> usbcore nls_base snd_page_alloc agpgart rng_core floppy sg
+> Pid: 0, comm: swapper Tainted: G        W  2.6.34.1 #3
+> Call Trace:
+>  [<c102af25>] warn_slowpath_common+0x60/0x90
+>  [<c102af62>] warn_slowpath_null+0xd/0x10
+>  [<f83cbd48>] minstrel_tx_status+0x67/0xd1 [mac80211]
+>  [<f83b6eb1>] ieee80211_tx_status+0x1f6/0x5ac [mac80211]
+>  [<c1261533>] ? skb_dequeue+0x45/0x4c
+>  [<f83b6896>] ieee80211_tasklet_handler+0x61/0xd6 [mac80211]
+>  [<c102ed7d>] tasklet_action+0x62/0x9f
+>  [<c102f331>] __do_softirq+0x77/0xe5
+>  [<c102f3c5>] do_softirq+0x26/0x2b
+>  [<c102f52f>] irq_exit+0x29/0x66
+>  [<c1003e90>] do_IRQ+0x85/0x9b
+>  [<c1002d29>] common_interrupt+0x29/0x30
+>  [<c10083ac>] ? default_idle+0x2d/0x42
+>  [<c1001a9b>] cpu_idle+0x44/0x71
+>  [<c12e00de>] rest_init+0x96/0x98
+>  [<c1498862>] start_kernel+0x2a5/0x2aa
+>  [<c14980b7>] i386_start_kernel+0xb7/0xbf
+> ---[ end trace f22ceacef336878f ]---
 > 
-> ...why '|=' and not '='?
+> Wireless driver is zd1211rw.
+> 
+> Did not test with older kernel because this device has not been in user on
+> this machine before.
+> 
+> WLAN does however seem to work anyway.
 
-The intention is to use addr_assign_type as a bit field.
+Well, I just took a quick look -- so, I'm not 100% sure...
 
-Okay it it might not make too much sense to 'steal' a random MAC
-address but in case we add more types later it might get useful.
+But, it looks to me like zd1211rw is reporting tx status on a rate
+that minstrel didn't expect it to use.  It seems like the hardware
+is pre-wired to do retries on sequentially lower rates, which seems
+a bit incompatible with minstrel's worldview.
 
-  Stefan
---
-Stefan Assmann         | Red Hat GmbH
-Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
-                       | HR: Amtsgericht Muenchen HRB 153243
-                       | GF: Brendan Lane, Charlie Peters,
-sassmann at redhat.com |     Michael Cunningham, Charles Cachera
+Felix, can we accomodate this?  The "WLAN does however seem to work
+anyway" seems to suggest things work, so can we at least not yell
+about it?
+
+Thanks,
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
