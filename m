@@ -1,1201 +1,155 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] drivers/net/qla3xxx.c: Update logging message style
-Date: Thu, 22 Jul 2010 15:33:31 -0700
-Message-ID: <4057a685dc2c277e9e3137c4f0e01eeb389971a4.1279837596.git.joe@perches.com>
-Cc: linux-driver@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ron Mercer <ron.mercer@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] Re: mmotm 2010-07-19 - e1000e vs.
+	pm_qos_update_request issues
+Date: Thu, 22 Jul 2010 15:37:47 -0700
+Message-ID: <AANLkTinc3=fd7j0v+6iCpLuvpskW5jbxKCDcScuX_EQy@mail.gmail.com>
+References: <201007200007.o6K07Xbg028863@imap1.linux-foundation.org>
+	<6182.1279658125@localhost>
+	<20100720140751.71ee83a8.akpm@linux-foundation.org>
+	<20100721091200.40c43158@schatten.dmk.lab>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: James Bottomley <James.Bottomley@hansenpartnership.com>,
+	Valdis.Kletnieks@vt.edu, mark gross <markgross@thegnar.org>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Florian Mickler <florian@mickler.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20100721091200.40c43158@schatten.dmk.lab>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Use pr_<level>
-Use netdev_<level>
-Use netif_<level>
-Remove #define PFX
-Improve a couple of loops to avoid deep indentation.
-
-Compile tested only
-
-$ size drivers/net/qla3xxx.o.*
-   text    data     bss     dec     hex filename
-  51603     212   13864   65679   1008f drivers/net/qla3xxx.o.old
-  50413     212   13864   64489    fbe9 drivers/net/qla3xxx.o.new
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/qla3xxx.c |  524 +++++++++++++++++++------------------------------
- 1 files changed, 200 insertions(+), 324 deletions(-)
-
-diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
-index 54ebb65..74debf1 100644
---- a/drivers/net/qla3xxx.c
-+++ b/drivers/net/qla3xxx.c
-@@ -5,6 +5,8 @@
-  * See LICENSE.qla3xxx for copyright and licensing details.
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/kernel.h>
- #include <linux/init.h>
- #include <linux/types.h>
-@@ -39,11 +41,13 @@
- #define DRV_NAME  	"qla3xxx"
- #define DRV_STRING 	"QLogic ISP3XXX Network Driver"
- #define DRV_VERSION	"v2.03.00-k5"
--#define PFX		DRV_NAME " "
- 
- static const char ql3xxx_driver_name[] = DRV_NAME;
- static const char ql3xxx_driver_version[] = DRV_VERSION;
- 
-+#define TIMED_OUT_MSG							\
-+"Timed out waiting for management port to get free before issuing command\n"
-+
- MODULE_AUTHOR("QLogic Corporation");
- MODULE_DESCRIPTION("QLogic ISP3XXX Network Driver " DRV_VERSION " ");
- MODULE_LICENSE("GPL");
-@@ -139,27 +143,22 @@ static int ql_wait_for_drvr_lock(struct ql3_adapter *qdev)
- {
- 	int i = 0;
- 
--	while (1) {
--		if (!ql_sem_lock(qdev,
--				 QL_DRVR_SEM_MASK,
--				 (QL_RESOURCE_BITS_BASE_CODE | (qdev->mac_index)
--				  * 2) << 1)) {
--			if (i < 10) {
--				ssleep(1);
--				i++;
--			} else {
--				printk(KERN_ERR PFX "%s: Timed out waiting for "
--				       "driver lock...\n",
--				       qdev->ndev->name);
--				return 0;
--			}
--		} else {
--			printk(KERN_DEBUG PFX
--			       "%s: driver lock acquired.\n",
--			       qdev->ndev->name);
-+	while (i < 10) {
-+		if (i)
-+			ssleep(1);
-+
-+		if (ql_sem_lock(qdev,
-+				QL_DRVR_SEM_MASK,
-+				(QL_RESOURCE_BITS_BASE_CODE | (qdev->mac_index)
-+				 * 2) << 1)) {
-+			netdev_printk(KERN_DEBUG, qdev->ndev,
-+				      "driver lock acquired\n");
- 			return 1;
- 		}
- 	}
-+
-+	netdev_err(qdev->ndev, "Timed out waiting for driver lock...\n");
-+	return 0;
- }
- 
- static void ql_set_register_page(struct ql3_adapter *qdev, u32 page)
-@@ -308,8 +307,7 @@ static void ql_release_to_lrg_buf_free_list(struct ql3_adapter *qdev,
- 		lrg_buf_cb->skb = netdev_alloc_skb(qdev->ndev,
- 						   qdev->lrg_buffer_len);
- 		if (unlikely(!lrg_buf_cb->skb)) {
--			printk(KERN_ERR PFX "%s: failed netdev_alloc_skb().\n",
--			       qdev->ndev->name);
-+			netdev_err(qdev->ndev, "failed netdev_alloc_skb()\n");
- 			qdev->lrg_buf_skb_check++;
- 		} else {
- 			/*
-@@ -324,8 +322,9 @@ static void ql_release_to_lrg_buf_free_list(struct ql3_adapter *qdev,
- 					     PCI_DMA_FROMDEVICE);
- 			err = pci_dma_mapping_error(qdev->pdev, map);
- 			if(err) {
--				printk(KERN_ERR "%s: PCI mapping failed with error: %d\n",
--				       qdev->ndev->name, err);
-+				netdev_err(qdev->ndev,
-+					   "PCI mapping failed with error: %d\n",
-+					   err);
- 				dev_kfree_skb(lrg_buf_cb->skb);
- 				lrg_buf_cb->skb = NULL;
- 
-@@ -556,8 +555,7 @@ static int ql_get_nvram_params(struct ql3_adapter *qdev)
- 	if(ql_sem_spinlock(qdev, QL_NVRAM_SEM_MASK,
- 			(QL_RESOURCE_BITS_BASE_CODE | (qdev->mac_index) *
- 			 2) << 10)) {
--		printk(KERN_ERR PFX"%s: Failed ql_sem_spinlock().\n",
--			__func__);
-+		pr_err("%s: Failed ql_sem_spinlock()\n", __func__);
- 		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
- 		return -1;
- 	}
-@@ -570,8 +568,8 @@ static int ql_get_nvram_params(struct ql3_adapter *qdev)
- 	ql_sem_unlock(qdev, QL_NVRAM_SEM_MASK);
- 
- 	if (checksum != 0) {
--		printk(KERN_ERR PFX "%s: checksum should be zero, is %x!!\n",
--		       qdev->ndev->name, checksum);
-+		netdev_err(qdev->ndev, "checksum should be zero, is %x!!\n",
-+			   checksum);
- 		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
- 		return -1;
- 	}
-@@ -668,11 +666,7 @@ static int ql_mii_write_reg_ex(struct ql3_adapter *qdev,
- 	scanWasEnabled = ql_mii_disable_scan_mode(qdev);
- 
- 	if (ql_wait_for_mii_ready(qdev)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s Timed out waiting for management port to "
--			       "get free before issuing command.\n",
--			       qdev->ndev->name);
-+		netif_warn(qdev, link, qdev->ndev, TIMED_OUT_MSG);
- 		return -1;
- 	}
- 
-@@ -683,11 +677,7 @@ static int ql_mii_write_reg_ex(struct ql3_adapter *qdev,
- 
- 	/* Wait for write to complete 9/10/04 SJP */
- 	if (ql_wait_for_mii_ready(qdev)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s: Timed out waiting for management port to "
--			       "get free before issuing command.\n",
--			       qdev->ndev->name);
-+		netif_warn(qdev, link, qdev->ndev, TIMED_OUT_MSG);
- 		return -1;
- 	}
- 
-@@ -708,11 +698,7 @@ static int ql_mii_read_reg_ex(struct ql3_adapter *qdev, u16 regAddr,
- 	scanWasEnabled = ql_mii_disable_scan_mode(qdev);
- 
- 	if (ql_wait_for_mii_ready(qdev)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s: Timed out waiting for management port to "
--			       "get free before issuing command.\n",
--			       qdev->ndev->name);
-+		netif_warn(qdev, link, qdev->ndev, TIMED_OUT_MSG);
- 		return -1;
- 	}
- 
-@@ -727,11 +713,7 @@ static int ql_mii_read_reg_ex(struct ql3_adapter *qdev, u16 regAddr,
- 
- 	/* Wait for the read to complete */
- 	if (ql_wait_for_mii_ready(qdev)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s: Timed out waiting for management port to "
--			       "get free after issuing command.\n",
--			       qdev->ndev->name);
-+		netif_warn(qdev, link, qdev->ndev, TIMED_OUT_MSG);
- 		return -1;
- 	}
- 
-@@ -752,11 +734,7 @@ static int ql_mii_write_reg(struct ql3_adapter *qdev, u16 regAddr, u16 value)
- 	ql_mii_disable_scan_mode(qdev);
- 
- 	if (ql_wait_for_mii_ready(qdev)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s: Timed out waiting for management port to "
--			       "get free before issuing command.\n",
--			       qdev->ndev->name);
-+		netif_warn(qdev, link, qdev->ndev, TIMED_OUT_MSG);
- 		return -1;
- 	}
- 
-@@ -767,11 +745,7 @@ static int ql_mii_write_reg(struct ql3_adapter *qdev, u16 regAddr, u16 value)
- 
- 	/* Wait for write to complete. */
- 	if (ql_wait_for_mii_ready(qdev)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s: Timed out waiting for management port to "
--			       "get free before issuing command.\n",
--			       qdev->ndev->name);
-+		netif_warn(qdev, link, qdev->ndev, TIMED_OUT_MSG);
- 		return -1;
- 	}
- 
-@@ -789,11 +763,7 @@ static int ql_mii_read_reg(struct ql3_adapter *qdev, u16 regAddr, u16 *value)
- 	ql_mii_disable_scan_mode(qdev);
- 
- 	if (ql_wait_for_mii_ready(qdev)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s: Timed out waiting for management port to "
--			       "get free before issuing command.\n",
--			       qdev->ndev->name);
-+		netif_warn(qdev, link, qdev->ndev, TIMED_OUT_MSG);
- 		return -1;
- 	}
- 
-@@ -808,11 +778,7 @@ static int ql_mii_read_reg(struct ql3_adapter *qdev, u16 regAddr, u16 *value)
- 
- 	/* Wait for the read to complete */
- 	if (ql_wait_for_mii_ready(qdev)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s: Timed out waiting for management port to "
--			       "get free before issuing command.\n",
--			       qdev->ndev->name);
-+		netif_warn(qdev, link, qdev->ndev, TIMED_OUT_MSG);
- 		return -1;
- 	}
- 
-@@ -898,7 +864,7 @@ static int ql_is_petbi_neg_pause(struct ql3_adapter *qdev)
- 
- static void phyAgereSpecificInit(struct ql3_adapter *qdev, u32 miiAddr)
- {
--	printk(KERN_INFO "%s: enabling Agere specific PHY\n", qdev->ndev->name);
-+	netdev_info(qdev->ndev, "enabling Agere specific PHY\n");
- 	/* power down device bit 11 = 1 */
- 	ql_mii_write_reg_ex(qdev, 0x00, 0x1940, miiAddr);
- 	/* enable diagnostic mode bit 2 = 1 */
-@@ -952,12 +918,12 @@ static PHY_DEVICE_et getPhyType (struct ql3_adapter *qdev,
- 
- 	/* Scan table for this PHY */
- 	for(i = 0; i < MAX_PHY_DEV_TYPES; i++) {
--		if ((oui == PHY_DEVICES[i].phyIdOUI) && (model == PHY_DEVICES[i].phyIdModel))
--		{
-+		if ((oui == PHY_DEVICES[i].phyIdOUI) &&
-+		    (model == PHY_DEVICES[i].phyIdModel)) {
- 			result = PHY_DEVICES[i].phyDevice;
- 
--			printk(KERN_INFO "%s: Phy: %s\n",
--				qdev->ndev->name, PHY_DEVICES[i].name);
-+			netdev_info(qdev->ndev, "Phy: %s\n",
-+				    PHY_DEVICES[i].name);
- 
- 		        break;
- 		}
-@@ -1041,15 +1007,13 @@ static int PHY_Setup(struct ql3_adapter *qdev)
- 	/*  Determine the PHY we are using by reading the ID's */
- 	err = ql_mii_read_reg(qdev, PHY_ID_0_REG, &reg1);
- 	if(err != 0) {
--		printk(KERN_ERR "%s: Could not read from reg PHY_ID_0_REG\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "Could not read from reg PHY_ID_0_REG\n");
-                 return err;
- 	}
- 
- 	err = ql_mii_read_reg(qdev, PHY_ID_1_REG, &reg2);
- 	if(err != 0) {
--		printk(KERN_ERR "%s: Could not read from reg PHY_ID_0_REG\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "Could not read from reg PHY_ID_1_REG\n");
-                 return err;
- 	}
- 
-@@ -1066,15 +1030,14 @@ static int PHY_Setup(struct ql3_adapter *qdev)
- 
- 		err =ql_mii_read_reg_ex(qdev, PHY_ID_0_REG, &reg1, miiAddr);
- 		if(err != 0) {
--			printk(KERN_ERR "%s: Could not read from reg PHY_ID_0_REG after Agere detected\n",
--		       	       qdev->ndev->name);
-+			netdev_err(qdev->ndev,
-+				   "Could not read from reg PHY_ID_0_REG after Agere detected\n");
- 			return err;
- 		}
- 
- 		err = ql_mii_read_reg_ex(qdev, PHY_ID_1_REG, &reg2, miiAddr);
- 		if(err != 0) {
--			printk(KERN_ERR "%s: Could not read from reg PHY_ID_0_REG after Agere detected\n",
--			       qdev->ndev->name);
-+			netdev_err(qdev->ndev, "Could not read from reg PHY_ID_1_REG after Agere detected\n");
-         	        return err;
- 		}
- 
-@@ -1090,7 +1053,7 @@ static int PHY_Setup(struct ql3_adapter *qdev)
- 		/* need this here so address gets changed */
- 		phyAgereSpecificInit(qdev, miiAddr);
- 	} else if (qdev->phyType == PHY_TYPE_UNKNOWN) {
--		printk(KERN_ERR "%s: PHY is unknown\n", qdev->ndev->name);
-+		netdev_err(qdev->ndev, "PHY is unknown\n");
- 		return -EIO;
- 	}
- 
-@@ -1250,18 +1213,11 @@ static int ql_is_auto_neg_complete(struct ql3_adapter *qdev)
- 
- 	temp = ql_read_page0_reg(qdev, &port_regs->portStatus);
- 	if (temp & bitToCheck) {
--		if (netif_msg_link(qdev))
--			printk(KERN_INFO PFX
--			       "%s: Auto-Negotiate complete.\n",
--			       qdev->ndev->name);
-+		netif_info(qdev, link, qdev->ndev, "Auto-Negotiate complete\n");
- 		return 1;
--	} else {
--		if (netif_msg_link(qdev))
--			printk(KERN_WARNING PFX
--			       "%s: Auto-Negotiate incomplete.\n",
--			       qdev->ndev->name);
--		return 0;
- 	}
-+	netif_info(qdev, link, qdev->ndev, "Auto-Negotiate incomplete\n");
-+	return 0;
- }
- 
- /*
-@@ -1387,16 +1343,13 @@ static int ql_this_adapter_controls_port(struct ql3_adapter *qdev)
- 
- 	temp = ql_read_page0_reg(qdev, &port_regs->portStatus);
- 	if (temp & bitToCheck) {
--		if (netif_msg_link(qdev))
--			printk(KERN_DEBUG PFX
--			       "%s: is not link master.\n", qdev->ndev->name);
-+		netif_printk(qdev, link, KERN_DEBUG, qdev->ndev,
-+			     "not link master\n");
- 		return 0;
--	} else {
--		if (netif_msg_link(qdev))
--			printk(KERN_DEBUG PFX
--			       "%s: is link master.\n", qdev->ndev->name);
--		return 1;
- 	}
-+
-+	netif_printk(qdev, link, KERN_DEBUG, qdev->ndev, "link master\n");
-+	return 1;
- }
- 
- static void ql_phy_reset_ex(struct ql3_adapter *qdev)
-@@ -1518,8 +1471,7 @@ static int ql_port_start(struct ql3_adapter *qdev)
- 	if(ql_sem_spinlock(qdev, QL_PHY_GIO_SEM_MASK,
- 		(QL_RESOURCE_BITS_BASE_CODE | (qdev->mac_index) *
- 			 2) << 7)) {
--		printk(KERN_ERR "%s: Could not get hw lock for GIO\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "Could not get hw lock for GIO\n");
- 		return -1;
- 	}
- 
-@@ -1545,11 +1497,8 @@ static int ql_finish_auto_neg(struct ql3_adapter *qdev)
- 	if (!ql_auto_neg_error(qdev)) {
- 		if (test_bit(QL_LINK_MASTER,&qdev->flags)) {
- 			/* configure the MAC */
--			if (netif_msg_link(qdev))
--				printk(KERN_DEBUG PFX
--				       "%s: Configuring link.\n",
--				       qdev->ndev->
--				       name);
-+			netif_printk(qdev, link, KERN_DEBUG, qdev->ndev,
-+				     "Configuring link\n");
- 			ql_mac_cfg_soft_reset(qdev, 1);
- 			ql_mac_cfg_gig(qdev,
- 				       (ql_get_link_speed
-@@ -1564,34 +1513,24 @@ static int ql_finish_auto_neg(struct ql3_adapter *qdev)
- 			ql_mac_cfg_soft_reset(qdev, 0);
- 
- 			/* enable the MAC */
--			if (netif_msg_link(qdev))
--				printk(KERN_DEBUG PFX
--				       "%s: Enabling mac.\n",
--				       qdev->ndev->
--					       name);
-+			netif_printk(qdev, link, KERN_DEBUG, qdev->ndev,
-+				     "Enabling mac\n");
- 			ql_mac_enable(qdev, 1);
- 		}
- 
- 		qdev->port_link_state = LS_UP;
- 		netif_start_queue(qdev->ndev);
- 		netif_carrier_on(qdev->ndev);
--		if (netif_msg_link(qdev))
--			printk(KERN_INFO PFX
--			       "%s: Link is up at %d Mbps, %s duplex.\n",
--			       qdev->ndev->name,
--			       ql_get_link_speed(qdev),
--			       ql_is_link_full_dup(qdev)
--			       ? "full" : "half");
-+		netif_info(qdev, link, qdev->ndev,
-+			   "Link is up at %d Mbps, %s duplex\n",
-+			   ql_get_link_speed(qdev),
-+			   ql_is_link_full_dup(qdev) ? "full" : "half");
- 
- 	} else {	/* Remote error detected */
- 
- 		if (test_bit(QL_LINK_MASTER,&qdev->flags)) {
--			if (netif_msg_link(qdev))
--				printk(KERN_DEBUG PFX
--				       "%s: Remote error detected. "
--				       "Calling ql_port_start().\n",
--				       qdev->ndev->
--				       name);
-+			netif_printk(qdev, link, KERN_DEBUG, qdev->ndev,
-+				     "Remote error detected. Calling ql_port_start()\n");
- 			/*
- 			 * ql_port_start() is shared code and needs
- 			 * to lock the PHY on it's own.
-@@ -1620,15 +1559,13 @@ static void ql_link_state_machine_work(struct work_struct *work)
- 	curr_link_state = ql_get_link_state(qdev);
- 
- 	if (test_bit(QL_RESET_ACTIVE,&qdev->flags)) {
--		if (netif_msg_link(qdev))
--			printk(KERN_INFO PFX
--			       "%s: Reset in progress, skip processing link "
--			       "state.\n", qdev->ndev->name);
-+		netif_info(qdev, link, qdev->ndev,
-+			   "Reset in progress, skip processing link state\n");
- 
- 		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
- 
- 		/* Restart timer on 2 second interval. */
--		mod_timer(&qdev->adapter_timer, jiffies + HZ * 1);\
-+		mod_timer(&qdev->adapter_timer, jiffies + HZ * 1);
- 
- 		return;
- 	}
-@@ -1643,9 +1580,7 @@ static void ql_link_state_machine_work(struct work_struct *work)
- 
- 	case LS_DOWN:
- 		if (curr_link_state == LS_UP) {
--			if (netif_msg_link(qdev))
--				printk(KERN_INFO PFX "%s: Link is up.\n",
--				       qdev->ndev->name);
-+			netif_info(qdev, link, qdev->ndev, "Link is up\n");
- 			if (ql_is_auto_neg_complete(qdev))
- 				ql_finish_auto_neg(qdev);
- 
-@@ -1662,9 +1597,7 @@ static void ql_link_state_machine_work(struct work_struct *work)
- 		 * back up
- 		 */
- 		if (curr_link_state == LS_DOWN) {
--			if (netif_msg_link(qdev))
--				printk(KERN_INFO PFX "%s: Link is down.\n",
--				       qdev->ndev->name);
-+			netif_info(qdev, link, qdev->ndev, "Link is down\n");
- 			qdev->port_link_state = LS_DOWN;
- 		}
- 		if (ql_link_down_detect(qdev))
-@@ -1888,9 +1821,8 @@ static int ql_populate_free_queue(struct ql3_adapter *qdev)
- 			lrg_buf_cb->skb = netdev_alloc_skb(qdev->ndev,
- 							   qdev->lrg_buffer_len);
- 			if (unlikely(!lrg_buf_cb->skb)) {
--				printk(KERN_DEBUG PFX
--				       "%s: Failed netdev_alloc_skb().\n",
--				       qdev->ndev->name);
-+				netdev_printk(KERN_DEBUG, qdev->ndev,
-+					      "Failed netdev_alloc_skb()\n");
- 				break;
- 			} else {
- 				/*
-@@ -1906,8 +1838,9 @@ static int ql_populate_free_queue(struct ql3_adapter *qdev)
- 
- 				err = pci_dma_mapping_error(qdev->pdev, map);
- 				if(err) {
--					printk(KERN_ERR "%s: PCI mapping failed with error: %d\n",
--					       qdev->ndev->name, err);
-+					netdev_err(qdev->ndev,
-+						   "PCI mapping failed with error: %d\n",
-+						   err);
- 					dev_kfree_skb(lrg_buf_cb->skb);
- 					lrg_buf_cb->skb = NULL;
- 					break;
-@@ -2012,14 +1945,16 @@ static void ql_process_mac_tx_intr(struct ql3_adapter *qdev,
- 	int retval = 0;
- 
- 	if(mac_rsp->flags & OB_MAC_IOCB_RSP_S) {
--		printk(KERN_WARNING "Frame short but, frame was padded and sent.\n");
-+		netdev_warn(qdev->ndev,
-+			    "Frame too short but it was padded and sent\n");
- 	}
- 
- 	tx_cb = &qdev->tx_buf[mac_rsp->transaction_id];
- 
- 	/*  Check the transmit response flags for any errors */
- 	if(mac_rsp->flags & OB_MAC_IOCB_RSP_S) {
--		printk(KERN_ERR "Frame too short to be legal, frame not sent.\n");
-+		netdev_err(qdev->ndev,
-+			   "Frame too short to be legal, frame not sent\n");
- 
- 		qdev->ndev->stats.tx_errors++;
- 		retval = -EIO;
-@@ -2027,7 +1962,8 @@ static void ql_process_mac_tx_intr(struct ql3_adapter *qdev,
- 	}
- 
- 	if(tx_cb->seg_count == 0) {
--		printk(KERN_ERR "tx_cb->seg_count == 0: %d\n", mac_rsp->transaction_id);
-+		netdev_err(qdev->ndev, "tx_cb->seg_count == 0: %d\n",
-+			   mac_rsp->transaction_id);
- 
- 		qdev->ndev->stats.tx_errors++;
- 		retval = -EIO;
-@@ -2177,12 +2113,11 @@ static void ql_process_macip_rx_intr(struct ql3_adapter *qdev,
- 		if (checksum &
- 			(IB_IP_IOCB_RSP_3032_ICE |
- 			 IB_IP_IOCB_RSP_3032_CE)) {
--			printk(KERN_ERR
--			       "%s: Bad checksum for this %s packet, checksum = %x.\n",
--			       __func__,
--			       ((checksum &
--				IB_IP_IOCB_RSP_3032_TCP) ? "TCP" :
--				"UDP"),checksum);
-+			netdev_err(ndev,
-+				   "%s: Bad checksum for this %s packet, checksum = %x\n",
-+				   __func__,
-+				   ((checksum & IB_IP_IOCB_RSP_3032_TCP) ?
-+				    "TCP" : "UDP"), checksum);
- 		} else if ((checksum & IB_IP_IOCB_RSP_3032_TCP) ||
- 				(checksum & IB_IP_IOCB_RSP_3032_UDP &&
- 				!(checksum & IB_IP_IOCB_RSP_3032_NUC))) {
-@@ -2245,18 +2180,15 @@ static int ql_tx_rx_clean(struct ql3_adapter *qdev,
- 		default:
- 			{
- 				u32 *tmp = (u32 *) net_rsp;
--				printk(KERN_ERR PFX
--				       "%s: Hit default case, not "
--				       "handled!\n"
--				       "	dropping the packet, opcode = "
--				       "%x.\n",
--				       ndev->name, net_rsp->opcode);
--				printk(KERN_ERR PFX
--				       "0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",
--				       (unsigned long int)tmp[0],
--				       (unsigned long int)tmp[1],
--				       (unsigned long int)tmp[2],
--				       (unsigned long int)tmp[3]);
-+				netdev_err(ndev,
-+					   "Hit default case, not handled!\n"
-+					   "	dropping the packet, opcode = %x\n"
-+					   "0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",
-+					   net_rsp->opcode,
-+					   (unsigned long int)tmp[0],
-+					   (unsigned long int)tmp[1],
-+					   (unsigned long int)tmp[2],
-+					   (unsigned long int)tmp[3]);
- 			}
- 		}
- 
-@@ -2328,18 +2260,18 @@ static irqreturn_t ql3xxx_isr(int irq, void *dev_id)
- 			var =
- 			    ql_read_page0_reg_l(qdev,
- 					      &port_regs->PortFatalErrStatus);
--			printk(KERN_WARNING PFX
--			       "%s: Resetting chip. PortFatalErrStatus "
--			       "register = 0x%x\n", ndev->name, var);
-+			netdev_warn(ndev,
-+				    "Resetting chip. PortFatalErrStatus register = 0x%x\n",
-+				    var);
- 			set_bit(QL_RESET_START,&qdev->flags) ;
- 		} else {
- 			/*
- 			 * Soft Reset Requested.
- 			 */
- 			set_bit(QL_RESET_PER_SCSI,&qdev->flags) ;
--			printk(KERN_ERR PFX
--			       "%s: Another function issued a reset to the "
--			       "chip. ISR value = %x.\n", ndev->name, value);
-+			netdev_err(ndev,
-+				   "Another function issued a reset to the chip. ISR value = %x\n",
-+				   value);
- 		}
- 		queue_delayed_work(qdev->workqueue, &qdev->reset_work, 0);
- 		spin_unlock(&qdev->adapter_lock);
-@@ -2438,8 +2370,8 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 
- 	err = pci_dma_mapping_error(qdev->pdev, map);
- 	if(err) {
--		printk(KERN_ERR "%s: PCI mapping failed with error: %d\n",
--		       qdev->ndev->name, err);
-+		netdev_err(qdev->ndev, "PCI mapping failed with error: %d\n",
-+			   err);
- 
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -2472,8 +2404,9 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 				err = pci_dma_mapping_error(qdev->pdev, map);
- 				if(err) {
- 
--					printk(KERN_ERR "%s: PCI mapping outbound address list with error: %d\n",
--					       qdev->ndev->name, err);
-+					netdev_err(qdev->ndev,
-+						   "PCI mapping outbound address list with error: %d\n",
-+						   err);
- 					goto map_error;
- 				}
- 
-@@ -2498,8 +2431,9 @@ static int ql_send_map(struct ql3_adapter *qdev,
- 
- 			err = pci_dma_mapping_error(qdev->pdev, map);
- 			if(err) {
--				printk(KERN_ERR "%s: PCI mapping frags failed with error: %d\n",
--				       qdev->ndev->name, err);
-+				netdev_err(qdev->ndev,
-+					   "PCI mapping frags failed with error: %d\n",
-+					   err);
- 				goto map_error;
- 			}
- 
-@@ -2582,7 +2516,7 @@ static netdev_tx_t ql3xxx_send(struct sk_buff *skb,
- 	tx_cb = &qdev->tx_buf[qdev->req_producer_index] ;
- 	if((tx_cb->seg_count = ql_get_seg_count(qdev,
- 						(skb_shinfo(skb)->nr_frags))) == -1) {
--		printk(KERN_ERR PFX"%s: invalid segment count!\n",__func__);
-+		netdev_err(ndev, "%s: invalid segment count!\n", __func__);
- 		return NETDEV_TX_OK;
- 	}
- 
-@@ -2599,7 +2533,7 @@ static netdev_tx_t ql3xxx_send(struct sk_buff *skb,
- 		ql_hw_csum_setup(skb, mac_iocb_ptr);
- 
- 	if(ql_send_map(qdev,mac_iocb_ptr,tx_cb,skb) != NETDEV_TX_OK) {
--		printk(KERN_ERR PFX"%s: Could not map the segments!\n",__func__);
-+		netdev_err(ndev, "%s: Could not map the segments!\n", __func__);
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -2612,9 +2546,9 @@ static netdev_tx_t ql3xxx_send(struct sk_buff *skb,
- 			    &port_regs->CommonRegs.reqQProducerIndex,
- 			    qdev->req_producer_index);
- 
--	if (netif_msg_tx_queued(qdev))
--		printk(KERN_DEBUG PFX "%s: tx queued, slot %d, len %d\n",
--		       ndev->name, qdev->req_producer_index, skb->len);
-+	netif_printk(qdev, tx_queued, KERN_DEBUG, ndev,
-+		     "tx queued, slot %d, len %d\n",
-+		     qdev->req_producer_index, skb->len);
- 
- 	atomic_dec(&qdev->tx_count);
- 	return NETDEV_TX_OK;
-@@ -2632,8 +2566,7 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
- 
- 	if ((qdev->req_q_virt_addr == NULL) ||
- 	    LS_64BITS(qdev->req_q_phy_addr) & (qdev->req_q_size - 1)) {
--		printk(KERN_ERR PFX "%s: reqQ failed.\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "reqQ failed\n");
- 		return -ENOMEM;
- 	}
- 
-@@ -2646,9 +2579,7 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
- 
- 	if ((qdev->rsp_q_virt_addr == NULL) ||
- 	    LS_64BITS(qdev->rsp_q_phy_addr) & (qdev->rsp_q_size - 1)) {
--		printk(KERN_ERR PFX
--		       "%s: rspQ allocation failed\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "rspQ allocation failed\n");
- 		pci_free_consistent(qdev->pdev, (size_t) qdev->req_q_size,
- 				    qdev->req_q_virt_addr,
- 				    qdev->req_q_phy_addr);
-@@ -2663,8 +2594,7 @@ static int ql_alloc_net_req_rsp_queues(struct ql3_adapter *qdev)
- static void ql_free_net_req_rsp_queues(struct ql3_adapter *qdev)
- {
- 	if (!test_bit(QL_ALLOC_REQ_RSP_Q_DONE,&qdev->flags)) {
--		printk(KERN_INFO PFX
--		       "%s: Already done.\n", qdev->ndev->name);
-+		netdev_info(qdev->ndev, "Already done\n");
- 		return;
- 	}
- 
-@@ -2695,8 +2625,7 @@ static int ql_alloc_buffer_queues(struct ql3_adapter *qdev)
- 
- 	qdev->lrg_buf = kmalloc(qdev->num_large_buffers * sizeof(struct ql_rcv_buf_cb),GFP_KERNEL);
- 	if (qdev->lrg_buf == NULL) {
--		printk(KERN_ERR PFX
--		       "%s: qdev->lrg_buf alloc failed.\n", qdev->ndev->name);
-+		netdev_err(qdev->ndev, "qdev->lrg_buf alloc failed\n");
- 		return -ENOMEM;
- 	}
- 
-@@ -2706,8 +2635,7 @@ static int ql_alloc_buffer_queues(struct ql3_adapter *qdev)
- 				 &qdev->lrg_buf_q_alloc_phy_addr);
- 
- 	if (qdev->lrg_buf_q_alloc_virt_addr == NULL) {
--		printk(KERN_ERR PFX
--		       "%s: lBufQ failed\n", qdev->ndev->name);
-+		netdev_err(qdev->ndev, "lBufQ failed\n");
- 		return -ENOMEM;
- 	}
- 	qdev->lrg_buf_q_virt_addr = qdev->lrg_buf_q_alloc_virt_addr;
-@@ -2727,9 +2655,7 @@ static int ql_alloc_buffer_queues(struct ql3_adapter *qdev)
- 				 &qdev->small_buf_q_alloc_phy_addr);
- 
- 	if (qdev->small_buf_q_alloc_virt_addr == NULL) {
--		printk(KERN_ERR PFX
--		       "%s: Small Buffer Queue allocation failed.\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "Small Buffer Queue allocation failed\n");
- 		pci_free_consistent(qdev->pdev, qdev->lrg_buf_q_alloc_size,
- 				    qdev->lrg_buf_q_alloc_virt_addr,
- 				    qdev->lrg_buf_q_alloc_phy_addr);
-@@ -2745,8 +2671,7 @@ static int ql_alloc_buffer_queues(struct ql3_adapter *qdev)
- static void ql_free_buffer_queues(struct ql3_adapter *qdev)
- {
- 	if (!test_bit(QL_ALLOC_BUFQS_DONE,&qdev->flags)) {
--		printk(KERN_INFO PFX
--		       "%s: Already done.\n", qdev->ndev->name);
-+		netdev_info(qdev->ndev, "Already done\n");
- 		return;
- 	}
- 	if(qdev->lrg_buf) kfree(qdev->lrg_buf);
-@@ -2783,9 +2708,7 @@ static int ql_alloc_small_buffers(struct ql3_adapter *qdev)
- 				 &qdev->small_buf_phy_addr);
- 
- 	if (qdev->small_buf_virt_addr == NULL) {
--		printk(KERN_ERR PFX
--		       "%s: Failed to get small buffer memory.\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "Failed to get small buffer memory\n");
- 		return -ENOMEM;
- 	}
- 
-@@ -2811,8 +2734,7 @@ static int ql_alloc_small_buffers(struct ql3_adapter *qdev)
- static void ql_free_small_buffers(struct ql3_adapter *qdev)
- {
- 	if (!test_bit(QL_ALLOC_SMALL_BUF_DONE,&qdev->flags)) {
--		printk(KERN_INFO PFX
--		       "%s: Already done.\n", qdev->ndev->name);
-+		netdev_info(qdev->ndev, "Already done\n");
- 		return;
- 	}
- 	if (qdev->small_buf_virt_addr != NULL) {
-@@ -2874,11 +2796,9 @@ static int ql_alloc_large_buffers(struct ql3_adapter *qdev)
- 				       qdev->lrg_buffer_len);
- 		if (unlikely(!skb)) {
- 			/* Better luck next round */
--			printk(KERN_ERR PFX
--			       "%s: large buff alloc failed, "
--			       "for %d bytes at index %d.\n",
--			       qdev->ndev->name,
--			       qdev->lrg_buffer_len * 2, i);
-+			netdev_err(qdev->ndev,
-+				   "large buff alloc failed for %d bytes at index %d\n",
-+				   qdev->lrg_buffer_len * 2, i);
- 			ql_free_large_buffers(qdev);
- 			return -ENOMEM;
- 		} else {
-@@ -2900,8 +2820,9 @@ static int ql_alloc_large_buffers(struct ql3_adapter *qdev)
- 
- 			err = pci_dma_mapping_error(qdev->pdev, map);
- 			if(err) {
--				printk(KERN_ERR "%s: PCI mapping failed with error: %d\n",
--				       qdev->ndev->name, err);
-+				netdev_err(qdev->ndev,
-+					   "PCI mapping failed with error: %d\n",
-+					   err);
- 				ql_free_large_buffers(qdev);
- 				return -ENOMEM;
- 			}
-@@ -2968,9 +2889,8 @@ static int ql_alloc_mem_resources(struct ql3_adapter *qdev)
- 		qdev->num_lbufq_entries = JUMBO_NUM_LBUFQ_ENTRIES;
- 		qdev->lrg_buffer_len = JUMBO_MTU_SIZE;
- 	} else {
--		printk(KERN_ERR PFX
--		       "%s: Invalid mtu size.  Only 1500 and 9000 are accepted.\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "Invalid mtu size: %d.  Only %d and %d are accepted.\n",
-+			   qdev->ndev->mtu, NORMAL_MTU_SIZE, JUMBO_MTU_SIZE);
- 		return -ENOMEM;
- 	}
- 	qdev->num_large_buffers = qdev->num_lbufq_entries * QL_ADDR_ELE_PER_BUFQ_ENTRY;
-@@ -3001,34 +2921,27 @@ static int ql_alloc_mem_resources(struct ql3_adapter *qdev)
- 		qdev->rsp_producer_index_phy_addr_low =
- 		    qdev->req_consumer_index_phy_addr_low + 8;
- 	} else {
--		printk(KERN_ERR PFX
--		       "%s: shadowReg Alloc failed.\n", qdev->ndev->name);
-+		netdev_err(qdev->ndev, "shadowReg Alloc failed\n");
- 		return -ENOMEM;
- 	}
- 
- 	if (ql_alloc_net_req_rsp_queues(qdev) != 0) {
--		printk(KERN_ERR PFX
--		       "%s: ql_alloc_net_req_rsp_queues failed.\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "ql_alloc_net_req_rsp_queues failed\n");
- 		goto err_req_rsp;
- 	}
- 
- 	if (ql_alloc_buffer_queues(qdev) != 0) {
--		printk(KERN_ERR PFX
--		       "%s: ql_alloc_buffer_queues failed.\n",
--		       qdev->ndev->name);
-+		netdev_err(qdev->ndev, "ql_alloc_buffer_queues failed\n");
- 		goto err_buffer_queues;
- 	}
- 
- 	if (ql_alloc_small_buffers(qdev) != 0) {
--		printk(KERN_ERR PFX
--		       "%s: ql_alloc_small_buffers failed\n", qdev->ndev->name);
-+		netdev_err(qdev->ndev, "ql_alloc_small_buffers failed\n");
- 		goto err_small_buffers;
- 	}
- 
- 	if (ql_alloc_large_buffers(qdev) != 0) {
--		printk(KERN_ERR PFX
--		       "%s: ql_alloc_large_buffers failed\n", qdev->ndev->name);
-+		netdev_err(qdev->ndev, "ql_alloc_large_buffers failed\n");
- 		goto err_small_buffers;
- 	}
- 
-@@ -3353,8 +3266,7 @@ static int ql_adapter_initialize(struct ql3_adapter *qdev)
- 	} while (--delay);
- 
- 	if (delay == 0) {
--		printk(KERN_ERR PFX
--		       "%s: Hw Initialization timeout.\n", qdev->ndev->name);
-+		netdev_err(qdev->ndev, "Hw Initialization timeout\n");
- 		status = -1;
- 		goto out;
- 	}
-@@ -3396,17 +3308,14 @@ static int ql_adapter_reset(struct ql3_adapter *qdev)
- 	/*
- 	 * Issue soft reset to chip.
- 	 */
--	printk(KERN_DEBUG PFX
--	       "%s: Issue soft reset to chip.\n",
--	       qdev->ndev->name);
-+	netdev_printk(KERN_DEBUG, qdev->ndev, "Issue soft reset to chip\n");
- 	ql_write_common_reg(qdev,
- 			    &port_regs->CommonRegs.ispControlStatus,
- 			    ((ISP_CONTROL_SR << 16) | ISP_CONTROL_SR));
- 
- 	/* Wait 3 seconds for reset to complete. */
--	printk(KERN_DEBUG PFX
--	       "%s: Wait 10 milliseconds for reset to complete.\n",
--	       qdev->ndev->name);
-+	netdev_printk(KERN_DEBUG, qdev->ndev,
-+		      "Wait 10 milliseconds for reset to complete\n");
- 
- 	/* Wait until the firmware tells us the Soft Reset is done */
- 	max_wait_time = 5;
-@@ -3427,8 +3336,8 @@ static int ql_adapter_reset(struct ql3_adapter *qdev)
- 	value =
- 	    ql_read_common_reg(qdev, &port_regs->CommonRegs.ispControlStatus);
- 	if (value & ISP_CONTROL_RI) {
--		printk(KERN_DEBUG PFX
--		       "ql_adapter_reset: clearing RI after reset.\n");
-+		netdev_printk(KERN_DEBUG, qdev->ndev,
-+			      "clearing RI after reset\n");
- 		ql_write_common_reg(qdev,
- 				    &port_regs->CommonRegs.
- 				    ispControlStatus,
-@@ -3503,9 +3412,9 @@ static void ql_set_mac_info(struct ql3_adapter *qdev)
- 	case ISP_CONTROL_FN0_SCSI:
- 	case ISP_CONTROL_FN1_SCSI:
- 	default:
--		printk(KERN_DEBUG PFX
--		       "%s: Invalid function number, ispControlStatus = 0x%x\n",
--		       qdev->ndev->name,value);
-+		netdev_printk(KERN_DEBUG, qdev->ndev,
-+			      "Invalid function number, ispControlStatus = 0x%x\n",
-+			      value);
- 		break;
- 	}
- 	qdev->numPorts = qdev->nvram_data.version_and_numPorts >> 8;
-@@ -3516,32 +3425,26 @@ static void ql_display_dev_info(struct net_device *ndev)
- 	struct ql3_adapter *qdev = (struct ql3_adapter *)netdev_priv(ndev);
- 	struct pci_dev *pdev = qdev->pdev;
- 
--	printk(KERN_INFO PFX
--	       "\n%s Adapter %d RevisionID %d found %s on PCI slot %d.\n",
--	       DRV_NAME, qdev->index, qdev->chip_rev_id,
--	       (qdev->device_id == QL3032_DEVICE_ID) ? "QLA3032" : "QLA3022",
--	       qdev->pci_slot);
--	printk(KERN_INFO PFX
--	       "%s Interface.\n",
--	       test_bit(QL_LINK_OPTICAL,&qdev->flags) ? "OPTICAL" : "COPPER");
-+	netdev_info(ndev,
-+		    "%s Adapter %d RevisionID %d found %s on PCI slot %d\n",
-+		    DRV_NAME, qdev->index, qdev->chip_rev_id,
-+		    (qdev->device_id == QL3032_DEVICE_ID) ? "QLA3032" : "QLA3022",
-+		    qdev->pci_slot);
-+	netdev_info(ndev, "%s Interface\n",
-+		test_bit(QL_LINK_OPTICAL, &qdev->flags) ? "OPTICAL" : "COPPER");
- 
- 	/*
- 	 * Print PCI bus width/type.
- 	 */
--	printk(KERN_INFO PFX
--	       "Bus interface is %s %s.\n",
--	       ((qdev->pci_width == 64) ? "64-bit" : "32-bit"),
--	       ((qdev->pci_x) ? "PCI-X" : "PCI"));
-+	netdev_info(ndev, "Bus interface is %s %s\n",
-+		    ((qdev->pci_width == 64) ? "64-bit" : "32-bit"),
-+		    ((qdev->pci_x) ? "PCI-X" : "PCI"));
- 
--	printk(KERN_INFO PFX
--	       "mem  IO base address adjusted = 0x%p\n",
--	       qdev->mem_map_registers);
--	printk(KERN_INFO PFX "Interrupt number = %d\n", pdev->irq);
-+	netdev_info(ndev, "mem  IO base address adjusted = 0x%p\n",
-+		    qdev->mem_map_registers);
-+	netdev_info(ndev, "Interrupt number = %d\n", pdev->irq);
- 
--	if (netif_msg_probe(qdev))
--		printk(KERN_INFO PFX
--		       "%s: MAC address %pM\n",
--		       ndev->name, ndev->dev_addr);
-+	netif_info(qdev, probe, ndev, "MAC address %pM\n", ndev->dev_addr);
- }
- 
- static int ql_adapter_down(struct ql3_adapter *qdev, int do_reset)
-@@ -3560,8 +3463,7 @@ static int ql_adapter_down(struct ql3_adapter *qdev, int do_reset)
- 	free_irq(qdev->pdev->irq, ndev);
- 
- 	if (qdev->msi && test_bit(QL_MSI_ENABLED,&qdev->flags)) {
--		printk(KERN_INFO PFX
--		       "%s: calling pci_disable_msi().\n", qdev->ndev->name);
-+		netdev_info(qdev->ndev, "calling pci_disable_msi()\n");
- 		clear_bit(QL_MSI_ENABLED,&qdev->flags);
- 		pci_disable_msi(qdev->pdev);
- 	}
-@@ -3577,16 +3479,14 @@ static int ql_adapter_down(struct ql3_adapter *qdev, int do_reset)
- 		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
- 		if (ql_wait_for_drvr_lock(qdev)) {
- 			if ((soft_reset = ql_adapter_reset(qdev))) {
--				printk(KERN_ERR PFX
--				       "%s: ql_adapter_reset(%d) FAILED!\n",
--				       ndev->name, qdev->index);
-+				netdev_err(ndev, "ql_adapter_reset(%d) FAILED!\n",
-+					   qdev->index);
- 			}
--			printk(KERN_ERR PFX
--				"%s: Releaseing driver lock via chip reset.\n",ndev->name);
-+			netdev_err(ndev,
-+				   "Releasing driver lock via chip reset\n");
- 		} else {
--			printk(KERN_ERR PFX
--			       "%s: Could not acquire driver lock to do "
--			       "reset!\n", ndev->name);
-+			netdev_err(ndev,
-+				   "Could not acquire driver lock to do reset!\n");
- 			retval = -1;
- 		}
- 		spin_unlock_irqrestore(&qdev->hw_lock, hw_flags);
-@@ -3603,20 +3503,17 @@ static int ql_adapter_up(struct ql3_adapter *qdev)
- 	unsigned long hw_flags;
- 
- 	if (ql_alloc_mem_resources(qdev)) {
--		printk(KERN_ERR PFX
--		       "%s Unable to  allocate buffers.\n", ndev->name);
-+		netdev_err(ndev, "Unable to  allocate buffers\n");
- 		return -ENOMEM;
- 	}
- 
- 	if (qdev->msi) {
- 		if (pci_enable_msi(qdev->pdev)) {
--			printk(KERN_ERR PFX
--			       "%s: User requested MSI, but MSI failed to "
--			       "initialize.  Continuing without MSI.\n",
--			       qdev->ndev->name);
-+			netdev_err(ndev,
-+				   "User requested MSI, but MSI failed to initialize.  Continuing without MSI.\n");
- 			qdev->msi = 0;
- 		} else {
--			printk(KERN_INFO PFX "%s: MSI Enabled...\n", qdev->ndev->name);
-+			netdev_info(ndev, "MSI Enabled...\n");
- 			set_bit(QL_MSI_ENABLED,&qdev->flags);
- 			irq_flags &= ~IRQF_SHARED;
- 		}
-@@ -3625,9 +3522,9 @@ static int ql_adapter_up(struct ql3_adapter *qdev)
- 	if ((err = request_irq(qdev->pdev->irq,
- 			       ql3xxx_isr,
- 			       irq_flags, ndev->name, ndev))) {
--		printk(KERN_ERR PFX
--		       "%s: Failed to reserve interrupt %d already in use.\n",
--		       ndev->name, qdev->pdev->irq);
-+		netdev_err(ndev,
-+			   "Failed to reserve interrupt %d already in use\n",
-+			   qdev->pdev->irq);
- 		goto err_irq;
- 	}
- 
-@@ -3635,18 +3532,13 @@ static int ql_adapter_up(struct ql3_adapter *qdev)
- 
- 	if ((err = ql_wait_for_drvr_lock(qdev))) {
- 		if ((err = ql_adapter_initialize(qdev))) {
--			printk(KERN_ERR PFX
--			       "%s: Unable to initialize adapter.\n",
--			       ndev->name);
-+			netdev_err(ndev, "Unable to initialize adapter\n");
- 			goto err_init;
- 		}
--		printk(KERN_ERR PFX
--				"%s: Releaseing driver lock.\n",ndev->name);
-+		netdev_err(ndev, "Releasing driver lock\n");
- 		ql_sem_unlock(qdev, QL_DRVR_SEM_MASK);
- 	} else {
--		printk(KERN_ERR PFX
--		       "%s: Could not acquire driver lock.\n",
--		       ndev->name);
-+		netdev_err(ndev, "Could not acquire driver lock\n");
- 		goto err_lock;
- 	}
- 
-@@ -3667,9 +3559,7 @@ err_lock:
- 	free_irq(qdev->pdev->irq, ndev);
- err_irq:
- 	if (qdev->msi && test_bit(QL_MSI_ENABLED,&qdev->flags)) {
--		printk(KERN_INFO PFX
--		       "%s: calling pci_disable_msi().\n",
--		       qdev->ndev->name);
-+		netdev_info(ndev, "calling pci_disable_msi()\n");
- 		clear_bit(QL_MSI_ENABLED,&qdev->flags);
- 		pci_disable_msi(qdev->pdev);
- 	}
-@@ -3679,9 +3569,8 @@ err_irq:
- static int ql_cycle_adapter(struct ql3_adapter *qdev, int reset)
- {
- 	if( ql_adapter_down(qdev,reset) || ql_adapter_up(qdev)) {
--		printk(KERN_ERR PFX
--				"%s: Driver up/down cycle failed, "
--				"closing device\n",qdev->ndev->name);
-+		netdev_err(qdev->ndev,
-+			   "Driver up/down cycle failed, closing device\n");
- 		rtnl_lock();
- 		dev_close(qdev->ndev);
- 		rtnl_unlock();
-@@ -3750,7 +3639,7 @@ static void ql3xxx_tx_timeout(struct net_device *ndev)
- {
- 	struct ql3_adapter *qdev = (struct ql3_adapter *)netdev_priv(ndev);
- 
--	printk(KERN_ERR PFX "%s: Resetting...\n", ndev->name);
-+	netdev_err(ndev, "Resetting...\n");
- 	/*
- 	 * Stop the queues, we've got a problem.
- 	 */
-@@ -3783,9 +3672,8 @@ static void ql_reset_work(struct work_struct *work)
- 			int j;
- 			tx_cb = &qdev->tx_buf[i];
- 			if (tx_cb->skb) {
--				printk(KERN_DEBUG PFX
--				       "%s: Freeing lost SKB.\n",
--				       qdev->ndev->name);
-+				netdev_printk(KERN_DEBUG, ndev,
-+					      "Freeing lost SKB\n");
- 				pci_unmap_single(qdev->pdev,
- 					 dma_unmap_addr(&tx_cb->map[0], mapaddr),
- 					 dma_unmap_len(&tx_cb->map[0], maplen),
-@@ -3801,8 +3689,7 @@ static void ql_reset_work(struct work_struct *work)
- 			}
- 		}
- 
--		printk(KERN_ERR PFX
--		       "%s: Clearing NRI after reset.\n", qdev->ndev->name);
-+		netdev_err(ndev, "Clearing NRI after reset\n");
- 		spin_lock_irqsave(&qdev->hw_lock, hw_flags);
- 		ql_write_common_reg(qdev,
- 				    &port_regs->CommonRegs.
-@@ -3818,16 +3705,14 @@ static void ql_reset_work(struct work_struct *work)
- 
- 						   ispControlStatus);
- 			if ((value & ISP_CONTROL_SR) == 0) {
--				printk(KERN_DEBUG PFX
--				       "%s: reset completed.\n",
--				       qdev->ndev->name);
-+				netdev_printk(KERN_DEBUG, ndev,
-+					      "reset completed\n");
- 				break;
- 			}
- 
- 			if (value & ISP_CONTROL_RI) {
--				printk(KERN_DEBUG PFX
--				       "%s: clearing NRI after reset.\n",
--				       qdev->ndev->name);
-+				netdev_printk(KERN_DEBUG, ndev,
-+					      "clearing NRI after reset\n");
- 				ql_write_common_reg(qdev,
- 						    &port_regs->
- 						    CommonRegs.
-@@ -3848,11 +3733,9 @@ static void ql_reset_work(struct work_struct *work)
- 			 * Set the reset flags and clear the board again.
- 			 * Nothing else to do...
- 			 */
--			printk(KERN_ERR PFX
--			       "%s: Timed out waiting for reset to "
--			       "complete.\n", ndev->name);
--			printk(KERN_ERR PFX
--			       "%s: Do a reset.\n", ndev->name);
-+			netdev_err(ndev,
-+				   "Timed out waiting for reset to complete\n");
-+			netdev_err(ndev, "Do a reset\n");
- 			clear_bit(QL_RESET_PER_SCSI,&qdev->flags);
- 			clear_bit(QL_RESET_START,&qdev->flags);
- 			ql_cycle_adapter(qdev,QL_DO_RESET);
-@@ -3920,15 +3803,13 @@ static int __devinit ql3xxx_probe(struct pci_dev *pdev,
- 
- 	err = pci_enable_device(pdev);
- 	if (err) {
--		printk(KERN_ERR PFX "%s cannot enable PCI device\n",
--		       pci_name(pdev));
-+		pr_err("%s cannot enable PCI device\n", pci_name(pdev));
- 		goto err_out;
- 	}
- 
- 	err = pci_request_regions(pdev, DRV_NAME);
- 	if (err) {
--		printk(KERN_ERR PFX "%s cannot obtain PCI resources\n",
--		       pci_name(pdev));
-+		pr_err("%s cannot obtain PCI resources\n", pci_name(pdev));
- 		goto err_out_disable_pdev;
- 	}
- 
-@@ -3943,15 +3824,13 @@ static int __devinit ql3xxx_probe(struct pci_dev *pdev,
- 	}
- 
- 	if (err) {
--		printk(KERN_ERR PFX "%s no usable DMA configuration\n",
--		       pci_name(pdev));
-+		pr_err("%s no usable DMA configuration\n", pci_name(pdev));
- 		goto err_out_free_regions;
- 	}
- 
- 	ndev = alloc_etherdev(sizeof(struct ql3_adapter));
- 	if (!ndev) {
--		printk(KERN_ERR PFX "%s could not alloc etherdev\n",
--		       pci_name(pdev));
-+		pr_err("%s could not alloc etherdev\n", pci_name(pdev));
- 		err = -ENOMEM;
- 		goto err_out_free_regions;
- 	}
-@@ -3978,8 +3857,7 @@ static int __devinit ql3xxx_probe(struct pci_dev *pdev,
- 
- 	qdev->mem_map_registers = pci_ioremap_bar(pdev, 1);
- 	if (!qdev->mem_map_registers) {
--		printk(KERN_ERR PFX "%s: cannot map device registers\n",
--		       pci_name(pdev));
-+		pr_err("%s: cannot map device registers\n", pci_name(pdev));
- 		err = -EIO;
- 		goto err_out_free_ndev;
- 	}
-@@ -3998,9 +3876,8 @@ static int __devinit ql3xxx_probe(struct pci_dev *pdev,
- 
- 	/* make sure the EEPROM is good */
- 	if (ql_get_nvram_params(qdev)) {
--		printk(KERN_ALERT PFX
--		       "ql3xxx_probe: Adapter #%d, Invalid NVRAM parameters.\n",
--		       qdev->index);
-+		pr_alert("%s: Adapter #%d, Invalid NVRAM parameters\n",
-+			 __func__, qdev->index);
- 		err = -EIO;
- 		goto err_out_iounmap;
- 	}
-@@ -4032,8 +3909,7 @@ static int __devinit ql3xxx_probe(struct pci_dev *pdev,
- 
- 	err = register_netdev(ndev);
- 	if (err) {
--		printk(KERN_ERR PFX "%s: cannot register net device\n",
--		       pci_name(pdev));
-+		pr_err("%s: cannot register net device\n", pci_name(pdev));
- 		goto err_out_iounmap;
- 	}
- 
-@@ -4052,10 +3928,10 @@ static int __devinit ql3xxx_probe(struct pci_dev *pdev,
- 	qdev->adapter_timer.expires = jiffies + HZ * 2;	/* two second delay */
- 	qdev->adapter_timer.data = (unsigned long)qdev;
- 
--	if(!cards_found) {
--		printk(KERN_ALERT PFX "%s\n", DRV_STRING);
--		printk(KERN_ALERT PFX "Driver name: %s, Version: %s.\n",
--	    	   DRV_NAME, DRV_VERSION);
-+	if (!cards_found) {
-+		pr_alert("%s\n", DRV_STRING);
-+		pr_alert("Driver name: %s, Version: %s\n",
-+			 DRV_NAME, DRV_VERSION);
- 	}
- 	ql_display_dev_info(ndev);
- 
--- 
-1.7.2
+T24gV2VkLCBKdWwgMjEsIDIwMTAgYXQgMDA6MTIsIEZsb3JpYW4gTWlja2xlciA8ZmxvcmlhbkBt
+aWNrbGVyLm9yZz4gd3JvdGU6Cj4gT24gVHVlLCAyMCBKdWwgMjAxMCAxNDowNzo1MSAtMDcwMAo+
+IEFuZHJldyBNb3J0b24gPGFrcG1AbGludXgtZm91bmRhdGlvbi5vcmc+IHdyb3RlOgo+Cj4+IE9u
+IFR1ZSwgMjAgSnVsIDIwMTAgMTY6MzU6MjUgLTA0MDAKPj4gVmFsZGlzLktsZXRuaWVrc0B2dC5l
+ZHUgd3JvdGU6Cj4+Cj4+ID4gT24gTW9uLCAxOSBKdWwgMjAxMCAxNjozODowOSBQRFQsIGFrcG1A
+bGludXgtZm91bmRhdGlvbi5vcmcgc2FpZDoKPj4gPiA+IFRoZSBtbS1vZi10aGUtbW9tZW50IHNu
+YXBzaG90IDIwMTAtMDctMTktMTYtMzcgaGFzIGJlZW4gdXBsb2FkZWQgdG8KPj4gPiA+Cj4+ID4g
+PiDCoCDCoGh0dHA6Ly91c2Vyd2ViLmtlcm5lbC5vcmcvfmFrcG0vbW1vdG0vCj4+ID4KPj4gPiBU
+aHJvd3MgYSB3YXJuaW5nIGF0IGJvb3Q6Cj4+ID4KPj4gPiBbIMKgIMKgMS43ODYwNjBdIFdBUk5J
+Tkc6IGF0IGtlcm5lbC9wbV9xb3NfcGFyYW1zLmM6MjY0IHBtX3Fvc191cGRhdGVfcmVxdWVzdCsw
+eDI4LzB4NTQoKQo+PiA+IFsgwqAgwqAxLjc4NjA4OF0gSGFyZHdhcmUgbmFtZTogTGF0aXR1ZGUg
+RTY1MDAKPj4gPiBbIMKgIMKgMS43ODcwNDVdIHBtX3Fvc191cGRhdGVfcmVxdWVzdCgpIGNhbGxl
+ZCBmb3IgdW5rbm93biBvYmplY3QKPj4gPiBbIMKgIMKgMS43ODc5NjZdIE1vZHVsZXMgbGlua2Vk
+IGluOgo+PiA+IFsgwqAgwqAxLjc4ODk0MF0gUGlkOiAxLCBjb21tOiBzd2FwcGVyIE5vdCB0YWlu
+dGVkIDIuNi4zNS1yYzUtbW1vdG0wNzE5ICMxCj4+ID4gWyDCoCDCoDEuNzkwMDM1XSBDYWxsIFRy
+YWNlOgo+PiA+IFsgwqAgwqAxLjc5MTEyMV0gwqBbPGZmZmZmZmZmODEwMzczMzU+XSB3YXJuX3Ns
+b3dwYXRoX2NvbW1vbisweDgwLzB4OTgKPj4gPiBbIMKgIMKgMS43OTIyMDVdIMKgWzxmZmZmZmZm
+ZjgxMDM3M2UxPl0gd2Fybl9zbG93cGF0aF9mbXQrMHg0MS8weDQzCj4+ID4gWyDCoCDCoDEuNzkz
+Mjc5XSDCoFs8ZmZmZmZmZmY4MTA1N2MxND5dIHBtX3Fvc191cGRhdGVfcmVxdWVzdCsweDI4LzB4
+NTQKPj4gPiBbIMKgIMKgMS43OTQzNDddIMKgWzxmZmZmZmZmZjgxMzQ4ODllPl0gZTEwMDBfY29u
+ZmlndXJlKzB4NDIxLzB4NDU5Cj4+ID4gWyDCoCDCoDEuNzk1MzkzXSDCoFs8ZmZmZmZmZmY4MTM0
+YWZiZD5dIGUxMDAwX29wZW4rMHhiZC8weDM3Ywo+PiA+IFsgwqAgwqAxLjc5NjQzNl0gwqBbPGZm
+ZmZmZmZmODEwNTc0M2E+XSA/IHJhd19ub3RpZmllcl9jYWxsX2NoYWluKzB4Zi8weDExCj4+ID4g
+WyDCoCDCoDEuNzk3NDkxXSDCoFs8ZmZmZmZmZmY4MTQ1Zjk0OD5dIF9fZGV2X29wZW4rMHhhZS8w
+eGUyCj4+ID4gWyDCoCDCoDEuNzk4NTQ3XSDCoFs8ZmZmZmZmZmY4MTQ1Zjk5Nz5dIGRldl9vcGVu
+KzB4MWIvMHg0OQo+PiA+IFsgwqAgwqAxLjc5OTYxMl0gwqBbPGZmZmZmZmZmODE0NmUzNmU+XSBu
+ZXRwb2xsX3NldHVwKzB4ODQvMHgyNTkKPj4gPiBbIMKgIMKgMS44MDA2ODVdIMKgWzxmZmZmZmZm
+ZjgxYjUwMzdjPl0gaW5pdF9uZXRjb25zb2xlKzB4YmMvMHgyMWYKPj4gPiBbIMKgIMKgMS44MDE3
+NDRdIMKgWzxmZmZmZmZmZjgxYjUwMjZjPl0gPyBzaXJfd3FfaW5pdCsweDAvMHgzNQo+PiA+IFsg
+wqAgwqAxLjgwMjc5M10gwqBbPGZmZmZmZmZmODFiNTAyYzA+XSA/IGluaXRfbmV0Y29uc29sZSsw
+eDAvMHgyMWYKPj4gPiBbIMKgIMKgMS44MDM4NDVdIMKgWzxmZmZmZmZmZjgxMDAwMmZmPl0gZG9f
+b25lX2luaXRjYWxsKzB4N2EvMHgxMmYKPj4gPiBbIMKgIMKgMS44MDQ4ODVdIMKgWzxmZmZmZmZm
+ZjgxYjJjY2FlPl0ga2VybmVsX2luaXQrMHgxMzgvMHgxYzIKPj4gPiBbIMKgIMKgMS44MDU5MTVd
+IMKgWzxmZmZmZmZmZjgxMDAzNTU0Pl0ga2VybmVsX3RocmVhZF9oZWxwZXIrMHg0LzB4MTAKPj4g
+PiBbIMKgIMKgMS44MDY5MzddIMKgWzxmZmZmZmZmZjgxNTkwZTAwPl0gPyByZXN0b3JlX2FyZ3Mr
+MHgwLzB4MzAKPj4gPiBbIMKgIMKgMS44MDc5NTVdIMKgWzxmZmZmZmZmZjgxYjJjYjc2Pl0gPyBr
+ZXJuZWxfaW5pdCsweDAvMHgxYzIKPj4gPiBbIMKgIMKgMS44MDg5NThdIMKgWzxmZmZmZmZmZjgx
+MDAzNTUwPl0gPyBrZXJuZWxfdGhyZWFkX2hlbHBlcisweDAvMHgxMAo+PiA+IFsgwqAgwqAxLjgw
+OTk1OF0gLS0tWyBlbmQgdHJhY2UgODRiNTYyYTAwYTYwNTM5ZSBdLS0tCj4+ID4KPj4gPiBMb29r
+cyBsaWtlIGEgcmVwZWF0IG9mIHNvbWV0aGluZyBJIHJlcG9ydGVkIGFnYWluc3QgLW1tb3RtIDIw
+MTAtMDUtMTEsIHRob3VnaCBhCj4+ID4gV0FSTklORyByYXRoZXIgdGhhbiBhbiBvdXRyaWdodCBj
+cmFzaCAtIHRoZSB0cmFjZWJhY2sgaXMgcHJldHR5IG11Y2ggaWRlbnRpY2FsLgo+PiA+IMKgSSBo
+YXZlICpubyogaWRlYSB3aHkgLXJjMy1tbW90bTA3MDEgZG9lc24ndCB3aGluZ2Ugc2ltaWxhcmx5
+Lgo+PiA+Cj4+Cj4+IEkgZG9uJ3QgcmVjYWxsIHlvdSByZXBvcnRpbmcgdGhhdCwgc29ycnkuCj4+
+Cj4+IFRoZSB3YXJuaW5nIHdhcyBhZGRlZCBieQo+Pgo+PiA6IGNvbW1pdCA4MmY2ODI1MTRhNWRm
+ODlmZmIzODkwNjI3ZWViZjA4OTdiN2E4NGVjCj4+IDogQXV0aG9yOiDCoCDCoCBKYW1lcyBCb3R0
+b21sZXkgPEphbWVzLkJvdHRvbWxleUBzdXNlLmRlPgo+PiA6IEF1dGhvckRhdGU6IE1vbiBKdWwg
+NSAyMjo1MzowNiAyMDEwICswMjAwCj4+IDogQ29tbWl0OiDCoCDCoCBSYWZhZWwgSi4gV3lzb2Nr
+aSA8cmp3QHNpc2sucGw+Cj4+IDogQ29tbWl0RGF0ZTogTW9uIEp1bCAxOSAwMjowMDozNCAyMDEw
+ICswMjAwCj4+IDoKPj4gOiDCoCDCoCBwbV9xb3M6IEdldCByaWQgb2YgdGhlIGFsbG9jYXRpb24g
+aW4gcG1fcW9zX2FkZF9yZXF1ZXN0KCkKPj4KPj4KPj4gSXQncyBhIHByZXR0eSBjcmFwcHkgd2Fy
+bmluZyB0b28uIMKgTmVpdGhlciB0aGUgd2FybmluZyBub3IgdGhlIGNvZGUKPj4gY29tbWVudHMg
+cHJvdmlkZSBkZXZlbG9wZXJzIHdpdGggYW55IGhpbnQgYXMgdG8gd2hhdCB0aGV5IGhhdmUgZG9u
+ZQo+PiB3cm9uZywgbm9yIHdoYXQgdGhleSBtdXN0IGRvIHRvIGZpeCB0aGluZ3MuIMKgQW5kIHRo
+ZSBwYXRjaCBjaGFuZ2Vsb2cKPj4gZG9lc24ndCBtZW50aW9uIHRoZSBuZXcgd2FybmluZ3MgKmF0
+IGFsbCouCj4+Cj4+IFNvIG9uZSBtdXN0IGFzc3VtZSB0aGF0IHRoZSBwZW9wbGUgd2hvIHN0dWNr
+IHRoaXMgdGhpbmcgaW4gdGhlIHRyZWUKPj4gaGF2ZSB2b2x1bnRlZXJlZCB0byBmaXggZTEwMDBl
+LiDCoExldCdzIGNjICdlbS4KPj4KPgo+IGUxMDAwIGNhbGxzIHVwZGF0ZV9yZXF1ZXN0IGJlZm9y
+ZSByZWdpc3RlcmluZyBzYWlkIHJlcXVlc3Qgd2l0aCBwbV9xb3MuCj4gVGhpcyB3YXMgc2lsZW50
+bHkgaWdub3JlZCBiZWZvcmUgYnV0IG5vdyBlbWl0cyBhIHdhcm5pbmcuIFRoZSB3YXJuaW5nCj4g
+aXMgc291bmQsIGJlY2F1c2UgaXQgbWVhbnMsIHRoYXQgdGhlIGNvbnN0cmFpbnQtcmVxdWVzdCBk
+aWRuJ3QgdGFrZQo+IGVmZmVjdC4KPgo+IFRoZSByaWdodCB0aGluZyBpcyBwcm9iYWJseSB0byBy
+ZWdpc3RlciB0aGUgcmVxdWVzdCBiZWZvcmUKPiBjYWxsaW5nIHVwZGF0ZV9yZXF1ZXN0Lgo+Cj4g
+QXR0YWNoZWQgcGF0Y2ggbW92ZXMgdGhlIHJlZ2lzdGVyaW5nIGZyb20gZTEwMDBfdXAgdG8gZTEw
+MDBfb3BlbiBhbmQKPiB0aGUgdW5yZWdpc3RlcmluZyBmcm9tIGUxMDAwX2Rvd24gdG8gZTEwMDBf
+Y2xvc2UuCj4gSXQgaXMgb25seSBjb21waWxlLXRlc3RlZCBhcyBJIGRvbid0IGhhdmUgdGhlIGhh
+cmR3YXJlLgo+Cj4gQ2hlZXJzLAo+IEZsbwo+Cj4gcC5zLjogc29ycnkgaWYgdGhpcyBnZXQncyBt
+YW5nbGVkIG9yIGlzIHdyb25nbHkgZm9ybWF0dGVkLCBpJ20ganVzdCB1c2luZwo+IMKgdGhlICJp
+bnNlcnQgZmlsZSIgb3B0aW9uIG9mIG15IG1haWxjbGllbnQgYW5kIGNyb3NzaW5nIG15IGZpbmdl
+cnMuLi4KPgo+Cj4gRnJvbSA2OTNjNzFiOTExZmYwODQ1Yzg3MjI2MWQ1NzA0YTFkNDA5NjA3MjJk
+IE1vbiBTZXAgMTcgMDA6MDA6MDAgMjAwMQo+IEZyb206IEZsb3JpYW4gTWlja2xlciA8Zmxvcmlh
+bkBtaWNrbGVyLm9yZz4KPiBEYXRlOiBXZWQsIDIxIEp1bCAyMDEwIDA4OjQ0OjIxICswMjAwCj4g
+U3ViamVjdDogW1BBVENIXSBlMTAwMGU6IHJlZ2lzdGVyIHBtX3FvcyByZXF1ZXN0IG9uIGhhcmR3
+YXJlIGFjdGl2YXRpb24KPgo+IFRoZSBwbV9xb3NfYWRkX3JlcXVlc3QgY2FsbCBoYXMgdG8gcmVn
+aXN0ZXIgdGhlIHBtX3FvcyByZXF1ZXN0IHdpdGggdGhlIHBtX3Fvcwo+IHN1c2JzeXN0ZW0gYmVm
+b3JlIGZpcnN0IHVzZSBvZiB0aGUgcG1fcW9zIHJlcXVlc3QgdmlhCj4gcG1fcW9zX3VwZGF0ZV9y
+ZXF1ZXN0Lgo+Cj4gQXMgcG1fcW9zIGNoYW5nZWQgdG8gdXNlIHBsaXN0cyB0aGVyZSBpcyBubyBi
+ZW5lZml0IGluIHJlZ2lzdGVyaW5nIGFuZAo+IHVucmVnaXN0ZXJpbmcgdGhlIHBtX3FvcyByZXF1
+ZXN0IG9uIGlmdXAvaWZkb3duIGFuZCB0aHVzIHdlIG1vdmUgdGhlCj4gcmVnaXN0ZXJpbmcgaW50
+byBlMTAwMF9vcGVuIGFuZCB0aGUgdW5yZWdpc3RlcmluZyBpbiBlMTAwMF9jbG9zZS4KPgo+IFRo
+aXMgZml4ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5nOgo+Cj4gWyDCoCDCoDEuNzg2MDYwXSBXQVJO
+SU5HOiBhdCBrZXJuZWwvcG1fcW9zX3BhcmFtcy5jOjI2NAo+IHBtX3Fvc191cGRhdGVfcmVxdWVz
+dCsweDI4LzB4NTQoKQo+IFsgwqAgwqAxLjc4NjA4OF0gSGFyZHdhcmUgbmFtZTogTGF0aXR1ZGUg
+RTY1MDAKPiBbIMKgIMKgMS43ODcwNDVdIHBtX3Fvc191cGRhdGVfcmVxdWVzdCgpIGNhbGxlZCBm
+b3IgdW5rbm93biBvYmplY3QKPiBbIMKgIMKgMS43ODc5NjZdIE1vZHVsZXMgbGlua2VkIGluOgo+
+IFsgwqAgwqAxLjc4ODk0MF0gUGlkOiAxLCBjb21tOiBzd2FwcGVyIE5vdCB0YWludGVkIDIuNi4z
+NS1yYzUtbW1vdG0wNzE5ICMxCj4gWyDCoCDCoDEuNzkwMDM1XSBDYWxsIFRyYWNlOgo+IFsgwqAg
+wqAxLjc5MTEyMV0gwqBbPGZmZmZmZmZmODEwMzczMzU+XSB3YXJuX3Nsb3dwYXRoX2NvbW1vbisw
+eDgwLzB4OTgKPiBbIMKgIMKgMS43OTIyMDVdIMKgWzxmZmZmZmZmZjgxMDM3M2UxPl0gd2Fybl9z
+bG93cGF0aF9mbXQrMHg0MS8weDQzCj4gWyDCoCDCoDEuNzkzMjc5XSDCoFs8ZmZmZmZmZmY4MTA1
+N2MxND5dIHBtX3Fvc191cGRhdGVfcmVxdWVzdCsweDI4LzB4NTQKPiBbIMKgIMKgMS43OTQzNDdd
+IMKgWzxmZmZmZmZmZjgxMzQ4ODllPl0gZTEwMDBfY29uZmlndXJlKzB4NDIxLzB4NDU5Cj4gWyDC
+oCDCoDEuNzk1MzkzXSDCoFs8ZmZmZmZmZmY4MTM0YWZiZD5dIGUxMDAwX29wZW4rMHhiZC8weDM3
+Ywo+IFsgwqAgwqAxLjc5NjQzNl0gwqBbPGZmZmZmZmZmODEwNTc0M2E+XSA/IHJhd19ub3RpZmll
+cl9jYWxsX2NoYWluKzB4Zi8weDExCj4gWyDCoCDCoDEuNzk3NDkxXSDCoFs8ZmZmZmZmZmY4MTQ1
+Zjk0OD5dIF9fZGV2X29wZW4rMHhhZS8weGUyCj4gWyDCoCDCoDEuNzk4NTQ3XSDCoFs8ZmZmZmZm
+ZmY4MTQ1Zjk5Nz5dIGRldl9vcGVuKzB4MWIvMHg0OQo+IFsgwqAgwqAxLjc5OTYxMl0gwqBbPGZm
+ZmZmZmZmODE0NmUzNmU+XSBuZXRwb2xsX3NldHVwKzB4ODQvMHgyNTkKPiBbIMKgIMKgMS44MDA2
+ODVdIMKgWzxmZmZmZmZmZjgxYjUwMzdjPl0gaW5pdF9uZXRjb25zb2xlKzB4YmMvMHgyMWYKPiBb
+IMKgIMKgMS44MDE3NDRdIMKgWzxmZmZmZmZmZjgxYjUwMjZjPl0gPyBzaXJfd3FfaW5pdCsweDAv
+MHgzNQo+IFsgwqAgwqAxLjgwMjc5M10gwqBbPGZmZmZmZmZmODFiNTAyYzA+XSA/IGluaXRfbmV0
+Y29uc29sZSsweDAvMHgyMWYKPiBbIMKgIMKgMS44MDM4NDVdIMKgWzxmZmZmZmZmZjgxMDAwMmZm
+Pl0gZG9fb25lX2luaXRjYWxsKzB4N2EvMHgxMmYKPiBbIMKgIMKgMS44MDQ4ODVdIMKgWzxmZmZm
+ZmZmZjgxYjJjY2FlPl0ga2VybmVsX2luaXQrMHgxMzgvMHgxYzIKPiBbIMKgIMKgMS44MDU5MTVd
+IMKgWzxmZmZmZmZmZjgxMDAzNTU0Pl0ga2VybmVsX3RocmVhZF9oZWxwZXIrMHg0LzB4MTAKPiBb
+IMKgIMKgMS44MDY5MzddIMKgWzxmZmZmZmZmZjgxNTkwZTAwPl0gPyByZXN0b3JlX2FyZ3MrMHgw
+LzB4MzAKPiBbIMKgIMKgMS44MDc5NTVdIMKgWzxmZmZmZmZmZjgxYjJjYjc2Pl0gPyBrZXJuZWxf
+aW5pdCsweDAvMHgxYzIKPiBbIMKgIMKgMS44MDg5NThdIMKgWzxmZmZmZmZmZjgxMDAzNTUwPl0g
+PyBrZXJuZWxfdGhyZWFkX2hlbHBlcisweDAvMHgxMAo+IFsgwqAgwqAxLjgwOTk1OF0gLS0tWyBl
+bmQgdHJhY2UgODRiNTYyYTAwYTYwNTM5ZSBdLS0tCj4KPiBTaWduZWQtb2ZmLWJ5OiBGbG9yaWFu
+IE1pY2tsZXIgPGZsb3JpYW5AbWlja2xlci5vcmc+Cj4gLS0tCj4gwqBkcml2ZXJzL25ldC9lMTAw
+MGUvbmV0ZGV2LmMgfCDCoCAxOCArKysrKysrKystLS0tLS0tLS0KPiDCoDEgZmlsZXMgY2hhbmdl
+ZCwgOSBpbnNlcnRpb25zKCspLCA5IGRlbGV0aW9ucygtKQo+CgpUaGFua3MgSSBoYXZlIGFkZGVk
+IHRoZSBwYXRjaCB0byBteSBxdWV1ZS4KCi0tIApDaGVlcnMsCkplZmYKCi0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLQpUaGlzIFNGLm5ldCBlbWFpbCBpcyBzcG9uc29yZWQgYnkgU3ByaW50CldoYXQgd2ls
+bCB5b3UgZG8gZmlyc3Qgd2l0aCBFVk8sIHRoZSBmaXJzdCA0RyBwaG9uZT8KVmlzaXQgc3ByaW50
+LmNvbS9maXJzdCAtLSBodHRwOi8vcC5zZi5uZXQvc2Z1L3NwcmludC1jb20tZmlyc3QKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFp
+bGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3Rz
+LnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3Jl
+IGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50
+ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
