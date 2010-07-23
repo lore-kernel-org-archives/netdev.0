@@ -1,42 +1,50 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] ip6tables: use skb->len for accounting
-Date: Fri, 23 Jul 2010 18:40:08 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1007231838510.2880@obet.zrqbmnf.qr>
-References: <1279855877-8945-1-git-send-email-xiaosuo@gmail.com>  <alpine.LSU.2.01.1007230813300.815@obet.zrqbmnf.qr> <AANLkTik_2HMl3OaGvZiJPCO09Bu4lj6S0PNWFbw1BGXe@mail.gmail.com>  <4C498172.40404@trash.net>
- <AANLkTi=PAVfcX4ttUsSgm+A_WMYcfXt4FLvYunccgtjS@mail.gmail.com>
+From: Ulrich Weber <uweber@astaro.com>
+Subject: Re: IPv6 Anycast?
+Date: Fri, 23 Jul 2010 18:29:06 +0200
+Message-ID: <4C49C352.6010701@astaro.com>
+References: <4C48B90B.60304@actusa.net> <alpine.DEB.1.10.1007230554240.9875@uplift.swm.pp.se> <4C491AD4.9070103@actusa.net> <alpine.DEB.1.10.1007230748380.9875@uplift.swm.pp.se> <4C49B163.8090400@actusa.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=PAVfcX4ttUsSgm+A_WMYcfXt4FLvYunccgtjS@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mikael Abrahamsson <swmike@swm.pp.se>, netdev@vger.kernel.org
+To: Stuart Sheldon <stu@actusa.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dhost002-64.dex002.intermedia.net ([64.78.20.13]:47986 "EHLO
+	dhost002-64.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752781Ab0GWQoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 12:44:20 -0400
+In-Reply-To: <4C49B163.8090400@actusa.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 2010-07-23 15:05, Changli Gao wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
->On Fri, Jul 23, 2010 at 7:48 PM, Patrick McHardy <kaber@trash.net> wrote:
->> On 23.07.2010 08:38, Changli Gao wrote:
->>>
->>> For the packets received, ip_rcv, ipv6_rcv and bridge all call
->>> pskb_trim_rcsum before feeding them to netfilter. The raw packets are
->>> sent via dev_queue_xmit(), and they don't pass through the output path
->>> of netfilter.
->>
->> That's not true, raw packets also pass through netfilter. However
->> I agree that this patch makes sense to properly deal with jumbo
->> frames, but you should also update xt_length for consistency.
->>
->
->In order to support jumbo frames, we have to change the type of min
->and max in xt_length_info to u32. I'll change xt_match.revision to 1,
->do I need to support the current revision 0 at the same time?
+Hi Stuart,
 
-This is all already handled by xt_length.2. But alas, merge has been 
-declined so far.
+you probably mean the IPV6_JOIN_ANYCAST/IPV6_LEAVE_ANYCAST socket optio=
+n
+support? See the old patch documentation:
+http://lkml.indiana.edu/hypermail/linux/net/0208.3/0028.html
+
+To remove the automatic generated IPv6 Anycast addresses, you can remov=
+e
+the routes from the local table manually:
+ip -6 route del 2607:ff38:: table local
+
+Best regards
+ Ulrich
+
+- --=20
+Ulrich Weber | uweber@astaro.com | Software Engineer
+Astaro GmbH & Co. KG | www.astaro.com | Phone +49-721-25516-0 | Fax =96=
+200
+An der RaumFabrik 33a | 76227 Karlsruhe | Germany
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkxJw1IACgkQ22t2oTuElzpt9ACfYR7cZ2tWRb9kVuvTl3d8nbkn
+oCUAmwVQYjBJ9a35yA/UyJdLeti8cNWK
+=3DUDP7
+-----END PGP SIGNATURE-----
