@@ -1,47 +1,49 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: RE: Re: Fwd: LVS on local node
-Date: Fri, 23 Jul 2010 07:24:10 +0800
-Message-ID: <AANLkTinJW6ARfmvawUbCEEHmAQ9EtYVqmCpTBOxr8AdM@mail.gmail.com>
-References: <20100723010102.121uPPJ1@mxfront8.mail.yandex.net>
-	<188211279834651@web111.yandex.ru>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-next-2.6] 3c59x: Fix call to mdio_sync() with the wrong
+ argument
+Date: Fri, 23 Jul 2010 01:18:28 +0100
+Message-ID: <1279844308.4883.365.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Graeme Fowler <graeme@graemef.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Franchoze Eric <franchoze@yandex.ru>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <188211279834651@web111.yandex.ru>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Luca Falavigna <dktrkranz@debian.org>, 589989@bugs.debian.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49526 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756167Ab0GWASg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jul 2010 20:18:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 23, 2010 at 5:37 AM, Franchoze Eric <franchoze@yandex.ru> w=
-rote:
->
->
-> 23.07.10, 01:01, "Graeme Fowler" <graeme@graemef.net>:
->
->> Hi
->>
->> =9ATechnically keepalived is not LVS. It's a monitoring/mgmt app whi=
-ch can manage an LVS according to health-check logic. LVS by itself can=
-not "detect" any form of service failure - it's a fancy router with spe=
-cial rules.
->>
->> =9AGraeme.
->>
->
-> Ah, ok. Then with iptables I can write keepalived app to insert/remov=
-e rules.
-> Is there interface to iptables for dynamically turn on/off rules with=
-out inserting and removing them from the table?
+commit a095cfc40ec7ebe63e9532383c5b5c2a27b14075
+"3c59x: Specify window explicitly for access to windowed registers"
+changed the first parameter to mdio_sync(), from a pointer to the
+register mapping, to a pointer to the vortex_private structure,
+and changed all but one of the call sites.  Fix that last one.
 
-xt_condition is on its way to mainline. http://patchwork.ozlabs.org/pat=
-ch/59578/
+Reported-by: Luca Falavigna <dktrkranz@debian.org>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ drivers/net/3c59x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 069a03f..b124283 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -1387,7 +1387,7 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 		mii_preamble_required++;
+ 		if (vp->drv_flags & EXTRA_PREAMBLE)
+ 			mii_preamble_required++;
+-		mdio_sync(ioaddr, 32);
++		mdio_sync(vp, 32);
+ 		mdio_read(dev, 24, MII_BMSR);
+ 		for (phy = 0; phy < 32 && phy_idx < 1; phy++) {
+ 			int mii_status, phyx;
+-- 
+1.7.1
 
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
