@@ -1,52 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [patch -next] mv643xx_eth: potential null dereference
-Date: Fri, 23 Jul 2010 03:32:57 -0700
-Message-ID: <1279881177.24768.1623.camel@Joe-Laptop.home>
-References: <20100723101528.GF26313@bicker>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch v2.8 1/4] netfilter: xt_ipvs (netfilter matcher for IPVS)
+Date: Fri, 23 Jul 2010 12:44:51 +0200
+Message-ID: <4C4972A3.7070508@trash.net>
+References: <20100722073547.504156161@vergenet.net> <20100722075012.385241097@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Malcolm Turnbull <malcolm@loadbalancer.org>,
+	Mark Brooks <mark@loadbalancer.org>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Denis Kirjanov <kirjanov@gmail.com>,
-	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2064 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754489Ab0GWKc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jul 2010 06:32:59 -0400
-In-Reply-To: <20100723101528.GF26313@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Hannes Eder <heder@google.com>,
+	Jan Engelhardt <jengelh@medozas.de>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100722075012.385241097@vergenet.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-07-23 at 12:15 +0200, Dan Carpenter wrote:
-> We assume that "pd" can be null on the previous line, and throughout the
-> function so we should check it here as well.  This was introduced by
-> 9b2c2ff7a1c0 "mv643xx_eth: use sw csum for big packets"
+Am 22.07.2010 09:35, schrieb Simon Horman:
+> From:	Hannes Eder <heder@google.com>
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> This implements the kernel-space side of the netfilter matcher xt_ipvs.
 > 
-> diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> index 2fcdb1e..9166f55 100644
-> --- a/drivers/net/mv643xx_eth.c
-> +++ b/drivers/net/mv643xx_eth.c
-> @@ -2675,7 +2675,8 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
->  	 * Detect hardware parameters.
->  	 */
->  	msp->t_clk = (pd != NULL && pd->t_clk != 0) ? pd->t_clk : 133000000;
-> -	msp->tx_csum_limit = pd->tx_csum_limit ? pd->tx_csum_limit : 9 * 1024;
-> +	msp->tx_csum_limit = (pd && pd->tx_csum_limit) ?
-> +					pd->tx_csum_limit : 9 * 1024;
+> [ minor fixes by Simon Horman <horms@verge.net.au> ]
+> Signed-off-by: Hannes Eder <heder@google.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> --- 
+> 
+>  include/linux/netfilter/xt_ipvs.h |   27 ++++
+>  net/netfilter/Kconfig             |   10 +
+>  net/netfilter/Makefile            |    1 
+>  net/netfilter/ipvs/ip_vs_proto.c  |    1 
+>  net/netfilter/xt_ipvs.c           |  189 +++++++++++++++++++++++++++++++++++++
 
-It's odd using two different check styles for the same
-test on consecutive lines.
-
-How about using the same style:
-
-	msp->tx_csum_limit = (pd != NULL && pd->tx_csum_limit) ?
-					pd->tx_csum_limit : 9 * 1024;
-
-
+I added xt_ipvs.h to Kbuild and applied the patch, thanks.
