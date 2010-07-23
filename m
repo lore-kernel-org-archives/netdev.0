@@ -1,75 +1,89 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch -next v2] mv643xx_eth: potential null dereference
-Date: Fri, 23 Jul 2010 18:30:22 +0200
-Message-ID: <4C49C39E.8020502@bfs.de>
-References: <20100723101528.GF26313@bicker> <1279881177.24768.1623.camel@Joe-Laptop.home> <20100723110504.GG26313@bicker>
-Reply-To: wharms@bfs.de
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
+From: Kulikov Vasiliy <segooon@gmail.com>
+Subject: [PATCH] net: s2io: fix buffer overflow
+Date: Fri, 23 Jul 2010 20:36:15 +0400
+Message-ID: <1279902976-27146-1-git-send-email-segooon@gmail.com>
+Cc: Ramkrishna Vepa <ramkrishna.vepa@exar.com>,
+	Sivakumar Subramani <sivakumar.subramani@exar.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
+	Jon Mason <jon.mason@exar.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Denis Kirjanov <kirjanov@gmail.com>,
-	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+	Joe Perches <joe@perches.com>, Jiri Pirko <jpirko@redhat.com>,
+	netdev@vger.kernel.org
+To: kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.sz.bfs.de ([194.94.69.103]:62253 "EHLO mx01.sz.bfs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757467Ab0GWQaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jul 2010 12:30:25 -0400
-In-Reply-To: <20100723110504.GG26313@bicker>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:47216 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753395Ab0GWQgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 12:36:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+vpd_data[] is allocated as kmalloc(256, GFP_KERNEL), so if cnt = 255
+then (cnt + 3) overflows 256. memset() is executed without checking.
+vpd_data[cnt+2] must be less than 256-cnt-2 as the latter is number of
+vpd_data[] elements to copy.
 
+Do not fill with zero the beginning of nic->serial_num as it will
+be filled with vpd_data[].
 
-Dan Carpenter schrieb:
-> We assume that "pd" can be null on the previous line, and throughout the
-> function so we should check it here as well.  This was introduced by
-> 9b2c2ff7a1c0 "mv643xx_eth: use sw csum for big packets"
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
-> ---
-> v2: style change
-> 
-> diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-> index 73bb8ea..f5e72fe 100644
-> --- a/drivers/net/mv643xx_eth.c
-> +++ b/drivers/net/mv643xx_eth.c
-> @@ -2670,7 +2670,8 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
->  	 * Detect hardware parameters.
->  	 */
->  	msp->t_clk = (pd != NULL && pd->t_clk != 0) ? pd->t_clk : 133000000;
-> -	msp->tx_csum_limit = pd->tx_csum_limit ? pd->tx_csum_limit : 9 * 1024;
-> +	msp->tx_csum_limit = (pd != NULL && pd->tx_csum_limit) ?
-> +					pd->tx_csum_limit : 9 * 1024;
->  	infer_hw_params(msp);
->  
->  	platform_set_drvdata(pdev, msp);
+String in product_name[] should be terminated by '\0'.
 
-this is a bit complicated, IMHO ppl have a bigger chance to discover what is going on
-with this version:
+Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+---
+ drivers/net/s2io.c |   28 ++++++++++++++++++----------
+ 1 files changed, 18 insertions(+), 10 deletions(-)
 
-    if (!pd ) {
-       msp->t_clk = 133000000;
-       msp->tx_csum_limit = 9 * 1024;
-     }
-     else
-      {
-	msp->t_clk = pd->t_clk ? pd->t_clk : 133000000 ;
-        msp->tx_csum_limit = pd->tx_csum_limit ? pd->tx_csum_limit : 9 * 1024;
-       }
-
-
-re,
- wh
-
-
-
-
-
-
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index b8b8584..18bc5b7 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -5796,7 +5796,7 @@ static void s2io_vpd_read(struct s2io_nic *nic)
+ {
+ 	u8 *vpd_data;
+ 	u8 data;
+-	int i = 0, cnt, fail = 0;
++	int i = 0, cnt, len, fail = 0;
+ 	int vpd_addr = 0x80;
+ 	struct swStat *swstats = &nic->mac_control.stats_info->sw_stat;
+ 
+@@ -5837,20 +5837,28 @@ static void s2io_vpd_read(struct s2io_nic *nic)
+ 
+ 	if (!fail) {
+ 		/* read serial number of adapter */
+-		for (cnt = 0; cnt < 256; cnt++) {
++		for (cnt = 0; cnt < 252; cnt++) {
+ 			if ((vpd_data[cnt] == 'S') &&
+-			    (vpd_data[cnt+1] == 'N') &&
+-			    (vpd_data[cnt+2] < VPD_STRING_LEN)) {
+-				memset(nic->serial_num, 0, VPD_STRING_LEN);
+-				memcpy(nic->serial_num, &vpd_data[cnt + 3],
+-				       vpd_data[cnt+2]);
+-				break;
++			    (vpd_data[cnt+1] == 'N')) {
++				len = vpd_data[cnt+2];
++				if (len < min(VPD_STRING_LEN, 256-cnt-2)) {
++					memcpy(nic->serial_num,
++					       &vpd_data[cnt + 3],
++					       len);
++					memset(nic->serial_num+len,
++					       0,
++					       VPD_STRING_LEN-len);
++					break;
++				}
+ 			}
+ 		}
+ 	}
+ 
+-	if ((!fail) && (vpd_data[1] < VPD_STRING_LEN))
+-		memcpy(nic->product_name, &vpd_data[3], vpd_data[1]);
++	if ((!fail) && (vpd_data[1] < VPD_STRING_LEN)) {
++		len = vpd_data[1];
++		memcpy(nic->product_name, &vpd_data[3], len);
++		nic->product_name[len] = 0;
++	}
+ 	kfree(vpd_data);
+ 	swstats->mem_freed += 256;
+ }
+-- 
+1.7.0.4
 
