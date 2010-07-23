@@ -1,53 +1,42 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] xt_quota: don't copy quota back to userspace
-Date: Fri, 23 Jul 2010 13:43:25 +0800
-Message-ID: <AANLkTilvne1U-SaCp9SK7gA9Q_ZJCZRO47buCb_ziuqm@mail.gmail.com>
-References: <1279860845-7177-1-git-send-email-xiaosuo@gmail.com>
-	<1279862843.2482.16.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] LSM: Add post recvmsg() hook.
+Date: Thu, 22 Jul 2010 22:44:50 -0700 (PDT)
+Message-ID: <20100722.224450.04662931.davem@davemloft.net>
+References: <20100722.102251.165153819.davem@davemloft.net>
+	<20100722.102637.201684445.davem@davemloft.net>
+	<201007230022.o6N0MKLt053955@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1279862843.2482.16.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, paul.moore@hp.com,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: penguin-kernel@I-love.SAKURA.ne.jp
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201007230022.o6N0MKLt053955@www262.sakura.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 23, 2010 at 1:27 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le vendredi 23 juillet 2010 =E0 12:54 +0800, Changli Gao a =E9crit :
->> This patch should be applied after my another patch:
->> http://patchwork.ozlabs.org/patch/59729/
->>
->> xt_quota: don't copy quota back to userspace
->>
->> In nowadays, table entries are per-cpu variables, so it don't make a=
-ny sense to
->> copy quota back to one of the variable instances. To keep things sim=
-ple, this
->> patch undo the copy.
->>
->> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
->
-> This looks the wrong way to fix this problem.
->
-> Also Changli, could you please _not_ include the title of your patche=
-s
-> inside the Changelog ? This is useless.
->
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Fri, 23 Jul 2010 09:22:20 +0900
 
-Thanks. I remembered  some document mentioned a summary line was
-needed. I'll follow your advice.
+> David Miller wrote:
+>> The fact is going to remain that you will be unable to return data
+>> from recvmsg() to a blocking socket when ->poll() returns true even
+>> though data is in fact there in the socket receive queue.
+>> 
+>> This is something that the existing LSM hooks do not do.
+> 
+> This is something that the existing security_socket_recvmsg() hook does do.
+> SELinux is unable to return data from recvmsg() to a blocking socket when
+> ->poll() returns true even though data is in fact there in the socket receive
+> queue.
+> We agreed below situation, didn't we?
 
+Existing LSM hook returns an error early, as if the user passed in
+incorrect parameters or similar.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It's completely stateless and dependent upon purely the labels
+associated with state visible on recvmsg() entry, and independent
+of other things such as attributes in the packets contained in
+the socket's receive queue.
