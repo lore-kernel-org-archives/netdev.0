@@ -1,30 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: 3c59x: fix leak of iomaps
-Date: Fri, 23 Jul 2010 13:06:13 -0700 (PDT)
-Message-ID: <20100723.130613.242150222.davem@davemloft.net>
-References: <1279903485-28247-1-git-send-email-segooon@gmail.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.35-rc6: Reported regressions from 2.6.34
+Date: Fri, 23 Jul 2010 22:09:54 +0200
+Message-ID: <201007232209.54326.rjw@sisk.pl>
+References: <Lupw7pePXBO.A.fZH.G2XSMB@chimera> <4C49A577.3020306@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	klassert@mathematik.tu-chemnitz.de, eric.dumazet@gmail.com,
-	ben@decadent.org.uk, adobriyan@gmail.com, joe@perches.com,
-	netdev@vger.kernel.org
-To: segooon@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54871
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760517Ab0GWUF4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 16:05:56 -0400
-In-Reply-To: <1279903485-28247-1-git-send-email-segooon@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <4C49A577.3020306@lwfinger.net>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kulikov Vasiliy <segooon@gmail.com>
-Date: Fri, 23 Jul 2010 20:44:44 +0400
-
-> If vortex_probe1() fails we should unmap ioaddr mapped earlier.
+On Friday, July 23, 2010, Larry Finger wrote:
+> On 07/23/2010 06:42 AM, Rafael J. Wysocki wrote:
+> > This message contains a list of some regressions from 2.6.34,
+> > for which there are no fixes in the mainline known to the tracking team.
+> > If any of them have been fixed already, please let us know.
 > 
-> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16312
+> > Subject		: WARNING: at fs/fs-writeback.c:1127 __mark_inode_dirty
+> > Submitter	: Zdenek Kabelac<zdenek.kabelac@gmail.com>
+> > Date		: 2010-06-28 9:40 (26 days old)
+> > Message-ID	:<AANLkTin24fr5O4_q5Xbo9Y_NKkEmtcp6Hgmr9_4qXaFz@mail.gmail.com>
+> > References	: http://marc.info/?l=linux-kernel&m=127771804806465&w=2
+> 
+> I still have this in 2.6.35-rc5.
 
-Applied.  Thanks for following up on this.
+Thanks for the update.
+
+Rafael
