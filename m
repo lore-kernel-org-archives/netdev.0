@@ -1,53 +1,50 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] iptables: use skb->len for accounting
-Date: Fri, 23 Jul 2010 14:47:17 +0800
-Message-ID: <AANLkTikFp9tjtYz5c0GTOfcS1DD8v6fLvBUVVeBVbsns@mail.gmail.com>
+Date: Fri, 23 Jul 2010 08:58:22 +0200
+Message-ID: <1279868302.2482.113.camel@edumazet-laptop>
 References: <1279856088-9004-1-git-send-email-xiaosuo@gmail.com>
-	<1279866541.2482.79.camel@edumazet-laptop>
+	 <1279866541.2482.79.camel@edumazet-laptop>
+	 <AANLkTikFp9tjtYz5c0GTOfcS1DD8v6fLvBUVVeBVbsns@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1279866541.2482.79.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:50219 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751344Ab0GWG61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 02:58:27 -0400
+In-Reply-To: <AANLkTikFp9tjtYz5c0GTOfcS1DD8v6fLvBUVVeBVbsns@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 23, 2010 at 2:29 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le vendredi 23 juillet 2010 =E0 11:34 +0800, Changli Gao a =E9crit :
->> iptables: use skb->len for accounting
->>
->> use skb->len for accounting as xt_quota does.
->>
->
-> Why ?
->
-> This is a gratuitous change, unless you have very strong arguments.
->
-> xt_quota is an exception, dont change all others because of it !
+Le vendredi 23 juillet 2010 =C3=A0 14:47 +0800, Changli Gao a =C3=A9cri=
+t :
+> On Fri, Jul 23, 2010 at 2:29 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > Le vendredi 23 juillet 2010 =C3=A0 11:34 +0800, Changli Gao a =C3=A9=
+crit :
+> >> iptables: use skb->len for accounting
+> >>
+> >> use skb->len for accounting as xt_quota does.
+> >>
+> >
+> > Why ?
+> >
+> > This is a gratuitous change, unless you have very strong arguments.
+> >
+> > xt_quota is an exception, dont change all others because of it !
+>=20
+> exception ? Why ?
 
-exception ? Why ?
+Because it handles all protocols...
 
->
-> It is about actual data on wire, including overhead (excess bytes aft=
-er
-> IP frame if any).
->
-> But IP tables accounting is about IP only.
->
+So skb->len is a shortcut, an approximation if you want.
 
-Is the assumption that: the packets in netfilter have the padding
-bytes removed, and skb->data points to the network header? Thanks.
+At IPV4 level, ip->tot_len is an exact value.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
