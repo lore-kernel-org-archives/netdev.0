@@ -1,60 +1,44 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: 2.6.34.1: kernel warning at igb_main.c:2080
-Date: Fri, 23 Jul 2010 14:59:02 -0700
-Message-ID: <EDC0E76513226749BFBC9C3FB031318FE1DF9DE3@orsmsx508.amr.corp.intel.com>
-References: <4C3FA03E.9090802@candelatech.com>
- <EDC0E76513226749BFBC9C3FB031318FE1DF9DC1@orsmsx508.amr.corp.intel.com>
- <4C4A1038.5020707@candelatech.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [patch -next v2] mv643xx_eth: potential null dereference
+Date: Sat, 24 Jul 2010 00:15:14 +0200
+Message-ID: <20100723221514.GJ26313@bicker>
+References: <20100723101528.GF26313@bicker> <1279881177.24768.1623.camel@Joe-Laptop.home> <20100723110504.GG26313@bicker> <4C49C39E.8020502@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Denis Kirjanov <kirjanov@gmail.com>,
+	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: walter harms <wharms@bfs.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:50432 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755048Ab0GWV7Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 17:59:24 -0400
-In-Reply-To: <4C4A1038.5020707@candelatech.com>
-Content-Language: en-US
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:59996 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754215Ab0GWWPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 18:15:34 -0400
+Content-Disposition: inline
+In-Reply-To: <4C49C39E.8020502@bfs.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
+On Fri, Jul 23, 2010 at 06:30:22PM +0200, walter harms wrote:
+> this is a bit complicated, IMHO ppl have a bigger chance to discover what is going on
+> with this version:
+> 
+>     if (!pd ) {
+>        msp->t_clk = 133000000;
+>        msp->tx_csum_limit = 9 * 1024;
+>      }
+>      else
+>       {
+> 	msp->t_clk = pd->t_clk ? pd->t_clk : 133000000 ;
+>         msp->tx_csum_limit = pd->tx_csum_limit ? pd->tx_csum_limit : 9 * 1024;
+>        }
+> 
 
->-----Original Message-----
->From: Ben Greear [mailto:greearb@candelatech.com] 
->Sent: Friday, July 23, 2010 2:57 PM
->To: Wyborny, Carolyn
->Cc: NetDev
->Subject: Re: 2.6.34.1: kernel warning at igb_main.c:2080
->
->On 07/23/2010 02:48 PM, Wyborny, Carolyn wrote:
->> Hello Ben,
->>
->> I'm not exactly sure why this happened and there's not a lot 
->of info from the kernel, unfortunately.  I've looked at the 
->location in the code and it doesn't give me much more.  Let me 
->know if it is happening regularly and if you have steps to 
->reliably reproduce it and we can look at it further.
->>
->> We do appreciate the report.
->
->Thanks for looking.  We haven't noticed this again.
->
->If we figure out how to reproduce it reliably, I'll
->let you know.
->
->Thanks,
->Ben
->
->-- 
->Ben Greear <greearb@candelatech.com>
->Candela Technologies Inc  http://www.candelatech.com
->
->
-Thanks Ben,
+But then instead of 2 magic numbers we would have 4. :/
 
-Sounds good.
-
-Carolyn
+regards,
+dan carpenter
