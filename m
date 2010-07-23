@@ -1,27 +1,45 @@
 From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: [PATCH 0/5] remove custom implementation of hex_to_bin()
-Date: Fri, 23 Jul 2010 16:18:05 +0300
-Message-ID: <cover.1279890832.git.andy.shevchenko@gmail.com>
+Subject: [PATCH 2/5] drivers: net: use newly introduced hex_to_bin()
+Date: Fri, 23 Jul 2010 16:18:07 +0300
+Message-ID: <3f9b9040fd8614141d4d7df59fbccf32d50e997d.1279890832.git.andy.shevchenko@gmail.com>
+References: <cover.1279890832.git.andy.shevchenko@gmail.com>
 Cc: Andy Shevchenko <andy.shevchenko@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1279890832.git.andy.shevchenko@gmail.com>
+In-Reply-To: <cover.1279890832.git.andy.shevchenko@gmail.com>
+References: <cover.1279890832.git.andy.shevchenko@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove custom implementation of recently introduced hex_to_bin() method. All
-changes related to the network subsystem in the kernel.
+Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+---
+ drivers/net/ksz884x.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-Andy Shevchenko (5):
-  drivers: atm: don't use private copy of hex_to_bin()
-  drivers: net: use newly introduced hex_to_bin()
-  usb: usbnet: use newly introduced hex_to_bin()
-  wireless: use newly introduced hex_to_bin()
-  net: core: don't use own hex_to_bin() method
-
- drivers/atm/nicstar.c         |   15 ++-------------
- drivers/net/ksz884x.c         |   11 +++++------
- drivers/net/usb/usbnet.c      |   13 ++-----------
- drivers/net/wireless/ray_cs.c |   23 ++---------------------
- net/core/pktgen.c             |   36 ++++++++++++------------------------
- 5 files changed, 23 insertions(+), 75 deletions(-)
+diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
+index 1d998e1..37504a3 100644
+--- a/drivers/net/ksz884x.c
++++ b/drivers/net/ksz884x.c
+@@ -6894,13 +6894,12 @@ static void get_mac_addr(struct dev_info *hw_priv, u8 *macaddr, int port)
+ 	i = j = num = got_num = 0;
+ 	while (j < MAC_ADDR_LEN) {
+ 		if (macaddr[i]) {
++			int digit;
++
+ 			got_num = 1;
+-			if ('0' <= macaddr[i] && macaddr[i] <= '9')
+-				num = num * 16 + macaddr[i] - '0';
+-			else if ('A' <= macaddr[i] && macaddr[i] <= 'F')
+-				num = num * 16 + 10 + macaddr[i] - 'A';
+-			else if ('a' <= macaddr[i] && macaddr[i] <= 'f')
+-				num = num * 16 + 10 + macaddr[i] - 'a';
++			digit = hex_to_bin(macaddr[i]);
++			if (digit >= 0)
++				num = num * 16 + digit;
+ 			else if (':' == macaddr[i])
+ 				got_num = 2;
+ 			else
+-- 
+1.7.1.1
