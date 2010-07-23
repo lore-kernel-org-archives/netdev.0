@@ -1,34 +1,54 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: Re: CONNMARK getsockopt/setsockopt functionality
-Date: Fri, 23 Jul 2010 16:50:51 +0200
-Message-ID: <20100723145051.GA13807@pc0043.bmw-carit.intra>
-References: <20100721072006.GA17965@pc0043.bmw-carit.intra>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: Re: [PATCH V3] Export SMBIOS provided firmware instance and label to sysfs
+Date: Fri, 23 Jul 2010 09:58:09 -0500
+Message-ID: <20100723145809.GA7629@auslistsprd01.us.dell.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE612C40@blrx3m08.blr.amer.dell.com> <20100723133456.GA9378@auslistsprd01.us.dell.com> <20100723135557.GA3624@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: Narendra K <Narendra_K@dell.com>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, linux-pci@vger.kernel.org,
+	charles_rose@dell.com, jordan_hargrave@dell.com,
+	vijay_nijhawan@dell.com
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from toronto053.server4you.de ([62.75.220.53]:46323 "EHLO
-	toronto053.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751575Ab0GWOu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 10:50:56 -0400
-Received: from localhost (mail.bmw-carit.de [62.245.222.98])
-	(Authenticated sender: wagi)
-	by toronto053.server4you.de (Postfix) with ESMTPSA id 0190454198
-	for <netdev@vger.kernel.org>; Fri, 23 Jul 2010 14:50:50 +0000 (UTC)
+Received: from ausc60ps301.us.dell.com ([143.166.148.206]:39399 "EHLO
+	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758847Ab0GWO6W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 10:58:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20100721072006.GA17965@pc0043.bmw-carit.intra>
+In-Reply-To: <20100723135557.GA3624@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Jul 23, 2010 at 06:55:57AM -0700, Greg KH wrote:
+> On Fri, Jul 23, 2010 at 08:34:56AM -0500, Narendra K wrote:
+> > --- a/Documentation/ABI/testing/sysfs-bus-pci
+> > +++ b/Documentation/ABI/testing/sysfs-bus-pci
+> > @@ -179,3 +179,30 @@ Contact:	linux-pci@vger.kernel.org
+> >  Description:
+> >  		This symbolic link points to the PCI hotplug controller driver
+> >  		module that manages the hotplug slot.
+> > +
+> > +What:		/sys/bus/pci/devices/.../label
+> > +Date:		July 2010
+> > +Contact:	linux-bugs@dell.com
+> 
+> that's not your email address.  Please don't hide behind some random
+> address, Linux is about contacting developers directly were ever
+> possible.
 
-> There used to be a way to mark packets in userspace by invoking the
-> setsocketopt with SO_CONNMARK as it was proposed by Krisztian [1].
-> This code was superseeded by Jan's work [2]. Now I wonder how I get
-> the same result out of the new code. Something with conditions? 
+That's actually the public email address for the whole Linux
+engineering team (including engineers and managers) at Dell, of which
+Narendra is a part.  It's the address we publish for people to include
+on the cc: list of bugzilla issues on the kernel.org, Novell, and Red
+Hat bugzillas.  This ensures someone on the team will see bug reports
+or patches and act accordingly, likely Narendra, but could be anyone
+in the future once Narendra is promoted or changes responsibilities
+(or even employers).
 
-Silly me, the above statement is completely wrong. I was looking for
-SO_MARK which is obviously still there. Sorry for the noise.
+-Matt
 
-thanks,
-daniel
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
