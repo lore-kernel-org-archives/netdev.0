@@ -1,18 +1,17 @@
 From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH net-next 3/7] be2net: add vlan support for sriov virtual
- functions
-Date: Fri, 23 Jul 2010 17:21:22 +0530
-Message-ID: <20100723115112.GA24955@serverengines.com>
+Subject: [PATCH net-next 2/7] be2net: add support to get vf config
+Date: Fri, 23 Jul 2010 17:20:34 +0530
+Message-ID: <20100723115022.GA24909@serverengines.com>
 Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:24854 "EHLO
+Received: from segment-124-30.sify.net ([124.30.166.146]:24680 "EHLO
 	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757836Ab0GWLvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 07:51:05 -0400
+	by vger.kernel.org with ESMTP id S1756109Ab0GWLuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 07:50:18 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,148 +19,132 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 ---
- drivers/net/benet/be.h      |    1 +
- drivers/net/benet/be_main.c |   54 ++++++++++++++++++++++++++++++++++++------
- 2 files changed, 47 insertions(+), 8 deletions(-)
+ drivers/net/benet/be.h      |    9 ++++++-
+ drivers/net/benet/be_main.c |   51 +++++++++++++++++++++++++++++++++---------
+ 2 files changed, 47 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index a8e95da..f693b9e 100644
+index c730bd6..a8e95da 100644
 --- a/drivers/net/benet/be.h
 +++ b/drivers/net/benet/be.h
-@@ -224,6 +224,7 @@ struct be_vf_cfg {
- 	unsigned char vf_mac_addr[ETH_ALEN];
- 	u32 vf_if_handle;
- 	u32 vf_pmac_id;
-+	u16 vf_vlan_tag;
+@@ -220,6 +220,12 @@ struct be_rx_obj {
+ 	struct be_rx_page_info page_info_tbl[RX_Q_LEN];
  };
  
++struct be_vf_cfg {
++	unsigned char vf_mac_addr[ETH_ALEN];
++	u32 vf_if_handle;
++	u32 vf_pmac_id;
++};
++
  #define BE_NUM_MSIX_VECTORS		2	/* 1 each for Tx and Rx */
+ #define BE_INVALID_PMAC_ID		0xffffffff
+ struct be_adapter {
+@@ -289,8 +295,7 @@ struct be_adapter {
+ 	struct completion flash_compl;
+ 
+ 	bool sriov_enabled;
+-	u32 vf_if_handle[BE_MAX_VF];
+-	u32 vf_pmac_id[BE_MAX_VF];
++	struct be_vf_cfg vf_cfg[BE_MAX_VF];
+ 	u8 base_eq_id;
+ 	u8 is_virtfn;
+ };
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index a8c4548..46f087e 100644
+index 899881b..a8c4548 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -552,11 +552,18 @@ static int be_change_mtu(struct net_device *netdev, int new_mtu)
-  * A max of 64 (BE_NUM_VLANS_SUPPORTED) vlans can be configured in BE.
-  * If the user configures more, place BE in vlan promiscuous mode.
-  */
--static int be_vid_config(struct be_adapter *adapter)
-+static int be_vid_config(struct be_adapter *adapter, bool vf, u32 vf_num)
- {
- 	u16 vtag[BE_NUM_VLANS_SUPPORTED];
- 	u16 ntags = 0, i;
- 	int status = 0;
-+	u32 if_handle;
-+
-+	if (vf) {
-+		if_handle = adapter->vf_cfg[vf_num].vf_if_handle;
-+		vtag[0] = cpu_to_le16(adapter->vf_cfg[vf_num].vf_vlan_tag);
-+		status = be_cmd_vlan_config(adapter, if_handle, vtag, 1, 1, 0);
-+	}
+@@ -656,18 +656,44 @@ static int be_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
+ 	if (!is_valid_ether_addr(mac) || (vf >= num_vfs))
+ 		return -EINVAL;
  
- 	if (adapter->vlans_added <= adapter->max_vlans)  {
- 		/* Construct VLAN Table to give to HW */
-@@ -572,6 +579,7 @@ static int be_vid_config(struct be_adapter *adapter)
- 		status = be_cmd_vlan_config(adapter, adapter->if_handle,
- 					NULL, 0, 1, 1);
- 	}
+-	if (adapter->vf_pmac_id[vf] != BE_INVALID_PMAC_ID)
+-		status = be_cmd_pmac_del(adapter, adapter->vf_if_handle[vf],
+-					adapter->vf_pmac_id[vf]);
++	if (adapter->vf_cfg[vf].vf_pmac_id != BE_INVALID_PMAC_ID)
++		status = be_cmd_pmac_del(adapter,
++					adapter->vf_cfg[vf].vf_if_handle,
++					adapter->vf_cfg[vf].vf_pmac_id);
+ 
+-	status = be_cmd_pmac_add(adapter, mac, adapter->vf_if_handle[vf],
+-				&adapter->vf_pmac_id[vf]);
+-	if (!status)
++	status = be_cmd_pmac_add(adapter, mac,
++				adapter->vf_cfg[vf].vf_if_handle,
++				&adapter->vf_cfg[vf].vf_pmac_id);
++
++	if (status)
+ 		dev_err(&adapter->pdev->dev, "MAC %pM set on VF %d Failed\n",
+ 				mac, vf);
++	else
++		memcpy(adapter->vf_cfg[vf].vf_mac_addr, mac, ETH_ALEN);
 +
  	return status;
  }
  
-@@ -592,27 +600,28 @@ static void be_vlan_add_vid(struct net_device *netdev, u16 vid)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 
-+	adapter->vlans_added++;
- 	if (!be_physfn(adapter))
- 		return;
- 
- 	adapter->vlan_tag[vid] = 1;
--	adapter->vlans_added++;
- 	if (adapter->vlans_added <= (adapter->max_vlans + 1))
--		be_vid_config(adapter);
-+		be_vid_config(adapter, false, 0);
- }
- 
- static void be_vlan_rem_vid(struct net_device *netdev, u16 vid)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 
-+	adapter->vlans_added--;
-+	vlan_group_set_device(adapter->vlan_grp, vid, NULL);
-+
- 	if (!be_physfn(adapter))
- 		return;
- 
- 	adapter->vlan_tag[vid] = 0;
--	vlan_group_set_device(adapter->vlan_grp, vid, NULL);
--	adapter->vlans_added--;
- 	if (adapter->vlans_added <= adapter->max_vlans)
--		be_vid_config(adapter);
-+		be_vid_config(adapter, false, 0);
- }
- 
- static void be_set_multicast_list(struct net_device *netdev)
-@@ -687,13 +696,41 @@ static int be_get_vf_config(struct net_device *netdev, int vf,
- 
- 	vi->vf = vf;
- 	vi->tx_rate = 0;
--	vi->vlan = 0;
-+	vi->vlan = adapter->vf_cfg[vf].vf_vlan_tag;
- 	vi->qos = 0;
- 	memcpy(&vi->mac, adapter->vf_cfg[vf].vf_mac_addr, ETH_ALEN);
- 
- 	return 0;
- }
- 
-+static int be_set_vf_vlan(struct net_device *netdev,
-+			int vf, u16 vlan, u8 qos)
++static int be_get_vf_config(struct net_device *netdev, int vf,
++			struct ifla_vf_info *vi)
 +{
 +	struct be_adapter *adapter = netdev_priv(netdev);
-+	int status = 0;
 +
 +	if (!adapter->sriov_enabled)
 +		return -EPERM;
 +
-+	if ((vf >= num_vfs) || (vlan > 4095))
++	if (vf >= num_vfs)
 +		return -EINVAL;
 +
-+	if (vlan) {
-+		adapter->vf_cfg[vf].vf_vlan_tag = vlan;
-+		adapter->vlans_added++;
-+	} else {
-+		adapter->vf_cfg[vf].vf_vlan_tag = 0;
-+		adapter->vlans_added--;
-+	}
++	vi->vf = vf;
++	vi->tx_rate = 0;
++	vi->vlan = 0;
++	vi->qos = 0;
++	memcpy(&vi->mac, adapter->vf_cfg[vf].vf_mac_addr, ETH_ALEN);
 +
-+	status = be_vid_config(adapter, true, vf);
-+
-+	if (status)
-+		dev_info(&adapter->pdev->dev,
-+				"VLAN %d config on VF %d failed\n", vlan, vf);
-+	return status;
++	return 0;
 +}
 +
  static void be_rx_rate_update(struct be_adapter *adapter)
  {
  	struct be_drvr_stats *stats = drvr_stats(adapter);
-@@ -1849,7 +1886,7 @@ static int be_open(struct net_device *netdev)
- 	be_link_status_update(adapter, link_up);
- 
- 	if (be_physfn(adapter)) {
--		status = be_vid_config(adapter);
-+		status = be_vid_config(adapter, false, 0);
- 		if (status)
- 			goto err;
- 
-@@ -2218,6 +2255,7 @@ static struct net_device_ops be_netdev_ops = {
+@@ -1904,14 +1930,15 @@ static int be_setup(struct be_adapter *adapter)
+ 			cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED
+ 					| BE_IF_FLAGS_BROADCAST;
+ 			status = be_cmd_if_create(adapter, cap_flags, en_flags,
+-					mac, true, &adapter->vf_if_handle[vf],
++					mac, true,
++					&adapter->vf_cfg[vf].vf_if_handle,
+ 					NULL, vf+1);
+ 			if (status) {
+ 				dev_err(&adapter->pdev->dev,
+ 				"Interface Create failed for VF %d\n", vf);
+ 				goto if_destroy;
+ 			}
+-			adapter->vf_pmac_id[vf] = BE_INVALID_PMAC_ID;
++			adapter->vf_cfg[vf].vf_pmac_id = BE_INVALID_PMAC_ID;
+ 			vf++;
+ 		}
+ 	} else if (!be_physfn(adapter)) {
+@@ -1945,8 +1972,9 @@ tx_qs_destroy:
+ 	be_tx_queues_destroy(adapter);
+ if_destroy:
+ 	for (vf = 0; vf < num_vfs; vf++)
+-		if (adapter->vf_if_handle[vf])
+-			be_cmd_if_destroy(adapter, adapter->vf_if_handle[vf]);
++		if (adapter->vf_cfg[vf].vf_if_handle)
++			be_cmd_if_destroy(adapter,
++					adapter->vf_cfg[vf].vf_if_handle);
+ 	be_cmd_if_destroy(adapter, adapter->if_handle);
+ do_none:
+ 	return status;
+@@ -2189,7 +2217,8 @@ static struct net_device_ops be_netdev_ops = {
+ 	.ndo_vlan_rx_register	= be_vlan_register,
  	.ndo_vlan_rx_add_vid	= be_vlan_add_vid,
  	.ndo_vlan_rx_kill_vid	= be_vlan_rem_vid,
- 	.ndo_set_vf_mac		= be_set_vf_mac,
-+	.ndo_set_vf_vlan	= be_set_vf_vlan,
- 	.ndo_get_vf_config	= be_get_vf_config
+-	.ndo_set_vf_mac		= be_set_vf_mac
++	.ndo_set_vf_mac		= be_set_vf_mac,
++	.ndo_get_vf_config	= be_get_vf_config
  };
  
+ static void be_netdev_init(struct net_device *netdev)
 -- 
 1.7.0.4
 
