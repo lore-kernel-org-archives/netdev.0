@@ -1,61 +1,38 @@
-From: Ulrich Weber <uweber@astaro.com>
-Subject: [PATCH] iproute2: filter routing entries based on clone flag
-Date: Fri, 23 Jul 2010 15:36:08 +0200
-Message-ID: <20100723133608.GA12942@babylon>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH V3] Export SMBIOS provided firmware instance and label
+	to sysfs
+Date: Fri, 23 Jul 2010 06:55:57 -0700
+Message-ID: <20100723135557.GA3624@kroah.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE612C40@blrx3m08.blr.amer.dell.com> <20100723133456.GA9378@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-40.dex002.intermedia.net ([64.78.21.127]:4054 "EHLO
-	dhost002-40.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754506Ab0GWNv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 09:51:26 -0400
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-pci@vger.kernel.org, matt_domsch@dell.com,
+	charles_rose@dell.com, jordan_hargrave@dell.com,
+	vijay_nijhawan@dell.com
+To: Narendra K <Narendra_K@dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100723133456.GA9378@auslistsprd01.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Before IPv6 routing cache entries were always displayed
-if additional tables beside MAIN and LOCAL are installed.
+On Fri, Jul 23, 2010 at 08:34:56AM -0500, Narendra K wrote:
+> --- a/Documentation/ABI/testing/sysfs-bus-pci
+> +++ b/Documentation/ABI/testing/sysfs-bus-pci
+> @@ -179,3 +179,30 @@ Contact:	linux-pci@vger.kernel.org
+>  Description:
+>  		This symbolic link points to the PCI hotplug controller driver
+>  		module that manages the hotplug slot.
+> +
+> +What:		/sys/bus/pci/devices/.../label
+> +Date:		July 2010
+> +Contact:	linux-bugs@dell.com
 
-Signed-off-by: Ulrich Weber <uweber@astaro.com>
----
- ip/iproute.c |   13 +++----------
- 1 files changed, 3 insertions(+), 10 deletions(-)
+that's not your email address.  Please don't hide behind some random
+address, Linux is about contacting developers directly were ever
+possible.
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 8252e18..fce7f33 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -160,14 +160,11 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	if (r->rtm_family == AF_INET6 && table != RT_TABLE_MAIN)
- 		ip6_multiple_tables = 1;
- 
-+	if (filter.cloned == !(r->rtm_flags&RTM_F_CLONED))
-+		return 0;
-+
- 	if (r->rtm_family == AF_INET6 && !ip6_multiple_tables) {
--		if (filter.cloned) {
--			if (!(r->rtm_flags&RTM_F_CLONED))
--				return 0;
--		}
- 		if (filter.tb) {
--			if (!filter.cloned && r->rtm_flags&RTM_F_CLONED)
--				return 0;
- 			if (filter.tb == RT_TABLE_LOCAL) {
- 				if (r->rtm_type != RTN_LOCAL)
- 					return 0;
-@@ -179,10 +176,6 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			}
- 		}
- 	} else {
--		if (filter.cloned) {
--			if (!(r->rtm_flags&RTM_F_CLONED))
--				return 0;
--		}
- 		if (filter.tb > 0 && filter.tb != table)
- 			return 0;
- 	}
--- 
-1.7.0.4
+thanks,
 
+greg k-h
