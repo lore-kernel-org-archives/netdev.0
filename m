@@ -1,81 +1,71 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH iptables] extension: add xt_cpu match
-Date: Fri, 23 Jul 2010 18:46:41 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1007231841500.2880@obet.zrqbmnf.qr>
-References: <1279807385.2467.67.camel@edumazet-laptop>  <alpine.LSU.2.01.1007221611510.1619@obet.zrqbmnf.qr>  <1279811939.2467.79.camel@edumazet-laptop>  <4C497644.7050201@trash.net> <1279892621.2481.53.camel@edumazet-laptop>
+From: Stuart Sheldon <stu@actusa.net>
+Subject: Re: IPv6 Anycast?
+Date: Fri, 23 Jul 2010 09:54:05 -0700
+Message-ID: <4C49C92D.30705@actusa.net>
+References: <4C48B90B.60304@actusa.net> <alpine.DEB.1.10.1007230554240.9875@uplift.swm.pp.se> <4C491AD4.9070103@actusa.net> <alpine.DEB.1.10.1007230748380.9875@uplift.swm.pp.se> <4C49B163.8090400@actusa.net> <4C49C352.6010701@astaro.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Mikael Abrahamsson <swmike@swm.pp.se>, netdev@vger.kernel.org,
+	Stuart Sheldon <stu@actusa.net>
+To: Ulrich Weber <uweber@astaro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:44926 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752727Ab0GWQqm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jul 2010 12:46:42 -0400
-In-Reply-To: <1279892621.2481.53.camel@edumazet-laptop>
+Received: from internal.actusa.net ([208.83.100.16]:50443 "EHLO
+	internal.actusa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751833Ab0GWQyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 12:54:18 -0400
+In-Reply-To: <4C49C352.6010701@astaro.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
 
-On Friday 2010-07-23 15:43, Eric Dumazet wrote:
->+
->+static const struct option cpu_opts[] = {
->+	{ "cpu", 1, NULL, '1' },
->+	{ .name = NULL }
->+};
+Hi Ulrich,
 
-I will never understand that sort of style mix logic. Why the
-C99 initializer only on the sentinel?
+Thanks, that resolves half the issue. So as of right now, there is no
+userspace program to add anycast addresses?
 
-{
-	{.name = "cpu", .has_arg = true, .val = '1'},
-	{NULL},
-};
+Thanks in advance,
 
->+cpu_print(const void *ip, const struct xt_entry_match *match, int numeric)
->+{
->+	const struct xt_cpu_info *info = (void *)match->data;
->+
->+	printf("cpu %s%u ", info->invert ? "! ":"", info->cpu);
->+}
->+
->+static void cpu_save(const void *ip, const struct xt_entry_match *match)
->+{
->+	const struct xt_cpu_info *info = (void *)match->data;
->+
->+	printf("%s--cpu %u ", info->invert ? "! ":"", info->cpu);
->+}
+Stu Sheldon
+ACT USA
 
-Using if (info->invert) would save the empty string.
 
->diff --git a/extensions/libxt_cpu.man b/extensions/libxt_cpu.man
->index e69de29..f42ac7a 100644
->--- a/extensions/libxt_cpu.man
->+++ b/extensions/libxt_cpu.man
->@@ -0,0 +1,16 @@
->+.TP
->+[\fB!\fP] \fB\-\-cpu\fP \fInumber\fP
->+
->+Match cpu handling this packet. cpus are numbered from 0 to NR_CPUS-1
+Ulrich Weber wrote:
+> Hi Stuart,
+> 
+> you probably mean the IPV6_JOIN_ANYCAST/IPV6_LEAVE_ANYCAST socket option
+> support? See the old patch documentation:
+> http://lkml.indiana.edu/hypermail/linux/net/0208.3/0028.html
+> 
+> To remove the automatic generated IPv6 Anycast addresses, you can remove
+> the routes from the local table manually:
+> ip -6 route del 2607:ff38:: table local
+> 
+> Best regards
+>  Ulrich
+> 
 
-Unwanted blank line.
+- --
+Hey nineteen Thats retha franklin, She dont remember The queen of soul,
+Its hard times befallen The sole survivors, She thinks Im crazy,
+But Im just growing old
+               -- Steely Dan - "Hey 19 - Lyrics"
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
 
->+Can be used in combination with RPS (Remote Packet Steering) or
->+multiqueue NICS to spread network traffic on different queues.
->+.PP
->+Example:
->+.PP
->+iptables \-t nat \-A PREROUTING \-p tcp \-\-dport 80 \-m cpu \-\-cpu 0 
->+        \-j REDIRECT \-\-to\-port 8080
-
-Unwanted indent.
-
->+.PP
->+iptables \-t nat \-A PREROUTING \-p tcp \-\-dport 80 \-m cpu \-\-cpu 1 
->+        \-j REDIRECT \-\-to\-port 8081
->+.PP
->+Available since linux 2.6.36
-
-Linux.
+iQIcBAEBCAAGBQJMSckqAAoJEFKVLITDJSGSHlEP+QHx5MZugq8US0Q5K8EwWvKM
+3eOaELHz7tdNT6R3YJ1h5evcmPkj8iG8HDA65BjOghsUavZczSsZtC85azJ6lTaP
+lBJdJRiyQa1b9HjnLgu4zGbRWfPyYzLstwvfWUkV7SrrWzAen7HnaMy/0+vRgOb1
+MDncta1DzFjJrEwKao1qT/LbN7VVSR7BGAAlhDaJSczEfo0xXRuxpVvHEG+MHT0c
+EIufckWjJ9TiaYyPALldtFOdEkmS9sqZ2ryMkgrCrL7AiuqqHhTWJgywTrCZk+1O
+YPy9jZGiMd7vC1u3L34ZRDT30F6bF9LrYcwk+qM0fFPbjdjDrWhIz//G67azADeJ
+Z/B9KX3UgbRt+tpjDefIR4aGX2sy2YwBNz4mPrM/eq+VGp4ATayFxs4+g5Y7kbFz
+a5IsnXoqTPpyeJ3dcSVQQxXB00SA2TCc167RgN4xDFu+7ZEoUM9Bbsun8KT2BywE
+LnNwnRlRmlCq9MZ31Hc+3nwpeW/+kS9xnK7GmwdRhDBLskuiQZbYdsU+t4ouga0m
+ylhnVQkj7cx0l9SQLUWNwz541MOY5+/tUSZNr3n7Tjyp8J7jf1v0oj2l9BqIDBRY
+EW8kfHM9QF5z79jBMTgEBPeJtZYpiN/xjToGo+Xs3RZLM0ZffCWQqpE8Sre3ZdiM
+6XAaGjSwTRzmYYpblhe6
+=ZWuG
+-----END PGP SIGNATURE-----
