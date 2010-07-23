@@ -1,49 +1,61 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next-2.6] 3c59x: Fix call to mdio_sync() with the wrong
- argument
-Date: Fri, 23 Jul 2010 01:18:28 +0100
-Message-ID: <1279844308.4883.365.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Luca Falavigna <dktrkranz@debian.org>, 589989@bugs.debian.org
-To: David Miller <davem@davemloft.net>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [patch 2.6.35] wimax/i2400m: Add PID & VID for Intel WiMAX 6250
+Date: Thu, 22 Jul 2010 17:15:14 -0700
+Message-ID: <41a8730c23aba4b77a13e5e151d2b69cd10ef6cb.1279843906.git.inaky.perez-gonzalez@intel.com>
+References: <cover.1279843906.git.inaky.perez-gonzalez@intel.com>
+Cc: Alexey Shvetsov <alexxy@gentoo.org>
+To: netdev@vger.kernel.org, wimax@linuxwimax.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49526 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756167Ab0GWASg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jul 2010 20:18:36 -0400
+Received: from mga14.intel.com ([143.182.124.37]:34290 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756194Ab0GWATv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jul 2010 20:19:51 -0400
+In-Reply-To: <cover.1279843906.git.inaky.perez-gonzalez@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit a095cfc40ec7ebe63e9532383c5b5c2a27b14075
-"3c59x: Specify window explicitly for access to windowed registers"
-changed the first parameter to mdio_sync(), from a pointer to the
-register mapping, to a pointer to the vortex_private structure,
-and changed all but one of the call sites.  Fix that last one.
+From: Alexey Shvetsov <alexxy@gentoo.org>
 
-Reported-by: Luca Falavigna <dktrkranz@debian.org>
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+This version of intel wimax device was found in my IBM ThinkPad x201
+
+Signed-off-by: Alexey Shvetsov <alexxy@gentoo.org>
 ---
- drivers/net/3c59x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/wimax/i2400m/i2400m-usb.h |    1 +
+ drivers/net/wimax/i2400m/usb.c        |    2 ++
+ 2 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index 069a03f..b124283 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -1387,7 +1387,7 @@ static int __devinit vortex_probe1(struct device *gendev,
- 		mii_preamble_required++;
- 		if (vp->drv_flags & EXTRA_PREAMBLE)
- 			mii_preamble_required++;
--		mdio_sync(ioaddr, 32);
-+		mdio_sync(vp, 32);
- 		mdio_read(dev, 24, MII_BMSR);
- 		for (phy = 0; phy < 32 && phy_idx < 1; phy++) {
- 			int mii_status, phyx;
+diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
+index 2d7c96d..eb80243 100644
+--- a/drivers/net/wimax/i2400m/i2400m-usb.h
++++ b/drivers/net/wimax/i2400m/i2400m-usb.h
+@@ -152,6 +152,7 @@ enum {
+ 	/* Device IDs */
+ 	USB_DEVICE_ID_I6050 = 0x0186,
+ 	USB_DEVICE_ID_I6050_2 = 0x0188,
++	USB_DEVICE_ID_I6250 = 0x0187,
+ };
+ 
+ 
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
+index 16341ff..0f88702 100644
+--- a/drivers/net/wimax/i2400m/usb.c
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -491,6 +491,7 @@ int i2400mu_probe(struct usb_interface *iface,
+ 	switch (id->idProduct) {
+ 	case USB_DEVICE_ID_I6050:
+ 	case USB_DEVICE_ID_I6050_2:
++	case USB_DEVICE_ID_I6250:
+ 		i2400mu->i6050 = 1;
+ 		break;
+ 	default:
+@@ -739,6 +740,7 @@ static
+ struct usb_device_id i2400mu_id_table[] = {
+ 	{ USB_DEVICE(0x8086, USB_DEVICE_ID_I6050) },
+ 	{ USB_DEVICE(0x8086, USB_DEVICE_ID_I6050_2) },
++	{ USB_DEVICE(0x8086, USB_DEVICE_ID_I6250) },
+ 	{ USB_DEVICE(0x8086, 0x0181) },
+ 	{ USB_DEVICE(0x8086, 0x1403) },
+ 	{ USB_DEVICE(0x8086, 0x1405) },
 -- 
-1.7.1
-
+1.6.6.1
 
