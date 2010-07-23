@@ -1,43 +1,42 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH net-next] sysfs: add entry to indicate network interfaces with random MAC address
-Date: Fri, 23 Jul 2010 09:35:58 -0700
-Message-ID: <201007230935.59010.leedom@chelsio.com>
-References: <20100721150732.GR7497@gospo.rdu.redhat.com> <2408F875-69BE-45D3-8605-4AE5CDA4601C@chelsio.com> <4C494DEE.3010101@redhat.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] ip6tables: use skb->len for accounting
+Date: Fri, 23 Jul 2010 18:40:08 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007231838510.2880@obet.zrqbmnf.qr>
+References: <1279855877-8945-1-git-send-email-xiaosuo@gmail.com>  <alpine.LSU.2.01.1007230813300.815@obet.zrqbmnf.qr> <AANLkTik_2HMl3OaGvZiJPCO09Bu4lj6S0PNWFbw1BGXe@mail.gmail.com>  <4C498172.40404@trash.net>
+ <AANLkTi=PAVfcX4ttUsSgm+A_WMYcfXt4FLvYunccgtjS@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	andy@greyhouse.net, harald@redhat.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gospo@redhat.com,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
-To: Stefan Assmann <sassmann@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C494DEE.3010101@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=PAVfcX4ttUsSgm+A_WMYcfXt4FLvYunccgtjS@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-| From: Stefan Assmann <sassmann@redhat.com>
-| Date: Friday, July 23, 2010 01:08 am
-| 
-| On 23.07.2010 02:26, Casey Leedom wrote:
-| >  Or you simply don't have the VF Driver loaded in the "Domain 0" Control
-| >  OS.  When we install the cxgb4 PF Driver with "num_vf=..." this enables
-| >  the PCI-E SR-IOV Capabilities within the various PFs and the
-| >  corresponding VF PCI Devices are instantiated and discovered by the
-| >  Domain 0 Linux OS.  But without a cxgb4vf VF Driver loaded, those
-| >  devices just sit there available for "Device Assignment" to VMs.
-| 
-| Just out of curiosity, how do you prevent the VF driver from getting
-| loaded in the host? Except from blacklisting it.
+On Friday 2010-07-23 15:05, Changli Gao wrote:
 
-  I don't install them. :-)
+>On Fri, Jul 23, 2010 at 7:48 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> On 23.07.2010 08:38, Changli Gao wrote:
+>>>
+>>> For the packets received, ip_rcv, ipv6_rcv and bridge all call
+>>> pskb_trim_rcsum before feeding them to netfilter. The raw packets are
+>>> sent via dev_queue_xmit(), and they don't pass through the output path
+>>> of netfilter.
+>>
+>> That's not true, raw packets also pass through netfilter. However
+>> I agree that this patch makes sense to properly deal with jumbo
+>> frames, but you should also update xt_length for consistency.
+>>
+>
+>In order to support jumbo frames, we have to change the type of min
+>and max in xt_length_info to u32. I'll change xt_match.revision to 1,
+>do I need to support the current revision 0 at the same time?
 
-  I'm actually fairly unfamiliar with the details of managing/administering 
-Linux systems so I'm guessing that there are much better ways of controlling for 
-which devices a Linux system will attempt to load drivers.  For instance, I 
-didn't know about the concept of "blacklisting" a driver.
-
-Casey
+This is all already handled by xt_length.2. But alas, merge has been 
+declined so far.
