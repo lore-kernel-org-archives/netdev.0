@@ -1,44 +1,40 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [patch -next v2] mv643xx_eth: potential null dereference
-Date: Sat, 24 Jul 2010 00:15:14 +0200
-Message-ID: <20100723221514.GJ26313@bicker>
-References: <20100723101528.GF26313@bicker> <1279881177.24768.1623.camel@Joe-Laptop.home> <20100723110504.GG26313@bicker> <4C49C39E.8020502@bfs.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: pktgen performance hit due to memset.
+Date: Fri, 23 Jul 2010 16:14:19 -0700
+Message-ID: <4C4A224B.8080806@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Denis Kirjanov <kirjanov@gmail.com>,
-	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: walter harms <wharms@bfs.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:59996 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754215Ab0GWWPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 18:15:34 -0400
-Content-Disposition: inline
-In-Reply-To: <4C49C39E.8020502@bfs.de>
+Received: from mail.candelatech.com ([208.74.158.172]:48374 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965Ab0GWXOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 19:14:21 -0400
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id o6NNEKH0031659
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 23 Jul 2010 16:14:20 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 23, 2010 at 06:30:22PM +0200, walter harms wrote:
-> this is a bit complicated, IMHO ppl have a bigger chance to discover what is going on
-> with this version:
-> 
->     if (!pd ) {
->        msp->t_clk = 133000000;
->        msp->tx_csum_limit = 9 * 1024;
->      }
->      else
->       {
-> 	msp->t_clk = pd->t_clk ? pd->t_clk : 133000000 ;
->         msp->tx_csum_limit = pd->tx_csum_limit ? pd->tx_csum_limit : 9 * 1024;
->        }
-> 
+Some time back, someone added some memset() calls to pktgen to
+keep from leaking memory contents to the network.
 
-But then instead of 2 magic numbers we would have 4. :/
+At least in our modified version of pktgen, this caused about 25%
+performance degradation when sending 1514 byte pkts (multi-pkt == 0)
+on a pair of 10G ports.  It was easy enough to comment these memset
+calls out of course.
 
-regards,
-dan carpenter
+I don't mind if this patch stays in,
+but thought I'd post my findings in case anyone else wonders why
+their pktgen slowed down...
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
