@@ -1,55 +1,39 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: Linux 2.6.35-rc6
-Date: Fri, 23 Jul 2010 05:22:13 -0700
-Message-ID: <20100723122213.GA689@kroah.com>
-References: <AANLkTinJe-oHpgQqnTPQyKUtmKhg2oUJmylkBPALuzGh@mail.gmail.com> <20100723112142.f698394e.sfr@canb.auug.org.au>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] LSM: Add post recvmsg() hook.
+Date: Fri, 23 Jul 2010 21:37:22 +0900
+Message-ID: <201007232137.DJD12929.JOMFFtSQLVOOFH@I-love.SAKURA.ne.jp>
+References: <201007220502.o6M52GJU098071@www262.sakura.ne.jp>
+	<20100721.220611.267376790.davem@davemloft.net>
+	<201007222146.FGC09386.OFOtFQOVFMJSLH@I-love.SAKURA.ne.jp>
+	<20100722.102251.165153819.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Russell King <rmk@arm.linux.org.uk>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Michal Marek <mmarek@suse.cz>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:40644 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756837Ab0GWMXh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jul 2010 08:23:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20100723112142.f698394e.sfr@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, paul.moore@hp.com,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20100722.102251.165153819.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 23, 2010 at 11:21:42AM +1000, Stephen Rothwell wrote:
-> Hi Linus,
+David Miller wrote:
+> The fact is going to remain that you will be unable to return data
+> from recvmsg() to a blocking socket when ->poll() returns true even
+> though data is in fact there in the socket receive queue.
 > 
-> On Thu, 22 Jul 2010 12:26:13 -0700 Linus Torvalds <torvalds@linux-foundation.org> wrote:
-> >
->  I actually hope/think that this is going to be the last -rc. Things
-> > have been pretty quiet, and while this -rc has more commits than -rc5
-> > had, it's not by a large amount, nor does it look scary to me. So
-> > there doesn't seem to be any point in dragging out the release any
-> > more, unless we find something new that calls for it.
-> 
-> I have no idea how important this stuff is, but I still have the
-> following in linux-next that are (in theory) destined for v2.6.35:
+Maybe I misunderstood here.
 
-<snip>
+Are you worrying that TOMOYO will no longer be able to deliver remaining
+packets in a receive queue once a packet from address/port which is not
+permitted to pick up reached the head of the receive queue?
+(Please answer "yes" or "no" here.)
 
-Yes, there are a few minor USB patches in my tree (minor bugfixes and
-new device ids) that I wanted to send to you, but no need to hold up a
-.35 release.
+If your answer is "yes", I tolerate the side effect (i.e. applications have to
+close and recreate the socket in order to resume receiving packets).
+My preferred behavior is to drop the packet but you will not accept it.
+I accept not to drop the packet if you can accept security_socket_pre_recvmsg().
 
-We're still working on the network namespace sysfs issues, but if that
-option is disabled, all works fine.  I have 3 tiny patches to work to
-resolve that problem in my tree, I can send them to you tonight if you
-want.
-
-But even there, nothing that should hold up .35 from release.
-
-thanks,
-
-greg k-h
+If your answer is "no", let me restart from reconfirming requirements which
+LSM hook for recvmsg() must satisfy, before continuing discussion on
+security_socket_pre_recvmsg() hook.
