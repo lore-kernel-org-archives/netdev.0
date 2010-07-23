@@ -1,54 +1,53 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] xt_quota: don't copy quota back to userspace
-Date: Fri, 23 Jul 2010 12:54:05 +0800
-Message-ID: <1279860845-7177-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging-next tree with the net tree
+Date: Fri, 23 Jul 2010 15:03:23 +1000
+Message-ID: <20100723150323.daa04d5f.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__23_Jul_2010_15_03_23_+1000_sEdJulbjqN_KzaZL"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Sven Eckelmann <sven.eckelmann@gmx.de>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch should be applied after my another patch:
-http://patchwork.ozlabs.org/patch/59729/
+--Signature=_Fri__23_Jul_2010_15_03_23_+1000_sEdJulbjqN_KzaZL
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-xt_quota: don't copy quota back to userspace
+Hi Greg,
 
-In nowadays, table entries are per-cpu variables, so it don't make any sense to
-copy quota back to one of the variable instances. To keep things simple, this
-patch undo the copy.
+Today's linux-next merge of the staging-next tree got a conflict in
+drivers/staging/batman-adv/hard-interface.c between commit
+28172739f0a276eb8d6ca917b3974c2edb036da3 ("net: fix 64 bit counters on 32
+bit arches") from the net tree and commit
+a1a38cad4c71bc08403b204fbe0ba98b4447f8bf ("Staging: batman-adv: Don't
+increment stats of foreign device") from the staging-next tree.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/linux/netfilter/xt_quota.h |    2 +-
- net/netfilter/xt_quota.c           |    2 --
- 2 files changed, 1 insertion(+), 3 deletions(-)
-diff --git a/include/linux/netfilter/xt_quota.h b/include/linux/netfilter/xt_quota.h
-index 8dc89df..b0d28c6 100644
---- a/include/linux/netfilter/xt_quota.h
-+++ b/include/linux/netfilter/xt_quota.h
-@@ -11,9 +11,9 @@ struct xt_quota_priv;
- struct xt_quota_info {
- 	u_int32_t		flags;
- 	u_int32_t		pad;
-+	aligned_u64		quota;
- 
- 	/* Used internally by the kernel */
--	aligned_u64		quota;
- 	struct xt_quota_priv	*master;
- };
- 
-diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
-index 304b1fd..70eb2b4 100644
---- a/net/netfilter/xt_quota.c
-+++ b/net/netfilter/xt_quota.c
-@@ -36,8 +36,6 @@ quota_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 		/* we do not allow even small packets from now on */
- 		priv->quota = 0;
- 	}
--	/* Copy quota back to matchinfo so that iptables can display it */
--	q->quota = priv->quota;
- 	spin_unlock_bh(&priv->lock);
- 
- 	return ret;
+The latter just removes the code fixed by the former, so I did that.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__23_Jul_2010_15_03_23_+1000_sEdJulbjqN_KzaZL
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMSSKbAAoJEDMEi1NhKgbslIwH/1WTpz2zwBRKXsRXqAFi9odl
+u6up4/NAXhZe9R974iILL37diIiO1hCQjKfql5mMCtWqqXhCNkWZ9yLIdLJmmrgG
+NwLKpaCprS1p+vMRLkHyKhGar5YeGvMAPRrQt17w0ZhuUAe0jsNrLOQcdyttOqCm
+jNKkCvUzloreTsZM2hdOLwGWPuFEDi4+9/YQbjtxTHI021zi6R/9QTGOe7vEauuG
++x1Ms7MQzfw+986tBeYsxirurT0PJN3GsURNpz9smcSE19WMAutbErkLSYfe8YJU
+ccspHrsDrodBsniUgZ/sWIezUVjEGo740UhyTQc60cumVyGOsS9j+acOQWfd2VQ=
+=urUy
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__23_Jul_2010_15_03_23_+1000_sEdJulbjqN_KzaZL--
