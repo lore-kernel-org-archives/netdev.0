@@ -1,33 +1,31 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [patch -next v2] mv643xx_eth: potential null dereference
-Date: Fri, 23 Jul 2010 13:18:18 +0200
-Message-ID: <20100723111818.GV21121@mail.wantstofly.org>
-References: <20100723101528.GF26313@bicker> <1279881177.24768.1623.camel@Joe-Laptop.home> <20100723110504.GG26313@bicker>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] nf_nat_core: merge the same lines
+Date: Fri, 23 Jul 2010 13:28:48 +0200
+Message-ID: <4C497CF0.3000203@trash.net>
+References: <1279792140-10445-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Denis Kirjanov <kirjanov@gmail.com>,
-	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:41262 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628Ab0GWLSW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 07:18:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20100723110504.GG26313@bicker>
+Received: from stinky.trash.net ([213.144.137.162]:35924 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754586Ab0GWL2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 07:28:44 -0400
+In-Reply-To: <1279792140-10445-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 23, 2010 at 01:05:05PM +0200, Dan Carpenter wrote:
+On 22.07.2010 11:49, Changli Gao wrote:
+> nf_nat_core: merge the same lines
 
-> We assume that "pd" can be null on the previous line, and throughout the
-> function so we should check it here as well.  This was introduced by
-> 9b2c2ff7a1c0 "mv643xx_eth: use sw csum for big packets"
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+Please prefix your subjects with "netfilter: " so I don't have to
+edit them every time.
 
-Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
+> proto->unique_tuple() will be called finally, if the previous calls fail. This
+> patch checks the false condition of (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
+> instead to avoid duplicate line of code: proto->unique_tuple().
+
+Applied, thanks.
