@@ -1,35 +1,34 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] nf_conntrack_acct: use skb->len for accounting
-Date: Fri, 23 Jul 2010 11:39:59 +0800
-Message-ID: <1279856399-9058-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: IPv6 Anycast?
+Date: Fri, 23 Jul 2010 05:57:58 +0200 (CEST)
+Message-ID: <alpine.DEB.1.10.1007230554240.9875@uplift.swm.pp.se>
+References: <4C48B90B.60304@actusa.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Stuart Sheldon <stu@actusa.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swm.pp.se ([212.247.200.143]:44432 "EHLO uplift.swm.pp.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750842Ab0GWEGR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jul 2010 00:06:17 -0400
+In-Reply-To: <4C48B90B.60304@actusa.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-nf_conntrack_acct: use skb->len for accounting
+On Thu, 22 Jul 2010, Stuart Sheldon wrote:
 
-use skb->len for accounting as xt_quota does. Since nf_conntrack works at
-the network layer, skb_network_offset should always returns ZERO.
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA256
+>
+> Is IPv6 Anycast supported? And if so, how do I setup the Anycast addresses?
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/netfilter/nf_conntrack_core.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 16b41b4..df3eedb 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -966,8 +966,7 @@ acct:
- 		if (acct) {
- 			spin_lock_bh(&ct->lock);
- 			acct[CTINFO2DIR(ctinfo)].packets++;
--			acct[CTINFO2DIR(ctinfo)].bytes +=
--				skb->len - skb_network_offset(skb);
-+			acct[CTINFO2DIR(ctinfo)].bytes += skb->len;
- 			spin_unlock_bh(&ct->lock);
- 		}
- 	}
+Are you sure that's what you're looking for?
+
+<http://en.wikipedia.org/wiki/Anycast>
+
+Because that's more a function of routing protocol/network, than anything 
+really related to "netdev".
+
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
