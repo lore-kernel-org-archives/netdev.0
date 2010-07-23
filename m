@@ -1,44 +1,91 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: ss -p is much too slow
-Date: Fri, 23 Jul 2010 13:01:25 -0700
-Message-ID: <20100723130125.787c7ddb@nehalam>
-References: <AANLkTikd3VaSUa-pxzyi7_fND40vQ-L79X7yv19jj3y0@mail.gmail.com>
-	<20100628.162139.59679342.davem@davemloft.net>
-	<20100723.124819.246519789.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: sphink@gmail.com, netdev@vger.kernel.org,
-	stephen.hemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39042 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758203Ab0GWUB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jul 2010 16:01:27 -0400
-In-Reply-To: <20100723.124819.246519789.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH net-next-2.6] bonding: set device in RLB ARP packet handler
+Date: Fri, 23 Jul 2010 13:02:04 -0700
+Message-ID: <28252.1279915324@death>
+References: <20100722195240.GA25359@w-gedwards.lhn.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Greg Edwards <greg.edwards@hp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <20100722195240.GA25359@w-gedwards.lhn.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Jul 2010 12:48:19 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 28 Jun 2010 16:21:39 -0700 (PDT)
-> 
-> > ss: Avoid quadradic complexity with '-p'
-> > 
-> > Scan the process list of open sockets once, and store in a hash
-> > table to be used by subsequent find_user() calls.
-> > 
-> > Reported-by: Steve Fink <sphink@gmail.com>
-> > Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> Stephen, please apply this, it fixes the quadratic behavior and
-> has been sitting for a month.
-> 
-> It's in patchwork, just check your todo list.
-> 
+From: Greg Edwards <greg.edwards@hp.com>
 
-I saw it but wanted to work out a more general solution,
-will apply it next week if mine doesn't work.
+After:
+
+commit 6146b1a4da98377e4abddc91ba5856bef8f23f1e
+Author: Jay Vosburgh <fubar@us.ibm.com>
+Date:   Tue Nov 4 17:51:15 2008 -0800
+
+    bonding: Fix ALB mode to balance traffic on VLANs
+
+the dev field in the RLB ARP packet handler was set to NULL to wildcard
+and accommodate balancing VLANs on top of bonds.
+
+This has the side-effect of the packet handler being called against
+other, non RLB-enabled bonds, and a kernel oops results when it tries to
+dereference rx_hashtbl in rlb_update_entry_from_arp(), which won't be
+set for those bonds, e.g. active-backup.
+
+With the __netif_receive_skb() changes from:
+
+commit 1f3c8804acba841b5573b953f5560d2683d2db0d
+Author: Andy Gospodarek <andy@greyhouse.net>
+Date:   Mon Dec 14 10:48:58 2009 +0000
+
+    bonding: allow arp_ip_targets on separate vlans to use arp validation
+
+frames received on VLANs correctly make their way to the bond's handler,
+so we no longer need to wildcard the device.
+
+The oops can be reproduced by:
+
+modprobe bonding
+
+echo active-backup > /sys/class/net/bond0/bonding/mode
+echo 100 > /sys/class/net/bond0/bonding/miimon
+ifconfig bond0 xxx.xxx.xxx.xxx netmask xxx.xxx.xxx.xxx
+echo +eth0 > /sys/class/net/bond0/bonding/slaves
+echo +eth1 > /sys/class/net/bond0/bonding/slaves
+
+echo +bond1 > /sys/class/net/bonding_masters
+echo balance-alb > /sys/class/net/bond1/bonding/mode
+echo 100 > /sys/class/net/bond1/bonding/miimon
+ifconfig bond1 xxx.xxx.xxx.xxx netmask xxx.xxx.xxx.xxx
+echo +eth2 > /sys/class/net/bond1/bonding/slaves
+echo +eth3 > /sys/class/net/bond1/bonding/slaves
+
+Pass some traffic on bond0.  Boom.
+
+[ Tested, behaves as advertised.  I do not believe a test of the bonding
+mode is necessary, as there is no race between the packet handler and
+the bonding mode changing (the mode can only change when the device is
+closed).  Also updated the log message to include the reproduction and
+full commit ids.  -J ]
+	
+Signed-off-by: Greg Edwards <greg.edwards@hp.com>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+---
+
+ drivers/net/bonding/bond_alb.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index df48307..8d7dfd2 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -822,7 +822,7 @@ static int rlb_initialize(struct bonding *bond)
+
+ 	/*initialize packet type*/
+ 	pk_type->type = cpu_to_be16(ETH_P_ARP);
+-	pk_type->dev = NULL;
++	pk_type->dev = bond->dev;
+ 	pk_type->func = rlb_arp_recv;
+
+ 	/* register to receive ARPs */
+-- 
+1.7.0.4
