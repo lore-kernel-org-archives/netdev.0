@@ -1,54 +1,44 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Re: [PATCH V3] Export SMBIOS provided firmware instance and label to sysfs
-Date: Fri, 23 Jul 2010 09:58:09 -0500
-Message-ID: <20100723145809.GA7629@auslistsprd01.us.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE612C40@blrx3m08.blr.amer.dell.com> <20100723133456.GA9378@auslistsprd01.us.dell.com> <20100723135557.GA3624@kroah.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Yet another bridge netfilter crash
+Date: Fri, 23 Jul 2010 23:00:41 +0800
+Message-ID: <20100723150041.GA7301@gondor.apana.org.au>
+References: <20100723134208.GA6655@gondor.apana.org.au> <4C49A4C6.4070503@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Narendra K <Narendra_K@dell.com>, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, linux-pci@vger.kernel.org,
-	charles_rose@dell.com, jordan_hargrave@dell.com,
-	vijay_nijhawan@dell.com
-To: Greg KH <greg@kroah.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:39399 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758847Ab0GWO6W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 10:58:22 -0400
+Received: from helcar.apana.org.au ([209.40.204.226]:60744 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759247Ab0GWPAr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 11:00:47 -0400
 Content-Disposition: inline
-In-Reply-To: <20100723135557.GA3624@kroah.com>
+In-Reply-To: <4C49A4C6.4070503@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 23, 2010 at 06:55:57AM -0700, Greg KH wrote:
-> On Fri, Jul 23, 2010 at 08:34:56AM -0500, Narendra K wrote:
-> > --- a/Documentation/ABI/testing/sysfs-bus-pci
-> > +++ b/Documentation/ABI/testing/sysfs-bus-pci
-> > @@ -179,3 +179,30 @@ Contact:	linux-pci@vger.kernel.org
-> >  Description:
-> >  		This symbolic link points to the PCI hotplug controller driver
-> >  		module that manages the hotplug slot.
-> > +
-> > +What:		/sys/bus/pci/devices/.../label
-> > +Date:		July 2010
-> > +Contact:	linux-bugs@dell.com
+On Fri, Jul 23, 2010 at 04:18:46PM +0200, Patrick McHardy wrote:
+>
+> I think we've already fixed this by commit 8fa9ff6:
 > 
-> that's not your email address.  Please don't hide behind some random
-> address, Linux is about contacting developers directly were ever
-> possible.
 
-That's actually the public email address for the whole Linux
-engineering team (including engineers and managers) at Dell, of which
-Narendra is a part.  It's the address we publish for people to include
-on the cc: list of bugzilla issues on the kernel.org, Novell, and Red
-Hat bugzillas.  This ensures someone on the team will see bug reports
-or patches and act accordingly, likely Narendra, but could be anyone
-in the future once Narendra is promoted or changes responsibilities
-(or even employers).
+> commit 8fa9ff6849bb86c59cc2ea9faadf3cb2d5223497
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Tue Dec 15 16:59:59 2009 +0100
+> 
+>     netfilter: fix crashes in bridge netfilter caused by fragment jumps
 
--Matt
+Thanks for the pointer Patrick.
 
+Your memory is much better than mine, as I was in that thread too :)
+
+BTW, do you have any plans on addressing the deeper issue of
+separating the connection tracking as well?
+
+There's also the matter of fragments jumping between bridges.
+
+Cheers,
 -- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
