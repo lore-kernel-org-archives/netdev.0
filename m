@@ -1,23 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] net: core: don't use own hex_to_bin() method
-Date: Fri, 23 Jul 2010 12:51:28 -0700 (PDT)
-Message-ID: <20100723.125128.245414031.davem@davemloft.net>
-References: <cover.1279890832.git.andy.shevchenko@gmail.com>
-	<cover.1279890832.git.andy.shevchenko@gmail.com>
-	<2519848e90eac1857ff7a8399e118980dd0bfbd0.1279890832.git.andy.shevchenko@gmail.com>
+From: Greg Edwards <greg.edwards@hp.com>
+Subject: Re: [PATCH] bonding: set device in RLB ARP packet handler
+Date: Fri, 23 Jul 2010 13:59:47 -0600
+Message-ID: <20100723195947.GA7123@w-gedwards.lhn.com>
+References: <20100723193456.GS7497@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andy.shevchenko@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"bonding-devel@lists.sourceforge.net"
+	<bonding-devel@lists.sourceforge.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2519848e90eac1857ff7a8399e118980dd0bfbd0.1279890832.git.andy.shevchenko@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20100723193456.GS7497@gospo.rdu.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Date: Fri, 23 Jul 2010 16:18:10 +0300
+On Fri, Jul 23, 2010 at 07:34:56PM +0000, Andy Gospodarek wrote:
+> On Thu, Jul 22, 2010 at 3:52 PM, Greg Edwards <greg.edwards@hp.com> wrote:
+>> With commit 6146b1a4, the dev field in the RLB ARP packet handler was
+>> set to NULL to wildcard and accommodate balancing VLANs on top of
+>> bonds.
+>>
+>> This has the side-effect of the packet handler being called against
+>> other, non RLB-enabled bonds, and a kernel oops results when it tries
+>> to
+>> dereference rx_hashtbl in rlb_update_entry_from_arp(), which won't be
+>> set for those bonds, e.g. active-backup.
+>>
+>> With the __netif_receive_skb() changes from commit 1f3c8804, frames
+>> received on VLANs correctly make their way to the bond's handler,
+>> so we no longer need to wildcard the device.
+>
+> I see this problem as well, but I would propose to fix it another way to
+> not alter the receive path so close to the release of 2.6.35 and to
+> catch this for 802.3ad bonds as well.
 
-> Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Is the problem demonstrable with 802.3ad bonds?  bond_register_lacpdu()
+sets pk_type->dev = bond->dev.
 
-Applied.
+>> Signed-off-by: Greg Edwards <greg.edwards@hp.com>
+>> ---
+>> Jay,
+>>
+>> The oops can be reproduced by:
+>>
+>> modprobe bonding
+>>
+>> echo active-backup > /sys/class/net/bond0/bonding/mode
+>> echo 100 > /sys/class/net/bond0/bonding/miimon
+>> ifconfig bond0 xxx.xxx.xxx.xxx netmask xxx.xxx.xxx.xxx
+>> echo +eth0 > /sys/class/net/bond0/bonding/slaves
+>> echo +eth1 > /sys/class/net/bond0/bonding/slaves
+>>
+>> echo +bond1 > /sys/class/net/bonding_masters
+>> echo balance-alb > /sys/class/net/bond1/bonding/mode
+>> echo 100 > /sys/class/net/bond1/bonding/miimon
+>> ifconfig bond1 xxx.xxx.xxx.xxx netmask xxx.xxx.xxx.xxx
+>> echo +eth2 > /sys/class/net/bond1/bonding/slaves
+>> echo +eth3 > /sys/class/net/bond1/bonding/slaves
+>>
+>> Pass some traffic on bond0.  Boom.
+>>
+>
+> bonding: make sure mode-specific handlers handle appropriate frames
+>
+> This patch will exit out of rlb_arp_recv and bond_3ad_lacpdu_recv early
+> if the bond receiving the frame isn't using that mode.
+
+I had originally thought of doing something like this, but it didn't
+seem as clean.  I don't have strong feelings one way or the other,
+though.
+
+Greg
