@@ -1,53 +1,136 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the staging-next tree with the net tree
-Date: Fri, 23 Jul 2010 15:03:23 +1000
-Message-ID: <20100723150323.daa04d5f.sfr@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: pskb_expand_head() optimization
+Date: Fri, 23 Jul 2010 07:09:08 +0200
+Message-ID: <1279861748.2482.13.camel@edumazet-laptop>
+References: <20100722191234.GA832@cronus.persephoneslair.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__23_Jul_2010_15_03_23_+1000_sEdJulbjqN_KzaZL"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Sven Eckelmann <sven.eckelmann@gmx.de>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Andrea Shepard <andrea@persephoneslair.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61696 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752357Ab0GWFJO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 01:09:14 -0400
+Received: by wyf19 with SMTP id 19so1220028wyf.19
+        for <netdev@vger.kernel.org>; Thu, 22 Jul 2010 22:09:12 -0700 (PDT)
+In-Reply-To: <20100722191234.GA832@cronus.persephoneslair.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__23_Jul_2010_15_03_23_+1000_sEdJulbjqN_KzaZL
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Le jeudi 22 juillet 2010 =C3=A0 12:12 -0700, Andrea Shepard a =C3=A9cri=
+t :
+> Make pskb_expand_head() check ip_summed to make sure csum_start is re=
+ally
+> csum_start and not csum before adjusting it.
+>=20
+> This fixes a bug I encountered using a Sun Quad-Fast Ethernet card an=
+d VLANs.
+> On my configuration, the sunhme driver produces skbs with differing a=
+mounts
+> of headroom on receive depending on the packet size.  See line 2030 o=
+f
+> drivers/net/sunhme.c; packets smaller than RX_COPY_THRESHOLD have 52 =
+bytes
+> of headroom but packets larger than that cutoff have only 20 bytes.
+>=20
+> When these packets reach the VLAN driver, vlan_check_reorder_header()
+> calls skb_cow(), which, if the packet has less than NET_SKB_PAD (=3D=3D=
+ 32) bytes
+> of headroom, uses pskb_expand_head() to make more.
+>=20
+> Then, pskb_expand_head() needs to adjust a lot of offsets into the sk=
+b,
+> including csum_start.  Since csum_start is a union with csum, if the =
+packet
+> has a valid csum value this will corrupt it, which was the effect I o=
+bserved.
+> The sunhme hardware computes receive checksums, so the skbs would be =
+created
+> by the driver with ip_summed =3D=3D CHECKSUM_COMPLETE and a valid csu=
+m field, and
+> then pskb_expand_head() would corrupt the csum field, leading to an "=
+hw csum
+> error" message later on, for example in icmp_rcv() for pings larger t=
+han the
+> sunhme RX_COPY_THRESHOLD.
+>=20
+> On the basis of the comment at the beginning of include/linux/skbuff.=
+h,
+> I believe that the csum_start skb field is only meaningful if ip_csum=
+med is
+> CSUM_PARTIAL, so this patch makes pskb_expand_head() adjust it only i=
+n that
+> case to avoid corrupting a valid csum value.
+>=20
+> Please see my more in-depth disucssion of tracking down this bug for
+> more details if you like:
+>=20
+> http://puellavulnerata.livejournal.com/112186.html
+> http://puellavulnerata.livejournal.com/112567.html
+> http://puellavulnerata.livejournal.com/112891.html
+> http://puellavulnerata.livejournal.com/113096.html
+> http://puellavulnerata.livejournal.com/113591.html
+>=20
+> I am not subscribed to this list, so please CC me on replies.
+>=20
 
-Hi Greg,
+Excellent Changelog Andrea, thanks !
 
-Today's linux-next merge of the staging-next tree got a conflict in
-drivers/staging/batman-adv/hard-interface.c between commit
-28172739f0a276eb8d6ca917b3974c2edb036da3 ("net: fix 64 bit counters on 32
-bit arches") from the net tree and commit
-a1a38cad4c71bc08403b204fbe0ba98b4447f8bf ("Staging: batman-adv: Don't
-increment stats of foreign device") from the staging-next tree.
+Reviewing pskb_expand_head(), I see it copy the whole struct
+skb_shared_info, even if source contains garbage (uninitialized data).
 
-The latter just removes the code fixed by the former, so I did that.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+I wonder why it is not triggering kmemcheck alarms
 
---Signature=_Fri__23_Jul_2010_15_03_23_+1000_sEdJulbjqN_KzaZL
-Content-Type: application/pgp-signature
+[PATCH net-next-2.6] net: pskb_expand_head() optimization
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+Move frags[] at the end of struct skb_shared_info, and make
+pskb_expand_head() copy only the used part of it instead of whole array=
+=2E
 
-iQEcBAEBAgAGBQJMSSKbAAoJEDMEi1NhKgbslIwH/1WTpz2zwBRKXsRXqAFi9odl
-u6up4/NAXhZe9R974iILL37diIiO1hCQjKfql5mMCtWqqXhCNkWZ9yLIdLJmmrgG
-NwLKpaCprS1p+vMRLkHyKhGar5YeGvMAPRrQt17w0ZhuUAe0jsNrLOQcdyttOqCm
-jNKkCvUzloreTsZM2hdOLwGWPuFEDi4+9/YQbjtxTHI021zi6R/9QTGOe7vEauuG
-+x1Ms7MQzfw+986tBeYsxirurT0PJN3GsURNpz9smcSE19WMAutbErkLSYfe8YJU
-ccspHrsDrodBsniUgZ/sWIezUVjEGo740UhyTQc60cumVyGOsS9j+acOQWfd2VQ=
-=urUy
------END PGP SIGNATURE-----
+This should avoid kmemcheck warnings and speedup pskb_expand_head() as
+well, avoiding a lot of cache misses.
 
---Signature=_Fri__23_Jul_2010_15_03_23_+1000_sEdJulbjqN_KzaZL--
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/skbuff.h |    3 ++-
+ net/core/skbuff.c      |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f5aa87e..d89876b 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -202,10 +202,11 @@ struct skb_shared_info {
+ 	 */
+ 	atomic_t	dataref;
+=20
+-	skb_frag_t	frags[MAX_SKB_FRAGS];
+ 	/* Intermediate layers must ensure that destructor_arg
+ 	 * remains valid until skb destructor */
+ 	void *		destructor_arg;
++	/* must be last field, see pskb_expand_head() */
++	skb_frag_t	frags[MAX_SKB_FRAGS];
+ };
+=20
+ /* We divide dataref into two halves.  The higher 16 bits hold referen=
+ces
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 76d33ca..7da58a2 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -817,7 +817,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead=
+, int ntail,
+ 	memcpy(data + nhead, skb->head, skb->tail - skb->head);
+ #endif
+ 	memcpy(data + size, skb_end_pointer(skb),
+-	       sizeof(struct skb_shared_info));
++	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_fra=
+gs]));
+=20
+ 	for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
+ 		get_page(skb_shinfo(skb)->frags[i].page);
+
+
