@@ -1,73 +1,75 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] xt_quota: use per-rule spin lock
-Date: Fri, 23 Jul 2010 12:07:33 +0800
-Message-ID: <1279858053-14732-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
+From: Stuart Sheldon <stu@actusa.net>
+Subject: Re: IPv6 Anycast?
+Date: Thu, 22 Jul 2010 21:30:12 -0700
+Message-ID: <4C491AD4.9070103@actusa.net>
+References: <4C48B90B.60304@actusa.net> <alpine.DEB.1.10.1007230554240.9875@uplift.swm.pp.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Stuart Sheldon <stu@actusa.net>
+To: Mikael Abrahamsson <swmike@swm.pp.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:58178 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750778Ab0GWEH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 00:07:56 -0400
+Received: from internal.actusa.net ([208.83.100.16]:42178 "EHLO
+	internal.actusa.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751803Ab0GWEaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 00:30:22 -0400
+In-Reply-To: <alpine.DEB.1.10.1007230554240.9875@uplift.swm.pp.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xt_quota: use per-rule spin lock
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
 
-use per-rule spin lock to improve the scalability.
+Yea, I'm sure...
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/netfilter/xt_quota.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
-index b4f7dfe..304b1fd 100644
---- a/net/netfilter/xt_quota.c
-+++ b/net/netfilter/xt_quota.c
-@@ -11,7 +11,8 @@
- #include <linux/netfilter/xt_quota.h>
- 
- struct xt_quota_priv {
--	uint64_t quota;
-+	spinlock_t	lock;
-+	uint64_t	quota;
- };
- 
- MODULE_LICENSE("GPL");
-@@ -20,8 +21,6 @@ MODULE_DESCRIPTION("Xtables: countdown quota match");
- MODULE_ALIAS("ipt_quota");
- MODULE_ALIAS("ip6t_quota");
- 
--static DEFINE_SPINLOCK(quota_lock);
--
- static bool
- quota_mt(const struct sk_buff *skb, struct xt_action_param *par)
- {
-@@ -29,7 +28,7 @@ quota_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	struct xt_quota_priv *priv = q->master;
- 	bool ret = q->flags & XT_QUOTA_INVERT;
- 
--	spin_lock_bh(&quota_lock);
-+	spin_lock_bh(&priv->lock);
- 	if (priv->quota >= skb->len) {
- 		priv->quota -= skb->len;
- 		ret = !ret;
-@@ -39,7 +38,7 @@ quota_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	}
- 	/* Copy quota back to matchinfo so that iptables can display it */
- 	q->quota = priv->quota;
--	spin_unlock_bh(&quota_lock);
-+	spin_unlock_bh(&priv->lock);
- 
- 	return ret;
- }
-@@ -55,6 +54,7 @@ static int quota_mt_check(const struct xt_mtchk_param *par)
- 	if (q->master == NULL)
- 		return -ENOMEM;
- 
-+	spin_lock_init(&q->master->lock);
- 	q->master->quota = q->quota;
- 	return 0;
- }
+We use Linux for routers as well as servers and workstations. Since I
+sent this I've discovered that by default, when a Linux system has IPv6
+forwarding turned on, it adds the <network>::/64 anycast router
+addresses on all the interfaces (as per rfc 2526).
+
+What I'm actually looking to do is (change / add) other addresses the to
+anycast6 list to work in an existing configuration that does not use the
+rfc 2526 anycast router address.
+
+Is there a command line method of setting up these anycast addresses?
+
+Thanks,
+
+Stu Sheldon
+ACT USA
+
+
+On 07/22/2010 08:57 PM, Mikael Abrahamsson wrote:
+> On Thu, 22 Jul 2010, Stuart Sheldon wrote:
+> 
+>> -----BEGIN PGP SIGNED MESSAGE-----
+>> Hash: SHA256
+>>
+>> Is IPv6 Anycast supported? And if so, how do I setup the Anycast
+>> addresses?
+> 
+> Are you sure that's what you're looking for?
+> 
+> <http://en.wikipedia.org/wiki/Anycast>
+> 
+> Because that's more a function of routing protocol/network, than
+> anything really related to "netdev".
+> 
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIcBAEBCAAGBQJMSRrUAAoJEFKVLITDJSGSVnMP+wRF0jrC8RJn+C0EBlNl4uoW
+qzEjGgrj7fqf9GOa5XWwVkoWHsZNyRZxJgNo73sS/s0PDwsFaZ11PWPqCSE1wafO
+JkfKjhz3b7KOUjUNyYcvqzR45reRpoDUWVXpVYtqfzvCWvf6xdimatHFcKc3f14W
+vX3rUG9BaWMuc74u/BZgKxpLXqTdXCwVIEXETSFGy63AdQSN9SIRlmgd6a60FGwJ
+Cyr60Os8zAUDooQ++xwLB/ito6NdT7xAho2JRjejC0eblXYYT3bQU+kkS0qeHhYY
+ucMuz18W6WswRM/wTnHzG7DvdRQNWMyvDvzR+qSQiAY6WMmwJ7qWfy1Ikj8l0QPe
+5g0qI9Et/jOLzcwIrH2BAif8rBSpOHjqhXxhFNCtXyPsmIulZu4UzV1GbqV60Vp4
+fixW4hgPDoqlwvfnojEZSVGxEy67GApokA7+TRY+sHQPvAhxA7b7WrT7liYgcW2B
+4gTeaSbrvj6pw3ndYfrjOtbqlH29rU2RXi1MAhOq2fSrtIijMGZdKw6t5YbT5xik
+qm3PRLYCzFocWP2sykjTds6VuHzhxm7+sqNe8p+0pyUoUYG9lNVyviMNHn0uz9L9
+PDi8iIyDVHvEw6AHzmnmYc4RAz4Q/w/VxMY8jwjYurUnEyt9rtjMXsfv5rb2qkcB
+cuyzbrEkx/49bRL+HZDx
+=K4wA
+-----END PGP SIGNATURE-----
