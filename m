@@ -1,33 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: macvtap: Limit packet queue length
-Date: Fri, 23 Jul 2010 15:58:29 +0800
-Message-ID: <20100723075829.GA4606@gondor.apana.org.au>
-References: <20100722064157.GA25913@gondor.apana.org.au> <20100722160731.GA30723@gondor.apana.org.au> <20100722.125808.232541418.davem@davemloft.net> <201007230928.09064.arnd@arndb.de>
+From: Stefan Assmann <sassmann@redhat.com>
+Subject: Re: [PATCH net-next] sysfs: add entry to indicate network interfaces
+ with random MAC address
+Date: Fri, 23 Jul 2010 10:08:14 +0200
+Message-ID: <4C494DEE.3010101@redhat.com>
+References: <20100721150732.GR7497@gospo.rdu.redhat.com> <20100721102816.4bef5ada@nehalam> <20100721.103249.107094774.davem@davemloft.net> <201007211129.48288.leedom@chelsio.com> <43F901BD926A4E43B106BF17856F0755F184620A@orsmsx508.amr.corp.intel.com> <4C47EAF3.3080602@redhat.com> <2408F875-69BE-45D3-8605-4AE5CDA4601C@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, mashirle@us.ibm.com,
-	netdev@vger.kernel.org, mwagner@redhat.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:54524 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753416Ab0GWH6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 03:58:36 -0400
-Content-Disposition: inline
-In-Reply-To: <201007230928.09064.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	andy@greyhouse.net, harald@redhat.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gospo@redhat.com,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2408F875-69BE-45D3-8605-4AE5CDA4601C@chelsio.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 23, 2010 at 09:28:08AM +0200, Arnd Bergmann wrote:
->
-> But this is the receive path, not transmit, so a packet coming from an
-> external NIC never goes through dev_hard_start_xmit.
+On 23.07.2010 02:26, Casey Leedom wrote:
+> 
+>  Or you simply don't have the VF Driver loaded in the "Domain 0" Control OS.  When we install the cxgb4 PF Driver with "num_vf=..." this enables the PCI-E SR-IOV Capabilities within the various PFs and the corresponding VF PCI Devices are instantiated and discovered by the Domain 0 Linux OS.  But without a cxgb4vf VF Driver loaded, those devices just sit there  available for "Device Assignment" to VMs.
+> 
 
-In that case skb->sk is probably coming from tuntap, which means
-that orphaning the skb is not necessarily a good thing.
+Just out of curiosity, how do you prevent the VF driver from getting
+loaded in the host? Except from blacklisting it.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  Stefan
+--
+Stefan Assmann         | Red Hat GmbH
+Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
+                       | HR: Amtsgericht Muenchen HRB 153243
+                       | GF: Brendan Lane, Charlie Peters,
+sassmann at redhat.com |     Michael Cunningham, Charles Cachera
