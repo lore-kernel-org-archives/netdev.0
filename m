@@ -1,48 +1,46 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: 2.6.35-rc6: Reported regressions from 2.6.34
-Date: Fri, 23 Jul 2010 09:21:43 -0500
-Message-ID: <4C49A577.3020306@lwfinger.net>
-References: <Lupw7pePXBO.A.fZH.G2XSMB@chimera>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] ip6tables: use skb->len for accounting
+Date: Fri, 23 Jul 2010 16:21:11 +0200
+Message-ID: <4C49A557.1080502@trash.net>
+References: <1279855877-8945-1-git-send-email-xiaosuo@gmail.com> 	<alpine.LSU.2.01.1007230813300.815@obet.zrqbmnf.qr> <AANLkTik_2HMl3OaGvZiJPCO09Bu4lj6S0PNWFbw1BGXe@mail.gmail.com> 	<4C498172.40404@trash.net> <AANLkTi=PAVfcX4ttUsSgm+A_WMYcfXt4FLvYunccgtjS@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Wireless List <linux-wireless@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        DRI <dri-devel@lists.freedesktop.org>,
-        Linux ACPI <linux-acpi@vger.kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kernel Testers List <kernel-testers@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Linux PM List <linux-pm@lists.linux-foundation.org>,
-        Maciej Rutecki <maciej.rutecki@gmail.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <Lupw7pePXBO.A.fZH.G2XSMB@chimera>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=PAVfcX4ttUsSgm+A_WMYcfXt4FLvYunccgtjS@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/23/2010 06:42 AM, Rafael J. Wysocki wrote:
-> This message contains a list of some regressions from 2.6.34,
-> for which there are no fixes in the mainline known to the tracking team.
-> If any of them have been fixed already, please let us know.
+On 23.07.2010 15:05, Changli Gao wrote:
+> On Fri, Jul 23, 2010 at 7:48 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> On 23.07.2010 08:38, Changli Gao wrote:
+>>>
+>>> For the packets received, ip_rcv, ipv6_rcv and bridge all call
+>>> pskb_trim_rcsum before feeding them to netfilter. The raw packets are
+>>> sent via dev_queue_xmit(), and they don't pass through the output path
+>>> of netfilter.
+>>
+>> That's not true, raw packets also pass through netfilter. However
+>> I agree that this patch makes sense to properly deal with jumbo
+>> frames, but you should also update xt_length for consistency.
+>>
+> 
+> In order to support jumbo frames, we have to change the type of min
+> and max in xt_length_info to u32.
 
-> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16312
-> Subject		: WARNING: at fs/fs-writeback.c:1127 __mark_inode_dirty
-> Submitter	: Zdenek Kabelac<zdenek.kabelac@gmail.com>
-> Date		: 2010-06-28 9:40 (26 days old)
-> Message-ID	:<AANLkTin24fr5O4_q5Xbo9Y_NKkEmtcp6Hgmr9_4qXaFz@mail.gmail.com>
-> References	: http://marc.info/?l=linux-kernel&m=127771804806465&w=2
+I see. In that case I'll apply your skb->len patches as they are,
+so please make the xt_length change in a new patch.
 
-I still have this in 2.6.35-rc5.
+> I'll change xt_match.revision to 1,
+> do I need to support the current revision 0 at the same time?
 
-Larry
+You should simply keep the revision 0 code as it is. Revision 1,
+using skb->len, can be used for both IPv4 and IPv6.
