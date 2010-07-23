@@ -1,83 +1,78 @@
-From: Sven Eckelmann <sven.eckelmann@gmx.de>
-Subject: Re: linux-next: manual merge of the staging-next tree with the net tree
-Date: Fri, 23 Jul 2010 09:09:31 +0200
-Message-ID: <201007230909.32763.sven.eckelmann@gmx.de>
-References: <20100723150323.daa04d5f.sfr@canb.auug.org.au>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] LSM: Add post recvmsg() hook.
+Date: Fri, 23 Jul 2010 16:21:38 +0900
+Message-ID: <201007230721.o6N7Lc2L048186@www262.sakura.ne.jp>
+References: <20100722.102251.165153819.davem@davemloft.net> <20100722.102637.201684445.davem@davemloft.net> <201007230022.o6N0MKLt053955@www262.sakura.ne.jp> <20100722.224450.04662931.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2161160.qE1jM2RogY";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha512
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100723150323.daa04d5f.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, paul.moore@hp.com,
+	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www262.sakura.ne.jp ([202.181.97.72]:52785 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751386Ab0GWHVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 03:21:42 -0400
+In-Reply-To: <20100722.224450.04662931.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart2161160.qE1jM2RogY
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+David Miller wrote:
+> From: Tetsuo Handa
+> Date: Fri, 23 Jul 2010 09:22:20 +0900
+> 
+> > David Miller wrote:
+> >> The fact is going to remain that you will be unable to return data
+> >> from recvmsg() to a blocking socket when ->poll() returns true even
+> >> though data is in fact there in the socket receive queue.
+> >> 
+> >> This is something that the existing LSM hooks do not do.
+> > 
+> > This is something that the existing security_socket_recvmsg() hook does do.
+> > SELinux is unable to return data from recvmsg() to a blocking socket when
+> > ->poll() returns true even though data is in fact there in the socket receive
+> > queue.
+> > We agreed below situation, didn't we?
+> 
+> Existing LSM hook returns an error early, as if the user passed in
+> incorrect parameters or similar.
+> 
+> It's completely stateless and dependent upon purely the labels
+> associated with state visible on recvmsg() entry, and independent
+> of other things such as attributes in the packets contained in
+> the socket's receive queue.
 
-Stephen Rothwell wrote:
-> Hi Greg,
->=20
-> Today's linux-next merge of the staging-next tree got a conflict in
-> drivers/staging/batman-adv/hard-interface.c between commit
-> 28172739f0a276eb8d6ca917b3974c2edb036da3 ("net: fix 64 bit counters on 32
-> bit arches") from the net tree and commit
-> a1a38cad4c71bc08403b204fbe0ba98b4447f8bf ("Staging: batman-adv: Don't
-> increment stats of foreign device") from the staging-next tree.
->=20
-> The latter just removes the code fixed by the former, so I did that.
+Users calling recvmsg() after select() said "read operation will return with
+available data without blocking as long as you pass correct parameters" will
+get error code even if they passed correct parameters.
 
-That is absolutely correct. The netdev guys noticed that the commits around=
-=20
-"net: fix 64 bit counters on 32 bit arches" made those lines a real bug=20
-(casting stuff around, writing on memory it should only read, probably writ=
-ing=20
-on unrelated memory). We reviewed those lines again and noticed that they m=
-ake=20
-no sense at all and removed them to fix that bug and another minor bug.
+If they passed incorrect parameters, they must accept the error code.
+But they passed correct parameters, and they expected that recvmsg() returns
+success with available data. From the point of view of select()->recvmsg()
+users, they don't care whether internal implementation is stateful and/or
+dependent of other things or not, they care what the specification says.
 
-I am sorry that this created a merge conflict for you, but only those commi=
-ts=20
-by the netdev guys made us aware that there is something going wrong in the=
-=20
-batman-adv receive code.
+My understanding was that the specification requires
 
-Thanks a lot for your linux-next repository and your work on it. It is a bi=
-g=20
-help to see what is going on elsewhere and how it may affect our code.
+  If select() said "read operation will return with available data without
+  blocking", recvmsg() must return available data. No access control mechanism
+  in recvmsg() path is allowed to reject the request.
 
-Best regards,
-	Sven
+and security_socket_recvmsg() conflicts with this understanding.
+I'd like to see the specification which states disclaimers like below.
 
---nextPart2161160.qE1jM2RogY
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+  (i) Even if select() said "read operation will return with available data
+      without blocking", recvmsg() is allowed to return error code rather than
+      available data when an access control mechanism in recvmsg() path
+      rejected the request.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+  (ii) The access control mechanism in recvmsg() path may use attribute of
+       the socket.
 
-iQIcBAABCgAGBQJMSUAsAAoJEF2HCgfBJntG7t0QAM1hMVp1TEf7i9xr11wTgO/N
-ck+ALLNL5X9OSIblPwAWwwDtrPKPfImgg2U00CQbvsw4p3we3Ap/7oa31+778LJt
-4QwfVxX5WrwXwAF/mKerm1y1kyhJ6W2eMsrwF/HvKYoP7zvz2xZVMjxg8H8kO7Jk
-ZXpzssjscbKkNGkBnAm0dbICzfEtL41NlmUNHz9NBp5SMJEBe+d7O5T1/D0BtmN4
-TAQcjLEYZdn340YkzbhBLLXowI3ytkiLETfYBqWfKUpedBfXGrHraL+SRQjQ4PHS
-aTrQescsDykWhyAOq+X7BxxO01q8mhRZBpOOP7z9oEprdJ3DcilARN8Oz/sl9rH3
-mMJuMt7xljiAGZqo2fpXWWMEt2SiRoMhwc16OWL1tIlIe7OXLMQr9ONkuDiJHWVL
-yC8WuprrJOTHZLYun+nBfrJaWwEvSn/k+atZx8zxNkOqt/z9N/aFjXzqQxGFqflR
-Wh3Cs6ZxmdXXgwDV5CrhCS/zvM8eTiBTOUZb5W9MuvZf9MFyyFBzBGCHPjjg7c8m
-y+nHFWvCoUbYoGGnY1ZNa8nSKoxTSGJ5+yofUQz+0JIRWh08iLFBabNgYkzyMtiS
-hjLFKAjHfOIMeVy2xMEgDiwWtAQFFSU8xbptm3usuAUMIXygo+kFfVhrfASYykov
-p2mgLN5jfr5BHq5q2O1b
-=30hq
------END PGP SIGNATURE-----
+  (iii) The access control mechanism in recvmsg() path must not use the
+        packets contained in the socket's receive queue.
 
---nextPart2161160.qE1jM2RogY--
+We agreed on (i) and I don't mind (ii).
+Would you please show me URLs to the specification which states (iii)?
