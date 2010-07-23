@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] LSM: Add post recvmsg() hook.
-Date: Fri, 23 Jul 2010 00:29:13 -0700 (PDT)
-Message-ID: <20100723.002913.264776153.davem@davemloft.net>
-References: <201007230022.o6N0MKLt053955@www262.sakura.ne.jp>
-	<20100722.224450.04662931.davem@davemloft.net>
-	<201007230721.o6N7Lc2L048186@www262.sakura.ne.jp>
+Subject: Re: [PATCH] macvlan: Fix rx counters update in
+ macvlan_handle_frame()
+Date: Fri, 23 Jul 2010 00:31:41 -0700 (PDT)
+Message-ID: <20100723.003141.174074877.davem@davemloft.net>
+References: <1279839867.3274.25.camel@w-sridhar.beaverton.ibm.com>
+	<20100723072338.GA4267@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, paul.moore@hp.com,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: penguin-kernel@I-love.SAKURA.ne.jp
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <201007230721.o6N7Lc2L048186@www262.sakura.ne.jp>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sri@us.ibm.com, kaber@trash.net, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41774
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750877Ab0GWHbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 03:31:24 -0400
+In-Reply-To: <20100723072338.GA4267@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Date: Fri, 23 Jul 2010 16:21:38 +0900
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 23 Jul 2010 15:23:39 +0800
 
-> Users calling recvmsg() after select() said "read operation will return with
-> available data without blocking as long as you pass correct parameters" will
-> get error code even if they passed correct parameters.
+> I don't think we should count packet drops when the interface is
+> down.  This would be inconsistent with other devices such as
+> IPIP.
 
-This is nonsense, because not all "parameters" are not visible to poll().
-
-These "parameters" I speak of are virtual, they are my way of saying
-that the errors returned by the existing LSM hooks are more like -EFAULT
-or -EACCESS than -EINTR/-EAGAIN or blocking, the latter of which are
-what are illegal for blocking socket invoking recvmsg() after poll
-indicates there is data to read.
+Agreed.
