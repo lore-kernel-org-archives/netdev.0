@@ -1,50 +1,64 @@
-From: Marc Haber <mh+linux-kernel@zugschlus.de>
-Subject: e1000e crashes with 2.6.34.x and ThinkPad T60
-Date: Sat, 24 Jul 2010 11:26:44 +0200
-Message-ID: <20100724092644.GA13353@torres.zugschlus.de>
+From: "A .Baloteli" <tel.inters.p.a@email.it>
+Subject: Winning Notification!!!
+Date: Sat, 24 Jul 2010 12:26:14 +0200 (CEST)
+Message-ID: <49583.151.82.175.31.1279967174.squirrel@www.igp.gob.pe>
+Reply-To: voda.com2010@gmail.it
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: tel.inters.p.a@email.it
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer.igp.gob.pe ([200.60.148.146]:46494 "EHLO
+	mailer.igp.gob.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688Ab0GXKW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 06:22:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-I have a new notebook, a Thinkpad T60, which is freezing in random
-intervals (like 30 minutes to two days) as long as I am using the
-on-board wired ethernet interface, which is an e1000e, [8086:109a]. As
-long as I keep using the WLAN, the system runs for weeks despite
-frequent suspend/resume cycles etc. The crashes seem really to be tied
-to using the wired ethernet. This is a hard freeze, with nothing
-happening on the system, only a long push on the power button helps.
 
-Additionally, sometimes, probably after suspend/resume, the wired
-ethernet does not come up properly again, ip addr claims "NO CARRIER"
-even if the LEDs on the interface and on the switch claim that there
-was a link. No packets are received by the interface when it's at this
-stage.
 
-Both issues appear with 2.6.34 and 2.6.34.1. I didn't try any of these
-issues with an older kernel, 2.6.34 was already out when I started
-using the T60.
+Dear Client
 
-To rule out defective hardware, I have tried with a second T60, with
-the same results.
+You have been sent a payment order, here is your payment information:
 
-Full dmesg and lspci-nn attached, please say if you need more.
+PAYMENT N=B0:     965412070
+PAYMENT APPROVAL DATE: 04/06/2010
+PAYMENT REF:  VD06/EUSA/2010
+PAYMENT VALUE:   EUR 225.500.00 (Euro)
 
-Greetings
-Marc
+In order to receive you payment please confirm you identification in ou=
+r
+verification office below:
 
-P.S.: Please Cc: me on replies, both linux-kernel and netdev are too
-big for me to timely follow. I am subscribed to both lists, but a Cc
-helps in getting a faster reply.
+Voda Telecom Inc.
+Betolini 14 - Point 7002
+Villa Ugo Ojetti 32, 00137
+e-mail: voda.com2010@gmail.it
+Payment Logistic Officer: Andrea M. Baloteli (Mr)
 
--- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
+Copy the Payment Verification Information's above and submit to the abo=
+ve
+office and officer. After we receive your email confirmation, your paym=
+ent
+would be processed we will send you the payment paying bank for cashing
+your funds.
+
+REASON OF PAYMENT: This e-mail draw is to promote the official
+communication network for the 2010 World Cup and our network's
+Anniversary.
+
+On behalf of the Board kindly, accept our warmest congratulations.
+
+Regards.
+MANAGEMENT.
+
+All information is strictly confidential and will only be used for the
+purpose to which it is been requested.. Finally, all funds should be
+claimed by their respective beneficiaries, not later than 12 days after
+notification. Failure to do so will result to outright cancellation.
+
+
+Copyright =A9 2008 telecom.it;Privacy & P.IVA...
+
+
