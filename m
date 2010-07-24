@@ -1,138 +1,45 @@
-From: amit.salecha@qlogic.com
-Subject: [PATCH NEXT 2/2] qlcnic: diag fixes
-Date: Sat, 24 Jul 2010 00:24:26 -0700
-Message-ID: <1279956266-23445-3-git-send-email-amit.salecha@qlogic.com>
-References: <1279956266-23445-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Amit Kumar Salecha <amit.salecha@qlogic.com>
-To: davem@davemloft.net
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: Linux 2.6.35-rc6
+Date: Sat, 24 Jul 2010 10:06:16 +0200
+Message-ID: <4C4A9EF8.6030409@gmail.com>
+References: <AANLkTinJe-oHpgQqnTPQyKUtmKhg2oUJmylkBPALuzGh@mail.gmail.com> <20100723112142.f698394e.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Russell King <rmk@arm.linux.org.uk>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Michal Marek <mmarek@suse.cz>, Greg KH <greg@kroah.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:12798 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752497Ab0GXHY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Jul 2010 03:24:28 -0400
-In-Reply-To: <1279956266-23445-1-git-send-email-amit.salecha@qlogic.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:53656 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752008Ab0GXIGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 04:06:19 -0400
+In-Reply-To: <20100723112142.f698394e.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+On 07/23/2010 03:21 AM, Stephen Rothwell wrote:
+> On Thu, 22 Jul 2010 12:26:13 -0700 Linus Torvalds <torvalds@linux-foundation.org> wrote:
+>>
+>  I actually hope/think that this is going to be the last -rc. Things
+>> have been pretty quiet, and while this -rc has more commits than -rc5
+>> had, it's not by a large amount, nor does it look scary to me. So
+>> there doesn't seem to be any point in dragging out the release any
+>> more, unless we find something new that calls for it.
+> 
+> I have no idea how important this stuff is, but I still have the
+> following in linux-next that are (in theory) destined for v2.6.35:
 
-o Loopback not supported for virtual function.
-o netif_device_attach was missing in error path from
-  qlcnic_diag_alloc_res
+Hi, and probably this one as well (introduced in rc1):
+http://lkml.org/lkml/2010/7/9/287
 
-Acked-by: Sony Chacko <sony.chacko@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h         |    2 --
- drivers/net/qlcnic/qlcnic_ethtool.c |   10 ++++++++--
- drivers/net/qlcnic/qlcnic_main.c    |   19 +------------------
- 3 files changed, 9 insertions(+), 22 deletions(-)
+Tim Gardner
+  i915: Use the correct mask to detect i830 aperture size.
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index fad8e9a..9703893 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -1301,8 +1301,6 @@ struct qlcnic_nic_template {
- 	int (*get_mac_addr) (struct qlcnic_adapter *, u8*);
- 	int (*config_bridged_mode) (struct qlcnic_adapter *, u32);
- 	int (*config_led) (struct qlcnic_adapter *, u32, u32);
--	int (*set_ilb_mode) (struct qlcnic_adapter *);
--	void (*clear_ilb_mode) (struct qlcnic_adapter *);
- 	int (*start_firmware) (struct qlcnic_adapter *);
- };
- 
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 7d6558e..ecce364 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -678,6 +678,12 @@ static int qlcnic_loopback_test(struct net_device *netdev)
- 	int max_sds_rings = adapter->max_sds_rings;
- 	int ret;
- 
-+	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC) {
-+		dev_warn(&adapter->pdev->dev, "Loopback test is not supported"
-+				"for non privilege function\n");
-+		return 0;
-+	}
-+
- 	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
- 		return -EIO;
- 
-@@ -685,13 +691,13 @@ static int qlcnic_loopback_test(struct net_device *netdev)
- 	if (ret)
- 		goto clear_it;
- 
--	ret = adapter->nic_ops->set_ilb_mode(adapter);
-+	ret = qlcnic_set_ilb_mode(adapter);
- 	if (ret)
- 		goto done;
- 
- 	ret = qlcnic_do_ilb_test(adapter);
- 
--	adapter->nic_ops->clear_ilb_mode(adapter);
-+	qlcnic_clear_ilb_mode(adapter);
- 
- done:
- 	qlcnic_diag_free_res(netdev, max_sds_rings);
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index f1f7acf..3002a7f 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -107,8 +107,6 @@ static void qlcnic_config_indev_addr(struct net_device *dev, unsigned long);
- static int qlcnic_start_firmware(struct qlcnic_adapter *);
- 
- static void qlcnic_dev_set_npar_ready(struct qlcnic_adapter *);
--static void qlcnicvf_clear_ilb_mode(struct qlcnic_adapter *);
--static int qlcnicvf_set_ilb_mode(struct qlcnic_adapter *);
- static int qlcnicvf_config_led(struct qlcnic_adapter *, u32, u32);
- static int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *, u32);
- static int qlcnicvf_start_firmware(struct qlcnic_adapter *);
-@@ -381,8 +379,6 @@ static struct qlcnic_nic_template qlcnic_ops = {
- 	.get_mac_addr = qlcnic_get_mac_address,
- 	.config_bridged_mode = qlcnic_config_bridged_mode,
- 	.config_led = qlcnic_config_led,
--	.set_ilb_mode = qlcnic_set_ilb_mode,
--	.clear_ilb_mode = qlcnic_clear_ilb_mode,
- 	.start_firmware = qlcnic_start_firmware
- };
- 
-@@ -390,8 +386,6 @@ static struct qlcnic_nic_template qlcnic_vf_ops = {
- 	.get_mac_addr = qlcnic_get_mac_address,
- 	.config_bridged_mode = qlcnicvf_config_bridged_mode,
- 	.config_led = qlcnicvf_config_led,
--	.set_ilb_mode = qlcnicvf_set_ilb_mode,
--	.clear_ilb_mode = qlcnicvf_clear_ilb_mode,
- 	.start_firmware = qlcnicvf_start_firmware
- };
- 
-@@ -1181,6 +1175,7 @@ int qlcnic_diag_alloc_res(struct net_device *netdev, int test)
- 
- 	ret = qlcnic_fw_create_ctx(adapter);
- 	if (ret) {
-+		netif_device_attach(netdev);
- 		qlcnic_detach(adapter);
- 		return ret;
- 	}
-@@ -2841,18 +2836,6 @@ qlcnicvf_config_led(struct qlcnic_adapter *adapter, u32 state, u32 rate)
- 	return -EOPNOTSUPP;
- }
- 
--static int
--qlcnicvf_set_ilb_mode(struct qlcnic_adapter *adapter)
--{
--	return -EOPNOTSUPP;
--}
--
--static void
--qlcnicvf_clear_ilb_mode(struct qlcnic_adapter *adapter)
--{
--	return;
--}
--
- static ssize_t
- qlcnic_store_bridged_mode(struct device *dev,
- 		struct device_attribute *attr, const char *buf, size_t len)
 -- 
-1.6.0.2
-
+js
