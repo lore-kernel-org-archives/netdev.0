@@ -1,35 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pktgen performance hit due to memset.
-Date: Fri, 23 Jul 2010 18:51:42 -0700 (PDT)
-Message-ID: <20100723.185142.193690342.davem@davemloft.net>
-References: <4C4A224B.8080806@candelatech.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53982
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755960Ab0GXBv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jul 2010 21:51:26 -0400
-In-Reply-To: <4C4A224B.8080806@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] xt_length: support ipv6 jumbo frames
+Date: Sat, 24 Jul 2010 11:32:34 +0800
+Message-ID: <1279942354-23961-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Fri, 23 Jul 2010 16:14:19 -0700
+In order to support ipv6 jumbo frames, the type of min and max in xt_length_info
+is changed to __u32. Since the structure xt_length_info is updated, the revision
+is updated to 1 from 0, and the old revision is still reserved to keep binary
+compatible with the older version of iptables.
 
-> Some time back, someone added some memset() calls to pktgen to
-> keep from leaking memory contents to the network.
-> 
-> At least in our modified version of pktgen, this caused about 25%
-> performance degradation when sending 1514 byte pkts (multi-pkt == 0)
-> on a pair of 10G ports.  It was easy enough to comment these memset
-> calls out of course.
-> 
-> I don't mind if this patch stays in,
-> but thought I'd post my findings in case anyone else wonders why
-> their pktgen slowed down...
+skb->len is used to keep consistency.
 
-Thanks for the data point Ben.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ include/linux/netfilter/xt_length.h |    2 +-
+ net/netfilter/xt_length.c           |   36 +++++++++++++++++++++++++++---------
+ 2 files changed, 28 insertions(+), 10 deletions(-)
+diff --git a/include/linux/netfilter/xt_length.h b/include/linux/netfilter/xt_length.h
+index b82ed7c..a12785c 100644
+--- a/include/linux/netfilter/xt_length.h
++++ b/include/linux/netfilter/xt_length.h
+@@ -4,7 +4,7 @@
+ #include <linux/types.h>
+ 
+ struct xt_length_info {
+-    __u16	min, max;
++    __u32	min, max;
+     __u8	invert;
+ };
+ 
+diff --git a/net/netfilter/xt_length.c b/net/netfilter/xt_length.c
+index 176e557..579f340 100644
+--- a/net/netfilter/xt_length.c
++++ b/net/netfilter/xt_length.c
+@@ -20,21 +20,23 @@ MODULE_LICENSE("GPL");
+ MODULE_ALIAS("ipt_length");
+ MODULE_ALIAS("ip6t_length");
+ 
+-static bool
+-length_mt(const struct sk_buff *skb, struct xt_action_param *par)
++struct xt_length_info_v0 {
++    __u16	min, max;
++    __u8	invert;
++};
++
++static bool length_mt_v0(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+-	const struct xt_length_info *info = par->matchinfo;
+-	u_int16_t pktlen = ntohs(ip_hdr(skb)->tot_len);
++	const struct xt_length_info_v0 *info = par->matchinfo;
++	u_int16_t pktlen = skb->len;
+ 
+ 	return (pktlen >= info->min && pktlen <= info->max) ^ info->invert;
+ }
+ 
+-static bool
+-length_mt6(const struct sk_buff *skb, struct xt_action_param *par)
++static bool length_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	const struct xt_length_info *info = par->matchinfo;
+-	const u_int16_t pktlen = ntohs(ipv6_hdr(skb)->payload_len) +
+-				 sizeof(struct ipv6hdr);
++	u_int32_t pktlen = skb->len;
+ 
+ 	return (pktlen >= info->min && pktlen <= info->max) ^ info->invert;
+ }
+@@ -43,16 +45,32 @@ static struct xt_match length_mt_reg[] __read_mostly = {
+ 	{
+ 		.name		= "length",
+ 		.family		= NFPROTO_IPV4,
++		.match		= length_mt_v0,
++		.matchsize	= sizeof(struct xt_length_info_v0),
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "length",
++		.family		= NFPROTO_IPV6,
++		.match		= length_mt_v0,
++		.matchsize	= sizeof(struct xt_length_info_v0),
++		.me		= THIS_MODULE,
++	},
++	{
++		.name		= "length",
++		.family		= NFPROTO_IPV4,
+ 		.match		= length_mt,
+ 		.matchsize	= sizeof(struct xt_length_info),
+ 		.me		= THIS_MODULE,
++		.revision	= 1,
+ 	},
+ 	{
+ 		.name		= "length",
+ 		.family		= NFPROTO_IPV6,
+-		.match		= length_mt6,
++		.match		= length_mt,
+ 		.matchsize	= sizeof(struct xt_length_info),
+ 		.me		= THIS_MODULE,
++		.revision	= 1,
+ 	},
+ };
+ 
