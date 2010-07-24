@@ -1,66 +1,50 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch -next v2] mv643xx_eth: potential null dereference
-Date: Sat, 24 Jul 2010 10:59:07 +0200
-Message-ID: <4C4AAB5B.2050901@bfs.de>
-References: <20100723101528.GF26313@bicker> <1279881177.24768.1623.camel@Joe-Laptop.home> <20100723110504.GG26313@bicker> <4C49C39E.8020502@bfs.de> <20100723221514.GJ26313@bicker>
-Reply-To: wharms@bfs.de
+From: Marc Haber <mh+linux-kernel@zugschlus.de>
+Subject: e1000e crashes with 2.6.34.x and ThinkPad T60
+Date: Sat, 24 Jul 2010 11:26:44 +0200
+Message-ID: <20100724092644.GA13353@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Denis Kirjanov <kirjanov@gmail.com>,
-	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.sz.bfs.de ([194.94.69.103]:57432 "EHLO mx01.sz.bfs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751625Ab0GXI7K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Jul 2010 04:59:10 -0400
-In-Reply-To: <20100723221514.GJ26313@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+To: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi,
 
+I have a new notebook, a Thinkpad T60, which is freezing in random
+intervals (like 30 minutes to two days) as long as I am using the
+on-board wired ethernet interface, which is an e1000e, [8086:109a]. As
+long as I keep using the WLAN, the system runs for weeks despite
+frequent suspend/resume cycles etc. The crashes seem really to be tied
+to using the wired ethernet. This is a hard freeze, with nothing
+happening on the system, only a long push on the power button helps.
 
-Dan Carpenter schrieb:
-> On Fri, Jul 23, 2010 at 06:30:22PM +0200, walter harms wrote:
->> this is a bit complicated, IMHO ppl have a bigger chance to discover what is going on
->> with this version:
->>
->>     if (!pd ) {
->>        msp->t_clk = 133000000;
->>        msp->tx_csum_limit = 9 * 1024;
->>      }
->>      else
->>       {
->> 	msp->t_clk = pd->t_clk ? pd->t_clk : 133000000 ;
->>         msp->tx_csum_limit = pd->tx_csum_limit ? pd->tx_csum_limit : 9 * 1024;
->>        }
->>
-> 
-> But then instead of 2 magic numbers we would have 4. :/
-> 
+Additionally, sometimes, probably after suspend/resume, the wired
+ethernet does not come up properly again, ip addr claims "NO CARRIER"
+even if the LEDs on the interface and on the switch claim that there
+was a link. No packets are received by the interface when it's at this
+stage.
 
-Yes it can be shorten,
+Both issues appear with 2.6.34 and 2.6.34.1. I didn't try any of these
+issues with an older kernel, 2.6.34 was already out when I started
+using the T60.
 
-msp->t_clk = 133000000;
-msp->tx_csum_limit = 9 * 1024;
-if (pd) {
-	if (pd->t_clk) msp->t_clk = pd->t_clk ;
-	if (pd->tx_csum_limit) sp->tx_csum_limit = pd->tx_csum_limit;
-}
-pd->t_clk
-i was thinking about that in my first posting but i have the feeling that ppl
-tend to overlook the "if (pd)" but in this case it is important since the
-behavier is different.
+To rule out defective hardware, I have tried with a second T60, with
+the same results.
 
-IMHO it would be better to make sure that pd->t_clk,pd->tx_csum_limit have usefull
-values than adding a check but this is up to the maintainer.
+Full dmesg and lspci-nn attached, please say if you need more.
 
-re,
- wh
+Greetings
+Marc
 
+P.S.: Please Cc: me on replies, both linux-kernel and netdev are too
+big for me to timely follow. I am subscribed to both lists, but a Cc
+helps in getting a faster reply.
+
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
