@@ -1,64 +1,85 @@
-From: "A .Baloteli" <tel.inters.p.a@email.it>
-Subject: Winning Notification!!!
-Date: Sat, 24 Jul 2010 12:26:14 +0200 (CEST)
-Message-ID: <49583.151.82.175.31.1279967174.squirrel@www.igp.gob.pe>
-Reply-To: voda.com2010@gmail.it
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH net-next-2.6] pktgen: Optionally leak kernel memory
+Date: Sat, 24 Jul 2010 06:18:07 -0700
+Message-ID: <4C4AE80F.1040406@candelatech.com>
+References: <4C4A224B.8080806@candelatech.com> <1279949024.2451.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: tel.inters.p.a@email.it
+Cc: David Miller <davem@davemloft.net>, NetDev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer.igp.gob.pe ([200.60.148.146]:46494 "EHLO
-	mailer.igp.gob.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688Ab0GXKW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 06:22:29 -0400
+Received: from mail.candelatech.com ([208.74.158.172]:52796 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751696Ab0GXNSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 09:18:13 -0400
+In-Reply-To: <1279949024.2451.43.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 07/23/2010 10:23 PM, Eric Dumazet wrote:
+> Le vendredi 23 juillet 2010 =C3=A0 16:14 -0700, Ben Greear a =C3=A9cr=
+it :
+>> Some time back, someone added some memset() calls to pktgen to
+>> keep from leaking memory contents to the network.
+>>
+>
+> Well, someone might be me ;)
+>
+>> At least in our modified version of pktgen, this caused about 25%
+>> performance degradation when sending 1514 byte pkts (multi-pkt =3D=3D=
+ 0)
+>> on a pair of 10G ports.  It was easy enough to comment these memset
+>> calls out of course.
+>>
+>> I don't mind if this patch stays in,
+>> but thought I'd post my findings in case anyone else wonders why
+>> their pktgen slowed down...
+>>
+>
+> Thanks Ben
+>
+> Here is a patch adding a new pktgen flag, so that admins can choose
+> speed if they want to, if they dont use clone_skb to reduce skb setup
+> costs.
 
+It looks fine to me, though I have not actually tested it.
 
+> +Very fast mode
+> +=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> +One knob to get very fast pktgen is the UNSAFE flag :
+> +
+> +flag UNSAFE
+> +
+> +This ask to pktgen to not clear content of packets before sending th=
+em.
+> +Note this is a security problem, and should be used only if really n=
+eeded.
+> +If packets are cloned (clone_skb 1000), clearing data cost is amorti=
+zed so
+> +this UNSAFE mode is less interesting.
 
-Dear Client
+I think most users of pktgen wouldn't be too concerned about leaking
+memory content to the network.  It's a root-only test tool that can eas=
+ily
+saturate most networks and do horrible things like overflow switch CAM =
+tables
+by randomizing source/dest macs etc.  So, this warning might could be a=
+ bit
+more descriptive of how it is a security problem "arbitrary contents of=
+ memory can be
+sent across the network and may be sniffed by devices on the network, p=
+otentially
+revealing private information such as passwords and application data fo=
+r applications
+running on the machine running pktgen" instead of telling folks not to =
+use it unless it's
+really needed.
 
-You have been sent a payment order, here is your payment information:
+Thanks,
+Ben
 
-PAYMENT N=B0:     965412070
-PAYMENT APPROVAL DATE: 04/06/2010
-PAYMENT REF:  VD06/EUSA/2010
-PAYMENT VALUE:   EUR 225.500.00 (Euro)
-
-In order to receive you payment please confirm you identification in ou=
-r
-verification office below:
-
-Voda Telecom Inc.
-Betolini 14 - Point 7002
-Villa Ugo Ojetti 32, 00137
-e-mail: voda.com2010@gmail.it
-Payment Logistic Officer: Andrea M. Baloteli (Mr)
-
-Copy the Payment Verification Information's above and submit to the abo=
-ve
-office and officer. After we receive your email confirmation, your paym=
-ent
-would be processed we will send you the payment paying bank for cashing
-your funds.
-
-REASON OF PAYMENT: This e-mail draw is to promote the official
-communication network for the 2010 World Cup and our network's
-Anniversary.
-
-On behalf of the Board kindly, accept our warmest congratulations.
-
-Regards.
-MANAGEMENT.
-
-All information is strictly confidential and will only be used for the
-purpose to which it is been requested.. Finally, all funds should be
-claimed by their respective beneficiaries, not later than 12 days after
-notification. Failure to do so will result to outright cancellation.
-
-
-Copyright =A9 2008 telecom.it;Privacy & P.IVA...
-
-
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
