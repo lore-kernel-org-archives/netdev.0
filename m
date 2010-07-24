@@ -1,45 +1,66 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: Linux 2.6.35-rc6
-Date: Sat, 24 Jul 2010 10:06:16 +0200
-Message-ID: <4C4A9EF8.6030409@gmail.com>
-References: <AANLkTinJe-oHpgQqnTPQyKUtmKhg2oUJmylkBPALuzGh@mail.gmail.com> <20100723112142.f698394e.sfr@canb.auug.org.au>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [patch -next v2] mv643xx_eth: potential null dereference
+Date: Sat, 24 Jul 2010 10:59:07 +0200
+Message-ID: <4C4AAB5B.2050901@bfs.de>
+References: <20100723101528.GF26313@bicker> <1279881177.24768.1623.camel@Joe-Laptop.home> <20100723110504.GG26313@bicker> <4C49C39E.8020502@bfs.de> <20100723221514.GJ26313@bicker>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Russell King <rmk@arm.linux.org.uk>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Michal Marek <mmarek@suse.cz>, Greg KH <greg@kroah.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Joe Perches <joe@perches.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Denis Kirjanov <kirjanov@gmail.com>,
+	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:53656 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752008Ab0GXIGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 04:06:19 -0400
-In-Reply-To: <20100723112142.f698394e.sfr@canb.auug.org.au>
+Received: from mx01.sz.bfs.de ([194.94.69.103]:57432 "EHLO mx01.sz.bfs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751625Ab0GXI7K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Jul 2010 04:59:10 -0400
+In-Reply-To: <20100723221514.GJ26313@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/23/2010 03:21 AM, Stephen Rothwell wrote:
-> On Thu, 22 Jul 2010 12:26:13 -0700 Linus Torvalds <torvalds@linux-foundation.org> wrote:
+
+
+Dan Carpenter schrieb:
+> On Fri, Jul 23, 2010 at 06:30:22PM +0200, walter harms wrote:
+>> this is a bit complicated, IMHO ppl have a bigger chance to discover what is going on
+>> with this version:
 >>
->  I actually hope/think that this is going to be the last -rc. Things
->> have been pretty quiet, and while this -rc has more commits than -rc5
->> had, it's not by a large amount, nor does it look scary to me. So
->> there doesn't seem to be any point in dragging out the release any
->> more, unless we find something new that calls for it.
+>>     if (!pd ) {
+>>        msp->t_clk = 133000000;
+>>        msp->tx_csum_limit = 9 * 1024;
+>>      }
+>>      else
+>>       {
+>> 	msp->t_clk = pd->t_clk ? pd->t_clk : 133000000 ;
+>>         msp->tx_csum_limit = pd->tx_csum_limit ? pd->tx_csum_limit : 9 * 1024;
+>>        }
+>>
 > 
-> I have no idea how important this stuff is, but I still have the
-> following in linux-next that are (in theory) destined for v2.6.35:
+> But then instead of 2 magic numbers we would have 4. :/
+> 
 
-Hi, and probably this one as well (introduced in rc1):
-http://lkml.org/lkml/2010/7/9/287
+Yes it can be shorten,
 
-Tim Gardner
-  i915: Use the correct mask to detect i830 aperture size.
+msp->t_clk = 133000000;
+msp->tx_csum_limit = 9 * 1024;
+if (pd) {
+	if (pd->t_clk) msp->t_clk = pd->t_clk ;
+	if (pd->tx_csum_limit) sp->tx_csum_limit = pd->tx_csum_limit;
+}
+pd->t_clk
+i was thinking about that in my first posting but i have the feeling that ppl
+tend to overlook the "if (pd)" but in this case it is important since the
+behavier is different.
 
--- 
-js
+IMHO it would be better to make sure that pd->t_clk,pd->tx_csum_limit have usefull
+values than adding a check but this is up to the maintainer.
+
+re,
+ wh
+
