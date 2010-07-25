@@ -1,85 +1,91 @@
-From: "Andrew O. Shadoura" <andrew@beldisplaytech.com>
-Subject: [PATCH] 3c59x: Add ethtool WOL support
-Date: Sun, 25 Jul 2010 05:24:17 +0300
-Message-ID: <201007250524.18911.andrew@beldisplaytech.com>
-Reply-To: "Andrew O. Shadoura" <bugzilla@tut.by>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] bonding: set device in RLB ARP packet
+ handler
+Date: Sat, 24 Jul 2010 20:38:16 -0700 (PDT)
+Message-ID: <20100724.203816.226785255.davem@davemloft.net>
+References: <20100722195240.GA25359@w-gedwards.lhn.com>
+	<28252.1279915324@death>
+	<20100723202648.GU7497@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev mailing list <netdev@vger.kernel.org>,
-	Linux kernel mailing list <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: fubar@us.ibm.com, greg.edwards@hp.com, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps.beldisplaytech.com ([69.162.134.24]:33589 "EHLO
-	vps.beldisplaytech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750982Ab0GYCnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 22:43:42 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40612
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750912Ab0GYDiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 23:38:00 -0400
+In-Reply-To: <20100723202648.GU7497@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds wrappers for ethtool to get or set wake-on-LAN 
-setting without re-inserting the kernel module.
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Fri, 23 Jul 2010 16:26:48 -0400
 
-Signed-off-by: Andrew O. Shadoura <andrew@beldisplaytech.com>
----
-Hello.
+> On Fri, Jul 23, 2010 at 01:02:04PM -0700, Jay Vosburgh wrote:
+>> 
+>> From: Greg Edwards <greg.edwards@hp.com>
+>> 
+>> After:
+>> 
+>> commit 6146b1a4da98377e4abddc91ba5856bef8f23f1e
+>> Author: Jay Vosburgh <fubar@us.ibm.com>
+>> Date:   Tue Nov 4 17:51:15 2008 -0800
+>> 
+>>     bonding: Fix ALB mode to balance traffic on VLANs
+>> 
+>> the dev field in the RLB ARP packet handler was set to NULL to wildcard
+>> and accommodate balancing VLANs on top of bonds.
+>> 
+>> This has the side-effect of the packet handler being called against
+>> other, non RLB-enabled bonds, and a kernel oops results when it tries to
+>> dereference rx_hashtbl in rlb_update_entry_from_arp(), which won't be
+>> set for those bonds, e.g. active-backup.
+>> 
+>> With the __netif_receive_skb() changes from:
+>> 
+>> commit 1f3c8804acba841b5573b953f5560d2683d2db0d
+>> Author: Andy Gospodarek <andy@greyhouse.net>
+>> Date:   Mon Dec 14 10:48:58 2009 +0000
+>> 
+>>     bonding: allow arp_ip_targets on separate vlans to use arp validation
+>> 
+>> frames received on VLANs correctly make their way to the bond's handler,
+>> so we no longer need to wildcard the device.
+>> 
+>> The oops can be reproduced by:
+>> 
+>> modprobe bonding
+>> 
+>> echo active-backup > /sys/class/net/bond0/bonding/mode
+>> echo 100 > /sys/class/net/bond0/bonding/miimon
+>> ifconfig bond0 xxx.xxx.xxx.xxx netmask xxx.xxx.xxx.xxx
+>> echo +eth0 > /sys/class/net/bond0/bonding/slaves
+>> echo +eth1 > /sys/class/net/bond0/bonding/slaves
+>> 
+>> echo +bond1 > /sys/class/net/bonding_masters
+>> echo balance-alb > /sys/class/net/bond1/bonding/mode
+>> echo 100 > /sys/class/net/bond1/bonding/miimon
+>> ifconfig bond1 xxx.xxx.xxx.xxx netmask xxx.xxx.xxx.xxx
+>> echo +eth2 > /sys/class/net/bond1/bonding/slaves
+>> echo +eth3 > /sys/class/net/bond1/bonding/slaves
+>> 
+>> Pass some traffic on bond0.  Boom.
+>> 
+>> [ Tested, behaves as advertised.  I do not believe a test of the bonding
+>> mode is necessary, as there is no race between the packet handler and
+>> the bonding mode changing (the mode can only change when the device is
+>> closed).  Also updated the log message to include the reproduction and
+>> full commit ids.  -J ]
+>> 	
+>> Signed-off-by: Greg Edwards <greg.edwards@hp.com>
+>> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> 
+> Acked-by: Andy Gospodarek <andy@greyhouse.net>
 
-I've actually tested this patch on a machine with a network 
-card that's idenfied by lsusb as "3c905C-TX/TX-M", and it seems 
-to work.
+This seems serious enough to put into net-2.6, so that's where I applied
+it.
 
----
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index d75803e..a452dfe 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -2909,6 +2909,36 @@ static void vortex_get_drvinfo(struct net_device *dev,
- 	}
- }
- 
-+static void vortex_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	struct vortex_private *vp = netdev_priv(dev);
-+
-+	spin_lock_irq(&vp->lock);
-+	wol->supported = WAKE_MAGIC;
-+
-+	wol->wolopts = 0;
-+	if (vp->enable_wol)
-+		wol->wolopts |= WAKE_MAGIC;
-+	spin_unlock_irq(&vp->lock);
-+}
-+
-+static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	struct vortex_private *vp = netdev_priv(dev);
-+	if (wol->wolopts & ~WAKE_MAGIC)
-+		return -EINVAL;
-+
-+	spin_lock_irq(&vp->lock);
-+	if (wol->wolopts & WAKE_MAGIC)
-+		vp->enable_wol = 1;
-+	else
-+		vp->enable_wol = 0;
-+	acpi_set_WOL(dev);
-+	spin_unlock_irq(&vp->lock);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops vortex_ethtool_ops = {
- 	.get_drvinfo		= vortex_get_drvinfo,
- 	.get_strings            = vortex_get_strings,
-@@ -2920,6 +2950,8 @@ static const struct ethtool_ops vortex_ethtool_ops = {
- 	.set_settings           = vortex_set_settings,
- 	.get_link               = ethtool_op_get_link,
- 	.nway_reset             = vortex_nway_reset,
-+	.get_wol                = vortex_get_wol,
-+	.set_wol                = vortex_set_wol,
- };
- 
- #ifdef CONFIG_PCI
-
--- 
-WBR, Andrew
+Thanks!
