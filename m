@@ -1,48 +1,40 @@
-From: "Andrew O. Shadoura" <bugzilla@tut.by>
-Subject: Re: [PATCH] 3c59x: Add ethtool WOL support
-Date: Sun, 25 Jul 2010 22:03:10 +0300
-Message-ID: <201007252203.11980.bugzilla@tut.by>
-References: <201007250524.18911.andrew@beldisplaytech.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1473053.734tXEMAfG";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>
-To: Netdev mailing list <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201007250524.18911.andrew@beldisplaytech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: [PATCH] ip: correctly report 802.15.4 link type
+Date: Sun, 25 Jul 2010 22:28:02 +0200
+Message-ID: <1280089683-12020-2-git-send-email-jengelh@medozas.de>
+References: <1280089683-12020-1-git-send-email-jengelh@medozas.de>
+Cc: netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from borg.medozas.de ([188.40.89.202]:39489 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752585Ab0GYU2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Jul 2010 16:28:08 -0400
+In-Reply-To: <1280089683-12020-1-git-send-email-jengelh@medozas.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart1473053.734tXEMAfG
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+Up until now, the "hardwpan" devices were displayed as link/[804].
 
-Hello.
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+---
+ lib/ll_types.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-On Sunday 25 July 2010 05:24:17 Andrew O. Shadoura wrote:
-> I've actually tested this patch on a machine with a network
-> card that's idenfied by lsusb as "3c905C-TX/TX-M", and it seems
-> to work.
+diff --git a/lib/ll_types.c b/lib/ll_types.c
+index 846cdb0..1cc46b6 100644
+--- a/lib/ll_types.c
++++ b/lib/ll_types.c
+@@ -125,6 +125,9 @@ __PF(IEEE80211_PRISM,ieee802.11/prism)
+ #ifdef ARPHRD_IEEE80211_RADIOTAP
+ __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
+ #endif
++#ifdef ARPHRD_IEEE802154
++__PF(IEEE802154, ieee802.15.4)
++#endif
+ #ifdef ARPHRD_NONE
+ __PF(NONE, none)
+ #endif
+-- 
+1.7.1
 
-Oops, of course I meant "it's identified by lspci as ...".
-
-=2D-=20
-WBR, Andrew
-
---nextPart1473053.734tXEMAfG
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEABECAAYFAkxMim8ACgkQ/mQMD2bMZ2sLrACeOKxkJ+v46rKG5c2MIxRSziC2
-zc0AoJk9KBlUDQl0l2AJFVkxhF1lbZrs
-=Y1co
------END PGP SIGNATURE-----
-
---nextPart1473053.734tXEMAfG--
