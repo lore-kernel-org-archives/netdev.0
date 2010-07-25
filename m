@@ -1,119 +1,67 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] nf_conntrack_extend: introduce __nf_ct_ext_exist()
-Date: Sun, 25 Jul 2010 22:38:54 +0800
-Message-ID: <1280068734-5332-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [patch -next v2] mv643xx_eth: potential null dereference
+Date: Sun, 25 Jul 2010 16:47:17 +0200
+Message-ID: <4C4C4E75.4080603@bfs.de>
+References: <20100723101528.GF26313@bicker> <1279881177.24768.1623.camel@Joe-Laptop.home> <20100723110504.GG26313@bicker> <4C49C39E.8020502@bfs.de> <20100723221514.GJ26313@bicker> <4C4AAB5B.2050901@bfs.de> <20100724190036.GA21121@mail.wantstofly.org>
+Reply-To: wharms@bfs.de
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Dan Carpenter <error27@gmail.com>, Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Denis Kirjanov <kirjanov@gmail.com>,
+	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:43230 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751061Ab0GYOjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jul 2010 10:39:55 -0400
+Received: from mx01.sz.bfs.de ([194.94.69.103]:45893 "EHLO mx01.sz.bfs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750819Ab0GYOrU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Jul 2010 10:47:20 -0400
+In-Reply-To: <20100724190036.GA21121@mail.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-some users of nf_ct_ext_exist() know ct->ext isn't NULL. For these users, the
-check for ct->ext isn't necessary, the function __nf_ct_ext_exist() can be
-used instead.
 
-the type of the return value of nf_ct_ext_exist() is changed to bool.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/net/netfilter/nf_conntrack_extend.h |    9 +++++++--
- net/netfilter/nf_conntrack_extend.c         |   22 ++++++++++++----------
- 2 files changed, 19 insertions(+), 12 deletions(-)
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 32d15bd..0772d29 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -28,9 +28,14 @@ struct nf_ct_ext {
- 	char data[0];
- };
- 
--static inline int nf_ct_ext_exist(const struct nf_conn *ct, u8 id)
-+static inline bool __nf_ct_ext_exist(const struct nf_ct_ext *ext, u8 id)
- {
--	return (ct->ext && ct->ext->offset[id]);
-+	return !!ext->offset[id];
-+}
-+
-+static inline bool nf_ct_ext_exist(const struct nf_conn *ct, u8 id)
-+{
-+	return (ct->ext && __nf_ct_ext_exist(ct->ext, id));
- }
- 
- static inline void *__nf_ct_ext_find(const struct nf_conn *ct, u8 id)
-diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
-index fdc8fb4..7dcf7a4 100644
---- a/net/netfilter/nf_conntrack_extend.c
-+++ b/net/netfilter/nf_conntrack_extend.c
-@@ -23,9 +23,10 @@ void __nf_ct_ext_destroy(struct nf_conn *ct)
- {
- 	unsigned int i;
- 	struct nf_ct_ext_type *t;
-+	struct nf_ct_ext *ext = ct->ext;
- 
- 	for (i = 0; i < NF_CT_EXT_NUM; i++) {
--		if (!nf_ct_ext_exist(ct, i))
-+		if (!__nf_ct_ext_exist(ext, i))
- 			continue;
- 
- 		rcu_read_lock();
-@@ -73,44 +74,45 @@ static void __nf_ct_ext_free_rcu(struct rcu_head *head)
- 
- void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
- {
--	struct nf_ct_ext *new;
-+	struct nf_ct_ext *old, *new;
- 	int i, newlen, newoff;
- 	struct nf_ct_ext_type *t;
- 
- 	/* Conntrack must not be confirmed to avoid races on reallocation. */
- 	NF_CT_ASSERT(!nf_ct_is_confirmed(ct));
- 
--	if (!ct->ext)
-+	old = ct->ext;
-+	if (!old)
- 		return nf_ct_ext_create(&ct->ext, id, gfp);
- 
--	if (nf_ct_ext_exist(ct, id))
-+	if (__nf_ct_ext_exist(old, id))
- 		return NULL;
- 
- 	rcu_read_lock();
- 	t = rcu_dereference(nf_ct_ext_types[id]);
- 	BUG_ON(t == NULL);
- 
--	newoff = ALIGN(ct->ext->len, t->align);
-+	newoff = ALIGN(old->len, t->align);
- 	newlen = newoff + t->len;
- 	rcu_read_unlock();
- 
--	new = __krealloc(ct->ext, newlen, gfp);
-+	new = __krealloc(old, newlen, gfp);
- 	if (!new)
- 		return NULL;
- 
--	if (new != ct->ext) {
-+	if (new != old) {
- 		for (i = 0; i < NF_CT_EXT_NUM; i++) {
--			if (!nf_ct_ext_exist(ct, i))
-+			if (!__nf_ct_ext_exist(old, i))
- 				continue;
- 
- 			rcu_read_lock();
- 			t = rcu_dereference(nf_ct_ext_types[i]);
- 			if (t && t->move)
- 				t->move((void *)new + new->offset[i],
--					(void *)ct->ext + ct->ext->offset[i]);
-+					(void *)old + old->offset[i]);
- 			rcu_read_unlock();
- 		}
--		call_rcu(&ct->ext->rcu, __nf_ct_ext_free_rcu);
-+		call_rcu(&old->rcu, __nf_ct_ext_free_rcu);
- 		ct->ext = new;
- 	}
- 
+Lennert Buytenhek schrieb:
+> On Sat, Jul 24, 2010 at 10:59:07AM +0200, walter harms wrote:
+> 
+>> IMHO it would be better to make sure that pd->t_clk,pd->tx_csum_limit
+>> have usefull values than adding a check but this is up to the maintainer.
+> 
+> I don't see the point of that at all.  We check against zero to see
+> whether the caller bothered to fill in the field at all, but if the
+> caller wants to pass in bogus values, that's up to the caller.
+> 
+at first i have to admit i looked only at the patch.
+for me the situation looks this way:
+
+You check the values for 0 (and uses default) or take what ever in pd is.
+The current code is setup like:
+
+  1. check if pd is set
+  2. check if pd->value is non zero and use it
+
+the whole "check X" can be avoided if you could create a pd with all values
+set to default and just take what comes from the user.
+
+my objection agains this kind of code is that it is not obvious
+what some one is trying to archive
+(pd != NULL && pd->t_clk != 0) ? pd->t_clk : 133000000;
+
+the pd check means: do i have a configuration  ?
+the pd->t_clk != 0 means: should i use then or default ?
+
+This is mixing two very different questions. therefore my idea in the last
+posting to have a default init if (!pd) and then use the else to make clear
+that additional checks for pd->value are expected.
+
+this this is the init code readability and simplicity should be king.
+
+hope that helps,
+re,
+ wh
+
+
