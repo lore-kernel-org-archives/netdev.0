@@ -1,74 +1,55 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with per-vhost
- kthread
-Date: Sun, 25 Jul 2010 09:41:22 +0200
-Message-ID: <4C4BEAA2.6040301@kernel.org>
-References: <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C961.9050606@kernel.org> <20100531152221.GB2987@redhat.com> <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com> <4C04D41B.4050704@kernel.org> <4C06A580.9060300@kernel.org> <20100722155840.GA1743@redhat.com> <4C48B664.9000109@kernel.org> <20100724191447.GA4972@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] pktgen: Optionally leak kernel memory
+Date: Sun, 25 Jul 2010 10:27:52 +0200
+Message-ID: <1280046472.2451.494.camel@edumazet-laptop>
+References: <1279949024.2451.43.camel@edumazet-laptop>
+	 <4C4AE80F.1040406@candelatech.com>
+	 <1279980795.2451.157.camel@edumazet-laptop>
+	 <20100724.213519.260107516.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: greearb@candelatech.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:57786 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751282Ab0GYHmH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jul 2010 03:42:07 -0400
-In-Reply-To: <20100724191447.GA4972@redhat.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56004 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751887Ab0GYI14 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jul 2010 04:27:56 -0400
+Received: by wwj40 with SMTP id 40so5957424wwj.1
+        for <netdev@vger.kernel.org>; Sun, 25 Jul 2010 01:27:55 -0700 (PDT)
+In-Reply-To: <20100724.213519.260107516.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Le samedi 24 juillet 2010 =C3=A0 21:35 -0700, David Miller a =C3=A9crit=
+ :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sat, 24 Jul 2010 16:13:15 +0200
+>=20
+> > I am not sure David will accept the patch !
+>=20
+> I don't think I can apply this, sorry :-)
 
-On 07/24/2010 09:14 PM, Michael S. Tsirkin wrote:
->> I've created kthread_worker in wq#for-next tree and already converted
->> ivtv to use it.  Once this lands in mainline, I think converting vhost
->> to use it would be better choice.  kthread worker code uses basically
->> the same logic used in the vhost_workqueue code but is better
->> organized and documented.  So, I think it would be better to stick
->> with the original implementation, as otherwise we're likely to just
->> decrease test coverage without much gain.
->>
->>   http://git.kernel.org/?p=linux/kernel/git/tj/wq.git;a=commitdiff;h=b56c0d8937e665a27d90517ee7a746d0aa05af46;hp=53c5f5ba42c194cb13dd3083ed425f2c5b1ec439
-> 
-> Sure, if we keep using workqueue. But I'd like to investigate this
-> direction a bit more because there's discussion to switching from kthread to
-> regular threads altogether.
+Absolutely.
 
-Hmmm? It doesn't have much to do with workqueue.  kthread_worker is a
-simple wrapper around kthread.  It now assumes kthread but changing it
-to be useable with any thread shouldn't be too hard.  Wouldn't that be
-better?
+It might be possible for pktgen to use a pool of prebuilt pages to avoi=
+d
+the cost of clearing pages. This wont work for skb without frags, unles=
+s
+we change skb_release_data() (it calls kfree(skb->head), I dont think w=
+e
+can trap this one...)
 
->> I don't think doing this before executing the function is correct,
-> 
-> Well, before I execute the function work is NULL, so this is skipped.
-> Correct?
->
->> so
->> you'll have to release the lock, execute the function, regrab the lock
->> and then do the flush processing.
->>
->> Thanks.
-> 
-> It's done in the loop, so I thought we can reuse the locking
-> done for the sake of processing the next work item.
-> Makes sense?
+One better idea would be to take an extra reference on skb before givin=
+g
+it to transmit, and maintain a list of skbs to recycle once their
+refcount hits 1 (our reference). We could avoid most of the skb
+setup/freeing costs (no more memory allocations/freeing)
 
-Yeap, right.  I think it would make much more sense to use common code
-when it becomes available but if you think the posted change is
-necessary till then, please feel free to go ahead.
+I'll take a look after my vacations, unless someone motivated enough
+beats me of course :)
 
-Thanks.
+Thanks !
 
--- 
-tejun
+
