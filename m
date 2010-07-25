@@ -1,55 +1,28 @@
-From: AgentC <agentc23@yahoo.de>
-Subject: linux and 2 LAN-cards ?
-Date: Mon, 26 Jul 2010 00:36:35 +0200
-Message-ID: <i2ieav$k2s$1@dough.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 NEXT 1/2] qlcnic: fix loopback test
+Date: Sun, 25 Jul 2010 16:36:01 -0700 (PDT)
+Message-ID: <20100725.163601.193730631.davem@davemloft.net>
+References: <1280032338-7002-1-git-send-email-amit.salecha@qlogic.com>
+	<1280032338-7002-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:47245 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751531Ab0GYWkG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jul 2010 18:40:06 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Od9rX-0002aY-AM
-	for netdev@vger.kernel.org; Mon, 26 Jul 2010 00:40:03 +0200
-Received: from dyndsl-080-228-183-233.ewe-ip-backbone.de ([80.228.183.233])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 26 Jul 2010 00:40:03 +0200
-Received: from agentc23 by dyndsl-080-228-183-233.ewe-ip-backbone.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 26 Jul 2010 00:40:03 +0200
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42552
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751658Ab0GYXfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jul 2010 19:35:45 -0400
+In-Reply-To: <1280032338-7002-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Sat, 24 Jul 2010 21:32:17 -0700
 
-I'm a linux newbie and have some configuration-probs with the network.
-could anyone give some hints to get it working?
+> o Loopback not supported for virtual function.
+> 
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-normally I used mainboard internal LAN for modemrouter / webaccess only.
-out of some configurationproblems I had to remove my additional netgear-
-router which was used as hub for my additional terminal-workstations
-in my flat. but now it is impossible to do that anymore cause my
-webserver will not work when the netgear is between the DSL-modemrouter
-and my server. so I decided to try it out with a second LAN card (PCI)
-where I tried to connect the netgear as hub.
-
-but what happened was, that all outside access wasn't possible anymore
-(for example ping google.de) but access to the dsl-modemrouter was 
-possible. ping connection to the netgear was not possible.
-
-what happened? have the both network adapters conflicts on the PCI-bus?
-or is this a configuration problem within linux config ?
-
-can anyone tell me what went wrong and how to fix that problem ?
-
-sincerly,
-Ralf M.
-
-
-
-
+Applied.
