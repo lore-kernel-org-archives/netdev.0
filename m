@@ -1,42 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH for-2.6.35] tun: avoid BUG, dump packet on GSO errors
-Date: Sat, 24 Jul 2010 20:47:32 -0700 (PDT)
-Message-ID: <20100724.204732.112605618.davem@davemloft.net>
-References: <20100721143245.GA8423@redhat.com>
-	<20100722130512.GA29088@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] sysfs: add attribute to indicate hw address
+ assignment type
+Date: Sat, 24 Jul 2010 20:50:29 -0700 (PDT)
+Message-ID: <20100724.205029.183042907.davem@davemloft.net>
+References: <4C483E8D.4080300@redhat.com>
+	<1279807643.2104.1.camel@achroite.uk.solarflarecom.com>
+	<4C485A0C.7020500@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: bhutchings@solarflare.com, abadea@ixiacom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gospo@redhat.com, gregory.v.rose@intel.com,
+	alexander.h.duyck@intel.com, leedom@chelsio.com, harald@redhat.com
+To: sassmann@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53447
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44489
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750875Ab0GYDrP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 23:47:15 -0400
-In-Reply-To: <20100722130512.GA29088@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751162Ab0GYDuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 23:50:13 -0400
+In-Reply-To: <4C485A0C.7020500@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 22 Jul 2010 21:05:12 +0800
+From: Stefan Assmann <sassmann@redhat.com>
+Date: Thu, 22 Jul 2010 16:47:40 +0200
 
-> Michael S. Tsirkin <mst@redhat.com> wrote:
->> There are still some LRO cards that cause GSO errors in tun,
->> and BUG on this is an unfriendly way to tell the admin
->> to disable LRO.
+> On 22.07.2010 16:07, Ben Hutchings wrote:
+>> On Thu, 2010-07-22 at 14:50 +0200, Stefan Assmann wrote:
+>>> On 21.07.2010 15:54, Ben Hutchings wrote:
+>>>> On Wed, 2010-07-21 at 10:10 +0200, Stefan Assmann wrote:
+>>>>> I put Alex' idea into code for further discussion, keeping the names
+>>>>> mentioned here until we agree on the scope of this attribute. When we
+>>>>> have settled I'll post a patch with proper patch description.
+>>>> [...]
+>>>>
+>>>> Just a little nitpick: I think it would be clearer to use a more
+>>>> specific term like 'address source' or 'address assignment type' rather
+>>>> than 'address type'.
+>>>
+>>> Here's a proposal for the final patch.
 >> 
->> Further, experience shows we might have more GSO bugs lurking.
->> See https://bugzilla.kernel.org/show_bug.cgi?id=16413
->> as a recent example.
->> dumping a packet will make it easier to figure it out.
->> 
->> Replace BUG with warning+dump+drop the packet to make
->> GSO errors in tun less critical and easier to debug.
->> 
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> Tested-by: Alex Unigovsky <unik@compot.ru>
+>> Looks good, but...
+ ...
+>> ...why '|=' and not '='?
 > 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> The intention is to use addr_assign_type as a bit field.
+> 
+> Okay it it might not make too much sense to 'steal' a random MAC
+> address but in case we add more types later it might get useful.
 
-Applied, thanks everyone.
+I think the patch is good enough to go into net-next-2.6 as-is, anything
+remaining is a refinement or one sort or another.
+
+So applied to net-next-2.6, thanks.
