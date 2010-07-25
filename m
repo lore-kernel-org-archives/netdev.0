@@ -1,92 +1,31 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [patch -next v2] mv643xx_eth: potential null dereference
-Date: Sun, 25 Jul 2010 17:54:12 +0200
-Message-ID: <20100725155412.GF21121@mail.wantstofly.org>
-References: <20100723101528.GF26313@bicker> <1279881177.24768.1623.camel@Joe-Laptop.home> <20100723110504.GG26313@bicker> <4C49C39E.8020502@bfs.de> <20100723221514.GJ26313@bicker> <4C4AAB5B.2050901@bfs.de> <20100724190036.GA21121@mail.wantstofly.org> <4C4C4E75.4080603@bfs.de>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 1/2] netfilter: xtables: inclusion of xt_SYSRQ
+Date: Sun, 25 Jul 2010 18:49:30 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007251848520.14790@obet.zrqbmnf.qr>
+References: <1271845618-28569-1-git-send-email-jengelh@medozas.de> <1271845618-28569-2-git-send-email-jengelh@medozas.de> <4BCEF6B4.8090105@trash.net> <alpine.LSU.2.01.1004211506280.10840@obet.zrqbmnf.qr> <4BCEFACC.7020804@trash.net>
+ <alpine.LSU.2.01.1004211533410.21020@obet.zrqbmnf.qr> <4BD84992.5030909@oracle.com> <4BD84C23.2000301@oracle.com> <alpine.LSU.2.01.1004281701220.9518@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <error27@gmail.com>, Joe Perches <joe@perches.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Denis Kirjanov <kirjanov@gmail.com>,
-	Saeed Bishara <saeed@marvell.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: walter harms <wharms@bfs.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:53342 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105Ab0GYPyQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jul 2010 11:54:16 -0400
-Content-Disposition: inline
-In-Reply-To: <4C4C4E75.4080603@bfs.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Sun, Jul 25, 2010 at 04:47:17PM +0200, walter harms wrote:
-
-> >> IMHO it would be better to make sure that pd->t_clk,pd->tx_csum_limit
-> >> have usefull values than adding a check but this is up to the maintainer.
-> > 
-> > I don't see the point of that at all.  We check against zero to see
-> > whether the caller bothered to fill in the field at all, but if the
-> > caller wants to pass in bogus values, that's up to the caller.
-> 
-> at first i have to admit i looked only at the patch.
-> for me the situation looks this way:
-> 
-> You check the values for 0 (and uses default) or take what ever in pd is.
-> The current code is setup like:
-> 
->   1. check if pd is set
->   2. check if pd->value is non zero and use it
-> 
-> the whole "check X" can be avoided if you could create a pd with all values
-> set to default and just take what comes from the user.
-
-Why would you want to avoid "check X"?
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: John Haxby <john.haxby@oracle.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1004281701220.9518@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> my objection agains this kind of code is that it is not obvious
-> what some one is trying to archive
-> (pd != NULL && pd->t_clk != 0) ? pd->t_clk : 133000000;
-> 
-> the pd check means: do i have a configuration  ?
+On Wednesday 2010-04-28 17:03, Jan Engelhardt wrote:
+>On Wednesday 2010-04-28 16:54, John Haxby wrote:
+>>
+>> use-case I see -- the one I see is where the sys admins used to have a "crash
+>> trolley" which was a console and PS/2 keyboard which they could plug into a
+>> machine to get some information, but as many rack machines no longer have
+>> anything PS/2 and USB hot plug is unlikely to work on a sick machine
+>
 
-Yep.
+I still think we should merge this. A hold-up like this would have never 
+happened with staging drivers!
 
-
-> the pd->t_clk != 0 means: should i use then or default ?
-
-Yep.
-
-
-> This is mixing two very different questions.
-
-And?
-
-You're arguing against the use of 'if (a && b)' in general?
-
-
-> therefore my idea in the last posting to have a default init if (!pd)
-> and then use the else to make clear that additional checks for
-> pd->value are expected.
-
-Again, I don't see the point of this, and I think we're just splitting
-hairs here and wasting everyone's time.
-
-
-> this this is the init code readability and simplicity should be king.
-
-'if (foo != NULL && foo->value <op> <value>)' is a fairly common C
-construct, in my opinion, and I don't see how expanding it into a
-multi-line nested if construct will make it either more readable or
-simpler.
-
-
-> hope that helps,
-
-Not really.
-
-
-thanks,
-Lennert
