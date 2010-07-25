@@ -1,69 +1,84 @@
-From: Richard =?ISO-8859-1?Q?R=F6jfors?=
-	<richard.rojfors@pelagicore.com>
-Subject: [PATCH 2/2] ks8842: Advertise 100Mbps
-Date: Sat, 24 Jul 2010 22:25:50 +0200
-Message-ID: <1280003150.28285.281.camel@debian>
+From: Bhavesh Davda <bhavesh@vmware.com>
+Subject: [PATCH 2.6.35-rc1] net-next: Fix an overflow bug in vmxnet3 Tx
+ descriptor
+Date: Sat, 24 Jul 2010 17:43:29 -0700
+Message-ID: <20100725004329.GB6680@bhavesh-lx1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b12.telenor.se ([62.127.194.21]:46004 "EHLO
-	smtprelay-b12.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754274Ab0GXUZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 16:25:54 -0400
-Received: from ipb3.telenor.se (ipb3.telenor.se [195.54.127.166])
-	by smtprelay-b12.telenor.se (Postfix) with ESMTP id 20753EA839
-	for <netdev@vger.kernel.org>; Sat, 24 Jul 2010 22:25:51 +0200 (CEST)
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:27816 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751972Ab0GYAna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 20:43:30 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes sure that the ks8842 also advertises 100Mbps
-during autonegotiation.
-
-If the ks8842 is connected via VLB, the bus is slower
-than 100Mbps ethernet. It turned out using flow control
-in the chip was not optimal, so that non default setting
-is removed.
-
-Signed-off-by: Richard R=C3=B6jfors <richard.rojfors@pelagicore.com>
 ---
-diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
-index 48e4582..ea22f29 100644
---- a/drivers/net/ks8842.c
-+++ b/drivers/net/ks8842.c
-@@ -254,10 +254,8 @@ static void ks8842_reset_hw(struct ks8842_adapter =
-*adapter)
- 	/* Enable QMU Transmit flow control / transmit padding / Transmit CRC=
- */
- 	ks8842_write16(adapter, 16, 0x000E, REG_TXCR);
-=20
--	/* enable the receiver, uni + multi + broadcast + flow ctrl
--		+ crc strip */
--	ks8842_write16(adapter, 16, 0x8 | 0x20 | 0x40 | 0x80 | 0x400,
--		REG_RXCR);
-+	/* enable the receiver, uni + multi + broadcast + crc strip */
-+	ks8842_write16(adapter, 16, 0x8 | 0x20 | 0x40 | 0x80, REG_RXCR);
-=20
- 	/* TX frame pointer autoincrement */
- 	ks8842_write16(adapter, 17, 0x4000, REG_TXFDPR);
-@@ -274,13 +272,11 @@ static void ks8842_reset_hw(struct ks8842_adapter=
- *adapter)
- 	/* enable no excessive collison drop */
- 	ks8842_enable_bits(adapter, 32, 1 << 3, REG_SGCR2);
-=20
--	/* Enable port 1 force flow control / back pressure / transmit / recv=
- */
--	ks8842_write16(adapter, 48, 0x1E07, REG_P1CR2);
-+	/* Enable port 1 / back pressure / transmit / recv */
-+	ks8842_write16(adapter, 48, 0xE07, REG_P1CR2);
-=20
- 	/* restart port auto-negotiation */
- 	ks8842_enable_bits(adapter, 49, 1 << 13, REG_P1CR4);
--	/* only advertise 10Mbps */
--	ks8842_clear_bits(adapter, 49, 3 << 2, REG_P1CR4);
-=20
- 	/* Enable the transmitter */
- 	ks8842_enable_tx(adapter);
+Fix an overflow bug in vmxnet3 Tx descriptor
 
+This patch fixes a bug where a 16K buffer on a Tx descriptor was overflowing
+into the 'gen' bit in the descriptor thereby corrupting the descriptor and
+stalling the transmit ring.
+
+Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+Signed-off-by: Matthew Delco <delcoM@vmware.com>
+Signed-off-by: Ronghua Zhang <ronghua@vmware.com>
+
+---
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 9d64186..abe0ff5 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -664,8 +664,13 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 	while (len) {
+ 		u32 buf_size;
+ 
+-		buf_size = len > VMXNET3_MAX_TX_BUF_SIZE ?
+-			   VMXNET3_MAX_TX_BUF_SIZE : len;
++		if (len < VMXNET3_MAX_TX_BUF_SIZE) {
++			buf_size = len;
++			dw2 |= len;
++		} else {
++			buf_size = VMXNET3_MAX_TX_BUF_SIZE;
++			/* spec says that for TxDesc.len, 0 == 2^14 */
++		}
+ 
+ 		tbi = tq->buf_info + tq->tx_ring.next2fill;
+ 		tbi->map_type = VMXNET3_MAP_SINGLE;
+@@ -673,13 +678,13 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 				skb->data + buf_offset, buf_size,
+ 				PCI_DMA_TODEVICE);
+ 
+-		tbi->len = buf_size; /* this automatically convert 2^14 to 0 */
++		tbi->len = buf_size;
+ 
+ 		gdesc = tq->tx_ring.base + tq->tx_ring.next2fill;
+ 		BUG_ON(gdesc->txd.gen == tq->tx_ring.gen);
+ 
+ 		gdesc->txd.addr = cpu_to_le64(tbi->dma_addr);
+-		gdesc->dword[2] = cpu_to_le32(dw2 | buf_size);
++		gdesc->dword[2] = cpu_to_le32(dw2);
+ 		gdesc->dword[3] = 0;
+ 
+ 		dev_dbg(&adapter->netdev->dev,
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 762a6a7..2121c73 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -68,10 +68,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.0.13.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.0.14.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01000B00
++#define VMXNET3_DRIVER_VERSION_NUM      0x01000E00
+ 
+ 
+ /*
