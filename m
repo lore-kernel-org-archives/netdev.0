@@ -1,84 +1,85 @@
-From: Bhavesh Davda <bhavesh@vmware.com>
-Subject: [PATCH 2.6.35-rc1] net-next: Fix an overflow bug in vmxnet3 Tx
- descriptor
-Date: Sat, 24 Jul 2010 17:43:29 -0700
-Message-ID: <20100725004329.GB6680@bhavesh-lx1.eng.vmware.com>
+From: "Andrew O. Shadoura" <andrew@beldisplaytech.com>
+Subject: [PATCH] 3c59x: Add ethtool WOL support
+Date: Sun, 25 Jul 2010 05:24:17 +0300
+Message-ID: <201007250524.18911.andrew@beldisplaytech.com>
+Reply-To: "Andrew O. Shadoura" <bugzilla@tut.by>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Netdev mailing list <netdev@vger.kernel.org>,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:27816 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751972Ab0GYAna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 20:43:30 -0400
-Content-Disposition: inline
+Received: from vps.beldisplaytech.com ([69.162.134.24]:33589 "EHLO
+	vps.beldisplaytech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750982Ab0GYCnm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jul 2010 22:43:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch adds wrappers for ethtool to get or set wake-on-LAN 
+setting without re-inserting the kernel module.
+
+Signed-off-by: Andrew O. Shadoura <andrew@beldisplaytech.com>
 ---
-Fix an overflow bug in vmxnet3 Tx descriptor
+Hello.
 
-This patch fixes a bug where a 16K buffer on a Tx descriptor was overflowing
-into the 'gen' bit in the descriptor thereby corrupting the descriptor and
-stalling the transmit ring.
-
-Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
-Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
-Signed-off-by: Matthew Delco <delcoM@vmware.com>
-Signed-off-by: Ronghua Zhang <ronghua@vmware.com>
+I've actually tested this patch on a machine with a network 
+card that's idenfied by lsusb as "3c905C-TX/TX-M", and it seems 
+to work.
 
 ---
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 9d64186..abe0ff5 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -664,8 +664,13 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 	while (len) {
- 		u32 buf_size;
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index d75803e..a452dfe 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -2909,6 +2909,36 @@ static void vortex_get_drvinfo(struct net_device *dev,
+ 	}
+ }
  
--		buf_size = len > VMXNET3_MAX_TX_BUF_SIZE ?
--			   VMXNET3_MAX_TX_BUF_SIZE : len;
-+		if (len < VMXNET3_MAX_TX_BUF_SIZE) {
-+			buf_size = len;
-+			dw2 |= len;
-+		} else {
-+			buf_size = VMXNET3_MAX_TX_BUF_SIZE;
-+			/* spec says that for TxDesc.len, 0 == 2^14 */
-+		}
++static void vortex_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	struct vortex_private *vp = netdev_priv(dev);
++
++	spin_lock_irq(&vp->lock);
++	wol->supported = WAKE_MAGIC;
++
++	wol->wolopts = 0;
++	if (vp->enable_wol)
++		wol->wolopts |= WAKE_MAGIC;
++	spin_unlock_irq(&vp->lock);
++}
++
++static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	struct vortex_private *vp = netdev_priv(dev);
++	if (wol->wolopts & ~WAKE_MAGIC)
++		return -EINVAL;
++
++	spin_lock_irq(&vp->lock);
++	if (wol->wolopts & WAKE_MAGIC)
++		vp->enable_wol = 1;
++	else
++		vp->enable_wol = 0;
++	acpi_set_WOL(dev);
++	spin_unlock_irq(&vp->lock);
++
++	return 0;
++}
++
+ static const struct ethtool_ops vortex_ethtool_ops = {
+ 	.get_drvinfo		= vortex_get_drvinfo,
+ 	.get_strings            = vortex_get_strings,
+@@ -2920,6 +2950,8 @@ static const struct ethtool_ops vortex_ethtool_ops = {
+ 	.set_settings           = vortex_set_settings,
+ 	.get_link               = ethtool_op_get_link,
+ 	.nway_reset             = vortex_nway_reset,
++	.get_wol                = vortex_get_wol,
++	.set_wol                = vortex_set_wol,
+ };
  
- 		tbi = tq->buf_info + tq->tx_ring.next2fill;
- 		tbi->map_type = VMXNET3_MAP_SINGLE;
-@@ -673,13 +678,13 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 				skb->data + buf_offset, buf_size,
- 				PCI_DMA_TODEVICE);
- 
--		tbi->len = buf_size; /* this automatically convert 2^14 to 0 */
-+		tbi->len = buf_size;
- 
- 		gdesc = tq->tx_ring.base + tq->tx_ring.next2fill;
- 		BUG_ON(gdesc->txd.gen == tq->tx_ring.gen);
- 
- 		gdesc->txd.addr = cpu_to_le64(tbi->dma_addr);
--		gdesc->dword[2] = cpu_to_le32(dw2 | buf_size);
-+		gdesc->dword[2] = cpu_to_le32(dw2);
- 		gdesc->dword[3] = 0;
- 
- 		dev_dbg(&adapter->netdev->dev,
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 762a6a7..2121c73 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -68,10 +68,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.0.13.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.0.14.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01000B00
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01000E00
- 
- 
- /*
+ #ifdef CONFIG_PCI
+
+-- 
+WBR, Andrew
