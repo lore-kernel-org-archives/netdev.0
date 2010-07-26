@@ -1,69 +1,46 @@
-From: Richard =?ISO-8859-1?Q?R=F6jfors?=
-	<richard.rojfors@pelagicore.com>
-Subject: [PATCH v2] ks8842: Support 100Mbps when accessed via timberdale
-Date: Mon, 26 Jul 2010 10:51:05 +0200
-Message-ID: <1280134265.3498.4.camel@debian>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:51075 "EHLO
-	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884Ab0GZIvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 04:51:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] drop_monitor: use genl_register_family_with_ops()
+Date: Mon, 26 Jul 2010 17:20:17 +0800
+Message-ID: <1280136017-17526-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes the code which disables 100Mbps advertising when
-the ks8842 is accessed via timberdale.
-
-At higher speed it's good to be nice to the internal state machine
-of timberdale by acking interrupts. That is done by a write to the
-interrupt ack register (IAR).
-
-Signed-off-by: Richard R=C3=B6jfors <richard.rojfors@pelagicore.com>
----
-diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
-index 634dad1..289b0be 100644
---- a/drivers/net/ks8842.c
-+++ b/drivers/net/ks8842.c
-@@ -34,7 +34,12 @@
- #define DRV_NAME "ks8842"
-=20
- /* Timberdale specific Registers */
--#define REG_TIMB_RST	0x1c
-+#define REG_TIMB_RST		0x1c
-+#define REG_TIMB_FIFO		0x20
-+#define REG_TIMB_ISR		0x24
-+#define REG_TIMB_IER		0x28
-+#define REG_TIMB_IAR		0x2C
-+#define REQ_TIMB_DMA_RESUME	0x30
-=20
- /* KS8842 registers */
-=20
-@@ -282,10 +287,6 @@ static void ks8842_reset_hw(struct ks8842_adapter =
-*adapter)
- 	/* restart port auto-negotiation */
- 	ks8842_enable_bits(adapter, 49, 1 << 13, REG_P1CR4);
-=20
--	if (!(adapter->conf_flags & MICREL_KS884X))
--		/* only advertise 10Mbps */
--		ks8842_clear_bits(adapter, 49, 3 << 2, REG_P1CR4);
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/core/drop_monitor.c |   19 +++++--------------
+ 1 file changed, 5 insertions(+), 14 deletions(-)
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index 646ef3b..bdb0e96 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -357,21 +357,12 @@ static int __init init_net_drop_monitor(void)
+ 		return -ENOSPC;
+ 	}
+ 
+-	if (genl_register_family(&net_drop_monitor_family) < 0) {
++	rc = genl_register_family_with_ops(&net_drop_monitor_family,
++					   dropmon_ops,
++					   ARRAY_SIZE(dropmon_ops));
++	if (rc) {
+ 		printk(KERN_ERR "Could not create drop monitor netlink family\n");
+-		return -EFAULT;
+-	}
 -
- 	/* Enable the transmitter */
- 	ks8842_enable_tx(adapter);
-=20
-@@ -543,6 +544,10 @@ void ks8842_tasklet(unsigned long arg)
- 	/* Ack */
- 	ks8842_write16(adapter, 18, isr, REG_ISR);
-=20
-+	if (!(adapter->conf_flags & MICREL_KS884X))
-+		/* Ack in the timberdale IP as well */
-+		iowrite32(0x1, adapter->hw_addr + REG_TIMB_IAR);
-+
- 	if (!netif_running(netdev))
- 		return;
-=20
-
+-	rc = -EFAULT;
+-
+-	for (i = 0; i < ARRAY_SIZE(dropmon_ops); i++) {
+-		ret = genl_register_ops(&net_drop_monitor_family,
+-					&dropmon_ops[i]);
+-		if (ret) {
+-			printk(KERN_CRIT "Failed to register operation %d\n",
+-				dropmon_ops[i].cmd);
+-			goto out_unreg;
+-		}
++		return rc;
+ 	}
+ 
+ 	rc = register_netdevice_notifier(&dropmon_net_notifier);
