@@ -1,44 +1,55 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [patch] usbnet: fix 100% CPU use on suspended device
-Date: Mon, 26 Jul 2010 18:21:14 +0200
-Message-ID: <201007261821.15020.oliver@neukum.org>
-References: <Pine.LNX.4.44L0.1007261106350.1550-100000@iolanthe.rowland.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ip: correctly report 802.15.4 link type
+Date: Mon, 26 Jul 2010 09:35:52 -0700
+Message-ID: <20100726093552.6871e27e@nehalam>
+References: <1280089683-12020-1-git-send-email-jengelh@medozas.de>
+	<1280089683-12020-2-git-send-email-jengelh@medozas.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Elly Jones <ellyjones-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.44L0.1007261106350.1550-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43578 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753360Ab0GZQfy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jul 2010 12:35:54 -0400
+In-Reply-To: <1280089683-12020-2-git-send-email-jengelh@medozas.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 26. Juli 2010, 17:13:23 schrieb Alan Stern:
-> On Mon, 26 Jul 2010, Elly Jones wrote:
+On Sun, 25 Jul 2010 22:28:02 +0200
+Jan Engelhardt <jengelh@medozas.de> wrote:
+
+> Up until now, the "hardwpan" devices were displayed as link/[804].
 > 
-> > > This isn't right.  The problem should be fixed some other way.  Under
-> > > what circumstances are URBs submitted incorrectly?
-> > 
-> > When the device is autosuspended. What is the proper thing for a
-> > device to do here?
+> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+> ---
+>  lib/ll_types.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
 > 
-> From looking at the code, it appears that the EVENT_DEV_ASLEEP flag
-> should be tested in usbnet_bh() the way it is in rx_submit().  But I'm
-> not an expert on usbnet; we should ask someone who is, like Oliver.
+> diff --git a/lib/ll_types.c b/lib/ll_types.c
+> index 846cdb0..1cc46b6 100644
+> --- a/lib/ll_types.c
+> +++ b/lib/ll_types.c
+> @@ -125,6 +125,9 @@ __PF(IEEE80211_PRISM,ieee802.11/prism)
+>  #ifdef ARPHRD_IEEE80211_RADIOTAP
+>  __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
+>  #endif
+> +#ifdef ARPHRD_IEEE802154
+> +__PF(IEEE802154, ieee802.15.4)
+> +#endif
+>  #ifdef ARPHRD_NONE
+>  __PF(NONE, none)
+>  #endif
 
-Sorry, I didn't notice this thread.
+Already fixed.
+-- 
+commit 4dbda0f482b8947d064b3f82992394033de6616c
+Author: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date:   Fri Jul 23 13:12:12 2010 -0700
 
-The correct way to check for autosuspend in usbnet is to look
-at EVENT_DEV_ASLEEP under txq.lock. That being said, usbnet_bh()
-uses rx_submit() which does the correct check. The bug seems to be
-a lack of error handling in usbnet_bh() regarding the return of rx_submit()
-
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    Update ARP header type table
+    
+    Add all current values. Since if_arp.h is included, get rid
+    of ifdefs'. Make table constant.
