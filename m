@@ -1,29 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c59x: Add ethtool WOL support
-Date: Sun, 25 Jul 2010 16:48:55 -0700 (PDT)
-Message-ID: <20100725.164855.193718303.davem@davemloft.net>
-References: <201007250524.18911.andrew@beldisplaytech.com>
+Subject: Re: [PATCH] ks8842: Support 100Mbps when accessed via timberdale
+Date: Sun, 25 Jul 2010 17:03:27 -0700 (PDT)
+Message-ID: <20100725.170327.226755551.davem@davemloft.net>
+References: <1280091327.17191.8.camel@debian>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: bugzilla@tut.by, andrew@beldisplaytech.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: richard.rojfors@pelagicore.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42839
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48782
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751658Ab0GYXsi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jul 2010 19:48:38 -0400
-In-Reply-To: <201007250524.18911.andrew@beldisplaytech.com>
+	by vger.kernel.org with ESMTP id S1750818Ab0GZADK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Jul 2010 20:03:10 -0400
+In-Reply-To: <1280091327.17191.8.camel@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Andrew O. Shadoura" <andrew@beldisplaytech.com>
-Date: Sun, 25 Jul 2010 05:24:17 +0300
+=46rom: Richard R=F6jfors <richard.rojfors@pelagicore.com>
+Date: Sun, 25 Jul 2010 22:55:27 +0200
 
-> This patch adds wrappers for ethtool to get or set wake-on-LAN 
-> setting without re-inserting the kernel module.
-> 
-> Signed-off-by: Andrew O. Shadoura <andrew@beldisplaytech.com>
+> The flow control setting is removed from TX and RX control
+> registers. Full duplex flow control was not enabled in SGCR3,
+> but we tend to get better performance without flow control.
 
-Applied, thanks.
+=46low control is not just for you, it's for the other end too.
+
+If you're getting bad flow control enabled performance then
+either:
+
+1) the flow control is configured to kick in too late or
+   too soon
+
+or
+
+2) your ring sizes need adjustment
+
+I'm not applying this patch, flow control is important and
+should be enabled by default whenever possible.  Please
+instead go try and figure out if flow control trigger
+points or RX/TX ring sizes need adjustment instead.
+
+Thanks.
