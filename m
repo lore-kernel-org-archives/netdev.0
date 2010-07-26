@@ -1,43 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers/net/qla3xxx.c: Checkpatch cleanups
-Date: Sun, 25 Jul 2010 22:03:48 -0700 (PDT)
-Message-ID: <20100725.220348.48497105.davem@davemloft.net>
-References: <118c687d97762e235ba61733ef1610f6443ae1eb.1279848705.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ron.mercer@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <118c687d97762e235ba61733ef1610f6443ae1eb.1279848705.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] genetlink: cleanup code according to CodingStyle
+Date: Mon, 26 Jul 2010 14:46:01 +0800
+Message-ID: <1280126761-29549-1-git-send-email-xiaosuo@gmail.com>
+Cc: netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:60836 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753084Ab0GZGqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 02:46:14 -0400
+Received: by pxi14 with SMTP id 14so4429680pxi.19
+        for <netdev@vger.kernel.org>; Sun, 25 Jul 2010 23:46:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 22 Jul 2010 18:36:17 -0700
+If the function is exported, the EXPORT* macro for it should follow immediately
+after the closing function brace line.
 
-> Remove typedefs
-> Indentation and spacing
-> Use a temporary for a very long pointer variable
-> More 80 column compatible
-> Convert a switch to if/else if
-> 
-> Compile tested only, depends on patch "Update logging message style"
-> 
-> (old)
-> $ scripts/checkpatch.pl -f drivers/net/qla3xxx.c | grep "^total:"
-> total: 209 errors, 82 warnings, 3995 lines checked
-> 
-> (new)
-> $ scripts/checkpatch.pl -f drivers/net/qla3xxx.c | grep "^total:"
-> total: 2 errors, 0 warnings, 3970 lines checked
-> 
-> $ size drivers/net/qla3xxx.o.*
->    text	   data	    bss	    dec	    hex	filename
->   50413     212   13864   64489    fbe9 drivers/net/qla3xxx.o.old
->   49959	    212	  13728	  63899	   f99b	drivers/net/qla3xxx.o.new
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-
-Also applied, thanks Joe.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/netlink/genetlink.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index aa4308a..e09e17a 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -303,6 +303,7 @@ int genl_register_ops(struct genl_family *family, struct genl_ops *ops)
+ errout:
+ 	return err;
+ }
++EXPORT_SYMBOL(genl_register_ops);
+ 
+ /**
+  * genl_unregister_ops - unregister generic netlink operations
+@@ -337,6 +338,7 @@ int genl_unregister_ops(struct genl_family *family, struct genl_ops *ops)
+ 
+ 	return -ENOENT;
+ }
++EXPORT_SYMBOL(genl_unregister_ops);
+ 
+ /**
+  * genl_register_family - register a generic netlink family
+@@ -405,6 +407,7 @@ errout_locked:
+ errout:
+ 	return err;
+ }
++EXPORT_SYMBOL(genl_register_family);
+ 
+ /**
+  * genl_register_family_with_ops - register a generic netlink family
+@@ -485,6 +488,7 @@ int genl_unregister_family(struct genl_family *family)
+ 
+ 	return -ENOENT;
+ }
++EXPORT_SYMBOL(genl_unregister_family);
+ 
+ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ {
+@@ -899,11 +903,6 @@ problem:
+ 
+ subsys_initcall(genl_init);
+ 
+-EXPORT_SYMBOL(genl_register_ops);
+-EXPORT_SYMBOL(genl_unregister_ops);
+-EXPORT_SYMBOL(genl_register_family);
+-EXPORT_SYMBOL(genl_unregister_family);
+-
+ static int genlmsg_mcast(struct sk_buff *skb, u32 pid, unsigned long group,
+ 			 gfp_t flags)
+ {
