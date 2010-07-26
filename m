@@ -1,83 +1,59 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [patch] usbnet: fix 100% CPU use on suspended device
-Date: Mon, 26 Jul 2010 10:36:46 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1007261033090.1550-100000@iolanthe.rowland.org>
-References: <AANLkTik=b3ps_iMOC=mjDs2quLwBPUKbiqn0nKU3EbB1@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: lock_sock or sock_hold ?
+Date: Mon, 26 Jul 2010 16:43:26 +0200
+Message-ID: <1280155406.2899.407.camel@edumazet-laptop>
+References: <AANLkTim7LQ65RWvy+TQ+HtwjJM89zt4g12H6mFinQT0v@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: Elly Jones <ellyjones@google.com>
+Cc: netdev@vger.kernel.org
+To: Neshama Parhoti <pneshama@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:60946 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753760Ab0GZOgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 10:36:47 -0400
-In-Reply-To: <AANLkTik=b3ps_iMOC=mjDs2quLwBPUKbiqn0nKU3EbB1@mail.gmail.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:58327 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754681Ab0GZOna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 10:43:30 -0400
+Received: by eya25 with SMTP id 25so471288eya.19
+        for <netdev@vger.kernel.org>; Mon, 26 Jul 2010 07:43:28 -0700 (PDT)
+In-Reply-To: <AANLkTim7LQ65RWvy+TQ+HtwjJM89zt4g12H6mFinQT0v@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 Jul 2010, Elly Jones wrote:
-
-> On Mon, Jul 26, 2010 at 12:57 AM, David Miller <davem@davemloft.net> =
-wrote:
-> > From: Elly Jones <ellyjones@google.com>
-> > Date: Wed, 21 Jul 2010 14:51:48 -0400
-> >
-> >> Subject: [patch] usbnet: fix 100% CPU use on suspended device
-> >> From: Elly Jones <ellyjones@google.com>
-> >>
-> >> This patch causes the usbnet module not to attempt to submit URBs =
-to the device
-> >> if the device is not ready to accept them. This fixes a misbehavio=
-r trigged by
-> >> the Qualcomm Gobi driver (released under GPL through their Code Au=
-rora
-> >> initiative) which causes the usbnet core to consume 100% of CPU at=
-tempting and
-> >> failing to submit URBs. This patch is against Linus's 2.6 repo com=
-mit
-> >> a9f7f2e74ae0e6a801a2433dc8e9124d73da0cb4.
-> >> Signed-off-by: Elizabeth Jones <ellyjones@google.com>
-> >
-> > If the Qualcomm Gobi driver is the only one where this happens, may=
-be the
-> > real problem is in that driver.
+Le lundi 26 juillet 2010 =C3=A0 17:00 +0300, Neshama Parhoti a =C3=A9cr=
+it :
+> hello everyone,
 >=20
-> The member in question (dev->udev->can_submit) is documented as 'URBs
-> may be submitted'. The existing code doesn't honor that flag. It is
-> somewhat puzzling that (so far) only the Gobi driver seems to use tha=
-t
-> flag, but I don't think the bug lies in their driver here.
-
-That flag is not intended for use by drivers but by the USB core.  (It
-gets cleared only when the device is suspended.)  usbnet and Gobi
-shouldn't need to look at it.
-
-> > I'm not applying this until a USB person looks more deeply into thi=
-s.
+> can you please be kind and help me understand the differences between
+> lock_sock and sock_hold ?
 >=20
-> Alright. Can you suggest a particular USB person to bother?
+> i can see that lock_sock takes a spin lock (bh) to mark owned =3D 1, =
+and
+> then takes a mutex, whereas sock_hold only increases the atomic
+> refcnt.
 >=20
-> >> ---
-> >> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> >> index 81c76ad..df7e72e 100644
-> >> --- a/drivers/net/usb/usbnet.c
-> >> +++ b/drivers/net/usb/usbnet.c
-> >> @@ -1172,6 +1172,7 @@ static void usbnet_bh (unsigned long param)
-> >> =A0 =A0 =A0 // or are we maybe short a few urbs?
-> >> =A0 =A0 =A0 } else if (netif_running (dev->net) &&
-> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0netif_device_present (dev->net)=
- &&
-> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev->udev->can_submit &&
-> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!timer_pending (&dev->delay) &&
-> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!test_bit (EVENT_RX_HALT, &dev-=
->flags)) {
-> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 int =A0 =A0 temp =3D dev->rxq.qlen;
+> but how do i know which of them I should use ?
+>=20
+> i'm puzzled as to when should those two different APIs be used..
 
-This isn't right.  The problem should be fixed some other way.  Under
-what circumstances are URBs submitted incorrectly?
+sock_hold() only increments a refcount, so that you are sure nobody can
+destroy the socket (and its memory) under you. But you cannot modify
+socket state only with this refcount taken.
 
-Alan Stern
+To get exclusive access to the socket you either :
+
+1) Are in process context and use lock_sock().
+
+2) Are in softirq context (input path for example) :
+ 2.1) Lookup the socket in protocol hash tables, and get a refcount on
+it (by sock_hold() or other atomic operation on refcnt)
+
+ 2.2) Then, get semi exclusive access using bh_lock_sock()
+ 2.3) Check if another process already is using the socket (we
+interrupted this process on same CPU, or run on another cpu)
+   if (sock_owned_by_user(sk)) {
+	// queue work to socket backlog (delayed work)
+   } else {
+	// process packet right now
+   }
+
 
