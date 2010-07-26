@@ -1,55 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] ip: correctly report 802.15.4 link type
-Date: Mon, 26 Jul 2010 09:35:52 -0700
-Message-ID: <20100726093552.6871e27e@nehalam>
-References: <1280089683-12020-1-git-send-email-jengelh@medozas.de>
-	<1280089683-12020-2-git-send-email-jengelh@medozas.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with
+ per-vhost kthread
+Date: Mon, 26 Jul 2010 19:31:08 +0300
+Message-ID: <20100726163108.GE26412@redhat.com>
+References: <4C06A580.9060300@kernel.org>
+ <20100722155840.GA1743@redhat.com>
+ <4C48B664.9000109@kernel.org>
+ <20100724191447.GA4972@redhat.com>
+ <4C4BEAA2.6040301@kernel.org>
+ <20100726152510.GA26223@redhat.com>
+ <4C4DAB14.5050809@kernel.org>
+ <20100726155014.GA26412@redhat.com>
+ <4C4DB247.9060709@kernel.org>
+ <4C4DB466.6000409@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43578 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753360Ab0GZQfy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jul 2010 12:35:54 -0400
-In-Reply-To: <1280089683-12020-2-git-send-email-jengelh@medozas.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C4DB466.6000409@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 25 Jul 2010 22:28:02 +0200
-Jan Engelhardt <jengelh@medozas.de> wrote:
-
-> Up until now, the "hardwpan" devices were displayed as link/[804].
+On Mon, Jul 26, 2010 at 06:14:30PM +0200, Tejun Heo wrote:
+> Just one more thing.
 > 
-> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-> ---
->  lib/ll_types.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
+> On 07/26/2010 06:05 PM, Tejun Heo wrote:
+> > * Placing try_to_freeze() could be a bit annoying.  It shouldn't be
+> >   executed when there's a work to flush.
+
+BTW why is this important?
+We could always get another work and flush right after
+try_to_freeze, and then flush would block for a long time.
+
+
+BTW the vhost patch you sent does not do this at all.
+I am guessing it is because our thread is not freezable?
+
+> * Similar issue exists for kthread_stop().  The kthread shouldn't exit
+>   while there's a work to flush (please note that kthread_worker
+>   interface allows detaching / attaching worker kthread during
+>   operation, so it should remain in consistent state with regard to
+>   flushing).
 > 
-> diff --git a/lib/ll_types.c b/lib/ll_types.c
-> index 846cdb0..1cc46b6 100644
-> --- a/lib/ll_types.c
-> +++ b/lib/ll_types.c
-> @@ -125,6 +125,9 @@ __PF(IEEE80211_PRISM,ieee802.11/prism)
->  #ifdef ARPHRD_IEEE80211_RADIOTAP
->  __PF(IEEE80211_RADIOTAP,ieee802.11/radiotap)
->  #endif
-> +#ifdef ARPHRD_IEEE802154
-> +__PF(IEEE802154, ieee802.15.4)
-> +#endif
->  #ifdef ARPHRD_NONE
->  __PF(NONE, none)
->  #endif
+> Thanks.
 
-Already fixed.
--- 
-commit 4dbda0f482b8947d064b3f82992394033de6616c
-Author: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Date:   Fri Jul 23 13:12:12 2010 -0700
+Not sure I agree here. Users must synchronise flush and stop calls.
+Otherwise a work might get queued after stop is called, and
+you won't be able to flush it.
 
-    Update ARP header type table
-    
-    Add all current values. Since if_arp.h is included, get rid
-    of ifdefs'. Make table constant.
+
+> -- 
+> tejun
