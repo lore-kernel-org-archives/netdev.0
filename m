@@ -1,48 +1,29 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: IPv6 Anycast?
-Date: Mon, 26 Jul 2010 17:44:21 +0900
-Message-ID: <20100726084418.GA14903@verge.net.au>
-References: <4C48B90B.60304@actusa.net>
- <alpine.DEB.1.10.1007230554240.9875@uplift.swm.pp.se>
- <4C491AD4.9070103@actusa.net>
- <alpine.DEB.1.10.1007230748380.9875@uplift.swm.pp.se>
- <4C49B163.8090400@actusa.net>
- <4C49C352.6010701@astaro.com>
- <4C49C92D.30705@actusa.net>
+From: =?ISO-8859-1?Q?Richard_R=F6jfors?= <richard.rojfors@pelagicore.com>
+Subject: Re: [PATCH] ks8842: Support 100Mbps when accessed via timberdale
+Date: Mon, 26 Jul 2010 10:44:53 +0200
+Message-ID: <4C4D4B05.8030501@pelagicore.com>
+References: <1280091327.17191.8.camel@debian> <20100725.170327.226755551.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ulrich Weber <uweber@astaro.com>,
-	Mikael Abrahamsson <swmike@swm.pp.se>, netdev@vger.kernel.org
-To: Stuart Sheldon <stu@actusa.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:40506 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751222Ab0GZIoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 04:44:25 -0400
-Content-Disposition: inline
-In-Reply-To: <4C49C92D.30705@actusa.net>
+Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:47181 "EHLO
+	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752471Ab0GZIo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 04:44:57 -0400
+In-Reply-To: <20100725.170327.226755551.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 23, 2010 at 09:54:05AM -0700, Stuart Sheldon wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA256
-> 
-> Hi Ulrich,
-> 
-> Thanks, that resolves half the issue. So as of right now, there is no
-> userspace program to add anycast addresses?
+On 07/26/2010 02:03 AM, David Miller wrote:
+>
+> I'm not applying this patch, flow control is important and
+> should be enabled by default whenever possible.  Please
+> instead go try and figure out if flow control trigger
+> points or RX/TX ring sizes need adjustment instead.
 
-I was hoping to have some useful information, but alas I failed on that count.
+I agree, I will look at the flow control.
 
-Looking at ip(8) it seems that the following ought to work:
-
-ip addr add fd16:a2f5:c4d7::7/48 anycast fd16:a2f5:c4d7::8 dev eth0
-
-However, it seems not to, and then I found this in the manpage :-(
-
-	anycast   -   not  implemented  the  destinations are  anycast
-	addresses assigned to this host.  They are mainly equivalent to
-	local with one difference: such addresses are invalid when used as
-	the source address of any packet.
-
+--Richard
