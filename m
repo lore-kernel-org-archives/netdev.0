@@ -1,46 +1,55 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Mon, 26 Jul 2010 20:08:34 +0200
-Message-ID: <20100726180834.GA26988@redhat.com>
-References: <20100701133956.GD32223@redhat.com> <4C2CA5C5.4040402@kernel.org> <20100701144624.GA11171@redhat.com> <4C2CABF2.2020801@kernel.org> <1277996135.1917.198.camel@laptop> <4C2E2987.9040702@us.ibm.com> <1278094270.1917.288.camel@laptop> <20100702210637.GA12433@redhat.com> <20100726171230.GA27644@redhat.com> <1280166688.3375.5.camel@localhost>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH V3] Export SMBIOS provided firmware instance and label
+ to sysfs
+Date: Mon, 26 Jul 2010 11:20:19 -0700
+Message-ID: <20100726182019.GA5144@kroah.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE612C40@blrx3m08.blr.amer.dell.com>
+ <20100723133456.GA9378@auslistsprd01.us.dell.com>
+ <20100723135557.GA3624@kroah.com>
+ <20100723145809.GA7629@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: Narendra K <Narendra_K@dell.com>, netdev@vger.kernel.org,
+	linux-hotplug@vger.kernel.org, linux-pci@vger.kernel.org,
+	charles_rose@dell.com, jordan_hargrave@dell.com,
+	vijay_nijhawan@dell.com
+To: Matt Domsch <Matt_Domsch@dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1280166688.3375.5.camel@localhost>
-Sender: kvm-owner@vger.kernel.org
+In-Reply-To: <20100723145809.GA7629@auslistsprd01.us.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/26, Sridhar Samudrala wrote:
->
-> I have been testing out a similar patch that uses kernel_thread() without CLONE_FILES
-> flag rather than create_kthread() and then closing the files.
+On Fri, Jul 23, 2010 at 09:58:09AM -0500, Matt Domsch wrote:
+> On Fri, Jul 23, 2010 at 06:55:57AM -0700, Greg KH wrote:
+> > On Fri, Jul 23, 2010 at 08:34:56AM -0500, Narendra K wrote:
+> > > --- a/Documentation/ABI/testing/sysfs-bus-pci
+> > > +++ b/Documentation/ABI/testing/sysfs-bus-pci
+> > > @@ -179,3 +179,30 @@ Contact:	linux-pci@vger.kernel.org
+> > >  Description:
+> > >  		This symbolic link points to the PCI hotplug controller driver
+> > >  		module that manages the hotplug slot.
+> > > +
+> > > +What:		/sys/bus/pci/devices/.../label
+> > > +Date:		July 2010
+> > > +Contact:	linux-bugs@dell.com
+> > 
+> > that's not your email address.  Please don't hide behind some random
+> > address, Linux is about contacting developers directly were ever
+> > possible.
+> 
+> That's actually the public email address for the whole Linux
+> engineering team (including engineers and managers) at Dell, of which
+> Narendra is a part.  It's the address we publish for people to include
+> on the cc: list of bugzilla issues on the kernel.org, Novell, and Red
+> Hat bugzillas.  This ensures someone on the team will see bug reports
+> or patches and act accordingly, likely Narendra, but could be anyone
+> in the future once Narendra is promoted or changes responsibilities
+> (or even employers).
 
-!CLONE_FILES can't help. copy_files() does dup_fd() in this case.
-The child still inherits the files.
+Ok, I don't really like it, but if that's what Dell wants to do, I guess
+it's acceptable.
 
-> Either version should be fine.
+thanks,
 
-I think neither version is fine ;)
-
-exit_files() is not enough too. How about the signals, reparenting?
-
-
-I already forgot all details, probably I missed somethig. But it
-seems to me that it is better to just export get/set affinity and
-forget about all complications.
-
-Oleg.
-
+greg k-h
