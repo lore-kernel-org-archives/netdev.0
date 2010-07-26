@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: Fix different hardware statistics versions.
-Date: Sun, 25 Jul 2010 21:54:38 -0700 (PDT)
-Message-ID: <20100725.215438.189694767.davem@davemloft.net>
-References: <20100722220252.E46C7182B00@starthinker.mtv.corp.google.com>
+Subject: Re: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
+Date: Sun, 25 Jul 2010 21:55:48 -0700 (PDT)
+Message-ID: <20100725.215548.112589000.davem@davemloft.net>
+References: <1279699529.3707.5.camel@jlt3.sipsolutions.net>
+	<1279700420.2452.15.camel@edumazet-laptop>
+	<1279701835.2452.17.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adobriyan@gmail.com, shemminger@vyatta.com,
-	ben@decadent.org.uk, stas@lvk.cs.msu.su,
-	linux-kernel@vger.kernel.org
-To: mditto@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100722220252.E46C7182B00@starthinker.mtv.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46422
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752624Ab0GZEzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 00:55:31 -0400
+In-Reply-To: <1279701835.2452.17.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: mditto@google.com (Mike Ditto)
-Date: Thu, 22 Jul 2010 15:02:52 -0700 (PDT)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 21 Jul 2010 10:43:55 +0200
 
-> The macros for the values of the bit field describing the four
-> different versions of statistics supported by different hardware
-> variants were being misused.  Where the code was trying to test if the
-> hardware implements V3, it was actually testing whether it implements
-> any of V1, V2, or V3, causing the driver to report statistics that
-> don't really exist in the hardware, with bogus values.
+> [PATCH net-next-2.6 v3] netlink: netlink_recvmsg() fix
 > 
-> Signed-off-by: Mike Ditto <mditto@google.com>
+> commit 1dacc76d0014 
+> (net/compat/wext: send different messages to compat tasks)
+> introduced a race condition on netlink, in case MSG_PEEK is used.
+> 
+> An skb given by skb_recv_datagram() might be shared, we must copy it
+> before any modification, or risk fatal corruption.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied to net-next-2.6, thanks.
+Applied, thanks Eric.
