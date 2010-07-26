@@ -1,39 +1,50 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] caif: handle snprintf() return
-Date: Mon, 26 Jul 2010 09:23:59 +0200
-Message-ID: <20100726072358.GK26313@bicker>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: Splice status
+Date: Mon, 26 Jul 2010 15:41:25 +0800
+Message-ID: <AANLkTi=cTV69OnJ8-c064nA-F1xaV11KixviuvNMPFrR@mail.gmail.com>
+References: <EE71107DF0D1F24FA2D95041E64AB9E8ED2541B63A@IL-MB01.marvell.com>
+	<AANLkTimbVY2xhIiYXFvphajuZyn8_PJ0gOqf8VfW-NsM@mail.gmail.com>
+	<EE71107DF0D1F24FA2D95041E64AB9E8ED2541B66E@IL-MB01.marvell.com>
+	<1278334254.2877.158.camel@edumazet-laptop> <AANLkTim_eBmT-6HmkqG5d7k0jjrGKAFBjzqVCricTpgK@mail.gmail.com>
+	<1278388580.2466.305.camel@edumazet-laptop> <AANLkTinRnDwMOS5NrmzKqYZpczG4nfHSvKA9Gw-_UUzO@mail.gmail.com>
+	<EE71107DF0D1F24FA2D95041E64AB9E8ED254E7B66@IL-MB01.marvell.com>
+	<1279030308.2634.349.camel@edumazet-laptop> <EE71107DF0D1F24FA2D95041E64AB9E80114797BC8AB@IL-MB01.marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Sjur Braendeland <sjur.brandeland@stericsson.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jens Axboe <axboe@kernel.dk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nick Piggin <npiggin@suse.de>
+To: Ofer Heifetz <oferh@marvell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:39939 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753747Ab0GZHYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 03:24:25 -0400
-Content-Disposition: inline
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:47685 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752727Ab0GZHlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 03:41:46 -0400
+Received: by qwh6 with SMTP id 6so4883613qwh.19
+        for <netdev@vger.kernel.org>; Mon, 26 Jul 2010 00:41:45 -0700 (PDT)
+In-Reply-To: <EE71107DF0D1F24FA2D95041E64AB9E80114797BC8AB@IL-MB01.marvell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-snprintf() returns the number of bytes that would have been written.  It
-can be larger than the size of the buffer.  The current code won't
-overflow, but people cut and paste this stuff so lets do it right and
-also make the static checkers happy.
+On Sun, Jul 25, 2010 at 10:47 PM, Ofer Heifetz <oferh@marvell.com> wrote:
+> Hi Eric,
+>
+> Still trying to get better performance with splice, I noticed that when using splice there are twice the file size memcpy (placed a counter in memcpy), I verified it via samba file transfer and splice-fromnet/out.
+>
+> I also used the splice-fromnet/out and using ftrace I did notice that data is copied twice using these routines: skb_splice_bits, pipe_to_file.
+>
+> I thought that the main goal of splice is to refrain from one copy when moving data from network to file descriptor.
+>
+> If there are the same number of memcpy and context switches and in samba copy additional vfs overhead it makes sense that splice deteriates the samba overall write performance.
+>
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+The support for SPLICE_F_MOVE is removed by Nick in commit
+http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=commitdiff;h=485ddb4b9741bafb70b22e5c1f9b4f37dc3e85bd
+.
 
-diff --git a/drivers/net/caif/caif_spi.c b/drivers/net/caif/caif_spi.c
-index 6c94803..f5058ff 100644
---- a/drivers/net/caif/caif_spi.c
-+++ b/drivers/net/caif/caif_spi.c
-@@ -165,6 +165,9 @@ static ssize_t dbgfs_state(struct file *file, char __user *user_buf,
- 	len += snprintf((buf + len), (DEBUGFS_BUF_SIZE - len),
- 			"Next RX len: %d\n", cfspi->rx_npck_len);
- 
-+	if (len > DEBUGFS_BUF_SIZE)
-+		len = DEBUGFS_BUF_SIZE;
-+
- 	size = simple_read_from_buffer(user_buf, count, ppos, buf, len);
- 	kfree(buf);
- 
+Nick, can we add it back now?
+
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
