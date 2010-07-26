@@ -1,20 +1,12 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with
- per-vhost kthread
-Date: Mon, 26 Jul 2010 18:51:22 +0300
-Message-ID: <20100726155122.GB26412@redhat.com>
-References: <20100531160020.GC3067@redhat.com>
- <4C04D41B.4050704@kernel.org>
- <4C06A580.9060300@kernel.org>
- <20100722155840.GA1743@redhat.com>
- <4C48B664.9000109@kernel.org>
- <20100724191447.GA4972@redhat.com>
- <4C4BEAA2.6040301@kernel.org>
- <20100726152510.GA26223@redhat.com>
- <4C4DAB14.5050809@kernel.org>
- <4C4DADD6.90507@kernel.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with per-vhost
+ kthread
+Date: Mon, 26 Jul 2010 18:05:27 +0200
+Message-ID: <4C4DB247.9060709@kernel.org>
+References: <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com> <4C04D41B.4050704@kernel.org> <4C06A580.9060300@kernel.org> <20100722155840.GA1743@redhat.com> <4C48B664.9000109@kernel.org> <20100724191447.GA4972@redhat.com> <4C4BEAA2.6040301@kernel.org> <20100726152510.GA26223@redhat.com> <4C4DAB14.5050809@kernel.org> <20100726155014.GA26412@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: Oleg Nesterov <oleg@redhat.com>,
 	Sridhar Samudrala <sri@us.ibm.com>,
 	netdev <netdev@vger.kernel.org>,
@@ -25,32 +17,40 @@ Cc: Oleg Nesterov <oleg@redhat.com>,
 	Jiri Kosina <jkosina@suse.cz>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C4DADD6.90507@kernel.org>
+In-Reply-To: <20100726155014.GA26412@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 26, 2010 at 05:46:30PM +0200, Tejun Heo wrote:
-> On 07/26/2010 05:34 PM, Tejun Heo wrote:
-> > Hello,
-> > 
-> > On 07/26/2010 05:25 PM, Michael S. Tsirkin wrote:
-> >> BTW, kthread_worker would benefit from the optimization I implemented
-> >> here as well.
-> > 
-> > Hmmm... I'm not quite sure whether it's an optimization.  I thought
-> > the patch was due to feeling uncomfortable about using barriers?  Is
-> > it an optimization?
-> 
-> Yeah, one less smp_mb() in execution path.  The lock dancing in
-> flush() is ugly but then again mucking with barriers could be harder
-> to understand.  Care to send a patch against wq#for-next tree?
-> 
-> Thanks.
+Hello,
 
-Sure. Where's that, exactly?
+On 07/26/2010 05:50 PM, Michael S. Tsirkin wrote:
+>> Hmmm... I'm not quite sure whether it's an optimization.  I thought
+>> the patch was due to feeling uncomfortable about using barriers?
+> 
+> Oh yes. But getting rid of barriers is what motivated me originally.
 
-> -- 
-> tejun
+Yeah, getting rid of barriers is always good.  :-)
+
+> Is there a git tree with kthread_worker applied?
+> I might do this just for fun ...
+
+ git://git.kernel.org/pub/scm/linux/kernel/git/tj/wq.git for-next
+
+For the original implementaiton, please take a look at commit
+b56c0d8937e665a27d90517ee7a746d0aa05af46.
+
+* Can you please keep the outer goto repeat loop?  I just don't like
+  outermost for (;;).
+
+* Placing try_to_freeze() could be a bit annoying.  It shouldn't be
+  executed when there's a work to flush.
+
+* I think A - B <= 0 test would be more familiar.  At least
+  time_before/after() are implemented that way.
+
+Thanks.
+
+-- 
+tejun
