@@ -1,39 +1,59 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with per-vhost
- kthread
-Date: Mon, 26 Jul 2010 17:34:44 +0200
-Message-ID: <4C4DAB14.5050809@kernel.org>
-References: <4C02C961.9050606@kernel.org> <20100531152221.GB2987@redhat.com> <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com> <4C04D41B.4050704@kernel.org> <4C06A580.9060300@kernel.org> <20100722155840.GA1743@redhat.com> <4C48B664.9000109@kernel.org> <20100724191447.GA4972@redhat.com> <4C4BEAA2.6040301@kernel.org> <20100726152510.GA26223@redhat.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: slub numa: Fix rare allocation from unexpected node
+Date: Mon, 26 Jul 2010 10:41:14 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1007261040430.5438@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100726152510.GA26223@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-mm@kvack.org, jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Subject: slub numa: Fix rare allocation from unexpected node
 
-On 07/26/2010 05:25 PM, Michael S. Tsirkin wrote:
-> BTW, kthread_worker would benefit from the optimization I implemented
-> here as well.
+The network developers have seen sporadic allocations resulting in objects
+coming from unexpected NUMA nodes despite asking for objects from a
+specific node.
 
-Hmmm... I'm not quite sure whether it's an optimization.  I thought
-the patch was due to feeling uncomfortable about using barriers?  Is
-it an optimization?
+This is due to get_partial() calling get_any_partial() if partial
+slabs are exhausted for a node even if a node was specified and therefore
+one would expect allocations only from the specified node.
 
-Thanks.
+get_any_partial() sporadically may return a slab from a foreign
+node to gradually reduce the size of partial lists on remote nodes
+and thereby reduce total memory use for a slab cache.
 
--- 
-tejun
+The behavior is controlled by the remote_defrag_ratio of each cache.
+
+Strictly speaking this is permitted behavior since __GFP_THISNODE was
+not specified for the allocation but it is certain surprising.
+
+This patch makes sure that the remote defrag behavior only occurs
+if no node was specified.
+
+Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+
+---
+ mm/slub.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6/mm/slub.c
+===================================================================
+--- linux-2.6.orig/mm/slub.c	2010-07-23 09:24:11.000000000 -0500
++++ linux-2.6/mm/slub.c	2010-07-23 09:25:15.000000000 -0500
+@@ -1390,7 +1390,7 @@ static struct page *get_partial(struct k
+ 	int searchnode = (node == -1) ? numa_node_id() : node;
+
+ 	page = get_partial_node(get_node(s, searchnode));
+-	if (page || (flags & __GFP_THISNODE))
++	if (page || node != -1)
+ 		return page;
+
+ 	return get_any_partial(s, flags);
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
