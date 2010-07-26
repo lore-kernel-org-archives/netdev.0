@@ -1,55 +1,50 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH V3] Export SMBIOS provided firmware instance and label
- to sysfs
-Date: Mon, 26 Jul 2010 11:20:19 -0700
-Message-ID: <20100726182019.GA5144@kroah.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE612C40@blrx3m08.blr.amer.dell.com>
- <20100723133456.GA9378@auslistsprd01.us.dell.com>
- <20100723135557.GA3624@kroah.com>
- <20100723145809.GA7629@auslistsprd01.us.dell.com>
+From: "Loke, Chetan" <Chetan.Loke-Wi0MfyythtRWk0Htik3J/w@public.gmane.org>
+Subject: Re: tcpdump <-> FCoE support
+Date: Mon, 26 Jul 2010 14:27:56 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B90C6F54AD@nsmail.netscout.com>
+References: <D3F292ADF945FB49B35E96C94C2061B90C6F53AE@nsmail.netscout.com>
+	<4C4DCCA6.5060206@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Narendra K <Narendra_K@dell.com>, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, linux-pci@vger.kernel.org,
-	charles_rose@dell.com, jordan_hargrave@dell.com,
-	vijay_nijhawan@dell.com
-To: Matt Domsch <Matt_Domsch@dell.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100723145809.GA7629@auslistsprd01.us.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-s9riP+hp16TNLxjTenLetw@public.gmane.org
+To: "Joe Eykholt" <jeykholt-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <4C4DCCA6.5060206-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://www.open-fcoe.org/mailman/listinfo/devel>,
+	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://www.open-fcoe.org/pipermail/devel>
+List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
+List-Subscribe: <http://www.open-fcoe.org/mailman/listinfo/devel>,
+	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
+Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 23, 2010 at 09:58:09AM -0500, Matt Domsch wrote:
-> On Fri, Jul 23, 2010 at 06:55:57AM -0700, Greg KH wrote:
-> > On Fri, Jul 23, 2010 at 08:34:56AM -0500, Narendra K wrote:
-> > > --- a/Documentation/ABI/testing/sysfs-bus-pci
-> > > +++ b/Documentation/ABI/testing/sysfs-bus-pci
-> > > @@ -179,3 +179,30 @@ Contact:	linux-pci@vger.kernel.org
-> > >  Description:
-> > >  		This symbolic link points to the PCI hotplug controller driver
-> > >  		module that manages the hotplug slot.
-> > > +
-> > > +What:		/sys/bus/pci/devices/.../label
-> > > +Date:		July 2010
-> > > +Contact:	linux-bugs@dell.com
-> > 
-> > that's not your email address.  Please don't hide behind some random
-> > address, Linux is about contacting developers directly were ever
-> > possible.
+> From: Joe Eykholt [mailto:jeykholt-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org]
 > 
-> That's actually the public email address for the whole Linux
-> engineering team (including engineers and managers) at Dell, of which
-> Narendra is a part.  It's the address we publish for people to include
-> on the cc: list of bugzilla issues on the kernel.org, Novell, and Red
-> Hat bugzillas.  This ensures someone on the team will see bug reports
-> or patches and act accordingly, likely Narendra, but could be anyone
-> in the future once Narendra is promoted or changes responsibilities
-> (or even employers).
+> Good question.  There's no effort in progress that I know of.
+> I find wireshark very handy and do tend to capture with tcpdump -w
+> and then read the file with wireshark.  tshark is handy if you
+> want a CLI mode.
+> 
+> If tcpdump interpreted FCoE frames, then we would want FC, FC-ELS,
+> and FCP.  Does it already dissect any SCSI frames (e.g., iSCSI)?
+> I'm not sure how much work it would be, but given tshark
+> is around, I don't think it's that important.
+> 
+Oki thanks. I'll play with tshark. If tshark handles the FIP/FC
+discovery business then that's perfect. I don't have a FCoE target
+configured yet. I just sent a raw fcoe-frame to check how tcpdump
+responds.
 
-Ok, I don't really like it, but if that's what Dell wants to do, I guess
-it's acceptable.
+> It could at least be changed to print out FCoE instead of 0x8906,
+> and FIP instead of 0x8914.
+> 
+Agreed.
 
-thanks,
 
-greg k-h
+> 	Joe
+Chetan Loke
