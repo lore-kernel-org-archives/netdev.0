@@ -1,85 +1,49 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: Last Ipv6 address removal causes "addrconf_sysctl_unregister",
- which 	inihibits from changing disable_ipv6 setting
-Date: Mon, 26 Jul 2010 16:17:33 -0400
-Message-ID: <4C4DED5D.7090004@hp.com>
-References: <AANLkTimnBssEeO_faqcAAzHCy8KxQo9FVcn7vu5fru4j@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] wireless: Make COMPAT_NETLINK_MESSAGES depend upon
+ WEXT_CORE
+Date: Mon, 26 Jul 2010 22:18:54 +0200
+Message-ID: <1280175534.20917.2.camel@jlt3.sipsolutions.net>
+References: <20100726.131506.245381776.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Mahesh Kelkar <maheshkelkar@gmail.com>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:4639 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752383Ab0GZURf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 16:17:35 -0400
-In-Reply-To: <AANLkTimnBssEeO_faqcAAzHCy8KxQo9FVcn7vu5fru4j@mail.gmail.com>
+Received: from he.sipsolutions.net ([78.46.109.217]:40533 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753751Ab0GZUSy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 16:18:54 -0400
+In-Reply-To: <20100726.131506.245381776.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/26/2010 10:03 AM, Mahesh Kelkar wrote:
-> Odd behavior associated with the patch:
-> **Last address removal causes "addrconf_sysctl_unregister", which
-> inihibits from changing disable_ipv6 setting
-> (connected issue: With disable_ipv6 set to 1 on an interface, ff00:/8
-> and fe80::/64 are still added on device UP)
-
-This behavior doesn't seem specific to the patch that was accepted last
-week to fix the disable_ipv6 behavior (64e724f6) as all of the sysctl
-values are gone for eth0.
-
-> Current sysctl config:
-> net.ipv6.conf.all.disable_ipv6 = 1
-> net.ipv6.conf.default.disable_ipv6 = 1
+On Mon, 2010-07-26 at 13:15 -0700, David Miller wrote:
+> WIRELESS_EXT is not the correct dependency.
 > 
-> Steps:
-> - Remove last IPv6 address assigned to the "eth0" interface
-> - inet6_addr_del => addrconf_ifdown(idev->dev, 1) => does the device
-> sysctl unregister
-> ******Not sure why the addrconf_sysctl_unregister is necessary on last
-> address removal*******
-> - Now, "sysctl -a" does not show "net.ipv6.conf.eth0.disable_ipv6"
-
-Do they get restored if you bring the link down and back up?
-
-> Problem:
-> - If you WANT to assign IPv6 address to eth0,
-> -> Do it once, which fails due to "disable_ipv6" check in
-> addrconf_add_dev OR ipv6_add_addr
-> -> But, this process does "addrconf_sysctl_register" (addrconf_add_dev
-> => ipv6_find_idev => ipv6_add_dev)
-> -> set net.ipv6.conf.eth0.disable_ipv6=0 and then successfully assign
-> ipv6-address to the eth0
-> (Another alternative is to change all or default to 1; but I wanted to
-> disable ipv6 by default)
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
 > 
-> ===============
-> Probable Solution:
-> ===============
-> @@ -1948,7 +1959,7 @@ static int inet6_addr_del(int ifindex, s
->  			   disable IPv6 on this interface.
->  			 */
->  			if (idev->addr_list == NULL)
-> -				addrconf_ifdown(idev->dev, 1);
-> +				addrconf_ifdown(idev->dev, 0);
->  			return 0;
->  		}
->  	}
-> I have tested the above solution and it seems to work fine - so far.
+> Wireless folks, just FYI, I will commit this to net-next-2.6
+> 
+>  net/Kconfig |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/Kconfig b/net/Kconfig
+> index b325094..e24fa08 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -32,7 +32,7 @@ config WANT_COMPAT_NETLINK_MESSAGES
+>  config COMPAT_NETLINK_MESSAGES
+>  	def_bool y
+>  	depends on COMPAT
+> -	depends on WIRELESS_EXT || WANT_COMPAT_NETLINK_MESSAGES
+> +	depends on WEXT_CORE || WANT_COMPAT_NETLINK_MESSAGES
 
-This code has been this way forever in 2.6 (< 2005), changing it could break
-existing users.  I'm not sure why it was decided to do it this way as it
-was before my time.
+You're right, thank you, I missed that at the time I changed this.
 
-Also, the full comment here is:
+FWIW, it seems I broke this in 2.6.32! Guess nobody noticed since most
+people actually do still have WIRELESS_EXT, especially distros.
 
- /* If the last address is deleted administratively,
-    disable IPv6 on this interface.
-  */
+johannes
 
-Which says that you're removing all the IPv6 addresses by hand using
-/sbin/ip, so you're forcing the removal.  If you want to disable IPv6
-on it and remove all the addresses, why don't you just set disable_ipv6=1?
-
--Brian
