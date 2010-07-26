@@ -1,45 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ks8842: Support 100Mbps when accessed via timberdale
-Date: Sun, 25 Jul 2010 17:03:27 -0700 (PDT)
-Message-ID: <20100725.170327.226755551.davem@davemloft.net>
-References: <1280091327.17191.8.camel@debian>
+Subject: Re: [PATCH 2.6.35-rc1] net-next: Fix an overflow bug in vmxnet3 Tx
+ descriptor
+Date: Sun, 25 Jul 2010 17:06:11 -0700 (PDT)
+Message-ID: <20100725.170611.71132252.davem@davemloft.net>
+References: <20100725004329.GB6680@bhavesh-lx1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: richard.rojfors@pelagicore.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48782
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750818Ab0GZADK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jul 2010 20:03:10 -0400
-In-Reply-To: <1280091327.17191.8.camel@debian>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bhavesh@vmware.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100725004329.GB6680@bhavesh-lx1.eng.vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Richard R=F6jfors <richard.rojfors@pelagicore.com>
-Date: Sun, 25 Jul 2010 22:55:27 +0200
+From: Bhavesh Davda <bhavesh@vmware.com>
+Date: Sat, 24 Jul 2010 17:43:29 -0700
 
-> The flow control setting is removed from TX and RX control
-> registers. Full duplex flow control was not enabled in SGCR3,
-> but we tend to get better performance without flow control.
+> ---
 
-=46low control is not just for you, it's for the other end too.
+If you put the "---" there are the beginning of your message,
+the whole commit message is discarded by GIT.
 
-If you're getting bad flow control enabled performance then
-either:
+I said you should put "---" at the end of the commit message,
+when you want to add more side commentary that should not appear
+in the commit message but is for people in this thread to read.
 
-1) the flow control is configured to kick in too late or
-   too soon
+I fixed this up when adding your patch, but I have no idea why
+you did this.  Please don't do it again.
 
-or
+> Fix an overflow bug in vmxnet3 Tx descriptor
+> 
+> This patch fixes a bug where a 16K buffer on a Tx descriptor was overflowing
+> into the 'gen' bit in the descriptor thereby corrupting the descriptor and
+> stalling the transmit ring.
+> 
+> Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+> Signed-off-by: Shreyas Bhatewara <sbhatewara@vmware.com>
+> Signed-off-by: Matthew Delco <delcoM@vmware.com>
+> Signed-off-by: Ronghua Zhang <ronghua@vmware.com>
 
-2) your ring sizes need adjustment
-
-I'm not applying this patch, flow control is important and
-should be enabled by default whenever possible.  Please
-instead go try and figure out if flow control trigger
-points or RX/TX ring sizes need adjustment instead.
-
-Thanks.
+Applied, thanks.
