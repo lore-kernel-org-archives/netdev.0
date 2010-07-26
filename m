@@ -1,45 +1,85 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: [PATCH] wireless: Make COMPAT_NETLINK_MESSAGES depend upon
- WEXT_CORE
-Date: Mon, 26 Jul 2010 13:15:06 -0700 (PDT)
-Message-ID: <20100726.131506.245381776.davem@davemloft.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: Last Ipv6 address removal causes "addrconf_sysctl_unregister",
+ which 	inihibits from changing disable_ipv6 setting
+Date: Mon, 26 Jul 2010 16:17:33 -0400
+Message-ID: <4C4DED5D.7090004@hp.com>
+References: <AANLkTimnBssEeO_faqcAAzHCy8KxQo9FVcn7vu5fru4j@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Mahesh Kelkar <maheshkelkar@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:4639 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752383Ab0GZURf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 16:17:35 -0400
+In-Reply-To: <AANLkTimnBssEeO_faqcAAzHCy8KxQo9FVcn7vu5fru4j@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 07/26/2010 10:03 AM, Mahesh Kelkar wrote:
+> Odd behavior associated with the patch:
+> **Last address removal causes "addrconf_sysctl_unregister", which
+> inihibits from changing disable_ipv6 setting
+> (connected issue: With disable_ipv6 set to 1 on an interface, ff00:/8
+> and fe80::/64 are still added on device UP)
 
-WIRELESS_EXT is not the correct dependency.
+This behavior doesn't seem specific to the patch that was accepted last
+week to fix the disable_ipv6 behavior (64e724f6) as all of the sysctl
+values are gone for eth0.
 
-Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
----
+> Current sysctl config:
+> net.ipv6.conf.all.disable_ipv6 = 1
+> net.ipv6.conf.default.disable_ipv6 = 1
+> 
+> Steps:
+> - Remove last IPv6 address assigned to the "eth0" interface
+> - inet6_addr_del => addrconf_ifdown(idev->dev, 1) => does the device
+> sysctl unregister
+> ******Not sure why the addrconf_sysctl_unregister is necessary on last
+> address removal*******
+> - Now, "sysctl -a" does not show "net.ipv6.conf.eth0.disable_ipv6"
 
-Wireless folks, just FYI, I will commit this to net-next-2.6
+Do they get restored if you bring the link down and back up?
 
- net/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> Problem:
+> - If you WANT to assign IPv6 address to eth0,
+> -> Do it once, which fails due to "disable_ipv6" check in
+> addrconf_add_dev OR ipv6_add_addr
+> -> But, this process does "addrconf_sysctl_register" (addrconf_add_dev
+> => ipv6_find_idev => ipv6_add_dev)
+> -> set net.ipv6.conf.eth0.disable_ipv6=0 and then successfully assign
+> ipv6-address to the eth0
+> (Another alternative is to change all or default to 1; but I wanted to
+> disable ipv6 by default)
+> 
+> ===============
+> Probable Solution:
+> ===============
+> @@ -1948,7 +1959,7 @@ static int inet6_addr_del(int ifindex, s
+>  			   disable IPv6 on this interface.
+>  			 */
+>  			if (idev->addr_list == NULL)
+> -				addrconf_ifdown(idev->dev, 1);
+> +				addrconf_ifdown(idev->dev, 0);
+>  			return 0;
+>  		}
+>  	}
+> I have tested the above solution and it seems to work fine - so far.
 
-diff --git a/net/Kconfig b/net/Kconfig
-index b325094..e24fa08 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -32,7 +32,7 @@ config WANT_COMPAT_NETLINK_MESSAGES
- config COMPAT_NETLINK_MESSAGES
- 	def_bool y
- 	depends on COMPAT
--	depends on WIRELESS_EXT || WANT_COMPAT_NETLINK_MESSAGES
-+	depends on WEXT_CORE || WANT_COMPAT_NETLINK_MESSAGES
- 	help
- 	  This option makes it possible to send different netlink messages
- 	  to tasks depending on whether the task is a compat task or not. To
--- 
-1.7.1.1
+This code has been this way forever in 2.6 (< 2005), changing it could break
+existing users.  I'm not sure why it was decided to do it this way as it
+was before my time.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Also, the full comment here is:
+
+ /* If the last address is deleted administratively,
+    disable IPv6 on this interface.
+  */
+
+Which says that you're removing all the IPv6 addresses by hand using
+/sbin/ip, so you're forcing the removal.  If you want to disable IPv6
+on it and remove all the addresses, why don't you just set disable_ipv6=1?
+
+-Brian
