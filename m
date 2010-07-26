@@ -1,7 +1,7 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 4/4] wireless: Convert wiphy_debug macro to function
-Date: Mon, 26 Jul 2010 14:40:00 -0700
-Message-ID: <8e7aa541ec8fb92e1166920a4eb704aa5f851b71.1280177971.git.joe@perches.com>
+Subject: [PATCH net-next 1/4] include/net/cfg80211.h: Add wiphy_<level> printk equivalents
+Date: Mon, 26 Jul 2010 14:39:57 -0700
+Message-ID: <941bd7c4904abff516f2cabcbe1cc91ec7640ace.1280177971.git.joe@perches.com>
 References: <cover.1280177971.git.joe@perches.com>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
@@ -11,101 +11,92 @@ In-Reply-To: <cover.1280177971.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Save a few bytes of text
-
-(allyesconfig)
-$ size drivers/net/wireless/built-in.o*
-   text	   data	    bss	    dec	    hex	filename
-3924568	 100548	 871056	4896172	 4ab5ac	drivers/net/wireless/built-in.o.new
-3926520	 100548	 871464	4898532	 4abee4	drivers/net/wireless/built-in.o.old
-
-$ size net/wireless/core.o*
-   text	   data	    bss	    dec	    hex	filename
-  12843	    216	   3768	  16827	   41bb	net/wireless/core.o.new
-  12328	    216	   3656	  16200	   3f48	net/wireless/core.o
+Simplify logging messages for wiphy devices
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/cfg80211.h |    5 ++-
- net/wireless/core.c    |   53 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 56 insertions(+), 2 deletions(-)
+ include/net/cfg80211.h |   64 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 63 insertions(+), 1 deletions(-)
 
 diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
-index 7fe774c..ae80f8f 100644
+index 4d1f19d..7fe774c 100644
 --- a/include/net/cfg80211.h
 +++ b/include/net/cfg80211.h
-@@ -2442,8 +2442,9 @@ void cfg80211_cqm_rssi_notify(struct net_device *dev,
- 	wiphy_printk(KERN_NOTICE, wiphy, format, ##args)
- #define wiphy_info(wiphy, format, args...)			\
- 	wiphy_printk(KERN_INFO, wiphy, format, ##args)
--#define wiphy_debug(wiphy, format, args...)			\
--	wiphy_printk(KERN_DEBUG, wiphy, format, ##args)
-+
-+int wiphy_debug(const struct wiphy *wiphy, const char *format, ...)
-+	__attribute__ ((format (printf, 2, 3)));
- 
- #if defined(DEBUG)
- #define wiphy_dbg(wiphy, format, args...)			\
-diff --git a/net/wireless/core.c b/net/wireless/core.c
-index f65c649..1f9de8a 100644
---- a/net/wireless/core.c
-+++ b/net/wireless/core.c
-@@ -907,3 +907,56 @@ static void __exit cfg80211_exit(void)
- 	destroy_workqueue(cfg80211_wq);
+@@ -1416,7 +1416,7 @@ static inline struct device *wiphy_dev(struct wiphy *wiphy)
+  *
+  * @wiphy: The wiphy whose name to return
+  */
+-static inline const char *wiphy_name(struct wiphy *wiphy)
++static inline const char *wiphy_name(const struct wiphy *wiphy)
+ {
+ 	return dev_name(&wiphy->dev);
  }
- module_exit(cfg80211_exit);
-+
+@@ -2420,4 +2420,66 @@ void cfg80211_cqm_rssi_notify(struct net_device *dev,
+ 			      enum nl80211_cqm_rssi_threshold_event rssi_event,
+ 			      gfp_t gfp);
+ 
 +#ifdef __KERNEL__
 +
-+static int ___wiphy_printk(const char *level, const struct wiphy *wiphy,
-+			   struct va_format *vaf)
-+{
-+	if (!wiphy)
-+		return printk("%s(NULL wiphy *): %pV", level, vaf);
++/* Logging, debugging and troubleshooting/diagnostic helpers. */
 +
-+	return printk("%s%s: %pV", level, wiphy_name(wiphy), vaf);
-+}
++/* wiphy_printk helpers, similar to dev_printk */
 +
-+int __wiphy_printk(const char *level, const struct wiphy *wiphy,
-+		   const char *fmt, ...)
-+{
-+	struct va_format vaf;
-+	va_list args;
-+	int r;
++#define wiphy_printk(level, wiphy, format, args...)		\
++	printk(level "%s: " format, wiphy_name(wiphy), ##args)
++#define wiphy_emerg(wiphy, format, args...)			\
++	wiphy_printk(KERN_EMERG, wiphy, format, ##args)
++#define wiphy_alert(wiphy, format, args...)			\
++	wiphy_printk(KERN_ALERT, wiphy, format, ##args)
++#define wiphy_crit(wiphy, format, args...)			\
++	wiphy_printk(KERN_CRIT, wiphy, format, ##args)
++#define wiphy_err(wiphy, format, args...)			\
++	wiphy_printk(KERN_ERR, wiphy, format, ##args)
++#define wiphy_warn(wiphy, format, args...)			\
++	wiphy_printk(KERN_WARNING, wiphy, format, ##args)
++#define wiphy_notice(wiphy, format, args...)			\
++	wiphy_printk(KERN_NOTICE, wiphy, format, ##args)
++#define wiphy_info(wiphy, format, args...)			\
++	wiphy_printk(KERN_INFO, wiphy, format, ##args)
++#define wiphy_debug(wiphy, format, args...)			\
++	wiphy_printk(KERN_DEBUG, wiphy, format, ##args)
 +
-+	va_start(args, fmt);
++#if defined(DEBUG)
++#define wiphy_dbg(wiphy, format, args...)			\
++	wiphy_printk(KERN_DEBUG, wiphy, format, ##args)
++#elif defined(CONFIG_DYNAMIC_DEBUG)
++#define wiphy_dbg(wiphy, format, args...)			\
++	dynamic_pr_debug("%s: " format,	wiphy_name(dev), ##args)
++#else
++#define wiphy_dbg(wiphy, format, args...)				\
++({									\
++	if (0)								\
++		wiphy_printk(KERN_DEBUG, wiphy, format, ##args);	\
++	0;								\
++})
++#endif
 +
-+	vaf.fmt = fmt;
-+	vaf.va = &args;
++#if defined(VERBOSE_DEBUG)
++#define wiphy_vdbg	wiphy_dbg
++#else
 +
-+	r = ___wiphy_printk(level, wiphy, &vaf);
-+	va_end(args);
++#define wiphy_vdbg(wiphy, format, args...)				\
++({									\
++	if (0)								\
++		wiphy_printk(KERN_DEBUG, wiphy, format, ##args);	\
++		0;							\
++})
++#endif
 +
-+	return r;
-+}
-+EXPORT_SYMBOL(__wiphy_printk);
-+
-+#define define_wiphy_printk_level(func, kern_level)		\
-+int func(const struct wiphy *wiphy, const char *fmt, ...)	\
-+{								\
-+	struct va_format vaf;					\
-+	va_list args;						\
-+	int r;							\
-+								\
-+	va_start(args, fmt);					\
-+								\
-+	vaf.fmt = fmt;						\
-+	vaf.va = &args;						\
-+								\
-+	r = ___wiphy_printk(kern_level, wiphy, &vaf);		\
-+	va_end(args);						\
-+								\
-+	return r;						\
-+}								\
-+EXPORT_SYMBOL(func);
-+
-+define_wiphy_printk_level(wiphy_debug, KERN_DEBUG);
++/*
++ * wiphy_WARN() acts like wiphy_printk(), but with the key difference
++ * of using a WARN/WARN_ON to get the message out, including the
++ * file/line information and a backtrace.
++ */
++#define wiphy_WARN(wiphy, format, args...)			\
++	WARN(1, "wiphy: %s\n" format, wiphy_name(wiphy), ##args);
 +
 +#endif
++
+ #endif /* __NET_CFG80211_H */
 -- 
 1.7.1
