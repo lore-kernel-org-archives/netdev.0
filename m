@@ -1,29 +1,69 @@
-From: =?ISO-8859-1?Q?Richard_R=F6jfors?= <richard.rojfors@pelagicore.com>
-Subject: Re: [PATCH] ks8842: Support 100Mbps when accessed via timberdale
-Date: Mon, 26 Jul 2010 10:44:53 +0200
-Message-ID: <4C4D4B05.8030501@pelagicore.com>
-References: <1280091327.17191.8.camel@debian> <20100725.170327.226755551.davem@davemloft.net>
+From: Richard =?ISO-8859-1?Q?R=F6jfors?=
+	<richard.rojfors@pelagicore.com>
+Subject: [PATCH v2] ks8842: Support 100Mbps when accessed via timberdale
+Date: Mon, 26 Jul 2010 10:51:05 +0200
+Message-ID: <1280134265.3498.4.camel@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:47181 "EHLO
-	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752471Ab0GZIo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 04:44:57 -0400
-In-Reply-To: <20100725.170327.226755551.davem@davemloft.net>
+Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:51075 "EHLO
+	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884Ab0GZIvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 04:51:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/26/2010 02:03 AM, David Miller wrote:
->
-> I'm not applying this patch, flow control is important and
-> should be enabled by default whenever possible.  Please
-> instead go try and figure out if flow control trigger
-> points or RX/TX ring sizes need adjustment instead.
+This patch removes the code which disables 100Mbps advertising when
+the ks8842 is accessed via timberdale.
 
-I agree, I will look at the flow control.
+At higher speed it's good to be nice to the internal state machine
+of timberdale by acking interrupts. That is done by a write to the
+interrupt ack register (IAR).
 
---Richard
+Signed-off-by: Richard R=C3=B6jfors <richard.rojfors@pelagicore.com>
+---
+diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
+index 634dad1..289b0be 100644
+--- a/drivers/net/ks8842.c
++++ b/drivers/net/ks8842.c
+@@ -34,7 +34,12 @@
+ #define DRV_NAME "ks8842"
+=20
+ /* Timberdale specific Registers */
+-#define REG_TIMB_RST	0x1c
++#define REG_TIMB_RST		0x1c
++#define REG_TIMB_FIFO		0x20
++#define REG_TIMB_ISR		0x24
++#define REG_TIMB_IER		0x28
++#define REG_TIMB_IAR		0x2C
++#define REQ_TIMB_DMA_RESUME	0x30
+=20
+ /* KS8842 registers */
+=20
+@@ -282,10 +287,6 @@ static void ks8842_reset_hw(struct ks8842_adapter =
+*adapter)
+ 	/* restart port auto-negotiation */
+ 	ks8842_enable_bits(adapter, 49, 1 << 13, REG_P1CR4);
+=20
+-	if (!(adapter->conf_flags & MICREL_KS884X))
+-		/* only advertise 10Mbps */
+-		ks8842_clear_bits(adapter, 49, 3 << 2, REG_P1CR4);
+-
+ 	/* Enable the transmitter */
+ 	ks8842_enable_tx(adapter);
+=20
+@@ -543,6 +544,10 @@ void ks8842_tasklet(unsigned long arg)
+ 	/* Ack */
+ 	ks8842_write16(adapter, 18, isr, REG_ISR);
+=20
++	if (!(adapter->conf_flags & MICREL_KS884X))
++		/* Ack in the timberdale IP as well */
++		iowrite32(0x1, adapter->hw_addr + REG_TIMB_IAR);
++
+ 	if (!netif_running(netdev))
+ 		return;
+=20
+
