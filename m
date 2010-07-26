@@ -1,47 +1,48 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH] usbnet: use jiffies in schedule_timeout(), not msecs
-Date: Mon, 26 Jul 2010 12:25:42 +0400
-Message-ID: <1280132742-8126-1-git-send-email-segooon@gmail.com>
-Cc: David Brownell <dbrownell@users.sourceforge.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Joe Perches <joe@perches.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: IPv6 Anycast?
+Date: Mon, 26 Jul 2010 17:44:21 +0900
+Message-ID: <20100726084418.GA14903@verge.net.au>
+References: <4C48B90B.60304@actusa.net>
+ <alpine.DEB.1.10.1007230554240.9875@uplift.swm.pp.se>
+ <4C491AD4.9070103@actusa.net>
+ <alpine.DEB.1.10.1007230748380.9875@uplift.swm.pp.se>
+ <4C49B163.8090400@actusa.net>
+ <4C49C352.6010701@astaro.com>
+ <4C49C92D.30705@actusa.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ulrich Weber <uweber@astaro.com>,
+	Mikael Abrahamsson <swmike@swm.pp.se>, netdev@vger.kernel.org
+To: Stuart Sheldon <stu@actusa.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:50806 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753112Ab0GZI0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 04:26:22 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:40506 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222Ab0GZIoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 04:44:25 -0400
+Content-Disposition: inline
+In-Reply-To: <4C49C92D.30705@actusa.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-usbnet_terminate_urbs() uses schedule_timeout() with argument 3 msecs.
-schedule_timeout() uses jiffies as argument, so convert msecs to jiffies
-with msecs_to_jiffies().
+On Fri, Jul 23, 2010 at 09:54:05AM -0700, Stuart Sheldon wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA256
+> 
+> Hi Ulrich,
+> 
+> Thanks, that resolves half the issue. So as of right now, there is no
+> userspace program to add anycast addresses?
 
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
----
- drivers/net/usb/usbnet.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I was hoping to have some useful information, but alas I failed on that count.
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 7eab407..b243386 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -624,7 +624,7 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
- 	while (!skb_queue_empty(&dev->rxq)
- 		&& !skb_queue_empty(&dev->txq)
- 		&& !skb_queue_empty(&dev->done)) {
--			schedule_timeout(UNLINK_TIMEOUT_MS);
-+			schedule_timeout(msecs_to_jiffies(UNLINK_TIMEOUT_MS));
- 			set_current_state(TASK_UNINTERRUPTIBLE);
- 			netif_dbg(dev, ifdown, dev->net,
- 				  "waited for %d urb completions\n", temp);
--- 
-1.7.0.4
+Looking at ip(8) it seems that the following ought to work:
+
+ip addr add fd16:a2f5:c4d7::7/48 anycast fd16:a2f5:c4d7::8 dev eth0
+
+However, it seems not to, and then I found this in the manpage :-(
+
+	anycast   -   not  implemented  the  destinations are  anycast
+	addresses assigned to this host.  They are mainly equivalent to
+	local with one difference: such addresses are invalid when used as
+	the source address of any packet.
 
