@@ -1,51 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
-Date: Mon, 26 Jul 2010 13:08:21 -0700 (PDT)
-Message-ID: <20100726.130821.179918086.davem@davemloft.net>
-References: <1279700420.2452.15.camel@edumazet-laptop>
-	<1279701835.2452.17.camel@edumazet-laptop>
-	<20100725.215548.112589000.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: [PATCH] wireless: Make COMPAT_NETLINK_MESSAGES depend upon
+ WEXT_CORE
+Date: Mon, 26 Jul 2010 13:15:06 -0700 (PDT)
+Message-ID: <20100726.131506.245381776.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33065
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751349Ab0GZUIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 16:08:05 -0400
-In-Reply-To: <20100725.215548.112589000.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 25 Jul 2010 21:55:48 -0700 (PDT)
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 21 Jul 2010 10:43:55 +0200
-> 
->> [PATCH net-next-2.6 v3] netlink: netlink_recvmsg() fix
->> 
->> commit 1dacc76d0014 
->> (net/compat/wext: send different messages to compat tasks)
->> introduced a race condition on netlink, in case MSG_PEEK is used.
->> 
->> An skb given by skb_recv_datagram() might be shared, we must copy it
->> before any modification, or risk fatal corruption.
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Applied, thanks Eric.
+WIRELESS_EXT is not the correct dependency.
 
-I bet you didn't compile test the code you modified at all, but it's
-not your fault :-)
+Signed-off-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+---
 
-The code is protected by CONFIG_WIRELESS_EXT but that protection is
-not valid.  It should be protected by something like CONFIG_WEXT_CORE
-or similar.
+Wireless folks, just FYI, I will commit this to net-next-2.6
 
-The only way to get CONFIG_WIRELESS_EXT set it to enable one of a few
-drivers, many of which are in staging.
+ net/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Anyways, just a heads up, I'll fix this up.
+diff --git a/net/Kconfig b/net/Kconfig
+index b325094..e24fa08 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -32,7 +32,7 @@ config WANT_COMPAT_NETLINK_MESSAGES
+ config COMPAT_NETLINK_MESSAGES
+ 	def_bool y
+ 	depends on COMPAT
+-	depends on WIRELESS_EXT || WANT_COMPAT_NETLINK_MESSAGES
++	depends on WEXT_CORE || WANT_COMPAT_NETLINK_MESSAGES
+ 	help
+ 	  This option makes it possible to send different netlink messages
+ 	  to tasks depending on whether the task is a compat task or not. To
+-- 
+1.7.1.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
