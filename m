@@ -1,53 +1,36 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH] [PATCH] s2io: fixing DBG_PRINT() macro
-Date: Mon, 26 Jul 2010 12:07:16 -0300
-Message-ID: <1280156836-16138-1-git-send-email-leitao@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [patch] usbnet: fix 100% CPU use on suspended device
+Date: Mon, 26 Jul 2010 11:13:23 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1007261106350.1550-100000@iolanthe.rowland.org>
+References: <AANLkTin_pduYCHVv_q4DSfSoQ7o4kFo43X8t1rXJ+7fa@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	USB list <linux-usb@vger.kernel.org>
+To: Elly Jones <ellyjones@google.com>,
+	Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:48184 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753196Ab0GZPHW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 11:07:22 -0400
-Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
-	by e24smtp04.br.ibm.com (8.14.4/8.13.1) with ESMTP id o6QF4mWP004626
-	for <netdev@vger.kernel.org>; Mon, 26 Jul 2010 12:04:48 -0300
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o6QFCMNc1155576
-	for <netdev@vger.kernel.org>; Mon, 26 Jul 2010 12:12:22 -0300
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o6QF7H5U001372
-	for <netdev@vger.kernel.org>; Mon, 26 Jul 2010 12:07:18 -0300
+Received: from iolanthe.rowland.org ([192.131.102.54]:49047 "HELO
+	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753614Ab0GZPNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jul 2010 11:13:24 -0400
+In-Reply-To: <AANLkTin_pduYCHVv_q4DSfSoQ7o4kFo43X8t1rXJ+7fa@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch 9e39f7c5b311a306977c5471f9e2ce4c456aa038 changed the
-DBG_PRINT() macro and the if clause was wrongly changed. It means
-that currently all the DBG_PRINT are being printed, flooding the
-kernel log buffer with things like:
+On Mon, 26 Jul 2010, Elly Jones wrote:
 
-s2io: eth6: Next block at: c0000000b9c90000
-s2io: eth6: In Neterion Tx routine
+> > This isn't right. =A0The problem should be fixed some other way. =A0=
+Under
+> > what circumstances are URBs submitted incorrectly?
+>=20
+> When the device is autosuspended. What is the proper thing for a
+> device to do here?
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-Acked-by: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
----
- drivers/net/s2io.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+=46rom looking at the code, it appears that the EVENT_DEV_ASLEEP flag
+should be tested in usbnet_bh() the way it is in rx_submit().  But I'm
+not an expert on usbnet; we should ask someone who is, like Oliver.
 
-diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
-index 3645fb3..0af0335 100644
---- a/drivers/net/s2io.h
-+++ b/drivers/net/s2io.h
-@@ -65,7 +65,7 @@ static int debug_level = ERR_DBG;
- 
- /* DEBUG message print. */
- #define DBG_PRINT(dbg_level, fmt, args...) do {			\
--	if (dbg_level >= debug_level)				\
-+	if (dbg_level <= debug_level)				\
- 		pr_info(fmt, ##args);				\
- 	} while (0)
- 
--- 
-1.6.5.2
+Alan Stern
 
