@@ -1,42 +1,30 @@
-From: =?ISO-8859-1?Q?Mart=EDn_Ferrari?= <martin.ferrari@gmail.com>
-Subject: Re: Another oops + repost
-Date: Mon, 26 Jul 2010 05:21:45 +0200
-Message-ID: <AANLkTimC8q6_ZU60VX5SmXGqsD+RCpf4RaF3MLQptsG4@mail.gmail.com>
-References: <AANLkTin_KDKEejs1ld-qv5jOyuALysjZ8NLC2-786htJ@mail.gmail.com>
-	<m1zkxjwjq9.fsf@fess.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] forcedeth: Fix different hardware statistics versions.
+Date: Sun, 25 Jul 2010 21:54:38 -0700 (PDT)
+Message-ID: <20100725.215438.189694767.davem@davemloft.net>
+References: <20100722220252.E46C7182B00@starthinker.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, 577640@bugs.debian.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:35021 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288Ab0GZDVr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jul 2010 23:21:47 -0400
-Received: by eya25 with SMTP id 25so378894eya.19
-        for <netdev@vger.kernel.org>; Sun, 25 Jul 2010 20:21:45 -0700 (PDT)
-In-Reply-To: <m1zkxjwjq9.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, adobriyan@gmail.com, shemminger@vyatta.com,
+	ben@decadent.org.uk, stas@lvk.cs.msu.su,
+	linux-kernel@vger.kernel.org
+To: mditto@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100722220252.E46C7182B00@starthinker.mtv.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: mditto@google.com (Mike Ditto)
+Date: Thu, 22 Jul 2010 15:02:52 -0700 (PDT)
 
-On Thu, Jul 22, 2010 at 18:43, Eric W. Biederman <ebiederm@xmission.com=
-> wrote:
+> The macros for the values of the bit field describing the four
+> different versions of statistics supported by different hardware
+> variants were being misused.  Where the code was trying to test if the
+> hardware implements V3, it was actually testing whether it implements
+> any of V1, V2, or V3, causing the driver to report statistics that
+> don't really exist in the hardware, with bogus values.
+> 
+> Signed-off-by: Mike Ditto <mditto@google.com>
 
->> First of all, I would like to know if anybody was able to fix this
->> problem =A0that got kinda lost in the thread:
->
-> I can't reproduce this on 2.6.35-rc1+
->
-> Can you please test a 2.6.35-rc version? =A0If you can still reproduc=
-e
-> it there can you send me your .config? =A0Otherwise I expect my last
-> round of changes to sysfs fixed whatever was the underlying problem.
-
-I just download and compiled rc6, and all of these problems seem to be
-solved. Thanks a lot!
-
---=20
-Mart=EDn Ferrari
+Applied to net-next-2.6, thanks.
