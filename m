@@ -1,36 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] drivers/net/bfin_mac.c: Use pr_fmt,
- netdev_<level>
-Date: Tue, 27 Jul 2010 13:44:17 -0700
-Message-ID: <20100727134417.62420ec1@nehalam>
-References: <1280258531.24054.10.camel@Joe-Laptop.home>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Make vhost multi-threaded and associate each thread to its guest's
+ cgroup
+Date: Tue, 27 Jul 2010 23:42:54 +0300
+Message-ID: <20100727204254.GA17947@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Hennerich <michael.hennerich@analog.com>,
-	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1280258531.24054.10.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Tejun Heo <tj@kernel.org>, Li Zefan <lizf@cn.fujitsu.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:26439 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752122Ab0G0UsV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jul 2010 16:48:21 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Jul 2010 12:22:11 -0700
-Joe Perches <joe@perches.com> wrote:
+Sridhar,
+I pushed a patchset with all known issues fixed,
+on my vhost-net-next branch.
 
->  
-> +static struct sk_buff *bfin_alloc_skb(void)
-> +{
-> +	/* allocate a new skb */
-> +	struct sk_buff *new_skb = dev_alloc_skb(PKT_BUF_SIZE + NET_IP_ALIGN);
-> +
-> +	if (!new_skb)
-> +		return NULL;
-> +
-> +	skb_reserve(new_skb, NET_IP_ALIGN);
+For now this ignores the cpu mask issue, addressing
+only the cgroups issue.
 
-Why not use netdev_alloc_skb_ip_align ?
+Would appreciate testing and reports.
 
+Thanks,
 -- 
+MST
