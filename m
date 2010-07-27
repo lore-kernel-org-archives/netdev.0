@@ -1,61 +1,59 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Tue, 27 Jul 2010 18:41:55 +0300
-Message-ID: <20100727154155.GA13419@redhat.com>
-References: <4C2CA5C5.4040402@kernel.org>
- <20100701144624.GA11171@redhat.com>
- <4C2CABF2.2020801@kernel.org>
- <1277996135.1917.198.camel@laptop>
- <4C2E2987.9040702@us.ibm.com>
- <1278094270.1917.288.camel@laptop>
- <20100702210637.GA12433@redhat.com>
- <20100726171230.GA27644@redhat.com>
- <1280166688.3375.5.camel@localhost>
- <20100726180834.GA26988@redhat.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: BUG: net-next netns teardown bridge bug "waiting for lo to become
+ free."
+Date: Tue, 27 Jul 2010 17:25:14 +0200
+Message-ID: <20100727152514.GA13413@jupiter.n2.diac24.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:38993 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751887Ab0G0PuF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jul 2010 11:50:05 -0400
+Received: from jupiter.n2.diac24.net ([2001:8d8:81:5c2:21b:fcff:fe4c:9e6f])
+	by spaceboyz.net with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.71)
+	(envelope-from <equinox@diac24.net>)
+	id 1Odm1t-0005xF-OX
+	for netdev@vger.kernel.org; Tue, 27 Jul 2010 17:25:17 +0200
+Received: from equinox by jupiter.n2.diac24.net with local (Exim 4.72)
+	(envelope-from <equinox@diac24.net>)
+	id 1Odm1q-0003uN-ML
+	for netdev@vger.kernel.org; Tue, 27 Jul 2010 17:25:17 +0200
 Content-Disposition: inline
-In-Reply-To: <20100726180834.GA26988@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 26, 2010 at 08:08:34PM +0200, Oleg Nesterov wrote:
-> On 07/26, Sridhar Samudrala wrote:
-> >
-> > I have been testing out a similar patch that uses kernel_thread() without CLONE_FILES
-> > flag rather than create_kthread() and then closing the files.
-> 
-> !CLONE_FILES can't help. copy_files() does dup_fd() in this case.
-> The child still inherits the files.
-> 
-> > Either version should be fine.
-> 
-> I think neither version is fine ;)
-> 
-> exit_files() is not enough too. How about the signals, reparenting?
-> 
-> 
-> I already forgot all details, probably I missed somethig. But it
-> seems to me that it is better to just export get/set affinity and
-> forget about all complications.
-> 
-> Oleg.
+(no idea who to Cc on this...)
 
-Oleg, so can I attach your Ack to the patch in question, and merge
-it all through net-next?
+Hi,
 
--- 
-MST
+
+i've recently been playing with network namespaces under net-next
+feb8f478... and have been able to reproducibly cause:
+
+netconsole: network logging stopped, interface lo unregistered
+netconsole: network logging stopped, interface lo unregistered
+unregister_netdevice: waiting for lo to become free. Usage count = 4
+netconsole: network logging stopped, interface lo unregistered
+(repeat.)
+
+i can trigger this with
+
+unshare -n -- /bin/bash -c 'ip link add link lo veth0 type veth peer
+name veth3 netns 1; brctl addbr br0; ip l s br0 up; ip a l; sleep 8'
+
+(It happens when the netns is going down.)
+
+Without the "ip l s br0 up" it does not happen; the veth I have added
+for "notification" when the namespace goes down, it is probably not
+related.
+
+I'm looking into this, but i'm not versed in Linux kernel code, so my
+luck in fixing this might be limited. Some reference taken in bridge
+"up"? Should the bridge be set "down" on netns teardown?
+
+
+-David
+
