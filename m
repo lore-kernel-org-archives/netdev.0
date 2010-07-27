@@ -1,146 +1,257 @@
-From: Andy Chittenden <andyc@bluearc.com>
-Subject: Re: nfs client hang
-Date: Tue, 27 Jul 2010 13:51:13 +0100
-Message-ID: <4C4ED641.1030803@bluearc.com>
-References: <99613C19B13C5D40914FB8930657FA9303365708DE@uk-ex-mbx1.terastack.bluearc.com>	 <4C4E89D4.8040607@bluearc.com>	 <ABFC24E4C13D81489F7F624E14891C8607DDF8D1E4@uk-ex-mbx1.terastack.bluearc.com> <1280233276.2827.175.camel@edumazet-laptop>
+From: James Bottomley <James.Bottomley@suse.de>
+Subject: Re: [PATCH net-next] drivers/scsi: Remove warnings after vsprintf
+ %pV introduction
+Date: Tue, 27 Jul 2010 08:12:23 -0500
+Message-ID: <1280236343.2833.7.camel@mulgrave.site>
+References: <20100707.174522.148565561.davem@davemloft.net>
+	 <20100707.181847.62350965.davem@davemloft.net>
+	 <1278562423.1712.43.camel@Joe-Laptop>
+	 <20100710.195210.200371025.davem@davemloft.net>
+	 <1278824921.1501.37.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Linux Kernel Mailing List (linux-kernel@vger.kernel.org)"
-	<linux-kernel@vger.kernel.org>,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1280233276.2827.175.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gregkh@suse.de,
+	Matthew Wilcox <matthew@wil.cx>,
+	linux-scsi <linux-scsi@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:46871 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751975Ab0G0NMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jul 2010 09:12:30 -0400
+In-Reply-To: <1278824921.1501.37.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  On 2010-07-27 13:21, Eric Dumazet wrote:
-> Le mardi 27 juillet 2010 =C3=A0 11:53 +0100, Andy Chittenden a =C3=A9=
-crit :
->>>>> IE the client starts a connection and then closes it again withou=
-t sending data.
->>>> Once this happens, here's some rpcdebug info for the rpc module us=
-ing 2.6.34.1 kernel:
->>>>
->>>> ... lots of the following nfsv3 WRITE requests:
->>>> [ 7670.026741] 57793 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026759] 57794 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026778] 57795 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026797] 57796 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026815] 57797 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026834] 57798 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026853] 57799 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026871] 57800 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026890] 57801 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7670.026909] 57802 0001    -11 ffff88012e32b000   (null)        =
-0 ffffffffa03beb10 nfsv3 WRITE a:call_reserveresult q:xprt_backlog
->>>> [ 7680.520042] RPC:       worker connecting xprt ffff88013e62d800 =
-via tcp to 10.1.6.102 (port 2049)
->>>> [ 7680.520066] RPC:       ffff88013e62d800 connect status 99 conne=
-cted 0 sock state 7
->>>> [ 7680.520074] RPC: 33550 __rpc_wake_up_task (now 4296812426)
->>>> [ 7680.520079] RPC: 33550 disabling timer
->>>> [ 7680.520084] RPC: 33550 removed from queue ffff88013e62db20 "xpr=
-t_pending"
->>>> [ 7680.520089] RPC:       __rpc_wake_up_task done
->>>> [ 7680.520094] RPC: 33550 __rpc_execute flags=3D0x1
->>>> [ 7680.520098] RPC: 33550 xprt_connect_status: retrying
->>>> [ 7680.520103] RPC: 33550 call_connect_status (status -11)
->>>> [ 7680.520108] RPC: 33550 call_transmit (status 0)
->>>> [ 7680.520112] RPC: 33550 xprt_prepare_transmit
->>>> [ 7680.520118] RPC: 33550 rpc_xdr_encode (status 0)
->>>> [ 7680.520123] RPC: 33550 marshaling UNIX cred ffff88012e002300
->>>> [ 7680.520130] RPC: 33550 using AUTH_UNIX cred ffff88012e002300 to=
- wrap rpc data
->>>> [ 7680.520136] RPC: 33550 xprt_transmit(32920)
->>>> [ 7680.520145] RPC:       xs_tcp_send_request(32920) =3D -32
->>>> [ 7680.520151] RPC:       xs_tcp_state_change client ffff88013e62d=
-800...
->>>> [ 7680.520156] RPC:       state 7 conn 0 dead 0 zapped 1
->>> I changed that debug to output sk_shutdown too. That has a value of=
- 2
->>> (IE SEND_SHUTDOWN). Looking at tcp_sendmsg(), I see this:
->>>           err =3D -EPIPE;
->>>           if (sk->sk_err || (sk->sk_shutdown&  SEND_SHUTDOWN))
->>>                   goto out_err;
->>> which correlates with the trace "xs_tcp_send_request(32920) =3D -32=
-". So,
->>> this looks like a problem in the sockets/tcp layer. The rpc layer i=
-ssues
->>> a shutdown and then reconnects using the same socket. So either
->>> sk_shutdown needs zeroing once the shutdown completes or should be
->>> zeroed on subsequent connect. The latter sounds safer.
->> This patch for 2.6.34.1 fixes the issue:
->>
->> --- /home/company/software/src/linux-2.6.34.1/net/ipv4/tcp_output.c =
-    2010-07-27 08:46:46.917000000 +0100
->> +++ net/ipv4/tcp_output.c       2010-07-27 09:19:16.000000000 +0100
->> @@ -2522,6 +2522,13 @@
->>          struct tcp_sock *tp =3D tcp_sk(sk);
->>          __u8 rcv_wscale;
->>
->> +       /* clear down any previous shutdown attempts so that
->> +        * reconnects on a socket that's been shutdown leave the
->> +        * socket in a usable state (otherwise tcp_sendmsg() returns
->> +        * -EPIPE).
->> +        */
->> +       sk->sk_shutdown =3D 0;
->> +
->>          /* We'll fix this up when we get a response from the other =
-end.
->>           * See tcp_input.c:tcp_rcv_state_process case TCP_SYN_SENT.
->>           */
->>
->> As I mentioned in my first message, we first saw this issue in 2.6.3=
-2 as supplied by debian (linux-image-2.6.32-5-amd64 Version: 2.6.32-17)=
-=2E It looks like the same patch would fix the problem there too.
->>
-> CC netdev
->
-> This reminds me a similar problem we had in the past, fixed with comm=
-it
-> 1fdf475a (tcp: tcp_disconnect() should clear window_clamp)
->
-> But tcp_disconnect() already clears sk->sk_shutdown
->
-> If NFS calls tcp_disconnect(), then shutdown(), there is a problem.
->
-> Maybe xs_tcp_shutdown() should make some sanity tests ?
->
-> Following sequence is legal, and your patch might break it.
->
-> fd =3D socket(...);
-> shutdown(fd, SHUT_WR);
-> ...
-> connect(fd, ...);
->
->
->
-Thanks for the response. From my reading of the RPC code, because=20
-nothing clears the sk_shutdown flag, the RPC code goes into a loop when=
-=20
-recovering from packets being lost:
+On Sat, 2010-07-10 at 22:08 -0700, Joe Perches wrote:
+> On Sat, 2010-07-10 at 19:52 -0700, David Miller wrote:
+> > Could you take a stab at this and the other scsi bits that
+> > trigger this warning?
+> 
+> Remove warnings introduced by conversions of dev_<level>
+> macros to functions.
+> 
+> Compile tested only.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/scsi/constants.c            |   63 ++++++++++++++++++++---------------
+>  drivers/scsi/sd.c                   |    6 ++--
+>  drivers/scsi/sym53c8xx_2/sym_hipd.c |   10 ++---
+>  3 files changed, 43 insertions(+), 36 deletions(-)
+> 
+> diff --git a/drivers/scsi/constants.c b/drivers/scsi/constants.c
+> index cd05e04..f95de51 100644
+> --- a/drivers/scsi/constants.c
+> +++ b/drivers/scsi/constants.c
+> @@ -1226,29 +1226,38 @@ scsi_extd_sense_format(unsigned char asc, unsigned char ascq) {
+>  }
+>  EXPORT_SYMBOL(scsi_extd_sense_format);
+>  
+> +static void scsi_show_extd_sense_args(const char *fmt, ...)
+> +{
+> +	va_list args;
+> +	struct va_format vaf;
+> +
+> +	va_start(args, fmt);
+> +
+> +	vaf.fmt = fmt;
+> +	vaf.va = &args;
+> +
+> +	printk(KERN_CONT "Add. Sense: %pV\n", &vaf);
+> +
+> +	va_end(args);
+> +}
+> +
 
-shutdown
-connect
-send fails so repeat
+This doesn't have a place in the patch, it's an unnecessary conversion
 
-My patch stops the NFS client hang that I was seeing but I'm not an=20
-expert on either the socket layer, RPC code or NFS code so I'm happy fo=
-r=20
-someone else to come up with the alternative, correct fix.
+>  void
+>  scsi_show_extd_sense(unsigned char asc, unsigned char ascq)
+>  {
+>          const char *extd_sense_fmt = scsi_extd_sense_format(asc, ascq);
+>  
+>  	if (extd_sense_fmt) {
+> -		if (strstr(extd_sense_fmt, "%x")) {
+> -			printk("Add. Sense: ");
+> -			printk(extd_sense_fmt, ascq);
+> -		} else
+> -			printk("Add. Sense: %s", extd_sense_fmt);
+> +		scsi_show_extd_sense_args(extd_sense_fmt, ascq);
+>  	} else {
+>  		if (asc >= 0x80)
+> -			printk("<<vendor>> ASC=0x%x ASCQ=0x%x", asc,
+> -			       ascq);
+> +			printk(KERN_CONT "<<vendor>> ASC=0x%x ASCQ=0x%x",
+> +			       asc, ascq);
+>  		if (ascq >= 0x80)
+> -			printk("ASC=0x%x <<vendor>> ASCQ=0x%x", asc,
+> -			       ascq);
+> +			printk(KERN_CONT "ASC=0x%x <<vendor>> ASCQ=0x%x\n",
+> +			       asc, ascq);
+>  		else
+> -			printk("ASC=0x%x ASCQ=0x%x", asc, ascq);
+> +			printk(KERN_CONT "ASC=0x%x ASCQ=0x%x\n", asc, ascq);
 
---=20
-Andy, BlueArc Engineering
+And half these KERN_CONT additions are spurious since you'd not
+otherwise touch the line
+
+>  	}
+> -
+> -	printk("\n");
+>  }
+>  EXPORT_SYMBOL(scsi_show_extd_sense);
+>  
+> @@ -1310,15 +1319,15 @@ scsi_decode_sense_buffer(const unsigned char *sense_buffer, int sense_len,
+>  	if (0 == res) {
+>  		/* this may be SCSI-1 sense data */
+>  		num = (sense_len < 32) ? sense_len : 32;
+> -		printk("Unrecognized sense data (in hex):");
+> +		printk(KERN_CONT "Unrecognized sense data (in hex):");
+>  		for (k = 0; k < num; ++k) {
+>  			if (0 == (k % 16)) {
+> -				printk("\n");
+> -				printk(KERN_INFO "        ");
+> +				printk(KERN_CONT "\n");
+> +				printk(KERN_INFO "       ");
+>  			}
+> -			printk("%02x ", sense_buffer[k]);
+> +			printk(KERN_CONT " %02x", sense_buffer[k]);
+>  		}
+> -		printk("\n");
+> +		printk(KERN_CONT "\n");
+>  		return;
+>  	}
+>  }
+> @@ -1364,22 +1373,22 @@ scsi_decode_sense_extras(const unsigned char *sense_buffer, int sense_len,
+>  			res += snprintf(buff + res, blen - res, "ILI");
+>  		}
+>  		if (res > 0)
+> -			printk("%s\n", buff);
+> +			printk(KERN_CONT "%s\n", buff);
+>  	} else if (sshdr->additional_length > 0) {
+>  		/* descriptor format with sense descriptors */
+>  		num = 8 + sshdr->additional_length;
+>  		num = (sense_len < num) ? sense_len : num;
+> -		printk("Descriptor sense data with sense descriptors "
+> +		printk(KERN_CONT "Descriptor sense data with sense descriptors "
+>  		       "(in hex):");
+>  		for (k = 0; k < num; ++k) {
+>  			if (0 == (k % 16)) {
+> -				printk("\n");
+> -				printk(KERN_INFO "        ");
+> +				printk(KERN_CONT "\n");
+> +				printk(KERN_INFO "       ");
+>  			}
+> -			printk("%02x ", sense_buffer[k]);
+> +			printk(KERN_CONT " %02x", sense_buffer[k]);
+>  		}
+>  
+> -		printk("\n");
+> +		printk(KERN_CONT "\n");
+>  	}
+>  
+>  }
+> @@ -1404,13 +1413,13 @@ void scsi_print_sense(char *name, struct scsi_cmnd *cmd)
+>  {
+>  	struct scsi_sense_hdr sshdr;
+>  
+> -	scmd_printk(KERN_INFO, cmd, "");
+> +	scmd_printk(KERN_INFO, cmd, " ");
+>  	scsi_decode_sense_buffer(cmd->sense_buffer, SCSI_SENSE_BUFFERSIZE,
+>  				 &sshdr);
+>  	scsi_show_sense_hdr(&sshdr);
+>  	scsi_decode_sense_extras(cmd->sense_buffer, SCSI_SENSE_BUFFERSIZE,
+>  				 &sshdr);
+> -	scmd_printk(KERN_INFO, cmd, "");
+> +	scmd_printk(KERN_INFO, cmd, " ");
+>  	scsi_show_extd_sense(sshdr.asc, sshdr.ascq);
+>  }
+>  EXPORT_SYMBOL(scsi_print_sense);
+> @@ -1443,7 +1452,7 @@ void scsi_show_result(int result)
+>  
+>  void scsi_show_result(int result)
+>  {
+> -	printk("Result: hostbyte=0x%02x driverbyte=0x%02x\n",
+> +	printk(KERN_CONT "Result: hostbyte=0x%02x driverbyte=0x%02x\n",
+>  	       host_byte(result), driver_byte(result));
+>  }
+>  
+> @@ -1453,7 +1462,7 @@ EXPORT_SYMBOL(scsi_show_result);
+>  
+>  void scsi_print_result(struct scsi_cmnd *cmd)
+>  {
+> -	scmd_printk(KERN_INFO, cmd, "");
+> +	scmd_printk(KERN_INFO, cmd, " ");
+>  	scsi_show_result(cmd->result);
+>  }
+>  EXPORT_SYMBOL(scsi_print_result);
+> diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
+> index 829cc37..2fddadd 100644
+> --- a/drivers/scsi/sd.c
+> +++ b/drivers/scsi/sd.c
+> @@ -2550,15 +2550,15 @@ module_exit(exit_sd);
+>  static void sd_print_sense_hdr(struct scsi_disk *sdkp,
+>  			       struct scsi_sense_hdr *sshdr)
+>  {
+> -	sd_printk(KERN_INFO, sdkp, "");
+> +	sd_printk(KERN_INFO, sdkp, " ");
+>  	scsi_show_sense_hdr(sshdr);
+> -	sd_printk(KERN_INFO, sdkp, "");
+> +	sd_printk(KERN_INFO, sdkp, " ");
+>  	scsi_show_extd_sense(sshdr->asc, sshdr->ascq);
+>  }
+>  
+>  static void sd_print_result(struct scsi_disk *sdkp, int result)
+>  {
+> -	sd_printk(KERN_INFO, sdkp, "");
+> +	sd_printk(KERN_INFO, sdkp, " ");
+>  	scsi_show_result(result);
+>  }
+>  
+> diff --git a/drivers/scsi/sym53c8xx_2/sym_hipd.c b/drivers/scsi/sym53c8xx_2/sym_hipd.c
+> index a7bc8b7..d740a5b 100644
+> --- a/drivers/scsi/sym53c8xx_2/sym_hipd.c
+> +++ b/drivers/scsi/sym53c8xx_2/sym_hipd.c
+> @@ -72,10 +72,7 @@ static void sym_printl_hex(u_char *p, int n)
+>  
+>  static void sym_print_msg(struct sym_ccb *cp, char *label, u_char *msg)
+>  {
+> -	if (label)
+> -		sym_print_addr(cp->cmd, "%s: ", label);
+> -	else
+> -		sym_print_addr(cp->cmd, "");
+> +	sym_print_addr(cp->cmd, "%s: ", label);
+>  
+>  	spi_print_msg(msg);
+>  	printf("\n");
+> @@ -4558,7 +4555,8 @@ static void sym_int_sir(struct sym_hcb *np)
+>  			switch (np->msgin [2]) {
+>  			case M_X_MODIFY_DP:
+>  				if (DEBUG_FLAGS & DEBUG_POINTER)
+> -					sym_print_msg(cp, NULL, np->msgin);
+> +					sym_print_msg(cp, "extended msg ",
+> +						      np->msgin);
+>  				tmp = (np->msgin[3]<<24) + (np->msgin[4]<<16) + 
+>  				      (np->msgin[5]<<8)  + (np->msgin[6]);
+>  				sym_modify_dp(np, tp, cp, tmp);
+> @@ -4585,7 +4583,7 @@ static void sym_int_sir(struct sym_hcb *np)
+>  		 */
+>  		case M_IGN_RESIDUE:
+>  			if (DEBUG_FLAGS & DEBUG_POINTER)
+> -				sym_print_msg(cp, NULL, np->msgin);
+> +				sym_print_msg(cp, "half byte ", np->msgin);
+>  			if (cp->host_flags & HF_SENSE)
+>  				OUTL_DSP(np, SCRIPTA_BA(np, clrack));
+>  			else
+
+OK, so please resend on the necessary bits.  That's "" -> " " in the
+X_printk() statements.  If you remove the space from a continuation
+line, then KERN_CONT is appropriate to keep checkpatch quiet.
+
+James
+
+
