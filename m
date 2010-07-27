@@ -1,33 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Make vhost multi-threaded and associate each thread to its guest's
- cgroup
-Date: Tue, 27 Jul 2010 23:42:54 +0300
-Message-ID: <20100727204254.GA17947@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] drivers/net/bfin_mac.c: Use pr_fmt,
+ netdev_<level>
+Date: Tue, 27 Jul 2010 13:52:37 -0700
+Message-ID: <1280263957.24054.35.camel@Joe-Laptop.home>
+References: <1280258531.24054.10.camel@Joe-Laptop.home>
+	 <20100727134417.62420ec1@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>, Li Zefan <lizf@cn.fujitsu.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26439 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752122Ab0G0UsV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jul 2010 16:48:21 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Hennerich <michael.hennerich@analog.com>,
+	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100727134417.62420ec1@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sridhar,
-I pushed a patchset with all known issues fixed,
-on my vhost-net-next branch.
+On Tue, 2010-07-27 at 13:44 -0700, Stephen Hemminger wrote:
+> On Tue, 27 Jul 2010 12:22:11 -0700
+> Joe Perches <joe@perches.com> wrote:
+> > +static struct sk_buff *bfin_alloc_skb(void)
+> > +{
+> > +	/* allocate a new skb */
+> > +	struct sk_buff *new_skb = dev_alloc_skb(PKT_BUF_SIZE + NET_IP_ALIGN);
+> > +
+> > +	if (!new_skb)
+> > +		return NULL;
+> > +
+> > +	skb_reserve(new_skb, NET_IP_ALIGN);
+>
+> Why not use netdev_alloc_skb_ip_align ?
 
-For now this ignores the cpu mask issue, addressing
-only the cgroups issue.
+I was consolidating duplicated code.
 
-Would appreciate testing and reports.
+It could be changed, but right now, desc_list_init isn't
+passed a struct netdevice.
 
-Thanks,
--- 
-MST
+Perhaps you'll submit that as a follow-on?
