@@ -1,135 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCHv2] Add missing memory barriers to clean_rx_irq functions
-	in Intel Drivers
-Date: Tue, 27 Jul 2010 15:45:42 -0700
-Message-ID: <AANLkTikMNFSyPxRCXc=cPWHkOfsx9iH0mEu-TH7bHL_h@mail.gmail.com>
+Subject: Re: [PATCH] Add missing memory barriers to clean_rx_irq functions in
+	Intel Drivers
+Date: Tue, 27 Jul 2010 15:49:51 -0700
+Message-ID: <AANLkTinsoQMmRWeZBJV4L_G_uL8nurXxBf2v2bNM=Fc4@mail.gmail.com>
 References: <20100727223452.GM17248@us.ibm.com>
-	<20100727224434.GN17248@us.ibm.com>
+	<AANLkTiniyOsNifzP47qR_zhq993U8p5wj1iJ+v4jzZkX@mail.gmail.com>
+	<20100727224631.GO17248@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, e1000-devel@lists.sf.net
 To: Sonny Rao <sonnyrao@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:42517 "EHLO
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:55419 "EHLO
 	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751206Ab0G0Wpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 18:45:45 -0400
-Received: by iwn7 with SMTP id 7so4111706iwn.19
-        for <netdev@vger.kernel.org>; Tue, 27 Jul 2010 15:45:44 -0700 (PDT)
-In-Reply-To: <20100727224434.GN17248@us.ibm.com>
+	with ESMTP id S1751206Ab0G0Wtw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 18:49:52 -0400
+Received: by iwn7 with SMTP id 7so4115545iwn.19
+        for <netdev@vger.kernel.org>; Tue, 27 Jul 2010 15:49:51 -0700 (PDT)
+In-Reply-To: <20100727224631.GO17248@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBKdWwgMjcsIDIwMTAgYXQgMTU6NDQsIFNvbm55IFJhbyA8c29ubnlyYW9AdXMuaWJt
-LmNvbT4gd3JvdGU6Cj4gQWRkIG1pc3NpbmcgbWVtb3J5IGJhcnJpZXJzIHRvIGNsZWFuX3J4X2ly
-cSBmdW5jdGlvbnMgaW4gSW50ZWwgRHJpdmVycwo+Cj4gVGhpcyBwYXRjaCBpcyBzaW1pbGFyIHRv
-IHdoYXQgd2FzIGZpeGVkIGluIGl4Z2JlIGluIHRoaXMgcGF0Y2g6Cj4KPiBodHRwOi8vbWFyYy5p
-bmZvLz9sPWUxMDAwLWRldmVsJm09MTI2NTkzMDYyNzAxNTM3Jnc9Mwo+Cj4gV2Ugc2hvdWxkIGFk
-ZCByZWFkIG1lbW9yeSBiYXJyaWVycyB0byBhbGwgdGhlIHNpbWlsYXIgY2FzZXMgYWNyb3NzIHRo
-ZQo+IEludGVsIGV0aGVybmV0IGRyaXZlciBmYW1pbHkuIMKgSW4gdGhlIGNhc2Ugb2YgaXhnYmV2
-ZiBJJ3ZlIGFsc28gYWRkZWQKPiBhIG1pc3NpbmcgYmFycmllciB0byB0aGUgY2xlYW5fdHhfaXJx
-IHBhdGggYmVjYXVzZSBJIG1pc3NlZCBpdCBpbiBteQo+IGxhc3QgcGF0Y2guCj4KPiBXaXRob3V0
-IHRoZSBiYXJyaWVyIGEgcHJvY2Vzc29yIGNhbiBzcGVjdWxhdGUgYSBsb2FkIGFoZWFkIG9mIHRo
-ZSBsb2FkCj4gd2hpY2ggbG9va3MgYXQgdGhlIHN0YXR1cyBiaXQgYW5kIGdldCBzdGFsZSBpbmZv
-cm1hdGlvbiBjYXVzaW5nIGEKPiBudW1iZXIgb2YgZGlmZmVyZW50IGlzc3VlcyBpbmNsdWRpbmcg
-aW52YWxpZCBwYWNrZXQgbGVuZ3RoLCBOVUxMCj4gcG9pbnRlcnMsIG9yIGJhZCBkYXRhIHNpbmNl
-IGNoZWNrc3VtbWluZyB3YXMgYXNzdW1lZCB0byBiZSBkb25lCj4gaW4gaGFyZHdhcmUuCj4KPiB2
-MjogSSBtaXNzZWQgdGhlIGUxMDAgdGhlIGZpcnN0IHRpbWUKPgo+IFNpZ25lZC1vZmYtYnk6IE1p
-bHRvbiBNaWxsZXIgPG1pbHRvbm1AYmdhLmNvbT4KPiBTaWduZWQtb2ZmLWJ5OiBTb25ueSBSYW8g
-PHNvbm55cmFvQHVzLmlibS5jb20+Cj4gY2M6IHN0YWJsZSA8c3RhYmxlQGtlcm5lbC5vcmc+Cj4K
-PiBJbmRleDogbGludXgtMi42LjM1LXJjNS9kcml2ZXJzL25ldC9lMTAwMC9lMTAwMF9tYWluLmMK
-PiA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09Cj4gLS0tIGxpbnV4LTIuNi4zNS1yYzUub3JpZy9kcml2ZXJzL25ldC9lMTAw
-MC9lMTAwMF9tYWluLmMgwqAgwqAgwqAgwqAyMDEwLTA3LTI3IDE2OjE1OjE4LjAwMDAwMDAwMCAt
-MDUwMAo+ICsrKyBsaW51eC0yLjYuMzUtcmM1L2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4u
-YyDCoCDCoCAyMDEwLTA3LTI3IDE2OjIyOjIxLjAwMDAwMDAwMCAtMDUwMAo+IEBAIC0zNjM4LDYg
-KzM2MzgsNyBAQCBzdGF0aWMgYm9vbCBlMTAwMF9jbGVhbl9qdW1ib19yeF9pcnEoc3RyCj4gwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqBpZiAoKndvcmtfZG9uZSA+PSB3b3JrX3RvX2RvKQo+IMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYnJlYWs7Cj4gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAoKndvcmtfZG9uZSkrKzsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHJtYigpOyAvKiBy
-ZWFkIGRlc2NyaXB0b3IgYW5kIHJ4X2J1ZmZlcl9pbmZvIGFmdGVyIHN0YXR1cyBERCAqLwo+Cj4g
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBzdGF0dXMgPSByeF9kZXNjLT5zdGF0dXM7Cj4gwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqBza2IgPSBidWZmZXJfaW5mby0+c2tiOwo+IEBAIC0zODQ0LDYgKzM4
-NDUsNyBAQCBzdGF0aWMgYm9vbCBlMTAwMF9jbGVhbl9yeF9pcnEoc3RydWN0IGUxCj4gwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqBpZiAoKndvcmtfZG9uZSA+PSB3b3JrX3RvX2RvKQo+IMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYnJlYWs7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAoKndvcmtfZG9uZSkrKzsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHJtYigpOyAvKiByZWFk
-IGRlc2NyaXB0b3IgYW5kIHJ4X2J1ZmZlcl9pbmZvIGFmdGVyIHN0YXR1cyBERCAqLwo+Cj4gwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqBzdGF0dXMgPSByeF9kZXNjLT5zdGF0dXM7Cj4gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqBza2IgPSBidWZmZXJfaW5mby0+c2tiOwo+IEluZGV4OiBsaW51eC0yLjYu
-MzUtcmM1L2RyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYwo+ID09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KPiAtLS0gbGlu
-dXgtMi42LjM1LXJjNS5vcmlnL2RyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYyDCoCAyMDEwLTA3
-LTI3IDE2OjIyOjM4LjAwMDAwMDAwMCAtMDUwMAo+ICsrKyBsaW51eC0yLjYuMzUtcmM1L2RyaXZl
-cnMvbmV0L2UxMDAwZS9uZXRkZXYuYyDCoCDCoCDCoCDCoDIwMTAtMDctMjcgMTY6MjU6MjMuMDAw
-MDAwMDAwIC0wNTAwCj4gQEAgLTc3NCw2ICs3NzQsNyBAQCBzdGF0aWMgYm9vbCBlMTAwMF9jbGVh
-bl9yeF9pcnEoc3RydWN0IGUxCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBpZiAoKndvcmtfZG9u
-ZSA+PSB3b3JrX3RvX2RvKQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYnJl
-YWs7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAoKndvcmtfZG9uZSkrKzsKPiArIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIHJtYigpOyDCoC8qIHJlYWQgZGVzY3JpcHRvciBhbmQgcnhfYnVmZmVyX2lu
-Zm8gYWZ0ZXIgc3RhdHVzIEREICovCj4KPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHN0YXR1cyA9
-IHJ4X2Rlc2MtPnN0YXR1czsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHNrYiA9IGJ1ZmZlcl9p
-bmZvLT5za2I7Cj4gQEAgLTEwODEsNiArMTA4Miw3IEBAIHN0YXRpYyBib29sIGUxMDAwX2NsZWFu
-X3J4X2lycV9wcyhzdHJ1Y3QKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGJy
-ZWFrOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKCp3b3JrX2RvbmUpKys7Cj4gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqBza2IgPSBidWZmZXJfaW5mby0+c2tiOwo+ICsgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgcm1iKCk7IMKgLyogcmVhZCBkZXNjcmlwdG9yIGFuZCByeF9idWZmZXJfaW5mbyBhZnRl
-ciBzdGF0dXMgREQgKi8KPgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgLyogaW4gdGhlIHBhY2tl
-dCBzcGxpdCBjYXNlIHRoaXMgaXMgaGVhZGVyIG9ubHkgKi8KPiDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoHByZWZldGNoKHNrYi0+ZGF0YSAtIE5FVF9JUF9BTElHTik7Cj4gQEAgLTEyODAsNiArMTI4
-Miw3IEBAIHN0YXRpYyBib29sIGUxMDAwX2NsZWFuX2p1bWJvX3J4X2lycShzdHIKPiDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoGlmICgqd29ya19kb25lID49IHdvcmtfdG9fZG8pCj4gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBicmVhazsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCgqd29ya19kb25lKSsrOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcm1iKCk7IMKgLyogcmVh
-ZCBkZXNjcmlwdG9yIGFuZCByeF9idWZmZXJfaW5mbyBhZnRlciBzdGF0dXMgREQgKi8KPgo+IMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgc3RhdHVzID0gcnhfZGVzYy0+c3RhdHVzOwo+IMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgc2tiID0gYnVmZmVyX2luZm8tPnNrYjsKPiBJbmRleDogbGludXgtMi42
-LjM1LXJjNS9kcml2ZXJzL25ldC9peGdiL2l4Z2JfbWFpbi5jCj4gPT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQo+IC0tLSBs
-aW51eC0yLjYuMzUtcmM1Lm9yaWcvZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4uYyDCoDIwMTAt
-MDctMjcgMTY6Mjc6MjMuMDAwMDAwMDAwIC0wNTAwCj4gKysrIGxpbnV4LTIuNi4zNS1yYzUvZHJp
-dmVycy9uZXQvaXhnYi9peGdiX21haW4uYyDCoCDCoCDCoCAyMDEwLTA3LTI3IDE2OjQxOjU3LjAw
-MDAwMDAwMCAtMDUwMAo+IEBAIC0xOTc3LDYgKzE5NzcsNyBAQCBpeGdiX2NsZWFuX3J4X2lycShz
-dHJ1Y3QgaXhnYl9hZGFwdGVyICphCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqBicmVhazsKPgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKCp3b3JrX2RvbmUpKys7Cj4gKyDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCBybWIoKTsgwqAvKiByZWFkIGRlc2NyaXB0b3IgYW5kIHJ4X2J1
-ZmZlcl9pbmZvIGFmdGVyIHN0YXR1cyBERCAqLwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgc3Rh
-dHVzID0gcnhfZGVzYy0+c3RhdHVzOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgc2tiID0gYnVm
-ZmVyX2luZm8tPnNrYjsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGJ1ZmZlcl9pbmZvLT5za2Ig
-PSBOVUxMOwo+IEluZGV4OiBsaW51eC0yLjYuMzUtcmM1L2RyaXZlcnMvbmV0L2l4Z2JldmYvaXhn
-YmV2Zl9tYWluLmMKPiA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09Cj4gLS0tIGxpbnV4LTIuNi4zNS1yYzUub3JpZy9kcml2
-ZXJzL25ldC9peGdiZXZmL2l4Z2JldmZfbWFpbi5jIMKgIMKgMjAxMC0wNy0yNyAxNjozMDo1MS4w
-MDAwMDAwMDAgLTA1MDAKPiArKysgbGludXgtMi42LjM1LXJjNS9kcml2ZXJzL25ldC9peGdiZXZm
-L2l4Z2JldmZfbWFpbi5jIDIwMTAtMDctMjcgMTY6NDA6MTkuMDAwMDAwMDAwIC0wNTAwCj4gQEAg
-LTIzMSw2ICsyMzEsNyBAQCBzdGF0aWMgYm9vbCBpeGdiZXZmX2NsZWFuX3R4X2lycShzdHJ1Y3QK
-PiDCoCDCoCDCoCDCoHdoaWxlICgoZW9wX2Rlc2MtPndiLnN0YXR1cyAmIGNwdV90b19sZTMyKElY
-R0JFX1RYRF9TVEFUX0REKSkgJiYKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCAoY291bnQgPCB0eF9y
-aW5nLT53b3JrX2xpbWl0KSkgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYm9vbCBjbGVhbmVk
-ID0gZmFsc2U7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCBybWIoKTsgLyogcmVhZCBidWZmZXJf
-aW5mbyBhZnRlciBlb3BfZGVzYyAqLwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgZm9yICggOyAh
-Y2xlYW5lZDsgY291bnQrKykgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-c3RydWN0IHNrX2J1ZmYgKnNrYjsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oHR4X2Rlc2MgPSBJWEdCRV9UWF9ERVNDX0FEVigqdHhfcmluZywgaSk7Cj4gQEAgLTUxOCw2ICs1
-MTksNyBAQCBzdGF0aWMgYm9vbCBpeGdiZXZmX2NsZWFuX3J4X2lycShzdHJ1Y3QKPiDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGJyZWFrOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgKCp3b3JrX2RvbmUpKys7Cj4KPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHJtYigpOyAvKiBy
-ZWFkIGRlc2NyaXB0b3IgYW5kIHJ4X2J1ZmZlcl9pbmZvIGFmdGVyIHN0YXR1cyBERCAqLwo+IMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgaWYgKGFkYXB0ZXItPmZsYWdzICYgSVhHQkVfRkxBR19SWF9Q
-U19FTkFCTEVEKSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBoZHJfaW5m
-byA9IGxlMTZfdG9fY3B1KGl4Z2JldmZfZ2V0X2hkcl9pbmZvKHJ4X2Rlc2MpKTsKPiDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGxlbiA9IChoZHJfaW5mbyAmIElYR0JFX1JYREFE
-Vl9IRFJCVUZMRU5fTUFTSykgPj4KPiBJbmRleDogbGludXgtMi42LjM1LXJjNS9kcml2ZXJzL25l
-dC9lMTAwLmMKPiA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09Cj4gLS0tIGxpbnV4LTIuNi4zNS1yYzUub3JpZy9kcml2ZXJz
-L25ldC9lMTAwLmMgwqAgwqAyMDEwLTA3LTI3IDE3OjM2OjQ0LjAwMDAwMDAwMCAtMDUwMAo+ICsr
-KyBsaW51eC0yLjYuMzUtcmM1L2RyaXZlcnMvbmV0L2UxMDAuYyAyMDEwLTA3LTI3IDE3OjQxOjM4
-LjAwMDAwMDAwMCAtMDUwMAo+IEBAIC0xOTI4LDYgKzE5MjgsNyBAQCBzdGF0aWMgaW50IGUxMDBf
-cnhfaW5kaWNhdGUoc3RydWN0IG5pYyAqCj4KPiDCoCDCoCDCoCDCoG5ldGlmX3ByaW50ayhuaWMs
-IHJ4X3N0YXR1cywgS0VSTl9ERUJVRywgbmljLT5uZXRkZXYsCj4gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgInN0YXR1cz0weCUwNFhcbiIsIHJmZF9zdGF0dXMpOwo+ICsgwqAgwqAgwqAg
-cm1iKCk7IC8qIHJlYWQgc2l6ZSBhZnRlciBzdGF0dXMgYml0ICovCj4KPiDCoCDCoCDCoCDCoC8q
-IElmIGRhdGEgaXNuJ3QgcmVhZHksIG5vdGhpbmcgdG8gaW5kaWNhdGUgKi8KPiDCoCDCoCDCoCDC
-oGlmICh1bmxpa2VseSghKHJmZF9zdGF0dXMgJiBjYl9jb21wbGV0ZSkpKSB7Cj4gLS0KCllvdSBh
-bHNvIHNlZW0gdG8gYmUgbWlzc2luZyBpZ2IuCgotLSAKQ2hlZXJzLApKZWZmCg==
+On Tue, Jul 27, 2010 at 15:46, Sonny Rao <sonnyrao@us.ibm.com> wrote:
+> On Tue, Jul 27, 2010 at 03:41:46PM -0700, Jeff Kirsher wrote:
+>> On Tue, Jul 27, 2010 at 15:34, Sonny Rao <sonnyrao@us.ibm.com> wrote=
+:
+>> > This patch is similar to what was fixed in ixgbe in this patch:
+>> >
+>> > http://marc.info/?l=3De1000-devel&m=3D126593062701537&w=3D3
+>> >
+>> > We should add read memory barriers to all the similar cases across=
+ the
+>> > Intel ethernet driver family. =C2=A0In the case of ixgbevf I've al=
+so added
+>> > a missing barrier to the clean_tx_irq path because I missed it in =
+my
+>> > last patch.
+>> >
+>> > Without the barrier a processor can speculate a load ahead of the =
+load
+>> > which looks at the status bit and get stale information causing a
+>> > number of different issues including invalid packet length, NULL
+>> > pointers, or bad data since checksumming was assumed to be done
+>> > in hardware.
+>> >
+>> > Signed-off-by: Milton Miller <miltonm@bga.com>
+>> > Signed-off-by: Sonny Rao <sonnyrao@us.ibm.com>
+>> > cc: stable <stable@kernel.org>
+>> >
+>>
+>> I already have a similar patch in my queue from you Sonny, although =
+I
+>> see that this patch has made a few more changes. =C2=A0Is this versi=
+on 2?
+>
+> Well, the previous one was for the clean_tx_irq functions this one is
+> for the clean_rx_irq functions. =C2=A0I'd gotten the two confused whe=
+n I
+> referenced Anton's original patch -- which was also a clean_rx_irq
+> patch. =C2=A0So they are touching different code paths but fixing sim=
+ilar
+> problems.
+>
+>
+> --
+> Sonny Rao, LTC OzLabs, BML team
+> --
+
+Ok, just wanted to make sure.  In the first patch (which I already
+have in my queue) that cleans up clean_tx_irq, your missing igb driver
+as well.
+
+--=20
+Cheers,
+Jeff
