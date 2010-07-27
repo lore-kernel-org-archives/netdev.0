@@ -1,72 +1,61 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [PATCH] Driver-core: Fix bluetooth network device rename
-	regression
-Date: Tue, 27 Jul 2010 17:32:24 +0200
-Message-ID: <AANLkTim2i8LiAaDPUyJqKtyhHC2ufuxZNKYMoVYKz_eZ@mail.gmail.com>
-References: <AANLkTil3Q1Vobw48AvStl9gphaJcyUGlt6ZnMLanDMVn@mail.gmail.com>
-	<1279822828.12439.24.camel@jlt3.sipsolutions.net> <20100722182827.GA12821@suse.de>
-	<1279823801.12439.31.camel@jlt3.sipsolutions.net> <20100722185449.GB528@suse.de>
-	<m1eievugon.fsf@fess.ebiederm.org> <20100726180941.GB4883@kroah.com>
-	<AANLkTincg-0-h1aqW4A=z6A+HTbOfkCCWKDD18ZUEGSn@mail.gmail.com>
-	<20100727134904.GA4994@kroah.com> <1280239190.3755.4.camel@jlt3.sipsolutions.net>
-	<20100727150921.GD5803@kroah.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Tue, 27 Jul 2010 18:41:55 +0300
+Message-ID: <20100727154155.GA13419@redhat.com>
+References: <4C2CA5C5.4040402@kernel.org>
+ <20100701144624.GA11171@redhat.com>
+ <4C2CABF2.2020801@kernel.org>
+ <1277996135.1917.198.camel@laptop>
+ <4C2E2987.9040702@us.ibm.com>
+ <1278094270.1917.288.camel@laptop>
+ <20100702210637.GA12433@redhat.com>
+ <20100726171230.GA27644@redhat.com>
+ <1280166688.3375.5.camel@localhost>
+ <20100726180834.GA26988@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <gregkh@suse.de>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	netdev <netdev@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:54733 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753580Ab0G0Pcj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 11:32:39 -0400
-Received: by pxi14 with SMTP id 14so494718pxi.19
-        for <netdev@vger.kernel.org>; Tue, 27 Jul 2010 08:32:39 -0700 (PDT)
-In-Reply-To: <20100727150921.GD5803@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100726180834.GA26988@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 27, 2010 at 17:09, Greg KH <greg@kroah.com> wrote:
-> On Tue, Jul 27, 2010 at 03:59:50PM +0200, Johannes Berg wrote:
->> On Tue, 2010-07-27 at 06:49 -0700, Greg KH wrote:
->>
->> > And Eric, where are you working on the "real" patches to solve the
->> > problems of the bnet and wireless driver problems so we can remove=
- this
->> > check from the driver core as soon as possible? =C2=A0Any idea whe=
-n they will
->> > be done?
->>
->> They'll be done as soon as the driver core offers the required
->> functionality, which we discussed elsewhere in this thread.
->
-> {sigh}
->
-> Kay provided a solution for this a number of times already. =C2=A0Wha=
-t, are
-> you really going to make him type it up _again_? =C2=A0That's just co=
-mpletly
-> unfair to him.
+On Mon, Jul 26, 2010 at 08:08:34PM +0200, Oleg Nesterov wrote:
+> On 07/26, Sridhar Samudrala wrote:
+> >
+> > I have been testing out a similar patch that uses kernel_thread() without CLONE_FILES
+> > flag rather than create_kthread() and then closing the files.
+> 
+> !CLONE_FILES can't help. copy_files() does dup_fd() in this case.
+> The child still inherits the files.
+> 
+> > Either version should be fine.
+> 
+> I think neither version is fine ;)
+> 
+> exit_files() is not enough too. How about the signals, reparenting?
+> 
+> 
+> I already forgot all details, probably I missed somethig. But it
+> seems to me that it is better to just export get/set affinity and
+> forget about all complications.
+> 
+> Oleg.
 
-Sure, I still offer any needed help, if there are new requirements now
-that need core changes. But hey, they will not land magically, if
-nobody is working on it. And "as soon as the core offers" is not how
-we make new features work on Linux. The people who add new features,
-which uncover old bugs, need to fix the old bugs instead of papering
-them over, like it happened here.
+Oleg, so can I attach your Ack to the patch in question, and merge
+it all through net-next?
 
-> And note, Eric, this was and is, completely due to your changes, so I=
- am
-> holding you responsible for fixing it correctly. =C2=A0Please do so.
-
-I guess faking a 'bluetooth renaming regression', which never existed,
-which wasn't even known to the bluetooth maintainers, was just much
-easier. :)
-
-Kay
+-- 
+MST
