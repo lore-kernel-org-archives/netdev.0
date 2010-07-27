@@ -1,54 +1,119 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [PATCH] Driver-core: Fix bluetooth network device rename
-	regression
-Date: Tue, 27 Jul 2010 20:24:31 +0200
-Message-ID: <AANLkTi=ttTjec7RjUZRM9v5WtLEYNPtH9L2qx8Js1WCT@mail.gmail.com>
-References: <AANLkTimM5Ea8mQ7aX4kDq3dgF3P-t2Wm3dERhckC69Ja@mail.gmail.com>
-	<m1vd87toy9.fsf@fess.ebiederm.org> <AANLkTil3Q1Vobw48AvStl9gphaJcyUGlt6ZnMLanDMVn@mail.gmail.com>
-	<1279822828.12439.24.camel@jlt3.sipsolutions.net> <20100722182827.GA12821@suse.de>
-	<1279823801.12439.31.camel@jlt3.sipsolutions.net> <20100722185449.GB528@suse.de>
-	<m1eievugon.fsf@fess.ebiederm.org> <20100726180941.GB4883@kroah.com>
-	<AANLkTincg-0-h1aqW4A=z6A+HTbOfkCCWKDD18ZUEGSn@mail.gmail.com>
-	<20100727134904.GA4994@kroah.com> <m14ofkiybo.fsf@fess.ebiederm.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: br_forward.c - rcu dereference warning
+Date: Tue, 27 Jul 2010 11:26:30 -0700
+Message-ID: <20100727112630.5a5ce84b@nehalam>
+References: <1280227553.3755.2.camel@jlt3.sipsolutions.net>
+	<20100727123859.GF3766@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <greg@kroah.com>, Greg KH <gregkh@suse.de>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
 	netdev <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:46317 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753271Ab0G0SYs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 14:24:48 -0400
-Received: by qyk7 with SMTP id 7so2861460qyk.19
-        for <netdev@vger.kernel.org>; Tue, 27 Jul 2010 11:24:47 -0700 (PDT)
-In-Reply-To: <m14ofkiybo.fsf@fess.ebiederm.org>
+Received: from mail.vyatta.com ([76.74.103.46]:45765 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751879Ab0G0S0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jul 2010 14:26:36 -0400
+In-Reply-To: <20100727123859.GF3766@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 27, 2010 at 20:17, Eric W. Biederman <ebiederm@xmission.com=
-> wrote:
-> Greg KH <greg@kroah.com> writes:
+I think this is needed (untested)...
+-----
+Subject: bridge: add rcu_read_lock on transmit
 
-> Let me say this again clearly.
->
-> class -> bus BROKEN
->
-> In the case of bluetooth it would require changing /sys/class/bluetoo=
-th
-> to /sys/bus/bluetooth. =C2=A0Which is user visible in the worst possi=
-ble
-> way and quick google search confirmed it will break user space script=
-s.
+Long ago, when bridge was converted to RCU, rcu lock was equivalent
+to having preempt disabled. RCU has changed a lot since then and
+bridge code was still assuming the since transmit was called with
+bottom half disabled, it was RCU safe.
 
-Clearly, we even have a compat API for that, and nothing would break.
-If needed, a bus can create compat class links. Did you even check
-with the bluetooth guys, last time I talked to them, they have been
-totally fine with such a change.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Kay
+
+---
+ net/bridge/br_device.c   |    4 +++-
+ net/bridge/br_fdb.c      |    2 +-
+ net/bridge/br_input.c    |    7 +++----
+ net/bridge/br_stp_bpdu.c |    2 +-
+ 4 files changed, 8 insertions(+), 7 deletions(-)
+
+--- a/net/bridge/br_device.c	2010-07-27 08:57:43.169399349 -0700
++++ b/net/bridge/br_device.c	2010-07-27 11:18:51.677053426 -0700
+@@ -22,7 +22,7 @@
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+ 
+-/* net device transmit always called with no BH (preempt_disabled) */
++/* net device transmit always called with no BH disabled */
+ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+@@ -48,6 +48,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *
+ 	skb_reset_mac_header(skb);
+ 	skb_pull(skb, ETH_HLEN);
+ 
++	rcu_read_lock();
+ 	if (is_multicast_ether_addr(dest)) {
+ 		if (unlikely(netpoll_tx_running(dev))) {
+ 			br_flood_deliver(br, skb);
+@@ -67,6 +68,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *
+ 		br_flood_deliver(br, skb);
+ 
+ out:
++	rcu_read_unlock();
+ 	return NETDEV_TX_OK;
+ }
+ 
+--- a/net/bridge/br_fdb.c	2010-07-27 11:18:30.815320981 -0700
++++ b/net/bridge/br_fdb.c	2010-07-27 11:18:59.597710975 -0700
+@@ -214,7 +214,7 @@ void br_fdb_delete_by_port(struct net_br
+ 	spin_unlock_bh(&br->hash_lock);
+ }
+ 
+-/* No locking or refcounting, assumes caller has no preempt (rcu_read_lock) */
++/* No locking or refcounting, assumes caller has rcu_read_lock */
+ struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
+ 					  const unsigned char *addr)
+ {
+--- a/net/bridge/br_input.c	2010-07-27 11:19:05.266181492 -0700
++++ b/net/bridge/br_input.c	2010-07-27 11:19:29.148163149 -0700
+@@ -39,7 +39,7 @@ static int br_pass_frame_up(struct sk_bu
+ 		       netif_receive_skb);
+ }
+ 
+-/* note: already called with rcu_read_lock (preempt_disabled) */
++/* note: already called with rcu_read_lock */
+ int br_handle_frame_finish(struct sk_buff *skb)
+ {
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+@@ -110,7 +110,7 @@ drop:
+ 	goto out;
+ }
+ 
+-/* note: already called with rcu_read_lock (preempt_disabled) */
++/* note: already called with rcu_read_lock */
+ static int br_handle_local_finish(struct sk_buff *skb)
+ {
+ 	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
+@@ -133,8 +133,7 @@ static inline int is_link_local(const un
+ 
+ /*
+  * Return NULL if skb is handled
+- * note: already called with rcu_read_lock (preempt_disabled) from
+- * netif_receive_skb
++ * note: already called with rcu_read_lock from netif_receive_skb
+  */
+ struct sk_buff *br_handle_frame(struct sk_buff *skb)
+ {
+--- a/net/bridge/br_stp_bpdu.c	2010-07-27 11:19:34.092573294 -0700
++++ b/net/bridge/br_stp_bpdu.c	2010-07-27 11:19:40.725123403 -0700
+@@ -131,7 +131,7 @@ void br_send_tcn_bpdu(struct net_bridge_
+ /*
+  * Called from llc.
+  *
+- * NO locks, but rcu_read_lock (preempt_disabled)
++ * NO locks, but rcu_read_lock
+  */
+ void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
+ 		struct net_device *dev)
