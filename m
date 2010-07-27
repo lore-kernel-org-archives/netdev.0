@@ -1,88 +1,216 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] Driver-core: Fix bluetooth network device rename  regression
-Date: Tue, 27 Jul 2010 13:53:02 -0700
-Message-ID: <m1aapcejf5.fsf@fess.ebiederm.org>
-References: <1279822828.12439.24.camel@jlt3.sipsolutions.net>
-	<20100722182827.GA12821@suse.de>
-	<1279823801.12439.31.camel@jlt3.sipsolutions.net>
-	<20100722185449.GB528@suse.de> <m1eievugon.fsf@fess.ebiederm.org>
-	<20100726180941.GB4883@kroah.com>
-	<AANLkTincg-0-h1aqW4A=z6A+HTbOfkCCWKDD18ZUEGSn@mail.gmail.com>
-	<20100727134904.GA4994@kroah.com> <m14ofkiybo.fsf@fess.ebiederm.org>
-	<AANLkTi=ttTjec7RjUZRM9v5WtLEYNPtH9L2qx8Js1WCT@mail.gmail.com>
-	<20100727183624.GB30363@kroah.com> <m1zkxcg3xe.fsf@fess.ebiederm.org>
-	<AANLkTi=LB7qV3S1miOocpQCtCaxhqJsLS51UDcnGjK+u@mail.gmail.com>
+From: Jon Mason <jon.mason@exar.com>
+Subject: Re: [PATCH net-next] drivers/net/vxge: Use pr_<level>, fix logging
+ macros
+Date: Tue, 27 Jul 2010 16:38:19 -0500
+Message-ID: <20100727213819.GC25556@exar.com>
+References: <1280263388.24054.27.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <greg@kroah.com>, Greg KH <gregkh@suse.de>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:43373 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752905Ab0G0UxJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 16:53:09 -0400
-In-Reply-To: <AANLkTi=LB7qV3S1miOocpQCtCaxhqJsLS51UDcnGjK+u@mail.gmail.com> (Kay Sievers's message of "Tue\, 27 Jul 2010 20\:54\:33 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
+	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1280263388.24054.27.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kay Sievers <kay.sievers@vrfy.org> writes:
+On Tue, Jul 27, 2010 at 01:43:08PM -0700, Joe Perches wrote:
+> Use pr_fmt, pr_<level> and netdev_<level> where appropriate.
+> Use direct printing of logging messages to save text.
+> 
+> Reduces object size ~ 4k or 20k.
+> 
+> (x86 defconfig with vxge)
+> $ size drivers/net/vxge/built-in.o*
+>    text	   data	    bss	    dec	    hex	filename
+>   68463	    784	      8	  69255	  10e87	drivers/net/vxge/built-in.o.new
+>   72417	    784	      8	  73209	  11df9	drivers/net/vxge/built-in.o.old
+> 
+> (x86 allyesconfig)
+> $ size drivers/net/vxge/built-in.o.*
+>    text	   data	    bss	    dec	    hex	filename
+>  125843	   1039	  27528	 154410	  25b2a	drivers/net/vxge/built-in.o.new
+>  142589	   1039	  31024	 174652	  2aa3c	drivers/net/vxge/built-in.o.old
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-> On Tue, Jul 27, 2010 at 20:44, Eric W. Biederman <ebiederm@xmission.c=
-om> wrote:
->> Greg KH <greg@kroah.com> writes:
->>> On Tue, Jul 27, 2010 at 08:24:31PM +0200, Kay Sievers wrote:
->>>> On Tue, Jul 27, 2010 at 20:17, Eric W. Biederman <ebiederm@xmissio=
-n.com> wrote:
->>>> > Greg KH <greg@kroah.com> writes:
->>>>
->>>> > Let me say this again clearly.
->>>> >
->>>> > class -> bus BROKEN
->>>> >
->>>> > In the case of bluetooth it would require changing /sys/class/bl=
-uetooth
->>>> > to /sys/bus/bluetooth. ??Which is user visible in the worst poss=
-ible
->>>> > way and quick google search confirmed it will break user space s=
-cripts.
->>>>
->>>> Clearly, we even have a compat API for that, and nothing would bre=
-ak.
->>>> If needed, a bus can create compat class links. Did you even check
->>>> with the bluetooth guys, last time I talked to them, they have bee=
-n
->>>> totally fine with such a change.
->>
->> Hmm. =C2=A0It appears I missed the compat API in my review of the bu=
-s code.
->> Could I get a pointer?
->
-> It's:
->   class_compat_create_link()
->   http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;=
-a=3Dblob;f=3Ddrivers/base/class.c;h=3D8e231d05b40058c6c3191b4a06a15ceff=
-1714be3;hb=3DHEAD#l559
->
->
-> I think i2c uses this when the class was converted to a bus.
+I have a similar patch queued internally (pending testing).
 
-> It should only be used if it's really needed for known used userspace
-> interfaces. A few others that got converted already did not need it.
+> ---
+>  drivers/net/vxge/vxge-config.h |   38 ++++++++++++++++----------------------
+>  drivers/net/vxge/vxge-main.c   |   27 +++++++++++----------------
+>  2 files changed, 27 insertions(+), 38 deletions(-)
+> 
+> diff --git a/drivers/net/vxge/vxge-config.h b/drivers/net/vxge/vxge-config.h
+> index 1a94343..dfe0e2d 100644
+> --- a/drivers/net/vxge/vxge-config.h
+> +++ b/drivers/net/vxge/vxge-config.h
+> @@ -20,12 +20,8 @@
+>  #define VXGE_CACHE_LINE_SIZE 128
+>  #endif
+>  
+> -#define vxge_os_vaprintf(level, mask, fmt, ...) { \
+> -	char buff[255]; \
+> -		snprintf(buff, 255, fmt, __VA_ARGS__); \
+> -		printk(buff); \
+> -		printk("\n"); \
+> -}
+> +#define vxge_os_vaprintf(level, mask, fmt, ...) \
+> +	printk(fmt "\n", ##__VA_ARGS__)
+>  
+>  #ifndef VXGE_ALIGN
+>  #define VXGE_ALIGN(adrs, size) \
+> @@ -2228,7 +2224,6 @@ vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask);
+>   * vxge_debug
+>   * @level: level of debug verbosity.
+>   * @mask: mask for the debug
+> - * @buf: Circular buffer for tracing
+>   * @fmt: printf like format string
+>   *
+>   * Provides logging facilities. Can be customized on per-module
+> @@ -2238,24 +2233,23 @@ vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask);
+>   * See also: enum vxge_debug_level{}.
+>   */
+>  
+> -#define vxge_trace_aux(level, mask, fmt, ...) \
+> -{\
+> -		vxge_os_vaprintf(level, mask, fmt, __VA_ARGS__);\
+> -}
+> +#define vxge_trace_aux(level, mask, fmt, ...)			\
+> +	vxge_os_vaprintf(level, mask, fmt, ##__VA_ARGS__)
+>  
+> -#define vxge_debug(module, level, mask, fmt, ...) { \
+> -if ((level >= VXGE_TRACE && ((module & VXGE_DEBUG_TRACE_MASK) == module)) || \
+> -	(level >= VXGE_ERR && ((module & VXGE_DEBUG_ERR_MASK) == module))) {\
+> -	if ((mask & VXGE_DEBUG_MASK) == mask)\
+> -		vxge_trace_aux(level, mask, fmt, __VA_ARGS__); \
+> -} \
+> -}
+> +#define vxge_debug(module, level, mask, fmt, ...)			\
+> +do {									\
+> +	if ((level >= VXGE_TRACE &&					\
+> +	     ((module & VXGE_DEBUG_TRACE_MASK) == module)) ||		\
+> +	    (level >= VXGE_ERR &&					\
+> +	     ((module & VXGE_DEBUG_ERR_MASK) == module))) {		\
+> +		if ((mask & VXGE_DEBUG_MASK) == mask)			\
+> +			vxge_trace_aux(level, mask, fmt, ##__VA_ARGS__); \
+> +	}								\
+> +} while (0)
+>  
+>  #if (VXGE_COMPONENT_LL & VXGE_DEBUG_MODULE_MASK)
+> -#define vxge_debug_ll(level, mask, fmt, ...) \
+> -{\
+> -	vxge_debug(VXGE_COMPONENT_LL, level, mask, fmt, __VA_ARGS__);\
+> -}
+> +#define vxge_debug_ll(level, mask, fmt, ...)				\
+> +	vxge_debug(VXGE_COMPONENT_LL, level, mask, fmt, ##__VA_ARGS__)
 
-Interesting.  The symlink creation is slightly buggy in that it is
-created after the uevent for device creation has been sent.  Which can
-lead to some interesting races in userspace.
+Why not make the entire vxge_debug part of vxge_debug_ll?  If
+disabled, that code can be removed completely as it is unnecessary.
+Also, why not call printk directly from vxge_debug?  This code had too
+many levels of indirection before, remove all of them (as that is way
+I did in the internal patch).
 
-As for the rest the bus compat code is similar but not quite the same
-as the class code, so I would be extremely reluctant to deploy it
-except in extremely limited cases.  Backwards compatibility is
-important, and we should strive our best to maintain backwards
-compatibility it for the kernel<->userspace ABIs.
+>  #else
+>  #define vxge_debug_ll(level, mask, fmt, ...)
+> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+> index 94d87e8..c7c5605 100644
+> --- a/drivers/net/vxge/vxge-main.c
+> +++ b/drivers/net/vxge/vxge-main.c
+> @@ -41,6 +41,8 @@
+>  *
+>  ******************************************************************************/
+>  
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+>  #include <linux/if_vlan.h>
+>  #include <linux/pci.h>
+>  #include <linux/slab.h>
+> @@ -144,7 +146,7 @@ vxge_callback_link_up(struct __vxge_hw_device *hldev)
+>  
+>  	vxge_debug_entryexit(VXGE_TRACE, "%s: %s:%d",
+>  		vdev->ndev->name, __func__, __LINE__);
+> -	printk(KERN_NOTICE "%s: Link Up\n", vdev->ndev->name);
+> +	netdev_notice(vdev->ndev, "Link Up\n");
+>  	vdev->stats.link_up++;
+>  
+>  	netif_carrier_on(vdev->ndev);
+> @@ -168,7 +170,7 @@ vxge_callback_link_down(struct __vxge_hw_device *hldev)
+>  
+>  	vxge_debug_entryexit(VXGE_TRACE,
+>  		"%s: %s:%d", vdev->ndev->name, __func__, __LINE__);
+> -	printk(KERN_NOTICE "%s: Link Down\n", vdev->ndev->name);
+> +	netdev_notice(vdev->ndev, "Link Down\n");
+>  
+>  	vdev->stats.link_down++;
+>  	netif_carrier_off(vdev->ndev);
+> @@ -2679,7 +2681,7 @@ vxge_open(struct net_device *dev)
+>  
+>  	if (vxge_hw_device_link_state_get(vdev->devh) == VXGE_HW_LINK_UP) {
+>  		netif_carrier_on(vdev->ndev);
+> -		printk(KERN_NOTICE "%s: Link Up\n", vdev->ndev->name);
+> +		netdev_notice(vdev->ndev, "Link Up\n");
+>  		vdev->stats.link_up++;
+>  	}
+>  
+> @@ -2817,7 +2819,7 @@ int do_vxge_close(struct net_device *dev, int do_io)
+>  	}
+>  
+>  	netif_carrier_off(vdev->ndev);
+> -	printk(KERN_NOTICE "%s: Link Down\n", vdev->ndev->name);
+> +	netdev_notice(vdev->ndev, "Link Down\n");
+>  	netif_tx_stop_all_queues(vdev->ndev);
+>  
+>  	/* Note that at this point xmit() is stopped by upper layer */
+> @@ -3844,9 +3846,7 @@ static pci_ers_result_t vxge_io_slot_reset(struct pci_dev *pdev)
+>  	struct vxgedev *vdev = netdev_priv(netdev);
+>  
+>  	if (pci_enable_device(pdev)) {
+> -		printk(KERN_ERR "%s: "
+> -			"Cannot re-enable device after reset\n",
+> -			VXGE_DRIVER_NAME);
+> +		netdev_err(netdev, "Cannot re-enable device after reset\n");
+>  		return PCI_ERS_RESULT_DISCONNECT;
+>  	}
+>  
+> @@ -3871,9 +3871,8 @@ static void vxge_io_resume(struct pci_dev *pdev)
+>  
+>  	if (netif_running(netdev)) {
+>  		if (vxge_open(netdev)) {
+> -			printk(KERN_ERR "%s: "
+> -				"Can't bring device back up after reset\n",
+> -				VXGE_DRIVER_NAME);
+> +			netdev_err(netdev,
+> +				   "Can't bring device back up after reset\n");
+>  			return;
+>  		}
+>  	}
+> @@ -4430,13 +4429,9 @@ static int __init
+>  vxge_starter(void)
+>  {
+>  	int ret = 0;
+> -	char version[32];
+> -	snprintf(version, 32, "%s", DRV_VERSION);
+>  
+> -	printk(KERN_INFO "%s: Copyright(c) 2002-2010 Exar Corp.\n",
+> -		VXGE_DRIVER_NAME);
+> -	printk(KERN_INFO "%s: Driver version: %s\n",
+> -			VXGE_DRIVER_NAME, version);
+> +	pr_info("Copyright(c) 2002-2010 Exar Corp.\n");
+> +	pr_info("Driver version: %s\n", DRV_VERSION);
+>  
+>  	verify_bandwidth();
 
-Eric
+I did not have any of these changes in my patch.  If you want to push
+this seperately, I ack it.
+
+Thanks,
+Jon
+
+>  
+> 
+> 
