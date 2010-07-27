@@ -1,55 +1,52 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch -next] ixgbe: potential null dereference
-Date: Tue, 27 Jul 2010 12:05:56 +0200
-Message-ID: <20100727100556.GM26313@bicker>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 2/3] stmmac: fix timer setup when use dual mac Kconfig
+Date: Tue, 27 Jul 2010 12:09:46 +0200
+Message-ID: <1280225387-26240-2-git-send-email-peppe.cavallaro@st.com>
+References: <1280225387-26240-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:43603 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756032Ab0G0KGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 06:06:25 -0400
-Content-Disposition: inline
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:36392 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753703Ab0G0KKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 06:10:01 -0400
+Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 6D6C7122
+	for <netdev@vger.kernel.org>; Tue, 27 Jul 2010 10:09:59 +0000 (GMT)
+Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 3394E2651
+	for <netdev@vger.kernel.org>; Tue, 27 Jul 2010 10:09:59 +0000 (GMT)
+In-Reply-To: <1280225387-26240-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The e_dev_err() macro dereferences "adapter" which is NULL here.
+The driver erroneously sets the tmrate to zero when the
+TMU initialisation fails. This actually generates problems
+while using the dual GMAC configuration.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+With this patch, enabling both the dual gmac and the timer
+optimisation, the first interface opened will use the tmu
+channel 2, the second one won't be able to use the timer but
+will continue to work without mitigating the interrupts by
+using the external timer (i.e. TMU channel 2).
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 9203759..0360260 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6549,8 +6549,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 			err = dma_set_coherent_mask(&pdev->dev,
- 						    DMA_BIT_MASK(32));
- 			if (err) {
--				e_dev_err("No usable DMA configuration, "
--					  "aborting\n");
-+				dev_err(&pdev->dev,
-+					"No usable DMA configuration, aborting\n");
- 				goto err_dma;
- 			}
- 		}
-@@ -6560,7 +6560,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	err = pci_request_selected_regions(pdev, pci_select_bars(pdev,
- 	                                   IORESOURCE_MEM), ixgbe_driver_name);
- 	if (err) {
--		e_dev_err("pci_request_selected_regions failed 0x%x\n", err);
-+		dev_err(&pdev->dev,
-+			"pci_request_selected_regions failed 0x%x\n", err);
- 		goto err_pci_reg;
- 	}
- 
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/stmmac/stmmac_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index 0bdd332..1083334 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -829,7 +829,6 @@ static int stmmac_open(struct net_device *dev)
+ 	 * In case of failure continue without timer. */
+ 	if (unlikely((stmmac_open_ext_timer(dev, priv->tm)) < 0)) {
+ 		pr_warning("stmmaceth: cannot attach the external timer.\n");
+-		tmrate = 0;
+ 		priv->tm->freq = 0;
+ 		priv->tm->timer_start = stmmac_no_timer_started;
+ 		priv->tm->timer_stop = stmmac_no_timer_stopped;
+-- 
+1.5.5.6
+
