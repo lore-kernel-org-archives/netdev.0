@@ -1,65 +1,52 @@
-From: Kumar Sanghvi <divinekumar@gmail.com>
-Subject: Query on Linux Kernel Network - Transmission Path
-Date: Wed, 28 Jul 2010 03:45:55 +0530
-Message-ID: <20100727221555.GC17237@kumar.broadband.vsnl.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] e1000e: 82577/82578 PHY register access issues
+Date: Tue, 27 Jul 2010 15:28:46 -0700
+Message-ID: <20100727222808.25500.11033.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	stable@kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:40763 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751269Ab0G0WP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 18:15:59 -0400
-Received: by pvc7 with SMTP id 7so649435pvc.19
-        for <netdev@vger.kernel.org>; Tue, 27 Jul 2010 15:15:58 -0700 (PDT)
-Content-Disposition: inline
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:47375 "EHLO
+	qmta10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752489Ab0G0W3I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 18:29:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-I have a query on the Transmission Path for the Linux Kernel Network
-stack.
-I understand that Qdisc/Traffic control can be used to prioritize
-traffic on a per net_device basis.
+The MAC-PHY interconnect on 82577/82578 uses a power management feature
+(called K1) which must be disabled when in 1Gbps due to a hardware issue on
+these parts.  The #define bit setting used to enable/disable K1 is
+incorrect and can cause PHY register accesses to stop working altogether
+until the next device reset.  This patch sets the register correctly.
 
-However, I would like to know how to prioritize traffic between the
-net_device(s) ?
+This issue is present in kernels since 2.6.32.
 
-Assume the below scenario:
--A Linux server has two net_device.
--One net_device -eth0, deals with IPv4 traffic over Ethernet
- This eth0 net_device is heavily loaded and there is a continuous
-network activity going on.
+CC: stable@kernel.org
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
--2nd net_device -ph0, deals with Phonet traffic.
- It occassionally transmits Voice traffic. It is required that traffic
-over net_device ph0 should not suffer any delay.
+ drivers/net/e1000e/hw.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Now as I understand, for the transmission path, the function
-"__netif_schedule" will queue a net_device on the output_queue of
-sofnet_data.
-Also, the net_tx_action will pick up the net_device from output_queue
-of softnet_data on last-in--first-out basis.
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 5d1220d..664ed58 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -308,7 +308,7 @@ enum e1e_registers {
+ #define E1000_KMRNCTRLSTA_INBAND_PARAM	0x9    /* Kumeran InBand Parameters */
+ #define E1000_KMRNCTRLSTA_DIAG_NELPBK	0x1000 /* Nearend Loopback mode */
+ #define E1000_KMRNCTRLSTA_K1_CONFIG	0x7
+-#define E1000_KMRNCTRLSTA_K1_ENABLE	0x140E
++#define E1000_KMRNCTRLSTA_K1_ENABLE	0x0002
+ #define E1000_KMRNCTRLSTA_K1_DISABLE	0x1400
+ 
+ #define IFE_PHY_EXTENDED_STATUS_CONTROL	0x10
 
-So, since eth0 has always IPv4 traffic to be sent, it will get queued
-up continously in the output_queue of softnet_data. In this scenario,
-what would happen to the ph0 device carrying the Phonet traffic? Will
-the ph0 device get a chance to queue up on the output_queue of
-softnet_data in the middle of continously coming IPv4 traffic from
-eth0?
-Or will the ph0 get starved in this case? Or the ph0 will suffer a
-delay in getting scheduled for transmission?
-
-In short, is there any way to prioritize the transmission among the
-net_device eth0 and ph0 i.e. is it possible to queue up ph0 carrying
-Phonet traffic on output_queue of softnet_data first in comparison to
-eth0 carrying IPv4 data, so that ph0 traffic does not suffer any delay?
-
-Pardon me if I have misunderstood anything or if my knowledge is
-outdated in this regards.
-I would really appreciate some pointers related to this priority among
-net_device(s) for transmission.
-
-Thanks & Regards,
-Kumar.
