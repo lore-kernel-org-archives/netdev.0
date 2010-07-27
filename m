@@ -1,113 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] drivers/net/vxge/vxge-main.c: Use pr_<level> and
- netdev_<level>
-Date: Tue, 27 Jul 2010 14:47:03 -0700
-Message-ID: <1280267223.24054.44.camel@Joe-Laptop.home>
+From: Kumar Sanghvi <divinekumar@gmail.com>
+Subject: Query on Linux Kernel Network - Transmission Path
+Date: Wed, 28 Jul 2010 03:45:55 +0530
+Message-ID: <20100727221555.GC17237@kumar.broadband.vsnl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Ramkrishna Vepa <ramkrishna.vepa@exar.com>,
-	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
-	Jon Mason <jon.mason@exar.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:40763 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751269Ab0G0WP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 18:15:59 -0400
+Received: by pvc7 with SMTP id 7so649435pvc.19
+        for <netdev@vger.kernel.org>; Tue, 27 Jul 2010 15:15:58 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use pr_fmt, pr_<level> and netdev_<level> where appropriate.
+Hi All,
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/vxge/vxge-main.c |   27 +++++++++++----------------
- 1 files changed, 11 insertions(+), 16 deletions(-)
+I have a query on the Transmission Path for the Linux Kernel Network
+stack.
+I understand that Qdisc/Traffic control can be used to prioritize
+traffic on a per net_device basis.
 
-diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-index 94d87e8..c7c5605 100644
---- a/drivers/net/vxge/vxge-main.c
-+++ b/drivers/net/vxge/vxge-main.c
-@@ -41,6 +41,8 @@
- *
- ******************************************************************************/
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/if_vlan.h>
- #include <linux/pci.h>
- #include <linux/slab.h>
-@@ -144,7 +146,7 @@ vxge_callback_link_up(struct __vxge_hw_device *hldev)
- 
- 	vxge_debug_entryexit(VXGE_TRACE, "%s: %s:%d",
- 		vdev->ndev->name, __func__, __LINE__);
--	printk(KERN_NOTICE "%s: Link Up\n", vdev->ndev->name);
-+	netdev_notice(vdev->ndev, "Link Up\n");
- 	vdev->stats.link_up++;
- 
- 	netif_carrier_on(vdev->ndev);
-@@ -168,7 +170,7 @@ vxge_callback_link_down(struct __vxge_hw_device *hldev)
- 
- 	vxge_debug_entryexit(VXGE_TRACE,
- 		"%s: %s:%d", vdev->ndev->name, __func__, __LINE__);
--	printk(KERN_NOTICE "%s: Link Down\n", vdev->ndev->name);
-+	netdev_notice(vdev->ndev, "Link Down\n");
- 
- 	vdev->stats.link_down++;
- 	netif_carrier_off(vdev->ndev);
-@@ -2679,7 +2681,7 @@ vxge_open(struct net_device *dev)
- 
- 	if (vxge_hw_device_link_state_get(vdev->devh) == VXGE_HW_LINK_UP) {
- 		netif_carrier_on(vdev->ndev);
--		printk(KERN_NOTICE "%s: Link Up\n", vdev->ndev->name);
-+		netdev_notice(vdev->ndev, "Link Up\n");
- 		vdev->stats.link_up++;
- 	}
- 
-@@ -2817,7 +2819,7 @@ int do_vxge_close(struct net_device *dev, int do_io)
- 	}
- 
- 	netif_carrier_off(vdev->ndev);
--	printk(KERN_NOTICE "%s: Link Down\n", vdev->ndev->name);
-+	netdev_notice(vdev->ndev, "Link Down\n");
- 	netif_tx_stop_all_queues(vdev->ndev);
- 
- 	/* Note that at this point xmit() is stopped by upper layer */
-@@ -3844,9 +3846,7 @@ static pci_ers_result_t vxge_io_slot_reset(struct pci_dev *pdev)
- 	struct vxgedev *vdev = netdev_priv(netdev);
- 
- 	if (pci_enable_device(pdev)) {
--		printk(KERN_ERR "%s: "
--			"Cannot re-enable device after reset\n",
--			VXGE_DRIVER_NAME);
-+		netdev_err(netdev, "Cannot re-enable device after reset\n");
- 		return PCI_ERS_RESULT_DISCONNECT;
- 	}
- 
-@@ -3871,9 +3871,8 @@ static void vxge_io_resume(struct pci_dev *pdev)
- 
- 	if (netif_running(netdev)) {
- 		if (vxge_open(netdev)) {
--			printk(KERN_ERR "%s: "
--				"Can't bring device back up after reset\n",
--				VXGE_DRIVER_NAME);
-+			netdev_err(netdev,
-+				   "Can't bring device back up after reset\n");
- 			return;
- 		}
- 	}
-@@ -4430,13 +4429,9 @@ static int __init
- vxge_starter(void)
- {
- 	int ret = 0;
--	char version[32];
--	snprintf(version, 32, "%s", DRV_VERSION);
- 
--	printk(KERN_INFO "%s: Copyright(c) 2002-2010 Exar Corp.\n",
--		VXGE_DRIVER_NAME);
--	printk(KERN_INFO "%s: Driver version: %s\n",
--			VXGE_DRIVER_NAME, version);
-+	pr_info("Copyright(c) 2002-2010 Exar Corp.\n");
-+	pr_info("Driver version: %s\n", DRV_VERSION);
- 
- 	verify_bandwidth();
- 
+However, I would like to know how to prioritize traffic between the
+net_device(s) ?
+
+Assume the below scenario:
+-A Linux server has two net_device.
+-One net_device -eth0, deals with IPv4 traffic over Ethernet
+ This eth0 net_device is heavily loaded and there is a continuous
+network activity going on.
+
+-2nd net_device -ph0, deals with Phonet traffic.
+ It occassionally transmits Voice traffic. It is required that traffic
+over net_device ph0 should not suffer any delay.
+
+Now as I understand, for the transmission path, the function
+"__netif_schedule" will queue a net_device on the output_queue of
+sofnet_data.
+Also, the net_tx_action will pick up the net_device from output_queue
+of softnet_data on last-in--first-out basis.
+
+So, since eth0 has always IPv4 traffic to be sent, it will get queued
+up continously in the output_queue of softnet_data. In this scenario,
+what would happen to the ph0 device carrying the Phonet traffic? Will
+the ph0 device get a chance to queue up on the output_queue of
+softnet_data in the middle of continously coming IPv4 traffic from
+eth0?
+Or will the ph0 get starved in this case? Or the ph0 will suffer a
+delay in getting scheduled for transmission?
+
+In short, is there any way to prioritize the transmission among the
+net_device eth0 and ph0 i.e. is it possible to queue up ph0 carrying
+Phonet traffic on output_queue of softnet_data first in comparison to
+eth0 carrying IPv4 data, so that ph0 traffic does not suffer any delay?
+
+Pardon me if I have misunderstood anything or if my knowledge is
+outdated in this regards.
+I would really appreciate some pointers related to this priority among
+net_device(s) for transmission.
+
+Thanks & Regards,
+Kumar.
