@@ -1,50 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ks8842: Support DMA when accessed via timberdale
-Date: Tue, 27 Jul 2010 10:49:26 -0700 (PDT)
-Message-ID: <20100727.104926.57485905.davem@davemloft.net>
-References: <1280222297.13522.15.camel@debian>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH net-next 4/4] wireless: Convert wiphy_debug macro to
+ function
+Date: Tue, 27 Jul 2010 14:05:56 -0400
+Message-ID: <20100727180556.GE31694@tuxdriver.com>
+References: <cover.1280177971.git.joe@perches.com>
+ <8e7aa541ec8fb92e1166920a4eb704aa5f851b71.1280177971.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: richard.rojfors@pelagicore.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59537
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752811Ab0G0RtJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jul 2010 13:49:09 -0400
-In-Reply-To: <1280222297.13522.15.camel@debian>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37758 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296Ab0G0SPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 14:15:22 -0400
+Content-Disposition: inline
+In-Reply-To: <8e7aa541ec8fb92e1166920a4eb704aa5f851b71.1280177971.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Richard R=F6jfors <richard.rojfors@pelagicore.com>
-Date: Tue, 27 Jul 2010 11:18:17 +0200
+On Mon, Jul 26, 2010 at 02:40:00PM -0700, Joe Perches wrote:
+> Save a few bytes of text
+> 
+> (allyesconfig)
+> $ size drivers/net/wireless/built-in.o*
+>    text	   data	    bss	    dec	    hex	filename
+> 3924568	 100548	 871056	4896172	 4ab5ac	drivers/net/wireless/built-in.o.new
+> 3926520	 100548	 871464	4898532	 4abee4	drivers/net/wireless/built-in.o.old
+> 
+> $ size net/wireless/core.o*
+>    text	   data	    bss	    dec	    hex	filename
+>   12843	    216	   3768	  16827	   41bb	net/wireless/core.o.new
+>   12328	    216	   3656	  16200	   3f48	net/wireless/core.o
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-> This patch adds support for RX and TX DMA via the DMA API,
-> this is only supported when the KS8842 is accessed via timberdale.
->=20
-> There is no support for DMA on the generic bus interface it self,
-> a state machine inside the FPGA is handling RX and TX transfers to/fr=
-om
-> buffers in the FPGA. The host CPU can do DMA to and from these buffer=
-s.
->=20
-> The FPGA has to handle the RX interrupts, so these must be enabled in
-> the ks8842 but not in the FPGA. The driver must not disable the RX in=
-terrupt
-> that would mean that the data transfers into the FPGA buffers would s=
-top.
->=20
-> The host shall not enable TX interrupts since TX is handled by the FP=
-GA,
-> the host is notified by DMA callbacks when transfers are finished.
->=20
-> Which DMA channels to use are added as parameters in the platform dat=
-a struct.
->=20
-> Signed-off-by: Richard R=F6jfors <richard.rojfors@pelagicore.com>
+> --- a/net/wireless/core.c
+> +++ b/net/wireless/core.c
+> @@ -907,3 +907,56 @@ static void __exit cfg80211_exit(void)
+>  	destroy_workqueue(cfg80211_wq);
+>  }
+>  module_exit(cfg80211_exit);
+> +
+> +#ifdef __KERNEL__
 
-Please, no more crazy config options, make the code dynamically use
-DMA or not based upon information passed in via the platform_device
-object at probe time.
+Do we need this part?
+
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
