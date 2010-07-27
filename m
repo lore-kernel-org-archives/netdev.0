@@ -1,31 +1,68 @@
-From: Nathan Williams <nathan@traverse.com.au>
-Subject: Re: RX/close vcc race with solos/atmtcp/usbatm/he
-Date: Wed, 28 Jul 2010 09:12:38 +1000
-Message-ID: <4C4F67E6.7090106@traverse.com.au>
-References: <1274872584.20576.13579.camel@macbook.infradead.org> <1275904970.17903.4658.camel@macbook.infradead.org>
+From: Nolan Leake <nolan@cumulusnetworks.com>
+Subject: [PATCH] tun: keep link (carrier) state up to date
+Date: Tue, 27 Jul 2010 16:53:43 -0700
+Message-ID: <1280274823.23381.59.camel@voxel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipmail07.adl2.internode.on.net ([150.101.137.131]:21259 "EHLO
-	ipmail07.adl2.internode.on.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751886Ab0G0XMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 19:12:33 -0400
-In-Reply-To: <1275904970.17903.4658.camel@macbook.infradead.org>
+Received: from phong.sigbus.net ([65.49.35.42]:48872 "EHLO phong.sigbus.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751206Ab0G1ABm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 20:01:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/06/2010 8:02 PM, David Woodhouse wrote:
-> On Wed, 2010-05-26 at 12:16 +0100, David Woodhouse wrote:
->> I've had this crash reported to me...
->>
->> [18842.727906] EIP: [<e082f490>] br2684_push+0x19/0x234 [br2684]
->> SS:ESP 0068:dfb89d14 
-> 
-> Nathan, did you manage to get your customer to confirm that this fixes
-> the problem? It'd be useful to get this into 2.6.35 and -stable.
-> 
+Currently, only ethtool can get accurate link state of a tap device.
+With this patch, IFF_RUNNING and IF_OPER_UP/DOWN are kept up to date as
+well.
 
-I've had confirmation from the customer.  The patch fixed his problem.
+Signed-off-by: Nolan Leake <nolan@cumulusnetworks.com>
+---
+ drivers/net/tun.c |   10 +++-------
+ 1 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 4fdfa2a..393273c 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -144,6 +144,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+ 	err = 0;
+ 	tfile->tun = tun;
+ 	tun->tfile = tfile;
++	netif_carrier_on(tun->dev);
+ 	dev_hold(tun->dev);
+ 	sock_hold(tun->socket.sk);
+ 	atomic_inc(&tfile->count);
+@@ -157,6 +158,7 @@ static void __tun_detach(struct tun_struct *tun)
+ {
+ 	/* Detach from net device */
+ 	netif_tx_lock_bh(tun->dev);
++	netif_carrier_off(tun->dev);
+ 	tun->tfile = NULL;
+ 	netif_tx_unlock_bh(tun->dev);
+ 
+@@ -1425,12 +1427,6 @@ static void tun_set_msglevel(struct net_device *dev, u32 value)
+ #endif
+ }
+ 
+-static u32 tun_get_link(struct net_device *dev)
+-{
+-	struct tun_struct *tun = netdev_priv(dev);
+-	return !!tun->tfile;
+-}
+-
+ static u32 tun_get_rx_csum(struct net_device *dev)
+ {
+ 	struct tun_struct *tun = netdev_priv(dev);
+@@ -1452,7 +1448,7 @@ static const struct ethtool_ops tun_ethtool_ops = {
+ 	.get_drvinfo	= tun_get_drvinfo,
+ 	.get_msglevel	= tun_get_msglevel,
+ 	.set_msglevel	= tun_set_msglevel,
+-	.get_link	= tun_get_link,
++	.get_link	= ethtool_op_get_link,
+ 	.get_rx_csum	= tun_get_rx_csum,
+ 	.set_rx_csum	= tun_set_rx_csum
+ };
+
