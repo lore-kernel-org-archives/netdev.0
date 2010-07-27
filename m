@@ -1,8 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next 2/7] bnx2x: store module parameters in driver
- main structure
-Date: Tue, 27 Jul 2010 22:05:41 +0300
-Message-ID: <1280257541.8566.12.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-next 3/7] bnx2x: move global variable load_count to
+ bnx2x.h
+Date: Tue, 27 Jul 2010 22:07:10 +0300
+Message-ID: <1280257630.8566.14.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -10,76 +10,64 @@ Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4412 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4692 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750980Ab0G0TQT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751401Ab0G0TQT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 27 Jul 2010 15:16:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Store module parameters during initialization of main driver
-structure. This will allow access to the parameters from different
-files.
+This will allow access to this global variable (used in no-mcp
+mode) from different object files.
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x.h      |    2 ++
- drivers/net/bnx2x/bnx2x_main.c |    7 ++++---
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/bnx2x/bnx2x.h      |    8 ++++++++
+ drivers/net/bnx2x/bnx2x_main.c |    4 +---
+ 2 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index 3b51c5f..237609f 100644
+index 237609f..4afd292 100644
 --- a/drivers/net/bnx2x/bnx2x.h
 +++ b/drivers/net/bnx2x/bnx2x.h
-@@ -1006,6 +1006,8 @@ struct bnx2x {
+@@ -1373,6 +1373,14 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define BNX2X_VPD_LEN			128
+ #define VENDOR_ID_LEN			4
  
- 	int			multi_mode;
- 	int			num_queues;
-+	int			disable_tpa;
-+	int			int_mode;
++#ifdef BNX2X_MAIN
++#define BNX2X_EXTERN
++#else
++#define BNX2X_EXTERN extern
++#endif
++
++BNX2X_EXTERN int load_count[3]; /* 0-common, 1-port0, 2-port1 */
++
+ /* MISC_REG_RESET_REG - this is here for the hsi to work don't touch */
  
- 	u32			rx_mode;
- #define BNX2X_RX_MODE_NONE		0
+ #endif /* bnx2x.h */
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 51b7883..1e0ac8b 100644
+index 1e0ac8b..0beaefb 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -7878,7 +7878,7 @@ static int bnx2x_set_num_queues(struct bnx2x *bp)
- {
- 	int rc = 0;
+@@ -51,7 +51,7 @@
+ #include <linux/io.h>
+ #include <linux/stringify.h>
  
--	switch (int_mode) {
-+	switch (bp->int_mode) {
- 	case INT_MODE_INTx:
- 	case INT_MODE_MSI:
- 		bp->num_queues = 1;
-@@ -9951,7 +9951,7 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
- 		multi_mode = ETH_RSS_MODE_DISABLED;
- 	}
- 	bp->multi_mode = multi_mode;
 -
-+	bp->int_mode = int_mode;
++#define BNX2X_MAIN
+ #include "bnx2x.h"
+ #include "bnx2x_init.h"
+ #include "bnx2x_init_ops.h"
+@@ -121,8 +121,6 @@ static int debug;
+ module_param(debug, int, 0);
+ MODULE_PARM_DESC(debug, " Default debug msglevel");
  
- 	bp->dev->features |= NETIF_F_GRO;
+-static int load_count[3]; /* 0-common, 1-port0, 2-port1 */
+-
+ static struct workqueue_struct *bnx2x_wq;
  
-@@ -9963,6 +9963,7 @@ static int __devinit bnx2x_init_bp(struct bnx2x *bp)
- 		bp->flags |= TPA_ENABLE_FLAG;
- 		bp->dev->features |= NETIF_F_LRO;
- 	}
-+	bp->disable_tpa = disable_tpa;
- 
- 	if (CHIP_IS_E1(bp))
- 		bp->dropless_fc = 0;
-@@ -11006,7 +11007,7 @@ static int bnx2x_set_flags(struct net_device *dev, u32 data)
- 
- 	/* TPA requires Rx CSUM offloading */
- 	if ((data & ETH_FLAG_LRO) && bp->rx_csum) {
--		if (!disable_tpa) {
-+		if (!bp->disable_tpa) {
- 			if (!(dev->features & NETIF_F_LRO)) {
- 				dev->features |= NETIF_F_LRO;
- 				bp->flags |= TPA_ENABLE_FLAG;
+ enum bnx2x_board_type {
 -- 
 1.7.1
 
