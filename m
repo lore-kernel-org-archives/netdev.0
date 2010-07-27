@@ -1,82 +1,99 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with
- per-vhost kthread
-Date: Tue, 27 Jul 2010 22:19:11 +0300
-Message-ID: <20100727191911.GA16350@redhat.com>
-References: <20100724191447.GA4972@redhat.com>
- <4C4BEAA2.6040301@kernel.org>
- <20100726152510.GA26223@redhat.com>
- <4C4DAB14.5050809@kernel.org>
- <20100726155014.GA26412@redhat.com>
- <4C4DB247.9060709@kernel.org>
- <4C4DB466.6000409@kernel.org>
- <20100726165114.GA27353@redhat.com>
- <4C4DDE7E.8030406@kernel.org>
- <4C4DE2AE.40302@kernel.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Tx queue selection
+Date: Tue, 27 Jul 2010 20:31:52 +0100
+Message-ID: <1280259112.2132.43.camel@achroite.uk.solarflarecom.com>
+References: <1280227867.1970.208.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C4DE2AE.40302@kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:12445 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017Ab0G0Tb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 15:31:56 -0400
+In-Reply-To: <1280227867.1970.208.camel@pasglop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 26, 2010 at 09:31:58PM +0200, Tejun Heo wrote:
-> Hello,
+On Tue, 2010-07-27 at 20:51 +1000, Benjamin Herrenschmidt wrote:
+> Hi folks !
 > 
-> On 07/26/2010 09:14 PM, Tejun Heo wrote:
-> > On 07/26/2010 06:51 PM, Michael S. Tsirkin wrote:
-> >> I noticed that with vhost, flush_work was getting the worker
-> >> pointer as well. Can we live with this API change?
-> > 
-> > Yeah, the flushing mechanism wouldn't work reliably if the work is
-> > queued to a different worker without flushing, so yeah passing in
-> > @worker might actually be better.
+> I'm putting my newbie hat on ... :-)
 > 
-> Thinking a bit more about it, it kind of sucks that queueing to
-> another worker from worker->func() breaks flush.  Maybe the right
-> thing to do there is using atomic_t for done_seq?
-
-I don't believe it will help: we might have:
-
-worker1 runs work
-work requeues itself queued index = 1
-worker1 reads queued index = 1
-worker2 runs work
-work requeues itself queued index = 2
-worker2 runs work
-worker2 reads queued index = 2
-worker2 writes done index = 2
-worker1 writes done index = 1
-
-As you see, done index got moved back.
-
-
-
->  It pays a bit more
-> overhead but maybe that's justifiable to keep the API saner?  It would
-> be great if it can be fixed somehow even if it means that the work has
-> to be separately flushed for each worker it has been on before being
-> destroyed.
+> While looking at our ehea driver (and in fact another upcoming driver
+> I'm helping with), I noticed it's using the "old style" multiqueue. IE.
+> It doesn't use the alloc_netdev_mq() variant, creates one queue on the
+> linux side, an makes its own selection of HW queue in start_xmit.
 > 
-> Or, if flushing has to be associated with a specific worker anyway,
-> maybe it would be better to move the sequence counter to
-> kthread_worker and do it similarly with the original workqueue so that
-> work can be destroyed once execution starts?  Then, it can at least
-> remain semantically identical to the original workqueue.
+> This had many drawbacks, obviously, such as not getting per-queue locks
+> etc...
 > 
-> Thanks.
+> Now, the mechanics of converting that to the new scheme are easy enough
+> to figure out by reading the code. However, where my lack of networking
+> background fails me is when it comes to the policy of choosing a Tx
+> queue.
 > 
-> -- 
-> tejun
+> ehea uses its own hash of the header, different from the "default" queue
+> selection in the net core. Looking at other drivers such as ixgbe, I see
+> that it can chose to use smp_processor_id() when a flag is set for which
+> I don't totally understand the meaning or default to the core algorithm.
+>
+> Now, while I can understand why it's a good idea to use the current
+> processor, in order to limit cache ping pong etc... I'm not really
+> confident I understand the pro/cons of using the hashing for tx. I
+> understand that the net core can play interesting games with associating
+> sockets with queues etc... but I'm a bit at a loss when it comes to
+> deciding what's best for this driver. I suppose I could start by
+> implementing my own queue selection based on what ehea does today but I
+> have the nasty feeling that's going to be sub-optimal :-)
+>
+> So I would very much appreciate (and reward with free beer at the next
+> conference) if somebody could give me a bit of a heads up on how things
+> are expected to be done there, pro/cons, perf impact etc...
+
+In the past Dave has recommended against implementing
+ndo_select_queue().
+
+When forwarding between multiqueue interfaces, we expect the input
+device to spread traffic out between RX queues and we then use the
+corresponding TX queue on output (assuming equal numbers of queues on
+interfaces).  Thus we should easily avoid contention on TX queues.
+
+For endpoints, the situation is more complex.  Ideally we would have one
+IRQ, one RX queue and one TX queue per processor; we would let each
+processor send on its own TX queue and NICs would automatically steer RX
+packets to the RX queue for wherever the receiving thread will be
+scheduled.  In practice the NIC doesn't know that and even if it does we
+can easily introduce reordering.  This also depends on the driver being
+able to control affinity of its IRQs.
+
+ixgbe, in conjunction with the firmware 'Flow Director' feature attempts
+to implement this, using the last TX queue for the flow as an indicator
+of which RX queue to use, but so far as I can see it punts on the
+reordering issue.  It sets affinity 'hints' and apparently requires that
+irqbalance follows these.
+
+Another approach is to assume that when a receiving thread is regularly
+woken up by packet reception on a given CPU then it will tend to be
+scheduled and to transmit on the same flow from that CPU.  On that basis
+we should set the TX queue for a connected socket to match the RX queue
+it last received on.  (See
+<http://article.gmane.org/gmane.linux.network/158477>.)  It's not clear
+whether this is really true.
+
+Receive Flow Steering implements the steering entirely in software, but
+AFAIK does nothing for the TX side; it seems mostly targetted at
+single-queue NICs.
+
+I will shortly be proposing some changes that I hope will allow at least
+some multiqueue NIC drivers to move closer to that ideal.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
