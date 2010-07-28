@@ -1,48 +1,26 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [GIT PULL net-next-2.6] vhost-net patchset for 2.6.36
-Date: Wed, 28 Jul 2010 16:32:31 +0300
-Message-ID: <20100728133231.GA1932@redhat.com>
-References: <20100701164127.GA3199@redhat.com>
+From: Jose Alberto Reguero <jareguero@telefonica.net>
+Subject: Problem with rtl8192su staging driver
+Date: Wed, 28 Jul 2010 17:02:49 +0200
+Message-ID: <201007281702.49674.jareguero@telefonica.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	krkumar2@in.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100701164127.GA3199@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from impaqm1.telefonica.net ([213.4.138.1]:57386 "EHLO
+	IMPaqm1.telefonica.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163Ab0G1PLI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 11:11:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
-The following tree includes the current vhost-net patchset.
-Please merge it for 2.6.36.
-Thanks!
+I have a problem with rtl8192su driver. When transmitting the rate is about 10 
+Mbytes, but when receiving the rate is about 2 Mbytes. Also I noticed that the 
+rx stats don't reflect the correct data. That is with kernel 2.6.34 and with a 
+snapshot of rtl8192su driver taken from linux-next.
+How I can debug that to find where is the problem?
 
-The following changes since commit 4cfa580e7eebb8694b875d2caff3b989ada2efac:
+Jose Alberto
 
-  r6040: Fix args to phy_mii_ioctl(). (2010-07-21 21:10:49 -0700)
-
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
-
-David Stevens (1):
-      vhost-net: mergeable buffers support
-
-Michael S. Tsirkin (1):
-      vhost: apply cgroup to vhost workers
-
-Sridhar Samudrala (1):
-      cgroups: Add an API to attach a task to current task's cgroup
-
-Tejun Heo (1):
-      vhost: replace vhost_workqueue with per-vhost kthread
-
- drivers/vhost/net.c    |  293 +++++++++++++++++++++++++++++++++++++++++-------
- drivers/vhost/vhost.c  |  228 ++++++++++++++++++++++++++++++++-----
- drivers/vhost/vhost.h  |   55 ++++++---
- include/linux/cgroup.h |    7 +
- kernel/cgroup.c        |   23 ++++
- 5 files changed, 515 insertions(+), 91 deletions(-)
 
