@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: vhost mergeable buffers guest's cgroup
-Date: Wed, 28 Jul 2010 04:27:35 +0300
-Message-ID: <20100728012735.GA23243@redhat.com>
+Subject: Re: vhost mergeable buffers guest's cgroup
+Date: Wed, 28 Jul 2010 04:31:36 +0300
+Message-ID: <20100728013136.GA23358@redhat.com>
+References: <20100728012735.GA23243@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev <netdev@vger.kernel.org>,
@@ -10,21 +11,27 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Tejun Heo <tj@kernel.org>, Li Zefan <lizf@cn.fujitsu.com>,
 	dlstevens@us.ibm.com
 To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: kvm-owner@vger.kernel.org
+In-Reply-To: <20100728012735.GA23243@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sridhar, David,
-I pushed a mergeable buffers patchset on my vhost-net-next branch,
-on top of the threading changes.
- 
-This is a minimal patch, which in my testing has zero impact on
-non-mergeable path.
+On Wed, Jul 28, 2010 at 04:27:35AM +0300, Michael S. Tsirkin wrote:
+> Sridhar, David,
+> I pushed a mergeable buffers patchset on my vhost-net-next branch,
+> on top of the threading changes.
+>  
+> This is a minimal patch, which in my testing has zero impact on
+> non-mergeable path.
+> 
+> Please give this a spin and let me know.
+> 
+> Thanks!
 
-Please give this a spin and let me know.
+The userspace bits can be found on my qemu-kvm tree at kernel.org,
+branch vhost_mergeable.
+Please use these for testing.
 
-Thanks!
-
--- 
-MST
+> -- 
+> MST
