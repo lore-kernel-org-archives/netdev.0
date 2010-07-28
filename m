@@ -1,68 +1,45 @@
-From: Nolan Leake <nolan@cumulusnetworks.com>
-Subject: [PATCH] tun: keep link (carrier) state up to date
-Date: Tue, 27 Jul 2010 16:53:43 -0700
-Message-ID: <1280274823.23381.59.camel@voxel>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [patch -next] ixgbe: potential null dereference
+Date: Tue, 27 Jul 2010 17:10:02 -0700
+Message-ID: <AANLkTim5LGj0KGs-0fGGAka7Fde3=NVVXWYBLbb_kVMs@mail.gmail.com>
+References: <20100727100556.GM26313@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from phong.sigbus.net ([65.49.35.42]:48872 "EHLO phong.sigbus.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751206Ab0G1ABm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 20:01:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org,
+	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
+	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20100727100556.GM26313@bicker>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Currently, only ethtool can get accurate link state of a tap device.
-With this patch, IFF_RUNNING and IF_OPER_UP/DOWN are kept up to date as
-well.
+On Tue, Jul 27, 2010 at 03:05, Dan Carpenter <error27@gmail.com> wrote:
+> The e_dev_err() macro dereferences "adapter" which is NULL here.
+>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Signed-off-by: Nolan Leake <nolan@cumulusnetworks.com>
----
- drivers/net/tun.c |   10 +++-------
- 1 files changed, 3 insertions(+), 7 deletions(-)
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 4fdfa2a..393273c 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -144,6 +144,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
- 	err = 0;
- 	tfile->tun = tun;
- 	tun->tfile = tfile;
-+	netif_carrier_on(tun->dev);
- 	dev_hold(tun->dev);
- 	sock_hold(tun->socket.sk);
- 	atomic_inc(&tfile->count);
-@@ -157,6 +158,7 @@ static void __tun_detach(struct tun_struct *tun)
- {
- 	/* Detach from net device */
- 	netif_tx_lock_bh(tun->dev);
-+	netif_carrier_off(tun->dev);
- 	tun->tfile = NULL;
- 	netif_tx_unlock_bh(tun->dev);
- 
-@@ -1425,12 +1427,6 @@ static void tun_set_msglevel(struct net_device *dev, u32 value)
- #endif
- }
- 
--static u32 tun_get_link(struct net_device *dev)
--{
--	struct tun_struct *tun = netdev_priv(dev);
--	return !!tun->tfile;
--}
--
- static u32 tun_get_rx_csum(struct net_device *dev)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
-@@ -1452,7 +1448,7 @@ static const struct ethtool_ops tun_ethtool_ops = {
- 	.get_drvinfo	= tun_get_drvinfo,
- 	.get_msglevel	= tun_get_msglevel,
- 	.set_msglevel	= tun_set_msglevel,
--	.get_link	= tun_get_link,
-+	.get_link	= ethtool_op_get_link,
- 	.get_rx_csum	= tun_get_rx_csum,
- 	.set_rx_csum	= tun_set_rx_csum
- };
-
+------------------------------------------------------------------------------
+The Palm PDK Hot Apps Program offers developers who use the
+Plug-In Development Kit to bring their C/C++ apps to Palm for a share 
+of $1 Million in cash or HP Products. Visit us here for more details:
+http://ad.doubleclick.net/clk;226879339;13503038;l?
+http://clk.atdmt.com/CRS/go/247765532/direct/01/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
