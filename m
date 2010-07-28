@@ -1,51 +1,39 @@
-From: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Subject: Re: can: expected receive behavior broken
-Date: Wed, 28 Jul 2010 10:23:24 +0200
-Message-ID: <201007281023.25039.matthias.fuchs@esd.eu>
-References: <201007280956.38957.matthias.fuchs@esd.eu>
-	<4C4FE7AC.4010806@grandegger.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: noqueue on bonding devices
+Date: Wed, 28 Jul 2010 17:32:17 +0900
+Message-ID: <20100728083217.GB20227@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4C4FE7AC.4010806-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:37715 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752428Ab0G1IcW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 04:32:22 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-plx_pci/sja1000 + esd_usb2
+Hi Jay, Hi All,
 
-Should be easy to reproduce.
+I would just to wonder out loud if it is intentional that bonding
+devices default to noqueue, whereas for instance ethernet devices
+default to a pfifo_fast with qlen 1000.
 
-Matthias
+The reason that I ask, is that when setting up some bandwidth
+control using tc I encountered some strange behaviour which
+I eventually tracked down to the queue-length of the qdiscs being 1p -
+inherited from noqueue, as opposed to 1000p which would occur
+on an ethernet device.
 
-On Wednesday 28 July 2010 10:17, Wolfgang Grandegger wrote:
-> On 07/28/2010 09:56 AM, Matthias Fuchs wrote:
-> > Hi,
-> > 
-> > I just noticed that the receive behavior of CAN sockets is broken
-> > in current net-next-2.6.
-> > I wrote some simple code that receives messages and echos them back to
-> > the bus. When I now trigger one single message on the bus, I get
-> > this message received and echoed back in an endless loop.
-> > 
-> > I do not touch the sockopts CAN_RAW_LOOPBACK or CAN_RAW_RECV_OWN_MSGS in my code.
-> > Only (!) setting CAN_RAW_LOOPBACK to 0 helps at the moment. But this behavior
-> > actually has nothing to do with LOOPBACK but more with RECV_OWN_MSGS.
-> 
-> Sounds wired! What driver are you using?
-> 
-> Wolfgang.
-> 
-> 
-> 
+Its trivial to work around, by either altering the txqueuelen on
+the bonding device before adding the qdisc or by manually setting
+the qlen of the qdisc. But it did take us a while to determine the
+cause of the problem we were seeing. And as it seems inconsistent
+I'm interested to know why this is the case.
+
+On an unrelated note, MAINTANERS lists bonding-devel@lists.sourceforge.net
+but the (recent) archives seem to be entirely spam.  Is the MAINTAINERS
+file correct?
+
