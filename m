@@ -1,36 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] macvlan: Fix rx counters update in
-	macvlan_handle_frame()
-Date: Wed, 28 Jul 2010 08:14:04 +0800
-Message-ID: <20100728001404.GA14038@gondor.apana.org.au>
-References: <1280257807.27059.4.camel@w-sridhar.beaverton.ibm.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: e1000e crashes with 2.6.34.x and ThinkPad T60
+Date: Tue, 27 Jul 2010 18:33:49 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1366000F42E28@rrsmsx501.amr.corp.intel.com>
+References: <20100724092644.GA13353@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Marc Haber <mh+linux-kernel@zugschlus.de>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:50639 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751459Ab0G1AOP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jul 2010 20:14:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1280257807.27059.4.camel@w-sridhar.beaverton.ibm.com>
+Received: from mga11.intel.com ([192.55.52.93]:47043 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752448Ab0G1Adv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jul 2010 20:33:51 -0400
+In-Reply-To: <20100724092644.GA13353@torres.zugschlus.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 27, 2010 at 12:10:07PM -0700, Sridhar Samudrala wrote:
-> Fix macvlan_handle_frame() to update the rx counters based
-> on the return value of the vlan->receive call.
-> 
-> Updated the patch to not do any packet count drops when the interface
-> is down based on Herber'ts comments.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+TWFyYyBIYWJlciB3cm90ZToNCj4gSGksDQo+IA0KPiBJIGhhdmUgYSBuZXcgbm90ZWJvb2ssIGEg
+VGhpbmtwYWQgVDYwLCB3aGljaCBpcyBmcmVlemluZyBpbiByYW5kb20NCj4gaW50ZXJ2YWxzIChs
+aWtlIDMwIG1pbnV0ZXMgdG8gdHdvIGRheXMpIGFzIGxvbmcgYXMgSSBhbSB1c2luZyB0aGUNCj4g
+b24tYm9hcmQgd2lyZWQgZXRoZXJuZXQgaW50ZXJmYWNlLCB3aGljaCBpcyBhbiBlMTAwMGUsIFs4
+MDg2OjEwOWFdLiBBcw0KPiBsb25nIGFzIEkga2VlcCB1c2luZyB0aGUgV0xBTiwgdGhlIHN5c3Rl
+bSBydW5zIGZvciB3ZWVrcyBkZXNwaXRlDQo+IGZyZXF1ZW50IHN1c3BlbmQvcmVzdW1lIGN5Y2xl
+cyBldGMuIFRoZSBjcmFzaGVzIHNlZW0gcmVhbGx5IHRvIGJlIHRpZWQNCj4gdG8gdXNpbmcgdGhl
+IHdpcmVkIGV0aGVybmV0LiBUaGlzIGlzIGEgaGFyZCBmcmVlemUsIHdpdGggbm90aGluZw0KPiBo
+YXBwZW5pbmcgb24gdGhlIHN5c3RlbSwgb25seSBhIGxvbmcgcHVzaCBvbiB0aGUgcG93ZXIgYnV0
+dG9uIGhlbHBzLg0KDQpXaGVuIHRoZSBjcmFzaGVzIG9jY3VyIC0gaXMgdGhlcmUgYSB0cmFjZSBv
+biB0aGUgc2NyZWVuPw0KDQpEbyB5b3Uga25vdyBvZiBhIHdheSB0byByZXByb2R1Y2UgdGhlIGlz
+c3VlPyBGb3IgZXhhbXBsZSB3ZXJlDQp5b3UgZG93bmxvYWRpbmcgZmlsZXMsIGJyb3dzaW5nIGlu
+dGVybmV0LCBvciB1c2luZyB0aGUgZXRoZXJuZXQgZGV2aWNlDQppbiBhbnkgd2F5IHdoZW4gdGhl
+IHN5c3RlbSBjcmFzaGVkPw0KDQo+IEFkZGl0aW9uYWxseSwgc29tZXRpbWVzLCBwcm9iYWJseSBh
+ZnRlciBzdXNwZW5kL3Jlc3VtZSwgdGhlIHdpcmVkDQo+IGV0aGVybmV0IGRvZXMgbm90IGNvbWUg
+dXAgcHJvcGVybHkgYWdhaW4sIGlwIGFkZHIgY2xhaW1zICJOTyBDQVJSSUVSIg0KPiBldmVuIGlm
+IHRoZSBMRURzIG9uIHRoZSBpbnRlcmZhY2UgYW5kIG9uIHRoZSBzd2l0Y2ggY2xhaW0gdGhhdCB0
+aGVyZQ0KPiB3YXMgYSBsaW5rLiBObyBwYWNrZXRzIGFyZSByZWNlaXZlZCBieSB0aGUgaW50ZXJm
+YWNlIHdoZW4gaXQncyBhdCB0aGlzDQo+IHN0YWdlLg0KPiANCj4gQm90aCBpc3N1ZXMgYXBwZWFy
+IHdpdGggMi42LjM0IGFuZCAyLjYuMzQuMS4gSSBkaWRuJ3QgdHJ5IGFueSBvZiB0aGVzZQ0KPiBp
+c3N1ZXMgd2l0aCBhbiBvbGRlciBrZXJuZWwsIDIuNi4zNCB3YXMgYWxyZWFkeSBvdXQgd2hlbiBJ
+IHN0YXJ0ZWQNCj4gdXNpbmcgdGhlIFQ2MC4NCg0KSSBnb3QgYSBUNjAgbm90ZWJvb2sgcnVubmlu
+ZyBvbiAyLjYuMzQuMSBhbmQgd2lsbCB0cnkgdG8gcmVwcm9kdWNlIGluIGhvdXNlLg0KDQo+IA0K
+PiBUbyBydWxlIG91dCBkZWZlY3RpdmUgaGFyZHdhcmUsIEkgaGF2ZSB0cmllZCB3aXRoIGEgc2Vj
+b25kIFQ2MCwgd2l0aA0KPiB0aGUgc2FtZSByZXN1bHRzLg0KPiANCj4gRnVsbCBkbWVzZyBhbmQg
+bHNwY2ktbm4gYXR0YWNoZWQsIHBsZWFzZSBzYXkgaWYgeW91IG5lZWQgbW9yZS4NCg0KRG9lc24n
+dCBzZWVtIHRoYXQgdGhlcmUgd2VyZSBhbnkgYXR0YWNobWVudHMgdG8gdGhpcyBlbWFpbC4gDQpD
+b3VsZCB5b3UgYWxzbyBwcm92aWRlIHRoZSBrZXJuZWwgY29uZmlnPw0KDQo+IEdyZWV0aW5ncw0K
+PiBNYXJjDQoNClRoYW5rcywNCkVtaWwNCg==
