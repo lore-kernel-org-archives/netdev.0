@@ -1,44 +1,122 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH net-next] drivers/net/bfin_mac.c: Use
-	pr_fmt, netdev_<level>
-Date: Wed, 28 Jul 2010 11:36:35 -0400
-Message-ID: <AANLkTimHYS8BRBbomxwyqwayu8eyp+k6TurtsniNTMfs@mail.gmail.com>
-References: <1280258531.24054.10.camel@Joe-Laptop.home> <AANLkTi=p=-ovBaqyqBdEW=W4E1ArWsiyUBwy37GtXOyu@mail.gmail.com>
-	<1280311240.24054.103.camel@Joe-Laptop.home>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] bridge: add rcu_read_lock
+Date: Wed, 28 Jul 2010 09:57:30 -0700
+Message-ID: <20100728095730.11450561@nehalam>
+References: <1280227553.3755.2.camel@jlt3.sipsolutions.net>
+	<20100727123859.GF3766@linux.vnet.ibm.com>
+	<20100727112630.5a5ce84b@nehalam>
+	<1280261679.3755.6.camel@jlt3.sipsolutions.net>
+	<20100727134223.5bb0be30@nehalam>
+	<1280302431.3684.0.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Hennerich <michael.hennerich@analog.com>,
-	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1280311240.24054.103.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43717 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752771Ab0G1Q5d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jul 2010 12:57:33 -0400
+In-Reply-To: <1280302431.3684.0.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 28, 2010 at 06:00, Joe Perches wrote:
-> On Wed, 2010-07-28 at 03:50 -0400, Mike Frysinger wrote:
->> On Tue, Jul 27, 2010 at 15:22, Joe Perches wrote:
->> > $ ./scripts/checkpatch.pl -f drivers/net/bfin_mac.c | grep "^total=
-:"
->> > total: 2 errors, 25 warnings, 1723 lines checked
->> > $ ./scripts/checkpatch.pl -f drivers/net/bfin_mac.c | grep "^total=
-:"
->> > total: 0 errors, 0 warnings, 1743 lines checked
->> i dislike the mixing of whitespace and useful changes
->> if they were split, and they worked, then i wouldnt have a problem w=
-ith them
->
-> Is that a nak or a dislike?
+Long ago, when bridge was converted to RCU, rcu lock was equivalent
+to having preempt disabled. RCU has changed a lot since then and
+bridge code was still assuming the since transmit was called with
+bottom half disabled, it was RCU safe.
 
-if you arent going to bother fixing things, then i guess it's a NAK ;)
+In addition to fixing the code, update the comments about
+locking to match current state as well.
 
-> Also, is Michael Hennerich actually the maintainer for bfin_mac?
-> He had been =C2=A0listed as MAINTAINER for over a year but he hasn't
-> ever written or acked a patch for this file.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-i dont know what log you're reading, but i see Michael making plenty
-of changes to this driver
--mike
+
+---
+ net/bridge/br_device.c   |    4 +++-
+ net/bridge/br_fdb.c      |    2 +-
+ net/bridge/br_input.c    |    7 +++----
+ net/bridge/br_stp_bpdu.c |    2 +-
+ 4 files changed, 8 insertions(+), 7 deletions(-)
+
+--- a/net/bridge/br_device.c	2010-07-27 08:57:43.169399349 -0700
++++ b/net/bridge/br_device.c	2010-07-27 13:57:20.278665500 -0700
+@@ -22,7 +22,7 @@
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+ 
+-/* net device transmit always called with no BH (preempt_disabled) */
++/* net device transmit always called with BH disabled */
+ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+@@ -48,6 +48,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *
+ 	skb_reset_mac_header(skb);
+ 	skb_pull(skb, ETH_HLEN);
+ 
++	rcu_read_lock();
+ 	if (is_multicast_ether_addr(dest)) {
+ 		if (unlikely(netpoll_tx_running(dev))) {
+ 			br_flood_deliver(br, skb);
+@@ -67,6 +68,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *
+ 		br_flood_deliver(br, skb);
+ 
+ out:
++	rcu_read_unlock();
+ 	return NETDEV_TX_OK;
+ }
+ 
+--- a/net/bridge/br_fdb.c	2010-07-27 11:18:30.815320981 -0700
++++ b/net/bridge/br_fdb.c	2010-07-27 11:18:59.597710975 -0700
+@@ -214,7 +214,7 @@ void br_fdb_delete_by_port(struct net_br
+ 	spin_unlock_bh(&br->hash_lock);
+ }
+ 
+-/* No locking or refcounting, assumes caller has no preempt (rcu_read_lock) */
++/* No locking or refcounting, assumes caller has rcu_read_lock */
+ struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
+ 					  const unsigned char *addr)
+ {
+--- a/net/bridge/br_input.c	2010-07-27 11:19:05.266181492 -0700
++++ b/net/bridge/br_input.c	2010-07-27 11:19:29.148163149 -0700
+@@ -39,7 +39,7 @@ static int br_pass_frame_up(struct sk_bu
+ 		       netif_receive_skb);
+ }
+ 
+-/* note: already called with rcu_read_lock (preempt_disabled) */
++/* note: already called with rcu_read_lock */
+ int br_handle_frame_finish(struct sk_buff *skb)
+ {
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+@@ -110,7 +110,7 @@ drop:
+ 	goto out;
+ }
+ 
+-/* note: already called with rcu_read_lock (preempt_disabled) */
++/* note: already called with rcu_read_lock */
+ static int br_handle_local_finish(struct sk_buff *skb)
+ {
+ 	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
+@@ -133,8 +133,7 @@ static inline int is_link_local(const un
+ 
+ /*
+  * Return NULL if skb is handled
+- * note: already called with rcu_read_lock (preempt_disabled) from
+- * netif_receive_skb
++ * note: already called with rcu_read_lock from netif_receive_skb
+  */
+ struct sk_buff *br_handle_frame(struct sk_buff *skb)
+ {
+--- a/net/bridge/br_stp_bpdu.c	2010-07-27 11:19:34.092573294 -0700
++++ b/net/bridge/br_stp_bpdu.c	2010-07-27 11:19:40.725123403 -0700
+@@ -131,7 +131,7 @@ void br_send_tcn_bpdu(struct net_bridge_
+ /*
+  * Called from llc.
+  *
+- * NO locks, but rcu_read_lock (preempt_disabled)
++ * NO locks, but rcu_read_lock
+  */
+ void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
+ 		struct net_device *dev)
