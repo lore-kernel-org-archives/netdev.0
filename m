@@ -1,63 +1,71 @@
-From: "Hennerich, Michael" <Michael.Hennerich@analog.com>
-Subject: RE: [Uclinux-dist-devel] [PATCH net-next] drivers/net/bfin_mac.c:
- Use  pr_fmt, netdev_<level>
-Date: Wed, 28 Jul 2010 11:41:11 +0100
-Message-ID: <544AC56F16B56944AEC3BD4E3D5917712E7EC22B1B@LIMKCMBX1.ad.analog.com>
-References: <1280258531.24054.10.camel@Joe-Laptop.home>
-	 <AANLkTi=p=-ovBaqyqBdEW=W4E1ArWsiyUBwy37GtXOyu@mail.gmail.com>
- <1280311240.24054.103.camel@Joe-Laptop.home>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with
+ per-vhost kthread
+Date: Wed, 28 Jul 2010 13:48:59 +0300
+Message-ID: <20100728104858.GB30643@redhat.com>
+References: <20100726152510.GA26223@redhat.com>
+ <4C4DAB14.5050809@kernel.org>
+ <20100726155014.GA26412@redhat.com>
+ <4C4DB247.9060709@kernel.org>
+ <4C4DB466.6000409@kernel.org>
+ <20100726165114.GA27353@redhat.com>
+ <4C4DDE7E.8030406@kernel.org>
+ <4C4DE2AE.40302@kernel.org>
+ <20100727191911.GA16350@redhat.com>
+ <4C4FE0CF.3070506@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-	Mike Frysinger <vapier.adi@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail10.analog.com ([137.71.25.55]:52354 "EHLO
-	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754453Ab0G1KlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 06:41:16 -0400
-In-Reply-To: <1280311240.24054.103.camel@Joe-Laptop.home>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C4FE0CF.3070506@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sm9lIFBlcmNoZXMgd3JvdGUgb24gMjAxMC0wNy0yODoNCj4gT24gV2VkLCAyMDEwLTA3LTI4IGF0
-IDAzOjUwIC0wNDAwLCBNaWtlIEZyeXNpbmdlciB3cm90ZToNCj4+IE9uIFR1ZSwgSnVsIDI3LCAy
-MDEwIGF0IDE1OjIyLCBKb2UgUGVyY2hlcyB3cm90ZToNCj4+PiAkIC4vc2NyaXB0cy9jaGVja3Bh
-dGNoLnBsIC1mIGRyaXZlcnMvbmV0L2JmaW5fbWFjLmMgfCBncmVwICJedG90YWw6Ig0KPj4+IHRv
-dGFsOiAyIGVycm9ycywgMjUgd2FybmluZ3MsIDE3MjMgbGluZXMgY2hlY2tlZCAkDQo+Pj4gLi9z
-Y3JpcHRzL2NoZWNrcGF0Y2gucGwgLWYgZHJpdmVycy9uZXQvYmZpbl9tYWMuYyB8IGdyZXAgIl50
-b3RhbDoiDQo+Pj4gdG90YWw6IDAgZXJyb3JzLCAwIHdhcm5pbmdzLCAxNzQzIGxpbmVzIGNoZWNr
-ZWQNCj4+IGkgZGlzbGlrZSB0aGUgbWl4aW5nIG9mIHdoaXRlc3BhY2UgYW5kIHVzZWZ1bCBjaGFu
-Z2VzIGlmIHRoZXkgd2VyZQ0KPj4gc3BsaXQsIGFuZCB0aGV5IHdvcmtlZCwgdGhlbiBpIHdvdWxk
-bnQgaGF2ZSBhIHByb2JsZW0gd2l0aCB0aGVtDQo+DQo+IElzIHRoYXQgYSBuYWsgb3IgYSBkaXNs
-aWtlPw0KDQpJIHRoaW5rIHdoYXQgTWlrZSBtZWFudCB3YXMgLSB0d28gcGF0Y2hlcyB3b3VsZCBi
-ZSBiZXR0ZXIuDQpJJ20gY3VycmVudGx5IGNsb25pbmcgdGhlIHRyZWUgdGhpcyBwYXRjaCBhcHBs
-aWVzIHRvLg0KSSdsbCBBQ0sgb25jZSBJIHZlcmlmaWVkIHRoZSBwYXRjaC4NCg0KPg0KPiBBbHNv
-LCBpcyBNaWNoYWVsIEhlbm5lcmljaCBhY3R1YWxseSB0aGUgbWFpbnRhaW5lciBmb3IgYmZpbl9t
-YWM/DQo+IEhlIGhhZCBiZWVuICBsaXN0ZWQgYXMgTUFJTlRBSU5FUiBmb3Igb3ZlciBhIHllYXIg
-YnV0IGhlIGhhc24ndCBldmVyDQo+IHdyaXR0ZW4gb3IgYWNrZWQgYSBwYXRjaCBmb3IgdGhpcyBm
-aWxlLg0KPg0KPiBjb21taXQgbWFraW5nIE1pY2hhZWwgSGVubmVyaWNoIGJmaW5fbWFjIE1BSU5U
-QUlORVIgJCBnaXQgbG9nIC0xDQo+IDZjODM0MjlhIGNvbW1pdCA2YzgzNDI5YTFjMzJjOTE0ZGZi
-ODE5MzljYzJkZGVjZTk3ZTQ4Mjk0DQo+IEF1dGhvcjogTWlrZSBGcnlzaW5nZXIgPHZhcGllckBn
-ZW50b28ub3JnPg0KPiBEYXRlOiAgIFN1biBNYXkgMjQgMDI6MTM6MTUgMjAwOSAtMDQwMA0KPg0K
-PiAgICAgTUFJTlRBSU5FUlM6IHVwZGF0ZSBCbGFja2ZpbiBpdGVtcw0KPg0KPiAgICAgV2l0aCBC
-cnlhbiBXdSBoYXZpbmcgbW92ZWQgb24gdG8gYW5vdGhlciBqb2IsIHB1c2ggdGhlIHNsYWNrIG9u
-dG8NCj4gICAgIHNvbWUgb3RoZXIgQURJIGxhY2tleXMuDQo+DQo+ICAgICBTaWduZWQtb2ZmLWJ5
-OiBNaWtlIEZyeXNpbmdlciA8dmFwaWVyQGdlbnRvby5vcmc+DQo+ICQgLi9zY3JpcHRzL2dldF9t
-YWludGFpbmVyLnBsIC1mIGRyaXZlcnMvbmV0L2JmaW5fbWFjLmMgXA0KPiAgICAgICAtLXJvbGVz
-dGF0cyAtLWdpdC1zaW5jZT01LXllYXJzLWFnbyAtLW5vbCBNaWNoYWVsIEhlbm5lcmljaA0KPiA8
-bWljaGFlbC5oZW5uZXJpY2hAYW5hbG9nLmNvbT4gKHN1cHBvcnRlcjpCTEFDS0ZJTiBFTUFDIERS
-SVZFUikgIkRhdmlkDQo+IFMuIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IChjb21taXRf
-c2lnbmVyOjQxLzY1PTYzJSkgSmVmZiBHYXJ6aWsNCj4gPGpnYXJ6aWtAcmVkaGF0LmNvbT4gKGNv
-bW1pdF9zaWduZXI6MzEvNjU9NDglKSBCcnlhbiBXdQ0KPiA8Y29vbG9uZXlAa2VybmVsLm9yZz4g
-KGNvbW1pdF9zaWduZXI6MjYvNjU9NDAlKSBNaWtlIEZyeXNpbmdlcg0KPiA8dmFwaWVyQGdlbnRv
-by5vcmc+IChjb21taXRfc2lnbmVyOjIwLzY1PTMxJSkgU29uaWMgWmhhbmcNCj4gPHNvbmljLnpo
-YW5nQGFuYWxvZy5jb20+IChjb21taXRfc2lnbmVyOjgvNjU9MTIlKQ0KPg0KPg0KDQpHcmVldGlu
-Z3MsDQpNaWNoYWVsDQoNCkFuYWxvZyBEZXZpY2VzIEdtYkggICAgICBXaWxoZWxtLVdhZ2VuZmVs
-ZC1TdHIuIDYgICAgICA4MDgwNyBNdWVuY2hlbg0KU2l0eiBkZXIgR2VzZWxsc2NoYWZ0IE11ZW5j
-aGVuLCBSZWdpc3RlcmdlcmljaHQgTXVlbmNoZW4gSFJCIDQwMzYgR2VzY2hhZWZ0c2Z1ZWhyZXIg
-VGhvbWFzIFdlc3NlbCwgV2lsbGlhbSBBLiBNYXJ0aW4sIE1hcmdhcmV0IFNlaWYNCg0KDQo=
+On Wed, Jul 28, 2010 at 09:48:31AM +0200, Tejun Heo wrote:
+> On 07/27/2010 09:19 PM, Michael S. Tsirkin wrote:
+> >> Thinking a bit more about it, it kind of sucks that queueing to
+> >> another worker from worker->func() breaks flush.  Maybe the right
+> >> thing to do there is using atomic_t for done_seq?
+> > 
+> > I don't believe it will help: we might have:
+> > 
+> > worker1 runs work
+> > work requeues itself queued index = 1
+> > worker1 reads queued index = 1
+> > worker2 runs work
+> > work requeues itself queued index = 2
+> > worker2 runs work
+> > worker2 reads queued index = 2
+> > worker2 writes done index = 2
+> > worker1 writes done index = 1
+> > 
+> > As you see, done index got moved back.
+> 
+> Yeah, I think the flushing logic should be moved to the worker.
+> Are you interested in doing it w/ your change?
+> 
+> Thanks.
+
+I'm unsure how flush_work operates under these conditions.  E.g. in
+workqueue.c, this seems to work by keeping a pointer to current
+workqueue in the work.  But what prevents us from destroying the
+workqueue when work might not be running?
+
+Is this currently broken if you use multiple workqueues
+for the same work? If yes, I propose we do as I did,
+making flush_work get worker pointer, and only flushing
+on that worker.
+
+> -- 
+> tejun
