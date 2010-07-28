@@ -1,51 +1,42 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with per-vhost
- kthread
-Date: Wed, 28 Jul 2010 14:00:59 +0200
-Message-ID: <4C501BFB.2010607@kernel.org>
-References: <20100726152510.GA26223@redhat.com> <4C4DAB14.5050809@kernel.org> <20100726155014.GA26412@redhat.com> <4C4DB247.9060709@kernel.org> <4C4DB466.6000409@kernel.org> <20100726165114.GA27353@redhat.com> <4C4DDE7E.8030406@kernel.org> <4C4DE2AE.40302@kernel.org> <20100727191911.GA16350@redhat.com> <4C4FE0CF.3070506@kernel.org> <20100728104858.GB30643@redhat.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [BUG] bridge leaks 3 references on lo per up&down
+Date: Wed, 28 Jul 2010 14:03:36 +0200
+Message-ID: <20100728120336.GD13413@jupiter.n2.diac24.net>
+References: <20100727152514.GA13413@jupiter.n2.diac24.net>
+ <20100727100249.51ffc893@nehalam>
+ <20100728074428.GB13413@jupiter.n2.diac24.net>
+ <20100728095825.GC13413@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100728104858.GB30643@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bridge@lists.linux-foundation.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:58113 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753164Ab0G1MDn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jul 2010 08:03:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20100728095825.GC13413@jupiter.n2.diac24.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Wed, Jul 28, 2010 at 11:58:25AM +0200, David Lamparter wrote:
+> unshare -n -- /bin/bash -c 'ip link add link lo veth0 type veth peer
+>       name veth3 netns 1; brctl addbr br0; \
+>       ip l s br0 up; sleep 8; ip l s br0 down; sleep 1;
+>       ip l s br0 up; sleep 8;'
+>
+> I get "usage count = 7" on lo; when I add another up & down, I get
+> "usage count = 10". 4 times makes it a merry 13 refs...
 
-On 07/28/2010 12:48 PM, Michael S. Tsirkin wrote:
-> I'm unsure how flush_work operates under these conditions.  E.g. in
-> workqueue.c, this seems to work by keeping a pointer to current
-> workqueue in the work.  But what prevents us from destroying the
-> workqueue when work might not be running?
+It only happens with BRIDGE_IGMP_SNOOPING. As we don't need that, our
+"fix" is just to run with it disabled... works pretty fine.
 
-In cmwq, work points to the gcwq it was on, which keeps track of all
-the works in progress, so flushing work which is on a destroyed
-workqueue should be fine, but in the original implementation, it would
-end up accessing freed memory.
+Herbert, you implemented bridge multicast support, maybe you can figure
+out where these references are taken?
 
-> Is this currently broken if you use multiple workqueues
-> for the same work? If yes, I propose we do as I did,
-> making flush_work get worker pointer, and only flushing
-> on that worker.
 
-The original semantics of workqueue is that flush_work() guarantees
-that the work has finished executing on the workqueue it was last
-queued on.  Adding @worker to flush_work() is okay, I think.
+-David
 
-Thanks.
-
--- 
-tejun
