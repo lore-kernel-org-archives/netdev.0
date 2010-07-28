@@ -1,7 +1,8 @@
 From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [RFC PATCH v4 0/5] netdev: show a process of packets
-Date: Wed, 28 Jul 2010 15:26:41 +0900
-Message-ID: <4C4FCDA1.3000803@jp.fujitsu.com>
+Subject: [RFC PATCH v4 1/5] irq: add tracepoint to softirq_raise
+Date: Wed, 28 Jul 2010 15:29:05 +0900
+Message-ID: <4C4FCE31.5090004@jp.fujitsu.com>
+References: <4C4FCDA1.3000803@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -12,77 +13,115 @@ Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
 	rostedt@goodmis.org, eric.dumazet@gmail.com, fweisbec@gmail.com,
 	mathieu.desnoyers@polymtl.ca
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:44130 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753712Ab0G1G3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 02:29:18 -0400
+In-Reply-To: <4C4FCDA1.3000803@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 CHANGE-LOG since v3:
-    1) change arguments of softirq tracepoint into original one.
-    2) remove tracepoint of dev_kfree_skb_irq and skb_free_datagram_locked
-       and add trace_kfree_skb before __kfree_skb instead of them.
-    3) add tracepoint to netif_rx and display it by netdev-times script.
+  -change arguments of softirq tracepoint into original one.
 
-These patch-set adds tracepoints to show us a process of packets.
-Using these tracepoints and existing points, we can get the time when
-packet passes through some points in transmit or receive sequence.
-For example, this is an output of perf script which is attached by patch 5/5.
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
 
-106133.171439sec cpu=0
-  irq_entry(+0.000msec irq=24:eth4)
-         |
-  softirq_entry(+0.006msec)
-         |
-         |---netif_receive_skb(+0.010msec skb=f2d15900 len=100)
-         |            |
-         |      skb_copy_datagram_iovec(+0.039msec 10291::10291)
-         |
-  napi_poll_exit(+0.022msec eth4)
+Add a tracepoint for tracing when softirq action is raised.
 
-106134.175634sec cpu=1
-  irq_entry(+0.000msec irq=28:eth1)
-         |
-         |---netif_rx(+0.009msec skb=f3ef0a00)
-         |
-  softirq_entry(+0.018msec)
-         |
-         |---netif_receive_skb(+0.021msec skb=f3ef0a00 len=84)
-         |            |
-         |      skb_copy_datagram_iovec(+0.033msec 0:swapper)
-         |
-  napi_poll_exit(+0.035msec (no_device))
+It and the existed tracepoints complete softirq's tracepoints:
+softirq_raise, softirq_entry and softirq_exit.
 
-The above is a receive side(eth4 is NAPI. eth1 is non-NAPI). Like this, it can
-show receive sequence frominterrupt(irq_entry) to application
-(skb_copy_datagram_iovec). 
-This script shows one NET_RX softirq and events related to it. All relative
-time bases on first irq_entry which raise NET_RX softirq.
+And when this tracepoint is used in combination with
+the softirq_entry tracepoint we can determine
+the softirq raise latency.
 
-   dev    len      Qdisc               netdevice             free
-   eth4    74 106125.030004sec        0.006msec             0.009msec
-   eth4    87 106125.041020sec        0.007msec             0.023msec
-   eth4    66 106125.042291sec        0.003msec             0.012msec
-   eth4    66 106125.043274sec        0.006msec             0.004msec
-   eth4   850 106125.044283sec        0.007msec             0.018msec
+Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+Acked-by: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Acked-by: Frederic Weisbecker <fweisbec@gmail.com>
 
-The above is a transmit side. There are three check-time-points.
-Point1 is before putting a packet to Qdisc. point2 is after ndo_start_xmit in
-dev_hard_start_xmit. It indicates finishing putting a packet to driver.
-point3 is in consume_skb and kfree_skb. It indicates freeing a transmitted packet.
-Values of this script are, from left, device name, length of a packet, a time of
-point1, an interval time between point1 and point2 and an interval time between
-point2 and point3.
+[ factorize softirq events with DECLARE_EVENT_CLASS ]
+Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+---
+ include/linux/interrupt.h  |    8 +++++++-
+ include/trace/events/irq.h |   26 ++++++++++++++++++++++++--
+ 2 files changed, 31 insertions(+), 3 deletions(-)
 
-These times are useful to analyze a performance or to detect a point where
-packet delays. For example,
-- NET_RX softirq calling is late.
-- Application is late to take a packet.
-- It takes much time to put a transmitting packet to driver
-  (It may be caused by packed queue)
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index c233113..5460db4 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -18,6 +18,7 @@
+ #include <asm/atomic.h>
+ #include <asm/ptrace.h>
+ #include <asm/system.h>
++#include <trace/events/irq.h>
+ 
+ /*
+  * These correspond to the IORESOURCE_IRQ_* defines in
+@@ -402,7 +403,12 @@ asmlinkage void do_softirq(void);
+ asmlinkage void __do_softirq(void);
+ extern void open_softirq(int nr, void (*action)(struct softirq_action *));
+ extern void softirq_init(void);
+-#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
++static inline void __raise_softirq_irqoff(unsigned int nr)
++{
++	trace_softirq_raise((struct softirq_action *)&nr, NULL);
++	or_softirq_pending(1UL << nr);
++}
++
+ extern void raise_softirq_irqoff(unsigned int nr);
+ extern void raise_softirq(unsigned int nr);
+ extern void wakeup_softirqd(void);
+diff --git a/include/trace/events/irq.h b/include/trace/events/irq.h
+index 0e4cfb6..3ddda02 100644
+--- a/include/trace/events/irq.h
++++ b/include/trace/events/irq.h
+@@ -5,7 +5,9 @@
+ #define _TRACE_IRQ_H
+ 
+ #include <linux/tracepoint.h>
+-#include <linux/interrupt.h>
++
++struct irqaction;
++struct softirq_action;
+ 
+ #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
+ #define show_softirq_name(val)				\
+@@ -93,7 +95,10 @@ DECLARE_EVENT_CLASS(softirq,
+ 	),
+ 
+ 	TP_fast_assign(
+-		__entry->vec = (int)(h - vec);
++		if (vec)
++			__entry->vec = (int)(h - vec);
++		else
++			__entry->vec = *((int *)h);
+ 	),
+ 
+ 	TP_printk("vec=%d [action=%s]", __entry->vec,
+@@ -136,6 +141,23 @@ DEFINE_EVENT(softirq, softirq_exit,
+ 	TP_ARGS(h, vec)
+ );
+ 
++/**
++ * softirq_raise - called immediately when a softirq is raised
++ * @h: pointer to struct softirq_action
++ * @vec: pointer to first struct softirq_action in softirq_vec array
++ *
++ * The @h parameter contains a pointer to the softirq vector number which is
++ * raised. @vec is NULL and it means @h includes vector number not
++ * softirq_action. When used in combination with the softirq_entry tracepoint
++ * we can determine the softirq raise latency.
++ */
++DEFINE_EVENT(softirq, softirq_raise,
++
++	TP_PROTO(struct softirq_action *h, struct softirq_action *vec),
++
++	TP_ARGS(h, vec)
++);
++
+ #endif /*  _TRACE_IRQ_H */
+ 
+ /* This part must be outside protection */
 
-And also, these tracepoint help us to investigate a network driver's trouble
-from memory dump because ftrace records it to memory. And ftrace is so light
-even if always trace on. So, in a case investigating a problem which doesn't
-reproduce, it is useful.
-
-Thanks,
-Koki Sanagi.
