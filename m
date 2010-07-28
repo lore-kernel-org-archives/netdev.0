@@ -1,63 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [Uclinux-dist-devel] [PATCH net-next] drivers/net/bfin_mac.c:
+From: "Hennerich, Michael" <Michael.Hennerich@analog.com>
+Subject: RE: [Uclinux-dist-devel] [PATCH net-next] drivers/net/bfin_mac.c:
  Use  pr_fmt, netdev_<level>
-Date: Wed, 28 Jul 2010 03:00:40 -0700
-Message-ID: <1280311240.24054.103.camel@Joe-Laptop.home>
+Date: Wed, 28 Jul 2010 11:41:11 +0100
+Message-ID: <544AC56F16B56944AEC3BD4E3D5917712E7EC22B1B@LIMKCMBX1.ad.analog.com>
 References: <1280258531.24054.10.camel@Joe-Laptop.home>
 	 <AANLkTi=p=-ovBaqyqBdEW=W4E1ArWsiyUBwy37GtXOyu@mail.gmail.com>
+ <1280311240.24054.103.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Hennerich <michael.hennerich@analog.com>,
-	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>,
 	LKML <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Mike Frysinger <vapier.adi@gmail.com>
+To: Joe Perches <joe@perches.com>,
+	Mike Frysinger <vapier.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2152 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754569Ab0G1KAm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jul 2010 06:00:42 -0400
-In-Reply-To: <AANLkTi=p=-ovBaqyqBdEW=W4E1ArWsiyUBwy37GtXOyu@mail.gmail.com>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:52354 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754453Ab0G1KlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 06:41:16 -0400
+In-Reply-To: <1280311240.24054.103.camel@Joe-Laptop.home>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-07-28 at 03:50 -0400, Mike Frysinger wrote:
-> On Tue, Jul 27, 2010 at 15:22, Joe Perches wrote:
-> > $ ./scripts/checkpatch.pl -f drivers/net/bfin_mac.c | grep "^total:"
-> > total: 2 errors, 25 warnings, 1723 lines checked
-> > $ ./scripts/checkpatch.pl -f drivers/net/bfin_mac.c | grep "^total:"
-> > total: 0 errors, 0 warnings, 1743 lines checked
-> i dislike the mixing of whitespace and useful changes
-> if they were split, and they worked, then i wouldnt have a problem with them
-
-Is that a nak or a dislike?
-
-Also, is Michael Hennerich actually the maintainer for bfin_mac?
-He had been  listed as MAINTAINER for over a year but he hasn't
-ever written or acked a patch for this file.
-
-commit making Michael Hennerich bfin_mac MAINTAINER
-$ git log -1 6c83429a
-commit 6c83429a1c32c914dfb81939cc2ddece97e48294
-Author: Mike Frysinger <vapier@gentoo.org>
-Date:   Sun May 24 02:13:15 2009 -0400
-
-    MAINTAINERS: update Blackfin items
-    
-    With Bryan Wu having moved on to another job, push the slack onto some
-    other ADI lackeys.
-    
-    Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-
-$ ./scripts/get_maintainer.pl -f drivers/net/bfin_mac.c \
-	--rolestats --git-since=5-years-ago --nol
-Michael Hennerich <michael.hennerich@analog.com> (supporter:BLACKFIN EMAC DRIVER)
-"David S. Miller" <davem@davemloft.net> (commit_signer:41/65=63%)
-Jeff Garzik <jgarzik@redhat.com> (commit_signer:31/65=48%)
-Bryan Wu <cooloney@kernel.org> (commit_signer:26/65=40%)
-Mike Frysinger <vapier@gentoo.org> (commit_signer:20/65=31%)
-Sonic Zhang <sonic.zhang@analog.com> (commit_signer:8/65=12%)
-
-
-
+Sm9lIFBlcmNoZXMgd3JvdGUgb24gMjAxMC0wNy0yODoNCj4gT24gV2VkLCAyMDEwLTA3LTI4IGF0
+IDAzOjUwIC0wNDAwLCBNaWtlIEZyeXNpbmdlciB3cm90ZToNCj4+IE9uIFR1ZSwgSnVsIDI3LCAy
+MDEwIGF0IDE1OjIyLCBKb2UgUGVyY2hlcyB3cm90ZToNCj4+PiAkIC4vc2NyaXB0cy9jaGVja3Bh
+dGNoLnBsIC1mIGRyaXZlcnMvbmV0L2JmaW5fbWFjLmMgfCBncmVwICJedG90YWw6Ig0KPj4+IHRv
+dGFsOiAyIGVycm9ycywgMjUgd2FybmluZ3MsIDE3MjMgbGluZXMgY2hlY2tlZCAkDQo+Pj4gLi9z
+Y3JpcHRzL2NoZWNrcGF0Y2gucGwgLWYgZHJpdmVycy9uZXQvYmZpbl9tYWMuYyB8IGdyZXAgIl50
+b3RhbDoiDQo+Pj4gdG90YWw6IDAgZXJyb3JzLCAwIHdhcm5pbmdzLCAxNzQzIGxpbmVzIGNoZWNr
+ZWQNCj4+IGkgZGlzbGlrZSB0aGUgbWl4aW5nIG9mIHdoaXRlc3BhY2UgYW5kIHVzZWZ1bCBjaGFu
+Z2VzIGlmIHRoZXkgd2VyZQ0KPj4gc3BsaXQsIGFuZCB0aGV5IHdvcmtlZCwgdGhlbiBpIHdvdWxk
+bnQgaGF2ZSBhIHByb2JsZW0gd2l0aCB0aGVtDQo+DQo+IElzIHRoYXQgYSBuYWsgb3IgYSBkaXNs
+aWtlPw0KDQpJIHRoaW5rIHdoYXQgTWlrZSBtZWFudCB3YXMgLSB0d28gcGF0Y2hlcyB3b3VsZCBi
+ZSBiZXR0ZXIuDQpJJ20gY3VycmVudGx5IGNsb25pbmcgdGhlIHRyZWUgdGhpcyBwYXRjaCBhcHBs
+aWVzIHRvLg0KSSdsbCBBQ0sgb25jZSBJIHZlcmlmaWVkIHRoZSBwYXRjaC4NCg0KPg0KPiBBbHNv
+LCBpcyBNaWNoYWVsIEhlbm5lcmljaCBhY3R1YWxseSB0aGUgbWFpbnRhaW5lciBmb3IgYmZpbl9t
+YWM/DQo+IEhlIGhhZCBiZWVuICBsaXN0ZWQgYXMgTUFJTlRBSU5FUiBmb3Igb3ZlciBhIHllYXIg
+YnV0IGhlIGhhc24ndCBldmVyDQo+IHdyaXR0ZW4gb3IgYWNrZWQgYSBwYXRjaCBmb3IgdGhpcyBm
+aWxlLg0KPg0KPiBjb21taXQgbWFraW5nIE1pY2hhZWwgSGVubmVyaWNoIGJmaW5fbWFjIE1BSU5U
+QUlORVIgJCBnaXQgbG9nIC0xDQo+IDZjODM0MjlhIGNvbW1pdCA2YzgzNDI5YTFjMzJjOTE0ZGZi
+ODE5MzljYzJkZGVjZTk3ZTQ4Mjk0DQo+IEF1dGhvcjogTWlrZSBGcnlzaW5nZXIgPHZhcGllckBn
+ZW50b28ub3JnPg0KPiBEYXRlOiAgIFN1biBNYXkgMjQgMDI6MTM6MTUgMjAwOSAtMDQwMA0KPg0K
+PiAgICAgTUFJTlRBSU5FUlM6IHVwZGF0ZSBCbGFja2ZpbiBpdGVtcw0KPg0KPiAgICAgV2l0aCBC
+cnlhbiBXdSBoYXZpbmcgbW92ZWQgb24gdG8gYW5vdGhlciBqb2IsIHB1c2ggdGhlIHNsYWNrIG9u
+dG8NCj4gICAgIHNvbWUgb3RoZXIgQURJIGxhY2tleXMuDQo+DQo+ICAgICBTaWduZWQtb2ZmLWJ5
+OiBNaWtlIEZyeXNpbmdlciA8dmFwaWVyQGdlbnRvby5vcmc+DQo+ICQgLi9zY3JpcHRzL2dldF9t
+YWludGFpbmVyLnBsIC1mIGRyaXZlcnMvbmV0L2JmaW5fbWFjLmMgXA0KPiAgICAgICAtLXJvbGVz
+dGF0cyAtLWdpdC1zaW5jZT01LXllYXJzLWFnbyAtLW5vbCBNaWNoYWVsIEhlbm5lcmljaA0KPiA8
+bWljaGFlbC5oZW5uZXJpY2hAYW5hbG9nLmNvbT4gKHN1cHBvcnRlcjpCTEFDS0ZJTiBFTUFDIERS
+SVZFUikgIkRhdmlkDQo+IFMuIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+IChjb21taXRf
+c2lnbmVyOjQxLzY1PTYzJSkgSmVmZiBHYXJ6aWsNCj4gPGpnYXJ6aWtAcmVkaGF0LmNvbT4gKGNv
+bW1pdF9zaWduZXI6MzEvNjU9NDglKSBCcnlhbiBXdQ0KPiA8Y29vbG9uZXlAa2VybmVsLm9yZz4g
+KGNvbW1pdF9zaWduZXI6MjYvNjU9NDAlKSBNaWtlIEZyeXNpbmdlcg0KPiA8dmFwaWVyQGdlbnRv
+by5vcmc+IChjb21taXRfc2lnbmVyOjIwLzY1PTMxJSkgU29uaWMgWmhhbmcNCj4gPHNvbmljLnpo
+YW5nQGFuYWxvZy5jb20+IChjb21taXRfc2lnbmVyOjgvNjU9MTIlKQ0KPg0KPg0KDQpHcmVldGlu
+Z3MsDQpNaWNoYWVsDQoNCkFuYWxvZyBEZXZpY2VzIEdtYkggICAgICBXaWxoZWxtLVdhZ2VuZmVs
+ZC1TdHIuIDYgICAgICA4MDgwNyBNdWVuY2hlbg0KU2l0eiBkZXIgR2VzZWxsc2NoYWZ0IE11ZW5j
+aGVuLCBSZWdpc3RlcmdlcmljaHQgTXVlbmNoZW4gSFJCIDQwMzYgR2VzY2hhZWZ0c2Z1ZWhyZXIg
+VGhvbWFzIFdlc3NlbCwgV2lsbGlhbSBBLiBNYXJ0aW4sIE1hcmdhcmV0IFNlaWYNCg0KDQo=
