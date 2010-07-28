@@ -1,36 +1,36 @@
-From: Andy Chittenden <andyc@bluearc.com>
-Subject: RE: nfs client hang
-Date: Wed, 28 Jul 2010 08:24:09 +0100
-Message-ID: <ABFC24E4C13D81489F7F624E14891C8607DDF8D3D0@uk-ex-mbx1.terastack.bluearc.com>
-References: <99613C19B13C5D40914FB8930657FA9303365708DE@uk-ex-mbx1.terastack.bluearc.com>
-	 <4C4E89D4.8040607@bluearc.com>
-	 <ABFC24E4C13D81489F7F624E14891C8607DDF8D1E4@uk-ex-mbx1.terastack.bluearc.com>
- <1280233276.2827.175.camel@edumazet-laptop> <4C4F174C.2000308@oracle.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: br_forward.c - rcu dereference warning
+Date: Wed, 28 Jul 2010 09:33:51 +0200
+Message-ID: <1280302431.3684.0.camel@jlt3.sipsolutions.net>
+References: <1280227553.3755.2.camel@jlt3.sipsolutions.net>
+	 <20100727123859.GF3766@linux.vnet.ibm.com>
+	 <20100727112630.5a5ce84b@nehalam>
+	 <1280261679.3755.6.camel@jlt3.sipsolutions.net>
+	 <20100727134223.5bb0be30@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Linux Kernel Mailing List (linux-kernel@vger.kernel.org)"
-	<linux-kernel@vger.kernel.org>,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	netdev <netdev@vger.kernel.org>,
-	Linux NFS Mailing List <linux-nfs@vger.kernel.org>
-To: Andy Chittenden <andyc@bluearc.com>,
-	Chuck Lever <chuck.lever@oracle.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:46983 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753961Ab0G1Hdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 03:33:55 -0400
+In-Reply-To: <20100727134223.5bb0be30@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-cmVzZW5kaW5nIGFzIGl0IHNlZW1zIHRvIGhhdmUgYmVlbiBjb3JydXB0ZWQgb24gTEtNTCENCg0K
-PiBUaGUgUlBDIGNsaWVudCBtYXJrcyB0aGUgc29ja2V0IGNsb3NlZC4gYW5kIHRoZSBsaW5nZXIg
-dGltZW91dCBpcyANCj4gY2FuY2VsbGVkLiAgQXQgdGhpcyBwb2ludCwgc2tfc2h1dGRvd24gc2hv
-dWxkIGJlIHNldCB0byB6ZXJvLCBjb3JyZWN0PyANCj4gSSBkb24ndCBzZWUgYW4geHNfZXJyb3Jf
-cmVwb3J0KCkgY2FsbCBoZXJlLCB3aGljaCB3b3VsZCBjb25maXJtIHRoYXQgdGhlIA0KPiBzb2Nr
-ZXQgdG9vayBhIHRyaXAgdGhyb3VnaCB0Y3BfZGlzY29ubmVjdCgpLg0KDQpGcm9tIG15IHJlYWRp
-bmcgb2YgdGNwX2Rpc2Nvbm5lY3QoKSwgaXQgY2FsbHMgc2stPnNrX2Vycm9yX3JlcG9ydChzaykg
-dW5jb25kaXRpb25hbGx5IHNvIGFzIHRoZXJlJ3Mgbm8geHNfZXJyb3JfcmVwb3J0KCksIHRoYXQg
-c3VyZWx5IG1lYW5zIHRoZSBleGFjdCBvcHBvc2l0ZTogdGNwX2Rpc2Nvbm5lY3QoKSB3YXNuJ3Qg
-Y2FsbGVkLiBJZiBpdCdzIG5vdCBjYWxsZWQsIHNrX3NodXRkb3duIGlzIG5vdCBjbGVhcmVkLiBB
-bmQgbXkgcmV2aXNlZCB0cmFjaW5nIGNvbmZpcm1lZCB0aGF0IGl0IHdhcyBzZXQgdG8gDQpTRU5E
-X1NIVVRET1dOLg0KDQotLSANCkFuZHksIEJsdWVBcmMgRW5naW5lZXJpbmcNCg==
+On Tue, 2010-07-27 at 13:42 -0700, Stephen Hemminger wrote:
+
+> > 
+> > Did you want me to test the patch?
+> 
+> Yes please, I can make sure it works, but not that it gets rid
+> of your error
+
+Yes, it fixed it, thanks.
+
+johannes
+
+
