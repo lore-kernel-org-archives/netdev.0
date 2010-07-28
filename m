@@ -1,81 +1,43 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: noqueue on bonding devices
-Date: Wed, 28 Jul 2010 10:37:56 -0700
-Message-ID: <16360.1280338676@death>
-References: <20100728083217.GB20227@verge.net.au>
-Cc: netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:36155 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751377Ab0G1RiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jul 2010 13:38:00 -0400
-Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
-	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o6SHWKBj022981
-	for <netdev@vger.kernel.org>; Wed, 28 Jul 2010 13:32:20 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o6SHbwFV1613868
-	for <netdev@vger.kernel.org>; Wed, 28 Jul 2010 13:37:58 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o6SHbwZo025228
-	for <netdev@vger.kernel.org>; Wed, 28 Jul 2010 14:37:58 -0300
-In-reply-to: <20100728083217.GB20227@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: nfs client hang
+Date: Wed, 28 Jul 2010 13:37:20 -0400
+Message-ID: <4C506AD0.4070608@oracle.com>
+References: <99613C19B13C5D40914FB8930657FA9303365708DE@uk-ex-mbx1.terastack.bluearc.com>	 <4C4E89D4.8040607@bluearc.com>	 <ABFC24E4C13D81489F7F624E14891C8607DDF8D1E4@uk-ex-mbx1.terastack.bluearc.com> <1280233276.2827.175.camel@edumazet-laptop> <4C4F174C.2000308@oracle.com> <ABFC24E4C13D81489F7F624E14891C8607DDF8D3D0@uk-ex-mbx1.terastack.bluearc.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Linux Kernel Mailing List (linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org)"
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Chittenden <andyc-Pe6u2o1+k2hBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <ABFC24E4C13D81489F7F624E14891C8607DDF8D3D0-yEvK6Dt055VEbG1eAH4Z+rwY7bzXMFrTPsgEledslx8@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Simon Horman <horms@verge.net.au> wrote:
-
->Hi Jay, Hi All,
+On 07/28/10 03:24 AM, Andy Chittenden wrote:
+> resending as it seems to have been corrupted on LKML!
 >
->I would just to wonder out loud if it is intentional that bonding
->devices default to noqueue, whereas for instance ethernet devices
->default to a pfifo_fast with qlen 1000.
-
-	Yes, it is.
-
->The reason that I ask, is that when setting up some bandwidth
->control using tc I encountered some strange behaviour which
->I eventually tracked down to the queue-length of the qdiscs being 1p -
->inherited from noqueue, as opposed to 1000p which would occur
->on an ethernet device.
+>> The RPC client marks the socket closed. and the linger timeout is
+>> cancelled.  At this point, sk_shutdown should be set to zero, correct?
+>> I don't see an xs_error_report() call here, which would confirm that the
+>> socket took a trip through tcp_disconnect().
 >
->Its trivial to work around, by either altering the txqueuelen on
->the bonding device before adding the qdisc or by manually setting
->the qlen of the qdisc. But it did take us a while to determine the
->cause of the problem we were seeing. And as it seems inconsistent
->I'm interested to know why this is the case.
+> From my reading of tcp_disconnect(), it calls sk->sk_error_report(sk)
+> unconditionally so as there's no xs_error_report(), that surely means
+> the exact opposite: tcp_disconnect() wasn't called. If it's not
+> called, sk_shutdown is not cleared. And my revised tracing confirmed
+> that it was set to SEND_SHUTDOWN.
 
-	Software-only virtual devices (loopback, bonding, bridge, vlan,
-etc) typically have no transmit queue because, well, the device does no
-queueing.  Meaning that there is no flow control infrastructure in the
-software device; bonding, et al, won't ever flow control (call
-netif_stop_queue to temporarily suspend transmit) or accumulate packets
-on a transmit queue.
+Sorry, that's what I meant above.
 
-	Hardware ethernet devices set a queue length because it is
-meaningful for them to do so.  When their hardware transmit ring fills
-up, they will assert flow control, and stop accepting new packets for
-transmit.  Packets then accumulate in the software transmit queue, and
-when the device unblocks, those packets are ready to go.  When under
-continuous load, hardware network devices typically free up ring entries
-in blocks (not one at a time), so the software transmit queue helps to
-smooth out the chunkiness of the hardware driver's processing, minimize
-dropped packets, etc.
-
-	It's certainly possible to add a queue and qdisc to a bonding
-device, and is reasonable to do if you want to do packet scheduling with
-tc and friends.  In this case, the queue is really just for the tc
-actions to connect to; the queue won't accumulate packets on account of
-the driver (but could if the scheduler, e.g., rate limits).
-
->On an unrelated note, MAINTANERS lists bonding-devel@lists.sourceforge.net
->but the (recent) archives seem to be entirely spam.  Is the MAINTAINERS
->file correct?
-
-	Yah, I should probably change that; the spam is pretty heavy,
-and there isn't much I can do to limit it.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+An xs_error_report() debugging message at that point in the log would 
+confirm that the socket took a trip through tcp_disconnect().  But I 
+don't see such a message.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
