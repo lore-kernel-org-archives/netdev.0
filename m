@@ -1,67 +1,69 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: noqueue on bonding devices
-Date: Thu, 29 Jul 2010 08:42:36 +0900
-Message-ID: <20100728234236.GB4868@verge.net.au>
-References: <20100728083217.GB20227@verge.net.au>
- <16360.1280338676@death>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the net-current tree
+Date: Thu, 29 Jul 2010 11:05:04 +1000
+Message-ID: <20100729110504.df0b5791.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:41525 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752508Ab0G1Xmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 19:42:40 -0400
-Content-Disposition: inline
-In-Reply-To: <16360.1280338676@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stephen hemminger <shemminger@vyatta.com>,
+	Jiri Pirko <jpirko@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 28, 2010 at 10:37:56AM -0700, Jay Vosburgh wrote:
-> Simon Horman <horms@verge.net.au> wrote:
-> 
-> >Hi Jay, Hi All,
-> >
-> >I would just to wonder out loud if it is intentional that bonding
-> >devices default to noqueue, whereas for instance ethernet devices
-> >default to a pfifo_fast with qlen 1000.
-> 
-> 	Yes, it is.
-> 
-> >The reason that I ask, is that when setting up some bandwidth
-> >control using tc I encountered some strange behaviour which
-> >I eventually tracked down to the queue-length of the qdiscs being 1p -
-> >inherited from noqueue, as opposed to 1000p which would occur
-> >on an ethernet device.
-> >
-> >Its trivial to work around, by either altering the txqueuelen on
-> >the bonding device before adding the qdisc or by manually setting
-> >the qlen of the qdisc. But it did take us a while to determine the
-> >cause of the problem we were seeing. And as it seems inconsistent
-> >I'm interested to know why this is the case.
-> 
-> 	Software-only virtual devices (loopback, bonding, bridge, vlan,
-> etc) typically have no transmit queue because, well, the device does no
-> queueing.  Meaning that there is no flow control infrastructure in the
-> software device; bonding, et al, won't ever flow control (call
-> netif_stop_queue to temporarily suspend transmit) or accumulate packets
-> on a transmit queue.
-> 
-> 	Hardware ethernet devices set a queue length because it is
-> meaningful for them to do so.  When their hardware transmit ring fills
-> up, they will assert flow control, and stop accepting new packets for
-> transmit.  Packets then accumulate in the software transmit queue, and
-> when the device unblocks, those packets are ready to go.  When under
-> continuous load, hardware network devices typically free up ring entries
-> in blocks (not one at a time), so the software transmit queue helps to
-> smooth out the chunkiness of the hardware driver's processing, minimize
-> dropped packets, etc.
-> 
-> 	It's certainly possible to add a queue and qdisc to a bonding
-> device, and is reasonable to do if you want to do packet scheduling with
-> tc and friends.  In this case, the queue is really just for the tc
-> actions to connect to; the queue won't accumulate packets on account of
-> the driver (but could if the scheduler, e.g., rate limits).
+Hi all,
 
-Thanks for the detailed explanation, much appreciated.
+Today's linux-next merge of the net tree got a conflict in
+net/bridge/br_input.c between commit
+eeaf61d8891f9c9ed12c1a667e72bf83f0857954 ("bridge: add rcu_read_lock on
+transmit") from the net-current tree and commit
+ab95bfe01f9872459c8678572ccadbf646badad0 ("net: replace hooks in
+__netif_receive_skb V5") from the net tree.
+
+Just overlapping changes in a comment.  I fixed it up (see below) and can
+carry the fix for a while.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/bridge/br_input.c
+index 114365c,5fc1c5b..0000000
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@@ -108,13 -110,12 +110,12 @@@ drop
+  	goto out;
+  }
+  
+ -/* note: already called with rcu_read_lock (preempt_disabled) */
+ +/* note: already called with rcu_read_lock */
+  static int br_handle_local_finish(struct sk_buff *skb)
+  {
+- 	struct net_bridge_port *p = rcu_dereference(skb->dev->br_port);
++ 	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
+  
+- 	if (p)
+- 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source);
++ 	br_fdb_update(p->br, p, eth_hdr(skb)->h_source);
+  	return 0;	 /* process further */
+  }
+  
+@@@ -131,12 -132,13 +132,12 @@@ static inline int is_link_local(const u
+  }
+  
+  /*
+-  * Called via br_handle_frame_hook.
+   * Return NULL if skb is handled
+-  * note: already called with rcu_read_lock
+ - * note: already called with rcu_read_lock (preempt_disabled) from
+ - * netif_receive_skb
+++ * note: already called with rcu_read_lock from netif_receive_skb
+   */
+- struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
++ struct sk_buff *br_handle_frame(struct sk_buff *skb)
+  {
++ 	struct net_bridge_port *p;
+  	const unsigned char *dest = eth_hdr(skb)->h_dest;
+  	int (*rhook)(struct sk_buff *skb);
+  
