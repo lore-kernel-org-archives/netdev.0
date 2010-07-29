@@ -1,69 +1,113 @@
-From: xiaohui.xin@intel.com
-Subject: [RFC PATCH v8 13/16] Add a kconfig entry and make entry for mp device.
-Date: Thu, 29 Jul 2010 19:14:44 +0800
-Message-ID: <1280402088-5849-13-git-send-email-xiaohui.xin@intel.com>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-2-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-3-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-4-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-5-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-6-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-7-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-8-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-9-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-10-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-11-git-send-email-xiaohui.xin@intel.com>
- <1280402088-5849-12-git-send-email-xiaohui.xin@intel.com>
-Cc: Xin Xiaohui <xiaohui.xin@intel.com>
-To: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	davem@davemloft.net, herbert@gondor.apana.org.au,
-	jdike@linux.intel.com
+From: =?UTF-8?B?SmFrdWIgUnXFvmnEjWth?= <ruzicka.jakub@gmail.com>
+Subject: via-rhine interrupts
+Date: Thu, 29 Jul 2010 13:03:09 +0200
+Message-ID: <AANLkTi=xfBSn=FS9=eR=NZa9QwrHAQwGc7Kh1-bUn3aj@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=00163683302a047602048c84ae42
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:58755 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756964Ab0G2LBf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jul 2010 07:01:35 -0400
-In-Reply-To: <1280402088-5849-12-git-send-email-xiaohui.xin@intel.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:50569 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757121Ab0G2LDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 07:03:11 -0400
+Received: by wwj40 with SMTP id 40so181357wwj.1
+        for <netdev@vger.kernel.org>; Thu, 29 Jul 2010 04:03:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Xiaohui <xiaohui.xin@intel.com>
+--00163683302a047602048c84ae42
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
----
- drivers/vhost/Kconfig  |   10 ++++++++++
- drivers/vhost/Makefile |    2 ++
- 2 files changed, 12 insertions(+), 0 deletions(-)
+Hello,
 
-diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
-index e4e2fd1..a6b8cbf 100644
---- a/drivers/vhost/Kconfig
-+++ b/drivers/vhost/Kconfig
-@@ -9,3 +9,13 @@ config VHOST_NET
- 	  To compile this driver as a module, choose M here: the module will
- 	  be called vhost_net.
- 
-+config MEDIATE_PASSTHRU
-+	tristate "mediate passthru network driver (EXPERIMENTAL)"
-+	depends on VHOST_NET
-+	---help---
-+	  zerocopy network I/O support, we call it as mediate passthru to
-+	  be distiguish with hardare passthru.
-+
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called mpassthru.
-+
-diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
-index 72dd020..c18b9fc 100644
---- a/drivers/vhost/Makefile
-+++ b/drivers/vhost/Makefile
-@@ -1,2 +1,4 @@
- obj-$(CONFIG_VHOST_NET) += vhost_net.o
- vhost_net-y := vhost.o net.o
-+
-+obj-$(CONFIG_MEDIATE_PASSTHRU) += mpassthru.o
--- 
-1.5.4.4
+the via-rhine driver powered cards generate a really big number of
+interrupts, almost one per packet (11429 interrupts for 8210 incoming
+and 2475 outgoing packets per second on full 100 Mbps load). This is
+observed on multiple different machines (embbed and desktop) and
+kernels (2.6.25 with and without NAPI, 2.6.30, 2.6.32 and 2.6.33). Do
+you have any idea why isn't the polling used or what can I try to find
+out what's wrong?
 
+I have tested sending to/from the machines with nc and scp, measured
+interrups and load with atop. Few of these measurements on an embbed
+device (where the interrupt handling is a problem) are attached.
+
+I'm not a subscriber, please Cc me if needed.
+
+Thankfully
+Jakub Ru=C5=BEi=C4=8Dka
+
+--00163683302a047602048c84ae42
+Content-Type: application/octet-stream; name="atop_on_2.6.25.20_no_NAPI"
+Content-Disposition: attachment; filename="atop_on_2.6.25.20_no_NAPI"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gc7hfslz0
+
+UFJDIHwgc3lzICAgMC4wNnMgfCB1c2VyICAgMC4wMHMgfCAjcHJvYyAgICAgNDQgfCAjem9tYmll
+ICAgIDAgfCAjZXhpdCAgICAwL3MKQ1BVIHwgc3lzICAgICAgMCUgfCB1c2VyICAgICAgMCUgfCBp
+cnEgICAgICA0NSUgfCBpZGxlICAgICA1NCUgfCB3YWl0ICAgMCUgfApDUEwgfCBhdmcxICAgMC4w
+MCB8IGF2ZzUgICAgMC4wMCB8IGF2ZzE1ICAgMC4wMCB8IGNzdyAgICAgMTMvcyB8IGludHIgMTA3
+NTcvcwpNRU0gfCB0b3QgIDI0Ny40TSB8IGZyZWUgIDE4My4xTSB8IGNhY2hlICAzOC40TSB8IGJ1
+ZmYgICAgNC44TSB8IHNsYWIgICAgNi4yTQpTV1AgfCB0b3QgICAgMC4wTSB8IGZyZWUgICAgMC4w
+TSB8ICAgICAgICAgICAgICB8IHZtY29tICA0Ni4wTSB8IHZtbGltIDEyMy43TQpQQUcgfCBzY2Fu
+ICAgIDAvcyB8IHN0YWxsICAgIDAvcyB8ICAgICAgICAgICAgICB8IHN3aW4gICAgIDAvcyB8IHN3
+b3V0ICAgIDAvcwpEU0sgfCAgICAgICAgIHNkYSB8IGJ1c3kgICAgICAwJSB8IHJlYWQgICAgIDAv
+cyB8IHdyaXRlICAgIDAvcyB8IGF2aW8gICAgMCBtcwpORVQgfCB0cmFuc3BvcnQgICB8IHRjcGkg
+ICAgIDEvcyB8IHRjcG8gICAgIDEvcyB8IHVkcGkgICAgIDAvcyB8IHVkcG8gICAgIDAvcwpORVQg
+fCBuZXR3b3JrICAgICB8IGlwaSAgICAgIDEvcyB8IGlwbyAgICAgIDEvcyB8IGlwZnJ3ICAgIDAv
+cyB8IGRlbGl2ICAgIDEvcwpORVQgfCBldGgyICAgIDk4JSB8IHBja2kgIDgxMTIvcyB8IHBja28g
+ICAgIDAvcyB8IHNpICAgOTggTWJwcyB8IHNvICAgIDAgS2JwcwpORVQgfCBldGgxICAgICAyJSB8
+IHBja2kgIDM4MzgvcyB8IHBja28gICAgIDAvcyB8IHNpIDIwMzIgS2JwcyB8IHNvICAgIDAgS2Jw
+cwpORVQgfCBldGgwICAgICAwJSB8IHBja2kgICAgIDcvcyB8IHBja28gICAgIDEvcyB8IHNpICAg
+IDMgS2JwcyB8IHNvICAgIDEgS2JwcwpORVQgfCBsbyAgICAgLS0tLSB8IHBja2kgICAgIDAvcyB8
+IHBja28gICAgIDAvcyB8IHNpICAgIDAgS2JwcyB8IHNvICAgIDAgS2Jwcwo=
+--00163683302a047602048c84ae42
+Content-Type: application/octet-stream; name="atop_on_2.6.25.20_with_NAPI"
+Content-Disposition: attachment; filename="atop_on_2.6.25.20_with_NAPI"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gc7hs9qo1
+
+UFJDIHwgc3lzICAgMC4wOHMgfCB1c2VyICAgMC4wMHMgfCAjcHJvYyAgICAgNDIgfCAjem9tYmll
+ICAgIDAgfCAjZXhpdCAgICAwL3MKQ1BVIHwgc3lzICAgICAgMSUgfCB1c2VyICAgICAgMiUgfCBp
+cnEgICAgICA0NyUgfCBpZGxlICAgICA1MCUgfCB3YWl0ICAgMCUgfApDUEwgfCBhdmcxICAgMC4w
+NiB8IGF2ZzUgICAgMC4yMyB8IGF2ZzE1ICAgMC4xMiB8IGNzdyAgICAgMTIvcyB8IGludHIgMTE5
+MDIvcwpNRU0gfCB0b3QgIDI0Ny40TSB8IGZyZWUgIDE4OS4xTSB8IGNhY2hlICAzNS41TSB8IGJ1
+ZmYgICAgMi44TSB8IHNsYWIgICAgNi4yTQpTV1AgfCB0b3QgICAgMC4wTSB8IGZyZWUgICAgMC4w
+TSB8ICAgICAgICAgICAgICB8IHZtY29tICA0Mi4wTSB8IHZtbGltIDEyMy43TQpQQUcgfCBzY2Fu
+ICAgIDAvcyB8IHN0YWxsICAgIDAvcyB8ICAgICAgICAgICAgICB8IHN3aW4gICAgIDAvcyB8IHN3
+b3V0ICAgIDAvcwpEU0sgfCAgICAgICAgIHNkYSB8IGJ1c3kgICAgICAwJSB8IHJlYWQgICAgIDAv
+cyB8IHdyaXRlICAgIDIvcyB8IGF2aW8gICAgMiBtcwpORVQgfCB0cmFuc3BvcnQgICB8IHRjcGkg
+ICAgIDEvcyB8IHRjcG8gICAgIDEvcyB8IHVkcGkgICAgIDAvcyB8IHVkcG8gICAgIDAvcwpORVQg
+fCBuZXR3b3JrICAgICB8IGlwaSAgICAgIDEvcyB8IGlwbyAgICAgIDEvcyB8IGlwZnJ3ICAgIDAv
+cyB8IGRlbGl2ICAgIDEvcwpORVQgfCBldGgyICAgIDk4JSB8IHBja2kgIDgxMzMvcyB8IHBja28g
+ICAgIDAvcyB8IHNpICAgOTggTWJwcyB8IHNvICAgIDAgS2JwcwpORVQgfCBldGgxICAgICAyJSB8
+IHBja2kgIDM5ODMvcyB8IHBja28gICAgIDAvcyB8IHNpIDIxMDQgS2JwcyB8IHNvICAgIDAgS2Jw
+cwpORVQgfCBldGgwICAgICAwJSB8IHBja2kgICAgIDMvcyB8IHBja28gICAgIDEvcyB8IHNpICAg
+IDEgS2JwcyB8IHNvICAgIDEgS2JwcwpORVQgfCBsbyAgICAgLS0tLSB8IHBja2kgICAgIDAvcyB8
+IHBja28gICAgIDAvcyB8IHNpICAgIDAgS2JwcyB8IHNvICAgIDAgS2JwcwoK
+--00163683302a047602048c84ae42
+Content-Type: application/octet-stream; name="atop_on_2.6.32"
+Content-Disposition: attachment; filename="atop_on_2.6.32"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gc7hsg9w2
+
+UFJDIHwgc3lzICAgMC4xNnMgfCB1c2VyICAgMC4wMXMgfCAjcHJvYyAgICAgNTAgfCAjem9tYmll
+ICAgIDAgfCAjZXhpdCAgICAwL3MKQ1BVIHwgc3lzICAgICAgMyUgfCB1c2VyICAgICAgMCUgfCBp
+cnEgICAgICA2OSUgfCBpZGxlICAgICAyOCUgfCB3YWl0ICAgICAgMCUKQ1BMIHwgYXZnMSAgIDAu
+MDMgfCBhdmc1ICAgIDAuMjYgfCBhdmcxNSAgIDAuMTUgfCBjc3cgICAgIDExL3MgfCBpbnRyIDEx
+MzQyL3MKTUVNIHwgdG90ICAyNDMuMk0gfCBmcmVlICAxODAuMU0gfCBjYWNoZSAgMzYuOE0gfCBi
+dWZmICAgIDIuOE0gfCBzbGFiICAgIDYuOE0KU1dQIHwgdG90ICAgIDAuME0gfCBmcmVlICAgIDAu
+ME0gfCAgICAgICAgICAgICAgfCB2bWNvbSAgNDUuOE0gfCB2bWxpbSAxMjEuNk0KUEFHIHwgc2Nh
+biAgICAwL3MgfCBzdGFsbCAgICAwL3MgfCAgICAgICAgICAgICAgfCBzd2luICAgICAwL3MgfCBz
+d291dCAgICAwL3MKRFNLIHwgICAgICAgICBzZGEgfCBidXN5ICAgICAgMCUgfCByZWFkICAgICAw
+L3MgfCB3cml0ZSAgICAxL3MgfCBhdmlvICAgIDggbXMKTkVUIHwgdHJhbnNwb3J0ICAgfCB0Y3Bp
+ICAgICAxL3MgfCB0Y3BvICAgICAxL3MgfCB1ZHBpICAgICAwL3MgfCB1ZHBvICAgICAwL3MKTkVU
+IHwgbmV0d29yayAgICAgfCBpcGkgICAgICAxL3MgfCBpcG8gICAgICAxL3MgfCBpcGZydyAgICAw
+L3MgfCBkZWxpdiAgICAxL3MKTkVUIHwgZXRoMiAgICA5OCUgfCBwY2tpICA4MTI2L3MgfCBwY2tv
+ICAgICAwL3MgfCBzaSAgIDk4IE1icHMgfCBzbyAgICAwIEticHMKTkVUIHwgZXRoMSAgICAgMiUg
+fCBwY2tpICAzODg3L3MgfCBwY2tvICAgICAwL3MgfCBzaSAyMDU3IEticHMgfCBzbyAgICAwIEti
+cHMKTkVUIHwgZXRoMCAgICAgMCUgfCBwY2tpICAgICAxL3MgfCBwY2tvICAgICAxL3MgfCBzaSAg
+ICAwIEticHMgfCBzbyAgICAxIEticHMKTkVUIHwgbG8gICAgIC0tLS0gfCBwY2tpICAgICAwL3Mg
+fCBwY2tvICAgICAwL3MgfCBzaSAgICAwIEticHMgfCBzbyAgICAwIEticHMK
+--00163683302a047602048c84ae42--
