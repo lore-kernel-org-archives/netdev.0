@@ -1,64 +1,28 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
-	tree
-Date: Wed, 28 Jul 2010 18:26:54 -0700
-Message-ID: <AANLkTimFauHpzYk4C3sW=o-k+9yJP0iz1kWKXE9Brnzn@mail.gmail.com>
-References: <20100729111904.90b148a6.sfr@canb.auug.org.au>
+From: Steve Chen <schen@mvista.com>
+Subject: TAHI CN-6-4-1 failed on Linux 2.6.32 kernel
+Date: Wed, 28 Jul 2010 22:20:05 -0500
+Message-ID: <AANLkTim-zWhq9aGrvH2PdS3VjfBvmh=qL=1Sy3Z+VPgT@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Bruce Allan <bruce.w.allan@intel.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100729111904.90b148a6.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: usagi-users-ctl@ml.linux-ipv6.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:45351 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752886Ab0G2DUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 23:20:07 -0400
+Received: by iwn7 with SMTP id 7so113408iwn.19
+        for <netdev@vger.kernel.org>; Wed, 28 Jul 2010 20:20:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 28, 2010 at 18:19, Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
-> Hi all,
->
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/e1000e/hw.h between commit
-> ff847ac2d3e90edd94674c28bade25ae1e6a2e49 ("") from the net-current tr=
-ee
-> and commit d3738bb8203acf8552c3ec8b3447133fc0938ddd ("e1000e: initial
-> support for 82579 LOMs") from the net tree.
->
-> Just context changes. I fixed it up (see below) and can carry the fix=
- for
-> a while.
-> --
-> Cheers,
-> Stephen Rothwell =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0sfr@canb.auug.org.au
->
-> diff --cc drivers/net/e1000e/hw.h
-> index 664ed58,0cd569a..0000000
-> --- a/drivers/net/e1000e/hw.h
-> +++ b/drivers/net/e1000e/hw.h
-> @@@ -308,8 -312,8 +312,8 @@@ enum e1e_registers
-> =C2=A0#define E1000_KMRNCTRLSTA_INBAND_PARAM =C2=A0 =C2=A0 =C2=A0 =C2=
-=A00x9 =C2=A0 =C2=A0/* Kumeran InBand Parameters */
-> =C2=A0#define E1000_KMRNCTRLSTA_DIAG_NELPBK 0x1000 /* Nearend Loopbac=
-k mode */
-> =C2=A0#define E1000_KMRNCTRLSTA_K1_CONFIG =C2=A0 0x7
-> =C2=A0-#define E1000_KMRNCTRLSTA_K1_ENABLE =C2=A0 0x140E
-> =C2=A0+#define E1000_KMRNCTRLSTA_K1_ENABLE =C2=A0 0x0002
-> - #define E1000_KMRNCTRLSTA_K1_DISABLE =C2=A00x1400
-> + #define E1000_KMRNCTRLSTA_HD_CTRL =C2=A0 =C2=A0 0x0002
->
-> =C2=A0#define IFE_PHY_EXTENDED_STATUS_CONTROL =C2=A0 =C2=A0 =C2=A0 0x=
-10
-> =C2=A0#define IFE_PHY_SPECIAL_CONTROL =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 0x11 /* 100BaseTx PHY Special Control */
-> --
+Hello,
 
-yes, that is fine and expected.  When Dave sync's up is net-next-2.6
-tree with net-2.6 tree, this issue will be fixed up.
+The TAHI correspondent node tests CN-6-4-1 (Processing in upper layer
+- Echo Checksum) failed for me in the 2.6.32 kernel.  It appears that
+the Linux kernel is replying the ICMP echo request in
+icmpv6_echo_reply without much checking.  Is this an intentional
+non-conformance to RFC3775 section 9.3.1?
 
---=20
-Cheers,
-Jeff
+Thanks,
+
+Steve
