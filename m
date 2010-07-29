@@ -1,108 +1,138 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [REGRESSION] e1000e stopped working [MANUALLY BISECTED]
-Date: Wed, 28 Jul 2010 18:10:58 -0700
-Message-ID: <AANLkTinSOUcAxnqCo9YVVonhZ4sdC8iUK4r6F1+ayKef@mail.gmail.com>
-References: <1277659633.2989.2.camel@localhost.localdomain>
-	<1277659785.4028.1.camel@localhost.localdomain>
-	<1277660638.3321.1.camel@localhost.localdomain>
-	<1277660831.3321.3.camel@localhost.localdomain>
-	<8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
-	<1277745247.12841.1.camel@localhost.localdomain>
-	<8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
-	<1277807529.19417.2.camel@localhost.localdomain>
-	<EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
-	<1277938757.4138.3.camel@localhost.localdomain>
-	<1278204106.21020.0.camel@localhost.localdomain>
-	<1278283714.3444.1.camel@localhost.localdomain>
-	<AANLkTin4sdPeExcNJkq4pfwIq0lcJuXtzTAACRW3JTFh@mail.gmail.com>
-	<1278323885.5277.0.camel@localhost.localdomain>
-	<1278950178.17933.2.camel@localhost.localdomain>
-	<EA929A9653AAE14F841771FB1DE5A1365FF4A9B949@rrsmsx501.amr.corp.intel.com>
-	<1278981483.23017.4.camel@localhost.localdomain>
-	<EA929A9653AAE14F841771FB1DE5A1365FF4B05AF9@rrsmsx501.amr.corp.intel.com>
-	<1279150380.7810.2.camel@localhost.localdomain>
-	<1279220266.4411.2.camel@localhost.localdomain>
-	<EA929A9653AAE14F841771FB1DE5A1365FF4B860D9@rrsmsx501.amr.corp.intel.com>
-	<1279220945.4411.6.camel@localhost.localdomain>
-	<1279308358.3979.0.camel@localhost.localdomain>
-	<EA929A9653AAE14F841771FB1DE5A1365FFE1B19CD@rrsmsx501.amr.corp.intel.com>
-	<1279374897.8428.5.camel@localhost.localdomain>
-	<1280103959.2589.2.camel@localhost.localdomain>
-	<1280300683.8250.2.camel@maxim-laptop>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next] bonding: take rtnl in bond_loadbalance_arp_mon
+Date: Wed, 28 Jul 2010 21:13:56 -0400
+Message-ID: <20100729011355.GV7497@gospo.rdu.redhat.com>
+References: <1280351076-19973-1-git-send-email-andy@greyhouse.net> <29111.1280353189@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:37842 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751163Ab0G2BK7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jul 2010 21:10:59 -0400
-Received: by iwn7 with SMTP id 7so5146038iwn.19
-        for <netdev@vger.kernel.org>; Wed, 28 Jul 2010 18:10:58 -0700 (PDT)
-In-Reply-To: <1280300683.8250.2.camel@maxim-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:34643 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751178Ab0G2BN6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jul 2010 21:13:58 -0400
+Content-Disposition: inline
+In-Reply-To: <29111.1280353189@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 28, 2010 at 00:04, Maxim Levitsky <maximlevitsky@gmail.com>=
- wrote:
-> On Mon, 2010-07-26 at 03:25 +0300, Maxim Levitsky wrote:
->>
->> This commit, present in net-next, solves the problem:
->>
->> commit 1286950690f0f82ffa504e1e149ee3fdb4c51478
->> Author: Bruce Allan <bruce.w.allan@intel.com>
->> Date: =C2=A0 Mon Jul 26 03:19:38 2010 +0300
->>
->> =C2=A0 =C2=A0 e1000e: cleanup e1000_sw_lcd_config_ich8lan()
->>
->> =C2=A0 =C2=A0 Do not acquire and release the PHY unnecessarily for p=
-arts that return
->> =C2=A0 =C2=A0 from this workaround without actually accessing the PH=
-Y registers.
->>
->> =C2=A0 =C2=A0 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
->> =C2=A0 =C2=A0 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
->> =C2=A0 =C2=A0 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.c=
-om>
->> =C2=A0 =C2=A0 Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->>
->>
->>
->> Also, the above patch is part of whole series of patches with scary =
-descriptions (that is these fix bugs).
->> If I were you I would send them to Linus for 2.6.35 inclusion too.
->>
->> Best regards,
->> =C2=A0 =C2=A0 =C2=A0 Maxim Levitsky
->>
->>
->>
-> ping
->
+On Wed, Jul 28, 2010 at 02:39:49PM -0700, Jay Vosburgh wrote:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
+> 
+> >With the latest code in net-next-2.6 the following (and similar) are
+> >spewed when using arp monitoring and balance-alb.
+> 
+> 	Does the ARP monitor function correctly for balance-alb?  My
+> recollection is that the ARP monitor probes interfere with the tailored
+> ARP messages that balance-alb sends.
 
-Sorry for the delayed response.  I am working on the issue.  Here is
-the problem I am having, the patch that fixes the issue you are seeing
-is fairly large and is a cleanup to the ich8 function, which as it
-stands now, would not be accepted into net-2.6 tree this late into the
--rc cycle.  So, what I looking at is, what specifically fixed the
-issue you are seeing that resides in that patch, and come up with a
-smaller (acceptable) patch that I can submit to net-2.6 now to resolve
-your issue.
+It seems to work fine here on a few tries (I only use sysfs for
+configuration anymore), but it might be blind luck that the addresses
+chosen are hashing out correctly to make arp monitoring work.
 
-I have dedicated most of this evening to finding a resolution to your
-issue that will be acceptable for the net-2.6 tree.  As you noted,
-there were several patches before this particular commit that may play
-some part in the resolution as well, and that is what I will be
-looking into.  I greatly appreciate the hard work you have done to
-help us resolve this issue, and will make sure you get credit for any
-solution I put together to resolve this issue.
+> The bond_check_params function
+> disallows setting arp_interval (it forces miimon on).  I suspect this
+> nuance was missed when setting up the sysfs code, but if it does work,
+> then perhaps it is too strict.
 
---=20
-Cheers,
-Jeff
+You are correct, it does.  It is clear that some checks should be added
+to the sysfs code and it also seems like some work should be done to
+more clearly define what modes support which form of link monitoring (it
+doesn't seem to me like balance-rr should support can monitoring in it's
+current implementation, but there is no explicit code to check for it in
+the sysfs-layer or bond_check_params).
+
+> 	As I recall, I had deliberately left acquiring rtnl out of the
+> loadbalance_arp_mon function, since none of the modes that used it
+> required rtnl for failover.
+
+Understood.
+
+Based on your comments, at least something like the following should
+probably be done.
+
+
+[PATCH net-next] bonding: prevent sysfs from allowing arp monitoring with alb/tlb
+
+When using module options arp monitoring and balance-alb/balance-tlb
+are mutually exclusive options.  Anytime balance-alb/balance-tlb are
+enabled mii monitoring is forced to 100ms if not set.  When configuring
+via sysfs no checking is currently done.
+
+Handling these cases with sysfs has to be done a bit differently because
+we do not have all configuration information available at once.  This
+patch will not allow a mode change to balance-alb/balance-tlb if
+arp_interval is already non-zero.  It will also not allow the user to
+set a non-zero arp_interval value if the mode is already set to
+balance-alb/balance-tlb.  They are still mutually exclusive on a
+first-come, first serve basis.
+
+Tested with initscripts on Fedora and manual setting via sysfs.
+
+Signed-off-by: Andy Gospodarek <gospo@redhat.com>
+
+---
+ drivers/net/bonding/bond_sysfs.c |   37 +++++++++++++++++++++++++------------
+ 1 files changed, 25 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 1a99764..c311aed 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -313,19 +313,26 @@ static ssize_t bonding_store_mode(struct device *d,
+ 		       bond->dev->name, (int)strlen(buf) - 1, buf);
+ 		ret = -EINVAL;
+ 		goto out;
+-	} else {
+-		if (bond->params.mode == BOND_MODE_8023AD)
+-			bond_unset_master_3ad_flags(bond);
++	}
++	if ((new_value == BOND_MODE_ALB ||
++	     new_value == BOND_MODE_TLB) &&
++	    bond->params.arp_interval) {
++		pr_err("%s: %s mode is incompatible with arp monitoring.\n",
++		       bond->dev->name, bond_mode_tbl[new_value].modename);
++		ret = -EINVAL;
++		goto out;
++	}
++	if (bond->params.mode == BOND_MODE_8023AD)
++		bond_unset_master_3ad_flags(bond);
+ 
+-		if (bond->params.mode == BOND_MODE_ALB)
+-			bond_unset_master_alb_flags(bond);
++	if (bond->params.mode == BOND_MODE_ALB)
++		bond_unset_master_alb_flags(bond);
+ 
+-		bond->params.mode = new_value;
+-		bond_set_mode_ops(bond, bond->params.mode);
+-		pr_info("%s: setting mode to %s (%d).\n",
+-			bond->dev->name, bond_mode_tbl[new_value].modename,
+-		       new_value);
+-	}
++	bond->params.mode = new_value;
++	bond_set_mode_ops(bond, bond->params.mode);
++	pr_info("%s: setting mode to %s (%d).\n",
++		bond->dev->name, bond_mode_tbl[new_value].modename,
++		new_value);
+ out:
+ 	return ret;
+ }
+@@ -510,7 +517,13 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+ 		ret = -EINVAL;
+ 		goto out;
+ 	}
+-
++	if (bond->params.mode == BOND_MODE_ALB ||
++	    bond->params.mode == BOND_MODE_TLB) {
++		pr_info("%s: ARP monitoring cannot be used with ALB/TLB. Only MII monitoring is supported on %s.\n",
++			bond->dev->name, bond->dev->name);
++		ret = -EINVAL;
++		goto out;
++	}
+ 	pr_info("%s: Setting ARP monitoring interval to %d.\n",
+ 		bond->dev->name, new_value);
+ 	bond->params.arp_interval = new_value;
+-- 
+1.7.0.1
+
