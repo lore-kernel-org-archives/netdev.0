@@ -1,219 +1,141 @@
-From: Sriramakrishnan <srk@ti.com>
-Subject: [PATCH 1/3] TI DaVinci EMAC : Implement interrupt pacing functionality.
-Date: Thu, 29 Jul 2010 18:03:58 +0530
-Message-ID: <1280406840-27393-1-git-send-email-srk@ti.com>
-Cc: nsekhar@ti.com, anantgole@ti.com, Sriramakrishnan <srk@ti.com>
-To: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Code style fixes
+Date: Thu, 29 Jul 2010 22:34:52 +0900
+Message-ID: <4C51837C.4020505@ring3k.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:37972 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754005Ab0G2MeI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jul 2010 08:34:08 -0400
-Received: from dbdp31.itg.ti.com ([172.24.170.98])
-	by comal.ext.ti.com (8.13.7/8.13.7) with ESMTP id o6TCY5Dj021011
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 29 Jul 2010 07:34:07 -0500
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:39359 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754236Ab0G2Nqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 09:46:49 -0400
+Received: by pzk26 with SMTP id 26so95074pzk.19
+        for <netdev@vger.kernel.org>; Thu, 29 Jul 2010 06:46:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DaVinci EMAC module includes an interrupt pacing block that can
-be programmed to throttle the rate at which interrupts are
-generated. This patch implements interrupt pacing logic that can
-be controlled through the ethtool interface(only rx_coalesce_usecs
-param is honored)
+Fix selected style problems reported by checkpatch.
 
-Signed-off-by: Sriramakrishnan <srk@ti.com>
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
 ---
- drivers/net/davinci_emac.c |  133 +++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 131 insertions(+), 2 deletions(-)
+ drivers/net/sky2.c |   24 ++++++++++++------------
+ 1 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 08e82b1..bc1b270 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -298,6 +298,11 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
- #define EMAC_CTRL_EWCTL		(0x4)
- #define EMAC_CTRL_EWINTTCNT	(0x8)
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 8b85c02..8723e3d 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -79,7 +79,7 @@
  
-+/* EMAC DM644x control module masks */
-+#define EMAC_DM644X_EWINTCNT_MASK	0x1FFFF
-+#define EMAC_DM644X_INTMIN_INTVL	0x1
-+#define EMAC_DM644X_INTMAX_INTVL	(EMAC_DM644X_EWINTCNT_MASK)
-+
- /* EMAC MDIO related */
- /* Mask & Control defines */
- #define MDIO_CONTROL_CLKDIV	(0xFF)
-@@ -318,8 +323,20 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
- #define MDIO_CONTROL		(0x04)
+ #define SKY2_EEPROM_MAGIC	0x9955aabb
  
- /* EMAC DM646X control module registers */
--#define EMAC_DM646X_CMRXINTEN	(0x14)
--#define EMAC_DM646X_CMTXINTEN	(0x18)
-+#define EMAC_DM646X_CMINTCTRL	0x0C
-+#define EMAC_DM646X_CMRXINTEN	0x14
-+#define EMAC_DM646X_CMTXINTEN	0x18
-+#define EMAC_DM646X_CMRXINTMAX	0x70
-+#define EMAC_DM646X_CMTXINTMAX	0x74
-+
-+/* EMAC DM646X control module masks */
-+#define EMAC_DM646X_INTPACEEN		(0x3 << 16)
-+#define EMAC_DM646X_INTPRESCALE_MASK	(0x7FF << 0)
-+#define EMAC_DM646X_CMINTMAX_CNT	63
-+#define EMAC_DM646X_CMINTMIN_CNT	2
-+#define EMAC_DM646X_CMINTMAX_INTVL	(1000 / EMAC_DM646X_CMINTMIN_CNT)
-+#define EMAC_DM646X_CMINTMIN_INTVL	((1000 / EMAC_DM646X_CMINTMAX_CNT) + 1)
-+
+-#define RING_NEXT(x,s)	(((x)+1) & ((s)-1))
++#define RING_NEXT(x, s)	(((x)+1) & ((s)-1))
  
- /* EMAC EOI codes for C0 */
- #define EMAC_DM646X_MAC_EOI_C0_RXEN	(0x01)
-@@ -468,6 +485,8 @@ struct emac_priv {
- 	u32 duplex; /* Link duplex: 0=Half, 1=Full */
- 	u32 rx_buf_size;
- 	u32 isr_count;
-+	u32 coal_intvl;
-+	u32 bus_freq_mhz;
- 	u8 rmii_en;
- 	u8 version;
- 	struct net_device_stats net_dev_stats;
-@@ -692,6 +711,103 @@ static int emac_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ static const u32 default_msg =
+     NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK
+@@ -172,7 +172,7 @@ static int gm_phy_write(struct sky2_hw *hw, unsigned port, u16 reg, u16 val)
+ 		udelay(10);
+ 	}
+ 
+-	dev_warn(&hw->pdev->dev,"%s: phy write timeout\n", hw->dev[port]->name);
++	dev_warn(&hw->pdev->dev, "%s: phy write timeout\n", hw->dev[port]->name);
+ 	return -ETIMEDOUT;
+ 
+ io_error:
+@@ -1078,7 +1078,7 @@ static inline struct sky2_rx_le *sky2_next_rx(struct sky2_port *sky2)
+ 	return le;
  }
  
- /**
-+ * emac_get_coalesce : Get interrupt coalesce settings for this device
-+ * @ndev : The DaVinci EMAC network adapter
-+ * @coal : ethtool coalesce settings structure
-+ *
-+ * Fetch the current interrupt coalesce settings
-+ *
-+ */
-+static int emac_get_coalesce(struct net_device *ndev,
-+				struct ethtool_coalesce *coal)
-+{
-+	struct emac_priv *priv = netdev_priv(ndev);
-+
-+	coal->rx_coalesce_usecs = priv->coal_intvl;
-+	return 0;
-+
-+}
-+
-+/**
-+ * emac_set_coalesce : Set interrupt coalesce settings for this device
-+ * @ndev : The DaVinci EMAC network adapter
-+ * @coal : ethtool coalesce settings structure
-+ *
-+ * Set interrupt coalesce parameters
-+ *
-+ */
-+static int emac_set_coalesce(struct net_device *ndev,
-+				struct ethtool_coalesce *coal)
-+{
-+	struct emac_priv *priv = netdev_priv(ndev);
-+	u32 int_ctrl, num_interrupts = 0;
-+	u32 prescale = 0, addnl_dvdr = 1, coal_intvl = 0;
-+
-+	if (!coal->rx_coalesce_usecs)
-+		return -EINVAL;
-+
-+	coal_intvl = coal->rx_coalesce_usecs;
-+
-+	switch (priv->version) {
-+	case EMAC_VERSION_2:
-+		int_ctrl =  emac_ctrl_read(EMAC_DM646X_CMINTCTRL);
-+		prescale = priv->bus_freq_mhz * 4;
-+
-+		if (coal_intvl < EMAC_DM646X_CMINTMIN_INTVL)
-+			coal_intvl = EMAC_DM646X_CMINTMIN_INTVL;
-+
-+		if (coal_intvl > EMAC_DM646X_CMINTMAX_INTVL) {
-+			/*
-+			 * Interrupt pacer works with 4us Pulse, we can
-+			 * throttle further by dilating the 4us pulse.
-+			 */
-+			addnl_dvdr = EMAC_DM646X_INTPRESCALE_MASK / prescale;
-+
-+			if (addnl_dvdr > 1) {
-+				prescale *= addnl_dvdr;
-+				if (coal_intvl > (EMAC_DM646X_CMINTMAX_INTVL
-+							* addnl_dvdr))
-+					coal_intvl = (EMAC_DM646X_CMINTMAX_INTVL
-+							* addnl_dvdr);
-+			} else {
-+				addnl_dvdr = 1;
-+				coal_intvl = EMAC_DM646X_CMINTMAX_INTVL;
-+			}
-+		}
-+
-+		num_interrupts = (1000 * addnl_dvdr) / coal_intvl;
-+
-+		int_ctrl |= EMAC_DM646X_INTPACEEN;
-+		int_ctrl &= (~EMAC_DM646X_INTPRESCALE_MASK);
-+		int_ctrl |= (prescale & EMAC_DM646X_INTPRESCALE_MASK);
-+		emac_ctrl_write(EMAC_DM646X_CMINTCTRL, int_ctrl);
-+
-+		emac_ctrl_write(EMAC_DM646X_CMRXINTMAX, num_interrupts);
-+		emac_ctrl_write(EMAC_DM646X_CMTXINTMAX, num_interrupts);
-+
-+		break;
-+	default:
-+		int_ctrl = emac_ctrl_read(EMAC_CTRL_EWINTTCNT);
-+		int_ctrl &= (~EMAC_DM644X_EWINTCNT_MASK);
-+		prescale = coal_intvl * priv->bus_freq_mhz;
-+		if (prescale > EMAC_DM644X_EWINTCNT_MASK) {
-+			prescale = EMAC_DM644X_EWINTCNT_MASK;
-+			coal_intvl = prescale / priv->bus_freq_mhz;
-+		}
-+		emac_ctrl_write(EMAC_CTRL_EWINTTCNT, (int_ctrl | prescale));
-+
-+		break;
-+	}
-+
-+	printk(KERN_INFO"Set coalesce to %d usecs.\n", coal_intvl);
-+	priv->coal_intvl = coal_intvl;
-+
-+	return 0;
-+
-+}
-+
-+
-+/**
-  * ethtool_ops: DaVinci EMAC Ethtool structure
-  *
-  * Ethtool support for EMAC adapter
-@@ -702,6 +818,8 @@ static const struct ethtool_ops ethtool_ops = {
- 	.get_settings = emac_get_settings,
- 	.set_settings = emac_set_settings,
- 	.get_link = ethtool_op_get_link,
-+	.get_coalesce = emac_get_coalesce,
-+	.set_coalesce =  emac_set_coalesce,
- };
+-static unsigned sky2_get_rx_threshold(struct sky2_port* sky2)
++static unsigned sky2_get_rx_threshold(struct sky2_port *sky2)
+ {
+ 	unsigned size;
  
- /**
-@@ -2437,6 +2555,14 @@ static int emac_dev_open(struct net_device *ndev)
- 	/* Start/Enable EMAC hardware */
- 	emac_hw_enable(priv);
+@@ -1089,7 +1089,7 @@ static unsigned sky2_get_rx_threshold(struct sky2_port* sky2)
+ 	return (size - 8) / sizeof(u32);
+ }
  
-+	/* Enable Interrupt pacing if configured */
-+	if (priv->coal_intvl != 0) {
-+		struct ethtool_coalesce coal;
-+
-+		coal.rx_coalesce_usecs = (priv->coal_intvl << 4);
-+		emac_set_coalesce(ndev, &coal);
-+	}
-+
- 	/* find the first phy */
- 	priv->phydev = NULL;
- 	if (priv->phy_mask) {
-@@ -2677,6 +2803,9 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- 	priv->int_enable = pdata->interrupt_enable;
- 	priv->int_disable = pdata->interrupt_disable;
+-static unsigned sky2_get_rx_data_size(struct sky2_port* sky2)
++static unsigned sky2_get_rx_data_size(struct sky2_port *sky2)
+ {
+ 	struct rx_ring_info *re;
+ 	unsigned size;
+@@ -1113,7 +1113,7 @@ static unsigned sky2_get_rx_data_size(struct sky2_port* sky2)
+ }
  
-+	priv->coal_intvl = 0;
-+	priv->bus_freq_mhz = (u32)(emac_bus_frequency / 1000000);
-+
- 	emac_dev = &ndev->dev;
- 	/* Get EMAC platform data */
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ /* Build description to hardware for one receive segment */
+-static void sky2_rx_add(struct sky2_port *sky2,  u8 op,
++static void sky2_rx_add(struct sky2_port *sky2, u8 op,
+ 			dma_addr_t map, unsigned len)
+ {
+ 	struct sky2_rx_le *le;
+@@ -3019,7 +3019,7 @@ static int __devinit sky2_init(struct sky2_hw *hw)
+ 	hw->chip_id = sky2_read8(hw, B2_CHIP_ID);
+ 	hw->chip_rev = (sky2_read8(hw, B2_MAC_CFG) & CFG_CHIP_R_MSK) >> 4;
+ 
+-	switch(hw->chip_id) {
++	switch (hw->chip_id) {
+ 	case CHIP_ID_YUKON_XL:
+ 		hw->flags = SKY2_HW_GIGABIT | SKY2_HW_NEWER_PHY;
+ 		if (hw->chip_rev < CHIP_REV_YU_XL_A2)
+@@ -3690,7 +3690,7 @@ static int sky2_set_mac_address(struct net_device *dev, void *p)
+ 	return 0;
+ }
+ 
+-static void inline sky2_add_filter(u8 filter[8], const u8 *addr)
++static inline void sky2_add_filter(u8 filter[8], const u8 *addr)
+ {
+ 	u32 bit;
+ 
+@@ -3916,7 +3916,7 @@ static int sky2_set_coalesce(struct net_device *dev,
+ 		return -EINVAL;
+ 	if (ecmd->rx_max_coalesced_frames > RX_MAX_PENDING)
+ 		return -EINVAL;
+-	if (ecmd->rx_max_coalesced_frames_irq >RX_MAX_PENDING)
++	if (ecmd->rx_max_coalesced_frames_irq > RX_MAX_PENDING)
+ 		return -EINVAL;
+ 
+ 	if (ecmd->tx_coalesce_usecs == 0)
+@@ -4381,7 +4381,7 @@ static int sky2_debug_show(struct seq_file *seq, void *v)
+ 			seq_printf(seq, "%u:", idx);
+ 		sop = 0;
+ 
+-		switch(le->opcode & ~HW_OWNER) {
++		switch (le->opcode & ~HW_OWNER) {
+ 		case OP_ADDR64:
+ 			seq_printf(seq, " %#x:", a);
+ 			break;
+@@ -4450,7 +4450,7 @@ static int sky2_device_event(struct notifier_block *unused,
+ 	if (dev->netdev_ops->ndo_open != sky2_up || !sky2_debug)
+ 		return NOTIFY_DONE;
+ 
+-	switch(event) {
++	switch (event) {
+ 	case NETDEV_CHANGENAME:
+ 		if (sky2->debugfs) {
+ 			sky2->debugfs = debugfs_rename(sky2_debug, sky2->debugfs,
+@@ -4645,7 +4645,7 @@ static int __devinit sky2_test_msi(struct sky2_hw *hw)
+ 	struct pci_dev *pdev = hw->pdev;
+ 	int err;
+ 
+-	init_waitqueue_head (&hw->msi_wait);
++	init_waitqueue_head(&hw->msi_wait);
+ 
+ 	sky2_write32(hw, B0_IMSK, Y2_IS_IRQ_SW);
+ 
+@@ -4762,7 +4762,7 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
+ 	 * this driver uses software swapping.
+ 	 */
+ 	reg &= ~PCI_REV_DESC;
+-	err = pci_write_config_dword(pdev,PCI_DEV_REG2, reg);
++	err = pci_write_config_dword(pdev, PCI_DEV_REG2, reg);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "PCI write config failed\n");
+ 		goto err_out_free_regions;
 -- 
-1.6.2.4
+1.5.6.5
 
