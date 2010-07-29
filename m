@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC PATCH v8 10/16] Add a hook to intercept external buffers from NIC driver.
-Date: Thu, 29 Jul 2010 19:14:42 +0800
-Message-ID: <1280402088-5849-11-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC PATCH v8 13/16] Add a kconfig entry and make entry for mp device.
+Date: Thu, 29 Jul 2010 19:14:44 +0800
+Message-ID: <1280402088-5849-13-git-send-email-xiaohui.xin@intel.com>
 References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
  <1280402088-5849-2-git-send-email-xiaohui.xin@intel.com>
  <1280402088-5849-3-git-send-email-xiaohui.xin@intel.com>
@@ -12,6 +12,8 @@ References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
  <1280402088-5849-8-git-send-email-xiaohui.xin@intel.com>
  <1280402088-5849-9-git-send-email-xiaohui.xin@intel.com>
  <1280402088-5849-10-git-send-email-xiaohui.xin@intel.com>
+ <1280402088-5849-11-git-send-email-xiaohui.xin@intel.com>
+ <1280402088-5849-12-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
@@ -20,75 +22,48 @@ To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:58755 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756937Ab0G2LBc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jul 2010 07:01:32 -0400
-In-Reply-To: <1280402088-5849-10-git-send-email-xiaohui.xin@intel.com>
+	id S1756964Ab0G2LBf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jul 2010 07:01:35 -0400
+In-Reply-To: <1280402088-5849-12-git-send-email-xiaohui.xin@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-The hook is called in netif_receive_skb().
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
 Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- net/core/dev.c |   35 +++++++++++++++++++++++++++++++++++
- 1 files changed, 35 insertions(+), 0 deletions(-)
+ drivers/vhost/Kconfig  |   10 ++++++++++
+ drivers/vhost/Makefile |    2 ++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 636f11b..4b379b1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2517,6 +2517,37 @@ err:
- EXPORT_SYMBOL(netdev_mp_port_prep);
- #endif
+diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+index e4e2fd1..a6b8cbf 100644
+--- a/drivers/vhost/Kconfig
++++ b/drivers/vhost/Kconfig
+@@ -9,3 +9,13 @@ config VHOST_NET
+ 	  To compile this driver as a module, choose M here: the module will
+ 	  be called vhost_net.
  
-+#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASSTHRU_MODULE)
-+/* Add a hook to intercept mediate passthru(zero-copy) packets,
-+ * and insert it to the socket queue owned by mp_port specially.
-+ */
-+static inline struct sk_buff *handle_mpassthru(struct sk_buff *skb,
-+					       struct packet_type **pt_prev,
-+					       int *ret,
-+					       struct net_device *orig_dev)
-+{
-+	struct mpassthru_port *mp_port = NULL;
-+	struct sock *sk = NULL;
++config MEDIATE_PASSTHRU
++	tristate "mediate passthru network driver (EXPERIMENTAL)"
++	depends on VHOST_NET
++	---help---
++	  zerocopy network I/O support, we call it as mediate passthru to
++	  be distiguish with hardare passthru.
 +
-+	if (!dev_is_mpassthru(skb->dev))
-+		return skb;
-+	mp_port = skb->dev->mp_port;
++	  To compile this driver as a module, choose M here: the module will
++	  be called mpassthru.
 +
-+	if (*pt_prev) {
-+		*ret = deliver_skb(skb, *pt_prev, orig_dev);
-+		*pt_prev = NULL;
-+	}
+diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
+index 72dd020..c18b9fc 100644
+--- a/drivers/vhost/Makefile
++++ b/drivers/vhost/Makefile
+@@ -1,2 +1,4 @@
+ obj-$(CONFIG_VHOST_NET) += vhost_net.o
+ vhost_net-y := vhost.o net.o
 +
-+	sk = mp_port->sock->sk;
-+	skb_queue_tail(&sk->sk_receive_queue, skb);
-+	sk->sk_state_change(sk);
-+
-+	return NULL;
-+}
-+#else
-+#define handle_mpassthru(skb, pt_prev, ret, orig_dev)     (skb)
-+#endif
-+
- /**
-  *	netif_receive_skb - process receive buffer from network
-  *	@skb: buffer to process
-@@ -2598,6 +2629,10 @@ int netif_receive_skb(struct sk_buff *skb)
- ncls:
- #endif
- 
-+	/* To intercept mediate passthru(zero-copy) packets here */
-+	skb = handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
-+	if (!skb)
-+		goto out;
- 	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
- 	if (!skb)
- 		goto out;
++obj-$(CONFIG_MEDIATE_PASSTHRU) += mpassthru.o
 -- 
 1.5.4.4
 
