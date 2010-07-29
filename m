@@ -1,61 +1,79 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [BUG] bridge leaks 3 references on lo per up&down
-Date: Thu, 29 Jul 2010 19:12:31 +0800
-Message-ID: <20100729111231.GA30021@gondor.apana.org.au>
-References: <20100727152514.GA13413@jupiter.n2.diac24.net> <20100727100249.51ffc893@nehalam> <20100728074428.GB13413@jupiter.n2.diac24.net> <20100728095825.GC13413@jupiter.n2.diac24.net> <20100728120336.GD13413@jupiter.n2.diac24.net>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: can: expected receive behavior broken
+Date: Thu, 29 Jul 2010 13:16:46 +0200
+Message-ID: <4C51631E.4000708@hartkopp.net>
+References: <201007280956.38957.matthias.fuchs@esd.eu>
+	<4C4FE7AC.4010806@grandegger.com>
+	<201007281023.25039.matthias.fuchs@esd.eu>
+	<4C514BAE.4070201@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bridge@lists.linux-foundation.org
-To: David Lamparter <equinox@diac24.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:54513 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752731Ab0G2LMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 07:12:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20100728120336.GD13413@jupiter.n2.diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4C514BAE.4070201-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 28, 2010 at 02:03:36PM +0200, David Lamparter wrote:
+On 29.07.2010 11:36, Oliver Hartkopp wrote:
+
+> Invoking tst-rcv-own-msgs produces this output, which is far away from the
+> correct (wanted) output seen in the commit message below.
 > 
-> Herbert, you implemented bridge multicast support, maybe you can figure
-> out where these references are taken?
+> sockopt default
+>  s : 0
+>  t : 0
+>  timeout
+> sockopt - -
+>  timeout
+> sockopt - R
+>  timeout
+> sockopt L -
+>  s : 3
+>  t : 3
+>  timeout
+> sockopt L R
+>  s : 4
+>  t : 4
+>  timeout
+> done.
+> 
+> I'll check that with the latest linux-2.6 (after rebooting :-)
 
-OK this patch should fix it.
+Grr - it is also broken in 2.6.34-rc7-05126-g278554b ...
 
-However, it also means that the IPv6 membership report parsing is
-broken and we still need look into it.
+I'll go and hunt the bad commit in 2.6.34 and will fix it.
 
-bridge: Fix skb leak when multicast parsing fails on TX
+Tnx & regards,
+Oliver
 
-On the bridge TX path we're leaking an skb when br_multicast_rcv
-returns an error.
 
-Reported-by: David Lamparter <equinox@diac24.net>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 753fc42..f49f20b 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -47,8 +47,10 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_pull(skb, ETH_HLEN);
- 
- 	if (is_multicast_ether_addr(dest)) {
--		if (br_multicast_rcv(br, NULL, skb))
-+		if (br_multicast_rcv(br, NULL, skb)) {
-+			kfree_skb(skb);
- 			goto out;
-+		}
- 
- 		mdst = br_mdb_get(br, skb);
- 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> It needs a vcan0 virtual CAN network interface and should produce an output
+> like this, when invoked:
+> 
+> sockopt default
+>  t : 0
+>  timeout
+> sockopt - -
+>  timeout
+> sockopt - R
+>  timeout
+> sockopt L -
+>  t : 3
+>  timeout
+> sockopt L R
+>  s : 4
+>  t : 4
+>  timeout
+> done.
+> 
