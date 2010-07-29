@@ -1,59 +1,48 @@
-From: Vasiliy Kulikov <segooon@gmail.com>
-Subject: Re: [PATCH] drivers: Fixes a typo from "dev" to "ndev" that caused
- compilation erros.
-Date: Thu, 29 Jul 2010 20:03:46 +0400
-Message-ID: <20100729160346.GA3318@albatros>
-References: <AANLkTiko540hMAUhaJr5mNKzFK2-vBOTZmEOxZWZv7ci@mail.gmail.com>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH net-next 1/4] be2net: fix to correctly know if driver needs
+ to run for a VF or a PF
+Date: Thu, 29 Jul 2010 21:45:32 +0530
+Message-ID: <20100729161522.GA15448@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Chaithrika U S <chaithrika@ti.com>,
-	Sriramakrishnan <srk@ti.com>,
-	Kevin Hilman <khilman@deeprootsystems.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Henrique Camargo <henrique.camargo@ensitec.com.br>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:62682 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754429Ab0G2QEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 12:04:14 -0400
+Received: from segment-124-30.sify.net ([124.30.166.146]:17144 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754543Ab0G2QPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 12:15:34 -0400
 Content-Disposition: inline
-In-Reply-To: <AANLkTiko540hMAUhaJr5mNKzFK2-vBOTZmEOxZWZv7ci@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 29, 2010 at 12:51 -0300, Henrique Camargo wrote:
-> From: Henrique Camargo
-> 
-> Fixes a typo from "dev" to "ndev" that caused compilation errors.
-> 
-> Signed-off-by: Henrique Camargo <henrique.camargo@ensitec.com.br>
+Move be_check_sriov_fn_type to appropriate place to correctly determine
+if the be2net driver needs to work as a VF driver or a PF driver.
 
-Thanks,
-Reviewed-by: Kulikov Vasiliy <segooon@gmail.com>
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be_main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Also I've checked my other patches of removing private stats, the rest
-are ok.
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index d5b097d..e72b482 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1717,10 +1717,11 @@ static void be_msix_enable(struct be_adapter *adapter)
+ 
+ static void be_sriov_enable(struct be_adapter *adapter)
+ {
+-#ifdef CONFIG_PCI_IOV
+-	int status;
+ 	be_check_sriov_fn_type(adapter);
++#ifdef CONFIG_PCI_IOV
+ 	if (be_physfn(adapter) && num_vfs) {
++		int status;
++
+ 		status = pci_enable_sriov(adapter->pdev, num_vfs);
+ 		adapter->sriov_enabled = status ? false : true;
+ 	}
+-- 
+1.7.0.4
 
-> ---
->  drivers/net/davinci_emac.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-> index 25e14d2..b89b7bf 100644
-> --- a/drivers/net/davinci_emac.c
-> +++ b/drivers/net/davinci_emac.c
-> @@ -1182,8 +1182,8 @@ static int emac_net_tx_complete(struct emac_priv *priv,
->         struct net_device *ndev = priv->ndev;
->         u32 cnt;
-> 
-> -       if (unlikely(num_tokens && netif_queue_stopped(dev)))
-> -               netif_start_queue(dev);
-> +       if (unlikely(num_tokens && netif_queue_stopped(ndev)))
-> +               netif_start_queue(ndev);
->         for (cnt = 0; cnt < num_tokens; cnt++) {
->                 struct sk_buff *skb = (struct sk_buff *)net_data_tokens[cnt];
->                 if (skb == NULL)
-> -- 
-> 1.7.0.4
