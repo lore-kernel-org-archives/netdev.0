@@ -1,64 +1,51 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: slub numa: Fix rare allocation from unexpected node
-Date: Thu, 29 Jul 2010 13:00:23 +0300
-Message-ID: <4C515137.707@cs.helsinki.fi>
-References: <alpine.DEB.2.00.1007261040430.5438@router.home>
+From: Andy Chittenden <andyc-Pe6u2o1+k2hBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: nfs client hang
+Date: Thu, 29 Jul 2010 11:10:12 +0100
+Message-ID: <4C515384.6030905@bluearc.com>
+References: <99613C19B13C5D40914FB8930657FA9303365708DE@uk-ex-mbx1.terastack.bluearc.com>	 <4C4E89D4.8040607@bluearc.com>	 <ABFC24E4C13D81489F7F624E14891C8607DDF8D1E4@uk-ex-mbx1.terastack.bluearc.com> <1280233276.2827.175.camel@edumazet-laptop> <4C4F174C.2000308@oracle.com> <ABFC24E4C13D81489F7F624E14891C8607DDF8D3D0@uk-ex-mbx1.terastack.bluearc.com> <4C506AD0.4070608@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, jamal <hadi@cyberus.ca>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Christoph Lameter <cl@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:53419 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756086Ab0G2KAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 06:00:39 -0400
-In-Reply-To: <alpine.DEB.2.00.1007261040430.5438@router.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Linux Kernel Mailing List (linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org)"
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4C506AD0.4070608-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Christoph Lameter wrote:
-> Subject: slub numa: Fix rare allocation from unexpected node
-> 
-> The network developers have seen sporadic allocations resulting in objects
-> coming from unexpected NUMA nodes despite asking for objects from a
-> specific node.
-> 
-> This is due to get_partial() calling get_any_partial() if partial
-> slabs are exhausted for a node even if a node was specified and therefore
-> one would expect allocations only from the specified node.
-> 
-> get_any_partial() sporadically may return a slab from a foreign
-> node to gradually reduce the size of partial lists on remote nodes
-> and thereby reduce total memory use for a slab cache.
-> 
-> The behavior is controlled by the remote_defrag_ratio of each cache.
-> 
-> Strictly speaking this is permitted behavior since __GFP_THISNODE was
-> not specified for the allocation but it is certain surprising.
-> 
-> This patch makes sure that the remote defrag behavior only occurs
-> if no node was specified.
-> 
-> Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
-> 
-> ---
->  mm/slub.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Index: linux-2.6/mm/slub.c
-> ===================================================================
-> --- linux-2.6.orig/mm/slub.c	2010-07-23 09:24:11.000000000 -0500
-> +++ linux-2.6/mm/slub.c	2010-07-23 09:25:15.000000000 -0500
-> @@ -1390,7 +1390,7 @@ static struct page *get_partial(struct k
->  	int searchnode = (node == -1) ? numa_node_id() : node;
-> 
->  	page = get_partial_node(get_node(s, searchnode));
-> -	if (page || (flags & __GFP_THISNODE))
-> +	if (page || node != -1)
->  		return page;
-> 
->  	return get_any_partial(s, flags);
+  On 2010-07-28 18:37, Chuck Lever wrote:
+> On 07/28/10 03:24 AM, Andy Chittenden wrote:
+>> resending as it seems to have been corrupted on LKML!
+>>
+>>> The RPC client marks the socket closed. and the linger timeout is
+>>> cancelled.  At this point, sk_shutdown should be set to zero, correct?
+>>> I don't see an xs_error_report() call here, which would confirm that the
+>>> socket took a trip through tcp_disconnect().
+>>  From my reading of tcp_disconnect(), it calls sk->sk_error_report(sk)
+>> unconditionally so as there's no xs_error_report(), that surely means
+>> the exact opposite: tcp_disconnect() wasn't called. If it's not
+>> called, sk_shutdown is not cleared. And my revised tracing confirmed
+>> that it was set to SEND_SHUTDOWN.
+> Sorry, that's what I meant above.
+>
+> An xs_error_report() debugging message at that point in the log would
+> confirm that the socket took a trip through tcp_disconnect().  But I
+> don't see such a message.
+I don't see how tcp_disconnect() gets called if the application does a 
+shutdown when the state is TCP_ESTABLISHED (or a myriad of other 
+states). It just seems to send a FIN. Should tcp_disconnect() be called? 
+If so, how? Alternatively, I wonder whether my patch that set 
+sk_shutdown to 0 in tcp_connect_init() is the correct fix after all.
 
-Applied, thanks!
+-- 
+Andy, BlueArc Engineering
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
