@@ -1,79 +1,80 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: can: expected receive behavior broken
-Date: Thu, 29 Jul 2010 13:16:46 +0200
-Message-ID: <4C51631E.4000708@hartkopp.net>
-References: <201007280956.38957.matthias.fuchs@esd.eu>
-	<4C4FE7AC.4010806@grandegger.com>
-	<201007281023.25039.matthias.fuchs@esd.eu>
-	<4C514BAE.4070201@hartkopp.net>
+From: Dmitry Popov <dp@highloadlab.com>
+Subject: [PATCH] tcp: cookie transactions setsockopt memory leak
+Date: Thu, 29 Jul 2010 15:59:36 +0400
+Message-ID: <AANLkTinHWJviHmhVcFQkobsgxa4-AaFUpHmd1wybiB+u@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4C514BAE.4070201-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Steven J. Magnani" <steve@digidescorp.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	William Allen Simpson <william.allen.simpson@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29.07.2010 11:36, Oliver Hartkopp wrote:
+=46rom: Dmitry Popov <dp@highloadlab.com>
 
-> Invoking tst-rcv-own-msgs produces this output, which is far away from the
-> correct (wanted) output seen in the commit message below.
-> 
-> sockopt default
->  s : 0
->  t : 0
->  timeout
-> sockopt - -
->  timeout
-> sockopt - R
->  timeout
-> sockopt L -
->  s : 3
->  t : 3
->  timeout
-> sockopt L R
->  s : 4
->  t : 4
->  timeout
-> done.
-> 
-> I'll check that with the latest linux-2.6 (after rebooting :-)
+There is a bug in do_tcp_setsockopt(net/ipv4/tcp.c),
+TCP_COOKIE_TRANSACTIONS case.
+In some cases (when tp->cookie_values =3D=3D NULL) new tcp_cookie_value=
+s
+structure can be allocated (at cvp), but not bound to
+tp->cookie_values. So a memory leak occurs.
 
-Grr - it is also broken in 2.6.34-rc7-05126-g278554b ...
+Signed-off-by: Dmitry Popov <dp@highloadlab.com>
+---
+tp->cookie_values can be NULL if socket was initialized with
+sysctl_tcp_cookie_size =3D=3D 0 (tcp_v4_init_sock, net/ipv4/tcp_ipv4.c)
+Buggy releases: 2.6.33+ (since commit e56fb50f2b7958b931c8a2fc0966061b3=
+f3c8f3a)
 
-I'll go and hunt the bad commit in 2.6.34 and will fix it.
+=A0net/ipv4/tcp.c | =A0 =A07 +++++--
+=A01 files changed, 5 insertions(+), 2 deletions(-)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 83d0213..9c490a1 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2179,6 +2179,8 @@ static int do_tcp_setsockopt(struct sock *sk, int=
+ level,
+ 				      GFP_KERNEL);
+ 			if (cvp =3D=3D NULL)
+ 				return -ENOMEM;
++
++			kref_init(&cvp->kref);
+ 		}
+ 		lock_sock(sk);
+ 		tp->rx_opt.cookie_in_always =3D
+@@ -2193,12 +2195,11 @@ static int do_tcp_setsockopt(struct sock *sk, i=
+nt level,
+ 				 */
+ 				kref_put(&tp->cookie_values->kref,
+ 					 tcp_cookie_values_release);
+-				kref_init(&cvp->kref);
+-				tp->cookie_values =3D cvp;
+ 			} else {
+ 				cvp =3D tp->cookie_values;
+ 			}
+ 		}
++
+ 		if (cvp !=3D NULL) {
+ 			cvp->cookie_desired =3D ctd.tcpct_cookie_desired;
 
-Tnx & regards,
-Oliver
-
-
-> It needs a vcan0 virtual CAN network interface and should produce an output
-> like this, when invoked:
-> 
-> sockopt default
->  t : 0
->  timeout
-> sockopt - -
->  timeout
-> sockopt - R
->  timeout
-> sockopt L -
->  t : 3
->  timeout
-> sockopt L R
->  s : 4
->  t : 4
->  timeout
-> done.
-> 
+@@ -2212,6 +2213,8 @@ static int do_tcp_setsockopt(struct sock *sk, int=
+ level,
+ 				cvp->s_data_desired =3D ctd.tcpct_s_data_desired;
+ 				cvp->s_data_constant =3D 0; /* false */
+ 			}
++
++			tp->cookie_values =3D cvp;
+ 		}
+ 		release_sock(sk);
+ 		return err;
