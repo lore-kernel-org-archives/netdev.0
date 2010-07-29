@@ -1,51 +1,61 @@
-From: Andy Chittenden <andyc-Pe6u2o1+k2hBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: nfs client hang
-Date: Thu, 29 Jul 2010 11:10:12 +0100
-Message-ID: <4C515384.6030905@bluearc.com>
-References: <99613C19B13C5D40914FB8930657FA9303365708DE@uk-ex-mbx1.terastack.bluearc.com>	 <4C4E89D4.8040607@bluearc.com>	 <ABFC24E4C13D81489F7F624E14891C8607DDF8D1E4@uk-ex-mbx1.terastack.bluearc.com> <1280233276.2827.175.camel@edumazet-laptop> <4C4F174C.2000308@oracle.com> <ABFC24E4C13D81489F7F624E14891C8607DDF8D3D0@uk-ex-mbx1.terastack.bluearc.com> <4C506AD0.4070608@oracle.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: bridge: Allow multicast snooping to be disabled before ifup
+Date: Thu, 29 Jul 2010 18:45:30 +0800
+Message-ID: <20100729104529.GA29678@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Linux Kernel Mailing List (linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org)"
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4C506AD0.4070608-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:52981 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756839Ab0G2Kpc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 06:45:32 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  On 2010-07-28 18:37, Chuck Lever wrote:
-> On 07/28/10 03:24 AM, Andy Chittenden wrote:
->> resending as it seems to have been corrupted on LKML!
->>
->>> The RPC client marks the socket closed. and the linger timeout is
->>> cancelled.  At this point, sk_shutdown should be set to zero, correct?
->>> I don't see an xs_error_report() call here, which would confirm that the
->>> socket took a trip through tcp_disconnect().
->>  From my reading of tcp_disconnect(), it calls sk->sk_error_report(sk)
->> unconditionally so as there's no xs_error_report(), that surely means
->> the exact opposite: tcp_disconnect() wasn't called. If it's not
->> called, sk_shutdown is not cleared. And my revised tracing confirmed
->> that it was set to SEND_SHUTDOWN.
-> Sorry, that's what I meant above.
->
-> An xs_error_report() debugging message at that point in the log would
-> confirm that the socket took a trip through tcp_disconnect().  But I
-> don't see such a message.
-I don't see how tcp_disconnect() gets called if the application does a 
-shutdown when the state is TCP_ESTABLISHED (or a myriad of other 
-states). It just seems to send a FIN. Should tcp_disconnect() be called? 
-If so, how? Alternatively, I wonder whether my patch that set 
-sk_shutdown to 0 in tcp_connect_init() is the correct fix after all.
+Hi:
 
+bridge: Allow multicast snooping to be disabled before ifup
+
+Currently you cannot disable multicast snooping while a device is
+down.  There is no good reason for this restriction and this patch
+removes it.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 27ae946..585ce6e 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1728,13 +1728,9 @@ unlock:
+ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
+ {
+ 	struct net_bridge_port *port;
+-	int err = -ENOENT;
++	int err = 0;
+ 
+ 	spin_lock(&br->multicast_lock);
+-	if (!netif_running(br->dev))
+-		goto unlock;
+-
+-	err = 0;
+ 	if (br->multicast_disabled == !val)
+ 		goto unlock;
+ 
+@@ -1742,6 +1738,9 @@ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
+ 	if (br->multicast_disabled)
+ 		goto unlock;
+ 
++	if (!netif_running(br->dev))
++		goto unlock;
++
+ 	if (br->mdb) {
+ 		if (br->mdb->old) {
+ 			err = -EEXIST;
+
+Thanks,
 -- 
-Andy, BlueArc Engineering
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
