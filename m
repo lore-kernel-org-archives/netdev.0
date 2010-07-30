@@ -1,36 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] act_nat: the checksum of ICMP doesn't have pseudo
-	header
-Date: Fri, 30 Jul 2010 18:24:09 +0800
-Message-ID: <20100730102409.GA8590@gondor.apana.org.au>
-References: <1280448258-1893-1-git-send-email-xiaosuo@gmail.com> <20100730090922.GA7807@gondor.apana.org.au> <AANLkTi=YHvra6DuL7vX=DfQmR6bsw7rNMJ9mRhUzHvj2@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+From: Kulikov Vasiliy <segooon@gmail.com>
+Subject: [PATCH 9/9] sunrpc: auth_gss: misused copy_to_user() return value
+Date: Fri, 30 Jul 2010 15:10:34 +0400
+Message-ID: <1280488234-21223-1-git-send-email-segooon@gmail.com>
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Neil Brown <neilb@suse.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Layton <jlayton@redhat.com>,
+	Steve Dickson <steved@redhat.com>,
+	Suresh Jayaraman <sjayaraman@suse.de>,
+	Kevin Coffman <kwc@citi.umich.edu>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:43846 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752726Ab0G3KYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 06:24:17 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=YHvra6DuL7vX=DfQmR6bsw7rNMJ9mRhUzHvj2@mail.gmail.com>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:39676 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758097Ab0G3LLL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 07:11:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 30, 2010 at 06:10:19PM +0800, Changli Gao wrote:
->
-> Is it really necessary, and I have noticed that netfilter doesn't call
-> inet_proto_csum_replace4 in this way.
+copy_to_user() returns nonzero value on error, this value may be any
+value between 0 and requested count, not only requested count.
 
-The checksum update is for the inner IP header.  netfilter does
-of course update the checksum, it just doesn't do it here which is
-for the outer IP header.
+Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+---
+ net/sunrpc/auth_gss/auth_gss.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Cheers,
+diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+index 8da2a0e..232d7dc 100644
+--- a/net/sunrpc/auth_gss/auth_gss.c
++++ b/net/sunrpc/auth_gss/auth_gss.c
+@@ -610,7 +610,7 @@ gss_pipe_upcall(struct file *filp, struct rpc_pipe_msg *msg,
+ 	unsigned long left;
+ 
+ 	left = copy_to_user(dst, data, mlen);
+-	if (left == mlen) {
++	if (left)
+ 		msg->errno = -EFAULT;
+ 		return -EFAULT;
+ 	}
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.0.4
+
