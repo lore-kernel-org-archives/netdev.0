@@ -1,45 +1,45 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] act_nat: get the position info from skb->tc_verd
-Date: Fri, 30 Jul 2010 10:57:43 +0800
-Message-ID: <AANLkTinYeJ+RDPCt4O6jKFVjYXCcQs7E7bCAO862jVQj@mail.gmail.com>
-References: <1280428952-14151-1-git-send-email-xiaosuo@gmail.com>
-	<20100730023649.GA5798@gondor.apana.org.au>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM virtio-net.
+Date: Fri, 30 Jul 2010 08:02:10 +0300
+Message-ID: <4C525CD2.5080604@redhat.com>
+References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com> <1280442682.9058.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:61282 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755716Ab0G3C6G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 22:58:06 -0400
-Received: by wyb39 with SMTP id 39so762908wyb.19
-        for <netdev@vger.kernel.org>; Thu, 29 Jul 2010 19:58:03 -0700 (PDT)
-In-Reply-To: <20100730023649.GA5798@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.hengli.com.au,
+	jdike@linux.intel.com
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1280442682.9058.15.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 30, 2010 at 10:36 AM, Herbert Xu
-<herbert@gondor.apana.org.au> wrote:
-> On Fri, Jul 30, 2010 at 02:42:32AM +0800, Changli Gao wrote:
->> act_nat uses its flags field to determine where it acts. It isn't re=
-liable,
->> and can't prevent users from doing wrong settings, and act_nat shoul=
-d get the
->> position info from skb->tc_verd as act_mirred does.
->>
->> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+  On 07/30/2010 01:31 AM, Shirley Ma wrote:
 >
-> Nack, the direction controls whether we NAT saddr or daddr. =A0It's
-> perfectly OK for someone to NAT daddr on the way out.
+>> Our goal is to improve the bandwidth and reduce the CPU usage.
+>> Exact performance data will be provided later.
+> I did some vhost performance measurement over 10Gb ixgbe, and found that
+> in order to get consistent BW results, netperf/netserver, qemu, vhost
+> threads smp affinities are required.
+>
+> Looking forward to these results for small message size comparison. For
+> large message size 10Gb ixgbe BW already reached by doing vhost smp
+> affinity w/i offloading support, we will see how much CPU utilization it
+> can be reduced.
+>
+> Please provide latency results as well. I did some experimental on
+> macvtap zero copy sendmsg, what I have found that get_user_pages latency
+> pretty high.
 >
 
-Thanks for your explanation. However, ingress and egress aren't as
-comprehensive as DNAT and SNAT. BTW I am planning to add stateless
-PAT(Port Address Translation) support into act_nat. Any comment?
+get_user_pages() is indeed slow.  But what about get_user_pages_fast()?
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Note that when the page is first touched, get_user_pages_fast() falls 
+back to get_user_pages(), so the latency needs to be measured after 
+quite a bit of warm-up.
+
+-- 
+I have a truly marvellous patch that fixes the bug which this
+signature is too narrow to contain.
