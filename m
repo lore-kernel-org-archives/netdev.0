@@ -1,53 +1,54 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: Re: e1000e crashes with 2.6.34.x and ThinkPad T60
-Date: Fri, 30 Jul 2010 10:42:03 -0700
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A9001649C4653@orsmsx509.amr.corp.intel.com>
-References: <20100724092644.GA13353@torres.zugschlus.de>
-	<8DD2590731AB5D4C9DBF71A877482A9001623EC48E@orsmsx509.amr.corp.intel.com>
-	<20100730125614.GB21444@torres.zugschlus.de>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: Re: [PATCH 9/9] sunrpc: auth_gss: misused copy_to_user() return
+ value
+Date: Fri, 30 Jul 2010 13:48:04 -0400
+Message-ID: <1280512084.12852.9.camel@heimdal.trondhjem.org>
+References: <1280488234-21223-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	Network Developers <netdev@vger.kernel.org>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>, Linux
-To: Marc Haber <mh+linux-kernel@zugschlus.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20100730125614.GB21444@torres.zugschlus.de>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: kernel-janitors@vger.kernel.org,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Neil Brown <neilb@suse.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Layton <jlayton@redhat.com>,
+	Steve Dickson <steved@redhat.com>,
+	Suresh Jayaraman <sjayaraman@suse.de>,
+	Kevin Coffman <kwc@citi.umich.edu>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kulikov Vasiliy <segooon@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.netapp.com ([216.240.18.37]:47190 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758841Ab0G3RsG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 13:48:06 -0400
+In-Reply-To: <1280488234-21223-1-git-send-email-segooon@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, July 30, 2010 5:56 AM, Marc Haber wrote:
-> On Mon, Jul 26, 2010 at 09:13:45AM -0700, Allan, Bruce W wrote:
->> Adding e1000-devel (the Intel LAN developers list).
->> 
->> Please supply the full dmesg you meant to attach with the original
->> report, as well as the output of lspci -vvv.
+On Fri, 2010-07-30 at 15:10 +0400, Kulikov Vasiliy wrote:
+> copy_to_user() returns nonzero value on error, this value may be any
+> value between 0 and requested count, not only requested count.
 > 
-> Stupid me.
+> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
+> ---
+>  net/sunrpc/auth_gss/auth_gss.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> Greetings
-> Marc
+> diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+> index 8da2a0e..232d7dc 100644
+> --- a/net/sunrpc/auth_gss/auth_gss.c
+> +++ b/net/sunrpc/auth_gss/auth_gss.c
+> @@ -610,7 +610,7 @@ gss_pipe_upcall(struct file *filp, struct rpc_pipe_msg *msg,
+>  	unsigned long left;
+>  
+>  	left = copy_to_user(dst, data, mlen);
+> -	if (left == mlen) {
+> +	if (left)
+>  		msg->errno = -EFAULT;
+>  		return -EFAULT;
+>  	}
 
-Please also provide an eeprom dump from the wired LOM via 'ethtool -e ethX'.
+Ditto unnecessary...
 
-Thanks,
-Bruce.
-------------------------------------------------------------------------------
-The Palm PDK Hot Apps Program offers developers who use the
-Plug-In Development Kit to bring their C/C++ apps to Palm for a share
-of $1 Million in cash or HP Products. Visit us here for more details:
-http://p.sf.net/sfu/dev2dev-palm
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Trond
