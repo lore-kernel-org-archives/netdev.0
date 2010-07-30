@@ -1,39 +1,40 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: where are the memory barriers in net driver rx DMA operations?
-Date: Fri, 30 Jul 2010 09:19:40 -0600
-Message-ID: <4C52ED8C.9070709@genband.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7ob116.obsmtp.com ([64.18.2.218]:60030 "EHLO
-	exprod7ob116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759736Ab0G3Sqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 14:46:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Hunt <johunt@akamai.com>
+Subject: [PATCH] net: Add getsockopt support for TCP thin-streams
+Date: Fri, 30 Jul 2010 16:49:35 -0700
+Message-ID: <1280533775-7700-1-git-send-email-johunt@akamai.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	juhlenko@akamai.com, apetlund@simula.no
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Initial TCP thin-stream commit did not add getsockopt support for the new
+socket options: TCP_THIN_LINEAR_TIMEOUTS and TCP_THIN_DUPACK. This adds support
+for them.
 
-Documentation/DMA-API-HOWTO.txt says that memory barriers are still
-required when accessing consistent mappings.  The example they give is
-for reordering stores to consistent memory but I assume this also
-applies to reordering loads.
+Signed-off-by: Josh Hunt <johunt@akamai.com>
+---
+ net/ipv4/tcp.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-However, I see many net drivers accessing the descriptor ring (in
-consistent memory), checking the status bit for the buffer, then calling
-dma_unmap_single() and accessing the data without any explicit memory
-barrier.  Does the unmapping call act as a barrier in this case?
-
-Thanks,
-
-Chris
-
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 65afeae..3ed3525 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2591,6 +2591,12 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+ 			return -EFAULT;
+ 		return 0;
+ 	}
++	case TCP_THIN_LINEAR_TIMEOUTS:
++		val = tp->thin_lto;
++		break;
++	case TCP_THIN_DUPACK:
++		val = tp->thin_dupack;
++		break;
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
 -- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+1.7.0.4
