@@ -1,36 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] act_nat: the checksum of ICMP doesn't have pseudo
-	header
-Date: Fri, 30 Jul 2010 17:09:22 +0800
-Message-ID: <20100730090922.GA7807@gondor.apana.org.au>
-References: <1280448258-1893-1-git-send-email-xiaosuo@gmail.com>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] can-raw: Fix skb_orphan_try handling
+Date: Fri, 30 Jul 2010 11:44:27 +0200
+Message-ID: <4C529EFB.4090601@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:55281 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751780Ab0G3JJc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 05:09:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1280448258-1893-1-git-send-email-xiaosuo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 30, 2010 at 08:04:18AM +0800, Changli Gao wrote:
-> after updating the value of the ICMP payload, inet_proto_csum_replace4() should
-> be called with zero pseudohdr.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Hello Eric, hello Patrick,
 
-No, the code is correct as is.  We need to update the checksum
-even if the checksum is partial, which is what the 1 is for.
+Commit fc6055a5ba31e2c14e36e8939f9bf2b6d586a7f5 (net: Introduce
+skb_orphan_try()) allows an early orphan of the skb and takes care on
+tx timestamping, which needs the sk-reference in the skb on driver level.
+So does the can-raw socket, which has not been taken into account here.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The patch below adds a 'prevent_sk_orphan' bit in the skb tx shared info,
+which fixes the problem discovered by Matthias Fuchs here:
+
+      http://marc.info/?t=128030411900003&r=1&w=2
+
+Even if it's not a primary tx timestamp topic it fits well into some skb
+shared tx context. Or should be find a different place for the information to
+protect the sk reference until it reaches the driver level?
+
+Regards,
+Oliver
+
+This patch applies on net-2.6 and would be a candidate for stable 2.6.34 also.
+
+Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+
+---
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f89e7fd..eb674b7 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -169,6 +169,7 @@ struct skb_shared_hwtstamps {
+  * @software:		generate software time stamp
+  * @in_progress:	device driver is going to provide
+  *			hardware time stamp
++ * @prevent_sk_orphan:	make sk reference available on driver level
+  * @flags:		all shared_tx flags
+  *
+  * These flags are attached to packets as part of the
+@@ -178,7 +179,8 @@ union skb_shared_tx {
+ 	struct {
+ 		__u8	hardware:1,
+ 			software:1,
+-			in_progress:1;
++			in_progress:1,
++			prevent_sk_orphan:1;
+ 	};
+ 	__u8 flags;
+ };
+diff --git a/net/can/raw.c b/net/can/raw.c
+index da99cf1..eedab37 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -655,6 +655,10 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	err = sock_tx_timestamp(msg, sk, skb_tx(skb));
+ 	if (err < 0)
+ 		goto free_skb;
++
++	/* to be able to check the received tx sock reference in raw_rcv() */
++	(skb_tx(skb))->prevent_sk_orphan = 1;
++
+ 	skb->dev = dev;
+ 	skb->sk  = sk;
