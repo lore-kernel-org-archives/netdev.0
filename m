@@ -1,43 +1,41 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: RE: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM
- virtio-net.
-Date: Fri, 30 Jul 2010 08:51:52 -0700
-Message-ID: <1280505112.9058.31.camel@localhost.localdomain>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
-	 <1280442682.9058.15.camel@localhost.localdomain>
-	 <F2E9EB7348B8264F86B6AB8151CE2D791BAB307158@shsmsx502.ccr.corp.intel.com>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH V4] Export SMBIOS provided firmware instance and label
+ to sysfs
+Date: Fri, 30 Jul 2010 09:36:26 -0700
+Message-ID: <20100730093626.52ecfc31@virtuousgeek.org>
+References: <20100726105650.GA19738@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D791BAB307158@shsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-pci@vger.kernel.org, matt_domsch@dell.com,
+	charles_rose@dell.com, jordan_hargrave@dell.com,
+	vijay_nijhawan@dell.com
+To: Narendra K <Narendra_K@dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100726105650.GA19738@auslistsprd01.us.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Xiaohui,
+On Mon, 26 Jul 2010 05:56:50 -0500
+Narendra K <Narendra_K@dell.com> wrote:
 
-On Fri, 2010-07-30 at 16:53 +0800, Xin, Xiaohui wrote:
-> >Since vhost-net already supports macvtap/tun backends, do you think
-> >whether it's better to implement zero copy in macvtap/tun than
-> inducing
-> >a new media passthrough device here?
-> >
+> Hello,
 > 
-> I'm not sure if there will be more duplicated code in the kernel. 
+> V3 -> V4:
+> 
+> Updated the contact field in Documentation/ABI directory.
+> 
+> Please consider for inclusion -
+> 
+> From: Narendra K <narendra_k@dell.com>
+> Subject: [PATCH] Export SMBIOS provided firmware instance and label to sysfs
+> 
+> This patch exports SMBIOS provided firmware instance and label
+> of onboard pci devices to sysfs
+> 
 
-I think it should be less duplicated code in the kernel if we use
-macvtap to support what media passthrough driver here. Since macvtap has
-support virtio_net head and offloading already, the only missing func is
-zero copy. Also QEMU supports macvtap, we just need add a zero copy flag
-in option.
+Applied to linux-next, thanks.
 
-Thanks
-Shirley
+-- 
+Jesse Barnes, Intel Open Source Technology Center
