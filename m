@@ -1,41 +1,33 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH V4] Export SMBIOS provided firmware instance and label
- to sysfs
-Date: Fri, 30 Jul 2010 09:36:26 -0700
-Message-ID: <20100730093626.52ecfc31@virtuousgeek.org>
-References: <20100726105650.GA19738@auslistsprd01.us.dell.com>
+From: Jesper Nilsson <Jesper.Nilsson@axis.com>
+Subject: Re: [PATCH 09/11] Removing dead ETRAX_NETWORK_RED_ON_NO_CONNECTION
+Date: Fri, 30 Jul 2010 19:28:33 +0200
+Message-ID: <20100730172833.GG9784@axis.com>
+References: <cover.1279110894.git.siccegge@cs.fau.de> <d8e76e2563bb1ced76b1629859a7dc02e8f2523c.1279110895.git.siccegge@cs.fau.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, matt_domsch@dell.com,
-	charles_rose@dell.com, jordan_hargrave@dell.com,
-	vijay_nijhawan@dell.com
-To: Narendra K <Narendra_K@dell.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20100726105650.GA19738@auslistsprd01.us.dell.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tejun Heo <tj@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"vamos-dev@i4.informatik.uni-erlangen.de"
+	<vamos-dev@i4.informatik.uni-erlangen.de>
+To: Christoph Egger <siccegge@cs.fau.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <d8e76e2563bb1ced76b1629859a7dc02e8f2523c.1279110895.git.siccegge@cs.fau.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Jul 2010 05:56:50 -0500
-Narendra K <Narendra_K@dell.com> wrote:
+On Wed, Jul 14, 2010 at 02:41:20PM +0200, Christoph Egger wrote:
+> ETRAX_NETWORK_RED_ON_NO_CONNECTION doesn't exist in Kconfig, therefore
+> removing all references for it from the source code.
 
-> Hello,
-> 
-> V3 -> V4:
-> 
-> Updated the contact field in Documentation/ABI directory.
-> 
-> Please consider for inclusion -
-> 
-> From: Narendra K <narendra_k@dell.com>
-> Subject: [PATCH] Export SMBIOS provided firmware instance and label to sysfs
-> 
-> This patch exports SMBIOS provided firmware instance and label
-> of onboard pci devices to sysfs
-> 
+> Signed-off-by: Christoph Egger <siccegge@cs.fau.de>
 
-Applied to linux-next, thanks.
+Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
 
+/^JN - Jesper Nilsson
 -- 
-Jesse Barnes, Intel Open Source Technology Center
+               Jesper Nilsson -- jesper.nilsson@axis.com
