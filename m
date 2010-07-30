@@ -1,51 +1,39 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [071/205] IPv6: keep route for tentative address
-Date: Fri, 30 Jul 2010 10:51:28 -0700
-Message-ID: <20100730175140.078725467@clark.site>
-References: <20100730175238.GA3924@kroah.com>
-Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	NetDev <netdev@vger.kernel.org>, Greg KH <greg@kroah.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<emil.s.tantilov@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	Emil S Tantilov <emils.tantilov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100730175238.GA3924@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: where are the memory barriers in net driver rx DMA operations?
+Date: Fri, 30 Jul 2010 09:19:40 -0600
+Message-ID: <4C52ED8C.9070709@genband.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7ob116.obsmtp.com ([64.18.2.218]:60030 "EHLO
+	exprod7ob116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759736Ab0G3Sqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 14:46:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2.6.34-stable review patch.  If anyone has any objections, please let us know.
 
-------------------
+Documentation/DMA-API-HOWTO.txt says that memory barriers are still
+required when accessing consistent mappings.  The example they give is
+for reordering stores to consistent memory but I assume this also
+applies to reordering loads.
 
-From: Stephen Hemminger <shemminger@vyatta.com>
+However, I see many net drivers accessing the descriptor ring (in
+consistent memory), checking the status bit for the buffer, then calling
+dma_unmap_single() and accessing the data without any explicit memory
+barrier.  Does the unmapping call act as a barrier in this case?
 
-(cherry picked from commit 93fa159abe50d3c55c7f83622d3f5c09b6e06f4b)
+Thanks,
 
-Recent changes preserve IPv6 address when link goes down (good).
-But would cause address to point to dead dst entry (bad).
-The simplest fix is to just not delete route if address is
-being held for later use.
+Chris
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- net/ipv6/addrconf.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4047,7 +4047,8 @@ static void __ipv6_ifa_notify(int event,
- 			addrconf_leave_anycast(ifp);
- 		addrconf_leave_solict(ifp->idev, &ifp->addr);
- 		dst_hold(&ifp->rt->u.dst);
--		if (ip6_del_rt(ifp->rt))
-+
-+		if (ifp->dead && ip6_del_rt(ifp->rt))
- 			dst_free(&ifp->rt->u.dst);
- 		break;
- 	}
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
