@@ -1,65 +1,49 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM
- virtio-net.
-Date: Fri, 30 Jul 2010 16:53:03 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D791BAB307158@shsmsx502.ccr.corp.intel.com>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
- <1280442682.9058.15.camel@localhost.localdomain>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] hp100: unmap memory on error path
+Date: Fri, 30 Jul 2010 11:06:04 +0200
+Message-ID: <20100730090604.GY26313@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1280442682.9058.15.camel@localhost.localdomain>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Jaroslav Kysela <perex@perex.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:37043 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754321Ab0G3JGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 05:06:36 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->Hello Xiaohui,
->
->On Thu, 2010-07-29 at 19:14 +0800, xiaohui.xin@intel.com wrote:
->> The idea is simple, just to pin the guest VM user space and then
->> let host NIC driver has the chance to directly DMA to it.
->> The patches are based on vhost-net backend driver. We add a device
->> which provides proto_ops as sendmsg/recvmsg to vhost-net to
->> send/recv directly to/from the NIC driver. KVM guest who use the
->> vhost-net backend may bind any ethX interface in the host side to
->> get copyless data transfer thru guest virtio-net frontend.
->
->Since vhost-net already supports macvtap/tun backends, do you think
->whether it's better to implement zero copy in macvtap/tun than inducing
->a new media passthrough device here?
->
+There was an error path where "mem_ptr_virt" didn't get unmapped.
 
-I'm not sure if there will be more duplicated code in the kernel.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
->> Our goal is to improve the bandwidth and reduce the CPU usage.
->> Exact performance data will be provided later.
->
->I did some vhost performance measurement over 10Gb ixgbe, and found that
->in order to get consistent BW results, netperf/netserver, qemu, vhost
->threads smp affinities are required.
->
->Looking forward to these results for small message size comparison. For
->large message size 10Gb ixgbe BW already reached by doing vhost smp
->affinity w/i offloading support, we will see how much CPU utilization it
->can be reduced.
->
->Please provide latency results as well. I did some experimental on
->macvtap zero copy sendmsg, what I have found that get_user_pages latency
->pretty high.
->
-Ok, I will try that.
-
->Thanks
->Shirley
->
->
->
+diff --git a/drivers/net/hp100.c b/drivers/net/hp100.c
+index acbf0d0..ce587f4 100644
+--- a/drivers/net/hp100.c
++++ b/drivers/net/hp100.c
+@@ -720,9 +720,10 @@ static int __devinit hp100_probe1(struct net_device *dev, int ioaddr,
+ 		/* Conversion to new PCI API :
+ 		 * Pages are always aligned and zeroed, no need to it ourself.
+ 		 * Doc says should be OK for EISA bus as well - Jean II */
+-		if ((lp->page_vaddr_algn = pci_alloc_consistent(lp->pci_dev, MAX_RINGSIZE, &page_baddr)) == NULL) {
++		lp->page_vaddr_algn = pci_alloc_consistent(lp->pci_dev, MAX_RINGSIZE, &page_baddr);
++		if (!lp->page_vaddr_algn) {
+ 			err = -ENOMEM;
+-			goto out2;
++			goto out_mem_ptr;
+ 		}
+ 		lp->whatever_offset = ((u_long) page_baddr) - ((u_long) lp->page_vaddr_algn);
+ 
+@@ -798,6 +799,7 @@ out3:
+ 		pci_free_consistent(lp->pci_dev, MAX_RINGSIZE + 0x0f,
+ 				    lp->page_vaddr_algn,
+ 				    virt_to_whatever(dev, lp->page_vaddr_algn));
++out_mem_ptr:
+ 	if (mem_ptr_virt)
+ 		iounmap(mem_ptr_virt);
+ out2:
