@@ -1,43 +1,29 @@
 From: Mike Frysinger <vapier.adi@gmail.com>
-Subject: Re: [PATCH net-next 2/3] drivers/net/bfin_mac.c: Use pr_<level>,
-	netdev_<level>
-Date: Thu, 29 Jul 2010 20:17:19 -0400
-Message-ID: <AANLkTi=jTj7g7STZCTYYBsw5zmij3jmEedBoEnZE4TgW@mail.gmail.com>
-References: <cover.1280447281.git.joe@perches.com> <61ca890fdbff3397e15328685ba6d86eaabf8fec.1280447281.git.joe@perches.com>
+Subject: Re: [PATCH net-next 3/3] drivers/net/bfin_mac.c: Misc function
+	cleanups, neatening
+Date: Thu, 29 Jul 2010 20:18:24 -0400
+Message-ID: <AANLkTikYn+qpDxxLeJ4eu5SsEs=7n_wAu5RzM5pZhVwU@mail.gmail.com>
+References: <cover.1280447281.git.joe@perches.com> <e90ce59d7dcbbdb24e1882a4e99b0c3db2bd116a.1280447281.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
 Cc: Michael Hennerich <michael.hennerich@analog.com>,
 	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40973 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755322Ab0G3ARk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jul 2010 20:17:40 -0400
-In-Reply-To: <61ca890fdbff3397e15328685ba6d86eaabf8fec.1280447281.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e90ce59d7dcbbdb24e1882a4e99b0c3db2bd116a.1280447281.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBKdWwgMjksIDIwMTAgYXQgMTk6NTgsIEpvZSBQZXJjaGVzIHdyb3RlOgo+IEFkZCBh
-bmQgdXNlIHByX2ZtdCwgcHJfPGxldmVsPiBhbmQgbmV0ZGV2XzxsZXZlbD4KCnlvdXIgY2hhbmdl
-bG9nIHNheXMgYWRkIHByX2ZtdCwgYnV0IGkgZG9udCBzZWUgaXQgaW4gdGhlIHBhdGNoIC4uLgoK
-PiBAQCAtODMzLDggKzgzMCw3IEBAIHN0YXRpYyB2b2lkIGJmaW5fdHhfaHd0c3RhbXAoc3RydWN0
-IG5ldF9kZXZpY2UgKm5ldGRldiwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPiDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCAoLS10aW1lb3V0X2NudCkpCj4gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqB1ZGVsYXkoMSk7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBpZiAo
-dGltZW91dF9jbnQgPT0gMCkKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHBy
-aW50ayhLRVJOX0VSUiBEUlZfTkFNRQo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgIjogZmFpbHMgdG8gdGltZXN0YW1wIHRoZSBUWCBw
-YWNrZXRcbiIpOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcHJfZXJyKCJm
-YWlsZWQgdG8gdGltZXN0YW1wIHRoZSBUWCBwYWNrZXRcbiIpOwoKdGhpcyBmdW5jIGhhcyBhIG5l
-dF9kZXZpY2UsIHNvIGNhbnQgeW91IHVzZSBuZXRkZXZfZXJyIGhlcmUgPwoKPiBAQCAtMTEwMiw4
-ICsxMDk3LDcgQEAgc3RhdGljIHZvaWQgYmZpbl9tYWNfcngoc3RydWN0IG5ldF9kZXZpY2UgKmRl
-dikKPgo+IMKgIMKgIMKgIMKgbmV3X3NrYiA9IGRldl9hbGxvY19za2IoUEtUX0JVRl9TWiArIE5F
-VF9JUF9BTElHTik7Cj4gwqAgwqAgwqAgwqBpZiAoIW5ld19za2IpIHsKPiAtIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIHByaW50ayhLRVJOX05PVElDRSBEUlZfTkFNRQo+IC0gwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAiOiByeDogbG93IG9uIG1lbSAtIHBhY2tldCBkcm9wcGVkXG4iKTsK
-PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHByX25vdGljZSgicng6IGxvdyBvbiBtZW0gLSBwYWNr
-ZXQgZHJvcHBlZFxuIik7CgpzYW1lIGhlcmUKCm90aGVyd2lzZSB0aGlzIHBhdGNoIGxvb2tzIGdv
-b2QKLW1pa2UK
+On Thu, Jul 29, 2010 at 19:58, Joe Perches wrote:
+> Use new bfin_alloc_skb to centralize skb allocations
+> Add and use get_mac_addr function
+> Neaten bfin_mac_init
+> Neaten bfin_mac_hard_start_xmit
+
+i'll ack the idea, but i think it better i pull these patches into the
+Blackfin repo to get some real hardware testing before i forward them
+back to David/netdev ...
+
+that OK with you ?
+-mike
