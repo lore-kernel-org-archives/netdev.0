@@ -1,54 +1,57 @@
-From: Trond Myklebust <Trond.Myklebust@netapp.com>
-Subject: Re: [PATCH 9/9] sunrpc: auth_gss: misused copy_to_user() return
- value
-Date: Fri, 30 Jul 2010 13:48:04 -0400
-Message-ID: <1280512084.12852.9.camel@heimdal.trondhjem.org>
-References: <1280488234-21223-1-git-send-email-segooon@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: kernel-janitors@vger.kernel.org,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Layton <jlayton@redhat.com>,
-	Steve Dickson <steved@redhat.com>,
-	Suresh Jayaraman <sjayaraman@suse.de>,
-	Kevin Coffman <kwc@citi.umich.edu>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kulikov Vasiliy <segooon@gmail.com>
+From: Greg KH <gregkh@suse.de>
+Subject: [072/205] IPv6: only notify protocols if address is completely gone
+Date: Fri, 30 Jul 2010 10:51:29 -0700
+Message-ID: <20100730175140.180788935@clark.site>
+References: <20100730175238.GA3924@kroah.com>
+Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	NetDev <netdev@vger.kernel.org>, <emil.s.tantilov@intel.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Emil S Tantilov <emils.tantilov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.netapp.com ([216.240.18.37]:47190 "EHLO mx2.netapp.com"
+Received: from kroah.org ([198.145.64.141]:58245 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758841Ab0G3RsG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 13:48:06 -0400
-In-Reply-To: <1280488234-21223-1-git-send-email-segooon@gmail.com>
+	id S1759925Ab0G3RzV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jul 2010 13:55:21 -0400
+In-Reply-To: <20100730175238.GA3924@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-07-30 at 15:10 +0400, Kulikov Vasiliy wrote:
-> copy_to_user() returns nonzero value on error, this value may be any
-> value between 0 and requested count, not only requested count.
-> 
-> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
-> ---
->  net/sunrpc/auth_gss/auth_gss.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-> index 8da2a0e..232d7dc 100644
-> --- a/net/sunrpc/auth_gss/auth_gss.c
-> +++ b/net/sunrpc/auth_gss/auth_gss.c
-> @@ -610,7 +610,7 @@ gss_pipe_upcall(struct file *filp, struct rpc_pipe_msg *msg,
->  	unsigned long left;
->  
->  	left = copy_to_user(dst, data, mlen);
-> -	if (left == mlen) {
-> +	if (left)
->  		msg->errno = -EFAULT;
->  		return -EFAULT;
->  	}
+2.6.34-stable review patch.  If anyone has any objections, please let us know.
 
-Ditto unnecessary...
+------------------
 
-Trond
+From: Stephen Hemminger <shemminger@vyatta.com>
+
+(cherry picked from commit 8595805aafc8b077e01804c9a3668e9aa3510e89)
+
+The notifier for address down should only be called if address is completely
+gone, not just being marked as tentative on link transition. The code
+in net-next would case bonding/sctp/s390 to see address disappear on link
+down, but they would never see it reappear on link up.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ net/ipv6/addrconf.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2729,7 +2729,9 @@ static int addrconf_ifdown(struct net_de
+ 		write_unlock_bh(&idev->lock);
+ 
+ 		__ipv6_ifa_notify(RTM_DELADDR, ifa);
+-		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
++		if (ifa->dead)
++			atomic_notifier_call_chain(&inet6addr_chain,
++						   NETDEV_DOWN, ifa);
+ 		in6_ifa_put(ifa);
+ 
+ 		write_lock_bh(&idev->lock);
+
+
