@@ -1,57 +1,70 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] vhost: locking/rcu cleanup
-Date: Fri, 30 Jul 2010 16:49:54 +0200
-Message-ID: <4C52E692.3070405@kernel.org>
-References: <20100729122325.GA24337@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] nf_nat: use local variable hdrlen
+Date: Fri, 30 Jul 2010 15:58:45 +0800
+Message-ID: <1280476725-7637-1-git-send-email-xiaosuo@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Sridhar Samudrala <samudrala@us.ibm.com>,
-	Jeff Dike <jdike@linux.intel.com>,
-	Juan Quintela <quintela@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
-	David Stevens <dlstevens@us.ibm.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100729122325.GA24337@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:60232 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097Ab0G3Pbc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jul 2010 11:31:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+use local variable hdrlen instead of ip_hdrlen(skb).
 
-On 07/29/2010 02:23 PM, Michael S. Tsirkin wrote:
-> I saw WARN_ON(!list_empty(&dev->work_list)) trigger
-> so our custom flush is not as airtight as need be.
-
-Could be but it's also possible that something has queued something
-after the last flush?  Is the problem reproducible?
-
-> This patch switches to a simple atomic counter + srcu instead of
-> the custom locked queue + flush implementation.
-> 
-> This will slow down the setup ioctls, which should not matter -
-> it's slow path anyway. We use the expedited flush to at least
-> make sure it has a sane time bound.
-> 
-> Works fine for me. I got reports that with many guests,
-> work lock is highly contended, and this patch should in theory
-> fix this as well - but I haven't tested this yet.
-
-Hmmm... vhost_poll_flush() becomes synchronize_srcu_expedited().  Can
-you please explain how it works?  synchronize_srcu_expedited() is an
-extremely heavy operation involving scheduling the cpu_stop task on
-all cpus.  I'm not quite sure whether doing it from every flush is a
-good idea.  Is flush supposed to be a very rare operation?
-
-Having custom implementation is fine too but let's try to implement
-something generic if at all possible.
-
-Thanks.
-
--- 
-tejun
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/ipv4/netfilter/nf_nat_core.c |   18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index c7719b2..ca2e7e7 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -440,7 +440,7 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 	if (!skb_make_writable(skb, hdrlen + sizeof(*inside)))
+ 		return 0;
+ 
+-	inside = (void *)skb->data + ip_hdrlen(skb);
++	inside = (void *)skb->data + hdrlen;
+ 
+ 	/* We're actually going to mangle it beyond trivial checksum
+ 	   adjustment, so make sure the current checksum is correct. */
+@@ -470,12 +470,10 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 	/* rcu_read_lock()ed by nf_hook_slow */
+ 	l4proto = __nf_ct_l4proto_find(PF_INET, inside->ip.protocol);
+ 
+-	if (!nf_ct_get_tuple(skb,
+-			     ip_hdrlen(skb) + sizeof(struct icmphdr),
+-			     (ip_hdrlen(skb) +
++	if (!nf_ct_get_tuple(skb, hdrlen + sizeof(struct icmphdr),
++			     (hdrlen +
+ 			      sizeof(struct icmphdr) + inside->ip.ihl * 4),
+-			     (u_int16_t)AF_INET,
+-			     inside->ip.protocol,
++			     (u_int16_t)AF_INET, inside->ip.protocol,
+ 			     &inner, l3proto, l4proto))
+ 		return 0;
+ 
+@@ -484,15 +482,13 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 	   pass all hooks (locally-generated ICMP).  Consider incoming
+ 	   packet: PREROUTING (DST manip), routing produces ICMP, goes
+ 	   through POSTROUTING (which must correct the DST manip). */
+-	if (!manip_pkt(inside->ip.protocol, skb,
+-		       ip_hdrlen(skb) + sizeof(inside->icmp),
+-		       &ct->tuplehash[!dir].tuple,
+-		       !manip))
++	if (!manip_pkt(inside->ip.protocol, skb, hdrlen + sizeof(inside->icmp),
++		       &ct->tuplehash[!dir].tuple, !manip))
+ 		return 0;
+ 
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		/* Reloading "inside" here since manip_pkt inner. */
+-		inside = (void *)skb->data + ip_hdrlen(skb);
++		inside = (void *)skb->data + hdrlen;
+ 		inside->icmp.checksum = 0;
+ 		inside->icmp.checksum =
+ 			csum_fold(skb_checksum(skb, hdrlen,
