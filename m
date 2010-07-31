@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] dnet: fixup error handling in initialization
-Date: Fri, 30 Jul 2010 23:29:06 -0700 (PDT)
-Message-ID: <20100730.232906.48506176.davem@davemloft.net>
-References: <20100729082729.GS26313@bicker>
+Subject: Re: [BUG] bridge leaks 3 references on lo per up&down
+Date: Fri, 30 Jul 2010 23:37:17 -0700 (PDT)
+Message-ID: <20100730.233717.260088691.davem@davemloft.net>
+References: <20100728095825.GC13413@jupiter.n2.diac24.net>
+	<20100728120336.GD13413@jupiter.n2.diac24.net>
+	<20100729111231.GA30021@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, elendil@planet.nl,
-	richard.cochran@omicron.at, kernel-janitors@vger.kernel.org
-To: error27@gmail.com
+Cc: equinox@diac24.net, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, bridge@lists.linux-foundation.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33819
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46747
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755151Ab0GaG2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 02:28:48 -0400
-In-Reply-To: <20100729082729.GS26313@bicker>
+	by vger.kernel.org with ESMTP id S1754361Ab0GaGhA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 02:37:00 -0400
+In-Reply-To: <20100729111231.GA30021@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Thu, 29 Jul 2010 10:27:29 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 29 Jul 2010 19:12:31 +0800
 
-> There were two problems here.  We returned success if dnet_mii_init()
-> failed and there was a release_mem_region() missing.
+> bridge: Fix skb leak when multicast parsing fails on TX
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> On the bridge TX path we're leaking an skb when br_multicast_rcv
+> returns an error.
+> 
+> Reported-by: David Lamparter <equinox@diac24.net>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks.
+Applied to net-2.6, thanks!
