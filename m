@@ -1,46 +1,50 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM virtio-net.
-Date: Sat, 31 Jul 2010 11:30:16 +0200
-Message-ID: <201007311130.17000.arnd@arndb.de>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com> <F2E9EB7348B8264F86B6AB8151CE2D791BAB307158@shsmsx502.ccr.corp.intel.com> <1280505112.9058.31.camel@localhost.localdomain>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] Tulip: don't initialize SBE xT3E3 WAN ports.
+Date: Sat, 31 Jul 2010 11:32:44 +0200
+Message-ID: <m31vakc7yb.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1280505112.9058.31.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:49105 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751137Ab0GaJk1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 05:40:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 30 July 2010 17:51:52 Shirley Ma wrote:
-> On Fri, 2010-07-30 at 16:53 +0800, Xin, Xiaohui wrote:
-> > >Since vhost-net already supports macvtap/tun backends, do you think
-> > >whether it's better to implement zero copy in macvtap/tun than
-> > inducing
-> > >a new media passthrough device here?
-> > >
-> > 
-> > I'm not sure if there will be more duplicated code in the kernel. 
-> 
-> I think it should be less duplicated code in the kernel if we use
-> macvtap to support what media passthrough driver here. Since macvtap has
-> support virtio_net head and offloading already, the only missing func is
-> zero copy. Also QEMU supports macvtap, we just need add a zero copy flag
-> in option.
+SBE 2T3E3 cards use DECchips 21143 but they need a different driver.
+Don't even try to use a normal tulip driver with them.
 
-Yes, I fully agree and that was one of the intended directions for
-macvtap to start with. Thank you so much for following up on that,
-I've long been planning to work on macvtap zero-copy myself but it's
-now lower on my priorities, so it's good to hear that you made progress
-on it, even if there are still performance issues.
+Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
 
-	Arnd
+--- a/drivers/net/tulip/tulip_core.c
++++ b/drivers/net/tulip/tulip_core.c
+@@ -1309,6 +1309,12 @@ static int __devinit tulip_init_one (struct pci_=
+dev *pdev,
+         if (pdev->subsystem_vendor =3D=3D PCI_VENDOR_ID_LMC) {
+ 		pr_err(PFX "skipping LMC card\n");
+ 		return -ENODEV;
++	} else if (pdev->subsystem_vendor =3D=3D PCI_VENDOR_ID_SBE &&
++		   (pdev->subsystem_device =3D=3D PCI_SUBDEVICE_ID_SBE_T3E3 ||
++		    pdev->subsystem_device =3D=3D PCI_SUBDEVICE_ID_SBE_2T3E3_P0 ||
++		    pdev->subsystem_device =3D=3D PCI_SUBDEVICE_ID_SBE_2T3E3_P1)) {
++		pr_err(PFX "skipping SBE T3E3 port\n");
++		return -ENODEV;
+ 	}
+=20
+ 	/*
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -1494,6 +1494,9 @@
+ #define PCI_DEVICE_ID_SBE_WANXL100	0x0301
+ #define PCI_DEVICE_ID_SBE_WANXL200	0x0302
+ #define PCI_DEVICE_ID_SBE_WANXL400	0x0104
++#define PCI_SUBDEVICE_ID_SBE_T3E3	0x0009
++#define PCI_SUBDEVICE_ID_SBE_2T3E3_P0	0x0901
++#define PCI_SUBDEVICE_ID_SBE_2T3E3_P1	0x0902
+=20
+ #define PCI_VENDOR_ID_TOSHIBA		0x1179
+ #define PCI_DEVICE_ID_TOSHIBA_PICCOLO_1	0x0101
