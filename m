@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun: keep link (carrier) state up to date
-Date: Fri, 30 Jul 2010 22:06:53 -0700 (PDT)
-Message-ID: <20100730.220653.104061828.davem@davemloft.net>
-References: <1280274823.23381.59.camel@voxel>
+Subject: Re: [PATCH] ucc_geth: fix UCC device number in debug message
+Date: Fri, 30 Jul 2010 22:09:02 -0700 (PDT)
+Message-ID: <20100730.220902.189696977.davem@davemloft.net>
+References: <1280340321-20276-1-git-send-email-geomatsi@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nolan@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, leoli@freescale.com
+To: geomatsi@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36284
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38638
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751143Ab0GaFGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 01:06:36 -0400
-In-Reply-To: <1280274823.23381.59.camel@voxel>
+	by vger.kernel.org with ESMTP id S1751520Ab0GaFIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 01:08:44 -0400
+In-Reply-To: <1280340321-20276-1-git-send-email-geomatsi@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nolan Leake <nolan@cumulusnetworks.com>
-Date: Tue, 27 Jul 2010 16:53:43 -0700
+From: Sergey Matyukevich <geomatsi@gmail.com>
+Date: Wed, 28 Jul 2010 22:05:21 +0400
 
-> Currently, only ethtool can get accurate link state of a tap device.
-> With this patch, IFF_RUNNING and IF_OPER_UP/DOWN are kept up to date as
-> well.
+> This patch contains a fix for UCC device number in verbose debug message.
 > 
-> Signed-off-by: Nolan Leake <nolan@cumulusnetworks.com>
+> Signed-off-by: Sergey Matyukevich <geomatsi@gmail.com>
 
-Applied, thanks Nolan.
+Applied, thank you.
