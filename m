@@ -1,37 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-07-29
-Date: Fri, 30 Jul 2010 21:49:03 -0700 (PDT)
-Message-ID: <20100730.214903.193713586.davem@davemloft.net>
-References: <20100729191245.GF2424@tuxdriver.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v4] can: Add driver for esd CAN-USB/2 device
+Date: Fri, 30 Jul 2010 21:57:42 -0700 (PDT)
+Message-ID: <20100730.215742.71118882.davem@davemloft.net>
+References: <201007271542.40997.matthias.fuchs@esd.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57460
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751143Ab0GaEsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 00:48:45 -0400
-In-Reply-To: <20100729191245.GF2424@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: matthias.fuchs-iOnpLzIbIdM@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201007271542.40997.matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 29 Jul 2010 15:12:46 -0400
+From: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
+Date: Tue, 27 Jul 2010 15:42:40 +0200
 
-> Yet another slew of changes intended for 2.6.36...
-> 
-> For the first time, this pull request includes a batch of bluetooth
-> stuff by way of Marcel.  Some upcoming developments are likely to
-> require more extensive integration between 802.11 and Bluetooth bits, so
-> Marcel's tree will be feeding wireless-next-2.6 for a while.
-> 
-> The rest is the usual stuff from the usual suspects -- mostly driver
-> updates with the usual strong showings from ath9k and iwlwifi, this time
-> joined by libertas in particular.
-> 
-> This is a "for-davem" branch, so hopefully there will be no pain for you
-> to pull this time. :-)
+> +#ifdef CONFIG_SYSFS
+> +	if (device_create_file(&intf->dev, &dev_attr_firmware))
+> +		dev_err(&intf->dev,
+> +			"Couldn't create device file for firmware\n");
 
-Pulled, thanks a lot John.
+This ifdef protection is unnecessary, device_create_file() et al.
+are available always, so please remove these SYSFS ifdef tests.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
