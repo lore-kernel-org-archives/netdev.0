@@ -1,74 +1,73 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: iw reg set does not work because udev and crda do not respond to
-	boot-time request.
-Date: Sat, 31 Jul 2010 14:05:24 -0700
-Message-ID: <AANLkTimA8JH2Ctw+dDtLMX3AUH-GKrEHtQQmMd-q7=0x@mail.gmail.com>
-References: <201007311448.06959.d.haid@gogi.tv>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH staging] Add SBE 2T3E3 WAN driver
+Date: Sat, 31 Jul 2010 23:31:22 +0200
+Message-ID: <m362zv5oet.fsf@intrepid.localdomain>
+References: <m3ocdoasen.fsf@intrepid.localdomain>
+	<20100731195335.GB4644@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Kay Sievers <kay.sievers@suse.de>
-To: Daniel Haid <d.haid@gogi.tv>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201007311448.06959.d.haid@gogi.tv>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:57796 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752072Ab0GaVbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jul 2010 17:31:25 -0400
+In-Reply-To: <20100731195335.GB4644@kroah.com> (Greg KH's message of "Sat, 31
+	Jul 2010 12:53:35 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Netlink / udev folks, please review.
+Greg KH <greg@kroah.com> writes:
 
-On Sat, Jul 31, 2010 at 5:48 AM, Daniel Haid <d.haid@gogi.tv> wrote:
-> Hello,
+>>  include/linux/pci_ids.h              |    3 +
 >
-> the driver of my wireless card seems to ask for "US"
-> regulatory data during boot, but since udev is not
-> running at that point (I think not even the root filesystem
-> is mounted) crda does not respond.
+> First off, read the top of the pci_ids.h file, which says to not add new
+> entries that are only used in a single driver.
 
-CRDA is not the only thing called by the kernel where there would be
-an issue due to a delay with udev during bootup to react to a message.
-The kernel calls CRDA for udev through kobject_uevent_env(). Uevent
-messages are now broadcasted through
-netlinknetlink_broadcast_filtered() since the old method of using a
-direct call to /sbin/hotplug would lead to many processes being
-spawned and in some cases OOM. You can still use this though through
-CONFIG_UEVENT_HELPER_PATH which will issue call_usermodehelper()
-during early boot on an initramfs for example, if you so need it.
+These entries are also needed for the tulip Ethernet driver, to avoid
+initializing these ports (they are using Tulip DECchips with custom FPGA
+for HDLC). I posted a patch on netdev list.
 
-I am not sure though if netlink broadcast messages would be reissued
-by the kernel during early boot if no one replied back to the send
-message but it is worth looking into. As far as I can tell you would
-be the first to notice this. In fact we actually had reports of two
-consecutive messages being being sent to userspace when only one was
-being sent to userspace so it may indeed be in fact true that messages
-are rebroadcasted somehow, I am just not sure so Cc'ing netdev and
-lkml.
+> Secondly, why have this as a staging driver?  What is lacking in it to
+> get it merged into the main kernel tree as a "normal" driver?
 
-> The effect is that "iw reg set" does not work, because
-> the kernel seems to be still waiting for the "US"
-> regulatory data. Running
-> COUNTRY="US" crda
-> manually once fixes the problem (until the next reboot).
+The main reason is the interface ("PRIVATE" netdev ioctls) for
+controlling the hdlcX devices is not stable. The plan is to write a new
+user-kernel interface for generic HDLC, this driver (and other ones)
+will then use it. For now, there is a separate utility from SBE for this
+card.
 
-iw reg set will be ignored by net/wireless/reg.c as it is still
-waiting for last_request to be processed. It seems in your case the
-assumption that the request will be reissued in case udev is running
-at early boot is incorrect and we need to further understand exactly
-how these messages get queued and perhaps reissued or not.
+> Hint, you
+> need a TODO file in the driver directory that lists the things left to
+> be done to it to get it merged, and a name/email address to send the
+> patches to.
 
-I considered recently changing the way we handle requests to userspace
-to use a completion handler but that would sit idle there for a while
-blocking on the reg_mutex... so decided against it. But could take a
-look again.
+Ok.
 
-> What is the correct way of solving this? Should udev not
-> pick up the request later when it is started?
+>> + * This code is based on a driver written by SBE Inc.
+>
+> What driver would that have been?  If it's based on someone else's work,
+> it's nice to mention the copyright holders of that work you based yours
+> on.
 
-We need a better understanding of how netlink broadcast messages get
-processed during early boot. Right now cfg80211 will drop duplicate
-requests or any request while we're still pending for the last one.
-Once we find out more details about how netlink broadcast messages get
-processed during early boot we can then rework things a bit. In the
-meantime can you try using CONFIG_UEVENT_HELPER_PATH during the
-initramfs?
+I don't have any details, I'm only told the driver is open-source and
+the file name starts with SBE. No copyright notices except this one:
 
-  Luis
+$ grep LIC *
+linux_sbe2t3e3.c:MODULE_LICENSE("GPL");
+
+BTW SBE Inc. (division?) has been acquired by One Stop Systems, they
+seem to still sell this hw, but I can't see any drivers available for
+downloading (though they mention "open source Linux drivers").
+
+>> +#define DRV_NAME "SBE 2T3E3"
+>
+> spaces and all caps isn't the nicest thing for linux drivers, it does
+> odd things in sysfs for some scripts (the space thing, not the
+> uppercase.)
+
+It seems the DRV_NAME is only used for various printk() and for
+pci_request_regions(). Does it still cause problems?
+-- 
+Krzysztof Halasa
