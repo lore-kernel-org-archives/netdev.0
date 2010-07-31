@@ -1,7 +1,7 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH 21/29] LMC: I'm sure Linux doesn't swap PCI subsystem device and vendor IDs.
-Date: Sat, 31 Jul 2010 17:05:44 +0200
-Message-ID: <1280588752-9340-21-git-send-email-khc@pm.waw.pl>
+Subject: [PATCH 19/29] LMC: Remove sc->check. We don't do such checks in drivers.
+Date: Sat, 31 Jul 2010 17:05:42 +0200
+Message-ID: <1280588752-9340-19-git-send-email-khc@pm.waw.pl>
 References: <m3fwyzzpjf.fsf@intrepid.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,9 +9,9 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:45531 "EHLO khc.piap.pl"
+Received: from khc.piap.pl ([195.187.100.11]:45825 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756591Ab0GaPGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756590Ab0GaPGY (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 31 Jul 2010 11:06:24 -0400
 In-Reply-To: <m3fwyzzpjf.fsf@intrepid.localdomain>
 Sender: netdev-owner@vger.kernel.org
@@ -21,38 +21,51 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
 ---
- drivers/net/wan/lmc/main.c |   10 ----------
- 1 files changed, 0 insertions(+), 10 deletions(-)
+ drivers/net/wan/lmc/main.c |    9 ---------
+ drivers/net/wan/lmc/var.h  |    2 --
+ 2 files changed, 0 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/wan/lmc/main.c b/drivers/net/wan/lmc/main.c
-index 2229e0a..bd7def0 100644
+index 6698aa9..56631d4 100644
 --- a/drivers/net/wan/lmc/main.c
 +++ b/drivers/net/wan/lmc/main.c
-@@ -77,8 +77,6 @@ static int LMC_PKT_BUF_SZ =3D 1542;
- static DEFINE_PCI_DEVICE_TABLE(lmc_pci_tbl) =3D {
- 	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TULIP_FAST,
- 	  PCI_VENDOR_ID_LMC, PCI_ANY_ID },
--	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TULIP_FAST,
--	  PCI_ANY_ID, PCI_VENDOR_ID_LMC },
- 	{ 0 }
+@@ -575,14 +575,6 @@ static void lmc_watchdog(unsigned long data)
+=20
+ 	spin_lock_irqsave(&sc->lock, flags);
+=20
+-	if (sc->check !=3D 0xBEAFCAFE) {
+-		printk(KERN_ERR
+-		       "LMC: Corrupt net_device struct, breaking out\n");
+-		spin_unlock_irqrestore(&sc->lock, flags);
+-		return;
+-	}
+-
+-
+ 	/* Make sure the tx jabber and rx watchdog are off,
+ 	 * and the transmit and receive processes are running.
+ 	 */
+@@ -761,7 +753,6 @@ static int __devinit lmc_init_one(struct pci_dev *p=
+dev,
+ 	dev->tx_queue_len =3D 100;
+ 	sc->netdev =3D dev;
+ 	sc->name =3D dev->name;
+-	sc->check =3D 0xBEAFCAFE;
+ 	dev->base_addr =3D pci_resource_start(pdev, 0);
+ 	dev->irq =3D pdev->irq;
+ 	pci_set_drvdata(pdev, dev);
+diff --git a/drivers/net/wan/lmc/var.h b/drivers/net/wan/lmc/var.h
+index a3e9aee..10cb70d 100644
+--- a/drivers/net/wan/lmc/var.h
++++ b/drivers/net/wan/lmc/var.h
+@@ -320,8 +320,6 @@ struct card {
+=20
+ 	u8 failed_ring;			/* Failure cases */
+ 	u8 failed_recv_alloc;
+-
+-	u32 check;			/* Structure check */
  };
 =20
-@@ -773,14 +771,6 @@ static int __devinit lmc_init_one(struct pci_dev *=
-pdev,
- 	sc->cardtype =3D LMC_CARDTYPE_UNKNOWN;
- 	sc->timing =3D LMC_CTL_CLOCK_SOURCE_EXT;
-=20
--	/*
--	 * Check either the subvendor or the subdevice, some systems reverse
--	 * the setting in the bois, seems to be version and arch dependent?
--	 * Fix the error, exchange the two values
--	 */
--	if ((subdevice =3D pdev->subsystem_device) =3D=3D PCI_VENDOR_ID_LMC)
--		subdevice =3D pdev->subsystem_vendor;
--
- 	switch (subdevice) {
- 	case PCI_DEVICE_ID_LMC_HSSI:
- 		dev_info(&pdev->dev, "%s =3D LMC HSSI\n", dev->name);
+ #define PKT_BUF_SZ		1542
 --=20
 1.7.1.1
 
