@@ -1,7 +1,7 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH 13/29] LMC: Get rid of debug.[ch].
-Date: Sat, 31 Jul 2010 17:05:36 +0200
-Message-ID: <1280588752-9340-13-git-send-email-khc@pm.waw.pl>
+Subject: [PATCH 23/29] LMC: lmc_set_protocol() is effectively a NOP, remove it.
+Date: Sat, 31 Jul 2010 17:05:46 +0200
+Message-ID: <1280588752-9340-23-git-send-email-khc@pm.waw.pl>
 References: <m3fwyzzpjf.fsf@intrepid.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:57893 "EHLO khc.piap.pl"
+Received: from khc.piap.pl ([195.187.100.11]:39313 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756525Ab0GaPGS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jul 2010 11:06:18 -0400
+	id S1756604Ab0GaPG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jul 2010 11:06:27 -0400
 In-Reply-To: <m3fwyzzpjf.fsf@intrepid.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,173 +21,145 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
 ---
- drivers/net/wan/lmc/Makefile |    2 +-
- drivers/net/wan/lmc/debug.c  |   23 -----------------------
- drivers/net/wan/lmc/debug.h  |    6 ------
- drivers/net/wan/lmc/lmc.h    |   18 ------------------
- drivers/net/wan/lmc/main.c   |    1 -
- drivers/net/wan/lmc/media.c  |    1 -
- drivers/net/wan/lmc/var.h    |   38 ++++++++++++++++++++++++++++++++++=
-++++
- 7 files changed, 39 insertions(+), 50 deletions(-)
- delete mode 100644 drivers/net/wan/lmc/debug.c
- delete mode 100644 drivers/net/wan/lmc/debug.h
+ drivers/net/wan/lmc/main.c  |    2 +-
+ drivers/net/wan/lmc/media.c |   27 +++------------------------
+ drivers/net/wan/lmc/var.h   |    2 +-
+ 3 files changed, 5 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/wan/lmc/Makefile b/drivers/net/wan/lmc/Makefil=
-e
-index 2f461a7..6c21b7c 100644
---- a/drivers/net/wan/lmc/Makefile
-+++ b/drivers/net/wan/lmc/Makefile
-@@ -5,7 +5,7 @@
-=20
- obj-$(CONFIG_LANMEDIA) +=3D lmc.o
-=20
--lmc-objs :=3D debug.o media.o main.o
-+lmc-objs :=3D media.o main.o
-=20
- # Like above except every packet gets echoed to KERN_DEBUG
- # in hex
-diff --git a/drivers/net/wan/lmc/debug.c b/drivers/net/wan/lmc/debug.c
-deleted file mode 100644
-index 7c05cfe..0000000
---- a/drivers/net/wan/lmc/debug.c
-+++ /dev/null
-@@ -1,23 +0,0 @@
--#include <linux/types.h>
--#include <linux/netdevice.h>
--#include <linux/interrupt.h>
--#include "debug.h"
--
--void lmc_trace(struct net_device *dev, char *msg)
--{
--#ifdef LMC_TRACE
--	unsigned long j =3D jiffies + 3; /* Wait for 50 ms */
--
--	if (in_interrupt()) {
--		printk(KERN_DEBUG "%s: * %s\n", dev->name, msg);
--#if 0
--		while (time_before(jiffies, j + 10))
--			;
--#endif
--	} else {
--		printk(KERN_DEBUG "%s: %s\n", dev->name, msg);
--		while (time_before(jiffies, j))
--			schedule();
--	}
--#endif
--}
-diff --git a/drivers/net/wan/lmc/debug.h b/drivers/net/wan/lmc/debug.h
-deleted file mode 100644
-index f026077..0000000
---- a/drivers/net/wan/lmc/debug.h
-+++ /dev/null
-@@ -1,6 +0,0 @@
--#ifndef _LMC_DEBUG_H_
--#define _LMC_DEBUG_H_
--
--void lmc_trace(struct net_device *dev, char *msg);
--
--#endif
-diff --git a/drivers/net/wan/lmc/lmc.h b/drivers/net/wan/lmc/lmc.h
-index 4ab8fe8..5f467d1 100644
---- a/drivers/net/wan/lmc/lmc.h
-+++ b/drivers/net/wan/lmc/lmc.h
-@@ -3,22 +3,4 @@
-=20
- #include "var.h"
-=20
--int lmc_probe(struct net_device *dev);
--unsigned lmc_mii_readreg(struct card * const sc, unsigned devaddr,
--			 unsigned regno);
--void lmc_mii_writereg(struct card * const sc, unsigned devaddr,
--		      unsigned regno, unsigned data);
--void lmc_led_on(struct card * const, u32);
--void lmc_led_off(struct card * const, u32);
--unsigned lmc_mii_readreg(struct card * const, unsigned, unsigned);
--void lmc_mii_writereg(struct card * const, unsigned, unsigned, unsigne=
-d);
--void lmc_gpio_mkinput(struct card * const sc, u32 bits);
--void lmc_gpio_mkoutput(struct card * const sc, u32 bits);
--int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
--
--extern struct media lmc_ds3_media;
--extern struct media lmc_ssi_media;
--extern struct media lmc_t1_media;
--extern struct media lmc_hssi_media;
--
- #endif
 diff --git a/drivers/net/wan/lmc/main.c b/drivers/net/wan/lmc/main.c
-index dc7e435..c80131f 100644
+index 1231d7c..133cc77 100644
 --- a/drivers/net/wan/lmc/main.c
 +++ b/drivers/net/wan/lmc/main.c
-@@ -73,7 +73,6 @@
- #include "lmc.h"
- #include "var.h"
- #include "ioctl.h"
--#include "debug.h"
+@@ -962,7 +962,7 @@ static void lmc_running_reset(struct net_device *de=
+v)
 =20
- static int LMC_PKT_BUF_SZ =3D 1542;
 =20
+ /* This is what is called when you ifconfig down a device. This disabl=
+es
+-   the timer for the watchdog and keepalives, and disables the irq for=
+ dev. */
++   the watchdog timer and the irq for dev. */
+ static int lmc_close(struct net_device *dev)
+ {
+ 	/* not calling release_region() as we should */
 diff --git a/drivers/net/wan/lmc/media.c b/drivers/net/wan/lmc/media.c
-index 2411214..9b1c394 100644
+index ecf0f2a..ea5c2bc 100644
 --- a/drivers/net/wan/lmc/media.c
 +++ b/drivers/net/wan/lmc/media.c
-@@ -19,7 +19,6 @@
- #include "lmc.h"
- #include "var.h"
- #include "ioctl.h"
--#include "debug.h"
+@@ -35,13 +35,6 @@
+  * the GNU General Public License version 2, incorporated herein by re=
+ference.
+  */
 =20
- #define CONFIG_LMC_IGNORE_HARDWARE_HANDSHAKE 1
+-static void lmc_set_protocol(struct card * const sc, struct control *c=
+tl)
+-{
+-	if (!ctl)
+-		sc->ictl.keepalive_onoff =3D LMC_CTL_ON;
+-}
+-
+-
+ /* SSI methods */
 =20
+ /* These are bits to program the ssi frequency generator */
+@@ -180,7 +173,6 @@ static void lmc_ssi_set_status(struct card * const =
+sc, struct control *ctl)
+ 	if (ctl =3D=3D NULL) {
+ 		lmc_ssi_set_clock(sc, sc->ictl.clock_source);
+ 		lmc_ssi_set_speed(sc, &sc->ictl);
+-		lmc_set_protocol(sc, NULL);
+ 		return;
+ 	}
+=20
+@@ -197,8 +189,6 @@ static void lmc_ssi_set_status(struct card * const =
+sc, struct control *ctl)
+=20
+ 	if (ctl->clock_rate !=3D sc->ictl.clock_rate)
+ 		lmc_ssi_set_speed(sc, ctl);
+-
+-	lmc_set_protocol(sc, ctl);
+ }
+=20
+ /* Return hardware link status. 0 =3D=3D link is down, 1 =3D=3D link i=
+s up. */
+@@ -375,21 +365,15 @@ static void lmc_hssi_set_status(struct card * con=
+st sc, struct control *ctl)
+ {
+ 	if (ctl =3D=3D NULL) {
+ 		lmc_hssi_set_clock(sc, sc->ictl.clock_source);
+-		lmc_set_protocol(sc, NULL);
+-
+ 		return;
+ 	}
+=20
+ 	/* check for change in clock source */
+-	if (ctl->clock_source && !sc->ictl.clock_source) {
+-		lmc_hssi_set_clock(sc, LMC_CTL_CLOCK_SOURCE_INT);
++	if (ctl->clock_source && !sc->ictl.clock_source)
+ 		sc->timing =3D LMC_CTL_CLOCK_SOURCE_INT;
+-	} else if (!ctl->clock_source && sc->ictl.clock_source) {
++	else if (!ctl->clock_source && sc->ictl.clock_source)
+ 		sc->timing =3D LMC_CTL_CLOCK_SOURCE_EXT;
+-		lmc_hssi_set_clock(sc, LMC_CTL_CLOCK_SOURCE_EXT);
+-	}
+-
+-	lmc_set_protocol(sc, ctl);
++	lmc_hssi_set_clock(sc, sc->timing);
+ }
+=20
+ /* Return hardware link status. 0 =3D=3D link is down, 1 =3D=3D link i=
+s up. */
+@@ -470,7 +454,6 @@ static void lmc_ds3_set_status(struct card * const =
+sc, struct control *ctl)
+ 	if (ctl =3D=3D NULL) {
+ 		lmc_ds3_set_100ft(sc, sc->ictl.cable_length);
+ 		lmc_ds3_set_scram(sc, sc->ictl.scrambler_onoff);
+-		lmc_set_protocol(sc, NULL);
+ 		return;
+ 	}
+=20
+@@ -485,8 +468,6 @@ static void lmc_ds3_set_status(struct card * const =
+sc, struct control *ctl)
+ 		lmc_ds3_set_scram(sc, LMC_CTL_ON);
+ 	else if (!ctl->scrambler_onoff && sc->ictl.scrambler_onoff)
+ 		lmc_ds3_set_scram(sc, LMC_CTL_OFF);
+-
+-	lmc_set_protocol(sc, ctl);
+ }
+=20
+ static void lmc_ds3_init(struct card * const sc)
+@@ -732,7 +713,6 @@ static void lmc_t1_set_status(struct card * const s=
+c, struct control *ctl)
+ {
+ 	if (ctl =3D=3D NULL) {
+ 		lmc_t1_set_circuit_type(sc, sc->ictl.circuit_type);
+-		lmc_set_protocol(sc, NULL);
+ 		return;
+ 	}
+ 	/* check for change in circuit type */
+@@ -742,7 +722,6 @@ static void lmc_t1_set_status(struct card * const s=
+c, struct control *ctl)
+ 	else if (ctl->circuit_type =3D=3D LMC_CTL_CIRCUIT_TYPE_E1
+ 		 && sc->ictl.circuit_type =3D=3D LMC_CTL_CIRCUIT_TYPE_T1)
+ 		lmc_t1_set_circuit_type(sc, LMC_CTL_CIRCUIT_TYPE_T1);
+-	lmc_set_protocol(sc, ctl);
+ }
+=20
+ /* Return hardware link status. 0 =3D=3D link is down, 1 =3D=3D link i=
+s up. */
 diff --git a/drivers/net/wan/lmc/var.h b/drivers/net/wan/lmc/var.h
-index b889bf6..d694731 100644
+index 971f5d6..93c21fe 100644
 --- a/drivers/net/wan/lmc/var.h
 +++ b/drivers/net/wan/lmc/var.h
-@@ -433,4 +433,42 @@ struct card {
- #define LMC_CRC_LEN_16		2	/* 16-bit CRC */
- #define LMC_CRC_LEN_32		4
-=20
-+extern struct media lmc_ds3_media;
-+extern struct media lmc_ssi_media;
-+extern struct media lmc_t1_media;
-+extern struct media lmc_hssi_media;
-+
-+static inline void lmc_trace(struct net_device *dev, char *msg)
-+{
-+#ifdef LMC_TRACE
-+	unsigned long j =3D jiffies + 3; /* Wait for 50 ms */
-+
-+	if (in_interrupt()) {
-+		printk(KERN_DEBUG "%s: * %s\n", dev->name, msg);
-+#if 0
-+		while (time_before(jiffies, j + 10))
-+			;
-+#endif
-+	} else {
-+		printk(KERN_DEBUG "%s: %s\n", dev->name, msg);
-+		while (time_before(jiffies, j))
-+			schedule();
-+	}
-+#endif
-+}
-+
-+
-+int lmc_probe(struct net_device *dev);
-+unsigned lmc_mii_readreg(struct card * const sc, unsigned devaddr,
-+			 unsigned regno);
-+void lmc_mii_writereg(struct card * const sc, unsigned devaddr,
-+		      unsigned regno, unsigned data);
-+void lmc_led_on(struct card * const, u32);
-+void lmc_led_off(struct card * const, u32);
-+unsigned lmc_mii_readreg(struct card * const, unsigned, unsigned);
-+void lmc_mii_writereg(struct card * const, unsigned, unsigned, unsigne=
-d);
-+void lmc_gpio_mkinput(struct card * const sc, u32 bits);
-+void lmc_gpio_mkoutput(struct card * const sc, u32 bits);
-+int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
-+
- #endif /* _LMC_VAR_H_ */
+@@ -152,7 +152,7 @@ struct control {
+ 	u32 cable_length;		/* DS3 */
+ 	u32 scrambler_onoff;		/* DS3 */
+ 	u32 cable_type;			/* T1 */
+-	u32 keepalive_onoff;		/* protocol */
++	u32 keepalive_onoff;		/* unused */
+ 	u32 ticks;			/* ticks/sec */
+ 	union {
+ 		lmc_av9110_t ssi;
 --=20
 1.7.1.1
 
