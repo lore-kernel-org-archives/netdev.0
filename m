@@ -1,59 +1,26 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH] net/rose: Use GFP_ATOMIC
-Date: Sat, 31 Jul 2010 11:56:39 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1007311156180.6434@ask.diku.dk>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 1/2] nf_nat: make unique_tuple return void
+Date: Sat, 31 Jul 2010 13:54:42 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1007311352490.17359@obet.zrqbmnf.qr>
+References: <1280542516-14567-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Ralf Baechle <ralf@linux-mips.org>,
+Cc: Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	linux-hams@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1280542516-14567-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
+On Saturday 2010-07-31 04:15, Changli Gao wrote:
 
-The other calls to kmalloc in the same function use GFP_ATOMIC, and indeed
-two locks are held within the body of the function.
+>the only user of unique_tuple() get_unique_tuple() doesn't care about the
+>return value of unique_tuple(), so make unique_tuple() return void (nothing).
 
-The semantic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
+Shouldn't the callers (get_unique_tuple in nf_nat_core.c) ideally 
+return NF_DROP or something such that connections that cannot be 
+uniquely mangled be rejected rather than forwarded without mangling?
 
-// <smpl>
-@@ identifier f; @@
 
-*f(...,GFP_ATOMIC,...)
-... when != spin_unlock(...)
-    when != read_unlock(...)
-    when != write_unlock(...)
-    when != read_unlock_irq(...)
-    when != write_unlock_irq(...)
-    when != read_unlock_irqrestore(...)
-    when != write_unlock_irqrestore(...)
-    when != spin_unlock_irq(...)
-    when != spin_unlock_irqrestore(...)
-*f(...,GFP_KERNEL,...)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- net/rose/rose_route.c               |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
-index cbc244a..b4fdaac 100644
---- a/net/rose/rose_route.c
-+++ b/net/rose/rose_route.c
-@@ -109,7 +109,9 @@ static int __must_check rose_add_node(struct rose_route_struct *rose_route,
- 		init_timer(&rose_neigh->t0timer);
- 
- 		if (rose_route->ndigis != 0) {
--			if ((rose_neigh->digipeat = kmalloc(sizeof(ax25_digi), GFP_KERNEL)) == NULL) {
-+			rose_neigh->digipeat =
-+				kmalloc(sizeof(ax25_digi), GFP_ATOMIC);
-+			if (rose_neigh->digipeat == NULL) {
- 				kfree(rose_neigh);
- 				res = -ENOMEM;
- 				goto out;
