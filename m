@@ -1,95 +1,278 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PULL REQ] WAN: LMC driver
-Date: Sat, 31 Jul 2010 16:36:36 +0200
-Message-ID: <m3fwyzzpjf.fsf@intrepid.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:39600 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755735Ab0GaOgj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 10:36:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v2 1/2] nf_nat: make unique_tuple return void
+Date: Sat, 31 Jul 2010 15:08:37 +0800
+Message-ID: <1280560117-30747-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David,
+the only user of unique_tuple() get_unique_tuple() doesn't care about the
+return value of unique_tuple(), so make unique_tuple() return void (nothing).
 
-I have done a bit of work on the LMC WAN driver. It's still far from
-perfection, though I think it's a visible improvement. It merges with
-your current "next" tree cleanly. I'll also post the individual patches=
-=2E
-Please pull. Thanks.
-
-The following changes since Linux 2.6.35-rc6 are available in the git
-repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/chris/linux-2.6.git lmc
-
-Krzysztof Ha=C5=82asa (29):
-      LMC: whitespace and cosmetic fixes.
-      LMC: Remove "lmc_" prefix from source file names.
-      LMC: Remove 3 typedefs.
-      LMC: fix initialization messages.
-      LMC: Remove non-LMC_PPP modes, everything is already handled by g=
-eneric HDLC.
-      LMC: Remove stub files proto.[ch].
-      LMC: Convert media structs to named initializers.
-      LMC: Remove "dummy" media functions.
-      LMC: shuffle protocol routines to avoid a need for prototypes.
-      LMC: Remove empty media functions.
-      LMC: Get rid of lmcConsoleLog().
-      LMC: Get rid of the event logger.
-      LMC: Get rid of debug.[ch].
-      LMC: Remove now empty header file lmc.h.
-      LMC: lanmedia.com is not functional anymore.
-      LMC: Remove unused macros.
-      LMC: don't wait in lmc_trace().
-      LMC: strip "lmc_" prefix from field names in struct card.
-      LMC: Remove sc->check. We don't do such checks in drivers.
-      LMC: Remove unused sc->board_idx.
-      LMC: I'm sure Linux doesn't swap PCI subsystem device and vendor =
-IDs.
-      LMC: Move model logic to media structs.
-      LMC: lmc_set_protocol() is effectively a NOP, remove it.
-      LMC: Remove unused variables.
-      LMC: Remove unneeded prototypes.
-      LMC: Remove redundant macro.
-      LMC: Remove redundant card->name.
-      LMC: Simplify and fix CSR names and logic.
-      LMC: Report proper card type before the first dev->open().
-
- drivers/net/wan/lmc/Makefile    |    4 +-
- drivers/net/wan/lmc/ioctl.h     |  228 +++++
- drivers/net/wan/lmc/lmc.h       |   32 -
- drivers/net/wan/lmc/lmc_debug.c |   82 --
- drivers/net/wan/lmc/lmc_debug.h |   52 -
- drivers/net/wan/lmc/lmc_ioctl.h |  257 -----
- drivers/net/wan/lmc/lmc_main.c  | 2145 -------------------------------=
---------
- drivers/net/wan/lmc/lmc_media.c | 1211 ----------------------
- drivers/net/wan/lmc/lmc_proto.c |  135 ---
- drivers/net/wan/lmc/lmc_proto.h |   18 -
- drivers/net/wan/lmc/lmc_var.h   |  470 ---------
- drivers/net/wan/lmc/main.c      | 1834 +++++++++++++++++++++++++++++++=
-++
- drivers/net/wan/lmc/media.c     |  944 +++++++++++++++++
- drivers/net/wan/lmc/var.h       |  423 ++++++++
- 14 files changed, 3431 insertions(+), 4404 deletions(-)
- create mode 100644 drivers/net/wan/lmc/ioctl.h
- delete mode 100644 drivers/net/wan/lmc/lmc.h
- delete mode 100644 drivers/net/wan/lmc/lmc_debug.c
- delete mode 100644 drivers/net/wan/lmc/lmc_debug.h
- delete mode 100644 drivers/net/wan/lmc/lmc_ioctl.h
- delete mode 100644 drivers/net/wan/lmc/lmc_main.c
- delete mode 100644 drivers/net/wan/lmc/lmc_media.c
- delete mode 100644 drivers/net/wan/lmc/lmc_proto.c
- delete mode 100644 drivers/net/wan/lmc/lmc_proto.h
- delete mode 100644 drivers/net/wan/lmc/lmc_var.h
- create mode 100644 drivers/net/wan/lmc/main.c
- create mode 100644 drivers/net/wan/lmc/media.c
- create mode 100644 drivers/net/wan/lmc/var.h
-
---=20
-Krzysztof Halasa
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ include/net/netfilter/nf_nat_protocol.h   |    8 ++++----
+ net/ipv4/netfilter/nf_nat_proto_common.c  |    8 ++++----
+ net/ipv4/netfilter/nf_nat_proto_dccp.c    |    6 +++---
+ net/ipv4/netfilter/nf_nat_proto_gre.c     |    8 ++++----
+ net/ipv4/netfilter/nf_nat_proto_icmp.c    |    6 +++---
+ net/ipv4/netfilter/nf_nat_proto_sctp.c    |    6 +++---
+ net/ipv4/netfilter/nf_nat_proto_tcp.c     |    5 ++---
+ net/ipv4/netfilter/nf_nat_proto_udp.c     |    5 ++---
+ net/ipv4/netfilter/nf_nat_proto_udplite.c |    6 +++---
+ net/ipv4/netfilter/nf_nat_proto_unknown.c |    4 ++--
+ 10 files changed, 30 insertions(+), 32 deletions(-)
+diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
+index c398017..df17bac 100644
+--- a/include/net/netfilter/nf_nat_protocol.h
++++ b/include/net/netfilter/nf_nat_protocol.h
+@@ -27,9 +27,9 @@ struct nf_nat_protocol {
+ 
+ 	/* Alter the per-proto part of the tuple (depending on
+ 	   maniptype), to give a unique tuple in the given range if
+-	   possible; return false if not.  Per-protocol part of tuple
+-	   is initialized to the incoming packet. */
+-	bool (*unique_tuple)(struct nf_conntrack_tuple *tuple,
++	   possible.  Per-protocol part of tuple is initialized to the
++	   incoming packet. */
++	void (*unique_tuple)(struct nf_conntrack_tuple *tuple,
+ 			     const struct nf_nat_range *range,
+ 			     enum nf_nat_manip_type maniptype,
+ 			     const struct nf_conn *ct);
+@@ -63,7 +63,7 @@ extern bool nf_nat_proto_in_range(const struct nf_conntrack_tuple *tuple,
+ 				  const union nf_conntrack_man_proto *min,
+ 				  const union nf_conntrack_man_proto *max);
+ 
+-extern bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
++extern void nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 				      const struct nf_nat_range *range,
+ 				      enum nf_nat_manip_type maniptype,
+ 				      const struct nf_conn *ct,
+diff --git a/net/ipv4/netfilter/nf_nat_proto_common.c b/net/ipv4/netfilter/nf_nat_proto_common.c
+index 6c4f11f..2844a03 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_common.c
++++ b/net/ipv4/netfilter/nf_nat_proto_common.c
+@@ -34,7 +34,7 @@ bool nf_nat_proto_in_range(const struct nf_conntrack_tuple *tuple,
+ }
+ EXPORT_SYMBOL_GPL(nf_nat_proto_in_range);
+ 
+-bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
++void nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 			       const struct nf_nat_range *range,
+ 			       enum nf_nat_manip_type maniptype,
+ 			       const struct nf_conn *ct,
+@@ -53,7 +53,7 @@ bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
+ 		/* If it's dst rewrite, can't change port */
+ 		if (maniptype == IP_NAT_MANIP_DST)
+-			return false;
++			return;
+ 
+ 		if (ntohs(*portptr) < 1024) {
+ 			/* Loose convention: >> 512 is credential passing */
+@@ -87,9 +87,9 @@ bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 			continue;
+ 		if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM))
+ 			*rover = off;
+-		return true;
++		return;
+ 	}
+-	return false;
++	return;
+ }
+ EXPORT_SYMBOL_GPL(nf_nat_proto_unique_tuple);
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_proto_dccp.c b/net/ipv4/netfilter/nf_nat_proto_dccp.c
+index 22485ce..570faf2 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_dccp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_dccp.c
+@@ -22,14 +22,14 @@
+ 
+ static u_int16_t dccp_port_rover;
+ 
+-static bool
++static void
+ dccp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		  const struct nf_nat_range *range,
+ 		  enum nf_nat_manip_type maniptype,
+ 		  const struct nf_conn *ct)
+ {
+-	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
+-					 &dccp_port_rover);
++	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
++				  &dccp_port_rover);
+ }
+ 
+ static bool
+diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
+index d7e8920..89933ab 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_gre.c
++++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
+@@ -37,7 +37,7 @@ MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
+ MODULE_DESCRIPTION("Netfilter NAT protocol helper module for GRE");
+ 
+ /* generate unique tuple ... */
+-static bool
++static void
+ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		 const struct nf_nat_range *range,
+ 		 enum nf_nat_manip_type maniptype,
+@@ -50,7 +50,7 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	/* If there is no master conntrack we are not PPTP,
+ 	   do not change tuples */
+ 	if (!ct->master)
+-		return false;
++		return;
+ 
+ 	if (maniptype == IP_NAT_MANIP_SRC)
+ 		keyptr = &tuple->src.u.gre.key;
+@@ -71,11 +71,11 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	for (i = 0; i < range_size; i++, key++) {
+ 		*keyptr = htons(min + key % range_size);
+ 		if (!nf_nat_used_tuple(tuple, ct))
+-			return true;
++			return;
+ 	}
+ 
+ 	pr_debug("%p: no NAT mapping\n", ct);
+-	return false;
++	return;
+ }
+ 
+ /* manipulate a GRE packet according to maniptype */
+diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
+index 19a8b0b..97003fe 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
+@@ -27,7 +27,7 @@ icmp_in_range(const struct nf_conntrack_tuple *tuple,
+ 	       ntohs(tuple->src.u.icmp.id) <= ntohs(max->icmp.id);
+ }
+ 
+-static bool
++static void
+ icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		  const struct nf_nat_range *range,
+ 		  enum nf_nat_manip_type maniptype,
+@@ -46,9 +46,9 @@ icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		tuple->src.u.icmp.id = htons(ntohs(range->min.icmp.id) +
+ 					     (id % range_size));
+ 		if (!nf_nat_used_tuple(tuple, ct))
+-			return true;
++			return;
+ 	}
+-	return false;
++	return;
+ }
+ 
+ static bool
+diff --git a/net/ipv4/netfilter/nf_nat_proto_sctp.c b/net/ipv4/netfilter/nf_nat_proto_sctp.c
+index 3fc598e..756331d 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_sctp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_sctp.c
+@@ -16,14 +16,14 @@
+ 
+ static u_int16_t nf_sctp_port_rover;
+ 
+-static bool
++static void
+ sctp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		  const struct nf_nat_range *range,
+ 		  enum nf_nat_manip_type maniptype,
+ 		  const struct nf_conn *ct)
+ {
+-	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
+-					 &nf_sctp_port_rover);
++	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
++				  &nf_sctp_port_rover);
+ }
+ 
+ static bool
+diff --git a/net/ipv4/netfilter/nf_nat_proto_tcp.c b/net/ipv4/netfilter/nf_nat_proto_tcp.c
+index 399e2cf..aa460a5 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_tcp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_tcp.c
+@@ -20,14 +20,13 @@
+ 
+ static u_int16_t tcp_port_rover;
+ 
+-static bool
++static void
+ tcp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		 const struct nf_nat_range *range,
+ 		 enum nf_nat_manip_type maniptype,
+ 		 const struct nf_conn *ct)
+ {
+-	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
+-					 &tcp_port_rover);
++	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct, &tcp_port_rover);
+ }
+ 
+ static bool
+diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_proto_udp.c
+index 9e61c79..dfe65c7 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_udp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_udp.c
+@@ -19,14 +19,13 @@
+ 
+ static u_int16_t udp_port_rover;
+ 
+-static bool
++static void
+ udp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		 const struct nf_nat_range *range,
+ 		 enum nf_nat_manip_type maniptype,
+ 		 const struct nf_conn *ct)
+ {
+-	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
+-					 &udp_port_rover);
++	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct, &udp_port_rover);
+ }
+ 
+ static bool
+diff --git a/net/ipv4/netfilter/nf_nat_proto_udplite.c b/net/ipv4/netfilter/nf_nat_proto_udplite.c
+index 440a229..3cc8c8a 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_udplite.c
++++ b/net/ipv4/netfilter/nf_nat_proto_udplite.c
+@@ -18,14 +18,14 @@
+ 
+ static u_int16_t udplite_port_rover;
+ 
+-static bool
++static void
+ udplite_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 		     const struct nf_nat_range *range,
+ 		     enum nf_nat_manip_type maniptype,
+ 		     const struct nf_conn *ct)
+ {
+-	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
+-					 &udplite_port_rover);
++	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
++				  &udplite_port_rover);
+ }
+ 
+ static bool
+diff --git a/net/ipv4/netfilter/nf_nat_proto_unknown.c b/net/ipv4/netfilter/nf_nat_proto_unknown.c
+index 14381c6..a50f2bc 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_unknown.c
++++ b/net/ipv4/netfilter/nf_nat_proto_unknown.c
+@@ -26,14 +26,14 @@ static bool unknown_in_range(const struct nf_conntrack_tuple *tuple,
+ 	return true;
+ }
+ 
+-static bool unknown_unique_tuple(struct nf_conntrack_tuple *tuple,
++static void unknown_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 				 const struct nf_nat_range *range,
+ 				 enum nf_nat_manip_type maniptype,
+ 				 const struct nf_conn *ct)
+ {
+ 	/* Sorry: we can't help you; if it's not unique, we can't frob
+ 	   anything. */
+-	return false;
++	return;
+ }
+ 
+ static bool
