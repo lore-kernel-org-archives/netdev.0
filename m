@@ -1,44 +1,41 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH] net: wl12xx: do not use kfree'd memory
-Date: Sat, 31 Jul 2010 20:33:59 +0400
-Message-ID: <1280594039-3246-1-git-send-email-segooon@gmail.com>
-Cc: Luciano Coelho <luciano.coelho@nokia.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Juuso Oikarinen <juuso.oikarinen@nokia.com>,
-	Teemu Paasikivi <ext-teemu.3.paasikivi@nokia.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] net: ingress filter message limit
+Date: Sat, 31 Jul 2010 12:13:16 -0700
+Message-ID: <20100731121316.1adb52c0@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:40053 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751978Ab0GaQeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 12:34:18 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:52329 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753792Ab0GaTNS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jul 2010 15:13:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-wl1271_dump() uses cmd after kfree(cmd). Move kfree() just after
-wl1271_dump().
+If user misconfigures ingress and causes a redirection loop, don't
+overwhelm the log.  This is also a error case so make it unlikely.
+Found by inspection, luckily not in real system.
 
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
----
- drivers/net/wireless/wl12xx/wl1271_spi.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-diff --git a/drivers/net/wireless/wl12xx/wl1271_spi.c b/drivers/net/wireless/wl12xx/wl1271_spi.c
-index 96d25fb..4cb99c5 100644
---- a/drivers/net/wireless/wl12xx/wl1271_spi.c
-+++ b/drivers/net/wireless/wl12xx/wl1271_spi.c
-@@ -160,9 +160,8 @@ static void wl1271_spi_init(struct wl1271 *wl)
- 	spi_message_add_tail(&t, &m);
+
+--- a/net/core/dev.c	2010-07-31 12:08:00.808476717 -0700
++++ b/net/core/dev.c	2010-07-31 12:09:32.488882593 -0700
+@@ -2646,10 +2646,10 @@ static int ing_filter(struct sk_buff *sk
+ 	int result = TC_ACT_OK;
+ 	struct Qdisc *q;
  
- 	spi_sync(wl_to_spi(wl), &m);
--	kfree(cmd);
--
- 	wl1271_dump(DEBUG_SPI, "spi init -> ", cmd, WSPI_INIT_CMD_LEN);
-+	kfree(cmd);
- }
+-	if (MAX_RED_LOOP < ttl++) {
+-		printk(KERN_WARNING
+-		       "Redir loop detected Dropping packet (%d->%d)\n",
+-		       skb->skb_iif, dev->ifindex);
++	if (unlikely(MAX_RED_LOOP < ttl++)) {
++		if (net_ratelimit())
++			pr_warning( "Redir loop detected Dropping packet (%d->%d)\n",
++			       skb->skb_iif, dev->ifindex);
+ 		return TC_ACT_SHOT;
+ 	}
  
- #define WL1271_BUSY_WORD_TIMEOUT 1000
--- 
-1.7.0.4
-
