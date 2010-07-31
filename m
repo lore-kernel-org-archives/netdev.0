@@ -1,278 +1,4638 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 1/2] nf_nat: make unique_tuple return void
-Date: Sat, 31 Jul 2010 10:15:16 +0800
-Message-ID: <1280542516-14567-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH staging] Add SBE 2T3E3 WAN driver
+Date: Sat, 31 Jul 2010 11:53:52 +0200
+Message-ID: <m3ocdoasen.fsf@intrepid.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:36826 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750825Ab0GaJyA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jul 2010 05:54:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-the only user of unique_tuple() get_unique_tuple() doesn't care about the
-return value of unique_tuple(), so make unique_tuple() return void (nothing).
+This is a driver for SBE Inc.'s dual port T3/E3 WAN cards. Based on
+their original GPLed driver.
+It needs at least a new generic HDLC setup code (not yet written) befor=
+e
+moving to drivers/net/wan.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/net/netfilter/nf_nat_protocol.h   |    8 ++++----
- net/ipv4/netfilter/nf_nat_proto_common.c  |    8 ++++----
- net/ipv4/netfilter/nf_nat_proto_dccp.c    |    6 +++---
- net/ipv4/netfilter/nf_nat_proto_gre.c     |    8 ++++----
- net/ipv4/netfilter/nf_nat_proto_icmp.c    |    6 +++---
- net/ipv4/netfilter/nf_nat_proto_sctp.c    |    6 +++---
- net/ipv4/netfilter/nf_nat_proto_tcp.c     |    5 ++---
- net/ipv4/netfilter/nf_nat_proto_udp.c     |    5 ++---
- net/ipv4/netfilter/nf_nat_proto_udplite.c |    6 +++---
- net/ipv4/netfilter/nf_nat_proto_unknown.c |    4 ++--
- 10 files changed, 30 insertions(+), 32 deletions(-)
-diff --git a/include/net/netfilter/nf_nat_protocol.h b/include/net/netfilter/nf_nat_protocol.h
-index c398017..df17bac 100644
---- a/include/net/netfilter/nf_nat_protocol.h
-+++ b/include/net/netfilter/nf_nat_protocol.h
-@@ -27,9 +27,9 @@ struct nf_nat_protocol {
- 
- 	/* Alter the per-proto part of the tuple (depending on
- 	   maniptype), to give a unique tuple in the given range if
--	   possible; return false if not.  Per-protocol part of tuple
--	   is initialized to the incoming packet. */
--	bool (*unique_tuple)(struct nf_conntrack_tuple *tuple,
-+	   possible.  Per-protocol part of tuple is initialized to the
-+	   incoming packet. */
-+	void (*unique_tuple)(struct nf_conntrack_tuple *tuple,
- 			     const struct nf_nat_range *range,
- 			     enum nf_nat_manip_type maniptype,
- 			     const struct nf_conn *ct);
-@@ -63,7 +63,7 @@ extern bool nf_nat_proto_in_range(const struct nf_conntrack_tuple *tuple,
- 				  const union nf_conntrack_man_proto *min,
- 				  const union nf_conntrack_man_proto *max);
- 
--extern bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
-+extern void nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
- 				      const struct nf_nat_range *range,
- 				      enum nf_nat_manip_type maniptype,
- 				      const struct nf_conn *ct,
-diff --git a/net/ipv4/netfilter/nf_nat_proto_common.c b/net/ipv4/netfilter/nf_nat_proto_common.c
-index 6c4f11f..2844a03 100644
---- a/net/ipv4/netfilter/nf_nat_proto_common.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_common.c
-@@ -34,7 +34,7 @@ bool nf_nat_proto_in_range(const struct nf_conntrack_tuple *tuple,
- }
- EXPORT_SYMBOL_GPL(nf_nat_proto_in_range);
- 
--bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
-+void nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
- 			       const struct nf_nat_range *range,
- 			       enum nf_nat_manip_type maniptype,
- 			       const struct nf_conn *ct,
-@@ -53,7 +53,7 @@ bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
- 	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
- 		/* If it's dst rewrite, can't change port */
- 		if (maniptype == IP_NAT_MANIP_DST)
--			return false;
-+			return;
- 
- 		if (ntohs(*portptr) < 1024) {
- 			/* Loose convention: >> 512 is credential passing */
-@@ -87,9 +87,9 @@ bool nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
- 			continue;
- 		if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM))
- 			*rover = off;
--		return true;
+Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
+
+---
+I have generated the patch against v2.6.35-rc6. Compiles cleanly.
+Please let me know if it needs extra changes for e.g. staging tree.
+Thanks.
+
+ drivers/staging/Kconfig              |    2 +
+ drivers/staging/Makefile             |    1 +
+ drivers/staging/sbe-2t3e3/2t3e3.h    |  896 ++++++++++++++++++++++++++=
+++++++++
+ drivers/staging/sbe-2t3e3/Kconfig    |   13 +
+ drivers/staging/sbe-2t3e3/Makefile   |    4 +
+ drivers/staging/sbe-2t3e3/cpld.c     |  366 ++++++++++++++
+ drivers/staging/sbe-2t3e3/ctrl.c     |  363 ++++++++++++++
+ drivers/staging/sbe-2t3e3/ctrl.h     |  131 +++++
+ drivers/staging/sbe-2t3e3/dc.c       |  507 +++++++++++++++++++
+ drivers/staging/sbe-2t3e3/exar7250.c |  217 ++++++++
+ drivers/staging/sbe-2t3e3/exar7300.c |  182 +++++++
+ drivers/staging/sbe-2t3e3/intr.c     |  651 ++++++++++++++++++++++++
+ drivers/staging/sbe-2t3e3/io.c       |  352 +++++++++++++
+ drivers/staging/sbe-2t3e3/main.c     |  171 +++++++
+ drivers/staging/sbe-2t3e3/maps.c     |  104 ++++
+ drivers/staging/sbe-2t3e3/module.c   |  210 ++++++++
+ drivers/staging/sbe-2t3e3/netdev.c   |  142 ++++++
+ include/linux/pci_ids.h              |    3 +
+ 18 files changed, 4315 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
+index 984a754..3a21878 100644
+--- a/drivers/staging/Kconfig
++++ b/drivers/staging/Kconfig
+@@ -147,5 +147,7 @@ source "drivers/staging/mrst-touchscreen/Kconfig"
+=20
+ source "drivers/staging/msm/Kconfig"
+=20
++source "drivers/staging/sbe-2t3e3/Kconfig"
++
+ endif # !STAGING_EXCLUDE_BUILD
+ endif # STAGING
+diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
+index 9fa2513..39687c5 100644
+--- a/drivers/staging/Makefile
++++ b/drivers/staging/Makefile
+@@ -54,3 +54,4 @@ obj-$(CONFIG_ADIS16255)		+=3D adis16255/
+ obj-$(CONFIG_FB_XGI)		+=3D xgifb/
+ obj-$(CONFIG_TOUCHSCREEN_MRSTOUCH)	+=3D mrst-touchscreen/
+ obj-$(CONFIG_MSM_STAGING)	+=3D msm/
++obj-$(CONFIG_SBE_2T3E3)		+=3D sbe-2t3e3/
+diff --git a/drivers/staging/sbe-2t3e3/2t3e3.h b/drivers/staging/sbe-2t=
+3e3/2t3e3.h
+new file mode 100644
+index 0000000..145f412
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/2t3e3.h
+@@ -0,0 +1,896 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#ifndef T3E3_H
++#define T3E3_H
++
++#include <linux/hdlc.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include <linux/pci.h>
++#include <linux/io.h>
++#include "ctrl.h"
++
++#define DRV_NAME "SBE 2T3E3"
++
++/**************************************************************
++ *  21143
++ **************************************************************/
++
++/* CSR */
++#define SBE_2T3E3_21143_REG_BUS_MODE					0
++#define SBE_2T3E3_21143_REG_TRANSMIT_POLL_DEMAND			1
++#define SBE_2T3E3_21143_REG_RECEIVE_POLL_DEMAND				2
++#define SBE_2T3E3_21143_REG_RECEIVE_LIST_BASE_ADDRESS			3
++#define SBE_2T3E3_21143_REG_TRANSMIT_LIST_BASE_ADDRESS			4
++#define SBE_2T3E3_21143_REG_STATUS					5
++#define SBE_2T3E3_21143_REG_OPERATION_MODE				6
++#define SBE_2T3E3_21143_REG_INTERRUPT_ENABLE				7
++#define SBE_2T3E3_21143_REG_MISSED_FRAMES_AND_OVERFLOW_COUNTER		8
++#define SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGEMENT	9
++#define SBE_2T3E3_21143_REG_BOOT_ROM_PROGRAMMING_ADDRESS		10
++#define SBE_2T3E3_21143_REG_GENERAL_PURPOSE_TIMER_AND_INTERRUPT_MITIGA=
+TION_CONTROL 11
++#define SBE_2T3E3_21143_REG_SIA_STATUS					12
++#define SBE_2T3E3_21143_REG_SIA_CONNECTIVITY				13
++#define SBE_2T3E3_21143_REG_SIA_TRANSMIT_AND_RECEIVE			14
++#define SBE_2T3E3_21143_REG_SIA_AND_GENERAL_PURPOSE_PORT		15
++#define SBE_2T3E3_21143_REG_MAX						16
++
++/* CSR0 - BUS_MODE */
++#define SBE_2T3E3_21143_VAL_WRITE_AND_INVALIDATE_ENABLE		0x01000000
++#define SBE_2T3E3_21143_VAL_READ_LINE_ENABLE			0x00800000
++#define SBE_2T3E3_21143_VAL_READ_MULTIPLE_ENABLE		0x00200000
++#define SBE_2T3E3_21143_VAL_TRANSMIT_AUTOMATIC_POLLING_200us	0x0002000=
+0
++#define SBE_2T3E3_21143_VAL_TRANSMIT_AUTOMATIC_POLLING_DISABLED	0x0000=
+0000
++#define SBE_2T3E3_21143_VAL_CACHE_ALIGNMENT_32			0x0000c000
++#define SBE_2T3E3_21143_VAL_CACHE_ALIGNMENT_16			0x00008000
++#define SBE_2T3E3_21143_VAL_CACHE_ALIGNMENT_8			0x00004000
++#define SBE_2T3E3_21143_VAL_BUS_ARBITRATION_RR			0x00000002
++#define SBE_2T3E3_21143_VAL_SOFTWARE_RESET			0x00000001
++
++/* CSR5 - STATUS */
++#define SBE_2T3E3_21143_VAL_GENERAL_PURPOSE_PORT_INTERRUPT	0x04000000
++#define SBE_2T3E3_21143_VAL_ERROR_BITS				0x03800000
++#define SBE_2T3E3_21143_VAL_PARITY_ERROR			0x00000000
++#define SBE_2T3E3_21143_VAL_MASTER_ABORT			0x00800000
++#define SBE_2T3E3_21143_VAL_TARGET_ABORT			0x01000000
++#define SBE_2T3E3_21143_VAL_TRANSMISSION_PROCESS_STATE		0x00700000
++#define SBE_2T3E3_21143_VAL_TX_STOPPED				0x00000000
++#define SBE_2T3E3_21143_VAL_TX_SUSPENDED			0x00600000
++#define SBE_2T3E3_21143_VAL_RECEIVE_PROCESS_STATE		0x000e0000
++#define SBE_2T3E3_21143_VAL_RX_STOPPED				0x00000000
++#define SBE_2T3E3_21143_VAL_RX_SUSPENDED			0x000a0000
++#define SBE_2T3E3_21143_VAL_NORMAL_INTERRUPT_SUMMARY		0x00010000
++#define SBE_2T3E3_21143_VAL_ABNORMAL_INTERRUPT_SUMMARY		0x00008000
++#define SBE_2T3E3_21143_VAL_EARLY_RECEIVE_INTERRUPT		0x00004000
++#define SBE_2T3E3_21143_VAL_FATAL_BUS_ERROR			0x00002000
++#define SBE_2T3E3_21143_VAL_GENERAL_PURPOSE_TIMER_EXPIRED	0x00000800
++#define SBE_2T3E3_21143_VAL_EARLY_TRANSMIT_INTERRUPT		0x00000400
++#define SBE_2T3E3_21143_VAL_RECEIVE_WATCHDOG_TIMEOUT		0x00000200
++#define SBE_2T3E3_21143_VAL_RECEIVE_PROCESS_STOPPED		0x00000100
++#define SBE_2T3E3_21143_VAL_RECEIVE_BUFFER_UNAVAILABLE		0x00000080
++#define SBE_2T3E3_21143_VAL_RECEIVE_INTERRUPT			0x00000040
++#define SBE_2T3E3_21143_VAL_TRANSMIT_UNDERFLOW			0x00000020
++#define SBE_2T3E3_21143_VAL_TRANSMIT_JABBER_TIMEOUT		0x00000008
++#define SBE_2T3E3_21143_VAL_TRANSMIT_BUFFER_UNAVAILABLE		0x00000004
++#define SBE_2T3E3_21143_VAL_TRANSMIT_PROCESS_STOPPED		0x00000002
++#define SBE_2T3E3_21143_VAL_TRANSMIT_INTERRUPT			0x00000001
++
++/* CSR6 - OPERATION_MODE */
++#define SBE_2T3E3_21143_VAL_SPECIAL_CAPTURE_EFFECT_ENABLE	0x80000000
++#define SBE_2T3E3_21143_VAL_RECEIVE_ALL				0x40000000
++#define SBE_2T3E3_21143_VAL_MUST_BE_ONE				0x02000000
++#define SBE_2T3E3_21143_VAL_SCRAMBLER_MODE			0x01000000
++#define SBE_2T3E3_21143_VAL_PCS_FUNCTION			0x00800000
++#define SBE_2T3E3_21143_VAL_TRANSMIT_THRESHOLD_MODE_10Mbs	0x00400000
++#define SBE_2T3E3_21143_VAL_TRANSMIT_THRESHOLD_MODE_100Mbs	0x00000000
++#define SBE_2T3E3_21143_VAL_STORE_AND_FORWARD			0x00200000
++#define SBE_2T3E3_21143_VAL_HEARTBEAT_DISABLE			0x00080000
++#define SBE_2T3E3_21143_VAL_PORT_SELECT				0x00040000
++#define SBE_2T3E3_21143_VAL_CAPTURE_EFFECT_ENABLE		0x00020000
++#define SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS		0x0000c000
++#define SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_1		0x00000000
++#define SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_2		0x00004000
++#define SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_3		0x00008000
++#define SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_4		0x0000c000
++#define SBE_2T3E3_21143_VAL_TRANSMISSION_START			0x00002000
++#define SBE_2T3E3_21143_VAL_OPERATING_MODE			0x00000c00
++#define SBE_2T3E3_21143_VAL_LOOPBACK_OFF			0x00000000
++#define SBE_2T3E3_21143_VAL_LOOPBACK_EXTERNAL			0x00000800
++#define SBE_2T3E3_21143_VAL_LOOPBACK_INTERNAL			0x00000400
++#define SBE_2T3E3_21143_VAL_FULL_DUPLEX_MODE			0x00000200
++#define SBE_2T3E3_21143_VAL_PASS_ALL_MULTICAST			0x00000080
++#define SBE_2T3E3_21143_VAL_PROMISCUOUS_MODE			0x00000040
++#define SBE_2T3E3_21143_VAL_PASS_BAD_FRAMES			0x00000008
++#define SBE_2T3E3_21143_VAL_RECEIVE_START			0x00000002
++
++/* CSR7 - INTERRUPT_ENABLE */
++#define SBE_2T3E3_21143_VAL_LINK_CHANGED_ENABLE			0x08000000
++#define SBE_2T3E3_21143_VAL_GENERAL_PURPOSE_PORT_ENABLE		0x04000000
++#define SBE_2T3E3_21143_VAL_NORMAL_INTERRUPT_SUMMARY_ENABLE	0x00010000
++#define SBE_2T3E3_21143_VAL_ABNORMAL_INTERRUPT_SUMMARY_ENABLE	0x000080=
+00
++#define SBE_2T3E3_21143_VAL_EARLY_RECEIVE_INTERRUPT_ENABLE	0x00004000
++#define SBE_2T3E3_21143_VAL_FATAL_BUS_ERROR_ENABLE		0x00002000
++#define SBE_2T3E3_21143_VAL_LINK_FAIL_ENABLE			0x00001000
++#define SBE_2T3E3_21143_VAL_GENERAL_PURPOSE_TIMER_ENABLE	0x00000800
++#define SBE_2T3E3_21143_VAL_EARLY_TRANSMIT_INTERRUPT_ENABLE	0x00000400
++#define SBE_2T3E3_21143_VAL_RECEIVE_WATCHDOG_TIMEOUT_ENABLE	0x00000200
++#define SBE_2T3E3_21143_VAL_RECEIVE_STOPPED_ENABLE		0x00000100
++#define SBE_2T3E3_21143_VAL_RECEIVE_BUFFER_UNAVAILABLE_ENABLE	0x000000=
+80
++#define SBE_2T3E3_21143_VAL_RECEIVE_INTERRUPT_ENABLE		0x00000040
++#define SBE_2T3E3_21143_VAL_TRANSMIT_UNDERFLOW_INTERRUPT_ENABLE	0x0000=
+0020
++#define SBE_2T3E3_21143_VAL_TRANSMIT_JABBER_TIMEOUT_ENABLE	0x00000008
++#define SBE_2T3E3_21143_VAL_TRANSMIT_BUFFER_UNAVAILABLE_ENABLE	0x00000=
+004
++#define SBE_2T3E3_21143_VAL_TRANSMIT_STOPPED_ENABLE		0x00000002
++#define SBE_2T3E3_21143_VAL_TRANSMIT_INTERRUPT_ENABLE		0x00000001
++
++/* CSR8 - MISSED_FRAMES_AND_OVERFLOW_COUNTER */
++#define SBE_2T3E3_21143_VAL_OVERFLOW_COUNTER_OVERFLOW		0x10000000
++#define SBE_2T3E3_21143_VAL_OVERFLOW_COUNTER			0x0ffe0000
++#define SBE_2T3E3_21143_VAL_MISSED_FRAME_OVERFLOW		0x00010000
++#define SBE_2T3E3_21143_VAL_MISSED_FRAMES_COUNTER		0x0000ffff
++
++/* CSR9 - BOOT_ROM_SERIAL_ROM_AND_MII_MANAGEMENT */
++#define SBE_2T3E3_21143_VAL_MII_MANAGEMENT_DATA_IN		0x00080000
++#define SBE_2T3E3_21143_VAL_MII_MANAGEMENT_READ_MODE		0x00040000
++#define SBE_2T3E3_21143_VAL_MII_MANAGEMENT_DATA_OUT		0x00020000
++#define SBE_2T3E3_21143_VAL_MII_MANAGEMENT_CLOCK		0x00010000
++#define SBE_2T3E3_21143_VAL_READ_OPERATION			0x00004000
++#define SBE_2T3E3_21143_VAL_WRITE_OPERATION			0x00002000
++#define SBE_2T3E3_21143_VAL_BOOT_ROM_SELECT			0x00001000
++#define SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT			0x00000800
++#define SBE_2T3E3_21143_VAL_BOOT_ROM_DATA			0x000000ff
++#define SBE_2T3E3_21143_VAL_SERIAL_ROM_DATA_OUT			0x00000008
++#define SBE_2T3E3_21143_VAL_SERIAL_ROM_DATA_IN			0x00000004
++#define SBE_2T3E3_21143_VAL_SERIAL_ROM_CLOCK			0x00000002
++#define SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT		0x00000001
++
++/* CSR11 - GENERAL_PURPOSE_TIMER_AND_INTERRUPT_MITIGATION_CONTROL */
++#define SBE_2T3E3_21143_VAL_CYCLE_SIZE				0x80000000
++#define SBE_2T3E3_21143_VAL_TRANSMIT_TIMER			0x78000000
++#define SBE_2T3E3_21143_VAL_NUMBER_OF_TRANSMIT_PACKETS		0x07000000
++#define SBE_2T3E3_21143_VAL_RECEIVE_TIMER			0x00f00000
++#define SBE_2T3E3_21143_VAL_NUMBER_OF_RECEIVE_PACKETS		0x000e0000
++#define SBE_2T3E3_21143_VAL_CONTINUOUS_MODE			0x00010000
++#define SBE_2T3E3_21143_VAL_TIMER_VALUE				0x0000ffff
++
++/* CSR12 - SIA_STATUS */
++#define SBE_2T3E3_21143_VAL_10BASE_T_RECEIVE_PORT_ACTIVITY	0x00000200
++#define SBE_2T3E3_21143_VAL_AUI_RECEIVE_PORT_ACTIVITY		0x00000100
++#define SBE_2T3E3_21143_VAL_10Mbs_LINK_STATUS			0x00000004
++#define SBE_2T3E3_21143_VAL_100Mbs_LINK_STATUS			0x00000002
++#define SBE_2T3E3_21143_VAL_MII_RECEIVE_PORT_ACTIVITY		0x00000001
++
++/* CSR13 - SIA_CONNECTIVITY */
++#define SBE_2T3E3_21143_VAL_10BASE_T_OR_AUI			0x00000008
++#define SBE_2T3E3_21143_VAL_SIA_RESET				0x00000001
++
++/* CSR14 - SIA_TRANSMIT_AND_RECEIVE */
++#define SBE_2T3E3_21143_VAL_100BASE_TX_FULL_DUPLEX		0x00020000
++#define SBE_2T3E3_21143_VAL_COLLISION_DETECT_ENABLE		0x00000400
++#define SBE_2T3E3_21143_VAL_COLLISION_SQUELCH_ENABLE		0x00000200
++#define SBE_2T3E3_21143_VAL_RECEIVE_SQUELCH_ENABLE		0x00000100
++#define SBE_2T3E3_21143_VAL_LINK_PULSE_SEND_ENABLE		0x00000004
++#define SBE_2T3E3_21143_VAL_ENCODER_ENABLE			0x00000001
++
++/* CSR15 - SIA_AND_GENERAL_PURPOSE_PORT */
++#define SBE_2T3E3_21143_VAL_RECEIVE_WATCHDOG_DISABLE		0x00000010
++#define SBE_2T3E3_21143_VAL_AUI_BNC_MODE			0x00000008
++#define SBE_2T3E3_21143_VAL_HOST_UNJAB				0x00000002
++#define SBE_2T3E3_21143_VAL_JABBER_DISABLE			0x00000001
++
++/**************************************************************
++ *  CPLD
++ **************************************************************/
++
++/* reg_map indexes */
++#define SBE_2T3E3_CPLD_REG_PCRA				0
++#define SBE_2T3E3_CPLD_REG_PCRB				1
++#define SBE_2T3E3_CPLD_REG_PLCR				2
++#define SBE_2T3E3_CPLD_REG_PLTR				3
++#define SBE_2T3E3_CPLD_REG_PPFR				4
++#define SBE_2T3E3_CPLD_REG_BOARD_ID			5
++#define SBE_2T3E3_CPLD_REG_FPGA_VERSION			6
++#define SBE_2T3E3_CPLD_REG_FRAMER_BASE_ADDRESS		7
++#define SBE_2T3E3_CPLD_REG_SERIAL_CHIP_SELECT		8
++#define SBE_2T3E3_CPLD_REG_STATIC_RESET			9
++#define SBE_2T3E3_CPLD_REG_PULSE_RESET			10
++#define SBE_2T3E3_CPLD_REG_FPGA_RECONFIGURATION		11
++#define SBE_2T3E3_CPLD_REG_LEDR				12
++#define SBE_2T3E3_CPLD_REG_PICSR			13
++#define SBE_2T3E3_CPLD_REG_PIER				14
++#define SBE_2T3E3_CPLD_REG_PCRC				15
++#define SBE_2T3E3_CPLD_REG_PBWF				16
++#define SBE_2T3E3_CPLD_REG_PBWL				17
++
++#define SBE_2T3E3_CPLD_REG_MAX				18
++
++/**********/
++
++/* val_map indexes */
++#define SBE_2T3E3_CPLD_VAL_LIU_SELECT			0
++#define SBE_2T3E3_CPLD_VAL_DAC_SELECT			1
++#define SBE_2T3E3_CPLD_VAL_LOOP_TIMING_SOURCE		2
++#define SBE_2T3E3_CPLD_VAL_LIU_FRAMER_RESET		3
++
++/* PCRA */
++#define SBE_2T3E3_CPLD_VAL_CRC32				0x40
++#define SBE_2T3E3_CPLD_VAL_TRANSPARENT_MODE			0x20
++#define SBE_2T3E3_CPLD_VAL_REAR_PANEL				0x10
++#define SBE_2T3E3_CPLD_VAL_RAW_MODE				0x08
++#define SBE_2T3E3_CPLD_VAL_ALT					0x04
++#define SBE_2T3E3_CPLD_VAL_LOOP_TIMING				0x02
++#define SBE_2T3E3_CPLD_VAL_LOCAL_CLOCK_E3			0x01
++
++/* PCRB */
++#define SBE_2T3E3_CPLD_VAL_PAD_COUNT				0x30
++#define SBE_2T3E3_CPLD_VAL_PAD_COUNT_1				0x00
++#define SBE_2T3E3_CPLD_VAL_PAD_COUNT_2				0x10
++#define SBE_2T3E3_CPLD_VAL_PAD_COUNT_3				0x20
++#define SBE_2T3E3_CPLD_VAL_PAD_COUNT_4				0x30
++#define SBE_2T3E3_CPLD_VAL_SCRAMBLER_TYPE			0x02
++#define SBE_2T3E3_CPLD_VAL_SCRAMBLER_ENABLE			0x01
++
++/* PCRC */
++#define SBE_2T3E3_CPLD_VAL_FRACTIONAL_MODE_NONE			0x00
++#define SBE_2T3E3_CPLD_VAL_FRACTIONAL_MODE_0			0x01
++#define SBE_2T3E3_CPLD_VAL_FRACTIONAL_MODE_1			0x11
++#define SBE_2T3E3_CPLD_VAL_FRACTIONAL_MODE_2			0x21
++
++/* PLTR */
++#define SBE_2T3E3_CPLD_VAL_LCV_COUNTER				0xff
++
++/* SCSR */
++#define SBE_2T3E3_CPLD_VAL_EEPROM_SELECT			0x10
++
++/* PICSR */
++#define SBE_2T3E3_CPLD_VAL_LOSS_OF_SIGNAL_THRESHOLD_LEVEL_1	0x80
++#define SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_SIGNAL_CHANGE	0x40
++#define SBE_2T3E3_CPLD_VAL_INTERRUPT_FROM_ETHERNET_ASSERTED	0x20
++#define SBE_2T3E3_CPLD_VAL_INTERRUPT_FROM_FRAMER_ASSERTED	0x10
++#define SBE_2T3E3_CPLD_VAL_LCV_LIMIT_EXCEEDED			0x08
++#define SBE_2T3E3_CPLD_VAL_DMO_SIGNAL_DETECTED			0x04
++#define SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_LOCK_DETECTED	0x02
++#define SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_SIGNAL_DETECTED	0x01
++
++/* PIER */
++#define SBE_2T3E3_CPLD_VAL_RECEIVE_LOS_CHANGE_ENABLE		0x40
++#define SBE_2T3E3_CPLD_VAL_INTERRUPT_FROM_ETHERNET_ENABLE	0x20
++#define SBE_2T3E3_CPLD_VAL_INTERRUPT_FROM_FRAMER_ENABLE		0x10
++#define SBE_2T3E3_CPLD_VAL_LCV_INTERRUPT_ENABLE			0x08
++#define SBE_2T3E3_CPLD_VAL_DMO_ENABLE				0x04
++#define SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_LOCK_ENABLE		0x02
++#define SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_SIGNAL_ENABLE	0x01
++
++/**************************************************************
++ *  Framer
++ **************************************************************/
++
++/* reg_map indexes */
++/* common */
++#define SBE_2T3E3_FRAMER_REG_OPERATING_MODE				0
++#define SBE_2T3E3_FRAMER_REG_IO_CONTROL					1
++#define SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_ENABLE			2
++#define SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_STATUS			3
++#define SBE_2T3E3_FRAMER_REG_PMON_LCV_EVENT_COUNT_MSB			28
++#define SBE_2T3E3_FRAMER_REG_PMON_LCV_EVENT_COUNT_LSB			29
++#define SBE_2T3E3_FRAMER_REG_PMON_FRAMING_BIT_ERROR_EVENT_COUNT_MSB	30
++#define SBE_2T3E3_FRAMER_REG_PMON_FRAMING_BIT_ERROR_EVENT_COUNT_LSB	31
++#define SBE_2T3E3_FRAMER_REG_PMON_PARITY_ERROR_EVENT_COUNT_MSB		32
++#define SBE_2T3E3_FRAMER_REG_PMON_PARITY_ERROR_EVENT_COUNT_LSB		33
++#define SBE_2T3E3_FRAMER_REG_PMON_FEBE_EVENT_COUNT_MSB			34
++#define SBE_2T3E3_FRAMER_REG_PMON_FEBE_EVENT_COUNT_LSB			35
++#define SBE_2T3E3_FRAMER_REG_PMON_CP_BIT_ERROR_EVENT_COUNT_MSB		36
++#define SBE_2T3E3_FRAMER_REG_PMON_CP_BIT_ERROR_EVENT_COUNT_LSB		37
++#define SBE_2T3E3_FRAMER_REG_PMON_HOLDING_REGISTER			38
++#define SBE_2T3E3_FRAMER_REG_ONE_SECOND_ERROR_STATUS			39
++#define SBE_2T3E3_FRAMER_REG_LCV_ONE_SECOND_ACCUMULATOR_MSB		40
++#define SBE_2T3E3_FRAMER_REG_LCV_ONE_SECOND_ACCUMULATOR_LSB		41
++#define SBE_2T3E3_FRAMER_REG_FRAME_PARITY_ERROR_ONE_SECOND_ACCUMULATOR=
+_MSB  42
++#define SBE_2T3E3_FRAMER_REG_FRAME_PARITY_ERROR_ONE_SECOND_ACCUMULATOR=
+_LSB  43
++#define SBE_2T3E3_FRAMER_REG_FRAME_CP_BIT_ERROR_ONE_SECOND_ACCUMULATOR=
+_MSB  44
++#define SBE_2T3E3_FRAMER_REG_FRAME_CP_BIT_ERROR_ONE_SECOND_ACCUMULATOR=
+_LSB  45
++#define SBE_2T3E3_FRAMER_REG_LINE_INTERFACE_DRIVE			46
++#define SBE_2T3E3_FRAMER_REG_LINE_INTERFACE_SCAN			47
++
++/* T3 */
++#define SBE_2T3E3_FRAMER_REG_T3_RX_CONFIGURATION_STATUS			4
++#define SBE_2T3E3_FRAMER_REG_T3_RX_STATUS				5
++#define SBE_2T3E3_FRAMER_REG_T3_RX_INTERRUPT_ENABLE			6
++#define SBE_2T3E3_FRAMER_REG_T3_RX_INTERRUPT_STATUS			7
++#define SBE_2T3E3_FRAMER_REG_T3_RX_SYNC_DETECT_ENABLE			8
++#define SBE_2T3E3_FRAMER_REG_T3_RX_FEAC					10
++#define SBE_2T3E3_FRAMER_REG_T3_RX_FEAC_INTERRUPT_ENABLE_STATUS		11
++#define SBE_2T3E3_FRAMER_REG_T3_RX_LAPD_CONTROL				12
++#define SBE_2T3E3_FRAMER_REG_T3_RX_LAPD_STATUS				13
++#define SBE_2T3E3_FRAMER_REG_T3_TX_CONFIGURATION			16
++#define SBE_2T3E3_FRAMER_REG_T3_TX_FEAC_CONFIGURATION_STATUS		17
++#define SBE_2T3E3_FRAMER_REG_T3_TX_FEAC					18
++#define SBE_2T3E3_FRAMER_REG_T3_TX_LAPD_CONFIGURATION			19
++#define SBE_2T3E3_FRAMER_REG_T3_TX_LAPD_STATUS				20
++#define SBE_2T3E3_FRAMER_REG_T3_TX_MBIT_MASK				21
++#define SBE_2T3E3_FRAMER_REG_T3_TX_FBIT_MASK				22
++#define SBE_2T3E3_FRAMER_REG_T3_TX_FBIT_MASK_2				23
++#define SBE_2T3E3_FRAMER_REG_T3_TX_FBIT_MASK_3				24
++
++/* E3 */
++#define SBE_2T3E3_FRAMER_REG_E3_RX_CONFIGURATION_STATUS_1		4
++#define SBE_2T3E3_FRAMER_REG_E3_RX_CONFIGURATION_STATUS_2		5
++#define SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ENABLE_1			6
++#define SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ENABLE_2			7
++#define SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_STATUS_1			8
++#define SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_STATUS_2			9
++#define SBE_2T3E3_FRAMER_REG_E3_RX_LAPD_CONTROL				12
++#define SBE_2T3E3_FRAMER_REG_E3_RX_LAPD_STATUS				13
++#define SBE_2T3E3_FRAMER_REG_E3_RX_NR_BYTE				14
++#define SBE_2T3E3_FRAMER_REG_E3_RX_SERVICE_BITS				14
++#define SBE_2T3E3_FRAMER_REG_E3_RX_GC_BYTE				15
++#define SBE_2T3E3_FRAMER_REG_E3_TX_CONFIGURATION			16
++#define SBE_2T3E3_FRAMER_REG_E3_TX_LAPD_CONFIGURATION			19
++#define SBE_2T3E3_FRAMER_REG_E3_TX_LAPD_STATUS				19
++#define SBE_2T3E3_FRAMER_REG_E3_TX_GC_BYTE				21
++#define SBE_2T3E3_FRAMER_REG_E3_TX_SERVICE_BITS				21
++#define SBE_2T3E3_FRAMER_REG_E3_TX_MA_BYTE				22
++#define SBE_2T3E3_FRAMER_REG_E3_TX_NR_BYTE				23
++#define SBE_2T3E3_FRAMER_REG_E3_TX_FA1_ERROR_MASK			25
++#define SBE_2T3E3_FRAMER_REG_E3_TX_FAS_ERROR_MASK_UPPER			25
++#define SBE_2T3E3_FRAMER_REG_E3_TX_FA2_ERROR_MASK			26
++#define SBE_2T3E3_FRAMER_REG_E3_TX_FAS_ERROR_MASK_LOWER			26
++#define SBE_2T3E3_FRAMER_REG_E3_TX_BIP8_MASK				27
++#define SBE_2T3E3_FRAMER_REG_E3_TX_BIP4_MASK				27
++
++#define SBE_2T3E3_FRAMER_REG_MAX					48
++
++/**********/
++
++/* OPERATING_MODE */
++#define SBE_2T3E3_FRAMER_VAL_LOCAL_LOOPBACK_MODE		0x80
++#define SBE_2T3E3_FRAMER_VAL_T3_E3_SELECT			0x40
++#define SBE_2T3E3_FRAMER_VAL_INTERNAL_LOS_ENABLE		0x20
++#define SBE_2T3E3_FRAMER_VAL_RESET				0x10
++#define SBE_2T3E3_FRAMER_VAL_INTERRUPT_ENABLE_RESET		0x08
++#define SBE_2T3E3_FRAMER_VAL_FRAME_FORMAT_SELECT		0x04
++#define SBE_2T3E3_FRAMER_VAL_TIMING_ASYNCH_TXINCLK		0x03
++#define SBE_2T3E3_FRAMER_VAL_E3_G751				0x00
++#define SBE_2T3E3_FRAMER_VAL_E3_G832				0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_CBIT				0x40
++#define SBE_2T3E3_FRAMER_VAL_T3_M13				0x44
++#define SBE_2T3E3_FRAMER_VAL_LOOPBACK_ON			0x80
++#define SBE_2T3E3_FRAMER_VAL_LOOPBACK_OFF			0x00
++
++/* IO_CONTROL */
++#define SBE_2T3E3_FRAMER_VAL_DISABLE_TX_LOSS_OF_CLOCK		0x80
++#define SBE_2T3E3_FRAMER_VAL_LOSS_OF_CLOCK_STATUS		0x40
++#define SBE_2T3E3_FRAMER_VAL_DISABLE_RX_LOSS_OF_CLOCK		0x20
++#define SBE_2T3E3_FRAMER_VAL_AMI_LINE_CODE			0x10
++#define SBE_2T3E3_FRAMER_VAL_UNIPOLAR				0x08
++#define SBE_2T3E3_FRAMER_VAL_TX_LINE_CLOCK_INVERT		0x04
++#define SBE_2T3E3_FRAMER_VAL_RX_LINE_CLOCK_INVERT		0x02
++#define SBE_2T3E3_FRAMER_VAL_REFRAME				0x01
++
++/* BLOCK_INTERRUPT_ENABLE */
++#define SBE_2T3E3_FRAMER_VAL_RX_INTERRUPT_ENABLE		0x80
++#define SBE_2T3E3_FRAMER_VAL_TX_INTERRUPT_ENABLE		0x02
++#define SBE_2T3E3_FRAMER_VAL_ONE_SECOND_INTERRUPT_ENABLE	0x01
++
++/* BLOCK_INTERRUPT_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_RX_INTERRUPT_STATUS		0x80
++#define SBE_2T3E3_FRAMER_VAL_TX_INTERRUPT_STATUS		0x02
++#define SBE_2T3E3_FRAMER_VAL_ONE_SECOND_INTERRUPT_STATUS	0x01
++
++/**********/
++
++/* T3_RX_CONFIGURATION_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_AIS				0x80
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_LOS				0x40
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_IDLE				0x20
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_OOF				0x10
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FRAMING_ON_PARITY		0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_F_SYNC_ALGO			0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_M_SYNC_ALGO			0x01
++
++/* T3_RX_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FERF				0x10
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_AIC				0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FEBE				0x07
++
++/* T3_RX_INTERRUPT_ENABLE */
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_CP_BIT_ERROR_INTERRUPT_ENABLE 0x80
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_LOS_INTERRUPT_ENABLE		0x40
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_AIS_INTERRUPT_ENABLE		0x20
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_IDLE_INTERRUPT_ENABLE	0x10
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FERF_INTERRUPT_ENABLE	0x08
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_AIC_INTERRUPT_ENABLE		0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_OOF_INTERRUPT_ENABLE		0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_P_BIT_INTERRUPT_ENABLE	0x01
++
++/* T3_RX_INTERRUPT_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_CP_BIT_ERROR_INTERRUPT_STATUS 0x80
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_LOS_INTERRUPT_STATUS		0x40
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_AIS_INTERRUPT_STATUS		0x20
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_IDLE_INTERRUPT_STATUS	0x10
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FERF_INTERRUPT_STATUS	0x08
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_AIC_INTERRUPT_STATUS		0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_OOF_INTERRUPT_STATUS		0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_P_BIT_INTERRUPT_STATUS	0x01
++
++/* T3_RX_FEAC_INTERRUPT_ENABLE_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_VALID			0x10
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_REMOVE_INTERRUPT_ENABLE	0x08
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_REMOVE_INTERRUPT_STATUS	0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_VALID_INTERRUPT_ENABLE	0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_VALID_INTERRUPT_STATUS	0x01
++
++/* T3_RX_LAPD_CONTROL */
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_LAPD_ENABLE			0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_LAPD_INTERRUPT_ENABLE	0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_LAPD_INTERRUPT_STATUS	0x01
++
++/* T3_RX_LAPD_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_ABORT			0x40
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_LAPD_TYPE			0x30
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_CR_TYPE			0x08
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FCS_ERROR			0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_END_OF_MESSAGE		0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_RX_FLAG_PRESENT			0x01
++
++/* T3_TX_CONFIGURATION */
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_YELLOW_ALARM			0x80
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_X_BIT			0x40
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_IDLE				0x20
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_AIS				0x10
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_LOS				0x08
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_FERF_ON_LOS			0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_FERF_ON_OOF			0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_FERF_ON_AIS			0x01
++
++/* T3_TX_FEAC_CONFIGURATION_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_FEAC_INTERRUPT_ENABLE	0x10
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_FEAC_INTERRUPT_STATUS	0x08
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_FEAC_ENABLE			0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_FEAC_GO			0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_FEAC_BUSY			0x01
++
++/* T3_TX_LAPD_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_DL_START			0x08
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_DL_BUSY			0x04
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_LAPD_INTERRUPT_ENABLE	0x02
++#define SBE_2T3E3_FRAMER_VAL_T3_TX_LAPD_INTERRUPT_STATUS	0x01
++
++/**********/
++
++/* E3_RX_CONFIGURATION_STATUS_1 */
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_PAYLOAD_TYPE			0xe0
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FERF_ALGO			0x10
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_T_MARK_ALGO			0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_PAYLOAD_EXPECTED		0x07
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_BIP4				0x01
++
++/* E3_RX_CONFIGURATION_STATUS_2 */
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LOF_ALGO			0x80
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LOF				0x40
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_OOF				0x20
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LOS				0x10
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_AIS				0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_PAYLOAD_UNSTABLE		0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_T_MARK			0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FERF				0x01
++
++/* E3_RX_INTERRUPT_ENABLE_1 */
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_COFA_INTERRUPT_ENABLE	0x10
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_OOF_INTERRUPT_ENABLE		0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LOF_INTERRUPT_ENABLE		0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LOS_INTERRUPT_ENABLE		0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_AIS_INTERRUPT_ENABLE		0x01
++
++/* E3_RX_INTERRUPT_ENABLE_2 */
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_TTB_CHANGE_INTERRUPT_ENABLE	0x40
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FEBE_INTERRUPT_ENABLE	0x10
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FERF_INTERRUPT_ENABLE	0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_BIP8_ERROR_INTERRUPT_ENABLE	0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_BIP4_ERROR_INTERRUPT_ENABLE	0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FRAMING_BYTE_ERROR_INTERRUPT_ENABLE=
+ 0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_PAYLOAD_MISMATCH_INTERRUPT_ENABLE 0=
+x01
++
++/* E3_RX_INTERRUPT_STATUS_1 */
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_COFA_INTERRUPT_STATUS	0x10
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_OOF_INTERRUPT_STATUS		0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LOF_INTERRUPT_STATUS		0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LOS_INTERRUPT_STATUS		0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_AIS_INTERRUPT_STATUS		0x01
++
++/* E3_RX_INTERRUPT_STATUS_2 */
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_TTB_CHANGE_INTERRUPT_STATUS	0x40
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FEBE_INTERRUPT_STATUS	0x10
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FERF_INTERRUPT_STATUS	0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_BIP8_ERROR_INTERRUPT_STATUS	0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_BIP4_ERROR_INTERRUPT_STATUS	0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FRAMING_BYTE_ERROR_INTERRUPT_STATUS=
+ 0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_PAYLOAD_MISMATCH_INTERRUPT_STATUS 0=
+x01
++
++/* E3_RX_LAPD_CONTROL */
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_DL_FROM_NR			0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LAPD_ENABLE			0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LAPD_INTERRUPT_ENABLE	0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LAPD_INTERRUPT_STATUS	0x01
++
++/* E3_RX_LAPD_STATUS */
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_ABORT			0x40
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_LAPD_TYPE			0x30
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_CR_TYPE			0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FCS_ERROR			0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_END_OF_MESSAGE		0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_RX_FLAG_PRESENT			0x01
++
++/* E3_TX_CONFIGURATION */
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_BIP4_ENABLE			0x80
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_A_SOURCE_SELECT		0x60
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_DL_IN_NR			0x10
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_N_SOURCE_SELECT		0x18
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_AIS_ENABLE			0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_LOS_ENABLE			0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_MA_RX			0x01
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_FAS_SOURCE_SELECT		0x01
++
++/* E3_TX_LAPD_CONFIGURATION */
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_AUTO_RETRANSMIT		0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_LAPD_MESSAGE_LENGTH		0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_LAPD_ENABLE			0x01
++
++/* E3_TX_LAPD_STATUS_INTERRUPT */
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_DL_START			0x08
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_DL_BUSY			0x04
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_LAPD_INTERRUPT_ENABLE	0x02
++#define SBE_2T3E3_FRAMER_VAL_E3_TX_LAPD_INTERRUPT_STATUS	0x01
++
++
++
++
++
++
++/**************************************************************
++ *  LIU
++ **************************************************************/
++
++/* reg_map indexes */
++#define SBE_2T3E3_LIU_REG_REG0			0
++#define SBE_2T3E3_LIU_REG_REG1			1
++#define SBE_2T3E3_LIU_REG_REG2			2
++#define SBE_2T3E3_LIU_REG_REG3			3
++#define SBE_2T3E3_LIU_REG_REG4			4
++
++#define	SBE_2T3E3_LIU_REG_MAX			5
++
++/**********/
++
++/* REG0 */
++#define SBE_2T3E3_LIU_VAL_RECEIVE_LOSS_OF_LOCK_STATUS		0x10
++#define SBE_2T3E3_LIU_VAL_RECEIVE_LOSS_OF_SIGNAL_STATUS		0x08
++#define SBE_2T3E3_LIU_VAL_ANALOG_LOSS_OF_SIGNAL_STATUS		0x04
++#define SBE_2T3E3_LIU_VAL_DIGITAL_LOSS_OF_SIGNAL_STATUS		0x02
++#define SBE_2T3E3_LIU_VAL_DMO_STATUS				0x01
++
++/* REG1 */
++#define SBE_2T3E3_LIU_VAL_TRANSMITTER_OFF			0x10
++#define SBE_2T3E3_LIU_VAL_TRANSMIT_ALL_ONES			0x08
++#define SBE_2T3E3_LIU_VAL_TRANSMIT_CLOCK_INVERT			0x04
++#define SBE_2T3E3_LIU_VAL_TRANSMIT_LEVEL_SELECT			0x02
++#define SBE_2T3E3_LIU_VAL_TRANSMIT_BINARY_DATA			0x01
++
++/* REG2 */
++#define SBE_2T3E3_LIU_VAL_DECODER_DISABLE			0x10
++#define SBE_2T3E3_LIU_VAL_ENCODER_DISABLE			0x08
++#define SBE_2T3E3_LIU_VAL_ANALOG_LOSS_OF_SIGNAL_DISABLE		0x04
++#define SBE_2T3E3_LIU_VAL_DIGITAL_LOSS_OF_SIGNAL_DISABLE	0x02
++#define SBE_2T3E3_LIU_VAL_RECEIVE_EQUALIZATION_DISABLE		0x01
++
++/* REG3 */
++#define SBE_2T3E3_LIU_VAL_RECEIVE_BINARY_DATA			0x10
++#define SBE_2T3E3_LIU_VAL_RECOVERED_DATA_MUTING			0x08
++#define SBE_2T3E3_LIU_VAL_RECEIVE_CLOCK_OUTPUT_2		0x04
++#define SBE_2T3E3_LIU_VAL_INVERT_RECEIVE_CLOCK_2		0x02
++#define SBE_2T3E3_LIU_VAL_INVERT_RECEIVE_CLOCK_1		0x01
++
++/* REG4 */
++#define SBE_2T3E3_LIU_VAL_T3_MODE_SELECT			0x00
++#define SBE_2T3E3_LIU_VAL_E3_MODE_SELECT			0x04
++#define SBE_2T3E3_LIU_VAL_LOCAL_LOOPBACK			0x02
++#define SBE_2T3E3_LIU_VAL_REMOTE_LOOPBACK			0x01
++#define SBE_2T3E3_LIU_VAL_LOOPBACK_OFF				0x00
++#define SBE_2T3E3_LIU_VAL_LOOPBACK_REMOTE			0x01
++#define SBE_2T3E3_LIU_VAL_LOOPBACK_ANALOG			0x02
++#define SBE_2T3E3_LIU_VAL_LOOPBACK_DIGITAL			0x03
++
++/*********************************************************************=
+*
++ *
++ * descriptor list and data buffer
++ *
++ *********************************************************************=
+*/
++typedef struct {
++	u32 rdes0;
++	u32 rdes1;
++	u32 rdes2;
++	u32 rdes3;
++} t3e3_rx_desc_t;
++
++#define SBE_2T3E3_RX_DESC_RING_SIZE			64
++
++/* RDES0 */
++#define SBE_2T3E3_RX_DESC_21143_OWN			0X80000000
++#define SBE_2T3E3_RX_DESC_FRAME_LENGTH			0x3fff0000
++#define SBE_2T3E3_RX_DESC_FRAME_LENGTH_SHIFT		16
++#define SBE_2T3E3_RX_DESC_ERROR_SUMMARY			0x00008000
++#define SBE_2T3E3_RX_DESC_DESC_ERROR			0x00004000
++#define SBE_2T3E3_RX_DESC_DATA_TYPE			0x00003000
++#define SBE_2T3E3_RX_DESC_RUNT_FRAME			0x00000800
++#define SBE_2T3E3_RX_DESC_FIRST_DESC			0x00000200
++#define SBE_2T3E3_RX_DESC_LAST_DESC			0x00000100
++#define SBE_2T3E3_RX_DESC_FRAME_TOO_LONG		0x00000080
++#define SBE_2T3E3_RX_DESC_COLLISION_SEEN		0x00000040
++#define SBE_2T3E3_RX_DESC_FRAME_TYPE			0x00000020
++#define SBE_2T3E3_RX_DESC_RECEIVE_WATCHDOG		0x00000010
++#define SBE_2T3E3_RX_DESC_MII_ERROR			0x00000008
++#define SBE_2T3E3_RX_DESC_DRIBBLING_BIT			0x00000004
++#define SBE_2T3E3_RX_DESC_CRC_ERROR			0x00000002
++
++/* RDES1 */
++#define SBE_2T3E3_RX_DESC_END_OF_RING			0x02000000
++#define SBE_2T3E3_RX_DESC_SECOND_ADDRESS_CHAINED	0x01000000
++#define SBE_2T3E3_RX_DESC_BUFFER_2_SIZE			0x003ff800
++#define SBE_2T3E3_RX_DESC_BUFFER_1_SIZE			0x000007ff
++
++/*********************/
++
++typedef struct {
++	u32 tdes0;
++	u32 tdes1;
++	u32 tdes2;
++	u32 tdes3;
++} t3e3_tx_desc_t;
++
++#define SBE_2T3E3_TX_DESC_RING_SIZE			256
++
++/* TDES0 */
++#define SBE_2T3E3_TX_DESC_21143_OWN			0x80000000
++#define SBE_2T3E3_TX_DESC_ERROR_SUMMARY			0x00008000
++#define SBE_2T3E3_TX_DESC_TRANSMIT_JABBER_TIMEOUT	0x00004000
++#define SBE_2T3E3_TX_DESC_LOSS_OF_CARRIER		0x00000800
++#define SBE_2T3E3_TX_DESC_NO_CARRIER			0x00000400
++#define SBE_2T3E3_TX_DESC_LINK_FAIL_REPORT		0x00000004
++#define SBE_2T3E3_TX_DESC_UNDERFLOW_ERROR		0x00000002
++#define SBE_2T3E3_TX_DESC_DEFFERED			0x00000001
++
++/* TDES1 */
++#define SBE_2T3E3_TX_DESC_INTERRUPT_ON_COMPLETION	0x80000000
++#define SBE_2T3E3_TX_DESC_LAST_SEGMENT			0x40000000
++#define SBE_2T3E3_TX_DESC_FIRST_SEGMENT			0x20000000
++#define SBE_2T3E3_TX_DESC_CRC_DISABLE			0x04000000
++#define SBE_2T3E3_TX_DESC_END_OF_RING			0x02000000
++#define SBE_2T3E3_TX_DESC_SECOND_ADDRESS_CHAINED	0x01000000
++#define SBE_2T3E3_TX_DESC_DISABLE_PADDING		0x00800000
++#define SBE_2T3E3_TX_DESC_BUFFER_2_SIZE			0x003ff800
++#define SBE_2T3E3_TX_DESC_BUFFER_1_SIZE			0x000007ff
++
++
++#define SBE_2T3E3_MTU					1600
++#define SBE_2T3E3_CRC16_LENGTH				2
++#define SBE_2T3E3_CRC32_LENGTH				4
++
++#define MCLBYTES (SBE_2T3E3_MTU + 128)
++
++struct channel {
++	struct pci_dev *pdev;
++	struct net_device *dev;
++	struct card *card;
++	unsigned long addr;	/* DECchip */
++
++	int leds;
++
++	/* pci specific */
++	struct {
++		u32 slot;           /* should be 0 or 1 */
++		u32 command;
++		u8 cache_size;
++	} h;
++
++	/* statistics */
++	t3e3_stats_t s;
++
++	/* running */
++	struct {
++		u32 flags;
++	} r;
++
++	/* parameters */
++	t3e3_param_t p;
++
++	u32 liu_regs[SBE_2T3E3_LIU_REG_MAX];	   /* LIU registers */
++	u32 framer_regs[SBE_2T3E3_FRAMER_REG_MAX]; /* Framer registers */
++
++	/* Ethernet Controller */
++	struct {
++		u_int16_t card_serial_number[3];
++
++		u32 reg[SBE_2T3E3_21143_REG_MAX]; /* registers i.e. CSR */
++
++		u32 interrupt_enable_mask;
++
++		/* receive chain/ring */
++		t3e3_rx_desc_t *rx_ring;
++		struct sk_buff *rx_data[SBE_2T3E3_RX_DESC_RING_SIZE];
++		u32 rx_ring_current_read;
++
++		/* transmit chain/ring */
++		t3e3_tx_desc_t *tx_ring;
++		struct sk_buff *tx_data[SBE_2T3E3_TX_DESC_RING_SIZE];
++		u32 tx_ring_current_read;
++		u32 tx_ring_current_write;
++		int tx_full;
++		int tx_free_cnt;
++		spinlock_t tx_lock;
++	} ether;
++
++	int32_t interrupt_active;
++	int32_t rcv_count;
++};
++
++struct card {
++	spinlock_t bootrom_lock;
++	unsigned long bootrom_addr;
++	struct timer_list timer; /* for updating LEDs */
++	struct channel channels[0];
++};
++
++#define SBE_2T3E3_FLAG_NETWORK_UP		0x00000001
++#define SBE_2T3E3_FLAG_NO_ERROR_MESSAGES	0x00000002
++
++extern const u32 cpld_reg_map[][2];
++extern const u32 cpld_val_map[][2];
++extern const u32 t3e3_framer_reg_map[];
++extern const u32 t3e3_liu_reg_map[];
++
++void t3e3_init(struct channel *);
++void t3e3_if_up(struct channel *);
++void t3e3_if_down(struct channel *);
++int t3e3_if_start_xmit(struct sk_buff *skb, struct net_device *dev);
++void t3e3_if_config(struct channel *, u32, char *,
++		    t3e3_resp_t *, int *);
++void t3e3_set_frame_type(struct channel *, u32);
++u32 t3e3_eeprom_read_word(struct channel *, u32);
++void t3e3_read_card_serial_number(struct channel *);
++
++/* interrupt handlers */
++irqreturn_t t3e3_intr(int irq, void *dev_instance);
++void dc_intr(struct channel *);
++void dc_intr_rx(struct channel *);
++void dc_intr_tx(struct channel *);
++void dc_intr_tx_underflow(struct channel *);
++void exar7250_intr(struct channel *);
++void exar7250_E3_intr(struct channel *, u32);
++void exar7250_T3_intr(struct channel *, u32);
++
++/* Ethernet controller */
++u32 bootrom_read(struct channel *, u32);
++void bootrom_write(struct channel *, u32, u32);
++void dc_init(struct channel *);
++void dc_start(struct channel *);
++void dc_stop(struct channel *);
++void dc_start_intr(struct channel *);
++void dc_stop_intr(struct channel *);
++void dc_reset(struct channel *);
++void dc_restart(struct channel *);
++void dc_receiver_onoff(struct channel *, u32);
++void dc_transmitter_onoff(struct channel *, u32);
++void dc_set_loopback(struct channel *, u32);
++u32 dc_init_descriptor_list(struct channel *);
++void dc_clear_descriptor_list(struct channel *);
++void dc_drop_descriptor_list(struct channel *);
++void dc_set_output_port(struct channel *);
++void t3e3_sc_init(struct channel *);
++
++/* CPLD */
++void cpld_init(struct channel *sc);
++u32 cpld_read(struct channel *sc, u32 reg);
++void cpld_set_crc(struct channel *, u32);
++void cpld_start_intr(struct channel *);
++void cpld_stop_intr(struct channel *);
++#if 0
++void cpld_led_onoff(struct channel *, u32, u32, u32, u32);
++#endif
++void cpld_set_clock(struct channel *sc, u32 mode);
++void cpld_set_scrambler(struct channel *, u32);
++void cpld_select_panel(struct channel *, u32);
++void cpld_set_frame_mode(struct channel *, u32);
++void cpld_set_frame_type(struct channel *, u32);
++void cpld_set_pad_count(struct channel *, u32);
++void cpld_set_fractional_mode(struct channel *, u32, u32, u32);
++void cpld_LOS_update(struct channel *);
++
++/* Framer */
++extern u32 exar7250_read(struct channel *, u32);
++extern void exar7250_write(struct channel *, u32, u32);
++void exar7250_init(struct channel *);
++void exar7250_start_intr(struct channel *, u32);
++void exar7250_stop_intr(struct channel *, u32);
++void exar7250_set_frame_type(struct channel *, u32);
++void exar7250_set_loopback(struct channel *, u32);
++void exar7250_unipolar_onoff(struct channel *, u32);
++
++/* LIU */
++u32 exar7300_read(struct channel *, u32);
++void exar7300_write(struct channel *, u32, u32);
++void exar7300_init(struct channel *);
++void exar7300_line_build_out_onoff(struct channel *, u32);
++void exar7300_set_frame_type(struct channel *, u32);
++void exar7300_set_loopback(struct channel *, u32);
++void exar7300_transmit_all_ones_onoff(struct channel *, u32);
++void exar7300_receive_equalization_onoff(struct channel *, u32);
++void exar7300_unipolar_onoff(struct channel *, u32);
++
++void update_led(struct channel *, int);
++int setup_device(struct net_device *dev, struct channel *sc);
++
++static inline int has_two_ports(struct pci_dev *pdev)
++{
++	return pdev->subsystem_device =3D=3D PCI_SUBDEVICE_ID_SBE_2T3E3_P0;
++}
++
++#define dev_to_priv(dev) (*(struct channel **) ((hdlc_device*)(dev) + =
+1))
++
++static inline u32 dc_read(unsigned long addr, u32 reg)
++{
++	return inl(addr + (reg << 3));
++}
++
++static inline void dc_write(unsigned long addr, u32 reg, u32 val)
++{
++	outl(val, addr + (reg << 3));
++}
++
++static inline void dc_set_bits(unsigned long addr, u32 reg, u32 bits)
++{
++	dc_write(addr, reg, dc_read(addr, reg) | bits);
++}
++
++static inline void dc_clear_bits(unsigned long addr, u32 reg, u32 bits=
+)
++{
++	dc_write(addr, reg, dc_read(addr, reg) & ~bits);
++}
++
++#define CPLD_MAP_REG(reg, sc)	(cpld_reg_map[(reg)][(sc)->h.slot])
++
++static inline void cpld_write(struct channel *channel, unsigned reg, u=
+32 val)
++{
++	unsigned long flags;
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++	bootrom_write(channel, CPLD_MAP_REG(reg, channel), val);
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++}
++
++#define exar7250_set_bit(sc, reg, bit)			\
++	exar7250_write((sc), (reg),			\
++		       exar7250_read(sc, reg) | (bit))
++
++#define exar7250_clear_bit(sc, reg, bit)		\
++	exar7250_write((sc), (reg),			\
++		       exar7250_read(sc, reg) & ~(bit))
++
++#define exar7300_set_bit(sc, reg, bit)			\
++	exar7300_write((sc), (reg),			\
++		       exar7300_read(sc, reg) | (bit))
++
++#define exar7300_clear_bit(sc, reg, bit)		\
++	exar7300_write((sc), (reg),			\
++		       exar7300_read(sc, reg) & ~(bit))
++
++
++#endif /* T3E3_H */
+diff --git a/drivers/staging/sbe-2t3e3/Kconfig b/drivers/staging/sbe-2t=
+3e3/Kconfig
+new file mode 100644
+index 0000000..8ec86cf
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/Kconfig
+@@ -0,0 +1,13 @@
++config SBE_2T3E3
++	tristate "SBE wanPMC-2T3E3 support"
++	depends on HDLC && PCI
++	help
++	  Driver for wanPMC-2T3E3 cards by SBE Inc.
++
++	  If you have such a card, say Y here and see
++	  <http://www.kernel.org/pub/linux/utils/net/hdlc/>.
++
++	  To compile this as a module, choose M here: the
++	  module will be called sbe-2t3e3.
++
++	  If unsure, say N.
+diff --git a/drivers/staging/sbe-2t3e3/Makefile b/drivers/staging/sbe-2=
+t3e3/Makefile
+new file mode 100644
+index 0000000..2c7b097
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/Makefile
+@@ -0,0 +1,4 @@
++obj-$(CONFIG_SBE_2T3E3) +=3D sbe-2t3e3.o
++
++sbe-2t3e3-objs :=3D module.o netdev.o maps.o	\
++	main.o cpld.o intr.o ctrl.o io.o dc.o exar7250.o exar7300.o
+diff --git a/drivers/staging/sbe-2t3e3/cpld.c b/drivers/staging/sbe-2t3=
+e3/cpld.c
+new file mode 100644
+index 0000000..6043a22
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/cpld.c
+@@ -0,0 +1,366 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/delay.h>
++#include "2t3e3.h"
++#include "ctrl.h"
++
++#define bootrom_set_bit(sc, reg, bit)				\
++	bootrom_write((sc), (reg),				\
++		      bootrom_read((sc), (reg)) | (bit))
++
++#define bootrom_clear_bit(sc, reg, bit)				\
++	bootrom_write((sc), (reg),				\
++		      bootrom_read((sc), (reg)) & ~(bit))
++
++static inline void cpld_set_bit(struct channel *channel, unsigned reg,=
+ u32 bit)
++{
++	unsigned long flags;
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++	bootrom_set_bit(channel, CPLD_MAP_REG(reg, channel), bit);
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++}
++
++static inline void cpld_clear_bit(struct channel *channel, unsigned re=
+g, u32 bit)
++{
++	unsigned long flags;
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++	bootrom_clear_bit(channel, CPLD_MAP_REG(reg, channel), bit);
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++}
++
++void cpld_init(struct channel *sc)
++{
++	u32 val;
++#if 0
++	/* reset LIU and Framer */
++	val =3D cpld_val_map[SBE_2T3E3_CPLD_VAL_LIU_FRAMER_RESET][sc->h.slot]=
+;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_STATIC_RESET, val);
++	udelay(10000); /* TODO - how long? */
++	val =3D 0;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_STATIC_RESET, val);
++#endif
++
++	/* PCRA */
++	val =3D SBE_2T3E3_CPLD_VAL_CRC32 |
++		cpld_val_map[SBE_2T3E3_CPLD_VAL_LOOP_TIMING_SOURCE][sc->h.slot];
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PCRA, val);
++
++	/* PCRB */
++	val =3D 0;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PCRB, val);
++
++	/* PCRC */
++	val =3D 0;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PCRC, val);
++
++	/* PBWF */
++	val =3D 0;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PBWF, val);
++
++	/* PBWL */
++	val =3D 0;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PBWL, val);
++
++	/* PLTR */
++	val =3D SBE_2T3E3_CPLD_VAL_LCV_COUNTER;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PLTR, val);
++	udelay(1000);
++
++	/* PLCR */
++	val =3D 0;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PLCR, val);
++	udelay(1000);
++
++	/* PPFR */
++	val =3D 0x55;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PPFR, val);
++	/* TODO: this doesn't work!!! */
++
++	/* SERIAL_CHIP_SELECT */
++	val =3D 0;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_SERIAL_CHIP_SELECT, val);
++
++	/* PICSR */
++	val =3D SBE_2T3E3_CPLD_VAL_DMO_SIGNAL_DETECTED |
++		SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_LOCK_DETECTED |
++		SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_SIGNAL_DETECTED;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PICSR, val);
++
++	cpld_start_intr(sc);
++
++	udelay(1000);
++}
++
++void cpld_start_intr(struct channel *sc)
++{
++	u32 val;
++
++	/* PIER */
++	val =3D SBE_2T3E3_CPLD_VAL_INTERRUPT_FROM_ETHERNET_ENABLE |
++		SBE_2T3E3_CPLD_VAL_INTERRUPT_FROM_FRAMER_ENABLE;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PIER, val);
++#if 0
++	/*
++	  do you want to hang up your computer?
++	  ENABLE REST OF INTERRUPTS !!!
++	  you have been warned :).
++	*/
++#endif
++}
++
++void cpld_stop_intr(struct channel *sc)
++{
++	u32 val;
++
++	/* PIER */
++	val =3D 0;
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PIER, val);
++}
++
++void cpld_set_frame_mode(struct channel *sc, u32 mode)
++{
++	if (sc->p.frame_mode =3D=3D mode)
 +		return;
- 	}
--	return false;
-+	return;
- }
- EXPORT_SYMBOL_GPL(nf_nat_proto_unique_tuple);
- 
-diff --git a/net/ipv4/netfilter/nf_nat_proto_dccp.c b/net/ipv4/netfilter/nf_nat_proto_dccp.c
-index 22485ce..570faf2 100644
---- a/net/ipv4/netfilter/nf_nat_proto_dccp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_dccp.c
-@@ -22,14 +22,14 @@
- 
- static u_int16_t dccp_port_rover;
- 
--static bool
-+static void
- dccp_unique_tuple(struct nf_conntrack_tuple *tuple,
- 		  const struct nf_nat_range *range,
- 		  enum nf_nat_manip_type maniptype,
- 		  const struct nf_conn *ct)
- {
--	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
--					 &dccp_port_rover);
-+	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
-+				  &dccp_port_rover);
- }
- 
- static bool
-diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-index d7e8920..89933ab 100644
---- a/net/ipv4/netfilter/nf_nat_proto_gre.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
-@@ -37,7 +37,7 @@ MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
- MODULE_DESCRIPTION("Netfilter NAT protocol helper module for GRE");
- 
- /* generate unique tuple ... */
--static bool
-+static void
- gre_unique_tuple(struct nf_conntrack_tuple *tuple,
- 		 const struct nf_nat_range *range,
- 		 enum nf_nat_manip_type maniptype,
-@@ -50,7 +50,7 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
- 	/* If there is no master conntrack we are not PPTP,
- 	   do not change tuples */
- 	if (!ct->master)
--		return false;
++
++	switch (mode) {
++	case SBE_2T3E3_FRAME_MODE_HDLC:
++		cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			       SBE_2T3E3_CPLD_VAL_TRANSPARENT_MODE |
++			       SBE_2T3E3_CPLD_VAL_RAW_MODE);
++		exar7250_unipolar_onoff(sc, SBE_2T3E3_OFF);
++		exar7300_unipolar_onoff(sc, SBE_2T3E3_OFF);
++		break;
++	case SBE_2T3E3_FRAME_MODE_TRANSPARENT:
++		cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			       SBE_2T3E3_CPLD_VAL_RAW_MODE);
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			     SBE_2T3E3_CPLD_VAL_TRANSPARENT_MODE);
++		exar7250_unipolar_onoff(sc, SBE_2T3E3_OFF);
++		exar7300_unipolar_onoff(sc, SBE_2T3E3_OFF);
++		break;
++	case SBE_2T3E3_FRAME_MODE_RAW:
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			     SBE_2T3E3_CPLD_VAL_RAW_MODE);
++		exar7250_unipolar_onoff(sc, SBE_2T3E3_ON);
++		exar7300_unipolar_onoff(sc, SBE_2T3E3_ON);
++		break;
++	default:
 +		return;
- 
- 	if (maniptype == IP_NAT_MANIP_SRC)
- 		keyptr = &tuple->src.u.gre.key;
-@@ -71,11 +71,11 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
- 	for (i = 0; i < range_size; i++, key++) {
- 		*keyptr = htons(min + key % range_size);
- 		if (!nf_nat_used_tuple(tuple, ct))
--			return true;
-+			return;
- 	}
- 
- 	pr_debug("%p: no NAT mapping\n", ct);
--	return false;
-+	return;
- }
- 
- /* manipulate a GRE packet according to maniptype */
-diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-index 19a8b0b..97003fe 100644
---- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-@@ -27,7 +27,7 @@ icmp_in_range(const struct nf_conntrack_tuple *tuple,
- 	       ntohs(tuple->src.u.icmp.id) <= ntohs(max->icmp.id);
- }
- 
--static bool
-+static void
- icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
- 		  const struct nf_nat_range *range,
- 		  enum nf_nat_manip_type maniptype,
-@@ -46,9 +46,9 @@ icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
- 		tuple->src.u.icmp.id = htons(ntohs(range->min.icmp.id) +
- 					     (id % range_size));
- 		if (!nf_nat_used_tuple(tuple, ct))
--			return true;
-+			return;
- 	}
--	return false;
-+	return;
- }
- 
- static bool
-diff --git a/net/ipv4/netfilter/nf_nat_proto_sctp.c b/net/ipv4/netfilter/nf_nat_proto_sctp.c
-index 3fc598e..756331d 100644
---- a/net/ipv4/netfilter/nf_nat_proto_sctp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_sctp.c
-@@ -16,14 +16,14 @@
- 
- static u_int16_t nf_sctp_port_rover;
- 
--static bool
-+static void
- sctp_unique_tuple(struct nf_conntrack_tuple *tuple,
- 		  const struct nf_nat_range *range,
- 		  enum nf_nat_manip_type maniptype,
- 		  const struct nf_conn *ct)
- {
--	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
--					 &nf_sctp_port_rover);
-+	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
-+				  &nf_sctp_port_rover);
- }
- 
- static bool
-diff --git a/net/ipv4/netfilter/nf_nat_proto_tcp.c b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-index 399e2cf..aa460a5 100644
---- a/net/ipv4/netfilter/nf_nat_proto_tcp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-@@ -20,14 +20,13 @@
- 
- static u_int16_t tcp_port_rover;
- 
--static bool
-+static void
- tcp_unique_tuple(struct nf_conntrack_tuple *tuple,
- 		 const struct nf_nat_range *range,
- 		 enum nf_nat_manip_type maniptype,
- 		 const struct nf_conn *ct)
- {
--	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
--					 &tcp_port_rover);
-+	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct, &tcp_port_rover);
- }
- 
- static bool
-diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_proto_udp.c
-index 9e61c79..dfe65c7 100644
---- a/net/ipv4/netfilter/nf_nat_proto_udp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_udp.c
-@@ -19,14 +19,13 @@
- 
- static u_int16_t udp_port_rover;
- 
--static bool
-+static void
- udp_unique_tuple(struct nf_conntrack_tuple *tuple,
- 		 const struct nf_nat_range *range,
- 		 enum nf_nat_manip_type maniptype,
- 		 const struct nf_conn *ct)
- {
--	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
--					 &udp_port_rover);
-+	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct, &udp_port_rover);
- }
- 
- static bool
-diff --git a/net/ipv4/netfilter/nf_nat_proto_udplite.c b/net/ipv4/netfilter/nf_nat_proto_udplite.c
-index 440a229..3cc8c8a 100644
---- a/net/ipv4/netfilter/nf_nat_proto_udplite.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_udplite.c
-@@ -18,14 +18,14 @@
- 
- static u_int16_t udplite_port_rover;
- 
--static bool
-+static void
- udplite_unique_tuple(struct nf_conntrack_tuple *tuple,
- 		     const struct nf_nat_range *range,
- 		     enum nf_nat_manip_type maniptype,
- 		     const struct nf_conn *ct)
- {
--	return nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
--					 &udplite_port_rover);
-+	nf_nat_proto_unique_tuple(tuple, range, maniptype, ct,
-+				  &udplite_port_rover);
- }
- 
- static bool
-diff --git a/net/ipv4/netfilter/nf_nat_proto_unknown.c b/net/ipv4/netfilter/nf_nat_proto_unknown.c
-index 14381c6..a50f2bc 100644
---- a/net/ipv4/netfilter/nf_nat_proto_unknown.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_unknown.c
-@@ -26,14 +26,14 @@ static bool unknown_in_range(const struct nf_conntrack_tuple *tuple,
- 	return true;
- }
- 
--static bool unknown_unique_tuple(struct nf_conntrack_tuple *tuple,
-+static void unknown_unique_tuple(struct nf_conntrack_tuple *tuple,
- 				 const struct nf_nat_range *range,
- 				 enum nf_nat_manip_type maniptype,
- 				 const struct nf_conn *ct)
- {
- 	/* Sorry: we can't help you; if it's not unique, we can't frob
- 	   anything. */
--	return false;
-+	return;
- }
- 
- static bool
++	}
++
++	sc->p.frame_mode =3D mode;
++}
++
++/* set rate of the local clock */
++void cpld_set_frame_type(struct channel *sc, u32 type)
++{
++	switch (type) {
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			     SBE_2T3E3_CPLD_VAL_LOCAL_CLOCK_E3);
++		break;
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			       SBE_2T3E3_CPLD_VAL_LOCAL_CLOCK_E3);
++		break;
++	default:
++		return;
++	}
++}
++
++void cpld_set_scrambler(struct channel *sc, u32 mode)
++{
++	if (sc->p.scrambler =3D=3D mode)
++		return;
++
++	switch (mode) {
++	case SBE_2T3E3_SCRAMBLER_OFF:
++		cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRB,
++			       SBE_2T3E3_CPLD_VAL_SCRAMBLER_ENABLE);
++		break;
++	case SBE_2T3E3_SCRAMBLER_LARSCOM:
++		cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRB,
++			       SBE_2T3E3_CPLD_VAL_SCRAMBLER_TYPE);
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRB,
++			     SBE_2T3E3_CPLD_VAL_SCRAMBLER_ENABLE);
++		break;
++	case SBE_2T3E3_SCRAMBLER_ADC_KENTROX_DIGITAL:
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRB,
++			     SBE_2T3E3_CPLD_VAL_SCRAMBLER_TYPE);
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRB,
++			     SBE_2T3E3_CPLD_VAL_SCRAMBLER_ENABLE);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.scrambler =3D mode;
++}
++
++
++void cpld_set_crc(struct channel *sc, u32 crc)
++{
++	if (sc->p.crc =3D=3D crc)
++		return;
++
++	switch (crc) {
++	case SBE_2T3E3_CRC_16:
++		cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			       SBE_2T3E3_CPLD_VAL_CRC32);
++		break;
++	case SBE_2T3E3_CRC_32:
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			     SBE_2T3E3_CPLD_VAL_CRC32);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.crc =3D crc;
++}
++
++
++void cpld_select_panel(struct channel *sc, u32 panel)
++{
++	if (sc->p.panel =3D=3D panel)
++		return;
++	switch (panel) {
++	case SBE_2T3E3_PANEL_FRONT:
++		cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			       SBE_2T3E3_CPLD_VAL_REAR_PANEL);
++		break;
++	case SBE_2T3E3_PANEL_REAR:
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			     SBE_2T3E3_CPLD_VAL_REAR_PANEL);
++		break;
++	default:
++		return;
++	}
++
++	udelay(100);
++
++	sc->p.panel =3D panel;
++}
++
++
++extern void cpld_set_clock(struct channel *sc, u32 mode)
++{
++	if (sc->p.clock_source =3D=3D mode)
++		return;
++
++	switch (mode) {
++	case SBE_2T3E3_TIMING_LOCAL:
++		cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			     SBE_2T3E3_CPLD_VAL_ALT);
++		break;
++	case SBE_2T3E3_TIMING_LOOP:
++		cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRA,
++			       SBE_2T3E3_CPLD_VAL_ALT);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.clock_source =3D mode;
++}
++
++void cpld_set_pad_count(struct channel *sc, u32 count)
++{
++	u32 val;
++
++	if (sc->p.pad_count =3D=3D count)
++		return;
++
++	switch (count) {
++	case SBE_2T3E3_PAD_COUNT_1:
++		val =3D SBE_2T3E3_CPLD_VAL_PAD_COUNT_1;
++		break;
++	case SBE_2T3E3_PAD_COUNT_2:
++		val =3D SBE_2T3E3_CPLD_VAL_PAD_COUNT_2;
++		break;
++	case SBE_2T3E3_PAD_COUNT_3:
++		val =3D SBE_2T3E3_CPLD_VAL_PAD_COUNT_3;
++		break;
++	case SBE_2T3E3_PAD_COUNT_4:
++		val =3D SBE_2T3E3_CPLD_VAL_PAD_COUNT_4;
++		break;
++	default:
++		return;
++	}
++
++	cpld_clear_bit(sc, SBE_2T3E3_CPLD_REG_PCRB,
++		       SBE_2T3E3_CPLD_VAL_PAD_COUNT);
++	cpld_set_bit(sc, SBE_2T3E3_CPLD_REG_PCRB, val);
++	sc->p.pad_count =3D count;
++}
++
++void cpld_LOS_update(struct channel *sc)
++{
++	u_int8_t los;
++
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PICSR,
++		   SBE_2T3E3_CPLD_VAL_DMO_SIGNAL_DETECTED |
++		   SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_LOCK_DETECTED |
++		   SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_SIGNAL_DETECTED);
++	los =3D cpld_read(sc, SBE_2T3E3_CPLD_REG_PICSR) &
++		SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_SIGNAL_DETECTED;
++
++	if (los !=3D sc->s.LOS)
++		dev_info(&sc->pdev->dev, DRV_NAME ": LOS status: %s\n",
++			 los ? "Loss of signal" : "Signal OK");
++	sc->s.LOS =3D los;
++}
++
++void cpld_set_fractional_mode(struct channel *sc, u32 mode,
++			      u32 start, u32 stop)
++{
++	if (mode =3D=3D SBE_2T3E3_FRACTIONAL_MODE_NONE) {
++		start =3D 0;
++		stop =3D 0;
++	}
++
++	if (sc->p.fractional_mode =3D=3D mode && sc->p.bandwidth_start =3D=3D=
+ start &&
++	    sc->p.bandwidth_stop =3D=3D stop)
++		return;
++
++	switch (mode) {
++	case SBE_2T3E3_FRACTIONAL_MODE_NONE:
++		cpld_write(sc, SBE_2T3E3_CPLD_REG_PCRC,
++			   SBE_2T3E3_CPLD_VAL_FRACTIONAL_MODE_NONE);
++		break;
++	case SBE_2T3E3_FRACTIONAL_MODE_0:
++		cpld_write(sc, SBE_2T3E3_CPLD_REG_PCRC,
++			   SBE_2T3E3_CPLD_VAL_FRACTIONAL_MODE_0);
++		break;
++	case SBE_2T3E3_FRACTIONAL_MODE_1:
++		cpld_write(sc, SBE_2T3E3_CPLD_REG_PCRC,
++			   SBE_2T3E3_CPLD_VAL_FRACTIONAL_MODE_1);
++		break;
++	case SBE_2T3E3_FRACTIONAL_MODE_2:
++		cpld_write(sc, SBE_2T3E3_CPLD_REG_PCRC,
++			   SBE_2T3E3_CPLD_VAL_FRACTIONAL_MODE_2);
++		break;
++	default:
++		printk(KERN_ERR "wrong mode in set_fractional_mode\n");
++		return;
++	}
++
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PBWF, start);
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_PBWL, stop);
++
++	sc->p.fractional_mode =3D mode;
++	sc->p.bandwidth_start =3D start;
++	sc->p.bandwidth_stop =3D stop;
++}
+diff --git a/drivers/staging/sbe-2t3e3/ctrl.c b/drivers/staging/sbe-2t3=
+e3/ctrl.c
+new file mode 100644
+index 0000000..6caeed4
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/ctrl.c
+@@ -0,0 +1,363 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/types.h>
++#include "2t3e3.h"
++#include "ctrl.h"
++
++void t3e3_set_frame_type(struct channel *sc, u32 mode)
++{
++	if (sc->p.frame_type =3D=3D mode)
++		return;
++
++	if (sc->r.flags & SBE_2T3E3_FLAG_NETWORK_UP) {
++		dev_err(&sc->pdev->dev, DRV_NAME
++			": changing frame type during active connection\n");
++		return;
++	}
++
++	exar7300_set_frame_type(sc, mode);
++	exar7250_set_frame_type(sc, mode);
++	cpld_set_frame_type(sc, mode);
++
++	sc->p.frame_type =3D mode;
++}
++
++void t3e3_set_loopback(struct channel *sc, u32 mode)
++{
++	u32 tx, rx;
++
++	if (sc->p.loopback =3D=3D mode)
++		return;
++
++	tx =3D sc->p.transmitter_on;
++	rx =3D sc->p.receiver_on;
++	if (tx =3D=3D SBE_2T3E3_ON)
++		dc_transmitter_onoff(sc, SBE_2T3E3_OFF);
++	if (rx =3D=3D SBE_2T3E3_ON)
++		dc_receiver_onoff(sc, SBE_2T3E3_OFF);
++
++	/* stop current loopback if any exists */
++	switch (sc->p.loopback) {
++	case SBE_2T3E3_LOOPBACK_NONE:
++		break;
++	case SBE_2T3E3_LOOPBACK_ETHERNET:
++		dc_set_loopback(sc, SBE_2T3E3_21143_VAL_LOOPBACK_OFF);
++		break;
++	case SBE_2T3E3_LOOPBACK_FRAMER:
++		exar7250_set_loopback(sc, SBE_2T3E3_FRAMER_VAL_LOOPBACK_OFF);
++		break;
++	case SBE_2T3E3_LOOPBACK_LIU_DIGITAL:
++	case SBE_2T3E3_LOOPBACK_LIU_ANALOG:
++	case SBE_2T3E3_LOOPBACK_LIU_REMOTE:
++		exar7300_set_loopback(sc, SBE_2T3E3_LIU_VAL_LOOPBACK_OFF);
++		break;
++	default:
++		return;
++	}
++
++	switch (mode) {
++	case SBE_2T3E3_LOOPBACK_NONE:
++		break;
++	case SBE_2T3E3_LOOPBACK_ETHERNET:
++		dc_set_loopback(sc, SBE_2T3E3_21143_VAL_LOOPBACK_INTERNAL);
++		break;
++	case SBE_2T3E3_LOOPBACK_FRAMER:
++		exar7250_set_loopback(sc, SBE_2T3E3_FRAMER_VAL_LOOPBACK_ON);
++		break;
++	case SBE_2T3E3_LOOPBACK_LIU_DIGITAL:
++		exar7300_set_loopback(sc, SBE_2T3E3_LIU_VAL_LOOPBACK_DIGITAL);
++		break;
++	case SBE_2T3E3_LOOPBACK_LIU_ANALOG:
++		exar7300_set_loopback(sc, SBE_2T3E3_LIU_VAL_LOOPBACK_ANALOG);
++		break;
++	case SBE_2T3E3_LOOPBACK_LIU_REMOTE:
++		exar7300_set_loopback(sc, SBE_2T3E3_LIU_VAL_LOOPBACK_REMOTE);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.loopback =3D mode;
++
++	if (tx =3D=3D SBE_2T3E3_ON)
++		dc_transmitter_onoff(sc, SBE_2T3E3_ON);
++	if (rx =3D=3D SBE_2T3E3_ON)
++		dc_receiver_onoff(sc, SBE_2T3E3_ON);
++}
++
++
++void t3e3_reg_read(struct channel *sc, u32 *reg, u32 *val)
++{
++	u32 i;
++
++	*val =3D 0;
++
++	switch (reg[0]) {
++	case SBE_2T3E3_CHIP_21143:
++		if (!(reg[1] & 7))
++			*val =3D dc_read(sc->addr, reg[1] / 8);
++		break;
++	case SBE_2T3E3_CHIP_CPLD:
++		for (i =3D 0; i < SBE_2T3E3_CPLD_REG_MAX; i++)
++			if (cpld_reg_map[i][sc->h.slot] =3D=3D reg[1]) {
++				*val =3D cpld_read(sc, i);
++				break;
++			}
++		break;
++	case SBE_2T3E3_CHIP_FRAMER:
++		for (i =3D 0; i < SBE_2T3E3_FRAMER_REG_MAX; i++)
++			if (t3e3_framer_reg_map[i] =3D=3D reg[1]) {
++				*val =3D exar7250_read(sc, i);
++				break;
++			}
++		break;
++	case SBE_2T3E3_CHIP_LIU:
++		for (i =3D 0; i < SBE_2T3E3_LIU_REG_MAX; i++)
++			if (t3e3_liu_reg_map[i] =3D=3D reg[1]) {
++				*val =3D exar7300_read(sc, i);
++				break;
++			}
++		break;
++	default:
++		break;
++	}
++}
++
++void t3e3_reg_write(struct channel *sc, u32 *reg)
++{
++	u32 i;
++
++	switch (reg[0]) {
++	case SBE_2T3E3_CHIP_21143:
++		dc_write(sc->addr, reg[1], reg[2]);
++		break;
++	case SBE_2T3E3_CHIP_CPLD:
++		for (i =3D 0; i < SBE_2T3E3_CPLD_REG_MAX; i++)
++			if (cpld_reg_map[i][sc->h.slot] =3D=3D reg[1]) {
++				cpld_write(sc, i, reg[2]);
++				break;
++			}
++		break;
++	case SBE_2T3E3_CHIP_FRAMER:
++		for (i =3D 0; i < SBE_2T3E3_FRAMER_REG_MAX; i++)
++			if (t3e3_framer_reg_map[i] =3D=3D reg[1]) {
++				exar7250_write(sc, i, reg[2]);
++				break;
++			}
++		break;
++	case SBE_2T3E3_CHIP_LIU:
++		for (i =3D 0; i < SBE_2T3E3_LIU_REG_MAX; i++)
++			if (t3e3_liu_reg_map[i] =3D=3D reg[1]) {
++				exar7300_write(sc, i, reg[2]);
++				break;
++			}
++		break;
++	}
++}
++
++void t3e3_port_get(struct channel *sc, t3e3_param_t *param)
++{
++	memcpy(param, &(sc->p), sizeof(t3e3_param_t));
++}
++
++void t3e3_port_set(struct channel *sc, t3e3_param_t *param)
++{
++	if (param->frame_mode !=3D 0xff)
++		cpld_set_frame_mode(sc, param->frame_mode);
++
++	if (param->fractional_mode !=3D 0xff)
++		cpld_set_fractional_mode(sc, param->fractional_mode,
++					 param->bandwidth_start,
++					 param->bandwidth_stop);
++
++	if (param->pad_count !=3D 0xff)
++		cpld_set_pad_count(sc, param->pad_count);
++
++	if (param->crc !=3D 0xff)
++		cpld_set_crc(sc, param->crc);
++
++	if (param->receiver_on !=3D 0xff)
++		dc_receiver_onoff(sc, param->receiver_on);
++
++	if (param->transmitter_on !=3D 0xff)
++		dc_transmitter_onoff(sc, param->transmitter_on);
++
++	if (param->frame_type !=3D 0xff)
++		t3e3_set_frame_type(sc, param->frame_type);
++
++	if (param->panel !=3D 0xff)
++		cpld_select_panel(sc, param->panel);
++
++	if (param->line_build_out !=3D 0xff)
++		exar7300_line_build_out_onoff(sc, param->line_build_out);
++
++	if (param->receive_equalization !=3D 0xff)
++		exar7300_receive_equalization_onoff(sc, param->receive_equalization)=
+;
++
++	if (param->transmit_all_ones !=3D 0xff)
++		exar7300_transmit_all_ones_onoff(sc, param->transmit_all_ones);
++
++	if (param->loopback !=3D 0xff)
++		t3e3_set_loopback(sc, param->loopback);
++
++	if (param->clock_source !=3D 0xff)
++		cpld_set_clock(sc, param->clock_source);
++
++	if (param->scrambler !=3D 0xff)
++		cpld_set_scrambler(sc, param->scrambler);
++}
++
++void t3e3_port_get_stats(struct channel *sc,
++			 t3e3_stats_t *stats)
++{
++	u32 result;
++
++	sc->s.LOC =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_IO_CONTROL)
++		& SBE_2T3E3_FRAMER_VAL_LOSS_OF_CLOCK_STATUS ? 1 : 0;
++
++	switch (sc->p.frame_type) {
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_CONFIGURATIO=
+N_STATUS_2);
++		sc->s.LOF =3D result & SBE_2T3E3_FRAMER_VAL_E3_RX_LOF ? 1 : 0;
++		sc->s.OOF =3D result & SBE_2T3E3_FRAMER_VAL_E3_RX_OOF ? 1 : 0;
++#if 0
++		sc->s.LOS =3D result & SBE_2T3E3_FRAMER_VAL_E3_RX_LOS ? 1 : 0;
++#else
++		cpld_LOS_update(sc);
++#endif
++		sc->s.AIS =3D result & SBE_2T3E3_FRAMER_VAL_E3_RX_AIS ? 1 : 0;
++		sc->s.FERF =3D result & SBE_2T3E3_FRAMER_VAL_E3_RX_FERF ? 1 : 0;
++		break;
++
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_CONFIGURATIO=
+N_STATUS);
++		sc->s.AIS =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_AIS ? 1 : 0;
++#if 0
++		sc->s.LOS =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_LOS ? 1 : 0;
++#else
++		cpld_LOS_update(sc);
++#endif
++		sc->s.IDLE =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_IDLE ? 1 : 0;
++		sc->s.OOF =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_OOF ? 1 : 0;
++
++		result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_STATUS);
++		sc->s.FERF =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_FERF ? 1 : 0;
++		sc->s.AIC =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_AIC ? 1 : 0;
++		sc->s.FEBE_code =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_FEBE;
++
++		sc->s.FEAC =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_FEAC);
++		break;
++
++	default:
++		break;
++	}
++
++	result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_LCV_EVENT_COUN=
+T_MSB) << 8;
++	result +=3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_HOLDING_REGIS=
+TER);
++	sc->s.LCV +=3D result;
++
++	result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_FRAMING_BIT_ER=
+ROR_EVENT_COUNT_MSB) << 8;
++	result +=3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_HOLDING_REGIS=
+TER);
++	sc->s.FRAMING_BIT +=3D result;
++
++	result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_PARITY_ERROR_E=
+VENT_COUNT_MSB) << 8;
++	result +=3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_HOLDING_REGIS=
+TER);
++	sc->s.PARITY_ERROR +=3D result;
++
++	result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_FEBE_EVENT_COU=
+NT_MSB) << 8;
++	result +=3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_HOLDING_REGIS=
+TER);
++	sc->s.FEBE_count +=3D result;
++
++	result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_CP_BIT_ERROR_E=
+VENT_COUNT_MSB) << 8;
++	result +=3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_PMON_HOLDING_REGIS=
+TER);
++	sc->s.CP_BIT +=3D result;
++
++	memcpy(stats, &(sc->s), sizeof(t3e3_stats_t));
++}
++
++void t3e3_port_del_stats(struct channel *sc)
++{
++	memset(&(sc->s), 0, sizeof(t3e3_stats_t));
++}
++
++void t3e3_if_config(struct channel *sc, u32 cmd, char *set,
++		    t3e3_resp_t *ret, int *rlen)
++{
++	t3e3_param_t *param =3D (t3e3_param_t *)set;
++	u32 *data =3D (u32 *)set;
++
++	/* turn off all interrupt */
++	/* cpld_stop_intr(sc); */
++
++	switch (cmd) {
++	case SBE_2T3E3_PORT_GET:
++		t3e3_port_get(sc, &(ret->u.param));
++		*rlen =3D sizeof(ret->u.param);
++		break;
++	case SBE_2T3E3_PORT_SET:
++		t3e3_port_set(sc, param);
++		*rlen =3D 0;
++		break;
++	case SBE_2T3E3_PORT_GET_STATS:
++		t3e3_port_get_stats(sc, &(ret->u.stats));
++		*rlen =3D sizeof(ret->u.stats);
++		break;
++	case SBE_2T3E3_PORT_DEL_STATS:
++		t3e3_port_del_stats(sc);
++		*rlen =3D 0;
++		break;
++	case SBE_2T3E3_PORT_READ_REGS:
++		t3e3_reg_read(sc, data, &(ret->u.data));
++		*rlen =3D sizeof(ret->u.data);
++		break;
++	case SBE_2T3E3_PORT_WRITE_REGS:
++#if 0
++		printk(KERN_DEBUG "SBE_2T3E3_PORT_WRITE_REGS, 0x%x, 0x%x, 0x%x\n",
++		       ((int*)data)[0], ((int*)data)[1], ((int*)data)[2]);
++#endif
++		t3e3_reg_write(sc, data);
++		*rlen =3D 0;
++		break;
++	case SBE_2T3E3_LOG_LEVEL:
++		*rlen =3D 0;
++		break;
++	default:
++		*rlen =3D 0;
++		break;
++	}
++
++	/* turn on interrupt */
++	/* cpld_start_intr(sc); */
++}
++
++void t3e3_sc_init(struct channel *sc)
++{
++	memset(sc, 0, sizeof(*sc));
++
++	sc->p.frame_mode =3D SBE_2T3E3_FRAME_MODE_HDLC;
++	sc->p.fractional_mode =3D SBE_2T3E3_FRACTIONAL_MODE_NONE;
++	sc->p.crc =3D SBE_2T3E3_CRC_32;
++	sc->p.receiver_on =3D SBE_2T3E3_OFF;
++	sc->p.transmitter_on =3D SBE_2T3E3_OFF;
++	sc->p.frame_type =3D SBE_2T3E3_FRAME_TYPE_T3_CBIT;
++	sc->p.panel =3D SBE_2T3E3_PANEL_FRONT;
++	sc->p.line_build_out =3D SBE_2T3E3_OFF;
++	sc->p.receive_equalization =3D SBE_2T3E3_OFF;
++	sc->p.transmit_all_ones =3D SBE_2T3E3_OFF;
++	sc->p.loopback =3D SBE_2T3E3_LOOPBACK_NONE;
++	sc->p.clock_source =3D SBE_2T3E3_TIMING_LOCAL;
++	sc->p.scrambler =3D SBE_2T3E3_SCRAMBLER_OFF;
++	sc->p.pad_count =3D SBE_2T3E3_PAD_COUNT_1;
++}
+diff --git a/drivers/staging/sbe-2t3e3/ctrl.h b/drivers/staging/sbe-2t3=
+e3/ctrl.h
+new file mode 100644
+index 0000000..c11a588
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/ctrl.h
+@@ -0,0 +1,131 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#ifndef CTRL_H
++#define CTRL_H
++
++#define SBE_2T3E3_OFF					0
++#define SBE_2T3E3_ON					1
++
++#define SBE_2T3E3_LED_NONE				0
++#define SBE_2T3E3_LED_GREEN				1
++#define SBE_2T3E3_LED_YELLOW				2
++
++#define SBE_2T3E3_CABLE_LENGTH_LESS_THAN_255_FEET	0
++#define SBE_2T3E3_CABLE_LENGTH_GREATER_THAN_255_FEET	1
++
++#define SBE_2T3E3_CRC_16				0
++#define SBE_2T3E3_CRC_32				1
++
++#define SBE_2T3E3_PANEL_FRONT				0
++#define SBE_2T3E3_PANEL_REAR				1
++
++#define SBE_2T3E3_FRAME_MODE_HDLC			0
++#define SBE_2T3E3_FRAME_MODE_TRANSPARENT		1
++#define SBE_2T3E3_FRAME_MODE_RAW			2
++
++#define SBE_2T3E3_FRAME_TYPE_E3_G751			0
++#define SBE_2T3E3_FRAME_TYPE_E3_G832			1
++#define SBE_2T3E3_FRAME_TYPE_T3_CBIT			2
++#define SBE_2T3E3_FRAME_TYPE_T3_M13			3
++
++#define SBE_2T3E3_FRACTIONAL_MODE_NONE			0
++#define SBE_2T3E3_FRACTIONAL_MODE_0			1
++#define SBE_2T3E3_FRACTIONAL_MODE_1			2
++#define SBE_2T3E3_FRACTIONAL_MODE_2			3
++
++#define SBE_2T3E3_SCRAMBLER_OFF				0
++#define SBE_2T3E3_SCRAMBLER_LARSCOM			1
++#define SBE_2T3E3_SCRAMBLER_ADC_KENTROX_DIGITAL		2
++
++#define SBE_2T3E3_TIMING_LOCAL				0
++#define SBE_2T3E3_TIMING_LOOP				1
++
++#define SBE_2T3E3_LOOPBACK_NONE				0
++#define SBE_2T3E3_LOOPBACK_ETHERNET			1
++#define SBE_2T3E3_LOOPBACK_FRAMER			2
++#define SBE_2T3E3_LOOPBACK_LIU_DIGITAL			3
++#define SBE_2T3E3_LOOPBACK_LIU_ANALOG			4
++#define SBE_2T3E3_LOOPBACK_LIU_REMOTE			5
++
++#define SBE_2T3E3_PAD_COUNT_1				1
++#define SBE_2T3E3_PAD_COUNT_2				2
++#define SBE_2T3E3_PAD_COUNT_3				3
++#define SBE_2T3E3_PAD_COUNT_4				4
++
++#define SBE_2T3E3_CHIP_21143				0
++#define SBE_2T3E3_CHIP_CPLD				1
++#define SBE_2T3E3_CHIP_FRAMER				2
++#define SBE_2T3E3_CHIP_LIU				3
++
++#define SBE_2T3E3_LOG_LEVEL_NONE			0
++#define SBE_2T3E3_LOG_LEVEL_ERROR			1
++#define SBE_2T3E3_LOG_LEVEL_WARNING			2
++#define SBE_2T3E3_LOG_LEVEL_INFO			3
++
++/* commands */
++#define SBE_2T3E3_PORT_GET				0
++#define SBE_2T3E3_PORT_SET				1
++#define SBE_2T3E3_PORT_GET_STATS			2
++#define SBE_2T3E3_PORT_DEL_STATS			3
++#define SBE_2T3E3_PORT_READ_REGS			4
++#define SBE_2T3E3_LOG_LEVEL				5
++#define SBE_2T3E3_PORT_WRITE_REGS			6
++
++#define NG_SBE_2T3E3_NODE_TYPE  "sbe2T3E3"
++#define NG_SBE_2T3E3_COOKIE     0x03800891
++
++typedef struct t3e3_param {
++	u_int8_t frame_mode;		/* FRAME_MODE_* */
++	u_int8_t crc;			/* CRC_* */
++	u_int8_t receiver_on;		/* ON/OFF */
++	u_int8_t transmitter_on;	/* ON/OFF */
++	u_int8_t frame_type;		/* FRAME_TYPE_* */
++	u_int8_t panel;			/* PANEL_* */
++	u_int8_t line_build_out;	/* ON/OFF */
++	u_int8_t receive_equalization;	/* ON/OFF */
++	u_int8_t transmit_all_ones;	/* ON/OFF */
++	u_int8_t loopback;		/* LOOPBACK_* */
++	u_int8_t clock_source;		/* TIMING_* */
++	u_int8_t scrambler;		/* SCRAMBLER_* */
++	u_int8_t pad_count;		/* PAD_COUNT_* */
++	u_int8_t log_level;		/* LOG_LEVEL_* - unused */
++	u_int8_t fractional_mode;	/* FRACTIONAL_MODE_* */
++	u_int8_t bandwidth_start;	/* 0-255 */
++	u_int8_t bandwidth_stop;	/* 0-255 */
++} t3e3_param_t;
++
++typedef struct t3e3_stats {
++	u_int64_t in_bytes;
++	u32 in_packets, in_dropped;
++	u32 in_errors, in_error_desc, in_error_coll, in_error_drib,
++		in_error_crc, in_error_mii;
++	u_int64_t out_bytes;
++	u32 out_packets, out_dropped;
++	u32 out_errors, out_error_jab, out_error_lost_carr,
++		out_error_no_carr, out_error_link_fail, out_error_underflow,
++		out_error_dereferred;
++	u_int8_t LOC, LOF, OOF, LOS, AIS, FERF, IDLE, AIC, FEAC;
++	u_int16_t FEBE_code;
++	u32 LCV, FRAMING_BIT, PARITY_ERROR, FEBE_count, CP_BIT;
++} t3e3_stats_t;
++
++
++typedef struct t3e3_resp {
++	union {
++		t3e3_param_t param;
++		t3e3_stats_t stats;
++		u32 data;
++	} u;
++} t3e3_resp_t;
++
++#endif /* CTRL_H */
+diff --git a/drivers/staging/sbe-2t3e3/dc.c b/drivers/staging/sbe-2t3e3=
+/dc.c
+new file mode 100644
+index 0000000..c020546
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/dc.c
+@@ -0,0 +1,507 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/netdevice.h>
++#include <linux/types.h>
++#include <linux/errno.h>
++#include <linux/io.h>
++#include "2t3e3.h"
++#include "ctrl.h"
++
++void dc_init(struct channel *sc)
++{
++	u32 val;
++
++	dc_stop(sc);
++	/*dc_reset(sc);*/ /* do not want to reset here */
++
++	/*
++	 * BUS_MODE (CSR0)
++	 */
++	val =3D SBE_2T3E3_21143_VAL_READ_LINE_ENABLE |
++		SBE_2T3E3_21143_VAL_READ_MULTIPLE_ENABLE |
++		SBE_2T3E3_21143_VAL_TRANSMIT_AUTOMATIC_POLLING_200us |
++		SBE_2T3E3_21143_VAL_BUS_ARBITRATION_RR;
++
++	if (sc->h.command & 16)
++		val |=3D SBE_2T3E3_21143_VAL_WRITE_AND_INVALIDATE_ENABLE;
++
++	switch (sc->h.cache_size) {
++	case 32:
++		val |=3D SBE_2T3E3_21143_VAL_CACHE_ALIGNMENT_32;
++		break;
++	case 16:
++		val |=3D SBE_2T3E3_21143_VAL_CACHE_ALIGNMENT_16;
++		break;
++	case 8:
++		val |=3D SBE_2T3E3_21143_VAL_CACHE_ALIGNMENT_8;
++		break;
++	default:
++		break;
++	}
++
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_BUS_MODE, val);
++
++	/* OPERATION_MODE (CSR6) */
++	val =3D SBE_2T3E3_21143_VAL_RECEIVE_ALL |
++		SBE_2T3E3_21143_VAL_MUST_BE_ONE |
++		SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_1 |
++		SBE_2T3E3_21143_VAL_LOOPBACK_OFF |
++		SBE_2T3E3_21143_VAL_PASS_ALL_MULTICAST |
++		SBE_2T3E3_21143_VAL_PROMISCUOUS_MODE |
++		SBE_2T3E3_21143_VAL_PASS_BAD_FRAMES;
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE, val);
++	if (sc->p.loopback =3D=3D SBE_2T3E3_LOOPBACK_ETHERNET)
++		sc->p.loopback =3D SBE_2T3E3_LOOPBACK_NONE;
++
++#if 0 /* No need to clear this register - and it may be in use */
++	/*
++	 * BOOT_ROM_SERIAL_ROM_AND_MII_MANAGEMENT (CSR9)
++	 */
++	val =3D 0;
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MA=
+NAGEMENT, val);
++#endif
++
++	/*
++	 * GENERAL_PURPOSE_TIMER_AND_INTERRUPT_MITIGATION_CONTROL (CSR11)
++	 */
++	val =3D SBE_2T3E3_21143_VAL_CYCLE_SIZE |
++		SBE_2T3E3_21143_VAL_TRANSMIT_TIMER |
++		SBE_2T3E3_21143_VAL_NUMBER_OF_TRANSMIT_PACKETS |
++		SBE_2T3E3_21143_VAL_RECEIVE_TIMER |
++		SBE_2T3E3_21143_VAL_NUMBER_OF_RECEIVE_PACKETS;
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_GENERAL_PURPOSE_TIMER_AND_INTE=
+RRUPT_MITIGATION_CONTROL, val);
++
++	/* prepare descriptors and data for receive and transmit procecsses *=
+/
++	if (dc_init_descriptor_list(sc) !=3D 0)
++		return;
++
++	/* clear ethernet interrupts status */
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_STATUS, 0xFFFFFFFF);
++
++	/* SIA mode registers */
++	dc_set_output_port(sc);
++}
++
++void dc_start(struct channel *sc)
++{
++	u32 val;
++
++	if (!(sc->r.flags & SBE_2T3E3_FLAG_NETWORK_UP))
++		return;
++
++	dc_init(sc);
++
++	/* get actual LOS and OOF status */
++	switch (sc->p.frame_type) {
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		val =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_CONFIGURATION_S=
+TATUS_2);
++		dev_dbg(&sc->pdev->dev, "Start Framer Rx Status =3D %02X\n", val);
++		sc->s.OOF =3D val & SBE_2T3E3_FRAMER_VAL_E3_RX_OOF ? 1 : 0;
++		break;
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		val =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_CONFIGURATION_S=
+TATUS);
++		dev_dbg(&sc->pdev->dev, "Start Framer Rx Status =3D %02X\n", val);
++		sc->s.OOF =3D val & SBE_2T3E3_FRAMER_VAL_T3_RX_OOF ? 1 : 0;
++		break;
++	default:
++		break;
++	}
++	cpld_LOS_update(sc);
++
++	/* start receive and transmit processes */
++	dc_transmitter_onoff(sc, SBE_2T3E3_ON);
++	dc_receiver_onoff(sc, SBE_2T3E3_ON);
++
++	/* start interrupts */
++	dc_start_intr(sc);
++}
++
++#define MAX_INT_WAIT_CNT	12000
++void dc_stop(struct channel *sc)
++{
++	int wcnt;
++
++	/* stop receive and transmit processes */
++	dc_receiver_onoff(sc, SBE_2T3E3_OFF);
++	dc_transmitter_onoff(sc, SBE_2T3E3_OFF);
++
++	/* turn off ethernet interrupts */
++	dc_stop_intr(sc);
++
++	/* wait to ensure the interrupts have been completed */
++	for (wcnt =3D 0; wcnt < MAX_INT_WAIT_CNT; wcnt++) {
++		udelay(5);
++		if (!sc->interrupt_active)
++			break;
++	}
++	if (wcnt >=3D MAX_INT_WAIT_CNT)
++		dev_warn(&sc->pdev->dev, DRV_NAME
++			 ": Interrupt Active too long\n");
++
++	/* clear all receive/transmit data */
++	dc_drop_descriptor_list(sc);
++}
++
++void dc_start_intr(struct channel *sc)
++{
++	if (sc->p.loopback =3D=3D SBE_2T3E3_LOOPBACK_NONE && sc->s.OOF)
++		return;
++
++	if (sc->p.receiver_on || sc->p.transmitter_on) {
++		if (!sc->ether.interrupt_enable_mask)
++			dc_write(sc->addr, SBE_2T3E3_21143_REG_STATUS, 0xFFFFFFFF);
++
++		sc->ether.interrupt_enable_mask =3D
++			SBE_2T3E3_21143_VAL_NORMAL_INTERRUPT_SUMMARY_ENABLE |
++			SBE_2T3E3_21143_VAL_ABNORMAL_INTERRUPT_SUMMARY_ENABLE |
++			SBE_2T3E3_21143_VAL_RECEIVE_STOPPED_ENABLE |
++			SBE_2T3E3_21143_VAL_RECEIVE_BUFFER_UNAVAILABLE_ENABLE |
++			SBE_2T3E3_21143_VAL_RECEIVE_INTERRUPT_ENABLE |
++			SBE_2T3E3_21143_VAL_TRANSMIT_UNDERFLOW_INTERRUPT_ENABLE |
++			SBE_2T3E3_21143_VAL_TRANSMIT_BUFFER_UNAVAILABLE_ENABLE |
++			SBE_2T3E3_21143_VAL_TRANSMIT_STOPPED_ENABLE |
++			SBE_2T3E3_21143_VAL_TRANSMIT_INTERRUPT_ENABLE;
++
++		dc_write(sc->addr, SBE_2T3E3_21143_REG_INTERRUPT_ENABLE,
++			 sc->ether.interrupt_enable_mask);
++	}
++}
++
++void dc_stop_intr(struct channel *sc)
++{
++	sc->ether.interrupt_enable_mask =3D 0;
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_INTERRUPT_ENABLE, 0);
++}
++
++void dc_reset(struct channel *sc)
++{
++	/* turn off ethernet interrupts */
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_INTERRUPT_ENABLE, 0);
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_STATUS, 0xFFFFFFFF);
++
++	/* software reset */
++	dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_BUS_MODE,
++		   SBE_2T3E3_21143_VAL_SOFTWARE_RESET);
++	udelay(4); /* 50 PCI cycles < 2us */
++
++	/* clear hardware configuration */
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_BUS_MODE, 0);
++
++	/* clear software configuration */
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE, 0);
++
++	/* turn off SIA reset */
++	dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_SIA_CONNECTIVITY,
++		   SBE_2T3E3_21143_VAL_SIA_RESET);
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_SIA_TRANSMIT_AND_RECEIVE, 0);
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_SIA_AND_GENERAL_PURPOSE_PORT, =
+0);
++}
++
++
++void dc_receiver_onoff(struct channel *sc, u32 mode)
++{
++	u32 i, state =3D 0;
++
++	if (sc->p.receiver_on =3D=3D mode)
++		return;
++
++	switch (mode) {
++	case SBE_2T3E3_OFF:
++		if (dc_read(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE) &
++		    SBE_2T3E3_21143_VAL_RECEIVE_START) {
++			dc_clear_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++				      SBE_2T3E3_21143_VAL_RECEIVE_START);
++
++			for (i =3D 0; i < 16; i++) {
++				state =3D dc_read(sc->addr, SBE_2T3E3_21143_REG_STATUS) &
++					SBE_2T3E3_21143_VAL_RECEIVE_PROCESS_STATE;
++				if (state =3D=3D SBE_2T3E3_21143_VAL_RX_STOPPED)
++					break;
++				udelay(5);
++			}
++			if (state !=3D SBE_2T3E3_21143_VAL_RX_STOPPED)
++				dev_warn(&sc->pdev->dev, DRV_NAME
++					 ": Rx Failed to Stop\n");
++			else
++				dev_info(&sc->pdev->dev, DRV_NAME ": Rx Off\n");
++		}
++		break;
++	case SBE_2T3E3_ON:
++		dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++			   SBE_2T3E3_21143_VAL_RECEIVE_START);
++		udelay(100);
++		dc_write(sc->addr, SBE_2T3E3_21143_REG_RECEIVE_POLL_DEMAND, 0xFFFFFF=
+=46F);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.receiver_on =3D mode;
++}
++
++void dc_transmitter_onoff(struct channel *sc, u32 mode)
++{
++	u32 i, state =3D 0;
++
++	if (sc->p.transmitter_on =3D=3D mode)
++		return;
++
++	switch (mode) {
++	case SBE_2T3E3_OFF:
++		if (dc_read(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE) &
++		    SBE_2T3E3_21143_VAL_TRANSMISSION_START) {
++			dc_clear_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++				      SBE_2T3E3_21143_VAL_TRANSMISSION_START);
++
++			for (i =3D 0; i < 16; i++) {
++				state =3D dc_read(sc->addr, SBE_2T3E3_21143_REG_STATUS) &
++					SBE_2T3E3_21143_VAL_TRANSMISSION_PROCESS_STATE;
++				if (state =3D=3D SBE_2T3E3_21143_VAL_TX_STOPPED)
++					break;
++				udelay(5);
++			}
++			if (state !=3D SBE_2T3E3_21143_VAL_TX_STOPPED)
++				dev_warn(&sc->pdev->dev, DRV_NAME
++					 ": Tx Failed to Stop\n");
++		}
++		break;
++	case SBE_2T3E3_ON:
++		dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++			   SBE_2T3E3_21143_VAL_TRANSMISSION_START);
++		udelay(100);
++		dc_write(sc->addr, SBE_2T3E3_21143_REG_TRANSMIT_POLL_DEMAND, 0xFFFFF=
+=46FF);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.transmitter_on =3D mode;
++}
++
++
++
++void dc_set_loopback(struct channel *sc, u32 mode)
++{
++	u32 val;
++
++	switch (mode) {
++	case SBE_2T3E3_21143_VAL_LOOPBACK_OFF:
++	case SBE_2T3E3_21143_VAL_LOOPBACK_INTERNAL:
++		break;
++	default:
++		return;
++	}
++
++#if 0
++	/* restart SIA */
++	dc_clear_bits(sc->addr, SBE_2T3E3_21143_REG_SIA_CONNECTIVITY,
++		      SBE_2T3E3_21143_VAL_SIA_RESET);
++	udelay(1000);
++	dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_SIA_CONNECTIVITY,
++		    SBE_2T3E3_21143_VAL_SIA_RESET);
++#endif
++
++	/* select loopback mode */
++	val =3D dc_read(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE) &
++		~SBE_2T3E3_21143_VAL_OPERATING_MODE;
++	val |=3D mode;
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE, val);
++
++	if (mode =3D=3D SBE_2T3E3_21143_VAL_LOOPBACK_OFF)
++		dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++			   SBE_2T3E3_21143_VAL_FULL_DUPLEX_MODE);
++	else
++		dc_clear_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++			      SBE_2T3E3_21143_VAL_FULL_DUPLEX_MODE);
++}
++
++u32 dc_init_descriptor_list(struct channel *sc)
++{
++	u32 i, j;
++	struct sk_buff *m;
++
++	if (sc->ether.rx_ring =3D=3D NULL)
++		sc->ether.rx_ring =3D kzalloc(SBE_2T3E3_RX_DESC_RING_SIZE *
++					    sizeof(t3e3_rx_desc_t), GFP_KERNEL);
++	if (sc->ether.rx_ring =3D=3D NULL) {
++		dev_err(&sc->pdev->dev, DRV_NAME
++			": no buffer space for RX ring\n");
++		return ENOMEM;
++	}
++
++	if (sc->ether.tx_ring =3D=3D NULL)
++		sc->ether.tx_ring =3D kzalloc(SBE_2T3E3_TX_DESC_RING_SIZE *
++					    sizeof(t3e3_tx_desc_t), GFP_KERNEL);
++	if (sc->ether.tx_ring =3D=3D NULL) {
++#ifdef T3E3_USE_CONTIGMALLOC
++		t3e3_contigmemory_size =3D SBE_2T3E3_RX_DESC_RING_SIZE *
++			sizeof(t3e3_rx_desc_t);
++#endif
++		kfree(sc->ether.rx_ring);
++		sc->ether.rx_ring =3D NULL;
++		dev_err(&sc->pdev->dev, DRV_NAME
++			": no buffer space for RX ring\n");
++		return ENOMEM;
++	}
++
++
++	/*
++	 * Receive ring
++	 */
++	for (i =3D 0; i < SBE_2T3E3_RX_DESC_RING_SIZE; i++) {
++		sc->ether.rx_ring[i].rdes0 =3D SBE_2T3E3_RX_DESC_21143_OWN;
++		sc->ether.rx_ring[i].rdes1 =3D
++			SBE_2T3E3_RX_DESC_SECOND_ADDRESS_CHAINED | SBE_2T3E3_MTU;
++
++		if (sc->ether.rx_data[i] =3D=3D NULL) {
++			if (!(m =3D dev_alloc_skb(MCLBYTES))) {
++				for (j =3D 0; j < i; j++) {
++					dev_kfree_skb_any(sc->ether.rx_data[j]);
++					sc->ether.rx_data[j] =3D NULL;
++				}
++#ifdef T3E3_USE_CONTIGMALLOC
++				t3e3_contigmemory_size =3D SBE_2T3E3_RX_DESC_RING_SIZE *
++					sizeof(t3e3_rx_desc_t);
++#endif
++				kfree(sc->ether.rx_ring);
++				sc->ether.rx_ring =3D NULL;
++#ifdef T3E3_USE_CONTIGMALLOC
++				t3e3_contigmemory_size =3D SBE_2T3E3_TX_DESC_RING_SIZE *
++					sizeof(t3e3_tx_desc_t);
++#endif
++				kfree(sc->ether.tx_ring);
++				sc->ether.tx_ring =3D NULL;
++				dev_err(&sc->pdev->dev, DRV_NAME
++					": token_alloc err: no buffer space for RX ring\n");
++				return ENOBUFS;
++			}
++			sc->ether.rx_data[i] =3D m;
++		}
++		sc->ether.rx_ring[i].rdes2 =3D virt_to_phys(sc->ether.rx_data[i]->da=
+ta);
++
++		sc->ether.rx_ring[i].rdes3 =3D virt_to_phys(
++			&sc->ether.rx_ring[(i + 1) % SBE_2T3E3_RX_DESC_RING_SIZE]);
++	}
++	sc->ether.rx_ring[SBE_2T3E3_RX_DESC_RING_SIZE - 1].rdes1 |=3D
++		SBE_2T3E3_RX_DESC_END_OF_RING;
++	sc->ether.rx_ring_current_read =3D 0;
++
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_RECEIVE_LIST_BASE_ADDRESS,
++		 virt_to_phys(&sc->ether.rx_ring[0]));
++
++	/*
++	 * Transmit ring
++	 */
++	for (i =3D 0; i < SBE_2T3E3_TX_DESC_RING_SIZE; i++) {
++		sc->ether.tx_ring[i].tdes0 =3D 0;
++		sc->ether.tx_ring[i].tdes1 =3D SBE_2T3E3_TX_DESC_SECOND_ADDRESS_CHAI=
+NED |
++			SBE_2T3E3_TX_DESC_DISABLE_PADDING;
++
++		sc->ether.tx_ring[i].tdes2 =3D 0;
++		sc->ether.tx_data[i] =3D NULL;
++
++		sc->ether.tx_ring[i].tdes3 =3D virt_to_phys(
++			&sc->ether.tx_ring[(i + 1) % SBE_2T3E3_TX_DESC_RING_SIZE]);
++	}
++	sc->ether.tx_ring[SBE_2T3E3_TX_DESC_RING_SIZE - 1].tdes1 |=3D
++		SBE_2T3E3_TX_DESC_END_OF_RING;
++
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_TRANSMIT_LIST_BASE_ADDRESS,
++		 virt_to_phys(&sc->ether.tx_ring[0]));
++	sc->ether.tx_ring_current_read =3D 0;
++	sc->ether.tx_ring_current_write =3D 0;
++	sc->ether.tx_free_cnt =3D SBE_2T3E3_TX_DESC_RING_SIZE;
++	spin_lock_init(&sc->ether.tx_lock);
++
++	return 0;
++}
++
++void dc_clear_descriptor_list(struct channel *sc)
++{
++	u32 i;
++
++	/* clear CSR3 and CSR4 */
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_RECEIVE_LIST_BASE_ADDRESS, 0);
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_TRANSMIT_LIST_BASE_ADDRESS, 0)=
+;
++
++	/* free all data buffers on TX ring */
++	for (i =3D 0; i < SBE_2T3E3_TX_DESC_RING_SIZE; i++) {
++		if (sc->ether.tx_data[i] !=3D NULL) {
++			dev_kfree_skb_any(sc->ether.tx_data[i]);
++			sc->ether.tx_data[i] =3D NULL;
++		}
++	}
++}
++
++void dc_drop_descriptor_list(struct channel *sc)
++{
++	u32 i;
++
++	dc_clear_descriptor_list(sc);
++
++	/* free all data buffers on RX ring */
++	for (i =3D 0; i < SBE_2T3E3_RX_DESC_RING_SIZE; i++) {
++		if (sc->ether.rx_data[i] !=3D NULL) {
++			dev_kfree_skb_any(sc->ether.rx_data[i]);
++			sc->ether.rx_data[i] =3D NULL;
++		}
++	}
++
++	if (sc->ether.rx_ring !=3D NULL) {
++#ifdef T3E3_USE_CONTIGMALLOC
++		t3e3_contigmemory_size =3D SBE_2T3E3_RX_DESC_RING_SIZE *
++			sizeof(t3e3_rx_desc_t);
++#endif
++		kfree(sc->ether.rx_ring);
++		sc->ether.rx_ring =3D NULL;
++	}
++
++	if (sc->ether.tx_ring !=3D NULL) {
++#ifdef T3E3_USE_CONTIGMALLOC
++		t3e3_contigmemory_size =3D SBE_2T3E3_TX_DESC_RING_SIZE *
++			sizeof(t3e3_tx_desc_t);
++#endif
++		kfree(sc->ether.tx_ring);
++		sc->ether.tx_ring =3D NULL;
++	}
++}
++
++
++void dc_set_output_port(struct channel *sc)
++{
++	dc_clear_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++		      SBE_2T3E3_21143_VAL_PORT_SELECT);
++
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_SIA_STATUS, 0x00000301);
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_SIA_CONNECTIVITY, 0);
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_SIA_TRANSMIT_AND_RECEIVE, 0);
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_SIA_AND_GENERAL_PURPOSE_PORT, =
+0x08000011);
++
++	dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++		   SBE_2T3E3_21143_VAL_TRANSMIT_THRESHOLD_MODE_100Mbs |
++		   SBE_2T3E3_21143_VAL_HEARTBEAT_DISABLE |
++		   SBE_2T3E3_21143_VAL_PORT_SELECT |
++		   SBE_2T3E3_21143_VAL_FULL_DUPLEX_MODE);
++}
++
++void dc_restart(struct channel *sc)
++{
++	dev_warn(&sc->pdev->dev, DRV_NAME ": 21143 restart\n");
++
++	dc_stop(sc);
++	dc_reset(sc);
++	dc_init(sc);	/* stop + reset + init */
++	dc_start(sc);
++}
+diff --git a/drivers/staging/sbe-2t3e3/exar7250.c b/drivers/staging/sbe=
+-2t3e3/exar7250.c
+new file mode 100644
+index 0000000..809f446
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/exar7250.c
+@@ -0,0 +1,217 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include "2t3e3.h"
++#include "ctrl.h"
++
++void exar7250_init(struct channel *sc)
++{
++	exar7250_write(sc, SBE_2T3E3_FRAMER_REG_OPERATING_MODE,
++		       SBE_2T3E3_FRAMER_VAL_T3_CBIT |
++		       SBE_2T3E3_FRAMER_VAL_INTERRUPT_ENABLE_RESET |
++		       SBE_2T3E3_FRAMER_VAL_TIMING_ASYNCH_TXINCLK);
++
++	exar7250_write(sc, SBE_2T3E3_FRAMER_REG_IO_CONTROL,
++		       SBE_2T3E3_FRAMER_VAL_DISABLE_TX_LOSS_OF_CLOCK |
++		       SBE_2T3E3_FRAMER_VAL_DISABLE_RX_LOSS_OF_CLOCK |
++		       SBE_2T3E3_FRAMER_VAL_AMI_LINE_CODE |
++		       SBE_2T3E3_FRAMER_VAL_RX_LINE_CLOCK_INVERT);
++
++	exar7250_set_frame_type(sc, SBE_2T3E3_FRAME_TYPE_T3_CBIT);
++}
++
++void exar7250_set_frame_type(struct channel *sc, u32 type)
++{
++	u32 val;
++
++	switch (type) {
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		break;
++	default:
++		return;
++	}
++
++	exar7250_stop_intr(sc, type);
++
++	val =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_OPERATING_MODE);
++	val &=3D ~(SBE_2T3E3_FRAMER_VAL_LOCAL_LOOPBACK_MODE |
++		 SBE_2T3E3_FRAMER_VAL_T3_E3_SELECT |
++		 SBE_2T3E3_FRAMER_VAL_FRAME_FORMAT_SELECT);
++	switch (type) {
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++		val |=3D SBE_2T3E3_FRAMER_VAL_E3_G751;
++		break;
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		val |=3D SBE_2T3E3_FRAMER_VAL_E3_G832;
++		break;
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++		val |=3D SBE_2T3E3_FRAMER_VAL_T3_CBIT;
++		break;
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		val |=3D SBE_2T3E3_FRAMER_VAL_T3_M13;
++		break;
++	default:
++		return;
++	}
++	exar7250_write(sc, SBE_2T3E3_FRAMER_REG_OPERATING_MODE, val);
++	exar7250_start_intr(sc, type);
++}
++
++
++void exar7250_start_intr(struct channel *sc, u32 type)
++{
++	u32 val;
++
++	switch (type) {
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		val =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_CONFIGURATION_S=
+TATUS_2);
++#if 0
++		sc->s.LOS =3D val & SBE_2T3E3_FRAMER_VAL_E3_RX_LOS ? 1 : 0;
++#else
++		cpld_LOS_update(sc);
++#endif
++		sc->s.OOF =3D val & SBE_2T3E3_FRAMER_VAL_E3_RX_OOF ? 1 : 0;
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_STATUS_1);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ENABLE_1,
++			       SBE_2T3E3_FRAMER_VAL_E3_RX_OOF_INTERRUPT_ENABLE |
++			       SBE_2T3E3_FRAMER_VAL_E3_RX_LOS_INTERRUPT_ENABLE);
++#if 0
++		/*SBE_2T3E3_FRAMER_VAL_E3_RX_COFA_INTERRUPT_ENABLE |
++		  SBE_2T3E3_FRAMER_VAL_E3_RX_OOF_INTERRUPT_ENABLE |
++		  SBE_2T3E3_FRAMER_VAL_E3_RX_LOF_INTERRUPT_ENABLE |
++		  SBE_2T3E3_FRAMER_VAL_E3_RX_LOS_INTERRUPT_ENABLE |
++		  SBE_2T3E3_FRAMER_VAL_E3_RX_AIS_INTERRUPT_ENABLE);*/
++#endif
++
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_STATUS_2);
++#if 0
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ENABLE_2,
++			       SBE_2T3E3_FRAMER_VAL_E3_RX_FEBE_INTERRUPT_ENABLE |
++			       SBE_2T3E3_FRAMER_VAL_E3_RX_FERF_INTERRUPT_ENABLE |
++			       SBE_2T3E3_FRAMER_VAL_E3_RX_FRAMING_BYTE_ERROR_INTERRUPT_ENAB=
+LE);
++#endif
++		break;
++
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		val =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_CONFIGURATION_S=
+TATUS);
++#if 0
++		sc->s.LOS =3D val & SBE_2T3E3_FRAMER_VAL_T3_RX_LOS ? 1 : 0;
++#else
++		cpld_LOS_update(sc);
++#endif
++		sc->s.OOF =3D val & SBE_2T3E3_FRAMER_VAL_T3_RX_OOF ? 1 : 0;
++
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_INTERRUPT_STATUS);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_RX_INTERRUPT_ENABLE,
++			       SBE_2T3E3_FRAMER_VAL_T3_RX_LOS_INTERRUPT_ENABLE |
++			       SBE_2T3E3_FRAMER_VAL_T3_RX_OOF_INTERRUPT_ENABLE);
++#if 0
++		/* SBE_2T3E3_FRAMER_VAL_T3_RX_CP_BIT_ERROR_INTERRUPT_ENABLE |
++		   SBE_2T3E3_FRAMER_VAL_T3_RX_LOS_INTERRUPT_ENABLE |
++		   SBE_2T3E3_FRAMER_VAL_T3_RX_AIS_INTERRUPT_ENABLE |
++		   SBE_2T3E3_FRAMER_VAL_T3_RX_IDLE_INTERRUPT_ENABLE |
++		   SBE_2T3E3_FRAMER_VAL_T3_RX_FERF_INTERRUPT_ENABLE |
++		   SBE_2T3E3_FRAMER_VAL_T3_RX_AIC_INTERRUPT_ENABLE |
++		   SBE_2T3E3_FRAMER_VAL_T3_RX_OOF_INTERRUPT_ENABLE |
++		   SBE_2T3E3_FRAMER_VAL_T3_RX_P_BIT_INTERRUPT_ENABLE);*/
++#endif
++
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_FEAC_INTERRUPT_ENABLE_S=
+TATUS);
++#if 0
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_RX_FEAC_INTERRUPT_ENABLE_=
+STATUS,
++			       SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_REMOVE_INTERRUPT_ENABLE |
++			       SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_VALID_INTERRUPT_ENABLE);
++#endif
++
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_RX_LAPD_CONTROL, 0);
++		break;
++
++	default:
++		return;
++	}
++
++	exar7250_read(sc, SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_STATUS);
++	exar7250_write(sc, SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_ENABLE,
++		       SBE_2T3E3_FRAMER_VAL_RX_INTERRUPT_ENABLE |
++		       SBE_2T3E3_FRAMER_VAL_TX_INTERRUPT_ENABLE);
++}
++
++
++void exar7250_stop_intr(struct channel *sc, u32 type)
++{
++	exar7250_write(sc, SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_ENABLE, 0);
++	exar7250_read(sc, SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_STATUS);
++
++	switch (type) {
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ENABLE_1, 0)=
+;
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_STATUS_1);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ENABLE_2, 0)=
+;
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_STATUS_2);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_E3_RX_LAPD_CONTROL, 0);
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_LAPD_CONTROL);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_E3_TX_LAPD_STATUS, 0);
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_TX_LAPD_STATUS);
++		break;
++
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_RX_INTERRUPT_ENABLE, 0);
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_INTERRUPT_STATUS);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_RX_FEAC_INTERRUPT_ENABLE_=
+STATUS, 0);
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_FEAC_INTERRUPT_ENABLE_S=
+TATUS);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_RX_LAPD_CONTROL, 0);
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_LAPD_CONTROL);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_TX_FEAC_CONFIGURATION_STA=
+TUS, 0);
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_TX_FEAC_CONFIGURATION_STAT=
+US);
++		exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_TX_LAPD_STATUS, 0);
++		exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_TX_LAPD_STATUS);
++		break;
++	}
++}
++
++
++
++
++void exar7250_unipolar_onoff(struct channel *sc, u32 mode)
++{
++	switch (mode) {
++	case SBE_2T3E3_OFF:
++		exar7300_clear_bit(sc, SBE_2T3E3_FRAMER_REG_IO_CONTROL,
++				   SBE_2T3E3_FRAMER_VAL_UNIPOLAR);
++		break;
++	case SBE_2T3E3_ON:
++		exar7300_set_bit(sc, SBE_2T3E3_FRAMER_REG_IO_CONTROL,
++				 SBE_2T3E3_FRAMER_VAL_UNIPOLAR);
++		break;
++	}
++}
++
++void exar7250_set_loopback(struct channel *sc, u32 mode)
++{
++	switch (mode) {
++	case SBE_2T3E3_FRAMER_VAL_LOOPBACK_OFF:
++		exar7300_clear_bit(sc, SBE_2T3E3_FRAMER_REG_OPERATING_MODE,
++				   SBE_2T3E3_FRAMER_VAL_LOCAL_LOOPBACK_MODE);
++		break;
++	case SBE_2T3E3_FRAMER_VAL_LOOPBACK_ON:
++		exar7300_set_bit(sc, SBE_2T3E3_FRAMER_REG_OPERATING_MODE,
++				 SBE_2T3E3_FRAMER_VAL_LOCAL_LOOPBACK_MODE);
++		break;
++	}
++}
+diff --git a/drivers/staging/sbe-2t3e3/exar7300.c b/drivers/staging/sbe=
+-2t3e3/exar7300.c
+new file mode 100644
+index 0000000..d10d696
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/exar7300.c
+@@ -0,0 +1,182 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include "2t3e3.h"
++#include "ctrl.h"
++
++void exar7300_init(struct channel *sc)
++{
++	exar7300_write(sc, SBE_2T3E3_LIU_REG_REG1, 0);
++
++	/* enable line decodeer and encoder */
++	exar7300_write(sc, SBE_2T3E3_LIU_REG_REG2, 0);
++	exar7300_write(sc, SBE_2T3E3_LIU_REG_REG3, 0);
++	exar7300_write(sc, SBE_2T3E3_LIU_REG_REG4,
++		       SBE_2T3E3_LIU_VAL_T3_MODE_SELECT |
++		       SBE_2T3E3_LIU_VAL_LOOPBACK_OFF);
++}
++
++void exar7300_set_loopback(struct channel *sc, u32 mode)
++{
++	u32 val;
++
++	switch (mode) {
++	case SBE_2T3E3_LIU_VAL_LOOPBACK_OFF:
++	case SBE_2T3E3_LIU_VAL_LOOPBACK_REMOTE:
++	case SBE_2T3E3_LIU_VAL_LOOPBACK_ANALOG:
++	case SBE_2T3E3_LIU_VAL_LOOPBACK_DIGITAL:
++		break;
++	default:
++		return;
++	}
++
++	val =3D exar7300_read(sc, SBE_2T3E3_LIU_REG_REG4);
++	val &=3D ~(SBE_2T3E3_LIU_VAL_LOCAL_LOOPBACK | SBE_2T3E3_LIU_VAL_REMOT=
+E_LOOPBACK);
++	val |=3D mode;
++	exar7300_write(sc, SBE_2T3E3_LIU_REG_REG4, val);
++
++#if 0
++	/* TODO - is it necessary? idea from 2T3E3_HW_Test_code */
++	switch (mode) {
++	case SBE_2T3E3_LIU_VAL_LOOPBACK_OFF:
++		break;
++	case SBE_2T3E3_LIU_VAL_LOOPBACK_REMOTE:
++		exar7300_receive_equalization_onoff(sc, SBE_2T3E3_ON);
++		break;
++	case SBE_2T3E3_LIU_VAL_LOOPBACK_ANALOG:
++		exar7300_receive_equalization_onoff(sc, SBE_2T3E3_OFF);
++		break;
++	case SBE_2T3E3_LIU_VAL_LOOPBACK_DIGITAL:
++		exar7300_receive_equalization_onoff(sc, SBE_2T3E3_ON);
++		break;
++	}
++#endif
++}
++
++void exar7300_set_frame_type(struct channel *sc, u32 type)
++{
++	u32 val;
++
++	switch (type) {
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		break;
++	default:
++		return;
++	}
++
++	val =3D exar7300_read(sc, SBE_2T3E3_LIU_REG_REG4);
++	val &=3D ~(SBE_2T3E3_LIU_VAL_T3_MODE_SELECT |
++		 SBE_2T3E3_LIU_VAL_E3_MODE_SELECT);
++
++	switch (type) {
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		val |=3D SBE_2T3E3_LIU_VAL_T3_MODE_SELECT;
++		break;
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		val |=3D SBE_2T3E3_LIU_VAL_E3_MODE_SELECT;
++		break;
++	default:
++		return;
++	}
++
++	exar7300_write(sc, SBE_2T3E3_LIU_REG_REG4, val);
++}
++
++
++void exar7300_transmit_all_ones_onoff(struct channel *sc, u32 mode)
++{
++	if (sc->p.transmit_all_ones =3D=3D mode)
++		return;
++
++	switch (mode) {
++	case SBE_2T3E3_ON:
++		exar7300_set_bit(sc, SBE_2T3E3_LIU_REG_REG1,
++				 SBE_2T3E3_LIU_VAL_TRANSMIT_ALL_ONES);
++		break;
++	case SBE_2T3E3_OFF:
++		exar7300_clear_bit(sc, SBE_2T3E3_LIU_REG_REG1,
++				   SBE_2T3E3_LIU_VAL_TRANSMIT_ALL_ONES);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.transmit_all_ones =3D mode;
++}
++
++void exar7300_receive_equalization_onoff(struct channel *sc, u32 mode)
++{
++	if (sc->p.receive_equalization =3D=3D mode)
++		return;
++
++	switch (mode) {
++	case SBE_2T3E3_OFF:
++		exar7300_set_bit(sc, SBE_2T3E3_LIU_REG_REG2,
++				 SBE_2T3E3_LIU_VAL_RECEIVE_EQUALIZATION_DISABLE);
++		break;
++	case SBE_2T3E3_ON:
++		exar7300_clear_bit(sc, SBE_2T3E3_LIU_REG_REG2,
++				   SBE_2T3E3_LIU_VAL_RECEIVE_EQUALIZATION_DISABLE);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.receive_equalization =3D mode;
++}
++
++void exar7300_line_build_out_onoff(struct channel *sc, u32 mode)
++{
++	if (sc->p.line_build_out =3D=3D mode)
++		return;
++
++	switch (mode) {
++	case SBE_2T3E3_OFF:
++		exar7300_set_bit(sc, SBE_2T3E3_LIU_REG_REG1,
++				 SBE_2T3E3_LIU_VAL_TRANSMIT_LEVEL_SELECT);
++		exar7300_receive_equalization_onoff(sc, SBE_2T3E3_OFF);
++		break;
++	case SBE_2T3E3_ON:
++		exar7300_clear_bit(sc, SBE_2T3E3_LIU_REG_REG1,
++				   SBE_2T3E3_LIU_VAL_TRANSMIT_LEVEL_SELECT);
++		exar7300_receive_equalization_onoff(sc, SBE_2T3E3_ON);
++		break;
++	default:
++		return;
++	}
++
++	sc->p.line_build_out =3D mode;
++}
++
++/* TODO - what about encoder in raw mode??? disable it too? */
++void exar7300_unipolar_onoff(struct channel *sc, u32 mode)
++{
++	switch (mode) {
++	case SBE_2T3E3_OFF:
++		exar7300_clear_bit(sc, SBE_2T3E3_LIU_REG_REG3,
++				   SBE_2T3E3_LIU_VAL_DECODER_DISABLE);
++		exar7300_clear_bit(sc, SBE_2T3E3_LIU_REG_REG1,
++				   SBE_2T3E3_LIU_VAL_TRANSMIT_BINARY_DATA);
++		break;
++	case SBE_2T3E3_ON:
++		exar7300_set_bit(sc, SBE_2T3E3_LIU_REG_REG3,
++				 SBE_2T3E3_LIU_VAL_DECODER_DISABLE);
++		exar7300_set_bit(sc, SBE_2T3E3_LIU_REG_REG1,
++				 SBE_2T3E3_LIU_VAL_TRANSMIT_BINARY_DATA);
++		break;
++	}
++}
+diff --git a/drivers/staging/sbe-2t3e3/intr.c b/drivers/staging/sbe-2t3=
+e3/intr.c
+new file mode 100644
+index 0000000..4c8922c
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/intr.c
+@@ -0,0 +1,651 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/hdlc.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include "2t3e3.h"
++
++irqreturn_t t3e3_intr(int irq, void *dev_instance)
++{
++	struct channel *sc =3D dev_to_priv(dev_instance);
++	u32 val;
++	irqreturn_t ret =3D IRQ_NONE;
++
++	sc->interrupt_active =3D 1;
++
++	val =3D cpld_read(sc, SBE_2T3E3_CPLD_REG_PICSR);
++
++	if (val & SBE_2T3E3_CPLD_VAL_RECEIVE_LOSS_OF_SIGNAL_CHANGE) {
++		dev_dbg(&sc->pdev->dev,
++			"Rx LOS Chng Int r=3D%02x (LOS|OOF=3D%02x)\n",
++			val, (sc->s.LOS << 4) | sc->s.OOF);
++		cpld_LOS_update(sc);
++		ret =3D IRQ_HANDLED;
++	}
++
++	if (val & SBE_2T3E3_CPLD_VAL_INTERRUPT_FROM_ETHERNET_ASSERTED) {
++		dc_intr(sc);
++		ret =3D IRQ_HANDLED;
++	}
++
++	if (val & SBE_2T3E3_CPLD_VAL_INTERRUPT_FROM_FRAMER_ASSERTED) {
++		exar7250_intr(sc);
++		ret =3D IRQ_HANDLED;
++	}
++
++	/*
++	  we don't care about other interrupt sources (DMO, LOS, LCV) because
++	  they are handled by Framer too
++	*/
++
++	sc->interrupt_active =3D 0;
++	return ret;
++}
++
++void dc_intr(struct channel *sc)
++{
++	u32 val;
++
++	/* disable ethernet interrupts */
++	/* grrr this clears interrupt summary bits !!! */
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_INTERRUPT_ENABLE, 0);
++
++	while ((val =3D dc_read(sc->addr, SBE_2T3E3_21143_REG_STATUS)) &
++	       (SBE_2T3E3_21143_VAL_RECEIVE_PROCESS_STOPPED |
++		SBE_2T3E3_21143_VAL_RECEIVE_BUFFER_UNAVAILABLE |
++		SBE_2T3E3_21143_VAL_RECEIVE_INTERRUPT |
++		SBE_2T3E3_21143_VAL_TRANSMIT_UNDERFLOW |
++		SBE_2T3E3_21143_VAL_TRANSMIT_BUFFER_UNAVAILABLE |
++		SBE_2T3E3_21143_VAL_TRANSMIT_PROCESS_STOPPED |
++		SBE_2T3E3_21143_VAL_TRANSMIT_INTERRUPT)) {
++		dc_write(sc->addr, SBE_2T3E3_21143_REG_STATUS, val);
++
++		dev_dbg(&sc->pdev->dev, DRV_NAME
++			": Ethernet Controller Interrupt! (CSR5 =3D %08X)\n",
++			val);
++
++		if (val & (SBE_2T3E3_21143_VAL_RECEIVE_INTERRUPT |
++			   SBE_2T3E3_21143_VAL_RECEIVE_BUFFER_UNAVAILABLE |
++			   SBE_2T3E3_21143_VAL_RECEIVE_PROCESS_STOPPED)) {
++			if (val & SBE_2T3E3_21143_VAL_RECEIVE_INTERRUPT)
++				dev_dbg(&sc->pdev->dev,
++					"Receive interrupt (LOS=3D%d, OOF=3D%d)\n",
++					sc->s.LOS, sc->s.OOF);
++			if (val & SBE_2T3E3_21143_VAL_RECEIVE_BUFFER_UNAVAILABLE)
++				dev_dbg(&sc->pdev->dev,
++					"Receive buffer unavailable\n");
++			if (val & SBE_2T3E3_21143_VAL_RECEIVE_PROCESS_STOPPED)
++				dev_dbg(&sc->pdev->dev,
++					"Receive process stopped\n");
++			dc_intr_rx(sc);
++		}
++
++		if (val & SBE_2T3E3_21143_VAL_TRANSMIT_UNDERFLOW) {
++			dev_dbg(&sc->pdev->dev, "Transmit underflow\n");
++			dc_intr_tx_underflow(sc);
++		}
++
++		if (val & (SBE_2T3E3_21143_VAL_TRANSMIT_BUFFER_UNAVAILABLE |
++			   SBE_2T3E3_21143_VAL_TRANSMIT_INTERRUPT |
++			   SBE_2T3E3_21143_VAL_TRANSMIT_PROCESS_STOPPED)) {
++			if (val & SBE_2T3E3_21143_VAL_TRANSMIT_INTERRUPT)
++				dev_dbg(&sc->pdev->dev, "Transmit interrupt\n");
++			if (val & SBE_2T3E3_21143_VAL_TRANSMIT_BUFFER_UNAVAILABLE)
++				dev_dbg(&sc->pdev->dev,
++					"Transmit buffer unavailable\n");
++			if (val & SBE_2T3E3_21143_VAL_TRANSMIT_PROCESS_STOPPED)
++				dev_dbg(&sc->pdev->dev,
++					"Transmit process stopped\n");
++			dc_intr_tx(sc);
++		}
++	}
++
++	/* enable ethernet interrupts */
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_INTERRUPT_ENABLE,
++		 sc->ether.interrupt_enable_mask);
++}
++
++void dc_intr_rx(struct channel *sc)
++{
++	u32 current_read;
++	u32 error_mask, error;
++	t3e3_rx_desc_t *current_desc;
++	struct sk_buff *m, *m2;
++	unsigned rcv_len;
++
++	sc->rcv_count++; /* for the activity LED */
++
++	current_read =3D sc->ether.rx_ring_current_read;
++	dev_dbg(&sc->pdev->dev, "intr_rx current_read =3D %d\n", current_read=
+);
++
++	/* when ethernet loopback is set, ignore framer signals */
++	if ((sc->p.loopback !=3D SBE_2T3E3_LOOPBACK_ETHERNET) && sc->s.OOF) {
++		while (!(sc->ether.rx_ring[current_read].rdes0 &
++			 SBE_2T3E3_RX_DESC_21143_OWN)) {
++			current_desc =3D &sc->ether.rx_ring[current_read];
++			current_desc->rdes1 &=3D SBE_2T3E3_RX_DESC_END_OF_RING |
++				SBE_2T3E3_RX_DESC_SECOND_ADDRESS_CHAINED;
++			current_desc->rdes1 |=3D SBE_2T3E3_MTU;
++			current_desc->rdes0 =3D SBE_2T3E3_RX_DESC_21143_OWN;
++			current_read =3D (current_read + 1) % SBE_2T3E3_RX_DESC_RING_SIZE;
++		}
++		sc->ether.rx_ring_current_read =3D current_read;
++		return;
++	}
++
++	while (!(sc->ether.rx_ring[current_read].rdes0 &
++		 SBE_2T3E3_RX_DESC_21143_OWN)) {
++		current_desc =3D &sc->ether.rx_ring[current_read];
++
++		dev_dbg(&sc->pdev->dev, "rdes0: %08X        rdes1: %08X\n",
++			current_desc->rdes0, current_desc->rdes1);
++
++		m =3D sc->ether.rx_data[current_read];
++		rcv_len =3D (current_desc->rdes0 & SBE_2T3E3_RX_DESC_FRAME_LENGTH) >=
+>
++			SBE_2T3E3_RX_DESC_FRAME_LENGTH_SHIFT;
++
++		dev_dbg(&sc->pdev->dev, "mbuf was received (mbuf len =3D %d)\n",
++			rcv_len);
++
++		switch (sc->p.crc) {
++		case SBE_2T3E3_CRC_16:
++			rcv_len -=3D SBE_2T3E3_CRC16_LENGTH;
++			break;
++		case SBE_2T3E3_CRC_32:
++			rcv_len -=3D SBE_2T3E3_CRC32_LENGTH;
++			break;
++		default:
++			break;
++		}
++
++		if (current_desc->rdes0 & SBE_2T3E3_RX_DESC_LAST_DESC) {
++
++			/* TODO: is collision possible? */
++			error_mask =3D SBE_2T3E3_RX_DESC_DESC_ERROR |
++				SBE_2T3E3_RX_DESC_COLLISION_SEEN |
++				SBE_2T3E3_RX_DESC_DRIBBLING_BIT;
++
++			switch (sc->p.frame_mode) {
++			case SBE_2T3E3_FRAME_MODE_HDLC:
++				error_mask |=3D SBE_2T3E3_RX_DESC_MII_ERROR;
++				if (sc->p.crc =3D=3D SBE_2T3E3_CRC_32)
++					error_mask |=3D SBE_2T3E3_RX_DESC_CRC_ERROR;
++				break;
++			case SBE_2T3E3_FRAME_MODE_TRANSPARENT:
++			case SBE_2T3E3_FRAME_MODE_RAW:
++				break;
++			default:
++				error_mask =3D 0;
++			}
++
++			if (sc->s.LOS) {
++				error_mask &=3D ~(SBE_2T3E3_RX_DESC_DRIBBLING_BIT ||
++						SBE_2T3E3_RX_DESC_MII_ERROR);
++			}
++
++			error =3D current_desc->rdes0 & error_mask;
++			if (error) {
++				sc->s.in_errors++;
++				dev_dbg(&sc->pdev->dev,
++					"error interrupt: NO_ERROR_MESSAGE =3D %d\n",
++					sc->r.flags & SBE_2T3E3_FLAG_NO_ERROR_MESSAGES ? 1 : 0);
++
++				current_desc->rdes1 &=3D SBE_2T3E3_RX_DESC_END_OF_RING |
++					SBE_2T3E3_RX_DESC_SECOND_ADDRESS_CHAINED;
++				current_desc->rdes1 |=3D SBE_2T3E3_MTU;
++				current_desc->rdes0 =3D SBE_2T3E3_RX_DESC_21143_OWN;
++
++				if (error & SBE_2T3E3_RX_DESC_DESC_ERROR) {
++					if (!(sc->r.flags & SBE_2T3E3_FLAG_NO_ERROR_MESSAGES))
++						dev_err(&sc->pdev->dev, DRV_NAME
++							": descriptor error\n");
++					sc->s.in_error_desc++;
++				}
++
++				if (error & SBE_2T3E3_RX_DESC_COLLISION_SEEN) {
++					if (!(sc->r.flags & SBE_2T3E3_FLAG_NO_ERROR_MESSAGES))
++						dev_err(&sc->pdev->dev, DRV_NAME
++							": collision seen\n");
++					sc->s.in_error_coll++;
++				} else {
++					if (error & SBE_2T3E3_RX_DESC_DRIBBLING_BIT) {
++						if (!(sc->r.flags & SBE_2T3E3_FLAG_NO_ERROR_MESSAGES))
++							dev_err(&sc->pdev->dev,
++								DRV_NAME
++								": dribbling bits error\n");
++						sc->s.in_error_drib++;
++					}
++
++					if (error & SBE_2T3E3_RX_DESC_CRC_ERROR) {
++						if (!(sc->r.flags & SBE_2T3E3_FLAG_NO_ERROR_MESSAGES))
++							dev_err(&sc->pdev->dev,
++								DRV_NAME
++								": crc error\n");
++						sc->s.in_error_crc++;
++					}
++				}
++
++				if (error & SBE_2T3E3_RX_DESC_MII_ERROR) {
++					if (!(sc->r.flags & SBE_2T3E3_FLAG_NO_ERROR_MESSAGES))
++						dev_err(&sc->pdev->dev, DRV_NAME
++							": mii error\n");
++					sc->s.in_error_mii++;
++				}
++
++				current_read =3D (current_read + 1) % SBE_2T3E3_RX_DESC_RING_SIZE;
++				sc->r.flags |=3D SBE_2T3E3_FLAG_NO_ERROR_MESSAGES;
++				continue;
++			}
++		}
++
++		current_desc->rdes1 &=3D SBE_2T3E3_RX_DESC_END_OF_RING |
++			SBE_2T3E3_RX_DESC_SECOND_ADDRESS_CHAINED;
++		current_desc->rdes1 |=3D SBE_2T3E3_MTU;
++
++		if (rcv_len > 1600) {
++			sc->s.in_errors++;
++			sc->s.in_dropped++;
++			if (!(sc->r.flags & SBE_2T3E3_FLAG_NO_ERROR_MESSAGES))
++				dev_err(&sc->pdev->dev, DRV_NAME
++					": oversized rx: rdes0 =3D %08X\n",
++					current_desc->rdes0);
++		} else {
++			m2 =3D dev_alloc_skb(MCLBYTES);
++			if (m2 !=3D NULL) {
++				current_desc->rdes2 =3D virt_to_phys(m2->data);
++				sc->ether.rx_data[current_read] =3D m2;
++				sc->s.in_packets++;
++				sc->s.in_bytes +=3D rcv_len;
++				m->dev =3D sc->dev;
++				skb_put(m, rcv_len);
++				skb_reset_mac_header(m);
++				m->protocol =3D hdlc_type_trans(m, m->dev);
++				netif_rx(m);
++
++				/* good packet was received so we will show error messages again..=
+=2E */
++				if (sc->r.flags & SBE_2T3E3_FLAG_NO_ERROR_MESSAGES) {
++					dev_dbg(&sc->pdev->dev,
++						"setting ERROR_MESSAGES->0\n");
++					sc->r.flags &=3D ~SBE_2T3E3_FLAG_NO_ERROR_MESSAGES;
++				}
++
++			} else {
++				sc->s.in_errors++;
++				sc->s.in_dropped++;
++			}
++		}
++		current_desc->rdes0 =3D SBE_2T3E3_RX_DESC_21143_OWN;
++		current_read =3D (current_read + 1) % SBE_2T3E3_RX_DESC_RING_SIZE;
++	}
++
++	sc->ether.rx_ring_current_read =3D current_read;
++
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_RECEIVE_POLL_DEMAND, 0xFFFFFFF=
+=46);
++}
++
++void dc_intr_tx(struct channel *sc)
++{
++	u32 current_read, current_write;
++	u32 last_segment, error;
++	t3e3_tx_desc_t *current_desc;
++
++	spin_lock(&sc->ether.tx_lock);
++
++	current_read =3D sc->ether.tx_ring_current_read;
++	current_write =3D sc->ether.tx_ring_current_write;
++
++	while (current_read !=3D current_write) {
++		current_desc =3D &sc->ether.tx_ring[current_read];
++
++		if (current_desc->tdes0 & SBE_2T3E3_RX_DESC_21143_OWN)
++			break;
++
++		dev_dbg(&sc->pdev->dev,
++			"txeof: tdes0 =3D %08X        tdes1 =3D %08X\n",
++			current_desc->tdes0, current_desc->tdes1);
++
++		error =3D current_desc->tdes0 & (SBE_2T3E3_TX_DESC_ERROR_SUMMARY |
++					       SBE_2T3E3_TX_DESC_TRANSMIT_JABBER_TIMEOUT |
++					       SBE_2T3E3_TX_DESC_LOSS_OF_CARRIER |
++					       SBE_2T3E3_TX_DESC_NO_CARRIER |
++					       SBE_2T3E3_TX_DESC_LINK_FAIL_REPORT |
++					       SBE_2T3E3_TX_DESC_UNDERFLOW_ERROR |
++					       SBE_2T3E3_TX_DESC_DEFFERED);
++
++		last_segment =3D current_desc->tdes1 & SBE_2T3E3_TX_DESC_LAST_SEGMEN=
+T;
++
++		current_desc->tdes0 =3D 0;
++		current_desc->tdes1 &=3D SBE_2T3E3_TX_DESC_END_OF_RING |
++			SBE_2T3E3_TX_DESC_SECOND_ADDRESS_CHAINED;
++		current_desc->tdes2 =3D 0;
++		sc->ether.tx_free_cnt++;
++
++		if (last_segment !=3D SBE_2T3E3_TX_DESC_LAST_SEGMENT) {
++			current_read =3D (current_read + 1) % SBE_2T3E3_TX_DESC_RING_SIZE;
++			continue;
++		}
++
++
++		if (sc->ether.tx_data[current_read]) {
++			sc->s.out_packets++;
++			sc->s.out_bytes +=3D sc->ether.tx_data[current_read]->len;
++			dev_kfree_skb_any(sc->ether.tx_data[current_read]);
++			sc->ether.tx_data[current_read] =3D NULL;
++		}
++
++		if (error > 0) {
++			sc->s.out_errors++;
++
++			if (error & SBE_2T3E3_TX_DESC_TRANSMIT_JABBER_TIMEOUT) {
++				dev_err(&sc->pdev->dev, DRV_NAME
++					": transmit jabber timeout\n");
++				sc->s.out_error_jab++;
++			}
++
++			if (sc->p.loopback !=3D SBE_2T3E3_LOOPBACK_ETHERNET) {
++				if (error & SBE_2T3E3_TX_DESC_LOSS_OF_CARRIER) {
++					dev_err(&sc->pdev->dev, DRV_NAME
++						": loss of carrier\n");
++					sc->s.out_error_lost_carr++;
++				}
++
++				if (error & SBE_2T3E3_TX_DESC_NO_CARRIER) {
++					dev_err(&sc->pdev->dev, DRV_NAME
++						": no carrier\n");
++					sc->s.out_error_no_carr++;
++				}
++			}
++
++			if (error & SBE_2T3E3_TX_DESC_LINK_FAIL_REPORT) {
++				dev_err(&sc->pdev->dev, DRV_NAME
++					": link fail report\n");
++				sc->s.out_error_link_fail++;
++			}
++
++			if (error & SBE_2T3E3_TX_DESC_UNDERFLOW_ERROR) {
++				dev_err(&sc->pdev->dev, DRV_NAME
++					": transmission underflow error\n");
++				sc->s.out_error_underflow++;
++				spin_unlock(&sc->ether.tx_lock);
++
++				dc_restart(sc);
++				return;
++			}
++
++			if (error & SBE_2T3E3_TX_DESC_DEFFERED) {
++				dev_err(&sc->pdev->dev, DRV_NAME
++					": transmission deferred\n");
++				sc->s.out_error_dereferred++;
++			}
++		}
++
++		current_read =3D (current_read + 1) % SBE_2T3E3_TX_DESC_RING_SIZE;
++	}
++
++	sc->ether.tx_ring_current_read =3D current_read;
++
++	/* Relieve flow control when the TX queue is drained at least half wa=
+y */
++	if (sc->ether.tx_full &&
++	    (sc->ether.tx_free_cnt >=3D (SBE_2T3E3_TX_DESC_RING_SIZE / 2))) {
++		sc->ether.tx_full =3D 0;
++		netif_wake_queue(sc->dev);
++	}
++	spin_unlock(&sc->ether.tx_lock);
++}
++
++
++void dc_intr_tx_underflow(struct channel *sc)
++{
++	u32 val;
++
++	dc_transmitter_onoff(sc, SBE_2T3E3_OFF);
++
++	val =3D dc_read(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE);
++	dc_clear_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++		      SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS);
++
++	switch (val & SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS) {
++	case SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_1:
++		dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++			    SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_2);
++		break;
++	case SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_2:
++		dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++			    SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_3);
++		break;
++	case SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_3:
++		dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++			    SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_4);
++		break;
++	case SBE_2T3E3_21143_VAL_THRESHOLD_CONTROL_BITS_4:
++	default:
++		dc_set_bits(sc->addr, SBE_2T3E3_21143_REG_OPERATION_MODE,
++			    SBE_2T3E3_21143_VAL_STORE_AND_FORWARD);
++		break;
++	}
++
++	dc_transmitter_onoff(sc, SBE_2T3E3_ON);
++}
++
++
++
++
++void exar7250_intr(struct channel *sc)
++{
++	u32 status, old_OOF;
++
++#if 0
++	/* disable interrupts */
++	exar7250_write(sc, SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_ENABLE, 0);
++#endif
++
++	old_OOF =3D sc->s.OOF;
++
++	status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_STA=
+TUS);
++	dev_dbg(&sc->pdev->dev, DRV_NAME
++		": Framer Interrupt! (REG[0x05] =3D %02X)\n", status);
++
++	switch (sc->p.frame_type) {
++	case SBE_2T3E3_FRAME_TYPE_E3_G751:
++	case SBE_2T3E3_FRAME_TYPE_E3_G832:
++		exar7250_E3_intr(sc, status);
++		break;
++
++	case SBE_2T3E3_FRAME_TYPE_T3_CBIT:
++	case SBE_2T3E3_FRAME_TYPE_T3_M13:
++		exar7250_T3_intr(sc, status);
++		break;
++
++	default:
++		break;
++	}
++
++	if (sc->s.OOF !=3D old_OOF) {
++		if (sc->s.OOF) {
++			if (sc->p.loopback =3D=3D SBE_2T3E3_LOOPBACK_NONE) {
++				dev_dbg(&sc->pdev->dev, DRV_NAME
++					": Disabling eth interrupts\n");
++				/* turn off ethernet interrupts */
++				dc_stop_intr(sc);
++			}
++		} else if (sc->r.flags & SBE_2T3E3_FLAG_NETWORK_UP) {
++			dev_dbg(&sc->pdev->dev, DRV_NAME
++				": Enabling eth interrupts\n");
++			/* start interrupts */
++			sc->s.OOF =3D 1;
++			dc_intr_rx(sc);
++			sc->s.OOF =3D 0;
++			if (sc->p.receiver_on) {
++				dc_receiver_onoff(sc, SBE_2T3E3_OFF);
++				dc_receiver_onoff(sc, SBE_2T3E3_ON);
++			}
++			dc_start_intr(sc);
++		}
++	}
++#if 0
++	/* reenable interrupts */
++	exar7250_write(sc, SBE_2T3E3_FRAMER_REG_BLOCK_INTERRUPT_ENABLE,
++		       SBE_2T3E3_FRAMER_VAL_RX_INTERRUPT_ENABLE |
++		       SBE_2T3E3_FRAMER_VAL_TX_INTERRUPT_ENABLE
++		);
++#endif
++}
++
++
++void exar7250_T3_intr(struct channel *sc, u32 block_status)
++{
++	u32 status, result;
++
++	if (block_status & SBE_2T3E3_FRAMER_VAL_RX_INTERRUPT_STATUS) {
++		status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_INTERRUPT_ST=
+ATUS);
++
++		if (status) {
++			dev_dbg(&sc->pdev->dev,
++				"Framer interrupt T3 RX (REG[0x13] =3D %02X)\n",
++				status);
++
++			result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_CONFIGURATI=
+ON_STATUS);
++
++#if 0
++			if (status & SBE_2T3E3_FRAMER_VAL_T3_RX_LOS_INTERRUPT_STATUS) {
++				dev_dbg(&sc->pdev->dev,
++					"Framer interrupt T3: LOS\n");
++				sc->s.LOS =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_LOS ? 1 : 0;
++
++			}
++#else
++			cpld_LOS_update(sc);
++#endif
++			if (status & SBE_2T3E3_FRAMER_VAL_T3_RX_OOF_INTERRUPT_STATUS) {
++				sc->s.OOF =3D result & SBE_2T3E3_FRAMER_VAL_T3_RX_OOF ? 1 : 0;
++				dev_dbg(&sc->pdev->dev,
++					"Framer interrupt T3: OOF (%d)\n",
++					sc->s.OOF);
++			}
++
++			exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_RX_INTERRUPT_ENABLE,
++				       SBE_2T3E3_FRAMER_VAL_T3_RX_LOS_INTERRUPT_ENABLE |
++				       SBE_2T3E3_FRAMER_VAL_T3_RX_OOF_INTERRUPT_ENABLE);
++#if 0
++			SBE_2T3E3_FRAMER_VAL_T3_RX_CP_BIT_ERROR_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_T3_RX_LOS_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_T3_RX_AIS_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_T3_RX_IDLE_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_T3_RX_FERF_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_T3_RX_AIC_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_T3_RX_OOF_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_T3_RX_P_BIT_INTERRUPT_ENABLE
++#endif
++				}
++
++		status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_FEAC_INTERRU=
+PT_ENABLE_STATUS);
++		if (status) {
++			dev_dbg(&sc->pdev->dev,
++				"Framer interrupt T3 RX (REG[0x17] =3D %02X)\n",
++				status);
++#if 0
++			exar7250_write(sc, SBE_2T3E3_FRAMER_REG_T3_RX_FEAC_INTERRUPT_ENABLE=
+_STATUS,
++				       SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_REMOVE_INTERRUPT_ENABLE |
++				       SBE_2T3E3_FRAMER_VAL_T3_RX_FEAC_VALID_INTERRUPT_ENABLE
++				);
++#endif
++		}
++
++		status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_RX_LAPD_CONTROL=
+);
++		if (status)
++			dev_dbg(&sc->pdev->dev,
++				"Framer interrupt T3 RX (REG[0x18] =3D %02X)\n",
++				status);
++	}
++
++
++	if (block_status & SBE_2T3E3_FRAMER_VAL_TX_INTERRUPT_STATUS) {
++		status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_TX_FEAC_CONFIGU=
+RATION_STATUS);
++		dev_dbg(&sc->pdev->dev, DRV_NAME
++			": Framer interrupt T3 TX (REG[0x31] =3D %02X)\n",
++			status);
++
++		status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_T3_TX_LAPD_STATUS)=
+;
++		dev_dbg(&sc->pdev->dev, DRV_NAME
++			": Framer interrupt T3 TX (REG[0x34] =3D %02X)\n",
++			status);
++	}
++}
++
++
++void exar7250_E3_intr(struct channel *sc, u32 block_status)
++{
++	u32 status, result;
++
++	if (block_status & SBE_2T3E3_FRAMER_VAL_RX_INTERRUPT_STATUS) {
++		status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ST=
+ATUS_1);
++
++		if (status) {
++			dev_dbg(&sc->pdev->dev,
++				"Framer interrupt E3 RX (REG[0x14] =3D %02X)\n",
++				status);
++
++			result =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_CONFIGURATI=
+ON_STATUS_2);
++
++#if 0
++			if (status & SBE_2T3E3_FRAMER_VAL_E3_RX_LOS_INTERRUPT_STATUS) {
++				dev_dbg(&sc->pdev->dev,
++					"Framer interrupt E3: LOS\n");
++				sc->s.LOS =3D result & SBE_2T3E3_FRAMER_VAL_E3_RX_LOS ? 1 : 0;
++			}
++#else
++			cpld_LOS_update(sc);
++#endif
++			if (status & SBE_2T3E3_FRAMER_VAL_E3_RX_OOF_INTERRUPT_STATUS) {
++				sc->s.OOF =3D result & SBE_2T3E3_FRAMER_VAL_E3_RX_OOF ? 1 : 0;
++				dev_dbg(&sc->pdev->dev,
++					"Framer interrupt E3: OOF (%d)\n",
++					sc->s.OOF);
++			}
++
++			exar7250_write(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ENABLE_1,
++				       SBE_2T3E3_FRAMER_VAL_E3_RX_OOF_INTERRUPT_ENABLE |
++				       SBE_2T3E3_FRAMER_VAL_E3_RX_LOS_INTERRUPT_ENABLE
++				);
++#if 0
++			SBE_2T3E3_FRAMER_VAL_E3_RX_COFA_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_E3_RX_OOF_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_E3_RX_LOF_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_E3_RX_LOS_INTERRUPT_ENABLE |
++				SBE_2T3E3_FRAMER_VAL_E3_RX_AIS_INTERRUPT_ENABLE
++#endif
++				}
++
++		status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ST=
+ATUS_2);
++		if (status) {
++			dev_dbg(&sc->pdev->dev,
++				"Framer interrupt E3 RX (REG[0x15] =3D %02X)\n",
++				status);
++
++#if 0
++			exar7250_write(sc, SBE_2T3E3_FRAMER_REG_E3_RX_INTERRUPT_ENABLE_2,
++				       SBE_2T3E3_FRAMER_VAL_E3_RX_FEBE_INTERRUPT_ENABLE |
++				       SBE_2T3E3_FRAMER_VAL_E3_RX_FERF_INTERRUPT_ENABLE |
++				       SBE_2T3E3_FRAMER_VAL_E3_RX_FRAMING_BYTE_ERROR_INTERRUPT_ENA=
+BLE);
++#endif
++		}
++
++	}
++
++	if (block_status & SBE_2T3E3_FRAMER_VAL_TX_INTERRUPT_STATUS) {
++		status =3D exar7250_read(sc, SBE_2T3E3_FRAMER_REG_E3_TX_LAPD_STATUS)=
+;
++		dev_dbg(&sc->pdev->dev, DRV_NAME
++			": Framer interrupt E3 TX (REG[0x34] =3D %02X)\n",
++			status);
++	}
++}
+diff --git a/drivers/staging/sbe-2t3e3/io.c b/drivers/staging/sbe-2t3e3=
+/io.c
+new file mode 100644
+index 0000000..b458ff0
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/io.c
+@@ -0,0 +1,352 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/ip.h>
++#include <asm/system.h>
++#include "2t3e3.h"
++#include "ctrl.h"
++
++/* All access to registers done via the 21143 on port 0 must be
++ * protected via the card->bootrom_lock. */
++
++/* priviate define to be used here only - must be protected by card->b=
+ootrom_lock */
++#define cpld_write_nolock(channel, reg, val)			\
++	bootrom_write((channel), CPLD_MAP_REG(reg, channel), val)
++
++u32 cpld_read(struct channel *channel, u32 reg)
++{
++	unsigned long flags;
++	u32 val;
++
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++	val =3D bootrom_read((channel), CPLD_MAP_REG(reg, channel));
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++	return val;
++}
++
++/****************************************
++ * Access via BootROM port
++ ****************************************/
++
++u32 bootrom_read(struct channel *channel, u32 reg)
++{
++	unsigned long addr =3D channel->card->bootrom_addr;
++	u32 result;
++
++	/* select BootROM address */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_PROGRAMMING_ADDRESS, reg =
+& 0x3FFFF);
++
++	/* select reading from BootROM */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_READ_OPERATION |
++		 SBE_2T3E3_21143_VAL_BOOT_ROM_SELECT);
++
++	udelay(2); /* 20 PCI cycles */
++
++	/* read from BootROM */
++	result =3D dc_read(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_=
+MII_MANAGEMENT) & 0xff;
++
++	/* reset CSR9 */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT, 0);
++
++	return result;
++}
++
++void bootrom_write(struct channel *channel, u32 reg, u32 val)
++{
++	unsigned long addr =3D channel->card->bootrom_addr;
++
++	/* select BootROM address */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_PROGRAMMING_ADDRESS, reg =
+& 0x3FFFF);
++
++	/* select writting to BootROM */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_WRITE_OPERATION |
++		 SBE_2T3E3_21143_VAL_BOOT_ROM_SELECT |
++		 (val & 0xff));
++
++	udelay(2); /* 20 PCI cycles */
++
++	/* reset CSR9 */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT, 0);
++}
++
++
++/****************************************
++ * Access via Serial I/O port
++ ****************************************/
++
++static u32 serialrom_read_bit(struct channel *channel)
++{
++	unsigned long addr =3D channel->card->bootrom_addr;
++	u32 bit;
++
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_READ_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CLOCK |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT);	/* clock high */
++
++	bit =3D (dc_read(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MI=
+I_MANAGEMENT) &
++	       SBE_2T3E3_21143_VAL_SERIAL_ROM_DATA_OUT) > 0 ? 1 : 0;
++
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_READ_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT);	/* clock low */
++
++	return bit;
++}
++
++static void serialrom_write_bit(struct channel *channel, u32 bit)
++{
++	unsigned long addr =3D channel->card->bootrom_addr;
++	u32 lastbit =3D -1;
++
++	bit &=3D 1;
++
++	if (bit !=3D lastbit) {
++		dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAG=
+EMENT,
++			 SBE_2T3E3_21143_VAL_WRITE_OPERATION |
++			 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++			 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT |
++			 (bit << 2)); /* clock low */
++
++		lastbit =3D bit;
++	}
++
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_WRITE_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CLOCK |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT |
++		 (bit << 2)); /* clock high */
++
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_WRITE_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT |
++		 (bit << 2)); /* clock low */
++}
++
++/****************************************
++ * Access to SerialROM (eeprom)
++ ****************************************/
++
++u32 t3e3_eeprom_read_word(struct channel *channel, u32 address)
++{
++	unsigned long addr =3D channel->card->bootrom_addr;
++	u32 i, val;
++	unsigned long flags;
++
++	address &=3D 0x3f;
++
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++
++	/* select correct Serial Chip */
++	cpld_write_nolock(channel, SBE_2T3E3_CPLD_REG_SERIAL_CHIP_SELECT,
++			  SBE_2T3E3_CPLD_VAL_EEPROM_SELECT);
++
++	/* select reading from Serial I/O Bus */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_READ_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT);        /* clock low */
++
++	/* select read operation */
++	serialrom_write_bit(channel, 0);
++	serialrom_write_bit(channel, 1);
++	serialrom_write_bit(channel, 1);
++	serialrom_write_bit(channel, 0);
++
++	for (i =3D 0x20; i; i >>=3D 1)
++		serialrom_write_bit(channel, address & i ? 1 : 0);
++
++	val =3D 0;
++	for (i =3D 0x8000; i; i >>=3D 1)
++		val |=3D (serialrom_read_bit(channel) ? i : 0);
++
++	/* Reset 21143's CSR9 */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_READ_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT);        /* clock low */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT, 0);
++
++	/* Unselect Serial Chip */
++	cpld_write_nolock(channel, SBE_2T3E3_CPLD_REG_SERIAL_CHIP_SELECT, 0);
++
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++
++	return ntohs(val);
++}
++
++
++/****************************************
++ * Access to Framer
++ ****************************************/
++
++u32 exar7250_read(struct channel *channel, u32 reg)
++{
++	u32 result;
++	unsigned long flags;
++
++#if 0
++	switch (reg) {
++	case SBE_2T3E3_FRAMER_REG_OPERATING_MODE:
++		return channel->framer_regs[reg];
++		break;
++	default:
++	}
++#endif
++
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++
++	result =3D bootrom_read(channel, cpld_reg_map[SBE_2T3E3_CPLD_REG_FRAM=
+ER_BASE_ADDRESS]
++			      [channel->h.slot] + (t3e3_framer_reg_map[reg] << 2));
++
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++
++	return result;
++}
++
++void exar7250_write(struct channel *channel, u32 reg, u32 val)
++{
++	unsigned long flags;
++
++	val &=3D 0xff;
++	channel->framer_regs[reg] =3D val;
++
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++
++	bootrom_write(channel, cpld_reg_map[SBE_2T3E3_CPLD_REG_FRAMER_BASE_AD=
+DRESS]
++		      [channel->h.slot] + (t3e3_framer_reg_map[reg] << 2), val);
++
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++}
++
++
++/****************************************
++ * Access to LIU
++ ****************************************/
++
++u32 exar7300_read(struct channel *channel, u32 reg)
++{
++	unsigned long addr =3D channel->card->bootrom_addr, flags;
++	u32 i, val;
++
++#if 0
++	switch (reg) {
++	case SBE_2T3E3_LIU_REG_REG1:
++	case SBE_2T3E3_LIU_REG_REG2:
++	case SBE_2T3E3_LIU_REG_REG3:
++	case SBE_2T3E3_LIU_REG_REG4:
++		return channel->liu_regs[reg];
++		break;
++	default:
++	}
++#endif
++
++	/* select correct Serial Chip */
++
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++
++	cpld_write_nolock(channel, SBE_2T3E3_CPLD_REG_SERIAL_CHIP_SELECT,
++			  cpld_val_map[SBE_2T3E3_CPLD_VAL_LIU_SELECT][channel->h.slot]);
++
++	/* select reading from Serial I/O Bus */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_READ_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT);	/* clock low */
++
++	/* select read operation */
++	serialrom_write_bit(channel, 1);
++
++	/* Exar7300 register address is 4 bit long */
++	reg =3D t3e3_liu_reg_map[reg];
++	for (i =3D 0; i < 4; i++, reg >>=3D 1) /* 4 bits of SerialROM address=
+ */
++		serialrom_write_bit(channel, reg & 1);
++	for (i =3D 0; i < 3; i++)	/* remaining 3 bits of SerialROM address */
++		serialrom_write_bit(channel, 0);
++
++	val =3D 0; /* Exar7300 register value is 5 bit long */
++	for (i =3D 0; i < 8; i++)	/* 8 bits of SerialROM value */
++		val +=3D (serialrom_read_bit(channel) << i);
++
++	/* Reset 21143's CSR9 */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_READ_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT);	/* clock low */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT, 0);
++
++	/* Unselect Serial Chip */
++	cpld_write_nolock(channel, SBE_2T3E3_CPLD_REG_SERIAL_CHIP_SELECT, 0);
++
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++
++	return val;
++}
++
++void exar7300_write(struct channel *channel, u32 reg, u32 val)
++{
++	unsigned long addr =3D channel->card->bootrom_addr, flags;
++	u32 i;
++
++	channel->liu_regs[reg] =3D val;
++
++	/* select correct Serial Chip */
++
++	spin_lock_irqsave(&channel->card->bootrom_lock, flags);
++
++	cpld_write_nolock(channel, SBE_2T3E3_CPLD_REG_SERIAL_CHIP_SELECT,
++			  cpld_val_map[SBE_2T3E3_CPLD_VAL_LIU_SELECT][channel->h.slot]);
++
++	/* select writting to Serial I/O Bus */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_WRITE_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT);	/* clock low */
++
++	/* select write operation */
++	serialrom_write_bit(channel, 0);
++
++	/* Exar7300 register address is 4 bit long */
++	reg =3D t3e3_liu_reg_map[reg];
++	for (i =3D 0; i < 4; i++) {	/* 4 bits */
++		serialrom_write_bit(channel, reg & 1);
++		reg >>=3D 1;
++	}
++	for (i =3D 0; i < 3; i++)	/* remaining 3 bits of SerialROM address */
++		serialrom_write_bit(channel, 0);
++
++	/* Exar7300 register value is 5 bit long */
++	for (i =3D 0; i < 5; i++) {
++		serialrom_write_bit(channel, val & 1);
++		val >>=3D 1;
++	}
++	for (i =3D 0; i < 3; i++)	/* remaining 3 bits of SerialROM value */
++		serialrom_write_bit(channel, 0);
++
++	/* Reset 21143_CSR9 */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT,
++		 SBE_2T3E3_21143_VAL_WRITE_OPERATION |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_SELECT |
++		 SBE_2T3E3_21143_VAL_SERIAL_ROM_CHIP_SELECT);	/* clock low */
++	dc_write(addr, SBE_2T3E3_21143_REG_BOOT_ROM_SERIAL_ROM_AND_MII_MANAGE=
+MENT, 0);
++
++	/* Unselect Serial Chip */
++	cpld_write_nolock(channel, SBE_2T3E3_CPLD_REG_SERIAL_CHIP_SELECT, 0);
++
++	spin_unlock_irqrestore(&channel->card->bootrom_lock, flags);
++}
+diff --git a/drivers/staging/sbe-2t3e3/main.c b/drivers/staging/sbe-2t3=
+e3/main.c
+new file mode 100644
+index 0000000..8608afb
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/main.c
+@@ -0,0 +1,171 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include "2t3e3.h"
++
++void t3e3_init(struct channel *sc)
++{
++	cpld_init(sc);
++	dc_reset(sc);
++	dc_init(sc);
++	exar7250_init(sc);
++	exar7300_init(sc);
++}
++
++int t3e3_if_start_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct channel *sc =3D dev_to_priv(dev);
++	u32 current_write, last_write;
++	unsigned long flags;
++	struct sk_buff *skb2;
++
++	if (skb =3D=3D NULL) {
++		sc->s.out_errors++;
++		return 0;
++	}
++
++	if (sc->p.transmitter_on !=3D SBE_2T3E3_ON) {
++		sc->s.out_errors++;
++		sc->s.out_dropped++;
++		dev_kfree_skb_any(skb);
++		return 0;
++	}
++
++	if (sc->s.OOF && sc->p.loopback =3D=3D SBE_2T3E3_LOOPBACK_NONE) {
++		sc->s.out_dropped++;
++		dev_kfree_skb_any(skb);
++		return 0;
++	}
++
++	spin_lock_irqsave(&sc->ether.tx_lock, flags);
++
++	current_write =3D sc->ether.tx_ring_current_write;
++	for (skb2 =3D skb; skb2 !=3D NULL; skb2 =3D NULL) {
++		if (skb2->len) {
++			if ((sc->ether.tx_ring[current_write].tdes1 &
++			     SBE_2T3E3_TX_DESC_BUFFER_1_SIZE) > 0)
++				break;
++			current_write =3D (current_write + 1) % SBE_2T3E3_TX_DESC_RING_SIZE=
+;
++			/*
++			 * Leave at least 1 tx desc free so that dc_intr_tx() can
++			 * identify empty list
++			 */
++			if (current_write =3D=3D sc->ether.tx_ring_current_read)
++				break;
++		}
++	}
++	if (skb2 !=3D NULL) {
++		netif_stop_queue(sc->dev);
++		sc->ether.tx_full =3D 1;
++		dev_dbg(&sc->pdev->dev, DRV_NAME ": out of descriptors\n");
++		spin_unlock_irqrestore(&sc->ether.tx_lock, flags);
++		return NETDEV_TX_BUSY;
++	}
++
++	current_write =3D last_write =3D sc->ether.tx_ring_current_write;
++	dev_dbg(&sc->pdev->dev, "sending mbuf (current_write =3D %d)\n",
++		current_write);
++
++	for (skb2 =3D skb; skb2 !=3D NULL; skb2 =3D NULL) {
++		if (skb2->len) {
++			dev_dbg(&sc->pdev->dev,
++				"sending mbuf (len =3D %d, next =3D %p)\n",
++				skb2->len, NULL);
++
++			sc->ether.tx_free_cnt--;
++			sc->ether.tx_ring[current_write].tdes0 =3D 0;
++			sc->ether.tx_ring[current_write].tdes1 &=3D
++				SBE_2T3E3_TX_DESC_END_OF_RING |
++				SBE_2T3E3_TX_DESC_SECOND_ADDRESS_CHAINED;
++/* DISABLE_PADDING sometimes gets lost somehow, hands off... */
++			sc->ether.tx_ring[current_write].tdes1 |=3D
++				SBE_2T3E3_TX_DESC_DISABLE_PADDING | skb2->len;
++
++			if (current_write =3D=3D sc->ether.tx_ring_current_write) {
++				sc->ether.tx_ring[current_write].tdes1 |=3D
++					SBE_2T3E3_TX_DESC_FIRST_SEGMENT;
++			} else {
++				sc->ether.tx_ring[current_write].tdes0 =3D
++					SBE_2T3E3_TX_DESC_21143_OWN;
++			}
++
++			sc->ether.tx_ring[current_write].tdes2 =3D virt_to_phys(skb2->data)=
+;
++			sc->ether.tx_data[current_write] =3D NULL;
++
++			last_write =3D current_write;
++			current_write =3D (current_write + 1) % SBE_2T3E3_TX_DESC_RING_SIZE=
+;
++		}
++	}
++
++	sc->ether.tx_data[last_write] =3D skb;
++	sc->ether.tx_ring[last_write].tdes1 |=3D
++		SBE_2T3E3_TX_DESC_LAST_SEGMENT |
++		SBE_2T3E3_TX_DESC_INTERRUPT_ON_COMPLETION;
++	sc->ether.tx_ring[sc->ether.tx_ring_current_write].tdes0 |=3D
++		SBE_2T3E3_TX_DESC_21143_OWN;
++	sc->ether.tx_ring_current_write =3D current_write;
++
++	dev_dbg(&sc->pdev->dev, "txput: tdes0 =3D %08X        tdes1 =3D %08X\=
+n",
++		sc->ether.tx_ring[last_write].tdes0,
++		sc->ether.tx_ring[last_write].tdes1);
++
++	dc_write(sc->addr, SBE_2T3E3_21143_REG_TRANSMIT_POLL_DEMAND,
++		 0xffffffff);
++
++	spin_unlock_irqrestore(&sc->ether.tx_lock, flags);
++	return 0;
++}
++
++
++void t3e3_read_card_serial_number(struct channel *sc)
++{
++	u32 i;
++
++	for (i =3D 0; i < 3; i++)
++		sc->ether.card_serial_number[i] =3D t3e3_eeprom_read_word(sc, 10 + i=
+);
++
++	printk(KERN_INFO "SBE wanPMC-2T3E3 serial number: %04X%04X%04X\n",
++	       sc->ether.card_serial_number[0], sc->ether.card_serial_number[=
+1],
++	       sc->ether.card_serial_number[2]);
++}
++
++/*
++  bit 0 led1 (green)
++  bit 1 led1 (yellow)
++
++  bit 2 led2 (green)
++  bit 3 led2 (yellow)
++
++  bit 4 led3 (green)
++  bit 5 led3 (yellow)
++
++  bit 6 led4 (green)
++  bit 7 led4 (yellow)
++*/
++
++void update_led(struct channel *sc, int blinker)
++{
++	int leds;
++	if (sc->s.LOS)
++		leds =3D 0; /* led1 =3D off */
++	else if (sc->s.OOF)
++		leds =3D 2; /* led1 =3D yellow */
++	else if ((blinker & 1) && sc->rcv_count) {
++		leds =3D 0; /* led1 =3D off */
++		sc->rcv_count =3D 0;
++	} else
++		leds =3D 1; /* led1 =3D green */
++	cpld_write(sc, SBE_2T3E3_CPLD_REG_LEDR, leds);
++	sc->leds =3D leds;
++}
+diff --git a/drivers/staging/sbe-2t3e3/maps.c b/drivers/staging/sbe-2t3=
+e3/maps.c
+new file mode 100644
+index 0000000..7084fbe
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/maps.c
+@@ -0,0 +1,104 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/kernel.h>
++#include "2t3e3.h"
++
++const u32 cpld_reg_map[][2] =3D
++{
++	{ 0x0000, 0x0080 }, /* 0 - Port Control Register A (PCRA) */
++	{ 0x0004, 0x0084 }, /* 1 - Port Control Register B (PCRB) */
++	{ 0x0008, 0x0088 }, /* 2 - LCV Count Register (PLCR) */
++	{ 0x000c, 0x008c }, /* 3 - LCV Threshold register (PLTR) */
++	{ 0x0010, 0x0090 }, /* 4 - Payload Fill Register (PPFR) */
++	{ 0x0200, 0x0200 }, /* 5 - Board ID / FPGA Programming Status Registe=
+r */
++	{ 0x0204, 0x0204 }, /* 6 - FPGA Version Register */
++	{ 0x0800, 0x1000 }, /* 7 - Framer Registers Base Address */
++	{ 0x2000, 0x2000 }, /* 8 - Serial Chip Select Register */
++	{ 0x2004, 0x2004 }, /* 9 - Static Reset Register */
++	{ 0x2008, 0x2008 }, /* 10 - Pulse Reset Register */
++	{ 0x200c, 0x200c }, /* 11 - FPGA Reconfiguration Register */
++	{ 0x2010, 0x2014 }, /* 12 - LED Register (LEDR) */
++	{ 0x2018, 0x201c }, /* 13 - LIU Control and Status Register (PISCR) *=
+/
++	{ 0x2020, 0x2024 }, /* 14 - Interrupt Enable Register (PIER) */
++	{ 0x0068, 0x00e8 }, /* 15 - Port Control Register C (PCRC) */
++	{ 0x006c, 0x00ec }, /* 16 - Port Bandwidth Start (PBWF) */
++	{ 0x0070, 0x00f0 }, /* 17 - Port Bandwidth Stop (PBWL) */
++};
++
++const u32 cpld_val_map[][2] =3D
++{
++	{ 0x01, 0x02 }, /* LIU1 / LIU2 select for Serial Chip Select */
++	{ 0x04, 0x08 }, /* DAC1 / DAC2 select for Serial Chip Select */
++	{ 0x00, 0x04 }, /* LOOP1 / LOOP2 - select of loop timing source */
++	{ 0x01, 0x02 }  /* PORT1 / PORT2 - select LIU and Framer for reset */
++};
++
++const u32 t3e3_framer_reg_map[] =3D {
++	0x00, /* 0 - OPERATING_MODE */
++	0x01, /* 1 - IO_CONTROL */
++	0x04, /* 2 - BLOCK_INTERRUPT_ENABLE */
++	0x05, /* 3 - BLOCK_INTERRUPT_STATUS */
++	0x10, /* 4 - T3_RX_CONFIGURATION_STATUS, E3_RX_CONFIGURATION_STATUS_1=
+ */
++	0x11, /* 5 - T3_RX_STATUS, E3_RX_CONFIGURATION_STATUS_2 */
++	0x12, /* 6 - T3_RX_INTERRUPT_ENABLE, E3_RX_INTERRUPT_ENABLE_1 */
++	0x13, /* 7 - T3_RX_INTERRUPT_STATUS, E3_RX_INTERRUPT_ENABLE_2 */
++	0x14, /* 8 - T3_RX_SYNC_DETECT_ENABLE, E3_RX_INTERRUPT_STATUS_1 */
++	0x15, /* 9 - E3_RX_INTERRUPT_STATUS_2 */
++	0x16, /* 10 - T3_RX_FEAC */
++	0x17, /* 11 - T3_RX_FEAC_INTERRUPT_ENABLE_STATUS */
++	0x18, /* 12 - T3_RX_LAPD_CONTROL, E3_RX_LAPD_CONTROL */
++	0x19, /* 13 - T3_RX_LAPD_STATUS, E3_RX_LAPD_STATUS */
++	0x1a, /* 14 - E3_RX_NR_BYTE, E3_RX_SERVICE_BITS */
++	0x1b, /* 15 - E3_RX_GC_BYTE */
++	0x30, /* 16 - T3_TX_CONFIGURATION, E3_TX_CONFIGURATION */
++	0x31, /* 17 - T3_TX_FEAC_CONFIGURATION_STATUS */
++	0x32, /* 18 - T3_TX_FEAC */
++	0x33, /* 19 - T3_TX_LAPD_CONFIGURATION, E3_TX_LAPD_CONFIGURATION */
++	0x34, /* 20 - T3_TX_LAPD_STATUS, E3_TX_LAPD_STATUS_INTERRUPT */
++	0x35, /* 21 - T3_TX_MBIT_MASK, E3_TX_GC_BYTE, E3_TX_SERVICE_BITS */
++	0x36, /* 22 - T3_TX_FBIT_MASK, E3_TX_MA_BYTE */
++	0x37, /* 23 - T3_TX_FBIT_MASK_2, E3_TX_NR_BYTE */
++	0x38, /* 24 - T3_TX_FBIT_MASK_3 */
++	0x48, /* 25 - E3_TX_FA1_ERROR_MASK, E3_TX_FAS_ERROR_MASK_UPPER */
++	0x49, /* 26 - E3_TX_FA2_ERROR_MASK, E3_TX_FAS_ERROR_MASK_LOWER */
++	0x4a, /* 27 - E3_TX_BIP8_MASK, E3_TX_BIP4_MASK */
++	0x50, /* 28 - PMON_LCV_EVENT_COUNT_MSB */
++	0x51, /* 29 - PMON_LCV_EVENT_COUNT_LSB */
++	0x52, /* 30 - PMON_FRAMING_BIT_ERROR_EVENT_COUNT_MSB */
++	0x53, /* 31 - PMON_FRAMING_BIT_ERROR_EVENT_COUNT_LSB */
++	0x54, /* 32 - PMON_PARITY_ERROR_EVENT_COUNT_MSB */
++	0x55, /* 33 - PMON_PARITY_ERROR_EVENT_COUNT_LSB */
++	0x56, /* 34 - PMON_FEBE_EVENT_COUNT_MSB */
++	0x57, /* 35 - PMON_FEBE_EVENT_COUNT_LSB */
++	0x58, /* 36 - PMON_CP_BIT_ERROR_EVENT_COUNT_MSB */
++	0x59, /* 37 - PMON_CP_BIT_ERROR_EVENT_COUNT_LSB */
++	0x6c, /* 38 - PMON_HOLDING_REGISTER */
++	0x6d, /* 39 - ONE_SECOND_ERROR_STATUS */
++	0x6e, /* 40 - LCV_ONE_SECOND_ACCUMULATOR_MSB */
++	0x6f, /* 41 - LCV_ONE_SECOND_ACCUMULATOR_LSB */
++	0x70, /* 42 - FRAME_PARITY_ERROR_ONE_SECOND_ACCUMULATOR_MSB */
++	0x71, /* 43 - FRAME_PARITY_ERROR_ONE_SECOND_ACCUMULATOR_LSB */
++	0x72, /* 44 - FRAME_CP_BIT_ERROR_ONE_SECOND_ACCUMULATOR_MSB */
++	0x73, /* 45 - FRAME_CP_BIT_ERROR_ONE_SECOND_ACCUMULATOR_LSB */
++	0x80, /* 46 - LINE_INTERFACE_DRIVE */
++	0x81  /* 47 - LINE_INTERFACE_SCAN */
++};
++
++const u32 t3e3_liu_reg_map[] =3D
++{
++	0x00, /* REG0 */
++	0x01, /* REG1 */
++	0x02, /* REG2 */
++	0x03, /* REG3 */
++	0x04 /* REG4 */
++};
+diff --git a/drivers/staging/sbe-2t3e3/module.c b/drivers/staging/sbe-2=
+t3e3/module.c
+new file mode 100644
+index 0000000..e60d44c
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/module.c
+@@ -0,0 +1,210 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/pci.h>
++#include <linux/hdlc.h>
++#include <linux/if_arp.h>
++#include <linux/interrupt.h>
++#include "2t3e3.h"
++
++static void check_leds(unsigned long arg)
++{
++	struct card *card =3D (struct card *)arg;
++	struct channel *channel0 =3D &card->channels[0];
++	static int blinker;
++
++	update_led(channel0, ++blinker);
++	if (has_two_ports(channel0->pdev))
++		update_led(&card->channels[1], blinker);
++
++	card->timer.expires =3D jiffies + HZ / 10;
++	add_timer(&card->timer);
++}
++
++static void t3e3_remove_channel(struct channel *channel)
++{
++	struct pci_dev *pdev =3D channel->pdev;
++	struct net_device *dev =3D channel->dev;
++
++	/* system hangs if board asserts irq while module is unloaded */
++	cpld_stop_intr(channel);
++	free_irq(dev->irq, dev);
++	dc_drop_descriptor_list(channel);
++	unregister_hdlc_device(dev);
++	free_netdev(dev);
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
++	pci_set_drvdata(pdev, NULL);
++}
++
++static int __devinit t3e3_init_channel(struct channel *channel, struct=
+ pci_dev *pdev, struct card *card)
++{
++	struct net_device *dev;
++	unsigned int val;
++	int err;
++
++	err =3D pci_enable_device(pdev);
++	if (err)
++		return err;
++
++	err =3D pci_request_regions(pdev, DRV_NAME);
++	if (err)
++		goto disable;
++
++	dev =3D alloc_hdlcdev(channel);
++	if (!dev) {
++		printk(KERN_ERR DRV_NAME ": Out of memory\n");
++		goto free_regions;
++	}
++
++	t3e3_sc_init(channel);
++	dev_to_priv(dev) =3D channel;
++
++	channel->pdev =3D pdev;
++	channel->dev =3D dev;
++	channel->card =3D card;
++	channel->addr =3D pci_resource_start(pdev, 0);
++	if (pdev->subsystem_device =3D=3D PCI_SUBDEVICE_ID_SBE_2T3E3_P1)
++		channel->h.slot =3D 1;
++	else
++		channel->h.slot =3D 0;
++
++	if (setup_device(dev, channel))
++		goto free_regions;
++
++	pci_read_config_dword(channel->pdev, 0x40, &val); /* mask sleep mode =
+*/
++	pci_write_config_dword(channel->pdev, 0x40, val & 0x3FFFFFFF);
++
++	pci_read_config_byte(channel->pdev, PCI_CACHE_LINE_SIZE, &channel->h.=
+cache_size);
++	pci_read_config_dword(channel->pdev, PCI_COMMAND, &channel->h.command=
+);
++	t3e3_init(channel);
++
++	if (request_irq(dev->irq, &t3e3_intr, IRQF_SHARED, dev->name, dev)) {
++		printk(KERN_WARNING "%s: could not get irq: %d\n", dev->name, dev->i=
+rq);
++		goto free_regions;
++	}
++
++	pci_set_drvdata(pdev, channel);
++	return 0;
++
++free_regions:
++	pci_release_regions(pdev);
++disable:
++	pci_disable_device(pdev);
++	return err;
++}
++
++static void __devexit t3e3_remove_card(struct pci_dev *pdev)
++{
++	struct channel *channel0 =3D pci_get_drvdata(pdev);
++	struct card *card =3D channel0->card;
++
++	del_timer(&card->timer);
++	if (has_two_ports(channel0->pdev)) {
++		t3e3_remove_channel(&card->channels[1]);
++		pci_dev_put(card->channels[1].pdev);
++	}
++	t3e3_remove_channel(channel0);
++	kfree(card);
++}
++
++static int __devinit t3e3_init_card(struct pci_dev *pdev, const struct=
+ pci_device_id *ent)
++{
++	/* pdev points to channel #0 */
++	struct pci_dev *pdev1 =3D NULL;
++	struct card *card;
++	int channels =3D 1, err;
++
++	if (has_two_ports(pdev)) {
++		while ((pdev1 =3D pci_get_subsys(PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DE=
+C_21142,
++					       PCI_VENDOR_ID_SBE, PCI_SUBDEVICE_ID_SBE_2T3E3_P1,
++					       pdev1)))
++			if (pdev1->bus =3D=3D pdev->bus &&
++			    pdev1->devfn =3D=3D pdev->devfn + 8 /* next device on the same =
+bus */)
++				break; /* found the second channel */
++
++		if (!pdev1) {
++			printk(KERN_ERR DRV_NAME ": Can't find the second channel\n");
++			return -EFAULT;
++		}
++		channels =3D 2;
++		/* holds the reference for pdev1 */
++	}
++
++	card =3D kzalloc(sizeof(struct card) + channels * sizeof(struct chann=
+el), GFP_KERNEL);
++	if (!card) {
++		printk(KERN_ERR DRV_NAME ": Out of memory\n");
++		return -ENOBUFS;
++	}
++
++	spin_lock_init(&card->bootrom_lock);
++	card->bootrom_addr =3D pci_resource_start(pdev, 0);
++
++	err =3D t3e3_init_channel(&card->channels[0], pdev, card);
++	if (err)
++		goto free_card;
++
++	if (channels =3D=3D 2) {
++		err =3D t3e3_init_channel(&card->channels[1], pdev1, card);
++		if (err) {
++			t3e3_remove_channel(&card->channels[0]);
++			goto free_card;
++		}
++	}
++
++	/* start LED timer */
++	init_timer(&card->timer);
++	card->timer.function =3D check_leds;
++	card->timer.expires =3D jiffies + HZ / 10;
++	card->timer.data =3D (unsigned long)card;
++	add_timer(&card->timer);
++	return 0;
++
++free_card:
++	kfree(card);
++	return err;
++}
++
++static struct pci_device_id t3e3_pci_tbl[] __devinitdata =3D {
++	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_21142,
++	  PCI_VENDOR_ID_SBE, PCI_SUBDEVICE_ID_SBE_T3E3, 0, 0, 0 },
++	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_21142,
++	  PCI_VENDOR_ID_SBE, PCI_SUBDEVICE_ID_SBE_2T3E3_P0, 0, 0, 0 },
++	/* channel 1 will be initialized after channel 0 */
++	{ 0, }
++};
++
++static struct pci_driver t3e3_pci_driver =3D {
++	.name     =3D "SBE T3E3",
++	.id_table =3D t3e3_pci_tbl,
++	.probe    =3D t3e3_init_card,
++	.remove   =3D t3e3_remove_card,
++};
++
++static int __init t3e3_init_module(void)
++{
++	return pci_register_driver(&t3e3_pci_driver);
++}
++
++static void __exit t3e3_cleanup_module(void)
++{
++	pci_unregister_driver(&t3e3_pci_driver);
++}
++
++module_init(t3e3_init_module);
++module_exit(t3e3_cleanup_module);
++MODULE_LICENSE("GPL");
++MODULE_DEVICE_TABLE(pci, t3e3_pci_tbl);
+diff --git a/drivers/staging/sbe-2t3e3/netdev.c b/drivers/staging/sbe-2=
+t3e3/netdev.c
+new file mode 100644
+index 0000000..c7b5e8b
+--- /dev/null
++++ b/drivers/staging/sbe-2t3e3/netdev.c
+@@ -0,0 +1,142 @@
++/*
++ * SBE 2T3E3 synchronous serial card driver for Linux
++ *
++ * Copyright (C) 2009-2010 Krzysztof Halasa <khc@pm.waw.pl>
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms of version 2 of the GNU General Public License
++ * as published by the Free Software Foundation.
++ *
++ * This code is based on a driver written by SBE Inc.
++ */
++
++#include <linux/capability.h>
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/pci.h>
++#include <linux/hdlc.h>
++#include <linux/if_arp.h>
++#include <linux/interrupt.h>
++#include "2t3e3.h"
++
++int t3e3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
++{
++	struct channel *sc =3D dev_to_priv(dev);
++	int cmd_2t3e3, len, rlen;
++	t3e3_param_t param;
++	t3e3_resp_t  resp;
++	void *data =3D ifr->ifr_data + sizeof(cmd_2t3e3) + sizeof(len);
++
++	if (cmd =3D=3D SIOCWANDEV)
++		return hdlc_ioctl(dev, ifr, cmd);
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	if (cmd !=3D SIOCDEVPRIVATE + 15)
++		return -EINVAL;
++
++	if (copy_from_user(&cmd_2t3e3, ifr->ifr_data, sizeof(cmd_2t3e3)))
++		return -EFAULT;
++	if (copy_from_user(&len, ifr->ifr_data + sizeof(cmd_2t3e3), sizeof(le=
+n)))
++		return -EFAULT;
++
++	if (len > sizeof(param))
++		return -EFAULT;
++
++	if (len)
++		if (copy_from_user(&param, data, len))
++			return -EFAULT;
++
++	t3e3_if_config(sc, cmd_2t3e3, (char *)&param, &resp, &rlen);
++
++	if (rlen)
++		if (copy_to_user(data, &resp, rlen))
++			return -EFAULT;
++
++	return 0;
++}
++
++static struct net_device_stats* t3e3_get_stats(struct net_device *dev)
++{
++	struct net_device_stats *nstats =3D &dev->stats;
++	struct channel *sc =3D dev_to_priv(dev);
++	t3e3_stats_t *stats =3D &sc->s;
++
++	memset(nstats, 0, sizeof(struct net_device_stats));
++	nstats->rx_packets =3D stats->in_packets;
++	nstats->tx_packets =3D stats->out_packets;
++	nstats->rx_bytes =3D stats->in_bytes;
++	nstats->tx_bytes =3D stats->out_bytes;
++
++	nstats->rx_errors =3D stats->in_errors;
++	nstats->tx_errors =3D stats->out_errors;
++	nstats->rx_crc_errors =3D stats->in_error_crc;
++
++
++	nstats->rx_dropped =3D stats->in_dropped;
++	nstats->tx_dropped =3D stats->out_dropped;
++	nstats->tx_carrier_errors =3D stats->out_error_lost_carr +
++		stats->out_error_no_carr;
++
++	return nstats;
++}
++
++int t3e3_open(struct net_device *dev)
++{
++	struct channel *sc =3D dev_to_priv(dev);
++	int ret =3D hdlc_open(dev);
++
++	if (ret)
++		return ret;
++
++	sc->r.flags |=3D SBE_2T3E3_FLAG_NETWORK_UP;
++	dc_start(dev_to_priv(dev));
++	netif_start_queue(dev);
++	try_module_get(THIS_MODULE);
++	return 0;
++}
++
++int t3e3_close(struct net_device *dev)
++{
++	struct channel *sc =3D dev_to_priv(dev);
++	hdlc_close(dev);
++	netif_stop_queue(dev);
++	dc_stop(sc);
++	sc->r.flags &=3D ~SBE_2T3E3_FLAG_NETWORK_UP;
++	module_put(THIS_MODULE);
++	return 0;
++}
++
++static int t3e3_attach(struct net_device *dev, unsigned short foo1,
++		       unsigned short foo2)
++{
++	return 0;
++}
++
++static const struct net_device_ops t3e3_ops =3D {
++	.ndo_open       =3D t3e3_open,
++	.ndo_stop       =3D t3e3_close,
++	.ndo_change_mtu =3D hdlc_change_mtu,
++	.ndo_start_xmit =3D hdlc_start_xmit,
++	.ndo_do_ioctl   =3D t3e3_ioctl,
++	.ndo_get_stats  =3D t3e3_get_stats,
++};
++
++int setup_device(struct net_device *dev, struct channel *sc)
++{
++	hdlc_device *hdlc =3D dev_to_hdlc(dev);
++	int retval;
++
++	dev->base_addr =3D pci_resource_start(sc->pdev, 0);
++	dev->irq =3D sc->pdev->irq;
++	dev->netdev_ops =3D &t3e3_ops;
++	dev->tx_queue_len =3D 100;
++	hdlc->xmit =3D t3e3_if_start_xmit;
++	hdlc->attach =3D t3e3_attach;
++	if ((retval =3D register_hdlc_device(dev))) {
++		dev_err(&sc->pdev->dev, "error registering HDLC device\n");
++		return retval;
++	}
++	return 0;
++}
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index 3bedcc1..1ee7ab0 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -1494,6 +1494,9 @@
+ #define PCI_DEVICE_ID_SBE_WANXL100	0x0301
+ #define PCI_DEVICE_ID_SBE_WANXL200	0x0302
+ #define PCI_DEVICE_ID_SBE_WANXL400	0x0104
++#define PCI_SUBDEVICE_ID_SBE_T3E3	0x0009
++#define PCI_SUBDEVICE_ID_SBE_2T3E3_P0	0x0901
++#define PCI_SUBDEVICE_ID_SBE_2T3E3_P1	0x0902
+=20
+ #define PCI_VENDOR_ID_TOSHIBA		0x1179
+ #define PCI_DEVICE_ID_TOSHIBA_PICCOLO_1	0x0101
