@@ -1,229 +1,118 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 2.6.35-rc6-git6: Reported regressions 2.6.33 -> 2.6.34
-Date: Sun,  1 Aug 2010 16:27:15 +0200 (CEST)
-Message-ID: <JKn8_uSlpqD.A.HLG.1LYVMB@chimera>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: 2.6.35-rc6-git6: Reported regressions from 2.6.34
+Date: Sun, 1 Aug 2010 11:01:04 -0700
+Message-ID: <AANLkTimcH7+Bq1UEbaSU7SQpzArPgmSLegiqE13V8=CF@mail.gmail.com>
+References: <2dWFdr9kTFM.A.P0D.spXVMB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Jens Axboe <jaxboe-5c4llco8/ftWk0Htik3J/w@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2dWFdr9kTFM.A.P0D.spXVMB@chimera>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[NOTE: This is the last summary report of regressions introduced betwee=
-n
- 2.6.33 and 2.6.34.  Thanks for helping us with tracking these bugs!]
+On Sun, Aug 1, 2010 at 6:46 AM, Rafael J. Wysocki <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
+>
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D16400
+> Subject         : 2.6.35-rc5 inconsistent lock state
+> Submitter       : Martin Pirker <lkml.collector-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date            : 2010-07-14 20:33 (19 days old)
+> Message-ID      : <AANLkTikDF0TL6OyPVCzPlUTwxFehcrETn3ysgSSeTq92@mail=
+=2Egmail.com>
+> References      : http://marc.info/?l=3Dlinux-kernel&m=3D127913961025=
+267&w=3D2
 
-This message contains a list of some post-2.6.33 regressions introduced=
- before
-2.6.34, for which there are no fixes in the mainline known to the track=
-ing team.
-If any of them have been fixed already, please let us know.
+This has a proposed patch. I don't know what the status of it is, thoug=
+h. Jens?
 
-If you know of any other unresolved post-2.6.33 regressions, please let=
- us know
-either and we'll add them to the list.  Also, please let us know if any
-of the entries below are invalid.
+   http://marc.info/?l=3Dlinux-kernel&m=3D127950018204029&w=3D2
 
-Each entry from the list will be sent additionally in an automatic repl=
-y to
-this message with CCs to the people involved in reporting and handling =
-the
-issue.
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D16393
+> Subject         : kernel BUG at fs/block_dev.c:765!
+> Submitter       : Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA@public.gmane.org>
+> Date            : 2010-07-14 13:52 (19 days old)
+> Message-ID      : <20100714135217.GA1797-joY5NpejW+Hx3b7vapvTcQ@public.gmane.org>
+> References      : http://marc.info/?l=3Dlinux-kernel&m=3D127911564213=
+748&w=3D2
 
+This one is interesting. And I think I perhaps see where it's coming fr=
+om.
 
-Listed regressions statistics:
+bd_start_claiming() (through bd_prepare_to_claim()) has two separate
+success cases: either there was no holder (bd_claiming is NULL) or the
+new holder was already claiming it (bd_claiming =3D=3D holder).
 
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2010-08-01      129       17          16
-  2010-07-23      128       27          25
-  2010-07-10      122       25          24
-  2010-06-21      114       36          28
-  2010-06-13      111       40          34
-  2010-05-09       80       27          24
-  2010-05-04       76       26          22
-  2010-04-20       64       35          34
-  2010-04-07       48       35          33
-  2010-03-21       15       13          10
+Note in particular the case of the holder _already_ holding it. What ha=
+ppens is:
 
+ - bd_start_claiming() succeeds because we had _already_ claimed it
+with the same holder
 
-Unresolved regressions
-----------------------
+ - then some error happens, and we call bd_abort_claiming(), which
+does whole->bd_claiming =3D NULL;
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16431
-Subject		: does not seem to shut down one of two md raid-1 arrays on hi=
-bernation
-Submitter	: Martin Steigerwald <ms@teamix.de>
-Date		: 2010-07-21 13:08 (12 days old)
-Handled-By	: Neil Brown <neilb@suse.de>
+ - the original holder thinks it still holds the bd, but it has been re=
+leased!
 
+ - a new claimer comes in, and succeeds because bd_claiming is now NULL=
+=2E
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16388
-Subject		: i915 drm BUG: unable to handle kernel paging request at a5e8=
-9046
-Submitter	:  <lists@clanduggan.org>
-Date		: 2010-07-14 16:59 (19 days old)
+ - we now have two "owners" of the bd, but bd_claiming only points to
+the second one.
 
+I think bd_start_claiming() needs to do some kind of refcount for the
+nested holder case, and bd_abort_claiming() needs to decrement the
+refcount and only clear the bd_claiming field when it goes down to
+zero.
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16377
-Subject		: X.org crash while running a OpenGL composited KDE 4.4.4 sess=
-ion with Radeon KMS
-Submitter	: Martin Steigerwald <Martin@Lichtvoll.de>
-Date		: 2010-07-13 12:41 (20 days old)
-Handled-By	: Alex Deucher <alexdeucher@gmail.com>
+I dunno. Maybe there's something else going on, but it does look
+suspicious, and the above would explain the BUG_ON().
 
+Tejun, Jens?
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16376
-Subject		: random - possibly Radeon DRM KMS related - freezes
-Submitter	: Martin Steigerwald <Martin@Lichtvoll.de>
-Date		: 2010-07-13 09:24 (20 days old)
-Handled-By	: Alex Deucher <alexdeucher@gmail.com>
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D16369
+> Subject         : Yet another 2.6.35 regression (AGP)?
+> Submitter       : Woody Suwalski <terraluna977-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date            : 2010-07-09 14:21 (24 days old)
+> Message-ID      : <4C373084.8000503-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> References      : http://marc.info/?l=3Dlinux-kernel&m=3D127868797119=
+254&w=3D2
 
+Should hopefully be fixed by commit e7b96f28c58c ("agp/intel: Use the
+correct mask to detect i830 aperture size.")
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16320
-Subject		: iwl3945 crashes, seems to be disconnecting from the PCI bus
-Submitter	: Satish <eerpini@gmail.com>
-Date		: 2010-07-01 08:24 (32 days old)
+> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D16365
+> Subject         : kernel BUG at fs/btrfs/extent-tree.c:1353
+> Submitter       : Johannes Hirte <johannes.hirte-3kN+8DYepx7zMJDuovMtMLNAH6kLmebB@public.gmane.org>
+> Date            : 2010-07-08 14:27 (25 days old)
+> Message-ID      : <201007081627.24654.johannes.hirte-3kN+8DYepx7zMJDuovMtMA@public.gmane.org=
+e>
+> References      : http://marc.info/?l=3Dlinux-kernel&m=3D127859960725=
+931&w=3D2
 
+This one is reportedly fixed by commit 83ba7b071f30 ("writeback:
+simplify the write back thread queue")
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16300
-Subject		: [2.6.34 regression] mplayer gets out of sync due to problems=
- with ALSA
-Submitter	: Artem S. Tashkinov <t.artem@mailcity.com>
-Date		: 2010-06-26 20:39 (37 days old)
-Handled-By	: Takashi Iwai <tiwai@suse.de>
+> Bug-Entry =A0 =A0 =A0 : http://bugzilla.kernel.org/show_bug.cgi?id=3D=
+16215
+> Subject =A0 =A0 =A0 =A0 : sysfs: cannot create duplicate filename '/c=
+lass/net/bnep0'
+> Submitter =A0 =A0 =A0 : Janusz Krzysztofik <jkrzyszt-NCk8gXQAEuFz6jiHbVrK7g@public.gmane.org>
+> Date =A0 =A0 =A0 =A0 =A0 =A0: 2010-06-15 14:55 (48 days old)
+> Handled-By =A0 =A0 =A0: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
+=46ixed by commit 24b1442d01ae155ea716dfb94ed21605541c317d.
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16270
-Subject		: Image is a hit-or-a-miss. Often displayed green+purple
-Submitter	: Vish <drkvi-a@yahoo.com>
-Date		: 2010-06-22 10:47 (41 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/acef4a407ed6e0a9ed87a27=
-47be592fe49e64bdd
-Handled-By	: Jean-Francois Moine <moinejf@free.fr>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16206
-Subject		: PROBLEM: PPP and other serial port related application hangs=
- in kernel space
-Submitter	: Ales Teska <ales.teska@gmail.com>
-Date		: 2010-06-09 20:46 (54 days old)
-Message-ID	: <900E3B14-5B92-4A37-9581-049DB40F4D1C@gmail.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D127611640301071&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16170
-Subject		: Leadtek Winfast DTV Dongle (STK7700P based) is not working i=
-n 2.6.34
-Submitter	:  <macjariel@gmail.com>
-Date		: 2010-06-09 11:11 (54 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16139
-Subject		: wait_even_interruptible_timeout(), signal, spin_lock() =3D s=
-ystem hang
-Submitter	: Shirish Pargaonkar <shirishpargaonkar@gmail.com>
-Date		: 2010-05-28 16:44 (66 days old)
-Message-ID	: <AANLkTiliRFydAhxH2-Dp1RKuz6sq7vgWIcMvLMi68ftg@mail.gmail.=
-com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D127506510328758&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15977
-Subject		: WARNING: at lib/dma-debug.c:866 check_for_stack
-Submitter	: Zdenek Kabelac <zdenek.kabelac@gmail.com>
-Date		: 2010-05-14 8:56 (80 days old)
-Message-ID	: <AANLkTikyx2eaxaiUCFDSfpmn1UG0t2GOxArz6F4wp1LJ@mail.gmail.=
-com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D127382742729825&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15912
-Subject		: Audio/video sync and crackling issues with snd-hda-intel (AD=
-1981 codec)
-Submitter	: =C3=98yvind Stegard <oyvinst@ifi.uio.no>
-Date		: 2010-05-05 16:20 (89 days old)
-Handled-By	: Jaroslav Kysela <perex@perex.cz>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15862
-Subject		: 2.6.34-rc4/5: iwlagn unusable until reload
-Submitter	: Nico Schottelius <nico-linux-20100427@schottelius.org>
-Date		: 2010-04-27 7:49 (97 days old)
-Message-ID	: <20100427074934.GB3261@ikn.schottelius.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D127235784004839&w=3D=
-2
-Handled-By	: Johannes Berg <johannes@sipsolutions.net>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15704
-Subject		: [r8169] WARNING: at net/sched/sch_generic.c
-Submitter	: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Date		: 2010-03-31 10:21 (124 days old)
-Message-ID	: <20100331102142.GA3294@swordfish.minsk.epam.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D127003090406108&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15673
-Subject		: 2.6.34-rc2: "ima_dec_counts: open/free imbalance"?
-Submitter	: Thomas Meyer <thomas@m3y3r.de>
-Date		: 2010-03-28 11:31 (127 days old)
-Message-ID	: <1269775909.5301.4.camel@localhost.localdomain>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D126977593326800&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15664
-Subject		: Graphics hang and kernel backtrace when starting Azureus wit=
-h Compiz enabled
-Submitter	: Alex Villacis Lasso <avillaci@ceibo.fiec.espol.edu.ec>
-Date		: 2010-04-01 01:09 (123 days old)
-
-
-Regressions with patches
-------------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16007
-Subject		: x86/pci Oops with CONFIG_SND_HDA_INTEL
-Submitter	: Graham Ramsey <ramsey.graham@ntlworld.com>
-Date		: 2010-05-19 17:09 (75 days old)
-Handled-By	: Yinghai Lu <yinghai@kernel.org>
-		  Bjorn Helgaas <bjorn.helgaas@hp.com>
-Patch		: https://patchwork.kernel.org/patch/105662/
-
-
-=46or details, please visit the bug entries and follow the links given =
-in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regres=
-sions.
-There also is a Bugzilla entry used for tracking the regressions introd=
-uced
-between 2.6.33 and 2.6.34, unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=3D15310
-
-Thanks!
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+                             Linus
