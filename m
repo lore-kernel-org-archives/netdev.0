@@ -1,50 +1,40 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH 04/11] pcmcia: do not use io_req_t after call to
- pcmcia_request_io()
-Date: Sun, 01 Aug 2010 11:04:43 -0700
-Message-ID: <1280685883.12579.8.camel@localhost.localdomain>
-References: <20100801125749.GA2564@comet.dominikbrodowski.net>
-	 <1280667550-3040-4-git-send-email-linux@dominikbrodowski.net>
+From: Marc Haber <mh+linux-kernel@zugschlus.de>
+Subject: Re: e1000e crashes with 2.6.34.x and ThinkPad T60
+Date: Sun, 1 Aug 2010 21:14:29 +0200
+Message-ID: <20100801191429.GA12432@torres.zugschlus.de>
+References: <20100724092644.GA13353@torres.zugschlus.de> <8DD2590731AB5D4C9DBF71A877482A9001623EC48E@orsmsx509.amr.corp.intel.com> <20100730125614.GB21444@torres.zugschlus.de> <8DD2590731AB5D4C9DBF71A877482A9001649C4653@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-pcmcia-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org,
-	linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dominik Brodowski <linux-X3ehHDuj6sIIGcDfoQAp7OTW4wlIGRCZ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1280667550-3040-4-git-send-email-linux-X3ehHDuj6sIIGcDfoQAp7OTW4wlIGRCZ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A9001649C4653@orsmsx509.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dominik,
+On Fri, Jul 30, 2010 at 10:42:03AM -0700, Allan, Bruce W wrote:
+> Please also provide an eeprom dump from the wired LOM via 'ethtool -e ethX'.
 
-> After pcmcia_request_io(), do not make use of the values stored in
-> io_req_t, but instead use those found in struct pcmcia_device->resource[].
-> 
-> CC: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> CC: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> CC: linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> CC: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> CC: laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org
-> CC: linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> CC: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> CC: alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
-> CC: linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Signed-off-by: Dominik Brodowski <linux-X3ehHDuj6sIIGcDfoQAp7OTW4wlIGRCZ@public.gmane.org>
+Offset          Values
+------          ------
+0x0000          00 16 41 aa be 37 30 0b b2 ff 51 00 ff ff ff ff
+0x0010          53 00 03 01 6b 02 01 20 aa 17 9a 10 86 80 df 80
+0x0020          00 00 00 20 54 7e 00 00 14 00 da 00 04 00 00 27
+0x0030          c9 6c 50 31 3e 07 0b 04 8b 29 00 00 00 f0 02 0f
+0x0040          08 10 00 00 04 0f ff 7f 01 4d ff ff ff ff ff ff
+0x0050          14 00 1d 00 14 00 1d 00 af aa 1e 00 00 00 1d 00
+0x0060          00 01 00 40 1f 12 07 40 ff ff ff ff ff ff ff ff
+0x0070          ff ff ff ff ff ff ff ff ff ff ff ff ff ff 7a a7
 
-for the drivers/bluetooth/ pieces.
+Greetings
+Marc
 
-Acked-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-
-Regards
-
-Marcel
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
