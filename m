@@ -1,47 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: ss -p is much too slow
-Date: Sat, 31 Jul 2010 19:33:51 -0700
-Message-ID: <20100731193351.2b703437@nehalam>
-References: <AANLkTikd3VaSUa-pxzyi7_fND40vQ-L79X7yv19jj3y0@mail.gmail.com>
-	<20100628.162139.59679342.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] act_nat: fix wild pointer
+Date: Sat, 31 Jul 2010 22:05:08 -0700 (PDT)
+Message-ID: <20100731.220508.200363956.davem@davemloft.net>
+References: <1280446906-29032-1-git-send-email-xiaosuo@gmail.com>
+	<20100730071838.GA7256@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sphink@gmail.com, netdev@vger.kernel.org,
-	stephen.hemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Cc: xiaosuo@gmail.com, hadi@cyberus.ca, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33579 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753419Ab0HACdx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jul 2010 22:33:53 -0400
-In-Reply-To: <20100628.162139.59679342.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54537
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750918Ab0HAFEu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Aug 2010 01:04:50 -0400
+In-Reply-To: <20100730071838.GA7256@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Jun 2010 16:21:39 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 30 Jul 2010 15:18:38 +0800
 
-> From: Steve Fink <sphink@gmail.com>
-> Date: Wed, 9 Jun 2010 11:42:38 -0700
+> On Fri, Jul 30, 2010 at 07:41:46AM +0800, Changli Gao wrote:
+>> pskb_may_pull() may change skb pointers, so adjust icmph after pskb_may_pull().
+>> 
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 > 
-> > On closer inspection, it appears that ss -p does a quadratic scan. It
-> > rescans every entry in /proc/*/fd/* repeatedly (once per listening
-> > port? per process? I don't remember what I figured out.)
-> > 
-> > I humbly suggest that this is not a good idea.
-> 
-> Yep, this is junk.  Please give this patch a try:
-> 
-> ss: Avoid quadradic complexity with '-p'
-> 
-> Scan the process list of open sockets once, and store in a hash
-> table to be used by subsequent find_user() calls.
-> 
-> Reported-by: Steve Fink <sphink@gmail.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied
-
-
--- 
+Applied.
