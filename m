@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Multiqueue macvtap driver
-Date: Sun, 01 Aug 2010 00:34:06 -0700 (PDT)
-Message-ID: <20100801.003406.02275545.davem@davemloft.net>
-References: <20100731135743.3072.99933.sendpatchset@krkumar2.in.ibm.com>
-	<1280603907.13192.353.camel@localhost>
+Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
+Date: Sun, 01 Aug 2010 01:03:37 -0700 (PDT)
+Message-ID: <20100801.010337.68133932.davem@davemloft.net>
+References: <4C529EFB.4090601@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, arnd@arndb.de, netdev@vger.kernel.org,
-	mst@redhat.com
-To: bhutchings@solarflare.com
+Cc: eric.dumazet@gmail.com, patrick.ohly@intel.com,
+	netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	matthias.fuchs@esd.eu
+To: socketcan@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48707
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56764
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754039Ab0HAHds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Aug 2010 03:33:48 -0400
-In-Reply-To: <1280603907.13192.353.camel@localhost>
+	by vger.kernel.org with ESMTP id S1751879Ab0HAIDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Aug 2010 04:03:19 -0400
+In-Reply-To: <4C529EFB.4090601@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sat, 31 Jul 2010 20:18:27 +0100
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Fri, 30 Jul 2010 11:44:27 +0200
 
-> On Sat, 2010-07-31 at 19:27 +0530, Krishna Kumar wrote:
-> [...]
->> @@ -136,39 +158,68 @@ static void macvtap_put_queue(struct mac
->>  }
->>  
->>  /*
->> - * Since we only support one queue, just dereference the pointer.
->> + * Select a queue based on the rxq of the device on which this packet
->> + * arrived. If the incoming device is not mq, then use our cpu number
->> + * to select a queue. vlan->numvtaps is cached in case it changes
->> + * during the execution of this function.
->>   */
-> [...]
+> Hello Eric, hello Patrick,
 > 
-> This can result in reordering if a single-queue device's RX interrupt's
-> CPU affinity is changed.  We generally try to avoid that.  You should
-> really use or generate a flow hash.  There is code for this in
-> net/core/dev.c:get_rps_cpu() which could be factored out into a separate
-> function.
+> Commit fc6055a5ba31e2c14e36e8939f9bf2b6d586a7f5 (net: Introduce
+> skb_orphan_try()) allows an early orphan of the skb and takes care on
+> tx timestamping, which needs the sk-reference in the skb on driver level.
+> So does the can-raw socket, which has not been taken into account here.
+> 
+> The patch below adds a 'prevent_sk_orphan' bit in the skb tx shared info,
+> which fixes the problem discovered by Matthias Fuchs here:
+> 
+>       http://marc.info/?t=128030411900003&r=1&w=2
 
-Agreed.
+Your patch sets this new value, but I never see it getting tested anywhere.
+
+How does this work?
