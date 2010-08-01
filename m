@@ -1,52 +1,71 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM
- virtio-net.
-Date: Sun, 1 Aug 2010 11:31:13 +0300
-Message-ID: <20100801083113.GB16158@redhat.com>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
- <1280442682.9058.15.camel@localhost.localdomain>
+Subject: Re: [PATCH] vhost: locking/rcu cleanup
+Date: Sun, 1 Aug 2010 11:41:36 +0300
+Message-ID: <20100801084136.GC16158@redhat.com>
+References: <20100729122325.GA24337@redhat.com>
+ <4C52E692.3070405@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
-	herbert@gondor.hengli.com.au, jdike@linux.intel.com
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9380 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755266Ab0HAIgx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Aug 2010 04:36:53 -0400
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sridhar Samudrala <samudrala@us.ibm.com>,
+	Jeff Dike <jdike@linux.intel.com>,
+	Juan Quintela <quintela@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
+	David Stevens <dlstevens@us.ibm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1280442682.9058.15.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4C52E692.3070405@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 29, 2010 at 03:31:22PM -0700, Shirley Ma wrote:
-> I did some vhost performance measurement over 10Gb ixgbe, and found that
-> in order to get consistent BW results, netperf/netserver, qemu, vhost
-> threads smp affinities are required.
+On Fri, Jul 30, 2010 at 04:49:54PM +0200, Tejun Heo wrote:
+> Hello,
+> 
+> On 07/29/2010 02:23 PM, Michael S. Tsirkin wrote:
+> > I saw WARN_ON(!list_empty(&dev->work_list)) trigger
+> > so our custom flush is not as airtight as need be.
+> 
+> Could be but it's also possible that something has queued something
+> after the last flush?
+> Is the problem reproducible?
 
-Could you provide an example of a good setup?
-Specifically, is it a good idea for the vhost thread
-to inherit CPU affinities from qemu?
+Well, We do requeue from the job itself. So need to be careful with what
+we do with indexes here. Bug seemed to happen all the time when qemu was
+killed under stress but now I can't reproduce anymore :(
+Will try again later.
 
-> Looking forward to these results for small message size comparison.
+> > This patch switches to a simple atomic counter + srcu instead of
+> > the custom locked queue + flush implementation.
+> > 
+> > This will slow down the setup ioctls, which should not matter -
+> > it's slow path anyway. We use the expedited flush to at least
+> > make sure it has a sane time bound.
+> > 
+> > Works fine for me. I got reports that with many guests,
+> > work lock is highly contended, and this patch should in theory
+> > fix this as well - but I haven't tested this yet.
+> 
+> Hmmm... vhost_poll_flush() becomes synchronize_srcu_expedited().  Can
+> you please explain how it works?  synchronize_srcu_expedited() is an
+> extremely heavy operation involving scheduling the cpu_stop task on
+> all cpus.  I'm not quite sure whether doing it from every flush is a
+> good idea.  Is flush supposed to be a very rare operation?
 
-I think we should explore the idea for the driver to fall back on data copy
-for small message sizes.
-The benefit of zero copy would then be CPU utilization on large messages.
+It is rare - happens on guest reboot typically. I guess I will
+switch to regular synchronize_srcu.
 
-> For
-> large message size 10Gb ixgbe BW already reached by doing vhost smp
-> affinity w/i offloading support, we will see how much CPU utilization it
-> can be reduced. 
+> Having custom implementation is fine too but let's try to implement
+> something generic if at all possible.
 > 
-> Please provide latency results as well. I did some experimental on
-> macvtap zero copy sendmsg, what I have found that get_user_pages latency
-> pretty high.
-> 
-> Thanks
-> Shirley
-> 
-> 
-> 
+> Thanks.
+
+Sure. It does seem that avoiding list lock would be pretty hard
+in generic code though.
+
+> -- 
+> tejun
