@@ -1,53 +1,47 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] netem: fix installs of dist files
-Date: Sat, 31 Jul 2010 19:33:22 -0700
-Message-ID: <20100731193322.063f0fa5@nehalam>
-References: <1276131129-18079-1-git-send-email-vapier@gentoo.org>
+Subject: Re: ss -p is much too slow
+Date: Sat, 31 Jul 2010 19:33:51 -0700
+Message-ID: <20100731193351.2b703437@nehalam>
+References: <AANLkTikd3VaSUa-pxzyi7_fND40vQ-L79X7yv19jj3y0@mail.gmail.com>
+	<20100628.162139.59679342.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-To: Mike Frysinger <vapier@gentoo.org>
+Cc: sphink@gmail.com, netdev@vger.kernel.org,
+	stephen.hemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33559 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:33579 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753090Ab0HACdY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jul 2010 22:33:24 -0400
-In-Reply-To: <1276131129-18079-1-git-send-email-vapier@gentoo.org>
+	id S1753419Ab0HACdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jul 2010 22:33:53 -0400
+In-Reply-To: <20100628.162139.59679342.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  9 Jun 2010 20:52:09 -0400
-Mike Frysinger <vapier@gentoo.org> wrote:
+On Mon, 28 Jun 2010 16:21:39 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> The tc program searches LIBDIR by default for the .dist files, and that
-> defaults to /usr/lib.  But the netem subdir has /lib/ hardcoded which
-> means the default build+install results in the files not being found.
+> From: Steve Fink <sphink@gmail.com>
+> Date: Wed, 9 Jun 2010 11:42:38 -0700
 > 
-> Further, these are plain text files which are read at runtime, so it
-> doesn't make sense to give them executable bits.
+> > On closer inspection, it appears that ss -p does a quadratic scan. It
+> > rescans every entry in /proc/*/fd/* repeatedly (once per listening
+> > port? per process? I don't remember what I figured out.)
+> > 
+> > I humbly suggest that this is not a good idea.
 > 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
->  netem/Makefile |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+> Yep, this is junk.  Please give this patch a try:
 > 
-> diff --git a/netem/Makefile b/netem/Makefile
-> index b6ccfc6..e52e125 100644
-> --- a/netem/Makefile
-> +++ b/netem/Makefile
-> @@ -20,9 +20,9 @@ stats: stats.c
->  	$(HOSTCC) $(CCOPTS) -I../include -o $@ $@.c -lm
->  
->  install: all
-> -	mkdir -p $(DESTDIR)/lib/tc
-> +	mkdir -p $(DESTDIR)$(LIBDIR)/tc
->  	for i in $(DISTDATA); \
-> -	do install -m 755 $$i $(DESTDIR)/lib/tc; \
-> +	do install -m 644 $$i $(DESTDIR)$(LIBDIR)/tc; \
->  	done
->  
->  clean:
-
+> ss: Avoid quadradic complexity with '-p'
+> 
+> Scan the process list of open sockets once, and store in a hash
+> table to be used by subsequent find_user() calls.
+> 
+> Reported-by: Steve Fink <sphink@gmail.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
 Applied
+
+
+-- 
