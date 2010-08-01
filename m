@@ -1,45 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 2/2] igb/ixgbe: add code to trigger function reset
- if reset_devices is set
-Date: Sun, 01 Aug 2010 01:15:16 -0700 (PDT)
-Message-ID: <20100801.011516.191407437.davem@davemloft.net>
-References: <20100731005803.32625.6891.stgit@localhost.localdomain>
-	<20100731005910.32625.89518.stgit@localhost.localdomain>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM virtio-net.
+Date: Sun, 01 Aug 2010 11:18:12 +0300
+Message-ID: <4C552DC4.5000600@redhat.com>
+References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>	 <1280442682.9058.15.camel@localhost.localdomain>	 <4C525CD2.5080604@redhat.com> <1280504771.9058.25.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jbarnes@virtuousgeek.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20100731005910.32625.89518.stgit@localhost.localdomain>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.hengli.com.au,
+	jdike@linux.intel.com
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1280504771.9058.25.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 30 Jul 2010 17:59:12 -0700
+  On 07/30/2010 06:46 PM, Shirley Ma wrote:
+> Hello Avi,
+>
+> On Fri, 2010-07-30 at 08:02 +0300, Avi Kivity wrote:
+>> get_user_pages() is indeed slow.  But what about
+>> get_user_pages_fast()?
+>>
+>> Note that when the page is first touched, get_user_pages_fast() falls
+>> back to get_user_pages(), so the latency needs to be measured after
+>> quite a bit of warm-up.
+> Yes, I used get_user_pages_fast, however if falled back to
+> get_user_pages() when the apps doesn't allocate buffer on the same page.
+> If I run a single ping, the RTT is extremely high, but when running
+> multiple pings, the RTT time reduce significantly, but still it is not
+> as fast as copy from my initial test. I am thinking that we might need
+> to pre-pin memory pool.
+>
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This change makes it so that both igb and ixgbe can trigger a full pcie
-> function reset if the reset_devices kernel parameter is defined.  The main
-> reason for adding this is that kdump can cause serious issues when the
-> kdump kernel resets the IOMMU while DMA transactions are still occurring.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+I don't understand.  Under what conditions do you use get_user_pages() 
+instead of get_user_pages_fast()?  Why?
 
-I tend to disagree with the essence of this change.
-
-Which is that we should add workaround after workaround for things
-that aren't functioning properly in kdump and kexec.
-
-They should have a pass that shuts devices down properly, so that this
-kind of stuff doesn't need to happen in the kernel we then boot into.
-
-What happens on non-PCIE systems then?  Do they just lose when this
-happens?
-
-No, you dun goof'd.  :-) Find another way to fix this please.
-
-Thanks.
+-- 
+error compiling committee.c: too many arguments to function
