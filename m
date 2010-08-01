@@ -1,39 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
-Date: Sun, 01 Aug 2010 01:03:37 -0700 (PDT)
-Message-ID: <20100801.010337.68133932.davem@davemloft.net>
-References: <4C529EFB.4090601@hartkopp.net>
+Subject: Re: [RFC PATCH 2/2] igb/ixgbe: add code to trigger function reset
+ if reset_devices is set
+Date: Sun, 01 Aug 2010 01:15:16 -0700 (PDT)
+Message-ID: <20100801.011516.191407437.davem@davemloft.net>
+References: <20100731005803.32625.6891.stgit@localhost.localdomain>
+	<20100731005910.32625.89518.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, patrick.ohly@intel.com,
-	netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
-	matthias.fuchs@esd.eu
-To: socketcan@hartkopp.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56764
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751879Ab0HAIDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Aug 2010 04:03:19 -0400
-In-Reply-To: <4C529EFB.4090601@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jbarnes@virtuousgeek.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100731005910.32625.89518.stgit@localhost.localdomain>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Fri, 30 Jul 2010 11:44:27 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 30 Jul 2010 17:59:12 -0700
 
-> Hello Eric, hello Patrick,
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Commit fc6055a5ba31e2c14e36e8939f9bf2b6d586a7f5 (net: Introduce
-> skb_orphan_try()) allows an early orphan of the skb and takes care on
-> tx timestamping, which needs the sk-reference in the skb on driver level.
-> So does the can-raw socket, which has not been taken into account here.
+> This change makes it so that both igb and ixgbe can trigger a full pcie
+> function reset if the reset_devices kernel parameter is defined.  The main
+> reason for adding this is that kdump can cause serious issues when the
+> kdump kernel resets the IOMMU while DMA transactions are still occurring.
 > 
-> The patch below adds a 'prevent_sk_orphan' bit in the skb tx shared info,
-> which fixes the problem discovered by Matthias Fuchs here:
-> 
->       http://marc.info/?t=128030411900003&r=1&w=2
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Your patch sets this new value, but I never see it getting tested anywhere.
+I tend to disagree with the essence of this change.
 
-How does this work?
+Which is that we should add workaround after workaround for things
+that aren't functioning properly in kdump and kexec.
+
+They should have a pass that shuts devices down properly, so that this
+kind of stuff doesn't need to happen in the kernel we then boot into.
+
+What happens on non-PCIE systems then?  Do they just lose when this
+happens?
+
+No, you dun goof'd.  :-) Find another way to fix this please.
+
+Thanks.
