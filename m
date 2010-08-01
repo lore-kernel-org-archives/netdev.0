@@ -1,68 +1,43 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
-Date: Sun, 01 Aug 2010 12:50:16 +0200
-Message-ID: <4C555168.3090800@hartkopp.net>
-References: <4C529EFB.4090601@hartkopp.net>
-	<20100801.010337.68133932.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100801.010337.68133932.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Clouter <alex@digriz.org.uk>
+Subject: Re: shape traffic on tun interfaces
+Date: Sun, 1 Aug 2010 11:27:12 +0100
+Message-ID: <0pufi7-0ii.ln1@chipmunk.wormnet.eu>
+References: <301941280614170@web105.yandex.ru>
+Cc: lartc@mailman.ds9a.nl
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:59865 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751142Ab0HALIS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Aug 2010 07:08:18 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1OfWOv-0004AG-P6
+	for netdev@vger.kernel.org; Sun, 01 Aug 2010 13:08:17 +0200
+Received: from chipmunk.wormnet.eu ([195.195.131.226])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 01 Aug 2010 13:08:17 +0200
+Received: from alex by chipmunk.wormnet.eu with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 01 Aug 2010 13:08:17 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01.08.2010 10:03, David Miller wrote:
-> From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> Date: Fri, 30 Jul 2010 11:44:27 +0200
-> 
->> Hello Eric, hello Patrick,
->>
->> Commit fc6055a5ba31e2c14e36e8939f9bf2b6d586a7f5 (net: Introduce
->> skb_orphan_try()) allows an early orphan of the skb and takes care on
->> tx timestamping, which needs the sk-reference in the skb on driver level.
->> So does the can-raw socket, which has not been taken into account here.
->>
->> The patch below adds a 'prevent_sk_orphan' bit in the skb tx shared info,
->> which fixes the problem discovered by Matthias Fuchs here:
->>
->>       http://marc.info/?t=128030411900003&r=1&w=2
-> 
-> Your patch sets this new value, but I never see it getting tested anywhere.
-> 
-> How does this work?
+Franchoze Eric <franchoze@yandex.ru> wrote:
+>
+> Do we have any interface to shape traffic per destination IP? The 
+> standrad HTB shapes it per device, which is not suitable for case if 
+> limitation required per destination IP. For example openvpn server 
+> which servers about 3000 clients and has 10 internal tun interfases 
+> (tun0-tun9). 
+>
+Do the QoS on your next hop router or on the interface all your 
+de-encapsulated VPN traffic flows over (ie. 'eth0') instead.
 
+Cheers
 
-The flags are tested all together in skb_orphan_try() ...
+-- 
+Alexander Clouter
+.sigmonster says: He who always plows a straight furrow is in a rut.
 
-See at
-
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=fc6055a5ba31e2c14e36e8939f9bf2b6d586a7f5
-
-+/*
-+ * Try to orphan skb early, right before transmission by the device.
-+ * We cannot orphan skb if tx timestamp is requested, since
-+ * drivers need to call skb_tstamp_tx() to send the timestamp.
-+ */
-+static inline void skb_orphan_try(struct sk_buff *skb)
-+{
-+       if (!skb_tx(skb)->flags)
-+               skb_orphan(skb);
-+}
-
-So my patch just added a new bit that's tested here but does not touch the
-rest of the tx timestamp bits that are checked at this place.
-
-Regards,
-Oliver
