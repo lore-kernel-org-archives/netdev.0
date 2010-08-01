@@ -1,649 +1,580 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [PATCH 01/11] pcmcia: use pcmica_{read,write}_config_byte
-Date: Sun,  1 Aug 2010 14:59:00 +0200
-Message-ID: <1280667550-3040-1-git-send-email-linux@dominikbrodowski.net>
+Subject: [PATCH 07/11] pcmcia: remove memreq_t
+Date: Sun,  1 Aug 2010 14:59:06 +0200
+Message-ID: <1280667550-3040-7-git-send-email-linux@dominikbrodowski.net>
 References: <20100801125749.GA2564@comet.dominikbrodowski.net>
 Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
 	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-ide@vger.kernel.org, linux-usb@vger.kernel.org,
+	laforge@gnumonks.org, linux-mtd@lists.infradead.org,
+	linux-bluetooth@vger.kernel.org, alsa-devel@alsa-project.org,
 	linux-serial@vger.kernel.org, Michael Buesch <mb@bu3sch.de>
 To: <linux-pcmcia@lists.infradead.org>
-Return-path: <linux-serial-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from isilmar-3.linta.de ([188.40.101.200]:33778 "EHLO linta.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755255Ab0HAM7o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Aug 2010 08:59:44 -0400
 In-Reply-To: <20100801125749.GA2564@comet.dominikbrodowski.net>
-Sender: linux-serial-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use pcmcia_read_config_byte and pcmcia_write_config_byte instead
-of pcmcia_access_configuration_register.
+Page already had to be set to 0; Offset can easily be passed as
+parameter to pcmcia_map_mem_page.
 
 CC: netdev@vger.kernel.org
 CC: linux-wireless@vger.kernel.org
+CC: linux-ide@vger.kernel.org
+CC: linux-usb@vger.kernel.org
+CC: laforge@gnumonks.org
+CC: linux-mtd@lists.infradead.org
+CC: linux-bluetooth@vger.kernel.org
+CC: alsa-devel@alsa-project.org
 CC: linux-serial@vger.kernel.org
 CC: Michael Buesch <mb@bu3sch.de>
 Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
 ---
- drivers/net/pcmcia/axnet_cs.c              |    3 +-
- drivers/net/pcmcia/nmclan_cs.c             |   21 ++-----
- drivers/net/pcmcia/xirc2ps_cs.c            |   16 ++---
- drivers/net/wireless/hostap/hostap_cs.c    |   91 ++++++++--------------------
- drivers/net/wireless/orinoco/spectrum_cs.c |   32 +++-------
- drivers/pcmcia/cistpl.c                    |    7 +-
- drivers/pcmcia/cs_internal.h               |    4 +-
- drivers/pcmcia/pcmcia_resource.c           |   72 +++++++++++++---------
- drivers/serial/serial_cs.c                 |    8 +--
- drivers/ssb/pcmcia.c                       |   14 +----
- include/pcmcia/cs.h                        |   12 ----
- include/pcmcia/ds.h                        |    4 +-
- 12 files changed, 105 insertions(+), 179 deletions(-)
+ drivers/char/pcmcia/ipwireless/main.c         |   14 ++------------
+ drivers/isdn/hisax/sedlbauer_cs.c             |    7 +++----
+ drivers/mtd/maps/pcmciamtd.c                  |   13 ++++++-------
+ drivers/net/pcmcia/fmvj18x_cs.c               |   10 ++--------
+ drivers/net/pcmcia/ibmtr_cs.c                 |   11 +++--------
+ drivers/net/pcmcia/pcnet_cs.c                 |   14 ++++----------
+ drivers/net/pcmcia/smc91c92_cs.c              |    9 +++------
+ drivers/net/pcmcia/xirc2ps_cs.c               |    5 +----
+ drivers/net/wireless/airo_cs.c                |    6 ++----
+ drivers/net/wireless/b43/pcmcia.c             |    5 +----
+ drivers/net/wireless/ray_cs.c                 |   13 +++----------
+ drivers/pcmcia/pcmcia_resource.c              |    9 +++------
+ drivers/scsi/pcmcia/nsp_cs.c                  |    5 ++---
+ drivers/staging/comedi/drivers/ni_daq_700.c   |    6 ++----
+ drivers/staging/comedi/drivers/ni_daq_dio24.c |    6 ++----
+ drivers/staging/comedi/drivers/ni_labpc_cs.c  |    6 ++----
+ include/pcmcia/cs.h                           |    6 ------
+ include/pcmcia/ds.h                           |    2 +-
+ 18 files changed, 42 insertions(+), 105 deletions(-)
 
-diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
-index 467fd4b..ee0a6d0 100644
---- a/drivers/net/pcmcia/axnet_cs.c
-+++ b/drivers/net/pcmcia/axnet_cs.c
-@@ -378,8 +378,7 @@ static int axnet_config(struct pcmcia_device *link)
-     /* Maybe PHY is in power down mode. (PPD_SET = 1) 
-        Bit 2 of CCSR is active low. */ 
-     if (i == 32) {
--	conf_reg_t reg = { 0, CS_WRITE, CISREG_CCSR, 0x04 };
-- 	pcmcia_access_configuration_register(link, &reg);
-+	pcmcia_write_config_byte(link, CISREG_CCSR, 0x04);
- 	for (i = 0; i < 32; i++) {
- 	    j = mdio_read(dev->base_addr + AXNET_MII_EEP, i, 1);
- 	    j2 = mdio_read(dev->base_addr + AXNET_MII_EEP, i, 2);
-diff --git a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
-index c0eacfa..c0d85af 100644
---- a/drivers/net/pcmcia/nmclan_cs.c
-+++ b/drivers/net/pcmcia/nmclan_cs.c
-@@ -757,29 +757,20 @@ static void nmclan_reset(struct net_device *dev)
+diff --git a/drivers/char/pcmcia/ipwireless/main.c b/drivers/char/pcmcia/ipwireless/main.c
+index 5f87b9f..6c4aa4b 100644
+--- a/drivers/char/pcmcia/ipwireless/main.c
++++ b/drivers/char/pcmcia/ipwireless/main.c
+@@ -84,8 +84,6 @@ static int ipwireless_probe(struct pcmcia_device *p_dev,
+ {
+ 	struct ipw_dev *ipw = priv_data;
+ 	struct resource *io_resource;
+-	memreq_t memreq_attr_memory;
+-	memreq_t memreq_common_memory;
+ 	int ret;
  
- #if RESET_XILINX
-   struct pcmcia_device *link = &lp->link;
--  conf_reg_t reg;
--  u_long OrigCorValue; 
-+  u8 OrigCorValue;
+ 	p_dev->resource[0]->flags |= IO_DATA_PATH_WIDTH_AUTO;
+@@ -121,11 +119,8 @@ static int ipwireless_probe(struct pcmcia_device *p_dev,
+ 	if (ret != 0)
+ 		goto exit1;
  
-   /* Save original COR value */
--  reg.Function = 0;
--  reg.Action = CS_READ;
--  reg.Offset = CISREG_COR;
--  reg.Value = 0;
--  pcmcia_access_configuration_register(link, &reg);
--  OrigCorValue = reg.Value;
-+  pcmcia_read_config_byte(link, CISREG_COR, &OrigCorValue);
+-	memreq_common_memory.CardOffset = cfg->mem.win[0].card_addr;
+-	memreq_common_memory.Page = 0;
+-
+ 	ret = pcmcia_map_mem_page(p_dev, ipw->handle_common_memory,
+-				&memreq_common_memory);
++				cfg->mem.win[0].card_addr);
  
-   /* Reset Xilinx */
--  reg.Action = CS_WRITE;
--  reg.Offset = CISREG_COR;
--  dev_dbg(&link->dev, "nmclan_reset: OrigCorValue=0x%lX, resetting...\n",
-+  dev_dbg(&link->dev, "nmclan_reset: OrigCorValue=0x%x, resetting...\n",
- 	OrigCorValue);
--  reg.Value = COR_SOFT_RESET;
--  pcmcia_access_configuration_register(link, &reg);
-+  pcmcia_write_config_byte(link, CISREG_COR, COR_SOFT_RESET);
-   /* Need to wait for 20 ms for PCMCIA to finish reset. */
+ 	if (ret != 0)
+ 		goto exit2;
+@@ -150,12 +145,7 @@ static int ipwireless_probe(struct pcmcia_device *p_dev,
+ 	if (ret != 0)
+ 		goto exit2;
  
-   /* Restore original COR configuration index */
--  reg.Value = COR_LEVEL_REQ | (OrigCorValue & COR_CONFIG_MASK);
--  pcmcia_access_configuration_register(link, &reg);
-+  pcmcia_write_config_byte(link, CISREG_COR,
-+			  (COR_LEVEL_REQ | (OrigCorValue & COR_CONFIG_MASK)));
-   /* Xilinx is now completely reset along with the MACE chip. */
-   lp->tx_free_frames=AM2150_MAX_TX_FRAMES;
+-	memreq_attr_memory.CardOffset = 0;
+-	memreq_attr_memory.Page = 0;
+-
+-	ret = pcmcia_map_mem_page(p_dev, ipw->handle_attr_memory,
+-				&memreq_attr_memory);
+-
++	ret = pcmcia_map_mem_page(p_dev, ipw->handle_attr_memory, 0);
+ 	if (ret != 0)
+ 		goto exit3;
  
+diff --git a/drivers/isdn/hisax/sedlbauer_cs.c b/drivers/isdn/hisax/sedlbauer_cs.c
+index 4755eb4..0b06dbb 100644
+--- a/drivers/isdn/hisax/sedlbauer_cs.c
++++ b/drivers/isdn/hisax/sedlbauer_cs.c
+@@ -232,7 +232,6 @@ static int sedlbauer_config_check(struct pcmcia_device *p_dev,
+ 	*/
+ 	if ((cfg->mem.nwin > 0) || (dflt->mem.nwin > 0)) {
+ 		cistpl_mem_t *mem = (cfg->mem.nwin) ? &cfg->mem : &dflt->mem;
+-		memreq_t map;
+ 		req->Attributes = WIN_DATA_WIDTH_16|WIN_MEMORY_TYPE_CM;
+ 		req->Attributes |= WIN_ENABLE;
+ 		req->Base = mem->win[0].host_addr;
+@@ -240,9 +239,9 @@ static int sedlbauer_config_check(struct pcmcia_device *p_dev,
+ 		req->AccessSpeed = 0;
+ 		if (pcmcia_request_window(p_dev, req, &p_dev->win) != 0)
+ 			return -ENODEV;
+-		map.Page = 0;
+-		map.CardOffset = mem->win[0].card_addr;
+-		if (pcmcia_map_mem_page(p_dev, p_dev->win, &map) != 0)
++
++		if (pcmcia_map_mem_page(p_dev, p_dev->win,
++						mem->win[0].card_addr) != 0)
+ 			return -ENODEV;
+ 	}
+ 	return 0;
+diff --git a/drivers/mtd/maps/pcmciamtd.c b/drivers/mtd/maps/pcmciamtd.c
+index 7948816..f97463e 100644
+--- a/drivers/mtd/maps/pcmciamtd.c
++++ b/drivers/mtd/maps/pcmciamtd.c
+@@ -102,7 +102,7 @@ static caddr_t remap_window(struct map_info *map, unsigned long to)
+ {
+ 	struct pcmciamtd_dev *dev = (struct pcmciamtd_dev *)map->map_priv_1;
+ 	window_handle_t win = (window_handle_t)map->map_priv_2;
+-	memreq_t mrq;
++	unsigned int offset;
+ 	int ret;
+ 
+ 	if (!pcmcia_dev_present(dev->p_dev)) {
+@@ -110,15 +110,14 @@ static caddr_t remap_window(struct map_info *map, unsigned long to)
+ 		return 0;
+ 	}
+ 
+-	mrq.CardOffset = to & ~(dev->win_size-1);
+-	if(mrq.CardOffset != dev->offset) {
++	offset = to & ~(dev->win_size-1);
++	if (offset != dev->offset) {
+ 		DEBUG(2, "Remapping window from 0x%8.8x to 0x%8.8x",
+-		      dev->offset, mrq.CardOffset);
+-		mrq.Page = 0;
+-		ret = pcmcia_map_mem_page(dev->p_dev, win, &mrq);
++		      dev->offset, offset);
++		ret = pcmcia_map_mem_page(dev->p_dev, win, offset);
+ 		if (ret != 0)
+ 			return NULL;
+-		dev->offset = mrq.CardOffset;
++		dev->offset = offset;
+ 	}
+ 	return dev->win_base + (to & (dev->win_size-1));
+ }
+diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/pcmcia/fmvj18x_cs.c
+index 6993044..98fffb0 100644
+--- a/drivers/net/pcmcia/fmvj18x_cs.c
++++ b/drivers/net/pcmcia/fmvj18x_cs.c
+@@ -545,7 +545,6 @@ failed:
+ static int fmvj18x_get_hwinfo(struct pcmcia_device *link, u_char *node_id)
+ {
+     win_req_t req;
+-    memreq_t mem;
+     u_char __iomem *base;
+     int i, j;
+ 
+@@ -558,9 +557,7 @@ static int fmvj18x_get_hwinfo(struct pcmcia_device *link, u_char *node_id)
+ 	return -1;
+ 
+     base = ioremap(req.Base, req.Size);
+-    mem.Page = 0;
+-    mem.CardOffset = 0;
+-    pcmcia_map_mem_page(link, link->win, &mem);
++    pcmcia_map_mem_page(link, link->win, 0);
+ 
+     /*
+      *  MBH10304 CISTPL_FUNCE_LAN_NODE_ID format
+@@ -594,7 +591,6 @@ static int fmvj18x_get_hwinfo(struct pcmcia_device *link, u_char *node_id)
+ static int fmvj18x_setup_mfc(struct pcmcia_device *link)
+ {
+     win_req_t req;
+-    memreq_t mem;
+     int i;
+     struct net_device *dev = link->priv;
+     unsigned int ioaddr;
+@@ -614,9 +610,7 @@ static int fmvj18x_setup_mfc(struct pcmcia_device *link)
+ 	return -1;
+     }
+ 
+-    mem.Page = 0;
+-    mem.CardOffset = 0;
+-    i = pcmcia_map_mem_page(link, link->win, &mem);
++    i = pcmcia_map_mem_page(link, link->win, 0);
+     if (i != 0) {
+ 	iounmap(lp->base);
+ 	lp->base = NULL;
+diff --git a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/pcmcia/ibmtr_cs.c
+index 3fd8595..c0b3cdd 100644
+--- a/drivers/net/pcmcia/ibmtr_cs.c
++++ b/drivers/net/pcmcia/ibmtr_cs.c
+@@ -211,7 +211,6 @@ static int __devinit ibmtr_config(struct pcmcia_device *link)
+     struct net_device *dev = info->dev;
+     struct tok_info *ti = netdev_priv(dev);
+     win_req_t req;
+-    memreq_t mem;
+     int i, ret;
+ 
+     dev_dbg(&link->dev, "ibmtr_config\n");
+@@ -250,9 +249,7 @@ static int __devinit ibmtr_config(struct pcmcia_device *link)
+     if (ret)
+ 	    goto failed;
+ 
+-    mem.CardOffset = mmiobase;
+-    mem.Page = 0;
+-    ret = pcmcia_map_mem_page(link, link->win, &mem);
++    ret = pcmcia_map_mem_page(link, link->win, mmiobase);
+     if (ret)
+ 	    goto failed;
+     ti->mmio = ioremap(req.Base, req.Size);
+@@ -267,13 +264,11 @@ static int __devinit ibmtr_config(struct pcmcia_device *link)
+     if (ret)
+ 	    goto failed;
+ 
+-    mem.CardOffset = srambase;
+-    mem.Page = 0;
+-    ret = pcmcia_map_mem_page(link, info->sram_win_handle, &mem);
++    ret = pcmcia_map_mem_page(link, info->sram_win_handle, srambase);
+     if (ret)
+ 	    goto failed;
+ 
+-    ti->sram_base = mem.CardOffset >> 12;
++    ti->sram_base = srambase >> 12;
+     ti->sram_virt = ioremap(req.Base, req.Size);
+     ti->sram_phys = req.Base;
+ 
+diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
+index 9c5fc9d..c3edfe4 100644
+--- a/drivers/net/pcmcia/pcnet_cs.c
++++ b/drivers/net/pcmcia/pcnet_cs.c
+@@ -301,7 +301,6 @@ static hw_info_t *get_hwinfo(struct pcmcia_device *link)
+ {
+     struct net_device *dev = link->priv;
+     win_req_t req;
+-    memreq_t mem;
+     u_char __iomem *base, *virt;
+     int i, j;
+ 
+@@ -314,10 +313,8 @@ static hw_info_t *get_hwinfo(struct pcmcia_device *link)
+ 	return NULL;
+ 
+     virt = ioremap(req.Base, req.Size);
+-    mem.Page = 0;
+     for (i = 0; i < NR_INFO; i++) {
+-	mem.CardOffset = hw_info[i].offset & ~(req.Size-1);
+-	pcmcia_map_mem_page(link, link->win, &mem);
++	pcmcia_map_mem_page(link, link->win, hw_info[i].offset & ~(req.Size-1));
+ 	base = &virt[hw_info[i].offset & (req.Size-1)];
+ 	if ((readb(base+0) == hw_info[i].a0) &&
+ 	    (readb(base+2) == hw_info[i].a1) &&
+@@ -1463,7 +1460,6 @@ static int setup_shmem_window(struct pcmcia_device *link, int start_pg,
+     struct net_device *dev = link->priv;
+     pcnet_dev_t *info = PRIV(dev);
+     win_req_t req;
+-    memreq_t mem;
+     int i, window_size, offset, ret;
+ 
+     window_size = (stop_pg - start_pg) << 8;
+@@ -1482,11 +1478,9 @@ static int setup_shmem_window(struct pcmcia_device *link, int start_pg,
+     if (ret)
+ 	    goto failed;
+ 
+-    mem.CardOffset = (start_pg << 8) + cm_offset;
+-    offset = mem.CardOffset % window_size;
+-    mem.CardOffset -= offset;
+-    mem.Page = 0;
+-    ret = pcmcia_map_mem_page(link, link->win, &mem);
++    offset = (start_pg << 8) + cm_offset;
++    offset -= offset % window_size;
++    ret = pcmcia_map_mem_page(link, link->win, offset);
+     if (ret)
+ 	    goto failed;
+ 
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index a5e4779..377367d 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -443,7 +443,7 @@ static int mhz_mfc_config(struct pcmcia_device *link)
+     struct net_device *dev = link->priv;
+     struct smc_private *smc = netdev_priv(dev);
+     win_req_t req;
+-    memreq_t mem;
++    unsigned int offset;
+     int i;
+ 
+     link->conf.Attributes |= CONF_ENABLE_SPKR;
+@@ -467,11 +467,8 @@ static int mhz_mfc_config(struct pcmcia_device *link)
+ 	    return -ENODEV;
+ 
+     smc->base = ioremap(req.Base, req.Size);
+-    mem.CardOffset = mem.Page = 0;
+-    if (smc->manfid == MANFID_MOTOROLA)
+-	mem.CardOffset = link->conf.ConfigBase;
+-    i = pcmcia_map_mem_page(link, link->win, &mem);
+-
++    offset = (smc->manfid == MANFID_MOTOROLA) ? link->conf.ConfigBase : 0;
++    i = pcmcia_map_mem_page(link, link->win, offset);
+     if ((i == 0) &&
+ 	(smc->manfid == MANFID_MEGAHERTZ) &&
+ 	(smc->cardid == PRODID_MEGAHERTZ_EM3288))
 diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
-index a7662f0..add6c82 100644
+index e051d3a..931d28e 100644
 --- a/drivers/net/pcmcia/xirc2ps_cs.c
 +++ b/drivers/net/pcmcia/xirc2ps_cs.c
-@@ -869,7 +869,6 @@ xirc2ps_config(struct pcmcia_device * link)
- 	goto config_error;
+@@ -870,7 +870,6 @@ xirc2ps_config(struct pcmcia_device * link)
  
      if (local->dingo) {
--	conf_reg_t reg;
  	win_req_t req;
- 	memreq_t mem;
+-	memreq_t mem;
  
-@@ -878,15 +877,14 @@ xirc2ps_config(struct pcmcia_device * link)
- 	 * the base address of the ethernet port (BasePort1) is written
- 	 * to the BAR registers of the modem.
- 	 */
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_IOBASE_0;
--	reg.Value = link->io.BasePort2 & 0xff;
--	if ((err = pcmcia_access_configuration_register(link, &reg)))
-+	err = pcmcia_write_config_byte(link, CISREG_IOBASE_0,
-+				link->io.BasePort2 & 0xff);
-+	if (err)
- 	    goto config_error;
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_IOBASE_1;
--	reg.Value = (link->io.BasePort2 >> 8) & 0xff;
--	if ((err = pcmcia_access_configuration_register(link, &reg)))
-+
-+	err = pcmcia_write_config_byte(link, CISREG_IOBASE_1,
-+				link->io.BasePort2 & 0xff);
-+	if (err)
+ 	/* Reset the modem's BAR to the correct value
+ 	 * This is necessary because in the RequestConfiguration call,
+@@ -898,9 +897,7 @@ xirc2ps_config(struct pcmcia_device * link)
  	    goto config_error;
  
- 	/* There is no config entry for the Ethernet part which
-diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wireless/hostap/hostap_cs.c
-index 2f4b6d4..def63bf 100644
---- a/drivers/net/wireless/hostap/hostap_cs.c
-+++ b/drivers/net/wireless/hostap/hostap_cs.c
-@@ -224,27 +224,18 @@ static int prism2_pccard_card_present(local_info_t *local)
- static void sandisk_set_iobase(local_info_t *local)
+ 	local->dingo_ccr = ioremap(req.Base,0x1000) + 0x0800;
+-	mem.CardOffset = 0x0;
+-	mem.Page = 0;
+-	if ((err = pcmcia_map_mem_page(link, link->win, &mem)))
++	if ((err = pcmcia_map_mem_page(link, link->win, 0)))
+ 	    goto config_error;
+ 
+ 	/* Setup the CCRs; there are no infos in the CIS about the Ethernet
+diff --git a/drivers/net/wireless/airo_cs.c b/drivers/net/wireless/airo_cs.c
+index d241b4a..d47672c 100644
+--- a/drivers/net/wireless/airo_cs.c
++++ b/drivers/net/wireless/airo_cs.c
+@@ -207,16 +207,14 @@ static int airo_cs_config_check(struct pcmcia_device *p_dev,
+ 	*/
+ 	if ((cfg->mem.nwin > 0) || (dflt->mem.nwin > 0)) {
+ 		cistpl_mem_t *mem = (cfg->mem.nwin) ? &cfg->mem : &dflt->mem;
+-		memreq_t map;
+ 		req->Attributes = WIN_DATA_WIDTH_16|WIN_MEMORY_TYPE_CM;
+ 		req->Base = mem->win[0].host_addr;
+ 		req->Size = mem->win[0].len;
+ 		req->AccessSpeed = 0;
+ 		if (pcmcia_request_window(p_dev, req, &p_dev->win) != 0)
+ 			return -ENODEV;
+-		map.Page = 0;
+-		map.CardOffset = mem->win[0].card_addr;
+-		if (pcmcia_map_mem_page(p_dev, p_dev->win, &map) != 0)
++		if (pcmcia_map_mem_page(p_dev, p_dev->win,
++						mem->win[0].card_addr) != 0)
+ 			return -ENODEV;
+ 	}
+ 	/* If we got this far, we're cool! */
+diff --git a/drivers/net/wireless/b43/pcmcia.c b/drivers/net/wireless/b43/pcmcia.c
+index 7c9af82..ffe1f89 100644
+--- a/drivers/net/wireless/b43/pcmcia.c
++++ b/drivers/net/wireless/b43/pcmcia.c
+@@ -64,7 +64,6 @@ static int __devinit b43_pcmcia_probe(struct pcmcia_device *dev)
  {
- 	int res;
--	conf_reg_t reg;
- 	struct hostap_cs_priv *hw_priv = local->hw_priv;
+ 	struct ssb_bus *ssb;
+ 	win_req_t win;
+-	memreq_t mem;
+ 	int err = -ENOMEM;
+ 	int res = 0;
  
--	reg.Function = 0;
--	reg.Action = CS_WRITE;
--	reg.Offset = 0x10; /* 0x3f0 IO base 1 */
--	reg.Value = hw_priv->link->io.BasePort1 & 0x00ff;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, 0x10,
-+				hw_priv->link->io.BasePort1 & 0x00ff);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "Prism3 SanDisk - failed to set I/O base 0 -"
- 		       " res=%d\n", res);
- 	}
- 	udelay(10);
+@@ -87,9 +86,7 @@ static int __devinit b43_pcmcia_probe(struct pcmcia_device *dev)
+ 	if (res != 0)
+ 		goto err_kfree_ssb;
  
--	reg.Function = 0;
--	reg.Action = CS_WRITE;
--	reg.Offset = 0x12; /* 0x3f2 IO base 2 */
--	reg.Value = (hw_priv->link->io.BasePort1 & 0xff00) >> 8;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, 0x12,
-+				hw_priv->link->io.BasePort1 & 0x00ff);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "Prism3 SanDisk - failed to set I/O base 1 -"
- 		       " res=%d\n", res);
-@@ -270,7 +261,6 @@ static void sandisk_write_hcr(local_info_t *local, int hcr)
- static int sandisk_enable_wireless(struct net_device *dev)
- {
- 	int res, ret = 0;
--	conf_reg_t reg;
- 	struct hostap_interface *iface = netdev_priv(dev);
- 	local_info_t *local = iface->local;
- 	struct hostap_cs_priv *hw_priv = local->hw_priv;
-@@ -297,12 +287,8 @@ static int sandisk_enable_wireless(struct net_device *dev)
- 	       " - using vendor-specific initialization\n", dev->name);
- 	hw_priv->sandisk_connectplus = 1;
+-	mem.CardOffset = 0;
+-	mem.Page = 0;
+-	res = pcmcia_map_mem_page(dev, dev->win, &mem);
++	res = pcmcia_map_mem_page(dev, dev->win, 0);
+ 	if (res != 0)
+ 		goto err_disable;
  
--	reg.Function = 0;
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
--	reg.Value = COR_SOFT_RESET;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
-+				COR_SOFT_RESET);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "%s: SanDisk - COR sreset failed (%d)\n",
- 		       dev->name, res);
-@@ -310,16 +296,13 @@ static int sandisk_enable_wireless(struct net_device *dev)
- 	}
- 	mdelay(5);
+diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
+index b83d5ef..7eb339a 100644
+--- a/drivers/net/wireless/ray_cs.c
++++ b/drivers/net/wireless/ray_cs.c
+@@ -393,7 +393,6 @@ static int ray_config(struct pcmcia_device *link)
+ 	int ret = 0;
+ 	int i;
+ 	win_req_t req;
+-	memreq_t mem;
+ 	struct net_device *dev = (struct net_device *)link->priv;
+ 	ray_dev_t *local = netdev_priv(dev);
  
--	reg.Function = 0;
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
- 	/*
- 	 * Do not enable interrupts here to avoid some bogus events. Interrupts
- 	 * will be enabled during the first cor_sreset call.
- 	 */
--	reg.Value = COR_LEVEL_REQ | 0x8 | COR_ADDR_DECODE | COR_FUNC_ENA;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
-+				(COR_LEVEL_REQ | 0x8 | COR_ADDR_DECODE |
-+					COR_FUNC_ENA));
- 	if (res != 0) {
- 		printk(KERN_DEBUG "%s: SanDisk - COR sreset failed (%d)\n",
- 		       dev->name, res);
-@@ -342,30 +325,23 @@ done:
- static void prism2_pccard_cor_sreset(local_info_t *local)
- {
- 	int res;
--	conf_reg_t reg;
-+	u8 val;
- 	struct hostap_cs_priv *hw_priv = local->hw_priv;
- 
- 	if (!prism2_pccard_card_present(local))
- 	       return;
- 
--	reg.Function = 0;
--	reg.Action = CS_READ;
--	reg.Offset = CISREG_COR;
--	reg.Value = 0;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_read_config_byte(hw_priv->link, CISREG_COR, &val);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_cor_sreset failed 1 (%d)\n",
- 		       res);
- 		return;
- 	}
- 	printk(KERN_DEBUG "prism2_pccard_cor_sreset: original COR %02x\n",
--	       reg.Value);
-+		val);
- 
--	reg.Action = CS_WRITE;
--	reg.Value |= COR_SOFT_RESET;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	val |= COR_SOFT_RESET;
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR, val);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_cor_sreset failed 2 (%d)\n",
- 		       res);
-@@ -374,11 +350,10 @@ static void prism2_pccard_cor_sreset(local_info_t *local)
- 
- 	mdelay(hw_priv->sandisk_connectplus ? 5 : 2);
- 
--	reg.Value &= ~COR_SOFT_RESET;
-+	val &= ~COR_SOFT_RESET;
- 	if (hw_priv->sandisk_connectplus)
--		reg.Value |= COR_IREQ_ENA;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+		val |= COR_IREQ_ENA;
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR, val);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_cor_sreset failed 3 (%d)\n",
- 		       res);
-@@ -395,8 +370,7 @@ static void prism2_pccard_cor_sreset(local_info_t *local)
- static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
- {
- 	int res;
--	conf_reg_t reg;
--	int old_cor;
-+	u8 old_cor;
- 	struct hostap_cs_priv *hw_priv = local->hw_priv;
- 
- 	if (!prism2_pccard_card_present(local))
-@@ -407,25 +381,17 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
- 		return;
- 	}
- 
--	reg.Function = 0;
--	reg.Action = CS_READ;
--	reg.Offset = CISREG_COR;
--	reg.Value = 0;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_read_config_byte(hw_priv->link, CISREG_COR, &old_cor);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 1 "
- 		       "(%d)\n", res);
- 		return;
- 	}
- 	printk(KERN_DEBUG "prism2_pccard_genesis_sreset: original COR %02x\n",
--	       reg.Value);
--	old_cor = reg.Value;
-+		old_cor);
- 
--	reg.Action = CS_WRITE;
--	reg.Value |= COR_SOFT_RESET;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
-+				old_cor | COR_SOFT_RESET);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 2 "
- 		       "(%d)\n", res);
-@@ -435,11 +401,7 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
- 	mdelay(10);
- 
- 	/* Setup Genesis mode */
--	reg.Action = CS_WRITE;
--	reg.Value = hcr;
--	reg.Offset = CISREG_CCSR;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_CCSR, hcr);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 3 "
- 		       "(%d)\n", res);
-@@ -447,11 +409,8 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
- 	}
- 	mdelay(10);
- 
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
--	reg.Value = old_cor & ~COR_SOFT_RESET;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
-+				old_cor & ~COR_SOFT_RESET);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 4 "
- 		       "(%d)\n", res);
-diff --git a/drivers/net/wireless/orinoco/spectrum_cs.c b/drivers/net/wireless/orinoco/spectrum_cs.c
-index cad30e4..39399cd 100644
---- a/drivers/net/wireless/orinoco/spectrum_cs.c
-+++ b/drivers/net/wireless/orinoco/spectrum_cs.c
-@@ -79,35 +79,27 @@ static int
- spectrum_reset(struct pcmcia_device *link, int idle)
- {
- 	int ret;
--	conf_reg_t reg;
--	u_int save_cor;
-+	u8 save_cor;
-+	u8 ccsr;
- 
- 	/* Doing it if hardware is gone is guaranteed crash */
- 	if (!pcmcia_dev_present(link))
- 		return -ENODEV;
- 
- 	/* Save original COR value */
--	reg.Function = 0;
--	reg.Action = CS_READ;
--	reg.Offset = CISREG_COR;
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_read_config_byte(link, CISREG_COR, &save_cor);
+@@ -430,9 +429,7 @@ static int ray_config(struct pcmcia_device *link)
+ 	ret = pcmcia_request_window(link, &req, &link->win);
  	if (ret)
  		goto failed;
--	save_cor = reg.Value;
- 
- 	/* Soft-Reset card */
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
--	reg.Value = (save_cor | COR_SOFT_RESET);
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_write_config_byte(link, CISREG_COR,
-+				(save_cor | COR_SOFT_RESET));
+-	mem.CardOffset = 0x0000;
+-	mem.Page = 0;
+-	ret = pcmcia_map_mem_page(link, link->win, &mem);
++	ret = pcmcia_map_mem_page(link, link->win, 0);
  	if (ret)
  		goto failed;
- 	udelay(1000);
- 
- 	/* Read CCSR */
--	reg.Action = CS_READ;
--	reg.Offset = CISREG_CCSR;
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_read_config_byte(link, CISREG_CCSR, &ccsr);
+ 	local->sram = ioremap(req.Base, req.Size);
+@@ -446,9 +443,7 @@ static int ray_config(struct pcmcia_device *link)
+ 	ret = pcmcia_request_window(link, &req, &local->rmem_handle);
  	if (ret)
  		goto failed;
- 
-@@ -115,19 +107,15 @@ spectrum_reset(struct pcmcia_device *link, int idle)
- 	 * Start or stop the firmware.  Memory width bit should be
- 	 * preserved from the value we've just read.
- 	 */
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_CCSR;
--	reg.Value = (idle ? HCR_IDLE : HCR_RUN) | (reg.Value & HCR_MEM16);
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ccsr = (idle ? HCR_IDLE : HCR_RUN) | (ccsr & HCR_MEM16);
-+	ret = pcmcia_write_config_byte(link, CISREG_CCSR, ccsr);
+-	mem.CardOffset = 0x8000;
+-	mem.Page = 0;
+-	ret = pcmcia_map_mem_page(link, local->rmem_handle, &mem);
++	ret = pcmcia_map_mem_page(link, local->rmem_handle, 0x8000);
  	if (ret)
  		goto failed;
- 	udelay(1000);
- 
- 	/* Restore original COR configuration index */
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
--	reg.Value = (save_cor & ~COR_SOFT_RESET);
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_write_config_byte(link, CISREG_COR,
-+				(save_cor & ~COR_SOFT_RESET));
+ 	local->rmem = ioremap(req.Base, req.Size);
+@@ -462,9 +457,7 @@ static int ray_config(struct pcmcia_device *link)
+ 	ret = pcmcia_request_window(link, &req, &local->amem_handle);
  	if (ret)
  		goto failed;
- 	udelay(1000);
-diff --git a/drivers/pcmcia/cistpl.c b/drivers/pcmcia/cistpl.c
-index ba4a5ac..1733fab 100644
---- a/drivers/pcmcia/cistpl.c
-+++ b/drivers/pcmcia/cistpl.c
-@@ -209,7 +209,7 @@ int pcmcia_read_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
-  * Probably only useful for writing one-byte registers. Must be called
-  * with ops_mutex held.
-  */
--void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
-+int pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
- 		   u_int len, void *ptr)
- {
- 	void __iomem *sys, *end;
-@@ -231,7 +231,7 @@ void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
- 				((cis_width) ? MAP_16BIT : 0));
- 		if (!sys) {
- 			dev_dbg(&s->dev, "could not map memory\n");
--			return; /* FIXME: Error */
-+			return -EINVAL;
- 		}
- 
- 		writeb(flags, sys+CISREG_ICTRL0);
-@@ -256,7 +256,7 @@ void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
- 			sys = set_cis_map(s, card_offset, flags);
- 			if (!sys) {
- 				dev_dbg(&s->dev, "could not map memory\n");
--				return; /* FIXME: error */
-+				return -EINVAL;
- 			}
- 
- 			end = sys + s->map_size;
-@@ -270,6 +270,7 @@ void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
- 			addr = 0;
- 		}
- 	}
-+	return 0;
- }
- 
- 
-diff --git a/drivers/pcmcia/cs_internal.h b/drivers/pcmcia/cs_internal.h
-index 45e7fd1..cebd40d 100644
---- a/drivers/pcmcia/cs_internal.h
-+++ b/drivers/pcmcia/cs_internal.h
-@@ -158,8 +158,8 @@ extern struct bin_attribute pccard_cis_attr;
- 
- int pcmcia_read_cis_mem(struct pcmcia_socket *s, int attr,
- 			u_int addr, u_int len, void *ptr);
--void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr,
--			  u_int addr, u_int len, void *ptr);
-+int pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr,
-+			u_int addr, u_int len, void *ptr);
- void release_cis_mem(struct pcmcia_socket *s);
- void destroy_cis_cache(struct pcmcia_socket *s);
- int pccard_read_tuple(struct pcmcia_socket *s, unsigned int function,
+-	mem.CardOffset = 0x0000;
+-	mem.Page = 0;
+-	ret = pcmcia_map_mem_page(link, local->amem_handle, &mem);
++	ret = pcmcia_map_mem_page(link, local->amem_handle, 0);
+ 	if (ret)
+ 		goto failed;
+ 	local->amem = ioremap(req.Base, req.Size);
 diff --git a/drivers/pcmcia/pcmcia_resource.c b/drivers/pcmcia/pcmcia_resource.c
-index 2394de4..563750e 100644
+index a48d4a9..975baaa 100644
 --- a/drivers/pcmcia/pcmcia_resource.c
 +++ b/drivers/pcmcia/pcmcia_resource.c
-@@ -108,25 +108,25 @@ static void release_io_space(struct pcmcia_socket *s, unsigned int base,
- } /* release_io_space */
- 
- 
--/** pccard_access_configuration_register
-+/**
-+ * pcmcia_access_config() - read or write card configuration registers
-  *
-- * Access_configuration_register() reads and writes configuration
-- * registers in attribute memory.  Memory window 0 is reserved for
-- * this and the tuple reading services.
-+ * pcmcia_access_config() reads and writes configuration registers in
-+ * attribute memory.  Memory window 0 is reserved for this and the tuple
-+ * reading services. Drivers must use pcmcia_read_config_byte() or
-+ * pcmcia_write_config_byte().
-  */
--
--int pcmcia_access_configuration_register(struct pcmcia_device *p_dev,
--					 conf_reg_t *reg)
-+static int pcmcia_access_config(struct pcmcia_device *p_dev,
-+				off_t where, u8 *val,
-+				int (*accessf) (struct pcmcia_socket *s,
-+						int attr, unsigned int addr,
-+						unsigned int len, void *ptr))
- {
- 	struct pcmcia_socket *s;
- 	config_t *c;
- 	int addr;
--	u_char val;
- 	int ret = 0;
- 
--	if (!p_dev || !p_dev->function_config)
--		return -EINVAL;
--
- 	s = p_dev->socket;
- 
- 	mutex_lock(&s->ops_mutex);
-@@ -138,26 +138,40 @@ int pcmcia_access_configuration_register(struct pcmcia_device *p_dev,
- 		return -EACCES;
- 	}
- 
--	addr = (c->ConfigBase + reg->Offset) >> 1;
-+	addr = (c->ConfigBase + where) >> 1;
-+
-+	ret = accessf(s, 1, addr, 1, val);
- 
--	switch (reg->Action) {
--	case CS_READ:
--		ret = pcmcia_read_cis_mem(s, 1, addr, 1, &val);
--		reg->Value = val;
--		break;
--	case CS_WRITE:
--		val = reg->Value;
--		pcmcia_write_cis_mem(s, 1, addr, 1, &val);
--		break;
--	default:
--		dev_dbg(&s->dev, "Invalid conf register request\n");
--		ret = -EINVAL;
--		break;
--	}
- 	mutex_unlock(&s->ops_mutex);
-+
- 	return ret;
--} /* pcmcia_access_configuration_register */
--EXPORT_SYMBOL(pcmcia_access_configuration_register);
-+} /* pcmcia_access_config */
-+
-+
-+/**
-+ * pcmcia_read_config_byte() - read a byte from a card configuration register
-+ *
-+ * pcmcia_read_config_byte() reads a byte from a configuration register in
-+ * attribute memory.
-+ */
-+int pcmcia_read_config_byte(struct pcmcia_device *p_dev, off_t where, u8 *val)
-+{
-+	return pcmcia_access_config(p_dev, where, val, pcmcia_read_cis_mem);
-+}
-+EXPORT_SYMBOL(pcmcia_read_config_byte);
-+
-+
-+/**
-+ * pcmcia_write_config_byte() - write a byte to a card configuration register
-+ *
-+ * pcmcia_write_config_byte() writes a byte to a configuration register in
-+ * attribute memory.
-+ */
-+int pcmcia_write_config_byte(struct pcmcia_device *p_dev, off_t where, u8 val)
-+{
-+	return pcmcia_access_config(p_dev, where, &val, pcmcia_write_cis_mem);
-+}
-+EXPORT_SYMBOL(pcmcia_write_config_byte);
+@@ -193,7 +193,7 @@ EXPORT_SYMBOL(pcmcia_write_config_byte);
  
  
  int pcmcia_map_mem_page(struct pcmcia_device *p_dev, window_handle_t wh,
-diff --git a/drivers/serial/serial_cs.c b/drivers/serial/serial_cs.c
-index 2b99c7b..2be8b10 100644
---- a/drivers/serial/serial_cs.c
-+++ b/drivers/serial/serial_cs.c
-@@ -114,16 +114,14 @@ static void quirk_setup_brainboxes_0104(struct pcmcia_device *link, struct uart_
- 
- static int quirk_post_ibm(struct pcmcia_device *link)
+-			memreq_t *req)
++			unsigned int offset)
  {
--	conf_reg_t reg = { 0, CS_READ, 0x800, 0 };
-+	u8 val;
+ 	struct pcmcia_socket *s = p_dev->socket;
  	int ret;
- 
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_read_config_byte(link, 0x800, &val);
+@@ -201,12 +201,9 @@ int pcmcia_map_mem_page(struct pcmcia_device *p_dev, window_handle_t wh,
+ 	wh--;
+ 	if (wh >= MAX_WIN)
+ 		return -EINVAL;
+-	if (req->Page != 0) {
+-		dev_dbg(&s->dev, "failure: requested page is zero\n");
+-		return -EINVAL;
+-	}
++
+ 	mutex_lock(&s->ops_mutex);
+-	s->win[wh].card_start = req->CardOffset;
++	s->win[wh].card_start = offset;
+ 	ret = s->ops->set_mem_map(s, &s->win[wh]);
  	if (ret)
- 		goto failed;
+ 		dev_warn(&s->dev, "failed to set_mem_map\n");
+diff --git a/drivers/scsi/pcmcia/nsp_cs.c b/drivers/scsi/pcmcia/nsp_cs.c
+index ad8e896..5688fc3 100644
+--- a/drivers/scsi/pcmcia/nsp_cs.c
++++ b/drivers/scsi/pcmcia/nsp_cs.c
+@@ -1661,7 +1661,6 @@ static int nsp_cs_config_check(struct pcmcia_device *p_dev,
+ 		}
  
--	reg.Action = CS_WRITE;
--	reg.Value = reg.Value | 1;
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_write_config_byte(link, 0x800, val | 1);
- 	if (ret)
- 		goto failed;
- 	return 0;
-diff --git a/drivers/ssb/pcmcia.c b/drivers/ssb/pcmcia.c
-index 2152030..526682d 100644
---- a/drivers/ssb/pcmcia.c
-+++ b/drivers/ssb/pcmcia.c
-@@ -71,14 +71,9 @@
- /* Write to a PCMCIA configuration register. */
- static int ssb_pcmcia_cfg_write(struct ssb_bus *bus, u8 offset, u8 value)
+ 		if ((cfg->mem.nwin > 0) || (dflt->mem.nwin > 0)) {
+-			memreq_t	map;
+ 			cistpl_mem_t	*mem =
+ 				(cfg->mem.nwin) ? &cfg->mem : &dflt->mem;
+ 			cfg_mem->req.Attributes = WIN_DATA_WIDTH_16|WIN_MEMORY_TYPE_CM;
+@@ -1673,8 +1672,8 @@ static int nsp_cs_config_check(struct pcmcia_device *p_dev,
+ 			cfg_mem->req.AccessSpeed = 0;
+ 			if (pcmcia_request_window(p_dev, &cfg_mem->req, &p_dev->win) != 0)
+ 				goto next_entry;
+-			map.Page = 0; map.CardOffset = mem->win[0].card_addr;
+-			if (pcmcia_map_mem_page(p_dev, p_dev->win, &map) != 0)
++			if (pcmcia_map_mem_page(p_dev, p_dev->win,
++					mem->win[0].card_addr) != 0)
+ 				goto next_entry;
+ 
+ 			cfg_mem->data->MmioAddress = (unsigned long) ioremap_nocache(cfg_mem->req.Base, cfg_mem->req.Size);
+diff --git a/drivers/staging/comedi/drivers/ni_daq_700.c b/drivers/staging/comedi/drivers/ni_daq_700.c
+index 7e41ad9..abaa40b 100644
+--- a/drivers/staging/comedi/drivers/ni_daq_700.c
++++ b/drivers/staging/comedi/drivers/ni_daq_700.c
+@@ -556,7 +556,6 @@ static int dio700_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				void *priv_data)
  {
--	conf_reg_t reg;
- 	int res;
+ 	win_req_t *req = priv_data;
+-	memreq_t map;
  
--	memset(&reg, 0, sizeof(reg));
--	reg.Offset = offset;
--	reg.Action = CS_WRITE;
--	reg.Value = value;
--	res = pcmcia_access_configuration_register(bus->host_pcmcia, &reg);
-+	res = pcmcia_write_config_byte(bus->host_pcmcia, offset, value);
- 	if (unlikely(res != 0))
- 		return -EBUSY;
- 
-@@ -88,16 +83,11 @@ static int ssb_pcmcia_cfg_write(struct ssb_bus *bus, u8 offset, u8 value)
- /* Read from a PCMCIA configuration register. */
- static int ssb_pcmcia_cfg_read(struct ssb_bus *bus, u8 offset, u8 *value)
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
+@@ -602,9 +601,8 @@ static int dio700_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 		req->AccessSpeed = 0;
+ 		if (pcmcia_request_window(p_dev, req, &p_dev->win))
+ 			return -ENODEV;
+-		map.Page = 0;
+-		map.CardOffset = mem->win[0].card_addr;
+-		if (pcmcia_map_mem_page(p_dev, p_dev->win, &map))
++		if (pcmcia_map_mem_page(p_dev, p_dev->win,
++				mem->win[0].card_addr))
+ 			return -ENODEV;
+ 	}
+ 	/* If we got this far, we're cool! */
+diff --git a/drivers/staging/comedi/drivers/ni_daq_dio24.c b/drivers/staging/comedi/drivers/ni_daq_dio24.c
+index b2483f8..caccece 100644
+--- a/drivers/staging/comedi/drivers/ni_daq_dio24.c
++++ b/drivers/staging/comedi/drivers/ni_daq_dio24.c
+@@ -308,7 +308,6 @@ static int dio24_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				void *priv_data)
  {
--	conf_reg_t reg;
- 	int res;
+ 	win_req_t *req = priv_data;
+-	memreq_t map;
  
--	memset(&reg, 0, sizeof(reg));
--	reg.Offset = offset;
--	reg.Action = CS_READ;
--	res = pcmcia_access_configuration_register(bus->host_pcmcia, &reg);
-+	res = pcmcia_read_config_byte(bus->host_pcmcia, offset, value);
- 	if (unlikely(res != 0))
- 		return -EBUSY;
--	*value = reg.Value;
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
+@@ -354,9 +353,8 @@ static int dio24_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 		req->AccessSpeed = 0;
+ 		if (pcmcia_request_window(p_dev, req, &p_dev->win))
+ 			return -ENODEV;
+-		map.Page = 0;
+-		map.CardOffset = mem->win[0].card_addr;
+-		if (pcmcia_map_mem_page(p_dev, p_dev->win, &map))
++		if (pcmcia_map_mem_page(p_dev, p_dev->win,
++						mem->win[0].card_addr))
+ 			return -ENODEV;
+ 	}
+ 	/* If we got this far, we're cool! */
+diff --git a/drivers/staging/comedi/drivers/ni_labpc_cs.c b/drivers/staging/comedi/drivers/ni_labpc_cs.c
+index c1444b4..94d9f7f 100644
+--- a/drivers/staging/comedi/drivers/ni_labpc_cs.c
++++ b/drivers/staging/comedi/drivers/ni_labpc_cs.c
+@@ -286,7 +286,6 @@ static int labpc_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 				void *priv_data)
+ {
+ 	win_req_t *req = priv_data;
+-	memreq_t map;
  
- 	return 0;
- }
+ 	if (cfg->index == 0)
+ 		return -ENODEV;
+@@ -332,9 +331,8 @@ static int labpc_pcmcia_config_loop(struct pcmcia_device *p_dev,
+ 		req->AccessSpeed = 0;
+ 		if (pcmcia_request_window(p_dev, req, &p_dev->win))
+ 			return -ENODEV;
+-		map.Page = 0;
+-		map.CardOffset = mem->win[0].card_addr;
+-		if (pcmcia_map_mem_page(p_dev, p_dev->win, &map))
++		if (pcmcia_map_mem_page(p_dev, p_dev->win,
++						mem->win[0].card_addr))
+ 			return -ENODEV;
+ 	}
+ 	/* If we got this far, we're cool! */
 diff --git a/include/pcmcia/cs.h b/include/pcmcia/cs.h
-index c78d9b1..64e853d 100644
+index 583a4e3..e4faf44 100644
 --- a/include/pcmcia/cs.h
 +++ b/include/pcmcia/cs.h
-@@ -19,18 +19,6 @@
- #include <linux/interrupt.h>
- #endif
+@@ -68,12 +68,6 @@ typedef struct config_req_t {
+ #define PRESENT_IOBASE_3	0x100
+ #define PRESENT_IOSIZE		0x200
  
--/* For AccessConfigurationRegister */
--typedef struct conf_reg_t {
--    u_char	Function;
--    u_int	Action;
--    off_t	Offset;
--    u_int	Value;
--} conf_reg_t;
+-/* For GetMemPage, MapMemPage */
+-typedef struct memreq_t {
+-    u_int	CardOffset;
+-    u_short	Page;
+-} memreq_t;
 -
--/* Actions */
--#define CS_READ		1
--#define CS_WRITE	2
--
- /* for AdjustResourceInfo */
- /* Action field */
- #define REMOVE_MANAGED_RESOURCE		1
+ /* For RequestWindow */
+ typedef struct win_req_t {
+     u_int	Attributes;
 diff --git a/include/pcmcia/ds.h b/include/pcmcia/ds.h
-index e614aa0..d494ce4 100644
+index 0748bec..a2bf3a7 100644
 --- a/include/pcmcia/ds.h
 +++ b/include/pcmcia/ds.h
-@@ -174,8 +174,8 @@ struct pcmcia_device *pcmcia_dev_present(struct pcmcia_device *p_dev);
- int pcmcia_reset_card(struct pcmcia_socket *skt);
+@@ -202,7 +202,7 @@ int pcmcia_request_window(struct pcmcia_device *p_dev, win_req_t *req,
+ 			  window_handle_t *wh);
+ int pcmcia_release_window(struct pcmcia_device *p_dev, window_handle_t win);
+ int pcmcia_map_mem_page(struct pcmcia_device *p_dev, window_handle_t win,
+-			memreq_t *req);
++			unsigned int offset);
  
- /* CIS config */
--int pcmcia_access_configuration_register(struct pcmcia_device *p_dev,
--					 conf_reg_t *reg);
-+int pcmcia_read_config_byte(struct pcmcia_device *p_dev, off_t where, u8 *val);
-+int pcmcia_write_config_byte(struct pcmcia_device *p_dev, off_t where, u8 val);
- 
- /* device configuration */
- int pcmcia_request_io(struct pcmcia_device *p_dev, io_req_t *req);
+ int pcmcia_modify_configuration(struct pcmcia_device *p_dev, modconf_t *mod);
+ void pcmcia_disable_device(struct pcmcia_device *p_dev);
 -- 
 1.7.0.4
 
