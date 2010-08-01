@@ -1,10 +1,10 @@
 From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 2.6.35-rc6-git6: Reported regressions from 2.6.34
-Date: Sun,  1 Aug 2010 15:46:42 +0200 (CEST)
-Message-ID: <2dWFdr9kTFM.A.P0D.spXVMB@chimera>
+Subject: 2.6.35-rc6-git6: Reported regressions 2.6.33 -> 2.6.34
+Date: Sun,  1 Aug 2010 16:27:15 +0200 (CEST)
+Message-ID: <JKn8_uSlpqD.A.HLG.1LYVMB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -21,254 +21,209 @@ Content-Disposition: inline
 Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This message contains a list of some regressions from 2.6.34,
-for which there are no fixes in the mainline known to the tracking team.
+[NOTE: This is the last summary report of regressions introduced betwee=
+n
+ 2.6.33 and 2.6.34.  Thanks for helping us with tracking these bugs!]
+
+This message contains a list of some post-2.6.33 regressions introduced=
+ before
+2.6.34, for which there are no fixes in the mainline known to the track=
+ing team.
 If any of them have been fixed already, please let us know.
 
-If you know of any other unresolved regressions from 2.6.34, please let us
-know either and we'll add them to the list.  Also, please let us know
-if any of the entries below are invalid.
+If you know of any other unresolved post-2.6.33 regressions, please let=
+ us know
+either and we'll add them to the list.  Also, please let us know if any
+of the entries below are invalid.
 
-Each entry from the list will be sent additionally in an automatic reply
-to this message with CCs to the people involved in reporting and handling
-the issue.
+Each entry from the list will be sent additionally in an automatic repl=
+y to
+this message with CCs to the people involved in reporting and handling =
+the
+issue.
 
 
 Listed regressions statistics:
 
   Date          Total  Pending  Unresolved
   ----------------------------------------
-  2010-08-01      100       27          23
-  2010-07-23       94       33          25
-  2010-07-09       79       45          37
-  2010-06-21       46       37          26
-  2010-06-09       15       13          10
+  2010-08-01      129       17          16
+  2010-07-23      128       27          25
+  2010-07-10      122       25          24
+  2010-06-21      114       36          28
+  2010-06-13      111       40          34
+  2010-05-09       80       27          24
+  2010-05-04       76       26          22
+  2010-04-20       64       35          34
+  2010-04-07       48       35          33
+  2010-03-21       15       13          10
 
 
 Unresolved regressions
 ----------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16462
-Subject		: unable to connect to AP on legal channels 12/13
-Submitter	: Daniel J Blueman <daniel.blueman@gmail.com>
-Date		: 2010-07-25 17:06 (8 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16431
+Subject		: does not seem to shut down one of two md raid-1 arrays on hi=
+bernation
+Submitter	: Martin Steigerwald <ms@teamix.de>
+Date		: 2010-07-21 13:08 (12 days old)
+Handled-By	: Neil Brown <neilb@suse.de>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16458
-Subject		: Bluetooth disabled after resume
-Submitter	: AttilaN <attila123456@gmail.com>
-Date		: 2010-07-25 09:33 (8 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16388
+Subject		: i915 drm BUG: unable to handle kernel paging request at a5e8=
+9046
+Submitter	:  <lists@clanduggan.org>
+Date		: 2010-07-14 16:59 (19 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16450
-Subject		: MTD drivers cannot be unloaded
-Submitter	: Ben Hutchings <bhutchings@solarflare.com>
-Date		: 2010-07-24 00:17 (9 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16377
+Subject		: X.org crash while running a OpenGL composited KDE 4.4.4 sess=
+ion with Radeon KMS
+Submitter	: Martin Steigerwald <Martin@Lichtvoll.de>
+Date		: 2010-07-13 12:41 (20 days old)
+Handled-By	: Alex Deucher <alexdeucher@gmail.com>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16448
-Subject		: 2.6.35-rc5 panic at __br_deliver+0x64/0xe0 with kvm bridge networking
-Submitter	: caiqian@redhat.com
-Date		: 2010-07-23 3:25 (10 days old)
-Message-ID	: <198123598.1050221279855515402.JavaMail.root@zmail06.collab.prod.int.phx2.redhat.com>
-References	: http://marc.info/?l=linux-kernel&m=127985553916052&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16376
+Subject		: random - possibly Radeon DRM KMS related - freezes
+Submitter	: Martin Steigerwald <Martin@Lichtvoll.de>
+Date		: 2010-07-13 09:24 (20 days old)
+Handled-By	: Alex Deucher <alexdeucher@gmail.com>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16423
-Subject		: netfilter/iptables stopped logging 2.6.35-rc
-Submitter	: auto401300@hushmail.com
-Date		: 2010-07-17 10:20 (16 days old)
-Message-ID	: <20100717072036.1BBE52804B@smtp.hushmail.com>
-References	: http://lkml.indiana.edu/hypermail/linux/kernel/1007.2/00440.html
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16320
+Subject		: iwl3945 crashes, seems to be disconnecting from the PCI bus
+Submitter	: Satish <eerpini@gmail.com>
+Date		: 2010-07-01 08:24 (32 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16406
-Subject		: Badness with the kernel version 2.6.35-rc1-git1 running on P6 box
-Submitter	: divya <dipraksh@linux.vnet.ibm.com>
-Date		: 2010-07-16 8:50 (17 days old)
-Message-ID	: <4C401D56.3070108@linux.vnet.ibm.com>
-References	: http://marc.info/?l=linux-kernel&m=127927024906085&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16400
-Subject		: 2.6.35-rc5 inconsistent lock state
-Submitter	: Martin Pirker <lkml.collector@gmail.com>
-Date		: 2010-07-14 20:33 (19 days old)
-Message-ID	: <AANLkTikDF0TL6OyPVCzPlUTwxFehcrETn3ysgSSeTq92@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=127913961025267&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16399
-Subject		: perf failed with kernel 2.6.35-rc
-Submitter	: Zhang, Yanmin <yanmin_zhang@linux.intel.com>
-Date		: 2010-07-13 8:14 (20 days old)
-First-Bad-Commit: http://git.kernel.org/linus/1ac62cfff252fb668405ef3398a1fa7f4a0d6d15
-Message-ID	: <1279008849.2096.913.camel@ymzhang.sh.intel.com>
-References	: http://marc.info/?l=linux-kernel&m=127900880212470&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16396
-Subject		: [bisected] resume from suspend freezes system
-Submitter	: tomas m <tmezzadra@gmail.com>
-Date		: 2010-07-15 02:32 (18 days old)
-Handled-By	: Rafael J. Wysocki <rjw@sisk.pl>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16393
-Subject		: kernel BUG at fs/block_dev.c:765!
-Submitter	: Markus Trippelsdorf <markus@trippelsdorf.de>
-Date		: 2010-07-14 13:52 (19 days old)
-Message-ID	: <20100714135217.GA1797@arch.tripp.de>
-References	: http://marc.info/?l=linux-kernel&m=127911564213748&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16383
-Subject		: Regression with e1000e from 2.6.34.1 to 2.6.35-rc5
-Submitter	: Stefan Behte <craig@haquarter.de>
-Date		: 2010-07-14 00:44 (19 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16380
-Subject		: Loop devices act strangely in 2.6.35
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16300
+Subject		: [2.6.34 regression] mplayer gets out of sync due to problems=
+ with ALSA
 Submitter	: Artem S. Tashkinov <t.artem@mailcity.com>
-Date		: 2010-07-13 23:21 (20 days old)
+Date		: 2010-06-26 20:39 (37 days old)
+Handled-By	: Takashi Iwai <tiwai@suse.de>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16369
-Subject		: Yet another 2.6.35 regression (AGP)?
-Submitter	: Woody Suwalski <terraluna977@gmail.com>
-Date		: 2010-07-09 14:21 (24 days old)
-Message-ID	: <4C373084.8000503@gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=127868797119254&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16270
+Subject		: Image is a hit-or-a-miss. Often displayed green+purple
+Submitter	: Vish <drkvi-a@yahoo.com>
+Date		: 2010-06-22 10:47 (41 days old)
+=46irst-Bad-Commit: http://git.kernel.org/linus/acef4a407ed6e0a9ed87a27=
+47be592fe49e64bdd
+Handled-By	: Jean-Francois Moine <moinejf@free.fr>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16365
-Subject		: kernel BUG at fs/btrfs/extent-tree.c:1353
-Submitter	: Johannes Hirte <johannes.hirte@fem.tu-ilmenau.de>
-Date		: 2010-07-08 14:27 (25 days old)
-Message-ID	: <201007081627.24654.johannes.hirte@fem.tu-ilmenau.de>
-References	: http://marc.info/?l=linux-kernel&m=127859960725931&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16206
+Subject		: PROBLEM: PPP and other serial port related application hangs=
+ in kernel space
+Submitter	: Ales Teska <ales.teska@gmail.com>
+Date		: 2010-06-09 20:46 (54 days old)
+Message-ID	: <900E3B14-5B92-4A37-9581-049DB40F4D1C@gmail.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D127611640301071&w=3D=
+2
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16337
-Subject		: general protection fault: 0000 [#1] SMP
-Submitter	: Justin P. Mattock <justinmattock@gmail.com>
-Date		: 2010-07-03 22:59 (30 days old)
-Message-ID	: <4C2FC0E3.6050101@gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=127819798215589&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16170
+Subject		: Leadtek Winfast DTV Dongle (STK7700P based) is not working i=
+n 2.6.34
+Submitter	:  <macjariel@gmail.com>
+Date		: 2010-06-09 11:11 (54 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16322
-Subject		: WARNING: at /arch/x86/include/asm/processor.h:1005 read_measured_perf_ctrs+0x5a/0x70()
-Submitter	: boris64 <bugzilla.kernel.org@boris64.net>
-Date		: 2010-07-01 13:54 (32 days old)
-Handled-By	: H. Peter Anvin <hpa@zytor.com>
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16139
+Subject		: wait_even_interruptible_timeout(), signal, spin_lock() =3D s=
+ystem hang
+Submitter	: Shirish Pargaonkar <shirishpargaonkar@gmail.com>
+Date		: 2010-05-28 16:44 (66 days old)
+Message-ID	: <AANLkTiliRFydAhxH2-Dp1RKuz6sq7vgWIcMvLMi68ftg@mail.gmail.=
+com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D127506510328758&w=3D=
+2
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16307
-Subject		: i915 in kernel 2.6.35-rc3, high number of wakeups
-Submitter	: Enrico Bandiello <enban@postal.uv.es>
-Date		: 2010-06-26 16:57 (37 days old)
-Message-ID	: <<4C26317A.5070309@postal.uv.es>>
-References	: http://marc.info/?l=linux-kernel&m=127757403404259&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15977
+Subject		: WARNING: at lib/dma-debug.c:866 check_for_stack
+Submitter	: Zdenek Kabelac <zdenek.kabelac@gmail.com>
+Date		: 2010-05-14 8:56 (80 days old)
+Message-ID	: <AANLkTikyx2eaxaiUCFDSfpmn1UG0t2GOxArz6F4wp1LJ@mail.gmail.=
+com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D127382742729825&w=3D=
+2
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16265
-Subject		: Why is kslowd accumulating so much CPU time?
-Submitter	: Theodore Ts'o <tytso@mit.edu>
-Date		: 2010-06-09 18:36 (54 days old)
-First-Bad-Commit: http://git.kernel.org/linus/fbf81762e385d3d45acad057b654d56972acf58c
-Message-ID	: <E1OMQ88-0002a1-Gb@closure.thunk.org>
-References	: http://marc.info/?l=linux-kernel&m=127610857819033&w=4
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15912
+Subject		: Audio/video sync and crackling issues with snd-hda-intel (AD=
+1981 codec)
+Submitter	: =C3=98yvind Stegard <oyvinst@ifi.uio.no>
+Date		: 2010-05-05 16:20 (89 days old)
+Handled-By	: Jaroslav Kysela <perex@perex.cz>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16228
-Subject		: BUG/boot failure on Dell Precision T3500 (pci/ahci_stop_engine)
-Submitter	: Brian Bloniarz <phunge0@hotmail.com>
-Date		: 2010-06-16 17:57 (47 days old)
-Handled-By	: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15862
+Subject		: 2.6.34-rc4/5: iwlagn unusable until reload
+Submitter	: Nico Schottelius <nico-linux-20100427@schottelius.org>
+Date		: 2010-04-27 7:49 (97 days old)
+Message-ID	: <20100427074934.GB3261@ikn.schottelius.org>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D127235784004839&w=3D=
+2
+Handled-By	: Johannes Berg <johannes@sipsolutions.net>
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16221
-Subject		: 2.6.35-rc2-git5 -- [drm:drm_mode_getfb] *ERROR* invalid framebuffer id
-Submitter	: Miles Lane <miles.lane@gmail.com>
-Date		: 2010-06-11 20:31 (52 days old)
-Message-ID	: <AANLkTim0jVRyqkwlGOcrg_XTvUQwcBYfWJX-aRzkkrLG@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=127628828119623&w=2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15704
+Subject		: [r8169] WARNING: at net/sched/sch_generic.c
+Submitter	: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Date		: 2010-03-31 10:21 (124 days old)
+Message-ID	: <20100331102142.GA3294@swordfish.minsk.epam.com>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D127003090406108&w=3D=
+2
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16215
-Subject		: sysfs: cannot create duplicate filename '/class/net/bnep0'
-Submitter	: Janusz Krzysztofik <jkrzyszt@tis.icnet.pl>
-Date		: 2010-06-15 14:55 (48 days old)
-Handled-By	: Eric W. Biederman <ebiederm@xmission.com>
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15673
+Subject		: 2.6.34-rc2: "ima_dec_counts: open/free imbalance"?
+Submitter	: Thomas Meyer <thomas@m3y3r.de>
+Date		: 2010-03-28 11:31 (127 days old)
+Message-ID	: <1269775909.5301.4.camel@localhost.localdomain>
+References	: http://marc.info/?l=3Dlinux-kernel&m=3D126977593326800&w=3D=
+2
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16184
-Subject		: Container, X86-64, i386, iptables rule
-Submitter	: Jean-Marc Pigeon <jmp@safe.ca>
-Date		: 2010-06-12 04:17 (51 days old)
-Handled-By	: Patrick McHardy <kaber@trash.net>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16173
-Subject		: After uncompressing the kernel, at boot time, the server hangs.
-Submitter	: David Hill <hilld@binarystorm.net>
-Date		: 2010-06-09 23:25 (54 days old)
-First-Bad-Commit: http://git.kernel.org/linus/cf7500c0ea133d66f8449d86392d83f840102632
-Handled-By	: Eric W. Biederman <ebiederm@xmission.com>
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D15664
+Subject		: Graphics hang and kernel backtrace when starting Azureus wit=
+h Compiz enabled
+Submitter	: Alex Villacis Lasso <avillaci@ceibo.fiec.espol.edu.ec>
+Date		: 2010-04-01 01:09 (123 days old)
 
 
 Regressions with patches
 ------------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16405
-Subject		: Brightness Adjustment on Toshiba nb305 Netbooks is non-functional.
-Submitter	: John Mesmon <jmesmon@gmail.com>
-Date		: 2010-07-15 23:40 (18 days old)
-First-Bad-Commit: http://git.kernel.org/linus/74a365b3f354fafc537efa5867deb7a9fadbfe27
-Handled-By	: Matthew Garrett <mjg59-kernel@srcf.ucam.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=27236
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16007
+Subject		: x86/pci Oops with CONFIG_SND_HDA_INTEL
+Submitter	: Graham Ramsey <ramsey.graham@ntlworld.com>
+Date		: 2010-05-19 17:09 (75 days old)
+Handled-By	: Yinghai Lu <yinghai@kernel.org>
+		  Bjorn Helgaas <bjorn.helgaas@hp.com>
+Patch		: https://patchwork.kernel.org/patch/105662/
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16312
-Subject		: WARNING: at fs/fs-writeback.c:1127 __mark_inode_dirty
-Submitter	: Zdenek Kabelac <zdenek.kabelac@gmail.com>
-Date		: 2010-06-28 9:40 (35 days old)
-Message-ID	: <AANLkTin24fr5O4_q5Xbo9Y_NKkEmtcp6Hgmr9_4qXaFz@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=127771804806465&w=2
-Handled-By	: Jan Kara <jack@suse.cz>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=27272
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16310
-Subject		: arm omap invalid module format
-Submitter	: Robert Nelson <robertcnelson@gmail.com>
-Date		: 2010-06-28 17:30 (35 days old)
-First-Bad-Commit: http://git.kernel.org/linus/d0679c730395d0bde9a46939e7ba255b4ba7dd7c
-Handled-By	: Michal Marek <mmarek@suse.cz>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=26999
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16278
-Subject		: lvm snapshot causes deadlock in 2.6.35
-Submitter	: Phillip Susi <psusi@cfl.rr.com>
-Date		: 2010-06-23 16:55 (40 days old)
-Handled-By	: Eric Sandeen <sandeen@redhat.com>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=26933
-
-
-For details, please visit the bug entries and follow the links given in
+=46or details, please visit the bug entries and follow the links given =
+in
 references.
 
-As you can see, there is a Bugzilla entry for each of the listed regressions.
-There also is a Bugzilla entry used for tracking the regressions from 2.6.34,
-unresolved as well as resolved, at:
+As you can see, there is a Bugzilla entry for each of the listed regres=
+sions.
+There also is a Bugzilla entry used for tracking the regressions introd=
+uced
+between 2.6.33 and 2.6.34, unresolved as well as resolved, at:
 
-http://bugzilla.kernel.org/show_bug.cgi?id=16055
-
-Please let the tracking team know if there are any Bugzilla entries that
-should be added to the list in there.
+http://bugzilla.kernel.org/show_bug.cgi?id=3D15310
 
 Thanks!
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
