@@ -1,51 +1,46 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the net-current tree
-Date: Mon, 2 Aug 2010 11:04:01 +1000
-Message-ID: <20100802110401.e05c3ec6.sfr@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] nf_nat_core: don't check if the tuple is used if there is no other choice
+Date: Mon,  2 Aug 2010 03:38:24 +0800
+Message-ID: <1280691504-15790-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Eliminate nf_nat_used_tuple() to save some CPU cycles when there is no other
+choice.
 
-Today's linux-next merge of the net tree got a conflict in
-net/bridge/br_device.c between commit
-6d1d1d398cb7db7a12c5d652d50f85355345234f ("bridge: Fix skb leak when
-multicast parsing fails on TX") from the net-current tree and commit
-91d2c34a4eed32876ca333b0ca44f3bc56645805 ("bridge: Fix netpoll support")
-from the net tree.
-
-Just context changes. I fixed it up (see below) and can carry the fix for
-a while.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc net/bridge/br_device.c
-index f49bcd9,075c435..0000000
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@@ -46,12 -48,13 +48,16 @@@ netdev_tx_t br_dev_xmit(struct sk_buff 
-  	skb_reset_mac_header(skb);
-  	skb_pull(skb, ETH_HLEN);
-  
- +	rcu_read_lock();
-  	if (is_multicast_ether_addr(dest)) {
-+ 		if (unlikely(netpoll_tx_running(dev))) {
-+ 			br_flood_deliver(br, skb);
-+ 			goto out;
-+ 		}
- -		if (br_multicast_rcv(br, NULL, skb))
- +		if (br_multicast_rcv(br, NULL, skb)) {
- +			kfree_skb(skb);
-  			goto out;
- +		}
-  
-  		mdst = br_mdb_get(br, skb);
-  		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/ipv4/netfilter/nf_nat_core.c |   16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index 037a3a6..c370b21 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -262,11 +262,17 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	proto = __nf_nat_proto_find(orig_tuple->dst.protonum);
+ 
+ 	/* Only bother mapping if it's not already in range and unique */
+-	if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM) &&
+-	    (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) ||
+-	     proto->in_range(tuple, maniptype, &range->min, &range->max)) &&
+-	    !nf_nat_used_tuple(tuple, ct))
+-		goto out;
++	if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
++		if (range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) {
++			if (proto->in_range(tuple, maniptype, &range->min,
++					    &range->max) &&
++			    (range->min.all == range->max.all ||
++			     !nf_nat_used_tuple(tuple, ct)))
++				goto out;
++		} else if (!nf_nat_used_tuple(tuple, ct)) {
++			goto out;
++		}
++	}
+ 
+ 	/* Last change: get protocol to try to obtain unique tuple. */
+ 	proto->unique_tuple(tuple, range, maniptype, ct);
