@@ -1,37 +1,57 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 2/2] macvtap: Implement multiqueue macvtap driver
-Date: Mon, 2 Aug 2010 18:34:26 +0200
-Message-ID: <201008021834.26688.arnd@arndb.de>
-References: <20100802143304.1517.42494.sendpatchset@krkumar2.in.ibm.com> <201008021752.28475.arnd@arndb.de> <OFE0F15F8D.2C34C2AD-ON65257773.00579311-65257773.005A60A9@in.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] tc: make symbols loaded from tc action modules global.
+Date: Mon, 2 Aug 2010 09:55:13 -0700
+Message-ID: <20100802095513.1706f1e2@nehalam>
+References: <20100802073032.GA32046@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, davem@davemloft.net, mst@redhat.com,
-	netdev@vger.kernel.org, therbert@google.com
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Cc: netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:49658 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750959Ab0HBQe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 12:34:29 -0400
-In-Reply-To: <OFE0F15F8D.2C34C2AD-ON65257773.00579311-65257773.005A60A9@in.ibm.com>
+Received: from mail.vyatta.com ([76.74.103.46]:43825 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751355Ab0HBQzQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Aug 2010 12:55:16 -0400
+In-Reply-To: <20100802073032.GA32046@amd64.fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 02 August 2010, Krishna Kumar2 wrote:
-> "include/linux/if_macvlan.h:57: error: braced-group within expression
->         allowed only inside a function"
-> Please let me know if there is any alternative (curly braces cannot be
-> used outside of functions). Otherwise one change required is to add:
+On Mon, 2 Aug 2010 09:30:33 +0200
+Andreas Henriksson <andreas@fatal.se> wrote:
+
+> Fixes problems with xtables based MARK target ("ipt" module).
+> When tc loads the "ipt" (xt) module it kept the symbols local,
+> this made loading of libxtables not find the required struct.
 > 
-> #ifndef MIN
-> #endif
+> currently ipt/xt is the only tc action module.
+> iproute2 never seem to do dlclose.
+> hopefully the modules doesn't export more symbols then needed.
 > 
-> I will wait for a few hours and resubmit the patches.
+> In this situation hopefully the RTLD_GLOBAL flag won't hurt us.
+> 
+> I've been using this patch in the Debian package of iproute for
+> the last 3 weeks and noone has complained.
+> ( This fixes http://bugs.debian.org/584898 )
+> 
+> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+> ---
+>  tc/m_action.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/tc/m_action.c b/tc/m_action.c
+> index a198158..6464b2e 100644
+> --- a/tc/m_action.c
+> +++ b/tc/m_action.c
+> @@ -99,7 +99,7 @@ restart_s:
+>  	}
+>  
+>  	snprintf(buf, sizeof(buf), "%s/m_%s.so", get_tc_lib(), str);
+> -	dlh = dlopen(buf, RTLD_LAZY);
+> +	dlh = dlopen(buf, RTLD_LAZY | RTLD_GLOBAL);
+>  	if (dlh == NULL) {
+>  		dlh = aBODY;
+>  		if (dlh == NULL) {
 
-Maybe just open-code the minimum computation:
 
-#define MAX_MACVTAP_QUEUES   (NR_CPUS < 16 ? NR_CPUS : 16)
-
-	ARnd
+Applied
