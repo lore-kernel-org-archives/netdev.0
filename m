@@ -1,59 +1,87 @@
-From: Andreas Petlund <apetlund@simula.no>
-Subject: Re: [PATCH] net: Add getsockopt support for TCP thin-streams
-Date: Mon, 02 Aug 2010 13:46:32 +0200
-Message-ID: <4C56B018.8030309@simula.no>
-References: <1280533775-7700-1-git-send-email-johunt@akamai.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH] Multiqueue macvtap driver
+Date: Mon, 2 Aug 2010 18:07:40 +0530
+Message-ID: <OF8519C301.F0E5FA07-ON65257772.004983CC-65257773.00453C8B@in.ibm.com>
+References: <20100731135743.3072.99933.sendpatchset@krkumar2.in.ibm.com>	<1280603907.13192.353.camel@localhost> <20100801.003406.02275545.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, juhlenko@akamai.com
-To: Josh Hunt <johunt@akamai.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: arnd@arndb.de, bhutchings@solarflare.com, mst@redhat.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-forward1.uio.no ([129.240.10.70]:59450 "EHLO
-	mail-forward1.uio.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152Ab0HBMWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 08:22:24 -0400
-Received: from exim by mail-out1.uio.no with local-bsmtp (Exim 4.69)
-	(envelope-from <apetlund@simula.no>)
-	id 1OftTy-0004pu-NG
-	for netdev@vger.kernel.org; Mon, 02 Aug 2010 13:47:02 +0200
-In-Reply-To: <1280533775-7700-1-git-send-email-johunt@akamai.com>
+Received: from e28smtp06.in.ibm.com ([122.248.162.6]:49382 "EHLO
+	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752152Ab0HBMgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 08:36:20 -0400
+Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
+	by e28smtp06.in.ibm.com (8.14.4/8.13.1) with ESMTP id o72CaIBl030774
+	for <netdev@vger.kernel.org>; Mon, 2 Aug 2010 18:06:18 +0530
+Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o72CaHTV1695880
+	for <netdev@vger.kernel.org>; Mon, 2 Aug 2010 18:06:18 +0530
+Received: from d28av05.in.ibm.com (loopback [127.0.0.1])
+	by d28av05.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o72CaHFD029031
+	for <netdev@vger.kernel.org>; Mon, 2 Aug 2010 22:36:17 +1000
+In-Reply-To: <20100801.003406.02275545.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/31/2010 01:49 AM, Josh Hunt wrote:
-> Initial TCP thin-stream commit did not add getsockopt support for the new
-> socket options: TCP_THIN_LINEAR_TIMEOUTS and TCP_THIN_DUPACK. This adds support
-> for them.
-> 
-> Signed-off-by: Josh Hunt <johunt@akamai.com>
-> ---
->  net/ipv4/tcp.c |    6 ++++++
->  1 files changed, 6 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 65afeae..3ed3525 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2591,6 +2591,12 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
->  			return -EFAULT;
->  		return 0;
->  	}
-> +	case TCP_THIN_LINEAR_TIMEOUTS:
-> +		val = tp->thin_lto;
-> +		break;
-> +	case TCP_THIN_DUPACK:
-> +		val = tp->thin_dupack;
-> +		break;
->  	default:
->  		return -ENOPROTOOPT;
->  	}
+Thanks Ben & Dave. A question though - which of the following
+is preferable for the macvtap driver:
 
-Thanks for noticing and fixing this :)
+1. Calculate flow and use that to find a queue; or
+2. First check if skb_rx_queue_recorded is true and if so use
+    that; otherwise calculate the flow as in #1.
 
-Tested-by: Andreas Petlund <apetlund@simula.no>
-Acked-by: Andreas Petlund <apetlund@simula.no>
+I guess #1 is better, since packets for a single flow will go to the
+same queue even if they arrive on different rxqs of a mq driver.
+But I want to make sure.
 
--Andreas
+Thanks,
+
+- KK
+
+David Miller <davem@davemloft.net> wrote on 08/01/2010 01:04:06 PM:
+
+> David Miller <davem@davemloft.net>
+> 08/01/2010 01:04 PM
+>
+> To
+>
+> bhutchings@solarflare.com
+>
+> cc
+>
+> Krishna Kumar2/India/IBM@IBMIN, arnd@arndb.de,
+> netdev@vger.kernel.org, mst@redhat.com
+>
+> Subject
+>
+> Re: [PATCH] Multiqueue macvtap driver
+>
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Sat, 31 Jul 2010 20:18:27 +0100
+>
+> > On Sat, 2010-07-31 at 19:27 +0530, Krishna Kumar wrote:
+> > [...]
+> >> @@ -136,39 +158,68 @@ static void macvtap_put_queue(struct mac
+> >>  }
+> >>
+> >>  /*
+> >> - * Since we only support one queue, just dereference the pointer.
+> >> + * Select a queue based on the rxq of the device on which this packet
+> >> + * arrived. If the incoming device is not mq, then use our cpu number
+> >> + * to select a queue. vlan->numvtaps is cached in case it changes
+> >> + * during the execution of this function.
+> >>   */
+> > [...]
+> >
+> > This can result in reordering if a single-queue device's RX interrupt's
+> > CPU affinity is changed.  We generally try to avoid that.  You should
+> > really use or generate a flow hash.  There is code for this in
+> > net/core/dev.c:get_rps_cpu() which could be factored out into a
+separate
+> > function.
+>
+> Agreed.
+
