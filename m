@@ -1,24 +1,24 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] nf_conntrack_extend: introduce __nf_ct_ext_exist()
-Date: Mon, 02 Aug 2010 17:07:05 +0200
-Message-ID: <4C56DF19.4080502@trash.net>
-References: <1280068734-5332-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [patch] ipvs: remove EXPERIMENTAL tag
+Date: Mon, 02 Aug 2010 17:08:34 +0200
+Message-ID: <4C56DF72.4080409@trash.net>
+References: <20100726075609.GA11755@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1280068734-5332-1-git-send-email-xiaosuo@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20100726075609.GA11755@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 25.07.2010 16:38, Changli Gao wrote:
-> some users of nf_ct_ext_exist() know ct->ext isn't NULL. For these users, the
-> check for ct->ext isn't necessary, the function __nf_ct_ext_exist() can be
-> used instead.
+On 26.07.2010 09:56, Simon Horman wrote:
+> IPVS was merged into the kernel quite a long time ago and
+> has been seeing wide-spread production use for even longer.
 > 
-> the type of the return value of nf_ct_ext_exist() is changed to bool.
+> It seems appropriate for it to be no longer tagged as EXPERIMENTAL
 
 Applied, thanks.
