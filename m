@@ -1,64 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4/4] u32: use get_unaligned_be32
-Date: Mon, 02 Aug 2010 23:55:17 +0100
-Message-ID: <1280789717.5914.1.camel@achroite.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] net: check for reference outside of skb
+Date: Mon, 02 Aug 2010 15:59:37 -0700 (PDT)
+Message-ID: <20100802.155937.58423604.davem@davemloft.net>
 References: <20100802220030.991706005@vyatta.com>
-	 <20100802220113.821018357@vyatta.com>
-	 <AANLkTimNBA4E0-iX6fesYPch-N1TDgg2kD0r-tK5Mq7A@mail.gmail.com>
-	 <20100802154505.46cfe94a@nehalam>
+	<20100802220113.557212477@vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:29029 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264Ab0HBWzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 18:55:20 -0400
-In-Reply-To: <20100802154505.46cfe94a@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56407
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754298Ab0HBW7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 18:59:19 -0400
+In-Reply-To: <20100802220113.557212477@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-08-02 at 15:45 -0700, Stephen Hemminger wrote:
-> On Tue, 3 Aug 2010 06:34:59 +0800
-> Changli Gao <xiaosuo@gmail.com> wrote:
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 02 Aug 2010 15:00:31 -0700
+
+> It is legitimate for callers of skb_header_pointer to pass a negative
+> offset, but the resulting pointer should not go outside the valid
+> range of data in the skb.
 > 
-> > On Tue, Aug 3, 2010 at 6:00 AM, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> > > U32 classifier reads data from packet at a offset passed in from
-> > > user space. The offset should be aligned, but it is unsafe practice
-> > > to depend on values from userspace.
-> > >
-> > > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > >
-> > > --- a/net/sched/cls_u32.c       2010-08-01 11:21:06.945820852 -0700
-> > > +++ b/net/sched/cls_u32.c       2010-08-01 11:24:55.257793848 -0700
-> > > @@ -41,6 +41,7 @@
-> > >  #include <net/netlink.h>
-> > >  #include <net/act_api.h>
-> > >  #include <net/pkt_cls.h>
-> > > +#include <asm/unaligned.h>
-> > >
-> > >  struct tc_u_knode
-> > >  {
-> > > @@ -140,7 +141,7 @@ next_knode:
-> > >                        data = skb_header_pointer(skb, toff, 4, &_data);
-> > >                        if (!data)
-> > >                                goto out;
-> > > -                       if ((*data ^ key->val) & key->mask) {
-> > > +                       if ((get_unaligned_be32(data) ^ key->val) & key->mask) {
-> > 
-> > be32()? I think it may break configuration.
-> 
-> The data pointer is be32 * already.
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-But get_unaligned_be32() converts to native byte order.
+Stephen, it seems to me that most existing (if not all) callers of
+skb_header_pointer() already can prove that their offsets are
+legitimate, negative or not.  They usually do this via pskb_may_pull()
+or similar.
 
-Ben.
+Therefore it makes no sense to me that we punish all existing code paths
+with a duplicate test just to have this check available for use in u32.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Just put the range test in u32.
+
+Thanks.
 
