@@ -1,45 +1,43 @@
 From: kaber@trash.net
-Subject: [PATCH 05/28] ipvs: lvs sctp protocol handler is incorrectly invoked ip_vs_app_pkt_out
-Date: Mon,  2 Aug 2010 21:57:22 +0200
-Message-ID: <1280779065-9333-6-git-send-email-kaber@trash.net>
+Subject: [PATCH 06/28] netfilter: xt_TPROXY: the length of lines should be within 80
+Date: Mon,  2 Aug 2010 21:57:23 +0200
+Message-ID: <1280779065-9333-7-git-send-email-kaber@trash.net>
 References: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35364 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754767Ab0HBT56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:57:58 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xiaoyu Du <tingsrain@gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
 
-lvs sctp protocol handler is incorrectly invoked ip_vs_app_pkt_out
-Since there's no sctp helpers at present, it does the same thing as
-ip_vs_app_pkt_in.
+According to the Documentation/CodingStyle, the length of lines should
+be within 80.
 
-Signed-off-by: Xiaoyu Du <tingsrain@gmail.com>
-Acked-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/ipvs/ip_vs_proto_sctp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/netfilter/xt_TPROXY.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index c9a3f7a..db55759 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -173,7 +173,7 @@ sctp_dnat_handler(struct sk_buff *skb,
- 			return 0;
+diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+index e1a0ded..c61294d 100644
+--- a/net/netfilter/xt_TPROXY.c
++++ b/net/netfilter/xt_TPROXY.c
+@@ -37,8 +37,10 @@ tproxy_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 		return NF_DROP;
  
- 		/* Call application helper if needed */
--		if (!ip_vs_app_pkt_out(cp, skb))
-+		if (!ip_vs_app_pkt_in(cp, skb))
- 			return 0;
- 	}
+ 	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
+-				   iph->saddr, tgi->laddr ? tgi->laddr : iph->daddr,
+-				   hp->source, tgi->lport ? tgi->lport : hp->dest,
++				   iph->saddr,
++				   tgi->laddr ? tgi->laddr : iph->daddr,
++				   hp->source,
++				   tgi->lport ? tgi->lport : hp->dest,
+ 				   par->in, true);
  
+ 	/* NOTE: assign_sock consumes our sk reference */
 -- 
 1.7.1
 
