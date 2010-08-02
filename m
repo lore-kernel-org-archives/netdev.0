@@ -1,47 +1,34 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM
- virtio-net.
-Date: Mon, 02 Aug 2010 09:10:11 -0700
-Message-ID: <1280765411.22830.15.camel@localhost.localdomain>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
-	 <1280442682.9058.15.camel@localhost.localdomain>
-	 <20100801083113.GB16158@redhat.com>
+From: Franchoze Eric <franchoze@yandex.ru>
+Subject: Re: Re: why do we need printk on sending syn flood cookie?
+Date: Mon, 02 Aug 2010 20:11:36 +0400
+Message-ID: <23001280765498@web50.yandex.ru>
+References: <480391280735894@web102.yandex.ru> <20100802081716.GA8374@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
-	herbert@gondor.hengli.com.au, jdike@linux.intel.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100801083113.GB16158@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward1.mail.yandex.net ([77.88.46.6]:46836 "EHLO
+	forward1.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753948Ab0HBQLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 12:11:40 -0400
+In-Reply-To: <20100802081716.GA8374@Chamillionaire.breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Michael,
 
-On Sun, 2010-08-01 at 11:31 +0300, Michael S. Tsirkin wrote:
-> Could you provide an example of a good setup?
-> Specifically, is it a good idea for the vhost thread
-> to inherit CPU affinities from qemu? 
 
-I need to retest my set up with multi-threads vhost. My previous set up
-applies to single thread vhost. The single stream netperf/netserver set
-up, for example, if we have two quad-cores sockets to get the consistent
-9.4Gb/s BW:
+02.08.10, 12:17, "Florian Westphal" <fw@strlen.de>:
 
-socket 1:
-cpu0: netperf/netserver
-cpu1: ixgbe 10GbE NIC IRQ 
-cpu2: I/O thread
-cpu3: vhost thread
+> Franchoze Eric  wrote:
+>  >  Just sirious why do we need printk each 1 second (60*HZ) about possible syn-flood? It really floods dmesg. Is there something dengerous? I have suggestion to turn off printk about sending tcp cookie each 1 second.
+>  
+>  It is handled exactly like other printks in the networking path,
+>  e.g. receipt of tcp wscale == 15.
+>  
+>  Why does this need special treatment?
+>  
 
-socket 2:
-cpu0: QEMU VCPU0
-cpu1: QEMU VCPU1
-cpu2:
-cpu3:
-
-Thanks
-Shirley
-
+For now I see "possible SYN flooding on port %d. Sending cookies.\n" message each second on my server. I know that there are a lot of SYNs and I know that kernel sends cookie. Why do I need so mach printk?
+So I suggested add new value to /proc/sys/net/ipv4/tcp_syncookies, which will enable cookie but this printk will be turned off.
