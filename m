@@ -1,55 +1,70 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH] tc: make symbols loaded from tc action modules global.
-Date: Mon, 2 Aug 2010 09:30:33 +0200
-Message-ID: <20100802073032.GA32046@amd64.fatal.se>
+From: Franchoze Eric <franchoze@yandex.ru>
+Subject: why do we need printk on sending syn flood cookie?
+Date: Mon, 02 Aug 2010 11:58:14 +0400
+Message-ID: <480391280735894@web102.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-h32.telenor.se ([213.150.131.5]:54902 "EHLO
-	smtprelay-h32.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751549Ab0HBHsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 03:48:13 -0400
-Received: from ipb1.telenor.se (ipb1.telenor.se [195.54.127.164])
-	by smtprelay-h32.telenor.se (Postfix) with ESMTP id 5F610E8AF1
-	for <netdev@vger.kernel.org>; Mon,  2 Aug 2010 09:22:34 +0200 (CEST)
-Content-Disposition: inline
+Received: from forward8.mail.yandex.net ([77.88.61.38]:42268 "EHLO
+	forward8.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753178Ab0HBH6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 03:58:16 -0400
+Received: from web102.yandex.ru (web102.yandex.ru [77.88.61.3])
+	by forward8.mail.yandex.net (Yandex) with ESMTP id 0991616F0641
+	for <netdev@vger.kernel.org>; Mon,  2 Aug 2010 11:58:15 +0400 (MSD)
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by web102.yandex.ru (Yandex) with ESMTP id 06FA81A80A8
+	for <netdev@vger.kernel.org>; Mon,  2 Aug 2010 11:58:15 +0400 (MSD)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes problems with xtables based MARK target ("ipt" module).
-When tc loads the "ipt" (xt) module it kept the symbols local,
-this made loading of libxtables not find the required struct.
+ Just sirious why do we need printk each 1 second (60*HZ) about possible syn-flood? It really floods dmesg. Is there something dengerous? I have suggestion to turn off printk about sending tcp cookie each 1 second.
 
-currently ipt/xt is the only tc action module.
-iproute2 never seem to do dlclose.
-hopefully the modules doesn't export more symbols then needed.
-
-In this situation hopefully the RTLD_GLOBAL flag won't hurt us.
-
-I've been using this patch in the Debian package of iproute for
-the last 3 weeks and noone has complained.
-( This fixes http://bugs.debian.org/584898 )
-
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
----
- tc/m_action.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/tc/m_action.c b/tc/m_action.c
-index a198158..6464b2e 100644
---- a/tc/m_action.c
-+++ b/tc/m_action.c
-@@ -99,7 +99,7 @@ restart_s:
- 	}
+Something like this:
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index fe193e5..5574adc 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1230,8 +1230,10 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	__u32 isn = TCP_SKB_CB(skb)->when;
+ #ifdef CONFIG_SYN_COOKIES
+ 	int want_cookie = 0;
++	int want_cookie_no_warn = 0;
+ #else
+ #define want_cookie 0 /* Argh, why doesn't gcc optimize this :( */
++#define want_cookie_no_warn 0 
+ #endif
  
- 	snprintf(buf, sizeof(buf), "%s/m_%s.so", get_tc_lib(), str);
--	dlh = dlopen(buf, RTLD_LAZY);
-+	dlh = dlopen(buf, RTLD_LAZY | RTLD_GLOBAL);
- 	if (dlh == NULL) {
- 		dlh = aBODY;
- 		if (dlh == NULL) {
--- 
-1.7.1
-
+ 	/* Never answer to SYNs send to broadcast or multicast */
+@@ -1246,7 +1248,10 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ #ifdef CONFIG_SYN_COOKIES
+ 		if (sysctl_tcp_syncookies) {
+ 			want_cookie = 1;
+-		} else
++			if (sysctl_tcp_syncookies == 2)
++				want_cookie_no_warn = 1;
++		}
++		else
+ #endif
+ 		goto drop;
+ 	}
+@@ -1296,6 +1301,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 
+ #ifdef CONFIG_SYN_COOKIES
+ 		want_cookie = 0;	/* not our kind of cookie */
++		want_cookie_no_warn = 0;	/* no printk on syn flood */
+ #endif
+ 		tmp_ext.cookie_out_never = 0; /* false */
+ 		tmp_ext.cookie_plus = tmp_opt.cookie_plus;
+@@ -1328,7 +1334,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (want_cookie) {
+ #ifdef CONFIG_SYN_COOKIES
+-		syn_flood_warning(skb);
++		if (!want_cookie_no_warn)
++			syn_flood_warning(skb);
+ 		req->cookie_ts = tmp_opt.tstamp_ok;
+ #endif
+ 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
