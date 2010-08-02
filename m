@@ -1,49 +1,197 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 01/14] tg3: Add 5784 ASIC rev to earlier PCIe
- MPS fix
-Date: Mon, 2 Aug 2010 14:25:55 -0700
-Message-ID: <1280784368-4226-1-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 12/14] tg3: Create phy_flags and migrate
+ phy_is_low_power
+Date: Mon, 2 Aug 2010 14:26:06 -0700
+Message-ID: <1280784368-4226-12-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4928 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2889 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755419Ab0HBV0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Aug 2010 17:26:32 -0400
+	id S1755432Ab0HBV0h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Aug 2010 17:26:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tg3 commit e7126997342560533317d8467e8516119ebcbd21 entitled
-"tg3: Preserve PCIe MPS setting for new devs" attempted to ensure the
-PCIe link negotiated Maximum Payload Size (MPS) setting was 128 bytes
-for all devices that didn't support higher speeds.  The 5784 device was
-mistakenly added to this list when it shouldn't have.  This patch
-removes the 5784 ASIC rev devices from that list.
+This patch deletes the link_config.phy_is_low_power flag and creates a
+new phy_flags device member to store all phy related settings.  All the
+code is converted accordingly.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/tg3.c |   35 +++++++++++++++++------------------
+ drivers/net/tg3.h |    4 +++-
+ 2 files changed, 20 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index b26a577..98ca0d2 100644
+index 281cd7a..e0ff49b 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -7002,8 +7002,7 @@ static int tg3_chip_reset(struct tg3 *tp)
- 		 * Older PCIe devices only support the 128 byte
- 		 * MPS setting.  Enforce the restriction.
+@@ -1543,8 +1543,8 @@ static void tg3_phy_start(struct tg3 *tp)
+ 
+ 	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 
+-	if (tp->link_config.phy_is_low_power) {
+-		tp->link_config.phy_is_low_power = 0;
++	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) {
++		tp->phy_flags &= ~TG3_PHYFLG_IS_LOW_POWER;
+ 		phydev->speed = tp->link_config.orig_speed;
+ 		phydev->duplex = tp->link_config.orig_duplex;
+ 		phydev->autoneg = tp->link_config.orig_autoneg;
+@@ -2559,13 +2559,13 @@ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
+ 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
+ 		do_low_power = false;
+ 		if ((tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED) &&
+-		    !tp->link_config.phy_is_low_power) {
++		    !(tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
+ 			struct phy_device *phydev;
+ 			u32 phyid, advertising;
+ 
+ 			phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 
+-			tp->link_config.phy_is_low_power = 1;
++			tp->phy_flags |= TG3_PHYFLG_IS_LOW_POWER;
+ 
+ 			tp->link_config.orig_speed = phydev->speed;
+ 			tp->link_config.orig_duplex = phydev->duplex;
+@@ -2604,8 +2604,8 @@ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
+ 	} else {
+ 		do_low_power = true;
+ 
+-		if (tp->link_config.phy_is_low_power == 0) {
+-			tp->link_config.phy_is_low_power = 1;
++		if (!(tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
++			tp->phy_flags |= TG3_PHYFLG_IS_LOW_POWER;
+ 			tp->link_config.orig_speed = tp->link_config.speed;
+ 			tp->link_config.orig_duplex = tp->link_config.duplex;
+ 			tp->link_config.orig_autoneg = tp->link_config.autoneg;
+@@ -2836,7 +2836,7 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
+ 	u32 new_adv;
+ 	int i;
+ 
+-	if (tp->link_config.phy_is_low_power) {
++	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) {
+ 		/* Entering low power mode.  Disable gigabit and
+ 		 * 100baseT advertisements.
  		 */
--		if (!(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT) ||
--		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784))
-+		if (!(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
- 			val16 &= ~PCI_EXP_DEVCTL_PAYLOAD;
- 		pci_write_config_word(tp->pdev,
- 				      tp->pcie_cap + PCI_EXP_DEVCTL,
+@@ -3237,7 +3237,7 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 	}
+ 
+ relink:
+-	if (current_link_up == 0 || tp->link_config.phy_is_low_power) {
++	if (current_link_up == 0 || (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
+ 		u32 tmp;
+ 
+ 		tg3_phy_copper_begin(tp);
+@@ -8320,8 +8320,8 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	}
+ 
+ 	if (!(tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB)) {
+-		if (tp->link_config.phy_is_low_power) {
+-			tp->link_config.phy_is_low_power = 0;
++		if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) {
++			tp->phy_flags &= ~TG3_PHYFLG_IS_LOW_POWER;
+ 			tp->link_config.speed = tp->link_config.orig_speed;
+ 			tp->link_config.duplex = tp->link_config.orig_duplex;
+ 			tp->link_config.autoneg = tp->link_config.orig_autoneg;
+@@ -9368,7 +9368,7 @@ static void tg3_get_regs(struct net_device *dev,
+ 
+ 	memset(p, 0, TG3_REGDUMP_LEN);
+ 
+-	if (tp->link_config.phy_is_low_power)
++	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+ 		return;
+ 
+ 	tg3_full_lock(tp, 0);
+@@ -9447,7 +9447,7 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 	if (tp->tg3_flags3 & TG3_FLG3_NO_NVRAM)
+ 		return -EINVAL;
+ 
+-	if (tp->link_config.phy_is_low_power)
++	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+ 		return -EAGAIN;
+ 
+ 	offset = eeprom->offset;
+@@ -9509,7 +9509,7 @@ static int tg3_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
+ 	u8 *buf;
+ 	__be32 start, end;
+ 
+-	if (tp->link_config.phy_is_low_power)
++	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+ 		return -EAGAIN;
+ 
+ 	if ((tp->tg3_flags3 & TG3_FLG3_NO_NVRAM) ||
+@@ -10849,7 +10849,7 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+ 
+-	if (tp->link_config.phy_is_low_power)
++	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+ 		tg3_set_power_state(tp, PCI_D0);
+ 
+ 	memset(data, 0, sizeof(u64) * TG3_NUM_TEST);
+@@ -10917,7 +10917,7 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
+ 		if (irq_sync && !err2)
+ 			tg3_phy_start(tp);
+ 	}
+-	if (tp->link_config.phy_is_low_power)
++	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+ 		tg3_set_power_state(tp, PCI_D3hot);
+ 
+ }
+@@ -10947,7 +10947,7 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		if (tp->tg3_flags2 & TG3_FLG2_PHY_SERDES)
+ 			break;			/* We have no PHY */
+ 
+-		if (tp->link_config.phy_is_low_power)
++		if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+ 			return -EAGAIN;
+ 
+ 		spin_lock_bh(&tp->lock);
+@@ -10963,7 +10963,7 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		if (tp->tg3_flags2 & TG3_FLG2_PHY_SERDES)
+ 			break;			/* We have no PHY */
+ 
+-		if (tp->link_config.phy_is_low_power)
++		if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
+ 			return -EAGAIN;
+ 
+ 		spin_lock_bh(&tp->lock);
+@@ -14109,7 +14109,6 @@ static void __devinit tg3_init_link_config(struct tg3 *tp)
+ 	tp->link_config.autoneg = AUTONEG_ENABLE;
+ 	tp->link_config.active_speed = SPEED_INVALID;
+ 	tp->link_config.active_duplex = DUPLEX_INVALID;
+-	tp->link_config.phy_is_low_power = 0;
+ 	tp->link_config.orig_speed = SPEED_INVALID;
+ 	tp->link_config.orig_duplex = DUPLEX_INVALID;
+ 	tp->link_config.orig_autoneg = AUTONEG_INVALID;
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index d40c380..5d684d2 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2534,7 +2534,6 @@ struct tg3_link_config {
+ 	/* When we go in and out of low power mode we need
+ 	 * to swap with this state.
+ 	 */
+-	int				phy_is_low_power;
+ 	u16				orig_speed;
+ 	u8				orig_duplex;
+ 	u8				orig_autoneg;
+@@ -2965,6 +2964,9 @@ struct tg3 {
+ 	 (X) == TG3_PHY_ID_BCM57765 || (X) == TG3_PHY_ID_BCM5719C || \
+ 	 (X) == TG3_PHY_ID_BCM8002)
+ 
++	u32				phy_flags;
++#define TG3_PHYFLG_IS_LOW_POWER		0x00000001
++
+ 	u32				led_ctrl;
+ 	u32				phy_otp;
+ 
 -- 
 1.7.1
 
