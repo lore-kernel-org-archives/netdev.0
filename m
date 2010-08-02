@@ -1,79 +1,102 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: [PATCH] ip_fragment: fix subtracting PPPOE_SES_HLEN from mtu
- twice
-Date: Mon, 02 Aug 2010 21:20:16 +0200
-Message-ID: <4C571A70.20103@pandora.be>
-References: <1280618708-9241-1-git-send-email-xiaosuo@gmail.com> <4C56E961.9070107@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+From: Cyril Chemparathy <cyril@ti.com>
+Subject: [PATCH 2/2] phy/marvell: add 88ec048 support
+Date: Mon,  2 Aug 2010 15:44:54 -0400
+Message-ID: <1280778294-2993-3-git-send-email-cyril@ti.com>
+References: <1280778294-2993-1-git-send-email-cyril@ti.com>
+Cc: Cyril Chemparathy <cyril@ti.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gerard.telenet-ops.be ([195.130.132.48]:51281 "EHLO
-	gerard.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303Ab0HBTZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:25:22 -0400
-In-Reply-To: <4C56E961.9070107@trash.net>
+Received: from bear.ext.ti.com ([192.94.94.41]:53544 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754611Ab0HBTo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Aug 2010 15:44:59 -0400
+Received: from dlep33.itg.ti.com ([157.170.170.112])
+	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id o72JiwNi017525
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 2 Aug 2010 14:44:58 -0500
+In-Reply-To: <1280778294-2993-1-git-send-email-cyril@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick McHardy schreef:
-> On 01.08.2010 01:25, Changli Gao wrote:
->   
->> 6c79bf0f2440fd250c8fce8d9b82fcf03d4e8350 subtracts PPPOE_SES_HLEN from mtu at
->> the front of ip_fragment(). So the later subtraction should be removed. The
->> MTU of 802.1q is also 1500, so MTU should not be changed.
->>     
->
-> Bart, please review, thanks.
->
->   
-The patch looks correct. The commit Changli refers to fixed the case 
-where fragments are already available but broke the slow_path. The MTU 
-for 802.1Q is indeed also 1500...
+Marvell 88ec048 is a derivative of its 88e1121r device.  From the programmer's
+perspective, the one major difference is the addition of an additional control
+bit in Page 2 Register 16 - used to control the padding of odd nibble
+preambles.
 
-cheers,
-Bart
+This patch adds support for this new device, while inheriting as much code as
+possible from the existing 88e1121r implementation.
 
-Signed-off-by: Bart De Schuymer <bdschuym@pandora.bo>
->> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
->> ----
->>  net/ipv4/ip_output.c |    6 ++----
->>  1 file changed, 2 insertions(+), 4 deletions(-)
->> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
->> index 6652bd9..04b6989 100644
->> --- a/net/ipv4/ip_output.c
->> +++ b/net/ipv4/ip_output.c
->> @@ -446,7 +446,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
->>  	int ptr;
->>  	struct net_device *dev;
->>  	struct sk_buff *skb2;
->> -	unsigned int mtu, hlen, left, len, ll_rs, pad;
->> +	unsigned int mtu, hlen, left, len, ll_rs;
->>  	int offset;
->>  	__be16 not_last_frag;
->>  	struct rtable *rt = skb_rtable(skb);
->> @@ -585,9 +585,7 @@ slow_path:
->>  	/* for bridged IP traffic encapsulated inside f.e. a vlan header,
->>  	 * we need to make room for the encapsulating header
->>  	 */
->> -	pad = nf_bridge_pad(skb);
->> -	ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, pad);
->> -	mtu -= pad;
->> +	ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, nf_bridge_pad(skb));
->>  
->>  	/*
->>  	 *	Fragment the datagram.
->>
->>     
->
->
->   
+Signed-off-by: Cyril Chemparathy <cyril@ti.com>
+---
+ drivers/net/phy/marvell.c |   41 +++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 41 insertions(+), 0 deletions(-)
 
-
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index b1413ae..0887218 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -75,6 +75,9 @@
+ #define MII_88E1121_PHY_MSCR_TX_DELAY	BIT(4)
+ #define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(0x3 << 4))
+ 
++#define MII_88EC048_PHY_MSCR1_REG	16
++#define MII_88EC048_PHY_MSCR1_PAD_ODD	BIT(6)
++
+ #define MII_88E1121_PHY_LED_CTRL	16
+ #define MII_88E1121_PHY_LED_PAGE	3
+ #define MII_88E1121_PHY_LED_DEF		0x0030
+@@ -231,6 +234,31 @@ static int m88e1121_config_aneg(struct phy_device *phydev)
+ 	return err;
+ }
+ 
++static int m88ec048_config_aneg(struct phy_device *phydev)
++{
++	int err, oldpage, mscr;
++
++	oldpage = phy_read(phydev, MII_88E1121_PHY_PAGE);
++
++	err = phy_write(phydev, MII_88E1121_PHY_PAGE,
++			MII_88E1121_PHY_MSCR_PAGE);
++	if (err < 0)
++		return err;
++
++	mscr = phy_read(phydev, MII_88EC048_PHY_MSCR1_REG);
++	mscr |= MII_88EC048_PHY_MSCR1_PAD_ODD;
++
++	err = phy_write(phydev, MII_88E1121_PHY_MSCR_REG, mscr);
++	if (err < 0)
++		return err;
++
++	err = phy_write(phydev, MII_88E1121_PHY_PAGE, oldpage);
++	if (err < 0)
++		return err;
++
++	return m88e1121_config_aneg(phydev);
++}
++
+ static int m88e1111_config_init(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -622,6 +650,19 @@ static struct phy_driver marvell_drivers[] = {
+ 		.driver = { .owner = THIS_MODULE },
+ 	},
+ 	{
++		.phy_id = 0x01410e90,
++		.phy_id_mask = 0xfffffff0,
++		.name = "Marvell 88EC048",
++		.features = PHY_GBIT_FEATURES,
++		.flags = PHY_HAS_INTERRUPT,
++		.config_aneg = &m88ec048_config_aneg,
++		.read_status = &marvell_read_status,
++		.ack_interrupt = &marvell_ack_interrupt,
++		.config_intr = &marvell_config_intr,
++		.did_interrupt = &m88e1121_did_interrupt,
++		.driver = { .owner = THIS_MODULE },
++	},
++	{
+ 		.phy_id = 0x01410cd0,
+ 		.phy_id_mask = 0xfffffff0,
+ 		.name = "Marvell 88E1145",
 -- 
-Bart De Schuymer
-www.artinalgorithms.be
+1.7.0.4
 
