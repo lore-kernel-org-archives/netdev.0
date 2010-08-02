@@ -1,49 +1,47 @@
-From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
-Subject: Re: RFC: New BPF 'LOOP' instruction
-Date: Mon, 2 Aug 2010 12:13:35 +0100
-Message-ID: <20100802111334.GL11110@cel.leo>
-References: <20100802110334.GK11110@cel.leo>
+From: Komuro <komurojun-mbn@nifty.com>
+Subject: Re: [PATCH 01/11] pcmcia: use pcmica_{read,write}_config_byte
+Date: Mon, 2 Aug 2010 20:59:26 +0900 (JST)
+Message-ID: <15238373.192661280750366920.komurojun-mbn@nifty.com>
+References: <1280667550-3040-1-git-send-email-linux@dominikbrodowski.net>
+	<20100801125749.GA2564@comet.dominikbrodowski.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="F5PMopVgTaFKhUu5"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cel.leonerd.org.uk ([81.187.167.226]:54217 "EHLO cel.leo"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752629Ab0HBLNg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Aug 2010 07:13:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20100802110334.GK11110@cel.leo>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org, linux-wireless@vger.kernel.org,
+	Dominik Brodowski <linux@dominikbrodowski.net>,
+	linux-serial@vger.kernel.org
+To: Dominik Brodowski <linux@dominikbrodowski.net>
+Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1280667550-3040-1-git-send-email-linux@dominikbrodowski.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia/>
+List-Post: <mailto:linux-pcmcia@lists.infradead.org>
+List-Help: <mailto:linux-pcmcia-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-pcmcia>,
+	<mailto:linux-pcmcia-request@lists.infradead.org?subject=subscribe>
+Sender: linux-pcmcia-bounces@lists.infradead.org
+Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
+
+Hi,
+
+>--- a/drivers/net/pcmcia/xirc2ps_cs.c
+>+++ b/drivers/net/pcmcia/xirc2ps_cs.c
 
 
---F5PMopVgTaFKhUu5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+>+	if (err)
+> 	    goto config_error;
+>-	reg.Action = CS_WRITE;
+>-	reg.Offset = CISREG_IOBASE_1;
+>-	reg.Value = (link->io.BasePort2 >> 8) & 0xff;
+>-	if ((err = pcmcia_access_configuration_register(link, &reg)))
+>+
+>+	err = pcmcia_write_config_byte(link, CISREG_IOBASE_1,
+>+				link->io.BasePort2 & 0xff);
 
-*ahem* Typo in the subject line there, sorry. I meant "BPF".
+It should be
 
-
---=20
-Paul "LeoNerd" Evans
-
-leonerd@leonerd.org.uk
-ICQ# 4135350       |  Registered Linux# 179460
-http://www.leonerd.org.uk/
-
---F5PMopVgTaFKhUu5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iD8DBQFMVqhevLS2TC8cBo0RAjPQAJ9mP4c6VrUgcsZhmlZrZMRIJMfEkQCg4zwh
-szsYOs03yoi268U71+j9Y2Y=
-=OKFg
------END PGP SIGNATURE-----
-
---F5PMopVgTaFKhUu5--
+	err = pcmcia_write_config_byte(link, CISREG_IOBASE_1,
+				(link->io.BasePort2 >> 8) & 0xff);
