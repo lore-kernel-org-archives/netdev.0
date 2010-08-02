@@ -1,79 +1,337 @@
 From: kaber@trash.net
-Subject: [PATCH 27/28] netfilter: nf_nat: don't check if the tuple is unique when there isn't any other choice
-Date: Mon,  2 Aug 2010 21:57:44 +0200
-Message-ID: <1280779065-9333-28-git-send-email-kaber@trash.net>
+Subject: [PATCH 24/28] ipvs: provide default ip_vs_conn_{in,out}_get_proto
+Date: Mon,  2 Aug 2010 21:57:41 +0200
+Message-ID: <1280779065-9333-25-git-send-email-kaber@trash.net>
 References: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:35395 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754861Ab0HBT6E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:58:04 -0400
 In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Simon Horman <horms@verge.net.au>
 
-The tuple got from unique_tuple() doesn't need to be really unique, so the
-check for the unique tuple isn't necessary, when there isn't any other
-choice. Eliminating the unnecessary nf_nat_used_tuple() can save some CPU
-cycles too.
+This removes duplicate code by providing a default implementation
+which is used by 3 of the 4 modules that provide these call.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/nf_nat_proto_common.c |    4 ++--
- net/ipv4/netfilter/nf_nat_proto_gre.c    |    4 ++--
- net/ipv4/netfilter/nf_nat_proto_icmp.c   |    4 ++--
- 3 files changed, 6 insertions(+), 6 deletions(-)
+ include/net/ip_vs.h                   |   12 +++++++
+ net/netfilter/ipvs/ip_vs_conn.c       |   45 ++++++++++++++++++++++++++
+ net/netfilter/ipvs/ip_vs_proto_sctp.c |   53 +------------------------------
+ net/netfilter/ipvs/ip_vs_proto_tcp.c  |   50 +----------------------------
+ net/netfilter/ipvs/ip_vs_proto_udp.c  |   56 +-------------------------------
+ 5 files changed, 63 insertions(+), 153 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_nat_proto_common.c b/net/ipv4/netfilter/nf_nat_proto_common.c
-index 2844a03..3e61faf 100644
---- a/net/ipv4/netfilter/nf_nat_proto_common.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_common.c
-@@ -81,9 +81,9 @@ void nf_nat_proto_unique_tuple(struct nf_conntrack_tuple *tuple,
- 	else
- 		off = *rover;
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 1f9e511..a4747a0 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -632,10 +632,22 @@ extern struct ip_vs_conn *ip_vs_ct_in_get
+ (int af, int protocol, const union nf_inet_addr *s_addr, __be16 s_port,
+  const union nf_inet_addr *d_addr, __be16 d_port);
  
--	for (i = 0; i < range_size; i++, off++) {
-+	for (i = 0; ; ++off) {
- 		*portptr = htons(min + off % range_size);
--		if (nf_nat_used_tuple(tuple, ct))
-+		if (++i != range_size && nf_nat_used_tuple(tuple, ct))
- 			continue;
- 		if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM))
- 			*rover = off;
-diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-index 89933ab..bc8d83a 100644
---- a/net/ipv4/netfilter/nf_nat_proto_gre.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
-@@ -68,9 +68,9 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
++struct ip_vs_conn * ip_vs_conn_in_get_proto(int af, const struct sk_buff *skb,
++					    struct ip_vs_protocol *pp,
++					    const struct ip_vs_iphdr *iph,
++					    unsigned int proto_off,
++					    int inverse);
++
+ extern struct ip_vs_conn *ip_vs_conn_out_get
+ (int af, int protocol, const union nf_inet_addr *s_addr, __be16 s_port,
+  const union nf_inet_addr *d_addr, __be16 d_port);
  
- 	pr_debug("min = %u, range_size = %u\n", min, range_size);
++struct ip_vs_conn * ip_vs_conn_out_get_proto(int af, const struct sk_buff *skb,
++					     struct ip_vs_protocol *pp,
++					     const struct ip_vs_iphdr *iph,
++					     unsigned int proto_off,
++					     int inverse);
++
+ /* put back the conn without restarting its timer */
+ static inline void __ip_vs_conn_put(struct ip_vs_conn *cp)
+ {
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 654544e..b71c69a 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -271,6 +271,29 @@ struct ip_vs_conn *ip_vs_conn_in_get
+ 	return cp;
+ }
  
--	for (i = 0; i < range_size; i++, key++) {
-+	for (i = 0; ; ++key) {
- 		*keyptr = htons(min + key % range_size);
--		if (!nf_nat_used_tuple(tuple, ct))
-+		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
- 			return;
- 	}
++struct ip_vs_conn *
++ip_vs_conn_in_get_proto(int af, const struct sk_buff *skb,
++			struct ip_vs_protocol *pp,
++			const struct ip_vs_iphdr *iph,
++			unsigned int proto_off, int inverse)
++{
++	__be16 _ports[2], *pptr;
++
++	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
++	if (pptr == NULL)
++		return NULL;
++
++	if (likely(!inverse))
++		return ip_vs_conn_in_get(af, iph->protocol,
++					 &iph->saddr, pptr[0],
++					 &iph->daddr, pptr[1]);
++	else
++		return ip_vs_conn_in_get(af, iph->protocol,
++					 &iph->daddr, pptr[1],
++					 &iph->saddr, pptr[0]);
++}
++EXPORT_SYMBOL_GPL(ip_vs_conn_in_get_proto);
++
+ /* Get reference to connection template */
+ struct ip_vs_conn *ip_vs_ct_in_get
+ (int af, int protocol, const union nf_inet_addr *s_addr, __be16 s_port,
+@@ -356,6 +379,28 @@ struct ip_vs_conn *ip_vs_conn_out_get
+ 	return ret;
+ }
  
-diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-index 97003fe..5744c3e 100644
---- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-@@ -42,10 +42,10 @@ icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
- 	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED))
- 		range_size = 0xFFFF;
++struct ip_vs_conn *
++ip_vs_conn_out_get_proto(int af, const struct sk_buff *skb,
++			 struct ip_vs_protocol *pp,
++			 const struct ip_vs_iphdr *iph,
++			 unsigned int proto_off, int inverse)
++{
++	__be16 _ports[2], *pptr;
++
++	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
++	if (pptr == NULL)
++		return NULL;
++
++	if (likely(!inverse))
++		return ip_vs_conn_out_get(af, iph->protocol,
++					  &iph->saddr, pptr[0],
++					  &iph->daddr, pptr[1]);
++	else
++		return ip_vs_conn_out_get(af, iph->protocol,
++					  &iph->daddr, pptr[1],
++					  &iph->saddr, pptr[0]);
++}
++EXPORT_SYMBOL_GPL(ip_vs_conn_out_get_proto);
  
--	for (i = 0; i < range_size; i++, id++) {
-+	for (i = 0; ; ++id) {
- 		tuple->src.u.icmp.id = htons(ntohs(range->min.icmp.id) +
- 					     (id % range_size));
--		if (!nf_nat_used_tuple(tuple, ct))
-+		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
- 			return;
- 	}
- 	return;
+ /*
+  *      Put back the conn and restart its timer with its timeout
+diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+index db55759..4c0855c 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+@@ -8,55 +8,6 @@
+ #include <net/sctp/checksum.h>
+ #include <net/ip_vs.h>
+ 
+-
+-static struct ip_vs_conn *
+-sctp_conn_in_get(int af,
+-		 const struct sk_buff *skb,
+-		 struct ip_vs_protocol *pp,
+-		 const struct ip_vs_iphdr *iph,
+-		 unsigned int proto_off,
+-		 int inverse)
+-{
+-	__be16 _ports[2], *pptr;
+-
+-	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
+-	if (pptr == NULL)
+-		return NULL;
+-
+-	if (likely(!inverse)) 
+-		return ip_vs_conn_in_get(af, iph->protocol,
+-					 &iph->saddr, pptr[0],
+-					 &iph->daddr, pptr[1]);
+-	else 
+-		return ip_vs_conn_in_get(af, iph->protocol,
+-					 &iph->daddr, pptr[1],
+-					 &iph->saddr, pptr[0]);
+-}
+-
+-static struct ip_vs_conn *
+-sctp_conn_out_get(int af,
+-		  const struct sk_buff *skb,
+-		  struct ip_vs_protocol *pp,
+-		  const struct ip_vs_iphdr *iph,
+-		  unsigned int proto_off,
+-		  int inverse)
+-{
+-	__be16 _ports[2], *pptr;
+-
+-	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
+-	if (pptr == NULL)
+-		return NULL;
+-
+-	if (likely(!inverse)) 
+-		return ip_vs_conn_out_get(af, iph->protocol,
+-					  &iph->saddr, pptr[0],
+-					  &iph->daddr, pptr[1]);
+-	else 
+-		return ip_vs_conn_out_get(af, iph->protocol,
+-					  &iph->daddr, pptr[1],
+-					  &iph->saddr, pptr[0]);
+-}
+-
+ static int
+ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		   int *verdict, struct ip_vs_conn **cpp)
+@@ -1169,8 +1120,8 @@ struct ip_vs_protocol ip_vs_protocol_sctp = {
+ 	.register_app = sctp_register_app,
+ 	.unregister_app = sctp_unregister_app,
+ 	.conn_schedule = sctp_conn_schedule,
+-	.conn_in_get = sctp_conn_in_get,
+-	.conn_out_get = sctp_conn_out_get,
++	.conn_in_get = ip_vs_conn_in_get_proto,
++	.conn_out_get = ip_vs_conn_out_get_proto,
+ 	.snat_handler = sctp_snat_handler,
+ 	.dnat_handler = sctp_dnat_handler,
+ 	.csum_check = sctp_csum_check,
+diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+index 91d28e0..282d24d 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+@@ -27,52 +27,6 @@
+ 
+ #include <net/ip_vs.h>
+ 
+-
+-static struct ip_vs_conn *
+-tcp_conn_in_get(int af, const struct sk_buff *skb, struct ip_vs_protocol *pp,
+-		const struct ip_vs_iphdr *iph, unsigned int proto_off,
+-		int inverse)
+-{
+-	__be16 _ports[2], *pptr;
+-
+-	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
+-	if (pptr == NULL)
+-		return NULL;
+-
+-	if (likely(!inverse)) {
+-		return ip_vs_conn_in_get(af, iph->protocol,
+-					 &iph->saddr, pptr[0],
+-					 &iph->daddr, pptr[1]);
+-	} else {
+-		return ip_vs_conn_in_get(af, iph->protocol,
+-					 &iph->daddr, pptr[1],
+-					 &iph->saddr, pptr[0]);
+-	}
+-}
+-
+-static struct ip_vs_conn *
+-tcp_conn_out_get(int af, const struct sk_buff *skb, struct ip_vs_protocol *pp,
+-		 const struct ip_vs_iphdr *iph, unsigned int proto_off,
+-		 int inverse)
+-{
+-	__be16 _ports[2], *pptr;
+-
+-	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
+-	if (pptr == NULL)
+-		return NULL;
+-
+-	if (likely(!inverse)) {
+-		return ip_vs_conn_out_get(af, iph->protocol,
+-					  &iph->saddr, pptr[0],
+-					  &iph->daddr, pptr[1]);
+-	} else {
+-		return ip_vs_conn_out_get(af, iph->protocol,
+-					  &iph->daddr, pptr[1],
+-					  &iph->saddr, pptr[0]);
+-	}
+-}
+-
+-
+ static int
+ tcp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		  int *verdict, struct ip_vs_conn **cpp)
+@@ -721,8 +675,8 @@ struct ip_vs_protocol ip_vs_protocol_tcp = {
+ 	.register_app =		tcp_register_app,
+ 	.unregister_app =	tcp_unregister_app,
+ 	.conn_schedule =	tcp_conn_schedule,
+-	.conn_in_get =		tcp_conn_in_get,
+-	.conn_out_get =		tcp_conn_out_get,
++	.conn_in_get =		ip_vs_conn_in_get_proto,
++	.conn_out_get =		ip_vs_conn_out_get_proto,
+ 	.snat_handler =		tcp_snat_handler,
+ 	.dnat_handler =		tcp_dnat_handler,
+ 	.csum_check =		tcp_csum_check,
+diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
+index e7a6885..8553231 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_udp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
+@@ -27,58 +27,6 @@
+ #include <net/ip.h>
+ #include <net/ip6_checksum.h>
+ 
+-static struct ip_vs_conn *
+-udp_conn_in_get(int af, const struct sk_buff *skb, struct ip_vs_protocol *pp,
+-		const struct ip_vs_iphdr *iph, unsigned int proto_off,
+-		int inverse)
+-{
+-	struct ip_vs_conn *cp;
+-	__be16 _ports[2], *pptr;
+-
+-	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
+-	if (pptr == NULL)
+-		return NULL;
+-
+-	if (likely(!inverse)) {
+-		cp = ip_vs_conn_in_get(af, iph->protocol,
+-				       &iph->saddr, pptr[0],
+-				       &iph->daddr, pptr[1]);
+-	} else {
+-		cp = ip_vs_conn_in_get(af, iph->protocol,
+-				       &iph->daddr, pptr[1],
+-				       &iph->saddr, pptr[0]);
+-	}
+-
+-	return cp;
+-}
+-
+-
+-static struct ip_vs_conn *
+-udp_conn_out_get(int af, const struct sk_buff *skb, struct ip_vs_protocol *pp,
+-		 const struct ip_vs_iphdr *iph, unsigned int proto_off,
+-		 int inverse)
+-{
+-	struct ip_vs_conn *cp;
+-	__be16 _ports[2], *pptr;
+-
+-	pptr = skb_header_pointer(skb, proto_off, sizeof(_ports), _ports);
+-	if (pptr == NULL)
+-		return NULL;
+-
+-	if (likely(!inverse)) {
+-		cp = ip_vs_conn_out_get(af, iph->protocol,
+-					&iph->saddr, pptr[0],
+-					&iph->daddr, pptr[1]);
+-	} else {
+-		cp = ip_vs_conn_out_get(af, iph->protocol,
+-					&iph->daddr, pptr[1],
+-					&iph->saddr, pptr[0]);
+-	}
+-
+-	return cp;
+-}
+-
+-
+ static int
+ udp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		  int *verdict, struct ip_vs_conn **cpp)
+@@ -520,8 +468,8 @@ struct ip_vs_protocol ip_vs_protocol_udp = {
+ 	.init =			udp_init,
+ 	.exit =			udp_exit,
+ 	.conn_schedule =	udp_conn_schedule,
+-	.conn_in_get =		udp_conn_in_get,
+-	.conn_out_get =		udp_conn_out_get,
++	.conn_in_get =		ip_vs_conn_in_get_proto,
++	.conn_out_get =		ip_vs_conn_out_get_proto,
+ 	.snat_handler =		udp_snat_handler,
+ 	.dnat_handler =		udp_dnat_handler,
+ 	.csum_check =		udp_csum_check,
 -- 
 1.7.1
 
