@@ -1,43 +1,55 @@
-From: Franchoze Eric <franchoze@yandex.ru>
-Subject: Re: shape traffic on tun interfaces
-Date: Mon, 02 Aug 2010 11:46:11 +0400
-Message-ID: <474381280735172@web82.yandex.ru>
-References: <301941280614170@web105.yandex.ru>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: [PATCH] tc: make symbols loaded from tc action modules global.
+Date: Mon, 2 Aug 2010 09:30:33 +0200
+Message-ID: <20100802073032.GA32046@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: lartc@mailman.ds9a.nl, netdev@vger.kernel.org
-To: alex@digriz.org.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward8.mail.yandex.net ([77.88.61.38]:43645 "EHLO
-	forward8.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753143Ab0HBHqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 03:46:15 -0400
-In-Reply-To: <301941280614170@web105.yandex.ru>
+Received: from smtprelay-h32.telenor.se ([213.150.131.5]:54902 "EHLO
+	smtprelay-h32.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549Ab0HBHsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 03:48:13 -0400
+Received: from ipb1.telenor.se (ipb1.telenor.se [195.54.127.164])
+	by smtprelay-h32.telenor.se (Postfix) with ESMTP id 5F610E8AF1
+	for <netdev@vger.kernel.org>; Mon,  2 Aug 2010 09:22:34 +0200 (CEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->Do the QoS on your next hop router 
-There is no next router. And QoS should be on the same machine.
+Fixes problems with xtables based MARK target ("ipt" module).
+When tc loads the "ipt" (xt) module it kept the symbols local,
+this made loading of libxtables not find the required struct.
 
->or on the interface all your de-encapsulated VPN traffic flows over (ie. 'eth0') instead.
+currently ipt/xt is the only tc action module.
+iproute2 never seem to do dlclose.
+hopefully the modules doesn't export more symbols then needed.
 
-It is not a problem to find interface with de-encapsulated traffic. The problem is that tc rules should be written accoring to network device.
-And it is really uncinvinient clone this rules which are differ only with destination IP.
+In this situation hopefully the RTLD_GLOBAL flag won't hurt us.
 
-For example look here. It's needed to create subclass for each destination IP.
+I've been using this patch in the Debian package of iproute for
+the last 3 weeks and noone has complained.
+( This fixes http://bugs.debian.org/584898 )
 
-#class
-tc class add dev $DEV parent 1: classid 1:1 htb rate ${SPEED}kbit
-#subclass
-# high priority traffic (where we get money, http for example)
-tc class add dev $DEV parent 1:1 classid 1:2 htb rate ${SPEED}kbit ceil ${SPEED}kbit prio 0
-# low priority trafic - no adds - now money - low speed
-tc class add dev $DEV parent 1:1 classid 1:3 htb rate ${SPEED}/2kbit ceil ${SPEED}kbit prio 1
-#handle
-tc qdisc add dev $DEV parent 1:2 handle 2: sfq perturb 10
-tc qdisc add dev $DEV parent 1:3 handle 3: sfq perturb 10
-#connect with
-tc filter add dev $DEV parent 1:0 prio 0 protocol ip handle 2 fw flowid 1:1001
-tc filter add dev $DEV parent 1:0 prio 0 protocol ip handle 3 fw flowid 1:1002 
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+---
+ tc/m_action.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/tc/m_action.c b/tc/m_action.c
+index a198158..6464b2e 100644
+--- a/tc/m_action.c
++++ b/tc/m_action.c
+@@ -99,7 +99,7 @@ restart_s:
+ 	}
+ 
+ 	snprintf(buf, sizeof(buf), "%s/m_%s.so", get_tc_lib(), str);
+-	dlh = dlopen(buf, RTLD_LAZY);
++	dlh = dlopen(buf, RTLD_LAZY | RTLD_GLOBAL);
+ 	if (dlh == NULL) {
+ 		dlh = aBODY;
+ 		if (dlh == NULL) {
+-- 
+1.7.1
 
