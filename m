@@ -1,68 +1,48 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH net-next 2/9] cxgb4: don't offload Rx checksums for IPv6 fragments
-Date: Mon,  2 Aug 2010 16:19:17 -0700
-Message-ID: <1280791164-14181-3-git-send-email-dm@chelsio.com>
+Subject: [PATCH net-next 9/9] cxgb4: update driver version
+Date: Mon,  2 Aug 2010 16:19:24 -0700
+Message-ID: <1280791164-14181-10-git-send-email-dm@chelsio.com>
 References: <1280791164-14181-1-git-send-email-dm@chelsio.com>
  <1280791164-14181-2-git-send-email-dm@chelsio.com>
+ <1280791164-14181-3-git-send-email-dm@chelsio.com>
+ <1280791164-14181-4-git-send-email-dm@chelsio.com>
+ <1280791164-14181-5-git-send-email-dm@chelsio.com>
+ <1280791164-14181-6-git-send-email-dm@chelsio.com>
+ <1280791164-14181-7-git-send-email-dm@chelsio.com>
+ <1280791164-14181-8-git-send-email-dm@chelsio.com>
+ <1280791164-14181-9-git-send-email-dm@chelsio.com>
 Cc: Dimitris Michailidis <dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:1801 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:13670 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808Ab0HBXTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 19:19:25 -0400
+	with ESMTP id S1754106Ab0HBXT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 19:19:26 -0400
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o72NJPVj025629
-	for <netdev@vger.kernel.org>; Mon, 2 Aug 2010 16:19:25 -0700
-In-Reply-To: <1280791164-14181-2-git-send-email-dm@chelsio.com>
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o72NJQbL025647
+	for <netdev@vger.kernel.org>; Mon, 2 Aug 2010 16:19:26 -0700
+In-Reply-To: <1280791164-14181-9-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The checksum provided by the device doesn't include the L3 headers,
-as IPv6 expects.
-
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/sge.c    |    7 ++++---
- drivers/net/cxgb4/t4_msg.h |    2 ++
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/cxgb4/cxgb4_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
-index 4388f72..304302a 100644
---- a/drivers/net/cxgb4/sge.c
-+++ b/drivers/net/cxgb4/sge.c
-@@ -1593,14 +1593,15 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index a4c4f52..c327527 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -67,7 +67,7 @@
+ #include "t4fw_api.h"
+ #include "l2t.h"
  
- 	if (csum_ok && (pi->rx_offload & RX_CSO) &&
- 	    (pkt->l2info & htonl(RXF_UDP | RXF_TCP))) {
--		if (!pkt->ip_frag)
-+		if (!pkt->ip_frag) {
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
--		else {
-+			rxq->stats.rx_cso++;
-+		} else if (pkt->l2info & htonl(RXF_IP)) {
- 			__sum16 c = (__force __sum16)pkt->csum;
- 			skb->csum = csum_unfold(c);
- 			skb->ip_summed = CHECKSUM_COMPLETE;
-+			rxq->stats.rx_cso++;
- 		}
--		rxq->stats.rx_cso++;
- 	} else
- 		skb->ip_summed = CHECKSUM_NONE;
+-#define DRV_VERSION "1.0.0-ko"
++#define DRV_VERSION "1.3.0-ko"
+ #define DRV_DESC "Chelsio T4 Network Driver"
  
-diff --git a/drivers/net/cxgb4/t4_msg.h b/drivers/net/cxgb4/t4_msg.h
-index 623932b..a550d0c 100644
---- a/drivers/net/cxgb4/t4_msg.h
-+++ b/drivers/net/cxgb4/t4_msg.h
-@@ -529,6 +529,8 @@ struct cpl_rx_pkt {
- 	__be32 l2info;
- #define RXF_UDP (1 << 22)
- #define RXF_TCP (1 << 23)
-+#define RXF_IP  (1 << 24)
-+#define RXF_IP6 (1 << 25)
- 	__be16 hdr_len;
- 	__be16 err_vec;
- };
+ /*
 -- 
 1.5.4
 
