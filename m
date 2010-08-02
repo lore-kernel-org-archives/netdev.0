@@ -1,28 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH nf-next-2.6] netfilter: {ip,ip6,arp}_tables: dont block
- bottom half more than necessary
-Date: Mon, 02 Aug 2010 16:54:08 +0200
-Message-ID: <4C56DC10.9060301@trash.net>
-References: <1279898595.2481.69.camel@edumazet-laptop>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Mon, 2 Aug 2010 17:02:06 +0200
+Message-ID: <20100802150206.GA10218@redhat.com>
+References: <1277996135.1917.198.camel@laptop> <4C2E2987.9040702@us.ibm.com> <1278094270.1917.288.camel@laptop> <20100702210637.GA12433@redhat.com> <20100726171230.GA27644@redhat.com> <1280166688.3375.5.camel@localhost> <20100726180834.GA26988@redhat.com> <20100727154155.GA13419@redhat.com> <20100730141901.GA9076@redhat.com> <20100801085022.GD16158@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1279898595.2481.69.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Tejun Heo <tj@kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100801085022.GD16158@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 23.07.2010 17:23, Eric Dumazet wrote:
-> We currently disable BH for the whole duration of get_counters()
-> 
-> On machines with a lot of cpus and large tables, this might be too long.
-> 
-> We can disable preemption during the whole function, and disable BH only
-> while fetching counters for the current cpu.
-> 
+On 08/01, Michael S. Tsirkin wrote:
+>
+> Oleg, I mean Ack the exporting of get/set affinity.
 
-Applied, thanks Eric.
+Ah, I misunderstood.
 
+Yes, I believe the exporting is the lesser evil. Please feel free
+to add my ack.
+
+Oleg.
