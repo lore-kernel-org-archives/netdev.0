@@ -1,46 +1,66 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: shape traffic on tun interfaces
-Date: Mon, 2 Aug 2010 16:36:51 +0800
-Message-ID: <AANLkTinEs2t6Mh8ZQ2HHpKv-dTr-71813sFvXWu_VqNr@mail.gmail.com>
-References: <301941280614170@web105.yandex.ru> <474381280735172@web82.yandex.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Is it a possible bug in dev_gro_receive()?
+Date: Mon, 2 Aug 2010 10:29:06 +0000
+Message-ID: <20100802102906.GA8439@ff.dom.local>
+References: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Cc: alex@digriz.org.uk, lartc@mailman.ds9a.nl, netdev@vger.kernel.org
-To: Franchoze Eric <franchoze@yandex.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	davem@davemloft.net
+To: Xin Xiaohui <xiaohui.xin@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:58125 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751660Ab0HBIhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 04:37:12 -0400
-Received: by wyb39 with SMTP id 39so3022633wyb.19
-        for <netdev@vger.kernel.org>; Mon, 02 Aug 2010 01:37:11 -0700 (PDT)
-In-Reply-To: <474381280735172@web82.yandex.ru>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:55728 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752371Ab0HBK3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 06:29:15 -0400
+Received: by fxm14 with SMTP id 14so1605331fxm.19
+        for <netdev@vger.kernel.org>; Mon, 02 Aug 2010 03:29:14 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 2, 2010 at 3:46 PM, Franchoze Eric <franchoze@yandex.ru> wrote:
->>Do the QoS on your next hop router
-> There is no next router. And QoS should be on the same machine.
->
->>or on the interface all your de-encapsulated VPN traffic flows over (ie. 'eth0') instead.
->
-> It is not a problem to find interface with de-encapsulated traffic. The problem is that tc rules should be written accoring to network device.
+Xin Xiaohui wrote:
+> I looked into the code dev_gro_receive(), found the code here:
+> if the frags[0] is pulled to 0, then the page will be released,
+> and memmove() frags left.
+> Is that right? I'm not sure if memmove do right or not, but
+> frags[0].size is never set after memove at least. what I think
+> a simple way is not to do anything if we found frags[0].size == 0.
+> The patch is as followed.
+> 
+> Or am I missing something here?
 
-try ifb:
+I think, you're right, but fixing memmove looks nicer to me:
 
-config IFB
-        tristate "Intermediate Functional Block support"
-        depends on NET_CLS_ACT
-        ---help---
-          This is an intermediate driver that allows sharing of
-          resources.
-          To compile this driver as a module, choose M here: the module
-          will be called ifb.  If you want to use more than one ifb
-          device at a time, you need to compile this driver as a module.
-          Instead of 'ifb', the devices will then be called 'ifb0',
-          'ifb1' etc.
-          Look at the iproute2 documentation directory for usage etc
+ -	--skb_shinfo(skb)->nr_frags);
+ +	--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Jarek P.
+
+> 
+> ---
+>  net/core/dev.c |    7 -------
+>  1 files changed, 0 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 264137f..28cdbbf 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2730,13 +2730,6 @@ pull:
+>  
+>  		skb_shinfo(skb)->frags[0].page_offset += grow;
+>  		skb_shinfo(skb)->frags[0].size -= grow;
+> -
+> -		if (unlikely(!skb_shinfo(skb)->frags[0].size)) {
+> -			put_page(skb_shinfo(skb)->frags[0].page);
+> -			memmove(skb_shinfo(skb)->frags,
+> -				skb_shinfo(skb)->frags + 1,
+> -				--skb_shinfo(skb)->nr_frags);
+> -		}
+>  	}
+>  
+>  ok:
+
+
+
