@@ -1,59 +1,63 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ip_fragment: fix subtracting PPPOE_SES_HLEN from mtu
- twice
-Date: Mon, 02 Aug 2010 17:50:57 +0200
-Message-ID: <4C56E961.9070107@trash.net>
-References: <1280618708-9241-1-git-send-email-xiaosuo@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 2/2] macvtap: Implement multiqueue macvtap driver
+Date: Mon, 2 Aug 2010 17:52:28 +0200
+Message-ID: <201008021752.28475.arnd@arndb.de>
+References: <20100802143304.1517.42494.sendpatchset@krkumar2.in.ibm.com> <20100802143310.1517.55824.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Bart De Schuymer <bdschuym@pandora.be>,
-	netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, mst@redhat.com, therbert@google.com
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62574 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752969Ab0HBPu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 11:50:57 -0400
-In-Reply-To: <1280618708-9241-1-git-send-email-xiaosuo@gmail.com>
+Received: from moutng.kundenserver.de ([212.227.17.10]:57925 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752654Ab0HBPws (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 11:52:48 -0400
+In-Reply-To: <20100802143310.1517.55824.sendpatchset@krkumar2.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.08.2010 01:25, Changli Gao wrote:
-> 6c79bf0f2440fd250c8fce8d9b82fcf03d4e8350 subtracts PPPOE_SES_HLEN from mtu at
-> the front of ip_fragment(). So the later subtraction should be removed. The
-> MTU of 802.1q is also 1500, so MTU should not be changed.
+On Monday 02 August 2010, Krishna Kumar wrote:
+> Implement multiqueue facility for macvtap driver. The idea is that
+> a macvtap device can be opened multiple times and the fd's can be
+> used to register eg, as backend for vhost.
+>
+> Please review.
 
-Bart, please review, thanks.
+Only two very minor points from my side:
 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ----
->  net/ipv4/ip_output.c |    6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index 6652bd9..04b6989 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -446,7 +446,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
->  	int ptr;
->  	struct net_device *dev;
->  	struct sk_buff *skb2;
-> -	unsigned int mtu, hlen, left, len, ll_rs, pad;
-> +	unsigned int mtu, hlen, left, len, ll_rs;
->  	int offset;
->  	__be16 not_last_frag;
->  	struct rtable *rt = skb_rtable(skb);
-> @@ -585,9 +585,7 @@ slow_path:
->  	/* for bridged IP traffic encapsulated inside f.e. a vlan header,
->  	 * we need to make room for the encapsulating header
->  	 */
-> -	pad = nf_bridge_pad(skb);
-> -	ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, pad);
-> -	mtu -= pad;
-> +	ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, nf_bridge_pad(skb));
+> diff -ruNp org/include/linux/netdevice.h new/include/linux/netdevice.h
+> --- org/include/linux/netdevice.h	2010-07-25 16:57:07.000000000 +0530
+> +++ new/include/linux/netdevice.h	2010-08-02 16:05:57.000000000 +0530
+> @@ -2253,6 +2253,7 @@ static inline const char *netdev_name(co
+>  	return dev->name;
+>  }
 >  
->  	/*
->  	 *	Fragment the datagram.
-> 
+> +extern int skb_calculate_flow(struct net_device *dev, struct sk_buff *skb);
+>  extern int netdev_printk(const char *level, const struct net_device *dev,
+>  			 const char *format, ...)
+>  	__attribute__ ((format (printf, 3, 4)));
 
+This logically belongs into the first patch.
+
+> diff -ruNp org/include/linux/if_macvlan.h new/include/linux/if_macvlan.h
+> --- org/include/linux/if_macvlan.h	2010-08-02 15:32:33.000000000 +0530
+> +++ new/include/linux/if_macvlan.h	2010-08-02 15:32:33.000000000 +0530
+> @@ -40,6 +40,14 @@ struct macvlan_rx_stats {
+>  	unsigned long		rx_errors;
+>  };
+>  
+> +#define MIN(x, y)		(((x) < (y)) ? (x) : (y))
+> +
+> +/*
+> + * Maximum times a macvtap device can be opened. This can be used to
+> + * configure the number of receive queue, e.g. for multiqueue virtio.
+> + */
+> +#define MAX_MACVTAP_QUEUES	MIN(16, NR_CPUS)
+> +
+
+Please use the existing min() or min_t() macro instead of providing your own.
+
+	Arnd
