@@ -1,197 +1,196 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 12/14] tg3: Create phy_flags and migrate
- phy_is_low_power
-Date: Mon, 2 Aug 2010 14:26:06 -0700
-Message-ID: <1280784368-4226-12-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 11/14] tg3: Add phy-related preprocessor
+ constants
+Date: Mon, 2 Aug 2010 14:26:05 -0700
+Message-ID: <1280784368-4226-11-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2889 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2884 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755432Ab0HBV0h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755430Ab0HBV0h (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 2 Aug 2010 17:26:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch deletes the link_config.phy_is_low_power flag and creates a
-new phy_flags device member to store all phy related settings.  All the
-code is converted accordingly.
+This patch replaces some instances of hardcoded phy register values with
+preprocessor equivalents.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   35 +++++++++++++++++------------------
+ drivers/net/tg3.c |   46 ++++++++++++++++++++++++----------------------
  drivers/net/tg3.h |    4 +++-
- 2 files changed, 20 insertions(+), 19 deletions(-)
+ 2 files changed, 27 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 281cd7a..e0ff49b 100644
+index a9bca8a..281cd7a 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -1543,8 +1543,8 @@ static void tg3_phy_start(struct tg3 *tp)
+@@ -1742,7 +1742,7 @@ static int tg3_wait_macro_done(struct tg3 *tp)
+ 	while (limit--) {
+ 		u32 tmp32;
  
- 	phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+-		if (!tg3_readphy(tp, 0x16, &tmp32)) {
++		if (!tg3_readphy(tp, MII_TG3_DSP_CONTROL, &tmp32)) {
+ 			if ((tmp32 & 0x1000) == 0)
+ 				break;
+ 		}
+@@ -1768,13 +1768,13 @@ static int tg3_phy_write_and_check_testpat(struct tg3 *tp, int *resetp)
  
--	if (tp->link_config.phy_is_low_power) {
--		tp->link_config.phy_is_low_power = 0;
-+	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) {
-+		tp->phy_flags &= ~TG3_PHYFLG_IS_LOW_POWER;
- 		phydev->speed = tp->link_config.orig_speed;
- 		phydev->duplex = tp->link_config.orig_duplex;
- 		phydev->autoneg = tp->link_config.orig_autoneg;
-@@ -2559,13 +2559,13 @@ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
- 	if (tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB) {
- 		do_low_power = false;
- 		if ((tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED) &&
--		    !tp->link_config.phy_is_low_power) {
-+		    !(tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
- 			struct phy_device *phydev;
- 			u32 phyid, advertising;
+ 		tg3_writephy(tp, MII_TG3_DSP_ADDRESS,
+ 			     (chan * 0x2000) | 0x0200);
+-		tg3_writephy(tp, 0x16, 0x0002);
++		tg3_writephy(tp, MII_TG3_DSP_CONTROL, 0x0002);
  
- 			phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
+ 		for (i = 0; i < 6; i++)
+ 			tg3_writephy(tp, MII_TG3_DSP_RW_PORT,
+ 				     test_pat[chan][i]);
  
--			tp->link_config.phy_is_low_power = 1;
-+			tp->phy_flags |= TG3_PHYFLG_IS_LOW_POWER;
+-		tg3_writephy(tp, 0x16, 0x0202);
++		tg3_writephy(tp, MII_TG3_DSP_CONTROL, 0x0202);
+ 		if (tg3_wait_macro_done(tp)) {
+ 			*resetp = 1;
+ 			return -EBUSY;
+@@ -1782,13 +1782,13 @@ static int tg3_phy_write_and_check_testpat(struct tg3 *tp, int *resetp)
  
- 			tp->link_config.orig_speed = phydev->speed;
- 			tp->link_config.orig_duplex = phydev->duplex;
-@@ -2604,8 +2604,8 @@ static int tg3_set_power_state(struct tg3 *tp, pci_power_t state)
- 	} else {
- 		do_low_power = true;
+ 		tg3_writephy(tp, MII_TG3_DSP_ADDRESS,
+ 			     (chan * 0x2000) | 0x0200);
+-		tg3_writephy(tp, 0x16, 0x0082);
++		tg3_writephy(tp, MII_TG3_DSP_CONTROL, 0x0082);
+ 		if (tg3_wait_macro_done(tp)) {
+ 			*resetp = 1;
+ 			return -EBUSY;
+ 		}
  
--		if (tp->link_config.phy_is_low_power == 0) {
--			tp->link_config.phy_is_low_power = 1;
-+		if (!(tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
-+			tp->phy_flags |= TG3_PHYFLG_IS_LOW_POWER;
- 			tp->link_config.orig_speed = tp->link_config.speed;
- 			tp->link_config.orig_duplex = tp->link_config.duplex;
- 			tp->link_config.orig_autoneg = tp->link_config.autoneg;
-@@ -2836,7 +2836,7 @@ static void tg3_phy_copper_begin(struct tg3 *tp)
- 	u32 new_adv;
- 	int i;
+-		tg3_writephy(tp, 0x16, 0x0802);
++		tg3_writephy(tp, MII_TG3_DSP_CONTROL, 0x0802);
+ 		if (tg3_wait_macro_done(tp)) {
+ 			*resetp = 1;
+ 			return -EBUSY;
+@@ -1828,10 +1828,10 @@ static int tg3_phy_reset_chanpat(struct tg3 *tp)
  
--	if (tp->link_config.phy_is_low_power) {
-+	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) {
- 		/* Entering low power mode.  Disable gigabit and
- 		 * 100baseT advertisements.
- 		 */
-@@ -3237,7 +3237,7 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 		tg3_writephy(tp, MII_TG3_DSP_ADDRESS,
+ 			     (chan * 0x2000) | 0x0200);
+-		tg3_writephy(tp, 0x16, 0x0002);
++		tg3_writephy(tp, MII_TG3_DSP_CONTROL, 0x0002);
+ 		for (i = 0; i < 6; i++)
+ 			tg3_writephy(tp, MII_TG3_DSP_RW_PORT, 0x000);
+-		tg3_writephy(tp, 0x16, 0x0202);
++		tg3_writephy(tp, MII_TG3_DSP_CONTROL, 0x0202);
+ 		if (tg3_wait_macro_done(tp))
+ 			return -EBUSY;
+ 	}
+@@ -1891,7 +1891,7 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
+ 	tg3_phydsp_write(tp, 0x8005, 0x0000);
+ 
+ 	tg3_writephy(tp, MII_TG3_DSP_ADDRESS, 0x8200);
+-	tg3_writephy(tp, 0x16, 0x0000);
++	tg3_writephy(tp, MII_TG3_DSP_CONTROL, 0x0000);
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
+@@ -2002,8 +2002,8 @@ out:
+ 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0400);
+ 	}
+ 	if (tp->tg3_flags2 & TG3_FLG2_PHY_5704_A0_BUG) {
+-		tg3_writephy(tp, 0x1c, 0x8d68);
+-		tg3_writephy(tp, 0x1c, 0x8d68);
++		tg3_writephy(tp, MII_TG3_MISC_SHDW, 0x8d68);
++		tg3_writephy(tp, MII_TG3_MISC_SHDW, 0x8d68);
+ 	}
+ 	if (tp->tg3_flags2 & TG3_FLG2_PHY_BER_BUG) {
+ 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0c00);
+@@ -3134,9 +3134,9 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 		   tp->pci_chip_rev_id == CHIPREV_ID_5701_B0) {
+ 		/* 5701 {A0,B0} CRC bug workaround */
+ 		tg3_writephy(tp, 0x15, 0x0a75);
+-		tg3_writephy(tp, 0x1c, 0x8c68);
+-		tg3_writephy(tp, 0x1c, 0x8d68);
+-		tg3_writephy(tp, 0x1c, 0x8c68);
++		tg3_writephy(tp, MII_TG3_MISC_SHDW, 0x8c68);
++		tg3_writephy(tp, MII_TG3_MISC_SHDW, 0x8d68);
++		tg3_writephy(tp, MII_TG3_MISC_SHDW, 0x8c68);
  	}
  
- relink:
--	if (current_link_up == 0 || tp->link_config.phy_is_low_power) {
-+	if (current_link_up == 0 || (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
- 		u32 tmp;
+ 	/* Clear pending interrupts... */
+@@ -4249,13 +4249,14 @@ static void tg3_serdes_parallel_detect(struct tg3 *tp)
+ 			u32 phy1, phy2;
  
- 		tg3_phy_copper_begin(tp);
-@@ -8320,8 +8320,8 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 			/* Select shadow register 0x1f */
+-			tg3_writephy(tp, 0x1c, 0x7c00);
+-			tg3_readphy(tp, 0x1c, &phy1);
++			tg3_writephy(tp, MII_TG3_MISC_SHDW, 0x7c00);
++			tg3_readphy(tp, MII_TG3_MISC_SHDW, &phy1);
+ 
+ 			/* Select expansion interrupt status register */
+-			tg3_writephy(tp, 0x17, 0x0f01);
+-			tg3_readphy(tp, 0x15, &phy2);
+-			tg3_readphy(tp, 0x15, &phy2);
++			tg3_writephy(tp, MII_TG3_DSP_ADDRESS,
++					 MII_TG3_DSP_EXP1_INT_STAT);
++			tg3_readphy(tp, MII_TG3_DSP_RW_PORT, &phy2);
++			tg3_readphy(tp, MII_TG3_DSP_RW_PORT, &phy2);
+ 
+ 			if ((phy1 & 0x10) && !(phy2 & 0x20)) {
+ 				/* We have signal detect and not receiving
+@@ -4275,8 +4276,9 @@ static void tg3_serdes_parallel_detect(struct tg3 *tp)
+ 		u32 phy2;
+ 
+ 		/* Select expansion interrupt status register */
+-		tg3_writephy(tp, 0x17, 0x0f01);
+-		tg3_readphy(tp, 0x15, &phy2);
++		tg3_writephy(tp, MII_TG3_DSP_ADDRESS,
++				 MII_TG3_DSP_EXP1_INT_STAT);
++		tg3_readphy(tp, MII_TG3_DSP_RW_PORT, &phy2);
+ 		if (phy2 & 0x20) {
+ 			u32 bmcr;
+ 
+@@ -8337,7 +8339,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 			if (!tg3_readphy(tp, MII_TG3_TEST1, &tmp)) {
+ 				tg3_writephy(tp, MII_TG3_TEST1,
+ 					     tmp | MII_TG3_TEST1_CRC_EN);
+-				tg3_readphy(tp, 0x14, &tmp);
++				tg3_readphy(tp, MII_TG3_RXR_COUNTERS, &tmp);
+ 			}
+ 		}
  	}
- 
- 	if (!(tp->tg3_flags3 & TG3_FLG3_USE_PHYLIB)) {
--		if (tp->link_config.phy_is_low_power) {
--			tp->link_config.phy_is_low_power = 0;
-+		if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) {
-+			tp->phy_flags &= ~TG3_PHYFLG_IS_LOW_POWER;
- 			tp->link_config.speed = tp->link_config.orig_speed;
- 			tp->link_config.duplex = tp->link_config.orig_duplex;
- 			tp->link_config.autoneg = tp->link_config.orig_autoneg;
-@@ -9368,7 +9368,7 @@ static void tg3_get_regs(struct net_device *dev,
- 
- 	memset(p, 0, TG3_REGDUMP_LEN);
- 
--	if (tp->link_config.phy_is_low_power)
-+	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
- 		return;
- 
- 	tg3_full_lock(tp, 0);
-@@ -9447,7 +9447,7 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 	if (tp->tg3_flags3 & TG3_FLG3_NO_NVRAM)
- 		return -EINVAL;
- 
--	if (tp->link_config.phy_is_low_power)
-+	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
- 		return -EAGAIN;
- 
- 	offset = eeprom->offset;
-@@ -9509,7 +9509,7 @@ static int tg3_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 	u8 *buf;
- 	__be32 start, end;
- 
--	if (tp->link_config.phy_is_low_power)
-+	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
- 		return -EAGAIN;
- 
- 	if ((tp->tg3_flags3 & TG3_FLG3_NO_NVRAM) ||
-@@ -10849,7 +10849,7 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
- {
- 	struct tg3 *tp = netdev_priv(dev);
- 
--	if (tp->link_config.phy_is_low_power)
-+	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
- 		tg3_set_power_state(tp, PCI_D0);
- 
- 	memset(data, 0, sizeof(u64) * TG3_NUM_TEST);
-@@ -10917,7 +10917,7 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
- 		if (irq_sync && !err2)
- 			tg3_phy_start(tp);
- 	}
--	if (tp->link_config.phy_is_low_power)
-+	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
- 		tg3_set_power_state(tp, PCI_D3hot);
- 
- }
-@@ -10947,7 +10947,7 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		if (tp->tg3_flags2 & TG3_FLG2_PHY_SERDES)
- 			break;			/* We have no PHY */
- 
--		if (tp->link_config.phy_is_low_power)
-+		if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
- 			return -EAGAIN;
- 
- 		spin_lock_bh(&tp->lock);
-@@ -10963,7 +10963,7 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		if (tp->tg3_flags2 & TG3_FLG2_PHY_SERDES)
- 			break;			/* We have no PHY */
- 
--		if (tp->link_config.phy_is_low_power)
-+		if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
- 			return -EAGAIN;
- 
- 		spin_lock_bh(&tp->lock);
-@@ -14109,7 +14109,6 @@ static void __devinit tg3_init_link_config(struct tg3 *tp)
- 	tp->link_config.autoneg = AUTONEG_ENABLE;
- 	tp->link_config.active_speed = SPEED_INVALID;
- 	tp->link_config.active_duplex = DUPLEX_INVALID;
--	tp->link_config.phy_is_low_power = 0;
- 	tp->link_config.orig_speed = SPEED_INVALID;
- 	tp->link_config.orig_duplex = DUPLEX_INVALID;
- 	tp->link_config.orig_autoneg = AUTONEG_INVALID;
+@@ -9076,7 +9078,7 @@ static u64 calc_crc_errors(struct tg3 *tp)
+ 		if (!tg3_readphy(tp, MII_TG3_TEST1, &val)) {
+ 			tg3_writephy(tp, MII_TG3_TEST1,
+ 				     val | MII_TG3_TEST1_CRC_EN);
+-			tg3_readphy(tp, 0x14, &val);
++			tg3_readphy(tp, MII_TG3_RXR_COUNTERS, &val);
+ 		} else
+ 			val = 0;
+ 		spin_unlock_bh(&tp->lock);
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index d40c380..5d684d2 100644
+index 53b6def..d40c380 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -2534,7 +2534,6 @@ struct tg3_link_config {
- 	/* When we go in and out of low power mode we need
- 	 * to swap with this state.
- 	 */
--	int				phy_is_low_power;
- 	u16				orig_speed;
- 	u8				orig_duplex;
- 	u8				orig_autoneg;
-@@ -2965,6 +2964,9 @@ struct tg3 {
- 	 (X) == TG3_PHY_ID_BCM57765 || (X) == TG3_PHY_ID_BCM5719C || \
- 	 (X) == TG3_PHY_ID_BCM8002)
+@@ -2057,8 +2057,9 @@
+ #define MII_TG3_EXT_STAT		0x11 /* Extended status register */
+ #define  MII_TG3_EXT_STAT_LPASS		0x0100
  
-+	u32				phy_flags;
-+#define TG3_PHYFLG_IS_LOW_POWER		0x00000001
-+
- 	u32				led_ctrl;
- 	u32				phy_otp;
++#define MII_TG3_RXR_COUNTERS		0x14 /* Local/Remote Receiver Counts */
+ #define MII_TG3_DSP_RW_PORT		0x15 /* DSP coefficient read/write port */
+-
++#define MII_TG3_DSP_CONTROL		0x16 /* DSP control register */
+ #define MII_TG3_DSP_ADDRESS		0x17 /* DSP address register */
  
+ #define MII_TG3_DSP_TAP1		0x0001
+@@ -2066,6 +2067,7 @@
+ #define MII_TG3_DSP_AADJ1CH0		0x001f
+ #define MII_TG3_DSP_AADJ1CH3		0x601f
+ #define  MII_TG3_DSP_AADJ1CH3_ADCCKADJ	0x0002
++#define MII_TG3_DSP_EXP1_INT_STAT	0x0f01
+ #define MII_TG3_DSP_EXP8		0x0f08
+ #define  MII_TG3_DSP_EXP8_REJ2MHz	0x0001
+ #define  MII_TG3_DSP_EXP8_AEDW		0x0200
 -- 
 1.7.1
 
