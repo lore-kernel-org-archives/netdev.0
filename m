@@ -1,52 +1,60 @@
 From: kaber@trash.net
-Subject: [PATCH 04/28] ipvs: Kconfig cleanup
-Date: Mon,  2 Aug 2010 21:57:21 +0200
-Message-ID: <1280779065-9333-5-git-send-email-kaber@trash.net>
+Subject: [PATCH 02/28] netfilter: ipt_REJECT: postpone the checksum calculation.
+Date: Mon,  2 Aug 2010 21:57:19 +0200
+Message-ID: <1280779065-9333-3-git-send-email-kaber@trash.net>
 References: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:35358 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754023Ab0HBT55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:57:57 -0400
 In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Marek <mmarek@suse.cz>
+From: Changli Gao <xiaosuo@gmail.com>
 
-IP_VS_PROTO_AH_ESP should be set iff either of IP_VS_PROTO_{AH,ESP} is
-selected. Express this with standard kconfig syntax.
+postpone the checksum calculation, then if the output NIC supports checksum
+offloading, we can utlize it. And though the output NIC doesn't support
+checksum offloading, but we'll mangle this packet, this can free us from
+updating the checksum, as the checksum calculation occurs later.
 
-Signed-off-by: Michal Marek <mmarek@suse.cz>
-Acked-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/ipvs/Kconfig |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+ net/ipv4/netfilter/ipt_REJECT.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
-index 712ccad..d80b41a 100644
---- a/net/netfilter/ipvs/Kconfig
-+++ b/net/netfilter/ipvs/Kconfig
-@@ -87,19 +87,16 @@ config	IP_VS_PROTO_UDP
- 	  protocol. Say Y if unsure.
+diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
+index f5f4a88..3d0e064 100644
+--- a/net/ipv4/netfilter/ipt_REJECT.c
++++ b/net/ipv4/netfilter/ipt_REJECT.c
+@@ -95,10 +95,11 @@ static void send_reset(struct sk_buff *oldskb, int hook)
+ 	}
  
- config	IP_VS_PROTO_AH_ESP
--	bool
--	depends on UNDEFINED
-+	def_bool IP_VS_PROTO_ESP || IP_VS_PROTO_AH
+ 	tcph->rst	= 1;
+-	tcph->check	= tcp_v4_check(sizeof(struct tcphdr),
+-				       niph->saddr, niph->daddr,
+-				       csum_partial(tcph,
+-						    sizeof(struct tcphdr), 0));
++	tcph->check = ~tcp_v4_check(sizeof(struct tcphdr), niph->saddr,
++				    niph->daddr, 0);
++	nskb->ip_summed = CHECKSUM_PARTIAL;
++	nskb->csum_start = (unsigned char *)tcph - nskb->head;
++	nskb->csum_offset = offsetof(struct tcphdr, check);
  
- config	IP_VS_PROTO_ESP
- 	bool "ESP load balancing support"
--	select IP_VS_PROTO_AH_ESP
- 	---help---
- 	  This option enables support for load balancing ESP (Encapsulation
- 	  Security Payload) transport protocol. Say Y if unsure.
+ 	addr_type = RTN_UNSPEC;
+ 	if (hook != NF_INET_FORWARD
+@@ -115,7 +116,6 @@ static void send_reset(struct sk_buff *oldskb, int hook)
+ 		goto free_nskb;
  
- config	IP_VS_PROTO_AH
- 	bool "AH load balancing support"
--	select IP_VS_PROTO_AH_ESP
- 	---help---
- 	  This option enables support for load balancing AH (Authentication
- 	  Header) transport protocol. Say Y if unsure.
+ 	niph->ttl	= dst_metric(skb_dst(nskb), RTAX_HOPLIMIT);
+-	nskb->ip_summed = CHECKSUM_NONE;
+ 
+ 	/* "Never happens" */
+ 	if (nskb->len > dst_mtu(skb_dst(nskb)))
 -- 
 1.7.1
 
