@@ -1,58 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/4] net: check for reference outside of skb
-Date: Mon, 2 Aug 2010 16:21:58 -0700
-Message-ID: <20100802162158.0b0c6e70@nehalam>
-References: <20100802220030.991706005@vyatta.com>
-	<20100802220113.557212477@vyatta.com>
-	<AANLkTi=8+xRJn_26740uKuWdgA=XvyB7-hgGT9dxjOXr@mail.gmail.com>
+From: "P.M.L" <pl's@kkwl.ac.th>
+Subject: LOAN OFFER
+Date: Tue, 3 Aug 2010 00:21:46 +0100
+Message-ID: <20100802232126.AEFE77000085@msfrf2106.sfr.fr>
+Reply-To: <pls@kkwl.ac.th>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: pmlender.com@sfr.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47282 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751547Ab0HBXWB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 19:22:01 -0400
-In-Reply-To: <AANLkTi=8+xRJn_26740uKuWdgA=XvyB7-hgGT9dxjOXr@mail.gmail.com>
+Received: from smtp21.services.sfr.fr ([93.17.128.4]:12030 "EHLO
+	smtp21.services.sfr.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754522Ab0HBXYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 19:24:50 -0400
+Received: from smtp21.services.sfr.fr (msfrf2106 [10.18.25.20])
+	by msfrf2115.sfr.fr (SMTP Server) with ESMTP id 7B56A7001374
+	for <netdev@vger.kernel.org>; Tue,  3 Aug 2010 01:24:49 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 3 Aug 2010 07:11:14 +0800
-Changli Gao <xiaosuo@gmail.com> wrote:
+We offer loan at cheap rate, they say opprtunity does not knock twice.But with our loan firm, you can get the cheapest loan at a low
+percentage rate of 2% yearly from $5,000.00 Min. To $10 000 000.00 Max.Contact us via email if you are interested with the following details
+NAME: 
+PHONE: 
+LOAN DURATION:
+ADDRESS: 
+AMOUNT:
+Private Fund Loan Inc
 
-> On Tue, Aug 3, 2010 at 6:00 AM, Stephen Hemminger <shemminger@vyatta.=
-com> wrote:
-> > It is legitimate for callers of skb_header_pointer to pass a negati=
-ve
-> > offset, but the resulting pointer should not go outside the valid
-> > range of data in the skb.
-> >
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >
-> > --- a/include/linux/skbuff.h =A0 =A02010-08-01 09:23:01.635121262 -=
-0700
-> > +++ b/include/linux/skbuff.h =A0 =A02010-08-01 09:25:27.453901530 -=
-0700
-> > @@ -1853,6 +1853,9 @@ static inline void *skb_header_pointer(c
-> > =A0{
-> > =A0 =A0 =A0 =A0int hlen =3D skb_headlen(skb);
-> >
-> > + =A0 =A0 =A0 if (hlen + offset < 0)
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
-> > +
->=20
-> It seems wrong. do you mean
->=20
->       if (skb_headroom(hlen) + offset < 0)
->=20
-> Nevertheless it is also wrong. skb_header_pointer doesn't know if the
-> headroom is filled with valid data or not.
->
+Mrs.Hannah Stone
 
-It should be headroom. It is okay if the request is looking at PAD
-area, that is the callers problem. Just don't want wander off into
-into unallocated space.
-
-Anyway, I'll fix it in cls_u32.
