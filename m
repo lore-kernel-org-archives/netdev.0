@@ -1,58 +1,46 @@
-From: Craig <craig@haquarter.de>
-Subject: Re: [Bugme-new] [Bug 16383] New: Regression with e1000e from 2.6.34.1
- to 2.6.35-rc5
-Date: Mon, 02 Aug 2010 23:23:36 +0200
-Message-ID: <4C573758.5040104@haquarter.de>
-References: <bug-16383-10286@https.bugzilla.kernel.org/> <20100721134843.f8b5b217.akpm@linux-foundation.org> <EA929A9653AAE14F841771FB1DE5A1365FFE8449AA@rrsmsx501.amr.corp.intel.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net-next 06/14] tg3: Restrict ASPM workaround devlist
+Date: Mon, 2 Aug 2010 14:26:00 -0700
+Message-ID: <1280784368-4226-6-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:48614 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751835Ab0HBVXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 17:23:38 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FFE8449AA@rrsmsx501.amr.corp.intel.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:1403 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751747Ab0HBV0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Aug 2010 17:26:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> https://bugzilla.kernel.org/show_bug.cgi?id=16383
+The ASPM workaround setting obtained from NVRAM only works with devices
+older than 5717.  This patch enforces the restriction.
 
->>>
->>>            Summary: Regression with e1000e from 2.6.34.1 to 2.6.35-rc5
->>>            Product: Drivers
->>>            Version: 2.5
->>>     Kernel Version: 2.6.35
->>>           Platform: All
->>>         OS/Version: Linux
->>>               Tree: Mainline
->>>             Status: NEW
->>>           Severity: high
->>>           Priority: P1
->>>          Component: Network
->>>         AssignedTo: drivers_network@kernel-bugs.osdl.org
->>>         ReportedBy: craig@haquarter.de
->>>         Regression: Yes
->>>
->>>
->>> Networking stops working with 2.6.35 (tested rc-3 and rc5).
->>
->> This is a post-2.6.34 regression, guys.  There's some more info in
->> bugzilla.
+Reviewed-by: Benjamin Li <benli@broadcom.com>
+Reviewed-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+---
+ drivers/net/tg3.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-The e1000e works like a charm with 2.6.35, thanks everyone.
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 38979f2..7c2c81a 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -12188,7 +12188,9 @@ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
+ 		    (cfg2 & NIC_SRAM_DATA_CFG_2_APD_EN))
+ 			tp->tg3_flags3 |= TG3_FLG3_PHY_ENABLE_APD;
+ 
+-		if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) {
++		if ((tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) &&
++		    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5785 &&
++		    !(tp->tg3_flags3 & TG3_FLG3_5717_PLUS)) {
+ 			u32 cfg3;
+ 
+ 			tg3_read_mem(tp, NIC_SRAM_DATA_CFG_3, &cfg3);
+-- 
+1.7.1
 
-Best regards,
 
-Craig
