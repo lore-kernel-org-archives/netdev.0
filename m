@@ -1,43 +1,46 @@
-From: hp fk <fkhp101@gmail.com>
-Subject: Fwd: a Great Idea - include Kademlia networking protocol in kernel
-Date: Mon, 2 Aug 2010 21:16:07 +0800
-Message-ID: <AANLkTik5qnmHALi7=AMA+Lai6a+9STgub9BnQAV6EVkh@mail.gmail.com>
-References: <AANLkTik7powjUaJ51bA_bgPVb03U-RVZay3NffHBYLzx@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] Multiqueue macvtap driver
+Date: Mon, 02 Aug 2010 14:29:03 +0100
+Message-ID: <1280755743.2121.2.camel@achroite.uk.solarflarecom.com>
+References: <20100731135743.3072.99933.sendpatchset@krkumar2.in.ibm.com>
+	 <1280603907.13192.353.camel@localhost>
+	 <20100801.003406.02275545.davem@davemloft.net>
+	 <OF8519C301.F0E5FA07-ON65257772.004983CC-65257773.00453C8B@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, arnd@arndb.de, mst@redhat.com,
+	netdev@vger.kernel.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:57008 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752515Ab0HBNQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 09:16:08 -0400
-Received: by iwn7 with SMTP id 7so4173196iwn.19
-        for <netdev@vger.kernel.org>; Mon, 02 Aug 2010 06:16:07 -0700 (PDT)
-In-Reply-To: <AANLkTik7powjUaJ51bA_bgPVb03U-RVZay3NffHBYLzx@mail.gmail.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:43946 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751793Ab0HBN3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 09:29:09 -0400
+In-Reply-To: <OF8519C301.F0E5FA07-ON65257772.004983CC-65257773.00453C8B@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----------- Forwarded message ----------
-From: hp fk <fkhp101@gmail.com>
-Date: 2010/8/2
-Subject: a Great Idea - include Kademlia networking protocol in kernel
-To: linux-kernel@vger.kernel.org
+On Mon, 2010-08-02 at 18:07 +0530, Krishna Kumar2 wrote:
+> Thanks Ben & Dave. A question though - which of the following
+> is preferable for the macvtap driver:
+> 
+> 1. Calculate flow and use that to find a queue; or
+> 2. First check if skb_rx_queue_recorded is true and if so use
+>     that; otherwise calculate the flow as in #1.
+> 
+> I guess #1 is better, since packets for a single flow will go to the
+> same queue even if they arrive on different rxqs of a mq driver.
+> But I want to make sure.
+[...]
 
+#2 is right.  Just as macvtap should provide a stable flow to RX-queue
+mapping, so should the drivers it interfaces with.
 
-Kademlia protocol is widely used by many p2p applications, if kernel
-support the Kademlia protocol and its p2p network infrastracture. it
-will be easier to bring us into a new stage of network with much more
-freedom and equality.
+Ben.
 
-1.systems could get public identity on network much more easier, and
-need not depend on DNS system, which usual controled by buraucracy
-agents.
-2. system presence on network is easier to resolved in a dynamic ip
-environment that many ISPs use to effectively use IP address. and
-communication could be much easier.
-3.many p2p applications could be releaved from building the p2p
-network infrastracture repeatedly and focus on application features.
-4. some restrictions imposed by buraucracy censorship will be breaked
-and give us much more communication freedom
-5. all linux systems could be equal citizens of a unified greate linux
-p2p network and promote the development of p2p network.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
