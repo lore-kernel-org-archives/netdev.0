@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 21/28] netfilter: {ip,ip6,arp}_tables: dont block bottom half more than necessary
-Date: Mon,  2 Aug 2010 21:57:38 +0200
-Message-ID: <1280779065-9333-22-git-send-email-kaber@trash.net>
+Subject: [PATCH 22/28] netfilter: nf_conntrack_extend: introduce __nf_ct_ext_exist()
+Date: Mon,  2 Aug 2010 21:57:39 +0200
+Message-ID: <1280779065-9333-23-git-send-email-kaber@trash.net>
 References: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,146 +10,113 @@ In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
 
-We currently disable BH for the whole duration of get_counters()
+some users of nf_ct_ext_exist() know ct->ext isn't NULL. For these users, the
+check for ct->ext isn't necessary, the function __nf_ct_ext_exist() can be
+used instead.
 
-On machines with a lot of cpus and large tables, this might be too long.
+the type of the return value of nf_ct_ext_exist() is changed to bool.
 
-We can disable preemption during the whole function, and disable BH only
-while fetching counters for the current cpu.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/arp_tables.c |   10 ++++++----
- net/ipv4/netfilter/ip_tables.c  |   10 ++++++----
- net/ipv6/netfilter/ip6_tables.c |   10 ++++++----
- 3 files changed, 18 insertions(+), 12 deletions(-)
+ include/net/netfilter/nf_conntrack_extend.h |    9 +++++++--
+ net/netfilter/nf_conntrack_extend.c         |   22 ++++++++++++----------
+ 2 files changed, 19 insertions(+), 12 deletions(-)
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index c868dd5..6bccba3 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -710,7 +710,7 @@ static void get_counters(const struct xt_table_info *t,
- 	struct arpt_entry *iter;
- 	unsigned int cpu;
- 	unsigned int i;
--	unsigned int curcpu;
-+	unsigned int curcpu = get_cpu();
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index 32d15bd..0772d29 100644
+--- a/include/net/netfilter/nf_conntrack_extend.h
++++ b/include/net/netfilter/nf_conntrack_extend.h
+@@ -28,9 +28,14 @@ struct nf_ct_ext {
+ 	char data[0];
+ };
  
- 	/* Instead of clearing (by a previous call to memset())
- 	 * the counters and using adds, we set the counters
-@@ -720,14 +720,16 @@ static void get_counters(const struct xt_table_info *t,
- 	 * if new softirq were to run and call ipt_do_table
- 	 */
- 	local_bh_disable();
--	curcpu = smp_processor_id();
--
- 	i = 0;
- 	xt_entry_foreach(iter, t->entries[curcpu], t->size) {
- 		SET_COUNTER(counters[i], iter->counters.bcnt,
- 			    iter->counters.pcnt);
- 		++i;
- 	}
-+	local_bh_enable();
-+	/* Processing counters from other cpus, we can let bottom half enabled,
-+	 * (preemption is disabled)
-+	 */
- 
- 	for_each_possible_cpu(cpu) {
- 		if (cpu == curcpu)
-@@ -741,7 +743,7 @@ static void get_counters(const struct xt_table_info *t,
- 		}
- 		xt_info_wrunlock(cpu);
- 	}
--	local_bh_enable();
-+	put_cpu();
+-static inline int nf_ct_ext_exist(const struct nf_conn *ct, u8 id)
++static inline bool __nf_ct_ext_exist(const struct nf_ct_ext *ext, u8 id)
+ {
+-	return (ct->ext && ct->ext->offset[id]);
++	return !!ext->offset[id];
++}
++
++static inline bool nf_ct_ext_exist(const struct nf_conn *ct, u8 id)
++{
++	return (ct->ext && __nf_ct_ext_exist(ct->ext, id));
  }
  
- static struct xt_counters *alloc_counters(const struct xt_table *table)
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 3c584a6..c439721 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -884,7 +884,7 @@ get_counters(const struct xt_table_info *t,
- 	struct ipt_entry *iter;
- 	unsigned int cpu;
+ static inline void *__nf_ct_ext_find(const struct nf_conn *ct, u8 id)
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index fdc8fb4..7dcf7a4 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -23,9 +23,10 @@ void __nf_ct_ext_destroy(struct nf_conn *ct)
+ {
  	unsigned int i;
--	unsigned int curcpu;
-+	unsigned int curcpu = get_cpu();
+ 	struct nf_ct_ext_type *t;
++	struct nf_ct_ext *ext = ct->ext;
  
- 	/* Instead of clearing (by a previous call to memset())
- 	 * the counters and using adds, we set the counters
-@@ -894,14 +894,16 @@ get_counters(const struct xt_table_info *t,
- 	 * if new softirq were to run and call ipt_do_table
- 	 */
- 	local_bh_disable();
--	curcpu = smp_processor_id();
--
- 	i = 0;
- 	xt_entry_foreach(iter, t->entries[curcpu], t->size) {
- 		SET_COUNTER(counters[i], iter->counters.bcnt,
- 			    iter->counters.pcnt);
- 		++i;
- 	}
-+	local_bh_enable();
-+	/* Processing counters from other cpus, we can let bottom half enabled,
-+	 * (preemption is disabled)
-+	 */
+ 	for (i = 0; i < NF_CT_EXT_NUM; i++) {
+-		if (!nf_ct_ext_exist(ct, i))
++		if (!__nf_ct_ext_exist(ext, i))
+ 			continue;
  
- 	for_each_possible_cpu(cpu) {
- 		if (cpu == curcpu)
-@@ -915,7 +917,7 @@ get_counters(const struct xt_table_info *t,
+ 		rcu_read_lock();
+@@ -73,44 +74,45 @@ static void __nf_ct_ext_free_rcu(struct rcu_head *head)
+ 
+ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ {
+-	struct nf_ct_ext *new;
++	struct nf_ct_ext *old, *new;
+ 	int i, newlen, newoff;
+ 	struct nf_ct_ext_type *t;
+ 
+ 	/* Conntrack must not be confirmed to avoid races on reallocation. */
+ 	NF_CT_ASSERT(!nf_ct_is_confirmed(ct));
+ 
+-	if (!ct->ext)
++	old = ct->ext;
++	if (!old)
+ 		return nf_ct_ext_create(&ct->ext, id, gfp);
+ 
+-	if (nf_ct_ext_exist(ct, id))
++	if (__nf_ct_ext_exist(old, id))
+ 		return NULL;
+ 
+ 	rcu_read_lock();
+ 	t = rcu_dereference(nf_ct_ext_types[id]);
+ 	BUG_ON(t == NULL);
+ 
+-	newoff = ALIGN(ct->ext->len, t->align);
++	newoff = ALIGN(old->len, t->align);
+ 	newlen = newoff + t->len;
+ 	rcu_read_unlock();
+ 
+-	new = __krealloc(ct->ext, newlen, gfp);
++	new = __krealloc(old, newlen, gfp);
+ 	if (!new)
+ 		return NULL;
+ 
+-	if (new != ct->ext) {
++	if (new != old) {
+ 		for (i = 0; i < NF_CT_EXT_NUM; i++) {
+-			if (!nf_ct_ext_exist(ct, i))
++			if (!__nf_ct_ext_exist(old, i))
+ 				continue;
+ 
+ 			rcu_read_lock();
+ 			t = rcu_dereference(nf_ct_ext_types[i]);
+ 			if (t && t->move)
+ 				t->move((void *)new + new->offset[i],
+-					(void *)ct->ext + ct->ext->offset[i]);
++					(void *)old + old->offset[i]);
+ 			rcu_read_unlock();
  		}
- 		xt_info_wrunlock(cpu);
+-		call_rcu(&ct->ext->rcu, __nf_ct_ext_free_rcu);
++		call_rcu(&old->rcu, __nf_ct_ext_free_rcu);
+ 		ct->ext = new;
  	}
--	local_bh_enable();
-+	put_cpu();
- }
  
- static struct xt_counters *alloc_counters(const struct xt_table *table)
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 33113c1..5359ef4 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -897,7 +897,7 @@ get_counters(const struct xt_table_info *t,
- 	struct ip6t_entry *iter;
- 	unsigned int cpu;
- 	unsigned int i;
--	unsigned int curcpu;
-+	unsigned int curcpu = get_cpu();
- 
- 	/* Instead of clearing (by a previous call to memset())
- 	 * the counters and using adds, we set the counters
-@@ -907,14 +907,16 @@ get_counters(const struct xt_table_info *t,
- 	 * if new softirq were to run and call ipt_do_table
- 	 */
- 	local_bh_disable();
--	curcpu = smp_processor_id();
--
- 	i = 0;
- 	xt_entry_foreach(iter, t->entries[curcpu], t->size) {
- 		SET_COUNTER(counters[i], iter->counters.bcnt,
- 			    iter->counters.pcnt);
- 		++i;
- 	}
-+	local_bh_enable();
-+	/* Processing counters from other cpus, we can let bottom half enabled,
-+	 * (preemption is disabled)
-+	 */
- 
- 	for_each_possible_cpu(cpu) {
- 		if (cpu == curcpu)
-@@ -928,7 +930,7 @@ get_counters(const struct xt_table_info *t,
- 		}
- 		xt_info_wrunlock(cpu);
- 	}
--	local_bh_enable();
-+	put_cpu();
- }
- 
- static struct xt_counters *alloc_counters(const struct xt_table *table)
 -- 
 1.7.1
 
