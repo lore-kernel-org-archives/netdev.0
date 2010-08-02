@@ -1,45 +1,49 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 06/14] tg3: Restrict ASPM workaround devlist
-Date: Mon, 2 Aug 2010 14:26:00 -0700
-Message-ID: <1280784368-4226-6-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 05/14] tg3: Manage gphy power for CPMU-less
+ devs only
+Date: Mon, 2 Aug 2010 14:25:59 -0700
+Message-ID: <1280784368-4226-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1403 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1404 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751747Ab0HBV0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752085Ab0HBV0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 2 Aug 2010 17:26:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ASPM workaround setting obtained from NVRAM only works with devices
-older than 5717.  This patch enforces the restriction.
+This patch changes the code to only manage the PCIe gphy power for
+CPMU-less devices only.  The CPMU takes over management for newer
+chips.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/tg3.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 38979f2..7c2c81a 100644
+index 5d155c5..38979f2 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -12188,7 +12188,9 @@ static void __devinit tg3_get_eeprom_hw_cfg(struct tg3 *tp)
- 		    (cfg2 & NIC_SRAM_DATA_CFG_2_APD_EN))
- 			tp->tg3_flags3 |= TG3_FLG3_PHY_ENABLE_APD;
+@@ -6948,8 +6948,11 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 		     tr32(GRC_VCPU_EXT_CTRL) & ~GRC_VCPU_EXT_CTRL_HALT_CPU);
+ 	}
  
--		if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) {
-+		if ((tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS) &&
-+		    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5785 &&
-+		    !(tp->tg3_flags3 & TG3_FLG3_5717_PLUS)) {
- 			u32 cfg3;
+-	if (tp->tg3_flags2 & TG3_FLG2_5705_PLUS)
++	/* Manage gphy power for all CPMU absent PCIe devices. */
++	if ((tp->tg3_flags2 & TG3_FLG2_5705_PLUS) &&
++	    !(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
+ 		val |= GRC_MISC_CFG_KEEP_GPHY_POWER;
++
+ 	tw32(GRC_MISC_CFG, val);
  
- 			tg3_read_mem(tp, NIC_SRAM_DATA_CFG_3, &cfg3);
+ 	/* restore 5701 hardware bug workaround write method */
 -- 
 1.7.1
 
