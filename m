@@ -1,200 +1,376 @@
 From: kaber@trash.net
-Subject: [PATCH 14/28] netfilter: add xt_cpu match
-Date: Mon,  2 Aug 2010 21:57:31 +0200
-Message-ID: <1280779065-9333-15-git-send-email-kaber@trash.net>
+Subject: [PATCH 13/28] IPVS: make FTP work with full NAT support
+Date: Mon,  2 Aug 2010 21:57:30 +0200
+Message-ID: <1280779065-9333-14-git-send-email-kaber@trash.net>
 References: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35367 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754840Ab0HBT6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:58:00 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hannes Eder <heder@google.com>
 
-In some situations a CPU match permits a better spreading of
-connections, or select targets only for a given cpu.
+Use nf_conntrack/nf_nat code to do the packet mangling and the TCP
+sequence adjusting.  The function 'ip_vs_skb_replace' is now dead
+code, so it is removed.
 
-With Remote Packet Steering or multiqueue NIC and appropriate IRQ
-affinities, we can distribute trafic on available cpus, per session.
-(all RX packets for a given flow is handled by a given cpu)
+To SNAT FTP, use something like:
 
-Some legacy applications being not SMP friendly, one way to scale a
-server is to run multiple copies of them.
+% iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+    --vport 21 -j SNAT --to-source 192.168.10.10
+and for the data connections in passive mode:
 
-Instead of randomly choosing an instance, we can use the cpu number as a
-key so that softirq handler for a whole instance is running on a single
-cpu, maximizing cache effects in TCP/UDP stacks.
+% iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+    --vportctl 21 -j SNAT --to-source 192.168.10.10
+using '-m state --state RELATED' would also works.
 
-Using NAT for example, a four ways machine might run four copies of
-server application, using a separate listening port for each instance,
-but still presenting an unique external port :
+Make sure the kernel modules ip_vs_ftp, nf_conntrack_ftp, and
+nf_nat_ftp are loaded.
 
-iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 0 \
-        -j REDIRECT --to-port 8080
-
-iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 1 \
-        -j REDIRECT --to-port 8081
-
-iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 2 \
-        -j REDIRECT --to-port 8082
-
-iptables -t nat -A PREROUTING -p tcp --dport 80 -m cpu --cpu 3 \
-        -j REDIRECT --to-port 8083
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+[ up-port and minor fixes by Simon Horman <horms@verge.net.au> ]
+Signed-off-by: Hannes Eder <heder@google.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/Kbuild   |    3 +-
- include/linux/netfilter/xt_cpu.h |   11 ++++++
- net/netfilter/Kconfig            |    9 +++++
- net/netfilter/Makefile           |    1 +
- net/netfilter/xt_cpu.c           |   63 ++++++++++++++++++++++++++++++++++++++
- 5 files changed, 86 insertions(+), 1 deletions(-)
- create mode 100644 include/linux/netfilter/xt_cpu.h
- create mode 100644 net/netfilter/xt_cpu.c
+ include/net/ip_vs.h             |    2 -
+ net/netfilter/ipvs/Kconfig      |    2 +-
+ net/netfilter/ipvs/ip_vs_app.c  |   43 ----------
+ net/netfilter/ipvs/ip_vs_core.c |    1 -
+ net/netfilter/ipvs/ip_vs_ftp.c  |  176 ++++++++++++++++++++++++++++++++++++---
+ 5 files changed, 165 insertions(+), 59 deletions(-)
 
-diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
-index 0cb62c8..edeeabd 100644
---- a/include/linux/netfilter/Kbuild
-+++ b/include/linux/netfilter/Kbuild
-@@ -20,12 +20,13 @@ header-y += xt_TCPMSS.h
- header-y += xt_TCPOPTSTRIP.h
- header-y += xt_TEE.h
- header-y += xt_TPROXY.h
-+header-y += xt_cluster.h
- header-y += xt_comment.h
- header-y += xt_connbytes.h
- header-y += xt_connlimit.h
- header-y += xt_connmark.h
- header-y += xt_conntrack.h
--header-y += xt_cluster.h
-+header-y += xt_cpu.h
- header-y += xt_dccp.h
- header-y += xt_dscp.h
- header-y += xt_esp.h
-diff --git a/include/linux/netfilter/xt_cpu.h b/include/linux/netfilter/xt_cpu.h
-new file mode 100644
-index 0000000..93c7f11
---- /dev/null
-+++ b/include/linux/netfilter/xt_cpu.h
-@@ -0,0 +1,11 @@
-+#ifndef _XT_CPU_H
-+#define _XT_CPU_H
-+
-+#include <linux/types.h>
-+
-+struct xt_cpu_info {
-+	__u32	cpu;
-+	__u32	invert;
-+};
-+
-+#endif /*_XT_CPU_H*/
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 551b584..4328825 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -663,6 +663,15 @@ config NETFILTER_XT_MATCH_CONNTRACK
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index fe82b1e..1f9e511 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -736,8 +736,6 @@ extern void ip_vs_app_inc_put(struct ip_vs_app *inc);
  
- 	  To compile it as a module, choose M here.  If unsure, say N.
+ extern int ip_vs_app_pkt_out(struct ip_vs_conn *, struct sk_buff *skb);
+ extern int ip_vs_app_pkt_in(struct ip_vs_conn *, struct sk_buff *skb);
+-extern int ip_vs_skb_replace(struct sk_buff *skb, gfp_t pri,
+-			     char *o_buf, int o_len, char *n_buf, int n_len);
+ extern int ip_vs_app_init(void);
+ extern void ip_vs_app_cleanup(void);
  
-+config NETFILTER_XT_MATCH_CPU
-+	tristate '"cpu" match support'
-+	depends on NETFILTER_ADVANCED
-+	help
-+	  CPU matching allows you to match packets based on the CPU
-+	  currently handling the packet.
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index 3662444..be10f65 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -235,7 +235,7 @@ comment 'IPVS application helper'
+ 
+ config	IP_VS_FTP
+   	tristate "FTP protocol helper"
+-        depends on IP_VS_PROTO_TCP
++        depends on IP_VS_PROTO_TCP && NF_NAT
+ 	---help---
+ 	  FTP is a protocol that transfers IP address and/or port number in
+ 	  the payload. In the virtual server via Network Address Translation,
+diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
+index 1cb0e83..e76f87f 100644
+--- a/net/netfilter/ipvs/ip_vs_app.c
++++ b/net/netfilter/ipvs/ip_vs_app.c
+@@ -569,49 +569,6 @@ static const struct file_operations ip_vs_app_fops = {
+ };
+ #endif
+ 
+-
+-/*
+- *	Replace a segment of data with a new segment
+- */
+-int ip_vs_skb_replace(struct sk_buff *skb, gfp_t pri,
+-		      char *o_buf, int o_len, char *n_buf, int n_len)
+-{
+-	int diff;
+-	int o_offset;
+-	int o_left;
+-
+-	EnterFunction(9);
+-
+-	diff = n_len - o_len;
+-	o_offset = o_buf - (char *)skb->data;
+-	/* The length of left data after o_buf+o_len in the skb data */
+-	o_left = skb->len - (o_offset + o_len);
+-
+-	if (diff <= 0) {
+-		memmove(o_buf + n_len, o_buf + o_len, o_left);
+-		memcpy(o_buf, n_buf, n_len);
+-		skb_trim(skb, skb->len + diff);
+-	} else if (diff <= skb_tailroom(skb)) {
+-		skb_put(skb, diff);
+-		memmove(o_buf + n_len, o_buf + o_len, o_left);
+-		memcpy(o_buf, n_buf, n_len);
+-	} else {
+-		if (pskb_expand_head(skb, skb_headroom(skb), diff, pri))
+-			return -ENOMEM;
+-		skb_put(skb, diff);
+-		memmove(skb->data + o_offset + n_len,
+-			skb->data + o_offset + o_len, o_left);
+-		skb_copy_to_linear_data_offset(skb, o_offset, n_buf, n_len);
+-	}
+-
+-	/* must update the iph total length here */
+-	ip_hdr(skb)->tot_len = htons(skb->len);
+-
+-	LeaveFunction(9);
+-	return 0;
+-}
+-
+-
+ int __init ip_vs_app_init(void)
+ {
+ 	/* we will replace it with proc_net_ipvs_create() soon */
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 58f82df..4f8ddba 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -54,7 +54,6 @@
+ 
+ EXPORT_SYMBOL(register_ip_vs_scheduler);
+ EXPORT_SYMBOL(unregister_ip_vs_scheduler);
+-EXPORT_SYMBOL(ip_vs_skb_replace);
+ EXPORT_SYMBOL(ip_vs_proto_name);
+ EXPORT_SYMBOL(ip_vs_conn_new);
+ EXPORT_SYMBOL(ip_vs_conn_in_get);
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 2ae747a..f228a17 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -20,6 +20,17 @@
+  *
+  * Author:	Wouter Gadeyne
+  *
++ *
++ * Code for ip_vs_expect_related and ip_vs_expect_callback is taken from
++ * http://www.ssi.bg/~ja/nfct/:
++ *
++ * ip_vs_nfct.c:	Netfilter connection tracking support for IPVS
++ *
++ * Portions Copyright (C) 2001-2002
++ * Antefacto Ltd, 181 Parnell St, Dublin 1, Ireland.
++ *
++ * Portions Copyright (C) 2003-2008
++ * Julian Anastasov
+  */
+ 
+ #define KMSG_COMPONENT "IPVS"
+@@ -32,6 +43,9 @@
+ #include <linux/in.h>
+ #include <linux/ip.h>
+ #include <linux/netfilter.h>
++#include <net/netfilter/nf_conntrack.h>
++#include <net/netfilter/nf_conntrack_expect.h>
++#include <net/netfilter/nf_nat_helper.h>
+ #include <linux/gfp.h>
+ #include <net/protocol.h>
+ #include <net/tcp.h>
+@@ -43,6 +57,16 @@
+ #define SERVER_STRING "227 Entering Passive Mode ("
+ #define CLIENT_STRING "PORT "
+ 
++#define FMT_TUPLE	"%pI4:%u->%pI4:%u/%u"
++#define ARG_TUPLE(T)	&(T)->src.u3.ip, ntohs((T)->src.u.all), \
++			&(T)->dst.u3.ip, ntohs((T)->dst.u.all), \
++			(T)->dst.protonum
 +
-+	  To compile it as a module, choose M here.  If unsure, say N.
++#define FMT_CONN	"%pI4:%u->%pI4:%u->%pI4:%u/%u:%u"
++#define ARG_CONN(C)	&((C)->caddr.ip), ntohs((C)->cport), \
++			&((C)->vaddr.ip), ntohs((C)->vport), \
++			&((C)->daddr.ip), ntohs((C)->dport), \
++			(C)->protocol, (C)->state
+ 
+ /*
+  * List of ports (up to IP_VS_APP_MAX_PORTS) to be handled by helper
+@@ -123,6 +147,119 @@ static int ip_vs_ftp_get_addrport(char *data, char *data_limit,
+ 	return 1;
+ }
+ 
++/*
++ * Called from init_conntrack() as expectfn handler.
++ */
++static void
++ip_vs_expect_callback(struct nf_conn *ct,
++		      struct nf_conntrack_expect *exp)
++{
++	struct nf_conntrack_tuple *orig, new_reply;
++	struct ip_vs_conn *cp;
 +
- config NETFILTER_XT_MATCH_DCCP
- 	tristate '"dccp" protocol match support'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 4366c79..441050f 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -70,6 +70,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_COMMENT) += xt_comment.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_CONNBYTES) += xt_connbytes.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_CONNLIMIT) += xt_connlimit.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_CONNTRACK) += xt_conntrack.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_CPU) += xt_cpu.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_DCCP) += xt_dccp.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_DSCP) += xt_dscp.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_ESP) += xt_esp.o
-diff --git a/net/netfilter/xt_cpu.c b/net/netfilter/xt_cpu.c
-new file mode 100644
-index 0000000..b39db8a
---- /dev/null
-+++ b/net/netfilter/xt_cpu.c
-@@ -0,0 +1,63 @@
-+/* Kernel module to match running CPU */
++	if (exp->tuple.src.l3num != PF_INET)
++		return;
++
++	/*
++	 * We assume that no NF locks are held before this callback.
++	 * ip_vs_conn_out_get and ip_vs_conn_in_get should match their
++	 * expectations even if they use wildcard values, now we provide the
++	 * actual values from the newly created original conntrack direction.
++	 * The conntrack is confirmed when packet reaches IPVS hooks.
++	 */
++
++	/* RS->CLIENT */
++	orig = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
++	cp = ip_vs_conn_out_get(exp->tuple.src.l3num, orig->dst.protonum,
++				&orig->src.u3, orig->src.u.tcp.port,
++				&orig->dst.u3, orig->dst.u.tcp.port);
++	if (cp) {
++		/* Change reply CLIENT->RS to CLIENT->VS */
++		new_reply = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
++		IP_VS_DBG(7, "%s(): ct=%p, status=0x%lX, tuples=" FMT_TUPLE ", "
++			  FMT_TUPLE ", found inout cp=" FMT_CONN "\n",
++			  __func__, ct, ct->status,
++			  ARG_TUPLE(orig), ARG_TUPLE(&new_reply),
++			  ARG_CONN(cp));
++		new_reply.dst.u3 = cp->vaddr;
++		new_reply.dst.u.tcp.port = cp->vport;
++		IP_VS_DBG(7, "%s(): ct=%p, new tuples=" FMT_TUPLE ", " FMT_TUPLE
++			  ", inout cp=" FMT_CONN "\n",
++			  __func__, ct,
++			  ARG_TUPLE(orig), ARG_TUPLE(&new_reply),
++			  ARG_CONN(cp));
++		goto alter;
++	}
++
++	/* CLIENT->VS */
++	cp = ip_vs_conn_in_get(exp->tuple.src.l3num, orig->dst.protonum,
++			       &orig->src.u3, orig->src.u.tcp.port,
++			       &orig->dst.u3, orig->dst.u.tcp.port);
++	if (cp) {
++		/* Change reply VS->CLIENT to RS->CLIENT */
++		new_reply = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
++		IP_VS_DBG(7, "%s(): ct=%p, status=0x%lX, tuples=" FMT_TUPLE ", "
++			  FMT_TUPLE ", found outin cp=" FMT_CONN "\n",
++			  __func__, ct, ct->status,
++			  ARG_TUPLE(orig), ARG_TUPLE(&new_reply),
++			  ARG_CONN(cp));
++		new_reply.src.u3 = cp->daddr;
++		new_reply.src.u.tcp.port = cp->dport;
++		IP_VS_DBG(7, "%s(): ct=%p, new tuples=" FMT_TUPLE ", "
++			  FMT_TUPLE ", outin cp=" FMT_CONN "\n",
++			  __func__, ct,
++			  ARG_TUPLE(orig), ARG_TUPLE(&new_reply),
++			  ARG_CONN(cp));
++		goto alter;
++	}
++
++	IP_VS_DBG(7, "%s(): ct=%p, status=0x%lX, tuple=" FMT_TUPLE
++		  " - unknown expect\n",
++		  __func__, ct, ct->status, ARG_TUPLE(orig));
++	return;
++
++alter:
++	/* Never alter conntrack for non-NAT conns */
++	if (IP_VS_FWD_METHOD(cp) == IP_VS_CONN_F_MASQ)
++		nf_conntrack_alter_reply(ct, &new_reply);
++	ip_vs_conn_put(cp);
++	return;
++}
 +
 +/*
-+ * Might be used to distribute connections on several daemons, if
-+ * RPS (Remote Packet Steering) is enabled or NIC is multiqueue capable,
-+ * each RX queue IRQ affined to one CPU (1:1 mapping)
-+ *
++ * Create NF conntrack expectation with wildcard (optional) source port.
++ * Then the default callback function will alter the reply and will confirm
++ * the conntrack entry when the first packet comes.
 + */
-+
-+/* (C) 2010 Eric Dumazet
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/netfilter/xt_cpu.h>
-+#include <linux/netfilter/x_tables.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Eric Dumazet <eric.dumazet@gmail.com>");
-+MODULE_DESCRIPTION("Xtables: CPU match");
-+
-+static int cpu_mt_check(const struct xt_mtchk_param *par)
++static void
++ip_vs_expect_related(struct sk_buff *skb, struct nf_conn *ct,
++		     struct ip_vs_conn *cp, u_int8_t proto,
++		     const __be16 *port, int from_rs)
 +{
-+	const struct xt_cpu_info *info = par->matchinfo;
++	struct nf_conntrack_expect *exp;
 +
-+	if (info->invert & ~1)
-+		return -EINVAL;
-+	return 0;
++	BUG_ON(!ct || ct == &nf_conntrack_untracked);
++
++	exp = nf_ct_expect_alloc(ct);
++	if (!exp)
++		return;
++
++	if (from_rs)
++		nf_ct_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				  nf_ct_l3num(ct), &cp->daddr, &cp->caddr,
++				  proto, port, &cp->cport);
++	else
++		nf_ct_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				  nf_ct_l3num(ct), &cp->caddr, &cp->vaddr,
++				  proto, port, &cp->vport);
++
++	exp->expectfn = ip_vs_expect_callback;
++
++	IP_VS_DBG(7, "%s(): ct=%p, expect tuple=" FMT_TUPLE "\n",
++		  __func__, ct, ARG_TUPLE(&exp->tuple));
++	nf_ct_expect_related(exp);
++	nf_ct_expect_put(exp);
 +}
+ 
+ /*
+  * Look at outgoing ftp packets to catch the response to a PASV command
+@@ -149,7 +286,9 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 	struct ip_vs_conn *n_cp;
+ 	char buf[24];		/* xxx.xxx.xxx.xxx,ppp,ppp\000 */
+ 	unsigned buf_len;
+-	int ret;
++	int ret = 0;
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct;
+ 
+ #ifdef CONFIG_IP_VS_IPV6
+ 	/* This application helper doesn't work with IPv6 yet,
+@@ -219,19 +358,26 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 
+ 		buf_len = strlen(buf);
+ 
++		ct = nf_ct_get(skb, &ctinfo);
++		if (ct && !nf_ct_is_untracked(ct)) {
++			/* If mangling fails this function will return 0
++			 * which will cause the packet to be dropped.
++			 * Mangling can only fail under memory pressure,
++			 * hopefully it will succeed on the retransmitted
++			 * packet.
++			 */
++			ret = nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
++						       start-data, end-start,
++						       buf, buf_len);
++			if (ret)
++				ip_vs_expect_related(skb, ct, n_cp,
++						     IPPROTO_TCP, NULL, 0);
++		}
 +
-+static bool cpu_mt(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	const struct xt_cpu_info *info = par->matchinfo;
+ 		/*
+-		 * Calculate required delta-offset to keep TCP happy
++		 * Not setting 'diff' is intentional, otherwise the sequence
++		 * would be adjusted twice.
+ 		 */
+-		*diff = buf_len - (end-start);
+-
+-		if (*diff == 0) {
+-			/* simply replace it with new passive address */
+-			memcpy(start, buf, buf_len);
+-			ret = 1;
+-		} else {
+-			ret = !ip_vs_skb_replace(skb, GFP_ATOMIC, start,
+-					  end-start, buf, buf_len);
+-		}
+ 
+ 		cp->app_data = NULL;
+ 		ip_vs_tcp_conn_listen(n_cp);
+@@ -263,6 +409,7 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 	union nf_inet_addr to;
+ 	__be16 port;
+ 	struct ip_vs_conn *n_cp;
++	struct nf_conn *ct;
+ 
+ #ifdef CONFIG_IP_VS_IPV6
+ 	/* This application helper doesn't work with IPv6 yet,
+@@ -349,6 +496,11 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 		ip_vs_control_add(n_cp, cp);
+ 	}
+ 
++	ct = (struct nf_conn *)skb->nfct;
++	if (ct && ct != &nf_conntrack_untracked)
++		ip_vs_expect_related(skb, ct, n_cp,
++				     IPPROTO_TCP, &n_cp->dport, 1);
 +
-+	return (info->cpu == smp_processor_id()) ^ info->invert;
-+}
-+
-+static struct xt_match cpu_mt_reg __read_mostly = {
-+	.name       = "cpu",
-+	.revision   = 0,
-+	.family     = NFPROTO_UNSPEC,
-+	.checkentry = cpu_mt_check,
-+	.match      = cpu_mt,
-+	.matchsize  = sizeof(struct xt_cpu_info),
-+	.me         = THIS_MODULE,
-+};
-+
-+static int __init cpu_mt_init(void)
-+{
-+	return xt_register_match(&cpu_mt_reg);
-+}
-+
-+static void __exit cpu_mt_exit(void)
-+{
-+	xt_unregister_match(&cpu_mt_reg);
-+}
-+
-+module_init(cpu_mt_init);
-+module_exit(cpu_mt_exit);
+ 	/*
+ 	 *	Move tunnel to listen state
+ 	 */
 -- 
 1.7.1
 
