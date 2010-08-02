@@ -1,56 +1,43 @@
-From: Juuso Oikarinen <juuso.oikarinen-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: wl12xx: do not use kfree'd memory
-Date: Mon, 02 Aug 2010 08:04:11 +0300
-Message-ID: <1280725451.6475.111.camel@wimaxnb.nmp.nokia.com>
-References: <1280594039-3246-1-git-send-email-segooon@gmail.com>
+From: Franchoze Eric <franchoze@yandex.ru>
+Subject: Re: shape traffic on tun interfaces
+Date: Mon, 02 Aug 2010 11:46:11 +0400
+Message-ID: <474381280735172@web82.yandex.ru>
+References: <301941280614170@web105.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Coelho Luciano (Nokia-MS/Helsinki)" <Luciano.Coelho-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"Paasikivi Teemu.3 (EXT-Ixonos/Tampere)"
-	<ext-teemu.3.paasikivi-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: ext Kulikov Vasiliy <segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1280594039-3246-1-git-send-email-segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: lartc@mailman.ds9a.nl, netdev@vger.kernel.org
+To: alex@digriz.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward8.mail.yandex.net ([77.88.61.38]:43645 "EHLO
+	forward8.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753143Ab0HBHqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 03:46:15 -0400
+In-Reply-To: <301941280614170@web105.yandex.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-07-31 at 18:33 +0200, ext Kulikov Vasiliy wrote:
-> wl1271_dump() uses cmd after kfree(cmd). Move kfree() just after
-> wl1271_dump().
-> 
-> Signed-off-by: Kulikov Vasiliy <segooon-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/wireless/wl12xx/wl1271_spi.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/wl12xx/wl1271_spi.c b/drivers/net/wireless/wl12xx/wl1271_spi.c
-> index 96d25fb..4cb99c5 100644
-> --- a/drivers/net/wireless/wl12xx/wl1271_spi.c
-> +++ b/drivers/net/wireless/wl12xx/wl1271_spi.c
-> @@ -160,9 +160,8 @@ static void wl1271_spi_init(struct wl1271 *wl)
->  	spi_message_add_tail(&t, &m);
->  
->  	spi_sync(wl_to_spi(wl), &m);
-> -	kfree(cmd);
-> -
->  	wl1271_dump(DEBUG_SPI, "spi init -> ", cmd, WSPI_INIT_CMD_LEN);
-> +	kfree(cmd);
->  }
->  
->  #define WL1271_BUSY_WORD_TIMEOUT 1000
+>Do the QoS on your next hop router 
+There is no next router. And QoS should be on the same machine.
 
-Whoops ;) Good catch, thanks.
+>or on the interface all your de-encapsulated VPN traffic flows over (ie. 'eth0') instead.
 
-Acked-by: Juuso Oikarinen <juuso.oikarinen-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+It is not a problem to find interface with de-encapsulated traffic. The problem is that tc rules should be written accoring to network device.
+And it is really uncinvinient clone this rules which are differ only with destination IP.
 
--Juuso
+For example look here. It's needed to create subclass for each destination IP.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+#class
+tc class add dev $DEV parent 1: classid 1:1 htb rate ${SPEED}kbit
+#subclass
+# high priority traffic (where we get money, http for example)
+tc class add dev $DEV parent 1:1 classid 1:2 htb rate ${SPEED}kbit ceil ${SPEED}kbit prio 0
+# low priority trafic - no adds - now money - low speed
+tc class add dev $DEV parent 1:1 classid 1:3 htb rate ${SPEED}/2kbit ceil ${SPEED}kbit prio 1
+#handle
+tc qdisc add dev $DEV parent 1:2 handle 2: sfq perturb 10
+tc qdisc add dev $DEV parent 1:3 handle 3: sfq perturb 10
+#connect with
+tc filter add dev $DEV parent 1:0 prio 0 protocol ip handle 2 fw flowid 1:1001
+tc filter add dev $DEV parent 1:0 prio 0 protocol ip handle 3 fw flowid 1:1002 
+
