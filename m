@@ -1,49 +1,49 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 05/14] tg3: Manage gphy power for CPMU-less
- devs only
-Date: Mon, 2 Aug 2010 14:25:59 -0700
-Message-ID: <1280784368-4226-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 01/14] tg3: Add 5784 ASIC rev to earlier PCIe
+ MPS fix
+Date: Mon, 2 Aug 2010 14:25:55 -0700
+Message-ID: <1280784368-4226-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1404 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4928 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752085Ab0HBV0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Aug 2010 17:26:24 -0400
+	id S1755419Ab0HBV0c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Aug 2010 17:26:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the code to only manage the PCIe gphy power for
-CPMU-less devices only.  The CPMU takes over management for newer
-chips.
+tg3 commit e7126997342560533317d8467e8516119ebcbd21 entitled
+"tg3: Preserve PCIe MPS setting for new devs" attempted to ensure the
+PCIe link negotiated Maximum Payload Size (MPS) setting was 128 bytes
+for all devices that didn't support higher speeds.  The 5784 device was
+mistakenly added to this list when it shouldn't have.  This patch
+removes the 5784 ASIC rev devices from that list.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ drivers/net/tg3.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 5d155c5..38979f2 100644
+index b26a577..98ca0d2 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -6948,8 +6948,11 @@ static int tg3_chip_reset(struct tg3 *tp)
- 		     tr32(GRC_VCPU_EXT_CTRL) & ~GRC_VCPU_EXT_CTRL_HALT_CPU);
- 	}
- 
--	if (tp->tg3_flags2 & TG3_FLG2_5705_PLUS)
-+	/* Manage gphy power for all CPMU absent PCIe devices. */
-+	if ((tp->tg3_flags2 & TG3_FLG2_5705_PLUS) &&
-+	    !(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
- 		val |= GRC_MISC_CFG_KEEP_GPHY_POWER;
-+
- 	tw32(GRC_MISC_CFG, val);
- 
- 	/* restore 5701 hardware bug workaround write method */
+@@ -7002,8 +7002,7 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 		 * Older PCIe devices only support the 128 byte
+ 		 * MPS setting.  Enforce the restriction.
+ 		 */
+-		if (!(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT) ||
+-		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784))
++		if (!(tp->tg3_flags & TG3_FLAG_CPMU_PRESENT))
+ 			val16 &= ~PCI_EXP_DEVCTL_PAYLOAD;
+ 		pci_write_config_word(tp->pdev,
+ 				      tp->pcie_cap + PCI_EXP_DEVCTL,
 -- 
 1.7.1
 
