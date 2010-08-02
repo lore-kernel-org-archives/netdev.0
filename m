@@ -1,190 +1,170 @@
 From: kaber@trash.net
-Subject: [PATCH 09/28] netfilter: add CHECKSUM target
-Date: Mon,  2 Aug 2010 21:57:26 +0200
-Message-ID: <1280779065-9333-10-git-send-email-kaber@trash.net>
+Subject: [PATCH 12/28] IPVS: make friends with nf_conntrack
+Date: Mon,  2 Aug 2010 21:57:29 +0200
+Message-ID: <1280779065-9333-13-git-send-email-kaber@trash.net>
 References: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35368 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754809Ab0HBT57 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:57:59 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael S. Tsirkin <mst@redhat.com>
+From: Hannes Eder <heder@google.com>
 
-This adds a `CHECKSUM' target, which can be used in the iptables mangle
-table.
+Update the nf_conntrack tuple in reply direction, as we will see
+traffic from the real server (RIP) to the client (CIP).  Once this is
+done we can use netfilters SNAT in POSTROUTING, especially with
+xt_ipvs, to do source NAT, e.g.:
 
-You can use this target to compute and fill in the checksum in
-a packet that lacks a checksum.  This is particularly useful,
-if you need to work around old applications such as dhcp clients,
-that do not work well with checksum offloads, but don't want to
-disable checksum offload in your device.
+% iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 --vport 80 \
+		  -j SNAT --to-source 192.168.10.10
 
-The problem happens in the field with virtualized applications.
-For reference, see Red Hat bz 605555, as well as
-http://www.spinics.net/lists/kvm/msg37660.html
-
-Typical expected use (helps old dhclient binary running in a VM):
-iptables -A POSTROUTING -t mangle -p udp --dport bootpc \
-	-j CHECKSUM --checksum-fill
-
-Includes fixes by Jan Engelhardt <jengelh@medozas.de>
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+[ minor fixes by Simon Horman <horms@verge.net.au> ]
+Signed-off-by: Hannes Eder <heder@google.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/xt_CHECKSUM.h |   18 ++++++++
- net/netfilter/Kconfig                 |   16 +++++++
- net/netfilter/Makefile                |    1 +
- net/netfilter/xt_CHECKSUM.c           |   70 +++++++++++++++++++++++++++++++++
- 4 files changed, 105 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/netfilter/xt_CHECKSUM.h
- create mode 100644 net/netfilter/xt_CHECKSUM.c
+ net/netfilter/ipvs/Kconfig      |    2 +-
+ net/netfilter/ipvs/ip_vs_core.c |   36 ------------------------------------
+ net/netfilter/ipvs/ip_vs_xmit.c |   29 +++++++++++++++++++++++++++++
+ 3 files changed, 30 insertions(+), 37 deletions(-)
 
-diff --git a/include/linux/netfilter/xt_CHECKSUM.h b/include/linux/netfilter/xt_CHECKSUM.h
-new file mode 100644
-index 0000000..3b4fb77
---- /dev/null
-+++ b/include/linux/netfilter/xt_CHECKSUM.h
-@@ -0,0 +1,18 @@
-+/* Header file for iptables ipt_CHECKSUM target
-+ *
-+ * (C) 2002 by Harald Welte <laforge@gnumonks.org>
-+ * (C) 2010 Red Hat Inc
-+ * Author: Michael S. Tsirkin <mst@redhat.com>
-+ *
-+ * This software is distributed under GNU GPL v2, 1991
-+*/
-+#ifndef _IPT_CHECKSUM_TARGET_H
-+#define _IPT_CHECKSUM_TARGET_H
-+
-+#define XT_CHECKSUM_OP_FILL	0x01	/* fill in checksum in IP header */
-+
-+struct xt_CHECKSUM_info {
-+	__u8 operation;	/* bitset of operations */
-+};
-+
-+#endif /* _IPT_CHECKSUM_TARGET_H */
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index aa2f106..5fb8efa 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -326,6 +326,22 @@ config NETFILTER_XT_CONNMARK
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index d80b41a..3662444 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -3,7 +3,7 @@
+ #
+ menuconfig IP_VS
+ 	tristate "IP virtual server support"
+-	depends on NET && INET && NETFILTER
++	depends on NET && INET && NETFILTER && NF_CONNTRACK
+ 	---help---
+ 	  IP Virtual Server support will let you build a high-performance
+ 	  virtual server based on cluster of two or more real servers. This
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 50907d8..58f82df 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -536,26 +536,6 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	return NF_DROP;
+ }
  
- comment "Xtables targets"
+-
+-/*
+- *      It is hooked before NF_IP_PRI_NAT_SRC at the NF_INET_POST_ROUTING
+- *      chain, and is used for VS/NAT.
+- *      It detects packets for VS/NAT connections and sends the packets
+- *      immediately. This can avoid that iptable_nat mangles the packets
+- *      for VS/NAT.
+- */
+-static unsigned int ip_vs_post_routing(unsigned int hooknum,
+-				       struct sk_buff *skb,
+-				       const struct net_device *in,
+-				       const struct net_device *out,
+-				       int (*okfn)(struct sk_buff *))
+-{
+-	if (!skb->ipvs_property)
+-		return NF_ACCEPT;
+-	/* The packet was sent from IPVS, exit this chain */
+-	return NF_STOP;
+-}
+-
+ __sum16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
+ {
+ 	return csum_fold(skb_checksum(skb, offset, skb->len - offset, 0));
+@@ -1499,14 +1479,6 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
+ 		.hooknum        = NF_INET_FORWARD,
+ 		.priority       = 99,
+ 	},
+-	/* Before the netfilter connection tracking, exit from POST_ROUTING */
+-	{
+-		.hook		= ip_vs_post_routing,
+-		.owner		= THIS_MODULE,
+-		.pf		= PF_INET,
+-		.hooknum        = NF_INET_POST_ROUTING,
+-		.priority       = NF_IP_PRI_NAT_SRC-1,
+-	},
+ #ifdef CONFIG_IP_VS_IPV6
+ 	/* After packet filtering, forward packet through VS/DR, VS/TUN,
+ 	 * or VS/NAT(change destination), so that filtering rules can be
+@@ -1535,14 +1507,6 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
+ 		.hooknum        = NF_INET_FORWARD,
+ 		.priority       = 99,
+ 	},
+-	/* Before the netfilter connection tracking, exit from POST_ROUTING */
+-	{
+-		.hook		= ip_vs_post_routing,
+-		.owner		= THIS_MODULE,
+-		.pf		= PF_INET6,
+-		.hooknum        = NF_INET_POST_ROUTING,
+-		.priority       = NF_IP6_PRI_NAT_SRC-1,
+-	},
+ #endif
+ };
  
-+config NETFILTER_XT_TARGET_CHECKSUM
-+	tristate "CHECKSUM target support"
-+	depends on IP_NF_MANGLE || IP6_NF_MANGLE
-+	depends on NETFILTER_ADVANCED
-+	---help---
-+	  This option adds a `CHECKSUM' target, which can be used in the iptables mangle
-+	  table.
-+
-+	  You can use this target to compute and fill in the checksum in
-+	  a packet that lacks a checksum.  This is particularly useful,
-+	  if you need to work around old applications such as dhcp clients,
-+	  that do not work well with checksum offloads, but don't want to disable
-+	  checksum offload in your device.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_TARGET_CLASSIFY
- 	tristate '"CLASSIFY" target support'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index e28420a..36ef8e6 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -45,6 +45,7 @@ obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
- obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 02b078e..21e1a5e 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -28,6 +28,7 @@
+ #include <net/ip6_route.h>
+ #include <linux/icmpv6.h>
+ #include <linux/netfilter.h>
++#include <net/netfilter/nf_conntrack.h>
+ #include <linux/netfilter_ipv4.h>
  
- # targets
-+obj-$(CONFIG_NETFILTER_XT_TARGET_CHECKSUM) += xt_CHECKSUM.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
-diff --git a/net/netfilter/xt_CHECKSUM.c b/net/netfilter/xt_CHECKSUM.c
-new file mode 100644
-index 0000000..0f642ef
---- /dev/null
-+++ b/net/netfilter/xt_CHECKSUM.c
-@@ -0,0 +1,70 @@
-+/* iptables module for the packet checksum mangling
-+ *
-+ * (C) 2002 by Harald Welte <laforge@netfilter.org>
-+ * (C) 2010 Red Hat, Inc.
-+ *
-+ * Author: Michael S. Tsirkin <mst@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+*/
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter/xt_CHECKSUM.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Michael S. Tsirkin <mst@redhat.com>");
-+MODULE_DESCRIPTION("Xtables: checksum modification");
-+MODULE_ALIAS("ipt_CHECKSUM");
-+MODULE_ALIAS("ip6t_CHECKSUM");
-+
-+static unsigned int
-+checksum_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ #include <net/ip_vs.h>
+@@ -348,6 +349,30 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ }
+ #endif
+ 
++static void
++ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp)
 +{
-+	if (skb->ip_summed == CHECKSUM_PARTIAL)
-+		skb_checksum_help(skb);
++	struct nf_conn *ct = (struct nf_conn *)skb->nfct;
++	struct nf_conntrack_tuple new_tuple;
 +
-+	return XT_CONTINUE;
++	if (ct == NULL || nf_ct_is_untracked(ct) || nf_ct_is_confirmed(ct))
++		return;
++
++	/*
++	 * The connection is not yet in the hashtable, so we update it.
++	 * CIP->VIP will remain the same, so leave the tuple in
++	 * IP_CT_DIR_ORIGINAL untouched.  When the reply comes back from the
++	 * real-server we will see RIP->DIP.
++	 */
++	new_tuple = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
++	new_tuple.src.u3 = cp->daddr;
++	/*
++	 * This will also take care of UDP and other protocols.
++	 */
++	new_tuple.src.u.tcp.port = cp->dport;
++	nf_conntrack_alter_reply(ct, &new_tuple);
 +}
 +
-+static int checksum_tg_check(const struct xt_tgchk_param *par)
-+{
-+	const struct xt_CHECKSUM_info *einfo = par->targinfo;
+ /*
+  *      NAT transmitter (only for outside-to-inside nat forwarding)
+  *      Not used for related ICMP
+@@ -403,6 +428,8 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	IP_VS_DBG_PKT(10, pp, skb, 0, "After DNAT");
+ 
++	ip_vs_update_conntrack(skb, cp);
 +
-+	if (einfo->operation & ~XT_CHECKSUM_OP_FILL) {
-+		pr_info("unsupported CHECKSUM operation %x\n", einfo->operation);
-+		return -EINVAL;
-+	}
-+	if (!einfo->operation) {
-+		pr_info("no CHECKSUM operation enabled\n");
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
+ 	/* FIXME: when application helper enlarges the packet and the length
+ 	   is larger than the MTU of outgoing device, there will be still
+ 	   MTU problem. */
+@@ -479,6 +506,8 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 
+ 	IP_VS_DBG_PKT(10, pp, skb, 0, "After DNAT");
+ 
++	ip_vs_update_conntrack(skb, cp);
 +
-+static struct xt_target checksum_tg_reg __read_mostly = {
-+	.name		= "CHECKSUM",
-+	.family		= NFPROTO_UNSPEC,
-+	.target		= checksum_tg,
-+	.targetsize	= sizeof(struct xt_CHECKSUM_info),
-+	.table		= "mangle",
-+	.checkentry	= checksum_tg_check,
-+	.me		= THIS_MODULE,
-+};
-+
-+static int __init checksum_tg_init(void)
-+{
-+	return xt_register_target(&checksum_tg_reg);
-+}
-+
-+static void __exit checksum_tg_exit(void)
-+{
-+	xt_unregister_target(&checksum_tg_reg);
-+}
-+
-+module_init(checksum_tg_init);
-+module_exit(checksum_tg_exit);
+ 	/* FIXME: when application helper enlarges the packet and the length
+ 	   is larger than the MTU of outgoing device, there will be still
+ 	   MTU problem. */
 -- 
 1.7.1
 
