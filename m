@@ -1,83 +1,79 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: softirq warnings when calling dev_kfree_skb_irq - bug in conntrack?
-Date: Mon, 02 Aug 2010 11:54:46 -0700
-Message-ID: <4C571476.7070301@goop.org>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH] ip_fragment: fix subtracting PPPOE_SES_HLEN from mtu
+ twice
+Date: Mon, 02 Aug 2010 21:20:16 +0200
+Message-ID: <4C571A70.20103@pandora.be>
+References: <1280618708-9241-1-git-send-email-xiaosuo@gmail.com> <4C56E961.9070107@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Xu, Dongxiao" <dongxiao.xu@intel.com>,
-	"Xen-devel@lists.xensource.com" <Xen-devel@lists.xensource.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: NetDev <netdev@vger.kernel.org>
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from claw.goop.org ([74.207.240.146]:34883 "EHLO claw.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754170Ab0HBSys (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Aug 2010 14:54:48 -0400
+Received: from gerard.telenet-ops.be ([195.130.132.48]:51281 "EHLO
+	gerard.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751303Ab0HBTZW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:25:22 -0400
+In-Reply-To: <4C56E961.9070107@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  Hi,
+Patrick McHardy schreef:
+> On 01.08.2010 01:25, Changli Gao wrote:
+>   
+>> 6c79bf0f2440fd250c8fce8d9b82fcf03d4e8350 subtracts PPPOE_SES_HLEN from mtu at
+>> the front of ip_fragment(). So the later subtraction should be removed. The
+>> MTU of 802.1q is also 1500, so MTU should not be changed.
+>>     
+>
+> Bart, please review, thanks.
+>
+>   
+The patch looks correct. The commit Changli refers to fixed the case 
+where fragments are already available but broke the slow_path. The MTU 
+for 802.1Q is indeed also 1500...
 
-I'm seeing this in the current linux-next tree:
+cheers,
+Bart
 
-------------[ cut here ]------------
-WARNING: at kernel/softirq.c:143 local_bh_enable+0x40/0x87()
-Modules linked in: xt_state dm_mirror dm_region_hash dm_log microcode [last unloaded: scsi_wait_scan]
-Pid: 0, comm: swapper Not tainted 2.6.35-rc6-next-20100729+ #29
-Call Trace:
-  <IRQ>   [<ffffffff81030de3>] warn_slowpath_common+0x80/0x98
-  [<ffffffff81030e10>] warn_slowpath_null+0x15/0x17
-  [<ffffffff81035ff3>] local_bh_enable+0x40/0x87
-  [<ffffffff814236e5>] destroy_conntrack+0x78/0x9e
-  [<ffffffff810bea55>] ? __kmalloc_track_caller+0xc3/0x135
-  [<ffffffff814203b4>] nf_conntrack_destroy+0x16/0x18
-  [<ffffffff813fadee>] skb_release_head_state+0x97/0xd9
-  [<ffffffff813fabbe>] __kfree_skb+0x11/0x7a
-  [<ffffffff813fac4e>] consume_skb+0x27/0x29
-  [<ffffffff81402d3a>] dev_kfree_skb_irq+0x18/0x62
-  [<ffffffff8130a762>] xennet_tx_buf_gc+0xfc/0x192
-  [<ffffffff8130a8fb>] smart_poll_function+0x50/0x121
-  [<ffffffff8130a8ab>] ? smart_poll_function+0x0/0x121
-  [<ffffffff8104b8d1>] __run_hrtimer+0xcc/0x127
-  [<ffffffff8104bad3>] hrtimer_interrupt+0x9c/0x17b
-  [<ffffffff81005f24>] xen_timer_interrupt+0x2a/0x13e
-  [<ffffffff81006180>] ? check_events+0x12/0x22
-  [<ffffffff81005be9>] ? xen_force_evtchn_callback+0xd/0xf
-  [<ffffffff81005be9>] ? xen_force_evtchn_callback+0xd/0xf
-  [<ffffffff81077641>] handle_IRQ_event+0x52/0x119
-  [<ffffffff81079abe>] handle_level_irq+0x6c/0xb2
-  [<ffffffff8127b3dd>] __xen_evtchn_do_upcall+0xa9/0x12a
-  [<ffffffff8100616d>] ? xen_restore_fl_direct_end+0x0/0x1
-  [<ffffffff8127b491>] xen_evtchn_do_upcall+0x28/0x39
-  [<ffffffff810097ac>] xen_do_hypervisor_callback+0x1c/0x30
-  <EOI>   [<ffffffff810013aa>] ? hypercall_page+0x3aa/0x1000
-  [<ffffffff810013aa>] ? hypercall_page+0x3aa/0x1000
-  [<ffffffff81005c2d>] ? xen_safe_halt+0x10/0x1a
-  [<ffffffff81003eb4>] ? xen_idle+0x38/0x44
-  [<ffffffff81007de4>] ? cpu_idle+0x82/0xe9
-  [<ffffffff814b84e3>] ? rest_init+0x67/0x69
-  [<ffffffff81afcc10>] ? start_kernel+0x387/0x392
-  [<ffffffff81afc2c8>] ? x86_64_start_reservations+0xb3/0xb7
-  [<ffffffff81affed2>] ? xen_start_kernel+0x4be/0x4c2
----[ end trace 755676650ea49003 ]---
+Signed-off-by: Bart De Schuymer <bdschuym@pandora.bo>
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>> ----
+>>  net/ipv4/ip_output.c |    6 ++----
+>>  1 file changed, 2 insertions(+), 4 deletions(-)
+>> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+>> index 6652bd9..04b6989 100644
+>> --- a/net/ipv4/ip_output.c
+>> +++ b/net/ipv4/ip_output.c
+>> @@ -446,7 +446,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+>>  	int ptr;
+>>  	struct net_device *dev;
+>>  	struct sk_buff *skb2;
+>> -	unsigned int mtu, hlen, left, len, ll_rs, pad;
+>> +	unsigned int mtu, hlen, left, len, ll_rs;
+>>  	int offset;
+>>  	__be16 not_last_frag;
+>>  	struct rtable *rt = skb_rtable(skb);
+>> @@ -585,9 +585,7 @@ slow_path:
+>>  	/* for bridged IP traffic encapsulated inside f.e. a vlan header,
+>>  	 * we need to make room for the encapsulating header
+>>  	 */
+>> -	pad = nf_bridge_pad(skb);
+>> -	ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, pad);
+>> -	mtu -= pad;
+>> +	ll_rs = LL_RESERVED_SPACE_EXTRA(rt->dst.dev, nf_bridge_pad(skb));
+>>  
+>>  	/*
+>>  	 *	Fragment the datagram.
+>>
+>>     
+>
+>
+>   
 
 
-The warning is:
+-- 
+Bart De Schuymer
+www.artinalgorithms.be
 
-	WARN_ON_ONCE(in_irq() || irqs_disabled());
-
-
-It seems the basic problem is that xennet_tx_buf_gc() is being called in 
-interrupt context - with smartpoll it's from the timer interrupt, but 
-even without it is being called from xennet_interrupt(), which in turn 
-calls dev_kfree_skb_irq().
-
-Since this should be perfectly OK, it appears the problem is actually in 
-conntrack.  I'm not sure where this bug started happening, but its 
-relatively recently I think.
-
-Thanks,
-     J
