@@ -1,376 +1,190 @@
 From: kaber@trash.net
-Subject: [PATCH 13/28] IPVS: make FTP work with full NAT support
-Date: Mon,  2 Aug 2010 21:57:30 +0200
-Message-ID: <1280779065-9333-14-git-send-email-kaber@trash.net>
+Subject: [PATCH 09/28] netfilter: add CHECKSUM target
+Date: Mon,  2 Aug 2010 21:57:26 +0200
+Message-ID: <1280779065-9333-10-git-send-email-kaber@trash.net>
 References: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:35368 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754809Ab0HBT57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:57:59 -0400
 In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Eder <heder@google.com>
+From: Michael S. Tsirkin <mst@redhat.com>
 
-Use nf_conntrack/nf_nat code to do the packet mangling and the TCP
-sequence adjusting.  The function 'ip_vs_skb_replace' is now dead
-code, so it is removed.
+This adds a `CHECKSUM' target, which can be used in the iptables mangle
+table.
 
-To SNAT FTP, use something like:
+You can use this target to compute and fill in the checksum in
+a packet that lacks a checksum.  This is particularly useful,
+if you need to work around old applications such as dhcp clients,
+that do not work well with checksum offloads, but don't want to
+disable checksum offload in your device.
 
-% iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
-    --vport 21 -j SNAT --to-source 192.168.10.10
-and for the data connections in passive mode:
+The problem happens in the field with virtualized applications.
+For reference, see Red Hat bz 605555, as well as
+http://www.spinics.net/lists/kvm/msg37660.html
 
-% iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
-    --vportctl 21 -j SNAT --to-source 192.168.10.10
-using '-m state --state RELATED' would also works.
+Typical expected use (helps old dhclient binary running in a VM):
+iptables -A POSTROUTING -t mangle -p udp --dport bootpc \
+	-j CHECKSUM --checksum-fill
 
-Make sure the kernel modules ip_vs_ftp, nf_conntrack_ftp, and
-nf_nat_ftp are loaded.
+Includes fixes by Jan Engelhardt <jengelh@medozas.de>
 
-[ up-port and minor fixes by Simon Horman <horms@verge.net.au> ]
-Signed-off-by: Hannes Eder <heder@google.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/ip_vs.h             |    2 -
- net/netfilter/ipvs/Kconfig      |    2 +-
- net/netfilter/ipvs/ip_vs_app.c  |   43 ----------
- net/netfilter/ipvs/ip_vs_core.c |    1 -
- net/netfilter/ipvs/ip_vs_ftp.c  |  176 ++++++++++++++++++++++++++++++++++++---
- 5 files changed, 165 insertions(+), 59 deletions(-)
+ include/linux/netfilter/xt_CHECKSUM.h |   18 ++++++++
+ net/netfilter/Kconfig                 |   16 +++++++
+ net/netfilter/Makefile                |    1 +
+ net/netfilter/xt_CHECKSUM.c           |   70 +++++++++++++++++++++++++++++++++
+ 4 files changed, 105 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_CHECKSUM.h
+ create mode 100644 net/netfilter/xt_CHECKSUM.c
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index fe82b1e..1f9e511 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -736,8 +736,6 @@ extern void ip_vs_app_inc_put(struct ip_vs_app *inc);
- 
- extern int ip_vs_app_pkt_out(struct ip_vs_conn *, struct sk_buff *skb);
- extern int ip_vs_app_pkt_in(struct ip_vs_conn *, struct sk_buff *skb);
--extern int ip_vs_skb_replace(struct sk_buff *skb, gfp_t pri,
--			     char *o_buf, int o_len, char *n_buf, int n_len);
- extern int ip_vs_app_init(void);
- extern void ip_vs_app_cleanup(void);
- 
-diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
-index 3662444..be10f65 100644
---- a/net/netfilter/ipvs/Kconfig
-+++ b/net/netfilter/ipvs/Kconfig
-@@ -235,7 +235,7 @@ comment 'IPVS application helper'
- 
- config	IP_VS_FTP
-   	tristate "FTP protocol helper"
--        depends on IP_VS_PROTO_TCP
-+        depends on IP_VS_PROTO_TCP && NF_NAT
- 	---help---
- 	  FTP is a protocol that transfers IP address and/or port number in
- 	  the payload. In the virtual server via Network Address Translation,
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 1cb0e83..e76f87f 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -569,49 +569,6 @@ static const struct file_operations ip_vs_app_fops = {
- };
- #endif
- 
--
--/*
-- *	Replace a segment of data with a new segment
-- */
--int ip_vs_skb_replace(struct sk_buff *skb, gfp_t pri,
--		      char *o_buf, int o_len, char *n_buf, int n_len)
--{
--	int diff;
--	int o_offset;
--	int o_left;
--
--	EnterFunction(9);
--
--	diff = n_len - o_len;
--	o_offset = o_buf - (char *)skb->data;
--	/* The length of left data after o_buf+o_len in the skb data */
--	o_left = skb->len - (o_offset + o_len);
--
--	if (diff <= 0) {
--		memmove(o_buf + n_len, o_buf + o_len, o_left);
--		memcpy(o_buf, n_buf, n_len);
--		skb_trim(skb, skb->len + diff);
--	} else if (diff <= skb_tailroom(skb)) {
--		skb_put(skb, diff);
--		memmove(o_buf + n_len, o_buf + o_len, o_left);
--		memcpy(o_buf, n_buf, n_len);
--	} else {
--		if (pskb_expand_head(skb, skb_headroom(skb), diff, pri))
--			return -ENOMEM;
--		skb_put(skb, diff);
--		memmove(skb->data + o_offset + n_len,
--			skb->data + o_offset + o_len, o_left);
--		skb_copy_to_linear_data_offset(skb, o_offset, n_buf, n_len);
--	}
--
--	/* must update the iph total length here */
--	ip_hdr(skb)->tot_len = htons(skb->len);
--
--	LeaveFunction(9);
--	return 0;
--}
--
--
- int __init ip_vs_app_init(void)
- {
- 	/* we will replace it with proc_net_ipvs_create() soon */
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 58f82df..4f8ddba 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -54,7 +54,6 @@
- 
- EXPORT_SYMBOL(register_ip_vs_scheduler);
- EXPORT_SYMBOL(unregister_ip_vs_scheduler);
--EXPORT_SYMBOL(ip_vs_skb_replace);
- EXPORT_SYMBOL(ip_vs_proto_name);
- EXPORT_SYMBOL(ip_vs_conn_new);
- EXPORT_SYMBOL(ip_vs_conn_in_get);
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 2ae747a..f228a17 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -20,6 +20,17 @@
-  *
-  * Author:	Wouter Gadeyne
-  *
+diff --git a/include/linux/netfilter/xt_CHECKSUM.h b/include/linux/netfilter/xt_CHECKSUM.h
+new file mode 100644
+index 0000000..3b4fb77
+--- /dev/null
++++ b/include/linux/netfilter/xt_CHECKSUM.h
+@@ -0,0 +1,18 @@
++/* Header file for iptables ipt_CHECKSUM target
 + *
-+ * Code for ip_vs_expect_related and ip_vs_expect_callback is taken from
-+ * http://www.ssi.bg/~ja/nfct/:
++ * (C) 2002 by Harald Welte <laforge@gnumonks.org>
++ * (C) 2010 Red Hat Inc
++ * Author: Michael S. Tsirkin <mst@redhat.com>
 + *
-+ * ip_vs_nfct.c:	Netfilter connection tracking support for IPVS
-+ *
-+ * Portions Copyright (C) 2001-2002
-+ * Antefacto Ltd, 181 Parnell St, Dublin 1, Ireland.
-+ *
-+ * Portions Copyright (C) 2003-2008
-+ * Julian Anastasov
-  */
- 
- #define KMSG_COMPONENT "IPVS"
-@@ -32,6 +43,9 @@
- #include <linux/in.h>
- #include <linux/ip.h>
- #include <linux/netfilter.h>
-+#include <net/netfilter/nf_conntrack.h>
-+#include <net/netfilter/nf_conntrack_expect.h>
-+#include <net/netfilter/nf_nat_helper.h>
- #include <linux/gfp.h>
- #include <net/protocol.h>
- #include <net/tcp.h>
-@@ -43,6 +57,16 @@
- #define SERVER_STRING "227 Entering Passive Mode ("
- #define CLIENT_STRING "PORT "
- 
-+#define FMT_TUPLE	"%pI4:%u->%pI4:%u/%u"
-+#define ARG_TUPLE(T)	&(T)->src.u3.ip, ntohs((T)->src.u.all), \
-+			&(T)->dst.u3.ip, ntohs((T)->dst.u.all), \
-+			(T)->dst.protonum
++ * This software is distributed under GNU GPL v2, 1991
++*/
++#ifndef _IPT_CHECKSUM_TARGET_H
++#define _IPT_CHECKSUM_TARGET_H
 +
-+#define FMT_CONN	"%pI4:%u->%pI4:%u->%pI4:%u/%u:%u"
-+#define ARG_CONN(C)	&((C)->caddr.ip), ntohs((C)->cport), \
-+			&((C)->vaddr.ip), ntohs((C)->vport), \
-+			&((C)->daddr.ip), ntohs((C)->dport), \
-+			(C)->protocol, (C)->state
++#define XT_CHECKSUM_OP_FILL	0x01	/* fill in checksum in IP header */
++
++struct xt_CHECKSUM_info {
++	__u8 operation;	/* bitset of operations */
++};
++
++#endif /* _IPT_CHECKSUM_TARGET_H */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index aa2f106..5fb8efa 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -326,6 +326,22 @@ config NETFILTER_XT_CONNMARK
  
- /*
-  * List of ports (up to IP_VS_APP_MAX_PORTS) to be handled by helper
-@@ -123,6 +147,119 @@ static int ip_vs_ftp_get_addrport(char *data, char *data_limit,
- 	return 1;
- }
+ comment "Xtables targets"
  
-+/*
-+ * Called from init_conntrack() as expectfn handler.
-+ */
-+static void
-+ip_vs_expect_callback(struct nf_conn *ct,
-+		      struct nf_conntrack_expect *exp)
++config NETFILTER_XT_TARGET_CHECKSUM
++	tristate "CHECKSUM target support"
++	depends on IP_NF_MANGLE || IP6_NF_MANGLE
++	depends on NETFILTER_ADVANCED
++	---help---
++	  This option adds a `CHECKSUM' target, which can be used in the iptables mangle
++	  table.
++
++	  You can use this target to compute and fill in the checksum in
++	  a packet that lacks a checksum.  This is particularly useful,
++	  if you need to work around old applications such as dhcp clients,
++	  that do not work well with checksum offloads, but don't want to disable
++	  checksum offload in your device.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_TARGET_CLASSIFY
+ 	tristate '"CLASSIFY" target support'
+ 	depends on NETFILTER_ADVANCED
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index e28420a..36ef8e6 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -45,6 +45,7 @@ obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
+ obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
+ 
+ # targets
++obj-$(CONFIG_NETFILTER_XT_TARGET_CHECKSUM) += xt_CHECKSUM.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CT) += xt_CT.o
+diff --git a/net/netfilter/xt_CHECKSUM.c b/net/netfilter/xt_CHECKSUM.c
+new file mode 100644
+index 0000000..0f642ef
+--- /dev/null
++++ b/net/netfilter/xt_CHECKSUM.c
+@@ -0,0 +1,70 @@
++/* iptables module for the packet checksum mangling
++ *
++ * (C) 2002 by Harald Welte <laforge@netfilter.org>
++ * (C) 2010 Red Hat, Inc.
++ *
++ * Author: Michael S. Tsirkin <mst@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++#include <linux/module.h>
++#include <linux/skbuff.h>
++
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_CHECKSUM.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Michael S. Tsirkin <mst@redhat.com>");
++MODULE_DESCRIPTION("Xtables: checksum modification");
++MODULE_ALIAS("ipt_CHECKSUM");
++MODULE_ALIAS("ip6t_CHECKSUM");
++
++static unsigned int
++checksum_tg(struct sk_buff *skb, const struct xt_action_param *par)
 +{
-+	struct nf_conntrack_tuple *orig, new_reply;
-+	struct ip_vs_conn *cp;
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		skb_checksum_help(skb);
 +
-+	if (exp->tuple.src.l3num != PF_INET)
-+		return;
-+
-+	/*
-+	 * We assume that no NF locks are held before this callback.
-+	 * ip_vs_conn_out_get and ip_vs_conn_in_get should match their
-+	 * expectations even if they use wildcard values, now we provide the
-+	 * actual values from the newly created original conntrack direction.
-+	 * The conntrack is confirmed when packet reaches IPVS hooks.
-+	 */
-+
-+	/* RS->CLIENT */
-+	orig = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-+	cp = ip_vs_conn_out_get(exp->tuple.src.l3num, orig->dst.protonum,
-+				&orig->src.u3, orig->src.u.tcp.port,
-+				&orig->dst.u3, orig->dst.u.tcp.port);
-+	if (cp) {
-+		/* Change reply CLIENT->RS to CLIENT->VS */
-+		new_reply = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
-+		IP_VS_DBG(7, "%s(): ct=%p, status=0x%lX, tuples=" FMT_TUPLE ", "
-+			  FMT_TUPLE ", found inout cp=" FMT_CONN "\n",
-+			  __func__, ct, ct->status,
-+			  ARG_TUPLE(orig), ARG_TUPLE(&new_reply),
-+			  ARG_CONN(cp));
-+		new_reply.dst.u3 = cp->vaddr;
-+		new_reply.dst.u.tcp.port = cp->vport;
-+		IP_VS_DBG(7, "%s(): ct=%p, new tuples=" FMT_TUPLE ", " FMT_TUPLE
-+			  ", inout cp=" FMT_CONN "\n",
-+			  __func__, ct,
-+			  ARG_TUPLE(orig), ARG_TUPLE(&new_reply),
-+			  ARG_CONN(cp));
-+		goto alter;
-+	}
-+
-+	/* CLIENT->VS */
-+	cp = ip_vs_conn_in_get(exp->tuple.src.l3num, orig->dst.protonum,
-+			       &orig->src.u3, orig->src.u.tcp.port,
-+			       &orig->dst.u3, orig->dst.u.tcp.port);
-+	if (cp) {
-+		/* Change reply VS->CLIENT to RS->CLIENT */
-+		new_reply = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
-+		IP_VS_DBG(7, "%s(): ct=%p, status=0x%lX, tuples=" FMT_TUPLE ", "
-+			  FMT_TUPLE ", found outin cp=" FMT_CONN "\n",
-+			  __func__, ct, ct->status,
-+			  ARG_TUPLE(orig), ARG_TUPLE(&new_reply),
-+			  ARG_CONN(cp));
-+		new_reply.src.u3 = cp->daddr;
-+		new_reply.src.u.tcp.port = cp->dport;
-+		IP_VS_DBG(7, "%s(): ct=%p, new tuples=" FMT_TUPLE ", "
-+			  FMT_TUPLE ", outin cp=" FMT_CONN "\n",
-+			  __func__, ct,
-+			  ARG_TUPLE(orig), ARG_TUPLE(&new_reply),
-+			  ARG_CONN(cp));
-+		goto alter;
-+	}
-+
-+	IP_VS_DBG(7, "%s(): ct=%p, status=0x%lX, tuple=" FMT_TUPLE
-+		  " - unknown expect\n",
-+		  __func__, ct, ct->status, ARG_TUPLE(orig));
-+	return;
-+
-+alter:
-+	/* Never alter conntrack for non-NAT conns */
-+	if (IP_VS_FWD_METHOD(cp) == IP_VS_CONN_F_MASQ)
-+		nf_conntrack_alter_reply(ct, &new_reply);
-+	ip_vs_conn_put(cp);
-+	return;
++	return XT_CONTINUE;
 +}
 +
-+/*
-+ * Create NF conntrack expectation with wildcard (optional) source port.
-+ * Then the default callback function will alter the reply and will confirm
-+ * the conntrack entry when the first packet comes.
-+ */
-+static void
-+ip_vs_expect_related(struct sk_buff *skb, struct nf_conn *ct,
-+		     struct ip_vs_conn *cp, u_int8_t proto,
-+		     const __be16 *port, int from_rs)
++static int checksum_tg_check(const struct xt_tgchk_param *par)
 +{
-+	struct nf_conntrack_expect *exp;
++	const struct xt_CHECKSUM_info *einfo = par->targinfo;
 +
-+	BUG_ON(!ct || ct == &nf_conntrack_untracked);
-+
-+	exp = nf_ct_expect_alloc(ct);
-+	if (!exp)
-+		return;
-+
-+	if (from_rs)
-+		nf_ct_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
-+				  nf_ct_l3num(ct), &cp->daddr, &cp->caddr,
-+				  proto, port, &cp->cport);
-+	else
-+		nf_ct_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
-+				  nf_ct_l3num(ct), &cp->caddr, &cp->vaddr,
-+				  proto, port, &cp->vport);
-+
-+	exp->expectfn = ip_vs_expect_callback;
-+
-+	IP_VS_DBG(7, "%s(): ct=%p, expect tuple=" FMT_TUPLE "\n",
-+		  __func__, ct, ARG_TUPLE(&exp->tuple));
-+	nf_ct_expect_related(exp);
-+	nf_ct_expect_put(exp);
++	if (einfo->operation & ~XT_CHECKSUM_OP_FILL) {
++		pr_info("unsupported CHECKSUM operation %x\n", einfo->operation);
++		return -EINVAL;
++	}
++	if (!einfo->operation) {
++		pr_info("no CHECKSUM operation enabled\n");
++		return -EINVAL;
++	}
++	return 0;
 +}
- 
- /*
-  * Look at outgoing ftp packets to catch the response to a PASV command
-@@ -149,7 +286,9 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 	struct ip_vs_conn *n_cp;
- 	char buf[24];		/* xxx.xxx.xxx.xxx,ppp,ppp\000 */
- 	unsigned buf_len;
--	int ret;
-+	int ret = 0;
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	/* This application helper doesn't work with IPv6 yet,
-@@ -219,19 +358,26 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 
- 		buf_len = strlen(buf);
- 
-+		ct = nf_ct_get(skb, &ctinfo);
-+		if (ct && !nf_ct_is_untracked(ct)) {
-+			/* If mangling fails this function will return 0
-+			 * which will cause the packet to be dropped.
-+			 * Mangling can only fail under memory pressure,
-+			 * hopefully it will succeed on the retransmitted
-+			 * packet.
-+			 */
-+			ret = nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
-+						       start-data, end-start,
-+						       buf, buf_len);
-+			if (ret)
-+				ip_vs_expect_related(skb, ct, n_cp,
-+						     IPPROTO_TCP, NULL, 0);
-+		}
 +
- 		/*
--		 * Calculate required delta-offset to keep TCP happy
-+		 * Not setting 'diff' is intentional, otherwise the sequence
-+		 * would be adjusted twice.
- 		 */
--		*diff = buf_len - (end-start);
--
--		if (*diff == 0) {
--			/* simply replace it with new passive address */
--			memcpy(start, buf, buf_len);
--			ret = 1;
--		} else {
--			ret = !ip_vs_skb_replace(skb, GFP_ATOMIC, start,
--					  end-start, buf, buf_len);
--		}
- 
- 		cp->app_data = NULL;
- 		ip_vs_tcp_conn_listen(n_cp);
-@@ -263,6 +409,7 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 	union nf_inet_addr to;
- 	__be16 port;
- 	struct ip_vs_conn *n_cp;
-+	struct nf_conn *ct;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	/* This application helper doesn't work with IPv6 yet,
-@@ -349,6 +496,11 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 		ip_vs_control_add(n_cp, cp);
- 	}
- 
-+	ct = (struct nf_conn *)skb->nfct;
-+	if (ct && ct != &nf_conntrack_untracked)
-+		ip_vs_expect_related(skb, ct, n_cp,
-+				     IPPROTO_TCP, &n_cp->dport, 1);
++static struct xt_target checksum_tg_reg __read_mostly = {
++	.name		= "CHECKSUM",
++	.family		= NFPROTO_UNSPEC,
++	.target		= checksum_tg,
++	.targetsize	= sizeof(struct xt_CHECKSUM_info),
++	.table		= "mangle",
++	.checkentry	= checksum_tg_check,
++	.me		= THIS_MODULE,
++};
 +
- 	/*
- 	 *	Move tunnel to listen state
- 	 */
++static int __init checksum_tg_init(void)
++{
++	return xt_register_target(&checksum_tg_reg);
++}
++
++static void __exit checksum_tg_exit(void)
++{
++	xt_unregister_target(&checksum_tg_reg);
++}
++
++module_init(checksum_tg_init);
++module_exit(checksum_tg_exit);
 -- 
 1.7.1
 
