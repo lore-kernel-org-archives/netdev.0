@@ -1,43 +1,46 @@
-From: kaber@trash.net
-Subject: [PATCH 06/28] netfilter: xt_TPROXY: the length of lines should be within 80
-Date: Mon,  2 Aug 2010 21:57:23 +0200
-Message-ID: <1280779065-9333-7-git-send-email-kaber@trash.net>
-References: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Subject: Re: [PATCH 01/11] pcmcia: use pcmica_{read,write}_config_byte
+Date: Mon, 2 Aug 2010 21:52:21 +0200
+Message-ID: <20100802195221.GA21063@comet.dominikbrodowski.net>
+References: <1280667550-3040-1-git-send-email-linux@dominikbrodowski.net>
+ <20100801125749.GA2564@comet.dominikbrodowski.net>
+ <15238373.192661280750366920.komurojun-mbn@nifty.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	linux-pcmcia@lists.infradead.org, linux-wireless@vger.kernel.org,
+	linux-serial@vger.kernel.org
+To: Komuro <komurojun-mbn@nifty.com>
+Return-path: <linux-serial-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <15238373.192661280750366920.komurojun-mbn@nifty.com>
+Sender: linux-serial-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
+Hey,
 
-According to the Documentation/CodingStyle, the length of lines should
-be within 80.
+On Mon, Aug 02, 2010 at 08:59:26PM +0900, Komuro wrote:
+> >--- a/drivers/net/pcmcia/xirc2ps_cs.c
+> >+++ b/drivers/net/pcmcia/xirc2ps_cs.c
+> 
+> 
+> >+	if (err)
+> > 	    goto config_error;
+> >-	reg.Action = CS_WRITE;
+> >-	reg.Offset = CISREG_IOBASE_1;
+> >-	reg.Value = (link->io.BasePort2 >> 8) & 0xff;
+> >-	if ((err = pcmcia_access_configuration_register(link, &reg)))
+> >+
+> >+	err = pcmcia_write_config_byte(link, CISREG_IOBASE_1,
+> >+				link->io.BasePort2 & 0xff);
+> 
+> It should be
+> 
+> 	err = pcmcia_write_config_byte(link, CISREG_IOBASE_1,
+> 				(link->io.BasePort2 >> 8) & 0xff);
+> 
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- net/netfilter/xt_TPROXY.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+Fixed, thanks.
 
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index e1a0ded..c61294d 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -37,8 +37,10 @@ tproxy_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 		return NF_DROP;
- 
- 	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
--				   iph->saddr, tgi->laddr ? tgi->laddr : iph->daddr,
--				   hp->source, tgi->lport ? tgi->lport : hp->dest,
-+				   iph->saddr,
-+				   tgi->laddr ? tgi->laddr : iph->daddr,
-+				   hp->source,
-+				   tgi->lport ? tgi->lport : hp->dest,
- 				   par->in, true);
- 
- 	/* NOTE: assign_sock consumes our sk reference */
--- 
-1.7.1
-
+Best,
+	Dominik
