@@ -1,48 +1,51 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2] nf_nat: no IP_NAT_RANGE_MAP_IPS flags when alloc_null_binding()
-Date: Sun,  1 Aug 2010 22:45:07 +0800
-Message-ID: <1280673907-12619-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the net-current tree
+Date: Mon, 2 Aug 2010 11:04:01 +1000
+Message-ID: <20100802110401.e05c3ec6.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-when alloc_null_binding(), no IP_NAT_RNAGE_MAP_IPS in flags means no IP address
-translation is needed. It isn't necessary to specify the address explicitly.
+Hi all,
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/ipv4/netfilter/nf_nat_rule.c |   17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
-diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
-index ebbd319..21c3042 100644
---- a/net/ipv4/netfilter/nf_nat_rule.c
-+++ b/net/ipv4/netfilter/nf_nat_rule.c
-@@ -106,16 +106,15 @@ alloc_null_binding(struct nf_conn *ct, unsigned int hooknum)
- {
- 	/* Force range to this IP; let proto decide mapping for
- 	   per-proto parts (hence not IP_NAT_RANGE_PROTO_SPECIFIED).
--	   Use reply in case it's already been mangled (eg local packet).
- 	*/
--	__be32 ip
--		= (HOOK2MANIP(hooknum) == IP_NAT_MANIP_SRC
--		   ? ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u3.ip
--		   : ct->tuplehash[IP_CT_DIR_REPLY].tuple.src.u3.ip);
--	struct nf_nat_range range
--		= { IP_NAT_RANGE_MAP_IPS, ip, ip, { 0 }, { 0 } };
--
--	pr_debug("Allocating NULL binding for %p (%pI4)\n", ct, &ip);
-+	struct nf_nat_range range;
-+
-+	range.flags = 0;
-+	pr_debug("Allocating NULL binding for %p (%pI4)\n", ct,
-+		 HOOK2MANIP(hooknum) == IP_NAT_MANIP_SRC ?
-+		 &ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u3.ip :
-+		 &ct->tuplehash[IP_CT_DIR_REPLY].tuple.src.u3.ip);
-+
- 	return nf_nat_setup_info(ct, &range, HOOK2MANIP(hooknum));
- }
- 
+Today's linux-next merge of the net tree got a conflict in
+net/bridge/br_device.c between commit
+6d1d1d398cb7db7a12c5d652d50f85355345234f ("bridge: Fix skb leak when
+multicast parsing fails on TX") from the net-current tree and commit
+91d2c34a4eed32876ca333b0ca44f3bc56645805 ("bridge: Fix netpoll support")
+from the net tree.
+
+Just context changes. I fixed it up (see below) and can carry the fix for
+a while.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/bridge/br_device.c
+index f49bcd9,075c435..0000000
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@@ -46,12 -48,13 +48,16 @@@ netdev_tx_t br_dev_xmit(struct sk_buff 
+  	skb_reset_mac_header(skb);
+  	skb_pull(skb, ETH_HLEN);
+  
+ +	rcu_read_lock();
+  	if (is_multicast_ether_addr(dest)) {
++ 		if (unlikely(netpoll_tx_running(dev))) {
++ 			br_flood_deliver(br, skb);
++ 			goto out;
++ 		}
+ -		if (br_multicast_rcv(br, NULL, skb))
+ +		if (br_multicast_rcv(br, NULL, skb)) {
+ +			kfree_skb(skb);
+  			goto out;
+ +		}
+  
+  		mdst = br_mdb_get(br, skb);
+  		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
