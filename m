@@ -1,46 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] Multiqueue macvtap driver
-Date: Mon, 02 Aug 2010 14:29:03 +0100
-Message-ID: <1280755743.2121.2.camel@achroite.uk.solarflarecom.com>
-References: <20100731135743.3072.99933.sendpatchset@krkumar2.in.ibm.com>
-	 <1280603907.13192.353.camel@localhost>
-	 <20100801.003406.02275545.davem@davemloft.net>
-	 <OF8519C301.F0E5FA07-ON65257772.004983CC-65257773.00453C8B@in.ibm.com>
+From: Elly Jones <ellyjones-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [patch] usbnet: fix 100% CPU use on suspended device
+Date: Mon, 2 Aug 2010 09:31:33 -0400
+Message-ID: <AANLkTi=KbThErL-jXXSVGdkod-p7B7u6eDL5LtnU5SG-@mail.gmail.com>
+References: <Pine.LNX.4.44L0.1007261106350.1550-100000@iolanthe.rowland.org>
+	<201007261821.15020.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, arnd@arndb.de, mst@redhat.com,
-	netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:43946 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751793Ab0HBN3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 09:29:09 -0400
-In-Reply-To: <OF8519C301.F0E5FA07-ON65257772.004983CC-65257773.00453C8B@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201007261821.15020.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-08-02 at 18:07 +0530, Krishna Kumar2 wrote:
-> Thanks Ben & Dave. A question though - which of the following
-> is preferable for the macvtap driver:
-> 
-> 1. Calculate flow and use that to find a queue; or
-> 2. First check if skb_rx_queue_recorded is true and if so use
->     that; otherwise calculate the flow as in #1.
-> 
-> I guess #1 is better, since packets for a single flow will go to the
-> same queue even if they arrive on different rxqs of a mq driver.
-> But I want to make sure.
-[...]
+On Mon, Jul 26, 2010 at 12:21 PM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> wro=
+te:
+> Am Montag, 26. Juli 2010, 17:13:23 schrieb Alan Stern:
+>> On Mon, 26 Jul 2010, Elly Jones wrote:
+>>
+>> > > This isn't right. =A0The problem should be fixed some other way.=
+ =A0Under
+>> > > what circumstances are URBs submitted incorrectly?
+>> >
+>> > When the device is autosuspended. What is the proper thing for a
+>> > device to do here?
+>>
+>> From looking at the code, it appears that the EVENT_DEV_ASLEEP flag
+>> should be tested in usbnet_bh() the way it is in rx_submit(). =A0But=
+ I'm
+>> not an expert on usbnet; we should ask someone who is, like Oliver.
+>
+> Sorry, I didn't notice this thread.
+>
+> The correct way to check for autosuspend in usbnet is to look
+> at EVENT_DEV_ASLEEP under txq.lock. That being said, usbnet_bh()
+> uses rx_submit() which does the correct check. The bug seems to be
+> a lack of error handling in usbnet_bh() regarding the return of rx_su=
+bmit()
 
-#2 is right.  Just as macvtap should provide a stable flow to RX-queue
-mapping, so should the drivers it interfaces with.
+If rx_submit() fails, should usbnet_bh() just not tasklet_schedule() it=
+self?
 
-Ben.
+> =A0 =A0 =A0 =A0Regards
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Oliver
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+-- Elly
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
