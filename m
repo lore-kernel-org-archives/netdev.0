@@ -1,66 +1,46 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Is it a possible bug in dev_gro_receive()?
-Date: Mon, 2 Aug 2010 10:29:06 +0000
-Message-ID: <20100802102906.GA8439@ff.dom.local>
-References: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com>
+Date: Mon, 2 Aug 2010 19:04:27 +0800
+Message-ID: <20100802110427.GA9494@gondor.apana.org.au>
+References: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com> <20100802102906.GA8439@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+Cc: Xin Xiaohui <xiaohui.xin@intel.com>, netdev@vger.kernel.org,
 	davem@davemloft.net
-To: Xin Xiaohui <xiaohui.xin@intel.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:55728 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752371Ab0HBK3P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 06:29:15 -0400
-Received: by fxm14 with SMTP id 14so1605331fxm.19
-        for <netdev@vger.kernel.org>; Mon, 02 Aug 2010 03:29:14 -0700 (PDT)
+Received: from helcar.apana.org.au ([209.40.204.226]:32772 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752555Ab0HBLEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 07:04:33 -0400
 Content-Disposition: inline
-In-Reply-To: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com>
+In-Reply-To: <20100802102906.GA8439@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Xin Xiaohui wrote:
-> I looked into the code dev_gro_receive(), found the code here:
-> if the frags[0] is pulled to 0, then the page will be released,
-> and memmove() frags left.
-> Is that right? I'm not sure if memmove do right or not, but
-> frags[0].size is never set after memove at least. what I think
-> a simple way is not to do anything if we found frags[0].size == 0.
-> The patch is as followed.
+On Mon, Aug 02, 2010 at 10:29:06AM +0000, Jarek Poplawski wrote:
+> Xin Xiaohui wrote:
+> > I looked into the code dev_gro_receive(), found the code here:
+> > if the frags[0] is pulled to 0, then the page will be released,
+> > and memmove() frags left.
+> > Is that right? I'm not sure if memmove do right or not, but
+> > frags[0].size is never set after memove at least. what I think
+> > a simple way is not to do anything if we found frags[0].size == 0.
+> > The patch is as followed.
+> > 
+> > Or am I missing something here?
 > 
-> Or am I missing something here?
-
-I think, you're right, but fixing memmove looks nicer to me:
-
- -	--skb_shinfo(skb)->nr_frags);
- +	--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
-
-Jarek P.
-
+> I think, you're right, but fixing memmove looks nicer to me:
 > 
-> ---
->  net/core/dev.c |    7 -------
->  1 files changed, 0 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 264137f..28cdbbf 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2730,13 +2730,6 @@ pull:
->  
->  		skb_shinfo(skb)->frags[0].page_offset += grow;
->  		skb_shinfo(skb)->frags[0].size -= grow;
-> -
-> -		if (unlikely(!skb_shinfo(skb)->frags[0].size)) {
-> -			put_page(skb_shinfo(skb)->frags[0].page);
-> -			memmove(skb_shinfo(skb)->frags,
-> -				skb_shinfo(skb)->frags + 1,
-> -				--skb_shinfo(skb)->nr_frags);
-> -		}
->  	}
->  
->  ok:
+>  -	--skb_shinfo(skb)->nr_frags);
+>  +	--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
 
+I agree with the diagnosis and your proposed fix.
 
+Thanks for catching this Xiaohui!
 
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
