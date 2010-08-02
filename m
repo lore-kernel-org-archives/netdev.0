@@ -1,44 +1,41 @@
 From: kaber@trash.net
-Subject: [PATCH 28/28] netfilter: nf_conntrack_acct: use skb->len for accounting
-Date: Mon,  2 Aug 2010 21:57:45 +0200
-Message-ID: <1280779065-9333-29-git-send-email-kaber@trash.net>
+Subject: [PATCH 23/28] ipvs: remove EXPERIMENTAL tag
+Date: Mon,  2 Aug 2010 21:57:40 +0200
+Message-ID: <1280779065-9333-24-git-send-email-kaber@trash.net>
 References: <1280779065-9333-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35365 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab0HBT6E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 15:58:04 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1280779065-9333-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Simon Horman <horms@verge.net.au>
 
-use skb->len for accounting as xt_quota does. Since nf_conntrack works
-at the network layer, skb_network_offset should always returns ZERO.
+IPVS was merged into the kernel quite a long time ago and
+has been seeing wide-spread production use for even longer.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+It seems appropriate for it to be no longer tagged as EXPERIMENTAL
+
+Signed-off-as: Simon Horman <horms@verge.net.au>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nf_conntrack_core.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ net/netfilter/ipvs/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 16b41b4..df3eedb 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -966,8 +966,7 @@ acct:
- 		if (acct) {
- 			spin_lock_bh(&ct->lock);
- 			acct[CTINFO2DIR(ctinfo)].packets++;
--			acct[CTINFO2DIR(ctinfo)].bytes +=
--				skb->len - skb_network_offset(skb);
-+			acct[CTINFO2DIR(ctinfo)].bytes += skb->len;
- 			spin_unlock_bh(&ct->lock);
- 		}
- 	}
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index be10f65..46a77d5 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -26,7 +26,7 @@ if IP_VS
+ 
+ config	IP_VS_IPV6
+ 	bool "IPv6 support for IPVS"
+-	depends on EXPERIMENTAL && (IPV6 = y || IP_VS = IPV6)
++	depends on IPV6 = y || IP_VS = IPV6
+ 	---help---
+ 	  Add IPv6 support to IPVS. This is incomplete and might be dangerous.
+ 
 -- 
 1.7.1
 
