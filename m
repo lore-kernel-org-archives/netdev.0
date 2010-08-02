@@ -1,46 +1,83 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM virtio-net.
-Date: Mon, 02 Aug 2010 19:32:24 +0300
-Message-ID: <4C56F318.7030409@redhat.com>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>	 <1280442682.9058.15.camel@localhost.localdomain>	 <4C525CD2.5080604@redhat.com>	 <1280504771.9058.25.camel@localhost.localdomain>	 <4C552DC4.5000600@redhat.com>	 <1280764918.22830.7.camel@localhost.localdomain>	 <4C56EE3D.1050203@redhat.com> <1280766319.22830.24.camel@localhost.localdomain>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: 2.6.35-rc6-git6: Reported regressions from 2.6.34
+Date: Mon, 02 Aug 2010 18:32:13 +0200
+Message-ID: <4C56F30D.3020304@kernel.org>
+References: <2dWFdr9kTFM.A.P0D.spXVMB@chimera> <AANLkTimcH7+Bq1UEbaSU7SQpzArPgmSLegiqE13V8=CF@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	davem@davemloft.net, herbert@gondor.hengli.com.au,
-	jdike@linux.intel.com
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5614 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751852Ab0HBQck (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Aug 2010 12:32:40 -0400
-In-Reply-To: <1280766319.22830.24.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Jens Axboe <jaxboe@fusionio.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <AANLkTimcH7+Bq1UEbaSU7SQpzArPgmSLegiqE13V8=CF@mail.gmail.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  On 08/02/2010 07:25 PM, Shirley Ma wrote:
-> On Mon, 2010-08-02 at 19:11 +0300, Avi Kivity wrote:
->> I don't understand this. gup_fast() only calls gup() if the page is
->> swapped out or read-only.
-> Oh, I used the page as read-only on xmit path. Should I use write
-> instead?
+Hello, Linus.
 
-No, for xmit getting the page as read only is fine.
+On 08/01/2010 08:01 PM, Linus Torvalds wrote:
+> This has a proposed patch. I don't know what the status of it is, though. Jens?
+> 
+>    http://marc.info/?l=linux-kernel&m=127950018204029&w=2
+> 
+>> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=16393
+>> Subject         : kernel BUG at fs/block_dev.c:765!
+>> Submitter       : Markus Trippelsdorf <markus@trippelsdorf.de>
+>> Date            : 2010-07-14 13:52 (19 days old)
+>> Message-ID      : <20100714135217.GA1797@arch.tripp.de>
+>> References      : http://marc.info/?l=linux-kernel&m=127911564213748&w=2
+> 
+> This one is interesting. And I think I perhaps see where it's coming from.
+> 
+> bd_start_claiming() (through bd_prepare_to_claim()) has two separate
+> success cases: either there was no holder (bd_claiming is NULL) or the
+> new holder was already claiming it (bd_claiming == holder).
+> 
+> Note in particular the case of the holder _already_ holding it. What happens is:
+> 
+>  - bd_start_claiming() succeeds because we had _already_ claimed it
+> with the same holder
+> 
+>  - then some error happens, and we call bd_abort_claiming(), which
+> does whole->bd_claiming = NULL;
+> 
+>  - the original holder thinks it still holds the bd, but it has been released!
+> 
+>  - a new claimer comes in, and succeeds because bd_claiming is now NULL.
+> 
+>  - we now have two "owners" of the bd, but bd_claiming only points to
+> the second one.
+> 
+> I think bd_start_claiming() needs to do some kind of refcount for the
+> nested holder case, and bd_abort_claiming() needs to decrement the
+> refcount and only clear the bd_claiming field when it goes down to
+> zero.
+> 
+> I dunno. Maybe there's something else going on, but it does look
+> suspicious, and the above would explain the BUG_ON().
 
-I was inaccurate, gup_fast() performs as follows:
+Yeah, that definitely sounds plausible.  I think the condition check
+in bd_prepare_to_claim() should have been "if (whole->bd_claiming)"
+instead of "if (whole->bd_claiming && whole->bd_claiming != holder)".
+It doesn't make much sense to allow multiple parallel claiming
+operations anyway and the comment above already says - "This function
+fails if @bdev is already claimed by another holder and waits if
+another claiming is in progress."
 
-- if .write = 1, gup_fast() will be fast if the page is mapped and writeable
-- if .write = 0, gup_fast() will be fast if the page is mapped
+I'll try to build a test case and verify it.
 
-so, using .write = 0 for the xmit path will be faster in more cases than 
-.write = 1.
-
-When are you seeing gup_fast() fall back to gup()?  It should be at most 
-once per page (when a guest starts up none of its pages are mapped, it 
-faults them in on demand).
+Thank you.
 
 -- 
-error compiling committee.c: too many arguments to function
-
+tejun
