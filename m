@@ -1,34 +1,45 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: RFC: New BGF 'LOOP' instruction
-Date: Mon, 02 Aug 2010 22:13:41 -0700 (PDT)
-Message-ID: <20100802.221341.137851732.davem@davemloft.net>
+Date: Mon, 02 Aug 2010 22:18:13 -0700 (PDT)
+Message-ID: <20100802.221813.43045517.davem@davemloft.net>
 References: <20100802110334.GK11110@cel.leo>
+	<20100802201629.GA5973@nuttenaction>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: leonerd@leonerd.org.uk
+Cc: leonerd@leonerd.org.uk, netdev@vger.kernel.org
+To: hagen@jauu.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46576
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58463
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751189Ab0HCFNW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 01:13:22 -0400
-In-Reply-To: <20100802110334.GK11110@cel.leo>
+	by vger.kernel.org with ESMTP id S1754944Ab0HCFRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 01:17:54 -0400
+In-Reply-To: <20100802201629.GA5973@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
-Date: Mon, 2 Aug 2010 12:03:34 +0100
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Date: Mon, 2 Aug 2010 22:16:29 +0200
 
-> Any comments on this, while I proceed? Barring any major complaints,
-> I'll have a hack at some code and present a patch in due course...
+> PS: the LOOP opcode must be secure against any ressource attack -> the loop
+> must be break after n iterations.
 
-We're not adding loop instructions, it's just asking for trouble
-since any user can attach BPF filters to a socket and it's just
-way too easy to make a loop endless.
+Oh yeah, what is an iteration in your definition?  See this is why I
+totally refuse to add a looping construct to BPF.
 
-There's a reason no loop primitives were added to the original
-BPF specification, perhaps you should take a look at what their
-reasoning was.
+If you just check for a single loop hitting, the user will just use
+a chaining of two looping constructs.  And then three levels of
+indirection, then four, etc.  He can run up to just before exhasting
+the "iteration limit" of one loop, and branch to the next one, and
+so on and so forth.
 
-It still applies now.
+There are probably a million ways to exploit this, and once you come
+up with a validation or limiting scheme one of two things will happen:
+
+1) The limiting scheme will make legitimate scripts USELESS
+
+2) Someone will just figure out another hole to punch through and
+   exploit
+
+There's a reason no back branching construct was added to BPF to begin
+with.  It violates the core design principles of BPF.
