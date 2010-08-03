@@ -1,53 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] e1000e: update to workaround for jumbo
+Subject: Re: [net-next-2.6 PATCH 3/3] e1000e: update to workaround for jumbo
 	frames on 82577
-Date: Mon, 02 Aug 2010 17:27:50 -0700
-Message-ID: <20100803002748.4179.85660.stgit@localhost.localdomain>
+Date: Mon, 2 Aug 2010 17:36:56 -0700
+Message-ID: <AANLkTi=TvRmXxJu1+y9B8x7G55Ur9wNhYzDZ8Q=+HJRJ@mail.gmail.com>
 References: <20100803002622.4179.31850.stgit@localhost.localdomain>
+	<20100803002748.4179.85660.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:50897 "EHLO
-	qmta01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754302Ab0HCA2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 20:28:09 -0400
-In-Reply-To: <20100803002622.4179.31850.stgit@localhost.localdomain>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:43041 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751611Ab0HCAg5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 20:36:57 -0400
+Received: by iwn7 with SMTP id 7so4579135iwn.19
+        for <netdev@vger.kernel.org>; Mon, 02 Aug 2010 17:36:56 -0700 (PDT)
+In-Reply-To: <20100803002748.4179.85660.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+On Mon, Aug 2, 2010 at 17:27, Jeff Kirsher <jeffrey.t.kirsher@intel.com=
+> wrote:
+> From: Bruce Allan <bruce.w.allan@intel.com>
+>
+> For OEM systems with this part that also has Spread Spectrum Clocking=
+ (SSC)
+> enabled in the BIOS, there is an Rx performance issue with 4K jumbo f=
+rames.
+> Leaving the defaults in PHY page 770 register 26 resolves the issue, =
+and
+> does not negatively impact jumbo frames on systems with SSC disabled.
+>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>
+> =C2=A0drivers/net/e1000e/netdev.c | =C2=A0 =C2=A05 -----
+> =C2=A01 files changed, 0 insertions(+), 5 deletions(-)
+>
 
-For OEM systems with this part that also has Spread Spectrum Clocking (SSC)
-enabled in the BIOS, there is an Rx performance issue with 4K jumbo frames.
-Leaving the defaults in PHY page 770 register 26 resolves the issue, and
-does not negatively impact jumbo frames on systems with SSC disabled.
+Please disregard this patch, it was sent out accidentally (my bad).
+During testing issues were found and changes need to be made to this
+patch.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/e1000e/netdev.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 9e9164a..cc97b58 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -2727,11 +2727,6 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
- 	if ((hw->phy.type == e1000_phy_82577) && (rctl & E1000_RCTL_LPE)) {
- 		u16 phy_data;
- 
--		e1e_rphy(hw, PHY_REG(770, 26), &phy_data);
--		phy_data &= 0xfff8;
--		phy_data |= (1 << 2);
--		e1e_wphy(hw, PHY_REG(770, 26), phy_data);
--
- 		e1e_rphy(hw, 22, &phy_data);
- 		phy_data &= 0x0fff;
- 		phy_data |= (1 << 14);
-
+--=20
+Cheers,
+Jeff
