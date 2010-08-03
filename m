@@ -1,22 +1,26 @@
-From: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
+From: "J. Bruce Fields" <bfields@fieldses.org>
 Subject: Re: sunrpc: what prevents an xprt from being freed before
  task_cleanup runs?
-Date: Tue, 03 Aug 2010 14:49:23 -0400
-Message-ID: <1280861363.12283.2.camel@heimdal.trondhjem.org>
+Date: Tue, 3 Aug 2010 14:48:56 -0400
+Message-ID: <20100803184856.GA31579@fieldses.org>
 References: <20100803132453.4fa18444@tlielax.poochiereds.net>
-	 <1280860815.9771.25.camel@heimdal.trondhjem.org>
+ <1280860815.9771.25.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org
-To: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1280860815.9771.25.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton@redhat.com>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Trond Myklebust <trond.myklebust@fys.uio.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fieldses.org ([174.143.236.118]:39754 "EHLO fieldses.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757608Ab0HCSuV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 14:50:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1280860815.9771.25.camel@heimdal.trondhjem.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-08-03 at 14:40 -0400, Trond Myklebust wrote:
+On Tue, Aug 03, 2010 at 02:40:15PM -0400, Trond Myklebust wrote:
 > On Tue, 2010-08-03 at 13:24 -0400, Jeff Layton wrote:
 > > We got a report recently about a panic in RHEL5 (2.6.18 based kernel).
 > > The problem appears to be that a task_cleanup workqueue job ran and got
@@ -60,13 +64,7 @@ On Tue, 2010-08-03 at 14:40 -0400, Trond Myklebust wrote:
 > How about doing a wait_on_bit_lock(&xprt->state, XPRT_LOCKED,...)
 > instead?
 
-Hmm... On the other hand, since xprt_destroy() may get called from
-inside the rpciod_workqueue, the wait_on_bit_lock() may end up
-deadlocking.
+I'll believe you, but I don't get it: what guarantees that XPRT_LOCKED
+isn't cleared while xprt_autoclose autoclose is still running?
 
-Nevermind, then. Let's go with the cancel_work_sync().
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--b.
