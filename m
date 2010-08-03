@@ -1,70 +1,47 @@
-From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
+From: David Miller <davem@davemloft.net>
 Subject: Re: RFC: New BGF 'LOOP' instruction
-Date: Tue, 3 Aug 2010 08:07:10 +0100
-Message-ID: <20100803070709.GO11110@cel.leo>
+Date: Tue, 03 Aug 2010 00:18:09 -0700 (PDT)
+Message-ID: <20100803.001809.25133218.davem@davemloft.net>
 References: <20100802110334.GK11110@cel.leo>
- <20100802201629.GA5973@nuttenaction>
- <20100802.221813.43045517.davem@davemloft.net>
+	<20100802.221341.137851732.davem@davemloft.net>
+	<20100803070426.GN11110@cel.leo>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="SIAOfPybDqHGMRuo"
-Cc: hagen@jauu.net
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: leonerd@leonerd.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cel.leonerd.org.uk ([81.187.167.226]:36711 "EHLO cel.leo"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755229Ab0HCHHM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Aug 2010 03:07:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20100802.221813.43045517.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59594
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755367Ab0HCHRv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 03:17:51 -0400
+In-Reply-To: <20100803070426.GN11110@cel.leo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
+Date: Tue, 3 Aug 2010 08:04:27 +0100
 
---SIAOfPybDqHGMRuo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On Mon, Aug 02, 2010 at 10:13:41PM -0700, David Miller wrote:
+>> > Any comments on this, while I proceed? Barring any major complaints,
+>> > I'll have a hack at some code and present a patch in due course...
+>> 
+>> We're not adding loop instructions, it's just asking for trouble
+>> since any user can attach BPF filters to a socket and it's just
+>> way too easy to make a loop endless.
+>> 
+>> There's a reason no loop primitives were added to the original
+>> BPF specification, perhaps you should take a look at what their
+>> reasoning was.
+> 
+> Yes. I am very aware of that.
+> 
+> Please read carefully my suggestion. These loops cannot be made endless
+> - they will be bounded by, at most, the number of bytes in the packet
+> buffer. The loop is required to increment X at least 1 at every
+> iteration, and will not allow it to continue past the end of the packet.
+> This puts a strict bound on the runtime of the loop.
 
-On Mon, Aug 02, 2010 at 10:18:13PM -0700, David Miller wrote:
-> If you just check for a single loop hitting, the user will just use
-> a chaining of two looping constructs.  And then three levels of
-> indirection, then four, etc.  He can run up to just before exhasting
-> the "iteration limit" of one loop, and branch to the next one, and
-> so on and so forth.
+That makes the looping construct largely useless, which I mentioned in
+my second reply to this thread.
 
-And this is why part of my suggestion bans the use of a LOOP
-instruction within the "body" of another, such that they cannot nest.
-
-> There are probably a million ways to exploit this, and once you come
-> up with a validation or limiting scheme one of two things will happen:
->=20
-> 1) The limiting scheme will make legitimate scripts USELESS
-
-Rightnow, BPF is all but useless for parsing, say, IPv6. I only pick
-IPv6 as one example, I'm sure there must exist a great number more
-packet-based protocols that use a "linked-list" style approach to
-headers. None of those are currently filterable on the current set of
-instructions. LOOP would allow these.
-
---=20
-Paul "LeoNerd" Evans
-
-leonerd@leonerd.org.uk
-ICQ# 4135350       |  Registered Linux# 179460
-http://www.leonerd.org.uk/
-
---SIAOfPybDqHGMRuo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iD8DBQFMV8AdvLS2TC8cBo0RAqgmAJ9SkU1H7qmYPMrI8l1/KuD69rGEYwCdH5+B
-gMdsWuW5uGU2r1riv8XRUBE=
-=Qr5G
------END PGP SIGNATURE-----
-
---SIAOfPybDqHGMRuo--
