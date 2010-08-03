@@ -1,33 +1,31 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [GIT PULL] xen-netfront driver updates for 2.6.36
-Date: Tue, 03 Aug 2010 11:12:54 -0700
-Message-ID: <4C585C26.1050100@goop.org>
-References: <4C585BC8.5070203@goop.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [ANNOUNCE]: Release of iptables-1.4.9
+Date: Tue, 3 Aug 2010 20:34:32 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1008032033200.6329@obet.zrqbmnf.qr>
+References: <4C5832F9.50004@trash.net> <x6bp9jy7sj@gzp> <4C584C63.8010607@trash.net> <x6vd7rwrah@gzp> <x6lj8nwqu4@gzp> <alpine.LSU.2.01.1008032001430.1519@obet.zrqbmnf.qr> <x6sk2vo9eq@gzp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	"Xen-devel@lists.xensource.com" <Xen-devel@lists.xensource.com>,
-	"Xu, Dongxiao" <dongxiao.xu@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C585BC8.5070203@goop.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+	netfilter-announce@lists.netfilter.org
+To: "Gabor Z. Papp" <gzp@papp.hu>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <x6sk2vo9eq@gzp>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  On 08/03/2010 11:11 AM, Jeremy Fitzhardinge wrote:
->  Hi Dave,
+
+On Tuesday 2010-08-03 20:09, Gabor Z. Papp wrote:
+
+>* Jan Engelhardt <jengelh@medozas.de>:
 >
-> Here's a git branch with some updates to the Xen netfront driver, 
-> which add a new "smartpoll" mode to the netfront backend protocol, 
-> which is basically equivalent to interrupt mitigation.  They've been 
-> in linux-next for a week or so.
+>| (BTW, with --disable-shared you remove the possibility to use any .so
+>| files whatsoever. You can use --enable-static --enable-shared to get
+>| both "all in one binary" and ".so support".)
+>
+>And how to force linking the binaries against the static libs?
 
-Oops, never mind.
-
-They got left out of linux-next, and they have a merge conflict.  I'll 
-sort it out and resubmit.
-
-'Thanks,
-     J
+What libs?
