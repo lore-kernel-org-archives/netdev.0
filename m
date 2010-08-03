@@ -1,90 +1,60 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: sunrpc: what prevents an xprt from being freed before
- task_cleanup runs?
-Date: Tue, 3 Aug 2010 15:18:33 -0400
-Message-ID: <20100803191833.GB31579@fieldses.org>
-References: <20100803132453.4fa18444@tlielax.poochiereds.net>
- <1280860815.9771.25.camel@heimdal.trondhjem.org>
- <20100803184856.GA31579@fieldses.org>
- <1280861775.12283.7.camel@heimdal.trondhjem.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] drivers/net/enic: Use %pUB to format a UUID
+Date: Tue, 03 Aug 2010 12:32:24 -0700
+Message-ID: <1280863944.6088.2.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton@redhat.com>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Trond Myklebust <trond.myklebust@fys.uio.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:45481 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756598Ab0HCTT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Aug 2010 15:19:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1280861775.12283.7.camel@heimdal.trondhjem.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Scott Feldman <scofeldm@cisco.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 03, 2010 at 02:56:15PM -0400, Trond Myklebust wrote:
-> On Tue, 2010-08-03 at 14:48 -0400, J. Bruce Fields wrote:
-> > On Tue, Aug 03, 2010 at 02:40:15PM -0400, Trond Myklebust wrote:
-> > > On Tue, 2010-08-03 at 13:24 -0400, Jeff Layton wrote:
-> > > > We got a report recently about a panic in RHEL5 (2.6.18 based kernel).
-> > > > The problem appears to be that a task_cleanup workqueue job ran and got
-> > > > passed a pointer to an xprt that had been freed. The bug is here in
-> > > > case anyone is interested in the details:
-> > > > 
-> > > >     https://bugzilla.redhat.com/show_bug.cgi?id=611938
-> > > > 
-> > > > The situation seems to be pretty difficult to reproduce, but I don't
-> > > > see anything that's intended to ensure that this doesn't occur in RHEL5
-> > > > or mainline. The task_cleanup workqueue job doesn't hold a reference to
-> > > > the xprt, and the job isn't canceled when the xprt is torn down.
-> > > > 
-> > > > Bruce had a look and suggested that we may need something like the
-> > > > patch below (pasted in, so it probably won't apply correctly). I've
-> > > > tested a backported version of it on RHEL5 and it seems to work fine.
-> > > > 
-> > > > Is it reasonable to cancel task_cleanup when destroying the xprt? Or,
-> > > > am I missing something that should prevent this situation in mainline
-> > > > (and perhaps isn't in RHEL5's kernel).
-> > > > 
-> > > > Any help is appreciated...
-> > > > 
-> > > > -----------------------------[snip]---------------------------------
-> > > > diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-> > > > index dcd0132..2a1f664 100644
-> > > > --- a/net/sunrpc/xprt.c
-> > > > +++ b/net/sunrpc/xprt.c
-> > > > @@ -1129,6 +1129,7 @@ static void xprt_destroy(struct kref *kref)
-> > > >   rpc_destroy_wait_queue(&xprt->sending);
-> > > >   rpc_destroy_wait_queue(&xprt->resend);
-> > > >   rpc_destroy_wait_queue(&xprt->backlog);
-> > > > + cancel_work_sync(&xprt->task_cleanup);
-> > > >   /*
-> > > >    * Tear down transport state and free the rpc_xprt
-> > > >    */
-> > > > -----------------------------[snip]---------------------------------
-> > > > 
-> > > > Thanks,
-> > > 
-> > > How about doing a wait_on_bit_lock(&xprt->state, XPRT_LOCKED,...)
-> > > instead?
-> > 
-> > I'll believe you, but I don't get it: what guarantees that XPRT_LOCKED
-> > isn't cleared while xprt_autoclose autoclose is still running?
-> 
-> Look more closely: the callers that enqueue task_cleanup on the
-> workqueue all ensure that XPRT_LOCKED is held, and it isn't released
-> until the call to xprt_release_write() at the very end of
-> xprt_autoclose().
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/enic/enic_main.c |   17 ++---------------
+ 1 files changed, 2 insertions(+), 15 deletions(-)
 
-I see that (assuming snd_task is always NULL--but, OK, I think I see why
-that's true), but we still dereference the xprt after returning from
-xprt_release_write().  Only to drop the transport_lock, but I don't see
-why there isn't a race.
-
-> The rpciod_workqueue deadlocking is an issue, though, so unfortunately,
-> we won't be able to make use of the above.
-
-Yeah, OK, it was just bugging me that I didn't feel like I understood
-how XPRT_LOCKED is used.
-
---b.
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 77a7f87..9aab853 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -1087,10 +1087,7 @@ static int enic_set_port_profile(struct enic *enic, u8 *mac)
+ {
+ 	struct vic_provinfo *vp;
+ 	u8 oui[3] = VIC_PROVINFO_CISCO_OUI;
+-	u8 *uuid;
+ 	char uuid_str[38];
+-	static char *uuid_fmt = "%02X%02X%02X%02X-%02X%02X-%02X%02X-"
+-		"%02X%02X-%02X%02X%02X%02X%0X%02X";
+ 	int err;
+ 
+ 	err = enic_vnic_dev_deinit(enic);
+@@ -1121,24 +1118,14 @@ static int enic_set_port_profile(struct enic *enic, u8 *mac)
+ 			ETH_ALEN, mac);
+ 
+ 		if (enic->pp.set & ENIC_SET_INSTANCE) {
+-			uuid = enic->pp.instance_uuid;
+-			sprintf(uuid_str, uuid_fmt,
+-				uuid[0],  uuid[1],  uuid[2],  uuid[3],
+-				uuid[4],  uuid[5],  uuid[6],  uuid[7],
+-				uuid[8],  uuid[9],  uuid[10], uuid[11],
+-				uuid[12], uuid[13], uuid[14], uuid[15]);
++			sprintf(uuid_str, "%pUB", enic->pp.instance_uuid);
+ 			vic_provinfo_add_tlv(vp,
+ 				VIC_LINUX_PROV_TLV_CLIENT_UUID_STR,
+ 				sizeof(uuid_str), uuid_str);
+ 		}
+ 
+ 		if (enic->pp.set & ENIC_SET_HOST) {
+-			uuid = enic->pp.host_uuid;
+-			sprintf(uuid_str, uuid_fmt,
+-				uuid[0],  uuid[1],  uuid[2],  uuid[3],
+-				uuid[4],  uuid[5],  uuid[6],  uuid[7],
+-				uuid[8],  uuid[9],  uuid[10], uuid[11],
+-				uuid[12], uuid[13], uuid[14], uuid[15]);
++			sprintf(uuid_str, "%pUB", enic->pp.host_uuid);
+ 			vic_provinfo_add_tlv(vp,
+ 				VIC_LINUX_PROV_TLV_HOST_UUID_STR,
+ 				sizeof(uuid_str), uuid_str);
