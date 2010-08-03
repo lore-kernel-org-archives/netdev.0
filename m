@@ -1,35 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [Bug 16494] NFS client over TCP hangs due to packet
- loss
-Date: Tue, 03 Aug 2010 01:21:44 -0700 (PDT)
-Message-ID: <20100803.012144.267950450.davem@davemloft.net>
-References: <4c57cfe8.887b0e0a.2f79.4772@mx.google.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v3 1/2] core: Factor out flow calculation from get_rps_cpu
+Date: Tue, 3 Aug 2010 10:32:15 +0200
+Message-ID: <201008031032.16138.arnd@arndb.de>
+References: <20100803030256.8486.82622.sendpatchset@krkumar2.in.ibm.com> <AANLkTikJMih-CAA_d95ot0z57EOhMFsiNc2nnki6v6LY@mail.gmail.com> <AANLkTimP_0e5UMC7mgn9=g=kyhqaghdEZC61=Tx7OesP@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
-	William.Allen.Simpson@gmail.com, gilad@codefidence.com,
-	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: andyc.bluearc@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4c57cfe8.887b0e0a.2f79.4772@mx.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, bhutchings@solarflare.com,
+	davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	therbert@google.com
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:58977 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755288Ab0HCIc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 04:32:27 -0400
+In-Reply-To: <AANLkTimP_0e5UMC7mgn9=g=kyhqaghdEZC61=Tx7OesP@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Andy Chittenden" <andyc.bluearc@gmail.com>
-Date: Tue, 3 Aug 2010 09:14:31 +0100
-
-> I don't know whether this patch is the correct fix or not but it enables the
-> NFS client to recover.
+On Tuesday 03 August 2010, Changli Gao wrote:
+> > I am confused by the call sites of macvlan_dev.receive and
+> > macvlan_dev.forward. They both are possible to be called in both
+> > RX(skb->data points to network header) and TX(skb->data points to
+> > ethernet) paths. The current code in macvtap shows that
+> > macvlan_dev.receive should be called in network layer, and
+> > macvlan_dev.forward should be called in dev layer. Am I correct?
+> >
 > 
-> Kernel version: 2.6.34.1 and 2.6.32.
-> 
-> Fixes <https://bugzilla.kernel.org/show_bug.cgi?id=16494>. It clears down
-> any previous shutdown attempts so that reconnects on a socket that's been
-> shutdown leave the socket in a usable state (otherwise tcp_sendmsg() returns
-> -EPIPE).
+> After checking the code carefully, I find macvlan_dev.receive is
+> called in network layer(RX path), and macvlan_dev.forward is called in
+> dev layer(TX path). The current code hasn't any issue. Your solution
+> won't work, as macvtap_forward is called in dev layer, when skb->data
+> points to ethernet header already.
 
-If the SunRPC code wants to close a TCP socket then use it again,
-it should disconnect by doing a connect() with sa_family == AF_UNSPEC
+Yes, that is correct. Forward is used for "bridge" mode, where we
+can send data between two macvlan/macvtap endpoints directly, as
+opposed to the default "vepa" mode, where all data is always sent
+out to the lowerdev and may be returned by an adjacent switch in
+hairpin configuration.
+
+	Arnd
