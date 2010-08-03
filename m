@@ -1,56 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
-Date: Tue, 03 Aug 2010 00:30:56 -0700 (PDT)
-Message-ID: <20100803.003056.216763358.davem@davemloft.net>
-References: <4C529EFB.4090601@hartkopp.net>
-	<20100801.010337.68133932.davem@davemloft.net>
-	<4C555168.3090800@hartkopp.net>
+From: "Andy Chittenden" <andyc.bluearc@gmail.com>
+Subject: [PATCH] [Bug 16494] NFS client over TCP hangs due to packet loss
+Date: Tue, 3 Aug 2010 09:14:31 +0100
+Message-ID: <4c57cfe8.887b0e0a.2f79.4772__10064.6316692748$1280823298$gmane$org@mx.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, patrick.ohly@intel.com,
-	netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
-	matthias.fuchs@esd.eu
-To: socketcan@hartkopp.net
+Cc: <akpm@linux-foundation.org>
+To: "'David S. Miller'" <davem@davemloft.net>,
+	"'Alexey Kuznetsov'" <kuznet@ms2.inr.ac.ru>,
+	"'Pekka Savola \(ipv6'" <pekkas@netcore.fi>,
+	"'James Morris'" <jmorris@namei.org>,
+	"'Hideaki Y
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40225
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750879Ab0HCHai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 03:30:38 -0400
-In-Reply-To: <4C555168.3090800@hartkopp.net>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:62143 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752171Ab0HCIOf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 04:14:35 -0400
+Content-Language: en-gb
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Sun, 01 Aug 2010 12:50:16 +0200
+I don't know whether this patch is the correct fix or not but it enables the
+NFS client to recover.
 
-> On 01.08.2010 10:03, David Miller wrote:
->> From: Oliver Hartkopp <socketcan@hartkopp.net>
->> Date: Fri, 30 Jul 2010 11:44:27 +0200
->> 
->>> Hello Eric, hello Patrick,
->>>
->>> Commit fc6055a5ba31e2c14e36e8939f9bf2b6d586a7f5 (net: Introduce
->>> skb_orphan_try()) allows an early orphan of the skb and takes care on
->>> tx timestamping, which needs the sk-reference in the skb on driver level.
->>> So does the can-raw socket, which has not been taken into account here.
->>>
->>> The patch below adds a 'prevent_sk_orphan' bit in the skb tx shared info,
->>> which fixes the problem discovered by Matthias Fuchs here:
->>>
->>>       http://marc.info/?t=128030411900003&r=1&w=2
->> 
->> Your patch sets this new value, but I never see it getting tested anywhere.
->> 
->> How does this work?
-> 
-> 
-> The flags are tested all together in skb_orphan_try() ...
+Kernel version: 2.6.34.1 and 2.6.32.
 
-This is why I hate using unions in situations like this... it makes
-code impossible to audit easily.
+Fixes <https://bugzilla.kernel.org/show_bug.cgi?id=16494>. It clears down
+any previous shutdown attempts so that reconnects on a socket that's been
+shutdown leave the socket in a usable state (otherwise tcp_sendmsg() returns
+-EPIPE).
 
-This damn thing should just be a "u8 flags" and a bunch of bit mask
-CPP macro defines for the various boolean values.
+# diff -up /home/company/software/src/linux-2.6.34.1/net/ipv4/tcp_output.c
+net/ipv4
+--- /home/company/software/src/linux-2.6.34.1/net/ipv4/tcp_output.c
+2010-07-27 08:46:46.917000000 +0100
++++ net/ipv4/tcp_output.c       2010-07-27 09:19:16.000000000 +0100
+@@ -2522,6 +2522,13 @@ static void tcp_connect_init(struct sock
+        struct tcp_sock *tp = tcp_sk(sk);
+        __u8 rcv_wscale;
 
-Anyways, I'll apply your patch thanks.
++       /* clear down any previous shutdown attempts so that
++        * reconnects on a socket that's been shutdown leave the
++        * socket in a usable state (otherwise tcp_sendmsg() returns
++        * -EPIPE).
++        */
++       sk->sk_shutdown = 0;
++
+        /* We'll fix this up when we get a response from the other end.
+         * See tcp_input.c:tcp_rcv_state_process case TCP_SYN_SENT.
+         */
+
+Signed-off-by: Andy Chittenden <andyc.bluearc@gmail.com>
+
+
+
