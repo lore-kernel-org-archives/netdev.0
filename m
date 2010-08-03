@@ -1,45 +1,60 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: RE: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM
- virtio-net.
-Date: Tue, 03 Aug 2010 08:50:20 -0700
-Message-ID: <1280850620.3391.4.camel@localhost.localdomain>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
-	 <1280442682.9058.15.camel@localhost.localdomain>
-	 <F2E9EB7348B8264F86B6AB8151CE2D791BAB307B7E@shsmsx502.ccr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D791BAB307B7E@shsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Mason <jon.mason@exar.com>
+Subject: [PATCH] ixgbe: ixgbe_fcoe build break
+Date: Tue,  3 Aug 2010 10:57:58 -0500
+Message-ID: <1280851078-4263-1-git-send-email-jon.mason@exar.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	PJ Waskiew
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:39480 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755952Ab0HCP6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 11:58:20 -0400
+Received: by yxg6 with SMTP id 6so1642746yxg.19
+        for <netdev@vger.kernel.org>; Tue, 03 Aug 2010 08:58:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Xiaohui,
+struct ixgbe_fcoe has fields that are #ifdef'ed with CONFIG_IXGBE_DCB.
+However, not all references to those fields check for CONFIG_IXGBE_DCB.
+This patch adds the necessary check to allow for ixgbe to compile.
 
-On Tue, 2010-08-03 at 16:48 +0800, Xin, Xiaohui wrote:
-> May you share me with your performance results (including BW and
-> latency)on 
-> vhost-net and how you get them(your configuration and especially with
-> the affinity 
-> settings)? 
+Signed-off-by: Jon Mason <jon.mason@exar.com>
+---
+ drivers/net/ixgbe/ixgbe_main.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-My macvtap zero copy is incomplete, I am testing sendmsg only now. The
-initial performance is not good especially for latency (zero copy vs.
-copy). I am still working on it to find out why and how to improve.
-That's the reason I am eager to know your performance results and how
-much performance gain you have seen.
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 7d6a415..9ec3dfe 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -6155,9 +6155,11 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 			txq &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
+ 			txq += adapter->ring_feature[RING_F_FCOE].mask;
+ 			return txq;
++#ifdef CONFIG_IXGBE_DCB
+ 		} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
+ 			txq = adapter->fcoe.up;
+ 			return txq;
++#endif
+ 		}
+ 	}
+ #endif
+@@ -6218,8 +6220,10 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
+ 	     skb->protocol == htons(ETH_P_FIP))) {
+ 		tx_flags &= ~(IXGBE_TX_FLAGS_VLAN_PRIO_MASK
+ 			      << IXGBE_TX_FLAGS_VLAN_SHIFT);
++#ifdef CONFIG_IXGBE_DCB
+ 		tx_flags |= ((adapter->fcoe.up << 13)
+ 			      << IXGBE_TX_FLAGS_VLAN_SHIFT);
++#endif
+ 		/* flag for FCoE offloads */
+ 		if (skb->protocol == htons(ETH_P_FCOE))
+ 			tx_flags |= IXGBE_TX_FLAGS_FCOE;
+-- 
+1.7.0.4
 
-Since your patch has completed. I would try your patch here for
-performance. If you have some performance results to share here that
-would be great.
-
-Thanks
-Shirley
