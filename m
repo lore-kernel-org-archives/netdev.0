@@ -1,45 +1,48 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: New BGF 'LOOP' instruction
-Date: Tue, 3 Aug 2010 16:05:39 +0200
-Message-ID: <20100803140539.GE31096@basil.fritz.box>
-References: <20100803070426.GN11110@cel.leo>
- <20100803.001809.25133218.davem@davemloft.net>
- <87mxt3etut.fsf@basil.nowhere.org>
- <20100803.060754.26959298.davem@davemloft.net>
+From: Igor Grinberg <grinberg@compulab.co.il>
+Subject: Re: [PATCH 2/8] davinci: add mdio platform devices
+Date: Tue, 03 Aug 2010 17:06:50 +0300
+Message-ID: <4C58227A.4080502@compulab.co.il>
+References: <1280842313-3743-1-git-send-email-cyril@ti.com> <1280842313-3743-3-git-send-email-cyril@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, leonerd@leonerd.org.uk, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com,
+	linux-omap@vger.kernel.org, nsekhar@ti.com, srk@ti.com
+To: Cyril Chemparathy <cyril@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:39618 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755500Ab0HCOFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 10:05:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20100803.060754.26959298.davem@davemloft.net>
+Received: from compulab.co.il ([67.18.134.219]:33636 "EHLO compulab.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756281Ab0HCOHA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 10:07:00 -0400
+In-Reply-To: <1280842313-3743-3-git-send-email-cyril@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 03, 2010 at 06:07:54AM -0700, David Miller wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Tue, 03 Aug 2010 14:58:02 +0200
-> 
-> > David Miller <davem@davemloft.net> writes:
-> >>
-> >> That makes the looping construct largely useless, which I mentioned in
-> >> my second reply to this thread.
-> > 
-> > How about simply adding a "skip ipv6 extension headers until header type
-> > X" opcode?
-> > 
-> > I bet that would solve most of the problems here in practice.
-> 
-> BPF really should not have protocol specific opcodes.
+On 08/03/10 16:31, Cyril Chemparathy wrote:
+> This patch adds mdio platform devices on SoCs that have the necessary
+> hardware.  Clock lookup entries (aliases) have also been added, so that the
+> MDIO and EMAC drivers can independently enable/disable a shared underlying
+> clock.  Further, the EMAC MMR region has been split down into separate MDIO
+> and EMAC regions.
+>
+> Signed-off-by: Cyril Chemparathy <cyril@ti.com>
+> ---
+>  arch/arm/mach-davinci/devices-da8xx.c       |   29 +++++++++++++++++++++++++-
+>  arch/arm/mach-davinci/dm365.c               |   22 +++++++++++++++++++-
+>  arch/arm/mach-davinci/dm644x.c              |   22 +++++++++++++++++++-
+>  arch/arm/mach-davinci/dm646x.c              |   22 +++++++++++++++++++-
+>  arch/arm/mach-davinci/include/mach/dm365.h  |    1 +
+>  arch/arm/mach-davinci/include/mach/dm644x.h |    1 +
+>  arch/arm/mach-davinci/include/mach/dm646x.h |    1 +
+>  7 files changed, 93 insertions(+), 5 deletions(-)
+>   
 
-Well you could generalize it, like "SKIP headers where length 
-is at offset X and type at offset Y" 
-
--Andi
+Shouldn't arch/arm/mach-omap2/board-am3517evm.c be on your list?
+I think it should, or else it will be broken by:
+[PATCH 5/8] netdev: cleanup unused davinci mdio emac code
 
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+Regards,
+Igor.
+
