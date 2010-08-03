@@ -1,41 +1,50 @@
-From: Michele Petrazzo - Unipex <michele.petrazzo@unipex.it>
-Subject: Re: [ANNOUNCE]: Release of iptables-1.4.9
-Date: Tue, 03 Aug 2010 19:29:50 +0200
-Message-ID: <4C58520E.5000906@unipex.it>
-References: <4C5832F9.50004@trash.net> <x6bp9jy7sj@gzp>	<4C584C63.8010607@trash.net> <x6vd7rwrah@gzp>
+From: Patrick Ohly <patrick.ohly@intel.com>
+Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
+Date: Tue, 03 Aug 2010 19:33:48 +0200
+Message-ID: <1280856828.3266.839.camel@pohly-mobl1.ikn.intel.com>
+References: <4C529EFB.4090601@hartkopp.net>
+	 <20100801.010337.68133932.davem@davemloft.net>
+	 <4C555168.3090800@hartkopp.net>
+	 <20100803.003056.216763358.davem@davemloft.net>
+	 <4C583447.8010004@hartkopp.net>
+	 <1280852081.3266.834.camel@pohly-mobl1.ikn.intel.com>
+	 <4C584DB2.8020406@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org
-To: "Gabor Z. Papp" <gzp@papp.hu>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <x6vd7rwrah@gzp>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
+	"matthias.fuchs@esd.eu" <matthias.fuchs@esd.eu>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:64412 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753482Ab0HCRdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 13:33:53 -0400
+In-Reply-To: <4C584DB2.8020406@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Gabor Z. Papp wrote:
-> * Patrick McHardy <kaber@trash.net>:
+On Tue, 2010-08-03 at 10:11 -0700, Oliver Hartkopp wrote:
+> > I'm fine with using a simple u8. I'm not sure where I picked up the
+> > union thing, it's not something that I usually do in my own code.
+> > 
 > 
-> | Did you use a git checkout/patch against 1.4.8 or the tar.bz2?
-> | In case its the former, try running make clean, sh autogen.sh and
-> | sh configure again before the build.
+> :-)
 > 
-> Used the tarball, but tried git also:
-> 
+> Im currently busy until next week, would you like to provide a patch?
 
-Here git works. Or better, compile but I don't find the "iptables" command.
+Sorry, I have to pass. I'm busy elsewhere myself. MeeGo and
+SyncEvolution plus real life consume all of my time nowadays.
 
-If I enable static compilation "configure --enable-static", I receive:
-extensions/libext4.a(initext4.o): In function `init_extensions':
-/home/devel/iptables/extensions/initext4.c:103: undefined reference to
-`libxt_IDLETIMER_init'
-/home/devel/iptables/extensions/initext4.c:137: undefined reference to
-`libxt_TEE_ini
+-- 
+Best Regards, Patrick Ohly
+
+The content of this message is my personal opinion only and although
+I am an employee of Intel, the statements I make here in no way
+represent Intel's position on the issue, nor am I authorized to speak
+on behalf of Intel on this matter.
 
 
-Michele
