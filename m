@@ -1,83 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] ixgbevf: fix null pointer dereference due to
-	filter being set for VLAN 0
-Date: Mon, 02 Aug 2010 17:59:04 -0700
-Message-ID: <20100803005849.4678.10583.stgit@localhost.localdomain>
+Subject: Re: [net-2.6 PATCH] e1000e: 82577/82578 PHY register access issues
+Date: Mon, 2 Aug 2010 18:04:43 -0700
+Message-ID: <AANLkTi=P_+3wpmAA5+eqaWoGE39OkZPFhRXEuXGypAco@mail.gmail.com>
+References: <20100727222808.25500.11033.stgit@localhost.localdomain>
+	<20100727.210642.137855605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+	stable@kernel.org, bruce.w.allan@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.westchester.pa.mail.comcast.net ([76.96.62.80]:44271
-	"EHLO qmta08.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751076Ab0HCA7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 20:59:25 -0400
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:52338 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754747Ab0HCBEp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 21:04:45 -0400
+Received: by iwn7 with SMTP id 7so4603912iwn.19
+        for <netdev@vger.kernel.org>; Mon, 02 Aug 2010 18:04:44 -0700 (PDT)
+In-Reply-To: <20100727.210642.137855605.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Tue, Jul 27, 2010 at 21:06, David Miller <davem@davemloft.net> wrote=
+:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Tue, 27 Jul 2010 15:28:46 -0700
+>
+>> From: Bruce Allan <bruce.w.allan@intel.com>
+>>
+>> The MAC-PHY interconnect on 82577/82578 uses a power management feat=
+ure
+>> (called K1) which must be disabled when in 1Gbps due to a hardware i=
+ssue on
+>> these parts. =C2=A0The #define bit setting used to enable/disable K1=
+ is
+>> incorrect and can cause PHY register accesses to stop working altoge=
+ther
+>> until the next device reset. =C2=A0This patch sets the register corr=
+ectly.
+>>
+>> This issue is present in kernels since 2.6.32.
+>>
+>> CC: stable@kernel.org
+>> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+>> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>
+> Applied, thanks.
+> --
 
-This change corrects an issue that resulted in a null pointer dereference
-for the addition of VLAN 0 without any VLANs being registered.  Also this
-code removes some unnecessary checks for defines and the unnecessary setting
-of VLAN flags since that is now handled within the kernel via the
-vlan_features.
+Dave,
+Have you sync'd up your net-next-2.6 tree with net-2.6 tree?  Because
+I do not see this change in the net-next-2.6 tree.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/ixgbevf/ixgbevf_main.c |   12 +-----------
- 1 files changed, 1 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index 4867440..3e291cc 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -1463,18 +1463,10 @@ static void ixgbevf_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	struct net_device *v_netdev;
- 
- 	/* add VID to filter table */
- 	if (hw->mac.ops.set_vfta)
- 		hw->mac.ops.set_vfta(hw, vid, 0, true);
--	/*
--	 * Copy feature flags from netdev to the vlan netdev for this vid.
--	 * This allows things like TSO to bubble down to our vlan device.
--	 */
--	v_netdev = vlan_group_get_device(adapter->vlgrp, vid);
--	v_netdev->features |= adapter->netdev->features;
--	vlan_group_set_device(adapter->vlgrp, vid, v_netdev);
- }
- 
- static void ixgbevf_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
-@@ -3402,7 +3394,6 @@ static int __devinit ixgbevf_probe(struct pci_dev *pdev,
- 	/* setup the private structure */
- 	err = ixgbevf_sw_init(adapter);
- 
--#ifdef MAX_SKB_FRAGS
- 	netdev->features = NETIF_F_SG |
- 			   NETIF_F_IP_CSUM |
- 			   NETIF_F_HW_VLAN_TX |
-@@ -3416,13 +3407,12 @@ static int __devinit ixgbevf_probe(struct pci_dev *pdev,
- 	netdev->vlan_features |= NETIF_F_TSO;
- 	netdev->vlan_features |= NETIF_F_TSO6;
- 	netdev->vlan_features |= NETIF_F_IP_CSUM;
-+	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
- 	netdev->vlan_features |= NETIF_F_SG;
- 
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
- 
--#endif /* MAX_SKB_FRAGS */
--
- 	/* The HW MAC address was set and/or determined in sw_init */
- 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
- 	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
-
+--=20
+Cheers,
+Jeff
