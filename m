@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] ixgbevf: fix null pointer dereference due
- to filter being set for VLAN 0
-Date: Mon, 02 Aug 2010 21:21:33 -0700 (PDT)
-Message-ID: <20100802.212133.184833501.davem@davemloft.net>
-References: <20100803005849.4678.10583.stgit@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] deal with if frags[0].size is pulled to 0 in
+	dev_gro_receive()
+Date: Tue, 3 Aug 2010 12:56:38 +0800
+Message-ID: <20100803045637.GA14173@gondor.apana.org.au>
+References: <1280805439-18988-1-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	alexander.h.duyck@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: xiaohui.xin@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60628
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754668Ab0HCEVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 00:21:15 -0400
-In-Reply-To: <20100803005849.4678.10583.stgit@localhost.localdomain>
+Received: from helcar.apana.org.au ([209.40.204.226]:57789 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754075Ab0HCE4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 00:56:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1280805439-18988-1-git-send-email-xiaohui.xin@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 02 Aug 2010 17:59:04 -0700
-
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Tue, Aug 03, 2010 at 11:17:19AM +0800, xiaohui.xin@intel.com wrote:
+> From: Xin Xiaohui <xiaohui.xin@intel.com>
 > 
-> This change corrects an issue that resulted in a null pointer dereference
-> for the addition of VLAN 0 without any VLANs being registered.  Also this
-> code removes some unnecessary checks for defines and the unnecessary setting
-> of VLAN flags since that is now handled within the kernel via the
-> vlan_features.
+> Now in dev_gro_receive(), if frags[0].size is pulled to 0, memmove is called and
+> the null page is released. But it's not enough, we should reset size of each frags
+> left as well. Compared to this, we can have another way to do this, it's not do do
+> anything at all.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Applied.
+This patch can only work if you audit everything that uses skb
+frags to ensure that they can tolerate a zero-sided frag.
+
+I think it's much easier to just fix the memmove.
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
