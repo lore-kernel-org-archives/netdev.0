@@ -1,98 +1,35 @@
-From: "ustc.mail" <backyes@mail.ustc.edu.cn>
-Subject: [PATCH] about net/core/pktgen.c module.
-Date: Tue, 3 Aug 2010 23:20:17 +0800
-Message-ID: <AANLkTim7ZhGGgE9TJsu1m5=fD743meN12V5Ywn_9Cyaq@mail.gmail.com>
+From: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] hso:  Add new product ID
+Date: Tue, 03 Aug 2010 17:36:41 +0200
+Message-ID: <1280849801.5149.5.camel@filip-linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: robert.olsson@its.uu.se
-To: robert@herjulf.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ustc.edu.cn ([202.38.64.46]:33791 "HELO ustc.edu.cn"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756899Ab0HCP2I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 11:28:08 -0400
-Received: by qyk7 with SMTP id 7so781770qyk.19
-        for <netdev@vger.kernel.org>; Tue, 03 Aug 2010 08:20:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-I find that there is a bug in the pktgen kernel packet generator. It's
-my first time to add a patch, so welcome to give me suggestion about
-patch work.
+This patch adds a new product ID to the hso driver.
 
-description: the bug makes the first generated packets (one or more
-which depend on the configuration from usespace script.)enter to the
-same NIC queue of multi-queue NIC for the wrong position of
-mod_cur_headers(pkt_dev) call while building the IPV4 and IPV6
-skb_buff.
-kernel version: linux-2.6.33.3
-file: linux-2.6.33.3/net/core/pktgen.c
-result: while setting skb_clone more than one, specially for a
-considerable number, the multiqueue function is not efficient for its
-wrong queue_map value.
-patch as following:
---- pktgen.c	2010-08-03 22:46:55.001682745 +0800
-+++ pktgen.patch.c	2010-08-03 22:48:03.367409102 +0800
-@@ -2567,8 +2567,8 @@
- 	/* Update any of the values, used when we're incrementing various
- 	 * fields.
- 	 */
--	queue_map =3D pkt_dev->cur_queue_map;
- 	mod_cur_headers(pkt_dev);
-+	queue_map =3D pkt_dev->cur_queue_map;
+Signed-off-by: Filip Aben <f.aben-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
+---
 
- 	datalen =3D (odev->hard_header_len + 16) & ~0xf;
- 	skb =3D __netdev_alloc_skb(odev,
-@@ -2913,8 +2913,8 @@
- 	/* Update any of the values, used when we're incrementing various
- 	 * fields.
- 	 */
--	queue_map =3D pkt_dev->cur_queue_map;
- 	mod_cur_headers(pkt_dev);
-+	queue_map =3D pkt_dev->cur_queue_map;
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 4dd2351..041f0e3 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -478,6 +478,7 @@ static const struct usb_device_id hso_ids[] = {
+ 	{USB_DEVICE(0x0af0, 0x8600)},
+ 	{USB_DEVICE(0x0af0, 0x8800)},
+ 	{USB_DEVICE(0x0af0, 0x8900)},
++	{USB_DEVICE(0x0af0, 0x9000)},
+ 	{USB_DEVICE(0x0af0, 0xd035)},
+ 	{USB_DEVICE(0x0af0, 0xd055)},
+ 	{USB_DEVICE(0x0af0, 0xd155)},
 
- 	skb =3D __netdev_alloc_skb(odev,
- 				 pkt_dev->cur_pkt_size + 64
---------------------------------------patch
-end-------------------------------------------------
-Best regards!
-from backyes
----------------------------------------reply
-end-------------------------------------------------
-On Tue, Aug 3, 2010 at 10:30 PM, ustc.mail <backyes@mail.ustc.edu.cn> w=
-rote:
-> Thanks for your reply!
-> It's my pleasure to patch it.
-> -Yanfei
->
-> On Tue, Aug 3, 2010 at 7:44 PM, <robert@herjulf.net> wrote:
->>
->> > Dear robert, I am doing some research on the
->> >pktgen.c implementation. While reading the source code, I find some
->> >doubts about cur->cur_queue_map for multiqueue NIC . =A0The followi=
-ng
->> >code is from pktgen.c in kernel 2.6.33.3.=A0 =A0For line 2919 and l=
-ine
->> >2920, the first generated packets is sent to same queue of NIC for
->> >every thread. Because the the first generated packets is sent while
->> >the cur_queue_map is not setted yet.=A0 =A0"reverse the two line" i=
-s OK.
->> >Am I right?
->>
->> Right first time we're using queue_map that's not been set by
->> set_cur_queue_map(pkt_dev);
->>
->> =A0 =A0 =A0 =A0queue_map =3D pkt_dev->cur_queue_map;
->> =A0 =A0 =A0 =A0mod_cur_headers(pkt_dev);
->>
->> Can you make a patch and submit to netdev?
->>
->>
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0--ro
->>
->
->
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
