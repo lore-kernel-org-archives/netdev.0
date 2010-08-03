@@ -1,64 +1,44 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH v3 1/2] core: Factor out flow calculation from
- get_rps_cpu
-Date: Tue, 03 Aug 2010 15:36:10 -0700
-Message-ID: <1280874970.17972.51.camel@w-sridhar.beaverton.ibm.com>
-References: <20100803030256.8486.82622.sendpatchset@krkumar2.in.ibm.com>
-	 <AANLkTikJMih-CAA_d95ot0z57EOhMFsiNc2nnki6v6LY@mail.gmail.com>
-	 <AANLkTimP_0e5UMC7mgn9=g=kyhqaghdEZC61=Tx7OesP@mail.gmail.com>
-	 <201008031032.16138.arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
+Date: Tue, 03 Aug 2010 16:28:06 -0700 (PDT)
+Message-ID: <20100803.162806.226750720.davem@davemloft.net>
+References: <4C584DB2.8020406@hartkopp.net>
+	<1280856828.3266.839.camel@pohly-mobl1.ikn.intel.com>
+	<4C5856E3.3070606@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	bhutchings@solarflare.com, davem@davemloft.net, mst@redhat.com,
-	netdev@vger.kernel.org, therbert@google.com
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: patrick.ohly@intel.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	matthias.fuchs@esd.eu
+To: socketcan@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:48041 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757344Ab0HCWgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 18:36:22 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e36.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o73MWhPV005723
-	for <netdev@vger.kernel.org>; Tue, 3 Aug 2010 16:32:43 -0600
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o73MaEmE063990
-	for <netdev@vger.kernel.org>; Tue, 3 Aug 2010 16:36:15 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o73MaCZL025423
-	for <netdev@vger.kernel.org>; Tue, 3 Aug 2010 16:36:13 -0600
-In-Reply-To: <201008031032.16138.arnd@arndb.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51201
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756696Ab0HCX1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 19:27:48 -0400
+In-Reply-To: <4C5856E3.3070606@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-08-03 at 10:32 +0200, Arnd Bergmann wrote:
-> On Tuesday 03 August 2010, Changli Gao wrote:
-> > > I am confused by the call sites of macvlan_dev.receive and
-> > > macvlan_dev.forward. They both are possible to be called in both
-> > > RX(skb->data points to network header) and TX(skb->data points to
-> > > ethernet) paths. The current code in macvtap shows that
-> > > macvlan_dev.receive should be called in network layer, and
-> > > macvlan_dev.forward should be called in dev layer. Am I correct?
-> > >
-> > 
-> > After checking the code carefully, I find macvlan_dev.receive is
-> > called in network layer(RX path), and macvlan_dev.forward is called in
-> > dev layer(TX path). The current code hasn't any issue. Your solution
-> > won't work, as macvtap_forward is called in dev layer, when skb->data
-> > points to ethernet header already.
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Tue, 03 Aug 2010 19:50:27 +0200
+
+> On 03.08.2010 19:33, Patrick Ohly wrote:
+>> On Tue, 2010-08-03 at 10:11 -0700, Oliver Hartkopp wrote:
+>>>> I'm fine with using a simple u8. I'm not sure where I picked up the
+>>>> union thing, it's not something that I usually do in my own code.
+>>>>
+>>>
+>>> :-)
+>>>
+>>> Im currently busy until next week, would you like to provide a patch?
+>> 
+>> Sorry, I have to pass. I'm busy elsewhere myself. MeeGo and
+>> SyncEvolution plus real life consume all of my time nowadays.
 > 
-> Yes, that is correct. Forward is used for "bridge" mode, where we
-> can send data between two macvlan/macvtap endpoints directly, as
-> opposed to the default "vepa" mode, where all data is always sent
-> out to the lowerdev and may be returned by an adjacent switch in
-> hairpin configuration.
+> Working for MeeGo is a good excuse ;-)
+> 
+> Will pick that task next week.
 
-macvtap_forward() is also used in the normal receive path as
-macvtap_receive() has a direct call to macvtap_forward() after 
-updating skb->data to point to the ethernet header.
-
-Thanks
-Sridhar
-
+Thanks guys.
