@@ -1,92 +1,64 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: ixgbe_fcoe build break
-Date: Tue, 3 Aug 2010 14:55:47 -0700
-Message-ID: <AANLkTi==NOe4w-=yHw8KptSyCpT+ir9X32W3z2_km0sN@mail.gmail.com>
-References: <1280851078-4263-1-git-send-email-jon.mason@exar.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH v3 1/2] core: Factor out flow calculation from
+ get_rps_cpu
+Date: Tue, 03 Aug 2010 15:36:10 -0700
+Message-ID: <1280874970.17972.51.camel@w-sridhar.beaverton.ibm.com>
+References: <20100803030256.8486.82622.sendpatchset@krkumar2.in.ibm.com>
+	 <AANLkTikJMih-CAA_d95ot0z57EOhMFsiNc2nnki6v6LY@mail.gmail.com>
+	 <AANLkTimP_0e5UMC7mgn9=g=kyhqaghdEZC61=Tx7OesP@mail.gmail.com>
+	 <201008031032.16138.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Jon Mason <jon.mason@exar.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	bhutchings@solarflare.com, davem@davemloft.net, mst@redhat.com,
+	netdev@vger.kernel.org, therbert@google.com
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:65535 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756798Ab0HCVzs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 17:55:48 -0400
-Received: by ywh1 with SMTP id 1so1729827ywh.19
-        for <netdev@vger.kernel.org>; Tue, 03 Aug 2010 14:55:47 -0700 (PDT)
-In-Reply-To: <1280851078-4263-1-git-send-email-jon.mason@exar.com>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:48041 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757344Ab0HCWgW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 18:36:22 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e36.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o73MWhPV005723
+	for <netdev@vger.kernel.org>; Tue, 3 Aug 2010 16:32:43 -0600
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o73MaEmE063990
+	for <netdev@vger.kernel.org>; Tue, 3 Aug 2010 16:36:15 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o73MaCZL025423
+	for <netdev@vger.kernel.org>; Tue, 3 Aug 2010 16:36:13 -0600
+In-Reply-To: <201008031032.16138.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 3, 2010 at 08:57, Jon Mason <jon.mason@exar.com> wrote:
-> struct ixgbe_fcoe has fields that are #ifdef'ed with CONFIG_IXGBE_DCB=
-=2E
-> However, not all references to those fields check for CONFIG_IXGBE_DC=
-B.
-> This patch adds the necessary check to allow for ixgbe to compile.
->
-> Signed-off-by: Jon Mason <jon.mason@exar.com>
-> ---
-> =C2=A0drivers/net/ixgbe/ixgbe_main.c | =C2=A0 =C2=A04 ++++
-> =C2=A01 files changed, 4 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe=
-_main.c
-> index 7d6a415..9ec3dfe 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -6155,9 +6155,11 @@ static u16 ixgbe_select_queue(struct net_devic=
-e *dev, struct sk_buff *skb)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0txq &=3D (adapter->ring_feature[RING_F_FCOE].indices - 1)=
-;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0txq +=3D adapter->ring_feature[RING_F_FCOE].mask;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0return txq;
-> +#ifdef CONFIG_IXGBE_DCB
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0} else if (ada=
-pter->flags & IXGBE_FLAG_DCB_ENABLED) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0txq =3D adapter->fcoe.up;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0return txq;
-> +#endif
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> =C2=A0#endif
-> @@ -6218,8 +6220,10 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_=
-buff *skb,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 skb->protocol =3D=3D htons(=
-ETH_P_FIP))) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0tx_flags &=3D =
-~(IXGBE_TX_FLAGS_VLAN_PRIO_MASK
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0<< IXGBE_TX_FLAGS_VLAN_SHIFT);
-> +#ifdef CONFIG_IXGBE_DCB
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0tx_flags |=3D =
-((adapter->fcoe.up << 13)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0<< IXGBE_TX_FLAGS_VLAN_SHIFT);
-> +#endif
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* flag for FC=
-oE offloads */
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb->proto=
-col =3D=3D htons(ETH_P_FCOE))
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0tx_flags |=3D IXGBE_TX_FLAGS_FCOE;
-> --
+On Tue, 2010-08-03 at 10:32 +0200, Arnd Bergmann wrote:
+> On Tuesday 03 August 2010, Changli Gao wrote:
+> > > I am confused by the call sites of macvlan_dev.receive and
+> > > macvlan_dev.forward. They both are possible to be called in both
+> > > RX(skb->data points to network header) and TX(skb->data points to
+> > > ethernet) paths. The current code in macvtap shows that
+> > > macvlan_dev.receive should be called in network layer, and
+> > > macvlan_dev.forward should be called in dev layer. Am I correct?
+> > >
+> > 
+> > After checking the code carefully, I find macvlan_dev.receive is
+> > called in network layer(RX path), and macvlan_dev.forward is called in
+> > dev layer(TX path). The current code hasn't any issue. Your solution
+> > won't work, as macvtap_forward is called in dev layer, when skb->data
+> > points to ethernet header already.
+> 
+> Yes, that is correct. Forward is used for "bridge" mode, where we
+> can send data between two macvlan/macvtap endpoints directly, as
+> opposed to the default "vepa" mode, where all data is always sent
+> out to the lowerdev and may be returned by an adjacent switch in
+> hairpin configuration.
 
-Thanks Jon.  I think I may already have a patch in my queue with this
-fix, but if I do not, I make sure to add your patch.
+macvtap_forward() is also used in the normal receive path as
+macvtap_receive() has a direct call to macvtap_forward() after 
+updating skb->data to point to the ethernet header.
 
---=20
-Cheers,
-Jeff
+Thanks
+Sridhar
+
