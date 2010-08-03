@@ -1,50 +1,67 @@
-From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: RFC: New BPF 'LOOP' instruction
-Date: Tue, 3 Aug 2010 18:17:40 +0300
-Message-ID: <201008031817.40664.remi@remlab.net>
-References: <20100803070426.GN11110@cel.leo> <f350f48de92da479bfb224527bc70c10@chewa.net> <20100803141924.GV11110@cel.leo>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
+Date: Tue, 03 Aug 2010 17:22:47 +0200
+Message-ID: <4C583447.8010004@hartkopp.net>
+References: <4C529EFB.4090601@hartkopp.net>	<20100801.010337.68133932.davem@davemloft.net>	<4C555168.3090800@hartkopp.net>
+	<20100803.003056.216763358.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:56715 "EHLO yop.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756911Ab0HCPRn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 11:17:43 -0400
-Received: from basile.remlab.net (cs27070146.pp.htv.fi [89.27.70.146])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: remi)
-	by yop.chewa.net (Postfix) with ESMTPSA id DF8DE76A
-	for <netdev@vger.kernel.org>; Tue,  3 Aug 2010 17:17:41 +0200 (CEST)
-In-Reply-To: <20100803141924.GV11110@cel.leo>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20100803.003056.216763358.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 3 ao=FBt 2010 17:19:24 Paul LeoNerd Evans, vous avez =E9crit :
-> On Tue, Aug 03, 2010 at 04:16:02PM +0200, R=E9mi Denis-Courmont wrote=
-:
-> > > Is there any way it could be done lazily, at the moment that filt=
-er.c
-> > > knows it has to provide either SKF_TRANS_OFF or SKF_AD_TRANSPROTO=
-?
-> >=20
-> > You would essentially need to implement dedicated parsing for each
-> > protocols family.
-> > So you might as well add an opcode dedicated to IPv6...
->=20
-> And what happens when IPv8 comes along?
-> Or we want to parse IPX/SPX or
-> any of those thousands of other network protocols?
+On 03.08.2010 09:30, David Miller wrote:
+> From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+> Date: Sun, 01 Aug 2010 12:50:16 +0200
+> 
+>> On 01.08.2010 10:03, David Miller wrote:
+>>> From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+>>> Date: Fri, 30 Jul 2010 11:44:27 +0200
+>>>
+>>>> Hello Eric, hello Patrick,
+>>>>
+>>>> Commit fc6055a5ba31e2c14e36e8939f9bf2b6d586a7f5 (net: Introduce
+>>>> skb_orphan_try()) allows an early orphan of the skb and takes care on
+>>>> tx timestamping, which needs the sk-reference in the skb on driver level.
+>>>> So does the can-raw socket, which has not been taken into account here.
+>>>>
+>>>> The patch below adds a 'prevent_sk_orphan' bit in the skb tx shared info,
+>>>> which fixes the problem discovered by Matthias Fuchs here:
+>>>>
+>>>>       http://marc.info/?t=128030411900003&r=1&w=2
+>>>
+>>> Your patch sets this new value, but I never see it getting tested anywhere.
+>>>
+>>> How does this work?
+>>
+>>
+>> The flags are tested all together in skb_orphan_try() ...
+> 
+> This is why I hate using unions in situations like this... it makes
+> code impossible to audit easily.
+> 
+> This damn thing should just be a "u8 flags" and a bunch of bit mask
+> CPP macro defines for the various boolean values.
 
-It does not work. That's why your SKB_TRANS_OFF proposal sucks totally =
-because=20
-it is not implementable. On the other hand, n IPv6-specific opcode suck=
-s only=20
-a little due to its ugliness and lack of forward compatibility.
+Yep! I also felt like this.
 
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
-http://fi.linkedin.com/in/remidenis
+Maybe Patrick Ohly can give some feedback, if he's ok with that kind of
+change. So far there are only a few places that would need to be changed for
+the flags bitops.
+
+> Anyways, I'll apply your patch thanks.
+
+Thanks!
