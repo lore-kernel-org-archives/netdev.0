@@ -1,40 +1,47 @@
-From: =?UTF-8?Q?Spr=C3=A1vce_syst=C3=A9mu?= <admin@domain.vn>
-Subject: =?UTF-8?Q?Va=C5=A1e=20Mail=20Box=20kv=C3=B3ty=20p=C5=99ekro=C4=8D=C3=AD?=
- =?UTF-8?Q?=20stanoven=C3=BD=20limit?=
-Date: Tue, 03 Aug 2010 22:52:45 +0400
-Message-ID: <fd519025165064c9ae1a0a03deee1feb@mail.vidnoe.net>
-Reply-To: admin@domain.vn
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: softirq warnings when calling dev_kfree_skb_irq - bug in conntrack?
+Date: Tue, 03 Aug 2010 12:16:39 -0700
+Message-ID: <4C586B17.8090604@goop.org>
+References: <4C571476.7070301@goop.org>	<1280819074.3874.8.camel@jlt3.sipsolutions.net> <20100803.002318.209965574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	dongxiao.xu@intel.com, Xen-devel@lists.xensource.com,
+	Ian.Campbell@citrix.com, kaber@trash.net, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.vidnoe.net ([94.143.41.2]:34562 "EHLO mail.vidnoe.net"
+Received: from claw.goop.org ([74.207.240.146]:58956 "EHLO claw.goop.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932256Ab0HCTLI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Aug 2010 15:11:08 -0400
+	id S1753672Ab0HCTQq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 15:16:46 -0400
+In-Reply-To: <20100803.002318.209965574.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Va=C5=A1e po=C5=A1tovn=C3=AD schr=C3=A1nka p=C5=99ekro=C4=8Dila limit =C3=
-=BAlo=C5=BEi=C5=A1t=C4=9B, kter=C3=A9 je 20GB,
-jak nastavit v=C3=A1=C5=A1 spr=C3=A1vce, m=C3=A1te v sou=C4=8Dasn=C3=A9=
- dob=C4=9B b=C4=9B=C5=BE=C3=AD na
-+20.9gigabajt,
-Mo=C5=BEn=C3=A1 nebudete moci odes=C3=ADlat nebo p=C5=99ij=C3=ADmat nov=
-ou po=C5=A1tu, dokud
-re-ov=C4=9B=C5=99en=C3=AD Va=C5=A1=C3=AD schr=C3=A1nky.
-Chcete-li znovu potvrdili svou po=C5=A1tovn=C3=AD schr=C3=A1nku, klikn=C4=
-=9Bte pros=C3=ADm na
-n=C3=AD=C5=BEe uveden=C3=BD odkaz:
+  On 08/03/2010 12:23 AM, David Miller wrote:
+> From: Johannes Berg<johannes@sipsolutions.net>
+> Date: Tue, 03 Aug 2010 09:04:34 +0200
+>
+>> I had this too:
+>> http://article.gmane.org/gmane.linux.network/167590
+>>
+>> But I'm not convinced it's conntrack, I'd think it's
+>>
+>> commit 15e83ed78864d0625e87a85f09b297c0919a4797
+>> Author: Eric Dumazet<eric.dumazet@gmail.com>
+>> Date:   Wed May 19 23:16:03 2010 +0000
+>>
+>>      net: remove zap_completion_queue
+>>
+>> which, from the looks of it, ought to be reverted because it failed to
+>> take into account that dev_kfree_skb() can do more things that require
+>> non-irq-context than just calling skb->destructor, like for instance the
+>> conntrack thing we see here.
+> Agreed.  I'll revert this and queue that up for 2.6.35-stable
 
-http://w3t.org/CJ6
+Reverting this change fixes the problem for me.
 
-Pokud v=C3=BD=C5=A1e uveden=C3=BD odkaz nefunguje, pros=C3=ADm zkop=C3=AD=
-rujte a vlo=C5=BEte n=C3=AD=C5=BEe
-uveden=C3=BD odkaz okn=C4=9B prohl=C3=AD=C5=BEe=C4=8De
+Thanks,
+     J
 
-http://w3t.org/CJ6
-
-D=C3=ADky
-Spr=C3=A1vce syst=C3=A9mu
