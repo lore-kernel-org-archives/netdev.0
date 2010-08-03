@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Minor extensions to marvell phy driver
-Date: Mon, 02 Aug 2010 22:09:45 -0700 (PDT)
-Message-ID: <20100802.220945.212413185.davem@davemloft.net>
-References: <1280778294-2993-1-git-send-email-cyril@ti.com>
+Subject: Re: RFC: New BGF 'LOOP' instruction
+Date: Mon, 02 Aug 2010 22:13:41 -0700 (PDT)
+Message-ID: <20100802.221341.137851732.davem@davemloft.net>
+References: <20100802110334.GK11110@cel.leo>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: cyril@ti.com
+To: leonerd@leonerd.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43510
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46576
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751189Ab0HCFJ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 01:09:26 -0400
-In-Reply-To: <1280778294-2993-1-git-send-email-cyril@ti.com>
+	by vger.kernel.org with ESMTP id S1751189Ab0HCFNW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 01:13:22 -0400
+In-Reply-To: <20100802110334.GK11110@cel.leo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cyril Chemparathy <cyril@ti.com>
-Date: Mon,  2 Aug 2010 15:44:52 -0400
+From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
+Date: Mon, 2 Aug 2010 12:03:34 +0100
 
->   phy/marvell: add 88e1121 interface mode support
+> Any comments on this, while I proceed? Barring any major complaints,
+> I'll have a hack at some code and present a patch in due course...
 
-Applied.
+We're not adding loop instructions, it's just asking for trouble
+since any user can attach BPF filters to a socket and it's just
+way too easy to make a loop endless.
 
->   phy/marvell: add 88ec048 support
+There's a reason no loop primitives were added to the original
+BPF specification, perhaps you should take a look at what their
+reasoning was.
 
-You have to update marvel_id_tbl otherwise you break PHY
-module autoloading.
-
-Please fix this and resubmit this second patch.
-
-Thanks.
-
+It still applies now.
