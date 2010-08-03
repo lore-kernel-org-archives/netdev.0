@@ -1,40 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] deal with if frags[0].size is pulled to 0 in
-	dev_gro_receive()
-Date: Tue, 3 Aug 2010 12:56:38 +0800
-Message-ID: <20100803045637.GA14173@gondor.apana.org.au>
-References: <1280805439-18988-1-git-send-email-xiaohui.xin@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fixes a typo from "dev" to "ndev"
+Date: Mon, 02 Aug 2010 22:03:15 -0700 (PDT)
+Message-ID: <20100802.220315.124065662.davem@davemloft.net>
+References: <AANLkTiko540hMAUhaJr5mNKzFK2-vBOTZmEOxZWZv7ci@mail.gmail.com>
+	<20100730.222034.183058824.davem@davemloft.net>
+	<1280805042.2089.6.camel@lemming>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: xiaohui.xin@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:57789 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754075Ab0HCE4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 00:56:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1280805439-18988-1-git-send-email-xiaohui.xin@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chaithrika@ti.com, srk@ti.com, khilman@deeprootsystems.com,
+	jpirko@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, segooon@gmail.com
+To: henrique.camargo@ensitec.com.br
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1280805042.2089.6.camel@lemming>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 03, 2010 at 11:17:19AM +0800, xiaohui.xin@intel.com wrote:
-> From: Xin Xiaohui <xiaohui.xin@intel.com>
+From: Henrique Camargo <henrique.camargo@ensitec.com.br>
+Date: Tue, 03 Aug 2010 00:10:42 -0300
+
+> The typo was causing compilation errors since "dev" was not defined.
 > 
-> Now in dev_gro_receive(), if frags[0].size is pulled to 0, memmove is called and
-> the null page is released. But it's not enough, we should reset size of each frags
-> left as well. Compared to this, we can have another way to do this, it's not do do
-> anything at all.
-> 
-> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+> Signed-off-by: Henrique Camargo <henrique.camargo@ensitec.com.br>
 
-This patch can only work if you audit everything that uses skb
-frags to ensure that they can tolerate a zero-sided frag.
-
-I think it's much easier to just fix the memmove.
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied, thank you.
