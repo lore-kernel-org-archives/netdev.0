@@ -1,91 +1,168 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v2] ipt_REJECT: can't work with bridges
-Date: Wed, 4 Aug 2010 07:54:43 +0800
-Message-ID: <AANLkTimozCTLQDFRFH92Q3yJ6ZZD5bSCoTkMRDpQ9ybV@mail.gmail.com>
-References: <1278314214-18469-1-git-send-email-xiaosuo@gmail.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [RFC PATCH] platform: Faciliatate the creation of
+ pseduo-platform busses
+Date: Tue, 3 Aug 2010 16:56:31 -0700
+Message-ID: <20100803235631.GA17759@suse.de>
+References: <4C58A7AA.8020007@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1278314214-18469-1-git-send-email-xiaosuo@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	linux-omap@vger.kernel.org, damm@opensource.se,
+	lethal@linux-sh.org, rjw@sisk.pl, dtor@mail.ru,
+	eric.y.miao@gmail.com, netdev@vger.kernel.org
+To: Patrick Pannuto <ppannuto@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:46118 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756886Ab0HCX6M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 19:58:12 -0400
+Content-Disposition: inline
+In-Reply-To: <4C58A7AA.8020007@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 5, 2010 at 3:16 PM, Changli Gao <xiaosuo@gmail.com> wrote:
-> ipt_REJECT: can't work with bridges
->
-> ip_route_me_harder can't create the route cache when the outdev is th=
-e same with
-> the indev for the skbs whichout a valid protocol set.
->
-> __mkroute_input functions has this check:
-> 1998 =A0 =A0 =A0 =A0 if (skb->protocol !=3D htons(ETH_P_IP)) {
-> 1999 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Not IP (i.e. ARP). Do not cre=
-ate route, if it is
-> 2000 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* invalid for proxy arp. DNAT=
- routes are always valid.
-> 2001 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*
-> 2002 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Proxy arp feature have been=
- extended to allow, ARP
-> 2003 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* replies back to the same in=
-terface, to support
-> 2004 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Private VLAN switch technol=
-ogies. See arp.c.
-> 2005 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> 2006 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (out_dev =3D=3D in_dev &&
-> 2007 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 IN_DEV_PROXY_ARP_PVLAN(i=
-n_dev) =3D=3D 0) {
-> 2008 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D -EINVAL;
-> 2009 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto cleanup;
-> 2010 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> 2011 =A0 =A0 =A0 =A0 }
->
-> This patch gives the new skb a valid protocol to bypass this check. I=
-n order to
-> make ipt_REJECT work with bridges, you also need to enable ip_forward=
-=2E
->
-> This patch also fixes a regression. When we used skb_copy_expand(), w=
-e didn't
-> have this issue stated above, as the protocol was properly set. In fa=
-ct, the
-> regression also affects TC classification and packet sockets.
->
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ----
-> =A0net/ipv4/netfilter/ipt_REJECT.c | =A0 =A01 +
-> =A01 file changed, 1 insertion(+)
-> diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt=
-_REJECT.c
-> index bbbd273..60b8832 100644
-> --- a/net/ipv4/netfilter/ipt_REJECT.c
-> +++ b/net/ipv4/netfilter/ipt_REJECT.c
-> @@ -111,6 +111,7 @@ static void send_reset(struct sk_buff *oldskb, in=
-t hook)
-> =A0 =A0 =A0 =A0/* ip_route_me_harder expects skb->dst to be set */
-> =A0 =A0 =A0 =A0skb_dst_set_noref(nskb, skb_dst(oldskb));
->
-> + =A0 =A0 =A0 nskb->protocol =3D htons(ETH_P_IP);
-> =A0 =A0 =A0 =A0if (ip_route_me_harder(nskb, addr_type))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto free_nskb;
->
->
+On Tue, Aug 03, 2010 at 04:35:06PM -0700, Patrick Pannuto wrote:
+> Inspiration for this comes from:
+> http://www.mail-archive.com/linux-omap@vger.kernel.org/msg31161.html
+> 
+> INTRO
+> 
+> As SOCs become more popular, the desire to quickly define a simple,
+> but functional, bus type with only a few unique properties becomes
+> desirable. As they become more complicated, the ability to nest these
+> simple busses and otherwise orchestrate them to match the actual
+> topology also becomes desirable.
+> 
+> EXAMPLE USAGE
+> 
+> /arch/ARCH/MY_ARCH/my_bus.c:
+> 
+> 	#include <linux/device.h>
+> 	#include <linux/platform_device.h>
+> 
+> 	struct bus_type my_bus_type = {
+> 		.name	= "mybus",
+> 	};
+> 	EXPORT_SYMBOL_GPL(my_bus_type);
+> 
+> 	struct platform_device sub_bus1 = {
+> 		.name		= "sub_bus1",
+> 		.id		= -1,
+> 		.dev.bus	= &my_bus_type,
+> 	}
+> 	EXPORT_SYMBOL_GPL(sub_bus1);
 
-This bugfix patch seems missed, or I need to respin it? Thanks.
+You really want a bus hanging off of a bus?  Normally you need a device
+to do that, which is what I think you have here, but the naming is a bit
+odd to me.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What would you do with this "sub bus"?  It's just a device, but you are
+wanting it to be around for something.
+
+> 
+> 	struct platform_device sub_bus2 = {
+> 		.name		= "sub_bus2",
+> 		.id		= -1,
+> 		.dev.bus	= &my_bus_type,
+> 	}
+> 	EXPORT_SYMBOL_GPL(sub_bus2);
+> 
+> 	static int __init my_bus_init(void)
+> 	{
+> 		int error;
+> 		platform_bus_type_init(&my_bus_type);
+> 
+> 		error = bus_register(&my_bus_type);
+> 		if (error)
+> 			return error;
+> 
+> 		error = platform_device_register(&sub_bus1);
+> 		if (error)
+> 			goto fail_sub_bus1;
+> 
+> 		error = platform_device_register(&sub_bus2);
+> 		if (error)
+> 			goto fail_sub_bus2;
+> 
+> 		return error;
+> 
+> 	fail_sub_bus2:
+> 		platform_device_unregister(&sub_bus1);
+> 	fail_sub_bus2:
+> 		bus_unregister(&my_bus_type);
+> 
+> 		return error;
+> 	}
+> 	postcore_initcall(my_bus_init);
+> 	EXPORT_SYMBOL_CPY(my_bus_init);
+> 
+> /drivers/my_driver.c
+> 	static struct platform_driver my_driver = {
+> 		.driver	= {
+> 			.name	= "my-driver",
+> 			.owner	= THIS_MODULE,
+> 			.bus	= &my_bus_type,
+> 		},
+> 	};
+> 
+> /somewhere/my_device.c
+> 	static struct platform_device my_device = {
+> 		.name		= "my-device",
+> 		.id		= -1,
+> 		.dev.bus	= &my_bus_type,
+> 		.dev.parent	= &sub_bus_1.dev,
+> 	};
+
+Ah, you put devices on this "sub bus".  But why?  Why not just put it on
+your "normal" bus that you created?  What's with the extra level of
+nesting here?
+
+Other than that, it looks like a nice idea, are there portions of kernel
+code that can be simplified because of this?
+
+> @@ -539,12 +541,12 @@ int __init_or_module platform_driver_probe(struct platform_driver *drv,
+>  	 * if the probe was successful, and make sure any forced probes of
+>  	 * new devices fail.
+>  	 */
+> -	spin_lock(&platform_bus_type.p->klist_drivers.k_lock);
+> +	spin_lock(&drv->driver.bus->p->klist_drivers.k_lock);
+>  	drv->probe = NULL;
+>  	if (code == 0 && list_empty(&drv->driver.p->klist_devices.k_list))
+>  		retval = -ENODEV;
+>  	drv->driver.probe = platform_drv_probe_fail;
+> -	spin_unlock(&platform_bus_type.p->klist_drivers.k_lock);
+> +	spin_unlock(&drv->driver.bus->p->klist_drivers.k_lock);
+>  
+>  	if (code != retval)
+>  		platform_driver_unregister(drv);
+
+I'm guessing that this chunk can be applied now, right?
+
+> @@ -1017,6 +1019,26 @@ struct bus_type platform_bus_type = {
+>  };
+>  EXPORT_SYMBOL_GPL(platform_bus_type);
+>  
+> +/** platform_bus_type_init - fill in a pseudo-platform-bus
+> +  * @bus: foriegn bus type
+> +  *
+> +  * This init is basically a selective memcpy that
+> +  * won't overwrite any user-defined attributes and
+> +  * only copies things that platform bus defines anyway
+> +  */
+> +void platform_bus_type_init(struct bus_type *bus)
+> +{
+> +	if (!bus->dev_attrs)
+> +		bus->dev_attrs = platform_bus_type.dev_attrs;
+> +	if (!bus->match)
+> +		bus->match = platform_bus_type.match;
+> +	if (!bus->uevent)
+> +		bus->uevent = platform_bus_type.uevent;
+> +	if (!bus->pm)
+> +		bus->pm = platform_bus_type.pm;
+
+Watch out for things in "write only" memory here.  That could cause
+problems.
+
+thanks,
+
+greg k-h
