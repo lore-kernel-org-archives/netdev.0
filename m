@@ -1,124 +1,117 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/3] e1000e: register pm_qos request on hardware
-	activation
-Date: Mon, 02 Aug 2010 17:27:00 -0700
-Message-ID: <20100803002622.4179.31850.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/3] e1000e: Fix irq_synchronize in MSI-X case
+Date: Mon, 02 Aug 2010 17:27:23 -0700
+Message-ID: <20100803002721.4179.75916.stgit@localhost.localdomain>
+References: <20100803002622.4179.31850.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Florian Mickler <florian@mickler.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	Jean Delvare <jdelvare@suse.de>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:53789 "EHLO
-	qmta04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751882Ab0HCA1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 20:27:21 -0400
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:33367 "EHLO
+	qmta06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751882Ab0HCA1r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Aug 2010 20:27:47 -0400
+In-Reply-To: <20100803002622.4179.31850.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Mickler <florian@mickler.org>
+Based on original patch/work from Jean Delvare <jdelvare@suse.de>
+Synchronize all IRQs when in MSI-X IRQ mode.
 
-The pm_qos_add_request call has to register the pm_qos request with the pm_qos
-susbsystem before first use of the pm_qos request via
-pm_qos_update_request.
+Jean's original patch hard coded the sync with the 3 possible vectors,
+this patch incorporates more flexibility for the future and aligns
+with how igb stores the number of vectors into the adapter structure.
 
-As pm_qos changed to use plists there is no benefit in registering and
-unregistering the pm_qos request on ifup/ifdown and thus we move the
-registering into e1000_open and the unregistering in e1000_close.
-
-This fixes the following warning:
-
-[    1.786060] WARNING: at kernel/pm_qos_params.c:264
-pm_qos_update_request+0x28/0x54()
-[    1.786088] Hardware name: Latitude E6500
-[    1.787045] pm_qos_update_request() called for unknown object
-[    1.787966] Modules linked in:
-[    1.788940] Pid: 1, comm: swapper Not tainted 2.6.35-rc5-mmotm0719 #1
-[    1.790035] Call Trace:
-[    1.791121]  [<ffffffff81037335>] warn_slowpath_common+0x80/0x98
-[    1.792205]  [<ffffffff810373e1>] warn_slowpath_fmt+0x41/0x43
-[    1.793279]  [<ffffffff81057c14>] pm_qos_update_request+0x28/0x54
-[    1.794347]  [<ffffffff8134889e>] e1000_configure+0x421/0x459
-[    1.795393]  [<ffffffff8134afbd>] e1000_open+0xbd/0x37c
-[    1.796436]  [<ffffffff8105743a>] ? raw_notifier_call_chain+0xf/0x11
-[    1.797491]  [<ffffffff8145f948>] __dev_open+0xae/0xe2
-[    1.798547]  [<ffffffff8145f997>] dev_open+0x1b/0x49
-[    1.799612]  [<ffffffff8146e36e>] netpoll_setup+0x84/0x259
-[    1.800685]  [<ffffffff81b5037c>] init_netconsole+0xbc/0x21f
-[    1.801744]  [<ffffffff81b5026c>] ? sir_wq_init+0x0/0x35
-[    1.802793]  [<ffffffff81b502c0>] ? init_netconsole+0x0/0x21f
-[    1.803845]  [<ffffffff810002ff>] do_one_initcall+0x7a/0x12f
-[    1.804885]  [<ffffffff81b2ccae>] kernel_init+0x138/0x1c2
-[    1.805915]  [<ffffffff81003554>] kernel_thread_helper+0x4/0x10
-[    1.806937]  [<ffffffff81590e00>] ? restore_args+0x0/0x30
-[    1.807955]  [<ffffffff81b2cb76>] ? kernel_init+0x0/0x1c2
-[    1.808958]  [<ffffffff81003550>] ? kernel_thread_helper+0x0/0x10
-[    1.809958] ---[ end trace 84b562a00a60539e ]---
-
-Signed-off-by: Florian Mickler <florian@mickler.org>
-Tested-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+CC: Jean Delvare <jdelvare@suse.de>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Acked-by: Bruce Allan <bruce.w.allan@intel.com>
 ---
 
- drivers/net/e1000e/netdev.c |   23 +++++++++++------------
- 1 files changed, 11 insertions(+), 12 deletions(-)
+ drivers/net/e1000e/e1000.h  |    1 +
+ drivers/net/e1000e/netdev.c |   26 ++++++++++++++++++--------
+ 2 files changed, 19 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 9ee133f..f9a31c8 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -348,6 +348,7 @@ struct e1000_adapter {
+ 	u32 test_icr;
+ 
+ 	u32 msg_enable;
++	unsigned int num_vectors;
+ 	struct msix_entry *msix_entries;
+ 	int int_mode;
+ 	u32 eiac_mask;
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index afd0129..464c9a2 100644
+index 464c9a2..9e9164a 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -3218,12 +3218,6 @@ int e1000e_up(struct e1000_adapter *adapter)
+@@ -1785,25 +1785,25 @@ void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter)
+ void e1000e_set_interrupt_capability(struct e1000_adapter *adapter)
  {
- 	struct e1000_hw *hw = &adapter->hw;
- 
--	/* DMA latency requirement to workaround early-receive/jumbo issue */
--	if (adapter->flags & FLAG_HAS_ERT)
--		adapter->netdev->pm_qos_req =
--			pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
--				       PM_QOS_DEFAULT_VALUE);
+ 	int err;
+-	int numvecs, i;
 -
- 	/* hardware has been reset, we need to reload some things */
- 	e1000_configure(adapter);
++	int i;
  
-@@ -3287,12 +3281,6 @@ void e1000e_down(struct e1000_adapter *adapter)
- 	e1000_clean_tx_ring(adapter);
- 	e1000_clean_rx_ring(adapter);
+ 	switch (adapter->int_mode) {
+ 	case E1000E_INT_MODE_MSIX:
+ 		if (adapter->flags & FLAG_HAS_MSIX) {
+-			numvecs = 3; /* RxQ0, TxQ0 and other */
+-			adapter->msix_entries = kcalloc(numvecs,
++			adapter->num_vectors = 3; /* RxQ0, TxQ0 and other */
++			adapter->msix_entries = kcalloc(adapter->num_vectors,
+ 						      sizeof(struct msix_entry),
+ 						      GFP_KERNEL);
+ 			if (adapter->msix_entries) {
+-				for (i = 0; i < numvecs; i++)
++				for (i = 0; i < adapter->num_vectors; i++)
+ 					adapter->msix_entries[i].entry = i;
  
--	if (adapter->flags & FLAG_HAS_ERT) {
--		pm_qos_remove_request(
--			      adapter->netdev->pm_qos_req);
--		adapter->netdev->pm_qos_req = NULL;
--	}
--
- 	/*
- 	 * TODO: for power management, we could drop the link and
- 	 * pci_disable_device here.
-@@ -3527,6 +3515,12 @@ static int e1000_open(struct net_device *netdev)
- 	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN))
- 		e1000_update_mng_vlan(adapter);
- 
-+	/* DMA latency requirement to workaround early-receive/jumbo issue */
-+	if (adapter->flags & FLAG_HAS_ERT)
-+		adapter->netdev->pm_qos_req =
-+		                    pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
-+		                                       PM_QOS_DEFAULT_VALUE);
+ 				err = pci_enable_msix(adapter->pdev,
+ 						      adapter->msix_entries,
+-						      numvecs);
+-				if (err == 0)
++						      adapter->num_vectors);
++				if (err == 0) {
+ 					return;
++				}
+ 			}
+ 			/* MSI-X failed, so fall through and try MSI */
+ 			e_err("Failed to initialize MSI-X interrupts.  "
+@@ -1825,6 +1825,9 @@ void e1000e_set_interrupt_capability(struct e1000_adapter *adapter)
+ 		/* Don't do anything; this is the system default */
+ 		break;
+ 	}
 +
- 	/*
- 	 * before we allocate an interrupt, we must be ready to handle it.
- 	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
-@@ -3631,6 +3625,11 @@ static int e1000_close(struct net_device *netdev)
- 	if (adapter->flags & FLAG_HAS_AMT)
- 		e1000_release_hw_control(adapter);
++	/* store the number of vectors being used */
++	adapter->num_vectors = 1;
+ }
  
-+	if (adapter->flags & FLAG_HAS_ERT) {
-+		pm_qos_remove_request(adapter->netdev->pm_qos_req);
-+		adapter->netdev->pm_qos_req = NULL;
+ /**
+@@ -1946,7 +1949,14 @@ static void e1000_irq_disable(struct e1000_adapter *adapter)
+ 	if (adapter->msix_entries)
+ 		ew32(EIAC_82574, 0);
+ 	e1e_flush();
+-	synchronize_irq(adapter->pdev->irq);
++
++	if (adapter->msix_entries) {
++		int i;
++		for (i = 0; i < adapter->num_vectors; i++)
++			synchronize_irq(adapter->msix_entries[i].vector);
++	} else {
++		synchronize_irq(adapter->pdev->irq);
 +	}
-+
- 	pm_runtime_put_sync(&pdev->dev);
+ }
  
- 	return 0;
+ /**
 
