@@ -1,126 +1,45 @@
-From: Kulikov Vasiliy <segooon@gmail.com>
-Subject: [PATCH 04/11] cxgb4vf: do not use PCI resources before pci_enable_device()
-Date: Tue,  3 Aug 2010 19:43:15 +0400
-Message-ID: <1280850196-5448-1-git-send-email-segooon@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:46162 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756010Ab0HCPnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 11:43:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: RE: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM
+ virtio-net.
+Date: Tue, 03 Aug 2010 08:50:20 -0700
+Message-ID: <1280850620.3391.4.camel@localhost.localdomain>
+References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
+	 <1280442682.9058.15.camel@localhost.localdomain>
+	 <F2E9EB7348B8264F86B6AB8151CE2D791BAB307B7E@shsmsx502.ccr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D791BAB307B7E@shsmsx502.ccr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IRQ and resource[] may not have correct values until
-after PCI hotplug setup occurs at pci_enable_device() time.
+Hello Xiaohui,
 
-The semantic match that finds this problem is as follows:
+On Tue, 2010-08-03 at 16:48 +0800, Xin, Xiaohui wrote:
+> May you share me with your performance results (including BW and
+> latency)on 
+> vhost-net and how you get them(your configuration and especially with
+> the affinity 
+> settings)? 
 
-// <smpl>
-@@
-identifier x;
-identifier request ~= "pci_request.*|pci_resource.*";
-@@
+My macvtap zero copy is incomplete, I am testing sendmsg only now. The
+initial performance is not good especially for latency (zero copy vs.
+copy). I am still working on it to find out why and how to improve.
+That's the reason I am eager to know your performance results and how
+much performance gain you have seen.
 
-(
-* x->irq
-|
-* x->resource
-|
-* request(x, ...)
-)
- ...
-*pci_enable_device(x)
-// </smpl>
+Since your patch has completed. I would try your patch here for
+performance. If you have some performance results to share here that
+would be great.
 
-Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
----
- drivers/net/cxgb4vf/cxgb4vf_main.c |   31 ++++++++++++++++---------------
- 1 files changed, 16 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
-index a165632..7b6d07f 100644
---- a/drivers/net/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
-@@ -2462,23 +2462,24 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
- 		version_printed = 1;
- 	}
- 
-+
- 	/*
--	 * Reserve PCI resources for the device.  If we can't get them some
--	 * other driver may have already claimed the device ...
-+	 * Initialize generic PCI device state.
- 	 */
--	err = pci_request_regions(pdev, KBUILD_MODNAME);
-+	err = pci_enable_device(pdev);
- 	if (err) {
--		dev_err(&pdev->dev, "cannot obtain PCI resources\n");
-+		dev_err(&pdev->dev, "cannot enable PCI device\n");
- 		return err;
- 	}
- 
- 	/*
--	 * Initialize generic PCI device state.
-+	 * Reserve PCI resources for the device.  If we can't get them some
-+	 * other driver may have already claimed the device ...
- 	 */
--	err = pci_enable_device(pdev);
-+	err = pci_request_regions(pdev, KBUILD_MODNAME);
- 	if (err) {
--		dev_err(&pdev->dev, "cannot enable PCI device\n");
--		goto err_release_regions;
-+		dev_err(&pdev->dev, "cannot obtain PCI resources\n");
-+		goto err_disable_device;
- 	}
- 
- 	/*
-@@ -2491,14 +2492,14 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
- 		if (err) {
- 			dev_err(&pdev->dev, "unable to obtain 64-bit DMA for"
- 				" coherent allocations\n");
--			goto err_disable_device;
-+			goto err_release_regions;
- 		}
- 		pci_using_dac = 1;
- 	} else {
- 		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
- 		if (err != 0) {
- 			dev_err(&pdev->dev, "no usable DMA configuration\n");
--			goto err_disable_device;
-+			goto err_release_regions;
- 		}
- 		pci_using_dac = 0;
- 	}
-@@ -2514,7 +2515,7 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
- 	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
- 	if (!adapter) {
- 		err = -ENOMEM;
--		goto err_disable_device;
-+		goto err_release_regions;
- 	}
- 	pci_set_drvdata(pdev, adapter);
- 	adapter->pdev = pdev;
-@@ -2750,13 +2751,13 @@ err_free_adapter:
- 	kfree(adapter);
- 	pci_set_drvdata(pdev, NULL);
- 
--err_disable_device:
--	pci_disable_device(pdev);
--	pci_clear_master(pdev);
--
- err_release_regions:
- 	pci_release_regions(pdev);
- 	pci_set_drvdata(pdev, NULL);
-+	pci_clear_master(pdev);
-+
-+err_disable_device:
-+	pci_disable_device(pdev);
- 
- err_out:
- 	return err;
--- 
-1.7.0.4
-
+Thanks
+Shirley
