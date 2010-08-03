@@ -1,63 +1,93 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v3 1/2] core: Factor out flow calculation from get_rps_cpu
-Date: Tue, 3 Aug 2010 14:11:30 +0800
-Message-ID: <AANLkTikJMih-CAA_d95ot0z57EOhMFsiNc2nnki6v6LY@mail.gmail.com>
-References: <20100803030256.8486.82622.sendpatchset@krkumar2.in.ibm.com>
-	<AANLkTikNOstJr3qqMUqtUoOm1xHOjw5uM7NpQUNJz4PR@mail.gmail.com>
-	<OF46AA822C.08F8EAED-ON65257774.001F5AE3-65257774.00209BBF@in.ibm.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Is it a possible bug in dev_gro_receive()?
+Date: Tue, 3 Aug 2010 06:45:15 +0000
+Message-ID: <20100803064515.GA6430@ff.dom.local>
+References: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com> <20100802102906.GA8439@ff.dom.local> <F2E9EB7348B8264F86B6AB8151CE2D791BAB3078E0@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: arnd@arndb.de, bhutchings@solarflare.com, davem@davemloft.net,
-	mst@redhat.com, netdev@vger.kernel.org, therbert@google.com
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46284 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754894Ab0HCGLw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 02:11:52 -0400
-Received: by wyb39 with SMTP id 39so4046343wyb.19
-        for <netdev@vger.kernel.org>; Mon, 02 Aug 2010 23:11:51 -0700 (PDT)
-In-Reply-To: <OF46AA822C.08F8EAED-ON65257774.001F5AE3-65257774.00209BBF@in.ibm.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:48930 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755291Ab0HCGpX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 02:45:23 -0400
+Received: by fxm14 with SMTP id 14so1867569fxm.19
+        for <netdev@vger.kernel.org>; Mon, 02 Aug 2010 23:45:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D791BAB3078E0@shsmsx502.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 3, 2010 at 1:57 PM, Krishna Kumar2 <krkumar2@in.ibm.com> wr=
-ote:
-> Hi Changli,
->
-> Good catch.
->
-> Instead of adding support for ethernet header or pull/push,
-> I could defer the skb_push(ETH_HLEN), something like:
->
-> static int macvtap_forward(struct net_device *dev, struct sk_buff *sk=
-b)
-> {
-> =A0 =A0 =A0 =A0struct macvtap_queue *q =3D macvtap_get_queue(dev, skb=
-);
-> =A0 =A0 =A0 =A0if (!q)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto drop;
->
-> =A0 =A0 =A0 =A0if (skb_queue_len(&q->sk.sk_receive_queue) >=3D dev->t=
-x_queue_len)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto drop;
->
-> + =A0 =A0 =A0 skb_push(skb, ETH_HLEN);
-> =A0 =A0 =A0 =A0...
-> }
->
-> and remove the same in macvtap_receive. Will this be better?
->
+On Tue, Aug 03, 2010 at 10:33:24AM +0800, Xin, Xiaohui wrote:
+> >-----Original Message-----
+> >From: Jarek Poplawski [mailto:jarkao2@gmail.com]
+> >Sent: Monday, August 02, 2010 6:29 PM
+> >To: Xin, Xiaohui
+> >Cc: netdev@vger.kernel.org; herbert@gondor.apana.org.au; davem@davemloft.net
+> >Subject: Re: Is it a possible bug in dev_gro_receive()?
+> >
+> >Xin Xiaohui wrote:
+> >> I looked into the code dev_gro_receive(), found the code here:
+> >> if the frags[0] is pulled to 0, then the page will be released,
+> >> and memmove() frags left.
+> >> Is that right? I'm not sure if memmove do right or not, but
+> >> frags[0].size is never set after memove at least. what I think
+> >> a simple way is not to do anything if we found frags[0].size == 0.
+> >> The patch is as followed.
+> >>
+> >> Or am I missing something here?
+> >
+> >I think, you're right, but fixing memmove looks nicer to me:
+> >
+> > -	--skb_shinfo(skb)->nr_frags);
+> > +	--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
+> >
+> >Jarek P.
+> 
+> Is there a little hurt of performance to do memmove() if skb_shinfo(skb)->nr_frags is large?
+> We're now working on the zero-copy patches based on napi_gro_frags() interface, and in 
+> this case, we have found a lot of skbs which frags[0] is pulled to 0. And after the memmove is
+> fixed, each frags[x].size is needed to modify too.
+> So I think don't do anything is better. Or is there any side effect with a null page in the stack?
 
-I am confused by the call sites of macvlan_dev.receive and
-macvlan_dev.forward. They both are possible to be called in both
-RX(skb->data points to network header) and TX(skb->data points to
-ethernet) paths. The current code in macvtap shows that
-macvlan_dev.receive should be called in network layer, and
-macvlan_dev.forward should be called in dev layer. Am I correct?
+Even if it's better, generally you should separate fixes from
+optimizations. On the other hand, it was expected to be "unlikely" by
+design, so you should probably explain more why it has to be changed
+here too.
 
+Thanks,
+Jarek P.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+> 
+> Thanks
+> Xiaohui
+> >
+> >>
+> >> ---
+> >>  net/core/dev.c |    7 -------
+> >>  1 files changed, 0 insertions(+), 7 deletions(-)
+> >>
+> >> diff --git a/net/core/dev.c b/net/core/dev.c
+> >> index 264137f..28cdbbf 100644
+> >> --- a/net/core/dev.c
+> >> +++ b/net/core/dev.c
+> >> @@ -2730,13 +2730,6 @@ pull:
+> >>
+> >>  		skb_shinfo(skb)->frags[0].page_offset += grow;
+> >>  		skb_shinfo(skb)->frags[0].size -= grow;
+> >> -
+> >> -		if (unlikely(!skb_shinfo(skb)->frags[0].size)) {
+> >> -			put_page(skb_shinfo(skb)->frags[0].page);
+> >> -			memmove(skb_shinfo(skb)->frags,
+> >> -				skb_shinfo(skb)->frags + 1,
+> >> -				--skb_shinfo(skb)->nr_frags);
+> >> -		}
+> >>  	}
+> >>
+> >>  ok:
+> >
+> >
+> 
