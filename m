@@ -1,41 +1,49 @@
-From: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: prevent task_cleanup running on freed xprt
-Date: Tue, 03 Aug 2010 17:32:22 -0400
-Message-ID: <1280871142.14520.7.camel@heimdal.trondhjem.org>
-References: <20100803132453.4fa18444@tlielax.poochiereds.net>
-	 <1280860815.9771.25.camel@heimdal.trondhjem.org>
-	 <1280861363.12283.2.camel@heimdal.trondhjem.org>
-	 <20100803212220.GI31579@fieldses.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] e1000e: correct MAC-PHY interconnect register
+	offset for 82579
+Date: Tue, 03 Aug 2010 14:48:35 -0700
+Message-ID: <20100803214827.5712.8674.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100803212220.GI31579-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta04.emeryville.ca.mail.comcast.net ([76.96.30.40]:57004 "EHLO
+	qmta04.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756424Ab0HCVsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 17:48:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-08-03 at 17:22 -0400, J. Bruce Fields wrote:
-> From: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> 
-> We saw a report of a NULL dereference in xprt_autoclose:
-> 
-> 	https://bugzilla.redhat.com/show_bug.cgi?id=611938
-> 
-> This appears to be the result of an xprt's task_cleanup running after
-> the xprt is destroyed.  Nothing in the current code appears to prevent
-> that.
-> 
-> Signed-off-by: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Thanks. Applied to nfs-for-2.6.36...
+The MAC-PHY interconnect register set on ICH/PCH parts is accessed through
+a peephole mechanism by writing an offset to a CSR register.  The offset
+for the interconnect's half-duplex control register (which is used in a
+jumbo frame workaround for 82579) is incorrect.
 
-Trond
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/e1000e/hw.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index a419b07..66ed08f 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -313,7 +313,7 @@ enum e1e_registers {
+ #define E1000_KMRNCTRLSTA_DIAG_NELPBK	0x1000 /* Nearend Loopback mode */
+ #define E1000_KMRNCTRLSTA_K1_CONFIG	0x7
+ #define E1000_KMRNCTRLSTA_K1_ENABLE	0x0002
+-#define E1000_KMRNCTRLSTA_HD_CTRL	0x0002
++#define E1000_KMRNCTRLSTA_HD_CTRL	0x10   /* Kumeran HD Control */
+ 
+ #define IFE_PHY_EXTENDED_STATUS_CONTROL	0x10
+ #define IFE_PHY_SPECIAL_CONTROL		0x11 /* 100BaseTx PHY Special Control */
+
