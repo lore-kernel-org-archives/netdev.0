@@ -1,60 +1,64 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] drivers/net/enic: Use %pUB to format a UUID
-Date: Tue, 03 Aug 2010 12:32:24 -0700
-Message-ID: <1280863944.6088.2.camel@Joe-Laptop.home>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 16503] New: Upgrade to 2.6.34.2 breaks
+ ethernet network
+Date: Tue, 3 Aug 2010 13:27:40 -0700
+Message-ID: <20100803132740.946cf78a.akpm@linux-foundation.org>
+References: <bug-16503-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Scott Feldman <scofeldm@cisco.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Gary Zambrano <zambrano@broadcom.com>, stable@kernel.org,
+	davemorgan353@btinternet.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35834 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757674Ab0HCU2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 16:28:52 -0400
+In-Reply-To: <bug-16503-10286@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/enic/enic_main.c |   17 ++---------------
- 1 files changed, 2 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 77a7f87..9aab853 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -1087,10 +1087,7 @@ static int enic_set_port_profile(struct enic *enic, u8 *mac)
- {
- 	struct vic_provinfo *vp;
- 	u8 oui[3] = VIC_PROVINFO_CISCO_OUI;
--	u8 *uuid;
- 	char uuid_str[38];
--	static char *uuid_fmt = "%02X%02X%02X%02X-%02X%02X-%02X%02X-"
--		"%02X%02X-%02X%02X%02X%02X%0X%02X";
- 	int err;
- 
- 	err = enic_vnic_dev_deinit(enic);
-@@ -1121,24 +1118,14 @@ static int enic_set_port_profile(struct enic *enic, u8 *mac)
- 			ETH_ALEN, mac);
- 
- 		if (enic->pp.set & ENIC_SET_INSTANCE) {
--			uuid = enic->pp.instance_uuid;
--			sprintf(uuid_str, uuid_fmt,
--				uuid[0],  uuid[1],  uuid[2],  uuid[3],
--				uuid[4],  uuid[5],  uuid[6],  uuid[7],
--				uuid[8],  uuid[9],  uuid[10], uuid[11],
--				uuid[12], uuid[13], uuid[14], uuid[15]);
-+			sprintf(uuid_str, "%pUB", enic->pp.instance_uuid);
- 			vic_provinfo_add_tlv(vp,
- 				VIC_LINUX_PROV_TLV_CLIENT_UUID_STR,
- 				sizeof(uuid_str), uuid_str);
- 		}
- 
- 		if (enic->pp.set & ENIC_SET_HOST) {
--			uuid = enic->pp.host_uuid;
--			sprintf(uuid_str, uuid_fmt,
--				uuid[0],  uuid[1],  uuid[2],  uuid[3],
--				uuid[4],  uuid[5],  uuid[6],  uuid[7],
--				uuid[8],  uuid[9],  uuid[10], uuid[11],
--				uuid[12], uuid[13], uuid[14], uuid[15]);
-+			sprintf(uuid_str, "%pUB", enic->pp.host_uuid);
- 			vic_provinfo_add_tlv(vp,
- 				VIC_LINUX_PROV_TLV_HOST_UUID_STR,
- 				sizeof(uuid_str), uuid_str);
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Tue, 3 Aug 2010 20:14:34 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=16503
+> 
+>            Summary: Upgrade to 2.6.34.2 breaks ethernet network
+>            Product: Networking
+>            Version: 2.5
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: davemorgan353@btinternet.com
+>         Regression: No
+> 
+> 
+> Using Arch Linux with fully up-to-date system.
+> 
+> Upgrading kernel from 2.6.34.1 to 2.6.34.2 breaks my ethernet connection.  I
+> get dhcp timeouts but no errors in the logs regarding the kernel or the card.
+> 
+> Dell Inspiron 1720.
+> 
+> 03:00.0 Ethernet controller: Broadcom Corporation BCM4401-B0 100Base-TX (rev
+> 02)
+> 
+> Downgrading the kernel fixes the issue.
+> 
+
+There are no changes to b44.c in patch-2.6.34.2.  Perhaps you could
+generate the dmesg logs for 2.6.34.1 and 2.6.34.2 and run `diff -u'
+against them, see if anything interesting pops out?
+
