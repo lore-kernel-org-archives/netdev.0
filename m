@@ -1,36 +1,46 @@
-From: "Gabor Z. Papp" <gzp@papp.hu>
-Subject: Re: [ANNOUNCE]: Release of iptables-1.4.9
-Date: Tue, 03 Aug 2010 20:09:33 +0200
-Message-ID: <x6sk2vo9eq@gzp>
-References: <4C5832F9.50004@trash.net> <x6bp9jy7sj@gzp>
-	<4C584C63.8010607@trash.net> <x6vd7rwrah@gzp> <x6lj8nwqu4@gzp>
-	<alpine.LSU.2.01.1008032001430.1519@obet.zrqbmnf.qr>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: [GIT PULL] xen-netfront driver updates for 2.6.36
+Date: Tue, 03 Aug 2010 11:11:20 -0700
+Message-ID: <4C585BC8.5070203@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"'netfilter\@vger.kernel.org'" <netfilter@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>,
+	"Xen-devel@lists.xensource.com" <Xen-devel@lists.xensource.com>,
+	"Xu, Dongxiao" <dongxiao.xu@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Jan Engelhardt <jengelh@medozas.de>:
+  Hi Dave,
 
-| (BTW, with --disable-shared you remove the possibility to use any .so
-| files whatsoever. You can use --enable-static --enable-shared to get
-| both "all in one binary" and ".so support".)
+Here's a git branch with some updates to the Xen netfront driver, which 
+add a new "smartpoll" mode to the netfront backend protocol, which is 
+basically equivalent to interrupt mitigation.  They've been in 
+linux-next for a week or so.
 
-And how to force linking the binaries against the static libs?
+Do you want to take this via the net tree, or are you OK with me 
+submitting them directly?
 
-| The following changes since commit 371cea299f0b2eb100b9fc9fb99089640d2d606f:
+Thanks,
+     J
 
-|   xtables: remove unnecessary cast (2010-08-03 19:56:11 +0200)
+The following changes since commit 74fca6a42863ffacaf7ba6f1936a9f228950f657:
 
-| are available in the git repository at:
-|   git://dev.medozas.de/iptables master
+   Linux 2.6.31 (2009-09-09 15:13:59 -0700)
 
-Fixed, compiled fine.
+are available in the git repository at:
+   git://git.kernel.org/pub/scm/linux/kernel/git/jeremy/xen.git upstream/netfront
+
+Dongxiao Xu (1):
+       xen/netfront: Use smart polling instead of event notification.
+
+Ian Campbell (2):
+       xen/rings: make protocol specific usage of shared sring explicit
+       xen/netfront: make protocol specific usage of shared sring explicit
+
+  drivers/net/xen-netfront.c      |  114 ++++++++++++++++++++++++++++++++++++++-
+  include/xen/interface/io/ring.h |   11 ++++-
+  2 files changed, 122 insertions(+), 3 deletions(-)
