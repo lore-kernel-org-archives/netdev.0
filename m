@@ -1,117 +1,230 @@
-From: "Ramirez Luna, Omar" <omar.ramirez@ti.com>
-Subject: RE: [PATCH 6/8] netdev: separate out davinci cpdma controller code
-Date: Tue, 3 Aug 2010 18:30:02 -0500
-Message-ID: <27F9C60D11D683428E133F85D2BB4A53043F3C8C2B@dlee03.ent.ti.com>
-References: <1280842313-3743-1-git-send-email-cyril@ti.com>
- <1280842313-3743-7-git-send-email-cyril@ti.com>
+From: Patrick Pannuto <ppannuto@codeaurora.org>
+Subject: [RFC PATCH] platform: Faciliatate the creation of pseduo-platform
+ busses
+Date: Tue, 03 Aug 2010 16:35:06 -0700
+Message-ID: <4C58A7AA.8020007@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Nori, Sekhar" <nsekhar@ti.com>,
-	"Govindarajan, Sriramakrishnan" <srk@ti.com>
-To: "Chemparathy, Cyril" <cyril@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davinci-linux-open-source@linux.davincidsp.com"
-	<davinci-linux-open-source@linux.davincidsp.c
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:49983 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757715Ab0HCXaE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 19:30:04 -0400
-In-Reply-To: <1280842313-3743-7-git-send-email-cyril@ti.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-msm@vger.kernel.org,
+	linux-omap.vger.kernel.org@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@suse.de>, damm@opensource.se,
+	lethal@linux-sh.org, rjw@sisk.pl, dtor@mail.ru,
+	eric.y.miao@gmail.com, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Inspiration for this comes from:
+http://www.mail-archive.com/linux-omap@vger.kernel.org/msg31161.html
 
->From: linux-omap-owner@vger.kernel.org [mailto:linux-omap-owner@vger.kernel.org] On Behalf Of
->Chemparathy, Cyril
->
->In addition to being embedded into the EMAC controller, the CPDMA hardware
->block is used in TI's CPSW switch controller.  Fortunately, the programming
->interface to this hardware block remains pretty nicely consistent across these
->devices.
->
->This patch adds a new CPDMA services layer, which can then be reused across
->EMAC and CPSW drivers.
->
->Signed-off-by: Cyril Chemparathy <cyril@ti.com>
->---
-> drivers/net/Kconfig         |   10 +
-> drivers/net/Makefile        |    1 +
-> drivers/net/davinci_cpdma.c |  836 +++++++++++++++++++++++++++++++++++++++++++
-> drivers/net/davinci_cpdma.h |  105 ++++++
-> 4 files changed, 952 insertions(+), 0 deletions(-)
-> create mode 100644 drivers/net/davinci_cpdma.c
-> create mode 100644 drivers/net/davinci_cpdma.h
->
-[...]
->diff --git a/drivers/net/davinci_cpdma.c b/drivers/net/davinci_cpdma.c
->new file mode 100644
->index 0000000..acce1c1
->--- /dev/null
->+++ b/drivers/net/davinci_cpdma.c
-[...]
->+struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
->+				     cpdma_handler_fn handler)
->+{
->+	struct cpdma_chan *chan;
->+	int ret, offset = (chan_num % CPDMA_MAX_CHANNELS) * 4;
->+	unsigned long flags;
->+
->+	if (__chan_linear(chan_num) >= ctlr->num_chan)
->+		return NULL;
->+
->+	ret = -ENOMEM;
->+	chan = kzalloc(sizeof(*chan), GFP_KERNEL);
->+	if (!chan)
->+		goto err_chan_alloc;
->+
->+	spin_lock_irqsave(&ctlr->lock, flags);
->+	ret = -EBUSY;
->+	if (ctlr->channels[chan_num])
->+		goto err_chan_busy;
+INTRO
 
-Mem leaking 'chan'
+As SOCs become more popular, the desire to quickly define a simple,
+but functional, bus type with only a few unique properties becomes
+desirable. As they become more complicated, the ability to nest these
+simple busses and otherwise orchestrate them to match the actual
+topology also becomes desirable.
 
->+
->+	chan->ctlr	= ctlr;
->+	chan->state	= CPDMA_STATE_IDLE;
->+	chan->chan_num	= chan_num;
->+	chan->handler	= handler;
->+
->+	if (is_rx_chan(chan)) {
->+		chan->hdp	= ctlr->params.rxhdp + offset;
->+		chan->cp	= ctlr->params.rxcp + offset;
->+		chan->rxfree	= ctlr->params.rxfree + offset;
->+		chan->int_set	= CPDMA_RXINTMASKSET;
->+		chan->int_clear	= CPDMA_RXINTMASKCLEAR;
->+		chan->td	= CPDMA_RXTEARDOWN;
->+		chan->dir	= DMA_FROM_DEVICE;
->+	} else {
->+		chan->hdp	= ctlr->params.txhdp + offset;
->+		chan->cp	= ctlr->params.txcp + offset;
->+		chan->int_set	= CPDMA_TXINTMASKSET;
->+		chan->int_clear	= CPDMA_TXINTMASKCLEAR;
->+		chan->td	= CPDMA_TXTEARDOWN;
->+		chan->dir	= DMA_TO_DEVICE;
->+	}
->+	chan->mask = BIT(chan_linear(chan));
->+
->+	spin_lock_init(&chan->lock);
->+
->+	ctlr->channels[chan_num] = chan;
->+	spin_unlock_irqrestore(&ctlr->lock, flags);
->+	return chan;
->+
->+err_chan_busy:
->+	spin_unlock_irqrestore(&ctlr->lock, flags);
->+err_chan_alloc:
->+	return ERR_PTR(ret);
->+}
-[...]
+EXAMPLE USAGE
 
-Regards,
+/arch/ARCH/MY_ARCH/my_bus.c:
 
-omar
+	#include <linux/device.h>
+	#include <linux/platform_device.h>
+
+	struct bus_type my_bus_type = {
+		.name	= "mybus",
+	};
+	EXPORT_SYMBOL_GPL(my_bus_type);
+
+	struct platform_device sub_bus1 = {
+		.name		= "sub_bus1",
+		.id		= -1,
+		.dev.bus	= &my_bus_type,
+	}
+	EXPORT_SYMBOL_GPL(sub_bus1);
+
+	struct platform_device sub_bus2 = {
+		.name		= "sub_bus2",
+		.id		= -1,
+		.dev.bus	= &my_bus_type,
+	}
+	EXPORT_SYMBOL_GPL(sub_bus2);
+
+	static int __init my_bus_init(void)
+	{
+		int error;
+		platform_bus_type_init(&my_bus_type);
+
+		error = bus_register(&my_bus_type);
+		if (error)
+			return error;
+
+		error = platform_device_register(&sub_bus1);
+		if (error)
+			goto fail_sub_bus1;
+
+		error = platform_device_register(&sub_bus2);
+		if (error)
+			goto fail_sub_bus2;
+
+		return error;
+
+	fail_sub_bus2:
+		platform_device_unregister(&sub_bus1);
+	fail_sub_bus2:
+		bus_unregister(&my_bus_type);
+
+		return error;
+	}
+	postcore_initcall(my_bus_init);
+	EXPORT_SYMBOL_CPY(my_bus_init);
+
+/drivers/my_driver.c
+	static struct platform_driver my_driver = {
+		.driver	= {
+			.name	= "my-driver",
+			.owner	= THIS_MODULE,
+			.bus	= &my_bus_type,
+		},
+	};
+
+/somewhere/my_device.c
+	static struct platform_device my_device = {
+		.name		= "my-device",
+		.id		= -1,
+		.dev.bus	= &my_bus_type,
+		.dev.parent	= &sub_bus_1.dev,
+	};
+
+Notice that for a device / driver, only 3 lines were added to
+switch from the platform bus to the new my_bus. This is
+especially valuable if we consider supporting a legacy SOCs
+and new SOCs where the same driver is used, but may need to
+be on either the platform bus or the new my_bus. The above
+code then becomes:
+
+	(possibly in a header)
+	#ifdef CONFIG_MY_BUS
+	#define MY_BUS_TYPE	&my_bus_type
+	#else
+	#define MY_BUS_TYPE	NULL
+	#endif
+
+/drivers/my_driver.c
+	static struct platform_driver my_driver = {
+		.driver	= {
+			.name	= "my-driver",
+			.owner	= THIS_MODULE,
+			.bus	= MY_BUS_TYPE,
+		},
+	};
+
+Which will allow the same driver to easily to used on either
+the platform bus or the newly defined bus type.
+
+This will build a device tree that mirrors the actual configuration:
+    /sys/bus
+    |-- my_bus
+    |   |-- devices
+    |   |   |-- sub_bus1 -> ../../../devices/platform/sub_bus1
+    |   |   |-- sub_bus2 -> ../../../devices/platform/sub_bus2
+    |   |   |-- my-device -> ../../../devices/platform/sub_bus1/my-device
+    |   |-- drivers
+    |   |   |-- my-driver
+
+I believe this to be a fairly elegant and simple solution to the
+problem, but humbly RFC
+
+-Pat
+
+Signed-off-by: Patrick Pannuto <ppannuto@codeaurora.org>
+---
+ drivers/base/platform.c         |   30 ++++++++++++++++++++++++++----
+ include/linux/platform_device.h |    2 ++
+ 2 files changed, 28 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/base/platform.c b/drivers/base/platform.c
+index 4d99c8b..c86be03 100644
+--- a/drivers/base/platform.c
++++ b/drivers/base/platform.c
+@@ -241,7 +241,8 @@ int platform_device_add(struct platform_device *pdev)
+ 	if (!pdev->dev.parent)
+ 		pdev->dev.parent = &platform_bus;
+ 
+-	pdev->dev.bus = &platform_bus_type;
++	if (!pdev->dev.bus)
++		pdev->dev.bus = &platform_bus_type;
+ 
+ 	if (pdev->id != -1)
+ 		dev_set_name(&pdev->dev, "%s.%d", pdev->name,  pdev->id);
+@@ -482,7 +483,8 @@ static void platform_drv_shutdown(struct device *_dev)
+  */
+ int platform_driver_register(struct platform_driver *drv)
+ {
+-	drv->driver.bus = &platform_bus_type;
++	if (!drv->driver.bus)
++		drv->driver.bus = &platform_bus_type;
+ 	if (drv->probe)
+ 		drv->driver.probe = platform_drv_probe;
+ 	if (drv->remove)
+@@ -539,12 +541,12 @@ int __init_or_module platform_driver_probe(struct platform_driver *drv,
+ 	 * if the probe was successful, and make sure any forced probes of
+ 	 * new devices fail.
+ 	 */
+-	spin_lock(&platform_bus_type.p->klist_drivers.k_lock);
++	spin_lock(&drv->driver.bus->p->klist_drivers.k_lock);
+ 	drv->probe = NULL;
+ 	if (code == 0 && list_empty(&drv->driver.p->klist_devices.k_list))
+ 		retval = -ENODEV;
+ 	drv->driver.probe = platform_drv_probe_fail;
+-	spin_unlock(&platform_bus_type.p->klist_drivers.k_lock);
++	spin_unlock(&drv->driver.bus->p->klist_drivers.k_lock);
+ 
+ 	if (code != retval)
+ 		platform_driver_unregister(drv);
+@@ -1017,6 +1019,26 @@ struct bus_type platform_bus_type = {
+ };
+ EXPORT_SYMBOL_GPL(platform_bus_type);
+ 
++/** platform_bus_type_init - fill in a pseudo-platform-bus
++  * @bus: foriegn bus type
++  *
++  * This init is basically a selective memcpy that
++  * won't overwrite any user-defined attributes and
++  * only copies things that platform bus defines anyway
++  */
++void platform_bus_type_init(struct bus_type *bus)
++{
++	if (!bus->dev_attrs)
++		bus->dev_attrs = platform_bus_type.dev_attrs;
++	if (!bus->match)
++		bus->match = platform_bus_type.match;
++	if (!bus->uevent)
++		bus->uevent = platform_bus_type.uevent;
++	if (!bus->pm)
++		bus->pm = platform_bus_type.pm;
++}
++EXPORT_SYMBOL_GPL(platform_bus_type_init);
++
+ int __init platform_bus_init(void)
+ {
+ 	int error;
+diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
+index 5417944..fa8c35a 100644
+--- a/include/linux/platform_device.h
++++ b/include/linux/platform_device.h
+@@ -79,6 +79,8 @@ extern int platform_driver_probe(struct platform_driver *driver,
+ #define platform_get_drvdata(_dev)	dev_get_drvdata(&(_dev)->dev)
+ #define platform_set_drvdata(_dev,data)	dev_set_drvdata(&(_dev)->dev, (data))
+ 
++extern void platform_bus_type_init(struct bus_type *);
++
+ extern struct platform_device *platform_create_bundle(struct platform_driver *driver,
+ 					int (*probe)(struct platform_device *),
+ 					struct resource *res, unsigned int n_res,
+-- 
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum
