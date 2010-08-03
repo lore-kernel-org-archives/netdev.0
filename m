@@ -1,57 +1,59 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
-Date: Tue, 03 Aug 2010 19:11:14 +0200
-Message-ID: <4C584DB2.8020406@hartkopp.net>
-References: <4C529EFB.4090601@hartkopp.net>	
-	<20100801.010337.68133932.davem@davemloft.net>	
-	<4C555168.3090800@hartkopp.net>	
-	<20100803.003056.216763358.davem@davemloft.net>	
-	<4C583447.8010004@hartkopp.net>
-	<1280852081.3266.834.camel@pohly-mobl1.ikn.intel.com>
+From: "Gabor Z. Papp" <gzp@papp.hu>
+Subject: Re: [ANNOUNCE]: Release of iptables-1.4.9
+Date: Tue, 03 Aug 2010 19:16:06 +0200
+Message-ID: <x6vd7rwrah@gzp>
+References: <4C5832F9.50004@trash.net> <x6bp9jy7sj@gzp>
+	<4C584C63.8010607@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1280852081.3266.834.camel-/oqbx4SGF9pV+x+AlpbFz62pdiUAq4bhAL8bYrjMMd8@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"'netfilter\@vger.kernel.org'" <netfilter@vger.kernel.org>,
+	netfilter-announce@lists.netfilter.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from odpn1.odpn.net ([212.40.96.53]:44384 "EHLO odpn1.odpn.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751453Ab0HCRQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 13:16:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03.08.2010 18:14, Patrick Ohly wrote:
-> On Tue, 2010-08-03 at 18:22 +0300, Oliver Hartkopp wrote:
->>>> The flags are tested all together in skb_orphan_try() ...
->>>
->>> This is why I hate using unions in situations like this... it makes
->>> code impossible to audit easily.
->>>
->>> This damn thing should just be a "u8 flags" and a bunch of bit mask
->>> CPP macro defines for the various boolean values.
->>
->> Yep! I also felt like this.
->>
->> Maybe Patrick Ohly can give some feedback, if he's ok with that kind of
->> change. So far there are only a few places that would need to be changed for
->> the flags bitops.
-> 
-> I'm fine with using a simple u8. I'm not sure where I picked up the
-> union thing, it's not something that I usually do in my own code.
-> 
+* Patrick McHardy <kaber@trash.net>:
 
-:-)
+| Did you use a git checkout/patch against 1.4.8 or the tar.bz2?
+| In case its the former, try running make clean, sh autogen.sh and
+| sh configure again before the build.
 
-Im currently busy until next week, would you like to provide a patch?
+Used the tarball, but tried git also:
 
-Regards,
-Oliver
+/bin/sh ./libtool --tag=CC   --mode=link gcc -D_LARGEFILE_SOURCE=1
+-D_LARGE_FILES -D_FILE_OFFSET_BITS=64        -D_REENTRANT -Wall
+-Waggregate-return -Wmissing-declarations  -Wmissing-prototypes
+-Wredundant-decls -Wshadow -Wstrict-prototypes     -Winline -pipe
+-DXTABLES_LIBDIR=\"/pkg/lib/xtables\" -DXTABLES_INTERNAL -I./include
+-I./include  -DIPTABLES_MULTI -DALL_INCLUSIVE -g -O2 -rdynamic  -o
+iptables-multi iptables_multi-iptables-multi.o
+iptables_multi-iptables-save.o iptables_multi-iptables-restore.o
+iptables_multi-iptables-xml.o iptables_multi-iptables-standalone.o
+iptables_multi-iptables.o iptables_multi-xshared.o libiptc/libip4tc.la
+extensions/libext4.a libxtables.la -lm 
+libtool: link: gcc -D_LARGEFILE_SOURCE=1 -D_LARGE_FILES
+-D_FILE_OFFSET_BITS=64 -D_REENTRANT -Wall -Waggregate-return
+-Wmissing-declarations -Wmissing-prototypes -Wredundant-decls -Wshadow
+-Wstrict-prototypes -Winline -pipe
+-DXTABLES_LIBDIR=\"/pkg/lib/xtables\" -DXTABLES_INTERNAL -I./include
+-I./include -DIPTABLES_MULTI -DALL_INCLUSIVE -g -O2 -rdynamic -o
+iptables-multi iptables_multi-iptables-multi.o
+iptables_multi-iptables-save.o iptables_multi-iptables-restore.o
+iptables_multi-iptables-xml.o iptables_multi-iptables-standalone.o
+iptables_multi-iptables.o iptables_multi-xshared.o
+libiptc/.libs/libip4tc.a extensions/libext4.a ./.libs/libxtables.a -lm
+collect2: ld terminated with signal 11 [Segmentation fault]
+extensions/libext4.a(initext4.o): In function `init_extensions':
+/home/gzp/src/iptables/extensions/initext4.c:144: undefined reference to `libxt_IDLETIMER_init'
+/home/gzp/src/iptables/extensions/initext4.c:145: undefined reference to `libxt_TEE_init'
+make[2]: *** [iptables-multi] Error 1
+
+Note the difference, new undefined reference: `libxt_IDLETIMER_init
