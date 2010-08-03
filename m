@@ -1,64 +1,62 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 16503] New: Upgrade to 2.6.34.2 breaks
- ethernet network
-Date: Tue, 3 Aug 2010 13:27:40 -0700
-Message-ID: <20100803132740.946cf78a.akpm@linux-foundation.org>
-References: <bug-16503-10286@https.bugzilla.kernel.org/>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH] SUNRPC: prevent task_cleanup running on freed xprt
+Date: Tue, 3 Aug 2010 17:22:20 -0400
+Message-ID: <20100803212220.GI31579@fieldses.org>
+References: <20100803132453.4fa18444@tlielax.poochiereds.net>
+ <1280860815.9771.25.camel@heimdal.trondhjem.org>
+ <1280861363.12283.2.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Gary Zambrano <zambrano@broadcom.com>, stable@kernel.org,
-	davemorgan353@btinternet.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35834 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757674Ab0HCU2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 16:28:52 -0400
-In-Reply-To: <bug-16503-10286@https.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond Myklebust <trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1280861363.12283.2.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+From: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+We saw a report of a NULL dereference in xprt_autoclose:
 
-On Tue, 3 Aug 2010 20:14:34 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+	https://bugzilla.redhat.com/show_bug.cgi?id=611938
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=16503
-> 
->            Summary: Upgrade to 2.6.34.2 breaks ethernet network
->            Product: Networking
->            Version: 2.5
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: davemorgan353@btinternet.com
->         Regression: No
-> 
-> 
-> Using Arch Linux with fully up-to-date system.
-> 
-> Upgrading kernel from 2.6.34.1 to 2.6.34.2 breaks my ethernet connection.  I
-> get dhcp timeouts but no errors in the logs regarding the kernel or the card.
-> 
-> Dell Inspiron 1720.
-> 
-> 03:00.0 Ethernet controller: Broadcom Corporation BCM4401-B0 100Base-TX (rev
-> 02)
-> 
-> Downgrading the kernel fixes the issue.
-> 
+This appears to be the result of an xprt's task_cleanup running after
+the xprt is destroyed.  Nothing in the current code appears to prevent
+that.
 
-There are no changes to b44.c in patch-2.6.34.2.  Perhaps you could
-generate the dmesg logs for 2.6.34.1 and 2.6.34.2 and run `diff -u'
-against them, see if anything interesting pops out?
+Signed-off-by: J. Bruce Fields <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ net/sunrpc/xprt.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
+On Tue, Aug 03, 2010 at 02:49:23PM -0400, Trond Myklebust wrote:
+> Hmm... On the other hand, since xprt_destroy() may get called from
+> inside the rpciod_workqueue, the wait_on_bit_lock() may end up
+> deadlocking.
+> 
+> Nevermind, then. Let's go with the cancel_work_sync().
+
+Here you are--only if you don't have something equivalent already queued
+up.--b.
+
+diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+index dcd0132..2a1f664 100644
+--- a/net/sunrpc/xprt.c
++++ b/net/sunrpc/xprt.c
+@@ -1129,6 +1129,7 @@ static void xprt_destroy(struct kref *kref)
+ 	rpc_destroy_wait_queue(&xprt->sending);
+ 	rpc_destroy_wait_queue(&xprt->resend);
+ 	rpc_destroy_wait_queue(&xprt->backlog);
++	cancel_work_sync(&xprt->task_cleanup);
+ 	/*
+ 	 * Tear down transport state and free the rpc_xprt
+ 	 */
+-- 
+1.7.0.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
