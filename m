@@ -1,67 +1,47 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] can-raw: Fix skb_orphan_try handling
-Date: Tue, 03 Aug 2010 17:22:47 +0200
-Message-ID: <4C583447.8010004@hartkopp.net>
-References: <4C529EFB.4090601@hartkopp.net>	<20100801.010337.68133932.davem@davemloft.net>	<4C555168.3090800@hartkopp.net>
-	<20100803.003056.216763358.davem@davemloft.net>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: softirq warnings when calling dev_kfree_skb_irq - bug in conntrack?
+Date: Tue, 03 Aug 2010 08:24:52 -0700
+Message-ID: <4C5834C4.3070103@goop.org>
+References: <4C571476.7070301@goop.org>	<1280819074.3874.8.camel@jlt3.sipsolutions.net> <20100803.002318.209965574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100803.003056.216763358.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	dongxiao.xu@intel.com, Xen-devel@lists.xensource.com,
+	Ian.Campbell@citrix.com, kaber@trash.net, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from claw.goop.org ([74.207.240.146]:49948 "EHLO claw.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932169Ab0HCPYy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 11:24:54 -0400
+In-Reply-To: <20100803.002318.209965574.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03.08.2010 09:30, David Miller wrote:
-> From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> Date: Sun, 01 Aug 2010 12:50:16 +0200
-> 
->> On 01.08.2010 10:03, David Miller wrote:
->>> From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
->>> Date: Fri, 30 Jul 2010 11:44:27 +0200
->>>
->>>> Hello Eric, hello Patrick,
->>>>
->>>> Commit fc6055a5ba31e2c14e36e8939f9bf2b6d586a7f5 (net: Introduce
->>>> skb_orphan_try()) allows an early orphan of the skb and takes care on
->>>> tx timestamping, which needs the sk-reference in the skb on driver level.
->>>> So does the can-raw socket, which has not been taken into account here.
->>>>
->>>> The patch below adds a 'prevent_sk_orphan' bit in the skb tx shared info,
->>>> which fixes the problem discovered by Matthias Fuchs here:
->>>>
->>>>       http://marc.info/?t=128030411900003&r=1&w=2
->>>
->>> Your patch sets this new value, but I never see it getting tested anywhere.
->>>
->>> How does this work?
+  On 08/03/2010 12:23 AM, David Miller wrote:
+> From: Johannes Berg<johannes@sipsolutions.net>
+> Date: Tue, 03 Aug 2010 09:04:34 +0200
+>
+>> I had this too:
+>> http://article.gmane.org/gmane.linux.network/167590
 >>
+>> But I'm not convinced it's conntrack, I'd think it's
 >>
->> The flags are tested all together in skb_orphan_try() ...
-> 
-> This is why I hate using unions in situations like this... it makes
-> code impossible to audit easily.
-> 
-> This damn thing should just be a "u8 flags" and a bunch of bit mask
-> CPP macro defines for the various boolean values.
+>> commit 15e83ed78864d0625e87a85f09b297c0919a4797
+>> Author: Eric Dumazet<eric.dumazet@gmail.com>
+>> Date:   Wed May 19 23:16:03 2010 +0000
+>>
+>>      net: remove zap_completion_queue
+>>
+>> which, from the looks of it, ought to be reverted because it failed to
+>> take into account that dev_kfree_skb() can do more things that require
+>> non-irq-context than just calling skb->destructor, like for instance the
+>> conntrack thing we see here.
+> Agreed.  I'll revert this and queue that up for 2.6.35-stable
+>
 
-Yep! I also felt like this.
+FWIW I only see this in linux-next, not released 2.6.35.  But it does 
+look like a likely root cause.
 
-Maybe Patrick Ohly can give some feedback, if he's ok with that kind of
-change. So far there are only a few places that would need to be changed for
-the flags bitops.
-
-> Anyways, I'll apply your patch thanks.
-
-Thanks!
+     J
