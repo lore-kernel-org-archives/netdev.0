@@ -1,51 +1,58 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [patch] usbnet: fix 100% CPU use on suspended device
-Date: Tue, 3 Aug 2010 16:39:24 +0200
-Message-ID: <201008031639.24874.oliver@neukum.org>
-References: <Pine.LNX.4.44L0.1007261106350.1550-100000@iolanthe.rowland.org> <201007261821.15020.oliver@neukum.org> <AANLkTi=KbThErL-jXXSVGdkod-p7B7u6eDL5LtnU5SG-@mail.gmail.com>
+From: Denis Kirjanov <kirjanov@gmail.com>
+Subject: Re: [PATCH net-next 3/3] drivers/net/bfin_mac.c: Misc function
+	cleanups, neatening
+Date: Tue, 3 Aug 2010 18:48:13 +0400
+Message-ID: <AANLkTimKvr2ozzBFWcfbM88kV-i7i=Qh4pZsMsbWJZ_R@mail.gmail.com>
+References: <cover.1280447281.git.joe@perches.com>
+	<AANLkTikYn+qpDxxLeJ4eu5SsEs=7n_wAu5RzM5pZhVwU@mail.gmail.com>
+	<1280454323.21777.4.camel@Joe-Laptop.home>
+	<201008030940.28831.rgetz@blackfin.uclinux.org>
+Reply-To: dkirjanov@kernel.org
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Elly Jones <ellyjones-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTi=KbThErL-jXXSVGdkod-p7B7u6eDL5LtnU5SG--JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joe Perches <joe@perches.com>,
+	Mike Frysinger <vapier.adi@gmail.com>,
+	"Hennerich, Michael" <Michael.Hennerich@analog.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Robin Getz <rgetz@blackfin.uclinux.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201008030940.28831.rgetz@blackfin.uclinux.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Montag, 2. August 2010, 15:31:33 schrieb Elly Jones:
-> On Mon, Jul 26, 2010 at 12:21 PM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> wrote:
-> > Am Montag, 26. Juli 2010, 17:13:23 schrieb Alan Stern:
-> >> On Mon, 26 Jul 2010, Elly Jones wrote:
-> >>
-> >> > > This isn't right.  The problem should be fixed some other way.  Under
-> >> > > what circumstances are URBs submitted incorrectly?
-> >> >
-> >> > When the device is autosuspended. What is the proper thing for a
-> >> > device to do here?
-> >>
-> >> From looking at the code, it appears that the EVENT_DEV_ASLEEP flag
-> >> should be tested in usbnet_bh() the way it is in rx_submit().  But I'm
-> >> not an expert on usbnet; we should ask someone who is, like Oliver.
-> >
-> > Sorry, I didn't notice this thread.
-> >
-> > The correct way to check for autosuspend in usbnet is to look
-> > at EVENT_DEV_ASLEEP under txq.lock. That being said, usbnet_bh()
-> > uses rx_submit() which does the correct check. The bug seems to be
-> > a lack of error handling in usbnet_bh() regarding the return of rx_submit()
-> 
-> If rx_submit() fails, should usbnet_bh() just not tasklet_schedule() itself?
+On Tue, Aug 3, 2010 at 5:40 PM, Robin Getz <rgetz@blackfin.uclinux.org>=
+ wrote:
+> On Thu 29 Jul 2010 21:45, Joe Perches pondered:
+>> On Thu, 2010-07-29 at 20:18 -0400, Mike Frysinger wrote:
+>> > i'll ack the idea, but i think it better i pull these patches into=
+ the
+>> > Blackfin repo to get some real hardware testing before i forward t=
+hem
+>> > back to David/netdev ...
+>> >
+>> > that OK with you ?
+>>
+>> Fine by me. =A0These are trivial patches.
+>> I don't have the hardware.
+>
+> Do you want the hardware?
+>
+> I'm moving my office, and found some extras if anyone wants them...
 
-That would not work unless the cause of the failure would be removed.
-If you get -ENOLINK the sane option seems to me to give up.
+I can take one if that is no problem..
 
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> -Robin
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
+
+
+
+--=20
+Regards,
+Denis
