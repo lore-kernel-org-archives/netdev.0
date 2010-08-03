@@ -1,47 +1,90 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: softirq warnings when calling dev_kfree_skb_irq - bug in conntrack?
-Date: Tue, 03 Aug 2010 12:16:39 -0700
-Message-ID: <4C586B17.8090604@goop.org>
-References: <4C571476.7070301@goop.org>	<1280819074.3874.8.camel@jlt3.sipsolutions.net> <20100803.002318.209965574.davem@davemloft.net>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: sunrpc: what prevents an xprt from being freed before
+ task_cleanup runs?
+Date: Tue, 3 Aug 2010 15:18:33 -0400
+Message-ID: <20100803191833.GB31579@fieldses.org>
+References: <20100803132453.4fa18444@tlielax.poochiereds.net>
+ <1280860815.9771.25.camel@heimdal.trondhjem.org>
+ <20100803184856.GA31579@fieldses.org>
+ <1280861775.12283.7.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
-	dongxiao.xu@intel.com, Xen-devel@lists.xensource.com,
-	Ian.Campbell@citrix.com, kaber@trash.net, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton@redhat.com>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Trond Myklebust <trond.myklebust@fys.uio.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from claw.goop.org ([74.207.240.146]:58956 "EHLO claw.goop.org"
+Received: from fieldses.org ([174.143.236.118]:45481 "EHLO fieldses.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753672Ab0HCTQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Aug 2010 15:16:46 -0400
-In-Reply-To: <20100803.002318.209965574.davem@davemloft.net>
+	id S1756598Ab0HCTT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 15:19:57 -0400
+Content-Disposition: inline
+In-Reply-To: <1280861775.12283.7.camel@heimdal.trondhjem.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  On 08/03/2010 12:23 AM, David Miller wrote:
-> From: Johannes Berg<johannes@sipsolutions.net>
-> Date: Tue, 03 Aug 2010 09:04:34 +0200
->
->> I had this too:
->> http://article.gmane.org/gmane.linux.network/167590
->>
->> But I'm not convinced it's conntrack, I'd think it's
->>
->> commit 15e83ed78864d0625e87a85f09b297c0919a4797
->> Author: Eric Dumazet<eric.dumazet@gmail.com>
->> Date:   Wed May 19 23:16:03 2010 +0000
->>
->>      net: remove zap_completion_queue
->>
->> which, from the looks of it, ought to be reverted because it failed to
->> take into account that dev_kfree_skb() can do more things that require
->> non-irq-context than just calling skb->destructor, like for instance the
->> conntrack thing we see here.
-> Agreed.  I'll revert this and queue that up for 2.6.35-stable
+On Tue, Aug 03, 2010 at 02:56:15PM -0400, Trond Myklebust wrote:
+> On Tue, 2010-08-03 at 14:48 -0400, J. Bruce Fields wrote:
+> > On Tue, Aug 03, 2010 at 02:40:15PM -0400, Trond Myklebust wrote:
+> > > On Tue, 2010-08-03 at 13:24 -0400, Jeff Layton wrote:
+> > > > We got a report recently about a panic in RHEL5 (2.6.18 based kernel).
+> > > > The problem appears to be that a task_cleanup workqueue job ran and got
+> > > > passed a pointer to an xprt that had been freed. The bug is here in
+> > > > case anyone is interested in the details:
+> > > > 
+> > > >     https://bugzilla.redhat.com/show_bug.cgi?id=611938
+> > > > 
+> > > > The situation seems to be pretty difficult to reproduce, but I don't
+> > > > see anything that's intended to ensure that this doesn't occur in RHEL5
+> > > > or mainline. The task_cleanup workqueue job doesn't hold a reference to
+> > > > the xprt, and the job isn't canceled when the xprt is torn down.
+> > > > 
+> > > > Bruce had a look and suggested that we may need something like the
+> > > > patch below (pasted in, so it probably won't apply correctly). I've
+> > > > tested a backported version of it on RHEL5 and it seems to work fine.
+> > > > 
+> > > > Is it reasonable to cancel task_cleanup when destroying the xprt? Or,
+> > > > am I missing something that should prevent this situation in mainline
+> > > > (and perhaps isn't in RHEL5's kernel).
+> > > > 
+> > > > Any help is appreciated...
+> > > > 
+> > > > -----------------------------[snip]---------------------------------
+> > > > diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+> > > > index dcd0132..2a1f664 100644
+> > > > --- a/net/sunrpc/xprt.c
+> > > > +++ b/net/sunrpc/xprt.c
+> > > > @@ -1129,6 +1129,7 @@ static void xprt_destroy(struct kref *kref)
+> > > >   rpc_destroy_wait_queue(&xprt->sending);
+> > > >   rpc_destroy_wait_queue(&xprt->resend);
+> > > >   rpc_destroy_wait_queue(&xprt->backlog);
+> > > > + cancel_work_sync(&xprt->task_cleanup);
+> > > >   /*
+> > > >    * Tear down transport state and free the rpc_xprt
+> > > >    */
+> > > > -----------------------------[snip]---------------------------------
+> > > > 
+> > > > Thanks,
+> > > 
+> > > How about doing a wait_on_bit_lock(&xprt->state, XPRT_LOCKED,...)
+> > > instead?
+> > 
+> > I'll believe you, but I don't get it: what guarantees that XPRT_LOCKED
+> > isn't cleared while xprt_autoclose autoclose is still running?
+> 
+> Look more closely: the callers that enqueue task_cleanup on the
+> workqueue all ensure that XPRT_LOCKED is held, and it isn't released
+> until the call to xprt_release_write() at the very end of
+> xprt_autoclose().
 
-Reverting this change fixes the problem for me.
+I see that (assuming snd_task is always NULL--but, OK, I think I see why
+that's true), but we still dereference the xprt after returning from
+xprt_release_write().  Only to drop the transport_lock, but I don't see
+why there isn't a race.
 
-Thanks,
-     J
+> The rpciod_workqueue deadlocking is an issue, though, so unfortunately,
+> we won't be able to make use of the above.
 
+Yeah, OK, it was just bugging me that I didn't feel like I understood
+how XPRT_LOCKED is used.
+
+--b.
