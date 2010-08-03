@@ -1,48 +1,39 @@
-From: Igor Grinberg <grinberg@compulab.co.il>
-Subject: Re: [PATCH 2/8] davinci: add mdio platform devices
-Date: Tue, 03 Aug 2010 17:06:50 +0300
-Message-ID: <4C58227A.4080502@compulab.co.il>
-References: <1280842313-3743-1-git-send-email-cyril@ti.com> <1280842313-3743-3-git-send-email-cyril@ti.com>
+From: =?UTF-8?Q?R=C3=A9mi_Denis-Courmont?= <remi@remlab.net>
+Subject: Re: RFC: New BPF 'LOOP' instruction
+Date: Tue, 03 Aug 2010 16:09:53 +0200
+Message-ID: <72ff93eb4581b198faa6ce62d2b5162b@chewa.net>
+References: <20100803070426.GN11110@cel.leo> <20100803.001809.25133218.davem@davemloft.net> <87mxt3etut.fsf@basil.nowhere.org> <20100803.060754.26959298.davem@davemloft.net> <20100803133442.GQ11110@cel.leo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com,
-	linux-omap@vger.kernel.org, nsekhar@ti.com, srk@ti.com
-To: Cyril Chemparathy <cyril@ti.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from compulab.co.il ([67.18.134.219]:33636 "EHLO compulab.co.il"
+Received: from yop.chewa.net ([91.121.105.214]:37464 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756281Ab0HCOHA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Aug 2010 10:07:00 -0400
-In-Reply-To: <1280842313-3743-3-git-send-email-cyril@ti.com>
+	id S1756470Ab0HCOJy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 10:09:54 -0400
+In-Reply-To: <20100803133442.GQ11110@cel.leo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/03/10 16:31, Cyril Chemparathy wrote:
-> This patch adds mdio platform devices on SoCs that have the necessary
-> hardware.  Clock lookup entries (aliases) have also been added, so that the
-> MDIO and EMAC drivers can independently enable/disable a shared underlying
-> clock.  Further, the EMAC MMR region has been split down into separate MDIO
-> and EMAC regions.
->
-> Signed-off-by: Cyril Chemparathy <cyril@ti.com>
-> ---
->  arch/arm/mach-davinci/devices-da8xx.c       |   29 +++++++++++++++++++++++++-
->  arch/arm/mach-davinci/dm365.c               |   22 +++++++++++++++++++-
->  arch/arm/mach-davinci/dm644x.c              |   22 +++++++++++++++++++-
->  arch/arm/mach-davinci/dm646x.c              |   22 +++++++++++++++++++-
->  arch/arm/mach-davinci/include/mach/dm365.h  |    1 +
->  arch/arm/mach-davinci/include/mach/dm644x.h |    1 +
->  arch/arm/mach-davinci/include/mach/dm646x.h |    1 +
->  7 files changed, 93 insertions(+), 5 deletions(-)
->   
 
-Shouldn't arch/arm/mach-omap2/board-am3517evm.c be on your list?
-I think it should, or else it will be broken by:
-[PATCH 5/8] netdev: cleanup unused davinci mdio emac code
-
--- 
-Regards,
-Igor.
+On Tue, 3 Aug 2010 14:34:43 +0100, Paul LeoNerd Evans=0D
+<leonerd@leonerd.org.uk> wrote:=0D
+> What if we added a new constant SKF_TRANS_OFF to store the start addr=
+ess=0D
+> of the transport header, and a new SKF_AD storage area for the transp=
+ort=0D
+> protocol:=0D
+(...)=0D
+> Does this sound workable?=0D
+=0D
+The network header has not been processed by the time the skbuff hits t=
+he=0D
+packet socket. So the transport header offset is not defined yet.=0D
+=0D
+-- =0D
+R=C3=A9mi Denis-Courmont=0D
+http://www.remlab.net=0D
+http://fi.linkedin.com/in/remidenis
 
