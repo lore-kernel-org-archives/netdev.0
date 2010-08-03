@@ -1,7 +1,7 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH 4/8] davinci: cleanup unused davinci mdio arch code
-Date: Tue,  3 Aug 2010 09:31:49 -0400
-Message-ID: <1280842313-3743-5-git-send-email-cyril@ti.com>
+Subject: [PATCH 7/8] netdev: switch davinci emac to new cpdma layer
+Date: Tue,  3 Aug 2010 09:31:52 -0400
+Message-ID: <1280842313-3743-8-git-send-email-cyril@ti.com>
 References: <1280842313-3743-1-git-send-email-cyril@ti.com>
 Cc: nsekhar@ti.com, srk@ti.com, Cyril Chemparathy <cyril@ti.com>
 To: netdev@vger.kernel.org,
@@ -12,318 +12,433 @@ In-Reply-To: <1280842313-3743-1-git-send-email-cyril@ti.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes davinci architecture code that has now been rendered
-useless by the previous patches in the MDIO separation series.
+This patch hooks up the emac driver with the newly separated cpdma driver.
+
+Key differences introduced here:
+
+ - The old buffer list scheme is no longer required
+
+ - The original code maintained mac address per rx channel, even if only one
+   rx channel was being used.  With this change, mac address is maintained
+   device wide.  If support for multiple rx channels is added in future, this
+   will need to be reworked a bit.
+
+ - The new CPDMA code handles short packets better than before.  The
+   earlier code was adjusting the length up, without ensuring that the tail
+   end of the padding was cleared - a possible security issue.  This has been
+   fixed to use skb_padto().
 
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
 ---
- arch/arm/mach-davinci/board-da830-evm.c     |    5 -----
- arch/arm/mach-davinci/board-da850-evm.c     |    6 ------
- arch/arm/mach-davinci/board-dm365-evm.c     |    7 -------
- arch/arm/mach-davinci/board-dm644x-evm.c    |    7 -------
- arch/arm/mach-davinci/board-dm646x-evm.c    |    8 --------
- arch/arm/mach-davinci/board-neuros-osd2.c   |    7 -------
- arch/arm/mach-davinci/board-sffsdr.c        |    7 -------
- arch/arm/mach-davinci/devices-da8xx.c       |    2 --
- arch/arm/mach-davinci/dm365.c               |    1 -
- arch/arm/mach-davinci/dm644x.c              |    1 -
- arch/arm/mach-davinci/dm646x.c              |    1 -
- arch/arm/mach-davinci/include/mach/dm365.h  |    1 -
- arch/arm/mach-davinci/include/mach/dm644x.h |    1 -
- arch/arm/mach-davinci/include/mach/dm646x.h |    1 -
- 14 files changed, 0 insertions(+), 55 deletions(-)
+ drivers/net/davinci_emac.c |  238 ++++++++++++++++++++++++++++----------------
+ 1 files changed, 150 insertions(+), 88 deletions(-)
 
-diff --git a/arch/arm/mach-davinci/board-da830-evm.c b/arch/arm/mach-davinci/board-da830-evm.c
-index 212d970..76e9a9b 100644
---- a/arch/arm/mach-davinci/board-da830-evm.c
-+++ b/arch/arm/mach-davinci/board-da830-evm.c
-@@ -30,9 +30,6 @@
- #include <mach/da8xx.h>
- #include <mach/usb.h>
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 33dc8b5..3efa42d 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -63,6 +63,8 @@
+ #include <asm/irq.h>
+ #include <asm/page.h>
  
--#define DA830_EVM_PHY_MASK		0x0
--#define DA830_EVM_MDIO_FREQUENCY	2200000	/* PHY bus frequency */
--
- /*
-  * USB1 VBUS is controlled by GPIO1[15], over-current is reported on GPIO2[4].
-  */
-@@ -516,8 +513,6 @@ static __init void da830_evm_init(void)
- 
- 	da830_evm_usb_init();
- 
--	soc_info->emac_pdata->phy_mask = DA830_EVM_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = DA830_EVM_MDIO_FREQUENCY;
- 	soc_info->emac_pdata->rmii_en = 1;
- 
- 	ret = davinci_cfg_reg_list(da830_cpgmac_pins);
-diff --git a/arch/arm/mach-davinci/board-da850-evm.c b/arch/arm/mach-davinci/board-da850-evm.c
-index 2ec3095..c6e39cc 100644
---- a/arch/arm/mach-davinci/board-da850-evm.c
-+++ b/arch/arm/mach-davinci/board-da850-evm.c
-@@ -36,9 +36,6 @@
- #include <mach/nand.h>
- #include <mach/mux.h>
- 
--#define DA850_EVM_PHY_MASK		0x1
--#define DA850_EVM_MDIO_FREQUENCY	2200000 /* PHY bus frequency */
--
- #define DA850_LCD_PWR_PIN		GPIO_TO_PIN(2, 8)
- #define DA850_LCD_BL_PIN		GPIO_TO_PIN(2, 15)
- 
-@@ -617,9 +614,6 @@ static int __init da850_evm_config_emac(void)
- 	/* Enable/Disable MII MDIO clock */
- 	gpio_direction_output(DA850_MII_MDIO_CLKEN_PIN, rmii_en);
- 
--	soc_info->emac_pdata->phy_mask = DA850_EVM_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = DA850_EVM_MDIO_FREQUENCY;
--
- 	ret = da8xx_register_emac();
- 	if (ret)
- 		pr_warning("da850_evm_init: emac registration failed: %d\n",
-diff --git a/arch/arm/mach-davinci/board-dm365-evm.c b/arch/arm/mach-davinci/board-dm365-evm.c
-index 5bb86b2..e89263e 100644
---- a/arch/arm/mach-davinci/board-dm365-evm.c
-+++ b/arch/arm/mach-davinci/board-dm365-evm.c
-@@ -54,9 +54,6 @@ static inline int have_tvp7002(void)
- 	return 0;
++#include "davinci_cpdma.h"
++
+ static int debug_level;
+ module_param(debug_level, int, 0);
+ MODULE_PARM_DESC(debug_level, "DaVinci EMAC debug level (NETIF_MSG bits)");
+@@ -113,6 +115,7 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ #define EMAC_DEF_MAX_FRAME_SIZE		(1500 + 14 + 4 + 4)
+ #define EMAC_DEF_TX_CH			(0) /* Default 0th channel */
+ #define EMAC_DEF_RX_CH			(0) /* Default 0th channel */
++#define EMAC_DEF_RX_NUM_DESC		(128)
+ #define EMAC_DEF_MAX_TX_CH		(1) /* Max TX channels configured */
+ #define EMAC_DEF_MAX_RX_CH		(1) /* Max RX channels configured */
+ #define EMAC_POLL_WEIGHT		(64) /* Default NAPI poll weight */
+@@ -443,6 +446,9 @@ struct emac_priv {
+ 	u32 hw_ram_addr;
+ 	struct emac_txch *txch[EMAC_DEF_MAX_TX_CH];
+ 	struct emac_rxch *rxch[EMAC_DEF_MAX_RX_CH];
++	struct cpdma_ctlr *dma;
++	struct cpdma_chan *txchan;
++	struct cpdma_chan *rxchan;
+ 	u32 link; /* 1=link on, 0=link off */
+ 	u32 speed; /* 0=Auto Neg, 1=No PHY, 10,100, 1000 - mbps */
+ 	u32 duplex; /* Link duplex: 0=Half, 1=Full */
+@@ -1032,6 +1038,58 @@ static irqreturn_t emac_irq(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
  }
  
--#define DM365_EVM_PHY_MASK		(0x2)
--#define DM365_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
- /*
-  * A MAX-II CPLD is used for various board control functions.
-  */
-@@ -528,16 +525,12 @@ fail:
- 		/* externally mux MMC1/ENET/AIC33 to imager */
- 		mux |= BIT(6) | BIT(5) | BIT(3);
- 	} else {
--		struct davinci_soc_info *soc_info = &davinci_soc_info;
--
- 		/* we can use MMC1 ... */
- 		dm365evm_mmc_configure();
- 		davinci_setup_mmc(1, &dm365evm_mmc_config);
- 
- 		/* ... and ENET ... */
- 		dm365evm_emac_configure();
--		soc_info->emac_pdata->phy_mask = DM365_EVM_PHY_MASK;
--		soc_info->emac_pdata->mdio_max_freq = DM365_EVM_MDIO_FREQUENCY;
- 		resets &= ~BIT(3);
- 
- 		/* ... and AIC33 */
-diff --git a/arch/arm/mach-davinci/board-dm644x-evm.c b/arch/arm/mach-davinci/board-dm644x-evm.c
-index 34c8b41..9e8193e 100644
---- a/arch/arm/mach-davinci/board-dm644x-evm.c
-+++ b/arch/arm/mach-davinci/board-dm644x-evm.c
-@@ -38,9 +38,6 @@
- #include <mach/mmc.h>
- #include <mach/usb.h>
- 
--#define DM644X_EVM_PHY_MASK		(0x2)
--#define DM644X_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
- #define LXT971_PHY_ID	(0x001378e2)
- #define LXT971_PHY_MASK	(0xfffffff0)
- 
-@@ -660,7 +657,6 @@ static int davinci_phy_fixup(struct phy_device *phydev)
- static __init void davinci_evm_init(void)
++static struct sk_buff *emac_rx_alloc(struct emac_priv *priv)
++{
++	struct sk_buff *skb = dev_alloc_skb(priv->rx_buf_size);
++	if (WARN_ON(!skb))
++		return NULL;
++	skb->dev = priv->ndev;
++	skb_reserve(skb, NET_IP_ALIGN);
++	return skb;
++}
++
++static void emac_rx_handler(void *token, int len, int status)
++{
++	struct sk_buff		*skb = token;
++	struct net_device	*ndev = skb->dev;
++	struct emac_priv	*priv = netdev_priv(ndev);
++	int			ret;
++
++	if (status < 0) {
++		/* error */
++		goto recycle;
++	}
++
++	skb_put(skb, len);
++	skb->protocol = eth_type_trans(skb, ndev);
++	netif_receive_skb(skb);
++	priv->net_dev_stats.rx_bytes += len;
++	priv->net_dev_stats.rx_packets++;
++
++	/* alloc a new packet for receive */
++	skb = emac_rx_alloc(priv);
++
++recycle:
++	if (skb) {
++		ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
++					skb_tailroom(skb), GFP_KERNEL);
++		WARN_ON(ret < 0);
++	}
++}
++
++static void emac_tx_handler(void *token, int len, int status)
++{
++	struct sk_buff		*skb = token;
++	struct net_device	*ndev = skb->dev;
++	struct emac_priv	*priv = netdev_priv(ndev);
++
++	if (unlikely(netif_queue_stopped(ndev)))
++		netif_start_queue(ndev);
++	priv->net_dev_stats.tx_packets++;
++	priv->net_dev_stats.tx_bytes += len;
++	dev_kfree_skb_any(skb);
++}
++
+ /** EMAC on-chip buffer descriptor memory
+  *
+  * WARNING: Please note that the on chip memory is used for both TX and RX
+@@ -1412,42 +1470,36 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
  {
- 	struct clk *aemif_clk;
--	struct davinci_soc_info *soc_info = &davinci_soc_info;
+ 	struct device *emac_dev = &ndev->dev;
+ 	int ret_code;
+-	struct emac_netbufobj tx_buf; /* buffer obj-only single frame support */
+-	struct emac_netpktobj tx_packet;  /* packet object */
+ 	struct emac_priv *priv = netdev_priv(ndev);
  
- 	aemif_clk = clk_get(NULL, "aemif");
- 	clk_enable(aemif_clk);
-@@ -695,9 +691,6 @@ static __init void davinci_evm_init(void)
- 	davinci_serial_init(&uart_config);
- 	dm644x_init_asp(&dm644x_evm_snd_data);
+ 	/* If no link, return */
+ 	if (unlikely(!priv->link)) {
+ 		if (netif_msg_tx_err(priv) && net_ratelimit())
+ 			dev_err(emac_dev, "DaVinci EMAC: No link to transmit");
+-		return NETDEV_TX_BUSY;
++		goto fail_tx;
+ 	}
  
--	soc_info->emac_pdata->phy_mask = DM644X_EVM_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = DM644X_EVM_MDIO_FREQUENCY;
--
- 	/* Register the fixup for PHY on DaVinci */
- 	phy_register_fixup_for_uid(LXT971_PHY_ID, LXT971_PHY_MASK,
- 					davinci_phy_fixup);
-diff --git a/arch/arm/mach-davinci/board-dm646x-evm.c b/arch/arm/mach-davinci/board-dm646x-evm.c
-index 6d88893..a3ce716 100644
---- a/arch/arm/mach-davinci/board-dm646x-evm.c
-+++ b/arch/arm/mach-davinci/board-dm646x-evm.c
-@@ -718,13 +718,8 @@ static struct davinci_uart_config uart_config __initdata = {
- 	.enabled_uarts = (1 << 0),
- };
+-	/* Build the buffer and packet objects - Since only single fragment is
+-	 * supported, need not set length and token in both packet & object.
+-	 * Doing so for completeness sake & to show that this needs to be done
+-	 * in multifragment case
+-	 */
+-	tx_packet.buf_list = &tx_buf;
+-	tx_packet.num_bufs = 1; /* only single fragment supported */
+-	tx_packet.pkt_length = skb->len;
+-	tx_packet.pkt_token = (void *)skb;
+-	tx_buf.length = skb->len;
+-	tx_buf.buf_token = (void *)skb;
+-	tx_buf.data_ptr = skb->data;
+-	ret_code = emac_send(priv, &tx_packet, EMAC_DEF_TX_CH);
++	ret_code = skb_padto(skb, EMAC_DEF_MIN_ETHPKTSIZE);
++	if (unlikely(ret_code < 0)) {
++		if (netif_msg_tx_err(priv) && net_ratelimit())
++			dev_err(emac_dev, "DaVinci EMAC: packet pad failed");
++		goto fail_tx;
++	}
++
++	ret_code = cpdma_chan_submit(priv->txchan, skb, skb->data, skb->len,
++				     GFP_KERNEL);
+ 	if (unlikely(ret_code != 0)) {
+-		if (ret_code == EMAC_ERR_TX_OUT_OF_BD) {
+-			if (netif_msg_tx_err(priv) && net_ratelimit())
+-				dev_err(emac_dev, "DaVinci EMAC: xmit() fatal"\
+-					" err. Out of TX BD's");
+-			netif_stop_queue(priv->ndev);
+-		}
+-		priv->net_dev_stats.tx_dropped++;
+-		return NETDEV_TX_BUSY;
++		if (netif_msg_tx_err(priv) && net_ratelimit())
++			dev_err(emac_dev, "DaVinci EMAC: desc submit failed");
++		goto fail_tx;
+ 	}
  
--#define DM646X_EVM_PHY_MASK		(0x2)
--#define DM646X_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
- static __init void evm_init(void)
- {
--	struct davinci_soc_info *soc_info = &davinci_soc_info;
--
- 	evm_init_i2c();
- 	davinci_serial_init(&uart_config);
- 	dm646x_init_mcasp0(&dm646x_evm_snd_data[0]);
-@@ -734,9 +729,6 @@ static __init void evm_init(void)
- 
- 	if (HAS_ATA)
- 		davinci_init_ide();
--
--	soc_info->emac_pdata->phy_mask = DM646X_EVM_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = DM646X_EVM_MDIO_FREQUENCY;
+ 	return NETDEV_TX_OK;
++
++fail_tx:
++	priv->net_dev_stats.tx_dropped++;
++	netif_stop_queue(priv->ndev);
++	return NETDEV_TX_BUSY;
  }
  
- #define DM646X_EVM_REF_FREQ		27000000
-diff --git a/arch/arm/mach-davinci/board-neuros-osd2.c b/arch/arm/mach-davinci/board-neuros-osd2.c
-index 4c30e92..4b32f0a 100644
---- a/arch/arm/mach-davinci/board-neuros-osd2.c
-+++ b/arch/arm/mach-davinci/board-neuros-osd2.c
-@@ -39,9 +39,6 @@
- #include <mach/mmc.h>
- #include <mach/usb.h>
+ /**
+@@ -1470,11 +1522,8 @@ static void emac_dev_tx_timeout(struct net_device *ndev)
  
--#define NEUROS_OSD2_PHY_MASK		0x2
--#define NEUROS_OSD2_MDIO_FREQUENCY	2200000 /* PHY bus frequency */
--
- #define LXT971_PHY_ID			0x001378e2
- #define LXT971_PHY_MASK			0xfffffff0
+ 	priv->net_dev_stats.tx_errors++;
+ 	emac_int_disable(priv);
+-	emac_stop_txch(priv, EMAC_DEF_TX_CH);
+-	emac_cleanup_txch(priv, EMAC_DEF_TX_CH);
+-	emac_init_txch(priv, EMAC_DEF_TX_CH);
+-	emac_write(EMAC_TXHDP(0), 0);
+-	emac_write(EMAC_TXINTMASKSET, BIT(EMAC_DEF_TX_CH));
++	cpdma_chan_stop(priv->txchan);
++	cpdma_chan_start(priv->txchan);
+ 	emac_int_enable(priv);
+ }
  
-@@ -218,7 +215,6 @@ static struct davinci_mmc_config davinci_ntosd2_mmc_config = {
- static __init void davinci_ntosd2_init(void)
+@@ -1795,7 +1844,6 @@ static void emac_setmac(struct emac_priv *priv, u32 ch, char *mac_addr)
+ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
  {
- 	struct clk *aemif_clk;
--	struct davinci_soc_info *soc_info = &davinci_soc_info;
- 	int	status;
+ 	struct emac_priv *priv = netdev_priv(ndev);
+-	struct emac_rxch *rxch = priv->rxch[EMAC_DEF_RX_CH];
+ 	struct device *emac_dev = &priv->ndev->dev;
+ 	struct sockaddr *sa = addr;
  
- 	aemif_clk = clk_get(NULL, "aemif");
-@@ -252,9 +248,6 @@ static __init void davinci_ntosd2_init(void)
- 	davinci_serial_init(&uart_config);
- 	dm644x_init_asp(&dm644x_ntosd2_snd_data);
+@@ -1806,11 +1854,10 @@ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
+ 	memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
+ 	memcpy(ndev->dev_addr, sa->sa_data, ndev->addr_len);
  
--	soc_info->emac_pdata->phy_mask = NEUROS_OSD2_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = NEUROS_OSD2_MDIO_FREQUENCY;
--
- 	davinci_setup_usb(1000, 8);
- 	/*
- 	 * Mux the pins to be GPIOs, VLYNQEN is already done at startup.
-diff --git a/arch/arm/mach-davinci/board-sffsdr.c b/arch/arm/mach-davinci/board-sffsdr.c
-index 23e664a..b372d7f 100644
---- a/arch/arm/mach-davinci/board-sffsdr.c
-+++ b/arch/arm/mach-davinci/board-sffsdr.c
-@@ -42,9 +42,6 @@
- #include <mach/mux.h>
- #include <mach/usb.h>
+-	/* If the interface is down - rxch is NULL. */
+ 	/* MAC address is configured only after the interface is enabled. */
+ 	if (netif_running(ndev)) {
+-		memcpy(rxch->mac_addr, sa->sa_data, ndev->addr_len);
+-		emac_setmac(priv, EMAC_DEF_RX_CH, rxch->mac_addr);
++		memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
++		emac_setmac(priv, EMAC_DEF_RX_CH, priv->mac_addr);
+ 	}
  
--#define SFFSDR_PHY_MASK		(0x2)
--#define SFFSDR_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
- static struct mtd_partition davinci_sffsdr_nandflash_partition[] = {
- 	/* U-Boot Environment: Block 0
- 	 * UBL:                Block 1
-@@ -137,14 +134,10 @@ static void __init davinci_sffsdr_map_io(void)
- 
- static __init void davinci_sffsdr_init(void)
+ 	if (netif_msg_drv(priv))
+@@ -2019,7 +2066,7 @@ end_emac_rx_bdproc:
+  */
+ static int emac_hw_enable(struct emac_priv *priv)
  {
--	struct davinci_soc_info *soc_info = &davinci_soc_info;
--
- 	platform_add_devices(davinci_sffsdr_devices,
- 			     ARRAY_SIZE(davinci_sffsdr_devices));
- 	sffsdr_init_i2c();
- 	davinci_serial_init(&uart_config);
--	soc_info->emac_pdata->phy_mask = SFFSDR_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = SFFSDR_MDIO_FREQUENCY;
- 	davinci_setup_usb(0, 0); /* We support only peripheral mode. */
+-	u32 ch, val, mbp_enable, mac_control;
++	u32 val, mbp_enable, mac_control;
  
- 	/* mux VLYNQ pins */
-diff --git a/arch/arm/mach-davinci/devices-da8xx.c b/arch/arm/mach-davinci/devices-da8xx.c
-index c673e2a..b905e5c 100644
---- a/arch/arm/mach-davinci/devices-da8xx.c
-+++ b/arch/arm/mach-davinci/devices-da8xx.c
-@@ -41,7 +41,6 @@
- #define DA8XX_EMAC_CTRL_REG_OFFSET	0x3000
- #define DA8XX_EMAC_MOD_REG_OFFSET	0x2000
- #define DA8XX_EMAC_RAM_OFFSET		0x0000
--#define DA8XX_MDIO_REG_OFFSET		0x4000
- #define DA8XX_EMAC_CTRL_RAM_SIZE	SZ_8K
+ 	/* Soft reset */
+ 	emac_write(EMAC_SOFTRESET, 1);
+@@ -2062,26 +2109,9 @@ static int emac_hw_enable(struct emac_priv *priv)
+ 	emac_write(EMAC_RXUNICASTCLEAR, EMAC_RX_UNICAST_CLEAR_ALL);
+ 	priv->rx_addr_type = (emac_read(EMAC_MACCONFIG) >> 8) & 0xFF;
  
- void __iomem *da8xx_syscfg0_base;
-@@ -370,7 +369,6 @@ struct emac_platform_data da8xx_emac_pdata = {
- 	.ctrl_reg_offset	= DA8XX_EMAC_CTRL_REG_OFFSET,
- 	.ctrl_mod_reg_offset	= DA8XX_EMAC_MOD_REG_OFFSET,
- 	.ctrl_ram_offset	= DA8XX_EMAC_RAM_OFFSET,
--	.mdio_reg_offset	= DA8XX_MDIO_REG_OFFSET,
- 	.ctrl_ram_size		= DA8XX_EMAC_CTRL_RAM_SIZE,
- 	.version		= EMAC_VERSION_2,
- };
-diff --git a/arch/arm/mach-davinci/dm365.c b/arch/arm/mach-davinci/dm365.c
-index 4a58f03..7b69790 100644
---- a/arch/arm/mach-davinci/dm365.c
-+++ b/arch/arm/mach-davinci/dm365.c
-@@ -691,7 +691,6 @@ static struct emac_platform_data dm365_emac_pdata = {
- 	.ctrl_reg_offset	= DM365_EMAC_CNTRL_OFFSET,
- 	.ctrl_mod_reg_offset	= DM365_EMAC_CNTRL_MOD_OFFSET,
- 	.ctrl_ram_offset	= DM365_EMAC_CNTRL_RAM_OFFSET,
--	.mdio_reg_offset	= DM365_EMAC_MDIO_OFFSET,
- 	.ctrl_ram_size		= DM365_EMAC_CNTRL_RAM_SIZE,
- 	.version		= EMAC_VERSION_2,
- };
-diff --git a/arch/arm/mach-davinci/dm644x.c b/arch/arm/mach-davinci/dm644x.c
-index 2673723..6de35ef 100644
---- a/arch/arm/mach-davinci/dm644x.c
-+++ b/arch/arm/mach-davinci/dm644x.c
-@@ -322,7 +322,6 @@ static struct emac_platform_data dm644x_emac_pdata = {
- 	.ctrl_reg_offset	= DM644X_EMAC_CNTRL_OFFSET,
- 	.ctrl_mod_reg_offset	= DM644X_EMAC_CNTRL_MOD_OFFSET,
- 	.ctrl_ram_offset	= DM644X_EMAC_CNTRL_RAM_OFFSET,
--	.mdio_reg_offset	= DM644X_EMAC_MDIO_OFFSET,
- 	.ctrl_ram_size		= DM644X_EMAC_CNTRL_RAM_SIZE,
- 	.version		= EMAC_VERSION_1,
- };
-diff --git a/arch/arm/mach-davinci/dm646x.c b/arch/arm/mach-davinci/dm646x.c
-index 4e90511..f8ba8f4 100644
---- a/arch/arm/mach-davinci/dm646x.c
-+++ b/arch/arm/mach-davinci/dm646x.c
-@@ -358,7 +358,6 @@ static struct emac_platform_data dm646x_emac_pdata = {
- 	.ctrl_reg_offset	= DM646X_EMAC_CNTRL_OFFSET,
- 	.ctrl_mod_reg_offset	= DM646X_EMAC_CNTRL_MOD_OFFSET,
- 	.ctrl_ram_offset	= DM646X_EMAC_CNTRL_RAM_OFFSET,
--	.mdio_reg_offset	= DM646X_EMAC_MDIO_OFFSET,
- 	.ctrl_ram_size		= DM646X_EMAC_CNTRL_RAM_SIZE,
- 	.version		= EMAC_VERSION_2,
- };
-diff --git a/arch/arm/mach-davinci/include/mach/dm365.h b/arch/arm/mach-davinci/include/mach/dm365.h
-index dbb5052..2563bf4 100644
---- a/arch/arm/mach-davinci/include/mach/dm365.h
-+++ b/arch/arm/mach-davinci/include/mach/dm365.h
-@@ -25,7 +25,6 @@
- #define DM365_EMAC_CNTRL_OFFSET		(0x0000)
- #define DM365_EMAC_CNTRL_MOD_OFFSET	(0x3000)
- #define DM365_EMAC_CNTRL_RAM_OFFSET	(0x1000)
--#define DM365_EMAC_MDIO_OFFSET		(0x4000)
- #define DM365_EMAC_CNTRL_RAM_SIZE	(0x2000)
+-	val = emac_read(EMAC_TXCONTROL);
+-	val |= EMAC_TX_CONTROL_TX_ENABLE_VAL;
+-	emac_write(EMAC_TXCONTROL, val);
+-	val = emac_read(EMAC_RXCONTROL);
+-	val |= EMAC_RX_CONTROL_RX_ENABLE_VAL;
+-	emac_write(EMAC_RXCONTROL, val);
+ 	emac_write(EMAC_MACINTMASKSET, EMAC_MAC_HOST_ERR_INTMASK_VAL);
  
- /* Base of key scan register bank */
-diff --git a/arch/arm/mach-davinci/include/mach/dm644x.h b/arch/arm/mach-davinci/include/mach/dm644x.h
-index 5159117..5a1b26d 100644
---- a/arch/arm/mach-davinci/include/mach/dm644x.h
-+++ b/arch/arm/mach-davinci/include/mach/dm644x.h
-@@ -32,7 +32,6 @@
- #define DM644X_EMAC_CNTRL_OFFSET	(0x0000)
- #define DM644X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
- #define DM644X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
--#define DM644X_EMAC_MDIO_OFFSET		(0x4000)
- #define DM644X_EMAC_CNTRL_RAM_SIZE	(0x2000)
+-	for (ch = 0; ch < EMAC_DEF_MAX_TX_CH; ch++) {
+-		emac_write(EMAC_TXHDP(ch), 0);
+-		emac_write(EMAC_TXINTMASKSET, BIT(ch));
+-	}
+-	for (ch = 0; ch < EMAC_DEF_MAX_RX_CH; ch++) {
+-		struct emac_rxch *rxch = priv->rxch[ch];
+-		emac_setmac(priv, ch, rxch->mac_addr);
+-		emac_write(EMAC_RXINTMASKSET, BIT(ch));
+-		rxch->queue_active = 1;
+-		emac_write(EMAC_RXHDP(ch),
+-			   emac_virt_to_phys(rxch->active_queue_head, priv));
+-	}
++	emac_setmac(priv, EMAC_DEF_RX_CH, priv->mac_addr);
  
- #define DM644X_ASYNC_EMIF_CONTROL_BASE	0x01E00000
-diff --git a/arch/arm/mach-davinci/include/mach/dm646x.h b/arch/arm/mach-davinci/include/mach/dm646x.h
-index fc2bdd0..38e54c6 100644
---- a/arch/arm/mach-davinci/include/mach/dm646x.h
-+++ b/arch/arm/mach-davinci/include/mach/dm646x.h
-@@ -23,7 +23,6 @@
- #define DM646X_EMAC_CNTRL_OFFSET	(0x0000)
- #define DM646X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
- #define DM646X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
--#define DM646X_EMAC_MDIO_OFFSET		(0x4000)
- #define DM646X_EMAC_CNTRL_RAM_SIZE	(0x2000)
+ 	/* Enable MII */
+ 	val = emac_read(EMAC_MACCONTROL);
+@@ -2126,9 +2156,9 @@ static int emac_poll(struct napi_struct *napi, int budget)
+ 		mask = EMAC_DM646X_MAC_IN_VECTOR_TX_INT_VEC;
  
- #define DM646X_ASYNC_EMIF_CONTROL_BASE	0x20008000
+ 	if (status & mask) {
+-		num_pkts = emac_tx_bdproc(priv, EMAC_DEF_TX_CH,
+-					  EMAC_DEF_TX_MAX_SERVICE);
+-	} /* TX processing */
++		num_pkts = cpdma_chan_process(priv->txchan,
++					      EMAC_DEF_TX_MAX_SERVICE);
++	}
+ 
+ 	if (num_pkts)
+ 		return budget;
+@@ -2138,9 +2168,8 @@ static int emac_poll(struct napi_struct *napi, int budget)
+ 	if (priv->version == EMAC_VERSION_2)
+ 		mask = EMAC_DM646X_MAC_IN_VECTOR_RX_INT_VEC;
+ 
+-	if (status & mask) {
+-		num_pkts = emac_rx_bdproc(priv, EMAC_DEF_RX_CH, budget);
+-	} /* RX processing */
++	if (status & mask)
++		num_pkts = cpdma_chan_process(priv->rxchan, budget);
+ 
+ 	if (num_pkts < budget) {
+ 		napi_complete(napi);
+@@ -2282,9 +2311,9 @@ static int match_first_device(struct device *dev, void *data)
+ static int emac_dev_open(struct net_device *ndev)
+ {
+ 	struct device *emac_dev = &ndev->dev;
+-	u32 rc, cnt, ch;
++	u32 cnt;
+ 	struct resource *res;
+-	int q, m;
++	int q, m, ret;
+ 	int i = 0;
+ 	int k = 0;
+ 	struct emac_priv *priv = netdev_priv(ndev);
+@@ -2296,29 +2325,21 @@ static int emac_dev_open(struct net_device *ndev)
+ 	/* Configuration items */
+ 	priv->rx_buf_size = EMAC_DEF_MAX_FRAME_SIZE + NET_IP_ALIGN;
+ 
+-	/* Clear basic hardware */
+-	for (ch = 0; ch < EMAC_MAX_TXRX_CHANNELS; ch++) {
+-		emac_write(EMAC_TXHDP(ch), 0);
+-		emac_write(EMAC_RXHDP(ch), 0);
+-		emac_write(EMAC_RXHDP(ch), 0);
+-		emac_write(EMAC_RXINTMASKCLEAR, EMAC_INT_MASK_CLEAR);
+-		emac_write(EMAC_TXINTMASKCLEAR, EMAC_INT_MASK_CLEAR);
+-	}
+ 	priv->mac_hash1 = 0;
+ 	priv->mac_hash2 = 0;
+ 	emac_write(EMAC_MACHASH1, 0);
+ 	emac_write(EMAC_MACHASH2, 0);
+ 
+-	/* multi ch not supported - open 1 TX, 1RX ch by default */
+-	rc = emac_init_txch(priv, EMAC_DEF_TX_CH);
+-	if (0 != rc) {
+-		dev_err(emac_dev, "DaVinci EMAC: emac_init_txch() failed");
+-		return rc;
+-	}
+-	rc = emac_init_rxch(priv, EMAC_DEF_RX_CH, priv->mac_addr);
+-	if (0 != rc) {
+-		dev_err(emac_dev, "DaVinci EMAC: emac_init_rxch() failed");
+-		return rc;
++	for (i = 0; i < EMAC_DEF_RX_NUM_DESC; i++) {
++		struct sk_buff *skb = emac_rx_alloc(priv);
++
++		if (!skb)
++			break;
++
++		ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
++					skb_tailroom(skb), GFP_KERNEL);
++		if (WARN_ON(ret < 0))
++			break;
+ 	}
+ 
+ 	/* Request IRQ */
+@@ -2335,6 +2356,8 @@ static int emac_dev_open(struct net_device *ndev)
+ 	/* Start/Enable EMAC hardware */
+ 	emac_hw_enable(priv);
+ 
++	cpdma_ctlr_start(priv->dma);
++
+ 	priv->phydev = NULL;
+ 
+ 	/* use the first phy on the bus if pdata did not give us a phy id */
+@@ -2423,10 +2446,7 @@ static int emac_dev_stop(struct net_device *ndev)
+ 
+ 	netif_carrier_off(ndev);
+ 	emac_int_disable(priv);
+-	emac_stop_txch(priv, EMAC_DEF_TX_CH);
+-	emac_stop_rxch(priv, EMAC_DEF_RX_CH);
+-	emac_cleanup_txch(priv, EMAC_DEF_TX_CH);
+-	emac_cleanup_rxch(priv, EMAC_DEF_RX_CH);
++	cpdma_ctlr_stop(priv->dma);
+ 	emac_write(EMAC_SOFTRESET, 1);
+ 
+ 	if (priv->phydev)
+@@ -2531,9 +2551,10 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	struct resource *res;
+ 	struct net_device *ndev;
+ 	struct emac_priv *priv;
+-	unsigned long size;
++	unsigned long size, hw_ram_addr;
+ 	struct emac_platform_data *pdata;
+ 	struct device *emac_dev;
++	struct cpdma_params dma_params;
+ 
+ 	/* obtain emac clock from kernel */
+ 	emac_clk = clk_get(&pdev->dev, NULL);
+@@ -2606,11 +2627,40 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	priv->ctrl_ram_size = pdata->ctrl_ram_size;
+ 	priv->emac_ctrl_ram = priv->remap_addr + pdata->ctrl_ram_offset;
+ 
+-	if (pdata->hw_ram_addr)
+-		priv->hw_ram_addr = pdata->hw_ram_addr;
+-	else
+-		priv->hw_ram_addr = (u32 __force)res->start +
+-					pdata->ctrl_ram_offset;
++	hw_ram_addr = pdata->hw_ram_addr;
++	if (!hw_ram_addr)
++		hw_ram_addr = (u32 __force)res->start + pdata->ctrl_ram_offset;
++
++	memset(&dma_params, 0, sizeof(dma_params));
++	dma_params.dev			= emac_dev;
++	dma_params.dmaregs		= priv->emac_base;
++	dma_params.rxthresh		= priv->emac_base + 0x120;
++	dma_params.rxfree		= priv->emac_base + 0x140;
++	dma_params.txhdp		= priv->emac_base + 0x600;
++	dma_params.rxhdp		= priv->emac_base + 0x620;
++	dma_params.txcp			= priv->emac_base + 0x640;
++	dma_params.rxcp			= priv->emac_base + 0x660;
++	dma_params.num_chan		= EMAC_MAX_TXRX_CHANNELS;
++	dma_params.min_packet_size	= EMAC_DEF_MIN_ETHPKTSIZE;
++	dma_params.desc_mem_phys	= hw_ram_addr;
++	dma_params.desc_mem_size	= pdata->ctrl_ram_size;
++	dma_params.desc_align		= 16;
++
++	priv->dma = cpdma_ctlr_create(&dma_params);
++	if (!priv->dma) {
++		dev_err(emac_dev, "DaVinci EMAC: Error initializing DMA\n");
++		rc = -ENOMEM;
++		goto no_dma;
++	}
++
++	priv->txchan = cpdma_chan_create(priv->dma, tx_chan_num(EMAC_DEF_TX_CH),
++				       emac_tx_handler);
++	priv->rxchan = cpdma_chan_create(priv->dma, rx_chan_num(EMAC_DEF_RX_CH),
++				       emac_rx_handler);
++	if (WARN_ON(!priv->txchan || !priv->rxchan)) {
++		rc = -ENOMEM;
++		goto no_irq_res;
++	}
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+ 	if (!res) {
+@@ -2653,6 +2703,12 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ netdev_reg_err:
+ 	clk_disable(emac_clk);
+ no_irq_res:
++	if (priv->txchan)
++		cpdma_chan_destroy(priv->txchan);
++	if (priv->rxchan)
++		cpdma_chan_destroy(priv->rxchan);
++	cpdma_ctlr_destroy(priv->dma);
++no_dma:
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	release_mem_region(res->start, res->end - res->start + 1);
+ 	iounmap(priv->remap_addr);
+@@ -2681,6 +2737,12 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, NULL);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 
++	if (priv->txchan)
++		cpdma_chan_destroy(priv->txchan);
++	if (priv->rxchan)
++		cpdma_chan_destroy(priv->rxchan);
++	cpdma_ctlr_destroy(priv->dma);
++
+ 	release_mem_region(res->start, res->end - res->start + 1);
+ 
+ 	unregister_netdev(ndev);
 -- 
 1.7.0.4
 
