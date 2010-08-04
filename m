@@ -1,38 +1,43 @@
-From: xeb@mail.ru
-Subject: =?koi8-r?Q?Re=3A_[PATCH_2/3]_PPTP=3A_PPP_over_IPv4_(Point-to-Point_Tunneling_Protocol)?=
-Date: Thu, 05 Aug 2010 00:51:11 +0400
-Message-ID: <E1Ogkvf-00052E-00.xeb-mail-ru@f271.mail.ru>
-References: <20100804102431.4cec4313@nehalam>
-Reply-To: xeb@mail.ru
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [iproute2] iproute2:  Allow 'ip addr flush' to loop more than
+ 10 times.
+Date: Wed, 4 Aug 2010 14:00:12 -0700
+Message-ID: <20100804140012.577b2195@nehalam>
+References: <1277790959-28075-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ben Greear <greearb@candelatech.com>
+To: greearb@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from f271.mail.ru ([217.69.128.239]:34646 "EHLO f271.mail.ru"
+Received: from mail.vyatta.com ([76.74.103.46]:41920 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934778Ab0HDUvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Aug 2010 16:51:16 -0400
-In-Reply-To: <20100804102431.4cec4313@nehalam>
+	id S1758992Ab0HDVAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Aug 2010 17:00:17 -0400
+In-Reply-To: <1277790959-28075-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 Aug 2010 10:24:31 -0700 Stephen Hemminger <shemminger@vyatta.com> wrote:
+On Mon, 28 Jun 2010 22:55:59 -0700
+greearb@gmail.com wrote:
 
-> On Wed, 04 Aug 2010 14:45:33 +0400
-> xeb@mail.ru wrote:
+> From: Ben Greear <greearb@candelatech.com>
 > 
-> > +struct pptp_gre_header {
-> > +  u_int8_t flags;		/* bitfield */
-> > +  u_int8_t ver;			/* should be PPTP_GRE_VER (enhanced GRE) */
-> > +  u_int16_t protocol;		/* should be PPTP_GRE_PROTO (ppp-encaps) */
-> > +  u_int16_t payload_len;	/* size of ppp payload, not inc. gre header */
-> > +  u_int16_t call_id;		/* peer's call_id for this session */
-> > +  u_int32_t seq;		/* sequence number.  Present if S==1 */
-> > +  u_int32_t ack;		/* seq number of highest packet recieved by */
-> > +  			
+> The default remains at 10 for backwards compatibility.
 > 
-> Use u8, u16, u32 in kernel code.
+> For instance:
+>  # ip addr flush dev eth2
+>  *** Flush remains incomplete after 10 rounds. ***
+>  # ip -l 20 addr flush dev eth2
+>  *** Flush remains incomplete after 20 rounds. ***
+>  # ip -loops 0 addr flush dev eth2
+>  #
+> 
+> This is useful for getting rid of large numbers of IP
+> addresses in scripts.
+> 
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
 
-ok
+The current userspace driven flush behavior is crap.
+There really should be an atomic flush netlink message
+with kernel support.
