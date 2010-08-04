@@ -1,33 +1,40 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch] netfilter: default to NF_DROP in sip_help_tcp()
-Date: Wed, 4 Aug 2010 17:07:43 +0900
-Message-ID: <20100804080742.GC10740@verge.net.au>
-References: <20100710031604.GA26990@verge.net.au>
- <4C3DAC25.3050401@trash.net>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: can TCP socket send buffer be over used?
+Date: Wed, 4 Aug 2010 10:21:33 +0200 (CEST)
+Message-ID: <alpine.DEB.1.10.1008041018380.19930@uplift.swm.pp.se>
+References: <AANLkTi=Ma2yMVbgRnUUB6T1j=rHLb60oAXqCSbM35KgT@mail.gmail.com>  <alpine.DEB.1.10.1008040932030.19930@uplift.swm.pp.se> <AANLkTikJvTvzuPhJ59RNcCGXPWP4EidaHx0=oUK8jjiy@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C3DAC25.3050401@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Jack Zhang <jack.zhang2011@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swm.pp.se ([212.247.200.143]:40392 "EHLO uplift.swm.pp.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751487Ab0HDIVe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Aug 2010 04:21:34 -0400
+In-Reply-To: <AANLkTikJvTvzuPhJ59RNcCGXPWP4EidaHx0=oUK8jjiy@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 14, 2010 at 02:23:01PM +0200, Patrick McHardy wrote:
-> On 10.07.2010 05:16, Simon Horman wrote:
-> > I initially noticed this because of the compiler warning below, but it does
-> > seem to be a valid concern in the case where ct_sip_get_header() returns 0
-> > in the first iteration of the while loop.
-> > 
-> > net/netfilter/nf_conntrack_sip.c: In function 'sip_help_tcp':
-> > net/netfilter/nf_conntrack_sip.c:1379: warning: 'ret' may be used uninitialized in this function
-> 
-> Thanks Simon. I've applied the patch, but changed NF_DROP to
-> NF_ACCEPT since we should avoid dropping packets with unknown
-> contents (not SIP) if possible.
+On Wed, 4 Aug 2010, Jack Zhang wrote:
 
-Hi Patrick,
+> Hi Mikael,
+>
+> Thanks for your reply. I'll definitely try that.
+>
+> Quick question though... the link I use in my test does not have any
+> packet loss (it's a straight through cable between two PCs)... in this
+> case, would TCP congestion window size affect the result at all?
 
-I'm not seeing this patch in nf-next-2.6.
-Am I looking in the wrong place?
+I always mix up the different TCP windows, but I mean the windows size the 
+sender will use max for the session. I'm not sure this is the same as the 
+buffer you're tuning with your userspace option.
+
+An easy test would be for you to set the userspace option to 64k, test 
+what speeds you get, then you turn off window scaling in /proc, and try 
+again. If you get wildly different results here (turning off window 
+scaling limits the window to 64k) then the buffer you're tuning doesn't do 
+what you think it does.
+
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
