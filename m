@@ -1,41 +1,35 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: [PATCH net-next 09/14] tg3: Improve small packet performance
-Date: Thu, 5 Aug 2010 09:08:25 +1000
-Message-ID: <20100804230825.GQ29316@kryten>
-References: <1280784368-4226-9-git-send-email-mcarlson@broadcom.com>
- <20100804222741.GA18708@kryten>
- <1280962049.7554.25.camel@HP1>
+From: David Miller <davem@davemloft.net>
+Subject: GIT: net-*2.6 rebased...
+Date: Wed, 04 Aug 2010 16:21:41 -0700 (PDT)
+Message-ID: <20100804.162141.15218463.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Carlson <mcarlson@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"andy@greyhouse.net" <andy@greyhouse.net>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, sfr@canb.auug.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:58112 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759363Ab0HDXNH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Aug 2010 19:13:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1280962049.7554.25.camel@HP1>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56385
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759372Ab0HDXVX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 19:21:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-Hi,
 
-> We generally only get an estimate of the available tx ring size when we
-> call tg3_tx_avail(), so memory barriers are not generally needed.  We
-> put a compiler barrier there to make sure that the compiler will fetch
-> the tx_prod and tx_cons from memory to give us a better estimate.
-> 
-> In specific cases detailed in the patch description, we do need memory
-> barriers when we call netif_tx_stop_queue() and then check for the tx
-> ring.  We decided to put memory barriers exactly where they're needed
-> instead of inside tg3_tx_avail() which is an overkill.
+Both net-2.6 and net-next-2.6 have been rebased.
 
-Thanks Matt and Michael. I was pretty sure you were thinking about
-ordering issues but wanted to double check.
+To be honest, if you've been pulling from my tree you can just keep
+doing so if you want, it will look just as if I had merged Linus's
+tree into net-2.6 et al.
 
-Anton
+All work will go into net-2.6 for the time being, this means only
+bug fixes and such.
+
+Once -rc1 goes out, changes can start flowing into net-next-2.6
+once more.
+
+Please adhere to these rules, it helps keep the tree stable and
+preserve the limited sanity still remaining in folks like Stephen
+Rothwell. :-)
+
+Thanks.
