@@ -1,83 +1,53 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] sch_sfq: add sanity check for the packet length
-Date: Wed,  4 Aug 2010 16:55:48 +0800
-Message-ID: <1280912148-30410-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:47510 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756811Ab0HDI4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 04:56:12 -0400
-Received: by pxi14 with SMTP id 14so1907020pxi.19
-        for <netdev@vger.kernel.org>; Wed, 04 Aug 2010 01:56:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM virtio-net.
+Date: Wed, 4 Aug 2010 10:56:07 +0200
+Message-ID: <201008041056.08505.arnd@arndb.de>
+References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com> <201007311130.17000.arnd@arndb.de> <1A42CE6F5F474C41B63392A5F80372B228FCE7B1@shsmsx501.ccr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Dong, Eddie" <eddie.dong@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1A42CE6F5F474C41B63392A5F80372B228FCE7B1@shsmsx501.ccr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The packet length should be checked before the packet data is dereferenced.
+On Wednesday 04 August 2010, Dong, Eddie wrote:
+> Arnd Bergmann wrote:
+> > On Friday 30 July 2010 17:51:52 Shirley Ma wrote:
+> >> I think it should be less duplicated code in the kernel if we use
+> >> macvtap to support what media passthrough driver here. Since macvtap
+> >> has support virtio_net head and offloading already, the only missing
+> >> func is zero copy. Also QEMU supports macvtap, we just need add a
+> >> zero copy flag in option.
+> > 
+> > Yes, I fully agree and that was one of the intended directions for
+> > macvtap to start with. Thank you so much for following up on that,
+> > I've long been planning to work on macvtap zero-copy myself but it's
+> > now lower on my priorities, so it's good to hear that you made
+> > progress on it, even if there are still performance issues.
+> > 
+> 
+> But zero-copy is a Linux generic feature that can be used by other
+> VMMs as well if the BE service drivers want to incorporate.  If we
+> can make mp device VMM-agnostic (it may be not yet in current patch),
+> that will help Linux more.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/sched/sch_sfq.c |   31 ++++++++++++++++++++++---------
- 1 file changed, 22 insertions(+), 9 deletions(-)
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index c657628..018c528 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -122,7 +122,11 @@ static unsigned sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
- 	{
--		const struct iphdr *iph = ip_hdr(skb);
-+		const struct iphdr *iph;
-+
-+		if (!pskb_may_pull(skb, skb_network_offset(skb) + sizeof(*iph)))
-+			goto err;
-+		iph = ip_hdr(skb);
- 		h = (__force u32)iph->daddr;
- 		h2 = (__force u32)iph->saddr ^ iph->protocol;
- 		if (!(iph->frag_off&htons(IP_MF|IP_OFFSET)) &&
-@@ -131,25 +135,34 @@ static unsigned sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
- 		     iph->protocol == IPPROTO_UDPLITE ||
- 		     iph->protocol == IPPROTO_SCTP ||
- 		     iph->protocol == IPPROTO_DCCP ||
--		     iph->protocol == IPPROTO_ESP))
-+		     iph->protocol == IPPROTO_ESP) &&
-+		     pskb_may_pull(skb, skb_network_offset(skb) +
-+					iph->ihl * 4 + 4))
- 			h2 ^= *(((u32*)iph) + iph->ihl);
- 		break;
- 	}
- 	case htons(ETH_P_IPV6):
- 	{
--		struct ipv6hdr *iph = ipv6_hdr(skb);
-+		struct ipv6hdr *iph;
-+
-+		if (!pskb_may_pull(skb, skb_network_offset(skb) + sizeof(*iph)))
-+			goto err;
-+		iph = ipv6_hdr(skb);
- 		h = (__force u32)iph->daddr.s6_addr32[3];
- 		h2 = (__force u32)iph->saddr.s6_addr32[3] ^ iph->nexthdr;
--		if (iph->nexthdr == IPPROTO_TCP ||
--		    iph->nexthdr == IPPROTO_UDP ||
--		    iph->nexthdr == IPPROTO_UDPLITE ||
--		    iph->nexthdr == IPPROTO_SCTP ||
--		    iph->nexthdr == IPPROTO_DCCP ||
--		    iph->nexthdr == IPPROTO_ESP)
-+		if ((iph->nexthdr == IPPROTO_TCP ||
-+		     iph->nexthdr == IPPROTO_UDP ||
-+		     iph->nexthdr == IPPROTO_UDPLITE ||
-+		     iph->nexthdr == IPPROTO_SCTP ||
-+		     iph->nexthdr == IPPROTO_DCCP ||
-+		     iph->nexthdr == IPPROTO_ESP) &&
-+		    pskb_may_pull(skb, skb_network_offset(skb) + sizeof(*iph) +
-+				       4))
- 			h2 ^= *(u32*)&iph[1];
- 		break;
- 	}
- 	default:
-+err:
- 		h = (unsigned long)skb_dst(skb) ^ (__force u32)skb->protocol;
- 		h2 = (unsigned long)skb->sk;
- 	}
+But the tun/tap protocol is what most hypervisors use today on Linux,
+and one of the design goals of macvtap was to keep that interface
+so that everyone gets the features like zero-copy if that is added
+to macvtap. The mp device interface is currently not supported by
+anything else than vhost with these patches, and making it more
+generic would turn the interface into a copy of macvtap.
+
+	Arnd
