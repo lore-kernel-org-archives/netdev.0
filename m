@@ -1,103 +1,237 @@
-From: Michael Leun <lkml20100708@newton.leun.net>
-Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free
- (after using openvpn) (was Re: sysfs bug when using tun with network
- namespaces)
-Date: Thu, 5 Aug 2010 00:11:05 +0200
-Message-ID: <20100805001105.5a3453ed@xenia.leun.net>
-References: <loom.20100708T183152-326@post.gmane.org>
-	<20100709235744.GA12752@kroah.com>
-	<20100710101540.2799c9ef@xenia.leun.net>
-	<20100710140800.GA20424@kroah.com>
-	<20100710165208.59272ae6@xenia.leun.net>
-	<20100710235323.5336f627@xenia.leun.net>
-	<20100711192939.1c25dcaf@xenia.leun.net>
-	<20100804153543.56f6ecad@xenia.leun.net>
-	<20100804214618.GA6289@kroah.com>
+From: Patrick Pannuto <ppannuto@codeaurora.org>
+Subject: [PATCH] platform: Facilitate the creation of pseduo-platform busses
+Date: Wed, 04 Aug 2010 15:14:44 -0700
+Message-ID: <4C59E654.1090403@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from serv04.lahn.de ([213.239.197.57]:46589 "EHLO serv04.lahn.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752047Ab0HDWNy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Aug 2010 18:13:54 -0400
-In-Reply-To: <20100804214618.GA6289@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"damm@opensource.se" <damm@opensource.se>,
+	"lethal@linux-sh.org" <lethal@linux-sh.org>,
+	"rjw@sisk.pl" <rjw@sisk.pl>,
+	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>, alan@lxorguk.ukuu.org.uk,
+	zt.tmzt@gmail.com
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Inspiration for this comes from:
+http://www.mail-archive.com/linux-omap@vger.kernel.org/msg31161.html
 
-On Wed, 4 Aug 2010 14:46:18 -0700
-Greg KH <greg@kroah.com> wrote:
+RFC: http://lkml.org/lkml/2010/8/3/496
+Patch is unchanged from the RFC. Reviews seemed generally positive
+and it seemed this was desired functionality.
 
-> Eric, here's a bug with the network namespace stuff, care to work on
-> resolving it?
+INTRO
 
-Just in case I provide the complete scenario again below.
+As SOCs become more popular, the desire to quickly define a simple,
+but functional, bus type with only a few unique properties becomes
+desirable. As they become more complicated, the ability to nest these
+simple busses and otherwise orchestrate them to match the actual
+topology also becomes desirable.
 
-If I can help somehow (provide further information, test something...)
-of course I'll happily do so.
+EXAMPLE USAGE
 
-In an network namespace I can use an tun/tap tunnel through ssh and
-when closing that namespace then eveything is fine.
+/arch/ARCH/MY_ARCH/my_bus.c:
 
-But when using openvpn (also tunnel trough tun/tap) in an network
-namespace and then closing that namespace I get:
+	#include <linux/device.h>
+	#include <linux/platform_device.h>
 
-unregister_netdevice: waiting for lo to become free
-[repeated]
+	struct bus_type my_bus_type = {
+		.name	= "mybus",
+	};
+	EXPORT_SYMBOL_GPL(my_bus_type);
 
-Please see the following two examples showing that difference:
+	struct platform_device sub_bus1 = {
+		.name		= "sub_bus1",
+		.id		= -1,
+		.dev.bus	= &my_bus_type,
+	}
+	EXPORT_SYMBOL_GPL(sub_bus1);
 
-# > unshare -n /bin/bash
-# > # how to setup veth device pair to get connectivity into namespace not shown here
-# > tunctl -u ml -t tap1
-# > ssh -o Tunnel=Ethernet -w 1:1 somewhere
-[ running some traffic over tap1 not shown here ]
-^d # logging out from somewhere
-# > tunctl -d tap1
-# > exit # logging out from shell in network namespace
+	struct platform_device sub_bus2 = {
+		.name		= "sub_bus2",
+		.id		= -1,
+		.dev.bus	= &my_bus_type,
+	}
+	EXPORT_SYMBOL_GPL(sub_bus2);
 
-Now the veth device pair used automagically vanishes and nothing
-from that different network namespace remains - very well.
+	static int __init my_bus_init(void)
+	{
+		int error;
+		platform_bus_type_init(&my_bus_type);
 
-but
+		error = bus_register(&my_bus_type);
+		if (error)
+			return error;
 
-# > unshare -n /bin/bash
-# > # how to setup veth device pair to get connectivity into namespace not shown here
-# > openvpn --config some.config
-[ running some traffic over vpn device not shown here ]
-^c # stopping openvpn
-# > lsof -i
-# > netstat -an
-Active Internet connections (servers and established)
-Proto Recv-Q Send-Q Local Address           Foreign Address
-State Active UNIX domain sockets (servers and established)
-Proto RefCnt Flags       Type       State         I-Node Path
-# > ps ax|grep openvpn|grep -v grep
-# > # cannot find anything that suggests there is anything left from that openvpn session 
-# > exit # logging out from shell in network namespace
+		error = platform_device_register(&sub_bus1);
+		if (error)
+			goto fail_sub_bus1;
 
-Now I get
+		error = platform_device_register(&sub_bus2);
+		if (error)
+			goto fail_sub_bus2;
 
-Jul 10 20:02:36 doris kernel: unregister_netdevice: waiting for lo to
-become free. Usage count = 3 [repeated]
+		return error;
 
-Now one might say it is fault of openvpn (used OpenVPN 2.1_rc20
-i586-suse-linux - the one in openSuSE 11.2 package - EDIT: meanwhile it
-is 2.1.1, openSuSE 11.3 ), openvpn didn't close some ressource and ssh
-does fine.
+	fail_sub_bus2:
+		platform_device_unregister(&sub_bus1);
+	fail_sub_bus2:
+		bus_unregister(&my_bus_type);
 
-But: should'nt kernel clean up after process when it exits?
-And/or: Should'nt kernel clean up if last process in network namespace
-exits - there is nothing left which might use that interface?!
+		return error;
+	}
+	postcore_initcall(my_bus_init);
+	EXPORT_SYMBOL_GPL(my_bus_init);
+
+/drivers/my_driver.c
+	static struct platform_driver my_driver = {
+		.driver	= {
+			.name	= "my-driver",
+			.owner	= THIS_MODULE,
+			.bus	= &my_bus_type,
+		},
+	};
+
+/somewhere/my_device.c
+	static struct platform_device my_device = {
+		.name		= "my-device",
+		.id		= -1,
+		.dev.bus	= &my_bus_type,
+		.dev.parent	= &sub_bus_1.dev,
+	};
+
+Notice that for a device / driver, only 3 lines were added to
+switch from the platform bus to the new my_bus. This is
+especially valuable if we consider supporting a legacy SOCs
+and new SOCs where the same driver is used, but may need to
+be on either the platform bus or the new my_bus. The above
+code then becomes:
+
+	(possibly in a header)
+	#ifdef CONFIG_MY_BUS
+	#define MY_BUS_TYPE	&my_bus_type
+	#else
+	#define MY_BUS_TYPE	NULL
+	#endif
+
+/drivers/my_driver.c
+	static struct platform_driver my_driver = {
+		.driver	= {
+			.name	= "my-driver",
+			.owner	= THIS_MODULE,
+			.bus	= MY_BUS_TYPE,
+		},
+	};
+
+Which will allow the same driver to easily to used on either
+the platform bus or the newly defined bus type.
+
+This will build a device tree that mirrors the actual configuration:
+    /sys/bus
+    |-- my_bus
+    |   |-- devices
+    |   |   |-- sub_bus1 -> ../../../devices/platform/sub_bus1
+    |   |   |-- sub_bus2 -> ../../../devices/platform/sub_bus2
+    |   |   |-- my-device -> ../../../devices/platform/sub_bus1/my-device
+    |   |-- drivers
+    |   |   |-- my-driver
+
+
+Signed-off-by: Patrick Pannuto <ppannuto@codeaurora.org>
+---
+ drivers/base/platform.c         |   30 ++++++++++++++++++++++++++----
+ include/linux/platform_device.h |    2 ++
+ 2 files changed, 28 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/base/platform.c b/drivers/base/platform.c
+index 4d99c8b..c86be03 100644
+--- a/drivers/base/platform.c
++++ b/drivers/base/platform.c
+@@ -241,7 +241,8 @@ int platform_device_add(struct platform_device *pdev)
+ 	if (!pdev->dev.parent)
+ 		pdev->dev.parent = &platform_bus;
+ 
+-	pdev->dev.bus = &platform_bus_type;
++	if (!pdev->dev.bus)
++		pdev->dev.bus = &platform_bus_type;
+ 
+ 	if (pdev->id != -1)
+ 		dev_set_name(&pdev->dev, "%s.%d", pdev->name,  pdev->id);
+@@ -482,7 +483,8 @@ static void platform_drv_shutdown(struct device *_dev)
+  */
+ int platform_driver_register(struct platform_driver *drv)
+ {
+-	drv->driver.bus = &platform_bus_type;
++	if (!drv->driver.bus)
++		drv->driver.bus = &platform_bus_type;
+ 	if (drv->probe)
+ 		drv->driver.probe = platform_drv_probe;
+ 	if (drv->remove)
+@@ -539,12 +541,12 @@ int __init_or_module platform_driver_probe(struct platform_driver *drv,
+ 	 * if the probe was successful, and make sure any forced probes of
+ 	 * new devices fail.
+ 	 */
+-	spin_lock(&platform_bus_type.p->klist_drivers.k_lock);
++	spin_lock(&drv->driver.bus->p->klist_drivers.k_lock);
+ 	drv->probe = NULL;
+ 	if (code == 0 && list_empty(&drv->driver.p->klist_devices.k_list))
+ 		retval = -ENODEV;
+ 	drv->driver.probe = platform_drv_probe_fail;
+-	spin_unlock(&platform_bus_type.p->klist_drivers.k_lock);
++	spin_unlock(&drv->driver.bus->p->klist_drivers.k_lock);
+ 
+ 	if (code != retval)
+ 		platform_driver_unregister(drv);
+@@ -1017,6 +1019,26 @@ struct bus_type platform_bus_type = {
+ };
+ EXPORT_SYMBOL_GPL(platform_bus_type);
+ 
++/** platform_bus_type_init - fill in a pseudo-platform-bus
++  * @bus: foriegn bus type
++  *
++  * This init is basically a selective memcpy that
++  * won't overwrite any user-defined attributes and
++  * only copies things that platform bus defines anyway
++  */
++void platform_bus_type_init(struct bus_type *bus)
++{
++	if (!bus->dev_attrs)
++		bus->dev_attrs = platform_bus_type.dev_attrs;
++	if (!bus->match)
++		bus->match = platform_bus_type.match;
++	if (!bus->uevent)
++		bus->uevent = platform_bus_type.uevent;
++	if (!bus->pm)
++		bus->pm = platform_bus_type.pm;
++}
++EXPORT_SYMBOL_GPL(platform_bus_type_init);
++
+ int __init platform_bus_init(void)
+ {
+ 	int error;
+diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
+index 5417944..fa8c35a 100644
+--- a/include/linux/platform_device.h
++++ b/include/linux/platform_device.h
+@@ -79,6 +79,8 @@ extern int platform_driver_probe(struct platform_driver *driver,
+ #define platform_get_drvdata(_dev)	dev_get_drvdata(&(_dev)->dev)
+ #define platform_set_drvdata(_dev,data)	dev_set_drvdata(&(_dev)->dev, (data))
+ 
++extern void platform_bus_type_init(struct bus_type *);
++
+ extern struct platform_device *platform_create_bundle(struct platform_driver *driver,
+ 					int (*probe)(struct platform_device *),
+ 					struct resource *res, unsigned int n_res,
+-- 
+1.7.2
 
 
 -- 
-MfG,
-
-Michael Leun
-
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum
