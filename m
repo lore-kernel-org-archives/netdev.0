@@ -1,52 +1,33 @@
-From: Jack Zhang <jack.zhang2011@gmail.com>
-Subject: Re: can TCP socket send buffer be over used?
-Date: Wed, 4 Aug 2010 02:03:45 -0600
-Message-ID: <AANLkTikJvTvzuPhJ59RNcCGXPWP4EidaHx0=oUK8jjiy@mail.gmail.com>
-References: <AANLkTi=Ma2yMVbgRnUUB6T1j=rHLb60oAXqCSbM35KgT@mail.gmail.com>
-	<alpine.DEB.1.10.1008040932030.19930@uplift.swm.pp.se>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch] netfilter: default to NF_DROP in sip_help_tcp()
+Date: Wed, 4 Aug 2010 17:07:43 +0900
+Message-ID: <20100804080742.GC10740@verge.net.au>
+References: <20100710031604.GA26990@verge.net.au>
+ <4C3DAC25.3050401@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Mikael Abrahamsson <swmike@swm.pp.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:36808 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753092Ab0HDIEH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 04:04:07 -0400
-Received: by vws3 with SMTP id 3so3876588vws.19
-        for <netdev@vger.kernel.org>; Wed, 04 Aug 2010 01:04:06 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.10.1008040932030.19930@uplift.swm.pp.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C3DAC25.3050401@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Mikael,
+On Wed, Jul 14, 2010 at 02:23:01PM +0200, Patrick McHardy wrote:
+> On 10.07.2010 05:16, Simon Horman wrote:
+> > I initially noticed this because of the compiler warning below, but it does
+> > seem to be a valid concern in the case where ct_sip_get_header() returns 0
+> > in the first iteration of the while loop.
+> > 
+> > net/netfilter/nf_conntrack_sip.c: In function 'sip_help_tcp':
+> > net/netfilter/nf_conntrack_sip.c:1379: warning: 'ret' may be used uninitialized in this function
+> 
+> Thanks Simon. I've applied the patch, but changed NF_DROP to
+> NF_ACCEPT since we should avoid dropping packets with unknown
+> contents (not SIP) if possible.
 
-Thanks for your reply. I'll definitely try that.
+Hi Patrick,
 
-Quick question though... the link I use in my test does not have any
-packet loss (it's a straight through cable between two PCs)... in this
-case, would TCP congestion window size affect the result at all?
-
-Thanks,
-Jack
-
-On 4 August 2010 01:33, Mikael Abrahamsson <swmike@swm.pp.se> wrote:
-> On Tue, 3 Aug 2010, Jack Zhang wrote:
->
->> For example, when I set the send buffer size to 128 KB, i could get =
-a
->> throughput up to 43 Mbps, which seems to be impossible as the (buffe=
-r
->> size) / RTT is only 10 Mbps.
->
-> Are you sure the buffer actually corresponds to the congestion window=
- TCP
-> uses? I think you should use wireshark to dump the traffic and look i=
-n the
-> TCP headers of the packets to see what is actually going on on the wi=
-re.
->
-> --
-> Mikael Abrahamsson =A0 =A0email: swmike@swm.pp.se
->
+I'm not seeing this patch in nf-next-2.6.
+Am I looking in the wrong place?
