@@ -1,36 +1,27 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH ethtool 1/2] ethtool: Use inet_aton() to parse IPv4 addresses
- for RX n-tuple control
-Date: Wed, 04 Aug 2010 16:36:53 -0400
-Message-ID: <4C59CF65.2060801@garzik.org>
-References: <1279825899.2104.28.camel@achroite.uk.solarflarecom.com>
+From: xeb@mail.ru
+Subject: =?koi8-r?Q?Re[2]=3A_[PATCH_2/3]_PPTP=3A_PPP_over_IPv4_(Point-to-Point_Tunneling_Protocol)?=
+Date: Thu, 05 Aug 2010 00:36:25 +0400
+Message-ID: <E1OgkhN-0004sl-00.xeb-mail-ru@f252.mail.ru>
+References: <1280949557.11056.2.camel@dcbw.foobar.com>
+Reply-To: xeb@mail.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:33035 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934801Ab0HDUhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 16:37:22 -0400
-Received: by ywh1 with SMTP id 1so2132664ywh.19
-        for <netdev@vger.kernel.org>; Wed, 04 Aug 2010 13:37:22 -0700 (PDT)
-In-Reply-To: <1279825899.2104.28.camel@achroite.uk.solarflarecom.com>
+Received: from f252.mail.ru ([217.69.128.177]:57547 "EHLO f252.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935532Ab0HDUgn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Aug 2010 16:36:43 -0400
+In-Reply-To: <1280949557.11056.2.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> Can this be used in place of the userspace ppp+pptp combo?  If so, how
+> would I go about setting that up?
+> 
+> Dan
 
-FYI, I'm about to roll a new ethtool release for kernel 2.6.35.  Are 
-these two patches the only outstanding ones?  (they look good, will be 
-applied)
-
-	Jeff
-
-
-
-P.S.  The maintainer address is jgarzik@pobox.com, my standard kernel 
-address.  jgarzik@redhat.com has a much higher latency, as it doesn't 
-get used very much.
-
+Yes of course, you need plugin for pppd which you can get from accel-pptp package ( http://sourceforge.net/projects/accel-pptp/ ). Also it contains instruction how to use it.
 
