@@ -1,32 +1,56 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: can TCP socket send buffer be over used?
-Date: Tue, 03 Aug 2010 18:17:46 -0700
-Message-ID: <4C58BFBA.8010503@hp.com>
-References: <AANLkTi=Ma2yMVbgRnUUB6T1j=rHLb60oAXqCSbM35KgT@mail.gmail.com> 	<4C58B4B4.6010904@hp.com> <AANLkTikqTHNmTQL2-QSJZmJ=18CfdZGo41zUE6mKO_PS@mail.gmail.com>
+From: "Dong, Eddie" <eddie.dong@intel.com>
+Subject: RE: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM
+ virtio-net.
+Date: Wed, 4 Aug 2010 10:06:05 +0800
+Message-ID: <1A42CE6F5F474C41B63392A5F80372B228FCE7B1@shsmsx501.ccr.corp.intel.com>
+References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D791BAB307158@shsmsx502.ccr.corp.intel.com>
+ <1280505112.9058.31.camel@localhost.localdomain>
+ <201007311130.17000.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jack Zhang <jack.zhang2011@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:22136 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757955Ab0HDBRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 21:17:49 -0400
-In-Reply-To: <AANLkTikqTHNmTQL2-QSJZmJ=18CfdZGo41zUE6mKO_PS@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>,
+	"Dong, Eddie" <eddie.dong@intel.com>,
+	"Dong, Eddie" <eddie.dong@intel.com>
+To: Arnd Bergmann <arnd@arndb.de>, Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201007311130.17000.arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jack Zhang wrote:
-> Hi Rick,
+Arnd Bergmann wrote:
+> On Friday 30 July 2010 17:51:52 Shirley Ma wrote:
+>> On Fri, 2010-07-30 at 16:53 +0800, Xin, Xiaohui wrote:
+>>>> Since vhost-net already supports macvtap/tun backends, do you think
+>>>> whether it's better to implement zero copy in macvtap/tun than
+>>>> inducing a new media passthrough device here?
+>>>> 
+>>> 
+>>> I'm not sure if there will be more duplicated code in the kernel.
+>> 
+>> I think it should be less duplicated code in the kernel if we use
+>> macvtap to support what media passthrough driver here. Since macvtap
+>> has support virtio_net head and offloading already, the only missing
+>> func is zero copy. Also QEMU supports macvtap, we just need add a
+>> zero copy flag in option.
 > 
-> Thanks for your reply.
+> Yes, I fully agree and that was one of the intended directions for
+> macvtap to start with. Thank you so much for following up on that,
+> I've long been planning to work on macvtap zero-copy myself but it's
+> now lower on my priorities, so it's good to hear that you made
+> progress on it, even if there are still performance issues.
 > 
-> Do you maybe know which part of the source code implements the details
-> about how much send buffer can actually be used for the data payload?
 
-Specifically no. I've not had to go looking for it.
+But zero-copy is a Linux generic feature that can be used by other VMMs as well if the BE service drivers want to incorporate.  If we can make mp device VMM-agnostic (it may be not yet in current patch), that will help Linux more.
 
-happy benchmarking,
 
-rick jones
+Thx, Eddie
