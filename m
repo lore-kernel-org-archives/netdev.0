@@ -1,42 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] drivers/s390/net/qeth_l3_main.c: Use %pI6
-Date: Wed, 04 Aug 2010 09:50:12 -0700
-Message-ID: <1280940612.1005.91.camel@Joe-Laptop.home>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Yet another bridge netfilter crash
+Date: Wed, 04 Aug 2010 18:50:50 +0200
+Message-ID: <4C599A6A.6050202@trash.net>
+References: <20100723134208.GA6655@gondor.apana.org.au> <4C49A4C6.4070503@trash.net> <20100723150041.GA7301@gondor.apana.org.au> <4C49B296.10009@trash.net> <20100723152609.GA7576@gondor.apana.org.au> <4C5995C2.1010909@trash.net> <20100804164119.GA6256@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ursula Braun <ursula.braun@de.ibm.com>,
-	linux390 <linux390@de.ibm.com>,
-	linux-s390 <linux-s390@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:51974 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751815Ab0HDQuw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 12:50:52 -0400
+In-Reply-To: <20100804164119.GA6256@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Format an ipv6 address using vsprintf extensions.
+Am 04.08.2010 18:41, schrieb Herbert Xu:
+> On Wed, Aug 04, 2010 at 06:30:58PM +0200, Patrick McHardy wrote:
+>>
+>> We could perform a new device lookup on reassembly as we do
+>> when expiring a fragment queue, but we probably shouldn't even
+>> be reassembling fragments from different bridges. One way to
+>> avoid this would be to automatically assign each bridge device
+>> to a different conntrack zone, but conntrack zones are limited
+>> to 2^16 and this might also have other unwanted side-effects.
+>>
+>> Until we come up with something better the best fix seems to
+>> be to perform the device lookup based on the iif.
+> 
+> I don't think we can as the iif will point to the bridge device.
+> The physindev contains the original physical device where the
+> packet came in.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/s390/net/qeth_l3_main.c |    7 +------
- 1 files changed, 1 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index e22ae24..561bdc8 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -103,12 +103,7 @@ int qeth_l3_string_to_ipaddr4(const char *buf, __u8 *addr)
- 
- void qeth_l3_ipaddr6_to_string(const __u8 *addr, char *buf)
- {
--	sprintf(buf, "%02x%02x:%02x%02x:%02x%02x:%02x%02x"
--		     ":%02x%02x:%02x%02x:%02x%02x:%02x%02x",
--		     addr[0], addr[1], addr[2], addr[3],
--		     addr[4], addr[5], addr[6], addr[7],
--		     addr[8], addr[9], addr[10], addr[11],
--		     addr[12], addr[13], addr[14], addr[15]);
-+	sprintf(buf, "%pI6", addr);
- }
- 
- int qeth_l3_string_to_ipaddr6(const char *buf, __u8 *addr)
+If it originally points to the bridge device, there doesn't
+seem anything wrong with the device pointing to the bridge
+device after reassembly. Am I missing something?
