@@ -1,39 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Wed, 04 Aug 2010 14:53:32 -0700 (PDT)
-Message-ID: <20100804.145332.35061046.davem@davemloft.net>
-References: <20100803.203814.59697285.davem@davemloft.net>
-	<AANLkTimxv1y3QJ7s+ghi1FFCcwnUVWT1n6dvT-NNN=Oo@mail.gmail.com>
-	<20100804.134115.260072845.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free (after using openvpn)
+Date: Wed, 04 Aug 2010 15:04:08 -0700
+Message-ID: <m1ocdi6nmv.fsf_-_@fess.ebiederm.org>
+References: <loom.20100708T183152-326@post.gmane.org>
+	<20100709235744.GA12752@kroah.com>
+	<20100710101540.2799c9ef@xenia.leun.net>
+	<20100710140800.GA20424@kroah.com>
+	<20100710165208.59272ae6@xenia.leun.net>
+	<20100710235323.5336f627@xenia.leun.net>
+	<20100711192939.1c25dcaf@xenia.leun.net>
+	<20100804153543.56f6ecad@xenia.leun.net>
+	<20100804214618.GA6289@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Leun <lkml20100708@newton.leun.net>,
+	netdev@vger.kernel.org, davem@davemloft.net,
 	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59170
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754213Ab0HDVxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 17:53:13 -0400
-In-Reply-To: <20100804.134115.260072845.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100804214618.GA6289@kroah.com> (Greg KH's message of "Wed\, 4 Aug 2010 14\:46\:18 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 04 Aug 2010 13:41:15 -0700 (PDT)
+Greg KH <greg@kroah.com> writes:
 
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Wed, 4 Aug 2010 12:06:47 -0700
-> 
->> On Tue, Aug 3, 2010 at 8:38 PM, David Miller <davem@davemloft.net> wrote:
->>>
->>> Another release, another merge window, another set of networking
->>> changes to merge :-)
+> On Wed, Aug 04, 2010 at 03:35:43PM +0200, Michael Leun wrote:
+>> Hi,
 >> 
->> Ok, merged. But you should double-check my merge resolution fixes,
-> 
-> Will do, thanks a lot.
+>> On Sun, 11 Jul 2010 19:29:39 +0200
+>> Michael Leun <lkml20100708@newton.leun.net> wrote:
+>> 
+>> [...]
+>> > Jul 10 20:02:36 doris kernel: unregister_netdevice: waiting for lo to
+>> > become free. Usage count = 3 [repeated]
 
-I just double-checked everything and it all looks fine, thanks
-again.
+Does this repeat indefinitely, or are there only a couple of repetitions?
+If this repeats indefinitely every 5 seconds or so we have a serious bug.
+
+Otherwise we just have cleanup taking longer than it should, which isn't
+ideal but it is much less severe.
+
+>> > Now one might say it is fault of openvpn (used OpenVPN 2.1_rc20
+>> > i586-suse-linux - the one in openSuSE 11.2 package), openvpn didn't
+>> > close some ressource and ssh does fine.
+>> > 
+>> > But: should'nt kernel clean up after process when it exits?
+>> > And/or: Should'nt kernel clean up if last process in network namespace
+>> > exits - there is nothing left which might use that interface?!
+>> > 
+>> > Greg KH <greg@kroah.com> wrote:
+>> > 
+>> > > Yes, you are correct.  Care to resend all of this to the
+>> > > network-namespace developer(s) and the netdev mailing list so that
+>> > > the correct people are notified so they can fix it all?
+>> > 
+>> > [X] done - hopefully, cannot find a particular network namespace
+>> > developer in MAINTAINERS or source files. If such a one exists, please
+>> > forward.
+>> 
+>> Did'nt work. Got no reaction from network mailinglist at all and bug
+>> still is in 2.6.35.
+>
+> Eric, here's a bug with the network namespace stuff, care to work on
+> resolving it?
+
+Greg thanks for forwarding this in my direction.
+
+Eric
