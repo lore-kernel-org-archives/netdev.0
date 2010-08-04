@@ -1,22 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers/net/enic: Use %pUB to format a UUID
-Date: Tue, 03 Aug 2010 21:36:05 -0700 (PDT)
-Message-ID: <20100803.213605.115952893.davem@davemloft.net>
-References: <1280863944.6088.2.camel@Joe-Laptop.home>
+Subject: Re: [PATCH] davinci_emac: Fix use after free in davinci_emac_remove
+Date: Tue, 03 Aug 2010 21:36:16 -0700 (PDT)
+Message-ID: <20100803.213616.48488045.davem@davemloft.net>
+References: <1280861625-4804-1-git-send-email-weil@mail.berlios.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: scofeldm@cisco.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, chaithrika@ti.com, srk@ti.com,
+	khilman@deeprootsystems.com, linux-kernel@vger.kernel.org
+To: weil@mail.berlios.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1280863944.6088.2.camel@Joe-Laptop.home>
+In-Reply-To: <1280861625-4804-1-git-send-email-weil@mail.berlios.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 03 Aug 2010 12:32:24 -0700
+From: Stefan Weil <weil@mail.berlios.de>
+Date: Tue,  3 Aug 2010 20:53:45 +0200
 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> free_netdev finally calls kfree which makes the contents
+> of ndev and priv (private data contained in ndev) invalid.
+> 
+> So iounmap should be called before free_netdev.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Chaithrika U S <chaithrika@ti.com>
+> Cc: Sriramakrishnan <srk@ti.com>
+> Cc: Kevin Hilman <khilman@deeprootsystems.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Signed-off-by: Stefan Weil <weil@mail.berlios.de>
 
-I'll apply this, thanks Joe.
+I'll apply this, thanks.
