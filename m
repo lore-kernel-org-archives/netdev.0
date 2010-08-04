@@ -1,56 +1,77 @@
-From: "Dong, Eddie" <eddie.dong@intel.com>
-Subject: RE: [RFC PATCH v8 00/16] Provide a zero-copy method on KVM
- virtio-net.
-Date: Wed, 4 Aug 2010 10:06:05 +0800
-Message-ID: <1A42CE6F5F474C41B63392A5F80372B228FCE7B1@shsmsx501.ccr.corp.intel.com>
-References: <1280402088-5849-1-git-send-email-xiaohui.xin@intel.com>
- <F2E9EB7348B8264F86B6AB8151CE2D791BAB307158@shsmsx502.ccr.corp.intel.com>
- <1280505112.9058.31.camel@localhost.localdomain>
- <201007311130.17000.arnd@arndb.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/2] igb.txt: Add igb documentation
+Date: Wed, 04 Aug 2010 03:34:34 +0100
+Message-ID: <1280889274.13192.565.camel@localhost>
+References: <20100804001429.6571.95116.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>,
-	"Dong, Eddie" <eddie.dong@intel.com>,
-	"Dong, Eddie" <eddie.dong@intel.com>
-To: Arnd Bergmann <arnd@arndb.de>, Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201007311130.17000.arnd@arndb.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:5958 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756860Ab0HDCek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 22:34:40 -0400
+In-Reply-To: <20100804001429.6571.95116.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann wrote:
-> On Friday 30 July 2010 17:51:52 Shirley Ma wrote:
->> On Fri, 2010-07-30 at 16:53 +0800, Xin, Xiaohui wrote:
->>>> Since vhost-net already supports macvtap/tun backends, do you think
->>>> whether it's better to implement zero copy in macvtap/tun than
->>>> inducing a new media passthrough device here?
->>>> 
->>> 
->>> I'm not sure if there will be more duplicated code in the kernel.
->> 
->> I think it should be less duplicated code in the kernel if we use
->> macvtap to support what media passthrough driver here. Since macvtap
->> has support virtio_net head and offloading already, the only missing
->> func is zero copy. Also QEMU supports macvtap, we just need add a
->> zero copy flag in option.
-> 
-> Yes, I fully agree and that was one of the intended directions for
-> macvtap to start with. Thank you so much for following up on that,
-> I've long been planning to work on macvtap zero-copy myself but it's
-> now lower on my priorities, so it's good to hear that you made
-> progress on it, even if there are still performance issues.
-> 
+On Tue, 2010-08-03 at 17:15 -0700, Jeff Kirsher wrote:
+[...]
+> +  Jumbo Frames
+> +  ------------
+> +  Jumbo Frames support is enabled by changing the MTU to a value larger than
+> +  the default of 1500.  Use the ifconfig command to increase the MTU size.
+> +  For example:
+> +
+> +       ifconfig eth<x> mtu 9000 up
+> +
+> +  This setting is not saved across reboots.  
 
-But zero-copy is a Linux generic feature that can be used by other VMMs as well if the BE service drivers want to incorporate.  If we can make mp device VMM-agnostic (it may be not yet in current patch), that will help Linux more.
+Not igb-specific.
 
+[...]
+> +  Ethtool
+> +  -------
+> +  The driver utilizes the ethtool interface for driver configuration and
+> +  diagnostics, as well as displaying statistical information.  Ethtool
+> +  version 3.0 or later is required for this functionality, although we 
+> +  strongly recommend downloading the latest version at:
+> +
+> +  http://sourceforge.net/projects/gkernel.
 
-Thx, Eddie
+Not igb-specific, and seriously - 3.0?
+
+> +  Enabling Wake on LAN* (WoL)
+> +  ---------------------------
+> +  WoL is configured through the Ethtool* utility. 
+
+Not igb-specific.
+
+[...]
+> +  LRO
+> +  ---
+> +  Large Receive Offload (LRO) is a technique for increasing inbound throughput
+> +  of high-bandwidth network connections by reducing CPU overhead. It works by
+> +  aggregating multiple incoming packets from a single stream into a larger 
+> +  buffer before they are passed higher up the networking stack, thus reducing
+> +  the number of packets that have to be processed. LRO combines multiple 
+> +  Ethernet frames into a single receive in the stack, thereby potentially 
+> +  decreasing CPU utilization for receives.
+
+Not igb-specific.
+
+> +  NOTE: LRO requires 2.6.24 or later kernel version.
+[...]
+
+Which is irrelevant to an in-tree driver.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
