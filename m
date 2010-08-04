@@ -1,48 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Yet another bridge netfilter crash
-Date: Wed, 04 Aug 2010 18:30:58 +0200
-Message-ID: <4C5995C2.1010909@trash.net>
-References: <20100723134208.GA6655@gondor.apana.org.au> <4C49A4C6.4070503@trash.net> <20100723150041.GA7301@gondor.apana.org.au> <4C49B296.10009@trash.net> <20100723152609.GA7576@gondor.apana.org.au>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [ANNOUNCE]: Release of iptables-1.4.9
+Date: Wed, 4 Aug 2010 18:32:50 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1008041830290.5516@obet.zrqbmnf.qr>
+References: <4C5832F9.50004@trash.net> <x6bp9jy7sj@gzp> <4C584C63.8010607@trash.net> <x6vd7rwrah@gzp> <x6lj8nwqu4@gzp> <alpine.LSU.2.01.1008032001430.1519@obet.zrqbmnf.qr> <x6sk2vo9eq@gzp> <4C599275.2080007@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51619 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921Ab0HDQbC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 12:31:02 -0400
-In-Reply-To: <20100723152609.GA7576@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Gabor Z. Papp" <gzp@papp.hu>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
+	netfilter-announce@lists.netfilter.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4C599275.2080007@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am 23.07.2010 17:26, schrieb Herbert Xu:
-> On Fri, Jul 23, 2010 at 05:17:42PM +0200, Patrick McHardy wrote:
->>
->>> There's also the matter of fragments jumping between bridges.
->>
->> Conntrack zones can be used to avoid that, but that currently needs
->> manual configuration.
-> 
-> I think this is something that we need to fix.  Because as it
-> stands, it can still crash if you get the wrong nf_bridge.
-> 
-> The reason is that skb->dev does not hold a ref count.  So the
-> reassembly code just throws it away and always uses the dev of
-> the last fragment.
-> 
-> This breaks when two bridges combine to reassemble a single
-> packet, as the nf_bridge attribute of the reassembled packet
-> may come from an skb whose device is now dead.  This is then
-> used to fill in the skb->dev (via nf_bridge->physindev).
+On Wednesday 2010-08-04 18:16, Patrick McHardy wrote:
+>Am 03.08.2010 20:09, schrieb Gabor Z. Papp:
+>> * Jan Engelhardt <jengelh@medozas.de>:
+>> 
+>> | (BTW, with --disable-shared you remove the possibility to use any .so
+>> | files whatsoever. You can use --enable-static --enable-shared to get
+>> | both "all in one binary" and ".so support".)
+>> 
+>> And how to force linking the binaries against the static libs?
+>> 
+>> | The following changes since commit 371cea299f0b2eb100b9fc9fb99089640d2d606f:
+>> 
+>> |   xtables: remove unnecessary cast (2010-08-03 19:56:11 +0200)
+>> 
+>> | are available in the git repository at:
+>> |   git://dev.medozas.de/iptables master
+>> 
+>> Fixed, compiled fine.
+>
+>Thanks, I'll release a .1 with this patch tommorrow.
 
-We could perform a new device lookup on reassembly as we do
-when expiring a fragment queue, but we probably shouldn't even
-be reassembling fragments from different bridges. One way to
-avoid this would be to automatically assign each bridge device
-to a different conntrack zone, but conntrack zones are limited
-to 2^16 and this might also have other unwanted side-effects.
+You probably want to add to your personal release script section one 
+that testcompiles all configurations before possibly creating a tarball. 
+I do so too with Xtables-addons (all kernels from 2.6.17 onwards, 
+quite a disk eater).
 
-Until we come up with something better the best fix seems to
-be to perform the device lookup based on the iif.
+./configure --enable-static --enable-shared && make
