@@ -1,246 +1,46 @@
-From: xeb@mail.ru
-Subject: =?koi8-r?Q?[PATCH_1/3]_PPTP=3A_PPP_over_IPv4_(Point-to-Point_Tunneling_Protocol)?=
-Date: Wed, 04 Aug 2010 14:42:32 +0400
-Message-ID: <E1OgbQe-0002HB-00.xeb-mail-ru@f77.mail.ru>
-Reply-To: xeb@mail.ru
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Wed, 04 Aug 2010 12:45:59 +0200
+Message-ID: <1280918759.1923.968.camel@laptop>
+References: <4C2CA5C5.4040402@kernel.org>
+	 <20100701144624.GA11171@redhat.com> <4C2CABF2.2020801@kernel.org>
+	 <1277996135.1917.198.camel@laptop> <4C2E2987.9040702@us.ibm.com>
+	 <1278094270.1917.288.camel@laptop> <20100702210637.GA12433@redhat.com>
+	 <20100726171230.GA27644@redhat.com> <1280166688.3375.5.camel@localhost>
+	 <20100726180834.GA26988@redhat.com>  <20100727045534.GA4316@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback2.mail.ru ([94.100.176.87]:33805 "EHLO
-	fallback2.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757383Ab0HDKpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 06:45:53 -0400
-Received: from f77.mail.ru (f77.mail.ru [217.69.128.225])
-	by fallback2.mail.ru (mPOP.Fallback_MX) with ESMTP id 4FA4525C47B9
-	for <netdev@vger.kernel.org>; Wed,  4 Aug 2010 14:45:52 +0400 (MSD)
-Received: from mail by f77.mail.ru with local
-	id 1OgbQe-0002HB-00
-	for netdev@vger.kernel.org; Wed, 04 Aug 2010 14:42:32 +0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, Tejun Heo <tj@kernel.org>,
+	Ingo Molnar <mingo@elte.hu>, netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100727045534.GA4316@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is patch 1/3 which contains gre demultiplexer driver source 
-for demultiplexing gre packets with different gre version.
- 
----
- include/net/gre.h |   18 ++++++
- net/ipv4/Kconfig  |    7 +++
- net/ipv4/Makefile |    1 +
- net/ipv4/gre.c    |  151 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 177 insertions(+), 0 deletions(-)
+On Tue, 2010-07-27 at 07:55 +0300, Michael S. Tsirkin wrote:
 
-diff --git a/include/net/gre.h b/include/net/gre.h
-new file mode 100644
-index 0000000..31a0f76
---- /dev/null
-+++ b/include/net/gre.h
-@@ -0,0 +1,18 @@
-+#ifndef __LINUX_GRE_H
-+#define __LINUX_GRE_H
-+
-+#include <linux/skbuff.h>
-+
-+#define GREPROTO_CISCO		0
-+#define GREPROTO_PPTP		1
-+#define GREPROTO_MAX		2
-+
-+struct gre_protocol {
-+	int		(*handler)(struct sk_buff *skb);
-+	void	(*err_handler)(struct sk_buff *skb, u32 info);
-+};
-+
-+int gre_add_protocol(const struct gre_protocol *proto, u8 version);
-+int gre_del_protocol(const struct gre_protocol *proto, u8 version);
-+
-+#endif
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 7c3a7d1..7458bda 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -215,8 +215,15 @@ config NET_IPIP
- 	  be inserted in and removed from the running kernel whenever you
- 	  want). Most people won't need this and can say N.
- 
-+config NET_IPGRE_DEMUX
-+	tristate "IP: GRE demultiplexer"
-+	help
-+	 This is helper module to demultiplex GRE packets on GRE version field criteria.
-+	 Required by ip_gre and pptp modules.
-+
- config NET_IPGRE
- 	tristate "IP: GRE tunnels over IP"
-+	depends on NET_IPGRE_DEMUX
- 	help
- 	  Tunneling means encapsulating data of one protocol type within
- 	  another protocol and sending it over a channel that understands the
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 80ff87c..4978d22 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_PROC_FS) += proc.o
- obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
- obj-$(CONFIG_IP_MROUTE) += ipmr.o
- obj-$(CONFIG_NET_IPIP) += ipip.o
-+obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
- obj-$(CONFIG_NET_IPGRE) += ip_gre.o
- obj-$(CONFIG_SYN_COOKIES) += syncookies.o
- obj-$(CONFIG_INET_AH) += ah4.o
-diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
-new file mode 100644
-index 0000000..993f3cf
---- /dev/null
-+++ b/net/ipv4/gre.c
-@@ -0,0 +1,151 @@
-+/*
-+ *	GRE over IPv4 demultiplexer driver
-+ *
-+ *	Authors: Dmitry Kozlov (xeb@mail.ru)
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *	modify it under the terms of the GNU General Public License
-+ *	as published by the Free Software Foundation; either version
-+ *	2 of the License, or (at your option) any later version.
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/kmod.h>
-+#include <linux/skbuff.h>
-+#include <linux/in.h>
-+#include <linux/netdevice.h>
-+#include <linux/version.h>
-+#include <linux/spinlock.h>
-+#include <net/protocol.h>
-+#include <net/gre.h>
-+
-+
-+const struct gre_protocol *gre_proto[GREPROTO_MAX] ____cacheline_aligned_in_smp;
-+static DEFINE_RWLOCK(gre_proto_lock);
-+
-+int gre_add_protocol(const struct gre_protocol *proto, u8 version)
-+{
-+	int ret;
-+
-+	if (version >= GREPROTO_MAX)
-+		return -1;
-+	
-+	write_lock_bh(&gre_proto_lock);
-+	if (gre_proto[version]) {
-+		ret = -1;
-+	} else {
-+		gre_proto[version]=proto;
-+		ret = 0;
-+	}
-+	write_unlock_bh(&gre_proto_lock);
-+
-+	return ret;
-+}
-+int gre_del_protocol(const struct gre_protocol *proto, u8 version)
-+{
-+	int ret;
-+
-+	if (version >= GREPROTO_MAX)
-+		return -1;
-+
-+	write_lock_bh(&gre_proto_lock);
-+	if (gre_proto[version] == proto) {
-+		gre_proto[version] = NULL;
-+		ret = 0;
-+	} else {
-+		ret = -1;
-+	}
-+	write_unlock_bh(&gre_proto_lock);
-+
-+	return ret;
-+}
-+static int gre_rcv(struct sk_buff *skb)
-+{
-+	u8 ver;
-+	int ret;
-+
-+	if (!pskb_may_pull(skb, 12))
-+		goto drop_nolock;
-+
-+	ver = skb->data[1]&0x7f;
-+	if (ver >= GREPROTO_MAX)
-+		goto drop_nolock;
-+	
-+	read_lock(&gre_proto_lock);
-+	if (!gre_proto[ver] || !gre_proto[ver]->handler)
-+		goto drop;
-+
-+	ret = gre_proto[ver]->handler(skb);
-+	read_unlock(&gre_proto_lock);
-+
-+	return ret;
-+
-+drop:
-+	read_unlock(&gre_proto_lock);
-+drop_nolock:
-+	kfree_skb(skb);
-+	return NET_RX_DROP;
-+}
-+static void gre_err(struct sk_buff *skb, u32 info)
-+{
-+	u8 ver;
-+
-+	printk("err\n");
-+
-+	if (!pskb_may_pull(skb, 12))
-+		goto drop_nolock;
-+
-+	ver=skb->data[1];
-+	if (ver>=GREPROTO_MAX)
-+		goto drop_nolock;
-+		
-+	read_lock(&gre_proto_lock);
-+	if (!gre_proto[ver] || !gre_proto[ver]->err_handler)
-+		goto drop;
-+
-+	gre_proto[ver]->err_handler(skb,info);
-+	read_unlock(&gre_proto_lock);
-+
-+	return;
-+
-+drop:
-+	read_unlock(&gre_proto_lock);
-+drop_nolock:
-+	kfree_skb(skb);
-+}
-+
-+
-+static struct net_protocol net_gre_protocol = {
-+	.handler	= gre_rcv,
-+	.err_handler	=	gre_err,
-+//	.netns_ok=1,
-+};
-+
-+static int __init gre_init(void)
-+{
-+	printk(KERN_INFO "GRE over IPv4 demultiplexor driver");
-+	
-+	if (inet_add_protocol(&net_gre_protocol, IPPROTO_GRE) < 0) {
-+		printk(KERN_INFO "gre: can't add protocol\n");
-+		return -EAGAIN;
-+	}
-+
-+	return 0;
-+}
-+
-+static void __exit gre_exit(void)
-+{
-+	inet_del_protocol(&net_gre_protocol, IPPROTO_GRE);
-+}
-+
-+module_init(gre_init);
-+module_exit(gre_exit);
-+
-+MODULE_DESCRIPTION("GRE over IPv4 demultiplexer driver");
-+MODULE_AUTHOR("D. Kozlov (xeb@mail.ru)");
-+MODULE_LICENSE("GPL");
-+EXPORT_SYMBOL_GPL(gre_add_protocol);
-+EXPORT_SYMBOL_GPL(gre_del_protocol);
+> Peter, could you please indicate whether you think this is the way to
+> go, too?
 
+I really dislike it, as you indicated, you now want priority too..
+
+It seems the problem is that we normally don't consider work done by
+kernel threads for user processes part of that process.
+
+I'm not sure what work you're doing, but I'm pretty sure there's similar
+things already in the kernel -- think about the work done by encryption
+threads for encrypted sockets and stuff.
+
+If you want proper containment of work caused by a process, I'd suggest
+you start by looking at curing the general problem, instead of special
+casing this one case.
