@@ -1,8 +1,8 @@
 From: Tejun Heo <htejun@gmail.com>
-Subject: [PATCH block#for-2.6.36] block_dev: always serialize exclusive open
- attempts
-Date: Wed, 04 Aug 2010 17:40:59 +0200
-Message-ID: <4C598A0B.9000301@gmail.com>
+Subject: [PATCH RESEND block#for-2.6.36] block_dev: always serialize exclusive
+ open attempts
+Date: Wed, 04 Aug 2010 17:59:39 +0200
+Message-ID: <4C598E6B.7050405@gmail.com>
 References: <2dWFdr9kTFM.A.P0D.spXVMB@chimera> <AANLkTimcH7+Bq1UEbaSU7SQpzArPgmSLegiqE13V8=CF@mail.gmail.com> <4C56F30D.3020304@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -21,14 +21,10 @@ Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	stable@kernel.org, Maciej Rutecki <maciej.rutecki@gmail.com>
 To: Jens Axboe <jaxboe@fusionio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:54770 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754442Ab0HDPkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 11:40:43 -0400
+Return-path: <linux-acpi-owner@vger.kernel.org>
 In-Reply-To: <4C56F30D.3020304@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 bd_prepare_to_claim() incorrectly allowed multiple attempts for
 exclusive open to progress in parallel if the attempting holders are
@@ -49,9 +45,13 @@ disk.
 stable: only applicable to v2.6.35
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
-Reported-by: Maciej Rutecki <maciej.rutecki@gmail.com>
+Reported-by: Markus Trippelsdorf <markus@trippelsdorf.de>
 Cc: stable@kernel.org
 ---
+Oops, had the wrong reported-by credit.  Updated.
+
+Thanks.
+
  fs/block_dev.c |    4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
