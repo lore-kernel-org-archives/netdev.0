@@ -1,40 +1,46 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: can TCP socket send buffer be over used?
-Date: Wed, 4 Aug 2010 10:21:33 +0200 (CEST)
-Message-ID: <alpine.DEB.1.10.1008041018380.19930@uplift.swm.pp.se>
-References: <AANLkTi=Ma2yMVbgRnUUB6T1j=rHLb60oAXqCSbM35KgT@mail.gmail.com>  <alpine.DEB.1.10.1008040932030.19930@uplift.swm.pp.se> <AANLkTikJvTvzuPhJ59RNcCGXPWP4EidaHx0=oUK8jjiy@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: Jack Zhang <jack.zhang2011@gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] cls_rsvp: add sanity check for the packet length
+Date: Wed,  4 Aug 2010 16:55:24 +0800
+Message-ID: <1280912124-30374-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swm.pp.se ([212.247.200.143]:40392 "EHLO uplift.swm.pp.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751487Ab0HDIVe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Aug 2010 04:21:34 -0400
-In-Reply-To: <AANLkTikJvTvzuPhJ59RNcCGXPWP4EidaHx0=oUK8jjiy@mail.gmail.com>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:56410 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754207Ab0HDIzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 04:55:47 -0400
+Received: by pvc7 with SMTP id 7so1907241pvc.19
+        for <netdev@vger.kernel.org>; Wed, 04 Aug 2010 01:55:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 Aug 2010, Jack Zhang wrote:
+The packet length should be checked before the packet data is dereferenced.
 
-> Hi Mikael,
->
-> Thanks for your reply. I'll definitely try that.
->
-> Quick question though... the link I use in my test does not have any
-> packet loss (it's a straight through cable between two PCs)... in this
-> case, would TCP congestion window size affect the result at all?
-
-I always mix up the different TCP windows, but I mean the windows size the 
-sender will use max for the session. I'm not sure this is the same as the 
-buffer you're tuning with your userspace option.
-
-An easy test would be for you to set the userspace option to 64k, test 
-what speeds you get, then you turn off window scaling in /proc, and try 
-again. If you get wildly different results here (turning off window 
-scaling limits the window to 64k) then the buffer you're tuning doesn't do 
-what you think it does.
-
--- 
-Mikael Abrahamsson    email: swmike@swm.pp.se
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ net/sched/cls_rsvp.h |   10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+index dd9414e..4fa119d 100644
+--- a/net/sched/cls_rsvp.h
++++ b/net/sched/cls_rsvp.h
+@@ -143,9 +143,17 @@ static int rsvp_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 	u8 tunnelid = 0;
+ 	u8 *xprt;
+ #if RSVP_DST_LEN == 4
+-	struct ipv6hdr *nhptr = ipv6_hdr(skb);
++	struct ipv6hdr *nhptr;
++
++	if (!pskb_may_pull(skb, skb_network_offset(skb) + sizeof(*nhptr)))
++		return -1;
++	nhptr = ipv6_hdr(skb);
+ #else
+ 	struct iphdr *nhptr = ip_hdr(skb);
++
++	if (!pskb_may_pull(skb, skb_network_offset(skb) + sizeof(*nhptr)))
++		return -1;
++	nhptr = ip_hdr(skb);
+ #endif
+ 
+ restart:
