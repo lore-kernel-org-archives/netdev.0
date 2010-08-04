@@ -1,41 +1,50 @@
-From: "Amber Juliana" <amber_juliana@katamail.com>
-Subject: Contect Fedex
-Date: Wed, 4 Aug 2010 11:14:57 +0200
-Message-ID: <32776.1280913297@katamail.com>
-Reply-To: fedex_dispaatchunit0148@yahoo.com.hk
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [RFC PATCH] platform: Faciliatate the creation of
+ pseduo-platform busses
+Date: Wed, 4 Aug 2010 10:37:14 +0100
+Message-ID: <20100804103714.48ddbe0e@lxorguk.ukuu.org.uk>
+References: <4C58A7AA.8020007@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <info@amber.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp184-pc.aruba.it ([62.149.157.184]:36259 "HELO
-	smtp1-pc.aruba.it" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with SMTP id S1756917Ab0HDJQN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 05:16:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	linux-omap.vger.kernel.org@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@suse.de>, damm@opensource.se,
+	lethal@linux-sh.org, rjw@sisk.pl, dtor@mail.ru,
+	eric.y.miao@gmail.com, netdev@vger.kernel.org
+To: Patrick Pannuto <ppannuto@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C58A7AA.8020007@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Greetings
-=20
-I have been waiting for you to contact me for your Confirmable Bank-dra=
-ft of $750.000.00 United States Dollars,but I did not hear from=20
-you. Then I went and deposited the Draft with FedEx COURIER SERVICE,The=
- only money you will send to the FedEX COURIER SERVICE to=20
-deliver your Draft direct to your postal Address in your country is ($1=
-50.00 US) Dollars only being Security Keeping Fee of the Courier=20
-Company.
+> 	(possibly in a header)
+> 	#ifdef CONFIG_MY_BUS
+> 	#define MY_BUS_TYPE	&my_bus_type
+> 	#else
+> 	#define MY_BUS_TYPE	NULL
+> 	#endif
+> 
+> /drivers/my_driver.c
+> 	static struct platform_driver my_driver = {
+> 		.driver	= {
+> 			.name	= "my-driver",
+> 			.owner	= THIS_MODULE,
+> 			.bus	= MY_BUS_TYPE,
+> 		},
+> 	};
+> 
+> Which will allow the same driver to easily to used on either
+> the platform bus or the newly defined bus type.
 
+At compile time. I suspect there is an argument for having an
+"ANY_BUS_TYPE" value for the devices so that you can runtime wildcard
+stuff which works whatever sub-bus it is hung off.
 
-1) FULL NAMES:
-2) CONTACT ADDRESS:
-3) PHONE NUMBER/FAX:
-4) COUNTRY:
-=20
-Contact Person:Mr Fred Osamudia
-Phone number:+234 8139583375
-Email Address:fedex001@gala.net
+> I believe this to be a fairly elegant and simple solution to the
+> problem, but humbly RFC
 
+It's exactly what I need to tidy up the SCU IPC devices on the new Intel
+MID platforms certainly. It's also a very small patch to achieve it
 
-
----- Nuova grafica e nuove funzionalit=C3=A0! Crea subito Gratis la tua=
- nuova Casella di Posta  Katamail
+Alan
