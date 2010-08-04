@@ -1,82 +1,72 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2 4/4] sch_sfq: add sanity check for the packet length
-Date: Wed,  4 Aug 2010 22:58:59 +0800
-Message-ID: <1280933939-17548-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
+From: Tejun Heo <htejun@gmail.com>
+Subject: [PATCH block#for-2.6.36] block_dev: always serialize exclusive open
+ attempts
+Date: Wed, 04 Aug 2010 17:40:59 +0200
+Message-ID: <4C598A0B.9000301@gmail.com>
+References: <2dWFdr9kTFM.A.P0D.spXVMB@chimera> <AANLkTimcH7+Bq1UEbaSU7SQpzArPgmSLegiqE13V8=CF@mail.gmail.com> <4C56F30D.3020304@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	stable@kernel.org, Maciej Rutecki <maciej.rutecki@gmail.com>
+To: Jens Axboe <jaxboe@fusionio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:33407 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932935Ab0HDO72 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 10:59:28 -0400
-Received: by pxi14 with SMTP id 14so2023996pxi.19
-        for <netdev@vger.kernel.org>; Wed, 04 Aug 2010 07:59:28 -0700 (PDT)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:54770 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754442Ab0HDPkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 11:40:43 -0400
+In-Reply-To: <4C56F30D.3020304@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The packet length should be checked before the packet data is dereferenced.
+bd_prepare_to_claim() incorrectly allowed multiple attempts for
+exclusive open to progress in parallel if the attempting holders are
+identical.  This triggered BUG_ON() as reported in the following bug.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+  https://bugzilla.kernel.org/show_bug.cgi?id=16393
+
+__bd_abort_claiming() is used to finish claiming blocks and doesn't
+work if multiple openers are inside a claiming block.  Allowing
+multiple parallel open attempts to continue doesn't gain anything as
+those are serialized down in the call chain anyway.  Fix it by always
+allowing only single open attempt in a claiming block.
+
+This problem can easily be reproduced by adding a delay after
+bd_prepare_to_claim() and attempting to mount two partitions of a
+disk.
+
+stable: only applicable to v2.6.35
+
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Reported-by: Maciej Rutecki <maciej.rutecki@gmail.com>
+Cc: stable@kernel.org
 ---
-v2: use pskb_network_may_pull()
- net/sched/sch_sfq.c |   29 ++++++++++++++++++++---------
- 1 file changed, 20 insertions(+), 9 deletions(-)
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index c657628..e85352b 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -122,7 +122,11 @@ static unsigned sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
- 	{
--		const struct iphdr *iph = ip_hdr(skb);
-+		const struct iphdr *iph;
-+
-+		if (!pskb_network_may_pull(skb, sizeof(*iph)))
-+			goto err;
-+		iph = ip_hdr(skb);
- 		h = (__force u32)iph->daddr;
- 		h2 = (__force u32)iph->saddr ^ iph->protocol;
- 		if (!(iph->frag_off&htons(IP_MF|IP_OFFSET)) &&
-@@ -131,25 +135,32 @@ static unsigned sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
- 		     iph->protocol == IPPROTO_UDPLITE ||
- 		     iph->protocol == IPPROTO_SCTP ||
- 		     iph->protocol == IPPROTO_DCCP ||
--		     iph->protocol == IPPROTO_ESP))
-+		     iph->protocol == IPPROTO_ESP) &&
-+		     pskb_network_may_pull(skb, iph->ihl * 4 + 4))
- 			h2 ^= *(((u32*)iph) + iph->ihl);
- 		break;
- 	}
- 	case htons(ETH_P_IPV6):
- 	{
--		struct ipv6hdr *iph = ipv6_hdr(skb);
-+		struct ipv6hdr *iph;
-+
-+		if (!pskb_network_may_pull(skb, sizeof(*iph)))
-+			goto err;
-+		iph = ipv6_hdr(skb);
- 		h = (__force u32)iph->daddr.s6_addr32[3];
- 		h2 = (__force u32)iph->saddr.s6_addr32[3] ^ iph->nexthdr;
--		if (iph->nexthdr == IPPROTO_TCP ||
--		    iph->nexthdr == IPPROTO_UDP ||
--		    iph->nexthdr == IPPROTO_UDPLITE ||
--		    iph->nexthdr == IPPROTO_SCTP ||
--		    iph->nexthdr == IPPROTO_DCCP ||
--		    iph->nexthdr == IPPROTO_ESP)
-+		if ((iph->nexthdr == IPPROTO_TCP ||
-+		     iph->nexthdr == IPPROTO_UDP ||
-+		     iph->nexthdr == IPPROTO_UDPLITE ||
-+		     iph->nexthdr == IPPROTO_SCTP ||
-+		     iph->nexthdr == IPPROTO_DCCP ||
-+		     iph->nexthdr == IPPROTO_ESP) &&
-+		    pskb_network_may_pull(skb, sizeof(*iph) + 4))
- 			h2 ^= *(u32*)&iph[1];
- 		break;
- 	}
- 	default:
-+err:
- 		h = (unsigned long)skb_dst(skb) ^ (__force u32)skb->protocol;
- 		h2 = (unsigned long)skb->sk;
- 	}
+ fs/block_dev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/block_dev.c b/fs/block_dev.c
+index 99d6af8..b3171fb 100644
+--- a/fs/block_dev.c
++++ b/fs/block_dev.c
+@@ -681,8 +681,8 @@ retry:
+ 	if (!bd_may_claim(bdev, whole, holder))
+ 		return -EBUSY;
+
+-	/* if someone else is claiming, wait for it to finish */
+-	if (whole->bd_claiming && whole->bd_claiming != holder) {
++	/* if claiming is already in progress, wait for it to finish */
++	if (whole->bd_claiming) {
+ 		wait_queue_head_t *wq = bit_waitqueue(&whole->bd_claiming, 0);
+ 		DEFINE_WAIT(wait);
+
