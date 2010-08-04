@@ -1,232 +1,227 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH v5 1/2] core: Factor out flow calculation from get_rps_cpu
-Date: Wed, 04 Aug 2010 21:45:52 +0530
-Message-ID: <20100804161552.3814.56839.sendpatchset@krkumar2.in.ibm.com>
+Subject: [PATCH v5 2/2] macvtap: Implement multiqueue for macvtap driver
+Date: Wed, 04 Aug 2010 21:45:59 +0530
+Message-ID: <20100804161559.3814.52060.sendpatchset@krkumar2.in.ibm.com>
+References: <20100804161552.3814.56839.sendpatchset@krkumar2.in.ibm.com>
 Cc: mst@redhat.com, netdev@vger.kernel.org, xiaosuo@gmail.com,
 	bhutchings@solarflare.com, Krishna Kumar <krkumar2@in.ibm.com>,
 	therbert@google.com
 To: davem@davemloft.net, arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp03.in.ibm.com ([122.248.162.3]:50097 "EHLO
-	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755958Ab0HDQP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 12:15:59 -0400
-Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
-	by e28smtp03.in.ibm.com (8.14.4/8.13.1) with ESMTP id o74GFtmJ027594
-	for <netdev@vger.kernel.org>; Wed, 4 Aug 2010 21:45:55 +0530
-Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o74GFtGS3891418
-	for <netdev@vger.kernel.org>; Wed, 4 Aug 2010 21:45:55 +0530
-Received: from d28av04.in.ibm.com (loopback [127.0.0.1])
-	by d28av04.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o74GFsOo006357
-	for <netdev@vger.kernel.org>; Thu, 5 Aug 2010 02:15:55 +1000
+Received: from e28smtp05.in.ibm.com ([122.248.162.5]:49649 "EHLO
+	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755659Ab0HDQQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 12:16:05 -0400
+Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
+	by e28smtp05.in.ibm.com (8.14.4/8.13.1) with ESMTP id o74GG1Vs012882
+	for <netdev@vger.kernel.org>; Wed, 4 Aug 2010 21:46:01 +0530
+Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o74GG1as3293426
+	for <netdev@vger.kernel.org>; Wed, 4 Aug 2010 21:46:01 +0530
+Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
+	by d28av03.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o74GG0gF009014
+	for <netdev@vger.kernel.org>; Thu, 5 Aug 2010 02:16:01 +1000
+In-Reply-To: <20100804161552.3814.56839.sendpatchset@krkumar2.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Factor out flow calculation code from get_rps_cpu, since other
-functions can use the same code.
-
-Revisions:
-
-v2 (Ben): Separate flow calcuation out and use in select queue.
-v3 (Arnd): Don't re-implement MIN.
-v4 (Changli): skb->data points to ethernet header in macvtap, and
-	make a fast path. Tested macvtap with this patch.
-v5 (Changli):
-	- Cache skb->rxhash in skb_get_rxhash
-	- macvtap may not have pow(2) queues, so change code for
-	  queue selection.
-    (Arnd):
-	- Use first available queue if all fails.
-
+Implement multiqueue facility for macvtap driver. The idea is that
+a macvtap device can be opened multiple times and the fd's can be
+used to register eg, as backend for vhost.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- include/linux/skbuff.h |    9 +++
- net/core/dev.c         |  106 ++++++++++++++++++++++-----------------
- 2 files changed, 71 insertions(+), 44 deletions(-)
+ drivers/net/macvtap.c      |   99 ++++++++++++++++++++++++++++-------
+ include/linux/if_macvlan.h |    9 ++-
+ 2 files changed, 90 insertions(+), 18 deletions(-)
 
-diff -ruNp org/include/linux/skbuff.h new/include/linux/skbuff.h
---- org/include/linux/skbuff.h	2010-08-04 20:45:19.000000000 +0530
-+++ new/include/linux/skbuff.h	2010-08-04 20:47:02.000000000 +0530
-@@ -558,6 +558,15 @@ extern unsigned int   skb_find_text(stru
- 				    unsigned int to, struct ts_config *config,
- 				    struct ts_state *state);
+diff -ruNp org/include/linux/if_macvlan.h new/include/linux/if_macvlan.h
+--- org/include/linux/if_macvlan.h	2010-08-04 20:45:19.000000000 +0530
++++ new/include/linux/if_macvlan.h	2010-08-04 20:45:19.000000000 +0530
+@@ -40,6 +40,12 @@ struct macvlan_rx_stats {
+ 	unsigned long		rx_errors;
+ };
  
-+extern __u32 __skb_get_rxhash(struct sk_buff *skb);
-+static inline __u32 skb_get_rxhash(struct sk_buff *skb)
-+{
-+	if (!skb->rxhash)
-+		skb->rxhash = __skb_get_rxhash(skb);
++/*
++ * Maximum times a macvtap device can be opened. This can be used to
++ * configure the number of receive queue, e.g. for multiqueue virtio.
++ */
++#define MAX_MACVTAP_QUEUES	(NR_CPUS < 16 ? NR_CPUS : 16)
 +
-+	return skb->rxhash;
+ struct macvlan_dev {
+ 	struct net_device	*dev;
+ 	struct list_head	list;
+@@ -50,7 +56,8 @@ struct macvlan_dev {
+ 	enum macvlan_mode	mode;
+ 	int (*receive)(struct sk_buff *skb);
+ 	int (*forward)(struct net_device *dev, struct sk_buff *skb);
+-	struct macvtap_queue	*tap;
++	struct macvtap_queue	*taps[MAX_MACVTAP_QUEUES];
++	int			numvtaps;
+ };
+ 
+ static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
+diff -ruNp org/drivers/net/macvtap.c new/drivers/net/macvtap.c
+--- org/drivers/net/macvtap.c	2010-08-04 20:45:19.000000000 +0530
++++ new/drivers/net/macvtap.c	2010-08-04 21:20:49.000000000 +0530
+@@ -84,26 +84,45 @@ static const struct proto_ops macvtap_so
+ static DEFINE_SPINLOCK(macvtap_lock);
+ 
+ /*
+- * Choose the next free queue, for now there is only one
++ * get_slot: return a [unused/occupied] slot in vlan->taps[]:
++ *	- if 'q' is NULL, return the first empty slot;
++ *	- otherwise, return the slot this pointer occupies.
+  */
++static int get_slot(struct macvlan_dev *vlan, struct macvtap_queue *q)
++{
++	int i;
++
++	for (i = 0; i < MAX_MACVTAP_QUEUES; i++) {
++		if (rcu_dereference(vlan->taps[i]) == q)
++			return i;
++	}
++
++	/* Should never happen */
++	BUG_ON(1);
 +}
 +
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
+ static int macvtap_set_queue(struct net_device *dev, struct file *file,
+ 				struct macvtap_queue *q)
  {
-diff -ruNp org/net/core/dev.c new/net/core/dev.c
---- org/net/core/dev.c	2010-08-04 20:45:19.000000000 +0530
-+++ new/net/core/dev.c	2010-08-04 21:13:37.000000000 +0530
-@@ -2259,69 +2259,41 @@ static inline void ____napi_schedule(str
- 	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
++	int index;
+ 	int err = -EBUSY;
+ 
+ 	spin_lock(&macvtap_lock);
+-	if (rcu_dereference(vlan->tap))
++	if (vlan->numvtaps == MAX_MACVTAP_QUEUES)
+ 		goto out;
+ 
+ 	err = 0;
++	index = get_slot(vlan, NULL);
+ 	rcu_assign_pointer(q->vlan, vlan);
+-	rcu_assign_pointer(vlan->tap, q);
++	rcu_assign_pointer(vlan->taps[index], q);
+ 	sock_hold(&q->sk);
+ 
+ 	q->file = file;
+ 	file->private_data = q;
+ 
++	vlan->numvtaps++;
++
+ out:
+ 	spin_unlock(&macvtap_lock);
+ 	return err;
+@@ -124,9 +143,12 @@ static void macvtap_put_queue(struct mac
+ 	spin_lock(&macvtap_lock);
+ 	vlan = rcu_dereference(q->vlan);
+ 	if (vlan) {
+-		rcu_assign_pointer(vlan->tap, NULL);
++		int index = get_slot(vlan, q);
++
++		rcu_assign_pointer(vlan->taps[index], NULL);
+ 		rcu_assign_pointer(q->vlan, NULL);
+ 		sock_put(&q->sk);
++		--vlan->numvtaps;
+ 	}
+ 
+ 	spin_unlock(&macvtap_lock);
+@@ -136,39 +158,82 @@ static void macvtap_put_queue(struct mac
  }
  
--#ifdef CONFIG_RPS
--
--/* One global table that all flow-based protocols share. */
--struct rps_sock_flow_table *rps_sock_flow_table __read_mostly;
--EXPORT_SYMBOL(rps_sock_flow_table);
--
  /*
-- * get_rps_cpu is called from netif_receive_skb and returns the target
-- * CPU from the RPS map of the receiving queue for a given skb.
-- * rcu_read_lock must be held on entry.
-+ * __skb_get_rxhash: calculate a flow hash based on src/dst addresses
-+ * and src/dst port numbers. Returns a non-zero hash number on success
-+ * and 0 on failure.
+- * Since we only support one queue, just dereference the pointer.
++ * Select a queue based on the rxq of the device on which this packet
++ * arrived. If the incoming device is not mq, calculate a flow hash
++ * to select a queue. If all fails, find the first available queue.
++ * Cache vlan->numvtaps since it can become zero during the execution
++ * of this function.
   */
--static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
--		       struct rps_dev_flow **rflowp)
-+__u32 __skb_get_rxhash(struct sk_buff *skb)
+ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
+ 					       struct sk_buff *skb)
  {
-+	int nhoff, hash = 0;
- 	struct ipv6hdr *ip6;
- 	struct iphdr *ip;
--	struct netdev_rx_queue *rxqueue;
--	struct rps_map *map;
--	struct rps_dev_flow_table *flow_table;
--	struct rps_sock_flow_table *sock_flow_table;
--	int cpu = -1;
- 	u8 ip_proto;
--	u16 tcpu;
- 	u32 addr1, addr2, ihl;
- 	union {
- 		u32 v32;
- 		u16 v16[2];
- 	} ports;
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
++	struct macvtap_queue *tap = NULL;
++	int numvtaps = vlan->numvtaps;
++	__u32 rxq;
++
++	if (!numvtaps)
++		goto out;
++
++	if (likely(skb_rx_queue_recorded(skb))) {
++		rxq = skb_get_rx_queue(skb);
++
++		while (unlikely(rxq >= numvtaps))
++			rxq -= numvtaps;
++
++		tap = rcu_dereference(vlan->taps[rxq]);
++		if (tap)
++			goto out;
++	}
++
++	/* Check if we can use flow to select a queue */
++	rxq = skb_get_rxhash(skb);
++	if (rxq) {
++		tap = rcu_dereference(vlan->taps[rxq % numvtaps]);
++		if (tap)
++			goto out;
++	}
  
--	if (skb_rx_queue_recorded(skb)) {
--		u16 index = skb_get_rx_queue(skb);
--		if (unlikely(index >= dev->num_rx_queues)) {
--			WARN_ONCE(dev->num_rx_queues > 1, "%s received packet "
--				"on queue %u, but number of RX queues is %u\n",
--				dev->name, index, dev->num_rx_queues);
--			goto done;
--		}
--		rxqueue = dev->_rx + index;
--	} else
--		rxqueue = dev->_rx;
--
--	if (!rxqueue->rps_map && !rxqueue->rps_flow_table)
--		goto done;
--
--	if (skb->rxhash)
--		goto got_hash; /* Skip hash computation on packet header */
-+	nhoff = skb_network_offset(skb);
+-	return rcu_dereference(vlan->tap);
++	/* Everything failed - find first available queue */
++	for (rxq = 0; rxq < MAX_MACVTAP_QUEUES; rxq++) {
++		tap = rcu_dereference(vlan->taps[rxq]);
++		if (tap)
++			break;
++	}
++
++out:
++	return tap;
+ }
  
- 	switch (skb->protocol) {
- 	case __constant_htons(ETH_P_IP):
--		if (!pskb_may_pull(skb, sizeof(*ip)))
-+		if (!pskb_may_pull(skb, sizeof(*ip) + nhoff))
- 			goto done;
+ /*
+  * The net_device is going away, give up the reference
+- * that it holds on the queue (all the queues one day)
+- * and safely set the pointer from the queues to NULL.
++ * that it holds on all queues and safely set the pointer
++ * from the queues to NULL.
+  */
+ static void macvtap_del_queues(struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+-	struct macvtap_queue *q;
++	struct macvtap_queue *q, *qlist[MAX_MACVTAP_QUEUES];
++	int i, j = 0;
  
--		ip = (struct iphdr *) skb->data;
-+		ip = (struct iphdr *) skb->data + nhoff;
- 		ip_proto = ip->protocol;
- 		addr1 = (__force u32) ip->saddr;
- 		addr2 = (__force u32) ip->daddr;
- 		ihl = ip->ihl;
- 		break;
- 	case __constant_htons(ETH_P_IPV6):
--		if (!pskb_may_pull(skb, sizeof(*ip6)))
-+		if (!pskb_may_pull(skb, sizeof(*ip6) + nhoff))
- 			goto done;
- 
--		ip6 = (struct ipv6hdr *) skb->data;
-+		ip6 = (struct ipv6hdr *) skb->data + nhoff;
- 		ip_proto = ip6->nexthdr;
- 		addr1 = (__force u32) ip6->saddr.s6_addr32[3];
- 		addr2 = (__force u32) ip6->daddr.s6_addr32[3];
-@@ -2330,6 +2302,7 @@ static int get_rps_cpu(struct net_device
- 	default:
- 		goto done;
- 	}
-+
- 	switch (ip_proto) {
- 	case IPPROTO_TCP:
- 	case IPPROTO_UDP:
-@@ -2338,8 +2311,9 @@ static int get_rps_cpu(struct net_device
- 	case IPPROTO_AH:
- 	case IPPROTO_SCTP:
- 	case IPPROTO_UDPLITE:
--		if (pskb_may_pull(skb, (ihl * 4) + 4)) {
--			ports.v32 = * (__force u32 *) (skb->data + (ihl * 4));
-+		if (pskb_may_pull(skb, (ihl * 4) + 4 + nhoff)) {
-+			ports.v32 = * (__force u32 *) (skb->data + nhoff +
-+						       (ihl * 4));
- 			if (ports.v16[1] < ports.v16[0])
- 				swap(ports.v16[0], ports.v16[1]);
- 			break;
-@@ -2352,11 +2326,55 @@ static int get_rps_cpu(struct net_device
- 	/* get a consistent hash (same value on both flow directions) */
- 	if (addr2 < addr1)
- 		swap(addr1, addr2);
--	skb->rxhash = jhash_3words(addr1, addr2, ports.v32, hashrnd);
--	if (!skb->rxhash)
--		skb->rxhash = 1;
- 
--got_hash:
-+	hash = jhash_3words(addr1, addr2, ports.v32, hashrnd);
-+	if (!hash)
-+		hash = 1;
-+
-+done:
-+	return hash;
-+}
-+EXPORT_SYMBOL(__skb_get_rxhash);
-+
-+#ifdef CONFIG_RPS
-+
-+/* One global table that all flow-based protocols share. */
-+struct rps_sock_flow_table *rps_sock_flow_table __read_mostly;
-+EXPORT_SYMBOL(rps_sock_flow_table);
-+
-+/*
-+ * get_rps_cpu is called from netif_receive_skb and returns the target
-+ * CPU from the RPS map of the receiving queue for a given skb.
-+ * rcu_read_lock must be held on entry.
-+ */
-+static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
-+		       struct rps_dev_flow **rflowp)
-+{
-+	struct netdev_rx_queue *rxqueue;
-+	struct rps_map *map;
-+	struct rps_dev_flow_table *flow_table;
-+	struct rps_sock_flow_table *sock_flow_table;
-+	int cpu = -1;
-+	u16 tcpu;
-+
-+	if (skb_rx_queue_recorded(skb)) {
-+		u16 index = skb_get_rx_queue(skb);
-+		if (unlikely(index >= dev->num_rx_queues)) {
-+			WARN_ONCE(dev->num_rx_queues > 1, "%s received packet "
-+				"on queue %u, but number of RX queues is %u\n",
-+				dev->name, index, dev->num_rx_queues);
-+			goto done;
++	/* macvtap_put_queue can free some slots, so go through all slots */
+ 	spin_lock(&macvtap_lock);
+-	q = rcu_dereference(vlan->tap);
+-	if (!q) {
+-		spin_unlock(&macvtap_lock);
+-		return;
++	for (i = 0; i < MAX_MACVTAP_QUEUES && vlan->numvtaps; i++) {
++		q = rcu_dereference(vlan->taps[i]);
++		if (q) {
++			qlist[j++] = q;
++			rcu_assign_pointer(vlan->taps[i], NULL);
++			rcu_assign_pointer(q->vlan, NULL);
++			vlan->numvtaps--;
 +		}
-+		rxqueue = dev->_rx + index;
-+	} else
-+		rxqueue = dev->_rx;
+ 	}
+-
+-	rcu_assign_pointer(vlan->tap, NULL);
+-	rcu_assign_pointer(q->vlan, NULL);
++	BUG_ON(vlan->numvtaps != 0);
+ 	spin_unlock(&macvtap_lock);
+ 
+ 	synchronize_rcu();
+-	sock_put(&q->sk);
 +
-+	if (!rxqueue->rps_map && !rxqueue->rps_flow_table)
-+		goto done;
-+
-+	if (!skb_get_rxhash(skb))
-+		goto done;
-+
- 	flow_table = rcu_dereference(rxqueue->rps_flow_table);
- 	sock_flow_table = rcu_dereference(rps_sock_flow_table);
- 	if (flow_table && sock_flow_table) {
++	for (--j; j >= 0; j--)
++		sock_put(&qlist[j]->sk);
+ }
+ 
+ /*
