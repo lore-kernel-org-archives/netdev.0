@@ -1,59 +1,78 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: e1000e crashes with 2.6.34.x and ThinkPad T60
-Date: Wed, 4 Aug 2010 12:23:45 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A13660024083FE@rrsmsx501.amr.corp.intel.com>
-References: <20100724092644.GA13353@torres.zugschlus.de>
- <EA929A9653AAE14F841771FB1DE5A1366000F42E28@rrsmsx501.amr.corp.intel.com>
- <20100730125452.GA21444@torres.zugschlus.de>
+From: Dave Morgan <davemorgan353@btinternet.com>
+Subject: Re: [Bugme-new] [Bug 16503] New: Upgrade to 2.6.34.2 breaks
+ ethernet network
+Date: Wed, 4 Aug 2010 19:59:46 +0100
+Message-ID: <20100804185946.GA5002@Archer>
+References: <bug-16503-10286@https.bugzilla.kernel.org/>
+ <20100803132740.946cf78a.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>
-To: Marc Haber <mh+linux-kernel@zugschlus.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100730125452.GA21444@torres.zugschlus.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Gary Zambrano <zambrano@broadcom.com>, stable@kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp823.mail.ird.yahoo.com ([217.146.188.233]:37275 "HELO
+	smtp823.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933546Ab0HDTG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 15:06:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20100803132740.946cf78a.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TWFyYyBIYWJlciB3cm90ZToNCj4gSGksDQo+IA0KPiBPbiBUdWUsIEp1bCAyNywgMjAxMCBhdCAw
-NjozMzo0OVBNIC0wNjAwLCBUYW50aWxvdiwgRW1pbCBTIHdyb3RlOg0KPj4gTWFyYyBIYWJlciB3
-cm90ZToNCj4+PiBJIGhhdmUgYSBuZXcgbm90ZWJvb2ssIGEgVGhpbmtwYWQgVDYwLCB3aGljaCBp
-cyBmcmVlemluZyBpbiByYW5kb20NCj4+PiBpbnRlcnZhbHMgKGxpa2UgMzAgbWludXRlcyB0byB0
-d28gZGF5cykgYXMgbG9uZyBhcyBJIGFtIHVzaW5nIHRoZQ0KPj4+IG9uLWJvYXJkIHdpcmVkIGV0
-aGVybmV0IGludGVyZmFjZSwgd2hpY2ggaXMgYW4gZTEwMDBlLCBbODA4NjoxMDlhXS4NCj4+PiBB
-cyBsb25nIGFzIEkga2VlcCB1c2luZyB0aGUgV0xBTiwgdGhlIHN5c3RlbSBydW5zIGZvciB3ZWVr
-cyBkZXNwaXRlDQo+Pj4gZnJlcXVlbnQgc3VzcGVuZC9yZXN1bWUgY3ljbGVzIGV0Yy4gVGhlIGNy
-YXNoZXMgc2VlbSByZWFsbHkgdG8gYmUNCj4+PiB0aWVkIHRvIHVzaW5nIHRoZSB3aXJlZCBldGhl
-cm5ldC4gVGhpcyBpcyBhIGhhcmQgZnJlZXplLCB3aXRoDQo+Pj4gbm90aGluZyBoYXBwZW5pbmcg
-b24gdGhlIHN5c3RlbSwgb25seSBhIGxvbmcgcHVzaCBvbiB0aGUgcG93ZXINCj4+PiBidXR0b24g
-aGVscHMuIA0KPj4gDQo+PiBXaGVuIHRoZSBjcmFzaGVzIG9jY3VyIC0gaXMgdGhlcmUgYSB0cmFj
-ZSBvbiB0aGUgc2NyZWVuPw0KPiANCj4gTm90IHRoYXQgSSBjYW4gc2VlIGFueS4gSSdtIHdvcmtp
-bmcgaW4gWDExLCBhbmQgdGhlIHNjcmVlbiBzaW1wbHkNCj4gZnJlZXplcy4gTW91c2UgZG9lc24n
-dCBtb3ZlIGFueSBtb3JlLCBjbG9jayBzdG9wcy4gU3lzdGVtIGlzIG5vdA0KPiBwaW5nYWJsZSwg
-ZG9lcyBub3QgcmVhY3QgdG8gQ3RybC1BbHQtQmtzcCBub3IgdG8gYW55IE1hZ2ljIFN5c3JxLCBu
-b3INCj4gZG9lcyBpdCBzaHV0IGRvd24gd2hlbiBJIGhhdmUgdGhlIHBvd2VyIGJ1dHRvbiBpc3N1
-ZSBhbiBhY3BpIHNodXRkb3duDQo+IGV2ZW50Lg0KPiANCj4+IERvIHlvdSBrbm93IG9mIGEgd2F5
-IHRvIHJlcHJvZHVjZSB0aGUgaXNzdWU/IEZvciBleGFtcGxlIHdlcmUNCj4+IHlvdSBkb3dubG9h
-ZGluZyBmaWxlcywgYnJvd3NpbmcgaW50ZXJuZXQsIG9yIHVzaW5nIHRoZSBldGhlcm5ldA0KPj4g
-ZGV2aWNlIGluIGFueSB3YXkgd2hlbiB0aGUgc3lzdGVtIGNyYXNoZWQ/DQo+IA0KPiBTYWRseSwg
-bm8uIEkgaGF2ZSBpdCBoYXBwZW4gd2hlbiB0eXBpbmcgaW4gYSByZW1vdGUgc3NoIHNlc3Npb24s
-IHdoaWxlDQo+IG9uIHRoZSBvdGhlciBoYW5kIGh1bmRyZWRzIG9mIG1lZ2FieXRlcyBjYW4gYmUg
-ZG93bmxvYWRlZCBqdXN0IGZpbmUuDQo+IEl0IGp1c3QgaGFwcGVucyAiYXQgcmFuZG9tIiwgdHdv
-IG9yIHRocmVlIHRpbWVzIGEgZGF5LiBJIGhhdmUgcmVzb3J0ZWQNCj4gdG8gdXNpbmcgdGhlIFdM
-QU4gaW5zdGVhZCBvZiB0aGUgd2lyZWQgZXRoZXJuZXQsIGJ1dCB0aGF0J3Mgbm90IGENCj4gbG9u
-Zy10ZXJtIHNvbHV0aW9uLg0KPiANCj4+PiBGdWxsIGRtZXNnIGFuZCBsc3BjaS1ubiBhdHRhY2hl
-ZCwgcGxlYXNlIHNheSBpZiB5b3UgbmVlZCBtb3JlLg0KPj4gDQo+PiBEb2Vzbid0IHNlZW0gdGhh
-dCB0aGVyZSB3ZXJlIGFueSBhdHRhY2htZW50cyB0byB0aGlzIGVtYWlsLg0KPiANCj4gSSBmb3Jn
-b3QsIHNvcnJ5Lg0KPiANCj4+IENvdWxkIHlvdSBhbHNvIHByb3ZpZGUgdGhlIGtlcm5lbCBjb25m
-aWc/DQo+IA0KPiBBdHRhY2hlZCBhcyB3ZWxsLg0KDQpJIGhhdmUgYSBUNjAgcnVubmluZyB3aXRo
-IDIuNi4zNC4xIHVzaW5nIHlvdXIgY29uZmlnIGFuZCBzbyBmYXIgbm8gaXNzdWVzLiANCg0KTG9v
-a2luZyBhdCB5b3VyIGxzcGNpIG91dHB1dCAtIHlvdXIgc3lzdGVtIGhhcyBhIHNsaWdodGx5IGRp
-ZmZlcmVudCBIVywgYnV0IEkgZG9uJ3Qga25vdyBpZiB0aGlzIGlzIHNpZ25pZmljYW50Lg0KDQpB
-cmUgeW91IGxvYWRpbmcgdGhlIGtlcm5lbCB3aXRoIGFueSBwYXJhbWV0ZXJzIChjYXQgL3Byb2Mv
-Y21kbGluZSk/DQoNCkRvIHlvdSBoYXZlIGZpcmV3YWxsIGNvbmZpZ3VyZWQgKGlwdGFibGVzIC1M
-KT8NCg0KQWxzbyBub3cgdGhhdCAyLjYuMzUgaXMgb3V0IC0gY291bGQgeW91IGdpdmUgaXQgYSB0
-cnkgYW5kIHNlZSBpZiB0aGUgc2l0dWF0aW9uIGhhZCBpbXByb3ZlZD8NCg0KPiANCj4gR3JlZXRp
-bmdzDQo+IE1hcmMNCg0KVGhhbmtzLA0KRW1pbA0KDQo=
+On 03/08/10 at 01:27pm, Andrew Morton wrote:
+>
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+>
+> On Tue, 3 Aug 2010 20:14:34 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+>
+> > https://bugzilla.kernel.org/show_bug.cgi?id=16503
+> >
+> >            Summary: Upgrade to 2.6.34.2 breaks ethernet network
+> >            Product: Networking
+> >            Version: 2.5
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Other
+> >         AssignedTo: acme@ghostprotocols.net
+> >         ReportedBy: davemorgan353@btinternet.com
+> >         Regression: No
+> >
+> >
+> > Using Arch Linux with fully up-to-date system.
+> >
+> > Upgrading kernel from 2.6.34.1 to 2.6.34.2 breaks my ethernet connection.  I
+> > get dhcp timeouts but no errors in the logs regarding the kernel or the card.
+> >
+> > Dell Inspiron 1720.
+> >
+> > 03:00.0 Ethernet controller: Broadcom Corporation BCM4401-B0 100Base-TX (rev
+> > 02)
+> >
+> > Downgrading the kernel fixes the issue.
+> >
+>
+> There are no changes to b44.c in patch-2.6.34.2.  Perhaps you could
+> generate the dmesg logs for 2.6.34.1 and 2.6.34.2 and run `diff -u'
+> against them, see if anything interesting pops out?
+>
+
+There's nothing obvious to me in the logs.
+
+However, it looks like it may be related to the ssb issues affecting
+b43.
+
+https://bugzilla.kernel.org/attachment.cgi?id=27335&action=diff
+
+There are reports of my card working with 2.6.35 so I will upgrade to
+that version.
+
+--
+Dave.
