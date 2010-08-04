@@ -1,35 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: GIT: net-*2.6 rebased...
-Date: Wed, 04 Aug 2010 16:21:41 -0700 (PDT)
-Message-ID: <20100804.162141.15218463.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: bne2 rx packet drop?
+Date: Thu, 5 Aug 2010 08:59:57 +0930
+Message-ID: <201008050859.57659.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, sfr@canb.auug.org.au
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56385
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759372Ab0HDXVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 19:21:23 -0400
+Received: from ozlabs.org ([203.10.76.45]:60341 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759439Ab0HDXaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Aug 2010 19:30:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Michael (and netdev!)
 
-Both net-2.6 and net-next-2.6 have been rebased.
+   I've got a customer seeing ~1000 rx packets dropped per day (on a busy
+interface, bonding) via 'netstat -ni' RX-DRP's field across their 4-node
+cluster.  The code seems to put checksum_discard and mac_discard into
+that counter, so I'm not sure what the root cause is.
 
-To be honest, if you've been pulling from my tree you can just keep
-doing so if you want, it will look just as if I had merged Linus's
-tree into net-2.6 et al.
+Any hints?  What are the conditions which cause mac_discard?
 
-All work will go into net-2.6 for the time being, this means only
-bug fixes and such.
-
-Once -rc1 goes out, changes can start flowing into net-next-2.6
-once more.
-
-Please adhere to these rules, it helps keep the tree stable and
-preserve the limited sanity still remaining in folks like Stephen
-Rothwell. :-)
-
-Thanks.
+Thanks!
+Rusty.
