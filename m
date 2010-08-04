@@ -1,32 +1,29 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: [PATCH net-next 09/14] tg3: Improve small packet
  performance
-Date: Wed, 4 Aug 2010 15:46:07 -0700
-Message-ID: <20100804224607.GA4881@mcarlson.broadcom.com>
+Date: Wed, 4 Aug 2010 15:47:29 -0700
+Message-ID: <1280962049.7554.25.camel@HP1>
 References: <1280784368-4226-9-git-send-email-mcarlson@broadcom.com>
  <20100804222741.GA18708@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"andy@greyhouse.net" <andy@greyhouse.net>,
-	"Michael Chan" <mchan@broadcom.com>
+	"andy@greyhouse.net" <andy@greyhouse.net>
 To: "Anton Blanchard" <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3218 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2976 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751855Ab0HDWqy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Aug 2010 18:46:54 -0400
+	id S1756909Ab0HDWsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Aug 2010 18:48:46 -0400
 In-Reply-To: <20100804222741.GA18708@kryten>
-Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 04, 2010 at 03:27:41PM -0700, Anton Blanchard wrote:
-> 
+
+On Wed, 2010-08-04 at 15:27 -0700, Anton Blanchard wrote:
 > Hi,
 > 
 > Just saw this go in:
@@ -42,12 +39,17 @@ On Wed, Aug 04, 2010 at 03:27:41PM -0700, Anton Blanchard wrote:
 > 
 > Which worries me. Are we sure we don't need any ordering (eg smp_rmb)?
 > A compiler barrier does nothing to ensure two loads are ordered.
-> 
-> Anton
 
-The compiler barrier makes sure the loads stay roughly in the same
-location.  In the places where the ordering really matters, we have the
-memory barrier inlined into the calling code.  In the rest of the
-places, we can relax the ordering requirement because the final value is
-just used as an estimate.
+We generally only get an estimate of the available tx ring size when we
+call tg3_tx_avail(), so memory barriers are not generally needed.  We
+put a compiler barrier there to make sure that the compiler will fetch
+the tx_prod and tx_cons from memory to give us a better estimate.
+
+In specific cases detailed in the patch description, we do need memory
+barriers when we call netif_tx_stop_queue() and then check for the tx
+ring.  We decided to put memory barriers exactly where they're needed
+instead of inside tg3_tx_avail() which is an overkill.
+
+Thanks.
+
 
