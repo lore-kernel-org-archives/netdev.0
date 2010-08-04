@@ -1,32 +1,27 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: can TCP socket send buffer be over used?
-Date: Tue, 03 Aug 2010 17:30:44 -0700
-Message-ID: <4C58B4B4.6010904@hp.com>
-References: <AANLkTi=Ma2yMVbgRnUUB6T1j=rHLb60oAXqCSbM35KgT@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/2] igb.txt: Add igb documentation
+Date: Tue, 03 Aug 2010 17:39:51 -0700
+Message-ID: <1280882391.1005.13.camel@Joe-Laptop.home>
+References: <20100804001429.6571.95116.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jack Zhang <jack.zhang2011@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:45236 "EHLO
-	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932233Ab0HDAjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 20:39:11 -0400
-In-Reply-To: <AANLkTi=Ma2yMVbgRnUUB6T1j=rHLb60oAXqCSbM35KgT@mail.gmail.com>
+Received: from mail.perches.com ([173.55.12.10]:2234 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932233Ab0HDAjy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Aug 2010 20:39:54 -0400
+In-Reply-To: <20100804001429.6571.95116.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jack Zhang wrote:
-> I understand that when the buffer size is set to 128 KB, I actually
-> got a buffer of 256 KB as the kernel doubles the buffer size. I also
-> understand that half the doubled buffer size is used for meta data
-> instead of the actual data to be transferred. So basically the
-> effective buffer sizes for the two examples  are just 128 KB and 512
-> KB respectively.
+On Tue, 2010-08-03 at 17:15 -0700, Jeff Kirsher wrote:
+> Add documentation for the igb networking driver.
 
-It may not be strictly 1/2.  One way to check would be to take a tcpdump trace 
-on the sending side, and either work-out manually the most the connection has 
-outstanding at a time, or run the binary trace through something like tcptrace.
+It'd be nice if you could scare up
+register level ipw-2xxx docs.
 
-rick jones
+
