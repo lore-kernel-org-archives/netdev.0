@@ -1,39 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v4 2/2] macvtap: Implement multiqueue for macvtap driver
-Date: Wed, 4 Aug 2010 16:54:45 +0200
-Message-ID: <201008041654.45982.arnd@arndb.de>
-References: <20100804105515.22212.41598.sendpatchset@krkumar2.in.ibm.com> <AANLkTimgSg+iFouARaFv8X6S8d2e6L+ffkZkoOaja20R@mail.gmail.com> <OF3D82198C.4738EB40-ON65257775.0046DC1D-65257775.004997E7@in.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>, bhutchings@solarflare.com,
-	davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	therbert@google.com
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v2 3/4] cls_rsvp: add sanity check for the packet length
+Date: Wed,  4 Aug 2010 22:55:40 +0800
+Message-ID: <1280933740-17480-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:55490 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932897Ab0HDOy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 10:54:58 -0400
-In-Reply-To: <OF3D82198C.4738EB40-ON65257775.0046DC1D-65257775.004997E7@in.ibm.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:39136 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757728Ab0HDO4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 10:56:05 -0400
+Received: by pzk26 with SMTP id 26so2020618pzk.19
+        for <netdev@vger.kernel.org>; Wed, 04 Aug 2010 07:56:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 04 August 2010, Krishna Kumar2 wrote:
-> 1. Use % to find the slot.
-> 2. If slot is null - I don't want to handle this since I think
->    it is better to return NULL if some fd's were closed by user.
->    Typically this should never happen since fd's are opened and
->    passed to vhost for setting up the backend. So if they are
->    closed, then I think NULL is OK.
-> 
+The packet length should be checked before the packet data is dereferenced.
 
-Having some of the file descriptors closed is not something that
-we should optimize for, but then again it makes sense to still
-keep going, mostly for consistency reasons: One day we may
-have a use case for a dynamically growing and shrinking set of
-queues. Falling back to the first queue is probably ok, we can
-always add optimizations when this becomes a real use case.
-
-	Arnd
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+v2: use pskb_network_may_pull()
+ net/sched/cls_rsvp.h |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+index dd9414e..425a179 100644
+--- a/net/sched/cls_rsvp.h
++++ b/net/sched/cls_rsvp.h
+@@ -143,9 +143,17 @@ static int rsvp_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 	u8 tunnelid = 0;
+ 	u8 *xprt;
+ #if RSVP_DST_LEN == 4
+-	struct ipv6hdr *nhptr = ipv6_hdr(skb);
++	struct ipv6hdr *nhptr;
++
++	if (!pskb_network_may_pull(skb, sizeof(*nhptr)))
++		return -1;
++	nhptr = ipv6_hdr(skb);
+ #else
+-	struct iphdr *nhptr = ip_hdr(skb);
++	struct iphdr *nhptr;
++
++	if (!pskb_network_may_pull(skb, sizeof(*nhptr)))
++		return -1;
++	nhptr = ip_hdr(skb);
+ #endif
+ 
+ restart:
