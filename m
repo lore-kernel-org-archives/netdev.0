@@ -1,39 +1,107 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Yet another bridge netfilter crash
-Date: Wed, 04 Aug 2010 18:50:50 +0200
-Message-ID: <4C599A6A.6050202@trash.net>
-References: <20100723134208.GA6655@gondor.apana.org.au> <4C49A4C6.4070503@trash.net> <20100723150041.GA7301@gondor.apana.org.au> <4C49B296.10009@trash.net> <20100723152609.GA7576@gondor.apana.org.au> <4C5995C2.1010909@trash.net> <20100804164119.GA6256@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Fw: [Bug 16483] New: linux 2.6.30 kernel update to 2.6.34 appear
+ networking's bug
+Date: Wed, 4 Aug 2010 09:59:32 -0700
+Message-ID: <20100804095932.19a31d41@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51974 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751815Ab0HDQuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 12:50:52 -0400
-In-Reply-To: <20100804164119.GA6256@gondor.apana.org.au>
+Received: from mail.vyatta.com ([76.74.103.46]:60544 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751186Ab0HDQ7e convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 12:59:34 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 201A718290AD
+	for <netdev@vger.kernel.org>; Wed,  4 Aug 2010 09:55:30 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id QLnjvcfF4guw for <netdev@vger.kernel.org>;
+	Wed,  4 Aug 2010 09:55:29 -0700 (PDT)
+Received: from nehalam (pool-74-107-135-205.ptldor.fios.verizon.net [74.107.135.205])
+	by mail.vyatta.com (Postfix) with ESMTPSA id 35EFB182901C
+	for <netdev@vger.kernel.org>; Wed,  4 Aug 2010 09:55:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 04.08.2010 18:41, schrieb Herbert Xu:
-> On Wed, Aug 04, 2010 at 06:30:58PM +0200, Patrick McHardy wrote:
->>
->> We could perform a new device lookup on reassembly as we do
->> when expiring a fragment queue, but we probably shouldn't even
->> be reassembling fragments from different bridges. One way to
->> avoid this would be to automatically assign each bridge device
->> to a different conntrack zone, but conntrack zones are limited
->> to 2^16 and this might also have other unwanted side-effects.
->>
->> Until we come up with something better the best fix seems to
->> be to perform the device lookup based on the iif.
-> 
-> I don't think we can as the iif will point to the bridge device.
-> The physindev contains the original physical device where the
-> packet came in.
+Cryptic bug report, more info in bugzilla comments.
 
-If it originally points to the bridge device, there doesn't
-seem anything wrong with the device pointing to the bridge
-device after reassembly. Am I missing something?
+Begin forwarded message:
+
+Date: Fri, 30 Jul 2010 07:57:46 GMT
+=46rom: bugzilla-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 16483] New: linux 2.6.30 kernel update to 2.6.34 appear n=
+etworking's bug
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=3D16483
+
+           Summary: linux 2.6.30 kernel update to 2.6.34 appear
+                    networking's bug
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 2.6.34
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: high
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: lys0212@qq.com
+        Regression: No
+
+
+linux 2.6.30 kernel update to 2.6.34 appear networking's bug
+my server machine install linux 5.5 and 2.6.30 kernel,it has two NIC:et=
+h0 and
+eth1.
+eth0 and eth1 have different's ip and gateway .all configuration is nor=
+mal.i
+can ping both the eth0 and eth1 .but,when i update to kernel 2.6.34,i c=
+an't
+ping both the eth0 and eth1,only can ping  the eth0 when the default gw=
+ is
+eth0's gw.when i change the default gw to eth1's gw ,i can ping the eth=
+1
+only,eth0 can't ping .Very strange!
+when i use the kernel 2.6.30 to boot the system ,all is normal ,i can p=
+ing both
+eth0 and eth1 .but when i use the kernel 2.6.34,one of the ethX is norm=
+al only.
+   the follows show how i update 2.6.30 to 2.6.34:
+mv linux-2.6.34.tar.bz2  /usr/src
+cd /usr/src/
+tar -xvf linux-2.6.34.tar.bz2
+ln -s /usr/src/linux-2.6.34  /usr/src/linux=20
+
+cd linux
+make menuconfig=20
+#cp the boot initilization configuration to  /usr/src/linux/.config
+cp /boot/config-2.6.18-194.el5 /usr/src/linux/.config
+make menuconfig
+
+# choose ip range      network -> Netfilter > Core NetFilter >iprange
+select:
+=EF=BC=881=EF=BC=89General setup ---> Prompt for development and/or inc=
+omplete code/drivers=E3=80=82=20
+=EF=BC=882=EF=BC=89 Networking ---> Networking options ---> Network pac=
+ket filtering framework
+(Netfilter) ---> Core Netfilter Configuration ---> =E5=92=8C IP: Netfil=
+ter
+Configuration ---> (select all)
+vi .config
+CONFIG_NF_CONNTRACK_IPV4=3Dy
+CONFIG_SYSFS_DEPRECATED_V2=3Dy
+
+--=20
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=3Demai=
+l
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
+
+
+--=20
