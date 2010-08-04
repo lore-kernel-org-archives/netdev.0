@@ -1,60 +1,104 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [patch] usbnet: fix 100% CPU use on suspended device
-Date: Wed, 4 Aug 2010 16:08:51 +0200
-Message-ID: <201008041608.51227.oneukum@suse.de>
-References: <Pine.LNX.4.44L0.1007261106350.1550-100000@iolanthe.rowland.org> <201008031639.24874.oliver@neukum.org> <AANLkTim-6VhV7AD_QQh-5j5RqxEDDh1oyX4CqZWGb-ZH@mail.gmail.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH v4 1/2] core: Factor out flow calculation from get_rps_cpu
+Date: Wed, 4 Aug 2010 19:53:07 +0530
+Message-ID: <OF1A3C883B.BC590C6D-ON65257775.004B23FF-65257775.004EE08E@in.ibm.com>
+References: <20100804105515.22212.41598.sendpatchset@krkumar2.in.ibm.com> 	<AANLkTikfW_PfYVfA-9cSx8-j16OuH6mr9K32apPj6nLy@mail.gmail.com>
+	<OFE9752776.5432C83A-ON65257775.003F1B51-65257775.00420641@in.ibm.com> <AANLkTikURsh5wSdOE0_qXDw=XgNMSp5CJ1RytQnBvoyD@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	USB list <linux-usb@vger.kernel.org>
-To: Elly Jones <ellyjones@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: arnd@arndb.de, bhutchings@solarflare.com, davem@davemloft.net,
+	mst@redhat.com, netdev@vger.kernel.org, therbert@google.com
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:44294 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754067Ab0HDOJN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Aug 2010 10:09:13 -0400
-In-Reply-To: <AANLkTim-6VhV7AD_QQh-5j5RqxEDDh1oyX4CqZWGb-ZH@mail.gmail.com>
+Received: from e28smtp07.in.ibm.com ([122.248.162.7]:45365 "EHLO
+	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757588Ab0HDOVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 10:21:45 -0400
+Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
+	by e28smtp07.in.ibm.com (8.14.4/8.13.1) with ESMTP id o74ELfmv029531
+	for <netdev@vger.kernel.org>; Wed, 4 Aug 2010 19:51:41 +0530
+Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o74ELeFk2375754
+	for <netdev@vger.kernel.org>; Wed, 4 Aug 2010 19:51:40 +0530
+Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
+	by d28av02.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o74ELcpd019630
+	for <netdev@vger.kernel.org>; Thu, 5 Aug 2010 00:21:39 +1000
+In-Reply-To: <AANLkTikURsh5wSdOE0_qXDw=XgNMSp5CJ1RytQnBvoyD@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 4. August 2010, 16:04:48 schrieben Sie:
-> On Tue, Aug 3, 2010 at 10:39 AM, Oliver Neukum <oliver@neukum.org> wrote:
-> > Am Montag, 2. August 2010, 15:31:33 schrieb Elly Jones:
-> >> On Mon, Jul 26, 2010 at 12:21 PM, Oliver Neukum <oliver@neukum.org> wrote:
-> >> > Am Montag, 26. Juli 2010, 17:13:23 schrieb Alan Stern:
-> >> >> On Mon, 26 Jul 2010, Elly Jones wrote:
-> >> >>
-> >> >> > > This isn't right.  The problem should be fixed some other way.  Under
-> >> >> > > what circumstances are URBs submitted incorrectly?
-> >> >> >
-> >> >> > When the device is autosuspended. What is the proper thing for a
-> >> >> > device to do here?
-> >> >>
-> >> >> From looking at the code, it appears that the EVENT_DEV_ASLEEP flag
-> >> >> should be tested in usbnet_bh() the way it is in rx_submit().  But I'm
-> >> >> not an expert on usbnet; we should ask someone who is, like Oliver.
-> >> >
-> >> > Sorry, I didn't notice this thread.
-> >> >
-> >> > The correct way to check for autosuspend in usbnet is to look
-> >> > at EVENT_DEV_ASLEEP under txq.lock. That being said, usbnet_bh()
-> >> > uses rx_submit() which does the correct check. The bug seems to be
-> >> > a lack of error handling in usbnet_bh() regarding the return of rx_submit()
+Changli Gao <xiaosuo@gmail.com> wrote on 08/04/2010 07:08:39 PM:
+
+> Changli Gao <xiaosuo@gmail.com>
+> 08/04/2010 07:08 PM
+>
+> To
+>
+> Krishna Kumar2/India/IBM@IBMIN
+>
+> cc
+>
+> arnd@arndb.de, bhutchings@solarflare.com, davem@davemloft.net,
+> mst@redhat.com, netdev@vger.kernel.org, therbert@google.com
+>
+> Subject
+>
+> Re: [PATCH v4 1/2] core: Factor out flow calculation from get_rps_cpu
+>
+> On Wed, Aug 4, 2010 at 8:02 PM, Krishna Kumar2 <krkumar2@in.ibm.com>
+wrote:
+> > Changli Gao <xiaosuo@gmail.com> wrote on 08/04/2010 04:52:58 PM:
 > >>
-> >> If rx_submit() fails, should usbnet_bh() just not tasklet_schedule() itself?
+> >> the return value of skb_get_rxhash() maybe skb->rxhash, so we don't
+> >> need to assign it to skb->rxhash again. Use a local variable to save
+> >> the value and __skb_get_rxhash() should cache the rxhash into
+> >> skb->rxhash for future use.
 > >
-> > That would not work unless the cause of the failure would be removed.
-> > If you get -ENOLINK the sane option seems to me to give up.
-> 
-> 'Give up' meaning what? If we reschedule the tasklet, it'll just try
-> again (and fail again), won't it?
+> > I wanted the function to return a rxhash instead of save+return,
+> > since other users, eg macvtap, doesn't need the rxhash beyond
+> > calculating a rxq with that hash. So for those users, we can
+> > avoid updating both skb->rxhash and a local variable (since with
+> > your suggestion, rps will update either one or two variables
+> > depending on whether rxhash is cached or not). I am not sure
+> > which is better.
+> >
+>
+> rxhash can also be generated by NIC(hardware) and used some where
+> else. So for these users, generating the rxhash again is wasting time.
 
-Yes, exactly. If the tasklet runs after the interface has been suspended,
-it cannot replenish the rx URBs. That will be the job of resume()
-Just stop trying and do nothing.
+Yes, I expect that to happen once. By not saving it in skb,
+atleast for macvtap, I didn't see any further rx path. I guess
+I could do this:
 
-	Regards
-		Oliver
+get_rps_cpu()
+{
+	if (!skb_get_rxhash(skb))
+		goto done;
+	/* use skb->rxhash from here on */
+}
+
+Replying to your other mail here:
+
+> > macvtap *with* mq support would be used with mq devices - you
+> > open multiple queues on the macvtap device depending on the
+> > number of queues for the physical device. So since this is an
+> > unlikely case (as can be seen in the patch, and I guess I
+> > should add another "likely" to the "if (tap)" check since fd's
+> > should not be closed), I guess a simple % can be used. Does
+> > the following sound reasonable?
+> >
+> > 1. Use % to find the slot.
+> It is slower than the method used by get_rps_cpu().
+
+Yes, but it should be an unlikely case. Is it still important,
+considering you add a lot of baggage for a rare case?
+
+So next patch has these two changes, unless contradicted :)
+
+1. Change skb_get_rxhash() to set if not cached already.
+2. Use % for macvtap unlikely case.
+
+Thanks,
+
+- KK
+
