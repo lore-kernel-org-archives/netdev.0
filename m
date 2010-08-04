@@ -1,237 +1,38 @@
-From: Patrick Pannuto <ppannuto@codeaurora.org>
-Subject: [PATCH] platform: Facilitate the creation of pseduo-platform busses
-Date: Wed, 04 Aug 2010 15:14:44 -0700
-Message-ID: <4C59E654.1090403@codeaurora.org>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH net-next 09/14] tg3: Improve small packet performance
+Date: Thu, 5 Aug 2010 08:27:41 +1000
+Message-ID: <20100804222741.GA18708@kryten>
+References: <1280784368-4226-9-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"damm@opensource.se" <damm@opensource.se>,
-	"lethal@linux-sh.org" <lethal@linux-sh.org>,
-	"rjw@sisk.pl" <rjw@sisk.pl>,
-	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>, alan@lxorguk.ukuu.org.uk,
-	zt.tmzt@gmail.com
-To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Inspiration for this comes from:
-http://www.mail-archive.com/linux-omap@vger.kernel.org/msg31161.html
-
-RFC: http://lkml.org/lkml/2010/8/3/496
-Patch is unchanged from the RFC. Reviews seemed generally positive
-and it seemed this was desired functionality.
-
-INTRO
-
-As SOCs become more popular, the desire to quickly define a simple,
-but functional, bus type with only a few unique properties becomes
-desirable. As they become more complicated, the ability to nest these
-simple busses and otherwise orchestrate them to match the actual
-topology also becomes desirable.
-
-EXAMPLE USAGE
-
-/arch/ARCH/MY_ARCH/my_bus.c:
-
-	#include <linux/device.h>
-	#include <linux/platform_device.h>
-
-	struct bus_type my_bus_type = {
-		.name	= "mybus",
-	};
-	EXPORT_SYMBOL_GPL(my_bus_type);
-
-	struct platform_device sub_bus1 = {
-		.name		= "sub_bus1",
-		.id		= -1,
-		.dev.bus	= &my_bus_type,
-	}
-	EXPORT_SYMBOL_GPL(sub_bus1);
-
-	struct platform_device sub_bus2 = {
-		.name		= "sub_bus2",
-		.id		= -1,
-		.dev.bus	= &my_bus_type,
-	}
-	EXPORT_SYMBOL_GPL(sub_bus2);
-
-	static int __init my_bus_init(void)
-	{
-		int error;
-		platform_bus_type_init(&my_bus_type);
-
-		error = bus_register(&my_bus_type);
-		if (error)
-			return error;
-
-		error = platform_device_register(&sub_bus1);
-		if (error)
-			goto fail_sub_bus1;
-
-		error = platform_device_register(&sub_bus2);
-		if (error)
-			goto fail_sub_bus2;
-
-		return error;
-
-	fail_sub_bus2:
-		platform_device_unregister(&sub_bus1);
-	fail_sub_bus2:
-		bus_unregister(&my_bus_type);
-
-		return error;
-	}
-	postcore_initcall(my_bus_init);
-	EXPORT_SYMBOL_GPL(my_bus_init);
-
-/drivers/my_driver.c
-	static struct platform_driver my_driver = {
-		.driver	= {
-			.name	= "my-driver",
-			.owner	= THIS_MODULE,
-			.bus	= &my_bus_type,
-		},
-	};
-
-/somewhere/my_device.c
-	static struct platform_device my_device = {
-		.name		= "my-device",
-		.id		= -1,
-		.dev.bus	= &my_bus_type,
-		.dev.parent	= &sub_bus_1.dev,
-	};
-
-Notice that for a device / driver, only 3 lines were added to
-switch from the platform bus to the new my_bus. This is
-especially valuable if we consider supporting a legacy SOCs
-and new SOCs where the same driver is used, but may need to
-be on either the platform bus or the new my_bus. The above
-code then becomes:
-
-	(possibly in a header)
-	#ifdef CONFIG_MY_BUS
-	#define MY_BUS_TYPE	&my_bus_type
-	#else
-	#define MY_BUS_TYPE	NULL
-	#endif
-
-/drivers/my_driver.c
-	static struct platform_driver my_driver = {
-		.driver	= {
-			.name	= "my-driver",
-			.owner	= THIS_MODULE,
-			.bus	= MY_BUS_TYPE,
-		},
-	};
-
-Which will allow the same driver to easily to used on either
-the platform bus or the newly defined bus type.
-
-This will build a device tree that mirrors the actual configuration:
-    /sys/bus
-    |-- my_bus
-    |   |-- devices
-    |   |   |-- sub_bus1 -> ../../../devices/platform/sub_bus1
-    |   |   |-- sub_bus2 -> ../../../devices/platform/sub_bus2
-    |   |   |-- my-device -> ../../../devices/platform/sub_bus1/my-device
-    |   |-- drivers
-    |   |   |-- my-driver
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, andy@greyhouse.net,
+	Michael Chan <mchan@broadcom.com>
+To: Matt Carlson <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:46906 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756739Ab0HDWcV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Aug 2010 18:32:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1280784368-4226-9-git-send-email-mcarlson@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Signed-off-by: Patrick Pannuto <ppannuto@codeaurora.org>
----
- drivers/base/platform.c         |   30 ++++++++++++++++++++++++++----
- include/linux/platform_device.h |    2 ++
- 2 files changed, 28 insertions(+), 4 deletions(-)
+Hi,
 
-diff --git a/drivers/base/platform.c b/drivers/base/platform.c
-index 4d99c8b..c86be03 100644
---- a/drivers/base/platform.c
-+++ b/drivers/base/platform.c
-@@ -241,7 +241,8 @@ int platform_device_add(struct platform_device *pdev)
- 	if (!pdev->dev.parent)
- 		pdev->dev.parent = &platform_bus;
- 
--	pdev->dev.bus = &platform_bus_type;
-+	if (!pdev->dev.bus)
-+		pdev->dev.bus = &platform_bus_type;
- 
- 	if (pdev->id != -1)
- 		dev_set_name(&pdev->dev, "%s.%d", pdev->name,  pdev->id);
-@@ -482,7 +483,8 @@ static void platform_drv_shutdown(struct device *_dev)
-  */
- int platform_driver_register(struct platform_driver *drv)
- {
--	drv->driver.bus = &platform_bus_type;
-+	if (!drv->driver.bus)
-+		drv->driver.bus = &platform_bus_type;
- 	if (drv->probe)
- 		drv->driver.probe = platform_drv_probe;
- 	if (drv->remove)
-@@ -539,12 +541,12 @@ int __init_or_module platform_driver_probe(struct platform_driver *drv,
- 	 * if the probe was successful, and make sure any forced probes of
- 	 * new devices fail.
- 	 */
--	spin_lock(&platform_bus_type.p->klist_drivers.k_lock);
-+	spin_lock(&drv->driver.bus->p->klist_drivers.k_lock);
- 	drv->probe = NULL;
- 	if (code == 0 && list_empty(&drv->driver.p->klist_devices.k_list))
- 		retval = -ENODEV;
- 	drv->driver.probe = platform_drv_probe_fail;
--	spin_unlock(&platform_bus_type.p->klist_drivers.k_lock);
-+	spin_unlock(&drv->driver.bus->p->klist_drivers.k_lock);
- 
- 	if (code != retval)
- 		platform_driver_unregister(drv);
-@@ -1017,6 +1019,26 @@ struct bus_type platform_bus_type = {
- };
- EXPORT_SYMBOL_GPL(platform_bus_type);
- 
-+/** platform_bus_type_init - fill in a pseudo-platform-bus
-+  * @bus: foriegn bus type
-+  *
-+  * This init is basically a selective memcpy that
-+  * won't overwrite any user-defined attributes and
-+  * only copies things that platform bus defines anyway
-+  */
-+void platform_bus_type_init(struct bus_type *bus)
-+{
-+	if (!bus->dev_attrs)
-+		bus->dev_attrs = platform_bus_type.dev_attrs;
-+	if (!bus->match)
-+		bus->match = platform_bus_type.match;
-+	if (!bus->uevent)
-+		bus->uevent = platform_bus_type.uevent;
-+	if (!bus->pm)
-+		bus->pm = platform_bus_type.pm;
-+}
-+EXPORT_SYMBOL_GPL(platform_bus_type_init);
-+
- int __init platform_bus_init(void)
- {
- 	int error;
-diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
-index 5417944..fa8c35a 100644
---- a/include/linux/platform_device.h
-+++ b/include/linux/platform_device.h
-@@ -79,6 +79,8 @@ extern int platform_driver_probe(struct platform_driver *driver,
- #define platform_get_drvdata(_dev)	dev_get_drvdata(&(_dev)->dev)
- #define platform_set_drvdata(_dev,data)	dev_set_drvdata(&(_dev)->dev, (data))
- 
-+extern void platform_bus_type_init(struct bus_type *);
-+
- extern struct platform_device *platform_create_bundle(struct platform_driver *driver,
- 					int (*probe)(struct platform_device *),
- 					struct resource *res, unsigned int n_res,
--- 
-1.7.2
+Just saw this go in:
+  
+>  static inline u32 tg3_tx_avail(struct tg3_napi *tnapi)
+>  {
+> -	smp_mb();
+> +	/* Tell compiler to fetch tx indices from memory. */
+> +	barrier();
+>  	return tnapi->tx_pending -
+>  	       ((tnapi->tx_prod - tnapi->tx_cons) & (TG3_TX_RING_SIZE - 1));
+>  }
 
+Which worries me. Are we sure we don't need any ordering (eg smp_rmb)?
+A compiler barrier does nothing to ensure two loads are ordered.
 
--- 
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum
+Anton
