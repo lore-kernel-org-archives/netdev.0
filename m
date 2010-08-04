@@ -1,70 +1,68 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] cls_rsvp: add sanity check for the packet length
-Date: Wed, 4 Aug 2010 21:52:53 +0800
-Message-ID: <AANLkTiksAahqvgawQF7waw61jPwsiw7ptR_ozmc4CimV@mail.gmail.com>
-References: <1280912124-30374-1-git-send-email-xiaosuo@gmail.com>
-	<1280929327.5669.10.camel@bigi> <AANLkTinW6zSEWQZVVz=utH1zqL_+bRStT7a_Pdx5-705@mail.gmail.com>
+From: Elly Jones <ellyjones-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [patch] usbnet: fix 100% CPU use on suspended device
+Date: Wed, 4 Aug 2010 10:04:48 -0400
+Message-ID: <AANLkTim-6VhV7AD_QQh-5j5RqxEDDh1oyX4CqZWGb-ZH@mail.gmail.com>
+References: <Pine.LNX.4.44L0.1007261106350.1550-100000@iolanthe.rowland.org>
+	<201007261821.15020.oliver@neukum.org>
+	<AANLkTi=KbThErL-jXXSVGdkod-p7B7u6eDL5LtnU5SG-@mail.gmail.com>
+	<201008031639.24874.oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:47500 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757700Ab0HDNxP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 09:53:15 -0400
-Received: by wwj40 with SMTP id 40so6467851wwj.1
-        for <netdev@vger.kernel.org>; Wed, 04 Aug 2010 06:53:13 -0700 (PDT)
-In-Reply-To: <AANLkTinW6zSEWQZVVz=utH1zqL_+bRStT7a_Pdx5-705@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201008031639.24874.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 4, 2010 at 9:44 PM, Changli Gao <xiaosuo@gmail.com> wrote:
-> On Wed, Aug 4, 2010 at 9:42 PM, jamal <hadi@cyberus.ca> wrote:
->> On Wed, 2010-08-04 at 16:55 +0800, Changli Gao wrote:
->>> The packet length should be checked before the packet data is deref=
-erenced.
->>>
->>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
->>> ---
->>> =A0net/sched/cls_rsvp.h | =A0 10 +++++++++-
->>> =A01 file changed, 9 insertions(+), 1 deletion(-)
->>> diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
->>> index dd9414e..4fa119d 100644
->>> --- a/net/sched/cls_rsvp.h
->>> +++ b/net/sched/cls_rsvp.h
->>> @@ -143,9 +143,17 @@ static int rsvp_classify(struct sk_buff *skb, =
-struct tcf_proto *tp,
->>> =A0 =A0 =A0 u8 tunnelid =3D 0;
->>> =A0 =A0 =A0 u8 *xprt;
->>> =A0#if RSVP_DST_LEN =3D=3D 4
->>> - =A0 =A0 struct ipv6hdr *nhptr =3D ipv6_hdr(skb);
->>> + =A0 =A0 struct ipv6hdr *nhptr;
->>> +
->>> + =A0 =A0 if (!pskb_may_pull(skb, skb_network_offset(skb) + sizeof(=
-*nhptr)))
->>> + =A0 =A0 =A0 =A0 =A0 =A0 return -1;
->>> + =A0 =A0 nhptr =3D ipv6_hdr(skb);
->>> =A0#else
->>> =A0 =A0 =A0 struct iphdr *nhptr =3D ip_hdr(skb);
->>> +
->>> + =A0 =A0 if (!pskb_may_pull(skb, skb_network_offset(skb) + sizeof(=
-*nhptr)))
->>> + =A0 =A0 =A0 =A0 =A0 =A0 return -1;
->>> + =A0 =A0 nhptr =3D ip_hdr(skb);
->>> =A0#endif
+On Tue, Aug 3, 2010 at 10:39 AM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> wrot=
+e:
+> Am Montag, 2. August 2010, 15:31:33 schrieb Elly Jones:
+>> On Mon, Jul 26, 2010 at 12:21 PM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> =
+wrote:
+>> > Am Montag, 26. Juli 2010, 17:13:23 schrieb Alan Stern:
+>> >> On Mon, 26 Jul 2010, Elly Jones wrote:
+>> >>
+>> >> > > This isn't right. =A0The problem should be fixed some other w=
+ay. =A0Under
+>> >> > > what circumstances are URBs submitted incorrectly?
+>> >> >
+>> >> > When the device is autosuspended. What is the proper thing for =
+a
+>> >> > device to do here?
+>> >>
+>> >> From looking at the code, it appears that the EVENT_DEV_ASLEEP fl=
+ag
+>> >> should be tested in usbnet_bh() the way it is in rx_submit(). =A0=
+But I'm
+>> >> not an expert on usbnet; we should ask someone who is, like Olive=
+r.
+>> >
+>> > Sorry, I didn't notice this thread.
+>> >
+>> > The correct way to check for autosuspend in usbnet is to look
+>> > at EVENT_DEV_ASLEEP under txq.lock. That being said, usbnet_bh()
+>> > uses rx_submit() which does the correct check. The bug seems to be
+>> > a lack of error handling in usbnet_bh() regarding the return of rx=
+_submit()
 >>
->> Maybe a good time to move nhptr declaration outside #if since it is =
-used
->> in #else as well.
->>
+>> If rx_submit() fails, should usbnet_bh() just not tasklet_schedule()=
+ itself?
 >
-> They are not the same type. I am afraid that it won't work.
->
+> That would not work unless the cause of the failure would be removed.
+> If you get -ENOLINK the sane option seems to me to give up.
 
-I'll respin it with the routine pskb_network_may_pull(). Thanks.
+'Give up' meaning what? If we reschedule the tasklet, it'll just try
+again (and fail again), won't it?
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+> =A0 =A0 =A0 =A0Regards
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Oliver
+
+-- Elly
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
