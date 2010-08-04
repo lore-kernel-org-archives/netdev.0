@@ -1,67 +1,61 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the suspend tree with the net tree
-Date: Wed, 4 Aug 2010 13:14:11 +1000
-Message-ID: <20100804131411.85975b86.sfr@canb.auug.org.au>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
+Date: Tue, 3 Aug 2010 20:00:28 -0700
+Message-ID: <201008040300.o7430SAZ031698@blc-10-10.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	James Bottomley <James.Bottomley@suse.de>,
-	mark gross <markgross@thegnar.org>,
-	Florian Mickler <florian@mickler.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <ddutt@brocade.com>, <huangj@brocade.com>, <rmody@brocade.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:36457 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757520Ab0HDDVX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Aug 2010 23:21:23 -0400
+Received: from pps.filterd (m0000542 [127.0.0.1])
+	by mx0a-000f0801.pphosted.com (8.14.3/8.14.3) with SMTP id o742ne9e028683
+	for <netdev@vger.kernel.org>; Tue, 3 Aug 2010 20:00:29 -0700
+Received: from hq-exedge.brocade.com (hq-exedge.brocade.com [66.243.153.83])
+	by mx0a-000f0801.pphosted.com with ESMTP id qex9w81yf-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 03 Aug 2010 20:00:29 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rafael,
+From: Rasesh Mody <rmody@brocade.com>
 
-Today's linux-next merge of the suspend tree got a conflict in
-drivers/net/e1000e/netdev.c between commit
-c128ec29208d410568469bd8bb373b4cdc10912a ("e1000e: register pm_qos
-request on hardware activation") from the net tree and commit
-82f682514a5df89ffb3890627eebf0897b7a84ec ("pm_qos: Get rid of the
-allocation in pm_qos_add_request()") from the suspend tree.
+This is patch 0/6 which contains the summary of changes we've
+done in this particular submission for Brocade's BR1010/BR1020
+10Gb CEE capable ethernet adapter. Source is based against
+net-next-2.6.
 
-I fixed it up (see below) and can carry the fix as necessary.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+The changes are as follows:
 
-diff --cc drivers/net/e1000e/netdev.c
-index 35c7dbd,9f13b66..0000000
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@@ -3525,12 -3495,6 +3525,13 @@@ static int e1000_open(struct net_devic
-  	     E1000_MNG_DHCP_COOKIE_STATUS_VLAN))
-  		e1000_update_mng_vlan(adapter);
-  
- +	/* DMA latency requirement to workaround early-receive/jumbo issue */
- +	if (adapter->flags & FLAG_HAS_ERT)
-- 		adapter->netdev->pm_qos_req =
-- 		                    pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
-- 		                                       PM_QOS_DEFAULT_VALUE);
-++		pm_qos_add_request(&adapter->netdev->pm_qos_req,
-++				   PM_QOS_CPU_DMA_LATENCY,
-++				   PM_QOS_DEFAULT_VALUE);
-++
- +
-  	/*
-  	 * before we allocate an interrupt, we must be ready to handle it.
-  	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
-@@@ -3635,11 -3599,6 +3636,10 @@@ static int e1000_close(struct net_devic
-  	if (adapter->flags & FLAG_HAS_AMT)
-  		e1000_release_hw_control(adapter);
-  
-- 	if (adapter->flags & FLAG_HAS_ERT) {
-- 		pm_qos_remove_request(adapter->netdev->pm_qos_req);
-- 		adapter->netdev->pm_qos_req = NULL;
-- 	}
-++	if (adapter->flags & FLAG_HAS_ERT)
-++		pm_qos_remove_request(&adapter->netdev->pm_qos_req);
-++
- +
-  	pm_runtime_put_sync(&pdev->dev);
-  
-  	return 0;
+1) Addressed comments received so far.
+
+- Added GRO support and removed LRO completely
+
+- Used OS primitives in place of abstractions wherever possible
+
+- Removed duplication of PCI_DEVICE_IDs
+
+- Corrected bnad_netpoll implementation
+
+- Eliminated firmware image copy
+
+- Reduced module parameters to only 2
+
+- Return type of bnad_xmit_start() changed to netdev_tx_t
+
+- Removed unnecessary comments in the code
+
+- Flattened the directory structure and reduced the number of files (form ~45 to 25)
+
+2) Added support for new hardware (e.g. IBM/Dell Mezzanine cards)
+
+We wish this patch to be considered for inclusion in net-next-2.6.
+
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ 0 files changed
+
+
