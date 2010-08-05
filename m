@@ -1,154 +1,100 @@
-From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH] [Bug 16494] NFS client over TCP hangs due to packet
- loss
-Date: Thu, 05 Aug 2010 15:50:22 -0400
-Message-ID: <1281037822.2948.49.camel@heimdal.trondhjem.org>
-References: <4c57cfe8.887b0e0a.2f79.4772@mx.google.com>
-	 <20100803.012144.267950450.davem@davemloft.net>
-	 <20100803021110.f0b3877b.akpm@linux-foundation.org>
-	 <4C57EE9A.7040308@gmail.com>  <4c5ad0d6.42ecd80a.47d7.0dfc@mx.google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free (adding ipv6 address to interface)
+Date: Thu, 05 Aug 2010 12:57:59 -0700
+Message-ID: <m1bp9g7ry0.fsf@fess.ebiederm.org>
+References: <loom.20100708T183152-326@post.gmane.org>
+	<20100709235744.GA12752@kroah.com>
+	<20100710101540.2799c9ef@xenia.leun.net>
+	<20100710140800.GA20424@kroah.com>
+	<20100710165208.59272ae6@xenia.leun.net>
+	<20100710235323.5336f627@xenia.leun.net>
+	<20100711192939.1c25dcaf@xenia.leun.net>
+	<20100804153543.56f6ecad@xenia.leun.net>
+	<20100804214618.GA6289@kroah.com>
+	<20100805001105.5a3453ed@xenia.leun.net>
+	<m1lj8l29zm.fsf@fess.ebiederm.org>
+	<20100805112538.60a46cb1@xenia.leun.net>
+	<m1y6clz8ta.fsf_-_@fess.ebiederm.org>
+	<20100805134707.0442a7b1@xenia.leun.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "'Andrew Morton'" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org,
-	pekkas-UjJjq++bwZ7HOG6cAo2yLw@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
-	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	William.Allen.Simpson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, gilad-f4XOiQkOAtcdH0auuBZGHA@public.gmane.org,
-	ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"'J. Bruce Fields'" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"'Neil Brown'" <neilb-l3A5Bk7waGM@public.gmane.org>,
-	"'Chuck Lever'" <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"'Benny Halevy'" <bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>,
-	"'Alexandros Batsakis'" <batsakis-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"'Joe Perches'" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-To: Andy Chittenden <andyc.bluearc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4c5ad0d6.42ecd80a.47d7.0dfc-ATjtLOhZ0NVl57MIdRCFDg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Michael Leun <lkml20100708@newton.leun.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100805134707.0442a7b1@xenia.leun.net> (Michael Leun's message of "Thu\, 5 Aug 2010 13\:47\:07 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-08-05 at 15:55 +0100, Andy Chittenden wrote:
-> > On 2010-08-03 10:11, Andrew Morton wrote:
-> > > (cc linux-nfs)
-> > >
-> > > On Tue, 03 Aug 2010 01:21:44 -0700 (PDT) David
-> > Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>  wrote:
-> > >
-> > >> From: "Andy Chittenden"<andyc.bluearc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > >> Date: Tue, 3 Aug 2010 09:14:31 +0100
-> > >>
-> > >>> I don't know whether this patch is the correct fix or not but it
-> > enables the
-> > >>> NFS client to recover.
-> > >>>
-> > >>> Kernel version: 2.6.34.1 and 2.6.32.
-> > >>>
-> > >>> Fixes<https://bugzilla.kernel.org/show_bug.cgi?id=16494>. It clears
-> > down
-> > >>> any previous shutdown attempts so that reconnects on a socket
-> > that's been
-> > >>> shutdown leave the socket in a usable state (otherwise
-> > tcp_sendmsg() returns
-> > >>> -EPIPE).
-> > >>
-> > >> If the SunRPC code wants to close a TCP socket then use it again,
-> > >> it should disconnect by doing a connect() with sa_family ==
-> > AF_UNSPEC
-> > 
-> > There is code to do that in the SunRPC code in xs_abort_connection()
-> > but
-> > that's conditionally called from xs_tcp_reuse_connection():
-> > 
-> > static void xs_tcp_reuse_connection(struct rpc_xprt *xprt, struct
-> > sock_xprt *transport)
-> > {
-> > 	unsigned int state = transport->inet->sk_state;
-> > 
-> > 	if (state == TCP_CLOSE && transport->sock->state ==
-> > SS_UNCONNECTED)
-> > 		return;
-> > 	if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
-> > 		return;
-> > 	xs_abort_connection(xprt, transport);
-> > }
-> > 
-> > That's changed since 2.6.26 where it unconditionally did the connect()
-> > with sa_family == AF_UNSPEC. FWIW we cannot reproduce this problem with
-> > 2.6.26.
-> 
-> The problem is fixed with this patch which also prints out that sk_shutdown
-> can be non-zero on entry to xs_tcp_reuse_connection:
-> 
-> # diff -up /home/company/software/src/linux-2.6.34.2/net/sunrpc/xprtsock.c
-> net/sunrpc/xprtsock.c 
-> --- /home/company/software/src/linux-2.6.34.2/net/sunrpc/xprtsock.c
-> 2010-08-02 18:30:51.000000000 +0100
-> +++ net/sunrpc/xprtsock.c       2010-08-05 12:21:11.000000000 +0100
-> @@ -1322,10 +1322,11 @@ static void xs_tcp_state_change(struct s
->         if (!(xprt = xprt_from_sock(sk)))
->                 goto out;
->         dprintk("RPC:       xs_tcp_state_change client %p...\n", xprt);
-> -       dprintk("RPC:       state %x conn %d dead %d zapped %d\n",
-> +       dprintk("RPC:       state %x conn %d dead %d zapped %d sk_shutdown
-> %d\n",
->                         sk->sk_state, xprt_connected(xprt),
->                         sock_flag(sk, SOCK_DEAD),
-> -                       sock_flag(sk, SOCK_ZAPPED));
-> +                       sock_flag(sk, SOCK_ZAPPED),
-> +                       sk->sk_shutdown);
->  
->         switch (sk->sk_state) {
->         case TCP_ESTABLISHED:
-> @@ -1796,10 +1797,18 @@ static void xs_tcp_reuse_connection(stru
->  {
->         unsigned int state = transport->inet->sk_state;
->  
-> -       if (state == TCP_CLOSE && transport->sock->state == SS_UNCONNECTED)
-> -               return;
-> -       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
-> -               return;
-> +       if (state == TCP_CLOSE && transport->sock->state == SS_UNCONNECTED)
-> {
-> +               if (transport->inet->sk_shutdown == 0)
-> +                       return;
-> +               printk("%s: TCP_CLOSEd and sk_shutdown set to %d\n",
-> +                       __func__, transport->inet->sk_shutdown);
-> +       }
-> +       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT)) {
-> +               if (transport->inet->sk_shutdown == 0)
-> +                       return;
-> +               printk("%s: sk_shutdown set to %d\n",
-> +                       __func__, transport->inet->sk_shutdown);
-> +       }
->         xs_abort_connection(xprt, transport);
->  }
-> 
-> Signed-off-by: Andy Chittenden <andyc.bluearc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> dmesg displays:
-> 
-> [ 2840.896043] xs_tcp_reuse_connection: TCP_CLOSEd and sk_shutdown set to 2
-> 
-> so previously the code was attempting to reuse the connection but wasn't
-> aborting it and thus didn't clear down sk_shutdown.
+Michael Leun <lkml20100708@newton.leun.net> writes:
 
-Hi Andy,
+> On Thu, 05 Aug 2010 02:51:29 -0700
+> ebiederm@xmission.com (Eric W. Biederman) wrote:
+>
+>> >> > Jul 10 20:02:36 doris kernel: unregister_netdevice: waiting for
+>> >> > lo to become free. Usage count = 3 [repeated]
+>> >> 
+>> >> How many times?
+>> >
+>> > Unfortunately looks like indefinitely. Never watched longer so far
+>> > (rebooted soon), but I'm seeing this message now repeated every 10
+>> > secs for ~10 minutes on a idle system.
+>> 
+>> Ugh.  A real bug then.  These can be a pain to track down and fix. I
+>> think the last one of these I tracked down took a couple of weeks.  I
+>> will start digging in when I get back from vacation.
+>
+> OK, fortunately (hopefully) you have not put to much time onto that so
+> far - because everything I told about usage of tun and difference
+> between ssh and openvpn is complete nonsense.
+>
+> I happen to have an script in that openvpn config, which puts an ipv6
+> address on the vpn device.
+>
+> Putting an ipv6 address on a device seems to be the trigger:
+>
+> OrigNS > # ip link add type veth
+> OrigNS > # ip link set dev veth0 up
+> OrigNS > # unshare -n /bin/bash
+> NewNS > # echo $$
+> <SomePID>
+> OrigNS > # ip link set dev veth1 netns <SomePID> # this, of course is on a different terminal
+> NewNS > # ip link set dev veth1 up
+> NewNS > # ip -6 addr add dev veth1 fd50:dead:beef::1/64
+> NewNS > # exit
+>
+> Yields
+>
+> kernel: unregister_netdevice: waiting for veth1 to become free. Usage count = 3
+>
+> Oh - its veth1 this time, not lo - add an "ip link set up dev lo" in the above scenario just after the unshare, and you get the message with lo.
+>
+> One might ask, if
+>
+>> # unshare -n /bin/bash
+>> # ip link set up dev lo
+>> # ip -6 addr add dev veth1 fd50:dead:beef::1/64
+>> # exit
+>
+> also does the trick, so I tried it - and it does NOT.
+>
+> In the above scenario, not setting veth0 and veth1 up also makes it not happen. Only setting veth1 up also is not enough (seems to need to be "really up" what as you shurely know with veth is only the case when both sides are up).
+>
+> I hope, this makes it somewhat easier to track that down.
 
-I note that you are adding in two new printk()s. Why should they be
-printk(), and not dprintk()? Are you trying to report an exception that
-the user needs to be aware of, or is this only debugging info that we'll
-want to turn off under normal operation?
+What puzzles me is that on a slightly patched 2.6.32 (so sysfs works)
+and I am doing very similar things (openvpn tunnels, ipv6 to the
+network as a whole etc), and I am not seeing the infinite
+unregister_netdevice: messages you are talking about.
 
-Also, it might be useful to add a comment to the code here to remind us
-what the 'sk_shutdown == 0' case corresponds to as far as the socket
-state is concerned, so that the casual reader can see why we shouldn't
-reset the connection.
+When a network device is removed most references to it are redirected
+to the loopback device so a normal network device should not see the
+worst of the problems.  That is why lo showed up.
 
-Cheers
-  Trond
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In that context I'm a bit surprised you managed trigger a problem on veth1.
+
+I wonder what has changed with ipv6 recently.
+
+Eric
