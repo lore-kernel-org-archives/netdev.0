@@ -1,46 +1,63 @@
-From: Christian Samsel <christian.samsel@rwth-aachen.de>
-Subject: [PATCH] usbnet: remove noisy and hardly useful printk
-Date: Thu, 05 Aug 2010 10:14:36 +0200
-Message-ID: <1280996076-19708-1-git-send-email-christian.samsel@rwth-aachen.de>
-Content-Transfer-Encoding: 7BIT
-Cc: dhollis@davehollis.com,
-	Christian Samsel <christian.samsel@rwth-aachen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:56777 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759845Ab0HEIOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 04:14:47 -0400
-Received: from ironport-out-1.rz.rwth-aachen.de ([134.130.5.40])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0L6O00F1J6WMBNA0@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Thu, 05 Aug 2010 10:14:46 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: GIT: net-*2.6 rebased...
+Date: Thu, 05 Aug 2010 01:46:37 -0700 (PDT)
+Message-ID: <20100805.014637.13722703.davem@davemloft.net>
+References: <20100804.162141.15218463.davem@davemloft.net>
+	<4C5A6EFE.7040703@arndnet.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+To: arnd-BCMAnToX5e2ELgA04lAiVw@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4C5A6EFE.7040703-BCMAnToX5e2ELgA04lAiVw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-With turned on hspa modem (Dell 5530 internal card) and activated usb auto
-suspend, my system gets up 100 "usbnet_resume has delayed data" per
-minute. I didnt noticed any pathological behaviour, so just drop
-this message. if any objections, please at least change it to _DEBUG.
+From: Arnd Hannemann <arnd-BCMAnToX5e2ELgA04lAiVw@public.gmane.org>
+Date: Thu, 05 Aug 2010 09:57:50 +0200
 
-Signed-off-by: Christian Samsel <christian.samsel@rwth-aachen.de>
----
- drivers/net/usb/usbnet.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> if I try to fetch from net-next-2.6, I get:
+> fatal: The remote end hung up unexpectedly
+> 
+> if I try to clone net-2.6:
+> (e.g. git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+> 
+> I get lots of errors reading the tags "does not point to a valid object!" and then:
+> remote: error: Could not read 3cfc2c42c1cbc8e238bb9c0612c0df4565e3a8b4
+> remote: fatal: Failed to traverse parents of commit 7aaaaa1e44b2a4047dfe05f304a5090eb995cf44
+> remote: aborting due to possible repository corruption on the remote side.
+> fatal: early EOF
+> fatal: index-pack failed
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 3b03794..7f62e2d 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1457,7 +1457,6 @@ int usbnet_resume (struct usb_interface *intf)
- 		spin_lock_irq(&dev->txq.lock);
- 		while ((res = usb_get_from_anchor(&dev->deferred))) {
- 
--			printk(KERN_INFO"%s has delayed data\n", __func__);
- 			skb = (struct sk_buff *)res->context;
- 			retval = usb_submit_urb(res, GFP_ATOMIC);
- 			if (retval < 0) {
--- 
-1.7.2
+Hmmm, since I can I tried an ssh based clone and it works.
 
+But indeed if I try to use the git:// URL it fails.
+
+Oh I see, the alternates files in those repos are completely broken.
+They have:
+
+	/home/davem/git/../torvalds/linux-2.6.git/objects
+
+/home/davem/git is a symlink to /pub/scm/linux/kernel/git/davem
+so if I login and "cd git" then:
+
+	git clone --shared --bare ../torvalds/linux-2.6.git net-next-2.6.git
+
+which is how I always create my trees, we get that unusable 'alternates'
+path above.
+
+The ".." works when my GIT directory is the working directory, but
+not as part of the symlink include path to get there.
+
+I fixed the alternates file but it will take some time for the fix
+to propagate from master.kernel.org
+
+Let me know if it doesn't work even after an hour or so.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
