@@ -1,74 +1,88 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [patch] isdn: fix information leak
-Date: Thu, 5 Aug 2010 21:59:52 +0800
-Message-ID: <AANLkTi=Pi6dyQ+NE-DW66hQKVLDD992DokqExaOb5o-0@mail.gmail.com>
-References: <20100805093806.GF9031@bicker> <AANLkTin4jtYuaxYfxDAgST857sD2K4Q28mPcPW=xd-V3@mail.gmail.com>
-	<20100805101938.GH9031@bicker> <AANLkTi=8ThVqTHpQmDfoon02C-VZ0JwBRtSrU7dzvvNt@mail.gmail.com>
-	<20100805113721.GI9031@bicker> <AANLkTikGNr8aVV7Rryq_dvSuYjUbEo_gRDLW3d49YwF-@mail.gmail.com>
-	<20100805134910.GJ9031@bicker>
+From: Usha Srinivasan <usha.srinivasan@qlogic.com>
+Subject: Receive processing stops when dev->poll returns 1
+Date: Thu, 5 Aug 2010 09:20:03 -0500
+Message-ID: <7866DA1F8D2D4541B87FEE88E633ABAA2B72081FB6@MNEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:35809 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759092Ab0HEOAN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 10:00:13 -0400
-In-Reply-To: <20100805134910.GJ9031@bicker>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:34109 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759057Ab0HEOUF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 10:20:05 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 5, 2010 at 9:55 PM, Dan Carpenter <error27@gmail.com> wrote=
-:
-> First of all, I'm happy that you're reviewing these patches. =A0A lot=
- of
-> learner, often untested, patches go through kernel-janitors and the
-> entire purpose of the list is to check each other's work.
->
-> Here is what I meant by an information leak. =A0The original code did=
-:
-> =A0 =A0 =A0 =A0spid =3D kmalloc(SCIOC_SPIDSIZE, GFP_KERNEL);
-> =A0 =A0 =A0 =A0...
-> =A0 =A0 =A0 =A0strcpy(spid, rcvmsg->msg_data.byte_array);
-> =A0 =A0 =A0 =A0...
-> =A0 =A0 =A0 =A0if (copy_to_user(data->dataptr, spid, SCIOC_SPIDSIZE))=
- {
->
-> When you allocate memory with kmalloc() it doesn't clear that memory.=
- =A0It
-> could have anything in there including passwords etc. =A0If there is =
-a
-> short string in "rcvmsg->msg_data.byte_array" like "123" then the
-> strcpy() puts that in the first 4 bytes of "spid", but the rest of th=
-e
-> buffer is still full of passwords.
->
-> The copy_to_user() sends it to the user, and normally the user only r=
-eads
-> as far as the terminator, but if they read past that then they would =
-see
-> all the passwords etc that were saved there.
->
-> This function is in the ioctl() probably only root has open() permiss=
-ion
-> on the device so it's not a big deal because root can already find yo=
-ur
-> password. =A0But I didn't dig that far. =A0It's just simpler to zero =
-out the
-> memory instead of worrying about if it really is exploitable or not.
->
-> Also it's quite possible that the strcpy can't overflow. =A0But it's =
-weird
-> for the code to leave space for the terminator and then not use it. =A0=
-In
-> the end, I decided to do the cautious thing and be done with it.
->
+Hello,
+I have run into an interesting and frustrating problem which I've not been able to resolve. I am hoping someone can help me.  
 
-Thanks, Dan. I got it.
+I have a network driver which sets its dev->weight to 100 (like ipoib) and when it processes 100 received packets, following the rules, it decrements dev->quota and *budget and returns 1 without calling netif_rx_complete.  When my driver does that, all processing of incoming packets for all interfaces comes to a halt.  
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+How do I know this?  Because, as soon as my driver returns 1 to dev->poll, I lose my putty session and eth0 stops working; eth0 counters show that it stops receiving packets, though it is able to transmit.  My own device stops receiving packets.  I have scoured the code for ipoib and other network devices and I see no difference in what my driver does.  I have tried to lower weight for ipoib & eth0 hoping to reproduce with those device it but no luck.
+
+One guess is that net_rx_action spent more than 1 tick processing all the incoming packets for all interfaces it polled; I verified that my driver by itself does not spend that much. When this happens, net_rx_action exits after marking NETIF_RX_SOFTIRQ as pending.  So one would expect it to be called again later, but my guess is that doesn't happen thereby resulting in a stoppage of incoming packets. Is that possible and, if so, what is the fix?
+
+1814 static void net_rx_action(struct softirq_action *h)
+1815 {
+1816         struct softnet_data *queue = &__get_cpu_var(softnet_data);
+1817         unsigned long start_time = jiffies;
+1818         int budget = netdev_budget;
+1819         void *have;
+1820 
+1821         local_irq_disable();
+1822 
+1823         while (!list_empty(&queue->poll_list)) {
+1824                 struct net_device *dev;
+1825 
+1826                 if (budget <= 0 || jiffies - start_time > 1)
+1827                         goto softnet_break;
+1828 
+1829                 local_irq_enable();
+1830 
+1831                 dev = list_entry(queue->poll_list.next,
+1832                                  struct net_device, poll_list);
+1833                 have = netpoll_poll_lock(dev);
+1834 
+1835                 if (dev->quota <= 0 || dev->poll(dev, &budget)) {
+1836                         netpoll_poll_unlock(have);
+1837                         local_irq_disable();
+1838                         list_move_tail(&dev->poll_list, &queue->poll_list);
+1839                         if (dev->quota < 0)
+1840                                 dev->quota += dev->weight;
+1841                         else
+1842                                 dev->quota = dev->weight;
+1843                 } else {
+1844                         netpoll_poll_unlock(have);
+1845                         dev_put(dev);
+1846                         local_irq_disable();
+1847                 }
+1848         }
+1849 out:
+1850         local_irq_enable();
+1851         return;
+1852 
+1853 softnet_break:
+1854         __get_cpu_var(netdev_rx_stat).time_squeeze++;
+1855         __raise_softirq_irqoff(NET_RX_SOFTIRQ);
+1856         goto out;
+1857 }
+1858
+
+I have run into this problem on four systems running RHEL5, SLES10 or SLES 11.  The above describes what happens in RHEL5/SLES10.  This is different in SLES11, wherein dev->poll has been replaced by netif_napi_add and the poll function returns done without quota/budget manipulation; yet, I run into the same behavior. 
+
+Any help appreciated! Thanks in advance!
+
+Usha
+
+___________________
+Usha Srinivasan
+Software Engineer
+QLogic Corporation
+780 5th Ave, Suite A
+King of Prussia, PA 19406
+(610) 233-4844
+(610) 233-4777 (Fax)
+(610) 233-4838 (Main Desk)
+
