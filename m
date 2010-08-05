@@ -1,72 +1,96 @@
-From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
-Subject: Re: [PATCH 33/42] drivers/net/wireless/ath/ath9k: Adjust confusing
- if indentation
-Date: Thu, 5 Aug 2010 13:47:56 -0700
-Message-ID: <20100805204756.GA1738@tux>
-References: <Pine.LNX.4.64.1008052226380.31692@ask.diku.dk>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 16517] New: rp_filter fails to filter with
+ CONFIG_IP_ROUTE_MULTIPATH and more than one 0/0 nexthop dev
+Date: Thu, 5 Aug 2010 13:46:53 -0700
+Message-ID: <20100805134653.9e8985cc.akpm@linux-foundation.org>
+References: <bug-16517-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
-	Jouni Malinen <Jouni.Malinen@Atheros.com>,
-	Sujith Manoharan <Sujith.Manoharan@Atheros.com>,
-	Vasanth Thiagarajan <Vasanth.Thiagarajan@Atheros.com>,
-	Senthilkumar Balasubramanian
-	<Senthilkumar.Balasubramanian@Atheros.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Julia Lawall <julia@diku.dk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	for.poige+bugzilla.kernel.org@gmail.com
+To: netfilter@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.atheros.com ([12.36.123.2]:49128 "EHLO mail.atheros.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758877Ab0HEUr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 16:47:59 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.1008052226380.31692@ask.diku.dk>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:40776 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932426Ab0HEU53 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 16:57:29 -0400
+In-Reply-To: <bug-16517-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 05, 2010 at 01:26:56PM -0700, Julia Lawall wrote:
-> From: Julia Lawall <julia@diku.dk>
-> 
-> Outdent the code following the if.
-> 
-> The semantic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @r disable braces4@
-> position p1,p2;
-> statement S1,S2;
-> @@
-> 
-> (
-> if (...) { ... }
-> |
-> if (...) S1@p1 S2@p2
-> )
-> 
-> @script:python@
-> p1 << r.p1;
-> p2 << r.p2;
-> @@
-> 
-> if (p1[0].column == p2[0].column):
->   cocci.print_main("branch",p1)
->   cocci.print_secs("after",p2)
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Acked-by: Luis R. Rodriguez <lrodriguez@atheros.com>
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-> ---
-> This patch doesn't change the semantics of the code.  But it might not be
-> what is intended.
+On Thu, 5 Aug 2010 01:48:01 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Your patch is correct, it wast a tab goof, thanks for fixing this.
+> https://bugzilla.kernel.org/show_bug.cgi?id=16517
+> 
+>            Summary: rp_filter fails to filter with
+>                     CONFIG_IP_ROUTE_MULTIPATH and more than one 0/0
+>                     nexthop dev
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: at least 2.6.18 and newer
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: for.poige+bugzilla.kernel.org@gmail.com
+>         Regression: No
+> 
+> 
+> I think the problem is net/ipv4/fib_frontend.c fib_validate_source()
+> 
+> ...
+> #ifdef CONFIG_IP_ROUTE_MULTIPATH
+>     if (FIB_RES_DEV(res) == dev || res.fi->fib_nhs > 1)
+> #else
+>     if (FIB_RES_DEV(res) == dev)
+> #endif
+> ...
+> 
+> I'm not sure, but this code is quite trivial and self-speaking. In case we have
+> several default routes, we'd better iterate over each of them and compare
+> resulting devices with the input one. So, fix is also trivial, specially for
+> network kernel developers. ;-)
+> 
+> I've set priority "High" cause it doesn't affects usual Linux users directly,
+> but indirectly it can affect any host on Internet, so the problem is
+> significant, of course.
+> 
+> P. S. Kernel docs say: {
+> rp_filter - INTEGER
+>         0 - No source validation.
+>         1 - Strict mode as defined in RFC3704 Strict Reverse Path
+>             Each incoming packet is tested against the FIB and if the interface
+>             is not the best reverse path the packet check will fail.
+>             By default failed packets are discarded.
+>         2 - Loose mode as defined in RFC3704 Loose Reverse Path
+>             Each incoming packet's source address is also tested against the
+> FIB
+>             and if the source address is not reachable via any interface
+>             the packet check will fail.
+> 
+>         Current recommended practice in RFC3704 is to enable strict mode
+>         to prevent IP spoofing from DDos attacks. If using asymmetric routing
+>         or other complicated routing, then loose mode is recommended.
+> 
+>         conf/all/rp_filter must also be set to non-zero to do source validation
+>         on the interface
+> 
+>         Default value is 0. Note that some distributions enable it
+>         in startup scripts.
+> }, but is in reality level "2" of rp_filtering implemented?
+> 
+> P. P. S. netfilter would be the best place to have Reverse Path checks. But
+> that's another story.
+> 
 
-  Luis
