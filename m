@@ -1,24 +1,22 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 37/42] drivers/net/hamradio: Adjust confusing if indentation
-Date: Thu, 5 Aug 2010 22:28:12 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008052227520.31692@ask.diku.dk>
+Subject: [PATCH 38/42] drivers/net: Adjust confusing if indentation
+Date: Thu, 5 Aug 2010 22:28:31 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008052228120.31692@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Joerg Reuter <jreuter@yaina.de>,
-	Klaus Kudielka <klaus.kudielka@ieee.org>,
-	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:58167 "EHLO mgw2.diku.dk"
+Received: from mgw2.diku.dk ([130.225.96.92]:39082 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933006Ab0HEU2O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 16:28:14 -0400
+	id S1760276Ab0HEU2e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 16:28:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
-Indent the branch of an if.
+Outdent the code following the if.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -48,20 +46,19 @@ if (p1[0].column == p2[0].column):
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/hamradio/scc.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/cpmac.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
-index 9f64c86..3365581 100644
---- a/drivers/net/hamradio/scc.c
-+++ b/drivers/net/hamradio/scc.c
-@@ -1069,7 +1069,8 @@ static void scc_tx_done(struct scc_channel *scc)
- 		case KISS_DUPLEX_LINK:
- 			scc->stat.tx_state = TXS_IDLE2;
- 			if (scc->kiss.idletime != TIMER_OFF)
--			scc_start_tx_timer(scc, t_idle, scc->kiss.idletime*100);
-+				scc_start_tx_timer(scc, t_idle,
-+						   scc->kiss.idletime*100);
- 			break;
- 		case KISS_DUPLEX_OPTIMA:
- 			scc_notify(scc, HWEV_ALL_SENT);
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index e1f6156..ac3985c 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -506,7 +506,7 @@ static int cpmac_poll(struct napi_struct *napi, int budget)
+ 					"restart rx from a descriptor that's "
+ 					"not free: %p\n",
+ 					priv->dev->name, restart);
+-				goto fatal_error;
++			goto fatal_error;
+ 		}
+ 
+ 		cpmac_write(priv->regs, CPMAC_RX_PTR(0), restart->mapping);
