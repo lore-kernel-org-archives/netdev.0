@@ -1,75 +1,49 @@
-From: =?ISO-8859-1?Q?G=E1bor_Stefanik?= <netrolller.3d@gmail.com>
-Subject: Re: [PATCH 11/15] net: mac80211: Fix a typo.
-Date: Thu, 5 Aug 2010 16:44:58 +0200
-Message-ID: <AANLkTimU7BLxysdKqAZpFLSkNnvM4jCSb-BbUc0RGjAn@mail.gmail.com>
-References: <1281016299-23958-1-git-send-email-andrea.gelmini@gelma.net>
-	<1281016299-23958-11-git-send-email-andrea.gelmini@gelma.net>
+From: Arnd Hannemann <arnd@arndnet.de>
+Subject: Re: GIT: net-*2.6 rebased...
+Date: Thu, 05 Aug 2010 16:45:28 +0200
+Message-ID: <4C5ACE88.2070704@arndnet.de>
+References: <20100804.162141.15218463.davem@davemloft.net>
+ <4C5A6EFE.7040703@arndnet.de> <20100805.014637.13722703.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gelma@gelma.net, Stefano Brivio <stefano.brivio@polimi.it>,
-	Mattias Nissler <mattias.nissler@gmx.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Tejun Heo <tj@kernel.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrea Gelmini <andrea.gelmini@gelma.net>
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	sfr@canb.auug.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:53782 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933322Ab0HEOpU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 10:45:20 -0400
-In-Reply-To: <1281016299-23958-11-git-send-email-andrea.gelmini@gelma.net>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:40212 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933244Ab0HEOpx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 10:45:53 -0400
+In-reply-to: <20100805.014637.13722703.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 5, 2010 at 3:51 PM, Andrea Gelmini <andrea.gelmini@gelma.ne=
-t> wrote:
-> "userpace" -> "userspace"
+Am 05.08.2010 10:46, schrieb David Miller:
+> From: Arnd Hannemann <arnd@arndnet.de> Date: Thu, 05 Aug 2010
+> 09:57:50 +0200
 >
-> Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
-> ---
-> =A0net/mac80211/rc80211_pid_debugfs.c | =A0 =A02 +-
-> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>> if I try to fetch from net-next-2.6, I get: fatal: The remote end
+>> hung up unexpectedly
+>>
+>> if I try to clone net-2.6: (e.g. git clone
+>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
+>>
+>> I get lots of errors reading the tags "does not point to a valid
+>> object!" and then: remote: error: Could not read
+>> 3cfc2c42c1cbc8e238bb9c0612c0df4565e3a8b4 remote: fatal: Failed to
+>> traverse parents of commit
+>> 7aaaaa1e44b2a4047dfe05f304a5090eb995cf44 remote: aborting due to
+>> possible repository corruption on the remote side. fatal: early
+>> EOF fatal: index-pack failed
 >
-> diff --git a/net/mac80211/rc80211_pid_debugfs.c b/net/mac80211/rc8021=
-1_pid_debugfs.c
-> index 47438b4..135f36f 100644
-> --- a/net/mac80211/rc80211_pid_debugfs.c
-> +++ b/net/mac80211/rc80211_pid_debugfs.c
-> @@ -162,7 +162,7 @@ static ssize_t rate_control_pid_events_read(struc=
-t file *file, char __user *buf,
-> =A0 =A0 =A0 =A0file_info->next_entry =3D (file_info->next_entry + 1) =
-%
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0RC_PID=
-_EVENT_RING_SIZE;
+> I fixed the alternates file but it will take some time for the fix to
+> propagate from master.kernel.org
 >
-> - =A0 =A0 =A0 /* Print information about the event. Note that userpac=
-e needs to
-> + =A0 =A0 =A0 /* Print information about the event. Note that userspa=
-ce needs to
-> =A0 =A0 =A0 =A0 * provide large enough buffers. */
-> =A0 =A0 =A0 =A0length =3D length < RC_PID_PRINT_BUF_SIZE ?
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 length : RC_PID_PRINT_BUF_SIZE;
+> Let me know if it doesn't work even after an hour or so.
 
-length =3D min(length, RC_PID_PRINT_BUF_SIZE) maybe? (Though this is no=
-t
-part of the patch.)
+It works now, for both net-next-2.6 and net-2.6.
 
-> --
-> 1.7.2.1.85.g2d089
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wirel=
-ess" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+Thanks,
+Arnd
 
-
-
---=20
-Vista: [V]iruses, [I]ntruders, [S]pyware, [T]rojans and [A]dware. :-)
