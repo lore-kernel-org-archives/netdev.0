@@ -1,27 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 4/4] sch_sfq: add sanity check for the packet length
-Date: Wed, 04 Aug 2010 21:55:59 -0700 (PDT)
-Message-ID: <20100804.215559.27816462.davem@davemloft.net>
-References: <1280933939-17548-1-git-send-email-xiaosuo@gmail.com>
+From: divya <dipraksh@linux.vnet.ibm.com>
+Subject: [linux-next] build failure
+Date: Thu, 05 Aug 2010 11:02:36 +0530
+Message-ID: <4C5A4CF4.4070203@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+To: LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, netdev <netdev@vger.kernel.org>,
+	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59469
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757280Ab0HEEzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 00:55:40 -0400
-In-Reply-To: <1280933939-17548-1-git-send-email-xiaosuo@gmail.com>
+Received: from e23smtp06.au.ibm.com ([202.81.31.148]:44282 "EHLO
+	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662Ab0HEFco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 01:32:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Wed,  4 Aug 2010 22:58:59 +0800
+Yestersday's linux-next(2.6.35_next_20100802) build fails with the following error on both system p and x.
 
-> The packet length should be checked before the packet data is dereferenced.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Applied.
+   drivers/net/ixgbe/ixgbe_main.c: In function 'ixgbe_select_queue':
+   drivers/net/ixgbe/ixgbe_main.c:6159: error: 'struct ixgbe_fcoe' has no member named 'up'
+   drivers/net/ixgbe/ixgbe_main.c: In function 'ixgbe_xmit_frame':
+   drivers/net/ixgbe/ixgbe_main.c:6221: error: 'struct ixgbe_fcoe' has no member named 'up'
+   make[3]: *** [drivers/net/ixgbe/ixgbe_main.o] Error 1
+   make[2]: *** [drivers/net/ixgbe] Error 2
+   make[2]: *** Waiting for unfinished jobs....
+   make[1]: *** [drivers/net] Error 2
+   make: *** [drivers] Error 2
+
+Thanks
+Divya
+
+
+
