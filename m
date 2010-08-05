@@ -1,42 +1,45 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] cfg80211: support sysfs namespaces
-Date: Thu, 05 Aug 2010 22:05:30 +0200
-Message-ID: <1281038730.4058.12.camel@jlt3.sipsolutions.net>
-References: <1281023115.4058.11.camel@jlt3.sipsolutions.net>
-	 <m1wrs47shi.fsf@fess.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: null pointer at cls_api.c
+Date: Thu, 05 Aug 2010 13:07:55 -0700 (PDT)
+Message-ID: <20100805.130755.57491167.davem@davemloft.net>
+References: <282881281036255@web101.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <m1wrs47shi.fsf-+imSwln9KH6u2/kzUuoCbdi2O/JbrIOy@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: franchoze@yandex.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44355
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754230Ab0HEUHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 16:07:36 -0400
+In-Reply-To: <282881281036255@web101.yandex.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-08-05 at 12:46 -0700, Eric W. Biederman wrote:
-> Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> writes:
+From: Franchoze Eric <franchoze@yandex.ru>
+Date: Thu, 05 Aug 2010 23:24:15 +0400
+
+> @@ -255,6 +255,11 @@ replay:
+>  			kfree(tp);
+>  			goto errout;
+>  		}
+> +
+> +		if (!tp || !tp->ops) {
+> +			err = -ENOENT;
+> +			goto errout;
+> +		}
+>  		tp->ops = tp_ops;
+>  		tp->protocol = protocol;
+>  		tp->prio = nprio ? : TC_H_MAJ(tcf_auto_prio(*back));
 > 
-> > From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> >
-> > Enable using network namespaces with
-> > wireless devices even when sysfs is
-> > enabled using the same infrastructure
-> > that was built for netdevs.
-> 
-> Acked-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-> 
-> This looks reasonable.  I assume you have tested this and it is
-> working now?
 
-Yes, I tested it. Was missing the no-op device_rename() at first, but
-now it works.
+This patch makes no sense.
 
-johannes
+We check for "tp"  being non-NULL in the code block about the if() block you're
+adding these checks to.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And tp->ops of course might be NULL here, and that's perfectly fine,
+as we're about to assign "tp_ops" to it.
+
+Looking at your backtrace I think perhaps your crash is elsewhere.
