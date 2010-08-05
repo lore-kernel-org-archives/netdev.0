@@ -1,40 +1,69 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [rfc 13/13] [RFC 13/13] IPVS: sip persistence engine
-Date: Thu, 5 Aug 2010 14:50:11 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1008051447100.13201@obet.zrqbmnf.qr>
-References: <20100805114755.118303531@vergenet.net> <20100805115242.056724322@vergenet.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [patch] isdn: fix information leak
+Date: Thu, 5 Aug 2010 21:18:00 +0800
+Message-ID: <AANLkTikGNr8aVV7Rryq_dvSuYjUbEo_gRDLW3d49YwF-@mail.gmail.com>
+References: <20100805093806.GF9031@bicker> <AANLkTin4jtYuaxYfxDAgST857sD2K4Q28mPcPW=xd-V3@mail.gmail.com>
+	<20100805101938.GH9031@bicker> <AANLkTi=8ThVqTHpQmDfoon02C-VZ0JwBRtSrU7dzvvNt@mail.gmail.com>
+	<20100805113721.GI9031@bicker>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100805115242.056724322@vergenet.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63922 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760331Ab0HENSW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 09:18:22 -0400
+In-Reply-To: <20100805113721.GI9031@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 2010-08-05 13:48, Simon Horman wrote:
->+
->+static const char *ip_vs_dbg_callid(char *buf, size_t buf_len,
->+				    const char *callid, size_t callid_len,
->+				    int *idx)
->+{
->+	size_t len = min(min(callid_len, (size_t)64), buf_len - *idx - 1);
->+	memcpy(buf + *idx, callid, len);
->+	*(buf + *idx + len) = '\0';
+On Thu, Aug 5, 2010 at 7:37 PM, Dan Carpenter <error27@gmail.com> wrote=
+:
+>
+> Both strncpy() and strlcpy() take a limitter. =A0The difference is th=
+at
+> strlcpy() always takes on a terminator and strncpy() only adds a
+> terminator if there is space.
+>
+> strlcpy() is a BSD function that never caught on in Linux. =A0The gli=
+bc
+> maintainers think that if you accidentally chop off the last part of =
+a
+> word that makes you an idiot. =A0They think you should known the leng=
+th of
+> your data at all times and use memcpy() or a proper string library.
+>
+> I prefer strlcpy() to strncpy(). =A0Some people do stuff like:
+> =A0 =A0 =A0 =A0strncpy(bar, foo, n);
+> =A0 =A0 =A0 =A0bar[n] =3D '\0';
+> You have to read through the code to find if n is "sizeof(bar)" or
+> "sizeof(bar) - 1". =A0Which is a pain in the arse. =A0strlcpy() is ex=
+plicit
+> and it's just one line of code instead of two.
+>
+> The other tricky thing you should remember about strncpy() is that th=
+e
+> posix version writes NUL chars from the end of the string to the
+> limitter but the kernel version only copies one NUL character.
+>
 
-Nothing particular wrong, though I just noticed that I would have 
-personally, instinctively written
+You should spend some time on reading the source code of strlcpy() and
+strncpy().
 
-	buf[*idx+len] = '\0';
+the example use of them is:
 
-instead. Sure you have your reasons ;-)
+char dst[24];
+char *src =3D "test";
 
->+	/* RFC 2543 allows lines to be terminated with CR, LF or CRLF,
->+	 * RFC 3261 allows only CRLF, we support both. */
->+	if (*(dptr + *matchoff + *matchlen) != '\r' &&
->+	    *(dptr + *matchoff + *matchlen) != '\n')
->+		return -EINVAL;
+strncpy(dst, src, sizeof(dst) - 1);
+strlcpy(dst, src, sizeof(dst));
 
+both of them don't need to zero dst, and they don't need to pad zero
+at then end of the dst.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
