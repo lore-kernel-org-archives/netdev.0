@@ -1,26 +1,20 @@
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Subject: [PATCH 31/42] drivers/net: Adjust confusing if indentation
-Date: Thu, 5 Aug 2010 22:26:20 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008052226050.31692@ask.diku.dk>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 32/42] drivers/net/bnx2x: Adjust confusing if indentation
+Date: Thu, 5 Aug 2010 22:26:38 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008052226210.31692@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:58022 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934280Ab0HEU0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 16:26:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+From: Julia Lawall <julia@diku.dk>
 
 Outdent the code following the if.
 
@@ -49,22 +43,33 @@ if (p1[0].column == p2[0].column):
   cocci.print_secs("after",p2)
 // </smpl>
 
-Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/gianfar.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This patch doesn't change the semantics of the code.  But it might not be
+what is intended.
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index a1b6301..36ccc37 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1859,7 +1859,7 @@ static int register_grp_irqs(struct gfar_priv_grp *grp)
- 				printk(KERN_ERR "%s: Can't get IRQ %d\n",
- 					dev->name, grp->interruptError);
+ drivers/net/bnx2x/bnx2x_link.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
+index 0383e30..0fa0991 100644
+--- a/drivers/net/bnx2x/bnx2x_link.c
++++ b/drivers/net/bnx2x/bnx2x_link.c
+@@ -1254,11 +1254,11 @@ static void bnx2x_set_autoneg(struct link_params *params,
+ 		    PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)
+ 			reg_val |= MDIO_CL73_IEEEB1_AN_ADV2_ADVR_1000M_KX;
  
--				goto err_irq_fail;
-+			goto err_irq_fail;
- 		}
+-			CL45_WR_OVER_CL22(bp, params->port,
+-					      params->phy_addr,
+-					      MDIO_REG_BANK_CL73_IEEEB1,
+-					      MDIO_CL73_IEEEB1_AN_ADV2,
+-				      reg_val);
++		CL45_WR_OVER_CL22(bp, params->port,
++				      params->phy_addr,
++				      MDIO_REG_BANK_CL73_IEEEB1,
++				      MDIO_CL73_IEEEB1_AN_ADV2,
++			      reg_val);
  
- 		if ((err = request_irq(grp->interruptTransmit, gfar_transmit,
+ 		/* CL73 Autoneg Enabled */
+ 		reg_val = MDIO_CL73_IEEEB0_CL73_AN_CONTROL_AN_EN;
