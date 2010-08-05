@@ -1,24 +1,25 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 41/42] net/decnet: Adjust confusing if indentation
-Date: Thu, 5 Aug 2010 22:29:38 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008052229200.31692@ask.diku.dk>
+Subject: [PATCH 33/42] drivers/net/wireless/ath/ath9k: Adjust confusing if
+ indentation
+Date: Thu, 5 Aug 2010 22:26:56 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008052226380.31692__46090.5639142313$1281040311$gmane$org@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "David S. Miller" <davem@davemloft.net>,
-	linux-decnet-user@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Jouni Malinen <jmalinen@atheros.com>,
+	Sujith Manoharan <Sujith.Manoharan@atheros.com>,
+	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:39117 "EHLO mgw2.diku.dk"
+Received: from mgw2.diku.dk ([130.225.96.92]:58032 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934089Ab0HEU3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 16:29:41 -0400
+	id S934222Ab0HEU07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 16:26:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
-Indent the branch of an if.
+Outdent the code following the if.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -48,37 +49,22 @@ if (p1[0].column == p2[0].column):
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- net/decnet/dn_nsp_out.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+This patch doesn't change the semantics of the code.  But it might not be
+what is intended.
 
-diff --git a/net/decnet/dn_nsp_out.c b/net/decnet/dn_nsp_out.c
-index baeb1ea..2ef1152 100644
---- a/net/decnet/dn_nsp_out.c
-+++ b/net/decnet/dn_nsp_out.c
-@@ -693,22 +693,22 @@ void dn_nsp_send_conninit(struct sock *sk, unsigned char msgflg)
- 	aux = scp->accessdata.acc_userl;
- 	*skb_put(skb, 1) = aux;
- 	if (aux > 0)
--	memcpy(skb_put(skb, aux), scp->accessdata.acc_user, aux);
-+		memcpy(skb_put(skb, aux), scp->accessdata.acc_user, aux);
+ drivers/net/wireless/ath/ath9k/ar9003_mac.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/ar9003_mac.c b/drivers/net/wireless/ath/ath9k/ar9003_mac.c
+index 5b995be..a462da2 100644
+--- a/drivers/net/wireless/ath/ath9k/ar9003_mac.c
++++ b/drivers/net/wireless/ath/ath9k/ar9003_mac.c
+@@ -185,7 +185,7 @@ static bool ar9003_hw_get_isr(struct ath_hw *ah, enum ath9k_int *masked)
+ 			ath_print(common, ATH_DBG_INTERRUPT,
+ 				  "AR_INTR_SYNC_LOCAL_TIMEOUT\n");
  
- 	aux = scp->accessdata.acc_passl;
- 	*skb_put(skb, 1) = aux;
- 	if (aux > 0)
--	memcpy(skb_put(skb, aux), scp->accessdata.acc_pass, aux);
-+		memcpy(skb_put(skb, aux), scp->accessdata.acc_pass, aux);
+-			REG_WRITE(ah, AR_INTR_SYNC_CAUSE_CLR, sync_cause);
++		REG_WRITE(ah, AR_INTR_SYNC_CAUSE_CLR, sync_cause);
+ 		(void) REG_READ(ah, AR_INTR_SYNC_CAUSE_CLR);
  
- 	aux = scp->accessdata.acc_accl;
- 	*skb_put(skb, 1) = aux;
- 	if (aux > 0)
--	memcpy(skb_put(skb, aux), scp->accessdata.acc_acc, aux);
-+		memcpy(skb_put(skb, aux), scp->accessdata.acc_acc, aux);
- 
- 	aux = (__u8)le16_to_cpu(scp->conndata_out.opt_optl);
- 	*skb_put(skb, 1) = aux;
- 	if (aux > 0)
--	memcpy(skb_put(skb,aux), scp->conndata_out.opt_data, aux);
-+		memcpy(skb_put(skb, aux), scp->conndata_out.opt_data, aux);
- 
- 	scp->persist = dn_nsp_persist(sk);
- 	scp->persist_fxn = dn_nsp_retrans_conninit;
+ 	}
