@@ -1,66 +1,113 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: Re: [PATCH] platform: Facilitate the creation of pseduo-platform  busses
-Date: Thu, 05 Aug 2010 08:27:39 -0700
-Message-ID: <87fwyt13mc.fsf@deeprootsystems.com>
-References: <4C59E654.1090403@codeaurora.org>
-	<AANLkTimkMy6_201XNGb41e7LivkvVHMkFZWVoA-7UmBo@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] cfg80211: support sysfs namespaces
+Date: Thu, 05 Aug 2010 17:45:15 +0200
+Message-ID: <1281023115.4058.11.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick Pannuto <ppannuto@codeaurora.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-msm\@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
-	"linux-omap\@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"damm\@opensource.se" <damm@opensource.se>,
-	"lethal\@linux-sh.org" <lethal@linux-sh.org>,
-	"rjw\@sisk.pl" <rjw@sisk.pl>,
-	"eric.y.miao\@gmail.com" <eric.y.miao@gmail.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>, alan@lxorguk.ukuu.org.uk,
-	zt.tmzt@gmail.com
-To: Magnus Damm <magnus.damm@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimkMy6_201XNGb41e7LivkvVHMkFZWVoA-7UmBo@mail.gmail.com>
-	(Magnus Damm's message of "Thu, 5 Aug 2010 11:32:16 +0900")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: John Linville <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:43916 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933385Ab0HEPpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 11:45:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Magnus Damm <magnus.damm@gmail.com> writes:
+From: Johannes Berg <johannes.berg@intel.com>
 
-> On Thu, Aug 5, 2010 at 7:14 AM, Patrick Pannuto <ppannuto@codeaurora.=
-org> wrote:
->> Inspiration for this comes from:
->> http://www.mail-archive.com/linux-omap@vger.kernel.org/msg31161.html
->>
->> RFC: http://lkml.org/lkml/2010/8/3/496
->> Patch is unchanged from the RFC. Reviews seemed generally positive
->> and it seemed this was desired functionality.
->
-> Thanks for your patch, it's really nice to see work done in this area=
-!
-> I'd like to see something like this merged in the not so distant
-> future. At this point I'm not so concerned about the details, so I'll
-> restrict myself to this:
->
->> /drivers/my_driver.c
->> =A0 =A0 =A0 =A0static struct platform_driver my_driver =3D {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.driver =3D {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.name =A0 =3D "my-dri=
-ver",
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.owner =A0=3D THIS_MO=
-DULE,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.bus =A0 =A0=3D &my_b=
-us_type,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0},
->> =A0 =A0 =A0 =A0};
->
-> I would really prefer not to have the bus type in the here. I
-> understand it's needed at this point, but I wonder if it's possible t=
-o
-> adjust the device<->driver matching for platform devices to allow any
-> type of pseudo-platform bus_type.
+Enable using network namespaces with
+wireless devices even when sysfs is
+enabled using the same infrastructure
+that was built for netdevs.
 
-I totally agree here.  Keeping the drivers ignorant of the bus (or SoC)
-they are on will make them much more portable.
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+NB: This generates a harmless gcc warning, I submitted
+    a patch to fix it here:
+    http://thread.gmane.org/gmane.linux.kernel/1019330
 
-Kevin
+ include/linux/netdevice.h |    2 ++
+ net/core/net-sysfs.c      |    3 ++-
+ net/wireless/core.c       |    7 ++++++-
+ net/wireless/sysfs.c      |    9 +++++++++
+ 4 files changed, 19 insertions(+), 2 deletions(-)
+
+--- wireless-testing.orig/net/core/net-sysfs.c	2010-08-05 17:33:47.000000000 +0200
++++ wireless-testing/net/core/net-sysfs.c	2010-08-05 17:38:27.000000000 +0200
+@@ -789,12 +789,13 @@ static const void *net_netlink_ns(struct
+ 	return sock_net(sk);
+ }
+ 
+-static struct kobj_ns_type_operations net_ns_type_operations = {
++struct kobj_ns_type_operations net_ns_type_operations = {
+ 	.type = KOBJ_NS_TYPE_NET,
+ 	.current_ns = net_current_ns,
+ 	.netlink_ns = net_netlink_ns,
+ 	.initial_ns = net_initial_ns,
+ };
++EXPORT_SYMBOL_GPL(net_ns_type_operations);
+ 
+ static void net_kobj_ns_exit(struct net *net)
+ {
+--- wireless-testing.orig/net/wireless/sysfs.c	2010-08-05 17:33:47.000000000 +0200
++++ wireless-testing/net/wireless/sysfs.c	2010-08-05 17:39:11.000000000 +0200
+@@ -110,6 +110,13 @@ static int wiphy_resume(struct device *d
+ 	return ret;
+ }
+ 
++static const void *wiphy_namespace(struct device *d)
++{
++	struct wiphy *wiphy = container_of(d, struct wiphy, dev);
++
++	return wiphy_net(wiphy);
++}
++
+ struct class ieee80211_class = {
+ 	.name = "ieee80211",
+ 	.owner = THIS_MODULE,
+@@ -120,6 +127,8 @@ struct class ieee80211_class = {
+ #endif
+ 	.suspend = wiphy_suspend,
+ 	.resume = wiphy_resume,
++	.ns_type = &net_ns_type_operations,
++	.namespace = wiphy_namespace,
+ };
+ 
+ int wiphy_sysfs_init(void)
+--- wireless-testing.orig/net/wireless/core.c	2010-08-05 17:33:47.000000000 +0200
++++ wireless-testing/net/wireless/core.c	2010-08-05 17:38:27.000000000 +0200
+@@ -253,11 +253,16 @@ int cfg80211_switch_netns(struct cfg8021
+ 			WARN_ON(err);
+ 			wdev->netdev->features |= NETIF_F_NETNS_LOCAL;
+ 		}
++
++		return err;
+ 	}
+ 
+ 	wiphy_net_set(&rdev->wiphy, net);
+ 
+-	return err;
++	err = device_rename(&rdev->wiphy.dev, dev_name(&rdev->wiphy.dev));
++	WARN_ON(err);
++
++	return 0;
+ }
+ 
+ static void cfg80211_rfkill_poll(struct rfkill *rfkill, void *data)
+--- wireless-testing.orig/include/linux/netdevice.h	2010-08-05 17:13:50.000000000 +0200
++++ wireless-testing/include/linux/netdevice.h	2010-08-05 17:39:02.000000000 +0200
+@@ -2171,6 +2171,8 @@ extern void dev_seq_stop(struct seq_file
+ extern int netdev_class_create_file(struct class_attribute *class_attr);
+ extern void netdev_class_remove_file(struct class_attribute *class_attr);
+ 
++extern struct kobj_ns_type_operations net_ns_type_operations;
++
+ extern char *netdev_drivername(const struct net_device *dev, char *buffer, int len);
+ 
+ extern void linkwatch_run_queue(void);
+
+
