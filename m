@@ -1,66 +1,116 @@
-From: Jens Axboe <jaxboe-5c4llco8/ftWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH RESEND block#for-2.6.36] block_dev: always serialize
- exclusive open attempts
-Date: Thu, 5 Aug 2010 11:20:51 +0200
-Message-ID: <4C5A8273.2010803@fusionio.com>
-References: <2dWFdr9kTFM.A.P0D.spXVMB@chimera> <AANLkTimcH7+Bq1UEbaSU7SQpzArPgmSLegiqE13V8=CF@mail.gmail.com> <4C56F30D.3020304@kernel.org> <4C598E6B.7050405@gmail.com> <4C5A7E33.3060101@fusionio.com> <20100805091704.GA1772@arch.tripp.de>
+From: Michael Leun <lkml20100708@newton.leun.net>
+Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free
+ (after using openvpn) (was Re: sysfs bug when using tun with network
+ namespaces)
+Date: Thu, 5 Aug 2010 11:25:38 +0200
+Message-ID: <20100805112538.60a46cb1@xenia.leun.net>
+References: <loom.20100708T183152-326@post.gmane.org>
+	<20100709235744.GA12752@kroah.com>
+	<20100710101540.2799c9ef@xenia.leun.net>
+	<20100710140800.GA20424@kroah.com>
+	<20100710165208.59272ae6@xenia.leun.net>
+	<20100710235323.5336f627@xenia.leun.net>
+	<20100711192939.1c25dcaf@xenia.leun.net>
+	<20100804153543.56f6ecad@xenia.leun.net>
+	<20100804214618.GA6289@kroah.com>
+	<20100805001105.5a3453ed@xenia.leun.net>
+	<m1lj8l29zm.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <htejun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100805091704.GA1772-joY5NpejW+Hx3b7vapvTcQ@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org
+To: ebiederm@xmission.com (Eric W. Biederman)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from serv04.lahn.de ([213.239.197.57]:57079 "EHLO serv04.lahn.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751301Ab0HEJ3J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 05:29:09 -0400
+In-Reply-To: <m1lj8l29zm.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2010-08-05 11:17, Markus Trippelsdorf wrote:
-> On Thu, Aug 05, 2010 at 11:02:43AM +0200, Jens Axboe wrote:
->> On 2010-08-04 17:59, Tejun Heo wrote:
->>> bd_prepare_to_claim() incorrectly allowed multiple attempts for
->>> exclusive open to progress in parallel if the attempting holders are
->>> identical.  This triggered BUG_ON() as reported in the following bug.
->>>
->>>   https://bugzilla.kernel.org/show_bug.cgi?id=16393
->>>
->>> __bd_abort_claiming() is used to finish claiming blocks and doesn't
->>> work if multiple openers are inside a claiming block.  Allowing
->>> multiple parallel open attempts to continue doesn't gain anything as
->>> those are serialized down in the call chain anyway.  Fix it by always
->>> allowing only single open attempt in a claiming block.
->>>
->>> This problem can easily be reproduced by adding a delay after
->>> bd_prepare_to_claim() and attempting to mount two partitions of a
->>> disk.
->>>
->>> stable: only applicable to v2.6.35
->>>
->>> Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->>> Reported-by: Markus Trippelsdorf <markus-xp2qqqlHh3xzoYq+O6RWwA@public.gmane.org>
->>> Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
->>
->> Thanks Tejun, applied.
+Hi,
+
+On Wed, 04 Aug 2010 17:12:29 -0700
+ebiederm@xmission.com (Eric W. Biederman) wrote:
+
+First, thank you very much for picking that up (and, of course, for
+your work at linux in general).
+
+
+> > # > unshare -n /bin/bash
+> > # > # how to setup veth device pair to get connectivity into
+> > namespace not shown here # > openvpn --config some.config
+> > [ running some traffic over vpn device not shown here ]
+> > ^c # stopping openvpn
+> > # > lsof -i
+> > # > netstat -an
+> > Active Internet connections (servers and established)
+> > Proto Recv-Q Send-Q Local Address           Foreign Address
+> > State Active UNIX domain sockets (servers and established)
+> > Proto RefCnt Flags       Type       State         I-Node Path
+> > # > ps ax|grep openvpn|grep -v grep
+> > # > # cannot find anything that suggests there is anything left
+> > from that openvpn session # > exit # logging out from shell in
+> > network namespace
+> >
+> > Now I get
+> >
+> > Jul 10 20:02:36 doris kernel: unregister_netdevice: waiting for lo
+> > to become free. Usage count = 3 [repeated]
 > 
-> It's already in mainline:
-> e75aa85892b2ee78c79edac720868cbef16e62eb
+> How many times?
 
-Irk, had not noticed yet, my for-2.6.36 branch isn't fully merged
-up yet. Thanks for the heads-up.
+Unfortunately looks like indefinitely. Never watched longer so far
+(rebooted soon), but I'm seeing this message now repeated every 10 secs
+for ~10 minutes on a idle system.
+
+Additionally when testing this I found another one (by accident started
+my firewall script in that namespace...) - using netfilter RECENT
+makes it barf. Stripped down to the essentials it looks like this:
+
+> # unshare -n /bin/bash
+> # iptables -I INPUT -d 1.2.3.4 -m recent --name BLA --set
+> # exit
+
+Aug  5 11:19:47 doris kernel: [  218.420238] ------------[ cut here ]------------
+Aug  5 11:19:47 doris kernel: [  218.420256] kernel BUG at net/netfilter/xt_recent.c:609!
+Aug  5 11:19:47 doris kernel: [  218.420268] invalid opcode: 0000 [#1] PREEMPT SMP 
+Aug  5 11:19:47 doris kernel: [  218.420284] last sysfs file: /sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0C0A:00/power_supply/BAT0/charge_full
+Aug  5 11:19:47 doris kernel: [  218.420295] Modules linked in: snd_pcm_oss snd_mixer_oss snd_seq snd_seq_device edd cpufreq_conservative cpufreq_userspace cpufreq_powersave acpi_cpufreq mperf ipt_REJECT ipt_LOG xt_limit xt_recent iptable_mangle iptable_nat iptable_filter nf_conntrack_ipv6 xt_state xt_tcpudp ip6table_filter ip6_tables nf_nat_ftp nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack_ftp nf_conntrack ip_tables x_tables fuse nls_utf8 loop arc4 ecb iwlagn iwlcore mac80211 snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_pcm cfg80211 snd_timer snd usb_storage iTCO_wdt soundcore tg3 sg iTCO_vendor_support snd_page_alloc rfkill i2c_i801 pcspkr battery ac ext4 jbd2 crc16 sha256_generic aes_generic cbc dm_crypt linear i915 drm_kms_helper drm i2c_algo_bit sd_mod video 
+ intel_agp button dm_snapshot dm_mod fan processor ata_piix ahci libahci libata scsi_mod thermal thermal_sys
+Aug  5 11:19:47 doris kernel: [  218.420529] 
+Aug  5 11:19:47 doris kernel: [  218.420542] Pid: 13, comm: netns Not tainted 2.6.35 #2 Kuril                           /40684JG         
+Aug  5 11:19:47 doris kernel: [  218.420557] EIP: 0060:[<fc886a15>] EFLAGS: 00010206 CPU: 0
+Aug  5 11:19:47 doris kernel: [  218.420578] EIP is at recent_net_exit+0x55/0x70 [xt_recent]
+Aug  5 11:19:47 doris kernel: [  218.420589] EAX: f2218000 EBX: f5b79290 ECX: f2f27b40 EDX: f5cd4000
+Aug  5 11:19:47 doris kernel: [  218.420601] ESI: f2218000 EDI: f5cd5f44 EBP: f5cd5f28 ESP: f5cd5f20
+Aug  5 11:19:47 doris kernel: [  218.420612]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+Aug  5 11:19:47 doris kernel: [  218.420626] Process netns (pid: 13, ti=f5cd4000 task=f5cc9920 task.ti=f5cd4000)
+Aug  5 11:19:47 doris kernel: [  218.420635] Stack:
+Aug  5 11:19:47 doris kernel: [  218.420641]  f5cd5f30 fc887618 f5cd5f3c c130867d fc887618 f5cd5f44 c1308850 f5cd5f60
+Aug  5 11:19:47 doris kernel: [  218.420667] <0> c1308919 f2218014 f2218014 f221800c f221800c c15915a0 c3bb4f40 c1308850
+Aug  5 11:19:47 doris kernel: [  218.420695] <0> f5cd5fbc c105a230 c13d1658 00000001 00000000 f7048000 c160f500 f5cc9c00
+Aug  5 11:19:47 doris kernel: [  218.420724] Call Trace:
+Aug  5 11:19:47 doris kernel: [  218.420749]  [<c130867d>] ? ops_exit_list+0x1d/0x50
+Aug  5 11:19:47 doris kernel: [  218.420766]  [<c1308850>] ? cleanup_net+0x0/0x160
+Aug  5 11:19:47 doris kernel: [  218.420782]  [<c1308919>] ? cleanup_net+0xc9/0x160
+Aug  5 11:19:47 doris kernel: [  218.420797]  [<c1308850>] ? cleanup_net+0x0/0x160
+Aug  5 11:19:47 doris kernel: [  218.420815]  [<c105a230>] ? worker_thread+0x110/0x250
+Aug  5 11:19:47 doris kernel: [  218.420832]  [<c13d1658>] ? schedule+0x748/0x7a0
+Aug  5 11:19:47 doris kernel: [  218.420849]  [<c105d5f0>] ? autoremove_wake_function+0x0/0x40
+Aug  5 11:19:47 doris kernel: [  218.420864]  [<c105a120>] ? worker_thread+0x0/0x250
+Aug  5 11:19:47 doris kernel: [  218.420879]  [<c105d1bc>] ? kthread+0x6c/0x80
+Aug  5 11:19:47 doris kernel: [  218.420895]  [<c105d150>] ? kthread+0x0/0x80
+Aug  5 11:19:47 doris kernel: [  218.420910]  [<c1003336>] ? kernel_thread_helper+0x6/0x10
+Aug  5 11:19:47 doris kernel: [  218.420919] Code: 91 08 89 e2 81 e2 00 e0 ff ff 83 6a 14 01 f6 42 08 08 75 19 3b 1b 75 13 ba fa 72 88 fc e8 94 3e 8c c4 8d 64 24 04 5b 5d c3 0f 0b <0f> 0b 89 45 f8 e8 a1 ad b4 c4 8b 45 f8 eb da 8d b6 00 00 00 00 
+Aug  5 11:19:47 doris kernel: [  218.421063] EIP: [<fc886a15>] recent_net_exit+0x55/0x70 [xt_recent] SS:ESP 0068:f5cd5f20
+Aug  5 11:19:47 doris kernel: [  218.421136] ---[ end trace f57524f15f4df616 ]---
+
 
 -- 
-Jens Axboe
+MfG,
 
+Michael Leun
 
-Confidentiality Notice: This e-mail message, its contents and any attachments to it are confidential to the intended recipient, and may contain information that is privileged and/or exempt from disclosure under applicable law. If you are not the intended recipient, please immediately notify the sender and destroy the original e-mail message and any attachments (and any copies that may have been made) from your system or otherwise. Any unauthorized use, copying, disclosure or distribution of this information is strictly prohibited.
