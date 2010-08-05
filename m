@@ -1,71 +1,51 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] isdn: fix information leak
-Date: Thu, 5 Aug 2010 11:38:06 +0200
-Message-ID: <20100805093806.GF9031@bicker>
+From: Dmitry Kozlov <xeb@mail.ru>
+Subject: =?koi8-r?Q?[PATCH_v2_3/3]_PPTP=3A_PPP_over_IPv4_(Point-to-Point_Tunneling_Protocol)?=
+Date: Thu, 05 Aug 2010 13:39:24 +0400
+Message-ID: <E1Ogwv6-00032e-00.xeb-mail-ru@f278.mail.ru>
+Reply-To: Dmitry Kozlov <xeb@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34762 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759509Ab0HEJie (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 05:38:34 -0400
-Content-Disposition: inline
+Received: from f278.mail.ru ([217.69.128.247]:34252 "EHLO f278.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758997Ab0HEJjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 05:39:25 -0400
+Received: from mail by f278.mail.ru with local
+	id 1Ogwv6-00032e-00
+	for netdev@vger.kernel.org; Thu, 05 Aug 2010 13:39:24 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The main motivation of this patch changing strcpy() to strlcpy().  
-We strcpy() to copy a 48 byte buffers into a 49 byte buffers.  So at
-best the last byte has leaked information, or maybe there is an
-overflow?  Anyway, this patch closes the information leaks by zeroing
-the memory and the calls to strlcpy() prevent overflows. 
+This is patch 3/3 which contains MAINTAINERS file modification.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+---
+ MAINTAINERS |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/isdn/sc/ioctl.c b/drivers/isdn/sc/ioctl.c
-index 1081091..2655e3a 100644
---- a/drivers/isdn/sc/ioctl.c
-+++ b/drivers/isdn/sc/ioctl.c
-@@ -174,7 +174,7 @@ int sc_ioctl(int card, scs_ioctl *data)
- 		pr_debug("%s: SCIOGETSPID: ioctl received\n",
- 				sc_adapter[card]->devicename);
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 02f75fc..191d7c4 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6450,6 +6450,20 @@ M:	"Maciej W. Rozycki" <macro@linux-mips.org>
+ S:	Maintained
+ F:	drivers/serial/zs.*
  
--		spid = kmalloc(SCIOC_SPIDSIZE, GFP_KERNEL);
-+		spid = kzalloc(SCIOC_SPIDSIZE, GFP_KERNEL);
- 		if (!spid) {
- 			kfree(rcvmsg);
- 			return -ENOMEM;
-@@ -194,7 +194,7 @@ int sc_ioctl(int card, scs_ioctl *data)
- 			kfree(rcvmsg);
- 			return status;
- 		}
--		strcpy(spid, rcvmsg->msg_data.byte_array);
-+		strlcpy(spid, rcvmsg->msg_data.byte_array, SCIOC_SPIDSIZE);
- 
- 		/*
- 		 * Package the switch type and send to user space
-@@ -272,12 +272,12 @@ int sc_ioctl(int card, scs_ioctl *data)
- 			return status;
- 		}
- 
--		dn = kmalloc(SCIOC_DNSIZE, GFP_KERNEL);
-+		dn = kzalloc(SCIOC_DNSIZE, GFP_KERNEL);
- 		if (!dn) {
- 			kfree(rcvmsg);
- 			return -ENOMEM;
- 		}
--		strcpy(dn, rcvmsg->msg_data.byte_array);
-+		strlcpy(dn, rcvmsg->msg_data.byte_array, SCIOC_DNSIZE);
- 		kfree(rcvmsg);
- 
- 		/*
-@@ -348,7 +348,7 @@ int sc_ioctl(int card, scs_ioctl *data)
- 		pr_debug("%s: SCIOSTAT: ioctl received\n",
- 				sc_adapter[card]->devicename);
- 
--		bi = kmalloc (sizeof(boardInfo), GFP_KERNEL);
-+		bi = kzalloc(sizeof(boardInfo), GFP_KERNEL);
- 		if (!bi) {
- 			kfree(rcvmsg);
- 			return -ENOMEM;
++GRE DEMULTIPLEXER DRIVER
++M:	Dmitry Kozlov <D.Kozlov@protek-vrn.ru>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	net/ipv4/gre.c
++F:	include/net/gre.h
++
++PPTP DRIVER
++M:	Dmitry Kozlov <D.Kozlov@protek-vrn.ru>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/pptp.c
++W:	http://sourceforge.net/projects/accel-pptp
++
+ THE REST
+ M:	Linus Torvalds <torvalds@linux-foundation.org>
+ L:	linux-kernel@vger.kernel.org
