@@ -1,32 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] isdn: fix information leak
-Date: Thu, 05 Aug 2010 13:21:55 -0700 (PDT)
-Message-ID: <20100805.132155.220076581.davem@davemloft.net>
-References: <20100805093806.GF9031@bicker>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 16/42] net/ipv6/netfilter: Adjust confusing if indentation
+Date: Thu, 5 Aug 2010 22:21:41 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008052221240.31692@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: error27@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47422
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934048Ab0HEUVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 16:21:37 -0400
-In-Reply-To: <20100805093806.GF9031@bicker>
+Received: from mgw2.diku.dk ([130.225.96.92]:55560 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934129Ab0HEUVn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 16:21:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Thu, 5 Aug 2010 11:38:06 +0200
+From: Julia Lawall <julia@diku.dk>
 
-> The main motivation of this patch changing strcpy() to strlcpy().  
-> We strcpy() to copy a 48 byte buffers into a 49 byte buffers.  So at
-> best the last byte has leaked information, or maybe there is an
-> overflow?  Anyway, this patch closes the information leaks by zeroing
-> the memory and the calls to strlcpy() prevent overflows. 
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+Indent the branch of an if.
 
-Applied.
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@r disable braces4@
+position p1,p2;
+statement S1,S2;
+@@
+
+(
+if (...) { ... }
+|
+if (...) S1@p1 S2@p2
+)
+
+@script:python@
+p1 << r.p1;
+p2 << r.p2;
+@@
+
+if (p1[0].column == p2[0].column):
+  cocci.print_main("branch",p1)
+  cocci.print_secs("after",p2)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index 1df3c8b..befccff 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -192,7 +192,7 @@ icmpv6_error(struct net *net, struct nf_conn *tmpl,
+ 	icmp6h = skb_header_pointer(skb, dataoff, sizeof(_ih), &_ih);
+ 	if (icmp6h == NULL) {
+ 		if (LOG_INVALID(net, IPPROTO_ICMPV6))
+-		nf_log_packet(PF_INET6, 0, skb, NULL, NULL, NULL,
++			nf_log_packet(PF_INET6, 0, skb, NULL, NULL, NULL,
+ 			      "nf_ct_icmpv6: short packet ");
+ 		return -NF_ACCEPT;
+ 	}
