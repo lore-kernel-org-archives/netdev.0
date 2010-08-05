@@ -1,73 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 8/42] drivers/net/ixgbe: Adjust confusing
-	if indentation
-Date: Thu, 5 Aug 2010 14:10:46 -0700
-Message-ID: <AANLkTim49t=xgQeFLeFaQGqKvr1MXt67nck+uiH-V62X@mail.gmail.com>
-References: <Pine.LNX.4.64.1008052219010.31692@ask.diku.dk>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Using virtio as a physical (wire-level) transport
+Date: Fri, 6 Aug 2010 00:30:50 +0300
+Message-ID: <20100805213050.GA24984@redhat.com>
+References: <20100804230441.GJ23951@ovro.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: kernel-janitors@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, John Ronciak <john.ronciak@intel.com>
-To: Julia Lawall <julia@diku.dk>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <Pine.LNX.4.64.1008052219010.31692@ask.diku.dk>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org,
+	Zang Roy <r61911@freescale.com>, netdev@vger.kernel.org
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32795 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756809Ab0HEVgm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 17:36:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20100804230441.GJ23951@ovro.caltech.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBBdWcgNSwgMjAxMCBhdCAxMzoxOSwgSnVsaWEgTGF3YWxsIDxqdWxpYUBkaWt1LmRr
-PiB3cm90ZToKPiBGcm9tOiBKdWxpYSBMYXdhbGwgPGp1bGlhQGRpa3UuZGs+Cj4KPiBCb3RoIGlm
-cyBhbmQgYXNzaWdubWVudHMgdG8gYXV0b2Mgc2VlbSBzaW1pbGFyIGVub3VnaCB0aGF0IHRoZXkg
-YXJlIGJvdGgKPiBwdXQgaW4gdGhlIGlmIGJyYW5jaCBpbmRpY2F0ZWQgYnkgdGhlaXIgaW5kZW50
-YXRpb24uCj4KPiBUaGUgc2VtYW50aWMgbWF0Y2ggdGhhdCBmaW5kcyB0aGlzIHByb2JsZW0gaXMg
-YXMgZm9sbG93czoKPiAoaHR0cDovL2NvY2NpbmVsbGUubGlwNi5mci8pCj4KPiAvLyA8c21wbD4K
-PiBAciBkaXNhYmxlIGJyYWNlczRACj4gcG9zaXRpb24gcDEscDI7Cj4gc3RhdGVtZW50IFMxLFMy
-Owo+IEBACj4KPiAoCj4gaWYgKC4uLikgeyAuLi4gfQo+IHwKPiBpZiAoLi4uKSBTMUBwMSBTMkBw
-Mgo+ICkKPgo+IEBzY3JpcHQ6cHl0aG9uQAo+IHAxIDw8IHIucDE7Cj4gcDIgPDwgci5wMjsKPiBA
-QAo+Cj4gaWYgKHAxWzBdLmNvbHVtbiA9PSBwMlswXS5jb2x1bW4pOgo+IMKgY29jY2kucHJpbnRf
-bWFpbigiYnJhbmNoIixwMSkKPiDCoGNvY2NpLnByaW50X3NlY3MoImFmdGVyIixwMikKPiAvLyA8
-L3NtcGw+Cj4KPiBTaWduZWQtb2ZmLWJ5OiBKdWxpYSBMYXdhbGwgPGp1bGlhQGRpa3UuZGs+Cj4K
-PiAtLS0KPiBUaGlzIGNoYW5nZXMgdGhlIHNlbWFudGljcyBhbmQgbWlnaHQgYmUgdGhlIHdyb25n
-IGZpeC4gwqBOb3QgdGVzdGVkLgo+Cj4gwqBkcml2ZXJzL25ldC9peGdiZS9peGdiZV84MjU5OS5j
-IHwgwqAgwqAzICsrLQo+IMKgMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMSBkZWxl
-dGlvbigtKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlXzgyNTk5LmMg
-Yi9kcml2ZXJzL25ldC9peGdiZS9peGdiZV84MjU5OS5jCj4gaW5kZXggM2UwNmE2MS4uYTVmY2Rj
-ZSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9peGdiZS9peGdiZV84MjU5OS5jCj4gKysrIGIv
-ZHJpdmVycy9uZXQvaXhnYmUvaXhnYmVfODI1OTkuYwo+IEBAIC03NjYsMTIgKzc2NiwxMyBAQCBz
-MzIgaXhnYmVfc2V0dXBfbWFjX2xpbmtfODI1OTkoc3RydWN0IGl4Z2JlX2h3ICpodywKPiDCoCDC
-oCDCoCDCoCDCoCDCoGxpbmtfbW9kZSA9PSBJWEdCRV9BVVRPQ19MTVNfS1g0X0tYX0tSX1NHTUlJ
-KSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAvKiBTZXQgS1g0L0tYL0tSIHN1cHBvcnQgYWNj
-b3JkaW5nIHRvIHNwZWVkIHJlcXVlc3RlZCAqLwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYXV0
-b2MgJj0gfihJWEdCRV9BVVRPQ19LWDRfS1hfU1VQUF9NQVNLIHwgSVhHQkVfQVVUT0NfS1JfU1VQ
-UCk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAoc3BlZWQgJiBJWEdCRV9MSU5LX1NQRUVE
-XzEwR0JfRlVMTCkKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChzcGVlZCAmIElYR0JFX0xJ
-TktfU1BFRURfMTBHQl9GVUxMKSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqBpZiAob3JpZ19hdXRvYyAmIElYR0JFX0FVVE9DX0tYNF9TVVBQKQo+IMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYXV0b2MgfD0gSVhHQkVfQVVUT0NfS1g0
-X1NVUFA7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBpZiAoKG9yaWdfYXV0
-b2MgJiBJWEdCRV9BVVRPQ19LUl9TVVBQKSAmJgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgKGh3LT5waHkuc21hcnRfc3BlZWRfYWN0aXZlID09IGZhbHNlKSkKPiDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGF1dG9jIHw9IElY
-R0JFX0FVVE9DX0tSX1NVUFA7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCB9Cj4gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqBpZiAoc3BlZWQgJiBJWEdCRV9MSU5LX1NQRUVEXzFHQl9GVUxMKQo+IMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYXV0b2MgfD0gSVhHQkVfQVVUT0NfS1hf
-U1VQUDsKPiDCoCDCoCDCoCDCoH0gZWxzZSBpZiAoKHBtYV9wbWRfMWcgPT0gSVhHQkVfQVVUT0Nf
-MUdfU0ZJKSAmJgoKVGhhbmtzIEp1bGlhLCBJIGF2ZSBhZGRlZCB0aGUgcGF0aCB0byBteSBxdWV1
-ZS4KCi0tIApDaGVlcnMsCkplZmYKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpUaGlzIFNGLm5ldCBl
-bWFpbCBpcyBzcG9uc29yZWQgYnkgCgpNYWtlIGFuIGFwcCB0aGV5IGNhbid0IGxpdmUgd2l0aG91
-dApFbnRlciB0aGUgQmxhY2tCZXJyeSBEZXZlbG9wZXIgQ2hhbGxlbmdlCmh0dHA6Ly9wLnNmLm5l
-dC9zZnUvUklNLWRldjJkZXYgCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3Vy
-Y2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8v
-ZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlz
-aXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+Hi Ira,
+
+> Making my life harder since the last time I tried this, mainline commit
+> 7c5e9ed0c (virtio_ring: remove a level of indirection) has removed the
+> possibility of using an alternative virtqueue implementation. The commit
+> message suggests that you might be willing to add this capability back.
+> Would this be an option?
+
+Sorry about that.
+
+With respect to this commit, we only had one implementation upstream
+and extra levels of indirection made extending the API
+much harder for no apparent benefit.
+
+When there's more than one ring implementation with very small amount of
+common code, I think that it might make sense to readd the indirection
+back, to separate the code cleanly.
+
+OTOH if the two implementations share a lot of code, I think that it
+might be better to just add a couple of if statements here and there.
+This way compiler even might have a chance to compile the code out if
+the feature is disabled in kernel config.
+
+-- 
+MST
