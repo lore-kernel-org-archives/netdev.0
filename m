@@ -1,25 +1,28 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 30/42] drivers/net/wireless/prism54: Adjust confusing if
- indentation
-Date: Thu, 5 Aug 2010 22:26:04 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008052225460.31692@ask.diku.dk>
+From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Subject: [PATCH 31/42] drivers/net: Adjust confusing if indentation
+Date: Thu, 5 Aug 2010 22:26:20 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008052226050.31692@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janit
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:57993 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934268Ab0HEU0H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 16:26:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
+From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
 
-Indent the branch of an if.
+Outdent the code following the if.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -46,22 +49,22 @@ if (p1[0].column == p2[0].column):
   cocci.print_secs("after",p2)
 // </smpl>
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
 
 ---
- drivers/net/wireless/prism54/isl_ioctl.c |    2 +-
+ drivers/net/gianfar.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/prism54/isl_ioctl.c b/drivers/net/wireless/prism54/isl_ioctl.c
-index 77cd65d..d97a2ca 100644
---- a/drivers/net/wireless/prism54/isl_ioctl.c
-+++ b/drivers/net/wireless/prism54/isl_ioctl.c
-@@ -3234,7 +3234,7 @@ prism54_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
- 	switch (cmd) {
- 		case PRISM54_HOSTAPD:
- 		if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
-+			return -EPERM;
- 		ret = prism54_hostapd(ndev, &wrq->u.data);
- 		return ret;
- 	}
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index a1b6301..36ccc37 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1859,7 +1859,7 @@ static int register_grp_irqs(struct gfar_priv_grp *grp)
+ 				printk(KERN_ERR "%s: Can't get IRQ %d\n",
+ 					dev->name, grp->interruptError);
+ 
+-				goto err_irq_fail;
++			goto err_irq_fail;
+ 		}
+ 
+ 		if ((err = request_irq(grp->interruptTransmit, gfar_transmit,
