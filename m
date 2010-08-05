@@ -1,55 +1,58 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [patch] isdn: fix information leak
-Date: Thu, 5 Aug 2010 19:02:06 +0800
-Message-ID: <AANLkTi=8ThVqTHpQmDfoon02C-VZ0JwBRtSrU7dzvvNt@mail.gmail.com>
-References: <20100805093806.GF9031@bicker> <AANLkTin4jtYuaxYfxDAgST857sD2K4Q28mPcPW=xd-V3@mail.gmail.com>
-	<20100805101938.GH9031@bicker>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] Fix napi_gro_frags vs netpoll path
+Date: Thu, 5 Aug 2010 11:03:55 +0000
+Message-ID: <20100805110355.GA19965@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35553 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755581Ab0HELC1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 07:02:27 -0400
-In-Reply-To: <20100805101938.GH9031@bicker>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:42030 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758849Ab0HELEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 07:04:02 -0400
+Received: by fxm14 with SMTP id 14so2748501fxm.19
+        for <netdev@vger.kernel.org>; Thu, 05 Aug 2010 04:04:01 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 5, 2010 at 6:19 PM, Dan Carpenter <error27@gmail.com> wrote=
-:
-> On Thu, Aug 05, 2010 at 06:08:08PM +0800, Changli Gao wrote:
->> On Thu, Aug 5, 2010 at 5:38 PM, Dan Carpenter <error27@gmail.com> wr=
-ote:
->> > The main motivation of this patch changing strcpy() to strlcpy().
->> > We strcpy() to copy a 48 byte buffers into a 49 byte buffers. =A0S=
-o at
->> > best the last byte has leaked information, or maybe there is an
->> > overflow? =A0Anyway, this patch closes the information leaks by ze=
-roing
->> > the memory and the calls to strlcpy() prevent overflows.
->>
->> strlcpy() can handle the terminator NUL. so you don't need to zero i=
-t.
->
-> If there are no NUL chars in "rcvmsg->msg_data.byte_array" then strlc=
-py()
-> is sufficient, but if there is a NUL character then you need to zero =
-the
-> memory. =A0The patch handles both possibilities.
->
+Hi,
 
-the second parameter of strlcpy() must a NUL terminated C string. I
-think you means strncpy().
+While looking at Xioahui's patch I noticed this "unless I miss
+something" bug.
 
-=46YI:
-http://lxr.linux.no/#linux+v2.6.35/lib/string.c#L146
-http://lxr.linux.no/#linux+v2.6.35/lib/string.c#L119
+Jarek P.
+------------------>
 
+The netpoll_rx_on() check in dev_gro_receive() skips part of the
+"common" GRO_NORMAL path, especially "pull:" in dev_gro_receive(),
+where at least eth header should be copied for entirely paged skbs.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+---
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e1c1cdc..2b50896 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3072,7 +3072,7 @@ enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	int mac_len;
+ 	enum gro_result ret;
+ 
+-	if (!(skb->dev->features & NETIF_F_GRO))
++	if (!(skb->dev->features & NETIF_F_GRO) || netpoll_rx_on(skb))
+ 		goto normal;
+ 
+ 	if (skb_is_gso(skb) || skb_has_frags(skb))
+@@ -3159,9 +3159,6 @@ __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	struct sk_buff *p;
+ 
+-	if (netpoll_rx_on(skb))
+-		return GRO_NORMAL;
+-
+ 	for (p = napi->gro_list; p; p = p->next) {
+ 		NAPI_GRO_CB(p)->same_flow =
+ 			(p->dev == skb->dev) &&
