@@ -1,96 +1,73 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 16517] New: rp_filter fails to filter with
- CONFIG_IP_ROUTE_MULTIPATH and more than one 0/0 nexthop dev
-Date: Thu, 5 Aug 2010 13:46:53 -0700
-Message-ID: <20100805134653.9e8985cc.akpm@linux-foundation.org>
-References: <bug-16517-10286@https.bugzilla.kernel.org/>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 8/42] drivers/net/ixgbe: Adjust confusing
+	if indentation
+Date: Thu, 5 Aug 2010 14:10:46 -0700
+Message-ID: <AANLkTim49t=xgQeFLeFaQGqKvr1MXt67nck+uiH-V62X@mail.gmail.com>
+References: <Pine.LNX.4.64.1008052219010.31692@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	for.poige+bugzilla.kernel.org@gmail.com
-To: netfilter@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:40776 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932426Ab0HEU53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 16:57:29 -0400
-In-Reply-To: <bug-16517-10286@https.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: kernel-janitors@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, John Ronciak <john.ronciak@intel.com>
+To: Julia Lawall <julia@diku.dk>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <Pine.LNX.4.64.1008052219010.31692@ask.diku.dk>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
-
-On Thu, 5 Aug 2010 01:48:01 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
-
-> https://bugzilla.kernel.org/show_bug.cgi?id=16517
-> 
->            Summary: rp_filter fails to filter with
->                     CONFIG_IP_ROUTE_MULTIPATH and more than one 0/0
->                     nexthop dev
->            Product: Networking
->            Version: 2.5
->     Kernel Version: at least 2.6.18 and newer
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: high
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: for.poige+bugzilla.kernel.org@gmail.com
->         Regression: No
-> 
-> 
-> I think the problem is net/ipv4/fib_frontend.c fib_validate_source()
-> 
-> ...
-> #ifdef CONFIG_IP_ROUTE_MULTIPATH
->     if (FIB_RES_DEV(res) == dev || res.fi->fib_nhs > 1)
-> #else
->     if (FIB_RES_DEV(res) == dev)
-> #endif
-> ...
-> 
-> I'm not sure, but this code is quite trivial and self-speaking. In case we have
-> several default routes, we'd better iterate over each of them and compare
-> resulting devices with the input one. So, fix is also trivial, specially for
-> network kernel developers. ;-)
-> 
-> I've set priority "High" cause it doesn't affects usual Linux users directly,
-> but indirectly it can affect any host on Internet, so the problem is
-> significant, of course.
-> 
-> P. S. Kernel docs say: {
-> rp_filter - INTEGER
->         0 - No source validation.
->         1 - Strict mode as defined in RFC3704 Strict Reverse Path
->             Each incoming packet is tested against the FIB and if the interface
->             is not the best reverse path the packet check will fail.
->             By default failed packets are discarded.
->         2 - Loose mode as defined in RFC3704 Loose Reverse Path
->             Each incoming packet's source address is also tested against the
-> FIB
->             and if the source address is not reachable via any interface
->             the packet check will fail.
-> 
->         Current recommended practice in RFC3704 is to enable strict mode
->         to prevent IP spoofing from DDos attacks. If using asymmetric routing
->         or other complicated routing, then loose mode is recommended.
-> 
->         conf/all/rp_filter must also be set to non-zero to do source validation
->         on the interface
-> 
->         Default value is 0. Note that some distributions enable it
->         in startup scripts.
-> }, but is in reality level "2" of rp_filtering implemented?
-> 
-> P. P. S. netfilter would be the best place to have Reverse Path checks. But
-> that's another story.
-> 
-
+T24gVGh1LCBBdWcgNSwgMjAxMCBhdCAxMzoxOSwgSnVsaWEgTGF3YWxsIDxqdWxpYUBkaWt1LmRr
+PiB3cm90ZToKPiBGcm9tOiBKdWxpYSBMYXdhbGwgPGp1bGlhQGRpa3UuZGs+Cj4KPiBCb3RoIGlm
+cyBhbmQgYXNzaWdubWVudHMgdG8gYXV0b2Mgc2VlbSBzaW1pbGFyIGVub3VnaCB0aGF0IHRoZXkg
+YXJlIGJvdGgKPiBwdXQgaW4gdGhlIGlmIGJyYW5jaCBpbmRpY2F0ZWQgYnkgdGhlaXIgaW5kZW50
+YXRpb24uCj4KPiBUaGUgc2VtYW50aWMgbWF0Y2ggdGhhdCBmaW5kcyB0aGlzIHByb2JsZW0gaXMg
+YXMgZm9sbG93czoKPiAoaHR0cDovL2NvY2NpbmVsbGUubGlwNi5mci8pCj4KPiAvLyA8c21wbD4K
+PiBAciBkaXNhYmxlIGJyYWNlczRACj4gcG9zaXRpb24gcDEscDI7Cj4gc3RhdGVtZW50IFMxLFMy
+Owo+IEBACj4KPiAoCj4gaWYgKC4uLikgeyAuLi4gfQo+IHwKPiBpZiAoLi4uKSBTMUBwMSBTMkBw
+Mgo+ICkKPgo+IEBzY3JpcHQ6cHl0aG9uQAo+IHAxIDw8IHIucDE7Cj4gcDIgPDwgci5wMjsKPiBA
+QAo+Cj4gaWYgKHAxWzBdLmNvbHVtbiA9PSBwMlswXS5jb2x1bW4pOgo+IMKgY29jY2kucHJpbnRf
+bWFpbigiYnJhbmNoIixwMSkKPiDCoGNvY2NpLnByaW50X3NlY3MoImFmdGVyIixwMikKPiAvLyA8
+L3NtcGw+Cj4KPiBTaWduZWQtb2ZmLWJ5OiBKdWxpYSBMYXdhbGwgPGp1bGlhQGRpa3UuZGs+Cj4K
+PiAtLS0KPiBUaGlzIGNoYW5nZXMgdGhlIHNlbWFudGljcyBhbmQgbWlnaHQgYmUgdGhlIHdyb25n
+IGZpeC4gwqBOb3QgdGVzdGVkLgo+Cj4gwqBkcml2ZXJzL25ldC9peGdiZS9peGdiZV84MjU5OS5j
+IHwgwqAgwqAzICsrLQo+IMKgMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMSBkZWxl
+dGlvbigtKQo+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlXzgyNTk5LmMg
+Yi9kcml2ZXJzL25ldC9peGdiZS9peGdiZV84MjU5OS5jCj4gaW5kZXggM2UwNmE2MS4uYTVmY2Rj
+ZSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9peGdiZS9peGdiZV84MjU5OS5jCj4gKysrIGIv
+ZHJpdmVycy9uZXQvaXhnYmUvaXhnYmVfODI1OTkuYwo+IEBAIC03NjYsMTIgKzc2NiwxMyBAQCBz
+MzIgaXhnYmVfc2V0dXBfbWFjX2xpbmtfODI1OTkoc3RydWN0IGl4Z2JlX2h3ICpodywKPiDCoCDC
+oCDCoCDCoCDCoCDCoGxpbmtfbW9kZSA9PSBJWEdCRV9BVVRPQ19MTVNfS1g0X0tYX0tSX1NHTUlJ
+KSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAvKiBTZXQgS1g0L0tYL0tSIHN1cHBvcnQgYWNj
+b3JkaW5nIHRvIHNwZWVkIHJlcXVlc3RlZCAqLwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYXV0
+b2MgJj0gfihJWEdCRV9BVVRPQ19LWDRfS1hfU1VQUF9NQVNLIHwgSVhHQkVfQVVUT0NfS1JfU1VQ
+UCk7Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCBpZiAoc3BlZWQgJiBJWEdCRV9MSU5LX1NQRUVE
+XzEwR0JfRlVMTCkKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGlmIChzcGVlZCAmIElYR0JFX0xJ
+TktfU1BFRURfMTBHQl9GVUxMKSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqBpZiAob3JpZ19hdXRvYyAmIElYR0JFX0FVVE9DX0tYNF9TVVBQKQo+IMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYXV0b2MgfD0gSVhHQkVfQVVUT0NfS1g0
+X1NVUFA7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBpZiAoKG9yaWdfYXV0
+b2MgJiBJWEdCRV9BVVRPQ19LUl9TVVBQKSAmJgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgKGh3LT5waHkuc21hcnRfc3BlZWRfYWN0aXZlID09IGZhbHNlKSkKPiDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGF1dG9jIHw9IElY
+R0JFX0FVVE9DX0tSX1NVUFA7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCB9Cj4gwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqBpZiAoc3BlZWQgJiBJWEdCRV9MSU5LX1NQRUVEXzFHQl9GVUxMKQo+IMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYXV0b2MgfD0gSVhHQkVfQVVUT0NfS1hf
+U1VQUDsKPiDCoCDCoCDCoCDCoH0gZWxzZSBpZiAoKHBtYV9wbWRfMWcgPT0gSVhHQkVfQVVUT0Nf
+MUdfU0ZJKSAmJgoKVGhhbmtzIEp1bGlhLCBJIGF2ZSBhZGRlZCB0aGUgcGF0aCB0byBteSBxdWV1
+ZS4KCi0tIApDaGVlcnMsCkplZmYKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpUaGlzIFNGLm5ldCBl
+bWFpbCBpcyBzcG9uc29yZWQgYnkgCgpNYWtlIGFuIGFwcCB0aGV5IGNhbid0IGxpdmUgd2l0aG91
+dApFbnRlciB0aGUgQmxhY2tCZXJyeSBEZXZlbG9wZXIgQ2hhbGxlbmdlCmh0dHA6Ly9wLnNmLm5l
+dC9zZnUvUklNLWRldjJkZXYgCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3Vy
+Y2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8v
+ZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlz
+aXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
