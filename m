@@ -1,159 +1,59 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC] vhost: max s/g to match qemu
-Date: Thu, 5 Aug 2010 23:03:44 +0300
-Message-ID: <20100805200344.GA24008__27138.3122345016$1281039039$gmane$org@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free
+ (adding ipv6 address to interface)
+Date: Thu, 05 Aug 2010 13:11:28 -0700 (PDT)
+Message-ID: <20100805.131128.42817872.davem@davemloft.net>
+References: <m1y6clz8ta.fsf_-_@fess.ebiederm.org>
+	<20100805134707.0442a7b1@xenia.leun.net>
+	<m1bp9g7ry0.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Aristeu Rozanski <arozansk@redhat.com>,
-	Juan Quintela <quintela@redhat.com>,
-	Herbert Xu <herbert.xu@redhat.com>,
-	"David S. Miller" <davem@redha
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48091 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932599Ab0HEUKC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 16:10:02 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lkml20100708@newton.leun.net, greg@kroah.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	adobriyan@gmail.com, kaber@trash.net
+To: ebiederm@xmission.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1bp9g7ry0.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-qemu supports up to UIO_MAXIOV s/g so we have to match that.
-Apparently windows guests rely on this (more precisely,
-they want to fill all of vq with s/g entries of a single
-descriptor).
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 05 Aug 2010 12:57:59 -0700
 
-Allocate indirect and log arrays dynamically to avoid
-using too much contigious memory.
-hdr array is used to store the virtio header.
-Since each iovec entry has >= 1 byte length, we never need
-more than header length entries to store the header.
+> I wonder what has changed with ipv6 recently.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+There was a recent fix to the IGMP snooping code we have in
+the bridging layer, if parsing of an ipv6 IGMP packet failed
+we'd leak the packet (and thus references to whatever device
+it referenced).
 
----
+commit 6d1d1d398cb7db7a12c5d652d50f85355345234f
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Thu Jul 29 01:12:31 2010 +0000
 
-This fixes Red Hat bugzilla 619002.
-Dave, I'll queue this through the vhost tree so there's no
-need for you to apply this.
-Labeling RFC to make this explicit.
+    bridge: Fix skb leak when multicast parsing fails on TX
+    
+    On the bridge TX path we're leaking an skb when br_multicast_rcv
+    returns an error.
+    
+    Reported-by: David Lamparter <equinox@diac24.net>
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-
- drivers/vhost/vhost.c |   32 ++++++++++++++++++++++++++++++--
- drivers/vhost/vhost.h |   17 ++++++++---------
- 2 files changed, 38 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index e519950..b21a5e5 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -123,10 +123,31 @@ static void vhost_vq_reset(struct vhost_dev *dev,
- 	vq->log_ctx = NULL;
- }
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 4cec805..f49bcd9 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -48,8 +48,10 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
  
-+/* Helper to allocate iovec buffers for all vqs. */
-+static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
-+{
-+	int i;
-+	for (i = 0; i < dev->nvqs; ++i) {
-+		dev->vqs[i].indirect = kmalloc(GFP_KERNEL, UIO_MAXIOV *
-+					       sizeof *dev->vqs[i].indirect);
-+		dev->vqs[i].log = kmalloc(GFP_KERNEL, UIO_MAXIOV *
-+					  sizeof *dev->vqs[i].log);
-+		if (!dev->vqs[i].indirect || !dev->vqs[i].log)
-+			goto err_nomem;
-+	}
-+	return 0;
-+err_nomem:
-+	for (; i >= 0; --i) {
-+		kfree(dev->vqs[i].indirect);
-+		kfree(dev->vqs[i].log);
-+	}
-+	return -ENOMEM;
-+}
-+
- long vhost_dev_init(struct vhost_dev *dev,
- 		    struct vhost_virtqueue *vqs, int nvqs)
- {
--	int i;
-+	int i, ret;
- 	dev->vqs = vqs;
- 	dev->nvqs = nvqs;
- 	mutex_init(&dev->mutex);
-@@ -136,6 +157,10 @@ long vhost_dev_init(struct vhost_dev *dev,
- 	dev->mm = NULL;
- 	dev->wq = NULL;
+ 	rcu_read_lock();
+ 	if (is_multicast_ether_addr(dest)) {
+-		if (br_multicast_rcv(br, NULL, skb))
++		if (br_multicast_rcv(br, NULL, skb)) {
++			kfree_skb(skb);
+ 			goto out;
++		}
  
-+	ret = vhost_dev_alloc_iovecs(dev);
-+	if (ret)
-+		return ret;
-+
- 	for (i = 0; i < dev->nvqs; ++i) {
- 		dev->vqs[i].dev = dev;
- 		mutex_init(&dev->vqs[i].mutex);
-@@ -222,6 +247,9 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
- 		if (dev->vqs[i].call)
- 			fput(dev->vqs[i].call);
- 		vhost_vq_reset(dev, dev->vqs + i);
-+
-+		kfree(dev->vqs[i].indirect);
-+		kfree(dev->vqs[i].log);
- 	}
- 	if (dev->log_ctx)
- 		eventfd_ctx_put(dev->log_ctx);
-@@ -824,7 +852,7 @@ static int get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
- 	}
- 
- 	ret = translate_desc(dev, indirect->addr, indirect->len, vq->indirect,
--			     ARRAY_SIZE(vq->indirect));
-+			     UIO_MAXIOV);
- 	if (unlikely(ret < 0)) {
- 		vq_err(vq, "Translation failure %d in indirect.\n", ret);
- 		return ret;
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 19f4334..61b1a6e 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -12,14 +12,10 @@
- #include <linux/uio.h>
- #include <linux/virtio_config.h>
- #include <linux/virtio_ring.h>
-+#include <linux/virtio_net.h>
- 
- struct vhost_device;
- 
--enum {
--	/* Enough place for all fragments, head, and virtio net header. */
--	VHOST_NET_MAX_SG = MAX_SKB_FRAGS + 2,
--};
--
- /* Poll a file (eventfd or socket) */
- /* Note: there's nothing vhost specific about this structure. */
- struct vhost_poll {
-@@ -83,9 +79,12 @@ struct vhost_virtqueue {
- 	bool log_used;
- 	u64 log_addr;
- 
--	struct iovec indirect[VHOST_NET_MAX_SG];
--	struct iovec iov[VHOST_NET_MAX_SG];
--	struct iovec hdr[VHOST_NET_MAX_SG];
-+	struct iovec iov[UIO_MAXIOV];
-+	/* hdr is used to store the virtio header.
-+	 * Since each iovec entry has >= 1 byte length, we never need more than
-+	 * header length entries to store the header. */
-+	struct iovec hdr[sizeof(struct virtio_net_hdr_mrg_rxbuf)];
-+	struct iovec *indirect;
- 	size_t hdr_size;
- 	/* We use a kind of RCU to access private pointer.
- 	 * All readers access it from workqueue, which makes it possible to
-@@ -97,7 +96,7 @@ struct vhost_virtqueue {
- 	void *private_data;
- 	/* Log write descriptors */
- 	void __user *log_base;
--	struct vhost_log log[VHOST_NET_MAX_SG];
-+	struct vhost_log *log;
- };
- 
- struct vhost_dev {
--- 
-1.7.2.rc0.14.g41c1c
+ 		mdst = br_mdb_get(br, skb);
+ 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
