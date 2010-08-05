@@ -1,120 +1,154 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] cfg80211: support sysfs namespaces
-Date: Thu, 05 Aug 2010 12:46:17 -0700
-Message-ID: <m1wrs47shi.fsf@fess.ebiederm.org>
-References: <1281023115.4058.11.camel@jlt3.sipsolutions.net>
+From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH] [Bug 16494] NFS client over TCP hangs due to packet
+ loss
+Date: Thu, 05 Aug 2010 15:50:22 -0400
+Message-ID: <1281037822.2948.49.camel@heimdal.trondhjem.org>
+References: <4c57cfe8.887b0e0a.2f79.4772@mx.google.com>
+	 <20100803.012144.267950450.davem@davemloft.net>
+	 <20100803021110.f0b3877b.akpm@linux-foundation.org>
+	 <4C57EE9A.7040308@gmail.com>  <4c5ad0d6.42ecd80a.47d7.0dfc@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Linville <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:46804 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759273Ab0HETqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 15:46:22 -0400
-In-Reply-To: <1281023115.4058.11.camel@jlt3.sipsolutions.net> (Johannes Berg's message of "Thu\, 05 Aug 2010 17\:45\:15 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "'Andrew Morton'" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org,
+	pekkas-UjJjq++bwZ7HOG6cAo2yLw@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
+	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	William.Allen.Simpson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, gilad-f4XOiQkOAtcdH0auuBZGHA@public.gmane.org,
+	ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"'J. Bruce Fields'" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"'Neil Brown'" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"'Chuck Lever'" <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"'Benny Halevy'" <bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>,
+	"'Alexandros Batsakis'" <batsakis-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"'Joe Perches'" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+To: Andy Chittenden <andyc.bluearc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4c5ad0d6.42ecd80a.47d7.0dfc-ATjtLOhZ0NVl57MIdRCFDg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Johannes Berg <johannes@sipsolutions.net> writes:
-
-> From: Johannes Berg <johannes.berg@intel.com>
->
-> Enable using network namespaces with
-> wireless devices even when sysfs is
-> enabled using the same infrastructure
-> that was built for netdevs.
-
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-
-This looks reasonable.  I assume you have tested this and it is
-working now?
-
->
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
-> NB: This generates a harmless gcc warning, I submitted
->     a patch to fix it here:
->     http://thread.gmane.org/gmane.linux.kernel/1019330
->
->  include/linux/netdevice.h |    2 ++
->  net/core/net-sysfs.c      |    3 ++-
->  net/wireless/core.c       |    7 ++++++-
->  net/wireless/sysfs.c      |    9 +++++++++
->  4 files changed, 19 insertions(+), 2 deletions(-)
->
-> --- wireless-testing.orig/net/core/net-sysfs.c	2010-08-05 17:33:47.000000000 +0200
-> +++ wireless-testing/net/core/net-sysfs.c	2010-08-05 17:38:27.000000000 +0200
-> @@ -789,12 +789,13 @@ static const void *net_netlink_ns(struct
->  	return sock_net(sk);
->  }
+On Thu, 2010-08-05 at 15:55 +0100, Andy Chittenden wrote:
+> > On 2010-08-03 10:11, Andrew Morton wrote:
+> > > (cc linux-nfs)
+> > >
+> > > On Tue, 03 Aug 2010 01:21:44 -0700 (PDT) David
+> > Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>  wrote:
+> > >
+> > >> From: "Andy Chittenden"<andyc.bluearc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > >> Date: Tue, 3 Aug 2010 09:14:31 +0100
+> > >>
+> > >>> I don't know whether this patch is the correct fix or not but it
+> > enables the
+> > >>> NFS client to recover.
+> > >>>
+> > >>> Kernel version: 2.6.34.1 and 2.6.32.
+> > >>>
+> > >>> Fixes<https://bugzilla.kernel.org/show_bug.cgi?id=16494>. It clears
+> > down
+> > >>> any previous shutdown attempts so that reconnects on a socket
+> > that's been
+> > >>> shutdown leave the socket in a usable state (otherwise
+> > tcp_sendmsg() returns
+> > >>> -EPIPE).
+> > >>
+> > >> If the SunRPC code wants to close a TCP socket then use it again,
+> > >> it should disconnect by doing a connect() with sa_family ==
+> > AF_UNSPEC
+> > 
+> > There is code to do that in the SunRPC code in xs_abort_connection()
+> > but
+> > that's conditionally called from xs_tcp_reuse_connection():
+> > 
+> > static void xs_tcp_reuse_connection(struct rpc_xprt *xprt, struct
+> > sock_xprt *transport)
+> > {
+> > 	unsigned int state = transport->inet->sk_state;
+> > 
+> > 	if (state == TCP_CLOSE && transport->sock->state ==
+> > SS_UNCONNECTED)
+> > 		return;
+> > 	if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
+> > 		return;
+> > 	xs_abort_connection(xprt, transport);
+> > }
+> > 
+> > That's changed since 2.6.26 where it unconditionally did the connect()
+> > with sa_family == AF_UNSPEC. FWIW we cannot reproduce this problem with
+> > 2.6.26.
+> 
+> The problem is fixed with this patch which also prints out that sk_shutdown
+> can be non-zero on entry to xs_tcp_reuse_connection:
+> 
+> # diff -up /home/company/software/src/linux-2.6.34.2/net/sunrpc/xprtsock.c
+> net/sunrpc/xprtsock.c 
+> --- /home/company/software/src/linux-2.6.34.2/net/sunrpc/xprtsock.c
+> 2010-08-02 18:30:51.000000000 +0100
+> +++ net/sunrpc/xprtsock.c       2010-08-05 12:21:11.000000000 +0100
+> @@ -1322,10 +1322,11 @@ static void xs_tcp_state_change(struct s
+>         if (!(xprt = xprt_from_sock(sk)))
+>                 goto out;
+>         dprintk("RPC:       xs_tcp_state_change client %p...\n", xprt);
+> -       dprintk("RPC:       state %x conn %d dead %d zapped %d\n",
+> +       dprintk("RPC:       state %x conn %d dead %d zapped %d sk_shutdown
+> %d\n",
+>                         sk->sk_state, xprt_connected(xprt),
+>                         sock_flag(sk, SOCK_DEAD),
+> -                       sock_flag(sk, SOCK_ZAPPED));
+> +                       sock_flag(sk, SOCK_ZAPPED),
+> +                       sk->sk_shutdown);
 >  
-> -static struct kobj_ns_type_operations net_ns_type_operations = {
-> +struct kobj_ns_type_operations net_ns_type_operations = {
->  	.type = KOBJ_NS_TYPE_NET,
->  	.current_ns = net_current_ns,
->  	.netlink_ns = net_netlink_ns,
->  	.initial_ns = net_initial_ns,
->  };
-> +EXPORT_SYMBOL_GPL(net_ns_type_operations);
->  
->  static void net_kobj_ns_exit(struct net *net)
+>         switch (sk->sk_state) {
+>         case TCP_ESTABLISHED:
+> @@ -1796,10 +1797,18 @@ static void xs_tcp_reuse_connection(stru
 >  {
-> --- wireless-testing.orig/net/wireless/sysfs.c	2010-08-05 17:33:47.000000000 +0200
-> +++ wireless-testing/net/wireless/sysfs.c	2010-08-05 17:39:11.000000000 +0200
-> @@ -110,6 +110,13 @@ static int wiphy_resume(struct device *d
->  	return ret;
+>         unsigned int state = transport->inet->sk_state;
+>  
+> -       if (state == TCP_CLOSE && transport->sock->state == SS_UNCONNECTED)
+> -               return;
+> -       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
+> -               return;
+> +       if (state == TCP_CLOSE && transport->sock->state == SS_UNCONNECTED)
+> {
+> +               if (transport->inet->sk_shutdown == 0)
+> +                       return;
+> +               printk("%s: TCP_CLOSEd and sk_shutdown set to %d\n",
+> +                       __func__, transport->inet->sk_shutdown);
+> +       }
+> +       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT)) {
+> +               if (transport->inet->sk_shutdown == 0)
+> +                       return;
+> +               printk("%s: sk_shutdown set to %d\n",
+> +                       __func__, transport->inet->sk_shutdown);
+> +       }
+>         xs_abort_connection(xprt, transport);
 >  }
->  
-> +static const void *wiphy_namespace(struct device *d)
-> +{
-> +	struct wiphy *wiphy = container_of(d, struct wiphy, dev);
-> +
-> +	return wiphy_net(wiphy);
-> +}
-> +
->  struct class ieee80211_class = {
->  	.name = "ieee80211",
->  	.owner = THIS_MODULE,
-> @@ -120,6 +127,8 @@ struct class ieee80211_class = {
->  #endif
->  	.suspend = wiphy_suspend,
->  	.resume = wiphy_resume,
-> +	.ns_type = &net_ns_type_operations,
-> +	.namespace = wiphy_namespace,
->  };
->  
->  int wiphy_sysfs_init(void)
-> --- wireless-testing.orig/net/wireless/core.c	2010-08-05 17:33:47.000000000 +0200
-> +++ wireless-testing/net/wireless/core.c	2010-08-05 17:38:27.000000000 +0200
-> @@ -253,11 +253,16 @@ int cfg80211_switch_netns(struct cfg8021
->  			WARN_ON(err);
->  			wdev->netdev->features |= NETIF_F_NETNS_LOCAL;
->  		}
-> +
-> +		return err;
->  	}
->  
->  	wiphy_net_set(&rdev->wiphy, net);
->  
-> -	return err;
-> +	err = device_rename(&rdev->wiphy.dev, dev_name(&rdev->wiphy.dev));
-> +	WARN_ON(err);
-> +
-> +	return 0;
->  }
->  
->  static void cfg80211_rfkill_poll(struct rfkill *rfkill, void *data)
-> --- wireless-testing.orig/include/linux/netdevice.h	2010-08-05 17:13:50.000000000 +0200
-> +++ wireless-testing/include/linux/netdevice.h	2010-08-05 17:39:02.000000000 +0200
-> @@ -2171,6 +2171,8 @@ extern void dev_seq_stop(struct seq_file
->  extern int netdev_class_create_file(struct class_attribute *class_attr);
->  extern void netdev_class_remove_file(struct class_attribute *class_attr);
->  
-> +extern struct kobj_ns_type_operations net_ns_type_operations;
-> +
->  extern char *netdev_drivername(const struct net_device *dev, char *buffer, int len);
->  
->  extern void linkwatch_run_queue(void);
+> 
+> Signed-off-by: Andy Chittenden <andyc.bluearc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> dmesg displays:
+> 
+> [ 2840.896043] xs_tcp_reuse_connection: TCP_CLOSEd and sk_shutdown set to 2
+> 
+> so previously the code was attempting to reuse the connection but wasn't
+> aborting it and thus didn't clear down sk_shutdown.
+
+Hi Andy,
+
+I note that you are adding in two new printk()s. Why should they be
+printk(), and not dprintk()? Are you trying to report an exception that
+the user needs to be aware of, or is this only debugging info that we'll
+want to turn off under normal operation?
+
+Also, it might be useful to add a comment to the code here to remind us
+what the 'sk_shutdown == 0' case corresponds to as far as the socket
+state is concerned, so that the casual reader can see why we shouldn't
+reset the connection.
+
+Cheers
+  Trond
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
