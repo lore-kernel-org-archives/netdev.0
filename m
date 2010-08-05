@@ -1,55 +1,54 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH v2] net: Fix napi_gro_frags vs netpoll path
-Date: Thu, 5 Aug 2010 11:19:11 +0000
-Message-ID: <20100805111911.GB19965@ff.dom.local>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [patch] isdn: fix information leak
+Date: Thu, 5 Aug 2010 13:37:37 +0200
+Message-ID: <20100805113721.GI9031@bicker>
+References: <20100805093806.GF9031@bicker> <AANLkTin4jtYuaxYfxDAgST857sD2K4Q28mPcPW=xd-V3@mail.gmail.com> <20100805101938.GH9031@bicker> <AANLkTi=8ThVqTHpQmDfoon02C-VZ0JwBRtSrU7dzvvNt@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>
-To: David Miller <davem@davemloft.net>
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:60276 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759028Ab0HELTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 07:19:17 -0400
-Received: by fxm14 with SMTP id 14so2759594fxm.19
-        for <netdev@vger.kernel.org>; Thu, 05 Aug 2010 04:19:16 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47460 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758869Ab0HELhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 07:37:54 -0400
 Content-Disposition: inline
+In-Reply-To: <AANLkTi=8ThVqTHpQmDfoon02C-VZ0JwBRtSrU7dzvvNt@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Slight changelog and subject fixes only, sorry.
+On Thu, Aug 05, 2010 at 07:02:06PM +0800, Changli Gao wrote:
+> 
+> the second parameter of strlcpy() must a NUL terminated C string. I
+> think you means strncpy().
+> 
 
-Jarek P.
------------------->
+Both strncpy() and strlcpy() take a limitter.  The difference is that
+strlcpy() always takes on a terminator and strncpy() only adds a
+terminator if there is space.
 
-The netpoll_rx_on() check in __napi_gro_receive() skips part of the
-"common" GRO_NORMAL path, especially "pull:" in dev_gro_receive(),
-where at least eth header should be copied for entirely paged skbs.
+strlcpy() is a BSD function that never caught on in Linux.  The glibc
+maintainers think that if you accidentally chop off the last part of a
+word that makes you an idiot.  They think you should known the length of
+your data at all times and use memcpy() or a proper string library.
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
----
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e1c1cdc..2b50896 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3072,7 +3072,7 @@ enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 	int mac_len;
- 	enum gro_result ret;
- 
--	if (!(skb->dev->features & NETIF_F_GRO))
-+	if (!(skb->dev->features & NETIF_F_GRO) || netpoll_rx_on(skb))
- 		goto normal;
- 
- 	if (skb_is_gso(skb) || skb_has_frags(skb))
-@@ -3159,9 +3159,6 @@ __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	struct sk_buff *p;
- 
--	if (netpoll_rx_on(skb))
--		return GRO_NORMAL;
--
- 	for (p = napi->gro_list; p; p = p->next) {
- 		NAPI_GRO_CB(p)->same_flow =
- 			(p->dev == skb->dev) &&
+I prefer strlcpy() to strncpy().  Some people do stuff like:
+	strncpy(bar, foo, n);
+	bar[n] = '\0';
+You have to read through the code to find if n is "sizeof(bar)" or
+"sizeof(bar) - 1".  Which is a pain in the arse.  strlcpy() is explicit
+and it's just one line of code instead of two.
+
+The other tricky thing you should remember about strncpy() is that the
+posix version writes NUL chars from the end of the string to the
+limitter but the kernel version only copies one NUL character.
+
+regards,
+dan carpenter
+
+> FYI:
+> http://lxr.linux.no/#linux+v2.6.35/lib/string.c#L146
+> http://lxr.linux.no/#linux+v2.6.35/lib/string.c#L119
+> 
+
