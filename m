@@ -1,7 +1,7 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH] Fix napi_gro_frags vs netpoll path
-Date: Thu, 5 Aug 2010 11:03:55 +0000
-Message-ID: <20100805110355.GA19965@ff.dom.local>
+Subject: [PATCH v2] net: Fix napi_gro_frags vs netpoll path
+Date: Thu, 5 Aug 2010 11:19:11 +0000
+Message-ID: <20100805111911.GB19965@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
@@ -9,25 +9,22 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"Xin, Xiaohui" <xiaohui.xin@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42030 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:60276 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758849Ab0HELEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 07:04:02 -0400
-Received: by fxm14 with SMTP id 14so2748501fxm.19
-        for <netdev@vger.kernel.org>; Thu, 05 Aug 2010 04:04:01 -0700 (PDT)
+	with ESMTP id S1759028Ab0HELTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 07:19:17 -0400
+Received: by fxm14 with SMTP id 14so2759594fxm.19
+        for <netdev@vger.kernel.org>; Thu, 05 Aug 2010 04:19:16 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-While looking at Xioahui's patch I noticed this "unless I miss
-something" bug.
+Slight changelog and subject fixes only, sorry.
 
 Jarek P.
 ------------------>
 
-The netpoll_rx_on() check in dev_gro_receive() skips part of the
+The netpoll_rx_on() check in __napi_gro_receive() skips part of the
 "common" GRO_NORMAL path, especially "pull:" in dev_gro_receive(),
 where at least eth header should be copied for entirely paged skbs.
 
