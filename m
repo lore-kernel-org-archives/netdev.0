@@ -1,48 +1,42 @@
-From: Usha Srinivasan <usha.srinivasan@qlogic.com>
-Subject: RE: Receive processing stops when dev->poll returns 1
-Date: Thu, 5 Aug 2010 13:11:07 -0500
-Message-ID: <7866DA1F8D2D4541B87FEE88E633ABAA2B72082003@MNEXMB1.qlogic.org>
-References: <7866DA1F8D2D4541B87FEE88E633ABAA2B72081FB6@MNEXMB1.qlogic.org>
-	<20100805090447.3f67d990@nehalam>
-	<7866DA1F8D2D4541B87FEE88E633ABAA2B72081FDF@MNEXMB1.qlogic.org>
-	<20100805092243.41671259@nehalam>
-	<7866DA1F8D2D4541B87FEE88E633ABAA2B72081FE6@MNEXMB1.qlogic.org>
- <20100805103715.7d720cb0@nehalam>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [net 0/2] Clean up netfilter cache on xmit-to-self.
+Date: Thu, 05 Aug 2010 11:43:37 -0700
+Message-ID: <4C5B0659.7020105@candelatech.com>
+References: <1279828488-17800-1-git-send-email-greearb@candelatech.com>	<20100725.215912.39197141.davem@davemloft.net> <20100725.220104.59695038.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:54380 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754209Ab0HESLK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 14:11:10 -0400
-In-Reply-To: <20100805103715.7d720cb0@nehalam>
-Content-Language: en-US
+Received: from mail.candelatech.com ([208.74.158.172]:46321 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751837Ab0HESni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 14:43:38 -0400
+In-Reply-To: <20100725.220104.59695038.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen,
-The min is inside a while loop; it is purely used to limit the number of completions that are retrieved at-a-time.  The outer while loops ensuring that all the completions are handled until budget is reached or there are no completions left. Please look again at the code I sent you.
-Usha
+On 07/25/2010 10:01 PM, David Miller wrote:
+> From: David Miller<davem@davemloft.net>
+> Date: Sun, 25 Jul 2010 21:59:12 -0700 (PDT)
+>
+>> From: Ben Greear<greearb@candelatech.com>
+>> Date: Thu, 22 Jul 2010 12:54:46 -0700
+>>
+>>> These patches are against 2.6.34.1.  The first one may be
+>>> worth submitting to stable.  The second one is less critical
+>>> and should probably just go in the development tree.
+>>
+>> I'll apply the first one to net-2.6 and queue up for -stable
 
------Original Message-----
-From: Stephen Hemminger [mailto:shemminger@vyatta.com] 
-Sent: Thursday, August 05, 2010 1:37 PM
-To: Usha Srinivasan
-Cc: netdev@vger.kernel.org
-Subject: Re: Receive processing stops when dev->poll returns 1
+As far as I can tell, this didn't make it into -stable yet?
 
-On Thu, 5 Aug 2010 11:36:26 -0500
-Usha Srinivasan <usha.srinivasan@qlogic.com> wrote:
+Thanks,
+Ben
 
->         int max = (budget - done);
->         t = min(<max-supported-by-driver>, max);
->         n = get-completions(comp_list);
-
-You need to handle all completions pending in the poll, the code will
-not call you back. So this min() is the problem.
 
 -- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
