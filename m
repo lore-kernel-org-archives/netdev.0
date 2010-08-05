@@ -1,21 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Receive processing stops when dev->poll returns 1
-Date: Thu, 5 Aug 2010 09:04:47 -0700
-Message-ID: <20100805090447.3f67d990@nehalam>
+From: Usha Srinivasan <usha.srinivasan@qlogic.com>
+Subject: RE: Receive processing stops when dev->poll returns 1
+Date: Thu, 5 Aug 2010 11:11:51 -0500
+Message-ID: <7866DA1F8D2D4541B87FEE88E633ABAA2B72081FDF@MNEXMB1.qlogic.org>
 References: <7866DA1F8D2D4541B87FEE88E633ABAA2B72081FB6@MNEXMB1.qlogic.org>
+ <20100805090447.3f67d990@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Usha Srinivasan <usha.srinivasan@qlogic.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36021 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752012Ab0HEQEt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 12:04:49 -0400
-In-Reply-To: <7866DA1F8D2D4541B87FEE88E633ABAA2B72081FB6@MNEXMB1.qlogic.org>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:58250 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755601Ab0HEQMD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 12:12:03 -0400
+In-Reply-To: <20100805090447.3f67d990@nehalam>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Thanks for your response. What you said is exactly what my driver is doing:
+
+
+<= 2.6.23 
+Calls netif_rx_complete if done < budget; decrements quota & *budget by done; returns 0 if done < budget and 1 otherwise.
+
+When 1 is returned, I encounter the problem I described)
+
+> 2.6.23
+Calls napi-complete if done < budget; returns done.
+
+When done==budget, I encounter the problem I described.
+
+Any ideas?
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@vyatta.com] 
+Sent: Thursday, August 05, 2010 12:05 PM
+To: Usha Srinivasan
+Cc: netdev@vger.kernel.org
+Subject: Re: Receive processing stops when dev->poll returns 1
 
 On Thu, 5 Aug 2010 09:20:03 -0500
 Usha Srinivasan <usha.srinivasan@qlogic.com> wrote:
@@ -37,3 +61,4 @@ Using your example,
   budget would be 100
  if your network driver process 100 packets, it should return 100
  and call napi_complete().
+
