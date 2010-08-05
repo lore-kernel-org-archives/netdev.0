@@ -1,116 +1,291 @@
-From: Michael Leun <lkml20100708@newton.leun.net>
-Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free
- (after using openvpn) (was Re: sysfs bug when using tun with network
- namespaces)
-Date: Thu, 5 Aug 2010 11:25:38 +0200
-Message-ID: <20100805112538.60a46cb1@xenia.leun.net>
-References: <loom.20100708T183152-326@post.gmane.org>
-	<20100709235744.GA12752@kroah.com>
-	<20100710101540.2799c9ef@xenia.leun.net>
-	<20100710140800.GA20424@kroah.com>
-	<20100710165208.59272ae6@xenia.leun.net>
-	<20100710235323.5336f627@xenia.leun.net>
-	<20100711192939.1c25dcaf@xenia.leun.net>
-	<20100804153543.56f6ecad@xenia.leun.net>
-	<20100804214618.GA6289@kroah.com>
-	<20100805001105.5a3453ed@xenia.leun.net>
-	<m1lj8l29zm.fsf@fess.ebiederm.org>
+From: Dmitry Kozlov <xeb@mail.ru>
+Subject: =?koi8-r?Q?[PATCH_v2_1/3]_PPTP=3A_PPP_over_IPv4_(Point-to-Point_Tunneling_Protocol)?=
+Date: Thu, 05 Aug 2010 13:36:16 +0400
+Message-ID: <E1Ogws4-0000NO-00.xeb-mail-ru@f238.mail.ru>
+Reply-To: Dmitry Kozlov <xeb@mail.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from serv04.lahn.de ([213.239.197.57]:57079 "EHLO serv04.lahn.de"
+Received: from f238.mail.ru ([217.69.128.165]:42231 "EHLO f238.mail.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751301Ab0HEJ3J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 05:29:09 -0400
-In-Reply-To: <m1lj8l29zm.fsf@fess.ebiederm.org>
+	id S1756904Ab0HEJgS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 05:36:18 -0400
+Received: from mail by f238.mail.ru with local
+	id 1Ogws4-0000NO-00
+	for netdev@vger.kernel.org; Thu, 05 Aug 2010 13:36:16 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This is patch 1/3 which contains gre demultiplexer driver source
+for demultiplexing gre packets with different gre version.
 
-On Wed, 04 Aug 2010 17:12:29 -0700
-ebiederm@xmission.com (Eric W. Biederman) wrote:
+---
+ include/net/gre.h |   18 +++++++
+ net/ipv4/Kconfig  |    7 +++
+ net/ipv4/Makefile |    1 +
+ net/ipv4/gre.c    |  147 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/ip_gre.c |   10 ++--
+ 5 files changed, 178 insertions(+), 5 deletions(-)
 
-First, thank you very much for picking that up (and, of course, for
-your work at linux in general).
-
-
-> > # > unshare -n /bin/bash
-> > # > # how to setup veth device pair to get connectivity into
-> > namespace not shown here # > openvpn --config some.config
-> > [ running some traffic over vpn device not shown here ]
-> > ^c # stopping openvpn
-> > # > lsof -i
-> > # > netstat -an
-> > Active Internet connections (servers and established)
-> > Proto Recv-Q Send-Q Local Address           Foreign Address
-> > State Active UNIX domain sockets (servers and established)
-> > Proto RefCnt Flags       Type       State         I-Node Path
-> > # > ps ax|grep openvpn|grep -v grep
-> > # > # cannot find anything that suggests there is anything left
-> > from that openvpn session # > exit # logging out from shell in
-> > network namespace
-> >
-> > Now I get
-> >
-> > Jul 10 20:02:36 doris kernel: unregister_netdevice: waiting for lo
-> > to become free. Usage count = 3 [repeated]
-> 
-> How many times?
-
-Unfortunately looks like indefinitely. Never watched longer so far
-(rebooted soon), but I'm seeing this message now repeated every 10 secs
-for ~10 minutes on a idle system.
-
-Additionally when testing this I found another one (by accident started
-my firewall script in that namespace...) - using netfilter RECENT
-makes it barf. Stripped down to the essentials it looks like this:
-
-> # unshare -n /bin/bash
-> # iptables -I INPUT -d 1.2.3.4 -m recent --name BLA --set
-> # exit
-
-Aug  5 11:19:47 doris kernel: [  218.420238] ------------[ cut here ]------------
-Aug  5 11:19:47 doris kernel: [  218.420256] kernel BUG at net/netfilter/xt_recent.c:609!
-Aug  5 11:19:47 doris kernel: [  218.420268] invalid opcode: 0000 [#1] PREEMPT SMP 
-Aug  5 11:19:47 doris kernel: [  218.420284] last sysfs file: /sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0C0A:00/power_supply/BAT0/charge_full
-Aug  5 11:19:47 doris kernel: [  218.420295] Modules linked in: snd_pcm_oss snd_mixer_oss snd_seq snd_seq_device edd cpufreq_conservative cpufreq_userspace cpufreq_powersave acpi_cpufreq mperf ipt_REJECT ipt_LOG xt_limit xt_recent iptable_mangle iptable_nat iptable_filter nf_conntrack_ipv6 xt_state xt_tcpudp ip6table_filter ip6_tables nf_nat_ftp nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack_ftp nf_conntrack ip_tables x_tables fuse nls_utf8 loop arc4 ecb iwlagn iwlcore mac80211 snd_hda_codec_realtek snd_hda_intel snd_hda_codec snd_hwdep snd_pcm cfg80211 snd_timer snd usb_storage iTCO_wdt soundcore tg3 sg iTCO_vendor_support snd_page_alloc rfkill i2c_i801 pcspkr battery ac ext4 jbd2 crc16 sha256_generic aes_generic cbc dm_crypt linear i915 drm_kms_helper drm i2c_algo_bit sd_mod video 
- intel_agp button dm_snapshot dm_mod fan processor ata_piix ahci libahci libata scsi_mod thermal thermal_sys
-Aug  5 11:19:47 doris kernel: [  218.420529] 
-Aug  5 11:19:47 doris kernel: [  218.420542] Pid: 13, comm: netns Not tainted 2.6.35 #2 Kuril                           /40684JG         
-Aug  5 11:19:47 doris kernel: [  218.420557] EIP: 0060:[<fc886a15>] EFLAGS: 00010206 CPU: 0
-Aug  5 11:19:47 doris kernel: [  218.420578] EIP is at recent_net_exit+0x55/0x70 [xt_recent]
-Aug  5 11:19:47 doris kernel: [  218.420589] EAX: f2218000 EBX: f5b79290 ECX: f2f27b40 EDX: f5cd4000
-Aug  5 11:19:47 doris kernel: [  218.420601] ESI: f2218000 EDI: f5cd5f44 EBP: f5cd5f28 ESP: f5cd5f20
-Aug  5 11:19:47 doris kernel: [  218.420612]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-Aug  5 11:19:47 doris kernel: [  218.420626] Process netns (pid: 13, ti=f5cd4000 task=f5cc9920 task.ti=f5cd4000)
-Aug  5 11:19:47 doris kernel: [  218.420635] Stack:
-Aug  5 11:19:47 doris kernel: [  218.420641]  f5cd5f30 fc887618 f5cd5f3c c130867d fc887618 f5cd5f44 c1308850 f5cd5f60
-Aug  5 11:19:47 doris kernel: [  218.420667] <0> c1308919 f2218014 f2218014 f221800c f221800c c15915a0 c3bb4f40 c1308850
-Aug  5 11:19:47 doris kernel: [  218.420695] <0> f5cd5fbc c105a230 c13d1658 00000001 00000000 f7048000 c160f500 f5cc9c00
-Aug  5 11:19:47 doris kernel: [  218.420724] Call Trace:
-Aug  5 11:19:47 doris kernel: [  218.420749]  [<c130867d>] ? ops_exit_list+0x1d/0x50
-Aug  5 11:19:47 doris kernel: [  218.420766]  [<c1308850>] ? cleanup_net+0x0/0x160
-Aug  5 11:19:47 doris kernel: [  218.420782]  [<c1308919>] ? cleanup_net+0xc9/0x160
-Aug  5 11:19:47 doris kernel: [  218.420797]  [<c1308850>] ? cleanup_net+0x0/0x160
-Aug  5 11:19:47 doris kernel: [  218.420815]  [<c105a230>] ? worker_thread+0x110/0x250
-Aug  5 11:19:47 doris kernel: [  218.420832]  [<c13d1658>] ? schedule+0x748/0x7a0
-Aug  5 11:19:47 doris kernel: [  218.420849]  [<c105d5f0>] ? autoremove_wake_function+0x0/0x40
-Aug  5 11:19:47 doris kernel: [  218.420864]  [<c105a120>] ? worker_thread+0x0/0x250
-Aug  5 11:19:47 doris kernel: [  218.420879]  [<c105d1bc>] ? kthread+0x6c/0x80
-Aug  5 11:19:47 doris kernel: [  218.420895]  [<c105d150>] ? kthread+0x0/0x80
-Aug  5 11:19:47 doris kernel: [  218.420910]  [<c1003336>] ? kernel_thread_helper+0x6/0x10
-Aug  5 11:19:47 doris kernel: [  218.420919] Code: 91 08 89 e2 81 e2 00 e0 ff ff 83 6a 14 01 f6 42 08 08 75 19 3b 1b 75 13 ba fa 72 88 fc e8 94 3e 8c c4 8d 64 24 04 5b 5d c3 0f 0b <0f> 0b 89 45 f8 e8 a1 ad b4 c4 8b 45 f8 eb da 8d b6 00 00 00 00 
-Aug  5 11:19:47 doris kernel: [  218.421063] EIP: [<fc886a15>] recent_net_exit+0x55/0x70 [xt_recent] SS:ESP 0068:f5cd5f20
-Aug  5 11:19:47 doris kernel: [  218.421136] ---[ end trace f57524f15f4df616 ]---
-
-
--- 
-MfG,
-
-Michael Leun
-
+diff --git a/include/net/gre.h b/include/net/gre.h
+new file mode 100644
+index 0000000..31a0f76
+--- /dev/null
++++ b/include/net/gre.h
+@@ -0,0 +1,18 @@
++#ifndef __LINUX_GRE_H
++#define __LINUX_GRE_H
++
++#include <linux/skbuff.h>
++
++#define GREPROTO_CISCO		0
++#define GREPROTO_PPTP		1
++#define GREPROTO_MAX		2
++
++struct gre_protocol {
++	int		(*handler)(struct sk_buff *skb);
++	void	(*err_handler)(struct sk_buff *skb, u32 info);
++};
++
++int gre_add_protocol(const struct gre_protocol *proto, u8 version);
++int gre_del_protocol(const struct gre_protocol *proto, u8 version);
++
++#endif
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 7c3a7d1..7458bda 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -215,8 +215,15 @@ config NET_IPIP
+ 	  be inserted in and removed from the running kernel whenever you
+ 	  want). Most people won't need this and can say N.
+ 
++config NET_IPGRE_DEMUX
++	tristate "IP: GRE demultiplexer"
++	help
++	 This is helper module to demultiplex GRE packets on GRE version field criteria.
++	 Required by ip_gre and pptp modules.
++
+ config NET_IPGRE
+ 	tristate "IP: GRE tunnels over IP"
++	depends on NET_IPGRE_DEMUX
+ 	help
+ 	  Tunneling means encapsulating data of one protocol type within
+ 	  another protocol and sending it over a channel that understands the
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 80ff87c..4978d22 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -20,6 +20,7 @@ obj-$(CONFIG_PROC_FS) += proc.o
+ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
+ obj-$(CONFIG_IP_MROUTE) += ipmr.o
+ obj-$(CONFIG_NET_IPIP) += ipip.o
++obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
+ obj-$(CONFIG_NET_IPGRE) += ip_gre.o
+ obj-$(CONFIG_SYN_COOKIES) += syncookies.o
+ obj-$(CONFIG_INET_AH) += ah4.o
+diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+new file mode 100644
+index 0000000..f54a0fc
+--- /dev/null
++++ b/net/ipv4/gre.c
+@@ -0,0 +1,147 @@
++/*
++ *	GRE over IPv4 demultiplexer driver
++ *
++ *	Authors: Dmitry Kozlov (xeb@mail.ru)
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/kmod.h>
++#include <linux/skbuff.h>
++#include <linux/in.h>
++#include <linux/netdevice.h>
++#include <linux/version.h>
++#include <linux/spinlock.h>
++#include <net/protocol.h>
++#include <net/gre.h>
++
++
++const struct gre_protocol *gre_proto[GREPROTO_MAX] ____cacheline_aligned_in_smp;
++static DEFINE_RWLOCK(gre_proto_lock);
++
++int gre_add_protocol(const struct gre_protocol *proto, u8 version)
++{
++	int ret;
++
++	if (version >= GREPROTO_MAX)
++		return -1;
++	
++	write_lock_bh(&gre_proto_lock);
++	if (gre_proto[version]) {
++		ret = -1;
++	} else {
++		gre_proto[version]=proto;
++		ret = 0;
++	}
++	write_unlock_bh(&gre_proto_lock);
++
++	return ret;
++}
++int gre_del_protocol(const struct gre_protocol *proto, u8 version)
++{
++	int ret;
++
++	if (version >= GREPROTO_MAX)
++		return -1;
++
++	write_lock_bh(&gre_proto_lock);
++	if (gre_proto[version] == proto) {
++		gre_proto[version] = NULL;
++		ret = 0;
++	} else {
++		ret = -1;
++	}
++	write_unlock_bh(&gre_proto_lock);
++
++	return ret;
++}
++static int gre_rcv(struct sk_buff *skb)
++{
++	u8 ver;
++	int ret;
++
++	if (!pskb_may_pull(skb, 12))
++		goto drop_nolock;
++
++	ver = skb->data[1]&0x7f;
++	if (ver >= GREPROTO_MAX)
++		goto drop_nolock;
++	
++	read_lock(&gre_proto_lock);
++	if (!gre_proto[ver] || !gre_proto[ver]->handler)
++		goto drop;
++	ret = gre_proto[ver]->handler(skb);
++	read_unlock(&gre_proto_lock);
++	return ret;
++
++drop:
++	read_unlock(&gre_proto_lock);
++drop_nolock:
++	kfree_skb(skb);
++	return NET_RX_DROP;
++}
++static void gre_err(struct sk_buff *skb, u32 info)
++{
++	u8 ver;
++
++	printk("err\n");
++
++	if (!pskb_may_pull(skb, 12))
++		goto drop_nolock;
++
++	ver=skb->data[1];
++	if (ver>=GREPROTO_MAX)
++		goto drop_nolock;
++		
++	read_lock(&gre_proto_lock);
++	if (!gre_proto[ver] || !gre_proto[ver]->err_handler)
++		goto drop;
++	gre_proto[ver]->err_handler(skb,info);
++	read_unlock(&gre_proto_lock);
++	return;
++
++drop:
++	read_unlock(&gre_proto_lock);
++drop_nolock:
++	kfree_skb(skb);
++}
++
++
++static struct net_protocol net_gre_protocol = {
++	.handler	= gre_rcv,
++	.err_handler	=	gre_err,
++	.netns_ok=1,
++};
++
++static int __init gre_init(void)
++{
++	printk(KERN_INFO "GRE over IPv4 demultiplexor driver");
++	
++	if (inet_add_protocol(&net_gre_protocol, IPPROTO_GRE) < 0) {
++		printk(KERN_INFO "gre: can't add protocol\n");
++		return -EAGAIN;
++	}
++
++	return 0;
++}
++
++static void __exit gre_exit(void)
++{
++	inet_del_protocol(&net_gre_protocol, IPPROTO_GRE);
++}
++
++module_init(gre_init);
++module_exit(gre_exit);
++
++MODULE_DESCRIPTION("GRE over IPv4 demultiplexer driver");
++MODULE_AUTHOR("D. Kozlov (xeb@mail.ru)");
++MODULE_LICENSE("GPL");
++EXPORT_SYMBOL_GPL(gre_add_protocol);
++EXPORT_SYMBOL_GPL(gre_del_protocol);
++
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 32618e1..f0391b3 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -44,6 +44,7 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
++#include <net/gre.h>
+ 
+ #ifdef CONFIG_IPV6
+ #include <net/ipv6.h>
+@@ -1276,10 +1277,9 @@ static void ipgre_fb_tunnel_init(struct net_device *dev)
+ }
+ 
+ 
+-static const struct net_protocol ipgre_protocol = {
++static const struct gre_protocol ipgre_protocol = {
+ 	.handler	=	ipgre_rcv,
+ 	.err_handler	=	ipgre_err,
+-	.netns_ok	=	1,
+ };
+ 
+ static void ipgre_destroy_tunnels(struct ipgre_net *ign, struct list_head *head)
+@@ -1661,7 +1661,7 @@ static int __init ipgre_init(void)
+ 	if (err < 0)
+ 		return err;
+ 
+-	err = inet_add_protocol(&ipgre_protocol, IPPROTO_GRE);
++	err = gre_add_protocol(&ipgre_protocol, GREPROTO_CISCO);
+ 	if (err < 0) {
+ 		printk(KERN_INFO "ipgre init: can't add protocol\n");
+ 		goto add_proto_failed;
+@@ -1681,7 +1681,7 @@ out:
+ tap_ops_failed:
+ 	rtnl_link_unregister(&ipgre_link_ops);
+ rtnl_link_failed:
+-	inet_del_protocol(&ipgre_protocol, IPPROTO_GRE);
++	gre_del_protocol(&ipgre_protocol, GREPROTO_CISCO);
+ add_proto_failed:
+ 	unregister_pernet_device(&ipgre_net_ops);
+ 	goto out;
+@@ -1691,7 +1691,7 @@ static void __exit ipgre_fini(void)
+ {
+ 	rtnl_link_unregister(&ipgre_tap_ops);
+ 	rtnl_link_unregister(&ipgre_link_ops);
+-	if (inet_del_protocol(&ipgre_protocol, IPPROTO_GRE) < 0)
++	if (gre_del_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
+ 		printk(KERN_INFO "ipgre close: can't remove protocol\n");
+ 	unregister_pernet_device(&ipgre_net_ops);
+ }
