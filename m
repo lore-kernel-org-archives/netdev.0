@@ -1,60 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio_net: implements ethtool_ops.get_drvinfo
-Date: Wed, 04 Aug 2010 21:54:24 -0700 (PDT)
-Message-ID: <20100804.215424.200345652.davem@davemloft.net>
-References: <201008051302.06045.rusty@rustcorp.com.au>
-	<1280980041.13192.628.camel@localhost>
+Subject: Re: [PATCH] act_nat: fix on the TX path
+Date: Wed, 04 Aug 2010 21:54:45 -0700 (PDT)
+Message-ID: <20100804.215445.212661939.davem@davemloft.net>
+References: <1280893158-22103-1-git-send-email-xiaosuo@gmail.com>
+	<20100804070621.GB370@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org, mst@redhat.com,
-	izumi.taku@jp.fujitsu.com
-To: bhutchings@solarflare.com
+Cc: xiaosuo@gmail.com, hadi@cyberus.ca, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59437
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59442
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751033Ab0HEEyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 00:54:07 -0400
-In-Reply-To: <1280980041.13192.628.camel@localhost>
+	by vger.kernel.org with ESMTP id S1754423Ab0HEEy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 00:54:26 -0400
+In-Reply-To: <20100804070621.GB370@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 05 Aug 2010 04:47:21 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 4 Aug 2010 15:06:21 +0800
 
-> On Thu, 2010-08-05 at 13:02 +0930, Rusty Russell wrote:
->> I often use "ethtool -i" command to check what driver controls the
->> ehternet device.  But because current virtio_net driver doesn't
->> support "ethtool -i", it becomes the following:
+> On Wed, Aug 04, 2010 at 11:39:18AM +0800, Changli Gao wrote:
+>> On the TX path, skb->data points to the ethernet header, not the network
+>> header. So when validating the packet length for accessing we should
+>> take the ethernet header into account.
 >> 
->>         # ethtool -i eth3
->>         Cannot get driver information: Operation not supported
->> 
->> This patch simply adds the "ethtool -i" support. The following is the
->> result when using the virtio_net driver with my patch applied to.
->> 
->>         # ethtool -i eth3
->>         driver: virtio_net
->>         version: N/A
->>         firmware-version: N/A
->>         bus-info: virtio0
->> 
->> Personally, "-i" is one of the most frequently-used option, and most
->> network drivers support "ethtool -i", so I think virtio_net also
->> should do.
-> [...]
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 > 
-> This information is already available generically through sysfs:
->     basename $(readlink /sys/class/net/eth3/device)
->     basename $(readlink /sys/class/net/eth3/device/driver)
-> 
-> Given that, we should either recommend that people use that method
-> instead, or we should add an equivalent default implementation of the
-> get_drvinfo operation.
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-We've had ethtool for nearly a decade, it's a standard facility and
-it's only wise to have all drivers implement as much of the API as
-possible.
-
-As such I've applied Rusty's patch and I will apply any patch which
-makes a driver more fully provide support for all ethtool facilities.
+Applied, thanks.
