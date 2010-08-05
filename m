@@ -1,67 +1,30 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 16/42] net/ipv6/netfilter: Adjust confusing if indentation
-Date: Thu, 5 Aug 2010 22:21:41 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008052221240.31692@ask.diku.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] usbnet: remove noisy and hardly useful printk
+Date: Thu, 05 Aug 2010 13:21:49 -0700 (PDT)
+Message-ID: <20100805.132149.71592467.davem@davemloft.net>
+References: <1280996076-19708-1-git-send-email-christian.samsel@rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dhollis@davehollis.com
+To: christian.samsel@rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:55560 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934129Ab0HEUVn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 16:21:43 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47417
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932979Ab0HEUVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Aug 2010 16:21:30 -0400
+In-Reply-To: <1280996076-19708-1-git-send-email-christian.samsel@rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+From: Christian Samsel <christian.samsel@rwth-aachen.de>
+Date: Thu, 05 Aug 2010 10:14:36 +0200
 
-Indent the branch of an if.
+> With turned on hspa modem (Dell 5530 internal card) and activated usb auto
+> suspend, my system gets up 100 "usbnet_resume has delayed data" per
+> minute. I didnt noticed any pathological behaviour, so just drop
+> this message. if any objections, please at least change it to _DEBUG.
+> 
+> Signed-off-by: Christian Samsel <christian.samsel@rwth-aachen.de>
 
-The semantic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
-
-// <smpl>
-@r disable braces4@
-position p1,p2;
-statement S1,S2;
-@@
-
-(
-if (...) { ... }
-|
-if (...) S1@p1 S2@p2
-)
-
-@script:python@
-p1 << r.p1;
-p2 << r.p2;
-@@
-
-if (p1[0].column == p2[0].column):
-  cocci.print_main("branch",p1)
-  cocci.print_secs("after",p2)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-index 1df3c8b..befccff 100644
---- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-@@ -192,7 +192,7 @@ icmpv6_error(struct net *net, struct nf_conn *tmpl,
- 	icmp6h = skb_header_pointer(skb, dataoff, sizeof(_ih), &_ih);
- 	if (icmp6h == NULL) {
- 		if (LOG_INVALID(net, IPPROTO_ICMPV6))
--		nf_log_packet(PF_INET6, 0, skb, NULL, NULL, NULL,
-+			nf_log_packet(PF_INET6, 0, skb, NULL, NULL, NULL,
- 			      "nf_ct_icmpv6: short packet ");
- 		return -NF_ACCEPT;
- 	}
+I agree, and I'll apply this, thanks.
