@@ -1,649 +1,1707 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [PATCH 07/18] pcmcia: use pcmica_{read,write}_config_byte
-Date: Fri,  6 Aug 2010 00:06:43 +0200
-Message-ID: <1281046014-7585-7-git-send-email-linux@dominikbrodowski.net>
+Subject: [PATCH 10/18] pcmcia: do not use io_req_t after call to pcmcia_request_io()
+Date: Fri,  6 Aug 2010 00:06:46 +0200
+Message-ID: <1281046014-7585-10-git-send-email-linux@dominikbrodowski.net>
 References: <20100805220511.GA7040@comet.dominikbrodowski.net>
 Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
 	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-serial@vger.kernel.org, Michael Buesch <mb@bu3sch.de>
+	linux-ide@vger.kernel.org, linux-usb@vger.kernel.org,
+	laforge@gnumonks.org, linux-mtd@lists.infradead.org,
+	alsa-devel@alsa-project.org, linux-serial@vger.kernel.org
 To: <linux-pcmcia@lists.infradead.org>
-Return-path: <linux-serial-owner@vger.kernel.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
 In-Reply-To: <20100805220511.GA7040@comet.dominikbrodowski.net>
-Sender: linux-serial-owner@vger.kernel.org
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use pcmcia_read_config_byte and pcmcia_write_config_byte instead
-of pcmcia_access_configuration_register.
+After pcmcia_request_io(), do not make use of the values stored in
+io_req_t, but instead use those found in struct pcmcia_device->resource[].
 
 CC: netdev@vger.kernel.org
 CC: linux-wireless@vger.kernel.org
+CC: linux-ide@vger.kernel.org
+CC: linux-usb@vger.kernel.org
+CC: laforge@gnumonks.org
+CC: linux-mtd@lists.infradead.org
+CC: alsa-devel@alsa-project.org
 CC: linux-serial@vger.kernel.org
-CC: Michael Buesch <mb@bu3sch.de>
+Acked-by: Marcel Holtmann <marcel@holtmann.org> (for drivers/bluetooth/)
 Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
 ---
- drivers/net/pcmcia/axnet_cs.c              |    3 +-
- drivers/net/pcmcia/nmclan_cs.c             |   21 ++-----
- drivers/net/pcmcia/xirc2ps_cs.c            |   16 ++---
- drivers/net/wireless/hostap/hostap_cs.c    |   91 ++++++++--------------------
- drivers/net/wireless/orinoco/spectrum_cs.c |   32 +++-------
- drivers/pcmcia/cistpl.c                    |    7 +-
- drivers/pcmcia/cs_internal.h               |    4 +-
- drivers/pcmcia/pcmcia_resource.c           |   72 +++++++++++++---------
- drivers/serial/serial_cs.c                 |    8 +--
- drivers/ssb/pcmcia.c                       |   14 +----
- include/pcmcia/cs.h                        |   12 ----
- include/pcmcia/ds.h                        |    4 +-
- 12 files changed, 105 insertions(+), 179 deletions(-)
+ drivers/ata/pata_pcmcia.c                        |    8 +++---
+ drivers/bluetooth/bluecard_cs.c                  |   18 ++++++++--------
+ drivers/bluetooth/bt3c_cs.c                      |    8 +++---
+ drivers/bluetooth/btuart_cs.c                    |   12 +++++-----
+ drivers/bluetooth/dtl1_cs.c                      |   13 ++++++-----
+ drivers/char/pcmcia/cm4000_cs.c                  |   12 +++++-----
+ drivers/char/pcmcia/cm4040_cs.c                  |   16 +++++++-------
+ drivers/char/pcmcia/ipwireless/main.c            |   10 +++-----
+ drivers/char/pcmcia/synclink_cs.c                |    7 ++---
+ drivers/ide/ide-cs.c                             |    8 +++---
+ drivers/isdn/hardware/avm/avm_cs.c               |    9 ++++---
+ drivers/isdn/hisax/avma1_cs.c                    |    8 ++++--
+ drivers/isdn/hisax/elsa_cs.c                     |   16 ++++++--------
+ drivers/isdn/hisax/sedlbauer_cs.c                |   16 ++++++--------
+ drivers/isdn/hisax/teles_cs.c                    |   14 +++++-------
+ drivers/net/pcmcia/3c574_cs.c                    |    2 +-
+ drivers/net/pcmcia/3c589_cs.c                    |    2 +-
+ drivers/net/pcmcia/axnet_cs.c                    |    4 +-
+ drivers/net/pcmcia/com20020_cs.c                 |    2 +-
+ drivers/net/pcmcia/fmvj18x_cs.c                  |    6 ++--
+ drivers/net/pcmcia/ibmtr_cs.c                    |    2 +-
+ drivers/net/pcmcia/nmclan_cs.c                   |    2 +-
+ drivers/net/pcmcia/pcnet_cs.c                    |    4 +-
+ drivers/net/pcmcia/smc91c92_cs.c                 |   18 ++++++++--------
+ drivers/net/pcmcia/xirc2ps_cs.c                  |   10 ++++----
+ drivers/net/wireless/airo_cs.c                   |   12 ++++------
+ drivers/net/wireless/atmel_cs.c                  |    2 +-
+ drivers/net/wireless/hostap/hostap_cs.c          |   18 +++++++--------
+ drivers/net/wireless/libertas/if_cs.c            |    7 ++---
+ drivers/net/wireless/orinoco/orinoco_cs.c        |    5 ++-
+ drivers/net/wireless/orinoco/spectrum_cs.c       |    5 ++-
+ drivers/net/wireless/wl3501_cs.c                 |    2 +-
+ drivers/parport/parport_cs.c                     |    6 +++-
+ drivers/scsi/pcmcia/aha152x_stub.c               |    2 +-
+ drivers/scsi/pcmcia/fdomain_stub.c               |    4 +-
+ drivers/scsi/pcmcia/nsp_cs.c                     |   25 ++++++++++-----------
+ drivers/scsi/pcmcia/qlogic_stub.c                |   18 ++++++++--------
+ drivers/scsi/pcmcia/sym53c500_cs.c               |   16 +++++++-------
+ drivers/serial/serial_cs.c                       |   22 +++++++++---------
+ drivers/staging/comedi/drivers/cb_das16_cs.c     |   12 ++++------
+ drivers/staging/comedi/drivers/das08_cs.c        |   12 ++++------
+ drivers/staging/comedi/drivers/ni_daq_700.c      |   12 ++++------
+ drivers/staging/comedi/drivers/ni_daq_dio24.c    |   12 ++++------
+ drivers/staging/comedi/drivers/ni_labpc_cs.c     |   12 ++++------
+ drivers/staging/comedi/drivers/ni_mio_cs.c       |    2 +-
+ drivers/staging/comedi/drivers/quatech_daqp_cs.c |   12 ++++------
+ drivers/staging/wlags49_h2/wl_cs.c               |    2 +-
+ drivers/telephony/ixj_pcmcia.c                   |    3 +-
+ drivers/usb/host/sl811_cs.c                      |    7 ++---
+ sound/pcmcia/pdaudiocf/pdaudiocf.c               |    3 +-
+ sound/pcmcia/vx/vxpocket.c                       |    3 +-
+ 51 files changed, 223 insertions(+), 240 deletions(-)
 
+diff --git a/drivers/ata/pata_pcmcia.c b/drivers/ata/pata_pcmcia.c
+index 3dcb2b1..1fcd065 100644
+--- a/drivers/ata/pata_pcmcia.c
++++ b/drivers/ata/pata_pcmcia.c
+@@ -210,13 +210,13 @@ static int pcmcia_check_one_config(struct pcmcia_device *pdev,
+ 			pdev->io.NumPorts2 = (stk->is_kme) ? 2 : 1;
+ 			if (pcmcia_request_io(pdev, &pdev->io) != 0)
+ 				return -ENODEV;
+-			stk->ctl_base = pdev->io.BasePort2;
++			stk->ctl_base = pdev->resource[1]->start;
+ 		} else if ((io->nwin == 1) && (io->win[0].len >= 16)) {
+ 			pdev->io.NumPorts1 = io->win[0].len;
+ 			pdev->io.NumPorts2 = 0;
+ 			if (pcmcia_request_io(pdev, &pdev->io) != 0)
+ 				return -ENODEV;
+-			stk->ctl_base = pdev->io.BasePort1 + 0x0e;
++			stk->ctl_base = pdev->resource[0]->start + 0x0e;
+ 		} else
+ 			return -ENODEV;
+ 		/* If we've got this far, we're done */
+@@ -270,7 +270,7 @@ static int pcmcia_init_one(struct pcmcia_device *pdev)
+ 		if (pcmcia_loop_config(pdev, pcmcia_check_one_config, stk))
+ 			goto failed; /* No suitable config found */
+ 	}
+-	io_base = pdev->io.BasePort1;
++	io_base = pdev->resource[0]->start;
+ 	ctl_base = stk->ctl_base;
+ 	if (!pdev->irq)
+ 		goto failed;
+@@ -293,7 +293,7 @@ static int pcmcia_init_one(struct pcmcia_device *pdev)
+ 
+ 	/* FIXME: Could be more ports at base + 0x10 but we only deal with
+ 	   one right now */
+-	if (pdev->io.NumPorts1 >= 0x20)
++	if (resource_size(pdev->resource[0]) >= 0x20)
+ 		n_ports = 2;
+ 
+ 	if (pdev->manf_id == 0x0097 && pdev->card_id == 0x1620)
+diff --git a/drivers/bluetooth/bluecard_cs.c b/drivers/bluetooth/bluecard_cs.c
+index eb085de..24d2007 100644
+--- a/drivers/bluetooth/bluecard_cs.c
++++ b/drivers/bluetooth/bluecard_cs.c
+@@ -159,7 +159,7 @@ static void bluecard_detach(struct pcmcia_device *p_dev);
+ static void bluecard_activity_led_timeout(u_long arg)
+ {
+ 	bluecard_info_t *info = (bluecard_info_t *)arg;
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 
+ 	if (!test_bit(CARD_HAS_PCCARD_ID, &(info->hw_state)))
+ 		return;
+@@ -176,7 +176,7 @@ static void bluecard_activity_led_timeout(u_long arg)
+ 
+ static void bluecard_enable_activity_led(bluecard_info_t *info)
+ {
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 
+ 	if (!test_bit(CARD_HAS_PCCARD_ID, &(info->hw_state)))
+ 		return;
+@@ -232,7 +232,7 @@ static void bluecard_write_wakeup(bluecard_info_t *info)
+ 	}
+ 
+ 	do {
+-		register unsigned int iobase = info->p_dev->io.BasePort1;
++		register unsigned int iobase = info->p_dev->resource[0]->start;
+ 		register unsigned int offset;
+ 		register unsigned char command;
+ 		register unsigned long ready_bit;
+@@ -379,7 +379,7 @@ static void bluecard_receive(bluecard_info_t *info, unsigned int offset)
+ 		return;
+ 	}
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	if (test_bit(XMIT_SENDING_READY, &(info->tx_state)))
+ 		bluecard_enable_activity_led(info);
+@@ -508,7 +508,7 @@ static irqreturn_t bluecard_interrupt(int irq, void *dev_inst)
+ 	if (!test_bit(CARD_READY, &(info->hw_state)))
+ 		return IRQ_HANDLED;
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	spin_lock(&(info->lock));
+ 
+@@ -622,7 +622,7 @@ static int bluecard_hci_flush(struct hci_dev *hdev)
+ static int bluecard_hci_open(struct hci_dev *hdev)
+ {
+ 	bluecard_info_t *info = (bluecard_info_t *)(hdev->driver_data);
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 
+ 	if (test_bit(CARD_HAS_PCCARD_ID, &(info->hw_state)))
+ 		bluecard_hci_set_baud_rate(hdev, DEFAULT_BAUD_RATE);
+@@ -642,7 +642,7 @@ static int bluecard_hci_open(struct hci_dev *hdev)
+ static int bluecard_hci_close(struct hci_dev *hdev)
+ {
+ 	bluecard_info_t *info = (bluecard_info_t *)(hdev->driver_data);
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 
+ 	if (!test_and_clear_bit(HCI_RUNNING, &(hdev->flags)))
+ 		return 0;
+@@ -709,7 +709,7 @@ static int bluecard_hci_ioctl(struct hci_dev *hdev, unsigned int cmd, unsigned l
+ 
+ static int bluecard_open(bluecard_info_t *info)
+ {
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 	struct hci_dev *hdev;
+ 	unsigned char id;
+ 
+@@ -828,7 +828,7 @@ static int bluecard_open(bluecard_info_t *info)
+ 
+ static int bluecard_close(bluecard_info_t *info)
+ {
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 	struct hci_dev *hdev = info->hdev;
+ 
+ 	if (!hdev)
+diff --git a/drivers/bluetooth/bt3c_cs.c b/drivers/bluetooth/bt3c_cs.c
+index 457b603..8ab494c 100644
+--- a/drivers/bluetooth/bt3c_cs.c
++++ b/drivers/bluetooth/bt3c_cs.c
+@@ -188,7 +188,7 @@ static void bt3c_write_wakeup(bt3c_info_t *info)
+ 		return;
+ 
+ 	do {
+-		register unsigned int iobase = info->p_dev->io.BasePort1;
++		register unsigned int iobase = info->p_dev->resource[0]->start;
+ 		register struct sk_buff *skb;
+ 		register int len;
+ 
+@@ -226,7 +226,7 @@ static void bt3c_receive(bt3c_info_t *info)
+ 		return;
+ 	}
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	avail = bt3c_read(iobase, 0x7006);
+ 	//printk("bt3c_cs: receiving %d bytes\n", avail);
+@@ -347,7 +347,7 @@ static irqreturn_t bt3c_interrupt(int irq, void *dev_inst)
+ 		/* our irq handler is shared */
+ 		return IRQ_NONE;
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	spin_lock(&(info->lock));
+ 
+@@ -480,7 +480,7 @@ static int bt3c_load_firmware(bt3c_info_t *info, const unsigned char *firmware,
+ 	unsigned int iobase, size, addr, fcs, tmp;
+ 	int i, err = 0;
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	/* Reset */
+ 	bt3c_io_write(iobase, 0x8040, 0x0404);
+diff --git a/drivers/bluetooth/btuart_cs.c b/drivers/bluetooth/btuart_cs.c
+index e7e0a17..7e770d4 100644
+--- a/drivers/bluetooth/btuart_cs.c
++++ b/drivers/bluetooth/btuart_cs.c
+@@ -142,7 +142,7 @@ static void btuart_write_wakeup(btuart_info_t *info)
+ 	}
+ 
+ 	do {
+-		register unsigned int iobase = info->p_dev->io.BasePort1;
++		register unsigned int iobase = info->p_dev->resource[0]->start;
+ 		register struct sk_buff *skb;
+ 		register int len;
+ 
+@@ -183,7 +183,7 @@ static void btuart_receive(btuart_info_t *info)
+ 		return;
+ 	}
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	do {
+ 		info->hdev->stat.byte_rx++;
+@@ -297,7 +297,7 @@ static irqreturn_t btuart_interrupt(int irq, void *dev_inst)
+ 		/* our irq handler is shared */
+ 		return IRQ_NONE;
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	spin_lock(&(info->lock));
+ 
+@@ -354,7 +354,7 @@ static void btuart_change_speed(btuart_info_t *info, unsigned int speed)
+ 		return;
+ 	}
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	spin_lock_irqsave(&(info->lock), flags);
+ 
+@@ -478,7 +478,7 @@ static int btuart_hci_ioctl(struct hci_dev *hdev, unsigned int cmd, unsigned lon
+ static int btuart_open(btuart_info_t *info)
+ {
+ 	unsigned long flags;
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 	struct hci_dev *hdev;
+ 
+ 	spin_lock_init(&(info->lock));
+@@ -548,7 +548,7 @@ static int btuart_open(btuart_info_t *info)
+ static int btuart_close(btuart_info_t *info)
+ {
+ 	unsigned long flags;
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 	struct hci_dev *hdev = info->hdev;
+ 
+ 	if (!hdev)
+diff --git a/drivers/bluetooth/dtl1_cs.c b/drivers/bluetooth/dtl1_cs.c
+index 7c94aad..bfe9313 100644
+--- a/drivers/bluetooth/dtl1_cs.c
++++ b/drivers/bluetooth/dtl1_cs.c
+@@ -149,7 +149,7 @@ static void dtl1_write_wakeup(dtl1_info_t *info)
+ 	}
+ 
+ 	do {
+-		register unsigned int iobase = info->p_dev->io.BasePort1;
++		register unsigned int iobase = info->p_dev->resource[0]->start;
+ 		register struct sk_buff *skb;
+ 		register int len;
+ 
+@@ -214,7 +214,7 @@ static void dtl1_receive(dtl1_info_t *info)
+ 		return;
+ 	}
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	do {
+ 		info->hdev->stat.byte_rx++;
+@@ -301,7 +301,7 @@ static irqreturn_t dtl1_interrupt(int irq, void *dev_inst)
+ 		/* our irq handler is shared */
+ 		return IRQ_NONE;
+ 
+-	iobase = info->p_dev->io.BasePort1;
++	iobase = info->p_dev->resource[0]->start;
+ 
+ 	spin_lock(&(info->lock));
+ 
+@@ -461,7 +461,7 @@ static int dtl1_hci_ioctl(struct hci_dev *hdev, unsigned int cmd,  unsigned long
+ static int dtl1_open(dtl1_info_t *info)
+ {
+ 	unsigned long flags;
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 	struct hci_dev *hdev;
+ 
+ 	spin_lock_init(&(info->lock));
+@@ -508,7 +508,8 @@ static int dtl1_open(dtl1_info_t *info)
+ 	outb(UART_LCR_WLEN8, iobase + UART_LCR);	/* Reset DLAB */
+ 	outb((UART_MCR_DTR | UART_MCR_RTS | UART_MCR_OUT2), iobase + UART_MCR);
+ 
+-	info->ri_latch = inb(info->p_dev->io.BasePort1 + UART_MSR) & UART_MSR_RI;
++	info->ri_latch = inb(info->p_dev->resource[0]->start + UART_MSR)
++				& UART_MSR_RI;
+ 
+ 	/* Turn on interrupts */
+ 	outb(UART_IER_RLSI | UART_IER_RDI | UART_IER_THRI, iobase + UART_IER);
+@@ -533,7 +534,7 @@ static int dtl1_open(dtl1_info_t *info)
+ static int dtl1_close(dtl1_info_t *info)
+ {
+ 	unsigned long flags;
+-	unsigned int iobase = info->p_dev->io.BasePort1;
++	unsigned int iobase = info->p_dev->resource[0]->start;
+ 	struct hci_dev *hdev = info->hdev;
+ 
+ 	if (!hdev)
+diff --git a/drivers/char/pcmcia/cm4000_cs.c b/drivers/char/pcmcia/cm4000_cs.c
+index a8be2a7..18484ed 100644
+--- a/drivers/char/pcmcia/cm4000_cs.c
++++ b/drivers/char/pcmcia/cm4000_cs.c
+@@ -421,7 +421,7 @@ static struct card_fixup card_fixups[] = {
+ static void set_cardparameter(struct cm4000_dev *dev)
+ {
+ 	int i;
+-	unsigned int iobase = dev->p_dev->io.BasePort1;
++	unsigned int iobase = dev->p_dev->resource[0]->start;
+ 	u_int8_t stopbits = 0x02; /* ISO default */
+ 
+ 	DEBUGP(3, dev, "-> set_cardparameter\n");
+@@ -454,7 +454,7 @@ static int set_protocol(struct cm4000_dev *dev, struct ptsreq *ptsreq)
+ 	unsigned short num_bytes_read;
+ 	unsigned char pts_reply[4];
+ 	ssize_t rc;
+-	unsigned int iobase = dev->p_dev->io.BasePort1;
++	unsigned int iobase = dev->p_dev->resource[0]->start;
+ 
+ 	rc = 0;
+ 
+@@ -663,7 +663,7 @@ static void terminate_monitor(struct cm4000_dev *dev)
+ static void monitor_card(unsigned long p)
+ {
+ 	struct cm4000_dev *dev = (struct cm4000_dev *) p;
+-	unsigned int iobase = dev->p_dev->io.BasePort1;
++	unsigned int iobase = dev->p_dev->resource[0]->start;
+ 	unsigned short s;
+ 	struct ptsreq ptsreq;
+ 	int i, atrc;
+@@ -924,7 +924,7 @@ static ssize_t cmm_read(struct file *filp, __user char *buf, size_t count,
+ 			loff_t *ppos)
+ {
+ 	struct cm4000_dev *dev = filp->private_data;
+-	unsigned int iobase = dev->p_dev->io.BasePort1;
++	unsigned int iobase = dev->p_dev->resource[0]->start;
+ 	ssize_t rc;
+ 	int i, j, k;
+ 
+@@ -1047,7 +1047,7 @@ static ssize_t cmm_write(struct file *filp, const char __user *buf,
+ 			 size_t count, loff_t *ppos)
+ {
+ 	struct cm4000_dev *dev = filp->private_data;
+-	unsigned int iobase = dev->p_dev->io.BasePort1;
++	unsigned int iobase = dev->p_dev->resource[0]->start;
+ 	unsigned short s;
+ 	unsigned char tmp;
+ 	unsigned char infolen;
+@@ -1400,7 +1400,7 @@ static void stop_monitor(struct cm4000_dev *dev)
+ static long cmm_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ {
+ 	struct cm4000_dev *dev = filp->private_data;
+-	unsigned int iobase = dev->p_dev->io.BasePort1;
++	unsigned int iobase = dev->p_dev->resource[0]->start;
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+ 	struct pcmcia_device *link;
+ 	int size;
+diff --git a/drivers/char/pcmcia/cm4040_cs.c b/drivers/char/pcmcia/cm4040_cs.c
+index 44adae9..a6bbf19 100644
+--- a/drivers/char/pcmcia/cm4040_cs.c
++++ b/drivers/char/pcmcia/cm4040_cs.c
+@@ -109,7 +109,7 @@ static inline unsigned char xinb(unsigned short port)
+ static void cm4040_do_poll(unsigned long dummy)
+ {
+ 	struct reader_dev *dev = (struct reader_dev *) dummy;
+-	unsigned int obs = xinb(dev->p_dev->io.BasePort1
++	unsigned int obs = xinb(dev->p_dev->resource[0]->start
+ 				+ REG_OFFSET_BUFFER_STATUS);
+ 
+ 	if ((obs & BSR_BULK_IN_FULL)) {
+@@ -140,7 +140,7 @@ static void cm4040_stop_poll(struct reader_dev *dev)
+ static int wait_for_bulk_out_ready(struct reader_dev *dev)
+ {
+ 	int i, rc;
+-	int iobase = dev->p_dev->io.BasePort1;
++	int iobase = dev->p_dev->resource[0]->start;
+ 
+ 	for (i = 0; i < POLL_LOOP_COUNT; i++) {
+ 		if ((xinb(iobase + REG_OFFSET_BUFFER_STATUS)
+@@ -170,7 +170,7 @@ static int wait_for_bulk_out_ready(struct reader_dev *dev)
+ /* Write to Sync Control Register */
+ static int write_sync_reg(unsigned char val, struct reader_dev *dev)
+ {
+-	int iobase = dev->p_dev->io.BasePort1;
++	int iobase = dev->p_dev->resource[0]->start;
+ 	int rc;
+ 
+ 	rc = wait_for_bulk_out_ready(dev);
+@@ -188,7 +188,7 @@ static int write_sync_reg(unsigned char val, struct reader_dev *dev)
+ static int wait_for_bulk_in_ready(struct reader_dev *dev)
+ {
+ 	int i, rc;
+-	int iobase = dev->p_dev->io.BasePort1;
++	int iobase = dev->p_dev->resource[0]->start;
+ 
+ 	for (i = 0; i < POLL_LOOP_COUNT; i++) {
+ 		if ((xinb(iobase + REG_OFFSET_BUFFER_STATUS)
+@@ -218,7 +218,7 @@ static ssize_t cm4040_read(struct file *filp, char __user *buf,
+ 			size_t count, loff_t *ppos)
+ {
+ 	struct reader_dev *dev = filp->private_data;
+-	int iobase = dev->p_dev->io.BasePort1;
++	int iobase = dev->p_dev->resource[0]->start;
+ 	size_t bytes_to_read;
+ 	unsigned long i;
+ 	size_t min_bytes_to_read;
+@@ -320,7 +320,7 @@ static ssize_t cm4040_write(struct file *filp, const char __user *buf,
+ 			 size_t count, loff_t *ppos)
+ {
+ 	struct reader_dev *dev = filp->private_data;
+-	int iobase = dev->p_dev->io.BasePort1;
++	int iobase = dev->p_dev->resource[0]->start;
+ 	ssize_t rc;
+ 	int i;
+ 	unsigned int bytes_to_write;
+@@ -567,8 +567,8 @@ static int reader_config(struct pcmcia_device *link, int devno)
+ 
+ 	dev = link->priv;
+ 
+-	DEBUGP(2, dev, "device " DEVICE_NAME "%d at 0x%.4x-0x%.4x\n", devno,
+-	      link->io.BasePort1, link->io.BasePort1+link->io.NumPorts1);
++	DEBUGP(2, dev, "device " DEVICE_NAME "%d at %pR\n", devno,
++	      link->resource[0]);
+ 	DEBUGP(2, dev, "<- reader_config (succ)\n");
+ 
+ 	return 0;
+diff --git a/drivers/char/pcmcia/ipwireless/main.c b/drivers/char/pcmcia/ipwireless/main.c
+index 63c32e3..9467994 100644
+--- a/drivers/char/pcmcia/ipwireless/main.c
++++ b/drivers/char/pcmcia/ipwireless/main.c
+@@ -100,7 +100,8 @@ static int ipwireless_probe(struct pcmcia_device *p_dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	io_resource = request_region(p_dev->io.BasePort1, p_dev->io.NumPorts1,
++	io_resource = request_region(p_dev->resource[0]->start,
++				resource_size(p_dev->resource[0]),
+ 				IPWIRELESS_PCCARD_NAME);
+ 
+ 	if (cfg->mem.nwin == 0)
+@@ -197,7 +198,7 @@ static int config_ipwireless(struct ipw_dev *ipw)
+ 
+ 	INIT_WORK(&ipw->work_reboot, signalled_reboot_work);
+ 
+-	ipwireless_init_hardware_v1(ipw->hardware, link->io.BasePort1,
++	ipwireless_init_hardware_v1(ipw->hardware, link->resource[0]->start,
+ 				    ipw->attr_memory, ipw->common_memory,
+ 				    ipw->is_v2_card, signalled_reboot_callback,
+ 				    ipw);
+@@ -209,10 +210,7 @@ static int config_ipwireless(struct ipw_dev *ipw)
+ 	printk(KERN_INFO IPWIRELESS_PCCARD_NAME ": Card type %s\n",
+ 			ipw->is_v2_card ? "V2/V3" : "V1");
+ 	printk(KERN_INFO IPWIRELESS_PCCARD_NAME
+-			": I/O ports 0x%04x-0x%04x, irq %d\n",
+-			(unsigned int) link->io.BasePort1,
+-			(unsigned int) (link->io.BasePort1 +
+-				link->io.NumPorts1 - 1),
++		": I/O ports %pR, irq %d\n", link->resource[0],
+ 			(unsigned int) link->irq);
+ 	if (ipw->attr_memory && ipw->common_memory)
+ 		printk(KERN_INFO IPWIRELESS_PCCARD_NAME
+diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
+index 522992e..8ded9b0 100644
+--- a/drivers/char/pcmcia/synclink_cs.c
++++ b/drivers/char/pcmcia/synclink_cs.c
+@@ -609,16 +609,15 @@ static int mgslpc_config(struct pcmcia_device *link)
+     if (ret)
+ 	    goto failed;
+ 
+-    info->io_base = link->io.BasePort1;
++    info->io_base = link->resource[0]->start;
+     info->irq_level = link->irq;
+ 
+     dev_info(&link->dev, "index 0x%02x:",
+ 	    link->conf.ConfigIndex);
+     if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 	    printk(", irq %d", link->irq);
+-    if (link->io.NumPorts1)
+-	    printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		   link->io.BasePort1+link->io.NumPorts1-1);
++    if (link->resource[0])
++	    printk(", io %pR", link->resource[0]);
+     printk("\n");
+     return 0;
+ 
+diff --git a/drivers/ide/ide-cs.c b/drivers/ide/ide-cs.c
+index 27dbab8..6be0e5f 100644
+--- a/drivers/ide/ide-cs.c
++++ b/drivers/ide/ide-cs.c
+@@ -239,13 +239,13 @@ static int pcmcia_check_one_config(struct pcmcia_device *pdev,
+ 			pdev->io.NumPorts2 = (stk->is_kme) ? 2 : 1;
+ 			if (pcmcia_request_io(pdev, &pdev->io) != 0)
+ 				return -ENODEV;
+-			stk->ctl_base = pdev->io.BasePort2;
++			stk->ctl_base = pdev->resource[1]->start;
+ 		} else if ((io->nwin == 1) && (io->win[0].len >= 16)) {
+ 			pdev->io.NumPorts1 = io->win[0].len;
+ 			pdev->io.NumPorts2 = 0;
+ 			if (pcmcia_request_io(pdev, &pdev->io) != 0)
+ 				return -ENODEV;
+-			stk->ctl_base = pdev->io.BasePort1 + 0x0e;
++			stk->ctl_base = pdev->resource[0]->start + 0x0e;
+ 		} else
+ 			return -ENODEV;
+ 		/* If we've got this far, we're done */
+@@ -279,7 +279,7 @@ static int ide_config(struct pcmcia_device *link)
+ 	    if (pcmcia_loop_config(link, pcmcia_check_one_config, stk))
+ 		    goto failed; /* No suitable config found */
+     }
+-    io_base = link->io.BasePort1;
++    io_base = link->resource[0]->start;
+     ctl_base = stk->ctl_base;
+ 
+     if (!link->irq)
+@@ -296,7 +296,7 @@ static int ide_config(struct pcmcia_device *link)
+ 	outb(0x81, ctl_base+1);
+ 
+      host = idecs_register(io_base, ctl_base, link->irq, link);
+-     if (host == NULL && link->io.NumPorts1 == 0x20) {
++     if (host == NULL && resource_size(link->resource[0]) == 0x20) {
+ 	    outb(0x02, ctl_base + 0x10);
+ 	    host = idecs_register(io_base + 0x10, ctl_base + 0x10,
+ 				  link->irq, link);
+diff --git a/drivers/isdn/hardware/avm/avm_cs.c b/drivers/isdn/hardware/avm/avm_cs.c
+index e804a01..7c8c51f 100644
+--- a/drivers/isdn/hardware/avm/avm_cs.c
++++ b/drivers/isdn/hardware/avm/avm_cs.c
+@@ -191,9 +191,10 @@ static int avmcs_config(struct pcmcia_device *link)
+ 	default:
+         case AVM_CARDTYPE_B1: addcard = b1pcmcia_addcard_b1; break;
+     }
+-    if ((i = (*addcard)(link->io.BasePort1, link->irq)) < 0) {
+-	    dev_err(&link->dev, "avm_cs: failed to add AVM-Controller at i/o %#x, irq %d\n",
+-		    link->io.BasePort1, link->irq);
++    if ((i = (*addcard)(link->resource[0]->start, link->irq)) < 0) {
++	    dev_err(&link->dev,
++		    "avm_cs: failed to add AVM-Controller at i/o %#x, irq %d\n",
++		    (unsigned int) link->resource[0]->start, link->irq);
+ 	    avmcs_release(link);
+ 	    return -ENODEV;
+     }
+@@ -211,7 +212,7 @@ static int avmcs_config(struct pcmcia_device *link)
+ 
+ static void avmcs_release(struct pcmcia_device *link)
+ {
+-	b1pcmcia_delcard(link->io.BasePort1, link->irq);
++	b1pcmcia_delcard(link->resource[0]->start, link->irq);
+ 	pcmcia_disable_device(link);
+ } /* avmcs_release */
+ 
+diff --git a/drivers/isdn/hisax/avma1_cs.c b/drivers/isdn/hisax/avma1_cs.c
+index 49e141e..8889963 100644
+--- a/drivers/isdn/hisax/avma1_cs.c
++++ b/drivers/isdn/hisax/avma1_cs.c
+@@ -180,16 +180,18 @@ static int __devinit avma1cs_config(struct pcmcia_device *link)
+     }
+ 
+     printk(KERN_NOTICE "avma1_cs: checking at i/o %#x, irq %d\n",
+-				link->io.BasePort1, link->irq);
++		(unsigned int) link->resource[0]->start, link->irq);
+ 
+     icard.para[0] = link->irq;
+-    icard.para[1] = link->io.BasePort1;
++    icard.para[1] = link->resource[0]->start;
+     icard.protocol = isdnprot;
+     icard.typ = ISDN_CTYPE_A1_PCMCIA;
+     
+     i = hisax_init_pcmcia(link, &busy, &icard);
+     if (i < 0) {
+-    	printk(KERN_ERR "avma1_cs: failed to initialize AVM A1 PCMCIA %d at i/o %#x\n", i, link->io.BasePort1);
++	printk(KERN_ERR "avma1_cs: failed to initialize AVM A1 "
++			"PCMCIA %d at i/o %#x\n", i,
++			(unsigned int) link->resource[0]->start);
+ 	avma1cs_release(link);
+ 	return -ENODEV;
+     }
+diff --git a/drivers/isdn/hisax/elsa_cs.c b/drivers/isdn/hisax/elsa_cs.c
+index 425deea..c10bfd3 100644
+--- a/drivers/isdn/hisax/elsa_cs.c
++++ b/drivers/isdn/hisax/elsa_cs.c
+@@ -214,23 +214,21 @@ static int __devinit elsa_cs_config(struct pcmcia_device *link)
+ 	    link->conf.ConfigIndex);
+     if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 	printk(", irq %d", link->irq);
+-    if (link->io.NumPorts1)
+-        printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-               link->io.BasePort1+link->io.NumPorts1-1);
+-    if (link->io.NumPorts2)
+-        printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-               link->io.BasePort2+link->io.NumPorts2-1);
++    if (link->resource[0])
++	printk(" & %pR", link->resource[0]);
++    if (link->resource[1])
++	printk(" & %pR", link->resource[1]);
+     printk("\n");
+ 
+     icard.para[0] = link->irq;
+-    icard.para[1] = link->io.BasePort1;
++    icard.para[1] = link->resource[0]->start;
+     icard.protocol = protocol;
+     icard.typ = ISDN_CTYPE_ELSA_PCMCIA;
+     
+     i = hisax_init_pcmcia(link, &(((local_info_t*)link->priv)->busy), &icard);
+     if (i < 0) {
+-    	printk(KERN_ERR "elsa_cs: failed to initialize Elsa PCMCIA %d at i/o %#x\n",
+-    		i, link->io.BasePort1);
++	printk(KERN_ERR "elsa_cs: failed to initialize Elsa "
++		"PCMCIA %d with %pR\n", i, link->resource[0]);
+     	elsa_cs_release(link);
+     } else
+     	((local_info_t*)link->priv)->cardnr = i;
+diff --git a/drivers/isdn/hisax/sedlbauer_cs.c b/drivers/isdn/hisax/sedlbauer_cs.c
+index 5dbad96..cecb35a 100644
+--- a/drivers/isdn/hisax/sedlbauer_cs.c
++++ b/drivers/isdn/hisax/sedlbauer_cs.c
+@@ -296,27 +296,25 @@ static int __devinit sedlbauer_config(struct pcmcia_device *link)
+ 	printk(", Vpp %d.%d", link->conf.Vpp/10, link->conf.Vpp%10);
+     if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 	printk(", irq %d", link->irq);
+-    if (link->io.NumPorts1)
+-	printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-	       link->io.BasePort1+link->io.NumPorts1-1);
+-    if (link->io.NumPorts2)
+-	printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-	       link->io.BasePort2+link->io.NumPorts2-1);
++    if (link->resource[0])
++	printk(" & %pR", link->resource[0]);
++    if (link->resource[1])
++	printk(" & %pR", link->resource[1]);
+     if (link->win)
+ 	printk(", mem 0x%06lx-0x%06lx", req->Base,
+ 	       req->Base+req->Size-1);
+     printk("\n");
+ 
+     icard.para[0] = link->irq;
+-    icard.para[1] = link->io.BasePort1;
++    icard.para[1] = link->resource[0]->start;
+     icard.protocol = protocol;
+     icard.typ = ISDN_CTYPE_SEDLBAUER_PCMCIA;
+     
+     ret = hisax_init_pcmcia(link, 
+ 			    &(((local_info_t *)link->priv)->stop), &icard);
+     if (ret < 0) {
+-	printk(KERN_ERR "sedlbauer_cs: failed to initialize SEDLBAUER PCMCIA %d at i/o %#x\n",
+-		ret, link->io.BasePort1);
++	printk(KERN_ERR "sedlbauer_cs: failed to initialize SEDLBAUER PCMCIA %d with %pR\n",
++		ret, link->resource[0]);
+     	sedlbauer_release(link);
+ 	return -ENODEV;
+     } else
+diff --git a/drivers/isdn/hisax/teles_cs.c b/drivers/isdn/hisax/teles_cs.c
+index d3fb1b7..3787fc7 100644
+--- a/drivers/isdn/hisax/teles_cs.c
++++ b/drivers/isdn/hisax/teles_cs.c
+@@ -194,23 +194,21 @@ static int __devinit teles_cs_config(struct pcmcia_device *link)
+ 	    link->conf.ConfigIndex);
+     if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 	    printk(", irq %d", link->irq);
+-    if (link->io.NumPorts1)
+-        printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-               link->io.BasePort1+link->io.NumPorts1-1);
+-    if (link->io.NumPorts2)
+-        printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-               link->io.BasePort2+link->io.NumPorts2-1);
++    if (link->resource[0])
++	printk(" & %pR", link->resource[0]);
++    if (link->resource[1])
++	printk(" & %pR", link->resource[1]);
+     printk("\n");
+ 
+     icard.para[0] = link->irq;
+-    icard.para[1] = link->io.BasePort1;
++    icard.para[1] = link->resource[0]->start;
+     icard.protocol = protocol;
+     icard.typ = ISDN_CTYPE_TELESPCMCIA;
+     
+     i = hisax_init_pcmcia(link, &(((local_info_t*)link->priv)->busy), &icard);
+     if (i < 0) {
+     	printk(KERN_ERR "teles_cs: failed to initialize Teles PCMCIA %d at i/o %#x\n",
+-    		i, link->io.BasePort1);
++			i, (unsigned int) link->resource[0]->start);
+     	teles_cs_release(link);
+ 	return -ENODEV;
+     }
+diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
+index e249b89..b5ea9b8 100644
+--- a/drivers/net/pcmcia/3c574_cs.c
++++ b/drivers/net/pcmcia/3c574_cs.c
+@@ -356,7 +356,7 @@ static int tc574_config(struct pcmcia_device *link)
+ 		goto failed;
+ 
+ 	dev->irq = link->irq;
+-	dev->base_addr = link->io.BasePort1;
++	dev->base_addr = link->resource[0]->start;
+ 
+ 	ioaddr = dev->base_addr;
+ 
+diff --git a/drivers/net/pcmcia/3c589_cs.c b/drivers/net/pcmcia/3c589_cs.c
+index b0772df..122ef4a 100644
+--- a/drivers/net/pcmcia/3c589_cs.c
++++ b/drivers/net/pcmcia/3c589_cs.c
+@@ -298,7 +298,7 @@ static int tc589_config(struct pcmcia_device *link)
+ 	    goto failed;
+ 
+     dev->irq = link->irq;
+-    dev->base_addr = link->io.BasePort1;
++    dev->base_addr = link->resource[0]->start;
+     ioaddr = dev->base_addr;
+     EL3WINDOW(0);
+ 
 diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
-index 467fd4b..ee0a6d0 100644
+index ee0a6d0..c52fdf3 100644
 --- a/drivers/net/pcmcia/axnet_cs.c
 +++ b/drivers/net/pcmcia/axnet_cs.c
-@@ -378,8 +378,7 @@ static int axnet_config(struct pcmcia_device *link)
-     /* Maybe PHY is in power down mode. (PPD_SET = 1) 
-        Bit 2 of CCSR is active low. */ 
-     if (i == 32) {
--	conf_reg_t reg = { 0, CS_WRITE, CISREG_CCSR, 0x04 };
-- 	pcmcia_access_configuration_register(link, &reg);
-+	pcmcia_write_config_byte(link, CISREG_CCSR, 0x04);
- 	for (i = 0; i < 32; i++) {
- 	    j = mdio_read(dev->base_addr + AXNET_MII_EEP, i, 1);
- 	    j2 = mdio_read(dev->base_addr + AXNET_MII_EEP, i, 2);
+@@ -332,7 +332,7 @@ static int axnet_config(struct pcmcia_device *link)
+     if (!link->irq)
+ 	    goto failed;
+     
+-    if (link->io.NumPorts2 == 8) {
++    if (resource_size(link->resource[1]) == 8) {
+ 	link->conf.Attributes |= CONF_ENABLE_SPKR;
+ 	link->conf.Status = CCSR_AUDIO_ENA;
+     }
+@@ -342,7 +342,7 @@ static int axnet_config(struct pcmcia_device *link)
+ 	    goto failed;
+ 
+     dev->irq = link->irq;
+-    dev->base_addr = link->io.BasePort1;
++    dev->base_addr = link->resource[0]->start;
+ 
+     if (!get_prom(link)) {
+ 	printk(KERN_NOTICE "axnet_cs: this is not an AX88190 card!\n");
+diff --git a/drivers/net/pcmcia/com20020_cs.c b/drivers/net/pcmcia/com20020_cs.c
+index 99957af..3b53818 100644
+--- a/drivers/net/pcmcia/com20020_cs.c
++++ b/drivers/net/pcmcia/com20020_cs.c
+@@ -266,7 +266,7 @@ static int com20020_config(struct pcmcia_device *link)
+ 	goto failed;
+     }
+ 	
+-    ioaddr = dev->base_addr = link->io.BasePort1;
++    ioaddr = dev->base_addr = link->resource[0]->start;
+     dev_dbg(&link->dev, "got ioaddr %Xh\n", ioaddr);
+ 
+     dev_dbg(&link->dev, "request IRQ %d\n",
+diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/pcmcia/fmvj18x_cs.c
+index 95a991b..bba6369 100644
+--- a/drivers/net/pcmcia/fmvj18x_cs.c
++++ b/drivers/net/pcmcia/fmvj18x_cs.c
+@@ -315,7 +315,7 @@ static int ungermann_try_io_port(struct pcmcia_device *link)
+ 	if (ret == 0) {
+ 	    /* calculate ConfigIndex value */
+ 	    link->conf.ConfigIndex = 
+-		((link->io.BasePort1 & 0x0f0) >> 3) | 0x22;
++		((link->resource[0]->start & 0x0f0) >> 3) | 0x22;
+ 	    return ret;
+ 	}
+     }
+@@ -436,9 +436,9 @@ static int fmvj18x_config(struct pcmcia_device *link)
+ 	    goto failed;
+ 
+     dev->irq = link->irq;
+-    dev->base_addr = link->io.BasePort1;
++    dev->base_addr = link->resource[0]->start;
+ 
+-    if (link->io.BasePort2 != 0) {
++    if (resource_size(link->resource[1]) != 0) {
+ 	ret = fmvj18x_setup_mfc(link);
+ 	if (ret != 0) goto failed;
+     }
+diff --git a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/pcmcia/ibmtr_cs.c
+index c36dcd1..e99abaa 100644
+--- a/drivers/net/pcmcia/ibmtr_cs.c
++++ b/drivers/net/pcmcia/ibmtr_cs.c
+@@ -231,7 +231,7 @@ static int __devinit ibmtr_config(struct pcmcia_device *link)
+ 	if (ret)
+ 		goto failed;
+     }
+-    dev->base_addr = link->io.BasePort1;
++    dev->base_addr = link->resource[0]->start;
+ 
+     ret = pcmcia_request_exclusive_irq(link, ibmtr_interrupt);
+     if (ret)
 diff --git a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
-index c0eacfa..c0d85af 100644
+index c0d85af..9980cbb 100644
 --- a/drivers/net/pcmcia/nmclan_cs.c
 +++ b/drivers/net/pcmcia/nmclan_cs.c
-@@ -757,29 +757,20 @@ static void nmclan_reset(struct net_device *dev)
+@@ -655,7 +655,7 @@ static int nmclan_config(struct pcmcia_device *link)
+ 	  goto failed;
  
- #if RESET_XILINX
-   struct pcmcia_device *link = &lp->link;
--  conf_reg_t reg;
--  u_long OrigCorValue; 
-+  u8 OrigCorValue;
+   dev->irq = link->irq;
+-  dev->base_addr = link->io.BasePort1;
++  dev->base_addr = link->resource[0]->start;
  
-   /* Save original COR value */
--  reg.Function = 0;
--  reg.Action = CS_READ;
--  reg.Offset = CISREG_COR;
--  reg.Value = 0;
--  pcmcia_access_configuration_register(link, &reg);
--  OrigCorValue = reg.Value;
-+  pcmcia_read_config_byte(link, CISREG_COR, &OrigCorValue);
+   ioaddr = dev->base_addr;
  
-   /* Reset Xilinx */
--  reg.Action = CS_WRITE;
--  reg.Offset = CISREG_COR;
--  dev_dbg(&link->dev, "nmclan_reset: OrigCorValue=0x%lX, resetting...\n",
-+  dev_dbg(&link->dev, "nmclan_reset: OrigCorValue=0x%x, resetting...\n",
- 	OrigCorValue);
--  reg.Value = COR_SOFT_RESET;
--  pcmcia_access_configuration_register(link, &reg);
-+  pcmcia_write_config_byte(link, CISREG_COR, COR_SOFT_RESET);
-   /* Need to wait for 20 ms for PCMCIA to finish reset. */
+diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
+index db6dbda..c9cd237 100644
+--- a/drivers/net/pcmcia/pcnet_cs.c
++++ b/drivers/net/pcmcia/pcnet_cs.c
+@@ -554,7 +554,7 @@ static int pcnet_config(struct pcmcia_device *link)
+     if (!link->irq)
+ 	    goto failed;
  
-   /* Restore original COR configuration index */
--  reg.Value = COR_LEVEL_REQ | (OrigCorValue & COR_CONFIG_MASK);
--  pcmcia_access_configuration_register(link, &reg);
-+  pcmcia_write_config_byte(link, CISREG_COR,
-+			  (COR_LEVEL_REQ | (OrigCorValue & COR_CONFIG_MASK)));
-   /* Xilinx is now completely reset along with the MACE chip. */
-   lp->tx_free_frames=AM2150_MAX_TX_FRAMES;
+-    if (link->io.NumPorts2 == 8) {
++    if (resource_size(link->resource[1]) == 8) {
+ 	link->conf.Attributes |= CONF_ENABLE_SPKR;
+ 	link->conf.Status = CCSR_AUDIO_ENA;
+     }
+@@ -566,7 +566,7 @@ static int pcnet_config(struct pcmcia_device *link)
+     if (ret)
+ 	    goto failed;
+     dev->irq = link->irq;
+-    dev->base_addr = link->io.BasePort1;
++    dev->base_addr = link->resource[0]->start;
+     if (info->flags & HAS_MISC_REG) {
+ 	if ((if_port == 1) || (if_port == 2))
+ 	    dev->if_port = if_port;
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index 88f503a..1b0b323 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -457,7 +457,7 @@ static int mhz_mfc_config(struct pcmcia_device *link)
+     if (pcmcia_loop_config(link, mhz_mfc_config_check, NULL))
+ 	    return -ENODEV;
  
+-    dev->base_addr = link->io.BasePort1;
++    dev->base_addr = link->resource[0]->start;
+ 
+     /* Allocate a memory window, for accessing the ISR */
+     req.Attributes = WIN_DATA_WIDTH_8|WIN_MEMORY_TYPE_AM|WIN_ENABLE;
+@@ -545,7 +545,7 @@ static void mot_config(struct pcmcia_device *link)
+     struct net_device *dev = link->priv;
+     struct smc_private *smc = netdev_priv(dev);
+     unsigned int ioaddr = dev->base_addr;
+-    unsigned int iouart = link->io.BasePort2;
++    unsigned int iouart = link->resource[1]->start;
+ 
+     /* Set UART base address and force map with COR bit 1 */
+     writeb(iouart & 0xff,        smc->base + MOT_UART + CISREG_IOBASE_0);
+@@ -614,7 +614,7 @@ static int smc_config(struct pcmcia_device *link)
+     link->io.NumPorts1 = 16;
+     i = pcmcia_loop_config(link, smc_configcheck, NULL);
+     if (!i)
+-	    dev->base_addr = link->io.BasePort1;
++	    dev->base_addr = link->resource[0]->start;
+ 
+     return i;
+ }
+@@ -666,7 +666,7 @@ static int osi_config(struct pcmcia_device *link)
+ 	link->io.NumPorts2 = 0;
+ 	i = pcmcia_request_io(link, &link->io);
+     }
+-    dev->base_addr = link->io.BasePort1 + 0x10;
++    dev->base_addr = link->resource[0]->start + 0x10;
+     return i;
+ }
+ 
+@@ -683,7 +683,7 @@ static int osi_load_firmware(struct pcmcia_device *link)
+ 
+ 	/* Download the Seven of Diamonds firmware */
+ 	for (i = 0; i < fw->size; i++) {
+-	    outb(fw->data[i], link->io.BasePort1 + 2);
++	    outb(fw->data[i], link->resource[0]->start + 2);
+ 	    udelay(50);
+ 	}
+ 	release_firmware(fw);
+@@ -725,12 +725,12 @@ static int osi_setup(struct pcmcia_device *link, u_short manfid, u_short cardid)
+ 		return rc;
+     } else if (manfid == MANFID_OSITECH) {
+ 	/* Make sure both functions are powered up */
+-	set_bits(0x300, link->io.BasePort1 + OSITECH_AUI_PWR);
++	set_bits(0x300, link->resource[0]->start + OSITECH_AUI_PWR);
+ 	/* Now, turn on the interrupt for both card functions */
+-	set_bits(0x300, link->io.BasePort1 + OSITECH_RESET_ISR);
++	set_bits(0x300, link->resource[0]->start + OSITECH_RESET_ISR);
+ 	dev_dbg(&link->dev, "AUI/PWR: %4.4x RESET/ISR: %4.4x\n",
+-	      inw(link->io.BasePort1 + OSITECH_AUI_PWR),
+-	      inw(link->io.BasePort1 + OSITECH_RESET_ISR));
++	      inw(link->resource[0]->start + OSITECH_AUI_PWR),
++	      inw(link->resource[0]->start + OSITECH_RESET_ISR));
+     }
+     return 0;
+ }
 diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
-index a7662f0..e3a85ce 100644
+index e3a85ce..034920b 100644
 --- a/drivers/net/pcmcia/xirc2ps_cs.c
 +++ b/drivers/net/pcmcia/xirc2ps_cs.c
-@@ -869,7 +869,6 @@ xirc2ps_config(struct pcmcia_device * link)
- 	goto config_error;
- 
-     if (local->dingo) {
--	conf_reg_t reg;
- 	win_req_t req;
- 	memreq_t mem;
- 
-@@ -878,15 +877,14 @@ xirc2ps_config(struct pcmcia_device * link)
+@@ -877,13 +877,13 @@ xirc2ps_config(struct pcmcia_device * link)
  	 * the base address of the ethernet port (BasePort1) is written
  	 * to the BAR registers of the modem.
  	 */
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_IOBASE_0;
--	reg.Value = link->io.BasePort2 & 0xff;
--	if ((err = pcmcia_access_configuration_register(link, &reg)))
-+	err = pcmcia_write_config_byte(link, CISREG_IOBASE_0,
-+				link->io.BasePort2 & 0xff);
-+	if (err)
- 	    goto config_error;
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_IOBASE_1;
--	reg.Value = (link->io.BasePort2 >> 8) & 0xff;
--	if ((err = pcmcia_access_configuration_register(link, &reg)))
-+
-+	err = pcmcia_write_config_byte(link, CISREG_IOBASE_1,
-+				(link->io.BasePort2 >> 8) & 0xff);
-+	if (err)
+-	err = pcmcia_write_config_byte(link, CISREG_IOBASE_0,
+-				link->io.BasePort2 & 0xff);
++	err = pcmcia_write_config_byte(link, CISREG_IOBASE_0, (u8)
++				link->resource[1]->start & 0xff);
+ 	if (err)
  	    goto config_error;
  
- 	/* There is no config entry for the Ethernet part which
+ 	err = pcmcia_write_config_byte(link, CISREG_IOBASE_1,
+-				(link->io.BasePort2 >> 8) & 0xff);
++				(link->resource[1]->start >> 8) & 0xff);
+ 	if (err)
+ 	    goto config_error;
+ 
+@@ -907,7 +907,7 @@ xirc2ps_config(struct pcmcia_device * link)
+ 	 * part.
+ 	 */
+ 	writeb(0x47, local->dingo_ccr + CISREG_COR);
+-	ioaddr = link->io.BasePort1;
++	ioaddr = link->resource[0]->start;
+ 	writeb(ioaddr & 0xff	  , local->dingo_ccr + CISREG_IOBASE_0);
+ 	writeb((ioaddr >> 8)&0xff , local->dingo_ccr + CISREG_IOBASE_1);
+ 
+@@ -954,7 +954,7 @@ xirc2ps_config(struct pcmcia_device * link)
+ 
+     /* we can now register the device with the net subsystem */
+     dev->irq = link->irq;
+-    dev->base_addr = link->io.BasePort1;
++    dev->base_addr = link->resource[0]->start;
+ 
+     if (local->dingo)
+ 	do_reset(dev, 1); /* a kludge to make the cem56 work */
+diff --git a/drivers/net/wireless/airo_cs.c b/drivers/net/wireless/airo_cs.c
+index 9389ba0..b7e7f50 100644
+--- a/drivers/net/wireless/airo_cs.c
++++ b/drivers/net/wireless/airo_cs.c
+@@ -271,7 +271,7 @@ static int airo_config(struct pcmcia_device *link)
+ 		goto failed;
+ 	((local_info_t *)link->priv)->eth_dev =
+ 		init_airo_card(link->irq,
+-			       link->io.BasePort1, 1, &link->dev);
++			       link->resource[0]->start, 1, &link->dev);
+ 	if (!((local_info_t *)link->priv)->eth_dev)
+ 		goto failed;
+ 
+@@ -281,12 +281,10 @@ static int airo_config(struct pcmcia_device *link)
+ 	if (link->conf.Vpp)
+ 		printk(", Vpp %d.%d", link->conf.Vpp/10, link->conf.Vpp%10);
+ 	printk(", irq %d", link->irq);
+-	if (link->io.NumPorts1)
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1+link->io.NumPorts1-1);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2+link->io.NumPorts2-1);
++	if (link->resource[0])
++		printk(" & %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(" & %pR", link->resource[1]);
+ 	if (link->win)
+ 		printk(", mem 0x%06lx-0x%06lx", req->Base,
+ 		       req->Base+req->Size-1);
+diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
+index 91ee74a..65b3aed 100644
+--- a/drivers/net/wireless/atmel_cs.c
++++ b/drivers/net/wireless/atmel_cs.c
+@@ -253,7 +253,7 @@ static int atmel_config(struct pcmcia_device *link)
+ 
+ 	((local_info_t*)link->priv)->eth_dev =
+ 		init_atmel_card(link->irq,
+-				link->io.BasePort1,
++				link->resource[0]->start,
+ 				did ? did->driver_info : ATMEL_FW_TYPE_NONE,
+ 				&link->dev,
+ 				card_present,
 diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wireless/hostap/hostap_cs.c
-index 2f4b6d4..6912936 100644
+index 6912936..4e13ced 100644
 --- a/drivers/net/wireless/hostap/hostap_cs.c
 +++ b/drivers/net/wireless/hostap/hostap_cs.c
-@@ -224,27 +224,18 @@ static int prism2_pccard_card_present(local_info_t *local)
- static void sandisk_set_iobase(local_info_t *local)
- {
- 	int res;
--	conf_reg_t reg;
+@@ -227,7 +227,7 @@ static void sandisk_set_iobase(local_info_t *local)
  	struct hostap_cs_priv *hw_priv = local->hw_priv;
  
--	reg.Function = 0;
--	reg.Action = CS_WRITE;
--	reg.Offset = 0x10; /* 0x3f0 IO base 1 */
--	reg.Value = hw_priv->link->io.BasePort1 & 0x00ff;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, 0x10,
-+				hw_priv->link->io.BasePort1 & 0x00ff);
+ 	res = pcmcia_write_config_byte(hw_priv->link, 0x10,
+-				hw_priv->link->io.BasePort1 & 0x00ff);
++				hw_priv->link->resource[0]->start & 0x00ff);
  	if (res != 0) {
  		printk(KERN_DEBUG "Prism3 SanDisk - failed to set I/O base 0 -"
  		       " res=%d\n", res);
- 	}
+@@ -235,7 +235,7 @@ static void sandisk_set_iobase(local_info_t *local)
  	udelay(10);
  
--	reg.Function = 0;
--	reg.Action = CS_WRITE;
--	reg.Offset = 0x12; /* 0x3f2 IO base 2 */
--	reg.Value = (hw_priv->link->io.BasePort1 & 0xff00) >> 8;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, 0x12,
-+				(hw_priv->link->io.BasePort1 >> 8) & 0x00ff);
+ 	res = pcmcia_write_config_byte(hw_priv->link, 0x12,
+-				(hw_priv->link->io.BasePort1 >> 8) & 0x00ff);
++				(hw_priv->link->resource[0]->start >> 8) & 0x00ff);
  	if (res != 0) {
  		printk(KERN_DEBUG "Prism3 SanDisk - failed to set I/O base 1 -"
  		       " res=%d\n", res);
-@@ -270,7 +261,6 @@ static void sandisk_write_hcr(local_info_t *local, int hcr)
- static int sandisk_enable_wireless(struct net_device *dev)
- {
- 	int res, ret = 0;
--	conf_reg_t reg;
- 	struct hostap_interface *iface = netdev_priv(dev);
+@@ -265,7 +265,7 @@ static int sandisk_enable_wireless(struct net_device *dev)
  	local_info_t *local = iface->local;
  	struct hostap_cs_priv *hw_priv = local->hw_priv;
-@@ -297,12 +287,8 @@ static int sandisk_enable_wireless(struct net_device *dev)
- 	       " - using vendor-specific initialization\n", dev->name);
- 	hw_priv->sandisk_connectplus = 1;
  
--	reg.Function = 0;
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
--	reg.Value = COR_SOFT_RESET;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
-+				COR_SOFT_RESET);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "%s: SanDisk - COR sreset failed (%d)\n",
- 		       dev->name, res);
-@@ -310,16 +296,13 @@ static int sandisk_enable_wireless(struct net_device *dev)
+-	if (hw_priv->link->io.NumPorts1 < 0x42) {
++	if (resource_size(hw_priv->link->resource[0]) < 0x42) {
+ 		/* Not enough ports to be SanDisk multi-function card */
+ 		ret = -ENODEV;
+ 		goto done;
+@@ -604,7 +604,7 @@ static int prism2_config(struct pcmcia_device *link)
+ 		goto failed_unlock;
+ 
+ 	dev->irq = link->irq;
+-	dev->base_addr = link->io.BasePort1;
++	dev->base_addr = link->resource[0]->start;
+ 
+ 	spin_unlock_irqrestore(&local->irq_init_lock, flags);
+ 
+@@ -616,12 +616,10 @@ static int prism2_config(struct pcmcia_device *link)
+ 		       link->conf.Vpp % 10);
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 		printk(", irq %d", link->irq);
+-	if (link->io.NumPorts1)
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1+link->io.NumPorts1-1);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2+link->io.NumPorts2-1);
++	if (link->resource[0])
++		printk(" & %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(" & %pR", link->resource[1]);
+ 	printk("\n");
+ 
+ 	local->shutdown = 0;
+diff --git a/drivers/net/wireless/libertas/if_cs.c b/drivers/net/wireless/libertas/if_cs.c
+index 1d3a7e0..be4c475 100644
+--- a/drivers/net/wireless/libertas/if_cs.c
++++ b/drivers/net/wireless/libertas/if_cs.c
+@@ -853,7 +853,8 @@ static int if_cs_probe(struct pcmcia_device *p_dev)
+ 		goto out1;
+ 
+ 	/* Initialize io access */
+-	card->iobase = ioport_map(p_dev->io.BasePort1, p_dev->io.NumPorts1);
++	card->iobase = ioport_map(p_dev->resource[0]->start,
++				resource_size(p_dev->resource[0]));
+ 	if (!card->iobase) {
+ 		lbs_pr_err("error in ioport_map\n");
+ 		ret = -EIO;
+@@ -872,9 +873,7 @@ static int if_cs_probe(struct pcmcia_device *p_dev)
  	}
- 	mdelay(5);
  
--	reg.Function = 0;
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
+ 	/* Finally, report what we've done */
+-	lbs_deb_cs("irq %d, io 0x%04x-0x%04x\n",
+-	       p_dev->irq, p_dev->io.BasePort1,
+-	       p_dev->io.BasePort1 + p_dev->io.NumPorts1 - 1);
++	lbs_deb_cs("irq %d, io %pR", p_dev->irq, p_dev->resource[0]);
+ 
  	/*
- 	 * Do not enable interrupts here to avoid some bogus events. Interrupts
- 	 * will be enabled during the first cor_sreset call.
- 	 */
--	reg.Value = COR_LEVEL_REQ | 0x8 | COR_ADDR_DECODE | COR_FUNC_ENA;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
-+				(COR_LEVEL_REQ | 0x8 | COR_ADDR_DECODE |
-+					COR_FUNC_ENA));
- 	if (res != 0) {
- 		printk(KERN_DEBUG "%s: SanDisk - COR sreset failed (%d)\n",
- 		       dev->name, res);
-@@ -342,30 +325,23 @@ done:
- static void prism2_pccard_cor_sreset(local_info_t *local)
- {
- 	int res;
--	conf_reg_t reg;
-+	u8 val;
- 	struct hostap_cs_priv *hw_priv = local->hw_priv;
+ 	 * Most of the libertas cards can do unaligned register access, but some
+diff --git a/drivers/net/wireless/orinoco/orinoco_cs.c b/drivers/net/wireless/orinoco/orinoco_cs.c
+index 41ca4f1..6d514b5 100644
+--- a/drivers/net/wireless/orinoco/orinoco_cs.c
++++ b/drivers/net/wireless/orinoco/orinoco_cs.c
+@@ -257,7 +257,8 @@ orinoco_cs_config(struct pcmcia_device *link)
+ 	/* We initialize the hermes structure before completing PCMCIA
+ 	 * configuration just in case the interrupt handler gets
+ 	 * called. */
+-	mem = ioport_map(link->io.BasePort1, link->io.NumPorts1);
++	mem = ioport_map(link->resource[0]->start,
++			resource_size(link->resource[0]));
+ 	if (!mem)
+ 		goto failed;
  
- 	if (!prism2_pccard_card_present(local))
- 	       return;
- 
--	reg.Function = 0;
--	reg.Action = CS_READ;
--	reg.Offset = CISREG_COR;
--	reg.Value = 0;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_read_config_byte(hw_priv->link, CISREG_COR, &val);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_cor_sreset failed 1 (%d)\n",
- 		       res);
- 		return;
- 	}
- 	printk(KERN_DEBUG "prism2_pccard_cor_sreset: original COR %02x\n",
--	       reg.Value);
-+		val);
- 
--	reg.Action = CS_WRITE;
--	reg.Value |= COR_SOFT_RESET;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	val |= COR_SOFT_RESET;
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR, val);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_cor_sreset failed 2 (%d)\n",
- 		       res);
-@@ -374,11 +350,10 @@ static void prism2_pccard_cor_sreset(local_info_t *local)
- 
- 	mdelay(hw_priv->sandisk_connectplus ? 5 : 2);
- 
--	reg.Value &= ~COR_SOFT_RESET;
-+	val &= ~COR_SOFT_RESET;
- 	if (hw_priv->sandisk_connectplus)
--		reg.Value |= COR_IREQ_ENA;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+		val |= COR_IREQ_ENA;
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR, val);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_cor_sreset failed 3 (%d)\n",
- 		       res);
-@@ -395,8 +370,7 @@ static void prism2_pccard_cor_sreset(local_info_t *local)
- static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
- {
- 	int res;
--	conf_reg_t reg;
--	int old_cor;
-+	u8 old_cor;
- 	struct hostap_cs_priv *hw_priv = local->hw_priv;
- 
- 	if (!prism2_pccard_card_present(local))
-@@ -407,25 +381,17 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
- 		return;
+@@ -279,7 +280,7 @@ orinoco_cs_config(struct pcmcia_device *link)
  	}
  
--	reg.Function = 0;
--	reg.Action = CS_READ;
--	reg.Offset = CISREG_COR;
--	reg.Value = 0;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_read_config_byte(hw_priv->link, CISREG_COR, &old_cor);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 1 "
- 		       "(%d)\n", res);
- 		return;
- 	}
- 	printk(KERN_DEBUG "prism2_pccard_genesis_sreset: original COR %02x\n",
--	       reg.Value);
--	old_cor = reg.Value;
-+		old_cor);
- 
--	reg.Action = CS_WRITE;
--	reg.Value |= COR_SOFT_RESET;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
-+				old_cor | COR_SOFT_RESET);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 2 "
- 		       "(%d)\n", res);
-@@ -435,11 +401,7 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
- 	mdelay(10);
- 
- 	/* Setup Genesis mode */
--	reg.Action = CS_WRITE;
--	reg.Value = hcr;
--	reg.Offset = CISREG_CCSR;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_CCSR, hcr);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 3 "
- 		       "(%d)\n", res);
-@@ -447,11 +409,8 @@ static void prism2_pccard_genesis_reset(local_info_t *local, int hcr)
- 	}
- 	mdelay(10);
- 
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
--	reg.Value = old_cor & ~COR_SOFT_RESET;
--	res = pcmcia_access_configuration_register(hw_priv->link,
--						   &reg);
-+	res = pcmcia_write_config_byte(hw_priv->link, CISREG_COR,
-+				old_cor & ~COR_SOFT_RESET);
- 	if (res != 0) {
- 		printk(KERN_DEBUG "prism2_pccard_genesis_sreset failed 4 "
- 		       "(%d)\n", res);
+ 	/* Register an interface with the stack */
+-	if (orinoco_if_add(priv, link->io.BasePort1,
++	if (orinoco_if_add(priv, link->resource[0]->start,
+ 			   link->irq, NULL) != 0) {
+ 		printk(KERN_ERR PFX "orinoco_if_add() failed\n");
+ 		goto failed;
 diff --git a/drivers/net/wireless/orinoco/spectrum_cs.c b/drivers/net/wireless/orinoco/spectrum_cs.c
-index cad30e4..39399cd 100644
+index 39399cd..4f8f55e 100644
 --- a/drivers/net/wireless/orinoco/spectrum_cs.c
 +++ b/drivers/net/wireless/orinoco/spectrum_cs.c
-@@ -79,35 +79,27 @@ static int
- spectrum_reset(struct pcmcia_device *link, int idle)
- {
- 	int ret;
--	conf_reg_t reg;
--	u_int save_cor;
-+	u8 save_cor;
-+	u8 ccsr;
- 
- 	/* Doing it if hardware is gone is guaranteed crash */
- 	if (!pcmcia_dev_present(link))
- 		return -ENODEV;
- 
- 	/* Save original COR value */
--	reg.Function = 0;
--	reg.Action = CS_READ;
--	reg.Offset = CISREG_COR;
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_read_config_byte(link, CISREG_COR, &save_cor);
- 	if (ret)
- 		goto failed;
--	save_cor = reg.Value;
- 
- 	/* Soft-Reset card */
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
--	reg.Value = (save_cor | COR_SOFT_RESET);
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_write_config_byte(link, CISREG_COR,
-+				(save_cor | COR_SOFT_RESET));
- 	if (ret)
- 		goto failed;
- 	udelay(1000);
- 
- 	/* Read CCSR */
--	reg.Action = CS_READ;
--	reg.Offset = CISREG_CCSR;
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_read_config_byte(link, CISREG_CCSR, &ccsr);
- 	if (ret)
+@@ -319,7 +319,8 @@ spectrum_cs_config(struct pcmcia_device *link)
+ 	/* We initialize the hermes structure before completing PCMCIA
+ 	 * configuration just in case the interrupt handler gets
+ 	 * called. */
+-	mem = ioport_map(link->io.BasePort1, link->io.NumPorts1);
++	mem = ioport_map(link->resource[0]->start,
++			resource_size(link->resource[0]));
+ 	if (!mem)
  		goto failed;
  
-@@ -115,19 +107,15 @@ spectrum_reset(struct pcmcia_device *link, int idle)
- 	 * Start or stop the firmware.  Memory width bit should be
- 	 * preserved from the value we've just read.
- 	 */
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_CCSR;
--	reg.Value = (idle ? HCR_IDLE : HCR_RUN) | (reg.Value & HCR_MEM16);
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ccsr = (idle ? HCR_IDLE : HCR_RUN) | (ccsr & HCR_MEM16);
-+	ret = pcmcia_write_config_byte(link, CISREG_CCSR, ccsr);
- 	if (ret)
- 		goto failed;
- 	udelay(1000);
- 
- 	/* Restore original COR configuration index */
--	reg.Action = CS_WRITE;
--	reg.Offset = CISREG_COR;
--	reg.Value = (save_cor & ~COR_SOFT_RESET);
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_write_config_byte(link, CISREG_COR,
-+				(save_cor & ~COR_SOFT_RESET));
- 	if (ret)
- 		goto failed;
- 	udelay(1000);
-diff --git a/drivers/pcmcia/cistpl.c b/drivers/pcmcia/cistpl.c
-index ba4a5ac..1733fab 100644
---- a/drivers/pcmcia/cistpl.c
-+++ b/drivers/pcmcia/cistpl.c
-@@ -209,7 +209,7 @@ int pcmcia_read_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
-  * Probably only useful for writing one-byte registers. Must be called
-  * with ops_mutex held.
-  */
--void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
-+int pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
- 		   u_int len, void *ptr)
- {
- 	void __iomem *sys, *end;
-@@ -231,7 +231,7 @@ void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
- 				((cis_width) ? MAP_16BIT : 0));
- 		if (!sys) {
- 			dev_dbg(&s->dev, "could not map memory\n");
--			return; /* FIXME: Error */
-+			return -EINVAL;
- 		}
- 
- 		writeb(flags, sys+CISREG_ICTRL0);
-@@ -256,7 +256,7 @@ void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
- 			sys = set_cis_map(s, card_offset, flags);
- 			if (!sys) {
- 				dev_dbg(&s->dev, "could not map memory\n");
--				return; /* FIXME: error */
-+				return -EINVAL;
- 			}
- 
- 			end = sys + s->map_size;
-@@ -270,6 +270,7 @@ void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr, u_int addr,
- 			addr = 0;
- 		}
- 	}
-+	return 0;
- }
- 
- 
-diff --git a/drivers/pcmcia/cs_internal.h b/drivers/pcmcia/cs_internal.h
-index 45e7fd1..cebd40d 100644
---- a/drivers/pcmcia/cs_internal.h
-+++ b/drivers/pcmcia/cs_internal.h
-@@ -158,8 +158,8 @@ extern struct bin_attribute pccard_cis_attr;
- 
- int pcmcia_read_cis_mem(struct pcmcia_socket *s, int attr,
- 			u_int addr, u_int len, void *ptr);
--void pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr,
--			  u_int addr, u_int len, void *ptr);
-+int pcmcia_write_cis_mem(struct pcmcia_socket *s, int attr,
-+			u_int addr, u_int len, void *ptr);
- void release_cis_mem(struct pcmcia_socket *s);
- void destroy_cis_cache(struct pcmcia_socket *s);
- int pccard_read_tuple(struct pcmcia_socket *s, unsigned int function,
-diff --git a/drivers/pcmcia/pcmcia_resource.c b/drivers/pcmcia/pcmcia_resource.c
-index 2394de4..563750e 100644
---- a/drivers/pcmcia/pcmcia_resource.c
-+++ b/drivers/pcmcia/pcmcia_resource.c
-@@ -108,25 +108,25 @@ static void release_io_space(struct pcmcia_socket *s, unsigned int base,
- } /* release_io_space */
- 
- 
--/** pccard_access_configuration_register
-+/**
-+ * pcmcia_access_config() - read or write card configuration registers
-  *
-- * Access_configuration_register() reads and writes configuration
-- * registers in attribute memory.  Memory window 0 is reserved for
-- * this and the tuple reading services.
-+ * pcmcia_access_config() reads and writes configuration registers in
-+ * attribute memory.  Memory window 0 is reserved for this and the tuple
-+ * reading services. Drivers must use pcmcia_read_config_byte() or
-+ * pcmcia_write_config_byte().
-  */
--
--int pcmcia_access_configuration_register(struct pcmcia_device *p_dev,
--					 conf_reg_t *reg)
-+static int pcmcia_access_config(struct pcmcia_device *p_dev,
-+				off_t where, u8 *val,
-+				int (*accessf) (struct pcmcia_socket *s,
-+						int attr, unsigned int addr,
-+						unsigned int len, void *ptr))
- {
- 	struct pcmcia_socket *s;
- 	config_t *c;
- 	int addr;
--	u_char val;
- 	int ret = 0;
- 
--	if (!p_dev || !p_dev->function_config)
--		return -EINVAL;
--
- 	s = p_dev->socket;
- 
- 	mutex_lock(&s->ops_mutex);
-@@ -138,26 +138,40 @@ int pcmcia_access_configuration_register(struct pcmcia_device *p_dev,
- 		return -EACCES;
+@@ -346,7 +347,7 @@ spectrum_cs_config(struct pcmcia_device *link)
  	}
  
--	addr = (c->ConfigBase + reg->Offset) >> 1;
-+	addr = (c->ConfigBase + where) >> 1;
-+
-+	ret = accessf(s, 1, addr, 1, val);
+ 	/* Register an interface with the stack */
+-	if (orinoco_if_add(priv, link->io.BasePort1,
++	if (orinoco_if_add(priv, link->resource[0]->start,
+ 			   link->irq, NULL) != 0) {
+ 		printk(KERN_ERR PFX "orinoco_if_add() failed\n");
+ 		goto failed;
+diff --git a/drivers/net/wireless/wl3501_cs.c b/drivers/net/wireless/wl3501_cs.c
+index 35f431b..a32f220 100644
+--- a/drivers/net/wireless/wl3501_cs.c
++++ b/drivers/net/wireless/wl3501_cs.c
+@@ -1960,7 +1960,7 @@ static int wl3501_config(struct pcmcia_device *link)
+ 		goto failed;
  
--	switch (reg->Action) {
--	case CS_READ:
--		ret = pcmcia_read_cis_mem(s, 1, addr, 1, &val);
--		reg->Value = val;
--		break;
--	case CS_WRITE:
--		val = reg->Value;
--		pcmcia_write_cis_mem(s, 1, addr, 1, &val);
--		break;
--	default:
--		dev_dbg(&s->dev, "Invalid conf register request\n");
--		ret = -EINVAL;
--		break;
+ 	dev->irq = link->irq;
+-	dev->base_addr = link->io.BasePort1;
++	dev->base_addr = link->resource[0]->start;
+ 	SET_NETDEV_DEV(dev, &link->dev);
+ 	if (register_netdev(dev)) {
+ 		printk(KERN_NOTICE "wl3501_cs: register_netdev() failed\n");
+diff --git a/drivers/parport/parport_cs.c b/drivers/parport/parport_cs.c
+index ee56fd6..fc1639c 100644
+--- a/drivers/parport/parport_cs.c
++++ b/drivers/parport/parport_cs.c
+@@ -177,12 +177,14 @@ static int parport_config(struct pcmcia_device *link)
+     if (ret)
+ 	    goto failed;
+ 
+-    p = parport_pc_probe_port(link->io.BasePort1, link->io.BasePort2,
++    p = parport_pc_probe_port(link->resource[0]->start,
++			      link->resource[1]->start,
+ 			      link->irq, PARPORT_DMA_NONE,
+ 			      &link->dev, IRQF_SHARED);
+     if (p == NULL) {
+ 	printk(KERN_NOTICE "parport_cs: parport_pc_probe_port() at "
+-	       "0x%3x, irq %u failed\n", link->io.BasePort1,
++	       "0x%3x, irq %u failed\n",
++	       (unsigned int) link->resource[0]->start,
+ 	       link->irq);
+ 	goto failed;
+     }
+diff --git a/drivers/scsi/pcmcia/aha152x_stub.c b/drivers/scsi/pcmcia/aha152x_stub.c
+index b07b53e..3e040f5 100644
+--- a/drivers/scsi/pcmcia/aha152x_stub.c
++++ b/drivers/scsi/pcmcia/aha152x_stub.c
+@@ -167,7 +167,7 @@ static int aha152x_config_cs(struct pcmcia_device *link)
+     /* Set configuration options for the aha152x driver */
+     memset(&s, 0, sizeof(s));
+     s.conf        = "PCMCIA setup";
+-    s.io_port     = link->io.BasePort1;
++    s.io_port     = link->resource[0]->start;
+     s.irq         = link->irq;
+     s.scsiid      = host_id;
+     s.reconnect   = reconnect;
+diff --git a/drivers/scsi/pcmcia/fdomain_stub.c b/drivers/scsi/pcmcia/fdomain_stub.c
+index ee04897..49a9a0a 100644
+--- a/drivers/scsi/pcmcia/fdomain_stub.c
++++ b/drivers/scsi/pcmcia/fdomain_stub.c
+@@ -137,10 +137,10 @@ static int fdomain_config(struct pcmcia_device *link)
+ 	    goto failed;
+ 
+     /* A bad hack... */
+-    release_region(link->io.BasePort1, link->io.NumPorts1);
++    release_region(link->resource[0]->start, resource_size(link->resource[0]));
+ 
+     /* Set configuration options for the fdomain driver */
+-    sprintf(str, "%d,%d", link->io.BasePort1, link->irq);
++    sprintf(str, "%d,%d", (unsigned int) link->resource[0]->start, link->irq);
+     fdomain_setup(str);
+ 
+     host = __fdomain_16x0_detect(&fdomain_driver_template);
+diff --git a/drivers/scsi/pcmcia/nsp_cs.c b/drivers/scsi/pcmcia/nsp_cs.c
+index d414207..d929891 100644
+--- a/drivers/scsi/pcmcia/nsp_cs.c
++++ b/drivers/scsi/pcmcia/nsp_cs.c
+@@ -1719,17 +1719,19 @@ static int nsp_cs_config(struct pcmcia_device *link)
+ 		goto cs_failed;
+ 
+ 	if (free_ports) {
+-		if (link->io.BasePort1) {
+-			release_region(link->io.BasePort1, link->io.NumPorts1);
++		if (link->resource[0]) {
++			release_region(link->resource[0]->start,
++					resource_size(link->resource[0]));
+ 		}
+-		if (link->io.BasePort2) {
+-			release_region(link->io.BasePort2, link->io.NumPorts2);
++		if (link->resource[1]) {
++			release_region(link->resource[1]->start,
++					resource_size(link->resource[1]));
+ 		}
+ 	}
+ 
+ 	/* Set port and IRQ */
+-	data->BaseAddress = link->io.BasePort1;
+-	data->NumAddress  = link->io.NumPorts1;
++	data->BaseAddress = link->resource[0]->start;
++	data->NumAddress  = resource_size(link->resource[0]);
+ 	data->IrqNumber   = link->irq;
+ 
+ 	nsp_dbg(NSP_DEBUG_INIT, "I/O[0x%x+0x%x] IRQ %d",
+@@ -1764,13 +1766,10 @@ static int nsp_cs_config(struct pcmcia_device *link)
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ) {
+ 		printk(", irq %d", link->irq);
+ 	}
+-	if (link->io.NumPorts1) {
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1+link->io.NumPorts1-1);
 -	}
- 	mutex_unlock(&s->ops_mutex);
-+
- 	return ret;
--} /* pcmcia_access_configuration_register */
--EXPORT_SYMBOL(pcmcia_access_configuration_register);
-+} /* pcmcia_access_config */
-+
-+
-+/**
-+ * pcmcia_read_config_byte() - read a byte from a card configuration register
-+ *
-+ * pcmcia_read_config_byte() reads a byte from a configuration register in
-+ * attribute memory.
-+ */
-+int pcmcia_read_config_byte(struct pcmcia_device *p_dev, off_t where, u8 *val)
-+{
-+	return pcmcia_access_config(p_dev, where, val, pcmcia_read_cis_mem);
-+}
-+EXPORT_SYMBOL(pcmcia_read_config_byte);
-+
-+
-+/**
-+ * pcmcia_write_config_byte() - write a byte to a card configuration register
-+ *
-+ * pcmcia_write_config_byte() writes a byte to a configuration register in
-+ * attribute memory.
-+ */
-+int pcmcia_write_config_byte(struct pcmcia_device *p_dev, off_t where, u8 val)
-+{
-+	return pcmcia_access_config(p_dev, where, &val, pcmcia_write_cis_mem);
-+}
-+EXPORT_SYMBOL(pcmcia_write_config_byte);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2+link->io.NumPorts2-1);
++	if (link->resource[0])
++		printk(", io %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(" & %pR", link->resource[1]);
+ 	if (link->win)
+ 		printk(", mem 0x%06lx-0x%06lx", cfg_mem->req.Base,
+ 		       cfg_mem->req.Base+cfg_mem->req.Size-1);
+diff --git a/drivers/scsi/pcmcia/qlogic_stub.c b/drivers/scsi/pcmcia/qlogic_stub.c
+index c1cf7f4..4e2b83f 100644
+--- a/drivers/scsi/pcmcia/qlogic_stub.c
++++ b/drivers/scsi/pcmcia/qlogic_stub.c
+@@ -215,18 +215,18 @@ static int qlogic_config(struct pcmcia_device * link)
  
+ 	if ((info->manf_id == MANFID_MACNICA) || (info->manf_id == MANFID_PIONEER) || (info->manf_id == 0x0098)) {
+ 		/* set ATAcmd */
+-		outb(0xb4, link->io.BasePort1 + 0xd);
+-		outb(0x24, link->io.BasePort1 + 0x9);
+-		outb(0x04, link->io.BasePort1 + 0xd);
++		outb(0xb4, link->resource[0]->start + 0xd);
++		outb(0x24, link->resource[0]->start + 0x9);
++		outb(0x04, link->resource[0]->start + 0xd);
+ 	}
  
- int pcmcia_map_mem_page(struct pcmcia_device *p_dev, window_handle_t wh,
+ 	/* The KXL-810AN has a bigger IO port window */
+-	if (link->io.NumPorts1 == 32)
++	if (resource_size(link->resource[0]) == 32)
+ 		host = qlogic_detect(&qlogicfas_driver_template, link,
+-			link->io.BasePort1 + 16, link->irq);
++			link->resource[0]->start + 16, link->irq);
+ 	else
+ 		host = qlogic_detect(&qlogicfas_driver_template, link,
+-			link->io.BasePort1, link->irq);
++			link->resource[0]->start, link->irq);
+ 	
+ 	if (!host) {
+ 		printk(KERN_INFO "%s: no SCSI devices found\n", qlogic_name);
+@@ -268,9 +268,9 @@ static int qlogic_resume(struct pcmcia_device *link)
+ 	if ((info->manf_id == MANFID_MACNICA) ||
+ 	    (info->manf_id == MANFID_PIONEER) ||
+ 	    (info->manf_id == 0x0098)) {
+-		outb(0x80, link->io.BasePort1 + 0xd);
+-		outb(0x24, link->io.BasePort1 + 0x9);
+-		outb(0x04, link->io.BasePort1 + 0xd);
++		outb(0x80, link->resource[0]->start + 0xd);
++		outb(0x24, link->resource[0]->start + 0x9);
++		outb(0x04, link->resource[0]->start + 0xd);
+ 	}
+ 	/* Ugggglllyyyy!!! */
+ 	qlogicfas408_bus_reset(NULL);
+diff --git a/drivers/scsi/pcmcia/sym53c500_cs.c b/drivers/scsi/pcmcia/sym53c500_cs.c
+index bd79e45..d99c0cb 100644
+--- a/drivers/scsi/pcmcia/sym53c500_cs.c
++++ b/drivers/scsi/pcmcia/sym53c500_cs.c
+@@ -733,9 +733,9 @@ SYM53C500_config(struct pcmcia_device *link)
+ 	    (info->manf_id == MANFID_PIONEER) ||
+ 	    (info->manf_id == 0x0098)) {
+ 		/* set ATAcmd */
+-		outb(0xb4, link->io.BasePort1 + 0xd);
+-		outb(0x24, link->io.BasePort1 + 0x9);
+-		outb(0x04, link->io.BasePort1 + 0xd);
++		outb(0xb4, link->resource[0]->start + 0xd);
++		outb(0x24, link->resource[0]->start + 0x9);
++		outb(0x04, link->resource[0]->start + 0xd);
+ 	}
+ 
+ 	/*
+@@ -748,7 +748,7 @@ SYM53C500_config(struct pcmcia_device *link)
+ 	*	0x130, 0x230, 0x280, 0x290,
+ 	*	0x320, 0x330, 0x340, 0x350
+ 	*/
+-	port_base = link->io.BasePort1;
++	port_base = link->resource[0]->start;
+ 	irq_level = link->irq;
+ 
+ 	DEB(printk("SYM53C500: port_base=0x%x, irq=%d, fast_pio=%d\n",
+@@ -821,15 +821,15 @@ static int sym53c500_resume(struct pcmcia_device *link)
+ 	if ((info->manf_id == MANFID_MACNICA) ||
+ 	    (info->manf_id == MANFID_PIONEER) ||
+ 	    (info->manf_id == 0x0098)) {
+-		outb(0x80, link->io.BasePort1 + 0xd);
+-		outb(0x24, link->io.BasePort1 + 0x9);
+-		outb(0x04, link->io.BasePort1 + 0xd);
++		outb(0x80, link->resource[0]->start + 0xd);
++		outb(0x24, link->resource[0]->start + 0x9);
++		outb(0x04, link->resource[0]->start + 0xd);
+ 	}
+ 	/*
+ 	 *  If things don't work after a "resume",
+ 	 *  this is a good place to start looking.
+ 	 */
+-	SYM53C500_int_host_reset(link->io.BasePort1);
++	SYM53C500_int_host_reset(link->resource[0]->start);
+ 
+ 	return 0;
+ }
 diff --git a/drivers/serial/serial_cs.c b/drivers/serial/serial_cs.c
-index 2b99c7b..2be8b10 100644
+index 2be8b10..fe7adcd 100644
 --- a/drivers/serial/serial_cs.c
 +++ b/drivers/serial/serial_cs.c
-@@ -114,16 +114,14 @@ static void quirk_setup_brainboxes_0104(struct pcmcia_device *link, struct uart_
- 
- static int quirk_post_ibm(struct pcmcia_device *link)
- {
--	conf_reg_t reg = { 0, CS_READ, 0x800, 0 };
-+	u8 val;
- 	int ret;
- 
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_read_config_byte(link, 0x800, &val);
- 	if (ret)
- 		goto failed;
- 
--	reg.Action = CS_WRITE;
--	reg.Value = reg.Value | 1;
--	ret = pcmcia_access_configuration_register(link, &reg);
-+	ret = pcmcia_write_config_byte(link, 0x800, val | 1);
- 	if (ret)
- 		goto failed;
- 	return 0;
-diff --git a/drivers/ssb/pcmcia.c b/drivers/ssb/pcmcia.c
-index 2152030..526682d 100644
---- a/drivers/ssb/pcmcia.c
-+++ b/drivers/ssb/pcmcia.c
-@@ -71,14 +71,9 @@
- /* Write to a PCMCIA configuration register. */
- static int ssb_pcmcia_cfg_write(struct ssb_bus *bus, u8 offset, u8 value)
- {
--	conf_reg_t reg;
- 	int res;
- 
--	memset(&reg, 0, sizeof(reg));
--	reg.Offset = offset;
--	reg.Action = CS_WRITE;
--	reg.Value = value;
--	res = pcmcia_access_configuration_register(bus->host_pcmcia, &reg);
-+	res = pcmcia_write_config_byte(bus->host_pcmcia, offset, value);
- 	if (unlikely(res != 0))
- 		return -EBUSY;
- 
-@@ -88,16 +83,11 @@ static int ssb_pcmcia_cfg_write(struct ssb_bus *bus, u8 offset, u8 value)
- /* Read from a PCMCIA configuration register. */
- static int ssb_pcmcia_cfg_read(struct ssb_bus *bus, u8 offset, u8 *value)
- {
--	conf_reg_t reg;
- 	int res;
- 
--	memset(&reg, 0, sizeof(reg));
--	reg.Offset = offset;
--	reg.Action = CS_READ;
--	res = pcmcia_access_configuration_register(bus->host_pcmcia, &reg);
-+	res = pcmcia_read_config_byte(bus->host_pcmcia, offset, value);
- 	if (unlikely(res != 0))
- 		return -EBUSY;
--	*value = reg.Value;
- 
- 	return 0;
+@@ -463,13 +463,13 @@ static int simple_config(struct pcmcia_device *link)
+ 	/* If the card is already configured, look up the port and irq */
+ 	if (link->function_config) {
+ 		unsigned int port = 0;
+-		if ((link->io.BasePort2 != 0) &&
+-		    (link->io.NumPorts2 == 8)) {
+-			port = link->io.BasePort2;
++		if ((link->resource[1]->end != 0) &&
++			(resource_size(link->resource[1]) == 8)) {
++			port = link->resource[1]->end;
+ 			info->slave = 1;
+ 		} else if ((info->manfid == MANFID_OSITECH) &&
+-			   (link->io.NumPorts1 == 0x40)) {
+-			port = link->io.BasePort1 + 0x28;
++			(resource_size(link->resource[0]) == 0x40)) {
++			port = link->resource[0]->start + 0x28;
+ 			info->slave = 1;
+ 		}
+ 		if (info->slave) {
+@@ -507,7 +507,7 @@ found_port:
+ 	i = pcmcia_request_configuration(link, &link->conf);
+ 	if (i != 0)
+ 		return -1;
+-	return setup_serial(link, info, link->io.BasePort1, link->irq);
++	return setup_serial(link, info, link->resource[0]->start, link->irq);
  }
-diff --git a/include/pcmcia/cs.h b/include/pcmcia/cs.h
-index c78d9b1..64e853d 100644
---- a/include/pcmcia/cs.h
-+++ b/include/pcmcia/cs.h
-@@ -19,18 +19,6 @@
- #include <linux/interrupt.h>
+ 
+ static int multi_config_check(struct pcmcia_device *p_dev,
+@@ -524,7 +524,7 @@ static int multi_config_check(struct pcmcia_device *p_dev,
+ 		p_dev->io.BasePort1 = cf->io.win[0].base;
+ 		p_dev->io.IOAddrLines = cf->io.flags & CISTPL_IO_LINES_MASK;
+ 		if (!pcmcia_request_io(p_dev, &p_dev->io)) {
+-			*base2 = p_dev->io.BasePort1 + 8;
++			*base2 = p_dev->resource[0]->start + 8;
+ 			return 0;
+ 		}
+ 	}
+@@ -544,7 +544,7 @@ static int multi_config_check_notpicky(struct pcmcia_device *p_dev,
+ 		p_dev->io.BasePort2 = cf->io.win[1].base;
+ 		p_dev->io.IOAddrLines = cf->io.flags & CISTPL_IO_LINES_MASK;
+ 		if (!pcmcia_request_io(p_dev, &p_dev->io)) {
+-			*base2 = p_dev->io.BasePort2;
++			*base2 = p_dev->resource[1]->start;
+ 			return 0;
+ 		}
+ 	}
+@@ -596,9 +596,9 @@ static int multi_config(struct pcmcia_device *link)
+ 		    link->conf.ConfigIndex == 3) {
+ 			err = setup_serial(link, info, base2,
+ 					link->irq);
+-			base2 = link->io.BasePort1;
++			base2 = link->resource[0]->start;;
+ 		} else {
+-			err = setup_serial(link, info, link->io.BasePort1,
++			err = setup_serial(link, info, link->resource[0]->start,
+ 					link->irq);
+ 		}
+ 		info->c950ctrl = base2;
+@@ -613,7 +613,7 @@ static int multi_config(struct pcmcia_device *link)
+ 		return 0;
+ 	}
+ 
+-	setup_serial(link, info, link->io.BasePort1, link->irq);
++	setup_serial(link, info, link->resource[0]->start, link->irq);
+ 	for (i = 0; i < info->multi - 1; i++)
+ 		setup_serial(link, info, base2 + (8 * i),
+ 				link->irq);
+diff --git a/drivers/staging/comedi/drivers/cb_das16_cs.c b/drivers/staging/comedi/drivers/cb_das16_cs.c
+index acef29c..208f1b7 100644
+--- a/drivers/staging/comedi/drivers/cb_das16_cs.c
++++ b/drivers/staging/comedi/drivers/cb_das16_cs.c
+@@ -170,7 +170,7 @@ static int das16cs_attach(struct comedi_device *dev,
+ 	if (!link)
+ 		return -EIO;
+ 
+-	dev->iobase = link->io.BasePort1;
++	dev->iobase = link->resource[0]->start;;
+ 	printk("I/O base=0x%04lx ", dev->iobase);
+ 
+ 	printk("fingerprint:\n");
+@@ -787,12 +787,10 @@ static void das16cs_pcmcia_config(struct pcmcia_device *link)
+ 	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 		printk(", irq %u", link->irq);
+-	if (link->io.NumPorts1)
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1 + link->io.NumPorts1 - 1);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2 + link->io.NumPorts2 - 1);
++	if (link->resource[0])
++		printk(", io %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(", io %pR", link->resource[1]);
+ 	printk("\n");
+ 
+ 	return;
+diff --git a/drivers/staging/comedi/drivers/das08_cs.c b/drivers/staging/comedi/drivers/das08_cs.c
+index 3eddb7c..c4cfcff 100644
+--- a/drivers/staging/comedi/drivers/das08_cs.c
++++ b/drivers/staging/comedi/drivers/das08_cs.c
+@@ -88,7 +88,7 @@ static int das08_cs_attach(struct comedi_device *dev,
+ 			printk(" no pcmcia cards found\n");
+ 			return -EIO;
+ 		}
+-		iobase = link->io.BasePort1;
++		iobase = link->resource[0]->start;
+ 	} else {
+ 		printk(" bug! board does not have PCMCIA bustype\n");
+ 		return -EINVAL;
+@@ -283,12 +283,10 @@ static void das08_pcmcia_config(struct pcmcia_device *link)
+ 	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 		printk(", irq %u", link->irq);
+-	if (link->io.NumPorts1)
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1 + link->io.NumPorts1 - 1);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2 + link->io.NumPorts2 - 1);
++	if (link->resource[0])
++		printk(", io %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(" & %pR", link->resource[1]);
+ 	printk("\n");
+ 
+ 	return;
+diff --git a/drivers/staging/comedi/drivers/ni_daq_700.c b/drivers/staging/comedi/drivers/ni_daq_700.c
+index f3c4d2f..6d56957 100644
+--- a/drivers/staging/comedi/drivers/ni_daq_700.c
++++ b/drivers/staging/comedi/drivers/ni_daq_700.c
+@@ -376,7 +376,7 @@ static int dio700_attach(struct comedi_device *dev, struct comedi_devconfig *it)
+ 		link = pcmcia_cur_dev;	/* XXX hack */
+ 		if (!link)
+ 			return -EIO;
+-		iobase = link->io.BasePort1;
++		iobase = link->resource[0]->start;
+ #ifdef incomplete
+ 		irq = link->irq;
  #endif
+@@ -644,12 +644,10 @@ static void dio700_config(struct pcmcia_device *link)
+ 	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 		printk(", irq %d", link->irq);
+-	if (link->io.NumPorts1)
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1 + link->io.NumPorts1 - 1);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2 + link->io.NumPorts2 - 1);
++	if (link->resource[0])
++		printk(", io %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(" & %pR", link->resource[1]);
+ 	if (link->win)
+ 		printk(", mem 0x%06lx-0x%06lx", req.Base,
+ 		       req.Base + req.Size - 1);
+diff --git a/drivers/staging/comedi/drivers/ni_daq_dio24.c b/drivers/staging/comedi/drivers/ni_daq_dio24.c
+index f0c4367..29e1daf 100644
+--- a/drivers/staging/comedi/drivers/ni_daq_dio24.c
++++ b/drivers/staging/comedi/drivers/ni_daq_dio24.c
+@@ -128,7 +128,7 @@ static int dio24_attach(struct comedi_device *dev, struct comedi_devconfig *it)
+ 		link = pcmcia_cur_dev;	/* XXX hack */
+ 		if (!link)
+ 			return -EIO;
+-		iobase = link->io.BasePort1;
++		iobase = link->resource[0]->start;
+ #ifdef incomplete
+ 		irq = link->irq;
+ #endif
+@@ -396,12 +396,10 @@ static void dio24_config(struct pcmcia_device *link)
+ 	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 		printk(", irq %d", link->irq);
+-	if (link->io.NumPorts1)
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1 + link->io.NumPorts1 - 1);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2 + link->io.NumPorts2 - 1);
++	if (link->resource[0])
++		printk(" & %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(" & %pR", link->resource[1]);
+ 	if (link->win)
+ 		printk(", mem 0x%06lx-0x%06lx", req.Base,
+ 		       req.Base + req.Size - 1);
+diff --git a/drivers/staging/comedi/drivers/ni_labpc_cs.c b/drivers/staging/comedi/drivers/ni_labpc_cs.c
+index 1ee78f8..fb10987 100644
+--- a/drivers/staging/comedi/drivers/ni_labpc_cs.c
++++ b/drivers/staging/comedi/drivers/ni_labpc_cs.c
+@@ -142,7 +142,7 @@ static int labpc_attach(struct comedi_device *dev, struct comedi_devconfig *it)
+ 		link = pcmcia_cur_dev;	/* XXX hack */
+ 		if (!link)
+ 			return -EIO;
+-		iobase = link->io.BasePort1;
++		iobase = link->resource[0]->start;
+ 		irq = link->irq;
+ 		break;
+ 	default:
+@@ -373,12 +373,10 @@ static void labpc_config(struct pcmcia_device *link)
+ 	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 		printk(", irq %d", link->irq);
+-	if (link->io.NumPorts1)
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1 + link->io.NumPorts1 - 1);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2 + link->io.NumPorts2 - 1);
++	if (link->resource[0])
++		printk(" & %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(" & %pR", link->resource[1]);
+ 	if (link->win)
+ 		printk(", mem 0x%06lx-0x%06lx", req.Base,
+ 		       req.Base + req.Size - 1);
+diff --git a/drivers/staging/comedi/drivers/ni_mio_cs.c b/drivers/staging/comedi/drivers/ni_mio_cs.c
+index 0bce220..f37dc22 100644
+--- a/drivers/staging/comedi/drivers/ni_mio_cs.c
++++ b/drivers/staging/comedi/drivers/ni_mio_cs.c
+@@ -355,7 +355,7 @@ static int mio_cs_attach(struct comedi_device *dev, struct comedi_devconfig *it)
+ 		return -EIO;
  
--/* For AccessConfigurationRegister */
--typedef struct conf_reg_t {
--    u_char	Function;
--    u_int	Action;
--    off_t	Offset;
--    u_int	Value;
--} conf_reg_t;
--
--/* Actions */
--#define CS_READ		1
--#define CS_WRITE	2
--
- /* for AdjustResourceInfo */
- /* Action field */
- #define REMOVE_MANAGED_RESOURCE		1
-diff --git a/include/pcmcia/ds.h b/include/pcmcia/ds.h
-index e614aa0..d494ce4 100644
---- a/include/pcmcia/ds.h
-+++ b/include/pcmcia/ds.h
-@@ -174,8 +174,8 @@ struct pcmcia_device *pcmcia_dev_present(struct pcmcia_device *p_dev);
- int pcmcia_reset_card(struct pcmcia_socket *skt);
+ 	dev->driver = &driver_ni_mio_cs;
+-	dev->iobase = link->io.BasePort1;
++	dev->iobase = link->resource[0]->start;
  
- /* CIS config */
--int pcmcia_access_configuration_register(struct pcmcia_device *p_dev,
--					 conf_reg_t *reg);
-+int pcmcia_read_config_byte(struct pcmcia_device *p_dev, off_t where, u8 *val);
-+int pcmcia_write_config_byte(struct pcmcia_device *p_dev, off_t where, u8 val);
+ 	irq = link->irq;
  
- /* device configuration */
- int pcmcia_request_io(struct pcmcia_device *p_dev, io_req_t *req);
+diff --git a/drivers/staging/comedi/drivers/quatech_daqp_cs.c b/drivers/staging/comedi/drivers/quatech_daqp_cs.c
+index 67c0fa6..80b8d57 100644
+--- a/drivers/staging/comedi/drivers/quatech_daqp_cs.c
++++ b/drivers/staging/comedi/drivers/quatech_daqp_cs.c
+@@ -871,7 +871,7 @@ static int daqp_attach(struct comedi_device *dev, struct comedi_devconfig *it)
+ 		}
+ 	}
+ 
+-	dev->iobase = local->link->io.BasePort1;
++	dev->iobase = local->link->resource[0]->start;
+ 
+ 	ret = alloc_subdevices(dev, 4);
+ 	if (ret < 0)
+@@ -1153,12 +1153,10 @@ static void daqp_cs_config(struct pcmcia_device *link)
+ 	dev_info(&link->dev, "index 0x%02x", link->conf.ConfigIndex);
+ 	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+ 		printk(", irq %u", link->irq);
+-	if (link->io.NumPorts1)
+-		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-		       link->io.BasePort1 + link->io.NumPorts1 - 1);
+-	if (link->io.NumPorts2)
+-		printk(" & 0x%04x-0x%04x", link->io.BasePort2,
+-		       link->io.BasePort2 + link->io.NumPorts2 - 1);
++	if (link->resource[0])
++		printk(" & %pR", link->resource[0]);
++	if (link->resource[1])
++		printk(" & %pR", link->resource[1]);
+ 	printk("\n");
+ 
+ 	return;
+diff --git a/drivers/staging/wlags49_h2/wl_cs.c b/drivers/staging/wlags49_h2/wl_cs.c
+index afe4575..2361537 100644
+--- a/drivers/staging/wlags49_h2/wl_cs.c
++++ b/drivers/staging/wlags49_h2/wl_cs.c
+@@ -319,7 +319,7 @@ void wl_adapter_insert( struct pcmcia_device *link )
+         goto failed;
+ 
+     dev->irq        = link->irq;
+-    dev->base_addr  = link->io.BasePort1;
++    dev->base_addr  = link->resource[0]->start;
+ 
+     SET_NETDEV_DEV(dev, &link->dev);
+     if (register_netdev(dev) != 0) {
+diff --git a/drivers/telephony/ixj_pcmcia.c b/drivers/telephony/ixj_pcmcia.c
+index f6c7e6f..a801036 100644
+--- a/drivers/telephony/ixj_pcmcia.c
++++ b/drivers/telephony/ixj_pcmcia.c
+@@ -150,7 +150,8 @@ static int ixj_config(struct pcmcia_device * link)
+ 	/*
+  	 *	Register the card with the core.
+ 	 */
+-	j = ixj_pcmcia_probe(link->io.BasePort1, link->io.BasePort1 + 0x10);
++	j = ixj_pcmcia_probe(link->resource[0]->start,
++			     link->resource[0]->start + 0x10);
+ 
+ 	info->ndev = 1;
+ 	ixj_get_serial(link, j);
+diff --git a/drivers/usb/host/sl811_cs.c b/drivers/usb/host/sl811_cs.c
+index acb7e25..22e04f2 100644
+--- a/drivers/usb/host/sl811_cs.c
++++ b/drivers/usb/host/sl811_cs.c
+@@ -189,7 +189,7 @@ static int sl811_cs_config(struct pcmcia_device *link)
+ 		goto failed;
+ 
+ 	/* require an IRQ and two registers */
+-	if (!link->io.NumPorts1 || link->io.NumPorts1 < 2)
++	if (resource_size(link->resource[0]) < 2)
+ 		goto failed;
+ 
+ 	if (!link->irq)
+@@ -204,11 +204,10 @@ static int sl811_cs_config(struct pcmcia_device *link)
+ 	if (link->conf.Vpp)
+ 		printk(", Vpp %d.%d", link->conf.Vpp/10, link->conf.Vpp%10);
+ 	printk(", irq %d", link->irq);
+-	printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+-	       link->io.BasePort1+link->io.NumPorts1-1);
++	printk(", io %pR", link->resource[0]);
+ 	printk("\n");
+ 
+-	if (sl811_hc_init(parent, link->io.BasePort1, link->irq)
++	if (sl811_hc_init(parent, link->resource[0]->start, link->irq)
+ 			< 0) {
+ failed:
+ 		printk(KERN_WARNING "sl811_cs_config failed\n");
+diff --git a/sound/pcmcia/pdaudiocf/pdaudiocf.c b/sound/pcmcia/pdaudiocf/pdaudiocf.c
+index df110df..9f897bc 100644
+--- a/sound/pcmcia/pdaudiocf/pdaudiocf.c
++++ b/sound/pcmcia/pdaudiocf/pdaudiocf.c
+@@ -231,7 +231,8 @@ static int pdacf_config(struct pcmcia_device *link)
+ 	if (ret)
+ 		goto failed;
+ 
+-	if (snd_pdacf_assign_resources(pdacf, link->io.BasePort1, link->irq) < 0)
++	if (snd_pdacf_assign_resources(pdacf, link->resource[0]->start,
++					link->irq) < 0)
+ 		goto failed;
+ 
+ 	return 0;
+diff --git a/sound/pcmcia/vx/vxpocket.c b/sound/pcmcia/vx/vxpocket.c
+index 624b47a..f23c235 100644
+--- a/sound/pcmcia/vx/vxpocket.c
++++ b/sound/pcmcia/vx/vxpocket.c
+@@ -241,7 +241,8 @@ static int vxpocket_config(struct pcmcia_device *link)
+ 	chip->dev = &link->dev;
+ 	snd_card_set_dev(chip->card, chip->dev);
+ 
+-	if (snd_vxpocket_assign_resources(chip, link->io.BasePort1, link->irq) < 0)
++	if (snd_vxpocket_assign_resources(chip, link->resource[0]->start,
++						link->irq) < 0)
+ 		goto failed;
+ 
+ 	return 0;
 -- 
 1.7.0.4
 
