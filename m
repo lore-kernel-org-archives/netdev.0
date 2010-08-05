@@ -1,64 +1,93 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH 3/3] PPTP: PPP over IPv4 (Point-to-Point Tunneling
- Protocol)
-Date: Wed, 4 Aug 2010 21:22:51 -0400
-Message-ID: <20100804212251.59c08e58.billfink@mindspring.com>
-References: <E1OgbWT-0004Ij-00.xeb-mail-ru@f134.mail.ru>
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: Re: [PATCH] platform: Facilitate the creation of pseduo-platform
+	busses
+Date: Thu, 5 Aug 2010 11:32:16 +0900
+Message-ID: <AANLkTimkMy6_201XNGb41e7LivkvVHMkFZWVoA-7UmBo@mail.gmail.com>
+References: <4C59E654.1090403@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xeb@mail.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:43144 "EHLO
-	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751855Ab0HEBaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Aug 2010 21:30:04 -0400
-In-Reply-To: <E1OgbWT-0004Ij-00.xeb-mail-ru@f134.mail.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"damm@opensource.se" <damm@opensource.se>,
+	"lethal@linux-sh.org" <lethal@linux-sh.org>,
+	"rjw@sisk.pl" <rjw@sisk.pl>,
+	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>, alan@lxorguk.ukuu.org.uk,
+	zt.tmzt@gmail.com
+To: Patrick Pannuto <ppannuto@codeaurora.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <4C59E654.1090403@codeaurora.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 04 Aug 2010, xeb@mail.ru wrote:
+On Thu, Aug 5, 2010 at 7:14 AM, Patrick Pannuto <ppannuto@codeaurora.or=
+g> wrote:
+> Inspiration for this comes from:
+> http://www.mail-archive.com/linux-omap@vger.kernel.org/msg31161.html
+>
+> RFC: http://lkml.org/lkml/2010/8/3/496
+> Patch is unchanged from the RFC. Reviews seemed generally positive
+> and it seemed this was desired functionality.
 
-> This is patch 3/3 which contains MAINTAINERS file modification.
-> 
-> ---
->  MAINTAINERS |   14 ++++++++++++++
->  1 files changed, 14 insertions(+), 0 deletions(-)
-> 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 02f75fc..313d829 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -6450,6 +6450,20 @@ M:	"Maciej W. Rozycki" <macro@linux-mips.org>
->  S:	Maintained
->  F:	drivers/serial/zs.*
->  
-> +GRE DEMULTIPLEXER DRIVER
-> +M:	Dmitry Kozlov <xeb@mail.ru>
-> +L:	linux-net@vger.kernel.org
+Thanks for your patch, it's really nice to see work done in this area!
+I'd like to see something like this merged in the not so distant
+future. At this point I'm not so concerned about the details, so I'll
+restrict myself to this:
 
-Shouldn't this also be:
+> /drivers/my_driver.c
+> =A0 =A0 =A0 =A0static struct platform_driver my_driver =3D {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.driver =3D {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.name =A0 =3D "my-driv=
+er",
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.owner =A0=3D THIS_MOD=
+ULE,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.bus =A0 =A0=3D &my_bu=
+s_type,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0},
+> =A0 =A0 =A0 =A0};
 
-+L:	netdev@vger.kernel.org
+I would really prefer not to have the bus type in the here. I
+understand it's needed at this point, but I wonder if it's possible to
+adjust the device<->driver matching for platform devices to allow any
+type of pseudo-platform bus_type.
 
-just like the PPTP DRIVER entry below?
+The reason why I'd like to avoid having the bus type in the driver is
+that I'd like to reuse the platform driver across multiple
+architectures and buses. For instance, on the SH architecture and
+SH-Mobile ARM we have SoCs with SCIF hardware blocks driven by the
+sh-sci.c serial driver. The sh-sci.c platform driver supports a wide
+range of different SCI(F)(A)(B) hardware blocks, and on any given SoC
+there is a mix of SCIF blocks spread out on different buses.
 
-			-Bill
+At this point our SH platform drivers are unaware where their driver
+instanced are located on the SoC. The I/O address and IRQs are
+assigned via struct resource and clocks are managed through clkdev. I
+believe that adding the bus type in the driver will violate this
+abstraction and make it more difficult to just instantiate a driver
+somewhere on the SoC.
 
+> /somewhere/my_device.c
+> =A0 =A0 =A0 =A0static struct platform_device my_device =3D {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.name =A0 =A0 =A0 =A0 =A0 =3D "my-devi=
+ce",
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.id =A0 =A0 =A0 =A0 =A0 =A0 =3D -1,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.dev.bus =A0 =A0 =A0 =A0=3D &my_bus_ty=
+pe,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0.dev.parent =A0 =A0 =3D &sub_bus_1.dev=
+,
+> =A0 =A0 =A0 =A0};
 
+This I don't mind at all. Actually, this is the place where the
+topology should be defined IMO.
 
-> +S:	Maintained
-> +F:	net/ipv4/gre.c
-> +F:	include/net/gre.h
-> +
-> +PPTP DRIVER
-> +M:	Dmitry Kozlov <xeb@mail.ru>
-> +L:	netdev@vger.kernel.org
-> +S:	Maintained
-> +F:	drivers/net/pptp.c
-> +W:	http://accel-pptp.sourceforge.net/
-> +
->  THE REST
->  M:	Linus Torvalds <torvalds@linux-foundation.org>
->  L:	linux-kernel@vger.kernel.org
+Cheers,
+
+/ magnus
+--
+To unsubscribe from this list: send the line "unsubscribe linux-omap" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
