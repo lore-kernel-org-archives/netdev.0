@@ -1,75 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Using virtio as a physical (wire-level) transport
-Date: Fri, 6 Aug 2010 02:20:42 +0300
-Message-ID: <20100805232042.GA27651@redhat.com>
-References: <20100804230441.GJ23951@ovro.caltech.edu>
- <20100805213050.GA24984@redhat.com>
- <20100805230102.GD4757@ovro.caltech.edu>
+From: lkml20100708@newton.leun.net
+Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free
+ (adding ipv6 address to interface)
+Date: Fri, 6 Aug 2010 01:45:26 +0200
+Message-ID: <20100806014526.42ffda09@xenia.leun.net>
+References: <m1y6clz8ta.fsf_-_@fess.ebiederm.org>
+	<20100805134707.0442a7b1@xenia.leun.net>
+	<m1bp9g7ry0.fsf@fess.ebiederm.org>
+	<20100805.131128.42817872.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org,
-	Zang Roy <r61911@freescale.com>, netdev@vger.kernel.org
-To: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, greg@kroah.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, adobriyan@gmail.com, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61217 "EHLO mx1.redhat.com"
+Received: from serv04.lahn.de ([213.239.197.57]:42807 "EHLO serv04.lahn.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759580Ab0HEX0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 19:26:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20100805230102.GD4757@ovro.caltech.edu>
+	id S1758633Ab0HEXtP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Aug 2010 19:49:15 -0400
+In-Reply-To: <20100805.131128.42817872.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 05, 2010 at 04:01:03PM -0700, Ira W. Snyder wrote:
-> On Fri, Aug 06, 2010 at 12:30:50AM +0300, Michael S. Tsirkin wrote:
-> > Hi Ira,
-> > 
-> > > Making my life harder since the last time I tried this, mainline commit
-> > > 7c5e9ed0c (virtio_ring: remove a level of indirection) has removed the
-> > > possibility of using an alternative virtqueue implementation. The commit
-> > > message suggests that you might be willing to add this capability back.
-> > > Would this be an option?
-> > 
-> > Sorry about that.
-> > 
-> > With respect to this commit, we only had one implementation upstream
-> > and extra levels of indirection made extending the API
-> > much harder for no apparent benefit.
-> > 
-> > When there's more than one ring implementation with very small amount of
-> > common code, I think that it might make sense to readd the indirection
-> > back, to separate the code cleanly.
-> > 
-> > OTOH if the two implementations share a lot of code, I think that it
-> > might be better to just add a couple of if statements here and there.
-> > This way compiler even might have a chance to compile the code out if
-> > the feature is disabled in kernel config.
-> > 
-> 
-> The virtqueue implementation I envision will be almost identical to the
-> current virtio_ring virtqueue implementation, with the following
-> exceptions:
-> 
-> * the "shared memory" will actually be remote, on the PCI BAR of a device
-> * iowrite32(), ioread32() and friends will be needed to access the memory
-> * there will only be a fixed number of virtqueues available, due to PCI
->   BAR size
-> * cross-endian virtqueues must work
-> * kick needs to be cross-machine (using PCI IRQ's)
-> 
-> I don't think it is feasible to add this to the existing implementation.
-> I think the requirement of being cross-endian will be the hardest to
-> overcome. Rusty did not envision the cross-endian use case when he
-> designed this, and it shows, in virtio_ring, virtio_net and vhost. I
-> have no idea what to do about this. Do you have any ideas?
+On Thu, 05 Aug 2010 13:11:28 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-My guess is sticking an if around each access in virtio would hurt,
-if this is what you are asking about.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Thu, 05 Aug 2010 12:57:59 -0700
+> 
+> > I wonder what has changed with ipv6 recently.
+> 
+> There was a recent fix to the IGMP snooping code we have in
+> the bridging layer, if parsing of an ipv6 IGMP packet failed
+> we'd leak the packet (and thus references to whatever device
+> it referenced).
+> 
+> commit 6d1d1d398cb7db7a12c5d652d50f85355345234f
+[...]
 
-Just a crazy idea: vhost already uses wrappers like get_user etc,
-maybe when building kernel for your board you could
-redefine these to also byteswap?
+But this patch is not in 2.6.35 and therefore cannot make the
+difference Eric sees (belives to see) between his modified 2.6.32 and
+2.6.35.
+
+Also, this patch, if I understand that correctly, only changes bridging
+and in my scenario bridge.ko (have it as module) was not even loaded,
+so applying this patch should not make any difference for the bug I
+see, or do I overlook something?
+
+So, I guess, your answer was general information to Erics question what
+changed with ipv6, not related to that bug we seek in particular?
 
 -- 
-MST
+MfG,
+
+Michael Leun
+
