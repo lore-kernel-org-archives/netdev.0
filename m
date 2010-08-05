@@ -1,22 +1,19 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 23/42] drivers/net/wireless/libertas: Adjust confusing if
- indentation
-Date: Thu, 5 Aug 2010 22:23:54 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008052223340.31692@ask.diku.dk>
+Subject: [PATCH 28/42] drivers/atm: Adjust confusing if indentation
+Date: Thu, 5 Aug 2010 22:25:24 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008052225070.31692@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Dan Williams <dcbw@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vge
+To: Chas Williams <chas@cmf.nrl.navy.mil>,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
-At the point of the patched code, err has already been tested, so it is
-only worthwhile to test it again in the if branches where it is changed.
+Indent the branch of an if.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -46,29 +43,19 @@ if (p1[0].column == p2[0].column):
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wireless/libertas/if_spi.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/atm/iphase.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/libertas/if_spi.c b/drivers/net/wireless/libertas/if_spi.c
-index fe3f080..3965c6c 100644
---- a/drivers/net/wireless/libertas/if_spi.c
-+++ b/drivers/net/wireless/libertas/if_spi.c
-@@ -800,14 +800,16 @@ static int lbs_spi_thread(void *data)
- 			goto err;
- 		}
- 
--		if (hiStatus & IF_SPI_HIST_CMD_UPLOAD_RDY)
-+		if (hiStatus & IF_SPI_HIST_CMD_UPLOAD_RDY) {
- 			err = if_spi_c2h_cmd(card);
- 			if (err)
- 				goto err;
--		if (hiStatus & IF_SPI_HIST_RX_UPLOAD_RDY)
-+		}
-+		if (hiStatus & IF_SPI_HIST_RX_UPLOAD_RDY) {
- 			err = if_spi_c2h_data(card);
- 			if (err)
- 				goto err;
-+		}
- 
- 		/* workaround: in PS mode, the card does not set the Command
- 		 * Download Ready bit, but it sets TX Download Ready. */
+diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
+index ee9ddeb..8b358d7 100644
+--- a/drivers/atm/iphase.c
++++ b/drivers/atm/iphase.c
+@@ -220,7 +220,7 @@ static u16 get_desc (IADEV *dev, struct ia_vcc *iavcc) {
+   while (!desc_num || (dev->desc_tbl[desc_num -1]).timestamp) {
+      dev->ffL.tcq_rd += 2;
+      if (dev->ffL.tcq_rd > dev->ffL.tcq_ed) 
+-     dev->ffL.tcq_rd = dev->ffL.tcq_st;
++	dev->ffL.tcq_rd = dev->ffL.tcq_st;
+      if (dev->ffL.tcq_rd == dev->host_tcq_wr) 
+         return 0xFFFF; 
+      desc_num = *(u_short *)(dev->seg_ram + dev->ffL.tcq_rd);
