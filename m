@@ -1,408 +1,93 @@
-From: Sachin Sanap <ssanap@marvell.com>
-Subject: RE: [PATCH] net: add Fast Ethernet driver for PXA168.
-Date: Fri, 6 Aug 2010 08:14:08 -0700
-Message-ID: <EC64E4604C8024438259B683BB2514E1082B1CB1B0@SC-VEXCH1.marvell.com>
-References: <20100804065818.GI21121@mail.wantstofly.org>
+From: "Ira W. Snyder" <iws@ovro.caltech.edu>
+Subject: Re: Using virtio as a physical (wire-level) transport
+Date: Fri, 6 Aug 2010 08:34:28 -0700
+Message-ID: <20100806153427.GB12392@ovro.caltech.edu>
+References: <20100804230441.GJ23951@ovro.caltech.edu>
+ <20100805213050.GA24984@redhat.com>
+ <20100805230102.GD4757@ovro.caltech.edu>
+ <20100805232042.GA27651@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Prabhanjan Sarnaik <sarnaik@marvell.com>,
-	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
-	Philip Rakity <prakity@marvell.com>,
-	Mark Brown <markb@marvell.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org,
+	Zang Roy <r61911@freescale.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dakia3.marvell.com ([65.219.4.28]:39324 "EHLO
-	dakia3.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751703Ab0HFP1R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 11:27:17 -0400
-In-Reply-To: <20100804065818.GI21121@mail.wantstofly.org>
-Content-Language: en-US
+Received: from ovro.ovro.caltech.edu ([192.100.16.2]:51933 "EHLO
+	ovro.ovro.caltech.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754774Ab0HFPe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 11:34:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20100805232042.GA27651@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Lennert,Eric for your review. Comments inline. I will resend the modified patch as a reply to this email.
+On Fri, Aug 06, 2010 at 02:20:42AM +0300, Michael S. Tsirkin wrote:
+> On Thu, Aug 05, 2010 at 04:01:03PM -0700, Ira W. Snyder wrote:
+> > On Fri, Aug 06, 2010 at 12:30:50AM +0300, Michael S. Tsirkin wrote:
+> > > Hi Ira,
+> > > 
+> > > > Making my life harder since the last time I tried this, mainline commit
+> > > > 7c5e9ed0c (virtio_ring: remove a level of indirection) has removed the
+> > > > possibility of using an alternative virtqueue implementation. The commit
+> > > > message suggests that you might be willing to add this capability back.
+> > > > Would this be an option?
+> > > 
+> > > Sorry about that.
+> > > 
+> > > With respect to this commit, we only had one implementation upstream
+> > > and extra levels of indirection made extending the API
+> > > much harder for no apparent benefit.
+> > > 
+> > > When there's more than one ring implementation with very small amount of
+> > > common code, I think that it might make sense to readd the indirection
+> > > back, to separate the code cleanly.
+> > > 
+> > > OTOH if the two implementations share a lot of code, I think that it
+> > > might be better to just add a couple of if statements here and there.
+> > > This way compiler even might have a chance to compile the code out if
+> > > the feature is disabled in kernel config.
+> > > 
+> > 
+> > The virtqueue implementation I envision will be almost identical to the
+> > current virtio_ring virtqueue implementation, with the following
+> > exceptions:
+> > 
+> > * the "shared memory" will actually be remote, on the PCI BAR of a device
+> > * iowrite32(), ioread32() and friends will be needed to access the memory
+> > * there will only be a fixed number of virtqueues available, due to PCI
+> >   BAR size
+> > * cross-endian virtqueues must work
+> > * kick needs to be cross-machine (using PCI IRQ's)
+> > 
+> > I don't think it is feasible to add this to the existing implementation.
+> > I think the requirement of being cross-endian will be the hardest to
+> > overcome. Rusty did not envision the cross-endian use case when he
+> > designed this, and it shows, in virtio_ring, virtio_net and vhost. I
+> > have no idea what to do about this. Do you have any ideas?
 > 
-> On Wed, Aug 04, 2010 at 04:17:50PM +0530, Sachin Sanap wrote:
+> My guess is sticking an if around each access in virtio would hurt,
+> if this is what you are asking about.
 > 
-> > This patch adds support for PXA168 Fast Ethernet on Aspenite
-> > board.
-> 
-> There's nothing Aspenite-specific in this patch (nor should there be),
-> so you can leave that part out.
 
-Removed.
-> 
-> 
-> > Patch generated against Linux 2.6.35-rc5
-> > commit cd5b8f8755a89a57fc8c408d284b8b613f090345
-> 
-> This might be interesting to know but shouldn't be part of the commit
-> message.
+Yes, I think so too. I think using le32 byte order everywhere in virtio
+would be a good thing. In addition, it means that on all x86, things
+continue to work as-is. It would also have no overhead in the most
+common case: x86-on-x86.
 
-Removed.
-> 
-> 
-> > diff --git a/arch/arm/mach-mmp/include/mach/pxa168_eth.h
-> b/arch/arm/mach-mmp/include/mach/pxa168_eth.h
-> > new file mode 100644
-> > index 0000000..abfd335
-> > --- /dev/null
-> > +++ b/arch/arm/mach-mmp/include/mach/pxa168_eth.h
-> > @@ -0,0 +1,18 @@
-> > +/*
-> > + *pxa168 ethernet platform device data definition file.
-> > + */
-> > +#ifndef __LINUX_PXA168_ETH_H
-> > +#define __LINUX_PXA168_ETH_H
-> 
-> This should just be in include/linux, IMHO, as this unit isn't only used
-> in the PXA168, for one.
-I have moved it to include/linux but the PXA168 name is still there.
+This problem is not limited to my new use of virtio. Virtio is
+completely useless in a relatively common virtualization scenario:
+x86 host with qemu-ppc guest. Or any other big endian guest system.
 
+> Just a crazy idea: vhost already uses wrappers like get_user etc,
+> maybe when building kernel for your board you could
+> redefine these to also byteswap?
 > 
-> 
-> > +struct pxa168_eth_platform_data {
-> > +	int	port_number;
-> > +	u16	phy_addr;
-> > +
-> > +	/* If speed is 0, then speed and duplex are autonegotiated. */
-> > +	u32	speed;		/* 0, SPEED_10, SPEED_100 */
-> > +	u32	duplex;		/* DUPLEX_HALF or DUPLEX_FULL */
-> 
-> phylib treats these three (phy address, speed and duplex) as ints, is
-> there any reason you need these to be of different types?
 
+I think idea is clever, but also psychotic :) I'm sure it would work,
+but that only solves the problem of virtio ring descriptors. The
+virtio-net header contains several __u16 fields which would also need
+to be fixed-endianness.
 
-Used int at all three places.
-
-> 
-> 
-> > +	int (*init)(void);
-> 
-> What's this needed for?  The name of this callback is entirely
-> nondescriptive, there's no comment as to when it's called, etc.
-
-Added a comment for it.
-> 
-> 
-> > diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> > index ce2fcdd..5ebf287 100644
-> > --- a/drivers/net/Kconfig
-> > +++ b/drivers/net/Kconfig
-> > @@ -927,6 +927,16 @@ config SMC91X
-> >  	  The module will be called smc91x.  If you want to compile it as a
-> >  	  module, say M here and read
-> <file:Documentation/kbuild/modules.txt>.
-> >
-> > +config PXA168_ETH
-> > +	tristate "Marvell pxa168 ethernet support"
-> > +	depends on MACH_ASPENITE
-> 
-> You can have it depend on ARM or PXA168, but having it depend on support
-> for one specific board support file is almost certainly wrong.
-
-Depends on CPU_PXA168.
-> 
-> 
-> > diff --git a/drivers/net/pxa168_eth.c b/drivers/net/pxa168_eth.c
-> > new file mode 100644
-> > index 0000000..618e558
-> > --- /dev/null
-> > +++ b/drivers/net/pxa168_eth.c
-> > @@ -0,0 +1,1723 @@
-> > +/*
-> > + * Driver for PXA168 based boards.
-> 
-> Why not call this "PXA168 ethernet driver"?
-Change done.
-> 
-> 
-> > + * Based on MV643XX driver.
-> 
-> The mv643xx ethernet driver, that is.
-Change done.
-> 
-> 
-> > +#define DRIVER_NAME	"pxa168-mfu"
-> 
-> mfu?
-Its was for multi function unit on Aspenite, changed it to pxa168-eth 
-> 
-> 
-> > +/* smi register */
-> > +#define SMI_BUSY		(1<<28)	/* 0 - Write, 1 - Read  */
-> > +#define SMI_R_VALID		(1<<27)	/* 0 - Write, 1 - Read  */
-> > +#define SMI_OP_W		(0<<26)	/* Write operation      */
-> > +#define SMI_OP_R		(1<<26)	/* Read operation */
-> 
-> (1 << 28)
-> (1 << 27)
-> (0 << 26)
-> 
-> etc (thoughout the file)
-Changed.
-
-> 
-> 
-> > +struct pxa168_private {
-> 
-> ITYM pxa168_eth_private
-Yes, changed.
-> 
-> 
-> > +	/*
-> > +	 * Used in case RX Ring is empty, which can be caused when
-> > +	 * system does not have resources (skb's)
-> > +	 */
-> 
-> can be caused by
-> can occur when
-Changed.
-> 
-> 
-> > +	struct timer_list timeout;
-> > +	struct mii_bus *smi_bus;
-> > +	struct phy_device *phy;
-> > +
-> > +	/* clock */
-> > +	struct clk *clk;
-> > +	struct pxa168_eth_platform_data *pd;
-> > +	/*
-> > +	 * Ethernet controller base address.
-> > +	 */
-> > +	void __iomem *base;
-> > +
-> > +	u8 *htpr;		/* hash pointer */
-> 
-> IMHO it'd look better if you'd either always put the comment on the same
-> line or put the comment above the member (within the same struct).
-> 
-> Also, 'hash pointer' as a comment isn't very helpful.  Making it
-> 'hardware address filter table' or so would be more descriptive.
-Changed.
-> 
-> 
-> > +struct addr_table_entry {
-> > +	u32 lo;
-> > +	u32 hi;
-> > +};
-> 
-> If the address filter table consists of these structures, it's
-> confusing to make htpr a u8 * and then cast things around.  Better make
-> htpr a void * then.
-Changed.
-> 
-> Also, what about endian-cleanness?  If you run the CPU core in big
-> endian, will the address filter table handling logic in this driver
-> still work?
-
-
-Added cpu_to_le32 for the mac_high and mac_low variables before passing them to the add_del_hash_entry. I have not tested it on the Big endian but I think it should now work.
-
-> 
-> 
-> > +static char marvell_OUI[3] = { 0x02, 0x50, 0x43 };
-> 
-> This isn't even a marvell OUI -- 00:50:43 is a marvell OUI, and
-> anything with 02: is a locally generated address.
-> 
-> Why don't you just use random_ether_addr()?
-Changed to use random_ether_addr.
-> 
-> 
-> > +static inline u32 rdl(struct pxa168_private *mp, int offset)
-> > +{
-> > +	return readl(mp->base + offset);
-> > +}
-> 
-> In mv643xx_eth, 'mp' refers to mv643xx_eth_private, it's funny that
-> you've changed the name of the struct but not that of the variable.
-> 
-> As the rest of the driver looks very very similar to mv643xx_eth, if
-> not pretty much entirely identical in a lot of places, you should give
-> more credit to mv643xx_eth than 'based on', in my opinion.
-Changed the credit line for the same.
-> 
-> 
-> > +static int ethernet_phy_get(struct pxa168_private *mp)
-> > +{
-> > +	unsigned int reg_data;
-> > +
-> > +	/* only support 3 ports */
-> > +	BUG_ON(mp->port_num > 2);
-> 
-> Hm, does it actually support 3 ports?
-No. changed the code.
-> 
-> 
-> > +static void ethernet_phy_set_addr(struct pxa168_private *mp, int
-> phy_addr)
-> > +{
-> > +	u32 reg_data;
-> > +	int addr_shift = 5 * mp->port_num;
-> > +
-> > +	/* only support 3 ports */
-> > +	BUG_ON(mp->port_num > 2);
-> > +
-> > +	reg_data = rdl(mp, PHY_ADDRESS);
-> > +	reg_data &= ~(0x1f << addr_shift);
-> > +	reg_data |= (phy_addr & 0x1f) << addr_shift;
-> > +	wrl(mp, PHY_ADDRESS, reg_data);
-> > +}
-> > +static void ethernet_phy_reset(struct pxa168_private *mp)
-> > +{
-> 
-> Blank line between functions.
-> 
-> 
-> > +	do {
-> > +		data = phy_read(mp->phy, MII_BMCR);
-> > +	} while (data >= 0 && data & BMCR_RESET);
-> > +
-> > +}
-> 
-> No blank line here.
-> 
-> 
-> > +static void rxq_refill(struct net_device *dev)
-> > +{
-> > +	struct pxa168_private *mp = netdev_priv(dev);
-> > +	struct sk_buff *skb;
-> > +	struct rx_desc *p_used_rx_desc;
-> > +	int used_rx_desc;
-> > +
-> > +	while (mp->rx_desc_count < mp->rx_ring_size) {
-> > +
-> > +		skb = dev_alloc_skb(MAX_PKT_SIZE + ETH_HW_IP_ALIGN);
-> 
-> No blank line here.
-> 
-> 
-> > +	if (mp->rx_desc_count == 0) {
-> > +		printk(KERN_INFO "%s: Rx ring is empty\n", dev->name);
-> 
-> I wouldn't printk for this (and certainly not without a rate limit) --
-> going OOM will then just mean that you'll get endless console spam as
-> well, which isn't helpful.
-Hm, removed the printk.
-
-> 
-> 
-> > +/*
-> > + * --------------------------------------------------------------------
-> --------
-> > + * This function will calculate the hash function of the address.
-> > + * depends on the hash mode and hash size.
-> 
-> Where are the hash mode and size configured?
-> 
-> 
-> > +static u32 hash_function(u32 mac_high, u32 mac_low)
-> > +{
-> > +	u32 hash_result;
-> > +	u32 addr_high;
-> > +	u32 addr_low;
-> > +	u32 addr0;
-> > +	u32 addr1;
-> > +	u32 addr2;
-> > +	u32 addr3;
-> > +	u32 addr_high_swapped;
-> > +	u32 addr_low_swapped;
-> > +
-> > +	addr_high = nibble_swapping_16_bit(mac_high);
-> > +	addr_low = nibble_swapping_32_bit(mac_low);
-> > +
-> > +	addr_high_swapped = flip_4_bits(addr_high & 0xf)
-> > +	    + ((flip_4_bits((addr_high >> 4) & 0xf)) << 4)
-> > +	    + ((flip_4_bits((addr_high >> 8) & 0xf)) << 8)
-> > +	    + ((flip_4_bits((addr_high >> 12) & 0xf)) << 12);
-> > +
-> > +	addr_low_swapped = flip_4_bits(addr_low & 0xf)
-> > +	    + ((flip_4_bits((addr_low >> 4) & 0xf)) << 4)
-> > +	    + ((flip_4_bits((addr_low >> 8) & 0xf)) << 8)
-> > +	    + ((flip_4_bits((addr_low >> 12) & 0xf)) << 12)
-> > +	    + ((flip_4_bits((addr_low >> 16) & 0xf)) << 16)
-> > +	    + ((flip_4_bits((addr_low >> 20) & 0xf)) << 20)
-> > +	    + ((flip_4_bits((addr_low >> 24) & 0xf)) << 24)
-> > +	    + ((flip_4_bits((addr_low >> 28) & 0xf)) << 28);
-> > +
-> > +	addr_high = addr_high_swapped;
-> > +	addr_low = addr_low_swapped;
-> > +
-> > +	addr0 = (addr_low >> 2) & 0x03f;
-> > +	addr1 = (addr_low & 0x003) | ((addr_low >> 8) & 0x7f) << 2;
-> > +	addr2 = (addr_low >> 15) & 0x1ff;
-> > +	addr3 = ((addr_low >> 24) & 0x0ff) | ((addr_high & 1) << 8);
-> > +
-> > +	hash_result = (addr0 << 9) | (addr1 ^ addr2 ^ addr3);
-> > +	hash_result = hash_result & 0x07ff;
-> > +	return hash_result;
-> 
-> As it's only a bunch of XORs, can you not calculate the hash function
-> first and only then do the bit reversal?
-> 
-> 
-> > + * --------------------------------------------------------------------
-> --------
-> > + * This function will add an entry to the address table.
-> > + * depends on the hash mode and hash size that was initialized.
-> > + * Inputs
-> > + * mp - ETHERNET .
-> > + * mac_high - the 2 most significant bytes of the MAC address.
-> > + * mac_low - the 4 least significant bytes of the MAC address.
-> > + * skip - if 1, skip this address.
-> 
-> What does 'skip' do?
-> 
-> 
-> > + * rd   - the RD field in the address table.
-> 
-> And what does that do?
-
-Added more comments regarding the address filtering and the hash function.
-
-> 
-> If one has hardware docs, this comment doesn't really add anything,
-> while if one doesn't have hardware docs, this comment doesn't really
-> explain anything -- so the comment isn't very useful.
-> 
-> 
-> > +static void update_hash_table_mac_address(struct pxa168_private *mp,
-> > +					  u8 *oaddr, u8 *addr)
-> > [...]
-> > +static int init_hashtable(struct pxa168_private *mp)
-> 
-> hash_table?
-> 
-> 
-> > +{
-> > +	u8 *addr;
-> > +	dma_addr_t reg_dma;
-> > +
-> > +	if (mp->htpr == NULL) {
-> > +		mp->htpr = dma_alloc_coherent(NULL,
-> > +					      HASH_ADDR_TABLE_SIZE + 7,
-> > +					      &mp->htpr_dma, GFP_KERNEL);
-> > +		if (mp->htpr == NULL)
-> > +			return -ENOMEM;
-> > +	}
-> > +
-> > +	/* align to 8 byte boundary */
-> > +	addr = (u8 *) (((u32) mp->htpr + 7) & ~0x7);
-> > +	reg_dma = (dma_addr_t) (((u32) mp->htpr_dma + 7) & ~0x7);
-> 
-> DMA-API-HOWTO.txt says about dma_alloc_coherent():
-> 
-> 	The cpu return address and the DMA bus master address are both
-> 	guaranteed to be aligned to the smallest PAGE_SIZE order which
-> 	is greater than or equal to the requested size.
-> 
-> So this shuffling isn't needed.
-
-Hm, removed the shuffling code.
-> 
-> 
-> etc etc.
+Thanks,
+Ira
