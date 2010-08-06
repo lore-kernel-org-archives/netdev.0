@@ -1,50 +1,59 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [RFC PATCH] platform: Faciliatate the creation of
- pseduo-platform busses
-Date: Fri, 6 Aug 2010 07:27:27 -0700
-Message-ID: <20100806142727.GB4921@suse.de>
-References: <4C58A7AA.8020007@codeaurora.org>
- <20100803235631.GA17759@suse.de>
- <4C58AE15.6090900@codeaurora.org>
- <20100804000945.GA19729@suse.de>
- <4C58B1B6.9050005@quicinc.com>
- <AANLkTikVzh9=DvvUPbKmDeo6k2-pPVSnjH+GxAPdQFO4@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [rfc 02/13] [RFC 02/13] netfilter: nf_conntrack_sip: Add
+ callid parser
+Date: Fri, 6 Aug 2010 23:31:13 +0900
+Message-ID: <20100806143113.GB13997@verge.net.au>
+References: <20100805114755.118303531@vergenet.net>
+ <20100805115239.880722744@vergenet.net>
+ <4C5C1591.90108@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick Pannuto <ppannuto@quicinc.com>,
-	Patrick Pannuto <ppannuto@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"damm@opensource.se" <damm@opensource.se>,
-	"lethal@linux-sh.org" <lethal@linux-sh.org>,
-	"rjw@sisk.pl" <rjw@sisk.pl>, "dtor@mail.ru" <dtor@mail.ru>,
-	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kevin Hilman <khilman@deeprootsystems.com>
-To: Grant Likely <grant.likely@secretlab.ca>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <AANLkTikVzh9=DvvUPbKmDeo6k2-pPVSnjH+GxAPdQFO4@mail.gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
+In-Reply-To: <4C5C1591.90108@trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 05, 2010 at 04:59:35PM -0600, Grant Likely wrote:
-> (On that point Greg, what is the reason for even having the
-> /sys/devices/platform/ parent?  Why not just let the platform devices
-> sit at the root of the device tree?  In the OF case (granted, I'm
-> biased) all of the platform_device registrations reflect the actual
-> device hierarchy expressed in the device tree data.)
+On Fri, Aug 06, 2010 at 04:00:49PM +0200, Patrick McHardy wrote:
+> Am 05.08.2010 13:47, schrieb Simon Horman:
+> > diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+> > index 2fd1ea2..715ce54 100644
+> > --- a/net/netfilter/nf_conntrack_sip.c
+> > +++ b/net/netfilter/nf_conntrack_sip.c
+> > @@ -130,6 +130,44 @@ static int digits_len(const struct nf_conn *ct, const char *dptr,
+> >  	return len;
+> >  }
+> >  
+> > +static int iswordc(const char c)
+> > +{
+> > +	if (isalnum(c) || c == '!' || c == '"' || c == '%' ||
+> > +	    (c >= '(' && c <= '/') || c == ':' || c == '<' || c == '>' ||
+> > +	    c == '?' || (c >= '[' && c <= ']') || c == '_' || c == '`' ||
+> > +	    c == '{' || c == '}' || c == '~')
+> > +		return 1;
+> > +	return 0;
+> > +}
+> > +
+> > +static int word_len(const char *dptr, const char *limit)
+> > +{
+> > +	int len = 0;
+> > +	while (dptr < limit && iswordc(*dptr)) {
+> > +		dptr++;
+> > +		len++;
+> > +	}
+> > +	return len;
+> > +}
+> 
+> Since the Call-ID can't contain whitespace, couldn't we simply
+> determine the length by looking for the next newline or whitespace
+> character?
 
-If we sat them at the "root", there would be a bunch of them there.  I
-don't know, we could drop the parent, I guess whoever created the
-platform device oh so long ago, decided that it would look nicer to be
-in this type of structure.
+Well, there are other characters (e.g. '#') it can't contain - unless I
+read the RFC incorrectly.  Are you concerned about speed, code complexity,
+or something else?
 
-> Now, having gone on this whole long tirade, it looks like having
-> separate platform bus types may not be the best approach after all.
-
-I totally agree, and thanks for the detailed explaination, it saved me
-from having to write up the same thing :)
-
-greg k-h
