@@ -1,46 +1,94 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC PATCH v9 01/16] Add a new structure for skb buffer from external.
-Date: Fri,  6 Aug 2010 17:23:29 +0800
-Message-ID: <1281086624-5765-2-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC PATCH v9 10/16] Add a hook to intercept external buffers from NIC driver.
+Date: Fri,  6 Aug 2010 17:23:38 +0800
+Message-ID: <1281086624-5765-11-git-send-email-xiaohui.xin@intel.com>
 References: <1281086624-5765-1-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-2-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-3-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-4-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-5-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-6-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-7-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-8-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-9-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-10-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1281086624-5765-1-git-send-email-xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:9539 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934235Ab0HFJJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Aug 2010 05:09:15 -0400
+In-Reply-To: <1281086624-5765-10-git-send-email-xiaohui.xin@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
+The hook is called in netif_receive_skb().
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
 Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
 Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- include/linux/skbuff.h |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+ net/core/dev.c |   35 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 35 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 124f90c..74af06c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -203,6 +203,15 @@ struct skb_shared_info {
- 	void *		destructor_arg;
- };
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 636f11b..4b379b1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2517,6 +2517,37 @@ err:
+ EXPORT_SYMBOL(netdev_mp_port_prep);
+ #endif
  
-+/* The structure is for a skb which pages may point to
-+ * an external buffer, which is not allocated from kernel space.
-+ * It also contains a destructor for itself.
++#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASSTHRU_MODULE)
++/* Add a hook to intercept mediate passthru(zero-copy) packets,
++ * and insert it to the socket queue owned by mp_port specially.
 + */
-+struct skb_ext_page {
-+	struct		page *page;
-+	void		(*dtor)(struct skb_ext_page *);
-+};
++static inline struct sk_buff *handle_mpassthru(struct sk_buff *skb,
++					       struct packet_type **pt_prev,
++					       int *ret,
++					       struct net_device *orig_dev)
++{
++	struct mpassthru_port *mp_port = NULL;
++	struct sock *sk = NULL;
 +
- /* We divide dataref into two halves.  The higher 16 bits hold references
-  * to the payload part of skb->data.  The lower 16 bits hold references to
-  * the entire skb->data.  A clone of a headerless skb holds the length of
++	if (!dev_is_mpassthru(skb->dev))
++		return skb;
++	mp_port = skb->dev->mp_port;
++
++	if (*pt_prev) {
++		*ret = deliver_skb(skb, *pt_prev, orig_dev);
++		*pt_prev = NULL;
++	}
++
++	sk = mp_port->sock->sk;
++	skb_queue_tail(&sk->sk_receive_queue, skb);
++	sk->sk_state_change(sk);
++
++	return NULL;
++}
++#else
++#define handle_mpassthru(skb, pt_prev, ret, orig_dev)     (skb)
++#endif
++
+ /**
+  *	netif_receive_skb - process receive buffer from network
+  *	@skb: buffer to process
+@@ -2598,6 +2629,10 @@ int netif_receive_skb(struct sk_buff *skb)
+ ncls:
+ #endif
+ 
++	/* To intercept mediate passthru(zero-copy) packets here */
++	skb = handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
++	if (!skb)
++		goto out;
+ 	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
+ 	if (!skb)
+ 		goto out;
 -- 
 1.5.4.4
+
