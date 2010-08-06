@@ -1,59 +1,59 @@
-From: luciano.coelho@nokia.com
-Subject: [PATCH v2 0/2] netfilter: xtables: xt_condition inclusion and change to u32
-Date: Fri,  6 Aug 2010 15:21:46 +0300
-Message-ID: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
-Cc: netdev@vger.kernel.org, kaber@trash.net, jengelh@medozas.de,
-	sameo@linux.intel.com
-To: netfilter-devel@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] phy: SMSC: fix unused warnings when built into kernel
+Date: Fri, 06 Aug 2010 13:57:15 +0100
+Message-ID: <1281099435.2088.2.camel@achroite.uk.solarflarecom.com>
+References: <1281076034-17390-1-git-send-email-vapier@gentoo.org>
+	 <AANLkTi=_-ZZ8nyFLiBKSWNTcM_SkwLe2-ZL17zBQb0i4@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:18616 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760917Ab0HFMWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 08:22:15 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:15108 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760882Ab0HFM5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 08:57:19 -0400
+In-Reply-To: <AANLkTi=_-ZZ8nyFLiBKSWNTcM_SkwLe2-ZL17zBQb0i4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Luciano Coelho <luciano.coelho@nokia.com>
+On Fri, 2010-08-06 at 14:43 +0800, Changli Gao wrote:
+> On Fri, Aug 6, 2010 at 2:27 PM, Mike Frysinger <vapier@gentoo.org> wrote:
+> > If the SMSC phy is not built as a module, we get the warning:
+> >        drivers/net/phy/smsc.c:257: warning: 'smsc_tbl' defined but not used
+> >
+> > So mark the structure as maybe unused to avoid this.
+> >
+> > Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> > ---
+> >  drivers/net/phy/smsc.c |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> >
+> > diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+> > index 78fa988..11944ef 100644
+> > --- a/drivers/net/phy/smsc.c
+> > +++ b/drivers/net/phy/smsc.c
+> > @@ -254,7 +254,7 @@ MODULE_LICENSE("GPL");
+> >  module_init(smsc_init);
+> >  module_exit(smsc_exit);
+> >
+> > -static struct mdio_device_id smsc_tbl[] = {
+> > +static __maybe_unused struct mdio_device_id smsc_tbl[] = {
+> >        { 0x0007c0a0, 0xfffffff0 },
+> >        { 0x0007c0b0, 0xfffffff0 },
+> >        { 0x0007c0c0, 0xfffffff0 },
+> 
+> How about adding a #ifdef CONFIG_SMSC_PHY_MODULE clause  around these lines?
 
-Hello,
+By default, gcc will discard unused variables and functions declared as
+static.  So this would not provide any run-time benefit.
 
-Here v2 of the xt_condition patch, it contains some changes suggested by Jan.
+Ben.
 
-When these patches get accepted, I'll send the implementation of the condition
-target, as discussed before.
-
-In RFC v2 I've made a few changes as discussed in the review:
-
-  * Removed per-netns module parameters
-  * Use par->net instead of current->nsproxy->net_ns
-  * Fix file-leak in procfs when exiting the netns
-
-I didn't get any more comments in RFC v2, so I assume it is okay to send it for
-inclusion.
-
->From [RFC v2] to [PATCH], I've only rebased and added a new patch to support
-u32 instead of boolean as the value for the condition.
-
-In PATCH v2:
-
-  * Bumped up the revision to 2
-  * Changed the buffer declaration to have the size of the biggest possible u32 string
-  * Return -ERANGE instead of -EINVALID when the value passed is too big.
-
-Cheers,
-Luca.
-
-
-Luciano Coelho (2):
-  netfilter: xtables: inclusion of xt_condition
-  netfilter: xt_condition: change the value from boolean to u32
-
- include/linux/netfilter/Kbuild         |    1 +
- include/linux/netfilter/xt_condition.h |   15 ++
- net/netfilter/Kconfig                  |    8 +
- net/netfilter/Makefile                 |    1 +
- net/netfilter/xt_condition.c           |  269 ++++++++++++++++++++++++++++++++
- 5 files changed, 294 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/netfilter/xt_condition.h
- create mode 100644 net/netfilter/xt_condition.c
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
