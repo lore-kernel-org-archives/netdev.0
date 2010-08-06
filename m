@@ -1,149 +1,59 @@
 From: luciano.coelho@nokia.com
-Subject: [PATCH v2 2/2] netfilter: xt_condition: change the value from boolean to u32
-Date: Fri,  6 Aug 2010 15:21:48 +0300
-Message-ID: <1281097308-1515-3-git-send-email-luciano.coelho@nokia.com>
-References: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
+Subject: [PATCH v2 0/2] netfilter: xtables: xt_condition inclusion and change to u32
+Date: Fri,  6 Aug 2010 15:21:46 +0300
+Message-ID: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
 Cc: netdev@vger.kernel.org, kaber@trash.net, jengelh@medozas.de,
 	sameo@linux.intel.com
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:50779 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760879Ab0HFMWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 08:22:14 -0400
-In-Reply-To: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
+Received: from smtp.nokia.com ([192.100.122.230]:18616 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760917Ab0HFMWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 08:22:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Luciano Coelho <luciano.coelho@nokia.com>
 
-Previously the condition match was using boolean values for the condition,
-which is a bit limited, so this patch changes the value to a u32.
+Hello,
 
-This is not a problem at the moment, since only userspace can set the
-condition and it can do more advanced checks before setting the value.  But
-when the condition target gets implemented, having a u32 value will make it
-much more flexible.
+Here v2 of the xt_condition patch, it contains some changes suggested by Jan.
 
-Signed-off-by: Luciano Coelho <luciano.coelho@nokia.com>
----
- include/linux/netfilter/xt_condition.h |    3 +-
- net/netfilter/xt_condition.c           |   54 +++++++++++++++++---------------
- 2 files changed, 31 insertions(+), 26 deletions(-)
+When these patches get accepted, I'll send the implementation of the condition
+target, as discussed before.
 
-diff --git a/include/linux/netfilter/xt_condition.h b/include/linux/netfilter/xt_condition.h
-index 4faf3ca..c4fe899 100644
---- a/include/linux/netfilter/xt_condition.h
-+++ b/include/linux/netfilter/xt_condition.h
-@@ -4,8 +4,9 @@
- #include <linux/types.h>
- 
- struct xt_condition_mtinfo {
--	char name[31];
-+	char name[27];
- 	__u8 invert;
-+	__u32 value;
- 
- 	/* Used internally by the kernel */
- 	void *condvar __attribute__((aligned(8)));
-diff --git a/net/netfilter/xt_condition.c b/net/netfilter/xt_condition.c
-index a78d832..cc9ada9 100644
---- a/net/netfilter/xt_condition.c
-+++ b/net/netfilter/xt_condition.c
-@@ -48,7 +48,7 @@ struct condition_variable {
- 	struct list_head list;
- 	struct proc_dir_entry *status_proc;
- 	unsigned int refcount;
--	bool enabled;
-+	u32 value;
- };
- 
- struct condition_net {
-@@ -71,32 +71,36 @@ static int condition_proc_read(char __user *buffer, char **start, off_t offset,
- {
- 	const struct condition_variable *var = data;
- 
--	buffer[0] = var->enabled ? '1' : '0';
--	buffer[1] = '\n';
--	if (length >= 2)
--		*eof = true;
--	return 2;
-+	return snprintf(buffer, length, "%u\n", var->value);
- }
- 
--static int condition_proc_write(struct file *file, const char __user *buffer,
-+static int condition_proc_write(struct file *file, const char __user *input,
- 				unsigned long length, void *data)
- {
- 	struct condition_variable *var = data;
--	char newval;
--
--	if (length > 0) {
--		if (get_user(newval, buffer) != 0)
--			return -EFAULT;
--		/* Match only on the first character */
--		switch (newval) {
--		case '0':
--			var->enabled = false;
--			break;
--		case '1':
--			var->enabled = true;
--			break;
--		}
--	}
-+	/* the longest possible string is MAX_UINT in octal */
-+	char buf[sizeof("+037777777777")];
-+	unsigned long long value;
-+
-+	if (length == 0)
-+		return 0;
-+
-+	if (length > sizeof(buf))
-+		return -EINVAL;
-+
-+	if (copy_from_user(buf, input, length) != 0)
-+		return -EFAULT;
-+
-+	buf[length - 1] = '\0';
-+
-+	if (strict_strtoull(buf, 0, &value) != 0)
-+		return -EINVAL;
-+
-+	if (value > (u32) value)
-+		return -ERANGE;
-+
-+	var->value = value;
-+
- 	return length;
- }
- 
-@@ -106,7 +110,7 @@ condition_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 	const struct xt_condition_mtinfo *info = par->matchinfo;
- 	const struct condition_variable *var   = info->condvar;
- 
--	return var->enabled ^ info->invert;
-+	return (var->value == info->value) ^ info->invert;
- }
- 
- static int condition_mt_check(const struct xt_mtchk_param *par)
-@@ -156,7 +160,7 @@ static int condition_mt_check(const struct xt_mtchk_param *par)
- 	}
- 
- 	var->refcount = 1;
--	var->enabled  = false;
-+	var->value = 0;
- 	var->status_proc->data       = var;
- 	var->status_proc->read_proc  = condition_proc_read;
- 	var->status_proc->write_proc = condition_proc_write;
-@@ -190,7 +194,7 @@ static void condition_mt_destroy(const struct xt_mtdtor_param *par)
- 
- static struct xt_match condition_mt_reg __read_mostly = {
- 	.name       = "condition",
--	.revision   = 1,
-+	.revision   = 2,
- 	.family     = NFPROTO_UNSPEC,
- 	.matchsize  = sizeof(struct xt_condition_mtinfo),
- 	.match      = condition_mt,
--- 
-1.7.0.4
+In RFC v2 I've made a few changes as discussed in the review:
+
+  * Removed per-netns module parameters
+  * Use par->net instead of current->nsproxy->net_ns
+  * Fix file-leak in procfs when exiting the netns
+
+I didn't get any more comments in RFC v2, so I assume it is okay to send it for
+inclusion.
+
+>From [RFC v2] to [PATCH], I've only rebased and added a new patch to support
+u32 instead of boolean as the value for the condition.
+
+In PATCH v2:
+
+  * Bumped up the revision to 2
+  * Changed the buffer declaration to have the size of the biggest possible u32 string
+  * Return -ERANGE instead of -EINVALID when the value passed is too big.
+
+Cheers,
+Luca.
+
+
+Luciano Coelho (2):
+  netfilter: xtables: inclusion of xt_condition
+  netfilter: xt_condition: change the value from boolean to u32
+
+ include/linux/netfilter/Kbuild         |    1 +
+ include/linux/netfilter/xt_condition.h |   15 ++
+ net/netfilter/Kconfig                  |    8 +
+ net/netfilter/Makefile                 |    1 +
+ net/netfilter/xt_condition.c           |  269 ++++++++++++++++++++++++++++++++
+ 5 files changed, 294 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_condition.h
+ create mode 100644 net/netfilter/xt_condition.c
 
