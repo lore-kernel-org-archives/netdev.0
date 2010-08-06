@@ -1,56 +1,38 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [ANNOUNCE]: Release of iptables-1.4.9.1
-Date: Fri, 06 Aug 2010 15:51:41 +0200
-Message-ID: <4C5C136D.3040108@trash.net>
+Subject: Re: [PATCH v2 0/2] netfilter: xtables: xt_condition inclusion and
+ change to u32
+Date: Fri, 06 Aug 2010 15:54:25 +0200
+Message-ID: <4C5C1411.7020709@trash.net>
+References: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080002020807020000060808"
-To: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, NetDev <netdev@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org,
-	"'netfilter@vger.kernel.org'" <netfilter
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44934 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756861Ab0HFNvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 09:51:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------080002020807020000060808
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	jengelh@medozas.de, sameo@linux.intel.com
+To: luciano.coelho@nokia.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The netfilter coreteam presents:
+Am 06.08.2010 14:21, schrieb luciano.coelho@nokia.com:
+> From: Luciano Coelho <luciano.coelho@nokia.com>
+> 
+> Hello,
+> 
+> Here v2 of the xt_condition patch, it contains some changes suggested by Jan.
+> 
+> When these patches get accepted, I'll send the implementation of the condition
+> target, as discussed before.
+> 
+> In RFC v2 I've made a few changes as discussed in the review:
+> 
+>   * Removed per-netns module parameters
+>   * Use par->net instead of current->nsproxy->net_ns
+>   * Fix file-leak in procfs when exiting the netns
+> 
+> I didn't get any more comments in RFC v2, so I assume it is okay to send it for
+> inclusion.
 
-    iptables version 1.4.9.1
-
-the iptables release for the 2.6.35 kernel. This release fixes
-a compilation problem with static linking in the 1.4.9 release.
-
-Version 1.4.9.1 can be obtained from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-git://git.netfilter.org/iptables.git
-
-On behalf of the Netfilter Core Team.
-Happy firewalling!
-
-
---------------080002020807020000060808
-Content-Type: text/plain;
- name="changes-iptables-1.4.9.1.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="changes-iptables-1.4.9.1.txt"
-
-Jan Engelhardt (1):
-      build: fix static linking
-
-Patrick McHardy (1):
-      Bump version to 1.4.9.1
-
-
---------------080002020807020000060808--
+The merge window for networking patches is closed, I'm only taking
+bugfixes at this time. Please resend once net-next opens up again.
