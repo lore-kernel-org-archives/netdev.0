@@ -1,38 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2 0/2] netfilter: xtables: xt_condition inclusion and
- change to u32
-Date: Fri, 06 Aug 2010 15:54:25 +0200
-Message-ID: <4C5C1411.7020709@trash.net>
-References: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: IPVS network namespace aware ?
+Date: Fri, 6 Aug 2010 22:59:17 +0900
+Message-ID: <20100806135916.GA13997@verge.net.au>
+References: <1281099450.2518.21.camel@seasc0214.dyn.rnd.as.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	jengelh@medozas.de, sameo@linux.intel.com
-To: luciano.coelho@nokia.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+	lvs-devel <lvs-devel@vger.kernel.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1281099450.2518.21.camel@seasc0214.dyn.rnd.as.sw.ericsson.se>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 06.08.2010 14:21, schrieb luciano.coelho@nokia.com:
-> From: Luciano Coelho <luciano.coelho@nokia.com>
-> 
-> Hello,
-> 
-> Here v2 of the xt_condition patch, it contains some changes suggested by Jan.
-> 
-> When these patches get accepted, I'll send the implementation of the condition
-> target, as discussed before.
-> 
-> In RFC v2 I've made a few changes as discussed in the review:
-> 
->   * Removed per-netns module parameters
->   * Use par->net instead of current->nsproxy->net_ns
->   * Fix file-leak in procfs when exiting the netns
-> 
-> I didn't get any more comments in RFC v2, so I assume it is okay to send it for
-> inclusion.
+[ Cced lvs-devel ]
 
-The merge window for networking patches is closed, I'm only taking
-bugfixes at this time. Please resend once net-next opens up again.
+On Fri, Aug 06, 2010 at 02:57:30PM +0200, Hans Schillstrom wrote:
+> Hello
+> Is there any one that have made ipvs network namespace aware ?
+> There is an urgent need of it within Ericsson.
+> I could not find any trace of it in any of the normal lists.
+> 
+> I will start patching ipvs next week or give a helping hand to any
+> existing work.
+
+Hi Hans,
+
+I am not aware of any other work in this area.
+Please send any patches here :-)
+
