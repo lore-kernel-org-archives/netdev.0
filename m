@@ -1,57 +1,67 @@
-From: lkml20100708@newton.leun.net
+From: Michael Leun <lkml20100708@newton.leun.net>
 Subject: Re: NET_NS: unregister_netdevice: waiting for lo to become free
  (adding ipv6 address to interface)
-Date: Fri, 6 Aug 2010 01:45:26 +0200
-Message-ID: <20100806014526.42ffda09@xenia.leun.net>
-References: <m1y6clz8ta.fsf_-_@fess.ebiederm.org>
+Date: Fri, 6 Aug 2010 02:09:47 +0200
+Message-ID: <20100806020947.3b7c66ac@xenia.leun.net>
+References: <loom.20100708T183152-326@post.gmane.org>
+	<20100709235744.GA12752@kroah.com>
+	<20100710101540.2799c9ef@xenia.leun.net>
+	<20100710140800.GA20424@kroah.com>
+	<20100710165208.59272ae6@xenia.leun.net>
+	<20100710235323.5336f627@xenia.leun.net>
+	<20100711192939.1c25dcaf@xenia.leun.net>
+	<20100804153543.56f6ecad@xenia.leun.net>
+	<20100804214618.GA6289@kroah.com>
+	<20100805001105.5a3453ed@xenia.leun.net>
+	<m1lj8l29zm.fsf@fess.ebiederm.org>
+	<20100805112538.60a46cb1@xenia.leun.net>
+	<m1y6clz8ta.fsf_-_@fess.ebiederm.org>
 	<20100805134707.0442a7b1@xenia.leun.net>
 	<m1bp9g7ry0.fsf@fess.ebiederm.org>
-	<20100805.131128.42817872.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, greg@kroah.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, adobriyan@gmail.com, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from serv04.lahn.de ([213.239.197.57]:42807 "EHLO serv04.lahn.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758633Ab0HEXtP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Aug 2010 19:49:15 -0400
-In-Reply-To: <20100805.131128.42817872.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg KH <greg@kroah.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: ebiederm@xmission.com (Eric W. Biederman)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1bp9g7ry0.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 05 Aug 2010 13:11:28 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Thu, 05 Aug 2010 12:57:59 -0700
+ebiederm@xmission.com (Eric W. Biederman) wrote:
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Thu, 05 Aug 2010 12:57:59 -0700
+> What puzzles me is that on a slightly patched 2.6.32 (so sysfs works)
+> and I am doing very similar things (openvpn tunnels, ipv6 to the
+> network as a whole etc), and I am not seeing the infinite
+> unregister_netdevice: messages you are talking about.
+
+Hmmm, I think there are 2 possibilities:
+
+- You send me a patch against plain 2.6.32, so I can check my
+  scenarios against that kernel
+
+or 
+
+-  You could try yourself, its really just that few lines against a
+  fresh booted system in a clean, easy to reproduce state
+
+(Only, if you think that would yield useful information, of course).
+
+> When a network device is removed most references to it are redirected
+> to the loopback device so a normal network device should not see the
+> worst of the problems.  That is why lo showed up.
 > 
-> > I wonder what has changed with ipv6 recently.
-> 
-> There was a recent fix to the IGMP snooping code we have in
-> the bridging layer, if parsing of an ipv6 IGMP packet failed
-> we'd leak the packet (and thus references to whatever device
-> it referenced).
-> 
-> commit 6d1d1d398cb7db7a12c5d652d50f85355345234f
-[...]
+> In that context I'm a bit surprised you managed trigger a problem on
+> veth1.
 
-But this patch is not in 2.6.35 and therefore cannot make the
-difference Eric sees (belives to see) between his modified 2.6.32 and
-2.6.35.
-
-Also, this patch, if I understand that correctly, only changes bridging
-and in my scenario bridge.ko (have it as module) was not even loaded,
-so applying this patch should not make any difference for the bug I
-see, or do I overlook something?
-
-So, I guess, your answer was general information to Erics question what
-changed with ipv6, not related to that bug we seek in particular?
+Difference was, when that message showed up with veth1, lo in that
+namespace was down while testing. When lo was up it showed up on lo.
 
 -- 
 MfG,
 
 Michael Leun
-
