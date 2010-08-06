@@ -1,87 +1,72 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH 2/2] netfilter: xt_condition: change the value from
- boolean to u32
-Date: Fri, 06 Aug 2010 13:34:32 +0300
-Message-ID: <1281090872.32491.2.camel@chilepepper>
-References: <1281019269-30985-1-git-send-email-luciano.coelho@nokia.com>
-	 <1281019269-30985-3-git-send-email-luciano.coelho@nokia.com>
-	 <alpine.LSU.2.01.1008051705320.1104@obet.zrqbmnf.qr>
-	 <1281081606.1586.28.camel@powerslave>
-	 <alpine.LSU.2.01.1008061044270.8895@obet.zrqbmnf.qr>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [RFC] [PATCH] Don't destroy TCP sockets twice
+Date: Fri, 6 Aug 2010 13:05:11 +0200
+Message-ID: <20100806110511.GA16448@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"sameo@linux.intel.com" <sameo@linux.intel.com>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1008061044270.8895@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Fri, 2010-08-06 at 10:52 +0200, ext Jan Engelhardt wrote:
-> On Friday 2010-08-06 10:00, Luciano Coelho wrote:
-> >> >+	buf[length - 1] = '\0';
-> >> >+
-> >> >+	if (strict_strtoull(buf, 0, &value) != 0)
-> >> >+		return -EINVAL;
-> >> >+
-> >> >+	if (value > (u32) value)
-> >> >+		return -EINVAL;
-> >> 
-> >> Is it possible to use just strict_strtoul?
-> >
-> >Not easily.  I found that there is a bug in strtoul (and strtoull for
-> >that matter) that causes the long to overflow if there are valid digits
-> >after the maximum possible digits for the base.  For example if you try
-> >to strtoul 0xfffffffff (with 9 f's) the strtoul will overflow and come
-> >up with a bogus result.
-> 
-> I see. Strange that no one has adressed this yet - I mean, writing
-> a just-too-large value into a procfs/sysfs file and thus effectively
-> causing a bogus value to be actually written isn't quite so thrilling
-> as things go haywire.
-
-Yes, I was really surprised to see this happening when I was testing the
-limits.  And I was even more surprised when I checked the strtoull code
-and saw that it is broken.
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:56601 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759365Ab0HFLFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 07:05:13 -0400
+Received: from basil.firstfloor.org (p5B3C940C.dip0.t-ipconnect.de [91.60.148.12])
+	by one.firstfloor.org (Postfix) with ESMTP id 4E4B91F08072
+	for <netdev@vger.kernel.org>; Fri,  6 Aug 2010 13:05:12 +0200 (CEST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> >I can't easily truncate the string to avoid
-> >this problem, because with decimal or octal, the same valid value would
-> >take more spaces.  I could do some magic here, checking whether it's a
-> >hex, dec or oct and truncate appropriately, but that would be very ugly.
-> >
-> >So the simplest way I came up with was to use strtoull and return
-> >-EINVAL if the value exceeds 32 bits. ;)
-> 
-> If I read strtoul(3) right, ERANGE is used for "out of range".
+While working on something else I noticed that tcp_v4/6_destroy_sock()
+can get called twice on a socket. This happens because when a reset or
+similar happens tcp_done destroys the connection socket state, and 
+then eventually when the socket is released it is destroyed again. 
 
-Yes, libc's strtoul returns ERANGE in that case.  strict_strtoul() in
-the kernel code doesn't.  I'll change my code to return -ERANGE here
-too, for consistency.
+Problem here is that the socket can actually still transmit packets
+even after having been destroyed by tcp_done: this happens because
+tcp_close is called after tcp_done, tcp_close calls tcp_send_fin which
+then sends the FIN at least.
 
+With my local modifications this lead to crashes (I destroyed some
+additional state in destroy_sock that is needed for sending any
+packets). But I think it's broken even without any changes: tcp_*_destroy
+sock removes a lot of state, including MD5 state, congestion control
+state and some others.
 
-> >> Since the condition value (cdmark) was thought of an nfmark-style thing, 
-> >> would it perhaps make sense to model it after it
-> >> 
-> >> 	return (var->value & ~info->mask) ^ info->value;
-> >> 
-> >> Other opinions?
-> >
-> >I think it's nicer to have it as a normal equals here for now and then
-> >extend the match with more operations.  We can later add, for example,
-> >an --and option to the condition match in order to do other kinds of
-> >binary operations.  It would be more flexible this way because we could
-> >use several different types of comparisons, wouldn't it? And in the
-> >target we could have several different types of operations.
-> 
-> Indeed.
+At least for MD5 it's easy to argue that the the FIN still needs this
+state. I haven't tested that, but I think what will happen is that
+you'll see FINs which are not MD5 signed after a reset (there is no
+crash because zero MD5 state is ignored) There might be other similar
+problems with congestion avoidance state and the FIN packet.
 
+Overall it also seems inefficient to destroy twice.
 
--- 
-Cheers,
-Luca.
+The only thing in tcp_*_destroy sock that I think really needs to be
+done is clearing the timers, but tcp_done does this already too.
 
+So this patch changes tcp_done to not call inet_csk_destroy_sock()
+and leave the destruction to the later final release or close.
+
+The only drawback is that the buffers could be freed a bit later
+for the RST case (e.g. when there is a reference to user space
+it will wait for the user close), but that doesn't seem like a big 
+issue.
+
+I made this a RFC for now because it needs some more review.
+
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 6596b4f..f7cae15 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3171,8 +3171,6 @@ void tcp_done(struct sock *sk)
+ 
+ 	if (!sock_flag(sk, SOCK_DEAD))
+ 		sk->sk_state_change(sk);
+-	else
+-		inet_csk_destroy_sock(sk);
+ }
+ EXPORT_SYMBOL_GPL(tcp_done);
+ 
