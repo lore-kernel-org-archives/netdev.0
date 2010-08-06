@@ -1,61 +1,53 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 1/1] netxen: protect tx timeout recovery by rtnl lock
-Date: Fri,  6 Aug 2010 06:33:31 -0700
-Message-ID: <1281101611-16893-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: davem@davemloft.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH ethtool] ethtool: Fix handling of zero weights for flow
+ hash indirection
+Date: Fri, 06 Aug 2010 14:38:03 +0100
+Message-ID: <1281101883.2088.5.camel@achroite.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:24947 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1761334Ab0HFNdc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Aug 2010 09:33:32 -0400
+Received: from mail.solarflare.com ([216.237.3.220]:17052 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761366Ab0HFNiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 09:38:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic_main.c |   15 +++++++--------
- 1 files changed, 7 insertions(+), 8 deletions(-)
+The loop to generate an indirection table from a list of weights never
+advances by more than one weight at a time.  Thus, if there is a 0
+in the list (except at the end) the corresponding RX ring will be
+assigned 1 hash bucket rather than 0.  Change 'if' to 'while'.
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index 6ce6ce1..fd86e18 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -2001,27 +2001,26 @@ static void netxen_tx_timeout_task(struct work_struct *work)
- 	if (++adapter->tx_timeo_cnt >= NX_MAX_TX_TIMEOUTS)
- 		goto request_reset;
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+Please include this in 2.6.35 if you haven't finalised it yet.
+
+Ben.
+
+ ethtool.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/ethtool.c b/ethtool.c
+index 0f7dec6..66b5c07 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2977,7 +2977,7 @@ static int do_srxfhindir(int fd, struct ifreq *ifr)
  
-+	rtnl_lock();
- 	if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
- 		/* try to scrub interrupt */
- 		netxen_napi_disable(adapter);
- 
--		adapter->netdev->trans_start = jiffies;
--
- 		netxen_napi_enable(adapter);
- 
- 		netif_wake_queue(adapter->netdev);
- 
- 		clear_bit(__NX_RESETTING, &adapter->state);
--		return;
- 	} else {
- 		clear_bit(__NX_RESETTING, &adapter->state);
--		if (!netxen_nic_reset_context(adapter)) {
--			adapter->netdev->trans_start = jiffies;
--			return;
-+		if (netxen_nic_reset_context(adapter)) {
-+			rtnl_unlock();
-+			goto request_reset;
- 		}
--
--		/* context reset failed, fall through for fw reset */
- 	}
-+	adapter->netdev->trans_start = jiffies;
-+	rtnl_unlock();
-+	return;
- 
- request_reset:
- 	adapter->need_fw_reset = 1;
+ 		j = -1;
+ 		for (i = 0; i < indir->size; i++) {
+-			if (i >= indir->size * partial / sum) {
++			while (i >= indir->size * partial / sum) {
+ 				j += 1;
+ 				weight = get_u32(rxfhindir_weight[j], 0);
+ 				partial += weight;
 -- 
-1.6.0.2
+1.6.2.5
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
