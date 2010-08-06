@@ -1,51 +1,50 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH v2 0/2] netfilter: xtables: xt_condition inclusion and
- change to u32
-Date: Fri, 06 Aug 2010 17:06:39 +0300
-Message-ID: <1281103599.32491.11.camel@chilepepper>
-References: <1281097308-1515-1-git-send-email-luciano.coelho@nokia.com>
-	 <4C5C1411.7020709@trash.net>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [RFC PATCH] platform: Faciliatate the creation of
+ pseduo-platform busses
+Date: Fri, 6 Aug 2010 07:27:27 -0700
+Message-ID: <20100806142727.GB4921@suse.de>
+References: <4C58A7AA.8020007@codeaurora.org>
+ <20100803235631.GA17759@suse.de>
+ <4C58AE15.6090900@codeaurora.org>
+ <20100804000945.GA19729@suse.de>
+ <4C58B1B6.9050005@quicinc.com>
+ <AANLkTikVzh9=DvvUPbKmDeo6k2-pPVSnjH+GxAPdQFO4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick Pannuto <ppannuto@quicinc.com>,
+	Patrick Pannuto <ppannuto@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"damm@opensource.se" <damm@opensource.se>,
+	"lethal@linux-sh.org" <lethal@linux-sh.org>,
+	"rjw@sisk.pl" <rjw@sisk.pl>, "dtor@mail.ru" <dtor@mail.ru>,
+	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"sameo@linux.intel.com" <sameo@linux.intel.com>
-To: ext Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4C5C1411.7020709@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+	Kevin Hilman <khilman@deeprootsystems.com>
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTikVzh9=DvvUPbKmDeo6k2-pPVSnjH+GxAPdQFO4@mail.gmail.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-08-06 at 15:54 +0200, ext Patrick McHardy wrote:
-> Am 06.08.2010 14:21, schrieb luciano.coelho@nokia.com:
-> > From: Luciano Coelho <luciano.coelho@nokia.com>
-> > 
-> > Hello,
-> > 
-> > Here v2 of the xt_condition patch, it contains some changes suggested by Jan.
-> > 
-> > When these patches get accepted, I'll send the implementation of the condition
-> > target, as discussed before.
-> > 
-> > In RFC v2 I've made a few changes as discussed in the review:
-> > 
-> >   * Removed per-netns module parameters
-> >   * Use par->net instead of current->nsproxy->net_ns
-> >   * Fix file-leak in procfs when exiting the netns
-> > 
-> > I didn't get any more comments in RFC v2, so I assume it is okay to send it for
-> > inclusion.
-> 
-> The merge window for networking patches is closed, I'm only taking
-> bugfixes at this time. Please resend once net-next opens up again.
+On Thu, Aug 05, 2010 at 04:59:35PM -0600, Grant Likely wrote:
+> (On that point Greg, what is the reason for even having the
+> /sys/devices/platform/ parent?  Why not just let the platform devices
+> sit at the root of the device tree?  In the OF case (granted, I'm
+> biased) all of the platform_device registrations reflect the actual
+> device hierarchy expressed in the device tree data.)
 
-Ok, I'll resend once the trees are open again.
+If we sat them at the "root", there would be a bunch of them there.  I
+don't know, we could drop the parent, I guess whoever created the
+platform device oh so long ago, decided that it would look nicer to be
+in this type of structure.
 
-I'll probably include some more patches on top of this then.
+> Now, having gone on this whole long tirade, it looks like having
+> separate platform bus types may not be the best approach after all.
 
--- 
-Cheers,
-Luca.
+I totally agree, and thanks for the detailed explaination, it saved me
+from having to write up the same thing :)
 
+greg k-h
