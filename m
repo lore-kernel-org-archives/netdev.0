@@ -1,42 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [ANNOUNCE]: Release of iptables-1.4.9
-Date: Fri, 06 Aug 2010 15:15:15 +0200
-Message-ID: <4C5C0AE3.4090806@trash.net>
-References: <4C5832F9.50004@trash.net> <x6bp9jy7sj@gzp> <4C584C63.8010607@trash.net> <x6vd7rwrah@gzp> <x6lj8nwqu4@gzp> <alpine.LSU.2.01.1008032001430.1519@obet.zrqbmnf.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Gabor Z. Papp" <gzp@papp.hu>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"'netfilter@vger.kernel.org'" <netfilter@vger.kernel.org>,
-	netfilter-announce@lists.netfilter.org
-To: Jan Engelhardt <jengelh@medozas.de>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 1/1] netxen: protect tx timeout recovery by rtnl lock
+Date: Fri,  6 Aug 2010 06:33:31 -0700
+Message-ID: <1281101611-16893-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43950 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754251Ab0HFNPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Aug 2010 09:15:23 -0400
-In-Reply-To: <alpine.LSU.2.01.1008032001430.1519@obet.zrqbmnf.qr>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:24947 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1761334Ab0HFNdc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Aug 2010 09:33:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 03.08.2010 20:04, schrieb Jan Engelhardt:
-> The following changes since commit 371cea299f0b2eb100b9fc9fb99089640d2d606f:
-> 
->   xtables: remove unnecessary cast (2010-08-03 19:56:11 +0200)
-> 
-> are available in the git repository at:
->   git://dev.medozas.de/iptables master
-> 
-> Jan Engelhardt (1):
->       build: fix static linking
-> 
->  extensions/libxt_IDLETIMER.c |    2 +-
->  extensions/libxt_TEE.c       |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> [Actually there's also the "remove unnecessary cast" patch that is not 
-> included in this listing, but merging that should be ok.]
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/netxen/netxen_nic_main.c |   15 +++++++--------
+ 1 files changed, 7 insertions(+), 8 deletions(-)
 
-Pulled, thanks Jan.
+diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
+index 6ce6ce1..fd86e18 100644
+--- a/drivers/net/netxen/netxen_nic_main.c
++++ b/drivers/net/netxen/netxen_nic_main.c
+@@ -2001,27 +2001,26 @@ static void netxen_tx_timeout_task(struct work_struct *work)
+ 	if (++adapter->tx_timeo_cnt >= NX_MAX_TX_TIMEOUTS)
+ 		goto request_reset;
+ 
++	rtnl_lock();
+ 	if (NX_IS_REVISION_P2(adapter->ahw.revision_id)) {
+ 		/* try to scrub interrupt */
+ 		netxen_napi_disable(adapter);
+ 
+-		adapter->netdev->trans_start = jiffies;
+-
+ 		netxen_napi_enable(adapter);
+ 
+ 		netif_wake_queue(adapter->netdev);
+ 
+ 		clear_bit(__NX_RESETTING, &adapter->state);
+-		return;
+ 	} else {
+ 		clear_bit(__NX_RESETTING, &adapter->state);
+-		if (!netxen_nic_reset_context(adapter)) {
+-			adapter->netdev->trans_start = jiffies;
+-			return;
++		if (netxen_nic_reset_context(adapter)) {
++			rtnl_unlock();
++			goto request_reset;
+ 		}
+-
+-		/* context reset failed, fall through for fw reset */
+ 	}
++	adapter->netdev->trans_start = jiffies;
++	rtnl_unlock();
++	return;
+ 
+ request_reset:
+ 	adapter->need_fw_reset = 1;
+-- 
+1.6.0.2
+
