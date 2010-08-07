@@ -1,114 +1,162 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [RFC PATCH] platform: Faciliatate the creation of pseduo-platform
+Subject: Re: [PATCH] platform: Facilitate the creation of pseduo-platform
 	busses
-Date: Sat, 7 Aug 2010 00:35:21 -0600
-Message-ID: <AANLkTimHbcF+fz=aBMLdhLo2s-rhfNvaPCtqE8nYJ8aT@mail.gmail.com>
-References: <4C58A7AA.8020007@codeaurora.org> <20100803235631.GA17759@suse.de>
-	<4C58AE15.6090900@codeaurora.org> <20100804000945.GA19729@suse.de>
-	<4C58B1B6.9050005@quicinc.com> <AANLkTikVzh9=DvvUPbKmDeo6k2-pPVSnjH+GxAPdQFO4@mail.gmail.com>
-	<20100806142727.GB4921@suse.de> <AANLkTi=VbVed09=u-Ea0L8c_CWZ_CLLjWH9ZjD2dyg6Y@mail.gmail.com>
-	<20100806234635.GC16793@suse.de>
+Date: Sat, 7 Aug 2010 00:53:01 -0600
+Message-ID: <AANLkTi=JDPy4SCL_wW1A8xjnr9xs=XhPe3dsLX_9rLUH@mail.gmail.com>
+References: <4C59E654.1090403@codeaurora.org> <877hk56hiy.fsf@deeprootsystems.com>
+	<4C5A0C68.9080500@codeaurora.org> <87fwytxdba.fsf@deeprootsystems.com>
+	<AANLkTimCS4RV+8E_ZzX97=r5rmQR3nmizp0JYK+syLRa@mail.gmail.com>
+	<4C5B646C.1030308@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick Pannuto <ppannuto@quicinc.com>,
-	Patrick Pannuto <ppannuto@codeaurora.org>,
+Cc: Kevin Hilman <khilman@deeprootsystems.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
 	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
 	"damm@opensource.se" <damm@opensource.se>,
 	"lethal@linux-sh.org" <lethal@linux-sh.org>,
-	"rjw@sisk.pl" <rjw@sisk.pl>, "dtor@mail.ru" <dtor@mail.ru>,
+	"rjw@sisk.pl" <rjw@sisk.pl>,
 	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kevin Hilman <khilman@deeprootsystems.com>
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20100806234635.GC16793@suse.de>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Greg Kroah-Hartman <gregkh@suse.de>, alan@lxorguk.ukuu.org.uk,
+	zt.tmzt@gmail.com, magnus.damm@gmail.com
+To: Patrick Pannuto <ppannuto@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:44489 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752935Ab0HGGxX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Aug 2010 02:53:23 -0400
+In-Reply-To: <4C5B646C.1030308@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 6, 2010 at 5:46 PM, Greg KH <gregkh@suse.de> wrote:
-> On Fri, Aug 06, 2010 at 09:12:27AM -0600, Grant Likely wrote:
->> On Fri, Aug 6, 2010 at 8:27 AM, Greg KH <gregkh@suse.de> wrote:
->> > On Thu, Aug 05, 2010 at 04:59:35PM -0600, Grant Likely wrote:
->> >> (On that point Greg, what is the reason for even having the
->> >> /sys/devices/platform/ parent? =A0Why not just let the platform d=
-evices
->> >> sit at the root of the device tree? =A0In the OF case (granted, I=
-'m
->> >> biased) all of the platform_device registrations reflect the actu=
-al
->> >> device hierarchy expressed in the device tree data.)
->> >
->> > If we sat them at the "root", there would be a bunch of them there=
-=2E =A0I
->> > don't know, we could drop the parent, I guess whoever created the
->> > platform device oh so long ago, decided that it would look nicer t=
-o be
->> > in this type of structure.
+On Thu, Aug 5, 2010 at 7:25 PM, Patrick Pannuto <ppannuto@codeaurora.or=
+g> wrote:
+> On 08/05/2010 04:16 PM, Grant Likely wrote:
+>> The relevant question before going down this path is, "Is the
+>> omap/sh/other-soc behaviour something fundamentally different from t=
+he
+>> platform bus? =A0Or is it something complementary that would be bett=
+er
+>> handled with a notifier or some orthogonal method of adding new
+>> behaviour?"
 >>
->> Personally I'd rather see a meaningful structure used here. =A0Maybe
->> having them all in the root will encourage people to find realistic
->> parents for their platform devices. =A0:-)
+>> I don't have a problem with multiple platform_bus instances using th=
+e
+>> same code (I did suggest it after all), but I do worry about muddyin=
+g
+>> the Linux device model or making it overly complex. =A0Binding singl=
+e
+>> drivers to multiple device types could be messy.
+>>
+>> Cheers,
+>> g.
 >
-> That would be nice, but take your "standard" PC today:
-> =A0 =A0 =A0 =A0> ls /sys/devices/platform/
-> =A0 =A0 =A0 =A0Fixed MDIO bus.0 =A0i8042 =A0pcspkr =A0power =A0serial=
-8250 =A0uevent vesafb.0
+> From your other email, the distinction of /bus_types/ versus /physica=
+l
+> or logical buses/ was very valuable (thanks). I am becoming less
+> convinced that I need this infrastructure or the ability to create
+> pseudo-platform buses. Let me outline some thoughts below, which I
+> think at least solves my problems ( ;) ), and if some of the OMAP fol=
+ks
+> and Alan could chime in as to whether they can apply something simila=
+r,
+> or if they still have need of creating actual new bus types?
 >
-> There are tty devices below the serial port, which is nice to see, bu=
-t
-> the others? =A0I don't know what type of bus they would be on, do you=
-?
-
-Does it matter?  On my PC I count 7 devices.  On my servers, I see the
-same.  I don't personally don't see any disadvantage to having them at
-the root.
-
-However, looking at them:
-
-"Fixed MDIO bus" is actually a complete hack that I'm going to try and
-get rid of.
-i8042 is keyboard/mouse that probably lives on the southbridge.  I
-imagine hanging off the PCI bus in the ISA IO range.
-ditto pcspkr
-ditto serial8250
-ditto vesafb
-
-I wouldn't have any problem modifying those specific drivers to
-register under something like /sys/devices/legacy, but I don't really
-think it is in any way necessary.
-
-I suppose one *could* try to figure out the actual PCI topology that
-leads to these devices, but that gets into trying to guess what the
-BIOS set up to decide where to register those things.  Probably a lot
-of error-prone work for absolutely no benefit.  :-)
-
-However, on the embedded side I'm seeing a lot of devices show up
-under /sys/devices/platform.  Embedded is generally different.  We
-*know* what the bus topology is.  However, it seems to me that many
-developers are under the mistaken assumption that platform devices
-must live in /sys/devices/platform, so they don't bother reflecting
-the topology in the device model and it seems to be affecting how
-embedded PM is being approached (my opinion).  Removing the "struct
-device platform_bus" may reduce the confusion.
-
->> Why don't I float a patch to remove this and see if anybody freaks
->> out. =A0Should I wrap it with a CONFIG_ so that it can be configurab=
-le
->> for a release or to, or just make it unconditional?
 >
-> If you can figure out a structure for the desktop/server machines, su=
-re,
-> I say just always enable it :)
+> As we are exploring all of this, let me put a concrete (ish) scenario
+> out there to discuss:
+>
+> =A0 =A0 =A0 =A0SUB_BUS1---DEVICE1
+> =A0 =A0 =A0 /
+> CPU ---
+> =A0 =A0 =A0 \
+> =A0 =A0 =A0 =A0SUB_BUS2---DEVICE2
+>
+> DEVICE1 and DEVICE2 are the same device (say, usb host controller, or
+> whatever), and they should be driven by the same driver. However,
+> physically they are attached to different buses.
+>
+> SUB_BUS1 and SUB_BUS2 are *different* and let's say require a differe=
+nt
+> suspend method. If I understand correctly, the right way to build the
+> topology would be:
+>
+> struct device_type SUB_BUS1_type =3D {
+> =A0 =A0 =A0 =A0.name =3D "sub-bus1-type",
+> =A0 =A0 =A0 =A0.pm =A0 =3D &sub_bus1_pm_ops;
+> };
+>
+> struct platform_device SUB_BUS1 =3D {
+> =A0 =A0 =A0 =A0.init_name =3D "sub-bus1",
+> =A0 =A0 =A0 =A0.dev.type =A0=3D &sub_bus1_type,
+> };
+>
+> struct platform_device DEVICE1 =3D {
+> =A0 =A0 =A0 =A0.name =A0 =A0 =A0 =3D "device1",
+> =A0 =A0 =A0 =A0.dev.parent =3D &SUB_BUS1.dev,
+> };
+>
+> platform_device_register(&SUB_BUS1);
+> platform_device_register(&DEVICE1);
+>
+> [analogous for *2]
 
-I've got a patch in my tree now.  I'll play with it a bit before
-posting it for RFC.
+Not quite.  The device_type is intended to collect similar, but
+different things (ie, all keyboards, regardless of how they are
+attached to the system).  Trying to capture the device-specific
+behavour really belongs in the specific device driver attached to the
+SUB_BUS* device.  In fact, the way you've constructed your example,
+SUB_BUS1 and SUB_BUS2 don't really need to be platform_devices at all;
+you could have used a plain struct device because in this example you
+aren't binding them to a device driver).
 
+That being said, because each bus *does* have custom behaviour, it
+probably does make sense to either bind each to a device driver, or to
+do something to each child device that changes the PM behaviour.  I
+haven't dug into the problem domain deep enough to give you absolute
+answers, but the devres approach looks promising, as does creating a
+derived platform_bus_type (although I'm not fond of sharing device
+drivers between multiple bus_types).  Another option might be giving
+the parent struct device some runtime PM operations that it performs
+per-child.  I'm just throwing out ideas here though.
+
+> which would yield:
+>
+> /sys/bus/platform/devices/
+> =A0|
+> =A0|-SUB_BUS1
+> =A0| =A0|
+> =A0| =A0|-DEVICE1
+> =A0|
+> =A0|-SUB_BUS2
+> =A0| =A0|
+> =A0| =A0|-DEVICE2
+
+You're looking in the wrong place.  Look in /sys/devices instead of
+/sys/bus... (see comments below)
+
+> Which is the correct topology, and logically provides all the correct
+> interfaces. =A0The only thing that becomes confusing now, is that SUB=
+_BUS*
+> is *actually* a physically different bus, yet it's not in /sys/bus;
+> although I suppose this is actually how the world works presently (yo=
+u
+> don't see an individual entry in /sys/bus for each usb host controlle=
+r,
+> which is technically defining a sub-bus...)
+
+/sys/bus is for bus_types, not bus instances.  All USB devices will be
+listed in /sys/bus/usb/devices regardless of the bus instance that
+they attached to.
+
+However, look carefully at the files in /sys/bus/*/devices.  Notice
+that they are all symlinks?  Notice that the all of them point to
+directories in /sys/devices?  /sys/bus tells you which devices are
+registered against each bus type, but /sys/devices is the actual
+structure.  Always look in /sys/devices when you want to know the
+topology of the system.
+
+Cheers,
 g.
---
-To unsubscribe from this list: send the line "unsubscribe linux-omap" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
