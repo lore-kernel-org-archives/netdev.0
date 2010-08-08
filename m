@@ -1,58 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/9] net classifier: dont allow filters on
- semi-classful qdisc
-Date: Sat, 07 Aug 2010 22:59:05 -0700 (PDT)
-Message-ID: <20100807.225905.135552260.davem@davemloft.net>
-References: <4C5C7D9F.4040303@gmail.com>
-	<20100806145818.66d389eb@nehalam>
-	<4C5C8C09.9070206@gmail.com>
+Subject: Re: [PATCH 2/2] igbvf.txt: Add igbvf Documentation
+Date: Sat, 07 Aug 2010 23:01:56 -0700 (PDT)
+Message-ID: <20100807.230156.25112206.davem@davemloft.net>
+References: <20100804001429.6571.95116.stgit@localhost.localdomain>
+	<20100804001615.6571.69837.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40839
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40844
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751146Ab0HHF6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 01:58:46 -0400
-In-Reply-To: <4C5C8C09.9070206@gmail.com>
+	by vger.kernel.org with ESMTP id S1750864Ab0HHGBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 02:01:37 -0400
+In-Reply-To: <20100804001615.6571.69837.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 07 Aug 2010 00:26:17 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 03 Aug 2010 17:16:17 -0700
 
-> Stephen Hemminger wrote, On 06.08.2010 23:58:
+> Adds documentation for the igbvf (igb virtual function driver).
 > 
->> On Fri, 06 Aug 2010 23:24:47 +0200
->> Jarek Poplawski <jarkao2@gmail.com> wrote:
->> 
->>> Stephen Hemminger wrote, On -10.01.-28163 20:59:
->>>
->>>> There are several qdisc which only support a single class (sfq, mq, tbf)
->>>> and the kernel would dereference a null pointer (bind_tcf), if a user
->>>> attempted to apply a filter one of these classes.
->>>
->>>
->>> mq and tbf can't have this issue because they don't have
->>> .tcf_chain class method. sfq should support it on purpose
->>> after this patch:
->>>
->>> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=7d2681a6ff4f9ab5e48d02550b4c6338f1638998
->>> and needs tiny fix only.
->> 
->> Probably best to fix both ways.  Fix sfq to allow filters to
->> be chained, and fix API to prevent refuse to allow qdisc to
->> register with tcf_chain && !bind_tcf
->> 
-> 
-> Yes, but your patch needs a different changelog and I'm not sure
-> it's necessary for stable (there should be no other such cases
-> for now).
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 
-Right.
+Tons of trailing whitespace, GIT nearly craps itself when I try
+to apply this.
 
-I'm tossing this series since there are dependencies upon this first
-patch for which we've arrived at a different solution (Jarek's
-patch).
+Please fix this, and also submit the fixed up 1/1 ixgbe.txt doc patch
+and even more importantly the ixgbe FCOE build fix you promised I'd
+have two nights ago :-)
+
+Thanks.
