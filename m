@@ -1,67 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: SMSC: fix unused warnings when built into kernel
-Date: Sat, 07 Aug 2010 23:08:11 -0700 (PDT)
-Message-ID: <20100807.230811.85439852.davem@davemloft.net>
-References: <1281076034-17390-1-git-send-email-vapier@gentoo.org>
-	<AANLkTi=_-ZZ8nyFLiBKSWNTcM_SkwLe2-ZL17zBQb0i4@mail.gmail.com>
-	<1281099435.2088.2.camel@achroite.uk.solarflarecom.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] sfq: add dummy bind/unbind handles
+Date: Sun, 08 Aug 2010 09:04:46 +0200
+Message-ID: <4C5E570E.6020908@gmail.com>
+References: <20100806145818.66d389eb@nehalam>	<20100806152313.43abc30b@nehalam>	<4C5C97F3.3010604@gmail.com> <20100807.224514.137860816.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, vapier@gentoo.org, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org, franchoze@yandex.ru
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36057
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750986Ab0HHGHw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 02:07:52 -0400
-In-Reply-To: <1281099435.2088.2.camel@achroite.uk.solarflarecom.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:60569 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753095Ab0HHHEx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 03:04:53 -0400
+Received: by bwz3 with SMTP id 3so663078bwz.19
+        for <netdev@vger.kernel.org>; Sun, 08 Aug 2010 00:04:52 -0700 (PDT)
+In-Reply-To: <20100807.224514.137860816.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 06 Aug 2010 13:57:15 +0100
+David Miller wrote, On 08.08.2010 07:45:
 
-> On Fri, 2010-08-06 at 14:43 +0800, Changli Gao wrote:
->> On Fri, Aug 6, 2010 at 2:27 PM, Mike Frysinger <vapier@gentoo.org> wrote:
->> > If the SMSC phy is not built as a module, we get the warning:
->> >        drivers/net/phy/smsc.c:257: warning: 'smsc_tbl' defined but not used
->> >
->> > So mark the structure as maybe unused to avoid this.
->> >
->> > Signed-off-by: Mike Frysinger <vapier@gentoo.org>
->> > ---
->> >  drivers/net/phy/smsc.c |    2 +-
->> >  1 files changed, 1 insertions(+), 1 deletions(-)
->> >
->> > diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
->> > index 78fa988..11944ef 100644
->> > --- a/drivers/net/phy/smsc.c
->> > +++ b/drivers/net/phy/smsc.c
->> > @@ -254,7 +254,7 @@ MODULE_LICENSE("GPL");
->> >  module_init(smsc_init);
->> >  module_exit(smsc_exit);
->> >
->> > -static struct mdio_device_id smsc_tbl[] = {
->> > +static __maybe_unused struct mdio_device_id smsc_tbl[] = {
->> >        { 0x0007c0a0, 0xfffffff0 },
->> >        { 0x0007c0b0, 0xfffffff0 },
->> >        { 0x0007c0c0, 0xfffffff0 },
->> 
->> How about adding a #ifdef CONFIG_SMSC_PHY_MODULE clause  around these lines?
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Sat, 07 Aug 2010 01:17:07 +0200
 > 
-> By default, gcc will discard unused variables and functions declared as
-> static.  So this would not provide any run-time benefit.
+>> Stephen Hemminger wrote, On 07.08.2010 00:23:
+>>
+>>> Applying a filter to an SFQ qdisc would cause null dereference
+>>> in tcf_bind_filter because although SFQ is classful it didn't
+>>> have all the necessary equipment.
+>>>
+>>> Better alternative to changing tcf_bind API is to just fix
+>>> SFQ.  This should go to net-2.6 and stable.
+>>>
+>>
+>> Hmm... FYI, actually I've sent already a similar patch to the
+>> original bug report thread (except .unbind_tcf method which
+>> doesn't matter for fixing this bug, so should be rather
+>> implemented in a separate patch, if needed at all in this
+>> case).
+> 
+> Agreed, I can't see a way that unbind can ever be invoked
+> if the bind call always returns zero.
 
-We never have to do this for any other module device table, because
-usually the table is actually used for the probing.
-
-The MDIO ones are special in that they are only used for assisting in
-module probing.
-
-I would suggest that, in light of this, we make MODULE_DEVICE_TABLE()
-make a dummy reference to the table.
-
-Otherwise we're likely going going to have to add these ugly tags to
-every single PHY driver.
-
+To tell the truth, I think unbind should be implemented anyway,
+just for consistency, safety, and easier verification. But, looking
+at a similar case of .get and .put in the same driver, Patrick
+seemed to do it purposely, so I expected some discussion about the
+rules yet, and made it minimal to ease merging to older kernels.
+ 
+Thanks,
+Jarek P.
