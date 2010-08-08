@@ -1,44 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sfq: add dummy bind/unbind handles
-Date: Sat, 07 Aug 2010 22:45:14 -0700 (PDT)
-Message-ID: <20100807.224514.137860816.davem@davemloft.net>
-References: <20100806145818.66d389eb@nehalam>
-	<20100806152313.43abc30b@nehalam>
-	<4C5C97F3.3010604@gmail.com>
+Subject: Re: [PATCH 1/9] net classifier: dont allow filters on
+ semi-classful qdisc
+Date: Sat, 07 Aug 2010 22:59:05 -0700 (PDT)
+Message-ID: <20100807.225905.135552260.davem@davemloft.net>
+References: <4C5C7D9F.4040303@gmail.com>
+	<20100806145818.66d389eb@nehalam>
+	<4C5C8C09.9070206@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, franchoze@yandex.ru
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
 To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56450
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40839
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751328Ab0HHFoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 01:44:55 -0400
-In-Reply-To: <4C5C97F3.3010604@gmail.com>
+	by vger.kernel.org with ESMTP id S1751146Ab0HHF6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 01:58:46 -0400
+In-Reply-To: <4C5C8C09.9070206@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 07 Aug 2010 01:17:07 +0200
+Date: Sat, 07 Aug 2010 00:26:17 +0200
 
-> Stephen Hemminger wrote, On 07.08.2010 00:23:
+> Stephen Hemminger wrote, On 06.08.2010 23:58:
 > 
->> Applying a filter to an SFQ qdisc would cause null dereference
->> in tcf_bind_filter because although SFQ is classful it didn't
->> have all the necessary equipment.
+>> On Fri, 06 Aug 2010 23:24:47 +0200
+>> Jarek Poplawski <jarkao2@gmail.com> wrote:
 >> 
->> Better alternative to changing tcf_bind API is to just fix
->> SFQ.  This should go to net-2.6 and stable.
+>>> Stephen Hemminger wrote, On -10.01.-28163 20:59:
+>>>
+>>>> There are several qdisc which only support a single class (sfq, mq, tbf)
+>>>> and the kernel would dereference a null pointer (bind_tcf), if a user
+>>>> attempted to apply a filter one of these classes.
+>>>
+>>>
+>>> mq and tbf can't have this issue because they don't have
+>>> .tcf_chain class method. sfq should support it on purpose
+>>> after this patch:
+>>>
+>>> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=7d2681a6ff4f9ab5e48d02550b4c6338f1638998
+>>> and needs tiny fix only.
+>> 
+>> Probably best to fix both ways.  Fix sfq to allow filters to
+>> be chained, and fix API to prevent refuse to allow qdisc to
+>> register with tcf_chain && !bind_tcf
 >> 
 > 
-> Hmm... FYI, actually I've sent already a similar patch to the
-> original bug report thread (except .unbind_tcf method which
-> doesn't matter for fixing this bug, so should be rather
-> implemented in a separate patch, if needed at all in this
-> case).
+> Yes, but your patch needs a different changelog and I'm not sure
+> it's necessary for stable (there should be no other such cases
+> for now).
 
-Agreed, I can't see a way that unbind can ever be invoked
-if the bind call always returns zero.
+Right.
 
-Therefore I'll apply Jarek's patch, thanks everyone.
+I'm tossing this series since there are dependencies upon this first
+patch for which we've arrived at a different solution (Jarek's
+patch).
