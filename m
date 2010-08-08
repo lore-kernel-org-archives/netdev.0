@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH] r6040: fix all checkpatch errors and warnings
-Date: Sun, 8 Aug 2010 22:08:44 +0200
-Message-ID: <201008082208.46396.florian@openwrt.org>
+Subject: [PATCH] cpmac: fix all checkpatch errors and warnings
+Date: Sun, 8 Aug 2010 22:09:39 +0200
+Message-ID: <201008082209.40403.florian@openwrt.org>
 Reply-To: Florian Fainelli <florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -9,139 +9,136 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33916 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:53740 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753722Ab0HHUH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 16:07:59 -0400
-Received: by wyb39 with SMTP id 39so9298789wyb.19
-        for <netdev@vger.kernel.org>; Sun, 08 Aug 2010 13:07:58 -0700 (PDT)
+	with ESMTP id S1751709Ab0HHUIw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 16:08:52 -0400
+Received: by wyb39 with SMTP id 39so9299108wyb.19
+        for <netdev@vger.kernel.org>; Sun, 08 Aug 2010 13:08:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a couple of errors and warnings spotted by checkpatch.pl:
-- some lines were over 80 columns
-- there were some whitespaces left
-
-The call to printk is now replaced by a call to pr_info and the log-level
-included in the driver version is now removed, so there are no longer false
-positives on this warning.
+This patches fixes a couple of checkpatch warnings and errors:
+- lines over 80 columns
+- printk() instead of pr_cont()
+- assignments in tests (if ((foo == bar())))
 
 Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 142c381..0a00850 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -200,7 +200,7 @@ struct r6040_private {
- 	int old_duplex;
- };
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index e1f6156..fe017eb 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -38,7 +38,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/clk.h>
+-#include <asm/gpio.h>
++#include <linux/gpio.h>
+ #include <asm/atomic.h>
  
--static char version[] __devinitdata = KERN_INFO DRV_NAME
-+static char version[] __devinitdata = DRV_NAME
- 	": RDC R6040 NAPI net driver,"
- 	"version "DRV_VERSION " (" DRV_RELDATE ")";
- 
-@@ -224,7 +224,8 @@ static int r6040_phy_read(void __iomem *ioaddr, int phy_addr, int reg)
+ MODULE_AUTHOR("Eugene Konev <ejka@imfi.kspu.ru>");
+@@ -108,7 +108,7 @@ MODULE_PARM_DESC(dumb_switch, "Assume switch is not connected to MDIO bus");
+ #define CPMAC_RX_INT_CLEAR		0x019c
+ #define CPMAC_MAC_INT_ENABLE		0x01a8
+ #define CPMAC_MAC_INT_CLEAR		0x01ac
+-#define CPMAC_MAC_ADDR_LO(channel) 	(0x01b0 + (channel) * 4)
++#define CPMAC_MAC_ADDR_LO(channel)	(0x01b0 + (channel) * 4)
+ #define CPMAC_MAC_ADDR_MID		0x01d0
+ #define CPMAC_MAC_ADDR_HI		0x01d4
+ #define CPMAC_MAC_HASH_LO		0x01d8
+@@ -227,7 +227,7 @@ static void cpmac_dump_regs(struct net_device *dev)
+ 	for (i = 0; i < CPMAC_REG_END; i += 4) {
+ 		if (i % 16 == 0) {
+ 			if (i)
+-				printk("\n");
++				pr_cont("\n");
+ 			printk(KERN_DEBUG "%s: reg[%p]:", dev->name,
+ 			       priv->regs + i);
+ 		}
+@@ -262,7 +262,7 @@ static void cpmac_dump_skb(struct net_device *dev, struct sk_buff *skb)
+ 	for (i = 0; i < skb->len; i++) {
+ 		if (i % 16 == 0) {
+ 			if (i)
+-				printk("\n");
++				pr_cont("\n");
+ 			printk(KERN_DEBUG "%s: data[%p]:", dev->name,
+ 			       skb->data + i);
+ 		}
+@@ -873,7 +873,8 @@ static int cpmac_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	return -EINVAL;
  }
  
- /* Write a word data from PHY Chip */
--static void r6040_phy_write(void __iomem *ioaddr, int phy_addr, int reg, u16 val)
-+static void r6040_phy_write(void __iomem *ioaddr,
-+					int phy_addr, int reg, u16 val)
+-static void cpmac_get_ringparam(struct net_device *dev, struct ethtool_ringparam* ring)
++static void cpmac_get_ringparam(struct net_device *dev,
++						struct ethtool_ringparam *ring)
  {
- 	int limit = 2048;
- 	u16 cmd;
-@@ -348,8 +349,8 @@ static int r6040_alloc_rxbufs(struct net_device *dev)
- 		}
- 		desc->skb_ptr = skb;
- 		desc->buf = cpu_to_le32(pci_map_single(lp->pdev,
--						desc->skb_ptr->data,
--						MAX_BUF_SIZE, PCI_DMA_FROMDEVICE));
-+					desc->skb_ptr->data,
-+					MAX_BUF_SIZE, PCI_DMA_FROMDEVICE));
- 		desc->status = DSC_OWNER_MAC;
- 		desc = desc->vndescp;
- 	} while (desc != lp->rx_ring);
-@@ -491,12 +492,14 @@ static int r6040_close(struct net_device *dev)
+ 	struct cpmac_priv *priv = netdev_priv(dev);
  
- 	/* Free Descriptor memory */
- 	if (lp->rx_ring) {
--		pci_free_consistent(pdev, RX_DESC_SIZE, lp->rx_ring, lp->rx_ring_dma);
-+		pci_free_consistent(pdev,
-+				RX_DESC_SIZE, lp->rx_ring, lp->rx_ring_dma);
- 		lp->rx_ring = NULL;
+@@ -888,7 +889,8 @@ static void cpmac_get_ringparam(struct net_device *dev, struct ethtool_ringparam
+ 	ring->tx_pending = 1;
+ }
+ 
+-static int cpmac_set_ringparam(struct net_device *dev, struct ethtool_ringparam* ring)
++static int cpmac_set_ringparam(struct net_device *dev,
++						struct ethtool_ringparam *ring)
+ {
+ 	struct cpmac_priv *priv = netdev_priv(dev);
+ 
+@@ -1012,8 +1014,8 @@ static int cpmac_open(struct net_device *dev)
+ 
+ 	priv->rx_head->prev->hw_next = (u32)0;
+ 
+-	if ((res = request_irq(dev->irq, cpmac_irq, IRQF_SHARED,
+-			       dev->name, dev))) {
++	res = request_irq(dev->irq, cpmac_irq, IRQF_SHARED, dev->name, dev);
++	if (res) {
+ 		if (netif_msg_drv(priv))
+ 			printk(KERN_ERR "%s: failed to obtain irq\n",
+ 			       dev->name);
+@@ -1133,7 +1135,8 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
  	}
  
- 	if (lp->tx_ring) {
--		pci_free_consistent(pdev, TX_DESC_SIZE, lp->tx_ring, lp->tx_ring_dma);
-+		pci_free_consistent(pdev,
-+				TX_DESC_SIZE, lp->tx_ring, lp->tx_ring_dma);
- 		lp->tx_ring = NULL;
+ 	if (phy_id == PHY_MAX_ADDR) {
+-		dev_err(&pdev->dev, "no PHY present, falling back to switch on MDIO bus 0\n");
++		dev_err(&pdev->dev, "no PHY present, falling back "
++					"to switch on MDIO bus 0\n");
+ 		strncpy(mdio_bus_id, "0", MII_BUS_ID_SIZE); /* fixed phys bus */
+ 		phy_id = pdev->id;
+ 	}
+@@ -1169,7 +1172,8 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
+ 	priv->msg_enable = netif_msg_init(debug_level, 0xff);
+ 	memcpy(dev->dev_addr, pdata->dev_addr, sizeof(pdata->dev_addr));
+ 
+-	snprintf(priv->phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT, mdio_bus_id, phy_id);
++	snprintf(priv->phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT,
++						mdio_bus_id, phy_id);
+ 
+ 	priv->phy = phy_connect(dev, priv->phy_name, &cpmac_adjust_link, 0,
+ 						PHY_INTERFACE_MODE_MII);
+@@ -1182,7 +1186,8 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
+ 		goto fail;
  	}
  
-@@ -547,7 +550,7 @@ static int r6040_rx(struct net_device *dev, int limit)
- 			}
- 			goto next_descr;
- 		}
--		
-+
- 		/* Packet successfully received */
- 		new_skb = netdev_alloc_skb(dev, MAX_BUF_SIZE);
- 		if (!new_skb) {
-@@ -556,13 +559,13 @@ static int r6040_rx(struct net_device *dev, int limit)
- 		}
- 		skb_ptr = descptr->skb_ptr;
- 		skb_ptr->dev = priv->dev;
--		
-+
- 		/* Do not count the CRC */
- 		skb_put(skb_ptr, descptr->len - 4);
- 		pci_unmap_single(priv->pdev, le32_to_cpu(descptr->buf),
- 					MAX_BUF_SIZE, PCI_DMA_FROMDEVICE);
- 		skb_ptr->protocol = eth_type_trans(skb_ptr, priv->dev);
--		
-+
- 		/* Send to upper layer */
- 		netif_receive_skb(skb_ptr);
- 		dev->stats.rx_packets++;
-@@ -710,8 +713,10 @@ static int r6040_up(struct net_device *dev)
- 		return ret;
+-	if ((rc = register_netdev(dev))) {
++	rc = register_netdev(dev);
++	if (rc) {
+ 		printk(KERN_ERR "cpmac: error %i registering device %s\n", rc,
+ 		       dev->name);
+ 		goto fail;
+@@ -1248,11 +1253,13 @@ int __devinit cpmac_init(void)
  
- 	/* improve performance (by RDC guys) */
--	r6040_phy_write(ioaddr, 30, 17, (r6040_phy_read(ioaddr, 30, 17) | 0x4000));
--	r6040_phy_write(ioaddr, 30, 17, ~((~r6040_phy_read(ioaddr, 30, 17)) | 0x2000));
-+	r6040_phy_write(ioaddr, 30, 17,
-+			(r6040_phy_read(ioaddr, 30, 17) | 0x4000));
-+	r6040_phy_write(ioaddr, 30, 17,
-+			~((~r6040_phy_read(ioaddr, 30, 17)) | 0x2000));
- 	r6040_phy_write(ioaddr, 0, 19, 0x0000);
- 	r6040_phy_write(ioaddr, 0, 30, 0x01F0);
+ 	cpmac_mii->reset(cpmac_mii);
  
-@@ -946,7 +951,7 @@ static const struct net_device_ops r6040_netdev_ops = {
- 	.ndo_set_multicast_list = r6040_multicast_list,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_do_ioctl		= r6040_ioctl,
- 	.ndo_tx_timeout		= r6040_tx_timeout,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -1039,7 +1044,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	u16 *adrp;
- 	int i;
+-	for (i = 0; i < 300; i++)
+-		if ((mask = cpmac_read(cpmac_mii->priv, CPMAC_MDIO_ALIVE)))
++	for (i = 0; i < 300; i++) {
++		mask = cpmac_read(cpmac_mii->priv, CPMAC_MDIO_ALIVE);
++		if (mask)
+ 			break;
+ 		else
+ 			msleep(10);
++	}
  
--	printk("%s\n", version);
-+	pr_info("%s\n", version);
- 
- 	err = pci_enable_device(pdev);
- 	if (err)
-@@ -1113,7 +1118,8 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
- 	/* Some bootloader/BIOSes do not initialize
- 	 * MAC address, warn about that */
- 	if (!(adrp[0] || adrp[1] || adrp[2])) {
--		netdev_warn(dev, "MAC address not initialized, generating random\n");
-+		netdev_warn(dev, "MAC address not initialized, "
-+					"generating random\n");
- 		random_ether_addr(dev->dev_addr);
- 	}
- 
+ 	mask &= 0x7fffffff;
+ 	if (mask & (mask - 1)) {
