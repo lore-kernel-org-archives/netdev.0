@@ -1,39 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: disable preemption before call smp_processor_id()
-Date: Sat, 07 Aug 2010 22:25:43 -0700 (PDT)
-Message-ID: <20100807.222543.235673802.davem@davemloft.net>
-References: <1281173162-10587-1-git-send-email-xiaosuo@gmail.com>
-	<20100807.203700.186284252.davem@davemloft.net>
-	<20100808045751.GF19600@linux.vnet.ibm.com>
+Subject: Re: [PATCH 07/18] isdn: avm: call disable_pci_device() if
+ pci_probe() failed
+Date: Sat, 07 Aug 2010 22:34:12 -0700 (PDT)
+Message-ID: <20100807.223412.212426246.davem@davemloft.net>
+References: <1281124303-13537-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, therbert@google.com, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
+Cc: kernel-janitors@vger.kernel.org, isdn@linux-pingi.de,
+	adobriyan@gmail.com, tilman@imap.cc, netdev@vger.kernel.org
+To: segooon@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35867
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46598
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751732Ab0HHFZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 01:25:24 -0400
-In-Reply-To: <20100808045751.GF19600@linux.vnet.ibm.com>
+	by vger.kernel.org with ESMTP id S1751824Ab0HHFdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 01:33:53 -0400
+In-Reply-To: <1281124303-13537-1-git-send-email-segooon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Sat, 7 Aug 2010 21:57:51 -0700
+From: Kulikov Vasiliy <segooon@gmail.com>
+Date: Fri,  6 Aug 2010 23:51:41 +0400
 
-> If I cover preemptible RCU's semantics, a first cut comes out like this:
-> 
->  * In non-preemptible RCU implementations (TREE_RCU and TINY_RCU), it
->  * is illegal to block while in an RCU read-side critical section.  In
->  * preemptible RCU implementations (TREE_PREEMPT_RCU and TINY_PREEMPT_RCU)
->  * in CONFIG_PREEMPT kernel builds, RCU read-side critical sections may
->  * be preempted, but explicit blocking is illegal.  Finally, in preemptible
->  * RCU implementations in real-time (CONFIG_PREEMPT_RT) kernel builds,
->  * RCU read-side critical sections may be preempted and they may also
->  * block, but only when acquiring spinlocks that are subject to priority
->  * inheritance.
-> 
-> Does that seem reasonable?
+> Driver should call disable_pci_device() if it returns from pci_probe()
 
-Sounds good to me.
+"pci_disable_device()"
+
+> with error. Also it must not be called if request_region() fails as
+> it means that somebody uses device resources and rules the device.
+
+This interface, frankly, sucks.
+
+If this is what we want then pci_enable_device() and
+pci_disable_device() should maintain a reference count,
+so that device drivers need not be mindful of what
+arbitrary special circumstances they should make the
+disable call or not.  They can make it unconditionally
+and the PCI layer makes sure the device doesn't get
+disabled unintentionally.
+
+This is software interface design 101.
+
+The current requirements are beyond unreasonable and
+should be fixed before we apply patches like this.
+
+I'm tossing all of these patches, sorry.
