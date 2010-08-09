@@ -1,45 +1,39 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 5/6] au1000-eth: fix asm -> linux headers inclusion
-Date: Mon, 9 Aug 2010 22:03:44 +0200
-Message-ID: <201008092203.45938.florian@openwrt.org>
-Reply-To: Florian Fainelli <florian@openwrt.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next] net: Provide details on watchdog timeout.
+Date: Mon, 09 Aug 2010 13:08:47 -0700 (PDT)
+Message-ID: <20100809.130847.189707542.davem@davemloft.net>
+References: <1281381401-5554-1-git-send-email-greearb@candelatech.com>
+	<20100809152820.26dbffc1@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: greearb@candelatech.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55363 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755979Ab0HIUC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 16:02:57 -0400
-Received: by mail-ww0-f44.google.com with SMTP id 40so12017023wwj.1
-        for <netdev@vger.kernel.org>; Mon, 09 Aug 2010 13:02:56 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55154
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755532Ab0HIUI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 16:08:28 -0400
+In-Reply-To: <20100809152820.26dbffc1@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 9 Aug 2010 15:28:20 -0400
 
-Replace asm/io.h and asm/cpu.h wih linux/io.h and linux/cpu.h
+> On Mon,  9 Aug 2010 12:16:41 -0700
+> Ben Greear <greearb@candelatech.com> wrote:
+> 
+>> This also makes it printed under net_ratelimit instead
+>> of WARN_ON_ONCE.  The backtrace never helped me much.
+>> 
+>> Signed-off-by: Ben Greear <greearb@candelatech.com>
+>>
+> 
+> Please don't remove the WARN_ because it is used by oops.kernel.org
+> automated tracking.
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index f8f1f5e..4605c3d 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -56,11 +56,11 @@
- #include <linux/crc32.h>
- #include <linux/phy.h>
- #include <linux/platform_device.h>
-+#include <linux/cpu.h>
-+#include <linux/io.h>
- 
--#include <asm/cpu.h>
- #include <asm/mipsregs.h>
- #include <asm/irq.h>
--#include <asm/io.h>
- #include <asm/processor.h>
- 
- #include <au1000.h>
-
+Yes, please don't change this, there are automated tools that
+know about what this thing spits out and yes the backtrace
+needs to be there.
 
