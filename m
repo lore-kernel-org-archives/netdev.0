@@ -1,251 +1,264 @@
-From: "Andy Chittenden" <andyc.bluearc@gmail.com>
-Subject: RE: [PATCH] [Bug 16494] NFS client over TCP hangs due to packet loss
-Date: Mon, 9 Aug 2010 10:27:10 +0100
-Message-ID: <4c5fc9f3.487e0e0a.2960.ffffe4ec@mx.google.com>
-References: <4c57cfe8.887b0e0a.2f79.4772@mx.google.com> <20100803.012144.267950450.davem@davemloft.net> <20100803021110.f0b3877b.akpm@linux-foundation.org> <4C57EE9A.7040308@gmail.com>  <4c5ad0d6.42ecd80a.47d7.0dfc@mx.google.com> <1281037822.2948.49.camel@heimdal.trondhjem.org> <4c5bd64a.4a2ae30a.0283.0551@mx.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Mon, 09 Aug 2010 03:28:03 -0700 (PDT)
+Message-ID: <20100809.032803.193698039.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "'Andrew Morton'" <akpm@linux-foundation.org>,
-	"'David Miller'" <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-	<pekkas@netcore.fi>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<eric.dumazet@gmail.com>, <William.Allen.Simpson@gmail.com>,
-	<gilad@codefidence.com>, <ilpo.jarvinen@helsinki.fi>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-nfs@vger.kernel.org>,
-	"'J. Bruce Fields'" <bfields@fieldses.org>,
-	"'Neil Brown'" <neilb@suse.de>,
-	"'Chuck Lever'" <chuck.lever@oracle.com>,
-	"'Benny Halevy'" <bhalevy@panasas.com>,
-	"'Alexandros Batsakis'" <batsakis@netapp.com>,
-	"'Joe Perches'" <joe@perches.com>,
-	"Andy Chittenden" <andyc@bluearc.com>
-To: "'Andy Chittenden'" <andyc.bluearc@gmail.com>,
-	"'Trond Myklebust'" <Trond.Myklebust@netapp.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4c5bd64a.4a2ae30a.0283.0551@mx.google.com>
-Content-Language: en-gb
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > On Thu, 2010-08-05 at 15:55 +0100, Andy Chittenden wrote:
-> > > > On 2010-08-03 10:11, Andrew Morton wrote:
-> > > > > (cc linux-nfs)
-> > > > >
-> > > > > On Tue, 03 Aug 2010 01:21:44 -0700 (PDT) David
-> > > > Miller<davem@davemloft.net>  wrote:
-> > > > >
-> > > > >> From: "Andy Chittenden"<andyc.bluearc@gmail.com>
-> > > > >> Date: Tue, 3 Aug 2010 09:14:31 +0100
-> > > > >>
-> > > > >>> I don't know whether this patch is the correct fix or not but
-> > it
-> > > > enables the
-> > > > >>> NFS client to recover.
-> > > > >>>
-> > > > >>> Kernel version: 2.6.34.1 and 2.6.32.
-> > > > >>>
-> > > > >>> Fixes<https://bugzilla.kernel.org/show_bug.cgi?id=16494>. It
-> > clears
-> > > > down
-> > > > >>> any previous shutdown attempts so that reconnects on a socket
-> > > > that's been
-> > > > >>> shutdown leave the socket in a usable state (otherwise
-> > > > tcp_sendmsg() returns
-> > > > >>> -EPIPE).
-> > > > >>
-> > > > >> If the SunRPC code wants to close a TCP socket then use it
-> > again,
-> > > > >> it should disconnect by doing a connect() with sa_family ==
-> > > > AF_UNSPEC
-> > > >
-> > > > There is code to do that in the SunRPC code in
-> > xs_abort_connection()
-> > > > but
-> > > > that's conditionally called from xs_tcp_reuse_connection():
-> > > >
-> > > > static void xs_tcp_reuse_connection(struct rpc_xprt *xprt, struct
-> > > > sock_xprt *transport)
-> > > > {
-> > > > 	unsigned int state = transport->inet->sk_state;
-> > > >
-> > > > 	if (state == TCP_CLOSE && transport->sock->state ==
-> > > > SS_UNCONNECTED)
-> > > > 		return;
-> > > > 	if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
-> > > > 		return;
-> > > > 	xs_abort_connection(xprt, transport);
-> > > > }
-> > > >
-> > > > That's changed since 2.6.26 where it unconditionally did the
-> > connect()
-> > > > with sa_family == AF_UNSPEC. FWIW we cannot reproduce this
-> problem
-> > with
-> > > > 2.6.26.
-> > >
-> > > The problem is fixed with this patch which also prints out that
-> > sk_shutdown
-> > > can be non-zero on entry to xs_tcp_reuse_connection:
-> > >
-> > > # diff -up /home/company/software/src/linux-
-> > 2.6.34.2/net/sunrpc/xprtsock.c
-> > > net/sunrpc/xprtsock.c
-> > > --- /home/company/software/src/linux-2.6.34.2/net/sunrpc/xprtsock.c
-> > > 2010-08-02 18:30:51.000000000 +0100
-> > > +++ net/sunrpc/xprtsock.c       2010-08-05 12:21:11.000000000 +0100
-> > > @@ -1322,10 +1322,11 @@ static void xs_tcp_state_change(struct s
-> > >         if (!(xprt = xprt_from_sock(sk)))
-> > >                 goto out;
-> > >         dprintk("RPC:       xs_tcp_state_change client %p...\n",
-> > xprt);
-> > > -       dprintk("RPC:       state %x conn %d dead %d zapped %d\n",
-> > > +       dprintk("RPC:       state %x conn %d dead %d zapped %d
-> > sk_shutdown
-> > > %d\n",
-> > >                         sk->sk_state, xprt_connected(xprt),
-> > >                         sock_flag(sk, SOCK_DEAD),
-> > > -                       sock_flag(sk, SOCK_ZAPPED));
-> > > +                       sock_flag(sk, SOCK_ZAPPED),
-> > > +                       sk->sk_shutdown);
-> > >
-> > >         switch (sk->sk_state) {
-> > >         case TCP_ESTABLISHED:
-> > > @@ -1796,10 +1797,18 @@ static void xs_tcp_reuse_connection(stru
-> > >  {
-> > >         unsigned int state = transport->inet->sk_state;
-> > >
-> > > -       if (state == TCP_CLOSE && transport->sock->state ==
-> > SS_UNCONNECTED)
-> > > -               return;
-> > > -       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
-> > > -               return;
-> > > +       if (state == TCP_CLOSE && transport->sock->state ==
-> > SS_UNCONNECTED)
-> > > {
-> > > +               if (transport->inet->sk_shutdown == 0)
-> > > +                       return;
-> > > +               printk("%s: TCP_CLOSEd and sk_shutdown set to
-> %d\n",
-> > > +                       __func__, transport->inet->sk_shutdown);
-> > > +       }
-> > > +       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT)) {
-> > > +               if (transport->inet->sk_shutdown == 0)
-> > > +                       return;
-> > > +               printk("%s: sk_shutdown set to %d\n",
-> > > +                       __func__, transport->inet->sk_shutdown);
-> > > +       }
-> > >         xs_abort_connection(xprt, transport);
-> > >  }
-> > >
-> > > Signed-off-by: Andy Chittenden <andyc.bluearc@gmail.com>
-> > >
-> > > dmesg displays:
-> > >
-> > > [ 2840.896043] xs_tcp_reuse_connection: TCP_CLOSEd and sk_shutdown
-> > set to 2
-> > >
-> > > so previously the code was attempting to reuse the connection but
-> > wasn't
-> > > aborting it and thus didn't clear down sk_shutdown.
-> >
-> > Hi Andy,
-> >
-> > I note that you are adding in two new printk()s. Why should they be
-> > printk(), and not dprintk()? Are you trying to report an exception
-> that
-> > the user needs to be aware of, or is this only debugging info that
-> > we'll
-> > want to turn off under normal operation?
-> 
-> Hi Trond
-> 
-> Thanks for replying. It was debugging info: the printk()s show what the
-> problem is. I was half expecting someone to pipe up "that isn't the
-> correct way to fix this" and suggest another avenue to look at, or
-> even, hopefully, come up with an alternative appropriate patch as I'm
-> not an expert in this code: I don't know whether the sk_shutdown field
-> being left set has implications elsewhere in the sunrpc code. FWIW I
-> left the test case running overnight and have had only 50 such messages
-> logged so it's not a heavy printk() load.
-> 
-> >
-> > Also, it might be useful to add a comment to the code here to remind
-> us
-> > what the 'sk_shutdown == 0' case corresponds to as far as the socket
-> > state is concerned, so that the casual reader can see why we
-> shouldn't
-> > reset the connection.
-> 
-> If I knew what sk_shutdown == 0 really corresponded to, I could well
-> add a comment! :-). I just knew that in 2.6.26 we didn't see this
-> problem and that in later kernels the connection abort sequence was
-> being done conditionally and that the sk_shutdown flag being left set
-> was making tcp_sendmsg return an error. So, putting two and two
-> together, I've effectively just added another condition in which to
-> abort the connection.
-> 
-> As nobody has objected to the essence of my patch, I'll attempt a new
-> patch that changes those printk()s into dprintk() and drop in what I
-> think are appropriate comments. So here's a revised patch:
-> 
-> # diff -up /home/company/software/src/linux-
-> 2.6.34.2/net/sunrpc/xprtsock.c net/sunrpc/xprtsock.c
-> --- /home/company/software/src/linux-2.6.34.2/net/sunrpc/xprtsock.c
-> 2010-08-02 18:30:51.000000000 +0100
-> +++ net/sunrpc/xprtsock.c       2010-08-06 08:09:08.000000000 +0100
-> @@ -1322,10 +1322,11 @@ static void xs_tcp_state_change(struct s
->         if (!(xprt = xprt_from_sock(sk)))
->                 goto out;
->         dprintk("RPC:       xs_tcp_state_change client %p...\n", xprt);
-> -       dprintk("RPC:       state %x conn %d dead %d zapped %d\n",
-> +       dprintk("RPC:       state %x conn %d dead %d zapped %d
-> sk_shutdown %d\n",
->                         sk->sk_state, xprt_connected(xprt),
->                         sock_flag(sk, SOCK_DEAD),
-> -                       sock_flag(sk, SOCK_ZAPPED));
-> +                       sock_flag(sk, SOCK_ZAPPED),
-> +                       sk->sk_shutdown);
-> 
->         switch (sk->sk_state) {
->         case TCP_ESTABLISHED:
-> @@ -1796,10 +1797,25 @@ static void xs_tcp_reuse_connection(stru
->  {
->         unsigned int state = transport->inet->sk_state;
-> 
-> -       if (state == TCP_CLOSE && transport->sock->state ==
-> SS_UNCONNECTED)
-> -               return;
-> -       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
-> -               return;
-> +       if (state == TCP_CLOSE && transport->sock->state ==
-> SS_UNCONNECTED) {
-> +               /* we don't need to abort the connection if the socket
-> +                * hasn't undergone a shutdown
-> +                */
-> +               if (transport->inet->sk_shutdown == 0)
-> +                       return;
-> +               dprintk("RPC:       %s: TCP_CLOSEd and sk_shutdown set
-> to %d\n",
-> +                       __func__, transport->inet->sk_shutdown);
-> +       }
-> +       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT)) {
-> +               /* we don't need to abort the connection if the socket
-> +                * hasn't undergone a shutdown
-> +                */
-> +               if (transport->inet->sk_shutdown == 0)
-> +                       return;
-> +               dprintk("RPC:       %s: ESTABLISHED/SYN_SENT "
-> +                               "sk_shutdown set to %d\n",
-> +                               __func__, transport->inet-
-> >sk_shutdown);
-> +       }
->         xs_abort_connection(xprt, transport);
->  }
-> 
-> Signed-off-by: Andy Chittenden <andyc.bluearc@gmail.com>
-> 
 
-A weekend run with that patch applied to 2.6.34.2 was successful. As nobody has objected, what's the next step to getting it applied to the official source trees?
+1) TX timeout task in netxen driver must take RTNL lock.  From
+   Amit Kumar Salecha.
+
+2) Add missing packet length sanity changes to various packet
+   scheduler modules that peek at packet contents, from
+   Changli Gao.
+
+3) Correct ICMP packet peeking in act_nat module, also from
+   Changli Gao.
+
+4) Locking and memory freeing fixes in isdn gigaset driver from
+   Dan Carpenter.
+
+5) When TCP hits a md5 option while parsing, it needs to validate
+   a minimum length.  Fix from Dmitry Popov.
+
+6) RX tasklet race fix in solos-pci driver from David Woodhouse.
+
+7) sch_sfq oops fix from Jarek Poplawski.
+
+8) Fix ixgbe build with FCOE disabled, from John Fastabend.
+
+9) iwlwifi locking fixes from Johannes Berg.
+
+10) Mimick memory barrier fixes made to e1000 in e100, e1000e,
+    igb and ixgbe.  From Jeff Kircher.
+
+11) Several ath9k bug fixes via Felix Fietkau.
+
+12) Fix oops in rtl8180_beacon_work, from John W. Linville.
+
+Please pull, thanks a lot!
+
+The following changes since commit 3cfc2c42c1cbc8e238bb9c0612c0df4565e3a8b4:
+
+  Merge branch 'for-next' of git://git.kernel.org/pub/scm/linux/kernel/git/jikos/trivial (2010-08-04 15:31:02 -0700)
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Amit Kumar Salecha (1):
+      netxen: protect tx timeout recovery by rtnl lock
+
+Andy Lutomirski (1):
+      iwlagn: Improve aggregation failure error messages
+
+Changli Gao (6):
+      act_nat: fix on the TX path
+      sk_buff: introduce pskb_network_may_pull()
+      cls_flow: add sanity check for the packet length
+      cls_rsvp: add sanity check for the packet length
+      sch_sfq: add sanity check for the packet length
+      net: disable preemption before call smp_processor_id()
+
+Christian Samsel (1):
+      usbnet: remove noisy and hardly useful printk
+
+Christoph Fritz (1):
+      wireless: ipw2100: check result of kzalloc()
+
+Dan Carpenter (3):
+      isdn: fix information leak
+      isdn: gigaset: add missing unlock
+      isdn: gigaset: use after free
+
+Dan Williams (3):
+      libertas: get the right # of scanned BSSes
+      libertas: fix association with some APs by using extended rates
+      libertas: scan before assocation if no BSSID was given
+
+David Howells (1):
+      RxRPC: Fix a potential deadlock between the call resend_timer and state_lock
+
+David Miller (1):
+      Bluetooth: Use list_head for HCI blacklist head
+
+David S. Miller (1):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
+
+David Woodhouse (1):
+      solos-pci: Fix race condition in tasklet RX handling
+
+Dmitry Popov (1):
+      tcp: no md5sig option size check bug
+
+Felix Fietkau (7):
+      ath9k_hw: clean up and fix initial noise floor calibration
+      ath9k_hw: fix periodic noise floor calibration on AR9003
+      ath9k: fix a crash in the PA predistortion apply function
+      ath9k_hw: fix analog shift register writes on AR9003
+      ath9k: prevent calibration during off-channel activity
+      ath9k_hw: clean up per-channel calibration data
+      ath9k_hw: fix a noise floor calibration related race condition
+
+Gustavo F. Padovan (2):
+      Bluetooth: Remove __exit from rfcomm_cleanup_ttys()
+      Bluetooth: Don't send RFC for Basic Mode if only it is supported
+
+Jan Friedrich (1):
+      ath9k: fix erased ieee80211_rx_status.mactime
+
+Jarek Poplawski (2):
+      net: Fix napi_gro_frags vs netpoll path
+      pkt_sched: Fix sch_sfq vs tcf_bind_filter oops
+
+Jeff Kirsher (3):
+      e100/e1000*/igb*/ixgb*: Add missing read memory barrier
+      igb.txt: Add igb documentation
+      igbvf.txt: Add igbvf Documentation
+
+Joe Perches (1):
+      drivers/net/enic: Use %pUB to format a UUID
+
+Johannes Berg (5):
+      iwlwifi: fix possible recursive locking deadlock
+      mac80211: fix scan locking wrt. hw scan
+      iwlwifi: fix compile warning
+      iwlwifi: fix TX tracer
+      iwlwifi: fix locking assertions
+
+John Fastabend (1):
+      ixgbe: fix build error with FCOE_CONFIG without DCB_CONFIG
+
+John W. Linville (2):
+      Merge branch 'master' of git://git.kernel.org/.../holtmann/bluetooth-next-2.6
+      rtl8180: avoid potential NULL deref in rtl8180_beacon_work
+
+Juuso Oikarinen (1):
+      mac80211: Fix compilation warning when CONFIG_INET is not set
+
+Kulikov Vasiliy (5):
+      net: wl12xx: do not use kfree'd memory
+      rt2x00: do not use PCI resources before pci_enable_device()
+      cxgb3: do not use PCI resources before pci_enable_device()
+      cxgb4vf: do not use PCI resources before pci_enable_device()
+      via-velocity: do not use PCI resources before pci_enable_device()
+
+Larry Finger (1):
+      p54pci: Add PCI ID for SMC2802W
+
+Lorenzo Bianconi (1):
+      ath9k: fix an issue in ath_atx_tid paused flag management
+
+Luis R. Rodriguez (1):
+      ath9k_hw: Fix regulatory CTL index usage for AR9003
+
+Rusty Russell (1):
+      virtio_net: implements ethtool_ops.get_drvinfo
+
+Stefan Weil (1):
+      davinci_emac: Fix use after free in davinci_emac_remove
+
+Sujith (1):
+      ath9k: Remove myself from the MAINTAINERS list
+
+Ville Tervo (1):
+      Bluetooth: Check result code of L2CAP information response
+
+Wey-Yi Guy (2):
+      iwlwifi: BA scd_flow not match condition detected
+      iwlagn: fix typo in ucode_bt_stats_read debugfs
+
+stephen hemminger (1):
+      ppp: make channel_ops const
+
+ Documentation/networking/igb.txt               |  132 ++++++++
+ Documentation/networking/igbvf.txt             |   78 +++++
+ MAINTAINERS                                    |    1 -
+ drivers/atm/solos-pci.c                        |    7 +-
+ drivers/char/pcmcia/ipwireless/network.c       |    2 +-
+ drivers/isdn/gigaset/bas-gigaset.c             |    6 +-
+ drivers/isdn/gigaset/capi.c                    |    1 +
+ drivers/isdn/sc/ioctl.c                        |   10 +-
+ drivers/net/cxgb3/cxgb3_main.c                 |   25 +-
+ drivers/net/cxgb4vf/cxgb4vf_main.c             |   31 +-
+ drivers/net/davinci_emac.c                     |    2 +-
+ drivers/net/e100.c                             |    2 +
+ drivers/net/e1000/e1000_main.c                 |    3 +
+ drivers/net/e1000e/netdev.c                    |    4 +
+ drivers/net/enic/enic_main.c                   |   17 +-
+ drivers/net/igb/igb_main.c                     |    2 +
+ drivers/net/igbvf/netdev.c                     |    2 +
+ drivers/net/ixgb/ixgb_main.c                   |    2 +
+ drivers/net/ixgbe/ixgbe_main.c                 |   15 +-
+ drivers/net/ixgbevf/ixgbevf_main.c             |    2 +
+ drivers/net/netxen/netxen_nic_main.c           |   15 +-
+ drivers/net/ppp_async.c                        |    6 +-
+ drivers/net/ppp_synctty.c                      |    6 +-
+ drivers/net/pppoe.c                            |    4 +-
+ drivers/net/usb/usbnet.c                       |    1 -
+ drivers/net/via-velocity.c                     |    4 +-
+ drivers/net/virtio_net.c                       |   14 +
+ drivers/net/wireless/ath/ath9k/ar9002_calib.c  |   43 ++-
+ drivers/net/wireless/ath/ath9k/ar9003_calib.c  |   18 +-
+ drivers/net/wireless/ath/ath9k/ar9003_eeprom.c |  388 +++++++++++++++++++++++-
+ drivers/net/wireless/ath/ath9k/ar9003_paprd.c  |   17 +-
+ drivers/net/wireless/ath/ath9k/ar9003_phy.c    |    6 +-
+ drivers/net/wireless/ath/ath9k/ath9k.h         |    3 +-
+ drivers/net/wireless/ath/ath9k/calib.c         |  118 ++++----
+ drivers/net/wireless/ath/ath9k/calib.h         |    8 +-
+ drivers/net/wireless/ath/ath9k/htc.h           |    2 +
+ drivers/net/wireless/ath/ath9k/htc_drv_main.c  |   10 +-
+ drivers/net/wireless/ath/ath9k/hw.c            |   25 +-
+ drivers/net/wireless/ath/ath9k/hw.h            |   25 +-
+ drivers/net/wireless/ath/ath9k/main.c          |  104 ++++---
+ drivers/net/wireless/ath/ath9k/recv.c          |   10 +-
+ drivers/net/wireless/ath/ath9k/xmit.c          |   36 +--
+ drivers/net/wireless/ipw2x00/ipw2100.c         |    4 +
+ drivers/net/wireless/iwlwifi/iwl-agn-debugfs.c |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-lib.c     |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-rs.c      |   11 +-
+ drivers/net/wireless/iwlwifi/iwl-agn-tx.c      |   11 +-
+ drivers/net/wireless/iwlwifi/iwl-core.c        |    6 +-
+ drivers/net/wireless/iwlwifi/iwl-debug.h       |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-devtrace.h    |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-scan.c        |    2 +-
+ drivers/net/wireless/iwlwifi/iwl-sta.c         |    6 +-
+ drivers/net/wireless/libertas/cfg.c            |  214 ++++++++++---
+ drivers/net/wireless/libertas/dev.h            |    5 +
+ drivers/net/wireless/libertas/main.c           |    1 +
+ drivers/net/wireless/p54/p54pci.c              |    2 +
+ drivers/net/wireless/rt2x00/rt2x00pci.c        |   21 +-
+ drivers/net/wireless/rtl818x/rtl8180_dev.c     |    2 +
+ drivers/net/wireless/wl12xx/wl1271_spi.c       |    3 +-
+ include/linux/ppp_channel.h                    |    2 +-
+ include/linux/skbuff.h                         |    5 +
+ include/net/bluetooth/hci_core.h               |    2 +-
+ net/atm/pppoatm.c                              |    2 +-
+ net/bluetooth/hci_core.c                       |    2 +-
+ net/bluetooth/hci_sock.c                       |    8 +-
+ net/bluetooth/hci_sysfs.c                      |    3 +-
+ net/bluetooth/l2cap.c                          |   24 ++-
+ net/bluetooth/rfcomm/tty.c                     |    2 +-
+ net/core/dev.c                                 |    7 +-
+ net/ipv4/tcp_input.c                           |    2 +-
+ net/irda/irnet/irnet_ppp.c                     |    2 +-
+ net/l2tp/l2tp_ppp.c                            |    5 +-
+ net/mac80211/main.c                            |    2 +
+ net/mac80211/scan.c                            |   14 -
+ net/rxrpc/ar-ack.c                             |    3 +
+ net/rxrpc/ar-call.c                            |    6 +-
+ net/sched/act_nat.c                            |   23 +-
+ net/sched/cls_flow.c                           |   96 ++++---
+ net/sched/cls_rsvp.h                           |   12 +-
+ net/sched/sch_sfq.c                            |   36 ++-
+ 80 files changed, 1311 insertions(+), 450 deletions(-)
+ create mode 100644 Documentation/networking/igb.txt
+ create mode 100644 Documentation/networking/igbvf.txt
