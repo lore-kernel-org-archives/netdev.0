@@ -1,31 +1,43 @@
-From: Mahesh Kelkar <maheshkelkar@gmail.com>
-Subject: Question: Is multipath routing supported for IPv6
-Date: Mon, 9 Aug 2010 14:48:28 -0400
-Message-ID: <AANLkTimNDk=Rb3GDx+5Vr9mSU9OoPHZkG5M--oG+Rejr@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: [net-next] net:  More verbose message for too-many-orphans.
+Date: Mon,  9 Aug 2010 12:00:02 -0700
+Message-ID: <1281380402-14608-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57233 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872Ab0HISsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 14:48:30 -0400
-Received: by wwj40 with SMTP id 40so11928625wwj.1
-        for <netdev@vger.kernel.org>; Mon, 09 Aug 2010 11:48:28 -0700 (PDT)
+Received: from mail.candelatech.com ([208.74.158.172]:51652 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754362Ab0HITAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 15:00:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I tried configuring multipath Ipv6 route using "iproute2" tool and it failed:
+The original message doesn't give much clue as to what
+is actually going wrong or how to fix it.
 
-> ip route add 143:2:3:4::/64 nexthop dev eth0
-RTNETLINK answers: No such device
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 808bb92... 96a7ec2... M	net/ipv4/tcp_timer.c
+ net/ipv4/tcp_timer.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-Same Command works for Ipv4. I looked into the source code and I don't
-see support for RTA_MULTIPATH in IPV6 codebase.
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 808bb92..96a7ec2 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -79,7 +79,11 @@ static int tcp_out_of_resources(struct sock *sk, int do_reset)
+ 
+ 	if (tcp_too_many_orphans(sk, orphans)) {
+ 		if (net_ratelimit())
+-			printk(KERN_INFO "Out of socket memory\n");
++			printk(KERN_INFO "Out of socket memory, orphans: %d/%d"
++			       " tcp_memory_allocated: %d/%d\n",
++			       orphans, sysctl_tcp_max_orphans,
++			       atomic_read(&tcp_memory_allocated),
++			       sysctl_tcp_mem[2]);
+ 
+ 		/* Catch exceptional cases, when connection requires reset.
+ 		 *      1. Last segment was sent recently. */
+-- 
+1.6.2.5
 
-I wonder if netlink configuration part is missing, or entire support
-for multipath is missing. Is there any historical reason for not
-supporting it?
-
-Thanks
-Mahesh
