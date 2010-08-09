@@ -1,71 +1,118 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] 3c59x: fix deadlock when using netconsole with 3c59x
-Date: Mon, 9 Aug 2010 12:32:10 -0400
-Message-ID: <20100809163210.GA1781@hmsreliant.think-freely.org>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: [patch 2/2] qlcnic: using too much stack
+Date: Mon, 9 Aug 2010 09:46:32 -0700
+Message-ID: <0081C370-65E2-434F-BBC6-C688F6F39750@qlogic.com>
+References: <20100809103727.GH9031@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: klassert@mathematik.tu-chemnitz.de, davem@davemloft.net,
-	nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Amit Salecha <amit.salecha@qlogic.com>,
+	Linux Driver <Linux-Driver@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41043 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757121Ab0HIQgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 12:36:10 -0400
-Content-Disposition: inline
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:18151 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756983Ab0HIQqg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 12:46:36 -0400
+In-Reply-To: <20100809103727.GH9031@bicker>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using netpoll, its possible to deadlock the 3c59x driver.  Since it takes
-an internal spinlock (vp->lock) that serializes boomerang_interrupt and parts
-of boomerang_start_xmit, if we call pr_debug in the former, we can go through
-the tx path on the same cpu, and recurse into the same driver again, deadlocking
-in the transmit routine.
 
-This patch fixes that problem by stopping the queues during interrupt
-processing, so that subsequent transmits will get queued until a later point.
-Its not a great solution, but we need to find some way to serialize access to
-the register file on the card without enforcing a deadlock.  I think the queue
-stop is the best way to do that.  And since we only print things in
-boomerang_interrupt when we have debug enabled, we can mitigate the impact of
-this change to only stop the queues when debug is on.
+On Aug 9, 2010, at 4:07 PM, Dan Carpenter wrote:
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
----
- drivers/net/3c59x.c |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
+> qlcnic_pci_info structs are 128 bytes so an array of 8 uses 1024 bytes.
+> That's a lot if you run with 4K stacks.  I allocated them with kcalloc()
+> instead.
+> 
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> 
+> diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+> index 7f27e2a..da84229 100644
+> --- a/drivers/net/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/qlcnic/qlcnic_main.c
+> @@ -473,14 +473,20 @@ qlcnic_cleanup_pci_map(struct qlcnic_adapter *adapter)
+> static int
+> qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+> {
+> -	struct qlcnic_pci_info pci_info[QLCNIC_MAX_PCI_FUNC];
+> +	struct qlcnic_pci_info *pci_info;
+> 	int i, ret = 0, err;
+> 	u8 pfn;
+> 
+> +	pci_info = kcalloc(QLCNIC_MAX_PCI_FUNC, sizeof(*pci_info), GFP_KERNEL);
+> +	if (!pci_info)
+> +		return -ENOMEM;
+> +
+> 	adapter->npars = kzalloc(sizeof(struct qlcnic_npar_info) *
+> 				QLCNIC_MAX_PCI_FUNC, GFP_KERNEL);
+> -	if (!adapter->npars)
+> -		return -ENOMEM;
+> +	if (!adapter->npars) {
+> +		err = -ENOMEM;
+> +		goto err_pci_info;
+> +	}
+> 
+> 	adapter->eswitch = kzalloc(sizeof(struct qlcnic_eswitch) *
+> 				QLCNIC_NIU_MAX_XG_PORTS, GFP_KERNEL);
+> @@ -508,6 +514,7 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+> 	for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
+> 		adapter->eswitch[i].flags |= QLCNIC_SWITCH_ENABLE;
+> 
+> +	kfree(pci_info);
+> 	return 0;
+> 
+> err_eswitch:
+> @@ -516,6 +523,8 @@ err_eswitch:
+> err_npars:
+> 	kfree(adapter->npars);
+> 	adapter->eswitch = NULL;
+> +err_pci_info:
+> +	kfree(pci_info);
+> 
+> 	return ret;
+> }
+> @@ -3362,15 +3371,21 @@ qlcnic_sysfs_read_pci_config(struct file *file, struct kobject *kobj,
+> 	struct device *dev = container_of(kobj, struct device, kobj);
+> 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+> 	struct qlcnic_pci_func_cfg pci_cfg[QLCNIC_MAX_PCI_FUNC];
+> -	struct qlcnic_pci_info	pci_info[QLCNIC_MAX_PCI_FUNC];
+> +	struct qlcnic_pci_info *pci_info;
+> 	int i, ret;
+> 
+> 	if (size != sizeof(pci_cfg))
+> 		return QL_STATUS_INVALID_PARAM;
+> 
+> +	pci_info = kcalloc(QLCNIC_MAX_PCI_FUNC, sizeof(*pci_info), GFP_KERNEL);
+> +	if (!pci_info)
+> +		return -ENOMEM;
+> +
+> 	ret = qlcnic_get_pci_info(adapter, pci_info);
+> -	if (ret)
+> +	if (ret) {
+> +		kfree(pci_info);
+> 		return ret;
+> +	}
+> 
+> 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC ; i++) {
+> 		pci_cfg[i].pci_func = pci_info[i].id;
+> @@ -3381,8 +3396,8 @@ qlcnic_sysfs_read_pci_config(struct file *file, struct kobject *kobj,
+> 		memcpy(&pci_cfg[i].def_mac_addr, &pci_info[i].mac, ETH_ALEN);
+> 	}
+> 	memcpy(buf, &pci_cfg, size);
+> +	kfree(pci_info);
+> 	return size;
+> -
+> }
+> static struct bin_attribute bin_attr_npar_config = {
+> 	.attr = {.name = "npar_config", .mode = (S_IRUGO | S_IWUSR)},
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index c754d88..e5c8757 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -2338,7 +2338,17 @@ boomerang_interrupt(int irq, void *dev_id)
- 	/*
- 	 * It seems dopey to put the spinlock this early, but we could race against vortex_tx_timeout
- 	 * and boomerang_start_xmit
-+	 * We also need to disable the tx queue in the event that we print
-+	 * anything from this path.  if pr_debug is called, we run the risk of 
-+	 * recursing through the transmit path, which also takes the vp->lock,
-+	 * and deadlocks us.  This only happens if we're using netpoll
-+	 * but we need to be ready for it
-+	 * We can mitigate the perf impact here if we only
-+	 * do this is vortex_debug is != 0
- 	 */
-+	if (vortex_debug)
-+		netif_stop_queue(dev);
-+		
- 	spin_lock(&vp->lock);
- 
- 	status = ioread16(ioaddr + EL3_STATUS);
-@@ -2447,6 +2457,8 @@ boomerang_interrupt(int irq, void *dev_id)
- 		pr_debug("%s: exiting interrupt, status %4.4x.\n",
- 			   dev->name, status);
- handler_exit:
-+	if (vortex_debug)
-+		netif_start_queue(dev);
- 	spin_unlock(&vp->lock);
- 	return IRQ_HANDLED;
- }
--- 
-1.7.2.1
+It looks fine except that I'd use kzalloc instead of kcalloc above.
 
+thanks,
+-Anirban
