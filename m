@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 1/6] au1000-eth: typedefs removal
-Date: Mon, 9 Aug 2010 22:03:14 +0200
-Message-ID: <201008092203.19268.florian@openwrt.org>
+Subject: [PATCH 2/6] au1000-eth: stylistic fixes
+Date: Mon, 9 Aug 2010 22:03:25 +0200
+Message-ID: <201008092203.27875.florian@openwrt.org>
 Reply-To: Florian Fainelli <florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -9,189 +9,138 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35474 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872Ab0HIUCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 16:02:35 -0400
-Received: by wyi11 with SMTP id 11so48087wyi.19
-        for <netdev@vger.kernel.org>; Mon, 09 Aug 2010 13:02:34 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55363 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754351Ab0HIUCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 16:02:41 -0400
+Received: by wwj40 with SMTP id 40so12017023wwj.1
+        for <netdev@vger.kernel.org>; Mon, 09 Aug 2010 13:02:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+This patch fixes the following checkpatch.pl warnings:
+- spaces after tabs
+- space between function and arguments
+- one-line statement braces
+- tabs instead of spaces
+
 Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
 diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 386d4fe..8b79635 100644
+index 8b79635..b5f992a 100644
 --- a/drivers/net/au1000_eth.c
 +++ b/drivers/net/au1000_eth.c
-@@ -460,9 +460,9 @@ static int au1000_mii_probe (struct net_device *dev)
-  * has the virtual and dma address of a buffer suitable for
-  * both, receive and transmit operations.
-  */
--static db_dest_t *au1000_GetFreeDB(struct au1000_private *aup)
-+static struct db_dest *au1000_GetFreeDB(struct au1000_private *aup)
+@@ -13,7 +13,7 @@
+  *  converted to use linux-2.6.x's PHY framework
+  *
+  * Author: MontaVista Software, Inc.
+- *         	ppopov@mvista.com or source@mvista.com
++ *		ppopov@mvista.com or source@mvista.com
+  *
+  * ########################################################################
+  *
+@@ -160,7 +160,7 @@ static void au1000_enable_mac(struct net_device *dev, int force_reset)
+ 
+ 	spin_lock_irqsave(&aup->lock, flags);
+ 
+-	if(force_reset || (!aup->mac_enabled)) {
++	if (force_reset || (!aup->mac_enabled)) {
+ 		*aup->enable = MAC_EN_CLOCK_ENABLE;
+ 		au_sync_delay(2);
+ 		*aup->enable = (MAC_EN_RESET0 | MAC_EN_RESET1 | MAC_EN_RESET2
+@@ -361,7 +361,7 @@ au1000_adjust_link(struct net_device *dev)
+ 	}
+ }
+ 
+-static int au1000_mii_probe (struct net_device *dev)
++static int au1000_mii_probe(struct net_device *dev)
  {
--	db_dest_t *pDB;
-+	struct db_dest *pDB;
+ 	struct au1000_private *const aup = netdev_priv(dev);
+ 	struct phy_device *phydev = NULL;
+@@ -465,9 +465,9 @@ static struct db_dest *au1000_GetFreeDB(struct au1000_private *aup)
+ 	struct db_dest *pDB;
  	pDB = aup->pDBfree;
  
- 	if (pDB) {
-@@ -471,9 +471,9 @@ static db_dest_t *au1000_GetFreeDB(struct au1000_private *aup)
+-	if (pDB) {
++	if (pDB)
+ 		aup->pDBfree = pDB->pnext;
+-	}
++
  	return pDB;
  }
  
--void au1000_ReleaseDB(struct au1000_private *aup, db_dest_t *pDB)
-+void au1000_ReleaseDB(struct au1000_private *aup, struct db_dest *pDB)
- {
--	db_dest_t *pDBfree = aup->pDBfree;
-+	struct db_dest *pDBfree = aup->pDBfree;
- 	if (pDBfree)
- 		pDBfree->pnext = pDB;
- 	aup->pDBfree = pDB;
-@@ -532,11 +532,11 @@ au1000_setup_hw_rings(struct au1000_private *aup, u32 rx_base, u32 tx_base)
+@@ -515,7 +515,7 @@ static void au1000_reset_mac(struct net_device *dev)
+ 
+ 	spin_lock_irqsave(&aup->lock, flags);
+ 
+-	au1000_reset_mac_unlocked (dev);
++	au1000_reset_mac_unlocked(dev);
+ 
+ 	spin_unlock_irqrestore(&aup->lock, flags);
+ }
+@@ -633,9 +633,9 @@ static int au1000_init(struct net_device *dev)
+ 	aup->mac->mac_addr_low = dev->dev_addr[3]<<24 | dev->dev_addr[2]<<16 |
+ 		dev->dev_addr[1]<<8 | dev->dev_addr[0];
+ 
+-	for (i = 0; i < NUM_RX_DMA; i++) {
++	for (i = 0; i < NUM_RX_DMA; i++)
+ 		aup->rx_dma_ring[i]->buff_stat |= RX_DMA_ENABLE;
+-	}
++
+ 	au_sync();
+ 
+ 	control = MAC_RX_ENABLE | MAC_TX_ENABLE;
+@@ -862,7 +862,7 @@ static int au1000_close(struct net_device *dev)
+ 
+ 	spin_lock_irqsave(&aup->lock, flags);
+ 
+-	au1000_reset_mac_unlocked (dev);
++	au1000_reset_mac_unlocked(dev);
+ 
+ 	/* stop the device */
+ 	netif_stop_queue(dev);
+@@ -910,9 +910,9 @@ static netdev_tx_t au1000_tx(struct sk_buff *skb, struct net_device *dev)
+ 	pDB = aup->tx_db_inuse[aup->tx_head];
+ 	skb_copy_from_linear_data(skb, (void *)pDB->vaddr, skb->len);
+ 	if (skb->len < ETH_ZLEN) {
+-		for (i = skb->len; i < ETH_ZLEN; i++) {
++		for (i = skb->len; i < ETH_ZLEN; i++)
+ 			((char *)pDB->vaddr)[i] = 0;
+-		}
++
+ 		ptxd->len = ETH_ZLEN;
+ 	} else
+ 		ptxd->len = skb->len;
+@@ -1070,7 +1070,7 @@ static int __devinit au1000_probe(struct platform_device *pdev)
+ 		goto err_remap1;
+ 	}
+ 
+-        /* Setup some variables for quick register address access */
++	/* Setup some variables for quick register address access */
+ 	aup->enable = (volatile u32 *)ioremap_nocache(macen->start, resource_size(macen));
+ 	if (!aup->enable) {
+ 		dev_err(&pdev->dev, "failed to ioremap MAC enable register\n");
+@@ -1168,17 +1168,17 @@ static int __devinit au1000_probe(struct platform_device *pdev)
  
  	for (i = 0; i < NUM_RX_DMA; i++) {
- 		aup->rx_dma_ring[i] =
--			(volatile rx_dma_t *) (rx_base + sizeof(rx_dma_t)*i);
-+			(volatile struct rx_dma *) (rx_base + sizeof(struct rx_dma)*i);
+ 		pDB = au1000_GetFreeDB(aup);
+-		if (!pDB) {
++		if (!pDB)
+ 			goto err_out;
+-		}
++
+ 		aup->rx_dma_ring[i]->buff_stat = (unsigned)pDB->dma_addr;
+ 		aup->rx_db_inuse[i] = pDB;
  	}
  	for (i = 0; i < NUM_TX_DMA; i++) {
- 		aup->tx_dma_ring[i] =
--			(volatile tx_dma_t *) (tx_base + sizeof(tx_dma_t)*i);
-+			(volatile struct tx_dma *) (tx_base + sizeof(struct tx_dma)*i);
- 	}
- }
- 
-@@ -689,9 +689,9 @@ static int au1000_rx(struct net_device *dev)
- {
- 	struct au1000_private *aup = netdev_priv(dev);
- 	struct sk_buff *skb;
--	volatile rx_dma_t *prxd;
-+	volatile struct rx_dma *prxd;
- 	u32 buff_stat, status;
--	db_dest_t *pDB;
-+	struct db_dest *pDB;
- 	u32	frmlen;
- 
- 	netif_dbg(aup, rx_status, dev, "au1000_rx head %d\n", aup->rx_head);
-@@ -782,7 +782,7 @@ static void au1000_update_tx_stats(struct net_device *dev, u32 status)
- static void au1000_tx_ack(struct net_device *dev)
- {
- 	struct au1000_private *aup = netdev_priv(dev);
--	volatile tx_dma_t *ptxd;
-+	volatile struct tx_dma *ptxd;
- 
- 	ptxd = aup->tx_dma_ring[aup->tx_tail];
- 
-@@ -881,9 +881,9 @@ static netdev_tx_t au1000_tx(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct au1000_private *aup = netdev_priv(dev);
- 	struct net_device_stats *ps = &dev->stats;
--	volatile tx_dma_t *ptxd;
-+	volatile struct tx_dma *ptxd;
- 	u32 buff_stat;
--	db_dest_t *pDB;
-+	struct db_dest *pDB;
- 	int i;
- 
- 	netif_dbg(aup, tx_queued, dev, "tx: aup %x len=%d, data=%p, head %d\n",
-@@ -999,7 +999,7 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 	struct au1000_private *aup = NULL;
- 	struct au1000_eth_platform_data *pd;
- 	struct net_device *dev = NULL;
--	db_dest_t *pDB, *pDBfree;
-+	struct db_dest *pDB, *pDBfree;
- 	int irq, i, err = 0;
- 	struct resource *base, *macen;
- 	char ethaddr[6];
-@@ -1063,7 +1063,7 @@ static int __devinit au1000_probe(struct platform_device *pdev)
- 	}
- 
- 	/* aup->mac is the base address of the MAC's registers */
--	aup->mac = (volatile mac_reg_t *)ioremap_nocache(base->start, resource_size(base));
-+	aup->mac = (volatile struct mac_reg *)ioremap_nocache(base->start, resource_size(base));
- 	if (!aup->mac) {
- 		dev_err(&pdev->dev, "failed to ioremap MAC registers\n");
- 		err = -ENXIO;
-diff --git a/drivers/net/au1000_eth.h b/drivers/net/au1000_eth.h
-index d06ec00..44003e4 100644
---- a/drivers/net/au1000_eth.h
-+++ b/drivers/net/au1000_eth.h
-@@ -44,34 +44,34 @@
-  * Data Buffer Descriptor. Data buffers must be aligned on 32 byte
-  * boundary for both, receive and transmit.
-  */
--typedef struct db_dest {
-+struct db_dest {
- 	struct db_dest *pnext;
- 	volatile u32 *vaddr;
- 	dma_addr_t dma_addr;
--} db_dest_t;
-+};
- 
- /*
-  * The transmit and receive descriptors are memory
-  * mapped registers.
-  */
--typedef struct tx_dma {
-+struct tx_dma {
- 	u32 status;
- 	u32 buff_stat;
- 	u32 len;
- 	u32 pad;
--} tx_dma_t;
-+};
- 
--typedef struct rx_dma {
-+struct rx_dma {
- 	u32 status;
- 	u32 buff_stat;
- 	u32 pad[2];
--} rx_dma_t;
-+};
- 
- 
- /*
-  * MAC control registers, memory mapped.
-  */
--typedef struct mac_reg {
-+struct mac_reg {
- 	u32 control;
- 	u32 mac_addr_high;
- 	u32 mac_addr_low;
-@@ -82,16 +82,16 @@ typedef struct mac_reg {
- 	u32 flow_control;
- 	u32 vlan1_tag;
- 	u32 vlan2_tag;
--} mac_reg_t;
-+};
- 
- 
- struct au1000_private {
--	db_dest_t *pDBfree;
--	db_dest_t db[NUM_RX_BUFFS+NUM_TX_BUFFS];
--	volatile rx_dma_t *rx_dma_ring[NUM_RX_DMA];
--	volatile tx_dma_t *tx_dma_ring[NUM_TX_DMA];
--	db_dest_t *rx_db_inuse[NUM_RX_DMA];
--	db_dest_t *tx_db_inuse[NUM_TX_DMA];
-+	struct db_dest *pDBfree;
-+	struct db_dest db[NUM_RX_BUFFS+NUM_TX_BUFFS];
-+	volatile struct rx_dma *rx_dma_ring[NUM_RX_DMA];
-+	volatile struct tx_dma *tx_dma_ring[NUM_TX_DMA];
-+	struct db_dest *rx_db_inuse[NUM_RX_DMA];
-+	struct db_dest *tx_db_inuse[NUM_TX_DMA];
- 	u32 rx_head;
- 	u32 tx_head;
- 	u32 tx_tail;
-@@ -118,7 +118,7 @@ struct au1000_private {
- 	int phy_irq;
- 
- 	/* These variables are just for quick access to certain regs addresses. */
--	volatile mac_reg_t *mac;  /* mac registers                      */
-+	volatile struct mac_reg *mac;  /* mac registers                      */
- 	volatile u32 *enable;     /* address of MAC Enable Register     */
- 
- 	u32 vaddr;                /* virtual address of rx/tx buffers   */
-
+ 		pDB = au1000_GetFreeDB(aup);
+-		if (!pDB) {
++		if (!pDB)
+ 			goto err_out;
+-		}
++
+ 		aup->tx_dma_ring[i]->buff_stat = (unsigned)pDB->dma_addr;
+ 		aup->tx_dma_ring[i]->len = 0;
+ 		aup->tx_db_inuse[i] = pDB;
 
