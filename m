@@ -1,38 +1,101 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [patch 2/2] qlcnic: using too much stack
-Date: Mon, 9 Aug 2010 20:42:54 +0200
-Message-ID: <20100809184254.GJ9031@bicker>
-References: <20100809103727.GH9031@bicker> <0081C370-65E2-434F-BBC6-C688F6F39750@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amit Salecha <amit.salecha@qlogic.com>,
-	Linux Driver <Linux-Driver@qlogic.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: [net-next] net:  Use NET_XMIT_SUCCESS where possible.
+Date: Mon,  9 Aug 2010 11:43:58 -0700
+Message-ID: <1281379438-2709-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:57114 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753688Ab0HISnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 14:43:47 -0400
-Content-Disposition: inline
-In-Reply-To: <0081C370-65E2-434F-BBC6-C688F6F39750@qlogic.com>
+Received: from mail.candelatech.com ([208.74.158.172]:57605 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606Ab0HISoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 14:44:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 09, 2010 at 09:46:32AM -0700, Anirban Chakraborty wrote:
-> 
-> It looks fine except that I'd use kzalloc instead of kcalloc above.
-> 
+This is based on work originally done by Patric McHardy.
 
-It's no problem to do that, and I'm already respinning the patches but 
-I'm confused.  It looks like pci_info gets initialized correctly.  What
-am I missing?
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 e114f23... 3406627... M	net/sched/sch_atm.c
+:100644 100644 c657628... a5a2915... M	net/sched/sch_sfq.c
+:100644 100644 0991c64... 641a30d... M	net/sched/sch_tbf.c
+:100644 100644 807643b... feaabc1... M	net/sched/sch_teql.c
+ net/sched/sch_atm.c  |    4 ++--
+ net/sched/sch_sfq.c  |    2 +-
+ net/sched/sch_tbf.c  |    4 ++--
+ net/sched/sch_teql.c |    2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-regards,
-dan carpenter
+diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+index e114f23..3406627 100644
+--- a/net/sched/sch_atm.c
++++ b/net/sched/sch_atm.c
+@@ -418,7 +418,7 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	}
+ 
+ 	ret = qdisc_enqueue(skb, flow->q);
+-	if (ret != 0) {
++	if (ret != NET_XMIT_SUCCESS) {
+ drop: __maybe_unused
+ 		if (net_xmit_drop_count(ret)) {
+ 			sch->qstats.drops++;
+@@ -442,7 +442,7 @@ drop: __maybe_unused
+ 	 */
+ 	if (flow == &p->link) {
+ 		sch->q.qlen++;
+-		return 0;
++		return NET_XMIT_SUCCESS;
+ 	}
+ 	tasklet_schedule(&p->task);
+ 	return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index c657628..a5a2915 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -323,7 +323,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	if (++sch->q.qlen <= q->limit) {
+ 		sch->bstats.bytes += qdisc_pkt_len(skb);
+ 		sch->bstats.packets++;
+-		return 0;
++		return NET_XMIT_SUCCESS;
+ 	}
+ 
+ 	sfq_drop(sch);
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 0991c64..641a30d 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -127,7 +127,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 		return qdisc_reshape_fail(skb, sch);
+ 
+ 	ret = qdisc_enqueue(skb, q->qdisc);
+-	if (ret != 0) {
++	if (ret != NET_XMIT_SUCCESS) {
+ 		if (net_xmit_drop_count(ret))
+ 			sch->qstats.drops++;
+ 		return ret;
+@@ -136,7 +136,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 	sch->q.qlen++;
+ 	sch->bstats.bytes += qdisc_pkt_len(skb);
+ 	sch->bstats.packets++;
+-	return 0;
++	return NET_XMIT_SUCCESS;
+ }
+ 
+ static unsigned int tbf_drop(struct Qdisc* sch)
+diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
+index 807643b..feaabc1 100644
+--- a/net/sched/sch_teql.c
++++ b/net/sched/sch_teql.c
+@@ -85,7 +85,7 @@ teql_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 		__skb_queue_tail(&q->q, skb);
+ 		sch->bstats.bytes += qdisc_pkt_len(skb);
+ 		sch->bstats.packets++;
+-		return 0;
++		return NET_XMIT_SUCCESS;
+ 	}
+ 
+ 	kfree_skb(skb);
+-- 
+1.6.2.5
 
-> thanks,
-> -Anirban
