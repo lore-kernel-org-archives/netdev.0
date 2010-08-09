@@ -1,51 +1,75 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH 2/3] net/sock.h: add missing kernel-doc notation
-Date: Mon, 9 Aug 2010 16:41:07 -0700
-Message-ID: <20100809164107.a992561a.randy.dunlap@oracle.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: i386 allmodconfig, current mainline
+Date: Mon, 9 Aug 2010 16:43:46 -0700
+Message-ID: <20100809164346.6e30cf8c.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:21778 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757233Ab0HIXoB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 19:44:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, x86@kernel.org,
+	linux-rdma@vger.kernel.org
+To: Greg KH <greg@kroah.com>, David Woodhouse <dwmw2@infradead.org>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	Kevin Curtis <kevin.curtis@farsite.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Add missing kernel-doc notation to struct sock:
+Guys.  What's goin' on out there?
 
-Warning(include/net/sock.h:324): No description found for parameter 'sk_peer_pid'
-Warning(include/net/sock.h:324): No description found for parameter 'sk_peer_cred'
-Warning(include/net/sock.h:324): No description found for parameter 'sk_classid'
-Warning(include/net/sock.h:324): Excess struct/union/enum/typedef member 'sk_peercred' description in 'sock'
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/net/sock.h |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+drivers/power/olpc_battery.c:387: error: unknown field 'owner' specified in initializer
+drivers/power/olpc_battery.c:387: warning: initialization from incompatible pointer type
+make[2]: *** [drivers/power/olpc_battery.o] Error 1
+make[1]: *** [drivers/power] Error 2
 
---- linux-2.6.35-git8.orig/include/net/sock.h
-+++ linux-2.6.35-git8/include/net/sock.h
-@@ -195,7 +195,8 @@ struct sock_common {
-   *	@sk_priority: %SO_PRIORITY setting
-   *	@sk_type: socket type (%SOCK_STREAM, etc)
-   *	@sk_protocol: which protocol this socket belongs in this network family
--  *	@sk_peercred: %SO_PEERCRED setting
-+  *	@sk_peer_pid: &struct pid for this socket's peer
-+  *	@sk_peer_cred: %SO_PEERCRED setting
-   *	@sk_rcvlowat: %SO_RCVLOWAT setting
-   *	@sk_rcvtimeo: %SO_RCVTIMEO setting
-   *	@sk_sndtimeo: %SO_SNDTIMEO setting
-@@ -211,6 +212,7 @@ struct sock_common {
-   *	@sk_send_head: front of stuff to transmit
-   *	@sk_security: used by security modules
-   *	@sk_mark: generic packet mark
-+  *	@sk_classid: this socket's cgroup classid
-   *	@sk_write_pending: a write to stream socket waits to start
-   *	@sk_state_change: callback to indicate change in the state of the sock
-   *	@sk_data_ready: callback to indicate there is data to be processed
+
+drivers/mtd/maps/gpio-addr-flash.c: In function 'gpio_flash_probe':
+drivers/mtd/maps/gpio-addr-flash.c:212: warning: cast to pointer from integer of different size
+drivers/mtd/maps/gpio-addr-flash.c:224: warning: cast to pointer from integer of different size
+
+
+drivers/pci/intel-iommu.c: In function 'dma_pte_addr':
+drivers/pci/intel-iommu.c:239: warning: passing argument 1 of '__cmpxchg64' from incompatible pointer type
+
+
+drivers/net/wan/farsync.c: In function 'fst_intr_rx':
+drivers/net/wan/farsync.c:1312: warning: cast to pointer from integer of different size
+drivers/net/wan/farsync.c: In function 'do_bottom_half_tx':
+drivers/net/wan/farsync.c:1407: warning: cast to pointer from integer of different size
+
+
+fs/squashfs/xattr.c:37: warning: 'squashfs_xattr_handler' declared inline after being called
+fs/squashfs/xattr.c:37: warning: previous declaration of 'squashfs_xattr_handler' was here
+
+
+drivers/net/wireless/ipw2x00/ipw2100.c: In function 'ipw2100_tx_send_commands':
+drivers/net/wireless/ipw2x00/ipw2100.c:3063: warning: cast to pointer from integer of different size
+
+
+In file included from drivers/platform/x86/intel_scu_ipc.c:26:
+/usr/src/devel/arch/x86/include/asm/mrst.h:14: warning: 'struct sfi_table_header' declared inside parameter list
+/usr/src/devel/arch/x86/include/asm/mrst.h:14: warning: its scope is only this definition or declaration, which is probably not what you want
+
+
+drivers/infiniband/hw/nes/nes_verbs.c: In function 'nes_alloc_fast_reg_page_list':
+drivers/infiniband/hw/nes/nes_verbs.c:477: warning: cast to pointer from integer of different size
+drivers/infiniband/hw/nes/nes_verbs.c: In function 'nes_post_send':
+drivers/infiniband/hw/nes/nes_verbs.c:3486: warning: cast to pointer from integer of different size
+drivers/infiniband/hw/nes/nes_verbs.c:3486: warning: cast to pointer from integer of different size
+
+
+drivers/infiniband/hw/cxgb4/cq.c: In function 'destroy_cq':
+drivers/infiniband/hw/cxgb4/cq.c:58: warning: cast from pointer to integer of different size
+drivers/infiniband/hw/cxgb4/cq.c: In function 'create_cq':
+drivers/infiniband/hw/cxgb4/cq.c:135: warning: cast from pointer to integer of different size
+
+
+drivers/dma/timb_dma.c: In function 'td_fill_desc':
+drivers/dma/timb_dma.c:203: warning: cast to pointer from integer of different size
+
+
+drivers/net/wireless/iwmc3200wifi/rx.c: In function 'iwm_ntf_wifi_if_wrapper':
+drivers/net/wireless/iwmc3200wifi/rx.c:1198: warning: comparison is always true due to limited range of data type
