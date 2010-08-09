@@ -1,44 +1,38 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Missing device binding relating to tcp_v4_send_reset?
-Date: Mon, 09 Aug 2010 10:46:26 -0700
-Message-ID: <4C603EF2.9010902@candelatech.com>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
+Date: Mon, 9 Aug 2010 13:48:56 -0400
+Message-ID: <20100809174856.GS30010@kvack.org>
+References: <4ADB55BC.5020107@gmail.com> <20091018182144.GC23395@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com> <20091021165139.GL877@kvack.org> <m1d445yf2x.fsf@fess.ebiederm.org> <20091029233848.GV3141@kvack.org> <4C603999.1030801@candelatech.com> <20100809173429.GR30010@kvack.org> <4C603E6E.1060309@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54590 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834Ab0HIRqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 13:46:31 -0400
+Received: from kanga.kvack.org ([205.233.56.17]:57093 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750869Ab0HIRs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Aug 2010 13:48:57 -0400
+Content-Disposition: inline
+In-Reply-To: <4C603E6E.1060309@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This snippet is from some patches Patrick did for me some time
-back.  I think the rest of his work has been merged upstream, but
-this patch was not.  I'm honestly not sure if it's needed or not,
-but we've been running with it for at least a year or so and it's
-been working fine for us.
+On Mon, Aug 09, 2010 at 10:44:14AM -0700, Ben Greear wrote:
+> We also have a few rules per interface, and notice that it takes around 10ms
+> per rule when we are removing them, even when using batching in 'ip':
+...
+> Patrick thought had an idea, but I don't think he had time to
+> look at it further:
+> 
+> "Its probably the synchronize_rcu() in fib_nl_delrule() and
+> the route flushing happening after rule removal."
 
+Yes, that would be a problem, but the issue is deeper than that -- if I'm 
+not mistaken it's on the packet processing path that iptables doesn't scale 
+for 100k interfaces with 1 rule per interface.  It's been a while since I 
+ran the tests, but I don't think it's changed much.
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 0207662..1af47db 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -641,6 +641,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
-  				      arg.iov[0].iov_len, IPPROTO_TCP, 0);
-  	arg.csumoffset = offsetof(struct tcphdr, check) / 2;
-  	arg.flags = (sk && inet_sk(sk)->transparent) ? IP_REPLY_ARG_NOSRCCHECK : 0;
-+	arg.bound_dev_if = skb_rtable(skb)->fl.iif;
-
-  	net = dev_net(skb_dst(skb)->dev);
-  	ip_send_reply(net->ipv4.tcp_sock, skb,
-
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+		-ben
