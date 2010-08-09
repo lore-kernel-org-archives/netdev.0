@@ -1,77 +1,173 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] ixgbe: fix build error with FCOE_CONFIG without
-	DCB_CONFIG
-Date: Sun, 08 Aug 2010 18:46:15 -0700
-Message-ID: <20100809014538.595.63259.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH v2 1/2] igb.txt: Add igb documentation
+Date: Sun, 08 Aug 2010 18:54:11 -0700
+Message-ID: <20100809015410.832.85025.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	John Fastabend <john.r.fastabend@intel.com>,
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:59193 "EHLO
-	qmta03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755228Ab0HIBqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 21:46:35 -0400
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:37111
+	"EHLO qmta13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752917Ab0HIBya (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Aug 2010 21:54:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+Add documentation for the igb networking driver.
 
-Building ixgbe without DCB_CONFIG and FCOE_CONFIG will cause
-a build error.  This resolves the build error by wrapping
-the fcoe.up in CONFIG_IXGBE_DCB ifdefs.
+  v2:
+   - Removed trailing white space
+   - Removed Ethtool version info
+   - Removed LRO kernel version info
 
-Also frames were being priority VLAN tagged even without DCB
-enabled.  This fixes this so that 8021Q priority tags are
-only added with DCB actually enabled.
-
-Reported-by: divya <dipraksh@linux.vnet.ibm.com>
-Reported-by: Jon Mason <jon.mason@exar.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   14 ++++++++++----
- 1 files changed, 10 insertions(+), 4 deletions(-)
+ Documentation/networking/igb.txt |  132 ++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 132 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/networking/igb.txt
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 7d6a415..55394a2 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6155,9 +6155,11 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
- 			txq &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
- 			txq += adapter->ring_feature[RING_F_FCOE].mask;
- 			return txq;
-+#ifdef CONFIG_IXGBE_DCB
- 		} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
- 			txq = adapter->fcoe.up;
- 			return txq;
-+#endif
- 		}
- 	}
- #endif
-@@ -6216,10 +6218,14 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED &&
- 	    (skb->protocol == htons(ETH_P_FCOE) ||
- 	     skb->protocol == htons(ETH_P_FIP))) {
--		tx_flags &= ~(IXGBE_TX_FLAGS_VLAN_PRIO_MASK
--			      << IXGBE_TX_FLAGS_VLAN_SHIFT);
--		tx_flags |= ((adapter->fcoe.up << 13)
--			      << IXGBE_TX_FLAGS_VLAN_SHIFT);
-+#ifdef CONFIG_IXGBE_DCB
-+		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
-+			tx_flags &= ~(IXGBE_TX_FLAGS_VLAN_PRIO_MASK
-+				      << IXGBE_TX_FLAGS_VLAN_SHIFT);
-+			tx_flags |= ((adapter->fcoe.up << 13)
-+				      << IXGBE_TX_FLAGS_VLAN_SHIFT);
-+		}
-+#endif
- 		/* flag for FCoE offloads */
- 		if (skb->protocol == htons(ETH_P_FCOE))
- 			tx_flags |= IXGBE_TX_FLAGS_FCOE;
+diff --git a/Documentation/networking/igb.txt b/Documentation/networking/igb.txt
+new file mode 100644
+index 0000000..ab2d718
+--- /dev/null
++++ b/Documentation/networking/igb.txt
+@@ -0,0 +1,132 @@
++Linux* Base Driver for Intel(R) Network Connection
++==================================================
++
++Intel Gigabit Linux driver.
++Copyright(c) 1999 - 2010 Intel Corporation.
++
++Contents
++========
++
++- Identifying Your Adapter
++- Additional Configurations
++- Support
++
++Identifying Your Adapter
++========================
++
++This driver supports all 82575, 82576 and 82580-based Intel (R) gigabit network
++connections.
++
++For specific information on how to identify your adapter, go to the Adapter &
++Driver ID Guide at:
++
++    http://support.intel.com/support/go/network/adapter/idguide.htm
++
++Command Line Parameters
++=======================
++
++The default value for each parameter is generally the recommended setting,
++unless otherwise noted.
++
++max_vfs
++-------
++Valid Range:   0-7
++Default Value: 0
++
++This parameter adds support for SR-IOV.  It causes the driver to spawn up to
++max_vfs worth of virtual function.
++
++Additional Configurations
++=========================
++
++  Jumbo Frames
++  ------------
++  Jumbo Frames support is enabled by changing the MTU to a value larger than
++  the default of 1500.  Use the ifconfig command to increase the MTU size.
++  For example:
++
++       ifconfig eth<x> mtu 9000 up
++
++  This setting is not saved across reboots.
++
++  Notes:
++
++  - The maximum MTU setting for Jumbo Frames is 9216.  This value coincides
++    with the maximum Jumbo Frames size of 9234 bytes.
++
++  - Using Jumbo Frames at 10 or 100 Mbps may result in poor performance or
++    loss of link.
++
++  Ethtool
++  -------
++  The driver utilizes the ethtool interface for driver configuration and
++  diagnostics, as well as displaying statistical information.
++
++  http://sourceforge.net/projects/gkernel.
++
++  Enabling Wake on LAN* (WoL)
++  ---------------------------
++  WoL is configured through the Ethtool* utility.
++
++  For instructions on enabling WoL with Ethtool, refer to the Ethtool man page.
++
++  WoL will be enabled on the system during the next shut down or reboot.
++  For this driver version, in order to enable WoL, the igb driver must be
++  loaded when shutting down or rebooting the system.
++
++  Wake On LAN is only supported on port A of multi-port adapters.
++
++  Wake On LAN is not supported for the Intel(R) Gigabit VT Quad Port Server
++  Adapter.
++
++  Multiqueue
++  ----------
++  In this mode, a separate MSI-X vector is allocated for each queue and one
++  for "other" interrupts such as link status change and errors.  All
++  interrupts are throttled via interrupt moderation.  Interrupt moderation
++  must be used to avoid interrupt storms while the driver is processing one
++  interrupt.  The moderation value should be at least as large as the expected
++  time for the driver to process an interrupt. Multiqueue is off by default.
++
++  REQUIREMENTS: MSI-X support is required for Multiqueue. If MSI-X is not
++  found, the system will fallback to MSI or to Legacy interrupts.
++
++  LRO
++  ---
++  Large Receive Offload (LRO) is a technique for increasing inbound throughput
++  of high-bandwidth network connections by reducing CPU overhead. It works by
++  aggregating multiple incoming packets from a single stream into a larger
++  buffer before they are passed higher up the networking stack, thus reducing
++  the number of packets that have to be processed. LRO combines multiple
++  Ethernet frames into a single receive in the stack, thereby potentially
++  decreasing CPU utilization for receives.
++
++  NOTE: You need to have inet_lro enabled via either the CONFIG_INET_LRO or
++  CONFIG_INET_LRO_MODULE kernel config option. Additionally, if
++  CONFIG_INET_LRO_MODULE is used, the inet_lro module needs to be loaded
++  before the igb driver.
++
++  You can verify that the driver is using LRO by looking at these counters in
++  Ethtool:
++
++  lro_aggregated - count of total packets that were combined
++  lro_flushed - counts the number of packets flushed out of LRO
++  lro_no_desc - counts the number of times an LRO descriptor was not available
++  for the LRO packet
++
++  NOTE: IPv6 and UDP are not supported by LRO.
++
++Support
++=======
++
++For general information, go to the Intel support website at:
++
++    www.intel.com/support/
++
++or the Intel Wired Networking project hosted by Sourceforge at:
++
++    http://sourceforge.net/projects/e1000
++
++If an issue is identified with the released source code on the supported
++kernel with a supported adapter, email the specific information related
++to the issue to e1000-devel@lists.sf.net
 
