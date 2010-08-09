@@ -1,118 +1,47 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: Re: [patch 2/2] qlcnic: using too much stack
-Date: Mon, 9 Aug 2010 09:46:32 -0700
-Message-ID: <0081C370-65E2-434F-BBC6-C688F6F39750@qlogic.com>
-References: <20100809103727.GH9031@bicker>
+From: Trond Myklebust <Trond.Myklebust@netapp.com>
+Subject: RE: [PATCH] [Bug 16494] NFS client over TCP hangs due to packet
+ loss
+Date: Mon, 09 Aug 2010 12:55:27 -0400
+Message-ID: <1281372927.8950.3.camel@heimdal.trondhjem.org>
+References: <4c57cfe8.887b0e0a.2f79.4772@mx.google.com>
+	 <20100803.012144.267950450.davem@davemloft.net>
+	 <20100803021110.f0b3877b.akpm@linux-foundation.org>
+	 <4C57EE9A.7040308@gmail.com>  <4c5ad0d6.42ecd80a.47d7.0dfc@mx.google.com>
+	 <1281037822.2948.49.camel@heimdal.trondhjem.org>
+	 <4c5bd64a.4a2ae30a.0283.0551@mx.google.com>
+	 <4c5fc9f3.487e0e0a.2960.ffffe4ec@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
-Cc: Amit Salecha <amit.salecha@qlogic.com>,
-	Linux Driver <Linux-Driver@qlogic.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <error27@gmail.com>
+Cc: "'Andrew Morton'" <akpm@linux-foundation.org>,
+	"'David Miller'" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, eric.dumazet@gmail.com,
+	William.Allen.Simpson@gmail.com, gilad@codefidence.com,
+	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	"'J. Bruce Fields'" <bfields@fieldses.org>,
+	"'Neil Brown'" <neilb@suse.de>,
+	"'Chuck Lever'" <chuck.lever@oracle.com>,
+	"'Benny Halevy'" <bhalevy@panasas.com>,
+	"'Alexandros Batsakis'" <batsakis@netapp.com>,
+	"'Joe Perches'" <joe@perches.com>,
+	Andy Chittenden <andyc@bluearc.com>
+To: Andy Chittenden <andyc.bluearc@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:18151 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756983Ab0HIQqg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 12:46:36 -0400
-In-Reply-To: <20100809103727.GH9031@bicker>
-Content-Language: en-US
+Received: from mx2.netapp.com ([216.240.18.37]:51764 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757165Ab0HIQzt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 12:55:49 -0400
+In-Reply-To: <4c5fc9f3.487e0e0a.2960.ffffe4ec@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2010-08-09 at 10:27 +0100, Andy Chittenden wrote:
+> A weekend run with that patch applied to 2.6.34.2 was successful. As nobody has objected, what's the next step to getting it applied to the official source trees?
 
-On Aug 9, 2010, at 4:07 PM, Dan Carpenter wrote:
+Please resend me a version with a cleaned up changelog entry. I can then
+push it as a bugfix.
 
-> qlcnic_pci_info structs are 128 bytes so an array of 8 uses 1024 bytes.
-> That's a lot if you run with 4K stacks.  I allocated them with kcalloc()
-> instead.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
-> 
-> diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-> index 7f27e2a..da84229 100644
-> --- a/drivers/net/qlcnic/qlcnic_main.c
-> +++ b/drivers/net/qlcnic/qlcnic_main.c
-> @@ -473,14 +473,20 @@ qlcnic_cleanup_pci_map(struct qlcnic_adapter *adapter)
-> static int
-> qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
-> {
-> -	struct qlcnic_pci_info pci_info[QLCNIC_MAX_PCI_FUNC];
-> +	struct qlcnic_pci_info *pci_info;
-> 	int i, ret = 0, err;
-> 	u8 pfn;
-> 
-> +	pci_info = kcalloc(QLCNIC_MAX_PCI_FUNC, sizeof(*pci_info), GFP_KERNEL);
-> +	if (!pci_info)
-> +		return -ENOMEM;
-> +
-> 	adapter->npars = kzalloc(sizeof(struct qlcnic_npar_info) *
-> 				QLCNIC_MAX_PCI_FUNC, GFP_KERNEL);
-> -	if (!adapter->npars)
-> -		return -ENOMEM;
-> +	if (!adapter->npars) {
-> +		err = -ENOMEM;
-> +		goto err_pci_info;
-> +	}
-> 
-> 	adapter->eswitch = kzalloc(sizeof(struct qlcnic_eswitch) *
-> 				QLCNIC_NIU_MAX_XG_PORTS, GFP_KERNEL);
-> @@ -508,6 +514,7 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
-> 	for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
-> 		adapter->eswitch[i].flags |= QLCNIC_SWITCH_ENABLE;
-> 
-> +	kfree(pci_info);
-> 	return 0;
-> 
-> err_eswitch:
-> @@ -516,6 +523,8 @@ err_eswitch:
-> err_npars:
-> 	kfree(adapter->npars);
-> 	adapter->eswitch = NULL;
-> +err_pci_info:
-> +	kfree(pci_info);
-> 
-> 	return ret;
-> }
-> @@ -3362,15 +3371,21 @@ qlcnic_sysfs_read_pci_config(struct file *file, struct kobject *kobj,
-> 	struct device *dev = container_of(kobj, struct device, kobj);
-> 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
-> 	struct qlcnic_pci_func_cfg pci_cfg[QLCNIC_MAX_PCI_FUNC];
-> -	struct qlcnic_pci_info	pci_info[QLCNIC_MAX_PCI_FUNC];
-> +	struct qlcnic_pci_info *pci_info;
-> 	int i, ret;
-> 
-> 	if (size != sizeof(pci_cfg))
-> 		return QL_STATUS_INVALID_PARAM;
-> 
-> +	pci_info = kcalloc(QLCNIC_MAX_PCI_FUNC, sizeof(*pci_info), GFP_KERNEL);
-> +	if (!pci_info)
-> +		return -ENOMEM;
-> +
-> 	ret = qlcnic_get_pci_info(adapter, pci_info);
-> -	if (ret)
-> +	if (ret) {
-> +		kfree(pci_info);
-> 		return ret;
-> +	}
-> 
-> 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC ; i++) {
-> 		pci_cfg[i].pci_func = pci_info[i].id;
-> @@ -3381,8 +3396,8 @@ qlcnic_sysfs_read_pci_config(struct file *file, struct kobject *kobj,
-> 		memcpy(&pci_cfg[i].def_mac_addr, &pci_info[i].mac, ETH_ALEN);
-> 	}
-> 	memcpy(buf, &pci_cfg, size);
-> +	kfree(pci_info);
-> 	return size;
-> -
-> }
-> static struct bin_attribute bin_attr_npar_config = {
-> 	.attr = {.name = "npar_config", .mode = (S_IRUGO | S_IWUSR)},
-
-It looks fine except that I'd use kzalloc instead of kcalloc above.
-
-thanks,
--Anirban
+Cheers
+  Trond
