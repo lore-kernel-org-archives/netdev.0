@@ -1,38 +1,44 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [net-next] net: Provide details on watchdog timeout.
-Date: Mon, 09 Aug 2010 13:12:24 -0700
-Message-ID: <4C606128.5050607@candelatech.com>
-References: <1281383954-23765-1-git-send-email-greearb@candelatech.com> <20100809.131017.112606336.davem@davemloft.net>
+From: Benjamin LaHaise <bcrl@lhnet.ca>
+Subject: Re: [PATCH] net: allow netdev_wait_allrefs() to run faster
+Date: Mon, 9 Aug 2010 17:03:11 -0400
+Message-ID: <20100809210311.GW30010@kvack.org>
+References: <4ADB55BC.5020107@gmail.com> <20091018182144.GC23395@kvack.org> <200910211539.01824.opurdila@ixiacom.com> <4ADF2B57.4030708@gmail.com> <20091021165139.GL877@kvack.org> <m1d445yf2x.fsf@fess.ebiederm.org> <20091029233848.GV3141@kvack.org> <4C603999.1030801@candelatech.com> <20100809173429.GR30010@kvack.org> <m1tyn3v9pp.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev@vger.kernel.org, Cosmin Ratiu <cratiu@ixiacom.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:40213 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752606Ab0HIUM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Aug 2010 16:12:26 -0400
-In-Reply-To: <20100809.131017.112606336.davem@davemloft.net>
+Received: from kanga.kvack.org ([205.233.56.17]:33920 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754860Ab0HIVDN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Aug 2010 17:03:13 -0400
+Content-Disposition: inline
+In-Reply-To: <m1tyn3v9pp.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2010 01:10 PM, David Miller wrote:
-> From: Ben Greear<greearb@candelatech.com>
-> Date: Mon,  9 Aug 2010 12:59:14 -0700
->
->> This keeps the WARN_ON but will also log normal kernel messages
->> after the WARN_ON logic has happened once.
->>
->> Signed-off-by: Ben Greear<greearb@candelatech.com>
->
-> I think this warning is fine as-is.
+On Mon, Aug 09, 2010 at 12:59:14PM -0700, Eric W. Biederman wrote:
+> The network device deletion batching code has gone in, which is
+> a big help, as have some dev_put deletions, so we hit that 250ms
+> delay less often.  
 
-Ok, thanks for looking.
+I'll see how much that helps.  Odds are I'm going to have to move the 
+device deletion into a separate thread.  That should give me a natural 
+boundary to queue up deletions at, which should fix the tunnel-flap and 
+partial tunnel-flap cases I'm worried about.  At some point I have to 
+figure out how to get my API needs met by the in-kernel L2TP code, but 
+that's a worry for another day.
 
-Ben
+> sysfs feature wise has now settled down, and the regressions have all
+> been stamped out so now should be a good time to work on scaling.
+> 
+> I still have some preliminary patches in my tree, that I will dig up
+> as time goes by.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+I should have some time this evening to run a few tests, and hopefully can 
+post some results.
 
+		-ben
