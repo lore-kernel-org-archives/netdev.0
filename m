@@ -1,31 +1,127 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Missing device binding relating to tcp_v4_send_reset?
-Date: Tue, 10 Aug 2010 01:48:46 -0700 (PDT)
-Message-ID: <20100810.014846.258126767.davem@davemloft.net>
-References: <4C603EF2.9010902@candelatech.com>
+From: =?UTF-8?B?0JDQvdGC0L7QvSDQlC4=?= <littlesmilingcloud@gmail.com>
+Subject: [PATCH] iputils: firewall mark option in tracepath/tracepath6
+Date: Tue, 10 Aug 2010 13:17:43 +0400
+Message-ID: <AANLkTimM6W97bYBgE3Z-KUDWFzq2qMtE=SJW4ixMzsiv@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: greearb@candelatech.com
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50078
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751959Ab0HJIs0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 04:48:26 -0400
-In-Reply-To: <4C603EF2.9010902@candelatech.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:36243 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751422Ab0HJJRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 05:17:44 -0400
+Received: by qwh6 with SMTP id 6so8010504qwh.19
+        for <netdev@vger.kernel.org>; Tue, 10 Aug 2010 02:17:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Mon, 09 Aug 2010 10:46:26 -0700
+diff --git a/tracepath.c b/tracepath.c
+index 81c22e9..6675f14 100644
+--- a/tracepath.c
++++ b/tracepath.c
+@@ -42,6 +42,7 @@ __u16 base_port;
 
-> This snippet is from some patches Patrick did for me some time
-> back.  I think the rest of his work has been merged upstream, but
-> this patch was not.  I'm honestly not sure if it's needed or not,
-> but we've been running with it for at least a year or so and it's
-> been working fine for us.
+ const int overhead = 28;
+ int mtu = 65535;
++int mark = 0;
+ int hops_to = -1;
+ int hops_from = -1;
+ int no_resolve = 0;
+@@ -285,7 +286,7 @@ static void usage(void) __attribute((noreturn));
 
-There is no reason at all to force a reply to a packet to
-go out of the same interface as the packet which triggered
-that reply arrived upon.
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: tracepath [-n] [-b] [-l <len>]
+<destination>[/<port>]\n");
++	fprintf(stderr, "Usage: tracepath [-n] [-b] [-l <len>] [-m <mark>]
+<destination>[/<port>]\n");
+ 	exit(-1);
+ }
+
+@@ -299,7 +300,7 @@ main(int argc, char **argv)
+ 	char *p;
+ 	int ch;
+
+-	while ((ch = getopt(argc, argv, "nbh?l:")) != EOF) {
++	while ((ch = getopt(argc, argv, "nbh?l:m:")) != EOF) {
+ 		switch(ch) {
+ 		case 'n':
+ 			no_resolve = 1;
+@@ -313,6 +314,9 @@ main(int argc, char **argv)
+ 				exit(1);
+ 			}
+ 			break;
++		case 'm':
++		  	mark = atoi(optarg);
++		  	break;
+ 		default:
+ 			usage();
+ 		}
+@@ -345,6 +349,12 @@ main(int argc, char **argv)
+ 	}
+ 	memcpy(&target.sin_addr, he->h_addr, 4);
+
++	if (mark) {
++		if (setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1) {
++			fprintf(stderr, "Warning: Failed to set mark %d\n", mark);
++		}
++	}
++
+ 	on = IP_PMTUDISC_PROBE;
+ 	if (setsockopt(fd, SOL_IP, IP_MTU_DISCOVER, &on, sizeof(on)) &&
+ 	    (on = IP_PMTUDISC_DO,
+diff --git a/tracepath6.c b/tracepath6.c
+index 5cc7424..5d08c62 100644
+--- a/tracepath6.c
++++ b/tracepath6.c
+@@ -52,6 +52,7 @@ socklen_t targetlen;
+ __u16 base_port;
+
+ int overhead = 48;
++int mark = 0;
+ int mtu = 128000;
+ int hops_to = -1;
+ int hops_from = -1;
+@@ -359,7 +360,7 @@ static void usage(void) __attribute((noreturn));
+
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: tracepath6 [-n] [-b] [-l <len>]
+<destination>[/<port>]\n");
++	fprintf(stderr, "Usage: tracepath6 [-n] [-b] [-l <len>] [-m <mark>]
+<destination>[/<port>]\n");
+ 	exit(-1);
+ }
+
+@@ -375,7 +376,7 @@ int main(int argc, char **argv)
+ 	int gai;
+ 	char pbuf[NI_MAXSERV];
+
+-	while ((ch = getopt(argc, argv, "nbh?l:")) != EOF) {
++	while ((ch = getopt(argc, argv, "nbh?l:m:")) != EOF) {
+ 		switch(ch) {
+ 		case 'n':
+ 			no_resolve = 1;
+@@ -389,6 +390,9 @@ int main(int argc, char **argv)
+ 				exit(1);
+ 			}
+ 			break;
++		case 'm':
++			mark = atoi(optarg);
++			break;
+ 		default:
+ 			usage();
+ 		}
+@@ -439,6 +443,12 @@ int main(int argc, char **argv)
+ 	}
+ 	freeaddrinfo(ai0);
+
++	if (mark) {
++		if (setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1) {
++			fprintf(stderr, "Warning: Failed to set mark %d\n", mark);
++		}
++	}
++
+ 	switch (family) {
+ 	case AF_INET6:
+ 		mtu = 128000;
