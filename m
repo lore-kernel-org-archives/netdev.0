@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] pkt_sched: Add some basic qdisc class ops
- verification. Was: [PATCH] sfq: add dummy bind/unbind handles
-Date: Tue, 10 Aug 2010 01:41:43 -0700 (PDT)
-Message-ID: <20100810.014143.35024416.davem@davemloft.net>
-References: <20100809221848.GB18629@del.dom.local>
+Subject: Re: [PATCH 06/18 v2] isdn: avm: call disable_pci_device() if
+ pci_probe() failed
+Date: Tue, 10 Aug 2010 01:42:46 -0700 (PDT)
+Message-ID: <20100810.014246.15248571.davem@davemloft.net>
+References: <1281383439-13988-1-git-send-email-segooon@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: franchoze@yandex.ru, shemminger@vyatta.com, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: kernel-janitors@vger.kernel.org, isdn@linux-pingi.de,
+	adobriyan@gmail.com, tilman@imap.cc, tj@kernel.org,
+	netdev@vger.kernel.org
+To: segooon@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36893
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36897
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754303Ab0HJIlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 04:41:24 -0400
-In-Reply-To: <20100809221848.GB18629@del.dom.local>
+	by vger.kernel.org with ESMTP id S1753416Ab0HJIm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 04:42:26 -0400
+In-Reply-To: <1281383439-13988-1-git-send-email-segooon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 10 Aug 2010 00:18:48 +0200
+From: Kulikov Vasiliy <segooon@gmail.com>
+Date: Mon,  9 Aug 2010 23:50:37 +0400
 
-> Verify in register_qdisc() some basic qdisc class handlers are present.
+> Driver should call disable_pci_device() if it returns from pci_probe()
+> with error.
 > 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Signed-off-by: Kulikov Vasiliy <segooon@gmail.com>
 
-Applied.
+Applied, but please fix the template you're using for the commit
+message header and the message itself, because in all of your
+patches you've transposed "disable" and "pci" in "pci_disable_device()"
+
+So I have to fix it up two times in every patch I apply of your's.
+
+Thanks.
