@@ -1,81 +1,63 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [09/38] xen: netfront: explicitly generate
- arp_notify event after migration.
-Date: Tue, 10 Aug 2010 14:07:27 +0100
-Message-ID: <1281445647.24292.3897.camel@zakaz.uk.xensource.com>
-References: <20100806183200.858950407@clark.site>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [Uclinux-dist-devel] [PATCH 1/2] net: dsa: introduce STPID switch tagging handling code
+Date: Tue, 10 Aug 2010 16:05:52 +0200
+Message-ID: <20100810140552.GV8876@mail.wantstofly.org>
+References: <1279719442-10174-1-git-send-email-vapier@gentoo.org> <20100721150251.GL21121@mail.wantstofly.org> <AANLkTim1gbnH99GC_dVL8uevRgCRsn7dvAJ_rX-2Xgon@mail.gmail.com> <20100721153531.GN21121@mail.wantstofly.org> <AANLkTinPtd2xXzq0MpR517OsbZWUZjdp25x8FndhQ2CP@mail.gmail.com> <AANLkTinNiE1BE=HuwVG2Tom922XJXxQDB-JMsPYimPTk@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"stable@kernel.org" <stable@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"stable-review@kernel.org" <stable-review@kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>
-To: Greg KH <gregkh@suse.de>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <20100806183200.858950407@clark.site>
-List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Karl Beldan <karl.beldan@gmail.com>, netdev@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: Mike Frysinger <vapier.adi@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fw.wantstofly.org ([80.101.37.227]:45316 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757541Ab0HJOFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 10:05:53 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTinNiE1BE=HuwVG2Tom922XJXxQDB-JMsPYimPTk@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Greg,
+On Thu, Jul 29, 2010 at 01:50:45PM -0400, Mike Frysinger wrote:
 
-Looks like I forgot to request this for 2.6.32 too, could you queue it
-up there as well?
+> >>> >> + =A0 =A0 source_port =3D dsa_header[1] & 0x03;
+> >>> >> + =A0 =A0 if (source_port >=3D DSA_MAX_PORTS || ds->ports[sour=
+ce_port] =3D=3D NULL)
+> >>> >> + =A0 =A0 =A0 =A0 =A0 =A0 goto out_drop;
+> >>> >> +
+> >>> >> + =A0 =A0 if (((dsa_header[0] & ETH_P_8021QH) =3D=3D ETH_P_802=
+1QH) &&
+> >>> >
+> >>> > This is bogus -- what it does is:
+> >>> >
+> >>> > =A0 =A0 =A0 =A0if ((dsa_header[0] & 0x81) =3D=3D 0x81)
+> >>> >
+> >>> > It doesn't look like you need to mask here at all.
+> >>>
+> >>> where does it say dsa_header[0] will always have 0x81 set ?
+> >>
+> >> Eh?
+> >>
+> >> This code is checking whether the packet has a STPID tag on it or =
+not.
+> >> A STPID tag exists if the first 12 nibbles are 0x810.
+> >>
+> >> You are checking whether the first 8 nibbles of this are equal to =
+0x81
+> >> by doing:
+> >>
+> >> =A0 =A0 =A0 =A0if ((byte & 0x81) =3D=3D 0x81)
+> >>
+> >> What if the first byte is 0x93? =A0Or 0xc5?
+> >
+> > that was my point. =A0should it be masking or doing a raw compare ?
+>=20
+> and the answer is ... ?  so i can send an updated patch ;)
 
-It depends on the previous patch in this series (arp_notify: allow
-drivers to explicitly request a notification event.).
+=46rom what I understand, you should just be checking for equality with
+0x81 in the first byte, as that is what indicates presence of the STPID
+tag.
 
-Thanks,
-Ian.
-
-On Fri, 2010-08-06 at 19:30 +0100, Greg KH wrote:
-> 2.6.35-stable review patch.  If anyone has any objections, please let us know.
-> 
-> ------------------
-> 
-> From: Ian Campbell <Ian.Campbell@citrix.com>
-> 
-> commit 592970675c9522bde588b945388c7995c8b51328 upstream.
-> 
-> Use newly introduced netif_notify_peers() method to ensure a gratuitous ARP is
-> generated after a migration.
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-> Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: xen-devel@lists.xensource.com
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-> 
-> ---
->  drivers/net/xen-netfront.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -1621,6 +1621,7 @@ static void backend_changed(struct xenbu
->  		if (xennet_connect(netdev) != 0)
->  			break;
->  		xenbus_switch_state(dev, XenbusStateConnected);
-> +		netif_notify_peers(netdev);
->  		break;
->  
->  	case XenbusStateClosing:
-> 
-> 
+Is the hardware you're doing this on available somewhere for me to
+try things out on?
