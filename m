@@ -1,113 +1,70 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: Is it a possible bug in dev_gro_receive()?
-Date: Tue, 10 Aug 2010 16:11:54 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D7920AD46E911@shsmsx502.ccr.corp.intel.com>
-References: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com>
- <20100802102906.GA8439@ff.dom.local>
- <F2E9EB7348B8264F86B6AB8151CE2D791BAB3078E0@shsmsx502.ccr.corp.intel.com>
- <20100803064515.GA6430@ff.dom.local>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC] [PATCH] Don't destroy TCP sockets twice
+Date: Tue, 10 Aug 2010 10:30:40 +0200
+Message-ID: <20100810083040.GB6801@basil.fritz.box>
+References: <20100806110511.GA16448@basil.fritz.box>
+ <20100809213002.GA23736@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5614 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751422Ab0HJIMv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 04:12:51 -0400
-In-Reply-To: <20100803064515.GA6430@ff.dom.local>
-Content-Language: en-US
+Received: from one.firstfloor.org ([213.235.205.2]:58459 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751422Ab0HJIap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 04:30:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20100809213002.GA23736@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jarek,
-Seems community agree with your patch more.
-So may you send out your patch then? Thanks!
-Some of my related patches still need this fix.
+On Mon, Aug 09, 2010 at 05:30:02PM -0400, Herbert Xu wrote:
+> Andi Kleen <andi@firstfloor.org> wrote:
+> > 
+> > While working on something else I noticed that tcp_v4/6_destroy_sock()
+> > can get called twice on a socket. This happens because when a reset or
+> > similar happens tcp_done destroys the connection socket state, and 
+> > then eventually when the socket is released it is destroyed again. 
+> 
+> I'm still having problems understanding why you're getting a call
+> to send a FIN after tcp_done.  This shouldn't happen at all because
+> tcp_done moves the socket to the TCP_CLOSE state, where FINs should
+> not be sent.
+> 
+> Can you clarify on how we can reproduce this problem in the
+>  upstream kernel?
 
-Thanks
-Xiaohui
+This simple patch demonstrates double destroy. I have patches for showing
+the more complicated case too, but they're much more ugly.
 
->-----Original Message-----
->From: Jarek Poplawski [mailto:jarkao2@gmail.com]
->Sent: Tuesday, August 03, 2010 2:45 PM
->To: Xin, Xiaohui
->Cc: netdev@vger.kernel.org; herbert@gondor.apana.org.au; davem@davemloft.net
->Subject: Re: Is it a possible bug in dev_gro_receive()?
->
->On Tue, Aug 03, 2010 at 10:33:24AM +0800, Xin, Xiaohui wrote:
->> >-----Original Message-----
->> >From: Jarek Poplawski [mailto:jarkao2@gmail.com]
->> >Sent: Monday, August 02, 2010 6:29 PM
->> >To: Xin, Xiaohui
->> >Cc: netdev@vger.kernel.org; herbert@gondor.apana.org.au; davem@davemloft.net
->> >Subject: Re: Is it a possible bug in dev_gro_receive()?
->> >
->> >Xin Xiaohui wrote:
->> >> I looked into the code dev_gro_receive(), found the code here:
->> >> if the frags[0] is pulled to 0, then the page will be released,
->> >> and memmove() frags left.
->> >> Is that right? I'm not sure if memmove do right or not, but
->> >> frags[0].size is never set after memove at least. what I think
->> >> a simple way is not to do anything if we found frags[0].size == 0.
->> >> The patch is as followed.
->> >>
->> >> Or am I missing something here?
->> >
->> >I think, you're right, but fixing memmove looks nicer to me:
->> >
->> > -	--skb_shinfo(skb)->nr_frags);
->> > +	--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
->> >
->> >Jarek P.
->>
->> Is there a little hurt of performance to do memmove() if skb_shinfo(skb)->nr_frags is
->large?
->> We're now working on the zero-copy patches based on napi_gro_frags() interface, and in
->> this case, we have found a lot of skbs which frags[0] is pulled to 0. And after the memmove
->is
->> fixed, each frags[x].size is needed to modify too.
->> So I think don't do anything is better. Or is there any side effect with a null page in the
->stack?
->
->Even if it's better, generally you should separate fixes from
->optimizations. On the other hand, it was expected to be "unlikely" by
->design, so you should probably explain more why it has to be changed
->here too.
->
->Thanks,
->Jarek P.
->
->>
->> Thanks
->> Xiaohui
->> >
->> >>
->> >> ---
->> >>  net/core/dev.c |    7 -------
->> >>  1 files changed, 0 insertions(+), 7 deletions(-)
->> >>
->> >> diff --git a/net/core/dev.c b/net/core/dev.c
->> >> index 264137f..28cdbbf 100644
->> >> --- a/net/core/dev.c
->> >> +++ b/net/core/dev.c
->> >> @@ -2730,13 +2730,6 @@ pull:
->> >>
->> >>  		skb_shinfo(skb)->frags[0].page_offset += grow;
->> >>  		skb_shinfo(skb)->frags[0].size -= grow;
->> >> -
->> >> -		if (unlikely(!skb_shinfo(skb)->frags[0].size)) {
->> >> -			put_page(skb_shinfo(skb)->frags[0].page);
->> >> -			memmove(skb_shinfo(skb)->frags,
->> >> -				skb_shinfo(skb)->frags + 1,
->> >> -				--skb_shinfo(skb)->nr_frags);
->> >> -		}
->> >>  	}
->> >>
->> >>  ok:
->> >
->> >
->>
+-Andi
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index a778ee0..bfbb06b 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -459,6 +459,8 @@ struct tcp_sock {
+ 	 * contains related tcp_cookie_transactions fields.
+ 	 */
+ 	struct tcp_cookie_values  *cookie_values;
++
++	int destroyed;
+ };
+ 
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0207662..25bf80a 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1919,6 +1919,9 @@ void tcp_v4_destroy_sock(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
++	BUG_ON(tp->destroyed != 0);
++	tp->destroyed = 1;
++
+ 	tcp_clear_xmit_timers(sk);
+ 
+ 	tcp_cleanup_congestion_control(sk);
+-- 
+ak@linux.intel.com -- Speaking for myself only.
