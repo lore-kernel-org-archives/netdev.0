@@ -1,76 +1,56 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
+From: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
 Subject: Re: i386 allmodconfig, current mainline
-Date: Tue, 10 Aug 2010 10:15:21 +1000
-Message-ID: <20100810101521.0dcd4393.sfr@canb.auug.org.au>
+Date: Tue, 10 Aug 2010 01:32:32 +0100
+Message-ID: <1281400352.7143.53.camel@localhost>
 References: <20100809164346.6e30cf8c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__10_Aug_2010_10_15_21_+1000_jSnD2iwR7XKMUyCj"
-Cc: Greg KH <greg@kroah.com>, David Woodhouse <dwmw2@infradead.org>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Kevin Curtis <kevin.curtis@farsite.co.uk>,
-	Phillip Lougher <phillip@lougher.demon.co.uk>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Chien Tung <chien.tin.tung@intel.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Samuel Ortiz <samuel.ortiz@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, x86@kernel.org,
-	linux-rdma@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:36685 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757268Ab0HJAPb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Aug 2010 20:15:31 -0400
-In-Reply-To: <20100809164346.6e30cf8c.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>,
+	Kevin Curtis <kevin.curtis-AP8L3A0T/wQqdlJmJB21zg@public.gmane.org>,
+	Phillip Lougher <phillip-cnXvMjJKhjYG2Il/BtU0GPXRex20P6io@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Chien Tung <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Samuel Ortiz <samuel.ortiz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100809164346.6e30cf8c.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__10_Aug_2010_10_15_21_+1000_jSnD2iwR7XKMUyCj
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2010-08-09 at 16:43 -0700, Andrew Morton wrote:
+> 
+> drivers/power/olpc_battery.c:387: error: unknown field 'owner' specified in initializer
+> drivers/power/olpc_battery.c:387: warning: initialization from incompatible pointer type
+> make[2]: *** [drivers/power/olpc_battery.o] Error 1
+> make[1]: *** [drivers/power] Error 2
 
-Hi Andrew,
+I fixed that today.
 
-On Mon, 9 Aug 2010 16:43:46 -0700 Andrew Morton <akpm@linux-foundation.org>=
- wrote:
->
-> Guys.  What's goin' on out there?
+> drivers/mtd/maps/gpio-addr-flash.c: In function 'gpio_flash_probe':
+> drivers/mtd/maps/gpio-addr-flash.c:212: warning: cast to pointer from integer of different size
+> drivers/mtd/maps/gpio-addr-flash.c:224: warning: cast to pointer from integer of different size
 
-I guess we are all so up to date that noone does 32 bit builds any
-more ...  Also noone is bothering to look at the build logs:
+Ew. Mike? Is this a nommu driver which is missing an ioremap()? 
 
-linus tree: http://kisskb.ellerman.id.au/kisskb/branch/3/
-linux-next: http://kisskb.ellerman.id.au/kisskb/branch/9/
+> drivers/pci/intel-iommu.c: In function 'dma_pte_addr':
+> drivers/pci/intel-iommu.c:239: warning: passing argument 1 of '__cmpxchg64' from incompatible pointer type
 
-> drivers/power/olpc_battery.c:387: error: unknown field 'owner' specified =
-in initializer
+-       return  __cmpxchg64(pte, 0ULL, 0ULL) & VTD_PAGE_MASK;
++       return  __cmpxchg64(&pte->val, 0ULL, 0ULL) & VTD_PAGE_MASK;
 
-This is known and should be fixed in today's -next and hopefully being
-sent to Linus.
+Will test and push.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org                              Intel Corporation
 
---Signature=_Tue__10_Aug_2010_10_15_21_+1000_jSnD2iwR7XKMUyCj
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJMYJoZAAoJEDMEi1NhKgbspiAH/2C3J61hGSMp61JCgcjbUVwU
-0lK/8yzWhFqF0PXg1c5ELIm3j2UeRjO9FPYkU6fFaple5GX2mJmoP56TcfDjTJzz
-7uDmZNLr8juarntzwml9knQ+OyNmYBR6ywl/tevniFHCDbSRYsvaFp/TRp3IL/3z
-0ce83Sw0ZPZHML2pN2IMBsYNm/FhKG0agdqhywmaQStEUHJeVWGnCNzNn4fCqiPZ
-b0/p/1ri8fsBv3GTy9It6hd096Ndvqt4erqpvqez2tOb4AmeRR6Dng7ygfoGyjat
-ppEzB/YUi8u5a+TGc7t6Eoew4UIspNq0MqHdS9lAnl3PhpPnuQpRu31B+CUoel8=
-=0nDF
------END PGP SIGNATURE-----
-
---Signature=_Tue__10_Aug_2010_10_15_21_+1000_jSnD2iwR7XKMUyCj--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
