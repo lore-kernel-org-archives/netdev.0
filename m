@@ -1,107 +1,113 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch 2/2 v2] qlcnic: using too much stack
-Date: Tue, 10 Aug 2010 09:49:36 +0200
-Message-ID: <20100810074936.GG18431@bicker>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: Is it a possible bug in dev_gro_receive()?
+Date: Tue, 10 Aug 2010 16:11:54 +0800
+Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D7920AD46E911@shsmsx502.ccr.corp.intel.com>
+References: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com>
+ <20100802102906.GA8439@ff.dom.local>
+ <F2E9EB7348B8264F86B6AB8151CE2D791BAB3078E0@shsmsx502.ccr.corp.intel.com>
+ <20100803064515.GA6430@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	linux-driver@qlogic.com, "David S. Miller" <davem@davemloft.net>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:41886 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753416Ab0HJHuY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 03:50:24 -0400
-Content-Disposition: inline
+Received: from mga11.intel.com ([192.55.52.93]:5614 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751422Ab0HJIMv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 04:12:51 -0400
+In-Reply-To: <20100803064515.GA6430@ff.dom.local>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-qlcnic_pci_info structs are 128 bytes so an array of 8 uses 1024 bytes.
-That's a lot if you run with 4K stacks.  I allocated them with kcalloc()
-instead.
+Jarek,
+Seems community agree with your patch more.
+So may you send out your patch then? Thanks!
+Some of my related patches still need this fix.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
----
-V2:  No change.  I had to respin because of the 1/1 patch.
+Thanks
+Xiaohui
 
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 6b8df55..bf6d87a 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -473,14 +473,20 @@ qlcnic_cleanup_pci_map(struct qlcnic_adapter *adapter)
- static int
- qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- {
--	struct qlcnic_pci_info pci_info[QLCNIC_MAX_PCI_FUNC];
-+	struct qlcnic_pci_info *pci_info;
- 	int i, ret = 0, err;
- 	u8 pfn;
- 
-+	pci_info = kcalloc(QLCNIC_MAX_PCI_FUNC, sizeof(*pci_info), GFP_KERNEL);
-+	if (!pci_info)
-+		return -ENOMEM;
-+
- 	adapter->npars = kzalloc(sizeof(struct qlcnic_npar_info) *
- 				QLCNIC_MAX_PCI_FUNC, GFP_KERNEL);
--	if (!adapter->npars)
--		return -ENOMEM;
-+	if (!adapter->npars) {
-+		err = -ENOMEM;
-+		goto err_pci_info;
-+	}
- 
- 	adapter->eswitch = kzalloc(sizeof(struct qlcnic_eswitch) *
- 				QLCNIC_NIU_MAX_XG_PORTS, GFP_KERNEL);
-@@ -508,6 +514,7 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- 	for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
- 		adapter->eswitch[i].flags |= QLCNIC_SWITCH_ENABLE;
- 
-+	kfree(pci_info);
- 	return 0;
- 
- err_eswitch:
-@@ -516,6 +523,8 @@ err_eswitch:
- err_npars:
- 	kfree(adapter->npars);
- 	adapter->npars = NULL;
-+err_pci_info:
-+	kfree(pci_info);
- 
- 	return ret;
- }
-@@ -3362,15 +3371,21 @@ qlcnic_sysfs_read_pci_config(struct file *file, struct kobject *kobj,
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	struct qlcnic_pci_func_cfg pci_cfg[QLCNIC_MAX_PCI_FUNC];
--	struct qlcnic_pci_info	pci_info[QLCNIC_MAX_PCI_FUNC];
-+	struct qlcnic_pci_info *pci_info;
- 	int i, ret;
- 
- 	if (size != sizeof(pci_cfg))
- 		return QL_STATUS_INVALID_PARAM;
- 
-+	pci_info = kcalloc(QLCNIC_MAX_PCI_FUNC, sizeof(*pci_info), GFP_KERNEL);
-+	if (!pci_info)
-+		return -ENOMEM;
-+
- 	ret = qlcnic_get_pci_info(adapter, pci_info);
--	if (ret)
-+	if (ret) {
-+		kfree(pci_info);
- 		return ret;
-+	}
- 
- 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC ; i++) {
- 		pci_cfg[i].pci_func = pci_info[i].id;
-@@ -3381,8 +3396,8 @@ qlcnic_sysfs_read_pci_config(struct file *file, struct kobject *kobj,
- 		memcpy(&pci_cfg[i].def_mac_addr, &pci_info[i].mac, ETH_ALEN);
- 	}
- 	memcpy(buf, &pci_cfg, size);
-+	kfree(pci_info);
- 	return size;
--
- }
- static struct bin_attribute bin_attr_npar_config = {
- 	.attr = {.name = "npar_config", .mode = (S_IRUGO | S_IWUSR)},
+>-----Original Message-----
+>From: Jarek Poplawski [mailto:jarkao2@gmail.com]
+>Sent: Tuesday, August 03, 2010 2:45 PM
+>To: Xin, Xiaohui
+>Cc: netdev@vger.kernel.org; herbert@gondor.apana.org.au; davem@davemloft.net
+>Subject: Re: Is it a possible bug in dev_gro_receive()?
+>
+>On Tue, Aug 03, 2010 at 10:33:24AM +0800, Xin, Xiaohui wrote:
+>> >-----Original Message-----
+>> >From: Jarek Poplawski [mailto:jarkao2@gmail.com]
+>> >Sent: Monday, August 02, 2010 6:29 PM
+>> >To: Xin, Xiaohui
+>> >Cc: netdev@vger.kernel.org; herbert@gondor.apana.org.au; davem@davemloft.net
+>> >Subject: Re: Is it a possible bug in dev_gro_receive()?
+>> >
+>> >Xin Xiaohui wrote:
+>> >> I looked into the code dev_gro_receive(), found the code here:
+>> >> if the frags[0] is pulled to 0, then the page will be released,
+>> >> and memmove() frags left.
+>> >> Is that right? I'm not sure if memmove do right or not, but
+>> >> frags[0].size is never set after memove at least. what I think
+>> >> a simple way is not to do anything if we found frags[0].size == 0.
+>> >> The patch is as followed.
+>> >>
+>> >> Or am I missing something here?
+>> >
+>> >I think, you're right, but fixing memmove looks nicer to me:
+>> >
+>> > -	--skb_shinfo(skb)->nr_frags);
+>> > +	--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
+>> >
+>> >Jarek P.
+>>
+>> Is there a little hurt of performance to do memmove() if skb_shinfo(skb)->nr_frags is
+>large?
+>> We're now working on the zero-copy patches based on napi_gro_frags() interface, and in
+>> this case, we have found a lot of skbs which frags[0] is pulled to 0. And after the memmove
+>is
+>> fixed, each frags[x].size is needed to modify too.
+>> So I think don't do anything is better. Or is there any side effect with a null page in the
+>stack?
+>
+>Even if it's better, generally you should separate fixes from
+>optimizations. On the other hand, it was expected to be "unlikely" by
+>design, so you should probably explain more why it has to be changed
+>here too.
+>
+>Thanks,
+>Jarek P.
+>
+>>
+>> Thanks
+>> Xiaohui
+>> >
+>> >>
+>> >> ---
+>> >>  net/core/dev.c |    7 -------
+>> >>  1 files changed, 0 insertions(+), 7 deletions(-)
+>> >>
+>> >> diff --git a/net/core/dev.c b/net/core/dev.c
+>> >> index 264137f..28cdbbf 100644
+>> >> --- a/net/core/dev.c
+>> >> +++ b/net/core/dev.c
+>> >> @@ -2730,13 +2730,6 @@ pull:
+>> >>
+>> >>  		skb_shinfo(skb)->frags[0].page_offset += grow;
+>> >>  		skb_shinfo(skb)->frags[0].size -= grow;
+>> >> -
+>> >> -		if (unlikely(!skb_shinfo(skb)->frags[0].size)) {
+>> >> -			put_page(skb_shinfo(skb)->frags[0].page);
+>> >> -			memmove(skb_shinfo(skb)->frags,
+>> >> -				skb_shinfo(skb)->frags + 1,
+>> >> -				--skb_shinfo(skb)->nr_frags);
+>> >> -		}
+>> >>  	}
+>> >>
+>> >>  ok:
+>> >
+>> >
+>>
