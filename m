@@ -1,46 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Missing device binding relating to tcp_v4_send_reset?
-Date: Tue, 10 Aug 2010 07:22:41 -0700
-Message-ID: <4C6160B1.3040501@candelatech.com>
-References: <4C603EF2.9010902@candelatech.com> <20100810.014846.258126767.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Yet another bridge netfilter crash
+Date: Tue, 10 Aug 2010 11:19:19 -0400
+Message-ID: <20100810151919.GA30450@gondor.apana.org.au>
+References: <20100723134208.GA6655@gondor.apana.org.au> <4C49A4C6.4070503@trash.net> <20100723150041.GA7301@gondor.apana.org.au> <4C49B296.10009@trash.net> <20100723152609.GA7576@gondor.apana.org.au> <4C5995C2.1010909@trash.net> <20100804164119.GA6256@gondor.apana.org.au> <4C599A6A.6050202@trash.net> <20100809214254.GA23824@gondor.apana.org.au> <AANLkTikpCOrkPqOkahXBFFoH6bqTKhA-+_mUy0qGrRnq@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:46660 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932102Ab0HJOWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 10:22:47 -0400
-In-Reply-To: <20100810.014846.258126767.davem@davemloft.net>
+Received: from helcar.apana.org.au ([209.40.204.226]:49699 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932129Ab0HJPT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 11:19:26 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTikpCOrkPqOkahXBFFoH6bqTKhA-+_mUy0qGrRnq@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/10/2010 01:48 AM, David Miller wrote:
-> From: Ben Greear<greearb@candelatech.com>
-> Date: Mon, 09 Aug 2010 10:46:26 -0700
+On Tue, Aug 10, 2010 at 06:39:42AM +0800, Changli Gao wrote:
 >
->> This snippet is from some patches Patrick did for me some time
->> back.  I think the rest of his work has been merged upstream, but
->> this patch was not.  I'm honestly not sure if it's needed or not,
->> but we've been running with it for at least a year or so and it's
->> been working fine for us.
->
-> There is no reason at all to force a reply to a packet to
-> go out of the same interface as the packet which triggered
-> that reply arrived upon.
+> How about always using the skb->nf_bridge of the skb last received in
+> a defrag queue as the nf_bridge of the final defraged skb? I have
+> posted a patch doing such thing.
+> http://patchwork.ozlabs.org/patch/60904/
 
-Ok, in my case I *did* want this behaviour..it makes send-to-self,
-BIND_TO_DEVICE and virtual routers and such work properly if I
-recall correctly.
+I'd rather just drop the fragment (and maybe fail the whole
+reassembly) if you detect nf_bridge mismatches.
 
-Would you consider a sysctl to enable this feature, with it disabled
-by default?  Please note there are similar sysctls for ICMP already...
+Reassembling fragments from two interfaces is one thing, but
+knowingly reassembling fragments across two bridges is just
+wrong.
 
-Thanks,
-Ben
-
+Cheers,
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
