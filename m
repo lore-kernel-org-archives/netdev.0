@@ -1,127 +1,70 @@
-From: =?UTF-8?B?0JDQvdGC0L7QvSDQlC4=?= <littlesmilingcloud@gmail.com>
-Subject: [PATCH] iputils: firewall mark option in tracepath/tracepath6
-Date: Tue, 10 Aug 2010 13:17:43 +0400
-Message-ID: <AANLkTimM6W97bYBgE3Z-KUDWFzq2qMtE=SJW4ixMzsiv@mail.gmail.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Subject: Re: [RFC PATCH 2/2] igb/ixgbe: add code to trigger function reset
+ if reset_devices is set
+Date: Tue, 10 Aug 2010 18:31:47 +0900
+Message-ID: <4C611C83.6080301@jp.fujitsu.com>
+References: <20100731005803.32625.6891.stgit@localhost.localdomain>	 <20100731005910.32625.89518.stgit@localhost.localdomain>	 <20100801.011516.191407437.davem@davemloft.net> <1281025664.8720.28.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:36243 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422Ab0HJJRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 05:17:44 -0400
-Received: by qwh6 with SMTP id 6so8010504qwh.19
-        for <netdev@vger.kernel.org>; Tue, 10 Aug 2010 02:17:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
+	jbarnes@virtuousgeek.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, alexander.h.duyck@intel.com
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1281025664.8720.28.camel@localhost>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-diff --git a/tracepath.c b/tracepath.c
-index 81c22e9..6675f14 100644
---- a/tracepath.c
-+++ b/tracepath.c
-@@ -42,6 +42,7 @@ __u16 base_port;
+(2010/08/06 1:27), David Woodhouse wrote:
+> On Sun, 2010-08-01 at 01:15 -0700, David Miller wrote:
+>> From: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+>> Date: Fri, 30 Jul 2010 17:59:12 -0700
+>>
+>>> From: Alexander Duyck<alexander.h.duyck@intel.com>
+>>>
+>>> This change makes it so that both igb and ixgbe can trigger a full pcie
+>>> function reset if the reset_devices kernel parameter is defined.  The main
+>>> reason for adding this is that kdump can cause serious issues when the
+>>> kdump kernel resets the IOMMU while DMA transactions are still occurring.
+>>>
+>>> Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
+>>> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+>>
+>> I tend to disagree with the essence of this change.
+>>
+>> Which is that we should add workaround after workaround for things
+>> that aren't functioning properly in kdump and kexec.
+>>
+>> They should have a pass that shuts devices down properly, so that this
+>> kind of stuff doesn't need to happen in the kernel we then boot into.
+>
+> For a normal kexec, arguably true.
+>
+> But in the kdump case, the original kernel has *crashed* and we really
+> don't have that option -- we need to jump *straight* to the new kernel
+> and have it reset the hardware.
+>
+> The device driver really *ought* to be able to reset the hardware from
+> whatever state it's in when the new kernel starts up. Anything less is
+> broken, and reminds me of those crappy drivers that only work after a
+> soft-reboot from Windows.
+>
+> Most drivers *do* quite happily initialise their device and reliably get
+> it into a known state; it's just that this particular hardware goes into
+> a *particularly* stroppy fit when it gets a DMA master abort (which is
+> what happens when the IOMMU stops it from scribbling into memory after
+> the new kernel has taken over).
+>
+>> What happens on non-PCIE systems then?  Do they just lose when this
+>> happens?
+>
+> If they have a device that's this broken, and the driver can't get it
+> into a working state any other way, then yes -- I don't see any way to
+> *avoid* them losing.
 
- const int overhead = 28;
- int mtu = 65535;
-+int mark = 0;
- int hops_to = -1;
- int hops_from = -1;
- int no_resolve = 0;
-@@ -285,7 +286,7 @@ static void usage(void) __attribute((noreturn));
+What about asserting secondary RST# on the bridge?
+It would not work for devices on the root bus though.
 
- static void usage(void)
- {
--	fprintf(stderr, "Usage: tracepath [-n] [-b] [-l <len>]
-<destination>[/<port>]\n");
-+	fprintf(stderr, "Usage: tracepath [-n] [-b] [-l <len>] [-m <mark>]
-<destination>[/<port>]\n");
- 	exit(-1);
- }
-
-@@ -299,7 +300,7 @@ main(int argc, char **argv)
- 	char *p;
- 	int ch;
-
--	while ((ch = getopt(argc, argv, "nbh?l:")) != EOF) {
-+	while ((ch = getopt(argc, argv, "nbh?l:m:")) != EOF) {
- 		switch(ch) {
- 		case 'n':
- 			no_resolve = 1;
-@@ -313,6 +314,9 @@ main(int argc, char **argv)
- 				exit(1);
- 			}
- 			break;
-+		case 'm':
-+		  	mark = atoi(optarg);
-+		  	break;
- 		default:
- 			usage();
- 		}
-@@ -345,6 +349,12 @@ main(int argc, char **argv)
- 	}
- 	memcpy(&target.sin_addr, he->h_addr, 4);
-
-+	if (mark) {
-+		if (setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1) {
-+			fprintf(stderr, "Warning: Failed to set mark %d\n", mark);
-+		}
-+	}
-+
- 	on = IP_PMTUDISC_PROBE;
- 	if (setsockopt(fd, SOL_IP, IP_MTU_DISCOVER, &on, sizeof(on)) &&
- 	    (on = IP_PMTUDISC_DO,
-diff --git a/tracepath6.c b/tracepath6.c
-index 5cc7424..5d08c62 100644
---- a/tracepath6.c
-+++ b/tracepath6.c
-@@ -52,6 +52,7 @@ socklen_t targetlen;
- __u16 base_port;
-
- int overhead = 48;
-+int mark = 0;
- int mtu = 128000;
- int hops_to = -1;
- int hops_from = -1;
-@@ -359,7 +360,7 @@ static void usage(void) __attribute((noreturn));
-
- static void usage(void)
- {
--	fprintf(stderr, "Usage: tracepath6 [-n] [-b] [-l <len>]
-<destination>[/<port>]\n");
-+	fprintf(stderr, "Usage: tracepath6 [-n] [-b] [-l <len>] [-m <mark>]
-<destination>[/<port>]\n");
- 	exit(-1);
- }
-
-@@ -375,7 +376,7 @@ int main(int argc, char **argv)
- 	int gai;
- 	char pbuf[NI_MAXSERV];
-
--	while ((ch = getopt(argc, argv, "nbh?l:")) != EOF) {
-+	while ((ch = getopt(argc, argv, "nbh?l:m:")) != EOF) {
- 		switch(ch) {
- 		case 'n':
- 			no_resolve = 1;
-@@ -389,6 +390,9 @@ int main(int argc, char **argv)
- 				exit(1);
- 			}
- 			break;
-+		case 'm':
-+			mark = atoi(optarg);
-+			break;
- 		default:
- 			usage();
- 		}
-@@ -439,6 +443,12 @@ int main(int argc, char **argv)
- 	}
- 	freeaddrinfo(ai0);
-
-+	if (mark) {
-+		if (setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1) {
-+			fprintf(stderr, "Warning: Failed to set mark %d\n", mark);
-+		}
-+	}
-+
- 	switch (family) {
- 	case AF_INET6:
- 		mtu = 128000;
+Thanks,
+Kenji Kaneshige
