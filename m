@@ -1,82 +1,62 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: Re: e1000e crashes with 2.6.34.x and ThinkPad T60
-Date: Tue, 10 Aug 2010 09:34:52 -0700
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A900164D9279F@orsmsx509.amr.corp.intel.com>
-References: <20100724092644.GA13353@torres.zugschlus.de>
-	<EA929A9653AAE14F841771FB1DE5A1366000F42E28@rrsmsx501.amr.corp.intel.com>
-	<20100730125452.GA21444@torres.zugschlus.de>
-	<EA929A9653AAE14F841771FB1DE5A13660024083FE@rrsmsx501.amr.corp.intel.com>
-	<20100810120458.GB21511@torres.zugschlus.de>
+From: Philip Rakity <prakity@marvell.com>
+Subject: Re: [PATCH v2]  net: add Fast Ethernet driver for PXA168.
+Date: Tue, 10 Aug 2010 09:24:23 -0700
+Message-ID: <7B1965FC-E61F-4BFD-86B1-F9D390A012CC@marvell.com>
+References: <EC64E4604C8024438259B683BB2514E1082B1CB1B0@SC-VEXCH1.marvell.com>
+ <FE9BFA4C-11AB-46B9-A514-EB62467A1BB7@marvell.com>
+ <1281429004.17990.2.camel@pe-lt522.marvell.com>
+ <20100810123329.GR8876@mail.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Network Developers <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>, Linux
-To: Marc Haber <mh+linux-kernel@zugschlus.de>, "Tantilov, Emil S"
-	<emil.s.tantilov@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20100810120458.GB21511@torres.zugschlus.de>
+Content-Transfer-Encoding: 8BIT
+Cc: Sachin Sanap <ssanap@marvell.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ashish Karkare <akarkare@marvell.com>,
+	Prabhanjan Sarnaik <sarnaik@marvell.com>,
+	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
+	Mark Brown <markb@marvell.com>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dakia3.marvell.com ([65.219.4.28]:33179 "EHLO
+	dakia3.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932370Ab0HJQhR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 12:37:17 -0400
+In-Reply-To: <20100810123329.GR8876@mail.wantstofly.org>
 Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, August 10, 2010 5:05 AM, Marc Haber wrote:
-> On Wed, Aug 04, 2010 at 12:23:45PM -0600, Tantilov, Emil S wrote:
->> Looking at your lspci output - your system has a slightly different
->> HW, but I don't know if this is significant. 
->> 
->> Are you loading the kernel with any parameters (cat /proc/cmdline)?
-> 
-> BOOT_IMAGE=/vmlinuz-2.6.35-zgws1 root=/dev/mapper/root ro
-> resume=/dev/mapper/swap0 quiet splash radeon.modeset=1
-> 
->> Do you have firewall configured (iptables -L)?
-> 
-> I am working pretty intensively with virtual machines which are natted
-> here and there. I have a handful of MASQUERADE rules in the
-> nat/POSTROUTING chain, but that's it.
-> 
->> Also now that 2.6.35 is out - could you give it a try and see if the
->> situation had improved? 
-> 
-> Tried, no improvement.
-> 
-> Greetings
-> Marc
 
-[adding e1000-devel, the Intel wired ethernet developers mailing list]
 
-We have had other recent reports of issues with this part that are due to
-ASPM L1 being enabled.  Would you please try disabling L1 after the driver
-is loaded as follows (assuming your adapter is still PCI bus/device/number
-02:00.0 as indicated in the lspci output you provided earlier):
-1) First check the hexadecimal value of the LnkCtl register -
-# setpci -s 2:0.0 0xf0
-2) Disable ASPM (both L0s and L1) by zeroing out bits 0 and 1 in the value
-returned by the previous step.  For example, if it returned 42 (hex 42,
-that is) -
-# setpci -s 2:0.0 0xf0=0x40
-3) Confirm ASPM is disabled by checking the output from lspci again.
+On Aug 10, 2010, at 5:33 AM, Lennert Buytenhek wrote:
 
-Please let us know if this helps your situation, thanks.
-Bruce.
+> On Tue, Aug 10, 2010 at 02:00:04PM +0530, Sachin Sanap wrote:
+> 
+>> * Headroom in SKB for 802.11 not included in the patch since that
+>>  varies based on 802.11 a/b/g/n.
+> 
+> I don't think this is true?
+> 
+> (The 11a/b/n on-the-air preambles are of different lengths (and are
+> sent at different rates), but that isn't visible to software.)
+> 
+> 
 
-------------------------------------------------------------------------------
-This SF.net email is sponsored by 
 
-Make an app they can't live without
-Enter the BlackBerry Developer Challenge
-http://p.sf.net/sfu/RIM-dev2dev 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+802.11b/g headers are larger and if not handled by firmware in an offload engine are programmed by the driver.  There needs to be room for 
+
+a) Frame Control (2 bytes)
+b) AID (2 bytes)
+c) address-1 (6 bytes)
+d) address-2 (6 bytes)
+e) address-3 (6 bytes)
+f) seqfrag  (2 bytes)
+g) address-4 (6 bytes) 
+
+
+or 30 bytes. 11n needs more.  Some of these fields ARE visible to s/w.  So the skb prepend area needs to be larger when sending from ethernet to wifi since there will not be room for some of these fields.
+
+Philip
+
+
+<snip> 
