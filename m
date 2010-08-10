@@ -1,77 +1,39 @@
-From: Philip Rakity <prakity@marvell.com>
-Subject: Re: [PATCH v2]  net: add Fast Ethernet driver for PXA168.
-Date: Tue, 10 Aug 2010 11:12:45 -0700
-Message-ID: <847F8195-87A2-4318-9E07-FF8A7E9FA1E6@marvell.com>
-References: <EC64E4604C8024438259B683BB2514E1082B1CB1B0@SC-VEXCH1.marvell.com>
- <FE9BFA4C-11AB-46B9-A514-EB62467A1BB7@marvell.com>
- <1281429004.17990.2.camel@pe-lt522.marvell.com>
- <20100810123329.GR8876@mail.wantstofly.org>
- <7B1965FC-E61F-4BFD-86B1-F9D390A012CC@marvell.com>
- <20100810173052.GB25474@mail.wantstofly.org>
- <6546F80B-0B5E-4F41-A500-7B75493A42DE@marvell.com>
- <20100810180154.GD25474@mail.wantstofly.org>
+From: Phillip Lougher <phillip-cnXvMjJKhjYG2Il/BtU0GPXRex20P6io@public.gmane.org>
+Subject: Re: i386 allmodconfig, current mainline
+Date: Tue, 10 Aug 2010 19:27:20 +0100
+Message-ID: <4C619A08.5050704@lougher.demon.co.uk>
+References: <20100809164346.6e30cf8c.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Sachin Sanap <ssanap@marvell.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Prabhanjan Sarnaik <sarnaik@marvell.com>,
-	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
-	Mark Brown <markb@marvell.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dakia3.marvell.com ([65.219.4.28]:45441 "EHLO
-	dakia3.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932271Ab0HJSMw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 14:12:52 -0400
-In-Reply-To: <20100810180154.GD25474@mail.wantstofly.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>,
+	Kevin Curtis <kevin.curtis-AP8L3A0T/wQqdlJmJB21zg@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Chien Tung <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Samuel Ortiz <samuel.ortiz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100809164346.6e30cf8c.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Andrew Morton wrote:
 
-
-Maybe the solution is to add a new option in Kconfig to define the extra headers size the driver will need.  That option will increase the headers.  I do not like that very much since it requires someone know how big the value should be.  Could default it to 48 or 64 bytes and allow it to be edited.   It is not great solution since it fixes the pxa168 driver but does not handle other drivers.  
-
-thoughts ?
-
-
-
-On Aug 10, 2010, at 11:01 AM, Lennert Buytenhek wrote:
-
-> On Tue, Aug 10, 2010 at 10:55:02AM -0700, Philip Rakity wrote:
+> fs/squashfs/xattr.c:37: warning: 'squashfs_xattr_handler' declared inline after being called
+> fs/squashfs/xattr.c:37: warning: previous declaration of 'squashfs_xattr_handler' was here
 > 
->> We agree that extra header prepend space is needed.  The solution of
->> globally defining SKB_NET_PAD to increase this area for all drivers
->> is where I have some concern.  The solution certainly works but at
->> the cost of extra space for drivers that do not need to do this.
->> The solution is fine by me and maybe the best answer is to increase
->> the value in the standard linux implementation from 32 to 48 or 64 bytes. 
-> 
-> What I said was:
-> 
-> | This seems like something that, should you want to handle it, should be
-> | handled centrally (e.g. by conditionally increasing NET_SKB_PAD or so)
-> | and not hardcoded into one specific driver only.
-> 
-> In other words, "don't hardcode it into your driver just because you
-> think that most users will want to use your driver for bridging/routing
-> to wlan".
-> 
-> It makes no sense to categorically declare that "pxa168_eth will always
-> be used for routing to wireless, so we'll add some extra headroom by
-> default there, but e1000e will not, so there we won't".
-> 
-> Even if this stays a private kernel tree hack, I would still do it
-> globally rather than locally.
-> 
-> 
->>>> 11n needs more.
->>> 
->>> Really?  Pointer?
-> 
-> Still curious about this.
 
-will forward pointer reference later (on another computer)
+The fix for this is in linux-next, and it will be in my imminent 2.6.36 pull
+request to Linus.
 
+Phillip
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
