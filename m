@@ -1,63 +1,46 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [Uclinux-dist-devel] [PATCH 1/2] net: dsa: introduce STPID switch tagging handling code
-Date: Tue, 10 Aug 2010 16:05:52 +0200
-Message-ID: <20100810140552.GV8876@mail.wantstofly.org>
-References: <1279719442-10174-1-git-send-email-vapier@gentoo.org> <20100721150251.GL21121@mail.wantstofly.org> <AANLkTim1gbnH99GC_dVL8uevRgCRsn7dvAJ_rX-2Xgon@mail.gmail.com> <20100721153531.GN21121@mail.wantstofly.org> <AANLkTinPtd2xXzq0MpR517OsbZWUZjdp25x8FndhQ2CP@mail.gmail.com> <AANLkTinNiE1BE=HuwVG2Tom922XJXxQDB-JMsPYimPTk@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Missing device binding relating to tcp_v4_send_reset?
+Date: Tue, 10 Aug 2010 07:22:41 -0700
+Message-ID: <4C6160B1.3040501@candelatech.com>
+References: <4C603EF2.9010902@candelatech.com> <20100810.014846.258126767.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Karl Beldan <karl.beldan@gmail.com>, netdev@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: Mike Frysinger <vapier.adi@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:45316 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757541Ab0HJOFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 10:05:53 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTinNiE1BE=HuwVG2Tom922XJXxQDB-JMsPYimPTk@mail.gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:46660 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932102Ab0HJOWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 10:22:47 -0400
+In-Reply-To: <20100810.014846.258126767.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 29, 2010 at 01:50:45PM -0400, Mike Frysinger wrote:
+On 08/10/2010 01:48 AM, David Miller wrote:
+> From: Ben Greear<greearb@candelatech.com>
+> Date: Mon, 09 Aug 2010 10:46:26 -0700
+>
+>> This snippet is from some patches Patrick did for me some time
+>> back.  I think the rest of his work has been merged upstream, but
+>> this patch was not.  I'm honestly not sure if it's needed or not,
+>> but we've been running with it for at least a year or so and it's
+>> been working fine for us.
+>
+> There is no reason at all to force a reply to a packet to
+> go out of the same interface as the packet which triggered
+> that reply arrived upon.
 
-> >>> >> + =A0 =A0 source_port =3D dsa_header[1] & 0x03;
-> >>> >> + =A0 =A0 if (source_port >=3D DSA_MAX_PORTS || ds->ports[sour=
-ce_port] =3D=3D NULL)
-> >>> >> + =A0 =A0 =A0 =A0 =A0 =A0 goto out_drop;
-> >>> >> +
-> >>> >> + =A0 =A0 if (((dsa_header[0] & ETH_P_8021QH) =3D=3D ETH_P_802=
-1QH) &&
-> >>> >
-> >>> > This is bogus -- what it does is:
-> >>> >
-> >>> > =A0 =A0 =A0 =A0if ((dsa_header[0] & 0x81) =3D=3D 0x81)
-> >>> >
-> >>> > It doesn't look like you need to mask here at all.
-> >>>
-> >>> where does it say dsa_header[0] will always have 0x81 set ?
-> >>
-> >> Eh?
-> >>
-> >> This code is checking whether the packet has a STPID tag on it or =
-not.
-> >> A STPID tag exists if the first 12 nibbles are 0x810.
-> >>
-> >> You are checking whether the first 8 nibbles of this are equal to =
-0x81
-> >> by doing:
-> >>
-> >> =A0 =A0 =A0 =A0if ((byte & 0x81) =3D=3D 0x81)
-> >>
-> >> What if the first byte is 0x93? =A0Or 0xc5?
-> >
-> > that was my point. =A0should it be masking or doing a raw compare ?
->=20
-> and the answer is ... ?  so i can send an updated patch ;)
+Ok, in my case I *did* want this behaviour..it makes send-to-self,
+BIND_TO_DEVICE and virtual routers and such work properly if I
+recall correctly.
 
-=46rom what I understand, you should just be checking for equality with
-0x81 in the first byte, as that is what indicates presence of the STPID
-tag.
+Would you consider a sysctl to enable this feature, with it disabled
+by default?  Please note there are similar sysctls for ICMP already...
 
-Is the hardware you're doing this on available somewhere for me to
-try things out on?
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
