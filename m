@@ -1,121 +1,102 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Is it a possible bug in dev_gro_receive()?
-Date: Tue, 10 Aug 2010 08:34:26 +0000
-Message-ID: <20100810083426.GA11509@ff.dom.local>
-References: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com> <20100802102906.GA8439@ff.dom.local> <F2E9EB7348B8264F86B6AB8151CE2D791BAB3078E0@shsmsx502.ccr.corp.intel.com> <20100803064515.GA6430@ff.dom.local> <F2E9EB7348B8264F86B6AB8151CE2D7920AD46E911@shsmsx502.ccr.corp.intel.com>
+From: "Andy Chittenden" <andyc.bluearc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH] [Bug 16494] NFS client over TCP hangs due to packet loss
+Date: Tue, 10 Aug 2010 09:40:46 +0100
+Message-ID: <4c611091.487e0e0a.39f4.372b@mx.google.com>
+References: <4c57cfe8.887b0e0a.2f79.4772@mx.google.com> <20100803.012144.267950450.davem@davemloft.net> <20100803021110.f0b3877b.akpm@linux-foundation.org> <4C57EE9A.7040308@gmail.com>  <4c5ad0d6.42ecd80a.47d7.0dfc@mx.google.com> <1281037822.2948.49.camel@heimdal.trondhjem.org> <4c5bd64a.4a2ae30a.0283.0551@mx.google.com> <4c5fc9f3.487e0e0a.2960.ffffe4ec@mx.google.com> <1281372927.8950.3.camel@heimdal.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:56721 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969Ab0HJIeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 04:34:37 -0400
-Received: by bwz3 with SMTP id 3so1731859bwz.19
-        for <netdev@vger.kernel.org>; Tue, 10 Aug 2010 01:34:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D7920AD46E911@shsmsx502.ccr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "'Andrew Morton'" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	<pekkas-UjJjq++bwZ7HOG6cAo2yLw@public.gmane.org>, <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	<yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>, <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <William.Allen.Simpson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<gilad-f4XOiQkOAtcdH0auuBZGHA@public.gmane.org>, <ilpo.jarvinen-pxSi+dnQzZMxHbG02/KK1g@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"'J. Bruce Fields'" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"'Neil Brown'" <neilb-l3A5Bk7waGM@public.gmane.org>,
+	"'Chuck Lever'" <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"'Benny Halevy'" <bhalevy-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>,
+	"'Alexandros Batsakis'" <batsakis-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"'Joe Perches'" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	"Andy Chittenden" <andyc-Pe6u2o1+k2hBDgjK7y7TUQ@public.gmane.org>
+To: "'Trond Myklebust'" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1281372927.8950.3.camel-rJ7iovZKK19ZJLDQqaL3InhyD016LWXt@public.gmane.org>
+Content-Language: en-gb
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 10, 2010 at 04:11:54PM +0800, Xin, Xiaohui wrote:
-> Jarek,
-> Seems community agree with your patch more.
-> So may you send out your patch then? Thanks!
-> Some of my related patches still need this fix.
-
-Hmm... But there was no my patch. Only a tiny, cosmetical suggestion
-to your patch. I'd be glad if you add some credit or my "Acked-by",
-of course. But if you really have a big problem, e.g. you don't like
-my suggestion, please confirm.
-
-Thanks,
-Jarek P.
-
+> On Mon, 2010-08-09 at 10:27 +0100, Andy Chittenden wrote:
+> > A weekend run with that patch applied to 2.6.34.2 was successful. As
+> nobody has objected, what's the next step to getting it applied to the
+> official source trees?
 > 
-> Thanks
-> Xiaohui
+> Please resend me a version with a cleaned up changelog entry. I can
+> then
+> push it as a bugfix.
 > 
-> >-----Original Message-----
-> >From: Jarek Poplawski [mailto:jarkao2@gmail.com]
-> >Sent: Tuesday, August 03, 2010 2:45 PM
-> >To: Xin, Xiaohui
-> >Cc: netdev@vger.kernel.org; herbert@gondor.apana.org.au; davem@davemloft.net
-> >Subject: Re: Is it a possible bug in dev_gro_receive()?
-> >
-> >On Tue, Aug 03, 2010 at 10:33:24AM +0800, Xin, Xiaohui wrote:
-> >> >-----Original Message-----
-> >> >From: Jarek Poplawski [mailto:jarkao2@gmail.com]
-> >> >Sent: Monday, August 02, 2010 6:29 PM
-> >> >To: Xin, Xiaohui
-> >> >Cc: netdev@vger.kernel.org; herbert@gondor.apana.org.au; davem@davemloft.net
-> >> >Subject: Re: Is it a possible bug in dev_gro_receive()?
-> >> >
-> >> >Xin Xiaohui wrote:
-> >> >> I looked into the code dev_gro_receive(), found the code here:
-> >> >> if the frags[0] is pulled to 0, then the page will be released,
-> >> >> and memmove() frags left.
-> >> >> Is that right? I'm not sure if memmove do right or not, but
-> >> >> frags[0].size is never set after memove at least. what I think
-> >> >> a simple way is not to do anything if we found frags[0].size == 0.
-> >> >> The patch is as followed.
-> >> >>
-> >> >> Or am I missing something here?
-> >> >
-> >> >I think, you're right, but fixing memmove looks nicer to me:
-> >> >
-> >> > -	--skb_shinfo(skb)->nr_frags);
-> >> > +	--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
-> >> >
-> >> >Jarek P.
-> >>
-> >> Is there a little hurt of performance to do memmove() if skb_shinfo(skb)->nr_frags is
-> >large?
-> >> We're now working on the zero-copy patches based on napi_gro_frags() interface, and in
-> >> this case, we have found a lot of skbs which frags[0] is pulled to 0. And after the memmove
-> >is
-> >> fixed, each frags[x].size is needed to modify too.
-> >> So I think don't do anything is better. Or is there any side effect with a null page in the
-> >stack?
-> >
-> >Even if it's better, generally you should separate fixes from
-> >optimizations. On the other hand, it was expected to be "unlikely" by
-> >design, so you should probably explain more why it has to be changed
-> >here too.
-> >
-> >Thanks,
-> >Jarek P.
-> >
-> >>
-> >> Thanks
-> >> Xiaohui
-> >> >
-> >> >>
-> >> >> ---
-> >> >>  net/core/dev.c |    7 -------
-> >> >>  1 files changed, 0 insertions(+), 7 deletions(-)
-> >> >>
-> >> >> diff --git a/net/core/dev.c b/net/core/dev.c
-> >> >> index 264137f..28cdbbf 100644
-> >> >> --- a/net/core/dev.c
-> >> >> +++ b/net/core/dev.c
-> >> >> @@ -2730,13 +2730,6 @@ pull:
-> >> >>
-> >> >>  		skb_shinfo(skb)->frags[0].page_offset += grow;
-> >> >>  		skb_shinfo(skb)->frags[0].size -= grow;
-> >> >> -
-> >> >> -		if (unlikely(!skb_shinfo(skb)->frags[0].size)) {
-> >> >> -			put_page(skb_shinfo(skb)->frags[0].page);
-> >> >> -			memmove(skb_shinfo(skb)->frags,
-> >> >> -				skb_shinfo(skb)->frags + 1,
-> >> >> -				--skb_shinfo(skb)->nr_frags);
-> >> >> -		}
-> >> >>  	}
-> >> >>
-> >> >>  ok:
-> >> >
-> >> >
-> >>
+> Cheers
+>   Trond
+
+Thanks. I think this sums it up:
+
+SUNRPC: fix NFS client over TCP hangs due to packet loss (Bug 16494)
+
+When reusing a TCP connection, ensure that it's aborted if a previous shutdown attempt has been made on that connection so that the RPC over TCP recovery mechanism succeeds.
+
+# diff -up /home/company/software/src/linux-2.6.34.2/net/sunrpc/xprtsock.c net/sunrpc/xprtsock.c 
+--- /home/company/software/src/linux-2.6.34.2/net/sunrpc/xprtsock.c     2010-08-02 18:30:51.000000000 +0100
++++ net/sunrpc/xprtsock.c       2010-08-06 08:09:08.000000000 +0100
+@@ -1322,10 +1322,11 @@ static void xs_tcp_state_change(struct s
+        if (!(xprt = xprt_from_sock(sk)))
+                goto out;
+        dprintk("RPC:       xs_tcp_state_change client %p...\n", xprt);
+-       dprintk("RPC:       state %x conn %d dead %d zapped %d\n",
++       dprintk("RPC:       state %x conn %d dead %d zapped %d sk_shutdown %d\n",
+                        sk->sk_state, xprt_connected(xprt),
+                        sock_flag(sk, SOCK_DEAD),
+-                       sock_flag(sk, SOCK_ZAPPED));
++                       sock_flag(sk, SOCK_ZAPPED),
++                       sk->sk_shutdown);
+ 
+        switch (sk->sk_state) {
+        case TCP_ESTABLISHED:
+@@ -1796,10 +1797,25 @@ static void xs_tcp_reuse_connection(stru
+ {
+        unsigned int state = transport->inet->sk_state;
+ 
+-       if (state == TCP_CLOSE && transport->sock->state == SS_UNCONNECTED)
+-               return;
+-       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
+-               return;
++       if (state == TCP_CLOSE && transport->sock->state == SS_UNCONNECTED) {
++               /* we don't need to abort the connection if the socket
++                * hasn't undergone a shutdown
++                */
++               if (transport->inet->sk_shutdown == 0)
++                       return;
++               dprintk("RPC:       %s: TCP_CLOSEd and sk_shutdown set to %d\n",
++                       __func__, transport->inet->sk_shutdown);
++       }
++       if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT)) {
++               /* we don't need to abort the connection if the socket
++                * hasn't undergone a shutdown
++                */
++               if (transport->inet->sk_shutdown == 0)
++                       return;
++               dprintk("RPC:       %s: ESTABLISHED/SYN_SENT "
++                               "sk_shutdown set to %d\n",
++                               __func__, transport->inet->sk_shutdown);
++       }
+        xs_abort_connection(xprt, transport);
+ }
+
+Signed-off-by: Andy Chittenden <andyc.bluearc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
