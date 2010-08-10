@@ -1,62 +1,66 @@
-From: Philip Rakity <prakity@marvell.com>
-Subject: Re: [PATCH v2]  net: add Fast Ethernet driver for PXA168.
-Date: Tue, 10 Aug 2010 09:24:23 -0700
-Message-ID: <7B1965FC-E61F-4BFD-86B1-F9D390A012CC@marvell.com>
-References: <EC64E4604C8024438259B683BB2514E1082B1CB1B0@SC-VEXCH1.marvell.com>
- <FE9BFA4C-11AB-46B9-A514-EB62467A1BB7@marvell.com>
- <1281429004.17990.2.camel@pe-lt522.marvell.com>
- <20100810123329.GR8876@mail.wantstofly.org>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: i386 allmodconfig, current mainline
+Date: Tue, 10 Aug 2010 18:53:20 +0200
+Message-ID: <AANLkTimtZ7H=rT68V6UGC2GBky8z9VJ5m6-pwFHfm7yw@mail.gmail.com>
+References: <20100809164346.6e30cf8c.akpm@linux-foundation.org>
+	<20100810101521.0dcd4393.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Sachin Sanap <ssanap@marvell.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ashish Karkare <akarkare@marvell.com>,
-	Prabhanjan Sarnaik <sarnaik@marvell.com>,
-	"eric.y.miao@gmail.com" <eric.y.miao@gmail.com>,
-	Mark Brown <markb@marvell.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dakia3.marvell.com ([65.219.4.28]:33179 "EHLO
-	dakia3.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932370Ab0HJQhR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 12:37:17 -0400
-In-Reply-To: <20100810123329.GR8876@mail.wantstofly.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>,
+	Kevin Curtis <kevin.curtis-AP8L3A0T/wQqdlJmJB21zg@public.gmane.org>,
+	Phillip Lougher <phillip-cnXvMjJKhjYG2Il/BtU0GPXRex20P6io@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Chien Tung <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Samuel Ortiz <samuel.ortiz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100810101521.0dcd4393.sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 10, 2010 at 02:15, Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org> =
+wrote:
+> On Mon, 9 Aug 2010 16:43:46 -0700 Andrew Morton <akpm@linux-foundatio=
+n.org> wrote:
+>>
+>> Guys. =C2=A0What's goin' on out there?
+>
+> I guess we are all so up to date that noone does 32 bit builds any
+> more ... =C2=A0Also noone is bothering to look at the build logs:
+>
+> linus tree: http://kisskb.ellerman.id.au/kisskb/branch/3/
+> linux-next: http://kisskb.ellerman.id.au/kisskb/branch/9/
 
+Yeah, we have build failures migrating from -next to -linus :-(
 
-On Aug 10, 2010, at 5:33 AM, Lennert Buytenhek wrote:
+BTW, still no one has commented on http://lkml.org/lkml/2010/7/13/378?
 
-> On Tue, Aug 10, 2010 at 02:00:04PM +0530, Sachin Sanap wrote:
-> 
->> * Headroom in SKB for 802.11 not included in the patch since that
->>  varies based on 802.11 a/b/g/n.
-> 
-> I don't think this is true?
-> 
-> (The 11a/b/n on-the-air preambles are of different lengths (and are
-> sent at different rates), but that isn't visible to software.)
-> 
-> 
+Gr{oetje,eeting}s,
 
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
 
-802.11b/g headers are larger and if not handled by firmware in an offload engine are programmed by the driver.  There needs to be room for 
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
 
-a) Frame Control (2 bytes)
-b) AID (2 bytes)
-c) address-1 (6 bytes)
-d) address-2 (6 bytes)
-e) address-3 (6 bytes)
-f) seqfrag  (2 bytes)
-g) address-4 (6 bytes) 
-
-
-or 30 bytes. 11n needs more.  Some of these fields ARE visible to s/w.  So the skb prepend area needs to be larger when sending from ethernet to wifi since there will not be room for some of these fields.
-
-Philip
-
-
-<snip> 
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
