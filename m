@@ -1,39 +1,53 @@
-From: Phillip Lougher <phillip-cnXvMjJKhjYG2Il/BtU0GPXRex20P6io@public.gmane.org>
-Subject: Re: i386 allmodconfig, current mainline
-Date: Tue, 10 Aug 2010 19:27:20 +0100
-Message-ID: <4C619A08.5050704@lougher.demon.co.uk>
-References: <20100809164346.6e30cf8c.akpm@linux-foundation.org>
+From: sjur.brandeland@stericsson.com
+Subject: [PATCH 1/2] caif: Bugfix - Increase default headroom size for control
+ channel.
+Date: Tue, 10 Aug 2010 19:36:46 +0200
+Message-ID: <1281461807-17408-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>,
-	Kevin Curtis <kevin.curtis-AP8L3A0T/wQqdlJmJB21zg@public.gmane.org>,
-	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Chien Tung <chien.tin.tung-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Samuel Ortiz <samuel.ortiz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100809164346.6e30cf8c.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: 7BIT
+Cc: sjurbren@gmail.com, netdev@vger.kernel.org,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eterpe-smout.broadpark.no ([80.202.8.16]:37416 "EHLO
+	eterpe-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932302Ab0HJShr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 14:37:47 -0400
+Received: from terra-smin.broadpark.no ([80.202.8.13])
+ by eterpe-smout.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-15.01 64bit (built Feb 12 2010))
+ with ESMTP id <0L6Y00FGO69EOW90@eterpe-smout.broadpark.no> for
+ netdev@vger.kernel.org; Tue, 10 Aug 2010 19:36:50 +0200 (CEST)
+Received: from localhost.localdomain ([84.49.77.68]) by terra-smin.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-15.01 64bit (built Feb 12 2010))
+ with ESMTP id <0L6Y00LT669DLCT0@terra-smin.broadpark.no> for
+ netdev@vger.kernel.org; Tue, 10 Aug 2010 19:36:50 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew Morton wrote:
+From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-> fs/squashfs/xattr.c:37: warning: 'squashfs_xattr_handler' declared inline after being called
-> fs/squashfs/xattr.c:37: warning: previous declaration of 'squashfs_xattr_handler' was here
-> 
+Headroom size for control channel must be at least 48 bytes in some scenarios.
 
-The fix for this is in linux-next, and it will be in my imminent 2.6.36 pull
-request to Linus.
+Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+---
+ net/caif/cfpkt_skbuff.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Phillip
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/caif/cfpkt_skbuff.c b/net/caif/cfpkt_skbuff.c
+index 01f238f..c49a669 100644
+--- a/net/caif/cfpkt_skbuff.c
++++ b/net/caif/cfpkt_skbuff.c
+@@ -9,7 +9,7 @@
+ #include <linux/hardirq.h>
+ #include <net/caif/cfpkt.h>
+ 
+-#define PKT_PREFIX  16
++#define PKT_PREFIX  48
+ #define PKT_POSTFIX 2
+ #define PKT_LEN_WHEN_EXTENDING 128
+ #define PKT_ERROR(pkt, errmsg) do {	   \
+-- 
+1.6.3.3
+
