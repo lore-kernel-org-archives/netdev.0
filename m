@@ -1,74 +1,166 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: Problem with non aligned DMA in usbnet on ARM
-Date: Wed, 11 Aug 2010 23:47:29 +0100
-Message-ID: <20100811224729.GD827@n2100.arm.linux.org.uk>
-References: <AANLkTi=ycg=adcizNWKMCb7EdfDANM=6Es7r_gF1LbhV@mail.gmail.com> <4C627479.4060400@parrot.com> <AANLkTinU2JEkeYJHo4tA+kD9Pd_F3YcUTbK9w6igc7s8@mail.gmail.com> <4C62C7B3.2030706@nvidia.com> <20100811203505.GA463@n2100.arm.linux.org.uk> <4C632217.9000608@gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [iproute2] iproute2:  Fix 'addr flush secondary' logic.
+Date: Wed, 11 Aug 2010 15:48:08 -0700
+Message-ID: <4C6328A8.4070703@candelatech.com>
+References: <1281547182-1252-1-git-send-email-greearb@candelatech.com> <4C630B0A.9010304@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gary King <GKing@nvidia.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	linux-usb <linux-usb@vger.kernel.org>, netdev@vger.kernel.org,
-	Greg KH <greg@kroah.com>
-To: Martin Fuzzey <mfuzzey@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------090201000505010504090008"
+Cc: netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:41303 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757480Ab0HKWrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 18:47:47 -0400
-Content-Disposition: inline
-In-Reply-To: <4C632217.9000608@gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:56619 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756581Ab0HKWsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 18:48:11 -0400
+In-Reply-To: <4C630B0A.9010304@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 12, 2010 at 12:20:07AM +0200, Martin Fuzzey wrote:
-> [Gary, you forgot to copy -usb and netdev so adding them again to try to
-> keep this thread joined up]
-> 
-> Russell King - ARM Linux wrote:
-> > On Wed, Aug 11, 2010 at 08:54:27AM -0700, Gary King wrote:
-> >   
-> >> I sent a patch to the list about 2 weeks ago that added support to
-> >> DMA bounce to bounce for misaligned buffers. We have a similar
-> >> problem with URB alignment for usbnet on Tegra's HCD:
-> >> http://lists.arm.linux.org.uk/lurker/message/20100729.005746.b43fa1d9.en.html
+This is a multi-part message in MIME format.
+--------------090201000505010504090008
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+On 08/11/2010 01:41 PM, Brian Haley wrote:
+> On 08/11/2010 01:19 PM, Ben Greear wrote:
+>> @@ -648,7 +648,7 @@ int print_addrinfo_secondary(const struct sockaddr_nl *who, struct nlmsghdr *n,
+>>   {
+>>   	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+>>
+>> -	if (ifa->ifa_flags&  IFA_F_SECONDARY)
+>> +	if (!ifa->ifa_flags&  IFA_F_SECONDARY)
+>>   		return 0;
 >
-> Nice to know someone else has the same problem :)
-> What is the Tegra hcd?
-> I can't find it in the kernel sources.
-> 
-> > We don't want to add support for this to DMA bounce.  DMA bounce is already
-> > a pain in the backside and causes its own set of problems - please let it
-> > die a long slow but quite death.
-> >
-> > If you want to see the kind of pain dmabounce causes, look at this long
-> > standing and as yet unsolved bug:
-> >
-> >   http://bugzilla.kernel.org/show_bug.cgi?id=7760
+> Shouldn't this be:
 >
-> Well I don't know the dmabounce code but why is using it likely to cause
-> OOM problems (at least why more so than copying the buffer in the HCD or
-> the usb core).
+> 	if (!(ifa->ifa_flags&  IFA_F_SECONDARY))
+>
+> -Brian
 
-The problem in that bug appears to be that there's soo much pressure on
-the first 64MB of memory that we run out of sufficiently large blocks
-of memory to be able to satisfy the requirements to do DMA bouncing via
-the dmabounce code.  I don't think anyone got to the bottom of why the
-DMA zone was exhausted first before the DMA32 zone ran out of pages.
+Looks like the code was broken in several different places.
 
-However, as something using dma_map_single/dma_map_page has to return a
-contiguous buffer, we do need to use high order allocations for them - a
-driver on the other hand can make a decision about whether its possible
-to break up the buffer into smaller (and therefore easier to allocate)
-buffers.
+* It ran only a single filter if there were multiple.
+* Don't want to flush in a loop if you are doing primary
+   because otherwise promoted seconaries will get deleted
+   for each additional loop (10 in upstream code).
+* No idea what a while (0); statement at the end of a for
+   loop does, but I don't think it needed to be there!
 
-> In both cases there will be two copies of the buffer in
-> memory which could I agree be a problem in memory constrained systems.
-> But if we _do_ want to accept unaligned buffers from usb drivers I can't
-> see  a way round that.
+The attached patch makes it work for me, supporting
+flushing primary or secondary addresses.
 
-One thing we have done in the past (eg, SMC91x network driver on PXA) is
-to PIO the first couple of bytes to the device, and DMA the remainder -
-the DMA can't do non-word aligned start addresses.  This gives us the
-benefit of being able to deal with buffers containing IP packets without
-copying them, while preserving the performance of using DMA.
+It could certainly use some review, however.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
+
+--------------090201000505010504090008
+Content-Type: text/plain;
+ name="iproute_flush.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="iproute_flush.patch"
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 5f0789c..803df17 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -637,7 +637,7 @@ int print_addrinfo_primary(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ {
+ 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+ 
+-	if (!ifa->ifa_flags & IFA_F_SECONDARY)
++	if (ifa->ifa_flags & IFA_F_SECONDARY)
+ 		return 0;
+ 
+ 	return print_addrinfo(who, n, arg);
+@@ -648,7 +648,7 @@ int print_addrinfo_secondary(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ {
+ 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+ 
+-	if (ifa->ifa_flags & IFA_F_SECONDARY)
++	if (!(ifa->ifa_flags & IFA_F_SECONDARY))
+ 		return 0;
+ 
+ 	return print_addrinfo(who, n, arg);
+@@ -865,6 +865,13 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+ 				printf("\n*** Round %d, deleting %d addresses ***\n", round, filter.flushed);
+ 				fflush(stdout);
+ 			}
++
++			/* If we are flushing, and specifying primary, then we want to flush only a single round.
++			 * Otherwise, we'll start flushing secondaries that were promoted to primaries
++			 */
++			if (!(filter.flags & IFA_F_SECONDARY) && (filter.flagmask & IFA_F_SECONDARY)) {
++				return 0;
++			}
+ 		}
+ 		fprintf(stderr, "*** Flush remains incomplete after %d rounds. ***\n", max_flush_loops);
+ 		fflush(stderr);
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index cfeb894..d18e8a0 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -189,6 +189,8 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 	while (1) {
+ 		int status;
+ 		const struct rtnl_dump_filter_arg *a;
++		int found_done = 0;
++		int msglen = 0;
+ 
+ 		iov.iov_len = sizeof(buf);
+ 		status = recvmsg(rth->fd, &msg, 0);
+@@ -208,8 +210,9 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 
+ 		for (a = arg; a->filter; a++) {
+ 			struct nlmsghdr *h = (struct nlmsghdr*)buf;
++			msglen = status;
+ 
+-			while (NLMSG_OK(h, status)) {
++			while (NLMSG_OK(h, msglen)) {
+ 				int err;
+ 
+ 				if (nladdr.nl_pid != 0 ||
+@@ -224,8 +227,10 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 					goto skip_it;
+ 				}
+ 
+-				if (h->nlmsg_type == NLMSG_DONE)
+-					return 0;
++				if (h->nlmsg_type == NLMSG_DONE) {
++					found_done = 1;
++					break; /* process next filter */
++				}
+ 				if (h->nlmsg_type == NLMSG_ERROR) {
+ 					struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
+ 					if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+@@ -242,14 +247,18 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 					return err;
+ 
+ skip_it:
+-				h = NLMSG_NEXT(h, status);
++				h = NLMSG_NEXT(h, msglen);
+ 			}
+-		} while (0);
++		}
++
++		if (found_done)
++			return 0;
++
+ 		if (msg.msg_flags & MSG_TRUNC) {
+ 			fprintf(stderr, "Message truncated\n");
+ 			continue;
+ 		}
+-		if (status) {
++		if (msglen) {
+ 			fprintf(stderr, "!!!Remnant of size %d\n", status);
+ 			exit(1);
+ 		}
+
+--------------090201000505010504090008--
