@@ -1,56 +1,60 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Subject: Re: [RFC PATCH 1/2] pci: add function reset call that can be used
- inside	of probe
-Date: Wed, 11 Aug 2010 09:44:03 +0900
-Message-ID: <4C61F253.8050700@jp.fujitsu.com>
-References: <20100731005803.32625.6891.stgit@localhost.localdomain> <4C612C5E.8020909@jp.fujitsu.com> <4C61DD57.5030208@intel.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] 3c59x: fix deadlock when using netconsole with 3c59x
+Date: Tue, 10 Aug 2010 21:16:42 -0400
+Message-ID: <20100811011642.GA2060@localhost.localdomain>
+References: <20100809163210.GA1781@hmsreliant.think-freely.org>
+ <20100810.164803.13754555.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jbarnes@virtuousgeek.org" <jbarnes@virtuousgeek.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <4C61DD57.5030208@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47381 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753282Ab0HKBQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Aug 2010 21:16:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20100810.164803.13754555.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2010/08/11 8:14), Alexander Duyck wrote:
-> Kenji Kaneshige wrote:
->> (2010/07/31 9:58), Jeff Kirsher wrote:
->>> From: Alexander Duyck<alexander.h.duyck@intel.com>
->>> + /*
->>> + * both INTx and MSI are disabled after the Interrupt Disable bit
->>> + * is set and the Bus Master bit is cleared.
->>> + */
->>> + pci_write_config_word(dev, PCI_COMMAND, PCI_COMMAND_INTX_DISABLE);
->>> +
->>> + rc = __pci_dev_reset(dev, 0);
->>
->> Could you tell me why you need to program command register before reset?
->>
->> "MSI enable" and "Bus Master" bits are cleared by the reset. Furthermore,
->> resetting the device clears the "Interrupt Disable bit", even though it
->> was set just before the rest. So I'm a little confused.
->>
->> Thanks,
->> Kenji Kaneshige
->>
->
-> The point is to prevent any pending transactions from being on the bus
-> while we are doing the reset. By writing only the INTX disable bit we
-> are disabling all interrupts from being generated, and also disabling
-> all DMA and MSI interrupts since the bus master enable bit is not set.
->
-> Without this change the device might be in the middle of a transaction
-> or sending an interrupt while we are doing the reset which may lead to
-> other issues after the reset.
->
+On Tue, Aug 10, 2010 at 04:48:03PM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon, 9 Aug 2010 12:32:10 -0400
+> 
+> > When using netpoll, its possible to deadlock the 3c59x driver.  Since it takes
+> > an internal spinlock (vp->lock) that serializes boomerang_interrupt and parts
+> > of boomerang_start_xmit, if we call pr_debug in the former, we can go through
+> > the tx path on the same cpu, and recurse into the same driver again, deadlocking
+> > in the transmit routine.
+> > 
+> > This patch fixes that problem by stopping the queues during interrupt
+> > processing, so that subsequent transmits will get queued until a later point.
+> > Its not a great solution, but we need to find some way to serialize access to
+> > the register file on the card without enforcing a deadlock.  I think the queue
+> > stop is the best way to do that.  And since we only print things in
+> > boomerang_interrupt when we have debug enabled, we can mitigate the impact of
+> > this change to only stop the queues when debug is on.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> Nothing serialized changes to "vortex_debug" with the tests you're
+> making here.  Simply turning it off when a packet arrives can deadlock
+> the send queue of the device.
+> 
+> Even if proper serializatio did exist, I still see this as an awful
+> solution.
+> 
+> And the default value of this thing is "1" so it's always going to be
+> doing this send queue state flipping for effectively everyone.
+> 
+> Please find another way to solve this problem.
+> 
 
-Thank you for clarification. I understood.
+Crap-spackle, you're right.  I was thinking the module_param defaulted it to
+zero, but it doesn't.  Regardless, sysfs would let us change this value and
+deadlock it all to heck.
 
-Thanks,
-Kenji Kaneshige
+Recinded.  I'll find a better way to fix this.  Sorry for the noise
+Neil
+
