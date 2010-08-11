@@ -1,158 +1,88 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Wed, 11 Aug 2010 15:04:37 +0200
-Message-ID: <4C629FE5.6000204@pengutronix.de>
-References: <4C61EDE5.4030505@dsn.okisemi.com>
+From: Andrew Beverley <andy@andybev.com>
+Subject: Re: QoS weirdness : HTB accuracy
+Date: Wed, 11 Aug 2010 15:27:17 +0100
+Message-ID: <1281536837.1432.70.camel@andybev>
+References: <067c83163988908ef546d7ff7f560a17@localhost>
+	 <4BF32BB0.7010700@redfish-solutions.com>
+	 <e6bd0cff8dafc8b3af0760facb5fdc8c@localhost>
+	 <1276204948.1403.13.camel@andybev> <1278265807.1506.86.camel@andybev>
+	 <Pine.LNX.4.64.1007071457020.6631@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4667554511568606921=="
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-l3A5Bk7waGM@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
-	arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Masayuki Ohtak <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4C61EDE5.4030505-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Julien Vehent <julien@linuxwall.info>,
+	"Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
+	Netdev <netdev@vger.kernel.org>,
+	netfilter <netfilter@vger.kernel.org>
+To: hawk@comx.dk
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1007071457020.6631@ask.diku.dk>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============4667554511568606921==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigEA816B89CEC64391BF0E5A3B"
+On Wed, 2010-07-07 at 15:07 +0200, Jesper Dangaard Brouer wrote:
+> On Sun, 4 Jul 2010, Andrew Beverley wrote:
+> 
+> >>> I was, in fact, an error in my ruleset. I had put the 'linklayer atm' at
+> >>> both the branch and leaf levels, so the overhead was computed twice,
+> >>> creating those holes in the bandwidth.
+> >>
+> >> I am seeing similar behaviour with my setup. Am I making the same
+> >> mistake? A subset of my rules is as follows:
+> >>
+> >> tc qdisc add dev ppp0 root handle 1: htb r2q 1
+> >>
+> >> tc class add dev ppp0 parent 1: classid 1:1 htb \
+> >>     rate ${DOWNLINK}kbit ceil ${DOWNLINK}kbit \
+> >>     overhead $overhead linklayer atm                   <------- Here
+> >>
+> >> tc class add dev ppp0 parent 1:1 classid 1:10 htb \
+> >>     rate 612kbit ceil 612kbit prio 0 \
+> >>     overhead $overhead linklayer atm                   <------- And here
+> >>
+> >> tc qdisc add dev ppp0 parent 1:10 handle 4210: \
+> >>     sfq perturb 10 limit 50
+> >>
+> >> tc filter add dev ppp0 parent 1:0 protocol ip \
+> >>     prio 10 handle 10 fw flowid 1:10
+> >
+> > I removed the overhead option on the first leaf, and the speeds change
+> > to what I expect. However, the rules above are taken straight from the
+> > ADSL Optimizer project, which was the source of the original overhead
+> > patch for tc. So is the ADSL Optimizer project wrong?
+> 
+> After looking at the HTB kernel code I believe that the ADSL Optimizer 
+> project is NOT wrong.  You should/must set the linklayer option on both 
+> the root class and leaf (else you would be charging the root/parent node 
+> too little).
+> 
+> It is the expected behavior that small packets cause a significant
+> reduction in the available bandwidth on the ATM link.  Small packets will 
+> (almost) always cause 2 ATM packets (being send) using 106 bytes, thus
+> eg. sending a 40 bytes TCP ACK packet result in approx 62% overhead.
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigEA816B89CEC64391BF0E5A3B
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+[sorry for the late reply]
 
-Masayuki Ohtak wrote:
-> CAN driver of Topcliff PCH
->=20
-> Topcliff PCH is the platform controller hub that is going to be used in=
+Maybe I am using the linklayer atm option wrong:
 
-> Intel's upcoming general embedded platform. All IO peripherals in
-> Topcliff PCH are actually devices sitting on AMBA bus.=20
-> Topcliff PCH has CAN I/F. This driver enables CAN function.
+1. I am using it with a PCI ADSL modem. As the kernel "knows" that it's
+dealing with an ATM device, is there any need to even specify the option
+in the first place?
 
-Thanks for your contribution. Some remarks in addition to Wolfgang's.
+2. My methodology for calculating the overall speed limit for the device
+is to download several large files and see what throughput I get. I then
+use this figure in the rules above. However, as soon as I add a
+linklayer option, the maximum throughout of the device obviously drops,
+but means that I never get the throughput that I know the line is
+capable of. Assuming that I should even be using the linklayer atm
+option, should I be specifying the line speed higher than that which I
+physically observe during line speed tests?
 
-- Try to send patches directly with git send-email
-- Rebase your tree to net-next-2.6.
-- don't use global variables
-- don't use that "int handle", e.g.:
+For example, if I observe an ADSL line speed of 4000kbit/s, I then
+specify 3600kbit/s for the root of the HTB class, but with the linklayer
+atm option I only get about 3200kbit/s. Should I be specifying a higher
+value in order to get the most out of the connection?
 
-> static int pch_can_msg_tx(int handle, struct pch_can_msg *msg,
-> 			  struct net_device *ndev)
-> {
-> 	u32 id1 =3D 0;
-> 	u32 id2 =3D 0;
-> 	u32 data_a1 =3D 0;
-> 	u32 data_a2 =3D 0;
-> 	u32 data_b1 =3D 0;
-> 	u32 data_b2 =3D 0;
-> 	u32 tx_disable_counter =3D 0;
-> 	u32 buffer_status =3D 0;
-> 	u32 tx_buffer_avail =3D 0;
-> 	u32 status;
-> 	u32 i;
-> 	u32 counter;
-> 	enum pch_can_run_mode run_mode;
-> 	int retval =3D 0;
-> 	u32 if1_creq;
->=20
-> 	if ((handle =3D=3D 0) || (msg =3D=3D NULL)) {
-> 		dev_err(&ndev->dev, "%s -> Invalid Parameter.\n", __func__);
-> 		retval =3D -EPERM;
-> 	}
->=20
-> 	else {
-> 		/* Obatining the remap address for access. */
-> 		struct can_hw *can =3D (struct can_hw *) handle;
->=20
-
-use a proper struct. There are numerous drawbacks, no type safety it's
-not 64 safe, bad style,...
-
-- there are several checks for handle against 0 that make no real sense
-
-- clean up you error paths:
-
-if (error) {
-	/* error handling */
-} else {
-	/* do real work */
-}
-
-This leads to a big indention level in the interesting code path, making
-it very hard to read. Please rework your code this way:
-
-if (error) {
-	/* error handling */
-	return error;
-	/* or */
-	goto out_handle_error;
-}
-
-/* do real work */
-
-- get rid of the intermediate struct pch_can_msg:
-  Your data path is:
-  struct can_frame -> struct pch_can_msg -> registers
-  write from struct can_frame into registers directly
-
-- what's the purpose of "p_can_os->can_callback", call the function
-  directly from the interrupt handler
-
-- implement NAPI
-
-- get rid of "1 << BIT_SHIFT_SIX" and friend,
-  use "1 << 6" or "BIT(6)" if you like defines
-
-- use defines to set bits in struct can_frame can_id
-
-cheers, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Andy
 
 
---------------enigEA816B89CEC64391BF0E5A3B
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkxin+oACgkQjTAFq1RaXHN2iACfZjt9Ah8p7YSGSyiO+ESL77VR
-FuYAoItW9KxeSUenEcD9MsLw370CZ/nY
-=bNng
------END PGP SIGNATURE-----
-
---------------enigEA816B89CEC64391BF0E5A3B--
-
---===============4667554511568606921==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============4667554511568606921==--
