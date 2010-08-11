@@ -1,77 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netpoll: use non-BH variant of RCU
-Date: Wed, 11 Aug 2010 07:27:06 -0400
-Message-ID: <20100811112706.GA6772@gondor.apana.org.au>
-References: <1281471924-2237-1-git-send-email-linville@tuxdriver.com> <20100810204358.GA1076@gondor.apana.org.au> <20100810211932.GG2379@linux.vnet.ibm.com> <20100810.163117.241919476.davem@davemloft.net> <20100811110330.GA6440@gondor.apana.org.au>
+From: Martin Fuzzey <mfuzzey-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Problem with non aligned DMA in usbnet on ARM
+Date: Wed, 11 Aug 2010 13:38:37 +0200
+Message-ID: <AANLkTinU2JEkeYJHo4tA+kD9Pd_F3YcUTbK9w6igc7s8@mail.gmail.com>
+References: <AANLkTi=ycg=adcizNWKMCb7EdfDANM=6Es7r_gF1LbhV@mail.gmail.com>
+	<4C627479.4060400@parrot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com, linville@tuxdriver.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:39849 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751572Ab0HKL1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 07:27:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20100811110330.GA6440@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Matthieu CASTET <matthieu.castet-ITF29qwbsa/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4C627479.4060400-ITF29qwbsa/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 11, 2010 at 07:03:30AM -0400, Herbert Xu wrote:
+On Wed, Aug 11, 2010 at 11:59 AM, Matthieu CASTET
+<matthieu.castet-ITF29qwbsa/QT0dZR+AlfA@public.gmane.org> wrote:
+> It is best to solve in usb driver, because for example in Asix case the
+> driver already do copy (see asix_rx_fixup/asix_tx_fixup).
 >
-> To use rcu_read_lock safely we'd also need to add do synchronize_rcu
-> in addition of synchronize_rcu_bh, right Paul?
-> 
-> Of course as we were doing this unsafely prior to my patch anyway
-> I'm also fine with just reverting it.
+Yes, however those functions are only called for devices which register them.
+Looking at the driver_info and product id tables shows that it's only
+a subset of the devices that asix supports (88772 and 88178 chips)
 
-Actually, we could just disable IRQs for stable.  How about this
-patch (untested)?
+In fact my hardware _is_ included
+	// DLink DUB-E100 H/W Ver B1 Alternate
+	USB_DEVICE (0x2001, 0x3c05),
+	.driver_info = (unsigned long) &ax88772_info,
 
-netpoll: Disable IRQ around RCU dereference in netpoll_rx
+but fixing this in asix_rx_fixup wouldn't solve it for the other
+supported devices.
 
-We cannot use rcu_dereference_bh safely in netpoll_rx as we may
-be called with IRQs disabled.  We could however simply disable
-IRQs as that too causes BH to be disabled and is safe in either
-case.
+It seems to me these fixup functions are not intended to solve
+alignment issues but rather implement device specific framing (such as
+when the hardware packs multiple ethernet frames into a single urb)
 
-Thanks to John Linville for discovering this bug and providing
-a patch.
+> PS : what hcd driver do you use ?
+imx21_hcd
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 413742c..54f286b 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -63,20 +63,20 @@ static inline bool netpoll_rx(struct sk_buff *skb)
- 	unsigned long flags;
- 	bool ret = false;
- 
--	rcu_read_lock_bh();
-+	local_irq_save(flags);
- 	npinfo = rcu_dereference_bh(skb->dev->npinfo);
- 
- 	if (!npinfo || (list_empty(&npinfo->rx_np) && !npinfo->rx_flags))
- 		goto out;
- 
--	spin_lock_irqsave(&npinfo->rx_lock, flags);
-+	spin_lock(&npinfo->rx_lock);
- 	/* check rx_flags again with the lock held */
- 	if (npinfo->rx_flags && __netpoll_rx(skb))
- 		ret = true;
--	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
-+	spin_unlock(&npinfo->rx_lock);
- 
- out:
--	rcu_read_unlock_bh();
-+	local_irq_restore(flags);
- 	return ret;
- }
- 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Martin
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
