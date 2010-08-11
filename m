@@ -1,8 +1,8 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [45/54] arp_notify: allow drivers to explicitly request a notification event.
-Date: Wed, 11 Aug 2010 17:01:00 -0700
-Message-ID: <20100812000127.415022732@clark.site>
-References: <20100812000249.GA30948@kroah.com>
+Subject: [036/111] arp_notify: allow drivers to explicitly request a notification event.
+Date: Wed, 11 Aug 2010 16:54:17 -0700
+Message-ID: <20100811235458.819699877@clark.site>
+References: <20100811235623.GA24440@kroah.com>
 Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
 	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
 	Ian Campbell <ian.campbell@citrix.com>,
@@ -11,11 +11,11 @@ Cc: stable-review@kernel.org, torvalds@linux-foundation.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org, stable@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100812000249.GA30948@kroah.com>
+In-Reply-To: <20100811235623.GA24440@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2.6.34-stable review patch.  If anyone has any objections, please let us know.
+2.6.32-stable review patch.  If anyone has any objections, please let us know.
 
 ------------------
 
@@ -49,7 +49,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1661,6 +1661,8 @@ extern void netif_carrier_on(struct net_
+@@ -1560,6 +1560,8 @@ extern void netif_carrier_on(struct net_
  
  extern void netif_carrier_off(struct net_device *dev);
  
@@ -60,17 +60,17 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
   *	@dev: network device
 --- a/include/linux/notifier.h
 +++ b/include/linux/notifier.h
-@@ -203,6 +203,7 @@ static inline int notifier_to_errno(int
+@@ -201,6 +201,7 @@ static inline int notifier_to_errno(int
+ #define NETDEV_PRE_UP		0x000D
+ #define NETDEV_BONDING_OLDTYPE  0x000E
  #define NETDEV_BONDING_NEWTYPE  0x000F
- #define NETDEV_POST_INIT	0x0010
- #define NETDEV_UNREGISTER_BATCH 0x0011
 +#define NETDEV_NOTIFY_PEERS	0x0012
  
  #define SYS_DOWN	0x0001	/* Notify of system down */
  #define SYS_RESTART	SYS_DOWN
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -1081,6 +1081,7 @@ static int inetdev_event(struct notifier
+@@ -1076,6 +1076,7 @@ static int inetdev_event(struct notifier
  		}
  		ip_mc_up(in_dev);
  		/* fall through */
@@ -80,7 +80,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  		if (IN_DEV_ARP_NOTIFY(in_dev)) {
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -325,6 +325,24 @@ void netif_carrier_off(struct net_device
+@@ -330,6 +330,24 @@ void netif_carrier_off(struct net_device
  }
  EXPORT_SYMBOL(netif_carrier_off);
  
