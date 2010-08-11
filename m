@@ -1,56 +1,65 @@
-From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+From: Matthieu CASTET <matthieu.castet-ITF29qwbsa/QT0dZR+AlfA@public.gmane.org>
 Subject: Re: Problem with non aligned DMA in usbnet on ARM
-Date: Wed, 11 Aug 2010 10:54:54 +0100
-Message-ID: <20100811095454.GA22543@n2100.arm.linux.org.uk>
+Date: Wed, 11 Aug 2010 11:59:21 +0200
+Message-ID: <4C627479.4060400@parrot.com>
 References: <AANLkTi=ycg=adcizNWKMCb7EdfDANM=6Es7r_gF1LbhV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
 To: Martin Fuzzey <mfuzzey-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
 In-Reply-To: <AANLkTi=ycg=adcizNWKMCb7EdfDANM=6Es7r_gF1LbhV-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 11, 2010 at 11:41:41AM +0200, Martin Fuzzey wrote:
-> Digging a bit showed that the driver was submitting a non aligned data
-> pointer in the URB.
-> This is due to:
-> skb_reserve (skb, NET_IP_ALIGN);
-> 
-> in net/usb/usbnet.c rx_submit()
-> 
-> NET_IP_ALIGN is defined as 2 in skbuff.h (default value as not defined
-> by ARM) hence the data buffer address was offset by 2 whereas the hcd
-> requires 4 byte alignment to work at all and cache line (32 byte here)
-> alignment to work reliably.
+Hi,
 
-x86 also has NET_IP_ALIGN as 2, so it will also be IP-header aligned there
-too, so the restriction won't be from the USB stack.
+Martin Fuzzey a =E9crit :
+> Hi all,
 
-> Removing this call to skb_reserve() fixes the problem for me.
+> So what is the correct fix for this problem?
+> The options seem to be:
+> 1) Remove skb_reserve() from usbnet
+> But this will cause the ip header to be non aligned on platforms that
+> don't have the DMA alignment requirement.
+And cause lot's of unaligned access for the IP stack. This will slow=20
+down arm platform...
 
-However, that makes parsing and creating IP headers really inefficient,
-especially as we take a trap each time a misaligned access is performed.
-
+>=20
+> 2) Define NET_IP_ALIGN to 0 for ARM
+> Seems a bit intrusive to me.
+Again this will generate lot's of unaligned access.
+>=20
 > 3) Change the HCD to copy if not aligned
 > I'd like to avoid that.
+>=20
+> 4) Change usbnet to use seperate buffers for the usb side and skb.
+> Copy between them so both remain aligned
+> Seems unlikely that the gain further up the stack from ensuring the i=
+p
+> header is aligned will offset the cost of the copy.
+>=20
+> Any ideas?
+I got the same problem on the gadget side :=20
+http://article.gmane.org/gmane.linux.usb.general/28700
 
-You haven't said what HCD you're using.
+A solution could be the hcd driver to tell it doesn't support unaligned=
+=20
+transfert and in this case the usb stack/usb driver align it.
 
-> On a related note, this is the second time I've run into this type of
-> problem.It would be much easier to debug if the HCD warned (or
-> refused) misaligned URBs.
+It is best to solve in usb driver, because for example in Asix case the=
+=20
+driver already do copy (see asix_rx_fixup/asix_tx_fixup).
 
-If HCD can't cope with misaligned URBs, it should fail across the board -
-or be made to warn across the board - but I suspect it's a specific HCD
-that you're using which is only applicable to ARM.
 
-In that case, I'd say the HCD must handle misaligned URBs itself so
-behaviour is consistent between all implementations on different
-platforms.
+Matthieu
+
+PS : what hcd driver do you use ?
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
