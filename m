@@ -1,47 +1,76 @@
-From: Martin Fuzzey <mfuzzey-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Problem with non aligned DMA in usbnet on ARM
-Date: Wed, 11 Aug 2010 13:38:37 +0200
-Message-ID: <AANLkTinU2JEkeYJHo4tA+kD9Pd_F3YcUTbK9w6igc7s8@mail.gmail.com>
-References: <AANLkTi=ycg=adcizNWKMCb7EdfDANM=6Es7r_gF1LbhV@mail.gmail.com>
-	<4C627479.4060400@parrot.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: [PATCH] net: Fix a memmove bug in dev_gro_receive()
+Date: Wed, 11 Aug 2010 12:02:10 +0000
+Message-ID: <20100811120210.GA24019@ff.dom.local>
+References: <1280454855-7893-1-git-send-email-xiaohui.xin@intel.com> <20100802102906.GA8439@ff.dom.local> <F2E9EB7348B8264F86B6AB8151CE2D791BAB3078E0@shsmsx502.ccr.corp.intel.com> <20100803064515.GA6430@ff.dom.local> <F2E9EB7348B8264F86B6AB8151CE2D7920AD46E911@shsmsx502.ccr.corp.intel.com> <20100810083426.GA11509@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Matthieu CASTET <matthieu.castet-ITF29qwbsa/QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4C627479.4060400-ITF29qwbsa/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:45994 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750877Ab0HKMCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 08:02:18 -0400
+Received: by fxm13 with SMTP id 13so21034fxm.19
+        for <netdev@vger.kernel.org>; Wed, 11 Aug 2010 05:02:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20100810083426.GA11509@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 11, 2010 at 11:59 AM, Matthieu CASTET
-<matthieu.castet-ITF29qwbsa/QT0dZR+AlfA@public.gmane.org> wrote:
-> It is best to solve in usb driver, because for example in Asix case the
-> driver already do copy (see asix_rx_fixup/asix_tx_fixup).
->
-Yes, however those functions are only called for devices which register them.
-Looking at the driver_info and product id tables shows that it's only
-a subset of the devices that asix supports (88772 and 88178 chips)
+[was: Re: Is it a possible bug in dev_gro_receive()?]
+On Tue, Aug 10, 2010 at 08:34:26AM +0000, Jarek Poplawski wrote:
+> On Tue, Aug 10, 2010 at 04:11:54PM +0800, Xin, Xiaohui wrote:
+> > Jarek,
+> > Seems community agree with your patch more.
+> > So may you send out your patch then? Thanks!
+> > Some of my related patches still need this fix.
+> 
+> Hmm... But there was no my patch. Only a tiny, cosmetical suggestion
+> to your patch. I'd be glad if you add some credit or my "Acked-by",
+> of course. But if you really have a big problem, e.g. you don't like
+> my suggestion, please confirm.
 
-In fact my hardware _is_ included
-	// DLink DUB-E100 H/W Ver B1 Alternate
-	USB_DEVICE (0x2001, 0x3c05),
-	.driver_info = (unsigned long) &ax88772_info,
+Hmm#2... OK, it's probably something with my English, but since it
+seems to take too long, here it is. Xiaohui, I hope you'll send your
+"Signed-off-by" at least.
 
-but fixing this in asix_rx_fixup wouldn't solve it for the other
-supported devices.
+Thanks,
+Jarek P.
 
-It seems to me these fixup functions are not intended to solve
-alignment issues but rather implement device specific framing (such as
-when the hardware packs multiple ethernet frames into a single urb)
+PS: I know, there is a bit too long line...
+--------------------------->
 
-> PS : what hcd driver do you use ?
-imx21_hcd
+>Xin Xiaohui wrote:
+> I looked into the code dev_gro_receive(), found the code here:
+> if the frags[0] is pulled to 0, then the page will be released,
+> and memmove() frags left.
+> Is that right? I'm not sure if memmove do right or not, but
+> frags[0].size is never set after memove at least. what I think
+> a simple way is not to do anything if we found frags[0].size == 0.
+> The patch is as followed.
+...
 
-Martin
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This version of the patch fixes the bug directly in memmove.
+
+Reported-by: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+
+---
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1ae6543..3721fbb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3143,7 +3143,7 @@ pull:
+ 			put_page(skb_shinfo(skb)->frags[0].page);
+ 			memmove(skb_shinfo(skb)->frags,
+ 				skb_shinfo(skb)->frags + 1,
+-				--skb_shinfo(skb)->nr_frags);
++				--skb_shinfo(skb)->nr_frags * sizeof(skb_frag_t));
+ 		}
+ 	}
+ 
