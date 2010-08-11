@@ -1,51 +1,71 @@
-From: Christoph Fritz <chf.fritz@googlemail.com>
-Subject: [PATCH 2/2] ipw2100: add WEXT scan capabilities
-Date: Wed, 11 Aug 2010 21:33:15 +0200
-Message-ID: <1281555195.4367.3.camel@lovely.krouter>
-References: <1281555063.4367.1.camel@lovely.krouter>
+From: Greg KH <greg@kroah.com>
+Subject: Re: arp_notify: allow drivers to explicitly request a notification
+ event.
+Date: Wed, 11 Aug 2010 12:39:25 -0700
+Message-ID: <20100811193925.GA9452@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Zhu Yi <yi.zhu@intel.com>, "David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1281555063.4367.1.camel@lovely.krouter>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:55344 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756387Ab0HKTkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Aug 2010 15:40:05 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-NetworkManager claims: "driver does not support SSID scans (scan_capa
-0x00)". This patch adds scan capabilities.
+Wait, Ian, are you sure this patch is correct?  Look below in
+notifier.h:
 
-Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
----
- drivers/net/wireless/ipw2x00/ipw2100.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+On Wed, May 26, 2010 at 12:09:42AM +0000, Ian Campbell wrote:
+> From: Ian Campbell <Ian.Campbell@citrix.com>
+> 
+> commit 06c4648d46d1b757d6b9591a86810be79818b60c upstream.
+> 
+> Currently such notifications are only generated when the device comes up or the
+> address changes. However one use case for these notifications is to enable
+> faster network recovery after a virtual machine migration (by causing switches
+> to relearn their MAC tables). A migration appears to the network stack as a
+> temporary loss of carrier and therefore does not trigger either of the current
+> conditions. Rather than adding carrier up as a trigger (which can cause issues
+> when interfaces a flapping) simply add an interface which the driver can use
+> to explicitly trigger the notification.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+> Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> 
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1772,6 +1772,8 @@ extern void netif_carrier_on(struct net_device *dev);
+>  
+>  extern void netif_carrier_off(struct net_device *dev);
+>  
+> +extern void netif_notify_peers(struct net_device *dev);
+> +
+>  /**
+>   *	netif_dormant_on - mark device as dormant.
+>   *	@dev: network device
+> diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+> index 540703b..22c2abb 100644
+> --- a/include/linux/notifier.h
+> +++ b/include/linux/notifier.h
+> @@ -210,6 +210,7 @@ static inline int notifier_to_errno(int ret)
+>  #define NETDEV_POST_INIT	0x0010
+>  #define NETDEV_UNREGISTER_BATCH 0x0011
+>  #define NETDEV_BONDING_DESLAVE  0x0012
+> +#define NETDEV_NOTIFY_PEERS	0x0012
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-index df8e535..c330da4 100644
---- a/drivers/net/wireless/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-@@ -6982,12 +6982,15 @@ static int ipw2100_wx_get_range(struct net_device *dev,
- 
- 	/* Event capability (kernel + driver) */
- 	range->event_capa[0] = (IW_EVENT_CAPA_K_0 |
--				IW_EVENT_CAPA_MASK(SIOCGIWAP));
-+				IW_EVENT_CAPA_MASK(SIOCGIWAP) |
-+				IW_EVENT_CAPA_MASK(SIOCGIWSCAN));
- 	range->event_capa[1] = IW_EVENT_CAPA_K_1;
- 
- 	range->enc_capa = IW_ENC_CAPA_WPA | IW_ENC_CAPA_WPA2 |
- 		IW_ENC_CAPA_CIPHER_TKIP | IW_ENC_CAPA_CIPHER_CCMP;
- 
-+	range->scan_capa = IW_SCAN_CAPA_ESSID | IW_SCAN_CAPA_TYPE;
-+
- 	IPW_DEBUG_WX("GET Range\n");
- 
- 	return 0;
--- 
-1.7.1
+Are you sure that you can duplicate this value?
+
+curious,
+
+greg k-h
