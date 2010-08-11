@@ -1,46 +1,60 @@
-From: Roopa Prabhu <roprabhu@cisco.com>
-Subject: [net-next-2.6 PATCH 7/7] enic: Mark intr_timer in vnic_enet_config as
-	deprecated
-Date: Tue, 10 Aug 2010 21:55:26 -0700
-Message-ID: <20100811045526.3877.69697.stgit@savbu-pc100.cisco.com>
-References: <20100811045436.3877.51650.stgit@savbu-pc100.cisco.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH v9 00/16] Provide a zero-copy method on KVM
+ virtio-net.
+Date: Tue, 10 Aug 2010 23:01:00 -0700
+Message-ID: <1281506460.3391.42.camel@localhost.localdomain>
+References: <1281086624-5765-1-git-send-email-xiaohui.xin@intel.com>
+	 <1281489804.3391.23.camel@localhost.localdomain>
+	 <1281490993.3391.25.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:13281 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932472Ab0HKEz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 00:55:26 -0400
-In-Reply-To: <20100811045436.3877.51650.stgit@savbu-pc100.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	jdike@linux.intel.com
+To: xiaohui.xin@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1281490993.3391.25.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roprabhu@cisco.com>
+On Tue, 2010-08-10 at 18:43 -0700, Shirley Ma wrote:
+> > Also I found some vhost performance regression on the new
+> > kernel with tuning. I used to get 9.4Gb/s, now I couldn't get it. 
+> 
+> I forgot to mention the kernel I used 2.6.36 one. And I found the
+> native
+> host BW is limited to 8.0Gb/s, so the regression might come from the
+> device driver not vhost.
 
+Something is very interesting, when binding ixgbe interrupts to cpu1,
+and running netperf/netserver on cpu0, the native host to host
+performance is still around 8.0Gb/s, however, the macvtap zero copy
+result is 9.0Gb/s.
 
+root@localhost ~]# netperf -H 192.168.10.74 -c -C -l60 -T0,0 -- -m 64K
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.10.74 (192.168..
+10.74) port 0 AF_INET : cpu bind
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
 
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
----
- drivers/net/enic/vnic_enet.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ 87380  16384  65536    60.00      9013.59   53.01    8.21     0.963   0.597
 
+Below is perf top output:
 
-diff --git a/drivers/net/enic/vnic_enet.h b/drivers/net/enic/vnic_enet.h
-index 3b32912..e8740e3 100644
---- a/drivers/net/enic/vnic_enet.h
-+++ b/drivers/net/enic/vnic_enet.h
-@@ -30,7 +30,7 @@ struct vnic_enet_config {
- 	u32 wq_desc_count;
- 	u32 rq_desc_count;
- 	u16 mtu;
--	u16 intr_timer;
-+	u16 intr_timer_deprecated;
- 	u8 intr_timer_type;
- 	u8 intr_mode;
- 	char devname[16];
+              578.00  6.5% copy_user_generic_string   
+              381.00  4.3% vmx_vcpu_run                
+              250.00  2.8% schedule                    
+              207.00  2.3% vhost_get_vq_desc           
+              204.00  2.3% _raw_spin_lock_irqsave      
+              197.00  2.2% translate_desc              
+              193.00  2.2% memcpy_fromiovec            
+              162.00  1.8% gup_pte_range   
 
+We can compare your results with mine to see any difference.
+
+Thanks
+Shirley
