@@ -1,88 +1,147 @@
-From: Andrew Beverley <andy@andybev.com>
-Subject: Re: QoS weirdness : HTB accuracy
-Date: Wed, 11 Aug 2010 15:27:17 +0100
-Message-ID: <1281536837.1432.70.camel@andybev>
-References: <067c83163988908ef546d7ff7f560a17@localhost>
-	 <4BF32BB0.7010700@redfish-solutions.com>
-	 <e6bd0cff8dafc8b3af0760facb5fdc8c@localhost>
-	 <1276204948.1403.13.camel@andybev> <1278265807.1506.86.camel@andybev>
-	 <Pine.LNX.4.64.1007071457020.6631@ask.diku.dk>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6] bridge: allow hub-like behaviour
+Date: Wed, 11 Aug 2010 16:40:18 +0200
+Message-ID: <20100811144017.GA2625@psychotron.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Julien Vehent <julien@linuxwall.info>,
-	"Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
-	Netdev <netdev@vger.kernel.org>,
-	netfilter <netfilter@vger.kernel.org>
-To: hawk@comx.dk
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1007071457020.6631@ask.diku.dk>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60074 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753062Ab0HKOlc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Aug 2010 10:41:32 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-07-07 at 15:07 +0200, Jesper Dangaard Brouer wrote:
-> On Sun, 4 Jul 2010, Andrew Beverley wrote:
-> 
-> >>> I was, in fact, an error in my ruleset. I had put the 'linklayer atm' at
-> >>> both the branch and leaf levels, so the overhead was computed twice,
-> >>> creating those holes in the bandwidth.
-> >>
-> >> I am seeing similar behaviour with my setup. Am I making the same
-> >> mistake? A subset of my rules is as follows:
-> >>
-> >> tc qdisc add dev ppp0 root handle 1: htb r2q 1
-> >>
-> >> tc class add dev ppp0 parent 1: classid 1:1 htb \
-> >>     rate ${DOWNLINK}kbit ceil ${DOWNLINK}kbit \
-> >>     overhead $overhead linklayer atm                   <------- Here
-> >>
-> >> tc class add dev ppp0 parent 1:1 classid 1:10 htb \
-> >>     rate 612kbit ceil 612kbit prio 0 \
-> >>     overhead $overhead linklayer atm                   <------- And here
-> >>
-> >> tc qdisc add dev ppp0 parent 1:10 handle 4210: \
-> >>     sfq perturb 10 limit 50
-> >>
-> >> tc filter add dev ppp0 parent 1:0 protocol ip \
-> >>     prio 10 handle 10 fw flowid 1:10
-> >
-> > I removed the overhead option on the first leaf, and the speeds change
-> > to what I expect. However, the rules above are taken straight from the
-> > ADSL Optimizer project, which was the source of the original overhead
-> > patch for tc. So is the ADSL Optimizer project wrong?
-> 
-> After looking at the HTB kernel code I believe that the ADSL Optimizer 
-> project is NOT wrong.  You should/must set the linklayer option on both 
-> the root class and leaf (else you would be charging the root/parent node 
-> too little).
-> 
-> It is the expected behavior that small packets cause a significant
-> reduction in the available bandwidth on the ATM link.  Small packets will 
-> (almost) always cause 2 ATM packets (being send) using 106 bytes, thus
-> eg. sending a 40 bytes TCP ACK packet result in approx 62% overhead.
+This patch allows bridge to behave much like ordinary hub. That means that
+every frame received is forwarded to all ports. This functionality is of course
+disabled by default, can be enabled via sysfs. This could be handy mainly for
+testing purposes.
 
-[sorry for the late reply]
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ net/bridge/br_device.c   |   14 +++++++++-----
+ net/bridge/br_input.c    |   12 +++++++++---
+ net/bridge/br_private.h  |    1 +
+ net/bridge/br_sysfs_br.c |   25 +++++++++++++++++++++++++
+ 4 files changed, 44 insertions(+), 8 deletions(-)
 
-Maybe I am using the linklayer atm option wrong:
-
-1. I am using it with a PCI ADSL modem. As the kernel "knows" that it's
-dealing with an ATM device, is there any need to even specify the option
-in the first place?
-
-2. My methodology for calculating the overall speed limit for the device
-is to download several large files and see what throughput I get. I then
-use this figure in the rules above. However, as soon as I add a
-linklayer option, the maximum throughout of the device obviously drops,
-but means that I never get the throughput that I know the line is
-capable of. Assuming that I should even be using the linklayer atm
-option, should I be specifying the line speed higher than that which I
-physically observe during line speed tests?
-
-For example, if I observe an ADSL line speed of 4000kbit/s, I then
-specify 3600kbit/s for the root of the HTB class, but with the linklayer
-atm option I only get about 3200kbit/s. Should I be specifying a higher
-value in order to get the most out of the connection?
-
-Andy
-
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index cf09fe5..1bfc1c5 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -60,14 +60,18 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 
+ 		mdst = br_mdb_get(br, skb);
+-		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
++		if ((mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) &&
++		     likely(!br->hub_mode))
+ 			br_multicast_deliver(mdst, skb);
+ 		else
+ 			br_flood_deliver(br, skb);
+-	} else if ((dst = __br_fdb_get(br, dest)) != NULL)
+-		br_deliver(dst->dst, skb);
+-	else
+-		br_flood_deliver(br, skb);
++	} else {
++		dst = __br_fdb_get(br, dest);
++		if (dst && likely(!br->hub_mode))
++			br_deliver(dst->dst, skb);
++		else
++			br_flood_deliver(br, skb);
++	}
+ 
+ out:
+ 	rcu_read_unlock();
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 826cd52..24ee87e 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -75,7 +75,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 
+ 	if (is_multicast_ether_addr(dest)) {
+ 		mdst = br_mdb_get(br, skb);
+-		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
++		if ((mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) &&
++		    likely(!br->hub_mode)) {
+ 			if ((mdst && !hlist_unhashed(&mdst->mglist)) ||
+ 			    br_multicast_is_router(br))
+ 				skb2 = skb;
+@@ -89,8 +90,13 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 		br->dev->stats.multicast++;
+ 	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {
+ 		skb2 = skb;
+-		/* Do not forward the packet since it's local. */
+-		skb = NULL;
++		if (likely(!br->hub_mode)) {
++			/* Do not forward the packet since it's local. */
++			skb = NULL;
++		} else {
++			/* In hub mode we want to forward the packet to all. */
++			dst = NULL;
++		}
+ 	}
+ 
+ 	if (skb) {
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 75c90ed..b6a9a7e 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -194,6 +194,7 @@ struct net_bridge
+ 	unsigned long			ageing_time;
+ 	unsigned long			bridge_hello_time;
+ 	unsigned long			bridge_forward_delay;
++	bool				hub_mode;
+ 
+ 	u8				group_addr[ETH_ALEN];
+ 	u16				root_port;
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 5c1e555..ac98aa4 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -345,6 +345,30 @@ static ssize_t store_flush(struct device *d,
+ }
+ static DEVICE_ATTR(flush, S_IWUSR, NULL, store_flush);
+ 
++static ssize_t show_hub_mode(struct device *d,
++			     struct device_attribute *attr, char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++
++	return sprintf(buf, "%d\n", br->hub_mode ? 1 : 0);
++}
++
++static int set_hub_mode(struct net_bridge *br, unsigned long val)
++{
++	br->hub_mode = val ? true : false;
++	return 0;
++}
++
++static ssize_t store_hub_mode(struct device *d,
++			      struct device_attribute *attr,
++			      const char *buf, size_t len)
++{
++	return store_bridge_parm(d, buf, len, set_hub_mode);
++}
++
++static DEVICE_ATTR(hub_mode, S_IRUGO | S_IWUSR,
++		   show_hub_mode, store_hub_mode);
++
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ static ssize_t show_multicast_router(struct device *d,
+ 				     struct device_attribute *attr, char *buf)
+@@ -698,6 +722,7 @@ static struct attribute *bridge_attrs[] = {
+ 	&dev_attr_gc_timer.attr,
+ 	&dev_attr_group_addr.attr,
+ 	&dev_attr_flush.attr,
++	&dev_attr_hub_mode.attr,
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	&dev_attr_multicast_router.attr,
+ 	&dev_attr_multicast_snooping.attr,
+-- 
+1.7.2.1
 
