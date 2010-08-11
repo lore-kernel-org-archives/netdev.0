@@ -1,42 +1,82 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Fix deadlock between boomerang_interrupt and
- boomerang_start_tx in 3c59x
-Date: Wed, 11 Aug 2010 13:51:30 -0400
-Message-ID: <20100811175130.GC23317@hmsreliant.think-freely.org>
-References: <20100811151257.GB23317@hmsreliant.think-freely.org>
- <20100811120900.3629706c@s6510>
+From: Andrew Beverley <andy@andybev.com>
+Subject: Re: QoS weirdness : HTB accuracy
+Date: Wed, 11 Aug 2010 18:59:06 +0100
+Message-ID: <1281549546.1432.248.camel@andybev>
+References: <067c83163988908ef546d7ff7f560a17@localhost>
+	 <4BF32BB0.7010700@redfish-solutions.com>
+	 <e6bd0cff8dafc8b3af0760facb5fdc8c@localhost>
+	 <1276204948.1403.13.camel@andybev> <1278265807.1506.86.camel@andybev>
+	 <Pine.LNX.4.64.1007071457020.6631@ask.diku.dk>
+	 <20100707180753.104124gv6yvtou9s@hayate.sektori.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54776 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758246Ab0HKR4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 13:56:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20100811120900.3629706c@s6510>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Julien Vehent <julien@linuxwall.info>,
+	"Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
+	Netdev <netdev@vger.kernel.org>,
+	netfilter <netfilter@vger.kernel.org>, hawk@comx.dk
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <20100707180753.104124gv6yvtou9s@hayate.sektori.org>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 11, 2010 at 12:09:00PM -0400, Stephen Hemminger wrote:
-> On Wed, 11 Aug 2010 11:12:57 -0400
-> Neil Horman <nhorman@tuxdriver.com> wrote:
+On Wed, 2010-07-07 at 18:07 +0300, Jussi Kivilinna wrote:
+> >>>> I was, in fact, an error in my ruleset. I had put the 'linklayer atm' at
+> >>>> both the branch and leaf levels, so the overhead was computed twice,
+> >>>> creating those holes in the bandwidth.
+> >>>
+> >>> I am seeing similar behaviour with my setup. Am I making the same
+> >>> mistake? A subset of my rules is as follows:
+> >>>
+> >>> tc qdisc add dev ppp0 root handle 1: htb r2q 1
+> >>>
+> >>> tc class add dev ppp0 parent 1: classid 1:1 htb \
+> >>>    rate ${DOWNLINK}kbit ceil ${DOWNLINK}kbit \
+> >>>    overhead $overhead linklayer atm                   <------- Here
+> >>>
+> >>> tc class add dev ppp0 parent 1:1 classid 1:10 htb \
+> >>>    rate 612kbit ceil 612kbit prio 0 \
+> >>>    overhead $overhead linklayer atm                   <------- And here
+> >>>
+> >>> tc qdisc add dev ppp0 parent 1:10 handle 4210: \
+> >>>    sfq perturb 10 limit 50
+> >>>
+> >>> tc filter add dev ppp0 parent 1:0 protocol ip \
+> >>>    prio 10 handle 10 fw flowid 1:10
+> >>
+> >> I removed the overhead option on the first leaf, and the speeds change
+> >> to what I expect. However, the rules above are taken straight from the
+> >> ADSL Optimizer project, which was the source of the original overhead
+> >> patch for tc. So is the ADSL Optimizer project wrong?
+> >
+> > After looking at the HTB kernel code I believe that the ADSL  
+> > Optimizer project is NOT wrong.  You should/must set the linklayer  
+> > option on both the root class and leaf (else you would be charging  
+> > the root/parent node too little).
+> >
 > 
-> > If netconsole is in use, there is a possibility for deadlock in 3c59x between
-> > boomerang_interrupt and boomerang_start_xmit.  Both routines take the vp->lock,
-> > and if netconsole is in use, a pr_* call from the boomerang_interrupt routine
-> > will result in the netconsole code attempting to trnasmit an skb, which can try
-> > to take the same spin lock, resulting in de
+> It's been while I looked at the linklayer/size-table code, but if I  
+> remember right overhead is calculated with first linklayer packet sees  
+> in qdisc. So when packet goes to leaf with 'linklayer atm', packet get  
+> packet size with overhead for ATM and root linklayer is not used for  
+> that packet. Because of this you can have leafs with different  
+> overheads (pppoe, ipv6-tunnel, etc, with ) and all get right  
+> overhead... ..
 > 
-> I thought we agreed that any device supporting netconsole agrees
-> to not call printk in the transmit path. Just kill the pr_* call.
+> ..
 > 
+> ...Uh oh...
+> 
+> HTB still has linklayer/overhead of its own, I was talking about the  
+> generic linklayer code that can be used with all qdiscs. Never mind,  
+> sorry.
 
-3c59x isn't calling pr_* in the transmit path, its calling it in the interrupt
-handler, but since the interrupt handler and the transmit path share a spinlock,
-you get a deadlock in that case.  We could kill the several pr_debug calls in
-the interrupt path, but I don't think thats really needed in this case.
+Ah, I hadn't come across the tc-stab functionality until now. So that
+does exactly the same for all qdiscs as the original ATM patch does for
+HTB? But they work slightly differently as you have alluded to above?
 
-Neil
+Andy
+
 
