@@ -1,78 +1,53 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 6/8] qlcnic: fix link diag test
-Date: Wed, 11 Aug 2010 05:05:27 -0700
-Message-ID: <1281528329-8812-7-git-send-email-amit.salecha@qlogic.com>
-References: <1281528329-8812-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: davem@davemloft.net
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] netpoll: use non-BH variant of RCU
+Date: Wed, 11 Aug 2010 05:20:26 -0700
+Message-ID: <20100811122026.GB2587@linux.vnet.ibm.com>
+References: <1281471924-2237-1-git-send-email-linville@tuxdriver.com>
+ <20100810204358.GA1076@gondor.apana.org.au>
+ <20100810211932.GG2379@linux.vnet.ibm.com>
+ <20100810.163117.241919476.davem@davemloft.net>
+ <20100811110330.GA6440@gondor.apana.org.au>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linville@tuxdriver.com,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:23703 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751707Ab0HKMFa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Aug 2010 08:05:30 -0400
-In-Reply-To: <1281528329-8812-1-git-send-email-amit.salecha@qlogic.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:41036 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751267Ab0HKMUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Aug 2010 08:20:39 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o7BC5tl0006867
+	for <netdev@vger.kernel.org>; Wed, 11 Aug 2010 08:05:55 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o7BCKSKb378216
+	for <netdev@vger.kernel.org>; Wed, 11 Aug 2010 08:20:28 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o7BCKR64008559
+	for <netdev@vger.kernel.org>; Wed, 11 Aug 2010 08:20:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20100811110330.GA6440@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+On Wed, Aug 11, 2010 at 07:03:30AM -0400, Herbert Xu wrote:
+> On Tue, Aug 10, 2010 at 04:31:17PM -0700, David Miller wrote:
+> >
+> > Linus's tree is fine for this.
+> > 
+> > But we need this fix for 2.6.35-stable too.  Herbert would
+> > you object to putting John's more simple fix there?
+> 
+> To use rcu_read_lock safely we'd also need to add do synchronize_rcu
+> in addition of synchronize_rcu_bh, right Paul?
 
-o Give sufficient time for all makes of PHY modules
-  to establish the link after loopback test.
-o Perform online test before offline test.
+That is true.
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic_ethtool.c |   17 ++++++++---------
- drivers/net/qlcnic/qlcnic_hw.c      |    1 +
- 2 files changed, 9 insertions(+), 9 deletions(-)
+> Of course as we were doing this unsafely prior to my patch anyway
+> I'm also fine with just reverting it.
 
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 9328d59..3d4655d 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -747,6 +747,14 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- {
- 	memset(data, 0, sizeof(u64) * QLCNIC_TEST_LEN);
- 
-+	data[0] = qlcnic_reg_test(dev);
-+	if (data[0])
-+		eth_test->flags |= ETH_TEST_FL_FAILED;
-+
-+	data[1] = (u64) qlcnic_test_link(dev);
-+	if (data[1])
-+		eth_test->flags |= ETH_TEST_FL_FAILED;
-+
- 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
- 		data[2] = qlcnic_irq_test(dev);
- 		if (data[2])
-@@ -757,15 +765,6 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
- 	}
--
--	data[0] = qlcnic_reg_test(dev);
--	if (data[0])
--		eth_test->flags |= ETH_TEST_FL_FAILED;
--
--	/* link test */
--	data[1] = (u64) qlcnic_test_link(dev);
--	if (data[1])
--		eth_test->flags |= ETH_TEST_FL_FAILED;
- }
- 
- static void
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index e08c8b0..9d40ce0 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -1245,4 +1245,5 @@ void qlcnic_clear_ilb_mode(struct qlcnic_adapter *adapter)
- 		mode = VPORT_MISS_MODE_ACCEPT_MULTI;
- 
- 	qlcnic_nic_set_promisc(adapter, mode);
-+	msleep(1000);
- }
--- 
-1.6.0.2
+That is true as well.
 
+							Thanx, Paul
