@@ -1,102 +1,31 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 6/6] bna: Brocade 10Gb Ethernet device driver
-Date: Tue, 10 Aug 2010 21:54:36 -0700
-Message-ID: <201008110454.o7B4saYH019324@blc-10-10.brocade.com>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH 0/7] enic: updates to version 1.4.1.2
+Date: Tue, 10 Aug 2010 21:54:50 -0700
+Message-ID: <20100811045436.3877.51650.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adapter_linux_open_src_team@brocade.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33083 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751040Ab0HKEyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 00:54:37 -0400
-Received: from pps.filterd (m0000542 [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.14.3/8.14.3) with SMTP id o7B4sb4w017447
-	for <netdev@vger.kernel.org>; Tue, 10 Aug 2010 21:54:37 -0700
-Received: from hq-exedge.brocade.com (hq-exedge.brocade.com [66.243.153.83])
-	by mx0a-000f0801.pphosted.com with ESMTP id qkmbv80tq-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 10 Aug 2010 21:54:37 -0700
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:10491 "EHLO
+	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441Ab0HKEyv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 00:54:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rasesh Mody <rmody@brocade.com>
+This patch series implements the following enic driver updates:
 
-This is patch 6/6 which contains linux driver source for
-Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
-Source is based against net-next-2.6.
+01/7 - Add set mac address
+02/7 - Add support for firmware management device
+03/7 - Add new firmware devcmds
+04/7 - Use offsetof macro in vic tlv length calculation
+05/7 - Clean up: remove enic_dev_stats_clear
+06/7 - Check if rq/wq buf not NULL before freeing them
+07/7 - Mark intr_timer in vnic_enet_config as deprecated
 
-We wish this patch to be considered for inclusion in net-next-2.6
 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/Kconfig      |   14 ++++++++++++++
- drivers/net/Makefile     |    1 +
- drivers/net/bna/Makefile |   11 +++++++++++
- include/linux/pci_ids.h  |    3 +++
- 4 files changed, 29 insertions(+)
-
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/Kconfig net-next-2.6.35-rc1-mod/drivers/net/Kconfig
---- net-next-2.6.35-rc1-orig/drivers/net/Kconfig	2010-07-22 19:10:00.000000000 -0700
-+++ net-next-2.6.35-rc1-mod/drivers/net/Kconfig	2010-08-10 12:31:30.238653000 -0700
-@@ -2859,6 +2859,20 @@
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called qlge.
- 
-+config BNA
-+        tristate "Brocade 1010/1020 10Gb Ethernet Driver support"
-+        depends on PCI
-+        ---help---
-+          This driver supports Brocade 1010/1020 10Gb CEE capable Ethernet
-+          cards.
-+          To compile this driver as a module, choose M here: the module
-+          will be called bna.
-+
-+          For general information and support, go to the Brocade support
-+          website at:
-+
-+          <http://support.brocade.com>
-+
- source "drivers/net/sfc/Kconfig"
- 
- source "drivers/net/benet/Kconfig"
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/Makefile net-next-2.6.35-rc1-mod/drivers/net/Makefile
---- net-next-2.6.35-rc1-orig/drivers/net/Makefile	2010-07-22 19:10:00.000000000 -0700
-+++ net-next-2.6.35-rc1-mod/drivers/net/Makefile	2010-08-10 12:31:30.245640000 -0700
-@@ -34,6 +34,7 @@
- obj-$(CONFIG_JME) += jme.o
- obj-$(CONFIG_BE2NET) += benet/
- obj-$(CONFIG_VMXNET3) += vmxnet3/
-+obj-$(CONFIG_BNA) += bna/
- 
- gianfar_driver-objs := gianfar.o \
- 		gianfar_ethtool.o \
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/Makefile net-next-2.6.35-rc1-mod/drivers/net/bna/Makefile
---- net-next-2.6.35-rc1-orig/drivers/net/bna/Makefile	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6.35-rc1-mod/drivers/net/bna/Makefile	2010-08-10 12:31:30.264641000 -0700
-@@ -0,0 +1,11 @@
-+#
-+# Copyright (c) 2006-2009 Brocade Communications Systems, Inc.
-+# All rights reserved.
-+#
-+
-+obj-$(CONFIG_BNA) += bna.o
-+
-+bna-objs := bnad.o bnad_ethtool.o bna_ctrl.o bna_txrx.o
-+bna-objs += bfa_ioc.o bfa_ioc_ct.o bfa_cee.o cna_fwimg.o
-+
-+EXTRA_CFLAGS := -Idrivers/net/bna
-diff -ruP net-next-2.6.35-rc1-orig/include/linux/pci_ids.h net-next-2.6.35-rc1-mod/include/linux/pci_ids.h
---- net-next-2.6.35-rc1-orig/include/linux/pci_ids.h	2010-07-22 19:10:10.000000000 -0700
-+++ net-next-2.6.35-rc1-mod/include/linux/pci_ids.h	2010-08-10 12:31:30.259639000 -0700
-@@ -2188,6 +2188,9 @@
- #define PCI_VENDOR_ID_ARIMA		0x161f
- 
- #define PCI_VENDOR_ID_BROCADE		0x1657
-+#define PCI_DEVICE_ID_BROCADE_CT	0x0014
-+#define PCI_DEVICE_ID_BROCADE_FC_8G1P	0x0017
-+#define PCI_DEVICE_ID_BROCADE_CT_FC	0x0021
- 
- #define PCI_VENDOR_ID_SIBYTE		0x166d
- #define PCI_DEVICE_ID_BCM1250_PCI	0x0001
+Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+Signed-off-by: Roopa Prabhu<roprabhu@cisco.com>
+Signed-off-by: Vasanthy Kolluri<vkolluri@cisco.com>
