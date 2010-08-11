@@ -1,71 +1,51 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: Problem with non aligned DMA in usbnet on ARM
-Date: Wed, 11 Aug 2010 13:13:32 -0700
-Message-ID: <20100811201332.GB10379@kroah.com>
-References: <AANLkTi=ycg=adcizNWKMCb7EdfDANM=6Es7r_gF1LbhV@mail.gmail.com>
- <20100811095454.GA22543@n2100.arm.linux.org.uk>
- <AANLkTimX46QKAGhiyo8AodaXVjuzoxr5-5z2V4gRr1Vu@mail.gmail.com>
- <20100811150443.GB8867@kroah.com>
- <AANLkTimmJDKbh3_pRY_ASKvjsf4YuuUMh3edh5LvDv-p@mail.gmail.com>
- <20100811174238.GA12382@kroah.com>
- <4C62F4EF.1050808@gmail.com>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: arp_notify: allow drivers to explicitly request a notification
+ event.
+Date: Wed, 11 Aug 2010 21:16:20 +0100
+Message-ID: <1281557780.7349.1.camel@localhost.localdomain>
+References: <20100811193925.GA9452@kroah.com>
+	 <20100811193959.GA9470@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	linux-usb <linux-usb@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Martin Fuzzey <mfuzzey@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Jeremy Fitzhardinge" <jeremy@goop.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:43393 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756685Ab0HKUNn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Aug 2010 16:13:43 -0400
-Content-Disposition: inline
-In-Reply-To: <4C62F4EF.1050808@gmail.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:17745 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757003Ab0HKUQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Aug 2010 16:16:24 -0400
+In-Reply-To: <20100811193959.GA9470@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 11, 2010 at 09:07:27PM +0200, Martin Fuzzey wrote:
-> Greg KH wrote:
-> >> So the question is are hcds expected to accept arbitarilly aligned but
-> >> heap allocated pointers (such as the result of kmalloc() + 1)?
-> >>     
-> >
-> > It sounds like your HCD doesn't like this, so perhaps we should make
-> > that rule :)
-> >
-> > If you allocate the urb with a kmalloc() call with no offset, does it
-> > all work properly? 
-> Yes
-> >  The driver should be calling usb_alloc_urb() which
-> > does this automatically for them, right?  Or is it trying to allocate
-> > things on its own somehow?
-> >
-> >   
-> It's not the URB itself (which is allocated by usb_alloc_urb) but rather
-> the buffer pointer within the URB that causes the problem.
+On Wed, 2010-08-11 at 20:39 +0100, Greg KH wrote:
+> On Wed, Aug 11, 2010 at 12:39:25PM -0700, Greg KH wrote:
 
-Doh, you are right, sorry about that.
-
-> It's the asix driver (or more exactly the usbnet core used by that driver).
-> It does (rx_submit() in drivers/net/usb/usbnet.c):
+> > > index 540703b..22c2abb 100644
+> > > --- a/include/linux/notifier.h
+> > > +++ b/include/linux/notifier.h
+> > > @@ -210,6 +210,7 @@ static inline int notifier_to_errno(int ret)
+> > >  #define NETDEV_POST_INIT	0x0010
+> > >  #define NETDEV_UNREGISTER_BATCH 0x0011
+> > >  #define NETDEV_BONDING_DESLAVE  0x0012
+> > > +#define NETDEV_NOTIFY_PEERS	0x0012
+> > 
+> > Are you sure that you can duplicate this value?
 > 
-> urb = usb_alloc_urb();
-> skb = alloc_skb (...);
-> skb_reserve (skb, NET_IP_ALIGN);
-> usb_fill_bulk_urb (urb,...  skb->data);
-> usb_submit_urb(urb)
-> 
-> skb->data as returned by alloc_skb() is aligned
-> but skb_reserve adds 2.
-> 
-> Thus removing the skb_reserve() call makes it work.
-> BUT if I do that the IP header is no longer aligned so accesses further
-> up the network stack have to be fixed up by exception handlers which is
-> expensive (even with hcds which don't require this)
+> Oh nevermind, David already fixed this up with commit
+> 38117d1495e587fbb10d6e55733139a27893cef5
 
-Can you fix this in the host controller driver?
+David did mention that he fixed up a clash at the timebut I hadn't
+realised it was a separate checkin, thanks for figuring it out.
 
-thanks,
+> I'll go queue that up for -stable as well :)
 
-greg k-h
+Cool, thanks.
+
+Ian.
+
+
