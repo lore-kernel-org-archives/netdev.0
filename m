@@ -1,82 +1,65 @@
-From: Andrew Beverley <andy@andybev.com>
-Subject: Re: QoS weirdness : HTB accuracy
-Date: Wed, 11 Aug 2010 18:59:06 +0100
-Message-ID: <1281549546.1432.248.camel@andybev>
-References: <067c83163988908ef546d7ff7f560a17@localhost>
-	 <4BF32BB0.7010700@redfish-solutions.com>
-	 <e6bd0cff8dafc8b3af0760facb5fdc8c@localhost>
-	 <1276204948.1403.13.camel@andybev> <1278265807.1506.86.camel@andybev>
-	 <Pine.LNX.4.64.1007071457020.6631@ask.diku.dk>
-	 <20100707180753.104124gv6yvtou9s@hayate.sektori.org>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: Problem with non aligned DMA in usbnet on ARM
+Date: Wed, 11 Aug 2010 10:42:38 -0700
+Message-ID: <20100811174238.GA12382@kroah.com>
+References: <AANLkTi=ycg=adcizNWKMCb7EdfDANM=6Es7r_gF1LbhV@mail.gmail.com>
+ <20100811095454.GA22543@n2100.arm.linux.org.uk>
+ <AANLkTimX46QKAGhiyo8AodaXVjuzoxr5-5z2V4gRr1Vu@mail.gmail.com>
+ <20100811150443.GB8867@kroah.com>
+ <AANLkTimmJDKbh3_pRY_ASKvjsf4YuuUMh3edh5LvDv-p@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Julien Vehent <julien@linuxwall.info>,
-	"Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
-	Netdev <netdev@vger.kernel.org>,
-	netfilter <netfilter@vger.kernel.org>, hawk@comx.dk
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <20100707180753.104124gv6yvtou9s@hayate.sektori.org>
-Sender: netfilter-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Martin Fuzzey <mfuzzey-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTimmJDKbh3_pRY_ASKvjsf4YuuUMh3edh5LvDv-p-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-07-07 at 18:07 +0300, Jussi Kivilinna wrote:
-> >>>> I was, in fact, an error in my ruleset. I had put the 'linklayer atm' at
-> >>>> both the branch and leaf levels, so the overhead was computed twice,
-> >>>> creating those holes in the bandwidth.
-> >>>
-> >>> I am seeing similar behaviour with my setup. Am I making the same
-> >>> mistake? A subset of my rules is as follows:
-> >>>
-> >>> tc qdisc add dev ppp0 root handle 1: htb r2q 1
-> >>>
-> >>> tc class add dev ppp0 parent 1: classid 1:1 htb \
-> >>>    rate ${DOWNLINK}kbit ceil ${DOWNLINK}kbit \
-> >>>    overhead $overhead linklayer atm                   <------- Here
-> >>>
-> >>> tc class add dev ppp0 parent 1:1 classid 1:10 htb \
-> >>>    rate 612kbit ceil 612kbit prio 0 \
-> >>>    overhead $overhead linklayer atm                   <------- And here
-> >>>
-> >>> tc qdisc add dev ppp0 parent 1:10 handle 4210: \
-> >>>    sfq perturb 10 limit 50
-> >>>
-> >>> tc filter add dev ppp0 parent 1:0 protocol ip \
-> >>>    prio 10 handle 10 fw flowid 1:10
+On Wed, Aug 11, 2010 at 06:08:43PM +0200, Martin Fuzzey wrote:
+> On Wed, Aug 11, 2010 at 5:04 PM, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org> wrote:
+> >> Here is a pointer to the thread where it was stated that HCD's don't
+> >> have to handle this.
 > >>
-> >> I removed the overhead option on the first leaf, and the speeds change
-> >> to what I expect. However, the rules above are taken straight from the
-> >> ADSL Optimizer project, which was the source of the original overhead
-> >> patch for tc. So is the ADSL Optimizer project wrong?
+> >> http://kerneltrap.org/mailarchive/linux-usb/2009/4/20/5528164
 > >
-> > After looking at the HTB kernel code I believe that the ADSL  
-> > Optimizer project is NOT wrong.  You should/must set the linklayer  
-> > option on both the root class and leaf (else you would be charging  
-> > the root/parent node too little).
+> > No, that thread is about stack vs. heap allocations, not about alignment
+> > issues.
 > >
 > 
-> It's been while I looked at the linklayer/size-table code, but if I  
-> remember right overhead is calculated with first linklayer packet sees  
-> in qdisc. So when packet goes to leaf with 'linklayer atm', packet get  
-> packet size with overhead for ATM and root linklayer is not used for  
-> that packet. Because of this you can have leafs with different  
-> overheads (pppoe, ipv6-tunnel, etc, with ) and all get right  
-> overhead... ..
+> Well although the issue discussed in that thread was caused by a stack
+> allocation isn't the issue here the same?
 > 
-> ..
+> My understanding is that a heap allocation as returned by kmalloc() will be:
+> 1) correctly aligned for DMA
+> and
+> 2) in a memory zone accessible to DMA
 > 
-> ...Uh oh...
+> whereas a stack allocation is not guaranteed to have either of these properties.
 > 
-> HTB still has linklayer/overhead of its own, I was talking about the  
-> generic linklayer code that can be used with all qdiscs. Never mind,  
-> sorry.
+> The problem I described in that thread was due to case 1
+> (misalignment) rather than the stack memory zone not being accessible
+> at all to DMA.
+> To which was the reply was basically "use a heap allocation".
+> 
+> So the question is are hcds expected to accept arbitarilly aligned but
+> heap allocated pointers (such as the result of kmalloc() + 1)?
 
-Ah, I hadn't come across the tc-stab functionality until now. So that
-does exactly the same for all qdiscs as the original ATM patch does for
-HTB? But they work slightly differently as you have alluded to above?
+It sounds like your HCD doesn't like this, so perhaps we should make
+that rule :)
 
-Andy
+If you allocate the urb with a kmalloc() call with no offset, does it
+all work properly?  The driver should be calling usb_alloc_urb() which
+does this automatically for them, right?  Or is it trying to allocate
+things on its own somehow?
 
+thanks,
 
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
