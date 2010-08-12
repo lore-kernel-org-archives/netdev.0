@@ -1,78 +1,39 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv1 NEXT 6/7] qlcnic: fix link diag test
-Date: Thu, 12 Aug 2010 04:28:46 -0700
-Message-ID: <1281612527-27838-7-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCHv1 NEXT 1/7] qlcnic: fix aer for virtual func
+Date: Thu, 12 Aug 2010 04:28:41 -0700
+Message-ID: <1281612527-27838-2-git-send-email-amit.salecha@qlogic.com>
 References: <1281612527-27838-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:13839 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:63278 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1759862Ab0HLL2t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Aug 2010 07:28:49 -0400
+	id S1753745Ab0HLL2s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Aug 2010 07:28:48 -0400
 In-Reply-To: <1281612527-27838-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+Virtual function are not privilge to initialize firmware.
 
-o Give sufficient time for all makes of PHY modules
-  to establish the link after loopback test.
-o Perform online test before offline test.
-
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_ethtool.c |   17 ++++++++---------
- drivers/net/qlcnic/qlcnic_hw.c      |    1 +
- 2 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 9328d59..3d4655d 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -747,6 +747,14 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- {
- 	memset(data, 0, sizeof(u64) * QLCNIC_TEST_LEN);
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index b9615bd..9cc8732 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -2723,7 +2723,7 @@ static int qlcnic_attach_func(struct pci_dev *pdev)
+ 	if (qlcnic_api_lock(adapter))
+ 		return -EINVAL;
  
-+	data[0] = qlcnic_reg_test(dev);
-+	if (data[0])
-+		eth_test->flags |= ETH_TEST_FL_FAILED;
-+
-+	data[1] = (u64) qlcnic_test_link(dev);
-+	if (data[1])
-+		eth_test->flags |= ETH_TEST_FL_FAILED;
-+
- 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
- 		data[2] = qlcnic_irq_test(dev);
- 		if (data[2])
-@@ -757,15 +765,6 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
- 	}
--
--	data[0] = qlcnic_reg_test(dev);
--	if (data[0])
--		eth_test->flags |= ETH_TEST_FL_FAILED;
--
--	/* link test */
--	data[1] = (u64) qlcnic_test_link(dev);
--	if (data[1])
--		eth_test->flags |= ETH_TEST_FL_FAILED;
- }
- 
- static void
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index e08c8b0..9d40ce0 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -1245,4 +1245,5 @@ void qlcnic_clear_ilb_mode(struct qlcnic_adapter *adapter)
- 		mode = VPORT_MISS_MODE_ACCEPT_MULTI;
- 
- 	qlcnic_nic_set_promisc(adapter, mode);
-+	msleep(1000);
- }
+-	if (first_func) {
++	if (adapter->op_mode != QLCNIC_NON_PRIV_FUNC && first_func) {
+ 		adapter->need_fw_reset = 1;
+ 		set_bit(__QLCNIC_START_FW, &adapter->state);
+ 		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_INITIALIZING);
 -- 
 1.6.0.2
 
