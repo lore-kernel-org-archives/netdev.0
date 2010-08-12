@@ -1,46 +1,53 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH 0/1] netfilter: xt_condition: add condition target
-Date: Thu, 12 Aug 2010 13:14:04 +0300
-Message-ID: <1281608044.4440.18.camel@powerslave>
-References: <1281595021-24310-1-git-send-email-luciano.coelho@nokia.com>
-	 <alpine.LSU.2.01.1008121202320.31027@obet.zrqbmnf.qr>
+From: Marc Haber <mh+linux-kernel@zugschlus.de>
+Subject: Re: e1000e crashes with 2.6.34.x and ThinkPad T60
+Date: Thu, 12 Aug 2010 12:50:29 +0200
+Message-ID: <20100812105029.GA6816@torres.zugschlus.de>
+References: <20100724092644.GA13353@torres.zugschlus.de> <EA929A9653AAE14F841771FB1DE5A1366000F42E28@rrsmsx501.amr.corp.intel.com> <20100730125452.GA21444@torres.zugschlus.de> <EA929A9653AAE14F841771FB1DE5A13660024083FE@rrsmsx501.amr.corp.intel.com> <20100810120458.GB21511@torres.zugschlus.de> <8DD2590731AB5D4C9DBF71A877482A900164D9279F@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"sameo@linux.intel.com" <sameo@linux.intel.com>,
-	"Ylalehto Janne (Nokia-MS/Tampere)" <janne.ylalehto@nokia.com>
-To: ext Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=utf-8
+Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.105.134]:39215 "EHLO
-	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932747Ab0HLKPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 06:15:08 -0400
-In-Reply-To: <alpine.LSU.2.01.1008121202320.31027@obet.zrqbmnf.qr>
+Received: from torres.zugschlus.de ([85.214.131.164]:34679 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759764Ab0HLKuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 06:50:32 -0400
+Content-Disposition: inline
+In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A900164D9279F@orsmsx509.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-08-12 at 12:10 +0200, ext Jan Engelhardt wrote:
-> On Thursday 2010-08-12 08:37, Luciano Coelho wrote:
-> >
-> >One thing that came to my mind was whether it would make sense to
-> >rename this match/target combo to "variable" instead of "condition".
-> >To me it makes more sense to call it variable than condition, since
-> >I have changed the value from boolean to u32. On the other hand, it
-> >could become very confusing because it used to be called condition
-> >in its xtables-addons days...
-> 
-> To improve matters, POSIX has something called "condition variables".
-> So oh well let's just leave it as-is :)
+Hi,
 
-:D
+On Tue, Aug 10, 2010 at 09:34:52AM -0700, Allan, Bruce W wrote:
+> [adding e1000-devel, the Intel wired ethernet developers mailing list]
 
-Okay, let's keep it like this, I guess it would just complicate things
-more if we change it.
+Thanks.
+
+> We have had other recent reports of issues with this part that are due to
+> ASPM L1 being enabled.  Would you please try disabling L1 after the driver
+> is loaded as follows (assuming your adapter is still PCI bus/device/number
+> 02:00.0 as indicated in the lspci output you provided earlier):
+> 1) First check the hexadecimal value of the LnkCtl register -
+> # setpci -s 2:0.0 0xf0
+
+$ sudo setpci --version
+setpci version 3.1.7                   
+$ sudo setpci -s 2:0.0 0xf0
+setpci: Missing width.
+Try `setpci --help' for more information.
+$
+
+Looking at --help doesn't help me, sorry.
+
+Greetings
+Marc
 
 -- 
-Cheers,
-Luca.
-
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
