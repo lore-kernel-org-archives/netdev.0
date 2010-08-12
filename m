@@ -1,39 +1,29 @@
-From: Joe Perches <joe@perches.com>
-Subject: MAINTAINERS: PCMCIA SUBSYSTEM: Should F: drivers/net/pcmcia/ be
- added?
-Date: Thu, 12 Aug 2010 15:47:52 -0700
-Message-ID: <1281653272.15486.62.camel@Joe-Laptop>
-References: <20100809153410.GA27238@comet.dominikbrodowski.net>
-	 <1281651771.15486.55.camel@Joe-Laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/2] s390: claw and ctcm patches
+Date: Thu, 12 Aug 2010 16:04:49 -0700 (PDT)
+Message-ID: <20100812.160449.260100327.davem@davemloft.net>
+References: <20100812115826.983015000@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Wolfram Sang <w.sang@pengutronix.de>, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	David Miller <davem@davemloft.net>
-To: Dominik Brodowski <linux@dominikbrodowski.net>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
+To: ursula.braun@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1040 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934096Ab0HLWry (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Aug 2010 18:47:54 -0400
-In-Reply-To: <1281651771.15486.55.camel@Joe-Laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58904
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760591Ab0HLXEc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 19:04:32 -0400
+In-Reply-To: <20100812115826.983015000@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-08-12 at 15:22 -0700, Joe Perches wrote:
-> On Mon, 2010-08-09 at 17:34 +0200, Dominik Brodowski wrote:
-> > look good from a PCMCIA point of view, therefore:
-> > Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+From: Ursula Braun <ursula.braun@de.ibm.com>
+Date: Thu, 12 Aug 2010 13:58:26 +0200
 
-There's no maintainer entry for directory drivers/net/pcmcia/
+> these patches repair warnings seen with the linux-2.6.git 2.6.35
+> caused by the used constants READ / WRITE.
+> 
+> The patches apply on linux-2.6.git and net-next-2.6.git.
 
-Should
-
-F:	drivers/net/pcmcia/
-
-be added to the existing PCMCIA SUBSYSTEM entry?
-
-
-
-
+Both applied, thanks.
