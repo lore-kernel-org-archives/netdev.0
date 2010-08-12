@@ -1,9 +1,9 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [037/111] xen: netfront: explicitly generate arp_notify
+Subject: [46/54] xen: netfront: explicitly generate arp_notify
 	event after migration.
-Date: Wed, 11 Aug 2010 16:54:18 -0700
-Message-ID: <20100811235458.910562877@clark.site>
-References: <20100811235623.GA24440@kroah.com>
+Date: Wed, 11 Aug 2010 17:01:01 -0700
+Message-ID: <20100812000127.502018592@clark.site>
+References: <20100812000249.GA30948@kroah.com>
 Cc: Jeremy Fitzhardinge <jeremy@goop.org>, xen-devel@lists.xensource.com,
 	Ian Campbell <ian.campbell@citrix.com>, torvalds@linux-foundation.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -13,7 +13,7 @@ Cc: Jeremy Fitzhardinge <jeremy@goop.org>, xen-devel@lists.xensource.com,
 To: linux-kernel@vger.kernel.org,
  stable@kernel.org
 Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <20100811235623.GA24440@kroah.com>
+In-Reply-To: <20100812000249.GA30948@kroah.com>
 List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
 	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
 List-Post: <mailto:xen-devel@lists.xensource.com>
@@ -24,7 +24,7 @@ Sender: xen-devel-bounces@lists.xensource.com
 Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-2.6.32-stable review patch.  If anyone has any objections, please let us know.
+2.6.34-stable review patch.  If anyone has any objections, please let us know.
 
 ------------------
 
@@ -50,7 +50,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 --- a/drivers/net/xen-netfront.c
 +++ b/drivers/net/xen-netfront.c
-@@ -1619,6 +1619,7 @@ static void backend_changed(struct xenbu
+@@ -1621,6 +1621,7 @@ static void backend_changed(struct xenbu
  		if (xennet_connect(netdev) != 0)
  			break;
  		xenbus_switch_state(dev, XenbusStateConnected);
