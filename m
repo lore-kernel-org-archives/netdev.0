@@ -1,90 +1,38 @@
-From: "Wang, Qi" <qi.wang@intel.com>
-Subject: RE: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Thu, 12 Aug 2010 14:29:32 +0800
-Message-ID: <D5AB6E638E5A3E4B8F4406B113A5A19A28EA28B3@shsmsx501.ccr.corp.intel.com>
-References: <4C61EDE5.4030505@dsn.okisemi.com>
- <AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>
- <D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>
- <20100812020414.GD14121@suse.de> <4C6393F0.5090005@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Greg KH <gregkh@suse.de>, Daniel Baluta <daniel.baluta@gmail.com>,
-	Masayuki Ohtak <masa-korg@dsn.okisemi.com>,
-	"meego-dev@meego.com" <meego-dev@meego.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	"socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>,
-	"arjan@linux.intel.com" <arjan@linux.intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64706 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757467Ab0HLGbV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Aug 2010 02:31:21 -0400
-In-Reply-To: <4C6393F0.5090005@hartkopp.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: [PATCH 0/1] netfilter: xt_condition: add condition target
+Date: Thu, 12 Aug 2010 09:37:00 +0300
+Message-ID: <1281595021-24310-1-git-send-email-luciano.coelho@nokia.com>
+Cc: netdev@vger.kernel.org, kaber@trash.net, jengelh@medozas.de,
+	sameo@linux.intel.com, janne.ylalehto@nokia.com
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBPbGl2ZXIgSGFydGtvcHAgW21h
-aWx0bzpzb2NrZXRjYW5AaGFydGtvcHAubmV0XQ0KPiBTZW50OiBUaHVyc2RheSwgQXVndXN0IDEy
-LCAyMDEwIDI6MjYgUE0NCj4gVG86IFdhbmcsIFFpDQo+IENjOiBHcmVnIEtIOyBEYW5pZWwgQmFs
-dXRhOyBNYXNheXVraSBPaHRhazsgbWVlZ28tZGV2QG1lZWdvLmNvbTsNCj4gV29sZmdhbmcgR3Jh
-bmRlZ2dlcjsgc29ja2V0Y2FuLWNvcmVAbGlzdHMuYmVybGlvcy5kZTsNCj4gbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZzsgS2hvciwgQW5kcmV3IENoaWggSG93ZTsgYXJqYW5AbGludXguaW50ZWwuY29t
-Ow0KPiBXYW5nLCBZb25nIFkNCj4gU3ViamVjdDogUmU6IFtNZWVHby1EZXZdW1BBVENIXSBUb3Bj
-bGlmZjogVXBkYXRlIFBDSF9DQU4gZHJpdmVyIHRvIDIuNi4zNQ0KPiANCj4gT24gMTIuMDguMjAx
-MCAwNDowNCwgR3JlZyBLSCB3cm90ZToNCj4gPiBPbiBUaHUsIEF1ZyAxMiwgMjAxMCBhdCAwOTo0
-MjoyN0FNICswODAwLCBXYW5nLCBRaSB3cm90ZToNCj4gDQo+ID4+PiAyLiBXaHkgZG9uJ3QgeW91
-IHVzZSBrZXJuZWwgZXhpc3Rpbmcga2ZpZm8gaW5mcmFzdHJ1Y3R1cmU/IChbMl0pLg0KPiA+PiBK
-dXN0IHRha2UgYSBsb29rIGF0IGtmaWZvLmguIFRoaXMgc3RydWN0dXJlIGhhcyBiZWVuIGNoYW5n
-ZWQuIEkNCj4gPj4gcmVtZW1iZXJlZCB0aGVyZSB3YXMgYSBzcGluX2xvY2sgZnJvbSBrZmlmbyBw
-cmV2aW91c2x5LiBDdXJyZW50bHkgaXQncw0KPiA+PiBiZWVuIHJlbW92ZWQsIGdvb2QuDQo+ID4+
-IE9LSS1zYW5zLCB3b3VsZCB5b3UgcGxlYXNlIHRha2UgYSBsb29rIGF0IC4vaW5jbHVkZS9saW51
-eC9rZmlmby5oLCBhbmQgdHJ5IHRvDQo+IHVzZSB0aGlzIHN0cnVjdHVyZSBhbmQgQVBJcz8NCj4g
-Pj4NCj4gPj4gRGFuaWVsLA0KPiA+Pg0KPiA+PiBXZSdyZSBhbnhpb3VzIHRvIGludGVncmF0ZSB0
-aG9zZSBjb2RlcyBub3cuIFBlcmhhcHMgaXQnbGwgdGFrZSB1cw0KPiA+PiBxdWl0ZSBhIGxvbmcg
-dGltZSB0byB1c2Uga2ZpZm8uIEhvdyBhYm91dCBpbXBsZW1lbnRpbmcgaXQgd2l0aCB0aGUNCj4g
-Pj4gbmV4dCB2ZXJzaW9uPw0KPiA+DQo+ID4gV2hhdCBkbyB5b3UgbWVhbiBieSB0aGlzPyAgQ29k
-ZSBpc24ndCBtZXJnZWQgaW50byB0aGUgdHJlZSB1bmxlc3MgaXQgaXMNCj4gPiBjb3JyZWN0LiAg
-UGxlYXNlIGZpeCB0aGlzIG5vdywgaXQncyBub3QgdGhhdCBiaWcgb2YgYSBkZWFsLg0KPiA+DQo+
-IA0KPiBIZWxsbyBRaSwNCj4gDQo+IGkgZ2VuZXJhbGx5IHdvbmRlciB3aGF0IHRoaXMgRklGTyBp
-cyB1c2VkIGZvcj8/DQo+IA0KPiBGb3IgbWUgaXQgbG9va3MgbGlrZSBhIGFydGlmYWN0IGZyb20g
-YSBmb3JtZXIgY2hhcmRldiBpbXBsZW1lbnRhdGlvbiwgYXMNCj4gc2V2ZXJhbCBvdGhlciBjb2Rl
-IHNuaXBsZXRzIGRvIChzZWUgY29tbWVudHMgZnJvbSBXb2xmZ2FuZyBhbmQgTWFyYykuDQo+IA0K
-PiBUaGUgbmV0d29yayBkcml2ZXIgbW9kZWwgaXMgdXNlZCBmb3IgQ0FOIGRyaXZlcnMgYW5kIHRo
-ZXJlZm9yZSBhbGwgdGhlDQo+IGluZnJhc3RydWN0dXJlIGZvciBxdWV1ZWluZyBpbmJvdW5kIGFu
-ZCBvdXRib3VuZCBuZXR3b3JrIHRyYWZmaWMgc2hvdWxkIGJlDQo+IHVzZWQgZnJvbSB0aGUgS2Vy
-bmVsIGxpa2UgYWxsIG90aGVyIENBTiBkcml2ZXJzIGFuZCBhbGwgb3RoZXIgZXRoZXJuZXQgZHJp
-dmVycw0KPiBkby4NCj4gDQo+IEFkZGl0aW9uYWxseSB0aGVyZSBpcyBhIHBvd2VyZnVsIGluZnJh
-c3RydWN0dXJlIHRvIHN1cHBvcnQgdGhlIHNwZWNpYWwNCj4gZnVuY3Rpb25zIG9mIENBTiBuZXRk
-ZXZpY2VzIChsaWtlIHNldHRpbmcgb2YgYml0dGltaW5ncywgbGlzdGVuLW9ubHkgbW9kZXMsIG9y
-DQo+IHRvIHByb2R1Y2UgQ0FOIGRyaXZlciBzdGF0ZXMgZXRjLiksIHRoYXQncyBwYXJ0IG9mIHRo
-ZSBDQU4gZHJpdmVycyBpbg0KPiBkcml2ZXJzL25ldC9jYW4vIHNpbmNlIGl0IGhhcyBnb25lIG1h
-aW5saW5lLg0KPiANCj4gQ0FOIG5ldGRldmljZXMgYXJlIGludGVudGlvbmFsbHkgZHVtYiAobGlr
-ZSB0aGUgb3JpZ2luYWwgZXRoZXJuZXQgYWRhcHRlcnMpLg0KPiBUaGlzIGFsbG93cyBhIHNpbXBs
-ZSBkcml2ZXIgaW50ZXJmYWNlIGJldHdlZW4gdGhlIGtlcm5lbCBhbmQgdGhlIGhhcmR3YXJlDQo+
-IGRyaXZlciwgZS5nLiBmb3IgcXVldWVpbmcgQ0FOIGZyYW1lcy4gQ0FOIGRyaXZlcnMgZG9uJ3Qg
-dXNlIGFueSBoYXJkd2FyZQ0KPiByeC1maWx0ZXJpbmcoISkgZHVlIHRvIG11bHRpdXNlciByZXF1
-aXJlbWVudHMgYW5kIGl0J3MgYSB2aXRhbCByZXF1aXJlbWVudA0KPiB0aGF0IHRoZSBmcmFtZXMg
-YXJlIG5vdCByZS1vcmRlcmVkIG9uIHNlbmRpbmcgKGJ5IHRoZSAnc29tZSBtYWdpYycgQ0FODQo+
-IGNvbnRyb2xsZXIgZGVhbGluZyB3aXRoIENBTi1JRCBwcmlvcml0aWVzLCBlLmcuIHNlZSB0eC1w
-YXRoIGluIHRoZSBNU0NBTiBkcml2ZXIpLg0KPiANCj4gRnJvbSBteSBwZXJzcGVjdGl2ZSBhYm91
-dCA3MCUgb2YgeW91ciBjb2RlIGlzIG9ic29sZXRlLCBhcyB5b3UgaW1wbGVtZW50ZWQNCj4gdHJp
-Y2t5IGRldGFpbHMgKGxpa2UgRklGT3MsIGJpdHRpbWluZyB0YWJsZXMgb3IgbWFnaWMgZmlsdGVy
-IGhhbmRsaW5ncyksDQo+IHRoYXQncyBub3QgbmVlZGVkIGF0IGFsbC4NCj4gDQo+IFBsZWFzZSB0
-YWtlIGEgbG9vayBhdCB0aGUgU0pBMTAwMCBkcml2ZXIgKGZvciBhIGxvdyBjb21wbGV4IENBTiBj
-b250cm9sbGVyKSBvcg0KPiBhdCB0aGUgVEkgZHJpdmVyIChmb3IgYSBoaWdoZXIgY29tcGxleCBD
-QU4gY29udHJvbGxlcikgaG93IHRoZXNlIGRyaXZlcnMNCj4gaGFuZGxlIHRoZSBzcGVjaWFsdGll
-cyBvZiBlYWNoIGhhcmR3YXJlLiBBbmQgcmVhZCBzb21lIGRvY3VtZW50YXRpb24gaW4NCj4gRG9j
-dW1lbnRhdGlvbi9uZXR3b3JraW5nL2Nhbi50eHQgdG8gZ2V0IGFuIGltcHJlc3Npb24gYWJvdXQg
-dGhlIGNvbmNlcHRzIG9mDQo+IHRoZSBDQU4gaW1wbGVtZW50YXRpb24gaW4gdGhlIExpbnV4IEtl
-cm5lbCBhbmQgdGhlIENBTiBuZXRkZXZpY2VzLg0KPiANCj4gSSBzdHJvbmdseSBhc3N1bWUgdGhh
-dCB5b3VyIGRyaXZlciB3b3VsZCBiZSBhYm91dCAzMCBrQnl0ZXMgb2YgY29kZSBmaXR0aW5nDQo+
-IGludG8gYSBzaW5nbGUgYy1maWxlIGxpa2UgdGhlIHRpX2hlY2MuYyBkb2VzLiBBbmQgdGhhdCdz
-IGRlZmluaXRlbHkgZWFzaWVyIGZvcg0KPiB1cyB0byByZXZpZXcgYW5kIGVhc2llciBmb3IgeW91
-IHRvIG1haW50YWluIGluIHRoZSBmdXR1cmUgLi4uDQo+IA0KPiBUaGFua3MgJiBiZXN0IHJlZ2Fy
-ZHMsDQo+IE9saXZlcg0KVGhhbmsgeW91IGZvciB5b3VyIGNvbW1pdHMuDQo=
+Hello,
+
+So here's my patch to include the condition target in the existing condition
+module.  This patch is supposed to be applied on top of the previous
+xt_condition patches I submitted and is intended for 2.6.37 (I'll resend all
+the 3 patches when the next tree starts accepting patches again).
+
+One thing that came to my mind was whether it would make sense to rename this
+match/target combo to "variable" instead of "condition".  To me it makes more
+sense to call it variable than condition, since I have changed the value from
+boolean to u32.  On the other hand, it could become very confusing because it
+used to be called condition in its xtables-addons days...
+
+Your comments are appreciated!
+
+Cheers,
+Luca.
+
+Luciano Coelho (1):
+  netfilter: xt_condition: add condition target support
+
+ include/linux/netfilter/xt_condition.h |   13 ++-
+ net/netfilter/Kconfig                  |   19 ++--
+ net/netfilter/Makefile                 |    2 +-
+ net/netfilter/xt_condition.c           |  194 +++++++++++++++++++++++---------
+ 4 files changed, 165 insertions(+), 63 deletions(-)
+
