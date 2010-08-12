@@ -1,209 +1,124 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] netpoll: use non-BH variant of RCU
-Date: Thu, 12 Aug 2010 08:42:13 -0700
-Message-ID: <20100812154213.GB2524@linux.vnet.ibm.com>
-References: <20100810211932.GG2379@linux.vnet.ibm.com>
- <20100810.163117.241919476.davem@davemloft.net>
- <20100811220047.GH2516@linux.vnet.ibm.com>
- <20100811.230936.183035599.davem@davemloft.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 driver fails to handle "rx length error: status 0x5d60100
+ length 2982" gracefully
+Date: Thu, 12 Aug 2010 12:00:44 -0400
+Message-ID: <20100812120044.5b1880ad@s6510>
+References: <AANLkTinMK7n51v4uBPYChYV7KOye8WEvdCFDanfd2mVL@mail.gmail.com>
+	<20100811215932.26414efe@s6510>
+	<AANLkTikDOerA4g+-=v+wM8cmysnemCTqEx0ncCCERLY6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, linville@tuxdriver.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Linux NetDev <netdev@vger.kernel.org>
+To: Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:38932 "EHLO e7.ny.us.ibm.com"
+Received: from mail.vyatta.com ([76.74.103.46]:46355 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933825Ab0HLPm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Aug 2010 11:42:27 -0400
-Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
-	by e7.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o7CFSlWG002283
-	for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 11:28:47 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o7CFgE4o1798202
-	for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 11:42:14 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o7CFgD03032105
-	for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 11:42:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20100811.230936.183035599.davem@davemloft.net>
+	id S1754480Ab0HLQAt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 12:00:49 -0400
+In-Reply-To: <AANLkTikDOerA4g+-=v+wM8cmysnemCTqEx0ncCCERLY6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 11, 2010 at 11:09:36PM -0700, David Miller wrote:
-> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> Date: Wed, 11 Aug 2010 15:00:47 -0700
-> 
-> > @@ -113,6 +113,12 @@ int rcu_my_thread_group_empty(void)
-> >  	return thread_group_empty(current);
-> >  }
-> >  EXPORT_SYMBOL_GPL(rcu_my_thread_group_empty);
-> > +
-> > +void rcu_read_unlock_bh_irqsoff_check(void)
-> > +{
-> > +	WARN_ON_ONCE(in_irq() || irqs_disabled());
-> > +}
-> > +EXPORT_SYMBOL_GPL(rcu_read_unlock_bh_irqsoff_check);
-> >  #endif /* #ifdef CONFIG_PROVE_RCU */
-> 
-> Is this WARN_ON_ONCE() test inverted?  It seems to be called where we
-> "should be" in an IRQ or have IRQs disabled.
+On Wed, 11 Aug 2010 22:36:57 -0700
+Maciej =C5=BBenczykowski <zenczykowski@gmail.com> wrote:
 
-You are quite correct.  (Beat head against wall.)  :-/
+> Here's lspci (it's an otherwise stock MacBook Pro 4,1 with a
+> non-standard wireless atheros mini-pci nic, replacing the std
+> broadcom.)
+>=20
+> $ lspci
+> 00:00.0 Host bridge: Intel Corporation Mobile PM965/GM965/GL960 Memor=
+y
+> Controller Hub (rev 03)
+> 00:01.0 PCI bridge: Intel Corporation Mobile PM965/GM965/GL960 PCI
+> Express Root Port (rev 03)
+> 00:1a.0 USB Controller: Intel Corporation 82801H (ICH8 Family) USB
+> UHCI Controller #4 (rev 03)
+> 00:1a.1 USB Controller: Intel Corporation 82801H (ICH8 Family) USB
+> UHCI Controller #5 (rev 03)
+> 00:1a.7 USB Controller: Intel Corporation 82801H (ICH8 Family) USB2
+> EHCI Controller #2 (rev 03)
+> 00:1b.0 Audio device: Intel Corporation 82801H (ICH8 Family) HD Audio
+> Controller (rev 03)
+> 00:1c.0 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Expres=
+s
+> Port 1 (rev 03)
+> 00:1c.2 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Expres=
+s
+> Port 3 (rev 03)
+> 00:1c.4 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Expres=
+s
+> Port 5 (rev 03)
+> 00:1c.5 PCI bridge: Intel Corporation 82801H (ICH8 Family) PCI Expres=
+s
+> Port 6 (rev 03)
+> 00:1d.0 USB Controller: Intel Corporation 82801H (ICH8 Family) USB
+> UHCI Controller #1 (rev 03)
+> 00:1d.1 USB Controller: Intel Corporation 82801H (ICH8 Family) USB
+> UHCI Controller #2 (rev 03)
+> 00:1d.2 USB Controller: Intel Corporation 82801H (ICH8 Family) USB
+> UHCI Controller #3 (rev 03)
+> 00:1d.7 USB Controller: Intel Corporation 82801H (ICH8 Family) USB2
+> EHCI Controller #1 (rev 03)
+> 00:1e.0 PCI bridge: Intel Corporation 82801 Mobile PCI Bridge (rev f3=
+)
+> 00:1f.0 ISA bridge: Intel Corporation 82801HEM (ICH8M) LPC Interface
+> Controller (rev 03)
+> 00:1f.1 IDE interface: Intel Corporation 82801HBM/HEM (ICH8M/ICH8M-E)
+> IDE Controller (rev 03)
+> 00:1f.2 IDE interface: Intel Corporation 82801HBM/HEM (ICH8M/ICH8M-E)
+> SATA IDE Controller (rev 03)
+> 00:1f.3 SMBus: Intel Corporation 82801H (ICH8 Family) SMBus Controlle=
+r (rev 03)
+> 01:00.0 VGA compatible controller: nVidia Corporation G84 [GeForce
+> 8600M GT] (rev a1)
+> 0b:00.0 Network controller: Atheros Communications Inc. AR928X
+> Wireless Network Adapter (PCI-Express) (rev 01)
+> 0c:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8058
+> PCI-E Gigabit Ethernet Controller (rev 13)
+> 0d:03.0 FireWire (IEEE 1394): Texas Instruments TSB82AA2 IEEE-1394b
+> Link Layer Controller (rev 02)
+>=20
+> (more verbose lspci included in bugzilla entry)
+>=20
+> At least one other person has seen this on a desktop non-mac machine
+> (see bugzilla) entry.
+> What would you like from dmesg?
+> Is the following enough?
+>=20
+> Aug  9 12:09:11 nike kernel: sky2: driver version 1.27
+> Aug  9 12:09:11 nike kernel: sky2 0000:0c:00.0: PCI INT A -> GSI 17
+> (level, low) -> IRQ 17
+> Aug  9 12:09:11 nike kernel: sky2 0000:0c:00.0: Yukon-2 EC Ultra chip=
+ revision 3
+> Aug  9 12:09:11 nike kernel: sky2 0000:0c:00.0: eth0: addr 00:1f:5b:x=
+x:xx:xx
+> ...
+> Aug  9 12:09:22 nike kernel: sky2 0000:0c:00.0: eth0: enabling interf=
+ace
+> Aug  9 12:09:22 nike kernel: ADDRCONF(NETDEV_UP): eth0: link is not r=
+eady
+> ...
+> Aug  9 12:09:25 nike kernel: sky2 0000:0c:00.0: eth0: Link is up at
+> 1000 Mbps, full duplex, flow control rx
+> Aug  9 12:09:25 nike kernel: ADDRCONF(NETDEV_CHANGE): eth0: link beco=
+mes ready
+> ...
+> Aug 11 16:21:19 nike kernel: sky2 0000:0c:00.0: eth0: rx length error=
+:
+> status 0x5d60100 length 2982
+> Aug 11 16:21:27 nike kernel: eth0: hw csum failure.
+> ...
+>=20
+> I'd just like to point out that this has happened something like 5
+> times in the past 30 days on a machine which is on 24/7 with wired
+> ethernet plugged in nearly 100% of the time.
 
-------------------------------------------------------------------------
+Probably he only thing the driver can do in these cases is automaticall=
+y
+turn off checksumming if it suspects the chip is having problems.
 
-#!/bin/bash
+Is there a known good older kernel version?
 
-for ((i=0;i<100;i++))
-do
-	echo "De Morgan when converting rcu_lockdep_assert() to WARN_ON_ONCE()"
-done
-
-------------------------------------------------------------------------
-
-This does sort of defeat the purpose of writing something 100 times, but 
-I am after all a software developer!!!
-
-Thank you very much for catching this, and please see below for a
-replacement patch.
-
-							Thanx, Paul
-
-
-commit 2c9ace45088a25b474167d04b416d279f4ea3401
-Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Date:   Wed Aug 11 14:54:33 2010 -0700
-
-    rcu: add rcu_read_lock_bh_irqsoff() and rcu_read_unlock_bh_irqsoff()
-    
-    The rcu_read_lock_bh() and rcu_read_unlock_bh() functions can no
-    longer be used when interrupts are disabled due to new debug checks in
-    the _local_bh_enable() function.  This commit therefore supplies new
-    functions that may only be called with either interrupts disabled or
-    from interrupt handlers, and this is checked for under CONFIG_PROVE_RCU.
-    
-    Requested-by: Herbert Xu <herbert@gondor.apana.org.au>
-    Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-
-diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-index 9fbc54a..08cdc58 100644
---- a/include/linux/rcupdate.h
-+++ b/include/linux/rcupdate.h
-@@ -270,10 +270,13 @@ extern int rcu_my_thread_group_empty(void);
- 		(p); \
- 	})
- 
-+void rcu_read_unlock_bh_irqsoff_check(void);
-+
- #else /* #ifdef CONFIG_PROVE_RCU */
- 
- #define rcu_dereference_check(p, c)	rcu_dereference_raw(p)
- #define rcu_dereference_protected(p, c) (p)
-+#define rcu_read_unlock_bh_irqsoff_check() do { } while (0)
- 
- #endif /* #else #ifdef CONFIG_PROVE_RCU */
- 
-@@ -361,13 +364,13 @@ static inline void rcu_read_unlock(void)
-  */
- static inline void rcu_read_lock_bh(void)
- {
--	__rcu_read_lock_bh();
-+	local_bh_disable();
- 	__acquire(RCU_BH);
- 	rcu_read_acquire_bh();
- }
- 
- /*
-- * rcu_read_unlock_bh - marks the end of a softirq-only RCU critical section
-+ * rcu_read_unlock_bh() - marks the end of a softirq-only RCU critical section
-  *
-  * See rcu_read_lock_bh() for more information.
-  */
-@@ -375,7 +378,34 @@ static inline void rcu_read_unlock_bh(void)
- {
- 	rcu_read_release_bh();
- 	__release(RCU_BH);
--	__rcu_read_unlock_bh();
-+	local_bh_enable();
-+}
-+
-+/**
-+ * rcu_read_lock_bh_irqsoff() - mark the beginning of an RCU-bh critical section
-+ *
-+ * This is equivalent of rcu_read_lock_bh(), but to be used where the
-+ * caller either is in an irq handler or has irqs disabled.  Note that
-+ * this function assumes that PREEMPT_RT kernels run irq handlers at
-+ * higher priority than softirq handlers!
-+ */
-+static inline void rcu_read_lock_bh_irqsoff(void)
-+{
-+	rcu_read_unlock_bh_irqsoff_check();
-+	__acquire(RCU_BH);
-+	rcu_read_acquire_bh();
-+}
-+
-+/*
-+ * rcu_read_unlock_bh_irqsoff - marks the end of an RCU-bh critical section
-+ *
-+ * See rcu_read_lock_bh_irqsoff() for more information.
-+ */
-+static inline void rcu_read_unlock_bh_irqsoff(void)
-+{
-+	rcu_read_release_bh();
-+	__release(RCU_BH);
-+	rcu_read_unlock_bh_irqsoff_check();
- }
- 
- /**
-diff --git a/include/linux/rcutiny.h b/include/linux/rcutiny.h
-index e2e8931..009c7f3 100644
---- a/include/linux/rcutiny.h
-+++ b/include/linux/rcutiny.h
-@@ -36,8 +36,6 @@ static inline void rcu_note_context_switch(int cpu)
- 
- #define __rcu_read_lock()	preempt_disable()
- #define __rcu_read_unlock()	preempt_enable()
--#define __rcu_read_lock_bh()	local_bh_disable()
--#define __rcu_read_unlock_bh()	local_bh_enable()
- #define call_rcu_sched		call_rcu
- 
- #define rcu_init_sched()	do { } while (0)
-diff --git a/include/linux/rcutree.h b/include/linux/rcutree.h
-index c0ed1c0..98b50d8 100644
---- a/include/linux/rcutree.h
-+++ b/include/linux/rcutree.h
-@@ -75,15 +75,6 @@ static inline int rcu_preempt_depth(void)
- 
- #endif /* #else #ifdef CONFIG_TREE_PREEMPT_RCU */
- 
--static inline void __rcu_read_lock_bh(void)
--{
--	local_bh_disable();
--}
--static inline void __rcu_read_unlock_bh(void)
--{
--	local_bh_enable();
--}
--
- extern void call_rcu_sched(struct rcu_head *head,
- 			   void (*func)(struct rcu_head *rcu));
- extern void synchronize_rcu_bh(void);
-diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
-index 4d16983..ae6ae40 100644
---- a/kernel/rcupdate.c
-+++ b/kernel/rcupdate.c
-@@ -113,6 +113,12 @@ int rcu_my_thread_group_empty(void)
- 	return thread_group_empty(current);
- }
- EXPORT_SYMBOL_GPL(rcu_my_thread_group_empty);
-+
-+void rcu_read_unlock_bh_irqsoff_check(void)
-+{
-+	WARN_ON_ONCE(!in_irq() && !irqs_disabled());
-+}
-+EXPORT_SYMBOL_GPL(rcu_read_unlock_bh_irqsoff_check);
- #endif /* #ifdef CONFIG_PROVE_RCU */
- 
- #ifdef CONFIG_DEBUG_OBJECTS_RCU_HEAD
