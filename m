@@ -1,89 +1,122 @@
-From: Fabio Comolli <fabio.comolli@gmail.com>
-Subject: Re: [PATCH] iproute2: dont filter cached routes on iproute_get
-Date: Thu, 12 Aug 2010 20:58:56 +0200
-Message-ID: <AANLkTindibP-ihFjQ81H7wGT=VDKgug4DXf5kwRAC6GP@mail.gmail.com>
-References: <20100808193304.GA15380@amd64.fatal.se>
-	<AANLkTim4h7rTJuF7UWAE-p_4NGkrwksUjoK6m2x5BubG@mail.gmail.com>
-	<1281297165.4116.19.camel@amd64.fatal.se>
-	<20100812090519.GA13769@babylon>
-	<AANLkTikKbNPXv+F6SuR79Q9qcS1WD1DOYLGuOtuLkzuK@mail.gmail.com>
-	<4C63BCED.5000209@astaro.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [iproute2] iproute2:  Fix 'addr flush secondary' logic.
+Date: Thu, 12 Aug 2010 15:00:58 -0400
+Message-ID: <4C6444EA.1070704@hp.com>
+References: <1281547182-1252-1-git-send-email-greearb@candelatech.com> <4C630B0A.9010304@hp.com> <4C6328A8.4070703@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andreas Henriksson <andreas@fatal.se>, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: Ulrich Weber <uweber@astaro.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:57042 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752759Ab0HLS67 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 14:58:59 -0400
-Received: by bwz3 with SMTP id 3so1132830bwz.19
-        for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 11:58:56 -0700 (PDT)
-In-Reply-To: <4C63BCED.5000209@astaro.com>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:16234 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760334Ab0HLTBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 15:01:01 -0400
+In-Reply-To: <4C6328A8.4070703@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Works for me (for ipv4, I cannot test ipv6).
-You can add my Tested-By in case you need it.
+On 08/11/2010 06:48 PM, Ben Greear wrote:
+> Looks like the code was broken in several different places.
+> 
+> * It ran only a single filter if there were multiple.
+> * Don't want to flush in a loop if you are doing primary
+>   because otherwise promoted seconaries will get deleted
+>   for each additional loop (10 in upstream code).
+> * No idea what a while (0); statement at the end of a for
+>   loop does, but I don't think it needed to be there!
+> 
+> The attached patch makes it work for me, supporting
+> flushing primary or secondary addresses.
 
-Regards,
-=46abio
+> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+> index 5f0789c..803df17 100644
+> --- a/ip/ipaddress.c
+> +++ b/ip/ipaddress.c
+> @@ -637,7 +637,7 @@ int print_addrinfo_primary(const struct sockaddr_nl *who, struct nlmsghdr *n,
+>  {
+>  	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+> 
+> -	if (!ifa->ifa_flags & IFA_F_SECONDARY)
+> +	if (ifa->ifa_flags & IFA_F_SECONDARY)
+ 		return 0;
+
+This should be:
+
+	if (!(ifa->ifa_flags & IFA_F_SECONDARY))
+
+as this function does the opposite of what it seems.
+ 
+
+> @@ -648,7 +648,7 @@ int print_addrinfo_secondary(const struct sockaddr_nl *who, struct nlmsghdr *n,
+>  {
+> 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
+> 
+> -	if (ifa->ifa_flags & IFA_F_SECONDARY)
+> +	if (!(ifa->ifa_flags & IFA_F_SECONDARY))
+ 		return 0;
+
+>From testing, the original code here was correct.
+
+> @@ -865,6 +865,13 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+> 				printf("\n*** Round %d, deleting %d addresses ***\n", round, filter.flushed);
+> 				fflush(stdout);
+> 			}
+> +
+> +			/* If we are flushing, and specifying primary, then we want to flush only a single round.
+> +			 * Otherwise, we'll start flushing secondaries that were promoted to primaries
+> +			 */
+> +			if (!(filter.flags & IFA_F_SECONDARY) && (filter.flagmask & IFA_F_SECONDARY)) {
+> +				return 0;
+> +			}
+
+This doesn't seem to do anything, I see all my IPv4 addresses flushed if I
+run 'ip -4 -s a flush primary dev eth2'.  And it says it only deleted one
+when it deleted two addresses :-/  Also, if it did work, it should really goto
+a few lines above so it prints the summary stats:
+
+                        if (filter.flushed == 0) {
+flush_done:
+                                if (show_stats) {
+
+Even when I corrected the lines above, it didn't work:
+
+# ip -4 a s dev eth2
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
+    inet 192.168.6.4/24 brd 192.168.6.255 scope global eth2
+
+# ip a a 192.168.6.100/24 brd + dev eth2
+# ip -4 a s dev eth2
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
+    inet 192.168.6.4/24 brd 192.168.6.255 scope global eth2
+    inet 192.168.6.100/24 brd 192.168.6.255 scope global secondary eth2
+
+# ./ip -4 -s -s -o a flush primary dev eth2
+2: eth2    inet 192.168.6.4/24 brd 192.168.6.255 scope global eth2
+
+*** Round 1, deleting 1 addresses ***
+[missing *** Flush is complete after 1 round ***]
+
+# ip -4 a s dev eth2
+[nothing]
+
+Where did my .100 secondary address go?  Now this will bug me until I figure
+out why.  Maybe it's because I'm booted to 2.6.32.
 
 
+> diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+> index cfeb894..d18e8a0 100644
 
-On Thu, Aug 12, 2010 at 11:20 AM, Ulrich Weber <uweber@astaro.com> wrot=
-e:
-> The patch should be applied on top of iproute2 v2.6.35.
->
-> Cheers
-> =C2=A0Ulrich
->
-> On 08/12/2010 11:12 AM, Fabio Comolli wrote:
->> Hi.
->> Is this patch supposed to be applied on top of plain iproute2 v2.6.3=
-5
->> or on top of the previous Andreas' patch?
->>
->>
->>
->> On Thu, Aug 12, 2010 at 11:05 AM, Ulrich Weber <uweber@astaro.com> w=
-rote:
->>> iproute_get will return cloned routes for IPv4
->>> and cloned as well non-cloned routes for IPv6.
->>>
->>> Therefore RTM_F_CLONED flag should not be checked
->>> for iproute_get routes. Check in print_route will
->>> always fail because valid values are 0 and 1.
->>>
->>> Signed-off-by: Ulrich Weber <uweber@astaro.com>
->>> ---
->>> =C2=A0ip/iproute.c | =C2=A0 =C2=A01 +
->>> =C2=A01 files changed, 1 insertions(+), 0 deletions(-)
->>>
->>> diff --git a/ip/iproute.c b/ip/iproute.c
->>> index 711576e..b43933c 100644
->>> --- a/ip/iproute.c
->>> +++ b/ip/iproute.c
->>> @@ -1286,6 +1286,7 @@ int iproute_get(int argc, char **argv)
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0memset(&req, 0, sizeof(req));
->>>
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0iproute_reset_filter();
->>> + =C2=A0 =C2=A0 =C2=A0 filter.cloned =3D 2;
->>>
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0req.n.nlmsg_len =3D NLMSG_LENGTH(sizeof(=
-struct rtmsg));
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0req.n.nlmsg_flags =3D NLM_F_REQUEST;
->>> --
->>> 1.7.0.4
->>>
->>>
->
->
-> --
-> Ulrich Weber | uweber@astaro.com | Software Engineer
-> Astaro GmbH & Co. KG | www.astaro.com | Phone +49-721-25516-0 | Fax =E2=
-=80=93200
-> An der RaumFabrik 33a | 76227 Karlsruhe | Germany
->
+Can you give an example of how you tested this double filter change?  My
+distro /sbin/ip seemed to work just fine.
+
+> -		if (status) {
+> +		if (msglen) {
+> 			fprintf(stderr, "!!!Remnant of size %d\n", status);
+> 			exit(1);
+> 		}
+
+Should the arg to the fprintf() be msglen too?
+
+-Brian
