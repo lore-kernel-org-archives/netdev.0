@@ -1,36 +1,89 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Add firmware label support to iproute2
-Date: Thu, 12 Aug 2010 14:12:40 -0400
-Message-ID: <20100812141240.417949e2@s6510>
-References: <20100812173537.GA29784@auslistsprd01.us.dell.com>
+From: Fabio Comolli <fabio.comolli@gmail.com>
+Subject: Re: [PATCH] iproute2: dont filter cached routes on iproute_get
+Date: Thu, 12 Aug 2010 20:58:56 +0200
+Message-ID: <AANLkTindibP-ihFjQ81H7wGT=VDKgug4DXf5kwRAC6GP@mail.gmail.com>
+References: <20100808193304.GA15380@amd64.fatal.se>
+	<AANLkTim4h7rTJuF7UWAE-p_4NGkrwksUjoK6m2x5BubG@mail.gmail.com>
+	<1281297165.4116.19.camel@amd64.fatal.se>
+	<20100812090519.GA13769@babylon>
+	<AANLkTikKbNPXv+F6SuR79Q9qcS1WD1DOYLGuOtuLkzuK@mail.gmail.com>
+	<4C63BCED.5000209@astaro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matt_domsch@dell.com,
-	charles_rose@dell.com, jordan_hargrave@dell.com
-To: Narendra K <Narendra_K@dell.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andreas Henriksson <andreas@fatal.se>, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: Ulrich Weber <uweber@astaro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38083 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753401Ab0HLSMo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Aug 2010 14:12:44 -0400
-In-Reply-To: <20100812173537.GA29784@auslistsprd01.us.dell.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:57042 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752759Ab0HLS67 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 14:58:59 -0400
+Received: by bwz3 with SMTP id 3so1132830bwz.19
+        for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 11:58:56 -0700 (PDT)
+In-Reply-To: <4C63BCED.5000209@astaro.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Aug 2010 12:35:37 -0500
-Narendra K <Narendra_K@dell.com> wrote:
+Works for me (for ipv4, I cannot test ipv6).
+You can add my Tested-By in case you need it.
 
-> +#ifndef LIBNETDEVNAME_PRESENT
->  			filter_dev = *argv;
-> +#else
-> +			if (netdev_alias_to_kernelname(*argv, kernel_name) < 0)
-> +				show_firmware_alias_usage(*argv);
-> +			filter_dev = kernel_name;
-> +#endif
->  		}
+Regards,
+=46abio
 
-like the kernel, I don't like ifdef cases in main code.
-You should put in stub inline that returns appropriate error.
 
-What happens if alias matches existing interface name?
+
+On Thu, Aug 12, 2010 at 11:20 AM, Ulrich Weber <uweber@astaro.com> wrot=
+e:
+> The patch should be applied on top of iproute2 v2.6.35.
+>
+> Cheers
+> =C2=A0Ulrich
+>
+> On 08/12/2010 11:12 AM, Fabio Comolli wrote:
+>> Hi.
+>> Is this patch supposed to be applied on top of plain iproute2 v2.6.3=
+5
+>> or on top of the previous Andreas' patch?
+>>
+>>
+>>
+>> On Thu, Aug 12, 2010 at 11:05 AM, Ulrich Weber <uweber@astaro.com> w=
+rote:
+>>> iproute_get will return cloned routes for IPv4
+>>> and cloned as well non-cloned routes for IPv6.
+>>>
+>>> Therefore RTM_F_CLONED flag should not be checked
+>>> for iproute_get routes. Check in print_route will
+>>> always fail because valid values are 0 and 1.
+>>>
+>>> Signed-off-by: Ulrich Weber <uweber@astaro.com>
+>>> ---
+>>> =C2=A0ip/iproute.c | =C2=A0 =C2=A01 +
+>>> =C2=A01 files changed, 1 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/ip/iproute.c b/ip/iproute.c
+>>> index 711576e..b43933c 100644
+>>> --- a/ip/iproute.c
+>>> +++ b/ip/iproute.c
+>>> @@ -1286,6 +1286,7 @@ int iproute_get(int argc, char **argv)
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0memset(&req, 0, sizeof(req));
+>>>
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0iproute_reset_filter();
+>>> + =C2=A0 =C2=A0 =C2=A0 filter.cloned =3D 2;
+>>>
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0req.n.nlmsg_len =3D NLMSG_LENGTH(sizeof(=
+struct rtmsg));
+>>> =C2=A0 =C2=A0 =C2=A0 =C2=A0req.n.nlmsg_flags =3D NLM_F_REQUEST;
+>>> --
+>>> 1.7.0.4
+>>>
+>>>
+>
+>
+> --
+> Ulrich Weber | uweber@astaro.com | Software Engineer
+> Astaro GmbH & Co. KG | www.astaro.com | Phone +49-721-25516-0 | Fax =E2=
+=80=93200
+> An der RaumFabrik 33a | 76227 Karlsruhe | Germany
+>
