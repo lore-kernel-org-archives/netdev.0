@@ -1,75 +1,62 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Thu, 12 Aug 2010 11:03:52 +0200
-Message-ID: <4C63B8F8.6090106@grandegger.com>
-References: <4C61EDE5.4030505@dsn.okisemi.com>
-	<AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>
-	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>
+From: Fabio Comolli <fabio.comolli@gmail.com>
+Subject: Re: [PATCH] iproute2: dont filter cached routes on iproute_get
+Date: Thu, 12 Aug 2010 11:12:12 +0200
+Message-ID: <AANLkTikKbNPXv+F6SuR79Q9qcS1WD1DOYLGuOtuLkzuK@mail.gmail.com>
+References: <20100808193304.GA15380@amd64.fatal.se>
+	<AANLkTim4h7rTJuF7UWAE-p_4NGkrwksUjoK6m2x5BubG@mail.gmail.com>
+	<1281297165.4116.19.camel@amd64.fatal.se>
+	<20100812090519.GA13769@babylon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Khor, Andrew Chih Howe" <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"gregkh-l3A5Bk7waGM@public.gmane.org" <gregkh-l3A5Bk7waGM@public.gmane.org>, "Wang, Yong Y" <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Masayuki Ohtak <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	"meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org" <meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org>,
-	"arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: "Wang, Qi" <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB-QQHDSDV1ERZpB2pF5aRoyrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andreas Henriksson <andreas@fatal.se>, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: Ulrich Weber <uweber@astaro.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:59234 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933242Ab0HLJMO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 05:12:14 -0400
+Received: by bwz3 with SMTP id 3so749486bwz.19
+        for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 02:12:12 -0700 (PDT)
+In-Reply-To: <20100812090519.GA13769@babylon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2010 03:42 AM, Wang, Qi wrote:
->> -----Original Message-----
->> From: Daniel Baluta [mailto:daniel.baluta-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org]
->> Sent: Wednesday, August 11, 2010 6:37 PM
->> To: Masayuki Ohtak
->> Cc: meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org; Wolfgang Grandegger;
->> socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Khor, Andrew Chih
->> Howe; gregkh-l3A5Bk7waGM@public.gmane.org; arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org; Wang, Qi; Wang, Yong Y
->> Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
->>
->> Hi,
->>
->> 2010/8/11 Masayuki Ohtak <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>:
->>> CAN driver of Topcliff PCH
->>>
->>> Topcliff PCH is the platform controller hub that is going to be used in
->>> Intel's upcoming general embedded platform. All IO peripherals in
->>> Topcliff PCH are actually devices sitting on AMBA bus.
->>> Topcliff PCH has CAN I/F. This driver enables CAN function.
->>>
->>> Signed-off-by: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
->>
->> I have a few questions:
->>
->> 1. Is your code based on Intel's CAN EP80579 ([1]) ?
-> No.
+Hi.
+Is this patch supposed to be applied on top of plain iproute2 v2.6.35
+or on top of the previous Andreas' patch?
 
-For curiosity, is the controller similar to the OKI MSM9225 or ML9620?
 
->> 2. Why don't you use kernel existing kfifo infrastructure? ([2]).
-> Just take a look at kfifo.h. This structure has been changed. I remembered there was a spin_lock from kfifo previously. Currently it's been removed, good.
-> OKI-sans, would you please take a look at ./include/linux/kfifo.h, and try to use this structure and APIs?
 
-As I see it, the code related to that fifo is not used (== dead code)?
-
-> Daniel,
-> 
-> We're anxious to integrate those codes now. Perhaps it'll take us quite a long time to use kfifo. How about implementing it with the next version?
-
-See above. What do you mean with the next version. The driver posted by
-Masayuki is far away from being accepted as it does not yet comply with
-the Socket-CAN driver API, to say the least.
-
-Wolfgang.
+On Thu, Aug 12, 2010 at 11:05 AM, Ulrich Weber <uweber@astaro.com> wrot=
+e:
+> iproute_get will return cloned routes for IPv4
+> and cloned as well non-cloned routes for IPv6.
+>
+> Therefore RTM_F_CLONED flag should not be checked
+> for iproute_get routes. Check in print_route will
+> always fail because valid values are 0 and 1.
+>
+> Signed-off-by: Ulrich Weber <uweber@astaro.com>
+> ---
+> =C2=A0ip/iproute.c | =C2=A0 =C2=A01 +
+> =C2=A01 files changed, 1 insertions(+), 0 deletions(-)
+>
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 711576e..b43933c 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -1286,6 +1286,7 @@ int iproute_get(int argc, char **argv)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0memset(&req, 0, sizeof(req));
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0iproute_reset_filter();
+> + =C2=A0 =C2=A0 =C2=A0 filter.cloned =3D 2;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0req.n.nlmsg_len =3D NLMSG_LENGTH(sizeof(st=
+ruct rtmsg));
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0req.n.nlmsg_flags =3D NLM_F_REQUEST;
+> --
+> 1.7.0.4
+>
+>
