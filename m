@@ -1,53 +1,50 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: sky2 driver fails to handle "rx length error: status 0x5d60100
- length 2982" gracefully
-Date: Thu, 12 Aug 2010 09:58:01 -0700
-Message-ID: <AANLkTinM2m-dK2FYw5VBi3eBAhBRrrzZ+vH5aCtDoDVS@mail.gmail.com>
-References: <AANLkTinMK7n51v4uBPYChYV7KOye8WEvdCFDanfd2mVL@mail.gmail.com>
-	<20100811215932.26414efe@s6510>
-	<AANLkTikDOerA4g+-=v+wM8cmysnemCTqEx0ncCCERLY6@mail.gmail.com>
-	<20100812120044.5b1880ad@s6510>
-	<20100812121600.2e971e66@s6510>
+From: Matthieu CASTET <matthieu.castet@parrot.com>
+Subject: Re: Problem with non aligned DMA in usbnet on ARM
+Date: Thu, 12 Aug 2010 19:01:20 +0200
+Message-ID: <4C6428E0.8040402@parrot.com>
+References: <AANLkTi=ycg=adcizNWKMCb7EdfDANM=6Es7r_gF1LbhV@mail.gmail.com> <20100811095454.GA22543@n2100.arm.linux.org.uk> <AANLkTimX46QKAGhiyo8AodaXVjuzoxr5-5z2V4gRr1Vu@mail.gmail.com> <20100811150443.GB8867@kroah.com> <AANLkTimmJDKbh3_pRY_ASKvjsf4YuuUMh3edh5LvDv-p@mail.gmail.com> <20100811174238.GA12382@kroah.com> <4C62F4EF.1050808@gmail.com> <20100811201332.GB10379@kroah.com> <4C6324B2.2080606@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux NetDev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=iso-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg KH <greg@kroah.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, <fchen@apm.com>
+To: "mfuzzey@gmail.com" <mfuzzey@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38749 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760411Ab0HLQ6D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 12:58:03 -0400
-Received: by wwj40 with SMTP id 40so1788729wwj.1
-        for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 09:58:02 -0700 (PDT)
-In-Reply-To: <20100812121600.2e971e66@s6510>
+Received: from co202.xi-lite.net ([149.6.83.202]:45117 "EHLO co202.xi-lite.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750855Ab0HLRB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Aug 2010 13:01:26 -0400
+In-Reply-To: <4C6324B2.2080606@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm not sure if there is a known good kernel.  It seems to be getting
-worse over time (as I upgrade kernels), but maybe the hardware is
-aging and the situation is becoming more likely.  When it first
-started happening it was like once every 2-3 months or even rarer.
-Now it has happened again since the last time I posted to this
-thread...
+Martin Fuzzey a =E9crit :
+> Greg KH wrote:
+>> Can you fix this in the host controller driver?
+>>
+>>  =20
+> Technically yes (by copying the unaligned buffers).
+>=20
+> But if we do decide that USB must support unaligned buffers wouldn't =
+it
+> be better to have the HCD indicate it's alignment requirement to the
+> core and have the core do the copying?
+>=20
+> Gary King sent a message to this thread but only to the arm list sayi=
+ng
+> he has the same problem with the tegra hcd (which doesn't seem to be =
+in
+> the tree yet.)  I don't know if any of the other in tree HCDs have th=
+is
+> problem.
+dwc otg also got this limitation. I don't know if the version submitted=
+=20
+for inclusion handle unaligned buffers.
 
-Aug 12 08:29:08 nike kernel: sky2 0000:0c:00.0: eth0: rx length error:
-status 0x5e50100 length 3013
 
-> Are you trying to run with Jumbo >1500 MTU?
-
-No, normal 1500 MTU network, with ipv4 and ipv6 native traffic.  Not a
-huge amount of traffic either.
-And indeed the problem seems to happen just as easily (if not easier)
-when the machine (and thus the network) is close(r) to idle (ie.
-overnight, etc) - although that might just be a matter of more time
-passing.
-
-Are you sure there is nothing the driver could do on seeing such an error?
-It seems like since "ip link set eth0 down && ip link set eth0 up"
-fixes it, what it should do is some sort of partial reset...
-
-I will try to verify if 'ethtool -K eth0 rx off && ethtool -K eth0 rx
-on' is enough to fix the problem (when it happens once again).
-Afterwards I'll turn of rx csum (ethtool -K eth0 rx off) and will see
-if it happens again.
+Matthieu
