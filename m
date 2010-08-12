@@ -1,32 +1,18 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6] bridge: allow hub-like behaviour
-Date: Thu, 12 Aug 2010 13:15:24 +0200
-Message-ID: <20100812111523.GC3115@psychotron.brq.redhat.com>
-References: <20100811144017.GA2625@psychotron.brq.redhat.com>
- <20100811120741.27e13248@s6510>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCHv1 NEXT 0/7]qlcnic: enhancement and fixes
+Date: Thu, 12 Aug 2010 04:28:40 -0700
+Message-ID: <1281612527-27838-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47039 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933372Ab0HLLPl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Aug 2010 07:15:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20100811120741.27e13248@s6510>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:3271 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753154Ab0HLL2s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Aug 2010 07:28:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Aug 11, 2010 at 06:07:41PM CEST, shemminger@vyatta.com wrote:
->NO. unnecessary
->
->Already possible, without patch. Just set the hold time
->on the bridge to 0!
-
-Sorry, but could you please point me a sysfs node where should I do this
-setting? Unable to find this.
-
-Thanks.
-
+Hi
+	Series v1 of 7 patches to fix minor bugs and to add statistics
+	support. Please apply them on net-next.
+-amit
