@@ -1,146 +1,77 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [iproute2] iproute2:  Fix 'addr flush secondary' logic.
-Date: Thu, 12 Aug 2010 12:10:36 -0700
-Message-ID: <4C64472C.9000302@candelatech.com>
-References: <1281547182-1252-1-git-send-email-greearb@candelatech.com> <4C630B0A.9010304@hp.com> <4C6328A8.4070703@candelatech.com> <4C6444EA.1070704@hp.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: sky2 driver fails to handle "rx length error: status 0x5d60100
+ length 2982" gracefully
+Date: Thu, 12 Aug 2010 15:18:19 -0400
+Message-ID: <20100812151819.282636fe@s6510>
+References: <AANLkTinMK7n51v4uBPYChYV7KOye8WEvdCFDanfd2mVL@mail.gmail.com>
+	<20100811215932.26414efe@s6510>
+	<AANLkTikDOerA4g+-=v+wM8cmysnemCTqEx0ncCCERLY6@mail.gmail.com>
+	<20100812120044.5b1880ad@s6510>
+	<20100812121600.2e971e66@s6510>
+	<AANLkTinM2m-dK2FYw5VBi3eBAhBRrrzZ+vH5aCtDoDVS@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Linux NetDev <netdev@vger.kernel.org>
+To: Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:46923 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754051Ab0HLTKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 15:10:39 -0400
-In-Reply-To: <4C6444EA.1070704@hp.com>
+Received: from mail.vyatta.com ([76.74.103.46]:46716 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754476Ab0HLTSb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 15:18:31 -0400
+In-Reply-To: <AANLkTinM2m-dK2FYw5VBi3eBAhBRrrzZ+vH5aCtDoDVS@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2010 12:00 PM, Brian Haley wrote:
-> On 08/11/2010 06:48 PM, Ben Greear wrote:
->> Looks like the code was broken in several different places.
->>
->> * It ran only a single filter if there were multiple.
->> * Don't want to flush in a loop if you are doing primary
->>    because otherwise promoted seconaries will get deleted
->>    for each additional loop (10 in upstream code).
->> * No idea what a while (0); statement at the end of a for
->>    loop does, but I don't think it needed to be there!
->>
->> The attached patch makes it work for me, supporting
->> flushing primary or secondary addresses.
->
->> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
->> index 5f0789c..803df17 100644
->> --- a/ip/ipaddress.c
->> +++ b/ip/ipaddress.c
->> @@ -637,7 +637,7 @@ int print_addrinfo_primary(const struct sockaddr_nl *who, struct nlmsghdr *n,
->>   {
->>   	struct ifaddrmsg *ifa = NLMSG_DATA(n);
->>
->> -	if (!ifa->ifa_flags&  IFA_F_SECONDARY)
->> +	if (ifa->ifa_flags&  IFA_F_SECONDARY)
->   		return 0;
->
-> This should be:
->
-> 	if (!(ifa->ifa_flags&  IFA_F_SECONDARY))
->
-> as this function does the opposite of what it seems.
+On Thu, 12 Aug 2010 09:58:01 -0700
+Maciej =C5=BBenczykowski <zenczykowski@gmail.com> wrote:
 
-I see no reason to let it do the opposite of what it seems.
-
- From what I can tell, the original code never even called this
-method anyway since it was the second filter and only the first
-filter was used.
+> I'm not sure if there is a known good kernel.  It seems to be getting
+> worse over time (as I upgrade kernels), but maybe the hardware is
+> aging and the situation is becoming more likely.  When it first
+> started happening it was like once every 2-3 months or even rarer.
+> Now it has happened again since the last time I posted to this
+> thread...
+>=20
+> Aug 12 08:29:08 nike kernel: sky2 0000:0c:00.0: eth0: rx length error=
+:
+> status 0x5e50100 length 3013
+>=20
+> > Are you trying to run with Jumbo >1500 MTU?
+>=20
+> No, normal 1500 MTU network, with ipv4 and ipv6 native traffic.  Not =
+a
+> huge amount of traffic either.
+> And indeed the problem seems to happen just as easily (if not easier)
+> when the machine (and thus the network) is close(r) to idle (ie.
+> overnight, etc) - although that might just be a matter of more time
+> passing.
+>=20
+> Are you sure there is nothing the driver could do on seeing such an e=
+rror?
+> It seems like since "ip link set eth0 down && ip link set eth0 up"
+> fixes it, what it should do is some sort of partial reset...
+>=20
+> I will try to verify if 'ethtool -K eth0 rx off && ethtool -K eth0 rx
+> on' is enough to fix the problem (when it happens once again).
+> Afterwards I'll turn of rx csum (ethtool -K eth0 rx off) and will see
+> if it happens again.
 
 
->> @@ -648,7 +648,7 @@ int print_addrinfo_secondary(const struct sockaddr_nl *who, struct nlmsghdr *n,
->>   {
->> 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
->>
->> -	if (ifa->ifa_flags&  IFA_F_SECONDARY)
->> +	if (!(ifa->ifa_flags&  IFA_F_SECONDARY))
->   		return 0;
->
->> From testing, the original code here was correct.
+The status values indicate that the GMAC (frame parser) got a reasonabl=
+e
+size frame but the DMA merged frames together. This indicates a timing
+problem. There are some bits which even with NDA programmers manual doe=
+sn't
+help with. The Linux driver expects the BIOS or EEPROM to set them corr=
+ectly
+because different problems different settings.
 
-It deleted addresses, but not how it was intended to work,
-I think.
-
->> @@ -865,6 +865,13 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
->> 				printf("\n*** Round %d, deleting %d addresses ***\n", round, filter.flushed);
->> 				fflush(stdout);
->> 			}
->> +
->> +			/* If we are flushing, and specifying primary, then we want to flush only a single round.
->> +			 * Otherwise, we'll start flushing secondaries that were promoted to primaries
->> +			 */
->> +			if (!(filter.flags&  IFA_F_SECONDARY)&&  (filter.flagmask&  IFA_F_SECONDARY)) {
->> +				return 0;
->> +			}
->
-> This doesn't seem to do anything, I see all my IPv4 addresses flushed if I
-> run 'ip -4 -s a flush primary dev eth2'.  And it says it only deleted one
-> when it deleted two addresses :-/  Also, if it did work, it should really goto
-> a few lines above so it prints the summary stats:
->
->                          if (filter.flushed == 0) {
-> flush_done:
->                                  if (show_stats) {
->
-> Even when I corrected the lines above, it didn't work:
->
-> # ip -4 a s dev eth2
-> 2: eth2:<BROADCAST,MULTICAST,UP,LOWER_UP>  mtu 1500 qdisc mq state UP qlen 1000
->      inet 192.168.6.4/24 brd 192.168.6.255 scope global eth2
->
-> # ip a a 192.168.6.100/24 brd + dev eth2
-> # ip -4 a s dev eth2
-> 2: eth2:<BROADCAST,MULTICAST,UP,LOWER_UP>  mtu 1500 qdisc mq state UP qlen 1000
->      inet 192.168.6.4/24 brd 192.168.6.255 scope global eth2
->      inet 192.168.6.100/24 brd 192.168.6.255 scope global secondary eth2
->
-> # ./ip -4 -s -s -o a flush primary dev eth2
-> 2: eth2    inet 192.168.6.4/24 brd 192.168.6.255 scope global eth2
->
-> *** Round 1, deleting 1 addresses ***
-> [missing *** Flush is complete after 1 round ***]
->
-> # ip -4 a s dev eth2
-> [nothing]
->
-> Where did my .100 secondary address go?  Now this will bug me until I figure
-> out why.  Maybe it's because I'm booted to 2.6.32.
-
-Do you have the 'promote secondaries' sysctl enabled?  I think you
-need that to have the secondaries not just dissappear upon removal
-of the primary.
-
->> diff --git a/lib/libnetlink.c b/lib/libnetlink.c
->> index cfeb894..d18e8a0 100644
->
-> Can you give an example of how you tested this double filter change?  My
-> distro /sbin/ip seemed to work just fine.
->
->> -		if (status) {
->> +		if (msglen) {
->> 			fprintf(stderr, "!!!Remnant of size %d\n", status);
->> 			exit(1);
->> 		}
->
-> Should the arg to the fprintf() be msglen too?
-
-Yes, that should be fixed.
-
-Thanks for the review..I'll make this change and show you the commands
-I used for testing.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+There is firmware in eeprom that configures internal state. On one moth=
+erboard
+the vendor provided an update. There is no good way to update this from=
+ Linux,
+you need to go system vendor and install firmware with their native OS =
+(ie Windows
+or MacOS).
