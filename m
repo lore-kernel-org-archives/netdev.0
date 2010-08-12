@@ -1,93 +1,272 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH net-next-2.6] bridge: 64bit rx/tx counters
-Date: Thu, 12 Aug 2010 08:07:31 -0700
-Message-ID: <20100812080731.c9456ef9.akpm@linux-foundation.org>
-References: <1276531162.2478.121.camel@edumazet-laptop>
-	<20100614.231412.39191304.davem@davemloft.net>
-	<1276596856.2541.84.camel@edumazet-laptop>
-	<1276598376.2541.93.camel@edumazet-laptop>
-	<20100809214740.c5d186d2.akpm@linux-foundation.org>
-	<1281615375.2494.20.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 16568] New: Regression and incompatibility
+ with Windows SP2-SP3-Vista TCP stack causing lost connections
+Date: Thu, 12 Aug 2010 17:09:33 +0200
+Message-ID: <1281625773.2494.38.camel@edumazet-laptop>
+References: <bug-16568-10286@https.bugzilla.kernel.org/>
+	 <20100812074041.cf62b793.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, bhutchings@solarflare.com,
-	Nick Piggin <npiggin@suse.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, yuriy@ucoz.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54830 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759790Ab0HLPGN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 11:06:13 -0400
-In-Reply-To: <1281615375.2494.20.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61456 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753664Ab0HLPJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 11:09:39 -0400
+Received: by wyb32 with SMTP id 32so1495677wyb.19
+        for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 08:09:37 -0700 (PDT)
+In-Reply-To: <20100812074041.cf62b793.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Aug 2010 14:16:15 +0200 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Le jeudi 12 ao=C3=BBt 2010 =C3=A0 07:40 -0700, Andrew Morton a =C3=A9cr=
+it :
+> (switched to email.  Please respond via emailed reply-to-all, not via=
+ the
+> bugzilla web interface).
+>=20
+>=20
+> On Thu, 12 Aug 2010 08:20:01 GMT bugzilla-daemon@bugzilla.kernel.org =
+wrote:
+>=20
+> > https://bugzilla.kernel.org/show_bug.cgi?id=3D16568
+> >=20
+> >            Summary: Regression and incompatibility with Windows
+> >                     SP2-SP3-Vista TCP stack causing lost connection=
+s
+> >            Product: Networking
+> >            Version: 2.5
+> >     Kernel Version: 2.6.30+
+> >           Platform: All
+> >         OS/Version: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: high
+> >           Priority: P1
+> >          Component: IPV4
+> >         AssignedTo: shemminger@linux-foundation.org
+> >         ReportedBy: yuriy@ucoz.com
+> >         Regression: No
+> >=20
+> >=20
+> > Hi.
+> > I administer about 50 highly-loaded web servers (free CMS hosting) =
+under linux.
+> > Having on most of them kernel versions between 2.6.24 and 2.6.29 at=
+ the
+> > beginnig of the year, I made TCP sysctls tunings for increasing DDO=
+S and
+> > different flooding protection (our servers have attacks rather ofte=
+n).
+> > tcp_tw_recyle=3D1 was among of them, as many manuals in the net rec=
+ommend to do
+> > this and linux documentation does not say anything bad. Having peri=
+odic kernel
+> > panics connected with bugs in ethernet card drivers and ext3 and af=
+ter founding
+> > that 2.6.31+ kernels work faster with ext3, I upgraded almost all k=
+ernels to
+> > 2.6.32.8, which was already being tested on several servers for sev=
+eral months.=20
+> > Somewhen after that we began to receive complaints from our users (=
+site owners)
+> > that they (and their visitors) see very unstable work of their site=
+s. It looked
+> > like HTTP-connections were just lost in a random way. Not everybody=
+ had the
+> > problem, just a small percent. We tried to find problem with intern=
+et providers
+> > or buggy firewalls, but finally came to conclusion that problem is =
+connected
+> > with our servers. Analizing situations with lost connections using =
+tcpdump i
+> > found that client host send packets, BUT LINUX JUST IGNORES THEM, t=
+here was
+> > SYN-packet repeated 3 times with interval of 3 secs, but NO SYN-ACK=
+ reply.
+> > Most problems had users with Windows SP3 (i.e. almost all users wit=
+h SP3 had
+> > the problem). I booted one server with old 2.6.24 kernel and found =
+that problem
+> > dissappeared. Then began look for exact kernel version, that introd=
+uced
+> > incompatibility. Using binary search I compiled several kernels bet=
+ween 2.6.24
+> > and 2.6.32.8 and found that 2.6.29.6 DO NO have the problem, but 2.=
+6.30 DOES.
+> > Studing commits made to tcp_input.c and tcp_ipv4.c (which i suppose=
+d were
+> > involved) between that releases I found this one.
+> >   author    Eric Dumazet <dada1@cosmosbay.com>   =20
+> >     Wed, 11 Mar 2009 16:23:57 +0000 (09:23 -0700)
+> >   committer    David S. Miller <davem@davemloft.net>   =20
+> >     Wed, 11 Mar 2009 16:23:57 +0000 (09:23 -0700)
+> >   commit    fc1ad92dfc4e363a055053746552cdb445ba5c57
+> >=20
+> >   tcp: allow timestamps even if SYN packet has tsval=3D0
+> >=20
+> >   Some systems send SYN packets with apparently wrong RFC1323 times=
+tamp
+> >   option values [timestamp tsval=3D0 tsecr=3D0].
+> >   It might be for security reasons (http://www.secuobs.com/plugs/25=
+220.shtml )
+> >   Linux TCP stack ignores this option and sends back a SYN+ACK pack=
+et
+> >   without timestamp option, thus many TCP flows cannot use timestam=
+ps
+> >   and lose some benefit of RFC1323.
+> >   Other operating systems seem to not care about initial tsval valu=
+e, and let
+> >   tcp flows to negotiate timestamp option.
+> >=20
+> >   net/ipv4/tcp_ipv4.c         diff :
+> >=20
+> > --- a/net/ipv4/tcp_ipv4.c
+> > +++ b/net/ipv4/tcp_ipv4.c
+> > @@ -1226,15 +1226,6 @@ int tcp_v4_conn_request(struct sock *sk, str=
+uct sk_buff
+> > *skb)
+> >         if (want_cookie && !tmp_opt.saw_tstamp)
+> >                 tcp_clear_options(&tmp_opt);
+> >=20
+> > -       if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
+> > -               /* Some OSes (unknown ones, but I see them on web s=
+erver, which
+> > -                * contains information interesting only for window=
+s'
+> > -                * users) do not send their stamp in SYN. It is eas=
+y case.
+> > -                * We simply do not advertise TS support.
+> > -                */
+> > -               tmp_opt.saw_tstamp =3D 0;
+> > -               tmp_opt.tstamp_ok  =3D 0;
+> > -       }
+> >         tmp_opt.tstamp_ok =3D tmp_opt.saw_tstamp;
+> >=20
+> >         tcp_openreq_init(req, &tmp_opt, skb);
+> >=20
+> > Removing that was not very good. Having analized lost connections f=
+rom SP3 I
+> > know that they have timestamps turned on and timestamp value is 0. =
+Here is it:
+> > 13:39:10.430498 IP 192.168.99.130.3493 > 192.168.99.100.80: S
+> > 2507911465:2507911465(0) win 65535 <mss 1460,nop,wscale 3,nop,nop,t=
+imestamp 0
+> > 0,nop,nop,sackOK>
+> >         0x0000:  4500 0040 2bda 4000 8006 86a6 c0a8 6382  E..@+.@..=
+=2E....c.
+> >         0x0010:  c0a8 6364 0da5 0050 957b b129 0000 0000  ..cd...P.=
+{.)....
+> >         0x0020:  b002 ffff 992c 0000 0204 05b4 0103 0303  .....,...=
+=2E......
+> >         0x0030:  0101 080a 0000 0000 0000 0000 0101 0402  .........=
+=2E......
+> >=20
+> > Having above code fragment removed we got tmp_opt.tstamp_ok=3D1, as=
+ i understand.
+> > But a little later in source code of tcp_ipv4.c read:
+> >         /* VJ's idea. We save last timestamp seen
+> >          * from the destination in peer table, when entering
+> >          * state TIME-WAIT, and check against it before
+> >          * accepting new connection request.
+> >          *
+> >          * If "isn" is not zero, this request hit alive
+> >          * timewait bucket, so that all the necessary checks
+> >          * are made in the function processing timewait state.
+> >          */
+> >         if (tmp_opt.saw_tstamp &&
+> >             tcp_death_row.sysctl_tw_recycle &&
+> >             (dst =3D inet_csk_route_req(sk, req)) !=3D NULL &&
+> >             (peer =3D rt_get_peer((struct rtable *)dst)) !=3D NULL =
+&&
+> >             peer->v4daddr =3D=3D saddr) {
+> >             if ((u32)get_seconds() - peer->tcp_ts_stamp < TCP_PAWS_=
+MSL &&
+> >                 (s32)(peer->tcp_ts - req->ts_recent) >
+> >                             TCP_PAWS_WINDOW) {
+> >                 NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSPASSIV=
+EREJECTED);
+> >                 goto drop_and_release;
+> >             }
+> >         }
+> > which in some way (tmp_opt.saw_tstamp && tcp_death_row.sysctl_tw_re=
+cycle are
+> > true), random way, having not closed time-wait sockets from the pea=
+r, leads to
+> > packet ignorence.
+> >=20
+> > As for me, i understand, that i should not enable tw_recycle, BUT D=
+OCUMENTATION
+> > DOES NOT STATE, that enabling it i'll got random and rather often l=
+ost of
+> > connections from some types of popular clients (like Windows).
+> > Concerning above stated commit, it should include something to prev=
+ent above
+> > condition to become true if tmp_opt.rcv_tsval=3D=3D0. I'm not sure,=
+ but something
+> > like
+> >         if (tmp_opt.saw_tstamp &&
+> > +           tmp_opt.rcv_tsval &&
+> >             tcp_death_row.sysctl_tw_recycle &&
+> >             (dst =3D inet_csk_route_req(sk, req)) !=3D NULL &&
+> >             (peer =3D rt_get_peer((struct rtable *)dst)) !=3D NULL =
+&&
+> >=20
+> > just to not provide regression and strong TCP-stack incompatibility=
+ in case
+> > tw_recycle is enabled.
+> > Also documentation does not state, that tw_recyle should not be use=
+d at all for
+> > internet servers, because web-clients, which are behind NAT, will h=
+ave problems
+> > connected with the same above condition because successive connecti=
+ons from
+> > different clients (which have common IP) could have incompatible ti=
+mestamps.
+> >=20
+> > Sorry if i detracted somebody busy from his work with my unimportan=
+t problem.
+> >=20
+>=20
+> --
 
-> > And all this open-coded per-cpu counter stuff added all over the place.
-> > Were percpu_counters tested or reviewed and found inadequate and unfixable?
-> > If so, please do tell.
-> > 
-> 
-> percpu_counters tries hard to maintain a view of the current value of
-> the (global) counter. This adds a cost because of a shared cache line
-> and locking. (__percpu_counter_sum() is not very scalable on big hosts,
-> it locks the percpu_counter lock for a possibly long iteration)
+Hi Yuriy
 
-Could be.  Is percpu_counter_read_positive() unsuitable?
+Interesting analysis but wrong conclusions :)
 
-> 
-> For network stats we dont want to maintain this central value, we do the
-> folding only when necessary.
+Clients using RFC1323 (timestamps) and behind a NAT device will barf on
+your setup. No matter they use Windows SP3 or other operating system.
 
-hm.  Well, why?  That big walk across all possible CPUs could be really
-expensive for some applications.  Especially if num_possible_cpus is
-much larger than num_online_cpus, which iirc can happen in
-virtualisation setups; probably it can happen in non-virtualised
-machines too.
+Only because RFC1323 is more often enabled at client level (a registry
+change on Windows XP, Vista or Seven I dont know), you start noticing
+your server drops more connections than before.
 
-> And this folding has zero effect on
-> concurrent writers (counter updates)
+Point is  :
 
-The fastpath looks a little expensive in the code you've added.  The
-write_seqlock() does an rmw and a wmb() and the stats inc is a 64-bit
-rmw whereas percpu_counters do a simple 32-bit add.  So I'd expect that
-at some suitable batch value, percpu-counters are faster on 32-bit. 
+Dont mess with tcp_tw_recycle=3D1, tcp_timestamps=3D1 on public machine=
+s
 
-They'll usually be slower on 64-bit, until that num_possible_cpus walk
-bites you.
+Its a non working setup, for clients behind NAT devices (since their
+TSVAL will probably lead to incorrect behavior on server, with infamous
+LINUX_MIB_PAWSPASSIVEREJECTED status seen on netstat -s, as you
+discovered.
 
-percpu_counters might need some work to make them irq-friendly.  That
-bare spin_lock().
+And your patch solves nothing for this very common case, unless the NAT
+device is able to overwrite TSVAL values with its own values (very
+unlikely !!!)
 
-btw, I worry a bit about seqlocks in the presence of interrupts:
+A working setup is (and is the default) :
 
-static inline void write_seqcount_begin(seqcount_t *s)
-{
-	s->sequence++;
-	smp_wmb();
-}
+tcp_tw_recycle=3D0
+tcp_timestamps=3D1
 
-are we assuming that the ++ there is atomic wrt interrupts?  I think
-so.  Is that always true for all architectures, compiler versions, etc?
 
-> For network stack, we also need to update two values, a packet counter
-> and a bytes counter. percpu_counter is not very good for the 'bytes
-> counter', since we would have to use a arbitrary big bias value.
+Documentation might be improved, but I feel whole "tcp_tw_recycle"
+affair is really too tricky to be ever documented (not mentioning using
+it ;) )
 
-OK, that's a nasty problem for percpu-counters.
 
-> Using several percpu_counter would also probably use more cache lines.
-> 
-> Also please note this stuff is only needed for 32bit arches. 
-> 
-> Using percpu_counter would slow down network stack on modern arches.
 
-Was this ever quantified?
-
-> 
-> I am very well aware of the percpu_counter stuff, I believe I tried to
-> optimize it a bit in the past.
