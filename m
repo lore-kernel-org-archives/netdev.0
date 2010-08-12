@@ -1,91 +1,90 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Thu, 12 Aug 2010 08:25:52 +0200
-Message-ID: <4C6393F0.5090005@hartkopp.net>
+From: "Wang, Qi" <qi.wang@intel.com>
+Subject: RE: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Thu, 12 Aug 2010 14:29:32 +0800
+Message-ID: <D5AB6E638E5A3E4B8F4406B113A5A19A28EA28B3@shsmsx501.ccr.corp.intel.com>
 References: <4C61EDE5.4030505@dsn.okisemi.com>
-	<AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>
-	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>
-	<20100812020414.GD14121@suse.de>
+ <AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>
+ <D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>
+ <20100812020414.GD14121@suse.de> <4C6393F0.5090005@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Khor, Andrew Chih Howe" <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>, "Wang, Yong Y" <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Masayuki Ohtak <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	"meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org" <meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org>,
-	"arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: "Wang, Qi" <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100812020414.GD14121-l3A5Bk7waGM@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Greg KH <gregkh@suse.de>, Daniel Baluta <daniel.baluta@gmail.com>,
+	Masayuki Ohtak <masa-korg@dsn.okisemi.com>,
+	"meego-dev@meego.com" <meego-dev@meego.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	"socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>,
+	"arjan@linux.intel.com" <arjan@linux.intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:64706 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757467Ab0HLGbV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Aug 2010 02:31:21 -0400
+In-Reply-To: <4C6393F0.5090005@hartkopp.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12.08.2010 04:04, Greg KH wrote:
-> On Thu, Aug 12, 2010 at 09:42:27AM +0800, Wang, Qi wrote:
-
->>> 2. Why don't you use kernel existing kfifo infrastructure? ([2]).
->> Just take a look at kfifo.h. This structure has been changed. I
->> remembered there was a spin_lock from kfifo previously. Currently it's
->> been removed, good.
->> OKI-sans, would you please take a look at ./include/linux/kfifo.h, and try to use this structure and APIs?
->>
->> Daniel,
->>
->> We're anxious to integrate those codes now. Perhaps it'll take us
->> quite a long time to use kfifo. How about implementing it with the
->> next version?
-> 
-> What do you mean by this?  Code isn't merged into the tree unless it is
-> correct.  Please fix this now, it's not that big of a deal.
-> 
-
-Hello Qi,
-
-i generally wonder what this FIFO is used for??
-
-For me it looks like a artifact from a former chardev implementation, as
-several other code sniplets do (see comments from Wolfgang and Marc).
-
-The network driver model is used for CAN drivers and therefore all the
-infrastructure for queueing inbound and outbound network traffic should be
-used from the Kernel like all other CAN drivers and all other ethernet drivers do.
-
-Additionally there is a powerful infrastructure to support the special
-functions of CAN netdevices (like setting of bittimings, listen-only modes, or
-to produce CAN driver states etc.), that's part of the CAN drivers in
-drivers/net/can/ since it has gone mainline.
-
-CAN netdevices are intentionally dumb (like the original ethernet adapters).
-This allows a simple driver interface between the kernel and the hardware
-driver, e.g. for queueing CAN frames. CAN drivers don't use any hardware
-rx-filtering(!) due to multiuser requirements and it's a vital requirement
-that the frames are not re-ordered on sending (by the 'some magic' CAN
-controller dealing with CAN-ID priorities, e.g. see tx-path in the MSCAN driver).
-
->From my perspective about 70% of your code is obsolete, as you implemented
-tricky details (like FIFOs, bittiming tables or magic filter handlings),
-that's not needed at all.
-
-Please take a look at the SJA1000 driver (for a low complex CAN controller) or
-at the TI driver (for a higher complex CAN controller) how these drivers
-handle the specialties of each hardware. And read some documentation in
-Documentation/networking/can.txt to get an impression about the concepts of
-the CAN implementation in the Linux Kernel and the CAN netdevices.
-
-I strongly assume that your driver would be about 30 kBytes of code fitting
-into a single c-file like the ti_hecc.c does. And that's definitely easier for
-us to review and easier for you to maintain in the future ...
-
-Thanks & best regards,
-Oliver
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBPbGl2ZXIgSGFydGtvcHAgW21h
+aWx0bzpzb2NrZXRjYW5AaGFydGtvcHAubmV0XQ0KPiBTZW50OiBUaHVyc2RheSwgQXVndXN0IDEy
+LCAyMDEwIDI6MjYgUE0NCj4gVG86IFdhbmcsIFFpDQo+IENjOiBHcmVnIEtIOyBEYW5pZWwgQmFs
+dXRhOyBNYXNheXVraSBPaHRhazsgbWVlZ28tZGV2QG1lZWdvLmNvbTsNCj4gV29sZmdhbmcgR3Jh
+bmRlZ2dlcjsgc29ja2V0Y2FuLWNvcmVAbGlzdHMuYmVybGlvcy5kZTsNCj4gbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZzsgS2hvciwgQW5kcmV3IENoaWggSG93ZTsgYXJqYW5AbGludXguaW50ZWwuY29t
+Ow0KPiBXYW5nLCBZb25nIFkNCj4gU3ViamVjdDogUmU6IFtNZWVHby1EZXZdW1BBVENIXSBUb3Bj
+bGlmZjogVXBkYXRlIFBDSF9DQU4gZHJpdmVyIHRvIDIuNi4zNQ0KPiANCj4gT24gMTIuMDguMjAx
+MCAwNDowNCwgR3JlZyBLSCB3cm90ZToNCj4gPiBPbiBUaHUsIEF1ZyAxMiwgMjAxMCBhdCAwOTo0
+MjoyN0FNICswODAwLCBXYW5nLCBRaSB3cm90ZToNCj4gDQo+ID4+PiAyLiBXaHkgZG9uJ3QgeW91
+IHVzZSBrZXJuZWwgZXhpc3Rpbmcga2ZpZm8gaW5mcmFzdHJ1Y3R1cmU/IChbMl0pLg0KPiA+PiBK
+dXN0IHRha2UgYSBsb29rIGF0IGtmaWZvLmguIFRoaXMgc3RydWN0dXJlIGhhcyBiZWVuIGNoYW5n
+ZWQuIEkNCj4gPj4gcmVtZW1iZXJlZCB0aGVyZSB3YXMgYSBzcGluX2xvY2sgZnJvbSBrZmlmbyBw
+cmV2aW91c2x5LiBDdXJyZW50bHkgaXQncw0KPiA+PiBiZWVuIHJlbW92ZWQsIGdvb2QuDQo+ID4+
+IE9LSS1zYW5zLCB3b3VsZCB5b3UgcGxlYXNlIHRha2UgYSBsb29rIGF0IC4vaW5jbHVkZS9saW51
+eC9rZmlmby5oLCBhbmQgdHJ5IHRvDQo+IHVzZSB0aGlzIHN0cnVjdHVyZSBhbmQgQVBJcz8NCj4g
+Pj4NCj4gPj4gRGFuaWVsLA0KPiA+Pg0KPiA+PiBXZSdyZSBhbnhpb3VzIHRvIGludGVncmF0ZSB0
+aG9zZSBjb2RlcyBub3cuIFBlcmhhcHMgaXQnbGwgdGFrZSB1cw0KPiA+PiBxdWl0ZSBhIGxvbmcg
+dGltZSB0byB1c2Uga2ZpZm8uIEhvdyBhYm91dCBpbXBsZW1lbnRpbmcgaXQgd2l0aCB0aGUNCj4g
+Pj4gbmV4dCB2ZXJzaW9uPw0KPiA+DQo+ID4gV2hhdCBkbyB5b3UgbWVhbiBieSB0aGlzPyAgQ29k
+ZSBpc24ndCBtZXJnZWQgaW50byB0aGUgdHJlZSB1bmxlc3MgaXQgaXMNCj4gPiBjb3JyZWN0LiAg
+UGxlYXNlIGZpeCB0aGlzIG5vdywgaXQncyBub3QgdGhhdCBiaWcgb2YgYSBkZWFsLg0KPiA+DQo+
+IA0KPiBIZWxsbyBRaSwNCj4gDQo+IGkgZ2VuZXJhbGx5IHdvbmRlciB3aGF0IHRoaXMgRklGTyBp
+cyB1c2VkIGZvcj8/DQo+IA0KPiBGb3IgbWUgaXQgbG9va3MgbGlrZSBhIGFydGlmYWN0IGZyb20g
+YSBmb3JtZXIgY2hhcmRldiBpbXBsZW1lbnRhdGlvbiwgYXMNCj4gc2V2ZXJhbCBvdGhlciBjb2Rl
+IHNuaXBsZXRzIGRvIChzZWUgY29tbWVudHMgZnJvbSBXb2xmZ2FuZyBhbmQgTWFyYykuDQo+IA0K
+PiBUaGUgbmV0d29yayBkcml2ZXIgbW9kZWwgaXMgdXNlZCBmb3IgQ0FOIGRyaXZlcnMgYW5kIHRo
+ZXJlZm9yZSBhbGwgdGhlDQo+IGluZnJhc3RydWN0dXJlIGZvciBxdWV1ZWluZyBpbmJvdW5kIGFu
+ZCBvdXRib3VuZCBuZXR3b3JrIHRyYWZmaWMgc2hvdWxkIGJlDQo+IHVzZWQgZnJvbSB0aGUgS2Vy
+bmVsIGxpa2UgYWxsIG90aGVyIENBTiBkcml2ZXJzIGFuZCBhbGwgb3RoZXIgZXRoZXJuZXQgZHJp
+dmVycw0KPiBkby4NCj4gDQo+IEFkZGl0aW9uYWxseSB0aGVyZSBpcyBhIHBvd2VyZnVsIGluZnJh
+c3RydWN0dXJlIHRvIHN1cHBvcnQgdGhlIHNwZWNpYWwNCj4gZnVuY3Rpb25zIG9mIENBTiBuZXRk
+ZXZpY2VzIChsaWtlIHNldHRpbmcgb2YgYml0dGltaW5ncywgbGlzdGVuLW9ubHkgbW9kZXMsIG9y
+DQo+IHRvIHByb2R1Y2UgQ0FOIGRyaXZlciBzdGF0ZXMgZXRjLiksIHRoYXQncyBwYXJ0IG9mIHRo
+ZSBDQU4gZHJpdmVycyBpbg0KPiBkcml2ZXJzL25ldC9jYW4vIHNpbmNlIGl0IGhhcyBnb25lIG1h
+aW5saW5lLg0KPiANCj4gQ0FOIG5ldGRldmljZXMgYXJlIGludGVudGlvbmFsbHkgZHVtYiAobGlr
+ZSB0aGUgb3JpZ2luYWwgZXRoZXJuZXQgYWRhcHRlcnMpLg0KPiBUaGlzIGFsbG93cyBhIHNpbXBs
+ZSBkcml2ZXIgaW50ZXJmYWNlIGJldHdlZW4gdGhlIGtlcm5lbCBhbmQgdGhlIGhhcmR3YXJlDQo+
+IGRyaXZlciwgZS5nLiBmb3IgcXVldWVpbmcgQ0FOIGZyYW1lcy4gQ0FOIGRyaXZlcnMgZG9uJ3Qg
+dXNlIGFueSBoYXJkd2FyZQ0KPiByeC1maWx0ZXJpbmcoISkgZHVlIHRvIG11bHRpdXNlciByZXF1
+aXJlbWVudHMgYW5kIGl0J3MgYSB2aXRhbCByZXF1aXJlbWVudA0KPiB0aGF0IHRoZSBmcmFtZXMg
+YXJlIG5vdCByZS1vcmRlcmVkIG9uIHNlbmRpbmcgKGJ5IHRoZSAnc29tZSBtYWdpYycgQ0FODQo+
+IGNvbnRyb2xsZXIgZGVhbGluZyB3aXRoIENBTi1JRCBwcmlvcml0aWVzLCBlLmcuIHNlZSB0eC1w
+YXRoIGluIHRoZSBNU0NBTiBkcml2ZXIpLg0KPiANCj4gRnJvbSBteSBwZXJzcGVjdGl2ZSBhYm91
+dCA3MCUgb2YgeW91ciBjb2RlIGlzIG9ic29sZXRlLCBhcyB5b3UgaW1wbGVtZW50ZWQNCj4gdHJp
+Y2t5IGRldGFpbHMgKGxpa2UgRklGT3MsIGJpdHRpbWluZyB0YWJsZXMgb3IgbWFnaWMgZmlsdGVy
+IGhhbmRsaW5ncyksDQo+IHRoYXQncyBub3QgbmVlZGVkIGF0IGFsbC4NCj4gDQo+IFBsZWFzZSB0
+YWtlIGEgbG9vayBhdCB0aGUgU0pBMTAwMCBkcml2ZXIgKGZvciBhIGxvdyBjb21wbGV4IENBTiBj
+b250cm9sbGVyKSBvcg0KPiBhdCB0aGUgVEkgZHJpdmVyIChmb3IgYSBoaWdoZXIgY29tcGxleCBD
+QU4gY29udHJvbGxlcikgaG93IHRoZXNlIGRyaXZlcnMNCj4gaGFuZGxlIHRoZSBzcGVjaWFsdGll
+cyBvZiBlYWNoIGhhcmR3YXJlLiBBbmQgcmVhZCBzb21lIGRvY3VtZW50YXRpb24gaW4NCj4gRG9j
+dW1lbnRhdGlvbi9uZXR3b3JraW5nL2Nhbi50eHQgdG8gZ2V0IGFuIGltcHJlc3Npb24gYWJvdXQg
+dGhlIGNvbmNlcHRzIG9mDQo+IHRoZSBDQU4gaW1wbGVtZW50YXRpb24gaW4gdGhlIExpbnV4IEtl
+cm5lbCBhbmQgdGhlIENBTiBuZXRkZXZpY2VzLg0KPiANCj4gSSBzdHJvbmdseSBhc3N1bWUgdGhh
+dCB5b3VyIGRyaXZlciB3b3VsZCBiZSBhYm91dCAzMCBrQnl0ZXMgb2YgY29kZSBmaXR0aW5nDQo+
+IGludG8gYSBzaW5nbGUgYy1maWxlIGxpa2UgdGhlIHRpX2hlY2MuYyBkb2VzLiBBbmQgdGhhdCdz
+IGRlZmluaXRlbHkgZWFzaWVyIGZvcg0KPiB1cyB0byByZXZpZXcgYW5kIGVhc2llciBmb3IgeW91
+IHRvIG1haW50YWluIGluIHRoZSBmdXR1cmUgLi4uDQo+IA0KPiBUaGFua3MgJiBiZXN0IHJlZ2Fy
+ZHMsDQo+IE9saXZlcg0KVGhhbmsgeW91IGZvciB5b3VyIGNvbW1pdHMuDQo=
