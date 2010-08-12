@@ -1,80 +1,80 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Wed, 11 Aug 2010 19:04:14 -0700
-Message-ID: <20100812020414.GD14121@suse.de>
+From: "Wang, Qi" <qi.wang@intel.com>
+Subject: RE: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Thu, 12 Aug 2010 10:13:30 +0800
+Message-ID: <D5AB6E638E5A3E4B8F4406B113A5A19A28EA2728@shsmsx501.ccr.corp.intel.com>
 References: <4C61EDE5.4030505@dsn.okisemi.com>
  <AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>
  <D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>
+ <20100812020414.GD14121@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Daniel Baluta <daniel.baluta@gmail.com>,
-	Masayuki Ohtak <masa-korg@dsn.okisemi.com>,
 	"meego-dev@meego.com" <meego-dev@meego.com>,
 	Wolfgang Grandegger <wg@grandegger.com>,
 	"socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>,
 	"arjan@linux.intel.com" <arjan@linux.intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>
-To: "Wang, Qi" <qi.wang@intel.com>
+	"Wang, Yong Y" <yong.y.wang@intel.com>, Greg KH <gregkh@suse.de>
+To: "Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>,
+	Masayuki Ohtak <masa-korg@dsn.okisemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:58076 "EHLO mx2.suse.de"
+Received: from mga01.intel.com ([192.55.52.88]:5009 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933124Ab0HLCHY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Aug 2010 22:07:24 -0400
-Content-Disposition: inline
-In-Reply-To: <D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>
+	id S1754541Ab0HLCPA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Aug 2010 22:15:00 -0400
+In-Reply-To: <20100812020414.GD14121@suse.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 12, 2010 at 09:42:27AM +0800, Wang, Qi wrote:
-> > -----Original Message-----
-> > From: Daniel Baluta [mailto:daniel.baluta@gmail.com]
-> > Sent: Wednesday, August 11, 2010 6:37 PM
-> > To: Masayuki Ohtak
-> > Cc: meego-dev@meego.com; Wolfgang Grandegger;
-> > socketcan-core@lists.berlios.de; netdev@vger.kernel.org; Khor, Andrew Chih
-> > Howe; gregkh@suse.de; arjan@linux.intel.com; Wang, Qi; Wang, Yong Y
-> > Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-> > 
-> > Hi,
-> > 
-> > 2010/8/11 Masayuki Ohtak <masa-korg@dsn.okisemi.com>:
-> > > CAN driver of Topcliff PCH
-> > >
-> > > Topcliff PCH is the platform controller hub that is going to be used in
-> > > Intel's upcoming general embedded platform. All IO peripherals in
-> > > Topcliff PCH are actually devices sitting on AMBA bus.
-> > > Topcliff PCH has CAN I/F. This driver enables CAN function.
-> > >
-> > > Signed-off-by: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
-> > 
-> > I have a few questions:
-> > 
-> > 1. Is your code based on Intel's CAN EP80579 ([1]) ?
-> No.
-> > 2. Why don't you use kernel existing kfifo infrastructure? ([2]).
-> Just take a look at kfifo.h. This structure has been changed. I
-> remembered there was a spin_lock from kfifo previously. Currently it's
-> been removed, good.
-> OKI-sans, would you please take a look at ./include/linux/kfifo.h, and try to use this structure and APIs?
-> 
-> Daniel,
-> 
-> We're anxious to integrate those codes now. Perhaps it'll take us
-> quite a long time to use kfifo. How about implementing it with the
-> next version?
-
-What do you mean by this?  Code isn't merged into the tree unless it is
-correct.  Please fix this now, it's not that big of a deal.
-
-> > 3. Can you provide a pointer to Topcliff PCH CAN I/F datasheet ?
-> Currently this datasheet isn't open.
-
-Even under NDA?  The Linux foundation offers a service to allow
-developers access to data sheets so that they can do kernel development
-and code review.
-
-thanks,
-
-greg k-h
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBHcmVnIEtIIFttYWlsdG86Z3Jl
+Z2toQHN1c2UuZGVdDQo+IFNlbnQ6IFRodXJzZGF5LCBBdWd1c3QgMTIsIDIwMTAgMTA6MDQgQU0N
+Cj4gVG86IFdhbmcsIFFpDQo+IENjOiBEYW5pZWwgQmFsdXRhOyBNYXNheXVraSBPaHRhazsgbWVl
+Z28tZGV2QG1lZWdvLmNvbTsgV29sZmdhbmcNCj4gR3JhbmRlZ2dlcjsgc29ja2V0Y2FuLWNvcmVA
+bGlzdHMuYmVybGlvcy5kZTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgS2hvciwNCj4gQW5kcmV3
+IENoaWggSG93ZTsgYXJqYW5AbGludXguaW50ZWwuY29tOyBXYW5nLCBZb25nIFkNCj4gU3ViamVj
+dDogUmU6IFtNZWVHby1EZXZdW1BBVENIXSBUb3BjbGlmZjogVXBkYXRlIFBDSF9DQU4gZHJpdmVy
+IHRvIDIuNi4zNQ0KPiANCj4gT24gVGh1LCBBdWcgMTIsIDIwMTAgYXQgMDk6NDI6MjdBTSArMDgw
+MCwgV2FuZywgUWkgd3JvdGU6DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+
+ID4gRnJvbTogRGFuaWVsIEJhbHV0YSBbbWFpbHRvOmRhbmllbC5iYWx1dGFAZ21haWwuY29tXQ0K
+PiA+ID4gU2VudDogV2VkbmVzZGF5LCBBdWd1c3QgMTEsIDIwMTAgNjozNyBQTQ0KPiA+ID4gVG86
+IE1hc2F5dWtpIE9odGFrDQo+ID4gPiBDYzogbWVlZ28tZGV2QG1lZWdvLmNvbTsgV29sZmdhbmcg
+R3JhbmRlZ2dlcjsNCj4gPiA+IHNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxpb3MuZGU7IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmc7IEtob3IsIEFuZHJldw0KPiBDaGloDQo+ID4gPiBIb3dlOyBncmVn
+a2hAc3VzZS5kZTsgYXJqYW5AbGludXguaW50ZWwuY29tOyBXYW5nLCBRaTsgV2FuZywgWW9uZyBZ
+DQo+ID4gPiBTdWJqZWN0OiBSZTogW01lZUdvLURldl1bUEFUQ0hdIFRvcGNsaWZmOiBVcGRhdGUg
+UENIX0NBTiBkcml2ZXIgdG8NCj4gMi42LjM1DQo+ID4gPg0KPiA+ID4gSGksDQo+ID4gPg0KPiA+
+ID4gMjAxMC84LzExIE1hc2F5dWtpIE9odGFrIDxtYXNhLWtvcmdAZHNuLm9raXNlbWkuY29tPjoN
+Cj4gPiA+ID4gQ0FOIGRyaXZlciBvZiBUb3BjbGlmZiBQQ0gNCj4gPiA+ID4NCj4gPiA+ID4gVG9w
+Y2xpZmYgUENIIGlzIHRoZSBwbGF0Zm9ybSBjb250cm9sbGVyIGh1YiB0aGF0IGlzIGdvaW5nIHRv
+IGJlIHVzZWQgaW4NCj4gPiA+ID4gSW50ZWwncyB1cGNvbWluZyBnZW5lcmFsIGVtYmVkZGVkIHBs
+YXRmb3JtLiBBbGwgSU8gcGVyaXBoZXJhbHMgaW4NCj4gPiA+ID4gVG9wY2xpZmYgUENIIGFyZSBh
+Y3R1YWxseSBkZXZpY2VzIHNpdHRpbmcgb24gQU1CQSBidXMuDQo+ID4gPiA+IFRvcGNsaWZmIFBD
+SCBoYXMgQ0FOIEkvRi4gVGhpcyBkcml2ZXIgZW5hYmxlcyBDQU4gZnVuY3Rpb24uDQo+ID4gPiA+
+DQo+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IE1hc2F5dWtpIE9odGFrZSA8bWFzYS1rb3JnQGRzbi5v
+a2lzZW1pLmNvbT4NCj4gPiA+DQo+ID4gPiBJIGhhdmUgYSBmZXcgcXVlc3Rpb25zOg0KPiA+ID4N
+Cj4gPiA+IDEuIElzIHlvdXIgY29kZSBiYXNlZCBvbiBJbnRlbCdzIENBTiBFUDgwNTc5IChbMV0p
+ID8NCj4gPiBOby4NCj4gPiA+IDIuIFdoeSBkb24ndCB5b3UgdXNlIGtlcm5lbCBleGlzdGluZyBr
+ZmlmbyBpbmZyYXN0cnVjdHVyZT8gKFsyXSkuDQo+ID4gSnVzdCB0YWtlIGEgbG9vayBhdCBrZmlm
+by5oLiBUaGlzIHN0cnVjdHVyZSBoYXMgYmVlbiBjaGFuZ2VkLiBJDQo+ID4gcmVtZW1iZXJlZCB0
+aGVyZSB3YXMgYSBzcGluX2xvY2sgZnJvbSBrZmlmbyBwcmV2aW91c2x5LiBDdXJyZW50bHkgaXQn
+cw0KPiA+IGJlZW4gcmVtb3ZlZCwgZ29vZC4NCj4gPiBPS0ktc2Fucywgd291bGQgeW91IHBsZWFz
+ZSB0YWtlIGEgbG9vayBhdCAuL2luY2x1ZGUvbGludXgva2ZpZm8uaCwgYW5kIHRyeSB0bw0KPiB1
+c2UgdGhpcyBzdHJ1Y3R1cmUgYW5kIEFQSXM/DQo+ID4NCj4gPiBEYW5pZWwsDQo+ID4NCj4gPiBX
+ZSdyZSBhbnhpb3VzIHRvIGludGVncmF0ZSB0aG9zZSBjb2RlcyBub3cuIFBlcmhhcHMgaXQnbGwg
+dGFrZSB1cw0KPiA+IHF1aXRlIGEgbG9uZyB0aW1lIHRvIHVzZSBrZmlmby4gSG93IGFib3V0IGlt
+cGxlbWVudGluZyBpdCB3aXRoIHRoZQ0KPiA+IG5leHQgdmVyc2lvbj8NCj4gDQo+IFdoYXQgZG8g
+eW91IG1lYW4gYnkgdGhpcz8gIENvZGUgaXNuJ3QgbWVyZ2VkIGludG8gdGhlIHRyZWUgdW5sZXNz
+IGl0IGlzDQo+IGNvcnJlY3QuICBQbGVhc2UgZml4IHRoaXMgbm93LCBpdCdzIG5vdCB0aGF0IGJp
+ZyBvZiBhIGRlYWwuDQoNCkhpIE9odGFrLXNhbiwNCg0KV291bGQgeW91IHBsZWFzZSB1c2Uga2Zp
+Zm8gc3RydWN0dXJlPyBJdCdsbCB0YWtlIHlvdSBzb21lIHRpbWUgdG8gc3R1ZHkgaXQsIGJ1dCBp
+dCdzIGEgZ29vZCBzdHJ1Y3R1cmUuDQo+IA0KPiA+ID4gMy4gQ2FuIHlvdSBwcm92aWRlIGEgcG9p
+bnRlciB0byBUb3BjbGlmZiBQQ0ggQ0FOIEkvRiBkYXRhc2hlZXQgPw0KPiA+IEN1cnJlbnRseSB0
+aGlzIGRhdGFzaGVldCBpc24ndCBvcGVuLg0KPiANCj4gRXZlbiB1bmRlciBOREE/ICBUaGUgTGlu
+dXggZm91bmRhdGlvbiBvZmZlcnMgYSBzZXJ2aWNlIHRvIGFsbG93DQo+IGRldmVsb3BlcnMgYWNj
+ZXNzIHRvIGRhdGEgc2hlZXRzIHNvIHRoYXQgdGhleSBjYW4gZG8ga2VybmVsIGRldmVsb3BtZW50
+DQo+IGFuZCBjb2RlIHJldmlldy4NCkhpIEFuZHJldywNCg0KQ2FuIEVDRyBzaGFyZSB0aG9zZSBk
+YXRhc2hlZXQgdG8gdGhlIG9wZW4gc291cmNlPyBPbmx5IHdpdGggdGhhdCBkYXRhc2hlZXQsIHRo
+ZSB1cHN0cmVhbSBjYW4gcmV2aWV3IHRoZSBzb3VyY2UgY29kZXMgZnJvbSBPS0kuDQoNCkJlc3Qg
+UmVnYXJkcywNClFpDQoNCj4gDQo+IHRoYW5rcywNCj4gDQo+IGdyZWcgay1oDQo=
