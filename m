@@ -1,51 +1,54 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] pcmcia: xirc2ps_cs bugfix
-Date: Fri, 13 Aug 2010 16:48:52 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.1008131641230.17306@i5.linux-foundation.org>
-References: <20100813185623.GC5853@comet.dominikbrodowski.net>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 08/12] ptp: Added a brand new class driver for ptp clocks.
+Date: Fri, 13 Aug 2010 17:54:42 -0600
+Message-ID: <AANLkTi=f0i7vetMvr4mK1cNJK6TYj1J6iCxjFeka00jc@mail.gmail.com>
+References: <cover.1276615626.git.richard.cochran@omicron.at>
+ <4a030d2bace90f089f2f3f61496b918c6f1dfb52.1276615626.git.richard.cochran@omicron.at>
+ <AANLkTinYjzfChsN0AB5W6kOh6xJYPJtoEq941pG8WbmS@mail.gmail.com> <20100813093438.GA18112@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>
-To: Dominik Brodowski <linux@dominikbrodowski.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linuxppc-dev@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:49293 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932077Ab0HMXtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Aug 2010 19:49:08 -0400
-Received: by pwi4 with SMTP id 4so683736pwi.19
-        for <netdev@vger.kernel.org>; Fri, 13 Aug 2010 16:49:08 -0700 (PDT)
-In-Reply-To: <20100813185623.GC5853@comet.dominikbrodowski.net>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:41484 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756093Ab0HMXzD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Aug 2010 19:55:03 -0400
+Received: by ywh1 with SMTP id 1so1151799ywh.19
+        for <netdev@vger.kernel.org>; Fri, 13 Aug 2010 16:55:02 -0700 (PDT)
+In-Reply-To: <20100813093438.GA18112@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Aug 13, 2010 at 3:34 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Tue, Jun 15, 2010 at 01:11:30PM -0600, Grant Likely wrote:
+>> On Tue, Jun 15, 2010 at 10:09 AM, Richard Cochran
+>> > +static DEFINE_SPINLOCK(clocks_lock); /* protects 'clocks' */
+>>
+>> Doesn't appear that clocks is manipulated at atomic context. =A0Mute=
+x instead?
+> ...
+>> If the spinlock is changed to a mutex that is held for the entire
+>> function call, then the logic here can be simpler.
+>
+> Grant,
+>
+> I am working on another go at this patch series. Stupid question:
+>
+> The caller of ptp_clock_register(), which takes the clocks_lock, is
+> always a module_init() function. Is this always a safe context in
+> which to call mutex_lock?
 
+Yes, you can take mutexes in the module_init context.
 
-On Fri, 13 Aug 2010, Dominik Brodowski wrote:
-> 
-> could you apply the attached bugfix for PCMCIA, please? Alternatively,
-> please pull from 
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/brodo/pcmcia-2.6.git master
-> 
-> where this one patch is located. What do you prefer, actually, if it is just
-> one patch I want to push to you?
+g.
 
-Doesn't really matter. These days, my workflow is so git-centric that a 
-simple "git pull" is a tiny simpler just because it's what I do day in and 
-day out, and doesn't involve exporting a patch and applying it - but the 
-difference is really so small that it matters not at all. And applying the 
-patch as a patch avoids a sily merge for a trivial change.
-
-So it really can go both ways. I'll take the patch this time, because I 
-happened to be in my "gather up patches" mode (which in turn is mostly 
-because your subject said "PATCH" rather than "GIT PULL" - I had ignored 
-the email while in my "git pull" phase). Which just goes to show how 
-little I care, and how small details make me do one over the other.
-
-So I think you should just base it on how convenient it is for you. 
-
-But if you have even just two patches, I probably prefer a "git pull". 
-But again, it's not a big deal.
-
-                    Linus
+--=20
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
