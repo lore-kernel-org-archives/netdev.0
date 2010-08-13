@@ -1,149 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Thu, 12 Aug 2010 16:10:50 -0700 (PDT)
-Message-ID: <20100812.161050.246523792.davem@davemloft.net>
+From: Steve Chen <schen@mvista.com>
+Subject: Re: TAHI CN-6-4-1 failed on Linux 2.6.32 kernel
+Date: Thu, 12 Aug 2010 19:00:57 -0500
+Message-ID: <AANLkTikeLtFqO4FcZKceCntycLSa-ZCPGF28t6nj=Gab@mail.gmail.com>
+References: <AANLkTim-zWhq9aGrvH2PdS3VjfBvmh=qL=1Sy3Z+VPgT@mail.gmail.com>
+	<4C646330.6080303@hp.com>
+	<AANLkTik5JOupTW97ikf1imsZrkmwgfPNsvBoSZp1S8JV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=001636d352796888c2048da92dad
+Cc: usagi-users-ctl@ml.linux-ipv6.org, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:56391 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753193Ab0HMABA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 20:01:00 -0400
+Received: by yxg6 with SMTP id 6so665723yxg.19
+        for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 17:00:59 -0700 (PDT)
+In-Reply-To: <AANLkTik5JOupTW97ikf1imsZrkmwgfPNsvBoSZp1S8JV@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+--001636d352796888c2048da92dad
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-1) qlcnic driver using way too much stack space during probe, fix
-   from Dan Carpenter.
+On Thu, Aug 12, 2010 at 6:04 PM, Steve Chen <schen@mvista.com> wrote:
+> On Thu, Aug 12, 2010 at 4:10 PM, Brian Haley <brian.haley@hp.com> wrote:
+>> Hi Steve,
+>>
+>> On 07/28/2010 11:20 PM, Steve Chen wrote:
+>>> Hello,
+>>>
+>>> The TAHI correspondent node tests CN-6-4-1 (Processing in upper layer
+>>> - Echo Checksum) failed for me in the 2.6.32 kernel. =A0It appears that
+>>> the Linux kernel is replying the ICMP echo request in
+>>> icmpv6_echo_reply without much checking. =A0Is this an intentional
+>>> non-conformance to RFC3775 section 9.3.1?
+>>
+>> Sorry for the late reply. =A0I've run these tests in the past against
+>> SLES11 (2.6.27 ?) back in January 2009 and this one passed from looking
+>> at my logs. =A0I don't have that system around anymore to check the conf=
+ig,
+>> etc. =A0I didn't see any obvious commit that would have broken it from a
+>> quick look, do you have a test setup to do some debugging? =A0It will
+>> take a little time for me to re-configure mine to run this test.
+>
+> Brian,
+>
+> I'm using mip6d from git://www.umip.org/git/umip.git commit id
+> d1c240f3deb690af902ce1ff128780551ff6141c. =A0Is that the correct version
+> to use? =A0Looking at the kernel code again, the checksum error should
+> have been caught in icmpv6_rcv. =A0There are probably something wrong
+> with my setup. =A0I'll dig around a bit more.
+>
+> Tests 5-3-1 to 5-3-6 also failed for me. =A0 Did they pass for you?
 
-2) sfq was oops'able during config because it only partially provided
-   the classful qdisc interfaces.  Fix this, and also add validation
-   code during qdisc registry so that we can catch this ahead of time
-   in the future.  From Jarek Poplawski.
+By the way, these tests passed for me with the following patch.
+Please let me know what you think.
 
-3) Properly undo pci_enable_device() when PCI driver probe fails in
-   ISDN.  From Kulikov Vasiliy.
+Thanks
 
-4) Buffer overflow fix in CAN protocol from Oliver Kartkopp.
+Steve
 
-5) kernel-doc and Kconfig dependency fixups from Randy Dunlap.
+--001636d352796888c2048da92dad
+Content-Type: text/x-patch; charset=US-ASCII; name="h_bit_check.patch"
+Content-Disposition: attachment; filename="h_bit_check.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gcsa1q2w0
 
-6) s390 driver use macros named READ/WRITE, fix to avoid namespace
-   conflicts.  From Heiko Carstens and Ursula Braun.
-
-7) Minor fixes to CAIF protocol stack from Sjur Braendeland.
-
-8) The usual assortment of wireless fixes via John Linville and co.
-
-Please pull, thanks a lot.
-
-The following changes since commit ad41a1e0cab07c5125456e8d38e5b1ab148d04aa:
-
-  Merge branch 'io_remap_pfn_range' of git://www.jni.nu/cris (2010-08-12 10:17:19 -0700)
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Ben Greear (1):
-      net: Use NET_XMIT_SUCCESS where possible.
-
-Dan Carpenter (2):
-      qlcnic: clean up qlcnic_init_pci_info()
-      qlcnic: using too much stack
-
-David S. Miller (3):
-      farsync: Fix compile warnings.
-      usbnet: rx_submit() should return an error code.
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-
-Heiko Carstens (1):
-      claw: rename READ/WRITE defines to avoid redefinitions
-
-Jarek Poplawski (4):
-      pkt_sched: sch_sfq: Add dummy unbind_tcf and put handles. Was: [PATCH] sfq: add dummy bind/unbind handles
-      pkt_sched: Add some basic qdisc class ops verification. Was: [PATCH] sfq: add dummy bind/unbind handles
-      pkt_sched: Fix sch_sfq vs tc_modify_qdisc oops
-      pkt_sched: Check .walk and .leaf class handlers
-
-Johannes Berg (2):
-      cfg80211: fix locking in action frame TX
-      iwlagn: fix rts cts protection
-
-John W. Linville (4):
-      Revert "p54pci: Add PCI ID for SMC2802W"
-      libertas: fix build break by including linux/sched.h
-      Merge branch 'master' of git://git.kernel.org/.../holtmann/bluetooth-2.6
-      net: make netpoll_rx return bool for !CONFIG_NETPOLL
-
-Kulikov Vasiliy (3):
-      isdn: avm: call pci_disable_device() if pci_probe() failed
-      isdn: avm: call pci_disable_device() if pci_probe() failed
-      isdn: mISDN: call pci_disable_device() if pci_probe() failed
-
-Mat Martineau (4):
-      Bluetooth: Fix endianness issue with L2CAP MPS configuration
-      Bluetooth: Change default L2CAP ERTM retransmit timeout
-      Bluetooth: Fix incorrect setting of remote_tx_win for L2CAP ERTM
-      Bluetooth: Use 3-DH5 payload size for default ERTM max PDU size
-
-Oliver Hartkopp (1):
-      can: add limit for nframes and clean up signed/unsigned variables
-
-Randy Dunlap (4):
-      etherdevice.h: fix kernel-doc typo
-      net/sock.h: add missing kernel-doc notation
-      phy.c: fix kernel-doc warnings
-      phylib: available for any speed ethernet
-
-Sjur Braendeland (2):
-      caif: Bugfix - Increase default headroom size for control channel.
-      caif-spi: Bugfix SPI_DATA_POS settings were inverted.
-
-Ursula Braun (1):
-      ctcm: rename READ/WRITE defines to avoid redefinitions
-
- drivers/isdn/hardware/avm/c4.c              |    1 +
- drivers/isdn/hardware/avm/t1pci.c           |    1 +
- drivers/isdn/hardware/mISDN/mISDNinfineon.c |    5 +-
- drivers/net/caif/caif_spi_slave.c           |    4 +-
- drivers/net/phy/Kconfig                     |    2 +-
- drivers/net/phy/phy.c                       |    2 +-
- drivers/net/qlcnic/qlcnic_main.c            |   72 ++++++++++-------
- drivers/net/usb/usbnet.c                    |   22 ++++--
- drivers/net/wan/farsync.c                   |   15 ++--
- drivers/net/wireless/iwlwifi/iwl-1000.c     |    2 +-
- drivers/net/wireless/iwlwifi/iwl-3945.c     |   18 +----
- drivers/net/wireless/iwlwifi/iwl-4965.c     |    2 +-
- drivers/net/wireless/iwlwifi/iwl-5000.c     |   10 +-
- drivers/net/wireless/iwlwifi/iwl-6000.c     |   16 ++--
- drivers/net/wireless/iwlwifi/iwl-agn-hcmd.c |   19 ++++-
- drivers/net/wireless/iwlwifi/iwl-agn-tx.c   |   20 +-----
- drivers/net/wireless/iwlwifi/iwl-agn.c      |   85 +++++---------------
- drivers/net/wireless/iwlwifi/iwl-core.c     |   29 ++++++-
- drivers/net/wireless/iwlwifi/iwl-core.h     |   14 ++--
- drivers/net/wireless/iwlwifi/iwl3945-base.c |    5 +-
- drivers/net/wireless/libertas/cfg.c         |    1 +
- drivers/net/wireless/p54/p54pci.c           |    2 -
- drivers/s390/net/claw.c                     |  118 +++++++++++++-------------
- drivers/s390/net/claw.h                     |    4 +-
- drivers/s390/net/ctcm_fsms.c                |   60 +++++++-------
- drivers/s390/net/ctcm_main.c                |   80 +++++++++---------
- drivers/s390/net/ctcm_main.h                |    4 +-
- drivers/s390/net/ctcm_mpc.c                 |   64 ++++++++-------
- drivers/s390/net/ctcm_sysfs.c               |   20 +++---
- include/linux/etherdevice.h                 |    2 +-
- include/linux/netpoll.h                     |    2 +-
- include/net/bluetooth/l2cap.h               |    4 +-
- include/net/sock.h                          |    4 +-
- net/bluetooth/l2cap.c                       |   11 +--
- net/caif/cfpkt_skbuff.c                     |    2 +-
- net/can/bcm.c                               |   41 ++++++---
- net/dsa/Kconfig                             |    2 +-
- net/sched/sch_api.c                         |   22 ++++-
- net/sched/sch_atm.c                         |    4 +-
- net/sched/sch_sfq.c                         |   14 +++-
- net/sched/sch_tbf.c                         |    4 +-
- net/sched/sch_teql.c                        |    2 +-
- net/wireless/mlme.c                         |    8 ++-
- 43 files changed, 428 insertions(+), 391 deletions(-)
+UmVpbnN0YXRlIGNoZWNrcyB0byBoYW5kbGUgQlUgd2l0aCBIIGJpdCBzZXQKCkNoZWNrIGZvciB0
+aGUgSCBmbGFnIHdhcyBvbWl0dGVkIGluIDIyNzZkZGVjMzZhMzc4OTgyNjg0MmFjODMxNjU1M2Zh
+MDcwMmVhODkuClRoaXMgY2F1c2VkIFRBSEkgY29ycmVjcG9uZGVuZCBub2RlIHRlc3RzIDExOC0x
+MjMgKDUuMy4gUmVjZWl2aW5nIEJVIHdpdGgKKEgpYml0IGlzIHNldCkgdG8gZmFpbC4KCmRpZmYg
+LS1naXQgYS9zcmMvY24uYyBiL3NyYy9jbi5jCmluZGV4IDAzMThlOWUuLmEwMzZkOTYgMTAwNjQ0
+Ci0tLSBhL3NyYy9jbi5jCisrKyBiL3NyYy9jbi5jCkBAIC0xNzMsNiArMTczLDEwIEBAIHN0YXRp
+YyBpbnQgY25fYnVfY2hlY2soc3RydWN0IGlwNl9taF9iaW5kaW5nX3VwZGF0ZSAqYnUsIHNzaXpl
+X3QgbGVuLAogCWludCByZXQ7CiAKIAlub25faW5kID0gbWhfb3B0KCZidS0+aXA2bWhidV9oZHIs
+IG1oX29wdHMsIElQNl9NSE9QVF9OT05DRUlEKTsKKworCWlmIChidS0+aXA2bWhidV9mbGFncyAm
+IElQNl9NSF9CVV9IT01FKQorCQlyZXR1cm4gbm9uX2luZCA/IC0xIDogMDsKKwogCWlmICghbm9u
+X2luZCkKIAkJcmV0dXJuIC0xOwogCg==
+--001636d352796888c2048da92dad--
