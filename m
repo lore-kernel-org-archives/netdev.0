@@ -1,140 +1,60 @@
-From: Jussi Kivilinna <jukivili@gmail.com>
-Subject: Re: 2.6.35, netfilter/iptables not working with 32bit userspace +
-	64bit kernel?
-Date: Fri, 13 Aug 2010 16:40:55 +0300
-Message-ID: <20100813164055.14665dw79nab4cjk@naisho.dyndns.info>
-References: <20100813134706.509472n222yo71d6@hayate.sektori.org>
-	<1281701885.4470.22.camel@edumazet-laptop>
-	<20100813121955.GI15614@Chamillionaire.breakpoint.cc>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: Problem with non aligned DMA in usbnet on ARM
+Date: Fri, 13 Aug 2010 06:42:32 -0700 (PDT)
+Message-ID: <732137.54230.qm@web180303.mail.gq1.yahoo.com>
+References: <201008131258.55016.oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	"Netfilter Development Mailinglist" <netfilter-devel@vger.kernel.org>
-To: "Florian Westphal" <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100813121955.GI15614@Chamillionaire.breakpoint.cc>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthieu CASTET <matthieu.castet-ITF29qwbsa/QT0dZR+AlfA@public.gmane.org>,
+	Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Gary King <GKing-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+To: mfuzzey-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201008131258.55016.oneukum-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Thanks!
+> Subject: Re: Problem with non aligned DMA in usbnet on ARM
 
-Is this patch going for stable?
+I remain unconvinced the bug is anywhere except
+in whatever host controller is rejecting the
+buffers it's given.
 
--Jussi
+Does anyone have proof the bug is elsewhere?
 
-Quoting "Florian Westphal" <fw@strlen.de>:
 
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> CC netfilter-devel to get more people in touch
->>
->> Thanks !
->>
->> Le vendredi 13 ao=FBt 2010 =E0 13:47 +0300, Jussi Kivilinna a =E9cri=
-t :
->> > Hello!
->> >
->> > I have server/firewall running Debian lenny with 32bit userspace a=
-nd
->> > 64bit kernel. After upgrading from 2.6.34 to 2.6.35, I couldn't ge=
-t
->> > any new chains work. Simply doing (with 32bit iptables)
->> >
->> >    iptables -N new_chain
->> >    iptables -A OUTPUT -j new_chain
->> >    iptables -A OUTPUT -j ACCEPT
->> >
->> > cause output to freeze. "iptables -L -vn" shows:
->> >
->> > Chain OUTPUT (policy ACCEPT 3397 packets, 637K bytes)
->> >   pkts bytes target     prot opt in     out     source         des=
-tination
->> >      3   252 new_chain  all  --  *      *       0.0.0.0/0      0.0=
-=2E0.0/0
->> >      0     0 ACCEPT     all  --  *      *       0.0.0.0/0      0.0=
-=2E0.0/0
->> >
->> > Ping shows "ping: sendmsg: Operation not permitted".
->> >
->> > With recompiled 64bit iptables, example above works fine.
->
-> You need this patch:
->
-> commit f3c5c1bfd430858d3a05436f82c51e53104feb6b
-> (netfilter: xtables: make ip_tables reentrant) forgot to
-> also compute the jumpstack size in the compat handlers.
->
-> Result is that "iptables -I INPUT -j userchain" turns into -j DROP.
->
-> Reported by Sebastian Roesner on #netfilter, closes
-> http://bugzilla.netfilter.org/show_bug.cgi?id=3D669.
->
-> Note: arptables change is compile-tested only.
->
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  net/ipv4/netfilter/arp_tables.c |    3 +++
->  net/ipv4/netfilter/ip_tables.c  |    3 +++
->  net/ipv6/netfilter/ip6_tables.c |    3 +++
->  3 files changed, 9 insertions(+), 0 deletions(-)
->
-> diff --git a/net/ipv4/netfilter/arp_tables.c =20
-> b/net/ipv4/netfilter/arp_tables.c
-> index 6bccba3..4829766 100644
-> --- a/net/ipv4/netfilter/arp_tables.c
-> +++ b/net/ipv4/netfilter/arp_tables.c
-> @@ -1418,6 +1418,9 @@ static int translate_compat_table(const char *n=
-ame,
->  		if (ret !=3D 0)
->  			break;
->  		++i;
-> +		if (strcmp(arpt_get_target(iter1)->u.user.name,
-> +		    XT_ERROR_TARGET) =3D=3D 0)
-> +			++newinfo->stacksize;
->  	}
->  	if (ret) {
->  		/*
-> diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_t=
-ables.c
-> index c439721..3d3b695 100644
-> --- a/net/ipv4/netfilter/ip_tables.c
-> +++ b/net/ipv4/netfilter/ip_tables.c
-> @@ -1749,6 +1749,9 @@ translate_compat_table(struct net *net,
->  		if (ret !=3D 0)
->  			break;
->  		++i;
-> +		if (strcmp(ipt_get_target(iter1)->u.user.name,
-> +		    XT_ERROR_TARGET) =3D=3D 0)
-> +			++newinfo->stacksize;
->  	}
->  	if (ret) {
->  		/*
-> diff --git a/net/ipv6/netfilter/ip6_tables.c =20
-> b/net/ipv6/netfilter/ip6_tables.c
-> index 5359ef4..bad3c7f 100644
-> --- a/net/ipv6/netfilter/ip6_tables.c
-> +++ b/net/ipv6/netfilter/ip6_tables.c
-> @@ -1764,6 +1764,9 @@ translate_compat_table(struct net *net,
->  		if (ret !=3D 0)
->  			break;
->  		++i;
-> +		if (strcmp(ip6t_get_target(iter1)->u.user.name,
-> +		    XT_ERROR_TARGET) =3D=3D 0)
-> +			++newinfo->stacksize;
->  	}
->  	if (ret) {
->  		/*
-> --
-> 1.7.1
->
->
->
+Think for a moment what chaos the kernel would be
+if arbitrary subsystems were allowed to introduce
+random DMA alignment "requirements".  It would not
+be possible to pass buffers between subsystems with
+any success at all...
 
+> > 1) Require that usb drivers submit buffers obtained
+> from kmalloc() and > friends
+
+Requirements are already documented with the
+Description of what memory is DMA-able.  It's
+not kmalloc() specifically that's required.
+
+ with no extra offsets.
+
+Offsets have nothing to do with being DMA-able.
+They might have to do with working around hardware
+flaws though.  (ISTR PXA255 also had a 32-bit goof,
+making its DMA engine unusable for most purposes.)
+
+ 
+> > 2) Require that usb_submit_urb() accept byte aligned buffers.
+
+I believe we already require that.  Of course,
+the requirement is on HCDs, not on that call.
 
 --
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
