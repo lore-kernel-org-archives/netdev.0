@@ -1,81 +1,347 @@
-From: "Wang, Qi" <qi.wang@intel.com>
-Subject: RE: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Fri, 13 Aug 2010 08:23:42 +0800
-Message-ID: <D5AB6E638E5A3E4B8F4406B113A5A19A28EA2AB1@shsmsx501.ccr.corp.intel.com>
-References: <4C61EDE5.4030505@dsn.okisemi.com>
- <AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>
- <D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>
- <4C63B8F8.6090106@grandegger.com>
+From: Patrick Pannuto <ppannuto@codeaurora.org>
+Subject: Re: [PATCH 2/2] platform: Facilitate the creation of pseudo-platform
+ buses
+Date: Thu, 12 Aug 2010 18:13:09 -0700
+Message-ID: <4C649C25.5090808@codeaurora.org>
+References: <1281484174-32174-1-git-send-email-ppannuto@codeaurora.org> <1281484174-32174-3-git-send-email-ppannuto@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Daniel Baluta <daniel.baluta@gmail.com>,
-	Masayuki Ohtak <masa-korg@dsn.okisemi.com>,
-	"meego-dev@meego.com" <meego-dev@meego.com>,
-	"socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>,
-	"gregkh@suse.de" <gregkh@suse.de>,
-	"arjan@linux.intel.com" <arjan@linux.intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:47760 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753193Ab0HMAXx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Aug 2010 20:23:53 -0400
-In-Reply-To: <4C63B8F8.6090106@grandegger.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	magnus.damm@gmail.com, grant.likely@secretlab.ca, gregkh@suse.de,
+	Kevin Hilman <khilman@deeprootsystems.com>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Magnus Damm <damm@opensource.se>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Dmitry Torokhov <dtor@mail.ru>, netdev@vger.kernel.org
+To: Patrick Pannuto <ppannuto@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1281484174-32174-3-git-send-email-ppannuto@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXb2xmZ2FuZyBHcmFuZGVnZ2Vy
-IFttYWlsdG86d2dAZ3JhbmRlZ2dlci5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBBdWd1c3QgMTIs
-IDIwMTAgNTowNCBQTQ0KPiBUbzogV2FuZywgUWkNCj4gQ2M6IERhbmllbCBCYWx1dGE7IE1hc2F5
-dWtpIE9odGFrOyBtZWVnby1kZXZAbWVlZ28uY29tOw0KPiBzb2NrZXRjYW4tY29yZUBsaXN0cy5i
-ZXJsaW9zLmRlOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBLaG9yLCBBbmRyZXcgQ2hpaA0KPiBI
-b3dlOyBncmVna2hAc3VzZS5kZTsgYXJqYW5AbGludXguaW50ZWwuY29tOyBXYW5nLCBZb25nIFkN
-Cj4gU3ViamVjdDogUmU6IFtNZWVHby1EZXZdW1BBVENIXSBUb3BjbGlmZjogVXBkYXRlIFBDSF9D
-QU4gZHJpdmVyIHRvIDIuNi4zNQ0KPiANCj4gT24gMDgvMTIvMjAxMCAwMzo0MiBBTSwgV2FuZywg
-UWkgd3JvdGU6DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IERh
-bmllbCBCYWx1dGEgW21haWx0bzpkYW5pZWwuYmFsdXRhQGdtYWlsLmNvbV0NCj4gPj4gU2VudDog
-V2VkbmVzZGF5LCBBdWd1c3QgMTEsIDIwMTAgNjozNyBQTQ0KPiA+PiBUbzogTWFzYXl1a2kgT2h0
-YWsNCj4gPj4gQ2M6IG1lZWdvLWRldkBtZWVnby5jb207IFdvbGZnYW5nIEdyYW5kZWdnZXI7DQo+
-ID4+IHNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxpb3MuZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmc7IEtob3IsIEFuZHJldw0KPiBDaGloDQo+ID4+IEhvd2U7IGdyZWdraEBzdXNlLmRlOyBhcmph
-bkBsaW51eC5pbnRlbC5jb207IFdhbmcsIFFpOyBXYW5nLCBZb25nIFkNCj4gPj4gU3ViamVjdDog
-UmU6IFtNZWVHby1EZXZdW1BBVENIXSBUb3BjbGlmZjogVXBkYXRlIFBDSF9DQU4gZHJpdmVyIHRv
-IDIuNi4zNQ0KPiA+Pg0KPiA+PiBIaSwNCj4gPj4NCj4gPj4gMjAxMC84LzExIE1hc2F5dWtpIE9o
-dGFrIDxtYXNhLWtvcmdAZHNuLm9raXNlbWkuY29tPjoNCj4gPj4+IENBTiBkcml2ZXIgb2YgVG9w
-Y2xpZmYgUENIDQo+ID4+Pg0KPiA+Pj4gVG9wY2xpZmYgUENIIGlzIHRoZSBwbGF0Zm9ybSBjb250
-cm9sbGVyIGh1YiB0aGF0IGlzIGdvaW5nIHRvIGJlIHVzZWQgaW4NCj4gPj4+IEludGVsJ3MgdXBj
-b21pbmcgZ2VuZXJhbCBlbWJlZGRlZCBwbGF0Zm9ybS4gQWxsIElPIHBlcmlwaGVyYWxzIGluDQo+
-ID4+PiBUb3BjbGlmZiBQQ0ggYXJlIGFjdHVhbGx5IGRldmljZXMgc2l0dGluZyBvbiBBTUJBIGJ1
-cy4NCj4gPj4+IFRvcGNsaWZmIFBDSCBoYXMgQ0FOIEkvRi4gVGhpcyBkcml2ZXIgZW5hYmxlcyBD
-QU4gZnVuY3Rpb24uDQo+ID4+Pg0KPiA+Pj4gU2lnbmVkLW9mZi1ieTogTWFzYXl1a2kgT2h0YWtl
-IDxtYXNhLWtvcmdAZHNuLm9raXNlbWkuY29tPg0KPiA+Pg0KPiA+PiBJIGhhdmUgYSBmZXcgcXVl
-c3Rpb25zOg0KPiA+Pg0KPiA+PiAxLiBJcyB5b3VyIGNvZGUgYmFzZWQgb24gSW50ZWwncyBDQU4g
-RVA4MDU3OSAoWzFdKSA/DQo+ID4gTm8uDQo+IA0KPiBGb3IgY3VyaW9zaXR5LCBpcyB0aGUgY29u
-dHJvbGxlciBzaW1pbGFyIHRvIHRoZSBPS0kgTVNNOTIyNSBvciBNTDk2MjA/DQpUaGUgVG9wY2xp
-ZmYgSU9IIGlzIGRldmVsb3BlZCBieSBPS0kgYWN0dWFsbHkuDQoNCj4gDQo+ID4+IDIuIFdoeSBk
-b24ndCB5b3UgdXNlIGtlcm5lbCBleGlzdGluZyBrZmlmbyBpbmZyYXN0cnVjdHVyZT8gKFsyXSku
-DQo+ID4gSnVzdCB0YWtlIGEgbG9vayBhdCBrZmlmby5oLiBUaGlzIHN0cnVjdHVyZSBoYXMgYmVl
-biBjaGFuZ2VkLiBJIHJlbWVtYmVyZWQNCj4gdGhlcmUgd2FzIGEgc3Bpbl9sb2NrIGZyb20ga2Zp
-Zm8gcHJldmlvdXNseS4gQ3VycmVudGx5IGl0J3MgYmVlbiByZW1vdmVkLCBnb29kLg0KPiA+IE9L
-SS1zYW5zLCB3b3VsZCB5b3UgcGxlYXNlIHRha2UgYSBsb29rIGF0IC4vaW5jbHVkZS9saW51eC9r
-Zmlmby5oLCBhbmQgdHJ5IHRvDQo+IHVzZSB0aGlzIHN0cnVjdHVyZSBhbmQgQVBJcz8NCj4gDQo+
-IEFzIEkgc2VlIGl0LCB0aGUgY29kZSByZWxhdGVkIHRvIHRoYXQgZmlmbyBpcyBub3QgdXNlZCAo
-PT0gZGVhZCBjb2RlKT8NCkknbSBub3QgZmFtaWxpYXIgd2l0aCBrZmlmbyBzdHJ1Y3R1cmUsIGFu
-ZCBJIGRpZG4ndCBsaWtlIGl0IGJlY2F1c2UgdGhlcmUgbmVlZCBhIHNwaW5fbG9jayB0byB1c2Ug
-aXQuDQo+IA0KPiA+IERhbmllbCwNCj4gPg0KPiA+IFdlJ3JlIGFueGlvdXMgdG8gaW50ZWdyYXRl
-IHRob3NlIGNvZGVzIG5vdy4gUGVyaGFwcyBpdCdsbCB0YWtlIHVzIHF1aXRlIGEgbG9uZw0KPiB0
-aW1lIHRvIHVzZSBrZmlmby4gSG93IGFib3V0IGltcGxlbWVudGluZyBpdCB3aXRoIHRoZSBuZXh0
-IHZlcnNpb24/DQo+IA0KPiBTZWUgYWJvdmUuIFdoYXQgZG8geW91IG1lYW4gd2l0aCB0aGUgbmV4
-dCB2ZXJzaW9uLiBUaGUgZHJpdmVyIHBvc3RlZCBieQ0KPiBNYXNheXVraSBpcyBmYXIgYXdheSBm
-cm9tIGJlaW5nIGFjY2VwdGVkIGFzIGl0IGRvZXMgbm90IHlldCBjb21wbHkgd2l0aA0KPiB0aGUg
-U29ja2V0LUNBTiBkcml2ZXIgQVBJLCB0byBzYXkgdGhlIGxlYXN0Lg0KSSd2ZSBmZXcgZXhwZXJp
-ZW5jZSBvbiBDQU4gZHJpdmVyIGFuZCBpdCdzIGFsc28gdGhlIGZpcnN0IHRpbWUgZm9yIE9LSS1z
-YW4gdG8gd3JpdGUgQ2FuIGRyaXZlci4gV291bGQgeW91IHBsZWFzZSBnaXZlIHVzIGEgcmVmZXJl
-bmNlIGFuZCB3ZSdsbCBmb2xsb3cgaXQgdXAuIFdlIG9ubHkgcmVhZCAnY2FuLnR4dCcgZnJvbSBr
-ZXJuZWwgZG9jdW1lbnQuIFRoYW5rIHlvdSBmb3IgeW91ciBoZWxwIGluIGFkdmFuY2UuDQo+IA0K
-PiBXb2xmZ2FuZy4NCg0K
+On 08/10/2010 04:49 PM, Patrick Pannuto wrote:
+> (lkml.org seems to have lost August 3rd...)
+> RFC: http://lkml.indiana.edu/hypermail//linux/kernel/1008.0/01342.html
+>  v1: http://lkml.indiana.edu/hypermail//linux/kernel/1008.0/01942.html
+> 
+> Based on the idea and code originally proposed by Kevin Hilman:
+> http://www.mail-archive.com/linux-omap@vger.kernel.org/msg31161.html
+> 
+> Changes from v1:
+> 
+>    * "Pseduo" buses are no longer init'd, they are [un]registered by:
+>        - pseudo_platform_bus_register(struct bus_type *)
+>        - pseudo_platform_bus_unregister(struct bus_type *)
+>    * These registrations [de]allocate a dev_pm_ops structure for the
+>      pseudo bus_type
+>    * Do not overwrite the parent if .bus is already set (that is, allow
+>      pseudo bus devices to be root devices)
+> 
+>    * Split into 2 patches:
+>        - 1/2: Already sent separately, but included here for clarity
+>        - 2/2: The real meat of the patch (this patch)
+> 
+> INTRO
+> 
+> As SOCs become more popular, the desire to quickly define a simple,
+> but functional, bus type with only a few unique properties becomes
+> desirable. As they become more complicated, the ability to nest these
+> simple busses and otherwise orchestrate them to match the actual
+> topology also becomes desirable.
+> 
+> EXAMPLE USAGE
+> 
+> /arch/ARCH/MY_ARCH/my_bus.c:
+> 
+> 	#include <linux/device.h>
+> 	#include <linux/platform_device.h>
+> 
+> 	struct bus_type SOC_bus_type = {
+> 		.name = "SOC-bus-type",
+> 	};
+> 	EXPORT_SYMBOL_GPL(SOC_bus_type);
+> 
+> 	struct platform_device SOC_bus1 = {
+> 		.name	 = "SOC-bus1",
+> 		.id		= -1,
+> 		.dev.bus = &SOC_bus_type;
+> 	};
+> 	EXPORT_SYMBOL_GPL(SOC_bus1);
+> 
+> 	struct platform_device SOC_bus2 = {
+> 		.name	 = "SOC-bus2",
+> 		.id		= -2,
+> 		.dev.bus = &SOC_bus_type;
+> 	};
+> 	EXPORT_SYMBOL_GPL(SOC_bus2);
+> 
+> 	static int __init SOC_bus_init(void)
+> 	{
+> 		int error;
+> 
+> 		error = pseudo_platform_bus_register(&SOC_bus_type);
+> 		if (error)
+> 			return error;
+> 
+> 		error = platform_device_register(&SOC_bus1);
+> 		if (error)
+> 			goto fail_bus1;
+> 
+> 		error = platform_device_register(&SOC_bus2);
+> 		if (error)
+> 			goto fail_bus2;
+> 
+> 		return error;
+> 
+> 		/* platform_device_unregister(&SOC_bus2); */
+> fail_bus2:
+> 		platform_device_unregister(&SOC_bus1);
+> fail_bus1:
+> 		pseudo_platform_bus_unregister(&SOC_bus_type);
+> 
+> 		return error;
+> 	}
+> 
+> /drivers/my_driver.c:
+> 	static struct platform_driver my_driver = {
+> 		.driver = {
+> 			.name	= "my-driver",
+> 			.owner	= THIS_MODULE,
+> 			.bus	= &SOC_bus_type,
+> 		},
+> 	};
+> 
+> /somewhere/my_device.c:
+> 	static struct platform_device my_device = {
+> 		.name		= "my-device",
+> 		.id		= -1,
+> 		.dev.bus	= &my_bus_type,
+> 		.dev.parent	= &SOC_bus1.dev,
+> 	};
+> 
+> This will build a device tree that mirrors the actual system:
+> 
+> /sys/bus
+> |-- SOC-bus-type
+> |   |-- devices
+> |   |   |-- SOC_bus1 -> ../../../devices/SOC_bus1
+> |   |   |-- SOC_bus2 -> ../../../devices/SOC_bus2
+> |   |   |-- my-device -> ../../../devices/SOC_bus1/my-device
+> |   |-- drivers
+> |   |   |-- my-driver
+> 
+> /sys/devices
+> |-- SOC_bus1
+> |   |-- my-device
+> |-- SOC_bus2
+> 
+> Driver can drive any device on the SOC, which is logical, without
+> actually being registered on multiple /bus_types/, even though the
+> devices may be on different /physical buses/ (which are actually
+> just devices).
+> 
+> THOUGHTS:
+> 
+> 1.
+> Notice that for a device / driver, only 3 lines were added to
+> switch from the platform bus to the new SOC_bus. This is
+> especially valuable if we consider supporting a legacy SOCs
+> and new SOCs where the same driver is used, but may need to
+> be on either the platform bus or the new SOC_bus. The above
+> code then becomes:
+> 
+> 	(possibly in a header)
+> 	#ifdef CONFIG_MY_BUS
+> 	#define MY_BUS_TYPE     &SOC_bus_type
+> 	#else
+> 	#define MY_BUS_TYPE     NULL
+> 	#endif
+> 
+> /drivers/my_driver.c
+> 	static struct platform_driver my_driver = {
+> 		.driver = {
+> 			.name   = "my-driver",
+> 			.owner  = THIS_MODULE,
+> 			.bus    = MY_BUS_TYPE,
+> 		},
+> 	};
+> 
+> Which will allow the same driver to easily to used on either
+> the platform bus or the newly defined bus type.
+> 
+> 2.
+> Implementations wishing to make dynamic / run-time decisions on where
+> devices are placed could easily create wrapper functions, that is
+> 
+> 	int SOC_device_register(struct platform_device *pdev)
+> 	{
+> 		if (pdev->archdata->flag)
+> 			pdev->dev.parent = &SOC_bus1.dev;
+> 		else
+> 			pdev->dev.parent = &SOC_bus2.dev;
+> 
+> 		return platform_device_register(pdev);
+> 	}
+> 
+> A similar solution also would allow for run-time determination of dev.bus,
+> if that were necessary for your platform.
+> 
+> 3.
+> I'm not convinced that dynamically allocating a new copy of dev_pm_ops is
+> the best solution. I *AM*, however, convinced that removing const from
+> 	struct bus_type {
+> 		...
+> 		const struct dev_pm_ops *pm;
+> 		...
+> 	};
+> would be a mistake; it is far too easy to overwrite one of the function
+> pointers on accident, and the const serves a very useful purpose here.
+> 
+> Cc: Kevin Hilman <khilman@deeprootsystems.com>
+> Signed-off-by: Patrick Pannuto <ppannuto@codeaurora.org>
+> ---
+>  drivers/base/platform.c         |   92 +++++++++++++++++++++++++++++++++++++-
+>  include/linux/platform_device.h |    3 +
+>  2 files changed, 92 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/base/platform.c b/drivers/base/platform.c
+> index b69ccb4..933e0c1 100644
+> --- a/drivers/base/platform.c
+> +++ b/drivers/base/platform.c
+> @@ -238,8 +238,12 @@ int platform_device_add(struct platform_device *pdev)
+>  	if (!pdev)
+>  		return -EINVAL;
+>  
+> -	if (!pdev->dev.parent)
+> -		pdev->dev.parent = &platform_bus;
+> +	if (!pdev->dev.bus) {
+> +		pdev->dev.bus = &platform_bus_type;
+> +
+> +		if (!pdev->dev.parent)
+> +			pdev->dev.parent = &platform_bus;
+> +	}
+>  
+>  	pdev->dev.bus = &platform_bus_type;
+
+^^^ small bug here, this line should be deleted; any other comments though?
+
+>  
+> @@ -482,7 +486,8 @@ static void platform_drv_shutdown(struct device *_dev)
+>   */
+>  int platform_driver_register(struct platform_driver *drv)
+>  {
+> -	drv->driver.bus = &platform_bus_type;
+> +	if (!drv->driver.bus)
+> +		drv->driver.bus = &platform_bus_type;
+>  	if (drv->probe)
+>  		drv->driver.probe = platform_drv_probe;
+>  	if (drv->remove)
+> @@ -1017,6 +1022,87 @@ struct bus_type platform_bus_type = {
+>  };
+>  EXPORT_SYMBOL_GPL(platform_bus_type);
+>  
+> +/** pseudo_platform_bus_register - register an "almost platform bus"
+> + * @bus: partially complete bus type to register
+> + *
+> + * This init will fill in any ommitted fields in @bus, however, it
+> + * also allocates memory and replaces the pm field in @bus, since
+> + * pm is const, but some of its pointers may need this one-time
+> + * initialziation overwrite.
+> + *
+> + * @bus's registered this way should be released with
+> + * pseudo_platform_bus_unregister
+> + */
+> +int pseudo_platform_bus_register(struct bus_type *bus)
+> +{
+> +	int error;
+> +	struct dev_pm_ops* heap_pm;
+> +	heap_pm = kmalloc(sizeof (*heap_pm), GFP_KERNEL);
+> +
+> +	if (!heap_pm)
+> +		return -ENOMEM;
+> +
+> +	if (!bus->dev_attrs)
+> +		bus->dev_attrs = platform_bus_type.dev_attrs;
+> +	if (!bus->match)
+> +		bus->match = platform_bus_type.match;
+> +	if (!bus->uevent)
+> +		bus->uevent = platform_bus_type.uevent;
+> +	if (!bus->pm)
+> +		memcpy(heap_pm, &platform_bus_type.pm, sizeof(*heap_pm));
+> +	else {
+> +		heap_pm->prepare = (bus->pm->prepare) ?
+> +			bus->pm->prepare : platform_pm_prepare;
+> +		heap_pm->complete = (bus->pm->complete) ?
+> +			bus->pm->complete : platform_pm_complete;
+> +		heap_pm->suspend = (bus->pm->suspend) ?
+> +			bus->pm->suspend : platform_pm_suspend;
+> +		heap_pm->resume = (bus->pm->resume) ?
+> +			bus->pm->resume : platform_pm_resume;
+> +		heap_pm->freeze = (bus->pm->freeze) ?
+> +			bus->pm->freeze : platform_pm_freeze;
+> +		heap_pm->thaw = (bus->pm->thaw) ?
+> +			bus->pm->thaw : platform_pm_thaw;
+> +		heap_pm->poweroff = (bus->pm->poweroff) ?
+> +			bus->pm->poweroff : platform_pm_poweroff;
+> +		heap_pm->restore = (bus->pm->restore) ?
+> +			bus->pm->restore : platform_pm_restore;
+> +		heap_pm->suspend_noirq = (bus->pm->suspend_noirq) ?
+> +			bus->pm->suspend_noirq : platform_pm_suspend_noirq;
+> +		heap_pm->resume_noirq = (bus->pm->resume_noirq) ?
+> +			bus->pm->resume_noirq : platform_pm_resume_noirq;
+> +		heap_pm->freeze_noirq = (bus->pm->freeze_noirq) ?
+> +			bus->pm->freeze_noirq : platform_pm_freeze_noirq;
+> +		heap_pm->thaw_noirq = (bus->pm->thaw_noirq) ?
+> +			bus->pm->thaw_noirq : platform_pm_thaw_noirq;
+> +		heap_pm->poweroff_noirq = (bus->pm->poweroff_noirq) ?
+> +			bus->pm->poweroff_noirq : platform_pm_poweroff_noirq;
+> +		heap_pm->restore_noirq = (bus->pm->restore_noirq) ?
+> +			bus->pm->restore_noirq : platform_pm_restore_noirq;
+> +		heap_pm->runtime_suspend = (bus->pm->runtime_suspend) ?
+> +			bus->pm->runtime_suspend : platform_pm_runtime_suspend;
+> +		heap_pm->runtime_resume = (bus->pm->runtime_resume) ?
+> +			bus->pm->runtime_resume : platform_pm_runtime_resume;
+> +		heap_pm->runtime_idle = (bus->pm->runtime_idle) ?
+> +			bus->pm->runtime_idle : platform_pm_runtime_idle;
+> +	}
+> +	bus->pm = heap_pm;
+> +
+> +	error = bus_register(bus);
+> +	if (error)
+> +		kfree(bus->pm);
+> +
+> +	return error;
+> +}
+> +EXPORT_SYMBOL_GPL(pseudo_platform_bus_register);
+> +
+> +void pseudo_platform_bus_unregister(struct bus_type *bus)
+> +{
+> +	bus_unregister(bus);
+> +	kfree(bus->pm);
+> +}
+> +EXPORT_SYMBOL_GPL(pseudo_platform_bus_unregister);
+> +
+>  int __init platform_bus_init(void)
+>  {
+>  	int error;
+> diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
+> index 5417944..5ec827c 100644
+> --- a/include/linux/platform_device.h
+> +++ b/include/linux/platform_device.h
+> @@ -79,6 +79,9 @@ extern int platform_driver_probe(struct platform_driver *driver,
+>  #define platform_get_drvdata(_dev)	dev_get_drvdata(&(_dev)->dev)
+>  #define platform_set_drvdata(_dev,data)	dev_set_drvdata(&(_dev)->dev, (data))
+>  
+> +extern int pseudo_platform_bus_register(struct bus_type *);
+> +extern void pseudo_platform_bus_unregister(struct bus_type *);
+> +
+>  extern struct platform_device *platform_create_bundle(struct platform_driver *driver,
+>  					int (*probe)(struct platform_device *),
+>  					struct resource *res, unsigned int n_res,
+
+
+-- 
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum
