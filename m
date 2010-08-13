@@ -1,46 +1,62 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: Re: MAINTAINERS: PCMCIA SUBSYSTEM: Should F: drivers/net/pcmcia/
- be added?
-Date: Fri, 13 Aug 2010 20:52:16 +0200
-Message-ID: <20100813185216.GB5853@comet.dominikbrodowski.net>
-References: <20100809153410.GA27238@comet.dominikbrodowski.net>
- <1281651771.15486.55.camel@Joe-Laptop>
- <1281653272.15486.62.camel@Joe-Laptop>
+Subject: [PATCH] pcmcia: xirc2ps_cs bugfix
+Date: Fri, 13 Aug 2010 20:56:23 +0200
+Message-ID: <20100813185623.GC5853@comet.dominikbrodowski.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Wolfram Sang <w.sang@pengutronix.de>, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org,
-	David Miller <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org, Komuro <komurojun-mbn@nifty.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isilmar-3.linta.de ([188.40.101.200]:52702 "EHLO linta.de"
+Received: from isilmar-3.linta.de ([188.40.101.200]:52709 "EHLO linta.de"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755485Ab0HMTZO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Aug 2010 15:25:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1281653272.15486.62.camel@Joe-Laptop>
+	id S1762079Ab0HMTZP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Aug 2010 15:25:15 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey,
+Linus,
 
-On Thu, Aug 12, 2010 at 03:47:52PM -0700, Joe Perches wrote:
-> On Thu, 2010-08-12 at 15:22 -0700, Joe Perches wrote:
-> > On Mon, 2010-08-09 at 17:34 +0200, Dominik Brodowski wrote:
-> > > look good from a PCMCIA point of view, therefore:
-> > > Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> 
-> There's no maintainer entry for directory drivers/net/pcmcia/
-> 
-> Should
-> 
-> F:	drivers/net/pcmcia/
-> 
-> be added to the existing PCMCIA SUBSYSTEM entry?
+could you apply the attached bugfix for PCMCIA, please? Alternatively,
+please pull from 
 
-in my opinion, no -- this entry is mostly about the PCMCIA core, not about
-specific drivers, same as the PCI bus guys aren't maintaining each and every
-PCI driver...
+git://git.kernel.org/pub/scm/linux/kernel/git/brodo/pcmcia-2.6.git master
 
-Best,
+where this one patch is located. What do you prefer, actually, if it is just
+one patch I want to push to you?
+
+Thanks & best,
+
 	Dominik
+
+---
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Date: Fri, 13 Aug 2010 20:33:34 +0200
+Subject: [PATCH] pcmcia: xirc2ps_cs bugfix
+
+We need to set io_lines to 10 unconditionally.
+
+Reported-by: Komuro <komurojun-mbn@nifty.com>
+CC: netdev@vger.kernel.org
+Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+
+diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
+index 4eb6f98..f581952 100644
+--- a/drivers/net/pcmcia/xirc2ps_cs.c
++++ b/drivers/net/pcmcia/xirc2ps_cs.c
+@@ -808,6 +808,7 @@ xirc2ps_config(struct pcmcia_device * link)
+     }
+ 
+     link->resource[0]->flags |= IO_DATA_PATH_WIDTH_16;
++    link->io_lines = 10;
+     if (local->modem) {
+ 	int pass;
+ 
+@@ -839,7 +840,6 @@ xirc2ps_config(struct pcmcia_device * link)
+ 	}
+ 	printk(KNOT_XIRC "no ports available\n");
+     } else {
+-	link->io_lines = 10;
+ 	link->resource[0]->end = 16;
+ 	for (ioaddr = 0x300; ioaddr < 0x400; ioaddr += 0x10) {
+ 	    link->resource[0]->start = ioaddr;
