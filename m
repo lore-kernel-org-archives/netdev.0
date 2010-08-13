@@ -1,127 +1,64 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: 2.6.35, netfilter/iptables not working with 32bit userspace +
- 64bit kernel?
-Date: Fri, 13 Aug 2010 14:19:55 +0200
-Message-ID: <20100813121955.GI15614@Chamillionaire.breakpoint.cc>
-References: <20100813134706.509472n222yo71d6@hayate.sektori.org>
- <1281701885.4470.22.camel@edumazet-laptop>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH] Add firmware label support to iproute2
+Date: Fri, 13 Aug 2010 18:06:26 +0530
+Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com>
+References: <20100812173537.GA29784@auslistsprd01.us.dell.com> <20100812141240.417949e2@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1281701885.4470.22.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <Matt_Domsch@Dell.com>,
+	<Charles_Rose@Dell.com>, <Jordan_Hargrave@Dell.com>
+To: <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxippc101.us.dell.com ([143.166.85.207]:33709 "EHLO
+	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755008Ab0HMMgk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Aug 2010 08:36:40 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20100812141240.417949e2@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> CC netfilter-devel to get more people in touch
->=20
-> Thanks !
->=20
-> Le vendredi 13 ao=FBt 2010 =E0 13:47 +0300, Jussi Kivilinna a =E9crit=
- :
-> > Hello!
-> >=20
-> > I have server/firewall running Debian lenny with 32bit userspace an=
-d =20
-> > 64bit kernel. After upgrading from 2.6.34 to 2.6.35, I couldn't get=
- =20
-> > any new chains work. Simply doing (with 32bit iptables)
-> >=20
-> >    iptables -N new_chain
-> >    iptables -A OUTPUT -j new_chain
-> >    iptables -A OUTPUT -j ACCEPT
-> >=20
-> > cause output to freeze. "iptables -L -vn" shows:
-> >=20
-> > Chain OUTPUT (policy ACCEPT 3397 packets, 637K bytes)
-> >   pkts bytes target     prot opt in     out     source         dest=
-ination
-> >      3   252 new_chain  all  --  *      *       0.0.0.0/0      0.0.=
-0.0/0
-> >      0     0 ACCEPT     all  --  *      *       0.0.0.0/0      0.0.=
-0.0/0
-> >=20
-> > Ping shows "ping: sendmsg: Operation not permitted".
-> >=20
-> > With recompiled 64bit iptables, example above works fine.
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: Thursday, August 12, 2010 11:43 PM
+> To: K, Narendra
+> Cc: netdev@vger.kernel.org; Domsch, Matt; Rose, Charles; Hargrave,
+> Jordan
+> Subject: Re: [PATCH] Add firmware label support to iproute2
+> 
+> On Thu, 12 Aug 2010 12:35:37 -0500
+> Narendra K <Narendra_K@dell.com> wrote:
+> 
+> > +#ifndef LIBNETDEVNAME_PRESENT
+> >  			filter_dev = *argv;
+> > +#else
+> > +			if (netdev_alias_to_kernelname(*argv,
+kernel_name) <
+> 0)
+> > +				show_firmware_alias_usage(*argv);
+> > +			filter_dev = kernel_name;
+> > +#endif
+> >  		}
+> 
+> like the kernel, I don't like ifdef cases in main code.
+> You should put in stub inline that returns appropriate error.
+> 
 
-You need this patch:
+Stephen,
 
-commit f3c5c1bfd430858d3a05436f82c51e53104feb6b
-(netfilter: xtables: make ip_tables reentrant) forgot to
-also compute the jumpstack size in the compat handlers.
+Thanks for the suggestions. I will rework the patch and send a revised
+version soon.
 
-Result is that "iptables -I INPUT -j userchain" turns into -j DROP.
+> What happens if alias matches existing interface name?
 
-Reported by Sebastian Roesner on #netfilter, closes
-http://bugzilla.netfilter.org/show_bug.cgi?id=3D669.
+If the user inputs an existing 'ethN' name, the function
+'netdev_alias_to_kernelaname' will return it as it is. If the user
+inputs 'Embedded NIC N', then the function would do a sysfs lookup and
+return the corresponding 'ethN' name.
 
-Note: arptables change is compile-tested only.
+With regards,
+Narendra K
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv4/netfilter/arp_tables.c |    3 +++
- net/ipv4/netfilter/ip_tables.c  |    3 +++
- net/ipv6/netfilter/ip6_tables.c |    3 +++
- 3 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_t=
-ables.c
-index 6bccba3..4829766 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -1418,6 +1418,9 @@ static int translate_compat_table(const char *nam=
-e,
- 		if (ret !=3D 0)
- 			break;
- 		++i;
-+		if (strcmp(arpt_get_target(iter1)->u.user.name,
-+		    XT_ERROR_TARGET) =3D=3D 0)
-+			++newinfo->stacksize;
- 	}
- 	if (ret) {
- 		/*
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tab=
-les.c
-index c439721..3d3b695 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -1749,6 +1749,9 @@ translate_compat_table(struct net *net,
- 		if (ret !=3D 0)
- 			break;
- 		++i;
-+		if (strcmp(ipt_get_target(iter1)->u.user.name,
-+		    XT_ERROR_TARGET) =3D=3D 0)
-+			++newinfo->stacksize;
- 	}
- 	if (ret) {
- 		/*
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_t=
-ables.c
-index 5359ef4..bad3c7f 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -1764,6 +1764,9 @@ translate_compat_table(struct net *net,
- 		if (ret !=3D 0)
- 			break;
- 		++i;
-+		if (strcmp(ip6t_get_target(iter1)->u.user.name,
-+		    XT_ERROR_TARGET) =3D=3D 0)
-+			++newinfo->stacksize;
- 	}
- 	if (ret) {
- 		/*
---=20
-1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
