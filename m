@@ -1,78 +1,51 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 6/7] qlcnic: fix link diag test
-Date: Thu, 12 Aug 2010 23:57:25 -0700
-Message-ID: <1281682646-15990-7-git-send-email-amit.salecha@qlogic.com>
-References: <1281682646-15990-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: davem@davemloft.net
+From: Marc Haber <mh+linux-kernel@zugschlus.de>
+Subject: Re: e1000e crashes with 2.6.34.x and ThinkPad T60
+Date: Fri, 13 Aug 2010 10:07:36 +0200
+Message-ID: <20100813080736.GA912__7961.69530735842$1281686884$gmane$org@torres.zugschlus.de>
+References: <20100724092644.GA13353@torres.zugschlus.de> <EA929A9653AAE14F841771FB1DE5A1366000F42E28@rrsmsx501.amr.corp.intel.com> <20100730125452.GA21444@torres.zugschlus.de> <EA929A9653AAE14F841771FB1DE5A13660024083FE@rrsmsx501.amr.corp.intel.com> <20100810120458.GB21511@torres.zugschlus.de> <8DD2590731AB5D4C9DBF71A877482A900164D9279F@orsmsx509.amr.corp.intel.com> <20100813012551.GA25398@torres.zugschlus.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <ne
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:55070 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753469Ab0HMG52 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Aug 2010 02:57:28 -0400
-In-Reply-To: <1281682646-15990-1-git-send-email-amit.salecha@qlogic.com>
+Received: from torres.zugschlus.de ([85.214.131.164]:56664 "EHLO
+	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761350Ab0HMIHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Aug 2010 04:07:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20100813012551.GA25398@torres.zugschlus.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+On Fri, Aug 13, 2010 at 03:25:51AM +0200, Marc Haber wrote:
+> On Tue, Aug 10, 2010 at 09:34:52AM -0700, Allan, Bruce W wrote:
+> > We have had other recent reports of issues with this part that are due to
+> > ASPM L1 being enabled.  Would you please try disabling L1 after the driver
+> > is loaded as follows (assuming your adapter is still PCI bus/device/number
+> > 02:00.0 as indicated in the lspci output you provided earlier):
+> > 1) First check the hexadecimal value of the LnkCtl register -
+> > # setpci -s 2:0.0 0xf0
+> > 2) Disable ASPM (both L0s and L1) by zeroing out bits 0 and 1 in the value
+> > returned by the previous step.  For example, if it returned 42 (hex 42,
+> > that is) -
+> > # setpci -s 2:0.0 0xf0=0x40
+> > 3) Confirm ASPM is disabled by checking the output from lspci again.
+> 
+> It returned 42, and after setting 0x40, LnkCtl now says "ASPM Disabled".
+> 
+> I'll dock the system now and will report after the weekend or after
+> the first crash.
 
-o Give sufficient time for all makes of PHY modules
-  to establish the link after loopback test.
-o Perform online test before offline test.
+Didn't work, freeze within the first 60 minutes after starting serious
+work. The system did sit idle for the night though without freezing.
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic_ethtool.c |   17 ++++++++---------
- drivers/net/qlcnic/qlcnic_hw.c      |    1 +
- 2 files changed, 9 insertions(+), 9 deletions(-)
+Greetings
+Marc
 
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 9328d59..3d4655d 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -747,6 +747,14 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- {
- 	memset(data, 0, sizeof(u64) * QLCNIC_TEST_LEN);
- 
-+	data[0] = qlcnic_reg_test(dev);
-+	if (data[0])
-+		eth_test->flags |= ETH_TEST_FL_FAILED;
-+
-+	data[1] = (u64) qlcnic_test_link(dev);
-+	if (data[1])
-+		eth_test->flags |= ETH_TEST_FL_FAILED;
-+
- 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
- 		data[2] = qlcnic_irq_test(dev);
- 		if (data[2])
-@@ -757,15 +765,6 @@ qlcnic_diag_test(struct net_device *dev, struct ethtool_test *eth_test,
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
- 	}
--
--	data[0] = qlcnic_reg_test(dev);
--	if (data[0])
--		eth_test->flags |= ETH_TEST_FL_FAILED;
--
--	/* link test */
--	data[1] = (u64) qlcnic_test_link(dev);
--	if (data[1])
--		eth_test->flags |= ETH_TEST_FL_FAILED;
- }
- 
- static void
-diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index e08c8b0..9d40ce0 100644
---- a/drivers/net/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -1245,4 +1245,5 @@ void qlcnic_clear_ilb_mode(struct qlcnic_adapter *adapter)
- 		mode = VPORT_MISS_MODE_ACCEPT_MULTI;
- 
- 	qlcnic_nic_set_promisc(adapter, mode);
-+	msleep(1000);
- }
 -- 
-1.6.0.2
-
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 72739834
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 3221 2323190
