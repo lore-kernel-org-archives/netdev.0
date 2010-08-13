@@ -1,7 +1,7 @@
 From: kxie@chelsio.com
-Subject: [PATCH v2 3/3] cxgb3i: change cxgb3i to use libcxgbi
+Subject: [PATCH v2 1/3] libcxgbi: common library for cxgb3i and cxgb4i
 Date: Fri, 13 Aug 2010 08:19:54 -0700
-Message-ID: <201008131519.o7DFJs7A002624@localhost.localdomain>
+Message-ID: <201008131519.o7DFJsRZ002620@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,136 +14,62 @@ Return-path: <linux-scsi-owner@vger.kernel.org>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH v2 3/3] cxgb3i: change cxgb3i to use libcxgbi
+[PATCH v2 1/3] libcxgbi: common library for cxgb3i and cxgb4i
 
 From: Karen Xie <kxie@chelsio.com>
 
-Changed cxgb3i to make use of libcxgbi.
+Extracted common functions to libcxgbi.
 
 Signed-off-by: Karen Xie <kxie@chelsio.com>
 ---
 
- drivers/scsi/Kconfig               |    1 
- drivers/scsi/Makefile              |    2 
- drivers/scsi/cxgbi/Kconfig         |    1 
- drivers/scsi/cxgbi/Makefile        |    1 
- drivers/scsi/cxgbi/cxgb3i/Kbuild   |    3 
- drivers/scsi/cxgbi/cxgb3i/Kconfig  |    7 
- drivers/scsi/cxgbi/cxgb3i/cxgb3i.c | 1454 ++++++++++++++++++++++++++++++++++++
- drivers/scsi/cxgbi/cxgb3i/cxgb3i.h |   51 +
- 8 files changed, 1518 insertions(+), 2 deletions(-)
- create mode 100644 drivers/scsi/cxgbi/cxgb3i/Kbuild
- create mode 100644 drivers/scsi/cxgbi/cxgb3i/Kconfig
- create mode 100644 drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
- create mode 100644 drivers/scsi/cxgbi/cxgb3i/cxgb3i.h
+ drivers/scsi/cxgbi/libcxgbi.c | 2658 +++++++++++++++++++++++++++++++++++++++++
+ drivers/scsi/cxgbi/libcxgbi.h |  754 ++++++++++++
+ 2 files changed, 3412 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/scsi/cxgbi/libcxgbi.c
+ create mode 100644 drivers/scsi/cxgbi/libcxgbi.h
 
 
-diff --git a/drivers/scsi/Kconfig b/drivers/scsi/Kconfig
-index efe66bb..0c85653 100644
---- a/drivers/scsi/Kconfig
-+++ b/drivers/scsi/Kconfig
-@@ -378,7 +378,6 @@ config ISCSI_BOOT_SYSFS
- 	  via sysfs to userspace. If you wish to export this information,
- 	  say Y. Otherwise, say N.
- 
--source "drivers/scsi/cxgb3i/Kconfig"
- source "drivers/scsi/cxgbi/Kconfig"
- source "drivers/scsi/bnx2i/Kconfig"
- source "drivers/scsi/be2iscsi/Kconfig"
-diff --git a/drivers/scsi/Makefile b/drivers/scsi/Makefile
-index cb31f8c..2e9a87e 100644
---- a/drivers/scsi/Makefile
-+++ b/drivers/scsi/Makefile
-@@ -133,7 +133,7 @@ obj-$(CONFIG_SCSI_HPTIOP)	+= hptiop.o
- obj-$(CONFIG_SCSI_STEX)		+= stex.o
- obj-$(CONFIG_SCSI_MVSAS)	+= mvsas/
- obj-$(CONFIG_PS3_ROM)		+= ps3rom.o
--obj-$(CONFIG_SCSI_CXGB3_ISCSI)	+= libiscsi.o libiscsi_tcp.o cxgb3i/
-+obj-$(CONFIG_SCSI_CXGB3_ISCSI)	+= libiscsi.o libiscsi_tcp.o cxgbi/
- obj-$(CONFIG_SCSI_CXGB4_ISCSI)	+= libiscsi.o libiscsi_tcp.o cxgbi/
- obj-$(CONFIG_SCSI_BNX2_ISCSI)	+= libiscsi.o bnx2i/
- obj-$(CONFIG_BE2ISCSI)		+= libiscsi.o be2iscsi/
-diff --git a/drivers/scsi/cxgbi/Kconfig b/drivers/scsi/cxgbi/Kconfig
-index a470e38..17eb5d5 100644
---- a/drivers/scsi/cxgbi/Kconfig
-+++ b/drivers/scsi/cxgbi/Kconfig
-@@ -1 +1,2 @@
-+source "drivers/scsi/cxgbi/cxgb3i/Kconfig"
- source "drivers/scsi/cxgbi/cxgb4i/Kconfig"
-diff --git a/drivers/scsi/cxgbi/Makefile b/drivers/scsi/cxgbi/Makefile
-index 9e8f604..86007e3 100644
---- a/drivers/scsi/cxgbi/Makefile
-+++ b/drivers/scsi/cxgbi/Makefile
-@@ -1 +1,2 @@
-+obj-$(CONFIG_SCSI_CXGB3_ISCSI)	+= libcxgbi.o cxgb3i/
- obj-$(CONFIG_SCSI_CXGB4_ISCSI)	+= libcxgbi.o cxgb4i/
-diff --git a/drivers/scsi/cxgbi/cxgb3i/Kbuild b/drivers/scsi/cxgbi/cxgb3i/Kbuild
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
 new file mode 100644
-index 0000000..09dbf9e
+index 0000000..0087ff7
 --- /dev/null
-+++ b/drivers/scsi/cxgbi/cxgb3i/Kbuild
-@@ -0,0 +1,3 @@
-+EXTRA_CFLAGS += -I$(srctree)/drivers/net/cxgb3
-+
-+obj-$(CONFIG_SCSI_CXGB3_ISCSI) += cxgb3i.o
-diff --git a/drivers/scsi/cxgbi/cxgb3i/Kconfig b/drivers/scsi/cxgbi/cxgb3i/Kconfig
-new file mode 100644
-index 0000000..5cf4e98
---- /dev/null
-+++ b/drivers/scsi/cxgbi/cxgb3i/Kconfig
-@@ -0,0 +1,7 @@
-+config SCSI_CXGB3_ISCSI
-+	tristate "Chelsio T3 iSCSI support"
-+	depends on CHELSIO_T3_DEPENDS
-+	select CHELSIO_T3
-+	select SCSI_ISCSI_ATTRS
-+	---help---
-+	  This driver supports iSCSI offload for the Chelsio T3 devices.
-diff --git a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-new file mode 100644
-index 0000000..6cd9bd6
---- /dev/null
-+++ b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-@@ -0,0 +1,1454 @@
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -0,0 +1,2658 @@
 +/*
-+ * cxgb3i.c: Chelsio S3xx iscsi offload driver
++ * libcxgbi.c: Chelsio common library for T3/T4 iSCSI driver.
 + *
-+ * Copyright (C) 2003-2008 Chelsio Communications.  All rights reserved.
++ * Copyright (c) 2010 Chelsio Communications, Inc.
 + *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the LICENSE file included in this
-+ * release for licensing terms and conditions.
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
 + *
-+ * Written by:	Dimitris Michailidis (dm@chelsio.com)
-+ *		Karen Xie (kxie@chelsio.com)
++ * Written by: Karen Xie (kxie@chelsio.com)
++ * Written by: Rakesh Ranjan (rranjan@chelsio.com)
 + */
 +
-+#include <linux/version.h>
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
++#include <linux/skbuff.h>
++#include <linux/crypto.h>
++#include <linux/scatterlist.h>
++#include <linux/pci.h>
++#include <scsi/scsi.h>
++#include <scsi/scsi_cmnd.h>
 +#include <scsi/scsi_host.h>
-+
-+#include "common.h"
-+#include "t3_cpl.h"
-+#include "t3cdev.h"
-+#include "cxgb3_defs.h"
-+#include "cxgb3_ctl_defs.h"
-+#include "cxgb3_offload.h"
-+#include "firmware_exports.h"
-+#include "cxgb3i.h"
++#include <linux/if_vlan.h>
++#include <linux/inet.h>
++#include <net/dst.h>
++#include <net/route.h>
++#include <linux/inetdevice.h>	/* ip_dev_find */
++#include <net/tcp.h>
 +
 +static unsigned int dbg_level;
-+#include "../libcxgbi.h"
++#include "libcxgbi.h"
 +
-+#define DRV_MODULE_NAME         "cxgb3i"
-+#define DRV_MODULE_DESC         "Chelsio T3 iSCSI Driver"
-+#define DRV_MODULE_VERSION	"2.0.0"
++#define DRV_MODULE_NAME		"libcxgbi"
++#define DRV_MODULE_DESC		"Chelsio iSCSI driver library"
++#define DRV_MODULE_VERSION	"0.9.0"
 +#define DRV_MODULE_RELDATE	"Jun. 2010"
-+
-+static char version[] =
-+	DRV_MODULE_DESC " " DRV_MODULE_NAME
-+	" v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
 +
 +MODULE_AUTHOR("Chelsio Communications, Inc.");
 +MODULE_DESCRIPTION(DRV_MODULE_DESC);
@@ -151,1468 +77,3380 @@ index 0000000..6cd9bd6
 +MODULE_LICENSE("GPL");
 +
 +module_param(dbg_level, uint, 0644);
-+MODULE_PARM_DESC(dbg_level, "debug flag (default=0)");
++MODULE_PARM_DESC(dbg_level, "libiscsi debug level (default=0)");
 +
-+static int cxgb3i_rcv_win = 256 * 1024;
-+module_param(cxgb3i_rcv_win, int, 0644);
-+MODULE_PARM_DESC(cxgb3i_rcv_win, "TCP receive window in bytes (default=256KB)");
-+
-+static int cxgb3i_snd_win = 128 * 1024;
-+module_param(cxgb3i_snd_win, int, 0644);
-+MODULE_PARM_DESC(cxgb3i_snd_win, "TCP send window in bytes (default=128KB)");
-+
-+static int cxgb3i_rx_credit_thres = 10 * 1024;
-+module_param(cxgb3i_rx_credit_thres, int, 0644);
-+MODULE_PARM_DESC(rx_credit_thres,
-+		 "RX credits return threshold in bytes (default=10KB)");
-+
-+static unsigned int cxgb3i_max_connect = 8 * 1024;
-+module_param(cxgb3i_max_connect, uint, 0644);
-+MODULE_PARM_DESC(cxgb3i_max_connect, "Max. # of connections (default=8092)");
-+
-+static unsigned int cxgb3i_sport_base = 20000;
-+module_param(cxgb3i_sport_base, uint, 0644);
-+MODULE_PARM_DESC(cxgb3i_sport_base, "starting port number (default=20000)");
-+
-+#define cxgb3i_log_error	cxgbi_dbg_error
-+#define cxgb3i_log_warn		cxgbi_dbg_warn
-+#define cxgb3i_log_info		cxgbi_dbg_info
-+#define cxgb3i_log_debug(flag, fmt, args...) \
++#define libcxgbi_log_error	cxgbi_dbg_error
++#define libcxgbi_log_warn	cxgbi_dbg_warn
++#define libcxgbi_log_info	cxgbi_dbg_info
++#define libcxgbi_log_debug(flag, fmt, args...) \
 +	cxgbi_dbg_print(flag, fmt, ## args)
 +
-+static void cxgb3i_dev_open(struct t3cdev *);
-+static void cxgb3i_dev_close(struct t3cdev *);
-+static void cxgb3i_dev_event_handler(struct t3cdev *, u32, u32);
-+
-+static struct cxgb3_client t3_client = {
-+	.name = DRV_MODULE_NAME,
-+	.handlers = cxgb3i_cpl_handlers,
-+	.add = cxgb3i_dev_open,
-+	.remove = cxgb3i_dev_close,
-+	.event_handler = cxgb3i_dev_event_handler,
-+};
-+
-+static struct scsi_host_template cxgb3i_host_template = {
-+	.module		= THIS_MODULE,
-+	.name		= DRV_MODULE_NAME,
-+	.proc_name	= DRV_MODULE_NAME,
-+	.can_queue	= CXGB3I_SCSI_HOST_QDEPTH,
-+	.queuecommand	= iscsi_queuecommand,
-+	.change_queue_depth = iscsi_change_queue_depth,
-+	.sg_tablesize	= SG_ALL,
-+	.max_sectors	= 0xFFFF,
-+	.cmd_per_lun	= ISCSI_DEF_CMD_PER_LUN,
-+	.eh_abort_handler = iscsi_eh_abort,
-+	.eh_device_reset_handler = iscsi_eh_device_reset,
-+	.eh_target_reset_handler = iscsi_eh_recover_target,
-+	.target_alloc	= iscsi_target_alloc,
-+	.use_clustering	= DISABLE_CLUSTERING,
-+	.this_id	= -1,
-+};
-+
-+static struct iscsi_transport cxgb3i_iscsi_transport = {
-+	.owner		= THIS_MODULE,
-+	.name		= DRV_MODULE_NAME,
-+	/* owner and name should be set already */
-+	.caps		= CAP_RECOVERY_L0 | CAP_MULTI_R2T | CAP_HDRDGST
-+				| CAP_DATADGST | CAP_DIGEST_OFFLOAD |
-+				CAP_PADDING_OFFLOAD,
-+	.param_mask	= ISCSI_MAX_RECV_DLENGTH | ISCSI_MAX_XMIT_DLENGTH |
-+				ISCSI_HDRDGST_EN | ISCSI_DATADGST_EN |
-+				ISCSI_INITIAL_R2T_EN | ISCSI_MAX_R2T |
-+				ISCSI_IMM_DATA_EN | ISCSI_FIRST_BURST |
-+				ISCSI_MAX_BURST | ISCSI_PDU_INORDER_EN |
-+				ISCSI_DATASEQ_INORDER_EN | ISCSI_ERL |
-+				ISCSI_CONN_PORT | ISCSI_CONN_ADDRESS |
-+				ISCSI_EXP_STATSN | ISCSI_PERSISTENT_PORT |
-+				ISCSI_PERSISTENT_ADDRESS |
-+				ISCSI_TARGET_NAME | ISCSI_TPGT |
-+				ISCSI_USERNAME | ISCSI_PASSWORD |
-+				ISCSI_USERNAME_IN | ISCSI_PASSWORD_IN |
-+				ISCSI_FAST_ABORT | ISCSI_ABORT_TMO |
-+				ISCSI_LU_RESET_TMO | ISCSI_TGT_RESET_TMO |
-+				ISCSI_PING_TMO | ISCSI_RECV_TMO |
-+				ISCSI_IFACE_NAME | ISCSI_INITIATOR_NAME,
-+	.host_param_mask	= ISCSI_HOST_HWADDRESS | ISCSI_HOST_IPADDRESS |
-+				ISCSI_HOST_INITIATOR_NAME |
-+				ISCSI_HOST_NETDEV_NAME,
-+	.get_host_param	= cxgbi_get_host_param,
-+	.set_host_param	= cxgbi_set_host_param,
-+	/* session management */
-+	.create_session	= cxgbi_create_session,
-+	.destroy_session	= cxgbi_destroy_session,
-+	.get_session_param = iscsi_session_get_param,
-+	/* connection management */
-+	.create_conn	= cxgbi_create_conn,
-+	.bind_conn	= cxgbi_bind_conn,
-+	.destroy_conn	= iscsi_tcp_conn_teardown,
-+	.start_conn	= iscsi_conn_start,
-+	.stop_conn	= iscsi_conn_stop,
-+	.get_conn_param	= cxgbi_get_conn_param,
-+	.set_param	= cxgbi_set_conn_param,
-+	.get_stats	= cxgbi_get_conn_stats,
-+	/* pdu xmit req from user space */
-+	.send_pdu	= iscsi_conn_send_pdu,
-+	/* task */
-+	.init_task	= iscsi_tcp_task_init,
-+	.xmit_task	= iscsi_tcp_task_xmit,
-+	.cleanup_task	= cxgbi_cleanup_task,
-+	/* pdu */
-+	.alloc_pdu	= cxgbi_conn_alloc_pdu,
-+	.init_pdu	= cxgbi_conn_init_pdu,
-+	.xmit_pdu	= cxgbi_conn_xmit_pdu,
-+	.parse_pdu_itt	= cxgbi_parse_pdu_itt,
-+	/* TCP connect/disconnect */
-+	.ep_connect	= cxgbi_ep_connect,
-+	.ep_poll	= cxgbi_ep_poll,
-+	.ep_disconnect	= cxgbi_ep_disconnect,
-+	/* Error recovery timeout call */
-+	.session_recovery_timedout = iscsi_session_recovery_timedout,
-+};
-+
-+static struct scsi_transport_template *cxgb3i_stt;
-+
 +/*
-+ * CPL (Chelsio Protocol Language) defines a message passing interface between
-+ * the host driver and Chelsio asic.
-+ * The section below implments CPLs that related to iscsi tcp connection
-+ * open/close/abort and data send/receive.
++ * cxgbi device management
++ * maintains a list of the cxgbi devices
 + */
++static LIST_HEAD(cdev_list);
++static DEFINE_MUTEX(cdev_mutex);
 +
-+static int push_tx_frames(struct cxgbi_sock *csk, int req_completion);
-+
-+static void send_act_open_req(struct cxgbi_sock *csk, struct sk_buff *skb,
-+			      const struct l2t_entry *e)
++int cxgbi_device_portmap_create(struct cxgbi_device *cdev, unsigned int base,
++				unsigned int max_conn)
 +{
-+	unsigned int wscale = cxgbi_sock_compute_wscale(cxgb3i_rcv_win);
-+	struct cpl_act_open_req *req = (struct cpl_act_open_req *)skb->head;
++	struct cxgbi_ports_map *pmap = &cdev->pmap;
 +
-+	skb->priority = CPL_PRIORITY_SETUP;
-+
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ACT_OPEN_REQ, csk->atid));
-+	req->local_port = csk->saddr.sin_port;
-+	req->peer_port = csk->daddr.sin_port;
-+	req->local_ip = csk->saddr.sin_addr.s_addr;
-+	req->peer_ip = csk->daddr.sin_addr.s_addr;
-+
-+	req->opt0h = htonl(V_KEEP_ALIVE(1) | F_TCAM_BYPASS |
-+			V_WND_SCALE(wscale) | V_MSS_IDX(csk->mss_idx) |
-+			V_L2T_IDX(e->idx) | V_TX_CHANNEL(e->smt_idx));
-+	req->opt0l = htonl(V_ULP_MODE(ULP2_MODE_ISCSI) |
-+			V_RCV_BUFSIZ(cxgb3i_rcv_win>>10));
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u, %pI4:%u-%pI4:%u, %u,%u,%u.\n",
-+			csk, csk->state, csk->flags, csk->atid,
-+			&req->local_ip, ntohs(req->local_port),
-+			&req->peer_ip, ntohs(req->peer_port),
-+			csk->mss_idx, e->idx, e->smt_idx);
-+
-+	l2t_send(csk->cdev->lldev, skb, csk->l2t);
-+}
-+
-+static inline void act_open_arp_failure(struct t3cdev *dev, struct sk_buff *skb)
-+{
-+	cxgbi_sock_act_open_req_arp_failure(NULL, skb);
-+}
-+
-+/*
-+ * CPL connection close request: host ->
-+ *
-+ * Close a connection by sending a CPL_CLOSE_CON_REQ message and queue it to
-+ * the write queue (i.e., after any unsent txt data).
-+ */
-+static void send_close_req(struct cxgbi_sock *csk)
-+{
-+	struct sk_buff *skb = csk->cpl_close;
-+	struct cpl_close_con_req *req = (struct cpl_close_con_req *)skb->head;
-+	unsigned int tid = csk->tid;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u.\n",
-+			csk, csk->state, csk->flags, csk->tid);
-+
-+	csk->cpl_close = NULL;
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_CLOSE_CON));
-+	req->wr.wr_lo = htonl(V_WR_TID(tid));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_CON_REQ, tid));
-+	req->rsvd = htonl(csk->write_seq);
-+
-+	cxgbi_sock_skb_entail(csk, skb);
-+	if (csk->state >= CTP_ESTABLISHED)
-+		push_tx_frames(csk, 1);
-+}
-+
-+/*
-+ * CPL connection abort request: host ->
-+ *
-+ * Send an ABORT_REQ message. Makes sure we do not send multiple ABORT_REQs
-+ * for the same connection and also that we do not try to send a message
-+ * after the connection has closed.
-+ */
-+static void abort_arp_failure(struct t3cdev *tdev, struct sk_buff *skb)
-+{
-+	struct cpl_abort_req *req = cplhdr(skb);
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"t3dev 0x%p, tid %u, skb 0x%p.\n",
-+			tdev, GET_TID(req), skb);
-+	req->cmd = CPL_ABORT_NO_RST;
-+	cxgb3_ofld_send(tdev, skb);
-+}
-+
-+static void send_abort_req(struct cxgbi_sock *csk)
-+{
-+	struct sk_buff *skb = csk->cpl_abort_req;
-+	struct cpl_abort_req *req;
-+
-+	if (unlikely(csk->state == CTP_ABORTING || !skb))
-+		return;
-+	cxgbi_sock_set_state(csk, CTP_ABORTING);
-+	cxgbi_sock_set_flag(csk, CTPF_ABORT_RPL_PENDING);
-+	/* Purge the send queue so we don't send anything after an abort. */
-+	cxgbi_sock_purge_write_queue(csk);
-+
-+	csk->cpl_abort_req = NULL;
-+	req = (struct cpl_abort_req *)skb->head;
-+	skb->priority = CPL_PRIORITY_DATA;
-+	set_arp_failure_handler(skb, abort_arp_failure);
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_HOST_ABORT_CON_REQ));
-+	req->wr.wr_lo = htonl(V_WR_TID(csk->tid));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ABORT_REQ, csk->tid));
-+	req->rsvd0 = htonl(csk->snd_nxt);
-+	req->rsvd1 = !cxgbi_sock_flag(csk, CTPF_TX_DATA_SENT);
-+	req->cmd = CPL_ABORT_SEND_RST;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u, snd_nxt %u, 0x%x.\n",
-+			csk, csk->state, csk->flags, csk->tid, csk->snd_nxt,
-+			req->rsvd1);
-+
-+	l2t_send(csk->cdev->lldev, skb, csk->l2t);
-+}
-+
-+/*
-+ * CPL connection abort reply: host ->
-+ *
-+ * Send an ABORT_RPL message in response of the ABORT_REQ received.
-+ */
-+static void send_abort_rpl(struct cxgbi_sock *csk, int rst_status)
-+{
-+	struct sk_buff *skb = csk->cpl_abort_rpl;
-+	struct cpl_abort_rpl *rpl = (struct cpl_abort_rpl *)skb->head;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u, status %d.\n",
-+			csk, csk->state, csk->flags, csk->tid, rst_status);
-+
-+	csk->cpl_abort_rpl = NULL;
-+	skb->priority = CPL_PRIORITY_DATA;
-+	rpl->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_HOST_ABORT_CON_RPL));
-+	rpl->wr.wr_lo = htonl(V_WR_TID(csk->tid));
-+	OPCODE_TID(rpl) = htonl(MK_OPCODE_TID(CPL_ABORT_RPL, csk->tid));
-+	rpl->cmd = rst_status;
-+	cxgb3_ofld_send(csk->cdev->lldev, skb);
-+}
-+
-+/*
-+ * CPL connection rx data ack: host ->
-+ * Send RX credits through an RX_DATA_ACK CPL message. Returns the number of
-+ * credits sent.
-+ */
-+static u32 send_rx_credits(struct cxgbi_sock *csk, u32 credits)
-+{
-+	struct sk_buff *skb;
-+	struct cpl_rx_data_ack *req;
-+	u32 dack = F_RX_DACK_CHANGE | V_RX_DACK_MODE(1);
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_PDU_RX,
-+			"csk 0x%p,%u,0x%lx,%u, credit %u, dack %u\n",
-+			csk, csk->state, csk->flags, csk->tid, credits, dack);
-+
-+	skb = alloc_cpl(sizeof(*req), 0, GFP_ATOMIC);
-+	if (!skb) {
-+		cxgb3i_log_info("csk 0x%p, credit %u, OOM.\n", csk, credits);
-+		return 0;
++	pmap->port_csk = cxgbi_alloc_big_mem(max_conn *
++					     sizeof(struct cxgbi_sock *),
++					     GFP_KERNEL);
++	if (!pmap->port_csk) {
++		libcxgbi_log_warn("cdev 0x%p, portmap OOM %u.\n",
++				  cdev, max_conn);
++		return -ENOMEM;
 +	}
-+	req = (struct cpl_rx_data_ack *)skb->head;
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_RX_DATA_ACK, csk->tid));
-+	req->credit_dack = htonl(F_RX_DACK_CHANGE | V_RX_DACK_MODE(1) |
-+				V_RX_CREDITS(credits));
-+	skb->priority = CPL_PRIORITY_ACK;
-+	cxgb3_ofld_send(csk->cdev->lldev, skb);
-+	return credits;
++
++	pmap->max_connect = max_conn;
++	pmap->sport_base = base;
++	spin_lock_init(&pmap->lock);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cxgbi_device_portmap_create);
++
++void cxgbi_device_portmap_cleanup(struct cxgbi_device *cdev)
++{
++	struct cxgbi_ports_map *pmap = &cdev->pmap;
++	struct cxgbi_sock *csk;
++	int i;
++
++	for (i = 0; i < pmap->max_connect; i++) {
++		if (pmap->port_csk[i]) {
++			csk = pmap->port_csk[i];
++			pmap->port_csk[i] = NULL;
++			libcxgbi_log_debug(1 << CXGBI_DBG_SOCK,
++					"csk 0x%p, cdev 0x%p, offload down.\n",
++					csk, cdev);
++			spin_lock_bh(&csk->lock);
++			cxgbi_sock_set_flag(csk, CTPF_OFFLOAD_DOWN);
++			cxgbi_sock_closed(csk);
++			spin_unlock_bh(&csk->lock);
++			cxgbi_sock_put(csk);
++		}
++	}
++}
++EXPORT_SYMBOL_GPL(cxgbi_device_portmap_cleanup);
++
++static inline void cxgbi_device_destroy(struct cxgbi_device *cdev)
++{
++	libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++			"cdev 0x%p, p# %u.\n", cdev, cdev->nports);
++	cxgbi_hbas_remove(cdev);
++	cxgbi_device_portmap_cleanup(cdev);
++	if (cdev->dev_ddp_cleanup)
++		cdev->dev_ddp_cleanup(cdev);
++	else
++		cxgbi_ddp_cleanup(cdev);
++	if (cdev->ddp)
++		cxgbi_ddp_cleanup(cdev);
++	if (cdev->pmap.max_connect)
++		cxgbi_free_big_mem(cdev->pmap.port_csk);
++	kfree(cdev);
 +}
 +
-+/*
-+ * CPL connection tx data: host ->
-+ *
-+ * Send iscsi PDU via TX_DATA CPL message. Returns the number of
-+ * credits sent.
-+ * Each TX_DATA consumes work request credit (wrs), so we need to keep track of
-+ * how many we've used so far and how many are pending (i.e., yet ack'ed by T3).
-+ */
++struct cxgbi_device *cxgbi_device_register(unsigned int extra,
++					   unsigned int nports)
++{
++	struct cxgbi_device *cdev;
 +
-+static unsigned int wrlen __read_mostly;
-+static unsigned int skb_wrs[SKB_WR_LIST_SIZE] __read_mostly;
++	cdev = kzalloc(sizeof(*cdev) + extra + nports *
++			(sizeof(struct cxgbi_hba *) +
++			 sizeof(struct net_device *)),
++			GFP_KERNEL);
++	if (!cdev) {
++		libcxgbi_log_warn("nport %d, OOM.\n", nports);
++		return NULL;
++	}
++	cdev->ports = (struct net_device **)(cdev + 1);
++	cdev->hbas = (struct cxgbi_hba **)(((char*)cdev->ports) + nports *
++						sizeof(struct net_device *));
++	if (extra)
++		cdev->dd_data = ((char *)cdev->hbas) +
++				nports * sizeof(struct cxgbi_hba *);
++	spin_lock_init(&cdev->pmap.lock);
 +
-+static void init_wr_tab(unsigned int wr_len)
++	mutex_lock(&cdev_mutex);
++	list_add_tail(&cdev->list_head, &cdev_list);
++	mutex_unlock(&cdev_mutex);
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++			"cdev 0x%p, p# %u.\n", cdev, nports);
++	return cdev;
++}
++EXPORT_SYMBOL_GPL(cxgbi_device_register);
++
++void cxgbi_device_unregister(struct cxgbi_device *cdev)
++{
++	libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++			"cdev 0x%p, p# %u,%s.\n", cdev,
++			cdev->nports, cdev->nports ? cdev->ports[0]->name : "");
++	mutex_lock(&cdev_mutex);
++	list_del(&cdev->list_head);
++	mutex_unlock(&cdev_mutex);
++	cxgbi_device_destroy(cdev);
++}
++EXPORT_SYMBOL_GPL(cxgbi_device_unregister);
++
++void cxgbi_device_unregister_all(unsigned int flag)
++{
++	struct cxgbi_device *cdev, *tmp;
++
++	mutex_lock(&cdev_mutex);
++	list_for_each_entry_safe(cdev, tmp, &cdev_list, list_head) {
++		if ((cdev->flags & flag) == flag) {
++			libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++					"cdev 0x%p, p# %u,%s.\n",
++					cdev, cdev->nports, cdev->nports ?
++					 cdev->ports[0]->name : "");
++			list_del(&cdev->list_head);
++			cxgbi_device_destroy(cdev);
++		}
++	}
++	mutex_unlock(&cdev_mutex);
++}
++EXPORT_SYMBOL_GPL(cxgbi_device_unregister_all);
++
++struct cxgbi_device *cxgbi_device_find_by_lldev(void *lldev)
++{
++	struct cxgbi_device *cdev, *tmp;
++
++	mutex_lock(&cdev_mutex);
++	list_for_each_entry_safe(cdev, tmp, &cdev_list, list_head) {
++		if (cdev->lldev == lldev) {
++			mutex_unlock(&cdev_mutex);
++			return cdev;
++		}
++	}
++	mutex_unlock(&cdev_mutex);
++	libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++			"lldev 0x%p, NO match found.\n", lldev);
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(cxgbi_device_find_by_lldev);
++
++static struct cxgbi_device *cxgbi_device_find_by_netdev(struct net_device *ndev,
++							int *port)
++{
++	struct cxgbi_device *cdev, *tmp;
++	int i;
++
++	if (ndev->priv_flags & IFF_802_1Q_VLAN)
++		ndev = vlan_dev_real_dev(ndev);
++
++	mutex_lock(&cdev_mutex);
++	list_for_each_entry_safe(cdev, tmp, &cdev_list, list_head) {
++		for (i = 0; i < cdev->nports; i++) {
++			if (ndev == cdev->ports[i]) {
++				mutex_unlock(&cdev_mutex);
++				if (port)
++					*port = i;
++				return cdev;
++			}
++		}
++	}
++	mutex_unlock(&cdev_mutex);
++	libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++			"ndev 0x%p, %s, NO match found.\n", ndev, ndev->name);
++	return NULL;
++}
++
++struct cxgbi_hba *cxgbi_hba_find_by_netdev(struct net_device *dev,
++					struct cxgbi_device *cdev)
 +{
 +	int i;
 +
-+	if (skb_wrs[1])		/* already initialized */
-+		return;
-+	for (i = 1; i < SKB_WR_LIST_SIZE; i++) {
-+		int sgl_len = (3 * i) / 2 + (i & 1);
++	if (dev->priv_flags & IFF_802_1Q_VLAN)
++		dev = vlan_dev_real_dev(dev);
 +
-+		sgl_len += 3;
-+		skb_wrs[i] = (sgl_len <= wr_len
-+			      ? 1 : 1 + (sgl_len - 2) / (wr_len - 1));
++	for (i = 0; i < cdev->nports; i++) {
++		if (cdev->hbas[i]->ndev == dev)
++			return cdev->hbas[i];
 +	}
-+	wrlen = wr_len * 8;
++	libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++			"ndev 0x%p, %s, cdev 0x%p, NO match found.\n",
++			dev, dev->name, cdev);
++	return NULL;
 +}
 +
-+static inline void make_tx_data_wr(struct cxgbi_sock *csk, struct sk_buff *skb,
-+				   int len, int req_completion)
++void cxgbi_hbas_remove(struct cxgbi_device *cdev)
 +{
-+	struct tx_data_wr *req;
-+	struct l2t_entry *l2t = csk->l2t;
++	int i;
++	struct cxgbi_hba *chba;
 +
-+	skb_reset_transport_header(skb);
-+	req = (struct tx_data_wr *)__skb_push(skb, sizeof(*req));
-+	req->wr_hi = htonl(V_WR_OP(FW_WROPCODE_OFLD_TX_DATA) |
-+			(req_completion ? F_WR_COMPL : 0));
-+	req->wr_lo = htonl(V_WR_TID(csk->tid));
-+	/* len includes the length of any HW ULP additions */
-+	req->len = htonl(len);
-+	/* V_TX_ULP_SUBMODE sets both the mode and submode */
-+	req->flags = htonl(V_TX_ULP_SUBMODE(cxgbi_skcb_ulp_mode(skb)) |
-+			   V_TX_SHOVE((skb_peek(&csk->write_queue) ? 0 : 1)));
-+	req->sndseq = htonl(csk->snd_nxt);
-+	req->param = htonl(V_TX_PORT(l2t->smt_idx));
++	libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++			"cdev 0x%p, p#%u.\n", cdev, cdev->nports);
 +
-+	if (!cxgbi_sock_flag(csk, CTPF_TX_DATA_SENT)) {
-+		req->flags |= htonl(V_TX_ACK_PAGES(2) | F_TX_INIT |
-+				    V_TX_CPU_IDX(csk->rss_qid));
-+		/* sendbuffer is in units of 32KB. */
-+		req->param |= htonl(V_TX_SNDBUF(cxgb3i_snd_win >> 15));
-+		cxgbi_sock_set_flag(csk, CTPF_TX_DATA_SENT);
++	for (i = 0; i < cdev->nports; i++) {
++		chba = cdev->hbas[i];
++		if (chba) {
++			cdev->hbas[i] = NULL;
++			iscsi_host_remove(chba->shost);
++			pci_dev_put(cdev->pdev);
++			iscsi_host_free(chba->shost);
++		}
 +	}
 +}
++EXPORT_SYMBOL_GPL(cxgbi_hbas_remove);
 +
-+/**
-+ * push_tx_frames -- start transmit
-+ * @c3cn: the offloaded connection
-+ * @req_completion: request wr_ack or not
++int cxgbi_hbas_add(struct cxgbi_device *cdev, unsigned int max_lun,
++		unsigned int max_id, struct scsi_host_template *sht,
++		struct scsi_transport_template *stt)
++{
++	struct cxgbi_hba *chba;
++	struct Scsi_Host *shost;
++	int i, err;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_DEV, "cdev 0x%p, p#%u.\n",
++			   cdev, cdev->nports);
++
++	for (i = 0; i < cdev->nports; i++) {
++		shost = iscsi_host_alloc(sht, sizeof(*chba), 1);
++		if (!shost) {
++			libcxgbi_log_info("0x%p, p%d, %s, host alloc failed\n",
++					cdev, i, cdev->ports[i]->name);
++			err = -ENOMEM;
++			goto err_out;
++		}
++
++		shost->transportt = stt;
++		shost->max_lun = max_lun;
++		shost->max_id = max_id;
++		shost->max_channel = 0;
++		shost->max_cmd_len = 16;
++
++		chba = iscsi_host_priv(shost);
++		chba->cdev = cdev;
++		chba->ndev = cdev->ports[i];
++		chba->shost = shost;
++
++		libcxgbi_log_debug(1 << CXGBI_DBG_DEV,
++				   "cdev 0x%p, p#%d %s: chba 0x%p\n",
++				   cdev, i, cdev->ports[i]->name, chba);
++
++		pci_dev_get(cdev->pdev);
++		err = iscsi_host_add(shost, &cdev->pdev->dev);
++		if (err) {
++			libcxgbi_log_info("cdev 0x%p, p#%d %s, "
++					  "host add failed.\n",
++					  cdev, i, cdev->ports[i]->name);
++			pci_dev_put(cdev->pdev);
++			scsi_host_put(shost);
++			goto  err_out;
++		}
++
++		cdev->hbas[i] = chba;
++	}
++
++	return 0;
++
++err_out:
++	cxgbi_hbas_remove(cdev);
++	return err;
++}
++EXPORT_SYMBOL_GPL(cxgbi_hbas_add);
++
++/*
++ * iSCSI offload
 + *
-+ * Prepends TX_DATA_WR or CPL_CLOSE_CON_REQ headers to buffers waiting in a
-+ * connection's send queue and sends them on to T3.  Must be called with the
-+ * connection's lock held.  Returns the amount of send buffer space that was
-+ * freed as a result of sending queued data to T3.
++ * - source port management
++ *   To find a free source port in the port allocation map we use a very simple
++ *   rotor scheme to look for the next free port.
++ *
++ *   If a source port has been specified make sure that it doesn't collide with
++ *   our normal source port allocation map.  If it's outside the range of our
++ *   allocation/deallocation scheme just let them use it.
++ *
++ *   If the source port is outside our allocation range, the caller is
++ *   responsible for keeping track of their port usage.
 + */
-+
-+static void arp_failure_skb_discard(struct t3cdev *dev, struct sk_buff *skb)
++static int sock_get_port(struct cxgbi_sock *csk)
 +{
-+	kfree_skb(skb);
-+}
++	struct cxgbi_device *cdev = csk->cdev;
++	struct cxgbi_ports_map *pmap = &cdev->pmap;
++	unsigned int start;
++	int idx;
 +
-+static int push_tx_frames(struct cxgbi_sock *csk, int req_completion)
-+{
-+	int total_size = 0;
-+	struct sk_buff *skb;
-+
-+	if (unlikely(csk->state < CTP_ESTABLISHED ||
-+		csk->state == CTP_CLOSE_WAIT_1 || csk->state >= CTP_ABORTING)) {
-+			cxgb3i_log_debug(1 << CXGBI_DBG_TOE |
-+					 1 << CXGBI_DBG_PDU_TX,
-+				"csk 0x%p,%u,0x%lx,%u, in closing state.\n",
-+				csk, csk->state, csk->flags, csk->tid);
-+		return 0;
++	if (!pmap->max_connect) {
++		libcxgbi_log_error("cdev 0x%p, p#%u %s, NO port map.\n",
++				   cdev, csk->port_id,
++				   cdev->ports[csk->port_id]->name);
++		return -EADDRNOTAVAIL;
 +	}
 +
-+	while (csk->wr_cred && (skb = skb_peek(&csk->write_queue)) != NULL) {
-+		int len = skb->len;	/* length before skb_push */
-+		int frags = skb_shinfo(skb)->nr_frags + (len != skb->data_len);
-+		int wrs_needed = skb_wrs[frags];
++	if (csk->saddr.sin_port) {
++		libcxgbi_log_error("source port NON-ZERO %u.\n",
++				   ntohs(csk->saddr.sin_port));
++		return -EADDRINUSE;
++	}
 +
-+		if (wrs_needed > 1 && len + sizeof(struct tx_data_wr) <= wrlen)
-+			wrs_needed = 1;
++	spin_lock_bh(&pmap->lock);
++	if (pmap->used >= pmap->max_connect) {
++		spin_unlock_bh(&pmap->lock);
++		libcxgbi_log_info("cdev 0x%p, p#%u %s, ALL ports used.\n",
++			cdev, csk->port_id, cdev->ports[csk->port_id]->name);
++		return -EADDRNOTAVAIL;
++	}
 +
-+		WARN_ON(frags >= SKB_WR_LIST_SIZE || wrs_needed < 1);
++	start = idx = pmap->next;
++	do {
++		if (++idx >= pmap->max_connect)
++			idx = 0;
++		if (!pmap->port_csk[idx]) {
++			pmap->used++;
++			csk->saddr.sin_port =
++				htons(pmap->sport_base + idx);
++			pmap->next = idx;
++			pmap->port_csk[idx] = csk;
++			spin_unlock_bh(&pmap->lock);
++			cxgbi_sock_get(csk);
++			libcxgbi_log_debug(1 << CXGBI_DBG_SOCK,
++					"cdev 0x%p, p#%u %s, p %u, %u.\n",
++					cdev, csk->port_id,
++					cdev->ports[csk->port_id]->name,
++					pmap->sport_base + idx,
++					pmap->next);
++			return 0;
++		}
++	} while (idx != start);
++	spin_unlock_bh(&pmap->lock);
 +
-+		if (csk->wr_cred < wrs_needed) {
-+			cxgb3i_log_debug(1 << CXGBI_DBG_PDU_TX,
-+					"csk 0x%p, skb len %u/%u, frag %u, "
-+					"wr %d < %u.\n",
-+					csk, skb->len, skb->data_len, frags,
-+					wrs_needed, csk->wr_cred);
++	/* should not happen */
++	libcxgbi_log_warn("cdev 0x%p, p#%u %s, next %u?\n",
++			cdev, csk->port_id, cdev->ports[csk->port_id]->name,
++			pmap->next);
++	return -EADDRNOTAVAIL;
++}
++
++static void sock_put_port(struct cxgbi_sock *csk)
++{
++	struct cxgbi_device *cdev = csk->cdev;
++	struct cxgbi_ports_map *pmap = &cdev->pmap;
++
++	if (csk->saddr.sin_port) {
++		int idx = ntohs(csk->saddr.sin_port) - pmap->sport_base;
++
++		csk->saddr.sin_port = 0;
++		if (idx < 0 || idx >= pmap->max_connect) {
++			libcxgbi_log_error("cdev 0x%p, p#%u %s, port %u OOR.\n",
++				cdev, csk->port_id,
++				cdev->ports[csk->port_id]->name,
++				ntohs(csk->saddr.sin_port));
++			return;
++		}
++
++		spin_lock_bh(&pmap->lock);
++		pmap->port_csk[idx] = NULL;
++		pmap->used--;
++		spin_unlock_bh(&pmap->lock);
++
++		libcxgbi_log_debug(1 << CXGBI_DBG_SOCK,
++				"cdev 0x%p, p#%u %s, release %u.\n",
++				cdev, csk->port_id,
++				cdev->ports[csk->port_id]->name,
++				pmap->sport_base + idx);
++
++		cxgbi_sock_put(csk);
++	}
++}
++
++/*
++ * iscsi tcp connection
++ */
++void cxgbi_sock_free_cpl_skbs(struct cxgbi_sock *csk)
++{
++	if (csk->cpl_close) {
++		kfree_skb(csk->cpl_close);
++		csk->cpl_close = NULL;
++	}
++	if (csk->cpl_abort_req) {
++		kfree_skb(csk->cpl_abort_req);
++		csk->cpl_abort_req = NULL;
++	}
++	if (csk->cpl_abort_rpl) {
++		kfree_skb(csk->cpl_abort_rpl);
++		csk->cpl_abort_rpl = NULL;
++	}
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_free_cpl_skbs);
++
++static struct cxgbi_sock *cxgbi_sock_create(struct cxgbi_device *cdev)
++{
++	struct cxgbi_sock *csk = kzalloc(sizeof(*csk), GFP_NOIO);
++
++	if (!csk) {
++		libcxgbi_log_info("alloc csk %lu failed.\n", sizeof(*csk));
++		return NULL;
++	}
++
++	if (cdev->csk_alloc_cpls(csk) < 0) {
++		libcxgbi_log_info("csk 0x%p, alloc cpls failed.\n", csk);
++		kfree(csk);
++		return NULL;
++	}
++
++	spin_lock_init(&csk->lock);
++	kref_init(&csk->refcnt);
++	skb_queue_head_init(&csk->receive_queue);
++	skb_queue_head_init(&csk->write_queue);
++	setup_timer(&csk->retry_timer, NULL, (unsigned long)csk);
++	rwlock_init(&csk->callback_lock);
++	csk->cdev = cdev;
++	csk->flags = 0;
++	cxgbi_sock_set_state(csk, CTP_CLOSED);
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_SOCK, "cdev 0x%p, new csk 0x%p.\n",
++			   cdev, csk);
++
++	return csk;
++}
++
++static struct rtable *find_route_ipv4(__be32 saddr, __be32 daddr,
++					__be16 sport, __be16 dport, u8 tos)
++{
++	struct rtable *rt;
++	struct flowi fl = {
++		.oif = 0,
++		.nl_u = {
++			.ip4_u = {
++				.daddr = daddr,
++				.saddr = saddr,
++				.tos = tos }
++			},
++		.proto = IPPROTO_TCP,
++		.uli_u = {
++			.ports = {
++				.sport = sport,
++				.dport = dport }
++			}
++	};
++
++	if (ip_route_output_flow(&init_net, &rt, &fl, NULL, 0))
++		return NULL;
++
++	return rt;
++}
++
++static struct cxgbi_sock *cxgbi_check_route(struct sockaddr *dst_addr)
++{
++	struct sockaddr_in *daddr = (struct sockaddr_in *)dst_addr;
++	struct dst_entry *dst;
++	struct net_device *ndev;
++	struct cxgbi_device *cdev;
++	struct rtable *rt = NULL;
++	struct cxgbi_sock *csk = NULL;
++	unsigned int mtu = 0;
++	int port = 0xFFFF;
++	int err = 0;
++
++	if (daddr->sin_family != AF_INET) {
++		libcxgbi_log_info("address family 0x%x NOT supported.\n",
++				daddr->sin_family);
++		err = -EAFNOSUPPORT;
++		goto err_out;
++	}
++
++	rt = find_route_ipv4(0, daddr->sin_addr.s_addr, 0, daddr->sin_port, 0);
++	if (!rt) {
++		libcxgbi_log_info("no route to ipv4 0x%x, port %u.\n",
++				daddr->sin_addr.s_addr, daddr->sin_port);
++		err = -ENETUNREACH;
++		goto err_out;
++	}
++	dst = &rt->dst;
++	ndev = dst->neighbour->dev;
++
++	if (rt->rt_flags & (RTCF_MULTICAST | RTCF_BROADCAST)) {
++		libcxgbi_log_info("multi-cast route %pI4, port %u, dev %s.\n",
++				 &daddr->sin_addr.s_addr,
++				 ntohs(daddr->sin_port),
++				 ndev->name);
++		err = -ENETUNREACH;
++		goto rel_rt;
++	}
++
++	if (ndev->flags & IFF_LOOPBACK) {
++		ndev = ip_dev_find(&init_net, daddr->sin_addr.s_addr);
++		mtu = ndev->mtu;
++		libcxgbi_log_info("rt dev %s, loopback -> %s, mtu %u.\n",
++				dst->neighbour->dev->name, ndev->name, mtu);
++	}
++
++	if (ndev->priv_flags & IFF_802_1Q_VLAN) {
++		ndev = vlan_dev_real_dev(ndev);
++		libcxgbi_log_info("rt dev %s, vlan -> %s.\n",
++				dst->neighbour->dev->name, ndev->name);
++	}
++
++	cdev = cxgbi_device_find_by_netdev(ndev, &port);
++	if (!cdev) {
++		libcxgbi_log_info("dst %pI4, %s, NOT cxgbi device.\n",
++				&daddr->sin_addr.s_addr, ndev->name);
++		err = -ENETUNREACH;
++		goto rel_rt;
++	}
++	libcxgbi_log_debug(1 << CXGBI_DBG_SOCK,
++			   "route to %pI4 :%u, ndev p#%d,%s, cdev 0x%p.\n",
++			   &daddr->sin_addr.s_addr, ntohs(daddr->sin_port),
++			   port, ndev->name, cdev);
++
++	csk = cxgbi_sock_create(cdev);
++	if (!csk) {
++		err = -ENOMEM;
++		goto rel_rt;
++	}
++	csk->cdev = cdev;
++	csk->port_id = port;
++	csk->mtu = mtu;
++	csk->dst = dst;
++	csk->daddr.sin_addr.s_addr = daddr->sin_addr.s_addr;
++	csk->daddr.sin_port = daddr->sin_port;
++	if (cdev->hbas[port]->ipv4addr)
++		csk->saddr.sin_addr.s_addr = cdev->hbas[port]->ipv4addr;
++	else
++		csk->saddr.sin_addr.s_addr = rt->rt_src;
++
++	return csk;
++
++rel_rt:
++	ip_rt_put(rt);
++	if (csk)
++		cxgbi_sock_closed(csk);
++err_out:
++	return ERR_PTR(err);
++}
++
++void cxgbi_sock_established(struct cxgbi_sock *csk, unsigned int snd_isn,
++			unsigned int opt)
++{
++	csk->write_seq = csk->snd_nxt = csk->snd_una = snd_isn;
++	dst_confirm(csk->dst);
++	smp_mb();
++	cxgbi_sock_set_state(csk, CTP_ESTABLISHED);
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_established);
++
++static void cxgbi_inform_iscsi_conn_closing(struct cxgbi_sock *csk)
++{
++	libcxgbi_log_debug(1 << CXGBI_DBG_SOCK,
++			"csk 0x%p, state %u, flags 0x%lx, conn 0x%p.\n",
++			csk, csk->state, csk->flags, csk->user_data);
++
++	if (csk->state != CTP_ESTABLISHED) {
++		read_lock(&csk->callback_lock);
++		if (csk->user_data)
++			iscsi_conn_failure(csk->user_data,
++					ISCSI_ERR_CONN_FAILED);
++		read_unlock(&csk->callback_lock);
++	}
++}
++
++void cxgbi_sock_closed(struct cxgbi_sock *csk)
++{
++	libcxgbi_log_debug(1 << CXGBI_DBG_SOCK, "csk 0x%p,%u,0x%lx.\n",
++			csk, csk->state, csk->flags);
++
++	cxgbi_sock_set_flag(csk, CTPF_ACTIVE_CLOSE_NEEDED);
++	if (csk->state == CTP_ACTIVE_OPEN || csk->state == CTP_CLOSED)
++		return;
++	if (csk->saddr.sin_port)
++		sock_put_port(csk);
++	if (csk->dst)
++		dst_release(csk->dst);
++	csk->cdev->csk_release_offload_resources(csk);
++	cxgbi_sock_set_state(csk, CTP_CLOSED);
++	cxgbi_inform_iscsi_conn_closing(csk);
++	cxgbi_sock_put(csk);
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_closed);
++
++static void need_active_close(struct cxgbi_sock *csk)
++{
++	int data_lost;
++	int close_req = 0;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_SOCK,
++			"csk 0x%p, state %u, flags 0x%lx\n",
++			csk, csk->state, csk->flags);
++
++	spin_lock_bh(&csk->lock);
++
++	dst_confirm(csk->dst);
++	data_lost = skb_queue_len(&csk->receive_queue);
++	__skb_queue_purge(&csk->receive_queue);
++
++	if (csk->state == CTP_ACTIVE_OPEN)
++		cxgbi_sock_set_flag(csk, CTPF_ACTIVE_CLOSE_NEEDED);
++	else if (csk->state == CTP_ESTABLISHED) {
++		close_req = 1;
++		cxgbi_sock_set_state(csk, CTP_ACTIVE_CLOSE);
++	} else if (csk->state == CTP_PASSIVE_CLOSE) {
++		close_req = 1;
++		cxgbi_sock_set_state(csk, CTP_CLOSE_WAIT_2);
++	}
++
++	if (close_req) {
++		if (data_lost)
++			csk->cdev->csk_send_abort_req(csk);
++		else
++			csk->cdev->csk_send_close_req(csk);
++	}
++
++	spin_unlock_bh(&csk->lock);
++}
++
++void cxgbi_sock_fail_act_open(struct cxgbi_sock *csk, int errno)
++{
++	libcxgbi_log_info("csk 0x%p,%u,%lx, %pI4:%u-%pI4:%u, err %d.\n",
++			csk, csk->state, csk->flags,
++			&csk->saddr.sin_addr.s_addr, csk->saddr.sin_port,
++			&csk->daddr.sin_addr.s_addr, csk->daddr.sin_port,
++			errno);
++
++	cxgbi_sock_set_state(csk, CTP_CONNECTING);
++	csk->err = errno;
++	cxgbi_sock_closed(csk);
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_fail_act_open);
++
++void cxgbi_sock_act_open_req_arp_failure(void *handle, struct sk_buff *skb)
++{
++	struct cxgbi_sock *csk = (struct cxgbi_sock *)skb->sk;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_SOCK,
++			"csk 0x%p, state %u, flags %lu\n",
++			csk, csk->state, csk->flags);
++
++	cxgbi_sock_get(csk);
++	spin_lock_bh(&csk->lock);
++	if (csk->state == CTP_ACTIVE_OPEN)
++		cxgbi_sock_fail_act_open(csk, -EHOSTUNREACH);
++	spin_unlock_bh(&csk->lock);
++	cxgbi_sock_put(csk);
++	__kfree_skb(skb);
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_act_open_req_arp_failure);
++
++void cxgbi_sock_rcv_abort_rpl(struct cxgbi_sock *csk)
++{
++	cxgbi_sock_get(csk);
++	spin_lock_bh(&csk->lock);
++	if (cxgbi_sock_flag(csk, CTPF_ABORT_RPL_PENDING)) {
++		if (!cxgbi_sock_flag(csk, CTPF_ABORT_RPL_RCVD))
++			cxgbi_sock_set_flag(csk, CTPF_ABORT_RPL_RCVD);
++		else {
++			cxgbi_sock_clear_flag(csk, CTPF_ABORT_RPL_RCVD);
++			cxgbi_sock_clear_flag(csk, CTPF_ABORT_RPL_PENDING);
++			if (cxgbi_sock_flag(csk, CTPF_ABORT_REQ_RCVD))
++				libcxgbi_log_error("csk 0x%p,%u,0x%lx,%u, "
++						"ABORT_RPL_RSS.\n",
++						csk, csk->state, csk->flags,
++						csk->tid);
++			cxgbi_sock_closed(csk);
++		}
++	}
++	spin_unlock_bh(&csk->lock);
++	cxgbi_sock_put(csk);
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_rcv_abort_rpl);
++
++void cxgbi_sock_rcv_peer_close(struct cxgbi_sock *csk)
++{
++	libcxgbi_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
++			"csk 0x%p,%u,0x%lx, tid %u.\n",
++			csk, csk->state, csk->flags, csk->tid);
++
++	cxgbi_sock_get(csk);
++	spin_lock_bh(&csk->lock);
++
++	if (cxgbi_sock_flag(csk, CTPF_ABORT_RPL_PENDING))
++		goto done;
++
++	switch (csk->state) {
++	case CTP_ESTABLISHED:
++		cxgbi_sock_set_state(csk, CTP_PASSIVE_CLOSE);
++		break;
++	case CTP_ACTIVE_CLOSE:
++		cxgbi_sock_set_state(csk, CTP_CLOSE_WAIT_2);
++		break;
++	case CTP_CLOSE_WAIT_1:
++		cxgbi_sock_closed(csk);
++		break;
++	case CTP_ABORTING:
++		break;
++	default:
++		libcxgbi_log_error("csk 0x%p,%u,0x%lx,%u, bad state.\n",
++				csk, csk->state, csk->flags, csk->tid);
++	}
++	cxgbi_inform_iscsi_conn_closing(csk);
++done:
++	spin_unlock_bh(&csk->lock);
++	cxgbi_sock_put(csk);
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_rcv_peer_close);
++
++void cxgbi_sock_rcv_close_conn_rpl(struct cxgbi_sock *csk, u32 snd_nxt)
++{
++	libcxgbi_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
++			"csk 0x%p,%u,0x%lx, tid %u.\n",
++			csk, csk->state, csk->flags, csk->tid);
++
++	cxgbi_sock_get(csk);
++	spin_lock_bh(&csk->lock);
++
++	csk->snd_una = snd_nxt - 1;
++	if (cxgbi_sock_flag(csk, CTPF_ABORT_RPL_PENDING))
++		goto done;
++
++	switch (csk->state) {
++	case CTP_ACTIVE_CLOSE:
++		cxgbi_sock_set_state(csk, CTP_CLOSE_WAIT_1);
++		break;
++	case CTP_CLOSE_WAIT_1:
++	case CTP_CLOSE_WAIT_2:
++		cxgbi_sock_closed(csk);
++		break;
++	case CTP_ABORTING:
++		break;
++	default:
++		libcxgbi_log_error("csk 0x%p,%u,0x%lx,%u, bad state.\n",
++				csk, csk->state, csk->flags, csk->tid);
++	}
++done:
++	spin_unlock_bh(&csk->lock);
++	cxgbi_sock_put(csk);
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_rcv_close_conn_rpl);
++
++void cxgbi_sock_rcv_wr_ack(struct cxgbi_sock *csk, unsigned int credits,
++			   unsigned int snd_una, int seq_chk)
++{
++	libcxgbi_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
++			"csk 0x%p,%u,0x%lx,%u, cr %u, %u+%u, snd_una %u,%d.\n",
++			csk, csk->state, csk->flags, csk->tid, credits,
++			csk->wr_cred, csk->wr_una_cred, snd_una, seq_chk);
++
++	spin_lock_bh(&csk->lock);
++
++	csk->wr_cred += credits;
++	if (csk->wr_una_cred > csk->wr_max_cred - csk->wr_cred)
++		csk->wr_una_cred = csk->wr_max_cred - csk->wr_cred;
++
++	while (credits) {
++		struct sk_buff *p = cxgbi_sock_peek_wr(csk);
++
++		if (unlikely(!p)) {
++			libcxgbi_log_error("csk 0x%p,%u,0x%lx,%u, cr %u,%u+%u,"
++					" NO pending.\n",
++					csk, csk->state, csk->flags, csk->tid,
++					credits, csk->wr_cred,
++					csk->wr_una_cred);
 +			break;
 +		}
 +
-+		__skb_unlink(skb, &csk->write_queue);
-+		skb->priority = CPL_PRIORITY_DATA;
-+		skb->csum = wrs_needed;	/* remember this until the WR_ACK */
-+		csk->wr_cred -= wrs_needed;
-+		csk->wr_una_cred += wrs_needed;
-+		cxgbi_sock_enqueue_wr(csk, skb);
-+
-+		cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_PDU_TX,
-+				"csk 0x%p, enqueue, skb len %u/%u, frag %u, "
-+				"wr %d, left %u, unack %u.\n",
-+				csk, skb->len, skb->data_len, frags,
-+				skb->csum, csk->wr_cred, csk->wr_una_cred);
-+
-+		if (likely(cxgbi_skcb_test_flag(skb, SKCBF_TX_NEED_HDR))) {
-+			if ((req_completion &&
-+				csk->wr_una_cred == wrs_needed) ||
-+			     csk->wr_una_cred >= csk->wr_max_cred / 2) {
-+				req_completion = 1;
-+				csk->wr_una_cred = 0;
-+			}
-+			len += cxgbi_ulp_extra_len(cxgbi_skcb_ulp_mode(skb));
-+			make_tx_data_wr(csk, skb, len, req_completion);
-+			csk->snd_nxt += len;
-+			cxgbi_skcb_clear_flag(skb, SKCBF_TX_NEED_HDR);
++		if (unlikely(credits < p->csum)) {
++			libcxgbi_log_warn("csk 0x%p,%u,0x%lx,%u, cr %u, %u+%u, "
++					"partial %u.\n",
++					csk, csk->state, csk->flags, csk->tid,
++					credits, csk->wr_cred,
++					csk->wr_una_cred, p->csum);
++			p->csum -= credits;
++			break;
++		} else {
++			cxgbi_sock_dequeue_wr(csk);
++			credits -= p->csum;
++			kfree_skb(p);
 +		}
-+		total_size += skb->truesize;
-+		cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_PDU_TX,
-+				"csk 0x%p, tid 0x%x, send skb 0x%p.\n",
-+				csk, csk->tid, skb);
-+		set_arp_failure_handler(skb, arp_failure_skb_discard);
-+		l2t_send(csk->cdev->lldev, skb, csk->l2t);
-+	}
-+	return total_size;
-+}
-+
-+/*
-+ * Process a CPL_ACT_ESTABLISH message: -> host
-+ * Updates connection state from an active establish CPL message.  Runs with
-+ * the connection lock held.
-+ */
-+
-+static inline void free_atid(struct cxgbi_sock *csk)
-+{
-+	if (cxgbi_sock_flag(csk, CTPF_HAS_ATID)) {
-+		cxgb3_free_atid(csk->cdev->lldev, csk->atid);
-+		cxgbi_sock_clear_flag(csk, CTPF_HAS_ATID);
-+		cxgbi_sock_put(csk);
-+	}
-+}
-+
-+static int do_act_establish(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
-+{
-+	struct cxgbi_sock *csk = ctx;
-+	struct cpl_act_establish *req = cplhdr(skb);
-+	unsigned int tid = GET_TID(req);
-+	unsigned int atid = G_PASS_OPEN_TID(ntohl(req->tos_tid));
-+	u32 rcv_isn = ntohl(req->rcv_isn);	/* real RCV_ISN + 1 */
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"atid 0x%x,tid 0x%x, csk 0x%p,%u,0x%lx, isn %u.\n",
-+			atid, atid, csk, csk->state, csk->flags, rcv_isn);
-+
-+	cxgbi_sock_get(csk);
-+	cxgbi_sock_set_flag(csk, CTPF_HAS_TID);
-+	csk->tid = tid;
-+	cxgb3_insert_tid(csk->cdev->lldev, &t3_client, csk, tid);
-+
-+	free_atid(csk);
-+
-+	csk->rss_qid = G_QNUM(ntohs(skb->csum));
-+
-+	spin_lock_bh(&csk->lock);
-+	if (csk->retry_timer.function) {
-+		del_timer(&csk->retry_timer);
-+		csk->retry_timer.function = NULL;
 +	}
 +
-+	if (unlikely(csk->state != CTP_ACTIVE_OPEN))
-+		cxgb3i_log_info("csk 0x%p,%u,0x%lx,%u, got EST.\n",
-+				csk, csk->state, csk->flags, csk->tid);
++	cxgbi_sock_check_wr_invariants(csk);
 +
-+	csk->copied_seq = csk->rcv_wup = csk->rcv_nxt = rcv_isn;
-+	if (cxgb3i_rcv_win > (M_RCV_BUFSIZ << 10))
-+		csk->rcv_wup -= cxgb3i_rcv_win - (M_RCV_BUFSIZ << 10);
++	if (seq_chk) {
++		if (unlikely(before(snd_una, csk->snd_una))) {
++			libcxgbi_log_warn("csk 0x%p,%u,0x%lx,%u, suna %u/%u.",
++					csk, csk->state, csk->flags, csk->tid,
++					snd_una, csk->snd_una);
++			goto done;
++		}
 +
-+	cxgbi_sock_established(csk, ntohl(req->snd_isn), ntohs(req->tcp_opt));
++		if (csk->snd_una != snd_una) {
++			csk->snd_una = snd_una;
++			dst_confirm(csk->dst);
++		}
++	}
 +
-+	if (unlikely(cxgbi_sock_flag(csk, CTPF_ACTIVE_CLOSE_NEEDED)))
-+		/* upper layer has requested closing */
-+		send_abort_req(csk);
-+	else {
-+		if (skb_queue_len(&csk->write_queue))
-+			push_tx_frames(csk, 1);
++	if (skb_queue_len(&csk->write_queue)) {
++		if (csk->cdev->csk_push_tx_frames(csk, 0))
++			cxgbi_conn_tx_open(csk);
++	} else
 +		cxgbi_conn_tx_open(csk);
-+	}
-+
++done:
 +	spin_unlock_bh(&csk->lock);
-+	__kfree_skb(skb);
-+	return 0;
 +}
++EXPORT_SYMBOL_GPL(cxgbi_sock_rcv_wr_ack);
 +
-+/*
-+ * Process a CPL_ACT_OPEN_RPL message: -> host
-+ * Handle active open failures.
-+ */
-+static int act_open_rpl_status_to_errno(int status)
++static unsigned int cxgbi_sock_find_best_mtu(struct cxgbi_sock *csk,
++					     unsigned short mtu)
 +{
-+	switch (status) {
-+	case CPL_ERR_CONN_RESET:
-+		return -ECONNREFUSED;
-+	case CPL_ERR_ARP_MISS:
-+		return -EHOSTUNREACH;
-+	case CPL_ERR_CONN_TIMEDOUT:
-+		return -ETIMEDOUT;
-+	case CPL_ERR_TCAM_FULL:
-+		return -ENOMEM;
-+	case CPL_ERR_CONN_EXIST:
-+		return -EADDRINUSE;
-+	default:
-+		return -EIO;
-+	}
++	int i = 0;
++
++	while (i < csk->cdev->nmtus - 1 && csk->cdev->mtus[i + 1] <= mtu)
++		++i;
++
++	return i;
 +}
 +
-+static void act_open_retry_timer(unsigned long data)
++unsigned int cxgbi_sock_select_mss(struct cxgbi_sock *csk, unsigned int pmtu)
++{
++	unsigned int idx;
++	struct dst_entry *dst = csk->dst;
++
++	csk->advmss = dst_metric(dst, RTAX_ADVMSS);
++
++	if (csk->advmss > pmtu - 40)
++		csk->advmss = pmtu - 40;
++	if (csk->advmss < csk->cdev->mtus[0] - 40)
++		csk->advmss = csk->cdev->mtus[0] - 40;
++	idx = cxgbi_sock_find_best_mtu(csk, csk->advmss + 40);
++
++	return idx;
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_select_mss);
++
++void cxgbi_sock_skb_entail(struct cxgbi_sock *csk, struct sk_buff *skb)
++{
++	cxgbi_skcb_tcp_seq(skb) = csk->write_seq;
++	__skb_queue_tail(&csk->write_queue, skb);
++}
++EXPORT_SYMBOL_GPL(cxgbi_sock_skb_entail);
++
++void cxgbi_sock_purge_wr_queue(struct cxgbi_sock *csk)
 +{
 +	struct sk_buff *skb;
-+	struct cxgbi_sock *csk = (struct cxgbi_sock *)data;
 +
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u.\n",
-+			csk, csk->state, csk->flags, csk->tid);
-+
-+	cxgbi_sock_get(csk);
-+	spin_lock_bh(&csk->lock);
-+	skb = alloc_cpl(sizeof(struct cpl_act_open_req), 0, GFP_ATOMIC);
-+	if (!skb)
-+		cxgbi_sock_fail_act_open(csk, -ENOMEM);
-+	else {
-+		skb->sk = (struct sock *)csk;
-+		set_arp_failure_handler(skb, act_open_arp_failure);
-+		send_act_open_req(csk, skb, csk->l2t);
-+	}
-+	spin_unlock_bh(&csk->lock);
-+	cxgbi_sock_put(csk);
++	while ((skb = cxgbi_sock_dequeue_wr(csk)) != NULL)
++		kfree_skb(skb);
 +}
++EXPORT_SYMBOL_GPL(cxgbi_sock_purge_wr_queue);
 +
-+static int do_act_open_rpl(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
++void cxgbi_sock_check_wr_invariants(const struct cxgbi_sock *csk)
 +{
-+	struct cxgbi_sock *csk = ctx;
-+	struct cpl_act_open_rpl *rpl = cplhdr(skb);
++	int pending = cxgbi_sock_count_pending_wrs(csk);
 +
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u, status %u.\n",
-+			csk, csk->state, csk->flags, csk->atid, rpl->status);
-+
-+	if (rpl->status != CPL_ERR_TCAM_FULL &&
-+	    rpl->status != CPL_ERR_CONN_EXIST &&
-+	    rpl->status != CPL_ERR_ARP_MISS)
-+		cxgb3_queue_tid_release(tdev, GET_TID(rpl));
-+
-+	cxgbi_sock_get(csk);
-+	spin_lock_bh(&csk->lock);
-+	if (rpl->status == CPL_ERR_CONN_EXIST &&
-+	    csk->retry_timer.function != act_open_retry_timer) {
-+		csk->retry_timer.function = act_open_retry_timer;
-+		mod_timer(&csk->retry_timer, jiffies + HZ / 2);
-+	} else
-+		cxgbi_sock_fail_act_open(csk,
-+				act_open_rpl_status_to_errno(rpl->status));
-+
-+	spin_unlock_bh(&csk->lock);
-+	cxgbi_sock_put(csk);
-+	__kfree_skb(skb);
-+	return 0;
++	if (unlikely(csk->wr_cred + pending != csk->wr_max_cred))
++		libcxgbi_log_error("csk 0x%p, tid %u, credit %u + %u != %u.\n",
++				csk, csk->tid, csk->wr_cred, pending,
++				csk->wr_max_cred);
 +}
++EXPORT_SYMBOL_GPL(cxgbi_sock_check_wr_invariants);
 +
-+/*
-+ * Process PEER_CLOSE CPL messages: -> host
-+ * Handle peer FIN.
-+ */
-+static int do_peer_close(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
++static int cxgbi_sock_send_pdus(struct cxgbi_sock *csk, struct sk_buff *skb)
 +{
-+	struct cxgbi_sock *csk = ctx;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u.\n",
-+			csk, csk->state, csk->flags, csk->tid);
-+
-+	cxgbi_sock_rcv_peer_close(csk);
-+	__kfree_skb(skb);
-+	return 0;
-+}
-+
-+/*
-+ * Process CLOSE_CONN_RPL CPL message: -> host
-+ * Process a peer ACK to our FIN.
-+ */
-+static int do_close_con_rpl(struct t3cdev *cdev, struct sk_buff *skb,
-+			    void *ctx)
-+{
-+	struct cxgbi_sock *csk = ctx;
-+	struct cpl_close_con_rpl *rpl = cplhdr(skb);
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u, snxt %u.\n",
-+			csk, csk->state, csk->flags, csk->tid,
-+			ntohl(rpl->snd_nxt));
-+
-+	cxgbi_sock_rcv_close_conn_rpl(csk, ntohl(rpl->snd_nxt));
-+	__kfree_skb(skb);
-+	return 0;
-+}
-+
-+/*
-+ * Process ABORT_REQ_RSS CPL message: -> host
-+ * Process abort requests.  If we are waiting for an ABORT_RPL we ignore this
-+ * request except that we need to reply to it.
-+ */
-+
-+static int abort_status_to_errno(struct cxgbi_sock *csk, int abort_reason,
-+				 int *need_rst)
-+{
-+	switch (abort_reason) {
-+	case CPL_ERR_BAD_SYN: /* fall through */
-+	case CPL_ERR_CONN_RESET:
-+		return csk->state > CTP_ESTABLISHED ?
-+			-EPIPE : -ECONNRESET;
-+	case CPL_ERR_XMIT_TIMEDOUT:
-+	case CPL_ERR_PERSIST_TIMEDOUT:
-+	case CPL_ERR_FINWAIT2_TIMEDOUT:
-+	case CPL_ERR_KEEPALIVE_TIMEDOUT:
-+		return -ETIMEDOUT;
-+	default:
-+		return -EIO;
-+	}
-+}
-+
-+static int do_abort_req(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
-+{
-+	const struct cpl_abort_req_rss *req = cplhdr(skb);
-+	struct cxgbi_sock *csk = ctx;
-+	int rst_status = CPL_ABORT_NO_RST;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u.\n",
-+			csk, csk->state, csk->flags, csk->tid);
-+
-+	if (req->status == CPL_ERR_RTX_NEG_ADVICE ||
-+	    req->status == CPL_ERR_PERSIST_NEG_ADVICE) {
-+		goto done;
-+	}
-+
-+	cxgbi_sock_get(csk);
-+	spin_lock_bh(&csk->lock);
-+
-+	if (!cxgbi_sock_flag(csk, CTPF_ABORT_REQ_RCVD)) {
-+		cxgbi_sock_set_flag(csk, CTPF_ABORT_REQ_RCVD);
-+		cxgbi_sock_set_state(csk, CTP_ABORTING);
-+		goto out;
-+	}
-+
-+	cxgbi_sock_clear_flag(csk, CTPF_ABORT_REQ_RCVD);
-+	send_abort_rpl(csk, rst_status);
-+
-+	if (!cxgbi_sock_flag(csk, CTPF_ABORT_RPL_PENDING)) {
-+		csk->err = abort_status_to_errno(csk, req->status, &rst_status);
-+		cxgbi_sock_closed(csk);
-+	}
-+
-+out:
-+	spin_unlock_bh(&csk->lock);
-+	cxgbi_sock_put(csk);
-+done:
-+	__kfree_skb(skb);
-+	return 0;
-+}
-+
-+/*
-+ * Process ABORT_RPL_RSS CPL message: -> host
-+ * Process abort replies.  We only process these messages if we anticipate
-+ * them as the coordination between SW and HW in this area is somewhat lacking
-+ * and sometimes we get ABORT_RPLs after we are done with the connection that
-+ * originated the ABORT_REQ.
-+ */
-+static int do_abort_rpl(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
-+{
-+	struct cpl_abort_rpl_rss *rpl = cplhdr(skb);
-+	struct cxgbi_sock *csk = ctx;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"status 0x%x, csk 0x%p, s %u, 0x%lx.\n",
-+			rpl->status, csk, csk ? csk->state : 0,
-+			csk ? csk->flags : 0UL);
-+	/*
-+	 * Ignore replies to post-close aborts indicating that the abort was
-+	 * requested too late.  These connections are terminated when we get
-+	 * PEER_CLOSE or CLOSE_CON_RPL and by the time the abort_rpl_rss
-+	 * arrives the TID is either no longer used or it has been recycled.
-+	 */
-+	if (rpl->status == CPL_ERR_ABORT_FAILED)
-+		goto rel_skb;
-+	/*
-+	 * Sometimes we've already closed the connection, e.g., a post-close
-+	 * abort races with ABORT_REQ_RSS, the latter frees the connection
-+	 * expecting the ABORT_REQ will fail with CPL_ERR_ABORT_FAILED,
-+	 * but FW turns the ABORT_REQ into a regular one and so we get
-+	 * ABORT_RPL_RSS with status 0 and no connection.
-+	 */
-+	if (csk)
-+		cxgbi_sock_rcv_abort_rpl(csk);
-+rel_skb:
-+	__kfree_skb(skb);
-+	return 0;
-+}
-+
-+/*
-+ * Process RX_ISCSI_HDR CPL message: -> host
-+ * Handle received PDUs, the payload could be DDP'ed. If not, the payload
-+ * follow after the bhs.
-+ */
-+static int do_iscsi_hdr(struct t3cdev *t3dev, struct sk_buff *skb, void *ctx)
-+{
-+	struct cxgbi_sock *csk = ctx;
-+	struct cpl_iscsi_hdr *hdr_cpl = cplhdr(skb);
-+	struct cpl_iscsi_hdr_norss data_cpl;
-+	struct cpl_rx_data_ddp_norss ddp_cpl;
-+	unsigned int hdr_len, data_len, status;
-+	unsigned int len;
-+	int err;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_PDU_RX,
-+			"csk 0x%p,%u,0x%lx,%u, skb 0x%p,%u.\n",
-+			csk, csk->state, csk->flags, csk->tid, skb, skb->len);
-+
-+	spin_lock_bh(&csk->lock);
-+
-+	if (unlikely(csk->state >= CTP_PASSIVE_CLOSE)) {
-+		cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+				"csk 0x%p,%u,0x%lx,%u, bad state.\n",
-+				csk, csk->state, csk->flags, csk->tid);
-+		if (csk->state != CTP_ABORTING)
-+			goto abort_conn;
-+		else
-+			goto discard;
-+	}
-+
-+	cxgbi_skcb_tcp_seq(skb) = ntohl(hdr_cpl->seq);
-+	cxgbi_skcb_flags(skb) = 0;
-+
-+	skb_reset_transport_header(skb);
-+	__skb_pull(skb, sizeof(struct cpl_iscsi_hdr));
-+
-+	len = hdr_len = ntohs(hdr_cpl->len);
-+	/* msg coalesce is off or not enough data received */
-+	if (skb->len <= hdr_len) {
-+		cxgb3i_log_error("%s: TID %u, ISCSI_HDR, skb len %u < %u.\n",
-+				csk->cdev->ports[csk->port_id]->name,
-+				csk->tid, skb->len, hdr_len);
-+		goto abort_conn;
-+	}
-+	cxgbi_skcb_set_flag(skb, SKCBF_RX_COALESCED);
-+
-+	err = skb_copy_bits(skb, skb->len - sizeof(ddp_cpl), &ddp_cpl,
-+			    sizeof(ddp_cpl));
-+	if (err < 0) {
-+		cxgb3i_log_error("%s: TID %u, copy cpl_ddp %u-%lu failed %d.\n",
-+				csk->cdev->ports[csk->port_id]->name,
-+				csk->tid, skb->len, sizeof(ddp_cpl), err);
-+		goto abort_conn;
-+	}
-+
-+	cxgbi_skcb_set_flag(skb, SKCBF_RX_STATUS);
-+	cxgbi_skcb_rx_pdulen(skb) = ntohs(ddp_cpl.len);
-+	cxgbi_skcb_rx_ddigest(skb) = ntohl(ddp_cpl.ulp_crc);
-+	status = ntohl(ddp_cpl.ddp_status);
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_PDU_RX,
-+			"csk 0x%p, skb 0x%p,%u, pdulen %u, status 0x%x.\n",
-+			csk, skb, skb->len, cxgbi_skcb_rx_pdulen(skb), status);
-+
-+	if (status & (1 << CPL_RX_DDP_STATUS_HCRC_SHIFT))
-+		cxgbi_skcb_set_flag(skb, SKCBF_RX_HCRC_ERR);
-+	if (status & (1 << CPL_RX_DDP_STATUS_DCRC_SHIFT))
-+		cxgbi_skcb_set_flag(skb, SKCBF_RX_DCRC_ERR);
-+	if (status & (1 << CPL_RX_DDP_STATUS_PAD_SHIFT))
-+		cxgbi_skcb_set_flag(skb, SKCBF_RX_PAD_ERR);
-+
-+	if (skb->len > (hdr_len + sizeof(ddp_cpl))) {
-+		err = skb_copy_bits(skb, hdr_len, &data_cpl, sizeof(data_cpl));
-+		if (err < 0) {
-+			cxgb3i_log_error("%s: tid %u, cp %lu/%u failed %d.\n",
-+				csk->cdev->ports[csk->port_id]->name,
-+				csk->tid, sizeof(data_cpl), skb->len, err);
-+			goto abort_conn;
-+		}
-+		data_len = ntohs(data_cpl.len);
-+		cxgb3i_log_debug(1 << CXGBI_DBG_DDP | 1 << CXGBI_DBG_PDU_RX,
-+			"skb 0x%p, pdu not ddp'ed %u/%u, status 0x%x.\n",
-+			skb, data_len, cxgbi_skcb_rx_pdulen(skb), status);
-+		len += sizeof(data_cpl) + data_len;
-+	} else if (status & (1 << CPL_RX_DDP_STATUS_DDP_SHIFT))
-+		cxgbi_skcb_set_flag(skb, SKCBF_RX_DATA_DDPD);
-+
-+	csk->rcv_nxt = ntohl(ddp_cpl.seq) + cxgbi_skcb_rx_pdulen(skb);
-+	__pskb_trim(skb, len);
-+	__skb_queue_tail(&csk->receive_queue, skb);
-+	cxgbi_conn_pdu_ready(csk);
-+
-+	spin_unlock_bh(&csk->lock);
-+	return 0;
-+
-+abort_conn:
-+	send_abort_req(csk);
-+discard:
-+	spin_unlock_bh(&csk->lock);
-+	__kfree_skb(skb);
-+	return 0;
-+}
-+
-+/*
-+ * Process TX_DATA_ACK CPL messages: -> host
-+ * Process an acknowledgment of WR completion.  Advance snd_una and send the
-+ * next batch of work requests from the write queue.
-+ */
-+static int do_wr_ack(struct t3cdev *cdev, struct sk_buff *skb, void *ctx)
-+{
-+	struct cxgbi_sock *csk = ctx;
-+	struct cpl_wr_ack *hdr = cplhdr(skb);
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_PDU_RX,
-+			"csk 0x%p,%u,0x%lx,%u, cr %u.\n",
-+			csk, csk->state, csk->flags, csk->tid,
-+			ntohs(hdr->credits));
-+
-+	cxgbi_sock_rcv_wr_ack(csk, ntohs(hdr->credits), ntohl(hdr->snd_una), 1);
-+	__kfree_skb(skb);
-+	return 0;
-+}
-+
-+/*
-+ * for each connection, pre-allocate skbs needed for close/abort requests. So
-+ * that we can service the request right away.
-+ */
-+static int alloc_cpls(struct cxgbi_sock *csk)
-+{
-+	csk->cpl_close = alloc_cpl(sizeof(struct cpl_close_con_req), 0,
-+					GFP_KERNEL);
-+	if (!csk->cpl_close)
-+		return -ENOMEM;
-+	csk->cpl_abort_req = alloc_cpl(sizeof(struct cpl_abort_req), 0,
-+					GFP_KERNEL);
-+	if (!csk->cpl_abort_req)
-+		goto free_cpl_skbs;
-+
-+	csk->cpl_abort_rpl = alloc_cpl(sizeof(struct cpl_abort_rpl), 0,
-+					GFP_KERNEL);
-+	if (!csk->cpl_abort_rpl)
-+		goto free_cpl_skbs;
-+
-+	return 0;
-+
-+free_cpl_skbs:
-+	cxgbi_sock_free_cpl_skbs(csk);
-+	return -ENOMEM;
-+}
-+
-+/**
-+ * release_offload_resources - release offload resource
-+ * @c3cn: the offloaded iscsi tcp connection.
-+ * Release resources held by an offload connection (TID, L2T entry, etc.)
-+ */
-+static void l2t_put(struct cxgbi_sock *csk)
-+{
-+	struct t3cdev *t3dev = (struct t3cdev *)csk->cdev->lldev;
-+
-+	if (csk->l2t) {
-+		l2t_release(L2DATA(t3dev), csk->l2t);
-+		csk->l2t = NULL;
-+		cxgbi_sock_put(csk);
-+	}
-+}
-+
-+static void release_offload_resources(struct cxgbi_sock *csk)
-+{
-+	struct t3cdev *t3dev = (struct t3cdev *)csk->cdev->lldev;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx,%u.\n",
-+			csk, csk->state, csk->flags, csk->tid);
-+
-+	csk->rss_qid = 0;
-+	cxgbi_sock_free_cpl_skbs(csk);
-+
-+	if (csk->wr_cred != csk->wr_max_cred) {
-+		cxgbi_sock_purge_wr_queue(csk);
-+		cxgbi_sock_reset_wr_list(csk);
-+	}
-+	l2t_put(csk);
-+	if (cxgbi_sock_flag(csk, CTPF_HAS_ATID))
-+		free_atid(csk);
-+	else if (cxgbi_sock_flag(csk, CTPF_HAS_TID)) {
-+		cxgb3_remove_tid(t3dev, (void *)csk, csk->tid);
-+		cxgbi_sock_clear_flag(csk, CTPF_HAS_TID);
-+		cxgbi_sock_put(csk);
-+	}
-+	csk->dst = NULL;
-+	csk->cdev = NULL;
-+}
-+
-+static int init_act_open(struct cxgbi_sock *csk)
-+{
-+	struct dst_entry *dst = csk->dst;
 +	struct cxgbi_device *cdev = csk->cdev;
-+	struct t3cdev *t3dev = (struct t3cdev *)cdev->lldev;
-+	struct net_device *ndev = cdev->ports[csk->port_id];
-+	struct sk_buff *skb = NULL;
++	struct sk_buff *next;
++	int err, copied = 0;
 +
-+	cxgb3i_log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
-+			"csk 0x%p,%u,0x%lx.\n",
-+			csk, csk->state, csk->flags);
++	spin_lock_bh(&csk->lock);
 +
-+	csk->rss_qid = 0;
-+	csk->l2t = t3_l2t_get(t3dev, dst->neighbour, ndev);
-+	if (!csk->l2t) {
-+		cxgb3i_log_error("NO l2t available.\n");
++	if (csk->state != CTP_ESTABLISHED) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_TX,
++				"csk 0x%p,%u,0x%lx,%u, EAGAIN.\n",
++				csk, csk->state, csk->flags, csk->tid);
++		err = -EAGAIN;
++		goto out_err;
++	}
++
++	if (csk->err) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_TX,
++				"csk 0x%p,%u,0x%lx,%u, EPIPE %d.\n",
++				csk, csk->state, csk->flags, csk->tid,
++				csk->err);
++		err = -EPIPE;
++		goto out_err;
++	}
++
++	if (csk->write_seq - csk->snd_una >= cdev->snd_win) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_TX,
++				"csk 0x%p,%u,0x%lx,%u, FULL %u-%u >= %u.\n",
++				csk, csk->state, csk->flags, csk->tid,
++				csk->write_seq, csk->snd_una, cdev->snd_win);
++		err = -ENOBUFS;
++		goto out_err;
++	}
++
++	while (skb) {
++		int frags = skb_shinfo(skb)->nr_frags +
++				(skb->len != skb->data_len);
++
++		if (unlikely(skb_headroom(skb) < cdev->skb_tx_rsvd)) {
++			libcxgbi_log_error("csk 0x%p, skb head %u < %u.\n",
++					csk, skb_headroom(skb),
++					cdev->skb_tx_rsvd);
++			err = -EINVAL;
++			goto out_err;
++		}
++
++		if (frags >= SKB_WR_LIST_SIZE) {
++			libcxgbi_log_error("csk 0x%p, frags %d, %u,%u >%lu.\n",
++					csk, skb_shinfo(skb)->nr_frags,
++					skb->len, skb->data_len,
++					SKB_WR_LIST_SIZE);
++			err = -EINVAL;
++			goto out_err;
++		}
++
++		next = skb->next;
++		skb->next = NULL;
++		cxgbi_skcb_set_flag(skb, SKCBF_TX_NEED_HDR);
++		cxgbi_sock_skb_entail(csk, skb);
++		copied += skb->len;
++		csk->write_seq += skb->len +
++				cxgbi_ulp_extra_len(cxgbi_skcb_ulp_mode(skb));
++		skb = next;
++	}
++done:
++	if (likely(skb_queue_len(&csk->write_queue)))
++		cdev->csk_push_tx_frames(csk, 1);
++	spin_unlock_bh(&csk->lock);
++	return copied;
++
++out_err:
++	if (copied == 0 && err == -EPIPE)
++		copied = csk->err ? csk->err : -EPIPE;
++	else
++		copied = err;
++	goto done;
++}
++
++/*
++ * Direct Data Placement -
++ * Directly place the iSCSI Data-In or Data-Out PDU's payload into pre-posted
++ * final destination host-memory buffers based on the Initiator Task Tag (ITT)
++ * in Data-In or Target Task Tag (TTT) in Data-Out PDUs.
++ * The host memory address is programmed into h/w in the format of pagepod
++ * entries.
++ * The location of the pagepod entry is encoded into ddp tag which is used as
++ * the base for ITT/TTT.
++ */
++
++static unsigned char ddp_page_order[DDP_PGIDX_MAX] = {0, 1, 2, 4};
++static unsigned char ddp_page_shift[DDP_PGIDX_MAX] = {12, 13, 14, 16};
++static unsigned char page_idx = DDP_PGIDX_MAX;
++
++static unsigned char sw_tag_idx_bits;
++static unsigned char sw_tag_age_bits;
++
++/*
++ * Direct-Data Placement page size adjustment
++ */
++static int ddp_adjust_page_table(void)
++{
++	int i;
++	unsigned int base_order, order;
++
++	if (PAGE_SIZE < (1UL << ddp_page_shift[0])) {
++		libcxgbi_log_info("PAGE_SIZE 0x%lx too small, min 0x%lx\n",
++				PAGE_SIZE, 1UL << ddp_page_shift[0]);
 +		return -EINVAL;
 +	}
-+	cxgbi_sock_get(csk);
 +
-+	csk->atid = cxgb3_alloc_atid(t3dev, &t3_client, csk);
-+	if (csk->atid < 0) {
-+		cxgb3i_log_error("NO atid available.\n");
-+		goto rel_resource;
++	base_order = get_order(1UL << ddp_page_shift[0]);
++	order = get_order(1UL << PAGE_SHIFT);
++
++	for (i = 0; i < DDP_PGIDX_MAX; i++) {
++		/* first is the kernel page size, then just doubling */
++		ddp_page_order[i] = order - base_order + i;
++		ddp_page_shift[i] = PAGE_SHIFT + i;
 +	}
-+	cxgbi_sock_set_flag(csk, CTPF_HAS_ATID);
-+	cxgbi_sock_get(csk);
-+
-+	skb = alloc_cpl(sizeof(struct cpl_act_open_req), 0, GFP_KERNEL);
-+	if (!skb)
-+		goto rel_resource;
-+	skb->sk = (struct sock *)csk;
-+	set_arp_failure_handler(skb, act_open_arp_failure);
-+
-+	csk->wr_max_cred = csk->wr_cred = T3C_DATA(t3dev)->max_wrs - 1;
-+	csk->wr_una_cred = 0;
-+	csk->mss_idx = cxgbi_sock_select_mss(csk, dst_mtu(dst));
-+	cxgbi_sock_reset_wr_list(csk);
-+	csk->err = 0;
-+
-+	cxgbi_sock_set_state(csk, CTP_ACTIVE_OPEN);
-+	send_act_open_req(csk, skb, csk->l2t);
 +	return 0;
++}
 +
-+rel_resource:
-+	if (skb)
-+		__kfree_skb(skb);
++static int ddp_find_page_index(unsigned long pgsz)
++{
++	int i;
++
++	for (i = 0; i < DDP_PGIDX_MAX; i++) {
++		if (pgsz == (1UL << ddp_page_shift[i]))
++			return i;
++	}
++	libcxgbi_log_info("ddp page size %lu not supported\n", pgsz);
++	return DDP_PGIDX_MAX;
++}
++
++static void ddp_setup_host_page_size(void)
++{
++	if (page_idx == DDP_PGIDX_MAX) {
++		page_idx = ddp_find_page_index(PAGE_SIZE);
++
++		if (page_idx == DDP_PGIDX_MAX) {
++			libcxgbi_log_info("system PAGE_SIZE %lu, update hw\n",
++					PAGE_SIZE);
++			if (ddp_adjust_page_table() < 0) {
++				libcxgbi_log_info("PAGE %lu, disable ddp.\n",
++						PAGE_SIZE);
++				return;
++			}
++			page_idx = ddp_find_page_index(PAGE_SIZE);
++		}
++		libcxgbi_log_info("system PAGE_SIZE %lu, ddp idx %u\n",
++				PAGE_SIZE, page_idx);
++	}
++}
++
++void cxgbi_ddp_page_size_factor(int *pgsz_factor)
++{
++	int i;
++
++	for (i = 0; i < DDP_PGIDX_MAX; i++)
++		pgsz_factor[i] = ddp_page_order[i];
++}
++EXPORT_SYMBOL_GPL(cxgbi_ddp_page_size_factor);
++
++/*
++ * DDP setup & teardown
++ */
++
++void cxgbi_ddp_ppod_set(struct cxgbi_pagepod *ppod,
++			struct cxgbi_pagepod_hdr *hdr,
++			struct cxgbi_gather_list *gl, unsigned int gidx)
++{
++	int i;
++
++	memcpy(ppod, hdr, sizeof(*hdr));
++	for (i = 0; i < (PPOD_PAGES_MAX + 1); i++, gidx++) {
++		ppod->addr[i] = gidx < gl->nelem ?
++				cpu_to_be64(gl->phys_addr[gidx]) : 0ULL;
++	}
++}
++EXPORT_SYMBOL_GPL(cxgbi_ddp_ppod_set);
++
++void cxgbi_ddp_ppod_clear(struct cxgbi_pagepod *ppod)
++{
++	memset(ppod, 0, sizeof(*ppod));
++}
++EXPORT_SYMBOL_GPL(cxgbi_ddp_ppod_clear);
++
++static inline int ddp_find_unused_entries(struct cxgbi_ddp_info *ddp,
++					unsigned int start, unsigned int max,
++					unsigned int count,
++					struct cxgbi_gather_list *gl)
++{
++	unsigned int i, j, k;
++
++	/*  not enough entries */
++	if ((max - start) < count) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++				"NOT enough entries %u + %u < %u.\n",
++				start, count, max);
++		return -EBUSY;
++	}
++
++	max -= count;
++	spin_lock(&ddp->map_lock);
++	for (i = start; i < max;) {
++		for (j = 0, k = i; j < count; j++, k++) {
++			if (ddp->gl_map[k])
++				break;
++		}
++		if (j == count) {
++			for (j = 0, k = i; j < count; j++, k++)
++				ddp->gl_map[k] = gl;
++			spin_unlock(&ddp->map_lock);
++			return i;
++		}
++		i += j + 1;
++	}
++	spin_unlock(&ddp->map_lock);
++	libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++			"NO suitable entries %u available.\n", count);
++	return -EBUSY;
++}
++
++static inline void ddp_unmark_entries(struct cxgbi_ddp_info *ddp,
++						int start, int count)
++{
++	spin_lock(&ddp->map_lock);
++	memset(&ddp->gl_map[start], 0,
++		count * sizeof(struct cxgbi_gather_list *));
++	spin_unlock(&ddp->map_lock);
++}
++
++static inline void ddp_gl_unmap(struct pci_dev *pdev,
++					struct cxgbi_gather_list *gl)
++{
++	int i;
++
++	for (i = 0; i < gl->nelem; i++)
++		dma_unmap_page(&pdev->dev, gl->phys_addr[i], PAGE_SIZE,
++				PCI_DMA_FROMDEVICE);
++}
++
++static inline int ddp_gl_map(struct pci_dev *pdev,
++				    struct cxgbi_gather_list *gl)
++{
++	int i;
++
++	for (i = 0; i < gl->nelem; i++) {
++		gl->phys_addr[i] = dma_map_page(&pdev->dev, gl->pages[i], 0,
++						PAGE_SIZE,
++						PCI_DMA_FROMDEVICE);
++		if (unlikely(dma_mapping_error(&pdev->dev, gl->phys_addr[i]))) {
++			libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++					"page %d 0x%p, 0x%p dma mapping err.\n",
++					i, gl->pages[i], pdev);
++			goto unmap;
++		}
++	}
++	return i;
++unmap:
++	if (i) {
++		unsigned int nelem = gl->nelem;
++
++		gl->nelem = i;
++		ddp_gl_unmap(pdev, gl);
++		gl->nelem = nelem;
++	}
 +	return -EINVAL;
 +}
 +
-+cxgb3_cpl_handler_func cxgb3i_cpl_handlers[NUM_CPL_CMDS] = {
-+	[CPL_ACT_ESTABLISH] = do_act_establish,
-+	[CPL_ACT_OPEN_RPL] = do_act_open_rpl,
-+	[CPL_PEER_CLOSE] = do_peer_close,
-+	[CPL_ABORT_REQ_RSS] = do_abort_req,
-+	[CPL_ABORT_RPL_RSS] = do_abort_rpl,
-+	[CPL_CLOSE_CON_RPL] = do_close_con_rpl,
-+	[CPL_TX_DMA_ACK] = do_wr_ack,
-+	[CPL_ISCSI_HDR] = do_iscsi_hdr,
-+};
-+
-+/**
-+ * cxgb3i_ofld_init - allocate and initialize resources for each adapter found
-+ * @cdev:	cxgbi adapter
-+ */
-+int cxgb3i_ofld_init(struct cxgbi_device *cdev)
++static void ddp_release_gl(struct cxgbi_gather_list *gl,
++				  struct pci_dev *pdev)
 +{
-+	struct t3cdev *t3dev = (struct t3cdev *)cdev->lldev;
-+	struct adap_ports port;
-+	struct ofld_page_info rx_page_info;
-+	unsigned int wr_len;
-+	int rc;
++	ddp_gl_unmap(pdev, gl);
++	kfree(gl);
++}
 +
-+	if (t3dev->ctl(t3dev, GET_WR_LEN, &wr_len) < 0 ||
-+	    t3dev->ctl(t3dev, GET_PORTS, &port) < 0 ||
-+	    t3dev->ctl(t3dev, GET_RX_PAGE_INFO, &rx_page_info) < 0) {
-+		cxgb3i_log_warn("t3 0x%p, offload up, ioctl failed.\n",
-+				t3dev);
-+		return -EINVAL;
++static struct cxgbi_gather_list *ddp_make_gl(unsigned int xferlen,
++						    struct scatterlist *sgl,
++						    unsigned int sgcnt,
++						    struct pci_dev *pdev,
++						    gfp_t gfp)
++{
++	struct cxgbi_gather_list *gl;
++	struct scatterlist *sg = sgl;
++	struct page *sgpage = sg_page(sg);
++	unsigned int sglen = sg->length;
++	unsigned int sgoffset = sg->offset;
++	unsigned int npages = (xferlen + sgoffset + PAGE_SIZE - 1) >>
++				PAGE_SHIFT;
++	int i = 1, j = 0;
++
++	if (xferlen < DDP_THRESHOLD) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++				"xfer %u < threshold %u, no ddp.\n",
++				xferlen, DDP_THRESHOLD);
++		return NULL;
 +	}
 +
-+	if (cxgb3i_max_connect > CXGBI_MAX_CONN)
-+		cxgb3i_max_connect = CXGBI_MAX_CONN;
-+
-+	rc = cxgbi_device_portmap_create(cdev, cxgb3i_sport_base,
-+					cxgb3i_max_connect);
-+	if (rc < 0)
-+		return rc;
-+
-+	init_wr_tab(wr_len);
-+	cdev->csk_release_offload_resources = release_offload_resources;
-+	cdev->csk_push_tx_frames = push_tx_frames;
-+	cdev->csk_send_abort_req = send_abort_req;
-+	cdev->csk_send_close_req = send_close_req;
-+	cdev->csk_send_rx_credits = send_rx_credits;
-+	cdev->csk_alloc_cpls = alloc_cpls;
-+	cdev->csk_init_act_open = init_act_open;
-+
-+	cxgb3i_log_info("cdev 0x%p, offload up, added.\n", cdev);
-+	return 0;
-+}
-+
-+/*
-+ * functions to program the pagepod in h/w
-+ */
-+static inline void ulp_mem_io_set_hdr(struct sk_buff *skb, unsigned int addr)
-+{
-+	struct ulp_mem_io *req = (struct ulp_mem_io *)skb->head;
-+
-+	memset(req, 0, sizeof(*req));
-+
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_BYPASS));
-+	req->cmd_lock_addr = htonl(V_ULP_MEMIO_ADDR(addr >> 5) |
-+				   V_ULPTX_CMD(ULP_MEM_WRITE));
-+	req->len = htonl(V_ULP_MEMIO_DATA_LEN(PPOD_SIZE >> 5) |
-+			 V_ULPTX_NFLITS((PPOD_SIZE >> 3) + 1));
-+}
-+
-+static int ddp_set_map(struct cxgbi_sock *csk, struct cxgbi_pagepod_hdr *hdr,
-+			unsigned int idx, unsigned int npods,
-+				struct cxgbi_gather_list *gl)
-+{
-+	struct cxgbi_device *cdev = csk->cdev;
-+	struct cxgbi_ddp_info *ddp = cdev->ddp;
-+	unsigned int pm_addr = (idx << PPOD_SIZE_SHIFT) + ddp->llimit;
-+	int i;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_DDP,
-+			"csk 0x%p, idx %u, npods %u, gl 0x%p.\n",
-+			csk, idx, npods, gl);
-+
-+	for (i = 0; i < npods; i++, idx++, pm_addr += PPOD_SIZE) {
-+		struct sk_buff *skb = ddp->gl_skb[idx];
-+
-+		/* hold on to the skb until we clear the ddp mapping */
-+		skb_get(skb);
-+
-+		ulp_mem_io_set_hdr(skb, pm_addr);
-+		cxgbi_ddp_ppod_set((struct cxgbi_pagepod *)(skb->head +
-+					sizeof(struct ulp_mem_io)),
-+				   hdr, gl, i * PPOD_PAGES_MAX);
-+		skb->priority = CPL_PRIORITY_CONTROL;
-+		cxgb3_ofld_send(cdev->lldev, skb);
++	gl = kzalloc(sizeof(struct cxgbi_gather_list) +
++		     npages * (sizeof(dma_addr_t) +
++		     sizeof(struct page *)), gfp);
++	if (!gl) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++				"xfer %u, %u pages, OOM.\n", xferlen, npages);
++		return NULL;
 +	}
-+	return 0;
++
++	 libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++			"xfer %u, sgl %u, gl max %u.\n",
++			xferlen, sgcnt, npages);
++
++	gl->pages = (struct page **)&gl->phys_addr[npages];
++	gl->nelem = npages;
++	gl->length = xferlen;
++	gl->offset = sgoffset;
++	gl->pages[0] = sgpage;
++
++	for (i = 1, sg = sg_next(sgl), j = 0; i < sgcnt;
++		i++, sg = sg_next(sg)) {
++		struct page *page = sg_page(sg);
++
++		if (sgpage == page && sg->offset == sgoffset + sglen)
++			sglen += sg->length;
++		else {
++			/*  make sure the sgl is fit for ddp:
++			 *  each has the same page size, and
++			 *  all of the middle pages are used completely
++			 */
++			if ((j && sgoffset) || ((i != sgcnt - 1) &&
++			    ((sglen + sgoffset) & ~PAGE_MASK))) {
++				libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++						"page %d/%u, %u + %u.\n",
++						i, sgcnt, sgoffset, sglen);
++				goto error_out;
++			}
++
++			j++;
++			if (j == gl->nelem || sg->offset) {
++				libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++						"page %d/%u, offset %u.\n",
++						j, gl->nelem, sg->offset);
++				goto error_out;
++			}
++			gl->pages[j] = page;
++			sglen = sg->length;
++			sgoffset = sg->offset;
++			sgpage = page;
++		}
++	}
++	gl->nelem = ++j;
++
++	if (ddp_gl_map(pdev, gl) < 0)
++		goto error_out;
++
++	return gl;
++
++error_out:
++	kfree(gl);
++	return NULL;
 +}
 +
-+static void ddp_clear_map(struct cxgbi_hba *chba, unsigned int tag,
-+			  unsigned int idx, unsigned int npods)
++static void ddp_tag_release(struct cxgbi_hba *chba, u32 tag)
 +{
 +	struct cxgbi_device *cdev = chba->cdev;
 +	struct cxgbi_ddp_info *ddp = cdev->ddp;
-+	unsigned int pm_addr = (idx << PPOD_SIZE_SHIFT) + ddp->llimit;
-+	int i;
++	u32 idx;
 +
-+	cxgb3i_log_debug(1 << CXGBI_DBG_DDP,
-+			"cdev 0x%p, idx %u, npods %u, tag 0x%x.\n",
-+			cdev, idx, npods, tag);
++	idx = (tag >> PPOD_IDX_SHIFT) & ddp->idx_mask;
++	if (idx < ddp->nppods) {
++		struct cxgbi_gather_list *gl = ddp->gl_map[idx];
++		unsigned int npods;
 +
-+	for (i = 0; i < npods; i++, idx++, pm_addr += PPOD_SIZE) {
-+		struct sk_buff *skb = ddp->gl_skb[idx];
-+
-+		if (!skb) {
-+			cxgb3i_log_error("tag 0x%x, 0x%x, %d/%u, skb NULL.\n",
-+					tag, idx, i, npods);
-+			continue;
++		if (!gl || !gl->nelem) {
++			libcxgbi_log_warn("tag 0x%x, idx %u, gl 0x%p, %u\n",
++					tag, idx, gl, gl ? gl->nelem : 0);
++			return;
 +		}
-+		ddp->gl_skb[idx] = NULL;
-+		memset(skb->head + sizeof(struct ulp_mem_io), 0, PPOD_SIZE);
-+		ulp_mem_io_set_hdr(skb, pm_addr);
-+		skb->priority = CPL_PRIORITY_CONTROL;
-+		cxgb3_ofld_send(cdev->lldev, skb);
-+	}
++		npods = (gl->nelem + PPOD_PAGES_MAX - 1) >> PPOD_PAGES_SHIFT;
++		libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++				"tag 0x%x, release idx %u, npods %u.\n",
++				tag, idx, npods);
++		cdev->csk_ddp_clear(chba, tag, idx, npods);
++		ddp_unmark_entries(ddp, idx, npods);
++		ddp_release_gl(gl, ddp->pdev);
++	} else
++		libcxgbi_log_warn("tag 0x%x, idx %u > max %u.\n",
++				tag, idx, ddp->nppods);
 +}
 +
-+static void ddp_free_gl_skb(struct cxgbi_ddp_info *ddp, int idx, int cnt)
++static int ddp_tag_reserve(struct cxgbi_sock *csk, unsigned int tid,
++			   u32 sw_tag, u32 *tagp, struct cxgbi_gather_list *gl,
++			   gfp_t gfp)
 +{
-+	int i;
++	struct cxgbi_device *cdev = csk->cdev;
++	struct cxgbi_ddp_info *ddp = cdev->ddp;
++	struct cxgbi_tag_format *tformat = &cdev->tag_format;
++	struct cxgbi_pagepod_hdr hdr;
++	unsigned int npods;
++	int idx = -1;
++	int err = -ENOMEM;
++	u32 tag;
 +
-+	cxgb3i_log_debug(1 << CXGBI_DBG_DDP,
-+			"ddp 0x%p, idx %d, cnt %d.\n",
-+			ddp, idx, cnt);
-+
-+	for (i = 0; i < cnt; i++, idx++)
-+		if (ddp->gl_skb[idx]) {
-+			kfree_skb(ddp->gl_skb[idx]);
-+			ddp->gl_skb[idx] = NULL;
-+		}
-+}
-+
-+static int ddp_alloc_gl_skb(struct cxgbi_ddp_info *ddp, int idx,
-+				   int cnt, gfp_t gfp)
-+{
-+	int i;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_DDP,
-+			"ddp 0x%p, idx %d, cnt %d.\n",
-+			ddp, idx, cnt);
-+
-+	for (i = 0; i < cnt; i++) {
-+		struct sk_buff *skb = alloc_cpl(sizeof(struct ulp_mem_io) +
-+						PPOD_SIZE, 0, gfp);
-+		if (skb) {
-+			ddp->gl_skb[idx + i] = skb;
-+		} else {
-+			ddp_free_gl_skb(ddp, idx, i);
-+			return -ENOMEM;
++	npods = (gl->nelem + PPOD_PAGES_MAX - 1) >> PPOD_PAGES_SHIFT;
++	if (ddp->idx_last == ddp->nppods)
++		idx = ddp_find_unused_entries(ddp, 0, ddp->nppods,
++							npods, gl);
++	else {
++		idx = ddp_find_unused_entries(ddp, ddp->idx_last + 1,
++							ddp->nppods, npods,
++							gl);
++		if (idx < 0 && ddp->idx_last >= npods) {
++			idx = ddp_find_unused_entries(ddp, 0,
++				min(ddp->idx_last + npods, ddp->nppods),
++							npods, gl);
 +		}
 +	}
-+	return 0;
-+}
-+
-+static int ddp_setup_conn_pgidx(struct cxgbi_sock *csk,
-+				       unsigned int tid, int pg_idx, bool reply)
-+{
-+	struct sk_buff *skb = alloc_cpl(sizeof(struct cpl_set_tcb_field), 0,
-+					GFP_KERNEL);
-+	struct cpl_set_tcb_field *req;
-+	u64 val = pg_idx < DDP_PGIDX_MAX ? pg_idx : 0;
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_DDP,
-+			"csk 0x%p, tid %u, pg_idx %d.\n",
-+			csk, tid, pg_idx);
-+
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	/* set up ulp submode and page size */
-+	req = (struct cpl_set_tcb_field *)skb->head;
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, tid));
-+	req->reply = V_NO_REPLY(reply ? 0 : 1);
-+	req->cpu_idx = 0;
-+	req->word = htons(31);
-+	req->mask = cpu_to_be64(0xF0000000);
-+	req->val = cpu_to_be64(val << 28);
-+	skb->priority = CPL_PRIORITY_CONTROL;
-+
-+	cxgb3_ofld_send(csk->cdev->lldev, skb);
-+	return 0;
-+}
-+
-+/**
-+ * cxgb3i_setup_conn_digest - setup conn. digest setting
-+ * @csk: cxgb tcp socket
-+ * @tid: connection id
-+ * @hcrc: header digest enabled
-+ * @dcrc: data digest enabled
-+ * @reply: request reply from h/w
-+ * set up the iscsi digest settings for a connection identified by tid
-+ */
-+static int ddp_setup_conn_digest(struct cxgbi_sock *csk, unsigned int tid,
-+			     int hcrc, int dcrc, int reply)
-+{
-+	struct sk_buff *skb = alloc_cpl(sizeof(struct cpl_set_tcb_field), 0,
-+					GFP_KERNEL);
-+	struct cpl_set_tcb_field *req;
-+	u64 val = (hcrc ? 1 : 0) | (dcrc ? 2 : 0);
-+
-+	cxgb3i_log_debug(1 << CXGBI_DBG_DDP,
-+			"csk 0x%p, tid %u, crc %d,%d.\n",
-+			csk, tid, hcrc, dcrc);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	/* set up ulp submode and page size */
-+	req = (struct cpl_set_tcb_field *)skb->head;
-+	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, tid));
-+	req->reply = V_NO_REPLY(reply ? 0 : 1);
-+	req->cpu_idx = 0;
-+	req->word = htons(31);
-+	req->mask = cpu_to_be64(0x0F000000);
-+	req->val = cpu_to_be64(val << 24);
-+	skb->priority = CPL_PRIORITY_CONTROL;
-+
-+	cxgb3_ofld_send(csk->cdev->lldev, skb);
-+	return 0;
-+}
-+
-+/**
-+ * t3_ddp_cleanup - release the cxgb3 adapter's ddp resource
-+ * @cdev: cxgb3i adapter
-+ * release all the resource held by the ddp pagepod manager for a given
-+ * adapter if needed
-+ */
-+
-+static void t3_ddp_cleanup(struct cxgbi_device *cdev)
-+{
-+	struct t3cdev *tdev = (struct t3cdev *)cdev->lldev;
-+
-+	if (cxgbi_ddp_cleanup(cdev)) {
-+		cxgb3i_log_info("t3dev 0x%p, ulp_iscsi no more user.\n",
-+				tdev);
-+		tdev->ulp_iscsi = NULL;
++	if (idx < 0) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++				"xferlen %u, gl %u, npods %u NO DDP.\n",
++				gl->length, gl->nelem, npods);
++		return idx;
 +	}
++
++	if (cdev->csk_ddp_alloc_gl_skb) {
++		err = cdev->csk_ddp_alloc_gl_skb(ddp, idx, npods, gfp);
++		if (err < 0)
++			goto unmark_entries;
++	}
++
++	tag = cxgbi_ddp_tag_base(tformat, sw_tag);
++	tag |= idx << PPOD_IDX_SHIFT;
++
++	hdr.rsvd = 0;
++	hdr.vld_tid = htonl(PPOD_VALID_FLAG | PPOD_TID(tid));
++	hdr.pgsz_tag_clr = htonl(tag & ddp->rsvd_tag_mask);
++	hdr.max_offset = htonl(gl->length);
++	hdr.page_offset = htonl(gl->offset);
++
++	err = cdev->csk_ddp_set(csk, &hdr, idx, npods, gl);
++	if (err < 0) {
++		if (cdev->csk_ddp_free_gl_skb)
++			cdev->csk_ddp_free_gl_skb(ddp, idx, npods);
++		goto unmark_entries;
++	}
++
++	ddp->idx_last = idx;
++	libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++			"xfer %u, gl %u,%u, tid 0x%x, tag 0x%x->0x%x(%u,%u).\n",
++			gl->length, gl->nelem, gl->offset, tid, sw_tag, tag,
++			idx, npods);
++	*tagp = tag;
++	return 0;
++
++unmark_entries:
++	ddp_unmark_entries(ddp, idx, npods);
++	return err;
 +}
 +
-+/**
-+ * ddp_init - initialize the cxgb3 adapter's ddp resource
-+ * @cdev: cxgb3i adapter
-+ * initialize the ddp pagepod manager for a given adapter
-+ */
-+static int cxgb3i_ddp_init(struct cxgbi_device *cdev)
++int cxgbi_ddp_reserve(struct cxgbi_sock *csk, unsigned int *tagp,
++			unsigned int sw_tag, unsigned int xferlen,
++			struct scatterlist *sgl, unsigned int sgcnt, gfp_t gfp)
 +{
-+	struct t3cdev *tdev = (struct t3cdev *)cdev->lldev;
-+	struct cxgbi_ddp_info *ddp = tdev->ulp_iscsi;
-+	struct ulp_iscsi_info uinfo;
-+	unsigned int pgsz_factor[4];
++	struct cxgbi_device *cdev = csk->cdev;
++	struct cxgbi_tag_format *tformat = &cdev->tag_format;
++	struct cxgbi_gather_list *gl;
 +	int err;
 +
-+	if (ddp) {
-+		kref_get(&ddp->refcnt);
-+		cxgb3i_log_warn("t3dev 0x%p, ddp 0x%p already set up.\n",
-+				tdev, tdev->ulp_iscsi);
-+		cdev->ddp = ddp;
-+		return -EALREADY;
++	if (page_idx >= DDP_PGIDX_MAX || !cdev->ddp ||
++	    xferlen < DDP_THRESHOLD) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++				"pgidx %u, xfer %u, NO ddp.\n",
++				page_idx, xferlen);
++		return -EINVAL;
 +	}
 +
-+	err = tdev->ctl(tdev, ULP_ISCSI_GET_PARAMS, &uinfo);
++	if (!cxgbi_sw_tag_usable(tformat, sw_tag)) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++				"sw_tag 0x%x NOT usable.\n", sw_tag);
++		return -EINVAL;
++	}
++
++	gl = ddp_make_gl(xferlen, sgl, sgcnt, cdev->pdev, gfp);
++	if (!gl)
++		return -ENOMEM;
++
++	err = ddp_tag_reserve(csk, csk->tid, sw_tag, tagp, gl, gfp);
++	if (err < 0)
++		ddp_release_gl(gl, cdev->pdev);
++
++	return err;
++}
++
++static void ddp_destroy(struct kref *kref)
++{
++	struct cxgbi_ddp_info *ddp = container_of(kref,
++						struct cxgbi_ddp_info,
++						refcnt);
++	struct cxgbi_device *cdev = ddp->cdev;
++	int i = 0;
++
++	libcxgbi_log_info("kref 0, destroy ddp 0x%p, cdev 0x%p.\n", ddp, cdev);
++
++	while (i < ddp->nppods) {
++		struct cxgbi_gather_list *gl = ddp->gl_map[i];
++
++		if (gl) {
++			int npods = (gl->nelem + PPOD_PAGES_MAX - 1)
++					>> PPOD_PAGES_SHIFT;
++			libcxgbi_log_info("cdev 0x%p, ddp %d + %d.\n",
++					cdev, i, npods);
++			kfree(gl);
++			if (cdev->csk_ddp_free_gl_skb)
++				cdev->csk_ddp_free_gl_skb(ddp, i, npods);
++			i += npods;
++		} else
++			i++;
++	}
++	cxgbi_free_big_mem(ddp);
++}
++
++int cxgbi_ddp_cleanup(struct cxgbi_device *cdev)
++{
++	struct cxgbi_ddp_info *ddp = cdev->ddp;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++			"cdev 0x%p, release ddp 0x%p.\n", cdev, ddp);
++	cdev->ddp = NULL;
++	if (ddp)
++		return kref_put(&ddp->refcnt, ddp_destroy);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cxgbi_ddp_cleanup);
++
++int cxgbi_ddp_init(struct cxgbi_device *cdev,
++		   unsigned int llimit, unsigned int ulimit,
++		   unsigned int max_txsz, unsigned int max_rxsz)
++{
++	struct cxgbi_ddp_info *ddp;
++	unsigned int ppmax, bits;
++
++	ppmax = (ulimit - llimit + 1) >> PPOD_SIZE_SHIFT;
++	bits = __ilog2_u32(ppmax) + 1;
++	if (bits > PPOD_IDX_MAX_SIZE)
++		bits = PPOD_IDX_MAX_SIZE;
++	ppmax = (1 << (bits - 1)) - 1;
++
++	ddp = cxgbi_alloc_big_mem(sizeof(struct cxgbi_ddp_info) +
++				ppmax * (sizeof(struct cxgbi_gather_list *) +
++					 sizeof(struct sk_buff *)),
++				GFP_KERNEL);
++	if (!ddp) {
++		libcxgbi_log_warn("cdev 0x%p, ddp ppmax %u OOM.\n",
++				cdev, ppmax);
++		return -ENOMEM;
++	}
++	ddp->gl_map = (struct cxgbi_gather_list **)(ddp + 1);
++	ddp->gl_skb = (struct sk_buff **)(((char *)ddp->gl_map) +
++				ppmax * sizeof(struct cxgbi_gather_list *));
++	cdev->ddp = ddp;
++
++	spin_lock_init(&ddp->map_lock);
++	kref_init(&ddp->refcnt);
++
++	ddp->cdev = cdev;
++	ddp->pdev = cdev->pdev;
++	ddp->llimit = llimit;
++	ddp->ulimit = ulimit;
++	ddp->max_txsz = min_t(unsigned int, max_txsz, ULP2_MAX_PKT_SIZE);
++	ddp->max_rxsz = min_t(unsigned int, max_rxsz, ULP2_MAX_PKT_SIZE);
++	ddp->nppods = ppmax;
++	ddp->idx_last = ppmax;
++	ddp->idx_bits = bits;
++	ddp->idx_mask = (1 << bits) - 1;
++	ddp->rsvd_tag_mask = (1 << (bits + PPOD_IDX_SHIFT)) - 1;
++
++	cdev->tag_format.sw_bits = sw_tag_idx_bits + sw_tag_age_bits;
++	cdev->tag_format.rsvd_bits = ddp->idx_bits;
++	cdev->tag_format.rsvd_shift = PPOD_IDX_SHIFT;
++	cdev->tag_format.rsvd_mask = (1 << cdev->tag_format.rsvd_bits) - 1;
++
++	libcxgbi_log_info("%s tag format, sw %u, rsvd %u,%u, mask 0x%x.\n",
++			cdev->ports[0]->name, cdev->tag_format.sw_bits,
++			cdev->tag_format.rsvd_bits, cdev->tag_format.rsvd_shift,
++			cdev->tag_format.rsvd_mask);
++
++	cdev->tx_max_size = min_t(unsigned int, ULP2_MAX_PDU_PAYLOAD,
++				ddp->max_txsz - ISCSI_PDU_NONPAYLOAD_LEN);
++	cdev->rx_max_size = min_t(unsigned int, ULP2_MAX_PDU_PAYLOAD,
++				ddp->max_rxsz - ISCSI_PDU_NONPAYLOAD_LEN);
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++			"%s max payload size: %u/%u, %u/%u.\n",
++			cdev->ports[0]->name, cdev->tx_max_size, ddp->max_txsz,
++			cdev->rx_max_size, ddp->max_rxsz);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cxgbi_ddp_init);
++
++/*
++ * APIs interacting with open-iscsi libraries
++ */
++
++static unsigned char padding[4];
++
++static void task_release_itt(struct iscsi_task *task, itt_t hdr_itt)
++{
++	struct scsi_cmnd *sc = task->sc;
++	struct iscsi_tcp_conn *tcp_conn = task->conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	struct cxgbi_hba *chba = cconn->chba;
++	struct cxgbi_tag_format *tformat = &chba->cdev->tag_format;
++	u32 tag = ntohl((__force u32)hdr_itt);
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++			   "cdev 0x%p, release tag 0x%x.\n", chba->cdev, tag);
++	if (sc &&
++	    (scsi_bidi_cmnd(sc) || sc->sc_data_direction == DMA_FROM_DEVICE) &&
++	    cxgbi_is_ddp_tag(tformat, tag))
++		ddp_tag_release(chba, tag);
++}
++
++static int task_reserve_itt(struct iscsi_task *task, itt_t *hdr_itt)
++{
++	struct scsi_cmnd *sc = task->sc;
++	struct iscsi_conn *conn = task->conn;
++	struct iscsi_session *sess = conn->session;
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	struct cxgbi_hba *chba = cconn->chba;
++	struct cxgbi_tag_format *tformat = &chba->cdev->tag_format;
++	u32 sw_tag = (sess->age << cconn->task_idx_bits) | task->itt;
++	u32 tag = 0;
++	int err = -EINVAL;
++
++	if (sc &&
++	    (scsi_bidi_cmnd(sc) || sc->sc_data_direction == DMA_FROM_DEVICE)) {
++		err = cxgbi_ddp_reserve(cconn->cep->csk, &tag, sw_tag,
++					scsi_in(sc)->length,
++					scsi_in(sc)->table.sgl,
++					scsi_in(sc)->table.nents,
++					GFP_ATOMIC);
++		if (err < 0)
++			libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++				"csk 0x%p, R task 0x%p, %u,%u, no ddp.\n",
++				cconn->cep->csk, task, scsi_in(sc)->length,
++				scsi_in(sc)->table.nents);
++	}
++
++	if (err < 0)
++		tag = cxgbi_set_non_ddp_tag(tformat, sw_tag);
++	/*  the itt need to sent in big-endian order */
++	*hdr_itt = (__force itt_t)htonl(tag);
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++			"cdev 0x%p, task 0x%p, 0x%x(0x%x,0x%x)->0x%x/0x%x.\n",
++			chba->cdev, task, sw_tag, task->itt,
++			sess->age, tag, *hdr_itt);
++	return 0;
++}
++
++void cxgbi_parse_pdu_itt(struct iscsi_conn *conn, itt_t itt, int *idx, int *age)
++{
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	struct cxgbi_device *cdev = cconn->chba->cdev;
++	u32 tag = ntohl((__force u32) itt);
++	u32 sw_bits;
++
++	sw_bits = cxgbi_tag_nonrsvd_bits(&cdev->tag_format, tag);
++	if (idx)
++		*idx = sw_bits & ((1 << cconn->task_idx_bits) - 1);
++	if (age)
++		*age = (sw_bits >> cconn->task_idx_bits) & ISCSI_AGE_MASK;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_DDP,
++			"cdev 0x%p, tag 0x%x/0x%x, -> 0x%x(0x%x,0x%x).\n",
++			cdev, tag, itt, sw_bits, idx ? *idx : 0xFFFFF,
++			age ? *age : 0xFF);
++}
++EXPORT_SYMBOL_GPL(cxgbi_parse_pdu_itt);
++
++void cxgbi_conn_tx_open(struct cxgbi_sock *csk)
++{
++	struct iscsi_conn *conn = csk->user_data;
++
++	if (conn) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_SOCK,
++				"csk 0x%p, cid %d.\n", csk, conn->id);
++		iscsi_conn_queue_work(conn);
++	}
++}
++EXPORT_SYMBOL_GPL(cxgbi_conn_tx_open);
++
++/*
++ * pdu receive, interact with libiscsi_tcp
++ */
++static inline int read_pdu_skb(struct iscsi_conn *conn,
++			       struct sk_buff *skb,
++			       unsigned int offset,
++			       int offloaded)
++{
++	int status = 0;
++	int bytes_read;
++
++	bytes_read = iscsi_tcp_recv_skb(conn, skb, offset, offloaded, &status);
++	switch (status) {
++	case ISCSI_TCP_CONN_ERR:
++		libcxgbi_log_info("skb 0x%p, off %u, %d, TCP_ERR.\n",
++				  skb, offset, offloaded);
++		return -EIO;
++	case ISCSI_TCP_SUSPENDED:
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++				"skb 0x%p, off %u, %d, TCP_SUSPEND, rc %d.\n",
++				skb, offset, offloaded, bytes_read);
++		/* no transfer - just have caller flush queue */
++		return bytes_read;
++	case ISCSI_TCP_SKB_DONE:
++		libcxgbi_log_info("skb 0x%p, off %u, %d, TCP_SKB_DONE.\n",
++				  skb, offset, offloaded);
++		/*
++		 * pdus should always fit in the skb and we should get
++		 * segment done notifcation.
++		 */
++		iscsi_conn_printk(KERN_ERR, conn, "Invalid pdu or skb.");
++		return -EFAULT;
++	case ISCSI_TCP_SEGMENT_DONE:
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++				"skb 0x%p, off %u, %d, TCP_SEG_DONE, rc %d.\n",
++				skb, offset, offloaded, bytes_read);
++		return bytes_read;
++	default:
++		libcxgbi_log_info("skb 0x%p, off %u, %d, invalid status %d.\n",
++				  skb, offset, offloaded, status);
++		return -EINVAL;
++	}
++}
++
++static int skb_read_pdu_bhs(struct iscsi_conn *conn, struct sk_buff *skb)
++{
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++			"conn 0x%p, skb 0x%p, len %u, flag 0x%lx.\n",
++			conn, skb, skb->len, cxgbi_skcb_flags(skb));
++
++	if (!iscsi_tcp_recv_segment_is_hdr(tcp_conn)) {
++		libcxgbi_log_info("conn 0x%p, skb 0x%p, not hdr.\n", conn, skb);
++		iscsi_conn_failure(conn, ISCSI_ERR_PROTO);
++		return -EIO;
++	}
++
++	if (conn->hdrdgst_en &&
++	    cxgbi_skcb_test_flag(skb, SKCBF_RX_HCRC_ERR)) {
++		libcxgbi_log_info("conn 0x%p, skb 0x%p, hcrc.\n", conn, skb);
++		iscsi_conn_failure(conn, ISCSI_ERR_HDR_DGST);
++		return -EIO;
++	}
++
++	return read_pdu_skb(conn, skb, 0, 0);
++}
++
++static int skb_read_pdu_data(struct iscsi_conn *conn, struct sk_buff *lskb,
++			     struct sk_buff *skb, unsigned int offset)
++{
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
++	bool offloaded = 0;
++	int opcode = tcp_conn->in.hdr->opcode & ISCSI_OPCODE_MASK;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++			"conn 0x%p, skb 0x%p, len %u, flag 0x%lx.\n",
++			conn, skb, skb->len, cxgbi_skcb_flags(skb));
++
++	if (conn->datadgst_en &&
++	    cxgbi_skcb_test_flag(lskb, SKCBF_RX_DCRC_ERR)) {
++		libcxgbi_log_info("conn 0x%p, skb 0x%p, dcrc 0x%lx.\n",
++				conn, lskb, cxgbi_skcb_flags(lskb));
++		iscsi_conn_failure(conn, ISCSI_ERR_DATA_DGST);
++		return -EIO;
++	}
++
++	if (iscsi_tcp_recv_segment_is_hdr(tcp_conn))
++		return 0;
++
++	/* coalesced, add header digest length */
++	if (lskb == skb && conn->hdrdgst_en)
++		offset += ISCSI_DIGEST_SIZE;
++
++	if (cxgbi_skcb_test_flag(lskb, SKCBF_RX_DATA_DDPD))
++		offloaded = 1;
++
++	if (opcode == ISCSI_OP_SCSI_DATA_IN)
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++				"skb 0x%p, op 0x%x, itt 0x%x, %u %s ddp'ed.\n",
++				skb, opcode, ntohl(tcp_conn->in.hdr->itt),
++				tcp_conn->in.datalen, offloaded ? "is" : "not");
++
++	return read_pdu_skb(conn, skb, offset, offloaded);
++}
++
++static void csk_return_rx_credits(struct cxgbi_sock *csk, int copied)
++{
++	struct cxgbi_device *cdev = csk->cdev;
++	int must_send;
++	u32 credits;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++			"csk 0x%p,%u,0x%lu,%u, seq %u, wup %u, thre %u, %u.\n",
++			csk, csk->state, csk->flags, csk->tid,
++			csk->copied_seq, csk->rcv_wup, cdev->rx_credit_thres,
++			cdev->rcv_win);
++
++	if (csk->state != CTP_ESTABLISHED)
++		return;
++
++	credits = csk->copied_seq - csk->rcv_wup;
++	if (unlikely(!credits))
++		return;
++	if (unlikely(cdev->rx_credit_thres == 0))
++		return;
++
++	must_send = credits + 16384 >= cdev->rcv_win;
++	if (must_send || credits >= cdev->rx_credit_thres)
++		csk->rcv_wup += cdev->csk_send_rx_credits(csk, credits);
++}
++
++void cxgbi_conn_pdu_ready(struct cxgbi_sock *csk)
++{
++	struct cxgbi_device *cdev = csk->cdev;
++	struct iscsi_conn *conn = csk->user_data;
++	struct sk_buff *skb;
++	unsigned int read = 0;
++	int err = 0;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++			"csk 0x%p, conn 0x%p.\n", csk, conn);
++
++	if (unlikely(!conn || conn->suspend_rx)) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++				"csk 0x%p, conn 0x%p, id %d, suspend_rx %lu!\n",
++				csk, conn, conn ? conn->id : 0xFF,
++				conn ? conn->suspend_rx : 0xFF);
++		read_unlock(&csk->callback_lock);
++		return;
++	}
++
++	while (!err) {
++		read_lock(&csk->callback_lock);
++		skb = skb_peek(&csk->receive_queue);
++		if (!skb ||
++		    !(cxgbi_skcb_test_flag(skb, SKCBF_RX_STATUS))) {
++			if (skb)
++				libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++					"skb 0x%p, NOT ready 0x%lx.\n",
++					skb, cxgbi_skcb_flags(skb));
++			read_unlock(&csk->callback_lock);
++			break;
++		}
++		__skb_unlink(skb, &csk->receive_queue);
++		read_unlock(&csk->callback_lock);
++
++		read += cxgbi_skcb_rx_pdulen(skb);
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++			"csk 0x%p, skb 0x%p,%u,f 0x%lx, pdu len %u.\n",
++			csk, skb, skb->len, cxgbi_skcb_flags(skb),
++			cxgbi_skcb_rx_pdulen(skb));
++
++		if (cxgbi_skcb_test_flag(skb, SKCBF_RX_COALESCED)) {
++			err = skb_read_pdu_bhs(conn, skb);
++			if (err < 0)
++				break;
++			err = skb_read_pdu_data(conn, skb, skb,
++						err + cdev->skb_rx_extra);
++		} else {
++			err = skb_read_pdu_bhs(conn, skb);
++			if (err < 0)
++				break;
++			if (cxgbi_skcb_test_flag(skb, SKCBF_RX_DATA)) {
++				struct sk_buff *dskb;
++
++				read_lock(&csk->callback_lock);
++				dskb = skb_peek(&csk->receive_queue);
++				if (!dskb) {
++					read_unlock(&csk->callback_lock);
++					libcxgbi_log_error(
++						"csk 0x%p, data NULL.\n", csk);
++					err = -EAGAIN;
++					break;
++				}
++				__skb_unlink(dskb, &csk->receive_queue);
++				read_unlock(&csk->callback_lock);
++
++				err = skb_read_pdu_data(conn, skb, dskb, 0);
++				__kfree_skb(dskb);
++			} else
++				err = skb_read_pdu_data(conn, skb, skb, 0);
++		}
++		if (err < 0)
++			break;
++
++		__kfree_skb(skb);
++	}
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_PDU_RX,
++			"csk 0x%p, read %u.\n", csk, read);
++	if (read) {
++		csk->copied_seq += read;
++		csk_return_rx_credits(csk, read);
++		conn->rxdata_octets += read;
++	}
++
 +	if (err < 0) {
-+		cxgb3i_log_error("%s, failed to get iscsi param err=%d.\n",
-+				 tdev->name, err);
++		libcxgbi_log_info("csk 0x%p, conn 0x%p, rx failed err %d.\n",
++				  csk, conn, err);
++		iscsi_conn_failure(conn, ISCSI_ERR_CONN_FAILED);
++	}
++}
++EXPORT_SYMBOL_GPL(cxgbi_conn_pdu_ready);
++
++static int sgl_seek_offset(struct scatterlist *sgl, unsigned int sgcnt,
++				unsigned int offset, unsigned int *off,
++				struct scatterlist **sgp)
++{
++	int i;
++	struct scatterlist *sg;
++
++	for_each_sg(sgl, sg, sgcnt, i) {
++		if (offset < sg->length) {
++			*off = offset;
++			*sgp = sg;
++			return 0;
++		}
++		offset -= sg->length;
++	}
++	return -EFAULT;
++}
++
++static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
++				unsigned int dlen, skb_frag_t *frags,
++				int frag_max)
++{
++	unsigned int datalen = dlen;
++	unsigned int sglen = sg->length - sgoffset;
++	struct page *page = sg_page(sg);
++	int i;
++
++	i = 0;
++	do {
++		unsigned int copy;
++
++		if (!sglen) {
++			sg = sg_next(sg);
++			if (!sg) {
++				libcxgbi_log_warn("sg %d NULL, len %u/%u.\n",
++						   i, datalen, dlen);
++				return -EINVAL;
++			}
++			sgoffset = 0;
++			sglen = sg->length;
++			page = sg_page(sg);
++
++		}
++		copy = min(datalen, sglen);
++		if (i && page == frags[i - 1].page &&
++		    sgoffset + sg->offset ==
++			frags[i - 1].page_offset + frags[i - 1].size) {
++			frags[i - 1].size += copy;
++		} else {
++			if (i >= frag_max) {
++				libcxgbi_log_warn("too many pages %u, "
++						  "dlen %u.\n", frag_max, dlen);
++				return -EINVAL;
++			}
++
++			frags[i].page = page;
++			frags[i].page_offset = sg->offset + sgoffset;
++			frags[i].size = copy;
++			i++;
++		}
++		datalen -= copy;
++		sgoffset += copy;
++		sglen -= copy;
++	} while (datalen);
++
++	return i;
++}
++
++int cxgbi_conn_alloc_pdu(struct iscsi_task *task, u8 opcode)
++{
++	struct iscsi_tcp_conn *tcp_conn = task->conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	struct cxgbi_device *cdev = cconn->chba->cdev;
++	struct iscsi_conn *conn = task->conn;
++	struct iscsi_tcp_task *tcp_task = task->dd_data;
++	struct cxgbi_task_data *tdata = task->dd_data + sizeof(*tcp_task);
++	struct scsi_cmnd *sc = task->sc;
++	int headroom = SKB_TX_ISCSI_PDU_HEADER_MAX;
++
++	tcp_task->dd_data = tdata;
++	task->hdr = NULL;
++
++	if (SKB_MAX_HEAD(cdev->skb_tx_rsvd) > (512 * MAX_SKB_FRAGS) &&
++	    (opcode == ISCSI_OP_SCSI_DATA_OUT ||
++	     (opcode == ISCSI_OP_SCSI_CMD &&
++	      (scsi_bidi_cmnd(sc) || sc->sc_data_direction == DMA_TO_DEVICE))))
++		/* data could goes into skb head */
++		headroom += min_t(unsigned int,
++				SKB_MAX_HEAD(cdev->skb_tx_rsvd),
++				conn->max_xmit_dlength);
++
++	tdata->skb = alloc_skb(cdev->skb_tx_rsvd + headroom, GFP_ATOMIC);
++	if (!tdata->skb) {
++		libcxgbi_log_warn("alloc skb %u+%u, opcode 0x%x failed.\n",
++				  cdev->skb_tx_rsvd, headroom, opcode);
++		return -ENOMEM;
++	}
++
++	skb_reserve(tdata->skb, cdev->skb_tx_rsvd);
++	task->hdr = (struct iscsi_hdr *)tdata->skb->data;
++	task->hdr_max = SKB_TX_ISCSI_PDU_HEADER_MAX; /* BHS + AHS */
++
++	/* data_out uses scsi_cmd's itt */
++	if (opcode != ISCSI_OP_SCSI_DATA_OUT)
++		task_reserve_itt(task, &task->hdr->itt);
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
++			"task 0x%p, op 0x%x, skb 0x%p,%u+%u/%u, itt 0x%x.\n",
++			task, opcode, tdata->skb, cdev->skb_tx_rsvd, headroom,
++			conn->max_xmit_dlength, ntohl(task->hdr->itt));
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cxgbi_conn_alloc_pdu);
++
++static inline void tx_skb_setmode(struct sk_buff *skb, int hcrc, int dcrc)
++{
++	u8 submode = 0;
++
++	if (hcrc)
++		submode |= 1;
++	if (dcrc)
++		submode |= 2;
++	cxgbi_skcb_ulp_mode(skb) = (ULP2_MODE_ISCSI << 4) | submode;
++}
++
++int cxgbi_conn_init_pdu(struct iscsi_task *task, unsigned int offset,
++			      unsigned int count)
++{
++	struct iscsi_conn *conn = task->conn;
++	struct iscsi_tcp_task *tcp_task = task->dd_data;
++	struct cxgbi_task_data *tdata = tcp_task->dd_data;
++	struct sk_buff *skb = tdata->skb;
++	unsigned int datalen = count;
++	int i, padlen = iscsi_padding(count);
++	struct page *pg;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
++			"task 0x%p,0x%p, skb 0x%p, 0x%x,0x%x,0x%x, %u+%u.\n",
++			task, task->sc, skb, (*skb->data) & ISCSI_OPCODE_MASK,
++			ntohl(task->cmdsn), ntohl(task->hdr->itt),
++			offset, count);
++
++	skb_put(skb, task->hdr_len);
++	tx_skb_setmode(skb, conn->hdrdgst_en, datalen ? conn->datadgst_en : 0);
++	if (!count)
++		return 0;
++
++	if (task->sc) {
++		struct scsi_data_buffer *sdb = scsi_out(task->sc);
++		struct scatterlist *sg = NULL;
++		int err;
++
++		tdata->offset = offset;
++		tdata->count = count;
++		err = sgl_seek_offset(
++					sdb->table.sgl, sdb->table.nents,
++					tdata->offset, &tdata->sgoffset, &sg);
++		if (err < 0) {
++			libcxgbi_log_warn("tpdu, sgl %u, bad offset %u/%u.\n",
++					sdb->table.nents, tdata->offset,
++					sdb->length);
++			return err;
++		}
++		err = sgl_read_to_frags(sg, tdata->sgoffset, tdata->count,
++					tdata->frags, MAX_PDU_FRAGS);
++		if (err < 0) {
++			libcxgbi_log_warn("tpdu, sgl %u, bad offset %u + %u.\n",
++					sdb->table.nents,
++					tdata->offset,
++					tdata->count);
++			return err;
++		}
++		tdata->nr_frags = err;
++
++		if (tdata->nr_frags > MAX_SKB_FRAGS ||
++		    (padlen && tdata->nr_frags == MAX_SKB_FRAGS)) {
++			char *dst = skb->data + task->hdr_len;
++			skb_frag_t *frag = tdata->frags;
++
++			/* data fits in the skb's headroom */
++			for (i = 0; i < tdata->nr_frags; i++, frag++) {
++				char *src = kmap_atomic(frag->page,
++							KM_SOFTIRQ0);
++
++				memcpy(dst, src+frag->page_offset, frag->size);
++				dst += frag->size;
++				kunmap_atomic(src, KM_SOFTIRQ0);
++			}
++			if (padlen) {
++				memset(dst, 0, padlen);
++				padlen = 0;
++			}
++			skb_put(skb, count + padlen);
++		} else {
++			/* data fit into frag_list */
++			for (i = 0; i < tdata->nr_frags; i++)
++				get_page(tdata->frags[i].page);
++
++			memcpy(skb_shinfo(skb)->frags, tdata->frags,
++				sizeof(skb_frag_t) * tdata->nr_frags);
++			skb_shinfo(skb)->nr_frags = tdata->nr_frags;
++			skb->len += count;
++			skb->data_len += count;
++			skb->truesize += count;
++		}
++
++	} else {
++		pg = virt_to_page(task->data);
++
++		get_page(pg);
++		skb_fill_page_desc(skb, 0, pg, offset_in_page(task->data),
++					count);
++		skb->len += count;
++		skb->data_len += count;
++		skb->truesize += count;
++	}
++
++	if (padlen) {
++		i = skb_shinfo(skb)->nr_frags;
++		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
++				virt_to_page(padding), offset_in_page(padding),
++				padlen);
++
++		skb->data_len += padlen;
++		skb->truesize += padlen;
++		skb->len += padlen;
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cxgbi_conn_init_pdu);
++
++int cxgbi_conn_xmit_pdu(struct iscsi_task *task)
++{
++	struct iscsi_tcp_conn *tcp_conn = task->conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	struct iscsi_tcp_task *tcp_task = task->dd_data;
++	struct cxgbi_task_data *tdata = tcp_task->dd_data;
++	struct sk_buff *skb = tdata->skb;
++	unsigned int datalen;
++	int err;
++
++	if (!skb) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
++				"task 0x%p, skb NULL.\n", task);
++		return 0;
++	}
++
++	datalen = skb->data_len;
++	tdata->skb = NULL;
++	err = cxgbi_sock_send_pdus(cconn->cep->csk, skb);
++	if (err > 0) {
++		int pdulen = err;
++
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_TX,
++				"task 0x%p,0x%p, skb 0x%p, len %u/%u, rv %d.\n",
++				task, task->sc, skb, skb->len, skb->data_len,
++				err);
++
++		if (task->conn->hdrdgst_en)
++			pdulen += ISCSI_DIGEST_SIZE;
++
++		if (datalen && task->conn->datadgst_en)
++			pdulen += ISCSI_DIGEST_SIZE;
++
++		task->conn->txdata_octets += pdulen;
++		return 0;
++	}
++
++	if (err == -EAGAIN || err == -ENOBUFS) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_PDU_TX,
++				"task 0x%p, skb 0x%p, len %u/%u, %d EAGAIN.\n",
++				task, skb, skb->len, skb->data_len, err);
++		/* reset skb to send when we are called again */
++		tdata->skb = skb;
 +		return err;
 +	}
 +
-+	err = cxgbi_ddp_init(cdev, uinfo.llimit, uinfo.ulimit,
-+			uinfo.max_txsz, uinfo.max_rxsz);
++	kfree_skb(skb);
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_PDU_TX,
++			"itt 0x%x, skb 0x%p, len %u/%u, xmit err %d.\n",
++			task->itt, skb, skb->len, skb->data_len, err);
++	iscsi_conn_printk(KERN_ERR, task->conn, "xmit err %d.\n", err);
++	iscsi_conn_failure(task->conn, ISCSI_ERR_XMIT_FAILED);
++	return err;
++}
++EXPORT_SYMBOL_GPL(cxgbi_conn_xmit_pdu);
++
++void cxgbi_cleanup_task(struct iscsi_task *task)
++{
++	struct cxgbi_task_data *tdata = task->dd_data +
++				sizeof(struct iscsi_tcp_task);
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"task 0x%p, skb 0x%p, itt 0x%x.\n",
++			task, tdata->skb, task->hdr_itt);
++
++	/*  never reached the xmit task callout */
++	if (tdata->skb)
++		__kfree_skb(tdata->skb);
++	memset(tdata, 0, sizeof(*tdata));
++
++	task_release_itt(task, task->hdr_itt);
++	iscsi_tcp_cleanup_task(task);
++}
++EXPORT_SYMBOL_GPL(cxgbi_cleanup_task);
++
++void cxgbi_get_conn_stats(struct iscsi_cls_conn *cls_conn,
++				struct iscsi_stats *stats)
++{
++	struct iscsi_conn *conn = cls_conn->dd_data;
++
++	stats->txdata_octets = conn->txdata_octets;
++	stats->rxdata_octets = conn->rxdata_octets;
++	stats->scsicmd_pdus = conn->scsicmd_pdus_cnt;
++	stats->dataout_pdus = conn->dataout_pdus_cnt;
++	stats->scsirsp_pdus = conn->scsirsp_pdus_cnt;
++	stats->datain_pdus = conn->datain_pdus_cnt;
++	stats->r2t_pdus = conn->r2t_pdus_cnt;
++	stats->tmfcmd_pdus = conn->tmfcmd_pdus_cnt;
++	stats->tmfrsp_pdus = conn->tmfrsp_pdus_cnt;
++	stats->digest_err = 0;
++	stats->timeout_err = 0;
++	stats->custom_length = 1;
++	strcpy(stats->custom[0].desc, "eh_abort_cnt");
++	stats->custom[0].value = conn->eh_abort_cnt;
++}
++EXPORT_SYMBOL_GPL(cxgbi_get_conn_stats);
++
++static int cxgbi_conn_max_xmit_dlength(struct iscsi_conn *conn)
++{
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	struct cxgbi_device *cdev = cconn->chba->cdev;
++	unsigned int headroom = SKB_MAX_HEAD(cdev->skb_tx_rsvd);
++	unsigned int max_def = 512 * MAX_SKB_FRAGS;
++	unsigned int max = max(max_def, headroom);
++
++	max = min(cconn->chba->cdev->tx_max_size, max);
++	if (conn->max_xmit_dlength)
++		conn->max_xmit_dlength = min(conn->max_xmit_dlength, max);
++	else
++		conn->max_xmit_dlength = max;
++	cxgbi_align_pdu_size(conn->max_xmit_dlength);
++
++	return 0;
++}
++
++static int cxgbi_conn_max_recv_dlength(struct iscsi_conn *conn)
++{
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	unsigned int max = cconn->chba->cdev->rx_max_size;
++
++	cxgbi_align_pdu_size(max);
++
++	if (conn->max_recv_dlength) {
++		if (conn->max_recv_dlength > max) {
++			libcxgbi_log_error("MaxRecvDataSegmentLength %u needs "
++					"to be <= %u.\n",
++					conn->max_recv_dlength, max);
++			return -EINVAL;
++		}
++		conn->max_recv_dlength = min(conn->max_recv_dlength, max);
++		cxgbi_align_pdu_size(conn->max_recv_dlength);
++	} else
++		conn->max_recv_dlength = max;
++
++	return 0;
++}
++
++int cxgbi_set_conn_param(struct iscsi_cls_conn *cls_conn,
++			enum iscsi_param param, char *buf, int buflen)
++{
++	struct iscsi_conn *conn = cls_conn->dd_data;
++	struct iscsi_session *session = conn->session;
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	struct cxgbi_sock *csk = cconn->cep->csk;
++	int value, err = 0;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"cls_conn 0x%p, param %d, buf(%d) %s.\n",
++			cls_conn, param, buflen, buf);
++
++	switch (param) {
++	case ISCSI_PARAM_HDRDGST_EN:
++		err = iscsi_set_param(cls_conn, param, buf, buflen);
++		if (!err && conn->hdrdgst_en)
++			err = csk->cdev->csk_ddp_setup_digest(csk, csk->tid,
++							conn->hdrdgst_en,
++							conn->datadgst_en, 0);
++		break;
++	case ISCSI_PARAM_DATADGST_EN:
++		err = iscsi_set_param(cls_conn, param, buf, buflen);
++		if (!err && conn->datadgst_en)
++			err = csk->cdev->csk_ddp_setup_digest(csk, csk->tid,
++							conn->hdrdgst_en,
++							conn->datadgst_en, 0);
++		break;
++	case ISCSI_PARAM_MAX_R2T:
++		sscanf(buf, "%d", &value);
++		if (value <= 0 || !is_power_of_2(value))
++			return -EINVAL;
++		if (session->max_r2t == value)
++			break;
++		iscsi_tcp_r2tpool_free(session);
++		err = iscsi_set_param(cls_conn, param, buf, buflen);
++		if (!err && iscsi_tcp_r2tpool_alloc(session))
++			return -ENOMEM;
++	case ISCSI_PARAM_MAX_RECV_DLENGTH:
++		err = iscsi_set_param(cls_conn, param, buf, buflen);
++		if (!err)
++			err = cxgbi_conn_max_recv_dlength(conn);
++		break;
++	case ISCSI_PARAM_MAX_XMIT_DLENGTH:
++		err = iscsi_set_param(cls_conn, param, buf, buflen);
++		if (!err)
++			err = cxgbi_conn_max_xmit_dlength(conn);
++		break;
++	default:
++		return iscsi_set_param(cls_conn, param, buf, buflen);
++	}
++	return err;
++}
++EXPORT_SYMBOL_GPL(cxgbi_set_conn_param);
++
++int cxgbi_get_conn_param(struct iscsi_cls_conn *cls_conn,
++			enum iscsi_param param, char *buf)
++{
++	struct iscsi_conn *iconn = cls_conn->dd_data;
++	int len;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"cls_conn 0x%p, param %d.\n", cls_conn, param);
++
++	switch (param) {
++	case ISCSI_PARAM_CONN_PORT:
++		spin_lock_bh(&iconn->session->lock);
++		len = sprintf(buf, "%hu\n", iconn->portal_port);
++		spin_unlock_bh(&iconn->session->lock);
++		break;
++	case ISCSI_PARAM_CONN_ADDRESS:
++		spin_lock_bh(&iconn->session->lock);
++		len = sprintf(buf, "%s\n", iconn->portal_address);
++		spin_unlock_bh(&iconn->session->lock);
++		break;
++	default:
++		return iscsi_conn_get_param(cls_conn, param, buf);
++	}
++	return len;
++}
++EXPORT_SYMBOL_GPL(cxgbi_get_conn_param);
++
++struct iscsi_cls_conn *
++cxgbi_create_conn(struct iscsi_cls_session *cls_session, u32 cid)
++{
++	struct iscsi_cls_conn *cls_conn;
++	struct iscsi_conn *conn;
++	struct iscsi_tcp_conn *tcp_conn;
++	struct cxgbi_conn *cconn;
++
++	cls_conn = iscsi_tcp_conn_setup(cls_session, sizeof(*cconn), cid);
++	if (!cls_conn)
++		return NULL;
++
++	conn = cls_conn->dd_data;
++	tcp_conn = conn->dd_data;
++	cconn = tcp_conn->dd_data;
++	cconn->iconn = conn;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"cid %u(0x%x), cls 0x%p,0x%p, conn 0x%p,0x%p,0x%p.\n",
++			cid, cid, cls_session, cls_conn, conn, tcp_conn, cconn);
++
++	return cls_conn;
++}
++EXPORT_SYMBOL_GPL(cxgbi_create_conn);
++
++int cxgbi_bind_conn(struct iscsi_cls_session *cls_session,
++				struct iscsi_cls_conn *cls_conn,
++				u64 transport_eph, int is_leading)
++{
++	struct iscsi_conn *conn = cls_conn->dd_data;
++	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
++	struct cxgbi_conn *cconn = tcp_conn->dd_data;
++	struct iscsi_endpoint *ep;
++	struct cxgbi_endpoint *cep;
++	struct cxgbi_sock *csk;
++	int err;
++
++	ep = iscsi_lookup_endpoint(transport_eph);
++	if (!ep)
++		return -EINVAL;
++
++	/*  setup ddp pagesize */
++	cep = ep->dd_data;
++	csk = cep->csk;
++	err = csk->cdev->csk_ddp_setup_pgidx(csk, csk->tid, page_idx, 0);
 +	if (err < 0)
 +		return err;
 +
-+	ddp = cdev->ddp;
-+
-+	uinfo.tagmask = ddp->idx_mask << PPOD_IDX_SHIFT;
-+	cxgbi_ddp_page_size_factor(pgsz_factor);
-+	uinfo.ulimit = uinfo.llimit + (ddp->nppods << PPOD_SIZE_SHIFT);
-+
-+	err = tdev->ctl(tdev, ULP_ISCSI_SET_PARAMS, &uinfo);
-+	if (err < 0) {
-+		cxgb3i_log_warn("%s unable to set iscsi param err=%d, "
-+			      "ddp disabled.\n", tdev->name, err);
-+		cxgbi_ddp_cleanup(cdev);
-+		return err;
-+	}
-+	tdev->ulp_iscsi = ddp;
-+
-+	cdev->csk_ddp_free_gl_skb = ddp_free_gl_skb;
-+	cdev->csk_ddp_alloc_gl_skb = ddp_alloc_gl_skb;
-+	cdev->csk_ddp_setup_digest = ddp_setup_conn_digest;
-+	cdev->csk_ddp_setup_pgidx = ddp_setup_conn_pgidx;
-+	cdev->csk_ddp_set = ddp_set_map;
-+	cdev->csk_ddp_clear = ddp_clear_map;
-+
-+	cxgb3i_log_info("tdev 0x%p, nppods %u, bits %u, mask 0x%x,0x%x "
-+			"pkt %u/%u, %u/%u.\n",
-+			tdev, ddp->nppods, ddp->idx_bits, ddp->idx_mask,
-+			ddp->rsvd_tag_mask, ddp->max_txsz, uinfo.max_txsz,
-+			ddp->max_rxsz, uinfo.max_rxsz);
-+	return 0;
-+}
-+
-+static void cxgb3i_dev_close(struct t3cdev *t3dev)
-+{
-+	struct cxgbi_device *cdev = cxgbi_device_find_by_lldev(t3dev);
-+
-+	if (!cdev || cdev->flags & CXGBI_FLAG_ADAPTER_RESET) {
-+		cxgb3i_log_info("t3 0x%p close, f 0x%x.\n",
-+				cdev, cdev ? cdev->flags : 0);
-+		return;
-+	}
-+
-+	cxgbi_device_unregister(cdev);
-+}
-+
-+/**
-+ * cxgb3i_dev_open - init a t3 adapter structure and any h/w settings
-+ * @t3dev: t3cdev adapter
-+ */
-+static void cxgb3i_dev_open(struct t3cdev *t3dev)
-+{
-+	static int vers_printed;
-+
-+	struct cxgbi_device *cdev = cxgbi_device_find_by_lldev(t3dev);
-+	struct adapter *adapter = tdev2adap(t3dev);
-+	int i, err;
-+
-+	if (!vers_printed) {
-+		printk(KERN_INFO "%s", version);
-+		vers_printed = 1;
-+	}
-+
-+	if (cdev) {
-+		cxgb3i_log_info("t3 0x%p, updating.\n", cdev);
-+		return;
-+	}
-+
-+	cdev = cxgbi_device_register(0, adapter->params.nports);
-+	if (!cdev) {
-+		cxgb3i_log_warn("t3 device 0x%p register failed.\n", t3dev);
-+		return;
-+	}
-+
-+	cdev->flags = CXGBI_FLAG_DEV_T3;
-+	cdev->lldev = t3dev;
-+	cdev->pdev = adapter->pdev;
-+	cdev->ports = adapter->port;
-+	cdev->nports = adapter->params.nports;
-+	cdev->mtus = adapter->params.mtus;
-+	cdev->nmtus = NMTUS;
-+	cdev->snd_win = cxgb3i_snd_win;
-+	cdev->rcv_win = cxgb3i_rcv_win;
-+	cdev->rx_credit_thres = cxgb3i_rx_credit_thres;
-+	cdev->skb_tx_rsvd = CXGB3I_TX_HEADER_LEN;
-+	cdev->skb_rx_extra = sizeof(struct cpl_iscsi_hdr_norss);
-+	cdev->dev_ddp_cleanup = t3_ddp_cleanup;
-+	cdev->itp = &cxgb3i_iscsi_transport;
-+
-+	err = cxgb3i_ddp_init(cdev);
-+	if (err) {
-+		cxgb3i_log_info("t3 0x%p ddp init failed\n", cdev);
-+		goto err_out;
-+	}
-+
-+	err = cxgb3i_ofld_init(cdev);
-+	if (err) {
-+		cxgb3i_log_info("t3 0x%p offload init failed\n", cdev);
-+		goto err_out;
-+	}
-+
-+	err = cxgbi_hbas_add(cdev, CXGB3I_MAX_LUN, CXGBI_MAX_CONN,
-+				&cxgb3i_host_template, cxgb3i_stt);
++	err = iscsi_conn_bind(cls_session, cls_conn, is_leading);
 +	if (err)
-+		goto err_out;
++		return -EINVAL;
 +
-+	for (i = 0; i < cdev->nports; i++)
-+		cdev->hbas[i]->ipv4addr =
-+			cxgb3i_get_private_ipv4addr(cdev->ports[i]);
++	/*  calculate the tag idx bits needed for this conn based on cmds_max */
++	cconn->task_idx_bits = (__ilog2_u32(conn->session->cmds_max - 1)) + 1;
 +
-+	cxgb3i_log_info("cdev 0x%p, f 0x%x, t3dev 0x%p open, err %d.\n",
-+			cdev, cdev ? cdev->flags : 0, t3dev, err);
-+	return;
++	write_lock(&csk->callback_lock);
++	csk->user_data = conn;
++	cconn->chba = cep->chba;
++	cconn->cep = cep;
++	cep->cconn = cconn;
++	write_unlock(&csk->callback_lock);
 +
-+err_out:
-+	cxgbi_device_unregister(cdev);
++	cxgbi_conn_max_xmit_dlength(conn);
++	cxgbi_conn_max_recv_dlength(conn);
++
++	spin_lock_bh(&conn->session->lock);
++	sprintf(conn->portal_address, "%pI4", &csk->daddr.sin_addr.s_addr);
++	conn->portal_port = ntohs(csk->daddr.sin_port);
++	spin_unlock_bh(&conn->session->lock);
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"cls 0x%p,0x%p, ep 0x%p, cconn 0x%p, csk 0x%p.\n",
++			cls_session, cls_conn, ep, cconn, csk);
++	/*  init recv engine */
++	iscsi_tcp_hdr_recv_prep(tcp_conn);
++
++	return 0;
 +}
++EXPORT_SYMBOL_GPL(cxgbi_bind_conn);
 +
-+static void cxgb3i_dev_event_handler(struct t3cdev *t3dev, u32 event, u32 port)
++struct iscsi_cls_session *cxgbi_create_session(struct iscsi_endpoint *ep,
++						u16 cmds_max, u16 qdepth,
++						u32 initial_cmdsn)
 +{
-+	struct cxgbi_device *cdev = cxgbi_device_find_by_lldev(t3dev);
++	struct cxgbi_endpoint *cep;
++	struct cxgbi_hba *chba;
++	struct Scsi_Host *shost;
++	struct iscsi_cls_session *cls_session;
++	struct iscsi_session *session;
 +
-+	cxgb3i_log_debug(CXGBI_DBG_TOE,
-+			"t3dev 0x%p, cdev 0x%p, event 0x%x, port 0x%x.\n",
-+			t3dev, cdev, event, port);
-+	if (!cdev)
-+		return;
++	if (!ep) {
++		libcxgbi_log_error("missing endpoint\n");
++		return NULL;
++	}
 +
-+	switch (event) {
-+	case OFFLOAD_STATUS_DOWN:
-+		cdev->flags |= CXGBI_FLAG_ADAPTER_RESET;
-+		break;
-+	case OFFLOAD_STATUS_UP:
-+		cdev->flags &= ~CXGBI_FLAG_ADAPTER_RESET;
-+		break;
++	cep = ep->dd_data;
++	chba = cep->chba;
++	shost = chba->shost;
++
++	BUG_ON(chba != iscsi_host_priv(shost));
++
++	cls_session = iscsi_session_setup(chba->cdev->itp, shost,
++					cmds_max, 0,
++					sizeof(struct iscsi_tcp_task) +
++					sizeof(struct cxgbi_task_data),
++					initial_cmdsn, ISCSI_MAX_TARGET);
++	if (!cls_session)
++		return NULL;
++
++	session = cls_session->dd_data;
++	if (iscsi_tcp_r2tpool_alloc(session))
++		goto remove_session;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"ep 0x%p, cls sess 0x%p.\n", ep, cls_session);
++	return cls_session;
++
++remove_session:
++	iscsi_session_teardown(cls_session);
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(cxgbi_create_session);
++
++void cxgbi_destroy_session(struct iscsi_cls_session *cls_session)
++{
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"cls sess 0x%p.\n", cls_session);
++
++	iscsi_tcp_r2tpool_free(cls_session->dd_data);
++	iscsi_session_teardown(cls_session);
++}
++EXPORT_SYMBOL_GPL(cxgbi_destroy_session);
++
++int cxgbi_set_host_param(struct Scsi_Host *shost, enum iscsi_host_param param,
++			char *buf, int buflen)
++{
++	struct cxgbi_hba *chba = iscsi_host_priv(shost);
++
++	if (!chba->ndev) {
++		shost_printk(KERN_ERR, shost, "Could not get host param. "
++				"netdev for host not set\n");
++		return -ENODEV;
++	}
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"shost 0x%p, hba 0x%p,%s, param %d, buf(%d) %s.\n",
++			shost, chba, chba->ndev->name, param, buflen, buf);
++
++	switch (param) {
++	case ISCSI_HOST_PARAM_IPADDRESS:
++	{
++		__be32 addr = in_aton(buf);
++		cxgbi_set_iscsi_ipv4(chba, addr);
++		libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"hba %s, set ipv4 %pI4.\n", chba->ndev->name, &addr);
++		return 0;
++	}
++	case ISCSI_HOST_PARAM_HWADDRESS:
++	case ISCSI_HOST_PARAM_NETDEV_NAME:
++		return 0;
++	default:
++		return iscsi_host_set_param(shost, param, buf, buflen);
 +	}
 +}
++EXPORT_SYMBOL_GPL(cxgbi_set_host_param);
 +
-+/**
-+ * cxgb3i_init_module - module init entry point
-+ *
-+ * initialize any driver wide global data structures and register itself
-+ *	with the cxgb3 module
-+ */
-+static int __init cxgb3i_init_module(void)
++int cxgbi_get_host_param(struct Scsi_Host *shost, enum iscsi_host_param param,
++			char *buf)
 +{
-+	int rc;
++	struct cxgbi_hba *chba = iscsi_host_priv(shost);
++	int len = 0;
 +
-+	rc = cxgbi_iscsi_init(&cxgb3i_iscsi_transport, &cxgb3i_stt);
-+	if (rc < 0)
-+		return rc;
++	if (!chba->ndev) {
++		shost_printk(KERN_ERR, shost, "Could not get host param. "
++				"netdev for host not set.\n");
++		return -ENODEV;
++	}
 +
-+	cxgb3_register_client(&t3_client);
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"shost 0x%p, hba 0x%p,%s, param %d.\n",
++			shost, chba, chba->ndev->name, param);
++
++	switch (param) {
++	case ISCSI_HOST_PARAM_HWADDRESS:
++		len = sysfs_format_mac(buf, chba->ndev->dev_addr, 6);
++		break;
++	case ISCSI_HOST_PARAM_NETDEV_NAME:
++		len = sprintf(buf, "%s\n", chba->ndev->name);
++		break;
++	case ISCSI_HOST_PARAM_IPADDRESS:
++	{
++		__be32 addr;
++
++		addr = cxgbi_get_iscsi_ipv4(chba);
++		len = sprintf(buf, "%pI4", &addr);
++		libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"hba %s, ipv4 %pI4.\n", chba->ndev->name, &addr);
++		break;
++	}
++	default:
++		return iscsi_host_get_param(shost, param, buf);
++	}
++
++	return len;
++}
++EXPORT_SYMBOL_GPL(cxgbi_get_host_param);
++
++struct iscsi_endpoint *cxgbi_ep_connect(struct Scsi_Host *shost,
++					struct sockaddr *dst_addr,
++					int non_blocking)
++{
++	struct iscsi_endpoint *ep;
++	struct cxgbi_endpoint *cep;
++	struct cxgbi_hba *hba = NULL;
++	struct cxgbi_sock *csk;
++	int err = -EINVAL;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_SOCK,
++			"shost 0x%p, non_blocking %d, dst_addr 0x%p.\n",
++			shost, non_blocking, dst_addr);
++
++	if (shost) {
++		hba = iscsi_host_priv(shost);
++		if (!hba) {
++			libcxgbi_log_info("shost 0x%p, priv NULL.\n", shost);
++			goto err_out;
++		}
++	}
++
++	csk = cxgbi_check_route(dst_addr);
++	if (IS_ERR(csk))
++		return (struct iscsi_endpoint *)csk;
++	cxgbi_sock_get(csk);
++
++	if (!hba)
++		hba = csk->cdev->hbas[csk->port_id];
++	else if (hba != csk->cdev->hbas[csk->port_id]) {
++		libcxgbi_log_info("Could not connect through requested host %u"
++				"hba 0x%p != 0x%p (%u).\n",
++				shost->host_no, hba,
++				csk->cdev->hbas[csk->port_id], csk->port_id);
++		err = -ENOSPC;
++		goto release_conn;
++	}
++
++	err = sock_get_port(csk);
++	if (err)
++		goto release_conn;
++
++	cxgbi_sock_set_state(csk, CTP_CONNECTING);
++	err = csk->cdev->csk_init_act_open(csk);
++	if (err)
++		goto release_conn;
++
++	if (cxgbi_sock_is_closing(csk)) {
++		err = -ENOSPC;
++		libcxgbi_log_info("csk 0x%p is closing.\n", csk);
++		goto release_conn;
++	}
++
++	ep = iscsi_create_endpoint(sizeof(*cep));
++	if (!ep) {
++		err = -ENOMEM;
++		libcxgbi_log_info("iscsi alloc ep, OOM\n");
++		goto release_conn;
++	}
++
++	cep = ep->dd_data;
++	cep->csk = csk;
++	cep->chba = hba;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_SOCK,
++			"ep 0x%p, cep 0x%p, csk 0x%p, hba 0x%p,%s.\n",
++			ep, cep, csk, hba, hba->ndev->name);
++	return ep;
++
++release_conn:
++	cxgbi_sock_put(csk);
++	cxgbi_sock_closed(csk);
++err_out:
++	return ERR_PTR(err);
++}
++EXPORT_SYMBOL_GPL(cxgbi_ep_connect);
++
++int cxgbi_ep_poll(struct iscsi_endpoint *ep, int timeout_ms)
++{
++	struct cxgbi_endpoint *cep = ep->dd_data;
++	struct cxgbi_sock *csk = cep->csk;
++
++	if (!cxgbi_sock_is_established(csk))
++		return 0;
++	return 1;
++}
++EXPORT_SYMBOL_GPL(cxgbi_ep_poll);
++
++void cxgbi_ep_disconnect(struct iscsi_endpoint *ep)
++{
++	struct cxgbi_endpoint *cep = ep->dd_data;
++	struct cxgbi_conn *cconn = cep->cconn;
++	struct cxgbi_sock *csk = cep->csk;
++
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI | 1 << CXGBI_DBG_SOCK,
++			"ep 0x%p, cep 0x%p, cconn 0x%p, csk 0x%p,%u,0x%lx.\n",
++			ep, cep, cconn, csk, csk->state, csk->flags);
++
++	if (cconn && cconn->iconn) {
++		iscsi_suspend_tx(cconn->iconn);
++		write_lock_bh(&csk->callback_lock);
++		cep->csk->user_data = NULL;
++		cconn->cep = NULL;
++		write_unlock_bh(&csk->callback_lock);
++	}
++	iscsi_destroy_endpoint(ep);
++
++	if (likely(csk->state >= CTP_ESTABLISHED))
++		need_active_close(csk);
++	else
++		cxgbi_sock_closed(csk);
++
++	cxgbi_sock_put(csk);
++}
++EXPORT_SYMBOL_GPL(cxgbi_ep_disconnect);
++
++int cxgbi_iscsi_init(struct iscsi_transport *itp,
++			struct scsi_transport_template **stt)
++{
++	*stt = iscsi_register_transport(itp);
++	if (*stt == NULL) {
++		libcxgbi_log_error("unable to register %s transport 0x%p.\n",
++				itp->name, itp);
++		return -ENODEV;
++	}
++	libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"%s, registered iscsi transport 0x%p.\n",
++			itp->name, stt);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(cxgbi_iscsi_init);
++
++void cxgbi_iscsi_cleanup(struct iscsi_transport *itp,
++			struct scsi_transport_template **stt)
++{
++	if (*stt) {
++		libcxgbi_log_debug(1 << CXGBI_DBG_ISCSI,
++			"de-register transport 0x%p, %s, stt 0x%p.\n",
++			itp, itp->name, *stt);
++		*stt = NULL;
++		iscsi_unregister_transport(itp);
++	}
++}
++EXPORT_SYMBOL_GPL(cxgbi_iscsi_cleanup);
++
++static int __init libcxgbi_init_module(void)
++{
++	sw_tag_idx_bits = (__ilog2_u32(ISCSI_ITT_MASK)) + 1;
++	sw_tag_age_bits = (__ilog2_u32(ISCSI_AGE_MASK)) + 1;
++
++	libcxgbi_log_info("tag itt 0x%x, %u bits, age 0x%x, %u bits\n",
++			ISCSI_ITT_MASK, sw_tag_idx_bits,
++			ISCSI_AGE_MASK, sw_tag_age_bits);
++
++	ddp_setup_host_page_size();
 +	return 0;
 +}
 +
-+/**
-+ * cxgb3i_exit_module - module cleanup/exit entry point
-+ *
-+ * go through the driver hba list and for each hba, release any resource held.
-+ *	and unregisters iscsi transport and the cxgb3 module
-+ */
-+static void __exit cxgb3i_exit_module(void)
++static void __exit libcxgbi_exit_module(void)
 +{
-+	cxgb3_unregister_client(&t3_client);
-+	cxgbi_device_unregister_all(CXGBI_FLAG_DEV_T3);
-+	cxgbi_iscsi_cleanup(&cxgb3i_iscsi_transport, &cxgb3i_stt);
++	cxgbi_device_unregister_all(0xFF);
++	return;
 +}
 +
-+module_init(cxgb3i_init_module);
-+module_exit(cxgb3i_exit_module);
-diff --git a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.h b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.h
++module_init(libcxgbi_init_module);
++module_exit(libcxgbi_exit_module);
+diff --git a/drivers/scsi/cxgbi/libcxgbi.h b/drivers/scsi/cxgbi/libcxgbi.h
 new file mode 100644
-index 0000000..5f5e339
+index 0000000..f8a9590
 --- /dev/null
-+++ b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.h
-@@ -0,0 +1,51 @@
++++ b/drivers/scsi/cxgbi/libcxgbi.h
+@@ -0,0 +1,754 @@
 +/*
-+ * cxgb3i.h: Chelsio S3xx iSCSI driver.
++ * libcxgbi.h: Chelsio common library for T3/T4 iSCSI driver.
 + *
-+ * Copyright (c) 2008 Chelsio Communications, Inc.
++ * Copyright (c) 2010 Chelsio Communications, Inc.
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
 + * the Free Software Foundation.
 + *
 + * Written by: Karen Xie (kxie@chelsio.com)
++ * Written by: Rakesh Ranjan (rranjan@chelsio.com)
 + */
 +
-+#ifndef __CXGB3I_H__
-+#define __CXGB3I_H__
++#ifndef	__LIBCXGBI_H__
++#define	__LIBCXGBI_H__
 +
-+#define CXGB3I_SCSI_HOST_QDEPTH 1024
-+#define CXGB3I_MAX_LUN		512
-+#define ISCSI_PDU_NONPAYLOAD_MAX \
-+	(sizeof(struct iscsi_hdr) + ISCSI_MAX_AHS_SIZE + 2*ISCSI_DIGEST_SIZE)
++#include <linux/errno.h>
++#include <linux/types.h>
++#include <linux/debugfs.h>
++#include <linux/list.h>
++#include <linux/netdevice.h>
++#include <linux/if_vlan.h>
++#include <linux/scatterlist.h>
++#include <linux/skbuff.h>
++#include <linux/vmalloc.h>
++#include <scsi/scsi_device.h>
++#include <scsi/libiscsi_tcp.h>
 +
-+/*for TX: a skb must have a headroom of at least TX_HEADER_LEN bytes */
-+#define CXGB3I_TX_HEADER_LEN \
-+	(sizeof(struct tx_data_wr) + sizeof(struct sge_opaque_hdr))
++enum cxgbi_dbg_flag {
++	CXGBI_DBG_ISCSI,
++	CXGBI_DBG_DDP,
++	CXGBI_DBG_TOE,
++	CXGBI_DBG_SOCK,
 +
-+extern cxgb3_cpl_handler_func cxgb3i_cpl_handlers[NUM_CPL_CMDS];
-+
-+#define cxgb3i_get_private_ipv4addr(ndev) \
-+	(((struct port_info *)(netdev_priv(ndev)))->iscsi_ipv4addr)
-+#define cxgb3i_set_private_ipv4addr(ndev, addr) \
-+	(((struct port_info *)(netdev_priv(ndev)))->iscsi_ipv4addr) = addr
-+
-+struct cpl_iscsi_hdr_norss {
-+	union opcode_tid ot;
-+	u16 pdu_len_ddp;
-+	u16 len;
-+	u32 seq;
-+	u16 urg;
-+	u8 rsvd;
-+	u8 status;
++	CXGBI_DBG_PDU_TX,
++	CXGBI_DBG_PDU_RX,
++	CXGBI_DBG_DEV,
 +};
 +
-+struct cpl_rx_data_ddp_norss {
-+	union opcode_tid ot;
-+	u16 urg;
-+	u16 len;
-+	u32 seq;
-+	u32 nxt_seq;
-+	u32 ulp_crc;
-+	u32 ddp_status;
++#define cxgbi_dbg_print(level, fmt, args...)	\
++	do {	\
++		if (dbg_level & (level)) \
++			printk(KERN_INFO "cxgbi: %s - " fmt, \
++				__func__ , ## args); \
++	} while (0)
++#define	cxgbi_dbg_error(fmt, args...) \
++	printk(KERN_ERR "cxgbi: ERR! %s, " fmt, __func__ , ## args)
++#define cxgbi_dbg_warn(fmt, args...) \
++	printk(KERN_WARNING "cxgbi: WARN! %s, " fmt, __func__ , ## args)
++#define cxgbi_dbg_info(fmt, args...) \
++	printk(KERN_INFO "cxgbi: %s, " fmt, __func__ , ## args)
++
++/* max. connections per adapter */
++#define CXGBI_MAX_CONN		16384
++
++/* always allocate rooms for AHS */
++#define SKB_TX_ISCSI_PDU_HEADER_MAX	\
++	(sizeof(struct iscsi_hdr) + ISCSI_MAX_AHS_SIZE)
++
++#define	ISCSI_PDU_NONPAYLOAD_LEN	312 /* bhs(48) + ahs(256) + digest(8)*/
++
++/*
++ * align pdu size to multiple of 512 for better performance
++ */
++#define cxgbi_align_pdu_size(n) do { n = (n) & (~511); } while (0)
++
++#define ULP2_MODE_ISCSI		2
++
++#define ULP2_MAX_PKT_SIZE	16224
++#define ULP2_MAX_PDU_PAYLOAD	\
++	(ULP2_MAX_PKT_SIZE - ISCSI_PDU_NONPAYLOAD_LEN)
++
++/*
++ * For iscsi connections HW may inserts digest bytes into the pdu. Those digest
++ * bytes are not sent by the host but are part of the TCP payload and therefore
++ * consume TCP sequence space.
++ */
++static const unsigned int ulp2_extra_len[] = { 0, 4, 4, 8 };
++static inline unsigned int cxgbi_ulp_extra_len(int submode)
++{
++	return ulp2_extra_len[submode & 3];
++}
++
++/*
++ * struct pagepod_hdr, pagepod - pagepod format
++ */
++
++#define CPL_RX_DDP_STATUS_DDP_SHIFT	16 /* ddp'able */
++#define CPL_RX_DDP_STATUS_PAD_SHIFT	19 /* pad error */
++#define CPL_RX_DDP_STATUS_HCRC_SHIFT	20 /* hcrc error */
++#define CPL_RX_DDP_STATUS_DCRC_SHIFT	21 /* dcrc error */
++
++struct cxgbi_pagepod_hdr {
++	u32 vld_tid;
++	u32 pgsz_tag_clr;
++	u32 max_offset;
++	u32 page_offset;
++	u64 rsvd;
 +};
-+#endif
++
++#define PPOD_PAGES_MAX			4
++struct cxgbi_pagepod {
++	struct cxgbi_pagepod_hdr hdr;
++	u64 addr[PPOD_PAGES_MAX + 1];
++};
++
++struct cxgbi_tag_format {
++	unsigned char sw_bits;
++	unsigned char rsvd_bits;
++	unsigned char rsvd_shift;
++	unsigned char filler[1];
++	u32 rsvd_mask;
++};
++
++struct cxgbi_gather_list {
++	unsigned int tag;
++	unsigned int length;
++	unsigned int offset;
++	unsigned int nelem;
++	struct page **pages;
++	dma_addr_t phys_addr[0];
++};
++
++struct cxgbi_ddp_info {
++	struct kref refcnt;
++	struct cxgbi_device *cdev;
++	struct pci_dev *pdev;
++	unsigned int max_txsz;
++	unsigned int max_rxsz;
++	unsigned int llimit;
++	unsigned int ulimit;
++	unsigned int nppods;
++	unsigned int idx_last;
++	unsigned char idx_bits;
++	unsigned char filler[3];
++	unsigned int idx_mask;
++	unsigned int rsvd_tag_mask;
++	spinlock_t map_lock;
++	struct cxgbi_gather_list **gl_map;
++	struct sk_buff **gl_skb;
++};
++
++#define DDP_PGIDX_MAX		4
++#define DDP_THRESHOLD		2048
++
++#define PPOD_PAGES_SHIFT	2       /*  4 pages per pod */
++
++#define PPOD_SIZE               sizeof(struct cxgbi_pagepod)  /*  64 */
++#define PPOD_SIZE_SHIFT         6
++
++#define ULPMEM_DSGL_MAX_NPPODS	16	/*  1024/PPOD_SIZE */
++#define ULPMEM_IDATA_MAX_NPPODS	4	/*  256/PPOD_SIZE */
++#define PCIE_MEMWIN_MAX_NPPODS	16	/*  1024/PPOD_SIZE */
++
++#define PPOD_COLOR_SHIFT	0
++#define PPOD_COLOR(x)		((x) << PPOD_COLOR_SHIFT)
++
++#define PPOD_IDX_SHIFT          6
++#define PPOD_IDX_MAX_SIZE       24
++
++#define PPOD_TID_SHIFT		0
++#define PPOD_TID(x)		((x) << PPOD_TID_SHIFT)
++
++#define PPOD_TAG_SHIFT		6
++#define PPOD_TAG(x)		((x) << PPOD_TAG_SHIFT)
++
++#define PPOD_VALID_SHIFT	24
++#define PPOD_VALID(x)		((x) << PPOD_VALID_SHIFT)
++#define PPOD_VALID_FLAG		PPOD_VALID(1U)
++
++#define W_TCB_ULP_TYPE          0
++#define TCB_ULP_TYPE_SHIFT      0
++#define TCB_ULP_TYPE_MASK       0xfULL
++#define TCB_ULP_TYPE(x)         ((x) << TCB_ULP_TYPE_SHIFT)
++
++#define W_TCB_ULP_RAW           0
++#define TCB_ULP_RAW_SHIFT       4
++#define TCB_ULP_RAW_MASK        0xffULL
++#define TCB_ULP_RAW(x)          ((x) << TCB_ULP_RAW_SHIFT)
++
++/*
++ * sge_opaque_hdr -
++ * Opaque version of structure the SGE stores at skb->head of TX_DATA packets
++ * and for which we must reserve space.
++ */
++struct sge_opaque_hdr {
++	void *dev;
++	dma_addr_t addr[MAX_SKB_FRAGS + 1];
++};
++
++struct cxgbi_sock {
++	struct cxgbi_device *cdev;
++
++	int tid;
++	int atid;
++	unsigned long flags;
++	unsigned int mtu;
++	unsigned short rss_qid;
++	unsigned short txq_idx;
++	unsigned short advmss;
++	unsigned int tx_chan;
++	unsigned int rx_chan;
++	unsigned int mss_idx;
++	unsigned int smac_idx;
++	unsigned char port_id;
++	int wr_max_cred;
++	int wr_cred;
++	int wr_una_cred;
++	unsigned char hcrc_len;
++	unsigned char dcrc_len;
++
++	void *l2t;
++	struct sk_buff *wr_pending_head;
++	struct sk_buff *wr_pending_tail;
++	struct sk_buff *cpl_close;
++	struct sk_buff *cpl_abort_req;
++	struct sk_buff *cpl_abort_rpl;
++	struct sk_buff *skb_ulp_lhdr;
++	spinlock_t lock;
++	struct kref refcnt;
++	unsigned int state;
++	struct sockaddr_in saddr;
++	struct sockaddr_in daddr;
++	struct dst_entry *dst;
++	struct sk_buff_head receive_queue;
++	struct sk_buff_head write_queue;
++	struct timer_list retry_timer;
++	int err;
++	rwlock_t callback_lock;
++	void *user_data;
++
++	u32 rcv_nxt;
++	u32 copied_seq;
++	u32 rcv_wup;
++	u32 snd_nxt;
++	u32 snd_una;
++	u32 write_seq;
++};
++
++/*
++ * connection states
++ */
++enum cxgbi_sock_states{
++	CTP_CLOSED,
++	CTP_CONNECTING,
++	CTP_ACTIVE_OPEN,
++	CTP_ESTABLISHED,
++	CTP_ACTIVE_CLOSE,
++	CTP_PASSIVE_CLOSE,
++	CTP_CLOSE_WAIT_1,
++	CTP_CLOSE_WAIT_2,
++	CTP_ABORTING,
++};
++
++/*
++ * Connection flags -- many to track some close related events.
++ */
++enum cxgbi_sock_flags {
++	CTPF_ABORT_RPL_RCVD,	/*received one ABORT_RPL_RSS message */
++	CTPF_ABORT_REQ_RCVD,	/*received one ABORT_REQ_RSS message */
++	CTPF_ABORT_RPL_PENDING,	/* expecting an abort reply */
++	CTPF_TX_DATA_SENT,	/* already sent a TX_DATA WR */
++	CTPF_ACTIVE_CLOSE_NEEDED,/* need to be closed */
++	CTPF_HAS_ATID,		/* reserved atid */
++	CTPF_HAS_TID,		/* reserved hw tid */
++	CTPF_OFFLOAD_DOWN,	/* offload function off */
++};
++
++struct cxgbi_skb_rx_cb {
++	__u32 ddigest;
++	__u32 pdulen;
++};
++
++struct cxgbi_skb_tx_cb {
++	void *l2t;
++	struct sk_buff *wr_next;
++};
++
++enum cxgbi_skcb_flags {
++	SKCBF_TX_NEED_HDR,	/* packet needs a header */
++	SKCBF_RX_COALESCED,	/* received whole pdu */
++	SKCBF_RX_HDR,		/* recieved pdu header */
++	SKCBF_RX_DATA,		/* recieved pdu payload */
++	SKCBF_RX_STATUS,	/* recieved ddp status */
++	SKCBF_RX_DATA_DDPD,	/* pdu payload ddp'd */
++	SKCBF_RX_HCRC_ERR,	/* header digest error */
++	SKCBF_RX_DCRC_ERR,	/* data digest error */
++	SKCBF_RX_PAD_ERR,	/* padding byte error */
++};
++
++struct cxgbi_skb_cb {
++	unsigned char ulp_mode;
++	unsigned long flags;
++	unsigned int seq;
++	union {
++		struct cxgbi_skb_rx_cb rx;
++		struct cxgbi_skb_tx_cb tx;
++	};
++};
++
++#define CXGBI_SKB_CB(skb)	((struct cxgbi_skb_cb *)&((skb)->cb[0]))
++#define cxgbi_skcb_flags(skb)		(CXGBI_SKB_CB(skb)->flags)
++#define cxgbi_skcb_ulp_mode(skb)	(CXGBI_SKB_CB(skb)->ulp_mode)
++#define cxgbi_skcb_tcp_seq(skb)		(CXGBI_SKB_CB(skb)->seq)
++#define cxgbi_skcb_rx_ddigest(skb)	(CXGBI_SKB_CB(skb)->rx.ddigest)
++#define cxgbi_skcb_rx_pdulen(skb)	(CXGBI_SKB_CB(skb)->rx.pdulen)
++#define cxgbi_skcb_tx_wr_next(skb)	(CXGBI_SKB_CB(skb)->tx.wr_next)
++
++static inline void cxgbi_skcb_set_flag(struct sk_buff *skb,
++					enum cxgbi_skcb_flags flag)
++{
++	__set_bit(flag, &(cxgbi_skcb_flags(skb)));
++}
++
++static inline void cxgbi_skcb_clear_flag(struct sk_buff *skb,
++					enum cxgbi_skcb_flags flag)
++{
++	__clear_bit(flag, &(cxgbi_skcb_flags(skb)));
++}
++
++static inline int cxgbi_skcb_test_flag(struct sk_buff *skb,
++					enum cxgbi_skcb_flags flag)
++{
++	return test_bit(flag, &(cxgbi_skcb_flags(skb)));
++}
++
++static inline void cxgbi_sock_set_flag(struct cxgbi_sock *csk,
++					enum cxgbi_sock_flags flag)
++{
++	__set_bit(flag, &csk->flags);
++	cxgbi_dbg_print(1 << CXGBI_DBG_SOCK,
++			"csk 0x%p,%u,0x%lx, bit %d.\n",
++			csk, csk->state, csk->flags, flag);
++}
++
++static inline void cxgbi_sock_clear_flag(struct cxgbi_sock *csk,
++					enum cxgbi_sock_flags flag)
++{
++	__clear_bit(flag, &csk->flags);
++	cxgbi_dbg_print(1 << CXGBI_DBG_SOCK,
++			"csk 0x%p,%u,0x%lx, bit %d.\n",
++			csk, csk->state, csk->flags, flag);
++}
++
++static inline int cxgbi_sock_flag(struct cxgbi_sock *csk,
++				enum cxgbi_sock_flags flag)
++{
++	if (csk == NULL)
++		return 0;
++	return test_bit(flag, &csk->flags);
++}
++
++static inline void cxgbi_sock_set_state(struct cxgbi_sock *csk, int state)
++{
++	cxgbi_dbg_print(1 << CXGBI_DBG_SOCK,
++			"csk 0x%p,%u,0x%lx, state -> %u.\n",
++			csk, csk->state, csk->flags, state);
++	csk->state = state;
++}
++
++static inline void cxgbi_sock_free(struct kref *kref)
++{
++	struct cxgbi_sock *csk = container_of(kref,
++						struct cxgbi_sock,
++						refcnt);
++	if (csk) {
++		cxgbi_dbg_print(1 << CXGBI_DBG_SOCK,
++				"free csk 0x%p, state %u, flags 0x%lx\n",
++				csk, csk->state, csk->flags);
++		kfree(csk);
++	}
++}
++
++static inline void __cxgbi_sock_put(const char *fn, struct cxgbi_sock *csk)
++{
++	cxgbi_dbg_print(1 << CXGBI_DBG_SOCK,
++			"%s, put csk 0x%p, ref %u-1.\n",
++			fn, csk, atomic_read(&csk->refcnt.refcount));
++	kref_put(&csk->refcnt, cxgbi_sock_free);
++}
++#define cxgbi_sock_put(csk)	__cxgbi_sock_put(__func__, csk)
++
++static inline void __cxgbi_sock_get(const char *fn, struct cxgbi_sock *csk)
++{
++	cxgbi_dbg_print(1 << CXGBI_DBG_SOCK,
++			"%s, get csk 0x%p, ref %u+1.\n",
++			fn, csk, atomic_read(&csk->refcnt.refcount));
++	kref_get(&csk->refcnt);
++}
++#define cxgbi_sock_get(csk)	__cxgbi_sock_get(__func__, csk)
++
++static inline int cxgbi_sock_is_closing(struct cxgbi_sock *csk)
++{
++	return csk->state >= CTP_ACTIVE_CLOSE;
++}
++
++static inline int cxgbi_sock_is_established(struct cxgbi_sock *csk)
++{
++	return csk->state == CTP_ESTABLISHED;
++}
++
++static inline void cxgbi_sock_purge_write_queue(struct cxgbi_sock *csk)
++{
++	struct sk_buff *skb;
++
++	while ((skb = __skb_dequeue(&csk->write_queue)))
++		__kfree_skb(skb);
++}
++
++static inline unsigned int cxgbi_sock_compute_wscale(unsigned int win)
++{
++	unsigned int wscale = 0;
++
++	while (wscale < 14 && (65535 << wscale) < win)
++		wscale++;
++	return wscale;
++}
++
++static inline struct sk_buff *alloc_cpl(int cpl_len, int dlen, gfp_t gfp)
++{
++	int wrlen = roundup(cpl_len, 16);
++	struct sk_buff *skb = alloc_skb(wrlen + dlen, gfp);
++
++	if (skb) {
++		__skb_put(skb, wrlen);
++		memset(skb->head, 0, wrlen + dlen);
++	} else
++		cxgbi_dbg_info("alloc cpl skb %u+%u, OOM.\n", cpl_len, dlen);
++	return skb;
++}
++
++
++/*
++ * The number of WRs needed for an skb depends on the number of fragments
++ * in the skb and whether it has any payload in its main body.  This maps the
++ * length of the gather list represented by an skb into the # of necessary WRs.
++ * The extra two fragments are for iscsi bhs and payload padding.
++ */
++#define SKB_WR_LIST_SIZE	 (MAX_SKB_FRAGS + 2)
++
++static inline void cxgbi_sock_reset_wr_list(struct cxgbi_sock *csk)
++{
++	csk->wr_pending_head = csk->wr_pending_tail = NULL;
++}
++
++static inline void cxgbi_sock_enqueue_wr(struct cxgbi_sock *csk,
++					  struct sk_buff *skb)
++{
++	cxgbi_skcb_tx_wr_next(skb) = NULL;
++	/*
++	 * We want to take an extra reference since both us and the driver
++	 * need to free the packet before it's really freed. We know there's
++	 * just one user currently so we use atomic_set rather than skb_get
++	 * to avoid the atomic op.
++	 */
++	atomic_set(&skb->users, 2);
++
++	if (!csk->wr_pending_head)
++		csk->wr_pending_head = skb;
++	else
++		cxgbi_skcb_tx_wr_next(csk->wr_pending_tail) = skb;
++	csk->wr_pending_tail = skb;
++}
++
++static inline int cxgbi_sock_count_pending_wrs(const struct cxgbi_sock *csk)
++{
++	int n = 0;
++	const struct sk_buff *skb = csk->wr_pending_head;
++
++	while (skb) {
++		n += skb->csum;
++		skb = cxgbi_skcb_tx_wr_next(skb);
++	}
++	return n;
++}
++
++static inline struct sk_buff *cxgbi_sock_peek_wr(const struct cxgbi_sock *csk)
++{
++	return csk->wr_pending_head;
++}
++
++static inline struct sk_buff *cxgbi_sock_dequeue_wr(struct cxgbi_sock *csk)
++{
++	struct sk_buff *skb = csk->wr_pending_head;
++
++	if (likely(skb)) {
++		csk->wr_pending_head = cxgbi_skcb_tx_wr_next(skb);
++		cxgbi_skcb_tx_wr_next(skb) = NULL;
++	}
++	return skb;
++}
++
++void cxgbi_sock_check_wr_invariants(const struct cxgbi_sock *);
++void cxgbi_sock_purge_wr_queue(struct cxgbi_sock *);
++void cxgbi_sock_skb_entail(struct cxgbi_sock *, struct sk_buff *);
++void cxgbi_sock_fail_act_open(struct cxgbi_sock *, int);
++void cxgbi_sock_act_open_req_arp_failure(void *, struct sk_buff *);
++void cxgbi_sock_closed(struct cxgbi_sock *);
++void cxgbi_sock_established(struct cxgbi_sock *, unsigned int, unsigned int);
++void cxgbi_sock_rcv_abort_rpl(struct cxgbi_sock *);
++void cxgbi_sock_rcv_peer_close(struct cxgbi_sock *);
++void cxgbi_sock_rcv_close_conn_rpl(struct cxgbi_sock *, u32);
++void cxgbi_sock_rcv_wr_ack(struct cxgbi_sock *, unsigned int, unsigned int,
++				int);
++unsigned int cxgbi_sock_select_mss(struct cxgbi_sock *, unsigned int);
++void cxgbi_sock_free_cpl_skbs(struct cxgbi_sock *);
++
++struct cxgbi_hba {
++	struct net_device *ndev;
++	struct Scsi_Host *shost;
++	struct cxgbi_device *cdev;
++	__be32 ipv4addr;
++	unsigned char port_id;
++};
++
++struct cxgbi_ports_map {
++	unsigned int max_connect;
++	unsigned int used;
++	unsigned short sport_base;
++	spinlock_t lock;
++	unsigned int next;
++	struct cxgbi_sock **port_csk;
++};
++
++#define CXGBI_FLAG_DEV_T3		0x1
++#define CXGBI_FLAG_DEV_T4		0x2
++#define CXGBI_FLAG_ADAPTER_RESET	0x4
++struct cxgbi_device {
++	struct list_head list_head;
++	unsigned int flags;
++	struct net_device **ports;
++	void *lldev;
++	struct cxgbi_hba **hbas;
++	const unsigned short *mtus;
++	unsigned char nmtus;
++	unsigned char nports;
++	struct pci_dev *pdev;
++	struct dentry *debugfs_root;
++	struct iscsi_transport *itp;
++
++	unsigned int pfvf;
++	unsigned int snd_win;
++	unsigned int rcv_win;
++	unsigned int rx_credit_thres;
++	unsigned int skb_tx_rsvd;
++	unsigned int skb_rx_extra;	/* for msg coalesced mode */
++	unsigned int tx_max_size;
++	unsigned int rx_max_size;
++	struct cxgbi_ports_map pmap;
++	struct cxgbi_tag_format tag_format;
++	struct cxgbi_ddp_info *ddp;
++
++	void (*dev_ddp_cleanup)(struct cxgbi_device *);
++	void (*csk_ddp_free_gl_skb)(struct cxgbi_ddp_info *, int, int);
++	int (*csk_ddp_alloc_gl_skb)(struct cxgbi_ddp_info *, int, int, gfp_t);
++	int (*csk_ddp_set)(struct cxgbi_sock *, struct cxgbi_pagepod_hdr *,
++				unsigned int, unsigned int,
++				struct cxgbi_gather_list *);
++	void (*csk_ddp_clear)(struct cxgbi_hba *,
++				unsigned int, unsigned int, unsigned int);
++	int (*csk_ddp_setup_digest)(struct cxgbi_sock *,
++				unsigned int, int, int, int);
++	int (*csk_ddp_setup_pgidx)(struct cxgbi_sock *,
++				unsigned int, int, bool);
++
++	void (*csk_release_offload_resources)(struct cxgbi_sock *);
++	int (*csk_rx_pdu_ready)(struct cxgbi_sock *, struct sk_buff *);
++	u32 (*csk_send_rx_credits)(struct cxgbi_sock *, u32);
++	int (*csk_push_tx_frames)(struct cxgbi_sock *, int);
++	void (*csk_send_abort_req)(struct cxgbi_sock *);
++	void (*csk_send_close_req)(struct cxgbi_sock *);
++	int (*csk_alloc_cpls)(struct cxgbi_sock *);
++	int (*csk_init_act_open)(struct cxgbi_sock *);
++
++	void *dd_data;
++};
++#define cxgbi_cdev_priv(cdev)	((cdev)->dd_data)
++
++struct cxgbi_conn {
++	struct cxgbi_endpoint *cep;
++	struct iscsi_conn *iconn;
++	struct cxgbi_hba *chba;
++	u32 task_idx_bits;
++};
++
++struct cxgbi_endpoint {
++	struct cxgbi_conn *cconn;
++	struct cxgbi_hba *chba;
++	struct cxgbi_sock *csk;
++};
++
++#define MAX_PDU_FRAGS	((ULP2_MAX_PDU_PAYLOAD + 512 - 1) / 512)
++struct cxgbi_task_data {
++	unsigned short nr_frags;
++	skb_frag_t frags[MAX_PDU_FRAGS];
++	struct sk_buff *skb;
++	unsigned int offset;
++	unsigned int count;
++	unsigned int sgoffset;
++};
++
++static inline int cxgbi_is_ddp_tag(struct cxgbi_tag_format *tformat, u32 tag)
++{
++	return !(tag & (1 << (tformat->rsvd_bits + tformat->rsvd_shift - 1)));
++}
++
++static inline int cxgbi_sw_tag_usable(struct cxgbi_tag_format *tformat,
++					u32 sw_tag)
++{
++	sw_tag >>= (32 - tformat->rsvd_bits);
++	return !sw_tag;
++}
++
++static inline u32 cxgbi_set_non_ddp_tag(struct cxgbi_tag_format *tformat,
++					u32 sw_tag)
++{
++	unsigned char shift = tformat->rsvd_bits + tformat->rsvd_shift - 1;
++	u32 mask = (1 << shift) - 1;
++
++	if (sw_tag && (sw_tag & ~mask)) {
++		u32 v1 = sw_tag & ((1 << shift) - 1);
++		u32 v2 = (sw_tag >> (shift - 1)) << shift;
++
++		return v2 | v1 | 1 << shift;
++	}
++
++	return sw_tag | 1 << shift;
++}
++
++static inline u32 cxgbi_ddp_tag_base(struct cxgbi_tag_format *tformat,
++					u32 sw_tag)
++{
++	u32 mask = (1 << tformat->rsvd_shift) - 1;
++
++	if (sw_tag && (sw_tag & ~mask)) {
++		u32 v1 = sw_tag & mask;
++		u32 v2 = sw_tag >> tformat->rsvd_shift;
++
++		v2 <<= tformat->rsvd_bits + tformat->rsvd_shift;
++
++		return v2 | v1;
++	}
++
++	return sw_tag;
++}
++
++static inline u32 cxgbi_tag_rsvd_bits(struct cxgbi_tag_format *tformat,
++					u32 tag)
++{
++	if (cxgbi_is_ddp_tag(tformat, tag))
++		return (tag >> tformat->rsvd_shift) & tformat->rsvd_mask;
++
++	return 0;
++}
++
++static inline u32 cxgbi_tag_nonrsvd_bits(struct cxgbi_tag_format *tformat,
++					u32 tag)
++{
++	unsigned char shift = tformat->rsvd_bits + tformat->rsvd_shift - 1;
++	u32 v1, v2;
++
++	if (cxgbi_is_ddp_tag(tformat, tag)) {
++		v1 = tag & ((1 << tformat->rsvd_shift) - 1);
++		v2 = (tag >> (shift + 1)) << tformat->rsvd_shift;
++	} else {
++		u32 mask = (1 << shift) - 1;
++		tag &= ~(1 << shift);
++		v1 = tag & mask;
++		v2 = (tag >> 1) & ~mask;
++	}
++	return v1 | v2;
++}
++
++static inline void *cxgbi_alloc_big_mem(unsigned int size,
++					gfp_t gfp)
++{
++	void *p = kmalloc(size, gfp);
++	if (!p)
++		p = vmalloc(size);
++	if (p)
++		memset(p, 0, size);
++	return p;
++}
++
++static inline void cxgbi_free_big_mem(void *addr)
++{
++	if (is_vmalloc_addr(addr))
++		vfree(addr);
++	else
++		kfree(addr);
++}
++
++static inline void cxgbi_set_iscsi_ipv4(struct cxgbi_hba *chba, __be32 ipaddr)
++{
++	chba->ipv4addr = ipaddr;
++}
++
++static inline __be32 cxgbi_get_iscsi_ipv4(struct cxgbi_hba *chba)
++{
++	return chba->ipv4addr;
++}
++
++struct cxgbi_device *cxgbi_device_register(unsigned int, unsigned int);
++void cxgbi_device_unregister(struct cxgbi_device *);
++void cxgbi_device_unregister_all(unsigned int flag);
++struct cxgbi_device *cxgbi_device_find_by_lldev(void *);
++int cxgbi_hbas_add(struct cxgbi_device *, unsigned int, unsigned int,
++			struct scsi_host_template *,
++			struct scsi_transport_template *);
++void cxgbi_hbas_remove(struct cxgbi_device *);
++
++int cxgbi_device_portmap_create(struct cxgbi_device *cdev, unsigned int base,
++			unsigned int max_conn);
++void cxgbi_device_portmap_cleanup(struct cxgbi_device *cdev);
++
++void cxgbi_conn_tx_open(struct cxgbi_sock *);
++void cxgbi_conn_pdu_ready(struct cxgbi_sock *);
++int cxgbi_conn_alloc_pdu(struct iscsi_task *, u8);
++int cxgbi_conn_init_pdu(struct iscsi_task *, unsigned int , unsigned int);
++int cxgbi_conn_xmit_pdu(struct iscsi_task *);
++
++void cxgbi_cleanup_task(struct iscsi_task *task);
++
++void cxgbi_get_conn_stats(struct iscsi_cls_conn *, struct iscsi_stats *);
++int cxgbi_set_conn_param(struct iscsi_cls_conn *,
++			enum iscsi_param, char *, int);
++int cxgbi_get_conn_param(struct iscsi_cls_conn *, enum iscsi_param, char *);
++struct iscsi_cls_conn *cxgbi_create_conn(struct iscsi_cls_session *, u32);
++int cxgbi_bind_conn(struct iscsi_cls_session *,
++			struct iscsi_cls_conn *, u64, int);
++void cxgbi_destroy_session(struct iscsi_cls_session *);
++struct iscsi_cls_session *cxgbi_create_session(struct iscsi_endpoint *,
++			u16, u16, u32);
++int cxgbi_set_host_param(struct Scsi_Host *,
++			enum iscsi_host_param, char *, int);
++int cxgbi_get_host_param(struct Scsi_Host *, enum iscsi_host_param, char *);
++struct iscsi_endpoint *cxgbi_ep_connect(struct Scsi_Host *,
++			struct sockaddr *, int);
++int cxgbi_ep_poll(struct iscsi_endpoint *, int);
++void cxgbi_ep_disconnect(struct iscsi_endpoint *);
++
++int cxgbi_iscsi_init(struct iscsi_transport *,
++			struct scsi_transport_template **);
++void cxgbi_iscsi_cleanup(struct iscsi_transport *,
++			struct scsi_transport_template **);
++void cxgbi_parse_pdu_itt(struct iscsi_conn *, itt_t, int *, int *);
++int cxgbi_ddp_init(struct cxgbi_device *, unsigned int, unsigned int,
++			unsigned int, unsigned int);
++int cxgbi_ddp_cleanup(struct cxgbi_device *);
++void cxgbi_ddp_page_size_factor(int *);
++void cxgbi_ddp_ppod_clear(struct cxgbi_pagepod *);
++void cxgbi_ddp_ppod_set(struct cxgbi_pagepod *, struct cxgbi_pagepod_hdr *,
++			struct cxgbi_gather_list *, unsigned int);
++#endif	/*__LIBCXGBI_H__*/
