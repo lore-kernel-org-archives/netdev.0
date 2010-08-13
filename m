@@ -1,82 +1,81 @@
-From: Steve Chen <schen@mvista.com>
-Subject: Re: TAHI CN-6-4-1 failed on Linux 2.6.32 kernel
-Date: Thu, 12 Aug 2010 19:00:57 -0500
-Message-ID: <AANLkTikeLtFqO4FcZKceCntycLSa-ZCPGF28t6nj=Gab@mail.gmail.com>
-References: <AANLkTim-zWhq9aGrvH2PdS3VjfBvmh=qL=1Sy3Z+VPgT@mail.gmail.com>
-	<4C646330.6080303@hp.com>
-	<AANLkTik5JOupTW97ikf1imsZrkmwgfPNsvBoSZp1S8JV@mail.gmail.com>
+From: "Wang, Qi" <qi.wang@intel.com>
+Subject: RE: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Fri, 13 Aug 2010 08:23:42 +0800
+Message-ID: <D5AB6E638E5A3E4B8F4406B113A5A19A28EA2AB1@shsmsx501.ccr.corp.intel.com>
+References: <4C61EDE5.4030505@dsn.okisemi.com>
+ <AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>
+ <D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>
+ <4C63B8F8.6090106@grandegger.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001636d352796888c2048da92dad
-Cc: usagi-users-ctl@ml.linux-ipv6.org, netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Daniel Baluta <daniel.baluta@gmail.com>,
+	Masayuki Ohtak <masa-korg@dsn.okisemi.com>,
+	"meego-dev@meego.com" <meego-dev@meego.com>,
+	"socketcan-core@lists.berlios.de" <socketcan-core@lists.berlios.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>,
+	"gregkh@suse.de" <gregkh@suse.de>,
+	"arjan@linux.intel.com" <arjan@linux.intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:56391 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753193Ab0HMABA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Aug 2010 20:01:00 -0400
-Received: by yxg6 with SMTP id 6so665723yxg.19
-        for <netdev@vger.kernel.org>; Thu, 12 Aug 2010 17:00:59 -0700 (PDT)
-In-Reply-To: <AANLkTik5JOupTW97ikf1imsZrkmwgfPNsvBoSZp1S8JV@mail.gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:47760 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753193Ab0HMAXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Aug 2010 20:23:53 -0400
+In-Reply-To: <4C63B8F8.6090106@grandegger.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001636d352796888c2048da92dad
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, Aug 12, 2010 at 6:04 PM, Steve Chen <schen@mvista.com> wrote:
-> On Thu, Aug 12, 2010 at 4:10 PM, Brian Haley <brian.haley@hp.com> wrote:
->> Hi Steve,
->>
->> On 07/28/2010 11:20 PM, Steve Chen wrote:
->>> Hello,
->>>
->>> The TAHI correspondent node tests CN-6-4-1 (Processing in upper layer
->>> - Echo Checksum) failed for me in the 2.6.32 kernel. =A0It appears that
->>> the Linux kernel is replying the ICMP echo request in
->>> icmpv6_echo_reply without much checking. =A0Is this an intentional
->>> non-conformance to RFC3775 section 9.3.1?
->>
->> Sorry for the late reply. =A0I've run these tests in the past against
->> SLES11 (2.6.27 ?) back in January 2009 and this one passed from looking
->> at my logs. =A0I don't have that system around anymore to check the conf=
-ig,
->> etc. =A0I didn't see any obvious commit that would have broken it from a
->> quick look, do you have a test setup to do some debugging? =A0It will
->> take a little time for me to re-configure mine to run this test.
->
-> Brian,
->
-> I'm using mip6d from git://www.umip.org/git/umip.git commit id
-> d1c240f3deb690af902ce1ff128780551ff6141c. =A0Is that the correct version
-> to use? =A0Looking at the kernel code again, the checksum error should
-> have been caught in icmpv6_rcv. =A0There are probably something wrong
-> with my setup. =A0I'll dig around a bit more.
->
-> Tests 5-3-1 to 5-3-6 also failed for me. =A0 Did they pass for you?
-
-By the way, these tests passed for me with the following patch.
-Please let me know what you think.
-
-Thanks
-
-Steve
-
---001636d352796888c2048da92dad
-Content-Type: text/x-patch; charset=US-ASCII; name="h_bit_check.patch"
-Content-Disposition: attachment; filename="h_bit_check.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gcsa1q2w0
-
-UmVpbnN0YXRlIGNoZWNrcyB0byBoYW5kbGUgQlUgd2l0aCBIIGJpdCBzZXQKCkNoZWNrIGZvciB0
-aGUgSCBmbGFnIHdhcyBvbWl0dGVkIGluIDIyNzZkZGVjMzZhMzc4OTgyNjg0MmFjODMxNjU1M2Zh
-MDcwMmVhODkuClRoaXMgY2F1c2VkIFRBSEkgY29ycmVjcG9uZGVuZCBub2RlIHRlc3RzIDExOC0x
-MjMgKDUuMy4gUmVjZWl2aW5nIEJVIHdpdGgKKEgpYml0IGlzIHNldCkgdG8gZmFpbC4KCmRpZmYg
-LS1naXQgYS9zcmMvY24uYyBiL3NyYy9jbi5jCmluZGV4IDAzMThlOWUuLmEwMzZkOTYgMTAwNjQ0
-Ci0tLSBhL3NyYy9jbi5jCisrKyBiL3NyYy9jbi5jCkBAIC0xNzMsNiArMTczLDEwIEBAIHN0YXRp
-YyBpbnQgY25fYnVfY2hlY2soc3RydWN0IGlwNl9taF9iaW5kaW5nX3VwZGF0ZSAqYnUsIHNzaXpl
-X3QgbGVuLAogCWludCByZXQ7CiAKIAlub25faW5kID0gbWhfb3B0KCZidS0+aXA2bWhidV9oZHIs
-IG1oX29wdHMsIElQNl9NSE9QVF9OT05DRUlEKTsKKworCWlmIChidS0+aXA2bWhidV9mbGFncyAm
-IElQNl9NSF9CVV9IT01FKQorCQlyZXR1cm4gbm9uX2luZCA/IC0xIDogMDsKKwogCWlmICghbm9u
-X2luZCkKIAkJcmV0dXJuIC0xOwogCg==
---001636d352796888c2048da92dad--
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXb2xmZ2FuZyBHcmFuZGVnZ2Vy
+IFttYWlsdG86d2dAZ3JhbmRlZ2dlci5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBBdWd1c3QgMTIs
+IDIwMTAgNTowNCBQTQ0KPiBUbzogV2FuZywgUWkNCj4gQ2M6IERhbmllbCBCYWx1dGE7IE1hc2F5
+dWtpIE9odGFrOyBtZWVnby1kZXZAbWVlZ28uY29tOw0KPiBzb2NrZXRjYW4tY29yZUBsaXN0cy5i
+ZXJsaW9zLmRlOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBLaG9yLCBBbmRyZXcgQ2hpaA0KPiBI
+b3dlOyBncmVna2hAc3VzZS5kZTsgYXJqYW5AbGludXguaW50ZWwuY29tOyBXYW5nLCBZb25nIFkN
+Cj4gU3ViamVjdDogUmU6IFtNZWVHby1EZXZdW1BBVENIXSBUb3BjbGlmZjogVXBkYXRlIFBDSF9D
+QU4gZHJpdmVyIHRvIDIuNi4zNQ0KPiANCj4gT24gMDgvMTIvMjAxMCAwMzo0MiBBTSwgV2FuZywg
+UWkgd3JvdGU6DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IERh
+bmllbCBCYWx1dGEgW21haWx0bzpkYW5pZWwuYmFsdXRhQGdtYWlsLmNvbV0NCj4gPj4gU2VudDog
+V2VkbmVzZGF5LCBBdWd1c3QgMTEsIDIwMTAgNjozNyBQTQ0KPiA+PiBUbzogTWFzYXl1a2kgT2h0
+YWsNCj4gPj4gQ2M6IG1lZWdvLWRldkBtZWVnby5jb207IFdvbGZnYW5nIEdyYW5kZWdnZXI7DQo+
+ID4+IHNvY2tldGNhbi1jb3JlQGxpc3RzLmJlcmxpb3MuZGU7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IEtob3IsIEFuZHJldw0KPiBDaGloDQo+ID4+IEhvd2U7IGdyZWdraEBzdXNlLmRlOyBhcmph
+bkBsaW51eC5pbnRlbC5jb207IFdhbmcsIFFpOyBXYW5nLCBZb25nIFkNCj4gPj4gU3ViamVjdDog
+UmU6IFtNZWVHby1EZXZdW1BBVENIXSBUb3BjbGlmZjogVXBkYXRlIFBDSF9DQU4gZHJpdmVyIHRv
+IDIuNi4zNQ0KPiA+Pg0KPiA+PiBIaSwNCj4gPj4NCj4gPj4gMjAxMC84LzExIE1hc2F5dWtpIE9o
+dGFrIDxtYXNhLWtvcmdAZHNuLm9raXNlbWkuY29tPjoNCj4gPj4+IENBTiBkcml2ZXIgb2YgVG9w
+Y2xpZmYgUENIDQo+ID4+Pg0KPiA+Pj4gVG9wY2xpZmYgUENIIGlzIHRoZSBwbGF0Zm9ybSBjb250
+cm9sbGVyIGh1YiB0aGF0IGlzIGdvaW5nIHRvIGJlIHVzZWQgaW4NCj4gPj4+IEludGVsJ3MgdXBj
+b21pbmcgZ2VuZXJhbCBlbWJlZGRlZCBwbGF0Zm9ybS4gQWxsIElPIHBlcmlwaGVyYWxzIGluDQo+
+ID4+PiBUb3BjbGlmZiBQQ0ggYXJlIGFjdHVhbGx5IGRldmljZXMgc2l0dGluZyBvbiBBTUJBIGJ1
+cy4NCj4gPj4+IFRvcGNsaWZmIFBDSCBoYXMgQ0FOIEkvRi4gVGhpcyBkcml2ZXIgZW5hYmxlcyBD
+QU4gZnVuY3Rpb24uDQo+ID4+Pg0KPiA+Pj4gU2lnbmVkLW9mZi1ieTogTWFzYXl1a2kgT2h0YWtl
+IDxtYXNhLWtvcmdAZHNuLm9raXNlbWkuY29tPg0KPiA+Pg0KPiA+PiBJIGhhdmUgYSBmZXcgcXVl
+c3Rpb25zOg0KPiA+Pg0KPiA+PiAxLiBJcyB5b3VyIGNvZGUgYmFzZWQgb24gSW50ZWwncyBDQU4g
+RVA4MDU3OSAoWzFdKSA/DQo+ID4gTm8uDQo+IA0KPiBGb3IgY3VyaW9zaXR5LCBpcyB0aGUgY29u
+dHJvbGxlciBzaW1pbGFyIHRvIHRoZSBPS0kgTVNNOTIyNSBvciBNTDk2MjA/DQpUaGUgVG9wY2xp
+ZmYgSU9IIGlzIGRldmVsb3BlZCBieSBPS0kgYWN0dWFsbHkuDQoNCj4gDQo+ID4+IDIuIFdoeSBk
+b24ndCB5b3UgdXNlIGtlcm5lbCBleGlzdGluZyBrZmlmbyBpbmZyYXN0cnVjdHVyZT8gKFsyXSku
+DQo+ID4gSnVzdCB0YWtlIGEgbG9vayBhdCBrZmlmby5oLiBUaGlzIHN0cnVjdHVyZSBoYXMgYmVl
+biBjaGFuZ2VkLiBJIHJlbWVtYmVyZWQNCj4gdGhlcmUgd2FzIGEgc3Bpbl9sb2NrIGZyb20ga2Zp
+Zm8gcHJldmlvdXNseS4gQ3VycmVudGx5IGl0J3MgYmVlbiByZW1vdmVkLCBnb29kLg0KPiA+IE9L
+SS1zYW5zLCB3b3VsZCB5b3UgcGxlYXNlIHRha2UgYSBsb29rIGF0IC4vaW5jbHVkZS9saW51eC9r
+Zmlmby5oLCBhbmQgdHJ5IHRvDQo+IHVzZSB0aGlzIHN0cnVjdHVyZSBhbmQgQVBJcz8NCj4gDQo+
+IEFzIEkgc2VlIGl0LCB0aGUgY29kZSByZWxhdGVkIHRvIHRoYXQgZmlmbyBpcyBub3QgdXNlZCAo
+PT0gZGVhZCBjb2RlKT8NCkknbSBub3QgZmFtaWxpYXIgd2l0aCBrZmlmbyBzdHJ1Y3R1cmUsIGFu
+ZCBJIGRpZG4ndCBsaWtlIGl0IGJlY2F1c2UgdGhlcmUgbmVlZCBhIHNwaW5fbG9jayB0byB1c2Ug
+aXQuDQo+IA0KPiA+IERhbmllbCwNCj4gPg0KPiA+IFdlJ3JlIGFueGlvdXMgdG8gaW50ZWdyYXRl
+IHRob3NlIGNvZGVzIG5vdy4gUGVyaGFwcyBpdCdsbCB0YWtlIHVzIHF1aXRlIGEgbG9uZw0KPiB0
+aW1lIHRvIHVzZSBrZmlmby4gSG93IGFib3V0IGltcGxlbWVudGluZyBpdCB3aXRoIHRoZSBuZXh0
+IHZlcnNpb24/DQo+IA0KPiBTZWUgYWJvdmUuIFdoYXQgZG8geW91IG1lYW4gd2l0aCB0aGUgbmV4
+dCB2ZXJzaW9uLiBUaGUgZHJpdmVyIHBvc3RlZCBieQ0KPiBNYXNheXVraSBpcyBmYXIgYXdheSBm
+cm9tIGJlaW5nIGFjY2VwdGVkIGFzIGl0IGRvZXMgbm90IHlldCBjb21wbHkgd2l0aA0KPiB0aGUg
+U29ja2V0LUNBTiBkcml2ZXIgQVBJLCB0byBzYXkgdGhlIGxlYXN0Lg0KSSd2ZSBmZXcgZXhwZXJp
+ZW5jZSBvbiBDQU4gZHJpdmVyIGFuZCBpdCdzIGFsc28gdGhlIGZpcnN0IHRpbWUgZm9yIE9LSS1z
+YW4gdG8gd3JpdGUgQ2FuIGRyaXZlci4gV291bGQgeW91IHBsZWFzZSBnaXZlIHVzIGEgcmVmZXJl
+bmNlIGFuZCB3ZSdsbCBmb2xsb3cgaXQgdXAuIFdlIG9ubHkgcmVhZCAnY2FuLnR4dCcgZnJvbSBr
+ZXJuZWwgZG9jdW1lbnQuIFRoYW5rIHlvdSBmb3IgeW91ciBoZWxwIGluIGFkdmFuY2UuDQo+IA0K
+PiBXb2xmZ2FuZy4NCg0K
