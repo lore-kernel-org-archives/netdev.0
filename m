@@ -1,101 +1,96 @@
-From: Alexander Graf <agraf@suse.de>
-Subject: Re: Using virtio as a physical (wire-level) transport
-Date: Sat, 14 Aug 2010 07:34:19 -0400
-Message-ID: <4C336074-FC8C-4BDF-B945-5295133CDB38@suse.de>
-References: <20100804230441.GJ23951@ovro.caltech.edu> <20100805213050.GA24984@redhat.com> <20100805230102.GD4757@ovro.caltech.edu> <20100805232042.GA27651@redhat.com> <20100806153427.GB12392@ovro.caltech.edu>
-Mime-Version: 1.0 (iPhone Mail 8A293)
+From: Jussi Kivilinna <jukivili@gmail.com>
+Subject: Re: QoS weirdness : HTB accuracy
+Date: Sat, 14 Aug 2010 20:27:17 +0300
+Message-ID: <20100814202717.994841la0qbd5kw0@hayate.sektori.org>
+References: <067c83163988908ef546d7ff7f560a17@localhost>
+	<4BF32BB0.7010700@redfish-solutions.com>
+	<e6bd0cff8dafc8b3af0760facb5fdc8c@localhost>
+	<1276204948.1403.13.camel@andybev> <1278265807.1506.86.camel@andybev>
+	<Pine.LNX.4.64.1007071457020.6631@ask.diku.dk>
+	<20100707180753.104124gv6yvtou9s@hayate.sektori.org>
+	<1281549546.1432.248.camel@andybev>
+Mime-Version: 1.0
 Content-Type: text/plain;
-	charset=us-ascii
+	charset=UTF-8;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 8BIT
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Zang Roy <r61911@freescale.com>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:36073 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754816Ab0HNLeg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Aug 2010 07:34:36 -0400
-In-Reply-To: <20100806153427.GB12392@ovro.caltech.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Jesper Dangaard Brouer" <hawk@diku.dk>,
+	"Julien Vehent" <julien@linuxwall.info>,
+	"Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
+	Netdev <netdev@vger.kernel.org>,
+	netfilter <netfilter@vger.kernel.org>, hawk@comx.dk
+To: "Andrew Beverley" <andy@andybev.com>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <1281549546.1432.248.camel@andybev>
+Content-Disposition: inline
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Quoting "Andrew Beverley" <andy@andybev.com>:
 
-Am 06.08.2010 um 11:34 schrieb "Ira W. Snyder" <iws@ovro.caltech.edu>:
+> On Wed, 2010-07-07 at 18:07 +0300, Jussi Kivilinna wrote:
+>> >>>> I was, in fact, an error in my ruleset. I had put the  
+>> 'linklayer atm' at
+>> >>>> both the branch and leaf levels, so the overhead was computed twice,
+>> >>>> creating those holes in the bandwidth.
+>> >>>
+>> >>> I am seeing similar behaviour with my setup. Am I making the same
+>> >>> mistake? A subset of my rules is as follows:
+>> >>>
+>> >>> tc qdisc add dev ppp0 root handle 1: htb r2q 1
+>> >>>
+>> >>> tc class add dev ppp0 parent 1: classid 1:1 htb \
+>> >>>    rate ${DOWNLINK}kbit ceil ${DOWNLINK}kbit \
+>> >>>    overhead $overhead linklayer atm                   <------- Here
+>> >>>
+>> >>> tc class add dev ppp0 parent 1:1 classid 1:10 htb \
+>> >>>    rate 612kbit ceil 612kbit prio 0 \
+>> >>>    overhead $overhead linklayer atm                   <------- And here
+>> >>>
+>> >>> tc qdisc add dev ppp0 parent 1:10 handle 4210: \
+>> >>>    sfq perturb 10 limit 50
+>> >>>
+>> >>> tc filter add dev ppp0 parent 1:0 protocol ip \
+>> >>>    prio 10 handle 10 fw flowid 1:10
+>> >>
+>> >> I removed the overhead option on the first leaf, and the speeds change
+>> >> to what I expect. However, the rules above are taken straight from the
+>> >> ADSL Optimizer project, which was the source of the original overhead
+>> >> patch for tc. So is the ADSL Optimizer project wrong?
+>> >
+>> > After looking at the HTB kernel code I believe that the ADSL
+>> > Optimizer project is NOT wrong.  You should/must set the linklayer
+>> > option on both the root class and leaf (else you would be charging
+>> > the root/parent node too little).
+>> >
+>>
+>> It's been while I looked at the linklayer/size-table code, but if I
+>> remember right overhead is calculated with first linklayer packet sees
+>> in qdisc. So when packet goes to leaf with 'linklayer atm', packet get
+>> packet size with overhead for ATM and root linklayer is not used for
+>> that packet. Because of this you can have leafs with different
+>> overheads (pppoe, ipv6-tunnel, etc, with ) and all get right
+>> overhead... ..
+>>
+>> ..
+>>
+>> ...Uh oh...
+>>
+>> HTB still has linklayer/overhead of its own, I was talking about the
+>> generic linklayer code that can be used with all qdiscs. Never mind,
+>> sorry.
+>
+> Ah, I hadn't come across the tc-stab functionality until now. So that
+> does exactly the same for all qdiscs as the original ATM patch does for
+> HTB? But they work slightly differently as you have alluded to above?
+>
 
-> On Fri, Aug 06, 2010 at 02:20:42AM +0300, Michael S. Tsirkin wrote:
->> On Thu, Aug 05, 2010 at 04:01:03PM -0700, Ira W. Snyder wrote:
->>> On Fri, Aug 06, 2010 at 12:30:50AM +0300, Michael S. Tsirkin wrote:
->>>> Hi Ira,
->>>> 
->>>>> Making my life harder since the last time I tried this, mainline commit
->>>>> 7c5e9ed0c (virtio_ring: remove a level of indirection) has removed the
->>>>> possibility of using an alternative virtqueue implementation. The commit
->>>>> message suggests that you might be willing to add this capability back.
->>>>> Would this be an option?
->>>> 
->>>> Sorry about that.
->>>> 
->>>> With respect to this commit, we only had one implementation upstream
->>>> and extra levels of indirection made extending the API
->>>> much harder for no apparent benefit.
->>>> 
->>>> When there's more than one ring implementation with very small amount of
->>>> common code, I think that it might make sense to readd the indirection
->>>> back, to separate the code cleanly.
->>>> 
->>>> OTOH if the two implementations share a lot of code, I think that it
->>>> might be better to just add a couple of if statements here and there.
->>>> This way compiler even might have a chance to compile the code out if
->>>> the feature is disabled in kernel config.
->>>> 
->>> 
->>> The virtqueue implementation I envision will be almost identical to the
->>> current virtio_ring virtqueue implementation, with the following
->>> exceptions:
->>> 
->>> * the "shared memory" will actually be remote, on the PCI BAR of a device
->>> * iowrite32(), ioread32() and friends will be needed to access the memory
->>> * there will only be a fixed number of virtqueues available, due to PCI
->>>  BAR size
->>> * cross-endian virtqueues must work
->>> * kick needs to be cross-machine (using PCI IRQ's)
->>> 
->>> I don't think it is feasible to add this to the existing implementation.
->>> I think the requirement of being cross-endian will be the hardest to
->>> overcome. Rusty did not envision the cross-endian use case when he
->>> designed this, and it shows, in virtio_ring, virtio_net and vhost. I
->>> have no idea what to do about this. Do you have any ideas?
->> 
->> My guess is sticking an if around each access in virtio would hurt,
->> if this is what you are asking about.
->> 
-> 
-> Yes, I think so too. I think using le32 byte order everywhere in virtio
-> would be a good thing. In addition, it means that on all x86, things
-> continue to work as-is. It would also have no overhead in the most
-> common case: x86-on-x86.
-> 
-> This problem is not limited to my new use of virtio. Virtio is
-> completely useless in a relatively common virtualization scenario:
-> x86 host with qemu-ppc guest. Or any other big endian guest system.
+Yes, tc-stab works with all qdiscs. Packet size is calculated  
+everytime when qdisc_enqueue() is called and qdisc has size-table set.  
+When none of qdiscs has size-table, packet size ends up being same as  
+skb->len. So if leaf has size-table, that takes preference over  
+earlier parent size-tables.
 
-This one actually works because we know that we're building for a BE guest. But I agree that it's a mess and clearly a very incorrect design decision.
-
->> Just a crazy idea: vhost already uses wrappers like get_user etc,
->> maybe when building kernel for your board you could
->> redefine these to also byteswap?
->> 
-> 
-> I think idea is clever, but also psychotic :) I'm sure it would work,
-> but that only solves the problem of virtio ring descriptors. The
-> virtio-net header contains several __u16 fields which would also need
-> to be fixed-endianness.
-
-I'd vote for defining virtio v2 that makes everything LE. Maybe we could even have an LE capability with a grace period of phasing out non-LE capable hosts and guests.
-
-
-Alex
+-Jussi
 
