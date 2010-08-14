@@ -1,96 +1,119 @@
-From: Jussi Kivilinna <jukivili@gmail.com>
-Subject: Re: QoS weirdness : HTB accuracy
-Date: Sat, 14 Aug 2010 20:27:17 +0300
-Message-ID: <20100814202717.994841la0qbd5kw0@hayate.sektori.org>
-References: <067c83163988908ef546d7ff7f560a17@localhost>
-	<4BF32BB0.7010700@redfish-solutions.com>
-	<e6bd0cff8dafc8b3af0760facb5fdc8c@localhost>
-	<1276204948.1403.13.camel@andybev> <1278265807.1506.86.camel@andybev>
-	<Pine.LNX.4.64.1007071457020.6631@ask.diku.dk>
-	<20100707180753.104124gv6yvtou9s@hayate.sektori.org>
-	<1281549546.1432.248.camel@andybev>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Sat, 14 Aug 2010 11:05:54 -0700
+Message-ID: <AANLkTinGy+-ELbVx_2WJ1wOJCsz4Rez26Q2Baisws9+C@mail.gmail.com>
+References: <20100812.161050.246523792.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=UTF-8;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jesper Dangaard Brouer" <hawk@diku.dk>,
-	"Julien Vehent" <julien@linuxwall.info>,
-	"Philip A. Prindeville" <philipp_subx@redfish-solutions.com>,
-	Netdev <netdev@vger.kernel.org>,
-	netfilter <netfilter@vger.kernel.org>, hawk@comx.dk
-To: "Andrew Beverley" <andy@andybev.com>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <1281549546.1432.248.camel@andybev>
-Content-Disposition: inline
-Sender: netfilter-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100812.161050.246523792.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting "Andrew Beverley" <andy@andybev.com>:
+David,
+ I completely screwed up locking in my VM guard page patch, so when I
+verified my fix for that I tried to enable all the lock debug crud I
+possibly could.
 
-> On Wed, 2010-07-07 at 18:07 +0300, Jussi Kivilinna wrote:
->> >>>> I was, in fact, an error in my ruleset. I had put the  
->> 'linklayer atm' at
->> >>>> both the branch and leaf levels, so the overhead was computed twice,
->> >>>> creating those holes in the bandwidth.
->> >>>
->> >>> I am seeing similar behaviour with my setup. Am I making the same
->> >>> mistake? A subset of my rules is as follows:
->> >>>
->> >>> tc qdisc add dev ppp0 root handle 1: htb r2q 1
->> >>>
->> >>> tc class add dev ppp0 parent 1: classid 1:1 htb \
->> >>>    rate ${DOWNLINK}kbit ceil ${DOWNLINK}kbit \
->> >>>    overhead $overhead linklayer atm                   <------- Here
->> >>>
->> >>> tc class add dev ppp0 parent 1:1 classid 1:10 htb \
->> >>>    rate 612kbit ceil 612kbit prio 0 \
->> >>>    overhead $overhead linklayer atm                   <------- And here
->> >>>
->> >>> tc qdisc add dev ppp0 parent 1:10 handle 4210: \
->> >>>    sfq perturb 10 limit 50
->> >>>
->> >>> tc filter add dev ppp0 parent 1:0 protocol ip \
->> >>>    prio 10 handle 10 fw flowid 1:10
->> >>
->> >> I removed the overhead option on the first leaf, and the speeds change
->> >> to what I expect. However, the rules above are taken straight from the
->> >> ADSL Optimizer project, which was the source of the original overhead
->> >> patch for tc. So is the ADSL Optimizer project wrong?
->> >
->> > After looking at the HTB kernel code I believe that the ADSL
->> > Optimizer project is NOT wrong.  You should/must set the linklayer
->> > option on both the root class and leaf (else you would be charging
->> > the root/parent node too little).
->> >
->>
->> It's been while I looked at the linklayer/size-table code, but if I
->> remember right overhead is calculated with first linklayer packet sees
->> in qdisc. So when packet goes to leaf with 'linklayer atm', packet get
->> packet size with overhead for ATM and root linklayer is not used for
->> that packet. Because of this you can have leafs with different
->> overheads (pppoe, ipv6-tunnel, etc, with ) and all get right
->> overhead... ..
->>
->> ..
->>
->> ...Uh oh...
->>
->> HTB still has linklayer/overhead of its own, I was talking about the
->> generic linklayer code that can be used with all qdiscs. Never mind,
->> sorry.
->
-> Ah, I hadn't come across the tc-stab functionality until now. So that
-> does exactly the same for all qdiscs as the original ATM patch does for
-> HTB? But they work slightly differently as you have alluded to above?
->
+And as a result, I got a locking error report, but it had nothing to
+do with the VM guard page any more (so hopefully I finally fixed my
+mindless code-drivel correctly. I'm a bit ashamed of myself).
 
-Yes, tc-stab works with all qdiscs. Packet size is calculated  
-everytime when qdisc_enqueue() is called and qdisc has size-table set.  
-When none of qdiscs has size-table, packet size ends up being same as  
-skb->len. So if leaf has size-table, that takes preference over  
-earlier parent size-tables.
+Anyway, the lock warning I do get seems to be networking-related, and
+is appended. Does this ring any bells? It could easily be something
+old: I turn on lock debugging only when I look for bugs (or when
+people point out bugs that I've created :^/ )
 
--Jussi
+The only thing that seems to be related that google can find is pretty
+recent too: a report from Valdis Kletnieks about this apparently
+happening on e1000e too (Subject "mmotm 2010-08-11 - lockdep whinges
+at e1000e driver ifconfig up"). So it does seem to be pretty recent.
 
+Hmm? Everything obviously still works, but judging by the lockdep
+report this might be a deadlock situation (lock taken in softirq _and_
+outside softirq without disabling bhs)
+
+                                    Linus
+
+---
+  r8169 0000:01:00.0: eth0: link up
+  r8169 0000:01:00.0: eth0: link up
+
+  =================================
+  [ INFO: inconsistent lock state ]
+  2.6.35-07956-g92fa5bd9-dirty #7
+  ---------------------------------
+  inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+  dbus-daemon/2432 [HC0[0]:SC1[2]:HE1:SE0] takes:
+   (&(&lock->lock)->rlock){+.?...}, at: [<ffffffff814e9fd8>]
+ip6t_do_table+0x7f/0x3e7
+  {SOFTIRQ-ON-W} state was registered at:
+    [<ffffffff8105eb80>] __lock_acquire+0x756/0x1712
+    [<ffffffff8105fbbf>] lock_acquire+0x83/0x9d
+    [<ffffffff81505c77>] _raw_spin_lock+0x31/0x64
+    [<ffffffff814e943d>] get_counters+0xa4/0x139
+    [<ffffffff814e9509>] alloc_counters+0x37/0x42
+    [<ffffffff814eab47>] do_ip6t_get_ctl+0x107/0x35e
+    [<ffffffff81463241>] nf_sockopt+0x55/0x81
+    [<ffffffff81463280>] nf_getsockopt+0x13/0x15
+    [<ffffffff814d0cce>] ipv6_getsockopt+0x7f/0xb5
+    [<ffffffff814d7e29>] rawv6_getsockopt+0x3d/0x46
+    [<ffffffff81434fae>] sock_common_getsockopt+0xf/0x11
+    [<ffffffff814323ff>] sys_getsockopt+0x75/0x96
+    [<ffffffff81001eab>] system_call_fastpath+0x16/0x1b
+  irq event stamp: 21072
+  hardirqs last  enabled at (21072): [<ffffffff8103b5cf>]
+local_bh_enable+0xbd/0xc2
+  hardirqs last disabled at (21071): [<ffffffff8103b564>]
+local_bh_enable+0x52/0xc2
+  softirqs last  enabled at (20000): [<ffffffff814bd355>]
+unix_create1+0x164/0x17c
+  softirqs last disabled at (21037): [<ffffffff81002dcc>] call_softirq+0x1c/0x28
+
+  other info that might help us debug this:
+  3 locks held by dbus-daemon/2432:
+   #0:  (&idev->mc_ifc_timer){+.-...}, at: [<ffffffff810404f6>]
+run_timer_softirq+0x14e/0x28c
+   #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff814dc9b2>] mld_sendpack+0x0/0x3bd
+   #2:  (rcu_read_lock){.+.+..}, at: [<ffffffff81461ed5>] nf_hook_slow+0x0/0x10a
+
+  stack backtrace:
+  Pid: 2432, comm: dbus-daemon Not tainted 2.6.35-07956-g92fa5bd9-dirty #7
+  Call Trace:
+   <IRQ>  [<ffffffff8105bf16>] print_usage_bug+0x1a4/0x1b5
+   [<ffffffff8100c7d3>] ? save_stack_trace+0x2a/0x47
+   [<ffffffff8105cb6c>] ? check_usage_forwards+0x0/0xc6
+   [<ffffffff8105c211>] mark_lock+0x2ea/0x552
+   [<ffffffff8105eb07>] __lock_acquire+0x6dd/0x1712
+   [<ffffffff8105246e>] ? local_clock+0x2b/0x3c
+   [<ffffffff8105b2e8>] ? lock_release_holdtime+0x1c/0x123
+   [<ffffffff8105fbbf>] lock_acquire+0x83/0x9d
+   [<ffffffff814e9fd8>] ? ip6t_do_table+0x7f/0x3e7
+   [<ffffffff81505c77>] _raw_spin_lock+0x31/0x64
+   [<ffffffff814e9fd8>] ? ip6t_do_table+0x7f/0x3e7
+   [<ffffffff814e9fd8>] ip6t_do_table+0x7f/0x3e7
+   [<ffffffff814ebd87>] ip6table_filter_hook+0x17/0x1c
+   [<ffffffff81461e92>] nf_iterate+0x41/0x84
+   [<ffffffff814db3ba>] ? dst_output+0x0/0x58
+   [<ffffffff81461f63>] nf_hook_slow+0x8e/0x10a
+   [<ffffffff814db3ba>] ? dst_output+0x0/0x58
+   [<ffffffff814dcc00>] mld_sendpack+0x24e/0x3bd
+   [<ffffffff8105c4cb>] ? mark_held_locks+0x52/0x70
+   [<ffffffff814dd478>] mld_ifc_timer_expire+0x24f/0x288
+   [<ffffffff814dd229>] ? mld_ifc_timer_expire+0x0/0x288
+   [<ffffffff81040584>] run_timer_softirq+0x1dc/0x28c
+   [<ffffffff810404f6>] ? run_timer_softirq+0x14e/0x28c
+   [<ffffffff8103b6dc>] ? __do_softirq+0x69/0x13d
+   [<ffffffff8103b715>] __do_softirq+0xa2/0x13d
+   [<ffffffff810590eb>] ? tick_program_event+0x25/0x27
+   [<ffffffff81002dcc>] call_softirq+0x1c/0x28
+   [<ffffffff81004834>] do_softirq+0x38/0x80
+   [<ffffffff8103b2e0>] irq_exit+0x45/0x87
+   [<ffffffff8101a278>] smp_apic_timer_interrupt+0x88/0x96
+   [<ffffffff81002893>] apic_timer_interrupt+0x13/0x20
+   <EOI>
+  r8169: WARNING! Changing of MTU on this NIC may lead to frame
+reception errors!
