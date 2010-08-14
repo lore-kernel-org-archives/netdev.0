@@ -1,79 +1,101 @@
-From: Dave Kilroy <kilroyd@googlemail.com>
-Subject: Re: [PATCH] orinoco: Fix walking past the end of the buffer
-Date: Sat, 14 Aug 2010 10:45:39 +0100
-Message-ID: <AANLkTimX1MnVtbhrHFx7-jTA5XRpSvWn2uF3OiJU8WYM@mail.gmail.com>
-References: <20100811203216.GA25168@hera.kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linville@tuxdriver.com, proski@gnu.org,
-	hermes@gibson.dropbear.id.au, davem@davemloft.net,
-	linux-wireless@vger.kernel.org,
-	orinoco-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Denis Kirjanov <dkirjanov@kernel.org>
+From: Alexander Graf <agraf@suse.de>
+Subject: Re: Using virtio as a physical (wire-level) transport
+Date: Sat, 14 Aug 2010 07:34:19 -0400
+Message-ID: <4C336074-FC8C-4BDF-B945-5295133CDB38@suse.de>
+References: <20100804230441.GJ23951@ovro.caltech.edu> <20100805213050.GA24984@redhat.com> <20100805230102.GD4757@ovro.caltech.edu> <20100805232042.GA27651@redhat.com> <20100806153427.GB12392@ovro.caltech.edu>
+Mime-Version: 1.0 (iPhone Mail 8A293)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Zang Roy <r61911@freescale.com>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: "Ira W. Snyder" <iws@ovro.caltech.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:44349 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934653Ab0HNJpk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Aug 2010 05:45:40 -0400
-In-Reply-To: <20100811203216.GA25168@hera.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:36073 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754816Ab0HNLeg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Aug 2010 07:34:36 -0400
+In-Reply-To: <20100806153427.GB12392@ovro.caltech.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 11, 2010 at 9:32 PM, Denis Kirjanov <dkirjanov@kernel.org> =
-wrote:
-> diff --git a/drivers/net/wireless/orinoco/hw.c b/drivers/net/wireless=
-/orinoco/hw.c
-> index 077baa8..191bc03 100644
-> --- a/drivers/net/wireless/orinoco/hw.c
-> +++ b/drivers/net/wireless/orinoco/hw.c
-> @@ -765,9 +765,12 @@ int orinoco_hw_get_act_bitrate(struct orinoco_pr=
-ivate *priv, int *bitrate)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (bitrate_table[i].i=
-ntersil_txratectrl =3D=3D val)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
->
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (i >=3D BITRATE_TABLE_SIZE)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (i >=3D BITRATE_TABLE_SIZE) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0printk(KERN_INFO "%s: =
-Unable to determine current bitrate (0x%04hx)\n",
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 priv->nde=
-v->name, val);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *bitrate =3D 100001; /*=
- Mark as invalid */
 
-We should propogate the failure by returning an error in the return
-code rather than a cryptic bitrate value. The calling function(s)
-should then propogate the error through wext/cfg80211 as appropriate.
+Am 06.08.2010 um 11:34 schrieb "Ira W. Snyder" <iws@ovro.caltech.edu>:
 
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*bitrate =3D bitrate_table[i].bitrate =
-* 100000;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> On Fri, Aug 06, 2010 at 02:20:42AM +0300, Michael S. Tsirkin wrote:
+>> On Thu, Aug 05, 2010 at 04:01:03PM -0700, Ira W. Snyder wrote:
+>>> On Fri, Aug 06, 2010 at 12:30:50AM +0300, Michael S. Tsirkin wrote:
+>>>> Hi Ira,
+>>>> 
+>>>>> Making my life harder since the last time I tried this, mainline commit
+>>>>> 7c5e9ed0c (virtio_ring: remove a level of indirection) has removed the
+>>>>> possibility of using an alternative virtqueue implementation. The commit
+>>>>> message suggests that you might be willing to add this capability back.
+>>>>> Would this be an option?
+>>>> 
+>>>> Sorry about that.
+>>>> 
+>>>> With respect to this commit, we only had one implementation upstream
+>>>> and extra levels of indirection made extending the API
+>>>> much harder for no apparent benefit.
+>>>> 
+>>>> When there's more than one ring implementation with very small amount of
+>>>> common code, I think that it might make sense to readd the indirection
+>>>> back, to separate the code cleanly.
+>>>> 
+>>>> OTOH if the two implementations share a lot of code, I think that it
+>>>> might be better to just add a couple of if statements here and there.
+>>>> This way compiler even might have a chance to compile the code out if
+>>>> the feature is disabled in kernel config.
+>>>> 
+>>> 
+>>> The virtqueue implementation I envision will be almost identical to the
+>>> current virtio_ring virtqueue implementation, with the following
+>>> exceptions:
+>>> 
+>>> * the "shared memory" will actually be remote, on the PCI BAR of a device
+>>> * iowrite32(), ioread32() and friends will be needed to access the memory
+>>> * there will only be a fixed number of virtqueues available, due to PCI
+>>>  BAR size
+>>> * cross-endian virtqueues must work
+>>> * kick needs to be cross-machine (using PCI IRQ's)
+>>> 
+>>> I don't think it is feasible to add this to the existing implementation.
+>>> I think the requirement of being cross-endian will be the hardest to
+>>> overcome. Rusty did not envision the cross-endian use case when he
+>>> designed this, and it shows, in virtio_ring, virtio_net and vhost. I
+>>> have no idea what to do about this. Do you have any ideas?
+>> 
+>> My guess is sticking an if around each access in virtio would hurt,
+>> if this is what you are asking about.
+>> 
+> 
+> Yes, I think so too. I think using le32 byte order everywhere in virtio
+> would be a good thing. In addition, it means that on all x86, things
+> continue to work as-is. It would also have no overhead in the most
+> common case: x86-on-x86.
+> 
+> This problem is not limited to my new use of virtio. Virtio is
+> completely useless in a relatively common virtualization scenario:
+> x86 host with qemu-ppc guest. Or any other big endian guest system.
 
-We can also make the structure easier to understand by setting the
-bitrate within the for loop. Something like the following (I only have
-access to gmail ATM, so can't format a proper patch):
+This one actually works because we know that we're building for a BE guest. But I agree that it's a mess and clearly a very incorrect design decision.
 
-		for (i =3D 0; i < BITRATE_TABLE_SIZE; i++)
-			if (bitrate_table[i].intersil_txratectrl =3D=3D val) {
-				*bitrate =3D bitrate_table[i].bitrate * 100000;
-				break;
-			}
+>> Just a crazy idea: vhost already uses wrappers like get_user etc,
+>> maybe when building kernel for your board you could
+>> redefine these to also byteswap?
+>> 
+> 
+> I think idea is clever, but also psychotic :) I'm sure it would work,
+> but that only solves the problem of virtio ring descriptors. The
+> virtio-net header contains several __u16 fields which would also need
+> to be fixed-endianness.
 
-		if (i >=3D BITRATE_TABLE_SIZE) {
-			printk(KERN_INFO "%s: Unable to determine current bitrate (0x%04hx)\=
-n",
-			       priv->ndev->name, val);
-			err =3D -EIO; /* maybe chose a better value... */
-		}
+I'd vote for defining virtio v2 that makes everything LE. Maybe we could even have an LE capability with a grace period of phasing out non-LE capable hosts and guests.
 
-		break;
 
-Could you update the patch along those lines please?
+Alex
 
-Thanks,
-
-Dave.
