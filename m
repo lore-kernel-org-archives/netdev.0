@@ -1,43 +1,35 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: GTSM and TCP accept problem
-Date: Sat, 14 Aug 2010 21:46:34 -0400
-Message-ID: <20100814214634.24a87715@s6510>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Sat, 14 Aug 2010 19:28:02 -0700 (PDT)
+Message-ID: <20100814.192802.70207131.davem@davemloft.net>
+References: <20100812.161050.246523792.davem@davemloft.net>
+	<AANLkTinGy+-ELbVx_2WJ1wOJCsz4Rez26Q2Baisws9+C@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42855 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756710Ab0HOBqk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Aug 2010 21:46:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinGy+-ELbVx_2WJ1wOJCsz4Rez26Q2Baisws9+C@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The implementation of Generalized TTL Security has a problem
-on the TCP accept side. Since there can be different number of
-hops for each peer, the listener ends up doing
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sat, 14 Aug 2010 11:05:54 -0700
 
-   socket
-   bind
-   set TTL to 255
-   listen
-   while (nfd = accept(peer)) {
-     info = lookup(peer)
-     set MINTTL to 255 - info->ttl_hops
+> Anyway, the lock warning I do get seems to be networking-related, and
+> is appended. Does this ring any bells? It could easily be something
+> old: I turn on lock debugging only when I look for bugs (or when
+> people point out bugs that I've created :^/ )
+> 
+> The only thing that seems to be related that google can find is pretty
+> recent too: a report from Valdis Kletnieks about this apparently
+> happening on e1000e too (Subject "mmotm 2010-08-11 - lockdep whinges
+> at e1000e driver ifconfig up"). So it does seem to be pretty recent.
+> 
+> Hmm? Everything obviously still works, but judging by the lockdep
+> report this might be a deadlock situation (lock taken in softirq _and_
+> outside softirq without disabling bhs)
 
-
-The problem is that a rogue peer can still do three way
-handshake causing the accept to succeed. But the rogue will
-leave a stuck connection that will then have to timeout.
-
-The only ways I have come up to deal with this are:
-   * have short timeout on initial data (recycle faster)
-   * push peer;MINTTL table down into kernel (per socket)
-   * have BGP do this through iptables which is a non-starter
-     for a general application that needs to run on BSD, and
-     would mess up existing firewall rules.
-
-Ideas welcome..
+I'll take a look.
