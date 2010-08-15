@@ -1,38 +1,43 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 2/2] platform: Facilitate the creation of
- pseudo-platform buses
-Date: Sat, 14 Aug 2010 14:04:35 -0700
-Message-ID: <20100814210435.GD7745@suse.de>
-References: <1281484174-32174-1-git-send-email-ppannuto@codeaurora.org>
- <1281484174-32174-3-git-send-email-ppannuto@codeaurora.org>
- <4C649C25.5090808@codeaurora.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: GTSM and TCP accept problem
+Date: Sat, 14 Aug 2010 21:46:34 -0400
+Message-ID: <20100814214634.24a87715@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	magnus.damm@gmail.com, grant.likely@secretlab.ca,
-	Kevin Hilman <khilman@deeprootsystems.com>,
-	Paul Mundt <lethal@linux-sh.org>,
-	Magnus Damm <damm@opensource.se>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Eric Miao <eric.y.miao@gmail.com>,
-	Dmitry Torokhov <dtor@mail.ru>, netdev@vger.kernel.org
-To: Patrick Pannuto <ppannuto@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C649C25.5090808@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:42855 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756710Ab0HOBqk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Aug 2010 21:46:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 12, 2010 at 06:13:09PM -0700, Patrick Pannuto wrote:
-> On 08/10/2010 04:49 PM, Patrick Pannuto wrote:
-> 
-> ^^^ small bug here, this line should be deleted; any other comments though?
+The implementation of Generalized TTL Security has a problem
+on the TCP accept side. Since there can be different number of
+hops for each peer, the listener ends up doing
 
-Sorry, been busy with the -rc1 merge stuff, I'll have more time to look
-at it next week.
+   socket
+   bind
+   set TTL to 255
+   listen
+   while (nfd = accept(peer)) {
+     info = lookup(peer)
+     set MINTTL to 255 - info->ttl_hops
 
-Well, after you address Grant's issues first :)
 
-thanks,
+The problem is that a rogue peer can still do three way
+handshake causing the accept to succeed. But the rogue will
+leave a stuck connection that will then have to timeout.
 
-greg k-h
+The only ways I have come up to deal with this are:
+   * have short timeout on initial data (recycle faster)
+   * push peer;MINTTL table down into kernel (per socket)
+   * have BGP do this through iptables which is a non-starter
+     for a general application that needs to run on BSD, and
+     would mess up existing firewall rules.
+
+Ideas welcome..
