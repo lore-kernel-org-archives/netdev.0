@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: GTSM and TCP accept problem
-Date: Sat, 14 Aug 2010 22:12:58 -0700 (PDT)
-Message-ID: <20100814.221258.35029372.davem@davemloft.net>
-References: <20100814214634.24a87715@s6510>
+Subject: Re: tproxy related crash in inet_hashtables
+Date: Sat, 14 Aug 2010 22:16:11 -0700 (PDT)
+Message-ID: <20100814.221611.15248639.davem@davemloft.net>
+References: <4C65432F.4030809@exinda.com>
+	<1281707736.4470.53.camel@edumazet-laptop>
+	<4C661D09.8030709@exinda.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, kaber@trash.net, hidden@sch.bme.hu
+To: stephen.buck@exinda.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33778
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41452
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751006Ab0HOFMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Aug 2010 01:12:40 -0400
-In-Reply-To: <20100814214634.24a87715@s6510>
+	by vger.kernel.org with ESMTP id S1751170Ab0HOFPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Aug 2010 01:15:53 -0400
+In-Reply-To: <4C661D09.8030709@exinda.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Sat, 14 Aug 2010 21:46:34 -0400
+From: Stephen Buck <stephen.buck@exinda.com>
+Date: Sat, 14 Aug 2010 14:35:21 +1000
 
-> The implementation of Generalized TTL Security has a problem
-> on the TCP accept side. Since there can be different number of
-> hops for each peer, the listener ends up doing
-> 
->    socket
->    bind
->    set TTL to 255
->    listen
->    while (nfd = accept(peer)) {
->      info = lookup(peer)
->      set MINTTL to 255 - info->ttl_hops
+> +		}
+> +		if (!node)
+> +			tb = inet_bind_bucket_create(table->bind_bucket_cachep,
+> +						     sock_net(sk), head, port);
+> +	}
+>  	sk_add_bind_node(child, &tb->owners);
 
-Surely when creating the initial listening socket we should use the
-minimum TTL over the set of peers right?
+inet_bind_bucket_create() can fail due to memory allocation failure,
+you're therefore going to have to find a way to handle that.
 
-That surely takes most of the fun out of this problem for the
-attacker.
+And in doing so you're going to find out that there is no easy
+way out of this code path in such an error, this code was
+absolutely not designed to be able to handle cases like this.
