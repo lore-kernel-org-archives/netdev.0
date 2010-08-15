@@ -1,48 +1,35 @@
-From: Morgon.J.Kanter@Dartmouth.edu
-Subject: Re: PROBLEM: raw sockets rewriting IP ID in rare cases.
-Date: Sun, 15 Aug 2010 13:57:41 -0400
-Message-ID: <20100815135741.1iud2jvgw0wwg4kw@webmail.dartmouth.edu>
-References: <201008131307.38381.morgon.j.kanter@dartmouth.edu>
-	<20100814.223532.242143460.davem@davemloft.net>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: Patch-o-match
+Date: Sun, 15 Aug 2010 12:14:39 -0600
+Message-ID: <4C682E8F.8040600@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spruis.dartmouth.edu ([129.170.208.37]:47907 "EHLO
-	spruis.dartmouth.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750739Ab0HOSHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Aug 2010 14:07:16 -0400
-In-Reply-To: <20100814.223532.242143460.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail.redfish-solutions.com ([66.232.79.143]:58044 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750761Ab0HOSdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Aug 2010 14:33:05 -0400
+Received: from macbook.redfish-solutions.com (macbook.redfish-solutions.com [192.168.1.17])
+	(authenticated bits=0)
+	by mail.redfish-solutions.com (8.14.4/8.14.4) with ESMTP id o7FIEdcw015086
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sun, 15 Aug 2010 12:14:39 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting David Miller <davem@davemloft.net>:
->> I have stumbled across what I think is a rare bug in the raw socket  
->>  mechanism
->> of the kernel. When attempting to send a certain packet with an IP   
->> ID of zero
->> from a raw socket created with the call "socket(AF_INET, SOCK_RAW,
->> IPPROTO_RAW)", the kernel will modify the IP ID field and update   
->> the checksum.
->> It only seems to do it with this specific packet for some reason, similar
->> packets with an IP ID of zero do not get so mangled.
->
-> Even when using hdrinclude mode of RAW ipv4 sockets, if you specify
-> a zero ID field, the kernel will fill it in with the usual value.
->
-> It is expected behavior.
->
-> If you want the kernel to leave your ID field alone, provide a
-> non-zero one.
+  Hi.
 
-Is there a way to turn this behavior off, then, with raw sockets? Zero  
-is the desired ID value.
+I'd like to build our astlinux images (it's an automated build) with the geoip and TARPIT patches, but can't seem to figure out how.
 
-Thanks,
--- Morgon
+The links from the Netfilter extensions HowTo seemed to be broken... and since I'm statically building images, I figure that just figuring out the appropriate patches and downloading them by once is probably easier than getting patch-o-matic installed and scripted...  How do I go about doing that?
+
+Oh, maybe also the ROUTE target.  Seemed that it and --tee would be useful for implementing an FBI Jack for lawful intercept in our PBX.
+
+I know how to intercept a particular SIP session, but not the associated SDP (RTP) session that goes with it.  Is there an easy way to do that as well?
+
+Thanks.
+
+-Philip
+
