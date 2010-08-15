@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tproxy related crash in inet_hashtables
-Date: Sat, 14 Aug 2010 22:16:11 -0700 (PDT)
-Message-ID: <20100814.221611.15248639.davem@davemloft.net>
-References: <4C65432F.4030809@exinda.com>
-	<1281707736.4470.53.camel@edumazet-laptop>
-	<4C661D09.8030709@exinda.com>
+Subject: Re: PROBLEM: raw sockets rewriting IP ID in rare cases.
+Date: Sat, 14 Aug 2010 22:35:32 -0700 (PDT)
+Message-ID: <20100814.223532.242143460.davem@davemloft.net>
+References: <201008131307.38381.morgon.j.kanter@dartmouth.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, kaber@trash.net, hidden@sch.bme.hu
-To: stephen.buck@exinda.com
+Cc: netdev@vger.kernel.org
+To: morgon.j.kanter@dartmouth.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41452
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44886
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751170Ab0HOFPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Aug 2010 01:15:53 -0400
-In-Reply-To: <4C661D09.8030709@exinda.com>
+	by vger.kernel.org with ESMTP id S1752524Ab0HOFfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Aug 2010 01:35:14 -0400
+In-Reply-To: <201008131307.38381.morgon.j.kanter@dartmouth.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Buck <stephen.buck@exinda.com>
-Date: Sat, 14 Aug 2010 14:35:21 +1000
+From: "Morgon J. Kanter" <morgon.j.kanter@dartmouth.edu>
+Date: Fri, 13 Aug 2010 13:07:38 -0400
 
-> +		}
-> +		if (!node)
-> +			tb = inet_bind_bucket_create(table->bind_bucket_cachep,
-> +						     sock_net(sk), head, port);
-> +	}
->  	sk_add_bind_node(child, &tb->owners);
+> I have stumbled across what I think is a rare bug in the raw socket mechanism 
+> of the kernel. When attempting to send a certain packet with an IP ID of zero 
+> from a raw socket created with the call "socket(AF_INET, SOCK_RAW, 
+> IPPROTO_RAW)", the kernel will modify the IP ID field and update the checksum. 
+> It only seems to do it with this specific packet for some reason, similar 
+> packets with an IP ID of zero do not get so mangled.
 
-inet_bind_bucket_create() can fail due to memory allocation failure,
-you're therefore going to have to find a way to handle that.
+Even when using hdrinclude mode of RAW ipv4 sockets, if you specify
+a zero ID field, the kernel will fill it in with the usual value.
 
-And in doing so you're going to find out that there is no easy
-way out of this code path in such an error, this code was
-absolutely not designed to be able to handle cases like this.
+It is expected behavior.
+
+If you want the kernel to leave your ID field alone, provide a
+non-zero one.
