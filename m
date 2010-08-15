@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PROBLEM: raw sockets rewriting IP ID in rare cases.
-Date: Sat, 14 Aug 2010 22:35:32 -0700 (PDT)
-Message-ID: <20100814.223532.242143460.davem@davemloft.net>
-References: <201008131307.38381.morgon.j.kanter@dartmouth.edu>
+Subject: Re: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
+Date: Sat, 14 Aug 2010 22:37:22 -0700 (PDT)
+Message-ID: <20100814.223722.116371746.davem@davemloft.net>
+References: <1281710115.3760.27.camel@jlt3.sipsolutions.net>
+	<1281710887.4470.78.camel@edumazet-laptop>
+	<1281712433.2116.15.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: morgon.j.kanter@dartmouth.edu
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44886
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59153
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752524Ab0HOFfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Aug 2010 01:35:14 -0400
-In-Reply-To: <201008131307.38381.morgon.j.kanter@dartmouth.edu>
+	by vger.kernel.org with ESMTP id S1754682Ab0HOFhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Aug 2010 01:37:04 -0400
+In-Reply-To: <1281712433.2116.15.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Morgon J. Kanter" <morgon.j.kanter@dartmouth.edu>
-Date: Fri, 13 Aug 2010 13:07:38 -0400
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Fri, 13 Aug 2010 17:13:53 +0200
 
-> I have stumbled across what I think is a rare bug in the raw socket mechanism 
-> of the kernel. When attempting to send a certain packet with an IP ID of zero 
-> from a raw socket created with the call "socket(AF_INET, SOCK_RAW, 
-> IPPROTO_RAW)", the kernel will modify the IP ID field and update the checksum. 
-> It only seems to do it with this specific packet for some reason, similar 
-> packets with an IP ID of zero do not get so mangled.
+> On Fri, 2010-08-13 at 16:48 +0200, Eric Dumazet wrote:
+> 
+>> I assume reverting 1235f504aaba removes these errors ?
+> 
+> I haven't tried yet, but it only happened very recently and I didn't
+> find any other candidate -- the error always points to
+> wireless_send_event too.
 
-Even when using hdrinclude mode of RAW ipv4 sockets, if you specify
-a zero ID field, the kernel will fill it in with the usual value.
+Please test with the commit reverted and let us know if it helps.
 
-It is expected behavior.
-
-If you want the kernel to leave your ID field alone, provide a
-non-zero one.
+The current situation is worse than what we were trying to fix
+in that commit, so if a revert fixes your problem then as Eric
+said we should do that first.
