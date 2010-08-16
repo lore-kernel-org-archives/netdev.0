@@ -1,88 +1,107 @@
-From: Steve Chen <schen@mvista.com>
-Subject: Re: TAHI CN-6-4-1 failed on Linux 2.6.32 kernel
-Date: Mon, 16 Aug 2010 09:07:29 -0500
-Message-ID: <AANLkTi=qP7BO2=Uhx2Xb0XiLbUz0mPutbg0vz6QnMgYb@mail.gmail.com>
-References: <AANLkTim-zWhq9aGrvH2PdS3VjfBvmh=qL=1Sy3Z+VPgT@mail.gmail.com>
-	<4C646330.6080303@hp.com>
-	<AANLkTik5JOupTW97ikf1imsZrkmwgfPNsvBoSZp1S8JV@mail.gmail.com>
-	<4C64ACB2.3090600@hp.com>
-	<AANLkTi=01koVqt6YR0LQi53Nx0E=7UT1TFVNL44TwAR4@mail.gmail.com>
-	<4C65870F.4080307@hp.com>
-	<AANLkTik9=TcMWzNyKWYyDu+bbGscPne6++gD42aju9s_@mail.gmail.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
+Date: Mon, 16 Aug 2010 16:26:23 +0200
+Message-ID: <201008161626.24083.arnd@arndb.de>
+References: <cover.1281956490.git.richard.cochran@omicron.at>
+	<363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: usagi-users-ctl@ml.linux-ipv6.org, netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:43779 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753372Ab0HPOHa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 10:07:30 -0400
-Received: by iwn7 with SMTP id 7so1717347iwn.19
-        for <netdev@vger.kernel.org>; Mon, 16 Aug 2010 07:07:29 -0700 (PDT)
-In-Reply-To: <AANLkTik9=TcMWzNyKWYyDu+bbGscPne6++gD42aju9s_@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 13, 2010 at 5:25 PM, Steve Chen <schen@mvista.com> wrote:
-> On Fri, Aug 13, 2010 at 12:55 PM, Brian Haley <brian.haley@hp.com> wr=
-ote:
->> On 08/13/2010 01:34 PM, Steve Chen wrote:
->>>>>>> The TAHI correspondent node tests CN-6-4-1 (Processing in upper=
- layer
->>>>>>> - Echo Checksum) failed for me in the 2.6.32 kernel. =A0It appe=
-ars that
->>>>>>> the Linux kernel is replying the ICMP echo request in
->>>>>>> icmpv6_echo_reply without much checking. =A0Is this an intentio=
-nal
->>>>>>> non-conformance to RFC3775 section 9.3.1?
->> [snip]
->>
->>> It appears that skb->ip_summed is always 1 (CHECKSUM_UNNECESSARY).
->>> I'm using e1000e. =A0Looking at the driver, there is a checksum off=
-load
->>> hardware. =A0I think the code is doing frame check on the entire
->>> Ethernet packet. =A0Since no error was found, it assume everything
->>> inside is correct.
->>
->> # ethtool -K ethX rx off
->>
->> Does that help? =A0Does using a different NIC help?
->>
->
-> ethtool did not help.
->
-> I tried to run the test with a different NIC, but I keep getting
->
-> ...
->
-> IPSEC_AKEY =A0 =A0 =A0: =A0 =A0 =A0 =A0 =A0 =A0 =A0 -----------------=
----
-> IPSEC_EALGO =A0 =A0 : =A0 =A0 =A0 =A0 =A0 =A0 =A0 ---------
-> IPSEC_EKEY =A0 =A0 =A0: =A0 =A0 =A0 =A0 =A0 =A0 =A0 -----------------=
--------
-> IPSEC_SUPPORT =A0 : =A0 =A0 =A0 =A0 =A0 =A0 =A0 OFF
-> RR_TIMEOUT =A0 =A0 =A0: =A0 =A0 =A0 =A0 =A0 =A0 =A0 3
-> TIMEOUT : =A0 =A0 =A0 =A0 =A0 =A0 =A0 2
-> WAIT_RATELIMIT =A0: =A0 =A0 =A0 =A0 =A0 =A0 =A0 1
-> send Ra_R0_AllNd
-> Wait 3 sec.
-> Clear Captured Packets (Link0)
-> Clear Captured Packets (Link0)
-> send Ns_R0_AllNd
-> ######### Packe Name(RH) Field Value(NextHeader) is NULL
-> CNT_SendAndRecv Status=3DUnKnown
-> NG UnKnown
-> =A0-> Initialization Fail
-> ...
+On Monday 16 August 2010, Richard Cochran wrote:
+> This patch adds an infrastructure for hardware clocks that implement
+> IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
+> registration method to particular hardware clock drivers. Each clock is
+> exposed to user space as a character device with ioctls that allow tuning
+> of the PTP clock.
 
-Brian,
+Have you considered integrating the subsystem into the Posix clock/timer
+framework?
 
-Oops, set the Link0 in nut.def to the wrong value.  However, I'm still
-getting the same failure with different NIC.  I'll start looking into
-the code.  Please let me know your test results.
+I can't really tell from reading the source if this is possible or
+not, but my feeling is that if it can be done, that would be a much
+nicer interface. We already have clock_gettime/clock_settime/
+timer_settime/... system calls, and while you'd need to add another
+clockid and some syscalls, my feeling is that it will be more
+usable in the end.
 
-Thanks,
+> +static const struct file_operations ptp_fops = {
+> +       .owner          = THIS_MODULE,
+> +       .ioctl          = ptp_ioctl,
+> +       .open           = ptp_open,
+> +       .poll           = ptp_poll,
+> +       .read           = ptp_read,
+> +       .release        = ptp_release,
+> +};
 
-Steve
+.ioctl is gone, you have to use .unlocked_ioctl and make sure that
+your ptp_ioctl function can handle being called concurrently.
+
+You should also add a .compat_ioctl function, ideally one that
+points to ptp_ioctl so you don't have to list every command as
+being compatible. Right now, some commands are incompatible,
+which means you need more changes to the interface.
+
+> +struct ptp_clock_timer {
+> +       int alarm_index;       /* Which alarm to query or configure. */
+> +       int signum;            /* Requested signal. */
+> +       int flags;             /* Zero or TIMER_ABSTIME, see TIMER_SETTIME(2) */
+> +       struct itimerspec tsp; /* See TIMER_SETTIME(2) */
+> +};
+
+This data structure is incompatible between 32 and 64 bit user space,
+so you would need a compat_ioctl() function to convert between the
+two formats. Better define the structure in a compatible way, avoiding
+variable-length fields and implicit padding.
+
+> +struct ptp_clock_request {
+> +       int type;  /* One of the ptp_request_types enumeration values. */
+> +       int index; /* Which channel to configure. */
+> +       struct timespec ts; /* For period signals, the desired period. */
+> +       int flags; /* Bit field for PTP_ENABLE_FEATURE or other flags. */
+> +};
+
+Same problem here, timespec is either 64 or 128 bits long and has different
+alignment.
+
+> +struct ptp_extts_event {
+> +       int index;
+> +       struct timespec ts;
+> +};
+
+here too.
+
+> +#define PTP_CLOCK_VERSION 0x00000001
+> +
+> +#define PTP_CLK_MAGIC '='
+> +
+> +#define PTP_CLOCK_APIVERS _IOR (PTP_CLK_MAGIC, 1, __u32)
+
+Try avoiding versioned ABIs. It's better to just add new ioctls
+or syscalls when you need some extra functionality and leave the
+old ones around.
+
+> +#define PTP_CLOCK_ADJTIME _IOW (PTP_CLK_MAGIC, 3, struct timespec)
+> +#define PTP_CLOCK_GETTIME _IOR (PTP_CLK_MAGIC, 4, struct timespec)
+> +#define PTP_CLOCK_SETTIME _IOW (PTP_CLK_MAGIC, 5, struct timespec)
+
+These are also incompatible.
+
+	Arnd
