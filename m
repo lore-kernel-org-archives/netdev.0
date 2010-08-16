@@ -1,207 +1,297 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 2/2] platform: Facilitate the creation of pseudo-platform buses
-Date: Mon, 16 Aug 2010 14:25:18 -0600
-Message-ID: <AANLkTimxOgZPC_MiecEDRXoAcGRnsuUe31KkJJKDekev@mail.gmail.com>
-References: <1281484174-32174-1-git-send-email-ppannuto@codeaurora.org>
- <1281484174-32174-3-git-send-email-ppannuto@codeaurora.org>
- <AANLkTi=GduvsmkXpxsVoN7k3gPDjjRgqe0E_Z2YeEVS5@mail.gmail.com> <4C6987B0.7030703@codeaurora.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: pull request: wireless-2.6 2010-08-16
+Date: Mon, 16 Aug 2010 16:34:41 -0400
+Message-ID: <20100816203440.GG2656@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	magnus.damm@gmail.com, gregkh@suse.de,
-	Kevin Hilman <khilman@deeprootsystems.com>,
-	Paul Mundt <lethal@linux-sh.org>,
-	Magnus Damm <damm@opensource.se>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Eric Miao <eric.y.miao@gmail.com>,
-	Dmitry Torokhov <dtor@mail.ru>, netdev@vger.kernel.org
-To: Patrick Pannuto <ppannuto@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:57162 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756283Ab0HPUZj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 16:25:39 -0400
-In-Reply-To: <4C6987B0.7030703@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 16, 2010 at 12:47 PM, Patrick Pannuto
-<ppannuto@codeaurora.org> wrote:
-> On 08/13/2010 03:05 PM, Grant Likely wrote:
->>> @@ -1017,6 +1022,87 @@ struct bus_type platform_bus_type =3D {
->>> =A0};
->>> =A0EXPORT_SYMBOL_GPL(platform_bus_type);
->>>
->>> +/** pseudo_platform_bus_register - register an "almost platform bu=
-s"
->>
->> Kerneldoc style error. =A0Should be:
->>
->> +/**
->> + * pseudo_platform_bus_register - register an "almost platform bus"
->>
->
-> Fixed.
+Dave,
 
-Actually, I also made a kerneldoc style error here because the braces
-are missing.  This should be:
+This group of fixes is intended for 2.6.36.  This includes a fix for a
+warning backtrace related to pm_qos in ipw2100, a packet injection oops
+for ath9k_htc, a connectivity regression for ath9k_htc related to HT
+capabilities handling, a scanning regression in wl1251, 
+a firmware loading error in ath9k_htc, and a patch to disable L0s for
+all ath5k cards (causes misc wierdness).
 
-+/**
-+ * pseudo_platform_bus_register() - register an "almost platform bus"
+Please let me know if there are problems!
 
-See Documentation/kernel-doc-nano-HOWTO.txt for details.
+Thanks,
 
-I'm also not fond of the "pseudo" name.  It isn't really a pseudo bus,
-but rather a different bus type that happens to inherit most of the
-platform_bus infrastructure.  It may be better just to expose the
-platform_bus helper functions without any reference to pseudo, and let
-the users be responsible for any naming differentiation.  This is
-particularly true if the custom bus becomes responsible for
-registering itself and only the initialization functions are exposed.
+John
 
-[...]
->>> + =A0 =A0 =A0 heap_pm =3D kmalloc(sizeof (*heap_pm), GFP_KERNEL);
->>> +
->>> + =A0 =A0 =A0 if (!heap_pm)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOMEM;
->>> +
->>> + =A0 =A0 =A0 if (!bus->dev_attrs)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->dev_attrs =3D platform_bus_type.=
-dev_attrs;
->>> + =A0 =A0 =A0 if (!bus->match)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->match =3D platform_bus_type.matc=
-h;
->>> + =A0 =A0 =A0 if (!bus->uevent)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->uevent =3D platform_bus_type.uev=
-ent;
->>> + =A0 =A0 =A0 if (!bus->pm)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 memcpy(heap_pm, &platform_bus_type.pm=
-, sizeof(*heap_pm));
->>> + =A0 =A0 =A0 else {
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->prepare =3D (bus->pm->prepar=
-e) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->prepare : pl=
-atform_pm_prepare;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->complete =3D (bus->pm->compl=
-ete) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->complete : p=
-latform_pm_complete;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->suspend =3D (bus->pm->suspen=
-d) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->suspend : pl=
-atform_pm_suspend;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->resume =3D (bus->pm->resume)=
- ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->resume : pla=
-tform_pm_resume;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->freeze =3D (bus->pm->freeze)=
- ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->freeze : pla=
-tform_pm_freeze;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->thaw =3D (bus->pm->thaw) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->thaw : platf=
-orm_pm_thaw;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->poweroff =3D (bus->pm->power=
-off) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->poweroff : p=
-latform_pm_poweroff;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->restore =3D (bus->pm->restor=
-e) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->restore : pl=
-atform_pm_restore;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->suspend_noirq =3D (bus->pm->=
-suspend_noirq) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->suspend_noir=
-q : platform_pm_suspend_noirq;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->resume_noirq =3D (bus->pm->r=
-esume_noirq) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->resume_noirq=
- : platform_pm_resume_noirq;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->freeze_noirq =3D (bus->pm->f=
-reeze_noirq) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->freeze_noirq=
- : platform_pm_freeze_noirq;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->thaw_noirq =3D (bus->pm->tha=
-w_noirq) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->thaw_noirq :=
- platform_pm_thaw_noirq;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->poweroff_noirq =3D (bus->pm-=
->poweroff_noirq) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->poweroff_noi=
-rq : platform_pm_poweroff_noirq;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->restore_noirq =3D (bus->pm->=
-restore_noirq) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->restore_noir=
-q : platform_pm_restore_noirq;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->runtime_suspend =3D (bus->pm=
-->runtime_suspend) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->runtime_susp=
-end : platform_pm_runtime_suspend;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->runtime_resume =3D (bus->pm-=
->runtime_resume) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->runtime_resu=
-me : platform_pm_runtime_resume;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 heap_pm->runtime_idle =3D (bus->pm->r=
-untime_idle) ?
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bus->pm->runtime_idle=
- : platform_pm_runtime_idle;
->>> + =A0 =A0 =A0 }
->>> + =A0 =A0 =A0 bus->pm =3D heap_pm;
->>> +
->>> + =A0 =A0 =A0 error =3D bus_register(bus);
->>> + =A0 =A0 =A0 if (error)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree(bus->pm);
->>> +
->>> + =A0 =A0 =A0 return error;
->>> +}
->>> +EXPORT_SYMBOL_GPL(pseudo_platform_bus_register);
->>
->> Ick, this is a nasty list of conditional statements. =A0:-) =A0Inste=
-ad it
->> could have an unconditional initialize function which sets it up jus=
-t
->> like the platform bus without registering. =A0Then allow the
->> foo_bus_type initialization code override the ones it cares about, a=
-nd
->> then register directly.
->>
->
-> No, this won't work. (Unless, every pseudo_bus_type author did this s=
-ame
-> kludge to work around const - better to do once IMHO)
->
-> struct bus_type {
-> =A0 =A0 =A0 =A0...
-> =A0 =A0 =A0 =A0const struct dev_pm_ops *pm;
-> =A0 =A0 =A0 =A0...
-> };
->
-> That const is there to *prevent* device/driver writers from overridin=
-g
-> pm ops on accident, and to that end, it has value. What we would real=
-ly
-> like here is 'const after registered' semantics, where the bus author
-> can fill in half the structure, and the platform code can fill in the
-> rest. However, allowing subclasses to modify private data elements is=
-n't
-> possible in C :)
+---
 
-Okay then, here is a better approach:  Don't do any allocation in this
-function.  Just initialize the bus_type exactly the way it is
-initialized for the platform bus and assign the default dev_pm_ops.
-If the custom bus needs to override them, then it should be
-responsible to kmemdup the default dev_pm_ops structure and modify the
-copy.  The code will be a lot simpler that way.
+The following changes since commit 3c09e2647b5e1f1f9fd383971468823c2505e1b0:
 
-> I believe the 'const' here provides valuable safety. My original atte=
-mpt
-> at doing this removed the const, and I overwrote one of the pointers =
-in
-> platform_dev_pm_ops on my first try at implementing it!
+  ctcm: rename READ/WRITE defines to avoid redefinitions (2010-08-12 16:04:23 -0700)
 
-Yes, overriding the const is a bad idea and you'd be wrong to override =
-it.  :-)
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-Cheers,
-g.
+John W. Linville (1):
+      ipw2100: register pm_qos request before registering pci driver
+
+Maxim Levitsky (1):
+      ath5k: disable ASPM L0s for all cards
+
+Rajkumar Manoharan (2):
+      ath9k_htc: fix panic on packet injection using airbase-ng tool.
+      ath9k_htc: load proper firmware for device ID 7015
+
+Vivek Natarajan (1):
+      ath9k_htc: Fix disconnect issue in HT40 mode.
+
+Yuri Kululin (1):
+      wl1251: fix trigger scan timeout usage
+
+ drivers/net/wireless/ath/ath5k/base.c         |   21 +++++++++++++++++++++
+ drivers/net/wireless/ath/ath9k/eeprom.h       |    1 +
+ drivers/net/wireless/ath/ath9k/eeprom_9287.c  |    7 ++++++-
+ drivers/net/wireless/ath/ath9k/hif_usb.c      |    8 ++------
+ drivers/net/wireless/ath/ath9k/htc_drv_init.c |    1 +
+ drivers/net/wireless/ath/ath9k/htc_drv_main.c |    3 ++-
+ drivers/net/wireless/ath/ath9k/htc_drv_txrx.c |   15 ++++++++++-----
+ drivers/net/wireless/ath/ath9k/reg.h          |    1 +
+ drivers/net/wireless/ipw2x00/ipw2100.c        |    5 +++--
+ drivers/net/wireless/wl12xx/wl1251_cmd.c      |    2 +-
+ 10 files changed, 48 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath5k/base.c b/drivers/net/wireless/ath/ath5k/base.c
+index 0d5de25..373dcfe 100644
+--- a/drivers/net/wireless/ath/ath5k/base.c
++++ b/drivers/net/wireless/ath/ath5k/base.c
+@@ -48,6 +48,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/cache.h>
+ #include <linux/pci.h>
++#include <linux/pci-aspm.h>
+ #include <linux/ethtool.h>
+ #include <linux/uaccess.h>
+ #include <linux/slab.h>
+@@ -476,6 +477,26 @@ ath5k_pci_probe(struct pci_dev *pdev,
+ 	int ret;
+ 	u8 csz;
+ 
++	/*
++	 * L0s needs to be disabled on all ath5k cards.
++	 *
++	 * For distributions shipping with CONFIG_PCIEASPM (this will be enabled
++	 * by default in the future in 2.6.36) this will also mean both L1 and
++	 * L0s will be disabled when a pre 1.1 PCIe device is detected. We do
++	 * know L1 works correctly even for all ath5k pre 1.1 PCIe devices
++	 * though but cannot currently undue the effect of a blacklist, for
++	 * details you can read pcie_aspm_sanity_check() and see how it adjusts
++	 * the device link capability.
++	 *
++	 * It may be possible in the future to implement some PCI API to allow
++	 * drivers to override blacklists for pre 1.1 PCIe but for now it is
++	 * best to accept that both L0s and L1 will be disabled completely for
++	 * distributions shipping with CONFIG_PCIEASPM rather than having this
++	 * issue present. Motivation for adding this new API will be to help
++	 * with power consumption for some of these devices.
++	 */
++	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S);
++
+ 	ret = pci_enable_device(pdev);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "can't enable device\n");
+diff --git a/drivers/net/wireless/ath/ath9k/eeprom.h b/drivers/net/wireless/ath/ath9k/eeprom.h
+index 8750c55..7f48df1 100644
+--- a/drivers/net/wireless/ath/ath9k/eeprom.h
++++ b/drivers/net/wireless/ath/ath9k/eeprom.h
+@@ -191,6 +191,7 @@
+ #define AR9287_EEP_NO_BACK_VER       AR9287_EEP_MINOR_VER_1
+ 
+ #define AR9287_EEP_START_LOC            128
++#define AR9287_HTC_EEP_START_LOC        256
+ #define AR9287_NUM_2G_CAL_PIERS         3
+ #define AR9287_NUM_2G_CCK_TARGET_POWERS 3
+ #define AR9287_NUM_2G_20_TARGET_POWERS  3
+diff --git a/drivers/net/wireless/ath/ath9k/eeprom_9287.c b/drivers/net/wireless/ath/ath9k/eeprom_9287.c
+index 4a52cf0..dff2da7 100644
+--- a/drivers/net/wireless/ath/ath9k/eeprom_9287.c
++++ b/drivers/net/wireless/ath/ath9k/eeprom_9287.c
+@@ -34,9 +34,14 @@ static bool ath9k_hw_ar9287_fill_eeprom(struct ath_hw *ah)
+ 	struct ar9287_eeprom *eep = &ah->eeprom.map9287;
+ 	struct ath_common *common = ath9k_hw_common(ah);
+ 	u16 *eep_data;
+-	int addr, eep_start_loc = AR9287_EEP_START_LOC;
++	int addr, eep_start_loc;
+ 	eep_data = (u16 *)eep;
+ 
++	if (ah->hw_version.devid == 0x7015)
++		eep_start_loc = AR9287_HTC_EEP_START_LOC;
++	else
++		eep_start_loc = AR9287_EEP_START_LOC;
++
+ 	if (!ath9k_hw_use_flash(ah)) {
+ 		ath_print(common, ATH_DBG_EEPROM,
+ 			  "Reading from EEPROM, not flash\n");
+diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
+index 61c1bee..17e7a9a 100644
+--- a/drivers/net/wireless/ath/ath9k/hif_usb.c
++++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+@@ -799,7 +799,7 @@ static int ath9k_hif_usb_download_fw(struct hif_device_usb *hif_dev)
+ 	}
+ 	kfree(buf);
+ 
+-	if (hif_dev->device_id == 0x7010)
++	if ((hif_dev->device_id == 0x7010) || (hif_dev->device_id == 0x7015))
+ 		firm_offset = AR7010_FIRMWARE_TEXT;
+ 	else
+ 		firm_offset = AR9271_FIRMWARE_TEXT;
+@@ -901,6 +901,7 @@ static int ath9k_hif_usb_probe(struct usb_interface *interface,
+ 
+ 	switch(hif_dev->device_id) {
+ 	case 0x7010:
++	case 0x7015:
+ 	case 0x9018:
+ 		if (le16_to_cpu(udev->descriptor.bcdDevice) == 0x0202)
+ 			hif_dev->fw_name = FIRMWARE_AR7010_1_1;
+@@ -912,11 +913,6 @@ static int ath9k_hif_usb_probe(struct usb_interface *interface,
+ 		break;
+ 	}
+ 
+-	if (!hif_dev->fw_name) {
+-		dev_err(&udev->dev, "Can't determine firmware !\n");
+-		goto err_htc_hw_alloc;
+-	}
+-
+ 	ret = ath9k_hif_usb_dev_init(hif_dev);
+ 	if (ret) {
+ 		ret = -EINVAL;
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+index 148b433..2d42791 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+@@ -245,6 +245,7 @@ static int ath9k_init_htc_services(struct ath9k_htc_priv *priv, u16 devid)
+ 
+ 	switch(devid) {
+ 	case 0x7010:
++	case 0x7015:
+ 	case 0x9018:
+ 		priv->htc->credits = 45;
+ 		break;
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_main.c b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
+index ebed9d1..7d09b4b 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_main.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
+@@ -366,7 +366,8 @@ static void ath9k_htc_setup_rate(struct ath9k_htc_priv *priv,
+ 		caps = WLAN_RC_HT_FLAG;
+ 		if (sta->ht_cap.mcs.rx_mask[1])
+ 			caps |= WLAN_RC_DS_FLAG;
+-		if (sta->ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40)
++		if ((sta->ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40) &&
++		     (conf_is_ht40(&priv->hw->conf)))
+ 			caps |= WLAN_RC_40_FLAG;
+ 		if (conf_is_ht40(&priv->hw->conf) &&
+ 		    (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_40))
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+index bd0b4ac..2a6e45a 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+@@ -78,18 +78,23 @@ int ath9k_htc_tx_start(struct ath9k_htc_priv *priv, struct sk_buff *skb)
+ 	struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(skb);
+ 	struct ieee80211_sta *sta = tx_info->control.sta;
+ 	struct ath9k_htc_sta *ista;
+-	struct ath9k_htc_vif *avp;
+ 	struct ath9k_htc_tx_ctl tx_ctl;
+ 	enum htc_endpoint_id epid;
+ 	u16 qnum;
+ 	__le16 fc;
+ 	u8 *tx_fhdr;
+-	u8 sta_idx;
++	u8 sta_idx, vif_idx;
+ 
+ 	hdr = (struct ieee80211_hdr *) skb->data;
+ 	fc = hdr->frame_control;
+ 
+-	avp = (struct ath9k_htc_vif *) tx_info->control.vif->drv_priv;
++	if (tx_info->control.vif &&
++			(struct ath9k_htc_vif *) tx_info->control.vif->drv_priv)
++		vif_idx = ((struct ath9k_htc_vif *)
++				tx_info->control.vif->drv_priv)->index;
++	else
++		vif_idx = priv->nvifs;
++
+ 	if (sta) {
+ 		ista = (struct ath9k_htc_sta *) sta->drv_priv;
+ 		sta_idx = ista->index;
+@@ -106,7 +111,7 @@ int ath9k_htc_tx_start(struct ath9k_htc_priv *priv, struct sk_buff *skb)
+ 		memset(&tx_hdr, 0, sizeof(struct tx_frame_hdr));
+ 
+ 		tx_hdr.node_idx = sta_idx;
+-		tx_hdr.vif_idx = avp->index;
++		tx_hdr.vif_idx = vif_idx;
+ 
+ 		if (tx_info->flags & IEEE80211_TX_CTL_AMPDU) {
+ 			tx_ctl.type = ATH9K_HTC_AMPDU;
+@@ -169,7 +174,7 @@ int ath9k_htc_tx_start(struct ath9k_htc_priv *priv, struct sk_buff *skb)
+ 		tx_ctl.type = ATH9K_HTC_NORMAL;
+ 
+ 		mgmt_hdr.node_idx = sta_idx;
+-		mgmt_hdr.vif_idx = avp->index;
++		mgmt_hdr.vif_idx = vif_idx;
+ 		mgmt_hdr.tidno = 0;
+ 		mgmt_hdr.flags = 0;
+ 
+diff --git a/drivers/net/wireless/ath/ath9k/reg.h b/drivers/net/wireless/ath/ath9k/reg.h
+index 633e3d9..d01c4ad 100644
+--- a/drivers/net/wireless/ath/ath9k/reg.h
++++ b/drivers/net/wireless/ath/ath9k/reg.h
+@@ -899,6 +899,7 @@
+ 
+ #define AR_DEVID_7010(_ah) \
+ 	(((_ah)->hw_version.devid == 0x7010) || \
++	 ((_ah)->hw_version.devid == 0x7015) || \
+ 	 ((_ah)->hw_version.devid == 0x9018))
+ 
+ #define AR_RADIO_SREV_MAJOR                   0xf0
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index 16bbfa3..1189dbb 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -6665,12 +6665,13 @@ static int __init ipw2100_init(void)
+ 	printk(KERN_INFO DRV_NAME ": %s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
+ 	printk(KERN_INFO DRV_NAME ": %s\n", DRV_COPYRIGHT);
+ 
++	pm_qos_add_request(&ipw2100_pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
++			   PM_QOS_DEFAULT_VALUE);
++
+ 	ret = pci_register_driver(&ipw2100_pci_driver);
+ 	if (ret)
+ 		goto out;
+ 
+-	pm_qos_add_request(&ipw2100_pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+-			   PM_QOS_DEFAULT_VALUE);
+ #ifdef CONFIG_IPW2100_DEBUG
+ 	ipw2100_debug_level = debug;
+ 	ret = driver_create_file(&ipw2100_pci_driver.driver,
+diff --git a/drivers/net/wireless/wl12xx/wl1251_cmd.c b/drivers/net/wireless/wl12xx/wl1251_cmd.c
+index a37b30c..ce3722f 100644
+--- a/drivers/net/wireless/wl12xx/wl1251_cmd.c
++++ b/drivers/net/wireless/wl12xx/wl1251_cmd.c
+@@ -484,7 +484,7 @@ int wl1251_cmd_trigger_scan_to(struct wl1251 *wl, u32 timeout)
+ 
+ 	cmd->timeout = timeout;
+ 
+-	ret = wl1251_cmd_send(wl, CMD_SCAN, cmd, sizeof(*cmd));
++	ret = wl1251_cmd_send(wl, CMD_TRIGGER_SCAN_TO, cmd, sizeof(*cmd));
+ 	if (ret < 0) {
+ 		wl1251_error("cmd trigger scan to failed: %d", ret);
+ 		goto out;
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
