@@ -1,21 +1,21 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 8/16] net/ax25: Use available error codes
-Date: Mon, 16 Aug 2010 18:26:57 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008161826390.19313@ask.diku.dk>
+Subject: [PATCH 10/16] drivers/net/wireless/wl12xx: Use available error codes
+Date: Mon, 16 Aug 2010 18:27:30 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008161827140.19313@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Ralf Baechle <ralf@linux-mips.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-hams@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
+To: Luciano Coelho <luciano.coelho@nokia.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-ja
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
-Error codes are stored in err, but the return value is always 0.  Return
-err instead.
+Error codes are stored in ret, but the return value is always 0.  Return
+ret instead.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -46,28 +46,19 @@ Signed-off-by: Julia Lawall <julia@diku.dk>
 ---
 This changes the semantics and has not been tested.
 
- net/ax25/ax25_route.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/wl12xx/wl1271_acx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ax25/ax25_route.c b/net/ax25/ax25_route.c
-index 7805945..a169084 100644
---- a/net/ax25/ax25_route.c
-+++ b/net/ax25/ax25_route.c
-@@ -412,7 +412,7 @@ int ax25_rt_autobind(ax25_cb *ax25, ax25_address *addr)
- {
- 	ax25_uid_assoc *user;
- 	ax25_route *ax25_rt;
--	int err;
-+	int err = 0;
+diff --git a/drivers/net/wireless/wl12xx/wl1271_acx.c b/drivers/net/wireless/wl12xx/wl1271_acx.c
+index bb245f0..f03ad08 100644
+--- a/drivers/net/wireless/wl12xx/wl1271_acx.c
++++ b/drivers/net/wireless/wl12xx/wl1271_acx.c
+@@ -269,7 +269,7 @@ int wl1271_acx_pd_threshold(struct wl1271 *wl)
  
- 	if ((ax25_rt = ax25_get_route(addr, NULL)) == NULL)
- 		return -EHOSTUNREACH;
-@@ -453,7 +453,7 @@ int ax25_rt_autobind(ax25_cb *ax25, ax25_address *addr)
- put:
- 	ax25_put_route(ax25_rt);
- 
+ out:
+ 	kfree(pd);
 -	return 0;
-+	return err;
++	return ret;
  }
  
- struct sk_buff *ax25_rt_build_path(struct sk_buff *skb, ax25_address *src,
+ int wl1271_acx_slot(struct wl1271 *wl, enum acx_slot_type slot_time)
