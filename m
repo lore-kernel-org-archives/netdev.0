@@ -1,63 +1,61 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 13/16] net/ax25: Use available error codes
-Date: Mon, 16 Aug 2010 20:31:01 +0100
-Message-ID: <20100816193100.GB10921@linux-mips.org>
-References: <Pine.LNX.4.64.1008161828030.19313@ask.diku.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Mon, 16 Aug 2010 12:36:07 -0700 (PDT)
+Message-ID: <20100816.123607.57459160.davem@davemloft.net>
+References: <20100814.220945.232761341.davem@davemloft.net>
+	<1281869722.2942.20.camel@edumazet-laptop>
+	<1281883637.2942.42.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joerg Reuter <jreuter@yaina.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-hams@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h5.dl5rb.org.uk ([81.2.74.5]:38677 "EHLO h5.dl5rb.org.uk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756249Ab0HPTbs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Aug 2010 15:31:48 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.1008161828030.19313@ask.diku.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1281883637.2942.42.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 16, 2010 at 06:28:19PM +0200, Julia Lawall wrote:
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 15 Aug 2010 16:47:17 +0200
 
-> Error codes are stored in err, but the return value is always 0.  Return
-> err instead.
-> 
-> The semantic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @r@
-> local idexpression x;
-> constant C;
-> @@
-> 
-> if (...) { ...
->   x = -C
->   ... when != x
-> (
->   return <+...x...+>;
-> |
->   return NULL;
-> |
->   return;
-> |
-> * return ...;
-> )
-> }
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
-> 
-> ---
-> This changes the semantics of the function and has not been tested.
+> Le dimanche 15 ao=FBt 2010 =E0 12:55 +0200, Eric Dumazet a =E9crit :
+>=20
+>> We have one lock per cpu, and only one cpu can possibly lock its
+>> associated lock under softirq. So the usual lockdep check, warning a
+>> lock is taken with BH enabled, while same lock was taken inside soft=
+irq
+>> handler is triggering a false positive here.
+>>=20
+>> I believe no existing lockdep annotation can instruct lockdep this u=
+se
+>> is OK, I guess we have following choice :
+>>=20
+>> 1) Mask BH again, using xt_info_wrlock_lockdep(cpu) instead of
+>> xt_info_wrlock(cpu).
+>>=20
+>> xt_info_wrlock_lockdep() being a variant, that disables BH in case
+>> CONFIG_PROVE_LOCKING=3Dy
+>>=20
+>> 2) temporally switch off lockdep in get_counters(), using a
+>> lockdep_off()/lockdep_on() pair, and a comment why this is necessary=
+=2E
+>>=20
+>=20
+> In any case, here is patch implementing the later
 
-It restores the semantics to what they should be and used to be.  This
-probably happened during the introduction of proper refcounting and
-locking into the AX.25 stack.  Looks fine to me.
+I'm hesistent to say that we should put this kind of patch in.
 
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
+It will shut up lockdep for this specific case, but it also means
+that if we do any other kinds of locking in this sequence we will
+not validate it.
 
-  Ralf
+The valuable of this is open for debate I guess.
+
+But locking is hard so I would say that disabling lockdep to kill a
+warning it generates should be an absolute last resort.
+
+I also don't think making the locking mechanics conditional upon
+LOCKDEP is sane either, exactly because it means lockdep is testing
+something other than what actually gets used in practice. :-)
