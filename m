@@ -1,47 +1,128 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
-Date: Mon, 16 Aug 2010 07:25:51 +0200
-Message-ID: <1281936351.3683.1.camel@jlt3.sipsolutions.net>
-References: <1281710115.3760.27.camel@jlt3.sipsolutions.net>
-	 <1281710887.4470.78.camel@edumazet-laptop>
-	 <1281712433.2116.15.camel@jlt3.sipsolutions.net>
-	 <20100814.223722.116371746.davem@davemloft.net>
+From: LionSky <loverunning2@gmail.com>
+Subject: [Power Efficiency Proposal] Low Power on Media Disconnect
+Date: Mon, 16 Aug 2010 13:35:44 +0800
+Message-ID: <AANLkTin3DNEPDA+vpY-WuSa8ia-sgEA8_sr9qOLpDHph@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary=0016364d30b1364f18048dea3421
+Cc: jie.yang@atheros.com, weiliang lin <loverunning2@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:38945 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751807Ab0HPFZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 01:25:57 -0400
-In-Reply-To: <20100814.223722.116371746.davem@davemloft.net>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:35333 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907Ab0HPFfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 01:35:45 -0400
+Received: by qwh6 with SMTP id 6so4611260qwh.19
+        for <netdev@vger.kernel.org>; Sun, 15 Aug 2010 22:35:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-08-14 at 22:37 -0700, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Fri, 13 Aug 2010 17:13:53 +0200
-> 
-> > On Fri, 2010-08-13 at 16:48 +0200, Eric Dumazet wrote:
-> > 
-> >> I assume reverting 1235f504aaba removes these errors ?
-> > 
-> > I haven't tried yet, but it only happened very recently and I didn't
-> > find any other candidate -- the error always points to
-> > wireless_send_event too.
-> 
-> Please test with the commit reverted and let us know if it helps.
-> 
-> The current situation is worse than what we were trying to fix
-> in that commit, so if a revert fixes your problem then as Eric
-> said we should do that first.
+--0016364d30b1364f18048dea3421
+Content-Type: text/plain; charset=ISO-8859-1
 
-I haven't gotten around to it, but Kalle had been running into the same
-issue and said reverting it fixed it:
+It is a very typical scenario that users of laptop/Netbook experience
+Internet over wireless instead of ethernet.
+An obvious hint about that is user unplug-in the ethernet cable which
+implies that he does not want to use the ethernet. So for power
+efficiency, it is best to place ethernet adapter into a low power
+state, such as C3hot, when ethernet cable is disconnected.
+Battery life is very important for Laptop/Netbook. Currently, the
+power consumption of active idle on a typical Netbook is about 5-6
+Watt. If you placed the etherent adapter in C3hot state, about
+0.5~1.0Watt power is saved which depneds on your H/W. This can prolong
+battery life about 10%~20% which is a quite big power saving.
+Now, Linux kernel supports runtime power management. It is not a hard
+work to enable this feature on each ethernet adapter driver.
 
-http://article.gmane.org/gmane.linux.kernel.wireless.general/54492
+Here I attached a simple and prototype implementation which is
+verified on a Netbook (ASUS E1005PE with Atheros AR8132 PCI-E Fast
+Ethernet Controller).
+1. When ethernet cable is disconnected, driver places ethernet adapter
+into D3hot low power state. Just as CPU go to deep C-State.
+2. When ethernet cable is connected again, driver places ethernet back
+in D0 power state.
 
-johannes
+To further improve the power behavior of Linux on laptop/Netbook, a
+proposal is that all ethernet drivers must support Low Power on Media
+Disconnect.
 
+Is it right? Welcome any comments.
+
+
+Thanks
+-Lionsky
+
+--0016364d30b1364f18048dea3421
+Content-Type: text/plain; charset=US-ASCII; name="patch.atl1c.rt.txt"
+Content-Disposition: attachment; filename="patch.atl1c.rt.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gcww4imh0
+
+LS0tIGF0bDFjb2xkL2F0bDFjX21haW4uYwkyMDEwLTA4LTA0IDE2OjIxOjU5Ljg2MzMyODg5NSAr
+MDgwMAorKysgYXRsMWNuZXcvYXRsMWNfbWFpbi5jCTIwMTAtMDgtMTYgMTE6MDY6NDIuMjE3Mjg1
+MzU4ICswODAwCkBAIC0yMCw2ICsyMCw3IEBACiAgKi8KIAogI2luY2x1ZGUgImF0bDFjLmgiCisj
+aW5jbHVkZSA8bGludXgvcG1fcnVudGltZS5oPgogCiAjZGVmaW5lIEFUTDFDX0RSVl9WRVJTSU9O
+ICIxLjAuMC4yLU5BUEkiCiBjaGFyIGF0bDFjX2RyaXZlcl9uYW1lW10gPSAiYXRsMWMiOwpAQCAt
+NjYsNiArNjcsOCBAQAogc3RhdGljIHZvaWQgYXRsMWNfc2V0dXBfbWFjX2N0cmwoc3RydWN0IGF0
+bDFjX2FkYXB0ZXIgKmFkYXB0ZXIpOwogc3RhdGljIHZvaWQgYXRsMWNfY2xlYW5fcnhfaXJxKHN0
+cnVjdCBhdGwxY19hZGFwdGVyICphZGFwdGVyLCB1OCBxdWUsCiAJCSAgIGludCAqd29ya19kb25l
+LCBpbnQgd29ya190b19kbyk7CitzdGF0aWMgaW50IGF0bDFjX3J1bnRpbWVfc3VzcGVuZChzdHJ1
+Y3QgZGV2aWNlICpkZXZpY2UpOworc3RhdGljIGludCBhdGwxY19ydW50aW1lX3Jlc3VtZShzdHJ1
+Y3QgZGV2aWNlICpkZXZpY2UpOwogCiBzdGF0aWMgY29uc3QgdTE2IGF0bDFjX3BheV9sb2FkX3Np
+emVbXSA9IHsKIAkxMjgsIDI1NiwgNTEyLCAxMDI0LCAyMDQ4LCA0MDk2LApAQCAtOTgsNiArMTAx
+LDkgQEAKIHN0YXRpYyBjb25zdCB1MzIgYXRsMWNfZGVmYXVsdF9tc2cgPSBORVRJRl9NU0dfRFJW
+IHwgTkVUSUZfTVNHX1BST0JFIHwKIAlORVRJRl9NU0dfTElOSyB8IE5FVElGX01TR19USU1FUiB8
+IE5FVElGX01TR19JRkRPV04gfCBORVRJRl9NU0dfSUZVUDsKIAorLyphIHZhcmlhYmxlIGluZGlj
+YXRlcyBjdXJyZW50IEgvVyBwb3dlciBzdGF0ZSovCitzdGF0aWMgdTE2IGF0bDFjX2QzICA9IDE7
+CisKIC8qCiAgKiBhdGwxY19pbml0X3BjaWUgLSBpbml0IFBDSUUgbW9kdWxlCiAgKi8KQEAgLTI0
+MCw4ICsyNDYsMTMgQEAKIAkJCWF0bDFjX3NldF9hc3BtKGh3LCBmYWxzZSk7CiAJCX0KIAkJbmV0
+aWZfY2Fycmllcl9vZmYobmV0ZGV2KTsKKworCQlwbV9ydW50aW1lX3B1dF9ub2lkbGUoJnBkZXYt
+PmRldik7CisJCXBtX3NjaGVkdWxlX3N1c3BlbmQoJnBkZXYtPmRldiwwKTsKIAl9IGVsc2Ugewog
+CQkvKiBMaW5rIFVwICovCisJCXBtX3JlcXVlc3RfcmVzdW1lKCZwZGV2LT5kZXYpOworCiAJCWh3
+LT5oaWJlcm5hdGUgPSBmYWxzZTsKIAkJc3Bpbl9sb2NrX2lycXNhdmUoJmFkYXB0ZXItPm1kaW9f
+bG9jaywgZmxhZ3MpOwogCQllcnIgPSBhdGwxY19nZXRfc3BlZWRfYW5kX2R1cGxleChodywgJnNw
+ZWVkLCAmZHVwbGV4KTsKQEAgLTE1NzYsNiArMTU4NywyMSBAQAogfQogCiAvKgorICogY2hlY2tQ
+b3dlU3RhdGUgLSBJZiBjdXJyZW50IHBvd2VyIHN0YXRlIGlzIEQzaG90LCByZXN1bWUgaXQgdG8g
+RDAgCisgKiBAcGRldjogcG9pbnRlciB0byBhIHBjaSBuZXR3b3JrIGludGVyZmFjZSBkZXZpY2Ug
+c3RydWN0dXJlCisgKi8KK3N0YXRpYyBpbmxpbmUgaW50IGNoZWNrUG93ZXJTdGF0ZShzdHJ1Y3Qg
+cGNpX2RldiAqIHBkZXYpCit7CisJaWYgKHVubGlrZWx5KGF0bDFjX2QzKSkgeworCQlwY2lfd3Jp
+dGVfY29uZmlnX3dvcmQocGRldiwgcGRldi0+cG1fY2FwICsgUENJX1BNX0NUUkwsIDApOworCQlw
+ZGV2LT5kZXYucG93ZXIucnVudGltZV9zdGF0dXMgPSAwOworCQlhdGwxY19kMyA9IDA7CisJCXJl
+dHVybiAxOworCX0KKwlyZXR1cm4gMDsKK30KKworLyoKICAqIGF0bDFjX2ludHIgLSBJbnRlcnJ1
+cHQgSGFuZGxlcgogICogQGlycTogaW50ZXJydXB0IG51bWJlcgogICogQGRhdGE6IHBvaW50ZXIg
+dG8gYSBuZXR3b3JrIGludGVyZmFjZSBkZXZpY2Ugc3RydWN0dXJlCkBAIC0xNTkyLDYgKzE2MTgs
+OCBAQAogCXUzMiBzdGF0dXM7CiAJdTMyIHJlZ19kYXRhOwogCisJY2hlY2tQb3dlclN0YXRlKHBk
+ZXYpOworCiAJZG8gewogCQlBVF9SRUFEX1JFRyhodywgUkVHX0lTUiwgJnJlZ19kYXRhKTsKIAkJ
+c3RhdHVzID0gcmVnX2RhdGEgJiBody0+aW50cl9tYXNrOwpAQCAtMjcwMyw2ICsyNzMxLDEyIEBA
+CiAJaWYgKG5ldGlmX21zZ19wcm9iZShhZGFwdGVyKSkKIAkJZGV2X2luZm8oJnBkZXYtPmRldiwg
+InZlcnNpb24gJXNcbiIsIEFUTDFDX0RSVl9WRVJTSU9OKTsKIAljYXJkc19mb3VuZCsrOworCisJ
+cG1fcnVudGltZV9zZXRfYWN0aXZlKCZwZGV2LT5kZXYpOworCXBtX3J1bnRpbWVfZW5hYmxlKCZw
+ZGV2LT5kZXYpOworCQorCXBtX3J1bnRpbWVfaWRsZSgmcGRldi0+ZGV2KTsKKwogCXJldHVybiAw
+OwogCiBlcnJfcmVzZXQ6CkBAIC0yODMyLDYgKzI4NjYsNTcgQEAKIAkucmVzdW1lID0gYXRsMWNf
+aW9fcmVzdW1lLAogfTsKIAorLyogQWRkaW5nIHJ1bnRpbWUgcG93ZXIgbWFuYWdlbWVudCBzdXBw
+b3J0Ki8KKyNpZmRlZiBDT05GSUdfUE0KKworLy9jYWxsYmFjayBmdW5jdGlvbiBkZWZpbml0aW9u
+CitzdGF0aWMgaW50IGF0bDFjX3J1bnRpbWVfc3VzcGVuZChzdHJ1Y3QgZGV2aWNlICpkZXZpY2Up
+Cit7CisJc3RydWN0IHBjaV9kZXYgKnBkZXYgPSB0b19wY2lfZGV2KGRldmljZSk7CisKKwlwY2lf
+d3JpdGVfY29uZmlnX3dvcmQocGRldiwgcGRldi0+cG1fY2FwICsgUENJX1BNX0NUUkwsIDMpOwor
+CWF0bDFjX2QzID0gMTsKKwlkZXZfZXJyKCZwZGV2LT5kZXYsICJbZGVidWddIHJ1bnRpbWVfc3Vz
+cGVuZFxuIik7CisKKwlyZXR1cm4gMDsgCit9CisKK3N0YXRpYyBpbnQgYXRsMWNfcnVudGltZV9y
+ZXN1bWUoc3RydWN0IGRldmljZSAqZGV2aWNlKQoreworCXN0cnVjdCBwY2lfZGV2ICpwZGV2ID0g
+dG9fcGNpX2RldihkZXZpY2UpOworCisJcGNpX3dyaXRlX2NvbmZpZ193b3JkKHBkZXYsIHBkZXYt
+PnBtX2NhcCArIFBDSV9QTV9DVFJMLCAwKTsKKwlhdGwxY19kMyA9IDA7CisJZGV2X2VycigmcGRl
+di0+ZGV2LCAiW2RlYnVnXSBydW50aW1lX3Jlc3VtZVxuIik7CisKKwlyZXR1cm4gMDsgCit9CisK
+K3N0YXRpYyBpbnQgYXRsMWNfcnVudGltZV9pZGxlKHN0cnVjdCBkZXZpY2UgKmRldmljZSkKK3sK
+KwlzdHJ1Y3QgcGNpX2RldiAqcGRldiA9IHRvX3BjaV9kZXYoZGV2aWNlKTsKKwlzdHJ1Y3QgbmV0
+X2RldmljZSAqZGV2ID0gcGNpX2dldF9kcnZkYXRhKHBkZXYpOworCXN0cnVjdCBhdGwxY19hZGFw
+dGVyICphZGFwdGVyID0gbmV0ZGV2X3ByaXYoZGV2KTsJCisKKwlhdGwxY19jaGVja19saW5rX3N0
+YXR1cyhhZGFwdGVyKTsKKworCXJldHVybiAwOyAKK30KKworc3RhdGljIGNvbnN0IHN0cnVjdCBk
+ZXZfcG1fb3BzIGF0bDFjX3BtX29wcyA9IHsKKwkucnVudGltZV9zdXNwZW5kID0gYXRsMWNfcnVu
+dGltZV9zdXNwZW5kLAorCS5ydW50aW1lX3Jlc3VtZSA9IGF0bDFjX3J1bnRpbWVfcmVzdW1lLAor
+CS5ydW50aW1lX2lkbGUgPSBhdGwxY19ydW50aW1lX2lkbGUsCit9OworCisjZGVmaW5lIEFUTDFD
+X1BNX09QUyAoJmF0bDFjX3BtX29wcykKKworI2Vsc2UgLyogIUNPTkZJR19QTSAqLworCisjZGVm
+aW5lIEFUTDFDX1BNX09QUwlOVUxMCisKKyNlbmRpZiAvKiAhQ09ORklHX1BNICovCisKIHN0YXRp
+YyBzdHJ1Y3QgcGNpX2RyaXZlciBhdGwxY19kcml2ZXIgPSB7CiAJLm5hbWUgICAgID0gYXRsMWNf
+ZHJpdmVyX25hbWUsCiAJLmlkX3RhYmxlID0gYXRsMWNfcGNpX3RibCwKQEAgLTI4NDEsNyArMjky
+Niw4IEBACiAJLnN1c3BlbmQgID0gYXRsMWNfc3VzcGVuZCwKIAkucmVzdW1lICAgPSBhdGwxY19y
+ZXN1bWUsCiAJLnNodXRkb3duID0gYXRsMWNfc2h1dGRvd24sCi0JLmVycl9oYW5kbGVyID0gJmF0
+bDFjX2Vycl9oYW5kbGVyCisJLmVycl9oYW5kbGVyID0gJmF0bDFjX2Vycl9oYW5kbGVyLAorCS5k
+cml2ZXIucG0gPSBBVEwxQ19QTV9PUFMsCiB9OwogCiAvKgo=
+--0016364d30b1364f18048dea3421--
