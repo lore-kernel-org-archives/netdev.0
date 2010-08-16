@@ -1,85 +1,30 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [LOCKDEP BUG][2.6.36-rc1] xt_info_wrlock?
-Date: Mon, 16 Aug 2010 14:16:06 -0400
-Message-ID: <1281982566.3268.137.camel@gandalf.stny.rr.com>
-References: <1281978469.3268.55.camel@gandalf.stny.rr.com>
-	 <1281979893.2524.54.camel@edumazet-laptop>
-	 <1281981301.3268.110.camel@gandalf.stny.rr.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [PATCH 16/16] drivers/net/qlcnic: Use available error codes
+Date: Mon, 16 Aug 2010 20:35:40 +0200
+Message-ID: <20100816183540.GE645@bicker>
+References: <Pine.LNX.4.64.1008161828520.19313@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <peterz@infradead.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	linux-driver@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1281981301.3268.110.camel@gandalf.stny.rr.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.1008161828520.19313@ask.diku.dk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-08-16 at 13:55 -0400, Steven Rostedt wrote:
-
-Re-looking at the code, I think I figured it out. But it should really
-be documented better.
-
-
+On Mon, Aug 16, 2010 at 06:29:13PM +0200, Julia Lawall wrote:
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Please tell me what prevents an interrupt going off after we grab the
-> xt_info_wrlock(cpu) in get_counters().
-> 
-> IOW, what prevents this:
-> 
-> 	get_counters() {
+> The error code is stored in the variable err, but it is the variable ret
+> that is returned instead.  So store the error code in ret.  Err is then
+> useless.
 
-I left out here:
+Could you redo this for the latest git?  (Sorry, I recently made the
+problem slightly worse by adding another "err = -ENOMEM;")...
 
-		for_each_possible_cpu(cpu) {
-			if (cpu == curcpu)
-				continue;
-
-which means that we are grabbing the lock for other CPUs, and that a
-softirq would not be a problem.
-
-> 		xt_info_wrlock(cpu);
-> 
-> 		<interrupt> --> softirq
-> 
-> 			xt_info_rblock_bh();
-> 				/* which grabs the writer lock */
-> 			DEADLOCK!!
-> 
-
-Your patchwork patch has:
-
-
-@@ -729,8 +729,10 @@  static void get_counters(const struct
-xt_table_info *t,
- 	local_bh_enable();
- 	/* Processing counters from other cpus, we can let bottom half enabled,
- 	 * (preemption is disabled)
-+	 * We must turn off lockdep to avoid a false positive.
- 	 */
- 
-+	lockdep_off();
- 	for_each_possible_cpu(cpu) {
-
-
-We need a better comment than that. Could that be changed to something like:
-
-	/*
-	 * lockdep tests if we grab a lock and can be preempted by 
-	 * a softirq and that softirq grabs the same lock causing a
-	 * deadlock.
-	 * This is a special case because this is a per-cpu lock,
-	 * and we are only grabbing the lock for other CPUs. A softirq
-	 * will only takes its local CPU lock thus, if we are preempted
-	 * by a softirq, then it will grab the current CPU lock which
-	 * we do not take here.
-	 *
-	 * Simply disable lockdep here until it can handle this situation.
-	 */
-
-Thanks,
-
--- Steve
+regards,
+dan carpenter
