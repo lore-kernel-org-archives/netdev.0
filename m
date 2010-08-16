@@ -1,7 +1,7 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: [PATCH] netlink: fix compat recvmsg
-Date: Mon, 16 Aug 2010 14:50:25 +0200
-Message-ID: <1281963025.2524.43.camel@edumazet-laptop>
+Date: Mon, 16 Aug 2010 14:54:39 +0200
+Message-ID: <1281963279.3683.16.camel@jlt3.sipsolutions.net>
 References: <1281710115.3760.27.camel@jlt3.sipsolutions.net>
 	 <1281710887.4470.78.camel@edumazet-laptop>
 	 <1281712433.2116.15.camel@jlt3.sipsolutions.net>
@@ -11,69 +11,48 @@ References: <1281710115.3760.27.camel@jlt3.sipsolutions.net>
 	 <1281939753.3683.5.camel@jlt3.sipsolutions.net>
 	 <1281940172.2942.81.camel@edumazet-laptop>
 	 <1281943244.3683.8.camel@jlt3.sipsolutions.net>
+	 <1281963025.2524.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	Kalle Valo <kalle.valo@iki.fi>
-To: Johannes Berg <johannes@sipsolutions.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:35115 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750870Ab0HPMua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 08:50:30 -0400
-Received: by ewy23 with SMTP id 23so2257208ewy.19
-        for <netdev@vger.kernel.org>; Mon, 16 Aug 2010 05:50:29 -0700 (PDT)
-In-Reply-To: <1281943244.3683.8.camel@jlt3.sipsolutions.net>
+Received: from he.sipsolutions.net ([78.46.109.217]:57058 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740Ab0HPMyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 08:54:41 -0400
+In-Reply-To: <1281963025.2524.43.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 16 ao=C3=BBt 2010 =C3=A0 09:20 +0200, Johannes Berg a =C3=A9cr=
-it :
-> From: Johannes Berg <johannes.berg@intel.com>
->=20
-> Since
-> commit 1dacc76d0014a034b8aca14237c127d7c19d7726
-> Author: Johannes Berg <johannes@sipsolutions.net>
-> Date:   Wed Jul 1 11:26:02 2009 +0000
->=20
->     net/compat/wext: send different messages to compat tasks
->=20
-> we had a race condition when setting and then
-> restoring frag_list. Eric attempted to fix it,
-> but the fix created even worse problems.
->=20
-> However, the original motivation I had when I
-> added the code that turned out to be racy is
-> no longer clear to me, since we only copy up
-> to skb->len to userspace, which doesn't include
-> the frag_list length. As a result, not doing
-> any frag_list clearing and restoring avoids
-> the race condition, while not introducing any
-> other problems.
->=20
-> Additionally, while preparing this patch I found
-> that since none of the remaining netlink code is
-> really aware of the frag_list, we need to use the
-> original skb's information for packet information
-> and credentials. This fixes, for example, the
-> group information received by compat tasks.
->=20
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: stable@kernel.org [2.6.31+, for 2.6.35 revert 1235f504aa]
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
+On Mon, 2010-08-16 at 14:50 +0200, Eric Dumazet wrote:
 
-As a side effect, it might fix the=20
+> > Additionally, while preparing this patch I found
+> > that since none of the remaining netlink code is
+> > really aware of the frag_list, we need to use the
+> > original skb's information for packet information
+> > and credentials. This fixes, for example, the
+> > group information received by compat tasks.
 
-	if (nlk->flags & NETLINK_RECV_PKTINFO)
-		netlink_cmsg_recv_pktinfo(msg, skb);
+> As a side effect, it might fix the 
+> 
+> 	if (nlk->flags & NETLINK_RECV_PKTINFO)
+> 		netlink_cmsg_recv_pktinfo(msg, skb);
+> 
+> That tried to use pktinfo from the slave skb. After this
+> patch, skb points to master skb.
 
-That tried to use pktinfo from the slave skb. After this
-patch, skb points to master skb.
+Yeah, that's what I was looking at regarding the "packet information" I
+wrote about. The group information was wrong (0 rather than 1), I could
+see that in strace (though I had to compile a strace64 binary first...)
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Thanks !
 
-Thanks !
+Thanks for looking, and finding the bug to start with :-)
 
+johannes
 
