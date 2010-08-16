@@ -1,43 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
-Date: Mon, 16 Aug 2010 08:10:02 +0200
-Message-ID: <1281939002.2942.70.camel@edumazet-laptop>
-References: <1281710115.3760.27.camel@jlt3.sipsolutions.net>
-	 <1281710887.4470.78.camel@edumazet-laptop>
-	 <1281712433.2116.15.camel@jlt3.sipsolutions.net>
-	 <20100814.223722.116371746.davem@davemloft.net>
-	 <1281936351.3683.1.camel@jlt3.sipsolutions.net>
+Date: Sun, 15 Aug 2010 23:21:15 -0700 (PDT)
+Message-ID: <20100815.232115.13755119.davem@davemloft.net>
+References: <20100814.223722.116371746.davem@davemloft.net>
+	<1281936351.3683.1.camel@jlt3.sipsolutions.net>
+	<1281939002.2942.70.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:54055 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752502Ab0HPGKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 02:10:08 -0400
-Received: by wwf26 with SMTP id 26so3872344wwf.1
-        for <netdev@vger.kernel.org>; Sun, 15 Aug 2010 23:10:07 -0700 (PDT)
-In-Reply-To: <1281936351.3683.1.camel@jlt3.sipsolutions.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47506
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752610Ab0HPGU5 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Aug 2010 02:20:57 -0400
+In-Reply-To: <1281939002.2942.70.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 16 ao=C3=BBt 2010 =C3=A0 07:25 +0200, Johannes Berg a =C3=A9cr=
-it :
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 16 Aug 2010 08:10:02 +0200
 
-> I haven't gotten around to it, but Kalle had been running into the sa=
-me
-> issue and said reverting it fixed it:
+> Le lundi 16 ao=FBt 2010 =E0 07:25 +0200, Johannes Berg a =E9crit :
 >=20
-> http://article.gmane.org/gmane.linux.kernel.wireless.general/54492
+>> I haven't gotten around to it, but Kalle had been running into the s=
+ame
+>> issue and said reverting it fixed it:
+>>=20
+>> http://article.gmane.org/gmane.linux.kernel.wireless.general/54492
+>>=20
 >=20
+> Thanks Johannes
+>=20
+> Please David revert 1235f504.
+>=20
+> We'll find another way to address the problem.
 
-Thanks Johannes
-
-Please David revert 1235f504.
-
-We'll find another way to address the problem.
-
-
-
+I will, thanks guys.
