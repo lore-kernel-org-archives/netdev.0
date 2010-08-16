@@ -1,54 +1,60 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [LOCKDEP BUG][2.6.36-rc1] xt_info_wrlock?
-Date: Mon, 16 Aug 2010 21:16:17 +0200
-Message-ID: <1281986177.1926.1858.camel@laptop>
-References: <1281978469.3268.55.camel@gandalf.stny.rr.com>
-	 <1281979893.2524.54.camel@edumazet-laptop>
-	 <1281981301.3268.110.camel@gandalf.stny.rr.com>
-	 <1281982566.3268.137.camel@gandalf.stny.rr.com>
-	 <1281983814.1926.1763.camel@laptop>
-	 <1281984528.2487.25.camel@edumazet-laptop>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 8/16] net/ax25: Use available error codes
+Date: Mon, 16 Aug 2010 20:23:50 +0100
+Message-ID: <20100816192350.GA10921@linux-mips.org>
+References: <Pine.LNX.4.64.1008161826390.19313@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, Ingo Molnar <mingo@elte.hu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1281984528.2487.25.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.1008161826390.19313@ask.diku.dk>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-08-16 at 20:48 +0200, Eric Dumazet wrote:
-> Le lundi 16 ao=C3=BBt 2010 =C3=A0 20:36 +0200, Peter Zijlstra a =C3=A9=
-crit :
-> > On Mon, 2010-08-16 at 14:16 -0400, Steven Rostedt wrote:
-> > > @@ -729,8 +729,10 @@  static void get_counters(const struct
-> > > xt_table_info *t,
-> > >         local_bh_enable();
-> > >         /* Processing counters from other cpus, we can let bottom=
- half
-> > > enabled,
-> > >          * (preemption is disabled)
-> > > +        * We must turn off lockdep to avoid a false positive.
-> > >          */
-> > > =20
-> > > +       lockdep_off();
-> > >         for_each_possible_cpu(cpu) {
-> > >=20
-> > nack!
->=20
->=20
-> Interesting.
->=20
-> Care to elaborate ?
+On Mon, Aug 16, 2010 at 06:26:57PM +0200, Julia Lawall wrote:
 
-Adding lockdep_off() is just plain wrong, if you cannot describe the
-locking there's a fair chance its wrong anyway.
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Error codes are stored in err, but the return value is always 0.  Return
+> err instead.
+> 
+> The semantic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @r@
+> local idexpression x;
+> constant C;
+> @@
+> 
+> if (...) { ...
+>   x = -C
+>   ... when != x
+> (
+>   return <+...x...+>;
+> |
+>   return NULL;
+> |
+>   return;
+> |
+> * return ...;
+> )
+> }
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> ---
+> This changes the semantics and has not been tested.
 
-As it stands there's only a single lockdep_off(), and that lives in NTF=
-S
-it looks like it could be annotated differently, but then, who cares
-about NTFS anyway ;-)
+It restores the semantics to what they should be and used to be.  This
+probably happened during the introduction of proper refcounting and
+locking into the AX.25 stack.  Looks fine to me.
+
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
+
+  Ralf
