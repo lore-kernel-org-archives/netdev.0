@@ -1,21 +1,21 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 3/16] drivers/net/wireless/wl12xx: Use available error codes
-Date: Mon, 16 Aug 2010 18:25:21 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008161825010.19313@ask.diku.dk>
+Subject: [PATCH 8/16] net/ax25: Use available error codes
+Date: Mon, 16 Aug 2010 18:26:57 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008161826390.19313@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Kalle Valo <kalle.valo@iki.fi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
-In each case, error codes are stored in ret, but the return value is always
-0.  Return ret instead.
+Error codes are stored in err, but the return value is always 0.  Return
+err instead.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -46,33 +46,28 @@ Signed-off-by: Julia Lawall <julia@diku.dk>
 ---
 This changes the semantics and has not been tested.
 
- drivers/net/wireless/wl12xx/wl1251_acx.c |    2 +-
- drivers/net/wireless/wl12xx/wl1251_cmd.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/ax25/ax25_route.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/wl12xx/wl1251_acx.c b/drivers/net/wireless/wl12xx/wl1251_acx.c
-index 91891f9..2f8a2ba 100644
---- a/drivers/net/wireless/wl12xx/wl1251_acx.c
-+++ b/drivers/net/wireless/wl12xx/wl1251_acx.c
-@@ -380,7 +380,7 @@ int wl1251_acx_pd_threshold(struct wl1251 *wl)
+diff --git a/net/ax25/ax25_route.c b/net/ax25/ax25_route.c
+index 7805945..a169084 100644
+--- a/net/ax25/ax25_route.c
++++ b/net/ax25/ax25_route.c
+@@ -412,7 +412,7 @@ int ax25_rt_autobind(ax25_cb *ax25, ax25_address *addr)
+ {
+ 	ax25_uid_assoc *user;
+ 	ax25_route *ax25_rt;
+-	int err;
++	int err = 0;
  
- out:
- 	kfree(pd);
+ 	if ((ax25_rt = ax25_get_route(addr, NULL)) == NULL)
+ 		return -EHOSTUNREACH;
+@@ -453,7 +453,7 @@ int ax25_rt_autobind(ax25_cb *ax25, ax25_address *addr)
+ put:
+ 	ax25_put_route(ax25_rt);
+ 
 -	return 0;
-+	return ret;
++	return err;
  }
  
- int wl1251_acx_slot(struct wl1251 *wl, enum acx_slot_type slot_time)
-diff --git a/drivers/net/wireless/wl12xx/wl1251_cmd.c b/drivers/net/wireless/wl12xx/wl1251_cmd.c
-index a37b30c..949b6a3 100644
---- a/drivers/net/wireless/wl12xx/wl1251_cmd.c
-+++ b/drivers/net/wireless/wl12xx/wl1251_cmd.c
-@@ -200,7 +200,7 @@ int wl1251_cmd_vbm(struct wl1251 *wl, u8 identity,
- 
- out:
- 	kfree(vbm);
--	return 0;
-+	return ret;
- }
- 
- int wl1251_cmd_data_path(struct wl1251 *wl, u8 channel, bool enable)
+ struct sk_buff *ax25_rt_build_path(struct sk_buff *skb, ax25_address *src,
