@@ -1,109 +1,47 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp test-tree [Patch 1/1] ccid-3: use per-route min-RTO and/or
-	TCP default
-Date: Mon, 16 Aug 2010 07:19:36 +0200
-Message-ID: <20100816051936.GD3571@gerrit.erg.abdn.ac.uk>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next-2.6] netlink: netlink_recvmsg() fix
+Date: Mon, 16 Aug 2010 07:25:51 +0200
+Message-ID: <1281936351.3683.1.camel@jlt3.sipsolutions.net>
+References: <1281710115.3760.27.camel@jlt3.sipsolutions.net>
+	 <1281710887.4470.78.camel@edumazet-laptop>
+	 <1281712433.2116.15.camel@jlt3.sipsolutions.net>
+	 <20100814.223722.116371746.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Leandro <leandroal@gmail.com>,
-	Ivo Calado <ivocalado@embedded.ufcg.edu.br>,
-	dccp@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59177 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752408Ab0HPFXL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Aug 2010 01:23:11 -0400
-Content-Disposition: inline
+Received: from he.sipsolutions.net ([78.46.109.217]:38945 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751807Ab0HPFZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 01:25:57 -0400
+In-Reply-To: <20100814.223722.116371746.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch relates to the similar one submitted last week for CCID-2.
+On Sat, 2010-08-14 at 22:37 -0700, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Fri, 13 Aug 2010 17:13:53 +0200
+> 
+> > On Fri, 2010-08-13 at 16:48 +0200, Eric Dumazet wrote:
+> > 
+> >> I assume reverting 1235f504aaba removes these errors ?
+> > 
+> > I haven't tried yet, but it only happened very recently and I didn't
+> > find any other candidate -- the error always points to
+> > wireless_send_event too.
+> 
+> Please test with the commit reverted and let us know if it helps.
+> 
+> The current situation is worse than what we were trying to fix
+> in that commit, so if a revert fixes your problem then as Eric
+> said we should do that first.
 
-It replaces the hardcoded (Kconfig) value of the minimum RTO value with
-a reconfigurable, per-route value which falls back to the TCP minimum
-RTO value.
+I haven't gotten around to it, but Kalle had been running into the same
+issue and said reverting it fixed it:
 
-Leando, Ivo, can you please have a look and indicate whether you are ok
-with this? If yes I would like to also update the CCID-4 tree to make it
-consistent with the test tree - for this reason the test tree has not yet
-been updated.
+http://article.gmane.org/gmane.linux.kernel.wireless.general/54492
 
->>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-dccp ccid-3: use per-route RTO or TCP RTO as fallback
+johannes
 
-This makes the TCP (per-route) RTO value also available to CCID-3, hence it
-is now possible to influence this value at runtime rather than, as before,
-via Kconfig.
-
-The same effect as the default Kconfig option of 100ms is now achieved by
-
-> ip route replace to unicast 192.168.0.0/24 rto_min 100j dev eth0
- 
-(assuming HZ=1000).
-
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/Kconfig |   31 -------------------------------
- net/dccp/ccids/ccid3.c |    9 ++++-----
- 2 files changed, 4 insertions(+), 36 deletions(-)
-
---- a/net/dccp/ccids/Kconfig
-+++ b/net/dccp/ccids/Kconfig
-@@ -47,37 +47,6 @@ config IP_DCCP_CCID3_DEBUG
- 
- 	  If in doubt, say N.
- 
--config IP_DCCP_CCID3_RTO
--	  int "Use higher bound for nofeedback timer"
--	  default 100
--	  depends on IP_DCCP_CCID3 && EXPERIMENTAL
--	  ---help---
--	    Use higher lower bound for nofeedback timer expiration.
--
--	    The TFRC nofeedback timer normally expires after the maximum of 4
--	    RTTs and twice the current send interval (RFC 3448, 4.3). On LANs
--	    with a small RTT this can mean a high processing load and reduced
--	    performance, since then the nofeedback timer is triggered very
--	    frequently.
--
--	    This option enables to set a higher lower bound for the nofeedback
--	    value. Values in units of milliseconds can be set here.
--
--	    A value of 0 disables this feature by enforcing the value specified
--	    in RFC 3448. The following values have been suggested as bounds for
--	    experimental use:
--		* 16-20ms to match the typical multimedia inter-frame interval
--		* 100ms as a reasonable compromise [default]
--		* 1000ms corresponds to the lower TCP RTO bound (RFC 2988, 2.4)
--
--	    The default of 100ms is a compromise between a large value for
--	    efficient DCCP implementations, and a small value to avoid disrupting
--	    the network in times of congestion.
--
--	    The purpose of the nofeedback timer is to slow DCCP down when there
--	    is serious network congestion: experimenting with larger values should
--	    therefore not be performed on WANs.
--
- config IP_DCCP_TFRC_LIB
- 	def_bool y if IP_DCCP_CCID3
- 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -461,12 +461,11 @@ done_computing_x:
- 
- 	/*
- 	 * Update timeout interval for the nofeedback timer.
--	 * We use a configuration option to increase the lower bound.
--	 * This can help avoid triggering the nofeedback timer too
--	 * often ('spinning') on LANs with small RTTs.
-+	 * We use the current (per-route) value of the TCP RTO as lower bound
-+	 * to slow down rate-halving on networks with small RTTs (loopback,
-+	 * running DCCP in a virtual machine, Gbit ethernet, etc).
- 	 */
--	hc->tx_t_rto = max_t(u32, 4 * hc->tx_rtt, (CONFIG_IP_DCCP_CCID3_RTO *
--						       (USEC_PER_SEC / 1000)));
-+	hc->tx_t_rto = max(4 * hc->tx_rtt, USEC_PER_SEC/HZ * tcp_rto_min(sk));
- 	/*
- 	 * Schedule no feedback timer to expire in
- 	 * max(t_RTO, 2 * s/X)  =  max(t_RTO, 2 * t_ipi)
