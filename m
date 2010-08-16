@@ -1,82 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netlink: fix compat recvmsg
-Date: Mon, 16 Aug 2010 15:01:28 +0200
-Message-ID: <1281963688.2524.44.camel@edumazet-laptop>
-References: <1281710115.3760.27.camel@jlt3.sipsolutions.net>
-	 <1281710887.4470.78.camel@edumazet-laptop>
-	 <1281712433.2116.15.camel@jlt3.sipsolutions.net>
-	 <20100814.223722.116371746.davem@davemloft.net>
-	 <1281936351.3683.1.camel@jlt3.sipsolutions.net>
-	 <1281939002.2942.70.camel@edumazet-laptop>
-	 <1281939753.3683.5.camel@jlt3.sipsolutions.net>
-	 <1281940172.2942.81.camel@edumazet-laptop>
-	 <1281943244.3683.8.camel@jlt3.sipsolutions.net>
-	 <1281963025.2524.43.camel@edumazet-laptop>
+From: "Yaniv Rosner" <yaniv.home@broadcom.com>
+Subject: [net-2.6 2/2] bnx2x: Update bnx2x version to 1.52.53-4
+Date: Mon, 16 Aug 2010 19:34:07 +0300
+Message-ID: <1281976447.3997.18.camel@lb-tlvb-yanivr.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Kalle Valo <kalle.valo@iki.fi>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58584 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740Ab0HPNBe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 09:01:34 -0400
-Received: by wwj40 with SMTP id 40so6490391wwj.1
-        for <netdev@vger.kernel.org>; Mon, 16 Aug 2010 06:01:32 -0700 (PDT)
-In-Reply-To: <1281963025.2524.43.camel@edumazet-laptop>
+Received: from mms1.broadcom.com ([216.31.210.17]:2556 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753904Ab0HPNPu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Aug 2010 09:15:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 16 ao=C3=BBt 2010 =C3=A0 14:50 +0200, Eric Dumazet a =C3=A9cri=
-t :
-> Le lundi 16 ao=C3=BBt 2010 =C3=A0 09:20 +0200, Johannes Berg a =C3=A9=
-crit :
-> > From: Johannes Berg <johannes.berg@intel.com>
-> >=20
-> > Since
-> > commit 1dacc76d0014a034b8aca14237c127d7c19d7726
-> > Author: Johannes Berg <johannes@sipsolutions.net>
-> > Date:   Wed Jul 1 11:26:02 2009 +0000
-> >=20
-> >     net/compat/wext: send different messages to compat tasks
-> >=20
-> > we had a race condition when setting and then
-> > restoring frag_list. Eric attempted to fix it,
-> > but the fix created even worse problems.
-> >=20
-> > However, the original motivation I had when I
-> > added the code that turned out to be racy is
-> > no longer clear to me, since we only copy up
-> > to skb->len to userspace, which doesn't include
-> > the frag_list length. As a result, not doing
-> > any frag_list clearing and restoring avoids
-> > the race condition, while not introducing any
-> > other problems.
-> >=20
-> > Additionally, while preparing this patch I found
-> > that since none of the remaining netlink code is
-> > really aware of the frag_list, we need to use the
-> > original skb's information for packet information
-> > and credentials. This fixes, for example, the
-> > group information received by compat tasks.
-> >=20
-> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> > Cc: stable@kernel.org [2.6.31+, for 2.6.35 revert 1235f504aa]
-> > Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> > ---
->=20
-> As a side effect, it might fix the=20
->=20
-> 	if (nlk->flags & NETLINK_RECV_PKTINFO)
-> 		netlink_cmsg_recv_pktinfo(msg, skb);
->=20
-> That tried to use pktinfo from the slave skb. After this
-> patch, skb points to master skb.
->=20
+Update bnx2x version to 1.52.53-4
 
-As you already mentioned it in your changelog, I missed it ;)
+Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 53af9c9..5fe78f7 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -20,7 +20,7 @@
+  * (you will need to reboot afterwards) */
+ /* #define BNX2X_STOP_ON_ERROR */
+ 
+-#define DRV_MODULE_VERSION      "1.52.53-3"
+-#define DRV_MODULE_RELDATE      "2010/18/04"
++#define DRV_MODULE_VERSION      "1.52.53-4"
++#define DRV_MODULE_RELDATE      "2010/16/08"
+ #define BNX2X_BC_VER            0x040200
+ 
+
 
 
 
