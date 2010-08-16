@@ -1,107 +1,78 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Mon, 16 Aug 2010 16:26:23 +0200
-Message-ID: <201008161626.24083.arnd@arndb.de>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
-	<363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [iproute2] iproute2:  Fix 'addr flush secondary' logic.
+Date: Mon, 16 Aug 2010 11:58:12 -0400
+Message-ID: <4C696014.4080508@hp.com>
+References: <1281547182-1252-1-git-send-email-greearb@candelatech.com> <4C630B0A.9010304@hp.com> <4C6328A8.4070703@candelatech.com> <4C6444EA.1070704@hp.com> <4C65A1CD.5090800@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:6871 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753517Ab0HPP6P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 11:58:15 -0400
+In-Reply-To: <4C65A1CD.5090800@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 16 August 2010, Richard Cochran wrote:
-> This patch adds an infrastructure for hardware clocks that implement
-> IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
-> registration method to particular hardware clock drivers. Each clock is
-> exposed to user space as a character device with ioctls that allow tuning
-> of the PTP clock.
+On 08/13/2010 03:49 PM, Ben Greear wrote:
+> Attached is an updated patch to fix some of the errors you
+> mentioned.  It also fixes a bug when '-s -s' is used:  The old
+> code modified the ifa flags, which made it not handle the check
+> for primary v/s secondary correctly in the next filter.
 
-Have you considered integrating the subsystem into the Posix clock/timer
-framework?
+Thanks for the update, nitpicking comments below.
 
-I can't really tell from reading the source if this is possible or
-not, but my feeling is that if it can be done, that would be a much
-nicer interface. We already have clock_gettime/clock_settime/
-timer_settime/... system calls, and while you'd need to add another
-clockid and some syscalls, my feeling is that it will be more
-usable in the end.
+BTW, promote_secondaries was the reason for some of my testing
+issues as I don't usually run with that enabled.
 
-> +static const struct file_operations ptp_fops = {
-> +       .owner          = THIS_MODULE,
-> +       .ioctl          = ptp_ioctl,
-> +       .open           = ptp_open,
-> +       .poll           = ptp_poll,
-> +       .read           = ptp_read,
-> +       .release        = ptp_release,
-> +};
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 5f0789c..51b59b4 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
 
-.ioctl is gone, you have to use .unlocked_ioctl and make sure that
-your ptp_ioctl function can handle being called concurrently.
+> @@ -571,40 +572,41 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
+> 				    abuf, sizeof(abuf)));
+> 	}
+> 	fprintf(fp, "scope %s ", rtnl_rtscope_n2a(ifa->ifa_scope, b1, sizeof(b1)));
+> +	ifa_flags = ifa->ifa_flags;
+> 	if (ifa->ifa_flags&IFA_F_SECONDARY) {
 
-You should also add a .compat_ioctl function, ideally one that
-points to ptp_ioctl so you don't have to list every command as
-being compatible. Right now, some commands are incompatible,
-which means you need more changes to the interface.
+Maybe put a comment as to the reason, so someone doesn't change it
+back in the future:
 
-> +struct ptp_clock_timer {
-> +       int alarm_index;       /* Which alarm to query or configure. */
-> +       int signum;            /* Requested signal. */
-> +       int flags;             /* Zero or TIMER_ABSTIME, see TIMER_SETTIME(2) */
-> +       struct itimerspec tsp; /* See TIMER_SETTIME(2) */
-> +};
+/* Use local copy of flags to not interfere with filtering code */
 
-This data structure is incompatible between 32 and 64 bit user space,
-so you would need a compat_ioctl() function to convert between the
-two formats. Better define the structure in a compatible way, avoiding
-variable-length fields and implicit padding.
+> @@ -848,6 +850,7 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+> 				exit(1);
+> 			}
+> 			if (filter.flushed == 0) {
+> +			flush_done:
+>  				if (show_stats) {
+> 					if (round == 0)
+> 						printf("Nothing to flush.\n");
 
-> +struct ptp_clock_request {
-> +       int type;  /* One of the ptp_request_types enumeration values. */
-> +       int index; /* Which channel to configure. */
-> +       struct timespec ts; /* For period signals, the desired period. */
-> +       int flags; /* Bit field for PTP_ENABLE_FEATURE or other flags. */
-> +};
+Can you put "flush_done" at the beginning of the line?
 
-Same problem here, timespec is either 64 or 128 bits long and has different
-alignment.
-
-> +struct ptp_extts_event {
-> +       int index;
-> +       struct timespec ts;
-> +};
-
-here too.
-
-> +#define PTP_CLOCK_VERSION 0x00000001
+> @@ -865,6 +868,13 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+> 				printf("\n*** Round %d, deleting %d addresses ***\n", round, filter.flushed);
+> 				fflush(stdout);
+> 			}
 > +
-> +#define PTP_CLK_MAGIC '='
-> +
-> +#define PTP_CLOCK_APIVERS _IOR (PTP_CLK_MAGIC, 1, __u32)
+> +			/* If we are flushing, and specifying primary, then we want to flush only a single round.
+> +			 * Otherwise, we'll start flushing secondaries that were promoted to primaries
+> +			 */
+> +			if (!(filter.flags & IFA_F_SECONDARY) && (filter.flagmask & IFA_F_SECONDARY)) {
+> +				goto flush_done;
+> +			}
 
-Try avoiding versioned ABIs. It's better to just add new ioctls
-or syscalls when you need some extra functionality and leave the
-old ones around.
+You don't need the {} here.  Also, the comment line-wraps since it's
+> 80 chars.
 
-> +#define PTP_CLOCK_ADJTIME _IOW (PTP_CLK_MAGIC, 3, struct timespec)
-> +#define PTP_CLOCK_GETTIME _IOR (PTP_CLK_MAGIC, 4, struct timespec)
-> +#define PTP_CLOCK_SETTIME _IOW (PTP_CLK_MAGIC, 5, struct timespec)
+Everything seems to work correctly in my limited testing otherwise, thanks.
 
-These are also incompatible.
+Tested-by: Brian Haley <brian.haley@hp.com>
 
-	Arnd
+-Brian
