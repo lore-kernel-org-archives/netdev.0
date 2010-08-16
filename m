@@ -1,22 +1,26 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 16/16] drivers/net/qlcnic: Use available error codes
-Date: Mon, 16 Aug 2010 18:29:13 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008161828520.19313@ask.diku.dk>
+Subject: [PATCH 13/16] net/ax25: Use available error codes
+Date: Mon, 16 Aug 2010 18:28:19 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008161828030.19313__41958.8357945488$1281976214$gmane$org@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	linux-driver@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kern
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Joerg Reuter <jreuter@yaina.de>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	"D, avid S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:50889 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754872Ab0HPQ2V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Aug 2010 12:28:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
-The error code is stored in the variable err, but it is the variable ret
-that is returned instead.  So store the error code in ret.  Err is then
-useless.
+Error codes are stored in err, but the return value is always 0.  Return
+err instead.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -45,30 +49,21 @@ if (...) { ...
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
-This changes the semantics and has not been tested.
+This changes the semantics of the function and has not been tested.
 
- drivers/net/qlcnic/qlcnic_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ax25/af_ax25.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index b9615bd..142ab1d 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -474,7 +474,7 @@ static int
- qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- {
- 	struct qlcnic_pci_info pci_info[QLCNIC_MAX_PCI_FUNC];
--	int i, ret = 0, err;
-+	int i, ret = 0;
- 	u8 pfn;
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index cfdfd7e..26eaebf 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -1103,7 +1103,7 @@ done:
+ out:
+ 	release_sock(sk);
  
- 	if (!adapter->npars)
-@@ -487,7 +487,7 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- 		adapter->eswitch = kzalloc(sizeof(struct qlcnic_eswitch) *
- 				QLCNIC_NIU_MAX_XG_PORTS, GFP_KERNEL);
- 	if (!adapter->eswitch) {
--		err = -ENOMEM;
-+		ret = -ENOMEM;
- 		goto err_eswitch;
- 	}
+-	return 0;
++	return err;
+ }
  
+ /*
