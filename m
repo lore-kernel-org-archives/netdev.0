@@ -1,77 +1,63 @@
-From: john stultz <johnstul@us.ibm.com>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Mon, 16 Aug 2010 12:24:48 -0700
-Message-ID: <AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
-	<363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 13/16] net/ax25: Use available error codes
+Date: Mon, 16 Aug 2010 20:31:01 +0100
+Message-ID: <20100816193100.GB10921@linux-mips.org>
+References: <Pine.LNX.4.64.1008161828030.19313@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Rodolfo Giometti <giometti@linux.it>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Joerg Reuter <jreuter@yaina.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:38677 "EHLO h5.dl5rb.org.uk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756249Ab0HPTbs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Aug 2010 15:31:48 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.1008161828030.19313@ask.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 16, 2010 at 4:17 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> This patch adds an infrastructure for hardware clocks that implement
-> IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
-> registration method to particular hardware clock drivers. Each clock =
-is
-> exposed to user space as a character device with ioctls that allow tu=
-ning
-> of the PTP clock.
->
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+On Mon, Aug 16, 2010 at 06:28:19PM +0200, Julia Lawall wrote:
 
-Hey Richard!
-   Its very cool to see this work on lkml! I'm excited to see more
-work done on ptp.  We had a short private thread discussion earlier (I
-got busy and never replied to your last message, my apologies!), but I
-wanted to bring up the concerns I have here as well.
+> Error codes are stored in err, but the return value is always 0.  Return
+> err instead.
+> 
+> The semantic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @r@
+> local idexpression x;
+> constant C;
+> @@
+> 
+> if (...) { ...
+>   x = -C
+>   ... when != x
+> (
+>   return <+...x...+>;
+> |
+>   return NULL;
+> |
+>   return;
+> |
+> * return ...;
+> )
+> }
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> ---
+> This changes the semantics of the function and has not been tested.
 
-A few comments below....
+It restores the semantics to what they should be and used to be.  This
+probably happened during the introduction of proper refcounting and
+locking into the AX.25 stack.  Looks fine to me.
 
-> +** PTP user space API
-> +
-> + =A0 The class driver creates a character device for each registered=
- PTP
-> + =A0 clock. User space programs may control the clock using standard=
-ized
-> + =A0 ioctls. A program may query, enable, configure, and disable the
-> + =A0 ancillary clock features. User space can receive time stamped
-> + =A0 events via blocking read() and poll(). One shot and periodic
-> + =A0 signals may be configured via an ioctl API with semantics simil=
-ar
-> + =A0 to the POSIX timer_settime() system call.
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-As I mentioned earlier, I'm not a huge fan of the char device
-interface for abstracted PTP clocks.
-If it was just the direct hardware access, similar to RTC, which user
-apps then use as a timesource, I'd not have much of a problem. But as
-I mentioned in an earlier private mail, the abstraction level concerns
-me.
-
-1) The driver-like model exposes a char dev for each clock, which
-allows for poorly-written userland applications to hit portability
-issues  (ie: /dev/hpet vs /dev/rtc). Granted this isn't a huge flaw,
-but good APIs should be hard to get wrong.
-
-2) As Arnd already mentioned, the chardev interface seems to duplicate
-the clock_gettime/settime() and adjtimex() interfaces.
-
-3) I'm not sure I see the benefit of being able to have multiple
-frequency corrected time domains.  In other words, what benefit would
-you get from adjusting a PTP clock's frequency instead of just
-adjusting the system's time freq? Having the PTP time as a reference
-to correct the system time seems reasonable, but I'm not sure I see
-why userland would want to adjust the PTP clock's freq.
-
-thanks
--john
+  Ralf
