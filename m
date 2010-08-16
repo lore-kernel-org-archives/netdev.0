@@ -1,51 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [LOCKDEP BUG][2.6.36-rc1] xt_info_wrlock?
-Date: Mon, 16 Aug 2010 20:48:48 +0200
-Message-ID: <1281984528.2487.25.camel@edumazet-laptop>
-References: <1281978469.3268.55.camel@gandalf.stny.rr.com>
-	 <1281979893.2524.54.camel@edumazet-laptop>
-	 <1281981301.3268.110.camel@gandalf.stny.rr.com>
-	 <1281982566.3268.137.camel@gandalf.stny.rr.com>
-	 <1281983814.1926.1763.camel@laptop>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
+Date: Mon, 16 Aug 2010 21:00:03 +0200
+Message-ID: <20100816190003.GB4166@riccoc20.at.omicron.at>
+References: <cover.1281956490.git.richard.cochran@omicron.at>
+ <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
+ <201008161626.24083.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, Ingo Molnar <mingo@elte.hu>
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, devicetree-discuss@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Rodolfo Giometti <giometti@linux.it>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:64269 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845Ab0HPSsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 14:48:53 -0400
-In-Reply-To: <1281983814.1926.1763.camel@laptop>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:64847 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755319Ab0HPS7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 14:59:43 -0400
+Content-Disposition: inline
+In-Reply-To: <201008161626.24083.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 16 ao=C3=BBt 2010 =C3=A0 20:36 +0200, Peter Zijlstra a =C3=A9c=
-rit :
-> On Mon, 2010-08-16 at 14:16 -0400, Steven Rostedt wrote:
-> > @@ -729,8 +729,10 @@  static void get_counters(const struct
-> > xt_table_info *t,
-> >         local_bh_enable();
-> >         /* Processing counters from other cpus, we can let bottom h=
-alf
-> > enabled,
-> >          * (preemption is disabled)
-> > +        * We must turn off lockdep to avoid a false positive.
-> >          */
-> > =20
-> > +       lockdep_off();
-> >         for_each_possible_cpu(cpu) {
-> >=20
-> nack!
+On Mon, Aug 16, 2010 at 04:26:23PM +0200, Arnd Bergmann wrote:
+> Have you considered integrating the subsystem into the Posix clock/timer
+> framework?
 
+Yes, but see below.
+ 
+> I can't really tell from reading the source if this is possible or
+> not, but my feeling is that if it can be done, that would be a much
+> nicer interface. We already have clock_gettime/clock_settime/
+> timer_settime/... system calls, and while you'd need to add another
+> clockid and some syscalls, my feeling is that it will be more
+> usable in the end.
 
-Interesting.
+You are not the first person to ask about this. See this link for
+longer explanation of why I did not go that way:
 
-Care to elaborate ?
+  http://marc.info/?l=linux-netdev&m=127669810232201&w=2
 
+You *could* offer the PTP clock as a Linux clock source/event device,
+and I agree that it would be nicer. However, the problem is, what do
+you do with the PHY based clocks?  Just one 16 bit read from a PHY
+clock can take 40 usec, and you need four such read operations just to
+get the current time value.
 
+Also, I really did not want to add or change any syscalls. I could not
+see a practical way to extend the existing syscalls to accommodate PTP
+clocks.
 
+Richard
