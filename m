@@ -1,63 +1,44 @@
-From: "Yaniv Rosner" <yaniv.home@broadcom.com>
-Subject: [net-2.6 1/2] bnx2x: Fix PHY locking problem
-Date: Mon, 16 Aug 2010 19:34:06 +0300
-Message-ID: <1281976446.3997.17.camel@lb-tlvb-yanivr.il.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] rds: fix a leak of kernel memory
+Date: Mon, 16 Aug 2010 15:25:00 +0200
+Message-ID: <1281965100.2524.52.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: Andy Grover <andy.grover@oracle.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4664 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754083Ab0HPNPy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Aug 2010 09:15:54 -0400
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:51440 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752788Ab0HPNZF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 09:25:05 -0400
+Received: by ewy23 with SMTP id 23so2281091ewy.19
+        for <netdev@vger.kernel.org>; Mon, 16 Aug 2010 06:25:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PHY locking is required between two ports for some external PHYs. Since
-initialization was done in the common init function (called only on the 
-first port initialization) rather than in the port init function, there
-was in fact no PHY locking between the ports. 
+struct rds_rdma_notify contains a 32 bits hole on 64bit arches,
+make sure it is zeroed before copying it to user.
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com> 
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Andy Grover <andy.grover@oracle.com>
 ---
- drivers/net/bnx2x/bnx2x_main.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
+ net/rds/recv.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index b4ec2b0..f8c3f08 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -4328,10 +4328,12 @@ static int bnx2x_init_port(struct bnx2x *bp)
- 		val |= aeu_gpio_mask;
- 		REG_WR(bp, offset, val);
- 		}
-+		bp->port.need_hw_lock = 1;
- 		break;
- 
--	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101:
- 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8727:
-+		bp->port.need_hw_lock = 1;
-+	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_SFX7101:
- 		/* add SPIO 5 to group 0 */
- 		{
- 		u32 reg_addr = (port ? MISC_REG_AEU_ENABLE1_FUNC_1_OUT_0 :
-@@ -4341,7 +4343,10 @@ static int bnx2x_init_port(struct bnx2x *bp)
- 		REG_WR(bp, reg_addr, val);
- 		}
- 		break;
--
-+	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8072:
-+	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8073:
-+		bp->port.need_hw_lock = 1;
-+		break;
- 	default:
- 		break;
- 	}
-
-
-
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index 795a00b..c93588c 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -297,7 +297,7 @@ static int rds_still_queued(struct rds_sock *rs, struct rds_incoming *inc,
+ int rds_notify_queue_get(struct rds_sock *rs, struct msghdr *msghdr)
+ {
+ 	struct rds_notifier *notifier;
+-	struct rds_rdma_notify cmsg;
++	struct rds_rdma_notify cmsg = { 0 }; /* fill holes with zero */
+ 	unsigned int count = 0, max_messages = ~0U;
+ 	unsigned long flags;
+ 	LIST_HEAD(copy);
 
 
