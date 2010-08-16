@@ -1,46 +1,56 @@
-From: Stephen Buck <stephen.buck@exinda.com>
-Subject: Re: tproxy related crash in inet_hashtables
-Date: Mon, 16 Aug 2010 18:26:58 +1000
-Message-ID: <4C68F652.7070900@exinda.com>
-References: <4C65432F.4030809@exinda.com>	<1281707736.4470.53.camel@edumazet-laptop>	<4C661D09.8030709@exinda.com> <20100814.221611.15248639.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: GTSM and TCP accept problem
+Date: Mon, 16 Aug 2010 11:43:45 +0200
+Message-ID: <1281951825.2524.5.camel@edumazet-laptop>
+References: <20100814214634.24a87715@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"hidden@sch.bme.hu" <hidden@sch.bme.hu>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exhub015-3.exch015.msoutlookonline.net ([207.5.72.95]:46650
-	"EHLO EXHUB015-3.exch015.msoutlookonline.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752925Ab0HPI2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 04:28:24 -0400
-In-Reply-To: <20100814.221611.15248639.davem@davemloft.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:50369 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752033Ab0HPJnu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Aug 2010 05:43:50 -0400
+Received: by wyb32 with SMTP id 32so5477848wyb.19
+        for <netdev@vger.kernel.org>; Mon, 16 Aug 2010 02:43:49 -0700 (PDT)
+In-Reply-To: <20100814214634.24a87715@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/08/10 15:16, David Miller wrote:
-> From: Stephen Buck<stephen.buck@exinda.com>
-> Date: Sat, 14 Aug 2010 14:35:21 +1000
->
->    
->> +		}
->> +		if (!node)
->> +			tb = inet_bind_bucket_create(table->bind_bucket_cachep,
->> +						     sock_net(sk), head, port);
->> +	}
->>   	sk_add_bind_node(child,&tb->owners);
->>      
-> inet_bind_bucket_create() can fail due to memory allocation failure,
-> you're therefore going to have to find a way to handle that.
->
-> And in doing so you're going to find out that there is no easy
-> way out of this code path in such an error, this code was
-> absolutely not designed to be able to handle cases like this.
->    
-You're right. I didn't cover the failure case. And no, it doesn't look easy.
-I'll have another look at the problem when I get a chance.
+Le samedi 14 ao=C3=BBt 2010 =C3=A0 21:46 -0400, Stephen Hemminger a =C3=
+=A9crit :
+> The implementation of Generalized TTL Security has a problem
+> on the TCP accept side. Since there can be different number of
+> hops for each peer, the listener ends up doing
+>=20
+>    socket
+>    bind
+>    set TTL to 255
+>    listen
+>    while (nfd =3D accept(peer)) {
+>      info =3D lookup(peer)
+>      set MINTTL to 255 - info->ttl_hops
+>=20
+>=20
+> The problem is that a rogue peer can still do three way
+> handshake causing the accept to succeed. But the rogue will
+> leave a stuck connection that will then have to timeout.
+>=20
+> The only ways I have come up to deal with this are:
+>    * have short timeout on initial data (recycle faster)
+>    * push peer;MINTTL table down into kernel (per socket)
+>    * have BGP do this through iptables which is a non-starter
+>      for a general application that needs to run on BSD, and
+>      would mess up existing firewall rules.
+>=20
+> Ideas welcome..
+> --
 
-Thanks for pointing it out.
+Another idea would be to store the TTL of the SYN packet (or third
+packet) and let application read it after accept(), allowing it to
+reject the connection if it doesnt match expected TTL.
+
+
+
