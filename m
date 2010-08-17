@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cpmac: fix all checkpatch errors and warnings
-Date: Tue, 17 Aug 2010 02:35:00 -0700 (PDT)
-Message-ID: <20100817.023500.189722094.davem@davemloft.net>
-References: <201008082209.40403.florian@openwrt.org>
+Subject: Re: [PATCH] am79c961a: Use net_device_stats from struct net_device
+Date: Tue, 17 Aug 2010 02:35:06 -0700 (PDT)
+Message-ID: <20100817.023506.112619831.davem@davemloft.net>
+References: <1281366274-28796-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: florian@openwrt.org
+Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk, segooon@gmail.com
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34292
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34297
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932268Ab0HQJem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 05:34:42 -0400
-In-Reply-To: <201008082209.40403.florian@openwrt.org>
+	by vger.kernel.org with ESMTP id S932160Ab0HQJes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 05:34:48 -0400
+In-Reply-To: <1281366274-28796-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Sun, 8 Aug 2010 22:09:39 +0200
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Mon,  9 Aug 2010 17:04:34 +0200
 
-> This patches fixes a couple of checkpatch warnings and errors:
-> - lines over 80 columns
-> - printk() instead of pr_cont()
-> - assignments in tests (if ((foo == bar())))
+> struct net_device has its own struct net_device_stats member, so we can
+> use this one instead of a private copy in the dev_priv struct.
 > 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> Cc: Kulikov Vasiliy <segooon@gmail.com>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
 Applied.
