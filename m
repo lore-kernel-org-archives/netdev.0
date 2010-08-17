@@ -1,58 +1,66 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 08/14] tipc: Fix bug in broadcast link transmit statistics computation
-Date: Tue, 17 Aug 2010 17:00:10 -0400
-Message-ID: <1282078816-11844-9-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 05/14] tipc: Check for disabled bearer when processing incoming messages
+Date: Tue, 17 Aug 2010 17:00:07 -0400
+Message-ID: <1282078816-11844-6-git-send-email-paul.gortmaker@windriver.com>
 References: <1282078816-11844-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:57133 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:57124 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910Ab0HQVA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 17:00:26 -0400
+	with ESMTP id S1751219Ab0HQVAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 17:00:24 -0400
 In-Reply-To: <1282078816-11844-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Modify TIPC's broadcast link so that it counts each piece of a
-fragmented message individually, rather than as treating the group
-as a single message.  This ensures that proper correlation of sent
-and received traffic can be done when the broadcast link statistics
-are displayed, and is consistent with the way fragments are counted
-by TIPC's unicast links.
+Add a check to tipc_recv_msg() to ensure it discards messages
+arriving on a newly disabled bearer.  This is needed to deal with a
+race condition that can arise if the bearer is in the midst of being
+disabled when it receives a message.  Performing the check after
+tipc_net_lock has been taken ensures that TIPC's bearers are in a
+stable state while the message is being processed.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ net/tipc/link.c |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index eefdd1a..b11248c 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -409,10 +409,8 @@ int tipc_bclink_send_msg(struct sk_buff *buf)
- 	res = tipc_link_send_buf(bcl, buf);
- 	if (unlikely(res == -ELINKCONG))
- 		buf_discard(buf);
--	else {
--		bcl->stats.sent_info++;
-+	else
- 		bclink_set_last_sent();
--	}
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index a3616b9..9d18c9b 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1802,6 +1802,15 @@ static int link_recv_buf_validate(struct sk_buff *buf)
+ 	return pskb_may_pull(buf, hdr_size);
+ }
  
- 	if (bcl->out_queue_size > bcl->stats.max_queue_sz)
- 		bcl->stats.max_queue_sz = bcl->out_queue_size;
-@@ -578,6 +576,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- 		msg = buf_msg(buf);
- 		msg_set_non_seq(msg, 1);
- 		msg_set_mc_netid(msg, tipc_net_id);
-+		bcl->stats.sent_info++;
- 	}
++/**
++ * tipc_recv_msg - process TIPC messages arriving from off-node
++ * @head: pointer to message buffer chain
++ * @tb_ptr: pointer to bearer message arrived on
++ *
++ * Invoked with no locks held.  Bearer pointer must point to a valid bearer
++ * structure (i.e. cannot be NULL), but bearer can be inactive.
++ */
++
+ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
+ {
+ 	read_lock_bh(&tipc_net_lock);
+@@ -1819,6 +1828,11 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
  
- 	/* Send buffer over bearers until all targets reached */
+ 		head = head->next;
+ 
++		/* Ensure bearer is still enabled */
++
++		if (unlikely(!b_ptr->active))
++			goto cont;
++
+ 		/* Ensure message is well-formed */
+ 
+ 		if (unlikely(!link_recv_buf_validate(buf)))
 -- 
 1.7.2.1
 
