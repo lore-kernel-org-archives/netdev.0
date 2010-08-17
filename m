@@ -1,62 +1,38 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] net/sched: add ACT_CSUM action to update packets
- checksums
-Date: Tue, 17 Aug 2010 08:36:42 -0400
-Message-ID: <1282048602.5765.752.camel@bigi>
-References: <20100816211542.GA21083@n7mm.org> <1281996019.5765.6.camel@bigi>
-	 <20100816230217.GA24125@n7mm.org>
-Reply-To: hadi@cyberus.ca
+From: Paul Rolland <rol@as2917.net>
+Subject: IPv6 raw socket and recvfrom
+Date: Tue, 17 Aug 2010 14:31:20 +0200
+Message-ID: <20100817143120.7fad5186@tux.DEF.witbe.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Gr=E9goire?= Baron <baronchon@n7mm.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:40018 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961Ab0HQMgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 08:36:47 -0400
-Received: by qyk10 with SMTP id 10so598941qyk.19
-        for <netdev@vger.kernel.org>; Tue, 17 Aug 2010 05:36:46 -0700 (PDT)
-In-Reply-To: <20100816230217.GA24125@n7mm.org>
+Received: from smtp.witbe.net ([81.88.96.48]:57461 "EHLO smtp.witbe.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751783Ab0HQMg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Aug 2010 08:36:57 -0400
+Received: from tux.DEF.witbe.net (host-95.DEF.witbe.net [192.168.0.95])
+	by smtp.witbe.net (8.14.1/8.14.1) with ESMTP id o7HCVKX5015710
+	for <netdev@vger.kernel.org>; Tue, 17 Aug 2010 14:31:35 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-08-17 at 01:02 +0200, Gr=C3=A9goire Baron wrote:
+Hello,
 
-> You're rigth. I will correct that, maybe using a macro which is
-> specialised to get the protocol structure ...
-> However, this macro could call a 'goto' instruction. Is it really a g=
-ood
-> idea? Tell me. Are you sure a function is appropriate?
+I'd like someone to clarify the behavior I can expect from a RAW IPv6
+socket _in Linux_ :
+ - Raw IPv4 sockets : recvfrom() payload contain all the IP header,
+   including src ip, dst ip, etc...
 
-Do you even need the goto fail? It seems you could short-circuit and
-return 0 (at least thats what the goto seems to do)
+ - Raw IPv6 sockets : so far, recvfrom returns me only the payload. I've
+   added the HDRINCL options, but it seems that this is a no-op in
+   IPv6-land.
 
-But i really dont want to complicate this;=20
-In the minimal i think you can make code like this
+I've reviewed RFC 3542, which states that I'm not to expect ip6 header, but
+often "there is more than one way to do it", and I'd like to be sure I'm
+not missing something obvious
 
-=3D=3D=3D=3D
-       struct icmphdr *icmph;
-+       int hl;
-+       int ntkoff;
-+
-+       ntkoff =3D skb_network_offset(skb);
-+
-+       hl =3D ihl + sizeof(*icmph);
-+
-+       if (!pskb_may_pull(skb, ipl + ntkoff) || (ipl < hl) ||
-+           (skb_cloned(skb) &&
-+            !skb_clone_writable(skb, hl + ntkoff) &&
-+            pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
-+               goto fail;
-=3D=3D=3D
+Paul
 
-reusable - return 0 if fail else return 1 etc etc
-
-BTW, another comment: icmp and igmp have unused parameter iph
-passed to them - probably cut and paste.
-
-cheers,
-jamal
+PS : I'm not subscribed to netdev, so please answer directly...
 
