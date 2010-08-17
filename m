@@ -1,142 +1,96 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 14/14] tipc: Prevent missing name table entries when link flip-flops rapidly
-Date: Tue, 17 Aug 2010 17:00:16 -0400
-Message-ID: <1282078816-11844-15-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 13/14] tipc: Allow connect() to wait indefinitely
+Date: Tue, 17 Aug 2010 17:00:15 -0400
+Message-ID: <1282078816-11844-14-git-send-email-paul.gortmaker@windriver.com>
 References: <1282078816-11844-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:57157 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:57156 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262Ab0HQVAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 17:00:30 -0400
+	with ESMTP id S1751311Ab0HQVA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 17:00:29 -0400
 In-Reply-To: <1282078816-11844-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Ensure that TIPC does not re-establish communication with a
-neighboring node until it has finished updating all data structures
-containing information about that node to reflect the earlier loss of
-contact.  Previously, it was possible for TIPC to perform its purge of
-name table entries relating to the node once contact had already been
-re-established, resulting in the unwanted removal of valid name table
-entries.
+Cause a socket whose TIPC_CONN_TIMEOUT option is zero to wait
+indefinitely for a response to a connection request using connect().
+Previously, specifying a timeout of 0 ms resulted in an immediate
+timeout, which was inconsistent with the behavior specified by Posix
+for a socket's receive and send timeout.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/discover.c |    8 ++++++++
- net/tipc/link.c     |   11 ++++++++++-
- net/tipc/node.c     |   19 +++++++++++++++++++
- net/tipc/node.h     |    2 ++
- 4 files changed, 39 insertions(+), 1 deletions(-)
+ net/tipc/socket.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index fc1fcf5..f28d1ae 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -203,6 +203,14 @@ void tipc_disc_recv_msg(struct sk_buff *buf, struct bearer *b_ptr)
- 				return;
- 		}
- 		spin_lock_bh(&n_ptr->lock);
-+
-+		/* Don't talk to neighbor during cleanup after last session */
-+
-+		if (n_ptr->cleanup_required) {
-+			spin_unlock_bh(&n_ptr->lock);
-+			return;
-+		}
-+
- 		link = n_ptr->links[b_ptr->identity];
- 		if (!link) {
- 			dbg("creating link\n");
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 9d18c9b..a6a3102 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1869,13 +1869,22 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *tb_ptr)
- 				goto cont;
- 		}
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 7b81fdd..f7ac94d 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -64,6 +64,7 @@ struct tipc_sock {
+ 	struct sock sk;
+ 	struct tipc_port *p;
+ 	struct tipc_portid peer_name;
++	long conn_timeout;
+ };
  
--		/* Locate unicast link endpoint that should handle message */
-+		/* Locate neighboring node that sent message */
+ #define tipc_sk(sk) ((struct tipc_sock *)(sk))
+@@ -240,9 +241,9 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol,
+ 	sock->state = state;
  
- 		n_ptr = tipc_node_find(msg_prevnode(msg));
- 		if (unlikely(!n_ptr))
- 			goto cont;
- 		tipc_node_lock(n_ptr);
+ 	sock_init_data(sock, sk);
+-	sk->sk_rcvtimeo = msecs_to_jiffies(CONN_TIMEOUT_DEFAULT);
+ 	sk->sk_backlog_rcv = backlog_rcv;
+ 	tipc_sk(sk)->p = tp_ptr;
++	tipc_sk(sk)->conn_timeout = msecs_to_jiffies(CONN_TIMEOUT_DEFAULT);
  
-+		/* Don't talk to neighbor during cleanup after last session */
-+
-+		if (n_ptr->cleanup_required) {
-+			tipc_node_unlock(n_ptr);
-+			goto cont;
-+		}
-+
-+		/* Locate unicast link endpoint that should handle message */
-+
- 		l_ptr = n_ptr->links[b_ptr->identity];
- 		if (unlikely(!l_ptr)) {
- 			tipc_node_unlock(n_ptr);
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 9408517..b702c7b 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -383,6 +383,20 @@ static void node_established_contact(struct tipc_node *n_ptr)
- 				  tipc_highest_allowed_slave);
- }
+ 	spin_unlock_bh(tp_ptr->lock);
  
-+static void node_cleanup_finished(unsigned long node_addr)
-+{
-+	struct tipc_node *n_ptr;
-+
-+	read_lock_bh(&tipc_net_lock);
-+	n_ptr = tipc_node_find(node_addr);
-+	if (n_ptr) {
-+		tipc_node_lock(n_ptr);
-+		n_ptr->cleanup_required = 0;
-+		tipc_node_unlock(n_ptr);
-+	}
-+	read_unlock_bh(&tipc_net_lock);
-+}
-+
- static void node_lost_contact(struct tipc_node *n_ptr)
- {
- 	struct cluster *c_ptr;
-@@ -457,6 +471,11 @@ static void node_lost_contact(struct tipc_node *n_ptr)
- 		tipc_k_signal((Handler)ns->handle_node_down,
- 			      (unsigned long)ns->usr_handle);
- 	}
-+
-+	/* Prevent re-contact with node until all cleanup is done */
-+
-+	n_ptr->cleanup_required = 1;
-+	tipc_k_signal((Handler)node_cleanup_finished, n_ptr->addr);
- }
+@@ -1385,6 +1386,7 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+ 	struct msghdr m = {NULL,};
+ 	struct sk_buff *buf;
+ 	struct tipc_msg *msg;
++	long timeout;
+ 	int res;
  
- /**
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 6f990da..45f3db3 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -52,6 +52,7 @@
-  * @active_links: pointers to active links to node
-  * @links: pointers to all links to node
-  * @working_links: number of working links to node (both active and standby)
-+ * @cleanup_required: non-zero if cleaning up after a prior loss of contact
-  * @link_cnt: number of links to node
-  * @permit_changeover: non-zero if node has redundant links to this system
-  * @routers: bitmap (used for multicluster communication)
-@@ -78,6 +79,7 @@ struct tipc_node {
- 	struct link *links[MAX_BEARERS];
- 	int link_cnt;
- 	int working_links;
-+	int cleanup_required;
- 	int permit_changeover;
- 	u32 routers[512/32];
- 	int last_router;
+ 	lock_sock(sk);
+@@ -1445,11 +1447,12 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+ 
+ 	/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
+ 
++	timeout = tipc_sk(sk)->conn_timeout;
+ 	release_sock(sk);
+ 	res = wait_event_interruptible_timeout(*sk_sleep(sk),
+ 			(!skb_queue_empty(&sk->sk_receive_queue) ||
+ 			(sock->state != SS_CONNECTING)),
+-			sk->sk_rcvtimeo);
++			timeout ? timeout : MAX_SCHEDULE_TIMEOUT);
+ 	lock_sock(sk);
+ 
+ 	if (res > 0) {
+@@ -1712,7 +1715,7 @@ static int setsockopt(struct socket *sock,
+ 		res = tipc_set_portunreturnable(tport->ref, value);
+ 		break;
+ 	case TIPC_CONN_TIMEOUT:
+-		sk->sk_rcvtimeo = msecs_to_jiffies(value);
++		tipc_sk(sk)->conn_timeout = msecs_to_jiffies(value);
+ 		/* no need to set "res", since already 0 at this point */
+ 		break;
+ 	default:
+@@ -1767,7 +1770,7 @@ static int getsockopt(struct socket *sock,
+ 		res = tipc_portunreturnable(tport->ref, &value);
+ 		break;
+ 	case TIPC_CONN_TIMEOUT:
+-		value = jiffies_to_msecs(sk->sk_rcvtimeo);
++		value = jiffies_to_msecs(tipc_sk(sk)->conn_timeout);
+ 		/* no need to set "res", since already 0 at this point */
+ 		break;
+ 	 case TIPC_NODE_RECVQ_DEPTH:
 -- 
 1.7.2.1
 
