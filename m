@@ -1,36 +1,43 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] netfilter: use NFPROTO_IPV4 instead of AF_INET
-Date: Tue, 17 Aug 2010 14:47:12 +0800
-Message-ID: <1282027632-13707-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:45925 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752485Ab0HQGra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 02:47:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netfilter: don't disable BH again in BH disabled
+ context
+Date: Tue, 17 Aug 2010 08:55:27 +0200
+Message-ID: <1282028127.2487.754.camel@edumazet-laptop>
+References: <1282027297-9998-1-git-send-email-xiaosuo@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1282027297-9998-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The field family of xt_target should be NFPROTO_IPV4, though NFPROTO_IPV4
-and AF_INET are the same.
+Le mardi 17 ao=C3=BBt 2010 =C3=A0 14:41 +0800, Changli Gao a =C3=A9crit=
+ :
+> All the matches and targets of iptables, ip6tables are in BH disabled
+> context, since xt_info_rdlock_bh() disables BH.
+>=20
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/netfilter/xt_TPROXY.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index c61294d..21bb2af 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -76,7 +76,7 @@ static int tproxy_tg_check(const struct xt_tgchk_param *par)
- 
- static struct xt_target tproxy_tg_reg __read_mostly = {
- 	.name		= "TPROXY",
--	.family		= AF_INET,
-+	.family		= NFPROTO_IPV4,
- 	.table		= "mangle",
- 	.target		= tproxy_tg,
- 	.targetsize	= sizeof(struct xt_tproxy_target_info),
+Its a thing that might change in a future version. Not a hard fact.
+
+You can probably change iptables to allow softirqs while processing
+OUTPUT chains.
+
+We had some attempts in the past to switch to RCU.
+
+It failed at that time because of some RCU implementation details, but
+with recent RCU changes, we might try again, and have a clean
+implementation, allowing softirqs.
+
+So your patch would need to be reverted.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
