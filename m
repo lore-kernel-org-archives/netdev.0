@@ -1,52 +1,35 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Tue, 17 Aug 2010 10:32:16 +0200
-Message-ID: <20100817083216.GA3330@riccoc20.at.omicron.at>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
- <201008161626.24083.arnd@arndb.de>
- <20100816190003.GB4166@riccoc20.at.omicron.at>
- <201008162159.39734.arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@lists.ozlabs.org,
-	Rodolfo Giometti <giometti@linux.it>, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201008162159.39734.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: [PATCH RESEND 0/3] netfilter: xtables: inclusion of condition match and target
+Date: Tue, 17 Aug 2010 11:36:50 +0300
+Message-ID: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	jengelh@medozas.de, sameo@linux.intel.com, janne.ylalehto@nokia.com
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 16, 2010 at 09:59:39PM +0200, Arnd Bergmann wrote:
-> Why does it matter how long it takes to read the clock? I wasn't thinking
-> of replacing the system clock with this, just exposing the additional
-> clock as a new clockid_t value that can be accessed using the existing
-> syscalls.
+Hi,
 
-Okay, now I see. You are suggesting this:
+I'm resending these three patches now that the net-next is open for development
+again.  These patches include the xt_condition match and target.
 
-      clock_gettime(CLOCK_PTP, &ts);
-      clock_settime(CLOCK_PTP, &ts);
+Please integrate if everything is okay.
 
-I like this. If there is agreement about it, I am happy to implement
-the PTP stuff that way.
+Cheers,
+Luca.
 
-> Why did you not want to add syscalls? Adding ioctls instead of syscalls
-> does not make the interface better, just less visible.
+Luciano Coelho (3):
+  netfilter: xtables: inclusion of xt_condition
+  netfilter: xt_condition: change the value from boolean to u32
+  netfilter: xt_condition: add condition target support
 
-I bet that, had I posted patch set with new syscalls, someone would
-have said, "You are adding new syscalls. Can't you just use a char
-device instead!"
+ include/linux/netfilter/Kbuild         |    1 +
+ include/linux/netfilter/xt_condition.h |   26 +++
+ net/netfilter/Kconfig                  |   11 +
+ net/netfilter/Makefile                 |    1 +
+ net/netfilter/xt_condition.c           |  357 ++++++++++++++++++++++++++++++++
+ 5 files changed, 396 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_condition.h
+ create mode 100644 net/netfilter/xt_condition.c
 
-If you add syscalls and introduce CLOCK_PTP, then you add it to
-everyone's kernel, even those people who never heard of PTP. A char
-device has the advantage that can it be simply ignored. Also, a
-syscall has got to have the right form from the very beginning. If the
-next generation of PTP hardware looks very different, then it is not
-that much of a crime to change an ioctl interface, provided it has
-versioning.
-
-Richard
