@@ -1,71 +1,62 @@
-From: Luca Tettamanti <kronos.it@gmail.com>
-Subject: Re: RPS vs. hard-irq-context netif_rx()
-Date: Tue, 17 Aug 2010 13:52:30 +0200
-Message-ID: <20100817115230.GA6510@nb-core2.darkstar.lan>
-References: <1280495027.3710.13.camel@jlt3.sipsolutions.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] net/sched: add ACT_CSUM action to update packets
+ checksums
+Date: Tue, 17 Aug 2010 08:36:42 -0400
+Message-ID: <1282048602.5765.752.camel@bigi>
+References: <20100816211542.GA21083@n7mm.org> <1281996019.5765.6.camel@bigi>
+	 <20100816230217.GA24125@n7mm.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Gr=E9goire?= Baron <baronchon@n7mm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:58903 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752583Ab0HQLwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 07:52:37 -0400
-Received: by ewy23 with SMTP id 23so2900362ewy.19
-        for <netdev@vger.kernel.org>; Tue, 17 Aug 2010 04:52:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1280495027.3710.13.camel@jlt3.sipsolutions.net>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:40018 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750961Ab0HQMgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 08:36:47 -0400
+Received: by qyk10 with SMTP id 10so598941qyk.19
+        for <netdev@vger.kernel.org>; Tue, 17 Aug 2010 05:36:46 -0700 (PDT)
+In-Reply-To: <20100816230217.GA24125@n7mm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I got the following on a kvm instance I use for testing:
-> 
-> [ 51.358803] WARNING: at kernel/lockdep.c:2327trace_hardirqs_on_caller+0x167/0x200()
-> [ 51.360210] Hardware name: Bochs
-> [ 51.360210] Modules linked in:
-> [ 51.360210] Pid: 1546, comm: dhclient3 Tainted: G        W 2.6.35-rc6-wl+ #588
-> [ 51.360210] Call Trace:
-> [ 51.360210]  <IRQ>  [<ffffffff8104e87f>] warn_slowpath_common+0x7f/0xc0
-> [ 51.360210]  [<ffffffff8104e8da>] warn_slowpath_null+0x1a/0x20
-> [ 51.360210]  [<ffffffff81087977>] trace_hardirqs_on_caller+0x167/0x200
-> [ 51.360210]  [<ffffffff81087a1d>] trace_hardirqs_on+0xd/0x10
-> [ 51.360210]  [<ffffffff81056ade>] local_bh_enable+0x9e/0x130
-> [ 51.360210]  [<ffffffff8139fa82>] netif_rx+0xc2/0x250
-> [ 51.360210]  [<ffffffff813146d7>] ei_receive+0x1b7/0x2c0
-> [ 51.360210]  [<ffffffff81314ca2>] __ei_interrupt+0x282/0x360
-> [ 51.360210]  [<ffffffff81314dce>] ei_interrupt+0xe/0x10
-> [ 51.360210]  [<ffffffff810abe85>] handle_IRQ_event+0x85/0x300
-> [ 51.360210]  [<ffffffff810aead5>] handle_level_irq+0x95/0x120
-> [ 51.360210]  [<ffffffff81005a12>] handle_irq+0x22/0x30
-> [ 51.360210]  [<ffffffff814394b3>] do_IRQ+0x73/0xf0
-[...]
->So .. where's the bug? I'd point to CONFIG_RPS since it's newest.
+On Tue, 2010-08-17 at 01:02 +0200, Gr=C3=A9goire Baron wrote:
 
-Hello,
-I just hit the same warning, with 2.6.36-rc1:
+> You're rigth. I will correct that, maybe using a macro which is
+> specialised to get the protocol structure ...
+> However, this macro could call a 'goto' instruction. Is it really a g=
+ood
+> idea? Tell me. Are you sure a function is appropriate?
 
-[  228.001459] WARNING: at /home/kronos/src/linux-2.6.git/kernel/softirq.c:143 local_bh_enable+0x3c/0x9a()
-[  228.004096] Hardware name: F3Sa                
-[  228.004175] Modules linked in: [...]
-[  228.015974] Pid: 2818, comm: irqbalance Not tainted 2.6.36-rc1 #274
-[  228.015974] Call Trace:
-[  228.015974]  <IRQ>  [<ffffffff81034b32>] warn_slowpath_common+0x80/0x98
-[  228.015974]  [<ffffffff81034b5f>] warn_slowpath_null+0x15/0x17
-[  228.015974]  [<ffffffff8103a009>] local_bh_enable+0x3c/0x9a
-[  228.015974]  [<ffffffff8120dc16>] netif_rx+0x75/0x145
-[  228.015974]  [<ffffffff8115162f>] ? unmap_single+0x4a/0x52
-[  228.015974]  [<ffffffff811e7fcd>] atl1_intr+0x96c/0xa35
-[  228.015974]  [<ffffffff8104edf4>] ? hrtimer_wakeup+0x0/0x21
-[  228.015974]  [<ffffffff810707b2>] handle_IRQ_event+0x20/0x9a
-[  228.015974]  [<ffffffff810723ba>] handle_edge_irq+0xf5/0x141
-[  228.015974]  [<ffffffff81004d53>] handle_irq+0x83/0x8c
-[  228.015974]  [<ffffffff81004332>] do_IRQ+0x5e/0xc4
-[  228.015974]  [<ffffffff812843d3>] ret_from_intr+0x0/0xa
+Do you even need the goto fail? It seems you could short-circuit and
+return 0 (at least thats what the goto seems to do)
 
-CONFIG_TREE_RCU=y
-CONFIG_RPS=y
+But i really dont want to complicate this;=20
+In the minimal i think you can make code like this
 
-I never saw the warning with 2.6.35 and earlier kernels though.
+=3D=3D=3D=3D
+       struct icmphdr *icmph;
++       int hl;
++       int ntkoff;
++
++       ntkoff =3D skb_network_offset(skb);
++
++       hl =3D ihl + sizeof(*icmph);
++
++       if (!pskb_may_pull(skb, ipl + ntkoff) || (ipl < hl) ||
++           (skb_cloned(skb) &&
++            !skb_clone_writable(skb, hl + ntkoff) &&
++            pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
++               goto fail;
+=3D=3D=3D
 
-Luca
+reusable - return 0 if fail else return 1 etc etc
+
+BTW, another comment: icmp and igmp have unused parameter iph
+passed to them - probably cut and paste.
+
+cheers,
+jamal
+
