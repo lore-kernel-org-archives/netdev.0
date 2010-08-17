@@ -1,57 +1,63 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Tue, 17 Aug 2010 10:53:24 +0200
-Message-ID: <20100817085324.GB3330@riccoc20.at.omicron.at>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
-	<363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
-	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
+Date: Tue, 17 Aug 2010 09:25:55 +0000
+Message-ID: <201008170925.55592.arnd@arndb.de>
+References: <cover.1281956490.git.richard.cochran@omicron.at> <201008162159.39734.arnd@arndb.de> <20100817083216.GA3330@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
-To: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Cc: linuxppc-dev@lists.ozlabs.org,
+	Rodolfo Giometti <giometti@linux.it>, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Krzysztof Halasa <khc@pm.waw.pl>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100817083216.GA3330@riccoc20.at.omicron.at>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 16, 2010 at 12:24:48PM -0700, john stultz wrote:
-> 3) I'm not sure I see the benefit of being able to have multiple
-> frequency corrected time domains.  In other words, what benefit would
-> you get from adjusting a PTP clock's frequency instead of just
-> adjusting the system's time freq? Having the PTP time as a reference
-> to correct the system time seems reasonable, but I'm not sure I see
-> why userland would want to adjust the PTP clock's freq.
+On Tuesday 17 August 2010, Richard Cochran wrote:
+> > Why did you not want to add syscalls? Adding ioctls instead of syscalls
+> > does not make the interface better, just less visible.
+> 
+> I bet that, had I posted patch set with new syscalls, someone would
+> have said, "You are adding new syscalls. Can't you just use a char
+> device instead!"
 
-For PTP enabled hardware, the timestamp on the network packet comes
-from from the PTP clock, not from the system time.
+Very possible, but after considering both options, I think we would
+still end up with the same conclusion.
+ 
+> If you add syscalls and introduce CLOCK_PTP, then you add it to
+> everyone's kernel, even those people who never heard of PTP. A char
+> device has the advantage that can it be simply ignored.
 
-Of course, you can always just leave the PTP clock alone, figure the
-needed correction, and apply it whenever needed. But this has some
-disadvantages. First of all, the (one and only) open source PTPd does
-not do it that way. Also, only one program (the PTPd or equivalent)
-will know the correct time. Other programs will not be able to ask the
-operating system for time services. Instead, they would need to use
-IPC to the PTPd.
+It's a matter of perspective whether you consider this an advantage
+or disadvantage. I would expect that since you are trying to get support
+for PTP into the kernel, you'd be happy for people to know about it and
+use your code ;-).
 
-The PTP protocol (and some PTP hardware) offers a "one step" method,
-where the timestamps are inserted by the hardware on the fly. Here you
-really do need the PTP clock to be correctly adjusted.
+> Also, a syscall has got to have the right form from the very beginning.
+> If the next generation of PTP hardware looks very different, then it is not
+> that much of a crime to change an ioctl interface, provided it has
+> versioning.
 
-All of the PTP hardware that I am familiar with provides a clock
-adjustment method, so it simpler and cleaner just to use this facility
-to tune the PTP clock.
+No, that's just a myth. The rules for ABI stability are pretty much the
+same. We try hard to avoid ever changing an existing ABI, for both
+syscalls and ioctl. In either case, if you get it wrong, you have to support
+the old interface and create a new syscall or ioctl command.
+As mentioned, versioning does not solve this, it just adds another
+indirection (which we try to avoid).
 
-Richard
+One difference is that more people take a look at your code when you suggest
+a new syscall, so the chances of getting it right in the first upstream
+version are higher.
+Another difference is that we generally use ioctl for devices that can
+be enumerated, while syscalls are for system services that are not tied to
+a specific device. This argument works both ways for PTP IMHO: On the one
+hand you want to have a reliable clock that you can use without knowing
+where it comes from, on the other you might have multiple PTP sources that
+you need to differentiate.
+
+	Arnd
