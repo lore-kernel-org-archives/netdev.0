@@ -1,148 +1,79 @@
-From: Thomas Habets <thomas@habets.pp.se>
-Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
- to reset
-Date: Tue, 17 Aug 2010 13:08:41 +0200 (CEST)
-Message-ID: <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se>
-References: <alpine.DEB.1.10.1008131952470.19570@red.crap.retrofitta.se>  <1281953960.2524.23.camel@edumazet-laptop>  <alpine.DEB.1.10.1008161224510.13728@red.crap.retrofitta.se>  <alpine.DEB.1.10.1008170719180.21857@red.crap.retrofitta.se>
- <1282024802.2487.687.camel@edumazet-laptop>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
+Date: Tue, 17 Aug 2010 13:36:29 +0200
+Message-ID: <201008171336.29375.arnd@arndb.de>
+References: <cover.1281956490.git.richard.cochran@omicron.at>
+	<201008170925.55592.arnd@arndb.de>
+	<20100817105232.GA9079@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Thomas Habets <thomas@habets.pp.se>, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1282024802.2487.687.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20100817105232.GA9079-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Tuesday 17 August 2010, Richard Cochran wrote:
+> On Tue, Aug 17, 2010 at 09:25:55AM +0000, Arnd Bergmann wrote:
+> > Another difference is that we generally use ioctl for devices that can
+> > be enumerated, while syscalls are for system services that are not tied to
+> > a specific device. This argument works both ways for PTP IMHO: On the one
+> > hand you want to have a reliable clock that you can use without knowing
+> > where it comes from, on the other you might have multiple PTP sources that
+> > you need to differentiate.
+> 
+> Yes, I agree. In normal use, there will be only one PTP clock in a
+> system. However, for research purposes, it would be nice to have more
+> than one.
+> 
+> I've been looking at offering the PTP clock as a posix clock, and it
+> is not as hard as I first thought. The PTP clock or clocks just have
+> to be registered as one of the posix_clocks[MAX_CLOCKS] in
+> posix-timers.c.
 
-Aha! New development:
+Ok sounds good.
 
-The Cisco router can't discover the address of the Linux box because Linux 
-doesn't seem to be listening to ff02::1 (all-nodes).
+> My suggestion would be to reserve three clock ids in time.h,
+> CLOCK_PTP0, CLOCK_PTP1, and CLOCK_PTP2. The first one would be the
+> same as CLOCK_REALTIME, for SW timestamping, and the other two would
+> allow two different PTP clocks at the same time, for the research use
+> case.
 
------------
-cisco#ping ff02::1
-Output Interface: GigabitEthernet1/2
-Type escape sequence to abort.
-Sending 5, 100-byte ICMP Echos to FF02::1, timeout is 2 seconds:
-Packet sent with a source address of 
-FE80::222:55FF:FE17:4B80%GigabitEthernet1/2
+I don't think there is a point in making exactly two independent sources
+available. The clockid_t space is not really limited, so we could define
+an arbitrary range of ids for ptp sources that could be used simultaneously,
+as long as we have space more more ids with a fixed number.
 
-Request 0 timed out
-Request 1 timed out
-Request 2 timed out
-Request 3 timed out
-Request 4 timed out
-Success rate is 0 percent (0/5)
-0 multicast replies and 0 errors.
-------------
+Would it be reasonable to assume that on a machine with a large number
+of NICs, you'd want a separate ptp source for each of them for timestamping?
+Or would you preferably define just one source in such a setup?
 
-If i set promisc mode on the interface (tcpdump without -p or "ip link set 
-promisc on eth0") it starts working (both normal ping and the above ping 
-from the Cisco to ff02::1). It continues working until I guess the 
-neighbor table on the cisco times out (leaving it overnight seems to 
-be enough idle time) or I manually do a "clear ipv6 neig".
+I think both could be done with the use of class device attributes in
+sysfs for configuration. Maybe you can have one CLOCK_PTP value for one
+global PTP source and use sysfs to configure which device that is.
 
-So great news! I can reproduce it at will with no waiting time! Right 
-after rebooting the Linux box I run "clear ipv6 neighbors" and Linux can 
-no longer ping the router. Tested reproducing it immediately after reboot.
+If you also need simultaneous access to the specific clocks, you could
+have run-time configured clockid numbers in a sysfs attribute for each
+ptp class device.
 
-The Linux box itself can ping ff02::1%eth0 with no problem, and gets 
-replies from the fe80:: link-local of itself and the Cisco router.
+> Using the clock id will bring another advantage, since it will then be
+> possible for user space to specify the desired timestamp source for
+> SO_TIMESTAMPING.
 
-So could this be that for some reason the NIC isn't listening 
-multicast MAC address 33:33:ff:5c:00:02 ?
+God point.
 
-Is there a way to see the list of addresses that get past the NIC? Or can 
-this perhaps be filtered after the NIC, but before tcpdump -p?
-
-Since this now looks like a NIC thing, here's some info about eth0:
-
-$ dmesg | grep eth0
-[...]
-tg3 0000:03:04.0: eth0: Tigon3 [partno(N/A) rev 9003] (PCIX:133MHz:64-bit) 
-MAC address 00:24:81:a3:44:24
-tg3 0000:03:04.0: eth0: attached PHY is 5714 (10/100/1000Base-T Ethernet) 
-(WireSpeed[1])
-tg3 0000:03:04.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] TSOcap[1]
-tg3 0000:03:04.0: eth0: dma_rwctrl[76148000] dma_mask[40-bit]
-[...]
-
-$ sudo lspci -v -s 03:04.0
-03:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5715 
-Gigabit Ethernet (rev a3)
-Subsystem: Hewlett-Packard Company NC326i PCIe Dual Port Gigabit Server 
-Adapter
-Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 47
-Memory at fdff0000 (64-bit, non-prefetchable) [size=64K]
-Memory at fdfe0000 (64-bit, non-prefetchable) [size=64K]
-Expansion ROM at <ignored> [disabled]
-Capabilities: [40] PCI-X non-bridge device
-Capabilities: [48] Power Management version 2
-Capabilities: [50] Vital Product Data <?>
-Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3 
-Enable+
-Kernel driver in use: tg3
-Kernel modules: tg3
-
-$ sudo ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 00:24:81:a3:44:24
-           inet addr:x.x.x.x  Bcast:x.x.x.x 
-Mask:255.255.255.252
-           inet6 addr: 2a00:800:752:1::5c:2/112 Scope:Global
-           inet6 addr: fe80::224:81ff:fea3:4424/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:928 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:834 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:142281 (138.9 KiB)  TX bytes:154616 (150.9 KiB)
-           Interrupt:16
-
-I have doublechecked iptables, ip6tables and arptables, and they are 
-either not compiled in the kernel or they are empty ACCEPT lists.
-
-I have answered your questions below even if they may no longer be 
-applicable.
-
-
-On Tue, 17 Aug 2010, Eric Dumazet wrote:
->> $ ip -6 ne sh
->> 2a00:800:752:1::5c:1 dev eth0 lladdr 00:22:55:17:4b:80 router STALE
->>
->> [try ping6 again, no reply]
->>
->> $ ip -6 ne sh
->> 2a00:800:752:1::5c:1 dev eth0 lladdr 00:22:55:17:4b:80 router DELAY
->>
->> [try ping6 again, no reply]
->>
->> $ ip -6 ne sh
->> 2a00:800:752:1::5c:1 dev eth0 lladdr 00:22:55:17:4b:80 router REACHABLE
->>
-> This seems a bit different than previous mail. Apparently discovery now
-> works ?
-
-I didn't post the "ip -6 ne sh" immediately after ping attempt last time. 
-I'm not sure this changed since last time.
-
-But the tcpdump output from last time seems to indicate that ND did work 
-then, at least in one direction, even if solicitation came from link-local 
-address and not the global address. The solicitation was answered, after 
-all (as seen in the tcpdump in in the original mail).
-
-> Could you have a tcpdump on both sides ?
-
-Not easily. The other end is a Cisco and a bit inconvenient to get to. I'm 
-going there tomorrow night, so I can hook up a cable and do a monitor 
-port then if needed.
-
----------
-typedef struct me_s {
-   char name[]      = { "Thomas Habets" };
-   char email[]     = { "thomas@habets.pp.se" };
-   char kernel[]    = { "Linux" };
-   char *pgpKey[]   = { "http://www.habets.pp.se/pubkey.txt" };
-   char pgp[] = { "A8A3 D1DD 4AE0 8467 7FDE  0945 286A E90A AD48 E854" };
-   char coolcmd[]   = { "echo '. ./_&. ./_'>_;. ./_" };
-} me_t;
+	Arnd
