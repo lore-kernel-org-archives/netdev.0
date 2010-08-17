@@ -1,18 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 18/42] drivers/net: Adjust confusing if indentation
-Date: Tue, 17 Aug 2010 01:49:20 -0700 (PDT)
-Message-ID: <20100817.014920.183022958.davem@davemloft.net>
-References: <Pine.LNX.4.64.1008052222000.31692@ask.diku.dk>
+Subject: Re: [PATCH 17/42] drivers/net/irda: Adjust confusing if indentation
+Date: Tue, 17 Aug 2010 01:49:15 -0700 (PDT)
+Message-ID: <20100817.014915.112625192.davem@davemloft.net>
+References: <Pine.LNX.4.64.1008052221410.31692@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 To: julia@diku.dk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1008052222000.31692@ask.diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36285
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757121Ab0HQIs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 04:48:57 -0400
+In-Reply-To: <Pine.LNX.4.64.1008052221410.31692@ask.diku.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 Applied.
