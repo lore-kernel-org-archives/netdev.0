@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] am79c961a: Use net_device_stats from struct net_device
-Date: Tue, 17 Aug 2010 02:35:06 -0700 (PDT)
-Message-ID: <20100817.023506.112619831.davem@davemloft.net>
-References: <1281366274-28796-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [net-next-2.6 PATCH 0/7] enic: updates to version 1.4.1.2
+Date: Tue, 17 Aug 2010 02:35:15 -0700 (PDT)
+Message-ID: <20100817.023515.183029530.davem@davemloft.net>
+References: <20100811045436.3877.51650.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk, segooon@gmail.com
-To: tklauser@distanz.ch
+Cc: netdev@vger.kernel.org
+To: roprabhu@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34297
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34304
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932160Ab0HQJes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 05:34:48 -0400
-In-Reply-To: <1281366274-28796-1-git-send-email-tklauser@distanz.ch>
+	by vger.kernel.org with ESMTP id S932160Ab0HQJe6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 05:34:58 -0400
+In-Reply-To: <20100811045436.3877.51650.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Mon,  9 Aug 2010 17:04:34 +0200
+From: Roopa Prabhu <roprabhu@cisco.com>
+Date: Tue, 10 Aug 2010 21:54:50 -0700
 
-> struct net_device has its own struct net_device_stats member, so we can
-> use this one instead of a private copy in the dev_priv struct.
+> This patch series implements the following enic driver updates:
 > 
-> Cc: Kulikov Vasiliy <segooon@gmail.com>
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> 01/7 - Add set mac address
+> 02/7 - Add support for firmware management device
+> 03/7 - Add new firmware devcmds
+> 04/7 - Use offsetof macro in vic tlv length calculation
+> 05/7 - Clean up: remove enic_dev_stats_clear
+> 06/7 - Check if rq/wq buf not NULL before freeing them
+> 07/7 - Mark intr_timer in vnic_enet_config as deprecated
+> 
+> 
+> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+> Signed-off-by: Roopa Prabhu<roprabhu@cisco.com>
+> Signed-off-by: Vasanthy Kolluri<vkolluri@cisco.com>
 
-Applied.
+All applied, thank you.
