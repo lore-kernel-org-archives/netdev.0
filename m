@@ -1,103 +1,184 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
- to reset
-Date: Tue, 17 Aug 2010 08:00:02 +0200
-Message-ID: <1282024802.2487.687.camel@edumazet-laptop>
-References: <alpine.DEB.1.10.1008131952470.19570@red.crap.retrofitta.se>
-	 <1281953960.2524.23.camel@edumazet-laptop>
-	 <alpine.DEB.1.10.1008161224510.13728@red.crap.retrofitta.se>
-	 <alpine.DEB.1.10.1008170719180.21857@red.crap.retrofitta.se>
+Subject: [PATCH] net sched: fix some kernel memory leaks
+Date: Tue, 17 Aug 2010 08:04:22 +0200
+Message-ID: <1282025062.2487.696.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Thomas Habets <thomas@habets.pp.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.1.10.1008170719180.21857@red.crap.retrofitta.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:46213 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751878Ab0HQGE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 02:04:28 -0400
+Received: by wwi17 with SMTP id 17so614540wwi.1
+        for <netdev@vger.kernel.org>; Mon, 16 Aug 2010 23:04:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 17 ao=C3=BBt 2010 =C3=A0 07:35 +0200, Thomas Habets a =C3=A9cr=
-it :
-> On Mon, 16 Aug 2010, Thomas Habets wrote:
-> > Am I not allowed to add addresses to lo? That I've deconfigured thi=
-s address=20
-> > and rebooted the box to check if this matters.
->=20
-> It didn't help.
->=20
-> > I will re-check ethtool and Cisco router output for mismatches when=
- it breaks=20
-> > again to make sure that there's no change or errors counting up.
->=20
-> IPv6 is currently not working and it's still 1000 Full on both sides=20
-> ("show int GiX/Y" and "ethtool eth0").
-> No errors in "ethtool -S eth0" or "show int GiX/Y".
->=20
-> "ethtool eth0" output is the same as yesterday.
->=20
-> Here's the addresses and routing table as they are now, and have been=
-=20
-> since reboot:
->=20
-> $ ip -6 a
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436
->      inet6 ::1/128 scope host
->         valid_lft forever preferred_lft forever
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
->      inet6 2a00:800:752:1::5c:2/112 scope global
->         valid_lft forever preferred_lft forever
->      inet6 fe80::224:81ff:fea3:4424/64 scope link
->         valid_lft forever preferred_lft forever
->=20
->=20
-> $ ip -6 r sh
-> 2a00:800:752:1::5c:0/112 dev eth0  proto kernel  metric 256  mtu 1500
-> advmss 1440 hoplimit 4294967295
->=20
-> fe80::/64 dev eth0  proto kernel  metric 256  mtu 1500 advmss 1440
-> hoplimit 4294967295
->=20
-> default via 2a00:800:752:1::5c:1 dev eth0  metric 1024  mtu 1500 advm=
-ss
-> 1440 hoplimit 4294967295
->=20
-> $ ip -6 ne sh
-> 2a00:800:752:1::5c:1 dev eth0 lladdr 00:22:55:17:4b:80 router STALE
->=20
-> [try ping6 again, no reply]
->=20
-> $ ip -6 ne sh
-> 2a00:800:752:1::5c:1 dev eth0 lladdr 00:22:55:17:4b:80 router DELAY
->=20
-> [try ping6 again, no reply]
->=20
-> $ ip -6 ne sh
-> 2a00:800:752:1::5c:1 dev eth0 lladdr 00:22:55:17:4b:80 router REACHAB=
-LE
->=20
+We leak at least 32bits of kernel memory to user land in tc dump,
+because we dont init all fields (capab ?) of the dumped structure.
 
-This seems a bit different than previous mail. Apparently discovery now
-works ?
+Use C99 initializers so that holes and non explicit fields are zeroed.
 
-Could you have a tcpdump on both sides ?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/sched/act_gact.c    |   21 ++++++++++++---------
+ net/sched/act_mirred.c  |   15 ++++++++-------
+ net/sched/act_nat.c     |   22 +++++++++++-----------
+ net/sched/act_simple.c  |   11 ++++++-----
+ net/sched/act_skbedit.c |   11 ++++++-----
+ 5 files changed, 43 insertions(+), 37 deletions(-)
 
-Maybe your host is OK, but other side drops your ICMP packets ?
+diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+index 8406c66..c2ed90a 100644
+--- a/net/sched/act_gact.c
++++ b/net/sched/act_gact.c
+@@ -152,21 +152,24 @@ static int tcf_gact(struct sk_buff *skb, struct tc_action *a, struct tcf_result
+ static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct tc_gact opt;
+ 	struct tcf_gact *gact = a->priv;
++	struct tc_gact opt = {
++		.index   = gact->tcf_index,
++		.refcnt  = gact->tcf_refcnt - ref,
++		.bindcnt = gact->tcf_bindcnt - bind,
++		.action  = gact->tcf_action,
++	};
+ 	struct tcf_t t;
+ 
+-	opt.index = gact->tcf_index;
+-	opt.refcnt = gact->tcf_refcnt - ref;
+-	opt.bindcnt = gact->tcf_bindcnt - bind;
+-	opt.action = gact->tcf_action;
+ 	NLA_PUT(skb, TCA_GACT_PARMS, sizeof(opt), &opt);
+ #ifdef CONFIG_GACT_PROB
+ 	if (gact->tcfg_ptype) {
+-		struct tc_gact_p p_opt;
+-		p_opt.paction = gact->tcfg_paction;
+-		p_opt.pval = gact->tcfg_pval;
+-		p_opt.ptype = gact->tcfg_ptype;
++		struct tc_gact_p p_opt = {
++			.paction = gact->tcfg_paction,
++			.pval    = gact->tcfg_pval,
++			.ptype   = gact->tcfg_ptype,
++		};
++
+ 		NLA_PUT(skb, TCA_GACT_PROB, sizeof(p_opt), &p_opt);
+ 	}
+ #endif
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 11f195a..0c311be 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -219,15 +219,16 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, i
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_mirred *m = a->priv;
+-	struct tc_mirred opt;
++	struct tc_mirred opt = {
++		.index   = m->tcf_index,
++		.action  = m->tcf_action,
++		.refcnt  = m->tcf_refcnt - ref,
++		.bindcnt = m->tcf_bindcnt - bind,
++		.eaction = m->tcfm_eaction,
++		.ifindex = m->tcfm_ifindex,
++	};
+ 	struct tcf_t t;
+ 
+-	opt.index = m->tcf_index;
+-	opt.action = m->tcf_action;
+-	opt.refcnt = m->tcf_refcnt - ref;
+-	opt.bindcnt = m->tcf_bindcnt - bind;
+-	opt.eaction = m->tcfm_eaction;
+-	opt.ifindex = m->tcfm_ifindex;
+ 	NLA_PUT(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt);
+ 	t.install = jiffies_to_clock_t(jiffies - m->tcf_tm.install);
+ 	t.lastuse = jiffies_to_clock_t(jiffies - m->tcf_tm.lastuse);
+diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
+index 509a2d5..186eb83 100644
+--- a/net/sched/act_nat.c
++++ b/net/sched/act_nat.c
+@@ -272,19 +272,19 @@ static int tcf_nat_dump(struct sk_buff *skb, struct tc_action *a,
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_nat *p = a->priv;
+-	struct tc_nat opt;
++	struct tc_nat opt = {
++		.old_addr = p->old_addr,
++		.new_addr = p->new_addr,
++		.mask     = p->mask,
++		.flags    = p->flags,
++
++		.index    = p->tcf_index,
++		.action   = p->tcf_action,
++		.refcnt   = p->tcf_refcnt - ref,
++		.bindcnt  = p->tcf_bindcnt - bind,
++	};
+ 	struct tcf_t t;
+ 
+-	opt.old_addr = p->old_addr;
+-	opt.new_addr = p->new_addr;
+-	opt.mask = p->mask;
+-	opt.flags = p->flags;
+-
+-	opt.index = p->tcf_index;
+-	opt.action = p->tcf_action;
+-	opt.refcnt = p->tcf_refcnt - ref;
+-	opt.bindcnt = p->tcf_bindcnt - bind;
+-
+ 	NLA_PUT(skb, TCA_NAT_PARMS, sizeof(opt), &opt);
+ 	t.install = jiffies_to_clock_t(jiffies - p->tcf_tm.install);
+ 	t.lastuse = jiffies_to_clock_t(jiffies - p->tcf_tm.lastuse);
+diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
+index 4a1d640..97e84f3 100644
+--- a/net/sched/act_simple.c
++++ b/net/sched/act_simple.c
+@@ -164,13 +164,14 @@ static inline int tcf_simp_dump(struct sk_buff *skb, struct tc_action *a,
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_defact *d = a->priv;
+-	struct tc_defact opt;
++	struct tc_defact opt = {
++		.index   = d->tcf_index,
++		.refcnt  = d->tcf_refcnt - ref,
++		.bindcnt = d->tcf_bindcnt - bind,
++		.action  = d->tcf_action,
++	};
+ 	struct tcf_t t;
+ 
+-	opt.index = d->tcf_index;
+-	opt.refcnt = d->tcf_refcnt - ref;
+-	opt.bindcnt = d->tcf_bindcnt - bind;
+-	opt.action = d->tcf_action;
+ 	NLA_PUT(skb, TCA_DEF_PARMS, sizeof(opt), &opt);
+ 	NLA_PUT_STRING(skb, TCA_DEF_DATA, d->tcfd_defdata);
+ 	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
+diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+index e9607fe..66cbf4e 100644
+--- a/net/sched/act_skbedit.c
++++ b/net/sched/act_skbedit.c
+@@ -159,13 +159,14 @@ static inline int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_skbedit *d = a->priv;
+-	struct tc_skbedit opt;
++	struct tc_skbedit opt = {
++		.index   = d->tcf_index,
++		.refcnt  = d->tcf_refcnt - ref,
++		.bindcnt = d->tcf_bindcnt - bind,
++		.action  = d->tcf_action,
++	};
+ 	struct tcf_t t;
+ 
+-	opt.index = d->tcf_index;
+-	opt.refcnt = d->tcf_refcnt - ref;
+-	opt.bindcnt = d->tcf_bindcnt - bind;
+-	opt.action = d->tcf_action;
+ 	NLA_PUT(skb, TCA_SKBEDIT_PARMS, sizeof(opt), &opt);
+ 	if (d->flags & SKBEDIT_F_PRIORITY)
+ 		NLA_PUT(skb, TCA_SKBEDIT_PRIORITY, sizeof(d->priority),
 
-> [try ping6 again, no reply]
->=20
-> Configured network with /etc/network/interfaces:
->=20
-> auto lo
-> iface lo inet loopback
->=20
-> allow-hotplug eth0
-> iface eth0 inet static
->  	address x.x.x.x
->  	netmask 255.255.255.252
->  	broadcast x.x.x.x
->  	gateway x.x.x.x
->  	up ip a a 2a00:800:752:1::5c:2/112 dev eth0
->  	up ip r a default via 2a00:800:752:1::5c:1
->  	dns-nameservers x.x.x.x
->  	dns-search xxxx.net
+
