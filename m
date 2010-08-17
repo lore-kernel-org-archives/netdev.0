@@ -1,16 +1,14 @@
 From: Tobias Klauser <tklauser@distanz.ch>
 Subject: [PATCH] greth: Use return value of register_netdev
-Date: Tue, 17 Aug 2010 18:11:24 +0200
-Message-ID: <1282061484-19377-1-git-send-email-tklauser@distanz.ch>
+Date: Tue, 17 Aug 2010 18:12:07 +0200
+Message-ID: <1282061527-19429-1-git-send-email-tklauser@distanz.ch>
 Cc: kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:34142 "EHLO mx1.zhaw.ch"
+Received: from mx1.zhaw.ch ([160.85.104.50]:34186 "EHLO mx1.zhaw.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751856Ab0HQQL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Aug 2010 12:11:26 -0400
+	id S1750961Ab0HQQMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Aug 2010 12:12:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
