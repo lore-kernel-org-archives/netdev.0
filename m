@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pcnet_cs: Use pr_fmt and pr_<level>
-Date: Tue, 17 Aug 2010 02:34:50 -0700 (PDT)
-Message-ID: <20100817.023450.71093930.davem@davemloft.net>
-References: <1281270725-25282-1-git-send-email-w.sang@pengutronix.de>
-	<1281279036.28761.29.camel@Joe-Laptop.home>
+Subject: Re: [PATCH] r6040: fix all checkpatch errors and warnings
+Date: Tue, 17 Aug 2010 02:34:56 -0700 (PDT)
+Message-ID: <20100817.023456.104039303.davem@davemloft.net>
+References: <201008082208.46396.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w.sang@pengutronix.de, netdev@vger.kernel.org,
-	linux-pcmcia@lists.infradead.org, linux@dominikbrodowski.net
-To: joe@perches.com
+Cc: netdev@vger.kernel.org
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34283
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34289
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932255Ab0HQJec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 05:34:32 -0400
-In-Reply-To: <1281279036.28761.29.camel@Joe-Laptop.home>
+	by vger.kernel.org with ESMTP id S932160Ab0HQJei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 05:34:38 -0400
+In-Reply-To: <201008082208.46396.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 08 Aug 2010 07:50:36 -0700
+From: Florian Fainelli <florian@openwrt.org>
+Date: Sun, 8 Aug 2010 22:08:44 +0200
 
-> It looks as if the printks in get_ax88190 are
-> incorrect and were duplicated and superceded by a
-> test in pcnet_config, so I removed them.
+> This patch fixes a couple of errors and warnings spotted by checkpatch.pl:
+> - some lines were over 80 columns
+> - there were some whitespaces left
 > 
-> Changed the level of the ax88190 test to KERN_NOTICE
-> to match the other message styles in pcnet_config.
+> The call to printk is now replaced by a call to pr_info and the log-level
+> included in the driver version is now removed, so there are no longer false
+> positives on this warning.
 > 
-> Compiled but untested.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
 Applied.
