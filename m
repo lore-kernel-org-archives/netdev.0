@@ -1,200 +1,51 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv3 NEXT 2/7] qlcnic: device state management fixes for virtual func
-Date: Tue, 17 Aug 2010 03:34:20 -0700
-Message-ID: <1282041265-32591-3-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCHv3 NEXT 5/7] qlcnic: fix link status message
+Date: Tue, 17 Aug 2010 03:34:23 -0700
+Message-ID: <1282041265-32591-6-git-send-email-amit.salecha@qlogic.com>
 References: <1282041265-32591-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Sony Chacko <sony.chacko@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:8597 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:33667 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757303Ab0HQKe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Aug 2010 06:34:26 -0400
+	id S1757412Ab0HQKe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Aug 2010 06:34:27 -0400
 In-Reply-To: <1282041265-32591-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o NPAR state should be set to operationl by Mangement function only.
-o NPAR state should be set to non operational before device reset.
-o VF function should wait for NPAR state to be operational.
+From: Sony Chacko <sony.chacko@qlogic.com>
 
+Display interface name with netdev_info() for link status message.
+
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_hdr.h  |    5 +-
- drivers/net/qlcnic/qlcnic_main.c |   80 +++++++++++++++++++++++---------------
- 2 files changed, 51 insertions(+), 34 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
-index 15fc320..bd346d9 100644
---- a/drivers/net/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/qlcnic/qlcnic_hdr.h
-@@ -718,8 +718,9 @@ enum {
- #define QLCNIC_DEV_FAILED		0x6
- #define QLCNIC_DEV_QUISCENT		0x7
- 
--#define QLCNIC_DEV_NPAR_NOT_RDY	0
--#define QLCNIC_DEV_NPAR_RDY		1
-+#define QLCNIC_DEV_NPAR_NON_OPER	0 /* NON Operational */
-+#define QLCNIC_DEV_NPAR_OPER		1 /* NPAR Operational */
-+#define QLCNIC_DEV_NPAR_OPER_TIMEO	30 /* Operational time out */
- 
- #define QLC_DEV_CHECK_ACTIVE(VAL, FN)		((VAL) &= (1 << (FN * 4)))
- #define QLC_DEV_SET_REF_CNT(VAL, FN)		((VAL) |= (1 << (FN * 4)))
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 4ecbf41..70c4b6b 100644
+index a30bde5..bf4077a 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2398,7 +2398,7 @@ qlcnic_fwinit_work(struct work_struct *work)
- {
- 	struct qlcnic_adapter *adapter = container_of(work,
- 			struct qlcnic_adapter, fw_work.work);
--	u32 dev_state = 0xf, npar_state;
-+	u32 dev_state = 0xf;
+@@ -1944,14 +1944,14 @@ void qlcnic_advert_link_change(struct qlcnic_adapter *adapter, int linkup)
+ 	struct net_device *netdev = adapter->netdev;
  
- 	if (qlcnic_api_lock(adapter))
- 		goto err_ret;
-@@ -2412,16 +2412,8 @@ qlcnic_fwinit_work(struct work_struct *work)
- 	}
- 
- 	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC) {
--		npar_state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
--		if (npar_state == QLCNIC_DEV_NPAR_RDY) {
--			qlcnic_api_unlock(adapter);
--			goto wait_npar;
--		} else {
--			qlcnic_schedule_work(adapter, qlcnic_fwinit_work,
--				FW_POLL_DELAY);
--			qlcnic_api_unlock(adapter);
--			return;
--		}
-+		qlcnic_api_unlock(adapter);
-+		goto wait_npar;
- 	}
- 
- 	if (adapter->fw_wait_cnt++ > adapter->reset_ack_timeo) {
-@@ -2470,20 +2462,17 @@ wait_npar:
- 	QLCDB(adapter, HW, "Func waiting: Device state=%u\n", dev_state);
- 
- 	switch (dev_state) {
--	case QLCNIC_DEV_QUISCENT:
--	case QLCNIC_DEV_NEED_QUISCENT:
--	case QLCNIC_DEV_NEED_RESET:
--		qlcnic_schedule_work(adapter,
--			qlcnic_fwinit_work, FW_POLL_DELAY);
--		return;
--	case QLCNIC_DEV_FAILED:
--		break;
--
--	default:
-+	case QLCNIC_DEV_READY:
- 		if (!adapter->nic_ops->start_firmware(adapter)) {
- 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
- 			return;
+ 	if (adapter->ahw.linkup && !linkup) {
+-		dev_info(&netdev->dev, "NIC Link is down\n");
++		netdev_info(netdev, "NIC Link is down\n");
+ 		adapter->ahw.linkup = 0;
+ 		if (netif_running(netdev)) {
+ 			netif_carrier_off(netdev);
+ 			netif_stop_queue(netdev);
  		}
-+	case QLCNIC_DEV_FAILED:
-+		break;
-+	default:
-+		qlcnic_schedule_work(adapter,
-+			qlcnic_fwinit_work, FW_POLL_DELAY);
-+		return;
- 	}
- 
- err_ret:
-@@ -2530,6 +2519,22 @@ err_ret:
- 
- }
- 
-+/*Transit NPAR state to NON Operational */
-+static void
-+qlcnic_set_npar_non_operational(struct qlcnic_adapter *adapter)
-+{
-+	u32 state;
-+
-+	state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+	if (state == QLCNIC_DEV_NPAR_NON_OPER)
-+		return;
-+
-+	if (qlcnic_api_lock(adapter))
-+		return;
-+	QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE, QLCNIC_DEV_NPAR_NON_OPER);
-+	qlcnic_api_unlock(adapter);
-+}
-+
- /*Transit to RESET state from READY state only */
- static void
- qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
-@@ -2548,6 +2553,7 @@ qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
- 		qlcnic_idc_debug_info(adapter, 0);
- 	}
- 
-+	QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE, QLCNIC_DEV_NPAR_NON_OPER);
- 	qlcnic_api_unlock(adapter);
- }
- 
-@@ -2555,21 +2561,14 @@ qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
- static void
- qlcnic_dev_set_npar_ready(struct qlcnic_adapter *adapter)
- {
--	u32 state;
--
- 	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED) ||
--		adapter->op_mode == QLCNIC_NON_PRIV_FUNC)
-+	    adapter->op_mode != QLCNIC_MGMT_FUNC)
- 		return;
- 	if (qlcnic_api_lock(adapter))
- 		return;
- 
--	state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
--
--	if (state != QLCNIC_DEV_NPAR_RDY) {
--		QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE,
--			QLCNIC_DEV_NPAR_RDY);
--		QLCDB(adapter, DRV, "NPAR READY state set\n");
--	}
-+	QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE, QLCNIC_DEV_NPAR_OPER);
-+	QLCDB(adapter, DRV, "NPAR operational state set\n");
- 
- 	qlcnic_api_unlock(adapter);
- }
-@@ -2631,8 +2630,11 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 		qlcnic_dev_request_reset(adapter);
- 
- 	state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
--	if (state == QLCNIC_DEV_NEED_RESET || state == QLCNIC_DEV_NEED_QUISCENT)
-+	if (state == QLCNIC_DEV_NEED_RESET ||
-+	    state == QLCNIC_DEV_NEED_QUISCENT) {
-+		qlcnic_set_npar_non_operational(adapter);
- 		adapter->need_fw_reset = 1;
-+	}
- 
- 	heartbit = QLCRD32(adapter, QLCNIC_PEG_ALIVE_COUNTER);
- 	if (heartbit != adapter->heartbit) {
-@@ -2822,11 +2824,25 @@ static int
- qlcnicvf_start_firmware(struct qlcnic_adapter *adapter)
- {
- 	int err;
-+	u8 npar_opt_timeo = QLCNIC_DEV_NPAR_OPER_TIMEO;
-+	u32 npar_state;
- 
- 	err = qlcnic_can_start_firmware(adapter);
- 	if (err)
- 		return err;
- 
-+	npar_state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+	while (npar_state != QLCNIC_DEV_NPAR_OPER && --npar_opt_timeo) {
-+		msleep(1000);
-+		npar_state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+	}
-+
-+	if (!npar_opt_timeo) {
-+		dev_err(&adapter->pdev->dev,
-+			"Waiting for NPAR state to opertional timeout\n");
-+		return -EIO;
-+	}
-+
- 	qlcnic_check_options(adapter);
- 
- 	adapter->need_fw_reset = 0;
+ 	} else if (!adapter->ahw.linkup && linkup) {
+-		dev_info(&netdev->dev, "NIC Link is up\n");
++		netdev_info(netdev, "NIC Link is up\n");
+ 		adapter->ahw.linkup = 1;
+ 		if (netif_running(netdev)) {
+ 			netif_carrier_on(netdev);
 -- 
 1.6.0.2
 
