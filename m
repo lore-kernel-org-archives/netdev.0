@@ -1,43 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] qlnic: fix a race in qlcnic_get_stats()
-Date: Wed, 18 Aug 2010 12:42:48 +0200
-Message-ID: <1282128168.2194.49.camel@edumazet-laptop>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH] qlnic: fix a race in qlcnic_get_stats()
+Date: Wed, 18 Aug 2010 05:47:05 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86E69124@MNEXMB2.qlogic.org>
+References: <1282128168.2194.49.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:63825 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752711Ab0HRKmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 06:42:53 -0400
-Received: by wwi17 with SMTP id 17so651276wwi.1
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 03:42:52 -0700 (PDT)
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:53120 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752638Ab0HRKrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 06:47:11 -0400
+In-Reply-To: <1282128168.2194.49.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dont clear netdev->stats, it might give transient wrong values to
-concurrent stat readers.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/qlcnic/qlcnic_main.c |    2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index abd7cd6..d71d44a 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -1980,8 +1980,6 @@ static struct net_device_stats *qlcnic_get_stats(struct net_device *netdev)
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct net_device_stats *stats = &netdev->stats;
- 
--	memset(stats, 0, sizeof(*stats));
--
- 	stats->rx_packets = adapter->stats.rx_pkts + adapter->stats.lro_pkts;
- 	stats->tx_packets = adapter->stats.xmitfinished;
- 	stats->rx_bytes = adapter->stats.rxbytes + adapter->stats.lrobytes;
-
-
+U2FtZSBmaXggd2lsbCBiZSByZXF1aXJlIGZvciBuZXR4ZW5fbmljLg0KDQotLS0tLU9yaWdpbmFs
+IE1lc3NhZ2UtLS0tLQ0KRnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdt
+YWlsLmNvbV0gDQpTZW50OiBXZWRuZXNkYXksIEF1Z3VzdCAxOCwgMjAxMCA0OjEzIFBNDQpUbzog
+RGF2aWQgTWlsbGVyDQpDYzogQW1pdCBTYWxlY2hhOyBuZXRkZXYNClN1YmplY3Q6IFtQQVRDSF0g
+cWxuaWM6IGZpeCBhIHJhY2UgaW4gcWxjbmljX2dldF9zdGF0cygpDQoNCkRvbnQgY2xlYXIgbmV0
+ZGV2LT5zdGF0cywgaXQgbWlnaHQgZ2l2ZSB0cmFuc2llbnQgd3JvbmcgdmFsdWVzIHRvDQpjb25j
+dXJyZW50IHN0YXQgcmVhZGVycy4NCg0KU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmlj
+LmR1bWF6ZXRAZ21haWwuY29tPg0KLS0tDQogZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19tYWlu
+LmMgfCAgICAyIC0tDQogMSBmaWxlIGNoYW5nZWQsIDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1n
+aXQgYS9kcml2ZXJzL25ldC9xbGNuaWMvcWxjbmljX21haW4uYyBiL2RyaXZlcnMvbmV0L3FsY25p
+Yy9xbGNuaWNfbWFpbi5jDQppbmRleCBhYmQ3Y2Q2Li5kNzFkNDRhIDEwMDY0NA0KLS0tIGEvZHJp
+dmVycy9uZXQvcWxjbmljL3FsY25pY19tYWluLmMNCisrKyBiL2RyaXZlcnMvbmV0L3FsY25pYy9x
+bGNuaWNfbWFpbi5jDQpAQCAtMTk4MCw4ICsxOTgwLDYgQEAgc3RhdGljIHN0cnVjdCBuZXRfZGV2
+aWNlX3N0YXRzICpxbGNuaWNfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpDQog
+CXN0cnVjdCBxbGNuaWNfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5ldGRldik7DQog
+CXN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzICpzdGF0cyA9ICZuZXRkZXYtPnN0YXRzOw0KIA0KLQlt
+ZW1zZXQoc3RhdHMsIDAsIHNpemVvZigqc3RhdHMpKTsNCi0NCiAJc3RhdHMtPnJ4X3BhY2tldHMg
+PSBhZGFwdGVyLT5zdGF0cy5yeF9wa3RzICsgYWRhcHRlci0+c3RhdHMubHJvX3BrdHM7DQogCXN0
+YXRzLT50eF9wYWNrZXRzID0gYWRhcHRlci0+c3RhdHMueG1pdGZpbmlzaGVkOw0KIAlzdGF0cy0+
+cnhfYnl0ZXMgPSBhZGFwdGVyLT5zdGF0cy5yeGJ5dGVzICsgYWRhcHRlci0+c3RhdHMubHJvYnl0
+ZXM7DQoNCg0KDQo=
