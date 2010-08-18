@@ -1,86 +1,57 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 8/8] net_sched: sch_sfq: use proto_ports_offset() to
- support AH message
-Date: Wed, 18 Aug 2010 07:05:31 -0400
-Message-ID: <1282129531.23601.20.camel@bigi>
-References: <1282108055-3702-1-git-send-email-xiaosuo@gmail.com>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH] xilinx_emaclite: netpoll support
+Date: Wed, 18 Aug 2010 13:22:49 +0200
+Message-ID: <1282130569-11314-1-git-send-email-monstr@monstr.eu>
+Cc: netdev@vger.kernel.org, Michal Simek <monstr@monstr.eu>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:53173 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752738Ab0HRLFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 07:05:36 -0400
-Received: by qwh6 with SMTP id 6so364405qwh.19
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 04:05:35 -0700 (PDT)
-In-Reply-To: <1282108055-3702-1-git-send-email-xiaosuo@gmail.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:36491 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752628Ab0HRLWx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 07:22:53 -0400
+Received: by bwz11 with SMTP id 11so94235bwz.19
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 04:22:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-08-18 at 13:07 +0800, Changli Gao wrote:
+Netconsole requires poll support.
 
->  		const struct iphdr *iph;
-> +		int poff;
->  
->  		if (!pskb_network_may_pull(skb, sizeof(*iph)))
->  			goto err;
->  		iph = ip_hdr(skb);
->  		h = (__force u32)iph->daddr;
->  		h2 = (__force u32)iph->saddr ^ iph->protocol;
-> -		if (!(iph->frag_off&htons(IP_MF|IP_OFFSET)) &&
-> -		    (iph->protocol == IPPROTO_TCP ||
-> -		     iph->protocol == IPPROTO_UDP ||
-> -		     iph->protocol == IPPROTO_UDPLITE ||
-> -		     iph->protocol == IPPROTO_SCTP ||
-> -		     iph->protocol == IPPROTO_DCCP ||
-> -		     iph->protocol == IPPROTO_ESP) &&
-> -		     pskb_network_may_pull(skb, iph->ihl * 4 + 4))
-> -			h2 ^= *(((u32*)iph) + iph->ihl);
-> +		if (iph->frag_off & htons(IP_MF|IP_OFFSET))
-> +			break;
-> +		poff = proto_ports_offset(iph->protocol);
-> +		if (poff >= 0 &&
-> +		    pskb_network_may_pull(skb, iph->ihl * 4 + 4 + poff)) {
-> +			iph = ip_hdr(skb);
-> +			h2 ^= *(u32*)((void *)iph + iph->ihl * 4 + poff);
-> +		}
->  		break;
+Signed-off-by: Michal Simek <monstr@monstr.eu>
+---
+ drivers/net/xilinx_emaclite.c |   13 +++++++++++++
+ 1 files changed, 13 insertions(+), 0 deletions(-)
 
-Same comment with this one as earlier patch? Or it may be too early
-here ;->
-
-cheers,
-jamal
-
->  	case htons(ETH_P_IPV6):
->  	{
->  		struct ipv6hdr *iph;
-> +		int poff;
->  
->  		if (!pskb_network_may_pull(skb, sizeof(*iph)))
->  			goto err;
->  		iph = ipv6_hdr(skb);
->  		h = (__force u32)iph->daddr.s6_addr32[3];
->  		h2 = (__force u32)iph->saddr.s6_addr32[3] ^ iph->nexthdr;
-> -		if ((iph->nexthdr == IPPROTO_TCP ||
-> -		     iph->nexthdr == IPPROTO_UDP ||
-> -		     iph->nexthdr == IPPROTO_UDPLITE ||
-> -		     iph->nexthdr == IPPROTO_SCTP ||
-> -		     iph->nexthdr == IPPROTO_DCCP ||
-> -		     iph->nexthdr == IPPROTO_ESP) &&
-> -		    pskb_network_may_pull(skb, sizeof(*iph) + 4))
-> -			h2 ^= *(u32*)&iph[1];
-> +		poff = proto_ports_offset(iph->nexthdr);
-> +		if (poff >= 0 &&
-> +		    pskb_network_may_pull(skb, sizeof(*iph) + 4 + poff)) {
-> +			iph = ipv6_hdr(skb);
-> +			h2 ^= *(u32*)((void *)iph + sizeof(*iph) + poff);
-> +		}
->  		break;
->  	}
->  	default:
+diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emaclite.c
+index ecbbb68..71122ee 100644
+--- a/drivers/net/xilinx_emaclite.c
++++ b/drivers/net/xilinx_emaclite.c
+@@ -1269,6 +1269,16 @@ static int __devexit xemaclite_of_remove(struct platform_device *of_dev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void
++xemaclite_poll_controller(struct net_device *ndev)
++{
++	disable_irq(ndev->irq);
++	xemaclite_interrupt(ndev->irq, ndev);
++	enable_irq(ndev->irq);
++}
++#endif
++
+ static struct net_device_ops xemaclite_netdev_ops = {
+ 	.ndo_open		= xemaclite_open,
+ 	.ndo_stop		= xemaclite_close,
+@@ -1276,6 +1286,9 @@ static struct net_device_ops xemaclite_netdev_ops = {
+ 	.ndo_set_mac_address	= xemaclite_set_mac_address,
+ 	.ndo_tx_timeout		= xemaclite_tx_timeout,
+ 	.ndo_get_stats		= xemaclite_get_stats,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller = xemaclite_poll_controller,
++#endif
+ };
+ 
+ /* Match table for OF platform binding */
+-- 
+1.5.5.6
 
