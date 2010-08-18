@@ -1,55 +1,34 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [RFC Patch] netxen: remove firmware exports
-Date: Wed, 18 Aug 2010 08:19:46 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86E6913F@MNEXMB2.qlogic.org>
-References: <20100818095908.6606.56224.sendpatchset@localhost.localdomain>
- <99737F4847ED0A48AECC9F4A1974A4B80F86E69129@MNEXMB2.qlogic.org>
- <4C6BDDCB.9040800@redhat.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: Inconsistent lock state in ipt_do_table
+Date: Wed, 18 Aug 2010 21:26:32 +0800
+Message-ID: <AANLkTimWeZHQk3Z8MTa1ajhP1-CJV_nSwxNvEVuMfAoK@mail.gmail.com>
+References: <4C6ACAB5.2090507@csr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Dhananjay Phadke <dhananjay.phadke@qlogic.com>,
-	Narender Kumar <narender.kumar@qlogic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ameen Rahman <ameen.rahman@qlogic.com>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Vrabel <david.vrabel@csr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:36924 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752627Ab0HRNTv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:19:51 -0400
-In-Reply-To: <4C6BDDCB.9040800@redhat.com>
-Content-Language: en-US
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44196 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751995Ab0HRN0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:26:53 -0400
+Received: by wyb32 with SMTP id 32so782709wyb.19
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:26:52 -0700 (PDT)
+In-Reply-To: <4C6ACAB5.2090507@csr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Then we can work with David Woodhouse and make these firmware available in /lib/firmware
+On Wed, Aug 18, 2010 at 1:45 AM, David Vrabel <david.vrabel@csr.com> wrote:
+> Is this related to or fixed by
 >
-Actually I was not updated, NX_UNIFIED_ROMIMAGE_NAME (phanfw.bin) is already submitted and its present in linux-firmware.git.
-
-I will get back to you on NX_P2_MN_ROMIMAGE_NAME, NX_P3_CT_ROMIMAGE_NAME and NX_P3_MN_ROMIMAGE_NAME.
-Whether this will be submitted ?
-
------Original Message-----
-From: Cong Wang [mailto:amwang@redhat.com] 
-Sent: Wednesday, August 18, 2010 6:49 PM
-To: Amit Salecha
-Cc: linux-kernel@vger.kernel.org; Dhananjay Phadke; Narender Kumar; netdev@vger.kernel.org; David S. Miller; Ameen Rahman
-Subject: Re: [RFC Patch] netxen: remove firmware exports
-
-On 08/18/10 19:04, Amit Salecha wrote:
-> If problem is firmware files are not present in /lib/firmware.
-> Then we can work with David Woodhouse and make these firmware available in /lib/firmware.
+> http://marc.info/?l=linux-netdev&m=128202731626693&w=2
 >
 
-Oh, I thought we did this intentionally.
-That would be nice then, please go ahead.
+I am afraid not. Please try this patch:
+http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=patch;h=001389b9581c13fe5fc357a0f89234f85af4215d
 
-Thanks!
+
 
 -- 
-The opposite of love is not hate, it's indifference.
-  - Elie Wiesel
-
+Regards,
+Changli Gao(xiaosuo@gmail.com)
