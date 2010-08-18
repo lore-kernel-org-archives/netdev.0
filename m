@@ -1,50 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] vxge: Implement 64bit stats
-Date: Wed, 18 Aug 2010 17:28:43 +0200
-Message-ID: <1282145323.2194.105.camel@edumazet-laptop>
-References: <1282138974.2194.83.camel@edumazet-laptop>
-	 <20100818152531.GB9202@exar.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v2] ether1: Use net_device_stats from struct net_device
+Date: Wed, 18 Aug 2010 08:33:04 -0700
+Message-ID: <20100818083304.2ef2eea4@nehalam>
+References: <1282061719-19645-1-git-send-email-tklauser@distanz.ch>
+	<1282115064-3701-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
-	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
-To: Jon Mason <jon.mason@exar.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	kernel-janitors@vger.kernel.org, Dan Carpenter <error27@gmail.com>
+To: Tobias Klauser <tklauser@distanz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59442 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750715Ab0HRP2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 11:28:51 -0400
-Received: by wyb32 with SMTP id 32so902551wyb.19
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 08:28:50 -0700 (PDT)
-In-Reply-To: <20100818152531.GB9202@exar.com>
+Received: from mail.vyatta.com ([76.74.103.46]:57808 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750745Ab0HRPdH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Aug 2010 11:33:07 -0400
+In-Reply-To: <1282115064-3701-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 ao=C3=BBt 2010 =C3=A0 10:25 -0500, Jon Mason a =C3=A9cri=
-t :
-> On Wed, Aug 18, 2010 at 06:42:54AM -0700, Eric Dumazet wrote:
-> > vxge_get_stats() is racy, since it clears a block of memory (net_st=
-ats)
-> > possibly still used by other cpus.
-> >=20
-> > We can update this driver to full 64bit stats, since ndo_get_stats6=
-4()
-> > provides a private block to store results, and driver maintains 64b=
-it
-> > counters already.
-> >=20
-> > We also remove net_stats field from struct vxge_sw_stats
->=20
-> It looks sane.  Assuming you have not tested it already, I'll give it=
- a
-> quick sanity check.
+On Wed, 18 Aug 2010 09:04:24 +0200
+Tobias Klauser <tklauser@distanz.ch> wrote:
 
-I did not test it, I would be grateful if you can do this ;)
+>  
+> -	memset (&priv(dev)->stats, 0, sizeof (struct net_device_stats));
+> +	memset(&dev->stats, 0, sizeof(struct net_device_stats));
 
-Thanks
+This is incorrect, just remove the memset.  The stats are initialized
+when device is created.  The Linux device driver convention is to
+keep stats when device is set down and brought back up; that is what
+the majority of other drivers do.
 
-
+-- 
