@@ -1,37 +1,47 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch] netxen: remove firmware exports
-Date: Wed, 18 Aug 2010 21:19:07 +0800
-Message-ID: <4C6BDDCB.9040800@redhat.com>
-References: <20100818095908.6606.56224.sendpatchset@localhost.localdomain> <99737F4847ED0A48AECC9F4A1974A4B80F86E69129@MNEXMB2.qlogic.org>
+From: Dmitry Kozlov <xeb@mail.ru>
+Subject: =?koi8-r?Q?Re=3A_[PATCH_v4]_PPTP=3A_PPP_over_IPv4_(Point-to-Point_Tunneling_Protocol)?=
+Date: Wed, 18 Aug 2010 17:16:09 +0400
+Message-ID: <E1OliUz-0006py-00.xeb-mail-ru@f121.mail.ru>
+References: <1282136626.2194.68.camel@edumazet-laptop>
+Reply-To: Dmitry Kozlov <xeb@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Dhananjay Phadke <dhananjay.phadke@qlogic.com>,
-	Narender Kumar <narender.kumar@qlogic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ameen Rahman <ameen.rahman@qlogic.com>
-To: Amit Salecha <amit.salecha@qlogic.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55575 "EHLO mx1.redhat.com"
+Received: from f121.mail.ru ([217.69.128.80]:58781 "EHLO f121.mail.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752120Ab0HRNOy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Aug 2010 09:14:54 -0400
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80F86E69129@MNEXMB2.qlogic.org>
+	id S1751137Ab0HRNQM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Aug 2010 09:16:12 -0400
+In-Reply-To: <1282136626.2194.68.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/18/10 19:04, Amit Salecha wrote:
-> If problem is firmware files are not present in /lib/firmware.
-> Then we can work with David Woodhouse and make these firmware available in /lib/firmware.
->
+> Hmm. You left a synchronize_rcu() call in add_chan() but this is not
+> necessary. Please remove it or explain why you think it is needed.
+> 
+> synchronize_rcu(); in del_chan() is now fine, thanks.
+> 
+> 
+> You use a mutex for gre_proto_lock, but you dont need a mutex, please
+> use a spinlock like I suggested. I would have said 'use a mutex' if if
+> was needed, you can trust me.
 
-Oh, I thought we did this intentionally.
-That would be nice then, please go ahead.
+ok
 
-Thanks!
+> A mutex is needed if you can sleep while holding the lock, this is not
+> the case here. A spinlock is faster and reduces to no-op on !SMP
 
--- 
-The opposite of love is not hate, it's indifference.
-  - Elie Wiesel
+then i have to replace mutex on spinlock in pptp module too ?
+
+> Also, please remove the synchronize_rcu() call from gre_add_protocol() :
+> It is not needed at all, like in add_chan().
+> 
+> (You dont have to wait for a RCU grace period when adding something,
+> only when removing from a data structure)
+
+ok, seems like i don't fully understand rcu mechanism...
+
+Thanks for reply.
+
