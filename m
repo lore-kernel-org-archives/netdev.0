@@ -1,128 +1,96 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] PPTP: PPP over IPv4 (Point-to-Point Tunneling
- Protocol)
-Date: Wed, 18 Aug 2010 15:03:46 +0200
-Message-ID: <1282136626.2194.68.camel@edumazet-laptop>
-References: <E1OlhmZ-0002l6-00.xeb-mail-ru@f45.mail.ru>
+Subject: [PATCH net-next-2.6] slip: fix get_stats() method
+Date: Wed, 18 Aug 2010 15:13:08 +0200
+Message-ID: <1282137188.2194.74.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Dmitry Kozlov <xeb@mail.ru>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57752 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752627Ab0HRNDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:03:51 -0400
-Received: by wwi17 with SMTP id 17so807269wwi.1
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:03:50 -0700 (PDT)
-In-Reply-To: <E1OlhmZ-0002l6-00.xeb-mail-ru@f45.mail.ru>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:46598 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752772Ab0HRNNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:13:13 -0400
+Received: by ewy23 with SMTP id 23so311375ewy.19
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:13:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 ao=C3=BBt 2010 =C3=A0 16:30 +0400, Dmitry Kozlov a =C3=A9=
-crit :
-> This patch contains:
-> 1. pptp driver
-> 2. gre demultiplexer driver for demultiplexing gre packets with diffe=
-rent gre version
->    so ip_gre and pptp may coexists
-> 3. ip_gre modification
-> 4. other stuff
->=20
-> Changes from patch v3:
-> 1. using rcu instead of read-write lock in gre module
-> 2. fixed coding style issues
->=20
+Use integrated net_device_stats instead of a static one, and make sure
+no transient values are feeded. ndo_get_stats() can be called by
+concurrent cpus.
 
-Hmm. You left a synchronize_rcu() call in add_chan() but this is not
-necessary. Please remove it or explain why you think it is needed.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/slip.c |   50 +++++++++++++++++++++----------------------
+ 1 file changed, 25 insertions(+), 25 deletions(-)
 
-synchronize_rcu(); in del_chan() is now fine, thanks.
-
-
-You use a mutex for gre_proto_lock, but you dont need a mutex, please
-use a spinlock like I suggested. I would have said 'use a mutex' if if
-was needed, you can trust me.
-
-A mutex is needed if you can sleep while holding the lock, this is not
-the case here. A spinlock is faster and reduces to no-op on !SMP
-
-Also, please remove the synchronize_rcu() call from gre_add_protocol() =
-:
-It is not needed at all, like in add_chan().
-
-(You dont have to wait for a RCU grace period when adding something,
-only when removing from a data structure)
-
-You sometime have too many tabulations, check :
-
-
-
-> +	{
-> +		struct flowi fl =3D { .oif =3D 0,
-> +				    .nl_u =3D {
-
-ip4_u has one excess level
-> +							.ip4_u =3D {
-> +								.daddr =3D opt->dst_addr.sin_addr.s_addr,
-> +								.saddr =3D opt->src_addr.sin_addr.s_addr,
-> +								.tos =3D RT_TOS(0) } },
-> +				    .proto =3D IPPROTO_GRE };
-> +		err =3D ip_route_output_key(&init_net, &rt, &fl);
-> +		if (err)
-> +			goto tx_error;
-> +	}
-> +	tdev =3D rt->u.dst.dev;
-> +
-> +	max_headroom =3D LL_RESERVED_SPACE(tdev) + sizeof(*iph) + sizeof(*h=
-dr) + 2;
-> +
-> +=09
-
-same on this if clause. why so many leading spaces ?
-
-> +	if (
-> +					/* version should be 1 */
-> +					((header->ver & 0x7F) !=3D PPTP_GRE_VER) ||
-> +					/* PPTP-GRE protocol for PPTP */
-> +					(ntohs(header->protocol) !=3D PPTP_GRE_PROTO) ||
-> +					/* flag C should be clear   */
-> +					PPTP_GRE_IS_C(header->flags) ||
-> +					/* flag R should be clear   */
-> +					PPTP_GRE_IS_R(header->flags) ||
-> +					/* flag K should be set     */
-> +					(!PPTP_GRE_IS_K(header->flags)) ||
-> +					/* routing and recursion ctrl =3D 0  */
-> +					((header->flags&0xF) !=3D 0))
-> +					/* if invalid, discard this packet */
-> +		goto drop;
-> +
-> +
-> +	po =3D lookup_chan(htons(header->call_id), iph->saddr);
-
-=2E..
-
-> +
-> +	{
-> +		struct flowi fl =3D {
-> +				    .nl_u =3D {
-
-ditto
-
-> +							.ip4_u =3D {
-> +								.daddr =3D opt->dst_addr.sin_addr.s_addr,
-> +								.saddr =3D opt->src_addr.sin_addr.s_addr,
-> +								.tos =3D RT_CONN_FLAGS(sk) } },
-> +				    .proto =3D IPPROTO_GRE };
-> +		security_sk_classify_flow(sk, &fl);
-> +		if (ip_route_output_key(&init_net, &rt, &fl)) {
-> +			error =3D -EHOSTUNREACH;
-> +			goto end;
-> +		}
-> +		sk_setup_caps(sk, &rt->u.dst);
-> +	}
-
-Thanks
+diff --git a/drivers/net/slip.c b/drivers/net/slip.c
+index fa434fb..d5a36f5 100644
+--- a/drivers/net/slip.c
++++ b/drivers/net/slip.c
+@@ -561,36 +561,36 @@ static int sl_change_mtu(struct net_device *dev, int new_mtu)
+ static struct net_device_stats *
+ sl_get_stats(struct net_device *dev)
+ {
+-	static struct net_device_stats stats;
++	struct net_device_stats *stats = &dev->stats;
+ 	struct slip *sl = netdev_priv(dev);
++	unsigned long c_rx_dropped = 0;
+ #ifdef SL_INCLUDE_CSLIP
+-	struct slcompress *comp;
+-#endif
++	unsigned long c_rx_fifo_errors = 0;
++	unsigned long c_tx_fifo_errors = 0;
++	unsigned long c_collisions = 0;
++	struct slcompress *comp = sl->slcomp;
+ 
+-	memset(&stats, 0, sizeof(struct net_device_stats));
+-
+-	stats.rx_packets     = sl->rx_packets;
+-	stats.tx_packets     = sl->tx_packets;
+-	stats.rx_bytes	     = sl->rx_bytes;
+-	stats.tx_bytes	     = sl->tx_bytes;
+-	stats.rx_dropped     = sl->rx_dropped;
+-	stats.tx_dropped     = sl->tx_dropped;
+-	stats.tx_errors      = sl->tx_errors;
+-	stats.rx_errors      = sl->rx_errors;
+-	stats.rx_over_errors = sl->rx_over_errors;
+-#ifdef SL_INCLUDE_CSLIP
+-	stats.rx_fifo_errors = sl->rx_compressed;
+-	stats.tx_fifo_errors = sl->tx_compressed;
+-	stats.collisions     = sl->tx_misses;
+-	comp = sl->slcomp;
+ 	if (comp) {
+-		stats.rx_fifo_errors += comp->sls_i_compressed;
+-		stats.rx_dropped     += comp->sls_i_tossed;
+-		stats.tx_fifo_errors += comp->sls_o_compressed;
+-		stats.collisions     += comp->sls_o_misses;
++		c_rx_fifo_errors = comp->sls_i_compressed;
++		c_rx_dropped     = comp->sls_i_tossed;
++		c_tx_fifo_errors = comp->sls_o_compressed;
++		c_collisions     = comp->sls_o_misses;
+ 	}
+-#endif /* CONFIG_INET */
+-	return (&stats);
++	stats->rx_fifo_errors = sl->rx_compressed + c_rx_fifo_errors;
++	stats->tx_fifo_errors = sl->tx_compressed + c_tx_fifo_errors;
++	stats->collisions     = sl->tx_misses + c_collisions;
++#endif
++
++	stats->rx_packets     = sl->rx_packets;
++	stats->tx_packets     = sl->tx_packets;
++	stats->rx_bytes	      = sl->rx_bytes;
++	stats->tx_bytes	      = sl->tx_bytes;
++	stats->rx_dropped     = sl->rx_dropped + c_rx_dropped;
++	stats->tx_dropped     = sl->tx_dropped;
++	stats->tx_errors      = sl->tx_errors;
++	stats->rx_errors      = sl->rx_errors;
++	stats->rx_over_errors = sl->rx_over_errors;
++	return stats;
+ }
+ 
+ /* Netdevice register callback */
 
 
