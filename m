@@ -1,58 +1,67 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: GTSM and TCP accept problem
-Date: Wed, 18 Aug 2010 14:39:13 -0700
-Message-ID: <20100818143913.1478acea@nehalam>
-References: <20100814214634.24a87715@s6510>
-	<1281951825.2524.5.camel@edumazet-laptop>
+Subject: Re: [PATCH] Add firmware label support to iproute2
+Date: Wed, 18 Aug 2010 14:41:24 -0700
+Message-ID: <20100818144124.33a72453@nehalam>
+References: <20100812173537.GA29784@auslistsprd01.us.dell.com>
+	<20100812141240.417949e2@s6510>
+	<EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <Matt_Domsch@Dell.com>,
+	<Charles_Rose@Dell.com>, <Jordan_Hargrave@Dell.com>
+To: <Narendra_K@Dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42101 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:42176 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751482Ab0HRVjQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 17:39:16 -0400
-In-Reply-To: <1281951825.2524.5.camel@edumazet-laptop>
+	id S1754168Ab0HRVl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Aug 2010 17:41:27 -0400
+In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Aug 2010 11:43:45 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, 13 Aug 2010 18:06:26 +0530
+<Narendra_K@Dell.com> wrote:
 
-> Le samedi 14 ao=FBt 2010 =E0 21:46 -0400, Stephen Hemminger a =E9crit=
- :
-> > The implementation of Generalized TTL Security has a problem
-> > on the TCP accept side. Since there can be different number of
-> > hops for each peer, the listener ends up doing
-> >=20
-> >    socket
-> >    bind
-> >    set TTL to 255
-> >    listen
-> >    while (nfd =3D accept(peer)) {
-> >      info =3D lookup(peer)
-> >      set MINTTL to 255 - info->ttl_hops
-> >=20
-> >=20
-> > The problem is that a rogue peer can still do three way
-> > handshake causing the accept to succeed. But the rogue will
-> > leave a stuck connection that will then have to timeout.
-> >=20
-> > The only ways I have come up to deal with this are:
-> >    * have short timeout on initial data (recycle faster)
-> >    * push peer;MINTTL table down into kernel (per socket)
-> >    * have BGP do this through iptables which is a non-starter
-> >      for a general application that needs to run on BSD, and
-> >      would mess up existing firewall rules.
-> >=20
-> > Ideas welcome..
-> > --
->=20
-> Another idea would be to store the TTL of the SYN packet (or third
-> packet) and let application read it after accept(), allowing it to
-> reject the connection if it doesnt match expected TTL.
+> > -----Original Message-----
+> > From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> > Sent: Thursday, August 12, 2010 11:43 PM
+> > To: K, Narendra
+> > Cc: netdev@vger.kernel.org; Domsch, Matt; Rose, Charles; Hargrave,
+> > Jordan
+> > Subject: Re: [PATCH] Add firmware label support to iproute2
+> > 
+> > On Thu, 12 Aug 2010 12:35:37 -0500
+> > Narendra K <Narendra_K@dell.com> wrote:
+> > 
+> > > +#ifndef LIBNETDEVNAME_PRESENT
+> > >  			filter_dev = *argv;
+> > > +#else
+> > > +			if (netdev_alias_to_kernelname(*argv,
+> kernel_name) <
+> > 0)
+> > > +				show_firmware_alias_usage(*argv);
+> > > +			filter_dev = kernel_name;
+> > > +#endif
+> > >  		}
+> > 
+> > like the kernel, I don't like ifdef cases in main code.
+> > You should put in stub inline that returns appropriate error.
+> > 
+> 
+> Stephen,
+> 
+> Thanks for the suggestions. I will rework the patch and send a revised
+> version soon.
+> 
+> > What happens if alias matches existing interface name?
+> 
+> If the user inputs an existing 'ethN' name, the function
+> 'netdev_alias_to_kernelaname' will return it as it is. If the user
+> inputs 'Embedded NIC N', then the function would do a sysfs lookup and
+> return the corresponding 'ethN' name.
 
-could be in tcp_info?
---=20
+The netdev_alias_to_kernelname should only happen after normal lookup failed.
+Also how does ifindex to name mapping work?
+
+-- 
