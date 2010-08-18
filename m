@@ -1,66 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] PPTP: PPP over IPv4 (Point-to-Point Tunneling
- Protocol)
-Date: Wed, 18 Aug 2010 15:28:39 +0200
-Message-ID: <1282138119.2194.75.camel@edumazet-laptop>
-References: <1282136626.2194.68.camel@edumazet-laptop>
-	 <E1OliUz-0006py-00.xeb-mail-ru@f121.mail.ru>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC Patch] netxen: remove firmware exports
+Date: Wed, 18 Aug 2010 21:40:13 +0800
+Message-ID: <4C6BE2BD.1030606@redhat.com>
+References: <20100818095908.6606.56224.sendpatchset@localhost.localdomain> <99737F4847ED0A48AECC9F4A1974A4B80F86E69129@MNEXMB2.qlogic.org> <4C6BDDCB.9040800@redhat.com> <99737F4847ED0A48AECC9F4A1974A4B80F86E6913F@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Dmitry Kozlov <xeb@mail.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Dhananjay Phadke <dhananjay.phadke@qlogic.com>,
+	Narender Kumar <narender.kumar@qlogic.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: Amit Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:55281 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751725Ab0HRN2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:28:48 -0400
-Received: by wyb32 with SMTP id 32so784577wyb.19
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:28:46 -0700 (PDT)
-In-Reply-To: <E1OliUz-0006py-00.xeb-mail-ru@f121.mail.ru>
+Received: from mx1.redhat.com ([209.132.183.28]:50014 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753127Ab0HRNgA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Aug 2010 09:36:00 -0400
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80F86E6913F@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 ao=C3=BBt 2010 =C3=A0 17:16 +0400, Dmitry Kozlov a =C3=A9=
-crit :
-> > Hmm. You left a synchronize_rcu() call in add_chan() but this is no=
-t
-> > necessary. Please remove it or explain why you think it is needed.
-> >=20
-> > synchronize_rcu(); in del_chan() is now fine, thanks.
-> >=20
-> >=20
-> > You use a mutex for gre_proto_lock, but you dont need a mutex, plea=
-se
-> > use a spinlock like I suggested. I would have said 'use a mutex' if=
- if
-> > was needed, you can trust me.
->=20
-> ok
->=20
-> > A mutex is needed if you can sleep while holding the lock, this is =
-not
-> > the case here. A spinlock is faster and reduces to no-op on !SMP
->=20
-> then i have to replace mutex on spinlock in pptp module too ?
->=20
+On 08/18/10 21:19, Amit Salecha wrote:
+>> Then we can work with David Woodhouse and make these firmware available in /lib/firmware
+>>
+> Actually I was not updated, NX_UNIFIED_ROMIMAGE_NAME (phanfw.bin) is already submitted and its present in linux-firmware.git.
+>
 
-Yes indeed, you can use a spinlock there too ;)
+Good.
 
-> > Also, please remove the synchronize_rcu() call from gre_add_protoco=
-l() :
-> > It is not needed at all, like in add_chan().
-> >=20
-> > (You dont have to wait for a RCU grace period when adding something=
-,
-> > only when removing from a data structure)
->=20
-> ok, seems like i don't fully understand rcu mechanism...
->=20
+> I will get back to you on NX_P2_MN_ROMIMAGE_NAME, NX_P3_CT_ROMIMAGE_NAME and NX_P3_MN_ROMIMAGE_NAME.
+> Whether this will be submitted ?
+>
 
-no problem, I dont fully understand rcu myself you know :)
-
-> Thanks for reply.
->=20
+Ok, thanks a lot!
 
 
+-- 
+The opposite of love is not hate, it's indifference.
+  - Elie Wiesel
