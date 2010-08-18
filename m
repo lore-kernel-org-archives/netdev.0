@@ -1,45 +1,66 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next 11/14] tipc: Eliminate useless linked list initialization
-Date: Wed, 18 Aug 2010 09:28:27 -0400
-Message-ID: <4C6BDFFB.2050008@windriver.com>
-References: <1282078816-11844-1-git-send-email-paul.gortmaker@windriver.com>	<1282078816-11844-12-git-send-email-paul.gortmaker@windriver.com> <20100817.172930.226785324.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4] PPTP: PPP over IPv4 (Point-to-Point Tunneling
+ Protocol)
+Date: Wed, 18 Aug 2010 15:28:39 +0200
+Message-ID: <1282138119.2194.75.camel@edumazet-laptop>
+References: <1282136626.2194.68.camel@edumazet-laptop>
+	 <E1OliUz-0006py-00.xeb-mail-ru@f121.mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Dmitry Kozlov <xeb@mail.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:58590 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907Ab0HRN2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:28:30 -0400
-In-Reply-To: <20100817.172930.226785324.davem@davemloft.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55281 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725Ab0HRN2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:28:48 -0400
+Received: by wyb32 with SMTP id 32so784577wyb.19
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:28:46 -0700 (PDT)
+In-Reply-To: <E1OliUz-0006py-00.xeb-mail-ru@f121.mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10-08-17 08:29 PM, David Miller wrote:
-> From: Paul Gortmaker<paul.gortmaker@windriver.com>
-> Date: Tue, 17 Aug 2010 17:00:13 -0400
-> 
->> From: Allan Stephens<allan.stephens@windriver.com>
->>
->> Eliminate the initialization of the port_list field of a newly created
->> TIPC port, since the port is immediately added to TIPC's global list
->> of ports (which alters the port_list field).
->>
->> Signed-off-by: Allan Stephens<allan.stephens@windriver.com>
->> Signed-off-by: Paul Gortmaker<paul.gortmaker@windriver.com>
-> 
-> This is not correct.
-> 
-> INIT_LIST_HEAD() is mandatory for all new objects, since it may
-> initialize debugging knobs and whatnot inside of the list_head object
-> when certain debugging options are enabled.
-> 
-> Therefore it may never be elided.
+Le mercredi 18 ao=C3=BBt 2010 =C3=A0 17:16 +0400, Dmitry Kozlov a =C3=A9=
+crit :
+> > Hmm. You left a synchronize_rcu() call in add_chan() but this is no=
+t
+> > necessary. Please remove it or explain why you think it is needed.
+> >=20
+> > synchronize_rcu(); in del_chan() is now fine, thanks.
+> >=20
+> >=20
+> > You use a mutex for gre_proto_lock, but you dont need a mutex, plea=
+se
+> > use a spinlock like I suggested. I would have said 'use a mutex' if=
+ if
+> > was needed, you can trust me.
+>=20
+> ok
+>=20
+> > A mutex is needed if you can sleep while holding the lock, this is =
+not
+> > the case here. A spinlock is faster and reduces to no-op on !SMP
+>=20
+> then i have to replace mutex on spinlock in pptp module too ?
+>=20
 
-Thanks, I should have come to the same conclusion when I was looking
-at that one.
+Yes indeed, you can use a spinlock there too ;)
 
-P.
+> > Also, please remove the synchronize_rcu() call from gre_add_protoco=
+l() :
+> > It is not needed at all, like in add_chan().
+> >=20
+> > (You dont have to wait for a RCU grace period when adding something=
+,
+> > only when removing from a data structure)
+>=20
+> ok, seems like i don't fully understand rcu mechanism...
+>=20
+
+no problem, I dont fully understand rcu myself you know :)
+
+> Thanks for reply.
+>=20
+
 
