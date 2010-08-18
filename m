@@ -1,34 +1,45 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Inconsistent lock state in ipt_do_table
-Date: Wed, 18 Aug 2010 21:26:32 +0800
-Message-ID: <AANLkTimWeZHQk3Z8MTa1ajhP1-CJV_nSwxNvEVuMfAoK@mail.gmail.com>
-References: <4C6ACAB5.2090507@csr.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next 11/14] tipc: Eliminate useless linked list initialization
+Date: Wed, 18 Aug 2010 09:28:27 -0400
+Message-ID: <4C6BDFFB.2050008@windriver.com>
+References: <1282078816-11844-1-git-send-email-paul.gortmaker@windriver.com>	<1282078816-11844-12-git-send-email-paul.gortmaker@windriver.com> <20100817.172930.226785324.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: David Vrabel <david.vrabel@csr.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44196 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751995Ab0HRN0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:26:53 -0400
-Received: by wyb32 with SMTP id 32so782709wyb.19
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:26:52 -0700 (PDT)
-In-Reply-To: <4C6ACAB5.2090507@csr.com>
+Received: from mail.windriver.com ([147.11.1.11]:58590 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907Ab0HRN2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:28:30 -0400
+In-Reply-To: <20100817.172930.226785324.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 18, 2010 at 1:45 AM, David Vrabel <david.vrabel@csr.com> wrote:
-> Is this related to or fixed by
->
-> http://marc.info/?l=linux-netdev&m=128202731626693&w=2
->
+On 10-08-17 08:29 PM, David Miller wrote:
+> From: Paul Gortmaker<paul.gortmaker@windriver.com>
+> Date: Tue, 17 Aug 2010 17:00:13 -0400
+> 
+>> From: Allan Stephens<allan.stephens@windriver.com>
+>>
+>> Eliminate the initialization of the port_list field of a newly created
+>> TIPC port, since the port is immediately added to TIPC's global list
+>> of ports (which alters the port_list field).
+>>
+>> Signed-off-by: Allan Stephens<allan.stephens@windriver.com>
+>> Signed-off-by: Paul Gortmaker<paul.gortmaker@windriver.com>
+> 
+> This is not correct.
+> 
+> INIT_LIST_HEAD() is mandatory for all new objects, since it may
+> initialize debugging knobs and whatnot inside of the list_head object
+> when certain debugging options are enabled.
+> 
+> Therefore it may never be elided.
 
-I am afraid not. Please try this patch:
-http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=patch;h=001389b9581c13fe5fc357a0f89234f85af4215d
+Thanks, I should have come to the same conclusion when I was looking
+at that one.
 
+P.
 
-
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
