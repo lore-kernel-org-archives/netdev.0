@@ -1,96 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] slip: fix get_stats() method
-Date: Wed, 18 Aug 2010 15:13:08 +0200
-Message-ID: <1282137188.2194.74.camel@edumazet-laptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC Patch] netxen: remove firmware exports
+Date: Wed, 18 Aug 2010 21:19:07 +0800
+Message-ID: <4C6BDDCB.9040800@redhat.com>
+References: <20100818095908.6606.56224.sendpatchset@localhost.localdomain> <99737F4847ED0A48AECC9F4A1974A4B80F86E69129@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Dhananjay Phadke <dhananjay.phadke@qlogic.com>,
+	Narender Kumar <narender.kumar@qlogic.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: Amit Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:46598 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752772Ab0HRNNN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:13:13 -0400
-Received: by ewy23 with SMTP id 23so311375ewy.19
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:13:11 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:55575 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752120Ab0HRNOy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Aug 2010 09:14:54 -0400
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80F86E69129@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use integrated net_device_stats instead of a static one, and make sure
-no transient values are feeded. ndo_get_stats() can be called by
-concurrent cpus.
+On 08/18/10 19:04, Amit Salecha wrote:
+> If problem is firmware files are not present in /lib/firmware.
+> Then we can work with David Woodhouse and make these firmware available in /lib/firmware.
+>
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/slip.c |   50 +++++++++++++++++++++----------------------
- 1 file changed, 25 insertions(+), 25 deletions(-)
+Oh, I thought we did this intentionally.
+That would be nice then, please go ahead.
 
-diff --git a/drivers/net/slip.c b/drivers/net/slip.c
-index fa434fb..d5a36f5 100644
---- a/drivers/net/slip.c
-+++ b/drivers/net/slip.c
-@@ -561,36 +561,36 @@ static int sl_change_mtu(struct net_device *dev, int new_mtu)
- static struct net_device_stats *
- sl_get_stats(struct net_device *dev)
- {
--	static struct net_device_stats stats;
-+	struct net_device_stats *stats = &dev->stats;
- 	struct slip *sl = netdev_priv(dev);
-+	unsigned long c_rx_dropped = 0;
- #ifdef SL_INCLUDE_CSLIP
--	struct slcompress *comp;
--#endif
-+	unsigned long c_rx_fifo_errors = 0;
-+	unsigned long c_tx_fifo_errors = 0;
-+	unsigned long c_collisions = 0;
-+	struct slcompress *comp = sl->slcomp;
- 
--	memset(&stats, 0, sizeof(struct net_device_stats));
--
--	stats.rx_packets     = sl->rx_packets;
--	stats.tx_packets     = sl->tx_packets;
--	stats.rx_bytes	     = sl->rx_bytes;
--	stats.tx_bytes	     = sl->tx_bytes;
--	stats.rx_dropped     = sl->rx_dropped;
--	stats.tx_dropped     = sl->tx_dropped;
--	stats.tx_errors      = sl->tx_errors;
--	stats.rx_errors      = sl->rx_errors;
--	stats.rx_over_errors = sl->rx_over_errors;
--#ifdef SL_INCLUDE_CSLIP
--	stats.rx_fifo_errors = sl->rx_compressed;
--	stats.tx_fifo_errors = sl->tx_compressed;
--	stats.collisions     = sl->tx_misses;
--	comp = sl->slcomp;
- 	if (comp) {
--		stats.rx_fifo_errors += comp->sls_i_compressed;
--		stats.rx_dropped     += comp->sls_i_tossed;
--		stats.tx_fifo_errors += comp->sls_o_compressed;
--		stats.collisions     += comp->sls_o_misses;
-+		c_rx_fifo_errors = comp->sls_i_compressed;
-+		c_rx_dropped     = comp->sls_i_tossed;
-+		c_tx_fifo_errors = comp->sls_o_compressed;
-+		c_collisions     = comp->sls_o_misses;
- 	}
--#endif /* CONFIG_INET */
--	return (&stats);
-+	stats->rx_fifo_errors = sl->rx_compressed + c_rx_fifo_errors;
-+	stats->tx_fifo_errors = sl->tx_compressed + c_tx_fifo_errors;
-+	stats->collisions     = sl->tx_misses + c_collisions;
-+#endif
-+
-+	stats->rx_packets     = sl->rx_packets;
-+	stats->tx_packets     = sl->tx_packets;
-+	stats->rx_bytes	      = sl->rx_bytes;
-+	stats->tx_bytes	      = sl->tx_bytes;
-+	stats->rx_dropped     = sl->rx_dropped + c_rx_dropped;
-+	stats->tx_dropped     = sl->tx_dropped;
-+	stats->tx_errors      = sl->tx_errors;
-+	stats->rx_errors      = sl->rx_errors;
-+	stats->rx_over_errors = sl->rx_over_errors;
-+	return stats;
- }
- 
- /* Netdevice register callback */
+Thanks!
 
-
+-- 
+The opposite of love is not hate, it's indifference.
+  - Elie Wiesel
