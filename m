@@ -1,114 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 17 Aug 2010 18:08:58 -0700 (PDT)
-Message-ID: <20100817.180858.189708416.davem@davemloft.net>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del
+ command to reset
+Date: Tue, 17 Aug 2010 18:23:18 -0700
+Message-ID: <20100818012318.GA4630@mcarlson.broadcom.com>
+References: <1282024802.2487.687.camel@edumazet-laptop>
+ <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se>
+ <1282050920.2448.47.camel@edumazet-laptop>
+ <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se>
+ <1282055659.2448.58.camel@edumazet-laptop>
+ <alpine.DEB.1.10.1008171737260.21857@red.crap.retrofitta.se>
+ <20100817171115.GA4134@mcarlson.broadcom.com>
+ <alpine.DEB.1.10.1008171928160.21857@red.crap.retrofitta.se>
+ <20100817183112.GA4351@mcarlson.broadcom.com>
+ <alpine.DEB.1.10.1008172035520.21857@red.crap.retrofitta.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Thomas Habets" <thomas@habets.pp.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37894
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752489Ab0HRBIk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 21:08:40 -0400
+Received: from mms1.broadcom.com ([216.31.210.17]:3893 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752317Ab0HRBXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Aug 2010 21:23:34 -0400
+In-Reply-To: <alpine.DEB.1.10.1008172035520.21857@red.crap.retrofitta.se>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Aug 17, 2010 at 11:52:27AM -0700, Thomas Habets wrote:
+> On Tue, 17 Aug 2010, Matt Carlson wrote:
+> > Thanks.  I put the question out to the firmware developer.  While we
+> > wait, can you keep Eric's patch in place and give me the results along
+> > with the output of 'ethtool -d eth0 | grep 0x047' after the problem
+> > happens?
+> 
+> Sure.
+> 
+> I think the problem occurs shortly after booting, or is triggered by it 
+> Linux getting a neighbor table entry for the router. The reason it took a 
+> while for everything to actually stop working is that the router was 
+> caching and presumably updating its neighbors cache when it saw traffic.
+> 
+> That is, maybe it only works if the router sets up its neigbor table 
+> first, and not otherwise.
+> 
+> The problem is there now. Last output in the kernel log about this is:
+> 
+> $ dmesg | egrep 'eth0|^add mc|^filters='
+> [...]
+> add mc_addr(ha->addr=33:33:00:00:00:01)
+> add mc_addr(ha->addr=01:00:5e:00:00:01)
+> add mc_addr(ha->addr=33:33:ff:5c:00:02)
+> add mc_addr(ha->addr=33:33:ff:a3:44:24)
+> filters=80020001 00000000 00000000 40000000
+> 
+> $ sudo ethtool -d eth0 | grep 0x047
+> 0x0470	0x80020001
+> 0x0474	0x00000000
+> 0x0478	0x00000000
+> 0x047c	0x40000000
+> 
+> > Eric's patch shows the hash registers at the time they are programmed.
+> > I'm interested to see if the values change (by firmware) after the
+> > failure.
+> 
+> Look the same.
+> 
+> But a strange thing is that if I delete the ipv6 neighbor on the Linux 
+> box (ip ne del 2a00:800:752:1::5c:1 dev eth0) it suddenly answers a ND 
+> solicitation. I tried it just now and it "wakes it up".
+> 
+> Nothing was written to the kernel log when I ran this command, and the 
+> ethtools -d output is the same afterwards as it was before. So unless 
+> there's another code path that changes the registers when I do "ip ne 
+> del" it may still be something else.
 
-Several bug fixes:
+Do you have access to any diagnostic software that might have come with
+your machine?
 
-1) Revert netlink_recvmsg() fix, it breaks more than it fixes.
-   Based upon analysis by Johannes Berg and Eric Dumazet.
-
-2) dev_gro_receive() does memmove() with wrong size argument,
-   fix from Jarek Poplawski.
-
-3) xfrm_compile_policy() needs to use GFP_ATOMIC, from Herbert Xu.
-
-4) Some of the classful qdisc code leaks an uninitialized 32-bit
-   kernel stack word to userspace, use explicit initializers to
-   fix this.  From Eric Dumazet.
-
-5) pm_qos registry ordering fix in ipw2100 from John W. Linville
-
-6) ASPM L0s needs to be disabled for all ath5k cards, from Maxim
-   Levitsky.
-
-7) Fix lockdep false positive in netfilter, from Eric Dumazet.
-
-8) ipv6 does bogus jiffies conversions on non-jiffy sysctls, fix from
-   Min Zhang.
-
-9) ath9k disconnect fix from Vivek Natarajan.
-
-10) Trigger scan timeout fix in wl1251 from Yuri Kululin.
-
-11) Crash and firmware fixes to ath9k from Rajkumar Manoharan.
-
-Please pull, thanks a lot!
-
-The following changes since commit da5cabf80e2433131bf0ed8993abc0f7ea618c73:
-
-  Linux 2.6.36-rc1 (2010-08-15 17:41:37 -0700)
-
-are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-David S. Miller (2):
-      Revert "netlink: netlink_recvmsg() fix"
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-
-Eric Dumazet (2):
-      netfilter: {ip,ip6,arp}_tables: avoid lockdep false positive
-      net sched: fix some kernel memory leaks
-
-Herbert Xu (1):
-      xfrm: Use GFP_ATOMIC in xfrm_compile_policy
-
-Jarek Poplawski (1):
-      net: Fix a memmove bug in dev_gro_receive()
-
-John W. Linville (1):
-      ipw2100: register pm_qos request before registering pci driver
-
-Maxim Levitsky (1):
-      ath5k: disable ASPM L0s for all cards
-
-Min Zhang (1):
-      ipv6: remove sysctl jiffies conversion on gc_elasticity and min_adv_mss
-
-Rajkumar Manoharan (2):
-      ath9k_htc: fix panic on packet injection using airbase-ng tool.
-      ath9k_htc: load proper firmware for device ID 7015
-
-Vivek Natarajan (1):
-      ath9k_htc: Fix disconnect issue in HT40 mode.
-
-Yuri Kululin (1):
-      wl1251: fix trigger scan timeout usage
-
- drivers/net/wireless/ath/ath5k/base.c         |   21 +++++++++++++++++++++
- drivers/net/wireless/ath/ath9k/eeprom.h       |    1 +
- drivers/net/wireless/ath/ath9k/eeprom_9287.c  |    7 ++++++-
- drivers/net/wireless/ath/ath9k/hif_usb.c      |    8 ++------
- drivers/net/wireless/ath/ath9k/htc_drv_init.c |    1 +
- drivers/net/wireless/ath/ath9k/htc_drv_main.c |    3 ++-
- drivers/net/wireless/ath/ath9k/htc_drv_txrx.c |   15 ++++++++++-----
- drivers/net/wireless/ath/ath9k/reg.h          |    1 +
- drivers/net/wireless/ipw2x00/ipw2100.c        |    5 +++--
- drivers/net/wireless/wl12xx/wl1251_cmd.c      |    2 +-
- net/core/dev.c                                |    2 +-
- net/ipv4/netfilter/arp_tables.c               |    2 ++
- net/ipv4/netfilter/ip_tables.c                |    2 ++
- net/ipv6/netfilter/ip6_tables.c               |    2 ++
- net/ipv6/route.c                              |    4 ++--
- net/netlink/af_netlink.c                      |   22 ++++++----------------
- net/sched/act_gact.c                          |   21 ++++++++++++---------
- net/sched/act_mirred.c                        |   15 ++++++++-------
- net/sched/act_nat.c                           |   22 +++++++++++-----------
- net/sched/act_simple.c                        |   11 ++++++-----
- net/sched/act_skbedit.c                       |   11 ++++++-----
- net/xfrm/xfrm_user.c                          |    2 +-
- 22 files changed, 107 insertions(+), 73 deletions(-)
