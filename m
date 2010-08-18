@@ -1,133 +1,70 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 5/8] net_sched: cls_flow: use proto_ports_offset() to support AH message
-Date: Wed, 18 Aug 2010 13:05:08 +0800
-Message-ID: <1282107908-3585-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Subject: [PATCH 6/8] netfilter: ipt_CLUSTERIP: use proto_ports_offset() to support AH message
+Date: Wed, 18 Aug 2010 13:05:52 +0800
+Message-ID: <1282107952-3624-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:42272 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208Ab0HRFFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 01:05:21 -0400
-Received: by pwi4 with SMTP id 4so146159pwi.19
-        for <netdev@vger.kernel.org>; Tue, 17 Aug 2010 22:05:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
- net/sched/cls_flow.c |   67 ++++++++++++++++++++++++++++-----------------------
- 1 file changed, 38 insertions(+), 29 deletions(-)
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index e17096e..cd709f1 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -111,44 +111,41 @@ static u32 flow_get_proto(struct sk_buff *skb)
- 	}
- }
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |   34 ++++++++++++++++++----------------
+ 1 file changed, 18 insertions(+), 16 deletions(-)
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 3a43cf3..11c3534 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -29,6 +29,7 @@
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/net_namespace.h>
+ #include <net/checksum.h>
++#include <net/ip.h>
  
--static int has_ports(u8 protocol)
--{
--	switch (protocol) {
+ #define CLUSTERIP_VERSION "0.8"
+ 
+@@ -231,24 +232,25 @@ clusterip_hashfn(const struct sk_buff *skb,
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	unsigned long hashval;
+-	u_int16_t sport, dport;
++	u_int16_t sport = 0, dport = 0;
+ 	const u_int16_t *ports;
+ 
+-	switch (iph->protocol) {
 -	case IPPROTO_TCP:
 -	case IPPROTO_UDP:
 -	case IPPROTO_UDPLITE:
 -	case IPPROTO_SCTP:
 -	case IPPROTO_DCCP:
--	case IPPROTO_ESP:
--		return 1;
+-	case IPPROTO_ICMP:
+-		ports = (const void *)iph+iph->ihl*4;
+-		sport = ports[0];
+-		dport = ports[1];
+-		break;
 -	default:
--		return 0;
--	}
--}
--
- static u32 flow_get_proto_src(struct sk_buff *skb)
- {
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP): {
- 		struct iphdr *iph;
+-		if (net_ratelimit())
+-			pr_info("unknown protocol %u\n", iph->protocol);
+-		sport = dport = 0;
++	if (!(iph->frag_off & htons(IP_MF|IP_OFFSET))) {
 +		int poff;
- 
- 		if (!pskb_network_may_pull(skb, sizeof(*iph)))
- 			break;
- 		iph = ip_hdr(skb);
--		if (!(iph->frag_off&htons(IP_MF|IP_OFFSET)) &&
--		    has_ports(iph->protocol) &&
--		    pskb_network_may_pull(skb, iph->ihl * 4 + 2))
--			return ntohs(*(__be16 *)((void *)iph + iph->ihl * 4));
-+		if (iph->frag_off & htons(IP_MF|IP_OFFSET))
-+			break;
++
 +		poff = proto_ports_offset(iph->protocol);
-+		if (poff >= 0 &&
-+		    pskb_network_may_pull(skb, iph->ihl * 4 + 2 + poff)) {
-+			iph = ip_hdr(skb);
-+			return ntohs(*(__be16 *)((void *)iph + iph->ihl * 4 +
-+						 poff));
++		if (poff >= 0) {
++			u16 _ports[2];
++			ports = skb_header_pointer(skb, iph->ihl * 4 + poff,
++						   4, _ports);
++			if (ports) {
++				sport = ports[0];
++				dport = ports[1];
++			}
++		} else {
++			if (net_ratelimit())
++				pr_info("unknown protocol %u\n", iph->protocol);
 +		}
- 		break;
  	}
- 	case htons(ETH_P_IPV6): {
- 		struct ipv6hdr *iph;
-+		int poff;
  
--		if (!pskb_network_may_pull(skb, sizeof(*iph) + 2))
-+		if (!pskb_network_may_pull(skb, sizeof(*iph)))
- 			break;
- 		iph = ipv6_hdr(skb);
--		if (has_ports(iph->nexthdr))
--			return ntohs(*(__be16 *)&iph[1]);
-+		poff = proto_ports_offset(iph->nexthdr);
-+		if (poff >= 0 &&
-+		    pskb_network_may_pull(skb, sizeof(*iph) + poff + 2)) {
-+			iph = ipv6_hdr(skb);
-+			return ntohs(*(__be16 *)((void *)iph + sizeof(*iph) +
-+						 poff));
-+		}
- 		break;
- 	}
- 	}
-@@ -161,24 +158,36 @@ static u32 flow_get_proto_dst(struct sk_buff *skb)
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP): {
- 		struct iphdr *iph;
-+		int poff;
- 
- 		if (!pskb_network_may_pull(skb, sizeof(*iph)))
- 			break;
- 		iph = ip_hdr(skb);
--		if (!(iph->frag_off&htons(IP_MF|IP_OFFSET)) &&
--		    has_ports(iph->protocol) &&
--		    pskb_network_may_pull(skb, iph->ihl * 4 + 4))
--			return ntohs(*(__be16 *)((void *)iph + iph->ihl * 4 + 2));
-+		if (iph->frag_off & htons(IP_MF|IP_OFFSET))
-+			break;
-+		poff = proto_ports_offset(iph->protocol);
-+		if (poff >= 0 &&
-+		    pskb_network_may_pull(skb, iph->ihl * 4 + 4 + poff)) {
-+			iph = ip_hdr(skb);
-+			return ntohs(*(__be16 *)((void *)iph + iph->ihl * 4 +
-+						 2 + poff));
-+		}
- 		break;
- 	}
- 	case htons(ETH_P_IPV6): {
- 		struct ipv6hdr *iph;
-+		int poff;
- 
--		if (!pskb_network_may_pull(skb, sizeof(*iph) + 4))
-+		if (!pskb_network_may_pull(skb, sizeof(*iph)))
- 			break;
- 		iph = ipv6_hdr(skb);
--		if (has_ports(iph->nexthdr))
--			return ntohs(*(__be16 *)((void *)&iph[1] + 2));
-+		poff = proto_ports_offset(iph->nexthdr);
-+		if (poff >= 0 &&
-+		    pskb_network_may_pull(skb, sizeof(*iph) + poff + 4)) {
-+			iph = ipv6_hdr(skb);
-+			return ntohs(*(__be16 *)((void *)iph + sizeof(*iph) +
-+						 poff + 2));
-+		}
- 		break;
- 	}
- 	}
+ 	switch (config->hash_mode) {
