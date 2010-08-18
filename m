@@ -1,43 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Inconsistent lock state in ipt_do_table
-Date: Wed, 18 Aug 2010 15:44:18 +0200
-Message-ID: <1282139058.2194.84.camel@edumazet-laptop>
-References: <4C6ACAB5.2090507@csr.com>
-	 <AANLkTimWeZHQk3Z8MTa1ajhP1-CJV_nSwxNvEVuMfAoK@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 5/8] net_sched: cls_flow: use proto_ports_offset() to
+ support AH message
+Date: Wed, 18 Aug 2010 09:53:09 -0400
+Message-ID: <1282139589.23601.38.camel@bigi>
+References: <1282107908-3585-1-git-send-email-xiaosuo@gmail.com>
+	 <1282129364.23601.17.camel@bigi>
+	 <AANLkTi=50qHT_-OoMbWcPT1Fi7JEa0e_kReZhnpVJJdR@mail.gmail.com>
+	 <1282136070.23601.26.camel@bigi>
+	 <AANLkTin9Pm0oPpteYsZsPUEyAj9qMxrSL9k1GXNYeY9h@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Vrabel <david.vrabel@csr.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:63058 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752120Ab0HRNoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:44:24 -0400
-Received: by wwi17 with SMTP id 17so852134wwi.1
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:44:22 -0700 (PDT)
-In-Reply-To: <AANLkTimWeZHQk3Z8MTa1ajhP1-CJV_nSwxNvEVuMfAoK@mail.gmail.com>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:42756 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752752Ab0HRNxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 09:53:13 -0400
+Received: by qyk33 with SMTP id 33so635815qyk.19
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 06:53:12 -0700 (PDT)
+In-Reply-To: <AANLkTin9Pm0oPpteYsZsPUEyAj9qMxrSL9k1GXNYeY9h@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 ao=C3=BBt 2010 =C3=A0 21:26 +0800, Changli Gao a =C3=A9c=
-rit :
-> On Wed, Aug 18, 2010 at 1:45 AM, David Vrabel <david.vrabel@csr.com> =
-wrote:
-> > Is this related to or fixed by
-> >
-> > http://marc.info/?l=3Dlinux-netdev&m=3D128202731626693&w=3D2
-> >
->=20
-> I am afraid not. Please try this patch:
-> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dpat=
-ch;h=3D001389b9581c13fe5fc357a0f89234f85af4215d
->=20
->=20
->=20
+On Wed, 2010-08-18 at 21:18 +0800, Changli Gao wrote:
 
-Or use latest Linus tree.
+> I had gone through the code before submitting this code. But it isn't
+> easy to test if it breaks sth. 
 
+That works well actually and it is the LinuxWay(tm);-> 
 
+> Would you please give a case to test ?
 
+Just conformance testing. Since you added new AH SPI behavior
+at least find some use case of what people normally use and make sure it
+isnt broken. But if youve looked at code sufficiently i think thats good
+enough.
+
+cheers,
+jamal
 
