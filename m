@@ -1,42 +1,61 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] qlnic: fix a race in qlcnic_get_stats()
-Date: Wed, 18 Aug 2010 05:47:05 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86E69124@MNEXMB2.qlogic.org>
-References: <1282128168.2194.49.camel@edumazet-laptop>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH v2] net/sched: add ACT_CSUM action to update packets
+ checksums
+Date: Wed, 18 Aug 2010 06:52:10 -0400
+Message-ID: <1282128730.23601.11.camel@bigi>
+References: <20100817235952.GB24125@n7mm.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Gr=E9goire?= Baron <baronchon@n7mm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:53120 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752638Ab0HRKrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 06:47:11 -0400
-In-Reply-To: <1282128168.2194.49.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:44687 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751902Ab0HRKwO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 06:52:14 -0400
+Received: by qyk33 with SMTP id 33so456675qyk.19
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 03:52:13 -0700 (PDT)
+In-Reply-To: <20100817235952.GB24125@n7mm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-U2FtZSBmaXggd2lsbCBiZSByZXF1aXJlIGZvciBuZXR4ZW5fbmljLg0KDQotLS0tLU9yaWdpbmFs
-IE1lc3NhZ2UtLS0tLQ0KRnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdt
-YWlsLmNvbV0gDQpTZW50OiBXZWRuZXNkYXksIEF1Z3VzdCAxOCwgMjAxMCA0OjEzIFBNDQpUbzog
-RGF2aWQgTWlsbGVyDQpDYzogQW1pdCBTYWxlY2hhOyBuZXRkZXYNClN1YmplY3Q6IFtQQVRDSF0g
-cWxuaWM6IGZpeCBhIHJhY2UgaW4gcWxjbmljX2dldF9zdGF0cygpDQoNCkRvbnQgY2xlYXIgbmV0
-ZGV2LT5zdGF0cywgaXQgbWlnaHQgZ2l2ZSB0cmFuc2llbnQgd3JvbmcgdmFsdWVzIHRvDQpjb25j
-dXJyZW50IHN0YXQgcmVhZGVycy4NCg0KU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmlj
-LmR1bWF6ZXRAZ21haWwuY29tPg0KLS0tDQogZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19tYWlu
-LmMgfCAgICAyIC0tDQogMSBmaWxlIGNoYW5nZWQsIDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1n
-aXQgYS9kcml2ZXJzL25ldC9xbGNuaWMvcWxjbmljX21haW4uYyBiL2RyaXZlcnMvbmV0L3FsY25p
-Yy9xbGNuaWNfbWFpbi5jDQppbmRleCBhYmQ3Y2Q2Li5kNzFkNDRhIDEwMDY0NA0KLS0tIGEvZHJp
-dmVycy9uZXQvcWxjbmljL3FsY25pY19tYWluLmMNCisrKyBiL2RyaXZlcnMvbmV0L3FsY25pYy9x
-bGNuaWNfbWFpbi5jDQpAQCAtMTk4MCw4ICsxOTgwLDYgQEAgc3RhdGljIHN0cnVjdCBuZXRfZGV2
-aWNlX3N0YXRzICpxbGNuaWNfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpDQog
-CXN0cnVjdCBxbGNuaWNfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5ldGRldik7DQog
-CXN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzICpzdGF0cyA9ICZuZXRkZXYtPnN0YXRzOw0KIA0KLQlt
-ZW1zZXQoc3RhdHMsIDAsIHNpemVvZigqc3RhdHMpKTsNCi0NCiAJc3RhdHMtPnJ4X3BhY2tldHMg
-PSBhZGFwdGVyLT5zdGF0cy5yeF9wa3RzICsgYWRhcHRlci0+c3RhdHMubHJvX3BrdHM7DQogCXN0
-YXRzLT50eF9wYWNrZXRzID0gYWRhcHRlci0+c3RhdHMueG1pdGZpbmlzaGVkOw0KIAlzdGF0cy0+
-cnhfYnl0ZXMgPSBhZGFwdGVyLT5zdGF0cy5yeGJ5dGVzICsgYWRhcHRlci0+c3RhdHMubHJvYnl0
-ZXM7DQoNCg0KDQo=
+On Wed, 2010-08-18 at 01:59 +0200, Gr=C3=A9goire Baron wrote:
+
+
+> +static int tcf_csum_ipv4_icmp(struct sk_buff *skb,
+> +			      unsigned int ihl, unsigned int ipl)
+> +{
+> +	struct icmphdr *icmph;
+> +
+> +	icmph =3D tcf_csum_skb_nextlayer(skb, ihl, ipl, sizeof(*icmph));
+> +	if (icmph =3D=3D NULL)
+> +		goto fail;
+                  ^^^^^^^^^^^
+> +	icmph->checksum =3D 0;
+> +	skb->csum =3D csum_partial(icmph, ipl - ihl, 0);
+> +	icmph->checksum =3D csum_fold(skb->csum);
+> +
+> +	skb->ip_summed =3D CHECKSUM_NONE;
+> +
+> +	return 1;
+> +
+> +fail:
+> +	return 0;
+> +}
+> +
+
+I think you missed one of my earlier comments:
+Do you really need this goto? You should just "return 0" instead of
+"goto fail"
+Same with many other similar places where the "fail:" just simply
+returns 0 such as igmp, ipv6_icmp, ipv4_udp, etc
+
+BTW, i still think there may be a clever way to unify things - but we
+can leave that for another day;-> If you fix the above please add
+my Acked-by.
+
+cheers,
+jamal
+
