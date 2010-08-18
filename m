@@ -1,59 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] irda: fix a race in irlan_eth_xmit()
-Date: Wed, 18 Aug 2010 12:24:43 +0200
-Message-ID: <1282127083.2194.45.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Samuel Ortiz <samuel@sortiz.org>, netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH] ll_temac: Fix poll implementation
+Date: Wed, 18 Aug 2010 12:26:34 +0200
+Message-ID: <1282127194-4185-1-git-send-email-monstr@monstr.eu>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Michal Simek <monstr@monstr.eu>
+To: glikely@secretlab.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41041 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751902Ab0HRKYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 06:24:47 -0400
-Received: by wyb32 with SMTP id 32so607871wyb.19
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 03:24:46 -0700 (PDT)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43495 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752223Ab0HRK0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 06:26:39 -0400
+Received: by bwz11 with SMTP id 11so58396bwz.19
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 03:26:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After skb is queued, its illegal to dereference it.
+Functions ll_temac_rx_irq and ll_temac_tx_irq
+have pointer to net_device as second parameter not
+pointer to temac_local.
 
-Cache skb->len into a temporary variable.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Michal Simek <monstr@monstr.eu>
 ---
- net/irda/irlan/irlan_eth.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ll_temac_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/irda/irlan/irlan_eth.c b/net/irda/irlan/irlan_eth.c
-index 9616c32..5bb8353 100644
---- a/net/irda/irlan/irlan_eth.c
-+++ b/net/irda/irlan/irlan_eth.c
-@@ -169,6 +169,7 @@ static netdev_tx_t irlan_eth_xmit(struct sk_buff *skb,
- {
- 	struct irlan_cb *self = netdev_priv(dev);
- 	int ret;
-+	unsigned int len;
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index c7b6247..bdf2149 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -902,8 +902,8 @@ temac_poll_controller(struct net_device *ndev)
+ 	disable_irq(lp->tx_irq);
+ 	disable_irq(lp->rx_irq);
  
- 	/* skb headroom large enough to contain all IrDA-headers? */
- 	if ((skb_headroom(skb) < self->max_header_size) || (skb_shared(skb))) {
-@@ -188,6 +189,7 @@ static netdev_tx_t irlan_eth_xmit(struct sk_buff *skb,
+-	ll_temac_rx_irq(lp->tx_irq, lp);
+-	ll_temac_tx_irq(lp->rx_irq, lp);
++	ll_temac_rx_irq(lp->tx_irq, ndev);
++	ll_temac_tx_irq(lp->rx_irq, ndev);
  
- 	dev->trans_start = jiffies;
- 
-+	len = skb->len;
- 	/* Now queue the packet in the transport layer */
- 	if (self->use_udata)
- 		ret = irttp_udata_request(self->tsap_data, skb);
-@@ -209,7 +211,7 @@ static netdev_tx_t irlan_eth_xmit(struct sk_buff *skb,
- 		self->stats.tx_dropped++;
- 	} else {
- 		self->stats.tx_packets++;
--		self->stats.tx_bytes += skb->len;
-+		self->stats.tx_bytes += len;
- 	}
- 
- 	return NETDEV_TX_OK;
-
+ 	enable_irq(lp->tx_irq);
+ 	enable_irq(lp->rx_irq);
+-- 
+1.5.5.6
 
