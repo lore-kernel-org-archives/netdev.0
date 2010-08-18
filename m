@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/14 net-next] more TIPC fixes and updates
-Date: Tue, 17 Aug 2010 17:33:27 -0700 (PDT)
-Message-ID: <20100817.173327.71102283.davem@davemloft.net>
-References: <1282078816-11844-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] net: Fix a memmove bug in dev_gro_receive()
+Date: Tue, 17 Aug 2010 17:37:56 -0700 (PDT)
+Message-ID: <20100817.173756.193693195.davem@davemloft.net>
+References: <F2E9EB7348B8264F86B6AB8151CE2D7920AD46E911@shsmsx502.ccr.corp.intel.com>
+	<20100810083426.GA11509@ff.dom.local>
+	<20100811120210.GA24019@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
-To: paul.gortmaker@windriver.com
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: jarkao2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41004
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47206
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752163Ab0HRAdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 20:33:09 -0400
-In-Reply-To: <1282078816-11844-1-git-send-email-paul.gortmaker@windriver.com>
+	by vger.kernel.org with ESMTP id S1752334Ab0HRAhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Aug 2010 20:37:38 -0400
+In-Reply-To: <20100811120210.GA24019@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 17 Aug 2010 17:00:02 -0400
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Wed, 11 Aug 2010 12:02:10 +0000
 
-> With net-next reopened, here is another batch of TIPC patches primarily
-> from the out-of-kernel repo.  There is no real binding between any of the
-> commits aside from taking what appear to be stand-alone bits and migrating
-> them across and fixing up minor coding style things etc.  I believe there
-> will be a chance to get a lot more of this done in this dev window, so
-> hopefully this will be just one batch of several that I end up sending.
+>>Xin Xiaohui wrote:
+>> I looked into the code dev_gro_receive(), found the code here:
+>> if the frags[0] is pulled to 0, then the page will be released,
+>> and memmove() frags left.
+>> Is that right? I'm not sure if memmove do right or not, but
+>> frags[0].size is never set after memove at least. what I think
+>> a simple way is not to do anything if we found frags[0].size == 0.
+>> The patch is as followed.
+> ...
 > 
-> Basic runtime sanity test done on v2.6.36-rc1, and all patches git am
-> cleanly on the net-next of today as well.
+> This version of the patch fixes the bug directly in memmove.
+> 
+> Reported-by: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 
-All applied except patch #11, as explained in my reply to that patch
-posting.
+Applied thanks a lot Jarek.
