@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] net/sched: remove unneeded NULL check
-Date: Wed, 18 Aug 2010 14:27:38 -0700 (PDT)
-Message-ID: <20100818.142738.48517986.davem@davemloft.net>
-References: <20100814210949.GB645@bicker>
+Subject: Re: [PATCH 8/16] net/ax25: Use available error codes
+Date: Wed, 18 Aug 2010 14:28:20 -0700 (PDT)
+Message-ID: <20100818.142820.260103905.davem@davemloft.net>
+References: <Pine.LNX.4.64.1008161826390.19313@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, kaber@trash.net, jarkao2@gmail.com,
-	eric.dumazet@gmail.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: error27@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60923
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754468Ab0HRV1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 17:27:19 -0400
-In-Reply-To: <20100814210949.GB645@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ralf@linux-mips.org, linux-hams@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1008161826390.19313@ask.diku.dk>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Sat, 14 Aug 2010 23:09:49 +0200
+From: Julia Lawall <julia@diku.dk>
+Date: Mon, 16 Aug 2010 18:26:57 +0200 (CEST)
 
-> There is no need to check "s".  nla_data() doesn't return NULL.  Also we
-> already dereferenced "s" at this point so it would have oopsed ealier if
-> it were NULL.
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> Error codes are stored in err, but the return value is always 0.  Return
+> err instead.
+> 
+> The semantic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
 Applied.
