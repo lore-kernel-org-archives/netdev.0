@@ -1,72 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] atm: remove a net_device_stats clear
-Date: Wed, 18 Aug 2010 22:44:34 +0200
-Message-ID: <1282164274.2328.2.camel@edumazet-laptop>
-References: <1282061719-19645-1-git-send-email-tklauser@distanz.ch>
-	 <1282115064-3701-1-git-send-email-tklauser@distanz.ch>
-	 <20100818083304.2ef2eea4@nehalam>
-	 <20100818.131043.226780154.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, tklauser@distanz.ch, linux@arm.linux.org.uk,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	kernel-janitors@vger.kernel.org, error27@gmail.com
-To: David Miller <davem@davemloft.net>
+From: Mitchell Erblich <erblichs@earthlink.net>
+Subject: Re: Broadcom 5709 take long time to bring up
+Date: Wed, 18 Aug 2010 13:44:53 -0700
+Message-ID: <70AE41F9-6FB7-43E3-A0C0-450E964A9B56@earthlink.net>
+References: <20100818143432.GA29386@joejin-pc.cn.oracle.com> <1282147735.3880.83.camel@localhost>
+Mime-Version: 1.0 (Apple Message framework v1081)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Joe Jin" <joe.jin@oracle.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"terry.liu@oracle.com" <terry.liu@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Benjamin Li <benli@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:46291 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753277Ab0HRUoj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 16:44:39 -0400
-In-Reply-To: <20100818.131043.226780154.davem@davemloft.net>
+Received: from elasmtp-dupuy.atl.sa.earthlink.net ([209.86.89.62]:41169 "EHLO
+	elasmtp-dupuy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753277Ab0HRUpC convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Aug 2010 16:45:02 -0400
+In-Reply-To: <1282147735.3880.83.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 18 ao=C3=BBt 2010 =C3=A0 13:10 -0700, David Miller a =C3=A9=
-crit :
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Wed, 18 Aug 2010 08:33:04 -0700
->=20
-> > On Wed, 18 Aug 2010 09:04:24 +0200
-> > Tobias Klauser <tklauser@distanz.ch> wrote:
-> >=20
-> >> =20
-> >> -	memset (&priv(dev)->stats, 0, sizeof (struct net_device_stats));
-> >> +	memset(&dev->stats, 0, sizeof(struct net_device_stats));
-> >=20
-> > This is incorrect, just remove the memset.  The stats are initializ=
-ed
-> > when device is created.  The Linux device driver convention is to
-> > keep stats when device is set down and brought back up; that is wha=
-t
-> > the majority of other drivers do.
->=20
-> Yep, both the ether1 and ether3 patch have this problem.  Looks
-> like we'll see v4 coming some :-)
 
-To be fair, we accepted some bits like that in the past ;)
+On Aug 18, 2010, at 9:08 AM, Benjamin Li wrote:
 
-[PATCH net-next-2.6] atm: remove a net_device_stats clear
+> Hi Joe,
+> 
+> Just a couple of quick questions:
+> 
+> 1.  It is possible that autonegotiation could take in the orders of
+> seconds depending on the remote partner.   
 
-No need to clear device stats in lec_open()
+No. It happens in ms.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-net/atm/lec.c |    1 -
-1 file changed, 1 deletion(-)
+Mitchell Erblich
 
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index d98bde1..181d70c 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -220,7 +220,6 @@ static unsigned char *get_tr_dst(unsigned char *pac=
-ket, unsigned char *rdesc)
- static int lec_open(struct net_device *dev)
- {
- 	netif_start_queue(dev);
--	memset(&dev->stats, 0, sizeof(struct net_device_stats));
-=20
- 	return 0;
- }
-
+> Could you describe the remote
+> partner?
+> 
+> 2.  Are there iSCSI offload connections?  With iSCSI there is
+> additionial overhead to cleanup/setup iSCSI connections on the
+> chip/firmware when ifup'ing/ifdown'ing a network interface.
+> 
+> 3.  Could you provide the kernel logs during this up/down test?  I
+> wanted to see if there was anything interesting in the kernel logs.
+> 
+> Thanks again.
+> 
+> -Ben
+> 
+> 
+> On Wed, 2010-08-18 at 07:34 -0700, Joe Jin wrote:
+>> Hi Michael,
+>> 
+>> We try boning two broadcom 5709 nics with active-backup mode, we try to
+>> down/up one of the nics, I found some ping packets loss as below:
+>> # ifdown eth0 
+>> # ifup eth0  <-- no pkg loss 
+>> # ifdown eth1 
+>> # ifup eth1  <-- 2 pkg loss 
+>> # ifdown eth0 
+>> # ifup eth0  <-- 10 pkg loss 
+>> # ifdown eth1 
+>> # ifup eth1 <-- no pkg loss 
+>> # ifdown eth0 
+>> # ifup eth0  <-- 10 pkg loss 
+>> 
+>> module bond parameter are:
+>> "mode=1 miimon=100 primary=eth0 downdelay=100 updelay=100"
+>> 
+>> we have tried the latest driver(2.0.8c) of broadcom and Redhat el5.5
+>> official driver(2.0.2), result are same.
+>> 
+>> I checked and debugged the driver found it caused by take long time(~3s)
+>> to bring up the device. here are link state when call if up:
+>> # ifdown eth0 
+>> # ifup eth0   
+>> #ip -o link | grep eth0 
+>> 2: eth0: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000\    link/ether 00:26:55:4f:1f:18 brd ff:ff:ff:ff:ff:ff 
+>> # ifdown eth1 
+>> # ifup eth1   
+>> #ip -o link | grep eth1 
+>> 3: eth1: <NO-CARRIER,BROADCAST,MULTICAST,SLAVE,UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000\    link/ether 00:26:55:4f:1f:18 brd ff:ff:ff:ff:ff:ff 
+>> # ifdown eth0 
+>> # ifup eth0   
+>> #ip -o link | grep eth0 
+>> 2: eth0: <NO-CARRIER,BROADCAST,MULTICAST,SLAVE,UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000\    link/ether 00:26:55:4f:1f:18 brd ff:ff:ff:ff:ff:ff 
+>> # ifdown eth1 
+>> # ifup eth1   
+>> #ip -o link | grep eth1 
+>> 3: eth1: <NO-CARRIER,BROADCAST,MULTICAST,SLAVE,UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000\    link/ether 00:26:55:4f:1f:18 brd ff:ff:ff:ff:ff:ff 
+>> # ifdown eth0 
+>> # ifup eth0 
+>> #ip -o link | grep eth0 
+>> 2: eth0: <NO-CARRIER,BROADCAST,MULTICAST,SLAVE,UP> mtu 1500 qdisc pfifo_fast master bond0 qlen 1000\    link/ether 00:26:55:4f:1f:18 brd ff:ff:ff:ff:ff:ff 
+>> 
+>> So, the question is how long alway will take when bring up the interface?
+>> 3 seconds as expection or no? if not, is that a firmware issure or driver
+>> issue?
+>> 
+>> Thanks,
+>> Joe
+>> 
+>> 
+>> 
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
