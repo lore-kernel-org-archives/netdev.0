@@ -1,52 +1,39 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Wed, 18 Aug 2010 16:04:40 +0200
-Message-ID: <20100818140440.GA22655@riccoc20.at.omicron.at>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
-	<201008170925.55592.arnd@arndb.de>
-	<20100817105232.GA9079@riccoc20.at.omicron.at>
-	<201008171336.29375.arnd@arndb.de>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [TCP]: =?UTF-8?Q?min=5Ft/max=5Ft=20confusion=20in=20tcp=5Fsel?=  =?UTF-8?Q?ect=5Finitial=5Fwindow=28=29=3F?=
+Date: Wed, 18 Aug 2010 16:09:30 +0200
+Message-ID: <93bf5f79c0e69b1853298bbce1876b5b@localhost>
+References: <4B3179B8.5000403@gmail.com>
+ <20091222.194747.193724694.davem@davemloft.net>
+ <alpine.DEB.2.00.0912232140500.10866@melkinpaasi.cs.helsinki.fi>
+ <20091223.131526.193724825.davem@davemloft.net>
+ <alpine.DEB.2.00.0912232321090.10866@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <201008171336.29375.arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <roel.kluin@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:34142 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753190Ab0HROJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 10:09:48 -0400
+In-Reply-To: <alpine.DEB.2.00.0912232321090.10866@melkinpaasi.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 17, 2010 at 01:36:29PM +0200, Arnd Bergmann wrote:
-> On Tuesday 17 August 2010, Richard Cochran wrote:
-> > I've been looking at offering the PTP clock as a posix clock, and it
-> > is not as hard as I first thought. The PTP clock or clocks just have
-> > to be registered as one of the posix_clocks[MAX_CLOCKS] in
-> > posix-timers.c.
-> 
-> Ok sounds good.
 
-I've been working turning the PTP stuff into syscalls, but here is a
-little issue I ran into. The PTP clock layer wants to call the PPS
-code via pps_register_source(), but the PPS can be compiled as a
-module. Since the PTP layer is now offering syscalls, it must always
-be present in the kernel. So I need to make sure that the PPS is
-either absent entirely or staticly linked in.
+On Wed, 23 Dec 2009 23:23:11 +0200 (EET), "Ilpo J=C3=A4rvinen" wrote:=0D
+=0D
+> Yeah, I'm wrong, and besides misread your "It looks correct" to mean =
+the=0D
+=0D
+> proposed change rather than the current code.=0D
+=0D
+But the code is not correct if we consider reduced buffers via=0D
+setsockopt(), some days ago I sent a patch to fix the problem.=0D
+=0D
+Ilpo? David?=0D
+=0D
+Hagen=0D
 
-How can I do this?
-
-Thanks,
-
-Richard
