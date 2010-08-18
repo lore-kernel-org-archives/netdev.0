@@ -1,35 +1,43 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] net/sched: add ACT_CSUM action to update packets
- checksums
-Date: Wed, 18 Aug 2010 06:42:37 -0400
-Message-ID: <1282128157.23601.1.camel@bigi>
-References: <20100816211542.GA21083@n7mm.org> <1281996019.5765.6.camel@bigi>
-	 <20100816230217.GA24125@n7mm.org> <1282048602.5765.752.camel@bigi>
-	 <20100818000425.GC24125@n7mm.org>
-Reply-To: hadi@cyberus.ca
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] qlnic: fix a race in qlcnic_get_stats()
+Date: Wed, 18 Aug 2010 12:42:48 +0200
+Message-ID: <1282128168.2194.49.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Gr=E9goire?= Baron <baronchon@n7mm.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:36683 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752711Ab0HRKmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 06:42:42 -0400
-Received: by qyk33 with SMTP id 33so448879qyk.19
-        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 03:42:42 -0700 (PDT)
-In-Reply-To: <20100818000425.GC24125@n7mm.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63825 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752711Ab0HRKmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 06:42:53 -0400
+Received: by wwi17 with SMTP id 17so651276wwi.1
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 03:42:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-08-18 at 02:04 +0200, Gr=C3=A9goire Baron wrote:
-> Thank you for your help!
-> I've just sent a new version (v2) of this patch.
+Dont clear netdev->stats, it might give transient wrong values to
+concurrent stat readers.
 
-No need for OOB msg - just Cc patch next time.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/qlcnic/qlcnic_main.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-cheers,
-jamal=20
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index abd7cd6..d71d44a 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -1980,8 +1980,6 @@ static struct net_device_stats *qlcnic_get_stats(struct net_device *netdev)
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct net_device_stats *stats = &netdev->stats;
+ 
+-	memset(stats, 0, sizeof(*stats));
+-
+ 	stats->rx_packets = adapter->stats.rx_pkts + adapter->stats.lro_pkts;
+ 	stats->tx_packets = adapter->stats.xmitfinished;
+ 	stats->rx_bytes = adapter->stats.rxbytes + adapter->stats.lrobytes;
+
 
