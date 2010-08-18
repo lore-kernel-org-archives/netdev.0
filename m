@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] PPTP: PPP over IPv4 (Point-to-Point Tunneling
- Protocol)
-Date: Wed, 18 Aug 2010 14:23:15 -0700 (PDT)
-Message-ID: <20100818.142315.183039464.davem@davemloft.net>
-References: <1282119905.2194.38.camel@edumazet-laptop>
-	<E1Olg2s-0007BB-00.xeb-mail-ru@f30.mail.ru>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Broadcom 5709 take long time to bring up
+Date: Wed, 18 Aug 2010 14:25:57 -0700
+Message-ID: <4C6C4FE5.20509@hp.com>
+References: <20100818143432.GA29386@joejin-pc.cn.oracle.com>	<1282147735.3880.83.camel@localhost> <70AE41F9-6FB7-43E3-A0C0-450E964A9B56@earthlink.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xeb@mail.ru
+Cc: Benjamin Li <benli@broadcom.com>, Joe Jin <joe.jin@oracle.com>,
+	Michael Chan <mchan@broadcom.com>,
+	"terry.liu@oracle.com" <terry.liu@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Mitchell Erblich <erblichs@earthlink.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54967
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753155Ab0HRVW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 17:22:56 -0400
-In-Reply-To: <E1Olg2s-0007BB-00.xeb-mail-ru@f30.mail.ru>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:36315 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191Ab0HRV0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 17:26:00 -0400
+In-Reply-To: <70AE41F9-6FB7-43E3-A0C0-450E964A9B56@earthlink.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kozlov <xeb@mail.ru>
-Date: Wed, 18 Aug 2010 14:38:58 +0400
-
-> Hi Eric!
-> Thanks for comments. All your comments was accepted except:
+Mitchell Erblich wrote:
+> On Aug 18, 2010, at 9:08 AM, Benjamin Li wrote:
 > 
->> > +static struct ppp_channel_ops pptp_chan_ops = {
->> 
->> static const ?
 > 
-> not, because po->chan.ops = &pptp_chan_ops which is not const
+>>Hi Joe,
+>>
+>>Just a couple of quick questions:
+>>
+>>1.  It is possible that autonegotiation could take in the orders of
+>>seconds depending on the remote partner.   
+> 
+> 
+> No. It happens in ms.
+> 
+> Mitchell Erblich
 
-Yes it is:
+Both may be correct, depending on the context.  The IEEE specs likely mandate 
+that autonegotiation take no longer than N ms, but there may indeed be kit out 
+there that takes rather longer...
 
-davem@sunset:~/src/GIT/linux-2.6$ git grep ppp_channel_ops -- include/linux/
-include/linux/ppp_channel.h:struct ppp_channel_ops {
-include/linux/ppp_channel.h:	const struct ppp_channel_ops *ops; /* operations for this channel */
-davem@sunset:~/src/GIT/linux-2.6$ 
+rick jones
