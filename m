@@ -1,39 +1,50 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [TCP]: =?UTF-8?Q?min=5Ft/max=5Ft=20confusion=20in=20tcp=5Fsel?=  =?UTF-8?Q?ect=5Finitial=5Fwindow=28=29=3F?=
-Date: Wed, 18 Aug 2010 16:09:30 +0200
-Message-ID: <93bf5f79c0e69b1853298bbce1876b5b@localhost>
-References: <4B3179B8.5000403@gmail.com>
- <20091222.194747.193724694.davem@davemloft.net>
- <alpine.DEB.2.00.0912232140500.10866@melkinpaasi.cs.helsinki.fi>
- <20091223.131526.193724825.davem@davemloft.net>
- <alpine.DEB.2.00.0912232321090.10866@melkinpaasi.cs.helsinki.fi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] ehea: Allocate stats buffer with GFP_KERNEL
+Date: Wed, 18 Aug 2010 16:10:52 +0200
+Message-ID: <1282140652.2194.90.camel@edumazet-laptop>
+References: <201006302159.o5ULx8ow025348@d01av03.pok.ibm.com>
+	 <20100701.224805.221588889.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <roel.kluin@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Cc: brking@linux.vnet.ibm.com, ossthema@de.ibm.com,
+	osstklei@de.ibm.com, raisch@de.ibm.com, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:34142 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753190Ab0HROJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 10:09:48 -0400
-In-Reply-To: <alpine.DEB.2.00.0912232321090.10866@melkinpaasi.cs.helsinki.fi>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63840 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753383Ab0HROLF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Aug 2010 10:11:05 -0400
+Received: by wwi17 with SMTP id 17so882329wwi.1
+        for <netdev@vger.kernel.org>; Wed, 18 Aug 2010 07:11:03 -0700 (PDT)
+In-Reply-To: <20100701.224805.221588889.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le jeudi 01 juillet 2010 =C3=A0 22:48 -0700, David Miller a =C3=A9crit =
+:
+> From: Brian King <brking@linux.vnet.ibm.com>
+> Date: Wed, 30 Jun 2010 16:59:12 -0500
+>=20
+> >=20
+> > Since ehea_get_stats calls ehea_h_query_ehea_port, which
+> > can sleep, we can also sleep when allocating a page in
+> > this function. This fixes some memory allocation failure
+> > warnings seen under low memory conditions.
+> >=20
+> > Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+>=20
+> Applied to net-next-2.6
+> --
 
-On Wed, 23 Dec 2009 23:23:11 +0200 (EET), "Ilpo J=C3=A4rvinen" wrote:=0D
-=0D
-> Yeah, I'm wrong, and besides misread your "It looks correct" to mean =
-the=0D
-=0D
-> proposed change rather than the current code.=0D
-=0D
-But the code is not correct if we consider reduced buffers via=0D
-setsockopt(), some days ago I sent a patch to fix the problem.=0D
-=0D
-Ilpo? David?=0D
-=0D
-Hagen=0D
+I believe there is a problem with this patch and/or bonding.
+
+If we say ndo_get_stats() methods are allowed to sleep, then=20
+bond_get_stats() should be updated, because it currently calls
+dev_get_stats() from a read_lock_bh(&bond->lock); section.
+
+Are we allowed to sleep inside a read_lock_bh() ?
+
+
 
