@@ -1,95 +1,53 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH] tcp: allow effective reduction of TCP's rcv-buffer via setsockopt
-Date: Thu, 19 Aug 2010 18:33:05 +0200
-Message-ID: <1282235585-14206-1-git-send-email-hagen@jauu.net>
+From: Debashis Dutt <ddutt@Brocade.COM>
+Subject: RE: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
+Date: Thu, 19 Aug 2010 09:36:30 -0700
+Message-ID: <F363E7AC84E1B646A0358B281A46F4AEA9A11C124B@HQ1-EXCH03.corp.brocade.com>
+References: <201008110418.o7B4IZeL002650@blc-10-10.brocade.com>
+ <20100818130309.GL9073@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?q?Ilpo=20J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Simon Horman <horms@verge.net.au>, Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:53588 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752090Ab0HSQdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 12:33:20 -0400
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:42671 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752468Ab0HSQgl convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Aug 2010 12:36:41 -0400
+In-Reply-To: <20100818130309.GL9073@verge.net.au>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Via setsockopt it is possible to reduce the socket RX buffer
-(SO_RCVBUF). TCP method to select the initial window and window scaling
-option in tcp_select_initial_window() currently misbehaves and do not
-consider a reduced RX socket buffer via setsockopt.
+Hi Simon, 
 
-Even though the server's RX buffer is reduced via setsockopt() to 256
-byte (Initial Window 384 byte =3D> 256 * 2 - (256 * 2 / 4)) the window
-scale option is still 7:
+Thanks for your feedback. 
+The only reason that we did not put a separate subject line
+for each of the patches is because this is a whole new driver
+submission, waiting for acceptance. So these are not really logically
+separate entities (unlike other patches adding features / bug fixes).
 
-192.168.1.38.40676 > 78.47.222.210.5001: Flags [S], seq 2577214362, win=
- 5840, options [mss 1460,sackOK,TS val 338417 ecr 0,nop,wscale 0], leng=
-th 0
-78.47.222.210.5001 > 192.168.1.38.40676: Flags [S.], seq 1570631029, ac=
-k 2577214363, win 384, options [mss 1452,sackOK,TS val 2435248895 ecr 3=
-38417,nop,wscale 7], length 0
-192.168.1.38.40676 > 78.47.222.210.5001: Flags [.], ack 1, win 5840, op=
-tions [nop,nop,TS val 338421 ecr 2435248895], length 0
+If you still think that we should try to logically separate the patches
+please let me know.
 
-Within tcp_select_initial_window() the original space argument - a
-representation of the rx buffer size - is expanded during
-tcp_select_initial_window(). Only sysctl_tcp_rmem[2], sysctl_rmem_max
-and window_clamp are considered to calculate the initial window.
+Thanks
+--Debashis
+Brocade Linux Driver Team.
 
-This patch adjust the window_clamp argument if the user explicitly
-reduce the receive buffer.
 
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_output.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index de3bd84..01b94b8 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2429,6 +2429,12 @@ struct sk_buff *tcp_make_synack(struct sock *sk,=
- struct dst_entry *dst,
- 		__u8 rcv_wscale;
- 		/* Set this up on the first call only */
- 		req->window_clamp =3D tp->window_clamp ? : dst_metric(dst, RTAX_WIND=
-OW);
-+
-+		/* limit the window selection if the user enforce a smaller rx buffe=
-r */
-+		if (sk->sk_userlocks & SOCK_RCVBUF_LOCK &&
-+		    (req->window_clamp > tcp_full_space(sk) || req->window_clamp =3D=
-=3D 0))
-+			req->window_clamp =3D tcp_full_space(sk);
-+
- 		/* tcp_full_space because it is guaranteed to be the first packet */
- 		tcp_select_initial_window(tcp_full_space(sk),
- 			mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
-@@ -2555,6 +2561,11 @@ static void tcp_connect_init(struct sock *sk)
-=20
- 	tcp_initialize_rcv_mss(sk);
-=20
-+	/* limit the window selection if the user enforce a smaller rx buffer=
- */
-+	if (sk->sk_userlocks & SOCK_RCVBUF_LOCK &&
-+	    (tp->window_clamp > tcp_full_space(sk) || tp->window_clamp =3D=3D=
- 0))
-+		tp->window_clamp =3D tcp_full_space(sk);
-+
- 	tcp_select_initial_window(tcp_full_space(sk),
- 				  tp->advmss - (tp->rx_opt.ts_recent_stamp ? tp->tcp_header_len - =
-sizeof(struct tcphdr) : 0),
- 				  &tp->rcv_wnd,
---=20
-1.7.2.1.95.g3d045.dirty
+-----Original Message-----
+From: Simon Horman [mailto:horms@verge.net.au] 
+Sent: Wednesday, August 18, 2010 6:03 AM
+To: Rasesh Mody
+Cc: netdev@vger.kernel.org; Adapter Linux Open SRC Team
+Subject: Re: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
 
+Hi Rasesh,
+
+it would be helpful if all six patches in your series
+didn't feature the same subject and each had unique
+description that described them in a little more detail.
+
+Thanks
