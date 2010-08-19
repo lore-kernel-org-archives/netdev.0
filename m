@@ -1,91 +1,120 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Thu, 19 Aug 2010 17:38:47 +0200
-Message-ID: <20100819153847.GA10695@riccoc20.at.omicron.at>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
- <1282176776.2865.100.camel@localhost.localdomain>
- <20100819055518.GA4084@riccoc20.at.omicron.at>
- <201008191428.04546.arnd@arndb.de>
+From: yao zhao <dragonlinux@gmail.com>
+Subject: Re: [PATCH v2] netfilter: save the hash of the tuple in the original
+ direction for latter use
+Date: Thu, 19 Aug 2010 11:41:44 -0400
+Message-ID: <AANLkTikB6eggCzHuPZo9gHQyN66M_wuaahzAe2PM1M9F@mail.gmail.com>
+References: <1282228389-3029-1-git-send-email-xiaosuo@gmail.com>
+	<20100819152149.GA19744@Krystal>
+	<AANLkTim5wn0Y-+081gvm7FkWx3NioRvtRMWy2uF4nji2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john stultz <johnstul@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Rodolfo Giometti <giometti@linux.it>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:39739 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824Ab0HSPi2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 11:38:28 -0400
-Content-Disposition: inline
-In-Reply-To: <201008191428.04546.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTim5wn0Y-+081gvm7FkWx3NioRvtRMWy2uF4nji2@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 19, 2010 at 02:28:04PM +0200, Arnd Bergmann wrote:
-> My point was that a syscall is better than an ioctl based interface here,
-> which I definitely still think. Given that John knows much more about
-> clocks than I do, we still need to get agreement on the question that
-> he raised, which is whether we actually need to expose this clock to the
-> user or not.
-> 
-> If we can find a way to sync system time accurate enough with PTP and
-> PPS, user applications may not need to see two separate clocks at all.
+On Thu, Aug 19, 2010 at 11:35 AM, Changli Gao <xiaosuo@gmail.com> wrote=
+:
+> On Thu, Aug 19, 2010 at 11:21 PM, Mathieu Desnoyers
+> <mathieu.desnoyers@polymtl.ca> wrote:
+>> * Changli Gao (xiaosuo@gmail.com) wrote:
+>>> Since we don't change the tuple in the original direction, we can s=
+ave it
+>>> in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_co=
+nfirm()
+>>> use.
+>>>
+>>> __hash_conntrack() is split into two steps: ____hash_conntrack() is=
+ used
+>>> to get the raw hash, and __hash_bucket() is used to get the bucket =
+id.
+>>>
+>>> In SYN-flood case, early_drop() doesn't need to recompute the hash =
+again.
+>>>
+>>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>>> ---
+>>> v2: use cmpxchg() to save 2 variables.
+>>> =A0net/netfilter/nf_conntrack_core.c | =A0114 +++++++++++++++++++++=
++++++------------
+>>> =A01 file changed, 79 insertions(+), 35 deletions(-)
+>>> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_c=
+onntrack_core.c
+>>> index df3eedb..0e02205 100644
+>>> --- a/net/netfilter/nf_conntrack_core.c
+>>> +++ b/net/netfilter/nf_conntrack_core.c
+>>> @@ -65,14 +65,20 @@ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+>>> =A0DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
+>>> =A0EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+>>>
+>>> -static int nf_conntrack_hash_rnd_initted;
+>>> -static unsigned int nf_conntrack_hash_rnd;
+>>> -
+>>> -static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple =
+*tuple,
+>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 u16 z=
+one, unsigned int size, unsigned int rnd)
+>>> +static u32 ____hash_conntrack(const struct nf_conntrack_tuple *tup=
+le, u16 zone)
+>>> =A0{
+>>> =A0 =A0 =A0 unsigned int n;
+>>> =A0 =A0 =A0 u_int32_t h;
+>>> + =A0 =A0 static unsigned int rnd;
+>>
+>> Why are you putting a hidden static variable here ? It should probab=
+ly
+>> be declared outside of the function scope.
+>
+> It is only used in this function.
 
-At the very least, one user application (the PTPd) needs to see the
-PTP clock.
+Looks like it is only initialized once to rnd then it should go a "init=
+".
 
-> > SYSCALL_DEFINE3(clock_adjtime, const clockid_t, clkid,
-> > 		int, ppb, struct timespec __user *, ts)
-> > 
-> > ppb - desired frequency adjustment in parts per billion
-> > ts  - desired time step (or jump) in <sec,nsec> to correct
-> >       a measured offset
-> > 
-> > Arguably, this syscall might be useful for other clocks, too.
-> 
-> This is a mix of adjtime and adjtimex with the addition of
-> the clkid parameter, right?
+>
+>>
+>>> +
+>>> + =A0 =A0 if (unlikely(!rnd)) {
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 unsigned int rand;
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 get_random_bytes(&rand, sizeof(rand));
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 if (!rand)
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rand =3D 1;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 cmpxchg(&rnd, 0, rand);
+>>
+>> This really belongs to a "init()" function, not in a dynamic check i=
+n
+>> the __hash_conntrack hot path. If you do that a init time, then you
+>> don't even need the cmpxchg.
+>>
+>> Or maybe I completely misunderstand you goal here; maybe you are rea=
+lly
+>> trying to re-calculate random bytes. But more explanation is called =
+for,
+>> because I really don't see where the value is brought back to 0.
+>>
+>
+> In fact, I don't know the reason clearly. This code is derived from
+> the older one. Maybe there isn't enough entropy when initializing.
+>
+> --
+> Regards,
+> Changli Gao(xiaosuo@gmail.com)
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
 
-Sort of, but not really. ADJTIME(3) takes an offset and slowly
-corrects the clock using a servo in the kernel, over hours.
-
-For this function, the offset passed in the 'ts' parameter will be
-immediately corrected, by jumping to the new time. This reflects the
-way that PTP works. After the first few samples, the PTPd has an
-estimate of the offset to the master and the rate difference. The PTPd
-can proceed in one of two ways.
-
-1. If resetting the clock is not desired, then the clock is set to the
-   maximum adjustment (in the right direction) until the clock time is
-   close to the master's time.
-
-2. The estimated offset is added to the current time, resulting in a
-   jump in time.
-
-We need clock_adjtime(id, 0, ts) for the second case.
-
-> Have you considered passing a struct timex instead of ppb and ts?
-
-Yes, but the timex is not suitable, IMHO.
-
-> Is using ppb instead of the timex ppm required to get the accuracy
-> you want?
-
-That is one very good reason.
-
-Another is this: can you explain what the 20+ fields mean?
-
-Consider the field, freq. The comment says "frequency offset (scaled
-ppm)."  To what is it scaled? The only way I know of to find out is to
-read the NTP code (which is fairly complex) and see what the unit
-really is meant to be. Ditto for the other fields.
-
-The timex structure reveals, AFAICT, the inner workings of the kernel
-clock servo. For PTP, we don't need or want the kernel servo. The PTPd
-has its own clock servo in user space.
-
-Richard
+yao
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
