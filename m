@@ -1,48 +1,80 @@
-From: Zach Brown <zach.brown-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: ipoib neighbour free race?
-Date: Thu, 19 Aug 2010 12:10:45 -0700
-Message-ID: <20100819191045.GA5811@takashi.pdx.zabbo.net>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: Re: [PATCH 2/2] platform: Facilitate the creation of pseudo-platform buses
+Date: Thu, 19 Aug 2010 12:20:14 -0700
+Message-ID: <87hbiql89d.fsf@deeprootsystems.com>
+References: <1281484174-32174-1-git-send-email-ppannuto@codeaurora.org>
+	<1281484174-32174-3-git-send-email-ppannuto@codeaurora.org>
+	<3F978429-F916-42E5-8B36-6AC02DAC8CA2@boeing.com>
+	<AANLkTi=Pm8BL+Ksq1o7MYpV7mMH10bEPu1=Am9EgT-Kk@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Moffett\, Kyle D" <Kyle.D.Moffett@boeing.com>,
+	Patrick Pannuto <ppannuto@codeaurora.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-msm\@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
+	"magnus.damm\@gmail.com" <magnus.damm@gmail.com>,
+	"gregkh\@suse.de" <gregkh@suse.de>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Magnus Damm <damm@opensource.se>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Dmitry Torokhov <dtor@mail.ru>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kyle D Moffett <kyle@moffetthome.net>
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:49017 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753774Ab0HSTUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 15:20:18 -0400
+In-Reply-To: <AANLkTi=Pm8BL+Ksq1o7MYpV7mMH10bEPu1=Am9EgT-Kk@mail.gmail.com>
+	(Grant Likely's message of "Mon, 16 Aug 2010 00:43:01 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi gang,
+Grant Likely <grant.likely@secretlab.ca> writes:
 
-We're chasing a bug that we can hit when we pull IB cables with
-CONFIG_DEBUG_PAGE_ALLOC enabled.   It appears as though the to_ipoib_neigh() in
-ipoib_neigh_free() under ipoib_mcast_free() is referencing a freed neighbour
-struct.
+> I'm not convinced (yet) that this is the right approach, and I'd like
+> to see a few sample drivers converted to the new approach.  Creating
+> new bus_types that "inherit" from the platform_bus is actually not a
+> bad idea, and it is an elegant way to change the behaviour (for
+> example, how power management is implemented) for devices connected in
+> a different way.
+>
+> A problem with the approach that Kevin pointed out is that drivers
+> that need to work on both the platform_bus_type and the new
+> soc_bus_type must explicitly register themselves on both bus types.
 
-The invariant here, as far as I can tell, is that cleanup_neigh is always
-called as neighbours leave the hash.  We should never reference a freed
-neighbour from the ipoib_neigh teardown path because ipoib_neigh_cleanup()
-should free the ipoib_neigh before the neighbour drops its hash ref and can be
-freed.
+And potentially more than 2 if a driver exists for a hardware block on
+different SoCs.  Magnus raised this issue for drivers used across SH and
+ARM/SH-Mobile, and the same issue exists between TI OMAP and TI DaVinci
+SoCs.
 
-But I wonder if we can get a race during shutdown where ipoib_neigh_cleanup()
-is called before the send path sees a neighbour and associates it with an
-ipoib_neigh.  In that case we'd never get the neigh_cleanup() call to free the
-ipoib_neigh before the neighbour.  Later teardown of the ipoib_neigh, say from
-ipoib_mcast_free(), could try to clear the ipoib_neigh pointer in the freed
-neighbour.
+> There is no mechanism to allow drivers from one bus type to also be
+> made available to another bus type. Certainly it would be possible to
+> invent a mechanism, but the more I think about it, them more I think
+> it will be a bad idea.  The runtime-PM use-case that kicked this
+> discussion off makes the assumption that a driver will behave
+> identically when attached to either the platform_bus_type or the
+> soc_bus_type.  However, I think that in the general case that
+> assumption will prove to be false.  I strongly suspect that the new
+> bus type will turn out to be not as similar to the platform_bus_type
+> as originally assumed and that there will still be bus-type-specific
+> impact on device drivers
 
-neigh_forced_gc() and neigh_periodic_work() are careful to only remove
-neighbours from the table if their refcount is 1.  But neigh_flush_dev() can
-remove neighbours, and call neigh_cleanup(), while others are referencing it.
+What makes you suspect that?  Maybe Patrick has other use-cases in mind,
+but from a PM perspective, I have not seen any impact.
 
-My question, then, is whether or not neigh_flush_dev() race with the ipoib send
-paths?  If so, it seems that we could hit this race.
+One of the primary goals of this (at least for me and it seems Magnus also)
+is to keep drivers ignorant of their bus type, and any bus-type-specific
+code should be done in the bus_type implementation.
 
-It's been a long time (maybe a decade?!) since I worked with the networking
-paths, so maybe I'm missing serialization that prevents this.
+Both for SH and OMAP, we've been using the (admiteddly broken)
+weak-symbol-override approach to getting a custom bus-type based on the
+platform_bus.  We've been using that in OMAP for a while now and have
+not seen any need to for the drivers to know if they are on the vanilla
+platform_bus or the customized one.
 
-- z
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm very curious to hear what type of impact you expect to the drivers.
+
+Kevin
