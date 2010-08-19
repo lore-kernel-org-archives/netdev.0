@@ -1,58 +1,29 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] tcp: allow effective reduction of TCP's rcv-buffer via  setsockopt
-Date: Thu, 19 Aug 2010 08:58:46 +0200
-Message-ID: <62cfdf78ab776307fb132a5c8fde128e@localhost>
-References: <1281900976-11852-1-git-send-email-hagen@jauu.net>
- <20100818.233337.52187393.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] greth: Use return value of register_netdev
+Date: Thu, 19 Aug 2010 00:05:52 -0700 (PDT)
+Message-ID: <20100819.000552.220051390.davem@davemloft.net>
+References: <1282061484-19377-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <kaber@trash.net>,
-	<eric.dumazet@gmail.com>, <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>
+Cc: kristoffer@gaisler.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:52555 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750999Ab0HSG6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 02:58:48 -0400
-In-Reply-To: <20100818.233337.52187393.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52923
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751018Ab0HSHFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 03:05:33 -0400
+In-Reply-To: <1282061484-19377-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Tue, 17 Aug 2010 18:11:24 +0200
 
-On Wed, 18 Aug 2010 23:33:37 -0700 (PDT), David Miller wrote:
-
-> From: Hagen Paul Pfeifer <hagen@jauu.net>
-
-> Date: Sun, 15 Aug 2010 21:36:16 +0200
-
+> Use the return value provided by register_netdev on error instead of
+> hard setting it to -ENOMEM.
 > 
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
->> +
-
->> +		if (sk->sk_userlocks & SOCK_RCVBUF_LOCK &&
-
->> +				(req->window_clamp > tcp_full_space(sk) || req->window_clamp ==
-
-0))
-
->> +			req->window_clamp = tcp_full_space(sk);
-
->> +
-
-> 
-
-> Logically the patch looks fine, but please fix the indentation of the
-
-> second line of the two new if() statements in this patch, the
-
-> second line's first character should line up with the character
-
-> right after the openning "(" on the previous line.
-
-
-
-Sorry Dave, I played with my vim settings ... I will resubmit the patch.
-
-;-)
+Applied.
