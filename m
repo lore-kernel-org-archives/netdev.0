@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] vxge: Implement 64bit stats
-Date: Thu, 19 Aug 2010 00:17:10 -0700 (PDT)
-Message-ID: <20100819.001710.137834207.davem@davemloft.net>
-References: <1282138974.2194.83.camel@edumazet-laptop>
-	<20100818225330.GJ17009@exar.com>
+Subject: Re: [PATCH net-next-2.6] slip: fix get_stats() method
+Date: Thu, 19 Aug 2010 00:17:56 -0700 (PDT)
+Message-ID: <20100819.001756.43029083.davem@davemloft.net>
+References: <1282137188.2194.74.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Ramkrishna.Vepa@exar.com, Sivakumar.Subramani@exar.com,
-	Sreenivasa.Honnur@exar.com
-To: jon.mason@exar.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38220
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38224
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751018Ab0HSHQv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 03:16:51 -0400
-In-Reply-To: <20100818225330.GJ17009@exar.com>
+	by vger.kernel.org with ESMTP id S1751018Ab0HSHRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 03:17:37 -0400
+In-Reply-To: <1282137188.2194.74.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Mason <jon.mason@exar.com>
-Date: Wed, 18 Aug 2010 17:53:31 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Aug 2010 15:13:08 +0200
 
-> On Wed, Aug 18, 2010 at 06:42:54AM -0700, Eric Dumazet wrote:
->> vxge_get_stats() is racy, since it clears a block of memory (net_stats)
->> possibly still used by other cpus.
->> 
->> We can update this driver to full 64bit stats, since ndo_get_stats64()
->> provides a private block to store results, and driver maintains 64bit
->> counters already.
->> 
->> We also remove net_stats field from struct vxge_sw_stats
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Acked-by: Jon Mason <jon.mason@exar.com>
+> Use integrated net_device_stats instead of a static one, and make sure
+> no transient values are feeded. ndo_get_stats() can be called by
+> concurrent cpus.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks everyone.
+Applied, thanks Eric.
+
+It's pretty freaky how, even to this day, we keep finding these static
+function local variables in code which potentially runs multithreaded.
