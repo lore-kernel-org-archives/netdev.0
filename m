@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 07/20] ixgbe: consolidate all setting of MRQC
-	into one function
-Date: Thu, 19 Aug 2010 16:35:41 -0700
-Message-ID: <20100819233539.10335.93283.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 08/20] ixgbe: pull ring configuration into it's
+	own function
+Date: Thu, 19 Aug 2010 16:36:05 -0700
+Message-ID: <20100819233602.10335.80879.stgit@localhost.localdomain>
 References: <20100819233052.10335.13176.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,174 +12,100 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:44340 "EHLO
-	qmta06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752423Ab0HSXgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 19:36:03 -0400
+Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:57808 "EHLO
+	qmta05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751731Ab0HSXgY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 19:36:24 -0400
 In-Reply-To: <20100819233052.10335.13176.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change simplifies the configuration of MRQC by consolidating the
-setting of it into one function. As such the register is no longer set in
-multiple places which should make any future changes easier to work with.
-In addition we can combine RSS related register writes into the call since
-enabling all of those bits without enabling RSS itself in MRQC should have
-no effect.
+These changes add ixgbe_configure_rx_ring which is used to setup the base
+function pointers for the ring.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |  100 +++++++++++++++++-----------------------
- 1 files changed, 43 insertions(+), 57 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   33 ++++++++++++++++++++-------------
+ 1 files changed, 20 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 37d1f64..f5d8902 100644
+index f5d8902..ddabe14 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2545,20 +2545,46 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
- 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_SRRCTL(index), srrctl);
+@@ -2655,6 +2655,23 @@ static void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter, int index)
+ 	IXGBE_WRITE_REG(hw, IXGBE_RSCCTL(j), rscctrl);
  }
  
--static u32 ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
-+static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
- {
--	u32 mrqc = 0;
++static void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
++				    struct ixgbe_ring *ring)
++{
 +	struct ixgbe_hw *hw = &adapter->hw;
-+	static const u32 seed[10] = { 0xE291D73D, 0x1805EC6C, 0x2A94B30D,
-+	                  0xA54F2BEC, 0xEA49AF7C, 0xE214AD3D, 0xB855AABE,
-+	                  0x6A3E67EA, 0x14364D17, 0x3BED200D};
-+	u32 mrqc = 0, reta = 0;
-+	u32 rxcsum;
-+	int i, j;
- 	int mask;
- 
--	if (!(adapter->hw.mac.type == ixgbe_mac_82599EB))
--		return mrqc;
-+	/* Fill out hash function seeds */
-+	for (i = 0; i < 10; i++)
-+		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), seed[i]);
++	u64 rdba = ring->dma;
++	u16 reg_idx = ring->reg_idx;
 +
-+	/* Fill out redirection table */
-+	for (i = 0, j = 0; i < 128; i++, j++) {
-+		if (j == adapter->ring_feature[RING_F_RSS].indices)
-+			j = 0;
-+		/* reta = 4-byte sliding window of
-+		 * 0x00..(indices-1)(indices-1)00..etc. */
-+		reta = (reta << 8) | (j * 0x11);
-+		if ((i & 3) == 3)
-+			IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
-+	}
++	IXGBE_WRITE_REG(hw, IXGBE_RDBAL(reg_idx), (rdba & DMA_BIT_MASK(32)));
++	IXGBE_WRITE_REG(hw, IXGBE_RDBAH(reg_idx), (rdba >> 32));
++	IXGBE_WRITE_REG(hw, IXGBE_RDLEN(reg_idx),
++			ring->count * sizeof(union ixgbe_adv_rx_desc));
++	IXGBE_WRITE_REG(hw, IXGBE_RDH(reg_idx), 0);
++	IXGBE_WRITE_REG(hw, IXGBE_RDT(reg_idx), 0);
++	ring->head = IXGBE_RDH(reg_idx);
++	ring->tail = IXGBE_RDT(reg_idx);
++}
 +
-+	/* Disable indicating checksum in descriptor, enables RSS hash */
-+	rxcsum = IXGBE_READ_REG(hw, IXGBE_RXCSUM);
-+	rxcsum |= IXGBE_RXCSUM_PCSD;
-+	IXGBE_WRITE_REG(hw, IXGBE_RXCSUM, rxcsum);
- 
--	mask = adapter->flags & (IXGBE_FLAG_RSS_ENABLED
-+	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
-+		mask = adapter->flags & IXGBE_FLAG_RSS_ENABLED;
-+	else
-+		mask = adapter->flags & (IXGBE_FLAG_RSS_ENABLED
- #ifdef CONFIG_IXGBE_DCB
--				 | IXGBE_FLAG_DCB_ENABLED
-+					 | IXGBE_FLAG_DCB_ENABLED
- #endif
--				 | IXGBE_FLAG_SRIOV_ENABLED
--				);
-+					 | IXGBE_FLAG_SRIOV_ENABLED
-+					);
- 
- 	switch (mask) {
- 	case (IXGBE_FLAG_RSS_ENABLED):
-@@ -2576,7 +2602,13 @@ static u32 ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
- 		break;
- 	}
- 
--	return mrqc;
-+	/* Perform hash on these packet types */
-+	mrqc |= IXGBE_MRQC_RSS_FIELD_IPV4
-+	      | IXGBE_MRQC_RSS_FIELD_IPV4_TCP
-+	      | IXGBE_MRQC_RSS_FIELD_IPV6
-+	      | IXGBE_MRQC_RSS_FIELD_IPV6_TCP;
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
- }
- 
  /**
-@@ -2637,12 +2669,8 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+  * ixgbe_configure_rx - Configure 8259x Receive Unit after Reset
+  * @adapter: board private structure
+@@ -2663,13 +2680,12 @@ static void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter, int index)
+  **/
+ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ {
+-	u64 rdba;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct ixgbe_ring *rx_ring;
  	struct net_device *netdev = adapter->netdev;
  	int max_frame = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 	int i, j;
--	u32 rdlen, rxctrl, rxcsum;
--	static const u32 seed[10] = { 0xE291D73D, 0x1805EC6C, 0x2A94B30D,
--	                  0xA54F2BEC, 0xEA49AF7C, 0xE214AD3D, 0xB855AABE,
--	                  0x6A3E67EA, 0x14364D17, 0x3BED200D};
-+	u32 rdlen, rxctrl;
+-	int i, j;
+-	u32 rdlen, rxctrl;
++	int i;
++	u32 rxctrl;
  	u32 fctrl, hlreg0;
--	u32 reta = 0, mrqc = 0;
  	u32 rdrxctl;
  	int rx_buf_len;
+@@ -2718,7 +2734,6 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ #endif
+ 	IXGBE_WRITE_REG(hw, IXGBE_HLREG0, hlreg0);
  
-@@ -2774,33 +2802,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+-	rdlen = adapter->rx_ring[0]->count * sizeof(union ixgbe_adv_rx_desc);
+ 	/* disable receives while setting up the descriptors */
+ 	rxctrl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
+ 	IXGBE_WRITE_REG(hw, IXGBE_RXCTRL, rxctrl & ~IXGBE_RXCTRL_RXEN);
+@@ -2729,15 +2744,6 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	 */
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+ 		rx_ring = adapter->rx_ring[i];
+-		rdba = rx_ring->dma;
+-		j = rx_ring->reg_idx;
+-		IXGBE_WRITE_REG(hw, IXGBE_RDBAL(j), (rdba & DMA_BIT_MASK(32)));
+-		IXGBE_WRITE_REG(hw, IXGBE_RDBAH(j), (rdba >> 32));
+-		IXGBE_WRITE_REG(hw, IXGBE_RDLEN(j), rdlen);
+-		IXGBE_WRITE_REG(hw, IXGBE_RDH(j), 0);
+-		IXGBE_WRITE_REG(hw, IXGBE_RDT(j), 0);
+-		rx_ring->head = IXGBE_RDH(j);
+-		rx_ring->tail = IXGBE_RDT(j);
+ 		rx_ring->rx_buf_len = rx_buf_len;
+ 
+ 		if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED)
+@@ -2758,6 +2764,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 		}
+ 
+ #endif /* IXGBE_FCOE */
++		ixgbe_configure_rx_ring(adapter, rx_ring);
+ 		ixgbe_configure_srrctl(adapter, rx_ring);
  	}
  
- 	/* Program MRQC for the distribution of queues */
--	mrqc = ixgbe_setup_mrqc(adapter);
--
--	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
--		/* Fill out redirection table */
--		for (i = 0, j = 0; i < 128; i++, j++) {
--			if (j == adapter->ring_feature[RING_F_RSS].indices)
--				j = 0;
--			/* reta = 4-byte sliding window of
--			 * 0x00..(indices-1)(indices-1)00..etc. */
--			reta = (reta << 8) | (j * 0x11);
--			if ((i & 3) == 3)
--				IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
--		}
--
--		/* Fill out hash function seeds */
--		for (i = 0; i < 10; i++)
--			IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), seed[i]);
--
--		if (hw->mac.type == ixgbe_mac_82598EB)
--			mrqc |= IXGBE_MRQC_RSSEN;
--		    /* Perform hash on these packet types */
--		mrqc |= IXGBE_MRQC_RSS_FIELD_IPV4
--		      | IXGBE_MRQC_RSS_FIELD_IPV4_TCP
--		      | IXGBE_MRQC_RSS_FIELD_IPV6
--		      | IXGBE_MRQC_RSS_FIELD_IPV6_TCP;
--	}
--	IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
-+	ixgbe_setup_mrqc(adapter);
- 
- 	if (adapter->num_vfs) {
- 		u32 reg;
-@@ -2816,22 +2818,6 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 		IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, reg);
- 	}
- 
--	rxcsum = IXGBE_READ_REG(hw, IXGBE_RXCSUM);
--
--	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED ||
--	    adapter->flags & IXGBE_FLAG_RX_CSUM_ENABLED) {
--		/* Disable indicating checksum in descriptor, enables
--		 * RSS hash */
--		rxcsum |= IXGBE_RXCSUM_PCSD;
--	}
--	if (!(rxcsum & IXGBE_RXCSUM_PCSD)) {
--		/* Enable IPv4 payload checksum for UDP fragments
--		 * if PCSD is not set */
--		rxcsum |= IXGBE_RXCSUM_IPPCSE;
--	}
--
--	IXGBE_WRITE_REG(hw, IXGBE_RXCSUM, rxcsum);
--
- 	if (hw->mac.type == ixgbe_mac_82599EB) {
- 		rdrxctl = IXGBE_READ_REG(hw, IXGBE_RDRXCTL);
- 		rdrxctl |= IXGBE_RDRXCTL_CRCSTRIP;
 
