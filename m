@@ -1,132 +1,119 @@
 From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH v2] ep93xx_eth: Use net_device_stats from struct net_device
-Date: Thu, 19 Aug 2010 10:10:34 +0200
-Message-ID: <1282205434-9601-1-git-send-email-tklauser@distanz.ch>
-References: <1282061678-19590-1-git-send-email-tklauser@distanz.ch>
+Subject: [PATCH v2] tehuti: Use net_device_stats from struct net_device
+Date: Thu, 19 Aug 2010 10:11:25 +0200
+Message-ID: <1282205485-9652-1-git-send-email-tklauser@distanz.ch>
+References: <1282061577-19484-1-git-send-email-tklauser@distanz.ch>
 Cc: kernel-janitors@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	netdev@vger.kernel.org
+	Alexander Indenbaum <baum@tehutinetworks.net>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:41800 "EHLO mx1.zhaw.ch"
+Received: from mx1.zhaw.ch ([160.85.104.50]:41913 "EHLO mx1.zhaw.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750927Ab0HSIKg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Aug 2010 04:10:36 -0400
-In-Reply-To: <1282061678-19590-1-git-send-email-tklauser@distanz.ch>
+	id S1751361Ab0HSIL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Aug 2010 04:11:27 -0400
+In-Reply-To: <1282061577-19484-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 struct net_device has its own struct net_device_stats member, so use
-this one instead of a private copy in the ep93xx_priv struct. As the new
-ndo_get_stats function would just return dev->stats we can omit it.
+this one instead of a private copy in the bdx_priv struct.
 
 Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 ---
- drivers/net/arm/ep93xx_eth.c |   39 +++++++++++++++------------------------
- 1 files changed, 15 insertions(+), 24 deletions(-)
+ drivers/net/tehuti.c |   21 +++++++--------------
+ drivers/net/tehuti.h |    1 -
+ 2 files changed, 7 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
-index 4a5ec94..5a77001 100644
---- a/drivers/net/arm/ep93xx_eth.c
-+++ b/drivers/net/arm/ep93xx_eth.c
-@@ -175,8 +175,6 @@ struct ep93xx_priv
- 	struct net_device	*dev;
- 	struct napi_struct	napi;
- 
--	struct net_device_stats	stats;
--
- 	struct mii_if_info	mii;
- 	u8			mdc_divisor;
- };
-@@ -230,12 +228,6 @@ static void ep93xx_mdio_write(struct net_device *dev, int phy_id, int reg, int d
- 		pr_info("mdio write timed out\n");
+diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
+index 737df60..d808f95 100644
+--- a/drivers/net/tehuti.c
++++ b/drivers/net/tehuti.c
+@@ -927,13 +927,6 @@ static void bdx_update_stats(struct bdx_priv *priv)
+ 	BDX_ASSERT((sizeof(struct bdx_stats) / sizeof(u64)) != i);
  }
  
--static struct net_device_stats *ep93xx_get_stats(struct net_device *dev)
+-static struct net_device_stats *bdx_get_stats(struct net_device *ndev)
 -{
--	struct ep93xx_priv *ep = netdev_priv(dev);
--	return &(ep->stats);
+-	struct bdx_priv *priv = netdev_priv(ndev);
+-	struct net_device_stats *net_stat = &priv->net_stats;
+-	return net_stat;
 -}
 -
- static int ep93xx_rx(struct net_device *dev, int processed, int budget)
+ static void print_rxdd(struct rxd_desc *rxdd, u32 rxd_val1, u16 len,
+ 		       u16 rxd_vlan);
+ static void print_rxfd(struct rxf_desc *rxfd);
+@@ -1220,6 +1213,7 @@ static void bdx_recycle_skb(struct bdx_priv *priv, struct rxd_desc *rxdd)
+ 
+ static int bdx_rx_receive(struct bdx_priv *priv, struct rxd_fifo *f, int budget)
  {
- 	struct ep93xx_priv *ep = netdev_priv(dev);
-@@ -267,15 +259,15 @@ static int ep93xx_rx(struct net_device *dev, int processed, int budget)
- 			pr_crit("entry mismatch %.8x %.8x\n", rstat0, rstat1);
++	struct net_device *ndev = priv->ndev;
+ 	struct sk_buff *skb, *skb2;
+ 	struct rxd_desc *rxdd;
+ 	struct rx_map *dm;
+@@ -1273,7 +1267,7 @@ static int bdx_rx_receive(struct bdx_priv *priv, struct rxd_fifo *f, int budget)
  
- 		if (!(rstat0 & RSTAT0_RWE)) {
--			ep->stats.rx_errors++;
-+			dev->stats.rx_errors++;
- 			if (rstat0 & RSTAT0_OE)
--				ep->stats.rx_fifo_errors++;
-+				dev->stats.rx_fifo_errors++;
- 			if (rstat0 & RSTAT0_FE)
--				ep->stats.rx_frame_errors++;
-+				dev->stats.rx_frame_errors++;
- 			if (rstat0 & (RSTAT0_RUNT | RSTAT0_EDATA))
--				ep->stats.rx_length_errors++;
-+				dev->stats.rx_length_errors++;
- 			if (rstat0 & RSTAT0_CRCE)
--				ep->stats.rx_crc_errors++;
-+				dev->stats.rx_crc_errors++;
- 			goto err;
+ 		if (unlikely(GET_RXD_ERR(rxd_val1))) {
+ 			DBG("rxd_err = 0x%x\n", GET_RXD_ERR(rxd_val1));
+-			priv->net_stats.rx_errors++;
++			ndev->stats.rx_errors++;
+ 			bdx_recycle_skb(priv, rxdd);
+ 			continue;
+ 		}
+@@ -1300,11 +1294,11 @@ static int bdx_rx_receive(struct bdx_priv *priv, struct rxd_fifo *f, int budget)
+ 			bdx_rxdb_free_elem(db, rxdd->va_lo);
  		}
  
-@@ -300,10 +292,10 @@ static int ep93xx_rx(struct net_device *dev, int processed, int budget)
+-		priv->net_stats.rx_bytes += len;
++		ndev->stats.rx_bytes += len;
  
- 			netif_receive_skb(skb);
+ 		skb_put(skb, len);
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-		skb->protocol = eth_type_trans(skb, priv->ndev);
++		skb->protocol = eth_type_trans(skb, ndev);
  
--			ep->stats.rx_packets++;
--			ep->stats.rx_bytes += length;
-+			dev->stats.rx_packets++;
-+			dev->stats.rx_bytes += length;
- 		} else {
--			ep->stats.rx_dropped++;
-+			dev->stats.rx_dropped++;
- 		}
- 
- err:
-@@ -359,7 +351,7 @@ static int ep93xx_xmit(struct sk_buff *skb, struct net_device *dev)
- 	int entry;
- 
- 	if (unlikely(skb->len > MAX_PKT_SIZE)) {
--		ep->stats.tx_dropped++;
-+		dev->stats.tx_dropped++;
- 		dev_kfree_skb(skb);
- 		return NETDEV_TX_OK;
+ 		/* Non-IP packets aren't checksum-offloaded */
+ 		if (GET_RXD_PKT_ID(rxd_val1) == 0)
+@@ -1316,7 +1310,7 @@ static int bdx_rx_receive(struct bdx_priv *priv, struct rxd_fifo *f, int budget)
+ 			break;
  	}
-@@ -415,17 +407,17 @@ static void ep93xx_tx_complete(struct net_device *dev)
- 		if (tstat0 & TSTAT0_TXWE) {
- 			int length = ep->descs->tdesc[entry].tdesc1 & 0xfff;
  
--			ep->stats.tx_packets++;
--			ep->stats.tx_bytes += length;
-+			dev->stats.tx_packets++;
-+			dev->stats.tx_bytes += length;
- 		} else {
--			ep->stats.tx_errors++;
-+			dev->stats.tx_errors++;
- 		}
+-	priv->net_stats.rx_packets += done;
++	ndev->stats.rx_packets += done;
  
- 		if (tstat0 & TSTAT0_OW)
--			ep->stats.tx_window_errors++;
-+			dev->stats.tx_window_errors++;
- 		if (tstat0 & TSTAT0_TXU)
--			ep->stats.tx_fifo_errors++;
--		ep->stats.collisions += (tstat0 >> 16) & 0x1f;
-+			dev->stats.tx_fifo_errors++;
-+		dev->stats.collisions += (tstat0 >> 16) & 0x1f;
+ 	/* FIXME: do smth to minimize pci accesses    */
+ 	WRITE_REG(priv, f->m.reg_RPTR, f->m.rptr & TXF_WPTR_WR_PTR);
+@@ -1712,8 +1706,8 @@ static netdev_tx_t bdx_tx_transmit(struct sk_buff *skb,
+ #ifdef BDX_LLTX
+ 	ndev->trans_start = jiffies; /* NETIF_F_LLTX driver :( */
+ #endif
+-	priv->net_stats.tx_packets++;
+-	priv->net_stats.tx_bytes += skb->len;
++	ndev->stats.tx_packets++;
++	ndev->stats.tx_bytes += skb->len;
  
- 		ep->tx_clean_pointer = (entry + 1) & (TX_QUEUE_ENTRIES - 1);
- 		if (ep->tx_pending == TX_QUEUE_ENTRIES)
-@@ -758,7 +750,6 @@ static const struct net_device_ops ep93xx_netdev_ops = {
- 	.ndo_open		= ep93xx_open,
- 	.ndo_stop		= ep93xx_close,
- 	.ndo_start_xmit		= ep93xx_xmit,
--	.ndo_get_stats		= ep93xx_get_stats,
- 	.ndo_do_ioctl		= ep93xx_ioctl,
+ 	if (priv->tx_level < BDX_MIN_TX_LEVEL) {
+ 		DBG("%s: %s: TX Q STOP level %d\n",
+@@ -1888,7 +1882,6 @@ static const struct net_device_ops bdx_netdev_ops = {
  	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_do_ioctl		= bdx_ioctl,
+ 	.ndo_set_multicast_list = bdx_setmulti,
+-	.ndo_get_stats		= bdx_get_stats,
+ 	.ndo_change_mtu		= bdx_change_mtu,
+ 	.ndo_set_mac_address	= bdx_set_mac,
+ 	.ndo_vlan_rx_register	= bdx_vlan_rx_register,
+diff --git a/drivers/net/tehuti.h b/drivers/net/tehuti.h
+index 67e3b71..b6ba860 100644
+--- a/drivers/net/tehuti.h
++++ b/drivers/net/tehuti.h
+@@ -269,7 +269,6 @@ struct bdx_priv {
+ 	u32 msg_enable;
+ 	int stats_flag;
+ 	struct bdx_stats hw_stats;
+-	struct net_device_stats net_stats;
+ 	struct pci_dev *pdev;
+ 
+ 	struct pci_nic *nic;
 -- 
 1.7.0.4
 
