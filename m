@@ -1,86 +1,102 @@
-From: "Ira W. Snyder" <iws@ovro.caltech.edu>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Thu, 19 Aug 2010 08:23:01 -0700
-Message-ID: <20100819152301.GB25193@ovro.caltech.edu>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
- <201008181702.03384.arnd@arndb.de>
- <20100819092246.GA8484@riccoc20.at.omicron.at>
- <201008191429.50008.arnd@arndb.de>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v2] netfilter: save the hash of the tuple in the original
+ direction for latter use
+Date: Thu, 19 Aug 2010 23:35:23 +0800
+Message-ID: <AANLkTim5wn0Y-+081gvm7FkWx3NioRvtRMWy2uF4nji2@mail.gmail.com>
+References: <1282228389-3029-1-git-send-email-xiaosuo@gmail.com> <20100819152149.GA19744@Krystal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Rodolfo Giometti <giometti@linux.it>,
-	john stultz <johnstul@us.ibm.com>,
-	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201008191429.50008.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:34818 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753841Ab0HSPfs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 11:35:48 -0400
+In-Reply-To: <20100819152149.GA19744@Krystal>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 19, 2010 at 02:29:49PM +0200, Arnd Bergmann wrote:
-> On Thursday 19 August 2010, Richard Cochran wrote:
-> > 
-> > On Wed, Aug 18, 2010 at 05:02:03PM +0200, Arnd Bergmann wrote:
-> > > You might want to use callbacks for these system calls that you
-> > > can register to at module load time, like it is done for the
-> > > existing syscalls.
-> > 
-> > Can you point me to a specific example?
-> 
-> The struct k_clock contains callback functions to clock source
-> specific implementations of the syscalls and other functions.
-> Adding a new clock source that is (potentially) implemented
-> as a module means you have to define a new k_clock in that module
-> that you register using register_posix_clock.
-> 
-> If you need additional syscalls to be implemented by the same
-> module, you can put more callback functions into struct k_clock
-> that would then only be implemented by the new module.
-> 
-> > > The simpler way (e.g. for testing) is using Kconfig dependencies, like
-> > > 
-> > > config PTP
-> > >       bool "IEEE 1588 Precision Time Protocol"
-> > > 
-> > > config PPS
-> > >       tristate "Pulse per Second"
-> > >       depends on PTP || !PTP
-> > > 
-> > > The depends statement is a way of expressing that when PTP is enabled,
-> > > PPS cannot be a module, while it may be a module if PTP is disabled.
-> > 
-> > THis did not work for me.
-> > 
-> > What I got was, in effect, two independent booleans.
-> 
-> Hmm, right. I wonder what I was thinking of then.
-> 
-> You can certainly do
-> 
-> config PTP
-> 	bool "IEEE 1588 Precision Time Protocol"
-> 	depends on PPS != m
-> 
-> but that will hide the PTP option if PPS is set to 'm', which is normally
-> not what you want.
-> 
+On Thu, Aug 19, 2010 at 11:21 PM, Mathieu Desnoyers
+<mathieu.desnoyers@polymtl.ca> wrote:
+> * Changli Gao (xiaosuo@gmail.com) wrote:
+>> Since we don't change the tuple in the original direction, we can sa=
+ve it
+>> in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_con=
+firm()
+>> use.
+>>
+>> __hash_conntrack() is split into two steps: ____hash_conntrack() is =
+used
+>> to get the raw hash, and __hash_bucket() is used to get the bucket i=
+d.
+>>
+>> In SYN-flood case, early_drop() doesn't need to recompute the hash a=
+gain.
+>>
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>> ---
+>> v2: use cmpxchg() to save 2 variables.
+>> =A0net/netfilter/nf_conntrack_core.c | =A0114 ++++++++++++++++++++++=
+++++------------
+>> =A01 file changed, 79 insertions(+), 35 deletions(-)
+>> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_co=
+nntrack_core.c
+>> index df3eedb..0e02205 100644
+>> --- a/net/netfilter/nf_conntrack_core.c
+>> +++ b/net/netfilter/nf_conntrack_core.c
+>> @@ -65,14 +65,20 @@ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+>> =A0DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
+>> =A0EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+>>
+>> -static int nf_conntrack_hash_rnd_initted;
+>> -static unsigned int nf_conntrack_hash_rnd;
+>> -
+>> -static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *=
+tuple,
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 u16 zo=
+ne, unsigned int size, unsigned int rnd)
+>> +static u32 ____hash_conntrack(const struct nf_conntrack_tuple *tupl=
+e, u16 zone)
+>> =A0{
+>> =A0 =A0 =A0 unsigned int n;
+>> =A0 =A0 =A0 u_int32_t h;
+>> + =A0 =A0 static unsigned int rnd;
+>
+> Why are you putting a hidden static variable here ? It should probabl=
+y
+> be declared outside of the function scope.
 
-Arnd,
+It is only used in this function.
 
-Perhaps you were thinking of the vhost example (taken from
-drivers/vhost/Kconfig):
+>
+>> +
+>> + =A0 =A0 if (unlikely(!rnd)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 unsigned int rand;
+>> +
+>> + =A0 =A0 =A0 =A0 =A0 =A0 get_random_bytes(&rand, sizeof(rand));
+>> + =A0 =A0 =A0 =A0 =A0 =A0 if (!rand)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rand =3D 1;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 cmpxchg(&rnd, 0, rand);
+>
+> This really belongs to a "init()" function, not in a dynamic check in
+> the __hash_conntrack hot path. If you do that a init time, then you
+> don't even need the cmpxchg.
+>
+> Or maybe I completely misunderstand you goal here; maybe you are real=
+ly
+> trying to re-calculate random bytes. But more explanation is called f=
+or,
+> because I really don't see where the value is brought back to 0.
+>
 
-config VHOST_NET
-	tristate "Host kernel accelerator for virtio net (EXPERIMENTAL)"
-	depends on NET && EVENTFD && (TUN || !TUN) && (MACVTAP || !MACVTAP) && EXPERIMENTAL
+In fact, I don't know the reason clearly. This code is derived from
+the older one. Maybe there isn't enough entropy when initializing.
 
-They have a similar construct with both TUN and MACVTAP there. Perhaps
-the parens are a necessary part of the "X || !X" syntax? Just a random
-guess.
-
-Ira
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
