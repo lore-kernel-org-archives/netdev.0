@@ -1,72 +1,56 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 1/2] xen: use less generic names in netfront driver.
-Date: Thu, 19 Aug 2010 10:27:49 +0100
-Message-ID: <1282210070-7745-1-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 2/2] xen: netfront: support the ethtool drvinfo hook.
+Date: Thu, 19 Aug 2010 10:27:50 +0100
+Message-ID: <1282210070-7745-2-git-send-email-ian.campbell@citrix.com>
 References: <1282210055.3170.2283.camel@zakaz.uk.xensource.com>
 Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
+	Ian Campbell <ian.campbell@citrix.com>
 To: netdev@vger.kernel.org, xen-devel@lists.xensource.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp02.citrix.com ([66.165.176.63]:49482 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902Ab0HSJ1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 05:27:54 -0400
+	with ESMTP id S1751608Ab0HSJ1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 05:27:55 -0400
 In-Reply-To: <1282210055.3170.2283.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All Xen frontend drivers have a couple of identically named functions which
-makes figuring out which device went wrong from a stacktrace harder than it
-needs to be. Rename them to something specificto the device type.
+Causes "ethtool -i" to report something useful:
+	# ethtool -i eth0
+	driver: xen-netfront
+	version:
+	firmware-version:
+	bus-info: vif-0
 
 Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Jeremy Fitzhardinge <jeremy.fitzhardinge@citrix.com>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
 ---
- drivers/net/xen-netfront.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/xen-netfront.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index b50fedc..788a9bc 100644
+index 788a9bc..4484929 100644
 --- a/drivers/net/xen-netfront.c
 +++ b/drivers/net/xen-netfront.c
-@@ -1395,7 +1395,7 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
+@@ -1630,8 +1630,17 @@ static void netback_changed(struct xenbus_device *dev,
+ 	}
  }
  
- /* Common code used when first setting up, and when resuming. */
--static int talk_to_backend(struct xenbus_device *dev,
-+static int talk_to_netback(struct xenbus_device *dev,
- 			   struct netfront_info *info)
++static void xennet_get_drvinfo(struct net_device *dev,
++			       struct ethtool_drvinfo *info)
++{
++	strcpy(info->driver, "xen-netfront");
++	strcpy(info->bus_info, dev_name(dev->dev.parent));
++}
++
+ static const struct ethtool_ops xennet_ethtool_ops =
  {
- 	const char *message;
-@@ -1545,7 +1545,7 @@ static int xennet_connect(struct net_device *dev)
- 		return -ENODEV;
- 	}
- 
--	err = talk_to_backend(np->xbdev, np);
-+	err = talk_to_netback(np->xbdev, np);
- 	if (err)
- 		return err;
- 
-@@ -1599,7 +1599,7 @@ static int xennet_connect(struct net_device *dev)
- /**
-  * Callback received when the backend's state changes.
-  */
--static void backend_changed(struct xenbus_device *dev,
-+static void netback_changed(struct xenbus_device *dev,
- 			    enum xenbus_state backend_state)
- {
- 	struct netfront_info *np = dev_get_drvdata(&dev->dev);
-@@ -1801,7 +1801,7 @@ static struct xenbus_driver netfront_driver = {
- 	.probe = netfront_probe,
- 	.remove = __devexit_p(xennet_remove),
- 	.resume = netfront_resume,
--	.otherend_changed = backend_changed,
-+	.otherend_changed = netback_changed,
- };
- 
- static int __init netif_init(void)
++	.get_drvinfo = xennet_get_drvinfo,
++
+ 	.set_tx_csum = ethtool_op_set_tx_csum,
+ 	.set_sg = xennet_set_sg,
+ 	.set_tso = xennet_set_tso,
 -- 
 1.5.6.5
 
