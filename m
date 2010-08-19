@@ -1,37 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 1/2] e1000e: disable ASPM L1 on 82573
-Date: Thu, 19 Aug 2010 15:48:58 -0700 (PDT)
-Message-ID: <20100819.154858.226796327.davem@davemloft.net>
-References: <20100819224307.10079.89643.stgit@localhost.localdomain>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v2] netfilter: save the hash of the tuple in the original
+ direction for latter use
+Date: Fri, 20 Aug 2010 07:10:40 +0800
+Message-ID: <AANLkTinA3-KMPKJa-66QCMUpbDFwey2mjE=VN=9=zg=6@mail.gmail.com>
+References: <1282228389-3029-1-git-send-email-xiaosuo@gmail.com>
+ <20100819152149.GA19744@Krystal> <AANLkTim5wn0Y-+081gvm7FkWx3NioRvtRMWy2uF4nji2@mail.gmail.com>
+ <1282232786.2549.60.camel@edumazet-laptop> <20100819161112.GA24357@Krystal>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	bruce.w.allan@intel.com, stable@kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42336
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752982Ab0HSWsl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 18:48:41 -0400
-In-Reply-To: <20100819224307.10079.89643.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100819161112.GA24357@Krystal>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 19 Aug 2010 15:43:46 -0700
+On Fri, Aug 20, 2010 at 12:11 AM, Mathieu Desnoyers
+<mathieu.desnoyers@polymtl.ca> wrote:
+>
+> Ah, I see. But I think the static variable should stay declared outside
+> of the function scope, with a nice comment explaining why it's not
+> initialized at init-time.
+>
+> Hiding global state in function code is usually frowned upon.
+>
 
-> From: Bruce Allan <bruce.w.allan@intel.com>
-> 
-> On the e1000-devel mailing list, Nils Faerber reported latency issues with
-> the 82573 LOM on a ThinkPad X60.  It was found to be caused by ASPM L1;
-> disabling it resolves the latency.  The issue is present in kernels back
-> to 2.6.34 and possibly 2.6.33.
-> 
-> 
-> Reported-by: Nils Faerber <nils.faerber@kernelconcepts.de>
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: stable@kernel.org
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+I don't agree with you. We'd better not expose the variable which
+isn't expected to be used by others. If not, maybe someone will misuse
+it. The user should only reply on the interface, but not the internal
+implementation.
 
-Applied.
+Thanks.
+
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
