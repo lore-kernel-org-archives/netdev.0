@@ -1,61 +1,53 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] isdn/avm: fix build when PCMCIA is not enabled
-Date: Thu, 19 Aug 2010 10:07:23 -0700
-Message-ID: <20100819100723.d0c0578e.randy.dunlap@oracle.com>
-References: <20100819143941.d3ea5cb4.sfr@canb.auug.org.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: via-rhine interrupts
+Date: Thu, 19 Aug 2010 19:09:12 +0200
+Message-ID: <20100819170912.GA2387@del.dom.local>
+References: <AANLkTi=xfBSn=FS9=eR=NZa9QwrHAQwGc7Kh1-bUn3aj@mail.gmail.com>
+ <20100815200431.GA4993@del.dom.local>
+ <20100818.234939.71574087.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Carsten Paeth <calle@calle.de>,
-	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100819143941.d3ea5cb4.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ruzicka.jakub@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:45812 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752391Ab0HSRJY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 13:09:24 -0400
+Received: by bwz11 with SMTP id 11so1366950bwz.19
+        for <netdev@vger.kernel.org>; Thu, 19 Aug 2010 10:09:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20100818.234939.71574087.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+On Wed, Aug 18, 2010 at 11:49:39PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Sun, 15 Aug 2010 22:04:31 +0200
+> 
+> > I've just tested it using a simplistic patch below, which skips
+> > some napi receiving by doing it only every second jiffie (on even
+> > ones), and I've got around 30% less interrupts from via-rhine,
+> > which seems to suggest napi works OK, but there is too low
+> > traffic (or too fast soft interrupt handling) to affect hard
+> > interrupts. (Btw, probably CONFIG_HZ can matter here a bit too.
+> > I tested with 1000.)
+> 
+> 100Mbit on any modern system isn't going to trigger NAPI much at all
+> even with near full link utilization.
+> 
+> The simply cpu processes the packets too fast for them to gather up
+> much at all.
+> 
+> Some improvement in polling could be gained if the via-rhine has some
+> HW interrupt mitigation settings.  However after a quick perusal of
+> the driver I don't see anything about this.  The mitigation ethtool
+> ops aren't implemented either, so I'm not optimistic :-)
+> 
 
-Why wouldn't kconfig symbol ISDN_DRV_AVMB1_B1PCMCIA also depend on
-PCMCIA?
+Yes, now I see the old comments (pre 2.6.27) mentioned 10kpps
+threshold, which wasn't reached in Jakub's example.
 
-Fix build for PCMCIA not enabled:
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=32b0f53e5bc80b87fd20d4d78a0e0cb602c9157a
 
-ERROR: "b1_free_card" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1ctl_proc_fops" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_reset_ctr" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_load_firmware" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_send_message" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_release_appl" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_register_appl" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_getrevision" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_detect" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_interrupt" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-ERROR: "b1_alloc_card" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: Carsten Paeth <calle@calle.de>
-Cc: Karsten Keil <isdn@linux-pingi.de>
----
- drivers/isdn/hardware/avm/Kconfig |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
---- linux-next-20100819.orig/drivers/isdn/hardware/avm/Kconfig
-+++ linux-next-20100819/drivers/isdn/hardware/avm/Kconfig
-@@ -36,12 +36,13 @@ config ISDN_DRV_AVMB1_T1ISA
- 
- config ISDN_DRV_AVMB1_B1PCMCIA
- 	tristate "AVM B1/M1/M2 PCMCIA support"
-+	depends on PCMCIA
- 	help
- 	  Enable support for the PCMCIA version of the AVM B1 card.
- 
- config ISDN_DRV_AVMB1_AVM_CS
- 	tristate "AVM B1/M1/M2 PCMCIA cs module"
--	depends on ISDN_DRV_AVMB1_B1PCMCIA && PCMCIA
-+	depends on ISDN_DRV_AVMB1_B1PCMCIA
- 	help
- 	  Enable the PCMCIA client driver for the AVM B1/M1/M2
- 	  PCMCIA cards.
+Jarek P.
