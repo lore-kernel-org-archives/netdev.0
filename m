@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] atm: remove a net_device_stats clear
-Date: Thu, 19 Aug 2010 00:15:13 -0700 (PDT)
-Message-ID: <20100819.001513.212394625.davem@davemloft.net>
-References: <20100818083304.2ef2eea4@nehalam>
-	<20100818.131043.226780154.davem@davemloft.net>
-	<1282164274.2328.2.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] vxge: Implement 64bit stats
+Date: Thu, 19 Aug 2010 00:17:10 -0700 (PDT)
+Message-ID: <20100819.001710.137834207.davem@davemloft.net>
+References: <1282138974.2194.83.camel@edumazet-laptop>
+	<20100818225330.GJ17009@exar.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, tklauser@distanz.ch, linux@arm.linux.org.uk,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	kernel-janitors@vger.kernel.org, error27@gmail.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Ramkrishna.Vepa@exar.com, Sivakumar.Subramani@exar.com,
+	Sreenivasa.Honnur@exar.com
+To: jon.mason@exar.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38215
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38220
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750999Ab0HSHO4 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Aug 2010 03:14:56 -0400
-In-Reply-To: <1282164274.2328.2.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1751018Ab0HSHQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 03:16:51 -0400
+In-Reply-To: <20100818225330.GJ17009@exar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 18 Aug 2010 22:44:34 +0200
+From: Jon Mason <jon.mason@exar.com>
+Date: Wed, 18 Aug 2010 17:53:31 -0500
 
-> Le mercredi 18 ao=FBt 2010 =E0 13:10 -0700, David Miller a =E9crit :
->> Yep, both the ether1 and ether3 patch have this problem.  Looks
->> like we'll see v4 coming some :-)
->=20
-> To be fair, we accepted some bits like that in the past ;)
+> On Wed, Aug 18, 2010 at 06:42:54AM -0700, Eric Dumazet wrote:
+>> vxge_get_stats() is racy, since it clears a block of memory (net_stats)
+>> possibly still used by other cpus.
+>> 
+>> We can update this driver to full 64bit stats, since ndo_get_stats64()
+>> provides a private block to store results, and driver maintains 64bit
+>> counters already.
+>> 
+>> We also remove net_stats field from struct vxge_sw_stats
+>> 
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Acked-by: Jon Mason <jon.mason@exar.com>
 
-Yes, but let's nip it in the butt immediately when we do
-notice it :-)
-
-> [PATCH net-next-2.6] atm: remove a net_device_stats clear
->=20
-> No need to clear device stats in lec_open()
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Applied, thanks!
+Applied, thanks everyone.
