@@ -1,40 +1,67 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v2] netfilter: save the hash of the tuple in the original
- direction for latter use
-Date: Fri, 20 Aug 2010 07:10:40 +0800
-Message-ID: <AANLkTinA3-KMPKJa-66QCMUpbDFwey2mjE=VN=9=zg=6@mail.gmail.com>
-References: <1282228389-3029-1-git-send-email-xiaosuo@gmail.com>
- <20100819152149.GA19744@Krystal> <AANLkTim5wn0Y-+081gvm7FkWx3NioRvtRMWy2uF4nji2@mail.gmail.com>
- <1282232786.2549.60.camel@edumazet-laptop> <20100819161112.GA24357@Krystal>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 01/20] ixgbe: cleanup ixgbe_get_drvinfo to be
+	extra careful with buffer boundaries
+Date: Thu, 19 Aug 2010 16:33:16 -0700
+Message-ID: <20100819233052.10335.13176.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100819161112.GA24357@Krystal>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:46839
+	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750877Ab0HSXdj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 19:33:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 20, 2010 at 12:11 AM, Mathieu Desnoyers
-<mathieu.desnoyers@polymtl.ca> wrote:
->
-> Ah, I see. But I think the static variable should stay declared outside
-> of the function scope, with a nice comment explaining why it's not
-> initialized at init-time.
->
-> Hiding global state in function code is usually frowned upon.
->
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-I don't agree with you. We'd better not expose the variable which
-isn't expected to be used by others. If not, maybe someone will misuse
-it. The user should only reply on the interface, but not the internal
-implementation.
+Make the code in ixgbe_get_drvinfo more protected against buffer overflow
+boundaries by using snprintf and sizeof with snprintf.
 
-Thanks.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+ drivers/net/ixgbe/ixgbe_ethtool.c |   23 +++++++++++++----------
+ 1 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index dcebc82..fb6d8e8 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -820,16 +820,19 @@ static void ixgbe_get_drvinfo(struct net_device *netdev,
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	char firmware_version[32];
+ 
+-	strncpy(drvinfo->driver, ixgbe_driver_name, 32);
+-	strncpy(drvinfo->version, ixgbe_driver_version, 32);
+-
+-	sprintf(firmware_version, "%d.%d-%d",
+-	        (adapter->eeprom_version & 0xF000) >> 12,
+-	        (adapter->eeprom_version & 0x0FF0) >> 4,
+-	        adapter->eeprom_version & 0x000F);
+-
+-	strncpy(drvinfo->fw_version, firmware_version, 32);
+-	strncpy(drvinfo->bus_info, pci_name(adapter->pdev), 32);
++	strncpy(drvinfo->driver, ixgbe_driver_name, sizeof(drvinfo->driver));
++	strncpy(drvinfo->version, ixgbe_driver_version,
++	        sizeof(drvinfo->version));
++
++	snprintf(firmware_version, sizeof(firmware_version), "%d.%d-%d",
++	         (adapter->eeprom_version & 0xF000) >> 12,
++	         (adapter->eeprom_version & 0x0FF0) >> 4,
++	         adapter->eeprom_version & 0x000F);
++
++	strncpy(drvinfo->fw_version, firmware_version,
++	        sizeof(drvinfo->fw_version));
++	strncpy(drvinfo->bus_info, pci_name(adapter->pdev),
++	        sizeof(drvinfo->bus_info));
+ 	drvinfo->n_stats = IXGBE_STATS_LEN;
+ 	drvinfo->testinfo_len = IXGBE_TEST_LEN;
+ 	drvinfo->regdump_len = ixgbe_get_regs_len(netdev);
+
