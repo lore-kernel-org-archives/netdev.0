@@ -1,354 +1,209 @@
-From: =?iso-8859-1?Q?Gr=E9goire?= Baron <baronchon@n7mm.org>
-Subject: [iproute2 v2] tc: add ACT_CSUM action support (csum)
-Date: Thu, 19 Aug 2010 01:58:23 +0200
-Message-ID: <20100818235823.GE24125@n7mm.org>
+From: john stultz <johnstul@us.ibm.com>
+Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
+Date: Wed, 18 Aug 2010 17:12:56 -0700
+Message-ID: <1282176776.2865.100.camel@localhost.localdomain>
+References: <cover.1281956490.git.richard.cochran@omicron.at>
+	 <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
+	 <AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
+	 <20100817085324.GB3330@riccoc20.at.omicron.at>
+	 <1282090963.1734.97.camel@localhost>
+	 <20100818071942.GA4096@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from solo.fdn.fr ([80.67.169.19]:58803 "EHLO solo.fdn.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751650Ab0HRXlD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Aug 2010 19:41:03 -0400
-Received: from localhost.localdomain (playground.n7mm.org [80.67.176.86])
-	by smtp.fdn.fr (Postfix) with ESMTP id 545642542CD
-	for <netdev@vger.kernel.org>; Thu, 19 Aug 2010 01:41:02 +0200 (CEST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, devicetree-discuss@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Arnd Bergmann <arnd@arndb.de>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100818071942.GA4096@riccoc20.at.omicron.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tc: add ACT_CSUM action support (csum)
+On Wed, 2010-08-18 at 09:19 +0200, Richard Cochran wrote:
+> On Tue, Aug 17, 2010 at 05:22:43PM -0700, john stultz wrote:
+>>
+> > So while to me, it think it would be more ideal (or maybe just less
+> > different) to have a read-only interface (like the RTC), leaving PTPd to
+> > manage offset calculations and use that to steer the system time. I can
+> > acknowledge the need to have some way to correct the freq so the packet
+> > timestamps are corrected.
+> 
+> The PTPd need not change the system time at all for PTP clock to be
+> useful. (see below)
 
-Add the iproute2 support for the ACT_CSUM action. Can be used as
-following, certainly in conjunction with the ACT_PEDIT action (pedit):
+Right, obviously an ok-solution is often more useful then no-solution.
+But that doesn't mean we shouldn't shoot for a good or even
+great-solution. :)
 
-# In order to DNAT (stateless) IPv4 packet from 192.168.1.100 to
-#  0x12345678 (18.52.86.120), and update the IPv4 header checksum and
-#  the UDP checksum (the last one, only if the packet is UDP).
-tc filter add eth0 prio 1 protocol ip parent ffff: \
-  u32 match ip src 192.168.1.100/32 flowid :1 \
-    action pedit munge offset 16 u32 set 0x12345678 \
-      pipe csum ip and udp
 
-# In order to alter destination address of IPv6 TCP packets from fc00::1
-#  and correct the TCP checksum (nothing happened? except maybe for
-#  checksums in the TCP payload ...).
-tc filter add eth0 prio 1 protocol ipv6 parent ffff: \
-  u32 match ip6 src fc00::1/128 match ip6 protocol 0x06 0xff flowid :1 \
-    action pedit munge offset 24 u32 set 0x12345678 \
-      pipe csum tcp
+> > I still feel a little concerned over the timer/alarm related interfaces.
+> > Could you explain why the alarm interface is necessary? 
+> 
+> The timer/alarm stuff is "ancillary" and is not at all necessary. It
+> is just a "nice to have." I will happily remove it, if it is too
+> troubling for people.
 
-Version 2 changes:
- - correction in print_csum() (bad statistics print)
+If there's a compelling argument for it, I'm interested to hear. But
+again, it seems like just
+yet-another-way-to-get-alarm/timer-functionality, so before we add an
+extra API (or widen an existing API) I'd like to understand the need.
 
-Signed-off-by: Gregoire Baron <baronchon@n7mm.org>
----
- include/linux/tc_act/tc_csum.h |   32 +++++
- tc/Makefile                    |    1 +
- tc/m_csum.c                    |  246 ++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 279 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/tc_act/tc_csum.h
- create mode 100644 tc/m_csum.c
+But maybe it might simplify the discussion to pull it for now, but
+keeping it in mind to possibly include later as an extension?
 
-diff --git a/include/linux/tc_act/tc_csum.h b/include/linux/tc_act/tc_csum.h
-new file mode 100644
-index 0000000..a047c49
---- /dev/null
-+++ b/include/linux/tc_act/tc_csum.h
-@@ -0,0 +1,32 @@
-+#ifndef __LINUX_TC_CSUM_H
-+#define __LINUX_TC_CSUM_H
-+
-+#include <linux/types.h>
-+#include <linux/pkt_cls.h>
-+
-+#define TCA_ACT_CSUM 16
-+
-+enum {
-+	TCA_CSUM_UNSPEC,
-+	TCA_CSUM_PARMS,
-+	TCA_CSUM_TM,
-+	__TCA_CSUM_MAX
-+};
-+#define TCA_CSUM_MAX (__TCA_CSUM_MAX - 1)
-+
-+enum {
-+	TCA_CSUM_UPDATE_FLAG_IPV4HDR = 1,
-+	TCA_CSUM_UPDATE_FLAG_ICMP    = 2,
-+	TCA_CSUM_UPDATE_FLAG_IGMP    = 4,
-+	TCA_CSUM_UPDATE_FLAG_TCP     = 8,
-+	TCA_CSUM_UPDATE_FLAG_UDP     = 16,
-+	TCA_CSUM_UPDATE_FLAG_UDPLITE = 32
-+};
-+
-+struct tc_csum {
-+	tc_gen;
-+
-+	__u32 update_flags;
-+};
-+
-+#endif /* __LINUX_TC_CSUM_H */
-diff --git a/tc/Makefile b/tc/Makefile
-index 3aa9f26..101cc83 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -34,6 +34,7 @@ TCMODULES += m_mirred.o
- TCMODULES += m_nat.o
- TCMODULES += m_pedit.o
- TCMODULES += m_skbedit.o
-+TCMODULES += m_csum.o
- TCMODULES += p_ip.o
- TCMODULES += p_icmp.o
- TCMODULES += p_tcp.o
-diff --git a/tc/m_csum.c b/tc/m_csum.c
-new file mode 100644
-index 0000000..d251335
---- /dev/null
-+++ b/tc/m_csum.c
-@@ -0,0 +1,246 @@
-+/*
-+ * m_csum.c	checksum updating action
-+ *
-+ *		This program is free software; you can distribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors: Gregoire Baron <baronchon@n7mm.org>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <unistd.h>
-+
-+#include <linux/tc_act/tc_csum.h>
-+
-+#include "utils.h"
-+#include "tc_util.h"
-+
-+static void
-+explain(void)
-+{
-+	fprintf(stderr, "Usage: ... csum <UPDATE>\n"
-+			"Where: UPDATE := <TARGET> [<UPDATE>]\n"
-+			"       TARGET := { ip4h | icmp | igmp |"
-+				" tcp | udp | udplite | <SWEETS> }\n"
-+			"       SWEETS := { and | or | \'+\' }\n");
-+}
-+
-+static void
-+usage(void)
-+{
-+	explain();
-+	exit(-1);
-+}
-+
-+static int
-+parse_csum_args(int *argc_p, char ***argv_p, struct tc_csum *sel)
-+{
-+	int argc = *argc_p;
-+	char **argv = *argv_p;
-+
-+	if (argc <= 0)
-+		return -1;
-+
-+	while(argc > 0) {
-+		if ((matches(*argv, "iph") == 0) ||
-+		    (matches(*argv, "ip4h") == 0) ||
-+		    (matches(*argv, "ipv4h") == 0))
-+			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_IPV4HDR;
-+
-+		else if (matches(*argv, "icmp") == 0)
-+			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_ICMP;
-+
-+		else if (matches(*argv, "igmp") == 0)
-+			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_IGMP;
-+
-+		else if (matches(*argv, "tcp") == 0)
-+			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_TCP;
-+
-+		else if (matches(*argv, "udp") == 0)
-+			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_UDP;
-+
-+		else if (matches(*argv, "udplite") == 0)
-+			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_UDPLITE;
-+
-+		else if ((matches(*argv, "and") == 0) ||
-+			 (matches(*argv, "or") == 0) ||
-+			 (matches(*argv, "+") == 0))
-+			; /* just ignore: ... csum iph and tcp or udp */
-+		else
-+			break;
-+		argc--;
-+		argv++;
-+	}
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+
-+	return 0;
-+}
-+
-+static int
-+parse_csum(struct action_util *a, int *argc_p,
-+	   char ***argv_p, int tca_id, struct nlmsghdr *n)
-+{
-+	struct tc_csum sel;
-+
-+	int argc = *argc_p;
-+	char **argv = *argv_p;
-+	int ok = 0;
-+	struct rtattr *tail;
-+
-+	memset(&sel, 0, sizeof(sel));
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "csum") == 0) {
-+			NEXT_ARG();
-+			if (parse_csum_args(&argc, &argv, &sel)) {
-+				fprintf(stderr, "Illegal csum construct (%s)\n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			ok++;
-+			continue;
-+		} else if (matches(*argv, "help") == 0) {
-+			usage();
-+		}
-+		else {
-+			break;
-+		}
-+	}
-+
-+	if (!ok) {
-+		explain();
-+		return -1;
-+	}
-+
-+	if (sel.update_flags == 0) {
-+		fprintf(stderr, "Illegal csum construct, empty <UPDATE> list\n");
-+		return -1;
-+	}
-+
-+	if (argc) {
-+		if (matches(*argv, "reclassify") == 0) {
-+			sel.action = TC_ACT_RECLASSIFY;
-+			argc--;
-+			argv++;
-+		} else if (matches(*argv, "pipe") == 0) {
-+			sel.action = TC_ACT_PIPE;
-+			argc--;
-+			argv++;
-+		} else if (matches(*argv, "drop") == 0 ||
-+			matches(*argv, "shot") == 0) {
-+			sel.action = TC_ACT_SHOT;
-+			argc--;
-+			argv++;
-+		} else if (matches(*argv, "continue") == 0) {
-+			sel.action = TC_ACT_UNSPEC;
-+			argc--;
-+			argv++;
-+		} else if (matches(*argv, "pass") == 0) {
-+			sel.action = TC_ACT_OK;
-+			argc--;
-+			argv++;
-+		}
-+	}
-+
-+	if (argc) {
-+		if (matches(*argv, "index") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&sel.index, *argv, 10)) {
-+				fprintf(stderr, "Illegal \"index\" (%s) <csum>\n",
-+					*argv);
-+				return -1;
-+			}
-+			argc--;
-+			argv++;
-+		}
-+	}
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
-+	addattr_l(n, MAX_MSG, TCA_CSUM_PARMS, &sel, sizeof(sel));
-+	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+
-+	return 0;
-+}
-+
-+static int
-+print_csum(struct action_util *au, FILE * f, struct rtattr *arg)
-+{
-+	struct tc_csum *sel;
-+
-+	struct rtattr *tb[TCA_CSUM_MAX + 1];
-+
-+	char *uflag_1 = "";
-+	char *uflag_2 = "";
-+	char *uflag_3 = "";
-+	char *uflag_4 = "";
-+	char *uflag_5 = "";
-+	char *uflag_6 = "";
-+	SPRINT_BUF(action_buf);
-+
-+	int uflag_count = 0;
-+
-+	if (arg == NULL)
-+		return -1;
-+
-+	parse_rtattr_nested(tb, TCA_CSUM_MAX, arg);
-+
-+	if (tb[TCA_CSUM_PARMS] == NULL) {
-+		fprintf(f, "[NULL csum parameters]");
-+		return -1;
-+	}
-+	sel = RTA_DATA(tb[TCA_CSUM_PARMS]);
-+
-+	if (sel->update_flags & TCA_CSUM_UPDATE_FLAG_IPV4HDR) {
-+		uflag_1 = "iph";
-+		uflag_count++;
-+	}
-+	#define CSUM_UFLAG_BUFFER(flag_buffer, flag_value, flag_string)	\
-+		do {							\
-+			if (sel->update_flags & flag_value) {		\
-+				flag_buffer = uflag_count > 0 ?		\
-+					", " flag_string : flag_string; \
-+				uflag_count++;				\
-+			}						\
-+		} while(0)
-+	CSUM_UFLAG_BUFFER(uflag_2, TCA_CSUM_UPDATE_FLAG_ICMP, "icmp");
-+	CSUM_UFLAG_BUFFER(uflag_3, TCA_CSUM_UPDATE_FLAG_IGMP, "igmp");
-+	CSUM_UFLAG_BUFFER(uflag_4, TCA_CSUM_UPDATE_FLAG_TCP, "tdp");
-+	CSUM_UFLAG_BUFFER(uflag_5, TCA_CSUM_UPDATE_FLAG_UDP, "udp");
-+	CSUM_UFLAG_BUFFER(uflag_6, TCA_CSUM_UPDATE_FLAG_UDPLITE, "udplite");
-+	if (!uflag_count) {
-+		uflag_1 = "?empty";
-+	}
-+
-+	fprintf(f, "csum (%s%s%s%s%s%s) action %s\n",
-+		uflag_1, uflag_2, uflag_3,
-+		uflag_4, uflag_5, uflag_6,
-+		action_n2a(sel->action, action_buf, sizeof(action_buf)));
-+	fprintf(f, "\tindex %d ref %d bind %d", sel->index, sel->refcnt, sel->bindcnt);
-+
-+	if (show_stats) {
-+		if (tb[TCA_CSUM_TM]) {
-+			struct tcf_t *tm = RTA_DATA(tb[TCA_CSUM_TM]);
-+			print_tm(f,tm);
-+		}
-+	}
-+	fprintf(f, "\n");
-+
-+	return 0;
-+}
-+
-+struct action_util csum_action_util = {
-+	.id = "csum",
-+	.parse_aopt = parse_csum,
-+	.print_aopt = print_csum,
-+};
+> > So really I think my initial negative gut reaction to this was mostly
+> > out of the fact that you introduced a char dev that provides almost 100%
+> > coverage of the posix-time interface. That is duplication we definitely
+> > don't want. 
+> 
+> The reason why I modelled the char device on the posix interface was
+> to make the API more familiar to application programmers. After the
+> recent discussion (and having reviewed the posix clock implementation
+> in Linux), I now think it would be even better to simply offer a new
+> posic clock ID for PTP.
+> 
+> I was emulating the posix interface. Instead I should use it directly.
+
+I'm definitely interested to see what you come up with here. I'm still
+hesitant with adding a PTP clock_id, but extending the posix-clocks
+interface in this way isn't unprecedented (see: CLOCK_SGI_CYCLE) I just
+would like to make sure we don't end up with a clock_id namespace
+littered with oddball clocks that were not well abstracted (see:
+CLOCK_SGI_CYCLE :).
+
+For instance: imagine if instead of keeping the clocksource abstraction
+internal to the timekeeping core, we exposed each clocksource to
+userland via a clock_id.  Every arch would have different ids, and each
+arch might have multiple ids. Programming against that would be a huge
+pain.
+
+So in thinking about this, try to focus on what the new clock_id
+provides that the other existing clockids do not? Are they at comparable
+levels of abstraction? 15 years from now, are folks likely to still be
+using it? Will it be maintainable? etc...
+
+
+> > Also I think the documentation I've read about PTP (likely just due to
+> > the engineering focus) has an odd inverted sense of priority, focusing
+> > on keeping obscure hardware clocks on NIC cards in sync, rather then the
+> > the more tangible feature of keeping the system time in sync.
+> > 
+> > This could be comically interpreted as trying to create a shadow-time on
+> > the system that is the "real time" and "yea, maybe we'll let the system
+> > know what time it is, but user-apps who want to know the score can send
+> > a magic ioctl to /dev/something and get the real deal". ;)  I'm sure
+> > that's not the case, but I'd like to keep any confusion in userland
+> > about which time is the best time to a minimum (ie: use the system
+> > time).
+> 
+> You are right. As John Eidson's excellent book points out, modern
+> computers and operating systems provide surprisingly little support
+> for programming based on absolute time. It is not PTP's fault. PTP is
+> actually a step in the right direction, but it doesn't yet really fit
+> in to the present computing world.
+
+You'll have to forgive me, as I haven't had the time to check out that
+book. What exactly do you mean by operating systems provide little
+support for programming based on absolute time?
+
+
+> Okay, here is the Big Picture.
+> 
+> 1. Use Case: SW timestamping
+> 
+>    PTP with software timestamping (ie without special hardware) can
+>    acheive synchronization within a few dozen microseconds, after
+>    about twenty minutes. This is sufficient for very many people. The
+>    new API (whether char device or syscall) fully and simply supports
+>    this use case. When the PTPd adjusts the PTP clock, it is actually
+>    adjusting the system time, just like NTPd.
+
+Again this illustrates the inversion of focus: system time is merely one
+of many possible PTP clocks in the larger PTP framework.
+
+The way I tend to see it: PTP is just one of the many ways to sync
+system time.
+
+
+> 2. Use Case: HW timestamping for industrial control
+> 
+>    PTP with hardware timestamping can acheive synchronization within
+>    100 nanoseconds after one minute. If you want to do something with
+>    your wonderfully synchronization PTP clock, it must have some kind
+>    of special hardware, like timestamping external signals or
+>    generating one-shot or periodic outputs. The new API (whether char
+>    device or syscall) supports this use case via the ancillary
+>    commands.
+> 
+>    In this case, the end user has an application that interfaces with
+>    the outside world via the PTP clock API. Such a specialized
+>    application (for example, motor control) uses only the PTP API,
+>    since it knows that the standard posix API cannot help. It is
+>    irrelevant that the system time is not synchronized, in this case.
+> 
+>    The PTP clock hardware may or may not provide a hardware interface
+>    (interrupt) to the main CPU. In this case, it does not matter. The
+>    PTP clock is useful all by itself.
+
+These specialized applications are part of what concerns me the most. 
+
+For example, I can see some parallels between things like audio
+processing, where you have a buffer consumed by the card at a certain
+rate. Now, the card has its own crystal it uses to time its consumption,
+so it has its own time domain, and could drift from system time. Thus
+you want to trigger buffer-refill interrupts off of the audio card's
+clock, not the system time which might run the risk of being late.
+
+But again, we don't expose the audio hardware clock to userland in the
+same way we expose system time.
+
+So, instead of a chardev or a posix clock id, would it make more sense
+for the PTP adjustment interface to be more closely to the
+nic/phy/whatever interface?  Much like how the audio apis do it?
+
+Again, my knowledge in the networking stack is pretty limited. But it
+would seem that having an interface that does something to the effect of
+"adjust the timestamp clock on the hardware that generated it from this
+packet by Xppb" would feel like the right level of abstraction. Its
+closely related to SO_TIMESTAMP, option right? Would something like
+using the setsockopt/getsockopt interface with
+SO_TIMESTAMP_ADJUST/OFFSET/SET/etc be reasonable?
+
+
+> 3. Use Case: HW timestamping with PPS to host
+> 
+>    This case is the same as case 2, with the exception that the PTP
+>    clock can interrupt the main CPU. The PTP clock driver advertises
+>    the "PPS" capability. When enabled, the PTP layer delivers events
+>    via the existing Linux PPS subsystem. Programs like NTPd can use
+>    these events to regulate the system time.
+> 
+>    This means that the system clock and the PTP clock will be at least
+>    as well synchronized as when using a traditionial radio clock, GPS,
+>    or IRIG-B method. In my opinion, this will be good enough for any
+>    practical purpose. For example, let's say you want to run a
+>    periodic task synchronized to the absolute wall clock time. Your
+>    scheduling latency will be a dozen microseconds or so. Your PPS
+>    synchronized system clock should be close enough to the PTP clock
+>    to support this.
+
+And yes, this seems perfectly reasonable feature to add. Its not
+controversial to me, because its likely to work within the existing
+interfaces and won't expose anything new to userland.
+
+
+Again, sorry to be such a pain about all of this. I know its frustrating
+to bring your hard work to lkml and then get a lot of non-specific
+push-back to "do it differently". You're earlier comments about being
+wary of adding syscalls because it requires lots of review and debate
+were spot on, but *any* user-visible API really requires the same level
+of care (which, of course, they don't always get). So please don't take
+my comments personally. Keep pushing and I will either come around or
+maybe we can find a better middle-ground.
+
+thanks
+-john
