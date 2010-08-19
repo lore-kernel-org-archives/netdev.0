@@ -1,333 +1,304 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 10/12] qlcnic: firmware initialization update
-Date: Thu, 19 Aug 2010 08:08:31 -0700
-Message-ID: <1282230513-25286-11-git-send-email-amit.salecha@qlogic.com>
-References: <1282230513-25286-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:65135 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753924Ab0HSPIf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Aug 2010 11:08:35 -0400
-In-Reply-To: <1282230513-25286-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Subject: Re: [PATCH v2] netfilter: save the hash of the tuple in the
+	original direction for latter use
+Date: Thu, 19 Aug 2010 11:21:49 -0400
+Message-ID: <20100819152149.GA19744@Krystal>
+References: <1282228389-3029-1-git-send-email-xiaosuo@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1282228389-3029-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+* Changli Gao (xiaosuo@gmail.com) wrote:
+> Since we don't change the tuple in the original direction, we can save it
+> in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_confirm()
+> use.
+> 
+> __hash_conntrack() is split into two steps: ____hash_conntrack() is used
+> to get the raw hash, and __hash_bucket() is used to get the bucket id.
+> 
+> In SYN-flood case, early_drop() doesn't need to recompute the hash again.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ---
+> v2: use cmpxchg() to save 2 variables.
+>  net/netfilter/nf_conntrack_core.c |  114 ++++++++++++++++++++++++++------------
+>  1 file changed, 79 insertions(+), 35 deletions(-)
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index df3eedb..0e02205 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -65,14 +65,20 @@ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+>  DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
+>  EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+>  
+> -static int nf_conntrack_hash_rnd_initted;
+> -static unsigned int nf_conntrack_hash_rnd;
+> -
+> -static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
+> -				  u16 zone, unsigned int size, unsigned int rnd)
+> +static u32 ____hash_conntrack(const struct nf_conntrack_tuple *tuple, u16 zone)
+>  {
+>  	unsigned int n;
+>  	u_int32_t h;
+> +	static unsigned int rnd;
 
-Cleanup legacy code which is not valid for Qlogic
-CNA adapters.
+Why are you putting a hidden static variable here ? It should probably
+be declared outside of the function scope.
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h      |    4 +-
- drivers/net/qlcnic/qlcnic_hdr.h  |    3 +-
- drivers/net/qlcnic/qlcnic_init.c |  133 +++++++++-----------------------------
- drivers/net/qlcnic/qlcnic_main.c |   38 +++--------
- 4 files changed, 47 insertions(+), 131 deletions(-)
+> +
+> +	if (unlikely(!rnd)) {
+> +		unsigned int rand;
+> +
+> +		get_random_bytes(&rand, sizeof(rand));
+> +		if (!rand)
+> +			rand = 1;
+> +		cmpxchg(&rnd, 0, rand);
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index b58c411..43cb925 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -54,6 +54,8 @@
- #define _QLCNIC_LINUX_SUBVERSION 7
- #define QLCNIC_LINUX_VERSIONID  "5.0.7"
- #define QLCNIC_DRV_IDC_VER  0x01
-+#define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
-+		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
- 
- #define QLCNIC_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
- #define _major(v)	(((v) >> 24) & 0xff)
-@@ -1233,7 +1235,7 @@ void qlcnic_reset_rx_buffers_list(struct qlcnic_adapter *adapter);
- void qlcnic_release_rx_buffers(struct qlcnic_adapter *adapter);
- void qlcnic_release_tx_buffers(struct qlcnic_adapter *adapter);
- 
--int qlcnic_init_firmware(struct qlcnic_adapter *adapter);
-+int qlcnic_check_fw_status(struct qlcnic_adapter *adapter);
- void qlcnic_watchdog_task(struct work_struct *work);
- void qlcnic_post_rx_buffers(struct qlcnic_adapter *adapter, u32 ringid,
- 		struct qlcnic_host_rds_ring *rds_ring);
-diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
-index eae03b5..794f657 100644
---- a/drivers/net/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/qlcnic/qlcnic_hdr.h
-@@ -747,7 +747,8 @@ enum {
- 
- #define QLCNIC_RESET_TIMEOUT_SECS	10
- #define QLCNIC_INIT_TIMEOUT_SECS	30
--
-+#define QLCNIC_HEARTBEAT_PERIOD_MSECS	200
-+#define QLCNIC_HEARTBEAT_RETRY_COUNT	30
- 
- #define	ISR_MSI_INT_TRIGGER(FUNC) (QLCNIC_PCIX_PS_REG(PCIX_MSI_F(FUNC)))
- #define ISR_LEGACY_INT_TRIGGERED(VAL)	(((VAL) & 0x300) == 0x200)
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 9076675..e7a399f 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -435,11 +435,14 @@ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter)
- 	u32 off;
- 	struct pci_dev *pdev = adapter->pdev;
- 
--	/* resetall */
-+	QLCWR32(adapter, CRB_CMDPEG_STATE, 0);
-+	QLCWR32(adapter, CRB_RCVPEG_STATE, 0);
-+
- 	qlcnic_rom_lock(adapter);
- 	QLCWR32(adapter, QLCNIC_ROMUSB_GLB_SW_RESET, 0xfeffffff);
- 	qlcnic_rom_unlock(adapter);
- 
-+	/* Init HW CRB block */
- 	if (qlcnic_rom_fast_read(adapter, 0, &n) != 0 || (n != 0xcafecafe) ||
- 			qlcnic_rom_fast_read(adapter, 4, &n) != 0) {
- 		dev_err(&pdev->dev, "ERROR Reading crb_init area: val:%x\n", n);
-@@ -520,13 +523,10 @@ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter)
- 	}
- 	kfree(buf);
- 
--	/* p2dn replyCount */
-+	/* Initialize protocol process engine */
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_D + 0xec, 0x1e);
--	/* disable_peg_cache 0 & 1*/
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_D + 0x4c, 8);
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_I + 0x4c, 8);
--
--	/* peg_clr_all */
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_0 + 0x8, 0);
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_0 + 0xc, 0);
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_1 + 0x8, 0);
-@@ -535,10 +535,36 @@ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter)
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_2 + 0xc, 0);
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_3 + 0x8, 0);
- 	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_3 + 0xc, 0);
-+	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_4 + 0x8, 0);
-+	QLCWR32(adapter, QLCNIC_CRB_PEG_NET_4 + 0xc, 0);
-+	msleep(1);
-+	QLCWR32(adapter, QLCNIC_PEG_HALT_STATUS1, 0);
-+	QLCWR32(adapter, QLCNIC_PEG_HALT_STATUS2, 0);
- 	return 0;
- }
- 
- int
-+qlcnic_check_fw_status(struct qlcnic_adapter *adapter)
-+{
-+	u32 heartbit, ret = -EIO;
-+	int retries = QLCNIC_HEARTBEAT_RETRY_COUNT;
-+
-+	adapter->heartbit = QLCRD32(adapter, QLCNIC_PEG_ALIVE_COUNTER);
-+	do {
-+		msleep(QLCNIC_HEARTBEAT_PERIOD_MSECS);
-+		heartbit = QLCRD32(adapter, QLCNIC_PEG_ALIVE_COUNTER);
-+		if (heartbit != adapter->heartbit) {
-+			/* Complete firmware handshake */
-+			QLCWR32(adapter, CRB_CMDPEG_STATE, PHAN_INITIALIZE_ACK);
-+			ret = QLCNIC_RCODE_SUCCESS;
-+			break;
-+		}
-+	} while (--retries);
-+
-+	return ret;
-+}
-+
-+int
- qlcnic_setup_idc_param(struct qlcnic_adapter *adapter) {
- 
- 	int timeo;
-@@ -905,35 +931,12 @@ qlcnic_get_bios_version(struct qlcnic_adapter *adapter)
- int
- qlcnic_need_fw_reset(struct qlcnic_adapter *adapter)
- {
--	u32 count, old_count;
- 	u32 val, version, major, minor, build;
--	int i, timeout;
- 
- 	if (adapter->need_fw_reset)
- 		return 1;
- 
--	/* last attempt had failed */
--	if (QLCRD32(adapter, CRB_CMDPEG_STATE) == PHAN_INITIALIZE_FAILED)
--		return 1;
--
--	old_count = QLCRD32(adapter, QLCNIC_PEG_ALIVE_COUNTER);
--
--	for (i = 0; i < 10; i++) {
--
--		timeout = msleep_interruptible(200);
--		if (timeout) {
--			QLCWR32(adapter, CRB_CMDPEG_STATE,
--					PHAN_INITIALIZE_FAILED);
--			return -EINTR;
--		}
--
--		count = QLCRD32(adapter, QLCNIC_PEG_ALIVE_COUNTER);
--		if (count != old_count)
--			break;
--	}
--
--	/* firmware is dead */
--	if (count == old_count)
-+	if (qlcnic_check_fw_status(adapter))
- 		return 1;
- 
- 	/* check if we have got newer or different file firmware */
-@@ -1158,78 +1161,6 @@ qlcnic_release_firmware(struct qlcnic_adapter *adapter)
- 	adapter->fw = NULL;
- }
- 
--static int qlcnic_cmd_peg_ready(struct qlcnic_adapter *adapter)
--{
--	u32 val;
--	int retries = 60;
--
--	do {
--		val = QLCRD32(adapter, CRB_CMDPEG_STATE);
--
--		switch (val) {
--		case PHAN_INITIALIZE_COMPLETE:
--		case PHAN_INITIALIZE_ACK:
--			return 0;
--		case PHAN_INITIALIZE_FAILED:
--			goto out_err;
--		default:
--			break;
--		}
--
--		msleep(500);
--
--	} while (--retries);
--
--	QLCWR32(adapter, CRB_CMDPEG_STATE, PHAN_INITIALIZE_FAILED);
--
--out_err:
--	dev_err(&adapter->pdev->dev, "Command Peg initialization not "
--		      "complete, state: 0x%x.\n", val);
--	return -EIO;
--}
--
--static int
--qlcnic_receive_peg_ready(struct qlcnic_adapter *adapter)
--{
--	u32 val;
--	int retries = 2000;
--
--	do {
--		val = QLCRD32(adapter, CRB_RCVPEG_STATE);
--
--		if (val == PHAN_PEG_RCV_INITIALIZED)
--			return 0;
--
--		msleep(10);
--
--	} while (--retries);
--
--	if (!retries) {
--		dev_err(&adapter->pdev->dev, "Receive Peg initialization not "
--			      "complete, state: 0x%x.\n", val);
--		return -EIO;
--	}
--
--	return 0;
--}
--
--int qlcnic_init_firmware(struct qlcnic_adapter *adapter)
--{
--	int err;
--
--	err = qlcnic_cmd_peg_ready(adapter);
--	if (err)
--		return err;
--
--	err = qlcnic_receive_peg_ready(adapter);
--	if (err)
--		return err;
--
--	QLCWR32(adapter, CRB_CMDPEG_STATE, PHAN_INITIALIZE_ACK);
--
--	return err;
--}
--
- static void
- qlcnic_handle_linkevent(struct qlcnic_adapter *adapter,
- 				struct qlcnic_fw_msg *msg)
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 6e246c8..fa87a96 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -940,18 +940,13 @@ static int qlcnic_check_npar_opertional(struct qlcnic_adapter *adapter)
- static int
- qlcnic_start_firmware(struct qlcnic_adapter *adapter)
- {
--	int val, err, first_boot;
-+	int err;
- 
- 	err = qlcnic_can_start_firmware(adapter);
- 	if (err < 0)
- 		return err;
- 	else if (!err)
--		goto wait_init;
--
--	first_boot = QLCRD32(adapter, QLCNIC_CAM_RAM(0x1fc));
--	if (first_boot == 0x55555555)
--		/* This is the first boot after power up */
--		QLCWR32(adapter, QLCNIC_CAM_RAM(0x1fc), QLCNIC_BDINFO_MAGIC);
-+		goto check_fw_status;
- 
- 	if (load_fw_file)
- 		qlcnic_request_firmware(adapter);
-@@ -963,21 +958,12 @@ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
- 	}
- 
- 	err = qlcnic_need_fw_reset(adapter);
--	if (err < 0)
--		goto err_out;
- 	if (err == 0)
--		goto wait_init;
--
--	if (first_boot != 0x55555555) {
--		QLCWR32(adapter, CRB_CMDPEG_STATE, 0);
--		QLCWR32(adapter, CRB_RCVPEG_STATE, 0);
--		qlcnic_pinit_from_rom(adapter);
--		msleep(1);
--	}
--
--	QLCWR32(adapter, QLCNIC_PEG_HALT_STATUS1, 0);
--	QLCWR32(adapter, QLCNIC_PEG_HALT_STATUS2, 0);
-+		goto set_dev_ready;
- 
-+	err = qlcnic_pinit_from_rom(adapter);
-+	if (err)
-+		goto err_out;
- 	qlcnic_set_port_mode(adapter);
- 
- 	err = qlcnic_load_firmware(adapter);
-@@ -985,18 +971,14 @@ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
- 		goto err_out;
- 
- 	qlcnic_release_firmware(adapter);
-+	QLCWR32(adapter, CRB_DRIVER_VERSION, QLCNIC_DRIVER_VERSION);
- 
--	val = (_QLCNIC_LINUX_MAJOR << 16)
--		| ((_QLCNIC_LINUX_MINOR << 8))
--		| (_QLCNIC_LINUX_SUBVERSION);
--	QLCWR32(adapter, CRB_DRIVER_VERSION, val);
--
--wait_init:
--	/* Handshake with the card before we register the devices. */
--	err = qlcnic_init_firmware(adapter);
-+check_fw_status:
-+	err = qlcnic_check_fw_status(adapter);
- 	if (err)
- 		goto err_out;
- 
-+set_dev_ready:
- 	QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_READY);
- 	qlcnic_idc_debug_info(adapter, 1);
- 	err = qlcnic_check_npar_opertional(adapter);
+This really belongs to a "init()" function, not in a dynamic check in
+the __hash_conntrack hot path. If you do that a init time, then you
+don't even need the cmpxchg.
+
+Or maybe I completely misunderstand you goal here; maybe you are really
+trying to re-calculate random bytes. But more explanation is called for,
+because I really don't see where the value is brought back to 0.
+
+Thanks,
+
+Mathieu
+
+> +	}
+>  
+>  	/* The direction must be ignored, so we hash everything up to the
+>  	 * destination ports (which is a multiple of 4) and treat the last
+> @@ -83,14 +89,29 @@ static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
+>  		   zone ^ rnd ^ (((__force __u16)tuple->dst.u.all << 16) |
+>  				 tuple->dst.protonum));
+>  
+> -	return ((u64)h * size) >> 32;
+> +	return h;
+> +}
+> +
+> +static u32 __hash_bucket(u32 __hash, unsigned int size)
+> +{
+> +	return ((u64)__hash * size) >> 32;
+> +}
+> +
+> +static u32 hash_bucket(u32 __hash, const struct net *net)
+> +{
+> +	return __hash_bucket(__hash, net->ct.htable_size);
+> +}
+> +
+> +static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
+> +				  u16 zone, unsigned int size)
+> +{
+> +	return __hash_bucket(____hash_conntrack(tuple, zone), size);
+>  }
+>  
+>  static inline u_int32_t hash_conntrack(const struct net *net, u16 zone,
+>  				       const struct nf_conntrack_tuple *tuple)
+>  {
+> -	return __hash_conntrack(tuple, zone, net->ct.htable_size,
+> -				nf_conntrack_hash_rnd);
+> +	return __hash_conntrack(tuple, zone, net->ct.htable_size);
+>  }
+>  
+>  bool
+> @@ -292,13 +313,13 @@ static void death_by_timeout(unsigned long ul_conntrack)
+>   * OR
+>   * - Caller must lock nf_conntrack_lock before calling this function
+>   */
+> -struct nf_conntrack_tuple_hash *
+> -__nf_conntrack_find(struct net *net, u16 zone,
+> -		    const struct nf_conntrack_tuple *tuple)
+> +static struct nf_conntrack_tuple_hash *
+> +____nf_conntrack_find(struct net *net, u16 zone,
+> +		      const struct nf_conntrack_tuple *tuple, u32 __hash)
+>  {
+>  	struct nf_conntrack_tuple_hash *h;
+>  	struct hlist_nulls_node *n;
+> -	unsigned int hash = hash_conntrack(net, zone, tuple);
+> +	unsigned int hash = hash_bucket(__hash, net);
+>  
+>  	/* Disable BHs the entire time since we normally need to disable them
+>  	 * at least once for the stats anyway.
+> @@ -327,19 +348,27 @@ begin:
+>  
+>  	return NULL;
+>  }
+> +
+> +struct nf_conntrack_tuple_hash *
+> +__nf_conntrack_find(struct net *net, u16 zone,
+> +		    const struct nf_conntrack_tuple *tuple)
+> +{
+> +	return ____nf_conntrack_find(net, zone, tuple,
+> +				     ____hash_conntrack(tuple, zone));
+> +}
+>  EXPORT_SYMBOL_GPL(__nf_conntrack_find);
+>  
+>  /* Find a connection corresponding to a tuple. */
+> -struct nf_conntrack_tuple_hash *
+> -nf_conntrack_find_get(struct net *net, u16 zone,
+> -		      const struct nf_conntrack_tuple *tuple)
+> +static struct nf_conntrack_tuple_hash *
+> +__nf_conntrack_find_get(struct net *net, u16 zone,
+> +			const struct nf_conntrack_tuple *tuple, u32 __hash)
+>  {
+>  	struct nf_conntrack_tuple_hash *h;
+>  	struct nf_conn *ct;
+>  
+>  	rcu_read_lock();
+>  begin:
+> -	h = __nf_conntrack_find(net, zone, tuple);
+> +	h = ____nf_conntrack_find(net, zone, tuple, __hash);
+>  	if (h) {
+>  		ct = nf_ct_tuplehash_to_ctrack(h);
+>  		if (unlikely(nf_ct_is_dying(ct) ||
+> @@ -357,6 +386,14 @@ begin:
+>  
+>  	return h;
+>  }
+> +
+> +struct nf_conntrack_tuple_hash *
+> +nf_conntrack_find_get(struct net *net, u16 zone,
+> +		      const struct nf_conntrack_tuple *tuple)
+> +{
+> +	return __nf_conntrack_find_get(net, zone, tuple,
+> +				       ____hash_conntrack(tuple, zone));
+> +}
+>  EXPORT_SYMBOL_GPL(nf_conntrack_find_get);
+>  
+>  static void __nf_conntrack_hash_insert(struct nf_conn *ct,
+> @@ -409,7 +446,8 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+>  		return NF_ACCEPT;
+>  
+>  	zone = nf_ct_zone(ct);
+> -	hash = hash_conntrack(net, zone, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+> +	/* reuse the __hash saved before */
+> +	hash = hash_bucket(*(unsigned long *)&ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev, net);
+>  	repl_hash = hash_conntrack(net, zone, &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
+>  
+>  	/* We're not in hash table, and we refuse to set up related
+> @@ -567,25 +605,20 @@ static noinline int early_drop(struct net *net, unsigned int hash)
+>  	return dropped;
+>  }
+>  
+> -struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
+> -				   const struct nf_conntrack_tuple *orig,
+> -				   const struct nf_conntrack_tuple *repl,
+> -				   gfp_t gfp)
+> +static struct nf_conn *
+> +__nf_conntrack_alloc(struct net *net, u16 zone,
+> +		     const struct nf_conntrack_tuple *orig,
+> +		     const struct nf_conntrack_tuple *repl,
+> +		     gfp_t gfp, u32 __hash)
+>  {
+>  	struct nf_conn *ct;
+>  
+> -	if (unlikely(!nf_conntrack_hash_rnd_initted)) {
+> -		get_random_bytes(&nf_conntrack_hash_rnd,
+> -				sizeof(nf_conntrack_hash_rnd));
+> -		nf_conntrack_hash_rnd_initted = 1;
+> -	}
+> -
+>  	/* We don't want any race condition at early drop stage */
+>  	atomic_inc(&net->ct.count);
+>  
+>  	if (nf_conntrack_max &&
+>  	    unlikely(atomic_read(&net->ct.count) > nf_conntrack_max)) {
+> -		unsigned int hash = hash_conntrack(net, zone, orig);
+> +		unsigned int hash = hash_bucket(__hash, net);
+>  		if (!early_drop(net, hash)) {
+>  			atomic_dec(&net->ct.count);
+>  			if (net_ratelimit())
+> @@ -616,7 +649,8 @@ struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
+>  	ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple = *orig;
+>  	ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.pprev = NULL;
+>  	ct->tuplehash[IP_CT_DIR_REPLY].tuple = *repl;
+> -	ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev = NULL;
+> +	/* save __hash for reusing when confirming */
+> +	*(unsigned long *)(&ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev) = __hash;
+>  	/* Don't set timer yet: wait for confirmation */
+>  	setup_timer(&ct->timeout, death_by_timeout, (unsigned long)ct);
+>  	write_pnet(&ct->ct_net, net);
+> @@ -643,6 +677,14 @@ out_free:
+>  	return ERR_PTR(-ENOMEM);
+>  #endif
+>  }
+> +
+> +struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
+> +				   const struct nf_conntrack_tuple *orig,
+> +				   const struct nf_conntrack_tuple *repl,
+> +				   gfp_t gfp)
+> +{
+> +	return __nf_conntrack_alloc(net, zone, orig, repl, gfp, 0);
+> +}
+>  EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
+>  
+>  void nf_conntrack_free(struct nf_conn *ct)
+> @@ -664,7 +706,7 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+>  	       struct nf_conntrack_l3proto *l3proto,
+>  	       struct nf_conntrack_l4proto *l4proto,
+>  	       struct sk_buff *skb,
+> -	       unsigned int dataoff)
+> +	       unsigned int dataoff, u32 __hash)
+>  {
+>  	struct nf_conn *ct;
+>  	struct nf_conn_help *help;
+> @@ -678,7 +720,8 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
+>  		return NULL;
+>  	}
+>  
+> -	ct = nf_conntrack_alloc(net, zone, tuple, &repl_tuple, GFP_ATOMIC);
+> +	ct = __nf_conntrack_alloc(net, zone, tuple, &repl_tuple, GFP_ATOMIC,
+> +				  __hash);
+>  	if (IS_ERR(ct)) {
+>  		pr_debug("Can't allocate conntrack.\n");
+>  		return (struct nf_conntrack_tuple_hash *)ct;
+> @@ -755,6 +798,7 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+>  	struct nf_conntrack_tuple_hash *h;
+>  	struct nf_conn *ct;
+>  	u16 zone = tmpl ? nf_ct_zone(tmpl) : NF_CT_DEFAULT_ZONE;
+> +	u32 __hash;
+>  
+>  	if (!nf_ct_get_tuple(skb, skb_network_offset(skb),
+>  			     dataoff, l3num, protonum, &tuple, l3proto,
+> @@ -764,10 +808,11 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+>  	}
+>  
+>  	/* look for tuple match */
+> -	h = nf_conntrack_find_get(net, zone, &tuple);
+> +	__hash = ____hash_conntrack(&tuple, zone);
+> +	h = __nf_conntrack_find_get(net, zone, &tuple, __hash);
+>  	if (!h) {
+>  		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
+> -				   skb, dataoff);
+> +				   skb, dataoff, __hash);
+>  		if (!h)
+>  			return NULL;
+>  		if (IS_ERR(h))
+> @@ -1307,8 +1352,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+>  			ct = nf_ct_tuplehash_to_ctrack(h);
+>  			hlist_nulls_del_rcu(&h->hnnode);
+>  			bucket = __hash_conntrack(&h->tuple, nf_ct_zone(ct),
+> -						  hashsize,
+> -						  nf_conntrack_hash_rnd);
+> +						  hashsize);
+>  			hlist_nulls_add_head_rcu(&h->hnnode, &hash[bucket]);
+>  		}
+>  	}
+
 -- 
-1.6.0.2
-
+Mathieu Desnoyers
+Operating System Efficiency R&D Consultant
+EfficiOS Inc.
+http://www.efficios.com
