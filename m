@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 18/20] ixgbe: combine Rx into into
-	ixgbe_configure_rx
-Date: Thu, 19 Aug 2010 16:40:06 -0700
-Message-ID: <20100819234004.10335.44104.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 19/20] ixgbe: update all DESC_ADV macros to
+	accept a ring pointer
+Date: Thu, 19 Aug 2010 16:40:31 -0700
+Message-ID: <20100819234028.10335.95335.stgit@localhost.localdomain>
 References: <20100819233052.10335.13176.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,268 +12,195 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:58944
-	"EHLO qmta10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752158Ab0HSXk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 19:40:28 -0400
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:40306
+	"EHLO qmta07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752158Ab0HSXkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 19:40:51 -0400
 In-Reply-To: <20100819233052.10335.13176.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The Rx init is currently split over ixgbe_configure, ixgbe_configure_rx,
-and ixgbe_up_complete.  Instead of leaving it split over 3 function it is
-easier to consolidate them all into ixgbe_configure_rx.
+All of the DESC_ADV macros are currently needing the pointers to be
+de-referenced before accessing the ring.  Instead of having to add all of
+the asterisks it is easier to just update the macro to expect a pointer to
+the ring.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |  152 +++++++++++++++++++++++++---------------
- 1 files changed, 95 insertions(+), 57 deletions(-)
+ drivers/net/ixgbe/ixgbe.h         |    6 +++---
+ drivers/net/ixgbe/ixgbe_ethtool.c |    4 ++--
+ drivers/net/ixgbe/ixgbe_fcoe.c    |    2 +-
+ drivers/net/ixgbe/ixgbe_main.c    |   24 ++++++++++++------------
+ 4 files changed, 18 insertions(+), 18 deletions(-)
 
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 7233fef..ac4b90e 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -256,11 +256,11 @@ struct ixgbe_q_vector {
+ 	(R)->next_to_clean - (R)->next_to_use - 1)
+ 
+ #define IXGBE_RX_DESC_ADV(R, i)	    \
+-	(&(((union ixgbe_adv_rx_desc *)((R).desc))[i]))
++	(&(((union ixgbe_adv_rx_desc *)((R)->desc))[i]))
+ #define IXGBE_TX_DESC_ADV(R, i)	    \
+-	(&(((union ixgbe_adv_tx_desc *)((R).desc))[i]))
++	(&(((union ixgbe_adv_tx_desc *)((R)->desc))[i]))
+ #define IXGBE_TX_CTXTDESC_ADV(R, i)	    \
+-	(&(((struct ixgbe_adv_tx_context_desc *)((R).desc))[i]))
++	(&(((struct ixgbe_adv_tx_context_desc *)((R)->desc))[i]))
+ 
+ #define IXGBE_MAX_JUMBO_FRAME_SIZE        16128
+ #ifdef IXGBE_FCOE
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index fb6d8e8..4d74f4b 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -1560,7 +1560,7 @@ static int ixgbe_setup_desc_rings(struct ixgbe_adapter *adapter)
+ 	IXGBE_WRITE_REG(&adapter->hw, IXGBE_TXDCTL(0), reg_data);
+ 
+ 	for (i = 0; i < tx_ring->count; i++) {
+-		union ixgbe_adv_tx_desc *desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
++		union ixgbe_adv_tx_desc *desc = IXGBE_TX_DESC_ADV(tx_ring, i);
+ 		struct sk_buff *skb;
+ 		unsigned int size = 1024;
+ 
+@@ -1661,7 +1661,7 @@ static int ixgbe_setup_desc_rings(struct ixgbe_adapter *adapter)
+ 
+ 	for (i = 0; i < rx_ring->count; i++) {
+ 		union ixgbe_adv_rx_desc *rx_desc =
+-		                                 IXGBE_RX_DESC_ADV(*rx_ring, i);
++		                                 IXGBE_RX_DESC_ADV(rx_ring, i);
+ 		struct sk_buff *skb;
+ 
+ 		skb = alloc_skb(IXGBE_RXBUFFER_2048 + NET_IP_ALIGN, GFP_KERNEL);
+diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
+index 072327c..86fa07c 100644
+--- a/drivers/net/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ixgbe/ixgbe_fcoe.c
+@@ -471,7 +471,7 @@ int ixgbe_fso(struct ixgbe_adapter *adapter,
+ 
+ 	/* write context desc */
+ 	i = tx_ring->next_to_use;
+-	context_desc = IXGBE_TX_CTXTDESC_ADV(*tx_ring, i);
++	context_desc = IXGBE_TX_CTXTDESC_ADV(tx_ring, i);
+ 	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
+ 	context_desc->seqnum_seed	= cpu_to_le32(fcoe_sof_eof);
+ 	context_desc->type_tucmd_mlhl	= cpu_to_le32(type_tucmd);
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index fd2026e..c88ba13 100644
+index c88ba13..85ecf0e 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2574,6 +2574,8 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
+@@ -385,7 +385,7 @@ static void ixgbe_dump(struct ixgbe_adapter *adapter)
+ 			"leng  ntw timestamp        bi->skb\n");
  
- 	srrctl &= ~IXGBE_SRRCTL_BSIZEHDR_MASK;
- 	srrctl &= ~IXGBE_SRRCTL_BSIZEPKT_MASK;
-+	if (adapter->num_vfs)
-+		srrctl |= IXGBE_SRRCTL_DROP_EN;
+ 		for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
+-			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
++			tx_desc = IXGBE_TX_DESC_ADV(tx_ring, i);
+ 			tx_buffer_info = &tx_ring->tx_buffer_info[i];
+ 			u0 = (struct my_u0 *)tx_desc;
+ 			printk(KERN_INFO "T [0x%03X]    %016llX %016llX %016llX"
+@@ -466,7 +466,7 @@ rx_ring_summary:
  
- 	srrctl |= (IXGBE_RX_HDR_SIZE << IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT) &
- 		  IXGBE_SRRCTL_BSIZEHDR_MASK;
-@@ -2705,13 +2707,72 @@ static void ixgbe_configure_rscctl(struct ixgbe_adapter *adapter,
- 	IXGBE_WRITE_REG(hw, IXGBE_RSCCTL(reg_idx), rscctrl);
- }
+ 		for (i = 0; i < rx_ring->count; i++) {
+ 			rx_buffer_info = &rx_ring->rx_buffer_info[i];
+-			rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
++			rx_desc = IXGBE_RX_DESC_ADV(rx_ring, i);
+ 			u0 = (struct my_u0 *)rx_desc;
+ 			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ 			if (staterr & IXGBE_RXD_STAT_DD) {
+@@ -695,7 +695,7 @@ static inline bool ixgbe_check_tx_hang(struct ixgbe_adapter *adapter,
+ 	    ixgbe_tx_xon_state(adapter, tx_ring)) {
+ 		/* detected Tx unit hang */
+ 		union ixgbe_adv_tx_desc *tx_desc;
+-		tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
++		tx_desc = IXGBE_TX_DESC_ADV(tx_ring, eop);
+ 		e_err(drv, "Detected Tx Unit Hang\n"
+ 		      "  Tx Queue             <%d>\n"
+ 		      "  TDH, TDT             <%x>, <%x>\n"
+@@ -743,7 +743,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
  
-+/**
-+ *  ixgbe_set_uta - Set unicast filter table address
-+ *  @adapter: board private structure
-+ *
-+ *  The unicast table address is a register array of 32-bit registers.
-+ *  The table is meant to be used in a way similar to how the MTA is used
-+ *  however due to certain limitations in the hardware it is necessary to
-+ *  set all the hash bits to 1 and use the VMOLR ROPE bit as a promiscuous
-+ *  enable bit to allow vlan tag stripping when promiscuous mode is enabled
-+ **/
-+static void ixgbe_set_uta(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
-+
-+	/* The UTA table only exists on 82599 hardware and newer */
-+	if (hw->mac.type < ixgbe_mac_82599EB)
-+		return;
-+
-+	/* we only need to do this if VMDq is enabled */
-+	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
-+		return;
-+
-+	for (i = 0; i < 128; i++)
-+		IXGBE_WRITE_REG(hw, IXGBE_UTA(i), ~0);
-+}
-+
-+#define IXGBE_MAX_RX_DESC_POLL 10
-+static void ixgbe_rx_desc_queue_enable(struct ixgbe_adapter *adapter,
-+				       struct ixgbe_ring *ring)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int reg_idx = ring->reg_idx;
-+	int wait_loop = IXGBE_MAX_RX_DESC_POLL;
-+	u32 rxdctl;
-+
-+	/* RXDCTL.EN will return 0 on 82598 if link is down, so skip it */
-+	if (hw->mac.type == ixgbe_mac_82598EB &&
-+	    !(IXGBE_READ_REG(hw, IXGBE_LINKS) & IXGBE_LINKS_UP))
-+		return;
-+
-+	do {
-+		msleep(1);
-+		rxdctl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(reg_idx));
-+	} while (--wait_loop && !(rxdctl & IXGBE_RXDCTL_ENABLE));
-+
-+	if (!wait_loop) {
-+		e_err(drv, "RXDCTL.ENABLE on Rx queue %d not set within "
-+		      "the polling period\n", reg_idx);
-+	}
-+}
-+
- static void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
- 				    struct ixgbe_ring *ring)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u64 rdba = ring->dma;
-+	u32 rxdctl;
- 	u16 reg_idx = ring->reg_idx;
+ 	i = tx_ring->next_to_clean;
+ 	eop = tx_ring->tx_buffer_info[i].next_to_watch;
+-	eop_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
++	eop_desc = IXGBE_TX_DESC_ADV(tx_ring, eop);
  
-+	/* disable queue to avoid issues while updating state */
-+	rxdctl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(reg_idx));
-+	IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(reg_idx),
-+			rxdctl & ~IXGBE_RXDCTL_ENABLE);
-+	IXGBE_WRITE_FLUSH(hw);
-+
- 	IXGBE_WRITE_REG(hw, IXGBE_RDBAL(reg_idx), (rdba & DMA_BIT_MASK(32)));
- 	IXGBE_WRITE_REG(hw, IXGBE_RDBAH(reg_idx), (rdba >> 32));
- 	IXGBE_WRITE_REG(hw, IXGBE_RDLEN(reg_idx),
-@@ -2720,6 +2781,28 @@ static void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
- 	IXGBE_WRITE_REG(hw, IXGBE_RDT(reg_idx), 0);
- 	ring->head = IXGBE_RDH(reg_idx);
- 	ring->tail = IXGBE_RDT(reg_idx);
-+
-+	ixgbe_configure_srrctl(adapter, ring);
-+	ixgbe_configure_rscctl(adapter, ring);
-+
-+	if (hw->mac.type == ixgbe_mac_82598EB) {
-+		/*
-+		 * enable cache line friendly hardware writes:
-+		 * PTHRESH=32 descriptors (half the internal cache),
-+		 * this also removes ugly rx_no_buffer_count increment
-+		 * HTHRESH=4 descriptors (to minimize latency on fetch)
-+		 * WTHRESH=8 burst writeback up to two cache lines
-+		 */
-+		rxdctl &= ~0x3FFFFF;
-+		rxdctl |=  0x080420;
-+	}
-+
-+	/* enable receive descriptor ring */
-+	rxdctl |= IXGBE_RXDCTL_ENABLE;
-+	IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(reg_idx), rxdctl);
-+
-+	ixgbe_rx_desc_queue_enable(adapter, ring);
-+	ixgbe_alloc_rx_buffers(adapter, ring, IXGBE_DESC_UNUSED(ring));
- }
+ 	while ((eop_desc->wb.status & cpu_to_le32(IXGBE_TXD_STAT_DD)) &&
+ 	       (count < tx_ring->work_limit)) {
+@@ -751,7 +751,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 		rmb(); /* read buffer_info after eop_desc */
+ 		for ( ; !cleaned; count++) {
+ 			struct sk_buff *skb;
+-			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
++			tx_desc = IXGBE_TX_DESC_ADV(tx_ring, i);
+ 			tx_buffer_info = &tx_ring->tx_buffer_info[i];
+ 			cleaned = (i == eop);
+ 			skb = tx_buffer_info->skb;
+@@ -791,7 +791,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 		}
  
- static void ixgbe_setup_psrtype(struct ixgbe_adapter *adapter)
-@@ -2908,7 +2991,6 @@ static void ixgbe_setup_rdrxctl(struct ixgbe_adapter *adapter)
- static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	struct ixgbe_ring *rx_ring;
- 	int i;
- 	u32 rxctrl;
+ 		eop = tx_ring->tx_buffer_info[i].next_to_watch;
+-		eop_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
++		eop_desc = IXGBE_TX_DESC_ADV(tx_ring, eop);
+ 	}
  
-@@ -2919,10 +3001,12 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 	ixgbe_setup_psrtype(adapter);
- 	ixgbe_setup_rdrxctl(adapter);
+ 	tx_ring->next_to_clean = i;
+@@ -1047,7 +1047,7 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 	bi = &rx_ring->rx_buffer_info[i];
  
--	/* Program MRQC for the distribution of queues */
-+	/* Program registers for the distribution of queues */
- 	ixgbe_setup_mrqc(adapter);
- 	ixgbe_configure_virtualization(adapter);
+ 	while (cleaned_count--) {
+-		rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
++		rx_desc = IXGBE_RX_DESC_ADV(rx_ring, i);
  
-+	ixgbe_set_uta(adapter);
-+
- 	/* set_rx_buffer_len must be called before ring initialization */
- 	ixgbe_set_rx_buffer_len(adapter);
+ 		if (!bi->page_dma &&
+ 		    (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED)) {
+@@ -1188,7 +1188,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ #endif /* IXGBE_FCOE */
  
-@@ -2930,13 +3014,16 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 	 * Setup the HW Rx Head and Tail Descriptor Pointers and
- 	 * the Base and Length of the Rx Descriptor Ring
- 	 */
--	for (i = 0; i < adapter->num_rx_queues; i++) {
--		rx_ring = adapter->rx_ring[i];
--		ixgbe_configure_rx_ring(adapter, rx_ring);
--		ixgbe_configure_srrctl(adapter, rx_ring);
--		ixgbe_configure_rscctl(adapter, rx_ring);
--	}
-+	for (i = 0; i < adapter->num_rx_queues; i++)
-+		ixgbe_configure_rx_ring(adapter, adapter->rx_ring[i]);
+ 	i = rx_ring->next_to_clean;
+-	rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
++	rx_desc = IXGBE_RX_DESC_ADV(rx_ring, i);
+ 	staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+ 	rx_buffer_info = &rx_ring->rx_buffer_info[i];
  
-+	/* disable drop enable for 82598 parts */
-+	if (hw->mac.type == ixgbe_mac_82598EB)
-+		rxctrl |= IXGBE_RXCTRL_DMBYPS;
-+
-+	/* enable all receives */
-+	rxctrl |= IXGBE_RXCTRL_RXEN;
-+	hw->mac.ops.enable_rx_dma(hw, rxctrl);
- }
+@@ -1263,7 +1263,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 		if (i == rx_ring->count)
+ 			i = 0;
  
- static void ixgbe_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
-@@ -3306,9 +3393,6 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+-		next_rxd = IXGBE_RX_DESC_ADV(*rx_ring, i);
++		next_rxd = IXGBE_RX_DESC_ADV(rx_ring, i);
+ 		prefetch(next_rxd);
+ 		cleaned_count++;
  
- 	ixgbe_configure_tx(adapter);
- 	ixgbe_configure_rx(adapter);
--	for (i = 0; i < adapter->num_rx_queues; i++)
--		ixgbe_alloc_rx_buffers(adapter, adapter->rx_ring[i],
--		                       (adapter->rx_ring[i]->count - 1));
- }
+@@ -5813,7 +5813,7 @@ static int ixgbe_tso(struct ixgbe_adapter *adapter,
+ 		i = tx_ring->next_to_use;
  
- static inline bool ixgbe_is_sfp(struct ixgbe_hw *hw)
-@@ -3389,28 +3473,6 @@ link_cfg_out:
- 	return ret;
- }
+ 		tx_buffer_info = &tx_ring->tx_buffer_info[i];
+-		context_desc = IXGBE_TX_CTXTDESC_ADV(*tx_ring, i);
++		context_desc = IXGBE_TX_CTXTDESC_ADV(tx_ring, i);
  
--#define IXGBE_MAX_RX_DESC_POLL 10
--static inline void ixgbe_rx_desc_queue_enable(struct ixgbe_adapter *adapter,
--	                                      int rxr)
--{
--	int j = adapter->rx_ring[rxr]->reg_idx;
--	int k;
--
--	for (k = 0; k < IXGBE_MAX_RX_DESC_POLL; k++) {
--		if (IXGBE_READ_REG(&adapter->hw,
--		                   IXGBE_RXDCTL(j)) & IXGBE_RXDCTL_ENABLE)
--			break;
--		else
--			msleep(1);
--	}
--	if (k >= IXGBE_MAX_RX_DESC_POLL) {
--		e_err(drv, "RXDCTL.ENABLE on Rx queue %d not set within "
--		      "the polling period\n", rxr);
--	}
--	ixgbe_release_rx_desc(&adapter->hw, adapter->rx_ring[rxr],
--	                      (adapter->rx_ring[rxr]->count - 1));
--}
--
- static void ixgbe_setup_gpie(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
-@@ -3462,35 +3524,12 @@ static void ixgbe_setup_gpie(struct ixgbe_adapter *adapter)
- static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int i, j = 0;
--	int num_rx_rings = adapter->num_rx_queues;
- 	int err;
--	u32 rxdctl;
- 	u32 ctrl_ext;
+ 		/* VLAN MACLEN IPLEN */
+ 		if (tx_flags & IXGBE_TX_FLAGS_VLAN)
+@@ -5872,7 +5872,7 @@ static bool ixgbe_tx_csum(struct ixgbe_adapter *adapter,
+ 	    (tx_flags & IXGBE_TX_FLAGS_VLAN)) {
+ 		i = tx_ring->next_to_use;
+ 		tx_buffer_info = &tx_ring->tx_buffer_info[i];
+-		context_desc = IXGBE_TX_CTXTDESC_ADV(*tx_ring, i);
++		context_desc = IXGBE_TX_CTXTDESC_ADV(tx_ring, i);
  
- 	ixgbe_get_hw_control(adapter);
- 	ixgbe_setup_gpie(adapter);
- 
--	for (i = 0; i < num_rx_rings; i++) {
--		j = adapter->rx_ring[i]->reg_idx;
--		rxdctl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
--		/* enable PTHRESH=32 descriptors (half the internal cache)
--		 * and HTHRESH=0 descriptors (to minimize latency on fetch),
--		 * this also removes a pesky rx_no_buffer_count increment */
--		rxdctl |= 0x0020;
--		rxdctl |= IXGBE_RXDCTL_ENABLE;
--		IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), rxdctl);
--		if (hw->mac.type == ixgbe_mac_82599EB)
--			ixgbe_rx_desc_queue_enable(adapter, i);
--	}
--	/* enable all receives */
--	rxdctl = IXGBE_READ_REG(hw, IXGBE_RXCTRL);
--	if (hw->mac.type == ixgbe_mac_82598EB)
--		rxdctl |= (IXGBE_RXCTRL_DMBYPS | IXGBE_RXCTRL_RXEN);
--	else
--		rxdctl |= IXGBE_RXCTRL_RXEN;
--	hw->mac.ops.enable_rx_dma(hw, rxdctl);
--
- 	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED)
- 		ixgbe_configure_msix(adapter);
- 	else
-@@ -3505,7 +3544,6 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 
- 	/* clear any pending interrupts, may auto mask */
- 	IXGBE_READ_REG(hw, IXGBE_EICR);
--
- 	ixgbe_irq_enable(adapter);
- 
- 	/*
+ 		if (tx_flags & IXGBE_TX_FLAGS_VLAN)
+ 			vlan_macip_lens |=
+@@ -6101,7 +6101,7 @@ static void ixgbe_tx_queue(struct ixgbe_adapter *adapter,
+ 	i = tx_ring->next_to_use;
+ 	while (count--) {
+ 		tx_buffer_info = &tx_ring->tx_buffer_info[i];
+-		tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
++		tx_desc = IXGBE_TX_DESC_ADV(tx_ring, i);
+ 		tx_desc->read.buffer_addr = cpu_to_le64(tx_buffer_info->dma);
+ 		tx_desc->read.cmd_type_len =
+ 		        cpu_to_le32(cmd_type_len | tx_buffer_info->length);
 
