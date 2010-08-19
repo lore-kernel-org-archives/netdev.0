@@ -1,293 +1,228 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: Broadcom 5709 take long time to bring up
-Date: Thu, 19 Aug 2010 16:11:15 +0800
-Message-ID: <20100819081115.GA6419@joejin-pc.cn.oracle.com>
-References: <20100818143432.GA29386@joejin-pc.cn.oracle.com> <1282147735.3880.83.camel@localhost> <20100819011350.GB412@joejin-pc.cn.oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Li <benli@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	"terry.liu@oracle.com" <terry.liu@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe Jin <joe.jin@oracle.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] slip: Use net_device_stats from struct net_device
+Date: Thu, 19 Aug 2010 10:25:13 +0200
+Message-ID: <1282206313-10667-1-git-send-email-tklauser@distanz.ch>
+Cc: kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:28486 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751325Ab0HSIMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 04:12:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20100819011350.GB412@joejin-pc.cn.oracle.com>
+Received: from mx1.zhaw.ch ([160.85.104.50]:43254 "EHLO mx1.zhaw.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750715Ab0HSIZP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Aug 2010 04:25:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Use net_device->stats for stats instead of private variable copies in
+struct slip.
 
-Just confirmed it, there was not iscsi configured on the server.
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/slip.c |   64 ++++++++++++++++++++++------------------------------
+ drivers/net/slip.h |    9 -------
+ 2 files changed, 27 insertions(+), 46 deletions(-)
 
-Thanks,
-Joe
-
-
-On 2010-08-19 09:13, Joe Jin wrote:
-> Hi Benjamin,
-> 
-> Thanks for your reply, see the answers in the lines.
-> 
-> On 2010-08-18 09:08, Benjamin Li wrote:
-> > Hi Joe,
-> > 
-> > Just a couple of quick questions:
-> > 
-> > 1.  It is possible that autonegotiation could take in the orders of
-> > seconds depending on the remote partner.   Could you describe the remote
-> > partner?
-> 
-> I dont think it caused that.
-> >From system log(see below) could saw brought up the interface took
-> around 3 seconds. I have add some debugging codes in the drivers and
-> could saw 3 times poll the devices and all the state of device is
-> link down.
-> 
-> Also, from system could found during bootup, brought all devices 
-> took less than 1 seconds, but ifdown/ifup take long times.
-> 
-> > 
-> > 2.  Are there iSCSI offload connections?  With iSCSI there is
-> > additionial overhead to cleanup/setup iSCSI connections on the
-> > chip/firmware when ifup'ing/ifdown'ing a network interface.
-> 
-> I'll confirm it later, but from system log saw have initialized 
-> iSCSI module, it maybe cause it.
-> 
-> > 
-> > 3.  Could you provide the kernel logs during this up/down test?  I
-> > wanted to see if there was anything interesting in the kernel logs.
-> > 
-> 
-> Here are kernel log:
-> 
-> 
-> System log of bootup
-> ~~~~~~~~~~~~~~~~~~~~
-> Jul 19 11:23:28 bond-test kernel: Ethernet Channel Bonding Driver: v3.4.0 (October 7, 2008)
-> Jul 19 11:23:28 bond-test kernel: bonding: Warning: updelay (150) is not a multiple of miimon (100), updelay rounded to 100 ms
-> Jul 19 11:23:28 bond-test kernel: bonding: MII link monitoring set to 100 ms
-> Jul 19 11:23:28 bond-test kernel: ADDRCONF(NETDEV_UP): bond0: link is not ready
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:23:28 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:23:28 bond-test kernel: iscsi: registered transport (bcm570x-020000)
-> Jul 19 11:23:28 bond-test kernel: bnx2i: netif=eth0, iscsi=bcm570x-020000
-> Jul 19 11:23:28 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:23:28 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:23:28 bond-test kernel: iscsi: registered transport (bcm570x-020001)
-> Jul 19 11:23:28 bond-test kernel: bnx2i: netif=eth1, iscsi=bcm570x-020001
-> Jul 19 11:23:28 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:23:28 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 0 ms.
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: first active interface up!
-> Jul 19 11:23:28 bond-test kernel: ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
-> Jul 19 11:23:28 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 100 ms.
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:23:28 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> 
-> 
-> System log of the testcase
-> ~~~~~~~~~~~~~~~~~~~~~~~~~~
-> Jul 19 11:25:41 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:25:41 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:25:41 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:25:41 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:25:45 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:25:45 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:25:45 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:25:45 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:25:47 bond-test kernel: bonding: bond0: Removing slave eth1
-> Jul 19 11:25:47 bond-test kernel: bonding: bond0: releasing active interface eth1
-> Jul 19 11:25:48 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:25:48 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 0 ms.
-> Jul 19 11:25:48 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:25:48 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> Jul 19 11:25:53 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:25:53 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:25:53 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:25:53 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:25:55 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:25:55 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:25:55 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:25:56 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:25:56 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 0 ms.
-> Jul 19 11:25:56 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:25:56 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:25:59 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:25:59 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:25:59 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:25:59 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:26:02 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:26:02 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 100 ms.
-> Jul 19 11:26:02 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:26:02 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> Jul 19 11:26:27 bond-test kernel: bonding: bond0: Removing slave eth1
-> Jul 19 11:26:27 bond-test kernel: bonding: bond0: releasing backup interface eth1
-> Jul 19 11:26:29 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:26:29 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:26:29 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:26:29 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:26:32 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:26:32 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 100 ms.
-> Jul 19 11:26:32 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:26:33 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:26:33 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:26:33 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:26:33 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:26:36 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:26:36 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:26:36 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:26:36 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:26:38 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:26:39 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 100 ms.
-> Jul 19 11:26:39 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:26:39 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> Jul 19 11:27:07 bond-test kernel: bonding: bond0: Removing slave eth1
-> Jul 19 11:27:07 bond-test kernel: bonding: bond0: releasing backup interface eth1
-> Jul 19 11:27:09 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:27:09 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:27:09 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:27:09 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:27:12 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:27:12 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 100 ms.
-> Jul 19 11:27:12 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:27:12 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:27:12 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:27:12 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:27:12 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:27:15 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:27:15 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:27:15 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:27:15 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:27:18 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:27:18 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 100 ms.
-> Jul 19 11:27:18 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:27:18 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> Jul 19 11:27:22 bond-test kernel: bonding: bond0: Removing slave eth1
-> Jul 19 11:27:22 bond-test kernel: bonding: bond0: releasing backup interface eth1
-> Jul 19 11:27:24 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:27:24 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:27:24 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:27:24 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:27:26 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:27:26 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 100 ms.
-> Jul 19 11:27:26 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:27:27 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:27:27 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:27:27 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:27:27 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:27:30 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:27:30 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:27:30 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:27:30 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:27:33 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:27:33 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 100 ms.
-> Jul 19 11:27:33 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:27:33 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> Jul 19 11:27:52 bond-test kernel: bonding: bond0: Removing slave eth1
-> Jul 19 11:27:52 bond-test kernel: bonding: bond0: releasing backup interface eth1
-> Jul 19 11:27:54 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:27:54 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:27:54 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:27:54 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:27:56 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:27:56 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 100 ms.
-> Jul 19 11:27:56 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:28:05 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:28:05 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:28:05 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:28:05 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:28:07 bond-test ntpd[7189]: synchronized to 144.145.109.92, stratum 3
-> Jul 19 11:28:07 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:28:07 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:28:07 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:28:07 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:28:11 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:28:11 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 100 ms.
-> Jul 19 11:28:11 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:28:11 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> Jul 19 11:28:32 bond-test kernel: bonding: bond0: Removing slave eth1
-> Jul 19 11:28:32 bond-test kernel: bonding: bond0: releasing backup interface eth1
-> Jul 19 11:28:34 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:28:34 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:28:34 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:28:34 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:28:37 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:28:37 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 100 ms.
-> Jul 19 11:28:37 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:28:40 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:28:40 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:28:40 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:28:40 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:28:43 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:28:43 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:28:43 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:28:43 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:28:45 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:28:45 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 100 ms.
-> Jul 19 11:28:45 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:28:45 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> Jul 19 11:28:45 bond-test kernel: bonding: bond0: Removing slave eth1
-> Jul 19 11:28:45 bond-test kernel: bonding: bond0: releasing backup interface eth1
-> Jul 19 11:28:48 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:28:48 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:28:48 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:28:48 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:28:51 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:28:51 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 100 ms.
-> Jul 19 11:28:51 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:28:53 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:28:53 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:28:53 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:28:53 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:28:57 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:28:57 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:28:57 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:28:57 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:28:59 bond-test kernel: bonding: bond0: Removing slave eth1
-> Jul 19 11:28:59 bond-test kernel: bonding: bond0: releasing active interface eth1
-> Jul 19 11:29:00 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:29:00 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 0 ms.
-> Jul 19 11:29:00 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> Jul 19 11:29:00 bond-test kernel: bonding: bond0: making interface eth0 the new active one.
-> Jul 19 11:29:13 bond-test kernel: bonding: bond0: Adding slave eth1.
-> Jul 19 11:29:13 bond-test kernel: bnx2: eth1: using MSI
-> Jul 19 11:29:13 bond-test kernel: bnx2i [02:00.01]: ISCSI_INIT passed
-> Jul 19 11:29:13 bond-test kernel: bonding: bond0: enslaving eth1 as a backup interface with a down link.
-> Jul 19 11:29:15 bond-test kernel: bonding: bond0: Removing slave eth0
-> Jul 19 11:29:15 bond-test kernel: bonding: bond0: Warning: the permanent HWaddr of eth0 - 00:26:55:4F:1F:18 - is still in use by bond0. Set the HWaddr of eth0 to a different address to avoid conflicts.
-> Jul 19 11:29:15 bond-test kernel: bonding: bond0: releasing active interface eth0
-> Jul 19 11:29:15 bond-test kernel: bnx2: eth1 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:29:16 bond-test kernel: bonding: bond0: link status up for interface eth1, enabling it in 0 ms.
-> Jul 19 11:29:16 bond-test kernel: bonding: bond0: link status definitely up for interface eth1.
-> Jul 19 11:29:16 bond-test kernel: bonding: bond0: making interface eth1 the new active one.
-> Jul 19 11:29:20 bond-test kernel: bonding: bond0: Adding slave eth0.
-> Jul 19 11:29:20 bond-test kernel: bnx2: eth0: using MSI
-> Jul 19 11:29:20 bond-test kernel: bnx2i [02:00.00]: ISCSI_INIT passed
-> Jul 19 11:29:20 bond-test kernel: bonding: bond0: enslaving eth0 as a backup interface with a down link.
-> Jul 19 11:29:22 bond-test kernel: bnx2: eth0 NIC Copper Link is Up, 1000 Mbps full duplex, receive & transmit flow control ON
-> Jul 19 11:29:22 bond-test kernel: bonding: bond0: link status up for interface eth0, enabling it in 100 ms.
-> Jul 19 11:29:22 bond-test kernel: bonding: bond0: link status definitely up for interface eth0.
-> 
-> 
-> 
-> Thanks,
-> Joe
-
+diff --git a/drivers/net/slip.c b/drivers/net/slip.c
+index fa434fb..721de9d 100644
+--- a/drivers/net/slip.c
++++ b/drivers/net/slip.c
+@@ -271,7 +271,7 @@ static int sl_realloc_bufs(struct slip *sl, int mtu)
+ 			memcpy(sl->xbuff, sl->xhead, sl->xleft);
+ 		} else  {
+ 			sl->xleft = 0;
+-			sl->tx_dropped++;
++			dev->stats.tx_dropped++;
+ 		}
+ 	}
+ 	sl->xhead = sl->xbuff;
+@@ -281,7 +281,7 @@ static int sl_realloc_bufs(struct slip *sl, int mtu)
+ 			memcpy(sl->rbuff, rbuff, sl->rcount);
+ 		} else  {
+ 			sl->rcount = 0;
+-			sl->rx_over_errors++;
++			dev->stats.rx_over_errors++;
+ 			set_bit(SLF_ERROR, &sl->flags);
+ 		}
+ 	}
+@@ -319,6 +319,7 @@ static inline void sl_unlock(struct slip *sl)
+ /* Send one completely decapsulated IP datagram to the IP layer. */
+ static void sl_bump(struct slip *sl)
+ {
++	struct net_device *dev = sl->dev;
+ 	struct sk_buff *skb;
+ 	int count;
+ 
+@@ -329,13 +330,13 @@ static void sl_bump(struct slip *sl)
+ 		if (c & SL_TYPE_COMPRESSED_TCP) {
+ 			/* ignore compressed packets when CSLIP is off */
+ 			if (!(sl->mode & SL_MODE_CSLIP)) {
+-				printk(KERN_WARNING "%s: compressed packet ignored\n", sl->dev->name);
++				printk(KERN_WARNING "%s: compressed packet ignored\n", dev->name);
+ 				return;
+ 			}
+ 			/* make sure we've reserved enough space for uncompress
+ 			   to use */
+ 			if (count + 80 > sl->buffsize) {
+-				sl->rx_over_errors++;
++				dev->stats.rx_over_errors++;
+ 				return;
+ 			}
+ 			count = slhc_uncompress(sl->slcomp, sl->rbuff, count);
+@@ -346,7 +347,7 @@ static void sl_bump(struct slip *sl)
+ 				/* turn on header compression */
+ 				sl->mode |= SL_MODE_CSLIP;
+ 				sl->mode &= ~SL_MODE_ADAPTIVE;
+-				printk(KERN_INFO "%s: header compression turned on\n", sl->dev->name);
++				printk(KERN_INFO "%s: header compression turned on\n", dev->name);
+ 			}
+ 			sl->rbuff[0] &= 0x4f;
+ 			if (slhc_remember(sl->slcomp, sl->rbuff, count) <= 0)
+@@ -355,20 +356,20 @@ static void sl_bump(struct slip *sl)
+ 	}
+ #endif  /* SL_INCLUDE_CSLIP */
+ 
+-	sl->rx_bytes += count;
++	dev->stats.rx_bytes += count;
+ 
+ 	skb = dev_alloc_skb(count);
+ 	if (skb == NULL) {
+-		printk(KERN_WARNING "%s: memory squeeze, dropping packet.\n", sl->dev->name);
+-		sl->rx_dropped++;
++		printk(KERN_WARNING "%s: memory squeeze, dropping packet.\n", dev->name);
++		dev->stats.rx_dropped++;
+ 		return;
+ 	}
+-	skb->dev = sl->dev;
++	skb->dev = dev;
+ 	memcpy(skb_put(skb, count), sl->rbuff, count);
+ 	skb_reset_mac_header(skb);
+ 	skb->protocol = htons(ETH_P_IP);
+ 	netif_rx(skb);
+-	sl->rx_packets++;
++	dev->stats.rx_packets++;
+ }
+ 
+ /* Encapsulate one IP datagram and stuff into a TTY queue. */
+@@ -379,7 +380,7 @@ static void sl_encaps(struct slip *sl, unsigned char *icp, int len)
+ 
+ 	if (len > sl->mtu) {		/* Sigh, shouldn't occur BUT ... */
+ 		printk(KERN_WARNING "%s: truncating oversized transmit packet!\n", sl->dev->name);
+-		sl->tx_dropped++;
++		sl->dev->stats.tx_dropped++;
+ 		sl_unlock(sl);
+ 		return;
+ 	}
+@@ -433,7 +434,7 @@ static void slip_write_wakeup(struct tty_struct *tty)
+ 	if (sl->xleft <= 0)  {
+ 		/* Now serial buffer is almost free & we can start
+ 		 * transmission of another packet */
+-		sl->tx_packets++;
++		sl->dev->stats.tx_packets++;
+ 		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+ 		sl_unlock(sl);
+ 		return;
+@@ -496,7 +497,7 @@ sl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	sl_lock(sl);
+-	sl->tx_bytes += skb->len;
++	dev->stats.tx_bytes += skb->len;
+ 	sl_encaps(sl, skb->data, skb->len);
+ 	spin_unlock(&sl->lock);
+ 
+@@ -561,36 +562,25 @@ static int sl_change_mtu(struct net_device *dev, int new_mtu)
+ static struct net_device_stats *
+ sl_get_stats(struct net_device *dev)
+ {
+-	static struct net_device_stats stats;
++	struct net_device_stats *stats = &dev->stats;
+ 	struct slip *sl = netdev_priv(dev);
+ #ifdef SL_INCLUDE_CSLIP
+ 	struct slcompress *comp;
+ #endif
+ 
+-	memset(&stats, 0, sizeof(struct net_device_stats));
+-
+-	stats.rx_packets     = sl->rx_packets;
+-	stats.tx_packets     = sl->tx_packets;
+-	stats.rx_bytes	     = sl->rx_bytes;
+-	stats.tx_bytes	     = sl->tx_bytes;
+-	stats.rx_dropped     = sl->rx_dropped;
+-	stats.tx_dropped     = sl->tx_dropped;
+-	stats.tx_errors      = sl->tx_errors;
+-	stats.rx_errors      = sl->rx_errors;
+-	stats.rx_over_errors = sl->rx_over_errors;
+ #ifdef SL_INCLUDE_CSLIP
+-	stats.rx_fifo_errors = sl->rx_compressed;
+-	stats.tx_fifo_errors = sl->tx_compressed;
+-	stats.collisions     = sl->tx_misses;
++	stats->rx_fifo_errors = sl->rx_compressed;
++	stats->tx_fifo_errors = sl->tx_compressed;
++	stats->collisions     = sl->tx_misses;
+ 	comp = sl->slcomp;
+ 	if (comp) {
+-		stats.rx_fifo_errors += comp->sls_i_compressed;
+-		stats.rx_dropped     += comp->sls_i_tossed;
+-		stats.tx_fifo_errors += comp->sls_o_compressed;
+-		stats.collisions     += comp->sls_o_misses;
++		stats->rx_fifo_errors += comp->sls_i_compressed;
++		stats->rx_dropped     += comp->sls_i_tossed;
++		stats->tx_fifo_errors += comp->sls_o_compressed;
++		stats->collisions     += comp->sls_o_misses;
+ 	}
+-#endif /* CONFIG_INET */
+-	return (&stats);
++#endif
++	return stats;
+ }
+ 
+ /* Netdevice register callback */
+@@ -681,7 +671,7 @@ static void slip_receive_buf(struct tty_struct *tty, const unsigned char *cp,
+ 	while (count--) {
+ 		if (fp && *fp++) {
+ 			if (!test_and_set_bit(SLF_ERROR, &sl->flags))
+-				sl->rx_errors++;
++				sl->dev->stats.rx_errors++;
+ 			cp++;
+ 			continue;
+ 		}
+@@ -981,7 +971,7 @@ static void slip_unesc(struct slip *sl, unsigned char s)
+ 			sl->rbuff[sl->rcount++] = s;
+ 			return;
+ 		}
+-		sl->rx_over_errors++;
++		sl->dev->stats.rx_over_errors++;
+ 		set_bit(SLF_ERROR, &sl->flags);
+ 	}
+ }
+@@ -1057,7 +1047,7 @@ static void slip_unesc6(struct slip *sl, unsigned char s)
+ 					sl->rbuff[sl->rcount++] = c;
+ 					return;
+ 				}
+-				sl->rx_over_errors++;
++				sl->dev->stats.rx_over_errors++;
+ 				set_bit(SLF_ERROR, &sl->flags);
+ 			}
+ 		}
+diff --git a/drivers/net/slip.h b/drivers/net/slip.h
+index 9ea5c11..914e958 100644
+--- a/drivers/net/slip.h
++++ b/drivers/net/slip.h
+@@ -67,15 +67,6 @@ struct slip {
+   int                   xleft;          /* bytes left in XMIT queue     */
+ 
+   /* SLIP interface statistics. */
+-  unsigned long		rx_packets;	/* inbound frames counter	*/
+-  unsigned long         tx_packets;     /* outbound frames counter      */
+-  unsigned long		rx_bytes;	/* inbound byte counte		*/
+-  unsigned long         tx_bytes;       /* outbound byte counter	*/
+-  unsigned long         rx_errors;      /* Parity, etc. errors          */
+-  unsigned long         tx_errors;      /* Planned stuff                */
+-  unsigned long         rx_dropped;     /* No memory for skb            */
+-  unsigned long         tx_dropped;     /* When MTU change              */
+-  unsigned long         rx_over_errors; /* Frame bigger than SLIP buf.  */
+ #ifdef SL_INCLUDE_CSLIP
+   unsigned long		tx_compressed;
+   unsigned long		rx_compressed;
 -- 
-Joe Jin | Team Leader, Software Development | +8610.8278.6295
-ORACLE | Linux and Virtualization
-Incubator Building 2-A ZPark | Beijing China, 100094
-
+1.7.0.4
 
