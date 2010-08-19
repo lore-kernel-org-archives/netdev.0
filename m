@@ -1,60 +1,95 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: Re: [PATCH net-next-2.6] net: build_ehash_secret() and
-	rt_bind_peer() cleanups
-Date: Thu, 19 Aug 2010 12:30:22 -0400
-Message-ID: <20100819163022.GD24357@Krystal>
-References: <1282232815.2549.61.camel@edumazet-laptop> <AANLkTinpqNa3cgEb=86H0sYXdLmo-RP1G2icJgWpfyN1@mail.gmail.com> <20100819161326.GB24357@Krystal>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH] tcp: allow effective reduction of TCP's rcv-buffer via setsockopt
+Date: Thu, 19 Aug 2010 18:33:05 +0200
+Message-ID: <1282235585-14206-1-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Ilpo=20J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts43.bellnexxia.net ([209.226.175.110]:38218 "EHLO
-	tomts43-srv.bellnexxia.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751150Ab0HSQa1 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Aug 2010 12:30:27 -0400
-Received: from toip5.srvr.bell.ca ([209.226.175.88])
-          by tomts43-srv.bellnexxia.net
-          (InterMail vM.5.01.06.13 201-253-122-130-113-20050324) with ESMTP
-          id <20100819163026.GMDD6618.tomts43-srv.bellnexxia.net@toip5.srvr.bell.ca>
-          for <netdev@vger.kernel.org>; Thu, 19 Aug 2010 12:30:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20100819161326.GB24357@Krystal>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:53588 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752090Ab0HSQdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 12:33:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Mathieu Desnoyers (mathieu.desnoyers@polymtl.ca) wrote:
-> * Changli Gao (xiaosuo@gmail.com) wrote:
-> > On Thu, Aug 19, 2010 at 11:46 PM, Eric Dumazet <eric.dumazet@gmail.=
-com> wrote:
-[...]
-> > > + =A0 =A0 =A0 peer =3D cmpxchg(&rt->peer, NULL, peer);
-> > > +
-> > > + =A0 =A0 =A0 if (unlikely(peer))
-> >=20
-> > It isn't correct, and should be
-> >      if (unlikely(cmpxchg(&rt->peer, NULL, peer) !=3D NULL))
-> >=20
-> > > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0inet_putpeer(peer);
-> > > =A0}
->=20
-> What do you mean by "It isn't correct" ? Eric code and yours perform =
-the
-> exact same thing. So I assume this is just a code style issue here.
+Via setsockopt it is possible to reduce the socket RX buffer
+(SO_RCVBUF). TCP method to select the initial window and window scaling
+option in tcp_select_initial_window() currently misbehaves and do not
+consider a reduced RX socket buffer via setsockopt.
 
-Nevermind my comment, it's not accurate.
+Even though the server's RX buffer is reduced via setsockopt() to 256
+byte (Initial Window 384 byte =3D> 256 * 2 - (256 * 2 / 4)) the window
+scale option is still 7:
 
-Thanks,
+192.168.1.38.40676 > 78.47.222.210.5001: Flags [S], seq 2577214362, win=
+ 5840, options [mss 1460,sackOK,TS val 338417 ecr 0,nop,wscale 0], leng=
+th 0
+78.47.222.210.5001 > 192.168.1.38.40676: Flags [S.], seq 1570631029, ac=
+k 2577214363, win 384, options [mss 1452,sackOK,TS val 2435248895 ecr 3=
+38417,nop,wscale 7], length 0
+192.168.1.38.40676 > 78.47.222.210.5001: Flags [.], ack 1, win 5840, op=
+tions [nop,nop,TS val 338421 ecr 2435248895], length 0
 
-Mathieu
+Within tcp_select_initial_window() the original space argument - a
+representation of the rx buffer size - is expanded during
+tcp_select_initial_window(). Only sysctl_tcp_rmem[2], sysctl_rmem_max
+and window_clamp are considered to calculate the initial window.
 
+This patch adjust the window_clamp argument if the user explicitly
+reduce the receive buffer.
 
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_output.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index de3bd84..01b94b8 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2429,6 +2429,12 @@ struct sk_buff *tcp_make_synack(struct sock *sk,=
+ struct dst_entry *dst,
+ 		__u8 rcv_wscale;
+ 		/* Set this up on the first call only */
+ 		req->window_clamp =3D tp->window_clamp ? : dst_metric(dst, RTAX_WIND=
+OW);
++
++		/* limit the window selection if the user enforce a smaller rx buffe=
+r */
++		if (sk->sk_userlocks & SOCK_RCVBUF_LOCK &&
++		    (req->window_clamp > tcp_full_space(sk) || req->window_clamp =3D=
+=3D 0))
++			req->window_clamp =3D tcp_full_space(sk);
++
+ 		/* tcp_full_space because it is guaranteed to be the first packet */
+ 		tcp_select_initial_window(tcp_full_space(sk),
+ 			mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
+@@ -2555,6 +2561,11 @@ static void tcp_connect_init(struct sock *sk)
+=20
+ 	tcp_initialize_rcv_mss(sk);
+=20
++	/* limit the window selection if the user enforce a smaller rx buffer=
+ */
++	if (sk->sk_userlocks & SOCK_RCVBUF_LOCK &&
++	    (tp->window_clamp > tcp_full_space(sk) || tp->window_clamp =3D=3D=
+ 0))
++		tp->window_clamp =3D tcp_full_space(sk);
++
+ 	tcp_select_initial_window(tcp_full_space(sk),
+ 				  tp->advmss - (tp->rx_opt.ts_recent_stamp ? tp->tcp_header_len - =
+sizeof(struct tcphdr) : 0),
+ 				  &tp->rcv_wnd,
 --=20
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
+1.7.2.1.95.g3d045.dirty
+
