@@ -1,53 +1,61 @@
-From: Debashis Dutt <ddutt@Brocade.COM>
-Subject: RE: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
-Date: Thu, 19 Aug 2010 09:36:30 -0700
-Message-ID: <F363E7AC84E1B646A0358B281A46F4AEA9A11C124B@HQ1-EXCH03.corp.brocade.com>
-References: <201008110418.o7B4IZeL002650@blc-10-10.brocade.com>
- <20100818130309.GL9073@verge.net.au>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] isdn/avm: fix build when PCMCIA is not enabled
+Date: Thu, 19 Aug 2010 10:07:23 -0700
+Message-ID: <20100819100723.d0c0578e.randy.dunlap@oracle.com>
+References: <20100819143941.d3ea5cb4.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>, Rasesh Mody <rmody@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:42671 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752468Ab0HSQgl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Aug 2010 12:36:41 -0400
-In-Reply-To: <20100818130309.GL9073@verge.net.au>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	Carsten Paeth <calle@calle.de>,
+	Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100819143941.d3ea5cb4.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Simon, 
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Thanks for your feedback. 
-The only reason that we did not put a separate subject line
-for each of the patches is because this is a whole new driver
-submission, waiting for acceptance. So these are not really logically
-separate entities (unlike other patches adding features / bug fixes).
+Why wouldn't kconfig symbol ISDN_DRV_AVMB1_B1PCMCIA also depend on
+PCMCIA?
 
-If you still think that we should try to logically separate the patches
-please let me know.
+Fix build for PCMCIA not enabled:
 
-Thanks
---Debashis
-Brocade Linux Driver Team.
+ERROR: "b1_free_card" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1ctl_proc_fops" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_reset_ctr" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_load_firmware" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_send_message" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_release_appl" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_register_appl" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_getrevision" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_detect" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_interrupt" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
+ERROR: "b1_alloc_card" [drivers/isdn/hardware/avm/b1pcmcia.ko] undefined!
 
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: Carsten Paeth <calle@calle.de>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+---
+ drivers/isdn/hardware/avm/Kconfig |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-
------Original Message-----
-From: Simon Horman [mailto:horms@verge.net.au] 
-Sent: Wednesday, August 18, 2010 6:03 AM
-To: Rasesh Mody
-Cc: netdev@vger.kernel.org; Adapter Linux Open SRC Team
-Subject: Re: [PATCH 0/6] bna: Brocade 10Gb Ethernet device driver
-
-Hi Rasesh,
-
-it would be helpful if all six patches in your series
-didn't feature the same subject and each had unique
-description that described them in a little more detail.
-
-Thanks
+--- linux-next-20100819.orig/drivers/isdn/hardware/avm/Kconfig
++++ linux-next-20100819/drivers/isdn/hardware/avm/Kconfig
+@@ -36,12 +36,13 @@ config ISDN_DRV_AVMB1_T1ISA
+ 
+ config ISDN_DRV_AVMB1_B1PCMCIA
+ 	tristate "AVM B1/M1/M2 PCMCIA support"
++	depends on PCMCIA
+ 	help
+ 	  Enable support for the PCMCIA version of the AVM B1 card.
+ 
+ config ISDN_DRV_AVMB1_AVM_CS
+ 	tristate "AVM B1/M1/M2 PCMCIA cs module"
+-	depends on ISDN_DRV_AVMB1_B1PCMCIA && PCMCIA
++	depends on ISDN_DRV_AVMB1_B1PCMCIA
+ 	help
+ 	  Enable the PCMCIA client driver for the AVM B1/M1/M2
+ 	  PCMCIA cards.
