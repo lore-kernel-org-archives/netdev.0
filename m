@@ -1,67 +1,63 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Thu, 19 Aug 2010 14:29:49 +0200
-Message-ID: <201008191429.50008.arnd@arndb.de>
-References: <cover.1281956490.git.richard.cochran@omicron.at> <201008181702.03384.arnd@arndb.de> <20100819092246.GA8484@riccoc20.at.omicron.at>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: Re: IPsec: Why do pfkey_getspi and xfrm_alloc_userspi call xfrm_find_acq_byseq?
+Date: Thu, 19 Aug 2010 14:55:21 +0200
+Message-ID: <4C6D29B9.5070403@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: john stultz <johnstul@us.ibm.com>, linuxppc-dev@lists.ozlabs.org,
-	Rodolfo Giometti <giometti@linux.it>, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100819092246.GA8484@riccoc20.at.omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:45900 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752897Ab0HSM54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 08:57:56 -0400
+Received: by wwi17 with SMTP id 17so2422842wwi.1
+        for <netdev@vger.kernel.org>; Thu, 19 Aug 2010 05:57:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 19 August 2010, Richard Cochran wrote:
-> 
-> On Wed, Aug 18, 2010 at 05:02:03PM +0200, Arnd Bergmann wrote:
-> > You might want to use callbacks for these system calls that you
-> > can register to at module load time, like it is done for the
-> > existing syscalls.
-> 
-> Can you point me to a specific example?
+Dear netdev developers,
 
-The struct k_clock contains callback functions to clock source
-specific implementations of the syscalls and other functions.
-Adding a new clock source that is (potentially) implemented
-as a module means you have to define a new k_clock in that module
-that you register using register_posix_clock.
+The call to xfrm_find_acq_byseq() by the pfkey_getspi() and 
+xfrm_alloc_userspi() functions is quite costly and proves to entail 
+scalability issues when performing thousands of IKE negotiations with 
+racoon (from ipsec-tools distribution) or charon (from strongswan 
+distribution).
 
-If you need additional syscalls to be implemented by the same
-module, you can put more callback functions into struct k_clock
-that would then only be implemented by the new module.
+Removing this call in the kernel drastically accelerates the processing 
+and does not seem to entail functional problems.
 
-> > The simpler way (e.g. for testing) is using Kconfig dependencies, like
-> > 
-> > config PTP
-> >       bool "IEEE 1588 Precision Time Protocol"
-> > 
-> > config PPS
-> >       tristate "Pulse per Second"
-> >       depends on PTP || !PTP
-> > 
-> > The depends statement is a way of expressing that when PTP is enabled,
-> > PPS cannot be a module, while it may be a module if PTP is disabled.
-> 
-> THis did not work for me.
-> 
-> What I got was, in effect, two independent booleans.
+For now, I don't see the point of this call. I need to understand its 
+purpose, because I'm highly tempted to simply remove it.
 
-Hmm, right. I wonder what I was thinking of then.
+Regards,
+Christophe
 
-You can certainly do
-
-config PTP
-	bool "IEEE 1588 Precision Time Protocol"
-	depends on PPS != m
-
-but that will hide the PTP option if PPS is set to 'm', which is normally
-not what you want.
-
-	Arnd
+> Dear netdev developers,
+>
+> I would like to understand why the pfkey_getspi and xfrm_alloc_userspi
+> functions call xfrm_find_acq_byseq() and try to find an reuse an SA in
+> state XFRM_STATE_ACQ with the same sequence number and destination
+> address as the GETSPI request.
+>
+> As far as I understand, SAs in state XFRM_STATE_ACQ can only be created
+> as a result of a user call to GETSPI or a kernel ACQUIRE message.
+> - GETSPI is invoked by an application in order to create a temporary SA
+> with a unique SPI, typically during an IKE negotiation, to create the
+> inbound SA of the pair. No later GETSPI will be done on this SA.
+> - An acquire message is triggered by the kernel and creates a temporary
+> outbound SA whose SPI will be chosen by the remote IKE peer.
+> No later GETSPI will be done on this SA.
+>
+> In which case can GETSPI find and reuse an SA that matches the message
+> sequence number and destination address?
+> A second lookup is done just after, with xfrm_find_acq (this function
+> uses a hash table). Wouldn't this lookup find this SA too?
+>
+> The call to xfrm_find_acq_byseq is quite costly (the whole SAD is looked
+> up every time GETSPI is called), so I'd like to understand what its
+> purpose is.
+>
+> Thanks in advance,
+>
+> Christophe
