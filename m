@@ -1,98 +1,75 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: Re: [PATCH] Add firmware label support to iproute2
-Date: Thu, 19 Aug 2010 17:18:50 -0500
-Message-ID: <20100819221850.GA20741@auslistsprd01.us.dell.com>
-References: <20100812173537.GA29784@auslistsprd01.us.dell.com> <20100812141240.417949e2@s6510> <EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com> <20100818144124.33a72453@nehalam> <20100819213314.GA26135@auslistsprd01.us.dell.com> <20100819145308.0fa08522@nehalam>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at
+ skb_copy_and_csum_dev
+Date: Thu, 19 Aug 2010 15:21:43 -0700
+Message-ID: <20100819152143.8a57c465.akpm@linux-foundation.org>
+References: <bug-16626-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Narendra_K@Dell.com, netdev@vger.kernel.org, Charles_Rose@Dell.com,
-	Jordan_Hargrave@Dell.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, pvp-lsts@fs.uni-ruse.bg
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:59167 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236Ab0HSWSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 18:18:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20100819145308.0fa08522@nehalam>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58206 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751846Ab0HSWW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 18:22:26 -0400
+In-Reply-To: <bug-16626-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 19, 2010 at 02:53:08PM -0700, Stephen Hemminger wrote:
-> On Thu, 19 Aug 2010 16:33:14 -0500
-> Matt Domsch <Matt_Domsch@Dell.com> wrote:
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Thu, 19 Aug 2010 09:57:25 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=16626
 > 
-> > On Wed, Aug 18, 2010 at 02:41:24PM -0700, Stephen Hemminger wrote:
-> > > The netdev_alias_to_kernelname should only happen after normal lookup failed.
-> > 
-> > Stephen, can you enlighten me as to the "right" way to do interface
-> > name lookups?  While I can still find examples of parsing
-> > /proc/net/dev, or globbing /sys/class/net/*, I expect these aren't the
-> > preferred method anymore.  Your own iproute2 suite uses RTM_GETLINK
-> > netlink calls, though for the seeming simple case of "give me a list of all
-> > interfaces", your path through there is far more capable (and
-> > complex) than I would hope to need.
+>            Summary: Machine hangs with EIP at skb_copy_and_csum_dev
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.36-rc1-00127-g763008c
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: blocking
+>           Priority: P1
+>          Component: PCI
+>         AssignedTo: drivers_pci@kernel-bugs.osdl.org
+>         ReportedBy: pvp-lsts@fs.uni-ruse.bg
+>         Regression: Yes
+
+A post-2.6.35 regression.
+
 > 
-> There is no magic right way. We have to support multiple interfaces.
-> I am really concerned that all this alias stuff will turn into a
-> disaster when there are 10,000 interfaces (Vlans).  The kernel has
-> lots of tables and hashes to handle this but if the utilities
-> are doing a dumb scan of all names it will not work.
+> After upgrade from 2.6.33.7 to 2.6.35.2 a server hanged twice, so
+> continued on 2.6.33.7.
+> 
+> Today decided to try lates Linus' tree with no luck.
+> 
+> The first time I started on 2.6.36-rc1-00127-g763008c it ran for a few
+> minutes, then whent dead with this on the screen:
+> [picture 1]
+> http://picpaste.com/9cfb03116d41f27568e1bb2a67b7f4dc.jpg
+> 
+> [picture 2]
+> Then I power-cycled the machine, only two get this:
+> http://picpaste.com/6d70f453e462d1aed038781ad4bdb741.jpg
+> 
+> And because [picture 2] seemed too bad on the lower half of the screen,
+> here is 
+> [picture 3]
+> http://picpaste.com/0a51ae079ace2e4abd9e9d29226069f7.jpg
 
-I believe you proposed a lookup algorithm in each app, something like:
+Might have triggered the BUG_ON() in skb_copy_and_csum_dev().  Might be
+a tg3 thing.  Hard to tell.
 
-if exists(passed device name)
-  use it
-else if (kernelname=netdev_alias_to_kernelname(passed device name))
-  use kernelname
+It'd be really nice to get that first screenful.  Sigh.  How long have
+we had this oops-scrolls-off problem??  Perhaps you could set
+/proc/sys/kernel/printk_delay to 100 (it's in milliseconds) so that the
+oops scrolls past nice and slowly?
 
-so I'm looking for the "right" way to do these existance tests.  I
-agree iterating through all the interfaces should be avoided.
-
- 
-> Also burying logic in an external library seems problematic as
-> well. The original sysfs library was a disaster for this.
-> I want this to work but it has to have a simple interface that
-> is not trying to hide things.
-
-the library right now is all of:
-
-  422 netdevname.c
-   38 netdevname.h
-
-with another 100 line app to print the mappings in both directions.
-
-The interface is pretty simple too:
-
-extern int netdev_alias_to_kernelname (const char *alias, char *kernelname);
-
-struct netdev_alias {
-        char *name;
-        const char *namespace_name;
-        int is_descriptive; /* this may disappear yet */
-        struct netdev_alias *next;
-};
-extern int netdev_kernelname_to_aliases (const char *, struct netdev_alias **);
-extern void free_netdev_aliases (struct netdev_alias *);
-
-The common app usage will be to call netdev_alias_to_kernelname().
-Only those apps that want to display the alternate names would use the
-struct or other 2 functions.
-
-Even though it's a small library, I do think it makes sense to make it
-a library.  I expect to add additional "namespaces" (e.g. "fw:Embedded
-NIC 1" is the name of a device provided by the firmware.  As I
-mentioned in my talk at LinuxCon last week (slides at
-http://domsch.com/linux/linuxcon10/) there could be other valid name
-providers, and we'd like them to be usable without re-patching all the
-applications again.
-
-As always, I'm open to ideas.
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
