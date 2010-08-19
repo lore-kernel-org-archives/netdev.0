@@ -1,80 +1,113 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [RFC Patch] netxen: remove firmware exports
-Date: Thu, 19 Aug 2010 04:12:51 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86E69208@MNEXMB2.qlogic.org>
-References: <20100818095908.6606.56224.sendpatchset@localhost.localdomain>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH] slip: Use net_device_stats from struct net_device
+Date: Thu, 19 Aug 2010 11:12:52 +0200
+Message-ID: <20100819091252.GB20793@distanz.ch>
+References: <1282206313-10667-1-git-send-email-tklauser@distanz.ch> <1282207791.2549.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Dhananjay Phadke <dhananjay.phadke@qlogic.com>,
-	Narender Kumar <narender.kumar@qlogic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Amerigo Wang <amwang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:12066 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883Ab0HSJM7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 05:12:59 -0400
-In-Reply-To: <20100818095908.6606.56224.sendpatchset@localhost.localdomain>
-Content-Language: en-US
+Received: from symlink.to.noone.org ([85.10.207.172]:58914 "EHLO sym.noone.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751315Ab0HSJNA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 05:13:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1282207791.2549.16.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> netxen_nic driver can store firmwares on flash, and get them porperly and
-> dynamically, so the firmwares may not appear in /lib/firmware/. However, netxen_nic
-> still exports these firmwares via modinfo, this makes our script which parses
-> modinfo output fail.
+On 2010-08-19 at 10:49:51 +0200, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le jeudi 19 ao=FBt 2010 =E0 10:25 +0200, Tobias Klauser a =E9crit :
+> > Use net_device->stats for stats instead of private variable copies =
+in
+> > struct slip.
+> >=20
+> > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> > ---
+> >  drivers/net/slip.c |   64 ++++++++++++++++++++++------------------=
+------------
+> >  drivers/net/slip.h |    9 -------
+> >  2 files changed, 27 insertions(+), 46 deletions(-)
+>=20
+>=20
+> > @@ -561,36 +562,25 @@ static int sl_change_mtu(struct net_device *d=
+ev, int new_mtu)
+> >  static struct net_device_stats *
+> >  sl_get_stats(struct net_device *dev)
+> >  {
+> > -	static struct net_device_stats stats;
+> > +	struct net_device_stats *stats =3D &dev->stats;
+> >  	struct slip *sl =3D netdev_priv(dev);
+> >  #ifdef SL_INCLUDE_CSLIP
+> >  	struct slcompress *comp;
+> >  #endif
+> > =20
+> > -	memset(&stats, 0, sizeof(struct net_device_stats));
+> > -
+> > -	stats.rx_packets     =3D sl->rx_packets;
+> > -	stats.tx_packets     =3D sl->tx_packets;
+> > -	stats.rx_bytes	     =3D sl->rx_bytes;
+> > -	stats.tx_bytes	     =3D sl->tx_bytes;
+> > -	stats.rx_dropped     =3D sl->rx_dropped;
+> > -	stats.tx_dropped     =3D sl->tx_dropped;
+> > -	stats.tx_errors      =3D sl->tx_errors;
+> > -	stats.rx_errors      =3D sl->rx_errors;
+> > -	stats.rx_over_errors =3D sl->rx_over_errors;
+> >  #ifdef SL_INCLUDE_CSLIP
+> > -	stats.rx_fifo_errors =3D sl->rx_compressed;
+> > -	stats.tx_fifo_errors =3D sl->tx_compressed;
+> > -	stats.collisions     =3D sl->tx_misses;
+> > +	stats->rx_fifo_errors =3D sl->rx_compressed;
+> > +	stats->tx_fifo_errors =3D sl->tx_compressed;
+> > +	stats->collisions     =3D sl->tx_misses;
+> >  	comp =3D sl->slcomp;
+> >  	if (comp) {
+> > -		stats.rx_fifo_errors +=3D comp->sls_i_compressed;
+> > -		stats.rx_dropped     +=3D comp->sls_i_tossed;
+> > -		stats.tx_fifo_errors +=3D comp->sls_o_compressed;
+> > -		stats.collisions     +=3D comp->sls_o_misses;
+> > +		stats->rx_fifo_errors +=3D comp->sls_i_compressed;
+> > +		stats->rx_dropped     +=3D comp->sls_i_tossed;
+> > +		stats->tx_fifo_errors +=3D comp->sls_o_compressed;
+> > +		stats->collisions     +=3D comp->sls_o_misses;
+> >  	}
+> > -#endif /* CONFIG_INET */
+> > -	return (&stats);
+> > +#endif
+> > +	return stats;
+> >  }
+> > =20
+>=20
+> Hmm, this is wrong.
+>=20
+> Each time sl_get_stats() is called, you are adding stuff to dev->stat=
+s
 
-NX_UNIFIED_ROMIMAGE_NAME(phanfw.bin) is already submitted and we won't submit any other fw files.
+Hmmm, yeah. Sorry for the mess. That's completely wrong.
 
-> -MODULE_FIRMWARE(NX_P2_MN_ROMIMAGE_NAME);
-> -MODULE_FIRMWARE(NX_P3_CT_ROMIMAGE_NAME);
-> -MODULE_FIRMWARE(NX_P3_MN_ROMIMAGE_NAME);
+> Quite frankly I dont think its a kernel-janitors@vger.kernel.org patc=
+h,
+> its pretty normal netdev stuff.
+>=20
+> Please take a look at prior patch posted yesterday.
+>=20
+> http://marc.info/?l=3Dlinux-netdev&m=3D128213719605250&w=3D2
+>=20
+> Because either you should build your patch on top of it, or ask David=
+ to
+> revert mine before ;)
 
-It's not compulsory to submit firmware files which are exported (MODULE_FIRMWARE).
-I am leaving this upto David to decide about this patch.
+Oops, I didn't notice that one. I'll rebuild my patch on top of it.
 
--Amit
+> I advise using a ndo_get_stats64() so that you can perform the adds o=
+n a
+> private destination buffer.
 
------Original Message-----
-From: Amerigo Wang [mailto:amwang@redhat.com] 
-Sent: Wednesday, August 18, 2010 3:25 PM
-To: linux-kernel@vger.kernel.org
-Cc: Dhananjay Phadke; Amit Salecha; Narender Kumar; netdev@vger.kernel.org; David S. Miller; Amerigo Wang
-Subject: [RFC Patch] netxen: remove firmware exports
+I'll do that.
 
-
-netxen_nic driver can store firmwares on flash, and get them porperly and
-dynamically, so the firmwares may not appear in /lib/firmware/. However, netxen_nic
-still exports these firmwares via modinfo, this makes our script which parses
-modinfo output fail.
-
-Probably netxen_nic has other way to export these firmwares, but not like other
-modules in a stardand way. I think we can just remove these exports, but
-I am not sure.
-
-Signed-off-by: WANG Cong <amwang@redhat.com>
-Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Dhananjay Phadke <dhananjay.phadke@qlogic.com>
-Cc: Narender Kumar <narender.kumar@qlogic.com>
-
----
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index fd86e18..e8443af 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -41,10 +41,6 @@
- MODULE_DESCRIPTION("QLogic/NetXen (1/10) GbE Converged Ethernet Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(NETXEN_NIC_LINUX_VERSIONID);
--MODULE_FIRMWARE(NX_P2_MN_ROMIMAGE_NAME);
--MODULE_FIRMWARE(NX_P3_CT_ROMIMAGE_NAME);
--MODULE_FIRMWARE(NX_P3_MN_ROMIMAGE_NAME);
--MODULE_FIRMWARE(NX_UNIFIED_ROMIMAGE_NAME);
- 
- char netxen_nic_driver_name[] = "netxen_nic";
- static char netxen_nic_driver_string[] = "QLogic/NetXen Network Driver v"
-
+Thanks a lot
+Tobias
