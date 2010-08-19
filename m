@@ -1,37 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: allow effective reduction of TCP's rcv-buffer via
- setsockopt
-Date: Wed, 18 Aug 2010 23:33:37 -0700 (PDT)
-Message-ID: <20100818.233337.52187393.davem@davemloft.net>
-References: <1281900976-11852-1-git-send-email-hagen@jauu.net>
+Subject: Re: [PATCH] netlink: fix compat recvmsg
+Date: Wed, 18 Aug 2010 23:36:23 -0700 (PDT)
+Message-ID: <20100818.233623.13755519.davem@davemloft.net>
+References: <1281940172.2942.81.camel@edumazet-laptop>
+	<1281943244.3683.8.camel@jlt3.sipsolutions.net>
+	<1281963025.2524.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, eric.dumazet@gmail.com,
-	ilpo.jarvinen@helsinki.fi
-To: hagen@jauu.net
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	kalle.valo@iki.fi
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38424
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47331
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751066Ab0HSGdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 02:33:18 -0400
-In-Reply-To: <1281900976-11852-1-git-send-email-hagen@jauu.net>
+	by vger.kernel.org with ESMTP id S1751066Ab0HSGgE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Aug 2010 02:36:04 -0400
+In-Reply-To: <1281963025.2524.43.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Date: Sun, 15 Aug 2010 21:36:16 +0200
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 16 Aug 2010 14:50:25 +0200
 
-> +
-> +		/* limit the window selection if the user enforce a smaller rx buffer */
-> +		if (sk->sk_userlocks & SOCK_RCVBUF_LOCK &&
-> +				(req->window_clamp > tcp_full_space(sk) || req->window_clamp == 0))
-> +			req->window_clamp = tcp_full_space(sk);
-> +
+> Le lundi 16 ao=FBt 2010 =E0 09:20 +0200, Johannes Berg a =E9crit :
+>> From: Johannes Berg <johannes.berg@intel.com>
+>>=20
+>> Since
+>> commit 1dacc76d0014a034b8aca14237c127d7c19d7726
+>> Author: Johannes Berg <johannes@sipsolutions.net>
+>> Date:   Wed Jul 1 11:26:02 2009 +0000
+>>=20
+>>     net/compat/wext: send different messages to compat tasks
+>>=20
+>> we had a race condition when setting and then
+>> restoring frag_list. Eric attempted to fix it,
+>> but the fix created even worse problems.
+ ...
+>> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+ ...
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Logically the patch looks fine, but please fix the indentation of the
-second line of the two new if() statements in this patch, the
-second line's first character should line up with the character
-right after the openning "(" on the previous line.
-
-Thanks.
+Applied, thanks guys!
