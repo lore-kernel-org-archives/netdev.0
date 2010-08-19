@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 04/20] ixgbe: combine two modifications of TXDCTL
-	into one
-Date: Thu, 19 Aug 2010 16:34:27 -0700
-Message-ID: <20100819233425.10335.67211.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 05/20] ixgbe: move configuration of the MTQC
+	register into it's own function
+Date: Thu, 19 Aug 2010 16:34:50 -0700
+Message-ID: <20100819233447.10335.56588.stgit@localhost.localdomain>
 References: <20100819233052.10335.13176.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,62 +12,115 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:56051 "EHLO
-	qmta02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751731Ab0HSXer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 19:34:47 -0400
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:56619 "EHLO
+	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751731Ab0HSXfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 19:35:09 -0400
 In-Reply-To: <20100819233052.10335.13176.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-In ixgbe_up_complete we were doing a read-modify-write of TXDCTL followed
-by another one just a few lines further down.  Instead of performing two
-separate read-modify-writes it would make more sense to combine the two
-into one.
+This patch moves the configuration of the MTQC register into it's own
+function call similar to ixgbe_setup_mrqc.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_main.c |   18 ++++++------------
- 1 files changed, 6 insertions(+), 12 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |   73 ++++++++++++++++++++++------------------
+ 1 files changed, 40 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index fffb1ce..5d90f69 100644
+index 5d90f69..c4e4207 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3411,6 +3411,12 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 		IXGBE_WRITE_REG(hw, IXGBE_MHADD, mhadd);
+@@ -2424,6 +2424,45 @@ static void ixgbe_configure_msi_and_legacy(struct ixgbe_adapter *adapter)
+ 	e_info(hw, "Legacy interrupt IVAR setup done\n");
+ }
+ 
++static void ixgbe_setup_mtqc(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 rttdcs;
++	u32 mask;
++
++	if (hw->mac.type == ixgbe_mac_82598EB)
++		return;
++
++	/* disable the arbiter while setting MTQC */
++	rttdcs = IXGBE_READ_REG(hw, IXGBE_RTTDCS);
++	rttdcs |= IXGBE_RTTDCS_ARBDIS;
++	IXGBE_WRITE_REG(hw, IXGBE_RTTDCS, rttdcs);
++
++	/* set transmit pool layout */
++	mask = (IXGBE_FLAG_SRIOV_ENABLED | IXGBE_FLAG_DCB_ENABLED);
++	switch (adapter->flags & mask) {
++
++	case (IXGBE_FLAG_SRIOV_ENABLED):
++		IXGBE_WRITE_REG(hw, IXGBE_MTQC,
++				(IXGBE_MTQC_VT_ENA | IXGBE_MTQC_64VF));
++		break;
++
++	case (IXGBE_FLAG_DCB_ENABLED):
++		/* We enable 8 traffic classes, DCB only */
++		IXGBE_WRITE_REG(hw, IXGBE_MTQC,
++			      (IXGBE_MTQC_RT_ENA | IXGBE_MTQC_8TC_8TQ));
++		break;
++
++	default:
++		IXGBE_WRITE_REG(hw, IXGBE_MTQC, IXGBE_MTQC_64Q_1PB);
++		break;
++	}
++
++	/* re-enable the arbiter */
++	rttdcs &= ~IXGBE_RTTDCS_ARBDIS;
++	IXGBE_WRITE_REG(hw, IXGBE_RTTDCS, rttdcs);
++}
++
+ /**
+  * ixgbe_configure_tx - Configure 8259x Transmit Unit after Reset
+  * @adapter: board private structure
+@@ -2475,39 +2514,7 @@ static void ixgbe_configure_tx(struct ixgbe_adapter *adapter)
+ 		}
  	}
  
-+	if (hw->mac.type == ixgbe_mac_82599EB) {
-+		/* DMATXCTL.EN must be set after all Tx queue config is done */
-+		dmatxctl = IXGBE_READ_REG(hw, IXGBE_DMATXCTL);
-+		dmatxctl |= IXGBE_DMATXCTL_TE;
-+		IXGBE_WRITE_REG(hw, IXGBE_DMATXCTL, dmatxctl);
-+	}
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
- 		j = adapter->tx_ring[i]->reg_idx;
- 		txdctl = IXGBE_READ_REG(hw, IXGBE_TXDCTL(j));
-@@ -3421,18 +3427,6 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 			/* enable WTHRESH=8 descriptors, to encourage burst writeback */
- 			txdctl |= (8 << 16);
- 		}
--		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j), txdctl);
--	}
--
 -	if (hw->mac.type == ixgbe_mac_82599EB) {
--		/* DMATXCTL.EN must be set after all Tx queue config is done */
--		dmatxctl = IXGBE_READ_REG(hw, IXGBE_DMATXCTL);
--		dmatxctl |= IXGBE_DMATXCTL_TE;
--		IXGBE_WRITE_REG(hw, IXGBE_DMATXCTL, dmatxctl);
+-		u32 rttdcs;
+-		u32 mask;
+-
+-		/* disable the arbiter while setting MTQC */
+-		rttdcs = IXGBE_READ_REG(hw, IXGBE_RTTDCS);
+-		rttdcs |= IXGBE_RTTDCS_ARBDIS;
+-		IXGBE_WRITE_REG(hw, IXGBE_RTTDCS, rttdcs);
+-
+-		/* set transmit pool layout */
+-		mask = (IXGBE_FLAG_SRIOV_ENABLED | IXGBE_FLAG_DCB_ENABLED);
+-		switch (adapter->flags & mask) {
+-
+-		case (IXGBE_FLAG_SRIOV_ENABLED):
+-			IXGBE_WRITE_REG(hw, IXGBE_MTQC,
+-					(IXGBE_MTQC_VT_ENA | IXGBE_MTQC_64VF));
+-			break;
+-
+-		case (IXGBE_FLAG_DCB_ENABLED):
+-			/* We enable 8 traffic classes, DCB only */
+-			IXGBE_WRITE_REG(hw, IXGBE_MTQC,
+-				      (IXGBE_MTQC_RT_ENA | IXGBE_MTQC_8TC_8TQ));
+-			break;
+-
+-		default:
+-			IXGBE_WRITE_REG(hw, IXGBE_MTQC, IXGBE_MTQC_64Q_1PB);
+-			break;
+-		}
+-
+-		/* re-eable the arbiter */
+-		rttdcs &= ~IXGBE_RTTDCS_ARBDIS;
+-		IXGBE_WRITE_REG(hw, IXGBE_RTTDCS, rttdcs);
 -	}
--	for (i = 0; i < adapter->num_tx_queues; i++) {
--		j = adapter->tx_ring[i]->reg_idx;
--		txdctl = IXGBE_READ_REG(hw, IXGBE_TXDCTL(j));
- 		txdctl |= IXGBE_TXDCTL_ENABLE;
- 		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j), txdctl);
- 		if (hw->mac.type == ixgbe_mac_82599EB) {
++	ixgbe_setup_mtqc(adapter);
+ }
+ 
+ #define IXGBE_SRRCTL_BSIZEHDRSIZE_SHIFT 2
 
