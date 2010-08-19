@@ -1,7 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 1/2] e1000e: disable ASPM L1 on 82573
-Date: Thu, 19 Aug 2010 15:43:46 -0700
-Message-ID: <20100819224307.10079.89643.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 2/2] e1000e: don't check for alternate MAC addr on
+	parts that don't support it
+Date: Thu, 19 Aug 2010 15:44:11 -0700
+Message-ID: <20100819224410.10079.31067.stgit@localhost.localdomain>
+References: <20100819224307.10079.89643.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,40 +12,126 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.westchester.pa.mail.comcast.net ([76.96.62.17]:41629
-	"EHLO qmta10.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751267Ab0HSWoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 18:44:10 -0400
+Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:44815
+	"EHLO qmta09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751761Ab0HSWof (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 18:44:35 -0400
+In-Reply-To: <20100819224307.10079.89643.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-On the e1000-devel mailing list, Nils Faerber reported latency issues with
-the 82573 LOM on a ThinkPad X60.  It was found to be caused by ASPM L1;
-disabling it resolves the latency.  The issue is present in kernels back
-to 2.6.34 and possibly 2.6.33.
+The alternate MAC address feature is only supported by 80003ES2LAN and
+82571 LOMs as well as a couple 82571 mezzanine cards.  Checking for an
+alternate MAC address on other parts can fail leading to the driver not
+able to load.  This patch limits the check for an alternate MAC address
+to be done only for parts that support the feature.
 
+This issue has been around since support for the feature was introduced
+to the e1000e driver in 2.6.34.
 
-Reported-by: Nils Faerber <nils.faerber@kernelconcepts.de>
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Reported-by: Fabio Varesano <fax8@users.sourceforge.net>
 Cc: stable@kernel.org
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/82571.c   |   30 +++++++++++++++++-------------
+ drivers/net/e1000e/defines.h |    4 ++++
+ drivers/net/e1000e/lib.c     |   10 ++++++++++
+ 3 files changed, 31 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index a4a0d2b..f844e6c 100644
+index f844e6c..d3d4a57 100644
 --- a/drivers/net/e1000e/82571.c
 +++ b/drivers/net/e1000e/82571.c
-@@ -1833,6 +1833,7 @@ struct e1000_info e1000_82573_info = {
- 				  | FLAG_HAS_SMART_POWER_DOWN
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_SWSM_ON_LOAD,
-+	.flags2			= FLAG2_DISABLE_ASPM_L1,
- 	.pba			= 20,
- 	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
- 	.get_variants		= e1000_get_variants_82571,
+@@ -936,12 +936,14 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
+ 	ew32(IMC, 0xffffffff);
+ 	icr = er32(ICR);
+ 
+-	/* Install any alternate MAC address into RAR0 */
+-	ret_val = e1000_check_alt_mac_addr_generic(hw);
+-	if (ret_val)
+-		return ret_val;
++	if (hw->mac.type == e1000_82571) {
++		/* Install any alternate MAC address into RAR0 */
++		ret_val = e1000_check_alt_mac_addr_generic(hw);
++		if (ret_val)
++			return ret_val;
+ 
+-	e1000e_set_laa_state_82571(hw, true);
++		e1000e_set_laa_state_82571(hw, true);
++	}
+ 
+ 	/* Reinitialize the 82571 serdes link state machine */
+ 	if (hw->phy.media_type == e1000_media_type_internal_serdes)
+@@ -1618,14 +1620,16 @@ static s32 e1000_read_mac_addr_82571(struct e1000_hw *hw)
+ {
+ 	s32 ret_val = 0;
+ 
+-	/*
+-	 * If there's an alternate MAC address place it in RAR0
+-	 * so that it will override the Si installed default perm
+-	 * address.
+-	 */
+-	ret_val = e1000_check_alt_mac_addr_generic(hw);
+-	if (ret_val)
+-		goto out;
++	if (hw->mac.type == e1000_82571) {
++		/*
++		 * If there's an alternate MAC address place it in RAR0
++		 * so that it will override the Si installed default perm
++		 * address.
++		 */
++		ret_val = e1000_check_alt_mac_addr_generic(hw);
++		if (ret_val)
++			goto out;
++	}
+ 
+ 	ret_val = e1000_read_mac_addr_generic(hw);
+ 
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index 307a72f..93b3bed 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -621,6 +621,7 @@
+ #define E1000_FLASH_UPDATES  2000
+ 
+ /* NVM Word Offsets */
++#define NVM_COMPAT                 0x0003
+ #define NVM_ID_LED_SETTINGS        0x0004
+ #define NVM_INIT_CONTROL2_REG      0x000F
+ #define NVM_INIT_CONTROL3_PORT_B   0x0014
+@@ -643,6 +644,9 @@
+ /* Mask bits for fields in Word 0x1a of the NVM */
+ #define NVM_WORD1A_ASPM_MASK  0x000C
+ 
++/* Mask bits for fields in Word 0x03 of the EEPROM */
++#define NVM_COMPAT_LOM    0x0800
++
+ /* For checksumming, the sum of all words in the NVM should equal 0xBABA. */
+ #define NVM_SUM                    0xBABA
+ 
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index df4a279..0fd4eb5 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -183,6 +183,16 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
+ 	u16 offset, nvm_alt_mac_addr_offset, nvm_data;
+ 	u8 alt_mac_addr[ETH_ALEN];
+ 
++	ret_val = e1000_read_nvm(hw, NVM_COMPAT, 1, &nvm_data);
++	if (ret_val)
++		goto out;
++
++	/* Check for LOM (vs. NIC) or one of two valid mezzanine cards */
++	if (!((nvm_data & NVM_COMPAT_LOM) ||
++	      (hw->adapter->pdev->device == E1000_DEV_ID_82571EB_SERDES_DUAL) ||
++	      (hw->adapter->pdev->device == E1000_DEV_ID_82571EB_SERDES_QUAD)))
++		goto out;
++
+ 	ret_val = e1000_read_nvm(hw, NVM_ALT_MAC_ADDR_PTR, 1,
+ 	                         &nvm_alt_mac_addr_offset);
+ 	if (ret_val) {
 
