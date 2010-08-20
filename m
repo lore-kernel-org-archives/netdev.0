@@ -1,169 +1,74 @@
-From: Ivo Calado <ivocalado@embedded.ufcg.edu.br>
-Subject: Re: dccp test-tree [Patch 1/1] ccid-3: use per-route min-RTO and/or
- TCP default
-Date: Fri, 20 Aug 2010 09:38:34 -0300
-Message-ID: <AANLkTi=iqabHfTwSON81ZiNKw9vXvGkrOg2QkGxXd2vt@mail.gmail.com>
-References: <20100816051936.GD3571@gerrit.erg.abdn.ac.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] atl1c: use net_device_stats from struct
+ net_device
+Date: Fri, 20 Aug 2010 14:55:16 +0200
+Message-ID: <1282308916.2484.26.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Leandro <leandroal@gmail.com>,
-	Ivo Calado <ivocalado@embedded.ufcg.edu.br>,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jie Yang <Jie.Yang@atheros.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:55247 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751716Ab0HTMiy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 08:38:54 -0400
-In-Reply-To: <20100816051936.GD3571@gerrit.erg.abdn.ac.uk>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:44622 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970Ab0HTMzV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 08:55:21 -0400
+Received: by ewy23 with SMTP id 23so2052273ewy.19
+        for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 05:55:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Ivo Calado <ivocalado@embedded.ufcg.edu.br>  for ccid4 subtre=
-e
+struct net_device has its own struct net_device_stats member, so use
+this one instead of a private copy in the atl1c_adapter struct.
 
-On Mon, Aug 16, 2010 at 02:19, Gerrit Renker <gerrit@erg.abdn.ac.uk> wr=
-ote:
-> This patch relates to the similar one submitted last week for CCID-2.
->
-> It replaces the hardcoded (Kconfig) value of the minimum RTO value wi=
-th
-> a reconfigurable, per-route value which falls back to the TCP minimum
-> RTO value.
->
-> Leando, Ivo, can you please have a look and indicate whether you are =
-ok
-> with this? If yes I would like to also update the CCID-4 tree to make=
- it
-> consistent with the test tree - for this reason the test tree has not=
- yet
-> been updated.
->
->>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<=
-<<<<
-> dccp ccid-3: use per-route RTO or TCP RTO as fallback
->
-> This makes the TCP (per-route) RTO value also available to CCID-3, he=
-nce it
-> is now possible to influence this value at runtime rather than, as be=
-fore,
-> via Kconfig.
->
-> The same effect as the default Kconfig option of 100ms is now achieve=
-d by
->
->> ip route replace to unicast 192.168.0.0/24 rto_min 100j dev eth0
->
-> (assuming HZ=3D1000).
->
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> ---
-> =A0net/dccp/ccids/Kconfig | =A0 31 -------------------------------
-> =A0net/dccp/ccids/ccid3.c | =A0 =A09 ++++-----
-> =A02 files changed, 4 insertions(+), 36 deletions(-)
->
-> --- a/net/dccp/ccids/Kconfig
-> +++ b/net/dccp/ccids/Kconfig
-> @@ -47,37 +47,6 @@ config IP_DCCP_CCID3_DEBUG
->
-> =A0 =A0 =A0 =A0 =A0If in doubt, say N.
->
-> -config IP_DCCP_CCID3_RTO
-> - =A0 =A0 =A0 =A0 int "Use higher bound for nofeedback timer"
-> - =A0 =A0 =A0 =A0 default 100
-> - =A0 =A0 =A0 =A0 depends on IP_DCCP_CCID3 && EXPERIMENTAL
-> - =A0 =A0 =A0 =A0 ---help---
-> - =A0 =A0 =A0 =A0 =A0 Use higher lower bound for nofeedback timer exp=
-iration.
-> -
-> - =A0 =A0 =A0 =A0 =A0 The TFRC nofeedback timer normally expires afte=
-r the maximum of 4
-> - =A0 =A0 =A0 =A0 =A0 RTTs and twice the current send interval (RFC 3=
-448, 4.3). On LANs
-> - =A0 =A0 =A0 =A0 =A0 with a small RTT this can mean a high processin=
-g load and reduced
-> - =A0 =A0 =A0 =A0 =A0 performance, since then the nofeedback timer is=
- triggered very
-> - =A0 =A0 =A0 =A0 =A0 frequently.
-> -
-> - =A0 =A0 =A0 =A0 =A0 This option enables to set a higher lower bound=
- for the nofeedback
-> - =A0 =A0 =A0 =A0 =A0 value. Values in units of milliseconds can be s=
-et here.
-> -
-> - =A0 =A0 =A0 =A0 =A0 A value of 0 disables this feature by enforcing=
- the value specified
-> - =A0 =A0 =A0 =A0 =A0 in RFC 3448. The following values have been sug=
-gested as bounds for
-> - =A0 =A0 =A0 =A0 =A0 experimental use:
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 16-20ms to match the typical multimed=
-ia inter-frame interval
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 100ms as a reasonable compromise [def=
-ault]
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 * 1000ms corresponds to the lower TCP R=
-TO bound (RFC 2988, 2.4)
-> -
-> - =A0 =A0 =A0 =A0 =A0 The default of 100ms is a compromise between a =
-large value for
-> - =A0 =A0 =A0 =A0 =A0 efficient DCCP implementations, and a small val=
-ue to avoid disrupting
-> - =A0 =A0 =A0 =A0 =A0 the network in times of congestion.
-> -
-> - =A0 =A0 =A0 =A0 =A0 The purpose of the nofeedback timer is to slow =
-DCCP down when there
-> - =A0 =A0 =A0 =A0 =A0 is serious network congestion: experimenting wi=
-th larger values should
-> - =A0 =A0 =A0 =A0 =A0 therefore not be performed on WANs.
-> -
-> =A0config IP_DCCP_TFRC_LIB
-> =A0 =A0 =A0 =A0def_bool y if IP_DCCP_CCID3
->
-> --- a/net/dccp/ccids/ccid3.c
-> +++ b/net/dccp/ccids/ccid3.c
-> @@ -461,12 +461,11 @@ done_computing_x:
->
-> =A0 =A0 =A0 =A0/*
-> =A0 =A0 =A0 =A0 * Update timeout interval for the nofeedback timer.
-> - =A0 =A0 =A0 =A0* We use a configuration option to increase the lowe=
-r bound.
-> - =A0 =A0 =A0 =A0* This can help avoid triggering the nofeedback time=
-r too
-> - =A0 =A0 =A0 =A0* often ('spinning') on LANs with small RTTs.
-> + =A0 =A0 =A0 =A0* We use the current (per-route) value of the TCP RT=
-O as lower bound
-> + =A0 =A0 =A0 =A0* to slow down rate-halving on networks with small R=
-TTs (loopback,
-> + =A0 =A0 =A0 =A0* running DCCP in a virtual machine, Gbit ethernet, =
-etc).
-> =A0 =A0 =A0 =A0 */
-> - =A0 =A0 =A0 hc->tx_t_rto =3D max_t(u32, 4 * hc->tx_rtt, (CONFIG_IP_=
-DCCP_CCID3_RTO *
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(USEC_PER_SEC / 1000)));
-> + =A0 =A0 =A0 hc->tx_t_rto =3D max(4 * hc->tx_rtt, USEC_PER_SEC/HZ * =
-tcp_rto_min(sk));
-> =A0 =A0 =A0 =A0/*
-> =A0 =A0 =A0 =A0 * Schedule no feedback timer to expire in
-> =A0 =A0 =A0 =A0 * max(t_RTO, 2 * s/X) =A0=3D =A0max(t_RTO, 2 * t_ipi)
->
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/atl1c/atl1c.h      |    1 -
+ drivers/net/atl1c/atl1c_main.c |    6 +++---
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/atl1c/atl1c.h
+index 52abbbd..ef4115b 100644
+--- a/drivers/net/atl1c/atl1c.h
++++ b/drivers/net/atl1c/atl1c.h
+@@ -559,7 +559,6 @@ struct atl1c_adapter {
+ 	struct napi_struct  napi;
+ 	struct atl1c_hw        hw;
+ 	struct atl1c_hw_stats  hw_stats;
+-	struct net_device_stats net_stats;
+ 	struct mii_if_info  mii;    /* MII interface info */
+ 	u16 rx_buffer_len;
+ 
+diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
+index c7b8ef5..61f1634 100644
+--- a/drivers/net/atl1c/atl1c_main.c
++++ b/drivers/net/atl1c/atl1c_main.c
+@@ -1562,7 +1562,7 @@ static struct net_device_stats *atl1c_get_stats(struct net_device *netdev)
+ {
+ 	struct atl1c_adapter *adapter = netdev_priv(netdev);
+ 	struct atl1c_hw_stats  *hw_stats = &adapter->hw_stats;
+-	struct net_device_stats *net_stats = &adapter->net_stats;
++	struct net_device_stats *net_stats = &netdev->stats;
+ 
+ 	atl1c_update_hw_stats(adapter);
+ 	net_stats->rx_packets = hw_stats->rx_ok;
+@@ -1590,7 +1590,7 @@ static struct net_device_stats *atl1c_get_stats(struct net_device *netdev)
+ 	net_stats->tx_aborted_errors = hw_stats->tx_abort_col;
+ 	net_stats->tx_window_errors  = hw_stats->tx_late_col;
+ 
+-	return &adapter->net_stats;
++	return net_stats;
+ }
+ 
+ static inline void atl1c_clear_phy_int(struct atl1c_adapter *adapter)
+@@ -1700,7 +1700,7 @@ static irqreturn_t atl1c_intr(int irq, void *data)
+ 
+ 		/* link event */
+ 		if (status & (ISR_GPHY | ISR_MANUAL)) {
+-			adapter->net_stats.tx_carrier_errors++;
++			netdev->stats.tx_carrier_errors++;
+ 			atl1c_link_chg_event(adapter);
+ 			break;
+ 		}
 
 
-
---=20
-Ivo Augusto Andrade Rocha Calado
-PhD candidate in Electrical Engineering
-Embedded Systems and Pervasive Computing Lab - http://embedded.ufcg.edu=
-=2Ebr
-Electrical Engineering Department - http://dee.ufcg.edu.br/
-Electrical Engineering and Informatics Center - http://www.ceei.ufcg.ed=
-u.br
-=46ederal University of Campina Grande - http://www.ufcg.edu.br
-
-PGP: 0xD7C3860A pgp.mit.edu
-Putt's Law:
-=A0 =A0 =A0=A0 Technology is dominated by two types of people:
-=A0 =A0 =A0 =A0 =A0 =A0 =A0=A0 Those who understand what they do not ma=
-nage.
-=A0 =A0 =A0 =A0 =A0 =A0 =A0=A0 Those who manage what they do not unders=
-tand.
