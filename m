@@ -1,57 +1,55 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch] netxen: remove firmware exports
-Date: Fri, 20 Aug 2010 17:04:57 +0800
-Message-ID: <4C6E4539.4000703@redhat.com>
-References: <20100818095908.6606.56224.sendpatchset@localhost.localdomain> <99737F4847ED0A48AECC9F4A1974A4B80F86E69208@MNEXMB2.qlogic.org>
+From: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
+Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Fri, 20 Aug 2010 12:19:06 +0300
+Message-ID: <4C6E488A.4010100@fs.uni-ruse.bg>
+References: <bug-16626-10286@https.bugzilla.kernel.org/>	 <20100819152143.8a57c465.akpm@linux-foundation.org>	 <4C6E0C99.2060407@fs.uni-ruse.bg>	 <20100819221142.b8f6a70a.akpm@linux-foundation.org>	 <4C6E1CBA.2060605@fs.uni-ruse.bg>	 <20100819232019.6f6074a8.akpm@linux-foundation.org>	 <4C6E202E.5030406@fs.uni-ruse.bg> <1282286070.2295.6.camel@edumazet-laptop> <4C6E3D58.5080303@fs.uni-ruse.bg>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060504070900000505000003"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dhananjay Phadke <dhananjay.phadke@qlogic.com>,
-	Narender Kumar <narender.kumar@qlogic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Amit Salecha <amit.salecha@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80F86E69208@MNEXMB2.qlogic.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [83.228.35.12] ([83.228.35.12]:35879 "EHLO fs.ru.acad.bg"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751373Ab0HTJTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Aug 2010 05:19:09 -0400
+In-Reply-To: <4C6E3D58.5080303@fs.uni-ruse.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060504070900000505000003
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+=D0=9D=D0=B0 20.8.2010 =D0=B3. 11:31, Plamen Petrov =D0=BD=D0=B0=D0=BF=D0=
+=B8=D1=81=D0=B0:
+=2E..
+> The next thing I will be trying is disabling
+> GRO for the tg3 network card in my network
+> startup scripts via my shiny new ethtool... ;)
 
-On 08/19/10 17:12, Amit Salecha wrote:
-> NX_UNIFIED_ROMIMAGE_NAME(phanfw.bin) is already submitted and we won't submit any other fw files.
+So, for nearly half an hour now running 2.6.36-rc1-FS-00127-g763008c:
 
-Based on above, remove the rest firmware exports.
+>
+root@fs:~# w; uname -a
+>  12:09:48 up 26 min,  1 user,  load average: 2.43, 1.93, 1.26
+> USER     TTY      FROM              LOGIN@   IDLE   JCPU   PCPU WHAT
+> root     pts/0    192.168.10.159   12:09    0.00s  0.02s  0.00s w
+> Linux fs 2.6.36-rc1-FS-00127-g763008c #1 SMP Thu Aug 19 07:10:57 UTC =
+2010 i686 Intel(R) Pentium(R) D CPU 3.00GHz GenuineIntel GNU/Linux
 
-Thanks!
+And that's with the usual load, which can be found here:
+http://pvp.now.im/s/drraw.cgi?Mode=3Dview;Dashboard=3D1173713287.13177
 
--- 
-Signed-off-by: WANG Cong <amwang@redhat.com>
+The only addition I made was running
+	ethtool -K ethX gro off
+for each network card.
 
---------------060504070900000505000003
-Content-Type: text/x-patch;
- name="drivers-net-netxen-remove-firmwares.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="drivers-net-netxen-remove-firmwares.diff"
+Which means that I have a Broadcom Tygon 3 (tg3) which doesn't
+like "generic-receive-offload" at all!
 
-diff --git a/drivers/net/netxen/netxen_nic_main.c b/drivers/net/netxen/netxen_nic_main.c
-index fd86e18..2fedc3b 100644
---- a/drivers/net/netxen/netxen_nic_main.c
-+++ b/drivers/net/netxen/netxen_nic_main.c
-@@ -41,9 +41,6 @@
- MODULE_DESCRIPTION("QLogic/NetXen (1/10) GbE Converged Ethernet Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(NETXEN_NIC_LINUX_VERSIONID);
--MODULE_FIRMWARE(NX_P2_MN_ROMIMAGE_NAME);
--MODULE_FIRMWARE(NX_P3_CT_ROMIMAGE_NAME);
--MODULE_FIRMWARE(NX_P3_MN_ROMIMAGE_NAME);
- MODULE_FIRMWARE(NX_UNIFIED_ROMIMAGE_NAME);
- 
- char netxen_nic_driver_name[] = "netxen_nic";
+With "generic-receive-offload" off, I will stay on
+2.6.36-rc1-FS-00127-g763008c for as long as I can, just to
+confirm that in fact the "default on" setting for gro in the
+tg3 driver is the culprit for my troubles...
 
---------------060504070900000505000003--
+Where to next?
