@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: dccp test-tree [PATCH 0/3] ccid-2: Congestion Window
- Validation, TCP code sharing
-Date: Fri, 20 Aug 2010 00:40:05 -0700 (PDT)
-Message-ID: <20100820.004005.58446090.davem@davemloft.net>
-References: <20100818.232532.98880936.davem@davemloft.net>
-	<20100818.232805.241450746.davem@davemloft.net>
-	<20100820053843.GD5414@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH net-next-2.6 v2] net: build_ehash_secret() and
+ rt_bind_peer() cleanups
+Date: Fri, 20 Aug 2010 00:51:15 -0700 (PDT)
+Message-ID: <20100820.005115.91322239.davem@davemloft.net>
+References: <1282232815.2549.61.camel@edumazet-laptop>
+	<AANLkTinpqNa3cgEb=86H0sYXdLmo-RP1G2icJgWpfyN1@mail.gmail.com>
+	<1282234245.25476.3.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org,
+	mathieu.desnoyers@polymtl.ca
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51321
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49290
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751028Ab0HTHjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 03:39:49 -0400
-In-Reply-To: <20100820053843.GD5414@gerrit.erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1751028Ab0HTHu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 03:50:58 -0400
+In-Reply-To: <1282234245.25476.3.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Fri, 20 Aug 2010 07:38:43 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 19 Aug 2010 18:10:45 +0200
 
-> If you are ok with this, I would submit a small bunch of 4..5 per week, which
-> would allow to keep this going as a background process.
+> [PATCH net-next-2.6] net: build_ehash_secret() and rt_bind_peer() cleanups
+> 
+> Now cmpxchg() is available on all arches, we can use it in
+> build_ehash_secret() and rt_bind_peer() instead of using spinlocks.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Sounds good to me.
+Applied, thanks Eric.
