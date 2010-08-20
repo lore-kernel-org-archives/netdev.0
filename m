@@ -1,52 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Re[2]: [PATCH v7] PPTP: PPP over IPv4 (Point-to-Point
- Tunneling Protocol)
-Date: Fri, 20 Aug 2010 17:59:36 +0200
-Message-ID: <1282319976.2484.263.camel@edumazet-laptop>
-References: <1282285499.2295.2.camel@edumazet-laptop>
-	 <E1OmTW8-0002E6-00.xeb-mail-ru@f289.mail.ru>
-	 <1282319459.2484.249.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Dmitry Kozlov <xeb@mail.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:46997 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752755Ab0HTP7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 11:59:41 -0400
-Received: by eyg5 with SMTP id 5so2220126eyg.19
-        for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 08:59:40 -0700 (PDT)
-In-Reply-To: <1282319459.2484.249.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH 1/2] netfilter: fix the hash random initializing race
+Date: Sat, 21 Aug 2010 00:06:44 +0800
+Message-ID: <1282320404-2948-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 20 ao=C3=BBt 2010 =C3=A0 17:51 +0200, Eric Dumazet a =C3=A9=
-crit :
+nf_conntrack_alloc() isn't called with nf_conntrack_lock locked, so hash
+random initializing code maybe executed more than once on different CPUs.
 
-> Dont include "changes from v6" or include all changes (v2,v3, ...)
-
-
-The usual way of documenting changes so that they dont pollute the
-permanent changelog is adding text after the "---" separator :
-
-
-[PATCH v8] PPTP: PPP over IPv4 (Point-to-Point Tunneling Protocol)
-
-The fine changelog that will be stored in git
-
-Signed-off-by: The fine author bbbb@bbbb.com
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
-Hello everybody ! (not stored in git history)
-Changes from v2 : the fine changes
-I hope this is the last round :)
-
-diff....
-
-Check Documentation/SubmittingPatches  line 492
-
-
-
-
-
+ net/netfilter/nf_conntrack_core.c |   17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index df3eedb..7ae7f71 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -65,8 +65,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+ DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
+ EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+ 
+-static int nf_conntrack_hash_rnd_initted;
+-static unsigned int nf_conntrack_hash_rnd;
++static unsigned int nf_conntrack_hash_rnd __read_mostly;
+ 
+ static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
+ 				  u16 zone, unsigned int size, unsigned int rnd)
+@@ -574,10 +573,16 @@ struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
+ {
+ 	struct nf_conn *ct;
+ 
+-	if (unlikely(!nf_conntrack_hash_rnd_initted)) {
+-		get_random_bytes(&nf_conntrack_hash_rnd,
+-				sizeof(nf_conntrack_hash_rnd));
+-		nf_conntrack_hash_rnd_initted = 1;
++	if (unlikely(!nf_conntrack_hash_rnd)) {
++		unsigned int rand;
++
++		/* Why not initialize nf_conntrack_rnd in a "init()" function ?
++		 * Because there isn't enough entropy when system initializing,
++		 * and we initialize it as late as possible. */
++		do {
++			get_random_bytes(&rand, sizeof(rand));
++		} while (!rand);
++		cmpxchg(&nf_conntrack_hash_rnd, 0, rand);
+ 	}
+ 
+ 	/* We don't want any race condition at early drop stage */
