@@ -1,50 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [rfc] IPVS: convert scheduler management to RCU
-Date: Fri, 20 Aug 2010 17:32:17 +0200
-Message-ID: <1282318337.2484.219.camel@edumazet-laptop>
-References: <20100820133320.GA29311@verge.net.au>
-	 <AANLkTimS7V3z1kEwmEFCCvPzJX=D9Oqw=BNEuN-YZ0tx@mail.gmail.com>
-	 <1282313150.2484.65.camel@edumazet-laptop>
-	 <AANLkTi=t7wDZO23Cim1LJ_Ot2FUe4bR+XG6H5uJfTuG+@mail.gmail.com>
-	 <1282314765.2484.104.camel@edumazet-laptop>
-	 <AANLkTikCd_xCWUN+dkb_BkOrkBGSPe4xkmAebtgEiufy@mail.gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v3] netfilter: save the hash of the tuple in the original
+ direction for latter use
+Date: Fri, 20 Aug 2010 23:36:44 +0800
+Message-ID: <AANLkTinic7H0r7kAgsBiRAbn7MCeqxA0Gme7oOkmPUdJ@mail.gmail.com>
+References: <1282316003-2966-1-git-send-email-xiaosuo@gmail.com>
+ <1282317016.2484.173.camel@edumazet-laptop> <AANLkTimj=6HBdZK0WiPBxhm9YPG_8zRXEZyP--E7Shj8@mail.gmail.com>
+ <1282318163.2484.212.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, Simon Horman <horms@verge.net.au>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: yao zhao <dragonlinux@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikCd_xCWUN+dkb_BkOrkBGSPe4xkmAebtgEiufy@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:51309 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752944Ab0HTPhI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 11:37:08 -0400
+In-Reply-To: <1282318163.2484.212.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 20 ao=C3=BBt 2010 =C3=A0 11:04 -0400, yao zhao a =C3=A9crit=
- :
+On Fri, Aug 20, 2010 at 11:29 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le vendredi 20 ao=FBt 2010 =E0 23:22 +0800, Changli Gao a =E9crit :
+>
+>> I should keep the old way, but fix a race.
+>>
+>> =A0 =A0 =A0 =A0 if (unlikely(!nf_conntrack_hash_rnd_initted)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 get_random_bytes(&nf_conntrack_hash_=
+rnd,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 size=
+of(nf_conntrack_hash_rnd));
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 nf_conntrack_hash_rnd_initted =3D 1;
+>> =A0 =A0 =A0 =A0 }
+>>
+>> nf_conntrack_alloc() isn't called with in the nf_conntrack_lock. So
+>> the above code maybe executed more than once on different CPUs. It i=
+s
+>> easy to fix with the cmpxchg() trick.
+>
+> Sure, please fix the race first.
+>
+> But as I said, its not critical, if one or two conntracks are hashed =
+on
+> wrong basis. They will eventually disappear after timeout.
+>
 
-> The code here is deleting a global from the list, am I right? I didn'=
-t
-> see any called case.
-> what are you going to do more? free it? write_unlock_bh should make t=
-he mb.
+Yes, and it isn't critical. I think this fix should be in a separate pa=
+tch.
 
 
-If you dont wait _after_ delete from list and following actions=20
-(kfree() without a call_rcu(), or module unload, or whatever), a reader
-might access your data/code and crash the box.
-
-spin_unlock_bh() wont help you at all, since only writers are freezed b=
-y
-the lock (since readers only hold rcu_lock)
-
-Documentation/RCU/whatisRCU.txt line 705
-
-Documentation/RCU/checklist.txt  15)
-
-
-
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
