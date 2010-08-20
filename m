@@ -1,125 +1,130 @@
-From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Fri, 20 Aug 2010 15:01:55 +0900
-Message-ID: <000f01cb402d$34b675b0$66f8800a@maildom.okisemi.com>
-References: <4C61EDE5.4030505@dsn.okisemi.com>	<AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>	<4C63B8F8.6090106@grandegger.com> <D5AB6E638E5A3E4B8F4406B113A5A19A28EA2AB1@shsmsx501.ccr.corp.intel.com> <4C65255F.4010709@grandegger.com>
-Cc: "Wang, Qi" <qi.wang@intel.com>, <arjan@linux.intel.com>,
-	<meego-dev@meego.com>, "Wang, Yong Y" <yong.y.wang@intel.com>,
-	<gregkh@suse.de>, <netdev@vger.kernel.org>,
-	<socketcan-core@lists.berlios.de>,
-	"Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>,
-	"Morinaga" <morinaga526@dsn.okisemi.com>
-To: "Wolfgang Grandegger" <wg@grandegger.com>
+From: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
+Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Fri, 20 Aug 2010 09:12:10 +0300
+Message-ID: <4C6E1CBA.2060605@fs.uni-ruse.bg>
+References: <bug-16626-10286@https.bugzilla.kernel.org/>	<20100819152143.8a57c465.akpm@linux-foundation.org>	<4C6E0C99.2060407@fs.uni-ruse.bg> <20100819221142.b8f6a70a.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:20061 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751227Ab0HTGCD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 02:02:03 -0400
+Received: from [83.228.35.12] ([83.228.35.12]:60790 "EHLO fs.ru.acad.bg"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751167Ab0HTGMN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Aug 2010 02:12:13 -0400
+In-Reply-To: <20100819221142.b8f6a70a.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Wolfgang,
-
-> >>>> 2. Why don't you use kernel existing kfifo infrastructure? ([2]).
-> >>> Just take a look at kfifo.h. This structure has been changed. I remembered
-> >> there was a spin_lock from kfifo previously. Currently it's been removed, good.
-> >>> OKI-sans, would you please take a look at ./include/linux/kfifo.h, and try to
-> >> use this structure and APIs?
-> >>
-> >> As I see it, the code related to that fifo is not used (== dead code)?
-> > I'm not familiar with kfifo structure, and I didn't like it because there need a spin_lock to use it.
-
-We are about to study kfifo infra structure.
-I have a question.
-
-It seems all CAN drivers accepted by upstream don't use kfifo infrastructure, right ?
-(I couldn't see message with "grep kfifo * in drivers/net/can")
-
-If yes, why should we use the kfifo ?
-If no, please show me the kfifo reference driver
-
-Thanks, Ohtake(OKISEMI)
------ Original Message ----- 
-From: "Wolfgang Grandegger" <wg@grandegger.com>
-To: "Wang, Qi" <qi.wang@intel.com>
-Cc: "Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>; <socketcan-core@lists.berlios.de>;
-<netdev@vger.kernel.org>; <gregkh@suse.de>; "Wang, Yong Y" <yong.y.wang@intel.com>; "Masayuki Ohtak"
-<masa-korg@dsn.okisemi.com>; <meego-dev@meego.com>; <arjan@linux.intel.com>
-Sent: Friday, August 13, 2010 7:58 PM
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-
-
-> On 08/13/2010 02:23 AM, Wang, Qi wrote:
-> >> -----Original Message-----
-> >> From: Wolfgang Grandegger [mailto:wg@grandegger.com]
-> >> Sent: Thursday, August 12, 2010 5:04 PM
-> >> To: Wang, Qi
-> >> Cc: Daniel Baluta; Masayuki Ohtak; meego-dev@meego.com;
-> >> socketcan-core@lists.berlios.de; netdev@vger.kernel.org; Khor, Andrew Chih
-> >> Howe; gregkh@suse.de; arjan@linux.intel.com; Wang, Yong Y
-> >> Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-> >>
-> >> On 08/12/2010 03:42 AM, Wang, Qi wrote:
-> >>>> -----Original Message-----
-> >>>> From: Daniel Baluta [mailto:daniel.baluta@gmail.com]
-> >>>> Sent: Wednesday, August 11, 2010 6:37 PM
-> >>>> To: Masayuki Ohtak
-> >>>> Cc: meego-dev@meego.com; Wolfgang Grandegger;
-> >>>> socketcan-core@lists.berlios.de; netdev@vger.kernel.org; Khor, Andrew
-> >> Chih
-> >>>> Howe; gregkh@suse.de; arjan@linux.intel.com; Wang, Qi; Wang, Yong Y
-> >>>> Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-> >>>>
-> >>>> Hi,
-> >>>>
-> >>>> 2010/8/11 Masayuki Ohtak <masa-korg@dsn.okisemi.com>:
-> >>>>> CAN driver of Topcliff PCH
-> >>>>>
-> >>>>> Topcliff PCH is the platform controller hub that is going to be used in
-> >>>>> Intel's upcoming general embedded platform. All IO peripherals in
-> >>>>> Topcliff PCH are actually devices sitting on AMBA bus.
-> >>>>> Topcliff PCH has CAN I/F. This driver enables CAN function.
-> >>>>>
-> >>>>> Signed-off-by: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
-> >>>>
-> >>>> I have a few questions:
-> >>>>
-> >>>> 1. Is your code based on Intel's CAN EP80579 ([1]) ?
-> >>> No.
-> >>
-> >> For curiosity, is the controller similar to the OKI MSM9225 or ML9620?
-> > The Topcliff IOH is developed by OKI actually.
-> >
-> >>
-> >>>> 2. Why don't you use kernel existing kfifo infrastructure? ([2]).
-> >>> Just take a look at kfifo.h. This structure has been changed. I remembered
-> >> there was a spin_lock from kfifo previously. Currently it's been removed, good.
-> >>> OKI-sans, would you please take a look at ./include/linux/kfifo.h, and try to
-> >> use this structure and APIs?
-> >>
-> >> As I see it, the code related to that fifo is not used (== dead code)?
-> > I'm not familiar with kfifo structure, and I didn't like it because there need a spin_lock to use it.
-> >>
-> >>> Daniel,
-> >>>
-> >>> We're anxious to integrate those codes now. Perhaps it'll take us quite a long
-> >> time to use kfifo. How about implementing it with the next version?
-> >>
-> >> See above. What do you mean with the next version. The driver posted by
-> >> Masayuki is far away from being accepted as it does not yet comply with
-> >> the Socket-CAN driver API, to say the least.
-> > I've few experience on CAN driver and it's also the first time for OKI-san to write Can driver. Would you please
-give us a reference and we'll follow it up. We only read 'can.txt' from kernel document. Thank you for your help in
-advance.
+=D0=9D=D0=B0 20.8.2010 =D0=B3. 08:11, Andrew Morton =D0=BD=D0=B0=D0=BF=D0=
+=B8=D1=81=D0=B0:
+> On Fri, 20 Aug 2010 08:03:21 +0300 Plamen Petrov<pvp-lsts@fs.uni-ruse=
+=2Ebg>  wrote:
 >
-> You are welcome. I think I/we already gave useful hints on what is
-> missing and what examples to follow.
+>> (responding via emailed reply-to-all)
+>>
+>> ____ 20.8.2010 __. 01:21, Andrew Morton ____________:
+>>>
+>>> (switched to email.  Please respond via emailed reply-to-all, not v=
+ia the
+>>> bugzilla web interface).
+>>>
+>>> On Thu, 19 Aug 2010 09:57:25 GMT
+>>> bugzilla-daemon@bugzilla.kernel.org wrote:
+>>>
+>>>> https://bugzilla.kernel.org/show_bug.cgi?id=3D16626
+>>>>
+>>>>              Summary: Machine hangs with EIP at skb_copy_and_csum_=
+dev
+>>>>              Product: Drivers
+>>>>              Version: 2.5
+>>>>       Kernel Version: 2.6.36-rc1-00127-g763008c
+>>>>             Platform: All
+>>>>           OS/Version: Linux
+>>>>                 Tree: Mainline
+>>>>               Status: NEW
+>>>>             Severity: blocking
+>>>>             Priority: P1
+>>>>            Component: PCI
+>>>>           AssignedTo: drivers_pci@kernel-bugs.osdl.org
+>>>>           ReportedBy: pvp-lsts@fs.uni-ruse.bg
+>>>>           Regression: Yes
+>>>
+>>> A post-2.6.35 regression.
+>>>
+>>>>
+>>>> After upgrade from 2.6.33.7 to 2.6.35.2 a server hanged twice, so
+>>>> continued on 2.6.33.7.
+>>>>
+>>>> Today decided to try lates Linus' tree with no luck.
+>>>>
+>>>> The first time I started on 2.6.36-rc1-00127-g763008c it ran for a=
+ few
+>>>> minutes, then whent dead with this on the screen:
+>>>> [picture 1]
+>>>> http://picpaste.com/9cfb03116d41f27568e1bb2a67b7f4dc.jpg
+>>>>
+>>>> [picture 2]
+>>>> Then I power-cycled the machine, only two get this:
+>>>> http://picpaste.com/6d70f453e462d1aed038781ad4bdb741.jpg
+>>>>
+>>>> And because [picture 2] seemed too bad on the lower half of the sc=
+reen,
+>>>> here is
+>>>> [picture 3]
+>>>> http://picpaste.com/0a51ae079ace2e4abd9e9d29226069f7.jpg
+>>>
+>>> Might have triggered the BUG_ON() in skb_copy_and_csum_dev().  Migh=
+t be
+>>> a tg3 thing.  Hard to tell.
+>>>
+>>> It'd be really nice to get that first screenful.  Sigh.  How long h=
+ave
+>>> we had this oops-scrolls-off problem??  Perhaps you could set
+>>> /proc/sys/kernel/printk_delay to 100 (it's in milliseconds) so that=
+ the
+>>> oops scrolls past nice and slowly?
+>>>
+>> So you need the begining of the oops screen - I will try to get that
+>> with the proposed pirntk_delay setting.
 >
-> Wolfgang.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Thanks.
 >
+>> But wich kernel should I use? Linus' latest tree or 2.6.35.2 ? They
+>> both fail the same way here, as far as I can say.
+>
+> Current mainline would be best, because we'd fix the bug there first
+> then backport the fix into -stable.  But it doesn't matter a lot in
+> this case - whatever's most convenient for you, I'd say.
+>
+With the "echo 100 > /proc/sys/kernel/printk_delay" command run by
+/etc/rc.d/rc.local, while still on 2.6.36-rc1-00127-g763008c, I got
+these:
 
+[picture 4]
+http://picpaste.com/aa3e373e894179e8ba19587ed63d8104.jpg
 
+[picture 5]
+http://picpaste.com/9bc4bdc04f5a84fdaf49d6e1db23ede8.jpg
+
+[picture 6]
+http://picpaste.com/da3ccd69a0a1221bb55f48b39c4ad950.jpg
+
+Hope the above help.
+
+And by the way, I think you are correct that this is a
+post-2.6.35 thing, because 2.6.35.2 was the first to give
+me this kind of problems, and I can confirm that 2.6.34
+does not have it, because the system was on 2.6.34.4 for
+the last 12 hours without problems, then just a moment ago
+crashed on 2.6.36-rc1-00127-g763008c, and now back on
+2.6.34.4
+
+P.S. Shouldn't "echo 100 > /proc/sys/kernel/printk_delay" be
+somewhere on the "How to debug a crashing kernel guide"
+somewhere?
+
+Thanks!
