@@ -1,72 +1,136 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Subject: Re: [PATCH v2] netfilter: save the hash of the tuple in the
-	original direction for latter use
-Date: Fri, 20 Aug 2010 09:43:14 -0400
-Message-ID: <20100820134314.GA3283@Krystal>
-References: <1282228389-3029-1-git-send-email-xiaosuo@gmail.com> <20100819152149.GA19744@Krystal> <AANLkTim5wn0Y-+081gvm7FkWx3NioRvtRMWy2uF4nji2@mail.gmail.com> <1282232786.2549.60.camel@edumazet-laptop> <20100819161112.GA24357@Krystal> <AANLkTinA3-KMPKJa-66QCMUpbDFwey2mjE=VN=9=zg=6@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [rfc] IPVS: convert scheduler management to RCU
+Date: Fri, 20 Aug 2010 22:59:19 +0900
+Message-ID: <20100820135918.GB17980@verge.net.au>
+References: <20100820133320.GA29311@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tomts40.bellnexxia.net ([209.226.175.97]:42370 "EHLO
-	tomts40-srv.bellnexxia.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751642Ab0HTNs3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 09:48:29 -0400
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <AANLkTinA3-KMPKJa-66QCMUpbDFwey2mjE=VN=9=zg=6@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100820133320.GA29311@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[ executive summary: trying to explain why static variable declarations
-  within the body of functions is bad in kernel code. ]
-
-* Changli Gao (xiaosuo@gmail.com) wrote:
-> On Fri, Aug 20, 2010 at 12:11 AM, Mathieu Desnoyers
-> <mathieu.desnoyers@polymtl.ca> wrote:
-> >
-> > Ah, I see. But I think the static variable should stay declared outside
-> > of the function scope, with a nice comment explaining why it's not
-> > initialized at init-time.
-> >
-> > Hiding global state in function code is usually frowned upon.
-> >
+On Fri, Aug 20, 2010 at 10:33:21PM +0900, Simon Horman wrote:
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 > 
-> I don't agree with you. We'd better not expose the variable which
-> isn't expected to be used by others. If not, maybe someone will misuse
-> it.
-
-We are talking about a static variable usable only within a single file,
-where is the problem ? A nice comment can have this effect.
-
-> The user should only reply on the interface, but not the internal
-> implementation.
-
-I'm talking about good practice to help code review. This is way more
-important than the potential "encapsulation" benefit of hiding global
-state (a static variable) within the body of a function.
-
-I remember that Andrew Morton has strong opinions about this, and I
-remember being in complete agreement with him on the topic.
-
-Thanks,
-
-Mathieu
-
+> --- 
 > 
-> Thanks.
+> I'm still getting my head around RCU, so review would be greatly appreciated.
 > 
-> -- 
-> Regards,
-> Changli Gao(xiaosuo@gmail.com)
+> It occurs to me that this code is not performance critical, so
+> perhaps simply replacing the rwlock with a spinlock would be better?
+> 
+> Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c
+> ===================================================================
+> --- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_sched.c	2010-08-20 22:21:01.000000000 +0900
+> +++ nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c	2010-08-20 22:21:51.000000000 +0900
+> @@ -35,7 +35,7 @@
+>  static LIST_HEAD(ip_vs_schedulers);
+>  
+>  /* lock for service table */
+> -static DEFINE_RWLOCK(__ip_vs_sched_lock);
+> +static DEFINE_SPINLOCK(ip_vs_sched_mutex);
+>  
+>  
+>  /*
+> @@ -91,9 +91,9 @@ static struct ip_vs_scheduler *ip_vs_sch
+>  
+>  	IP_VS_DBG(2, "%s(): sched_name \"%s\"\n", __func__, sched_name);
+>  
+> -	read_lock_bh(&__ip_vs_sched_lock);
+> +	rcu_read_lock_bh();
+>  
+> -	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
+> +	list_for_each_entry_rcu(sched, &ip_vs_schedulers, n_list) {
+>  		/*
+>  		 * Test and get the modules atomically
+>  		 */
+> @@ -105,14 +105,14 @@ static struct ip_vs_scheduler *ip_vs_sch
+>  		}
+>  		if (strcmp(sched_name, sched->name)==0) {
+>  			/* HIT */
+> -			read_unlock_bh(&__ip_vs_sched_lock);
+> +			rcu_read_unlock_bh();
+>  			return sched;
+>  		}
+>  		if (sched->module)
+>  			module_put(sched->module);
+>  	}
+>  
+> -	read_unlock_bh(&__ip_vs_sched_lock);
+> +	rcu_read_unlock_bh();
+>  	return NULL;
+>  }
+>  
+> @@ -167,10 +167,10 @@ int register_ip_vs_scheduler(struct ip_v
+>  	/* increase the module use count */
+>  	ip_vs_use_count_inc();
+>  
+> -	write_lock_bh(&__ip_vs_sched_lock);
+> +	spin_lock_bh(&ip_vs_sched_mutex);
+>  
+>  	if (!list_empty(&scheduler->n_list)) {
+> -		write_unlock_bh(&__ip_vs_sched_lock);
+> +		spin_unlock_bh(&ip_vs_sched_mutex);
+>  		ip_vs_use_count_dec();
+>  		pr_err("%s(): [%s] scheduler already linked\n",
+>  		       __func__, scheduler->name);
+> @@ -181,9 +181,9 @@ int register_ip_vs_scheduler(struct ip_v
+>  	 *  Make sure that the scheduler with this name doesn't exist
+>  	 *  in the scheduler list.
+>  	 */
+> -	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
+> +	list_for_each_entry_rcu(sched, &ip_vs_schedulers, n_list) {
+>  		if (strcmp(scheduler->name, sched->name) == 0) {
+> -			write_unlock_bh(&__ip_vs_sched_lock);
+> +			spin_unlock_bh(&ip_vs_sched_mutex);
+>  			ip_vs_use_count_dec();
+>  			pr_err("%s(): [%s] scheduler already existed "
+>  			       "in the system\n", __func__, scheduler->name);
+> @@ -193,8 +193,8 @@ int register_ip_vs_scheduler(struct ip_v
+>  	/*
+>  	 *	Add it into the d-linked scheduler list
+>  	 */
+> -	list_add(&scheduler->n_list, &ip_vs_schedulers);
+> -	write_unlock_bh(&__ip_vs_sched_lock);
+> +	list_add_rcu(&scheduler->n_list, &ip_vs_schedulers);
+> +	spin_unlock_bh(&ip_vs_sched_mutex);
+>  
+>  	pr_info("[%s] scheduler registered.\n", scheduler->name);
+>  
+> @@ -212,9 +212,9 @@ int unregister_ip_vs_scheduler(struct ip
+>  		return -EINVAL;
+>  	}
+>  
+> -	write_lock_bh(&__ip_vs_sched_lock);
+> +	spin_lock_bh(&ip_vs_sched_mutex);
+>  	if (list_empty(&scheduler->n_list)) {
+> -		write_unlock_bh(&__ip_vs_sched_lock);
+> +		spin_unlock_bh(&ip_vs_sched_mutex);
+>  		pr_err("%s(): [%s] scheduler is not in the list. failed\n",
+>  		       __func__, scheduler->name);
+>  		return -EINVAL;
+> @@ -223,8 +223,8 @@ int unregister_ip_vs_scheduler(struct ip
+>  	/*
+>  	 *	Remove it from the d-linked scheduler list
+>  	 */
+> -	list_del(&scheduler->n_list);
+> -	write_unlock_bh(&__ip_vs_sched_lock);
+> +	list_del_rcu(&scheduler->n_list);
+> +	spin_unlock_bh(&ip_vs_sched_mutex);
 
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
+On further reading, I believe that I need a synchronize_rcu(); here,
+
+>  
+>  	/* decrease the module use count */
+>  	ip_vs_use_count_dec();
+> --
+> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
