@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/8]: net: rps: reset network header before calling
- skb_get_rxhash()
-Date: Thu, 19 Aug 2010 17:08:51 -0700 (PDT)
-Message-ID: <20100819.170851.258130071.davem@davemloft.net>
-References: <1282107656-3386-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH 2/8] net: rps: skip fragment when computing rxhash
+Date: Thu, 19 Aug 2010 17:11:16 -0700 (PDT)
+Message-ID: <20100819.171116.233682060.davem@davemloft.net>
+References: <1282107698-3456-1-git-send-email-xiaosuo@gmail.com>
+	<1282112701.2456.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39397
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39402
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751194Ab0HTAIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 20:08:35 -0400
-In-Reply-To: <1282107656-3386-1-git-send-email-xiaosuo@gmail.com>
+	by vger.kernel.org with ESMTP id S1752758Ab0HTAK7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Aug 2010 20:10:59 -0400
+In-Reply-To: <1282112701.2456.15.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Wed, 18 Aug 2010 13:00:56 +0800
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Aug 2010 08:25:01 +0200
 
-> skb_get_rxhash() assumes the network header pointer of the skb is set
-> properly after the commit: 
-> 
-> commit bfb564e7391340638afe4ad67744a8f3858e7566
-> Author: Krishna Kumar <krkumar2@in.ibm.com>
-> Date:   Wed Aug 4 06:15:52 2010 +0000
-> 
->     core: Factor out flow calculation from get_rps_cpu
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Le mercredi 18 ao=FBt 2010 =E0 13:01 +0800, Changli Gao a =E9crit :
+>> Fragmented IP packets may have no transfer header, so when computing
+>> rxhash, we should skip them.
+>>=20
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+ ...
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
+Applied.
+
+> BTW, it is nicer to add some spaces :
+>=20
+> 	if (ip->frag_off & htons(IP_MF | IP_OFFSET))
+
+I took care of this.
+
