@@ -1,43 +1,151 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [iproute2] iproute2:  Fix filtering related to flushing IP addresses.
-Date: Fri, 20 Aug 2010 11:55:32 -0700
-Message-ID: <4C6ECFA4.8040104@candelatech.com>
-References: <1281978008-6383-1-git-send-email-greearb@candelatech.com>	<4C6EC047.1030308@candelatech.com> <20100820114915.6d46cf8b@nehalam>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [rfc] IPVS: convert scheduler management to RCU
+Date: Fri, 20 Aug 2010 12:29:00 -0700
+Message-ID: <20100820192900.GD2447@linux.vnet.ibm.com>
+References: <20100820133320.GA29311@verge.net.au>
+ <20100820135918.GB17980@verge.net.au>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53941 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752980Ab0HTSzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 14:55:35 -0400
-In-Reply-To: <20100820114915.6d46cf8b@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100820135918.GB17980@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/20/2010 11:49 AM, Stephen Hemminger wrote:
-> On Fri, 20 Aug 2010 10:49:59 -0700
-> Ben Greear<greearb@candelatech.com>  wrote:
->
->> On 08/16/2010 10:00 AM, Ben Greear wrote:
->>> The old 'ip addr flush' logic had several flaws:
->>
->> Stephen, any chance this can be accepted upstream?
->>
->> Thanks,
->> Ben
->
-> Since it had gone for a couple versions, was waiting for the
-> dust to settle for a week or so.
+On Fri, Aug 20, 2010 at 10:59:19PM +0900, Simon Horman wrote:
+> On Fri, Aug 20, 2010 at 10:33:21PM +0900, Simon Horman wrote:
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > 
+> > --- 
+> > 
+> > I'm still getting my head around RCU, so review would be greatly appreciated.
+> > 
+> > It occurs to me that this code is not performance critical, so
+> > perhaps simply replacing the rwlock with a spinlock would be better?
+> > 
+> > Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c
+> > ===================================================================
+> > --- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_sched.c	2010-08-20 22:21:01.000000000 +0900
+> > +++ nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c	2010-08-20 22:21:51.000000000 +0900
+> > @@ -35,7 +35,7 @@
+> >  static LIST_HEAD(ip_vs_schedulers);
+> >  
+> >  /* lock for service table */
+> > -static DEFINE_RWLOCK(__ip_vs_sched_lock);
+> > +static DEFINE_SPINLOCK(ip_vs_sched_mutex);
+> >  
+> >  
+> >  /*
+> > @@ -91,9 +91,9 @@ static struct ip_vs_scheduler *ip_vs_sch
+> >  
+> >  	IP_VS_DBG(2, "%s(): sched_name \"%s\"\n", __func__, sched_name);
+> >  
+> > -	read_lock_bh(&__ip_vs_sched_lock);
+> > +	rcu_read_lock_bh();
+> >  
+> > -	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
+> > +	list_for_each_entry_rcu(sched, &ip_vs_schedulers, n_list) {
+> >  		/*
+> >  		 * Test and get the modules atomically
+> >  		 */
+> > @@ -105,14 +105,14 @@ static struct ip_vs_scheduler *ip_vs_sch
+> >  		}
+> >  		if (strcmp(sched_name, sched->name)==0) {
+> >  			/* HIT */
+> > -			read_unlock_bh(&__ip_vs_sched_lock);
+> > +			rcu_read_unlock_bh();
+> >  			return sched;
+> >  		}
+> >  		if (sched->module)
+> >  			module_put(sched->module);
+> >  	}
+> >  
+> > -	read_unlock_bh(&__ip_vs_sched_lock);
+> > +	rcu_read_unlock_bh();
+> >  	return NULL;
+> >  }
+> >  
+> > @@ -167,10 +167,10 @@ int register_ip_vs_scheduler(struct ip_v
+> >  	/* increase the module use count */
+> >  	ip_vs_use_count_inc();
+> >  
+> > -	write_lock_bh(&__ip_vs_sched_lock);
+> > +	spin_lock_bh(&ip_vs_sched_mutex);
+> >  
+> >  	if (!list_empty(&scheduler->n_list)) {
+> > -		write_unlock_bh(&__ip_vs_sched_lock);
+> > +		spin_unlock_bh(&ip_vs_sched_mutex);
+> >  		ip_vs_use_count_dec();
+> >  		pr_err("%s(): [%s] scheduler already linked\n",
+> >  		       __func__, scheduler->name);
+> > @@ -181,9 +181,9 @@ int register_ip_vs_scheduler(struct ip_v
+> >  	 *  Make sure that the scheduler with this name doesn't exist
+> >  	 *  in the scheduler list.
+> >  	 */
+> > -	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
+> > +	list_for_each_entry_rcu(sched, &ip_vs_schedulers, n_list) {
+> >  		if (strcmp(scheduler->name, sched->name) == 0) {
+> > -			write_unlock_bh(&__ip_vs_sched_lock);
+> > +			spin_unlock_bh(&ip_vs_sched_mutex);
+> >  			ip_vs_use_count_dec();
+> >  			pr_err("%s(): [%s] scheduler already existed "
+> >  			       "in the system\n", __func__, scheduler->name);
+> > @@ -193,8 +193,8 @@ int register_ip_vs_scheduler(struct ip_v
+> >  	/*
+> >  	 *	Add it into the d-linked scheduler list
+> >  	 */
+> > -	list_add(&scheduler->n_list, &ip_vs_schedulers);
+> > -	write_unlock_bh(&__ip_vs_sched_lock);
+> > +	list_add_rcu(&scheduler->n_list, &ip_vs_schedulers);
+> > +	spin_unlock_bh(&ip_vs_sched_mutex);
+> >  
+> >  	pr_info("[%s] scheduler registered.\n", scheduler->name);
+> >  
+> > @@ -212,9 +212,9 @@ int unregister_ip_vs_scheduler(struct ip
+> >  		return -EINVAL;
+> >  	}
+> >  
+> > -	write_lock_bh(&__ip_vs_sched_lock);
+> > +	spin_lock_bh(&ip_vs_sched_mutex);
+> >  	if (list_empty(&scheduler->n_list)) {
+> > -		write_unlock_bh(&__ip_vs_sched_lock);
+> > +		spin_unlock_bh(&ip_vs_sched_mutex);
+> >  		pr_err("%s(): [%s] scheduler is not in the list. failed\n",
+> >  		       __func__, scheduler->name);
+> >  		return -EINVAL;
+> > @@ -223,8 +223,8 @@ int unregister_ip_vs_scheduler(struct ip
+> >  	/*
+> >  	 *	Remove it from the d-linked scheduler list
+> >  	 */
+> > -	list_del(&scheduler->n_list);
+> > -	write_unlock_bh(&__ip_vs_sched_lock);
+> > +	list_del_rcu(&scheduler->n_list);
+> > +	spin_unlock_bh(&ip_vs_sched_mutex);
+> 
+> On further reading, I believe that I need a synchronize_rcu(); here,
 
-Ok, no problem...
+Good catch!
 
-Thanks,
-Ben
+However, you actually need synchronize_rcu_bh() to match your
+rcu_read_lock_bh() calls.  Also, given Julian's comment, you probably
+need something to show that this conversion is a real improvement.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+							Thanx, Paul
 
+> >  	/* decrease the module use count */
+> >  	ip_vs_use_count_dec();
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
