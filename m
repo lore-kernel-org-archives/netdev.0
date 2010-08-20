@@ -1,195 +1,95 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [rfc] IPVS: convert scheduler management to RCU
-Date: Fri, 20 Aug 2010 23:00:02 +0900
-Message-ID: <20100820140002.GC17980@verge.net.au>
-References: <20100820133320.GA29311@verge.net.au>
- <AANLkTimS7V3z1kEwmEFCCvPzJX=D9Oqw=BNEuN-YZ0tx@mail.gmail.com>
+From: Brian King <brking@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/3] ibmveth: Remove duplicate checksum offload setup
+ code
+Date: Fri, 20 Aug 2010 09:01:43 -0500
+Message-ID: <4C6E8AC7.1010606@linux.vnet.ibm.com>
+References: <20100818160515.GA29528@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTimS7V3z1kEwmEFCCvPzJX=D9Oqw=BNEuN-YZ0tx@mail.gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Santiago Leon <santil@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:58862 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751211Ab0HTOB7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Aug 2010 10:01:59 -0400
+Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
+	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o7KDh5mn004243
+	for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 09:43:05 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o7KE1hd31507434
+	for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 10:01:43 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o7KE1h60024698
+	for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 10:01:43 -0400
+In-Reply-To: <20100818160515.GA29528@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 20, 2010 at 09:44:08PM +0800, Changli Gao wrote:
-> On Fri, Aug 20, 2010 at 9:33 PM, Simon Horman <horms@verge.net.au> wr=
-ote:
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> >
-> > ---
-> >
-> > I'm still getting my head around RCU, so review would be greatly ap=
-preciated.
-> >
-> > It occurs to me that this code is not performance critical, so
-> > perhaps simply replacing the rwlock with a spinlock would be better=
-?
-> >
-> > Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> > --- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_sched.c =C2=A0 2010-0=
-8-20 22:21:01.000000000 +0900
-> > +++ nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c =C2=A0 =C2=A0 =C2=A0=
- =C2=A02010-08-20 22:21:51.000000000 +0900
-> > @@ -35,7 +35,7 @@
-> > =C2=A0static LIST_HEAD(ip_vs_schedulers);
-> >
-> > =C2=A0/* lock for service table */
-> > -static DEFINE_RWLOCK(__ip_vs_sched_lock);
-> > +static DEFINE_SPINLOCK(ip_vs_sched_mutex);
-> >
-> >
-> > =C2=A0/*
-> > @@ -91,9 +91,9 @@ static struct ip_vs_scheduler *ip_vs_sch
-> >
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0IP_VS_DBG(2, "%s(): sched_name \"%s\"\n"=
-, __func__, sched_name);
-> >
-> > - =C2=A0 =C2=A0 =C2=A0 read_lock_bh(&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 rcu_read_lock_bh();
-> >
-> > - =C2=A0 =C2=A0 =C2=A0 list_for_each_entry(sched, &ip_vs_schedulers=
-, n_list) {
-> > + =C2=A0 =C2=A0 =C2=A0 list_for_each_entry_rcu(sched, &ip_vs_schedu=
-lers, n_list) {
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/*
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 * Test and =
-get the modules atomically
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
-> > @@ -105,14 +105,14 @@ static struct ip_vs_scheduler *ip_vs_sch
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (strcmp(s=
-ched_name, sched->name)=3D=3D0) {
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0/* HIT */
-> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 read_unlock_bh(&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 rcu_read_unlock_bh();
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0return sched;
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (sched->m=
-odule)
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0module_put(sched->module);
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> >
-> > - =C2=A0 =C2=A0 =C2=A0 read_unlock_bh(&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 rcu_read_unlock_bh();
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0return NULL;
-> > =C2=A0}
-> >
-> > @@ -167,10 +167,10 @@ int register_ip_vs_scheduler(struct ip_v
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0/* increase the module use count */
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0ip_vs_use_count_inc();
-> >
-> > - =C2=A0 =C2=A0 =C2=A0 write_lock_bh(&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 spin_lock_bh(&ip_vs_sched_mutex);
-> >
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!list_empty(&scheduler->n_list)) {
-> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 write_unlock_bh(=
-&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_unlock_bh(&=
-ip_vs_sched_mutex);
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ip_vs_use_co=
-unt_dec();
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s()=
-: [%s] scheduler already linked\n",
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 __func__, scheduler->name);
-> > @@ -181,9 +181,9 @@ int register_ip_vs_scheduler(struct ip_v
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 * =C2=A0Make sure that the scheduler wi=
-th this name doesn't exist
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 * =C2=A0in the scheduler list.
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
-> > - =C2=A0 =C2=A0 =C2=A0 list_for_each_entry(sched, &ip_vs_schedulers=
-, n_list) {
-> > + =C2=A0 =C2=A0 =C2=A0 list_for_each_entry_rcu(sched, &ip_vs_schedu=
-lers, n_list) {
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (strcmp(s=
-cheduler->name, sched->name) =3D=3D 0) {
-> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 write_unlock_bh(&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 spin_unlock_bh(&ip_vs_sched_mutex);
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0ip_vs_use_count_dec();
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0pr_err("%s(): [%s] scheduler already existed "
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 "in the system\n", __func__, schedu=
-ler->name);
-> > @@ -193,8 +193,8 @@ int register_ip_vs_scheduler(struct ip_v
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0/*
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 * =C2=A0 =C2=A0 =C2=A0Add it into the d=
--linked scheduler list
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
-> > - =C2=A0 =C2=A0 =C2=A0 list_add(&scheduler->n_list, &ip_vs_schedule=
-rs);
-> > - =C2=A0 =C2=A0 =C2=A0 write_unlock_bh(&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 list_add_rcu(&scheduler->n_list, &ip_vs_sche=
-dulers);
-> > + =C2=A0 =C2=A0 =C2=A0 spin_unlock_bh(&ip_vs_sched_mutex);
-> >
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_info("[%s] scheduler registered.\n", =
-scheduler->name);
-> >
-> > @@ -212,9 +212,9 @@ int unregister_ip_vs_scheduler(struct ip
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return -EINV=
-AL;
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0}
-> >
-> > - =C2=A0 =C2=A0 =C2=A0 write_lock_bh(&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 spin_lock_bh(&ip_vs_sched_mutex);
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if (list_empty(&scheduler->n_list)) {
-> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 write_unlock_bh(=
-&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_unlock_bh(&=
-ip_vs_sched_mutex);
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0pr_err("%s()=
-: [%s] scheduler is not in the list. failed\n",
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 __func__, scheduler->name);
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return -EINV=
-AL;
-> > @@ -223,8 +223,8 @@ int unregister_ip_vs_scheduler(struct ip
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0/*
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 * =C2=A0 =C2=A0 =C2=A0Remove it from th=
-e d-linked scheduler list
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 */
-> > - =C2=A0 =C2=A0 =C2=A0 list_del(&scheduler->n_list);
-> > - =C2=A0 =C2=A0 =C2=A0 write_unlock_bh(&__ip_vs_sched_lock);
-> > + =C2=A0 =C2=A0 =C2=A0 list_del_rcu(&scheduler->n_list);
-> > + =C2=A0 =C2=A0 =C2=A0 spin_unlock_bh(&ip_vs_sched_mutex);
->=20
-> Need a rcu_barrier_bh().
+Patches 1-3
 
-Thanks.
+Acked-by: Brian King <brking@linux.vnet.ibm.com>
 
->=20
-> >
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0/* decrease the module use count */
-> > =C2=A0 =C2=A0 =C2=A0 =C2=A0ip_vs_use_count_dec();
->=20
->=20
->=20
-> --=20
-> Regards,
-> Changli Gao(xiaosuo@gmail.com)
+On 08/18/2010 11:05 AM, Robert Jennings wrote:
+> Remove code in the device probe function where we set up the checksum
+> offload feature and replace it with a call to an existing function that
+> is doing the same.  This is done to clean up the driver in preparation
+> of adding IPv6 checksum offload support.
+> 
+> Signed-off-by: Robert Jennings <rcj@linux.vnet.ibm.com>
+> 
+> ---
+>  drivers/net/ibmveth.c |   18 +-----------------
+>  1 file changed, 1 insertion(+), 17 deletions(-)
+> 
+> Index: b/drivers/net/ibmveth.c
+> ===================================================================
+> --- a/drivers/net/ibmveth.c
+> +++ b/drivers/net/ibmveth.c
+> @@ -1222,10 +1222,8 @@ static const struct net_device_ops ibmve
+>  static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+>  {
+>  	int rc, i;
+> -	long ret;
+>  	struct net_device *netdev;
+>  	struct ibmveth_adapter *adapter;
+> -	unsigned long set_attr, ret_attr;
+> 
+>  	unsigned char *mac_addr_p;
+>  	unsigned int *mcastFilterSize_p;
+> @@ -1310,21 +1308,7 @@ static int __devinit ibmveth_probe(struc
+> 
+>  	ibmveth_debug_printk("registering netdev...\n");
+> 
+> -	ret = h_illan_attributes(dev->unit_address, 0, 0, &ret_attr);
+> -
+> -	if (ret == H_SUCCESS && !(ret_attr & IBMVETH_ILLAN_ACTIVE_TRUNK) &&
+> -	    !(ret_attr & IBMVETH_ILLAN_TRUNK_PRI_MASK) &&
+> -	    (ret_attr & IBMVETH_ILLAN_PADDED_PKT_CSUM)) {
+> -		set_attr = IBMVETH_ILLAN_IPV4_TCP_CSUM;
+> -
+> -		ret = h_illan_attributes(dev->unit_address, 0, set_attr, &ret_attr);
+> -
+> -		if (ret == H_SUCCESS) {
+> -			adapter->rx_csum = 1;
+> -			netdev->features |= NETIF_F_IP_CSUM;
+> -		} else
+> -			ret = h_illan_attributes(dev->unit_address, set_attr, 0, &ret_attr);
+> -	}
+> +	ibmveth_set_csum_offload(netdev, 1, ibmveth_set_tx_csum_flags);
+> 
+>  	rc = register_netdev(netdev);
+> 
 > --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-d=
-evel" in
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+-- 
+Brian King
+Linux on Power Virtualization
+IBM Linux Technology Center
+
+
