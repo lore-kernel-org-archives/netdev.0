@@ -1,59 +1,95 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v3] netfilter: save the hash of the tuple in the original
- direction for latter use
-Date: Fri, 20 Aug 2010 23:36:44 +0800
-Message-ID: <AANLkTinic7H0r7kAgsBiRAbn7MCeqxA0Gme7oOkmPUdJ@mail.gmail.com>
-References: <1282316003-2966-1-git-send-email-xiaosuo@gmail.com>
- <1282317016.2484.173.camel@edumazet-laptop> <AANLkTimj=6HBdZK0WiPBxhm9YPG_8zRXEZyP--E7Shj8@mail.gmail.com>
- <1282318163.2484.212.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Re[2]: [PATCH v7] PPTP: PPP over IPv4 (Point-to-Point
+ Tunneling Protocol)
+Date: Fri, 20 Aug 2010 17:50:59 +0200
+Message-ID: <1282319459.2484.249.camel@edumazet-laptop>
+References: <1282285499.2295.2.camel@edumazet-laptop>
+	 <E1OmTW8-0002E6-00.xeb-mail-ru@f289.mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Dmitry Kozlov <xeb@mail.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:51309 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752944Ab0HTPhI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 11:37:08 -0400
-In-Reply-To: <1282318163.2484.212.camel@edumazet-laptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:32922 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097Ab0HTPvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 11:51:04 -0400
+Received: by eyg5 with SMTP id 5so2211554eyg.19
+        for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 08:51:03 -0700 (PDT)
+In-Reply-To: <E1OmTW8-0002E6-00.xeb-mail-ru@f289.mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 20, 2010 at 11:29 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> Le vendredi 20 ao=FBt 2010 =E0 23:22 +0800, Changli Gao a =E9crit :
->
->> I should keep the old way, but fix a race.
->>
->> =A0 =A0 =A0 =A0 if (unlikely(!nf_conntrack_hash_rnd_initted)) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 get_random_bytes(&nf_conntrack_hash_=
-rnd,
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 size=
-of(nf_conntrack_hash_rnd));
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 nf_conntrack_hash_rnd_initted =3D 1;
->> =A0 =A0 =A0 =A0 }
->>
->> nf_conntrack_alloc() isn't called with in the nf_conntrack_lock. So
->> the above code maybe executed more than once on different CPUs. It i=
-s
->> easy to fix with the cmpxchg() trick.
->
-> Sure, please fix the race first.
->
-> But as I said, its not critical, if one or two conntracks are hashed =
-on
-> wrong basis. They will eventually disappear after timeout.
->
+Le vendredi 20 ao=C3=BBt 2010 =C3=A0 19:28 +0400, Dmitry Kozlov a =C3=A9=
+crit :
+> > > Ang again...
+> > > This patch contains:
+> > > 1. pptp driver
+> > > 2. gre demultiplexer driver for demultiplexing gre packets with d=
+ifferent gre version
+> > > so ip_gre and pptp may coexists
+> > > 3. ip_gre modification
+> > > 4. other stuff
+> > >=20
+> > > Changes from v6:
+> > > 1. memory allocation moved to begin of module initialization
+> > > 2. fixed coding style issues
+> > > Thanks to Eric Dumazet.
+> > >=20
+> > > --
+> > >  MAINTAINERS              |   14 +
+> > >  drivers/net/Kconfig      |   11 +
+> > >  drivers/net/Makefile     |    1 +
+> > >  drivers/net/pptp.c       |  726 ++++++++++++++++++++++++++++++++=
+++++++++++++++
+> > >  include/linux/if_pppox.h |   59 +++--
+> > >  include/net/gre.h        |   18 ++
+> > >  net/ipv4/Kconfig         |    7 +
+> > >  net/ipv4/Makefile        |    1 +
+> > >  net/ipv4/gre.c           |  151 ++++++++++
+> > >  net/ipv4/ip_gre.c        |   14 +-
+> > >  10 files changed, 975 insertions(+), 27 deletions(-)
+> >=20
+> >=20
+> > Seems fine to me, but you need to make a nice looking Changelog and=
+ add
+> > your "Signed-off-by: ...." signature.
+> >=20
+> > Thanks
+>=20
+> What do you mean, Changelog of patch ?
 
-Yes, and it isn't critical. I think this fix should be in a separate pa=
-tch.
+I mean the head of your patch that read :
+-----------------------------------------------------------------
+Ang again...
+This patch contains:
+1. pptp driver
+2. gre demultiplexer driver for demultiplexing gre packets with
+different gre version
+so ip_gre and pptp may coexists
+3. ip_gre modification
+4. other stuff
+
+Changes from v6:
+1. memory allocation moved to begin of module initialization
+2. fixed coding style issues
+Thanks to Eric Dumazet.
+-------------------------------------------------------------------
+
+This is not a very good Changelog for the final code inclusion in
+Linux :). You spent a lot of time in preparing these patches, you can
+polish the text so that casual reader have an idea of what you did...
+
+'Ang again...' ?
+
+Dont include "changes from v6" or include all changes (v2,v3, ...)
+
+Of course, once I reviewed your final version, I'll add my signature,
+and other netdev developpers (including David S. Miller) might find
+other problems that I missed, so what I called 'final code' might be a
+not so final...
+
+Thanks
 
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
