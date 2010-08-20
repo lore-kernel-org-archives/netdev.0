@@ -1,68 +1,112 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at
- skb_copy_and_csum_dev
-Date: Fri, 20 Aug 2010 21:38:35 +0200
-Message-ID: <20100820193835.GA6025@del.dom.local>
-References: <4C6E5EA7.3040609@fs.uni-ruse.bg>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 2/2] platform: Facilitate the creation of pseudo-platform buses
+Date: Fri, 20 Aug 2010 14:08:49 -0600
+Message-ID: <AANLkTine=VLLm4+ReKeMKBdbV1JsunNagwKxGMDhEe8e@mail.gmail.com>
+References: <1281484174-32174-1-git-send-email-ppannuto@codeaurora.org>
+ <1281484174-32174-3-git-send-email-ppannuto@codeaurora.org>
+ <3F978429-F916-42E5-8B36-6AC02DAC8CA2@boeing.com> <AANLkTi=Pm8BL+Ksq1o7MYpV7mMH10bEPu1=Am9EgT-Kk@mail.gmail.com>
+ <87hbiql89d.fsf@deeprootsystems.com> <AANLkTinaddiPAcokH3fRVYAFf3N-Gz--U5Jd1iyNsi+m@mail.gmail.com>
+ <87hbip9kxx.fsf@deeprootsystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:46392 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753609Ab0HTTim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 15:38:42 -0400
-Received: by bwz11 with SMTP id 11so2341770bwz.19
-        for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 12:38:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4C6E5EA7.3040609@fs.uni-ruse.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Moffett, Kyle D" <Kyle.D.Moffett@boeing.com>,
+	Patrick Pannuto <ppannuto@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
+	"magnus.damm@gmail.com" <magnus.damm@gmail.com>,
+	"gregkh@suse.de" <gregkh@suse.de>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Magnus Damm <damm@opensource.se>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Dmitry Torokhov <dtor@mail.ru>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kyle D Moffett <kyle@moffetthome.net>
+To: Kevin Hilman <khilman@deeprootsystems.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87hbip9kxx.fsf@deeprootsystems.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Plamen Petrov wrote, On 20.08.2010 12:53:
-> So, I guess its David and Herbert's turn?...
+On Fri, Aug 20, 2010 at 12:51 PM, Kevin Hilman
+<khilman@deeprootsystems.com> wrote:
+> Grant Likely <grant.likely@secretlab.ca> writes:
+>
+> [...]
+>
+>>> One of the primary goals of this (at least for me and it seems Magn=
+us also)
+>>> is to keep drivers ignorant of their bus type, and any bus-type-spe=
+cific
+>>> code should be done in the bus_type implementation.
+>>
+>> Heh; which just screams to me that bus_type is the wrong level to be
+>> abstracting the behaviour
+>
+> Heh, now I feel like we're going around in circles. =A0Remember, I ne=
+ver
+> wanted to create add a new bus_type. =A0Someone else [ahem] suggested
+> doing the abstraction at the bus_type level. =A0;)
 
-If you're bored in the meantime I'd suggest to do check the realtek
-driver eg:
-- for locking with the patch below,
-- to turn off with ethtool its tx-checksumming and/or scatter-gather,
-or if possible try to reproduce this with other NIC.
+Hey!  I didn't suggest it either!  I believe that was Greg at ELC.  I
+just... um... kind of took it and ran with it.  :-)
 
-Thanks,
-Jarek P.
----
+>> (but I also understand your need for the
+>> "omap_device" wrapper around platform_device which also requires som=
+e
+>> method to sort out when a platform_device really is an omap_device
+>> without an unsafe dereference).
+>
+> Yes, I'm working on the devres approach to that now, as is Magnus for
+> the sh-mobile version (proposed for .36-rc1[1])
+>
+>>> Both for SH and OMAP, we've been using the (admiteddly broken)
+>>> weak-symbol-override approach to getting a custom bus-type based on=
+ the
+>>> platform_bus. =A0We've been using that in OMAP for a while now and =
+have
+>>> not seen any need to for the drivers to know if they are on the van=
+illa
+>>> platform_bus or the customized one.
+>>>
+>>> I'm very curious to hear what type of impact you expect to the driv=
+ers.
+>>
+>> My fears on this point may very well be unfounded. =A0This isn't the
+>> hill I'm going to die on either. =A0Show me an implementation of dri=
+ver
+>> sharing that is clean and prove me wrong! =A0:-)
+>
+> IMHO, simply overriding the few dev_pm_ops methods was the cleanest a=
+nd
+> simplest.
+>
+> Since we seem to be in agreement now that the a new bus may not the
+> right abstraction for this (since we want it to be completely
+> transparent to the drivers), I'll go back to the original design. =A0=
+No new
+> bus types, keep the platform_bus as is, but simply override the few
+> dev_pm_ops methods I care about. =A0This is what is done on SH,
+> SH-Mobile[1] and my original version for OMAP that started this
+> conversation.
+>
+> Yes, the weak-symbol method of overriding is not scalable, but that's=
+ a
+> separate issue from whether or not to create a new bus. =A0I have a
+> proposed fix for the weak which I'll post shortly.
 
-diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-index f5166dc..aaaccc5 100644
---- a/drivers/net/8139too.c
-+++ b/drivers/net/8139too.c
-@@ -1692,6 +1692,8 @@ static netdev_tx_t rtl8139_start_xmit (struct sk_buff *skb,
- 	unsigned int len = skb->len;
- 	unsigned long flags;
- 
-+	spin_lock_irqsave(&tp->lock, flags);
-+
- 	/* Calculate the next Tx descriptor entry. */
- 	entry = tp->cur_tx % NUM_TX_DESC;
- 
-@@ -1700,14 +1702,14 @@ static netdev_tx_t rtl8139_start_xmit (struct sk_buff *skb,
- 		if (len < ETH_ZLEN)
- 			memset(tp->tx_buf[entry], 0, ETH_ZLEN);
- 		skb_copy_and_csum_dev(skb, tp->tx_buf[entry]);
--		dev_kfree_skb(skb);
-+		dev_kfree_skb_irq(skb);
- 	} else {
-+		spin_unlock_irqrestore(&tp->lock, flags);
- 		dev_kfree_skb(skb);
- 		dev->stats.tx_dropped++;
- 		return NETDEV_TX_OK;
- 	}
- 
--	spin_lock_irqsave(&tp->lock, flags);
- 	/*
- 	 * Writing to TxStatus triggers a DMA transfer of the data
- 	 * copied to tp->tx_buf[entry] above. Use a memory barrier
+Okay.
+
+One constraint remains though:  If you can override the dev_pm_ops on
+a per-device or per-device-parent basis, then you've got my support.
+If the override (even when fixed to work at runtime) applies to every
+device on the platform_bus_type, then I'll nack it.  My concern here
+is that the SoC or platform support code doesn't get to "own" the
+platform_bus_type.  Other drivers/code can register their own set of
+platform_devices, which may also need to perform their own dev_pm_ops
+override.  If the override is global to the platform_bus_type, then
+the model will not scale.
+
+Cheers,
+g.
