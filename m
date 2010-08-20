@@ -1,38 +1,51 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2010-08-19
-Date: Thu, 19 Aug 2010 16:59:51 -0700 (PDT)
-Message-ID: <20100819.165951.200388018.davem@davemloft.net>
-References: <20100819174638.GC2672@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TAHI CN-6-4-1 failed on Linux 2.6.32 kernel
+Date: Thu, 19 Aug 2010 17:06:49 -0700 (PDT)
+Message-ID: <20100819.170649.212693227.davem@davemloft.net>
+References: <AANLkTik9=TcMWzNyKWYyDu+bbGscPne6++gD42aju9s_@mail.gmail.com>
+	<AANLkTi=qP7BO2=Uhx2Xb0XiLbUz0mPutbg0vz6QnMgYb@mail.gmail.com>
+	<AANLkTim+1=4VCmY=fO5HTvDwKnveGEPsY1h1O64vnT6L@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100819174638.GC2672-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: brian.haley@hp.com, usagi-users-ctl@ml.linux-ipv6.org,
+	netdev@vger.kernel.org
+To: schen@mvista.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39391
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750849Ab0HTAGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 20:06:33 -0400
+In-Reply-To: <AANLkTim+1=4VCmY=fO5HTvDwKnveGEPsY1h1O64vnT6L@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 19 Aug 2010 13:46:38 -0400
+From: Steve Chen <schen@mvista.com>
+Date: Thu, 19 Aug 2010 13:35:14 -0500
 
-> This collection of fixes intended for 2.6.36 includes a few that look
-> bigger than they really are.  The one from Joe Perches corrects a number
-> of inadvertant upper->lower case conversion from an earlier patch
-> already in 2.6.36.  The ones from Wey-Yi Guy change a timer value in a
-> number of device-dependent data structures in order to avoid excessive
-> firmware resets for those devices.
+> I trace through the code.  It appears that the network driver (e1000e
+> for my setup) always set ip_summed to CHECKSUM_UNNECESSARY.  I have
+> been unsuccessful to get the driver to take the other branch where
+> ip_summed is set to CHECKSUM_COMPLETE.  Even when I hard code
+> ip_summed to CHECKSUM_COMPLETE, __skb_checksum_complete_head set
+> ip_summed to CHECKSUM_UNNECESSARY after recomputing the checksum.
 > 
-> In addition to those, the one from Johannes Berg gives iwl3945 its own
-> filter flag function since sharing the iwlagn version has created
-> regressions for iwl3945.  The one from me corrects a DMA API misuse in
-> ipw2100 that results in warning backtraces.
-> 
-> Please let me know if there are problems!
+> So far the only way I'm able to get ICMP to recompute checksum is
+> through the attached hack.  Even though I can get all the tests to
+> pass, but it just seem wrong.
 
-Pulled, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If turning off hardware RX checksumming with ethtool has no effect,
+and the problem is seen with multiple ethernet cards, the problem
+is elsewhere.
+
+First of all, if you turn RX checksumming off, the checksum field
+of the SKB should always be skb->ip_summed = 0.  If this is not
+happening, find out why.
+
+Put diagnostics into drivers/net/e1000e/netdev.c:e1000_rx_checksum()
+and see what's happening.
+
+If that code isn't setting ->ip_summed, then something else is,
+perhaps some decapsulation code?  Do these packets get embedded
+in a tunnel or other kind of transport?  I see that this test
+has IPSEC disabled, so it can't be that.
