@@ -1,62 +1,57 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Fri, 20 Aug 2010 09:59:17 +0200
-Message-ID: <4C6E35D5.2080500@grandegger.com>
-References: <4C61EDE5.4030505@dsn.okisemi.com>	<AANLkTinZ510_k2E5JFxa8jcuv8gRABFakyrcfzsg2vm1@mail.gmail.com>	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA26EB@shsmsx501.ccr.corp.intel.com>	<4C63B8F8.6090106@grandegger.com>
-	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA2AB1@shsmsx501.ccr.corp.intel.com>
-	<4C65255F.4010709@grandegger.com>
-	<000f01cb402d$34b675b0$66f8800a@maildom.okisemi.com>
+From: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
+Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Fri, 20 Aug 2010 11:31:20 +0300
+Message-ID: <4C6E3D58.5080303@fs.uni-ruse.bg>
+References: <bug-16626-10286@https.bugzilla.kernel.org/>	 <20100819152143.8a57c465.akpm@linux-foundation.org>	 <4C6E0C99.2060407@fs.uni-ruse.bg>	 <20100819221142.b8f6a70a.akpm@linux-foundation.org>	 <4C6E1CBA.2060605@fs.uni-ruse.bg>	 <20100819232019.6f6074a8.akpm@linux-foundation.org>	 <4C6E202E.5030406@fs.uni-ruse.bg> <1282286070.2295.6.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Khor, Andrew Chih Howe" <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Wang,
-	Qi" <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	"Wang, Yong Y" <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
-	arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <000f01cb402d$34b675b0$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [83.228.35.12] ([83.228.35.12]:34752 "EHLO fs.ru.acad.bg"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751866Ab0HTIbW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Aug 2010 04:31:22 -0400
+In-Reply-To: <1282286070.2295.6.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ohtake,
+=D0=9D=D0=B0 20.8.2010 =D0=B3. 10:38, Plamen Petrov =D0=BD=D0=B0=D0=BF=D0=
+=B8=D1=81=D0=B0:
+> =D0=9D=D0=B0 20.8.2010 =D0=B3. 09:34, Eric Dumazet =D0=BD=D0=B0=D0=BF=
+=D0=B8=D1=81=D0=B0:
+>> > Le vendredi 20 ao=C3=BBt 2010 =C3=A0 09:26 +0300, Plamen Petrov a =
+=C3=A9crit :
+>>> >> Posting this only in the hope that it will be helpfull to the
+>>> >> "net guys"...
+>> >
+=2E..
+>> >
+> But again, this is on 2.6.34.4. Could it be that
+> "generic-receive-offload" is ON by default on my
+> only gigabit capable tg3 card on 2.6.35.x and later?
+>
 
-On 08/20/2010 08:01 AM, Masayuki Ohtake wrote:
-> Hi Wolfgang,
-> 
->>>>>> 2. Why don't you use kernel existing kfifo infrastructure? ([2]).
->>>>> Just take a look at kfifo.h. This structure has been changed. I remembered
->>>> there was a spin_lock from kfifo previously. Currently it's been removed, good.
->>>>> OKI-sans, would you please take a look at ./include/linux/kfifo.h, and try to
->>>> use this structure and APIs?
->>>>
->>>> As I see it, the code related to that fifo is not used (== dead code)?
->>> I'm not familiar with kfifo structure, and I didn't like it because there need a spin_lock to use it.
-> 
-> We are about to study kfifo infra structure.
-> I have a question.
-> 
-> It seems all CAN drivers accepted by upstream don't use kfifo infrastructure, right ?
+Well, as it turns out - the commit enabling GRO for
+tg3 cards was from the 2.6.35 merge window:
+http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
+commitdiff;h=3Dcb903bf4ee2d6e53210e2174d363e10698112042
 
-Right!
+> tg3: Enable GRO by default.author	David S. Miller <davem@davemloft.ne=
+t>=09
+> 	Wed, 21 Apr 2010 01:49:45 +0000 (18:49 -0700)
+> committer	David S. Miller <davem@davemloft.net>=09
+> 	Wed, 21 Apr 2010 01:49:45 +0000 (18:49 -0700)
+>
+> This was merely an oversight when I added the *_gro_receive()
+> calls.
+>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> (I couldn't see message with "grep kfifo * in drivers/net/can")
-> 
-> If yes, why should we use the kfifo ?
-> If no, please show me the kfifo reference driver
-
-Sorry, nobody (of the socketcan core developers) said that kfifo should
-be used. We believe, that an additional queuing of CAN messages is *not*
-needed at all. Just eliminate the related code and follow more closely
-the existing mainline drivers.
-
-Wolfgang.
+The next thing I will be trying is disabling
+GRO for the tg3 network card in my network
+startup scripts via my shiny new ethtool... ;)
