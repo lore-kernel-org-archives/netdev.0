@@ -1,80 +1,55 @@
-From: yao zhao <dragonlinux@gmail.com>
-Subject: Re: [rfc] IPVS: convert scheduler management to RCU
-Date: Fri, 20 Aug 2010 11:04:02 -0400
-Message-ID: <AANLkTikCd_xCWUN+dkb_BkOrkBGSPe4xkmAebtgEiufy@mail.gmail.com>
-References: <20100820133320.GA29311@verge.net.au>
-	<AANLkTimS7V3z1kEwmEFCCvPzJX=D9Oqw=BNEuN-YZ0tx@mail.gmail.com>
-	<1282313150.2484.65.camel@edumazet-laptop>
-	<AANLkTi=t7wDZO23Cim1LJ_Ot2FUe4bR+XG6H5uJfTuG+@mail.gmail.com>
-	<1282314765.2484.104.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] netfilter: save the hash of the tuple in the
+ original direction for latter use
+Date: Fri, 20 Aug 2010 17:10:16 +0200
+Message-ID: <1282317016.2484.173.camel@edumazet-laptop>
+References: <1282316003-2966-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, Simon Horman <horms@verge.net.au>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1282314765.2484.104.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1282316003-2966-1-git-send-email-xiaosuo@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 20, 2010 at 10:32 AM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> Le vendredi 20 ao=FBt 2010 =E0 10:16 -0400, yao zhao a =E9crit :
->
->> if it is not performance critical, you should use =A0the
->> read_lock/write_lock, it should make the readers happier than
->> spinlock. the name "mutex" is a little bit confuse.
->
-> Yes, I mentioned the 'mutex' name oddity.
->
-> Point is :
->
-> We want to remove read_write locks. They dont fit the bill.
->
-> If performance critical, lot of readers -> RCU (a lot faster)
-> If not, or too much writers versus readers -> spinlock (a bit faster)
->
->
-for writers more than readers of course spin will be better, that is
-what read/write lock for and spin for.
-But the case here is whether these register_ip_vs_scheduler or
-unregister are more frequent than the readers.
-if not definitely read_lock will better than spin_lock. although worse =
-than rcu.
->
->> synchronize_rcu() is not necessary when you only need to delete from=
- a
->> list as it is atomic.
->>
->
-> Thats a rather strange and completely wrong claim. A big part of RCU =
-job
-> is to have appropriate work done on deletes. Inserts are more easy (o=
-nly
-> needs a smp_wmb())
->
-> Take a look at Documentation/RCU/* before saying such things ;)
->
-> Not only synchronize_rcu() is not enough to protect this kind of code=
-,
-> but you need something stronger.
->
->
->
-The code here is deleting a global from the list, am I right? I didn't
-see any called case.
-what are you going to do more? free it? write_unlock_bh should make the=
- mb.
+Le vendredi 20 ao=C3=BBt 2010 =C3=A0 22:53 +0800, Changli Gao a =C3=A9c=
+rit :
+> Since we don't change the tuple in the original direction, we can sav=
+e it
+> in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_conf=
+irm()
+> use.
+>=20
+> __hash_conntrack() is split into two steps: ____hash_conntrack() is u=
+sed
+> to get the raw hash, and __hash_bucket() is used to get the bucket id=
+=2E
+>=20
+> In SYN-flood case, early_drop() doesn't need to recompute the hash ag=
+ain.
+>=20
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ---
 
-yao
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hmm... so to accept a few more SYN packets per second in SYNFLOOD
+attack, we slow a bit normal operations ? (adding one test on each
+packet going through conntrack)
+
+If yes (I dont think we should, hackers are stronger than you anyway,
+just face it)
+
+v4:
+	__read_mostly on nf_conntrack_rnd
+
+
+What would happen if we let the initialization of nf_conntrack_rnd
+only in the insertion case (like currently done) ?=20
+Only the first packet received on the machine/conntrack might be hashed
+on a wrong slot. Is it a big deal ? If yes, maybe find a way to
+recompute the hash in this case, instead of reusing 'wrong' one ?
