@@ -1,38 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v2] qlge: pull NULL check ahead of dereference
-Date: Thu, 19 Aug 2010 20:48:18 -0700 (PDT)
-Message-ID: <20100819.204818.13765444.davem@davemloft.net>
-References: <20100819125933.GB14895@linux-ox1b.qlogic.org>
-	<20100819185244.GD6674@bicker>
-	<20100819202836.GD17233@linux-ox1b.qlogic.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: error27@gmail.com, Linux-Driver@qlogic.com,
-	leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: ron.mercer@qlogic.com
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] bridge: netfilter: fix a memory leak
+Date: Fri, 20 Aug 2010 13:03:16 +0800
+Message-ID: <1282280596-18992-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54561
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751338Ab0HTDsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 23:48:02 -0400
-In-Reply-To: <20100819202836.GD17233@linux-ox1b.qlogic.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:63381 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016Ab0HTFDh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 01:03:37 -0400
+Received: by pvg2 with SMTP id 2so1050220pvg.19
+        for <netdev@vger.kernel.org>; Thu, 19 Aug 2010 22:03:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Thu, 19 Aug 2010 13:28:36 -0700
+nf_bridge_alloc() always reset the skb->nf_bridge, so we should always
+put the old one. skb->nf_bridge->use is initialized in nf_bridge_alloc(),
+so we don't need to initialize it again.
 
-> On Thu, Aug 19, 2010 at 11:52:44AM -0700, Dan Carpenter wrote:
->> There was a dereference before NULL check issue introduced in 1e213303d
->> "qlge: Add tx multiqueue support."  I've pulled the NULL check of
->> "net_rsp" forward a couple lines to avoid that.
->> 
->> Also Ron Mercer says that the early exit should be above the index
->> write.  ql_write_cq_idx(rx_ring);
->> 
-> 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
-
-Applied to net-next-2.6, thanks guys.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ net/bridge/br_netfilter.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 2c911c0..7fde554 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -159,11 +159,9 @@ static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
+ 	if (atomic_read(&nf_bridge->use) > 1) {
+ 		struct nf_bridge_info *tmp = nf_bridge_alloc(skb);
+ 
+-		if (tmp) {
++		if (tmp)
+ 			memcpy(tmp, nf_bridge, sizeof(struct nf_bridge_info));
+-			atomic_set(&tmp->use, 1);
+-			nf_bridge_put(nf_bridge);
+-		}
++		nf_bridge_put(nf_bridge);
+ 		nf_bridge = tmp;
+ 	}
+ 	return nf_bridge;
