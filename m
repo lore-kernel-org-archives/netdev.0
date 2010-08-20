@@ -1,44 +1,38 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: ip_tables.h can't be used in C++ programs.
-Date: Fri, 20 Aug 2010 11:54:31 -0700
-Message-ID: <4C6ECF67.3040508@candelatech.com>
+Subject: Re: [iproute2] iproute2:  Fix filtering related to flushing IP addresses.
+Date: Fri, 20 Aug 2010 11:55:32 -0700
+Message-ID: <4C6ECFA4.8040104@candelatech.com>
+References: <1281978008-6383-1-git-send-email-greearb@candelatech.com>	<4C6EC047.1030308@candelatech.com> <20100820114915.6d46cf8b@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53938 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:53941 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752747Ab0HTSye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 14:54:34 -0400
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id o7KIsXo7006138
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 11:54:34 -0700
+	with ESMTP id S1752980Ab0HTSzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Aug 2010 14:55:35 -0400
+In-Reply-To: <20100820114915.6d46cf8b@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This method returns void* but is defined to return
-a pointer to struct ipt_entry_target.
+On 08/20/2010 11:49 AM, Stephen Hemminger wrote:
+> On Fri, 20 Aug 2010 10:49:59 -0700
+> Ben Greear<greearb@candelatech.com>  wrote:
+>
+>> On 08/16/2010 10:00 AM, Ben Greear wrote:
+>>> The old 'ip addr flush' logic had several flaws:
+>>
+>> Stephen, any chance this can be accepted upstream?
+>>
+>> Thanks,
+>> Ben
+>
+> Since it had gone for a couple versions, was waiting for the
+> dust to settle for a week or so.
 
-This will not compile under g++ (or, I'm unable to figure out
-how to make it work w/out editing the header file).
-
-Any reason this shouldn't be changed to:
-
-  return (struct ipt_entry_target*)e + e->target_offset;
-
-
-/* Helper functions */
-static __inline__ struct ipt_entry_target *
-ipt_get_target(struct ipt_entry *e)
-{
-         return (void *)e + e->target_offset;
-}
-
-
-IPv6 has similar issue....
+Ok, no problem...
 
 Thanks,
 Ben
