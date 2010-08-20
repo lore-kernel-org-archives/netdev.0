@@ -1,62 +1,59 @@
-From: Simon Horman <horms@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [rfc] IPVS: convert scheduler management to RCU
-Date: Fri, 20 Aug 2010 23:31:52 +0900
-Message-ID: <20100820143148.GA2277@verge.net.au>
+Date: Fri, 20 Aug 2010 16:32:45 +0200
+Message-ID: <1282314765.2484.104.camel@edumazet-laptop>
 References: <20100820133320.GA29311@verge.net.au>
- <AANLkTimS7V3z1kEwmEFCCvPzJX=D9Oqw=BNEuN-YZ0tx@mail.gmail.com>
- <1282313150.2484.65.camel@edumazet-laptop>
+	 <AANLkTimS7V3z1kEwmEFCCvPzJX=D9Oqw=BNEuN-YZ0tx@mail.gmail.com>
+	 <1282313150.2484.65.camel@edumazet-laptop>
+	 <AANLkTi=t7wDZO23Cim1LJ_Ot2FUe4bR+XG6H5uJfTuG+@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+Cc: Changli Gao <xiaosuo@gmail.com>, Simon Horman <horms@verge.net.au>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
 	Stephen Hemminger <shemminger@vyatta.com>,
 	Wensong Zhang <wensong@linux-vs.org>,
 	Julian Anastasov <ja@ssi.bg>,
 	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: yao zhao <dragonlinux@gmail.com>
 Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1282313150.2484.65.camel@edumazet-laptop>
+In-Reply-To: <AANLkTi=t7wDZO23Cim1LJ_Ot2FUe4bR+XG6H5uJfTuG+@mail.gmail.com>
 Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 20, 2010 at 04:05:50PM +0200, Eric Dumazet wrote:
-> Le vendredi 20 ao=C3=BBt 2010 =C3=A0 21:44 +0800, Changli Gao a =C3=A9=
-crit :
-> > On Fri, Aug 20, 2010 at 9:33 PM, Simon Horman <horms@verge.net.au> =
-wrote:
-> > > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > >
-> > > ---
-> > >
-> > > I'm still getting my head around RCU, so review would be greatly =
-appreciated.
-> > >
-> > > It occurs to me that this code is not performance critical, so
-> > > perhaps simply replacing the rwlock with a spinlock would be bett=
-er?
-> > >
-> > > Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c
->=20
->=20
-> > > -       write_unlock_bh(&__ip_vs_sched_lock);
-> > > +       list_del_rcu(&scheduler->n_list);
-> > > +       spin_unlock_bh(&ip_vs_sched_mutex);
-> >=20
-> > Need a rcu_barrier_bh().
-> >=20
-> > >
-> > >        /* decrease the module use count */
-> > >        ip_vs_use_count_dec();
->=20
->=20
-> Quite frankly, if this is not performance critical, just use the
-> spinlock (and dont use 'mutex' in its name ;) )
+Le vendredi 20 ao=C3=BBt 2010 =C3=A0 10:16 -0400, yao zhao a =C3=A9crit=
+ :
 
-Will do.
+> if it is not performance critical, you should use  the
+> read_lock/write_lock, it should make the readers happier than
+> spinlock. the name "mutex" is a little bit confuse.
 
-> Using RCU here will force at least one RCU grace period at dismantle
-> time...
+Yes, I mentioned the 'mutex' name oddity.
+
+Point is :
+
+We want to remove read_write locks. They dont fit the bill.
+
+If performance critical, lot of readers -> RCU (a lot faster)
+If not, or too much writers versus readers -> spinlock (a bit faster)
+
+
+
+> synchronize_rcu() is not necessary when you only need to delete from =
+a
+> list as it is atomic.
 >=20
->=20
+
+Thats a rather strange and completely wrong claim. A big part of RCU jo=
+b
+is to have appropriate work done on deletes. Inserts are more easy (onl=
+y
+needs a smp_wmb())
+
+Take a look at Documentation/RCU/* before saying such things ;)
+
+Not only synchronize_rcu() is not enough to protect this kind of code,
+but you need something stronger.
+
+
