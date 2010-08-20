@@ -1,115 +1,37 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [rfc] IPVS: convert scheduler management to RCU
-Date: Fri, 20 Aug 2010 21:03:03 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.1008202045070.5207@u.domain.uli>
-References: <20100820133320.GA29311@verge.net.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [iproute2] iproute2:  Fix filtering related to flushing IP
+ addresses.
+Date: Fri, 20 Aug 2010 11:49:15 -0700
+Message-ID: <20100820114915.6d46cf8b@nehalam>
+References: <1281978008-6383-1-git-send-email-greearb@candelatech.com>
+	<4C6EC047.1030308@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20100820133320.GA29311@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52030 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751050Ab0HTStR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Aug 2010 14:49:17 -0400
+In-Reply-To: <4C6EC047.1030308@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 20 Aug 2010 10:49:59 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-	Hello,
-
-On Fri, 20 Aug 2010, Simon Horman wrote:
-
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+> On 08/16/2010 10:00 AM, Ben Greear wrote:
+> > The old 'ip addr flush' logic had several flaws:
 > 
-> --- 
+> Stephen, any chance this can be accepted upstream?
 > 
-> I'm still getting my head around RCU, so review would be greatly appreciated.
-> 
-> It occurs to me that this code is not performance critical, so
-> perhaps simply replacing the rwlock with a spinlock would be better?
+> Thanks,
+> Ben
 
-	This specific code does not need RCU conversion, see below
+Since it had gone for a couple versions, was waiting for the
+dust to settle for a week or so.
 
-> Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c
-> ===================================================================
-> --- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_sched.c	2010-08-20 22:21:01.000000000 +0900
-> +++ nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c	2010-08-20 22:21:51.000000000 +0900
-> @@ -35,7 +35,7 @@
->  static LIST_HEAD(ip_vs_schedulers);
->  
->  /* lock for service table */
-> -static DEFINE_RWLOCK(__ip_vs_sched_lock);
-> +static DEFINE_SPINLOCK(ip_vs_sched_mutex);
 
-	Here is what I got as list of locking points:
-
-__ip_vs_conntbl_lock_array:
-	- can benefit from RCU, main benefits come from here
-
-- ip_vs_conn_unhash() followed by ip_vs_conn_hash() is tricky with RCU,
-	needs more thinking, eg. when cport is changed
-
-cp->lock, cp->refcnt:
-	- not a problem
-
-tcp_app_lock, udp_app_lock, sctp_app_lock:
-	- can benefit from RCU (once per connection)
-
-svc->sched_lock:
-	- only 1 read_lock, mostly writers that need exclusive access
-	- so, not suitable for RCU, can be switched to spin_lock for speed
-
-__ip_vs_sched_lock:
-	- not called by packet handlers, no need for RCU
-	- used only by one ip_vs_ctl user (configuration) and the
-	scheduler modules
-	- can remain RWLOCK, no changes in locking are needed
-
-__ip_vs_svc_lock:
-	- spin_lock, use RCU
-	- restrictions for schedulers with .update_service method
-	because svc->sched_lock is write locked, see below
-
-__ip_vs_rs_lock:
-	- spin_lock, use RCU
-
-Schedulers:
-	- every .schedule method has its own locking, two examples:
-		- write_lock: to protect the scheduler state (can be
-		changed to spin_lock), see WRR. Difficult for RCU.
-		- no lock: relies on IP_VS_WAIT_WHILE, no state
-		is protected explicitly, fast like RCU, see WLC
-
-Scheduler state, eg. mark->cl:
-	- careful RCU assignment, may be all .update_service methods
-	should use copy-on-update (WRR). OTOH, ip_vs_wlc_schedule (WLC)
-	has no locks at all, thanks to the IP_VS_WAIT_WHILE, so
-	it is fast as RCU.
-
-Statistics:
-dest->stats.lock, svc->stats.lock, ip_vs_stats.lock:
-	- called for every packet, BAD for SMP, see ip_vs_in_stats(),
-	ip_vs_out_stats(), ip_vs_conn_stats()
-
-curr_sb_lock:
-	- called for every packet depending on conn state
-	- No benefits from RCU, should be spin_lock
-
-	To summarize:
-
-- the main problem remains stats:
-	dest->stats.lock, svc->stats.lock, ip_vs_stats.lock
-
-- RCU benefits when connection processes many packets per connection, eg.
-	for TCP, SCTP, not much for UDP. No gains for the 1st
-	packet in connection.
-
-- svc: no benefits from RCU, some schedulers protect state and
-need exclusive access, others have no state (and they do not use
-locks even now)
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
