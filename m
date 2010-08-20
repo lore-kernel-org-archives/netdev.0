@@ -1,30 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tehuti: Use net_device_stats from struct net_device
-Date: Thu, 19 Aug 2010 17:19:32 -0700 (PDT)
-Message-ID: <20100819.171932.52174904.davem@davemloft.net>
-References: <1282061577-19484-1-git-send-email-tklauser@distanz.ch>
-	<1282205485-9652-1-git-send-email-tklauser@distanz.ch>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/2] xen: netfront: support the ethtool drvinfo hook.
+Date: Fri, 20 Aug 2010 01:51:02 +0100
+Message-ID: <1282265462.3454.153.camel@localhost>
+References: <1282210055.3170.2283.camel@zakaz.uk.xensource.com>
+	 <1282210070-7745-2-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: baum@tehutinetworks.net, andy@greyhouse.net,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: tklauser@distanz.ch
+Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ian Campbell <ian.campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49340
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752331Ab0HTATQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 20:19:16 -0400
-In-Reply-To: <1282205485-9652-1-git-send-email-tklauser@distanz.ch>
+Received: from mail.solarflare.com ([216.237.3.220]:35432 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751476Ab0HTAvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Aug 2010 20:51:07 -0400
+In-Reply-To: <1282210070-7745-2-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Thu, 19 Aug 2010 10:11:25 +0200
+On Thu, 2010-08-19 at 10:27 +0100, Ian Campbell wrote:
+> Causes "ethtool -i" to report something useful:
+> 	# ethtool -i eth0
+> 	driver: xen-netfront
+> 	version:
+> 	firmware-version:
+> 	bus-info: vif-0
+[...]
 
-> struct net_device has its own struct net_device_stats member, so use
-> this one instead of a private copy in the bdx_priv struct.
-> 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+This should already be covered by:
 
-Applied.
+commit 01414802054c382072b6cb9a1bdc6e243c74b2d5
+Author: Ben Hutchings <bhutchings@solarflare.com>
+Date:   Tue Aug 17 02:31:15 2010 -0700
+
+    ethtool: Provide a default implementation of ethtool_ops::get_drvinfo
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
