@@ -1,118 +1,85 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [rfc] IPVS: convert scheduler management to RCU
-Date: Sat, 21 Aug 2010 12:30:25 +0900
-Message-ID: <20100821033024.GC8616@verge.net.au>
-References: <20100820133320.GA29311@verge.net.au>
- <Pine.LNX.4.58.1008202045070.5207@u.domain.uli>
+From: Steve Chen <schen@mvista.com>
+Subject: Re: TAHI CN-6-4-1 failed on Linux 2.6.32 kernel
+Date: Fri, 20 Aug 2010 23:16:27 -0500
+Message-ID: <AANLkTimJAOsJQJ73=xummDuz_xgiyzhSXLJV=VEY=XVx@mail.gmail.com>
+References: <AANLkTik9=TcMWzNyKWYyDu+bbGscPne6++gD42aju9s_@mail.gmail.com>
+	<AANLkTi=qP7BO2=Uhx2Xb0XiLbUz0mPutbg0vz6QnMgYb@mail.gmail.com>
+	<AANLkTim+1=4VCmY=fO5HTvDwKnveGEPsY1h1O64vnT6L@mail.gmail.com>
+	<20100819.170649.212693227.davem@davemloft.net>
+	<AANLkTimSishHmLTQ9RF8zMq_eOBQ+HiBroKoygFS27-x@mail.gmail.com>
+	<AANLkTi=T_=Dy8EhOOyevLd4yj1cy2P8ytXUPS=Y-d6hK@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.1008202045070.5207@u.domain.uli>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, brian.haley@hp.com,
+	usagi-users-ctl@ml.linux-ipv6.org, netdev@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:36068 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879Ab0HUEQ2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Aug 2010 00:16:28 -0400
+Received: by iwn5 with SMTP id 5so1487909iwn.19
+        for <netdev@vger.kernel.org>; Fri, 20 Aug 2010 21:16:28 -0700 (PDT)
+In-Reply-To: <AANLkTi=T_=Dy8EhOOyevLd4yj1cy2P8ytXUPS=Y-d6hK@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 20, 2010 at 09:03:03PM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Fri, 20 Aug 2010, Simon Horman wrote:
-> 
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > 
-> > --- 
-> > 
-> > I'm still getting my head around RCU, so review would be greatly appreciated.
-> > 
-> > It occurs to me that this code is not performance critical, so
-> > perhaps simply replacing the rwlock with a spinlock would be better?
-> 
-> 	This specific code does not need RCU conversion, see below
+On Fri, Aug 20, 2010 at 12:35 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Fri, Aug 20, 2010 at 1:16 PM, Steve Chen <schen@mvista.com> wrote:
+>>
+>> On Thu, Aug 19, 2010 at 7:06 PM, David Miller <davem@davemloft.net> =
+wrote:
+>> > From: Steve Chen <schen@mvista.com>
+>> > Date: Thu, 19 Aug 2010 13:35:14 -0500
+>> >
+>> >> I trace through the code. =A0It appears that the network driver (=
+e1000e
+>> >> for my setup) always set ip_summed to CHECKSUM_UNNECESSARY. =A0I =
+have
+>> >> been unsuccessful to get the driver to take the other branch wher=
+e
+>> >> ip_summed is set to CHECKSUM_COMPLETE. =A0Even when I hard code
+>> >> ip_summed to CHECKSUM_COMPLETE, __skb_checksum_complete_head set
+>> >> ip_summed to CHECKSUM_UNNECESSARY after recomputing the checksum.
+>> >>
+>> >> So far the only way I'm able to get ICMP to recompute checksum is
+>> >> through the attached hack. =A0Even though I can get all the tests=
+ to
+>> >> pass, but it just seem wrong.
+>> >
+>> > If turning off hardware RX checksumming with ethtool has no effect=
+,
+>> > and the problem is seen with multiple ethernet cards, the problem
+>> > is elsewhere.
+>> >
+>> > First of all, if you turn RX checksumming off, the checksum field
+>> > of the SKB should always be skb->ip_summed =3D 0. =A0If this is no=
+t
+>> > happening, find out why.
+>>
+>> Ahhh, thats my problem. =A0I incorrectly thought the ip_summed shoul=
+d be
+>> 2. =A0The ip_summed is set to 1 in
+>> __skb_checksum_complete_head. =A0Looking at the code, shouldn't
+>>
+>> if (likely(!sum))
+>>
+>> be
+>>
+>> if (likely(sum))
+>>
+>> Since sum =3D=3D 0 would indicate an error?
+>
+> sum =3D=3D 0 indicates that the checksum is correct.
+> If you compute the checksum of a packet containing the correct checks=
+um the
+> result is 0. =A0It's like a slightly more complicated varient of a pa=
+rity bit.
 
-Agreed.
+It appears the issue lies somewhere within CONNTRACK.  A co-worker
+tested with CONNTRACK disable, and the test passed.  Looks like I have
+a bit of homework to do.  Thank you for all the helpful hints that got
+me this far.
 
-> > Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c
-> > ===================================================================
-> > --- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_sched.c	2010-08-20 22:21:01.000000000 +0900
-> > +++ nf-next-2.6/net/netfilter/ipvs/ip_vs_sched.c	2010-08-20 22:21:51.000000000 +0900
-> > @@ -35,7 +35,7 @@
-> >  static LIST_HEAD(ip_vs_schedulers);
-> >  
-> >  /* lock for service table */
-> > -static DEFINE_RWLOCK(__ip_vs_sched_lock);
-> > +static DEFINE_SPINLOCK(ip_vs_sched_mutex);
-> 
-> 	Here is what I got as list of locking points:
-> 
-> __ip_vs_conntbl_lock_array:
-> 	- can benefit from RCU, main benefits come from here
-> 
-> - ip_vs_conn_unhash() followed by ip_vs_conn_hash() is tricky with RCU,
-> 	needs more thinking, eg. when cport is changed
-> 
-> cp->lock, cp->refcnt:
-> 	- not a problem
-> 
-> tcp_app_lock, udp_app_lock, sctp_app_lock:
-> 	- can benefit from RCU (once per connection)
-> 
-> svc->sched_lock:
-> 	- only 1 read_lock, mostly writers that need exclusive access
-> 	- so, not suitable for RCU, can be switched to spin_lock for speed
-> 
-> __ip_vs_sched_lock:
-> 	- not called by packet handlers, no need for RCU
-> 	- used only by one ip_vs_ctl user (configuration) and the
-> 	scheduler modules
-> 	- can remain RWLOCK, no changes in locking are needed
-> 
-> __ip_vs_svc_lock:
-> 	- spin_lock, use RCU
-> 	- restrictions for schedulers with .update_service method
-> 	because svc->sched_lock is write locked, see below
-> 
-> __ip_vs_rs_lock:
-> 	- spin_lock, use RCU
-> 
-> Schedulers:
-> 	- every .schedule method has its own locking, two examples:
-> 		- write_lock: to protect the scheduler state (can be
-> 		changed to spin_lock), see WRR. Difficult for RCU.
-> 		- no lock: relies on IP_VS_WAIT_WHILE, no state
-> 		is protected explicitly, fast like RCU, see WLC
-> 
-> Scheduler state, eg. mark->cl:
-> 	- careful RCU assignment, may be all .update_service methods
-> 	should use copy-on-update (WRR). OTOH, ip_vs_wlc_schedule (WLC)
-> 	has no locks at all, thanks to the IP_VS_WAIT_WHILE, so
-> 	it is fast as RCU.
-> 
-> Statistics:
-> dest->stats.lock, svc->stats.lock, ip_vs_stats.lock:
-> 	- called for every packet, BAD for SMP, see ip_vs_in_stats(),
-> 	ip_vs_out_stats(), ip_vs_conn_stats()
-> 
-> curr_sb_lock:
-> 	- called for every packet depending on conn state
-> 	- No benefits from RCU, should be spin_lock
-> 
-> 	To summarize:
-> 
-> - the main problem remains stats:
-> 	dest->stats.lock, svc->stats.lock, ip_vs_stats.lock
-> 
-> - RCU benefits when connection processes many packets per connection, eg.
-> 	for TCP, SCTP, not much for UDP. No gains for the 1st
-> 	packet in connection.
-> 
-> - svc: no benefits from RCU, some schedulers protect state and
-> need exclusive access, others have no state (and they do not use
-> locks even now)
-
-Thanks for the list. It looks like a good basis for some conversion work.
-
+Steve
