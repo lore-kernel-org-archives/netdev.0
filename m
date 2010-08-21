@@ -1,62 +1,39 @@
-From: Dmitry Kozlov <xeb@mail.ru>
-Subject: =?koi8-r?Q?Re=3A_[PATCH_v8]_PPTP=3A_PPP_over_IPv4_(Point-to-Point_Tunneling_Protocol)?=
-Date: Sat, 21 Aug 2010 13:17:53 +0400
-Message-ID: <E1OmkD3-0004PV-00.xeb-mail-ru@f159.mail.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v8] PPTP: PPP over IPv4 (Point-to-Point Tunneling
+ Protocol)
+Date: Sat, 21 Aug 2010 11:31:06 +0200
+Message-ID: <1282383066.2636.16.camel@edumazet-laptop>
 References: <1282376963.2636.10.camel@edumazet-laptop>
-Reply-To: Dmitry Kozlov <xeb@mail.ru>
+	 <E1OmkD3-0004PV-00.xeb-mail-ru@f159.mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Dmitry Kozlov <xeb@mail.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from f159.mail.ru ([217.69.128.111]:47674 "EHLO f159.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750875Ab0HUJR5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Aug 2010 05:17:57 -0400
-In-Reply-To: <1282376963.2636.10.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:46601 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751692Ab0HUJbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Aug 2010 05:31:11 -0400
+Received: by wwi17 with SMTP id 17so5351518wwi.1
+        for <netdev@vger.kernel.org>; Sat, 21 Aug 2010 02:31:10 -0700 (PDT)
+In-Reply-To: <E1OmkD3-0004PV-00.xeb-mail-ru@f159.mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > PPP: introduce "pptp" module which implements point-to-point tunneling protocol using pppox framework
-> > NET: introduce the "gre" module for demultiplexing GRE packets on version criteria 
-> >      (required to pptp and ip_gre may coexists)
-> > NET: ip_gre: update to use the "gre" module
-> > 
-> > Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
-> > ---
-> > This patch introduces then pptp support to the linux kernel which
-> > dramatically speeds up pptp vpn connections and decreases cpu usage in
-> > comparison of existing user-space implementation (poptop/pptpclient).
-> > There is accel-pptp project
-> > (https://sourceforge.net/projects/accel-pptp/) to utilize this module,
-> > it contains plugin for pppd to use pptp in client-mode and modified
-> > pptpd (poptop) to build high-performance pptp NAS.
-> > 
-> > There was many changes from initial submitted patch, most important
-> > are:
-> > 1. using rcu instead of read-write locks
-> > 2. using static bitmap instead of dynamically allocated
-> > 3. using vmalloc for memory allocation instead of BITS_PER_LONG +
-> > __get_free_pages
-> > 4. fixed many coding style issues
-> > Thanks to Eric Dumazet.
-> > 
-> > --
-> >  MAINTAINERS              |   14 +
-> >  drivers/net/Kconfig      |   11 +
-> >  drivers/net/Makefile     |    1 +
-> >  drivers/net/pptp.c       |  726 ++++++++++++++++++++++++++++++++++++++++++++++
-> >  include/linux/if_pppox.h |   59 +++--
-> >  include/net/gre.h        |   18 ++
-> >  net/ipv4/Kconfig         |    7 +
-> >  net/ipv4/Makefile        |    1 +
-> >  net/ipv4/gre.c           |  151 ++++++++++
-> >  net/ipv4/ip_gre.c        |   14 +-
-> >  10 files changed, 975 insertions(+), 27 deletions(-)
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Thanks Dmitry !
+Le samedi 21 ao=C3=BBt 2010 =C3=A0 13:17 +0400, Dmitry Kozlov a =C3=A9c=
+rit :
 
-What is the next step ?
+> What is the next step ?
+
+David S. Miller review the thing, and if no problem remains, adds it to
+its net-next-2.6 tree
+
+You can check netdev list of current patches right here :=20
+
+http://patchwork.ozlabs.org/project/netdev/list/
+
+Your patch is already there ;)
+
+
+
