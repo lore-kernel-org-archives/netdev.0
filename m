@@ -1,54 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8] PPTP: PPP over IPv4 (Point-to-Point Tunneling
- Protocol)
-Date: Sat, 21 Aug 2010 23:03:09 -0700 (PDT)
-Message-ID: <20100821.230309.104050634.davem@davemloft.net>
-References: <E1OmmB6-0005es-00.xeb-mail-ru@f299.mail.ru>
-	<AANLkTimQwja4qF0X5gzG7u14+aXF_zVVZcwN5bHzku6V@mail.gmail.com>
-	<20100821.230129.71103230.davem@davemloft.net>
+From: Doug Nazar <nazard.lkml@gmail.com>
+Subject: WARN with 3c905 boomerang NIC
+Date: Sun, 22 Aug 2010 02:35:02 -0400
+Message-ID: <4C70C516.5020404@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: xeb@mail.ru, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: linux-kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49515
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751324Ab0HVGCz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 02:02:55 -0400
-In-Reply-To: <20100821.230129.71103230.davem@davemloft.net>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:38020 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751283Ab0HVGfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 02:35:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAyMSBB
-dWcgMjAxMCAyMzowMToyOSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IENoYW5nbGkgR2FvIDx4aWFv
-c3VvQGdtYWlsLmNvbT4NCj4gRGF0ZTogU2F0LCAyMSBBdWcgMjAxMCAyMDo0MjowOSArMDgwMA0K
-PiANCj4+IEkgdGhpbmsgdGhlIGZvbGxvd2luZyBsaW5lcyBmcm9tIHlvdXIgcGF0Y2ggYXJlIGFs
-c28gdXNlZnVsLCBhbmQgeW91J2QNCj4+IGJldHRlciBtb3ZlIHRoZW0gYWJvdmUgdGhlICItLS0i
-IG1hcmtlci4NCj4gDQo+IEknbGwgdGFrZSBjYXJlIG9mIHRoaXMgd2hlbiBhcHBseWluZyBoaXMg
-cGF0Y2guDQo+IA0KPiBBbHNvIHRoaXMgcGF0Y2ggd2FzIGFnYWluc3QgbmV0LTIuNiBvciBldmVu
-IHNvbWV0aGluZw0KPiBlYXJsaWVyLCBzbyB0aGVyZSB3ZXJlIG1hbnkgcGF0Y2ggcmVqZWN0cyBJ
-IGhhZCB0byBmaXgNCj4gdXAgYWdhaW5zdCBpbmNsdWRlL2xpbnV4L2lmX3BwcG94Lmggd2hlbiBh
-cHBseWluZyB0aGlzDQo+IHRvIG5ldC1uZXh0LTIuNg0KDQpJdCBhbHNvIGRvZXNuJ3QgZXZlbiBi
-dWlsZCBhZ2FpbnN0IGFueXRoaW5nIGV2ZW4gcmVtb3RlbHkNCnJlY2VudDoNCg0KZHJpdmVycy9u
-ZXQvcHB0cC5jOiBJbiBmdW5jdGlvbiChcHB0cF94bWl0ojoNCmRyaXZlcnMvbmV0L3BwdHAuYzoy
-MDQ6IGVycm9yOiChc3RydWN0IHJ0YWJsZaIgaGFzIG5vIG1lbWJlciBuYW1lZCChdaINCmRyaXZl
-cnMvbmV0L3BwdHAuYzoyNzE6IGVycm9yOiChc3RydWN0IHJ0YWJsZaIgaGFzIG5vIG1lbWJlciBu
-YW1lZCChdaINCmRyaXZlcnMvbmV0L3BwdHAuYzoyNzk6IGVycm9yOiChc3RydWN0IHJ0YWJsZaIg
-aGFzIG5vIG1lbWJlciBuYW1lZCChdaINCmRyaXZlcnMvbmV0L3BwdHAuYzoyODM6IGVycm9yOiCh
-c3RydWN0IHJ0YWJsZaIgaGFzIG5vIG1lbWJlciBuYW1lZCChdaINCmRyaXZlcnMvbmV0L3BwdHAu
-YzoyODg6IGVycm9yOiChc3RydWN0IHJ0YWJsZaIgaGFzIG5vIG1lbWJlciBuYW1lZCChdaINCmRy
-aXZlcnMvbmV0L3BwdHAuYzogSW4gZnVuY3Rpb24goXBwdHBfY29ubmVjdKI6DQpkcml2ZXJzL25l
-dC9wcHRwLmM6NDgzOiBlcnJvcjogoXN0cnVjdCBydGFibGWiIGhhcyBubyBtZW1iZXIgbmFtZWQg
-oXWiDQpkcml2ZXJzL25ldC9wcHRwLmM6NDg1OiBlcnJvcjogoXN0cnVjdCBydGFibGWiIGhhcyBu
-byBtZW1iZXIgbmFtZWQgoXWiDQpkcml2ZXJzL25ldC9wcHRwLmM6IEluIGZ1bmN0aW9uIKFwcHRw
-X2luaXRfbW9kdWxlojoNCmRyaXZlcnMvbmV0L3BwdHAuYzo2NzU6IGVycm9yOiBpbXBsaWNpdCBk
-ZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiChX192bWFsbG9jog0KZHJpdmVycy9uZXQvcHB0cC5jOjY3
-Njogd2FybmluZzogYXNzaWdubWVudCBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0
-IGEgY2FzdA0KZHJpdmVycy9uZXQvcHB0cC5jOjcwNzogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0
-aW9uIG9mIGZ1bmN0aW9uIKF2ZnJlZaINCg0KVGhhdCBtZWFucyB0aGlzIHBhdGNoIGlzIGFnYWlu
-c3QgYSB0cmVlIHdoaWNoIGlzIGF0IGxlYXN0IHR3bw0KcmVsZWFzZXMgb2xkLiAgV2UgZ290IHJp
-ZCBvZiB0aGUgJ3UnIG1lbWJlciBvZiBzdHJ1Y3QgcnRhYmxlDQpxdWl0ZSBzb21lIHRpbWUgYWdv
-Lg0KDQpVZ2gsIEknbGwgZml4IHRoaXMgdXAsIGJ1dCBhZnRlciBfOF8sIHllcyBfRUlHSFRfLCBp
-dGVyYXRpb25zIG9mIHRoaXMNCnBhdGNoIHNldCB0aGUgYW1vdW50IG9mIHByb2JsZW1zIHRoYXQg
-cmVtYWluIGlzIGNvbXBsZXRlbHkNCnVuYmVsaWV2YWJsZS4NCg==
+  Since de85d99eb7b595f6751550184b94c1e2f74a828b (netpoll: Fix RCU 
+usage) I've been getting the follow warning:
+
+Aug 20 22:33:26 dryad kernel: [   64.263065] ------------[ cut here 
+]------------
+Aug 20 22:33:26 dryad kernel: [   64.263089] WARNING: at 
+/usr/src/linux/kernel/softirq.c:143 local_bh_enable+0x58/0x82()
+Aug 20 22:33:26 dryad kernel: [   64.263095] Hardware name: OptiPlex GX240
+Aug 20 22:33:26 dryad kernel: [   64.263099] Modules linked in: 
+rpcsec_gss_krb5 softdog snd_intel8x0 snd_ac97_codec 8250_pnp ac97_bu
+Aug 20 22:33:26 dryad kernel: [   64.263234] Pid: 5892, comm: 
+runscript.sh Not tainted 2.6.36-rc1-00133-g47ade1d #43
+Aug 20 22:33:26 dryad kernel: [   64.263238] Call Trace:
+Aug 20 22:33:26 dryad kernel: [   64.263251]  [<c12a492e>] ? 
+printk+0x18/0x1a
+Aug 20 22:33:26 dryad kernel: [   64.263263]  [<c102a015>] 
+warn_slowpath_common+0x67/0x8e
+Aug 20 22:33:26 dryad kernel: [   64.263271]  [<c102ee76>] ? 
+local_bh_enable+0x58/0x82
+Aug 20 22:33:26 dryad kernel: [   64.263277]  [<c102ee76>] ? 
+local_bh_enable+0x58/0x82
+Aug 20 22:33:26 dryad kernel: [   64.263285]  [<c102a059>] 
+warn_slowpath_null+0x1d/0x1f
+Aug 20 22:33:26 dryad kernel: [   64.263292]  [<c102ee76>] 
+local_bh_enable+0x58/0x82
+Aug 20 22:33:26 dryad kernel: [   64.263301]  [<c12399e5>] 
+netif_rx+0x14f/0x172
+Aug 20 22:33:26 dryad kernel: [   64.263315]  [<e20e8f0f>] 
+boomerang_rx+0x27a/0x42f [3c59x]
+Aug 20 22:33:26 dryad kernel: [   64.263328]  [<c10a369b>] ? 
+path_put+0x20/0x23
+Aug 20 22:33:26 dryad kernel: [   64.263342]  [<e20eadfb>] 
+boomerang_interrupt+0xd9/0x2b7 [3c59x]
+Aug 20 22:33:26 dryad kernel: [   64.263361]  [<c105651c>] 
+handle_IRQ_event+0x3e/0x13e
+Aug 20 22:33:26 dryad kernel: [   64.263369]  [<c1057c6e>] 
+handle_fasteoi_irq+0x3c/0x89
+Aug 20 22:33:26 dryad kernel: [   64.263378]  [<c1004e58>] 
+handle_irq+0x18/0x30
+Aug 20 22:33:26 dryad kernel: [   64.263385]  [<c10048cb>] do_IRQ+0x34/0x97
+Aug 20 22:33:26 dryad kernel: [   64.263392]  [<c10037a9>] 
+common_interrupt+0x29/0x30
+Aug 20 22:33:26 dryad kernel: [   64.263398] ---[ end trace 
+511646352388ce9c ]---
+
+The card is an:
+02:0c.0 Ethernet controller: 3Com Corporation 3c905C-TX/TX-M [Tornado] 
+(rev 78)
+
+Doug
+
