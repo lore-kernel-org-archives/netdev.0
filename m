@@ -1,35 +1,54 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v8] PPTP: PPP over IPv4 (Point-to-Point Tunneling
  Protocol)
-Date: Sat, 21 Aug 2010 23:01:29 -0700 (PDT)
-Message-ID: <20100821.230129.71103230.davem@davemloft.net>
-References: <1282383066.2636.16.camel@edumazet-laptop>
-	<E1OmmB6-0005es-00.xeb-mail-ru@f299.mail.ru>
+Date: Sat, 21 Aug 2010 23:03:09 -0700 (PDT)
+Message-ID: <20100821.230309.104050634.davem@davemloft.net>
+References: <E1OmmB6-0005es-00.xeb-mail-ru@f299.mail.ru>
 	<AANLkTimQwja4qF0X5gzG7u14+aXF_zVVZcwN5bHzku6V@mail.gmail.com>
+	<20100821.230129.71103230.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: xeb@mail.ru, eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45182
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49515
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751324Ab0HVGBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 02:01:16 -0400
-In-Reply-To: <AANLkTimQwja4qF0X5gzG7u14+aXF_zVVZcwN5bHzku6V@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751324Ab0HVGCz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 02:02:55 -0400
+In-Reply-To: <20100821.230129.71103230.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Sat, 21 Aug 2010 20:42:09 +0800
-
-> I think the following lines from your patch are also useful, and you'd
-> better move them above the "---" marker.
-
-I'll take care of this when applying his patch.
-
-Also this patch was against net-2.6 or even something
-earlier, so there were many patch rejects I had to fix
-up against include/linux/if_pppox.h when applying this
-to net-next-2.6
-
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAyMSBB
+dWcgMjAxMCAyMzowMToyOSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IENoYW5nbGkgR2FvIDx4aWFv
+c3VvQGdtYWlsLmNvbT4NCj4gRGF0ZTogU2F0LCAyMSBBdWcgMjAxMCAyMDo0MjowOSArMDgwMA0K
+PiANCj4+IEkgdGhpbmsgdGhlIGZvbGxvd2luZyBsaW5lcyBmcm9tIHlvdXIgcGF0Y2ggYXJlIGFs
+c28gdXNlZnVsLCBhbmQgeW91J2QNCj4+IGJldHRlciBtb3ZlIHRoZW0gYWJvdmUgdGhlICItLS0i
+IG1hcmtlci4NCj4gDQo+IEknbGwgdGFrZSBjYXJlIG9mIHRoaXMgd2hlbiBhcHBseWluZyBoaXMg
+cGF0Y2guDQo+IA0KPiBBbHNvIHRoaXMgcGF0Y2ggd2FzIGFnYWluc3QgbmV0LTIuNiBvciBldmVu
+IHNvbWV0aGluZw0KPiBlYXJsaWVyLCBzbyB0aGVyZSB3ZXJlIG1hbnkgcGF0Y2ggcmVqZWN0cyBJ
+IGhhZCB0byBmaXgNCj4gdXAgYWdhaW5zdCBpbmNsdWRlL2xpbnV4L2lmX3BwcG94Lmggd2hlbiBh
+cHBseWluZyB0aGlzDQo+IHRvIG5ldC1uZXh0LTIuNg0KDQpJdCBhbHNvIGRvZXNuJ3QgZXZlbiBi
+dWlsZCBhZ2FpbnN0IGFueXRoaW5nIGV2ZW4gcmVtb3RlbHkNCnJlY2VudDoNCg0KZHJpdmVycy9u
+ZXQvcHB0cC5jOiBJbiBmdW5jdGlvbiChcHB0cF94bWl0ojoNCmRyaXZlcnMvbmV0L3BwdHAuYzoy
+MDQ6IGVycm9yOiChc3RydWN0IHJ0YWJsZaIgaGFzIG5vIG1lbWJlciBuYW1lZCChdaINCmRyaXZl
+cnMvbmV0L3BwdHAuYzoyNzE6IGVycm9yOiChc3RydWN0IHJ0YWJsZaIgaGFzIG5vIG1lbWJlciBu
+YW1lZCChdaINCmRyaXZlcnMvbmV0L3BwdHAuYzoyNzk6IGVycm9yOiChc3RydWN0IHJ0YWJsZaIg
+aGFzIG5vIG1lbWJlciBuYW1lZCChdaINCmRyaXZlcnMvbmV0L3BwdHAuYzoyODM6IGVycm9yOiCh
+c3RydWN0IHJ0YWJsZaIgaGFzIG5vIG1lbWJlciBuYW1lZCChdaINCmRyaXZlcnMvbmV0L3BwdHAu
+YzoyODg6IGVycm9yOiChc3RydWN0IHJ0YWJsZaIgaGFzIG5vIG1lbWJlciBuYW1lZCChdaINCmRy
+aXZlcnMvbmV0L3BwdHAuYzogSW4gZnVuY3Rpb24goXBwdHBfY29ubmVjdKI6DQpkcml2ZXJzL25l
+dC9wcHRwLmM6NDgzOiBlcnJvcjogoXN0cnVjdCBydGFibGWiIGhhcyBubyBtZW1iZXIgbmFtZWQg
+oXWiDQpkcml2ZXJzL25ldC9wcHRwLmM6NDg1OiBlcnJvcjogoXN0cnVjdCBydGFibGWiIGhhcyBu
+byBtZW1iZXIgbmFtZWQgoXWiDQpkcml2ZXJzL25ldC9wcHRwLmM6IEluIGZ1bmN0aW9uIKFwcHRw
+X2luaXRfbW9kdWxlojoNCmRyaXZlcnMvbmV0L3BwdHAuYzo2NzU6IGVycm9yOiBpbXBsaWNpdCBk
+ZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiChX192bWFsbG9jog0KZHJpdmVycy9uZXQvcHB0cC5jOjY3
+Njogd2FybmluZzogYXNzaWdubWVudCBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0
+IGEgY2FzdA0KZHJpdmVycy9uZXQvcHB0cC5jOjcwNzogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0
+aW9uIG9mIGZ1bmN0aW9uIKF2ZnJlZaINCg0KVGhhdCBtZWFucyB0aGlzIHBhdGNoIGlzIGFnYWlu
+c3QgYSB0cmVlIHdoaWNoIGlzIGF0IGxlYXN0IHR3bw0KcmVsZWFzZXMgb2xkLiAgV2UgZ290IHJp
+ZCBvZiB0aGUgJ3UnIG1lbWJlciBvZiBzdHJ1Y3QgcnRhYmxlDQpxdWl0ZSBzb21lIHRpbWUgYWdv
+Lg0KDQpVZ2gsIEknbGwgZml4IHRoaXMgdXAsIGJ1dCBhZnRlciBfOF8sIHllcyBfRUlHSFRfLCBp
+dGVyYXRpb25zIG9mIHRoaXMNCnBhdGNoIHNldCB0aGUgYW1vdW50IG9mIHByb2JsZW1zIHRoYXQg
+cmVtYWluIGlzIGNvbXBsZXRlbHkNCnVuYmVsaWV2YWJsZS4NCg==
