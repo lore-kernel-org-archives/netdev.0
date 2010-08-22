@@ -1,34 +1,42 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] iproute2: tc: f_flow: add key rxhash
-Date: Sat, 21 Aug 2010 17:42:17 -0400
-Message-ID: <1282426937.3532.6.camel@bigi>
-References: <1282408201-3522-1-git-send-email-xiaosuo@gmail.com>
-Reply-To: hadi@cyberus.ca
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v8] PPTP: PPP over IPv4 (Point-to-Point Tunneling
+ Protocol)
+Date: Sat, 21 Aug 2010 19:56:34 -0700 (PDT)
+Message-ID: <20100821.195634.193702489.davem@davemloft.net>
+References: <1282383066.2636.16.camel@edumazet-laptop>
+	<E1OmmB6-0005es-00.xeb-mail-ru@f299.mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: xeb@mail.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:52353 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751451Ab0HUVmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Aug 2010 17:42:20 -0400
-Received: by qwh6 with SMTP id 6so4135461qwh.19
-        for <netdev@vger.kernel.org>; Sat, 21 Aug 2010 14:42:20 -0700 (PDT)
-In-Reply-To: <1282408201-3522-1-git-send-email-xiaosuo@gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40221
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751789Ab0HVC4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Aug 2010 22:56:17 -0400
+In-Reply-To: <E1OmmB6-0005es-00.xeb-mail-ru@f299.mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-08-22 at 00:30 +0800, Changli Gao wrote:
-> We can use rxhash to classify the traffic into flows. As rxhash maybe
-> supplied by NIC or RPS, it is cheaper.
+From: Dmitry Kozlov <xeb@mail.ru>
+Date: Sat, 21 Aug 2010 15:24:00 +0400
+
+>> > What is the next step ?
+>> 
+>> David S. Miller review the thing, and if no problem remains, adds it to
+>> its net-next-2.6 tree
+>> 
+>> You can check netdev list of current patches right here : 
+>> 
+>> http://patchwork.ozlabs.org/project/netdev/list/
+>> 
+>> Your patch is already there ;)
 > 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Ah ok, thanks!
+> 
+> I see some unexpected symbols in mail's subject, maybe i have to resend mail with subject cleaned ?
 
-Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
-
-cheers,
-jamal
-
+No need.  Although in the future if you could post your patches
+without koi8 encoding in the subject (that's the part of the subject
+that patchwork can't parse properly) I would appreciate it.
