@@ -1,57 +1,85 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: define __packed for the userspace code
-Date: Sun, 22 Aug 2010 21:47:06 +0800
-Message-ID: <AANLkTiktOcAvAxcXUxh+4jKh0nBmYCf0OVG0wqRNMb9T@mail.gmail.com>
-References: <1282475544-24708-1-git-send-email-xiaosuo@gmail.com>
- <AANLkTin1BOgHBc4sTwFAmQhKFNvZ+90herc4Dsh9P8y2@mail.gmail.com> <201008221507.42023.arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: 802.1q: make vlan_hwaccel_do_receive() return void
+Date: Mon, 23 Aug 2010 07:31:58 +0800
+Message-ID: <1282519918-10874-1-git-send-email-xiaosuo@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:55747 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752662Ab0HVNr1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 09:47:27 -0400
-In-Reply-To: <201008221507.42023.arnd@arndb.de>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:40346 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751031Ab0HVXcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 19:32:43 -0400
+Received: by pxi10 with SMTP id 10so2070040pxi.19
+        for <netdev@vger.kernel.org>; Sun, 22 Aug 2010 16:32:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 22, 2010 at 9:07 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Sunday 22 August 2010 13:23:42 Changli Gao wrote:
->> On Sun, Aug 22, 2010 at 7:12 PM, Changli Gao <xiaosuo@gmail.com> wro=
-te:
->> > This commit
->> >
->> > =A0commit bc10502dba37d3b210efd9f3867212298f13b78e
->> > =A0Author: Eric Dumazet <eric.dumazet@gmail.com>
->> > =A0Date: =A0 Thu Jun 3 03:21:52 2010 -0700
->> >
->> > =A0 =A0net: use __packed annotation
->> >
->> > makes use of __packed in the userspace code. So we'd better define=
- __packed
->> > for the userspace code too.
->> >
->>
->> Oh, sorry. This patch can't work as include/linux/compiler.h isn't
->> exported to the userspace. But where should we define __packed for t=
-he
->> userspace code? include/linux/types.h?
->
-> I would try to avoid making those structures packed to start with.
-> From what I can see, they structures annotated in the above commit
-> mostly don't even require explicit packing because they are already
-> packed. Not marking them packed makes the code portable to non-gcc
-> compilers.
->
+vlan_hwaccel_do_receive() always returns 0, so make it return void.
 
-Maybe __packed is used somewhere to hint that some members of a
-structure maybe unaligned.
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ include/linux/if_vlan.h |    5 ++---
+ net/8021q/vlan_core.c   |    3 +--
+ net/core/dev.c          |    4 ++--
+ 3 files changed, 5 insertions(+), 7 deletions(-)
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 3d870fd..a523207 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -119,7 +119,7 @@ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
+ 
+ extern int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 			     u16 vlan_tci, int polling);
+-extern int vlan_hwaccel_do_receive(struct sk_buff *skb);
++extern void vlan_hwaccel_do_receive(struct sk_buff *skb);
+ extern gro_result_t
+ vlan_gro_receive(struct napi_struct *napi, struct vlan_group *grp,
+ 		 unsigned int vlan_tci, struct sk_buff *skb);
+@@ -147,9 +147,8 @@ static inline int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 	return NET_XMIT_SUCCESS;
+ }
+ 
+-static inline int vlan_hwaccel_do_receive(struct sk_buff *skb)
++static inline void vlan_hwaccel_do_receive(struct sk_buff *skb)
+ {
+-	return 0;
+ }
+ 
+ static inline gro_result_t
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 01ddb04..07eeb5b 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -35,7 +35,7 @@ drop:
+ }
+ EXPORT_SYMBOL(__vlan_hwaccel_rx);
+ 
+-int vlan_hwaccel_do_receive(struct sk_buff *skb)
++void vlan_hwaccel_do_receive(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dev;
+ 	struct vlan_rx_stats     *rx_stats;
+@@ -69,7 +69,6 @@ int vlan_hwaccel_do_receive(struct sk_buff *skb)
+ 		break;
+ 	}
+ 	u64_stats_update_end(&rx_stats->syncp);
+-	return 0;
+ }
+ 
+ struct net_device *vlan_dev_real_dev(const struct net_device *dev)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7cd5237..d569f88 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2841,8 +2841,8 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	if (!netdev_tstamp_prequeue)
+ 		net_timestamp_check(skb);
+ 
+-	if (vlan_tx_tag_present(skb) && vlan_hwaccel_do_receive(skb))
+-		return NET_RX_SUCCESS;
++	if (vlan_tx_tag_present(skb))
++		vlan_hwaccel_do_receive(skb);
+ 
+ 	/* if we've gotten here through NAPI, check netpoll */
+ 	if (netpoll_receive_skb(skb))
