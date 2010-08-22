@@ -1,44 +1,45 @@
 From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: [PATCH net-2.6 5/6] be2net: stats for packets received due to
- internal switching in ASIC.
-Date: Sun, 22 Aug 2010 14:57:18 +0530
-Message-ID: <20100822092708.GA22308@serverengines.com>
+Subject: [PATCH net-2.6 6/6] be2net: fix to get RxQ IDs 0 and 1.
+Date: Sun, 22 Aug 2010 14:58:04 +0530
+Message-ID: <20100822092754.GA22346@serverengines.com>
 Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:2455 "EHLO
+Received: from segment-124-30.sify.net ([124.30.166.146]:2601 "EHLO
 	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752060Ab0HVJ1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 05:27:17 -0400
+	by vger.kernel.org with ESMTP id S1752060Ab0HVJ2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 05:28:02 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Counters for packets received due to internal switching are already available.
-This change will start displaying them in ethtool -S
+Under certain configurations, it is possible to get RxQ IDs from
+firmware which are not 0 and 1. This change ensures RxQ IDs 0 & 1
+for the be2net network interfaces.
 
+Signed-off-by: Somnath K<somnathk@serverengines.com>
 Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 ---
- drivers/net/benet/be_ethtool.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/benet/be_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
-index 13f0abb..d920634 100644
---- a/drivers/net/benet/be_ethtool.c
-+++ b/drivers/net/benet/be_ethtool.c
-@@ -91,6 +91,9 @@ static const struct be_ethtool_stat et_stats[] = {
- 	{PORTSTAT_INFO(rx_non_rss_packets)},
- 	{PORTSTAT_INFO(rx_ipv4_packets)},
- 	{PORTSTAT_INFO(rx_ipv6_packets)},
-+	{PORTSTAT_INFO(rx_switched_unicast_packets)},
-+	{PORTSTAT_INFO(rx_switched_multicast_packets)},
-+	{PORTSTAT_INFO(rx_switched_broadcast_packets)},
- 	{PORTSTAT_INFO(tx_unicastframes)},
- 	{PORTSTAT_INFO(tx_multicastframes)},
- 	{PORTSTAT_INFO(tx_broadcastframes)},
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 949d9a1..f1b1454 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -2137,7 +2137,8 @@ static int be_setup(struct be_adapter *adapter)
+ 	if (be_physfn(adapter)) {
+ 		cap_flags |= BE_IF_FLAGS_MCAST_PROMISCUOUS |
+ 				BE_IF_FLAGS_PROMISCUOUS |
+-				BE_IF_FLAGS_PASS_L3L4_ERRORS;
++				BE_IF_FLAGS_PASS_L3L4_ERRORS |
++				BE_IF_FLAGS_RSS;
+ 		en_flags |= BE_IF_FLAGS_PASS_L3L4_ERRORS;
+ 	}
+ 
 -- 
 1.7.0.4
 
