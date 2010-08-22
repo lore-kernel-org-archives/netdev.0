@@ -1,35 +1,45 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: use __be16 instead of u16 for the userspace code
-Date: Sun, 22 Aug 2010 19:09:33 +0800
-Message-ID: <1282475373-24660-1-git-send-email-xiaosuo@gmail.com>
-Cc: netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] net: define __packed for the userspace code
+Date: Sun, 22 Aug 2010 19:12:24 +0800
+Message-ID: <1282475544-24708-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:56215 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752083Ab0HVLJ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 07:09:57 -0400
-Received: by pzk26 with SMTP id 26so1922872pzk.19
-        for <netdev@vger.kernel.org>; Sun, 22 Aug 2010 04:09:56 -0700 (PDT)
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:58204 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752055Ab0HVLMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 07:12:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This commit
+
+ commit bc10502dba37d3b210efd9f3867212298f13b78e
+ Author: Eric Dumazet <eric.dumazet@gmail.com>
+ Date:   Thu Jun 3 03:21:52 2010 -0700
+
+    net: use __packed annotation
+
+makes use of __packed in the userspace code. So we'd better define __packed
+for the userspace code too.
+
 Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
+ include/linux/compiler.h |    4 ++++
  include/linux/if_pppox.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
-index 1525b21..770e8fa 100644
---- a/include/linux/if_pppox.h
-+++ b/include/linux/if_pppox.h
-@@ -50,8 +50,8 @@ struct pppoe_addr {
-  * PPTP addressing definition
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+diff --git a/include/linux/compiler.h b/include/linux/compiler.h
+index c1a62c5..515b174 100644
+--- a/include/linux/compiler.h
++++ b/include/linux/compiler.h
+@@ -304,4 +304,8 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
   */
- struct pptp_addr {
--	u16             call_id;
--	struct in_addr  sin_addr;
-+	__be16		call_id;
-+	struct in_addr	sin_addr;
- };
+ #define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
  
- /************************************************************************
++#ifndef __packed
++# define __packed __attribute__((packed))
++#endif
++
+ #endif /* __LINUX_COMPILER_H */
