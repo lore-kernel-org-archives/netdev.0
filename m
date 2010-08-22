@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8] PPTP: PPP over IPv4 (Point-to-Point Tunneling
- Protocol)
-Date: Sat, 21 Aug 2010 19:56:34 -0700 (PDT)
-Message-ID: <20100821.195634.193702489.davem@davemloft.net>
-References: <1282383066.2636.16.camel@edumazet-laptop>
-	<E1OmmB6-0005es-00.xeb-mail-ru@f299.mail.ru>
+Subject: Re: [PATCH] net: rps: fix the wrong network header pointer
+Date: Sat, 21 Aug 2010 22:55:05 -0700 (PDT)
+Message-ID: <20100821.225505.226791067.davem@davemloft.net>
+References: <1282407208-3367-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xeb@mail.ru
+Cc: netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40221
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58299
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751789Ab0HVC4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Aug 2010 22:56:17 -0400
-In-Reply-To: <E1OmmB6-0005es-00.xeb-mail-ru@f299.mail.ru>
+	by vger.kernel.org with ESMTP id S1751283Ab0HVFys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 01:54:48 -0400
+In-Reply-To: <1282407208-3367-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kozlov <xeb@mail.ru>
-Date: Sat, 21 Aug 2010 15:24:00 +0400
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Sun, 22 Aug 2010 00:13:28 +0800
 
->> > What is the next step ?
->> 
->> David S. Miller review the thing, and if no problem remains, adds it to
->> its net-next-2.6 tree
->> 
->> You can check netdev list of current patches right here : 
->> 
->> http://patchwork.ozlabs.org/project/netdev/list/
->> 
->> Your patch is already there ;)
+> __skb_get_rxhash() was broken after the commit:
 > 
-> Ah ok, thanks!
+>  commit bfb564e7391340638afe4ad67744a8f3858e7566
+>  Author: Krishna Kumar <krkumar2@in.ibm.com>
+>  Date:   Wed Aug 4 06:15:52 2010 +0000
 > 
-> I see some unexpected symbols in mail's subject, maybe i have to resend mail with subject cleaned ?
+>  core: Factor out flow calculation from get_rps_cpu
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-No need.  Although in the future if you could post your patches
-without koi8 encoding in the subject (that's the part of the subject
-that patchwork can't parse properly) I would appreciate it.
+Applied, thanks.
