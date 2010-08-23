@@ -1,85 +1,60 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Fix deadlock between boomerang_interrupt and
- boomerang_start_tx in 3c59x
-Date: Mon, 23 Aug 2010 16:24:52 -0400
-Message-ID: <20100823202452.GC12906@hmsreliant.think-freely.org>
-References: <20100811151257.GB23317@hmsreliant.think-freely.org>
- <1282593694.2378.230.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] iproute2: add 64bit support to ifstat
+Date: Mon, 23 Aug 2010 22:28:31 +0200
+Message-ID: <1282595311.2378.288.camel@edumazet-laptop>
+References: <20100823083258.0777e83d@nehalam>
+	 <1282578203.2267.27.camel@achroite.uk.solarflarecom.com>
+	 <20100823091750.2bf87605@nehalam>
+	 <1282582464.2486.479.camel@edumazet-laptop>
+	 <20100823103333.67c5f795@nehalam>
+	 <1282592696.2378.193.camel@edumazet-laptop>
+	 <20100823130630.1dcb885b@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40417 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754405Ab0HWUab (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 16:30:31 -0400
-Content-Disposition: inline
-In-Reply-To: <1282593694.2378.230.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:50938 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754642Ab0HWU2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 16:28:35 -0400
+Received: by wyb32 with SMTP id 32so7214568wyb.19
+        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 13:28:34 -0700 (PDT)
+In-Reply-To: <20100823130630.1dcb885b@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 23, 2010 at 10:01:34PM +0200, Eric Dumazet wrote:
-> Le mercredi 11 ao=FBt 2010 =E0 11:12 -0400, Neil Horman a =E9crit :
-> > If netconsole is in use, there is a possibility for deadlock in 3c5=
-9x between
-> > boomerang_interrupt and boomerang_start_xmit.  Both routines take t=
-he vp->lock,
-> > and if netconsole is in use, a pr_* call from the boomerang_interru=
-pt routine
-> > will result in the netconsole code attempting to trnasmit an skb, w=
-hich can try
-> > to take the same spin lock, resulting in deadlock.
+Le lundi 23 ao=C3=BBt 2010 =C3=A0 13:06 -0700, Stephen Hemminger a =C3=A9=
+crit :
+> > @@ -563,8 +563,6 @@ static void usage(void)
+> >  "   -s, --noupdate	don;t update history\n"
+> >  "   -t, --interval=3DSECS	report average over the last SECS\n"
+> >  "   -V, --version	output version information\n"
+> > -"   -z, --zeros		show entries with zero activity\n"
+> > -"   -e, --errors	show errors\n"
+> >  "   -z, --zeros		show entries with zero activity\n");
+> > =20
+> >  	exit(-1);
+> > @@ -581,8 +579,6 @@ static const struct option longopts[] =3D {
+> >  	{ "interval", 1, 0, 't' },
+> >  	{ "version", 0, 0, 'V' },
+> >  	{ "zeros", 0, 0, 'z' },
+> > -	{ "errors", 0, 0, 'e' },
+> > -	{ "zeros", 0, 0, 'z' },
+> >  	{ 0 }
+> >  };
+> > =20
 > >=20
-> > The fix is pretty straightforward.  This patch allocats a bit in th=
-e 3c59x
-> > private structure to indicate that its handling an interrupt.  If w=
-e get into
-> > the transmit routine and that bit is set, we can be sure that we ha=
-ve recursed
-> > and will deadlock if we continue, so instead we just return NETDEV_=
-TX_BUSY, so
-> > the stack requeues the skb to try again later.
 > >=20
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > ---
-> >  drivers/net/3c59x.c |   15 ++++++++++++++-
-> >  1 files changed, 14 insertions(+), 1 deletions(-)
-> >=20
-> > diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-> > index c754d88..c685a55 100644
-> > --- a/drivers/net/3c59x.c
-> > +++ b/drivers/net/3c59x.c
-> > @@ -633,7 +633,8 @@ struct vortex_private {
-> >  		open:1,
-> >  		medialock:1,
-> >  		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O re=
-gion */
-> > -		large_frames:1;			/* accept large frames */
-> > +		large_frames:1,			/* accept large frames */
-> > +		handling_irq:1;			/* private in_irq indicator */
 >=20
->=20
-> It would be safer and faster to use a dedicated 'int' instead of a
-> bitfield.
->=20
->=20
->=20
->=20
+> Did you mean to break --errors?
 
+I dont think so.
 
-=46aster I agree with, although I'm not sure if speed is really a big i=
-ssue here,
-given that this is a ancient (but fairly well used) 10/100 adapter.  An=
-d we
-still have space in the octet that that bitfield is living in, so I fig=
-ured I'd
-use that anyway.
+These options are already handled, unless I am wrong.
 
-As for safe, I'm not sure I follow you on that point.  Is there somethi=
-ng
-inherently dangerous about using a bitfield in this case?
+Do you want a separate patch for this trivial fix ?
 
-Neil
 
