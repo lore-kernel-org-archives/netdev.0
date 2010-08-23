@@ -1,29 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] drivers/net/ixgbe/ixgbe_main.c:
- Checkpatch cleanups
-Date: Sun, 22 Aug 2010 20:34:04 -0700 (PDT)
-Message-ID: <20100822.203404.242143197.davem@davemloft.net>
-References: <cover.1282531322.git.joe@perches.com>
-	<c4222d22591d5d656a62384fd9f00e911629f49a.1282531322.git.joe@perches.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: [rfc] bridge: is PACKET_LOOPBACK unlikely()?
+Date: Mon, 23 Aug 2010 12:35:32 +0900
+Message-ID: <20100823033532.GA28463@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com,
-	john.ronciak@intel.com, e1000-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jesse Gross <jesse@nicira.com>
+To: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35267
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753050Ab0HWDdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 23:33:47 -0400
-In-Reply-To: <c4222d22591d5d656a62384fd9f00e911629f49a.1282531322.git.joe@perches.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:59272 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752909Ab0HWDfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 23:35:37 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+While looking at using netdev_rx_handler_register for openvswitch Jesse
+Gross suggested that an unlikely() might be worthwhile in that code.
+I'm interested to see if its appropriate for the bridge code.
 
-I'll let the Intel folks integrate these 3 patches.
+Cc: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Thanks Joe.
+Index: net-next-2.6/net/bridge/br_input.c
+===================================================================
+--- net-next-2.6.orig/net/bridge/br_input.c	2010-08-23 12:17:58.000000000 +0900
++++ net-next-2.6/net/bridge/br_input.c	2010-08-23 12:19:46.000000000 +0900
+@@ -141,7 +141,7 @@ struct sk_buff *br_handle_frame(struct s
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+ 	int (*rhook)(struct sk_buff *skb);
+ 
+-	if (skb->pkt_type == PACKET_LOOPBACK)
++	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
+ 		return skb;
+ 
+ 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
