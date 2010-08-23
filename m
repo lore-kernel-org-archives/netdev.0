@@ -1,68 +1,104 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: IPsec: Why do pfkey_getspi and xfrm_alloc_userspi call xfrm_find_acq_byseq?
-Date: Mon, 23 Aug 2010 15:30:46 +0200
-Message-ID: <4C727806.3060102@6wind.com>
-References: <4C6D29B9.5070403@6wind.com> <20100822.005353.260099324.davem@davemloft.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] netfilter: xt_condition: add security capability support
+Date: Mon, 23 Aug 2010 21:37:35 +0800
+Message-ID: <AANLkTi=2H+ytOQU9nC_dRp_GB5Sy1831VY14oW=YSOrG@mail.gmail.com>
+References: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49502 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752704Ab0HWNdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 09:33:22 -0400
-Received: by wyb32 with SMTP id 32so6805738wyb.19
-        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 06:33:21 -0700 (PDT)
-In-Reply-To: <20100822.005353.260099324.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, James Morris <jmorris@namei.org>,
+	linux-security-module@vger.kernel.org
+To: luciano.coelho@nokia.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
-
-First of all, thank you for your answer.
-
-David Miller wrote:
-> From: Christophe Gouault <christophe.gouault@6wind.com>
-> Date: Thu, 19 Aug 2010 14:55:21 +0200
+On Mon, Aug 23, 2010 at 8:50 PM,  <luciano.coelho@nokia.com> wrote:
+> From: Luciano Coelho <luciano.coelho@nokia.com>
 >
->> The call to xfrm_find_acq_byseq() by the pfkey_getspi() and
->> xfrm_alloc_userspi() functions is quite costly and proves to entail
->> scalability issues when performing thousands of IKE negotiations with
->> racoon (from ipsec-tools distribution) or charon (from strongswan
->> distribution).
->>
->> Removing this call in the kernel drastically accelerates the
->> processing and does not seem to entail functional problems.
->>
->> For now, I don't see the point of this call. I need to understand its
->> purpose, because I'm highly tempted to simply remove it.
-> First of all, removing a function because you don't understand
-> why it's there is rarely a good idea :-)
-Yes, don't worry, I never act that way. I was deliberately a little 
-provocative ;-)
-> I think the semantics require that we check for existing ACQUIRE
-> state entries before we allocate an SPI.
-Well, I still don't see in which case this can happen. The only 
-situations in which an ACQUIRE state entry is created is when an acquire 
-message is raised by the kernel (this creates a temporary outbound 
-state) or when a getspi is issued from the userland (this creates a 
-temporary state, as far as I know, this is the future inbound state 
-negotiated by IKE).
+> Add a module parameter that allows the required security capability t=
+o
+> change the conditions from userspace to be specified. =A0By default t=
+he
+> module will require the CAP_NET_ADMIN capability.
+>
+> Signed-off-by: Luciano Coelho <luciano.coelho@nokia.com>
+> ---
+> =A0net/netfilter/xt_condition.c | =A0 10 ++++++++++
+> =A01 files changed, 10 insertions(+), 0 deletions(-)
+>
+> diff --git a/net/netfilter/xt_condition.c b/net/netfilter/xt_conditio=
+n.c
+> index 06205aa..fd279e5 100644
+> --- a/net/netfilter/xt_condition.c
+> +++ b/net/netfilter/xt_condition.c
+> @@ -29,11 +29,13 @@
+> =A0#include <linux/netfilter/xt_condition.h>
+> =A0#include <net/netns/generic.h>
+> =A0#include <asm/uaccess.h>
+> +#include <linux/capability.h>
+>
+> =A0/* Defaults, these can be overridden on the module command-line. *=
+/
+> =A0static unsigned int condition_list_perms =3D S_IRUGO | S_IWUSR;
+> =A0static unsigned int condition_uid_perms =3D 0;
+> =A0static unsigned int condition_gid_perms =3D 0;
+> +static unsigned int condition_capabilities =3D CAP_NET_ADMIN;
+>
+> =A0MODULE_AUTHOR("Stephane Ouellette <ouellettes@videotron.ca>");
+> =A0MODULE_AUTHOR("Massimiliano Hofer <max@nucleus.it>");
+> @@ -47,6 +49,8 @@ module_param(condition_uid_perms, uint, S_IRUSR | S=
+_IWUSR);
+> =A0MODULE_PARM_DESC(condition_uid_perms, "default user owner of /proc=
+/net/nf_condition/* files");
+> =A0module_param(condition_gid_perms, uint, S_IRUSR | S_IWUSR);
+> =A0MODULE_PARM_DESC(condition_gid_perms, "default group owner of /pro=
+c/net/nf_condition/* files");
+> +module_param(condition_capabilities, uint, CAP_NET_ADMIN);
+> +MODULE_PARM_DESC(condition_capabilities, "default capabilities requi=
+red to change /proc/net/nf_condition/* files");
 
-In my humble opinion, issuing a getspi for the output state does not 
-make sense since the SPI is chosen by the destination host.
-So the possibly existing ACQUIRE state entry would be the result of a 
-former getspi with the same value of the seq field. So this call would 
-aim at cancelling a former call to getspi, maybe to cope with an 
-application that would retry a failed negotiation before the former 
-getspi expired?... I'm not really convinced by this explanation.
+It is strange that we set security policy in this way. Maybe the
+permission of the proc file is enough in this case.
 
-But there are maybe other uses of the getspi call than assigning a SPI 
-for the inbound state of an IKE negotiation...
-> The likelyhood of breaking something if you remove the call is very
-> high.
-Probably. I'm still interested in a concrete example ;-)
+> =A0MODULE_ALIAS("ipt_condition");
+> =A0MODULE_ALIAS("ip6t_condition");
+>
+> @@ -88,6 +92,12 @@ static int condition_proc_write(struct file *file,=
+ const char __user *input,
+> =A0 =A0 =A0 =A0char buf[sizeof("+037777777777")];
+> =A0 =A0 =A0 =A0unsigned long long value;
+>
+> + =A0 =A0 =A0 if (!capable(condition_capabilities)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_debug("not enough capabilities (requ=
+ires %0X)\n",
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 condition_capabilities)=
+;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EPERM;
+> + =A0 =A0 =A0 }
+> +
+> =A0 =A0 =A0 =A0if (length =3D=3D 0)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return 0;
+>
+> --
+> 1.7.0.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-d=
+evel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
 
-Christophe
+
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-securit=
+y-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
