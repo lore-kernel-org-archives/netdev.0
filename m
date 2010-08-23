@@ -1,105 +1,54 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] driver core: platform_bus: allow runtime override of dev_pm_ops
-Date: Mon, 23 Aug 2010 09:12:06 -0600
-Message-ID: <4cb3d19e-ab7a-495f-b48c-70e3ec9f3b9b@email.android.com>
-References: <1282575949-27826-1-git-send-email-khilman@deeprootsystems.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: dont filter cached routes on iproute_get
+Date: Mon, 23 Aug 2010 08:15:22 -0700
+Message-ID: <20100823081522.3fa7eff9@nehalam>
+References: <20100808193304.GA15380@amd64.fatal.se>
+	<AANLkTim4h7rTJuF7UWAE-p_4NGkrwksUjoK6m2x5BubG@mail.gmail.com>
+	<1281297165.4116.19.camel@amd64.fatal.se>
+	<20100812090519.GA13769@babylon>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Magnus Damm <magnus.damm@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	=?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, Paul Mundt <lethal@linux-sh.org>,
-	Magnus Damm <damm@opensource.se>,
-	Eric Miao <eric.y.miao@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Kevin Hilman <khilman@deeprootsystems.com>,
-	linux-kernel@vger.kernen.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1282575949-27826-1-git-send-email-khilman@deeprootsystems.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andreas Henriksson <andreas@fatal.se>,
+	Fabio Comolli <fabio.comolli@gmail.com>, netdev@vger.kernel.org
+To: Ulrich Weber <uweber@astaro.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:60193 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753268Ab0HWPPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Aug 2010 11:15:25 -0400
+In-Reply-To: <20100812090519.GA13769@babylon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 12 Aug 2010 11:05:19 +0200
+Ulrich Weber <uweber@astaro.com> wrote:
 
-
-"Kevin Hilman" <khilman@deeprootsystems.com> wrote:
-
->From: Kevin Hilman <khilman@ti.com>
->
->Currently, the platform_bus allows customization of several of the
->busses dev_pm_ops methods by using weak symbols so that platform code
->can override them.  The weak-symbol approach is not scalable when
->wanting to support multiple platforms in a single kernel binary.
->
->Instead, provide __init methods for platform code to customize the
->dev_pm_ops methods at runtime.
->
->NOTE: after these dynamic methods are merged, the weak symbols should
->      be removed from drivers/base/platform.c.  AFAIK, this will only
->      affect SH and sh-mobile which should be converted to use this
->      runtime approach instead of the weak symbols.  After SH &
->      sh-mobile are converted, the weak symobols could be removed.
->
->Tested on OMAP3.
->
->Cc: Grant Likely <grant.likely@secretlab.ca>
->Cc: Magnus Damm <magnus.damm@gmail.com>
->Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
->---
-> drivers/base/platform.c         |   16 ++++++++++++++++
-> include/linux/platform_device.h |    3 +++
-> 2 files changed, 19 insertions(+), 0 deletions(-)
->
->diff --git a/drivers/base/platform.c b/drivers/base/platform.c
->index c6c933f..a7d8a00 100644
->--- a/drivers/base/platform.c
->+++ b/drivers/base/platform.c
->@@ -976,6 +976,22 @@ struct bus_type platform_bus_type = {
-> };
-> EXPORT_SYMBOL_GPL(platform_bus_type);
+> iproute_get will return cloned routes for IPv4
+> and cloned as well non-cloned routes for IPv6.
 > 
->+const struct dev_pm_ops * __init platform_bus_get_pm_ops(void)
->+{
->+	struct bus_type *bus = &platform_bus_type;
->+
->+	return bus->pm;
->+}
->+
->+int __init platform_bus_set_pm_ops(struct dev_pm_ops *pm)
->+{
->+	struct bus_type *bus = &platform_bus_type;
->+
->+	bus->pm = pm;
->+
->+	return 0;
->+}
->+
-
-Looks okay to me,  but these functions should have kerneldoc headers describing what they are, and more importantly, the constraints and what the acceptable use case is.
-
-g.
-
-> int __init platform_bus_init(void)
-> {
-> 	int error;
->diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
->index d7ecad0..4bce2c9 100644
->--- a/include/linux/platform_device.h
->+++ b/include/linux/platform_device.h
->@@ -138,6 +138,9 @@ extern struct platform_device *platform_create_bundle(struct platform_driver *dr
-> 					struct resource *res, unsigned int n_res,
-> 					const void *data, size_t size);
+> Therefore RTM_F_CLONED flag should not be checked
+> for iproute_get routes. Check in print_route will
+> always fail because valid values are 0 and 1.
 > 
->+extern const struct dev_pm_ops * __init platform_bus_get_pm_ops(void);
->+extern int __init platform_bus_set_pm_ops(struct dev_pm_ops *pm);
->+
-> /* early platform driver interface */
-> struct early_platform_driver {
-> 	const char *class_str;
->-- 
->1.7.2.1
->
+> Signed-off-by: Ulrich Weber <uweber@astaro.com>
+> ---
+>  ip/iproute.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 711576e..b43933c 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -1286,6 +1286,7 @@ int iproute_get(int argc, char **argv)
+>  	memset(&req, 0, sizeof(req));
+>  
+>  	iproute_reset_filter();
+> +	filter.cloned = 2;
+>  
+>  	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+>  	req.n.nlmsg_flags = NLM_F_REQUEST;
+
+Applied
 
 -- 
-Sent from my Android phone with K-9 Mail. Please excuse my brevity.
