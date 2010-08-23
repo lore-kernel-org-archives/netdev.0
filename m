@@ -1,8 +1,9 @@
-From: Mike Frysinger <vapier.adi@gmail.com>
+From: Bert Wesarg <bert.wesarg@googlemail.com>
 Subject: Re: [PATCH 1/1] posix clocks: introduce syscall for clock tuning.
-Date: Mon, 23 Aug 2010 04:22:58 -0400
-Message-ID: <AANLkTi=HFyMpXEjpyHmL-79qzXLQWEfiW+KiJHnrJRW2@mail.gmail.com>
-References: <cover.1282550649.git.richard.cochran@omicron.at> <e253843e07ce5d15c2c8d11ce786bf979ed85ca5.1282550649.git.richard.cochran@omicron.at>
+Date: Mon, 23 Aug 2010 10:25:35 +0200
+Message-ID: <AANLkTi=Fa38ufwR8PDc+HBHmLT53eWRA0ofrobm0n9-w@mail.gmail.com>
+References: <cover.1282550649.git.richard.cochran@omicron.at>
+	<e253843e07ce5d15c2c8d11ce786bf979ed85ca5.1282550649.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -13,33 +14,45 @@ In-Reply-To: <e253843e07ce5d15c2c8d11ce786bf979ed85ca5.1282550649.git.richard.co
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 23, 2010 at 04:16, Richard Cochran wrote:
-> --- a/arch/blackfin/include/asm/unistd.h
-> +++ b/arch/blackfin/include/asm/unistd.h
-> @@ -389,8 +389,9 @@
-> =C2=A0#define __NR_rt_tgsigqueueinfo 368
-> =C2=A0#define __NR_perf_event_open =C2=A0 369
-> =C2=A0#define __NR_recvmmsg =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0370
-> +#define __NR_clock_adjtime =C2=A0 =C2=A0 371
+On Mon, Aug 23, 2010 at 10:16, Richard Cochran <richardcochran@gmail.co=
+m> wrote:
+> diff --git a/kernel/compat.c b/kernel/compat.c
+> index 5adab05..df1e469 100644
+> --- a/kernel/compat.c
+> +++ b/kernel/compat.c
+> @@ -628,6 +628,26 @@ long compat_sys_clock_gettime(clockid_t which_cl=
+ock,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return err;
+> =C2=A0}
 >
-> -#define __NR_syscall =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 371
-> +#define __NR_syscall =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 372
-> =C2=A0#define NR_syscalls =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0__=
-NR_syscall
->
-> =C2=A0/* Old optional stuff no one actually uses */
-> --- a/arch/blackfin/mach-common/entry.S
-> +++ b/arch/blackfin/mach-common/entry.S
-> @@ -1628,6 +1628,7 @@ ENTRY(_sys_call_table)
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.long _sys_rt_tgsigqueueinfo
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.long _sys_perf_event_open
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.long _sys_recvmmsg =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 /* 370 */
-> + =C2=A0 =C2=A0 =C2=A0 .long _sys_clock_adjtime
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.rept NR_syscalls-(.-_sys_call_table)/4
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0.long _sys_ni_syscall
+> +long compat_sys_clock_adjtime(clockid_t which_clock, int ppb,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct compat_time=
+spec __user *tp)
+> +{
+> + =C2=A0 =C2=A0 =C2=A0 long err;
+> + =C2=A0 =C2=A0 =C2=A0 mm_segment_t oldfs;
+> + =C2=A0 =C2=A0 =C2=A0 struct timespec ts, *ptr =3D NULL;
 
-=46YI, this is going to hit a conflict as i'm about to push out an
-update to wire up the new 2.6.36 syscalls
--mike
+Shouldn't ptr be initialized with tp?
+
+> +
+> + =C2=A0 =C2=A0 =C2=A0 if (tp) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (get_compat_tim=
+espec(&ts, tp))
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 return -EFAULT;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ptr =3D &ts;
+> + =C2=A0 =C2=A0 =C2=A0 }
+> + =C2=A0 =C2=A0 =C2=A0 oldfs =3D get_fs();
+> + =C2=A0 =C2=A0 =C2=A0 set_fs(KERNEL_DS);
+> + =C2=A0 =C2=A0 =C2=A0 err =3D sys_clock_adjtime(which_clock, ppb,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (struct timespec __user *) ptr);
+> + =C2=A0 =C2=A0 =C2=A0 set_fs(oldfs);
+> + =C2=A0 =C2=A0 =C2=A0 return err;
+> +}
+> +
+> =C2=A0long compat_sys_clock_getres(clockid_t which_clock,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct compat_=
+timespec __user *tp)
+> =C2=A0{
