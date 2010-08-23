@@ -1,168 +1,133 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [patch 20/20] ibmveth: Update module information and version
-Date: Mon, 23 Aug 2010 10:09:50 +1000
-Message-ID: <20100823001240.188932995@samba.org>
-References: <20100823000930.546065833@samba.org>
-Cc: netdev@vger.kernel.org
-To: brking@linux.vnet.ibm.com, santil@linux.vnet.ibm.com
+From: "Benjamin Li" <benli@broadcom.com>
+Subject: [PATCH] bnx2: Add PCI Advanced Error Reporting support.
+Date: Sun, 22 Aug 2010 18:14:27 -0700
+Message-ID: <1282526067-14014-1-git-send-email-benli@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "John Feeney" <jfeeney@redhat.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Benjamin Li" <benli@broadcom.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51878 "EHLO ozlabs.org"
+Received: from mms3.broadcom.com ([216.31.210.19]:1217 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752040Ab0HWAaO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Aug 2010 20:30:14 -0400
-Content-Disposition: inline; filename=veth_fix_author
+	id S1751304Ab0HWBOf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Aug 2010 21:14:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add an entry to the MAINTAINERS file for ibmveth, clean up the copyright
-and add all authors. Change the name of the module to reflect the product name
-over the last number of years.
+From: John Feeney <jfeeney@redhat.com>
 
-Considering all the changes we have made, bump the driver version.
+From: John Feeney <jfeeney@redhat.com>
 
-Signed-off-by: Anton Blanchard <anton@samba.org>
+Signed-off-by: John Feeney <jfeeney@redhat.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
 ---
+ drivers/net/bnx2.c |   44 ++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 34 insertions(+), 10 deletions(-)
 
-Index: net-next-2.6/drivers/net/ibmveth.c
-===================================================================
---- net-next-2.6.orig/drivers/net/ibmveth.c	2010-08-23 09:23:36.391233048 +1000
-+++ net-next-2.6/drivers/net/ibmveth.c	2010-08-23 09:23:37.561149945 +1000
-@@ -1,28 +1,27 @@
- /*
-- * IBM eServer i/pSeries Virtual Ethernet Device Driver
-- * Copyright (C) 2003 IBM Corp.
-- *  Originally written by Dave Larson (larson1@us.ibm.com)
-- *  Maintained by Santiago Leon (santil@us.ibm.com)
-+ * IBM Power Virtual Ethernet Device Driver
-  *
-- *  This program is free software; you can redistribute it and/or modify
-- *  it under the terms of the GNU General Public License as published by
-- *  the Free Software Foundation; either version 2 of the License, or
-- *  (at your option) any later version.
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-  *
-- *  This program is distributed in the hope that it will be useful,
-- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- *  GNU General Public License for more details.
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-  *
-- *  You should have received a copy of the GNU General Public License
-- *  along with this program; if not, write to the Free Software
-- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
-- *                                                                   USA
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-  *
-- * This module contains the implementation of a virtual ethernet device
-- * for use with IBM i/pSeries LPAR Linux.  It utilizes the logical LAN
-- * option of the RS/6000 Platform Architechture to interface with virtual
-- * ethernet NICs that are presented to the partition by the hypervisor.
-+ * Copyright (C) IBM Corporation, 2003, 2010
-+ *
-+ * Authors: Dave Larson <larson1@us.ibm.com>
-+ *	    Santiago Leon <santil@linux.vnet.ibm.com>
-+ *	    Brian King <brking@linux.vnet.ibm.com>
-+ *	    Robert Jennings <rcj@linux.vnet.ibm.com>
-+ *	    Anton Blanchard <anton@au.ibm.com>
-  */
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index e6a803f..a0e02aa 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -49,6 +49,7 @@
+ #include <linux/cache.h>
+ #include <linux/firmware.h>
+ #include <linux/log2.h>
++#include <linux/aer.h>
  
- #include <linux/module.h>
-@@ -57,12 +56,11 @@ static struct kobj_type ktype_veth_pool;
+ #if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
+ #define BCM_CNIC 1
+@@ -7890,6 +7891,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	int rc, i, j;
+ 	u32 reg;
+ 	u64 dma_mask, persist_dma_mask;
++	int err;
  
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	bp = netdev_priv(dev);
+@@ -7925,6 +7927,14 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 		goto err_out_disable;
+ 	}
  
- static const char ibmveth_driver_name[] = "ibmveth";
--static const char ibmveth_driver_string[] = "IBM i/pSeries Virtual Ethernet "
--					    "Driver";
--#define ibmveth_driver_version "1.03"
-+static const char ibmveth_driver_string[] = "IBM Power Virtual Ethernet Driver";
-+#define ibmveth_driver_version "1.04"
- 
- MODULE_AUTHOR("Santiago Leon <santil@us.ibm.com>");
--MODULE_DESCRIPTION("IBM i/pSeries Virtual Ethernet Driver");
-+MODULE_DESCRIPTION("IBM Power Virtual Ethernet Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(ibmveth_driver_version);
- 
-Index: net-next-2.6/MAINTAINERS
-===================================================================
---- net-next-2.6.orig/MAINTAINERS	2010-08-23 09:22:56.514065611 +1000
-+++ net-next-2.6/MAINTAINERS	2010-08-23 09:23:37.571149242 +1000
-@@ -2849,6 +2849,12 @@ M:	Brian King <brking@us.ibm.com>
- S:	Supported
- F:	drivers/scsi/ipr.*
- 
-+IBM Power Virtual Ethernet Device Driver
-+M:	Santiago Leon <santil@linux.vnet.ibm.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+F:	drivers/net/ibmveth.*
++	/* AER (Advanced Error Reporting) hooks */
++	err = pci_enable_pcie_error_reporting(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "pci_enable_pcie_error_reporting failed "
++				    "0x%x\n", err);
++		/* non-fatal, continue */
++	}
 +
- IBM ServeRAID RAID DRIVER
- P:	Jack Hammer
- M:	Dave Jeffery <ipslinux@adaptec.com>
-Index: net-next-2.6/drivers/net/ibmveth.h
-===================================================================
---- net-next-2.6.orig/drivers/net/ibmveth.h	2010-08-23 09:22:56.534064193 +1000
-+++ net-next-2.6/drivers/net/ibmveth.h	2010-08-23 09:23:37.581148530 +1000
-@@ -1,26 +1,28 @@
--/**************************************************************************/
--/*                                                                        */
--/* IBM eServer i/[Series Virtual Ethernet Device Driver                   */
--/* Copyright (C) 2003 IBM Corp.                                           */
--/*  Dave Larson (larson1@us.ibm.com)                                      */
--/*  Santiago Leon (santil@us.ibm.com)                                     */
--/*                                                                        */
--/*  This program is free software; you can redistribute it and/or modify  */
--/*  it under the terms of the GNU General Public License as published by  */
--/*  the Free Software Foundation; either version 2 of the License, or     */
--/*  (at your option) any later version.                                   */
--/*                                                                        */
--/*  This program is distributed in the hope that it will be useful,       */
--/*  but WITHOUT ANY WARRANTY; without even the implied warranty of        */
--/*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         */
--/*  GNU General Public License for more details.                          */
--/*                                                                        */
--/*  You should have received a copy of the GNU General Public License     */
--/*  along with this program; if not, write to the Free Software           */
--/*  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  */
--/*                                                                   USA  */
--/*                                                                        */
--/**************************************************************************/
-+/*
-+ * IBM Power Virtual Ethernet Device Driver
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ *
-+ * Copyright (C) IBM Corporation, 2003, 2010
-+ *
-+ * Authors: Dave Larson <larson1@us.ibm.com>
-+ *	    Santiago Leon <santil@linux.vnet.ibm.com>
-+ *	    Brian King <brking@linux.vnet.ibm.com>
-+ *	    Robert Jennings <rcj@linux.vnet.ibm.com>
-+ *	    Anton Blanchard <anton@au.ibm.com>
-+ */
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
  
- #ifndef _IBMVETH_H
- #define _IBMVETH_H
+@@ -8246,6 +8256,7 @@ err_out_unmap:
+ 	}
+ 
+ err_out_release:
++	pci_disable_pcie_error_reporting(pdev);
+ 	pci_release_regions(pdev);
+ 
+ err_out_disable:
+@@ -8436,6 +8447,9 @@ bnx2_remove_one(struct pci_dev *pdev)
+ 	kfree(bp->temp_stats_blk);
+ 
+ 	free_netdev(dev);
++
++	pci_disable_pcie_error_reporting(pdev);
++
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+@@ -8527,25 +8541,35 @@ static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct bnx2 *bp = netdev_priv(dev);
++	pci_ers_result_t result;
++	int err;
+ 
+ 	rtnl_lock();
+ 	if (pci_enable_device(pdev)) {
+ 		dev_err(&pdev->dev,
+ 			"Cannot re-enable PCI device after reset\n");
+-		rtnl_unlock();
+-		return PCI_ERS_RESULT_DISCONNECT;
++		result = PCI_ERS_RESULT_DISCONNECT;
++	} else {
++		pci_set_master(pdev);
++		pci_restore_state(pdev);
++		pci_save_state(pdev);
++
++		if (netif_running(dev)) {
++			bnx2_set_power_state(bp, PCI_D0);
++			bnx2_init_nic(bp, 1);
++		}
++		result = PCI_ERS_RESULT_RECOVERED;
+ 	}
+-	pci_set_master(pdev);
+-	pci_restore_state(pdev);
+-	pci_save_state(pdev);
++	rtnl_unlock();
+ 
+-	if (netif_running(dev)) {
+-		bnx2_set_power_state(bp, PCI_D0);
+-		bnx2_init_nic(bp, 1);
++	err = pci_cleanup_aer_uncorrect_error_status(pdev);
++	if (err) {
++		dev_err(&pdev->dev,
++			"pci_cleanup_aer_uncorrect_error_status failed 0x%0x\n",
++			 err); /* non-fatal, continue */
+ 	}
+ 
+-	rtnl_unlock();
+-	return PCI_ERS_RESULT_RECOVERED;
++	return result;
+ }
+ 
+ /**
+-- 
+1.6.4.GIT
 
 
