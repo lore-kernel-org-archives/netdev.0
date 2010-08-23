@@ -1,103 +1,43 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: [PATCH v2] driver core: platform_bus: allow runtime override of dev_pm_ops
-Date: Mon, 23 Aug 2010 10:18:42 -0700
-Message-ID: <1282583922-984-1-git-send-email-khilman@deeprootsystems.com>
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Kevin Hilman <khilman@deeprootsystems.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>, Paul Mundt <lethal@linux-sh.org>,
-	Magnus Damm <damm@opensource.se>,
-	Eric Miao <eric.y.miao@gmail.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6] net: copy_rtnl_link_stats64()
+ simplification
+Date: Mon, 23 Aug 2010 18:21:36 +0100
+Message-ID: <1282584096.2267.34.camel@achroite.uk.solarflarecom.com>
+References: <1282583676.2486.525.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:26055 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751674Ab0HWRVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 13:21:40 -0400
+In-Reply-To: <1282583676.2486.525.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, the platform_bus allows customization of several of the
-busses dev_pm_ops methods by using weak symbols so that platform code
-can override them.  The weak-symbol approach is not scalable when
-wanting to support multiple platforms in a single kernel binary.
+On Mon, 2010-08-23 at 19:14 +0200, Eric Dumazet wrote:
+> No need to use a temporary struct rtnl_link_stats64 variable,
+> just copy the source to skb buffer.
 
-Instead, provide __init methods for platform code to customize the
-dev_pm_ops methods at runtime.
+Yes, this makes sense.
 
-NOTE: after these dynamic methods are merged, the weak symbols should
-      be removed from drivers/base/platform.c.  AFAIK, this will only
-      affect SH and sh-mobile which should be converted to use this
-      runtime approach instead of the weak symbols.  After SH &
-      sh-mobile are converted, the weak symobols could be removed.
+The reason I didn't do this initially was that I was concerned about
+possible tearing of asynchronously-updated stats.  Since you made
+dev_get_stats() copy into a caller-provided buffer, this is no longer a
+concern.
 
-Tested on OMAP3.
+For what it's worth:
 
-Cc: Grant Likely <grant.likely@secretlab.ca>
-Cc: Magnus Damm <magnus.damm@gmail.com>
-Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
----
- drivers/base/platform.c         |   35 +++++++++++++++++++++++++++++++++++
- include/linux/platform_device.h |    3 +++
- 2 files changed, 38 insertions(+), 0 deletions(-)
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-diff --git a/drivers/base/platform.c b/drivers/base/platform.c
-index c6c933f..e40a773 100644
---- a/drivers/base/platform.c
-+++ b/drivers/base/platform.c
-@@ -976,6 +976,41 @@ struct bus_type platform_bus_type = {
- };
- EXPORT_SYMBOL_GPL(platform_bus_type);
- 
-+/**
-+ * platform_bus_get_pm_ops: return pointer to busses dev_pm_ops
-+ *
-+ * This function can be used by platform code to get the current
-+ * set of dev_pm_ops functions used by the platform_bus_type.
-+ */
-+const struct dev_pm_ops * __init platform_bus_get_pm_ops(void)
-+{
-+	return platform_bus_type.pm;
-+}
-+
-+/**
-+ * platform_bus_set_pm_ops: update dev_pm_ops for the platform_bus_type
-+ *
-+ * @pm: pointer to new dev_pm_ops struct to be used for platform_bus_type
-+ *
-+ * Platform code can override the dev_pm_ops methods of
-+ * platform_bus_type by using this function.  It is expected that
-+ * platform code will first do a platform_bus_get_pm_ops(), then
-+ * kmemdup it, then customize selected methods and pass a pointer to
-+ * the new struct dev_pm_ops to this function.
-+ *
-+ * Since platform-specific code is customizing methods for *all*
-+ * devices (not just platform-specific devices) it is expected that
-+ * any custom overrides of these functions will keep existing behavior
-+ * and simply extend it.  For example, any customization of the
-+ * runtime PM methods should continue to call the pm_generic_*
-+ * functions as the default ones do in addition to the
-+ * platform-specific behavior.
-+ */
-+void __init platform_bus_set_pm_ops(struct dev_pm_ops *pm)
-+{
-+	platform_bus_type.pm = pm;
-+}
-+
- int __init platform_bus_init(void)
- {
- 	int error;
-diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
-index d7ecad0..cd55d39 100644
---- a/include/linux/platform_device.h
-+++ b/include/linux/platform_device.h
-@@ -138,6 +138,9 @@ extern struct platform_device *platform_create_bundle(struct platform_driver *dr
- 					struct resource *res, unsigned int n_res,
- 					const void *data, size_t size);
- 
-+extern const struct dev_pm_ops * __init platform_bus_get_pm_ops(void);
-+extern void __init platform_bus_set_pm_ops(struct dev_pm_ops *pm);
-+
- /* early platform driver interface */
- struct early_platform_driver {
- 	const char *class_str;
+Ben.
+
 -- 
-1.7.2.1
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
