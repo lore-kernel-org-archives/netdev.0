@@ -1,195 +1,184 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/5] dccp ccid-2: Remove redundant sanity tests
-Date: Mon, 23 Aug 2010 07:41:38 +0200
-Message-ID: <1282542100-5799-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/5] ccid: ccid-2/3 code cosmetics
+Date: Mon, 23 Aug 2010 07:41:36 +0200
+Message-ID: <1282542100-5799-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20100820.004005.58446090.davem@davemloft.net>
  <1282542100-5799-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1282542100-5799-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1282542100-5799-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53587 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53611 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753260Ab0HWFl7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Aug 2010 01:41:59 -0400
-In-Reply-To: <1282542100-5799-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753062Ab0HWFl6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Aug 2010 01:41:58 -0400
+In-Reply-To: <1282542100-5799-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the ccid2_hc_tx_check_sanity function: it is redundant.
-
-Details:
-========
-The tx_check_sanity function performs three tests:
- 1) it checks that the circular TX list is sorted
-    - in ascending order of sequence number (ccid2s_seq)
-    - and time (ccid2s_sent),
-    - in the direction from `tail' (hctx_seqt) to `head' (hctx_seqh);
- 2) it ensures that the entire list has the length seqbufc * CCID2_SEQBUF_LEN;
- 3) it ensures that pipe equals the number of packets that were not
-    marked `acked' (ccid2s_acked) between `tail' and `head'.
-
-The following argues that each of these tests is redundant, this can be verified
-by going through the code.
-
-(1) is not necessary, since both time and GSS increase from one packet to the
-next, so that subsequent insertions in tx_packet_sent (which advance the `head'
-pointer) will be in ascending order of time and sequence number.
-
-In (2), the length of the list is always equal to seqbufc times CCID2_SEQBUF_LEN
-(set to 1024) unless allocation caused an earlier failure, because:
- * at initialisation (tx_init), there is one chunk of size 1024 and seqbufc=1;
- * subsequent calls to tx_alloc_seq take place whenever head->next == tail in
-   tx_packet_sent; then a new chunk of size 1024 is inserted between head and
-   tail, and seqbufc is incremented by one.
-
-To show that (3) is redundant requires looking at two cases.
-
-The `pipe' variable of the TX socket is incremented only in tx_packet_sent, and
-decremented in tx_packet_recv.  When head == tail (TX history empty) then pipe
-should be 0, which is the case directly after initialisation and after a
-retransmission timeout has occurred (ccid2_hc_tx_rto_expire).
-
-The first case involves parsing Ack Vectors for packets recorded in the live
-portion of the buffer, between tail and head. For each packet marked by the
-receiver as received (state 0) or ECN-marked (state 1), pipe is decremented by
-one, so for all such packets the BUG_ON in tx_check_sanity will not trigger.
-
-The second case is the loss detection in the second half of tx_packet_recv,
-below the comment "Check for NUMDUPACK".
-
-The first while-loop here ensures that the sequence number of `seqp' is either
-above or equal to `high_ack', or otherwise equal to the highest sequence number
-sent so far (of the entry head->prev, as head points to the next unsent entry).
-The next while-loop ("while (1)") counts the number of acked packets starting
-from that position of seqp, going backwards in the direction from head->prev to
-tail. If NUMDUPACK=3 such packets were counted within this loop, `seqp' points
-to the last acknowledged packet of these, and the "if (done == NUMDUPACK)" block
-is entered next.
-The while-loop contained within that block in turn traverses the list backwards,
-from head to tail; the position of `seqp' is saved in the variable `last_acked'.
-For each packet not marked as `acked', a congestion event is triggered within
-the loop, and pipe is decremented. The loop terminates when `seqp' has reached
-`tail', whereupon tail is set to the position previously stored in `last_acked'.
-Thus, between `last_acked' and the previous position of `tail',
- - pipe has been decremented earlier if the packet was marked as state 0 or 1;
- - pipe was decremented if the packet was not marked as acked.
-That is, pipe has been decremented by the number of packets between `last_acked'
-and the previous position of `tail'. As a consequence, pipe now again reflects
-the number of packets which have not (yet) been acked between the new position
-of tail (at `last_acked') and head->prev, or 0 if head==tail. The result is that
-the BUG_ON condition in check_sanity will also not be triggered, hence the test
-(3) is also redundant.
+This patch collects cosmetics-only changes to separate these from
+code changes:
+ * update with regard to CodingStyle and whitespace changes,
+ * documentation:
+   - adding/revising comments,
+   - remove CCID-3 RX socket documentation which is either
+     duplicate or refers to fields that no longer exist,
+ * expand embedded tfrc_tx_info struct inline for consistency,
+   removing indirections via #define.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid2.c |   52 ------------------------------------------------
- 1 files changed, 0 insertions(+), 52 deletions(-)
+ net/dccp/ccids/ccid2.c |    4 ++--
+ net/dccp/ccids/ccid3.h |   19 +++++++------------
+ net/dccp/ccids/ccid3.c |   30 ++++++++++++++++++------------
+ 3 files changed, 27 insertions(+), 26 deletions(-)
 
 --- a/net/dccp/ccids/ccid2.c
 +++ b/net/dccp/ccids/ccid2.c
-@@ -33,51 +33,8 @@
- #ifdef CONFIG_IP_DCCP_CCID2_DEBUG
- static int ccid2_debug;
- #define ccid2_pr_debug(format, a...)	DCCP_PR_DEBUG(ccid2_debug, format, ##a)
--
--static void ccid2_hc_tx_check_sanity(const struct ccid2_hc_tx_sock *hc)
--{
--	int len = 0;
--	int pipe = 0;
--	struct ccid2_seq *seqp = hc->tx_seqh;
--
--	/* there is data in the chain */
--	if (seqp != hc->tx_seqt) {
--		seqp = seqp->ccid2s_prev;
--		len++;
--		if (!seqp->ccid2s_acked)
--			pipe++;
--
--		while (seqp != hc->tx_seqt) {
--			struct ccid2_seq *prev = seqp->ccid2s_prev;
--
--			len++;
--			if (!prev->ccid2s_acked)
--				pipe++;
--
--			/* packets are sent sequentially */
--			BUG_ON(dccp_delta_seqno(seqp->ccid2s_seq,
--						prev->ccid2s_seq ) >= 0);
--			BUG_ON(time_before(seqp->ccid2s_sent,
--					   prev->ccid2s_sent));
--
--			seqp = prev;
--		}
--	}
--
--	BUG_ON(pipe != hc->tx_pipe);
--	ccid2_pr_debug("len of chain=%d\n", len);
--
--	do {
--		seqp = seqp->ccid2s_prev;
--		len++;
--	} while (seqp != hc->tx_seqh);
--
--	ccid2_pr_debug("total len=%d\n", len);
--	BUG_ON(len != hc->tx_seqbufc * CCID2_SEQBUF_LEN);
--}
- #else
- #define ccid2_pr_debug(format, a...)
--#define ccid2_hc_tx_check_sanity(hc)
- #endif
+@@ -193,8 +193,8 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 	hc->tx_ssthresh = hc->tx_cwnd / 2;
+ 	if (hc->tx_ssthresh < 2)
+ 		hc->tx_ssthresh = 2;
+-	hc->tx_cwnd	 = 1;
+-	hc->tx_pipe	 = 0;
++	hc->tx_cwnd	= 1;
++	hc->tx_pipe	= 0;
  
- static int ccid2_hc_tx_alloc_seq(struct ccid2_hc_tx_sock *hc)
-@@ -178,8 +135,6 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 	/* clear state about stuff we sent */
+ 	hc->tx_seqt = hc->tx_seqh;
+--- a/net/dccp/ccids/ccid3.h
++++ b/net/dccp/ccids/ccid3.h
+@@ -95,14 +95,13 @@ enum ccid3_hc_tx_states {
+  * @tx_options_received:  Parsed set of retrieved options
+  */
+ struct ccid3_hc_tx_sock {
+-	struct tfrc_tx_info		tx_tfrc;
+-#define tx_x				tx_tfrc.tfrctx_x
+-#define tx_x_recv			tx_tfrc.tfrctx_x_recv
+-#define tx_x_calc			tx_tfrc.tfrctx_x_calc
+-#define tx_rtt				tx_tfrc.tfrctx_rtt
+-#define tx_p				tx_tfrc.tfrctx_p
+-#define tx_t_rto			tx_tfrc.tfrctx_rto
+-#define tx_t_ipi			tx_tfrc.tfrctx_ipi
++	u64				tx_x;
++	u64				tx_x_recv;
++	u32				tx_x_calc;
++	u32				tx_rtt;
++	u32				tx_p;
++	u32				tx_t_rto;
++	u32				tx_t_ipi;
+ 	u16				tx_s;
+ 	enum ccid3_hc_tx_states		tx_state:8;
+ 	u8				tx_last_win_count;
+@@ -131,16 +130,12 @@ enum ccid3_hc_rx_states {
  
- 	ccid2_pr_debug("RTO_EXPIRE\n");
+ /**
+  * struct ccid3_hc_rx_sock - CCID3 receiver half-connection socket
+- * @rx_x_recv:		     Receiver estimate of send rate (RFC 3448 4.3)
+- * @rx_rtt:		     Receiver estimate of rtt (non-standard)
+- * @rx_p:		     Current loss event rate (RFC 3448 5.4)
+  * @rx_last_counter:	     Tracks window counter (RFC 4342, 8.1)
+  * @rx_state:		     Receiver state, one of %ccid3_hc_rx_states
+  * @rx_bytes_recv:	     Total sum of DCCP payload bytes
+  * @rx_x_recv:		     Receiver estimate of send rate (RFC 3448, sec. 4.3)
+  * @rx_rtt:		     Receiver estimate of RTT
+  * @rx_tstamp_last_feedback: Time at which last feedback was sent
+- * @rx_tstamp_last_ack:	     Time at which last feedback was sent
+  * @rx_hist:		     Packet history (loss detection + RTT sampling)
+  * @rx_li_hist:		     Loss Interval database
+  * @rx_s:		     Received packet size in bytes
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -218,9 +218,9 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
  
--	ccid2_hc_tx_check_sanity(hc);
+ 	/*
+ 	 * Determine new allowed sending rate X as per draft rfc3448bis-00, 4.4
++	 * RTO is 0 if and only if no feedback has been received yet.
+ 	 */
+-	if (hc->tx_t_rto == 0 ||	/* no feedback received yet */
+-	    hc->tx_p == 0) {
++	if (hc->tx_t_rto == 0 || hc->tx_p == 0) {
+ 
+ 		/* halve send rate directly */
+ 		hc->tx_x = max(hc->tx_x / 2,
+@@ -256,7 +256,7 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
+ 	 * Set new timeout for the nofeedback timer.
+ 	 * See comments in packet_recv() regarding the value of t_RTO.
+ 	 */
+-	if (unlikely(hc->tx_t_rto == 0))	/* no feedback yet */
++	if (unlikely(hc->tx_t_rto == 0))	/* no feedback received yet */
+ 		t_nfb = TFRC_INITIAL_TIMEOUT;
+ 	else
+ 		t_nfb = max(hc->tx_t_rto, 2 * hc->tx_t_ipi);
+@@ -372,7 +372,7 @@ static void ccid3_hc_tx_packet_sent(struct sock *sk, int more,
+ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
+-	struct ccid3_options_received *opt_recv;
++	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
+ 	ktime_t now;
+ 	unsigned long t_nfb;
+ 	u32 pinv, r_sample;
+@@ -386,7 +386,6 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 	    hc->tx_state != TFRC_SSTATE_NO_FBACK)
+ 		return;
+ 
+-	opt_recv = &hc->tx_options_received;
+ 	now = ktime_get_real();
+ 
+ 	/* Estimate RTT from history if ACK number is valid */
+@@ -489,11 +488,9 @@ static int ccid3_hc_tx_parse_options(struct sock *sk, unsigned char option,
+ 	int rc = 0;
+ 	const struct dccp_sock *dp = dccp_sk(sk);
+ 	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
+-	struct ccid3_options_received *opt_recv;
++	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
+ 	__be32 opt_val;
+ 
+-	opt_recv = &hc->tx_options_received;
 -
- 	/* back-off timer */
- 	hc->tx_rto <<= 1;
+ 	if (opt_recv->ccid3or_seqno != dp->dccps_gsr) {
+ 		opt_recv->ccid3or_seqno		     = dp->dccps_gsr;
+ 		opt_recv->ccid3or_loss_event_rate    = ~0;
+@@ -582,6 +579,7 @@ static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
+ 				  u32 __user *optval, int __user *optlen)
+ {
+ 	const struct ccid3_hc_tx_sock *hc;
++	struct tfrc_tx_info tfrc;
+ 	const void *val;
  
-@@ -204,7 +159,6 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
- 	hc->tx_rpseq    = 0;
- 	hc->tx_rpdupack = -1;
- 	ccid2_change_l_ack_ratio(sk, 1);
--	ccid2_hc_tx_check_sanity(hc);
- out:
- 	bh_unlock_sock(sk);
- 	sock_put(sk);
-@@ -312,7 +266,6 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
+ 	/* Listen socks doesn't have a private CCID block */
+@@ -591,10 +589,17 @@ static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
+ 	hc = ccid3_hc_tx_sk(sk);
+ 	switch (optname) {
+ 	case DCCP_SOCKOPT_CCID_TX_INFO:
+-		if (len < sizeof(hc->tx_tfrc))
++		if (len < sizeof(tfrc))
+ 			return -EINVAL;
+-		len = sizeof(hc->tx_tfrc);
+-		val = &hc->tx_tfrc;
++		tfrc.tfrctx_x	   = hc->tx_x;
++		tfrc.tfrctx_x_recv = hc->tx_x_recv;
++		tfrc.tfrctx_x_calc = hc->tx_x_calc;
++		tfrc.tfrctx_rtt	   = hc->tx_rtt;
++		tfrc.tfrctx_p	   = hc->tx_p;
++		tfrc.tfrctx_rto	   = hc->tx_t_rto;
++		tfrc.tfrctx_ipi	   = hc->tx_t_ipi;
++		len = sizeof(tfrc);
++		val = &tfrc;
+ 		break;
+ 	default:
+ 		return -ENOPROTOOPT;
+@@ -749,10 +754,11 @@ static u32 ccid3_first_li(struct sock *sk)
+ 	x_recv = scaled_div32(hc->rx_bytes_recv, delta);
+ 	if (x_recv == 0) {		/* would also trigger divide-by-zero */
+ 		DCCP_WARN("X_recv==0\n");
+-		if ((x_recv = hc->rx_x_recv) == 0) {
++		if (hc->rx_x_recv == 0) {
+ 			DCCP_BUG("stored value of X_recv is zero");
+ 			return ~0U;
  		}
- 	} while (0);
- 	ccid2_pr_debug("=========\n");
--	ccid2_hc_tx_check_sanity(hc);
- #endif
- }
- 
-@@ -510,7 +463,6 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 	int done = 0;
- 	unsigned int maxincr = 0;
- 
--	ccid2_hc_tx_check_sanity(hc);
- 	/* check reverse path congestion */
- 	seqno = DCCP_SKB_CB(skb)->dccpd_seq;
- 
-@@ -694,8 +646,6 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 
- 		hc->tx_seqt = hc->tx_seqt->ccid2s_next;
++		x_recv = hc->rx_x_recv;
  	}
--
--	ccid2_hc_tx_check_sanity(hc);
- }
  
- static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
-@@ -730,8 +680,6 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
- 	hc->tx_last_cong = jiffies;
- 	setup_timer(&hc->tx_rtotimer, ccid2_hc_tx_rto_expire,
- 			(unsigned long)sk);
--
--	ccid2_hc_tx_check_sanity(hc);
- 	return 0;
- }
- 
+ 	fval = scaled_div(hc->rx_s, hc->rx_rtt);
