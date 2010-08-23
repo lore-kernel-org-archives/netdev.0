@@ -1,65 +1,71 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Fix deadlock between boomerang_interrupt and
- boomerang_start_tx in 3c59x
-Date: Mon, 23 Aug 2010 14:32:27 -0400
-Message-ID: <20100823183227.GB12906@hmsreliant.think-freely.org>
-References: <1281538818-3915-1-git-send-email-nhorman@tuxdriver.com>
- <20100811.231334.39172883.davem@davemloft.net>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH] netfilter: xt_condition: add security capability
+ support
+Date: Mon, 23 Aug 2010 21:45:01 +0300
+Message-ID: <1282589101.7198.28.camel@powerslave>
+References: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>
+	 <AANLkTi=2H+ytOQU9nC_dRp_GB5Sy1831VY14oW=YSOrG@mail.gmail.com>
+	 <1282570935.7198.5.camel@powerslave>
+	 <alpine.LNX.2.01.1008231628010.21000@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ext Changli Gao <xiaosuo@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	James Morris <jmorris@namei.org>,
+	"linux-security-module@vger.kernel.org"
+	<linux-security-module@vger.kernel.org>
+To: ext Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36445 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752584Ab0HWSiE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 14:38:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20100811.231334.39172883.davem@davemloft.net>
+Received: from mgw-sa02.nokia.com ([147.243.1.48]:57549 "EHLO
+	mgw-sa02.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753591Ab0HWSpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 14:45:17 -0400
+In-Reply-To: <alpine.LNX.2.01.1008231628010.21000@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 11, 2010 at 11:13:34PM -0700, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Wed, 11 Aug 2010 11:00:18 -0400
+On Mon, 2010-08-23 at 16:34 +0200, ext Jan Engelhardt wrote:
+> On Monday 2010-08-23 15:42, Luciano Coelho wrote:
+> >> >  /* Defaults, these can be overridden on the module command-line. */
+> >> >  static unsigned int condition_list_perms = S_IRUGO | S_IWUSR;
+> >> >  static unsigned int condition_uid_perms = 0;
+> >> >  static unsigned int condition_gid_perms = 0;
+> >> > +static unsigned int condition_capabilities = CAP_NET_ADMIN;
+> >> >
+> >> It is strange that we set security policy in this way. Maybe the
+> >> permission of the proc file is enough in this case.
+> >
+> >Yes, that is another way to do it.  But in our device we use security
+> >capabilities more extensively than normal file permissions.  That's why
+> >we need this.
+> >
+> >If this is too restrictive (ie. having CAP_NET_ADMIN) for most users, we
+> >could change the default value to no capabilities needed.  Then we can
+> >set CAP_NET_ADMIN when loading the module.
 > 
-> > @@ -2133,6 +2134,15 @@ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  			   dev->name, vp->cur_tx);
-> >  	}
-> >  
-> > +	/*
-> > +	 * We can't allow a recursion from our interrupt handler back into the
-> > +	 * tx routine, as they take the same spin lock, and that causes
-> > +	 * deadlock.  Just return NETDEV_TX_BUSY and let the stack try again in
-> > +	 * a bit
-> > +	 */
-> > +	if (vp->handling_irq)
-> > +		return NETDEV_TX_BUSY;
-> > +
-> >  	if (vp->cur_tx - vp->dirty_tx >= TX_RING_SIZE) {
-> >  		if (vortex_debug > 0)
-> >  			pr_warning("%s: BUG! Tx Ring full, refusing to send buffer.\n",
-> 
-> This is just as racy as your previous patch :-)
-> 
-> You don't hold vp->lock so right after testing this another cpu can
-> enter the interrupt handler, take the lock, and set vp->handling_irq
-> to '1'.
-> 
-> This is becomming hopeless, you can't synchronize the state without
-> holding the same lock which is giving us trouble in the first place.
-> 
-> Maybe just toss the pr_*() statements from the interrupt handler.
-> 
-> This driver is old enough that the easiest to verify fix is probably
-> the best one to make.
-> 
-> 
+> But it looks as strange as the Yama code attempt.
+
+What is so strange about it? Is it because it's possible to set the
+capability requirement from modprobe arguments? The capability check
+already exists in at least in nfnetlink, where it checks for received
+messages for the CAP_NET_ADMIN capability.  Is it strange because we're
+checking for the capability when someone tries to write to a file?
 
 
-Dave, any further thoughts here?  Is the explination regarding the lack of
-lock-race satisfactory, or would you rather we just pull all the pr_* calls from
-the interrupt handler?
+>  This is the one time 
+> where I would personally be looking into SELinux, or perhaps SMACK if 
+> the former is too complex, to whether _t'ing off procfs is possible.
 
-Neil
+Yeah, but it's not up to me to decide this.  We have one entire team
+dedicated to figuring out how to ensure "security" in our device.  It
+was that team who advised us to protect this file by checking for
+CAP_NET_ADMIN.
+
+
+-- 
+Cheers,
+Luca.
 
