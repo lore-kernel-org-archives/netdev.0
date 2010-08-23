@@ -1,39 +1,32 @@
-From: "Mrs.Tsang Siu" <d.silva@portugalmail.pt>
-Subject: Re: Business Proposal
-Date: Mon, 23 Aug 2010 23:23:10 +0100
-Message-ID: <20100823232310.d8v8vozt44wwcoc4@correio.portugalmail.pt>
-Reply-To: mrs.tsangsiu1@gmail.com
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] tcp: make TCP quick ACK behavior modifiable
+Date: Tue, 24 Aug 2010 00:26:31 +0200
+Message-ID: <20100823222631.GA3612@nuttenaction>
+References: <AANLkTimWaULcbxkUh5aCsM+6fWPaTM8CkZZh2hB_cQ3-@mail.gmail.com>
+ <20100823220129.GB2745@nuttenaction>
+ <AANLkTinb_tjcz=AF1-2i7MK=Bgm7aEtozjb3Ds0swi8q@mail.gmail.com>
+ <20100823.152330.184822588.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=UTF-8;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: chris.snook@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi, acme@redhat.com,
+	shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bld12.srv.portugalmail.net ([195.170.168.139]:49337 "EHLO
-	bld12.srv.portugalmail.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753022Ab0HWWXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 18:23:32 -0400
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:43754 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751585Ab0HWW0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 18:26:44 -0400
 Content-Disposition: inline
+In-Reply-To: <20100823.152330.184822588.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+* David Miller | 2010-08-23 15:23:30 [-0700]:
 
+>I completely agree with Chris that this should be a per-route rather
+>than a global sysctl tunable.
 
-Good Day,
-    With great pleasure, I write you this letter ,which I hope it will meet you
-in good condition of health, I am Mrs.Tsang Siu, a staff of Lloyd's TSB Group
-Plc. here in Hong Kong; I request for urgent business relationship, May I use
-this medium to seek for your co-operation and assistance in a business, that
-requires high maximum confidentiality. If you are interested please  
-reach me on
-my private email address below: (mrs.tsangsiu1@yahoo.com.hk) for more details
-of my Business Proposal.
-   Your earliest response to this letter will be appreciated.
-Yours Sincerely,
-Mrs.Tsang Siu.
+OK, then I will follow Chris and re-spin the patch!
 
-________________________________________________________________________________
-Portugalmail - O email preferido dos portugueses!
-http://www.portugalmail.pt
+HGN
