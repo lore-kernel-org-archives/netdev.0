@@ -1,184 +1,323 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/5] ccid: ccid-2/3 code cosmetics
-Date: Mon, 23 Aug 2010 07:41:36 +0200
-Message-ID: <1282542100-5799-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 5/5] dccp ccid-2: Replace broken RTT estimator with better algorithm
+Date: Mon, 23 Aug 2010 07:41:40 +0200
+Message-ID: <1282542100-5799-6-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20100820.004005.58446090.davem@davemloft.net>
  <1282542100-5799-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1282542100-5799-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1282542100-5799-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1282542100-5799-4-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1282542100-5799-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53611 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753062Ab0HWFl6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Aug 2010 01:41:58 -0400
-In-Reply-To: <1282542100-5799-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753263Ab0HWFmD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Aug 2010 01:42:03 -0400
+In-Reply-To: <1282542100-5799-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch collects cosmetics-only changes to separate these from
-code changes:
- * update with regard to CodingStyle and whitespace changes,
- * documentation:
-   - adding/revising comments,
-   - remove CCID-3 RX socket documentation which is either
-     duplicate or refers to fields that no longer exist,
- * expand embedded tfrc_tx_info struct inline for consistency,
-   removing indirections via #define.
+The current CCID-2 RTT estimator code is in parts broken and lags behind the
+suggestions in RFC2988 of using scaled variants for SRTT/RTTVAR.
+
+That code is replaced by the present patch, which reuses the Linux TCP RTT
+estimator code.
+
+Further details:
+----------------
+ 1. The minimum RTO of previously one second has been replaced with TCP's, since
+    RFC4341, sec. 5 says that the minimum of 1 sec. (suggested in RFC2988, 2.4)
+    is not necessary. Instead, the TCP_RTO_MIN is used, which agrees with DCCP's
+    concept of a default RTT (RFC 4340, 3.4).
+ 2. The maximum RTO has been set to DCCP_RTO_MAX (64 sec), which agrees with
+    RFC2988, (2.5).
+ 3. De-inlined the function ccid2_new_ack().
+ 4. Added a FIXME: the RTT is sampled several times per Ack Vector, which will
+    give the wrong estimate. It should be replaced with one sample per Ack.
+    However, at the moment this can not be resolved easily, since
+    - it depends on TX history code (which also needs some work),
+    - the cleanest solution is not to use the `sent' time at all (saves 4 bytes
+      per entry) and use DCCP timestamps / elapsed time to estimated the RTT,
+      which however is non-trivial to get right (but needs to be done).
+
+Reasons for reusing the Linux TCP estimator algorithm:
+------------------------------------------------------
+Some time was spent to find a better alternative, using basic RFC2988 as a first
+step. Further analysis and experimentation showed that the Linux TCP RTO
+estimator is superior to a basic RFC2988 implementation. A summary is on
+http://www.erg.abdn.ac.uk/users/gerrit/dccp/notes/ccid2/rto_estimator/
+
+In addition, this estimator fared well in a recent empirical evaluation:
+
+    Rewaskar, Sushant, Jasleen Kaur and F. Donelson Smith.
+    A Performance Study of Loss Detection/Recovery in Real-world TCP
+    Implementations. Proceedings of 15th IEEE International
+    Conference on Network Protocols (ICNP-07), 2007.
+
+Thus there is significant benefit in reusing the existing TCP code.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid2.c |    4 ++--
- net/dccp/ccids/ccid3.h |   19 +++++++------------
- net/dccp/ccids/ccid3.c |   30 ++++++++++++++++++------------
- 3 files changed, 27 insertions(+), 26 deletions(-)
+ net/dccp/ccids/ccid2.h |   20 ++++--
+ net/dccp/ccids/ccid2.c |  169 ++++++++++++++++++++++++++---------------------
+ 2 files changed, 108 insertions(+), 81 deletions(-)
 
+--- a/net/dccp/ccids/ccid2.h
++++ b/net/dccp/ccids/ccid2.h
+@@ -42,7 +42,12 @@ struct ccid2_seq {
+  * struct ccid2_hc_tx_sock - CCID2 TX half connection
+  * @tx_{cwnd,ssthresh,pipe}: as per RFC 4341, section 5
+  * @tx_packets_acked:	     Ack counter for deriving cwnd growth (RFC 3465)
+- * @tx_lastrtt:		     time RTT was last measured
++ * @tx_srtt:		     smoothed RTT estimate, scaled by 2^3
++ * @tx_mdev:		     smoothed RTT variation, scaled by 2^2
++ * @tx_mdev_max:	     maximum of @mdev during one flight
++ * @tx_rttvar:		     moving average/maximum of @mdev_max
++ * @tx_rto:		     RTO value deriving from SRTT and RTTVAR (RFC 2988)
++ * @tx_rtt_seq:		     to decay RTTVAR at most once per flight
+  * @tx_rpseq:		     last consecutive seqno
+  * @tx_rpdupack:	     dupacks since rpseq
+  */
+@@ -55,11 +60,16 @@ struct ccid2_hc_tx_sock {
+ 	int			tx_seqbufc;
+ 	struct ccid2_seq	*tx_seqh;
+ 	struct ccid2_seq	*tx_seqt;
+-	long			tx_rto;
+-	long			tx_srtt;
+-	long			tx_rttvar;
+-	unsigned long		tx_lastrtt;
++
++	/* RTT measurement: variables/principles are the same as in TCP */
++	u32			tx_srtt,
++				tx_mdev,
++				tx_mdev_max,
++				tx_rttvar,
++				tx_rto;
++	u64			tx_rtt_seq:48;
+ 	struct timer_list	tx_rtotimer;
++
+ 	u64			tx_rpseq;
+ 	int			tx_rpdupack;
+ 	unsigned long		tx_last_cong;
 --- a/net/dccp/ccids/ccid2.c
 +++ b/net/dccp/ccids/ccid2.c
-@@ -193,8 +193,8 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
- 	hc->tx_ssthresh = hc->tx_cwnd / 2;
- 	if (hc->tx_ssthresh < 2)
- 		hc->tx_ssthresh = 2;
--	hc->tx_cwnd	 = 1;
--	hc->tx_pipe	 = 0;
-+	hc->tx_cwnd	= 1;
-+	hc->tx_pipe	= 0;
+@@ -113,19 +113,12 @@ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
+ 	dp->dccps_l_ack_ratio = val;
+ }
  
- 	/* clear state about stuff we sent */
- 	hc->tx_seqt = hc->tx_seqh;
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -95,14 +95,13 @@ enum ccid3_hc_tx_states {
-  * @tx_options_received:  Parsed set of retrieved options
-  */
- struct ccid3_hc_tx_sock {
--	struct tfrc_tx_info		tx_tfrc;
--#define tx_x				tx_tfrc.tfrctx_x
--#define tx_x_recv			tx_tfrc.tfrctx_x_recv
--#define tx_x_calc			tx_tfrc.tfrctx_x_calc
--#define tx_rtt				tx_tfrc.tfrctx_rtt
--#define tx_p				tx_tfrc.tfrctx_p
--#define tx_t_rto			tx_tfrc.tfrctx_rto
--#define tx_t_ipi			tx_tfrc.tfrctx_ipi
-+	u64				tx_x;
-+	u64				tx_x_recv;
-+	u32				tx_x_calc;
-+	u32				tx_rtt;
-+	u32				tx_p;
-+	u32				tx_t_rto;
-+	u32				tx_t_ipi;
- 	u16				tx_s;
- 	enum ccid3_hc_tx_states		tx_state:8;
- 	u8				tx_last_win_count;
-@@ -131,16 +130,12 @@ enum ccid3_hc_rx_states {
- 
- /**
-  * struct ccid3_hc_rx_sock - CCID3 receiver half-connection socket
-- * @rx_x_recv:		     Receiver estimate of send rate (RFC 3448 4.3)
-- * @rx_rtt:		     Receiver estimate of rtt (non-standard)
-- * @rx_p:		     Current loss event rate (RFC 3448 5.4)
-  * @rx_last_counter:	     Tracks window counter (RFC 4342, 8.1)
-  * @rx_state:		     Receiver state, one of %ccid3_hc_rx_states
-  * @rx_bytes_recv:	     Total sum of DCCP payload bytes
-  * @rx_x_recv:		     Receiver estimate of send rate (RFC 3448, sec. 4.3)
-  * @rx_rtt:		     Receiver estimate of RTT
-  * @rx_tstamp_last_feedback: Time at which last feedback was sent
-- * @rx_tstamp_last_ack:	     Time at which last feedback was sent
-  * @rx_hist:		     Packet history (loss detection + RTT sampling)
-  * @rx_li_hist:		     Loss Interval database
-  * @rx_s:		     Received packet size in bytes
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -218,9 +218,9 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
- 
- 	/*
- 	 * Determine new allowed sending rate X as per draft rfc3448bis-00, 4.4
-+	 * RTO is 0 if and only if no feedback has been received yet.
- 	 */
--	if (hc->tx_t_rto == 0 ||	/* no feedback received yet */
--	    hc->tx_p == 0) {
-+	if (hc->tx_t_rto == 0 || hc->tx_p == 0) {
- 
- 		/* halve send rate directly */
- 		hc->tx_x = max(hc->tx_x / 2,
-@@ -256,7 +256,7 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
- 	 * Set new timeout for the nofeedback timer.
- 	 * See comments in packet_recv() regarding the value of t_RTO.
- 	 */
--	if (unlikely(hc->tx_t_rto == 0))	/* no feedback yet */
-+	if (unlikely(hc->tx_t_rto == 0))	/* no feedback received yet */
- 		t_nfb = TFRC_INITIAL_TIMEOUT;
- 	else
- 		t_nfb = max(hc->tx_t_rto, 2 * hc->tx_t_ipi);
-@@ -372,7 +372,7 @@ static void ccid3_hc_tx_packet_sent(struct sock *sk, int more,
- static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
--	struct ccid3_options_received *opt_recv;
-+	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
- 	ktime_t now;
- 	unsigned long t_nfb;
- 	u32 pinv, r_sample;
-@@ -386,7 +386,6 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 	    hc->tx_state != TFRC_SSTATE_NO_FBACK)
- 		return;
- 
--	opt_recv = &hc->tx_options_received;
- 	now = ktime_get_real();
- 
- 	/* Estimate RTT from history if ACK number is valid */
-@@ -489,11 +488,9 @@ static int ccid3_hc_tx_parse_options(struct sock *sk, unsigned char option,
- 	int rc = 0;
- 	const struct dccp_sock *dp = dccp_sk(sk);
- 	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
--	struct ccid3_options_received *opt_recv;
-+	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
- 	__be32 opt_val;
- 
--	opt_recv = &hc->tx_options_received;
+-static void ccid2_change_srtt(struct ccid2_hc_tx_sock *hc, long val)
+-{
+-	ccid2_pr_debug("change SRTT to %ld\n", val);
+-	hc->tx_srtt = val;
+-}
 -
- 	if (opt_recv->ccid3or_seqno != dp->dccps_gsr) {
- 		opt_recv->ccid3or_seqno		     = dp->dccps_gsr;
- 		opt_recv->ccid3or_loss_event_rate    = ~0;
-@@ -582,6 +579,7 @@ static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
- 				  u32 __user *optval, int __user *optlen)
+ static void ccid2_start_rto_timer(struct sock *sk);
+ 
+ static void ccid2_hc_tx_rto_expire(unsigned long data)
  {
- 	const struct ccid3_hc_tx_sock *hc;
-+	struct tfrc_tx_info tfrc;
- 	const void *val;
+ 	struct sock *sk = (struct sock *)data;
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+-	long s;
  
- 	/* Listen socks doesn't have a private CCID block */
-@@ -591,10 +589,17 @@ static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
- 	hc = ccid3_hc_tx_sk(sk);
- 	switch (optname) {
- 	case DCCP_SOCKOPT_CCID_TX_INFO:
--		if (len < sizeof(hc->tx_tfrc))
-+		if (len < sizeof(tfrc))
- 			return -EINVAL;
--		len = sizeof(hc->tx_tfrc);
--		val = &hc->tx_tfrc;
-+		tfrc.tfrctx_x	   = hc->tx_x;
-+		tfrc.tfrctx_x_recv = hc->tx_x_recv;
-+		tfrc.tfrctx_x_calc = hc->tx_x_calc;
-+		tfrc.tfrctx_rtt	   = hc->tx_rtt;
-+		tfrc.tfrctx_p	   = hc->tx_p;
-+		tfrc.tfrctx_rto	   = hc->tx_t_rto;
-+		tfrc.tfrctx_ipi	   = hc->tx_t_ipi;
-+		len = sizeof(tfrc);
-+		val = &tfrc;
- 		break;
- 	default:
- 		return -ENOPROTOOPT;
-@@ -749,10 +754,11 @@ static u32 ccid3_first_li(struct sock *sk)
- 	x_recv = scaled_div32(hc->rx_bytes_recv, delta);
- 	if (x_recv == 0) {		/* would also trigger divide-by-zero */
- 		DCCP_WARN("X_recv==0\n");
--		if ((x_recv = hc->rx_x_recv) == 0) {
-+		if (hc->rx_x_recv == 0) {
- 			DCCP_BUG("stored value of X_recv is zero");
- 			return ~0U;
- 		}
-+		x_recv = hc->rx_x_recv;
+ 	bh_lock_sock(sk);
+ 	if (sock_owned_by_user(sk)) {
+@@ -137,10 +130,8 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 
+ 	/* back-off timer */
+ 	hc->tx_rto <<= 1;
+-
+-	s = hc->tx_rto / HZ;
+-	if (s > 60)
+-		hc->tx_rto = 60 * HZ;
++	if (hc->tx_rto > DCCP_RTO_MAX)
++		hc->tx_rto = DCCP_RTO_MAX;
+ 
+ 	ccid2_start_rto_timer(sk);
+ 
+@@ -168,7 +159,7 @@ static void ccid2_start_rto_timer(struct sock *sk)
+ {
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+ 
+-	ccid2_pr_debug("setting RTO timeout=%ld\n", hc->tx_rto);
++	ccid2_pr_debug("setting RTO timeout=%u\n", hc->tx_rto);
+ 
+ 	BUG_ON(timer_pending(&hc->tx_rtotimer));
+ 	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
+@@ -339,9 +330,86 @@ static void ccid2_hc_tx_kill_rto_timer(struct sock *sk)
+ 	ccid2_pr_debug("deleted RTO timer\n");
+ }
+ 
+-static inline void ccid2_new_ack(struct sock *sk,
+-				 struct ccid2_seq *seqp,
+-				 unsigned int *maxincr)
++/**
++ * ccid2_rtt_estimator - Sample RTT and compute RTO using RFC2988 algorithm
++ * This code is almost identical with TCP's tcp_rtt_estimator(), since
++ * - it has a higher sampling frequency (recommended by RFC 1323),
++ * - the RTO does not collapse into RTT due to RTTVAR going towards zero,
++ * - it is simple (cf. more complex proposals such as Eifel timer or research
++ *   which suggests that the gain should be set according to window size),
++ * - in tests it was found to work well with CCID2 [gerrit].
++ */
++static void ccid2_rtt_estimator(struct sock *sk, const long mrtt)
++{
++	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
++	long m = mrtt ? : 1;
++
++	if (hc->tx_srtt == 0) {
++		/* First measurement m */
++		hc->tx_srtt = m << 3;
++		hc->tx_mdev = m << 1;
++
++		hc->tx_mdev_max = max(TCP_RTO_MIN, hc->tx_mdev);
++		hc->tx_rttvar   = hc->tx_mdev_max;
++		hc->tx_rtt_seq  = dccp_sk(sk)->dccps_gss;
++	} else {
++		/* Update scaled SRTT as SRTT += 1/8 * (m - SRTT) */
++		m -= (hc->tx_srtt >> 3);
++		hc->tx_srtt += m;
++
++		/* Similarly, update scaled mdev with regard to |m| */
++		if (m < 0) {
++			m = -m;
++			m -= (hc->tx_mdev >> 2);
++			/*
++			 * This neutralises RTO increase when RTT < SRTT - mdev
++			 * (see P. Sarolahti, A. Kuznetsov,"Congestion Control
++			 * in Linux TCP", USENIX 2002, pp. 49-62).
++			 */
++			if (m > 0)
++				m >>= 3;
++		} else {
++			m -= (hc->tx_mdev >> 2);
++		}
++		hc->tx_mdev += m;
++
++		if (hc->tx_mdev > hc->tx_mdev_max) {
++			hc->tx_mdev_max = hc->tx_mdev;
++			if (hc->tx_mdev_max > hc->tx_rttvar)
++				hc->tx_rttvar = hc->tx_mdev_max;
++		}
++
++		/*
++		 * Decay RTTVAR at most once per flight, exploiting that
++		 *  1) pipe <= cwnd <= Sequence_Window = W  (RFC 4340, 7.5.2)
++		 *  2) AWL = GSS-W+1 <= GAR <= GSS          (RFC 4340, 7.5.1)
++		 * GAR is a useful bound for FlightSize = pipe.
++		 * AWL is probably too low here, as it over-estimates pipe.
++		 */
++		if (after48(dccp_sk(sk)->dccps_gar, hc->tx_rtt_seq)) {
++			if (hc->tx_mdev_max < hc->tx_rttvar)
++				hc->tx_rttvar -= (hc->tx_rttvar -
++						  hc->tx_mdev_max) >> 2;
++			hc->tx_rtt_seq  = dccp_sk(sk)->dccps_gss;
++			hc->tx_mdev_max = TCP_RTO_MIN;
++		}
++	}
++
++	/*
++	 * Set RTO from SRTT and RTTVAR
++	 * As in TCP, 4 * RTTVAR >= TCP_RTO_MIN, giving a minimum RTO of 200 ms.
++	 * This agrees with RFC 4341, 5:
++	 *	"Because DCCP does not retransmit data, DCCP does not require
++	 *	 TCP's recommended minimum timeout of one second".
++	 */
++	hc->tx_rto = (hc->tx_srtt >> 3) + hc->tx_rttvar;
++
++	if (hc->tx_rto > DCCP_RTO_MAX)
++		hc->tx_rto = DCCP_RTO_MAX;
++}
++
++static void ccid2_new_ack(struct sock *sk, struct ccid2_seq *seqp,
++			  unsigned int *maxincr)
+ {
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+ 
+@@ -355,64 +423,15 @@ static inline void ccid2_new_ack(struct sock *sk,
+ 			hc->tx_cwnd += 1;
+ 			hc->tx_packets_acked = 0;
  	}
+-
+-	/* update RTO */
+-	if (hc->tx_srtt == -1 ||
+-	    time_after(jiffies, hc->tx_lastrtt + hc->tx_srtt)) {
+-		unsigned long r = (long)jiffies - (long)seqp->ccid2s_sent;
+-		int s;
+-
+-		/* first measurement */
+-		if (hc->tx_srtt == -1) {
+-			ccid2_pr_debug("R: %lu Time=%lu seq=%llu\n",
+-				       r, jiffies,
+-				       (unsigned long long)seqp->ccid2s_seq);
+-			ccid2_change_srtt(hc, r);
+-			hc->tx_rttvar = r >> 1;
+-		} else {
+-			/* RTTVAR */
+-			long tmp = hc->tx_srtt - r;
+-			long srtt;
+-
+-			if (tmp < 0)
+-				tmp *= -1;
+-
+-			tmp >>= 2;
+-			hc->tx_rttvar *= 3;
+-			hc->tx_rttvar >>= 2;
+-			hc->tx_rttvar += tmp;
+-
+-			/* SRTT */
+-			srtt = hc->tx_srtt;
+-			srtt *= 7;
+-			srtt >>= 3;
+-			tmp = r >> 3;
+-			srtt += tmp;
+-			ccid2_change_srtt(hc, srtt);
+-		}
+-		s = hc->tx_rttvar << 2;
+-		/* clock granularity is 1 when based on jiffies */
+-		if (!s)
+-			s = 1;
+-		hc->tx_rto = hc->tx_srtt + s;
+-
+-		/* must be at least a second */
+-		s = hc->tx_rto / HZ;
+-		/* DCCP doesn't require this [but I like it cuz my code sux] */
+-#if 1
+-		if (s < 1)
+-			hc->tx_rto = HZ;
+-#endif
+-		/* max 60 seconds */
+-		if (s > 60)
+-			hc->tx_rto = HZ * 60;
+-
+-		hc->tx_lastrtt = jiffies;
+-
+-		ccid2_pr_debug("srtt: %ld rttvar: %ld rto: %ld (HZ=%d) R=%lu\n",
+-			       hc->tx_srtt, hc->tx_rttvar,
+-			       hc->tx_rto, HZ, r);
+-	}
++	/*
++	 * FIXME: RTT is sampled several times per acknowledgment (for each
++	 * entry in the Ack Vector), instead of once per Ack (as in TCP SACK).
++	 * This causes the RTT to be over-estimated, since the older entries
++	 * in the Ack Vector have earlier sending times.
++	 * The cleanest solution is to not use the ccid2s_sent field at all
++	 * and instead use DCCP timestamps: requires changes in other places.
++	 */
++	ccid2_rtt_estimator(sk, jiffies - seqp->ccid2s_sent);
+ }
  
- 	fval = scaled_div(hc->rx_s, hc->rx_rtt);
+ static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
+@@ -662,9 +681,7 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
+ 	if (ccid2_hc_tx_alloc_seq(hc))
+ 		return -ENOMEM;
+ 
+-	hc->tx_rto	 = 3 * HZ;
+-	ccid2_change_srtt(hc, -1);
+-	hc->tx_rttvar    = -1;
++	hc->tx_rto	 = DCCP_TIMEOUT_INIT;
+ 	hc->tx_rpdupack  = -1;
+ 	hc->tx_last_cong = jiffies;
+ 	setup_timer(&hc->tx_rtotimer, ccid2_hc_tx_rto_expire,
