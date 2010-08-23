@@ -1,75 +1,77 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: IPsec: Why do pfkey_getspi and xfrm_alloc_userspi call xfrm_find_acq_byseq?
-Date: Mon, 23 Aug 2010 16:47:18 +0200
-Message-ID: <4C7289F6.3060802@6wind.com>
-References: <4C6D29B9.5070403@6wind.com> <20100822.005353.260099324.davem@davemloft.net> <4C727806.3060102@6wind.com>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: Re: [PATCH 2/2] platform: Facilitate the creation of pseudo-platform buses
+Date: Mon, 23 Aug 2010 07:53:40 -0700
+Message-ID: <87tyml1itn.fsf@deeprootsystems.com>
+References: <1281484174-32174-1-git-send-email-ppannuto@codeaurora.org>
+	<1281484174-32174-3-git-send-email-ppannuto@codeaurora.org>
+	<3F978429-F916-42E5-8B36-6AC02DAC8CA2@boeing.com>
+	<AANLkTi=Pm8BL+Ksq1o7MYpV7mMH10bEPu1=Am9EgT-Kk@mail.gmail.com>
+	<87hbiql89d.fsf@deeprootsystems.com>
+	<AANLkTinaddiPAcokH3fRVYAFf3N-Gz--U5Jd1iyNsi+m@mail.gmail.com>
+	<87hbip9kxx.fsf@deeprootsystems.com>
+	<AANLkTine=VLLm4+ReKeMKBdbV1JsunNagwKxGMDhEe8e@mail.gmail.com>
+	<87y6c03jxj.fsf@deeprootsystems.com>
+	<AANLkTi=WKcb59jJQuLVfqJG07Et+cU75GOC5Lrr_dXR4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:35251 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752964Ab0HWOtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 10:49:55 -0400
-Received: by wwe15 with SMTP id 15so198837wwe.1
-        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 07:49:54 -0700 (PDT)
-In-Reply-To: <4C727806.3060102@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Moffett\, Kyle D" <Kyle.D.Moffett@boeing.com>,
+	Patrick Pannuto <ppannuto@codeaurora.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-msm\@vger.kernel.org" <linux-arm-msm@vger.kernel.org>,
+	"magnus.damm\@gmail.com" <magnus.damm@gmail.com>,
+	"gregkh\@suse.de" <gregkh@suse.de>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Magnus Damm <damm@opensource.se>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Dmitry Torokhov <dtor@mail.ru>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kyle D Moffett <kyle@moffetthome.net>
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=WKcb59jJQuLVfqJG07Et+cU75GOC5Lrr_dXR4@mail.gmail.com>
+	(Grant Likely's message of "Sat, 21 Aug 2010 01:10:05 -0600")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Christophe Gouault wrote:
-> Hi David,
->
-> First of all, thank you for your answer.
->
-> David Miller wrote:
->> From: Christophe Gouault <christophe.gouault@6wind.com>
->> Date: Thu, 19 Aug 2010 14:55:21 +0200
+Grant Likely <grant.likely@secretlab.ca> writes:
+
+>>> If the override is global to the platform_bus_type, then the model
+>>> will not scale.
 >>
->>> The call to xfrm_find_acq_byseq() by the pfkey_getspi() and
->>> xfrm_alloc_userspi() functions is quite costly and proves to entail
->>> scalability issues when performing thousands of IKE negotiations with
->>> racoon (from ipsec-tools distribution) or charon (from strongswan
->>> distribution).
->>>
->>> Removing this call in the kernel drastically accelerates the
->>> processing and does not seem to entail functional problems.
->>>
->>> For now, I don't see the point of this call. I need to understand its
->>> purpose, because I'm highly tempted to simply remove it.
->> First of all, removing a function because you don't understand
->> why it's there is rarely a good idea :-)
-> Yes, don't worry, I never act that way. I was deliberately a little 
-> provocative ;-)
->> I think the semantics require that we check for existing ACQUIRE
->> state entries before we allocate an SPI.
-> Well, I still don't see in which case this can happen. The only 
-> situations in which an ACQUIRE state entry is created is when an 
-> acquire message is raised by the kernel (this creates a temporary 
-> outbound state) or when a getspi is issued from the userland (this 
-> creates a temporary state, as far as I know, this is the future 
-> inbound state negotiated by IKE).
+>> It will not scale any more (or less) than the current functionality =
+of
+>> the driver model which handles this globally. =A0Again, if scalabilt=
+y
+>> becomes a problem down the road, lets fix it then.
 >
-> In my humble opinion, issuing a getspi for the output state does not 
-> make sense since the SPI is chosen by the destination host.
-> So the possibly existing ACQUIRE state entry would be the result of a 
-> former getspi with the same value of the seq field. So this call would 
-> aim at cancelling a former call to getspi,
-Correction: it does not cancel the former call but returns the existing 
-ACQUIRE state entry.
+> Alright, I can agree to that.  I do agree that the runtime override i=
+s
+> far and away better than the weak symbol approach.  However, there
+> needs to be some very clear rules in place for users of the override,
+> namely that users must understand that they are stewards of the
+> platform_bus_type, and must take care to preserve the default
+> behaviour for "uninteresting" devices.
 
-By the way, is it possible that the first call (to xfrm_find_acq_byseq) 
-returns a state that the second call (to xfrm_find_acq) would not find?
-> maybe to cope with an application that would retry a failed 
-> negotiation before the former getspi expired?... I'm not really 
-> convinced by this explanation.
->
-> But there are maybe other uses of the getspi call than assigning a SPI 
-> for the inbound state of an IKE negotiation...
->> The likelyhood of breaking something if you remove the call is very
->> high.
-> Probably. I'm still interested in a concrete example ;-)
->
-> Christophe
+Completely agree here.
+
+Any overrides of the dev_pm_ops functions that do not also call the
+pm_generic_* functions (or their equivalents) should be suspect.
+
+I'll post a proposal for a runtime override shortly.
+
+> Also, the expectation should be that it is a temporary measure until =
+a
+> better abstraction is implemented.  It might be that a separate
+> bus_type is the way to go (if the multiple driver registration proble=
+m
+> can be solved) or it might be a way to differentiate pm_ops either
+> per-device or per-parent.  I'm not sure, but I'm starting on an OMAP
+> project soon, so I may very well end up working on this.
+
+Yes, I'll be glad to work on this too, but first I need to get through
+reviewing the backlog of all the OMAP drivers we're converting to
+runtime PM.
+
+Kevin
