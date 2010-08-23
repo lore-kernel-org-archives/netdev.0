@@ -1,66 +1,41 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/1] posix clocks: introduce syscall for clock tuning.
-Date: Mon, 23 Aug 2010 10:55:26 +0200
-Message-ID: <20100823085526.GB18510@riccoc20.at.omicron.at>
-References: <cover.1282550649.git.richard.cochran@omicron.at>
- <e253843e07ce5d15c2c8d11ce786bf979ed85ca5.1282550649.git.richard.cochran@omicron.at>
- <AANLkTi=Fa38ufwR8PDc+HBHmLT53eWRA0ofrobm0n9-w@mail.gmail.com>
+From: Yinglin Luan <synmyth@gmail.com>
+Subject: Re: [PATCH] netxen: fix poll implementation
+Date: Mon, 23 Aug 2010 17:04:23 +0800
+Message-ID: <4C723997.8020807@gmail.com>
+References: <AANLkTikHt2tY7qPqfeXaRUqMudV1vZ3Wo46D=mxcuD2f@mail.gmail.com> <20100822.184347.245404843.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bert Wesarg <bert.wesarg@googlemail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, monstr@monstr.eu
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:51226 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752667Ab0HWIzN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 04:55:13 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=Fa38ufwR8PDc+HBHmLT53eWRA0ofrobm0n9-w@mail.gmail.com>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:60761 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753501Ab0HWJEb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 05:04:31 -0400
+Received: by pwi7 with SMTP id 7so2003517pwi.19
+        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 02:04:31 -0700 (PDT)
+In-Reply-To: <20100822.184347.245404843.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 23, 2010 at 10:25:35AM +0200, Bert Wesarg wrote:
-> On Mon, Aug 23, 2010 at 10:16, Richard Cochran <richardcochran@gmail.=
-com> wrote:
-> > diff --git a/kernel/compat.c b/kernel/compat.c
-> > index 5adab05..df1e469 100644
-> > --- a/kernel/compat.c
-> > +++ b/kernel/compat.c
-> > @@ -628,6 +628,26 @@ long compat_sys_clock_gettime(clockid_t which_=
-clock,
-> > =A0 =A0 =A0 =A0return err;
-> > =A0}
-> >
-> > +long compat_sys_clock_adjtime(clockid_t which_clock, int ppb,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct compat_timespec __user *tp)
-> > +{
-> > + =A0 =A0 =A0 long err;
-> > + =A0 =A0 =A0 mm_segment_t oldfs;
-> > + =A0 =A0 =A0 struct timespec ts, *ptr =3D NULL;
->=20
-> Shouldn't ptr be initialized with tp?
+> 
+> Both of your patches have been severely corrupted by your email
+> client.
+> 
+> For example, tab characters have been changed into spaces.
+> 
+> This makes your patches unusable.
+> 
+> Please read Documentation/email-clients.txt to learn how to correct
+> this, try sending a patch to yourself and verify that it arrives
+> to you correctly and can be applied properly, then resubmit your
+> patches.
+> 
+> Thanks.
+Sorry, it's my first time to submit patches to kernel community. I
+use Gmail web client, and it automatically converts tabs to spaces.
+I change my e-mail client to Thunderbird and configure it as
+Documentation/email-clients.txt says. It shouled be applied properly, 
+I have resubmit it just now, please check it again. Thanks a lot!
 
-It could be, but the logic turns out the same either way. The
-semantics of the call is, if 'tp' is NULL, then adjust the frequency
-by 'ppb', otherwise adjust clock time by 'tp'.
-
->=20
-> > +
-> > + =A0 =A0 =A0 if (tp) {
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (get_compat_timespec(&ts, tp))
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EFAULT;
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ptr =3D &ts;
-> > + =A0 =A0 =A0 }
-> > + =A0 =A0 =A0 oldfs =3D get_fs();
-> > + =A0 =A0 =A0 set_fs(KERNEL_DS);
-> > + =A0 =A0 =A0 err =3D sys_clock_adjtime(which_clock, ppb,
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 (stru=
-ct timespec __user *) ptr);
-> > + =A0 =A0 =A0 set_fs(oldfs);
-> > + =A0 =A0 =A0 return err;
-> > +}
-> > +
-> > =A0long compat_sys_clock_getres(clockid_t which_clock,
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct compat_timespec __user *tp)
-> > =A0{
