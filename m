@@ -1,42 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: define __packed for the userspace code
-Date: Sun, 22 Aug 2010 19:36:09 -0700 (PDT)
-Message-ID: <20100822.193609.35028164.davem@davemloft.net>
-References: <AANLkTiktOcAvAxcXUxh+4jKh0nBmYCf0OVG0wqRNMb9T@mail.gmail.com>
-	<20100822.183624.28802617.davem@davemloft.net>
-	<AANLkTikBcuYa_HNzhYYG62CLjcfptQNQM_zOsv9fXRfS@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikBcuYa_HNzhYYG62CLjcfptQNQM_zOsv9fXRfS@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Changli Gao <xiaosuo@gmail.com>
-Date: Mon, 23 Aug 2010 10:29:49 +0800
+Subject: [PATCH] net: rds: remove duplication type definitions
+Date: Mon, 23 Aug 2010 10:41:59 +0800
+Message-ID: <1282531319-13083-1-git-send-email-xiaosuo@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:34444 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749Ab0HWCmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 22:42:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Do you mean that use the __attribute__((packed)) annotation in all of
-> these files:
-> 
-> localhost linux # grep "\<__packed\>" usr/include/ -r | uniq
-> usr/include/linux/if_hippi.h:} __packed;
-> usr/include/linux/if_fddi.h:} __packed;
-> usr/include/linux/nbd.h:} __packed;
-> usr/include/linux/ncp.h:} __packed;
-> usr/include/linux/rfkill.h:} __packed;
-> usr/include/linux/if_pppox.h:} __packed;
-> usr/include/linux/phonet.h:} __packed;
-> usr/include/linux/ipv6.h:} __packed;    /* required for some archs */
-> usr/include/linux/ipv6.h:} __packed;
-> usr/include/linux/if_ether.h:} __packed;
+__be* are defined in linux/types.h now, and in fact, rds.h isn't exported
+to user space even.
 
-It seems so, yes.
-
-There is no way that anybody has tried to compile anything in
-userspace using these headers with the __packed usage there.
-
-If they would, they would surely see a compile failure.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ include/linux/rds.h |    9 ---------
+ 1 file changed, 9 deletions(-)
+diff --git a/include/linux/rds.h b/include/linux/rds.h
+index 24bce3d..7f3971d 100644
+--- a/include/linux/rds.h
++++ b/include/linux/rds.h
+@@ -36,15 +36,6 @@
+ 
+ #include <linux/types.h>
+ 
+-/* These sparse annotated types shouldn't be in any user
+- * visible header file. We should clean this up rather
+- * than kludging around them. */
+-#ifndef __KERNEL__
+-#define __be16	u_int16_t
+-#define __be32	u_int32_t
+-#define __be64	u_int64_t
+-#endif
+-
+ #define RDS_IB_ABI_VERSION		0x301
+ 
+ /*
