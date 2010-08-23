@@ -1,128 +1,109 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/5] dccp ccid-3: No more CCID control blocks in LISTEN state
-Date: Mon, 23 Aug 2010 07:41:37 +0200
-Message-ID: <1282542100-5799-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/5] dccp ccid-2: Simplify dec_pipe and rearming of RTO timer
+Date: Mon, 23 Aug 2010 07:41:39 +0200
+Message-ID: <1282542100-5799-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <20100820.004005.58446090.davem@davemloft.net>
  <1282542100-5799-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1282542100-5799-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1282542100-5799-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1282542100-5799-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53587 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753068Ab0HWFlz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Aug 2010 01:41:55 -0400
-In-Reply-To: <1282542100-5799-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753062Ab0HWFlv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Aug 2010 01:41:51 -0400
+In-Reply-To: <1282542100-5799-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The CCIDs are activated as last of the features, at the end of the handshake,
-were the LISTEN state of the master socket is inherited into the server
-state of the child socket. Thus, the only states visible to CCIDs now are
-OPEN/PARTOPEN, and the closing states.
+This removes the dec_pipe function and improves the way the RTO timer is rearmed
+when a new acknowledgment comes in.
 
-This allows to remove tests which were previously necessary to protect
-against referencing a socket in the listening state (in CCID-3), but which
-now have become redundant.
+Details and justification for removal:
+--------------------------------------
+ 1) The BUG_ON in dec_pipe is never triggered: pipe is only decremented for TX
+    history entries between tail and head, for which it had previously been
+    incremented in tx_packet_sent; and it is not decremented twice for the same
+    entry, since it is
+    - either decremented when a corresponding Ack Vector cell in state 0 or 1
+      was received (and then ccid2s_acked==1),
+    - or it is decremented when ccid2s_acked==0, as part of the loss detection
+      in tx_packet_recv (and hence it can not have been decremented earlier).
 
-As a further byproduct of enabling the CCIDs only after the connection has been
-fully established, several typecast-initialisations of ccid3_hc_{rx,tx}_sock
-can now be eliminated:
- * the CCID is loaded, so it is not necessary to test if it is NULL,
- * if it is possible to load a CCID and leave the private area NULL, then this
-    is a bug, which should crash loudly - and earlier,
- * the test for state==OPEN || state==PARTOPEN now reduces only to the closing
-   phase (e.g. when the node has received an unexpected Reset).
+ 2) Restarting the RTO timer happens for every single entry in each Ack Vector
+    parsed by tx_packet_recv (according to RFC 4340, 11.4 this can happen up to
+    16192 times per Ack Vector).
+
+ 3) The RTO timer should not be restarted when all outstanding data has been
+    acknowledged. This is currently done similar to (2), in dec_pipe, when
+    pipe has reached 0.
+
+The patch onsolidates the code which rearms the RTO timer, combining the
+segments from new_ack and dec_pipe. As a result, the code becomes clearer
+(compare with tcp_rearm_rto()).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Acked-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
- net/dccp/ccids/ccid3.c |   40 +++++++---------------------------------
- 1 files changed, 7 insertions(+), 33 deletions(-)
+ net/dccp/ccids/ccid2.c |   27 ++++++++-------------------
+ 1 files changed, 8 insertions(+), 19 deletions(-)
 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -564,29 +564,17 @@ static void ccid3_hc_tx_exit(struct sock *sk)
- 
- static void ccid3_hc_tx_get_info(struct sock *sk, struct tcp_info *info)
- {
--	struct ccid3_hc_tx_sock *hc;
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -413,23 +413,6 @@ static inline void ccid2_new_ack(struct sock *sk,
+ 			       hc->tx_srtt, hc->tx_rttvar,
+ 			       hc->tx_rto, HZ, r);
+ 	}
 -
--	/* Listen socks doesn't have a private CCID block */
--	if (sk->sk_state == DCCP_LISTEN)
--		return;
+-	/* we got a new ack, so re-start RTO timer */
+-	ccid2_hc_tx_kill_rto_timer(sk);
+-	ccid2_start_rto_timer(sk);
+-}
 -
--	hc = ccid3_hc_tx_sk(sk);
--	info->tcpi_rto = hc->tx_t_rto;
--	info->tcpi_rtt = hc->tx_rtt;
-+	info->tcpi_rto = ccid3_hc_tx_sk(sk)->tx_t_rto;
-+	info->tcpi_rtt = ccid3_hc_tx_sk(sk)->tx_rtt;
+-static void ccid2_hc_tx_dec_pipe(struct sock *sk)
+-{
+-	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+-
+-	if (hc->tx_pipe == 0)
+-		DCCP_BUG("pipe == 0");
+-	else
+-		hc->tx_pipe--;
+-
+-	if (hc->tx_pipe == 0)
+-		ccid2_hc_tx_kill_rto_timer(sk);
  }
  
- static int ccid3_hc_tx_getsockopt(struct sock *sk, const int optname, int len,
- 				  u32 __user *optval, int __user *optlen)
- {
--	const struct ccid3_hc_tx_sock *hc;
-+	const struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
- 	struct tfrc_tx_info tfrc;
- 	const void *val;
+ static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
+@@ -572,7 +555,7 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 					seqp->ccid2s_acked = 1;
+ 					ccid2_pr_debug("Got ack for %llu\n",
+ 						       (unsigned long long)seqp->ccid2s_seq);
+-					ccid2_hc_tx_dec_pipe(sk);
++					hc->tx_pipe--;
+ 				}
+ 				if (seqp == hc->tx_seqt) {
+ 					done = 1;
+@@ -629,7 +612,7 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 				 * one ack vector.
+ 				 */
+ 				ccid2_congestion_event(sk, seqp);
+-				ccid2_hc_tx_dec_pipe(sk);
++				hc->tx_pipe--;
+ 			}
+ 			if (seqp == hc->tx_seqt)
+ 				break;
+@@ -646,6 +629,12 @@ static void ccid2_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
  
--	/* Listen socks doesn't have a private CCID block */
--	if (sk->sk_state == DCCP_LISTEN)
--		return -EINVAL;
--
--	hc = ccid3_hc_tx_sk(sk);
- 	switch (optname) {
- 	case DCCP_SOCKOPT_CCID_TX_INFO:
- 		if (len < sizeof(tfrc))
-@@ -706,14 +694,12 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
- 
- static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
- {
--	const struct ccid3_hc_rx_sock *hc;
-+	const struct ccid3_hc_rx_sock *hc = ccid3_hc_rx_sk(sk);
- 	__be32 x_recv, pinv;
- 
- 	if (!(sk->sk_state == DCCP_OPEN || sk->sk_state == DCCP_PARTOPEN))
- 		return 0;
- 
--	hc = ccid3_hc_rx_sk(sk);
--
- 	if (dccp_packet_without_ack(skb))
- 		return 0;
- 
-@@ -876,30 +862,18 @@ static void ccid3_hc_rx_exit(struct sock *sk)
- 
- static void ccid3_hc_rx_get_info(struct sock *sk, struct tcp_info *info)
- {
--	const struct ccid3_hc_rx_sock *hc;
--
--	/* Listen socks doesn't have a private CCID block */
--	if (sk->sk_state == DCCP_LISTEN)
--		return;
--
--	hc = ccid3_hc_rx_sk(sk);
--	info->tcpi_ca_state = hc->rx_state;
-+	info->tcpi_ca_state = ccid3_hc_rx_sk(sk)->rx_state;
- 	info->tcpi_options  |= TCPI_OPT_TIMESTAMPS;
--	info->tcpi_rcv_rtt  = hc->rx_rtt;
-+	info->tcpi_rcv_rtt  = ccid3_hc_rx_sk(sk)->rx_rtt;
+ 		hc->tx_seqt = hc->tx_seqt->ccid2s_next;
+ 	}
++
++	/* restart RTO timer if not all outstanding data has been acked */
++	if (hc->tx_pipe == 0)
++		sk_stop_timer(sk, &hc->tx_rtotimer);
++	else
++		sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
  }
  
- static int ccid3_hc_rx_getsockopt(struct sock *sk, const int optname, int len,
- 				  u32 __user *optval, int __user *optlen)
- {
--	const struct ccid3_hc_rx_sock *hc;
-+	const struct ccid3_hc_rx_sock *hc = ccid3_hc_rx_sk(sk);
- 	struct tfrc_rx_info rx_info;
- 	const void *val;
- 
--	/* Listen socks doesn't have a private CCID block */
--	if (sk->sk_state == DCCP_LISTEN)
--		return -EINVAL;
--
--	hc = ccid3_hc_rx_sk(sk);
- 	switch (optname) {
- 	case DCCP_SOCKOPT_CCID_RX_INFO:
- 		if (len < sizeof(rx_info))
+ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
