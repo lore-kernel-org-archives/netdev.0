@@ -1,42 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 00/20] ibmveth update
-Date: Sun, 22 Aug 2010 19:15:27 -0700 (PDT)
-Message-ID: <20100822.191527.229727237.davem@davemloft.net>
-References: <20100823000930.546065833@samba.org>
-	<20100822.185722.232757433.davem@davemloft.net>
-	<20100823020713.GA8095@kryten>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: define __packed for the userspace code
+Date: Mon, 23 Aug 2010 10:29:49 +0800
+Message-ID: <AANLkTikBcuYa_HNzhYYG62CLjcfptQNQM_zOsv9fXRfS@mail.gmail.com>
+References: <AANLkTin1BOgHBc4sTwFAmQhKFNvZ+90herc4Dsh9P8y2@mail.gmail.com>
+ <201008221507.42023.arnd@arndb.de> <AANLkTiktOcAvAxcXUxh+4jKh0nBmYCf0OVG0wqRNMb9T@mail.gmail.com>
+ <20100822.183624.28802617.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com, santil@linux.vnet.ibm.com,
-	netdev@vger.kernel.org
-To: anton@samba.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47155
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752713Ab0HWCPK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 22:15:10 -0400
-In-Reply-To: <20100823020713.GA8095@kryten>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: arnd@arndb.de, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100822.183624.28802617.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anton Blanchard <anton@samba.org>
-Date: Mon, 23 Aug 2010 12:07:13 +1000
+On Mon, Aug 23, 2010 at 9:36 AM, David Miller <davem@davemloft.net> wro=
+te:
+>
+> I don't think this it the reason it was being used here.
+>
+> Any, for one thing, we definitely cannot remove the existing packed
+> markers or else we will break every single userland tool out there
+> using these socket address structures.
+>
+> Even the first two members (sa_family_t and unsigned int) will be
+> positioned differently if we remove the marker.
+>
+> I suspect the packed attribute is there to make sure the pppo* socket
+> address structures fit within the generic socket address object size.
+> (see struct __kernel_sockaddr_storage and struct sockaddr).
+>
+> As to the problem at-hand, I think we need to use __attribute__((pack=
+ed))
+> here. =A0And that's what I'll commit into net-2.6 and net-next-2.6
+>
 
->> Might I suggest that we have a central person who gathers and
->> submits all of the ibmveth driver changes to me?  That way I
->> don't have to ask questions like this.
-> 
-> I'll ask the ibmveth maintainter (Santi) to roll up Robert and my patches for
-> submission.
+Do you mean that use the __attribute__((packed)) annotation in all of
+these files:
 
-Perfect.
+localhost linux # grep "\<__packed\>" usr/include/ -r | uniq
+usr/include/linux/if_hippi.h:} __packed;
+usr/include/linux/if_fddi.h:} __packed;
+usr/include/linux/nbd.h:} __packed;
+usr/include/linux/ncp.h:} __packed;
+usr/include/linux/rfkill.h:} __packed;
+usr/include/linux/if_pppox.h:} __packed;
+usr/include/linux/phonet.h:} __packed;
+usr/include/linux/ipv6.h:} __packed;    /* required for some archs */
+usr/include/linux/ipv6.h:} __packed;
+usr/include/linux/if_ether.h:} __packed;
 
->> There is also no entry for this driver in MAINTAINERS, which I
->> also would like to see fixed quickly. :-)
-> 
-> Agreed, my last patch fixes that very issue :)
-
-Awesome :)
-
-Thanks!
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
