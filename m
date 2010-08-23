@@ -1,30 +1,30 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 4/6] bna: Brocade 10Gb Ethernet device driver
-Date: Mon, 23 Aug 2010 14:27:24 -0700
-Message-ID: <201008232127.o7NLROvw002376@blc-10-10.brocade.com>
+Subject: [PATCH 5/6] bna: Brocade 10Gb Ethernet device driver
+Date: Mon, 23 Aug 2010 14:28:24 -0700
+Message-ID: <201008232128.o7NLSO0e002679@blc-10-10.brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <amathur@brocade.com>, <ddutt@brocade.com>, <huangj@brocade.com>,
 	<rmody@brocade.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:55324 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:55386 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753985Ab0HWV1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 17:27:31 -0400
+	by vger.kernel.org with ESMTP id S1754649Ab0HWV2a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 17:28:30 -0400
 Received: from pps.filterd (m0000700 [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.14.3/8.14.3) with SMTP id o7NLKQPm022585
-	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:27:30 -0700
-Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.140.11])
-	by mx0b-000f0801.pphosted.com with ESMTP id qv0mm00en-2
+	by mx0b-000f0801.pphosted.com (8.14.3/8.14.3) with SMTP id o7NLKdQl022771
+	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:28:29 -0700
+Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.141.11])
+	by mx0b-000f0801.pphosted.com with ESMTP id qv0mm00ff-4
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:27:26 -0700
+	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:28:26 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rasesh Mody <rmody@brocade.com>
 
-This is patch 4/6 which contains linux driver source for
+This is patch 5/6 which contains linux driver source for
 Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
 Source is based against net-next-2.6.
 
@@ -33,16 +33,25 @@ We wish this patch to be considered for inclusion in net-next-2.6
 Signed-off-by: Debashis Dutt <ddutt@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- bfa_ioc.c   | 1839 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- bna.h       |  654 +++++++++++++++++++++
- bna_hw.h    | 1491 ++++++++++++++++++++++++++++++++++++++++++++++++
- bna_types.h | 1128 ++++++++++++++++++++++++++++++++++++
- 4 files changed, 5112 insertions(+)
+ bfa_cee.h           |   72 +++++
+ bfa_defs.h          |  243 +++++++++++++++++++
+ bfa_defs_cna.h      |  223 ++++++++++++++++++
+ bfa_defs_mfg_comm.h |  244 +++++++++++++++++++
+ bfa_defs_status.h   |  216 +++++++++++++++++
+ bfa_ioc.h           |  343 ++++++++++++++++++++++++++++
+ bfa_sm.h            |   88 +++++++
+ bfa_wc.h            |   69 +++++
+ bfi.h               |  392 ++++++++++++++++++++++++++++++++
+ bfi_cna.h           |  199 ++++++++++++++++
+ bfi_ctreg.h         |  637 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ bfi_ll.h            |  438 +++++++++++++++++++++++++++++++++++
+ cna.h               |   81 ++++++
+ 13 files changed, 3245 insertions(+)
 
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_ioc.c net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_ioc.c
---- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_ioc.c	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_ioc.c	2010-08-23 13:24:47.336967000 -0700
-@@ -0,0 +1,1839 @@
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_cee.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_cee.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_cee.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_cee.h	2010-08-23 13:24:47.755901000 -0700
+@@ -0,0 +1,72 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -61,2489 +70,538 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_ioc.c net-next-2.6.35-rc1
 + * www.brocade.com
 + */
 +
++#ifndef __BFA_CEE_H__
++#define __BFA_CEE_H__
++
++#include "bfa_defs_cna.h"
 +#include "bfa_ioc.h"
++
++typedef void (*bfa_cee_get_attr_cbfn_t) (void *dev, enum bfa_status status);
++typedef void (*bfa_cee_get_stats_cbfn_t) (void *dev, enum bfa_status status);
++typedef void (*bfa_cee_reset_stats_cbfn_t) (void *dev, enum bfa_status status);
++typedef void (*bfa_cee_hbfail_cbfn_t) (void *dev, enum bfa_status status);
++
++struct bfa_cee_cbfn {
++	bfa_cee_get_attr_cbfn_t    get_attr_cbfn;
++	void *get_attr_cbarg;
++	bfa_cee_get_stats_cbfn_t   get_stats_cbfn;
++	void *get_stats_cbarg;
++	bfa_cee_reset_stats_cbfn_t reset_stats_cbfn;
++	void *reset_stats_cbarg;
++};
++
++struct bfa_cee {
++	void *dev;
++	bool get_attr_pending;
++	bool get_stats_pending;
++	bool reset_stats_pending;
++	enum bfa_status get_attr_status;
++	enum bfa_status get_stats_status;
++	enum bfa_status reset_stats_status;
++	struct bfa_cee_cbfn cbfn;
++	struct bfa_ioc_hbfail_notify hbfail;
++	struct bfa_cee_attr *attr;
++	struct bfa_cee_stats *stats;
++	struct bfa_dma attr_dma;
++	struct bfa_dma stats_dma;
++	struct bfa_ioc *ioc;
++	struct bfa_mbox_cmd get_cfg_mb;
++	struct bfa_mbox_cmd get_stats_mb;
++	struct bfa_mbox_cmd reset_stats_mb;
++};
++
++u32 bfa_cee_meminfo(void);
++void bfa_cee_mem_claim(struct bfa_cee *cee, u8 *dma_kva,
++	u64 dma_pa);
++void bfa_cee_attach(struct bfa_cee *cee, struct bfa_ioc *ioc, void *dev);
++void bfa_cee_detach(struct bfa_cee *cee);
++enum bfa_status bfa_cee_get_attr(struct bfa_cee *cee,
++	struct bfa_cee_attr *attr, bfa_cee_get_attr_cbfn_t cbfn, void *cbarg);
++enum bfa_status bfa_cee_get_stats(struct bfa_cee *cee,
++	struct bfa_cee_stats *stats, bfa_cee_get_stats_cbfn_t cbfn,
++	void *cbarg);
++enum bfa_status bfa_cee_reset_stats(struct bfa_cee *cee,
++	bfa_cee_reset_stats_cbfn_t cbfn, void *cbarg);
++
++#endif /* __BFA_CEE_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_defs.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_defs.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_defs.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_defs.h	2010-08-23 13:24:47.835887000 -0700
+@@ -0,0 +1,243 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++
++#ifndef __BFA_DEFS_H__
++#define __BFA_DEFS_H__
++
 +#include "cna.h"
-+#include "bfi.h"
-+#include "bfi_ctreg.h"
++#include "bfa_defs_status.h"
++#include "bfa_defs_mfg_comm.h"
++
++#define BFA_STRING_32	32
++#define BFA_VERSION_LEN 64
++
++/**
++ * ---------------------- adapter definitions ------------
++ */
++
++/**
++ * BFA adapter level attributes.
++ */
++enum {
++	BFA_ADAPTER_SERIAL_NUM_LEN = STRSZ(BFA_MFG_SERIALNUM_SIZE),
++					/*
++					 *!< adapter serial num length
++					 */
++	BFA_ADAPTER_MODEL_NAME_LEN  = 16,  /*!< model name length */
++	BFA_ADAPTER_MODEL_DESCR_LEN = 128, /*!< model description length */
++	BFA_ADAPTER_MFG_NAME_LEN    = 8,   /*!< manufacturer name length */
++	BFA_ADAPTER_SYM_NAME_LEN    = 64,  /*!< adapter symbolic name length */
++	BFA_ADAPTER_OS_TYPE_LEN	    = 64,  /*!< adapter os type length */
++};
++
++struct bfa_adapter_attr {
++	char		manufacturer[BFA_ADAPTER_MFG_NAME_LEN];
++	char		serial_num[BFA_ADAPTER_SERIAL_NUM_LEN];
++	u32	card_type;
++	char		model[BFA_ADAPTER_MODEL_NAME_LEN];
++	char		model_descr[BFA_ADAPTER_MODEL_DESCR_LEN];
++	u64		pwwn;
++	char		node_symname[FC_SYMNAME_MAX];
++	char		hw_ver[BFA_VERSION_LEN];
++	char		fw_ver[BFA_VERSION_LEN];
++	char		optrom_ver[BFA_VERSION_LEN];
++	char		os_type[BFA_ADAPTER_OS_TYPE_LEN];
++	struct bfa_mfg_vpd vpd;
++	struct mac mac;
++
++	u8		nports;
++	u8		max_speed;
++	u8		prototype;
++	char	        asic_rev;
++
++	u8		pcie_gen;
++	u8		pcie_lanes_orig;
++	u8		pcie_lanes;
++	u8	        cna_capable;
++
++	u8		is_mezz;
++	u8		trunk_capable;
++};
++
++/**
++ * ---------------------- IOC definitions ------------
++ */
++
++enum {
++	BFA_IOC_DRIVER_LEN	= 16,
++	BFA_IOC_CHIP_REV_LEN 	= 8,
++};
++
++/**
++ * Driver and firmware versions.
++ */
++struct bfa_ioc_driver_attr {
++	char		driver[BFA_IOC_DRIVER_LEN];	/*!< driver name */
++	char		driver_ver[BFA_VERSION_LEN];	/*!< driver version */
++	char		fw_ver[BFA_VERSION_LEN];	/*!< firmware version */
++	char		bios_ver[BFA_VERSION_LEN];	/*!< bios version */
++	char		efi_ver[BFA_VERSION_LEN];	/*!< EFI version */
++	char		ob_ver[BFA_VERSION_LEN];	/*!< openboot version */
++};
++
++/**
++ * IOC PCI device attributes
++ */
++struct bfa_ioc_pci_attr {
++	u16	vendor_id;	/*!< PCI vendor ID */
++	u16	device_id;	/*!< PCI device ID */
++	u16	ssid;		/*!< subsystem ID */
++	u16	ssvid;		/*!< subsystem vendor ID */
++	u32	pcifn;		/*!< PCI device function */
++	u32	rsvd;		/* padding */
++	char		chip_rev[BFA_IOC_CHIP_REV_LEN];	 /*!< chip revision */
++};
++
++/**
++ * IOC states
++ */
++enum bfa_ioc_state {
++	BFA_IOC_RESET		= 1,	/*!< IOC is in reset state */
++	BFA_IOC_SEMWAIT		= 2,	/*!< Waiting for IOC h/w semaphore */
++	BFA_IOC_HWINIT		= 3,	/*!< IOC h/w is being initialized */
++	BFA_IOC_GETATTR		= 4,	/*!< IOC is being configured */
++	BFA_IOC_OPERATIONAL	= 5,	/*!< IOC is operational */
++	BFA_IOC_INITFAIL	= 6,	/*!< IOC hardware failure */
++	BFA_IOC_HBFAIL		= 7,	/*!< IOC heart-beat failure */
++	BFA_IOC_DISABLING	= 8,	/*!< IOC is being disabled */
++	BFA_IOC_DISABLED	= 9,	/*!< IOC is disabled */
++	BFA_IOC_FWMISMATCH	= 10,	/*!< IOC f/w different from drivers */
++};
++
++/**
++ * IOC firmware stats
++ */
++struct bfa_fw_ioc_stats {
++	u32	enable_reqs;
++	u32	disable_reqs;
++	u32	get_attr_reqs;
++	u32	dbg_sync;
++	u32	dbg_dump;
++	u32	unknown_reqs;
++};
++
++/**
++ * IOC driver stats
++ */
++struct bfa_ioc_drv_stats {
++	u32	ioc_isrs;
++	u32	ioc_enables;
++	u32	ioc_disables;
++	u32	ioc_hbfails;
++	u32	ioc_boots;
++	u32	stats_tmos;
++	u32	hb_count;
++	u32	disable_reqs;
++	u32	enable_reqs;
++	u32	disable_replies;
++	u32	enable_replies;
++};
++
++/**
++ * IOC statistics
++ */
++struct bfa_ioc_stats {
++	struct bfa_ioc_drv_stats drv_stats; /*!< driver IOC stats */
++	struct bfa_fw_ioc_stats fw_stats;  /*!< firmware IOC stats */
++};
++
++enum bfa_ioc_type {
++	BFA_IOC_TYPE_FC		= 1,
++	BFA_IOC_TYPE_FCoE	= 2,
++	BFA_IOC_TYPE_LL		= 3,
++};
++
++/**
++ * IOC attributes returned in queries
++ */
++struct bfa_ioc_attr {
++	enum bfa_ioc_type ioc_type;
++	enum bfa_ioc_state 		state;		/*!< IOC state      */
++	struct bfa_adapter_attr adapter_attr;	/*!< HBA attributes */
++	struct bfa_ioc_driver_attr driver_attr;	/*!< driver attr    */
++	struct bfa_ioc_pci_attr pci_attr;
++	u8				port_id;	/*!< port number    */
++	u8				rsvd[7];	/*!< 64bit align    */
++};
++
++/**
++ * ---------------------- mfg definitions ------------
++ */
++
++/**
++ * Checksum size
++ */
++#define BFA_MFG_CHKSUM_SIZE			16
++
++#define BFA_MFG_PARTNUM_SIZE			14
++#define BFA_MFG_SUPPLIER_ID_SIZE		10
++#define BFA_MFG_SUPPLIER_PARTNUM_SIZE		20
++#define BFA_MFG_SUPPLIER_SERIALNUM_SIZE		20
++#define BFA_MFG_SUPPLIER_REVISION_SIZE		4
++
++#pragma pack(1)
++
++/**
++ * @brief BFA adapter manufacturing block definition.
++ *
++ * All numerical fields are in big-endian format.
++ */
++struct bfa_mfg_block {
++	u8		version;	/*!< manufacturing block version */
++	u8		mfg_sig[3];	/*!< characters 'M', 'F', 'G' */
++	u16	mfgsize;	/*!< mfg block size */
++	u16	u16_chksum;	/*!< old u16 checksum */
++	char		brcd_serialnum[STRSZ(BFA_MFG_SERIALNUM_SIZE)];
++	char		brcd_partnum[STRSZ(BFA_MFG_PARTNUM_SIZE)];
++	u8		mfg_day;	/*!< manufacturing day */
++	u8		mfg_month;	/*!< manufacturing month */
++	u16	mfg_year;	/*!< manufacturing year */
++	u64		mfg_wwn;	/*!< wwn base for this adapter */
++	u8		num_wwn;	/*!< number of wwns assigned */
++	u8		mfg_speeds;	/*!< speeds allowed for this adapter */
++	u8		rsv[2];
++	char		supplier_id[STRSZ(BFA_MFG_SUPPLIER_ID_SIZE)];
++	char		supplier_partnum[STRSZ(BFA_MFG_SUPPLIER_PARTNUM_SIZE)];
++	char
++		supplier_serialnum[STRSZ(BFA_MFG_SUPPLIER_SERIALNUM_SIZE)];
++	char
++		supplier_revision[STRSZ(BFA_MFG_SUPPLIER_REVISION_SIZE)];
++	mac_t		mfg_mac;	/*!< mac address */
++	u8		num_mac;	/*!< number of mac addresses */
++	u8		rsv2;
++	u32	mfg_type;	/*!< card type */
++	u8		rsv3[108];
++	u8		md5_chksum[BFA_MFG_CHKSUM_SIZE]; /*!< md5 checksum */
++};
++
++#pragma pack()
++
++/**
++ * ---------------------- pci definitions ------------
++ */
++
++#define bfa_asic_id_ct(devid)			\
++	((devid) == PCI_DEVICE_ID_BROCADE_CT ||	\
++	(devid) == PCI_DEVICE_ID_BROCADE_CT_FC)
++
++#endif /* __BFA_DEFS_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_defs_cna.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_defs_cna.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_defs_cna.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_defs_cna.h	2010-08-23 13:24:47.847892000 -0700
+@@ -0,0 +1,223 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++
++#ifndef __BFA_DEFS_CNA_H__
++#define __BFA_DEFS_CNA_H__
++
 +#include "bfa_defs.h"
 +
 +/**
-+ * IOC local definitions
++ * @brief
++ * FC physical port statistics.
 + */
-+
-+#define bfa_ioc_timer_start(__ioc)					\
-+	mod_timer(&(__ioc)->ioc_timer, jiffies +	\
-+			msecs_to_jiffies(BFA_IOC_TOV))
-+#define bfa_ioc_timer_stop(__ioc)   del_timer(&(__ioc)->ioc_timer)
-+
-+#define bfa_ioc_recovery_timer_start(__ioc)				\
-+	mod_timer(&(__ioc)->ioc_timer, jiffies +	\
-+			msecs_to_jiffies(BFA_IOC_TOV_RECOVER))
-+
-+#define bfa_sem_timer_start(__ioc)					\
-+	mod_timer(&(__ioc)->sem_timer, jiffies +	\
-+			msecs_to_jiffies(BFA_IOC_HWSEM_TOV))
-+#define bfa_sem_timer_stop(__ioc)	del_timer(&(__ioc)->sem_timer)
-+
-+#define bfa_hb_timer_start(__ioc)					\
-+	mod_timer(&(__ioc)->hb_timer, jiffies +		\
-+			msecs_to_jiffies(BFA_IOC_HB_TOV))
-+#define bfa_hb_timer_stop(__ioc)	del_timer(&(__ioc)->hb_timer)
-+
-+/**
-+ * Asic specific macros : see bfa_hw_cb.c and bfa_hw_ct.c for details.
-+ */
-+
-+#define bfa_ioc_firmware_lock(__ioc)			\
-+			((__ioc)->ioc_hwif->ioc_firmware_lock(__ioc))
-+#define bfa_ioc_firmware_unlock(__ioc)			\
-+			((__ioc)->ioc_hwif->ioc_firmware_unlock(__ioc))
-+#define bfa_ioc_reg_init(__ioc) ((__ioc)->ioc_hwif->ioc_reg_init(__ioc))
-+#define bfa_ioc_map_port(__ioc) ((__ioc)->ioc_hwif->ioc_map_port(__ioc))
-+#define bfa_ioc_notify_hbfail(__ioc)			\
-+			((__ioc)->ioc_hwif->ioc_notify_hbfail(__ioc))
-+
-+#define bfa_ioc_is_optrom(__ioc)	\
-+	(bfa_cb_image_get_size(BFA_IOC_FWIMG_TYPE(__ioc)) < BFA_IOC_FWIMG_MINSZ)
-+
-+#define bfa_ioc_mbox_cmd_pending(__ioc)		\
-+			(!list_empty(&((__ioc)->mbox_mod.cmd_q)) || \
-+			readl((__ioc)->ioc_regs.hfn_mbox_cmd))
-+
-+bool bfa_auto_recover = true;
-+
-+/*
-+ * forward declarations
-+ */
-+static void bfa_ioc_hw_sem_get(struct bfa_ioc *ioc);
-+static void bfa_ioc_hw_sem_get_cancel(struct bfa_ioc *ioc);
-+static void bfa_ioc_hwinit(struct bfa_ioc *ioc, bool force);
-+static void bfa_ioc_send_enable(struct bfa_ioc *ioc);
-+static void bfa_ioc_send_disable(struct bfa_ioc *ioc);
-+static void bfa_ioc_send_getattr(struct bfa_ioc *ioc);
-+static void bfa_ioc_hb_monitor(struct bfa_ioc *ioc);
-+static void bfa_ioc_hb_stop(struct bfa_ioc *ioc);
-+static void bfa_ioc_reset(struct bfa_ioc *ioc, bool force);
-+static void bfa_ioc_mbox_poll(struct bfa_ioc *ioc);
-+static void bfa_ioc_mbox_hbfail(struct bfa_ioc *ioc);
-+static void bfa_ioc_recover(struct bfa_ioc *ioc);
-+static void bfa_ioc_check_attr_wwns(struct bfa_ioc *ioc);
-+static void bfa_ioc_disable_comp(struct bfa_ioc *ioc);
-+static void bfa_ioc_lpu_stop(struct bfa_ioc *ioc);
-+
-+/**
-+ * IOC state machine events
-+ */
-+enum ioc_event {
-+	IOC_E_ENABLE		= 1,	/*!< IOC enable request		*/
-+	IOC_E_DISABLE		= 2,	/*!< IOC disable request	*/
-+	IOC_E_TIMEOUT		= 3,	/*!< f/w response timeout	*/
-+	IOC_E_FWREADY		= 4,	/*!< f/w initialization done	*/
-+	IOC_E_FWRSP_GETATTR	= 5,	/*!< IOC get attribute response	*/
-+	IOC_E_FWRSP_ENABLE	= 6,	/*!< enable f/w response	*/
-+	IOC_E_FWRSP_DISABLE	= 7,	/*!< disable f/w response	*/
-+	IOC_E_HBFAIL		= 8,	/*!< heartbeat failure		*/
-+	IOC_E_HWERROR		= 9,	/*!< hardware error interrupt	*/
-+	IOC_E_SEMLOCKED		= 10,	/*!< h/w semaphore is locked	*/
-+	IOC_E_DETACH		= 11,	/*!< driver detach cleanup	*/
-+};
-+
-+bfa_fsm_state_decl(bfa_ioc, reset, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, fwcheck, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, mismatch, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, semwait, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, hwinit, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, enabling, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, getattr, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, op, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, initfail, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, hbfail, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, disabling, struct bfa_ioc, enum ioc_event);
-+bfa_fsm_state_decl(bfa_ioc, disabled, struct bfa_ioc, enum ioc_event);
-+
-+static struct bfa_sm_table ioc_sm_table[] = {
-+	{BFA_SM(bfa_ioc_sm_reset), BFA_IOC_RESET},
-+	{BFA_SM(bfa_ioc_sm_fwcheck), BFA_IOC_FWMISMATCH},
-+	{BFA_SM(bfa_ioc_sm_mismatch), BFA_IOC_FWMISMATCH},
-+	{BFA_SM(bfa_ioc_sm_semwait), BFA_IOC_SEMWAIT},
-+	{BFA_SM(bfa_ioc_sm_hwinit), BFA_IOC_HWINIT},
-+	{BFA_SM(bfa_ioc_sm_enabling), BFA_IOC_HWINIT},
-+	{BFA_SM(bfa_ioc_sm_getattr), BFA_IOC_GETATTR},
-+	{BFA_SM(bfa_ioc_sm_op), BFA_IOC_OPERATIONAL},
-+	{BFA_SM(bfa_ioc_sm_initfail), BFA_IOC_INITFAIL},
-+	{BFA_SM(bfa_ioc_sm_hbfail), BFA_IOC_HBFAIL},
-+	{BFA_SM(bfa_ioc_sm_disabling), BFA_IOC_DISABLING},
-+	{BFA_SM(bfa_ioc_sm_disabled), BFA_IOC_DISABLED},
++struct bfa_port_fc_stats {
++	u64	secs_reset;	/*!< Seconds since stats is reset */
++	u64	tx_frames;	/*!< Tx frames			*/
++	u64	tx_words;	/*!< Tx words			*/
++	u64	tx_lip;		/*!< Tx LIP			*/
++	u64	tx_nos;		/*!< Tx NOS			*/
++	u64	tx_ols;		/*!< Tx OLS			*/
++	u64	tx_lr;		/*!< Tx LR			*/
++	u64	tx_lrr;		/*!< Tx LRR			*/
++	u64	rx_frames;	/*!< Rx frames			*/
++	u64	rx_words;	/*!< Rx words			*/
++	u64	lip_count;	/*!< Rx LIP			*/
++	u64	nos_count;	/*!< Rx NOS			*/
++	u64	ols_count;	/*!< Rx OLS			*/
++	u64	lr_count;	/*!< Rx LR			*/
++	u64	lrr_count;	/*!< Rx LRR			*/
++	u64	invalid_crcs;	/*!< Rx CRC err frames		*/
++	u64	invalid_crc_gd_eof; /*!< Rx CRC err good EOF frames */
++	u64	undersized_frm; /*!< Rx undersized frames	*/
++	u64	oversized_frm;	/*!< Rx oversized frames	*/
++	u64	bad_eof_frm;	/*!< Rx frames with bad EOF	*/
++	u64	error_frames;	/*!< Errored frames		*/
++	u64	dropped_frames;	/*!< Dropped frames		*/
++	u64	link_failures;	/*!< Link Failure (LF) count	*/
++	u64	loss_of_syncs;	/*!< Loss of sync count		*/
++	u64	loss_of_signals; /*!< Loss of signal count	*/
++	u64	primseq_errs;	/*!< Primitive sequence protocol err. */
++	u64	bad_os_count;	/*!< Invalid ordered sets	*/
++	u64	err_enc_out;	/*!< Encoding err nonframe_8b10b */
++	u64	err_enc;	/*!< Encoding err frame_8b10b	*/
 +};
 +
 +/**
-+ * Reset entry actions -- initialize state machine
++ * @brief
++ * Eth Physical Port statistics.
 + */
-+static void
-+bfa_ioc_sm_reset_entry(struct bfa_ioc *ioc)
-+{
-+	ioc->retry_count = 0;
-+	ioc->auto_recover = bfa_auto_recover;
-+}
-+
-+/**
-+ * Beginning state. IOC is in reset state.
-+ */
-+static void
-+bfa_ioc_sm_reset(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_ENABLE:
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_fwcheck);
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		bfa_ioc_disable_comp(ioc);
-+		break;
-+
-+	case IOC_E_DETACH:
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+/**
-+ * Semaphore should be acquired for version check.
-+ */
-+static void
-+bfa_ioc_sm_fwcheck_entry(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_hw_sem_get(ioc);
-+}
-+
-+/**
-+ * Awaiting h/w semaphore to continue with version check.
-+ */
-+static void
-+bfa_ioc_sm_fwcheck(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_SEMLOCKED:
-+		if (bfa_ioc_firmware_lock(ioc)) {
-+			ioc->retry_count = 0;
-+			bfa_fsm_set_state(ioc, bfa_ioc_sm_hwinit);
-+		} else {
-+			bfa_ioc_hw_sem_release(ioc);
-+			bfa_fsm_set_state(ioc, bfa_ioc_sm_mismatch);
-+		}
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		bfa_ioc_disable_comp(ioc);
-+		/* fall through */
-+
-+	case IOC_E_DETACH:
-+		bfa_ioc_hw_sem_get_cancel(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_reset);
-+		break;
-+
-+	case IOC_E_FWREADY:
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+/**
-+ * Notify enable completion callback and generate mismatch AEN.
-+ */
-+static void
-+bfa_ioc_sm_mismatch_entry(struct bfa_ioc *ioc)
-+{
-+	/**
-+	 * Provide enable completion callback and AEN notification only once.
-+	 */
-+	if (ioc->retry_count == 0)
-+		ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_IOC_FAILURE);
-+	ioc->retry_count++;
-+	bfa_ioc_timer_start(ioc);
-+}
-+
-+/**
-+ * Awaiting firmware version match.
-+ */
-+static void
-+bfa_ioc_sm_mismatch(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_TIMEOUT:
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_fwcheck);
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		bfa_ioc_disable_comp(ioc);
-+		/* fall through */
-+
-+	case IOC_E_DETACH:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_reset);
-+		break;
-+
-+	case IOC_E_FWREADY:
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+/**
-+ * Request for semaphore.
-+ */
-+static void
-+bfa_ioc_sm_semwait_entry(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_hw_sem_get(ioc);
-+}
-+
-+/**
-+ * Awaiting semaphore for h/w initialzation.
-+ */
-+static void
-+bfa_ioc_sm_semwait(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_SEMLOCKED:
-+		ioc->retry_count = 0;
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_hwinit);
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		bfa_ioc_hw_sem_get_cancel(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabled);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+static void
-+bfa_ioc_sm_hwinit_entry(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_timer_start(ioc);
-+	bfa_ioc_reset(ioc, false);
-+}
++struct bfa_port_eth_stats {
++	u64	secs_reset;	/*!< Seconds since stats is reset */
++	u64	frame_64;	/*!< Frames 64 bytes		*/
++	u64	frame_65_127;	/*!< Frames 65-127 bytes	*/
++	u64	frame_128_255;	/*!< Frames 128-255 bytes	*/
++	u64	frame_256_511;	/*!< Frames 256-511 bytes	*/
++	u64	frame_512_1023;	/*!< Frames 512-1023 bytes	*/
++	u64	frame_1024_1518; /*!< Frames 1024-1518 bytes	*/
++	u64	frame_1519_1522; /*!< Frames 1519-1522 bytes	*/
++	u64	tx_bytes;	/*!< Tx bytes			*/
++	u64	tx_packets;	 /*!< Tx packets		*/
++	u64	tx_mcast_packets; /*!< Tx multicast packets	*/
++	u64	tx_bcast_packets; /*!< Tx broadcast packets	*/
++	u64	tx_control_frame; /*!< Tx control frame		*/
++	u64	tx_drop;	/*!< Tx drops			*/
++	u64	tx_jabber;	/*!< Tx jabber			*/
++	u64	tx_fcs_error;	/*!< Tx FCS errors		*/
++	u64	tx_fragments;	/*!< Tx fragments		*/
++	u64	rx_bytes;	/*!< Rx bytes			*/
++	u64	rx_packets;	/*!< Rx packets			*/
++	u64	rx_mcast_packets; /*!< Rx multicast packets	*/
++	u64	rx_bcast_packets; /*!< Rx broadcast packets	*/
++	u64	rx_control_frames; /*!< Rx control frames	*/
++	u64	rx_unknown_opcode; /*!< Rx unknown opcode	*/
++	u64	rx_drop;	/*!< Rx drops			*/
++	u64	rx_jabber;	/*!< Rx jabber			*/
++	u64	rx_fcs_error;	/*!< Rx FCS errors		*/
++	u64	rx_alignment_error; /*!< Rx alignment errors	*/
++	u64	rx_frame_length_error; /*!< Rx frame len errors	*/
++	u64	rx_code_error;	/*!< Rx code errors		*/
++	u64	rx_fragments;	/*!< Rx fragments		*/
++	u64	rx_pause;	/*!< Rx pause			*/
++	u64	rx_zero_pause;	/*!< Rx zero pause		*/
++	u64	tx_pause;	/*!< Tx pause			*/
++	u64	tx_zero_pause;	/*!< Tx zero pause		*/
++	u64	rx_fcoe_pause;	/*!< Rx FCoE pause		*/
++	u64	rx_fcoe_zero_pause; /*!< Rx FCoE zero pause	*/
++	u64	tx_fcoe_pause;	/*!< Tx FCoE pause		*/
++	u64	tx_fcoe_zero_pause; /*!< Tx FCoE zero pause	*/
++};
 +
 +/**
 + * @brief
-+ * Hardware is being initialized. Interrupts are enabled.
-+ * Holding hardware semaphore lock.
++ *		Port statistics.
 + */
-+static void
-+bfa_ioc_sm_hwinit(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_FWREADY:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_enabling);
-+		break;
-+
-+	case IOC_E_HWERROR:
-+		bfa_ioc_timer_stop(ioc);
-+		/* fall through */
-+
-+	case IOC_E_TIMEOUT:
-+		ioc->retry_count++;
-+		if (ioc->retry_count < BFA_IOC_HWINIT_MAX) {
-+			bfa_ioc_timer_start(ioc);
-+			bfa_ioc_reset(ioc, true);
-+			break;
-+		}
-+
-+		bfa_ioc_hw_sem_release(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_initfail);
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		bfa_ioc_hw_sem_release(ioc);
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabled);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+static void
-+bfa_ioc_sm_enabling_entry(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_timer_start(ioc);
-+	bfa_ioc_send_enable(ioc);
-+}
-+
-+/**
-+ * Host IOC function is being enabled, awaiting response from firmware.
-+ * Semaphore is acquired.
-+ */
-+static void
-+bfa_ioc_sm_enabling(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_FWRSP_ENABLE:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_ioc_hw_sem_release(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_getattr);
-+		break;
-+
-+	case IOC_E_HWERROR:
-+		bfa_ioc_timer_stop(ioc);
-+		/* fall through */
-+
-+	case IOC_E_TIMEOUT:
-+		ioc->retry_count++;
-+		if (ioc->retry_count < BFA_IOC_HWINIT_MAX) {
-+			writel(BFI_IOC_UNINIT,
-+				      ioc->ioc_regs.ioc_fwstate);
-+			bfa_fsm_set_state(ioc, bfa_ioc_sm_hwinit);
-+			break;
-+		}
-+
-+		bfa_ioc_hw_sem_release(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_initfail);
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_ioc_hw_sem_release(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabled);
-+		break;
-+
-+	case IOC_E_FWREADY:
-+		bfa_ioc_send_enable(ioc);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+static void
-+bfa_ioc_sm_getattr_entry(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_timer_start(ioc);
-+	bfa_ioc_send_getattr(ioc);
-+}
-+
-+/**
-+ * @brief
-+ * IOC configuration in progress. Timer is active.
-+ */
-+static void
-+bfa_ioc_sm_getattr(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_FWRSP_GETATTR:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_ioc_check_attr_wwns(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_op);
-+		break;
-+
-+	case IOC_E_HWERROR:
-+		bfa_ioc_timer_stop(ioc);
-+		/* fall through */
-+
-+	case IOC_E_TIMEOUT:
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_initfail);
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabled);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+static void
-+bfa_ioc_sm_op_entry(struct bfa_ioc *ioc)
-+{
-+	ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_OK);
-+	bfa_ioc_hb_monitor(ioc);
-+}
-+
-+static void
-+bfa_ioc_sm_op(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_ENABLE:
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		bfa_ioc_hb_stop(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabling);
-+		break;
-+
-+	case IOC_E_HWERROR:
-+	case IOC_E_FWREADY:
-+		/**
-+		 * Hard error or IOC recovery by other function.
-+		 * Treat it same as heartbeat failure.
-+		 */
-+		bfa_ioc_hb_stop(ioc);
-+		/* !!! fall through !!! */
-+
-+	case IOC_E_HBFAIL:
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_hbfail);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+static void
-+bfa_ioc_sm_disabling_entry(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_timer_start(ioc);
-+	bfa_ioc_send_disable(ioc);
-+}
-+
-+/**
-+ * IOC is being disabled
-+ */
-+static void
-+bfa_ioc_sm_disabling(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_FWRSP_DISABLE:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabled);
-+		break;
-+
-+	case IOC_E_HWERROR:
-+		bfa_ioc_timer_stop(ioc);
-+		/*
-+		 * !!! fall through !!!
-+		 */
-+
-+	case IOC_E_TIMEOUT:
-+		writel(BFI_IOC_FAIL, ioc->ioc_regs.ioc_fwstate);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabled);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+/**
-+ * IOC disable completion entry.
-+ */
-+static void
-+bfa_ioc_sm_disabled_entry(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_disable_comp(ioc);
-+}
-+
-+static void
-+bfa_ioc_sm_disabled(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_ENABLE:
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_semwait);
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		ioc->cbfn->disable_cbfn(ioc->bfa);
-+		break;
-+
-+	case IOC_E_FWREADY:
-+		break;
-+
-+	case IOC_E_DETACH:
-+		bfa_ioc_firmware_unlock(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_reset);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+static void
-+bfa_ioc_sm_initfail_entry(struct bfa_ioc *ioc)
-+{
-+	ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_IOC_FAILURE);
-+	bfa_ioc_timer_start(ioc);
-+}
-+
-+/**
-+ * @brief
-+ * Hardware initialization failed.
-+ */
-+static void
-+bfa_ioc_sm_initfail(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+	case IOC_E_DISABLE:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabled);
-+		break;
-+
-+	case IOC_E_DETACH:
-+		bfa_ioc_timer_stop(ioc);
-+		bfa_ioc_firmware_unlock(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_reset);
-+		break;
-+
-+	case IOC_E_TIMEOUT:
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_semwait);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+static void
-+bfa_ioc_sm_hbfail_entry(struct bfa_ioc *ioc)
-+{
-+	struct list_head			*qe;
-+	struct bfa_ioc_hbfail_notify *notify;
-+
-+	/**
-+	 * Mark IOC as failed in hardware and stop firmware.
-+	 */
-+	bfa_ioc_lpu_stop(ioc);
-+	writel(BFI_IOC_FAIL, ioc->ioc_regs.ioc_fwstate);
-+
-+	/**
-+	 * Notify other functions on HB failure.
-+	 */
-+	bfa_ioc_notify_hbfail(ioc);
-+
-+	/**
-+	 * Notify driver and common modules registered for notification.
-+	 */
-+	ioc->cbfn->hbfail_cbfn(ioc->bfa);
-+	list_for_each(qe, &ioc->hb_notify_q) {
-+		notify = (struct bfa_ioc_hbfail_notify *) qe;
-+		notify->cbfn(notify->cbarg);
-+	}
-+
-+	/**
-+	 * Flush any queued up mailbox requests.
-+	 */
-+	bfa_ioc_mbox_hbfail(ioc);
-+
-+	/**
-+	 * Trigger auto-recovery after a delay.
-+	 */
-+	if (ioc->auto_recover)
-+		mod_timer(&ioc->ioc_timer, jiffies +
-+			msecs_to_jiffies(BFA_IOC_TOV_RECOVER));
-+}
-+
-+/**
-+ * @brief
-+ * IOC heartbeat failure.
-+ */
-+static void
-+bfa_ioc_sm_hbfail(struct bfa_ioc *ioc, enum ioc_event event)
-+{
-+	switch (event) {
-+
-+	case IOC_E_ENABLE:
-+		ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_IOC_FAILURE);
-+		break;
-+
-+	case IOC_E_DISABLE:
-+		if (ioc->auto_recover)
-+			bfa_ioc_timer_stop(ioc);
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_disabled);
-+		break;
-+
-+	case IOC_E_TIMEOUT:
-+		bfa_fsm_set_state(ioc, bfa_ioc_sm_semwait);
-+		break;
-+
-+	case IOC_E_FWREADY:
-+		/**
-+		 * Recovery is already initiated by other function.
-+		 */
-+		break;
-+
-+	case IOC_E_HWERROR:
-+		/*
-+		 * HB failure notification, ignore.
-+		 */
-+		break;
-+	default:
-+		bfa_sm_fault(ioc, event);
-+	}
-+}
-+
-+/**
-+ * BFA IOC private functions
-+ */
-+
-+static void
-+bfa_ioc_disable_comp(struct bfa_ioc *ioc)
-+{
-+	struct list_head			*qe;
-+	struct bfa_ioc_hbfail_notify *notify;
-+
-+	ioc->cbfn->disable_cbfn(ioc->bfa);
-+
-+	/**
-+	 * Notify common modules registered for notification.
-+	 */
-+	list_for_each(qe, &ioc->hb_notify_q) {
-+		notify = (struct bfa_ioc_hbfail_notify *) qe;
-+		notify->cbfn(notify->cbarg);
-+	}
-+}
-+
-+void
-+bfa_ioc_sem_timeout(void *ioc_arg)
-+{
-+	struct bfa_ioc *ioc = (struct bfa_ioc *) ioc_arg;
-+
-+	bfa_ioc_hw_sem_get(ioc);
-+}
-+
-+bool
-+bfa_ioc_sem_get(void __iomem *sem_reg)
-+{
-+	u32 r32;
-+	int cnt = 0;
-+#define BFA_SEM_SPINCNT	3000
-+
-+	r32 = readl(sem_reg);
-+
-+	while (r32 && (cnt < BFA_SEM_SPINCNT)) {
-+		cnt++;
-+		udelay(2);
-+		r32 = readl(sem_reg);
-+	}
-+
-+	if (r32 == 0)
-+		return true;
-+
-+	BUG_ON(!(cnt < BFA_SEM_SPINCNT));
-+	return false;
-+}
-+
-+void
-+bfa_ioc_sem_release(void __iomem *sem_reg)
-+{
-+	writel(1, sem_reg);
-+}
-+
-+static void
-+bfa_ioc_hw_sem_get(struct bfa_ioc *ioc)
-+{
-+	u32	r32;
-+
-+	/**
-+	 * First read to the semaphore register will return 0, subsequent reads
-+	 * will return 1. Semaphore is released by writing 1 to the register
-+	 */
-+	r32 = readl(ioc->ioc_regs.ioc_sem_reg);
-+	if (r32 == 0) {
-+		bfa_fsm_send_event(ioc, IOC_E_SEMLOCKED);
-+		return;
-+	}
-+
-+	mod_timer(&ioc->sem_timer, jiffies +
-+		msecs_to_jiffies(BFA_IOC_HWSEM_TOV));
-+}
-+
-+void
-+bfa_ioc_hw_sem_release(struct bfa_ioc *ioc)
-+{
-+	writel(1, ioc->ioc_regs.ioc_sem_reg);
-+}
-+
-+static void
-+bfa_ioc_hw_sem_get_cancel(struct bfa_ioc *ioc)
-+{
-+	del_timer(&ioc->sem_timer);
-+}
-+
-+/**
-+ * @brief
-+ * Initialize LPU local memory (aka secondary memory / SRAM)
-+ */
-+static void
-+bfa_ioc_lmem_init(struct bfa_ioc *ioc)
-+{
-+	u32	pss_ctl;
-+	int		i;
-+#define PSS_LMEM_INIT_TIME  10000
-+
-+	pss_ctl = readl(ioc->ioc_regs.pss_ctl_reg);
-+	pss_ctl &= ~__PSS_LMEM_RESET;
-+	pss_ctl |= __PSS_LMEM_INIT_EN;
-+
-+	/*
-+	 * i2c workaround 12.5khz clock
-+	 */
-+	pss_ctl |= __PSS_I2C_CLK_DIV(3UL);
-+	writel(pss_ctl, ioc->ioc_regs.pss_ctl_reg);
-+
-+	/**
-+	 * wait for memory initialization to be complete
-+	 */
-+	i = 0;
-+	do {
-+		pss_ctl = readl(ioc->ioc_regs.pss_ctl_reg);
-+		i++;
-+	} while (!(pss_ctl & __PSS_LMEM_INIT_DONE) && (i < PSS_LMEM_INIT_TIME));
-+
-+	/**
-+	 * If memory initialization is not successful, IOC timeout will catch
-+	 * such failures.
-+	 */
-+	BUG_ON(!(pss_ctl & __PSS_LMEM_INIT_DONE));
-+
-+	pss_ctl &= ~(__PSS_LMEM_INIT_DONE | __PSS_LMEM_INIT_EN);
-+	writel(pss_ctl, ioc->ioc_regs.pss_ctl_reg);
-+}
-+
-+static void
-+bfa_ioc_lpu_start(struct bfa_ioc *ioc)
-+{
-+	u32	pss_ctl;
-+
-+	/**
-+	 * Take processor out of reset.
-+	 */
-+	pss_ctl = readl(ioc->ioc_regs.pss_ctl_reg);
-+	pss_ctl &= ~__PSS_LPU0_RESET;
-+
-+	writel(pss_ctl, ioc->ioc_regs.pss_ctl_reg);
-+}
-+
-+static void
-+bfa_ioc_lpu_stop(struct bfa_ioc *ioc)
-+{
-+	u32	pss_ctl;
-+
-+	/**
-+	 * Put processors in reset.
-+	 */
-+	pss_ctl = readl(ioc->ioc_regs.pss_ctl_reg);
-+	pss_ctl |= (__PSS_LPU0_RESET | __PSS_LPU1_RESET);
-+
-+	writel(pss_ctl, ioc->ioc_regs.pss_ctl_reg);
-+}
-+
-+/**
-+ * Get driver and firmware versions.
-+ */
-+void
-+bfa_ioc_fwver_get(struct bfa_ioc *ioc, struct bfi_ioc_image_hdr *fwhdr)
-+{
-+	u32	pgnum, pgoff;
-+	u32	loff = 0;
-+	int		i;
-+	u32	*fwsig = (u32 *) fwhdr;
-+
-+	pgnum = bfa_ioc_smem_pgnum(ioc, loff);
-+	pgoff = bfa_ioc_smem_pgoff(ioc, loff);
-+	writel(pgnum, ioc->ioc_regs.host_page_num_fn);
-+
-+	for (i = 0; i < (sizeof(struct bfi_ioc_image_hdr) / sizeof(u32));
-+	     i++) {
-+		fwsig[i] =
-+			swab32(readl((loff) + (ioc->ioc_regs.smem_page_start)));
-+		loff += sizeof(u32);
-+	}
-+}
-+
-+/**
-+ * Returns TRUE if same.
-+ */
-+bool
-+bfa_ioc_fwver_cmp(struct bfa_ioc *ioc, struct bfi_ioc_image_hdr *fwhdr)
-+{
-+	struct bfi_ioc_image_hdr *drv_fwhdr;
-+	int i;
-+
-+	drv_fwhdr = (struct bfi_ioc_image_hdr *)
-+		bfa_cb_image_get_chunk(BFA_IOC_FWIMG_TYPE(ioc), 0);
-+
-+	for (i = 0; i < BFI_IOC_MD5SUM_SZ; i++) {
-+		if (fwhdr->md5sum[i] != drv_fwhdr->md5sum[i])
-+			return false;
-+	}
-+
-+	return true;
-+}
-+
-+/**
-+ * Return true if current running version is valid. Firmware signature and
-+ * execution context (driver/bios) must match.
-+ */
-+static bool
-+bfa_ioc_fwver_valid(struct bfa_ioc *ioc)
-+{
-+	struct bfi_ioc_image_hdr fwhdr, *drv_fwhdr;
-+
-+	/**
-+	 * If bios/efi boot (flash based) -- return true
-+	 */
-+	if (bfa_ioc_is_optrom(ioc))
-+		return true;
-+
-+	bfa_ioc_fwver_get(ioc, &fwhdr);
-+	drv_fwhdr = (struct bfi_ioc_image_hdr *)
-+		bfa_cb_image_get_chunk(BFA_IOC_FWIMG_TYPE(ioc), 0);
-+
-+	if (fwhdr.signature != drv_fwhdr->signature)
-+		return false;
-+
-+	if (fwhdr.exec != drv_fwhdr->exec)
-+		return false;
-+
-+	return bfa_ioc_fwver_cmp(ioc, &fwhdr);
-+}
-+
-+/**
-+ * Conditionally flush any pending message from firmware at start.
-+ */
-+static void
-+bfa_ioc_msgflush(struct bfa_ioc *ioc)
-+{
-+	u32	r32;
-+
-+	r32 = readl(ioc->ioc_regs.lpu_mbox_cmd);
-+	if (r32)
-+		writel(1, ioc->ioc_regs.lpu_mbox_cmd);
-+}
-+
-+/**
-+ * @img ioc_init_logic.jpg
-+ */
-+static void
-+bfa_ioc_hwinit(struct bfa_ioc *ioc, bool force)
-+{
-+	enum bfi_ioc_state ioc_fwstate;
-+	bool fwvalid;
-+
-+	ioc_fwstate = readl(ioc->ioc_regs.ioc_fwstate);
-+
-+	if (force)
-+		ioc_fwstate = BFI_IOC_UNINIT;
-+
-+	/**
-+	 * check if firmware is valid
-+	 */
-+	fwvalid = (ioc_fwstate == BFI_IOC_UNINIT) ?
-+		false : bfa_ioc_fwver_valid(ioc);
-+
-+	if (!fwvalid) {
-+		bfa_ioc_boot(ioc, BFI_BOOT_TYPE_NORMAL, ioc->pcidev.device_id);
-+		return;
-+	}
-+
-+	/**
-+	 * If hardware initialization is in progress (initialized by other IOC),
-+	 * just wait for an initialization completion interrupt.
-+	 */
-+	if (ioc_fwstate == BFI_IOC_INITING) {
-+		ioc->cbfn->reset_cbfn(ioc->bfa);
-+		return;
-+	}
-+
-+	/**
-+	 * If IOC function is disabled and firmware version is same,
-+	 * just re-enable IOC.
-+	 *
-+	 * If option rom, IOC must not be in operational state. With
-+	 * convergence, IOC will be in operational state when 2nd driver
-+	 * is loaded.
-+	 */
-+	if (ioc_fwstate == BFI_IOC_DISABLED ||
-+	    (!bfa_ioc_is_optrom(ioc) && ioc_fwstate == BFI_IOC_OP)) {
-+		/**
-+		 * When using MSI-X any pending firmware ready event should
-+		 * be flushed. Otherwise MSI-X interrupts are not delivered.
-+		 */
-+		bfa_ioc_msgflush(ioc);
-+		ioc->cbfn->reset_cbfn(ioc->bfa);
-+		bfa_fsm_send_event(ioc, IOC_E_FWREADY);
-+		return;
-+	}
-+
-+	/**
-+	 * Initialize the h/w for any other states.
-+	 */
-+	bfa_ioc_boot(ioc, BFI_BOOT_TYPE_NORMAL, ioc->pcidev.device_id);
-+}
-+
-+void
-+bfa_ioc_timeout(void *ioc_arg)
-+{
-+	struct bfa_ioc *ioc = (struct bfa_ioc *) ioc_arg;
-+
-+	bfa_fsm_send_event(ioc, IOC_E_TIMEOUT);
-+}
-+
-+void
-+bfa_ioc_mbox_send(struct bfa_ioc *ioc, void *ioc_msg, int len)
-+{
-+	u32 *msgp = (u32 *) ioc_msg;
-+	u32 i;
-+
-+	BUG_ON(!(len <= BFI_IOC_MSGLEN_MAX));
-+
-+	/*
-+	 * first write msg to mailbox registers
-+	 */
-+	for (i = 0; i < len / sizeof(u32); i++)
-+		writel(cpu_to_le32(msgp[i]),
-+			      ioc->ioc_regs.hfn_mbox + i * sizeof(u32));
-+
-+	for (; i < BFI_IOC_MSGLEN_MAX / sizeof(u32); i++)
-+		writel(0, ioc->ioc_regs.hfn_mbox + i * sizeof(u32));
-+
-+	/*
-+	 * write 1 to mailbox CMD to trigger LPU event
-+	 */
-+	writel(1, ioc->ioc_regs.hfn_mbox_cmd);
-+	(void) readl(ioc->ioc_regs.hfn_mbox_cmd);
-+}
-+
-+static void
-+bfa_ioc_send_enable(struct bfa_ioc *ioc)
-+{
-+	struct bfi_ioc_ctrl_req enable_req;
-+	struct timeval tv;
-+
-+	bfi_h2i_set(enable_req.mh, BFI_MC_IOC, BFI_IOC_H2I_ENABLE_REQ,
-+		    bfa_ioc_portid(ioc));
-+	enable_req.ioc_class = ioc->ioc_mc;
-+	do_gettimeofday(&tv);
-+	enable_req.tv_sec = ntohl(tv.tv_sec);
-+	bfa_ioc_mbox_send(ioc, &enable_req, sizeof(struct bfi_ioc_ctrl_req));
-+}
-+
-+static void
-+bfa_ioc_send_disable(struct bfa_ioc *ioc)
-+{
-+	struct bfi_ioc_ctrl_req disable_req;
-+
-+	bfi_h2i_set(disable_req.mh, BFI_MC_IOC, BFI_IOC_H2I_DISABLE_REQ,
-+		    bfa_ioc_portid(ioc));
-+	bfa_ioc_mbox_send(ioc, &disable_req, sizeof(struct bfi_ioc_ctrl_req));
-+}
-+
-+static void
-+bfa_ioc_send_getattr(struct bfa_ioc *ioc)
-+{
-+	struct bfi_ioc_getattr_req attr_req;
-+
-+	bfi_h2i_set(attr_req.mh, BFI_MC_IOC, BFI_IOC_H2I_GETATTR_REQ,
-+		    bfa_ioc_portid(ioc));
-+	bfa_dma_be_addr_set(attr_req.attr_addr, ioc->attr_dma.pa);
-+	bfa_ioc_mbox_send(ioc, &attr_req, sizeof(attr_req));
-+}
-+
-+void
-+bfa_ioc_hb_check(void *cbarg)
-+{
-+	struct bfa_ioc *ioc = cbarg;
-+	u32	hb_count;
-+
-+	hb_count = readl(ioc->ioc_regs.heartbeat);
-+	if (ioc->hb_count == hb_count) {
-+		pr_crit("Firmware heartbeat failure at %d", hb_count);
-+		bfa_ioc_recover(ioc);
-+		return;
-+	} else {
-+		ioc->hb_count = hb_count;
-+	}
-+
-+	bfa_ioc_mbox_poll(ioc);
-+	mod_timer(&ioc->hb_timer, jiffies +
-+		msecs_to_jiffies(BFA_IOC_HB_TOV));
-+}
-+
-+static void
-+bfa_ioc_hb_monitor(struct bfa_ioc *ioc)
-+{
-+	ioc->hb_count = readl(ioc->ioc_regs.heartbeat);
-+	mod_timer(&ioc->hb_timer, jiffies +
-+		msecs_to_jiffies(BFA_IOC_HB_TOV));
-+}
-+
-+static void
-+bfa_ioc_hb_stop(struct bfa_ioc *ioc)
-+{
-+	del_timer(&ioc->hb_timer);
-+}
-+
-+/**
-+ * @brief
-+ *	Initiate a full firmware download.
-+ */
-+static void
-+bfa_ioc_download_fw(struct bfa_ioc *ioc, u32 boot_type,
-+		    u32 boot_param)
-+{
-+	u32 *fwimg;
-+	u32 pgnum, pgoff;
-+	u32 loff = 0;
-+	u32 chunkno = 0;
-+	u32 i;
-+
-+	/**
-+	 * Initialize LMEM first before code download
-+	 */
-+	bfa_ioc_lmem_init(ioc);
-+
-+	/**
-+	 * Flash based firmware boot
-+	 */
-+	if (bfa_ioc_is_optrom(ioc))
-+		boot_type = BFI_BOOT_TYPE_FLASH;
-+	fwimg = bfa_cb_image_get_chunk(BFA_IOC_FWIMG_TYPE(ioc), chunkno);
-+
-+	pgnum = bfa_ioc_smem_pgnum(ioc, loff);
-+	pgoff = bfa_ioc_smem_pgoff(ioc, loff);
-+
-+	writel(pgnum, ioc->ioc_regs.host_page_num_fn);
-+
-+	for (i = 0; i < bfa_cb_image_get_size(BFA_IOC_FWIMG_TYPE(ioc)); i++) {
-+		if (BFA_IOC_FLASH_CHUNK_NO(i) != chunkno) {
-+			chunkno = BFA_IOC_FLASH_CHUNK_NO(i);
-+			fwimg = bfa_cb_image_get_chunk(BFA_IOC_FWIMG_TYPE(ioc),
-+					BFA_IOC_FLASH_CHUNK_ADDR(chunkno));
-+		}
-+
-+		/**
-+		 * write smem
-+		 */
-+		writel((swab32(fwimg[BFA_IOC_FLASH_OFFSET_IN_CHUNK(i)])),
-+			      ((ioc->ioc_regs.smem_page_start) + (loff)));
-+
-+		loff += sizeof(u32);
-+
-+		/**
-+		 * handle page offset wrap around
-+		 */
-+		loff = PSS_SMEM_PGOFF(loff);
-+		if (loff == 0) {
-+			pgnum++;
-+			writel(pgnum,
-+				      ioc->ioc_regs.host_page_num_fn);
-+		}
-+	}
-+
-+	writel(bfa_ioc_smem_pgnum(ioc, 0),
-+		      ioc->ioc_regs.host_page_num_fn);
-+
-+	/*
-+	 * Set boot type and boot param at the end.
-+	*/
-+	writel((swab32(swab32(boot_type))), ((ioc->ioc_regs.smem_page_start)
-+			+ (BFI_BOOT_TYPE_OFF)));
-+	writel((swab32(swab32(boot_param))), ((ioc->ioc_regs.smem_page_start)
-+			+ (BFI_BOOT_PARAM_OFF)));
-+}
-+
-+static void
-+bfa_ioc_reset(struct bfa_ioc *ioc, bool force)
-+{
-+	bfa_ioc_hwinit(ioc, force);
-+}
-+
-+/**
-+ * @brief
-+ * Update BFA configuration from firmware configuration.
-+ */
-+static void
-+bfa_ioc_getattr_reply(struct bfa_ioc *ioc)
-+{
-+	struct bfi_ioc_attr *attr = ioc->attr;
-+
-+	attr->adapter_prop  = ntohl(attr->adapter_prop);
-+	attr->card_type     = ntohl(attr->card_type);
-+	attr->maxfrsize	    = ntohs(attr->maxfrsize);
-+
-+	bfa_fsm_send_event(ioc, IOC_E_FWRSP_GETATTR);
-+}
-+
-+/**
-+ * Attach time initialization of mbox logic.
-+ */
-+static void
-+bfa_ioc_mbox_attach(struct bfa_ioc *ioc)
-+{
-+	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
-+	int	mc;
-+
-+	INIT_LIST_HEAD(&mod->cmd_q);
-+	for (mc = 0; mc < BFI_MC_MAX; mc++) {
-+		mod->mbhdlr[mc].cbfn = NULL;
-+		mod->mbhdlr[mc].cbarg = ioc->bfa;
-+	}
-+}
-+
-+/**
-+ * Mbox poll timer -- restarts any pending mailbox requests.
-+ */
-+static void
-+bfa_ioc_mbox_poll(struct bfa_ioc *ioc)
-+{
-+	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
-+	struct bfa_mbox_cmd *cmd;
-+	u32			stat;
-+
-+	/**
-+	 * If no command pending, do nothing
-+	 */
-+	if (list_empty(&mod->cmd_q))
-+		return;
-+
-+	/**
-+	 * If previous command is not yet fetched by firmware, do nothing
-+	 */
-+	stat = readl(ioc->ioc_regs.hfn_mbox_cmd);
-+	if (stat)
-+		return;
-+
-+	/**
-+	 * Enqueue command to firmware.
-+	 */
-+	bfa_q_deq(&mod->cmd_q, &cmd);
-+	bfa_ioc_mbox_send(ioc, cmd->msg, sizeof(cmd->msg));
-+}
-+
-+/**
-+ * Cleanup any pending requests.
-+ */
-+static void
-+bfa_ioc_mbox_hbfail(struct bfa_ioc *ioc)
-+{
-+	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
-+	struct bfa_mbox_cmd *cmd;
-+
-+	while (!list_empty(&mod->cmd_q))
-+		bfa_q_deq(&mod->cmd_q, &cmd);
-+}
-+
-+/**
-+ * IOC public
-+ */
-+enum bfa_status
-+bfa_ioc_pll_init(struct bfa_ioc *ioc)
-+{
-+	/*
-+	 *  Hold semaphore so that nobody can access the chip during init.
-+	 */
-+	bfa_ioc_sem_get(ioc->ioc_regs.ioc_init_sem_reg);
-+
-+	bfa_ioc_pll_init_asic(ioc);
-+
-+	ioc->pllinit = true;
-+	/*
-+	 *  release semaphore.
-+	 */
-+	bfa_ioc_sem_release(ioc->ioc_regs.ioc_init_sem_reg);
-+
-+	return BFA_STATUS_OK;
-+}
-+
-+/**
-+ * Interface used by diag module to do firmware boot with memory test
-+ * as the entry vector.
-+ */
-+void
-+bfa_ioc_boot(struct bfa_ioc *ioc, u32 boot_type, u32 boot_param)
-+{
-+	void __iomem *rb;
-+
-+	bfa_ioc_stats(ioc, ioc_boots);
-+
-+	if (bfa_ioc_pll_init(ioc) != BFA_STATUS_OK)
-+		return;
-+
-+	/**
-+	 * Initialize IOC state of all functions on a chip reset.
-+	 */
-+	rb = ioc->pcidev.pci_bar_kva;
-+	if (boot_param == BFI_BOOT_TYPE_MEMTEST) {
-+		writel(BFI_IOC_MEMTEST, (rb + BFA_IOC0_STATE_REG));
-+		writel(BFI_IOC_MEMTEST, (rb + BFA_IOC1_STATE_REG));
-+	} else {
-+		writel(BFI_IOC_INITING, (rb + BFA_IOC0_STATE_REG));
-+		writel(BFI_IOC_INITING, (rb + BFA_IOC1_STATE_REG));
-+	}
-+
-+	bfa_ioc_msgflush(ioc);
-+	bfa_ioc_download_fw(ioc, boot_type, boot_param);
-+
-+	/**
-+	 * Enable interrupts just before starting LPU
-+	 */
-+	ioc->cbfn->reset_cbfn(ioc->bfa);
-+	bfa_ioc_lpu_start(ioc);
-+}
-+
-+/**
-+ * Enable/disable IOC failure auto recovery.
-+ */
-+void
-+bfa_ioc_auto_recover(bool auto_recover)
-+{
-+	bfa_auto_recover = auto_recover;
-+}
-+
-+bool
-+bfa_ioc_is_operational(struct bfa_ioc *ioc)
-+{
-+	return bfa_fsm_cmp_state(ioc, bfa_ioc_sm_op);
-+}
-+
-+bool
-+bfa_ioc_is_initialized(struct bfa_ioc *ioc)
-+{
-+	u32 r32 = readl(ioc->ioc_regs.ioc_fwstate);
-+
-+	return ((r32 != BFI_IOC_UNINIT) &&
-+		(r32 != BFI_IOC_INITING) &&
-+		(r32 != BFI_IOC_MEMTEST));
-+}
-+
-+void
-+bfa_ioc_msgget(struct bfa_ioc *ioc, void *mbmsg)
-+{
-+	u32	*msgp = mbmsg;
-+	u32	r32;
-+	int		i;
-+
-+	/**
-+	 * read the MBOX msg
-+	 */
-+	for (i = 0; i < (sizeof(union bfi_ioc_i2h_msg_u) / sizeof(u32));
-+	     i++) {
-+		r32 = readl(ioc->ioc_regs.lpu_mbox +
-+				   i * sizeof(u32));
-+		msgp[i] = htonl(r32);
-+	}
-+
-+	/**
-+	 * turn off mailbox interrupt by clearing mailbox status
-+	 */
-+	writel(1, ioc->ioc_regs.lpu_mbox_cmd);
-+	readl(ioc->ioc_regs.lpu_mbox_cmd);
-+}
-+
-+void
-+bfa_ioc_isr(struct bfa_ioc *ioc, struct bfi_mbmsg *m)
-+{
-+	union bfi_ioc_i2h_msg_u	*msg;
-+
-+	msg = (union bfi_ioc_i2h_msg_u *) m;
-+
-+	bfa_ioc_stats(ioc, ioc_isrs);
-+
-+	switch (msg->mh.msg_id) {
-+	case BFI_IOC_I2H_HBEAT:
-+		break;
-+
-+	case BFI_IOC_I2H_READY_EVENT:
-+		bfa_fsm_send_event(ioc, IOC_E_FWREADY);
-+		break;
-+
-+	case BFI_IOC_I2H_ENABLE_REPLY:
-+		bfa_fsm_send_event(ioc, IOC_E_FWRSP_ENABLE);
-+		break;
-+
-+	case BFI_IOC_I2H_DISABLE_REPLY:
-+		bfa_fsm_send_event(ioc, IOC_E_FWRSP_DISABLE);
-+		break;
-+
-+	case BFI_IOC_I2H_GETATTR_REPLY:
-+		bfa_ioc_getattr_reply(ioc);
-+		break;
-+
-+	default:
-+		BUG_ON(1);
-+	}
-+}
-+
-+/**
-+ * IOC attach time initialization and setup.
-+ *
-+ * @param[in]	ioc	memory for IOC
-+ * @param[in]	bfa	driver instance structure
-+ */
-+void
-+bfa_ioc_attach(struct bfa_ioc *ioc, void *bfa, struct bfa_ioc_cbfn *cbfn)
-+{
-+	ioc->bfa	= bfa;
-+	ioc->cbfn	= cbfn;
-+	ioc->fcmode	= false;
-+	ioc->pllinit	= false;
-+	ioc->dbg_fwsave_once = true;
-+
-+	bfa_ioc_mbox_attach(ioc);
-+	INIT_LIST_HEAD(&ioc->hb_notify_q);
-+
-+	bfa_fsm_set_state(ioc, bfa_ioc_sm_reset);
-+}
-+
-+/**
-+ * Driver detach time IOC cleanup.
-+ */
-+void
-+bfa_ioc_detach(struct bfa_ioc *ioc)
-+{
-+	bfa_fsm_send_event(ioc, IOC_E_DETACH);
-+}
-+
-+/**
-+ * Setup IOC PCI properties.
-+ *
-+ * @param[in]	pcidev	PCI device information for this IOC
-+ */
-+void
-+bfa_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
-+		 enum bfi_mclass mc)
-+{
-+	ioc->ioc_mc	= mc;
-+	ioc->pcidev	= *pcidev;
-+	ioc->ctdev	= bfa_asic_id_ct(ioc->pcidev.device_id);
-+	ioc->cna	= ioc->ctdev && !ioc->fcmode;
-+
-+	bfa_ioc_set_ct_hwif(ioc);
-+
-+	bfa_ioc_map_port(ioc);
-+	bfa_ioc_reg_init(ioc);
-+}
-+
-+/**
-+ * Initialize IOC dma memory
-+ *
-+ * @param[in]	dm_kva	kernel virtual address of IOC dma memory
-+ * @param[in]	dm_pa	physical address of IOC dma memory
-+ */
-+void
-+bfa_ioc_mem_claim(struct bfa_ioc *ioc,  u8 *dm_kva, u64 dm_pa)
-+{
-+	/**
-+	 * dma memory for firmware attribute
-+	 */
-+	ioc->attr_dma.kva = dm_kva;
-+	ioc->attr_dma.pa = dm_pa;
-+	ioc->attr = (struct bfi_ioc_attr *) dm_kva;
-+}
-+
-+/**
-+ * Return size of dma memory required.
-+ */
-+u32
-+bfa_ioc_meminfo(void)
-+{
-+	return roundup(sizeof(struct bfi_ioc_attr), BFA_DMA_ALIGN_SZ);
-+}
-+
-+void
-+bfa_ioc_enable(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_stats(ioc, ioc_enables);
-+	ioc->dbg_fwsave_once = true;
-+
-+	bfa_fsm_send_event(ioc, IOC_E_ENABLE);
-+}
-+
-+void
-+bfa_ioc_disable(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_stats(ioc, ioc_disables);
-+	bfa_fsm_send_event(ioc, IOC_E_DISABLE);
-+}
-+
-+u32
-+bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmaddr)
-+{
-+	return PSS_SMEM_PGNUM(ioc->ioc_regs.smem_pg0, fmaddr);
-+}
-+
-+u32
-+bfa_ioc_smem_pgoff(struct bfa_ioc *ioc, u32 fmaddr)
-+{
-+	return PSS_SMEM_PGOFF(fmaddr);
-+}
-+
-+/**
-+ * Register mailbox message handler functions
-+ *
-+ * @param[in]	ioc		IOC instance
-+ * @param[in]	mcfuncs		message class handler functions
-+ */
-+void
-+bfa_ioc_mbox_register(struct bfa_ioc *ioc, bfa_ioc_mbox_mcfunc_t *mcfuncs)
-+{
-+	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
-+	int				mc;
-+
-+	for (mc = 0; mc < BFI_MC_MAX; mc++)
-+		mod->mbhdlr[mc].cbfn = mcfuncs[mc];
-+}
-+
-+/**
-+ * Register mailbox message handler function, to be called by common modules
-+ */
-+void
-+bfa_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
-+		    bfa_ioc_mbox_mcfunc_t cbfn, void *cbarg)
-+{
-+	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
-+
-+	mod->mbhdlr[mc].cbfn	= cbfn;
-+	mod->mbhdlr[mc].cbarg = cbarg;
-+}
-+
-+/**
-+ * Queue a mailbox command request to firmware. Waits if mailbox is busy.
-+ * Responsibility of caller to serialize
-+ *
-+ * @param[in]	ioc	IOC instance
-+ * @param[i]	cmd	Mailbox command
-+ */
-+void
-+bfa_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd)
-+{
-+	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
-+	u32			stat;
-+
-+	/**
-+	 * If a previous command is pending, queue new command
-+	 */
-+	if (!list_empty(&mod->cmd_q)) {
-+		list_add_tail(&cmd->qe, &mod->cmd_q);
-+		return;
-+	}
-+
-+	/**
-+	 * If mailbox is busy, queue command for poll timer
-+	 */
-+	stat = readl(ioc->ioc_regs.hfn_mbox_cmd);
-+	if (stat) {
-+		list_add_tail(&cmd->qe, &mod->cmd_q);
-+		return;
-+	}
-+
-+	/**
-+	 * mailbox is free -- queue command to firmware
-+	 */
-+	bfa_ioc_mbox_send(ioc, cmd->msg, sizeof(cmd->msg));
-+}
-+
-+/**
-+ * Handle mailbox interrupts
-+ */
-+void
-+bfa_ioc_mbox_isr(struct bfa_ioc *ioc)
-+{
-+	struct bfa_ioc_mbox_mod *mod = &ioc->mbox_mod;
-+	struct bfi_mbmsg m;
-+	int				mc;
-+
-+	bfa_ioc_msgget(ioc, &m);
-+
-+	/**
-+	 * Treat IOC message class as special.
-+	 */
-+	mc = m.mh.msg_class;
-+	if (mc == BFI_MC_IOC) {
-+		bfa_ioc_isr(ioc, &m);
-+		return;
-+	}
-+
-+	if ((mc > BFI_MC_MAX) || (mod->mbhdlr[mc].cbfn == NULL))
-+		return;
-+
-+	mod->mbhdlr[mc].cbfn(mod->mbhdlr[mc].cbarg, &m);
-+}
-+
-+void
-+bfa_ioc_error_isr(struct bfa_ioc *ioc)
-+{
-+	bfa_fsm_send_event(ioc, IOC_E_HWERROR);
-+}
-+
-+void
-+bfa_ioc_set_fcmode(struct bfa_ioc *ioc)
-+{
-+	ioc->fcmode  = true;
-+	ioc->port_id = bfa_ioc_pcifn(ioc);
-+}
-+
-+/**
-+ * return true if IOC is disabled
-+ */
-+bool
-+bfa_ioc_is_disabled(struct bfa_ioc *ioc)
-+{
-+	return bfa_fsm_cmp_state(ioc, bfa_ioc_sm_disabling) ||
-+		bfa_fsm_cmp_state(ioc, bfa_ioc_sm_disabled);
-+}
-+
-+/**
-+ * return true if IOC firmware is different.
-+ */
-+bool
-+bfa_ioc_fw_mismatch(struct bfa_ioc *ioc)
-+{
-+	return bfa_fsm_cmp_state(ioc, bfa_ioc_sm_reset) ||
-+		bfa_fsm_cmp_state(ioc, bfa_ioc_sm_fwcheck) ||
-+		bfa_fsm_cmp_state(ioc, bfa_ioc_sm_mismatch);
-+}
-+
-+#define bfa_ioc_state_disabled(__sm)		\
-+	(((__sm) == BFI_IOC_UNINIT) ||		\
-+	 ((__sm) == BFI_IOC_INITING) ||		\
-+	 ((__sm) == BFI_IOC_HWINIT) ||		\
-+	 ((__sm) == BFI_IOC_DISABLED) ||	\
-+	 ((__sm) == BFI_IOC_FAIL) ||		\
-+	 ((__sm) == BFI_IOC_CFG_DISABLED))
-+
-+/**
-+ * Check if adapter is disabled -- both IOCs should be in a disabled
-+ * state.
-+ */
-+bool
-+bfa_ioc_adapter_is_disabled(struct bfa_ioc *ioc)
-+{
-+	u32	ioc_state;
-+	void __iomem *rb = ioc->pcidev.pci_bar_kva;
-+
-+	if (!bfa_fsm_cmp_state(ioc, bfa_ioc_sm_disabled))
-+		return false;
-+
-+	ioc_state = readl(rb + BFA_IOC0_STATE_REG);
-+	if (!bfa_ioc_state_disabled(ioc_state))
-+		return false;
-+
-+	if (ioc->pcidev.device_id != PCI_DEVICE_ID_BROCADE_FC_8G1P) {
-+		ioc_state = readl(rb + BFA_IOC1_STATE_REG);
-+		if (!bfa_ioc_state_disabled(ioc_state))
-+			return false;
-+	}
-+
-+	return true;
-+}
-+
-+/**
-+ * Add to IOC heartbeat failure notification queue. To be used by common
-+ * modules such as cee, port, diag.
-+ */
-+void
-+bfa_ioc_hbfail_register(struct bfa_ioc *ioc,
-+			struct bfa_ioc_hbfail_notify *notify)
-+{
-+	list_add_tail(&notify->qe, &ioc->hb_notify_q);
-+}
-+
-+#define BFA_MFG_NAME "Brocade"
-+void
-+bfa_ioc_get_adapter_attr(struct bfa_ioc *ioc,
-+			 struct bfa_adapter_attr *ad_attr)
-+{
-+	struct bfi_ioc_attr *ioc_attr;
-+
-+	ioc_attr = ioc->attr;
-+
-+	bfa_ioc_get_adapter_serial_num(ioc, ad_attr->serial_num);
-+	bfa_ioc_get_adapter_fw_ver(ioc, ad_attr->fw_ver);
-+	bfa_ioc_get_adapter_optrom_ver(ioc, ad_attr->optrom_ver);
-+	bfa_ioc_get_adapter_manufacturer(ioc, ad_attr->manufacturer);
-+	memcpy(&ad_attr->vpd, &ioc_attr->vpd,
-+		      sizeof(struct bfa_mfg_vpd));
-+
-+	ad_attr->nports = bfa_ioc_get_nports(ioc);
-+	ad_attr->max_speed = bfa_ioc_speed_sup(ioc);
-+
-+	bfa_ioc_get_adapter_model(ioc, ad_attr->model);
-+	/* For now, model descr uses same model string */
-+	bfa_ioc_get_adapter_model(ioc, ad_attr->model_descr);
-+
-+	ad_attr->card_type = ioc_attr->card_type;
-+	ad_attr->is_mezz = bfa_mfg_is_mezz(ioc_attr->card_type);
-+
-+	if (BFI_ADAPTER_IS_SPECIAL(ioc_attr->adapter_prop))
-+		ad_attr->prototype = 1;
-+	else
-+		ad_attr->prototype = 0;
-+
-+	ad_attr->pwwn = bfa_ioc_get_pwwn(ioc);
-+	ad_attr->mac  = bfa_ioc_get_mac(ioc);
-+
-+	ad_attr->pcie_gen = ioc_attr->pcie_gen;
-+	ad_attr->pcie_lanes = ioc_attr->pcie_lanes;
-+	ad_attr->pcie_lanes_orig = ioc_attr->pcie_lanes_orig;
-+	ad_attr->asic_rev = ioc_attr->asic_rev;
-+
-+	bfa_ioc_get_pci_chip_rev(ioc, ad_attr->hw_ver);
-+
-+	ad_attr->cna_capable = ioc->cna;
-+	ad_attr->trunk_capable = (ad_attr->nports > 1) && !ioc->cna;
-+}
-+
-+enum bfa_ioc_type
-+bfa_ioc_get_type(struct bfa_ioc *ioc)
-+{
-+	if (!ioc->ctdev || ioc->fcmode)
-+		return BFA_IOC_TYPE_FC;
-+	else if (ioc->ioc_mc == BFI_MC_IOCFC)
-+		return BFA_IOC_TYPE_FCoE;
-+	else if (ioc->ioc_mc == BFI_MC_LL)
-+		return BFA_IOC_TYPE_LL;
-+	else {
-+		BUG_ON(!(ioc->ioc_mc == BFI_MC_LL));
-+		return BFA_IOC_TYPE_LL;
-+	}
-+}
-+
-+void
-+bfa_ioc_get_adapter_serial_num(struct bfa_ioc *ioc, char *serial_num)
-+{
-+	memset(serial_num, 0, BFA_ADAPTER_SERIAL_NUM_LEN);
-+	memcpy(serial_num,
-+			(void *)ioc->attr->brcd_serialnum,
-+			BFA_ADAPTER_SERIAL_NUM_LEN);
-+}
-+
-+void
-+bfa_ioc_get_adapter_fw_ver(struct bfa_ioc *ioc, char *fw_ver)
-+{
-+	memset(fw_ver, 0, BFA_VERSION_LEN);
-+	memcpy(fw_ver, ioc->attr->fw_version, BFA_VERSION_LEN);
-+}
-+
-+void
-+bfa_ioc_get_pci_chip_rev(struct bfa_ioc *ioc, char *chip_rev)
-+{
-+	BUG_ON(!(chip_rev));
-+
-+	memset(chip_rev, 0, BFA_IOC_CHIP_REV_LEN);
-+
-+	chip_rev[0] = 'R';
-+	chip_rev[1] = 'e';
-+	chip_rev[2] = 'v';
-+	chip_rev[3] = '-';
-+	chip_rev[4] = ioc->attr->asic_rev;
-+	chip_rev[5] = '\0';
-+}
-+
-+void
-+bfa_ioc_get_adapter_optrom_ver(struct bfa_ioc *ioc, char *optrom_ver)
-+{
-+	memset(optrom_ver, 0, BFA_VERSION_LEN);
-+	memcpy(optrom_ver, ioc->attr->optrom_version,
-+		      BFA_VERSION_LEN);
-+}
-+
-+void
-+bfa_ioc_get_adapter_manufacturer(struct bfa_ioc *ioc, char *manufacturer)
-+{
-+	memset(manufacturer, 0, BFA_ADAPTER_MFG_NAME_LEN);
-+	memcpy(manufacturer, BFA_MFG_NAME, BFA_ADAPTER_MFG_NAME_LEN);
-+}
-+
-+void
-+bfa_ioc_get_adapter_model(struct bfa_ioc *ioc, char *model)
-+{
-+	struct bfi_ioc_attr *ioc_attr;
-+
-+	BUG_ON(!(model));
-+	memset(model, 0, BFA_ADAPTER_MODEL_NAME_LEN);
-+
-+	ioc_attr = ioc->attr;
-+
-+	/**
-+	 * model name
-+	 */
-+	snprintf(model, BFA_ADAPTER_MODEL_NAME_LEN, "%s-%u",
-+		BFA_MFG_NAME, ioc_attr->card_type);
-+}
-+
-+enum bfa_ioc_state
-+bfa_ioc_get_state(struct bfa_ioc *ioc)
-+{
-+	return bfa_sm_to_state(ioc_sm_table, ioc->fsm);
-+}
-+
-+void
-+bfa_ioc_get_attr(struct bfa_ioc *ioc, struct bfa_ioc_attr *ioc_attr)
-+{
-+	memset((void *)ioc_attr, 0, sizeof(struct bfa_ioc_attr));
-+
-+	ioc_attr->state = bfa_ioc_get_state(ioc);
-+	ioc_attr->port_id = ioc->port_id;
-+
-+	ioc_attr->ioc_type = bfa_ioc_get_type(ioc);
-+
-+	bfa_ioc_get_adapter_attr(ioc, &ioc_attr->adapter_attr);
-+
-+	ioc_attr->pci_attr.device_id = ioc->pcidev.device_id;
-+	ioc_attr->pci_attr.pcifn = ioc->pcidev.pci_func;
-+	bfa_ioc_get_pci_chip_rev(ioc, ioc_attr->pci_attr.chip_rev);
-+}
-+
-+/**
-+ * WWN public
-+ */
-+u64
-+bfa_ioc_get_pwwn(struct bfa_ioc *ioc)
-+{
-+	return ioc->attr->pwwn;
-+}
-+
-+u64
-+bfa_ioc_get_nwwn(struct bfa_ioc *ioc)
-+{
-+	return ioc->attr->nwwn;
-+}
-+
-+u64
-+bfa_ioc_get_adid(struct bfa_ioc *ioc)
-+{
-+	return ioc->attr->mfg_pwwn;
-+}
-+
-+mac_t
-+bfa_ioc_get_mac(struct bfa_ioc *ioc)
-+{
-+	/*
-+	 * Currently mfg mac is used as FCoE enode mac (not configured by PBC)
-+	 */
-+	if (bfa_ioc_get_type(ioc) == BFA_IOC_TYPE_FCoE)
-+		return bfa_ioc_get_mfg_mac(ioc);
-+	else
-+		return ioc->attr->mac;
-+}
-+
-+u64
-+bfa_ioc_get_mfg_pwwn(struct bfa_ioc *ioc)
-+{
-+	return ioc->attr->mfg_pwwn;
-+}
-+
-+u64
-+bfa_ioc_get_mfg_nwwn(struct bfa_ioc *ioc)
-+{
-+	return ioc->attr->mfg_nwwn;
-+}
-+
-+mac_t
-+bfa_ioc_get_mfg_mac(struct bfa_ioc *ioc)
-+{
-+	mac_t	m;
-+
-+	m = ioc->attr->mfg_mac;
-+	if (bfa_mfg_is_old_wwn_mac_model(ioc->attr->card_type))
-+		m.mac[MAC_ADDRLEN - 1] += bfa_ioc_pcifn(ioc);
-+	else
-+		bfa_mfg_increment_wwn_mac(&(m.mac[MAC_ADDRLEN-3]),
-+			bfa_ioc_pcifn(ioc));
-+
-+	return m;
-+}
-+
-+bool
-+bfa_ioc_get_fcmode(struct bfa_ioc *ioc)
-+{
-+	return ioc->fcmode || !bfa_asic_id_ct(ioc->pcidev.device_id);
-+}
-+
-+/**
-+ * Firmware failure detected. Start recovery actions.
-+ */
-+static void
-+bfa_ioc_recover(struct bfa_ioc *ioc)
-+{
-+	bfa_ioc_stats(ioc, ioc_hbfails);
-+	bfa_fsm_send_event(ioc, IOC_E_HBFAIL);
-+}
-+
-+static void
-+bfa_ioc_check_attr_wwns(struct bfa_ioc *ioc)
-+{
-+	if (bfa_ioc_get_type(ioc) == BFA_IOC_TYPE_LL)
-+		return;
-+
-+}
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna.h net-next-2.6.35-rc1-mod/drivers/net/bna/bna.h
---- net-next-2.6.35-rc1-orig/drivers/net/bna/bna.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6.35-rc1-mod/drivers/net/bna/bna.h	2010-08-23 13:24:47.346964000 -0700
-@@ -0,0 +1,654 @@
-+/*
-+ * Linux network driver for Brocade Converged Network Adapter.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License (GPL) Version 2 as
-+ * published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ */
-+#ifndef __BNA_H__
-+#define __BNA_H__
-+
-+#include "bfa_wc.h"
-+#include "bfa_ioc.h"
-+#include "cna.h"
-+#include "bfi_ll.h"
-+#include "bna_types.h"
-+
-+extern u32 bna_dim_vector[][BNA_BIAS_T_MAX];
-+extern u32 bna_napi_dim_vector[][BNA_BIAS_T_MAX];
-+
-+/**
-+ *
-+ *  Macros and constants
-+ *
-+ */
-+
-+#define BNA_IOC_TIMER_FREQ		200
-+
-+/* Log string size */
-+#define BNA_MESSAGE_SIZE		256
-+
-+#define bna_device_timer(_dev)		bfa_timer_beat(&((_dev)->timer_mod))
-+
-+/* MBOX API for PORT, TX, RX */
-+#define bna_mbox_qe_fill(_qe, _cmd, _cmd_len, _cbfn, _cbarg)		\
-+do {									\
-+	memcpy(&((_qe)->cmd.msg[0]), (_cmd), (_cmd_len));	\
-+	(_qe)->cbfn = (_cbfn);						\
-+	(_qe)->cbarg = (_cbarg);					\
-+} while (0)
-+
-+#define bna_is_small_rxq(rcb) ((rcb)->id == 1)
-+
-+#define BNA_MAC_IS_EQUAL(_mac1, _mac2)					\
-+	(!memcmp((_mac1), (_mac2), sizeof(mac_t)))
-+
-+#define BNA_POWER_OF_2(x) (((x) & ((x) - 1)) == 0)
-+
-+#define BNA_TO_POWER_OF_2(x)						\
-+do {									\
-+	int _shift = 0;							\
-+	while ((x) && (x) != 1) {					\
-+		(x) >>= 1;						\
-+		_shift++;						\
-+	}								\
-+	(x) <<= _shift;							\
-+} while (0)
-+
-+#define BNA_TO_POWER_OF_2_HIGH(x)					\
-+do {									\
-+	int n = 1;							\
-+	while (n < (x))							\
-+		n <<= 1;						\
-+	(x) = n;							\
-+} while (0)
-+
-+/*
-+ * input : _addr-> os dma addr in host endian format,
-+ * output : _bna_dma_addr-> pointer to hw dma addr
-+ */
-+#define BNA_SET_DMA_ADDR(_addr, _bna_dma_addr)				\
-+do {									\
-+	u64 tmp_addr =						\
-+	cpu_to_be64((u64)(_addr));				\
-+	(_bna_dma_addr)->msb = ((struct bna_dma_addr *)&tmp_addr)->msb; \
-+	(_bna_dma_addr)->lsb = ((struct bna_dma_addr *)&tmp_addr)->lsb; \
-+} while (0)
-+
-+/*
-+ * input : _bna_dma_addr-> pointer to hw dma addr
-+ * output : _addr-> os dma addr in host endian format
-+ */
-+#define BNA_GET_DMA_ADDR(_bna_dma_addr, _addr)			\
-+do {								\
-+	(_addr) = ((((u64)ntohl((_bna_dma_addr)->msb))) << 32)		\
-+	| ((ntohl((_bna_dma_addr)->lsb) & 0xffffffff));	\
-+} while (0)
-+
-+#define	containing_rec(addr, type, field)				\
-+	((type *)((unsigned char *)(addr) - 				\
-+	(unsigned char *)(&((type *)0)->field)))
-+
-+#define BNA_TXQ_WI_NEEDED(_vectors)	(((_vectors) + 3) >> 2)
-+
-+/* TxQ element is 64 bytes */
-+#define BNA_TXQ_PAGE_INDEX_MAX		(PAGE_SIZE >> 6)
-+#define BNA_TXQ_PAGE_INDEX_MAX_SHIFT	(PAGE_SHIFT - 6)
-+
-+#define BNA_TXQ_QPGE_PTR_GET(_qe_idx, _qpt_ptr, _qe_ptr, _qe_ptr_range) \
-+{									\
-+	unsigned int page_index;	/* index within a page */	\
-+	void *page_addr;						\
-+	page_index = (_qe_idx) & (BNA_TXQ_PAGE_INDEX_MAX - 1); 		\
-+	(_qe_ptr_range) = (BNA_TXQ_PAGE_INDEX_MAX - page_index); 	\
-+	page_addr = (_qpt_ptr)[((_qe_idx) >>  BNA_TXQ_PAGE_INDEX_MAX_SHIFT)];\
-+	(_qe_ptr) = &((struct bna_txq_entry *)(page_addr))[page_index]; \
-+}
-+
-+/* RxQ element is 8 bytes */
-+#define BNA_RXQ_PAGE_INDEX_MAX		(PAGE_SIZE >> 3)
-+#define BNA_RXQ_PAGE_INDEX_MAX_SHIFT	(PAGE_SHIFT - 3)
-+
-+#define BNA_RXQ_QPGE_PTR_GET(_qe_idx, _qpt_ptr, _qe_ptr, _qe_ptr_range) \
-+{									\
-+	unsigned int page_index;	/* index within a page */	\
-+	void *page_addr;						\
-+	page_index = (_qe_idx) & (BNA_RXQ_PAGE_INDEX_MAX - 1);		\
-+	(_qe_ptr_range) = (BNA_RXQ_PAGE_INDEX_MAX - page_index);	\
-+	page_addr = (_qpt_ptr)[((_qe_idx) >>				\
-+				BNA_RXQ_PAGE_INDEX_MAX_SHIFT)];		\
-+	(_qe_ptr) = &((struct bna_rxq_entry *)(page_addr))[page_index]; \
-+}
-+
-+/* CQ element is 16 bytes */
-+#define BNA_CQ_PAGE_INDEX_MAX		(PAGE_SIZE >> 4)
-+#define BNA_CQ_PAGE_INDEX_MAX_SHIFT	(PAGE_SHIFT - 4)
-+
-+#define BNA_CQ_QPGE_PTR_GET(_qe_idx, _qpt_ptr, _qe_ptr, _qe_ptr_range)	\
-+{									\
-+	unsigned int page_index;	  /* index within a page */	\
-+	void *page_addr;						\
-+									\
-+	page_index = (_qe_idx) & (BNA_CQ_PAGE_INDEX_MAX - 1);		\
-+	(_qe_ptr_range) = (BNA_CQ_PAGE_INDEX_MAX - page_index);		\
-+	page_addr = (_qpt_ptr)[((_qe_idx) >>				\
-+				    BNA_CQ_PAGE_INDEX_MAX_SHIFT)];	\
-+	(_qe_ptr) = &((struct bna_cq_entry *)(page_addr))[page_index];\
-+}
-+
-+#define BNA_QE_INDX_2_PTR(_cast, _qe_idx, _q_base)			\
-+	(&((_cast *)(_q_base))[(_qe_idx)])
-+
-+#define BNA_QE_INDX_RANGE(_qe_idx, _q_depth) ((_q_depth) - (_qe_idx))
-+
-+#define BNA_QE_INDX_ADD(_qe_idx, _qe_num, _q_depth)			\
-+	((_qe_idx) = ((_qe_idx) + (_qe_num)) & ((_q_depth) - 1))
-+
-+#define BNA_Q_INDEX_CHANGE(_old_idx, _updated_idx, _q_depth)		\
-+	(((_updated_idx) - (_old_idx)) & ((_q_depth) - 1))
-+
-+#define BNA_QE_FREE_CNT(_q_ptr, _q_depth)				\
-+	(((_q_ptr)->consumer_index - (_q_ptr)->producer_index - 1) &	\
-+	 ((_q_depth) - 1))
-+
-+#define BNA_QE_IN_USE_CNT(_q_ptr, _q_depth)				\
-+	((((_q_ptr)->producer_index - (_q_ptr)->consumer_index)) &	\
-+	 (_q_depth - 1))
-+
-+#define BNA_Q_GET_CI(_q_ptr)		((_q_ptr)->q.consumer_index)
-+
-+#define BNA_Q_GET_PI(_q_ptr)		((_q_ptr)->q.producer_index)
-+
-+#define BNA_Q_PI_ADD(_q_ptr, _num)					\
-+	(_q_ptr)->q.producer_index =					\
-+		(((_q_ptr)->q.producer_index + (_num)) &		\
-+		((_q_ptr)->q.q_depth - 1))
-+
-+#define BNA_Q_CI_ADD(_q_ptr, _num) 					\
-+	(_q_ptr)->q.consumer_index =					\
-+		(((_q_ptr)->q.consumer_index + (_num))  		\
-+		& ((_q_ptr)->q.q_depth - 1))
-+
-+#define BNA_Q_FREE_COUNT(_q_ptr)					\
-+	(BNA_QE_FREE_CNT(&((_q_ptr)->q), (_q_ptr)->q.q_depth))
-+
-+#define BNA_Q_IN_USE_COUNT(_q_ptr)  					\
-+	(BNA_QE_IN_USE_CNT(&(_q_ptr)->q, (_q_ptr)->q.q_depth))
-+
-+/* These macros build the data portion of the TxQ/RxQ doorbell */
-+#define BNA_DOORBELL_Q_PRD_IDX(_pi) 	(0x80000000 | (_pi))
-+#define BNA_DOORBELL_Q_STOP		(0x40000000)
-+
-+/* These macros build the data portion of the IB doorbell */
-+#define BNA_DOORBELL_IB_INT_ACK(_timeout, _events) \
-+	(0x80000000 | ((_timeout) << 16) | (_events))
-+#define BNA_DOORBELL_IB_INT_DISABLE 	(0x40000000)
-+
-+/* Set the coalescing timer for the given ib */
-+#define bna_ib_coalescing_timer_set(_i_dbell, _cls_timer)		\
-+	((_i_dbell)->doorbell_ack = BNA_DOORBELL_IB_INT_ACK((_cls_timer), 0));
-+
-+/* Acks 'events' # of events for a given ib */
-+#define bna_ib_ack(_i_dbell, _events)					\
-+	(writel(((_i_dbell)->doorbell_ack | (_events)), \
-+		(_i_dbell)->doorbell_addr));
-+
-+#define bna_txq_prod_indx_doorbell(_tcb)				\
-+	(writel(BNA_DOORBELL_Q_PRD_IDX((_tcb)->producer_index), \
-+		(_tcb)->q_dbell));
-+
-+#define bna_rxq_prod_indx_doorbell(_rcb)				\
-+	(writel(BNA_DOORBELL_Q_PRD_IDX((_rcb)->producer_index), \
-+		(_rcb)->q_dbell));
-+
-+#define BNA_LARGE_PKT_SIZE		1000
-+
-+#define BNA_UPDATE_PKT_CNT(_pkt, _len)					\
-+do {									\
-+	if ((_len) > BNA_LARGE_PKT_SIZE) {				\
-+		(_pkt)->large_pkt_cnt++;				\
-+	} else {							\
-+		(_pkt)->small_pkt_cnt++;				\
-+	}								\
-+} while (0)
-+
-+#define	call_rxf_stop_cbfn(rxf, status)					\
-+	if ((rxf)->stop_cbfn) {						\
-+		(*(rxf)->stop_cbfn)((rxf)->stop_cbarg, (status));	\
-+		(rxf)->stop_cbfn = NULL;				\
-+		(rxf)->stop_cbarg = NULL;				\
-+	}
-+
-+#define	call_rxf_start_cbfn(rxf, status)				\
-+	if ((rxf)->start_cbfn) {					\
-+		(*(rxf)->start_cbfn)((rxf)->start_cbarg, (status));	\
-+		(rxf)->start_cbfn = NULL;				\
-+		(rxf)->start_cbarg = NULL;				\
-+	}
-+
-+#define	call_rxf_cam_fltr_cbfn(rxf, status)				\
-+	if ((rxf)->cam_fltr_cbfn) {					\
-+		(*(rxf)->cam_fltr_cbfn)((rxf)->cam_fltr_cbarg, rxf->rx,	\
-+					(status));			\
-+		(rxf)->cam_fltr_cbfn = NULL;				\
-+		(rxf)->cam_fltr_cbarg = NULL;				\
-+	}
-+
-+#define	call_rxf_pause_cbfn(rxf, status)				\
-+	if ((rxf)->oper_state_cbfn) {					\
-+		(*(rxf)->oper_state_cbfn)((rxf)->oper_state_cbarg, rxf->rx,\
-+					(status));			\
-+		(rxf)->rxf_flags &= ~BNA_RXF_FL_OPERSTATE_CHANGED;	\
-+		(rxf)->oper_state_cbfn = NULL;				\
-+		(rxf)->oper_state_cbarg = NULL;				\
-+	}
-+
-+#define	call_rxf_resume_cbfn(rxf, status) call_rxf_pause_cbfn(rxf, status)
-+
-+#define is_xxx_enable(mode, bitmask, xxx) ((bitmask & xxx) && (mode & xxx))
-+
-+#define is_xxx_disable(mode, bitmask, xxx) ((bitmask & xxx) && !(mode & xxx))
-+
-+#define xxx_enable(mode, bitmask, xxx)					\
-+do {									\
-+	bitmask |= xxx;							\
-+	mode |= xxx;							\
-+} while (0)
-+
-+#define xxx_disable(mode, bitmask, xxx)					\
-+do {									\
-+	bitmask |= xxx;							\
-+	mode &= ~xxx;							\
-+} while (0)
-+
-+#define xxx_inactive(mode, bitmask, xxx)				\
-+do {									\
-+	bitmask &= ~xxx;						\
-+	mode &= ~xxx;							\
-+} while (0)
-+
-+#define is_promisc_enable(mode, bitmask)				\
-+	is_xxx_enable(mode, bitmask, BNA_RXMODE_PROMISC)
-+
-+#define is_promisc_disable(mode, bitmask)				\
-+	is_xxx_disable(mode, bitmask, BNA_RXMODE_PROMISC)
-+
-+#define promisc_enable(mode, bitmask)					\
-+	xxx_enable(mode, bitmask, BNA_RXMODE_PROMISC)
-+
-+#define promisc_disable(mode, bitmask)					\
-+	xxx_disable(mode, bitmask, BNA_RXMODE_PROMISC)
-+
-+#define promisc_inactive(mode, bitmask)					\
-+	xxx_inactive(mode, bitmask, BNA_RXMODE_PROMISC)
-+
-+#define is_default_enable(mode, bitmask)				\
-+	is_xxx_enable(mode, bitmask, BNA_RXMODE_DEFAULT)
-+
-+#define is_default_disable(mode, bitmask)				\
-+	is_xxx_disable(mode, bitmask, BNA_RXMODE_DEFAULT)
-+
-+#define default_enable(mode, bitmask)					\
-+	xxx_enable(mode, bitmask, BNA_RXMODE_DEFAULT)
-+
-+#define default_disable(mode, bitmask)					\
-+	xxx_disable(mode, bitmask, BNA_RXMODE_DEFAULT)
-+
-+#define default_inactive(mode, bitmask)					\
-+	xxx_inactive(mode, bitmask, BNA_RXMODE_DEFAULT)
-+
-+#define is_allmulti_enable(mode, bitmask)				\
-+	is_xxx_enable(mode, bitmask, BNA_RXMODE_ALLMULTI)
-+
-+#define is_allmulti_disable(mode, bitmask)				\
-+	is_xxx_disable(mode, bitmask, BNA_RXMODE_ALLMULTI)
-+
-+#define allmulti_enable(mode, bitmask)					\
-+	xxx_enable(mode, bitmask, BNA_RXMODE_ALLMULTI)
-+
-+#define allmulti_disable(mode, bitmask)					\
-+	xxx_disable(mode, bitmask, BNA_RXMODE_ALLMULTI)
-+
-+#define allmulti_inactive(mode, bitmask)				\
-+	xxx_inactive(mode, bitmask, BNA_RXMODE_ALLMULTI)
-+
-+#define	GET_RXQS(rxp, q0, q1)	do {					\
-+	switch ((rxp)->type) {						\
-+	case BNA_RXP_SINGLE:						\
-+		(q0) = rxp->rxq.single.only;				\
-+		(q1) = NULL;						\
-+		break;							\
-+	case BNA_RXP_SLR:						\
-+		(q0) = rxp->rxq.slr.large;				\
-+		(q1) = rxp->rxq.slr.small;				\
-+		break;							\
-+	case BNA_RXP_HDS:						\
-+		(q0) = rxp->rxq.hds.data;				\
-+		(q1) = rxp->rxq.hds.hdr;				\
-+		break;							\
-+	}								\
-+} while (0)
-+
-+/**
-+ *
-+ * Function prototypes
-+ *
-+ */
-+
-+/**
-+ * BNA
-+ */
-+
-+/* Internal APIs */
-+void bna_adv_res_req(struct bna_res_info *res_info);
-+
-+/* APIs for BNAD */
-+void bna_res_req(struct bna_res_info *res_info);
-+void bna_init(struct bna *bna, struct bnad *bnad,
-+			struct bfa_pcidev *pcidev,
-+			struct bna_res_info *res_info);
-+void bna_uninit(struct bna *bna);
-+void bna_stats_get(struct bna *bna);
-+void bna_stats_clr(struct bna *bna);
-+void bna_get_perm_mac(struct bna *bna, u8 *mac);
-+
-+/* APIs for Rx */
-+int bna_rit_mod_can_satisfy(struct bna_rit_mod *rit_mod, int seg_size);
-+
-+/* APIs for RxF */
-+struct bna_mac *bna_ucam_mod_mac_get(struct bna_ucam_mod *ucam_mod);
-+void bna_ucam_mod_mac_put(struct bna_ucam_mod *ucam_mod,
-+			  struct bna_mac *mac);
-+struct bna_mac *bna_mcam_mod_mac_get(struct bna_mcam_mod *mcam_mod);
-+void bna_mcam_mod_mac_put(struct bna_mcam_mod *mcam_mod,
-+			  struct bna_mac *mac);
-+struct bna_rit_segment *
-+bna_rit_mod_seg_get(struct bna_rit_mod *rit_mod, int seg_size);
-+void bna_rit_mod_seg_put(struct bna_rit_mod *rit_mod,
-+			struct bna_rit_segment *seg);
-+
-+/**
-+ * DEVICE
-+ */
-+
-+/* Interanl APIs */
-+void bna_adv_device_init(struct bna_device *device, struct bna *bna,
-+			struct bna_res_info *res_info);
-+
-+/* APIs for BNA */
-+void bna_device_init(struct bna_device *device, struct bna *bna,
-+		     struct bna_res_info *res_info);
-+void bna_device_uninit(struct bna_device *device);
-+void bna_device_cb_port_stopped(void *arg, enum bna_cb_status status);
-+int bna_device_status_get(struct bna_device *device);
-+int bna_device_state_get(struct bna_device *device);
-+
-+/* APIs for BNAD */
-+void bna_device_enable(struct bna_device *device);
-+void bna_device_disable(struct bna_device *device,
-+			enum bna_cleanup_type type);
-+
-+/**
-+ * MBOX
-+ */
-+
-+/* APIs for DEVICE */
-+void bna_mbox_mod_init(struct bna_mbox_mod *mbox_mod, struct bna *bna);
-+void bna_mbox_mod_uninit(struct bna_mbox_mod *mbox_mod);
-+void bna_mbox_mod_start(struct bna_mbox_mod *mbox_mod);
-+void bna_mbox_mod_stop(struct bna_mbox_mod *mbox_mod);
-+
-+/* APIs for PORT, TX, RX */
-+void bna_mbox_handler(struct bna *bna, u32 intr_status);
-+void bna_mbox_send(struct bna *bna, struct bna_mbox_qe *mbox_qe);
-+
-+/**
-+ * PORT
-+ */
-+
-+/* APIs for BNA */
-+void bna_port_init(struct bna_port *port, struct bna *bna);
-+void bna_port_uninit(struct bna_port *port);
-+int bna_port_state_get(struct bna_port *port);
-+int bna_llport_state_get(struct bna_llport *llport);
-+
-+/* APIs for DEVICE */
-+void bna_port_start(struct bna_port *port);
-+void bna_port_stop(struct bna_port *port);
-+void bna_port_fail(struct bna_port *port);
-+
-+/* API for RX */
-+int bna_port_mtu_get(struct bna_port *port);
-+void bna_llport_admin_up(struct bna_llport *llport);
-+void bna_llport_admin_down(struct bna_llport *llport);
-+
-+/* API for BNAD */
-+void bna_port_enable(struct bna_port *port);
-+void bna_port_disable(struct bna_port *port, enum bna_cleanup_type type,
-+		      void (*cbfn)(void *, enum bna_cb_status));
-+void bna_port_pause_config(struct bna_port *port,
-+			   struct bna_pause_config *pause_config,
-+			   void (*cbfn)(struct bnad *, enum bna_cb_status));
-+void bna_port_mtu_set(struct bna_port *port, int mtu,
-+		      void (*cbfn)(struct bnad *, enum bna_cb_status));
-+void bna_port_mac_get(struct bna_port *port, mac_t *mac);
-+void bna_port_type_set(struct bna_port *port, enum bna_port_type type);
-+void bna_port_linkcbfn_set(struct bna_port *port,
-+			   void (*linkcbfn)(struct bnad *,
-+					    enum bna_link_status));
-+void bna_port_admin_up(struct bna_port *port);
-+void bna_port_admin_down(struct bna_port *port);
-+
-+/* Callbacks for TX, RX */
-+void bna_port_cb_tx_stopped(struct bna_port *port,
-+			    enum bna_cb_status status);
-+void bna_port_cb_rx_stopped(struct bna_port *port,
-+			    enum bna_cb_status status);
-+
-+/* Callbacks for MBOX */
-+void bna_port_cb_link_up(struct bna_port *port, struct bfi_ll_aen *aen,
-+			 int status);
-+void bna_port_cb_link_down(struct bna_port *port, int status);
-+
-+/**
-+ * IB
-+ */
-+
-+/* APIs for BNA */
-+void bna_ib_mod_init(struct bna_ib_mod *ib_mod, struct bna *bna,
-+		     struct bna_res_info *res_info);
-+void bna_ib_mod_uninit(struct bna_ib_mod *ib_mod);
-+
-+/* APIs for TX, RX */
-+struct bna_ib *bna_ib_get(struct bna_ib_mod *ib_mod,
-+			    enum bna_intr_type intr_type, int vector);
-+void bna_ib_put(struct bna_ib_mod *ib_mod, struct bna_ib *ib);
-+int bna_ib_reserve_idx(struct bna_ib *ib);
-+void bna_ib_release_idx(struct bna_ib *ib, int idx);
-+int bna_ib_config(struct bna_ib *ib, struct bna_ib_config *ib_config);
-+void bna_ib_start(struct bna_ib *ib);
-+void bna_ib_stop(struct bna_ib *ib);
-+void bna_ib_fail(struct bna_ib *ib);
-+void bna_ib_coalescing_timeo_set(struct bna_ib *ib, u8 coalescing_timeo);
-+
-+/**
-+ * TX MODULE AND TX
-+ */
-+
-+/* Internal APIs */
-+void bna_tx_prio_changed(struct bna_tx *tx, int prio);
-+
-+/* APIs for BNA */
-+void bna_tx_mod_init(struct bna_tx_mod *tx_mod, struct bna *bna,
-+		     struct bna_res_info *res_info);
-+void bna_tx_mod_uninit(struct bna_tx_mod *tx_mod);
-+int bna_tx_state_get(struct bna_tx *tx);
-+
-+/* APIs for PORT */
-+void bna_tx_mod_start(struct bna_tx_mod *tx_mod, enum bna_tx_type type);
-+void bna_tx_mod_stop(struct bna_tx_mod *tx_mod, enum bna_tx_type type);
-+void bna_tx_mod_fail(struct bna_tx_mod *tx_mod);
-+void bna_tx_mod_prio_changed(struct bna_tx_mod *tx_mod, int prio);
-+void bna_tx_mod_cee_link_status(struct bna_tx_mod *tx_mod, int cee_link);
-+
-+/* APIs for BNAD */
-+void bna_tx_res_req(int num_txq, int txq_depth,
-+		    struct bna_res_info *res_info);
-+struct bna_tx *bna_tx_create(struct bna *bna, struct bnad *bnad,
-+			       struct bna_tx_config *tx_cfg,
-+			       struct bna_tx_event_cbfn *tx_cbfn,
-+			       struct bna_res_info *res_info, void *priv);
-+void bna_tx_destroy(struct bna_tx *tx);
-+void bna_tx_enable(struct bna_tx *tx);
-+void bna_tx_disable(struct bna_tx *tx, enum bna_cleanup_type type,
-+		    void (*cbfn)(void *, struct bna_tx *,
-+				 enum bna_cb_status));
-+enum bna_cb_status
-+bna_tx_prio_set(struct bna_tx *tx, int prio,
-+		void (*cbfn)(struct bnad *, struct bna_tx *,
-+			     enum bna_cb_status));
-+void bna_tx_coalescing_timeo_set(struct bna_tx *tx, int coalescing_timeo);
-+
-+/**
-+ * RX MODULE, RX, RXF
-+ */
-+
-+/* Internal APIs */
-+void rxf_cb_cam_fltr_mbox_cmd(void *arg, int status);
-+void rxf_cam_mbox_cmd(struct bna_rxf *rxf, u8 cmd,
-+		const struct bna_mac *mac_addr);
-+void __rxf_vlan_filter_set(struct bna_rxf *rxf, enum bna_status status);
-+void bna_rxf_adv_init(struct bna_rxf *rxf,
-+		struct bna_rx *rx,
-+		struct bna_rx_config *q_config);
-+int rxf_process_packet_filter_ucast(struct bna_rxf *rxf);
-+int rxf_process_packet_filter_promisc(struct bna_rxf *rxf);
-+int rxf_process_packet_filter_default(struct bna_rxf *rxf);
-+int rxf_process_packet_filter_allmulti(struct bna_rxf *rxf);
-+int rxf_clear_packet_filter_ucast(struct bna_rxf *rxf);
-+int rxf_clear_packet_filter_promisc(struct bna_rxf *rxf);
-+int rxf_clear_packet_filter_default(struct bna_rxf *rxf);
-+int rxf_clear_packet_filter_allmulti(struct bna_rxf *rxf);
-+void rxf_reset_packet_filter_ucast(struct bna_rxf *rxf);
-+void rxf_reset_packet_filter_promisc(struct bna_rxf *rxf);
-+void rxf_reset_packet_filter_default(struct bna_rxf *rxf);
-+void rxf_reset_packet_filter_allmulti(struct bna_rxf *rxf);
-+
-+/* APIs for BNA */
-+void bna_rx_mod_init(struct bna_rx_mod *rx_mod, struct bna *bna,
-+		     struct bna_res_info *res_info);
-+void bna_rx_mod_uninit(struct bna_rx_mod *rx_mod);
-+int bna_rx_state_get(struct bna_rx *rx);
-+int bna_rxf_state_get(struct bna_rxf *rxf);
-+
-+/* APIs for PORT */
-+void bna_rx_mod_start(struct bna_rx_mod *rx_mod, enum bna_rx_type type);
-+void bna_rx_mod_stop(struct bna_rx_mod *rx_mod, enum bna_rx_type type);
-+void bna_rx_mod_fail(struct bna_rx_mod *rx_mod);
-+
-+/* APIs for BNAD */
-+void bna_rx_res_req(struct bna_rx_config *rx_config,
-+		    struct bna_res_info *res_info);
-+struct bna_rx *bna_rx_create(struct bna *bna, struct bnad *bnad,
-+			       struct bna_rx_config *rx_cfg,
-+			       struct bna_rx_event_cbfn *rx_cbfn,
-+			       struct bna_res_info *res_info, void *priv);
-+void bna_rx_destroy(struct bna_rx *rx);
-+void bna_rx_enable(struct bna_rx *rx);
-+void bna_rx_disable(struct bna_rx *rx, enum bna_cleanup_type type,
-+		    void (*cbfn)(void *, struct bna_rx *,
-+				 enum bna_cb_status));
-+void bna_rx_coalescing_timeo_set(struct bna_rx *rx, int coalescing_timeo);
-+void bna_rx_dim_reconfig(struct bna *bna, u32 vector[][BNA_BIAS_T_MAX]);
-+void bna_rx_dim_update(struct bna_ccb *ccb);
-+enum bna_cb_status
-+bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac,
-+		 void (*cbfn)(struct bnad *, struct bna_rx *,
-+			      enum bna_cb_status));
-+enum bna_cb_status
-+bna_rx_ucast_add(struct bna_rx *rx, u8* ucmac,
-+		 void (*cbfn)(struct bnad *, struct bna_rx *,
-+			      enum bna_cb_status));
-+enum bna_cb_status
-+bna_rx_ucast_del(struct bna_rx *rx, u8 *ucmac,
-+		 void (*cbfn)(struct bnad *, struct bna_rx *,
-+			      enum bna_cb_status));
-+enum bna_cb_status
-+bna_rx_mcast_add(struct bna_rx *rx, u8 *mcmac,
-+		 void (*cbfn)(struct bnad *, struct bna_rx *,
-+			      enum bna_cb_status));
-+enum bna_cb_status
-+bna_rx_mcast_del(struct bna_rx *rx, u8 *mcmac,
-+		 void (*cbfn)(struct bnad *, struct bna_rx *,
-+			      enum bna_cb_status));
-+enum bna_cb_status
-+bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mcmac,
-+		     void (*cbfn)(struct bnad *, struct bna_rx *,
-+				  enum bna_cb_status));
-+void bna_rx_mcast_delall(struct bna_rx *rx,
-+			 void (*cbfn)(struct bnad *, struct bna_rx *,
-+				      enum bna_cb_status));
-+enum bna_cb_status
-+bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode rxmode,
-+		enum bna_rxmode bitmask,
-+		void (*cbfn)(struct bnad *, struct bna_rx *,
-+			     enum bna_cb_status));
-+void bna_rx_vlan_add(struct bna_rx *rx, int vlan_id);
-+void bna_rx_vlan_del(struct bna_rx *rx, int vlan_id);
-+void bna_rx_vlanfilter_enable(struct bna_rx *rx);
-+void bna_rx_vlanfilter_disable(struct bna_rx *rx);
-+void bna_rx_rss_enable(struct bna_rx *rx);
-+void bna_rx_rss_disable(struct bna_rx *rx);
-+void bna_rx_rss_reconfig(struct bna_rx *rx, struct bna_rxf_rss *rss_config);
-+void bna_rx_rss_rit_set(struct bna_rx *rx, unsigned int *vectors,
-+			int nvectors);
-+void bna_rx_hds_enable(struct bna_rx *rx, struct bna_rxf_hds *hds_config,
-+		       void (*cbfn)(struct bnad *, struct bna_rx *,
-+				    enum bna_cb_status));
-+void bna_rx_hds_disable(struct bna_rx *rx,
-+			void (*cbfn)(struct bnad *, struct bna_rx *,
-+				     enum bna_cb_status));
-+void bna_rx_receive_pause(struct bna_rx *rx,
-+			  void (*cbfn)(struct bnad *, struct bna_rx *,
-+				       enum bna_cb_status));
-+void bna_rx_receive_resume(struct bna_rx *rx,
-+			   void (*cbfn)(struct bnad *, struct bna_rx *,
-+					enum bna_cb_status));
-+
-+/* RxF APIs for RX */
-+void bna_rxf_start(struct bna_rxf *rxf);
-+void bna_rxf_stop(struct bna_rxf *rxf);
-+void bna_rxf_fail(struct bna_rxf *rxf);
-+void bna_rxf_init(struct bna_rxf *rxf, struct bna_rx *rx,
-+		  struct bna_rx_config *q_config);
-+void bna_rxf_uninit(struct bna_rxf *rxf);
-+
-+/* Callback from RXF to RX */
-+void bna_rx_cb_rxf_stopped(struct bna_rx *rx, enum bna_cb_status);
-+void bna_rx_cb_rxf_started(struct bna_rx *rx, enum bna_cb_status);
-+
-+/**
-+ * BNAD
-+ */
-+
-+/* Callbacks for BNA */
-+void bnad_cb_stats_get(struct bnad *bnad, enum bna_cb_status status,
-+		       struct bna_stats *stats);
-+void bnad_cb_stats_clr(struct bnad *bnad);
-+
-+/* Callbacks for DEVICE */
-+void bnad_cb_device_enabled(struct bnad *bnad, enum bna_cb_status status);
-+void bnad_cb_device_disabled(struct bnad *bnad, enum bna_cb_status status);
-+void bnad_cb_device_enable_mbox_intr(struct bnad *bnad);
-+void bnad_cb_device_disable_mbox_intr(struct bnad *bnad);
-+
-+/* Callbacks for port */
-+void bnad_cb_port_link_status(struct bnad *bnad,
-+			      enum bna_link_status status);
-+
-+#endif  /* __BNA_H__ */
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_hw.h net-next-2.6.35-rc1-mod/drivers/net/bna/bna_hw.h
---- net-next-2.6.35-rc1-orig/drivers/net/bna/bna_hw.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6.35-rc1-mod/drivers/net/bna/bna_hw.h	2010-08-23 13:24:47.356963000 -0700
-@@ -0,0 +1,1491 @@
++union bfa_port_stats_u {
++	struct bfa_port_fc_stats fc;
++	struct bfa_port_eth_stats eth;
++};
++
++#pragma pack(1)
++
++#define BFA_CEE_LLDP_MAX_STRING_LEN (128)
++#define BFA_CEE_DCBX_MAX_PRIORITY	(8)
++#define BFA_CEE_DCBX_MAX_PGID		(8)
++
++#define BFA_CEE_LLDP_SYS_CAP_OTHER	0x0001
++#define BFA_CEE_LLDP_SYS_CAP_REPEATER	0x0002
++#define BFA_CEE_LLDP_SYS_CAP_MAC_BRIDGE	0x0004
++#define BFA_CEE_LLDP_SYS_CAP_WLAN_AP	0x0008
++#define BFA_CEE_LLDP_SYS_CAP_ROUTER	0x0010
++#define BFA_CEE_LLDP_SYS_CAP_TELEPHONE	0x0020
++#define BFA_CEE_LLDP_SYS_CAP_DOCSIS_CD	0x0040
++#define BFA_CEE_LLDP_SYS_CAP_STATION	0x0080
++#define BFA_CEE_LLDP_SYS_CAP_CVLAN	0x0100
++#define BFA_CEE_LLDP_SYS_CAP_SVLAN	0x0200
++#define BFA_CEE_LLDP_SYS_CAP_TPMR	0x0400
++
++/* LLDP string type */
++struct bfa_cee_lldp_str {
++	u8 sub_type;
++	u8 len;
++	u8 rsvd[2];
++	u8 value[BFA_CEE_LLDP_MAX_STRING_LEN];
++};
++
++/* LLDP paramters */
++struct bfa_cee_lldp_cfg {
++	struct bfa_cee_lldp_str chassis_id;
++	struct bfa_cee_lldp_str port_id;
++	struct bfa_cee_lldp_str port_desc;
++	struct bfa_cee_lldp_str sys_name;
++	struct bfa_cee_lldp_str sys_desc;
++	struct bfa_cee_lldp_str mgmt_addr;
++	u16 time_to_live;
++	u16 enabled_system_cap;
++};
++
++enum bfa_cee_dcbx_version {
++	DCBX_PROTOCOL_PRECEE	= 1,
++	DCBX_PROTOCOL_CEE	= 2,
++};
++
++enum bfa_cee_lls {
++	/* LLS is down because the TLV not sent by the peer */
++	CEE_LLS_DOWN_NO_TLV = 0,
++	/* LLS is down as advertised by the peer */
++	CEE_LLS_DOWN	= 1,
++	CEE_LLS_UP	= 2,
++};
++
++/* CEE/DCBX parameters */
++struct bfa_cee_dcbx_cfg {
++	u8 pgid[BFA_CEE_DCBX_MAX_PRIORITY];
++	u8 pg_percentage[BFA_CEE_DCBX_MAX_PGID];
++	u8 pfc_primap; /* bitmap of priorties with PFC enabled */
++	u8 fcoe_primap; /* bitmap of priorities used for FcoE traffic */
++	u8 iscsi_primap; /* bitmap of priorities used for iSCSI traffic */
++	u8 dcbx_version; /* operating version:CEE or preCEE */
++	u8 lls_fcoe; /* FCoE Logical Link Status */
++	u8 lls_lan; /* LAN Logical Link Status */
++	u8 rsvd[2];
++};
++
++/* CEE status */
++/* Making this to tri-state for the benefit of port list command */
++enum bfa_cee_status {
++	CEE_UP = 0,
++	CEE_PHY_UP = 1,
++	CEE_LOOPBACK = 2,
++	CEE_PHY_DOWN = 3,
++};
++
++/* CEE Query */
++struct bfa_cee_attr {
++	u8	cee_status;
++	u8 error_reason;
++	struct bfa_cee_lldp_cfg lldp_remote;
++	struct bfa_cee_dcbx_cfg dcbx_remote;
++	mac_t src_mac;
++	u8 link_speed;
++	u8 nw_priority;
++	u8 filler[2];
++};
++
++/* LLDP/DCBX/CEE Statistics */
++struct bfa_cee_stats {
++	u32	lldp_tx_frames;		/*!< LLDP Tx Frames */
++	u32	lldp_rx_frames;		/*!< LLDP Rx Frames */
++	u32	lldp_rx_frames_invalid;	/*!< LLDP Rx Frames invalid */
++	u32	lldp_rx_frames_new;	/*!< LLDP Rx Frames new */
++	u32	lldp_tlvs_unrecognized;	/*!< LLDP Rx unrecognized TLVs */
++	u32	lldp_rx_shutdown_tlvs;	/*!< LLDP Rx shutdown TLVs */
++	u32	lldp_info_aged_out;	/*!< LLDP remote info aged out */
++	u32	dcbx_phylink_ups;	/*!< DCBX phy link ups */
++	u32	dcbx_phylink_downs;	/*!< DCBX phy link downs */
++	u32	dcbx_rx_tlvs;		/*!< DCBX Rx TLVs */
++	u32	dcbx_rx_tlvs_invalid;	/*!< DCBX Rx TLVs invalid */
++	u32	dcbx_control_tlv_error;	/*!< DCBX control TLV errors */
++	u32	dcbx_feature_tlv_error;	/*!< DCBX feature TLV errors */
++	u32	dcbx_cee_cfg_new;	/*!< DCBX new CEE cfg rcvd */
++	u32	cee_status_down;	/*!< CEE status down */
++	u32	cee_status_up;		/*!< CEE status up */
++	u32	cee_hw_cfg_changed;	/*!< CEE hw cfg changed */
++	u32	cee_rx_invalid_cfg;	/*!< CEE invalid cfg */
++};
++
++#pragma pack()
++
++#endif	/* __BFA_DEFS_CNA_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_defs_mfg_comm.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_defs_mfg_comm.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_defs_mfg_comm.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_defs_mfg_comm.h	2010-08-23 13:24:47.824889000 -0700
+@@ -0,0 +1,244 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -2560,1485 +618,1366 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_hw.h net-next-2.6.35-rc1-
 + * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
 + * All rights reserved
 + * www.brocade.com
-+ *
-+ * File for interrupt macros and functions
 + */
++#ifndef __BFA_DEFS_MFG_COMM_H__
++#define __BFA_DEFS_MFG_COMM_H__
 +
-+#ifndef __BNA_HW_H__
-+#define __BNA_HW_H__
++#include "cna.h"
 +
-+#include "bfi_ctreg.h"
-+
-+/**
-+ *
-+ * SW imposed limits
-+ *
-+ */
-+
-+#ifndef BNA_BIOS_BUILD
-+
-+#define BFI_MAX_TXQ			64
-+#define BFI_MAX_RXQ			64
-+#define	BFI_MAX_RXF			64
-+#define BFI_MAX_IB			128
-+#define	BFI_MAX_RIT_SIZE		256
-+#define	BFI_RSS_RIT_SIZE		64
-+#define	BFI_NONRSS_RIT_SIZE		1
-+#define BFI_MAX_UCMAC			256
-+#define BFI_MAX_MCMAC			512
-+#define BFI_IBIDX_SIZE			4
-+#define BFI_MAX_VLAN			4095
-+
-+/**
-+ * There are 2 free IB index pools:
-+ *	pool1: 120 segments of 1 index each
-+ *	pool8: 1 segment of 8 indexes
-+ */
-+#define BFI_IBIDX_POOL1_SIZE		116
-+#define	BFI_IBIDX_POOL1_ENTRY_SIZE	1
-+#define BFI_IBIDX_POOL2_SIZE		2
-+#define	BFI_IBIDX_POOL2_ENTRY_SIZE	2
-+#define	BFI_IBIDX_POOL8_SIZE		1
-+#define	BFI_IBIDX_POOL8_ENTRY_SIZE	8
-+#define	BFI_IBIDX_TOTAL_POOLS		3
-+#define	BFI_IBIDX_TOTAL_SEGS		119 /* (POOL1 + POOL2 + POOL8)_SIZE */
-+#define	BFI_IBIDX_MAX_SEGSIZE		8
-+#define init_ibidx_pool(name)						\
-+static struct bna_ibidx_pool name[BFI_IBIDX_TOTAL_POOLS] =		\
-+{									\
-+	{ BFI_IBIDX_POOL1_SIZE, BFI_IBIDX_POOL1_ENTRY_SIZE },		\
-+	{ BFI_IBIDX_POOL2_SIZE, BFI_IBIDX_POOL2_ENTRY_SIZE },		\
-+	{ BFI_IBIDX_POOL8_SIZE, BFI_IBIDX_POOL8_ENTRY_SIZE }		\
-+}
-+
-+/**
-+ * There are 2 free RIT segment pools:
-+ * 	Pool1: 192 segments of 1 RIT entry each
-+ *	Pool2: 1 segment of 64 RIT entry
-+ */
-+#define BFI_RIT_SEG_POOL1_SIZE		192
-+#define BFI_RIT_SEG_POOL1_ENTRY_SIZE	1
-+#define BFI_RIT_SEG_POOLRSS_SIZE	1
-+#define BFI_RIT_SEG_POOLRSS_ENTRY_SIZE	64
-+#define BFI_RIT_SEG_TOTAL_POOLS		2
-+#define BFI_RIT_TOTAL_SEGS		193 /* POOL1_SIZE + POOLRSS_SIZE */
-+#define init_ritseg_pool(name)						\
-+static struct bna_ritseg_pool_cfg name[BFI_RIT_SEG_TOTAL_POOLS] =	\
-+{									\
-+	{ BFI_RIT_SEG_POOL1_SIZE, BFI_RIT_SEG_POOL1_ENTRY_SIZE },	\
-+	{ BFI_RIT_SEG_POOLRSS_SIZE, BFI_RIT_SEG_POOLRSS_ENTRY_SIZE }	\
-+}
-+
-+#else /* BNA_BIOS_BUILD */
-+
-+#define BFI_MAX_TXQ			1
-+#define BFI_MAX_RXQ			1
-+#define	BFI_MAX_RXF			1
-+#define BFI_MAX_IB			2
-+#define	BFI_MAX_RIT_SIZE		2
-+#define	BFI_RSS_RIT_SIZE		64
-+#define	BFI_NONRSS_RIT_SIZE		1
-+#define BFI_MAX_UCMAC			1
-+#define BFI_MAX_MCMAC			8
-+#define BFI_IBIDX_SIZE			4
-+#define BFI_MAX_VLAN			4095
-+/* There is one free pool: 2 segments of 1 index each */
-+#define BFI_IBIDX_POOL1_SIZE		2
-+#define	BFI_IBIDX_POOL1_ENTRY_SIZE	1
-+#define	BFI_IBIDX_TOTAL_POOLS		1
-+#define	BFI_IBIDX_TOTAL_SEGS		2 /* POOL1_SIZE */
-+#define	BFI_IBIDX_MAX_SEGSIZE		1
-+#define init_ibidx_pool(name)						\
-+static struct bna_ibidx_pool name[BFI_IBIDX_TOTAL_POOLS] =		\
-+{									\
-+	{ BFI_IBIDX_POOL1_SIZE, BFI_IBIDX_POOL1_ENTRY_SIZE }		\
-+}
-+
-+#define BFI_RIT_SEG_POOL1_SIZE		1
-+#define BFI_RIT_SEG_POOL1_ENTRY_SIZE	1
-+#define BFI_RIT_SEG_TOTAL_POOLS		1
-+#define BFI_RIT_TOTAL_SEGS		1 /* POOL1_SIZE */
-+#define init_ritseg_pool(name)						\
-+static struct bna_ritseg_pool_cfg name[BFI_RIT_SEG_TOTAL_POOLS] =	\
-+{									\
-+	{ BFI_RIT_SEG_POOL1_SIZE, BFI_RIT_SEG_POOL1_ENTRY_SIZE }	\
-+}
-+
-+#endif /* BNA_BIOS_BUILD */
-+
-+#define BFI_RSS_HASH_KEY_LEN		10
-+
-+#define BFI_COALESCING_TIMER_UNIT	5	/* 5us */
-+#define BFI_MAX_COALESCING_TIMEO	0xFF	/* in 5us units */
-+#define BFI_MAX_INTERPKT_COUNT		0xFF
-+#define BFI_MAX_INTERPKT_TIMEO		0xF	/* in 0.5us units */
-+#define BFI_TX_COALESCING_TIMEO		20	/* 20 * 5 = 100us */
-+#define BFI_TX_INTERPKT_COUNT		32
-+#define	BFI_RX_COALESCING_TIMEO		12	/* 12 * 5 = 60us */
-+#define	BFI_RX_INTERPKT_COUNT		6	/* Pkt Cnt = 6 */
-+#define	BFI_RX_INTERPKT_TIMEO		3	/* 3 * 0.5 = 1.5us */
-+
-+#define BFI_TXQ_WI_SIZE			64	/* bytes */
-+#define BFI_RXQ_WI_SIZE			8	/* bytes */
-+#define BFI_CQ_WI_SIZE			16	/* bytes */
-+#define BFI_TX_MAX_WRR_QUOTA		0xFFF
-+
-+#define BFI_TX_MAX_VECTORS_PER_WI	4
-+#define BFI_TX_MAX_VECTORS_PER_PKT	0xFF
-+#define BFI_TX_MAX_DATA_PER_VECTOR	0xFFFF
-+#define BFI_TX_MAX_DATA_PER_PKT		0xFFFFFF
-+
-+/* Small Q buffer size */
-+#define BFI_SMALL_RXBUF_SIZE		128
-+
-+/* Defined separately since BFA_FLASH_DMA_BUF_SZ is in bfa_flash.c */
-+#define BFI_FLASH_DMA_BUF_SZ		0x010000 /* 64K DMA */
-+#define BFI_HW_STATS_SIZE		0x4000 /* 16K DMA */
-+
-+/**
-+ *
-+ * HW register offsets, macros
-+ *
-+ */
-+
-+/* DMA Block Register Host Window Start Address */
-+#define DMA_BLK_REG_ADDR		0x00013000
-+
-+/* DMA Block Internal Registers */
-+#define DMA_CTRL_REG0			(DMA_BLK_REG_ADDR + 0x000)
-+#define DMA_CTRL_REG1			(DMA_BLK_REG_ADDR + 0x004)
-+#define DMA_ERR_INT_STATUS		(DMA_BLK_REG_ADDR + 0x008)
-+#define DMA_ERR_INT_ENABLE		(DMA_BLK_REG_ADDR + 0x00c)
-+#define DMA_ERR_INT_STATUS_SET		(DMA_BLK_REG_ADDR + 0x010)
-+
-+/* APP Block Register Address Offset from BAR0 */
-+#define APP_BLK_REG_ADDR		0x00014000
-+
-+/* Host Function Interrupt Mask Registers */
-+#define HOSTFN0_INT_MASK		(APP_BLK_REG_ADDR + 0x004)
-+#define HOSTFN1_INT_MASK		(APP_BLK_REG_ADDR + 0x104)
-+#define HOSTFN2_INT_MASK		(APP_BLK_REG_ADDR + 0x304)
-+#define HOSTFN3_INT_MASK		(APP_BLK_REG_ADDR + 0x404)
-+
-+/**
-+ * Host Function PCIe Error Registers
-+ * Duplicates "Correctable" & "Uncorrectable"
-+ * registers in PCIe Config space.
-+ */
-+#define FN0_PCIE_ERR_REG		(APP_BLK_REG_ADDR + 0x014)
-+#define FN1_PCIE_ERR_REG		(APP_BLK_REG_ADDR + 0x114)
-+#define FN2_PCIE_ERR_REG		(APP_BLK_REG_ADDR + 0x314)
-+#define FN3_PCIE_ERR_REG		(APP_BLK_REG_ADDR + 0x414)
-+
-+/* Host Function Error Type Status Registers */
-+#define FN0_ERR_TYPE_STATUS_REG		(APP_BLK_REG_ADDR + 0x018)
-+#define FN1_ERR_TYPE_STATUS_REG		(APP_BLK_REG_ADDR + 0x118)
-+#define FN2_ERR_TYPE_STATUS_REG		(APP_BLK_REG_ADDR + 0x318)
-+#define FN3_ERR_TYPE_STATUS_REG		(APP_BLK_REG_ADDR + 0x418)
-+
-+/* Host Function Error Type Mask Registers */
-+#define FN0_ERR_TYPE_MSK_STATUS_REG	(APP_BLK_REG_ADDR + 0x01c)
-+#define FN1_ERR_TYPE_MSK_STATUS_REG	(APP_BLK_REG_ADDR + 0x11c)
-+#define FN2_ERR_TYPE_MSK_STATUS_REG	(APP_BLK_REG_ADDR + 0x31c)
-+#define FN3_ERR_TYPE_MSK_STATUS_REG	(APP_BLK_REG_ADDR + 0x41c)
-+
-+/* Catapult Host Semaphore Status Registers (App block) */
-+#define HOST_SEM_STS0_REG		(APP_BLK_REG_ADDR + 0x630)
-+#define HOST_SEM_STS1_REG		(APP_BLK_REG_ADDR + 0x634)
-+#define HOST_SEM_STS2_REG		(APP_BLK_REG_ADDR + 0x638)
-+#define HOST_SEM_STS3_REG		(APP_BLK_REG_ADDR + 0x63c)
-+#define HOST_SEM_STS4_REG		(APP_BLK_REG_ADDR + 0x640)
-+#define HOST_SEM_STS5_REG		(APP_BLK_REG_ADDR + 0x644)
-+#define HOST_SEM_STS6_REG		(APP_BLK_REG_ADDR + 0x648)
-+#define HOST_SEM_STS7_REG		(APP_BLK_REG_ADDR + 0x64c)
-+
-+/* PCIe Misc Register */
-+#define PCIE_MISC_REG			(APP_BLK_REG_ADDR + 0x200)
-+
-+/* Temp Sensor Control Registers */
-+#define TEMPSENSE_CNTL_REG		(APP_BLK_REG_ADDR + 0x250)
-+#define TEMPSENSE_STAT_REG		(APP_BLK_REG_ADDR + 0x254)
-+
-+/* APP Block local error registers */
-+#define APP_LOCAL_ERR_STAT		(APP_BLK_REG_ADDR + 0x258)
-+#define APP_LOCAL_ERR_MSK		(APP_BLK_REG_ADDR + 0x25c)
-+
-+/* PCIe Link Error registers */
-+#define PCIE_LNK_ERR_STAT		(APP_BLK_REG_ADDR + 0x260)
-+#define PCIE_LNK_ERR_MSK		(APP_BLK_REG_ADDR + 0x264)
-+
-+/**
-+ * FCoE/FIP Ethertype Register
-+ * 31:16 -- Chip wide value for FIP type
-+ * 15:0  -- Chip wide value for FCoE type
-+ */
-+#define FCOE_FIP_ETH_TYPE		(APP_BLK_REG_ADDR + 0x280)
-+
-+/**
-+ * Reserved Ethertype Register
-+ * 31:16 -- Reserved
-+ * 15:0  -- Other ethertype
-+ */
-+#define RESV_ETH_TYPE			(APP_BLK_REG_ADDR + 0x284)
-+
-+/**
-+ * Host Command Status Registers
-+ * Each set consists of 3 registers :
-+ * clear, set, cmd
-+ * 16 such register sets in all
-+ * See catapult_spec.pdf for detailed functionality
-+ * Put each type in a single macro accessed by _num ?
-+ */
-+#define HOST_CMDSTS0_CLR_REG		(APP_BLK_REG_ADDR + 0x500)
-+#define HOST_CMDSTS0_SET_REG		(APP_BLK_REG_ADDR + 0x504)
-+#define HOST_CMDSTS0_REG		(APP_BLK_REG_ADDR + 0x508)
-+#define HOST_CMDSTS1_CLR_REG		(APP_BLK_REG_ADDR + 0x510)
-+#define HOST_CMDSTS1_SET_REG		(APP_BLK_REG_ADDR + 0x514)
-+#define HOST_CMDSTS1_REG		(APP_BLK_REG_ADDR + 0x518)
-+#define HOST_CMDSTS2_CLR_REG		(APP_BLK_REG_ADDR + 0x520)
-+#define HOST_CMDSTS2_SET_REG		(APP_BLK_REG_ADDR + 0x524)
-+#define HOST_CMDSTS2_REG		(APP_BLK_REG_ADDR + 0x528)
-+#define HOST_CMDSTS3_CLR_REG		(APP_BLK_REG_ADDR + 0x530)
-+#define HOST_CMDSTS3_SET_REG		(APP_BLK_REG_ADDR + 0x534)
-+#define HOST_CMDSTS3_REG		(APP_BLK_REG_ADDR + 0x538)
-+#define HOST_CMDSTS4_CLR_REG		(APP_BLK_REG_ADDR + 0x540)
-+#define HOST_CMDSTS4_SET_REG		(APP_BLK_REG_ADDR + 0x544)
-+#define HOST_CMDSTS4_REG		(APP_BLK_REG_ADDR + 0x548)
-+#define HOST_CMDSTS5_CLR_REG		(APP_BLK_REG_ADDR + 0x550)
-+#define HOST_CMDSTS5_SET_REG		(APP_BLK_REG_ADDR + 0x554)
-+#define HOST_CMDSTS5_REG		(APP_BLK_REG_ADDR + 0x558)
-+#define HOST_CMDSTS6_CLR_REG		(APP_BLK_REG_ADDR + 0x560)
-+#define HOST_CMDSTS6_SET_REG		(APP_BLK_REG_ADDR + 0x564)
-+#define HOST_CMDSTS6_REG		(APP_BLK_REG_ADDR + 0x568)
-+#define HOST_CMDSTS7_CLR_REG		(APP_BLK_REG_ADDR + 0x570)
-+#define HOST_CMDSTS7_SET_REG		(APP_BLK_REG_ADDR + 0x574)
-+#define HOST_CMDSTS7_REG		(APP_BLK_REG_ADDR + 0x578)
-+#define HOST_CMDSTS8_CLR_REG		(APP_BLK_REG_ADDR + 0x580)
-+#define HOST_CMDSTS8_SET_REG		(APP_BLK_REG_ADDR + 0x584)
-+#define HOST_CMDSTS8_REG		(APP_BLK_REG_ADDR + 0x588)
-+#define HOST_CMDSTS9_CLR_REG		(APP_BLK_REG_ADDR + 0x590)
-+#define HOST_CMDSTS9_SET_REG		(APP_BLK_REG_ADDR + 0x594)
-+#define HOST_CMDSTS9_REG		(APP_BLK_REG_ADDR + 0x598)
-+#define HOST_CMDSTS10_CLR_REG		(APP_BLK_REG_ADDR + 0x5A0)
-+#define HOST_CMDSTS10_SET_REG		(APP_BLK_REG_ADDR + 0x5A4)
-+#define HOST_CMDSTS10_REG		(APP_BLK_REG_ADDR + 0x5A8)
-+#define HOST_CMDSTS11_CLR_REG		(APP_BLK_REG_ADDR + 0x5B0)
-+#define HOST_CMDSTS11_SET_REG		(APP_BLK_REG_ADDR + 0x5B4)
-+#define HOST_CMDSTS11_REG		(APP_BLK_REG_ADDR + 0x5B8)
-+#define HOST_CMDSTS12_CLR_REG		(APP_BLK_REG_ADDR + 0x5C0)
-+#define HOST_CMDSTS12_SET_REG		(APP_BLK_REG_ADDR + 0x5C4)
-+#define HOST_CMDSTS12_REG		(APP_BLK_REG_ADDR + 0x5C8)
-+#define HOST_CMDSTS13_CLR_REG		(APP_BLK_REG_ADDR + 0x5D0)
-+#define HOST_CMDSTS13_SET_REG		(APP_BLK_REG_ADDR + 0x5D4)
-+#define HOST_CMDSTS13_REG		(APP_BLK_REG_ADDR + 0x5D8)
-+#define HOST_CMDSTS14_CLR_REG		(APP_BLK_REG_ADDR + 0x5E0)
-+#define HOST_CMDSTS14_SET_REG		(APP_BLK_REG_ADDR + 0x5E4)
-+#define HOST_CMDSTS14_REG		(APP_BLK_REG_ADDR + 0x5E8)
-+#define HOST_CMDSTS15_CLR_REG		(APP_BLK_REG_ADDR + 0x5F0)
-+#define HOST_CMDSTS15_SET_REG		(APP_BLK_REG_ADDR + 0x5F4)
-+#define HOST_CMDSTS15_REG		(APP_BLK_REG_ADDR + 0x5F8)
-+
-+/**
-+ * LPU0 Block Register Address Offset from BAR0
-+ * Range 0x18000 - 0x18033
-+ */
-+#define LPU0_BLK_REG_ADDR		0x00018000
-+
-+/**
-+ * LPU0 Registers
-+ * Should they be directly used from host,
-+ * except for diagnostics ?
-+ * CTL_REG : Control register
-+ * CMD_REG : Triggers exec. of cmd. in
-+ *           Mailbox memory
-+ */
-+#define LPU0_MBOX_CTL_REG		(LPU0_BLK_REG_ADDR + 0x000)
-+#define LPU0_MBOX_CMD_REG		(LPU0_BLK_REG_ADDR + 0x004)
-+#define LPU0_MBOX_LINK_0REG		(LPU0_BLK_REG_ADDR + 0x008)
-+#define LPU1_MBOX_LINK_0REG		(LPU0_BLK_REG_ADDR + 0x00c)
-+#define LPU0_MBOX_STATUS_0REG		(LPU0_BLK_REG_ADDR + 0x010)
-+#define LPU1_MBOX_STATUS_0REG		(LPU0_BLK_REG_ADDR + 0x014)
-+#define LPU0_ERR_STATUS_REG		(LPU0_BLK_REG_ADDR + 0x018)
-+#define LPU0_ERR_SET_REG		(LPU0_BLK_REG_ADDR + 0x020)
-+
-+/**
-+ * LPU1 Block Register Address Offset from BAR0
-+ * Range 0x18400 - 0x18433
-+ */
-+#define LPU1_BLK_REG_ADDR		0x00018400
-+
-+/**
-+ * LPU1 Registers
-+ * Same as LPU0 registers above
-+ */
-+#define LPU1_MBOX_CTL_REG		(LPU1_BLK_REG_ADDR + 0x000)
-+#define LPU1_MBOX_CMD_REG		(LPU1_BLK_REG_ADDR + 0x004)
-+#define LPU0_MBOX_LINK_1REG		(LPU1_BLK_REG_ADDR + 0x008)
-+#define LPU1_MBOX_LINK_1REG		(LPU1_BLK_REG_ADDR + 0x00c)
-+#define LPU0_MBOX_STATUS_1REG		(LPU1_BLK_REG_ADDR + 0x010)
-+#define LPU1_MBOX_STATUS_1REG		(LPU1_BLK_REG_ADDR + 0x014)
-+#define LPU1_ERR_STATUS_REG		(LPU1_BLK_REG_ADDR + 0x018)
-+#define LPU1_ERR_SET_REG		(LPU1_BLK_REG_ADDR + 0x020)
-+
-+/**
-+ * PSS Block Register Address Offset from BAR0
-+ * Range 0x18800 - 0x188DB
-+ */
-+#define PSS_BLK_REG_ADDR		0x00018800
-+
-+/**
-+ * PSS Registers
-+ * For details, see catapult_spec.pdf
-+ * ERR_STATUS_REG : Indicates error in PSS module
-+ * RAM_ERR_STATUS_REG : Indicates RAM module that detected error
-+ */
-+#define ERR_STATUS_SET			(PSS_BLK_REG_ADDR + 0x018)
-+#define PSS_RAM_ERR_STATUS_REG		(PSS_BLK_REG_ADDR + 0x01C)
-+
-+/**
-+ * PSS Semaphore Lock Registers, total 16
-+ * First read when unlocked returns 0,
-+ * and is set to 1, atomically.
-+ * Subsequent reads returns 1.
-+ * To clear set the value to 0.
-+ * Range : 0x20 to 0x5c
-+ */
-+#define PSS_SEM_LOCK_REG(_num) 		\
-+	(PSS_BLK_REG_ADDR + 0x020 + ((_num) << 2))
-+
-+/**
-+ * PSS Semaphore Status Registers,
-+ * corresponding to the lock registers above
-+ */
-+#define PSS_SEM_STATUS_REG(_num) 		\
-+	(PSS_BLK_REG_ADDR + 0x060 + ((_num) << 2))
-+
-+/**
-+ * Catapult CPQ Registers
-+ * Defines for Mailbox Registers
-+ * Used to send mailbox commands to firmware from
-+ * host. The data part is written to the MBox
-+ * memory, registers are used to indicate that
-+ * a commnad is resident in memory.
-+ *
-+ * Note : LPU0<->LPU1 mailboxes are not listed here
-+ */
-+#define CPQ_BLK_REG_ADDR		0x00019000
-+
-+#define HOSTFN0_LPU0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x130)
-+#define HOSTFN0_LPU1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x134)
-+#define LPU0_HOSTFN0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x138)
-+#define LPU1_HOSTFN0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x13C)
-+
-+#define HOSTFN1_LPU0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x140)
-+#define HOSTFN1_LPU1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x144)
-+#define LPU0_HOSTFN1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x148)
-+#define LPU1_HOSTFN1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x14C)
-+
-+#define HOSTFN2_LPU0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x170)
-+#define HOSTFN2_LPU1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x174)
-+#define LPU0_HOSTFN2_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x178)
-+#define LPU1_HOSTFN2_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x17C)
-+
-+#define HOSTFN3_LPU0_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x180)
-+#define HOSTFN3_LPU1_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x184)
-+#define LPU0_HOSTFN3_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x188)
-+#define LPU1_HOSTFN3_MBOX1_CMD_STAT	(CPQ_BLK_REG_ADDR + 0x18C)
-+
-+/* Host Function Force Parity Error Registers */
-+#define HOSTFN0_LPU_FORCE_PERR		(CPQ_BLK_REG_ADDR + 0x120)
-+#define HOSTFN1_LPU_FORCE_PERR		(CPQ_BLK_REG_ADDR + 0x124)
-+#define HOSTFN2_LPU_FORCE_PERR		(CPQ_BLK_REG_ADDR + 0x128)
-+#define HOSTFN3_LPU_FORCE_PERR		(CPQ_BLK_REG_ADDR + 0x12C)
-+
-+/* LL Port[0|1] Halt Mask Registers */
-+#define LL_HALT_MSK_P0			(CPQ_BLK_REG_ADDR + 0x1A0)
-+#define LL_HALT_MSK_P1			(CPQ_BLK_REG_ADDR + 0x1B0)
-+
-+/* LL Port[0|1] Error Mask Registers */
-+#define LL_ERR_MSK_P0			(CPQ_BLK_REG_ADDR + 0x1D0)
-+#define LL_ERR_MSK_P1			(CPQ_BLK_REG_ADDR + 0x1D4)
-+
-+/* EMC FLI (Flash Controller) Block Register Address Offset from BAR0 */
-+#define FLI_BLK_REG_ADDR		0x0001D000
-+
-+/* EMC FLI Registers */
-+#define FLI_CMD_REG			(FLI_BLK_REG_ADDR + 0x000)
-+#define FLI_ADDR_REG			(FLI_BLK_REG_ADDR + 0x004)
-+#define FLI_CTL_REG			(FLI_BLK_REG_ADDR + 0x008)
-+#define FLI_WRDATA_REG			(FLI_BLK_REG_ADDR + 0x00C)
-+#define FLI_RDDATA_REG			(FLI_BLK_REG_ADDR + 0x010)
-+#define FLI_DEV_STATUS_REG		(FLI_BLK_REG_ADDR + 0x014)
-+#define FLI_SIG_WD_REG			(FLI_BLK_REG_ADDR + 0x018)
-+
-+/**
-+ * RO register
-+ * 31:16 -- Vendor Id
-+ * 15:0  -- Device Id
-+ */
-+#define FLI_DEV_VENDOR_REG		(FLI_BLK_REG_ADDR + 0x01C)
-+#define FLI_ERR_STATUS_REG		(FLI_BLK_REG_ADDR + 0x020)
-+
-+/**
-+ * RAD (RxAdm) Block Register Address Offset from BAR0
-+ * RAD0 Range : 0x20000 - 0x203FF
-+ * RAD1 Range : 0x20400 - 0x207FF
-+ */
-+#define RAD0_BLK_REG_ADDR		0x00020000
-+#define RAD1_BLK_REG_ADDR		0x00020400
-+
-+/* RAD0 Registers */
-+#define RAD0_CTL_REG			(RAD0_BLK_REG_ADDR + 0x000)
-+#define RAD0_PE_PARM_REG		(RAD0_BLK_REG_ADDR + 0x004)
-+#define RAD0_BCN_REG			(RAD0_BLK_REG_ADDR + 0x008)
-+
-+/* Default function ID register */
-+#define RAD0_DEFAULT_REG		(RAD0_BLK_REG_ADDR + 0x00C)
-+
-+/* Default promiscuous ID register */
-+#define RAD0_PROMISC_REG		(RAD0_BLK_REG_ADDR + 0x010)
-+
-+#define RAD0_BCNQ_REG			(RAD0_BLK_REG_ADDR + 0x014)
-+
-+/*
-+ * This register selects 1 of 8 PM Q's using
-+ * VLAN pri, for non-BCN packets without a VLAN tag
-+ */
-+#define RAD0_DEFAULTQ_REG		(RAD0_BLK_REG_ADDR + 0x018)
-+
-+#define RAD0_ERR_STS			(RAD0_BLK_REG_ADDR + 0x01C)
-+#define RAD0_SET_ERR_STS		(RAD0_BLK_REG_ADDR + 0x020)
-+#define RAD0_ERR_INT_EN			(RAD0_BLK_REG_ADDR + 0x024)
-+#define RAD0_FIRST_ERR			(RAD0_BLK_REG_ADDR + 0x028)
-+#define RAD0_FORCE_ERR			(RAD0_BLK_REG_ADDR + 0x02C)
-+
-+#define RAD0_IF_RCVD			(RAD0_BLK_REG_ADDR + 0x030)
-+#define RAD0_IF_RCVD_OCTETS_HIGH	(RAD0_BLK_REG_ADDR + 0x034)
-+#define RAD0_IF_RCVD_OCTETS_LOW		(RAD0_BLK_REG_ADDR + 0x038)
-+#define RAD0_IF_RCVD_VLAN		(RAD0_BLK_REG_ADDR + 0x03C)
-+#define RAD0_IF_RCVD_UCAST		(RAD0_BLK_REG_ADDR + 0x040)
-+#define RAD0_IF_RCVD_UCAST_OCTETS_HIGH	(RAD0_BLK_REG_ADDR + 0x044)
-+#define RAD0_IF_RCVD_UCAST_OCTETS_LOW   (RAD0_BLK_REG_ADDR + 0x048)
-+#define RAD0_IF_RCVD_UCAST_VLAN		(RAD0_BLK_REG_ADDR + 0x04C)
-+#define RAD0_IF_RCVD_MCAST		(RAD0_BLK_REG_ADDR + 0x050)
-+#define RAD0_IF_RCVD_MCAST_OCTETS_HIGH  (RAD0_BLK_REG_ADDR + 0x054)
-+#define RAD0_IF_RCVD_MCAST_OCTETS_LOW   (RAD0_BLK_REG_ADDR + 0x058)
-+#define RAD0_IF_RCVD_MCAST_VLAN		(RAD0_BLK_REG_ADDR + 0x05C)
-+#define RAD0_IF_RCVD_BCAST		(RAD0_BLK_REG_ADDR + 0x060)
-+#define RAD0_IF_RCVD_BCAST_OCTETS_HIGH  (RAD0_BLK_REG_ADDR + 0x064)
-+#define RAD0_IF_RCVD_BCAST_OCTETS_LOW   (RAD0_BLK_REG_ADDR + 0x068)
-+#define RAD0_IF_RCVD_BCAST_VLAN		(RAD0_BLK_REG_ADDR + 0x06C)
-+#define RAD0_DROPPED_FRAMES		(RAD0_BLK_REG_ADDR + 0x070)
-+
-+#define RAD0_MAC_MAN_1H			(RAD0_BLK_REG_ADDR + 0x080)
-+#define RAD0_MAC_MAN_1L			(RAD0_BLK_REG_ADDR + 0x084)
-+#define RAD0_MAC_MAN_2H			(RAD0_BLK_REG_ADDR + 0x088)
-+#define RAD0_MAC_MAN_2L			(RAD0_BLK_REG_ADDR + 0x08C)
-+#define RAD0_MAC_MAN_3H			(RAD0_BLK_REG_ADDR + 0x090)
-+#define RAD0_MAC_MAN_3L			(RAD0_BLK_REG_ADDR + 0x094)
-+#define RAD0_MAC_MAN_4H			(RAD0_BLK_REG_ADDR + 0x098)
-+#define RAD0_MAC_MAN_4L			(RAD0_BLK_REG_ADDR + 0x09C)
-+
-+#define RAD0_LAST4_IP			(RAD0_BLK_REG_ADDR + 0x100)
-+
-+/* RAD1 Registers */
-+#define RAD1_CTL_REG			(RAD1_BLK_REG_ADDR + 0x000)
-+#define RAD1_PE_PARM_REG		(RAD1_BLK_REG_ADDR + 0x004)
-+#define RAD1_BCN_REG			(RAD1_BLK_REG_ADDR + 0x008)
-+
-+/* Default function ID register */
-+#define RAD1_DEFAULT_REG		(RAD1_BLK_REG_ADDR + 0x00C)
-+
-+/* Promiscuous function ID register */
-+#define RAD1_PROMISC_REG		(RAD1_BLK_REG_ADDR + 0x010)
-+
-+#define RAD1_BCNQ_REG			(RAD1_BLK_REG_ADDR + 0x014)
-+
-+/*
-+ * This register selects 1 of 8 PM Q's using
-+ * VLAN pri, for non-BCN packets without a VLAN tag
-+ */
-+#define RAD1_DEFAULTQ_REG		(RAD1_BLK_REG_ADDR + 0x018)
-+
-+#define RAD1_ERR_STS			(RAD1_BLK_REG_ADDR + 0x01C)
-+#define RAD1_SET_ERR_STS		(RAD1_BLK_REG_ADDR + 0x020)
-+#define RAD1_ERR_INT_EN			(RAD1_BLK_REG_ADDR + 0x024)
-+
-+/**
-+ * TXA Block Register Address Offset from BAR0
-+ * TXA0 Range : 0x21000 - 0x213FF
-+ * TXA1 Range : 0x21400 - 0x217FF
-+ */
-+#define TXA0_BLK_REG_ADDR		0x00021000
-+#define TXA1_BLK_REG_ADDR		0x00021400
-+
-+/* TXA Registers */
-+#define TXA0_CTRL_REG			(TXA0_BLK_REG_ADDR + 0x000)
-+#define TXA1_CTRL_REG			(TXA1_BLK_REG_ADDR + 0x000)
-+
-+/**
-+ * TSO Sequence # Registers (RO)
-+ * Total 8 (for 8 queues)
-+ * Holds the last seq.# for TSO frames
-+ * See catapult_spec.pdf for more details
-+ */
-+#define TXA0_TSO_TCP_SEQ_REG(_num)		\
-+	(TXA0_BLK_REG_ADDR + 0x020 + ((_num) << 2))
-+
-+#define TXA1_TSO_TCP_SEQ_REG(_num)		\
-+	(TXA1_BLK_REG_ADDR + 0x020 + ((_num) << 2))
-+
-+/**
-+ * TSO IP ID # Registers (RO)
-+ * Total 8 (for 8 queues)
-+ * Holds the last IP ID for TSO frames
-+ * See catapult_spec.pdf for more details
-+ */
-+#define TXA0_TSO_IP_INFO_REG(_num)		\
-+	(TXA0_BLK_REG_ADDR + 0x040 + ((_num) << 2))
-+
-+#define TXA1_TSO_IP_INFO_REG(_num)		\
-+	(TXA1_BLK_REG_ADDR + 0x040 + ((_num) << 2))
-+
-+/**
-+ * RXA Block Register Address Offset from BAR0
-+ * RXA0 Range : 0x21800 - 0x21BFF
-+ * RXA1 Range : 0x21C00 - 0x21FFF
-+ */
-+#define RXA0_BLK_REG_ADDR		0x00021800
-+#define RXA1_BLK_REG_ADDR		0x00021C00
-+
-+/* RXA Registers */
-+#define RXA0_CTL_REG			(RXA0_BLK_REG_ADDR + 0x040)
-+#define RXA1_CTL_REG			(RXA1_BLK_REG_ADDR + 0x040)
-+
-+/**
-+ * PPLB Block Register Address Offset from BAR0
-+ * PPLB0 Range : 0x22000 - 0x223FF
-+ * PPLB1 Range : 0x22400 - 0x227FF
-+ */
-+#define PLB0_BLK_REG_ADDR		0x00022000
-+#define PLB1_BLK_REG_ADDR		0x00022400
-+
-+/**
-+ * PLB Registers
-+ * Holds RL timer used time stamps in RLT tagged frames
-+ */
-+#define PLB0_ECM_TIMER_REG		(PLB0_BLK_REG_ADDR + 0x05C)
-+#define PLB1_ECM_TIMER_REG		(PLB1_BLK_REG_ADDR + 0x05C)
-+
-+/* Controls the rate-limiter on each of the priority class */
-+#define PLB0_RL_CTL			(PLB0_BLK_REG_ADDR + 0x060)
-+#define PLB1_RL_CTL			(PLB1_BLK_REG_ADDR + 0x060)
-+
-+/**
-+ * Max byte register, total 8, 0-7
-+ * see catapult_spec.pdf for details
-+ */
-+#define PLB0_RL_MAX_BC(_num)			\
-+	(PLB0_BLK_REG_ADDR + 0x064 + ((_num) << 2))
-+#define PLB1_RL_MAX_BC(_num)			\
-+	(PLB1_BLK_REG_ADDR + 0x064 + ((_num) << 2))
-+
-+/**
-+ * RL Time Unit Register for priority 0-7
-+ * 4 bits per priority
-+ * (2^rl_unit)*1us is the actual time period
-+ */
-+#define PLB0_RL_TU_PRIO			(PLB0_BLK_REG_ADDR + 0x084)
-+#define PLB1_RL_TU_PRIO			(PLB1_BLK_REG_ADDR + 0x084)
-+
-+/**
-+ * RL byte count register,
-+ * bytes transmitted in (rl_unit*1)us time period
-+ * 1 per priority, 8 in all, 0-7.
-+ */
-+#define PLB0_RL_BYTE_CNT(_num)			\
-+	(PLB0_BLK_REG_ADDR + 0x088 + ((_num) << 2))
-+#define PLB1_RL_BYTE_CNT(_num)			\
-+	(PLB1_BLK_REG_ADDR + 0x088 + ((_num) << 2))
-+
-+/**
-+ * RL Min factor register
-+ * 2 bits per priority,
-+ * 4 factors possible: 1, 0.5, 0.25, 0
-+ * 2'b00 - 0; 2'b01 - 0.25; 2'b10 - 0.5; 2'b11 - 1
-+ */
-+#define PLB0_RL_MIN_REG			(PLB0_BLK_REG_ADDR + 0x0A8)
-+#define PLB1_RL_MIN_REG			(PLB1_BLK_REG_ADDR + 0x0A8)
-+
-+/**
-+ * RL Max factor register
-+ * 2 bits per priority,
-+ * 4 factors possible: 1, 0.5, 0.25, 0
-+ * 2'b00 - 0; 2'b01 - 0.25; 2'b10 - 0.5; 2'b11 - 1
-+ */
-+#define PLB0_RL_MAX_REG			(PLB0_BLK_REG_ADDR + 0x0AC)
-+#define PLB1_RL_MAX_REG			(PLB1_BLK_REG_ADDR + 0x0AC)
-+
-+/* MAC SERDES Address Paging register */
-+#define PLB0_EMS_ADD_REG		(PLB0_BLK_REG_ADDR + 0xD0)
-+#define PLB1_EMS_ADD_REG		(PLB1_BLK_REG_ADDR + 0xD0)
-+
-+/* LL EMS Registers */
-+#define LL_EMS0_BLK_REG_ADDR		0x00026800
-+#define LL_EMS1_BLK_REG_ADDR		0x00026C00
-+
-+/**
-+ * BPC Block Register Address Offset from BAR0
-+ * BPC0 Range : 0x23000 - 0x233FF
-+ * BPC1 Range : 0x23400 - 0x237FF
-+ */
-+#define BPC0_BLK_REG_ADDR		0x00023000
-+#define BPC1_BLK_REG_ADDR		0x00023400
-+
-+/**
-+ * PMM Block Register Address Offset from BAR0
-+ * PMM0 Range : 0x23800 - 0x23BFF
-+ * PMM1 Range : 0x23C00 - 0x23FFF
-+ */
-+#define PMM0_BLK_REG_ADDR		0x00023800
-+#define PMM1_BLK_REG_ADDR		0x00023C00
-+
-+/**
-+ * HQM Block Register Address Offset from BAR0
-+ * HQM0 Range : 0x24000 - 0x243FF
-+ * HQM1 Range : 0x24400 - 0x247FF
-+ */
-+#define HQM0_BLK_REG_ADDR		0x00024000
-+#define HQM1_BLK_REG_ADDR		0x00024400
-+
-+/**
-+ * HQM Control Register
-+ * Controls some aspects of IB
-+ * See catapult_spec.pdf for details
-+ */
-+#define HQM0_CTL_REG			(HQM0_BLK_REG_ADDR + 0x000)
-+#define HQM1_CTL_REG			(HQM1_BLK_REG_ADDR + 0x000)
-+
-+/**
-+ * HQM Stop Q Semaphore Registers.
-+ * Only one Queue resource can be stopped at
-+ * any given time. This register controls access
-+ * to the single stop Q resource.
-+ * See catapult_spec.pdf for details
-+ */
-+#define HQM0_RXQ_STOP_SEM		(HQM0_BLK_REG_ADDR + 0x028)
-+#define HQM0_TXQ_STOP_SEM		(HQM0_BLK_REG_ADDR + 0x02C)
-+#define HQM1_RXQ_STOP_SEM		(HQM1_BLK_REG_ADDR + 0x028)
-+#define HQM1_TXQ_STOP_SEM		(HQM1_BLK_REG_ADDR + 0x02C)
-+
-+/**
-+ * LUT Block Register Address Offset from BAR0
-+ * LUT0 Range : 0x25800 - 0x25BFF
-+ * LUT1 Range : 0x25C00 - 0x25FFF
-+ */
-+#define LUT0_BLK_REG_ADDR		0x00025800
-+#define LUT1_BLK_REG_ADDR		0x00025C00
-+
-+/**
-+ * LUT Registers
-+ * See catapult_spec.pdf for details
-+ */
-+#define LUT0_ERR_STS			(LUT0_BLK_REG_ADDR + 0x000)
-+#define LUT1_ERR_STS			(LUT1_BLK_REG_ADDR + 0x000)
-+#define LUT0_SET_ERR_STS		(LUT0_BLK_REG_ADDR + 0x004)
-+#define LUT1_SET_ERR_STS		(LUT1_BLK_REG_ADDR + 0x004)
-+
-+/**
-+ * TRC (Debug/Trace) Register Offset from BAR0
-+ * Range : 0x26000 -- 0x263FFF
-+ */
-+#define TRC_BLK_REG_ADDR		0x00026000
-+
-+/**
-+ * TRC Registers
-+ * See catapult_spec.pdf for details of each
-+ */
-+#define TRC_CTL_REG			(TRC_BLK_REG_ADDR + 0x000)
-+#define TRC_MODS_REG			(TRC_BLK_REG_ADDR + 0x004)
-+#define TRC_TRGC_REG			(TRC_BLK_REG_ADDR + 0x008)
-+#define TRC_CNT1_REG			(TRC_BLK_REG_ADDR + 0x010)
-+#define TRC_CNT2_REG			(TRC_BLK_REG_ADDR + 0x014)
-+#define TRC_NXTS_REG			(TRC_BLK_REG_ADDR + 0x018)
-+#define TRC_DIRR_REG			(TRC_BLK_REG_ADDR + 0x01C)
-+
-+/**
-+ * TRC Trigger match filters, total 10
-+ * Determines the trigger condition
-+ */
-+#define TRC_TRGM_REG(_num)		\
-+	(TRC_BLK_REG_ADDR + 0x040 + ((_num) << 2))
-+
-+/**
-+ * TRC Next State filters, total 10
-+ * Determines the next state conditions
-+ */
-+#define TRC_NXTM_REG(_num)		\
-+	(TRC_BLK_REG_ADDR + 0x080 + ((_num) << 2))
-+
-+/**
-+ * TRC Store Match filters, total 10
-+ * Determines the store conditions
-+ */
-+#define TRC_STRM_REG(_num)		\
-+	(TRC_BLK_REG_ADDR + 0x0C0 + ((_num) << 2))
-+
-+/* DOORBELLS ACCESS */
-+
-+/**
-+ * Catapult doorbells
-+ * Each doorbell-queue set has
-+ * 1 RxQ, 1 TxQ, 2 IBs in that order
-+ * Size of each entry in 32 bytes, even though only 1 word
-+ * is used. For Non-VM case each doorbell-q set is
-+ * separated by 128 bytes, for VM case it is separated
-+ * by 4K bytes
-+ * Non VM case Range : 0x38000 - 0x39FFF
-+ * VM case Range     : 0x100000 - 0x11FFFF
-+ * The range applies to both HQMs
-+ */
-+#define HQM_DOORBELL_BLK_BASE_ADDR	0x00038000
-+#define HQM_DOORBELL_VM_BLK_BASE_ADDR	0x00100000
-+
-+/* MEMORY ACCESS */
-+
-+/**
-+ * Catapult H/W Block Memory Access Address
-+ * To the host a memory space of 32K (page) is visible
-+ * at a time. The address range is from 0x08000 to 0x0FFFF
-+ */
-+#define HW_BLK_HOST_MEM_ADDR		0x08000
-+
 +/**
-+ * Catapult LUT Memory Access Page Numbers
-+ * Range : LUT0 0xa0-0xa1
-+ *         LUT1 0xa2-0xa3
++ * Manufacturing block version
 + */
-+#define LUT0_MEM_BLK_BASE_PG_NUM	0x000000A0
-+#define LUT1_MEM_BLK_BASE_PG_NUM	0x000000A2
++#define BFA_MFG_VERSION				2
++#define BFA_MFG_VERSION_UNINIT			0xFF
 +
 +/**
-+ * Catapult RxFn Database Memory Block Base Offset
-+ *
-+ * The Rx function database exists in LUT block.
-+ * In PCIe space this is accessible as a 256x32
-+ * bit block. Each entry in this database is 4
-+ * (4 byte) words. Max. entries is 64.
-+ * Address of an entry corresponding to a function
-+ * = base_addr + (function_no. * 16)
++ * Manufacturing block encrypted version
 + */
-+#define RX_FNDB_RAM_BASE_OFFSET		0x0000B400
++#define BFA_MFG_ENC_VER				2
 +
 +/**
-+ * Catapult TxFn Database Memory Block Base Offset Address
-+ *
-+ * The Tx function database exists in LUT block.
-+ * In PCIe space this is accessible as a 64x32
-+ * bit block. Each entry in this database is 1
-+ * (4 byte) word. Max. entries is 64.
-+ * Address of an entry corresponding to a function
-+ * = base_addr + (function_no. * 4)
++ * Manufacturing block version 1 length
 + */
-+#define TX_FNDB_RAM_BASE_OFFSET		0x0000B800
++#define BFA_MFG_VER1_LEN			128
 +
 +/**
-+ * Catapult Unicast CAM Base Offset Address
-+ *
-+ * Exists in LUT memory space.
-+ * Shared by both the LL & FCoE driver.
-+ * Size is 256x48 bits; mapped to PCIe space
-+ * 512x32 bit blocks. For each address, bits
-+ * are written in the order : [47:32] and then
-+ * [31:0].
++ * Manufacturing block header length
 + */
-+#define UCAST_CAM_BASE_OFFSET		0x0000A800
++#define BFA_MFG_HDR_LEN				4
 +
-+/**
-+ * Catapult Unicast RAM Base Offset Address
-+ *
-+ * Exists in LUT memory space.
-+ * Shared by both the LL & FCoE driver.
-+ * Size is 256x9 bits.
-+ */
-+#define UCAST_RAM_BASE_OFFSET		0x0000B000
-+
-+/**
-+ * Catapult Mulicast CAM Base Offset Address
-+ *
-+ * Exists in LUT memory space.
-+ * Shared by both the LL & FCoE driver.
-+ * Size is 256x48 bits; mapped to PCIe space
-+ * 512x32 bit blocks. For each address, bits
-+ * are written in the order : [47:32] and then
-+ * [31:0].
-+ */
-+#define MCAST_CAM_BASE_OFFSET		0x0000A000
-+
-+/**
-+ * Catapult VLAN RAM Base Offset Address
-+ *
-+ * Exists in LUT memory space.
-+ * Size is 4096x66 bits; mapped to PCIe space as
-+ * 8192x32 bit blocks.
-+ * All the 4K entries are within the address range
-+ * 0x0000 to 0x8000, so in the first LUT page.
-+ */
-+#define VLAN_RAM_BASE_OFFSET		0x00000000
-+
-+/**
-+ * Catapult Tx Stats RAM Base Offset Address
-+ *
-+ * Exists in LUT memory space.
-+ * Size is 1024x33 bits;
-+ * Each Tx function has 64 bytes of space
-+ */
-+#define TX_STATS_RAM_BASE_OFFSET	0x00009000
-+
-+/**
-+ * Catapult Rx Stats RAM Base Offset Address
-+ *
-+ * Exists in LUT memory space.
-+ * Size is 1024x33 bits;
-+ * Each Rx function has 64 bytes of space
-+ */
-+#define RX_STATS_RAM_BASE_OFFSET	0x00008000
-+
-+/* Catapult RXA Memory Access Page Numbers */
-+#define RXA0_MEM_BLK_BASE_PG_NUM	0x0000008C
-+#define RXA1_MEM_BLK_BASE_PG_NUM	0x0000008D
-+
-+/**
-+ * Catapult Multicast Vector Table Base Offset Address
-+ *
-+ * Exists in RxA memory space.
-+ * Organized as 512x65 bit block.
-+ * However for each entry 16 bytes allocated (power of 2)
-+ * Total size 512*16 bytes.
-+ * There are two logical divisions, 256 entries each :
-+ * a) Entries 0x00 to 0xff (256) -- Approx. MVT
-+ *    Offset 0x000 to 0xFFF
-+ * b) Entries 0x100 to 0x1ff (256) -- Exact MVT
-+ *    Offsets 0x1000 to 0x1FFF
-+ */
-+#define MCAST_APPROX_MVT_BASE_OFFSET	0x00000000
-+#define MCAST_EXACT_MVT_BASE_OFFSET	0x00001000
-+
-+/**
-+ * Catapult RxQ Translate Table (RIT) Base Offset Address
-+ *
-+ * Exists in RxA memory space
-+ * Total no. of entries 64
-+ * Each entry is 1 (4 byte) word.
-+ * 31:12 -- Reserved
-+ * 11:0  -- Two 6 bit RxQ Ids
-+ */
-+#define FUNCTION_TO_RXQ_TRANSLATE	0x00002000
-+
-+/* Catapult RxAdm (RAD) Memory Access Page Numbers */
-+#define RAD0_MEM_BLK_BASE_PG_NUM	0x00000086
-+#define RAD1_MEM_BLK_BASE_PG_NUM	0x00000087
-+
-+/**
-+ * Catapult RSS Table Base Offset Address
-+ *
-+ * Exists in RAD memory space.
-+ * Each entry is 352 bits, but alligned on
-+ * 64 byte (512 bit) boundary. Accessed
-+ * 4 byte words, the whole entry can be
-+ * broken into 11 word accesses.
-+ */
-+#define RSS_TABLE_BASE_OFFSET		0x00000800
-+
-+/**
-+ * Catapult CPQ Block Page Number
-+ * This value is written to the page number registers
-+ * to access the memory associated with the mailboxes.
-+ */
-+#define CPQ_BLK_PG_NUM			0x00000005
-+
-+/**
-+ * Clarification :
-+ * LL functions are 2 & 3; can HostFn0/HostFn1
-+ * <-> LPU0/LPU1 memories be used ?
-+ */
-+/**
-+ * Catapult HostFn0/HostFn1 to LPU0/LPU1 Mbox memory
-+ * Per catapult_spec.pdf, the offset of the mbox
-+ * memory is in the register space at an offset of 0x200
-+ */
-+#define CPQ_BLK_REG_MBOX_ADDR		(CPQ_BLK_REG_ADDR + 0x200)
-+
-+#define HOSTFN_LPU_MBOX			(CPQ_BLK_REG_MBOX_ADDR + 0x000)
-+
-+/* Catapult LPU0/LPU1 to HostFn0/HostFn1 Mbox memory */
-+#define LPU_HOSTFN_MBOX			(CPQ_BLK_REG_MBOX_ADDR + 0x080)
-+
-+/**
-+ * Catapult HQM Block Page Number
-+ * This is written to the page number register for
-+ * the appropriate function to access the memory
-+ * associated with HQM
-+ */
-+#define HQM0_BLK_PG_NUM			0x00000096
-+#define HQM1_BLK_PG_NUM			0x00000097
-+
-+/**
-+ * Note that TxQ and RxQ entries are interlaced
-+ * the HQM memory, i.e RXQ0, TXQ0, RXQ1, TXQ1.. etc.
-+ */
-+
-+#define HQM_RXTX_Q_RAM_BASE_OFFSET	0x00004000
++#define BFA_MFG_SERIALNUM_SIZE			11
++#define STRSZ(_n)				(((_n) + 4) & ~3)
 +
 +/**
-+ * CQ Memory
-+ * Exists in HQM Memory space
-+ * Each entry is 16 (4 byte) words of which
-+ * only 12 words are used for configuration
-+ * Total 64 entries per HQM memory space
++ * Manufacturing card type
 + */
-+#define HQM_CQ_RAM_BASE_OFFSET		0x00006000
++enum {
++	BFA_MFG_TYPE_CB_MAX  = 825,      /*!< Crossbow card type max	*/
++	BFA_MFG_TYPE_FC8P2   = 825,      /*!< 8G 2port FC card		*/
++	BFA_MFG_TYPE_FC8P1   = 815,      /*!< 8G 1port FC card		*/
++	BFA_MFG_TYPE_FC4P2   = 425,      /*!< 4G 2port FC card		*/
++	BFA_MFG_TYPE_FC4P1   = 415,      /*!< 4G 1port FC card		*/
++	BFA_MFG_TYPE_CNA10P2 = 1020,     /*!< 10G 2port CNA card	*/
++	BFA_MFG_TYPE_CNA10P1 = 1010,     /*!< 10G 1port CNA card	*/
++	BFA_MFG_TYPE_JAYHAWK = 804,	 /*!< Jayhawk mezz card		*/
++	BFA_MFG_TYPE_WANCHESE = 1007,	 /*!< Wanchese mezz card	*/
++	BFA_MFG_TYPE_ASTRA    = 807,	 /*!< Astra mezz card		*/
++	BFA_MFG_TYPE_LIGHTNING_P0 = 902, /*!< Lightning mezz card - old	*/
++	BFA_MFG_TYPE_LIGHTNING = 1741,	 /*!< Lightning mezz card	*/
++	BFA_MFG_TYPE_INVALID = 0,	 /*!< Invalid card type		*/
++};
 +
-+/**
-+ * Interrupt Block (IB) Memory
-+ * Exists in HQM Memory space
-+ * Each entry is 8 (4 byte) words of which
-+ * only 5 words are used for configuration
-+ * Total 128 entries per HQM memory space
-+ */
-+#define HQM_IB_RAM_BASE_OFFSET		0x00001000
++#pragma pack(1)
 +
 +/**
-+ * Index Table (IT) Memory
-+ * Exists in HQM Memory space
-+ * Each entry is 1 (4 byte) word which
-+ * is used for configuration
-+ * Total 128 entries per HQM memory space
++ * Check if 1-port card
 + */
-+#define HQM_INDX_TBL_RAM_BASE_OFFSET	0x00002000
++#define bfa_mfg_is_1port(type) (( \
++	(type) == BFA_MFG_TYPE_FC8P1 || \
++	(type) == BFA_MFG_TYPE_FC4P1 || \
++	(type) == BFA_MFG_TYPE_CNA10P1))
 +
 +/**
-+ * PSS Block Memory Page Number
-+ * This is written to the appropriate page number
-+ * register to access the CPU memory.
-+ * Also known as the PSS secondary memory (SMEM).
-+ * Range : 0x180 to 0x1CF
-+ * See catapult_spec.pdf for details
++ * Check if Mezz card
 + */
-+#define PSS_BLK_PG_NUM			0x00000180
++#define bfa_mfg_is_mezz(type) (( \
++	(type) == BFA_MFG_TYPE_JAYHAWK || \
++	(type) == BFA_MFG_TYPE_WANCHESE || \
++	(type) == BFA_MFG_TYPE_ASTRA || \
++	(type) == BFA_MFG_TYPE_LIGHTNING_P0 || \
++	(type) == BFA_MFG_TYPE_LIGHTNING))
 +
 +/**
-+ * Offsets of different instances of PSS SMEM
-+ * 2.5M of continuous 1T memory space : 2 blocks
-+ * of 1M each (32 pages each, page=32KB) and 4 smaller
-+ * blocks of 128K each (4 pages each, page=32KB)
-+ * PSS_LMEM_INST0 is used for firmware download
++ * Check if card type valid
 + */
-+#define PSS_LMEM_INST0			0x00000000
-+#define PSS_LMEM_INST1			0x00100000
-+#define PSS_LMEM_INST2			0x00200000
-+#define PSS_LMEM_INST3			0x00220000
-+#define PSS_LMEM_INST4			0x00240000
-+#define PSS_LMEM_INST5			0x00260000
-+
-+#define BNA_PCI_REG_CT_ADDRSZ		(0x40000)
-+
-+#define BNA_GET_PAGE_NUM(_base_page, _offset)   \
-+	((_base_page) + ((_offset) >> 15))
-+
-+#define BNA_GET_PAGE_OFFSET(_offset)    \
-+	((_offset) & 0x7fff)
-+
-+#define BNA_GET_MEM_BASE_ADDR(_bar0, _base_offset)	\
-+	((_bar0) + HW_BLK_HOST_MEM_ADDR		\
-+	  + BNA_GET_PAGE_OFFSET((_base_offset)))
++#define bfa_mfg_is_card_type_valid(type) (( \
++	(type) == BFA_MFG_TYPE_FC8P2 || \
++	(type) == BFA_MFG_TYPE_FC8P1 || \
++	(type) == BFA_MFG_TYPE_FC4P2 || \
++	(type) == BFA_MFG_TYPE_FC4P1 || \
++	(type) == BFA_MFG_TYPE_CNA10P2 || \
++	(type) == BFA_MFG_TYPE_CNA10P1 || \
++	bfa_mfg_is_mezz(type)))
 +
-+#define BNA_GET_VLAN_MEM_ENTRY_ADDR(_bar0, _fn_id, _vlan_id)\
-+	(_bar0 + (HW_BLK_HOST_MEM_ADDR)  \
-+	+ (BNA_GET_PAGE_OFFSET(VLAN_RAM_BASE_OFFSET))	\
-+	+ (((_fn_id) & 0x3f) << 9)	  \
-+	+ (((_vlan_id) & 0xfe0) >> 3))
-+
 +/**
-+ *
-+ *  Interrupt related bits, flags and macros
-+ *
++ * Check if the card having old wwn/mac handling
 + */
-+
-+#define __LPU02HOST_MBOX0_STATUS_BITS 0x00100000
-+#define __LPU12HOST_MBOX0_STATUS_BITS 0x00200000
-+#define __LPU02HOST_MBOX1_STATUS_BITS 0x00400000
-+#define __LPU12HOST_MBOX1_STATUS_BITS 0x00800000
-+
-+#define __LPU02HOST_MBOX0_MASK_BITS	0x00100000
-+#define __LPU12HOST_MBOX0_MASK_BITS	0x00200000
-+#define __LPU02HOST_MBOX1_MASK_BITS	0x00400000
-+#define __LPU12HOST_MBOX1_MASK_BITS	0x00800000
-+
-+#define __LPU2HOST_MBOX_MASK_BITS			 \
-+	(__LPU02HOST_MBOX0_MASK_BITS | __LPU02HOST_MBOX1_MASK_BITS |	\
-+	  __LPU12HOST_MBOX0_MASK_BITS | __LPU12HOST_MBOX1_MASK_BITS)
-+
-+#define __LPU2HOST_IB_STATUS_BITS	0x0000ffff
-+
-+#define BNA_IS_LPU0_MBOX_INTR(_intr_status) \
-+	((_intr_status) & (__LPU02HOST_MBOX0_STATUS_BITS | \
-+			__LPU02HOST_MBOX1_STATUS_BITS))
-+
-+#define BNA_IS_LPU1_MBOX_INTR(_intr_status) \
-+	((_intr_status) & (__LPU12HOST_MBOX0_STATUS_BITS | \
-+		__LPU12HOST_MBOX1_STATUS_BITS))
-+
-+#define BNA_IS_MBOX_INTR(_intr_status)		\
-+	((_intr_status) &  			\
-+	(__LPU02HOST_MBOX0_STATUS_BITS |	\
-+	 __LPU02HOST_MBOX1_STATUS_BITS |	\
-+	 __LPU12HOST_MBOX0_STATUS_BITS |	\
-+	 __LPU12HOST_MBOX1_STATUS_BITS))
-+
-+#define __EMC_ERROR_STATUS_BITS		0x00010000
-+#define __LPU0_ERROR_STATUS_BITS	0x00020000
-+#define __LPU1_ERROR_STATUS_BITS	0x00040000
-+#define __PSS_ERROR_STATUS_BITS		0x00080000
-+
-+#define __HALT_STATUS_BITS		0x01000000
-+
-+#define __EMC_ERROR_MASK_BITS		0x00010000
-+#define __LPU0_ERROR_MASK_BITS		0x00020000
-+#define __LPU1_ERROR_MASK_BITS		0x00040000
-+#define __PSS_ERROR_MASK_BITS		0x00080000
-+
-+#define __HALT_MASK_BITS		0x01000000
-+
-+#define __ERROR_MASK_BITS		\
-+	(__EMC_ERROR_MASK_BITS | __LPU0_ERROR_MASK_BITS | \
-+	  __LPU1_ERROR_MASK_BITS | __PSS_ERROR_MASK_BITS | \
-+	  __HALT_MASK_BITS)
-+
-+#define BNA_IS_ERR_INTR(_intr_status)	\
-+	((_intr_status) &  		\
-+	(__EMC_ERROR_STATUS_BITS |  	\
-+	 __LPU0_ERROR_STATUS_BITS | 	\
-+	 __LPU1_ERROR_STATUS_BITS | 	\
-+	 __PSS_ERROR_STATUS_BITS  | 	\
-+	 __HALT_STATUS_BITS))
-+
-+#define BNA_IS_MBOX_ERR_INTR(_intr_status)	\
-+	(BNA_IS_MBOX_INTR((_intr_status)) |	\
-+	 BNA_IS_ERR_INTR((_intr_status)))
-+
-+#define BNA_IS_INTX_DATA_INTR(_intr_status)	\
-+	((_intr_status) & __LPU2HOST_IB_STATUS_BITS)
++#define bfa_mfg_is_old_wwn_mac_model(type) (( \
++	(type) == BFA_MFG_TYPE_FC8P2 || \
++	(type) == BFA_MFG_TYPE_FC8P1 || \
++	(type) == BFA_MFG_TYPE_FC4P2 || \
++	(type) == BFA_MFG_TYPE_FC4P1 || \
++	(type) == BFA_MFG_TYPE_CNA10P2 || \
++	(type) == BFA_MFG_TYPE_CNA10P1 || \
++	(type) == BFA_MFG_TYPE_JAYHAWK || \
++	(type) == BFA_MFG_TYPE_WANCHESE))
 +
-+#define BNA_INTR_STATUS_MBOX_CLR(_intr_status)			\
++#define bfa_mfg_increment_wwn_mac(m, i)				\
 +do {								\
-+	(_intr_status) &= ~(__LPU02HOST_MBOX0_STATUS_BITS |	\
-+			__LPU02HOST_MBOX1_STATUS_BITS | 	\
-+			__LPU12HOST_MBOX0_STATUS_BITS | 	\
-+			__LPU12HOST_MBOX1_STATUS_BITS); 	\
++	u32 t = ((m)[0] << 16) | ((m)[1] << 8) | (m)[2];	\
++	t += (i);						\
++	(m)[0] = (t >> 16) & 0xFF;				\
++	(m)[1] = (t >> 8) & 0xFF;				\
++	(m)[2] = t & 0xFF;					\
 +} while (0)
 +
-+#define BNA_INTR_STATUS_ERR_CLR(_intr_status)		\
-+do {							\
-+	(_intr_status) &= ~(__EMC_ERROR_STATUS_BITS |	\
-+		__LPU0_ERROR_STATUS_BITS |		\
-+		__LPU1_ERROR_STATUS_BITS |		\
-+		__PSS_ERROR_STATUS_BITS  |		\
-+		__HALT_STATUS_BITS);			\
++#define bfa_mfg_adapter_prop_init_flash(card_type, prop)	\
++do {								\
++	switch ((card_type)) {					\
++	case BFA_MFG_TYPE_FC8P2:				\
++	case BFA_MFG_TYPE_JAYHAWK:				\
++	case BFA_MFG_TYPE_ASTRA:				\
++		(prop) = BFI_ADAPTER_SETP(NPORTS, 2) |		\
++			BFI_ADAPTER_SETP(SPEED, 8);		\
++		break;						\
++	case BFA_MFG_TYPE_FC8P1:				\
++		(prop) = BFI_ADAPTER_SETP(NPORTS, 1) |		\
++			BFI_ADAPTER_SETP(SPEED, 8);		\
++		break;						\
++	case BFA_MFG_TYPE_FC4P2:				\
++		(prop) = BFI_ADAPTER_SETP(NPORTS, 2) |		\
++			BFI_ADAPTER_SETP(SPEED, 4);		\
++		break;						\
++	case BFA_MFG_TYPE_FC4P1:				\
++		(prop) = BFI_ADAPTER_SETP(NPORTS, 1) |		\
++			BFI_ADAPTER_SETP(SPEED, 4);		\
++		break;						\
++	case BFA_MFG_TYPE_CNA10P2:				\
++	case BFA_MFG_TYPE_WANCHESE:				\
++	case BFA_MFG_TYPE_LIGHTNING_P0:				\
++	case BFA_MFG_TYPE_LIGHTNING:				\
++		(prop) = BFI_ADAPTER_SETP(NPORTS, 2);		\
++		(prop) |= BFI_ADAPTER_SETP(SPEED, 10);		\
++		break;						\
++	case BFA_MFG_TYPE_CNA10P1:				\
++		(prop) = BFI_ADAPTER_SETP(NPORTS, 1);		\
++		(prop) |= BFI_ADAPTER_SETP(SPEED, 10);		\
++		break;						\
++	default:						\
++		(prop) = BFI_ADAPTER_UNSUPP;			\
++	}							\
 +} while (0)
 +
-+#define bna_intx_disable(_bna, _cur_mask)		\
-+{							\
-+	(_cur_mask) = readl((_bna)->regs.fn_int_mask);\
-+	writel(0xffffffff, (_bna)->regs.fn_int_mask);\
-+}
++enum {
++	CB_GPIO_TTV	= (1),		/*!< TTV debug capable cards	*/
++	CB_GPIO_FC8P2   = (2),		/*!< 8G 2port FC card		*/
++	CB_GPIO_FC8P1   = (3),		/*!< 8G 1port FC card		*/
++	CB_GPIO_FC4P2   = (4),		/*!< 4G 2port FC card		*/
++	CB_GPIO_FC4P1   = (5),		/*!< 4G 1port FC card		*/
++	CB_GPIO_DFLY    = (6),		/*!< 8G 2port FC mezzanine card	*/
++	CB_GPIO_PROTO   = (1 << 7)	/*!< 8G 2port FC prototypes	*/
++};
 +
-+#define bna_intx_enable(bna, new_mask) 			\
-+	writel((new_mask), (bna)->regs.fn_int_mask)
-+
-+#define bna_mbox_intr_disable(bna)		\
-+	writel((readl((bna)->regs.fn_int_mask) | \
-+	     (__LPU2HOST_MBOX_MASK_BITS | __ERROR_MASK_BITS)), \
-+	     (bna)->regs.fn_int_mask)
-+
-+#define bna_mbox_intr_enable(bna)		\
-+	writel((readl((bna)->regs.fn_int_mask) & \
-+	     ~(__LPU2HOST_MBOX_MASK_BITS | __ERROR_MASK_BITS)), \
-+	     (bna)->regs.fn_int_mask)
-+
-+#define bna_intr_status_get(_bna, _status)				\
-+{									\
-+	(_status) = readl((_bna)->regs.fn_int_status);		\
-+	if ((_status)) {						\
-+		writel((_status) & ~(__LPU02HOST_MBOX0_STATUS_BITS |\
-+					  __LPU02HOST_MBOX1_STATUS_BITS |\
-+					  __LPU12HOST_MBOX0_STATUS_BITS |\
-+					  __LPU12HOST_MBOX1_STATUS_BITS), \
-+			      (_bna)->regs.fn_int_status);\
-+	}								\
-+}
-+
-+#define bna_intr_status_get_no_clr(_bna, _status)		\
-+	(_status) = readl((_bna)->regs.fn_int_status)
-+
-+#define bna_intr_mask_get(bna, mask)		\
-+	(*mask) = readl((bna)->regs.fn_int_mask)
-+
-+#define bna_intr_ack(bna, intr_bmap)		\
-+	writel((intr_bmap), (bna)->regs.fn_int_status)
-+
-+#define bna_ib_intx_disable(bna, ib_id)		\
-+	writel(readl((bna)->regs.fn_int_mask) | \
-+	    (1 << (ib_id)), \
-+	    (bna)->regs.fn_int_mask)
-+
-+#define bna_ib_intx_enable(bna, ib_id)		\
-+	writel(readl((bna)->regs.fn_int_mask) & \
-+	    ~(1 << (ib_id)), \
-+	    (bna)->regs.fn_int_mask)
-+
-+#define bna_mbox_msix_idx_set(_device) \
-+do {\
-+	writel(((_device)->vector & 0x000001FF), \
-+		(_device)->bna->pcidev.pci_bar_kva + \
-+		reg_offset[(_device)->bna->pcidev.pci_func].msix_idx);\
++#define bfa_mfg_adapter_prop_init_gpio(gpio, card_type, prop)	\
++do {								\
++	if ((gpio) & CB_GPIO_PROTO) {				\
++		(prop) |= BFI_ADAPTER_PROTO;			\
++		(gpio) &= ~CB_GPIO_PROTO;			\
++	}							\
++	switch ((gpio)) {					\
++	case CB_GPIO_TTV:					\
++		(prop) |= BFI_ADAPTER_TTV;			\
++	case CB_GPIO_DFLY:					\
++	case CB_GPIO_FC8P2:					\
++		(prop) |= BFI_ADAPTER_SETP(NPORTS, 2);		\
++		(prop) |= BFI_ADAPTER_SETP(SPEED, 8);		\
++		(card_type) = BFA_MFG_TYPE_FC8P2;		\
++		break;						\
++	case CB_GPIO_FC8P1:					\
++		(prop) |= BFI_ADAPTER_SETP(NPORTS, 1);		\
++		(prop) |= BFI_ADAPTER_SETP(SPEED, 8);		\
++		(card_type) = BFA_MFG_TYPE_FC8P1;		\
++		break;						\
++	case CB_GPIO_FC4P2:					\
++		(prop) |= BFI_ADAPTER_SETP(NPORTS, 2);		\
++		(prop) |= BFI_ADAPTER_SETP(SPEED, 4);		\
++		(card_type) = BFA_MFG_TYPE_FC4P2;		\
++		break;						\
++	case CB_GPIO_FC4P1:					\
++		(prop) |= BFI_ADAPTER_SETP(NPORTS, 1);		\
++		(prop) |= BFI_ADAPTER_SETP(SPEED, 4);		\
++		(card_type) = BFA_MFG_TYPE_FC4P1;		\
++		break;						\
++	default:						\
++		(prop) |= BFI_ADAPTER_UNSUPP;			\
++		(card_type) = BFA_MFG_TYPE_INVALID;		\
++	}							\
 +} while (0)
 +
 +/**
++ * VPD data length
++ */
++#define BFA_MFG_VPD_LEN			512
++#define BFA_MFG_VPD_LEN_INVALID		0
++
++#define BFA_MFG_VPD_PCI_HDR_OFF		137
++#define BFA_MFG_VPD_PCI_VER_MASK	0x07	/*!< version mask 3 bits */
++#define BFA_MFG_VPD_PCI_VDR_MASK	0xf8	/*!< vendor mask 5 bits */
++
++/**
++ * VPD vendor tag
++ */
++enum {
++	BFA_MFG_VPD_UNKNOWN	= 0,     /*!< vendor unknown 		*/
++	BFA_MFG_VPD_IBM 	= 1,     /*!< vendor IBM 		*/
++	BFA_MFG_VPD_HP  	= 2,     /*!< vendor HP  		*/
++	BFA_MFG_VPD_DELL  	= 3,     /*!< vendor DELL  		*/
++	BFA_MFG_VPD_PCI_IBM 	= 0x08,  /*!< PCI VPD IBM     		*/
++	BFA_MFG_VPD_PCI_HP  	= 0x10,  /*!< PCI VPD HP		*/
++	BFA_MFG_VPD_PCI_DELL  	= 0x20,  /*!< PCI VPD DELL		*/
++	BFA_MFG_VPD_PCI_BRCD 	= 0xf8,  /*!< PCI VPD Brocade 		*/
++};
++
++/**
++ * @brief BFA adapter flash vpd data definition.
 + *
-+ * TxQ, RxQ, CQ related bits, offsets, macros
++ * All numerical fields are in big-endian format.
++ */
++struct bfa_mfg_vpd {
++	u8		version;	/*!< vpd data version */
++	u8		vpd_sig[3];	/*!< characters 'V', 'P', 'D' */
++	u8		chksum;		/*!< u8 checksum */
++	u8		vendor;		/*!< vendor */
++	u8 	len;		/*!< vpd data length excluding header */
++	u8 	rsv;
++	u8		data[BFA_MFG_VPD_LEN];	/*!< vpd data */
++};
++
++#pragma pack()
++
++#endif /* __BFA_DEFS_MFG_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_defs_status.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_defs_status.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_defs_status.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_defs_status.h	2010-08-23 13:24:47.810905000 -0700
+@@ -0,0 +1,216 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
 + *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++#ifndef __BFA_DEFS_STATUS_H__
++#define __BFA_DEFS_STATUS_H__
++
++/**
++ * API status return values
++ *
++ * NOTE: The error msgs are auto generated from the comments. Only singe line
++ * comments are supported
++ */
++enum bfa_status {
++	BFA_STATUS_OK 		= 0,
++	BFA_STATUS_FAILED 	= 1,
++	BFA_STATUS_EINVAL 	= 2,
++	BFA_STATUS_ENOMEM 	= 3,
++	BFA_STATUS_ENOSYS 	= 4,
++	BFA_STATUS_ETIMER 	= 5,
++	BFA_STATUS_EPROTOCOL 	= 6,
++	BFA_STATUS_ENOFCPORTS 	= 7,
++	BFA_STATUS_NOFLASH 	= 8,
++	BFA_STATUS_BADFLASH 	= 9,
++	BFA_STATUS_SFP_UNSUPP 	= 10,
++	BFA_STATUS_UNKNOWN_VFID = 11,
++	BFA_STATUS_DATACORRUPTED = 12,
++	BFA_STATUS_DEVBUSY 	= 13,
++	BFA_STATUS_ABORTED 	= 14,
++	BFA_STATUS_NODEV 	= 15,
++	BFA_STATUS_HDMA_FAILED 	= 16,
++	BFA_STATUS_FLASH_BAD_LEN = 17,
++	BFA_STATUS_UNKNOWN_LWWN = 18,
++	BFA_STATUS_UNKNOWN_RWWN = 19,
++	BFA_STATUS_FCPT_LS_RJT 	= 20,
++	BFA_STATUS_VPORT_EXISTS = 21,
++	BFA_STATUS_VPORT_MAX 	= 22,
++	BFA_STATUS_UNSUPP_SPEED = 23,
++	BFA_STATUS_INVLD_DFSZ 	= 24,
++	BFA_STATUS_CNFG_FAILED 	= 25,
++	BFA_STATUS_CMD_NOTSUPP 	= 26,
++	BFA_STATUS_NO_ADAPTER 	= 27,
++	BFA_STATUS_LINKDOWN 	= 28,
++	BFA_STATUS_FABRIC_RJT 	= 29,
++	BFA_STATUS_UNKNOWN_VWWN = 30,
++	BFA_STATUS_NSLOGIN_FAILED = 31,
++	BFA_STATUS_NO_RPORTS 	= 32,
++	BFA_STATUS_NSQUERY_FAILED = 33,
++	BFA_STATUS_PORT_OFFLINE = 34,
++	BFA_STATUS_RPORT_OFFLINE = 35,
++	BFA_STATUS_TGTOPEN_FAILED = 36,
++	BFA_STATUS_BAD_LUNS 	= 37,
++	BFA_STATUS_IO_FAILURE 	= 38,
++	BFA_STATUS_NO_FABRIC 	= 39,
++	BFA_STATUS_EBADF 	= 40,
++	BFA_STATUS_EINTR 	= 41,
++	BFA_STATUS_EIO 		= 42,
++	BFA_STATUS_ENOTTY 	= 43,
++	BFA_STATUS_ENXIO 	= 44,
++	BFA_STATUS_EFOPEN 	= 45,
++	BFA_STATUS_VPORT_WWN_BP = 46,
++	BFA_STATUS_PORT_NOT_DISABLED = 47,
++	BFA_STATUS_BADFRMHDR 	= 48,
++	BFA_STATUS_BADFRMSZ 	= 49,
++	BFA_STATUS_MISSINGFRM 	= 50,
++	BFA_STATUS_LINKTIMEOUT 	= 51,
++	BFA_STATUS_NO_FCPIM_NEXUS = 52,
++	BFA_STATUS_CHECKSUM_FAIL = 53,
++	BFA_STATUS_GZME_FAILED 	= 54,
++	BFA_STATUS_SCSISTART_REQD = 55,
++	BFA_STATUS_IOC_FAILURE 	= 56,
++	BFA_STATUS_INVALID_WWN 	= 57,
++	BFA_STATUS_MISMATCH 	= 58,
++	BFA_STATUS_IOC_ENABLED 	= 59,
++	BFA_STATUS_ADAPTER_ENABLED = 60,
++	BFA_STATUS_IOC_NON_OP 	= 61,
++	BFA_STATUS_ADDR_MAP_FAILURE = 62,
++	BFA_STATUS_SAME_NAME 	= 63,
++	BFA_STATUS_PENDING      = 64,
++	BFA_STATUS_8G_SPD	= 65,
++	BFA_STATUS_4G_SPD	= 66,
++	BFA_STATUS_AD_IS_ENABLE = 67,
++	BFA_STATUS_EINVAL_TOV 	= 68,
++	BFA_STATUS_EINVAL_QDEPTH = 69,
++	BFA_STATUS_VERSION_FAIL = 70,
++	BFA_STATUS_DIAG_BUSY    = 71,
++	BFA_STATUS_BEACON_ON	= 72,
++	BFA_STATUS_BEACON_OFF	= 73,
++	BFA_STATUS_LBEACON_ON   = 74,
++	BFA_STATUS_LBEACON_OFF	= 75,
++	BFA_STATUS_PORT_NOT_INITED = 76,
++	BFA_STATUS_RPSC_ENABLED = 77,
++	BFA_STATUS_ENOFSAVE 	= 78,
++	BFA_STATUS_BAD_FILE		= 79,
++	BFA_STATUS_RLIM_EN		= 80,
++	BFA_STATUS_RLIM_DIS		= 81,
++	BFA_STATUS_IOC_DISABLED  = 82,
++	BFA_STATUS_ADAPTER_DISABLED  = 83,
++	BFA_STATUS_BIOS_DISABLED  = 84,
++	BFA_STATUS_AUTH_ENABLED  = 85,
++	BFA_STATUS_AUTH_DISABLED  = 86,
++	BFA_STATUS_ERROR_TRL_ENABLED  = 87,
++	BFA_STATUS_ERROR_QOS_ENABLED  = 88,
++	BFA_STATUS_NO_SFP_DEV = 89,
++	BFA_STATUS_MEMTEST_FAILED = 90,
++	BFA_STATUS_INVALID_DEVID = 91,
++	BFA_STATUS_QOS_ENABLED = 92,
++	BFA_STATUS_QOS_DISABLED = 93,
++	BFA_STATUS_INCORRECT_DRV_CONFIG = 94,
++	BFA_STATUS_REG_FAIL = 95,
++	BFA_STATUS_IM_INV_CODE = 96,
++	BFA_STATUS_IM_INV_VLAN = 97,
++	BFA_STATUS_IM_INV_ADAPT_NAME = 98,
++	BFA_STATUS_IM_LOW_RESOURCES = 99,
++	BFA_STATUS_IM_VLANID_IS_PVID = 100,
++	BFA_STATUS_IM_VLANID_EXISTS = 101,
++	BFA_STATUS_IM_FW_UPDATE_FAIL = 102,
++	BFA_STATUS_PORTLOG_ENABLED = 103,
++	BFA_STATUS_PORTLOG_DISABLED = 104,
++	BFA_STATUS_FILE_NOT_FOUND = 105,
++	BFA_STATUS_QOS_FC_ONLY = 106,
++	BFA_STATUS_RLIM_FC_ONLY = 107,
++	BFA_STATUS_CT_SPD = 108,
++	BFA_STATUS_LEDTEST_OP = 109,
++	BFA_STATUS_CEE_NOT_DN = 110,
++	BFA_STATUS_10G_SPD = 111,
++	BFA_STATUS_IM_INV_TEAM_NAME = 112,
++	BFA_STATUS_IM_DUP_TEAM_NAME = 113,
++	BFA_STATUS_IM_ADAPT_ALREADY_IN_TEAM = 114,
++	BFA_STATUS_IM_ADAPT_HAS_VLANS = 115,
++	BFA_STATUS_IM_PVID_MISMATCH = 116,
++	BFA_STATUS_IM_LINK_SPEED_MISMATCH = 117,
++	BFA_STATUS_IM_MTU_MISMATCH = 118,
++	BFA_STATUS_IM_RSS_MISMATCH = 119,
++	BFA_STATUS_IM_HDS_MISMATCH = 120,
++	BFA_STATUS_IM_OFFLOAD_MISMATCH = 121,
++	BFA_STATUS_IM_PORT_PARAMS = 122,
++	BFA_STATUS_IM_PORT_NOT_IN_TEAM = 123,
++	BFA_STATUS_IM_CANNOT_REM_PRI = 124,
++	BFA_STATUS_IM_MAX_PORTS_REACHED = 125,
++	BFA_STATUS_IM_LAST_PORT_DELETE = 126,
++	BFA_STATUS_IM_NO_DRIVER = 127,
++	BFA_STATUS_IM_MAX_VLANS_REACHED = 128,
++	BFA_STATUS_TOMCAT_SPD_NOT_ALLOWED = 129,
++	BFA_STATUS_NO_MINPORT_DRIVER = 130,
++	BFA_STATUS_CARD_TYPE_MISMATCH = 131,
++	BFA_STATUS_BAD_ASICBLK = 132,
++	BFA_STATUS_NO_DRIVER = 133,
++	BFA_STATUS_INVALID_MAC = 134,
++	BFA_STATUS_IM_NO_VLAN = 135,
++	BFA_STATUS_IM_ETH_LB_FAILED = 136,
++	BFA_STATUS_IM_PVID_REMOVE = 137,
++	BFA_STATUS_IM_PVID_EDIT = 138,
++	BFA_STATUS_CNA_NO_BOOT = 139,
++	BFA_STATUS_IM_PVID_NON_ZERO = 140,
++	BFA_STATUS_IM_INETCFG_LOCK_FAILED = 141,
++	BFA_STATUS_IM_GET_INETCFG_FAILED = 142,
++	BFA_STATUS_IM_NOT_BOUND = 143,
++	BFA_STATUS_INSUFFICIENT_PERMS = 144,
++	BFA_STATUS_IM_INV_VLAN_NAME = 145,
++	BFA_STATUS_CMD_NOTSUPP_CNA = 146,
++	BFA_STATUS_IM_PASSTHRU_EDIT = 147,
++	BFA_STATUS_IM_BIND_FAILED = 148,
++	BFA_STATUS_IM_UNBIND_FAILED = 149,
++	BFA_STATUS_IM_PORT_IN_TEAM = 150,
++	BFA_STATUS_IM_VLAN_NOT_FOUND = 151,
++	BFA_STATUS_IM_TEAM_NOT_FOUND = 152,
++	BFA_STATUS_IM_TEAM_CFG_NOT_ALLOWED = 153,
++	BFA_STATUS_PBC = 154,
++	BFA_STATUS_DEVID_MISSING = 155,
++	BFA_STATUS_BAD_FWCFG = 156,
++	BFA_STATUS_CREATE_FILE = 157,
++	BFA_STATUS_INVALID_VENDOR = 158,
++	BFA_STATUS_SFP_NOT_READY = 159,
++	BFA_STATUS_FLASH_UNINIT = 160,
++	BFA_STATUS_FLASH_EMPTY = 161,
++	BFA_STATUS_FLASH_CKFAIL = 162,
++	BFA_STATUS_TRUNK_UNSUPP = 163,
++	BFA_STATUS_TRUNK_ENABLED = 164,
++	BFA_STATUS_TRUNK_DISABLED  = 165,
++	BFA_STATUS_TRUNK_ERROR_TRL_ENABLED = 166,
++	BFA_STATUS_BOOT_CODE_UPDATED = 167,
++	BFA_STATUS_BOOT_VERSION = 168,
++	BFA_STATUS_CARDTYPE_MISSING = 169,
++	BFA_STATUS_INVALID_CARDTYPE = 170,
++	BFA_STATUS_NO_TOPOLOGY_FOR_CNA = 171,
++	BFA_STATUS_IM_VLAN_OVER_TEAM_DELETE_FAILED = 172,
++	BFA_STATUS_ETHBOOT_ENABLED  = 173,
++	BFA_STATUS_ETHBOOT_DISABLED  = 174,
++	BFA_STATUS_IOPROFILE_OFF = 175,
++	BFA_STATUS_NO_PORT_INSTANCE = 176,
++	BFA_STATUS_BOOT_CODE_TIMEDOUT = 177,
++	BFA_STATUS_NO_VPORT_LOCK = 178,
++	BFA_STATUS_VPORT_NO_CNFG = 179,
++	BFA_STATUS_MAX_VAL
++};
++
++enum bfa_eproto_status {
++	BFA_EPROTO_BAD_ACCEPT = 0,
++	BFA_EPROTO_UNKNOWN_RSP = 1
++};
++
++#endif /* __BFA_DEFS_STATUS_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_ioc.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_ioc.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_ioc.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_ioc.h	2010-08-23 13:24:47.774913000 -0700
+@@ -0,0 +1,343 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
 + */
 +
-+#define	BNA_Q_IDLE_STATE	0x00008001
++#ifndef __BFA_IOC_H__
++#define __BFA_IOC_H__
 +
-+#define BNA_GET_DOORBELL_BASE_ADDR(_bar0)	\
-+	((_bar0) + HQM_DOORBELL_BLK_BASE_ADDR)
++#include "bfa_sm.h"
++#include "bfi.h"
++#include "cna.h"
 +
-+#define BNA_GET_DOORBELL_ENTRY_OFFSET(_entry)		\
-+	((HQM_DOORBELL_BLK_BASE_ADDR)		\
-+	+ (_entry << 7))
++#define BFA_IOC_TOV		3000	/* msecs */
++#define BFA_IOC_HWSEM_TOV	500	/* msecs */
++#define BFA_IOC_HB_TOV		500	/* msecs */
++#define BFA_IOC_HWINIT_MAX	2
++#define BFA_IOC_TOV_RECOVER	BFA_IOC_HB_TOV
 +
-+#define BNA_DOORBELL_IB_INT_ACK(_timeout, _events) \
-+		(0x80000000 | ((_timeout) << 16) | (_events))
++/**
++ * Generic Scatter Gather Element used by driver
++ */
++struct bfa_sge {
++	u32	sg_len;
++	void	*sg_addr;
++};
 +
-+#define BNA_DOORBELL_IB_INT_DISABLE		(0x40000000)
++/**
++ * PCI device information required by IOC
++ */
++struct bfa_pcidev {
++	int	pci_slot;
++	u8	pci_func;
++	u16	device_id;
++	void	__iomem *pci_bar_kva;
++};
 +
-+/* TxQ Entry Opcodes */
-+#define BNA_TXQ_WI_SEND 		(0x402)	/* Single Frame Transmission */
-+#define BNA_TXQ_WI_SEND_LSO 		(0x403)	/* Multi-Frame Transmission */
-+#define BNA_TXQ_WI_EXTENSION		(0x104)	/* Extension WI */
++/**
++ * Structure used to remember the DMA-able memory block's KVA and Physical
++ * Address
++ */
++struct bfa_dma {
++	void	*kva;	/* ! Kernel virtual address	*/
++	u64	pa;	/* ! Physical address		*/
++};
 +
-+/* TxQ Entry Control Flags */
-+#define BNA_TXQ_WI_CF_FCOE_CRC  	(1 << 8)
-+#define BNA_TXQ_WI_CF_IPID_MODE 	(1 << 5)
-+#define BNA_TXQ_WI_CF_INS_PRIO  	(1 << 4)
-+#define BNA_TXQ_WI_CF_INS_VLAN  	(1 << 3)
-+#define BNA_TXQ_WI_CF_UDP_CKSUM 	(1 << 2)
-+#define BNA_TXQ_WI_CF_TCP_CKSUM 	(1 << 1)
-+#define BNA_TXQ_WI_CF_IP_CKSUM  	(1 << 0)
++#define BFA_DMA_ALIGN_SZ	256
 +
-+#define BNA_TXQ_WI_L4_HDR_N_OFFSET(_hdr_size, _offset) \
-+		(((_hdr_size) << 10) | ((_offset) & 0x3FF))
++/**
++ * smem size for Crossbow and Catapult
++ */
++#define BFI_SMEM_CB_SIZE	0x200000U	/* ! 2MB for crossbow	*/
++#define BFI_SMEM_CT_SIZE	0x280000U	/* ! 2.5MB for catapult	*/
++
++/**
++ * @brief BFA dma address assignment macro
++ */
++#define bfa_dma_addr_set(dma_addr, pa)	\
++		__bfa_dma_addr_set(&dma_addr, (u64)pa)
++
++static inline void
++__bfa_dma_addr_set(union bfi_addr_u *dma_addr, u64 pa)
++{
++	dma_addr->a32.addr_lo = (u32) pa;
++	dma_addr->a32.addr_hi = (u32) (upper_32_bits(pa));
++}
++
++/**
++ * @brief BFA dma address assignment macro. (big endian format)
++ */
++#define bfa_dma_be_addr_set(dma_addr, pa)	\
++		__bfa_dma_be_addr_set(&dma_addr, (u64)pa)
++static inline void
++__bfa_dma_be_addr_set(union bfi_addr_u *dma_addr, u64 pa)
++{
++	dma_addr->a32.addr_lo = (u32) htonl(pa);
++	dma_addr->a32.addr_hi = (u32) htonl(upper_32_bits(pa));
++}
++
++struct bfa_ioc_regs {
++	void __iomem *hfn_mbox_cmd;
++	void __iomem *hfn_mbox;
++	void __iomem *lpu_mbox_cmd;
++	void __iomem *lpu_mbox;
++	void __iomem *pss_ctl_reg;
++	void __iomem *pss_err_status_reg;
++	void __iomem *app_pll_fast_ctl_reg;
++	void __iomem *app_pll_slow_ctl_reg;
++	void __iomem *ioc_sem_reg;
++	void __iomem *ioc_usage_sem_reg;
++	void __iomem *ioc_init_sem_reg;
++	void __iomem *ioc_usage_reg;
++	void __iomem *host_page_num_fn;
++	void __iomem *heartbeat;
++	void __iomem *ioc_fwstate;
++	void __iomem *ll_halt;
++	void __iomem *err_set;
++	void __iomem *shirq_isr_next;
++	void __iomem *shirq_msk_next;
++	void __iomem *smem_page_start;
++	u32	smem_pg0;
++};
++
++/**
++ * IOC Mailbox structures
++ */
++struct bfa_mbox_cmd {
++	struct list_head	qe;
++	u32			msg[BFI_IOC_MSGSZ];
++};
++
++/**
++ * IOC mailbox module
++ */
++typedef void (*bfa_ioc_mbox_mcfunc_t)(void *cbarg, struct bfi_mbmsg *m);
++struct bfa_ioc_mbox_mod {
++	struct list_head	cmd_q;		/*!< pending mbox queue	*/
++	int			nmclass;	/*!< number of handlers */
++	struct {
++		bfa_ioc_mbox_mcfunc_t	cbfn;	/*!< message handlers	*/
++		void			*cbarg;
++	} mbhdlr[BFI_MC_MAX];
++};
++
++/**
++ * IOC callback function interfaces
++ */
++typedef void (*bfa_ioc_enable_cbfn_t)(void *bfa, enum bfa_status status);
++typedef void (*bfa_ioc_disable_cbfn_t)(void *bfa);
++typedef void (*bfa_ioc_hbfail_cbfn_t)(void *bfa);
++typedef void (*bfa_ioc_reset_cbfn_t)(void *bfa);
++struct bfa_ioc_cbfn {
++	bfa_ioc_enable_cbfn_t	enable_cbfn;
++	bfa_ioc_disable_cbfn_t	disable_cbfn;
++	bfa_ioc_hbfail_cbfn_t	hbfail_cbfn;
++	bfa_ioc_reset_cbfn_t	reset_cbfn;
++};
++
++/**
++ * Heartbeat failure notification queue element.
++ */
++struct bfa_ioc_hbfail_notify {
++	struct list_head	qe;
++	bfa_ioc_hbfail_cbfn_t	cbfn;
++	void			*cbarg;
++};
++
++/**
++ * Initialize a heartbeat failure notification structure
++ */
++#define bfa_ioc_hbfail_init(__notify, __cbfn, __cbarg) do {	\
++	(__notify)->cbfn = (__cbfn);				\
++	(__notify)->cbarg = (__cbarg);				\
++} while (0)
++
++struct bfa_ioc {
++	bfa_fsm_t		fsm;
++	struct bfa 		*bfa;
++	struct bfa_pcidev 	pcidev;
++	struct bfa_timer_mod	*timer_mod;
++	struct timer_list 	ioc_timer;
++	struct timer_list 	sem_timer;
++	struct timer_list	hb_timer;
++	u32			hb_count;
++	u32			retry_count;
++	struct list_head	hb_notify_q;
++	void			*dbg_fwsave;
++	int			dbg_fwsave_len;
++	bool			dbg_fwsave_once;
++	enum bfi_mclass		ioc_mc;
++	struct bfa_ioc_regs 	ioc_regs;
++	struct bfa_ioc_drv_stats stats;
++	bool			auto_recover;
++	bool			fcmode;
++	bool			ctdev;
++	bool			cna;
++	bool			pllinit;
++	bool   			stats_busy;	/*!< outstanding stats */
++	u8			port_id;
++
++	struct bfa_dma		attr_dma;
++	struct bfi_ioc_attr	*attr;
++	struct bfa_ioc_cbfn	*cbfn;
++	struct bfa_ioc_mbox_mod	mbox_mod;
++	struct bfa_ioc_hwif	*ioc_hwif;
++};
++
++struct bfa_ioc_hwif {
++	enum bfa_status (*ioc_pll_init) (void __iomem *rb, bool fcmode);
++	bool		(*ioc_firmware_lock)	(struct bfa_ioc *ioc);
++	void		(*ioc_firmware_unlock)	(struct bfa_ioc *ioc);
++	void		(*ioc_reg_init)	(struct bfa_ioc *ioc);
++	void		(*ioc_map_port)	(struct bfa_ioc *ioc);
++	void		(*ioc_isr_mode_set)	(struct bfa_ioc *ioc,
++					bool msix);
++	void		(*ioc_notify_hbfail)	(struct bfa_ioc *ioc);
++	void		(*ioc_ownership_reset)	(struct bfa_ioc *ioc);
++};
++
++#define bfa_ioc_pcifn(__ioc)		((__ioc)->pcidev.pci_func)
++#define bfa_ioc_devid(__ioc)		((__ioc)->pcidev.device_id)
++#define bfa_ioc_bar0(__ioc)		((__ioc)->pcidev.pci_bar_kva)
++#define bfa_ioc_portid(__ioc)		((__ioc)->port_id)
++#define bfa_ioc_fetch_stats(__ioc, __stats) \
++		(((__stats)->drv_stats) = (__ioc)->stats)
++#define bfa_ioc_clr_stats(__ioc)	\
++		memset(&(__ioc)->stats, 0, sizeof((__ioc)->stats))
++#define bfa_ioc_maxfrsize(__ioc)	((__ioc)->attr->maxfrsize)
++#define bfa_ioc_rx_bbcredit(__ioc)	((__ioc)->attr->rx_bbcredit)
++#define bfa_ioc_speed_sup(__ioc)	\
++	BFI_ADAPTER_GETP(SPEED, (__ioc)->attr->adapter_prop)
++#define bfa_ioc_get_nports(__ioc)	\
++	BFI_ADAPTER_GETP(NPORTS, (__ioc)->attr->adapter_prop)
++
++#define bfa_ioc_stats(_ioc, _stats)	((_ioc)->stats._stats++)
++#define BFA_IOC_FWIMG_MINSZ	(16 * 1024)
++#define BFA_IOC_FWIMG_TYPE(__ioc)					\
++	(((__ioc)->ctdev) ? 						\
++	 (((__ioc)->fcmode) ? BFI_IMAGE_CT_FC : BFI_IMAGE_CT_CNA) :	\
++	 BFI_IMAGE_CB_FC)
++#define BFA_IOC_FW_SMEM_SIZE(__ioc)					\
++	(((__ioc)->ctdev) ? BFI_SMEM_CT_SIZE : BFI_SMEM_CB_SIZE)
++#define BFA_IOC_FLASH_CHUNK_NO(off)		(off / BFI_FLASH_CHUNK_SZ_WORDS)
++#define BFA_IOC_FLASH_OFFSET_IN_CHUNK(off)	(off % BFI_FLASH_CHUNK_SZ_WORDS)
++#define BFA_IOC_FLASH_CHUNK_ADDR(chunkno)  (chunkno * BFI_FLASH_CHUNK_SZ_WORDS)
++
++/**
++ * IOC mailbox interface
++ */
++void bfa_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd);
++void bfa_ioc_mbox_register(struct bfa_ioc *ioc,
++		bfa_ioc_mbox_mcfunc_t *mcfuncs);
++void bfa_ioc_mbox_isr(struct bfa_ioc *ioc);
++void bfa_ioc_mbox_send(struct bfa_ioc *ioc, void *ioc_msg, int len);
++void bfa_ioc_msgget(struct bfa_ioc *ioc, void *mbmsg);
++void bfa_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
++		bfa_ioc_mbox_mcfunc_t cbfn, void *cbarg);
++
++/**
++ * IOC interfaces
++ */
++
++#define bfa_ioc_pll_init_asic(__ioc) \
++	((__ioc)->ioc_hwif->ioc_pll_init((__ioc)->pcidev.pci_bar_kva, \
++			   (__ioc)->fcmode))
++
++enum bfa_status bfa_ioc_pll_init(struct bfa_ioc *ioc);
++enum bfa_status bfa_ioc_cb_pll_init(void __iomem *rb, bool fcmode);
++enum bfa_status bfa_ioc_ct_pll_init(void __iomem *rb, bool fcmode);
++
++#define	bfa_ioc_isr_mode_set(__ioc, __msix)			\
++			((__ioc)->ioc_hwif->ioc_isr_mode_set(__ioc, __msix))
++#define	bfa_ioc_ownership_reset(__ioc)				\
++			((__ioc)->ioc_hwif->ioc_ownership_reset(__ioc))
++
++void bfa_ioc_set_ct_hwif(struct bfa_ioc *ioc);
++
++void bfa_ioc_attach(struct bfa_ioc *ioc, void *bfa,
++		struct bfa_ioc_cbfn *cbfn);
++void bfa_ioc_auto_recover(bool auto_recover);
++void bfa_ioc_detach(struct bfa_ioc *ioc);
++void bfa_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
++		enum bfi_mclass mc);
++u32 bfa_ioc_meminfo(void);
++void bfa_ioc_mem_claim(struct bfa_ioc *ioc,  u8 *dm_kva, u64 dm_pa);
++void bfa_ioc_enable(struct bfa_ioc *ioc);
++void bfa_ioc_disable(struct bfa_ioc *ioc);
++bool bfa_ioc_intx_claim(struct bfa_ioc *ioc);
++
++void bfa_ioc_boot(struct bfa_ioc *ioc, u32 boot_type,
++		u32 boot_param);
++void bfa_ioc_isr(struct bfa_ioc *ioc, struct bfi_mbmsg *msg);
++void bfa_ioc_error_isr(struct bfa_ioc *ioc);
++bool bfa_ioc_is_operational(struct bfa_ioc *ioc);
++bool bfa_ioc_is_initialized(struct bfa_ioc *ioc);
++bool bfa_ioc_is_disabled(struct bfa_ioc *ioc);
++bool bfa_ioc_fw_mismatch(struct bfa_ioc *ioc);
++bool bfa_ioc_adapter_is_disabled(struct bfa_ioc *ioc);
++void bfa_ioc_cfg_complete(struct bfa_ioc *ioc);
++enum bfa_ioc_type bfa_ioc_get_type(struct bfa_ioc *ioc);
++void bfa_ioc_get_adapter_serial_num(struct bfa_ioc *ioc, char *serial_num);
++void bfa_ioc_get_adapter_fw_ver(struct bfa_ioc *ioc, char *fw_ver);
++void bfa_ioc_get_adapter_optrom_ver(struct bfa_ioc *ioc, char *optrom_ver);
++void bfa_ioc_get_adapter_model(struct bfa_ioc *ioc, char *model);
++void bfa_ioc_get_adapter_manufacturer(struct bfa_ioc *ioc,
++		char *manufacturer);
++void bfa_ioc_get_pci_chip_rev(struct bfa_ioc *ioc, char *chip_rev);
++enum bfa_ioc_state bfa_ioc_get_state(struct bfa_ioc *ioc);
++
++void bfa_ioc_get_attr(struct bfa_ioc *ioc, struct bfa_ioc_attr *ioc_attr);
++void bfa_ioc_get_adapter_attr(struct bfa_ioc *ioc,
++		struct bfa_adapter_attr *ad_attr);
++u32 bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmaddr);
++u32 bfa_ioc_smem_pgoff(struct bfa_ioc *ioc, u32 fmaddr);
++void bfa_ioc_set_fcmode(struct bfa_ioc *ioc);
++bool bfa_ioc_get_fcmode(struct bfa_ioc *ioc);
++void bfa_ioc_hbfail_register(struct bfa_ioc *ioc,
++	struct bfa_ioc_hbfail_notify *notify);
++bool bfa_ioc_sem_get(void __iomem *sem_reg);
++void bfa_ioc_sem_release(void __iomem *sem_reg);
++void bfa_ioc_hw_sem_release(struct bfa_ioc *ioc);
++void bfa_ioc_fwver_get(struct bfa_ioc *ioc,
++			struct bfi_ioc_image_hdr *fwhdr);
++bool bfa_ioc_fwver_cmp(struct bfa_ioc *ioc,
++			struct bfi_ioc_image_hdr *fwhdr);
 +
 +/*
-+ * Completion Q defines
++ * Timeout APIs
 + */
-+/* CQ Entry Flags */
-+#define	BNA_CQ_EF_MAC_ERROR 	(1 <<  0)
-+#define	BNA_CQ_EF_FCS_ERROR 	(1 <<  1)
-+#define	BNA_CQ_EF_TOO_LONG  	(1 <<  2)
-+#define	BNA_CQ_EF_FC_CRC_OK 	(1 <<  3)
++void bfa_ioc_timeout(void *ioc);
++void bfa_ioc_hb_check(void *ioc);
++void bfa_ioc_sem_timeout(void *ioc);
 +
-+#define	BNA_CQ_EF_RSVD1 	(1 <<  4)
-+#define	BNA_CQ_EF_L4_CKSUM_OK	(1 <<  5)
-+#define	BNA_CQ_EF_L3_CKSUM_OK	(1 <<  6)
-+#define	BNA_CQ_EF_HDS_HEADER	(1 <<  7)
++/*
++ * bfa mfg wwn API functions
++ */
++u64 bfa_ioc_get_pwwn(struct bfa_ioc *ioc);
++u64 bfa_ioc_get_nwwn(struct bfa_ioc *ioc);
++mac_t bfa_ioc_get_mac(struct bfa_ioc *ioc);
++u64 bfa_ioc_get_mfg_pwwn(struct bfa_ioc *ioc);
++u64 bfa_ioc_get_mfg_nwwn(struct bfa_ioc *ioc);
++mac_t bfa_ioc_get_mfg_mac(struct bfa_ioc *ioc);
++u64 bfa_ioc_get_adid(struct bfa_ioc *ioc);
 +
-+#define	BNA_CQ_EF_UDP   	(1 <<  8)
-+#define	BNA_CQ_EF_TCP   	(1 <<  9)
-+#define	BNA_CQ_EF_IP_OPTIONS	(1 << 10)
-+#define	BNA_CQ_EF_IPV6  	(1 << 11)
++/*
++ * F/W Image Size & Chunk
++ */
++u32 *bfa_cb_image_get_chunk(int type, u32 off);
++u32 bfa_cb_image_get_size(int type);
 +
-+#define	BNA_CQ_EF_IPV4  	(1 << 12)
-+#define	BNA_CQ_EF_VLAN  	(1 << 13)
-+#define	BNA_CQ_EF_RSS   	(1 << 14)
-+#define	BNA_CQ_EF_RSVD2 	(1 << 15)
-+
-+#define	BNA_CQ_EF_MCAST_MATCH   (1 << 16)
-+#define	BNA_CQ_EF_MCAST 	(1 << 17)
-+#define BNA_CQ_EF_BCAST 	(1 << 18)
-+#define	BNA_CQ_EF_REMOTE 	(1 << 19)
-+
-+#define	BNA_CQ_EF_LOCAL		(1 << 20)
-+
-+/**
++#endif /* __BFA_IOC_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_sm.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_sm.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_sm.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_sm.h	2010-08-23 13:24:47.788893000 -0700
+@@ -0,0 +1,88 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
 + *
-+ * Data structures
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
 + *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
 + */
 +
-+enum txf_flags {
-+	BFI_TXF_CF_ENABLE		= 1 << 0,
-+	BFI_TXF_CF_VLAN_FILTER		= 1 << 8,
-+	BFI_TXF_CF_VLAN_ADMIT		= 1 << 9,
-+	BFI_TXF_CF_VLAN_INSERT		= 1 << 10,
-+	BFI_TXF_CF_RSVD1		= 1 << 11,
-+	BFI_TXF_CF_MAC_SA_CHECK		= 1 << 12,
-+	BFI_TXF_CF_VLAN_WI_BASED	= 1 << 13,
-+	BFI_TXF_CF_VSWITCH_MCAST	= 1 << 14,
-+	BFI_TXF_CF_VSWITCH_UCAST	= 1 << 15,
-+	BFI_TXF_CF_RSVD2		= 0x7F << 1
-+};
-+
-+enum ib_flags {
-+	BFI_IB_CF_MASTER_ENABLE		= (1 << 0),
-+	BFI_IB_CF_MSIX_MODE		= (1 << 1),
-+	BFI_IB_CF_COALESCING_MODE	= (1 << 2),
-+	BFI_IB_CF_INTER_PKT_ENABLE	= (1 << 3),
-+	BFI_IB_CF_INT_ENABLE		= (1 << 4),
-+	BFI_IB_CF_INTER_PKT_DMA		= (1 << 5),
-+	BFI_IB_CF_ACK_PENDING		= (1 << 6),
-+	BFI_IB_CF_RESERVED1		= (1 << 7)
-+};
-+
-+enum rss_hash_type {
-+	BFI_RSS_T_V4_TCP    		= (1 << 11),
-+	BFI_RSS_T_V4_IP     		= (1 << 10),
-+	BFI_RSS_T_V6_TCP    		= (1 <<  9),
-+	BFI_RSS_T_V6_IP     		= (1 <<  8)
-+};
-+enum hds_header_type {
-+	BNA_HDS_T_V4_TCP	= (1 << 11),
-+	BNA_HDS_T_V4_UDP	= (1 << 10),
-+	BNA_HDS_T_V6_TCP	= (1 << 9),
-+	BNA_HDS_T_V6_UDP	= (1 << 8),
-+	BNA_HDS_FORCED		= (1 << 7),
-+};
-+enum rxf_flags {
-+	BNA_RXF_CF_SM_LG_RXQ			= (1 << 15),
-+	BNA_RXF_CF_DEFAULT_VLAN			= (1 << 14),
-+	BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE	= (1 << 13),
-+	BNA_RXF_CF_VLAN_STRIP			= (1 << 12),
-+	BNA_RXF_CF_RSS_ENABLE			= (1 <<  8)
-+};
-+struct bna_chip_regs_offset {
-+	u32 page_addr;
-+	u32 fn_int_status;
-+	u32 fn_int_mask;
-+	u32 msix_idx;
-+};
-+extern const struct bna_chip_regs_offset reg_offset[];
-+
-+struct bna_chip_regs {
-+	void __iomem *page_addr;
-+	void __iomem *fn_int_status;
-+	void __iomem *fn_int_mask;
-+};
-+
-+struct bna_txq_mem {
-+	u32 pg_tbl_addr_lo;
-+	u32 pg_tbl_addr_hi;
-+	u32 cur_q_entry_lo;
-+	u32 cur_q_entry_hi;
-+	u32 reserved1;
-+	u32 reserved2;
-+	u32 pg_cnt_n_prd_ptr;	/* 31:16->total page count */
-+					/* 15:0 ->producer pointer (index?) */
-+	u32 entry_n_pg_size; 	/* 31:16->entry size */
-+					/* 15:0 ->page size */
-+	u32 int_blk_n_cns_ptr;	/* 31:24->Int Blk Id;  */
-+					/* 23:16->Int Blk Offset */
-+					/* 15:0 ->consumer pointer(index?) */
-+	u32 cns_ptr2_n_q_state;	/* 31:16->cons. ptr 2; 15:0-> Q state */
-+	u32 nxt_qid_n_fid_n_pri;	/* 17:10->next */
-+					/* QId;9:3->FID;2:0->Priority */
-+	u32 wvc_n_cquota_n_rquota; /* 31:24->WI Vector Count; */
-+					/* 23:12->Cfg Quota; */
-+					/* 11:0 ->Run Quota */
-+	u32 reserved3[4];
-+};
-+
-+struct bna_rxq_mem {
-+	u32 pg_tbl_addr_lo;
-+	u32 pg_tbl_addr_hi;
-+	u32 cur_q_entry_lo;
-+	u32 cur_q_entry_hi;
-+	u32 reserved1;
-+	u32 reserved2;
-+	u32 pg_cnt_n_prd_ptr;	/* 31:16->total page count */
-+					/* 15:0 ->producer pointer (index?) */
-+	u32 entry_n_pg_size;	/* 31:16->entry size */
-+					/* 15:0 ->page size */
-+	u32 sg_n_cq_n_cns_ptr;	/* 31:28->reserved; 27:24->sg count */
-+					/* 23:16->CQ; */
-+					/* 15:0->consumer pointer(index?) */
-+	u32 buf_sz_n_q_state; 	/* 31:16->buffer size; 15:0-> Q state */
-+	u32 next_qid;		/* 17:10->next QId */
-+	u32 reserved3;
-+	u32 reserved4[4];
-+};
-+
-+struct bna_rxtx_q_mem {
-+	struct bna_rxq_mem rxq;
-+	struct bna_txq_mem txq;
-+};
-+
-+struct bna_cq_mem {
-+	u32 pg_tbl_addr_lo;
-+	u32 pg_tbl_addr_hi;
-+	u32 cur_q_entry_lo;
-+	u32 cur_q_entry_hi;
-+
-+	u32 reserved1;
-+	u32 reserved2;
-+	u32 pg_cnt_n_prd_ptr;	/* 31:16->total page count */
-+					/* 15:0 ->producer pointer (index?) */
-+	u32 entry_n_pg_size;	/* 31:16->entry size */
-+					/* 15:0 ->page size */
-+	u32 int_blk_n_cns_ptr;	/* 31:24->Int Blk Id; */
-+					/* 23:16->Int Blk Offset */
-+					/* 15:0 ->consumer pointer(index?) */
-+	u32 q_state;		/* 31:16->reserved; 15:0-> Q state */
-+	u32 reserved3[2];
-+	u32 reserved4[4];
-+};
-+
-+struct bna_ib_blk_mem {
-+	u32 host_addr_lo;
-+	u32 host_addr_hi;
-+	u32 clsc_n_ctrl_n_msix;	/* 31:24->coalescing; */
-+					/* 23:16->coalescing cfg; */
-+					/* 15:8 ->control; */
-+					/* 7:0 ->msix; */
-+	u32 ipkt_n_ent_n_idxof;
-+	u32 ipkt_cnt_cfg_n_unacked;
-+
-+	u32 reserved[3];
-+};
-+
-+struct bna_idx_tbl_mem {
-+	u32 idx;	  /* !< 31:16->res;15:0->idx; */
-+};
-+
-+struct bna_doorbell_qset {
-+	u32 rxq[0x20 >> 2];
-+	u32 txq[0x20 >> 2];
-+	u32 ib0[0x20 >> 2];
-+	u32 ib1[0x20 >> 2];
-+};
-+
-+struct bna_rx_fndb_ram {
-+	u32 rss_prop;
-+	u32 size_routing_props;
-+	u32 rit_hds_mcastq;
-+	u32 control_flags;
-+};
-+
-+struct bna_tx_fndb_ram {
-+	u32 vlan_n_ctrl_flags;
-+};
-+
 +/**
-+ * @brief
-+ *  Structure which maps to RxFn Indirection Table (RIT)
-+ *  Size : 1 word
-+ *  See catapult_spec.pdf, RxA for details
++ * @file bfasm.h State machine defines
 + */
-+struct bna_rit_mem {
-+	u32 rxq_ids;	/* !< 31:12->res;11:0->two 6 bit RxQ Ids */
-+};
++
++#ifndef __BFA_SM_H__
++#define __BFA_SM_H__
++
++#include "cna.h"
++
++typedef void (*bfa_sm_t)(void *sm, int event);
 +
 +/**
-+ * @brief
-+ *  Structure which maps to RSS Table entry
-+ *  Size : 16 words
-+ *  See catapult_spec.pdf, RAD for details
++ * oc - object class eg. bfa_ioc
++ * st - state, eg. reset
++ * otype - object type, eg. struct bfa_ioc
++ * etype - object type, eg. enum ioc_event
 + */
-+struct bna_rss_mem {
-+	/*
-+	 * 31:12-> res
-+	 * 11:8 -> protocol type
-+	 *  7:0 -> hash index
-+	 */
-+	u32 type_n_hash;
-+	u32 hash_key[10];  /* !< 40 byte Toeplitz hash key */
-+	u32 reserved[5];
-+};
++#define bfa_sm_state_decl(oc, st, otype, etype)		\
++	static void oc ## _sm_ ## st(otype * fsm, etype event)
 +
-+/* TxQ Vector (a.k.a. Tx-Buffer Descriptor) */
-+struct bna_dma_addr {
-+	u32		msb;
-+	u32		lsb;
-+};
-+
-+struct bna_txq_wi_vector {
-+	u16 		reserved;
-+	u16 		length;		/* Only 14 LSB are valid */
-+	struct bna_dma_addr host_addr; /* Tx-Buf DMA addr */
-+};
-+
-+typedef u16 bna_txq_wi_opcode_t;
-+
-+typedef u16 bna_txq_wi_ctrl_flag_t;
++#define bfa_sm_set_state(_sm, _state)	((_sm)->sm = (bfa_sm_t)(_state))
++#define bfa_sm_send_event(_sm, _event)	((_sm)->sm((_sm), (_event)))
++#define bfa_sm_get_state(_sm)		((_sm)->sm)
++#define bfa_sm_cmp_state(_sm, _state)	((_sm)->sm == (bfa_sm_t)(_state))
 +
 +/**
-+ *  TxQ Entry Structure
++ * For converting from state machine function to state encoding.
++ */
++struct bfa_sm_table {
++	bfa_sm_t	sm;	/*!< state machine function	*/
++	int		state;	/*!< state machine encoding	*/
++	char		*name;	/*!< state name for display	*/
++};
++#define BFA_SM(_sm)	((bfa_sm_t)(_sm))
++
++/**
++ * State machine with entry actions.
++ */
++typedef void (*bfa_fsm_t)(void *fsm, int event);
++
++/**
++ * oc - object class eg. bfa_ioc
++ * st - state, eg. reset
++ * otype - object type, eg. struct bfa_ioc
++ * etype - object type, eg. enum ioc_event
++ */
++#define bfa_fsm_state_decl(oc, st, otype, etype)		\
++	static void oc ## _sm_ ## st(otype * fsm, etype event);	\
++	static void oc ## _sm_ ## st ## _entry(otype * fsm)
++
++#define bfa_fsm_set_state(_fsm, _state) do {	\
++	(_fsm)->fsm = (bfa_fsm_t)(_state);	\
++	_state ## _entry(_fsm);			\
++} while (0)
++
++#define bfa_fsm_send_event(_fsm, _event)	((_fsm)->fsm((_fsm), (_event)))
++#define bfa_fsm_get_state(_fsm)			((_fsm)->fsm)
++#define bfa_fsm_cmp_state(_fsm, _state)		\
++	((_fsm)->fsm == (bfa_fsm_t)(_state))
++
++static inline int
++bfa_sm_to_state(struct bfa_sm_table *smt, bfa_sm_t sm)
++{
++	int	i = 0;
++
++	while (smt[i].sm && smt[i].sm != sm)
++		i++;
++	return smt[i].state;
++}
++#endif
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_wc.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_wc.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_wc.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_wc.h	2010-08-23 13:24:47.799909000 -0700
+@@ -0,0 +1,69 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
 + *
-+ *  BEWARE:  Load values into this structure with correct endianess.
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
 + */
-+struct bna_txq_entry {
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++
++/**
++ * @file bfa_wc.h Generic wait counter.
++ */
++
++#ifndef __BFA_WC_H__
++#define __BFA_WC_H__
++
++typedef void (*bfa_wc_resume_t) (void *cbarg);
++
++struct bfa_wc {
++	bfa_wc_resume_t wc_resume;
++	void		*wc_cbarg;
++	int		wc_count;
++};
++
++static inline void
++bfa_wc_up(struct bfa_wc *wc)
++{
++	wc->wc_count++;
++}
++
++static inline void
++bfa_wc_down(struct bfa_wc *wc)
++{
++	wc->wc_count--;
++	if (wc->wc_count == 0)
++		wc->wc_resume(wc->wc_cbarg);
++}
++
++/**
++ * Initialize a waiting counter.
++ */
++static inline void
++bfa_wc_init(struct bfa_wc *wc, bfa_wc_resume_t wc_resume, void *wc_cbarg)
++{
++	wc->wc_resume = wc_resume;
++	wc->wc_cbarg = wc_cbarg;
++	wc->wc_count = 0;
++	bfa_wc_up(wc);
++}
++
++/**
++ * Wait for counter to reach zero
++ */
++static inline void
++bfa_wc_wait(struct bfa_wc *wc)
++{
++	bfa_wc_down(wc);
++}
++
++#endif
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfi.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfi.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfi.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfi.h	2010-08-23 13:24:47.610894000 -0700
+@@ -0,0 +1,392 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++
++#ifndef __BFI_H__
++#define __BFI_H__
++
++#include "bfa_defs.h"
++
++#pragma pack(1)
++
++/**
++ * BFI FW image type
++ */
++#define	BFI_FLASH_CHUNK_SZ			256	/*!< Flash chunk size */
++#define	BFI_FLASH_CHUNK_SZ_WORDS	(BFI_FLASH_CHUNK_SZ/sizeof(u32))
++enum {
++	BFI_IMAGE_CB_FC,
++	BFI_IMAGE_CT_FC,
++	BFI_IMAGE_CT_CNA,
++	BFI_IMAGE_MAX,
++};
++
++/**
++ * Msg header common to all msgs
++ */
++struct bfi_mhdr {
++	u8		msg_class;	/*!< @ref enum bfi_mclass	    */
++	u8		msg_id;		/*!< msg opcode with in the class   */
 +	union {
 +		struct {
-+			u8 reserved;
-+			u8 num_vectors;	/* number of vectors present */
-+			bna_txq_wi_opcode_t opcode; /* Either */
-+						    /* BNA_TXQ_WI_SEND or */
-+						    /* BNA_TXQ_WI_SEND_LSO */
-+			bna_txq_wi_ctrl_flag_t flags; /* OR of all the flags */
-+			u16 l4_hdr_size_n_offset;
-+			u16 vlan_tag;
-+			u16 lso_mss;	/* Only 14 LSB are valid */
-+			u32 frame_length;	/* Only 24 LSB are valid */
-+		} wi;
-+
-+		struct {
-+			u16 reserved;
-+			bna_txq_wi_opcode_t opcode; /* Must be */
-+						    /* BNA_TXQ_WI_EXTENSION */
-+			u32 reserved2[3];	/* Place holder for */
-+						/* removed vector (12 bytes) */
-+		} wi_ext;
-+	} hdr;
-+	struct bna_txq_wi_vector vector[4];
-+};
-+#define wi_hdr  	hdr.wi
-+#define wi_ext_hdr  hdr.wi_ext
-+
-+/* RxQ Entry Structure */
-+struct bna_rxq_entry {		/* Rx-Buffer */
-+	struct bna_dma_addr host_addr; /* Rx-Buffer DMA address */
++			u8	rsvd;
++			u8	lpu_id;	/*!< msg destination		    */
++		} h2i;
++		u16	i2htok;	/*!< token in msgs to host	    */
++	} mtag;
 +};
 +
-+typedef u32 bna_cq_e_flag_t;
++#define bfi_h2i_set(_mh, _mc, _op, _lpuid) do {		\
++	(_mh).msg_class 		= (_mc);		\
++	(_mh).msg_id			= (_op);		\
++	(_mh).mtag.h2i.lpu_id	= (_lpuid);			\
++} while (0)
 +
-+/* CQ Entry Structure */
-+struct bna_cq_entry {
-+	bna_cq_e_flag_t flags;
-+	u16 vlan_tag;
-+	u16 length;
-+	u32 rss_hash;
-+	u8 valid;
-+	u8 reserved1;
-+	u8 reserved2;
-+	u8 rxq_id;
++#define bfi_i2h_set(_mh, _mc, _op, _i2htok) do {		\
++	(_mh).msg_class 		= (_mc);		\
++	(_mh).msg_id			= (_op);		\
++	(_mh).mtag.i2htok		= (_i2htok);		\
++} while (0)
++
++/*
++ * Message opcodes: 0-127 to firmware, 128-255 to host
++ */
++#define BFI_I2H_OPCODE_BASE	128
++#define BFA_I2HM(_x) 			((_x) + BFI_I2H_OPCODE_BASE)
++
++/**
++ ****************************************************************************
++ *
++ * Scatter Gather Element and Page definition
++ *
++ ****************************************************************************
++ */
++
++#define BFI_SGE_INLINE	1
++#define BFI_SGE_INLINE_MAX	(BFI_SGE_INLINE + 1)
++
++/**
++ * SG Flags
++ */
++enum {
++	BFI_SGE_DATA		= 0,	/*!< data address, not last	     */
++	BFI_SGE_DATA_CPL	= 1,	/*!< data addr, last in current page */
++	BFI_SGE_DATA_LAST	= 3,	/*!< data address, last		     */
++	BFI_SGE_LINK		= 2,	/*!< link address		     */
++	BFI_SGE_PGDLEN		= 2,	/*!< cumulative data length for page */
 +};
 +
-+#endif /* __BNA_HW_H__ */
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_types.h net-next-2.6.35-rc1-mod/drivers/net/bna/bna_types.h
---- net-next-2.6.35-rc1-orig/drivers/net/bna/bna_types.h	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6.35-rc1-mod/drivers/net/bna/bna_types.h	2010-08-23 13:24:47.366950000 -0700
-@@ -0,0 +1,1128 @@
++/**
++ * DMA addresses
++ */
++union bfi_addr_u {
++	struct {
++		u32	addr_lo;
++		u32	addr_hi;
++	} a32;
++};
++
++/**
++ * Scatter Gather Element
++ */
++struct bfi_sge {
++#ifdef __BIGENDIAN
++	u32	flags:2,
++			rsvd:2,
++			sg_len:28;
++#else
++	u32	sg_len:28,
++			rsvd:2,
++			flags:2;
++#endif
++	union bfi_addr_u sga;
++};
++
++/**
++ * Scatter Gather Page
++ */
++#define BFI_SGPG_DATA_SGES		7
++#define BFI_SGPG_SGES_MAX		(BFI_SGPG_DATA_SGES + 1)
++#define BFI_SGPG_RSVD_WD_LEN	8
++struct bfi_sgpg {
++	struct bfi_sge sges[BFI_SGPG_SGES_MAX];
++	u32	rsvd[BFI_SGPG_RSVD_WD_LEN];
++};
++
++/*
++ * Large Message structure - 128 Bytes size Msgs
++ */
++#define BFI_LMSG_SZ		128
++#define BFI_LMSG_PL_WSZ	\
++			((BFI_LMSG_SZ - sizeof(struct bfi_mhdr)) / 4)
++
++struct bfi_msg {
++	struct bfi_mhdr mhdr;
++	u32	pl[BFI_LMSG_PL_WSZ];
++};
++
++/**
++ * Mailbox message structure
++ */
++#define BFI_MBMSG_SZ		7
++struct bfi_mbmsg {
++	struct bfi_mhdr mh;
++	u32		pl[BFI_MBMSG_SZ];
++};
++
++/**
++ * Message Classes
++ */
++enum bfi_mclass {
++	BFI_MC_IOC		= 1,	/*!< IO Controller (IOC)	    */
++	BFI_MC_DIAG		= 2,	/*!< Diagnostic Msgs		    */
++	BFI_MC_FLASH		= 3,	/*!< Flash message class	    */
++	BFI_MC_CEE		= 4,	/*!< CEE			    */
++	BFI_MC_FCPORT		= 5,	/*!< FC port			    */
++	BFI_MC_IOCFC		= 6,	/*!< FC - IO Controller (IOC)	    */
++	BFI_MC_LL		= 7,	/*!< Link Layer			    */
++	BFI_MC_UF		= 8,	/*!< Unsolicited frame receive	    */
++	BFI_MC_FCXP		= 9,	/*!< FC Transport		    */
++	BFI_MC_LPS		= 10,	/*!< lport fc login services	    */
++	BFI_MC_RPORT		= 11,	/*!< Remote port		    */
++	BFI_MC_ITNIM		= 12,	/*!< I-T nexus (Initiator mode)	    */
++	BFI_MC_IOIM_READ	= 13,	/*!< read IO (Initiator mode)	    */
++	BFI_MC_IOIM_WRITE	= 14,	/*!< write IO (Initiator mode)	    */
++	BFI_MC_IOIM_IO		= 15,	/*!< IO (Initiator mode)	    */
++	BFI_MC_IOIM		= 16,	/*!< IO (Initiator mode)	    */
++	BFI_MC_IOIM_IOCOM	= 17,	/*!< good IO completion		    */
++	BFI_MC_TSKIM		= 18,	/*!< Initiator Task management	    */
++	BFI_MC_SBOOT		= 19,	/*!< SAN boot services		    */
++	BFI_MC_IPFC		= 20,	/*!< IP over FC Msgs		    */
++	BFI_MC_PORT		= 21,	/*!< Physical port		    */
++	BFI_MC_SFP		= 22,	/*!< SFP module			    */
++	BFI_MC_MSGQ		= 23,	/*!< MSGQ			    */
++	BFI_MC_ENET		= 24,	/*!< ENET commands/responses	    */
++	BFI_MC_MAX		= 32
++};
++
++#define BFI_IOC_MAX_CQS		4
++#define BFI_IOC_MAX_CQS_ASIC	8
++#define BFI_IOC_MSGLEN_MAX	32	/* 32 bytes */
++
++#define BFI_BOOT_TYPE_OFF		8
++#define BFI_BOOT_PARAM_OFF		12
++
++#define BFI_BOOT_TYPE_NORMAL 		0	/* param is device id */
++#define	BFI_BOOT_TYPE_FLASH		1
++#define	BFI_BOOT_TYPE_MEMTEST		2
++
++#define BFI_BOOT_MEMTEST_RES_ADDR   0x900
++#define BFI_BOOT_MEMTEST_RES_SIG    0xA0A1A2A3
++
++/**
++ *----------------------------------------------------------------------
++ *				IOC
++ *----------------------------------------------------------------------
++ */
++
++enum bfi_ioc_h2i_msgs {
++	BFI_IOC_H2I_ENABLE_REQ		= 1,
++	BFI_IOC_H2I_DISABLE_REQ		= 2,
++	BFI_IOC_H2I_GETATTR_REQ		= 3,
++	BFI_IOC_H2I_DBG_SYNC		= 4,
++	BFI_IOC_H2I_DBG_DUMP		= 5,
++};
++
++enum bfi_ioc_i2h_msgs {
++	BFI_IOC_I2H_ENABLE_REPLY	= BFA_I2HM(1),
++	BFI_IOC_I2H_DISABLE_REPLY 	= BFA_I2HM(2),
++	BFI_IOC_I2H_GETATTR_REPLY 	= BFA_I2HM(3),
++	BFI_IOC_I2H_READY_EVENT 	= BFA_I2HM(4),
++	BFI_IOC_I2H_HBEAT		= BFA_I2HM(5),
++};
++
++/**
++ * BFI_IOC_H2I_GETATTR_REQ message
++ */
++struct bfi_ioc_getattr_req {
++	struct bfi_mhdr mh;
++	union bfi_addr_u	attr_addr;
++};
++
++struct bfi_ioc_attr {
++	u64		mfg_pwwn;	/*!< Mfg port wwn	   */
++	u64		mfg_nwwn;	/*!< Mfg node wwn	   */
++	mac_t		mfg_mac;	/*!< Mfg mac		   */
++	u16	rsvd_a;
++	u64		pwwn;
++	u64		nwwn;
++	mac_t		mac;		/*!< PBC or Mfg mac	   */
++	u16	rsvd_b;
++	mac_t		fcoe_mac;
++	u16	rsvd_c;
++	char		brcd_serialnum[STRSZ(BFA_MFG_SERIALNUM_SIZE)];
++	u8		pcie_gen;
++	u8		pcie_lanes_orig;
++	u8		pcie_lanes;
++	u8		rx_bbcredit;	/*!< receive buffer credits */
++	u32	adapter_prop;	/*!< adapter properties     */
++	u16	maxfrsize;	/*!< max receive frame size */
++	char		asic_rev;
++	u8		rsvd_d;
++	char		fw_version[BFA_VERSION_LEN];
++	char		optrom_version[BFA_VERSION_LEN];
++	struct bfa_mfg_vpd vpd;
++	u32	card_type;	/*!< card type			*/
++};
++
++/**
++ * BFI_IOC_I2H_GETATTR_REPLY message
++ */
++struct bfi_ioc_getattr_reply {
++	struct bfi_mhdr mh;	/*!< Common msg header		*/
++	u8			status;	/*!< cfg reply status		*/
++	u8			rsvd[3];
++};
++
++/**
++ * Firmware memory page offsets
++ */
++#define BFI_IOC_SMEM_PG0_CB	(0x40)
++#define BFI_IOC_SMEM_PG0_CT	(0x180)
++
++/**
++ * Firmware statistic offset
++ */
++#define BFI_IOC_FWSTATS_OFF	(0x6B40)
++#define BFI_IOC_FWSTATS_SZ	(4096)
++
++/**
++ * Firmware trace offset
++ */
++#define BFI_IOC_TRC_OFF		(0x4b00)
++#define BFI_IOC_TRC_ENTS	256
++
++#define BFI_IOC_FW_SIGNATURE	(0xbfadbfad)
++#define BFI_IOC_MD5SUM_SZ	4
++struct bfi_ioc_image_hdr {
++	u32	signature;	/*!< constant signature */
++	u32	rsvd_a;
++	u32	exec;		/*!< exec vector	*/
++	u32	param;		/*!< parameters		*/
++	u32	rsvd_b[4];
++	u32	md5sum[BFI_IOC_MD5SUM_SZ];
++};
++
++/**
++ *  BFI_IOC_I2H_READY_EVENT message
++ */
++struct bfi_ioc_rdy_event {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u8			init_status;	/*!< init event status */
++	u8			rsvd[3];
++};
++
++struct bfi_ioc_hbeat {
++	struct bfi_mhdr mh;		/*!< common msg header		*/
++	u32	   hb_count;	/*!< current heart beat count	*/
++};
++
++/**
++ * IOC hardware/firmware state
++ */
++enum bfi_ioc_state {
++	BFI_IOC_UNINIT		= 0,	/*!< not initialized		     */
++	BFI_IOC_INITING		= 1,	/*!< h/w is being initialized	     */
++	BFI_IOC_HWINIT		= 2,	/*!< h/w is initialized		     */
++	BFI_IOC_CFG		= 3,	/*!< IOC configuration in progress   */
++	BFI_IOC_OP		= 4,	/*!< IOC is operational		     */
++	BFI_IOC_DISABLING	= 5,	/*!< IOC is being disabled	     */
++	BFI_IOC_DISABLED	= 6,	/*!< IOC is disabled		     */
++	BFI_IOC_CFG_DISABLED	= 7,	/*!< IOC is being disabled;transient */
++	BFI_IOC_FAIL		= 8,	/*!< IOC heart-beat failure	     */
++	BFI_IOC_MEMTEST		= 9,	/*!< IOC is doing memtest	     */
++};
++
++#define BFI_IOC_ENDIAN_SIG  0x12345678
++
++enum {
++	BFI_ADAPTER_TYPE_FC	= 0x01,		/*!< FC adapters	   */
++	BFI_ADAPTER_TYPE_MK	= 0x0f0000,	/*!< adapter type mask     */
++	BFI_ADAPTER_TYPE_SH	= 16,	        /*!< adapter type shift    */
++	BFI_ADAPTER_NPORTS_MK	= 0xff00,	/*!< number of ports mask  */
++	BFI_ADAPTER_NPORTS_SH	= 8,	        /*!< number of ports shift */
++	BFI_ADAPTER_SPEED_MK	= 0xff,		/*!< adapter speed mask    */
++	BFI_ADAPTER_SPEED_SH	= 0,	        /*!< adapter speed shift   */
++	BFI_ADAPTER_PROTO	= 0x100000,	/*!< prototype adapaters   */
++	BFI_ADAPTER_TTV		= 0x200000,	/*!< TTV debug capable     */
++	BFI_ADAPTER_UNSUPP	= 0x400000,	/*!< unknown adapter type  */
++};
++
++#define BFI_ADAPTER_GETP(__prop, __adap_prop)			\
++	(((__adap_prop) & BFI_ADAPTER_ ## __prop ## _MK) >>	\
++		BFI_ADAPTER_ ## __prop ## _SH)
++#define BFI_ADAPTER_SETP(__prop, __val)				\
++	((__val) << BFI_ADAPTER_ ## __prop ## _SH)
++#define BFI_ADAPTER_IS_PROTO(__adap_type)			\
++	((__adap_type) & BFI_ADAPTER_PROTO)
++#define BFI_ADAPTER_IS_TTV(__adap_type)				\
++	((__adap_type) & BFI_ADAPTER_TTV)
++#define BFI_ADAPTER_IS_UNSUPP(__adap_type)			\
++	((__adap_type) & BFI_ADAPTER_UNSUPP)
++#define BFI_ADAPTER_IS_SPECIAL(__adap_type)			\
++	((__adap_type) & (BFI_ADAPTER_TTV | BFI_ADAPTER_PROTO |	\
++			BFI_ADAPTER_UNSUPP))
++
++/**
++ * BFI_IOC_H2I_ENABLE_REQ & BFI_IOC_H2I_DISABLE_REQ messages
++ */
++struct bfi_ioc_ctrl_req {
++	struct bfi_mhdr mh;
++	u8			ioc_class;
++	u8			rsvd[3];
++	u32		tv_sec;
++};
++
++/**
++ * BFI_IOC_I2H_ENABLE_REPLY & BFI_IOC_I2H_DISABLE_REPLY messages
++ */
++struct bfi_ioc_ctrl_reply {
++	struct bfi_mhdr mh;		/*!< Common msg header     */
++	u8			status;		/*!< enable/disable status */
++	u8			rsvd[3];
++};
++
++#define BFI_IOC_MSGSZ   8
++/**
++ * H2I Messages
++ */
++union bfi_ioc_h2i_msg_u {
++	struct bfi_mhdr mh;
++	struct bfi_ioc_ctrl_req enable_req;
++	struct bfi_ioc_ctrl_req disable_req;
++	struct bfi_ioc_getattr_req getattr_req;
++	u32			mboxmsg[BFI_IOC_MSGSZ];
++};
++
++/**
++ * I2H Messages
++ */
++union bfi_ioc_i2h_msg_u {
++	struct bfi_mhdr mh;
++	struct bfi_ioc_rdy_event rdy_event;
++	u32			mboxmsg[BFI_IOC_MSGSZ];
++};
++
++#pragma pack()
++
++#endif /* __BFI_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfi_cna.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfi_cna.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfi_cna.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfi_cna.h	2010-08-23 13:24:47.722895000 -0700
+@@ -0,0 +1,199 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -4056,1114 +1995,1353 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_types.h net-next-2.6.35-r
 + * All rights reserved
 + * www.brocade.com
 + */
-+#ifndef __BNA_TYPES_H__
-+#define __BNA_TYPES_H__
++#ifndef __BFI_CNA_H__
++#define __BFI_CNA_H__
 +
-+#include "cna.h"
-+#include "bna_hw.h"
-+#include "bfa_cee.h"
++#include "bfi.h"
++#include "bfa_defs_cna.h"
 +
-+/**
-+ *
-+ * Forward declarations
-+ *
-+ */
++#pragma pack(1)
 +
-+struct bna_txq;
-+struct bna_tx;
-+struct bna_rxq;
-+struct bna_cq;
-+struct bna_rx;
-+struct bna_rxf;
-+struct bna_port;
-+struct bna;
-+struct bnad;
-+
-+/**
-+ *
-+ * Enums, primitive data types
-+ *
-+ */
-+
-+enum bna_status {
-+	BNA_STATUS_T_DISABLED	= 0,
-+	BNA_STATUS_T_ENABLED	= 1
++enum bfi_port_h2i {
++	BFI_PORT_H2I_ENABLE_REQ		= (1),
++	BFI_PORT_H2I_DISABLE_REQ	= (2),
++	BFI_PORT_H2I_GET_STATS_REQ	= (3),
++	BFI_PORT_H2I_CLEAR_STATS_REQ	= (4),
 +};
 +
-+enum bna_cleanup_type {
-+	BNA_HARD_CLEANUP 	= 0,
-+	BNA_SOFT_CLEANUP 	= 1
-+};
-+
-+enum bna_cb_status {
-+	BNA_CB_SUCCESS 		= 0,
-+	BNA_CB_FAIL		= 1,
-+	BNA_CB_INTERRUPT	= 2,
-+	BNA_CB_BUSY		= 3,
-+	BNA_CB_INVALID_MAC	= 4,
-+	BNA_CB_MCAST_LIST_FULL	= 5,
-+	BNA_CB_UCAST_CAM_FULL	= 6,
-+	BNA_CB_WAITING		= 7,
-+	BNA_CB_NOT_EXEC		= 8
-+};
-+
-+enum bna_res_type {
-+	BNA_RES_T_MEM		= 1,
-+	BNA_RES_T_INTR		= 2
-+};
-+
-+enum bna_mem_type {
-+	BNA_MEM_T_KVA 		= 1,
-+	BNA_MEM_T_DMA 		= 2
-+};
-+
-+enum bna_intr_type {
-+	BNA_INTR_T_INTX		= 1,
-+	BNA_INTR_T_MSIX		= 2
-+};
-+
-+enum bna_res_req_type {
-+	BNA_RES_MEM_T_COM 		= 0,
-+	BNA_RES_MEM_T_ATTR 		= 1,
-+	BNA_RES_MEM_T_FWTRC 		= 2,
-+	BNA_RES_MEM_T_STATS 		= 3,
-+	BNA_RES_MEM_T_SWSTATS		= 4,
-+	BNA_RES_MEM_T_IBIDX		= 5,
-+	BNA_RES_MEM_T_IB_ARRAY		= 6,
-+	BNA_RES_MEM_T_INTR_ARRAY	= 7,
-+	BNA_RES_MEM_T_IDXSEG_ARRAY	= 8,
-+	BNA_RES_MEM_T_TX_ARRAY		= 9,
-+	BNA_RES_MEM_T_TXQ_ARRAY		= 10,
-+	BNA_RES_MEM_T_RX_ARRAY		= 11,
-+	BNA_RES_MEM_T_RXP_ARRAY		= 12,
-+	BNA_RES_MEM_T_RXQ_ARRAY		= 13,
-+	BNA_RES_MEM_T_UCMAC_ARRAY	= 14,
-+	BNA_RES_MEM_T_MCMAC_ARRAY	= 15,
-+	BNA_RES_MEM_T_RIT_ENTRY		= 16,
-+	BNA_RES_MEM_T_RIT_SEGMENT	= 17,
-+	BNA_RES_INTR_T_MBOX		= 18,
-+	BNA_RES_T_MAX
-+};
-+
-+enum bna_tx_res_req_type {
-+	BNA_TX_RES_MEM_T_TCB	= 0,
-+	BNA_TX_RES_MEM_T_UNMAPQ	= 1,
-+	BNA_TX_RES_MEM_T_QPT 	= 2,
-+	BNA_TX_RES_MEM_T_SWQPT	= 3,
-+	BNA_TX_RES_MEM_T_PAGE 	= 4,
-+	BNA_TX_RES_INTR_T_TXCMPL = 5,
-+	BNA_TX_RES_T_MAX,
-+};
-+
-+enum bna_rx_mem_type {
-+	BNA_RX_RES_MEM_T_CCB		= 0,	/* CQ context */
-+	BNA_RX_RES_MEM_T_RCB		= 1,	/* CQ context */
-+	BNA_RX_RES_MEM_T_UNMAPQ		= 2,	/* UnmapQ for RxQs */
-+	BNA_RX_RES_MEM_T_CQPT		= 3,	/* CQ QPT */
-+	BNA_RX_RES_MEM_T_CSWQPT		= 4,	/* S/W QPT */
-+	BNA_RX_RES_MEM_T_CQPT_PAGE	= 5,	/* CQPT page */
-+	BNA_RX_RES_MEM_T_HQPT		= 6,	/* RX QPT */
-+	BNA_RX_RES_MEM_T_DQPT		= 7,	/* RX QPT */
-+	BNA_RX_RES_MEM_T_HSWQPT		= 8,	/* RX s/w QPT */
-+	BNA_RX_RES_MEM_T_DSWQPT		= 9,	/* RX s/w QPT */
-+	BNA_RX_RES_MEM_T_DPAGE		= 10,	/* RX s/w QPT */
-+	BNA_RX_RES_MEM_T_HPAGE		= 11,	/* RX s/w QPT */
-+	BNA_RX_RES_T_INTR		= 12,	/* Rx interrupts */
-+	BNA_RX_RES_T_MAX		= 13
-+};
-+
-+enum bna_mbox_state {
-+	BNA_MBOX_FREE		= 0,
-+	BNA_MBOX_POSTED		= 1
-+};
-+
-+enum bna_tx_type {
-+	BNA_TX_T_REGULAR	= 0,
-+	BNA_TX_T_LOOPBACK	= 1,
-+};
-+
-+enum bna_tx_flags {
-+	BNA_TX_F_PORT_STARTED	= 1,
-+	BNA_TX_F_ENABLED	= 2,
-+	BNA_TX_F_PRIO_LOCK	= 4,
-+};
-+
-+enum bna_tx_mod_flags {
-+	BNA_TX_MOD_F_PORT_STARTED	= 1,
-+	BNA_TX_MOD_F_PORT_LOOPBACK	= 2,
-+};
-+
-+enum bna_rx_type {
-+	BNA_RX_T_REGULAR	= 0,
-+	BNA_RX_T_LOOPBACK	= 1,
-+};
-+
-+enum bna_rxp_type {
-+	BNA_RXP_SINGLE 		= 1,
-+	BNA_RXP_SLR 		= 2,
-+	BNA_RXP_HDS 		= 3
-+};
-+
-+enum bna_rxmode {
-+	BNA_RXMODE_PROMISC 	= 1,
-+	BNA_RXMODE_DEFAULT 	= 2,
-+	BNA_RXMODE_ALLMULTI 	= 4
-+};
-+
-+enum bna_rx_event {
-+	RX_E_START			= 1,
-+	RX_E_STOP			= 2,
-+	RX_E_FAIL			= 3,
-+	RX_E_RXF_STARTED		= 4,
-+	RX_E_RXF_STOPPED		= 5,
-+	RX_E_RXQ_STOPPED		= 6,
-+};
-+
-+enum bna_rx_state {
-+	BNA_RX_STOPPED			= 1,
-+	BNA_RX_RXF_START_WAIT		= 2,
-+	BNA_RX_STARTED			= 3,
-+	BNA_RX_RXF_STOP_WAIT		= 4,
-+	BNA_RX_RXQ_STOP_WAIT		= 5,
-+};
-+
-+enum bna_rx_flags {
-+	BNA_RX_F_ENABLE		= 0x01,		/* bnad enabled rxf */
-+	BNA_RX_F_PORT_ENABLED	= 0x02,		/* Port object is enabled */
-+	BNA_RX_F_PORT_FAILED	= 0x04,		/* Port in failed state */
-+};
-+
-+enum bna_rx_mod_flags {
-+	BNA_RX_MOD_F_PORT_STARTED	= 1,
-+	BNA_RX_MOD_F_PORT_LOOPBACK	= 2,
-+};
-+
-+enum bna_rxf_oper_state {
-+	BNA_RXF_OPER_STATE_RUNNING	= 0x01, /* rxf operational */
-+	BNA_RXF_OPER_STATE_PAUSED	= 0x02,	/* rxf in PAUSED state */
-+};
-+
-+enum bna_rxf_flags {
-+	BNA_RXF_FL_STOP_PENDING 	= 0x01,
-+	BNA_RXF_FL_FAILED		= 0x02,
-+	BNA_RXF_FL_RSS_CONFIG_PENDING	= 0x04,
-+	BNA_RXF_FL_OPERSTATE_CHANGED	= 0x08,
-+	BNA_RXF_FL_RXF_ENABLED		= 0x10,
-+	BNA_RXF_FL_VLAN_CONFIG_PENDING	= 0x20,
-+};
-+
-+enum bna_rxf_event {
-+	RXF_E_START			= 1,
-+	RXF_E_STOP			= 2,
-+	RXF_E_FAIL			= 3,
-+	RXF_E_CAM_FLTR_MOD		= 4,
-+	RXF_E_STARTED			= 5,
-+	RXF_E_STOPPED			= 6,
-+	RXF_E_CAM_FLTR_RESP		= 7,
-+	RXF_E_PAUSE			= 8,
-+	RXF_E_RESUME			= 9,
-+	RXF_E_STAT_CLEARED		= 10,
-+};
-+
-+enum bna_rxf_state {
-+	BNA_RXF_STOPPED			= 1,
-+	BNA_RXF_START_WAIT		= 2,
-+	BNA_RXF_CAM_FLTR_MOD_WAIT	= 3,
-+	BNA_RXF_STARTED			= 4,
-+	BNA_RXF_CAM_FLTR_CLR_WAIT	= 5,
-+	BNA_RXF_STOP_WAIT		= 6,
-+	BNA_RXF_PAUSE_WAIT		= 7,
-+	BNA_RXF_RESUME_WAIT		= 8,
-+	BNA_RXF_STAT_CLR_WAIT		= 9,
-+};
-+
-+enum bna_port_type {
-+	BNA_PORT_T_REGULAR		= 0,
-+	BNA_PORT_T_LOOPBACK_INTERNAL	= 1,
-+	BNA_PORT_T_LOOPBACK_EXTERNAL	= 2,
-+};
-+
-+enum bna_link_status {
-+	BNA_LINK_DOWN		= 0,
-+	BNA_LINK_UP		= 1,
-+	BNA_CEE_UP 		= 2
-+};
-+
-+enum bna_llport_flags {
-+	BNA_LLPORT_F_ENABLED 	= 1,
-+	BNA_LLPORT_F_RX_ENABLED	= 2
-+};
-+
-+enum bna_port_flags {
-+	BNA_PORT_F_DEVICE_READY	= 1,
-+	BNA_PORT_F_ENABLED	= 2,
-+	BNA_PORT_F_PAUSE_CHANGED = 4,
-+	BNA_PORT_F_MTU_CHANGED	= 8
-+};
-+
-+enum bna_pkt_rates {
-+	BNA_PKT_RATE_10K		= 10000,
-+	BNA_PKT_RATE_20K		= 20000,
-+	BNA_PKT_RATE_30K		= 30000,
-+	BNA_PKT_RATE_40K		= 40000,
-+	BNA_PKT_RATE_50K		= 50000,
-+	BNA_PKT_RATE_60K		= 60000,
-+	BNA_PKT_RATE_70K		= 70000,
-+	BNA_PKT_RATE_80K		= 80000,
-+};
-+
-+enum bna_dim_load_types {
-+	BNA_LOAD_T_HIGH_4		= 0, /* 80K <= r */
-+	BNA_LOAD_T_HIGH_3		= 1, /* 60K <= r < 80K */
-+	BNA_LOAD_T_HIGH_2		= 2, /* 50K <= r < 60K */
-+	BNA_LOAD_T_HIGH_1		= 3, /* 40K <= r < 50K */
-+	BNA_LOAD_T_LOW_1		= 4, /* 30K <= r < 40K */
-+	BNA_LOAD_T_LOW_2		= 5, /* 20K <= r < 30K */
-+	BNA_LOAD_T_LOW_3		= 6, /* 10K <= r < 20K */
-+	BNA_LOAD_T_LOW_4		= 7, /* r < 10K */
-+	BNA_LOAD_T_MAX			= 8
-+};
-+
-+enum bna_dim_bias_types {
-+	BNA_BIAS_T_SMALL		= 0, /* small pkts > (large pkts * 2) */
-+	BNA_BIAS_T_LARGE		= 1, /* Not BNA_BIAS_T_SMALL */
-+	BNA_BIAS_T_MAX			= 2
-+};
-+
-+struct bna_mac {
-+	/* This should be the first one */
-+	struct list_head			qe;
-+	u8			addr[ETH_ALEN];
-+};
-+
-+struct bna_mem_descr {
-+	u32		len;
-+	void		*kva;
-+	struct bna_dma_addr dma;
-+};
-+
-+struct bna_mem_info {
-+	enum bna_mem_type mem_type;
-+	u32		len;
-+	u32 		num;
-+	u32		align_sz; /* 0/1 = no alignment */
-+	struct bna_mem_descr *mdl;
-+	void			*cookie; /* For bnad to unmap dma later */
-+};
-+
-+struct bna_intr_descr {
-+	int			vector;
-+};
-+
-+struct bna_intr_info {
-+	enum bna_intr_type intr_type;
-+	int			num;
-+	struct bna_intr_descr *idl;
-+};
-+
-+union bna_res_u {
-+	struct bna_mem_info mem_info;
-+	struct bna_intr_info intr_info;
-+};
-+
-+struct bna_res_info {
-+	enum bna_res_type res_type;
-+	union bna_res_u		res_u;
-+};
-+
-+/* HW QPT */
-+struct bna_qpt {
-+	struct bna_dma_addr hw_qpt_ptr;
-+	void		*kv_qpt_ptr;
-+	u32		page_count;
-+	u32		page_size;
++enum bfi_port_i2h {
++	BFI_PORT_I2H_ENABLE_RSP		= BFA_I2HM(1),
++	BFI_PORT_I2H_DISABLE_RSP	= BFA_I2HM(2),
++	BFI_PORT_I2H_GET_STATS_RSP	= BFA_I2HM(3),
++	BFI_PORT_I2H_CLEAR_STATS_RSP	= BFA_I2HM(4),
 +};
 +
 +/**
-+ *
-+ * Device
-+ *
++ * Generic REQ type
 + */
-+
-+struct bna_device {
-+	bfa_fsm_t		fsm;
-+	struct bfa_ioc ioc;
-+
-+	enum bna_intr_type intr_type;
-+	int			vector;
-+
-+	void (*ready_cbfn)(struct bnad *bnad, enum bna_cb_status status);
-+	struct bnad *ready_cbarg;
-+
-+	void (*stop_cbfn)(struct bnad *bnad, enum bna_cb_status status);
-+	struct bnad *stop_cbarg;
-+
-+	struct bna *bna;
++struct bfi_port_generic_req {
++	struct bfi_mhdr mh;		/*!< msg header			    */
++	u32	msgtag;		/*!< msgtag for reply		    */
++	u32	rsvd;
 +};
 +
 +/**
-+ *
-+ * Mail box
-+ *
++ * Generic RSP type
 + */
-+
-+struct bna_mbox_qe {
-+	/* This should be the first one */
-+	struct list_head			qe;
-+
-+	struct bfa_mbox_cmd cmd;
-+	u32 		cmd_len;
-+	/* Callback for port, tx, rx, rxf */
-+	void (*cbfn)(void *arg, int status);
-+	void 			*cbarg;
-+};
-+
-+struct bna_mbox_mod {
-+	enum bna_mbox_state state;
-+	struct list_head			posted_q;
-+	u32		msg_pending;
-+	u32		msg_ctr;
-+	struct bna *bna;
++struct bfi_port_generic_rsp {
++	struct bfi_mhdr mh;		/*!< common msg header		    */
++	u8		status;		/*!< port enable status		    */
++	u8		rsvd[3];
++	u32	msgtag;		/*!< msgtag for reply		    */
 +};
 +
 +/**
-+ *
-+ * Port
-+ *
++ * @todo
++ * BFI_PORT_H2I_ENABLE_REQ
 + */
 +
-+/* Pause configuration */
-+struct bna_pause_config {
-+	enum bna_status tx_pause;
-+	enum bna_status rx_pause;
-+};
++/**
++ * @todo
++ * BFI_PORT_I2H_ENABLE_RSP
++ */
 +
-+struct bna_llport {
-+	bfa_fsm_t		fsm;
-+	enum bna_llport_flags flags;
++/**
++ * BFI_PORT_H2I_DISABLE_REQ
++ */
 +
-+	enum bna_port_type type;
++/**
++ * BFI_PORT_I2H_DISABLE_RSP
++ */
 +
-+	enum bna_link_status link_status;
-+
-+	int			admin_up_count;
-+
-+	void (*stop_cbfn)(struct bna_port *, enum bna_cb_status);
-+
-+	struct bna_mbox_qe mbox_qe;
-+
-+	struct bna *bna;
-+};
-+
-+struct bna_port {
-+	bfa_fsm_t		fsm;
-+	enum bna_port_flags flags;
-+
-+	enum bna_port_type type;
-+
-+	struct bna_llport llport;
-+
-+	struct bna_pause_config pause_config;
-+	u8			priority;
-+	int			mtu;
-+
-+	/* Callback for bna_port_disable(), port_stop() */
-+	void (*stop_cbfn)(void *, enum bna_cb_status);
-+	void			*stop_cbarg;
-+
-+	/* Callback for bna_port_pause_config() */
-+	void (*pause_cbfn)(struct bnad *, enum bna_cb_status);
-+
-+	/* Callback for bna_port_mtu_set() */
-+	void (*mtu_cbfn)(struct bnad *, enum bna_cb_status);
-+
-+	void (*link_cbfn)(struct bnad *, enum bna_link_status);
-+
-+	struct bfa_wc		chld_stop_wc;
-+
-+	struct bna_mbox_qe mbox_qe;
-+
-+	struct bna *bna;
++/**
++ * BFI_PORT_H2I_GET_STATS_REQ
++ */
++struct bfi_port_get_stats_req {
++	struct bfi_mhdr mh;		/*!< common msg header		    */
++	union bfi_addr_u   dma_addr;
 +};
 +
 +/**
-+ *
-+ * Interrupt Block
-+ *
++ * BFI_PORT_I2H_GET_STATS_RSP
 + */
 +
-+/* IB index segment structure */
-+struct bna_ibidx_seg {
-+	/* This should be the first one */
-+	struct list_head			qe;
++/**
++ * BFI_PORT_H2I_CLEAR_STATS_REQ
++ */
 +
-+	u8			ib_seg_size;
-+	u8			ib_idx_tbl_offset;
++/**
++ * BFI_PORT_I2H_CLEAR_STATS_RSP
++ */
++
++union bfi_port_h2i_msg_u {
++	struct bfi_mhdr mh;
++	struct bfi_port_generic_req enable_req;
++	struct bfi_port_generic_req disable_req;
++	struct bfi_port_get_stats_req getstats_req;
++	struct bfi_port_generic_req clearstats_req;
 +};
 +
-+/* Interrupt structure */
-+struct bna_intr {
-+	/* This should be the first one */
-+	struct list_head			qe;
-+	int			ref_count;
-+
-+	enum bna_intr_type intr_type;
-+	int			vector;
-+
-+	struct bna_ib *ib;
++union bfi_port_i2h_msg_u {
++	struct bfi_mhdr mh;
++	struct bfi_port_generic_rsp enable_rsp;
++	struct bfi_port_generic_rsp disable_rsp;
++	struct bfi_port_generic_rsp getstats_rsp;
++	struct bfi_port_generic_rsp clearstats_rsp;
 +};
 +
-+/* Doorbell structure */
-+struct bna_ib_dbell {
-+	void *__iomem doorbell_addr;
-+	u32		doorbell_ack;
++/* @brief Mailbox commands from host to (DCBX/LLDP) firmware */
++enum bfi_cee_h2i_msgs {
++	BFI_CEE_H2I_GET_CFG_REQ = 1,
++	BFI_CEE_H2I_RESET_STATS = 2,
++	BFI_CEE_H2I_GET_STATS_REQ = 3,
 +};
 +
-+/* Interrupt timer configuration */
-+struct bna_ib_config {
-+	u8 		coalescing_timeo;    /* Unit is 5usec. */
-+
-+	int			interpkt_count;
-+	int			interpkt_timeo;
-+
-+	enum ib_flags ctrl_flags;
++/* @brief Mailbox reply and AEN messages from DCBX/LLDP firmware to host */
++enum bfi_cee_i2h_msgs {
++	BFI_CEE_I2H_GET_CFG_RSP = BFA_I2HM(1),
++	BFI_CEE_I2H_RESET_STATS_RSP = BFA_I2HM(2),
++	BFI_CEE_I2H_GET_STATS_RSP = BFA_I2HM(3),
 +};
 +
-+/* IB structure */
-+struct bna_ib {
-+	/* This should be the first one */
-+	struct list_head			qe;
++/* Data structures */
 +
-+	int			ib_id;
-+
-+	int			ref_count;
-+	int			start_count;
-+
-+	struct bna_dma_addr ib_seg_host_addr;
-+	void		*ib_seg_host_addr_kva;
-+	u32		idx_mask; /* Size >= BNA_IBIDX_MAX_SEGSIZE */
-+
-+	struct bna_ibidx_seg *idx_seg;
-+
-+	struct bna_ib_dbell door_bell;
-+
-+	struct bna_intr *intr;
-+
-+	struct bna_ib_config ib_config;
-+
-+	struct bna *bna;
++/*
++ * @brief H2I command structure for resetting the stats.
++ * BFI_CEE_H2I_RESET_STATS
++ */
++struct bfi_lldp_reset_stats {
++	struct bfi_mhdr mh;
 +};
 +
-+/* IB module - keeps track of IBs and interrupts */
-+struct bna_ib_mod {
-+	struct bna_ib *ib;		/* BFI_MAX_IB entries */
-+	struct bna_intr *intr;		/* BFI_MAX_IB entries */
-+	struct bna_ibidx_seg *idx_seg;	/* BNA_IBIDX_TOTAL_SEGS */
++/*
++ * @brief H2I command structure for resetting the stats.
++ * BFI_CEE_H2I_RESET_STATS
++ */
++struct bfi_cee_reset_stats {
++	struct bfi_mhdr mh;
++};
 +
-+	struct list_head			ib_free_q;
++/*
++ * @brief  get configuration  command from host
++ * BFI_CEE_H2I_GET_CFG_REQ
++ */
++struct bfi_cee_get_req {
++	struct bfi_mhdr mh;
++	union bfi_addr_u   dma_addr;
++};
 +
-+	struct list_head		ibidx_seg_pool[BFI_IBIDX_TOTAL_POOLS];
++/*
++ * @brief reply message from firmware
++ * BFI_CEE_I2H_GET_CFG_RSP
++ */
++struct bfi_cee_get_rsp {
++	struct bfi_mhdr mh;
++	u8			cmd_status;
++	u8			rsvd[3];
++};
 +
-+	struct list_head			intr_free_q;
-+	struct list_head			intr_active_q;
++/*
++ * @brief  get configuration  command from host
++ * BFI_CEE_H2I_GET_STATS_REQ
++ */
++struct bfi_cee_stats_req {
++	struct bfi_mhdr mh;
++	union bfi_addr_u   dma_addr;
++};
 +
-+	struct bna *bna;
++/*
++ * @brief reply message from firmware
++ * BFI_CEE_I2H_GET_STATS_RSP
++ */
++struct bfi_cee_stats_rsp {
++	struct bfi_mhdr mh;
++	u8			cmd_status;
++	u8			rsvd[3];
++};
++
++/* @brief mailbox command structures from host to firmware */
++union bfi_cee_h2i_msg_u {
++	struct bfi_mhdr mh;
++	struct bfi_cee_get_req get_req;
++	struct bfi_cee_stats_req stats_req;
++};
++
++/* @brief mailbox message structures from firmware to host	*/
++union bfi_cee_i2h_msg_u {
++	struct bfi_mhdr mh;
++	struct bfi_cee_get_rsp get_rsp;
++	struct bfi_cee_stats_rsp stats_rsp;
++};
++
++#pragma pack()
++
++#endif /* __BFI_CNA_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfi_ctreg.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfi_ctreg.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfi_ctreg.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfi_ctreg.h	2010-08-23 13:24:47.634893000 -0700
+@@ -0,0 +1,637 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++
++/*
++ * bfi_ctreg.h catapult host block register definitions
++ *
++ * !!! Do not edit. Auto generated. !!!
++ */
++
++#ifndef __BFI_CTREG_H__
++#define __BFI_CTREG_H__
++
++#define HOSTFN0_LPU_MBOX0_0		0x00019200
++#define HOSTFN1_LPU_MBOX0_8		0x00019260
++#define LPU_HOSTFN0_MBOX0_0		0x00019280
++#define LPU_HOSTFN1_MBOX0_8		0x000192e0
++#define HOSTFN2_LPU_MBOX0_0		0x00019400
++#define HOSTFN3_LPU_MBOX0_8		0x00019460
++#define LPU_HOSTFN2_MBOX0_0		0x00019480
++#define LPU_HOSTFN3_MBOX0_8		0x000194e0
++#define HOSTFN0_INT_STATUS		0x00014000
++#define __HOSTFN0_HALT_OCCURRED		0x01000000
++#define __HOSTFN0_INT_STATUS_LVL_MK	0x00f00000
++#define __HOSTFN0_INT_STATUS_LVL_SH	20
++#define __HOSTFN0_INT_STATUS_LVL(_v)	((_v) << __HOSTFN0_INT_STATUS_LVL_SH)
++#define __HOSTFN0_INT_STATUS_P_MK	0x000f0000
++#define __HOSTFN0_INT_STATUS_P_SH	16
++#define __HOSTFN0_INT_STATUS_P(_v)	((_v) << __HOSTFN0_INT_STATUS_P_SH)
++#define __HOSTFN0_INT_STATUS_F		0x0000ffff
++#define HOSTFN0_INT_MSK			0x00014004
++#define HOST_PAGE_NUM_FN0		0x00014008
++#define __HOST_PAGE_NUM_FN		0x000001ff
++#define HOST_MSIX_ERR_INDEX_FN0		0x0001400c
++#define __MSIX_ERR_INDEX_FN		0x000001ff
++#define HOSTFN1_INT_STATUS		0x00014100
++#define __HOSTFN1_HALT_OCCURRED		0x01000000
++#define __HOSTFN1_INT_STATUS_LVL_MK	0x00f00000
++#define __HOSTFN1_INT_STATUS_LVL_SH	20
++#define __HOSTFN1_INT_STATUS_LVL(_v)	((_v) << __HOSTFN1_INT_STATUS_LVL_SH)
++#define __HOSTFN1_INT_STATUS_P_MK	0x000f0000
++#define __HOSTFN1_INT_STATUS_P_SH	16
++#define __HOSTFN1_INT_STATUS_P(_v)	((_v) << __HOSTFN1_INT_STATUS_P_SH)
++#define __HOSTFN1_INT_STATUS_F		0x0000ffff
++#define HOSTFN1_INT_MSK			0x00014104
++#define HOST_PAGE_NUM_FN1		0x00014108
++#define HOST_MSIX_ERR_INDEX_FN1		0x0001410c
++#define APP_PLL_425_CTL_REG		0x00014204
++#define __P_425_PLL_LOCK		0x80000000
++#define __APP_PLL_425_SRAM_USE_100MHZ	0x00100000
++#define __APP_PLL_425_RESET_TIMER_MK	0x000e0000
++#define __APP_PLL_425_RESET_TIMER_SH	17
++#define __APP_PLL_425_RESET_TIMER(_v)	((_v) << __APP_PLL_425_RESET_TIMER_SH)
++#define __APP_PLL_425_LOGIC_SOFT_RESET	0x00010000
++#define __APP_PLL_425_CNTLMT0_1_MK	0x0000c000
++#define __APP_PLL_425_CNTLMT0_1_SH	14
++#define __APP_PLL_425_CNTLMT0_1(_v)	((_v) << __APP_PLL_425_CNTLMT0_1_SH)
++#define __APP_PLL_425_JITLMT0_1_MK	0x00003000
++#define __APP_PLL_425_JITLMT0_1_SH	12
++#define __APP_PLL_425_JITLMT0_1(_v)	((_v) << __APP_PLL_425_JITLMT0_1_SH)
++#define __APP_PLL_425_HREF		0x00000800
++#define __APP_PLL_425_HDIV		0x00000400
++#define __APP_PLL_425_P0_1_MK		0x00000300
++#define __APP_PLL_425_P0_1_SH		8
++#define __APP_PLL_425_P0_1(_v)		((_v) << __APP_PLL_425_P0_1_SH)
++#define __APP_PLL_425_Z0_2_MK		0x000000e0
++#define __APP_PLL_425_Z0_2_SH		5
++#define __APP_PLL_425_Z0_2(_v)		((_v) << __APP_PLL_425_Z0_2_SH)
++#define __APP_PLL_425_RSEL200500	0x00000010
++#define __APP_PLL_425_ENARST		0x00000008
++#define __APP_PLL_425_BYPASS		0x00000004
++#define __APP_PLL_425_LRESETN		0x00000002
++#define __APP_PLL_425_ENABLE		0x00000001
++#define APP_PLL_312_CTL_REG		0x00014208
++#define __P_312_PLL_LOCK		0x80000000
++#define __ENABLE_MAC_AHB_1		0x00800000
++#define __ENABLE_MAC_AHB_0		0x00400000
++#define __ENABLE_MAC_1			0x00200000
++#define __ENABLE_MAC_0			0x00100000
++#define __APP_PLL_312_RESET_TIMER_MK	0x000e0000
++#define __APP_PLL_312_RESET_TIMER_SH	17
++#define __APP_PLL_312_RESET_TIMER(_v)	((_v) << __APP_PLL_312_RESET_TIMER_SH)
++#define __APP_PLL_312_LOGIC_SOFT_RESET	0x00010000
++#define __APP_PLL_312_CNTLMT0_1_MK	0x0000c000
++#define __APP_PLL_312_CNTLMT0_1_SH	14
++#define __APP_PLL_312_CNTLMT0_1(_v)	((_v) << __APP_PLL_312_CNTLMT0_1_SH)
++#define __APP_PLL_312_JITLMT0_1_MK	0x00003000
++#define __APP_PLL_312_JITLMT0_1_SH	12
++#define __APP_PLL_312_JITLMT0_1(_v)	((_v) << __APP_PLL_312_JITLMT0_1_SH)
++#define __APP_PLL_312_HREF		0x00000800
++#define __APP_PLL_312_HDIV		0x00000400
++#define __APP_PLL_312_P0_1_MK		0x00000300
++#define __APP_PLL_312_P0_1_SH		8
++#define __APP_PLL_312_P0_1(_v)		((_v) << __APP_PLL_312_P0_1_SH)
++#define __APP_PLL_312_Z0_2_MK		0x000000e0
++#define __APP_PLL_312_Z0_2_SH		5
++#define __APP_PLL_312_Z0_2(_v)		((_v) << __APP_PLL_312_Z0_2_SH)
++#define __APP_PLL_312_RSEL200500	0x00000010
++#define __APP_PLL_312_ENARST		0x00000008
++#define __APP_PLL_312_BYPASS		0x00000004
++#define __APP_PLL_312_LRESETN		0x00000002
++#define __APP_PLL_312_ENABLE		0x00000001
++#define MBIST_CTL_REG			0x00014220
++#define __EDRAM_BISTR_START		0x00000004
++#define __MBIST_RESET			0x00000002
++#define __MBIST_START			0x00000001
++#define MBIST_STAT_REG			0x00014224
++#define __EDRAM_BISTR_STATUS		0x00000008
++#define __EDRAM_BISTR_DONE		0x00000004
++#define __MEM_BIT_STATUS		0x00000002
++#define __MBIST_DONE			0x00000001
++#define HOST_SEM0_REG			0x00014230
++#define __HOST_SEMAPHORE		0x00000001
++#define HOST_SEM1_REG			0x00014234
++#define HOST_SEM2_REG			0x00014238
++#define HOST_SEM3_REG			0x0001423c
++#define HOST_SEM0_INFO_REG		0x00014240
++#define HOST_SEM1_INFO_REG		0x00014244
++#define HOST_SEM2_INFO_REG		0x00014248
++#define HOST_SEM3_INFO_REG		0x0001424c
++#define ETH_MAC_SER_REG			0x00014288
++#define __APP_EMS_CKBUFAMPIN		0x00000020
++#define __APP_EMS_REFCLKSEL		0x00000010
++#define __APP_EMS_CMLCKSEL		0x00000008
++#define __APP_EMS_REFCKBUFEN2		0x00000004
++#define __APP_EMS_REFCKBUFEN1		0x00000002
++#define __APP_EMS_CHANNEL_SEL		0x00000001
++#define HOSTFN2_INT_STATUS		0x00014300
++#define __HOSTFN2_HALT_OCCURRED		0x01000000
++#define __HOSTFN2_INT_STATUS_LVL_MK	0x00f00000
++#define __HOSTFN2_INT_STATUS_LVL_SH	20
++#define __HOSTFN2_INT_STATUS_LVL(_v)	((_v) << __HOSTFN2_INT_STATUS_LVL_SH)
++#define __HOSTFN2_INT_STATUS_P_MK	0x000f0000
++#define __HOSTFN2_INT_STATUS_P_SH	16
++#define __HOSTFN2_INT_STATUS_P(_v)	((_v) << __HOSTFN2_INT_STATUS_P_SH)
++#define __HOSTFN2_INT_STATUS_F		0x0000ffff
++#define HOSTFN2_INT_MSK			0x00014304
++#define HOST_PAGE_NUM_FN2		0x00014308
++#define HOST_MSIX_ERR_INDEX_FN2		0x0001430c
++#define HOSTFN3_INT_STATUS		0x00014400
++#define __HALT_OCCURRED			0x01000000
++#define __HOSTFN3_INT_STATUS_LVL_MK	0x00f00000
++#define __HOSTFN3_INT_STATUS_LVL_SH	20
++#define __HOSTFN3_INT_STATUS_LVL(_v)	((_v) << __HOSTFN3_INT_STATUS_LVL_SH)
++#define __HOSTFN3_INT_STATUS_P_MK	0x000f0000
++#define __HOSTFN3_INT_STATUS_P_SH	16
++#define __HOSTFN3_INT_STATUS_P(_v)	((_v) << __HOSTFN3_INT_STATUS_P_SH)
++#define __HOSTFN3_INT_STATUS_F		0x0000ffff
++#define HOSTFN3_INT_MSK			0x00014404
++#define HOST_PAGE_NUM_FN3		0x00014408
++#define HOST_MSIX_ERR_INDEX_FN3		0x0001440c
++#define FNC_ID_REG			0x00014600
++#define __FUNCTION_NUMBER		0x00000007
++#define FNC_PERS_REG			0x00014604
++#define __F3_FUNCTION_ACTIVE		0x80000000
++#define __F3_FUNCTION_MODE		0x40000000
++#define __F3_PORT_MAP_MK		0x30000000
++#define __F3_PORT_MAP_SH		28
++#define __F3_PORT_MAP(_v)		((_v) << __F3_PORT_MAP_SH)
++#define __F3_VM_MODE			0x08000000
++#define __F3_INTX_STATUS_MK		0x07000000
++#define __F3_INTX_STATUS_SH		24
++#define __F3_INTX_STATUS(_v)		((_v) << __F3_INTX_STATUS_SH)
++#define __F2_FUNCTION_ACTIVE		0x00800000
++#define __F2_FUNCTION_MODE		0x00400000
++#define __F2_PORT_MAP_MK		0x00300000
++#define __F2_PORT_MAP_SH		20
++#define __F2_PORT_MAP(_v)		((_v) << __F2_PORT_MAP_SH)
++#define __F2_VM_MODE			0x00080000
++#define __F2_INTX_STATUS_MK		0x00070000
++#define __F2_INTX_STATUS_SH		16
++#define __F2_INTX_STATUS(_v)		((_v) << __F2_INTX_STATUS_SH)
++#define __F1_FUNCTION_ACTIVE		0x00008000
++#define __F1_FUNCTION_MODE		0x00004000
++#define __F1_PORT_MAP_MK		0x00003000
++#define __F1_PORT_MAP_SH		12
++#define __F1_PORT_MAP(_v)		((_v) << __F1_PORT_MAP_SH)
++#define __F1_VM_MODE			0x00000800
++#define __F1_INTX_STATUS_MK		0x00000700
++#define __F1_INTX_STATUS_SH		8
++#define __F1_INTX_STATUS(_v)		((_v) << __F1_INTX_STATUS_SH)
++#define __F0_FUNCTION_ACTIVE		0x00000080
++#define __F0_FUNCTION_MODE		0x00000040
++#define __F0_PORT_MAP_MK		0x00000030
++#define __F0_PORT_MAP_SH		4
++#define __F0_PORT_MAP(_v)		((_v) << __F0_PORT_MAP_SH)
++#define __F0_VM_MODE		0x00000008
++#define __F0_INTX_STATUS		0x00000007
++enum {
++	__F0_INTX_STATUS_MSIX		= 0x0,
++	__F0_INTX_STATUS_INTA		= 0x1,
++	__F0_INTX_STATUS_INTB		= 0x2,
++	__F0_INTX_STATUS_INTC		= 0x3,
++	__F0_INTX_STATUS_INTD		= 0x4,
++};
++#define OP_MODE				0x0001460c
++#define __APP_ETH_CLK_LOWSPEED		0x00000004
++#define __GLOBAL_CORECLK_HALFSPEED	0x00000002
++#define __GLOBAL_FCOE_MODE		0x00000001
++#define HOST_SEM4_REG			0x00014610
++#define HOST_SEM5_REG			0x00014614
++#define HOST_SEM6_REG			0x00014618
++#define HOST_SEM7_REG			0x0001461c
++#define HOST_SEM4_INFO_REG		0x00014620
++#define HOST_SEM5_INFO_REG		0x00014624
++#define HOST_SEM6_INFO_REG		0x00014628
++#define HOST_SEM7_INFO_REG		0x0001462c
++#define HOSTFN0_LPU0_MBOX0_CMD_STAT	0x00019000
++#define __HOSTFN0_LPU0_MBOX0_INFO_MK	0xfffffffe
++#define __HOSTFN0_LPU0_MBOX0_INFO_SH	1
++#define __HOSTFN0_LPU0_MBOX0_INFO(_v)	((_v) << __HOSTFN0_LPU0_MBOX0_INFO_SH)
++#define __HOSTFN0_LPU0_MBOX0_CMD_STATUS 0x00000001
++#define HOSTFN0_LPU1_MBOX0_CMD_STAT	0x00019004
++#define __HOSTFN0_LPU1_MBOX0_INFO_MK	0xfffffffe
++#define __HOSTFN0_LPU1_MBOX0_INFO_SH	1
++#define __HOSTFN0_LPU1_MBOX0_INFO(_v)	((_v) << __HOSTFN0_LPU1_MBOX0_INFO_SH)
++#define __HOSTFN0_LPU1_MBOX0_CMD_STATUS 0x00000001
++#define LPU0_HOSTFN0_MBOX0_CMD_STAT	0x00019008
++#define __LPU0_HOSTFN0_MBOX0_INFO_MK	0xfffffffe
++#define __LPU0_HOSTFN0_MBOX0_INFO_SH	1
++#define __LPU0_HOSTFN0_MBOX0_INFO(_v)	((_v) << __LPU0_HOSTFN0_MBOX0_INFO_SH)
++#define __LPU0_HOSTFN0_MBOX0_CMD_STATUS 0x00000001
++#define LPU1_HOSTFN0_MBOX0_CMD_STAT	0x0001900c
++#define __LPU1_HOSTFN0_MBOX0_INFO_MK	0xfffffffe
++#define __LPU1_HOSTFN0_MBOX0_INFO_SH	1
++#define __LPU1_HOSTFN0_MBOX0_INFO(_v)	((_v) << __LPU1_HOSTFN0_MBOX0_INFO_SH)
++#define __LPU1_HOSTFN0_MBOX0_CMD_STATUS 0x00000001
++#define HOSTFN1_LPU0_MBOX0_CMD_STAT	0x00019010
++#define __HOSTFN1_LPU0_MBOX0_INFO_MK	0xfffffffe
++#define __HOSTFN1_LPU0_MBOX0_INFO_SH	1
++#define __HOSTFN1_LPU0_MBOX0_INFO(_v)	((_v) << __HOSTFN1_LPU0_MBOX0_INFO_SH)
++#define __HOSTFN1_LPU0_MBOX0_CMD_STATUS 0x00000001
++#define HOSTFN1_LPU1_MBOX0_CMD_STAT	0x00019014
++#define __HOSTFN1_LPU1_MBOX0_INFO_MK	0xfffffffe
++#define __HOSTFN1_LPU1_MBOX0_INFO_SH	1
++#define __HOSTFN1_LPU1_MBOX0_INFO(_v)	((_v) << __HOSTFN1_LPU1_MBOX0_INFO_SH)
++#define __HOSTFN1_LPU1_MBOX0_CMD_STATUS 0x00000001
++#define LPU0_HOSTFN1_MBOX0_CMD_STAT	0x00019018
++#define __LPU0_HOSTFN1_MBOX0_INFO_MK	0xfffffffe
++#define __LPU0_HOSTFN1_MBOX0_INFO_SH	1
++#define __LPU0_HOSTFN1_MBOX0_INFO(_v)	((_v) << __LPU0_HOSTFN1_MBOX0_INFO_SH)
++#define __LPU0_HOSTFN1_MBOX0_CMD_STATUS 0x00000001
++#define LPU1_HOSTFN1_MBOX0_CMD_STAT	0x0001901c
++#define __LPU1_HOSTFN1_MBOX0_INFO_MK	0xfffffffe
++#define __LPU1_HOSTFN1_MBOX0_INFO_SH	1
++#define __LPU1_HOSTFN1_MBOX0_INFO(_v)	((_v) << __LPU1_HOSTFN1_MBOX0_INFO_SH)
++#define __LPU1_HOSTFN1_MBOX0_CMD_STATUS 0x00000001
++#define HOSTFN2_LPU0_MBOX0_CMD_STAT	0x00019150
++#define __HOSTFN2_LPU0_MBOX0_INFO_MK	0xfffffffe
++#define __HOSTFN2_LPU0_MBOX0_INFO_SH	1
++#define __HOSTFN2_LPU0_MBOX0_INFO(_v)	((_v) << __HOSTFN2_LPU0_MBOX0_INFO_SH)
++#define __HOSTFN2_LPU0_MBOX0_CMD_STATUS 0x00000001
++#define HOSTFN2_LPU1_MBOX0_CMD_STAT	0x00019154
++#define __HOSTFN2_LPU1_MBOX0_INFO_MK	0xfffffffe
++#define __HOSTFN2_LPU1_MBOX0_INFO_SH	1
++#define __HOSTFN2_LPU1_MBOX0_INFO(_v)	((_v) << __HOSTFN2_LPU1_MBOX0_INFO_SH)
++#define __HOSTFN2_LPU1_MBOX0BOX0_CMD_STATUS 0x00000001
++#define LPU0_HOSTFN2_MBOX0_CMD_STAT	0x00019158
++#define __LPU0_HOSTFN2_MBOX0_INFO_MK	0xfffffffe
++#define __LPU0_HOSTFN2_MBOX0_INFO_SH	1
++#define __LPU0_HOSTFN2_MBOX0_INFO(_v)	((_v) << __LPU0_HOSTFN2_MBOX0_INFO_SH)
++#define __LPU0_HOSTFN2_MBOX0_CMD_STATUS 0x00000001
++#define LPU1_HOSTFN2_MBOX0_CMD_STAT	0x0001915c
++#define __LPU1_HOSTFN2_MBOX0_INFO_MK	0xfffffffe
++#define __LPU1_HOSTFN2_MBOX0_INFO_SH	1
++#define __LPU1_HOSTFN2_MBOX0_INFO(_v)	((_v) << __LPU1_HOSTFN2_MBOX0_INFO_SH)
++#define __LPU1_HOSTFN2_MBOX0_CMD_STATUS 0x00000001
++#define HOSTFN3_LPU0_MBOX0_CMD_STAT	0x00019160
++#define __HOSTFN3_LPU0_MBOX0_INFO_MK	0xfffffffe
++#define __HOSTFN3_LPU0_MBOX0_INFO_SH	1
++#define __HOSTFN3_LPU0_MBOX0_INFO(_v)	((_v) << __HOSTFN3_LPU0_MBOX0_INFO_SH)
++#define __HOSTFN3_LPU0_MBOX0_CMD_STATUS 0x00000001
++#define HOSTFN3_LPU1_MBOX0_CMD_STAT	0x00019164
++#define __HOSTFN3_LPU1_MBOX0_INFO_MK	0xfffffffe
++#define __HOSTFN3_LPU1_MBOX0_INFO_SH	1
++#define __HOSTFN3_LPU1_MBOX0_INFO(_v)	((_v) << __HOSTFN3_LPU1_MBOX0_INFO_SH)
++#define __HOSTFN3_LPU1_MBOX0_CMD_STATUS 0x00000001
++#define LPU0_HOSTFN3_MBOX0_CMD_STAT	0x00019168
++#define __LPU0_HOSTFN3_MBOX0_INFO_MK	0xfffffffe
++#define __LPU0_HOSTFN3_MBOX0_INFO_SH	1
++#define __LPU0_HOSTFN3_MBOX0_INFO(_v)	((_v) << __LPU0_HOSTFN3_MBOX0_INFO_SH)
++#define __LPU0_HOSTFN3_MBOX0_CMD_STATUS 0x00000001
++#define LPU1_HOSTFN3_MBOX0_CMD_STAT	0x0001916c
++#define __LPU1_HOSTFN3_MBOX0_INFO_MK	0xfffffffe
++#define __LPU1_HOSTFN3_MBOX0_INFO_SH	1
++#define __LPU1_HOSTFN3_MBOX0_INFO(_v)	((_v) << __LPU1_HOSTFN3_MBOX0_INFO_SH)
++#define __LPU1_HOSTFN3_MBOX0_CMD_STATUS	0x00000001
++#define FW_INIT_HALT_P0			0x000191ac
++#define __FW_INIT_HALT_P		0x00000001
++#define FW_INIT_HALT_P1			0x000191bc
++#define CPE_PI_PTR_Q0			0x00038000
++#define __CPE_PI_UNUSED_MK		0xffff0000
++#define __CPE_PI_UNUSED_SH		16
++#define __CPE_PI_UNUSED(_v)		((_v) << __CPE_PI_UNUSED_SH)
++#define __CPE_PI_PTR			0x0000ffff
++#define CPE_PI_PTR_Q1			0x00038040
++#define CPE_CI_PTR_Q0			0x00038004
++#define __CPE_CI_UNUSED_MK		0xffff0000
++#define __CPE_CI_UNUSED_SH		16
++#define __CPE_CI_UNUSED(_v)		((_v) << __CPE_CI_UNUSED_SH)
++#define __CPE_CI_PTR			0x0000ffff
++#define CPE_CI_PTR_Q1			0x00038044
++#define CPE_DEPTH_Q0			0x00038008
++#define __CPE_DEPTH_UNUSED_MK		0xf8000000
++#define __CPE_DEPTH_UNUSED_SH		27
++#define __CPE_DEPTH_UNUSED(_v)		((_v) << __CPE_DEPTH_UNUSED_SH)
++#define __CPE_MSIX_VEC_INDEX_MK		0x07ff0000
++#define __CPE_MSIX_VEC_INDEX_SH		16
++#define __CPE_MSIX_VEC_INDEX(_v)	((_v) << __CPE_MSIX_VEC_INDEX_SH)
++#define __CPE_DEPTH			0x0000ffff
++#define CPE_DEPTH_Q1			0x00038048
++#define CPE_QCTRL_Q0			0x0003800c
++#define __CPE_CTRL_UNUSED30_MK		0xfc000000
++#define __CPE_CTRL_UNUSED30_SH		26
++#define __CPE_CTRL_UNUSED30(_v)		((_v) << __CPE_CTRL_UNUSED30_SH)
++#define __CPE_FUNC_INT_CTRL_MK		0x03000000
++#define __CPE_FUNC_INT_CTRL_SH		24
++#define __CPE_FUNC_INT_CTRL(_v)		((_v) << __CPE_FUNC_INT_CTRL_SH)
++enum {
++	__CPE_FUNC_INT_CTRL_DISABLE		= 0x0,
++	__CPE_FUNC_INT_CTRL_F2NF		= 0x1,
++	__CPE_FUNC_INT_CTRL_3QUART		= 0x2,
++	__CPE_FUNC_INT_CTRL_HALF		= 0x3,
++};
++#define __CPE_CTRL_UNUSED20_MK		0x00f00000
++#define __CPE_CTRL_UNUSED20_SH		20
++#define __CPE_CTRL_UNUSED20(_v)		((_v) << __CPE_CTRL_UNUSED20_SH)
++#define __CPE_SCI_TH_MK			0x000f0000
++#define __CPE_SCI_TH_SH			16
++#define __CPE_SCI_TH(_v)		((_v) << __CPE_SCI_TH_SH)
++#define __CPE_CTRL_UNUSED10_MK		0x0000c000
++#define __CPE_CTRL_UNUSED10_SH		14
++#define __CPE_CTRL_UNUSED10(_v)		((_v) << __CPE_CTRL_UNUSED10_SH)
++#define __CPE_ACK_PENDING		0x00002000
++#define __CPE_CTRL_UNUSED40_MK		0x00001c00
++#define __CPE_CTRL_UNUSED40_SH		10
++#define __CPE_CTRL_UNUSED40(_v)		((_v) << __CPE_CTRL_UNUSED40_SH)
++#define __CPE_PCIEID_MK			0x00000300
++#define __CPE_PCIEID_SH			8
++#define __CPE_PCIEID(_v)		((_v) << __CPE_PCIEID_SH)
++#define __CPE_CTRL_UNUSED00_MK		0x000000fe
++#define __CPE_CTRL_UNUSED00_SH		1
++#define __CPE_CTRL_UNUSED00(_v)		((_v) << __CPE_CTRL_UNUSED00_SH)
++#define __CPE_ESIZE			0x00000001
++#define CPE_QCTRL_Q1			0x0003804c
++#define __CPE_CTRL_UNUSED31_MK		0xfc000000
++#define __CPE_CTRL_UNUSED31_SH		26
++#define __CPE_CTRL_UNUSED31(_v)		((_v) << __CPE_CTRL_UNUSED31_SH)
++#define __CPE_CTRL_UNUSED21_MK		0x00f00000
++#define __CPE_CTRL_UNUSED21_SH		20
++#define __CPE_CTRL_UNUSED21(_v)		((_v) << __CPE_CTRL_UNUSED21_SH)
++#define __CPE_CTRL_UNUSED11_MK		0x0000c000
++#define __CPE_CTRL_UNUSED11_SH		14
++#define __CPE_CTRL_UNUSED11(_v)		((_v) << __CPE_CTRL_UNUSED11_SH)
++#define __CPE_CTRL_UNUSED41_MK		0x00001c00
++#define __CPE_CTRL_UNUSED41_SH		10
++#define __CPE_CTRL_UNUSED41(_v)		((_v) << __CPE_CTRL_UNUSED41_SH)
++#define __CPE_CTRL_UNUSED01_MK		0x000000fe
++#define __CPE_CTRL_UNUSED01_SH		1
++#define __CPE_CTRL_UNUSED01(_v)		((_v) << __CPE_CTRL_UNUSED01_SH)
++#define RME_PI_PTR_Q0			0x00038020
++#define __LATENCY_TIME_STAMP_MK		0xffff0000
++#define __LATENCY_TIME_STAMP_SH		16
++#define __LATENCY_TIME_STAMP(_v)	((_v) << __LATENCY_TIME_STAMP_SH)
++#define __RME_PI_PTR			0x0000ffff
++#define RME_PI_PTR_Q1			0x00038060
++#define RME_CI_PTR_Q0			0x00038024
++#define __DELAY_TIME_STAMP_MK		0xffff0000
++#define __DELAY_TIME_STAMP_SH		16
++#define __DELAY_TIME_STAMP(_v)		((_v) << __DELAY_TIME_STAMP_SH)
++#define __RME_CI_PTR			0x0000ffff
++#define RME_CI_PTR_Q1			0x00038064
++#define RME_DEPTH_Q0			0x00038028
++#define __RME_DEPTH_UNUSED_MK		0xf8000000
++#define __RME_DEPTH_UNUSED_SH		27
++#define __RME_DEPTH_UNUSED(_v)		((_v) << __RME_DEPTH_UNUSED_SH)
++#define __RME_MSIX_VEC_INDEX_MK		0x07ff0000
++#define __RME_MSIX_VEC_INDEX_SH		16
++#define __RME_MSIX_VEC_INDEX(_v)	((_v) << __RME_MSIX_VEC_INDEX_SH)
++#define __RME_DEPTH			0x0000ffff
++#define RME_DEPTH_Q1			0x00038068
++#define RME_QCTRL_Q0			0x0003802c
++#define __RME_INT_LATENCY_TIMER_MK	0xff000000
++#define __RME_INT_LATENCY_TIMER_SH	24
++#define __RME_INT_LATENCY_TIMER(_v)	((_v) << __RME_INT_LATENCY_TIMER_SH)
++#define __RME_INT_DELAY_TIMER_MK	0x00ff0000
++#define __RME_INT_DELAY_TIMER_SH	16
++#define __RME_INT_DELAY_TIMER(_v)	((_v) << __RME_INT_DELAY_TIMER_SH)
++#define __RME_INT_DELAY_DISABLE		0x00008000
++#define __RME_DLY_DELAY_DISABLE		0x00004000
++#define __RME_ACK_PENDING		0x00002000
++#define __RME_FULL_INTERRUPT_DISABLE	0x00001000
++#define __RME_CTRL_UNUSED10_MK		0x00000c00
++#define __RME_CTRL_UNUSED10_SH		10
++#define __RME_CTRL_UNUSED10(_v)		((_v) << __RME_CTRL_UNUSED10_SH)
++#define __RME_PCIEID_MK			0x00000300
++#define __RME_PCIEID_SH			8
++#define __RME_PCIEID(_v)		((_v) << __RME_PCIEID_SH)
++#define __RME_CTRL_UNUSED00_MK		0x000000fe
++#define __RME_CTRL_UNUSED00_SH		1
++#define __RME_CTRL_UNUSED00(_v)		((_v) << __RME_CTRL_UNUSED00_SH)
++#define __RME_ESIZE			0x00000001
++#define RME_QCTRL_Q1			0x0003806c
++#define __RME_CTRL_UNUSED11_MK		0x00000c00
++#define __RME_CTRL_UNUSED11_SH		10
++#define __RME_CTRL_UNUSED11(_v)		((_v) << __RME_CTRL_UNUSED11_SH)
++#define __RME_CTRL_UNUSED01_MK		0x000000fe
++#define __RME_CTRL_UNUSED01_SH		1
++#define __RME_CTRL_UNUSED01(_v)		((_v) << __RME_CTRL_UNUSED01_SH)
++#define PSS_CTL_REG			0x00018800
++#define __PSS_I2C_CLK_DIV_MK		0x007f0000
++#define __PSS_I2C_CLK_DIV_SH		16
++#define __PSS_I2C_CLK_DIV(_v)		((_v) << __PSS_I2C_CLK_DIV_SH)
++#define __PSS_LMEM_INIT_DONE		0x00001000
++#define __PSS_LMEM_RESET		0x00000200
++#define __PSS_LMEM_INIT_EN		0x00000100
++#define __PSS_LPU1_RESET		0x00000002
++#define __PSS_LPU0_RESET		0x00000001
++#define PSS_ERR_STATUS_REG		0x00018810
++#define __PSS_LPU1_TCM_READ_ERR		0x00200000
++#define __PSS_LPU0_TCM_READ_ERR		0x00100000
++#define __PSS_LMEM5_CORR_ERR		0x00080000
++#define __PSS_LMEM4_CORR_ERR		0x00040000
++#define __PSS_LMEM3_CORR_ERR		0x00020000
++#define __PSS_LMEM2_CORR_ERR		0x00010000
++#define __PSS_LMEM1_CORR_ERR		0x00008000
++#define __PSS_LMEM0_CORR_ERR		0x00004000
++#define __PSS_LMEM5_UNCORR_ERR		0x00002000
++#define __PSS_LMEM4_UNCORR_ERR		0x00001000
++#define __PSS_LMEM3_UNCORR_ERR		0x00000800
++#define __PSS_LMEM2_UNCORR_ERR		0x00000400
++#define __PSS_LMEM1_UNCORR_ERR		0x00000200
++#define __PSS_LMEM0_UNCORR_ERR		0x00000100
++#define __PSS_BAL_PERR			0x00000080
++#define __PSS_DIP_IF_ERR		0x00000040
++#define __PSS_IOH_IF_ERR		0x00000020
++#define __PSS_TDS_IF_ERR		0x00000010
++#define __PSS_RDS_IF_ERR		0x00000008
++#define __PSS_SGM_IF_ERR		0x00000004
++#define __PSS_LPU1_RAM_ERR		0x00000002
++#define __PSS_LPU0_RAM_ERR		0x00000001
++#define ERR_SET_REG			0x00018818
++#define __PSS_ERR_STATUS_SET		0x003fffff
++#define PMM_1T_RESET_REG_P0		0x0002381c
++#define __PMM_1T_RESET_P		0x00000001
++#define PMM_1T_RESET_REG_P1		0x00023c1c
++#define HQM_QSET0_RXQ_DRBL_P0		0x00038000
++#define __RXQ0_ADD_VECTORS_P		0x80000000
++#define __RXQ0_STOP_P			0x40000000
++#define __RXQ0_PRD_PTR_P		0x0000ffff
++#define HQM_QSET1_RXQ_DRBL_P0		0x00038080
++#define __RXQ1_ADD_VECTORS_P		0x80000000
++#define __RXQ1_STOP_P			0x40000000
++#define __RXQ1_PRD_PTR_P		0x0000ffff
++#define HQM_QSET0_RXQ_DRBL_P1		0x0003c000
++#define HQM_QSET1_RXQ_DRBL_P1		0x0003c080
++#define HQM_QSET0_TXQ_DRBL_P0		0x00038020
++#define __TXQ0_ADD_VECTORS_P		0x80000000
++#define __TXQ0_STOP_P			0x40000000
++#define __TXQ0_PRD_PTR_P		0x0000ffff
++#define HQM_QSET1_TXQ_DRBL_P0		0x000380a0
++#define __TXQ1_ADD_VECTORS_P		0x80000000
++#define __TXQ1_STOP_P			0x40000000
++#define __TXQ1_PRD_PTR_P		0x0000ffff
++#define HQM_QSET0_TXQ_DRBL_P1		0x0003c020
++#define HQM_QSET1_TXQ_DRBL_P1		0x0003c0a0
++#define HQM_QSET0_IB_DRBL_1_P0		0x00038040
++#define __IB1_0_ACK_P			0x80000000
++#define __IB1_0_DISABLE_P		0x40000000
++#define __IB1_0_COALESCING_CFG_P_MK	0x00ff0000
++#define __IB1_0_COALESCING_CFG_P_SH	16
++#define __IB1_0_COALESCING_CFG_P(_v)	((_v) << __IB1_0_COALESCING_CFG_P_SH)
++#define __IB1_0_NUM_OF_ACKED_EVENTS_P	0x0000ffff
++#define HQM_QSET1_IB_DRBL_1_P0		0x000380c0
++#define __IB1_1_ACK_P			0x80000000
++#define __IB1_1_DISABLE_P		0x40000000
++#define __IB1_1_COALESCING_CFG_P_MK	0x00ff0000
++#define __IB1_1_COALESCING_CFG_P_SH	16
++#define __IB1_1_COALESCING_CFG_P(_v)	((_v) << __IB1_1_COALESCING_CFG_P_SH)
++#define __IB1_1_NUM_OF_ACKED_EVENTS_P	0x0000ffff
++#define HQM_QSET0_IB_DRBL_1_P1		0x0003c040
++#define HQM_QSET1_IB_DRBL_1_P1		0x0003c0c0
++#define HQM_QSET0_IB_DRBL_2_P0		0x00038060
++#define __IB2_0_ACK_P			0x80000000
++#define __IB2_0_DISABLE_P		0x40000000
++#define __IB2_0_COALESCING_CFG_P_MK	0x00ff0000
++#define __IB2_0_COALESCING_CFG_P_SH	16
++#define __IB2_0_COALESCING_CFG_P(_v)	((_v) << __IB2_0_COALESCING_CFG_P_SH)
++#define __IB2_0_NUM_OF_ACKED_EVENTS_P	0x0000ffff
++#define HQM_QSET1_IB_DRBL_2_P0		0x000380e0
++#define __IB2_1_ACK_P			0x80000000
++#define __IB2_1_DISABLE_P		0x40000000
++#define __IB2_1_COALESCING_CFG_P_MK	0x00ff0000
++#define __IB2_1_COALESCING_CFG_P_SH	16
++#define __IB2_1_COALESCING_CFG_P(_v)	((_v) << __IB2_1_COALESCING_CFG_P_SH)
++#define __IB2_1_NUM_OF_ACKED_EVENTS_P	0x0000ffff
++#define HQM_QSET0_IB_DRBL_2_P1		0x0003c060
++#define HQM_QSET1_IB_DRBL_2_P1		0x0003c0e0
++
++/*
++ * These definitions are either in error/missing in spec. Its auto-generated
++ * from hard coded values in regparse.pl.
++ */
++#define __EMPHPOST_AT_4G_MK_FIX		0x0000001c
++#define __EMPHPOST_AT_4G_SH_FIX		0x00000002
++#define __EMPHPRE_AT_4G_FIX		0x00000003
++#define __SFP_TXRATE_EN_FIX		0x00000100
++#define __SFP_RXRATE_EN_FIX		0x00000080
++
++/*
++ * These register definitions are auto-generated from hard coded values
++ * in regparse.pl.
++ */
++
++/*
++ * These register mapping definitions are auto-generated from mapping tables
++ * in regparse.pl.
++ */
++#define BFA_IOC0_HBEAT_REG		HOST_SEM0_INFO_REG
++#define BFA_IOC0_STATE_REG		HOST_SEM1_INFO_REG
++#define BFA_IOC1_HBEAT_REG		HOST_SEM2_INFO_REG
++#define BFA_IOC1_STATE_REG		HOST_SEM3_INFO_REG
++#define BFA_FW_USE_COUNT		 HOST_SEM4_INFO_REG
++
++#define CPE_DEPTH_Q(__n) \
++	(CPE_DEPTH_Q0 + (__n) * (CPE_DEPTH_Q1 - CPE_DEPTH_Q0))
++#define CPE_QCTRL_Q(__n) \
++	(CPE_QCTRL_Q0 + (__n) * (CPE_QCTRL_Q1 - CPE_QCTRL_Q0))
++#define CPE_PI_PTR_Q(__n) \
++	(CPE_PI_PTR_Q0 + (__n) * (CPE_PI_PTR_Q1 - CPE_PI_PTR_Q0))
++#define CPE_CI_PTR_Q(__n) \
++	(CPE_CI_PTR_Q0 + (__n) * (CPE_CI_PTR_Q1 - CPE_CI_PTR_Q0))
++#define RME_DEPTH_Q(__n) \
++	(RME_DEPTH_Q0 + (__n) * (RME_DEPTH_Q1 - RME_DEPTH_Q0))
++#define RME_QCTRL_Q(__n) \
++	(RME_QCTRL_Q0 + (__n) * (RME_QCTRL_Q1 - RME_QCTRL_Q0))
++#define RME_PI_PTR_Q(__n) \
++	(RME_PI_PTR_Q0 + (__n) * (RME_PI_PTR_Q1 - RME_PI_PTR_Q0))
++#define RME_CI_PTR_Q(__n) \
++	(RME_CI_PTR_Q0 + (__n) * (RME_CI_PTR_Q1 - RME_CI_PTR_Q0))
++#define HQM_QSET_RXQ_DRBL_P0(__n) (HQM_QSET0_RXQ_DRBL_P0 + (__n) \
++	* (HQM_QSET1_RXQ_DRBL_P0 - HQM_QSET0_RXQ_DRBL_P0))
++#define HQM_QSET_TXQ_DRBL_P0(__n) (HQM_QSET0_TXQ_DRBL_P0 + (__n) \
++	* (HQM_QSET1_TXQ_DRBL_P0 - HQM_QSET0_TXQ_DRBL_P0))
++#define HQM_QSET_IB_DRBL_1_P0(__n) (HQM_QSET0_IB_DRBL_1_P0 + (__n) \
++	* (HQM_QSET1_IB_DRBL_1_P0 - HQM_QSET0_IB_DRBL_1_P0))
++#define HQM_QSET_IB_DRBL_2_P0(__n) (HQM_QSET0_IB_DRBL_2_P0 + (__n) \
++	* (HQM_QSET1_IB_DRBL_2_P0 - HQM_QSET0_IB_DRBL_2_P0))
++#define HQM_QSET_RXQ_DRBL_P1(__n) (HQM_QSET0_RXQ_DRBL_P1 + (__n) \
++	* (HQM_QSET1_RXQ_DRBL_P1 - HQM_QSET0_RXQ_DRBL_P1))
++#define HQM_QSET_TXQ_DRBL_P1(__n) (HQM_QSET0_TXQ_DRBL_P1 + (__n) \
++	* (HQM_QSET1_TXQ_DRBL_P1 - HQM_QSET0_TXQ_DRBL_P1))
++#define HQM_QSET_IB_DRBL_1_P1(__n) (HQM_QSET0_IB_DRBL_1_P1 + (__n) \
++	* (HQM_QSET1_IB_DRBL_1_P1 - HQM_QSET0_IB_DRBL_1_P1))
++#define HQM_QSET_IB_DRBL_2_P1(__n) (HQM_QSET0_IB_DRBL_2_P1 + (__n) \
++	* (HQM_QSET1_IB_DRBL_2_P1 - HQM_QSET0_IB_DRBL_2_P1))
++
++#define CPE_Q_NUM(__fn, __q) (((__fn) << 2) + (__q))
++#define RME_Q_NUM(__fn, __q) (((__fn) << 2) + (__q))
++#define CPE_Q_MASK(__q) ((__q) & 0x3)
++#define RME_Q_MASK(__q) ((__q) & 0x3)
++
++/*
++ * PCI MSI-X vector defines
++ */
++enum {
++	BFA_MSIX_CPE_Q0 = 0,
++	BFA_MSIX_CPE_Q1 = 1,
++	BFA_MSIX_CPE_Q2 = 2,
++	BFA_MSIX_CPE_Q3 = 3,
++	BFA_MSIX_RME_Q0 = 4,
++	BFA_MSIX_RME_Q1 = 5,
++	BFA_MSIX_RME_Q2 = 6,
++	BFA_MSIX_RME_Q3 = 7,
++	BFA_MSIX_LPU_ERR = 8,
++	BFA_MSIX_CT_MAX = 9,
++};
++
++/*
++ * And corresponding host interrupt status bit field defines
++ */
++#define __HFN_INT_CPE_Q0		0x00000001U
++#define __HFN_INT_CPE_Q1		0x00000002U
++#define __HFN_INT_CPE_Q2		0x00000004U
++#define __HFN_INT_CPE_Q3		0x00000008U
++#define __HFN_INT_CPE_Q4		0x00000010U
++#define __HFN_INT_CPE_Q5		0x00000020U
++#define __HFN_INT_CPE_Q6		0x00000040U
++#define __HFN_INT_CPE_Q7		0x00000080U
++#define __HFN_INT_RME_Q0		0x00000100U
++#define __HFN_INT_RME_Q1		0x00000200U
++#define __HFN_INT_RME_Q2		0x00000400U
++#define __HFN_INT_RME_Q3		0x00000800U
++#define __HFN_INT_RME_Q4		0x00001000U
++#define __HFN_INT_RME_Q5		0x00002000U
++#define __HFN_INT_RME_Q6		0x00004000U
++#define __HFN_INT_RME_Q7		0x00008000U
++#define __HFN_INT_ERR_EMC		0x00010000U
++#define __HFN_INT_ERR_LPU0		0x00020000U
++#define __HFN_INT_ERR_LPU1		0x00040000U
++#define __HFN_INT_ERR_PSS		0x00080000U
++#define __HFN_INT_MBOX_LPU0		0x00100000U
++#define __HFN_INT_MBOX_LPU1		0x00200000U
++#define __HFN_INT_MBOX1_LPU0		0x00400000U
++#define __HFN_INT_MBOX1_LPU1		0x00800000U
++#define __HFN_INT_LL_HALT		0x01000000U
++#define __HFN_INT_CPE_MASK		0x000000ffU
++#define __HFN_INT_RME_MASK		0x0000ff00U
++
++/*
++ * catapult memory map.
++ */
++#define LL_PGN_HQM0		0x0096
++#define LL_PGN_HQM1		0x0097
++#define PSS_SMEM_PAGE_START	0x8000
++#define PSS_SMEM_PGNUM(_pg0, _ma)	((_pg0) + ((_ma) >> 15))
++#define PSS_SMEM_PGOFF(_ma)	((_ma) & 0x7fff)
++
++/*
++ * End of catapult memory map
++ */
++
++#endif /* __BFI_CTREG_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfi_ll.h net-next-2.6.35-rc1-mod/drivers/net/bna/bfi_ll.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfi_ll.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfi_ll.h	2010-08-23 13:24:47.682902000 -0700
+@@ -0,0 +1,438 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++#ifndef __BFI_LL_H__
++#define __BFI_LL_H__
++
++#include "bfi.h"
++
++#pragma pack(1)
++
++/**
++ * @brief
++ *	"enums" for all LL mailbox messages other than IOC
++ */
++enum {
++	BFI_LL_H2I_MAC_UCAST_SET_REQ = 1,
++	BFI_LL_H2I_MAC_UCAST_ADD_REQ = 2,
++	BFI_LL_H2I_MAC_UCAST_DEL_REQ = 3,
++
++	BFI_LL_H2I_MAC_MCAST_ADD_REQ = 4,
++	BFI_LL_H2I_MAC_MCAST_DEL_REQ = 5,
++	BFI_LL_H2I_MAC_MCAST_FILTER_REQ = 6,
++	BFI_LL_H2I_MAC_MCAST_DEL_ALL_REQ = 7,
++
++	BFI_LL_H2I_PORT_ADMIN_REQ = 8,
++	BFI_LL_H2I_STATS_GET_REQ = 9,
++	BFI_LL_H2I_STATS_CLEAR_REQ = 10,
++
++	BFI_LL_H2I_RXF_PROMISCUOUS_SET_REQ = 11,
++	BFI_LL_H2I_RXF_DEFAULT_SET_REQ = 12,
++
++	BFI_LL_H2I_TXQ_STOP_REQ = 13,
++	BFI_LL_H2I_RXQ_STOP_REQ = 14,
++
++	BFI_LL_H2I_DIAG_LOOPBACK_REQ = 15,
++
++	BFI_LL_H2I_SET_PAUSE_REQ = 16,
++	BFI_LL_H2I_MTU_INFO_REQ = 17,
++
++	BFI_LL_H2I_RX_REQ = 18,
++} ;
++
++enum {
++	BFI_LL_I2H_MAC_UCAST_SET_RSP = BFA_I2HM(1),
++	BFI_LL_I2H_MAC_UCAST_ADD_RSP = BFA_I2HM(2),
++	BFI_LL_I2H_MAC_UCAST_DEL_RSP = BFA_I2HM(3),
++
++	BFI_LL_I2H_MAC_MCAST_ADD_RSP = BFA_I2HM(4),
++	BFI_LL_I2H_MAC_MCAST_DEL_RSP = BFA_I2HM(5),
++	BFI_LL_I2H_MAC_MCAST_FILTER_RSP = BFA_I2HM(6),
++	BFI_LL_I2H_MAC_MCAST_DEL_ALL_RSP = BFA_I2HM(7),
++
++	BFI_LL_I2H_PORT_ADMIN_RSP = BFA_I2HM(8),
++	BFI_LL_I2H_STATS_GET_RSP = BFA_I2HM(9),
++	BFI_LL_I2H_STATS_CLEAR_RSP = BFA_I2HM(10),
++
++	BFI_LL_I2H_RXF_PROMISCUOUS_SET_RSP = BFA_I2HM(11),
++	BFI_LL_I2H_RXF_DEFAULT_SET_RSP = BFA_I2HM(12),
++
++	BFI_LL_I2H_TXQ_STOP_RSP = BFA_I2HM(13),
++	BFI_LL_I2H_RXQ_STOP_RSP = BFA_I2HM(14),
++
++	BFI_LL_I2H_DIAG_LOOPBACK_RSP = BFA_I2HM(15),
++
++	BFI_LL_I2H_SET_PAUSE_RSP = BFA_I2HM(16),
++
++	BFI_LL_I2H_MTU_INFO_RSP = BFA_I2HM(17),
++	BFI_LL_I2H_RX_RSP = BFA_I2HM(18),
++
++	BFI_LL_I2H_LINK_DOWN_AEN = BFA_I2HM(19),
++	BFI_LL_I2H_LINK_UP_AEN = BFA_I2HM(20),
++
++	BFI_LL_I2H_PORT_ENABLE_AEN = BFA_I2HM(21),
++	BFI_LL_I2H_PORT_DISABLE_AEN = BFA_I2HM(22),
++} ;
++
++/**
++ * @brief bfi_ll_mac_addr_req is used by:
++ *        BFI_LL_H2I_MAC_UCAST_SET_REQ
++ *        BFI_LL_H2I_MAC_UCAST_ADD_REQ
++ *        BFI_LL_H2I_MAC_UCAST_DEL_REQ
++ *        BFI_LL_H2I_MAC_MCAST_ADD_REQ
++ *        BFI_LL_H2I_MAC_MCAST_DEL_REQ
++ */
++struct bfi_ll_mac_addr_req {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u8		rxf_id;
++	u8		rsvd1[3];
++	mac_t		mac_addr;
++	u8		rsvd2[2];
 +};
 +
 +/**
-+ *
-+ * Tx object
-+ *
++ * @brief bfi_ll_mcast_filter_req is used by:
++ *	  BFI_LL_H2I_MAC_MCAST_FILTER_REQ
 + */
-+
-+/* Tx datapath control structure */
-+#define BNA_Q_NAME_SIZE		16
-+struct bna_tcb {
-+	/* Fast path */
-+	void			**sw_qpt;
-+	void			*unmap_q;
-+	u32		producer_index;
-+	u32		consumer_index;
-+	volatile u32	*hw_consumer_index;
-+	u32		q_depth;
-+	void *__iomem q_dbell;
-+	struct bna_ib_dbell *i_dbell;
-+	int			page_idx;
-+	int			page_count;
-+	/* Control path */
-+	struct bna_txq *txq;
-+	struct bnad *bnad;
-+	enum bna_intr_type intr_type;
-+	int			intr_vector;
-+	u8			priority; /* Current priority */
-+	unsigned long		flags; /* Used by bnad as required */
-+	int			id;
-+	char			name[BNA_Q_NAME_SIZE];
-+};
-+
-+/* TxQ QPT and configuration */
-+struct bna_txq {
-+	/* This should be the first one */
-+	struct list_head			qe;
-+
-+	int			txq_id;
-+
-+	u8			priority;
-+
-+	struct bna_qpt qpt;
-+	struct bna_tcb *tcb;
-+	struct bna_ib *ib;
-+	int			ib_seg_offset;
-+
-+	struct bna_tx *tx;
-+
-+	u64 		tx_packets;
-+	u64 		tx_bytes;
-+};
-+
-+/* TxF structure (hardware Tx Function) */
-+struct bna_txf {
-+	int			txf_id;
-+	enum txf_flags ctrl_flags;
-+	u16		vlan;
-+};
-+
-+/* Tx object */
-+struct bna_tx {
-+	/* This should be the first one */
-+	struct list_head			qe;
-+
-+	bfa_fsm_t		fsm;
-+	enum bna_tx_flags flags;
-+
-+	enum bna_tx_type type;
-+
-+	struct list_head			txq_q;
-+	struct bna_txf txf;
-+
-+	/* Tx event handlers */
-+	void (*tcb_setup_cbfn)(struct bnad *, struct bna_tcb *);
-+	void (*tcb_destroy_cbfn)(struct bnad *, struct bna_tcb *);
-+	void (*tx_stall_cbfn)(struct bnad *, struct bna_tcb *);
-+	void (*tx_resume_cbfn)(struct bnad *, struct bna_tcb *);
-+	void (*tx_cleanup_cbfn)(struct bnad *, struct bna_tcb *);
-+
-+	/* callback for bna_tx_disable(), bna_tx_stop() */
-+	void (*stop_cbfn)(void *arg, struct bna_tx *tx,
-+				enum bna_cb_status status);
-+	void			*stop_cbarg;
-+
-+	/* callback for bna_tx_prio_set() */
-+	void (*prio_change_cbfn)(struct bnad *bnad, struct bna_tx *tx,
-+				enum bna_cb_status status);
-+
-+	struct bfa_wc		txq_stop_wc;
-+
-+	struct bna_mbox_qe mbox_qe;
-+
-+	struct bna *bna;
-+	void			*priv;	/* bnad's cookie */
-+};
-+
-+struct bna_tx_config {
-+	int			num_txq;
-+	int			txq_depth;
-+	enum bna_tx_type tx_type;
-+};
-+
-+struct bna_tx_event_cbfn {
-+	/* Optional */
-+	void (*tcb_setup_cbfn)(struct bnad *, struct bna_tcb *);
-+	void (*tcb_destroy_cbfn)(struct bnad *, struct bna_tcb *);
-+	/* Mandatory */
-+	void (*tx_stall_cbfn)(struct bnad *, struct bna_tcb *);
-+	void (*tx_resume_cbfn)(struct bnad *, struct bna_tcb *);
-+	void (*tx_cleanup_cbfn)(struct bnad *, struct bna_tcb *);
-+};
-+
-+/* Tx module - keeps track of free, active tx objects */
-+struct bna_tx_mod {
-+	struct bna_tx *tx;		/* BFI_MAX_TXQ entries */
-+	struct bna_txq *txq;		/* BFI_MAX_TXQ entries */
-+
-+	struct list_head			tx_free_q;
-+	struct list_head			tx_active_q;
-+
-+	struct list_head			txq_free_q;
-+
-+	/* callback for bna_tx_mod_stop() */
-+	void (*stop_cbfn)(struct bna_port *port,
-+				enum bna_cb_status status);
-+
-+	struct bfa_wc		tx_stop_wc;
-+
-+	enum bna_tx_mod_flags flags;
-+
-+	int			priority;
-+	int			cee_link;
-+
-+	u32		txf_bmap[2];
-+
-+	struct bna *bna;
++struct bfi_ll_mcast_filter_req {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u8		rxf_id;
++	u8		enable;
++	u8		rsvd[2];
 +};
 +
 +/**
-+ *
-+ * Receive Indirection Table
-+ *
++ * @brief bfi_ll_mcast_del_all is used by:
++ *	  BFI_LL_H2I_MAC_MCAST_DEL_ALL_REQ
 + */
-+
-+/* One row of RIT table */
-+struct bna_rit_entry {
-+	u8 large_rxq_id;	/* used for either large or data buffers */
-+	u8 small_rxq_id;	/* used for either small or header buffers */
-+};
-+
-+/* RIT segment */
-+struct bna_rit_segment {
-+	struct list_head			qe;
-+
-+	u32		rit_offset;
-+	u32		rit_size;
-+	/**
-+	 * max_rit_size: Varies per RIT segment depending on how RIT is
-+	 * partitioned
-+	 */
-+	u32		max_rit_size;
-+
-+	struct bna_rit_entry *rit;
-+};
-+
-+struct bna_rit_mod {
-+	struct bna_rit_entry *rit;
-+	struct bna_rit_segment *rit_segment;
-+
-+	struct list_head		rit_seg_pool[BFI_RIT_SEG_TOTAL_POOLS];
++struct bfi_ll_mcast_del_all_req {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u8		   rxf_id;
++	u8		   rsvd[3];
 +};
 +
 +/**
-+ *
-+ * Rx object
-+ *
++ * @brief bfi_ll_q_stop_req is used by:
++ *	BFI_LL_H2I_TXQ_STOP_REQ
++ *	BFI_LL_H2I_RXQ_STOP_REQ
 + */
-+
-+/* Rx datapath control structure */
-+struct bna_rcb {
-+	/* Fast path */
-+	void			**sw_qpt;
-+	void			*unmap_q;
-+	u32		producer_index;
-+	u32		consumer_index;
-+	u32		q_depth;
-+	void *__iomem q_dbell;
-+	int			page_idx;
-+	int			page_count;
-+	/* Control path */
-+	struct bna_rxq *rxq;
-+	struct bna_cq *cq;
-+	struct bnad *bnad;
-+	unsigned long		flags;
-+	int			id;
-+};
-+
-+/* RxQ structure - QPT, configuration */
-+struct bna_rxq {
-+	struct list_head			qe;
-+	int			rxq_id;
-+
-+	int			buffer_size;
-+	int			q_depth;
-+
-+	struct bna_qpt qpt;
-+	struct bna_rcb *rcb;
-+
-+	struct bna_rxp *rxp;
-+	struct bna_rx *rx;
-+
-+	u64 		rx_packets;
-+	u64		rx_bytes;
-+	u64 		rx_packets_with_error;
-+	u64 		rxbuf_alloc_failed;
-+};
-+
-+/* RxQ pair */
-+union bna_rxq_u {
-+	struct {
-+		struct bna_rxq *hdr;
-+		struct bna_rxq *data;
-+	} hds;
-+	struct {
-+		struct bna_rxq *small;
-+		struct bna_rxq *large;
-+	} slr;
-+	struct {
-+		struct bna_rxq *only;
-+		struct bna_rxq *reserved;
-+	} single;
-+};
-+
-+/* Packet rate for Dynamic Interrupt Moderation */
-+struct bna_pkt_rate {
-+	u32		small_pkt_cnt;
-+	u32		large_pkt_cnt;
-+};
-+
-+/* Completion control structure */
-+struct bna_ccb {
-+	/* Fast path */
-+	void			**sw_qpt;
-+	u32		producer_index;
-+	volatile u32	*hw_producer_index;
-+	u32		q_depth;
-+	struct bna_ib_dbell *i_dbell;
-+	struct bna_rcb *rcb[2];
-+	void			*ctrl; /* For bnad */
-+	struct bna_pkt_rate pkt_rate;
-+	int			page_idx;
-+	int			page_count;
-+
-+	/* Control path */
-+	struct bna_cq *cq;
-+	struct bnad *bnad;
-+	enum bna_intr_type intr_type;
-+	int			intr_vector;
-+	u8			rx_coalescing_timeo; /* For NAPI */
-+	int			id;
-+	char			name[BNA_Q_NAME_SIZE];
-+};
-+
-+/* CQ QPT, configuration  */
-+struct bna_cq {
-+	int			cq_id;
-+
-+	struct bna_qpt qpt;
-+	struct bna_ccb *ccb;
-+
-+	struct bna_ib *ib;
-+	u8			ib_seg_offset;
-+
-+	struct bna_rx *rx;
-+};
-+
-+struct bna_rss_config {
-+	enum rss_hash_type hash_type;
-+	u8			hash_mask;
-+	u32		toeplitz_hash_key[BFI_RSS_HASH_KEY_LEN];
-+};
-+
-+struct bna_hds_config {
-+	enum hds_header_type hdr_type;
-+	int			header_size;
-+};
-+
-+/* This structure is used during RX creation */
-+struct bna_rx_config {
-+	enum bna_rx_type rx_type;
-+	int			num_paths;
-+	enum bna_rxp_type rxp_type;
-+	int			paused;
-+	int			q_depth;
-+	/*
-+	 * Small/Large (or Header/Data) buffer size to be configured
-+	 * for SLR and HDS queue type. Large buffer size comes from
-+	 * port->mtu.
-+	 */
-+	int			small_buff_size;
-+
-+	enum bna_status rss_status;
-+	struct bna_rss_config rss_config;
-+
-+	enum bna_status hds_status;
-+	struct bna_hds_config hds_config;
-+
-+	enum bna_status vlan_strip_status;
-+};
-+
-+/* Rx Path structure - one per MSIX vector/CPU */
-+struct bna_rxp {
-+	/* This should be the first one */
-+	struct list_head			qe;
-+
-+	enum bna_rxp_type type;
-+	union	bna_rxq_u	rxq;
-+	struct bna_cq cq;
-+
-+	struct bna_rx *rx;
-+
-+	/* MSI-x vector number for configuring RSS */
-+	int			vector;
-+
-+	struct bna_mbox_qe mbox_qe;
-+};
-+
-+/* HDS configuration structure */
-+struct bna_rxf_hds {
-+	enum hds_header_type hdr_type;
-+	int			header_size;
-+};
-+
-+/* RSS configuration structure */
-+struct bna_rxf_rss {
-+	enum rss_hash_type hash_type;
-+	u8			hash_mask;
-+	u32		toeplitz_hash_key[BFI_RSS_HASH_KEY_LEN];
-+};
-+
-+/* RxF structure (hardware Rx Function) */
-+struct bna_rxf {
-+	bfa_fsm_t		fsm;
-+	int			rxf_id;
-+	enum rxf_flags ctrl_flags;
-+	u16		default_vlan_tag;
-+	enum bna_rxf_oper_state rxf_oper_state;
-+	enum bna_status hds_status;
-+	struct bna_rxf_hds hds_cfg;
-+	enum bna_status rss_status;
-+	struct bna_rxf_rss rss_cfg;
-+	struct bna_rit_segment *rit_segment;
-+	struct bna_rx *rx;
-+	u32		forced_offset;
-+	struct bna_mbox_qe mbox_qe;
-+	int			mcast_rxq_id;
-+
-+	/* callback for bna_rxf_start() */
-+	void (*start_cbfn) (struct bna_rx *rx, enum bna_cb_status status);
-+	struct bna_rx *start_cbarg;
-+
-+	/* callback for bna_rxf_stop() */
-+	void (*stop_cbfn) (struct bna_rx *rx, enum bna_cb_status status);
-+	struct bna_rx *stop_cbarg;
-+
-+	/* callback for bna_rxf_receive_enable() / bna_rxf_receive_disable() */
-+	void (*oper_state_cbfn) (struct bnad *bnad, struct bna_rx *rx,
-+			enum bna_cb_status status);
-+	struct bnad *oper_state_cbarg;
-+
-+	/**
-+	 * callback for:
-+	 *	bna_rxf_ucast_set()
-+	 *	bna_rxf_{ucast/mcast}_add(),
-+	 * 	bna_rxf_{ucast/mcast}_del(),
-+	 *	bna_rxf_mode_set()
-+	 */
-+	void (*cam_fltr_cbfn)(struct bnad *bnad, struct bna_rx *rx,
-+				enum bna_cb_status status);
-+	struct bnad *cam_fltr_cbarg;
-+
-+	enum bna_rxf_flags rxf_flags;
-+
-+	/* List of unicast addresses yet to be applied to h/w */
-+	struct list_head			ucast_pending_add_q;
-+	struct list_head			ucast_pending_del_q;
-+	int			ucast_pending_set;
-+	/* ucast addresses applied to the h/w */
-+	struct list_head			ucast_active_q;
-+	struct bna_mac *ucast_active_mac;
-+
-+	/* List of multicast addresses yet to be applied to h/w */
-+	struct list_head			mcast_pending_add_q;
-+	struct list_head			mcast_pending_del_q;
-+	/* multicast addresses applied to the h/w */
-+	struct list_head			mcast_active_q;
-+
-+	/* Rx modes yet to be applied to h/w */
-+	enum bna_rxmode rxmode_pending;
-+	enum bna_rxmode rxmode_pending_bitmask;
-+	/* Rx modes applied to h/w */
-+	enum bna_rxmode rxmode_active;
-+
-+	enum bna_status vlan_filter_status;
-+	u32		vlan_filter_table[(BFI_MAX_VLAN + 1) / 32];
-+};
-+
-+/* Rx object */
-+struct bna_rx {
-+	/* This should be the first one */
-+	struct list_head			qe;
-+
-+	bfa_fsm_t		fsm;
-+
-+	enum bna_rx_type type;
-+
-+	/* list-head for RX path objects */
-+	struct list_head			rxp_q;
-+
-+	struct bna_rxf rxf;
-+
-+	enum bna_rx_flags rx_flags;
-+
-+	struct bna_mbox_qe mbox_qe;
-+
-+	struct bfa_wc		rxq_stop_wc;
-+
-+	/* Rx event handlers */
-+	void (*rcb_setup_cbfn)(struct bnad *, struct bna_rcb *);
-+	void (*rcb_destroy_cbfn)(struct bnad *, struct bna_rcb *);
-+	void (*ccb_setup_cbfn)(struct bnad *, struct bna_ccb *);
-+	void (*ccb_destroy_cbfn)(struct bnad *, struct bna_ccb *);
-+	void (*rx_cleanup_cbfn)(struct bnad *, struct bna_ccb *);
-+	void (*rx_post_cbfn)(struct bnad *, struct bna_rcb *);
-+
-+	/* callback for bna_rx_disable(), bna_rx_stop() */
-+	void (*stop_cbfn)(void *arg, struct bna_rx *rx,
-+				enum bna_cb_status status);
-+	void			*stop_cbarg;
-+
-+	struct bna *bna;
-+	void			*priv; /* bnad's cookie */
-+};
-+
-+struct bna_rx_event_cbfn {
-+	/* Optional */
-+	void (*rcb_setup_cbfn)(struct bnad *, struct bna_rcb *);
-+	void (*rcb_destroy_cbfn)(struct bnad *, struct bna_rcb *);
-+	void (*ccb_setup_cbfn)(struct bnad *, struct bna_ccb *);
-+	void (*ccb_destroy_cbfn)(struct bnad *, struct bna_ccb *);
-+	/* Mandatory */
-+	void (*rx_cleanup_cbfn)(struct bnad *, struct bna_ccb *);
-+	void (*rx_post_cbfn)(struct bnad *, struct bna_rcb *);
-+};
-+
-+/* Rx module - keeps track of free, active rx objects */
-+struct bna_rx_mod {
-+	struct bna *bna;		/* back pointer to parent */
-+	struct bna_rx *rx;		/* BFI_MAX_RXQ entries */
-+	struct bna_rxp *rxp;		/* BFI_MAX_RXQ entries */
-+	struct bna_rxq *rxq;		/* BFI_MAX_RXQ entries */
-+
-+	struct list_head			rx_free_q;
-+	struct list_head			rx_active_q;
-+	int			rx_free_count;
-+
-+	struct list_head			rxp_free_q;
-+	int			rxp_free_count;
-+
-+	struct list_head			rxq_free_q;
-+	int			rxq_free_count;
-+
-+	enum bna_rx_mod_flags flags;
-+
-+	/* callback for bna_rx_mod_stop() */
-+	void (*stop_cbfn)(struct bna_port *port,
-+				enum bna_cb_status status);
-+
-+	struct bfa_wc		rx_stop_wc;
-+	u32		dim_vector[BNA_LOAD_T_MAX][BNA_BIAS_T_MAX];
-+	u32		rxf_bmap[2];
++struct bfi_ll_q_stop_req {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u32	q_id_mask[2];	/* !< bit-mask for queue ids */
 +};
 +
 +/**
-+ *
-+ * CAM
-+ *
++ * @brief bfi_ll_stats_req is used by:
++ *    BFI_LL_I2H_STATS_GET_REQ
++ *    BFI_LL_I2H_STATS_CLEAR_REQ
 + */
-+
-+struct bna_ucam_mod {
-+	struct bna_mac *ucmac;		/* BFI_MAX_UCMAC entries */
-+	struct list_head			free_q;
-+
-+	struct bna *bna;
-+};
-+
-+struct bna_mcam_mod {
-+	struct bna_mac *mcmac;		/* BFI_MAX_MCMAC entries */
-+	struct list_head			free_q;
-+
-+	struct bna *bna;
++struct bfi_ll_stats_req {
++	struct bfi_mhdr mh;	/*!< common msg header */
++	u16 stats_mask;	/* !< bit-mask for non-function statistics */
++	u8	rsvd[2];
++	u32 rxf_id_mask[2];	/* !< bit-mask for RxF Statistics */
++	u32 txf_id_mask[2];	/* !< bit-mask for TxF Statistics */
++	union bfi_addr_u  host_buffer;	/* !< where statistics are returned */
 +};
 +
 +/**
-+ *
-+ * Statistics
-+ *
++ * @brief defines for "stats_mask" above.
 + */
++#define BFI_LL_STATS_MAC	(1 << 0)	/* !< MAC Statistics */
++#define BFI_LL_STATS_BPC	(1 << 1)	/* !< Pause Stats from BPC */
++#define BFI_LL_STATS_RAD	(1 << 2)	/* !< Rx Admission Statistics */
++#define BFI_LL_STATS_RX_FC	(1 << 3)	/* !< Rx FC Stats from RxA */
++#define BFI_LL_STATS_TX_FC	(1 << 4)	/* !< Tx FC Stats from TxA */
 +
-+struct bna_tx_stats {
-+	int			tx_state;
-+	int			tx_flags;
-+	int			num_txqs;
-+	u32		txq_bmap[2];
-+	int			txf_id;
-+};
++#define BFI_LL_STATS_ALL	0x1f
 +
-+struct bna_rx_stats {
-+	int			rx_state;
-+	int			rx_flags;
-+	int			num_rxps;
-+	int			num_rxqs;
-+	u32		rxq_bmap[2];
-+	u32		cq_bmap[2];
-+	int			rxf_id;
-+	int			rxf_state;
-+	int			rxf_oper_state;
-+	int			num_active_ucast;
-+	int			num_active_mcast;
-+	int			rxmode_active;
-+	int			vlan_filter_status;
-+	u32		vlan_filter_table[(BFI_MAX_VLAN + 1) / 32];
-+	int			rss_status;
-+	int			hds_status;
-+};
-+
-+struct bna_sw_stats {
-+	int			device_state;
-+	int			port_state;
-+	int			port_flags;
-+	int			llport_state;
-+	int			priority;
-+	int			num_active_tx;
-+	int			num_active_rx;
-+	struct bna_tx_stats tx_stats[BFI_MAX_TXQ];
-+	struct bna_rx_stats rx_stats[BFI_MAX_RXQ];
-+};
-+
-+struct bna_stats {
-+	u32		txf_bmap[2];
-+	u32		rxf_bmap[2];
-+	struct bfi_ll_stats	*hw_stats;
-+	struct bna_sw_stats *sw_stats;
++/**
++ * @brief bfi_ll_port_admin_req
++ */
++struct bfi_ll_port_admin_req {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u8		 up;
++	u8		 rsvd[3];
 +};
 +
 +/**
-+ *
-+ * BNA
-+ *
++ * @brief bfi_ll_rxf_req is used by:
++ *      BFI_LL_H2I_RXF_PROMISCUOUS_SET_REQ
++ *      BFI_LL_H2I_RXF_DEFAULT_SET_REQ
 + */
-+
-+struct bna {
-+	struct bfa_pcidev pcidev;
-+
-+	int			port_num;
-+
-+	struct bna_chip_regs regs;
-+
-+	struct bna_dma_addr hw_stats_dma;
-+	struct bna_stats stats;
-+
-+	struct bna_device device;
-+	struct bfa_cee cee;
-+
-+	struct bna_mbox_mod mbox_mod;
-+
-+	struct bna_port port;
-+
-+	struct bna_tx_mod tx_mod;
-+
-+	struct bna_rx_mod rx_mod;
-+
-+	struct bna_ib_mod ib_mod;
-+
-+	struct bna_ucam_mod ucam_mod;
-+	struct bna_mcam_mod mcam_mod;
-+
-+	struct bna_rit_mod rit_mod;
-+
-+	int			rxf_default_id;
-+	int			rxf_promisc_id;
-+
-+	struct bna_mbox_qe mbox_qe;
-+
-+	struct bnad *bnad;
++struct bfi_ll_rxf_req {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u8		rxf_id;
++	u8		enable;
++	u8		rsvd[2];
 +};
 +
-+#endif	/* __BNA_TYPES_H__ */
++/**
++ * @brief bfi_ll_rxf_multi_req is used by:
++ *	BFI_LL_H2I_RX_REQ
++ */
++struct bfi_ll_rxf_multi_req {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u32	rxf_id_mask[2];
++	u8		enable;
++	u8		rsvd[3];
++};
++
++/**
++ * @brief enum for Loopback opmodes
++ */
++enum {
++	BFI_LL_DIAG_LB_OPMODE_EXT = 0,
++	BFI_LL_DIAG_LB_OPMODE_CBL = 1,
++};
++
++/**
++ * @brief bfi_ll_set_pause_req is used by:
++ *	BFI_LL_H2I_SET_PAUSE_REQ
++ */
++struct bfi_ll_set_pause_req {
++	struct bfi_mhdr mh;
++	u8		tx_pause; /* 1 = enable, 0 =  disable */
++	u8		rx_pause; /* 1 = enable, 0 =  disable */
++	u8		rsvd[2];
++};
++
++/**
++ * @brief bfi_ll_mtu_info_req is used by:
++ *	BFI_LL_H2I_MTU_INFO_REQ
++ */
++struct bfi_ll_mtu_info_req {
++	struct bfi_mhdr mh;
++	u16	mtu;
++	u8		rsvd[2];
++};
++
++/**
++ * @brief
++ *	  Response header format used by all responses
++ *	  For both responses and asynchronous notifications
++ */
++struct bfi_ll_rsp {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u8		error;
++	u8		rsvd[3];
++};
++
++/**
++ * @brief bfi_ll_cee_aen is used by:
++ *	BFI_LL_I2H_LINK_DOWN_AEN
++ *	BFI_LL_I2H_LINK_UP_AEN
++ */
++struct bfi_ll_aen {
++	struct bfi_mhdr mh;		/*!< common msg header */
++	u32	reason;
++	u8		cee_linkup;
++	u8		prio_map;    /*!< LL priority bit-map */
++	u8		rsvd[2];
++};
++
++/**
++ * @brief
++ * 	The following error codes can be returned
++ *	by the mbox commands
++ */
++enum {
++	BFI_LL_CMD_OK 		= 0,
++	BFI_LL_CMD_FAIL 	= 1,
++	BFI_LL_CMD_DUP_ENTRY	= 2,	/* !< Duplicate entry in CAM */
++	BFI_LL_CMD_CAM_FULL	= 3,	/* !< CAM is full */
++	BFI_LL_CMD_NOT_OWNER	= 4,   	/* !< Not permitted, b'cos not owner */
++	BFI_LL_CMD_NOT_EXEC	= 5,   	/* !< Was not sent to f/w at all */
++	BFI_LL_CMD_WAITING	= 6,	/* !< Waiting for completion (VMware) */
++	BFI_LL_CMD_PORT_DISABLED	= 7,	/* !< port in disabled state */
++} ;
++
++/* Statistics */
++#define BFI_LL_TXF_ID_MAX  	64
++#define BFI_LL_RXF_ID_MAX  	64
++
++/* TxF Frame Statistics */
++struct bfi_ll_stats_txf {
++	u64 ucast_octets;
++	u64 ucast;
++	u64 ucast_vlan;
++
++	u64 mcast_octets;
++	u64 mcast;
++	u64 mcast_vlan;
++
++	u64 bcast_octets;
++	u64 bcast;
++	u64 bcast_vlan;
++
++	u64 errors;
++	u64 filter_vlan;      /* frames filtered due to VLAN */
++	u64 filter_mac_sa;    /* frames filtered due to SA check */
++};
++
++/* RxF Frame Statistics */
++struct bfi_ll_stats_rxf {
++	u64 ucast_octets;
++	u64 ucast;
++	u64 ucast_vlan;
++
++	u64 mcast_octets;
++	u64 mcast;
++	u64 mcast_vlan;
++
++	u64 bcast_octets;
++	u64 bcast;
++	u64 bcast_vlan;
++	u64 frame_drops;
++};
++
++/* FC Tx Frame Statistics */
++struct bfi_ll_stats_fc_tx {
++	u64 txf_ucast_octets;
++	u64 txf_ucast;
++	u64 txf_ucast_vlan;
++
++	u64 txf_mcast_octets;
++	u64 txf_mcast;
++	u64 txf_mcast_vlan;
++
++	u64 txf_bcast_octets;
++	u64 txf_bcast;
++	u64 txf_bcast_vlan;
++
++	u64 txf_parity_errors;
++	u64 txf_timeout;
++	u64 txf_fid_parity_errors;
++};
++
++/* FC Rx Frame Statistics */
++struct bfi_ll_stats_fc_rx {
++	u64 rxf_ucast_octets;
++	u64 rxf_ucast;
++	u64 rxf_ucast_vlan;
++
++	u64 rxf_mcast_octets;
++	u64 rxf_mcast;
++	u64 rxf_mcast_vlan;
++
++	u64 rxf_bcast_octets;
++	u64 rxf_bcast;
++	u64 rxf_bcast_vlan;
++};
++
++/* RAD Frame Statistics */
++struct bfi_ll_stats_rad {
++	u64 rx_frames;
++	u64 rx_octets;
++	u64 rx_vlan_frames;
++
++	u64 rx_ucast;
++	u64 rx_ucast_octets;
++	u64 rx_ucast_vlan;
++
++	u64 rx_mcast;
++	u64 rx_mcast_octets;
++	u64 rx_mcast_vlan;
++
++	u64 rx_bcast;
++	u64 rx_bcast_octets;
++	u64 rx_bcast_vlan;
++
++	u64 rx_drops;
++};
++
++/* BPC Tx Registers */
++struct bfi_ll_stats_bpc {
++	/* transmit stats */
++	u64 tx_pause[8];
++	u64 tx_zero_pause[8];	/*!< Pause cancellation */
++	/*!<Pause initiation rather than retention */
++	u64 tx_first_pause[8];
++
++	/* receive stats */
++	u64 rx_pause[8];
++	u64 rx_zero_pause[8];	/*!< Pause cancellation */
++	/*!<Pause initiation rather than retention */
++	u64 rx_first_pause[8];
++};
++
++/* MAC Rx Statistics */
++struct bfi_ll_stats_mac {
++	u64 frame_64;		/* both rx and tx counter */
++	u64 frame_65_127;		/* both rx and tx counter */
++	u64 frame_128_255;		/* both rx and tx counter */
++	u64 frame_256_511;		/* both rx and tx counter */
++	u64 frame_512_1023;	/* both rx and tx counter */
++	u64 frame_1024_1518;	/* both rx and tx counter */
++	u64 frame_1519_1522;	/* both rx and tx counter */
++
++	/* receive stats */
++	u64 rx_bytes;
++	u64 rx_packets;
++	u64 rx_fcs_error;
++	u64 rx_multicast;
++	u64 rx_broadcast;
++	u64 rx_control_frames;
++	u64 rx_pause;
++	u64 rx_unknown_opcode;
++	u64 rx_alignment_error;
++	u64 rx_frame_length_error;
++	u64 rx_code_error;
++	u64 rx_carrier_sense_error;
++	u64 rx_undersize;
++	u64 rx_oversize;
++	u64 rx_fragments;
++	u64 rx_jabber;
++	u64 rx_drop;
++
++	/* transmit stats */
++	u64 tx_bytes;
++	u64 tx_packets;
++	u64 tx_multicast;
++	u64 tx_broadcast;
++	u64 tx_pause;
++	u64 tx_deferral;
++	u64 tx_excessive_deferral;
++	u64 tx_single_collision;
++	u64 tx_muliple_collision;
++	u64 tx_late_collision;
++	u64 tx_excessive_collision;
++	u64 tx_total_collision;
++	u64 tx_pause_honored;
++	u64 tx_drop;
++	u64 tx_jabber;
++	u64 tx_fcs_error;
++	u64 tx_control_frame;
++	u64 tx_oversize;
++	u64 tx_undersize;
++	u64 tx_fragments;
++};
++
++/* Complete statistics */
++struct bfi_ll_stats {
++	struct bfi_ll_stats_mac		mac_stats;
++	struct bfi_ll_stats_bpc		bpc_stats;
++	struct bfi_ll_stats_rad		rad_stats;
++	struct bfi_ll_stats_fc_rx	fc_rx_stats;
++	struct bfi_ll_stats_fc_tx	fc_tx_stats;
++	struct bfi_ll_stats_rxf	rxf_stats[BFI_LL_RXF_ID_MAX];
++	struct bfi_ll_stats_txf	txf_stats[BFI_LL_TXF_ID_MAX];
++};
++
++#pragma pack()
++
++#endif  /* __BFI_LL_H__ */
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/cna.h net-next-2.6.35-rc1-mod/drivers/net/bna/cna.h
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/cna.h	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/cna.h	2010-08-23 13:24:47.597898000 -0700
+@@ -0,0 +1,81 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2006-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++
++#ifndef __CNA_H__
++#define __CNA_H__
++
++#include <linux/version.h>
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/pci.h>
++#include <linux/delay.h>
++#include <linux/bitops.h>
++#include <linux/timer.h>
++#include <linux/interrupt.h>
++#include <linux/if_ether.h>
++#include <asm/page.h>
++#include <asm/io.h>
++#include <asm/string.h>
++
++#include <linux/list.h>
++
++#define bfa_sm_fault(__mod, __event)    do {                            \
++	pr_err("SM Assertion failure: %s: %d: event = %d", __FILE__, __LINE__, \
++		__event); \
++} while (0)
++
++extern char bfa_version[];
++
++#define	CNA_FW_FILE_CT	"ctfw_cna.bin"
++#define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
++
++#pragma pack(1)
++
++#define MAC_ADDRLEN	(6)
++typedef struct mac { u8 mac[MAC_ADDRLEN]; } mac_t;
++
++#pragma pack()
++
++#define bfa_q_first(_q) ((void *)(((struct list_head *) (_q))->next))
++#define bfa_q_next(_qe)	(((struct list_head *) (_qe))->next)
++#define bfa_q_prev(_qe) (((struct list_head *) (_qe))->prev)
++
++/*
++ * bfa_q_qe_init - to initialize a queue element
++ */
++#define bfa_q_qe_init(_qe) {						\
++	bfa_q_next(_qe) = (struct list_head *) NULL;			\
++	bfa_q_prev(_qe) = (struct list_head *) NULL;			\
++}
++
++/*
++ * bfa_q_deq - dequeue an element from head of the queue
++ */
++#define bfa_q_deq(_q, _qe) {						\
++	if (!list_empty(_q)) {						\
++		(*((struct list_head **) (_qe))) = bfa_q_next(_q);	\
++		bfa_q_prev(bfa_q_next(*((struct list_head **) _qe))) =	\
++						(struct list_head *) (_q); \
++		bfa_q_next(_q) = bfa_q_next(*((struct list_head **) _qe)); \
++		bfa_q_qe_init(*((struct list_head **) _qe));		\
++	} else {							\
++		*((struct list_head **) (_qe)) = (struct list_head *) NULL; \
++	}								\
++}
++
++#endif /* __CNA_H__ */
