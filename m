@@ -1,48 +1,55 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: add 64bit support to ifstat
-Date: Mon, 23 Aug 2010 13:06:30 -0700
-Message-ID: <20100823130630.1dcb885b@nehalam>
-References: <20100823083258.0777e83d@nehalam>
-	<1282578203.2267.27.camel@achroite.uk.solarflarecom.com>
-	<20100823091750.2bf87605@nehalam>
-	<1282582464.2486.479.camel@edumazet-laptop>
-	<20100823103333.67c5f795@nehalam>
-	<1282592696.2378.193.camel@edumazet-laptop>
+Subject: [PATCH] tc: add meta match on receive hash
+Date: Mon, 23 Aug 2010 13:08:03 -0700
+Message-ID: <20100823130803.7736ebfb@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
+	Thomas Graf <tgraf@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:39524 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:51818 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753621Ab0HWUGc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Aug 2010 16:06:32 -0400
-In-Reply-To: <1282592696.2378.193.camel@edumazet-laptop>
+	id S1753621Ab0HWUIF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Aug 2010 16:08:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Trivial extension to existing meta data match rules to allow
+matching on skb receive hash value.
 
-> @@ -563,8 +563,6 @@ static void usage(void)
->  "   -s, --noupdate	don;t update history\n"
->  "   -t, --interval=SECS	report average over the last SECS\n"
->  "   -V, --version	output version information\n"
-> -"   -z, --zeros		show entries with zero activity\n"
-> -"   -e, --errors	show errors\n"
->  "   -z, --zeros		show entries with zero activity\n");
->  
->  	exit(-1);
-> @@ -581,8 +579,6 @@ static const struct option longopts[] = {
->  	{ "interval", 1, 0, 't' },
->  	{ "version", 0, 0, 'V' },
->  	{ "zeros", 0, 0, 'z' },
-> -	{ "errors", 0, 0, 'e' },
-> -	{ "zeros", 0, 0, 'z' },
->  	{ 0 }
->  };
->  
-> 
-> 
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Did you mean to break --errors?
+--- a/include/linux/tc_ematch/tc_em_meta.h	2010-08-22 11:28:09.208550912 -0700
++++ b/include/linux/tc_ematch/tc_em_meta.h	2010-08-22 11:28:20.560321846 -0700
+@@ -79,6 +79,7 @@ enum {
+  	TCF_META_ID_SK_SENDMSG_OFF,
+  	TCF_META_ID_SK_WRITE_PENDING,
+ 	TCF_META_ID_VLAN_TAG,
++	TCF_META_ID_RXHASH,
+ 	__TCF_META_ID_MAX
+ };
+ #define TCF_META_ID_MAX (__TCF_META_ID_MAX - 1)
+--- a/net/sched/em_meta.c	2010-08-22 11:23:29.394155391 -0700
++++ b/net/sched/em_meta.c	2010-08-22 11:25:16.088029057 -0700
+@@ -223,6 +223,11 @@ META_COLLECTOR(int_maclen)
+ 	dst->value = skb->mac_len;
+ }
+ 
++META_COLLECTOR(int_rxhash)
++{
++	dst->value = skb->rxhash;
++}
++
+ /**************************************************************************
+  * Netfilter
+  **************************************************************************/
+@@ -541,6 +546,7 @@ static struct meta_ops __meta_ops[TCF_ME
+ 		[META_ID(SK_SENDMSG_OFF)]	= META_FUNC(int_sk_sendmsg_off),
+ 		[META_ID(SK_WRITE_PENDING)]	= META_FUNC(int_sk_write_pend),
+ 		[META_ID(VLAN_TAG)]		= META_FUNC(int_vlan_tag),
++		[META_ID(RXHASH)]		= META_FUNC(int_rxhash),
+ 	}
+ };
+ 
