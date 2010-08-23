@@ -1,7 +1,7 @@
 From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [PATCH v4 2/5] napi: convert trace_napi_poll to TRACE_EVENT
-Date: Mon, 23 Aug 2010 18:43:51 +0900
-Message-ID: <4C7242D7.4050009@jp.fujitsu.com>
+Subject: [PATCH v4 3/5] netdev: add tracepoints to netdev layer
+Date: Mon, 23 Aug 2010 18:45:02 +0900
+Message-ID: <4C72431E.3000901@jp.fujitsu.com>
 References: <4C72422C.5070102@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -18,61 +18,171 @@ In-Reply-To: <4C72422C.5070102@jp.fujitsu.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
+This patch adds tracepoint to dev_queue_xmit, dev_hard_start_xmit, netif_rx and
+netif_receive_skb. These tracepoints help you to monitor network driver's
+input/output.
 
-This patch converts trace_napi_poll from DECLARE_EVENT to TRACE_EVENT to improve
-the usability of napi_poll tracepoint.
-
-          <idle>-0     [001] 241302.750777: napi_poll: napi poll on napi struct f6acc480 for device eth3
-          <idle>-0     [000] 241302.852389: napi_poll: napi poll on napi struct f5d0d70c for device eth1
-
-An original patch is below.
-http://marc.info/?l=linux-kernel&m=126021713809450&w=2
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-And add a fix by Steven Rostedt.
-http://marc.info/?l=linux-kernel&m=126150506519173&w=2
+          <idle>-0     [001] 112447.902030: netif_rx: dev=eth1 skbaddr=f3ef0900 len=84
+          <idle>-0     [001] 112447.902039: netif_receive_skb: dev=eth1 skbaddr=f3ef0900 len=84
+            sshd-6828  [000] 112447.903257: net_dev_queue: dev=eth4 skbaddr=f3fca538 len=226
+            sshd-6828  [000] 112447.903260: net_dev_xmit: dev=eth4 skbaddr=f3fca538 len=226 rc=0
 
 Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 ---
- include/trace/events/napi.h |   25 +++++++++++++++++++++++--
- 1 files changed, 23 insertions(+), 2 deletions(-)
+ include/trace/events/net.h |   82 ++++++++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c             |    6 +++
+ net/core/net-traces.c      |    1 +
+ 3 files changed, 89 insertions(+), 0 deletions(-)
 
-diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
-index 188deca..8fe1e93 100644
---- a/include/trace/events/napi.h
-+++ b/include/trace/events/napi.h
-@@ -6,10 +6,31 @@
- 
- #include <linux/netdevice.h>
- #include <linux/tracepoint.h>
-+#include <linux/ftrace.h>
+diff --git a/include/trace/events/net.h b/include/trace/events/net.h
+new file mode 100644
+index 0000000..5f247f5
+--- /dev/null
++++ b/include/trace/events/net.h
+@@ -0,0 +1,82 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM net
 +
-+#define NO_DEV "(no_device)"
++#if !defined(_TRACE_NET_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_NET_H
 +
-+TRACE_EVENT(napi_poll,
- 
--DECLARE_TRACE(napi_poll,
- 	TP_PROTO(struct napi_struct *napi),
--	TP_ARGS(napi));
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/ip.h>
++#include <linux/tracepoint.h>
 +
-+	TP_ARGS(napi),
++TRACE_EVENT(net_dev_xmit,
++
++	TP_PROTO(struct sk_buff *skb,
++		 int rc),
++
++	TP_ARGS(skb, rc),
 +
 +	TP_STRUCT__entry(
-+		__field(	struct napi_struct *,	napi)
-+		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
++		__field(	void *,		skbaddr		)
++		__field(	unsigned int,	len		)
++		__field(	int,		rc		)
++		__string(	name,		skb->dev->name	)
 +	),
 +
 +	TP_fast_assign(
-+		__entry->napi = napi;
-+		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
++		__entry->skbaddr = skb;
++		__entry->len = skb->len;
++		__entry->rc = rc;
++		__assign_str(name, skb->dev->name);
 +	),
 +
-+	TP_printk("napi poll on napi struct %p for device %s",
-+		__entry->napi, __get_str(dev_name))
++	TP_printk("dev=%s skbaddr=%p len=%u rc=%d",
++		__get_str(name), __entry->skbaddr, __entry->len, __entry->rc)
 +);
 +
-+#undef NO_DEV
++DECLARE_EVENT_CLASS(net_dev_template,
++
++	TP_PROTO(struct sk_buff *skb),
++
++	TP_ARGS(skb),
++
++	TP_STRUCT__entry(
++		__field(	void *,		skbaddr		)
++		__field(	unsigned int,	len		)
++		__string(	name,		skb->dev->name	)
++	),
++
++	TP_fast_assign(
++		__entry->skbaddr = skb;
++		__entry->len = skb->len;
++		__assign_str(name, skb->dev->name);
++	),
++
++	TP_printk("dev=%s skbaddr=%p len=%u",
++		__get_str(name), __entry->skbaddr, __entry->len)
++)
++
++DEFINE_EVENT(net_dev_template, net_dev_queue,
++
++	TP_PROTO(struct sk_buff *skb),
++
++	TP_ARGS(skb)
++);
++
++DEFINE_EVENT(net_dev_template, netif_receive_skb,
++
++	TP_PROTO(struct sk_buff *skb),
++
++	TP_ARGS(skb)
++);
++
++DEFINE_EVENT(net_dev_template, netif_rx,
++
++	TP_PROTO(struct sk_buff *skb),
++
++	TP_ARGS(skb)
++);
++#endif /* _TRACE_NET_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7cd5237..c9b026a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -128,6 +128,7 @@
+ #include <linux/jhash.h>
+ #include <linux/random.h>
+ #include <trace/events/napi.h>
++#include <trace/events/net.h>
+ #include <linux/pci.h>
  
- #endif /* _TRACE_NAPI_H_ */
+ #include "net-sysfs.h"
+@@ -1978,6 +1979,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		}
  
+ 		rc = ops->ndo_start_xmit(skb, dev);
++		trace_net_dev_xmit(skb, rc);
+ 		if (rc == NETDEV_TX_OK)
+ 			txq_trans_update(txq);
+ 		return rc;
+@@ -1998,6 +2000,7 @@ gso:
+ 			skb_dst_drop(nskb);
+ 
+ 		rc = ops->ndo_start_xmit(nskb, dev);
++		trace_net_dev_xmit(nskb, rc);
+ 		if (unlikely(rc != NETDEV_TX_OK)) {
+ 			if (rc & ~NETDEV_TX_MASK)
+ 				goto out_kfree_gso_skb;
+@@ -2186,6 +2189,7 @@ int dev_queue_xmit(struct sk_buff *skb)
+ #ifdef CONFIG_NET_CLS_ACT
+ 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_EGRESS);
+ #endif
++	trace_net_dev_queue(skb);
+ 	if (q->enqueue) {
+ 		rc = __dev_xmit_skb(skb, q, dev, txq);
+ 		goto out;
+@@ -2525,6 +2529,7 @@ int netif_rx(struct sk_buff *skb)
+ 	if (netdev_tstamp_prequeue)
+ 		net_timestamp_check(skb);
+ 
++	trace_netif_rx(skb);
+ #ifdef CONFIG_RPS
+ 	{
+ 		struct rps_dev_flow voidflow, *rflow = &voidflow;
+@@ -2841,6 +2846,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	if (!netdev_tstamp_prequeue)
+ 		net_timestamp_check(skb);
+ 
++	trace_netif_receive_skb(skb);
+ 	if (vlan_tx_tag_present(skb) && vlan_hwaccel_do_receive(skb))
+ 		return NET_RX_SUCCESS;
+ 
+diff --git a/net/core/net-traces.c b/net/core/net-traces.c
+index afa6380..7f1bb2a 100644
+--- a/net/core/net-traces.c
++++ b/net/core/net-traces.c
+@@ -26,6 +26,7 @@
+ 
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/skb.h>
++#include <trace/events/net.h>
+ #include <trace/events/napi.h>
+ 
+ EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
