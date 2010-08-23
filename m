@@ -1,28 +1,43 @@
-From: Roland McGrath <roland@redhat.com>
-Subject: Re: [PATCH 1/1] posix clocks: introduce syscall for clock tuning.
-Date: Mon, 23 Aug 2010 09:57:58 -0700 (PDT)
-Message-ID: <20100823165758.4624E400BF@magilla.sf.frob.com>
-References: <cover.1282550649.git.richard.cochran@omicron.at>
-	<201008231457.26690.arnd@arndb.de>
-	<20100823134330.GM12892@parisc-linux.org>
-	<201008231646.00357.arnd@arndb.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] xps-mq: Transmit Packet Steering for multiqueue
+Date: Mon, 23 Aug 2010 18:09:09 +0100
+Message-ID: <1282583349.2267.30.camel@achroite.uk.solarflarecom.com>
+References: <alpine.DEB.1.00.1008222233530.31382@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <matthew@wil.cx>,
-	Richard Cochran <richardcochran@gmail.com>,
-	john stultz <johnstul@us.ibm.com>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Arnd Bergmann's message of  Monday, 23 August 2010 16:46:00 +0200 <201008231646.00357.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:25187 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753851Ab0HWRJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 13:09:13 -0400
+In-Reply-To: <alpine.DEB.1.00.1008222233530.31382@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-EOPNOTSUPP is also called ENOTSUP in userland.  ENOTSUP is the appropriate
-POSIX errno code for a situation such as a clock type that cannot be used
-in a certain call (like setting when you can only read it, etc.).
+On Sun, 2010-08-22 at 22:39 -0700, Tom Herbert wrote:
+[...]
+> Each transmit queue can be associated with a number of CPUs which will
+> used the queue to send packets.  This is configured as a CPU mask on a
+> per queue basis in:
+> 
+> /sys/class/net/eth<n>/queues/tx-<n>/xps_cpus
+> 
+> The mappings are stored per device in an inverted data structure that
+> maps CPUs to queues.  In the netdevice structure this is an array of
+> num_possible_cpu structures where each array entry contains a bit map
+> of queues which that CPU can use.
+[...]
 
+The mapping of TX queue to CPU should match the affinity of the
+completion IRQ for that queue.  It should not be a separate setting.
 
-Thanks,
-Roland
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
