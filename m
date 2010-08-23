@@ -1,7 +1,7 @@
 From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [PATCH v4 1/5] irq: add tracepoint to softirq_raise
-Date: Mon, 23 Aug 2010 18:42:48 +0900
-Message-ID: <4C724298.4050509@jp.fujitsu.com>
+Subject: [PATCH v4 2/5] napi: convert trace_napi_poll to TRACE_EVENT
+Date: Mon, 23 Aug 2010 18:43:51 +0900
+Message-ID: <4C7242D7.4050009@jp.fujitsu.com>
 References: <4C72422C.5070102@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -18,102 +18,61 @@ In-Reply-To: <4C72422C.5070102@jp.fujitsu.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
+From: Neil Horman <nhorman@tuxdriver.com>
 
-Add a tracepoint for tracing when softirq action is raised.
+This patch converts trace_napi_poll from DECLARE_EVENT to TRACE_EVENT to improve
+the usability of napi_poll tracepoint.
 
-It and the existed tracepoints complete softirq's tracepoints:
-softirq_raise, softirq_entry and softirq_exit.
+          <idle>-0     [001] 241302.750777: napi_poll: napi poll on napi struct f6acc480 for device eth3
+          <idle>-0     [000] 241302.852389: napi_poll: napi poll on napi struct f5d0d70c for device eth1
 
-And when this tracepoint is used in combination with
-the softirq_entry tracepoint we can determine
-the softirq raise latency.
+An original patch is below.
+http://marc.info/?l=linux-kernel&m=126021713809450&w=2
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
-Acked-by: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Acked-by: Frederic Weisbecker <fweisbec@gmail.com>
+And add a fix by Steven Rostedt.
+http://marc.info/?l=linux-kernel&m=126150506519173&w=2
 
-[ factorize softirq events with DECLARE_EVENT_CLASS ]
 Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 ---
- include/linux/interrupt.h  |    8 +++++++-
- include/trace/events/irq.h |   26 ++++++++++++++++++++++++--
- 2 files changed, 31 insertions(+), 3 deletions(-)
+ include/trace/events/napi.h |   25 +++++++++++++++++++++++--
+ 1 files changed, 23 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index a0384a4..d3e8e90 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -18,6 +18,7 @@
- #include <asm/atomic.h>
- #include <asm/ptrace.h>
- #include <asm/system.h>
-+#include <trace/events/irq.h>
+diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
+index 188deca..8fe1e93 100644
+--- a/include/trace/events/napi.h
++++ b/include/trace/events/napi.h
+@@ -6,10 +6,31 @@
  
- /*
-  * These correspond to the IORESOURCE_IRQ_* defines in
-@@ -407,7 +408,12 @@ asmlinkage void do_softirq(void);
- asmlinkage void __do_softirq(void);
- extern void open_softirq(int nr, void (*action)(struct softirq_action *));
- extern void softirq_init(void);
--#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
-+static inline void __raise_softirq_irqoff(unsigned int nr)
-+{
-+	trace_softirq_raise((struct softirq_action *)&nr, NULL);
-+	or_softirq_pending(1UL << nr);
-+}
-+
- extern void raise_softirq_irqoff(unsigned int nr);
- extern void raise_softirq(unsigned int nr);
- extern void wakeup_softirqd(void);
-diff --git a/include/trace/events/irq.h b/include/trace/events/irq.h
-index 0e4cfb6..3ddda02 100644
---- a/include/trace/events/irq.h
-+++ b/include/trace/events/irq.h
-@@ -5,7 +5,9 @@
- #define _TRACE_IRQ_H
- 
+ #include <linux/netdevice.h>
  #include <linux/tracepoint.h>
--#include <linux/interrupt.h>
++#include <linux/ftrace.h>
 +
-+struct irqaction;
-+struct softirq_action;
- 
- #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
- #define show_softirq_name(val)				\
-@@ -93,7 +95,10 @@ DECLARE_EVENT_CLASS(softirq,
- 	),
- 
- 	TP_fast_assign(
--		__entry->vec = (int)(h - vec);
-+		if (vec)
-+			__entry->vec = (int)(h - vec);
-+		else
-+			__entry->vec = *((int *)h);
- 	),
- 
- 	TP_printk("vec=%d [action=%s]", __entry->vec,
-@@ -136,6 +141,23 @@ DEFINE_EVENT(softirq, softirq_exit,
- 	TP_ARGS(h, vec)
- );
- 
-+/**
-+ * softirq_raise - called immediately when a softirq is raised
-+ * @h: pointer to struct softirq_action
-+ * @vec: pointer to first struct softirq_action in softirq_vec array
-+ *
-+ * The @h parameter contains a pointer to the softirq vector number which is
-+ * raised. @vec is NULL and it means @h includes vector number not
-+ * softirq_action. When used in combination with the softirq_entry tracepoint
-+ * we can determine the softirq raise latency.
-+ */
-+DEFINE_EVENT(softirq, softirq_raise,
++#define NO_DEV "(no_device)"
 +
-+	TP_PROTO(struct softirq_action *h, struct softirq_action *vec),
++TRACE_EVENT(napi_poll,
+ 
+-DECLARE_TRACE(napi_poll,
+ 	TP_PROTO(struct napi_struct *napi),
+-	TP_ARGS(napi));
 +
-+	TP_ARGS(h, vec)
++	TP_ARGS(napi),
++
++	TP_STRUCT__entry(
++		__field(	struct napi_struct *,	napi)
++		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
++	),
++
++	TP_fast_assign(
++		__entry->napi = napi;
++		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
++	),
++
++	TP_printk("napi poll on napi struct %p for device %s",
++		__entry->napi, __get_str(dev_name))
 +);
 +
- #endif /*  _TRACE_IRQ_H */
++#undef NO_DEV
  
- /* This part must be outside protection */
+ #endif /* _TRACE_NAPI_H_ */
+ 
