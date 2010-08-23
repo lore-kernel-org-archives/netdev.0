@@ -1,30 +1,30 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 2/6] bna: Brocade 10Gb Ethernet device driver
-Date: Mon, 23 Aug 2010 14:25:24 -0700
-Message-ID: <201008232125.o7NLPOQP001630@blc-10-10.brocade.com>
+Subject: [PATCH 3/6] bna: Brocade 10Gb Ethernet device driver
+Date: Mon, 23 Aug 2010 14:26:24 -0700
+Message-ID: <201008232126.o7NLQORE001897@blc-10-10.brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <amathur@brocade.com>, <ddutt@brocade.com>, <huangj@brocade.com>,
 	<rmody@brocade.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:43309 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754511Ab0HWVZ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 17:25:27 -0400
-Received: from pps.filterd (m0000542 [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.14.3/8.14.3) with SMTP id o7NLKNKb026543
-	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:25:26 -0700
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:55265 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754511Ab0HWV0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 17:26:32 -0400
+Received: from pps.filterd (m0000700 [127.0.0.1])
+	by mx0b-000f0801.pphosted.com (8.14.3/8.14.3) with SMTP id o7NLKLFO022416
+	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:26:31 -0700
 Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.141.11])
-	by mx0a-000f0801.pphosted.com with ESMTP id qv0g400kr-1
+	by mx0b-000f0801.pphosted.com with ESMTP id qv0mm00ds-5
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:25:25 -0700
+	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:26:28 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rasesh Mody <rmody@brocade.com>
 
-This is patch 2/6 which contains linux driver source for
+This is patch 3/6 which contains linux driver source for
 Brocade's BR1010/BR1020 10Gb CEE capable ethernet adapter.
 Source is based against net-next-2.6.
 
@@ -33,14 +33,15 @@ We wish this patch to be considered for inclusion in net-next-2.6
 Signed-off-by: Debashis Dutt <ddutt@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- bfa_ioc_ct.c |  391 ++++++
- bna_ctrl.c   | 3626 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 4017 insertions(+)
+ bfa_cee.c   |  407 +++++
+ bna_txrx.c  | 4209 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ cna_fwimg.c |   64 
+ 3 files changed, 4680 insertions(+)
 
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_ioc_ct.c net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_ioc_ct.c
---- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_ioc_ct.c	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_ioc_ct.c	2010-08-23 13:24:47.085962000 -0700
-@@ -0,0 +1,391 @@
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_cee.c net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_cee.c
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_cee.c	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bfa_cee.c	2010-08-23 13:24:47.195964000 -0700
+@@ -0,0 +1,407 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -59,383 +60,399 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bfa_ioc_ct.c net-next-2.6.35-
 + * www.brocade.com
 + */
 +
-+#include "bfa_ioc.h"
++#include "bfa_defs_cna.h"
 +#include "cna.h"
-+#include "bfi.h"
-+#include "bfi_ctreg.h"
-+#include "bfa_defs.h"
++#include "bfa_cee.h"
++#include "bfi_cna.h"
++#include "bfa_ioc.h"
 +
-+/*
-+ * forward declarations
-+ */
-+static bool bfa_ioc_ct_firmware_lock(struct bfa_ioc *ioc);
-+static void bfa_ioc_ct_firmware_unlock(struct bfa_ioc *ioc);
-+static void bfa_ioc_ct_reg_init(struct bfa_ioc *ioc);
-+static void bfa_ioc_ct_map_port(struct bfa_ioc *ioc);
-+static void bfa_ioc_ct_isr_mode_set(struct bfa_ioc *ioc, bool msix);
-+static void bfa_ioc_ct_notify_hbfail(struct bfa_ioc *ioc);
-+static void bfa_ioc_ct_ownership_reset(struct bfa_ioc *ioc);
++#define bfa_ioc_portid(__ioc) ((__ioc)->port_id)
++#define bfa_lpuid(__arg) bfa_ioc_portid(&(__arg)->ioc)
 +
-+struct bfa_ioc_hwif hwif_ct;
++static void bfa_cee_format_lldp_cfg(struct bfa_cee_lldp_cfg *lldp_cfg);
++static void bfa_cee_format_cee_cfg(void *buffer);
++
++static void
++bfa_cee_format_cee_cfg(void *buffer)
++{
++	struct bfa_cee_attr *cee_cfg = buffer;
++	bfa_cee_format_lldp_cfg(&cee_cfg->lldp_remote);
++}
++
++static void
++bfa_cee_stats_swap(struct bfa_cee_stats *stats)
++{
++	u32 *buffer = (u32 *)stats;
++	int i;
++
++	for (i = 0; i < (sizeof(struct bfa_cee_stats) / sizeof(u32));
++		i++) {
++		buffer[i] = ntohl(buffer[i]);
++	}
++}
++
++static void
++bfa_cee_format_lldp_cfg(struct bfa_cee_lldp_cfg *lldp_cfg)
++{
++	lldp_cfg->time_to_live =
++			ntohs(lldp_cfg->time_to_live);
++	lldp_cfg->enabled_system_cap =
++			ntohs(lldp_cfg->enabled_system_cap);
++}
 +
 +/**
-+ * Called from bfa_ioc_attach() to map asic specific calls.
++ * bfa_cee_attr_meminfo()
++ *
++ * @brief Returns the size of the DMA memory needed by CEE attributes
++ *
++ * @param[in] void
++ *
++ * @return Size of DMA region
++ */
++static u32
++bfa_cee_attr_meminfo(void)
++{
++	return roundup(sizeof(struct bfa_cee_attr), BFA_DMA_ALIGN_SZ);
++}
++/**
++ * bfa_cee_stats_meminfo()
++ *
++ * @brief Returns the size of the DMA memory needed by CEE stats
++ *
++ * @param[in] void
++ *
++ * @return Size of DMA region
++ */
++static u32
++bfa_cee_stats_meminfo(void)
++{
++	return roundup(sizeof(struct bfa_cee_stats), BFA_DMA_ALIGN_SZ);
++}
++
++/**
++ * bfa_cee_get_attr_isr()
++ *
++ * @brief CEE ISR for get-attributes responses from f/w
++ *
++ * @param[in] cee - Pointer to the CEE module
++ *            status - Return status from the f/w
++ *
++ * @return void
++ */
++static void
++bfa_cee_get_attr_isr(struct bfa_cee *cee, enum bfa_status status)
++{
++	cee->get_attr_status = status;
++	if (status == BFA_STATUS_OK) {
++		memcpy(cee->attr, cee->attr_dma.kva,
++		    sizeof(struct bfa_cee_attr));
++		bfa_cee_format_cee_cfg(cee->attr);
++	}
++	cee->get_attr_pending = false;
++	if (cee->cbfn.get_attr_cbfn)
++		cee->cbfn.get_attr_cbfn(cee->cbfn.get_attr_cbarg, status);
++}
++
++/**
++ * bfa_cee_get_attr_isr()
++ *
++ * @brief CEE ISR for get-stats responses from f/w
++ *
++ * @param[in] cee - Pointer to the CEE module
++ *            status - Return status from the f/w
++ *
++ * @return void
++ */
++static void
++bfa_cee_get_stats_isr(struct bfa_cee *cee, enum bfa_status status)
++{
++	cee->get_stats_status = status;
++	if (status == BFA_STATUS_OK) {
++		memcpy(cee->stats, cee->stats_dma.kva,
++			sizeof(struct bfa_cee_stats));
++		bfa_cee_stats_swap(cee->stats);
++	}
++	cee->get_stats_pending = false;
++	if (cee->cbfn.get_stats_cbfn)
++		cee->cbfn.get_stats_cbfn(cee->cbfn.get_stats_cbarg, status);
++}
++
++/**
++ * bfa_cee_get_attr_isr()
++ *
++ * @brief CEE ISR for reset-stats responses from f/w
++ *
++ * @param[in] cee - Pointer to the CEE module
++ *            status - Return status from the f/w
++ *
++ * @return void
++ */
++static void
++bfa_cee_reset_stats_isr(struct bfa_cee *cee, enum bfa_status status)
++{
++	cee->reset_stats_status = status;
++	cee->reset_stats_pending = false;
++	if (cee->cbfn.reset_stats_cbfn)
++		cee->cbfn.reset_stats_cbfn(cee->cbfn.reset_stats_cbarg, status);
++}
++/**
++ * bfa_cee_meminfo()
++ *
++ * @brief Returns the size of the DMA memory needed by CEE module
++ *
++ * @param[in] void
++ *
++ * @return Size of DMA region
++ */
++u32
++bfa_cee_meminfo(void)
++{
++	return bfa_cee_attr_meminfo() + bfa_cee_stats_meminfo();
++}
++
++/**
++ * bfa_cee_mem_claim()
++ *
++ * @brief Initialized CEE DMA Memory
++ *
++ * @param[in] cee CEE module pointer
++ *	      dma_kva Kernel Virtual Address of CEE DMA Memory
++ *	      dma_pa  Physical Address of CEE DMA Memory
++ *
++ * @return void
 + */
 +void
-+bfa_ioc_set_ct_hwif(struct bfa_ioc *ioc)
++bfa_cee_mem_claim(struct bfa_cee *cee, u8 *dma_kva, u64 dma_pa)
 +{
-+	hwif_ct.ioc_pll_init = bfa_ioc_ct_pll_init;
-+	hwif_ct.ioc_firmware_lock = bfa_ioc_ct_firmware_lock;
-+	hwif_ct.ioc_firmware_unlock = bfa_ioc_ct_firmware_unlock;
-+	hwif_ct.ioc_reg_init = bfa_ioc_ct_reg_init;
-+	hwif_ct.ioc_map_port = bfa_ioc_ct_map_port;
-+	hwif_ct.ioc_isr_mode_set = bfa_ioc_ct_isr_mode_set;
-+	hwif_ct.ioc_notify_hbfail = bfa_ioc_ct_notify_hbfail;
-+	hwif_ct.ioc_ownership_reset = bfa_ioc_ct_ownership_reset;
-+
-+	ioc->ioc_hwif = &hwif_ct;
++	cee->attr_dma.kva = dma_kva;
++	cee->attr_dma.pa = dma_pa;
++	cee->stats_dma.kva = dma_kva + bfa_cee_attr_meminfo();
++	cee->stats_dma.pa = dma_pa + bfa_cee_attr_meminfo();
++	cee->attr = (struct bfa_cee_attr *) dma_kva;
++	cee->stats = (struct bfa_cee_stats *)
++		(dma_kva + bfa_cee_attr_meminfo());
 +}
 +
 +/**
-+ * Return true if firmware of current driver matches the running firmware.
++ * bfa_cee_get_attr()
++ *
++ * @brief
++ *   Send the request to the f/w to fetch CEE attributes.
++ *
++ * @param[in] Pointer to the CEE module data structure.
++ *
++ * @return Status
 + */
-+static bool
-+bfa_ioc_ct_firmware_lock(struct bfa_ioc *ioc)
-+{
-+	enum bfi_ioc_state ioc_fwstate;
-+	u32 usecnt;
-+	struct bfi_ioc_image_hdr fwhdr;
-+
-+	/**
-+	 * Firmware match check is relevant only for CNA.
-+	 */
-+	if (!ioc->cna)
-+		return true;
-+
-+	/**
-+	 * If bios boot (flash based) -- do not increment usage count
-+	 */
-+	if (bfa_cb_image_get_size(BFA_IOC_FWIMG_TYPE(ioc)) <
-+						BFA_IOC_FWIMG_MINSZ)
-+		return true;
-+
-+	bfa_ioc_sem_get(ioc->ioc_regs.ioc_usage_sem_reg);
-+	usecnt = readl(ioc->ioc_regs.ioc_usage_reg);
-+
-+	/**
-+	 * If usage count is 0, always return TRUE.
-+	 */
-+	if (usecnt == 0) {
-+		writel(1, ioc->ioc_regs.ioc_usage_reg);
-+		bfa_ioc_sem_release(ioc->ioc_regs.ioc_usage_sem_reg);
-+		return true;
-+	}
-+
-+	ioc_fwstate = readl(ioc->ioc_regs.ioc_fwstate);
-+
-+	/**
-+	 * Use count cannot be non-zero and chip in uninitialized state.
-+	 */
-+	BUG_ON(!(ioc_fwstate != BFI_IOC_UNINIT));
-+
-+	/**
-+	 * Check if another driver with a different firmware is active
-+	 */
-+	bfa_ioc_fwver_get(ioc, &fwhdr);
-+	if (!bfa_ioc_fwver_cmp(ioc, &fwhdr)) {
-+		bfa_ioc_sem_release(ioc->ioc_regs.ioc_usage_sem_reg);
-+		return false;
-+	}
-+
-+	/**
-+	 * Same firmware version. Increment the reference count.
-+	 */
-+	usecnt++;
-+	writel(usecnt, ioc->ioc_regs.ioc_usage_reg);
-+	bfa_ioc_sem_release(ioc->ioc_regs.ioc_usage_sem_reg);
-+	return true;
-+}
-+
-+static void
-+bfa_ioc_ct_firmware_unlock(struct bfa_ioc *ioc)
-+{
-+	u32 usecnt;
-+
-+	/**
-+	 * Firmware lock is relevant only for CNA.
-+	 */
-+	if (!ioc->cna)
-+		return;
-+
-+	/**
-+	 * If bios boot (flash based) -- do not decrement usage count
-+	 */
-+	if (bfa_cb_image_get_size(BFA_IOC_FWIMG_TYPE(ioc)) <
-+						BFA_IOC_FWIMG_MINSZ)
-+		return;
-+
-+	/**
-+	 * decrement usage count
-+	 */
-+	bfa_ioc_sem_get(ioc->ioc_regs.ioc_usage_sem_reg);
-+	usecnt = readl(ioc->ioc_regs.ioc_usage_reg);
-+	BUG_ON(!(usecnt > 0));
-+
-+	usecnt--;
-+	writel(usecnt, ioc->ioc_regs.ioc_usage_reg);
-+
-+	bfa_ioc_sem_release(ioc->ioc_regs.ioc_usage_sem_reg);
-+}
-+
-+/**
-+ * Notify other functions on HB failure.
-+ */
-+static void
-+bfa_ioc_ct_notify_hbfail(struct bfa_ioc *ioc)
-+{
-+	if (ioc->cna) {
-+		writel(__FW_INIT_HALT_P, ioc->ioc_regs.ll_halt);
-+		/* Wait for halt to take effect */
-+		readl(ioc->ioc_regs.ll_halt);
-+	} else {
-+		writel(__PSS_ERR_STATUS_SET, ioc->ioc_regs.err_set);
-+		readl(ioc->ioc_regs.err_set);
-+	}
-+}
-+
-+/**
-+ * Host to LPU mailbox message addresses
-+ */
-+static struct { u32 hfn_mbox, lpu_mbox, hfn_pgn; } iocreg_fnreg[] = {
-+	{ HOSTFN0_LPU_MBOX0_0, LPU_HOSTFN0_MBOX0_0, HOST_PAGE_NUM_FN0 },
-+	{ HOSTFN1_LPU_MBOX0_8, LPU_HOSTFN1_MBOX0_8, HOST_PAGE_NUM_FN1 },
-+	{ HOSTFN2_LPU_MBOX0_0, LPU_HOSTFN2_MBOX0_0, HOST_PAGE_NUM_FN2 },
-+	{ HOSTFN3_LPU_MBOX0_8, LPU_HOSTFN3_MBOX0_8, HOST_PAGE_NUM_FN3 }
-+};
-+
-+/**
-+ * Host <-> LPU mailbox command/status registers - port 0
-+ */
-+static struct { u32 hfn, lpu; } iocreg_mbcmd_p0[] = {
-+	{ HOSTFN0_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN0_MBOX0_CMD_STAT },
-+	{ HOSTFN1_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN1_MBOX0_CMD_STAT },
-+	{ HOSTFN2_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN2_MBOX0_CMD_STAT },
-+	{ HOSTFN3_LPU0_MBOX0_CMD_STAT, LPU0_HOSTFN3_MBOX0_CMD_STAT }
-+};
-+
-+/**
-+ * Host <-> LPU mailbox command/status registers - port 1
-+ */
-+static struct { u32 hfn, lpu; } iocreg_mbcmd_p1[] = {
-+	{ HOSTFN0_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN0_MBOX0_CMD_STAT },
-+	{ HOSTFN1_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN1_MBOX0_CMD_STAT },
-+	{ HOSTFN2_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN2_MBOX0_CMD_STAT },
-+	{ HOSTFN3_LPU1_MBOX0_CMD_STAT, LPU1_HOSTFN3_MBOX0_CMD_STAT }
-+};
-+
-+static void
-+bfa_ioc_ct_reg_init(struct bfa_ioc *ioc)
-+{
-+	void __iomem *rb;
-+	int		pcifn = bfa_ioc_pcifn(ioc);
-+
-+	rb = bfa_ioc_bar0(ioc);
-+
-+	ioc->ioc_regs.hfn_mbox = rb + iocreg_fnreg[pcifn].hfn_mbox;
-+	ioc->ioc_regs.lpu_mbox = rb + iocreg_fnreg[pcifn].lpu_mbox;
-+	ioc->ioc_regs.host_page_num_fn = rb + iocreg_fnreg[pcifn].hfn_pgn;
-+
-+	if (ioc->port_id == 0) {
-+		ioc->ioc_regs.heartbeat = rb + BFA_IOC0_HBEAT_REG;
-+		ioc->ioc_regs.ioc_fwstate = rb + BFA_IOC0_STATE_REG;
-+		ioc->ioc_regs.hfn_mbox_cmd = rb + iocreg_mbcmd_p0[pcifn].hfn;
-+		ioc->ioc_regs.lpu_mbox_cmd = rb + iocreg_mbcmd_p0[pcifn].lpu;
-+		ioc->ioc_regs.ll_halt = rb + FW_INIT_HALT_P0;
-+	} else {
-+		ioc->ioc_regs.heartbeat = (rb + BFA_IOC1_HBEAT_REG);
-+		ioc->ioc_regs.ioc_fwstate = (rb + BFA_IOC1_STATE_REG);
-+		ioc->ioc_regs.hfn_mbox_cmd = rb + iocreg_mbcmd_p1[pcifn].hfn;
-+		ioc->ioc_regs.lpu_mbox_cmd = rb + iocreg_mbcmd_p1[pcifn].lpu;
-+		ioc->ioc_regs.ll_halt = rb + FW_INIT_HALT_P1;
-+	}
-+
-+	/*
-+	 * PSS control registers
-+	 */
-+	ioc->ioc_regs.pss_ctl_reg = (rb + PSS_CTL_REG);
-+	ioc->ioc_regs.pss_err_status_reg = (rb + PSS_ERR_STATUS_REG);
-+	ioc->ioc_regs.app_pll_fast_ctl_reg = (rb + APP_PLL_425_CTL_REG);
-+	ioc->ioc_regs.app_pll_slow_ctl_reg = (rb + APP_PLL_312_CTL_REG);
-+
-+	/*
-+	 * IOC semaphore registers and serialization
-+	 */
-+	ioc->ioc_regs.ioc_sem_reg = (rb + HOST_SEM0_REG);
-+	ioc->ioc_regs.ioc_usage_sem_reg = (rb + HOST_SEM1_REG);
-+	ioc->ioc_regs.ioc_init_sem_reg = (rb + HOST_SEM2_REG);
-+	ioc->ioc_regs.ioc_usage_reg = (rb + BFA_FW_USE_COUNT);
-+
-+	/**
-+	 * sram memory access
-+	 */
-+	ioc->ioc_regs.smem_page_start = (rb + PSS_SMEM_PAGE_START);
-+	ioc->ioc_regs.smem_pg0 = BFI_IOC_SMEM_PG0_CT;
-+
-+	/*
-+	 * err set reg : for notification of hb failure in fcmode
-+	 */
-+	ioc->ioc_regs.err_set = (rb + ERR_SET_REG);
-+}
-+
-+/**
-+ * Initialize IOC to port mapping.
-+ */
-+
-+#define FNC_PERS_FN_SHIFT(__fn)	((__fn) * 8)
-+static void
-+bfa_ioc_ct_map_port(struct bfa_ioc *ioc)
-+{
-+	void __iomem *rb = ioc->pcidev.pci_bar_kva;
-+	u32	r32;
-+
-+	/**
-+	 * For catapult, base port id on personality register and IOC type
-+	 */
-+	r32 = readl(rb + FNC_PERS_REG);
-+	r32 >>= FNC_PERS_FN_SHIFT(bfa_ioc_pcifn(ioc));
-+	ioc->port_id = (r32 & __F0_PORT_MAP_MK) >> __F0_PORT_MAP_SH;
-+
-+}
-+
-+/**
-+ * Set interrupt mode for a function: INTX or MSIX
-+ */
-+static void
-+bfa_ioc_ct_isr_mode_set(struct bfa_ioc *ioc, bool msix)
-+{
-+	void __iomem *rb = ioc->pcidev.pci_bar_kva;
-+	u32	r32, mode;
-+
-+	r32 = readl(rb + FNC_PERS_REG);
-+
-+	mode = (r32 >> FNC_PERS_FN_SHIFT(bfa_ioc_pcifn(ioc))) &
-+		__F0_INTX_STATUS;
-+
-+	/**
-+	 * If already in desired mode, do not change anything
-+	 */
-+	if (!msix && mode)
-+		return;
-+
-+	if (msix)
-+		mode = __F0_INTX_STATUS_MSIX;
-+	else
-+		mode = __F0_INTX_STATUS_INTA;
-+
-+	r32 &= ~(__F0_INTX_STATUS << FNC_PERS_FN_SHIFT(bfa_ioc_pcifn(ioc)));
-+	r32 |= (mode << FNC_PERS_FN_SHIFT(bfa_ioc_pcifn(ioc)));
-+
-+	writel(r32, rb + FNC_PERS_REG);
-+}
-+
-+/**
-+ * Cleanup hw semaphore and usecnt registers
-+ */
-+static void
-+bfa_ioc_ct_ownership_reset(struct bfa_ioc *ioc)
-+{
-+	if (ioc->cna) {
-+		bfa_ioc_sem_get(ioc->ioc_regs.ioc_usage_sem_reg);
-+		writel(0, ioc->ioc_regs.ioc_usage_reg);
-+		bfa_ioc_sem_release(ioc->ioc_regs.ioc_usage_sem_reg);
-+	}
-+
-+	/*
-+	 * Read the hw sem reg to make sure that it is locked
-+	 * before we clear it. If it is not locked, writing 1
-+	 * will lock it instead of clearing it.
-+	 */
-+	readl(ioc->ioc_regs.ioc_sem_reg);
-+	bfa_ioc_hw_sem_release(ioc);
-+}
 +
 +enum bfa_status
-+bfa_ioc_ct_pll_init(void __iomem *rb, bool fcmode)
++bfa_cee_get_attr(struct bfa_cee *cee, struct bfa_cee_attr *attr,
++		     bfa_cee_get_attr_cbfn_t cbfn, void *cbarg)
 +{
-+	u32	pll_sclk, pll_fclk, r32;
++	struct bfi_cee_get_req *cmd;
 +
-+	pll_sclk = __APP_PLL_312_LRESETN | __APP_PLL_312_ENARST |
-+		__APP_PLL_312_RSEL200500 | __APP_PLL_312_P0_1(3U) |
-+		__APP_PLL_312_JITLMT0_1(3U) |
-+		__APP_PLL_312_CNTLMT0_1(1U);
-+	pll_fclk = __APP_PLL_425_LRESETN | __APP_PLL_425_ENARST |
-+		__APP_PLL_425_RSEL200500 | __APP_PLL_425_P0_1(3U) |
-+		__APP_PLL_425_JITLMT0_1(3U) |
-+		__APP_PLL_425_CNTLMT0_1(1U);
-+	if (fcmode) {
-+		writel(0, (rb + OP_MODE));
-+		writel(__APP_EMS_CMLCKSEL |
-+				__APP_EMS_REFCKBUFEN2 |
-+				__APP_EMS_CHANNEL_SEL,
-+				(rb + ETH_MAC_SER_REG));
-+	} else {
-+		writel(__GLOBAL_FCOE_MODE, (rb + OP_MODE));
-+		writel(__APP_EMS_REFCKBUFEN1,
-+				(rb + ETH_MAC_SER_REG));
-+	}
-+	writel(BFI_IOC_UNINIT, (rb + BFA_IOC0_STATE_REG));
-+	writel(BFI_IOC_UNINIT, (rb + BFA_IOC1_STATE_REG));
-+	writel(0xffffffffU, (rb + HOSTFN0_INT_MSK));
-+	writel(0xffffffffU, (rb + HOSTFN1_INT_MSK));
-+	writel(0xffffffffU, (rb + HOSTFN0_INT_STATUS));
-+	writel(0xffffffffU, (rb + HOSTFN1_INT_STATUS));
-+	writel(0xffffffffU, (rb + HOSTFN0_INT_MSK));
-+	writel(0xffffffffU, (rb + HOSTFN1_INT_MSK));
-+	writel(pll_sclk |
-+		__APP_PLL_312_LOGIC_SOFT_RESET,
-+		rb + APP_PLL_312_CTL_REG);
-+	writel(pll_fclk |
-+		__APP_PLL_425_LOGIC_SOFT_RESET,
-+		rb + APP_PLL_425_CTL_REG);
-+	writel(pll_sclk |
-+		__APP_PLL_312_LOGIC_SOFT_RESET | __APP_PLL_312_ENABLE,
-+		rb + APP_PLL_312_CTL_REG);
-+	writel(pll_fclk |
-+		__APP_PLL_425_LOGIC_SOFT_RESET | __APP_PLL_425_ENABLE,
-+		rb + APP_PLL_425_CTL_REG);
-+	readl(rb + HOSTFN0_INT_MSK);
-+	udelay(2000);
-+	writel(0xffffffffU, (rb + HOSTFN0_INT_STATUS));
-+	writel(0xffffffffU, (rb + HOSTFN1_INT_STATUS));
-+	writel(pll_sclk |
-+		__APP_PLL_312_ENABLE,
-+		rb + APP_PLL_312_CTL_REG);
-+	writel(pll_fclk |
-+		__APP_PLL_425_ENABLE,
-+		rb + APP_PLL_425_CTL_REG);
-+	if (!fcmode) {
-+		writel(__PMM_1T_RESET_P, (rb + PMM_1T_RESET_REG_P0));
-+		writel(__PMM_1T_RESET_P, (rb + PMM_1T_RESET_REG_P1));
-+	}
-+	r32 = readl((rb + PSS_CTL_REG));
-+	r32 &= ~__PSS_LMEM_RESET;
-+	writel(r32, (rb + PSS_CTL_REG));
-+	udelay(1000);
-+	if (!fcmode) {
-+		writel(0, (rb + PMM_1T_RESET_REG_P0));
-+		writel(0, (rb + PMM_1T_RESET_REG_P1));
-+	}
++	BUG_ON(!((cee != NULL) && (cee->ioc != NULL)));
++	if (!bfa_ioc_is_operational(cee->ioc))
++		return BFA_STATUS_IOC_FAILURE;
++	if (cee->get_attr_pending == true)
++		return 	BFA_STATUS_DEVBUSY;
++	cee->get_attr_pending = true;
++	cmd = (struct bfi_cee_get_req *) cee->get_cfg_mb.msg;
++	cee->attr = attr;
++	cee->cbfn.get_attr_cbfn = cbfn;
++	cee->cbfn.get_attr_cbarg = cbarg;
++	bfi_h2i_set(cmd->mh, BFI_MC_CEE, BFI_CEE_H2I_GET_CFG_REQ,
++	    bfa_ioc_portid(cee->ioc));
++	bfa_dma_be_addr_set(cmd->dma_addr, cee->attr_dma.pa);
++	bfa_ioc_mbox_queue(cee->ioc, &cee->get_cfg_mb);
 +
-+	writel(__EDRAM_BISTR_START, (rb + MBIST_CTL_REG));
-+	udelay(1000);
-+	r32 = readl((rb + MBIST_STAT_REG));
-+	writel(0, (rb + MBIST_CTL_REG));
 +	return BFA_STATUS_OK;
 +}
-diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc1-mod/drivers/net/bna/bna_ctrl.c
---- net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c	1969-12-31 16:00:00.000000000 -0800
-+++ net-next-2.6.35-rc1-mod/drivers/net/bna/bna_ctrl.c	2010-08-23 13:24:47.075975000 -0700
-@@ -0,0 +1,3626 @@
++
++/**
++ * bfa_cee_get_stats()
++ *
++ * @brief
++ *   Send the request to the f/w to fetch CEE statistics.
++ *
++ * @param[in] Pointer to the CEE module data structure.
++ *
++ * @return Status
++ */
++
++enum bfa_status
++bfa_cee_get_stats(struct bfa_cee *cee, struct bfa_cee_stats *stats,
++		      bfa_cee_get_stats_cbfn_t cbfn, void *cbarg)
++{
++	struct bfi_cee_get_req *cmd;
++
++	BUG_ON(!((cee != NULL) && (cee->ioc != NULL)));
++
++	if (!bfa_ioc_is_operational(cee->ioc))
++		return BFA_STATUS_IOC_FAILURE;
++	if (cee->get_stats_pending == true)
++		return 	BFA_STATUS_DEVBUSY;
++	cee->get_stats_pending = true;
++	cmd = (struct bfi_cee_get_req *) cee->get_stats_mb.msg;
++	cee->stats = stats;
++	cee->cbfn.get_stats_cbfn = cbfn;
++	cee->cbfn.get_stats_cbarg = cbarg;
++	bfi_h2i_set(cmd->mh, BFI_MC_CEE, BFI_CEE_H2I_GET_STATS_REQ,
++	    bfa_ioc_portid(cee->ioc));
++	bfa_dma_be_addr_set(cmd->dma_addr, cee->stats_dma.pa);
++	bfa_ioc_mbox_queue(cee->ioc, &cee->get_stats_mb);
++
++	return BFA_STATUS_OK;
++}
++
++/**
++ * bfa_cee_reset_stats()
++ *
++ * @brief Clears CEE Stats in the f/w.
++ *
++ * @param[in] Pointer to the CEE module data structure.
++ *
++ * @return Status
++ */
++
++enum bfa_status
++bfa_cee_reset_stats(struct bfa_cee *cee, bfa_cee_reset_stats_cbfn_t cbfn,
++			void *cbarg)
++{
++	struct bfi_cee_reset_stats *cmd;
++
++	BUG_ON(!((cee != NULL) && (cee->ioc != NULL)));
++	if (!bfa_ioc_is_operational(cee->ioc))
++		return BFA_STATUS_IOC_FAILURE;
++	if (cee->reset_stats_pending == true)
++		return 	BFA_STATUS_DEVBUSY;
++	cee->reset_stats_pending = true;
++	cmd = (struct bfi_cee_reset_stats *) cee->reset_stats_mb.msg;
++	cee->cbfn.reset_stats_cbfn = cbfn;
++	cee->cbfn.reset_stats_cbarg = cbarg;
++	bfi_h2i_set(cmd->mh, BFI_MC_CEE, BFI_CEE_H2I_RESET_STATS,
++	    bfa_ioc_portid(cee->ioc));
++	bfa_ioc_mbox_queue(cee->ioc, &cee->reset_stats_mb);
++	return BFA_STATUS_OK;
++}
++
++/**
++ * bfa_cee_isrs()
++ *
++ * @brief Handles Mail-box interrupts for CEE module.
++ *
++ * @param[in] Pointer to the CEE module data structure.
++ *
++ * @return void
++ */
++
++void
++bfa_cee_isr(void *cbarg, struct bfi_mbmsg *m)
++{
++	union bfi_cee_i2h_msg_u *msg;
++	struct bfi_cee_get_rsp *get_rsp;
++	struct bfa_cee *cee = (struct bfa_cee *) cbarg;
++	msg = (union bfi_cee_i2h_msg_u *) m;
++	get_rsp = (struct bfi_cee_get_rsp *) m;
++	switch (msg->mh.msg_id) {
++	case BFI_CEE_I2H_GET_CFG_RSP:
++		bfa_cee_get_attr_isr(cee, get_rsp->cmd_status);
++		break;
++	case BFI_CEE_I2H_GET_STATS_RSP:
++		bfa_cee_get_stats_isr(cee, get_rsp->cmd_status);
++		break;
++	case BFI_CEE_I2H_RESET_STATS_RSP:
++		bfa_cee_reset_stats_isr(cee, get_rsp->cmd_status);
++		break;
++	default:
++		BUG_ON(1);
++	}
++}
++
++/**
++ * bfa_cee_hbfail()
++ *
++ * @brief CEE module heart-beat failure handler.
++ *
++ * @param[in] Pointer to the CEE module data structure.
++ *
++ * @return void
++ */
++
++void
++bfa_cee_hbfail(void *arg)
++{
++	struct bfa_cee *cee;
++	cee = (struct bfa_cee *) arg;
++
++	if (cee->get_attr_pending == true) {
++		cee->get_attr_status = BFA_STATUS_FAILED;
++		cee->get_attr_pending  = false;
++		if (cee->cbfn.get_attr_cbfn) {
++			cee->cbfn.get_attr_cbfn(cee->cbfn.get_attr_cbarg,
++			    BFA_STATUS_FAILED);
++		}
++	}
++	if (cee->get_stats_pending == true) {
++		cee->get_stats_status = BFA_STATUS_FAILED;
++		cee->get_stats_pending  = false;
++		if (cee->cbfn.get_stats_cbfn) {
++			cee->cbfn.get_stats_cbfn(cee->cbfn.get_stats_cbarg,
++			    BFA_STATUS_FAILED);
++		}
++	}
++	if (cee->reset_stats_pending == true) {
++		cee->reset_stats_status = BFA_STATUS_FAILED;
++		cee->reset_stats_pending  = false;
++		if (cee->cbfn.reset_stats_cbfn) {
++			cee->cbfn.reset_stats_cbfn(cee->cbfn.reset_stats_cbarg,
++			    BFA_STATUS_FAILED);
++		}
++	}
++}
++
++/**
++ * bfa_cee_attach()
++ *
++ * @brief CEE module-attach API
++ *
++ * @param[in] cee - Pointer to the CEE module data structure
++ *            ioc - Pointer to the ioc module data structure
++ *            dev - Pointer to the device driver module data structure
++ *                  The device driver specific mbox ISR functions have
++ *                  this pointer as one of the parameters.
++ *
++ * @return void
++ */
++void
++bfa_cee_attach(struct bfa_cee *cee, struct bfa_ioc *ioc,
++		void *dev)
++{
++	BUG_ON(!(cee != NULL));
++	cee->dev = dev;
++	cee->ioc = ioc;
++
++	bfa_ioc_mbox_regisr(cee->ioc, BFI_MC_CEE, bfa_cee_isr, cee);
++	bfa_ioc_hbfail_init(&cee->hbfail, bfa_cee_hbfail, cee);
++	bfa_ioc_hbfail_register(cee->ioc, &cee->hbfail);
++}
++
++/**
++ * bfa_cee_detach()
++ *
++ * @brief CEE module-detach API
++ *
++ * @param[in] cee - Pointer to the CEE module data structure
++ *
++ * @return void
++ */
++void
++bfa_cee_detach(struct bfa_cee *cee)
++{
++}
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_txrx.c net-next-2.6.35-rc1-mod/drivers/net/bna/bna_txrx.c
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/bna_txrx.c	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/bna_txrx.c	2010-08-23 13:24:47.185976000 -0700
+@@ -0,0 +1,4209 @@
 +/*
 + * Linux network driver for Brocade Converged Network Adapter.
 + *
@@ -447,7 +464,7 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc
 + * WITHOUT ANY WARRANTY; without even the implied warranty of
 + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 + * General Public License for more details.
-+ */
++  */
 +/*
 + * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
 + * All rights reserved
@@ -455,2818 +472,1531 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc
 + */
 +#include "bna.h"
 +#include "bfa_sm.h"
-+#include "bfa_wc.h"
++#include "bfi.h"
 +
 +/**
-+ * MBOX
++ * IB
 + */
-+static int
-+bna_is_aen(u8 msg_id)
-+{
-+	return (msg_id == BFI_LL_I2H_LINK_DOWN_AEN ||
-+		msg_id == BFI_LL_I2H_LINK_UP_AEN);
-+}
-+
-+static void
-+bna_mbox_aen_callback(struct bna *bna, struct bfi_mbmsg *msg)
-+{
-+	struct bfi_ll_aen *aen = (struct bfi_ll_aen *)(msg);
-+
-+	switch (aen->mh.msg_id) {
-+	case BFI_LL_I2H_LINK_UP_AEN:
-+		bna_port_cb_link_up(&bna->port, aen, aen->reason);
-+		break;
-+	case BFI_LL_I2H_LINK_DOWN_AEN:
-+		bna_port_cb_link_down(&bna->port, aen->reason);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+static void
-+bna_ll_isr(void *llarg, struct bfi_mbmsg *msg)
-+{
-+	struct bna *bna = (struct bna *)(llarg);
-+	struct bfi_ll_rsp *mb_rsp = (struct bfi_ll_rsp *)(msg);
-+	struct bfi_mhdr *cmd_h, *rsp_h;
-+	struct bna_mbox_qe *mb_qe = NULL;
-+	int to_post = 0;
-+	u8 aen = 0;
-+	char message[BNA_MESSAGE_SIZE];
-+
-+	aen = bna_is_aen(mb_rsp->mh.msg_id);
-+
-+	if (!aen) {
-+		mb_qe = bfa_q_first(&bna->mbox_mod.posted_q);
-+		cmd_h = (struct bfi_mhdr *)(&mb_qe->cmd.msg[0]);
-+		rsp_h = (struct bfi_mhdr *)(&mb_rsp->mh);
-+
-+		if ((BFA_I2HM(cmd_h->msg_id) == rsp_h->msg_id) &&
-+		    (cmd_h->mtag.i2htok == rsp_h->mtag.i2htok)) {
-+			/* Remove the request from posted_q, update state  */
-+			list_del(&mb_qe->qe);
-+			bna->mbox_mod.msg_pending--;
-+			if (list_empty(&bna->mbox_mod.posted_q))
-+				bna->mbox_mod.state = BNA_MBOX_FREE;
-+			else
-+				to_post = 1;
-+
-+			/* Dispatch the cbfn */
-+			if (mb_qe->cbfn)
-+				mb_qe->cbfn(mb_qe->cbarg, mb_rsp->error);
-+
-+			/* Post the next entry, if needed */
-+			if (to_post) {
-+				mb_qe = bfa_q_first(&bna->mbox_mod.posted_q);
-+				bfa_ioc_mbox_queue(&bna->device.ioc,
-+							&mb_qe->cmd);
-+			}
-+		} else {
-+			snprintf(message, BNA_MESSAGE_SIZE,
-+				       "No matching rsp for [%d:%d:%d]\n",
-+				       mb_rsp->mh.msg_class, mb_rsp->mh.msg_id,
-+				       mb_rsp->mh.mtag.i2htok);
-+		pr_info("%s", message);
-+		}
-+
-+	} else
-+		bna_mbox_aen_callback(bna, msg);
-+}
-+
-+void
-+bna_err_handler(struct bna *bna, u32 intr_status)
-+{
-+	u32 init_halt;
-+
-+	if (intr_status & __HALT_STATUS_BITS) {
-+		init_halt = readl(bna->device.ioc.ioc_regs.ll_halt);
-+		init_halt &= ~__FW_INIT_HALT_P;
-+		writel(init_halt, bna->device.ioc.ioc_regs.ll_halt);
-+	}
-+
-+	bfa_ioc_error_isr(&bna->device.ioc);
-+}
-+
-+void
-+bna_mbox_handler(struct bna *bna, u32 intr_status)
-+{
-+	if (BNA_IS_ERR_INTR(intr_status)) {
-+		bna_err_handler(bna, intr_status);
-+		return;
-+	}
-+	if (BNA_IS_MBOX_INTR(intr_status))
-+		bfa_ioc_mbox_isr(&bna->device.ioc);
-+}
-+
-+void
-+bna_mbox_send(struct bna *bna, struct bna_mbox_qe *mbox_qe)
-+{
-+	struct bfi_mhdr *mh;
-+
-+	mh = (struct bfi_mhdr *)(&mbox_qe->cmd.msg[0]);
-+
-+	mh->mtag.i2htok = htons(bna->mbox_mod.msg_ctr);
-+	bna->mbox_mod.msg_ctr++;
-+	bna->mbox_mod.msg_pending++;
-+	if (bna->mbox_mod.state == BNA_MBOX_FREE) {
-+		list_add_tail(&mbox_qe->qe, &bna->mbox_mod.posted_q);
-+		bfa_ioc_mbox_queue(&bna->device.ioc, &mbox_qe->cmd);
-+		bna->mbox_mod.state = BNA_MBOX_POSTED;
-+	} else {
-+		list_add_tail(&mbox_qe->qe, &bna->mbox_mod.posted_q);
-+	}
-+}
-+
-+void
-+bna_mbox_flush_q(struct bna *bna, struct list_head *q)
-+{
-+	struct bna_mbox_qe *mb_qe = NULL;
-+	struct bfi_mhdr *cmd_h;
-+	struct list_head			*mb_q;
-+	void 			(*cbfn)(void *arg, int status);
-+	void 			*cbarg;
-+
-+	mb_q = &bna->mbox_mod.posted_q;
-+
-+	while (!list_empty(mb_q)) {
-+		bfa_q_deq(mb_q, &mb_qe);
-+		cbfn = mb_qe->cbfn;
-+		cbarg = mb_qe->cbarg;
-+		bfa_q_qe_init(mb_qe);
-+		bna->mbox_mod.msg_pending--;
-+
-+		cmd_h = (struct bfi_mhdr *)(&mb_qe->cmd.msg[0]);
-+		if (cbfn)
-+			cbfn(cbarg, BNA_CB_NOT_EXEC);
-+	}
-+
-+	bna->mbox_mod.state = BNA_MBOX_FREE;
-+}
-+
-+void
-+bna_mbox_mod_start(struct bna_mbox_mod *mbox_mod)
-+{
-+}
-+
-+void
-+bna_mbox_mod_stop(struct bna_mbox_mod *mbox_mod)
-+{
-+	bna_mbox_flush_q(mbox_mod->bna, &mbox_mod->posted_q);
-+}
-+
-+void
-+bna_mbox_mod_init(struct bna_mbox_mod *mbox_mod, struct bna *bna)
-+{
-+	bfa_ioc_mbox_regisr(&bna->device.ioc, BFI_MC_LL, bna_ll_isr, bna);
-+	mbox_mod->state = BNA_MBOX_FREE;
-+	mbox_mod->msg_ctr = mbox_mod->msg_pending = 0;
-+	INIT_LIST_HEAD(&mbox_mod->posted_q);
-+	mbox_mod->bna = bna;
-+}
-+
-+void
-+bna_mbox_mod_uninit(struct bna_mbox_mod *mbox_mod)
-+{
-+	mbox_mod->bna = NULL;
-+}
-+
-+/**
-+ * LLPORT
-+ */
-+#define call_llport_stop_cbfn(llport, status)\
++#define bna_ib_find_free_ibidx(_mask, _pos)\
 +do {\
-+	if ((llport)->stop_cbfn)\
-+		(llport)->stop_cbfn(&(llport)->bna->port, status);\
-+	(llport)->stop_cbfn = NULL;\
++	(_pos) = 0;\
++	while (((_pos) < (BFI_IBIDX_MAX_SEGSIZE)) &&\
++		((1 << (_pos)) & (_mask)))\
++		(_pos)++;\
 +} while (0)
 +
-+static void bna_fw_llport_up(struct bna_llport *llport);
-+static void bna_fw_cb_llport_up(void *arg, int status);
-+static void bna_fw_llport_down(struct bna_llport *llport);
-+static void bna_fw_cb_llport_down(void *arg, int status);
-+static void bna_llport_start(struct bna_llport *llport);
-+static void bna_llport_stop(struct bna_llport *llport);
-+static void bna_llport_fail(struct bna_llport *llport);
-+
-+enum bna_llport_event {
-+	LLPORT_E_START			= 1,
-+	LLPORT_E_STOP			= 2,
-+	LLPORT_E_FAIL			= 3,
-+	LLPORT_E_UP			= 4,
-+	LLPORT_E_DOWN			= 5,
-+	LLPORT_E_FWRESP_UP		= 6,
-+	LLPORT_E_FWRESP_DOWN		= 7
-+};
-+
-+enum bna_llport_state {
-+	BNA_LLPORT_STOPPED		= 1,
-+	BNA_LLPORT_DOWN			= 2,
-+	BNA_LLPORT_UP_RESP_WAIT		= 3,
-+	BNA_LLPORT_DOWN_RESP_WAIT	= 4,
-+	BNA_LLPORT_UP			= 5,
-+	BNA_LLPORT_LAST_RESP_WAIT 	= 6
-+};
-+
-+bfa_fsm_state_decl(bna_llport, stopped, struct bna_llport,
-+			enum bna_llport_event);
-+bfa_fsm_state_decl(bna_llport, down, struct bna_llport,
-+			enum bna_llport_event);
-+bfa_fsm_state_decl(bna_llport, up_resp_wait, struct bna_llport,
-+			enum bna_llport_event);
-+bfa_fsm_state_decl(bna_llport, down_resp_wait, struct bna_llport,
-+			enum bna_llport_event);
-+bfa_fsm_state_decl(bna_llport, up, struct bna_llport,
-+			enum bna_llport_event);
-+bfa_fsm_state_decl(bna_llport, last_resp_wait, struct bna_llport,
-+			enum bna_llport_event);
-+
-+static struct bfa_sm_table llport_sm_table[] = {
-+	{BFA_SM(bna_llport_sm_stopped), BNA_LLPORT_STOPPED},
-+	{BFA_SM(bna_llport_sm_down), BNA_LLPORT_DOWN},
-+	{BFA_SM(bna_llport_sm_up_resp_wait), BNA_LLPORT_UP_RESP_WAIT},
-+	{BFA_SM(bna_llport_sm_down_resp_wait), BNA_LLPORT_DOWN_RESP_WAIT},
-+	{BFA_SM(bna_llport_sm_up), BNA_LLPORT_UP},
-+	{BFA_SM(bna_llport_sm_last_resp_wait), BNA_LLPORT_LAST_RESP_WAIT}
-+};
-+
-+static void
-+bna_llport_sm_stopped_entry(struct bna_llport *llport)
-+{
-+	llport->bna->port.link_cbfn((llport)->bna->bnad, BNA_LINK_DOWN);
-+	call_llport_stop_cbfn(llport, BNA_CB_SUCCESS);
-+}
-+
-+static void
-+bna_llport_sm_stopped(struct bna_llport *llport,
-+			enum bna_llport_event event)
-+{
-+	switch (event) {
-+	case LLPORT_E_START:
-+		bfa_fsm_set_state(llport, bna_llport_sm_down);
-+		break;
-+
-+	case LLPORT_E_STOP:
-+		call_llport_stop_cbfn(llport, BNA_CB_SUCCESS);
-+		break;
-+
-+	case LLPORT_E_FAIL:
-+		break;
-+
-+	case LLPORT_E_DOWN:
-+		/* This event is received due to Rx objects failing */
-+		/* No-op */
-+		break;
-+
-+	case LLPORT_E_FWRESP_UP:
-+	case LLPORT_E_FWRESP_DOWN:
-+		/**
-+		 * These events are received due to flushing of mbox when
-+		 * device fails
-+		 */
-+		/* No-op */
-+		break;
-+
-+	default:
-+		bfa_sm_fault(llport->bna, event);
-+	}
-+}
-+
-+static void
-+bna_llport_sm_down_entry(struct bna_llport *llport)
-+{
-+	bnad_cb_port_link_status((llport)->bna->bnad, BNA_LINK_DOWN);
-+}
-+
-+static void
-+bna_llport_sm_down(struct bna_llport *llport,
-+			enum bna_llport_event event)
-+{
-+	switch (event) {
-+	case LLPORT_E_STOP:
-+		bfa_fsm_set_state(llport, bna_llport_sm_stopped);
-+		break;
-+
-+	case LLPORT_E_FAIL:
-+		bfa_fsm_set_state(llport, bna_llport_sm_stopped);
-+		break;
-+
-+	case LLPORT_E_UP:
-+		bfa_fsm_set_state(llport, bna_llport_sm_up_resp_wait);
-+		bna_fw_llport_up(llport);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(llport->bna, event);
-+	}
-+}
-+
-+static void
-+bna_llport_sm_up_resp_wait_entry(struct bna_llport *llport)
-+{
-+	/**
-+	 * NOTE: Do not call bna_fw_llport_up() here. That will over step
-+	 * mbox due to down_resp_wait -> up_resp_wait transition on event
-+	 * LLPORT_E_UP
-+	 */
-+}
-+
-+static void
-+bna_llport_sm_up_resp_wait(struct bna_llport *llport,
-+			enum bna_llport_event event)
-+{
-+	switch (event) {
-+	case LLPORT_E_STOP:
-+		bfa_fsm_set_state(llport, bna_llport_sm_last_resp_wait);
-+		break;
-+
-+	case LLPORT_E_FAIL:
-+		bfa_fsm_set_state(llport, bna_llport_sm_stopped);
-+		break;
-+
-+	case LLPORT_E_DOWN:
-+		bfa_fsm_set_state(llport, bna_llport_sm_down_resp_wait);
-+		break;
-+
-+	case LLPORT_E_FWRESP_UP:
-+		bfa_fsm_set_state(llport, bna_llport_sm_up);
-+		break;
-+
-+	case LLPORT_E_FWRESP_DOWN:
-+		/* down_resp_wait -> up_resp_wait transition on LLPORT_E_UP */
-+		bna_fw_llport_up(llport);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(llport->bna, event);
-+	}
-+}
-+
-+static void
-+bna_llport_sm_down_resp_wait_entry(struct bna_llport *llport)
-+{
-+	/**
-+	 * NOTE: Do not call bna_fw_llport_down() here. That will over step
-+	 * mbox due to up_resp_wait -> down_resp_wait transition on event
-+	 * LLPORT_E_DOWN
-+	 */
-+}
-+
-+static void
-+bna_llport_sm_down_resp_wait(struct bna_llport *llport,
-+			enum bna_llport_event event)
-+{
-+	switch (event) {
-+	case LLPORT_E_STOP:
-+		bfa_fsm_set_state(llport, bna_llport_sm_last_resp_wait);
-+		break;
-+
-+	case LLPORT_E_FAIL:
-+		bfa_fsm_set_state(llport, bna_llport_sm_stopped);
-+		break;
-+
-+	case LLPORT_E_UP:
-+		bfa_fsm_set_state(llport, bna_llport_sm_up_resp_wait);
-+		break;
-+
-+	case LLPORT_E_FWRESP_UP:
-+		/* up_resp_wait->down_resp_wait transition on LLPORT_E_DOWN */
-+		bna_fw_llport_down(llport);
-+		break;
-+
-+	case LLPORT_E_FWRESP_DOWN:
-+		bfa_fsm_set_state(llport, bna_llport_sm_down);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(llport->bna, event);
-+	}
-+}
-+
-+static void
-+bna_llport_sm_up_entry(struct bna_llport *llport)
-+{
-+}
-+
-+static void
-+bna_llport_sm_up(struct bna_llport *llport,
-+			enum bna_llport_event event)
-+{
-+	switch (event) {
-+	case LLPORT_E_STOP:
-+		bfa_fsm_set_state(llport, bna_llport_sm_last_resp_wait);
-+		bna_fw_llport_down(llport);
-+		break;
-+
-+	case LLPORT_E_FAIL:
-+		bfa_fsm_set_state(llport, bna_llport_sm_stopped);
-+		break;
-+
-+	case LLPORT_E_DOWN:
-+		bfa_fsm_set_state(llport, bna_llport_sm_down_resp_wait);
-+		bna_fw_llport_down(llport);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(llport->bna, event);
-+	}
-+}
-+
-+static void
-+bna_llport_sm_last_resp_wait_entry(struct bna_llport *llport)
-+{
-+}
-+
-+static void
-+bna_llport_sm_last_resp_wait(struct bna_llport *llport,
-+			enum bna_llport_event event)
-+{
-+	switch (event) {
-+	case LLPORT_E_FAIL:
-+		bfa_fsm_set_state(llport, bna_llport_sm_stopped);
-+		break;
-+
-+	case LLPORT_E_DOWN:
-+		/**
-+		 * This event is received due to Rx objects stopping in
-+		 * parallel to llport
-+		 */
-+		/* No-op */
-+		break;
-+
-+	case LLPORT_E_FWRESP_UP:
-+		/* up_resp_wait->last_resp_wait transition on LLPORT_T_STOP */
-+		bna_fw_llport_down(llport);
-+		break;
-+
-+	case LLPORT_E_FWRESP_DOWN:
-+		bfa_fsm_set_state(llport, bna_llport_sm_stopped);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(llport->bna, event);
-+	}
-+}
-+
-+static void
-+bna_fw_llport_admin_up(struct bna_llport *llport)
-+{
-+	struct bfi_ll_port_admin_req ll_req;
-+
-+	memset(&ll_req, 0, sizeof(ll_req));
-+	ll_req.mh.msg_class = BFI_MC_LL;
-+	ll_req.mh.msg_id = BFI_LL_H2I_PORT_ADMIN_REQ;
-+	ll_req.mh.mtag.h2i.lpu_id = 0;
-+
-+	ll_req.up = BNA_STATUS_T_ENABLED;
-+
-+	bna_mbox_qe_fill(&llport->mbox_qe, &ll_req, sizeof(ll_req),
-+			bna_fw_cb_llport_up, llport);
-+
-+	bna_mbox_send(llport->bna, &llport->mbox_qe);
-+}
-+
-+static void
-+bna_fw_llport_up(struct bna_llport *llport)
-+{
-+	if (llport->type == BNA_PORT_T_REGULAR)
-+		bna_fw_llport_admin_up(llport);
-+}
-+
-+static void
-+bna_fw_cb_llport_up(void *arg, int status)
-+{
-+	struct bna_llport *llport = (struct bna_llport *)arg;
-+
-+	bfa_q_qe_init(&llport->mbox_qe.qe);
-+	bfa_fsm_send_event(llport, LLPORT_E_FWRESP_UP);
-+}
-+
-+static void
-+bna_fw_llport_admin_down(struct bna_llport *llport)
-+{
-+	struct bfi_ll_port_admin_req ll_req;
-+
-+	memset(&ll_req, 0, sizeof(ll_req));
-+	ll_req.mh.msg_class = BFI_MC_LL;
-+	ll_req.mh.msg_id = BFI_LL_H2I_PORT_ADMIN_REQ;
-+	ll_req.mh.mtag.h2i.lpu_id = 0;
-+
-+	ll_req.up = BNA_STATUS_T_DISABLED;
-+
-+	bna_mbox_qe_fill(&llport->mbox_qe, &ll_req, sizeof(ll_req),
-+			bna_fw_cb_llport_down, llport);
-+
-+	bna_mbox_send(llport->bna, &llport->mbox_qe);
-+}
-+
-+static void
-+bna_fw_llport_down(struct bna_llport *llport)
-+{
-+	if (llport->type == BNA_PORT_T_REGULAR)
-+		bna_fw_llport_admin_down(llport);
-+}
-+
-+static void
-+bna_fw_cb_llport_down(void *arg, int status)
-+{
-+	struct bna_llport *llport = (struct bna_llport *)arg;
-+
-+	bfa_q_qe_init(&llport->mbox_qe.qe);
-+	bfa_fsm_send_event(llport, LLPORT_E_FWRESP_DOWN);
-+}
-+
-+void
-+bna_port_cb_llport_stopped(struct bna_port *port,
-+				enum bna_cb_status status)
-+{
-+	bfa_wc_down(&port->chld_stop_wc);
-+}
-+
-+static void
-+bna_llport_init(struct bna_llport *llport, struct bna *bna)
-+{
-+	llport->flags |= BNA_LLPORT_F_ENABLED;
-+	llport->type = BNA_PORT_T_REGULAR;
-+	llport->bna = bna;
-+
-+	llport->link_status = BNA_LINK_DOWN;
-+
-+	llport->admin_up_count = 0;
-+
-+	llport->stop_cbfn = NULL;
-+
-+	bfa_q_qe_init(&llport->mbox_qe.qe);
-+
-+	bfa_fsm_set_state(llport, bna_llport_sm_stopped);
-+}
-+
-+static void
-+bna_llport_uninit(struct bna_llport *llport)
-+{
-+	llport->flags &= ~BNA_LLPORT_F_ENABLED;
-+
-+	llport->bna = NULL;
-+}
-+
-+static void
-+bna_llport_start(struct bna_llport *llport)
-+{
-+	bfa_fsm_send_event(llport, LLPORT_E_START);
-+}
-+
-+static void
-+bna_llport_stop(struct bna_llport *llport)
-+{
-+	llport->stop_cbfn = bna_port_cb_llport_stopped;
-+
-+	bfa_fsm_send_event(llport, LLPORT_E_STOP);
-+}
-+
-+static void
-+bna_llport_fail(struct bna_llport *llport)
-+{
-+	bfa_fsm_send_event(llport, LLPORT_E_FAIL);
-+}
-+
-+int
-+bna_llport_state_get(struct bna_llport *llport)
-+{
-+	return bfa_sm_to_state(llport_sm_table, llport->fsm);
-+}
-+
-+void
-+bna_llport_admin_up(struct bna_llport *llport)
-+{
-+	llport->admin_up_count++;
-+
-+	if (llport->admin_up_count == 1) {
-+		llport->flags |= BNA_LLPORT_F_RX_ENABLED;
-+		if (llport->flags & BNA_LLPORT_F_ENABLED)
-+			bfa_fsm_send_event(llport, LLPORT_E_UP);
-+	}
-+}
-+
-+void
-+bna_llport_admin_down(struct bna_llport *llport)
-+{
-+	llport->admin_up_count--;
-+
-+	if (llport->admin_up_count == 0) {
-+		llport->flags &= ~BNA_LLPORT_F_RX_ENABLED;
-+		if (llport->flags & BNA_LLPORT_F_ENABLED)
-+			bfa_fsm_send_event(llport, LLPORT_E_DOWN);
-+	}
-+}
-+
-+/**
-+ * PORT
-+ */
-+#define bna_port_chld_start(port)\
++#define bna_ib_count_ibidx(_mask, _count)\
 +do {\
-+	enum bna_tx_type tx_type = ((port)->type == BNA_PORT_T_REGULAR) ?\
-+					BNA_TX_T_REGULAR : BNA_TX_T_LOOPBACK;\
-+	enum bna_rx_type rx_type = ((port)->type == BNA_PORT_T_REGULAR) ?\
-+					BNA_RX_T_REGULAR : BNA_RX_T_LOOPBACK;\
-+	bna_llport_start(&(port)->llport);\
-+	bna_tx_mod_start(&(port)->bna->tx_mod, tx_type);\
-+	bna_rx_mod_start(&(port)->bna->rx_mod, rx_type);\
++	int pos = 0;\
++	(_count) = 0;\
++	while (pos < (BFI_IBIDX_MAX_SEGSIZE)) {\
++		if ((1 << pos) & (_mask))\
++			(_count) = pos + 1;\
++		pos++;\
++	} \
 +} while (0)
 +
-+#define bna_port_chld_stop(port)\
++#define bna_ib_select_segpool(_count, _q_idx)\
 +do {\
-+	enum bna_tx_type tx_type = ((port)->type == BNA_PORT_T_REGULAR) ?\
-+					BNA_TX_T_REGULAR : BNA_TX_T_LOOPBACK;\
-+	enum bna_rx_type rx_type = ((port)->type == BNA_PORT_T_REGULAR) ?\
-+					BNA_RX_T_REGULAR : BNA_RX_T_LOOPBACK;\
-+	bfa_wc_up(&(port)->chld_stop_wc);\
-+	bfa_wc_up(&(port)->chld_stop_wc);\
-+	bfa_wc_up(&(port)->chld_stop_wc);\
-+	bna_llport_stop(&(port)->llport);\
-+	bna_tx_mod_stop(&(port)->bna->tx_mod, tx_type);\
-+	bna_rx_mod_stop(&(port)->bna->rx_mod, rx_type);\
++	int i;\
++	(_q_idx) = -1;\
++	for (i = 0; i < BFI_IBIDX_TOTAL_POOLS; i++) {\
++		if ((_count <= ibidx_pool[i].pool_entry_size)) {\
++			(_q_idx) = i;\
++			break;\
++		} \
++	} \
 +} while (0)
 +
-+#define bna_port_chld_fail(port)\
-+do {\
-+	bna_llport_fail(&(port)->llport);\
-+	bna_tx_mod_fail(&(port)->bna->tx_mod);\
-+	bna_rx_mod_fail(&(port)->bna->rx_mod);\
-+} while (0)
-+
-+#define bna_port_rx_start(port)\
-+do {\
-+	enum bna_rx_type rx_type = ((port)->type == BNA_PORT_T_REGULAR) ?\
-+					BNA_RX_T_REGULAR : BNA_RX_T_LOOPBACK;\
-+	bna_rx_mod_start(&(port)->bna->rx_mod, rx_type);\
-+} while (0)
-+
-+#define bna_port_rx_stop(port)\
-+do {\
-+	enum bna_rx_type rx_type = ((port)->type == BNA_PORT_T_REGULAR) ?\
-+					BNA_RX_T_REGULAR : BNA_RX_T_LOOPBACK;\
-+	bfa_wc_up(&(port)->chld_stop_wc);\
-+	bna_rx_mod_stop(&(port)->bna->rx_mod, rx_type);\
-+} while (0)
-+
-+#define call_port_stop_cbfn(port, status)\
-+do {\
-+	if ((port)->stop_cbfn)\
-+		(port)->stop_cbfn((port)->stop_cbarg, status);\
-+	(port)->stop_cbfn = NULL;\
-+	(port)->stop_cbarg = NULL;\
-+} while (0)
-+
-+#define call_port_pause_cbfn(port, status)\
-+do {\
-+	if ((port)->pause_cbfn)\
-+		(port)->pause_cbfn((port)->bna->bnad, status);\
-+	(port)->pause_cbfn = NULL;\
-+} while (0)
-+
-+#define call_port_mtu_cbfn(port, status)\
-+do {\
-+	if ((port)->mtu_cbfn)\
-+		(port)->mtu_cbfn((port)->bna->bnad, status);\
-+	(port)->mtu_cbfn = NULL;\
-+} while (0)
-+
-+static void bna_fw_pause_set(struct bna_port *port);
-+static void bna_fw_cb_pause_set(void *arg, int status);
-+static void bna_fw_mtu_set(struct bna_port *port);
-+static void bna_fw_cb_mtu_set(void *arg, int status);
-+
-+enum bna_port_event {
-+	PORT_E_START			= 1,
-+	PORT_E_STOP			= 2,
-+	PORT_E_FAIL			= 3,
-+	PORT_E_PAUSE_CFG		= 4,
-+	PORT_E_MTU_CFG			= 5,
-+	PORT_E_CHLD_STOPPED		= 6,
-+	PORT_E_FWRESP_PAUSE		= 7,
-+	PORT_E_FWRESP_MTU		= 8
++struct bna_ibidx_pool {
++	int	pool_size;
++	int	pool_entry_size;
 +};
++init_ibidx_pool(ibidx_pool);
 +
-+enum bna_port_state {
-+	BNA_PORT_STOPPED		= 1,
-+	BNA_PORT_MTU_INIT_WAIT		= 2,
-+	BNA_PORT_PAUSE_INIT_WAIT	= 3,
-+	BNA_PORT_LAST_RESP_WAIT		= 4,
-+	BNA_PORT_STARTED		= 5,
-+	BNA_PORT_PAUSE_CFG_WAIT		= 6,
-+	BNA_PORT_RX_STOP_WAIT		= 7,
-+	BNA_PORT_MTU_CFG_WAIT 		= 8,
-+	BNA_PORT_CHLD_STOP_WAIT		= 9
-+};
-+
-+bfa_fsm_state_decl(bna_port, stopped, struct bna_port,
-+			enum bna_port_event);
-+bfa_fsm_state_decl(bna_port, mtu_init_wait, struct bna_port,
-+			enum bna_port_event);
-+bfa_fsm_state_decl(bna_port, pause_init_wait, struct bna_port,
-+			enum bna_port_event);
-+bfa_fsm_state_decl(bna_port, last_resp_wait, struct bna_port,
-+			enum bna_port_event);
-+bfa_fsm_state_decl(bna_port, started, struct bna_port,
-+			enum bna_port_event);
-+bfa_fsm_state_decl(bna_port, pause_cfg_wait, struct bna_port,
-+			enum bna_port_event);
-+bfa_fsm_state_decl(bna_port, rx_stop_wait, struct bna_port,
-+			enum bna_port_event);
-+bfa_fsm_state_decl(bna_port, mtu_cfg_wait, struct bna_port,
-+			enum bna_port_event);
-+bfa_fsm_state_decl(bna_port, chld_stop_wait, struct bna_port,
-+			enum bna_port_event);
-+
-+static struct bfa_sm_table port_sm_table[] = {
-+	{BFA_SM(bna_port_sm_stopped), BNA_PORT_STOPPED},
-+	{BFA_SM(bna_port_sm_mtu_init_wait), BNA_PORT_MTU_INIT_WAIT},
-+	{BFA_SM(bna_port_sm_pause_init_wait), BNA_PORT_PAUSE_INIT_WAIT},
-+	{BFA_SM(bna_port_sm_last_resp_wait), BNA_PORT_LAST_RESP_WAIT},
-+	{BFA_SM(bna_port_sm_started), BNA_PORT_STARTED},
-+	{BFA_SM(bna_port_sm_pause_cfg_wait), BNA_PORT_PAUSE_CFG_WAIT},
-+	{BFA_SM(bna_port_sm_rx_stop_wait), BNA_PORT_RX_STOP_WAIT},
-+	{BFA_SM(bna_port_sm_mtu_cfg_wait), BNA_PORT_MTU_CFG_WAIT},
-+	{BFA_SM(bna_port_sm_chld_stop_wait), BNA_PORT_CHLD_STOP_WAIT}
-+};
-+
-+static void
-+bna_port_sm_stopped_entry(struct bna_port *port)
-+{
-+	call_port_pause_cbfn(port, BNA_CB_SUCCESS);
-+	call_port_mtu_cbfn(port, BNA_CB_SUCCESS);
-+	call_port_stop_cbfn(port, BNA_CB_SUCCESS);
-+}
-+
-+static void
-+bna_port_sm_stopped(struct bna_port *port, enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_START:
-+		bfa_fsm_set_state(port, bna_port_sm_mtu_init_wait);
-+		break;
-+
-+	case PORT_E_STOP:
-+		call_port_stop_cbfn(port, BNA_CB_SUCCESS);
-+		break;
-+
-+	case PORT_E_FAIL:
-+		/* No-op */
-+		break;
-+
-+	case PORT_E_PAUSE_CFG:
-+		call_port_pause_cbfn(port, BNA_CB_SUCCESS);
-+		break;
-+
-+	case PORT_E_MTU_CFG:
-+		call_port_mtu_cbfn(port, BNA_CB_SUCCESS);
-+		break;
-+
-+	case PORT_E_CHLD_STOPPED:
-+		/**
-+		 * This event is received due to LLPort, Tx and Rx objects
-+		 * failing
-+		 */
-+		/* No-op */
-+		break;
-+
-+	case PORT_E_FWRESP_PAUSE:
-+	case PORT_E_FWRESP_MTU:
-+		/**
-+		 * These events are received due to flushing of mbox when
-+		 * device fails
-+		 */
-+		/* No-op */
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_port_sm_mtu_init_wait_entry(struct bna_port *port)
-+{
-+	bna_fw_mtu_set(port);
-+}
-+
-+static void
-+bna_port_sm_mtu_init_wait(struct bna_port *port, enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_STOP:
-+		bfa_fsm_set_state(port, bna_port_sm_last_resp_wait);
-+		break;
-+
-+	case PORT_E_FAIL:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		break;
-+
-+	case PORT_E_PAUSE_CFG:
-+		/* No-op */
-+		break;
-+
-+	case PORT_E_MTU_CFG:
-+		port->flags |= BNA_PORT_F_MTU_CHANGED;
-+		break;
-+
-+	case PORT_E_FWRESP_MTU:
-+		if (port->flags & BNA_PORT_F_MTU_CHANGED) {
-+			port->flags &= ~BNA_PORT_F_MTU_CHANGED;
-+			bna_fw_mtu_set(port);
-+		} else {
-+			bfa_fsm_set_state(port, bna_port_sm_pause_init_wait);
-+		}
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_port_sm_pause_init_wait_entry(struct bna_port *port)
-+{
-+	bna_fw_pause_set(port);
-+}
-+
-+static void
-+bna_port_sm_pause_init_wait(struct bna_port *port,
-+				enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_STOP:
-+		bfa_fsm_set_state(port, bna_port_sm_last_resp_wait);
-+		break;
-+
-+	case PORT_E_FAIL:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		break;
-+
-+	case PORT_E_PAUSE_CFG:
-+		port->flags |= BNA_PORT_F_PAUSE_CHANGED;
-+		break;
-+
-+	case PORT_E_MTU_CFG:
-+		port->flags |= BNA_PORT_F_MTU_CHANGED;
-+		break;
-+
-+	case PORT_E_FWRESP_PAUSE:
-+		if (port->flags & BNA_PORT_F_PAUSE_CHANGED) {
-+			port->flags &= ~BNA_PORT_F_PAUSE_CHANGED;
-+			bna_fw_pause_set(port);
-+		} else if (port->flags & BNA_PORT_F_MTU_CHANGED) {
-+			port->flags &= ~BNA_PORT_F_MTU_CHANGED;
-+			bfa_fsm_set_state(port, bna_port_sm_mtu_init_wait);
-+		} else {
-+			bfa_fsm_set_state(port, bna_port_sm_started);
-+			bna_port_chld_start(port);
-+		}
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_port_sm_last_resp_wait_entry(struct bna_port *port)
-+{
-+}
-+
-+static void
-+bna_port_sm_last_resp_wait(struct bna_port *port,
-+				enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_FAIL:
-+	case PORT_E_FWRESP_PAUSE:
-+	case PORT_E_FWRESP_MTU:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_port_sm_started_entry(struct bna_port *port)
-+{
-+	/**
-+	 * NOTE: Do not call bna_port_chld_start() here, since it will be
-+	 * inadvertently called during pause_cfg_wait->started transition
-+	 * as well
-+	 */
-+	call_port_pause_cbfn(port, BNA_CB_SUCCESS);
-+	call_port_mtu_cbfn(port, BNA_CB_SUCCESS);
-+}
-+
-+static void
-+bna_port_sm_started(struct bna_port *port,
-+			enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_STOP:
-+		bfa_fsm_set_state(port, bna_port_sm_chld_stop_wait);
-+		break;
-+
-+	case PORT_E_FAIL:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		bna_port_chld_fail(port);
-+		break;
-+
-+	case PORT_E_PAUSE_CFG:
-+		bfa_fsm_set_state(port, bna_port_sm_pause_cfg_wait);
-+		break;
-+
-+	case PORT_E_MTU_CFG:
-+		bfa_fsm_set_state(port, bna_port_sm_rx_stop_wait);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_port_sm_pause_cfg_wait_entry(struct bna_port *port)
-+{
-+	bna_fw_pause_set(port);
-+}
-+
-+static void
-+bna_port_sm_pause_cfg_wait(struct bna_port *port,
-+				enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_FAIL:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		bna_port_chld_fail(port);
-+		break;
-+
-+	case PORT_E_FWRESP_PAUSE:
-+		bfa_fsm_set_state(port, bna_port_sm_started);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_port_sm_rx_stop_wait_entry(struct bna_port *port)
-+{
-+	bna_port_rx_stop(port);
-+}
-+
-+static void
-+bna_port_sm_rx_stop_wait(struct bna_port *port,
-+				enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_FAIL:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		bna_port_chld_fail(port);
-+		break;
-+
-+	case PORT_E_CHLD_STOPPED:
-+		bfa_fsm_set_state(port, bna_port_sm_mtu_cfg_wait);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_port_sm_mtu_cfg_wait_entry(struct bna_port *port)
-+{
-+	bna_fw_mtu_set(port);
-+}
-+
-+static void
-+bna_port_sm_mtu_cfg_wait(struct bna_port *port, enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_FAIL:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		bna_port_chld_fail(port);
-+		break;
-+
-+	case PORT_E_FWRESP_MTU:
-+		bfa_fsm_set_state(port, bna_port_sm_started);
-+		bna_port_rx_start(port);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_port_sm_chld_stop_wait_entry(struct bna_port *port)
-+{
-+	bna_port_chld_stop(port);
-+}
-+
-+static void
-+bna_port_sm_chld_stop_wait(struct bna_port *port,
-+				enum bna_port_event event)
-+{
-+	switch (event) {
-+	case PORT_E_FAIL:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		bna_port_chld_fail(port);
-+		break;
-+
-+	case PORT_E_CHLD_STOPPED:
-+		bfa_fsm_set_state(port, bna_port_sm_stopped);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(port->bna, event);
-+	}
-+}
-+
-+static void
-+bna_fw_pause_set(struct bna_port *port)
-+{
-+	struct bfi_ll_set_pause_req ll_req;
-+
-+	memset(&ll_req, 0, sizeof(ll_req));
-+	ll_req.mh.msg_class = BFI_MC_LL;
-+	ll_req.mh.msg_id = BFI_LL_H2I_SET_PAUSE_REQ;
-+	ll_req.mh.mtag.h2i.lpu_id = 0;
-+
-+	ll_req.tx_pause = port->pause_config.tx_pause;
-+	ll_req.rx_pause = port->pause_config.rx_pause;
-+
-+	bna_mbox_qe_fill(&port->mbox_qe, &ll_req, sizeof(ll_req),
-+			bna_fw_cb_pause_set, port);
-+
-+	bna_mbox_send(port->bna, &port->mbox_qe);
-+}
-+
-+static void
-+bna_fw_cb_pause_set(void *arg, int status)
-+{
-+	struct bna_port *port = (struct bna_port *)arg;
-+
-+	bfa_q_qe_init(&port->mbox_qe.qe);
-+	bfa_fsm_send_event(port, PORT_E_FWRESP_PAUSE);
-+}
-+
-+void
-+bna_fw_mtu_set(struct bna_port *port)
-+{
-+	struct bfi_ll_mtu_info_req ll_req;
-+
-+	bfi_h2i_set(ll_req.mh, BFI_MC_LL, BFI_LL_H2I_MTU_INFO_REQ, 0);
-+	ll_req.mtu = htons((u16)port->mtu);
-+
-+	bna_mbox_qe_fill(&port->mbox_qe, &ll_req, sizeof(ll_req),
-+				bna_fw_cb_mtu_set, port);
-+	bna_mbox_send(port->bna, &port->mbox_qe);
-+}
-+
-+void
-+bna_fw_cb_mtu_set(void *arg, int status)
-+{
-+	struct bna_port *port = (struct bna_port *)arg;
-+
-+	bfa_q_qe_init(&port->mbox_qe.qe);
-+	bfa_fsm_send_event(port, PORT_E_FWRESP_MTU);
-+}
-+
-+static void
-+bna_port_cb_chld_stopped(void *arg)
-+{
-+	struct bna_port *port = (struct bna_port *)arg;
-+
-+	bfa_fsm_send_event(port, PORT_E_CHLD_STOPPED);
-+}
-+
-+void
-+bna_port_init(struct bna_port *port, struct bna *bna)
-+{
-+	port->bna = bna;
-+	port->flags = 0;
-+	port->mtu = 0;
-+	port->type = BNA_PORT_T_REGULAR;
-+
-+	port->link_cbfn = bnad_cb_port_link_status;
-+
-+	port->chld_stop_wc.wc_resume = bna_port_cb_chld_stopped;
-+	port->chld_stop_wc.wc_cbarg = port;
-+	port->chld_stop_wc.wc_count = 0;
-+
-+	port->stop_cbfn = NULL;
-+	port->stop_cbarg = NULL;
-+
-+	port->pause_cbfn = NULL;
-+
-+	port->mtu_cbfn = NULL;
-+
-+	bfa_q_qe_init(&port->mbox_qe.qe);
-+
-+	bfa_fsm_set_state(port, bna_port_sm_stopped);
-+
-+	bna_llport_init(&port->llport, bna);
-+}
-+
-+void
-+bna_port_uninit(struct bna_port *port)
-+{
-+	bna_llport_uninit(&port->llport);
-+
-+	port->flags = 0;
-+
-+	port->bna = NULL;
-+}
-+
-+int
-+bna_port_state_get(struct bna_port *port)
-+{
-+	return bfa_sm_to_state(port_sm_table, port->fsm);
-+}
-+
-+void
-+bna_port_start(struct bna_port *port)
-+{
-+	port->flags |= BNA_PORT_F_DEVICE_READY;
-+	if (port->flags & BNA_PORT_F_ENABLED)
-+		bfa_fsm_send_event(port, PORT_E_START);
-+}
-+
-+void
-+bna_port_stop(struct bna_port *port)
-+{
-+	port->stop_cbfn = bna_device_cb_port_stopped;
-+	port->stop_cbarg = &port->bna->device;
-+
-+	port->flags &= ~BNA_PORT_F_DEVICE_READY;
-+	bfa_fsm_send_event(port, PORT_E_STOP);
-+}
-+
-+void
-+bna_port_fail(struct bna_port *port)
-+{
-+	port->flags &= ~BNA_PORT_F_DEVICE_READY;
-+	bfa_fsm_send_event(port, PORT_E_FAIL);
-+}
-+
-+void
-+bna_port_cb_tx_stopped(struct bna_port *port, enum bna_cb_status status)
-+{
-+	bfa_wc_down(&port->chld_stop_wc);
-+}
-+
-+void
-+bna_port_cb_rx_stopped(struct bna_port *port, enum bna_cb_status status)
-+{
-+	bfa_wc_down(&port->chld_stop_wc);
-+}
-+
-+void
-+bna_port_cb_link_up(struct bna_port *port, struct bfi_ll_aen *aen,
-+			int status)
-+{
-+	int i;
-+	u8 prio_map;
-+
-+	port->llport.link_status = BNA_LINK_UP;
-+	if (aen->cee_linkup)
-+		port->llport.link_status = BNA_CEE_UP;
-+
-+	/* Compute the priority */
-+	prio_map = aen->prio_map;
-+	if (prio_map) {
-+		for (i = 0; i < 8; i++) {
-+			if ((prio_map >> i) & 0x1)
-+				break;
-+		}
-+		port->priority = i;
-+	} else
-+		port->priority = 0;
-+
-+	/* Dispatch events */
-+	bna_tx_mod_cee_link_status(&port->bna->tx_mod, aen->cee_linkup);
-+	bna_tx_mod_prio_changed(&port->bna->tx_mod, port->priority);
-+	port->link_cbfn(port->bna->bnad, port->llport.link_status);
-+}
-+
-+void
-+bna_port_cb_link_down(struct bna_port *port, int status)
-+{
-+	port->llport.link_status = BNA_LINK_DOWN;
-+
-+	/* Dispatch events */
-+	bna_tx_mod_cee_link_status(&port->bna->tx_mod, BNA_LINK_DOWN);
-+	port->link_cbfn(port->bna->bnad, BNA_LINK_DOWN);
-+}
-+
-+int
-+bna_port_mtu_get(struct bna_port *port)
-+{
-+	return port->mtu;
-+}
-+
-+void
-+bna_port_enable(struct bna_port *port)
-+{
-+	if (port->fsm != (bfa_sm_t)bna_port_sm_stopped)
-+		return;
-+
-+	port->flags |= BNA_PORT_F_ENABLED;
-+
-+	if (port->flags & BNA_PORT_F_DEVICE_READY)
-+		bfa_fsm_send_event(port, PORT_E_START);
-+}
-+
-+void
-+bna_port_disable(struct bna_port *port, enum bna_cleanup_type type,
-+		 void (*cbfn)(void *, enum bna_cb_status))
-+{
-+	if (type == BNA_SOFT_CLEANUP) {
-+		(*cbfn)(port->bna->bnad, BNA_CB_SUCCESS);
-+		return;
-+	}
-+
-+	port->stop_cbfn = cbfn;
-+	port->stop_cbarg = port->bna->bnad;
-+
-+	port->flags &= ~BNA_PORT_F_ENABLED;
-+
-+	bfa_fsm_send_event(port, PORT_E_STOP);
-+}
-+
-+void
-+bna_port_pause_config(struct bna_port *port,
-+		      struct bna_pause_config *pause_config,
-+		      void (*cbfn)(struct bnad *, enum bna_cb_status))
-+{
-+	port->pause_config = *pause_config;
-+
-+	port->pause_cbfn = cbfn;
-+
-+	bfa_fsm_send_event(port, PORT_E_PAUSE_CFG);
-+}
-+
-+void
-+bna_port_mtu_set(struct bna_port *port, int mtu,
-+		 void (*cbfn)(struct bnad *, enum bna_cb_status))
-+{
-+	port->mtu = mtu;
-+
-+	port->mtu_cbfn = cbfn;
-+
-+	bfa_fsm_send_event(port, PORT_E_MTU_CFG);
-+}
-+
-+void
-+bna_port_mac_get(struct bna_port *port, mac_t *mac)
-+{
-+	*mac = bfa_ioc_get_mac(&port->bna->device.ioc);
-+}
-+
-+/**
-+ * Should be called only when port is disabled
-+ */
-+void
-+bna_port_type_set(struct bna_port *port, enum bna_port_type type)
-+{
-+	port->type = type;
-+	port->llport.type = type;
-+}
-+
-+/**
-+ * Should be called only when port is disabled
-+ */
-+void
-+bna_port_linkcbfn_set(struct bna_port *port,
-+		      void (*linkcbfn)(struct bnad *, enum bna_link_status))
-+{
-+	port->link_cbfn = linkcbfn;
-+}
-+
-+void
-+bna_port_admin_up(struct bna_port *port)
-+{
-+	struct bna_llport *llport = &port->llport;
-+
-+	if (llport->flags & BNA_LLPORT_F_ENABLED)
-+		return;
-+
-+	llport->flags |= BNA_LLPORT_F_ENABLED;
-+
-+	if (llport->flags & BNA_LLPORT_F_RX_ENABLED)
-+		bfa_fsm_send_event(llport, LLPORT_E_UP);
-+}
-+
-+void
-+bna_port_admin_down(struct bna_port *port)
-+{
-+	struct bna_llport *llport = &port->llport;
-+
-+	if (!(llport->flags & BNA_LLPORT_F_ENABLED))
-+		return;
-+
-+	llport->flags &= ~BNA_LLPORT_F_ENABLED;
-+
-+	if (llport->flags & BNA_LLPORT_F_RX_ENABLED)
-+		bfa_fsm_send_event(llport, LLPORT_E_DOWN);
-+}
-+
-+/**
-+ * DEVICE
-+ */
-+#define enable_mbox_intr(_device)\
-+do {\
-+	u32 intr_status;\
-+	bna_intr_status_get((_device)->bna, intr_status);\
-+	bnad_cb_device_enable_mbox_intr((_device)->bna->bnad);\
-+	bna_mbox_intr_enable((_device)->bna);\
-+} while (0)
-+
-+#define disable_mbox_intr(_device)\
-+do {\
-+	bna_mbox_intr_disable((_device)->bna);\
-+	bnad_cb_device_disable_mbox_intr((_device)->bna->bnad);\
-+} while (0)
-+
-+const struct bna_chip_regs_offset reg_offset[] =
-+{{HOST_PAGE_NUM_FN0, HOSTFN0_INT_STATUS,
-+	HOSTFN0_INT_MASK, HOST_MSIX_ERR_INDEX_FN0},
-+{HOST_PAGE_NUM_FN1, HOSTFN1_INT_STATUS,
-+	HOSTFN1_INT_MASK, HOST_MSIX_ERR_INDEX_FN1},
-+{HOST_PAGE_NUM_FN2, HOSTFN2_INT_STATUS,
-+	HOSTFN2_INT_MASK, HOST_MSIX_ERR_INDEX_FN2},
-+{HOST_PAGE_NUM_FN3, HOSTFN3_INT_STATUS,
-+	HOSTFN3_INT_MASK, HOST_MSIX_ERR_INDEX_FN3},
-+};
-+
-+enum bna_device_event {
-+	DEVICE_E_ENABLE			= 1,
-+	DEVICE_E_DISABLE		= 2,
-+	DEVICE_E_IOC_READY		= 3,
-+	DEVICE_E_IOC_FAILED		= 4,
-+	DEVICE_E_IOC_DISABLED		= 5,
-+	DEVICE_E_IOC_RESET		= 6,
-+	DEVICE_E_PORT_STOPPED		= 7,
-+};
-+
-+enum bna_device_state {
-+	BNA_DEVICE_STOPPED		= 1,
-+	BNA_DEVICE_IOC_READY_WAIT 	= 2,
-+	BNA_DEVICE_READY		= 3,
-+	BNA_DEVICE_PORT_STOP_WAIT 	= 4,
-+	BNA_DEVICE_IOC_DISABLE_WAIT 	= 5,
-+	BNA_DEVICE_FAILED		= 6
-+};
-+
-+bfa_fsm_state_decl(bna_device, stopped, struct bna_device,
-+			enum bna_device_event);
-+bfa_fsm_state_decl(bna_device, ioc_ready_wait, struct bna_device,
-+			enum bna_device_event);
-+bfa_fsm_state_decl(bna_device, ready, struct bna_device,
-+			enum bna_device_event);
-+bfa_fsm_state_decl(bna_device, port_stop_wait, struct bna_device,
-+			enum bna_device_event);
-+bfa_fsm_state_decl(bna_device, ioc_disable_wait, struct bna_device,
-+			enum bna_device_event);
-+bfa_fsm_state_decl(bna_device, failed, struct bna_device,
-+			enum bna_device_event);
-+
-+static struct bfa_sm_table device_sm_table[] = {
-+	{BFA_SM(bna_device_sm_stopped), BNA_DEVICE_STOPPED},
-+	{BFA_SM(bna_device_sm_ioc_ready_wait), BNA_DEVICE_IOC_READY_WAIT},
-+	{BFA_SM(bna_device_sm_ready), BNA_DEVICE_READY},
-+	{BFA_SM(bna_device_sm_port_stop_wait), BNA_DEVICE_PORT_STOP_WAIT},
-+	{BFA_SM(bna_device_sm_ioc_disable_wait), BNA_DEVICE_IOC_DISABLE_WAIT},
-+	{BFA_SM(bna_device_sm_failed), BNA_DEVICE_FAILED},
-+};
-+
-+static void
-+bna_device_sm_stopped_entry(struct bna_device *device)
-+{
-+	if (device->stop_cbfn)
-+		device->stop_cbfn(device->stop_cbarg, BNA_CB_SUCCESS);
-+
-+	device->stop_cbfn = NULL;
-+	device->stop_cbarg = NULL;
-+}
-+
-+static void
-+bna_device_sm_stopped(struct bna_device *device,
-+			enum bna_device_event event)
-+{
-+	switch (event) {
-+	case DEVICE_E_ENABLE:
-+		if (device->intr_type == BNA_INTR_T_MSIX)
-+			bna_mbox_msix_idx_set(device);
-+		bfa_ioc_enable(&device->ioc);
-+		bfa_fsm_set_state(device, bna_device_sm_ioc_ready_wait);
-+		break;
-+
-+	case DEVICE_E_DISABLE:
-+		bfa_fsm_set_state(device, bna_device_sm_stopped);
-+		break;
-+
-+	case DEVICE_E_IOC_RESET:
-+		enable_mbox_intr(device);
-+		break;
-+
-+	case DEVICE_E_IOC_FAILED:
-+		bfa_fsm_set_state(device, bna_device_sm_failed);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(device->bna, event);
-+	}
-+}
-+
-+static void
-+bna_device_sm_ioc_ready_wait_entry(struct bna_device *device)
-+{
-+	/**
-+	 * Do not call bfa_ioc_enable() here. It must be called in the
-+	 * previous state due to failed -> ioc_ready_wait transition.
-+	 */
-+}
-+
-+static void
-+bna_device_sm_ioc_ready_wait(struct bna_device *device,
-+				enum bna_device_event event)
-+{
-+	switch (event) {
-+	case DEVICE_E_DISABLE:
-+		if (device->ready_cbfn)
-+			device->ready_cbfn(device->ready_cbarg,
-+						BNA_CB_INTERRUPT);
-+		device->ready_cbfn = NULL;
-+		device->ready_cbarg = NULL;
-+		bfa_fsm_set_state(device, bna_device_sm_ioc_disable_wait);
-+		break;
-+
-+	case DEVICE_E_IOC_READY:
-+		bfa_fsm_set_state(device, bna_device_sm_ready);
-+		break;
-+
-+	case DEVICE_E_IOC_FAILED:
-+		bfa_fsm_set_state(device, bna_device_sm_failed);
-+		break;
-+
-+	case DEVICE_E_IOC_RESET:
-+		enable_mbox_intr(device);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(device->bna, event);
-+	}
-+}
-+
-+static void
-+bna_device_sm_ready_entry(struct bna_device *device)
-+{
-+	bna_mbox_mod_start(&device->bna->mbox_mod);
-+	bna_port_start(&device->bna->port);
-+
-+	if (device->ready_cbfn)
-+		device->ready_cbfn(device->ready_cbarg,
-+					BNA_CB_SUCCESS);
-+	device->ready_cbfn = NULL;
-+	device->ready_cbarg = NULL;
-+}
-+
-+static void
-+bna_device_sm_ready(struct bna_device *device, enum bna_device_event event)
-+{
-+	switch (event) {
-+	case DEVICE_E_DISABLE:
-+		bfa_fsm_set_state(device, bna_device_sm_port_stop_wait);
-+		break;
-+
-+	case DEVICE_E_IOC_FAILED:
-+		bfa_fsm_set_state(device, bna_device_sm_failed);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(device->bna, event);
-+	}
-+}
-+
-+static void
-+bna_device_sm_port_stop_wait_entry(struct bna_device *device)
-+{
-+	bna_port_stop(&device->bna->port);
-+}
-+
-+static void
-+bna_device_sm_port_stop_wait(struct bna_device *device,
-+				enum bna_device_event event)
-+{
-+	switch (event) {
-+	case DEVICE_E_PORT_STOPPED:
-+		bna_mbox_mod_stop(&device->bna->mbox_mod);
-+		bfa_fsm_set_state(device, bna_device_sm_ioc_disable_wait);
-+		break;
-+
-+	case DEVICE_E_IOC_FAILED:
-+		disable_mbox_intr(device);
-+		bna_port_fail(&device->bna->port);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(device->bna, event);
-+	}
-+}
-+
-+static void
-+bna_device_sm_ioc_disable_wait_entry(struct bna_device *device)
-+{
-+	bfa_ioc_disable(&device->ioc);
-+}
-+
-+static void
-+bna_device_sm_ioc_disable_wait(struct bna_device *device,
-+				enum bna_device_event event)
-+{
-+	switch (event) {
-+	case DEVICE_E_IOC_DISABLED:
-+		disable_mbox_intr(device);
-+		bfa_fsm_set_state(device, bna_device_sm_stopped);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(device->bna, event);
-+	}
-+}
-+
-+static void
-+bna_device_sm_failed_entry(struct bna_device *device)
-+{
-+	disable_mbox_intr(device);
-+	bna_port_fail(&device->bna->port);
-+	bna_mbox_mod_stop(&device->bna->mbox_mod);
-+
-+	if (device->ready_cbfn)
-+		device->ready_cbfn(device->ready_cbarg,
-+					BNA_CB_FAIL);
-+	device->ready_cbfn = NULL;
-+	device->ready_cbarg = NULL;
-+}
-+
-+static void
-+bna_device_sm_failed(struct bna_device *device,
-+			enum bna_device_event event)
-+{
-+	switch (event) {
-+	case DEVICE_E_DISABLE:
-+		bfa_fsm_set_state(device, bna_device_sm_ioc_disable_wait);
-+		break;
-+
-+	case DEVICE_E_IOC_RESET:
-+		enable_mbox_intr(device);
-+		bfa_fsm_set_state(device, bna_device_sm_ioc_ready_wait);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(device->bna, event);
-+	}
-+}
-+
-+/* IOC callback functions */
-+
-+static void
-+bna_device_cb_iocll_ready(void *dev, enum bfa_status error)
-+{
-+	struct bna_device *device = (struct bna_device *)dev;
-+
-+	if (error)
-+		bfa_fsm_send_event(device, DEVICE_E_IOC_FAILED);
-+	else
-+		bfa_fsm_send_event(device, DEVICE_E_IOC_READY);
-+}
-+
-+static void
-+bna_device_cb_iocll_disabled(void *dev)
-+{
-+	struct bna_device *device = (struct bna_device *)dev;
-+
-+	bfa_fsm_send_event(device, DEVICE_E_IOC_DISABLED);
-+}
-+
-+static void
-+bna_device_cb_iocll_failed(void *dev)
-+{
-+	struct bna_device *device = (struct bna_device *)dev;
-+
-+	bfa_fsm_send_event(device, DEVICE_E_IOC_FAILED);
-+}
-+
-+static void
-+bna_device_cb_iocll_reset(void *dev)
-+{
-+	struct bna_device *device = (struct bna_device *)dev;
-+
-+	bfa_fsm_send_event(device, DEVICE_E_IOC_RESET);
-+}
-+
-+static struct bfa_ioc_cbfn bfa_iocll_cbfn = {
-+	bna_device_cb_iocll_ready,
-+	bna_device_cb_iocll_disabled,
-+	bna_device_cb_iocll_failed,
-+	bna_device_cb_iocll_reset
-+};
-+
-+void
-+bna_device_init(struct bna_device *device, struct bna *bna,
-+		struct bna_res_info *res_info)
-+{
-+	u64 dma;
-+
-+	device->bna = bna;
-+
-+	/**
-+	 * Attach IOC and claim:
-+	 *	1. DMA memory for IOC attributes
-+	 *	2. Kernel memory for FW trace
-+	 */
-+	bfa_ioc_attach(&device->ioc, device, &bfa_iocll_cbfn);
-+	bfa_ioc_pci_init(&device->ioc, &bna->pcidev, BFI_MC_LL);
-+
-+	BNA_GET_DMA_ADDR(
-+		&res_info[BNA_RES_MEM_T_ATTR].res_u.mem_info.mdl[0].dma, dma);
-+	bfa_ioc_mem_claim(&device->ioc,
-+		res_info[BNA_RES_MEM_T_ATTR].res_u.mem_info.mdl[0].kva,
-+			  dma);
-+
-+	bna_adv_device_init(device, bna, res_info);
-+	/*
-+	 * Initialize mbox_mod only after IOC, so that mbox handler
-+	 * registration goes through
-+	 */
-+	device->intr_type =
-+		res_info[BNA_RES_INTR_T_MBOX].res_u.intr_info.intr_type;
-+	device->vector =
-+		res_info[BNA_RES_INTR_T_MBOX].res_u.intr_info.idl[0].vector;
-+	bna_mbox_mod_init(&bna->mbox_mod, bna);
-+
-+	device->ready_cbfn = device->stop_cbfn = NULL;
-+	device->ready_cbarg = device->stop_cbarg = NULL;
-+
-+	bfa_fsm_set_state(device, bna_device_sm_stopped);
-+}
-+
-+void
-+bna_device_uninit(struct bna_device *device)
-+{
-+	bna_mbox_mod_uninit(&device->bna->mbox_mod);
-+
-+	bfa_cee_detach(&device->bna->cee);
-+
-+	bfa_ioc_detach(&device->ioc);
-+
-+	device->bna = NULL;
-+}
-+
-+void
-+bna_device_cb_port_stopped(void *arg, enum bna_cb_status status)
-+{
-+	struct bna_device *device = (struct bna_device *)arg;
-+
-+	bfa_fsm_send_event(device, DEVICE_E_PORT_STOPPED);
-+}
-+
-+int
-+bna_device_status_get(struct bna_device *device)
-+{
-+	return (device->fsm == (bfa_fsm_t)bna_device_sm_ready);
-+}
-+
-+void
-+bna_device_enable(struct bna_device *device)
-+{
-+	if (device->fsm != (bfa_fsm_t)bna_device_sm_stopped) {
-+		bnad_cb_device_enabled(device->bna->bnad, BNA_CB_BUSY);
-+		return;
-+	}
-+
-+	device->ready_cbfn = bnad_cb_device_enabled;
-+	device->ready_cbarg = device->bna->bnad;
-+
-+	bfa_fsm_send_event(device, DEVICE_E_ENABLE);
-+}
-+
-+void
-+bna_device_disable(struct bna_device *device, enum bna_cleanup_type type)
-+{
-+	if (type == BNA_SOFT_CLEANUP) {
-+		bnad_cb_device_disabled(device->bna->bnad, BNA_CB_SUCCESS);
-+		return;
-+	}
-+
-+	device->stop_cbfn = bnad_cb_device_disabled;
-+	device->stop_cbarg = device->bna->bnad;
-+
-+	bfa_fsm_send_event(device, DEVICE_E_DISABLE);
-+}
-+
-+int
-+bna_device_state_get(struct bna_device *device)
-+{
-+	return bfa_sm_to_state(device_sm_table, device->fsm);
-+}
-+
-+u32 bna_dim_vector[BNA_LOAD_T_MAX][BNA_BIAS_T_MAX] = {
-+	{12, 20},
-+	{10, 18},
-+	{8, 16},
-+	{6, 12},
-+	{4, 8},
-+	{3, 6},
-+	{2, 4},
-+	{1, 2},
-+};
-+
-+u32 bna_napi_dim_vector[BNA_LOAD_T_MAX][BNA_BIAS_T_MAX] = {
-+	{12, 12},
-+	{6, 10},
-+	{5, 10},
-+	{4, 8},
-+	{3, 6},
-+	{3, 6},
-+	{2, 4},
-+	{1, 2},
-+};
-+
-+/* device */
-+void
-+bna_adv_device_init(struct bna_device *device, struct bna *bna,
-+		struct bna_res_info *res_info)
-+{
-+	u8 *kva;
-+	u64 dma;
-+
-+	device->bna = bna;
-+
-+	kva = res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.mdl[0].kva;
-+
-+	/**
-+	 * Attach common modules (Diag, SFP, CEE, Port) and claim respective
-+	 * DMA memory.
-+	 */
-+	BNA_GET_DMA_ADDR(
-+		&res_info[BNA_RES_MEM_T_COM].res_u.mem_info.mdl[0].dma, dma);
-+	kva = res_info[BNA_RES_MEM_T_COM].res_u.mem_info.mdl[0].kva;
-+
-+	bfa_cee_attach(&bna->cee, &device->ioc, bna);
-+	bfa_cee_mem_claim(&bna->cee, kva, dma);
-+	kva += bfa_cee_meminfo();
-+	dma += bfa_cee_meminfo();
-+
-+}
-+
-+/* utils */
-+
-+void
-+bna_adv_res_req(struct bna_res_info *res_info)
-+{
-+	/* DMA memory for COMMON_MODULE */
-+	res_info[BNA_RES_MEM_T_COM].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_COM].res_u.mem_info.mem_type = BNA_MEM_T_DMA;
-+	res_info[BNA_RES_MEM_T_COM].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_COM].res_u.mem_info.len = ALIGN(
-+				bfa_cee_meminfo(), PAGE_SIZE);
-+
-+	/* Virtual memory for retreiving fw_trc */
-+	res_info[BNA_RES_MEM_T_FWTRC].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.mem_type = BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.num = 0;
-+	res_info[BNA_RES_MEM_T_FWTRC].res_u.mem_info.len = 0;
-+
-+	/* DMA memory for retreiving stats */
-+	res_info[BNA_RES_MEM_T_STATS].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_STATS].res_u.mem_info.mem_type = BNA_MEM_T_DMA;
-+	res_info[BNA_RES_MEM_T_STATS].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_STATS].res_u.mem_info.len =
-+				ALIGN(BFI_HW_STATS_SIZE, PAGE_SIZE);
-+
-+	/* Virtual memory for soft stats */
-+	res_info[BNA_RES_MEM_T_SWSTATS].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_SWSTATS].res_u.mem_info.mem_type = BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_SWSTATS].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_SWSTATS].res_u.mem_info.len =
-+				sizeof(struct bna_sw_stats);
-+}
-+
-+static void
-+bna_sw_stats_get(struct bna *bna, struct bna_sw_stats *sw_stats)
++static struct bna_intr *
++bna_intr_get(struct bna_ib_mod *ib_mod, enum bna_intr_type intr_type,
++		int vector)
 +{
-+	struct bna_tx *tx;
-+	struct bna_txq *txq;
-+	struct bna_rx *rx;
-+	struct bna_rxp *rxp;
++	struct bna_intr *intr;
 +	struct list_head *qe;
-+	struct list_head *txq_qe;
-+	struct list_head *rxp_qe;
-+	struct list_head *mac_qe;
++
++	list_for_each(qe, &ib_mod->intr_active_q) {
++		intr = (struct bna_intr *)qe;
++
++		if ((intr->intr_type == intr_type) &&
++			(intr->vector == vector)) {
++			intr->ref_count++;
++			return intr;
++		}
++	}
++
++	if (list_empty(&ib_mod->intr_free_q))
++		return NULL;
++
++	bfa_q_deq(&ib_mod->intr_free_q, &intr);
++	bfa_q_qe_init(&intr->qe);
++
++	intr->ref_count = 1;
++	intr->intr_type = intr_type;
++	intr->vector = vector;
++
++	list_add_tail(&intr->qe, &ib_mod->intr_active_q);
++
++	return intr;
++}
++
++static void
++bna_intr_put(struct bna_ib_mod *ib_mod,
++		struct bna_intr *intr)
++{
++	intr->ref_count--;
++
++	if (intr->ref_count == 0) {
++		intr->ib = NULL;
++		list_del(&intr->qe);
++		bfa_q_qe_init(&intr->qe);
++		list_add_tail(&intr->qe, &ib_mod->intr_free_q);
++	}
++}
++
++void
++bna_ib_mod_init(struct bna_ib_mod *ib_mod, struct bna *bna,
++		struct bna_res_info *res_info)
++{
 +	int i;
++	int j;
++	int count;
++	u8 offset;
++	struct bna_doorbell_qset *qset;
++	unsigned long off;
 +
-+	sw_stats->device_state = bna_device_state_get(&bna->device);
-+	sw_stats->port_state = bna_port_state_get(&bna->port);
-+	sw_stats->port_flags = bna->port.flags;
-+	sw_stats->llport_state = bna_llport_state_get(&bna->port.llport);
-+	sw_stats->priority = bna->port.priority;
++	ib_mod->bna = bna;
++
++	ib_mod->ib = (struct bna_ib *)
++		res_info[BNA_RES_MEM_T_IB_ARRAY].res_u.mem_info.mdl[0].kva;
++	ib_mod->intr = (struct bna_intr *)
++		res_info[BNA_RES_MEM_T_INTR_ARRAY].res_u.mem_info.mdl[0].kva;
++	ib_mod->idx_seg = (struct bna_ibidx_seg *)
++		res_info[BNA_RES_MEM_T_IDXSEG_ARRAY].res_u.mem_info.mdl[0].kva;
++
++	INIT_LIST_HEAD(&ib_mod->ib_free_q);
++	INIT_LIST_HEAD(&ib_mod->intr_free_q);
++	INIT_LIST_HEAD(&ib_mod->intr_active_q);
++
++	for (i = 0; i < BFI_IBIDX_TOTAL_POOLS; i++)
++		INIT_LIST_HEAD(&ib_mod->ibidx_seg_pool[i]);
++
++	for (i = 0; i < BFI_MAX_IB; i++) {
++		ib_mod->ib[i].ib_id = i;
++
++		ib_mod->ib[i].ib_seg_host_addr_kva =
++		res_info[BNA_RES_MEM_T_IBIDX].res_u.mem_info.mdl[i].kva;
++		ib_mod->ib[i].ib_seg_host_addr.lsb =
++		res_info[BNA_RES_MEM_T_IBIDX].res_u.mem_info.mdl[i].dma.lsb;
++		ib_mod->ib[i].ib_seg_host_addr.msb =
++		res_info[BNA_RES_MEM_T_IBIDX].res_u.mem_info.mdl[i].dma.msb;
++
++		qset = (struct bna_doorbell_qset *)0;
++		off = (unsigned long)(&qset[i >> 1].ib0[(i & 0x1)
++					* (0x20 >> 2)]);
++		ib_mod->ib[i].door_bell.doorbell_addr = off +
++			BNA_GET_DOORBELL_BASE_ADDR(bna->pcidev.pci_bar_kva);
++
++		bfa_q_qe_init(&ib_mod->ib[i].qe);
++		list_add_tail(&ib_mod->ib[i].qe, &ib_mod->ib_free_q);
++
++		bfa_q_qe_init(&ib_mod->intr[i].qe);
++		list_add_tail(&ib_mod->intr[i].qe, &ib_mod->intr_free_q);
++	}
++
++	count = 0;
++	offset = 0;
++	for (i = 0; i < BFI_IBIDX_TOTAL_POOLS; i++) {
++		for (j = 0; j < ibidx_pool[i].pool_size; j++) {
++			bfa_q_qe_init(&ib_mod->idx_seg[count]);
++			ib_mod->idx_seg[count].ib_seg_size =
++					ibidx_pool[i].pool_entry_size;
++			ib_mod->idx_seg[count].ib_idx_tbl_offset = offset;
++			list_add_tail(&ib_mod->idx_seg[count].qe,
++				&ib_mod->ibidx_seg_pool[i]);
++			count++;
++			offset += ibidx_pool[i].pool_entry_size;
++		}
++	}
++}
++
++void
++bna_ib_mod_uninit(struct bna_ib_mod *ib_mod)
++{
++	int i;
++	int j;
++	struct list_head *qe;
 +
 +	i = 0;
-+	list_for_each(qe, &bna->tx_mod.tx_active_q) {
-+		tx = (struct bna_tx *)qe;
-+		sw_stats->tx_stats[i].tx_state = bna_tx_state_get(tx);
-+		sw_stats->tx_stats[i].tx_flags = tx->flags;
-+
-+		sw_stats->tx_stats[i].num_txqs = 0;
-+		sw_stats->tx_stats[i].txq_bmap[0] = 0;
-+		sw_stats->tx_stats[i].txq_bmap[1] = 0;
-+		list_for_each(txq_qe, &tx->txq_q) {
-+			txq = (struct bna_txq *)txq_qe;
-+			if (txq->txq_id < 32)
-+				sw_stats->tx_stats[i].txq_bmap[0] |=
-+						((u32)1 << txq->txq_id);
-+			else
-+				sw_stats->tx_stats[i].txq_bmap[1] |=
-+						((u32)
-+						 1 << (txq->txq_id - 32));
-+			sw_stats->tx_stats[i].num_txqs++;
-+		}
-+
-+		sw_stats->tx_stats[i].txf_id = tx->txf.txf_id;
-+
++	list_for_each(qe, &ib_mod->ib_free_q)
 +		i++;
-+	}
-+	sw_stats->num_active_tx = i;
 +
 +	i = 0;
-+	list_for_each(qe, &bna->rx_mod.rx_active_q) {
-+		rx = (struct bna_rx *)qe;
-+		sw_stats->rx_stats[i].rx_state = bna_rx_state_get(rx);
-+		sw_stats->rx_stats[i].rx_flags = rx->rx_flags;
-+
-+		sw_stats->rx_stats[i].num_rxps = 0;
-+		sw_stats->rx_stats[i].num_rxqs = 0;
-+		sw_stats->rx_stats[i].rxq_bmap[0] = 0;
-+		sw_stats->rx_stats[i].rxq_bmap[1] = 0;
-+		sw_stats->rx_stats[i].cq_bmap[0] = 0;
-+		sw_stats->rx_stats[i].cq_bmap[1] = 0;
-+		list_for_each(rxp_qe, &rx->rxp_q) {
-+			rxp = (struct bna_rxp *)rxp_qe;
-+
-+			sw_stats->rx_stats[i].num_rxqs += 1;
-+
-+			if (rxp->type == BNA_RXP_SINGLE) {
-+				if (rxp->rxq.single.only->rxq_id < 32) {
-+					sw_stats->rx_stats[i].rxq_bmap[0] |=
-+					((u32)1 <<
-+					rxp->rxq.single.only->rxq_id);
-+				} else {
-+					sw_stats->rx_stats[i].rxq_bmap[1] |=
-+					((u32)1 <<
-+					(rxp->rxq.single.only->rxq_id - 32));
-+				}
-+			} else {
-+				if (rxp->rxq.slr.large->rxq_id < 32) {
-+					sw_stats->rx_stats[i].rxq_bmap[0] |=
-+					((u32)1 <<
-+					rxp->rxq.slr.large->rxq_id);
-+				} else {
-+					sw_stats->rx_stats[i].rxq_bmap[1] |=
-+					((u32)1 <<
-+					(rxp->rxq.slr.large->rxq_id - 32));
-+				}
-+
-+				if (rxp->rxq.slr.small->rxq_id < 32) {
-+					sw_stats->rx_stats[i].rxq_bmap[0] |=
-+					((u32)1 <<
-+					rxp->rxq.slr.small->rxq_id);
-+				} else {
-+					sw_stats->rx_stats[i].rxq_bmap[1] |=
-+				((u32)1 <<
-+				 (rxp->rxq.slr.small->rxq_id - 32));
-+				}
-+				sw_stats->rx_stats[i].num_rxqs += 1;
-+			}
-+
-+			if (rxp->cq.cq_id < 32)
-+				sw_stats->rx_stats[i].cq_bmap[0] |=
-+					(1 << rxp->cq.cq_id);
-+			else
-+				sw_stats->rx_stats[i].cq_bmap[1] |=
-+					(1 << (rxp->cq.cq_id - 32));
-+
-+			sw_stats->rx_stats[i].num_rxps++;
-+		}
-+
-+		sw_stats->rx_stats[i].rxf_id = rx->rxf.rxf_id;
-+		sw_stats->rx_stats[i].rxf_state = bna_rxf_state_get(&rx->rxf);
-+		sw_stats->rx_stats[i].rxf_oper_state = rx->rxf.rxf_oper_state;
-+
-+		sw_stats->rx_stats[i].num_active_ucast = 0;
-+		if (rx->rxf.ucast_active_mac)
-+			sw_stats->rx_stats[i].num_active_ucast++;
-+		list_for_each(mac_qe, &rx->rxf.ucast_active_q)
-+			sw_stats->rx_stats[i].num_active_ucast++;
-+
-+		sw_stats->rx_stats[i].num_active_mcast = 0;
-+		list_for_each(mac_qe, &rx->rxf.mcast_active_q)
-+			sw_stats->rx_stats[i].num_active_mcast++;
-+
-+		sw_stats->rx_stats[i].rxmode_active = rx->rxf.rxmode_active;
-+		sw_stats->rx_stats[i].vlan_filter_status =
-+						rx->rxf.vlan_filter_status;
-+		memcpy(sw_stats->rx_stats[i].vlan_filter_table,
-+				rx->rxf.vlan_filter_table,
-+				sizeof(u32) * ((BFI_MAX_VLAN + 1) / 32));
-+
-+		sw_stats->rx_stats[i].rss_status = rx->rxf.rss_status;
-+		sw_stats->rx_stats[i].hds_status = rx->rxf.hds_status;
-+
++	list_for_each(qe, &ib_mod->intr_free_q)
 +		i++;
++
++	for (i = 0; i < BFI_IBIDX_TOTAL_POOLS; i++) {
++		j = 0;
++		list_for_each(qe, &ib_mod->ibidx_seg_pool[i])
++			j++;
 +	}
-+	sw_stats->num_active_rx = i;
++
++	ib_mod->bna = NULL;
 +}
 +
-+static void
-+bna_fw_cb_stats_get(void *arg, int status)
++struct bna_ib *
++bna_ib_get(struct bna_ib_mod *ib_mod,
++		enum bna_intr_type intr_type,
++		int vector)
 +{
-+	struct bna *bna = (struct bna *)arg;
-+	u64 *p_stats;
-+	int i, count;
-+	int rxf_count, txf_count;
-+	u64 rxf_bmap, txf_bmap;
++	struct bna_ib *ib;
++	struct bna_intr *intr;
 +
-+	bfa_q_qe_init(&bna->mbox_qe.qe);
++	if (intr_type == BNA_INTR_T_INTX)
++		vector = (1 << vector);
 +
-+	if (status == 0) {
-+		p_stats = (u64 *)bna->stats.hw_stats;
-+		count = sizeof(struct bfi_ll_stats) / sizeof(u64);
-+		for (i = 0; i < count; i++)
-+			p_stats[i] = cpu_to_be64(p_stats[i]);
++	intr = bna_intr_get(ib_mod, intr_type, vector);
++	if (intr == NULL)
++		return NULL;
 +
-+		rxf_count = 0;
-+		rxf_bmap = (u64)bna->stats.rxf_bmap[0] |
-+			((u64)bna->stats.rxf_bmap[1] << 32);
-+		for (i = 0; i < BFI_LL_RXF_ID_MAX; i++)
-+			if (rxf_bmap & ((u64)1 << i))
-+				rxf_count++;
++	if (intr->ib) {
++		if (intr->ib->ref_count == BFI_IBIDX_MAX_SEGSIZE) {
++			bna_intr_put(ib_mod, intr);
++			return NULL;
++		}
++		intr->ib->ref_count++;
++		return intr->ib;
++	}
 +
-+		txf_count = 0;
-+		txf_bmap = (u64)bna->stats.txf_bmap[0] |
-+			((u64)bna->stats.txf_bmap[1] << 32);
-+		for (i = 0; i < BFI_LL_TXF_ID_MAX; i++)
-+			if (txf_bmap & ((u64)1 << i))
-+				txf_count++;
++	if (list_empty(&ib_mod->ib_free_q)) {
++		bna_intr_put(ib_mod, intr);
++		return NULL;
++	}
 +
-+		p_stats = (u64 *)&bna->stats.hw_stats->rxf_stats[0] +
-+				((rxf_count * sizeof(struct bfi_ll_stats_rxf) +
-+				txf_count * sizeof(struct bfi_ll_stats_txf))/
-+				sizeof(u64));
++	bfa_q_deq(&ib_mod->ib_free_q, &ib);
++	bfa_q_qe_init(&ib->qe);
 +
-+		/* Populate the TXF stats from the firmware DMAed copy */
-+		for (i = (BFI_LL_TXF_ID_MAX - 1); i >= 0; i--)
-+			if (txf_bmap & ((u64)1 << i)) {
-+				p_stats -= sizeof(struct bfi_ll_stats_txf)/
-+						sizeof(u64);
-+				memcpy(&bna->stats.hw_stats->txf_stats[i],
-+					p_stats,
-+					sizeof(struct bfi_ll_stats_txf));
-+			}
++	ib->ref_count = 1;
++	ib->start_count = 0;
++	ib->idx_mask = 0;
 +
-+		/* Populate the RXF stats from the firmware DMAed copy */
-+		for (i = (BFI_LL_RXF_ID_MAX - 1); i >= 0; i--)
-+			if (rxf_bmap & ((u64)1 << i)) {
-+				p_stats -= sizeof(struct bfi_ll_stats_rxf)/
-+						sizeof(u64);
-+				memcpy(&bna->stats.hw_stats->rxf_stats[i],
-+					p_stats,
-+					sizeof(struct bfi_ll_stats_rxf));
-+			}
++	ib->intr = intr;
++	ib->idx_seg = NULL;
++	intr->ib = ib;
 +
-+		bna_sw_stats_get(bna, bna->stats.sw_stats);
-+		bnad_cb_stats_get(bna->bnad, BNA_CB_SUCCESS, &bna->stats);
-+	} else
-+		bnad_cb_stats_get(bna->bnad, BNA_CB_FAIL, &bna->stats);
-+}
++	ib->bna = ib_mod->bna;
 +
-+static void
-+bna_fw_stats_get(struct bna *bna)
-+{
-+	struct bfi_ll_stats_req ll_req;
-+
-+	bfi_h2i_set(ll_req.mh, BFI_MC_LL, BFI_LL_H2I_STATS_GET_REQ, 0);
-+	ll_req.stats_mask = htons(BFI_LL_STATS_ALL);
-+
-+	ll_req.rxf_id_mask[0] = htonl(bna->rx_mod.rxf_bmap[0]);
-+	ll_req.rxf_id_mask[1] =	htonl(bna->rx_mod.rxf_bmap[1]);
-+	ll_req.txf_id_mask[0] =	htonl(bna->tx_mod.txf_bmap[0]);
-+	ll_req.txf_id_mask[1] =	htonl(bna->tx_mod.txf_bmap[1]);
-+
-+	ll_req.host_buffer.a32.addr_hi = bna->hw_stats_dma.msb;
-+	ll_req.host_buffer.a32.addr_lo = bna->hw_stats_dma.lsb;
-+
-+	bna_mbox_qe_fill(&bna->mbox_qe, &ll_req, sizeof(ll_req),
-+				bna_fw_cb_stats_get, bna);
-+	bna_mbox_send(bna, &bna->mbox_qe);
-+
-+	bna->stats.rxf_bmap[0] = bna->rx_mod.rxf_bmap[0];
-+	bna->stats.rxf_bmap[1] = bna->rx_mod.rxf_bmap[1];
-+	bna->stats.txf_bmap[0] = bna->tx_mod.txf_bmap[0];
-+	bna->stats.txf_bmap[1] = bna->tx_mod.txf_bmap[1];
-+}
-+
-+static void
-+bna_fw_cb_stats_clr(void *arg, int status)
-+{
-+	struct bna *bna = (struct bna *)arg;
-+
-+	bfa_q_qe_init(&bna->mbox_qe.qe);
-+
-+	memset(bna->stats.sw_stats, 0, sizeof(struct bna_sw_stats));
-+	memset(bna->stats.hw_stats, 0, sizeof(struct bfi_ll_stats));
-+
-+	bnad_cb_stats_clr(bna->bnad);
-+}
-+
-+static void
-+bna_fw_stats_clr(struct bna *bna)
-+{
-+	struct bfi_ll_stats_req ll_req;
-+
-+	bfi_h2i_set(ll_req.mh, BFI_MC_LL, BFI_LL_H2I_STATS_CLEAR_REQ, 0);
-+	ll_req.stats_mask = htons(BFI_LL_STATS_ALL);
-+	ll_req.rxf_id_mask[0] = htonl(0xffffffff);
-+	ll_req.rxf_id_mask[1] =	htonl(0xffffffff);
-+	ll_req.txf_id_mask[0] =	htonl(0xffffffff);
-+	ll_req.txf_id_mask[1] =	htonl(0xffffffff);
-+
-+	bna_mbox_qe_fill(&bna->mbox_qe, &ll_req, sizeof(ll_req),
-+				bna_fw_cb_stats_clr, bna);
-+	bna_mbox_send(bna, &bna->mbox_qe);
++	return ib;
 +}
 +
 +void
-+bna_stats_get(struct bna *bna)
++bna_ib_put(struct bna_ib_mod *ib_mod, struct bna_ib *ib)
 +{
-+	if (bna_device_status_get(&bna->device))
-+		bna_fw_stats_get(bna);
-+	else
-+		bnad_cb_stats_get(bna->bnad, BNA_CB_FAIL, &bna->stats);
-+}
++	bna_intr_put(ib_mod, ib->intr);
 +
-+void
-+bna_stats_clr(struct bna *bna)
-+{
-+	if (bna_device_status_get(&bna->device))
-+		bna_fw_stats_clr(bna);
-+	else {
-+		memset(&bna->stats.sw_stats, 0,
-+				sizeof(struct bna_sw_stats));
-+		memset(bna->stats.hw_stats, 0,
-+				sizeof(struct bfi_ll_stats));
-+		bnad_cb_stats_clr(bna->bnad);
++	ib->ref_count--;
++
++	if (ib->ref_count == 0) {
++		ib->intr = NULL;
++		ib->bna = NULL;
++		list_add_tail(&ib->qe, &ib_mod->ib_free_q);
 +	}
 +}
 +
-+/* IB */
-+void
-+bna_ib_coalescing_timeo_set(struct bna_ib *ib, u8 coalescing_timeo)
++/* Returns index offset - starting from 0 */
++int
++bna_ib_reserve_idx(struct bna_ib *ib)
 +{
-+	ib->ib_config.coalescing_timeo = coalescing_timeo;
++	struct bna_ib_mod *ib_mod = &ib->bna->ib_mod;
++	struct bna_ibidx_seg *idx_seg;
++	int idx;
++	int num_idx;
++	int q_idx;
++
++	/* Find the first free index position */
++	bna_ib_find_free_ibidx(ib->idx_mask, idx);
++	if (idx == BFI_IBIDX_MAX_SEGSIZE)
++		return -1;
++
++	/*
++	 * Calculate the total number of indexes held by this IB,
++	 * including the index newly reserved above.
++	 */
++	bna_ib_count_ibidx((ib->idx_mask | (1 << idx)), num_idx);
++
++	/* See if there is a free space in the index segment held by this IB */
++	if (ib->idx_seg && (num_idx <= ib->idx_seg->ib_seg_size)) {
++		ib->idx_mask |= (1 << idx);
++		return idx;
++	}
 +
 +	if (ib->start_count)
-+		ib->door_bell.doorbell_ack = BNA_DOORBELL_IB_INT_ACK(
-+				(u32)ib->ib_config.coalescing_timeo, 0);
-+}
++		return -1;
 +
-+/* RxF */
-+void
-+bna_rxf_adv_init(struct bna_rxf *rxf,
-+		struct bna_rx *rx,
-+		struct bna_rx_config *q_config)
-+{
-+	switch (q_config->rxp_type) {
-+	case BNA_RXP_SINGLE:
-+		/* No-op */
-+		break;
-+	case BNA_RXP_SLR:
-+		rxf->ctrl_flags |= BNA_RXF_CF_SM_LG_RXQ;
-+		break;
-+	case BNA_RXP_HDS:
-+		rxf->hds_cfg.hdr_type = q_config->hds_config.hdr_type;
-+		rxf->hds_cfg.header_size =
-+				q_config->hds_config.header_size;
-+		rxf->forced_offset = 0;
-+		break;
-+	default:
-+		break;
++	/* Allocate a new segment */
++	bna_ib_select_segpool(num_idx, q_idx);
++	while (1) {
++		if (q_idx == BFI_IBIDX_TOTAL_POOLS)
++			return -1;
++		if (!list_empty(&ib_mod->ibidx_seg_pool[q_idx]))
++			break;
++		q_idx++;
++	}
++	bfa_q_deq(&ib_mod->ibidx_seg_pool[q_idx], &idx_seg);
++	bfa_q_qe_init(&idx_seg->qe);
++
++	/* Free the old segment */
++	if (ib->idx_seg) {
++		bna_ib_select_segpool(ib->idx_seg->ib_seg_size, q_idx);
++		list_add_tail(&ib->idx_seg->qe, &ib_mod->ibidx_seg_pool[q_idx]);
 +	}
 +
-+	if (q_config->rss_status == BNA_STATUS_T_ENABLED) {
-+		rxf->ctrl_flags |= BNA_RXF_CF_RSS_ENABLE;
-+		rxf->rss_cfg.hash_type = q_config->rss_config.hash_type;
-+		rxf->rss_cfg.hash_mask = q_config->rss_config.hash_mask;
-+		memcpy(&rxf->rss_cfg.toeplitz_hash_key[0],
-+			&q_config->rss_config.toeplitz_hash_key[0],
-+			sizeof(rxf->rss_cfg.toeplitz_hash_key));
++	ib->idx_seg = idx_seg;
++
++	ib->idx_mask |= (1 << idx);
++
++	return idx;
++}
++
++void
++bna_ib_release_idx(struct bna_ib *ib, int idx)
++{
++	struct bna_ib_mod *ib_mod = &ib->bna->ib_mod;
++	struct bna_ibidx_seg *idx_seg;
++	int num_idx;
++	int cur_q_idx;
++	int new_q_idx;
++
++	ib->idx_mask &= ~(1 << idx);
++
++	if (ib->start_count)
++		return;
++
++	bna_ib_count_ibidx(ib->idx_mask, num_idx);
++
++	/*
++	 * Free the segment, if there are no more indexes in the segment
++	 * held by this IB
++	 */
++	if (!num_idx) {
++		bna_ib_select_segpool(ib->idx_seg->ib_seg_size, cur_q_idx);
++		list_add_tail(&ib->idx_seg->qe,
++			&ib_mod->ibidx_seg_pool[cur_q_idx]);
++		ib->idx_seg = NULL;
++		return;
++	}
++
++	/* See if we can move to a smaller segment */
++	bna_ib_select_segpool(num_idx, new_q_idx);
++	bna_ib_select_segpool(ib->idx_seg->ib_seg_size, cur_q_idx);
++	while (new_q_idx < cur_q_idx) {
++		if (!list_empty(&ib_mod->ibidx_seg_pool[new_q_idx]))
++			break;
++		new_q_idx++;
++	}
++	if (new_q_idx < cur_q_idx) {
++		/* Select the new smaller segment */
++		bfa_q_deq(&ib_mod->ibidx_seg_pool[new_q_idx], &idx_seg);
++		bfa_q_qe_init(&idx_seg->qe);
++		/* Free the old segment */
++		list_add_tail(&ib->idx_seg->qe,
++			&ib_mod->ibidx_seg_pool[cur_q_idx]);
++		ib->idx_seg = idx_seg;
++	}
++}
++
++int
++bna_ib_config(struct bna_ib *ib, struct bna_ib_config *ib_config)
++{
++	if (ib->start_count)
++		return -1;
++
++	ib->ib_config.coalescing_timeo = ib_config->coalescing_timeo;
++	ib->ib_config.interpkt_timeo = ib_config->interpkt_timeo;
++	ib->ib_config.interpkt_count = ib_config->interpkt_count;
++	ib->ib_config.ctrl_flags = ib_config->ctrl_flags;
++
++	ib->ib_config.ctrl_flags |= BFI_IB_CF_MASTER_ENABLE;
++	if (ib->intr->intr_type == BNA_INTR_T_MSIX)
++		ib->ib_config.ctrl_flags |= BFI_IB_CF_MSIX_MODE;
++
++	return 0;
++}
++
++void
++bna_ib_start(struct bna_ib *ib)
++{
++	struct bna_ib_blk_mem ib_cfg;
++	struct bna_ib_blk_mem *ib_mem;
++	u32 pg_num;
++	u32 intx_mask;
++	int i;
++	void __iomem *base_addr;
++	unsigned long off;
++
++	ib->start_count++;
++
++	if (ib->start_count > 1)
++		return;
++
++	ib_cfg.host_addr_lo = (u32)(ib->ib_seg_host_addr.lsb);
++	ib_cfg.host_addr_hi = (u32)(ib->ib_seg_host_addr.msb);
++
++	ib_cfg.clsc_n_ctrl_n_msix = (((u32)
++				     ib->ib_config.coalescing_timeo << 16) |
++				((u32)ib->ib_config.ctrl_flags << 8) |
++				(ib->intr->vector));
++	ib_cfg.ipkt_n_ent_n_idxof =
++				((u32)
++				 (ib->ib_config.interpkt_timeo & 0xf) << 16) |
++				((u32)ib->idx_seg->ib_seg_size << 8) |
++				(ib->idx_seg->ib_idx_tbl_offset);
++	ib_cfg.ipkt_cnt_cfg_n_unacked = ((u32)
++					 ib->ib_config.interpkt_count << 24);
++
++	pg_num = BNA_GET_PAGE_NUM(HQM0_BLK_PG_NUM + ib->bna->port_num,
++				HQM_IB_RAM_BASE_OFFSET);
++	writel(pg_num, ib->bna->regs.page_addr);
++
++	base_addr = BNA_GET_MEM_BASE_ADDR(ib->bna->pcidev.pci_bar_kva,
++					HQM_IB_RAM_BASE_OFFSET);
++
++	ib_mem = (struct bna_ib_blk_mem *)0;
++	off = (unsigned long)&ib_mem[ib->ib_id].host_addr_lo;
++	writel(htonl(ib_cfg.host_addr_lo), base_addr + off);
++
++	off = (unsigned long)&ib_mem[ib->ib_id].host_addr_hi;
++	writel(htonl(ib_cfg.host_addr_hi), base_addr + off);
++
++	off = (unsigned long)&ib_mem[ib->ib_id].clsc_n_ctrl_n_msix;
++	writel(ib_cfg.clsc_n_ctrl_n_msix, base_addr + off);
++
++	off = (unsigned long)&ib_mem[ib->ib_id].ipkt_n_ent_n_idxof;
++	writel(ib_cfg.ipkt_n_ent_n_idxof, base_addr + off);
++
++	off = (unsigned long)&ib_mem[ib->ib_id].ipkt_cnt_cfg_n_unacked;
++	writel(ib_cfg.ipkt_cnt_cfg_n_unacked, base_addr + off);
++
++	ib->door_bell.doorbell_ack = BNA_DOORBELL_IB_INT_ACK(
++				(u32)ib->ib_config.coalescing_timeo, 0);
++
++	pg_num = BNA_GET_PAGE_NUM(HQM0_BLK_PG_NUM + ib->bna->port_num,
++				HQM_INDX_TBL_RAM_BASE_OFFSET);
++	writel(pg_num, ib->bna->regs.page_addr);
++
++	base_addr = BNA_GET_MEM_BASE_ADDR(ib->bna->pcidev.pci_bar_kva,
++					HQM_INDX_TBL_RAM_BASE_OFFSET);
++	for (i = 0; i < ib->idx_seg->ib_seg_size; i++) {
++		off = (unsigned long)
++		((ib->idx_seg->ib_idx_tbl_offset + i) * BFI_IBIDX_SIZE);
++		writel(0, base_addr + off);
++	}
++
++	if (ib->intr->intr_type == BNA_INTR_T_INTX) {
++		bna_intx_disable(ib->bna, intx_mask);
++		intx_mask &= ~(ib->intr->vector);
++		bna_intx_enable(ib->bna, intx_mask);
++	}
++}
++
++void
++bna_ib_stop(struct bna_ib *ib)
++{
++	u32 intx_mask;
++
++	ib->start_count--;
++
++	if (ib->start_count == 0) {
++		writel(BNA_DOORBELL_IB_INT_DISABLE,
++				ib->door_bell.doorbell_addr);
++		if (ib->intr->intr_type == BNA_INTR_T_INTX) {
++			bna_intx_disable(ib->bna, intx_mask);
++			intx_mask |= (ib->intr->vector);
++			bna_intx_enable(ib->bna, intx_mask);
++		}
++	}
++}
++
++void
++bna_ib_fail(struct bna_ib *ib)
++{
++	ib->start_count = 0;
++}
++
++/**
++ * RXF
++ */
++static void rxf_enable(struct bna_rxf *rxf);
++static void rxf_disable(struct bna_rxf *rxf);
++static void __rxf_config_set(struct bna_rxf *rxf);
++static void __rxf_rit_set(struct bna_rxf *rxf);
++static void __bna_rxf_stat_clr(struct bna_rxf *rxf);
++static int rxf_process_packet_filter(struct bna_rxf *rxf);
++static int rxf_clear_packet_filter(struct bna_rxf *rxf);
++static void rxf_reset_packet_filter(struct bna_rxf *rxf);
++static void rxf_cb_enabled(void *arg, int status);
++static void rxf_cb_disabled(void *arg, int status);
++static void bna_rxf_cb_stats_cleared(void *arg, int status);
++static void __rxf_enable(struct bna_rxf *rxf);
++static void __rxf_disable(struct bna_rxf *rxf);
++
++bfa_fsm_state_decl(bna_rxf, stopped, struct bna_rxf,
++			enum bna_rxf_event);
++bfa_fsm_state_decl(bna_rxf, start_wait, struct bna_rxf,
++			enum bna_rxf_event);
++bfa_fsm_state_decl(bna_rxf, cam_fltr_mod_wait, struct bna_rxf,
++			enum bna_rxf_event);
++bfa_fsm_state_decl(bna_rxf, started, struct bna_rxf,
++			enum bna_rxf_event);
++bfa_fsm_state_decl(bna_rxf, cam_fltr_clr_wait, struct bna_rxf,
++			enum bna_rxf_event);
++bfa_fsm_state_decl(bna_rxf, stop_wait, struct bna_rxf,
++			enum bna_rxf_event);
++bfa_fsm_state_decl(bna_rxf, pause_wait, struct bna_rxf,
++			enum bna_rxf_event);
++bfa_fsm_state_decl(bna_rxf, resume_wait, struct bna_rxf,
++			enum bna_rxf_event);
++bfa_fsm_state_decl(bna_rxf, stat_clr_wait, struct bna_rxf,
++			enum bna_rxf_event);
++
++static struct bfa_sm_table rxf_sm_table[] = {
++	{BFA_SM(bna_rxf_sm_stopped), BNA_RXF_STOPPED},
++	{BFA_SM(bna_rxf_sm_start_wait), BNA_RXF_START_WAIT},
++	{BFA_SM(bna_rxf_sm_cam_fltr_mod_wait), BNA_RXF_CAM_FLTR_MOD_WAIT},
++	{BFA_SM(bna_rxf_sm_started), BNA_RXF_STARTED},
++	{BFA_SM(bna_rxf_sm_cam_fltr_clr_wait), BNA_RXF_CAM_FLTR_CLR_WAIT},
++	{BFA_SM(bna_rxf_sm_stop_wait), BNA_RXF_STOP_WAIT},
++	{BFA_SM(bna_rxf_sm_pause_wait), BNA_RXF_PAUSE_WAIT},
++	{BFA_SM(bna_rxf_sm_resume_wait), BNA_RXF_RESUME_WAIT},
++	{BFA_SM(bna_rxf_sm_stat_clr_wait), BNA_RXF_STAT_CLR_WAIT}
++};
++
++static void
++bna_rxf_sm_stopped_entry(struct bna_rxf *rxf)
++{
++	call_rxf_stop_cbfn(rxf, BNA_CB_SUCCESS);
++}
++
++static void
++bna_rxf_sm_stopped(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_START:
++		bfa_fsm_set_state(rxf, bna_rxf_sm_start_wait);
++		break;
++
++	case RXF_E_STOP:
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
++
++	case RXF_E_FAIL:
++		/* No-op */
++		break;
++
++	case RXF_E_CAM_FLTR_MOD:
++		call_rxf_cam_fltr_cbfn(rxf, BNA_CB_SUCCESS);
++		break;
++
++	case RXF_E_STARTED:
++	case RXF_E_STOPPED:
++	case RXF_E_CAM_FLTR_RESP:
++		/**
++		 * These events are received due to flushing of mbox
++		 * when device fails
++		 */
++		/* No-op */
++		break;
++
++	case RXF_E_PAUSE:
++		rxf->rxf_oper_state = BNA_RXF_OPER_STATE_PAUSED;
++		call_rxf_pause_cbfn(rxf, BNA_CB_SUCCESS);
++		break;
++
++	case RXF_E_RESUME:
++		rxf->rxf_oper_state = BNA_RXF_OPER_STATE_RUNNING;
++		call_rxf_resume_cbfn(rxf, BNA_CB_SUCCESS);
++		break;
++
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
 +	}
 +}
 +
 +static void
-+rxf_fltr_mbox_cmd(struct bna_rxf *rxf, u8 cmd, enum bna_status status)
++bna_rxf_sm_start_wait_entry(struct bna_rxf *rxf)
 +{
-+	struct bfi_ll_rxf_req req;
++	__rxf_config_set(rxf);
++	__rxf_rit_set(rxf);
++	rxf_enable(rxf);
++}
 +
-+	bfi_h2i_set(req.mh, BFI_MC_LL, cmd, 0);
++static void
++bna_rxf_sm_start_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_STOP:
++		/**
++		 * STOP is originated from bnad. When this happens,
++		 * it can not be waiting for filter update
++		 */
++		call_rxf_start_cbfn(rxf, BNA_CB_INTERRUPT);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stop_wait);
++		break;
 +
-+	req.rxf_id = rxf->rxf_id;
-+	req.enable = status;
++	case RXF_E_FAIL:
++		call_rxf_cam_fltr_cbfn(rxf, BNA_CB_SUCCESS);
++		call_rxf_start_cbfn(rxf, BNA_CB_FAIL);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
 +
-+	bna_mbox_qe_fill(&rxf->mbox_qe, &req, sizeof(req),
-+			rxf_cb_cam_fltr_mbox_cmd, rxf);
++	case RXF_E_CAM_FLTR_MOD:
++		/* No-op */
++		break;
++
++	case RXF_E_STARTED:
++		/**
++		 * Force rxf_process_filter() to go through initial
++		 * config
++		 */
++		if ((rxf->ucast_active_mac != NULL) &&
++			(rxf->ucast_pending_set == 0))
++			rxf->ucast_pending_set = 1;
++
++		if (rxf->rss_status == BNA_STATUS_T_ENABLED)
++			rxf->rxf_flags |= BNA_RXF_FL_RSS_CONFIG_PENDING;
++
++		rxf->rxf_flags |= BNA_RXF_FL_VLAN_CONFIG_PENDING;
++
++		bfa_fsm_set_state(rxf, bna_rxf_sm_cam_fltr_mod_wait);
++		break;
++
++	case RXF_E_PAUSE:
++	case RXF_E_RESUME:
++		rxf->rxf_flags |= BNA_RXF_FL_OPERSTATE_CHANGED;
++		break;
++
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
++	}
++}
++
++static void
++bna_rxf_sm_cam_fltr_mod_wait_entry(struct bna_rxf *rxf)
++{
++	if (!rxf_process_packet_filter(rxf)) {
++		/* No more pending CAM entries to update */
++		bfa_fsm_set_state(rxf, bna_rxf_sm_started);
++	}
++}
++
++static void
++bna_rxf_sm_cam_fltr_mod_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_STOP:
++		/**
++		 * STOP is originated from bnad. When this happens,
++		 * it can not be waiting for filter update
++		 */
++		call_rxf_start_cbfn(rxf, BNA_CB_INTERRUPT);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_cam_fltr_clr_wait);
++		break;
++
++	case RXF_E_FAIL:
++		rxf_reset_packet_filter(rxf);
++		call_rxf_cam_fltr_cbfn(rxf, BNA_CB_SUCCESS);
++		call_rxf_start_cbfn(rxf, BNA_CB_FAIL);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
++
++	case RXF_E_CAM_FLTR_MOD:
++		/* No-op */
++		break;
++
++	case RXF_E_CAM_FLTR_RESP:
++		if (!rxf_process_packet_filter(rxf)) {
++			/* No more pending CAM entries to update */
++			call_rxf_cam_fltr_cbfn(rxf, BNA_CB_SUCCESS);
++			bfa_fsm_set_state(rxf, bna_rxf_sm_started);
++		}
++		break;
++
++	case RXF_E_PAUSE:
++	case RXF_E_RESUME:
++		rxf->rxf_flags |= BNA_RXF_FL_OPERSTATE_CHANGED;
++		break;
++
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
++	}
++}
++
++static void
++bna_rxf_sm_started_entry(struct bna_rxf *rxf)
++{
++	call_rxf_start_cbfn(rxf, BNA_CB_SUCCESS);
++
++	if (rxf->rxf_flags & BNA_RXF_FL_OPERSTATE_CHANGED) {
++		if (rxf->rxf_oper_state == BNA_RXF_OPER_STATE_PAUSED)
++			bfa_fsm_send_event(rxf, RXF_E_PAUSE);
++		else
++			bfa_fsm_send_event(rxf, RXF_E_RESUME);
++	}
++
++}
++
++static void
++bna_rxf_sm_started(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_STOP:
++		bfa_fsm_set_state(rxf, bna_rxf_sm_cam_fltr_clr_wait);
++		/* Hack to get FSM start clearing CAM entries */
++		bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_RESP);
++		break;
++
++	case RXF_E_FAIL:
++		rxf_reset_packet_filter(rxf);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
++
++	case RXF_E_CAM_FLTR_MOD:
++		bfa_fsm_set_state(rxf, bna_rxf_sm_cam_fltr_mod_wait);
++		break;
++
++	case RXF_E_PAUSE:
++		bfa_fsm_set_state(rxf, bna_rxf_sm_pause_wait);
++		break;
++
++	case RXF_E_RESUME:
++		bfa_fsm_set_state(rxf, bna_rxf_sm_resume_wait);
++		break;
++
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
++	}
++}
++
++static void
++bna_rxf_sm_cam_fltr_clr_wait_entry(struct bna_rxf *rxf)
++{
++	/**
++	 *  Note: Do not add rxf_clear_packet_filter here.
++	 * It will overstep mbox when this transition happens:
++	 * 	cam_fltr_mod_wait -> cam_fltr_clr_wait on RXF_E_STOP event
++	 */
++}
++
++static void
++bna_rxf_sm_cam_fltr_clr_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_FAIL:
++		/**
++		 * FSM was in the process of stopping, initiated by
++		 * bnad. When this happens, no one can be waiting for
++		 * start or filter update
++		 */
++		rxf_reset_packet_filter(rxf);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
++
++	case RXF_E_CAM_FLTR_RESP:
++		if (!rxf_clear_packet_filter(rxf)) {
++			/* No more pending CAM entries to clear */
++			bfa_fsm_set_state(rxf, bna_rxf_sm_stop_wait);
++			rxf_disable(rxf);
++		}
++		break;
++
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
++	}
++}
++
++static void
++bna_rxf_sm_stop_wait_entry(struct bna_rxf *rxf)
++{
++	/**
++	 * NOTE: Do not add  rxf_disable here.
++	 * It will overstep mbox when this transition happens:
++	 * 	start_wait -> stop_wait on RXF_E_STOP event
++	 */
++}
++
++static void
++bna_rxf_sm_stop_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_FAIL:
++		/**
++		 * FSM was in the process of stopping, initiated by
++		 * bnad. When this happens, no one can be waiting for
++		 * start or filter update
++		 */
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
++
++	case RXF_E_STARTED:
++		/**
++		 * This event is received due to abrupt transition from
++		 * bna_rxf_sm_start_wait state on receiving
++		 * RXF_E_STOP event
++		 */
++		rxf_disable(rxf);
++		break;
++
++	case RXF_E_STOPPED:
++		/**
++		 * FSM was in the process of stopping, initiated by
++		 * bnad. When this happens, no one can be waiting for
++		 * start or filter update
++		 */
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stat_clr_wait);
++		break;
++
++	case RXF_E_PAUSE:
++		rxf->rxf_oper_state = BNA_RXF_OPER_STATE_PAUSED;
++		break;
++
++	case RXF_E_RESUME:
++		rxf->rxf_oper_state = BNA_RXF_OPER_STATE_RUNNING;
++		break;
++
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
++	}
++}
++
++static void
++bna_rxf_sm_pause_wait_entry(struct bna_rxf *rxf)
++{
++	rxf->rxf_flags &=
++		~(BNA_RXF_FL_OPERSTATE_CHANGED | BNA_RXF_FL_RXF_ENABLED);
++	__rxf_disable(rxf);
++}
++
++static void
++bna_rxf_sm_pause_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_FAIL:
++		/**
++		 * FSM was in the process of disabling rxf, initiated by
++		 * bnad.
++		 */
++		call_rxf_pause_cbfn(rxf, BNA_CB_FAIL);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
++
++	case RXF_E_STOPPED:
++		rxf->rxf_oper_state = BNA_RXF_OPER_STATE_PAUSED;
++		call_rxf_pause_cbfn(rxf, BNA_CB_SUCCESS);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_started);
++		break;
++
++	/*
++	 * Since PAUSE/RESUME can only be sent by bnad, we don't expect
++	 * any other event during these states
++	 */
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
++	}
++}
++
++static void
++bna_rxf_sm_resume_wait_entry(struct bna_rxf *rxf)
++{
++	rxf->rxf_flags &= ~(BNA_RXF_FL_OPERSTATE_CHANGED);
++	rxf->rxf_flags |= BNA_RXF_FL_RXF_ENABLED;
++	__rxf_enable(rxf);
++}
++
++static void
++bna_rxf_sm_resume_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_FAIL:
++		/**
++		 * FSM was in the process of disabling rxf, initiated by
++		 * bnad.
++		 */
++		call_rxf_resume_cbfn(rxf, BNA_CB_FAIL);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
++
++	case RXF_E_STARTED:
++		rxf->rxf_oper_state = BNA_RXF_OPER_STATE_RUNNING;
++		call_rxf_resume_cbfn(rxf, BNA_CB_SUCCESS);
++		bfa_fsm_set_state(rxf, bna_rxf_sm_started);
++		break;
++
++	/*
++	 * Since PAUSE/RESUME can only be sent by bnad, we don't expect
++	 * any other event during these states
++	 */
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
++	}
++}
++
++static void
++bna_rxf_sm_stat_clr_wait_entry(struct bna_rxf *rxf)
++{
++	__bna_rxf_stat_clr(rxf);
++}
++
++static void
++bna_rxf_sm_stat_clr_wait(struct bna_rxf *rxf, enum bna_rxf_event event)
++{
++	switch (event) {
++	case RXF_E_FAIL:
++	case RXF_E_STAT_CLEARED:
++		bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++		break;
++
++	default:
++		bfa_sm_fault(rxf->rx->bna, event);
++	}
++}
++
++static void
++__rxf_enable(struct bna_rxf *rxf)
++{
++	struct bfi_ll_rxf_multi_req ll_req;
++	u32 bm[2] = {0, 0};
++
++	if (rxf->rxf_id < 32)
++		bm[0] = 1 << rxf->rxf_id;
++	else
++		bm[1] = 1 << (rxf->rxf_id - 32);
++
++	bfi_h2i_set(ll_req.mh, BFI_MC_LL, BFI_LL_H2I_RX_REQ, 0);
++	ll_req.rxf_id_mask[0] = htonl(bm[0]);
++	ll_req.rxf_id_mask[1] = htonl(bm[1]);
++	ll_req.enable = 1;
++
++	bna_mbox_qe_fill(&rxf->mbox_qe, &ll_req, sizeof(ll_req),
++			rxf_cb_enabled, rxf);
 +
 +	bna_mbox_send(rxf->rx->bna, &rxf->mbox_qe);
 +}
 +
-+void
-+__rxf_default_function_config(struct bna_rxf *rxf, enum bna_status status)
++static void
++__rxf_disable(struct bna_rxf *rxf)
 +{
++	struct bfi_ll_rxf_multi_req ll_req;
++	u32 bm[2] = {0, 0};
++
++	if (rxf->rxf_id < 32)
++		bm[0] = 1 << rxf->rxf_id;
++	else
++		bm[1] = 1 << (rxf->rxf_id - 32);
++
++	bfi_h2i_set(ll_req.mh, BFI_MC_LL, BFI_LL_H2I_RX_REQ, 0);
++	ll_req.rxf_id_mask[0] = htonl(bm[0]);
++	ll_req.rxf_id_mask[1] = htonl(bm[1]);
++	ll_req.enable = 0;
++
++	bna_mbox_qe_fill(&rxf->mbox_qe, &ll_req, sizeof(ll_req),
++			rxf_cb_disabled, rxf);
++
++	bna_mbox_send(rxf->rx->bna, &rxf->mbox_qe);
++}
++
++static void
++__rxf_config_set(struct bna_rxf *rxf)
++{
++	u32 i;
++	struct bna_rss_mem *rss_mem;
 +	struct bna_rx_fndb_ram *rx_fndb_ram;
-+	u32 ctrl_flags;
++	struct bna *bna = rxf->rx->bna;
++	void __iomem *base_addr;
++	unsigned long off;
++
++	base_addr = BNA_GET_MEM_BASE_ADDR(bna->pcidev.pci_bar_kva,
++			RSS_TABLE_BASE_OFFSET);
++
++	rss_mem = (struct bna_rss_mem *)0;
++
++	/* Configure RSS if required */
++	if (rxf->ctrl_flags & BNA_RXF_CF_RSS_ENABLE) {
++		/* configure RSS Table */
++		writel(BNA_GET_PAGE_NUM(RAD0_MEM_BLK_BASE_PG_NUM +
++			bna->port_num, RSS_TABLE_BASE_OFFSET),
++					bna->regs.page_addr);
++
++		/* temporarily disable RSS, while hash value is written */
++		off = (unsigned long)&rss_mem[0].type_n_hash;
++		writel(0, base_addr + off);
++
++		for (i = 0; i < BFI_RSS_HASH_KEY_LEN; i++) {
++			off = (unsigned long)
++			&rss_mem[0].hash_key[(BFI_RSS_HASH_KEY_LEN - 1) - i];
++			writel(htonl(rxf->rss_cfg.toeplitz_hash_key[i]),
++			base_addr + off);
++		}
++
++		off = (unsigned long)&rss_mem[0].type_n_hash;
++		writel(rxf->rss_cfg.hash_type | rxf->rss_cfg.hash_mask,
++			base_addr + off);
++	}
++
++	/* Configure RxF */
++	writel(BNA_GET_PAGE_NUM(
++		LUT0_MEM_BLK_BASE_PG_NUM + (bna->port_num * 2),
++		RX_FNDB_RAM_BASE_OFFSET),
++		bna->regs.page_addr);
++
++	base_addr = BNA_GET_MEM_BASE_ADDR(bna->pcidev.pci_bar_kva,
++		RX_FNDB_RAM_BASE_OFFSET);
++
++	rx_fndb_ram = (struct bna_rx_fndb_ram *)0;
++
++	/* We always use RSS table 0 */
++	off = (unsigned long)&rx_fndb_ram[rxf->rxf_id].rss_prop;
++	writel(rxf->ctrl_flags & BNA_RXF_CF_RSS_ENABLE,
++		base_addr + off);
++
++	/* small large buffer enable/disable */
++	off = (unsigned long)&rx_fndb_ram[rxf->rxf_id].size_routing_props;
++	writel((rxf->ctrl_flags & BNA_RXF_CF_SM_LG_RXQ) | 0x80,
++		base_addr + off);
++
++	/* RIT offset,  HDS forced offset, multicast RxQ Id */
++	off = (unsigned long)&rx_fndb_ram[rxf->rxf_id].rit_hds_mcastq;
++	writel((rxf->rit_segment->rit_offset << 16) |
++		(rxf->forced_offset << 8) |
++		(rxf->hds_cfg.hdr_type & BNA_HDS_FORCED) | rxf->mcast_rxq_id,
++		base_addr + off);
++
++	/*
++	 * default vlan tag, default function enable, strip vlan bytes,
++	 * HDS type, header size
++	 */
++
++	off = (unsigned long)&rx_fndb_ram[rxf->rxf_id].control_flags;
++	 writel(((u32)rxf->default_vlan_tag << 16) |
++		(rxf->ctrl_flags &
++			(BNA_RXF_CF_DEFAULT_VLAN |
++			BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE |
++			BNA_RXF_CF_VLAN_STRIP)) |
++		(rxf->hds_cfg.hdr_type & ~BNA_HDS_FORCED) |
++		rxf->hds_cfg.header_size,
++		base_addr + off);
++}
++
++void
++__rxf_vlan_filter_set(struct bna_rxf *rxf, enum bna_status status)
++{
++	struct bna *bna = rxf->rx->bna;
 +	int i;
 +
-+	rx_fndb_ram = (struct bna_rx_fndb_ram *)
-+			BNA_GET_MEM_BASE_ADDR(rxf->rx->bna->pcidev.pci_bar_kva,
-+			RX_FNDB_RAM_BASE_OFFSET);
++	writel(BNA_GET_PAGE_NUM(LUT0_MEM_BLK_BASE_PG_NUM +
++			(bna->port_num * 2), VLAN_RAM_BASE_OFFSET),
++			bna->regs.page_addr);
 +
-+	for (i = 0; i < BFI_MAX_RXF; i++) {
-+		if (status == BNA_STATUS_T_ENABLED) {
-+			if (i == rxf->rxf_id)
-+				continue;
-+
-+			ctrl_flags =
-+				readl(&rx_fndb_ram[i].control_flags);
-+			ctrl_flags |= BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE;
-+			writel(ctrl_flags,
-+						&rx_fndb_ram[i].control_flags);
-+		} else {
-+			ctrl_flags =
-+				readl(&rx_fndb_ram[i].control_flags);
-+			ctrl_flags &= ~BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE;
-+			writel(ctrl_flags,
-+						&rx_fndb_ram[i].control_flags);
++	if (status == BNA_STATUS_T_ENABLED) {
++		/* enable VLAN filtering on this function */
++		for (i = 0; i <= BFI_MAX_VLAN / 32; i++) {
++			writel(rxf->vlan_filter_table[i],
++					BNA_GET_VLAN_MEM_ENTRY_ADDR
++					(bna->pcidev.pci_bar_kva, rxf->rxf_id,
++						i * 32));
++		}
++	} else {
++		/* disable VLAN filtering on this function */
++		for (i = 0; i <= BFI_MAX_VLAN / 32; i++) {
++			writel(0xffffffff,
++					BNA_GET_VLAN_MEM_ENTRY_ADDR
++					(bna->pcidev.pci_bar_kva, rxf->rxf_id,
++						i * 32));
 +		}
 +	}
 +}
 +
-+int
-+rxf_process_packet_filter_ucast(struct bna_rxf *rxf)
++static void
++__rxf_rit_set(struct bna_rxf *rxf)
++{
++	struct bna *bna = rxf->rx->bna;
++	struct bna_rit_mem *rit_mem;
++	int i;
++	void __iomem *base_addr;
++	unsigned long off;
++
++	base_addr = BNA_GET_MEM_BASE_ADDR(bna->pcidev.pci_bar_kva,
++			FUNCTION_TO_RXQ_TRANSLATE);
++
++	rit_mem = (struct bna_rit_mem *)0;
++
++	writel(BNA_GET_PAGE_NUM(RXA0_MEM_BLK_BASE_PG_NUM + bna->port_num,
++		FUNCTION_TO_RXQ_TRANSLATE),
++		bna->regs.page_addr);
++
++	for (i = 0; i < rxf->rit_segment->rit_size; i++) {
++		off = (unsigned long)&rit_mem[i + rxf->rit_segment->rit_offset];
++		writel(rxf->rit_segment->rit[i].large_rxq_id << 6 |
++			rxf->rit_segment->rit[i].small_rxq_id,
++			base_addr + off);
++	}
++}
++
++static void
++__bna_rxf_stat_clr(struct bna_rxf *rxf)
++{
++	struct bfi_ll_stats_req ll_req;
++	u32 bm[2] = {0, 0};
++
++	if (rxf->rxf_id < 32)
++		bm[0] = 1 << rxf->rxf_id;
++	else
++		bm[1] = 1 << (rxf->rxf_id - 32);
++
++	bfi_h2i_set(ll_req.mh, BFI_MC_LL, BFI_LL_H2I_STATS_CLEAR_REQ, 0);
++	ll_req.stats_mask = 0;
++	ll_req.txf_id_mask[0] = 0;
++	ll_req.txf_id_mask[1] =	0;
++
++	ll_req.rxf_id_mask[0] = htonl(bm[0]);
++	ll_req.rxf_id_mask[1] = htonl(bm[1]);
++
++	bna_mbox_qe_fill(&rxf->mbox_qe, &ll_req, sizeof(ll_req),
++			bna_rxf_cb_stats_cleared, rxf);
++	bna_mbox_send(rxf->rx->bna, &rxf->mbox_qe);
++}
++
++static void
++rxf_enable(struct bna_rxf *rxf)
++{
++	if (rxf->rxf_oper_state == BNA_RXF_OPER_STATE_PAUSED)
++		bfa_fsm_send_event(rxf, RXF_E_STARTED);
++	else {
++		rxf->rxf_flags |= BNA_RXF_FL_RXF_ENABLED;
++		__rxf_enable(rxf);
++	}
++}
++
++static void
++rxf_cb_enabled(void *arg, int status)
++{
++	struct bna_rxf *rxf = (struct bna_rxf *)arg;
++
++	bfa_q_qe_init(&rxf->mbox_qe.qe);
++	bfa_fsm_send_event(rxf, RXF_E_STARTED);
++}
++
++static void
++rxf_disable(struct bna_rxf *rxf)
++{
++	if (rxf->rxf_oper_state == BNA_RXF_OPER_STATE_PAUSED)
++		bfa_fsm_send_event(rxf, RXF_E_STOPPED);
++	else
++		rxf->rxf_flags &= ~BNA_RXF_FL_RXF_ENABLED;
++		__rxf_disable(rxf);
++}
++
++static void
++rxf_cb_disabled(void *arg, int status)
++{
++	struct bna_rxf *rxf = (struct bna_rxf *)arg;
++
++	bfa_q_qe_init(&rxf->mbox_qe.qe);
++	bfa_fsm_send_event(rxf, RXF_E_STOPPED);
++}
++
++void
++rxf_cb_cam_fltr_mbox_cmd(void *arg, int status)
++{
++	struct bna_rxf *rxf = (struct bna_rxf *)arg;
++
++	bfa_q_qe_init(&rxf->mbox_qe.qe);
++
++	bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_RESP);
++}
++
++static void
++bna_rxf_cb_stats_cleared(void *arg, int status)
++{
++	struct bna_rxf *rxf = (struct bna_rxf *)arg;
++
++	bfa_q_qe_init(&rxf->mbox_qe.qe);
++	bfa_fsm_send_event(rxf, RXF_E_STAT_CLEARED);
++}
++
++void
++rxf_cam_mbox_cmd(struct bna_rxf *rxf, u8 cmd,
++		const struct bna_mac *mac_addr)
++{
++	struct bfi_ll_mac_addr_req req;
++
++	bfi_h2i_set(req.mh, BFI_MC_LL, cmd, 0);
++
++	req.rxf_id = rxf->rxf_id;
++	memcpy(&req.mac_addr, (void *)&mac_addr->addr, ETH_ALEN);
++
++	bna_mbox_qe_fill(&rxf->mbox_qe, &req, sizeof(req),
++				rxf_cb_cam_fltr_mbox_cmd, rxf);
++
++	bna_mbox_send(rxf->rx->bna, &rxf->mbox_qe);
++}
++
++static int
++rxf_process_packet_filter_mcast(struct bna_rxf *rxf)
 +{
 +	struct bna_mac *mac = NULL;
 +	struct list_head *qe;
 +
-+	/* Add additional MAC entries */
-+	if (!list_empty(&rxf->ucast_pending_add_q)) {
-+		bfa_q_deq(&rxf->ucast_pending_add_q, &qe);
-+		bfa_q_qe_init(qe);
-+		mac = (struct bna_mac *)qe;
-+		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_UCAST_ADD_REQ, mac);
-+		list_add_tail(&mac->qe, &rxf->ucast_active_q);
-+		return 1;
-+	}
-+
-+	/* Delete MAC addresses previousely added */
-+	if (!list_empty(&rxf->ucast_pending_del_q)) {
-+		bfa_q_deq(&rxf->ucast_pending_del_q, &qe);
-+		bfa_q_qe_init(qe);
-+		mac = (struct bna_mac *)qe;
-+		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_UCAST_DEL_REQ, mac);
-+		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+rxf_process_packet_filter_promisc(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+
-+	/* Enable/disable promiscuous mode */
-+	if (is_promisc_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* move promisc configuration from pending -> active */
-+		promisc_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active |= BNA_RXMODE_PROMISC;
-+
-+		/* Disable VLAN filter to allow all VLANs */
-+		__rxf_vlan_filter_set(rxf, BNA_STATUS_T_DISABLED);
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_PROMISCUOUS_SET_REQ,
-+				BNA_STATUS_T_ENABLED);
-+		return 1;
-+	} else if (is_promisc_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* move promisc configuration from pending -> active */
-+		promisc_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_PROMISC;
-+		bna->rxf_promisc_id = BFI_MAX_RXF;
-+
-+		/* Revert VLAN filter */
-+		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_PROMISCUOUS_SET_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+rxf_process_packet_filter_default(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+
-+	/* Enable/disable default mode */
-+	if (is_default_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* move default configuration from pending -> active */
-+		default_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active |= BNA_RXMODE_DEFAULT;
-+
-+		/* Disable VLAN filter to allow all VLANs */
-+		__rxf_vlan_filter_set(rxf, BNA_STATUS_T_DISABLED);
-+		/* Redirect all other RxF vlan filtering to this one */
-+		__rxf_default_function_config(rxf, BNA_STATUS_T_ENABLED);
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
-+				BNA_STATUS_T_ENABLED);
-+		return 1;
-+	} else if (is_default_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* move default configuration from pending -> active */
-+		default_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
-+		bna->rxf_default_id = BFI_MAX_RXF;
-+
-+		/* Revert VLAN filter */
-+		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
-+		/* Stop RxF vlan filter table redirection */
-+		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+rxf_process_packet_filter_allmulti(struct bna_rxf *rxf)
-+{
-+	/* Enable/disable allmulti mode */
-+	if (is_allmulti_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* move allmulti configuration from pending -> active */
-+		allmulti_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active |= BNA_RXMODE_ALLMULTI;
-+
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_MAC_MCAST_FILTER_REQ,
-+				BNA_STATUS_T_ENABLED);
-+		return 1;
-+	} else if (is_allmulti_disable(rxf->rxmode_pending,
-+					rxf->rxmode_pending_bitmask)) {
-+		/* move allmulti configuration from pending -> active */
-+		allmulti_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_ALLMULTI;
-+
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_MAC_MCAST_FILTER_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+rxf_clear_packet_filter_ucast(struct bna_rxf *rxf)
-+{
-+	struct bna_mac *mac = NULL;
-+	struct list_head *qe;
-+
-+	/* 1. delete pending ucast entries */
-+	if (!list_empty(&rxf->ucast_pending_del_q)) {
-+		bfa_q_deq(&rxf->ucast_pending_del_q, &qe);
-+		bfa_q_qe_init(qe);
-+		mac = (struct bna_mac *)qe;
-+		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_UCAST_DEL_REQ, mac);
-+		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+		return 1;
-+	}
-+
-+	/* 2. clear active ucast entries; move them to pending_add_q */
-+	if (!list_empty(&rxf->ucast_active_q)) {
-+		bfa_q_deq(&rxf->ucast_active_q, &qe);
-+		bfa_q_qe_init(qe);
-+		mac = (struct bna_mac *)qe;
-+		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_UCAST_DEL_REQ, mac);
-+		list_add_tail(&mac->qe, &rxf->ucast_pending_add_q);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+rxf_clear_packet_filter_promisc(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+
-+	/* 6. Execute pending promisc mode disable command */
-+	if (is_promisc_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* move promisc configuration from pending -> active */
-+		promisc_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_PROMISC;
-+		bna->rxf_promisc_id = BFI_MAX_RXF;
-+
-+		/* Revert VLAN filter */
-+		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_PROMISCUOUS_SET_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	/* 7. Clear active promisc mode; move it to pending enable */
-+	if (rxf->rxmode_active & BNA_RXMODE_PROMISC) {
-+		/* move promisc configuration from active -> pending */
-+		promisc_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_PROMISC;
-+
-+		/* Revert VLAN filter */
-+		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_PROMISCUOUS_SET_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+rxf_clear_packet_filter_default(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+
-+	/* 8. Execute pending default mode disable command */
-+	if (is_default_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* move default configuration from pending -> active */
-+		default_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
-+		bna->rxf_default_id = BFI_MAX_RXF;
-+
-+		/* Revert VLAN filter */
-+		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
-+		/* Stop RxF vlan filter table redirection */
-+		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	/* 9. Clear active default mode; move it to pending enable */
-+	if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
-+		/* move default configuration from active -> pending */
-+		default_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
-+
-+		/* Revert VLAN filter */
-+		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
-+		/* Stop RxF vlan filter table redirection */
-+		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+int
-+rxf_clear_packet_filter_allmulti(struct bna_rxf *rxf)
-+{
-+	/* 10. Execute pending allmulti mode disable command */
-+	if (is_allmulti_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* move allmulti configuration from pending -> active */
-+		allmulti_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_ALLMULTI;
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_MAC_MCAST_FILTER_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	/* 11. Clear active allmulti mode; move it to pending enable */
-+	if (rxf->rxmode_active & BNA_RXMODE_ALLMULTI) {
-+		/* move allmulti configuration from active -> pending */
-+		allmulti_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_ALLMULTI;
-+		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_MAC_MCAST_FILTER_REQ,
-+				BNA_STATUS_T_DISABLED);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+void
-+rxf_reset_packet_filter_ucast(struct bna_rxf *rxf)
-+{
-+	struct list_head *qe;
-+	struct bna_mac *mac;
-+
-+	/* 1. Move active ucast entries to pending_add_q */
-+	while (!list_empty(&rxf->ucast_active_q)) {
-+		bfa_q_deq(&rxf->ucast_active_q, &qe);
-+		bfa_q_qe_init(qe);
-+		list_add_tail(qe, &rxf->ucast_pending_add_q);
-+	}
-+
-+	/* 2. Throw away delete pending ucast entries */
-+	while (!list_empty(&rxf->ucast_pending_del_q)) {
-+		bfa_q_deq(&rxf->ucast_pending_del_q, &qe);
-+		bfa_q_qe_init(qe);
-+		mac = (struct bna_mac *)qe;
-+		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+	}
-+}
-+
-+void
-+rxf_reset_packet_filter_promisc(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+
-+	/* 6. Clear pending promisc mode disable */
-+	if (is_promisc_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		promisc_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_PROMISC;
-+		bna->rxf_promisc_id = BFI_MAX_RXF;
-+	}
-+
-+	/* 7. Move promisc mode config from active -> pending */
-+	if (rxf->rxmode_active & BNA_RXMODE_PROMISC) {
-+		promisc_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_PROMISC;
-+	}
-+
-+}
-+
-+void
-+rxf_reset_packet_filter_default(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+
-+	/* 8. Clear pending default mode disable */
-+	if (is_default_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		default_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
-+		bna->rxf_default_id = BFI_MAX_RXF;
-+	}
-+
-+	/* 9. Move default mode config from active -> pending */
-+	if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
-+		default_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
-+	}
-+}
-+
-+void
-+rxf_reset_packet_filter_allmulti(struct bna_rxf *rxf)
-+{
-+	/* 10. Clear pending allmulti mode disable */
-+	if (is_allmulti_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		allmulti_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_ALLMULTI;
-+	}
-+
-+	/* 11. Move allmulti mode config from active -> pending */
-+	if (rxf->rxmode_active & BNA_RXMODE_ALLMULTI) {
-+		allmulti_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		rxf->rxmode_active &= ~BNA_RXMODE_ALLMULTI;
-+	}
-+}
-+
-+/**
-+ * Should only be called by bna_rxf_mode_set.
-+ * Helps deciding if h/w configuration is needed or not.
-+ *  Returns:
-+ *	0 = no h/w change
-+ *	1 = need h/w change
-+ */
-+int
-+rxf_promisc_enable(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+	int ret = 0;
-+
-+	/* There can not be any pending disable command */
-+
-+	/* Do nothing if pending enable or already enabled */
-+	if (is_promisc_enable(rxf->rxmode_pending,
-+			rxf->rxmode_pending_bitmask) ||
-+			(rxf->rxmode_active & BNA_RXMODE_PROMISC)) {
-+		/* Schedule enable */
-+	} else {
-+		/* Promisc mode should not be active in the system */
-+		promisc_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		bna->rxf_promisc_id = rxf->rxf_id;
-+		ret = 1;
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ * Should only be called by bna_rxf_mode_set.
-+ * Helps deciding if h/w configuration is needed or not.
-+ *  Returns:
-+ *	0 = no h/w change
-+ *	1 = need h/w change
-+ */
-+int
-+rxf_promisc_disable(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+	int ret = 0;
-+
-+	/* There can not be any pending disable */
-+
-+	/* Turn off pending enable command , if any */
-+	if (is_promisc_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* Promisc mode should not be active */
-+		/* system promisc state should be pending */
-+		promisc_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		/* Remove the promisc state from the system */
-+		bna->rxf_promisc_id = BFI_MAX_RXF;
-+
-+		/* Schedule disable */
-+	} else if (rxf->rxmode_active & BNA_RXMODE_PROMISC) {
-+		/* Promisc mode should be active in the system */
-+		promisc_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		ret = 1;
-+
-+	/* Do nothing if already disabled */
-+	} else {
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ * Should only be called by bna_rxf_mode_set.
-+ * Helps deciding if h/w configuration is needed or not.
-+ *  Returns:
-+ *	0 = no h/w change
-+ *	1 = need h/w change
-+ */
-+int
-+rxf_default_enable(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+	int ret = 0;
-+
-+	/* There can not be any pending disable command */
-+
-+	/* Do nothing if pending enable or already enabled */
-+	if (is_default_enable(rxf->rxmode_pending,
-+		rxf->rxmode_pending_bitmask) ||
-+		(rxf->rxmode_active & BNA_RXMODE_DEFAULT)) {
-+		/* Schedule enable */
-+	} else {
-+		/* Default mode should not be active in the system */
-+		default_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		bna->rxf_default_id = rxf->rxf_id;
-+		ret = 1;
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ * Should only be called by bna_rxf_mode_set.
-+ * Helps deciding if h/w configuration is needed or not.
-+ *  Returns:
-+ *	0 = no h/w change
-+ *	1 = need h/w change
-+ */
-+int
-+rxf_default_disable(struct bna_rxf *rxf)
-+{
-+	struct bna *bna = rxf->rx->bna;
-+	int ret = 0;
-+
-+	/* There can not be any pending disable */
-+
-+	/* Turn off pending enable command , if any */
-+	if (is_default_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* Promisc mode should not be active */
-+		/* system default state should be pending */
-+		default_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		/* Remove the default state from the system */
-+		bna->rxf_default_id = BFI_MAX_RXF;
-+
-+	/* Schedule disable */
-+	} else if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
-+		/* Default mode should be active in the system */
-+		default_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		ret = 1;
-+
-+	/* Do nothing if already disabled */
-+	} else {
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ * Should only be called by bna_rxf_mode_set.
-+ * Helps deciding if h/w configuration is needed or not.
-+ *  Returns:
-+ *	0 = no h/w change
-+ *	1 = need h/w change
-+ */
-+int
-+rxf_allmulti_enable(struct bna_rxf *rxf)
-+{
-+	int ret = 0;
-+
-+	/* There can not be any pending disable command */
-+
-+	/* Do nothing if pending enable or already enabled */
-+	if (is_allmulti_enable(rxf->rxmode_pending,
-+			rxf->rxmode_pending_bitmask) ||
-+			(rxf->rxmode_active & BNA_RXMODE_ALLMULTI)) {
-+		/* Schedule enable */
-+	} else {
-+		allmulti_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		ret = 1;
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ * Should only be called by bna_rxf_mode_set.
-+ * Helps deciding if h/w configuration is needed or not.
-+ *  Returns:
-+ *	0 = no h/w change
-+ *	1 = need h/w change
-+ */
-+int
-+rxf_allmulti_disable(struct bna_rxf *rxf)
-+{
-+	int ret = 0;
-+
-+	/* There can not be any pending disable */
-+
-+	/* Turn off pending enable command , if any */
-+	if (is_allmulti_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* Allmulti mode should not be active */
-+		allmulti_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+
-+	/* Schedule disable */
-+	} else if (rxf->rxmode_active & BNA_RXMODE_ALLMULTI) {
-+		allmulti_disable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		ret = 1;
-+	}
-+
-+	return ret;
-+}
-+
-+/* RxF <- bnad */
-+void
-+bna_rx_mcast_delall(struct bna_rx *rx,
-+		    void (*cbfn)(struct bnad *, struct bna_rx *,
-+				 enum bna_cb_status))
-+{
-+	struct bna_rxf *rxf = &rx->rxf;
-+	struct list_head *qe;
-+	struct bna_mac *mac;
-+	int need_hw_config = 0;
-+
-+	/* Purge all entries from pending_add_q */
-+	while (!list_empty(&rxf->mcast_pending_add_q)) {
++	/* Add multicast entries */
++	if (!list_empty(&rxf->mcast_pending_add_q)) {
 +		bfa_q_deq(&rxf->mcast_pending_add_q, &qe);
++		bfa_q_qe_init(qe);
 +		mac = (struct bna_mac *)qe;
++		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_MCAST_ADD_REQ, mac);
++		list_add_tail(&mac->qe, &rxf->mcast_active_q);
++		return 1;
++	}
++
++	/* Delete multicast entries previousely added */
++	if (!list_empty(&rxf->mcast_pending_del_q)) {
++		bfa_q_deq(&rxf->mcast_pending_del_q, &qe);
++		bfa_q_qe_init(qe);
++		mac = (struct bna_mac *)qe;
++		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_MCAST_DEL_REQ, mac);
++		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
++		return 1;
++	}
++
++	return 0;
++}
++
++static int
++rxf_process_packet_filter_vlan(struct bna_rxf *rxf)
++{
++	/* Apply the VLAN filter */
++	if (rxf->rxf_flags & BNA_RXF_FL_VLAN_CONFIG_PENDING) {
++		rxf->rxf_flags &= ~BNA_RXF_FL_VLAN_CONFIG_PENDING;
++		if (!(rxf->rxmode_active & BNA_RXMODE_PROMISC) &&
++			!(rxf->rxmode_active & BNA_RXMODE_DEFAULT))
++			__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
++	}
++
++	/* Apply RSS configuration */
++	if (rxf->rxf_flags & BNA_RXF_FL_RSS_CONFIG_PENDING) {
++		rxf->rxf_flags &= ~BNA_RXF_FL_RSS_CONFIG_PENDING;
++		if (rxf->rss_status == BNA_STATUS_T_DISABLED) {
++			/* RSS is being disabled */
++			rxf->ctrl_flags &= ~BNA_RXF_CF_RSS_ENABLE;
++			__rxf_rit_set(rxf);
++			__rxf_config_set(rxf);
++		} else {
++			/* RSS is being enabled or reconfigured */
++			rxf->ctrl_flags |= BNA_RXF_CF_RSS_ENABLE;
++			__rxf_rit_set(rxf);
++			__rxf_config_set(rxf);
++		}
++	}
++
++	return 0;
++}
++
++/**
++ * Processes pending ucast, mcast entry addition/deletion and issues mailbox
++ * command. Also processes pending filter configuration - promiscuous mode,
++ * default mode, allmutli mode and issues mailbox command or directly applies
++ * to h/w
++ */
++static int
++rxf_process_packet_filter(struct bna_rxf *rxf)
++{
++	/* Set the default MAC first */
++	if (rxf->ucast_pending_set > 0) {
++		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_UCAST_SET_REQ,
++				rxf->ucast_active_mac);
++		rxf->ucast_pending_set--;
++		return 1;
++	}
++
++	if (rxf_process_packet_filter_ucast(rxf))
++		return 1;
++
++	if (rxf_process_packet_filter_mcast(rxf))
++		return 1;
++
++	if (rxf_process_packet_filter_promisc(rxf))
++		return 1;
++
++	if (rxf_process_packet_filter_default(rxf))
++		return 1;
++
++	if (rxf_process_packet_filter_allmulti(rxf))
++		return 1;
++
++	if (rxf_process_packet_filter_vlan(rxf))
++		return 1;
++
++	return 0;
++}
++
++static int
++rxf_clear_packet_filter_mcast(struct bna_rxf *rxf)
++{
++	struct bna_mac *mac = NULL;
++	struct list_head *qe;
++
++	/* 3. delete pending mcast entries */
++	if (!list_empty(&rxf->mcast_pending_del_q)) {
++		bfa_q_deq(&rxf->mcast_pending_del_q, &qe);
++		bfa_q_qe_init(qe);
++		mac = (struct bna_mac *)qe;
++		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_MCAST_DEL_REQ, mac);
++		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
++		return 1;
++	}
++
++	/* 4. clear active mcast entries; move them to pending_add_q */
++	if (!list_empty(&rxf->mcast_active_q)) {
++		bfa_q_deq(&rxf->mcast_active_q, &qe);
++		bfa_q_qe_init(qe);
++		mac = (struct bna_mac *)qe;
++		rxf_cam_mbox_cmd(rxf, BFI_LL_H2I_MAC_MCAST_DEL_REQ, mac);
++		list_add_tail(&mac->qe, &rxf->mcast_pending_add_q);
++		return 1;
++	}
++
++	return 0;
++}
++
++/**
++ * In the rxf stop path, processes pending ucast/mcast delete queue and issues
++ * the mailbox command. Moves the active ucast/mcast entries to pending add q,
++ * so that they are added to CAM again in the rxf start path. Moves the current
++ * filter settings - promiscuous, default, allmutli - to pending filter
++ * configuration
++ */
++static int
++rxf_clear_packet_filter(struct bna_rxf *rxf)
++{
++	if (rxf_clear_packet_filter_ucast(rxf))
++		return 1;
++
++	if (rxf_clear_packet_filter_mcast(rxf))
++		return 1;
++
++	/* 5. clear active default MAC in the CAM */
++	if (rxf->ucast_pending_set > 0)
++		rxf->ucast_pending_set = 0;
++
++	if (rxf_clear_packet_filter_promisc(rxf))
++		return 1;
++
++	if (rxf_clear_packet_filter_default(rxf))
++		return 1;
++
++	if (rxf_clear_packet_filter_allmulti(rxf))
++		return 1;
++
++	return 0;
++}
++
++static void
++rxf_reset_packet_filter_mcast(struct bna_rxf *rxf)
++{
++	struct list_head *qe;
++	struct bna_mac *mac;
++
++	/* 3. Move active mcast entries to pending_add_q */
++	while (!list_empty(&rxf->mcast_active_q)) {
++		bfa_q_deq(&rxf->mcast_active_q, &qe);
++		bfa_q_qe_init(qe);
++		list_add_tail(qe, &rxf->mcast_pending_add_q);
++	}
++
++	/* 4. Throw away delete pending mcast entries */
++	while (!list_empty(&rxf->mcast_pending_del_q)) {
++		bfa_q_deq(&rxf->mcast_pending_del_q, &qe);
++		bfa_q_qe_init(qe);
++		mac = (struct bna_mac *)qe;
++		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
++	}
++}
++
++/**
++ * In the rxf fail path, throws away the ucast/mcast entries pending for
++ * deletion, moves all active ucast/mcast entries to pending queue so that
++ * they are added back to CAM in the rxf start path. Also moves the current
++ * filter configuration to pending filter configuration.
++ */
++static void
++rxf_reset_packet_filter(struct bna_rxf *rxf)
++{
++	rxf_reset_packet_filter_ucast(rxf);
++
++	rxf_reset_packet_filter_mcast(rxf);
++
++	/* 5. Turn off ucast set flag */
++	rxf->ucast_pending_set = 0;
++
++	rxf_reset_packet_filter_promisc(rxf);
++
++	rxf_reset_packet_filter_default(rxf);
++
++	rxf_reset_packet_filter_allmulti(rxf);
++}
++
++void
++bna_rxf_init(struct bna_rxf *rxf,
++		struct bna_rx *rx,
++		struct bna_rx_config *q_config)
++{
++	struct list_head *qe;
++	struct bna_rxp *rxp;
++
++	/* rxf_id is initialized during rx_mod init */
++	rxf->rx = rx;
++
++	INIT_LIST_HEAD(&rxf->ucast_pending_add_q);
++	INIT_LIST_HEAD(&rxf->ucast_pending_del_q);
++	rxf->ucast_pending_set = 0;
++	INIT_LIST_HEAD(&rxf->ucast_active_q);
++	rxf->ucast_active_mac = NULL;
++
++	INIT_LIST_HEAD(&rxf->mcast_pending_add_q);
++	INIT_LIST_HEAD(&rxf->mcast_pending_del_q);
++	INIT_LIST_HEAD(&rxf->mcast_active_q);
++
++	bfa_q_qe_init(&rxf->mbox_qe.qe);
++
++	if (q_config->vlan_strip_status == BNA_STATUS_T_ENABLED)
++		rxf->ctrl_flags |= BNA_RXF_CF_VLAN_STRIP;
++
++	rxf->rxf_oper_state = (q_config->paused) ?
++		BNA_RXF_OPER_STATE_PAUSED : BNA_RXF_OPER_STATE_RUNNING;
++
++	bna_rxf_adv_init(rxf, rx, q_config);
++
++	rxf->rit_segment = bna_rit_mod_seg_get(&rxf->rx->bna->rit_mod,
++					q_config->num_paths);
++
++	list_for_each(qe, &rx->rxp_q) {
++		rxp = (struct bna_rxp *)qe;
++		if (q_config->rxp_type == BNA_RXP_SINGLE)
++			rxf->mcast_rxq_id = rxp->rxq.single.only->rxq_id;
++		else
++			rxf->mcast_rxq_id = rxp->rxq.slr.large->rxq_id;
++		break;
++	}
++
++	rxf->vlan_filter_status = BNA_STATUS_T_DISABLED;
++	memset(rxf->vlan_filter_table, 0,
++			(sizeof(u32) * ((BFI_MAX_VLAN + 1) / 32)));
++
++	bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
++}
++
++void
++bna_rxf_uninit(struct bna_rxf *rxf)
++{
++	struct bna_mac *mac;
++
++	bna_rit_mod_seg_put(&rxf->rx->bna->rit_mod, rxf->rit_segment);
++	rxf->rit_segment = NULL;
++
++	rxf->ucast_pending_set = 0;
++
++	while (!list_empty(&rxf->ucast_pending_add_q)) {
++		bfa_q_deq(&rxf->ucast_pending_add_q, &mac);
++		bfa_q_qe_init(&mac->qe);
++		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
++	}
++
++	if (rxf->ucast_active_mac) {
++		bfa_q_qe_init(&rxf->ucast_active_mac->qe);
++		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod,
++			rxf->ucast_active_mac);
++		rxf->ucast_active_mac = NULL;
++	}
++
++	while (!list_empty(&rxf->mcast_pending_add_q)) {
++		bfa_q_deq(&rxf->mcast_pending_add_q, &mac);
 +		bfa_q_qe_init(&mac->qe);
 +		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
 +	}
 +
-+	/* Schedule all entries in active_q for deletion */
-+	while (!list_empty(&rxf->mcast_active_q)) {
-+		bfa_q_deq(&rxf->mcast_active_q, &qe);
-+		mac = (struct bna_mac *)qe;
-+		bfa_q_qe_init(&mac->qe);
-+		list_add_tail(&mac->qe, &rxf->mcast_pending_del_q);
-+		need_hw_config = 1;
-+	}
-+
-+	if (need_hw_config) {
-+		rxf->cam_fltr_cbfn = cbfn;
-+		rxf->cam_fltr_cbarg = rx->bna->bnad;
-+		bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
-+		return;
-+	}
-+
-+	if (cbfn)
-+		(*cbfn)(rx->bna->bnad, rx, BNA_CB_SUCCESS);
-+}
-+
-+/* RxF <- Rx */
-+void
-+bna_rx_receive_resume(struct bna_rx *rx,
-+		      void (*cbfn)(struct bnad *, struct bna_rx *,
-+				   enum bna_cb_status))
-+{
-+	struct bna_rxf *rxf = &rx->rxf;
-+
-+	if (rxf->rxf_oper_state == BNA_RXF_OPER_STATE_PAUSED) {
-+		rxf->oper_state_cbfn = cbfn;
-+		rxf->oper_state_cbarg = rx->bna->bnad;
-+		bfa_fsm_send_event(rxf, RXF_E_RESUME);
-+	} else if (cbfn)
-+		(*cbfn)(rx->bna->bnad, rx, BNA_CB_SUCCESS);
++	rxf->rx = NULL;
 +}
 +
 +void
-+bna_rx_receive_pause(struct bna_rx *rx,
-+		     void (*cbfn)(struct bnad *, struct bna_rx *,
-+				  enum bna_cb_status))
++bna_rxf_start(struct bna_rxf *rxf)
 +{
-+	struct bna_rxf *rxf = &rx->rxf;
-+
-+	if (rxf->rxf_oper_state == BNA_RXF_OPER_STATE_RUNNING) {
-+		rxf->oper_state_cbfn = cbfn;
-+		rxf->oper_state_cbarg = rx->bna->bnad;
-+		bfa_fsm_send_event(rxf, RXF_E_PAUSE);
-+	} else if (cbfn)
-+		(*cbfn)(rx->bna->bnad, rx, BNA_CB_SUCCESS);
++	rxf->start_cbfn = bna_rx_cb_rxf_started;
++	rxf->start_cbarg = rxf->rx;
++	rxf->rxf_flags &= ~BNA_RXF_FL_FAILED;
++	bfa_fsm_send_event(rxf, RXF_E_START);
 +}
 +
-+/* RxF <- bnad */
++void
++bna_rxf_stop(struct bna_rxf *rxf)
++{
++	rxf->stop_cbfn = bna_rx_cb_rxf_stopped;
++	rxf->stop_cbarg = rxf->rx;
++	bfa_fsm_send_event(rxf, RXF_E_STOP);
++}
++
++void
++bna_rxf_fail(struct bna_rxf *rxf)
++{
++	rxf->rxf_flags |= BNA_RXF_FL_FAILED;
++	bfa_fsm_send_event(rxf, RXF_E_FAIL);
++}
++
++int
++bna_rxf_state_get(struct bna_rxf *rxf)
++{
++	return bfa_sm_to_state(rxf_sm_table, rxf->fsm);
++}
++
 +enum bna_cb_status
-+bna_rx_ucast_add(struct bna_rx *rx, u8 *addr,
++bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac,
 +		 void (*cbfn)(struct bnad *, struct bna_rx *,
 +			      enum bna_cb_status))
 +{
 +	struct bna_rxf *rxf = &rx->rxf;
-+	struct list_head *qe;
++
++	if (rxf->ucast_active_mac == NULL) {
++		rxf->ucast_active_mac =
++				bna_ucam_mod_mac_get(&rxf->rx->bna->ucam_mod);
++		if (rxf->ucast_active_mac == NULL)
++			return BNA_CB_UCAST_CAM_FULL;
++		bfa_q_qe_init(&rxf->ucast_active_mac->qe);
++	}
++
++	memcpy(rxf->ucast_active_mac->addr, ucmac, ETH_ALEN);
++	rxf->ucast_pending_set++;
++	rxf->cam_fltr_cbfn = cbfn;
++	rxf->cam_fltr_cbarg = rx->bna->bnad;
++
++	bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
++
++	return BNA_CB_SUCCESS;
++}
++
++enum bna_cb_status
++bna_rx_mcast_add(struct bna_rx *rx, u8 *addr,
++		 void (*cbfn)(struct bnad *, struct bna_rx *,
++			      enum bna_cb_status))
++{
++	struct bna_rxf *rxf = &rx->rxf;
++	struct list_head	*qe;
 +	struct bna_mac *mac;
 +
 +	/* Check if already added */
-+	list_for_each(qe, &rxf->ucast_active_q) {
++	list_for_each(qe, &rxf->mcast_active_q) {
 +		mac = (struct bna_mac *)qe;
 +		if (BNA_MAC_IS_EQUAL(mac->addr, addr)) {
 +			if (cbfn)
@@ -3276,7 +2006,7 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc
 +	}
 +
 +	/* Check if pending addition */
-+	list_for_each(qe, &rxf->ucast_pending_add_q) {
++	list_for_each(qe, &rxf->mcast_pending_add_q) {
 +		mac = (struct bna_mac *)qe;
 +		if (BNA_MAC_IS_EQUAL(mac->addr, addr)) {
 +			if (cbfn)
@@ -3285,12 +2015,12 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc
 +		}
 +	}
 +
-+	mac = bna_ucam_mod_mac_get(&rxf->rx->bna->ucam_mod);
++	mac = bna_mcam_mod_mac_get(&rxf->rx->bna->mcam_mod);
 +	if (mac == NULL)
-+		return BNA_CB_UCAST_CAM_FULL;
++		return BNA_CB_MCAST_LIST_FULL;
 +	bfa_q_qe_init(&mac->qe);
 +	memcpy(mac->addr, addr, ETH_ALEN);
-+	list_add_tail(&mac->qe, &rxf->ucast_pending_add_q);
++	list_add_tail(&mac->qe, &rxf->mcast_pending_add_q);
 +
 +	rxf->cam_fltr_cbfn = cbfn;
 +	rxf->cam_fltr_cbarg = rx->bna->bnad;
@@ -3300,9 +2030,8 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc
 +	return BNA_CB_SUCCESS;
 +}
 +
-+/* RxF <- bnad */
 +enum bna_cb_status
-+bna_rx_ucast_del(struct bna_rx *rx, u8 *addr,
++bna_rx_mcast_del(struct bna_rx *rx, u8 *addr,
 +		 void (*cbfn)(struct bnad *, struct bna_rx *,
 +			      enum bna_cb_status))
 +{
@@ -3310,24 +2039,24 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc
 +	struct list_head *qe;
 +	struct bna_mac *mac;
 +
-+	list_for_each(qe, &rxf->ucast_pending_add_q) {
++	list_for_each(qe, &rxf->mcast_pending_add_q) {
 +		mac = (struct bna_mac *)qe;
 +		if (BNA_MAC_IS_EQUAL(mac->addr, addr)) {
 +			list_del(qe);
 +			bfa_q_qe_init(qe);
-+			bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
++			bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
 +			if (cbfn)
 +				(*cbfn)(rx->bna->bnad, rx, BNA_CB_SUCCESS);
 +			return BNA_CB_SUCCESS;
 +		}
 +	}
 +
-+	list_for_each(qe, &rxf->ucast_active_q) {
++	list_for_each(qe, &rxf->mcast_active_q) {
 +		mac = (struct bna_mac *)qe;
 +		if (BNA_MAC_IS_EQUAL(mac->addr, addr)) {
 +			list_del(qe);
 +			bfa_q_qe_init(qe);
-+			list_add_tail(qe, &rxf->ucast_pending_del_q);
++			list_add_tail(qe, &rxf->mcast_pending_del_q);
 +			rxf->cam_fltr_cbfn = cbfn;
 +			rxf->cam_fltr_cbarg = rx->bna->bnad;
 +			bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
@@ -3338,72 +2067,130 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc
 +	return BNA_CB_INVALID_MAC;
 +}
 +
-+/* RxF <- bnad */
 +enum bna_cb_status
-+bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode new_mode,
-+		enum bna_rxmode bitmask,
-+		void (*cbfn)(struct bnad *, struct bna_rx *,
-+			     enum bna_cb_status))
++bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
++		     void (*cbfn)(struct bnad *, struct bna_rx *,
++				  enum bna_cb_status))
 +{
 +	struct bna_rxf *rxf = &rx->rxf;
++	struct list_head list_head;
++	struct list_head *qe;
++	u8 *mcaddr;
++	struct bna_mac *mac;
++	struct bna_mac *mac1;
++	int skip;
++	int delete;
 +	int need_hw_config = 0;
++	int i;
 +
-+	/* Error checks */
-+
-+	if (is_promisc_enable(new_mode, bitmask)) {
-+		/* If promisc mode is already enabled elsewhere in the system */
-+		if ((rx->bna->rxf_promisc_id != BFI_MAX_RXF) &&
-+			(rx->bna->rxf_promisc_id != rxf->rxf_id))
++	/* Allocate nodes */
++	INIT_LIST_HEAD(&list_head);
++	for (i = 0, mcaddr = mclist; i < count; i++) {
++		mac = bna_mcam_mod_mac_get(&rxf->rx->bna->mcam_mod);
++		if (mac == NULL)
 +			goto err_return;
++		bfa_q_qe_init(&mac->qe);
++		memcpy(mac->addr, mcaddr, ETH_ALEN);
++		list_add_tail(&mac->qe, &list_head);
 +
-+		/* If default mode is already enabled in the system */
-+		if (rx->bna->rxf_default_id != BFI_MAX_RXF)
-+			goto err_return;
-+
-+		/* Trying to enable promiscuous and default mode together */
-+		if (is_default_enable(new_mode, bitmask))
-+			goto err_return;
++		mcaddr += ETH_ALEN;
 +	}
 +
-+	if (is_default_enable(new_mode, bitmask)) {
-+		/* If default mode is already enabled elsewhere in the system */
-+		if ((rx->bna->rxf_default_id != BFI_MAX_RXF) &&
-+			(rx->bna->rxf_default_id != rxf->rxf_id)) {
-+				goto err_return;
++	/* Schedule for addition */
++	while (!list_empty(&list_head)) {
++		bfa_q_deq(&list_head, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++
++		skip = 0;
++
++		/* Skip if already added */
++		list_for_each(qe, &rxf->mcast_active_q) {
++			mac1 = (struct bna_mac *)qe;
++			if (BNA_MAC_IS_EQUAL(mac1->addr, mac->addr)) {
++				bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod,
++							mac);
++				skip = 1;
++				break;
++			}
 +		}
 +
-+		/* If promiscuous mode is already enabled in the system */
-+		if (rx->bna->rxf_promisc_id != BFI_MAX_RXF)
-+			goto err_return;
++		if (skip)
++			continue;
++
++		/* Skip if pending addition */
++		list_for_each(qe, &rxf->mcast_pending_add_q) {
++			mac1 = (struct bna_mac *)qe;
++			if (BNA_MAC_IS_EQUAL(mac1->addr, mac->addr)) {
++				bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod,
++							mac);
++				skip = 1;
++				break;
++			}
++		}
++
++		if (skip)
++			continue;
++
++		need_hw_config = 1;
++		list_add_tail(&mac->qe, &rxf->mcast_pending_add_q);
 +	}
 +
-+	/* Process the commands */
-+
-+	if (is_promisc_enable(new_mode, bitmask)) {
-+		if (rxf_promisc_enable(rxf))
-+			need_hw_config = 1;
-+	} else if (is_promisc_disable(new_mode, bitmask)) {
-+		if (rxf_promisc_disable(rxf))
-+			need_hw_config = 1;
++	/**
++	 * Delete the entries that are in the pending_add_q but not
++	 * in the new list
++	 */
++	while (!list_empty(&rxf->mcast_pending_add_q)) {
++		bfa_q_deq(&rxf->mcast_pending_add_q, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++		for (i = 0, mcaddr = mclist, delete = 1; i < count; i++) {
++			if (BNA_MAC_IS_EQUAL(mcaddr, mac->addr)) {
++				delete = 0;
++				break;
++			}
++			mcaddr += ETH_ALEN;
++		}
++		if (delete)
++			bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
++		else
++			list_add_tail(&mac->qe, &list_head);
++	}
++	while (!list_empty(&list_head)) {
++		bfa_q_deq(&list_head, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++		list_add_tail(&mac->qe, &rxf->mcast_pending_add_q);
 +	}
 +
-+	if (is_default_enable(new_mode, bitmask)) {
-+		if (rxf_default_enable(rxf))
++	/**
++	 * Schedule entries for deletion that are in the active_q but not
++	 * in the new list
++	 */
++	while (!list_empty(&rxf->mcast_active_q)) {
++		bfa_q_deq(&rxf->mcast_active_q, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++		for (i = 0, mcaddr = mclist, delete = 1; i < count; i++) {
++			if (BNA_MAC_IS_EQUAL(mcaddr, mac->addr)) {
++				delete = 0;
++				break;
++			}
++			mcaddr += ETH_ALEN;
++		}
++		if (delete) {
++			list_add_tail(&mac->qe, &rxf->mcast_pending_del_q);
 +			need_hw_config = 1;
-+	} else if (is_default_disable(new_mode, bitmask)) {
-+		if (rxf_default_disable(rxf))
-+			need_hw_config = 1;
++		} else {
++			list_add_tail(&mac->qe, &list_head);
++		}
 +	}
-+
-+	if (is_allmulti_enable(new_mode, bitmask)) {
-+		if (rxf_allmulti_enable(rxf))
-+			need_hw_config = 1;
-+	} else if (is_allmulti_disable(new_mode, bitmask)) {
-+		if (rxf_allmulti_disable(rxf))
-+			need_hw_config = 1;
++	while (!list_empty(&list_head)) {
++		bfa_q_deq(&list_head, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++		list_add_tail(&mac->qe, &rxf->mcast_active_q);
 +	}
-+
-+	/* Trigger h/w if needed */
 +
 +	if (need_hw_config) {
 +		rxf->cam_fltr_cbfn = cbfn;
@@ -3415,650 +2202,2531 @@ diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/bna_ctrl.c net-next-2.6.35-rc
 +	return BNA_CB_SUCCESS;
 +
 +err_return:
-+	return BNA_CB_FAIL;
-+}
-+
-+/* RxF <- bnad */
-+void
-+bna_rx_rss_enable(struct bna_rx *rx)
-+{
-+	struct bna_rxf *rxf = &rx->rxf;
-+
-+	rxf->rxf_flags |= BNA_RXF_FL_RSS_CONFIG_PENDING;
-+	rxf->rss_status = BNA_STATUS_T_ENABLED;
-+	bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
-+}
-+
-+/* RxF <- bnad */
-+void
-+bna_rx_rss_disable(struct bna_rx *rx)
-+{
-+	struct bna_rxf *rxf = &rx->rxf;
-+
-+	rxf->rxf_flags |= BNA_RXF_FL_RSS_CONFIG_PENDING;
-+	rxf->rss_status = BNA_STATUS_T_DISABLED;
-+	bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
-+}
-+
-+/* RxF <- bnad */
-+void
-+bna_rx_rss_reconfig(struct bna_rx *rx, struct bna_rxf_rss *rss_config)
-+{
-+	struct bna_rxf *rxf = &rx->rxf;
-+	rxf->rxf_flags |= BNA_RXF_FL_RSS_CONFIG_PENDING;
-+	rxf->rss_status = BNA_STATUS_T_ENABLED;
-+	rxf->rss_cfg = *rss_config;
-+	bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
-+}
-+
-+void
-+/* RxF <- bnad */
-+bna_rx_vlanfilter_enable(struct bna_rx *rx)
-+{
-+	struct bna_rxf *rxf = &rx->rxf;
-+
-+	if (rxf->vlan_filter_status == BNA_STATUS_T_DISABLED) {
-+		rxf->rxf_flags |= BNA_RXF_FL_VLAN_CONFIG_PENDING;
-+		rxf->vlan_filter_status = BNA_STATUS_T_ENABLED;
-+		bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
++	while (!list_empty(&list_head)) {
++		bfa_q_deq(&list_head, &qe);
++		mac = (struct bna_mac *)qe;
++		bfa_q_qe_init(&mac->qe);
++		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
 +	}
++
++	return BNA_CB_MCAST_LIST_FULL;
 +}
 +
-+/* RxF <- bnad */
 +void
-+bna_rx_vlanfilter_disable(struct bna_rx *rx)
++bna_rx_vlan_add(struct bna_rx *rx, int vlan_id)
 +{
 +	struct bna_rxf *rxf = &rx->rxf;
++	int index = (vlan_id >> 5);
++	int bit = (1 << (vlan_id & 0x1F));
 +
++	rxf->vlan_filter_table[index] |= bit;
 +	if (rxf->vlan_filter_status == BNA_STATUS_T_ENABLED) {
 +		rxf->rxf_flags |= BNA_RXF_FL_VLAN_CONFIG_PENDING;
-+		rxf->vlan_filter_status = BNA_STATUS_T_DISABLED;
 +		bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
 +	}
 +}
 +
-+/* Rx */
-+
-+struct bna_rxp *
-+bna_rx_get_rxp(struct bna_rx *rx, int vector)
++void
++bna_rx_vlan_del(struct bna_rx *rx, int vlan_id)
 +{
-+	struct bna_rxp *rxp;
-+	struct list_head *qe;
++	struct bna_rxf *rxf = &rx->rxf;
++	int index = (vlan_id >> 5);
++	int bit = (1 << (vlan_id & 0x1F));
 +
-+	list_for_each(qe, &rx->rxp_q) {
-+		rxp = (struct bna_rxp *)qe;
-+		if (rxp->vector == vector)
-+			return rxp;
++	rxf->vlan_filter_table[index] &= ~bit;
++	if (rxf->vlan_filter_status == BNA_STATUS_T_ENABLED) {
++		rxf->rxf_flags |= BNA_RXF_FL_VLAN_CONFIG_PENDING;
++		bfa_fsm_send_event(rxf, RXF_E_CAM_FLTR_MOD);
 +	}
-+	return NULL;
-+}
-+
-+/*
-+ * bna_rx_rss_rit_set()
-+ * Sets the Q ids for the specified msi-x vectors in the RIT.
-+ * Maximum rit size supported is 64, which should be the max size of the
-+ * vectors array.
-+ */
-+
-+void
-+bna_rx_rss_rit_set(struct bna_rx *rx, unsigned int *vectors, int nvectors)
-+{
-+	int i;
-+	struct bna_rxp *rxp;
-+	struct bna_rxq *q0 = NULL, *q1 = NULL;
-+	struct bna *bna;
-+	struct bna_rxf *rxf;
-+
-+	/* Build the RIT contents for this RX */
-+	bna = rx->bna;
-+
-+	rxf = &rx->rxf;
-+	for (i = 0; i < nvectors; i++) {
-+		rxp = bna_rx_get_rxp(rx, vectors[i]);
-+
-+		GET_RXQS(rxp, q0, q1);
-+		rxf->rit_segment->rit[i].large_rxq_id = q0->rxq_id;
-+		rxf->rit_segment->rit[i].small_rxq_id = (q1 ? q1->rxq_id : 0);
-+	}
-+
-+	rxf->rit_segment->rit_size = nvectors;
-+
-+	/* Subsequent call to enable/reconfig RSS will update the RIT in h/w */
-+}
-+
-+/* Rx <- bnad */
-+void
-+bna_rx_coalescing_timeo_set(struct bna_rx *rx, int coalescing_timeo)
-+{
-+	struct bna_rxp *rxp;
-+	struct list_head *qe;
-+
-+	list_for_each(qe, &rx->rxp_q) {
-+		rxp = (struct bna_rxp *)qe;
-+		rxp->cq.ccb->rx_coalescing_timeo = coalescing_timeo;
-+		bna_ib_coalescing_timeo_set(rxp->cq.ib, coalescing_timeo);
-+	}
-+}
-+
-+/* Rx <- bnad */
-+void
-+bna_rx_dim_reconfig(struct bna *bna, u32 vector[][BNA_BIAS_T_MAX])
-+{
-+	int i, j;
-+
-+	for (i = 0; i < BNA_LOAD_T_MAX; i++)
-+		for (j = 0; j < BNA_BIAS_T_MAX; j++)
-+			bna->rx_mod.dim_vector[i][j] = vector[i][j];
-+}
-+
-+/* Rx <- bnad */
-+void
-+bna_rx_dim_update(struct bna_ccb *ccb)
-+{
-+	struct bna *bna = ccb->cq->rx->bna;
-+	u32 load, bias;
-+	u32 pkt_rt, small_rt, large_rt;
-+	u8 coalescing_timeo;
-+
-+	if ((ccb->pkt_rate.small_pkt_cnt == 0) &&
-+		(ccb->pkt_rate.large_pkt_cnt == 0))
-+		return;
-+
-+	/* Arrive at preconfigured coalescing timeo value based on pkt rate */
-+
-+	small_rt = ccb->pkt_rate.small_pkt_cnt;
-+	large_rt = ccb->pkt_rate.large_pkt_cnt;
-+
-+	pkt_rt = small_rt + large_rt;
-+
-+	if (pkt_rt < BNA_PKT_RATE_10K)
-+		load = BNA_LOAD_T_LOW_4;
-+	else if (pkt_rt < BNA_PKT_RATE_20K)
-+		load = BNA_LOAD_T_LOW_3;
-+	else if (pkt_rt < BNA_PKT_RATE_30K)
-+		load = BNA_LOAD_T_LOW_2;
-+	else if (pkt_rt < BNA_PKT_RATE_40K)
-+		load = BNA_LOAD_T_LOW_1;
-+	else if (pkt_rt < BNA_PKT_RATE_50K)
-+		load = BNA_LOAD_T_HIGH_1;
-+	else if (pkt_rt < BNA_PKT_RATE_60K)
-+		load = BNA_LOAD_T_HIGH_2;
-+	else if (pkt_rt < BNA_PKT_RATE_80K)
-+		load = BNA_LOAD_T_HIGH_3;
-+	else
-+		load = BNA_LOAD_T_HIGH_4;
-+
-+	if (small_rt > (large_rt << 1))
-+		bias = 0;
-+	else
-+		bias = 1;
-+
-+	ccb->pkt_rate.small_pkt_cnt = 0;
-+	ccb->pkt_rate.large_pkt_cnt = 0;
-+
-+	coalescing_timeo = bna->rx_mod.dim_vector[load][bias];
-+	ccb->rx_coalescing_timeo = coalescing_timeo;
-+
-+	/* Set it to IB */
-+	bna_ib_coalescing_timeo_set(ccb->cq->ib, coalescing_timeo);
-+}
-+
-+/* Tx */
-+/* TX <- bnad */
-+enum bna_cb_status
-+bna_tx_prio_set(struct bna_tx *tx, int prio,
-+		void (*cbfn)(struct bnad *, struct bna_tx *,
-+			     enum bna_cb_status))
-+{
-+	if (tx->flags & BNA_TX_F_PRIO_LOCK)
-+		return BNA_CB_FAIL;
-+	else {
-+		tx->prio_change_cbfn = cbfn;
-+		bna_tx_prio_changed(tx, prio);
-+	}
-+
-+	return BNA_CB_SUCCESS;
-+}
-+
-+/* TX <- bnad */
-+void
-+bna_tx_coalescing_timeo_set(struct bna_tx *tx, int coalescing_timeo)
-+{
-+	struct bna_txq *txq;
-+	struct list_head *qe;
-+
-+	list_for_each(qe, &tx->txq_q) {
-+		txq = (struct bna_txq *)qe;
-+		bna_ib_coalescing_timeo_set(txq->ib, coalescing_timeo);
-+	}
-+}
-+
-+/*
-+ * Private data
-+ */
-+
-+struct bna_ritseg_pool_cfg {
-+	u32	pool_size;
-+	u32	pool_entry_size;
-+};
-+init_ritseg_pool(ritseg_pool_cfg);
-+
-+/*
-+ * Private functions
-+ */
-+static void
-+bna_ucam_mod_init(struct bna_ucam_mod *ucam_mod, struct bna *bna,
-+		  struct bna_res_info *res_info)
-+{
-+	int i;
-+
-+	ucam_mod->ucmac = (struct bna_mac *)
-+		res_info[BNA_RES_MEM_T_UCMAC_ARRAY].res_u.mem_info.mdl[0].kva;
-+
-+	INIT_LIST_HEAD(&ucam_mod->free_q);
-+	for (i = 0; i < BFI_MAX_UCMAC; i++) {
-+		bfa_q_qe_init(&ucam_mod->ucmac[i].qe);
-+		list_add_tail(&ucam_mod->ucmac[i].qe, &ucam_mod->free_q);
-+	}
-+
-+	ucam_mod->bna = bna;
-+}
-+
-+static void
-+bna_ucam_mod_uninit(struct bna_ucam_mod *ucam_mod)
-+{
-+	struct list_head *qe;
-+	int i = 0;
-+
-+	list_for_each(qe, &ucam_mod->free_q)
-+		i++;
-+
-+	ucam_mod->bna = NULL;
-+}
-+
-+static void
-+bna_mcam_mod_init(struct bna_mcam_mod *mcam_mod, struct bna *bna,
-+		  struct bna_res_info *res_info)
-+{
-+	int i;
-+
-+	mcam_mod->mcmac = (struct bna_mac *)
-+		res_info[BNA_RES_MEM_T_MCMAC_ARRAY].res_u.mem_info.mdl[0].kva;
-+
-+	INIT_LIST_HEAD(&mcam_mod->free_q);
-+	for (i = 0; i < BFI_MAX_MCMAC; i++) {
-+		bfa_q_qe_init(&mcam_mod->mcmac[i].qe);
-+		list_add_tail(&mcam_mod->mcmac[i].qe, &mcam_mod->free_q);
-+	}
-+
-+	mcam_mod->bna = bna;
-+}
-+
-+static void
-+bna_mcam_mod_uninit(struct bna_mcam_mod *mcam_mod)
-+{
-+	struct list_head *qe;
-+	int i = 0;
-+
-+	list_for_each(qe, &mcam_mod->free_q)
-+		i++;
-+
-+	mcam_mod->bna = NULL;
-+}
-+
-+static void
-+bna_rit_mod_init(struct bna_rit_mod *rit_mod,
-+		struct bna_res_info *res_info)
-+{
-+	int i;
-+	int j;
-+	int count;
-+	int offset;
-+
-+	rit_mod->rit = (struct bna_rit_entry *)
-+		res_info[BNA_RES_MEM_T_RIT_ENTRY].res_u.mem_info.mdl[0].kva;
-+	rit_mod->rit_segment = (struct bna_rit_segment *)
-+		res_info[BNA_RES_MEM_T_RIT_SEGMENT].res_u.mem_info.mdl[0].kva;
-+
-+	count = 0;
-+	offset = 0;
-+	for (i = 0; i < BFI_RIT_SEG_TOTAL_POOLS; i++) {
-+		INIT_LIST_HEAD(&rit_mod->rit_seg_pool[i]);
-+		for (j = 0; j < ritseg_pool_cfg[i].pool_size; j++) {
-+			bfa_q_qe_init(&rit_mod->rit_segment[count].qe);
-+			rit_mod->rit_segment[count].max_rit_size =
-+					ritseg_pool_cfg[i].pool_entry_size;
-+			rit_mod->rit_segment[count].rit_offset = offset;
-+			rit_mod->rit_segment[count].rit =
-+					&rit_mod->rit[offset];
-+			list_add_tail(&rit_mod->rit_segment[count].qe,
-+				&rit_mod->rit_seg_pool[i]);
-+			count++;
-+			offset += ritseg_pool_cfg[i].pool_entry_size;
-+		}
-+	}
-+}
-+
-+static void
-+bna_rit_mod_uninit(struct bna_rit_mod *rit_mod)
-+{
-+	struct bna_rit_segment *rit_segment;
-+	struct list_head *qe;
-+	int i;
-+	int j;
-+
-+	for (i = 0; i < BFI_RIT_SEG_TOTAL_POOLS; i++) {
-+		j = 0;
-+		list_for_each(qe, &rit_mod->rit_seg_pool[i]) {
-+			rit_segment = (struct bna_rit_segment *)qe;
-+			j++;
-+		}
-+	}
-+}
-+
-+/*
-+ * Public functions
-+ */
-+
-+/* Called during probe(), before calling bna_init() */
-+void
-+bna_res_req(struct bna_res_info *res_info)
-+{
-+	bna_adv_res_req(res_info);
-+
-+	/* DMA memory for retrieving IOC attributes */
-+	res_info[BNA_RES_MEM_T_ATTR].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_ATTR].res_u.mem_info.mem_type = BNA_MEM_T_DMA;
-+	res_info[BNA_RES_MEM_T_ATTR].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_ATTR].res_u.mem_info.len =
-+				ALIGN(bfa_ioc_meminfo(), PAGE_SIZE);
-+
-+	/* DMA memory for index segment of an IB */
-+	res_info[BNA_RES_MEM_T_IBIDX].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_IBIDX].res_u.mem_info.mem_type = BNA_MEM_T_DMA;
-+	res_info[BNA_RES_MEM_T_IBIDX].res_u.mem_info.len =
-+				BFI_IBIDX_SIZE * BFI_IBIDX_MAX_SEGSIZE;
-+	res_info[BNA_RES_MEM_T_IBIDX].res_u.mem_info.num = BFI_MAX_IB;
-+
-+	/* Virtual memory for IB objects - stored by IB module */
-+	res_info[BNA_RES_MEM_T_IB_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_IB_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_IB_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_IB_ARRAY].res_u.mem_info.len =
-+				BFI_MAX_IB * sizeof(struct bna_ib);
-+
-+	/* Virtual memory for intr objects - stored by IB module */
-+	res_info[BNA_RES_MEM_T_INTR_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_INTR_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_INTR_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_INTR_ARRAY].res_u.mem_info.len =
-+				BFI_MAX_IB * sizeof(struct bna_intr);
-+
-+	/* Virtual memory for idx_seg objects - stored by IB module */
-+	res_info[BNA_RES_MEM_T_IDXSEG_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_IDXSEG_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_IDXSEG_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_IDXSEG_ARRAY].res_u.mem_info.len =
-+			BFI_IBIDX_TOTAL_SEGS * sizeof(struct bna_ibidx_seg);
-+
-+	/* Virtual memory for Tx objects - stored by Tx module */
-+	res_info[BNA_RES_MEM_T_TX_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_TX_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_TX_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_TX_ARRAY].res_u.mem_info.len =
-+			BFI_MAX_TXQ * sizeof(struct bna_tx);
-+
-+	/* Virtual memory for TxQ - stored by Tx module */
-+	res_info[BNA_RES_MEM_T_TXQ_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_TXQ_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_TXQ_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_TXQ_ARRAY].res_u.mem_info.len =
-+			BFI_MAX_TXQ * sizeof(struct bna_txq);
-+
-+	/* Virtual memory for Rx objects - stored by Rx module */
-+	res_info[BNA_RES_MEM_T_RX_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_RX_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_RX_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_RX_ARRAY].res_u.mem_info.len =
-+			BFI_MAX_RXQ * sizeof(struct bna_rx);
-+
-+	/* Virtual memory for RxPath - stored by Rx module */
-+	res_info[BNA_RES_MEM_T_RXP_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_RXP_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_RXP_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_RXP_ARRAY].res_u.mem_info.len =
-+			BFI_MAX_RXQ * sizeof(struct bna_rxp);
-+
-+	/* Virtual memory for RxQ - stored by Rx module */
-+	res_info[BNA_RES_MEM_T_RXQ_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_RXQ_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_RXQ_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_RXQ_ARRAY].res_u.mem_info.len =
-+			BFI_MAX_RXQ * sizeof(struct bna_rxq);
-+
-+	/* Virtual memory for Unicast MAC address - stored by ucam module */
-+	res_info[BNA_RES_MEM_T_UCMAC_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_UCMAC_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_UCMAC_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_UCMAC_ARRAY].res_u.mem_info.len =
-+			BFI_MAX_UCMAC * sizeof(struct bna_mac);
-+
-+	/* Virtual memory for Multicast MAC address - stored by mcam module */
-+	res_info[BNA_RES_MEM_T_MCMAC_ARRAY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_MCMAC_ARRAY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_MCMAC_ARRAY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_MCMAC_ARRAY].res_u.mem_info.len =
-+			BFI_MAX_MCMAC * sizeof(struct bna_mac);
-+
-+	/* Virtual memory for RIT entries */
-+	res_info[BNA_RES_MEM_T_RIT_ENTRY].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_RIT_ENTRY].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_RIT_ENTRY].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_RIT_ENTRY].res_u.mem_info.len =
-+			BFI_MAX_RIT_SIZE * sizeof(struct bna_rit_entry);
-+
-+	/* Virtual memory for RIT segment table */
-+	res_info[BNA_RES_MEM_T_RIT_SEGMENT].res_type = BNA_RES_T_MEM;
-+	res_info[BNA_RES_MEM_T_RIT_SEGMENT].res_u.mem_info.mem_type =
-+								BNA_MEM_T_KVA;
-+	res_info[BNA_RES_MEM_T_RIT_SEGMENT].res_u.mem_info.num = 1;
-+	res_info[BNA_RES_MEM_T_RIT_SEGMENT].res_u.mem_info.len =
-+			BFI_RIT_TOTAL_SEGS * sizeof(struct bna_rit_segment);
-+
-+	/* Interrupt resource for mailbox interrupt */
-+	res_info[BNA_RES_INTR_T_MBOX].res_type = BNA_RES_T_INTR;
-+	res_info[BNA_RES_INTR_T_MBOX].res_u.intr_info.intr_type =
-+							BNA_INTR_T_MSIX;
-+	res_info[BNA_RES_INTR_T_MBOX].res_u.intr_info.num = 1;
-+}
-+
-+/* Called during probe() */
-+void
-+bna_init(struct bna *bna, struct bnad *bnad, struct bfa_pcidev *pcidev,
-+		struct bna_res_info *res_info)
-+{
-+	bna->bnad = bnad;
-+	bna->pcidev = *pcidev;
-+
-+	bna->stats.hw_stats = (struct bfi_ll_stats *)
-+		res_info[BNA_RES_MEM_T_STATS].res_u.mem_info.mdl[0].kva;
-+	bna->hw_stats_dma.msb =
-+		res_info[BNA_RES_MEM_T_STATS].res_u.mem_info.mdl[0].dma.msb;
-+	bna->hw_stats_dma.lsb =
-+		res_info[BNA_RES_MEM_T_STATS].res_u.mem_info.mdl[0].dma.lsb;
-+	bna->stats.sw_stats = (struct bna_sw_stats *)
-+		res_info[BNA_RES_MEM_T_SWSTATS].res_u.mem_info.mdl[0].kva;
-+
-+	bna->regs.page_addr = bna->pcidev.pci_bar_kva +
-+				reg_offset[bna->pcidev.pci_func].page_addr;
-+	bna->regs.fn_int_status = bna->pcidev.pci_bar_kva +
-+				reg_offset[bna->pcidev.pci_func].fn_int_status;
-+	bna->regs.fn_int_mask = bna->pcidev.pci_bar_kva +
-+				reg_offset[bna->pcidev.pci_func].fn_int_mask;
-+
-+	if (bna->pcidev.pci_func < 3)
-+		bna->port_num = 0;
-+	else
-+		bna->port_num = 1;
-+
-+	/* Also initializes diag, cee, sfp, phy_port and mbox_mod */
-+	bna_device_init(&bna->device, bna, res_info);
-+
-+	bna_port_init(&bna->port, bna);
-+
-+	bna_tx_mod_init(&bna->tx_mod, bna, res_info);
-+
-+	bna_rx_mod_init(&bna->rx_mod, bna, res_info);
-+
-+	bna_ib_mod_init(&bna->ib_mod, bna, res_info);
-+
-+	bna_rit_mod_init(&bna->rit_mod, res_info);
-+
-+	bna_ucam_mod_init(&bna->ucam_mod, bna, res_info);
-+
-+	bna_mcam_mod_init(&bna->mcam_mod, bna, res_info);
-+
-+	bna->rxf_default_id = BFI_MAX_RXF;
-+	bna->rxf_promisc_id = BFI_MAX_RXF;
-+
-+	/* Mbox q element for posting stat request to f/w */
-+	bfa_q_qe_init(&bna->mbox_qe.qe);
-+}
-+
-+void
-+bna_uninit(struct bna *bna)
-+{
-+	bna_mcam_mod_uninit(&bna->mcam_mod);
-+
-+	bna_ucam_mod_uninit(&bna->ucam_mod);
-+
-+	bna_rit_mod_uninit(&bna->rit_mod);
-+
-+	bna_ib_mod_uninit(&bna->ib_mod);
-+
-+	bna_rx_mod_uninit(&bna->rx_mod);
-+
-+	bna_tx_mod_uninit(&bna->tx_mod);
-+
-+	bna_port_uninit(&bna->port);
-+
-+	bna_device_uninit(&bna->device);
-+
-+	bna->bnad = NULL;
-+}
-+
-+struct bna_mac *
-+bna_ucam_mod_mac_get(struct bna_ucam_mod *ucam_mod)
-+{
-+	struct list_head *qe;
-+
-+	if (list_empty(&ucam_mod->free_q))
-+		return NULL;
-+
-+	bfa_q_deq(&ucam_mod->free_q, &qe);
-+
-+	return (struct bna_mac *)qe;
-+}
-+
-+void
-+bna_ucam_mod_mac_put(struct bna_ucam_mod *ucam_mod, struct bna_mac *mac)
-+{
-+	list_add_tail(&mac->qe, &ucam_mod->free_q);
-+}
-+
-+struct bna_mac *
-+bna_mcam_mod_mac_get(struct bna_mcam_mod *mcam_mod)
-+{
-+	struct list_head *qe;
-+
-+	if (list_empty(&mcam_mod->free_q))
-+		return NULL;
-+
-+	bfa_q_deq(&mcam_mod->free_q, &qe);
-+
-+	return (struct bna_mac *)qe;
-+}
-+
-+void
-+bna_mcam_mod_mac_put(struct bna_mcam_mod *mcam_mod, struct bna_mac *mac)
-+{
-+	list_add_tail(&mac->qe, &mcam_mod->free_q);
 +}
 +
 +/**
-+ * Note: This should be called in the same locking context as the call to
-+ * bna_rit_mod_seg_get()
++ * RX
 + */
-+int
-+bna_rit_mod_can_satisfy(struct bna_rit_mod *rit_mod, int seg_size)
-+{
-+	int i;
++#define	RXQ_RCB_INIT(q, rxp, qdepth, bna, _id, unmapq_mem)	do {	\
++	struct bna_doorbell_qset *_qset;				\
++	unsigned long off;						\
++	(q)->rcb->producer_index = (q)->rcb->consumer_index = 0;	\
++	(q)->rcb->q_depth = (qdepth);					\
++	(q)->rcb->unmap_q = unmapq_mem;					\
++	(q)->rcb->rxq = (q);						\
++	(q)->rcb->cq = &(rxp)->cq;					\
++	(q)->rcb->bnad = (bna)->bnad;					\
++	_qset = (struct bna_doorbell_qset *)0;			\
++	off = (unsigned long)&_qset[(q)->rxq_id].rxq[0];		\
++	(q)->rcb->q_dbell = off +					\
++		BNA_GET_DOORBELL_BASE_ADDR((bna)->pcidev.pci_bar_kva);	\
++	(q)->rcb->id = _id;						\
++} while (0)
 +
-+	/* Select the pool for seg_size */
-+	for (i = 0; i < BFI_RIT_SEG_TOTAL_POOLS; i++) {
-+		if (seg_size <= ritseg_pool_cfg[i].pool_entry_size)
-+			break;
++#define	BNA_GET_RXQS(qcfg)	(((qcfg)->rxp_type == BNA_RXP_SINGLE) ?	\
++	(qcfg)->num_paths : ((qcfg)->num_paths * 2))
++
++#define	SIZE_TO_PAGES(size)	(((size) >> PAGE_SHIFT) + ((((size) &\
++	(PAGE_SIZE - 1)) + (PAGE_SIZE - 1)) >> PAGE_SHIFT))
++
++#define	call_rx_stop_callback(rx, status)				\
++	if ((rx)->stop_cbfn) {						\
++		(*(rx)->stop_cbfn)((rx)->stop_cbarg, rx, (status));	\
++		(rx)->stop_cbfn = NULL;					\
++		(rx)->stop_cbarg = NULL;				\
 +	}
 +
-+	if (i == BFI_RIT_SEG_TOTAL_POOLS)
++/*
++ * Since rx_enable is synchronous callback, there is no start_cbfn required.
++ * Instead, we'll call bnad_rx_post(rxp) so that bnad can post the buffers
++ * for each rxpath.
++ */
++
++#define	call_rx_disable_cbfn(rx, status)				\
++		if ((rx)->disable_cbfn)	{				\
++			(*(rx)->disable_cbfn)((rx)->disable_cbarg,	\
++					status);			\
++			(rx)->disable_cbfn = NULL;			\
++			(rx)->disable_cbarg = NULL;			\
++		}							\
++
++#define	rxqs_reqd(type, num_rxqs)					\
++	(((type) == BNA_RXP_SINGLE) ? (num_rxqs) : ((num_rxqs) * 2))
++
++#define rx_ib_fail(rx)						\
++do {								\
++	struct bna_rxp *rxp;					\
++	struct list_head *qe;						\
++	list_for_each(qe, &(rx)->rxp_q) {				\
++		rxp = (struct bna_rxp *)qe;			\
++		bna_ib_fail(rxp->cq.ib);			\
++	}							\
++} while (0)
++
++static void __bna_multi_rxq_stop(struct bna_rxp *, u32 *);
++static void __bna_rxq_start(struct bna_rxq *rxq);
++static void __bna_cq_start(struct bna_cq *cq);
++static void bna_rit_create(struct bna_rx *rx);
++static void bna_rx_cb_multi_rxq_stopped(void *arg, int status);
++static void bna_rx_cb_rxq_stopped_all(void *arg);
++
++bfa_fsm_state_decl(bna_rx, stopped,
++	struct bna_rx, enum bna_rx_event);
++bfa_fsm_state_decl(bna_rx, rxf_start_wait,
++	struct bna_rx, enum bna_rx_event);
++bfa_fsm_state_decl(bna_rx, started,
++	struct bna_rx, enum bna_rx_event);
++bfa_fsm_state_decl(bna_rx, rxf_stop_wait,
++	struct bna_rx, enum bna_rx_event);
++bfa_fsm_state_decl(bna_rx, rxq_stop_wait,
++	struct bna_rx, enum bna_rx_event);
++
++static struct bfa_sm_table rx_sm_table[] = {
++	{BFA_SM(bna_rx_sm_stopped), BNA_RX_STOPPED},
++	{BFA_SM(bna_rx_sm_rxf_start_wait), BNA_RX_RXF_START_WAIT},
++	{BFA_SM(bna_rx_sm_started), BNA_RX_STARTED},
++	{BFA_SM(bna_rx_sm_rxf_stop_wait), BNA_RX_RXF_STOP_WAIT},
++	{BFA_SM(bna_rx_sm_rxq_stop_wait), BNA_RX_RXQ_STOP_WAIT},
++};
++
++static void bna_rx_sm_stopped_entry(struct bna_rx *rx)
++{
++	struct bna_rxp *rxp;
++	struct list_head *qe_rxp;
++
++	list_for_each(qe_rxp, &rx->rxp_q) {
++		rxp = (struct bna_rxp *)qe_rxp;
++		rx->rx_cleanup_cbfn(rx->bna->bnad, rxp->cq.ccb);
++	}
++
++	call_rx_stop_callback(rx, BNA_CB_SUCCESS);
++}
++
++static void bna_rx_sm_stopped(struct bna_rx *rx,
++				enum bna_rx_event event)
++{
++	switch (event) {
++	case RX_E_START:
++		bfa_fsm_set_state(rx, bna_rx_sm_rxf_start_wait);
++		break;
++	case RX_E_STOP:
++		call_rx_stop_callback(rx, BNA_CB_SUCCESS);
++		break;
++	case RX_E_FAIL:
++		/* no-op */
++		break;
++	default:
++		bfa_sm_fault(rx->bna, event);
++		break;
++	}
++
++}
++
++static void bna_rx_sm_rxf_start_wait_entry(struct bna_rx *rx)
++{
++	struct bna_rxp *rxp;
++	struct list_head *qe_rxp;
++	struct bna_rxq *q0 = NULL, *q1 = NULL;
++
++	/* Setup the RIT */
++	bna_rit_create(rx);
++
++	list_for_each(qe_rxp, &rx->rxp_q) {
++		rxp = (struct bna_rxp *)qe_rxp;
++		bna_ib_start(rxp->cq.ib);
++		GET_RXQS(rxp, q0, q1);
++		q0->buffer_size = bna_port_mtu_get(&rx->bna->port);
++		__bna_rxq_start(q0);
++		rx->rx_post_cbfn(rx->bna->bnad, q0->rcb);
++		if (q1)  {
++			__bna_rxq_start(q1);
++			rx->rx_post_cbfn(rx->bna->bnad, q1->rcb);
++		}
++		__bna_cq_start(&rxp->cq);
++	}
++
++	bna_rxf_start(&rx->rxf);
++}
++
++static void bna_rx_sm_rxf_start_wait(struct bna_rx *rx,
++				enum bna_rx_event event)
++{
++	switch (event) {
++	case RX_E_STOP:
++		bfa_fsm_set_state(rx, bna_rx_sm_rxf_stop_wait);
++		break;
++	case RX_E_FAIL:
++		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
++		rx_ib_fail(rx);
++		bna_rxf_fail(&rx->rxf);
++		break;
++	case RX_E_RXF_STARTED:
++		bfa_fsm_set_state(rx, bna_rx_sm_started);
++		break;
++	default:
++		bfa_sm_fault(rx->bna, event);
++		break;
++	}
++}
++
++void
++bna_rx_sm_started_entry(struct bna_rx *rx)
++{
++	struct bna_rxp *rxp;
++	struct list_head *qe_rxp;
++
++	/* Start IB */
++	list_for_each(qe_rxp, &rx->rxp_q) {
++		rxp = (struct bna_rxp *)qe_rxp;
++		bna_ib_ack(&rxp->cq.ib->door_bell, 0);
++	}
++
++	bna_llport_admin_up(&rx->bna->port.llport);
++}
++
++void
++bna_rx_sm_started(struct bna_rx *rx, enum bna_rx_event event)
++{
++	switch (event) {
++	case RX_E_FAIL:
++		bna_llport_admin_down(&rx->bna->port.llport);
++		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
++		rx_ib_fail(rx);
++		bna_rxf_fail(&rx->rxf);
++		break;
++	case RX_E_STOP:
++		bna_llport_admin_down(&rx->bna->port.llport);
++		bfa_fsm_set_state(rx, bna_rx_sm_rxf_stop_wait);
++		break;
++	default:
++		bfa_sm_fault(rx->bna, event);
++		break;
++	}
++}
++
++void
++bna_rx_sm_rxf_stop_wait_entry(struct bna_rx *rx)
++{
++	bna_rxf_stop(&rx->rxf);
++}
++
++void
++bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
++{
++	switch (event) {
++	case RX_E_RXF_STOPPED:
++		bfa_fsm_set_state(rx, bna_rx_sm_rxq_stop_wait);
++		break;
++	case RX_E_RXF_STARTED:
++		/**
++		 * RxF was in the process of starting up when
++		 * RXF_E_STOP was issued. Ignore this event
++		 */
++		break;
++	case RX_E_FAIL:
++		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
++		rx_ib_fail(rx);
++		bna_rxf_fail(&rx->rxf);
++		break;
++	default:
++		bfa_sm_fault(rx->bna, event);
++		break;
++	}
++
++}
++
++void
++bna_rx_sm_rxq_stop_wait_entry(struct bna_rx *rx)
++{
++	struct bna_rxp *rxp = NULL;
++	struct bna_rxq *q0 = NULL;
++	struct bna_rxq *q1 = NULL;
++	struct list_head	*qe;
++	u32 rxq_mask[2] = {0, 0};
++
++	/* Only one call to multi-rxq-stop for all RXPs in this RX */
++	bfa_wc_up(&rx->rxq_stop_wc);
++	list_for_each(qe, &rx->rxp_q) {
++		rxp = (struct bna_rxp *)qe;
++		GET_RXQS(rxp, q0, q1);
++		if (q0->rxq_id < 32)
++			rxq_mask[0] |= ((u32)1 << q0->rxq_id);
++		else
++			rxq_mask[1] |= ((u32)1 << (q0->rxq_id - 32));
++		if (q1) {
++			if (q1->rxq_id < 32)
++				rxq_mask[0] |= ((u32)1 << q1->rxq_id);
++			else
++				rxq_mask[1] |= ((u32)
++						1 << (q1->rxq_id - 32));
++		}
++	}
++
++	__bna_multi_rxq_stop(rxp, rxq_mask);
++}
++
++void
++bna_rx_sm_rxq_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
++{
++	struct bna_rxp *rxp = NULL;
++	struct list_head	*qe;
++
++	switch (event) {
++	case RX_E_RXQ_STOPPED:
++		list_for_each(qe, &rx->rxp_q) {
++			rxp = (struct bna_rxp *)qe;
++			bna_ib_stop(rxp->cq.ib);
++		}
++		/* Fall through */
++	case RX_E_FAIL:
++		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
++		break;
++	default:
++		bfa_sm_fault(rx->bna, event);
++		break;
++	}
++}
++
++void
++__bna_multi_rxq_stop(struct bna_rxp *rxp, u32 * rxq_id_mask)
++{
++	struct bfi_ll_q_stop_req ll_req;
++
++	bfi_h2i_set(ll_req.mh, BFI_MC_LL, BFI_LL_H2I_RXQ_STOP_REQ, 0);
++	ll_req.q_id_mask[0] = htonl(rxq_id_mask[0]);
++	ll_req.q_id_mask[1] = htonl(rxq_id_mask[1]);
++	bna_mbox_qe_fill(&rxp->mbox_qe, &ll_req, sizeof(ll_req),
++		bna_rx_cb_multi_rxq_stopped, rxp);
++	bna_mbox_send(rxp->rx->bna, &rxp->mbox_qe);
++}
++
++void
++__bna_rxq_start(struct bna_rxq *rxq)
++{
++	struct bna_rxtx_q_mem *q_mem;
++	struct bna_rxq_mem rxq_cfg, *rxq_mem;
++	struct bna_dma_addr cur_q_addr;
++	/* struct bna_doorbell_qset *qset; */
++	struct bna_qpt *qpt;
++	u32 pg_num;
++	struct bna *bna = rxq->rx->bna;
++	void __iomem *base_addr;
++	unsigned long off;
++
++	qpt = &rxq->qpt;
++	cur_q_addr = *((struct bna_dma_addr *)(qpt->kv_qpt_ptr));
++
++	rxq_cfg.pg_tbl_addr_lo = qpt->hw_qpt_ptr.lsb;
++	rxq_cfg.pg_tbl_addr_hi = qpt->hw_qpt_ptr.msb;
++	rxq_cfg.cur_q_entry_lo = cur_q_addr.lsb;
++	rxq_cfg.cur_q_entry_hi = cur_q_addr.msb;
++
++	rxq_cfg.pg_cnt_n_prd_ptr = ((u32)qpt->page_count << 16) | 0x0;
++	rxq_cfg.entry_n_pg_size = ((u32)(BFI_RXQ_WI_SIZE >> 2) << 16) |
++		(qpt->page_size >> 2);
++	rxq_cfg.sg_n_cq_n_cns_ptr =
++		((u32)(rxq->rxp->cq.cq_id & 0xff) << 16) | 0x0;
++	rxq_cfg.buf_sz_n_q_state = ((u32)rxq->buffer_size << 16) |
++		BNA_Q_IDLE_STATE;
++	rxq_cfg.next_qid = 0x0 | (0x3 << 8);
++
++	/* Write the page number register */
++	pg_num = BNA_GET_PAGE_NUM(HQM0_BLK_PG_NUM + bna->port_num,
++			HQM_RXTX_Q_RAM_BASE_OFFSET);
++	writel(pg_num, bna->regs.page_addr);
++
++	/* Write to h/w */
++	base_addr = BNA_GET_MEM_BASE_ADDR(bna->pcidev.pci_bar_kva,
++					HQM_RXTX_Q_RAM_BASE_OFFSET);
++
++	q_mem = (struct bna_rxtx_q_mem *)0;
++	rxq_mem = &q_mem[rxq->rxq_id].rxq;
++
++	off = (unsigned long)&rxq_mem->pg_tbl_addr_lo;
++	writel(htonl(rxq_cfg.pg_tbl_addr_lo), base_addr + off);
++
++	off = (unsigned long)&rxq_mem->pg_tbl_addr_hi;
++	writel(htonl(rxq_cfg.pg_tbl_addr_hi), base_addr + off);
++
++	off = (unsigned long)&rxq_mem->cur_q_entry_lo;
++	writel(htonl(rxq_cfg.cur_q_entry_lo), base_addr + off);
++
++	off = (unsigned long)&rxq_mem->cur_q_entry_hi;
++	writel(htonl(rxq_cfg.cur_q_entry_hi), base_addr + off);
++
++	off = (unsigned long)&rxq_mem->pg_cnt_n_prd_ptr;
++	writel(rxq_cfg.pg_cnt_n_prd_ptr, base_addr + off);
++
++	off = (unsigned long)&rxq_mem->entry_n_pg_size;
++	writel(rxq_cfg.entry_n_pg_size, base_addr + off);
++
++	off = (unsigned long)&rxq_mem->sg_n_cq_n_cns_ptr;
++	writel(rxq_cfg.sg_n_cq_n_cns_ptr, base_addr + off);
++
++	off = (unsigned long)&rxq_mem->buf_sz_n_q_state;
++	writel(rxq_cfg.buf_sz_n_q_state, base_addr + off);
++
++	off = (unsigned long)&rxq_mem->next_qid;
++	writel(rxq_cfg.next_qid, base_addr + off);
++
++	rxq->rcb->producer_index = 0;
++	rxq->rcb->consumer_index = 0;
++}
++
++void
++__bna_cq_start(struct bna_cq *cq)
++{
++	struct bna_cq_mem cq_cfg, *cq_mem;
++	const struct bna_qpt *qpt;
++	struct bna_dma_addr cur_q_addr;
++	u32 pg_num;
++	struct bna *bna = cq->rx->bna;
++	void __iomem *base_addr;
++	unsigned long off;
++
++	qpt = &cq->qpt;
++	cur_q_addr = *((struct bna_dma_addr *)(qpt->kv_qpt_ptr));
++
++	/*
++	 * Fill out structure, to be subsequently written
++	 * to hardware
++	 */
++	cq_cfg.pg_tbl_addr_lo = qpt->hw_qpt_ptr.lsb;
++	cq_cfg.pg_tbl_addr_hi = qpt->hw_qpt_ptr.msb;
++	cq_cfg.cur_q_entry_lo = cur_q_addr.lsb;
++	cq_cfg.cur_q_entry_hi = cur_q_addr.msb;
++
++	cq_cfg.pg_cnt_n_prd_ptr = (qpt->page_count << 16) | 0x0;
++	cq_cfg.entry_n_pg_size =
++		((u32)(BFI_CQ_WI_SIZE >> 2) << 16) | (qpt->page_size >> 2);
++	cq_cfg.int_blk_n_cns_ptr = ((((u32)cq->ib_seg_offset) << 24) |
++			((u32)(cq->ib->ib_id & 0xff)  << 16) | 0x0);
++	cq_cfg.q_state = BNA_Q_IDLE_STATE;
++
++	/* Write the page number register */
++	pg_num = BNA_GET_PAGE_NUM(HQM0_BLK_PG_NUM + bna->port_num,
++				  HQM_CQ_RAM_BASE_OFFSET);
++
++	writel(pg_num, bna->regs.page_addr);
++
++	/* H/W write */
++	base_addr = BNA_GET_MEM_BASE_ADDR(bna->pcidev.pci_bar_kva,
++					HQM_CQ_RAM_BASE_OFFSET);
++
++	cq_mem = (struct bna_cq_mem *)0;
++
++	off = (unsigned long)&cq_mem[cq->cq_id].pg_tbl_addr_lo;
++	writel(htonl(cq_cfg.pg_tbl_addr_lo), base_addr + off);
++
++	off = (unsigned long)&cq_mem[cq->cq_id].pg_tbl_addr_hi;
++	writel(htonl(cq_cfg.pg_tbl_addr_hi), base_addr + off);
++
++	off = (unsigned long)&cq_mem[cq->cq_id].cur_q_entry_lo;
++	writel(htonl(cq_cfg.cur_q_entry_lo), base_addr + off);
++
++	off = (unsigned long)&cq_mem[cq->cq_id].cur_q_entry_hi;
++	writel(htonl(cq_cfg.cur_q_entry_hi), base_addr + off);
++
++	off = (unsigned long)&cq_mem[cq->cq_id].pg_cnt_n_prd_ptr;
++	writel(cq_cfg.pg_cnt_n_prd_ptr, base_addr + off);
++
++	off = (unsigned long)&cq_mem[cq->cq_id].entry_n_pg_size;
++	writel(cq_cfg.entry_n_pg_size, base_addr + off);
++
++	off = (unsigned long)&cq_mem[cq->cq_id].int_blk_n_cns_ptr;
++	writel(cq_cfg.int_blk_n_cns_ptr, base_addr + off);
++
++	off = (unsigned long)&cq_mem[cq->cq_id].q_state;
++	writel(cq_cfg.q_state, base_addr + off);
++
++	cq->ccb->producer_index = 0;
++	*(cq->ccb->hw_producer_index) = 0;
++}
++
++void
++bna_rit_create(struct bna_rx *rx)
++{
++	struct list_head	*qe_rxp;
++	struct bna *bna;
++	struct bna_rxp *rxp;
++	struct bna_rxq *q0 = NULL;
++	struct bna_rxq *q1 = NULL;
++	int offset;
++
++	bna = rx->bna;
++
++	offset = 0;
++	list_for_each(qe_rxp, &rx->rxp_q) {
++		rxp = (struct bna_rxp *)qe_rxp;
++		GET_RXQS(rxp, q0, q1);
++		rx->rxf.rit_segment->rit[offset].large_rxq_id = q0->rxq_id;
++		rx->rxf.rit_segment->rit[offset].small_rxq_id =
++						(q1 ? q1->rxq_id : 0);
++		offset++;
++	}
++}
++
++int
++_rx_can_satisfy(struct bna_rx_mod *rx_mod,
++		struct bna_rx_config *rx_cfg)
++{
++	if ((rx_mod->rx_free_count == 0) ||
++		(rx_mod->rxp_free_count == 0) ||
++		(rx_mod->rxq_free_count == 0))
 +		return 0;
 +
-+	if (list_empty(&rit_mod->rit_seg_pool[i]))
++	if (rx_cfg->rxp_type == BNA_RXP_SINGLE) {
++		if ((rx_mod->rxp_free_count < rx_cfg->num_paths) ||
++			(rx_mod->rxq_free_count < rx_cfg->num_paths))
++				return 0;
++	} else {
++		if ((rx_mod->rxp_free_count < rx_cfg->num_paths) ||
++			(rx_mod->rxq_free_count < (2 * rx_cfg->num_paths)))
++			return 0;
++	}
++
++	if (!bna_rit_mod_can_satisfy(&rx_mod->bna->rit_mod, rx_cfg->num_paths))
 +		return 0;
 +
 +	return 1;
 +}
 +
-+struct bna_rit_segment *
-+bna_rit_mod_seg_get(struct bna_rit_mod *rit_mod, int seg_size)
++struct bna_rxq *
++_get_free_rxq(struct bna_rx_mod *rx_mod)
 +{
-+	struct bna_rit_segment *seg;
-+	struct list_head *qe;
-+	int i;
++	struct bna_rxq *rxq = NULL;
++	struct list_head	*qe = NULL;
 +
-+	/* Select the pool for seg_size */
-+	for (i = 0; i < BFI_RIT_SEG_TOTAL_POOLS; i++) {
-+		if (seg_size <= ritseg_pool_cfg[i].pool_entry_size)
-+			break;
++	bfa_q_deq(&rx_mod->rxq_free_q, &qe);
++	if (qe) {
++		rx_mod->rxq_free_count--;
++		rxq = (struct bna_rxq *)qe;
 +	}
-+
-+	if (i == BFI_RIT_SEG_TOTAL_POOLS)
-+		return NULL;
-+
-+	if (list_empty(&rit_mod->rit_seg_pool[i]))
-+		return NULL;
-+
-+	bfa_q_deq(&rit_mod->rit_seg_pool[i], &qe);
-+	seg = (struct bna_rit_segment *)qe;
-+	bfa_q_qe_init(&seg->qe);
-+	seg->rit_size = seg_size;
-+
-+	return seg;
++	return rxq;
 +}
 +
 +void
-+bna_rit_mod_seg_put(struct bna_rit_mod *rit_mod,
-+			struct bna_rit_segment *seg)
++_put_free_rxq(struct bna_rx_mod *rx_mod, struct bna_rxq *rxq)
++{
++	bfa_q_qe_init(&rxq->qe);
++	list_add_tail(&rxq->qe, &rx_mod->rxq_free_q);
++	rx_mod->rxq_free_count++;
++}
++
++struct bna_rxp *
++_get_free_rxp(struct bna_rx_mod *rx_mod)
++{
++	struct list_head	*qe = NULL;
++	struct bna_rxp *rxp = NULL;
++
++	bfa_q_deq(&rx_mod->rxp_free_q, &qe);
++	if (qe) {
++		rx_mod->rxp_free_count--;
++
++		rxp = (struct bna_rxp *)qe;
++	}
++
++	return rxp;
++}
++
++void
++_put_free_rxp(struct bna_rx_mod *rx_mod, struct bna_rxp *rxp)
++{
++	bfa_q_qe_init(&rxp->qe);
++	list_add_tail(&rxp->qe, &rx_mod->rxp_free_q);
++	rx_mod->rxp_free_count++;
++}
++
++struct bna_rx *
++_get_free_rx(struct bna_rx_mod *rx_mod)
++{
++	struct list_head	*qe = NULL;
++	struct bna_rx *rx = NULL;
++
++	bfa_q_deq(&rx_mod->rx_free_q, &qe);
++	if (qe) {
++		rx_mod->rx_free_count--;
++
++		rx = (struct bna_rx *)qe;
++		bfa_q_qe_init(qe);
++		list_add_tail(&rx->qe, &rx_mod->rx_active_q);
++	}
++
++	return rx;
++}
++
++void
++_put_free_rx(struct bna_rx_mod *rx_mod, struct bna_rx *rx)
++{
++	bfa_q_qe_init(&rx->qe);
++	list_add_tail(&rx->qe, &rx_mod->rx_free_q);
++	rx_mod->rx_free_count++;
++}
++
++void
++_rx_init(struct bna_rx *rx, struct bna *bna)
++{
++	rx->bna = bna;
++	rx->rx_flags = 0;
++
++	INIT_LIST_HEAD(&rx->rxp_q);
++
++	rx->rxq_stop_wc.wc_resume = bna_rx_cb_rxq_stopped_all;
++	rx->rxq_stop_wc.wc_cbarg = rx;
++	rx->rxq_stop_wc.wc_count = 0;
++
++	rx->stop_cbfn = NULL;
++	rx->stop_cbarg = NULL;
++}
++
++void
++_rxp_add_rxqs(struct bna_rxp *rxp,
++		struct bna_rxq *q0,
++		struct bna_rxq *q1)
++{
++	switch (rxp->type) {
++	case BNA_RXP_SINGLE:
++		rxp->rxq.single.only = q0;
++		rxp->rxq.single.reserved = NULL;
++		break;
++	case BNA_RXP_SLR:
++		rxp->rxq.slr.large = q0;
++		rxp->rxq.slr.small = q1;
++		break;
++	case BNA_RXP_HDS:
++		rxp->rxq.hds.data = q0;
++		rxp->rxq.hds.hdr = q1;
++		break;
++	default:
++		break;
++	}
++}
++
++void
++_rxq_qpt_init(struct bna_rxq *rxq,
++		struct bna_rxp *rxp,
++		u32 page_count,
++		u32 page_size,
++		struct bna_mem_descr *qpt_mem,
++		struct bna_mem_descr *swqpt_mem,
++		struct bna_mem_descr *page_mem)
++{
++	int	i;
++
++	rxq->qpt.hw_qpt_ptr.lsb = qpt_mem->dma.lsb;
++	rxq->qpt.hw_qpt_ptr.msb = qpt_mem->dma.msb;
++	rxq->qpt.kv_qpt_ptr = qpt_mem->kva;
++	rxq->qpt.page_count = page_count;
++	rxq->qpt.page_size = page_size;
++
++	rxq->rcb->sw_qpt = (void **) swqpt_mem->kva;
++
++	for (i = 0; i < rxq->qpt.page_count; i++) {
++		rxq->rcb->sw_qpt[i] = page_mem[i].kva;
++		((struct bna_dma_addr *)rxq->qpt.kv_qpt_ptr)[i].lsb =
++			page_mem[i].dma.lsb;
++		((struct bna_dma_addr *)rxq->qpt.kv_qpt_ptr)[i].msb =
++			page_mem[i].dma.msb;
++
++	}
++}
++
++void
++_rxp_cqpt_setup(struct bna_rxp *rxp,
++		u32 page_count,
++		u32 page_size,
++		struct bna_mem_descr *qpt_mem,
++		struct bna_mem_descr *swqpt_mem,
++		struct bna_mem_descr *page_mem)
++{
++	int	i;
++
++	rxp->cq.qpt.hw_qpt_ptr.lsb = qpt_mem->dma.lsb;
++	rxp->cq.qpt.hw_qpt_ptr.msb = qpt_mem->dma.msb;
++	rxp->cq.qpt.kv_qpt_ptr = qpt_mem->kva;
++	rxp->cq.qpt.page_count = page_count;
++	rxp->cq.qpt.page_size = page_size;
++
++	rxp->cq.ccb->sw_qpt = (void **) swqpt_mem->kva;
++
++	for (i = 0; i < rxp->cq.qpt.page_count; i++) {
++		rxp->cq.ccb->sw_qpt[i] = page_mem[i].kva;
++
++		((struct bna_dma_addr *)rxp->cq.qpt.kv_qpt_ptr)[i].lsb =
++			page_mem[i].dma.lsb;
++		((struct bna_dma_addr *)rxp->cq.qpt.kv_qpt_ptr)[i].msb =
++			page_mem[i].dma.msb;
++
++	}
++}
++
++void
++_rx_add_rxp(struct bna_rx *rx, struct bna_rxp *rxp)
++{
++	list_add_tail(&rxp->qe, &rx->rxp_q);
++}
++
++void
++_init_rxmod_queues(struct bna_rx_mod *rx_mod)
++{
++	INIT_LIST_HEAD(&rx_mod->rx_free_q);
++	INIT_LIST_HEAD(&rx_mod->rxq_free_q);
++	INIT_LIST_HEAD(&rx_mod->rxp_free_q);
++	INIT_LIST_HEAD(&rx_mod->rx_active_q);
++
++	rx_mod->rx_free_count = 0;
++	rx_mod->rxq_free_count = 0;
++	rx_mod->rxp_free_count = 0;
++}
++
++void
++_rx_ctor(struct bna_rx *rx, int id)
++{
++	bfa_q_qe_init(&rx->qe);
++	INIT_LIST_HEAD(&rx->rxp_q);
++	rx->bna = NULL;
++
++	rx->rxf.rxf_id = id;
++
++	/* FIXME: mbox_qe ctor()?? */
++	bfa_q_qe_init(&rx->mbox_qe.qe);
++
++	rx->stop_cbfn = NULL;
++	rx->stop_cbarg = NULL;
++}
++
++void
++bna_rx_cb_multi_rxq_stopped(void *arg, int status)
++{
++	struct bna_rxp *rxp = (struct bna_rxp *)arg;
++
++	bfa_wc_down(&rxp->rx->rxq_stop_wc);
++}
++
++void
++bna_rx_cb_rxq_stopped_all(void *arg)
++{
++	struct bna_rx *rx = (struct bna_rx *)arg;
++
++	bfa_fsm_send_event(rx, RX_E_RXQ_STOPPED);
++}
++
++void
++bna_rx_mod_cb_rx_stopped(void *arg, struct bna_rx *rx,
++			 enum bna_cb_status status)
++{
++	struct bna_rx_mod *rx_mod = (struct bna_rx_mod *)arg;
++
++	bfa_wc_down(&rx_mod->rx_stop_wc);
++}
++
++void
++bna_rx_mod_cb_rx_stopped_all(void *arg)
++{
++	struct bna_rx_mod *rx_mod = (struct bna_rx_mod *)arg;
++
++	if (rx_mod->stop_cbfn)
++		rx_mod->stop_cbfn(&rx_mod->bna->port, BNA_CB_SUCCESS);
++	rx_mod->stop_cbfn = NULL;
++}
++
++void
++bna_rx_start(struct bna_rx *rx)
++{
++	rx->rx_flags |= BNA_RX_F_PORT_ENABLED;
++	if (rx->rx_flags & BNA_RX_F_ENABLE)
++		bfa_fsm_send_event(rx, RX_E_START);
++}
++
++void
++bna_rx_stop(struct bna_rx *rx)
++{
++	rx->rx_flags &= ~BNA_RX_F_PORT_ENABLED;
++	if (rx->fsm == (bfa_fsm_t) bna_rx_sm_stopped)
++		bna_rx_mod_cb_rx_stopped(&rx->bna->rx_mod, rx, BNA_CB_SUCCESS);
++	else {
++		rx->stop_cbfn = bna_rx_mod_cb_rx_stopped;
++		rx->stop_cbarg = &rx->bna->rx_mod;
++		bfa_fsm_send_event(rx, RX_E_STOP);
++	}
++}
++
++void
++bna_rx_fail(struct bna_rx *rx)
++{
++	/* Indicate port is not enabled, and failed */
++	rx->rx_flags &= ~BNA_RX_F_PORT_ENABLED;
++	rx->rx_flags |= BNA_RX_F_PORT_FAILED;
++	bfa_fsm_send_event(rx, RX_E_FAIL);
++}
++
++void
++bna_rx_cb_rxf_started(struct bna_rx *rx, enum bna_cb_status status)
++{
++	bfa_fsm_send_event(rx, RX_E_RXF_STARTED);
++	if (rx->rxf.rxf_id < 32)
++		rx->bna->rx_mod.rxf_bmap[0] |= ((u32)1 << rx->rxf.rxf_id);
++	else
++		rx->bna->rx_mod.rxf_bmap[1] |= ((u32)
++				1 << (rx->rxf.rxf_id - 32));
++}
++
++void
++bna_rx_cb_rxf_stopped(struct bna_rx *rx, enum bna_cb_status status)
++{
++	bfa_fsm_send_event(rx, RX_E_RXF_STOPPED);
++	if (rx->rxf.rxf_id < 32)
++		rx->bna->rx_mod.rxf_bmap[0] &= ~(u32)1 << rx->rxf.rxf_id;
++	else
++		rx->bna->rx_mod.rxf_bmap[1] &= ~(u32)
++				1 << (rx->rxf.rxf_id - 32);
++}
++
++void
++bna_rx_mod_start(struct bna_rx_mod *rx_mod, enum bna_rx_type type)
++{
++	struct bna_rx *rx;
++	struct list_head *qe;
++
++	rx_mod->flags |= BNA_RX_MOD_F_PORT_STARTED;
++	if (type == BNA_RX_T_LOOPBACK)
++		rx_mod->flags |= BNA_RX_MOD_F_PORT_LOOPBACK;
++
++	list_for_each(qe, &rx_mod->rx_active_q) {
++		rx = (struct bna_rx *)qe;
++		if (rx->type == type)
++			bna_rx_start(rx);
++	}
++}
++
++void
++bna_rx_mod_stop(struct bna_rx_mod *rx_mod, enum bna_rx_type type)
++{
++	struct bna_rx *rx;
++	struct list_head *qe;
++
++	rx_mod->flags &= ~BNA_RX_MOD_F_PORT_STARTED;
++	rx_mod->flags &= ~BNA_RX_MOD_F_PORT_LOOPBACK;
++
++	rx_mod->stop_cbfn = bna_port_cb_rx_stopped;
++
++	/**
++	 * Before calling bna_rx_stop(), increment rx_stop_wc as many times
++	 * as we are going to call bna_rx_stop
++	 */
++	list_for_each(qe, &rx_mod->rx_active_q) {
++		rx = (struct bna_rx *)qe;
++		if (rx->type == type)
++			bfa_wc_up(&rx_mod->rx_stop_wc);
++	}
++
++	if (rx_mod->rx_stop_wc.wc_count == 0) {
++		rx_mod->stop_cbfn(&rx_mod->bna->port, BNA_CB_SUCCESS);
++		rx_mod->stop_cbfn = NULL;
++		return;
++	}
++
++	list_for_each(qe, &rx_mod->rx_active_q) {
++		rx = (struct bna_rx *)qe;
++		if (rx->type == type)
++			bna_rx_stop(rx);
++	}
++}
++
++void
++bna_rx_mod_fail(struct bna_rx_mod *rx_mod)
++{
++	struct bna_rx *rx;
++	struct list_head *qe;
++
++	rx_mod->flags &= ~BNA_RX_MOD_F_PORT_STARTED;
++	rx_mod->flags &= ~BNA_RX_MOD_F_PORT_LOOPBACK;
++
++	list_for_each(qe, &rx_mod->rx_active_q) {
++		rx = (struct bna_rx *)qe;
++		bna_rx_fail(rx);
++	}
++}
++
++void bna_rx_mod_init(struct bna_rx_mod *rx_mod, struct bna *bna,
++			struct bna_res_info *res_info)
++{
++	int	index;
++	struct bna_rx *rx_ptr;
++	struct bna_rxp *rxp_ptr;
++	struct bna_rxq *rxq_ptr;
++
++	rx_mod->bna = bna;
++	rx_mod->flags = 0;
++
++	rx_mod->rx = (struct bna_rx *)
++		res_info[BNA_RES_MEM_T_RX_ARRAY].res_u.mem_info.mdl[0].kva;
++	rx_mod->rxp = (struct bna_rxp *)
++		res_info[BNA_RES_MEM_T_RXP_ARRAY].res_u.mem_info.mdl[0].kva;
++	rx_mod->rxq = (struct bna_rxq *)
++		res_info[BNA_RES_MEM_T_RXQ_ARRAY].res_u.mem_info.mdl[0].kva;
++
++	/* Initialize the queues */
++	_init_rxmod_queues(rx_mod);
++
++	/* Build RX queues */
++	for (index = 0; index < BFI_MAX_RXQ; index++) {
++		rx_ptr = &rx_mod->rx[index];
++		_rx_ctor(rx_ptr, index);
++		list_add_tail(&rx_ptr->qe, &rx_mod->rx_free_q);
++		rx_mod->rx_free_count++;
++	}
++
++	/* build RX-path queue */
++	for (index = 0; index < BFI_MAX_RXQ; index++) {
++		rxp_ptr = &rx_mod->rxp[index];
++		rxp_ptr->cq.cq_id = index;
++		bfa_q_qe_init(&rxp_ptr->qe);
++		list_add_tail(&rxp_ptr->qe, &rx_mod->rxp_free_q);
++		rx_mod->rxp_free_count++;
++	}
++
++	/* build RXQ queue */
++	for (index = 0; index < BFI_MAX_RXQ; index++) {
++		rxq_ptr = &rx_mod->rxq[index];
++		rxq_ptr->rxq_id = index;
++
++		bfa_q_qe_init(&rxq_ptr->qe);
++		list_add_tail(&rxq_ptr->qe, &rx_mod->rxq_free_q);
++		rx_mod->rxq_free_count++;
++	}
++
++	rx_mod->rx_stop_wc.wc_resume = bna_rx_mod_cb_rx_stopped_all;
++	rx_mod->rx_stop_wc.wc_cbarg = rx_mod;
++	rx_mod->rx_stop_wc.wc_count = 0;
++}
++
++void
++bna_rx_mod_uninit(struct bna_rx_mod *rx_mod)
++{
++	struct list_head		*qe;
++	int i;
++
++	i = 0;
++	list_for_each(qe, &rx_mod->rx_free_q)
++		i++;
++
++	i = 0;
++	list_for_each(qe, &rx_mod->rxp_free_q)
++		i++;
++
++	i = 0;
++	list_for_each(qe, &rx_mod->rxq_free_q)
++		i++;
++
++	rx_mod->bna = NULL;
++}
++
++int
++bna_rx_state_get(struct bna_rx *rx)
++{
++	return bfa_sm_to_state(rx_sm_table, rx->fsm);
++}
++
++void
++bna_rx_res_req(struct bna_rx_config *q_cfg, struct bna_res_info *res_info)
++{
++	u32 cq_size, hq_size, dq_size;
++	u32 cpage_count, hpage_count, dpage_count;
++	struct bna_mem_info *mem_info;
++	u32 cq_depth;
++	u32 hq_depth;
++	u32 dq_depth;
++
++	dq_depth = q_cfg->q_depth;
++	hq_depth = ((q_cfg->rxp_type == BNA_RXP_SINGLE) ? 0 : q_cfg->q_depth);
++	cq_depth = dq_depth + hq_depth;
++
++	BNA_TO_POWER_OF_2_HIGH(cq_depth);
++	cq_size = cq_depth * BFI_CQ_WI_SIZE;
++	cq_size = ALIGN(cq_size, PAGE_SIZE);
++	cpage_count = SIZE_TO_PAGES(cq_size);
++
++	BNA_TO_POWER_OF_2_HIGH(dq_depth);
++	dq_size = dq_depth * BFI_RXQ_WI_SIZE;
++	dq_size = ALIGN(dq_size, PAGE_SIZE);
++	dpage_count = SIZE_TO_PAGES(dq_size);
++
++	if (BNA_RXP_SINGLE != q_cfg->rxp_type) {
++		BNA_TO_POWER_OF_2_HIGH(hq_depth);
++		hq_size = hq_depth * BFI_RXQ_WI_SIZE;
++		hq_size = ALIGN(hq_size, PAGE_SIZE);
++		hpage_count = SIZE_TO_PAGES(hq_size);
++	} else {
++		hpage_count = 0;
++	}
++
++	/* CCB structures */
++	res_info[BNA_RX_RES_MEM_T_CCB].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_CCB].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_KVA;
++	mem_info->len = sizeof(struct bna_ccb);
++	mem_info->num = q_cfg->num_paths;
++
++	/* RCB structures */
++	res_info[BNA_RX_RES_MEM_T_RCB].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_RCB].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_KVA;
++	mem_info->len = sizeof(struct bna_rcb);
++	mem_info->num = BNA_GET_RXQS(q_cfg);
++
++	/* Completion QPT */
++	res_info[BNA_RX_RES_MEM_T_CQPT].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_CQPT].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_DMA;
++	mem_info->len = cpage_count * sizeof(struct bna_dma_addr);
++	mem_info->num = q_cfg->num_paths;
++
++	/* Completion s/w QPT */
++	res_info[BNA_RX_RES_MEM_T_CSWQPT].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_CSWQPT].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_KVA;
++	mem_info->len = cpage_count * sizeof(void *);
++	mem_info->num = q_cfg->num_paths;
++
++	/* Completion QPT pages */
++	res_info[BNA_RX_RES_MEM_T_CQPT_PAGE].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_CQPT_PAGE].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_DMA;
++	mem_info->len = PAGE_SIZE;
++	mem_info->num = cpage_count * q_cfg->num_paths;
++
++	/* Data QPTs */
++	res_info[BNA_RX_RES_MEM_T_DQPT].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_DQPT].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_DMA;
++	mem_info->len = dpage_count * sizeof(struct bna_dma_addr);
++	mem_info->num = q_cfg->num_paths;
++
++	/* Data s/w QPTs */
++	res_info[BNA_RX_RES_MEM_T_DSWQPT].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_DSWQPT].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_KVA;
++	mem_info->len = dpage_count * sizeof(void *);
++	mem_info->num = q_cfg->num_paths;
++
++	/* Data QPT pages */
++	res_info[BNA_RX_RES_MEM_T_DPAGE].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_DPAGE].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_DMA;
++	mem_info->len = PAGE_SIZE;
++	mem_info->num = dpage_count * q_cfg->num_paths;
++
++	/* Hdr QPTs */
++	res_info[BNA_RX_RES_MEM_T_HQPT].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_HQPT].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_DMA;
++	mem_info->len = hpage_count * sizeof(struct bna_dma_addr);
++	mem_info->num = (hpage_count ? q_cfg->num_paths : 0);
++
++	/* Hdr s/w QPTs */
++	res_info[BNA_RX_RES_MEM_T_HSWQPT].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_HSWQPT].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_KVA;
++	mem_info->len = hpage_count * sizeof(void *);
++	mem_info->num = (hpage_count ? q_cfg->num_paths : 0);
++
++	/* Hdr QPT pages */
++	res_info[BNA_RX_RES_MEM_T_HPAGE].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_RX_RES_MEM_T_HPAGE].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_DMA;
++	mem_info->len = (hpage_count ? PAGE_SIZE : 0);
++	mem_info->num = (hpage_count ? (hpage_count * q_cfg->num_paths) : 0);
++
++	/* RX Interrupts */
++	res_info[BNA_RX_RES_T_INTR].res_type = BNA_RES_T_INTR;
++	res_info[BNA_RX_RES_T_INTR].res_u.intr_info.intr_type = BNA_INTR_T_MSIX;
++	res_info[BNA_RX_RES_T_INTR].res_u.intr_info.num = q_cfg->num_paths;
++}
++
++struct bna_rx *
++bna_rx_create(struct bna *bna, struct bnad *bnad,
++		struct bna_rx_config *rx_cfg,
++		struct bna_rx_event_cbfn *rx_cbfn,
++		struct bna_res_info *res_info,
++		void *priv)
++{
++	struct bna_rx_mod *rx_mod = &bna->rx_mod;
++	struct bna_rx *rx;
++	struct bna_rxp *rxp;
++	struct bna_rxq *q0;
++	struct bna_rxq *q1;
++	struct bna_intr_info *intr_info;
++	u32 page_count;
++	struct bna_mem_descr *ccb_mem;
++	struct bna_mem_descr *rcb_mem;
++	struct bna_mem_descr *unmapq_mem;
++	struct bna_mem_descr *cqpt_mem;
++	struct bna_mem_descr *cswqpt_mem;
++	struct bna_mem_descr *cpage_mem;
++	struct bna_mem_descr *hqpt_mem;	/* Header/Small Q qpt */
++	struct bna_mem_descr *dqpt_mem;	/* Data/Large Q qpt */
++	struct bna_mem_descr *hsqpt_mem;	/* s/w qpt for hdr */
++	struct bna_mem_descr *dsqpt_mem;	/* s/w qpt for data */
++	struct bna_mem_descr *hpage_mem;	/* hdr page mem */
++	struct bna_mem_descr *dpage_mem;	/* data page mem */
++	int i, cpage_idx = 0, dpage_idx = 0, hpage_idx = 0, ret;
++	int dpage_count, hpage_count, rcb_idx;
++	struct bna_ib_config ibcfg;
++	/* Fail if we don't have enough RXPs, RXQs */
++	if (!_rx_can_satisfy(rx_mod, rx_cfg))
++		return NULL;
++
++	/* Initialize resource pointers */
++	intr_info = &res_info[BNA_RX_RES_T_INTR].res_u.intr_info;
++	ccb_mem = &res_info[BNA_RX_RES_MEM_T_CCB].res_u.mem_info.mdl[0];
++	rcb_mem = &res_info[BNA_RX_RES_MEM_T_RCB].res_u.mem_info.mdl[0];
++	unmapq_mem = &res_info[BNA_RX_RES_MEM_T_UNMAPQ].res_u.mem_info.mdl[0];
++	cqpt_mem = &res_info[BNA_RX_RES_MEM_T_CQPT].res_u.mem_info.mdl[0];
++	cswqpt_mem = &res_info[BNA_RX_RES_MEM_T_CSWQPT].res_u.mem_info.mdl[0];
++	cpage_mem = &res_info[BNA_RX_RES_MEM_T_CQPT_PAGE].res_u.mem_info.mdl[0];
++	hqpt_mem = &res_info[BNA_RX_RES_MEM_T_HQPT].res_u.mem_info.mdl[0];
++	dqpt_mem = &res_info[BNA_RX_RES_MEM_T_DQPT].res_u.mem_info.mdl[0];
++	hsqpt_mem = &res_info[BNA_RX_RES_MEM_T_HSWQPT].res_u.mem_info.mdl[0];
++	dsqpt_mem = &res_info[BNA_RX_RES_MEM_T_DSWQPT].res_u.mem_info.mdl[0];
++	hpage_mem = &res_info[BNA_RX_RES_MEM_T_HPAGE].res_u.mem_info.mdl[0];
++	dpage_mem = &res_info[BNA_RX_RES_MEM_T_DPAGE].res_u.mem_info.mdl[0];
++
++	/* Compute q depth & page count */
++	page_count = res_info[BNA_RX_RES_MEM_T_CQPT_PAGE].res_u.mem_info.num /
++			rx_cfg->num_paths;
++
++	dpage_count = res_info[BNA_RX_RES_MEM_T_DPAGE].res_u.mem_info.num /
++			rx_cfg->num_paths;
++
++	hpage_count = res_info[BNA_RX_RES_MEM_T_HPAGE].res_u.mem_info.num /
++			rx_cfg->num_paths;
++	/* Get RX pointer */
++	rx = _get_free_rx(rx_mod);
++	_rx_init(rx, bna);
++	rx->priv = priv;
++	rx->type = rx_cfg->rx_type;
++
++	rx->rcb_setup_cbfn = rx_cbfn->rcb_setup_cbfn;
++	rx->rcb_destroy_cbfn = rx_cbfn->rcb_destroy_cbfn;
++	rx->ccb_setup_cbfn = rx_cbfn->ccb_setup_cbfn;
++	rx->ccb_destroy_cbfn = rx_cbfn->ccb_destroy_cbfn;
++	/* Following callbacks are mandatory */
++	rx->rx_cleanup_cbfn = rx_cbfn->rx_cleanup_cbfn;
++	rx->rx_post_cbfn = rx_cbfn->rx_post_cbfn;
++
++	if (rx->bna->rx_mod.flags & BNA_RX_MOD_F_PORT_STARTED) {
++		switch (rx->type) {
++		case BNA_RX_T_REGULAR:
++			if (!(rx->bna->rx_mod.flags &
++				BNA_RX_MOD_F_PORT_LOOPBACK))
++				rx->rx_flags |= BNA_RX_F_PORT_ENABLED;
++			break;
++		case BNA_RX_T_LOOPBACK:
++			if (rx->bna->rx_mod.flags & BNA_RX_MOD_F_PORT_LOOPBACK)
++				rx->rx_flags |= BNA_RX_F_PORT_ENABLED;
++			break;
++		}
++	}
++
++	for (i = 0, rcb_idx = 0; i < rx_cfg->num_paths; i++) {
++		rxp = _get_free_rxp(rx_mod);
++		rxp->type = rx_cfg->rxp_type;
++		rxp->rx = rx;
++		rxp->cq.rx = rx;
++
++		/* Get required RXQs, and queue them to rx-path */
++		q0 = _get_free_rxq(rx_mod);
++		if (BNA_RXP_SINGLE == rx_cfg->rxp_type)
++			q1 = NULL;
++		else
++			q1 = _get_free_rxq(rx_mod);
++
++		/* Initialize IB */
++		if (1 == intr_info->num) {
++			rxp->cq.ib = bna_ib_get(&bna->ib_mod,
++					intr_info->intr_type,
++					intr_info->idl[0].vector);
++			rxp->vector = intr_info->idl[0].vector;
++		} else {
++			rxp->cq.ib = bna_ib_get(&bna->ib_mod,
++					intr_info->intr_type,
++					intr_info->idl[i].vector);
++
++			/* Map the MSI-x vector used for this RXP */
++			rxp->vector = intr_info->idl[i].vector;
++		}
++
++		rxp->cq.ib_seg_offset = bna_ib_reserve_idx(rxp->cq.ib);
++
++		ibcfg.coalescing_timeo = BFI_RX_COALESCING_TIMEO;
++		ibcfg.interpkt_count = BFI_RX_INTERPKT_COUNT;
++		ibcfg.interpkt_timeo = BFI_RX_INTERPKT_TIMEO;
++		ibcfg.ctrl_flags = BFI_IB_CF_INT_ENABLE;
++
++		ret = bna_ib_config(rxp->cq.ib, &ibcfg);
++
++		/* Link rxqs to rxp */
++		_rxp_add_rxqs(rxp, q0, q1);
++
++		/* Link rxp to rx */
++		_rx_add_rxp(rx, rxp);
++
++		q0->rx = rx;
++		q0->rxp = rxp;
++
++		/* Initialize RCB for the large / data q */
++		q0->rcb = (struct bna_rcb *) rcb_mem[rcb_idx].kva;
++		RXQ_RCB_INIT(q0, rxp, rx_cfg->q_depth, bna, 0,
++			(void *)unmapq_mem[rcb_idx].kva);
++		rcb_idx++;
++		(q0)->rx_packets = (q0)->rx_bytes = 0;
++		(q0)->rx_packets_with_error = (q0)->rxbuf_alloc_failed = 0;
++
++		/* Initialize RXQs */
++		_rxq_qpt_init(q0, rxp, dpage_count, PAGE_SIZE,
++			&dqpt_mem[i], &dsqpt_mem[i], &dpage_mem[dpage_idx]);
++		q0->rcb->page_idx = dpage_idx;
++		q0->rcb->page_count = dpage_count;
++		dpage_idx += dpage_count;
++
++		/* Call bnad to complete rcb setup */
++		if (rx->rcb_setup_cbfn)
++			rx->rcb_setup_cbfn(bnad, q0->rcb);
++
++		if (q1) {
++			q1->rx = rx;
++			q1->rxp = rxp;
++
++			q1->rcb = (struct bna_rcb *) rcb_mem[rcb_idx].kva;
++			RXQ_RCB_INIT(q1, rxp, rx_cfg->q_depth, bna, 1,
++				(void *)unmapq_mem[rcb_idx].kva);
++			rcb_idx++;
++			(q1)->buffer_size = (rx_cfg)->small_buff_size;
++			(q1)->rx_packets = (q1)->rx_bytes = 0;
++			(q1)->rx_packets_with_error =
++				(q1)->rxbuf_alloc_failed = 0;
++
++			_rxq_qpt_init(q1, rxp, hpage_count, PAGE_SIZE,
++				&hqpt_mem[i], &hsqpt_mem[i],
++				&hpage_mem[hpage_idx]);
++			q1->rcb->page_idx = hpage_idx;
++			q1->rcb->page_count = hpage_count;
++			hpage_idx += hpage_count;
++
++			/* Call bnad to complete rcb setup */
++			if (rx->rcb_setup_cbfn)
++				rx->rcb_setup_cbfn(bnad, q1->rcb);
++		}
++		/* Setup RXP::CQ */
++		rxp->cq.ccb = (struct bna_ccb *) ccb_mem[i].kva;
++		_rxp_cqpt_setup(rxp, page_count, PAGE_SIZE,
++			&cqpt_mem[i], &cswqpt_mem[i], &cpage_mem[cpage_idx]);
++		rxp->cq.ccb->page_idx = cpage_idx;
++		rxp->cq.ccb->page_count = page_count;
++		cpage_idx += page_count;
++
++		rxp->cq.ccb->pkt_rate.small_pkt_cnt = 0;
++		rxp->cq.ccb->pkt_rate.large_pkt_cnt = 0;
++
++		rxp->cq.ccb->producer_index = 0;
++		rxp->cq.ccb->q_depth =	rx_cfg->q_depth +
++					((rx_cfg->rxp_type == BNA_RXP_SINGLE) ?
++					0 : rx_cfg->q_depth);
++		rxp->cq.ccb->i_dbell = &rxp->cq.ib->door_bell;
++		rxp->cq.ccb->rcb[0] = q0->rcb;
++		if (q1)
++			rxp->cq.ccb->rcb[1] = q1->rcb;
++		rxp->cq.ccb->cq = &rxp->cq;
++		rxp->cq.ccb->bnad = bna->bnad;
++		rxp->cq.ccb->hw_producer_index =
++			((volatile u32 *)rxp->cq.ib->ib_seg_host_addr_kva +
++				      (rxp->cq.ib_seg_offset * BFI_IBIDX_SIZE));
++		*(rxp->cq.ccb->hw_producer_index) = 0;
++		rxp->cq.ccb->intr_type = intr_info->intr_type;
++		rxp->cq.ccb->intr_vector = (intr_info->num == 1) ?
++						intr_info->idl[0].vector :
++						intr_info->idl[i].vector;
++		rxp->cq.ccb->rx_coalescing_timeo =
++					rxp->cq.ib->ib_config.coalescing_timeo;
++		rxp->cq.ccb->id = i;
++
++		/* Call bnad to complete CCB setup */
++		if (rx->ccb_setup_cbfn)
++			rx->ccb_setup_cbfn(bnad, rxp->cq.ccb);
++
++	} /* for each rx-path */
++
++	bna_rxf_init(&rx->rxf, rx, rx_cfg);
++
++	bfa_fsm_set_state(rx, bna_rx_sm_stopped);
++
++	return rx;
++}
++
++void
++bna_rx_destroy(struct bna_rx *rx)
++{
++	struct bna_rx_mod *rx_mod = &rx->bna->rx_mod;
++	struct bna_ib_mod *ib_mod = &rx->bna->ib_mod;
++	struct bna_rxq *q0 = NULL;
++	struct bna_rxq *q1 = NULL;
++	struct bna_rxp *rxp;
++	struct list_head *qe;
++
++	bna_rxf_uninit(&rx->rxf);
++
++	while (!list_empty(&rx->rxp_q)) {
++		bfa_q_deq(&rx->rxp_q, &rxp);
++		GET_RXQS(rxp, q0, q1);
++		/* Callback to bnad for destroying RCB */
++		if (rx->rcb_destroy_cbfn)
++			rx->rcb_destroy_cbfn(rx->bna->bnad, q0->rcb);
++		q0->rcb = NULL;
++		q0->rxp = NULL;
++		q0->rx = NULL;
++		_put_free_rxq(rx_mod, q0);
++		if (q1) {
++			/* Callback to bnad for destroying RCB */
++			if (rx->rcb_destroy_cbfn)
++				rx->rcb_destroy_cbfn(rx->bna->bnad, q1->rcb);
++			q1->rcb = NULL;
++			q1->rxp = NULL;
++			q1->rx = NULL;
++			_put_free_rxq(rx_mod, q1);
++		}
++		rxp->rxq.slr.large = NULL;
++		rxp->rxq.slr.small = NULL;
++		if (rxp->cq.ib) {
++			if (rxp->cq.ib_seg_offset != 0xff)
++				bna_ib_release_idx(rxp->cq.ib,
++						rxp->cq.ib_seg_offset);
++			bna_ib_put(ib_mod, rxp->cq.ib);
++			rxp->cq.ib = NULL;
++		}
++		/* Callback to bnad for destroying CCB */
++		if (rx->ccb_destroy_cbfn)
++			rx->ccb_destroy_cbfn(rx->bna->bnad, rxp->cq.ccb);
++		rxp->cq.ccb = NULL;
++		rxp->rx = NULL;
++		_put_free_rxp(rx_mod, rxp);
++	}
++
++	list_for_each(qe, &rx_mod->rx_active_q) {
++		if (qe == &rx->qe) {
++			list_del(&rx->qe);
++			bfa_q_qe_init(&rx->qe);
++			break;
++		}
++	}
++
++	rx->bna = NULL;
++	rx->priv = NULL;
++	_put_free_rx(rx_mod, rx);
++}
++
++void
++bna_rx_enable(struct bna_rx *rx)
++{
++	if (rx->fsm != (bfa_sm_t)bna_rx_sm_stopped)
++		return;
++
++	rx->rx_flags |= BNA_RX_F_ENABLE;
++	if (rx->rx_flags & BNA_RX_F_PORT_ENABLED)
++		bfa_fsm_send_event(rx, RX_E_START);
++}
++
++void
++bna_rx_disable(struct bna_rx *rx, enum bna_cleanup_type type,
++		void (*cbfn)(void *, struct bna_rx *,
++				enum bna_cb_status))
++{
++	if (type == BNA_SOFT_CLEANUP) {
++		/* h/w should not be accessed. Treat we're stopped */
++		(*cbfn)(rx->bna->bnad, rx, BNA_CB_SUCCESS);
++	} else {
++		rx->stop_cbfn = cbfn;
++		rx->stop_cbarg = rx->bna->bnad;
++
++		rx->rx_flags &= ~BNA_RX_F_ENABLE;
++
++		bfa_fsm_send_event(rx, RX_E_STOP);
++	}
++}
++
++/**
++ * TX
++ */
++#define call_tx_stop_cbfn(tx, status)\
++do {\
++	if ((tx)->stop_cbfn)\
++		(tx)->stop_cbfn((tx)->stop_cbarg, (tx), status);\
++	(tx)->stop_cbfn = NULL;\
++	(tx)->stop_cbarg = NULL;\
++} while (0)
++
++#define call_tx_prio_change_cbfn(tx, status)\
++do {\
++	if ((tx)->prio_change_cbfn)\
++		(tx)->prio_change_cbfn((tx)->bna->bnad, (tx), status);\
++	(tx)->prio_change_cbfn = NULL;\
++} while (0)
++
++static void bna_tx_mod_cb_tx_stopped(void *tx_mod, struct bna_tx *tx,
++					enum bna_cb_status status);
++static void bna_tx_cb_txq_stopped(void *arg, int status);
++static void bna_tx_cb_stats_cleared(void *arg, int status);
++static void __bna_tx_stop(struct bna_tx *tx);
++static void __bna_tx_start(struct bna_tx *tx);
++static void __bna_txf_stat_clr(struct bna_tx *tx);
++
++enum bna_tx_event {
++	TX_E_START			= 1,
++	TX_E_STOP			= 2,
++	TX_E_FAIL			= 3,
++	TX_E_TXQ_STOPPED		= 4,
++	TX_E_PRIO_CHANGE		= 5,
++	TX_E_STAT_CLEARED		= 6,
++};
++
++enum bna_tx_state {
++	BNA_TX_STOPPED			= 1,
++	BNA_TX_STARTED			= 2,
++	BNA_TX_TXQ_STOP_WAIT		= 3,
++	BNA_TX_PRIO_STOP_WAIT		= 4,
++	BNA_TX_STAT_CLR_WAIT		= 5,
++};
++
++bfa_fsm_state_decl(bna_tx, stopped, struct bna_tx,
++			enum bna_tx_event);
++bfa_fsm_state_decl(bna_tx, started, struct bna_tx,
++			enum bna_tx_event);
++bfa_fsm_state_decl(bna_tx, txq_stop_wait, struct bna_tx,
++			enum bna_tx_event);
++bfa_fsm_state_decl(bna_tx, prio_stop_wait, struct bna_tx,
++			enum bna_tx_event);
++bfa_fsm_state_decl(bna_tx, stat_clr_wait, struct bna_tx,
++			enum bna_tx_event);
++
++static struct bfa_sm_table tx_sm_table[] = {
++	{BFA_SM(bna_tx_sm_stopped), BNA_TX_STOPPED},
++	{BFA_SM(bna_tx_sm_started), BNA_TX_STARTED},
++	{BFA_SM(bna_tx_sm_txq_stop_wait), BNA_TX_TXQ_STOP_WAIT},
++	{BFA_SM(bna_tx_sm_prio_stop_wait), BNA_TX_PRIO_STOP_WAIT},
++	{BFA_SM(bna_tx_sm_stat_clr_wait), BNA_TX_STAT_CLR_WAIT},
++};
++
++static void
++bna_tx_sm_stopped_entry(struct bna_tx *tx)
++{
++	struct bna_txq *txq;
++	struct list_head		 *qe;
++
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		(tx->tx_cleanup_cbfn)(tx->bna->bnad, txq->tcb);
++	}
++
++	call_tx_stop_cbfn(tx, BNA_CB_SUCCESS);
++}
++
++static void
++bna_tx_sm_stopped(struct bna_tx *tx, enum bna_tx_event event)
++{
++	switch (event) {
++	case TX_E_START:
++		bfa_fsm_set_state(tx, bna_tx_sm_started);
++		break;
++
++	case TX_E_STOP:
++		bfa_fsm_set_state(tx, bna_tx_sm_stopped);
++		break;
++
++	case TX_E_FAIL:
++		/* No-op */
++		break;
++
++	case TX_E_PRIO_CHANGE:
++		call_tx_prio_change_cbfn(tx, BNA_CB_SUCCESS);
++		break;
++
++	case TX_E_TXQ_STOPPED:
++		/**
++		 * This event is received due to flushing of mbox when
++		 * device fails
++		 */
++		/* No-op */
++		break;
++
++	default:
++		bfa_sm_fault(tx->bna, event);
++	}
++}
++
++static void
++bna_tx_sm_started_entry(struct bna_tx *tx)
++{
++	struct bna_txq *txq;
++	struct list_head		 *qe;
++
++	__bna_tx_start(tx);
++
++	/* Start IB */
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		bna_ib_ack(&txq->ib->door_bell, 0);
++	}
++}
++
++static void
++bna_tx_sm_started(struct bna_tx *tx, enum bna_tx_event event)
++{
++	struct bna_txq *txq;
++	struct list_head		 *qe;
++
++	switch (event) {
++	case TX_E_STOP:
++		bfa_fsm_set_state(tx, bna_tx_sm_txq_stop_wait);
++		__bna_tx_stop(tx);
++		break;
++
++	case TX_E_FAIL:
++		list_for_each(qe, &tx->txq_q) {
++			txq = (struct bna_txq *)qe;
++			bna_ib_fail(txq->ib);
++			(tx->tx_stall_cbfn)(tx->bna->bnad, txq->tcb);
++		}
++		bfa_fsm_set_state(tx, bna_tx_sm_stopped);
++		break;
++
++	case TX_E_PRIO_CHANGE:
++		bfa_fsm_set_state(tx, bna_tx_sm_prio_stop_wait);
++		break;
++
++	default:
++		bfa_sm_fault(tx->bna, event);
++	}
++}
++
++static void
++bna_tx_sm_txq_stop_wait_entry(struct bna_tx *tx)
++{
++}
++
++static void
++bna_tx_sm_txq_stop_wait(struct bna_tx *tx, enum bna_tx_event event)
++{
++	struct bna_txq *txq;
++	struct list_head		 *qe;
++
++	switch (event) {
++	case TX_E_FAIL:
++		bfa_fsm_set_state(tx, bna_tx_sm_stopped);
++		break;
++
++	case TX_E_TXQ_STOPPED:
++		list_for_each(qe, &tx->txq_q) {
++			txq = (struct bna_txq *)qe;
++			bna_ib_stop(txq->ib);
++		}
++		bfa_fsm_set_state(tx, bna_tx_sm_stat_clr_wait);
++		break;
++
++	case TX_E_PRIO_CHANGE:
++		/* No-op */
++		break;
++
++	default:
++		bfa_sm_fault(tx->bna, event);
++	}
++}
++
++static void
++bna_tx_sm_prio_stop_wait_entry(struct bna_tx *tx)
++{
++	__bna_tx_stop(tx);
++}
++
++static void
++bna_tx_sm_prio_stop_wait(struct bna_tx *tx, enum bna_tx_event event)
++{
++	struct bna_txq *txq;
++	struct list_head		 *qe;
++
++	switch (event) {
++	case TX_E_STOP:
++		bfa_fsm_set_state(tx, bna_tx_sm_txq_stop_wait);
++		break;
++
++	case TX_E_FAIL:
++		call_tx_prio_change_cbfn(tx, BNA_CB_FAIL);
++		bfa_fsm_set_state(tx, bna_tx_sm_stopped);
++		break;
++
++	case TX_E_TXQ_STOPPED:
++		list_for_each(qe, &tx->txq_q) {
++			txq = (struct bna_txq *)qe;
++			bna_ib_stop(txq->ib);
++			(tx->tx_cleanup_cbfn)(tx->bna->bnad, txq->tcb);
++		}
++		call_tx_prio_change_cbfn(tx, BNA_CB_SUCCESS);
++		bfa_fsm_set_state(tx, bna_tx_sm_started);
++		break;
++
++	case TX_E_PRIO_CHANGE:
++		/* No-op */
++		break;
++
++	default:
++		bfa_sm_fault(tx->bna, event);
++	}
++}
++
++static void
++bna_tx_sm_stat_clr_wait_entry(struct bna_tx *tx)
++{
++	__bna_txf_stat_clr(tx);
++}
++
++static void
++bna_tx_sm_stat_clr_wait(struct bna_tx *tx, enum bna_tx_event event)
++{
++	switch (event) {
++	case TX_E_FAIL:
++	case TX_E_STAT_CLEARED:
++		bfa_fsm_set_state(tx, bna_tx_sm_stopped);
++		break;
++
++	default:
++		bfa_sm_fault(tx->bna, event);
++	}
++}
++
++static void
++__bna_txq_start(struct bna_tx *tx, struct bna_txq *txq)
++{
++	struct bna_rxtx_q_mem *q_mem;
++	struct bna_txq_mem txq_cfg;
++	struct bna_txq_mem *txq_mem;
++	struct bna_dma_addr cur_q_addr;
++	u32 pg_num;
++	void __iomem *base_addr;
++	unsigned long off;
++
++	/* Fill out structure, to be subsequently written to hardware */
++	txq_cfg.pg_tbl_addr_lo = txq->qpt.hw_qpt_ptr.lsb;
++	txq_cfg.pg_tbl_addr_hi = txq->qpt.hw_qpt_ptr.msb;
++	cur_q_addr = *((struct bna_dma_addr *)(txq->qpt.kv_qpt_ptr));
++	txq_cfg.cur_q_entry_lo = cur_q_addr.lsb;
++	txq_cfg.cur_q_entry_hi = cur_q_addr.msb;
++
++	txq_cfg.pg_cnt_n_prd_ptr = (txq->qpt.page_count << 16) | 0x0;
++
++	txq_cfg.entry_n_pg_size = ((u32)(BFI_TXQ_WI_SIZE >> 2) << 16) |
++			(txq->qpt.page_size >> 2);
++	txq_cfg.int_blk_n_cns_ptr = ((((u32)txq->ib_seg_offset) << 24) |
++			((u32)(txq->ib->ib_id & 0xff) << 16) | 0x0);
++
++	txq_cfg.cns_ptr2_n_q_state = BNA_Q_IDLE_STATE;
++	txq_cfg.nxt_qid_n_fid_n_pri = (((tx->txf.txf_id & 0x3f) << 3) |
++			(txq->priority & 0x3));
++	txq_cfg.wvc_n_cquota_n_rquota =
++			((((u32)BFI_TX_MAX_WRR_QUOTA & 0xfff) << 12) |
++			(BFI_TX_MAX_WRR_QUOTA & 0xfff));
++
++	/* Setup the page and write to H/W */
++
++	pg_num = BNA_GET_PAGE_NUM(HQM0_BLK_PG_NUM + tx->bna->port_num,
++			HQM_RXTX_Q_RAM_BASE_OFFSET);
++	writel(pg_num, tx->bna->regs.page_addr);
++
++	base_addr = BNA_GET_MEM_BASE_ADDR(tx->bna->pcidev.pci_bar_kva,
++					HQM_RXTX_Q_RAM_BASE_OFFSET);
++	q_mem = (struct bna_rxtx_q_mem *)0;
++	txq_mem = &q_mem[txq->txq_id].txq;
++
++	/*
++	 * The following 4 lines, is a hack b'cos the H/W needs to read
++	 * these DMA addresses as little endian
++	 */
++
++	off = (unsigned long)&txq_mem->pg_tbl_addr_lo;
++	writel(htonl(txq_cfg.pg_tbl_addr_lo), base_addr + off);
++
++	off = (unsigned long)&txq_mem->pg_tbl_addr_hi;
++	writel(htonl(txq_cfg.pg_tbl_addr_hi), base_addr + off);
++
++	off = (unsigned long)&txq_mem->cur_q_entry_lo;
++	writel(htonl(txq_cfg.cur_q_entry_lo), base_addr + off);
++
++	off = (unsigned long)&txq_mem->cur_q_entry_hi;
++	writel(htonl(txq_cfg.cur_q_entry_hi), base_addr + off);
++
++	off = (unsigned long)&txq_mem->pg_cnt_n_prd_ptr;
++	writel(txq_cfg.pg_cnt_n_prd_ptr, base_addr + off);
++
++	off = (unsigned long)&txq_mem->entry_n_pg_size;
++	writel(txq_cfg.entry_n_pg_size, base_addr + off);
++
++	off = (unsigned long)&txq_mem->int_blk_n_cns_ptr;
++	writel(txq_cfg.int_blk_n_cns_ptr, base_addr + off);
++
++	off = (unsigned long)&txq_mem->cns_ptr2_n_q_state;
++	writel(txq_cfg.cns_ptr2_n_q_state, base_addr + off);
++
++	off = (unsigned long)&txq_mem->nxt_qid_n_fid_n_pri;
++	writel(txq_cfg.nxt_qid_n_fid_n_pri, base_addr + off);
++
++	off = (unsigned long)&txq_mem->wvc_n_cquota_n_rquota;
++	writel(txq_cfg.wvc_n_cquota_n_rquota, base_addr + off);
++
++	txq->tcb->producer_index = 0;
++	txq->tcb->consumer_index = 0;
++	*(txq->tcb->hw_consumer_index) = 0;
++
++}
++
++static void
++__bna_txq_stop(struct bna_tx *tx, struct bna_txq *txq)
++{
++	struct bfi_ll_q_stop_req ll_req;
++	u32 bit_mask[2] = {0, 0};
++	if (txq->txq_id < 32)
++		bit_mask[0] = (u32)1 << txq->txq_id;
++	else
++		bit_mask[1] = (u32)1 << (txq->txq_id - 32);
++
++	memset(&ll_req, 0, sizeof(ll_req));
++	ll_req.mh.msg_class = BFI_MC_LL;
++	ll_req.mh.msg_id = BFI_LL_H2I_TXQ_STOP_REQ;
++	ll_req.mh.mtag.h2i.lpu_id = 0;
++	ll_req.q_id_mask[0] = htonl(bit_mask[0]);
++	ll_req.q_id_mask[1] = htonl(bit_mask[1]);
++
++	bna_mbox_qe_fill(&tx->mbox_qe, &ll_req, sizeof(ll_req),
++			bna_tx_cb_txq_stopped, tx);
++
++	bna_mbox_send(tx->bna, &tx->mbox_qe);
++}
++
++static void
++__bna_txf_start(struct bna_tx *tx)
++{
++	struct bna_tx_fndb_ram *tx_fndb;
++	struct bna_txf *txf = &tx->txf;
++	void __iomem *base_addr;
++	unsigned long off;
++
++	writel(BNA_GET_PAGE_NUM(LUT0_MEM_BLK_BASE_PG_NUM +
++			(tx->bna->port_num * 2), TX_FNDB_RAM_BASE_OFFSET),
++			tx->bna->regs.page_addr);
++
++	base_addr = BNA_GET_MEM_BASE_ADDR(tx->bna->pcidev.pci_bar_kva,
++					TX_FNDB_RAM_BASE_OFFSET);
++
++	tx_fndb = (struct bna_tx_fndb_ram *)0;
++	off = (unsigned long)&tx_fndb[txf->txf_id].vlan_n_ctrl_flags;
++
++	writel(((u32)txf->vlan << 16) | txf->ctrl_flags,
++			base_addr + off);
++
++	if (tx->txf.txf_id < 32)
++		tx->bna->tx_mod.txf_bmap[0] |= ((u32)1 << tx->txf.txf_id);
++	else
++		tx->bna->tx_mod.txf_bmap[1] |= ((u32)
++						 1 << (tx->txf.txf_id - 32));
++}
++
++static void
++__bna_txf_stop(struct bna_tx *tx)
++{
++	struct bna_tx_fndb_ram *tx_fndb;
++	u32 page_num;
++	u32 ctl_flags;
++	struct bna_txf *txf = &tx->txf;
++	void __iomem *base_addr;
++	unsigned long off;
++
++	/* retrieve the running txf_flags & turn off enable bit */
++	page_num = BNA_GET_PAGE_NUM(LUT0_MEM_BLK_BASE_PG_NUM +
++			(tx->bna->port_num * 2), TX_FNDB_RAM_BASE_OFFSET);
++	writel(page_num, tx->bna->regs.page_addr);
++
++	base_addr = BNA_GET_MEM_BASE_ADDR(tx->bna->pcidev.pci_bar_kva,
++					TX_FNDB_RAM_BASE_OFFSET);
++	tx_fndb = (struct bna_tx_fndb_ram *)0;
++	off = (unsigned long)&tx_fndb[txf->txf_id].vlan_n_ctrl_flags;
++
++	ctl_flags = readl(base_addr + off);
++	ctl_flags &= ~BFI_TXF_CF_ENABLE;
++
++	writel(ctl_flags, base_addr + off);
++
++	if (tx->txf.txf_id < 32)
++		tx->bna->tx_mod.txf_bmap[0] &= ~((u32)1 << tx->txf.txf_id);
++	else
++		tx->bna->tx_mod.txf_bmap[0] &= ~((u32)
++						 1 << (tx->txf.txf_id - 32));
++}
++
++static void
++__bna_txf_stat_clr(struct bna_tx *tx)
++{
++	struct bfi_ll_stats_req ll_req;
++	u32 txf_bmap[2] = {0, 0};
++	if (tx->txf.txf_id < 32)
++		txf_bmap[0] = ((u32)1 << tx->txf.txf_id);
++	else
++		txf_bmap[1] = ((u32)1 << (tx->txf.txf_id - 32));
++	bfi_h2i_set(ll_req.mh, BFI_MC_LL, BFI_LL_H2I_STATS_CLEAR_REQ, 0);
++	ll_req.stats_mask = 0;
++	ll_req.rxf_id_mask[0] = 0;
++	ll_req.rxf_id_mask[1] =	0;
++	ll_req.txf_id_mask[0] =	htonl(txf_bmap[0]);
++	ll_req.txf_id_mask[1] =	htonl(txf_bmap[1]);
++
++	bna_mbox_qe_fill(&tx->mbox_qe, &ll_req, sizeof(ll_req),
++			bna_tx_cb_stats_cleared, tx);
++	bna_mbox_send(tx->bna, &tx->mbox_qe);
++}
++
++static void
++__bna_tx_start(struct bna_tx *tx)
++{
++	struct bna_txq *txq;
++	struct list_head		 *qe;
++
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		bna_ib_start(txq->ib);
++		__bna_txq_start(tx, txq);
++	}
++
++	__bna_txf_start(tx);
++
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		txq->tcb->priority = txq->priority;
++		(tx->tx_resume_cbfn)(tx->bna->bnad, txq->tcb);
++	}
++}
++
++static void
++__bna_tx_stop(struct bna_tx *tx)
++{
++	struct bna_txq *txq;
++	struct list_head		 *qe;
++
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		(tx->tx_stall_cbfn)(tx->bna->bnad, txq->tcb);
++	}
++
++	__bna_txf_stop(tx);
++
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		bfa_wc_up(&tx->txq_stop_wc);
++	}
++
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		__bna_txq_stop(tx, txq);
++	}
++}
++
++static void
++bna_txq_qpt_setup(struct bna_txq *txq, int page_count, int page_size,
++		struct bna_mem_descr *qpt_mem,
++		struct bna_mem_descr *swqpt_mem,
++		struct bna_mem_descr *page_mem)
 +{
 +	int i;
 +
-+	/* Select the pool for seg->max_rit_size */
-+	for (i = 0; i < BFI_RIT_SEG_TOTAL_POOLS; i++) {
-+		if (seg->max_rit_size == ritseg_pool_cfg[i].pool_entry_size)
-+			break;
++	txq->qpt.hw_qpt_ptr.lsb = qpt_mem->dma.lsb;
++	txq->qpt.hw_qpt_ptr.msb = qpt_mem->dma.msb;
++	txq->qpt.kv_qpt_ptr = qpt_mem->kva;
++	txq->qpt.page_count = page_count;
++	txq->qpt.page_size = page_size;
++
++	txq->tcb->sw_qpt = (void **) swqpt_mem->kva;
++
++	for (i = 0; i < page_count; i++) {
++		txq->tcb->sw_qpt[i] = page_mem[i].kva;
++
++		((struct bna_dma_addr *)txq->qpt.kv_qpt_ptr)[i].lsb =
++			page_mem[i].dma.lsb;
++		((struct bna_dma_addr *)txq->qpt.kv_qpt_ptr)[i].msb =
++			page_mem[i].dma.msb;
++
++	}
++}
++
++static void
++bna_tx_free(struct bna_tx *tx)
++{
++	struct bna_tx_mod *tx_mod = &tx->bna->tx_mod;
++	struct bna_txq *txq;
++	struct bna_ib_mod *ib_mod = &tx->bna->ib_mod;
++	struct list_head *qe;
++
++	while (!list_empty(&tx->txq_q)) {
++		bfa_q_deq(&tx->txq_q, &txq);
++		bfa_q_qe_init(&txq->qe);
++		if (txq->ib) {
++			if (txq->ib_seg_offset != -1)
++				bna_ib_release_idx(txq->ib,
++						txq->ib_seg_offset);
++			bna_ib_put(ib_mod, txq->ib);
++			txq->ib = NULL;
++		}
++		txq->tcb = NULL;
++		txq->tx = NULL;
++		list_add_tail(&txq->qe, &tx_mod->txq_free_q);
 +	}
 +
-+	seg->rit_size = 0;
-+	list_add_tail(&seg->qe, &rit_mod->rit_seg_pool[i]);
++	list_for_each(qe, &tx_mod->tx_active_q) {
++		if (qe == &tx->qe) {
++			list_del(&tx->qe);
++			bfa_q_qe_init(&tx->qe);
++			break;
++		}
++	}
++
++	tx->bna = NULL;
++	tx->priv = NULL;
++	list_add_tail(&tx->qe, &tx_mod->tx_free_q);
++}
++
++static void
++bna_tx_cb_txq_stopped(void *arg, int status)
++{
++	struct bna_tx *tx = (struct bna_tx *)arg;
++
++	bfa_q_qe_init(&tx->mbox_qe.qe);
++	bfa_wc_down(&tx->txq_stop_wc);
++}
++
++static void
++bna_tx_cb_txq_stopped_all(void *arg)
++{
++	struct bna_tx *tx = (struct bna_tx *)arg;
++
++	bfa_fsm_send_event(tx, TX_E_TXQ_STOPPED);
++}
++
++static void
++bna_tx_cb_stats_cleared(void *arg, int status)
++{
++	struct bna_tx *tx = (struct bna_tx *)arg;
++
++	bfa_q_qe_init(&tx->mbox_qe.qe);
++
++	bfa_fsm_send_event(tx, TX_E_STAT_CLEARED);
++}
++
++static void
++bna_tx_start(struct bna_tx *tx)
++{
++	tx->flags |= BNA_TX_F_PORT_STARTED;
++	if (tx->flags & BNA_TX_F_ENABLED)
++		bfa_fsm_send_event(tx, TX_E_START);
++}
++
++static void
++bna_tx_stop(struct bna_tx *tx)
++{
++	tx->stop_cbfn = bna_tx_mod_cb_tx_stopped;
++	tx->stop_cbarg = &tx->bna->tx_mod;
++
++	tx->flags &= ~BNA_TX_F_PORT_STARTED;
++	bfa_fsm_send_event(tx, TX_E_STOP);
++}
++
++static void
++bna_tx_fail(struct bna_tx *tx)
++{
++	tx->flags &= ~BNA_TX_F_PORT_STARTED;
++	bfa_fsm_send_event(tx, TX_E_FAIL);
++}
++
++void
++bna_tx_prio_changed(struct bna_tx *tx, int prio)
++{
++	struct bna_txq *txq;
++	struct list_head		 *qe;
++
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		txq->priority = prio;
++	}
++
++	bfa_fsm_send_event(tx, TX_E_PRIO_CHANGE);
++}
++
++static void
++bna_tx_cee_link_status(struct bna_tx *tx, int cee_link)
++{
++	if (cee_link)
++		tx->flags |= BNA_TX_F_PRIO_LOCK;
++	else
++		tx->flags &= ~BNA_TX_F_PRIO_LOCK;
++}
++
++static void
++bna_tx_mod_cb_tx_stopped(void *arg, struct bna_tx *tx,
++			enum bna_cb_status status)
++{
++	struct bna_tx_mod *tx_mod = (struct bna_tx_mod *)arg;
++
++	bfa_wc_down(&tx_mod->tx_stop_wc);
++}
++
++static void
++bna_tx_mod_cb_tx_stopped_all(void *arg)
++{
++	struct bna_tx_mod *tx_mod = (struct bna_tx_mod *)arg;
++
++	if (tx_mod->stop_cbfn)
++		tx_mod->stop_cbfn(&tx_mod->bna->port, BNA_CB_SUCCESS);
++	tx_mod->stop_cbfn = NULL;
++}
++
++void
++bna_tx_res_req(int num_txq, int txq_depth, struct bna_res_info *res_info)
++{
++	u32 q_size;
++	u32 page_count;
++	struct bna_mem_info *mem_info;
++
++	res_info[BNA_TX_RES_MEM_T_TCB].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_TX_RES_MEM_T_TCB].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_KVA;
++	mem_info->len = sizeof(struct bna_tcb);
++	mem_info->num = num_txq;
++
++	q_size = txq_depth * BFI_TXQ_WI_SIZE;
++	q_size = ALIGN(q_size, PAGE_SIZE);
++	page_count = q_size >> PAGE_SHIFT;
++
++	res_info[BNA_TX_RES_MEM_T_QPT].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_TX_RES_MEM_T_QPT].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_DMA;
++	mem_info->len = page_count * sizeof(struct bna_dma_addr);
++	mem_info->num = num_txq;
++
++	res_info[BNA_TX_RES_MEM_T_SWQPT].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_TX_RES_MEM_T_SWQPT].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_KVA;
++	mem_info->len = page_count * sizeof(void *);
++	mem_info->num = num_txq;
++
++	res_info[BNA_TX_RES_MEM_T_PAGE].res_type = BNA_RES_T_MEM;
++	mem_info = &res_info[BNA_TX_RES_MEM_T_PAGE].res_u.mem_info;
++	mem_info->mem_type = BNA_MEM_T_DMA;
++	mem_info->len = PAGE_SIZE;
++	mem_info->num = num_txq * page_count;
++
++	res_info[BNA_TX_RES_INTR_T_TXCMPL].res_type = BNA_RES_T_INTR;
++	res_info[BNA_TX_RES_INTR_T_TXCMPL].res_u.intr_info.intr_type =
++			BNA_INTR_T_MSIX;
++	res_info[BNA_TX_RES_INTR_T_TXCMPL].res_u.intr_info.num = num_txq;
++}
++
++struct bna_tx *
++bna_tx_create(struct bna *bna, struct bnad *bnad,
++		struct bna_tx_config *tx_cfg,
++		struct bna_tx_event_cbfn *tx_cbfn,
++		struct bna_res_info *res_info, void *priv)
++{
++	struct bna_intr_info *intr_info;
++	struct bna_tx_mod *tx_mod = &bna->tx_mod;
++	struct bna_tx *tx;
++	struct bna_txq *txq;
++	struct list_head *qe;
++	struct bna_ib_mod *ib_mod = &bna->ib_mod;
++	struct bna_doorbell_qset *qset;
++	struct bna_ib_config ib_config;
++	int page_count;
++	int page_size;
++	int page_idx;
++	int i;
++	unsigned long off;
++
++	intr_info = &res_info[BNA_TX_RES_INTR_T_TXCMPL].res_u.intr_info;
++	page_count = (res_info[BNA_TX_RES_MEM_T_PAGE].res_u.mem_info.num) /
++			tx_cfg->num_txq;
++	page_size = res_info[BNA_TX_RES_MEM_T_PAGE].res_u.mem_info.len;
++
++	/**
++	 * Get resources
++	 */
++
++	if ((intr_info->num != 1) && (intr_info->num != tx_cfg->num_txq))
++		return NULL;
++
++	/* Tx */
++
++	if (list_empty(&tx_mod->tx_free_q))
++		return NULL;
++	bfa_q_deq(&tx_mod->tx_free_q, &tx);
++	bfa_q_qe_init(&tx->qe);
++
++	/* TxQs */
++
++	INIT_LIST_HEAD(&tx->txq_q);
++	for (i = 0; i < tx_cfg->num_txq; i++) {
++		if (list_empty(&tx_mod->txq_free_q))
++			goto err_return;
++
++		bfa_q_deq(&tx_mod->txq_free_q, &txq);
++		bfa_q_qe_init(&txq->qe);
++		list_add_tail(&txq->qe, &tx->txq_q);
++		txq->ib = NULL;
++		txq->ib_seg_offset = -1;
++		txq->tx = tx;
++	}
++
++	/* IBs */
++	i = 0;
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++
++		if (intr_info->num == 1)
++			txq->ib = bna_ib_get(ib_mod, intr_info->intr_type,
++						intr_info->idl[0].vector);
++		else
++			txq->ib = bna_ib_get(ib_mod, intr_info->intr_type,
++						intr_info->idl[i].vector);
++
++		if (txq->ib == NULL)
++			goto err_return;
++
++		txq->ib_seg_offset = bna_ib_reserve_idx(txq->ib);
++		if (txq->ib_seg_offset == -1)
++			goto err_return;
++
++		i++;
++	}
++
++	/*
++	 * Initialize
++	 */
++
++	/* Tx */
++
++	tx->tcb_setup_cbfn = tx_cbfn->tcb_setup_cbfn;
++	tx->tcb_destroy_cbfn = tx_cbfn->tcb_destroy_cbfn;
++	/* Following callbacks are mandatory */
++	tx->tx_stall_cbfn = tx_cbfn->tx_stall_cbfn;
++	tx->tx_resume_cbfn = tx_cbfn->tx_resume_cbfn;
++	tx->tx_cleanup_cbfn = tx_cbfn->tx_cleanup_cbfn;
++
++	list_add_tail(&tx->qe, &tx_mod->tx_active_q);
++	tx->bna = bna;
++	tx->priv = priv;
++	tx->txq_stop_wc.wc_resume = bna_tx_cb_txq_stopped_all;
++	tx->txq_stop_wc.wc_cbarg = tx;
++	tx->txq_stop_wc.wc_count = 0;
++
++	tx->type = tx_cfg->tx_type;
++
++	tx->flags = 0;
++	if (tx->bna->tx_mod.flags & BNA_TX_MOD_F_PORT_STARTED) {
++		switch (tx->type) {
++		case BNA_TX_T_REGULAR:
++			if (!(tx->bna->tx_mod.flags &
++				BNA_TX_MOD_F_PORT_LOOPBACK))
++				tx->flags |= BNA_TX_F_PORT_STARTED;
++			break;
++		case BNA_TX_T_LOOPBACK:
++			if (tx->bna->tx_mod.flags & BNA_TX_MOD_F_PORT_LOOPBACK)
++				tx->flags |= BNA_TX_F_PORT_STARTED;
++			break;
++		}
++	}
++	if (tx->bna->tx_mod.cee_link)
++		tx->flags |= BNA_TX_F_PRIO_LOCK;
++
++	/* TxQ */
++
++	i = 0;
++	page_idx = 0;
++	list_for_each(qe, &tx->txq_q) {
++		txq = (struct bna_txq *)qe;
++		txq->priority = tx_mod->priority;
++		txq->tcb = (struct bna_tcb *)
++		  res_info[BNA_TX_RES_MEM_T_TCB].res_u.mem_info.mdl[i].kva;
++		txq->tx_packets = 0;
++		txq->tx_bytes = 0;
++
++		/* IB */
++
++		ib_config.coalescing_timeo = BFI_TX_COALESCING_TIMEO;
++		ib_config.interpkt_timeo = 0; /* Not used */
++		ib_config.interpkt_count = BFI_TX_INTERPKT_COUNT;
++		ib_config.ctrl_flags = (BFI_IB_CF_INTER_PKT_DMA |
++					BFI_IB_CF_INT_ENABLE |
++					BFI_IB_CF_COALESCING_MODE);
++		bna_ib_config(txq->ib, &ib_config);
++
++		/* TCB */
++
++		txq->tcb->producer_index = 0;
++		txq->tcb->consumer_index = 0;
++		txq->tcb->hw_consumer_index = (volatile u32 *)
++			((volatile u8 *)txq->ib->ib_seg_host_addr_kva +
++			 (txq->ib_seg_offset * BFI_IBIDX_SIZE));
++		*(txq->tcb->hw_consumer_index) = 0;
++		txq->tcb->q_depth = tx_cfg->txq_depth;
++		txq->tcb->unmap_q = (void *)
++		res_info[BNA_TX_RES_MEM_T_UNMAPQ].res_u.mem_info.mdl[i].kva;
++		qset = (struct bna_doorbell_qset *)0;
++		off = (unsigned long)&qset[txq->txq_id].txq[0];
++		txq->tcb->q_dbell = off +
++			BNA_GET_DOORBELL_BASE_ADDR(bna->pcidev.pci_bar_kva);
++		txq->tcb->i_dbell = &txq->ib->door_bell;
++		txq->tcb->intr_type = intr_info->intr_type;
++		txq->tcb->intr_vector = (intr_info->num == 1) ?
++					intr_info->idl[0].vector :
++					intr_info->idl[i].vector;
++		txq->tcb->txq = txq;
++		txq->tcb->bnad = bnad;
++		txq->tcb->id = i;
++
++		/* QPT, SWQPT, Pages */
++		bna_txq_qpt_setup(txq, page_count, page_size,
++			&res_info[BNA_TX_RES_MEM_T_QPT].res_u.mem_info.mdl[i],
++			&res_info[BNA_TX_RES_MEM_T_SWQPT].res_u.mem_info.mdl[i],
++			&res_info[BNA_TX_RES_MEM_T_PAGE].
++				  res_u.mem_info.mdl[page_idx]);
++		txq->tcb->page_idx = page_idx;
++		txq->tcb->page_count = page_count;
++		page_idx += page_count;
++
++		/* Callback to bnad for setting up TCB */
++		if (tx->tcb_setup_cbfn)
++			(tx->tcb_setup_cbfn)(bna->bnad, txq->tcb);
++
++		i++;
++	}
++
++	/* TxF */
++
++	tx->txf.ctrl_flags = BFI_TXF_CF_ENABLE | BFI_TXF_CF_VLAN_WI_BASED;
++	tx->txf.vlan = 0;
++
++	/* Mbox element */
++	bfa_q_qe_init(&tx->mbox_qe.qe);
++
++	bfa_fsm_set_state(tx, bna_tx_sm_stopped);
++
++	return tx;
++
++err_return:
++	bna_tx_free(tx);
++	return NULL;
++}
++
++void
++bna_tx_destroy(struct bna_tx *tx)
++{
++	/* Callback to bnad for destroying TCB */
++	if (tx->tcb_destroy_cbfn) {
++		struct bna_txq *txq;
++		struct list_head *qe;
++
++		list_for_each(qe, &tx->txq_q) {
++			txq = (struct bna_txq *)qe;
++			(tx->tcb_destroy_cbfn)(tx->bna->bnad, txq->tcb);
++		}
++	}
++
++	bna_tx_free(tx);
++}
++
++void
++bna_tx_enable(struct bna_tx *tx)
++{
++	if (tx->fsm != (bfa_sm_t)bna_tx_sm_stopped)
++		return;
++
++	tx->flags |= BNA_TX_F_ENABLED;
++
++	if (tx->flags & BNA_TX_F_PORT_STARTED)
++		bfa_fsm_send_event(tx, TX_E_START);
++}
++
++void
++bna_tx_disable(struct bna_tx *tx, enum bna_cleanup_type type,
++		void (*cbfn)(void *, struct bna_tx *, enum bna_cb_status))
++{
++	if (type == BNA_SOFT_CLEANUP) {
++		(*cbfn)(tx->bna->bnad, tx, BNA_CB_SUCCESS);
++		return;
++	}
++
++	tx->stop_cbfn = cbfn;
++	tx->stop_cbarg = tx->bna->bnad;
++
++	tx->flags &= ~BNA_TX_F_ENABLED;
++
++	bfa_fsm_send_event(tx, TX_E_STOP);
++}
++
++int
++bna_tx_state_get(struct bna_tx *tx)
++{
++	return bfa_sm_to_state(tx_sm_table, tx->fsm);
++}
++
++void
++bna_tx_mod_init(struct bna_tx_mod *tx_mod, struct bna *bna,
++		struct bna_res_info *res_info)
++{
++	int i;
++
++	tx_mod->bna = bna;
++	tx_mod->flags = 0;
++
++	tx_mod->tx = (struct bna_tx *)
++		res_info[BNA_RES_MEM_T_TX_ARRAY].res_u.mem_info.mdl[0].kva;
++	tx_mod->txq = (struct bna_txq *)
++		res_info[BNA_RES_MEM_T_TXQ_ARRAY].res_u.mem_info.mdl[0].kva;
++
++	INIT_LIST_HEAD(&tx_mod->tx_free_q);
++	INIT_LIST_HEAD(&tx_mod->tx_active_q);
++
++	INIT_LIST_HEAD(&tx_mod->txq_free_q);
++
++	for (i = 0; i < BFI_MAX_TXQ; i++) {
++		tx_mod->tx[i].txf.txf_id = i;
++		bfa_q_qe_init(&tx_mod->tx[i].qe);
++		list_add_tail(&tx_mod->tx[i].qe, &tx_mod->tx_free_q);
++
++		tx_mod->txq[i].txq_id = i;
++		bfa_q_qe_init(&tx_mod->txq[i].qe);
++		list_add_tail(&tx_mod->txq[i].qe, &tx_mod->txq_free_q);
++	}
++
++	tx_mod->tx_stop_wc.wc_resume = bna_tx_mod_cb_tx_stopped_all;
++	tx_mod->tx_stop_wc.wc_cbarg = tx_mod;
++	tx_mod->tx_stop_wc.wc_count = 0;
++}
++
++void
++bna_tx_mod_uninit(struct bna_tx_mod *tx_mod)
++{
++	struct list_head		*qe;
++	int i;
++
++	i = 0;
++	list_for_each(qe, &tx_mod->tx_free_q)
++		i++;
++
++	i = 0;
++	list_for_each(qe, &tx_mod->txq_free_q)
++		i++;
++
++	tx_mod->bna = NULL;
++}
++
++void
++bna_tx_mod_start(struct bna_tx_mod *tx_mod, enum bna_tx_type type)
++{
++	struct bna_tx *tx;
++	struct list_head		*qe;
++
++	tx_mod->flags |= BNA_TX_MOD_F_PORT_STARTED;
++	if (type == BNA_TX_T_LOOPBACK)
++		tx_mod->flags |= BNA_TX_MOD_F_PORT_LOOPBACK;
++
++	list_for_each(qe, &tx_mod->tx_active_q) {
++		tx = (struct bna_tx *)qe;
++		if (tx->type == type)
++			bna_tx_start(tx);
++	}
++}
++
++void
++bna_tx_mod_stop(struct bna_tx_mod *tx_mod, enum bna_tx_type type)
++{
++	struct bna_tx *tx;
++	struct list_head		*qe;
++
++	tx_mod->flags &= ~BNA_TX_MOD_F_PORT_STARTED;
++	tx_mod->flags &= ~BNA_TX_MOD_F_PORT_LOOPBACK;
++
++	tx_mod->stop_cbfn = bna_port_cb_tx_stopped;
++
++	/**
++	 * Before calling bna_tx_stop(), increment tx_stop_wc as many times
++	 * as we are going to call bna_tx_stop
++	 */
++	list_for_each(qe, &tx_mod->tx_active_q) {
++		tx = (struct bna_tx *)qe;
++		if (tx->type == type)
++			bfa_wc_up(&tx_mod->tx_stop_wc);
++	}
++
++	if (tx_mod->tx_stop_wc.wc_count == 0) {
++		tx_mod->stop_cbfn(&tx_mod->bna->port, BNA_CB_SUCCESS);
++		tx_mod->stop_cbfn = NULL;
++		return;
++	}
++
++	list_for_each(qe, &tx_mod->tx_active_q) {
++		tx = (struct bna_tx *)qe;
++		if (tx->type == type)
++			bna_tx_stop(tx);
++	}
++}
++
++void
++bna_tx_mod_fail(struct bna_tx_mod *tx_mod)
++{
++	struct bna_tx *tx;
++	struct list_head		*qe;
++
++	tx_mod->flags &= ~BNA_TX_MOD_F_PORT_STARTED;
++	tx_mod->flags &= ~BNA_TX_MOD_F_PORT_LOOPBACK;
++
++	list_for_each(qe, &tx_mod->tx_active_q) {
++		tx = (struct bna_tx *)qe;
++		bna_tx_fail(tx);
++	}
++}
++
++void
++bna_tx_mod_prio_changed(struct bna_tx_mod *tx_mod, int prio)
++{
++	struct bna_tx *tx;
++	struct list_head		*qe;
++
++	if (prio != tx_mod->priority) {
++		tx_mod->priority = prio;
++
++		list_for_each(qe, &tx_mod->tx_active_q) {
++			tx = (struct bna_tx *)qe;
++			bna_tx_prio_changed(tx, prio);
++		}
++	}
++}
++
++void
++bna_tx_mod_cee_link_status(struct bna_tx_mod *tx_mod, int cee_link)
++{
++	struct bna_tx *tx;
++	struct list_head		*qe;
++
++	tx_mod->cee_link = cee_link;
++
++	list_for_each(qe, &tx_mod->tx_active_q) {
++		tx = (struct bna_tx *)qe;
++		bna_tx_cee_link_status(tx, cee_link);
++	}
++}
+diff -ruP net-next-2.6.35-rc1-orig/drivers/net/bna/cna_fwimg.c net-next-2.6.35-rc1-mod/drivers/net/bna/cna_fwimg.c
+--- net-next-2.6.35-rc1-orig/drivers/net/bna/cna_fwimg.c	1969-12-31 16:00:00.000000000 -0800
++++ net-next-2.6.35-rc1-mod/drivers/net/bna/cna_fwimg.c	2010-08-23 13:24:47.204962000 -0700
+@@ -0,0 +1,64 @@
++/*
++ * Linux network driver for Brocade Converged Network Adapter.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License (GPL) Version 2 as
++ * published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++/*
++ * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
++ * All rights reserved
++ * www.brocade.com
++ */
++#include <linux/firmware.h>
++#include "cna.h"
++
++const struct firmware *bfi_fw;
++static u32 *bfi_image_ct_cna;
++static u32 bfi_image_ct_cna_size;
++
++u32 *
++cna_read_firmware(struct pci_dev *pdev, u32 **bfi_image,
++			u32 *bfi_image_size, char *fw_name)
++{
++	const struct firmware *fw;
++
++	if (request_firmware(&fw, fw_name, &pdev->dev)) {
++		pr_alert("Can't locate firmware %s\n", fw_name);
++		goto error;
++	}
++
++	*bfi_image = (u32 *)fw->data;
++	*bfi_image_size = fw->size/sizeof(u32);
++	bfi_fw = fw;
++
++	return *bfi_image;
++error:
++	return NULL;
++}
++
++u32 *
++cna_get_firmware_buf(struct pci_dev *pdev)
++{
++	if (bfi_image_ct_cna_size == 0)
++		cna_read_firmware(pdev, &bfi_image_ct_cna,
++			&bfi_image_ct_cna_size, CNA_FW_FILE_CT);
++	return bfi_image_ct_cna;
++}
++
++u32 *
++bfa_cb_image_get_chunk(int type, u32 off)
++{
++	return (u32 *)(bfi_image_ct_cna + off);
++}
++
++u32
++bfa_cb_image_get_size(int type)
++{
++	return bfi_image_ct_cna_size;
 +}
