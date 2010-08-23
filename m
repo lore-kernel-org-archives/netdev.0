@@ -1,63 +1,87 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: RFC:  MTU for serving NFS on Infiniband
-Date: Mon, 23 Aug 2010 08:05:43 -0700
-Message-ID: <20100823080543.319143e3@nehalam>
-References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Marc Aurele La France <tsi@ualberta.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41962 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753680Ab0HWPFp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Aug 2010 11:05:45 -0400
-In-Reply-To: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: [PATCH] driver core: platform_bus: allow runtime override of dev_pm_ops
+Date: Mon, 23 Aug 2010 08:05:48 -0700
+Message-ID: <1282575949-27826-1-git-send-email-khilman@deeprootsystems.com>
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>, Paul Mundt <lethal@linux-sh.org>,
+	Magnus Damm <damm@opensource.se>,
+	Kevin Hilman <khilman@deeprootsystems.com>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernen.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Aug 2010 08:44:37 -0600 (MDT)
-Marc Aurele La France <tsi@ualberta.ca> wrote:
+From: Kevin Hilman <khilman@ti.com>
 
-> My apologies for the multiple post.  I got bit the first time around by my 
-> MUA's configuration.
-> 
-> ----
-> 
-> Greetings.
-> 
-> For some time now, the kernel and I have been having an argument over what 
-> the MTU should be for serving NFS over Infiniband.  I say 65520, the 
-> documented maximum for connected mode.  But, so far, I've been unable to have 
-> anything over 32192 remain stable.
-> 
-> Back in the 2.6.14 -> .15 period, sunrpc's sk_buff allocations were changed 
-> from GFP_KERNEL to GFP_ATOMIC (b079fa7baa86b47579f3f60f86d03d21c76159b8 
-> mainstream commit).  Understandably, this was to prevent recursion through 
-> the NFS and sunrpc code.  This is fine for the most common MTU out there, as 
-> the kernel is almost certain to find a free page.  But, as one increases the 
-> MTU, memory fragmentation starts to play a role in nixing these allocations.
-> 
-> These allocation failures ultimately result in sparse files being written 
-> through NFS.  Granted, many of my users' application are oblivious to 
-> this because they don't check for such errors.  But it would be nice if the 
-> kernel were more resilient in this regard.
-> 
-> For a few months now, I've been running with sunrpc sk_buff allocations using 
-> GFP_NOFS instead, which allows for dirty data to be flushed out and still 
-> avoids recursion through sunrpc.  With this, I've been able to increase the 
-> stable MTU to 32192.  But no further, as eventually there is no dirty data 
-> left and memory fragmentation becomes mostly due to yet-to-be-sync'ed 
-> filesystem data.  There's also the matter that using GFP_NOFS for this can 
-> slow down NFS quite a bit.
-> 
-> In regrouping for my next tack at this, I noticed that all stack traces go 
-> through ip_append_data().  This would be ipv6_append_data() in the IPv6 case.
-> A _very_ rough draft that would have ip_append_data() temporarily drop down 
-> to a smaller fake MTU follows ...
+Currently, the platform_bus allows customization of several of the
+busses dev_pm_ops methods by using weak symbols so that platform code
+can override them.  The weak-symbol approach is not scalable when
+wanting to support multiple platforms in a single kernel binary.
 
-Why doesn't NFS generate page size fragments?  Does Infiniband or your
-device not support this?  Any thing that requires higher order allocation
-is going to unstable under load.  Let's fix the cause not the apply bandaid
-solution to the symptom.
+Instead, provide __init methods for platform code to customize the
+dev_pm_ops methods at runtime.
+
+NOTE: after these dynamic methods are merged, the weak symbols should
+      be removed from drivers/base/platform.c.  AFAIK, this will only
+      affect SH and sh-mobile which should be converted to use this
+      runtime approach instead of the weak symbols.  After SH &
+      sh-mobile are converted, the weak symobols could be removed.
+
+Tested on OMAP3.
+
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: Magnus Damm <magnus.damm@gmail.com>
+Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
+---
+ drivers/base/platform.c         |   16 ++++++++++++++++
+ include/linux/platform_device.h |    3 +++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/base/platform.c b/drivers/base/platform.c
+index c6c933f..a7d8a00 100644
+--- a/drivers/base/platform.c
++++ b/drivers/base/platform.c
+@@ -976,6 +976,22 @@ struct bus_type platform_bus_type = {
+ };
+ EXPORT_SYMBOL_GPL(platform_bus_type);
+ 
++const struct dev_pm_ops * __init platform_bus_get_pm_ops(void)
++{
++	struct bus_type *bus = &platform_bus_type;
++
++	return bus->pm;
++}
++
++int __init platform_bus_set_pm_ops(struct dev_pm_ops *pm)
++{
++	struct bus_type *bus = &platform_bus_type;
++
++	bus->pm = pm;
++
++	return 0;
++}
++
+ int __init platform_bus_init(void)
+ {
+ 	int error;
+diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
+index d7ecad0..4bce2c9 100644
+--- a/include/linux/platform_device.h
++++ b/include/linux/platform_device.h
+@@ -138,6 +138,9 @@ extern struct platform_device *platform_create_bundle(struct platform_driver *dr
+ 					struct resource *res, unsigned int n_res,
+ 					const void *data, size_t size);
+ 
++extern const struct dev_pm_ops * __init platform_bus_get_pm_ops(void);
++extern int __init platform_bus_set_pm_ops(struct dev_pm_ops *pm);
++
+ /* early platform driver interface */
+ struct early_platform_driver {
+ 	const char *class_str;
+-- 
+1.7.2.1
