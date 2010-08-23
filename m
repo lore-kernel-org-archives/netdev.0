@@ -1,44 +1,42 @@
-From: Anton Blanchard <anton@samba.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [patch 00/20] ibmveth update
-Date: Mon, 23 Aug 2010 12:07:13 +1000
-Message-ID: <20100823020713.GA8095@kryten>
+Date: Sun, 22 Aug 2010 19:15:27 -0700 (PDT)
+Message-ID: <20100822.191527.229727237.davem@davemloft.net>
 References: <20100823000930.546065833@samba.org>
- <20100822.185722.232757433.davem@davemloft.net>
+	<20100822.185722.232757433.davem@davemloft.net>
+	<20100823020713.GA8095@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: brking@linux.vnet.ibm.com, santil@linux.vnet.ibm.com,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: anton@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51449 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751290Ab0HWCLL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Aug 2010 22:11:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20100822.185722.232757433.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47155
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752713Ab0HWCPK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Aug 2010 22:15:10 -0400
+In-Reply-To: <20100823020713.GA8095@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-Hi Dave,
+From: Anton Blanchard <anton@samba.org>
+Date: Mon, 23 Aug 2010 12:07:13 +1000
 
-> What about the patches posted by Robert Jennings the other week that
-> enable ipv6 checksum support et al.?
+>> Might I suggest that we have a central person who gathers and
+>> submits all of the ibmveth driver changes to me?  That way I
+>> don't have to ask questions like this.
 > 
-> http://patchwork.ozlabs.org/patch/62054/
-> http://patchwork.ozlabs.org/patch/62055/
-> http://patchwork.ozlabs.org/patch/62056/
+> I'll ask the ibmveth maintainter (Santi) to roll up Robert and my patches for
+> submission.
+
+Perfect.
+
+>> There is also no entry for this driver in MAINTAINERS, which I
+>> also would like to see fixed quickly. :-)
 > 
-> Might I suggest that we have a central person who gathers and
-> submits all of the ibmveth driver changes to me?  That way I
-> don't have to ask questions like this.
+> Agreed, my last patch fixes that very issue :)
 
-I'll ask the ibmveth maintainter (Santi) to roll up Robert and my patches for
-submission.
+Awesome :)
 
-> There is also no entry for this driver in MAINTAINERS, which I
-> also would like to see fixed quickly. :-)
-
-Agreed, my last patch fixes that very issue :)
-
-Anton
+Thanks!
