@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: define __packed for the userspace code
-Date: Sun, 22 Aug 2010 21:16:05 -0700 (PDT)
-Message-ID: <20100822.211605.02288279.davem@davemloft.net>
-References: <20100822.183624.28802617.davem@davemloft.net>
-	<AANLkTikBcuYa_HNzhYYG62CLjcfptQNQM_zOsv9fXRfS@mail.gmail.com>
-	<20100822.193609.35028164.davem@davemloft.net>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: Re: [PATCH] mlx4: use bitmap library
+Date: Mon, 23 Aug 2010 13:21:55 +0900
+Message-ID: <AANLkTinNf1vsQqR34Qeh4jO-xt7m1wYWGC9-dA6mU+__@mail.gmail.com>
+References: <1282382688-5786-1-git-send-email-akinobu.mita@gmail.com>
+	<20100822.205231.116364886.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100822.193609.35028164.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, rolandd@cisco.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:54720 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751577Ab0HWEV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 00:21:56 -0400
+Received: by qwh6 with SMTP id 6so4767488qwh.19
+        for <netdev@vger.kernel.org>; Sun, 22 Aug 2010 21:21:55 -0700 (PDT)
+In-Reply-To: <20100822.205231.116364886.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 22 Aug 2010 19:36:09 -0700 (PDT)
+2010/8/23 David Miller <davem@davemloft.net>:
+> From: Akinobu Mita <akinobu.mita@gmail.com>
+> Date: Sat, 21 Aug 2010 18:24:48 +0900
+>
+>> Use bitmap_set() and bitmap_clear()
+>>
+>> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+>
+> Unlike loops calling set_bit() and clear_bit(), bitmap_set() and
+> bitmap_clear() are not atomic.
+>
+> Are you sure this is ok here?
+>
 
-> From: Changli Gao <xiaosuo@gmail.com>
-> Date: Mon, 23 Aug 2010 10:29:49 +0800
-> 
->> Do you mean that use the __attribute__((packed)) annotation in all of
->> these files:
->> 
->> localhost linux # grep "\<__packed\>" usr/include/ -r | uniq
->> usr/include/linux/if_hippi.h:} __packed;
->> usr/include/linux/if_fddi.h:} __packed;
->> usr/include/linux/nbd.h:} __packed;
->> usr/include/linux/ncp.h:} __packed;
->> usr/include/linux/rfkill.h:} __packed;
->> usr/include/linux/if_pppox.h:} __packed;
->> usr/include/linux/phonet.h:} __packed;
->> usr/include/linux/ipv6.h:} __packed;    /* required for some archs */
->> usr/include/linux/ipv6.h:} __packed;
->> usr/include/linux/if_ether.h:} __packed;
-> 
-> It seems so, yes.
+I think this ok. Because the bitmap region is searched by
+bitmap_find_next_zero_area() which cannot be atomic and
+setting and clearing the bitmap region is protected by bitmap->lock
+(except for initialization of the bitmap in mlx4_bitmap_init).
 
-Changli I applied your patch to convert these __packed tags back to
-the original expansion.
+This change should be done when I submitted commit
+43ff8b60853793fb0155b3e465739d2170c3aa2f ("mlx4: use
+bitmap_find_next_zero_area")
+at the same time.
 
-Thanks!
+I'll recheck this is ok and update the commit message for this change,
+then resubmit the patch.
