@@ -1,55 +1,105 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: RFC:  MTU for serving NFS on Infiniband
-Date: Mon, 23 Aug 2010 16:12:58 +0100
-Message-ID: <1282576378.2267.20.camel@achroite.uk.solarflarecom.com>
-References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH] driver core: platform_bus: allow runtime override of dev_pm_ops
+Date: Mon, 23 Aug 2010 09:12:06 -0600
+Message-ID: <4cb3d19e-ab7a-495f-b48c-70e3ec9f3b9b@email.android.com>
+References: <1282575949-27826-1-git-send-email-khilman@deeprootsystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Marc Aurele La France <tsi@ualberta.ca>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Magnus Damm <magnus.damm@gmail.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	=?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, Paul Mundt <lethal@linux-sh.org>,
+	Magnus Damm <damm@opensource.se>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Kevin Hilman <khilman@deeprootsystems.com>,
+	linux-kernel@vger.kernen.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
+In-Reply-To: <1282575949-27826-1-git-send-email-khilman@deeprootsystems.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-08-23 at 08:44 -0600, Marc Aurele La France wrote:
-> My apologies for the multiple post.  I got bit the first time around by my 
-> MUA's configuration.
-> 
-> ----
-> 
-> Greetings.
-> 
-> For some time now, the kernel and I have been having an argument over what 
-> the MTU should be for serving NFS over Infiniband.  I say 65520, the 
-> documented maximum for connected mode.  But, so far, I've been unable to have 
-> anything over 32192 remain stable.
-> 
-> Back in the 2.6.14 -> .15 period, sunrpc's sk_buff allocations were changed 
-> from GFP_KERNEL to GFP_ATOMIC (b079fa7baa86b47579f3f60f86d03d21c76159b8 
-> mainstream commit).  Understandably, this was to prevent recursion through 
-> the NFS and sunrpc code.  This is fine for the most common MTU out there, as 
-> the kernel is almost certain to find a free page.  But, as one increases the 
-> MTU, memory fragmentation starts to play a role in nixing these allocations.
-[...]
 
-I'm not familiar with the NFS server, but what you're saying suggests
-that this code needs a more radical rethink.
 
-Firstly, I don't see why NFS should require each packet's payload to be
-contiguous.  It could use page fragments and then leave it to the
-networking core to linearize the buffer if necessary for stupid
-hardware.
+"Kevin Hilman" <khilman@deeprootsystems.com> wrote:
 
-Secondly, if it's doing its own segmentation it can't take advantage of
-TSO.  This is likely to be a real drag on performance.  If it were
-taking advantage of TSO then the effective MTU over TCP/IP could be
-about 64K and it would already have hit this problem on Ethernet.
+>From: Kevin Hilman <khilman@ti.com>
+>
+>Currently, the platform_bus allows customization of several of the
+>busses dev_pm_ops methods by using weak symbols so that platform code
+>can override them.  The weak-symbol approach is not scalable when
+>wanting to support multiple platforms in a single kernel binary.
+>
+>Instead, provide __init methods for platform code to customize the
+>dev_pm_ops methods at runtime.
+>
+>NOTE: after these dynamic methods are merged, the weak symbols should
+>      be removed from drivers/base/platform.c.  AFAIK, this will only
+>      affect SH and sh-mobile which should be converted to use this
+>      runtime approach instead of the weak symbols.  After SH &
+>      sh-mobile are converted, the weak symobols could be removed.
+>
+>Tested on OMAP3.
+>
+>Cc: Grant Likely <grant.likely@secretlab.ca>
+>Cc: Magnus Damm <magnus.damm@gmail.com>
+>Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
+>---
+> drivers/base/platform.c         |   16 ++++++++++++++++
+> include/linux/platform_device.h |    3 +++
+> 2 files changed, 19 insertions(+), 0 deletions(-)
+>
+>diff --git a/drivers/base/platform.c b/drivers/base/platform.c
+>index c6c933f..a7d8a00 100644
+>--- a/drivers/base/platform.c
+>+++ b/drivers/base/platform.c
+>@@ -976,6 +976,22 @@ struct bus_type platform_bus_type = {
+> };
+> EXPORT_SYMBOL_GPL(platform_bus_type);
+> 
+>+const struct dev_pm_ops * __init platform_bus_get_pm_ops(void)
+>+{
+>+	struct bus_type *bus = &platform_bus_type;
+>+
+>+	return bus->pm;
+>+}
+>+
+>+int __init platform_bus_set_pm_ops(struct dev_pm_ops *pm)
+>+{
+>+	struct bus_type *bus = &platform_bus_type;
+>+
+>+	bus->pm = pm;
+>+
+>+	return 0;
+>+}
+>+
 
-Ben.
+Looks okay to me,  but these functions should have kerneldoc headers describing what they are, and more importantly, the constraints and what the acceptable use case is.
+
+g.
+
+> int __init platform_bus_init(void)
+> {
+> 	int error;
+>diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
+>index d7ecad0..4bce2c9 100644
+>--- a/include/linux/platform_device.h
+>+++ b/include/linux/platform_device.h
+>@@ -138,6 +138,9 @@ extern struct platform_device *platform_create_bundle(struct platform_driver *dr
+> 					struct resource *res, unsigned int n_res,
+> 					const void *data, size_t size);
+> 
+>+extern const struct dev_pm_ops * __init platform_bus_get_pm_ops(void);
+>+extern int __init platform_bus_set_pm_ops(struct dev_pm_ops *pm);
+>+
+> /* early platform driver interface */
+> struct early_platform_driver {
+> 	const char *class_str;
+>-- 
+>1.7.2.1
+>
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Sent from my Android phone with K-9 Mail. Please excuse my brevity.
