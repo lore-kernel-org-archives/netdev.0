@@ -1,44 +1,75 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 1/1] posix clocks: introduce syscall for clock tuning.
-Date: Mon, 23 Aug 2010 16:46:00 +0200
-Message-ID: <201008231646.00357.arnd@arndb.de>
-References: <cover.1282550649.git.richard.cochran@omicron.at> <201008231457.26690.arnd@arndb.de> <20100823134330.GM12892@parisc-linux.org>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: Re: IPsec: Why do pfkey_getspi and xfrm_alloc_userspi call xfrm_find_acq_byseq?
+Date: Mon, 23 Aug 2010 16:47:18 +0200
+Message-ID: <4C7289F6.3060802@6wind.com>
+References: <4C6D29B9.5070403@6wind.com> <20100822.005353.260099324.davem@davemloft.net> <4C727806.3060102@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthew Wilcox <matthew-Ztpu424NOJ8@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100823134330.GM12892-6jwH94ZQLHl74goWV3ctuw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35251 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752964Ab0HWOtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 10:49:55 -0400
+Received: by wwe15 with SMTP id 15so198837wwe.1
+        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 07:49:54 -0700 (PDT)
+In-Reply-To: <4C727806.3060102@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 23 August 2010, Matthew Wilcox wrote:
-> On Mon, Aug 23, 2010 at 02:57:26PM +0200, Arnd Bergmann wrote:
-> > > +static inline int common_clock_adj(const clockid_t which_clock, int ppb,
-> > > +                              struct timespec *tp)
-> > > +{
-> > > +   return -EOPNOTSUPP;
-> > > +}
-> > > +
-> > >  static int no_timer_create(struct k_itimer *new_timer)
-> > >  {
-> > >     return -EOPNOTSUPP;
-> > 
-> > So we already return -EOPNOTSUPP in some cases? The man page does not document this.
-> > I wonder if we should change that to -EINVAL as well.
-> 
-> ENOTTY is the usual errno for "inappropriate ioctl for device".  Due to
-> the way this patch has been chopped up, I can't tell if that's what is
-> intended here.
+Christophe Gouault wrote:
+> Hi David,
+>
+> First of all, thank you for your answer.
+>
+> David Miller wrote:
+>> From: Christophe Gouault <christophe.gouault@6wind.com>
+>> Date: Thu, 19 Aug 2010 14:55:21 +0200
+>>
+>>> The call to xfrm_find_acq_byseq() by the pfkey_getspi() and
+>>> xfrm_alloc_userspi() functions is quite costly and proves to entail
+>>> scalability issues when performing thousands of IKE negotiations with
+>>> racoon (from ipsec-tools distribution) or charon (from strongswan
+>>> distribution).
+>>>
+>>> Removing this call in the kernel drastically accelerates the
+>>> processing and does not seem to entail functional problems.
+>>>
+>>> For now, I don't see the point of this call. I need to understand its
+>>> purpose, because I'm highly tempted to simply remove it.
+>> First of all, removing a function because you don't understand
+>> why it's there is rarely a good idea :-)
+> Yes, don't worry, I never act that way. I was deliberately a little 
+> provocative ;-)
+>> I think the semantics require that we check for existing ACQUIRE
+>> state entries before we allocate an SPI.
+> Well, I still don't see in which case this can happen. The only 
+> situations in which an ACQUIRE state entry is created is when an 
+> acquire message is raised by the kernel (this creates a temporary 
+> outbound state) or when a getspi is issued from the userland (this 
+> creates a temporary state, as far as I know, this is the future 
+> inbound state negotiated by IKE).
+>
+> In my humble opinion, issuing a getspi for the output state does not 
+> make sense since the SPI is chosen by the destination host.
+> So the possibly existing ACQUIRE state entry would be the result of a 
+> former getspi with the same value of the seq field. So this call would 
+> aim at cancelling a former call to getspi,
+Correction: it does not cancel the former call but returns the existing 
+ACQUIRE state entry.
 
-It's for the CLOCK_* syscall family, which I think is different enough from
-an ioctl that ENOTTY makes no sense.
-
-The documented return values of timer_create() are EAGAIN, EINVAL and
-ENOMEM.
-
-	Arnd
+By the way, is it possible that the first call (to xfrm_find_acq_byseq) 
+returns a state that the second call (to xfrm_find_acq) would not find?
+> maybe to cope with an application that would retry a failed 
+> negotiation before the former getspi expired?... I'm not really 
+> convinced by this explanation.
+>
+> But there are maybe other uses of the getspi call than assigning a SPI 
+> for the inbound state of an IKE negotiation...
+>> The likelyhood of breaking something if you remove the call is very
+>> high.
+> Probably. I'm still interested in a concrete example ;-)
+>
+> Christophe
