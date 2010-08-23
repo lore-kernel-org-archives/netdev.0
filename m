@@ -1,51 +1,45 @@
-From: Yinglin Luan <synmyth@gmail.com>
-Subject: [PATCH] qlcnic: fix poll implementation
-Date: Mon, 23 Aug 2010 15:57:56 +0800
-Message-ID: <4C722A04.2080100@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH RFC 0/1] introduce a syscall for posix clock tuning
+Date: Mon, 23 Aug 2010 10:15:57 +0200
+Message-ID: <cover.1282550649.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, monstr@monstr.eu
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:33197 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753025Ab0HWH6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 03:58:05 -0400
-Received: by pxi10 with SMTP id 10so2173050pxi.19
-        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 00:58:04 -0700 (PDT)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:41352 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753026Ab0HWIPp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 04:15:45 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Function qlcnic_intr has pointer to qlcnic_host_sds_ring
-as second parameter not pointer to qlcnic_adapter.
+Recently on lkml, we discussed adding a new syscall, with the
+motivation of supporting PTP clocks. Here is my suggestion how this
+should look like. I would like to get some agreement about this new
+interface before proceeding with the PTP stuff itself.
 
-Signed-off-by: Yinglin Luan <synmyth@gmail.com>
----
- drivers/net/qlcnic/qlcnic_main.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+Thanks,
+Richard
 
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index bf6d87a..a934dbc 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -2190,9 +2190,16 @@ static int qlcnic_rx_poll(struct napi_struct *napi, int budget)
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void qlcnic_poll_controller(struct net_device *netdev)
- {
-+	int ring;
-+	struct qlcnic_host_sds_ring *sds_ring;
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct qlcnic_recv_context *recv_ctx = &adapter->recv_ctx;
-+
- 	disable_irq(adapter->irq);
--	qlcnic_intr(adapter->irq, adapter);
-+	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
-+		sds_ring = &recv_ctx->sds_rings[ring];
-+		qlcnic_intr(adapter->irq, sds_ring);
-+	}
- 	enable_irq(adapter->irq);
- }
- #endif
--- 
-1.7.0.4
+Richard Cochran (1):
+  posix clocks: introduce syscall for clock tuning.
+
+ arch/arm/include/asm/unistd.h      |    1 +
+ arch/arm/kernel/calls.S            |    1 +
+ arch/blackfin/include/asm/unistd.h |    3 +-
+ arch/blackfin/mach-common/entry.S  |    1 +
+ arch/powerpc/include/asm/systbl.h  |    1 +
+ arch/powerpc/include/asm/unistd.h  |    3 +-
+ arch/x86/ia32/ia32entry.S          |    1 +
+ arch/x86/include/asm/unistd_32.h   |    3 +-
+ arch/x86/include/asm/unistd_64.h   |    2 +
+ arch/x86/kernel/syscall_table_32.S |    1 +
+ include/linux/posix-timers.h       |    5 ++++
+ include/linux/syscalls.h           |    3 ++
+ kernel/compat.c                    |   20 ++++++++++++++++++
+ kernel/posix-cpu-timers.c          |    5 ++++
+ kernel/posix-timers.c              |   38 ++++++++++++++++++++++++++++++++++++
+ 15 files changed, 85 insertions(+), 3 deletions(-)
+
