@@ -1,47 +1,26 @@
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: RE: Dead Config Option STMMAC_ETH?
-Date: Mon, 23 Aug 2010 10:44:55 +0200
-Message-ID: <107012446AC13D4C90B85672EAF5FB0E9E0FB3CCC0@SAFEX1MAIL3.st.com>
-References: <86r5i6vegw.fsf@peer.zerties.org>
-	<107012446AC13D4C90B85672EAF5FB0E9E0FB3CC9C@SAFEX1MAIL3.st.com>
- <86bp8tu3d9.fsf@peer.zerties.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/1] posix clocks: introduce syscall for clock tuning.
+Date: Mon, 23 Aug 2010 10:52:03 +0200
+Message-ID: <20100823085203.GA18510@riccoc20.at.omicron.at>
+References: <cover.1282550649.git.richard.cochran@omicron.at>
+ <e253843e07ce5d15c2c8d11ce786bf979ed85ca5.1282550649.git.richard.cochran@omicron.at>
+ <AANLkTi=HFyMpXEjpyHmL-79qzXLQWEfiW+KiJHnrJRW2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"vamos-dev@i4.informatik.uni-erlangen.de"
-	<vamos-dev@i4.informatik.uni-erlangen.de>
-To: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mike Frysinger <vapier.adi@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <86bp8tu3d9.fsf@peer.zerties.org>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <AANLkTi=HFyMpXEjpyHmL-79qzXLQWEfiW+KiJHnrJRW2@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgQ2hyaXN0aWFuLA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IENo
-cmlzdGlhbiBEaWV0cmljaCBbbWFpbHRvOnF5MDNmdWd5QHN0dWQuaW5mb3JtYXRpay51bmktZXJs
-YW5nZW4uZGVdDQo+IFNlbnQ6IE1vbmRheSwgQXVndXN0IDIzLCAyMDEwIDEwOjQyIEFNDQo+IFRv
-OiBQZXBwZSBDQVZBTExBUk8NCj4gQ2M6IENocmlzdGlhbiBEaWV0cmljaDsgRGF2aWQgUy4gTWls
-bGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVs
-Lm9yZzsgdmFtb3MtZGV2QGk0LmluZm9ybWF0aWsudW5pLWVybGFuZ2VuLmRlDQo+IFN1YmplY3Q6
-IFJlOiBEZWFkIENvbmZpZyBPcHRpb24gU1RNTUFDX0VUSD8NCj4gDQo+IFBlcHBlIENBVkFMTEFS
-TyA8cGVwcGUuY2F2YWxsYXJvQHN0LmNvbT4gd3JpdGVzOg0KPiANCj4gWy4uLl0NCj4gDQo+ID4g
-VGhlcmUgaXMgZWZmb3J0IG9uIHRoaXMgZHJpdmVyOiBjdXJyZW50bHkgdGhlIGRyaXZlciBmdWxs
-eSB3b3JrcyBvbg0KPiA+IFNUTSBwbGF0Zm9ybXMgYW5kIHN0YXJ0cyB3b3JraW5nIG9uIEFSTSAo
-U1BFQXIgS2VybmVscykuICBUaGUgZHJpdmVyDQo+ID4gS2NvbmZpZyBhY3R1YWxseSBkZXBlbmRz
-IG9uIHRoZSBDUFVfU1VCVFlQRV9TVDQwIGJ1dCBpdCBidWlsdCBvbiB4ODYNCj4gPiBpZiByZW1v
-dmUgdGhpcyBkZXBlbmRlbmN5IChqdXN0IHZlcmlmaWVkKS4gIEluIHRoZSBwYXN0LCBJIGFkZGVk
-IHRoaXMNCj4gPiBkZXBlbmRlbmN5IGJlY2F1c2UgdGhlIGRyaXZlciB3YXMgaW5pdGlhbGx5IHRl
-c3RlZCBvbiBTVCBrZXJuZWxzDQo+ID4gKHdoZXJlIHdlIGNvbnRpbnVlIHRvIGhhdmUgdGhlIENQ
-VV9TVUJUWVBFX1NUNDApIGJ1dCBJIGNhbiByZXZpZXcgaXQNCj4gPiBpZiB5b3UgbGlrZS4NCj4g
-DQo+IEhtLCBpIHRoaW5rIGl0IHdvdWxkIGJlIGdvb2QgaWYgdGhpcyBkZXBlbmRlbmN5IGlzIHJl
-bW92ZWQsIGlmIGl0IGlzbid0DQo+IG5lZWRlZCwgYmVjYXVzZSB0aGVuIGEgYWxseWVzIGNvbmZp
-ZyB3b3VsZCBjb21waWxlIHRlc3QgdGhpcyBwZWFjZSBvZg0KPiBjb2RlLCBhbmQgaXQgY2FuJ3Qg
-ZGllIHNpbGVudGx5IHdpdGggY2hhbmdlcyBhcm91bmQgaXQuDQoNCk5vIHByb2JsZW0uIEknbGwg
-cmVtb3ZlIGl0IGFuZCByZXZpZXcgdGhlIEtjb25maWcgYXNhcC4NCg0KUGVwcGUNCg0KPiANCj4g
-Z3JlZXR6IGRpZGkNCj4gLS0NCj4gKM67IHggLiB4IHgpICjOuyB4IC4geCB4KSAtLSBTZWUgaG93
-IGJlYXRpZnVsIHRoZSBsYW1iZGEgaXMNCj4gTm8gZG9jdW1lbnRhdGlvbiBpcyBiZXR0ZXIgdGhh
-biBiYWQgZG9jdW1lbnRhdGlvbg0KPiAtLSBEYXMgQXVzZHJ1Y2tlbiBkaWVzZXIgTWFpbCB3aXJk
-IHVyaGViZXJyZWNodGxpY2ggdmVyZm9sZ3QuDQo=
+On Mon, Aug 23, 2010 at 04:22:58AM -0400, Mike Frysinger wrote:
+> FYI, this is going to hit a conflict as i'm about to push out an
+> update to wire up the new 2.6.36 syscalls
+
+Thanks for the "heads up."  At this point, the patch is meant just to
+generate discussion and feedback.
+
+Thanks,
+Richard
