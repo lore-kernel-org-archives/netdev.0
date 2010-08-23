@@ -1,49 +1,128 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] netfilter: xt_condition: add security capability
- support
-Date: Mon, 23 Aug 2010 20:58:05 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1008232052170.31619@obet.zrqbmnf.qr>
-References: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>  <AANLkTi=2H+ytOQU9nC_dRp_GB5Sy1831VY14oW=YSOrG@mail.gmail.com>  <1282570935.7198.5.camel@powerslave>  <alpine.LNX.2.01.1008231628010.21000@obet.zrqbmnf.qr>
- <1282589101.7198.28.camel@powerslave>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH] tcp: make TCP quick ACK behavior modifiable
+Date: Mon, 23 Aug 2010 21:00:37 +0200
+Message-ID: <1282590037-18566-1-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ext Changli Gao <xiaosuo@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	"linux-security-module@vger.kernel.org"
-	<linux-security-module@vger.kernel.org>
-To: Luciano Coelho <luciano.coelho@nokia.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1282589101.7198.28.camel@powerslave>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Ilpo=20J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:38264 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753021Ab0HWTBF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 15:01:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The TCP quick ACK mechanism analyze if a connection is interactive or
+not. Per default the quick ACK mechanism is enabled and ACK packets are
+triggered instantly to raise the CWND fast - which is clever for
+bulk data (non-interactive) flows. On the other hand interactive protoc=
+ols
+like HTTP, SMTP or XMPP will suffer from the quick ACK mechanism
+because one additional packets is generated. A simple heuristic
+detects if a connection is interactive (pingpong) and if so,
+disable the quick ACK. But, the mechanism is not in the ability to
+blindly guess if a connection is interactive, and so it must wait for a=
+t
+least one return packet with payload.
 
-On Monday 2010-08-23 20:45, Luciano Coelho wrote:
->> But it looks as strange as the Yama code attempt.
->
->What is so strange about it? Is it because it's possible to set the
->capability requirement from modprobe arguments? The capability check
->already exists in at least in nfnetlink, where it checks for received
->messages for the CAP_NET_ADMIN capability.  Is it strange because we're
->checking for the capability when someone tries to write to a file?
+=46or the server side this requires one additional packet because (pack=
+et
+number 5 and 6 can be combined):
 
-It is strange that you check this capability from a module focused on
-packet handling. For lack of a better example, it's as if you tried
-to check the uid of the file, the latter of which is better left to
-the routines in fs/.
+192.168.1.35.44833 > 78.47.222.210.80: Flags [S], seq 2854340018, win 5=
+840, options [mss 1460,sackOK,TS val 4382726 ecr 0,nop,wscale 7], lengt=
+h 0
+78.47.222.210.80 > 192.168.1.35.44833: Flags [S.], seq 719041385, ack 2=
+854340019, win 5792, options [mss 1452,sackOK,TS val 2606891996 ecr 438=
+2726,nop,wscale 7], length 0
+192.168.1.35.44833 > 78.47.222.210.80: Flags [.], ack 1, win 46, option=
+s [nop,nop,TS val 4382730 ecr 2606891996], length 0
+192.168.1.35.44833 > 78.47.222.210.80: Flags [P.], seq 1:682, ack 1, wi=
+n 46, options [nop,nop,TS val 4382730 ecr 2606891996], length 681
+78.47.222.210.80 > 192.168.1.35.44833: Flags [.], ack 682, win 56, opti=
+ons [nop,nop,TS val 2606892002 ecr 4382730], length 0
+78.47.222.210.80 > 192.168.1.35.44833: Flags [.], seq 1:1441, ack 682, =
+win 56, options [nop,nop,TS val 2606892002 ecr 4382730], length 1440
+192.168.1.35.44833 > 78.47.222.210.80: Flags [.], ack 1441, win 69, opt=
+ions [nop,nop,TS val 4382737 ecr 2606892002], length 0
 
->>  This is the one time 
->> where I would personally be looking into SELinux, or perhaps SMACK if 
->> the former is too complex, to whether _t'ing off procfs is possible.
->
->Yeah, but it's not up to me to decide this.  We have one entire team
->dedicated to figuring out how to ensure "security" in our device.  It
->was that team who advised us to protect this file by checking for
->CAP_NET_ADMIN.
+This patch provides a sysctl interface for the administrator to globall=
+y
+enable or disable TCP quick ACKs. Short lived protocols like HTTP will
+save a non unimportant portion of packets!
 
-You can do whatever you want with your product. I am just saying this
-does not look like kernel material, and I suppose it won't go well
-with the maintainers up the chain either.
+Disable TCP Quick ACK:
+$ echo 0 > /proc/sys/net/ipv4/tcp_quickack
+
+Enable TCP Quick ACK:
+$ echo 1 > /proc/sys/net/ipv4/tcp_quickack
+
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ include/net/inet_connection_sock.h |    3 +++
+ net/ipv4/sysctl_net_ipv4.c         |    7 +++++++
+ net/ipv4/tcp.c                     |    2 ++
+ 3 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_conn=
+ection_sock.h
+index b6d3b55..da2fbaf 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -170,9 +170,12 @@ static inline int inet_csk_ack_scheduled(const str=
+uct sock *sk)
+ 	return inet_csk(sk)->icsk_ack.pending & ICSK_ACK_SCHED;
+ }
+=20
++extern int sysctl_tcp_quickack;
++
+ static inline void inet_csk_delack_init(struct sock *sk)
+ {
+ 	memset(&inet_csk(sk)->icsk_ack, 0, sizeof(inet_csk(sk)->icsk_ack));
++	inet_csk(sk)->icsk_ack.pingpong =3D sysctl_tcp_quickack ? 0 : 1;
+ }
+=20
+ extern void inet_csk_delete_keepalive_timer(struct sock *sk);
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index d96c1da..8923ca8 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -394,6 +394,13 @@ static struct ctl_table ipv4_table[] =3D {
+ 		.proc_handler	=3D proc_dointvec
+ 	},
+ 	{
++		.procname	=3D "tcp_quickack",
++		.data		=3D &sysctl_tcp_quickack,
++		.maxlen		=3D sizeof(int),
++		.mode		=3D 0644,
++		.proc_handler	=3D proc_dointvec
++	},
++	{
+ 		.procname	=3D "tcp_mem",
+ 		.data		=3D &sysctl_tcp_mem,
+ 		.maxlen		=3D sizeof(sysctl_tcp_mem),
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 176e11a..5161689 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -279,6 +279,8 @@
+=20
+ int sysctl_tcp_fin_timeout __read_mostly =3D TCP_FIN_TIMEOUT;
+=20
++int sysctl_tcp_quickack __read_mostly =3D 1;
++
+ struct percpu_counter tcp_orphan_count;
+ EXPORT_SYMBOL_GPL(tcp_orphan_count);
+=20
+--=20
+1.7.2.1.95.g3d045.dirty
+
