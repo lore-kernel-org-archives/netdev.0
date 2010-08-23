@@ -1,54 +1,47 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: dont filter cached routes on iproute_get
-Date: Mon, 23 Aug 2010 08:15:22 -0700
-Message-ID: <20100823081522.3fa7eff9@nehalam>
-References: <20100808193304.GA15380@amd64.fatal.se>
-	<AANLkTim4h7rTJuF7UWAE-p_4NGkrwksUjoK6m2x5BubG@mail.gmail.com>
-	<1281297165.4116.19.camel@amd64.fatal.se>
-	<20100812090519.GA13769@babylon>
+Subject: Re: [iproute2] iproute2:  Fix filtering related to flushing IP
+ addresses.
+Date: Mon, 23 Aug 2010 08:15:28 -0700
+Message-ID: <20100823081528.46bc001e@nehalam>
+References: <1281978008-6383-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andreas Henriksson <andreas@fatal.se>,
-	Fabio Comolli <fabio.comolli@gmail.com>, netdev@vger.kernel.org
-To: Ulrich Weber <uweber@astaro.com>
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60193 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:60206 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753268Ab0HWPPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Aug 2010 11:15:25 -0400
-In-Reply-To: <20100812090519.GA13769@babylon>
+	id S1753975Ab0HWPPa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Aug 2010 11:15:30 -0400
+In-Reply-To: <1281978008-6383-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Aug 2010 11:05:19 +0200
-Ulrich Weber <uweber@astaro.com> wrote:
+On Mon, 16 Aug 2010 10:00:08 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-> iproute_get will return cloned routes for IPv4
-> and cloned as well non-cloned routes for IPv6.
+> The old 'ip addr flush' logic had several flaws:
 > 
-> Therefore RTM_F_CLONED flag should not be checked
-> for iproute_get routes. Check in print_route will
-> always fail because valid values are 0 and 1.
+> * It reversed logic for primary v/s secondary flags
+>   (though, it sort of worked right anyway)
 > 
-> Signed-off-by: Ulrich Weber <uweber@astaro.com>
-> ---
->  ip/iproute.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
+> * The code tried to remove secondaries and then primaries,
+>   but in practice, it always removed one primary per loop,
+>   which not at all efficient.
 > 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index 711576e..b43933c 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -1286,6 +1286,7 @@ int iproute_get(int argc, char **argv)
->  	memset(&req, 0, sizeof(req));
->  
->  	iproute_reset_filter();
-> +	filter.cloned = 2;
->  
->  	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
->  	req.n.nlmsg_flags = NLM_F_REQUEST;
+> * The filter logic in the core would run only the first
+>   filter in most cases.
+> 
+> * If you used '-s -s', the ifa_flags member would be
+>   modified, which could make future filters fail
+>   to function fine.
+> 
+> This patch attempts to fix all of these issues.
+> 
+> Tested-by: Brian Haley <brian.haley@hp.com>
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
 
-Applied
+applied
 
 -- 
