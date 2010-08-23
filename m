@@ -1,41 +1,41 @@
-From: Robert Jennings <rcj@linux.vnet.ibm.com>
-Subject: Re: [patch 08/20] ibmveth: Dont overallocate buffers
-Date: Mon, 23 Aug 2010 15:49:17 -0500
-Message-ID: <20100823204916.GB15499@linux.vnet.ibm.com>
-References: <20100823000930.546065833@samba.org>
- <20100823001239.041525926@samba.org>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] tcp: make TCP quick ACK behavior modifiable
+Date: Mon, 23 Aug 2010 22:49:20 +0200
+Message-ID: <20100823204920.GC5896@nuttenaction>
+References: <1282590037-18566-1-git-send-email-hagen@jauu.net>
+ <1282596243.2378.327.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: brking@linux.vnet.ibm.com, santil@linux.vnet.ibm.com,
-	netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:55389 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753021Ab0HWUtT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Aug 2010 16:49:19 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o7NKYTFd028712
-	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 16:34:29 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o7NKnIZd475216
-	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 16:49:18 -0400
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o7NKnHrD027927
-	for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 14:49:18 -0600
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:59653 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753222Ab0HWUtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 16:49:36 -0400
 Content-Disposition: inline
-In-Reply-To: <20100823001239.041525926@samba.org>
+In-Reply-To: <1282596243.2378.327.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Anton Blanchard (anton@samba.org) wrote:
-> We were allocating a page, even though we always want 4k. Use kmalloc
-> instead of get_zeroed_page.
+* Eric Dumazet | 2010-08-23 22:44:03 [+0200]:
 
-I get a failure during device open when we have a 4k allocation rather
-than a 64k page allocation.  This is running on a Power6 LPAR without
-AMS.
+>>  static inline void inet_csk_delack_init(struct sock *sk)
+>>  {
+>>  	memset(&inet_csk(sk)->icsk_ack, 0, sizeof(inet_csk(sk)->icsk_ack));
+>> +	inet_csk(sk)->icsk_ack.pingpong = sysctl_tcp_quickack ? 0 : 1;
+>
+>What about dccp using this function ?
 
-(drivers/net/ibmveth.c:621 ua:3000000c) ERROR: h_register_logical_lan failed with -4
-(drivers/net/ibmveth.c:626 ua:3000000c) ERROR: buffer TCE:0x300 filter TCE:0x2300 rxq desc:0x8000601000004000 MAC:0x763cbdd9d30c
+I will check this and re-spin the patch if necessary. Thank you Eric, I missed
+DCCP.
 
+>So here is a new undocumented setting ? hint hint...
+>
+>I thought setsockopt(TCP_QUICKACK) was already available for this
+>optimization ?
+
+... and it is still available. ;-) See my other post answering Stephen's email.
+
+Hagen
