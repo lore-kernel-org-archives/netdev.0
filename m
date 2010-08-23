@@ -1,58 +1,179 @@
-From: Bert Wesarg <bert.wesarg@googlemail.com>
-Subject: Re: [PATCH 1/1] posix clocks: introduce syscall for clock tuning.
-Date: Mon, 23 Aug 2010 10:25:35 +0200
-Message-ID: <AANLkTi=Fa38ufwR8PDc+HBHmLT53eWRA0ofrobm0n9-w@mail.gmail.com>
-References: <cover.1282550649.git.richard.cochran@omicron.at>
-	<e253843e07ce5d15c2c8d11ce786bf979ed85ca5.1282550649.git.richard.cochran@omicron.at>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch 1/2] s2io: remove lro parameter
+Date: Mon, 23 Aug 2010 16:42:20 +0800
+Message-ID: <4C72346C.9020606@redhat.com>
+References: <20100818075530.5926.67960.sendpatchset@localhost.localdomain> <20100818153626.GC9202@exar.com> <4C6E42AC.4070401@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e253843e07ce5d15c2c8d11ce786bf979ed85ca5.1282550649.git.richard.cochran@omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------030308080903030302040004"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
+	"sgruszka@redhat.com" <sgruszka@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Jon Mason <jon.mason@exar.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35582 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751202Ab0HWIiF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Aug 2010 04:38:05 -0400
+In-Reply-To: <4C6E42AC.4070401@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 23, 2010 at 10:16, Richard Cochran <richardcochran@gmail.co=
-m> wrote:
-> diff --git a/kernel/compat.c b/kernel/compat.c
-> index 5adab05..df1e469 100644
-> --- a/kernel/compat.c
-> +++ b/kernel/compat.c
-> @@ -628,6 +628,26 @@ long compat_sys_clock_gettime(clockid_t which_cl=
-ock,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0return err;
-> =C2=A0}
+This is a multi-part message in MIME format.
+--------------030308080903030302040004
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+On 08/20/10 16:54, Cong Wang wrote:
+> On 08/18/10 23:36, Jon Mason wrote:
+>> On Wed, Aug 18, 2010 at 12:51:09AM -0700, Amerigo Wang wrote:
+>>>
+>>> As suggested by David, this parameter can die, we can use ethtool
+>>> to turn LRO on/off. Compile tests only.
+>>
+>> Needs some additional removal
+>>
+>> Line 41 and 42 " * lro: Specifies whether to enable Large Receive ..."
+>> As you have removed the modparm
+>>
+>> Line 8286 "if (sp->lro)"
+>> As it will always be on in this instance
+>>
+>>
+>> Also, all references to "sp->lro" can be converted to "(dev->features
+>> & NETIF_F_LRO)", removing an unnecessary variable.
+>>
 >
-> +long compat_sys_clock_adjtime(clockid_t which_clock, int ppb,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct compat_time=
-spec __user *tp)
-> +{
-> + =C2=A0 =C2=A0 =C2=A0 long err;
-> + =C2=A0 =C2=A0 =C2=A0 mm_segment_t oldfs;
-> + =C2=A0 =C2=A0 =C2=A0 struct timespec ts, *ptr =3D NULL;
+> Thanks for pointing these out.
+> I will fix them later.
+>
 
-Shouldn't ptr be initialized with tp?
+Done, please review the patch below.
 
-> +
-> + =C2=A0 =C2=A0 =C2=A0 if (tp) {
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (get_compat_tim=
-espec(&ts, tp))
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 return -EFAULT;
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ptr =3D &ts;
-> + =C2=A0 =C2=A0 =C2=A0 }
-> + =C2=A0 =C2=A0 =C2=A0 oldfs =3D get_fs();
-> + =C2=A0 =C2=A0 =C2=A0 set_fs(KERNEL_DS);
-> + =C2=A0 =C2=A0 =C2=A0 err =3D sys_clock_adjtime(which_clock, ppb,
-> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 (struct timespec __user *) ptr);
-> + =C2=A0 =C2=A0 =C2=A0 set_fs(oldfs);
-> + =C2=A0 =C2=A0 =C2=A0 return err;
-> +}
-> +
-> =C2=A0long compat_sys_clock_getres(clockid_t which_clock,
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct compat_=
-timespec __user *tp)
-> =C2=A0{
+Thanks!
+
+-- 
+
+Remove "lro" parameter of s2io driver.
+
+Signed-off-by: WANG Cong <amwang@redhat.com>
+
+--------------030308080903030302040004
+Content-Type: text/x-patch;
+ name="drivers-net-s2io-remove-lro-param.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="drivers-net-s2io-remove-lro-param.diff"
+
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 18bc5b7..b3a30ac 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -38,8 +38,6 @@
+  * Tx descriptors that can be associated with each corresponding FIFO.
+  * intr_type: This defines the type of interrupt. The values can be 0(INTA),
+  *     2(MSI_X). Default value is '2(MSI_X)'
+- * lro: Specifies whether to enable Large Receive Offload (LRO) or not.
+- *     Possible values '1' for enable '0' for disable. Default is '0'
+  * lro_max_pkts: This parameter defines maximum number of packets can be
+  *     aggregated as a single large packet
+  * napi: This parameter used to enable/disable NAPI (polling Rx)
+@@ -496,8 +494,6 @@ S2IO_PARM_INT(rxsync_frequency, 3);
+ /* Interrupt type. Values can be 0(INTA), 2(MSI_X) */
+ S2IO_PARM_INT(intr_type, 2);
+ /* Large receive offload feature */
+-static unsigned int lro_enable = 1;
+-module_param_named(lro, lro_enable, uint, 0);
+ 
+ /* Max pkts to be aggregated by LRO at one time. If not specified,
+  * aggregation happens until we hit max IP pkt size(64K)
+@@ -6735,13 +6731,10 @@ static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+ 		return -EINVAL;
+ 
+ 	if (data & ETH_FLAG_LRO) {
+-		if (lro_enable) {
+-			if (!(dev->features & NETIF_F_LRO)) {
+-				dev->features |= NETIF_F_LRO;
+-				changed = 1;
+-			}
+-		} else
+-			rc = -EINVAL;
++		if (!(dev->features & NETIF_F_LRO)) {
++			dev->features |= NETIF_F_LRO;
++			changed = 1;
++		}
+ 	} else if (dev->features & NETIF_F_LRO) {
+ 		dev->features &= ~NETIF_F_LRO;
+ 		changed = 1;
+@@ -6750,7 +6743,6 @@ static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+ 	if (changed && netif_running(dev)) {
+ 		s2io_stop_all_tx_queue(sp);
+ 		s2io_card_down(sp);
+-		sp->lro = !!(dev->features & NETIF_F_LRO);
+ 		rc = s2io_card_up(sp);
+ 		if (rc)
+ 			s2io_reset(sp);
+@@ -7307,7 +7299,7 @@ static int s2io_card_up(struct s2io_nic *sp)
+ 		struct ring_info *ring = &mac_control->rings[i];
+ 
+ 		ring->mtu = dev->mtu;
+-		ring->lro = sp->lro;
++		ring->lro = !!(dev->features & NETIF_F_LRO);
+ 		ret = fill_rx_buffers(sp, ring, 1);
+ 		if (ret) {
+ 			DBG_PRINT(ERR_DBG, "%s: Out of memory in Open\n",
+@@ -7341,7 +7333,7 @@ static int s2io_card_up(struct s2io_nic *sp)
+ 	/* Setting its receive mode */
+ 	s2io_set_multicast(dev);
+ 
+-	if (sp->lro) {
++	if (dev->features & NETIF_F_LRO) {
+ 		/* Initialize max aggregatable pkts per session based on MTU */
+ 		sp->lro_max_aggr_per_sess = ((1<<16) - 1) / dev->mtu;
+ 		/* Check if we can use (if specified) user provided value */
+@@ -7911,7 +7903,6 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 	else
+ 		sp->device_type = XFRAME_I_DEVICE;
+ 
+-	sp->lro = lro_enable;
+ 
+ 	/* Initialize some PCI/PCI-X fields of the NIC. */
+ 	s2io_init_pci(sp);
+@@ -8047,8 +8038,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 	dev->netdev_ops = &s2io_netdev_ops;
+ 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-	if (lro_enable)
+-		dev->features |= NETIF_F_LRO;
++	dev->features |= NETIF_F_LRO;
+ 	dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+ 	if (sp->high_dma_flag == true)
+ 		dev->features |= NETIF_F_HIGHDMA;
+@@ -8283,9 +8273,8 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 			  dev->name);
+ 	}
+ 
+-	if (sp->lro)
+-		DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
+-			  dev->name);
++	DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
++		  dev->name);
+ 	if (ufo)
+ 		DBG_PRINT(ERR_DBG,
+ 			  "%s: UDP Fragmentation Offload(UFO) enabled\n",
+diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
+index 0af0335..26c7884 100644
+--- a/drivers/net/s2io.h
++++ b/drivers/net/s2io.h
+@@ -971,7 +971,6 @@ struct s2io_nic {
+ 
+ 	unsigned long	clubbed_frms_cnt;
+ 	unsigned long	sending_both;
+-	u8		lro;
+ 	u16		lro_max_aggr_per_sess;
+ 	volatile unsigned long state;
+ 	u64		general_int_mask;
+
+--------------030308080903030302040004--
