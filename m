@@ -1,133 +1,69 @@
-From: "Benjamin Li" <benli@broadcom.com>
-Subject: [PATCH] bnx2: Add PCI Advanced Error Reporting support.
-Date: Sun, 22 Aug 2010 18:14:27 -0700
-Message-ID: <1282526067-14014-1-git-send-email-benli@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: define __packed for the userspace code
+Date: Sun, 22 Aug 2010 18:36:24 -0700 (PDT)
+Message-ID: <20100822.183624.28802617.davem@davemloft.net>
+References: <AANLkTin1BOgHBc4sTwFAmQhKFNvZ+90herc4Dsh9P8y2@mail.gmail.com>
+	<201008221507.42023.arnd@arndb.de>
+	<AANLkTiktOcAvAxcXUxh+4jKh0nBmYCf0OVG0wqRNMb9T@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John Feeney" <jfeeney@redhat.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Benjamin Li" <benli@broadcom.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1217 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751304Ab0HWBOf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Aug 2010 21:14:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: arnd@arndb.de, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTiktOcAvAxcXUxh+4jKh0nBmYCf0OVG0wqRNMb9T@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Feeney <jfeeney@redhat.com>
+=46rom: Changli Gao <xiaosuo@gmail.com>
+Date: Sun, 22 Aug 2010 21:47:06 +0800
 
-From: John Feeney <jfeeney@redhat.com>
+> On Sun, Aug 22, 2010 at 9:07 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> On Sunday 22 August 2010 13:23:42 Changli Gao wrote:
+>>> On Sun, Aug 22, 2010 at 7:12 PM, Changli Gao <xiaosuo@gmail.com> wr=
+ote:
+>>> > This commit
+>>> >
+>>> > =A0commit bc10502dba37d3b210efd9f3867212298f13b78e
+>>> > =A0Author: Eric Dumazet <eric.dumazet@gmail.com>
+>>> > =A0Date: =A0 Thu Jun 3 03:21:52 2010 -0700
+>>> >
+>>> > =A0 =A0net: use __packed annotation
+>>> >
+>>> > makes use of __packed in the userspace code. So we'd better defin=
+e __packed
+>>> > for the userspace code too.
+>>> >
+>>>
+>>> Oh, sorry. This patch can't work as include/linux/compiler.h isn't
+>>> exported to the userspace. But where should we define __packed for =
+the
+>>> userspace code? include/linux/types.h?
+>>
+>> I would try to avoid making those structures packed to start with.
+>> From what I can see, they structures annotated in the above commit
+>> mostly don't even require explicit packing because they are already
+>> packed. Not marking them packed makes the code portable to non-gcc
+>> compilers.
+>>
+>=20
+> Maybe __packed is used somewhere to hint that some members of a
+> structure maybe unaligned.
 
-Signed-off-by: John Feeney <jfeeney@redhat.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Benjamin Li <benli@broadcom.com>
----
- drivers/net/bnx2.c |   44 ++++++++++++++++++++++++++++++++++----------
- 1 files changed, 34 insertions(+), 10 deletions(-)
+I don't think this it the reason it was being used here.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index e6a803f..a0e02aa 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -49,6 +49,7 @@
- #include <linux/cache.h>
- #include <linux/firmware.h>
- #include <linux/log2.h>
-+#include <linux/aer.h>
- 
- #if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
- #define BCM_CNIC 1
-@@ -7890,6 +7891,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 	int rc, i, j;
- 	u32 reg;
- 	u64 dma_mask, persist_dma_mask;
-+	int err;
- 
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	bp = netdev_priv(dev);
-@@ -7925,6 +7927,14 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 		goto err_out_disable;
- 	}
- 
-+	/* AER (Advanced Error Reporting) hooks */
-+	err = pci_enable_pcie_error_reporting(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "pci_enable_pcie_error_reporting failed "
-+				    "0x%x\n", err);
-+		/* non-fatal, continue */
-+	}
-+
- 	pci_set_master(pdev);
- 	pci_save_state(pdev);
- 
-@@ -8246,6 +8256,7 @@ err_out_unmap:
- 	}
- 
- err_out_release:
-+	pci_disable_pcie_error_reporting(pdev);
- 	pci_release_regions(pdev);
- 
- err_out_disable:
-@@ -8436,6 +8447,9 @@ bnx2_remove_one(struct pci_dev *pdev)
- 	kfree(bp->temp_stats_blk);
- 
- 	free_netdev(dev);
-+
-+	pci_disable_pcie_error_reporting(pdev);
-+
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
-@@ -8527,25 +8541,35 @@ static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct bnx2 *bp = netdev_priv(dev);
-+	pci_ers_result_t result;
-+	int err;
- 
- 	rtnl_lock();
- 	if (pci_enable_device(pdev)) {
- 		dev_err(&pdev->dev,
- 			"Cannot re-enable PCI device after reset\n");
--		rtnl_unlock();
--		return PCI_ERS_RESULT_DISCONNECT;
-+		result = PCI_ERS_RESULT_DISCONNECT;
-+	} else {
-+		pci_set_master(pdev);
-+		pci_restore_state(pdev);
-+		pci_save_state(pdev);
-+
-+		if (netif_running(dev)) {
-+			bnx2_set_power_state(bp, PCI_D0);
-+			bnx2_init_nic(bp, 1);
-+		}
-+		result = PCI_ERS_RESULT_RECOVERED;
- 	}
--	pci_set_master(pdev);
--	pci_restore_state(pdev);
--	pci_save_state(pdev);
-+	rtnl_unlock();
- 
--	if (netif_running(dev)) {
--		bnx2_set_power_state(bp, PCI_D0);
--		bnx2_init_nic(bp, 1);
-+	err = pci_cleanup_aer_uncorrect_error_status(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev,
-+			"pci_cleanup_aer_uncorrect_error_status failed 0x%0x\n",
-+			 err); /* non-fatal, continue */
- 	}
- 
--	rtnl_unlock();
--	return PCI_ERS_RESULT_RECOVERED;
-+	return result;
- }
- 
- /**
--- 
-1.6.4.GIT
+Any, for one thing, we definitely cannot remove the existing packed
+markers or else we will break every single userland tool out there
+using these socket address structures.
 
+Even the first two members (sa_family_t and unsigned int) will be
+positioned differently if we remove the marker.
 
+I suspect the packed attribute is there to make sure the pppo* socket
+address structures fit within the generic socket address object size.
+(see struct __kernel_sockaddr_storage and struct sockaddr).
+
+As to the problem at-hand, I think we need to use __attribute__((packed=
+))
+here.  And that's what I'll commit into net-2.6 and net-next-2.6
