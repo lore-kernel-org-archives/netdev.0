@@ -1,47 +1,47 @@
-From: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
-Subject: Re: Dead Config Option STMMAC_ETH?
-Date: Mon, 23 Aug 2010 10:42:26 +0200
-Message-ID: <86bp8tu3d9.fsf@peer.zerties.org>
+From: Peppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: RE: Dead Config Option STMMAC_ETH?
+Date: Mon, 23 Aug 2010 10:44:55 +0200
+Message-ID: <107012446AC13D4C90B85672EAF5FB0E9E0FB3CCC0@SAFEX1MAIL3.st.com>
 References: <86r5i6vegw.fsf@peer.zerties.org>
 	<107012446AC13D4C90B85672EAF5FB0E9E0FB3CC9C@SAFEX1MAIL3.st.com>
+ <86bp8tu3d9.fsf@peer.zerties.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"vamos-dev\@i4.informatik.uni-erlangen.de"
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"vamos-dev@i4.informatik.uni-erlangen.de"
 	<vamos-dev@i4.informatik.uni-erlangen.de>
-To: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from peer.zerties.org ([188.40.33.175]:41324 "EHLO peer.zerties.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751688Ab0HWImd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 04:42:33 -0400
-In-Reply-To: <107012446AC13D4C90B85672EAF5FB0E9E0FB3CC9C@SAFEX1MAIL3.st.com>
-	(Peppe CAVALLARO's message of "Mon, 23 Aug 2010 09:13:38 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <86bp8tu3d9.fsf@peer.zerties.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Peppe CAVALLARO <peppe.cavallaro@st.com> writes:
-
-[...]
-
-> There is effort on this driver: currently the driver fully works on
-> STM platforms and starts working on ARM (SPEAr Kernels).  The driver
-> Kconfig actually depends on the CPU_SUBTYPE_ST40 but it built on x86
-> if remove this dependency (just verified).  In the past, I added this
-> dependency because the driver was initially tested on ST kernels
-> (where we continue to have the CPU_SUBTYPE_ST40) but I can review it
-> if you like.
-
-Hm, i think it would be good if this dependency is removed, if it isn't
-needed, because then a allyes config would compile test this peace of
-code, and it can't die silently with changes around it.
-
-greetz didi
---=20
-(=CE=BB x . x x) (=CE=BB x . x x) -- See how beatiful the lambda is
-No documentation is better than bad documentation
--- Das Ausdrucken dieser Mail wird urheberrechtlich verfolgt.
+SGkgQ2hyaXN0aWFuLA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IENo
+cmlzdGlhbiBEaWV0cmljaCBbbWFpbHRvOnF5MDNmdWd5QHN0dWQuaW5mb3JtYXRpay51bmktZXJs
+YW5nZW4uZGVdDQo+IFNlbnQ6IE1vbmRheSwgQXVndXN0IDIzLCAyMDEwIDEwOjQyIEFNDQo+IFRv
+OiBQZXBwZSBDQVZBTExBUk8NCj4gQ2M6IENocmlzdGlhbiBEaWV0cmljaDsgRGF2aWQgUy4gTWls
+bGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVs
+Lm9yZzsgdmFtb3MtZGV2QGk0LmluZm9ybWF0aWsudW5pLWVybGFuZ2VuLmRlDQo+IFN1YmplY3Q6
+IFJlOiBEZWFkIENvbmZpZyBPcHRpb24gU1RNTUFDX0VUSD8NCj4gDQo+IFBlcHBlIENBVkFMTEFS
+TyA8cGVwcGUuY2F2YWxsYXJvQHN0LmNvbT4gd3JpdGVzOg0KPiANCj4gWy4uLl0NCj4gDQo+ID4g
+VGhlcmUgaXMgZWZmb3J0IG9uIHRoaXMgZHJpdmVyOiBjdXJyZW50bHkgdGhlIGRyaXZlciBmdWxs
+eSB3b3JrcyBvbg0KPiA+IFNUTSBwbGF0Zm9ybXMgYW5kIHN0YXJ0cyB3b3JraW5nIG9uIEFSTSAo
+U1BFQXIgS2VybmVscykuICBUaGUgZHJpdmVyDQo+ID4gS2NvbmZpZyBhY3R1YWxseSBkZXBlbmRz
+IG9uIHRoZSBDUFVfU1VCVFlQRV9TVDQwIGJ1dCBpdCBidWlsdCBvbiB4ODYNCj4gPiBpZiByZW1v
+dmUgdGhpcyBkZXBlbmRlbmN5IChqdXN0IHZlcmlmaWVkKS4gIEluIHRoZSBwYXN0LCBJIGFkZGVk
+IHRoaXMNCj4gPiBkZXBlbmRlbmN5IGJlY2F1c2UgdGhlIGRyaXZlciB3YXMgaW5pdGlhbGx5IHRl
+c3RlZCBvbiBTVCBrZXJuZWxzDQo+ID4gKHdoZXJlIHdlIGNvbnRpbnVlIHRvIGhhdmUgdGhlIENQ
+VV9TVUJUWVBFX1NUNDApIGJ1dCBJIGNhbiByZXZpZXcgaXQNCj4gPiBpZiB5b3UgbGlrZS4NCj4g
+DQo+IEhtLCBpIHRoaW5rIGl0IHdvdWxkIGJlIGdvb2QgaWYgdGhpcyBkZXBlbmRlbmN5IGlzIHJl
+bW92ZWQsIGlmIGl0IGlzbid0DQo+IG5lZWRlZCwgYmVjYXVzZSB0aGVuIGEgYWxseWVzIGNvbmZp
+ZyB3b3VsZCBjb21waWxlIHRlc3QgdGhpcyBwZWFjZSBvZg0KPiBjb2RlLCBhbmQgaXQgY2FuJ3Qg
+ZGllIHNpbGVudGx5IHdpdGggY2hhbmdlcyBhcm91bmQgaXQuDQoNCk5vIHByb2JsZW0uIEknbGwg
+cmVtb3ZlIGl0IGFuZCByZXZpZXcgdGhlIEtjb25maWcgYXNhcC4NCg0KUGVwcGUNCg0KPiANCj4g
+Z3JlZXR6IGRpZGkNCj4gLS0NCj4gKM67IHggLiB4IHgpICjOuyB4IC4geCB4KSAtLSBTZWUgaG93
+IGJlYXRpZnVsIHRoZSBsYW1iZGEgaXMNCj4gTm8gZG9jdW1lbnRhdGlvbiBpcyBiZXR0ZXIgdGhh
+biBiYWQgZG9jdW1lbnRhdGlvbg0KPiAtLSBEYXMgQXVzZHJ1Y2tlbiBkaWVzZXIgTWFpbCB3aXJk
+IHVyaGViZXJyZWNodGxpY2ggdmVyZm9sZ3QuDQo=
