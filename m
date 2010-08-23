@@ -1,91 +1,57 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] driver core: platform_bus: allow runtime override of dev_pm_ops
-Date: Mon, 23 Aug 2010 09:30:00 -0600
-Message-ID: <76e79aea-684a-4447-beb8-2d6a736b0950@email.android.com>
-References: <1282575949-27826-1-git-send-email-khilman@deeprootsystems.com> <4cb3d19e-ab7a-495f-b48c-70e3ec9f3b9b@email.android.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] netdev: re-expose net_device_stats to user headers
+Date: Mon, 23 Aug 2010 08:32:58 -0700
+Message-ID: <20100823083258.0777e83d@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Magnus Damm <magnus.damm@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	=?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, Paul Mundt <lethal@linux-sh.org>,
-	Magnus Damm <damm@opensource.se>,
-	Eric Miao <eric.y.miao@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Grant Likely <grant.likely@secretlab.ca>,
-	Kevin Hilman <khilman@deeprootsystems.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4cb3d19e-ab7a-495f-b48c-70e3ec9f3b9b@email.android.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:50041 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751523Ab0HWPdB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Aug 2010 11:33:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This commit broke iproute2 build:
 
+commit be1f3c2c027cc5ad735df6a45a542ed1db7ec48b
+Author: Ben Hutchings <bhutchings@solarflare.com>
+Date:   Tue Jun 8 07:19:54 2010 +0000
 
-"Grant Likely" <grant.likely@secretlab.ca> wrote:
+    net: Enable 64-bit net device statistics on 32-bit architectures
+    
+    Use struct rtnl_link_stats64 as the statistics structure.
 
->
->
->"Kevin Hilman" <khilman@deeprootsystems.com> wrote:
->
->>From: Kevin Hilman <khilman@ti.com>
->>
->>Currently, the platform_bus allows customization of several of the
->>busses dev_pm_ops methods by using weak symbols so that platform code
->>can override them.  The weak-symbol approach is not scalable when
->>wanting to support multiple platforms in a single kernel binary.
->>
->>Instead, provide __init methods for platform code to customize the
->>dev_pm_ops methods at runtime.
->>
->>NOTE: after these dynamic methods are merged, the weak symbols should
->>      be removed from drivers/base/platform.c.  AFAIK, this will only
->>      affect SH and sh-mobile which should be converted to use this
->>      runtime approach instead of the weak symbols.  After SH &
->>      sh-mobile are converted, the weak symobols could be removed.
->>
->>Tested on OMAP3.
->>
->>Cc: Grant Likely <grant.likely@secretlab.ca>
->>Cc: Magnus Damm <magnus.damm@gmail.com>
->>Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
->>---
->> drivers/base/platform.c         |   16 ++++++++++++++++
->> include/linux/platform_device.h |    3 +++
->> 2 files changed, 19 insertions(+), 0 deletions(-)
->>
->>diff --git a/drivers/base/platform.c b/drivers/base/platform.c
->>index c6c933f..a7d8a00 100644
->>--- a/drivers/base/platform.c
->>+++ b/drivers/base/platform.c
->>@@ -976,6 +976,22 @@ struct bus_type platform_bus_type = {
->> };
->> EXPORT_SYMBOL_GPL(platform_bus_type);
->> 
->>+const struct dev_pm_ops * __init platform_bus_get_pm_ops(void)
->>+{
->>+	struct bus_type *bus = &platform_bus_type;
->>+
->>+	return bus->pm;
->>+}
->>+
->>+int __init platform_bus_set_pm_ops(struct dev_pm_ops *pm)
->>+{
->>+	struct bus_type *bus = &platform_bus_type;
->>+
->>+	bus->pm = pm;
->>+
->>+	return 0;
->>+}
->>+
+Iproute2 uses a the kernel exported headers, and the structure
+net_device_stats which is part of the netlink IFLA_STATS message
+was no longer exposed.
 
-Another (minor) note, these can be more concise.  The set open function can have a void return, and bus = &platform_bus_type lines are unnecessary.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+This patch needs to be applied to net-2.6 (2.6.36)
+    
 
-g.
-
->-- 
->Sent from my Android phone with K-9 Mail. Please excuse my brevity.
-
--- 
-Sent from my Android phone with K-9 Mail. Please excuse my brevity.
+--- a/include/linux/netdevice.h	2010-08-23 08:22:17.801906612 -0700
++++ b/include/linux/netdevice.h	2010-08-23 08:25:23.502078638 -0700
+@@ -165,6 +165,8 @@ static inline bool dev_xmit_complete(int
+ #define MAX_HEADER (LL_MAX_HEADER + 48)
+ #endif
+ 
++#endif  /*  __KERNEL__  */
++
+ /*
+  *	Old network device statistics. Fields are native words
+  *	(unsigned long) so they can be read and written atomically.
+@@ -196,9 +198,6 @@ struct net_device_stats {
+ 	unsigned long	tx_compressed;
+ };
+ 
+-#endif  /*  __KERNEL__  */
+-
+-
+ /* Media selection options. */
+ enum {
+         IF_PORT_UNKNOWN = 0,
