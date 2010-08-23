@@ -1,201 +1,68 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net_sched: act_csum: coding style cleanup
-Date: Mon, 23 Aug 2010 21:27:58 +0800
-Message-ID: <1282570078-29512-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: Re: IPsec: Why do pfkey_getspi and xfrm_alloc_userspi call xfrm_find_acq_byseq?
+Date: Mon, 23 Aug 2010 15:30:46 +0200
+Message-ID: <4C727806.3060102@6wind.com>
+References: <4C6D29B9.5070403@6wind.com> <20100822.005353.260099324.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:39149 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631Ab0HWN2m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 09:28:42 -0400
-Received: by pxi10 with SMTP id 10so2247511pxi.19
-        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 06:28:41 -0700 (PDT)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49502 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752704Ab0HWNdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 09:33:22 -0400
+Received: by wyb32 with SMTP id 32so6805738wyb.19
+        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 06:33:21 -0700 (PDT)
+In-Reply-To: <20100822.005353.260099324.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/sched/act_csum.c |   77 +++++++++++++++++++++++++--------------------------
- 1 file changed, 38 insertions(+), 39 deletions(-)
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index be41f1c..67dc7ce 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -42,9 +42,9 @@ static u32 csum_idx_gen;
- static DEFINE_RWLOCK(csum_lock);
- 
- static struct tcf_hashinfo csum_hash_info = {
--	.htab	=	tcf_csum_ht,
--	.hmask	=	CSUM_TAB_MASK,
--	.lock	=	&csum_lock,
-+	.htab	= tcf_csum_ht,
-+	.hmask	= CSUM_TAB_MASK,
-+	.lock	= &csum_lock,
- };
- 
- static const struct nla_policy csum_policy[TCA_CSUM_MAX + 1] = {
-@@ -73,7 +73,8 @@ static int tcf_csum_init(struct nlattr *nla, struct nlattr *est,
- 
- 	pc = tcf_hash_check(parm->index, a, bind, &csum_hash_info);
- 	if (!pc) {
--		pc = tcf_hash_create(parm->index, est, a, sizeof(*p), bind, &csum_idx_gen, &csum_hash_info);
-+		pc = tcf_hash_create(parm->index, est, a, sizeof(*p), bind,
-+				     &csum_idx_gen, &csum_hash_info);
- 		if (IS_ERR(pc))
- 			return PTR_ERR(pc);
- 		p = to_tcf_csum(pc);
-@@ -230,8 +231,9 @@ static int tcf_csum_ipv4_udp(struct sk_buff *skb, struct iphdr *iph,
- 	struct udphdr *udph;
- 	u16 ul;
- 
--	/* Support both UDP and UDPLITE checksum algorithms,
--	 * Don't use udph->len to get the real length without any protocol check,
-+	/*
-+	 * Support both UDP and UDPLITE checksum algorithms, Don't use
-+	 * udph->len to get the real length without any protocol check,
- 	 * UDPLITE uses udph->len for another thing,
- 	 * Use iph->tot_len, or just ipl.
- 	 */
-@@ -249,10 +251,8 @@ static int tcf_csum_ipv4_udp(struct sk_buff *skb, struct iphdr *iph,
- 		if (udplite) {
- 			if (ul == 0)
- 				skb->csum = csum_partial(udph, ipl - ihl, 0);
--
- 			else if ((ul >= sizeof(*udph)) && (ul <= ipl - ihl))
- 				skb->csum = csum_partial(udph, ul, 0);
--
- 			else
- 				goto ignore_obscure_skb;
- 		} else {
-@@ -282,8 +282,9 @@ static int tcf_csum_ipv6_udp(struct sk_buff *skb, struct ipv6hdr *ip6h,
- 	struct udphdr *udph;
- 	u16 ul;
- 
--	/* Support both UDP and UDPLITE checksum algorithms,
--	 * Don't use udph->len to get the real length without any protocol check,
-+	/*
-+	 * Support both UDP and UDPLITE checksum algorithms, Don't use
-+	 * udph->len to get the real length without any protocol check,
- 	 * UDPLITE uses udph->len for another thing,
- 	 * Use ip6h->payload_len + sizeof(*ip6h) ... , or just ipl.
- 	 */
-@@ -340,32 +341,32 @@ static int tcf_csum_ipv4(struct sk_buff *skb, u32 update_flags)
- 	switch (iph->frag_off & htons(IP_OFFSET) ? 0 : iph->protocol) {
- 	case IPPROTO_ICMP:
- 		if (update_flags & TCA_CSUM_UPDATE_FLAG_ICMP)
--			if (!tcf_csum_ipv4_icmp(skb,
--						iph->ihl * 4, ntohs(iph->tot_len)))
-+			if (!tcf_csum_ipv4_icmp(skb, iph->ihl * 4,
-+						ntohs(iph->tot_len)))
- 				goto fail;
- 		break;
- 	case IPPROTO_IGMP:
- 		if (update_flags & TCA_CSUM_UPDATE_FLAG_IGMP)
--			if (!tcf_csum_ipv4_igmp(skb,
--						iph->ihl * 4, ntohs(iph->tot_len)))
-+			if (!tcf_csum_ipv4_igmp(skb, iph->ihl * 4,
-+						ntohs(iph->tot_len)))
- 				goto fail;
- 		break;
- 	case IPPROTO_TCP:
- 		if (update_flags & TCA_CSUM_UPDATE_FLAG_TCP)
--			if (!tcf_csum_ipv4_tcp(skb, iph,
--					       iph->ihl * 4, ntohs(iph->tot_len)))
-+			if (!tcf_csum_ipv4_tcp(skb, iph, iph->ihl * 4,
-+					       ntohs(iph->tot_len)))
- 				goto fail;
- 		break;
- 	case IPPROTO_UDP:
- 		if (update_flags & TCA_CSUM_UPDATE_FLAG_UDP)
--			if (!tcf_csum_ipv4_udp(skb, iph,
--					       iph->ihl * 4, ntohs(iph->tot_len), 0))
-+			if (!tcf_csum_ipv4_udp(skb, iph, iph->ihl * 4,
-+					       ntohs(iph->tot_len), 0))
- 				goto fail;
- 		break;
- 	case IPPROTO_UDPLITE:
- 		if (update_flags & TCA_CSUM_UPDATE_FLAG_UDPLITE)
--			if (!tcf_csum_ipv4_udp(skb, iph,
--					       iph->ihl * 4, ntohs(iph->tot_len), 1))
-+			if (!tcf_csum_ipv4_udp(skb, iph, iph->ihl * 4,
-+					       ntohs(iph->tot_len), 1))
- 				goto fail;
- 		break;
- 	}
-@@ -386,7 +387,7 @@ fail:
- }
- 
- static int tcf_csum_ipv6_hopopts(struct ipv6_opt_hdr *ip6xh,
--				  unsigned int ixhl, unsigned int *pl)
-+				 unsigned int ixhl, unsigned int *pl)
- {
- 	int off, len, optlen;
- 	unsigned char *xh = (void *)ip6xh;
-@@ -395,8 +396,7 @@ static int tcf_csum_ipv6_hopopts(struct ipv6_opt_hdr *ip6xh,
- 	len = ixhl - off;
- 
- 	while (len > 1) {
--		switch (xh[off])
--		{
-+		switch (xh[off]) {
- 		case IPV6_TLV_PAD0:
- 			optlen = 1;
- 			break;
-@@ -476,14 +476,14 @@ static int tcf_csum_ipv6(struct sk_buff *skb, u32 update_flags)
- 			goto done;
- 		case IPPROTO_UDP:
- 			if (update_flags & TCA_CSUM_UPDATE_FLAG_UDP)
--				if (!tcf_csum_ipv6_udp(skb, ip6h,
--						       hl, pl + sizeof(*ip6h), 0))
-+				if (!tcf_csum_ipv6_udp(skb, ip6h, hl,
-+						       pl + sizeof(*ip6h), 0))
- 					goto fail;
- 			goto done;
- 		case IPPROTO_UDPLITE:
- 			if (update_flags & TCA_CSUM_UPDATE_FLAG_UDPLITE)
--				if (!tcf_csum_ipv6_udp(skb, ip6h,
--						       hl, pl + sizeof(*ip6h), 1))
-+				if (!tcf_csum_ipv6_udp(skb, ip6h, hl,
-+						       pl + sizeof(*ip6h), 1))
- 					goto fail;
- 			goto done;
- 		default:
-@@ -544,7 +544,6 @@ static int tcf_csum_dump(struct sk_buff *skb,
- 	struct tcf_csum *p = a->priv;
- 	struct tc_csum opt = {
- 		.update_flags = p->update_flags,
--
- 		.index   = p->tcf_index,
- 		.action  = p->tcf_action,
- 		.refcnt  = p->tcf_refcnt - ref,
-@@ -566,17 +565,17 @@ nla_put_failure:
- }
- 
- static struct tc_action_ops act_csum_ops = {
--	.kind		=	"csum",
--	.hinfo		=	&csum_hash_info,
--	.type		=	TCA_ACT_CSUM,
--	.capab		=	TCA_CAP_NONE,
--	.owner		=	THIS_MODULE,
--	.act		=	tcf_csum,
--	.dump		=	tcf_csum_dump,
--	.cleanup	=	tcf_csum_cleanup,
--	.lookup		=	tcf_hash_search,
--	.init		=	tcf_csum_init,
--	.walk		=	tcf_generic_walker
-+	.kind		= "csum",
-+	.hinfo		= &csum_hash_info,
-+	.type		= TCA_ACT_CSUM,
-+	.capab		= TCA_CAP_NONE,
-+	.owner		= THIS_MODULE,
-+	.act		= tcf_csum,
-+	.dump		= tcf_csum_dump,
-+	.cleanup	= tcf_csum_cleanup,
-+	.lookup		= tcf_hash_search,
-+	.init		= tcf_csum_init,
-+	.walk		= tcf_generic_walker
- };
- 
- MODULE_DESCRIPTION("Checksum updating actions");
+Hi David,
+
+First of all, thank you for your answer.
+
+David Miller wrote:
+> From: Christophe Gouault <christophe.gouault@6wind.com>
+> Date: Thu, 19 Aug 2010 14:55:21 +0200
+>
+>> The call to xfrm_find_acq_byseq() by the pfkey_getspi() and
+>> xfrm_alloc_userspi() functions is quite costly and proves to entail
+>> scalability issues when performing thousands of IKE negotiations with
+>> racoon (from ipsec-tools distribution) or charon (from strongswan
+>> distribution).
+>>
+>> Removing this call in the kernel drastically accelerates the
+>> processing and does not seem to entail functional problems.
+>>
+>> For now, I don't see the point of this call. I need to understand its
+>> purpose, because I'm highly tempted to simply remove it.
+> First of all, removing a function because you don't understand
+> why it's there is rarely a good idea :-)
+Yes, don't worry, I never act that way. I was deliberately a little 
+provocative ;-)
+> I think the semantics require that we check for existing ACQUIRE
+> state entries before we allocate an SPI.
+Well, I still don't see in which case this can happen. The only 
+situations in which an ACQUIRE state entry is created is when an acquire 
+message is raised by the kernel (this creates a temporary outbound 
+state) or when a getspi is issued from the userland (this creates a 
+temporary state, as far as I know, this is the future inbound state 
+negotiated by IKE).
+
+In my humble opinion, issuing a getspi for the output state does not 
+make sense since the SPI is chosen by the destination host.
+So the possibly existing ACQUIRE state entry would be the result of a 
+former getspi with the same value of the seq field. So this call would 
+aim at cancelling a former call to getspi, maybe to cope with an 
+application that would retry a failed negotiation before the former 
+getspi expired?... I'm not really convinced by this explanation.
+
+But there are maybe other uses of the getspi call than assigning a SPI 
+for the inbound state of an IKE negotiation...
+> The likelyhood of breaking something if you remove the call is very
+> high.
+Probably. I'm still interested in a concrete example ;-)
+
+Christophe
