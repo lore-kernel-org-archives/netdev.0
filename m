@@ -1,181 +1,274 @@
 From: Anton Blanchard <anton@samba.org>
-Subject: [patch 13/20] ibmveth: Convert driver specific debug to netdev_dbg
-Date: Mon, 23 Aug 2010 10:09:43 +1000
-Message-ID: <20100823001239.510612310@samba.org>
+Subject: [patch 14/20] ibmveth: Convert driver specific error functions to netdev_err
+Date: Mon, 23 Aug 2010 10:09:44 +1000
+Message-ID: <20100823001239.609670975@samba.org>
 References: <20100823000930.546065833@samba.org>
 Cc: netdev@vger.kernel.org
 To: brking@linux.vnet.ibm.com, santil@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51855 "EHLO ozlabs.org"
+Received: from ozlabs.org ([203.10.76.45]:51861 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751748Ab0HWA3F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Aug 2010 20:29:05 -0400
-Content-Disposition: inline; filename=veth_netdev_dbg
+	id S1751324Ab0HWA3N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Aug 2010 20:29:13 -0400
+Content-Disposition: inline; filename=veth_netdev_printk
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use netdev_dbg to standardise the debug output.
+Use netdev_err to standardise the error output.
 
 Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
 
 Index: net-next-2.6/drivers/net/ibmveth.c
 ===================================================================
---- net-next-2.6.orig/drivers/net/ibmveth.c	2010-08-23 08:52:32.523596050 +1000
-+++ net-next-2.6/drivers/net/ibmveth.c	2010-08-23 08:52:32.953565532 +1000
-@@ -63,18 +63,12 @@
-   printk(KERN_ERR "(%s:%3.3d ua:%x) ERROR: " fmt, __FILE__, __LINE__ , adapter->vdev->unit_address, ## args)
+--- net-next-2.6.orig/drivers/net/ibmveth.c	2010-08-23 08:52:32.953565532 +1000
++++ net-next-2.6/drivers/net/ibmveth.c	2010-08-23 08:52:33.000000000 +1000
+@@ -56,12 +56,6 @@
  
+ #undef DEBUG
+ 
+-#define ibmveth_printk(fmt, args...) \
+-  printk(KERN_DEBUG "%s: " fmt, __FILE__, ## args)
+-
+-#define ibmveth_error_printk(fmt, args...) \
+-  printk(KERN_ERR "(%s:%3.3d ua:%x) ERROR: " fmt, __FILE__, __LINE__ , adapter->vdev->unit_address, ## args)
+-
  #ifdef DEBUG
--#define ibmveth_debug_printk_no_adapter(fmt, args...) \
--  printk(KERN_DEBUG "(%s:%3.3d): " fmt, __FILE__, __LINE__ , ## args)
--#define ibmveth_debug_printk(fmt, args...) \
--  printk(KERN_DEBUG "(%s:%3.3d ua:%x): " fmt, __FILE__, __LINE__ , adapter->vdev->unit_address, ## args)
  #define ibmveth_assert(expr) \
    if(!(expr)) {                                   \
-     printk(KERN_DEBUG "assertion failed (%s:%3.3d ua:%x): %s\n", __FILE__, __LINE__, adapter->vdev->unit_address, #expr); \
-     BUG(); \
-   }
- #else
--#define ibmveth_debug_printk_no_adapter(fmt, args...)
--#define ibmveth_debug_printk(fmt, args...)
- #define ibmveth_assert(expr)
- #endif
+@@ -555,7 +549,8 @@ static int ibmveth_open(struct net_devic
+ 	adapter->filter_list_addr = kzalloc(4096, GFP_KERNEL);
  
-@@ -245,7 +239,8 @@ static void ibmveth_replenish_buffer_poo
- 		skb = netdev_alloc_skb(adapter->netdev, pool->buff_size);
+ 	if(!adapter->buffer_list_addr || !adapter->filter_list_addr) {
+-		ibmveth_error_printk("unable to allocate filter or buffer list pages\n");
++		netdev_err(netdev, "unable to allocate filter or buffer list "
++			   "pages\n");
+ 		ibmveth_cleanup(adapter);
+ 		napi_disable(&adapter->napi);
+ 		return -ENOMEM;
+@@ -565,7 +560,7 @@ static int ibmveth_open(struct net_devic
+ 	adapter->rx_queue.queue_addr = kmalloc(adapter->rx_queue.queue_len, GFP_KERNEL);
  
- 		if(!skb) {
--			ibmveth_debug_printk("replenish: unable to allocate skb\n");
-+			netdev_dbg(adapter->netdev,
-+				   "replenish: unable to allocate skb\n");
- 			adapter->replenish_no_mem++;
- 			break;
- 		}
-@@ -437,7 +432,8 @@ static void ibmveth_rxq_recycle_buffer(s
- 	lpar_rc = h_add_logical_lan_buffer(adapter->vdev->unit_address, desc.desc);
+ 	if(!adapter->rx_queue.queue_addr) {
+-		ibmveth_error_printk("unable to allocate rx queue pages\n");
++		netdev_err(netdev, "unable to allocate rx queue pages\n");
+ 		ibmveth_cleanup(adapter);
+ 		napi_disable(&adapter->napi);
+ 		return -ENOMEM;
+@@ -584,7 +579,8 @@ static int ibmveth_open(struct net_devic
+ 	if ((dma_mapping_error(dev, adapter->buffer_list_dma)) ||
+ 	    (dma_mapping_error(dev, adapter->filter_list_dma)) ||
+ 	    (dma_mapping_error(dev, adapter->rx_queue.queue_dma))) {
+-		ibmveth_error_printk("unable to map filter or buffer list pages\n");
++		netdev_err(netdev, "unable to map filter or buffer list "
++			   "pages\n");
+ 		ibmveth_cleanup(adapter);
+ 		napi_disable(&adapter->napi);
+ 		return -ENOMEM;
+@@ -609,8 +605,10 @@ static int ibmveth_open(struct net_devic
+ 	lpar_rc = ibmveth_register_logical_lan(adapter, rxq_desc, mac_address);
  
  	if(lpar_rc != H_SUCCESS) {
--		ibmveth_debug_printk("h_add_logical_lan_buffer failed during recycle rc=%ld", lpar_rc);
-+		netdev_dbg(adapter->netdev, "h_add_logical_lan_buffer failed "
-+			   "during recycle rc=%ld", lpar_rc);
- 		ibmveth_remove_buffer_from_pool(adapter, adapter->rx_queue.queue_addr[adapter->rx_queue.index].correlator);
+-		ibmveth_error_printk("h_register_logical_lan failed with %ld\n", lpar_rc);
+-		ibmveth_error_printk("buffer TCE:0x%llx filter TCE:0x%llx rxq desc:0x%llx MAC:0x%llx\n",
++		netdev_err(netdev, "h_register_logical_lan failed with %ld\n",
++			   lpar_rc);
++		netdev_err(netdev, "buffer TCE:0x%llx filter TCE:0x%llx rxq "
++			   "desc:0x%llx MAC:0x%llx\n",
+ 				     adapter->buffer_list_dma,
+ 				     adapter->filter_list_dma,
+ 				     rxq_desc.desc,
+@@ -624,7 +622,7 @@ static int ibmveth_open(struct net_devic
+ 		if(!adapter->rx_buff_pool[i].active)
+ 			continue;
+ 		if (ibmveth_alloc_buffer_pool(&adapter->rx_buff_pool[i])) {
+-			ibmveth_error_printk("unable to alloc pool\n");
++			netdev_err(netdev, "unable to alloc pool\n");
+ 			adapter->rx_buff_pool[i].active = 0;
+ 			ibmveth_cleanup(adapter);
+ 			napi_disable(&adapter->napi);
+@@ -634,7 +632,8 @@ static int ibmveth_open(struct net_devic
+ 
+ 	netdev_dbg(netdev, "registering irq 0x%x\n", netdev->irq);
+ 	if((rc = request_irq(netdev->irq, ibmveth_interrupt, 0, netdev->name, netdev)) != 0) {
+-		ibmveth_error_printk("unable to request irq 0x%x, rc %d\n", netdev->irq, rc);
++		netdev_err(netdev, "unable to request irq 0x%x, rc %d\n",
++			   netdev->irq, rc);
+ 		do {
+ 			rc = h_free_logical_lan(adapter->vdev->unit_address);
+ 		} while (H_IS_LONG_BUSY(rc) || (rc == H_BUSY));
+@@ -647,7 +646,7 @@ static int ibmveth_open(struct net_devic
+ 	adapter->bounce_buffer =
+ 	    kmalloc(netdev->mtu + IBMVETH_BUFF_OH, GFP_KERNEL);
+ 	if (!adapter->bounce_buffer) {
+-		ibmveth_error_printk("unable to allocate bounce buffer\n");
++		netdev_err(netdev, "unable to allocate bounce buffer\n");
+ 		ibmveth_cleanup(adapter);
+ 		napi_disable(&adapter->napi);
+ 		return -ENOMEM;
+@@ -656,7 +655,7 @@ static int ibmveth_open(struct net_devic
+ 	    dma_map_single(&adapter->vdev->dev, adapter->bounce_buffer,
+ 			   netdev->mtu + IBMVETH_BUFF_OH, DMA_BIDIRECTIONAL);
+ 	if (dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
+-		ibmveth_error_printk("unable to map bounce buffer\n");
++		netdev_err(netdev, "unable to map bounce buffer\n");
+ 		ibmveth_cleanup(adapter);
+ 		napi_disable(&adapter->napi);
+ 		return -ENOMEM;
+@@ -692,8 +691,8 @@ static int ibmveth_close(struct net_devi
+ 
+ 	if(lpar_rc != H_SUCCESS)
+ 	{
+-		ibmveth_error_printk("h_free_logical_lan failed with %lx, continuing with close\n",
+-				     lpar_rc);
++		netdev_err(netdev, "h_free_logical_lan failed with %lx, "
++			   "continuing with close\n", lpar_rc);
  	}
  
-@@ -548,7 +544,7 @@ static int ibmveth_open(struct net_devic
- 	int i;
- 	struct device *dev;
+ 	free_irq(netdev->irq, netdev);
+@@ -794,8 +793,8 @@ static int ibmveth_set_csum_offload(stru
  
--	ibmveth_debug_printk("open starting\n");
-+	netdev_dbg(netdev, "open starting\n");
+ 		if (ret != H_SUCCESS) {
+ 			rc1 = -EIO;
+-			ibmveth_error_printk("unable to change checksum offload settings."
+-					     " %d rc=%ld\n", data, ret);
++			netdev_err(dev, "unable to change checksum offload "
++				   "settings. %d rc=%ld\n", data, ret);
  
- 	napi_enable(&adapter->napi);
+ 			ret = h_illan_attributes(adapter->vdev->unit_address,
+ 						 set_attr, clr_attr, &ret_attr);
+@@ -803,8 +802,9 @@ static int ibmveth_set_csum_offload(stru
+ 			done(dev, data);
+ 	} else {
+ 		rc1 = -EIO;
+-		ibmveth_error_printk("unable to change checksum offload settings."
+-				     " %d rc=%ld ret_attr=%lx\n", data, ret, ret_attr);
++		netdev_err(dev, "unable to change checksum offload settings."
++				     " %d rc=%ld ret_attr=%lx\n", data, ret,
++				     ret_attr);
+ 	}
  
-@@ -604,9 +600,9 @@ static int ibmveth_open(struct net_devic
- 	rxq_desc.fields.flags_len = IBMVETH_BUF_VALID | adapter->rx_queue.queue_len;
- 	rxq_desc.fields.address = adapter->rx_queue.queue_dma;
+ 	if (restart)
+@@ -920,8 +920,8 @@ static int ibmveth_send(struct ibmveth_a
+ 	} while ((ret == H_BUSY) && (retry_count--));
  
--	ibmveth_debug_printk("buffer list @ 0x%p\n", adapter->buffer_list_addr);
--	ibmveth_debug_printk("filter list @ 0x%p\n", adapter->filter_list_addr);
--	ibmveth_debug_printk("receive q   @ 0x%p\n", adapter->rx_queue.queue_addr);
-+	netdev_dbg(netdev, "buffer list @ 0x%p\n", adapter->buffer_list_addr);
-+	netdev_dbg(netdev, "filter list @ 0x%p\n", adapter->filter_list_addr);
-+	netdev_dbg(netdev, "receive q   @ 0x%p\n", adapter->rx_queue.queue_addr);
+ 	if (ret != H_SUCCESS && ret != H_DROPPED) {
+-		ibmveth_error_printk("tx: h_send_logical_lan failed with "
+-				     "rc=%ld\n", ret);
++		netdev_err(adapter->netdev, "tx: h_send_logical_lan failed "
++			   "with rc=%ld\n", ret);
+ 		return 1;
+ 	}
  
- 	h_vio_signal(adapter->vdev->unit_address, VIO_IRQ_DISABLE);
+@@ -949,7 +949,7 @@ static netdev_tx_t ibmveth_start_xmit(st
+ 	/* veth can't checksum offload UDP */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+ 	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
+-		ibmveth_error_printk("tx: failed to checksum packet\n");
++		netdev_err(netdev, "tx: failed to checksum packet\n");
+ 		netdev->stats.tx_dropped++;
+ 		goto out;
+ 	}
+@@ -1045,7 +1045,7 @@ map_failed_frags:
  
-@@ -636,7 +632,7 @@ static int ibmveth_open(struct net_devic
+ map_failed:
+ 	if (!firmware_has_feature(FW_FEATURE_CMO))
+-		ibmveth_error_printk("tx: unable to map xmit buffer\n");
++		netdev_err(netdev, "tx: unable to map xmit buffer\n");
+ 	adapter->tx_map_failed++;
+ 	skb_linearize(skb);
+ 	force_bounce = 1;
+@@ -1161,7 +1161,8 @@ static void ibmveth_set_multicast_list(s
+ 					   IbmVethMcastDisableFiltering,
+ 					   0);
+ 		if(lpar_rc != H_SUCCESS) {
+-			ibmveth_error_printk("h_multicast_ctrl rc=%ld when entering promisc mode\n", lpar_rc);
++			netdev_err(netdev, "h_multicast_ctrl rc=%ld when "
++				   "entering promisc mode\n", lpar_rc);
+ 		}
+ 	} else {
+ 		struct netdev_hw_addr *ha;
+@@ -1172,7 +1173,9 @@ static void ibmveth_set_multicast_list(s
+ 					   IbmVethMcastClearFilterTable,
+ 					   0);
+ 		if(lpar_rc != H_SUCCESS) {
+-			ibmveth_error_printk("h_multicast_ctrl rc=%ld when attempting to clear filter table\n", lpar_rc);
++			netdev_err(netdev, "h_multicast_ctrl rc=%ld when "
++				   "attempting to clear filter table\n",
++				   lpar_rc);
+ 		}
+ 		/* add the addresses to the filter table */
+ 		netdev_for_each_mc_addr(ha, netdev) {
+@@ -1183,7 +1186,9 @@ static void ibmveth_set_multicast_list(s
+ 						   IbmVethMcastAddFilter,
+ 						   mcast_addr);
+ 			if(lpar_rc != H_SUCCESS) {
+-				ibmveth_error_printk("h_multicast_ctrl rc=%ld when adding an entry to the filter table\n", lpar_rc);
++				netdev_err(netdev, "h_multicast_ctrl rc=%ld "
++					   "when adding an entry to the filter "
++					   "table\n", lpar_rc);
+ 			}
+ 		}
+ 
+@@ -1192,7 +1197,8 @@ static void ibmveth_set_multicast_list(s
+ 					   IbmVethMcastEnableFiltering,
+ 					   0);
+ 		if(lpar_rc != H_SUCCESS) {
+-			ibmveth_error_printk("h_multicast_ctrl rc=%ld when enabling filtering\n", lpar_rc);
++			netdev_err(netdev, "h_multicast_ctrl rc=%ld when "
++				   "enabling filtering\n", lpar_rc);
  		}
  	}
- 
--	ibmveth_debug_printk("registering irq 0x%x\n", netdev->irq);
-+	netdev_dbg(netdev, "registering irq 0x%x\n", netdev->irq);
- 	if((rc = request_irq(netdev->irq, ibmveth_interrupt, 0, netdev->name, netdev)) != 0) {
- 		ibmveth_error_printk("unable to request irq 0x%x, rc %d\n", netdev->irq, rc);
- 		do {
-@@ -666,12 +662,12 @@ static int ibmveth_open(struct net_devic
- 		return -ENOMEM;
- 	}
- 
--	ibmveth_debug_printk("initial replenish cycle\n");
-+	netdev_dbg(netdev, "initial replenish cycle\n");
- 	ibmveth_interrupt(netdev->irq, netdev);
- 
- 	netif_start_queue(netdev);
- 
--	ibmveth_debug_printk("open complete\n");
-+	netdev_dbg(netdev, "open complete\n");
- 
- 	return 0;
  }
-@@ -681,7 +677,7 @@ static int ibmveth_close(struct net_devi
- 	struct ibmveth_adapter *adapter = netdev_priv(netdev);
- 	long lpar_rc;
- 
--	ibmveth_debug_printk("close starting\n");
-+	netdev_dbg(netdev, "close starting\n");
- 
- 	napi_disable(&adapter->napi);
- 
-@@ -706,7 +702,7 @@ static int ibmveth_close(struct net_devi
- 
- 	ibmveth_cleanup(adapter);
- 
--	ibmveth_debug_printk("close complete\n");
-+	netdev_dbg(netdev, "close complete\n");
- 
- 	return 0;
- }
-@@ -1072,7 +1068,7 @@ static int ibmveth_poll(struct napi_stru
- 		if (!ibmveth_rxq_buffer_valid(adapter)) {
- 			wmb(); /* suggested by larson1 */
- 			adapter->rx_invalid_buffer++;
--			ibmveth_debug_printk("recycling invalid buffer\n");
-+			netdev_dbg(netdev, "recycling invalid buffer\n");
- 			ibmveth_rxq_recycle_buffer(adapter);
- 		} else {
- 			struct sk_buff *skb, *new_skb;
-@@ -1324,8 +1320,8 @@ static int __devinit ibmveth_probe(struc
- 	unsigned int *mcastFilterSize_p;
- 
- 
--	ibmveth_debug_printk_no_adapter("entering ibmveth_probe for UA 0x%x\n",
--					dev->unit_address);
-+	dev_dbg(&dev->dev, "entering ibmveth_probe for UA 0x%x\n",
-+		dev->unit_address);
- 
+@@ -1326,17 +1332,15 @@ static int __devinit ibmveth_probe(struc
  	mac_addr_p = (unsigned char *) vio_get_attribute(dev,
  						VETH_MAC_ADDR, NULL);
-@@ -1394,13 +1390,13 @@ static int __devinit ibmveth_probe(struc
- 			kobject_uevent(kobj, KOBJ_ADD);
+ 	if(!mac_addr_p) {
+-		printk(KERN_ERR "(%s:%3.3d) ERROR: Can't find VETH_MAC_ADDR "
+-				"attribute\n", __FILE__, __LINE__);
++		dev_err(&dev->dev, "Can't find VETH_MAC_ADDR attribute\n");
+ 		return 0;
  	}
  
--	ibmveth_debug_printk("adapter @ 0x%p\n", adapter);
-+	netdev_dbg(netdev, "adapter @ 0x%p\n", adapter);
- 
- 	adapter->buffer_list_dma = DMA_ERROR_CODE;
- 	adapter->filter_list_dma = DMA_ERROR_CODE;
- 	adapter->rx_queue.queue_dma = DMA_ERROR_CODE;
- 
--	ibmveth_debug_printk("registering netdev...\n");
-+	netdev_dbg(netdev, "registering netdev...\n");
- 
- 	ret = h_illan_attributes(dev->unit_address, 0, 0, &ret_attr);
- 
-@@ -1421,12 +1417,12 @@ static int __devinit ibmveth_probe(struc
- 	rc = register_netdev(netdev);
- 
- 	if(rc) {
--		ibmveth_debug_printk("failed to register netdev rc=%d\n", rc);
-+		netdev_dbg(netdev, "failed to register netdev rc=%d\n", rc);
- 		free_netdev(netdev);
- 		return rc;
+ 	mcastFilterSize_p = (unsigned int *) vio_get_attribute(dev,
+ 						VETH_MCAST_FILTER_SIZE, NULL);
+ 	if(!mcastFilterSize_p) {
+-		printk(KERN_ERR "(%s:%3.3d) ERROR: Can't find "
+-				"VETH_MCAST_FILTER_SIZE attribute\n",
+-				__FILE__, __LINE__);
++		dev_err(&dev->dev, "Can't find VETH_MCAST_FILTER_SIZE "
++			"attribute\n");
+ 		return 0;
  	}
  
--	ibmveth_debug_printk("registered\n");
-+	netdev_dbg(netdev, "registered\n");
+@@ -1480,7 +1484,8 @@ const char * buf, size_t count)
+ 		if (value && !pool->active) {
+ 			if (netif_running(netdev)) {
+ 				if(ibmveth_alloc_buffer_pool(pool)) {
+-					ibmveth_error_printk("unable to alloc pool\n");
++					netdev_err(netdev,
++						   "unable to alloc pool\n");
+ 					return -ENOMEM;
+ 				}
+ 				pool->active = 1;
+@@ -1506,7 +1511,7 @@ const char * buf, size_t count)
+ 			}
  
- 	return 0;
+ 			if (i == IbmVethNumBufferPools) {
+-				ibmveth_error_printk("no active pool >= MTU\n");
++				netdev_err(netdev, "no active pool >= MTU\n");
+ 				return -EPERM;
+ 			}
+ 
+@@ -1614,7 +1619,8 @@ static struct vio_driver ibmveth_driver
+ 
+ static int __init ibmveth_module_init(void)
+ {
+-	ibmveth_printk("%s: %s %s\n", ibmveth_driver_name, ibmveth_driver_string, ibmveth_driver_version);
++	printk(KERN_DEBUG "%s: %s %s\n", ibmveth_driver_name,
++	       ibmveth_driver_string, ibmveth_driver_version);
+ 
+ 	return vio_register_driver(&ibmveth_driver);
  }
 
 
