@@ -1,72 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: copy_rtnl_link_stats64() simplification
-Date: Mon, 23 Aug 2010 19:14:36 +0200
-Message-ID: <1282583676.2486.525.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:38576 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753121Ab0HWROl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 13:14:41 -0400
-Received: by fxm13 with SMTP id 13so3122216fxm.19
-        for <netdev@vger.kernel.org>; Mon, 23 Aug 2010 10:14:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: [PATCH v2] driver core: platform_bus: allow runtime override of dev_pm_ops
+Date: Mon, 23 Aug 2010 10:18:42 -0700
+Message-ID: <1282583922-984-1-git-send-email-khilman@deeprootsystems.com>
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Kevin Hilman <khilman@deeprootsystems.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>, Paul Mundt <lethal@linux-sh.org>,
+	Magnus Damm <damm@opensource.se>,
+	Eric Miao <eric.y.miao@gmail.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No need to use a temporary struct rtnl_link_stats64 variable,
-just copy the source to skb buffer.
+Currently, the platform_bus allows customization of several of the
+busses dev_pm_ops methods by using weak symbols so that platform code
+can override them.  The weak-symbol approach is not scalable when
+wanting to support multiple platforms in a single kernel binary.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Instead, provide __init methods for platform code to customize the
+dev_pm_ops methods at runtime.
+
+NOTE: after these dynamic methods are merged, the weak symbols should
+      be removed from drivers/base/platform.c.  AFAIK, this will only
+      affect SH and sh-mobile which should be converted to use this
+      runtime approach instead of the weak symbols.  After SH &
+      sh-mobile are converted, the weak symobols could be removed.
+
+Tested on OMAP3.
+
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: Magnus Damm <magnus.damm@gmail.com>
+Signed-off-by: Kevin Hilman <khilman@deeprootsystems.com>
 ---
- net/core/rtnetlink.c |   31 +------------------------------
- 1 file changed, 1 insertion(+), 30 deletions(-)
+ drivers/base/platform.c         |   35 +++++++++++++++++++++++++++++++++++
+ include/linux/platform_device.h |    3 +++
+ 2 files changed, 38 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index f78d821..b2a718d 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -612,36 +612,7 @@ static void copy_rtnl_link_stats(struct rtnl_link_stats *a,
+diff --git a/drivers/base/platform.c b/drivers/base/platform.c
+index c6c933f..e40a773 100644
+--- a/drivers/base/platform.c
++++ b/drivers/base/platform.c
+@@ -976,6 +976,41 @@ struct bus_type platform_bus_type = {
+ };
+ EXPORT_SYMBOL_GPL(platform_bus_type);
  
- static void copy_rtnl_link_stats64(void *v, const struct rtnl_link_stats64 *b)
++/**
++ * platform_bus_get_pm_ops: return pointer to busses dev_pm_ops
++ *
++ * This function can be used by platform code to get the current
++ * set of dev_pm_ops functions used by the platform_bus_type.
++ */
++const struct dev_pm_ops * __init platform_bus_get_pm_ops(void)
++{
++	return platform_bus_type.pm;
++}
++
++/**
++ * platform_bus_set_pm_ops: update dev_pm_ops for the platform_bus_type
++ *
++ * @pm: pointer to new dev_pm_ops struct to be used for platform_bus_type
++ *
++ * Platform code can override the dev_pm_ops methods of
++ * platform_bus_type by using this function.  It is expected that
++ * platform code will first do a platform_bus_get_pm_ops(), then
++ * kmemdup it, then customize selected methods and pass a pointer to
++ * the new struct dev_pm_ops to this function.
++ *
++ * Since platform-specific code is customizing methods for *all*
++ * devices (not just platform-specific devices) it is expected that
++ * any custom overrides of these functions will keep existing behavior
++ * and simply extend it.  For example, any customization of the
++ * runtime PM methods should continue to call the pm_generic_*
++ * functions as the default ones do in addition to the
++ * platform-specific behavior.
++ */
++void __init platform_bus_set_pm_ops(struct dev_pm_ops *pm)
++{
++	platform_bus_type.pm = pm;
++}
++
+ int __init platform_bus_init(void)
  {
--	struct rtnl_link_stats64 a;
--
--	a.rx_packets = b->rx_packets;
--	a.tx_packets = b->tx_packets;
--	a.rx_bytes = b->rx_bytes;
--	a.tx_bytes = b->tx_bytes;
--	a.rx_errors = b->rx_errors;
--	a.tx_errors = b->tx_errors;
--	a.rx_dropped = b->rx_dropped;
--	a.tx_dropped = b->tx_dropped;
--
--	a.multicast = b->multicast;
--	a.collisions = b->collisions;
--
--	a.rx_length_errors = b->rx_length_errors;
--	a.rx_over_errors = b->rx_over_errors;
--	a.rx_crc_errors = b->rx_crc_errors;
--	a.rx_frame_errors = b->rx_frame_errors;
--	a.rx_fifo_errors = b->rx_fifo_errors;
--	a.rx_missed_errors = b->rx_missed_errors;
--
--	a.tx_aborted_errors = b->tx_aborted_errors;
--	a.tx_carrier_errors = b->tx_carrier_errors;
--	a.tx_fifo_errors = b->tx_fifo_errors;
--	a.tx_heartbeat_errors = b->tx_heartbeat_errors;
--	a.tx_window_errors = b->tx_window_errors;
--
--	a.rx_compressed = b->rx_compressed;
--	a.tx_compressed = b->tx_compressed;
--	memcpy(v, &a, sizeof(a));
-+	memcpy(v, b, sizeof(*b));
- }
+ 	int error;
+diff --git a/include/linux/platform_device.h b/include/linux/platform_device.h
+index d7ecad0..cd55d39 100644
+--- a/include/linux/platform_device.h
++++ b/include/linux/platform_device.h
+@@ -138,6 +138,9 @@ extern struct platform_device *platform_create_bundle(struct platform_driver *dr
+ 					struct resource *res, unsigned int n_res,
+ 					const void *data, size_t size);
  
- /* All VF info */
-
-
++extern const struct dev_pm_ops * __init platform_bus_get_pm_ops(void);
++extern void __init platform_bus_set_pm_ops(struct dev_pm_ops *pm);
++
+ /* early platform driver interface */
+ struct early_platform_driver {
+ 	const char *class_str;
+-- 
+1.7.2.1
