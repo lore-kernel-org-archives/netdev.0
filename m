@@ -1,46 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH RFC] net: save RX queue number in sock for
- dev_pick_tx() use
-Date: Tue, 24 Aug 2010 17:45:29 +0100
-Message-ID: <1282668329.2302.8.camel@achroite.uk.solarflarecom.com>
-References: <1282640519-15541-1-git-send-email-xiaosuo@gmail.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch 1/4] pxa168_eth: remove unneeded null check
+Date: Tue, 24 Aug 2010 18:52:46 +0200
+Message-ID: <20100824165150.GH29330@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Sachin Sanap <ssanap@marvell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:49586 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755719Ab0HXQpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 12:45:35 -0400
-In-Reply-To: <1282640519-15541-1-git-send-email-xiaosuo@gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57235 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752143Ab0HXQxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 12:53:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-08-24 at 17:01 +0800, Changli Gao wrote:
-> For the packets sent out from a local server socket, we can use the queue
-> from which the packets from the client socket are received.
-> 
-> It may help on a TCP or UDP server. Because I don't have a multiqueue NIC,
-> I don't even test it.
-[...]
+"pep->pd" isn't checked consistently in this function.  For example it's
+dereferenced unconditionally on the next line after the end of the if
+condition.  This function is only called from pxa168_eth_probe() and
+pep->pd is always non-NULL so I removed the check.
 
-There are some fairly cheap 1G multiqueue NICs around now (and even
-several of the ARM embedded Ethernet controllers support multiqueue).
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Could you compare this with my patch in
-<http://thread.gmane.org/gmane.linux.network/158477>?
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+diff --git a/drivers/net/pxa168_eth.c b/drivers/net/pxa168_eth.c
+index ecc64d7..857a681 100644
+--- a/drivers/net/pxa168_eth.c
++++ b/drivers/net/pxa168_eth.c
+@@ -1414,10 +1414,8 @@ static int ethernet_phy_setup(struct net_device *dev)
+ {
+ 	struct pxa168_eth_private *pep = netdev_priv(dev);
+ 
+-	if (pep->pd != NULL) {
+-		if (pep->pd->init)
+-			pep->pd->init();
+-	}
++	if (pep->pd->init)
++		pep->pd->init();
+ 	pep->phy = phy_scan(pep, pep->pd->phy_addr & 0x1f);
+ 	if (pep->phy != NULL)
+ 		phy_init(pep, pep->pd->speed, pep->pd->duplex);
