@@ -1,40 +1,43 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: use skb_get_rxhash()
-Date: Tue, 24 Aug 2010 17:52:38 +0800
-Message-ID: <1282643558-20866-1-git-send-email-xiaosuo@gmail.com>
-Cc: netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:65367 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754069Ab0HXJxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 05:53:35 -0400
-Received: by pvg2 with SMTP id 2so2586830pvg.19
-        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 02:53:35 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: IPVS network namespace aware ?
+Date: Tue, 24 Aug 2010 12:02:53 +0200
+Message-ID: <4C7398CD.7090905@free.fr>
+References: <1281099450.2518.21.camel@seasc0214.dyn.rnd.as.sw.ericsson.se>	 <4C72CA3C.4080708@free.fr> <1282640038.25529.38.camel@seasc0214.dyn.rnd.as.sw.ericsson.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1282640038.25529.38.camel@seasc0214.dyn.rnd.as.sw.ericsson.se>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Although it is rare the line contains skb->rxhash is executed:
+On 08/24/2010 10:53 AM, Hans Schillstrom wrote:
+> Hi Daniel
+> The progress is good, so far I think everything is ported except for
+> Simon Hormans latest patch-set.
+>
+> Right now I'm struggling with NULL pointers :-)
+> i.e. seq_file doesn't carry any netns info.
+>
+> In the example below *net will be invalid because seq->private is NULL.
+>
+> static void *ip_vs_info_seq_next(struct seq_file *seq, ....) {
+> struct net *net = seq_file_net(seq);
+>
+> single_open() seems to work, but seq_open() or seq_open_private().
+>    
 
- * The forwarded skbs should have the the rx queue recoreded.
- * The local generated skbs should have non zero sk_hash in most of cases.
+That sounds me familiar ... :)
 
-when it is executed, a non zero rxhash will be better.
+> As you can see I'm not ready, so help will be nice.
+> I'll remove some debugging stuff and send you a patch-set.
+>    
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 859e30f..ea041fd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2034,7 +2034,7 @@ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
- 	if (skb->sk && skb->sk->sk_hash)
- 		hash = skb->sk->sk_hash;
- 	else
--		hash = (__force u16) skb->protocol ^ skb->rxhash;
-+		hash = (__force u16) skb->protocol ^ skb_get_rxhash(skb);
- 	hash = jhash_1word(hash, hashrnd);
- 
- 	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
+Cool, thanks !
+
+   -- Daniel
+
