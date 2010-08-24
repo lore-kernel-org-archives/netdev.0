@@ -1,65 +1,94 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [patch net-next] net: increase the size of priv_flags and add IFF_OVS_DATAPATH
-Date: Mon, 23 Aug 2010 23:48:05 -0700
-Message-ID: <6280.1282632485@death>
-References: <20100824022637.GA11820@verge.net.au> <20100823.204408.35817944.davem@davemloft.net>
-Cc: horms@verge.net.au, netdev@vger.kernel.org, jesse@nicira.com
-To: David Miller <davem@davemloft.net>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH] netfilter: xt_condition: add security capability
+ support
+Date: Tue, 24 Aug 2010 10:00:20 +0300
+Message-ID: <1282633220.7198.123.camel@powerslave>
+References: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>
+	 <AANLkTi=2H+ytOQU9nC_dRp_GB5Sy1831VY14oW=YSOrG@mail.gmail.com>
+	 <1282570935.7198.5.camel@powerslave>
+	 <alpine.LNX.2.01.1008231628010.21000@obet.zrqbmnf.qr>
+	 <1282589101.7198.28.camel@powerslave>
+	 <alpine.LNX.2.01.1008232052170.31619@obet.zrqbmnf.qr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ext Changli Gao <xiaosuo@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	James Morris <jmorris@namei.org>,
+	"linux-security-module@vger.kernel.org"
+	<linux-security-module@vger.kernel.org>
+To: ext Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:54918 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750769Ab0HXGsN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 02:48:13 -0400
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o7O6T9lB023117
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 02:29:09 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o7O6m8mc336172
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 02:48:08 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o7O6m8js014937
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 03:48:08 -0300
-In-reply-to: <20100823.204408.35817944.davem@davemloft.net>
+Received: from smtp.nokia.com ([192.100.105.134]:60313 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754261Ab0HXHAv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 03:00:51 -0400
+In-Reply-To: <alpine.LNX.2.01.1008232052170.31619@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+On Mon, 2010-08-23 at 20:58 +0200, ext Jan Engelhardt wrote:
+> On Monday 2010-08-23 20:45, Luciano Coelho wrote:
+> >> But it looks as strange as the Yama code attempt.
+> >
+> >What is so strange about it? Is it because it's possible to set the
+> >capability requirement from modprobe arguments? The capability check
+> >already exists in at least in nfnetlink, where it checks for received
+> >messages for the CAP_NET_ADMIN capability.  Is it strange because we're
+> >checking for the capability when someone tries to write to a file?
+> 
+> It is strange that you check this capability from a module focused on
+> packet handling. For lack of a better example, it's as if you tried
+> to check the uid of the file, the latter of which is better left to
+> the routines in fs/.
 
->From: Simon Horman <horms@verge.net.au>
->Date: Tue, 24 Aug 2010 11:26:41 +0900
->
->> IFF_OVS_DATAPATH is a place-holder for the Open vSwitch datapath
->> which I am preparing to submit for merging.
->> 
->> As all 16 bits of priv_flags are already assigned flags, also increase
->> the size of priv_flags to 32 bits.
->> 
->> Unfortunately, by my calculations this increases the size of
->> struct net_device by 4 bytes on 32bit architectures and
->> 8 bytes on 64 bit architectures. I couldn't see an obvious
->> way to avoid that.
->> 
->> Cc: Jesse Gross <jesse@nicira.com>
->> Signed-off-by: Simon Horman <horms@verge.net.au>
->
->I can't think of a better way out of this, so applied for now.
->
->Maybe somehow some of those bonding specific flags can get put
->down into the bonding private structure.  However, that might
->not be possible if the sole reason those live in ->priv_flags
->is to allow tests of the flags outside of the bonding code.
+Okay, thanks for the explanation! I'll have to figure something else out
+then.
 
-	That is indeed the case: it's to permit the flags to be tested
-primarily in the netif_receive_skb path (inside __skb_bond_should_drop)
-without calling into bonding via a hook or the like.  There's also one
-check in fcoe to not support fcoe over a subset of bonding modes, from
-the looks of it.
+What I don't understand is that I see lots of components, which have
+nothing to do with security, making this kind of checks.  Most of them
+(if not all) are checking for input from userspace where they provide
+their own interfaces (eg. ioctl calls, netlink messages).
 
-	I don't think the bonding tests could be rolled up into a
-dev->rx_handler, either, because the bonding stuff has to happen before
-any delivery attempts (it may affect skb->dev or packet delivery).
+I can see that ip_tables checks for this capability when it gets "set"
+socket calls.  Now, with the xt_condition, we're opening a new route
+from userspace to the kernel and I think it might be a good idea to
+protect that too.
 
-	-J
+It's kind of useless to protect someone without CAP_NET_ADMIN from
+creating a condition rule if it is possible to change the condition from
+userspace without any capability protection.
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+> >>  This is the one time 
+> >> where I would personally be looking into SELinux, or perhaps SMACK if 
+> >> the former is too complex, to whether _t'ing off procfs is possible.
+> >
+> >Yeah, but it's not up to me to decide this.  We have one entire team
+> >dedicated to figuring out how to ensure "security" in our device.  It
+> >was that team who advised us to protect this file by checking for
+> >CAP_NET_ADMIN.
+> 
+> You can do whatever you want with your product. I am just saying this
+> does not look like kernel material, and I suppose it won't go well
+> with the maintainers up the chain either.
+
+Yeah, my company can do whatever they want with the product.  But my
+role here is to work with upstream, so if you guys think that what I'm
+doing is total bulls*it, I'll have to go back to the drawing board and
+restart my work ;)
+
+Again, I must stress that I really appreciate your comments and help.  I
+know I can get good advice from people who are millions of times more
+experienced in this area than I am (and yes, that's *you* ;) -- and this
+is one of the various reasons I send my patches to netfilter-devel in
+the first place.  Another reason is that I want to contribute my work
+(however shitty it is) to an eventual benefit for the community as a
+whole. :)
+
+-- 
+Cheers,
+Luca.
+
