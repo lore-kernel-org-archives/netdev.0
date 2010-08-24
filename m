@@ -1,18 +1,12 @@
 From: Joe Perches <joe@perches.com>
 Subject: [PATCH net-next - trivial] drivers/net: Remove address use from assignments of function pointers
-Date: Mon, 23 Aug 2010 21:20:03 -0700
-Message-ID: <1282623603-31052-2-git-send-email-joe@perches.com>
-References: <1282623603-31052-1-git-send-email-joe@perches.com>
+Date: Mon, 23 Aug 2010 21:20:02 -0700
+Message-ID: <1282623603-31052-1-git-send-email-joe@perches.com>
 Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1314 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751683Ab0HXEUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 00:20:05 -0400
-In-Reply-To: <1282623603-31052-1-git-send-email-joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 "foo = &function" is more commonly written "foo = function"
 
@@ -1039,4 +1033,3 @@ index 4eb67ae..cd1b3dc 100644
  	return 0;
 -- 
 1.7.1
-
