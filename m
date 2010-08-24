@@ -1,55 +1,112 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: kernel hangs when removing a dummy netdev with an attached macvlan
-Date: Tue, 24 Aug 2010 21:14:46 +0200
-Message-ID: <4C741A26.5090200@free.fr>
-References: <4C73F419.2050204@free.fr> <1282669312.2477.262.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at
+ skb_copy_and_csum_dev
+Date: Tue, 24 Aug 2010 21:19:59 +0200
+Message-ID: <1282677599.2467.54.camel@edumazet-laptop>
+References: <20100820193835.GA6025@del.dom.local>
+	 <20100821074742.GA2367@del.dom.local>
+	 <1282377058.2636.12.camel@edumazet-laptop>
+	 <20100821080735.GA2409@del.dom.local> <4C725FCB.2000304@fs.uni-ruse.bg>
+	 <20100823124736.GA16966@ff.dom.local>
+	 <1282568443.2486.34.camel@edumazet-laptop>
+	 <20100823131056.GA19160@ff.dom.local> <4C727B06.2060002@fs.uni-ruse.bg>
+	 <4C72802D.8090405@fs.uni-ruse.bg> <20100823141437.GA2282@del.dom.local>
+	 <4C734FB5.1090702@fs.uni-ruse.bg>
+	 <1282626102.2378.1351.camel@edumazet-laptop>
+	 <4C738636.4000107@fs.uni-ruse.bg> <4C73C8DF.4060601@fs.uni-ruse.bg>
+	 <1282662532.2477.248.camel@edumazet-laptop>
+	 <courier.4C74007C.00000EE4@fs.ru.acad.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.17.165]:43183 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751805Ab0HXTO6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 15:14:58 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate5.de.ibm.com (8.13.1/8.13.1) with ESMTP id o7OJEvPC024886
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 19:14:57 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o7OJEvoB4128946
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 21:14:57 +0200
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o7OJEu10016752
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 21:14:56 +0200
-In-Reply-To: <1282669312.2477.262.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:53669 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752376Ab0HXTUE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 15:20:04 -0400
+Received: by wwe15 with SMTP id 15so2316490wwe.1
+        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 12:20:03 -0700 (PDT)
+In-Reply-To: <courier.4C74007C.00000EE4@fs.ru.acad.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2010 07:01 PM, Eric Dumazet wrote:
-> Le mardi 24 ao=C3=BBt 2010 =C3=A0 18:32 +0200, Daniel Lezcano a =C3=A9=
-crit :
->   =20
->> Hi all,
->>
->> I noticed the kernel hangs when we create a dummy interface, assign =
-a
->> macvlan on it and then delete the dummy interface.
->>
->> How to reproduce:
->>
->>    ip link add dummy0 type dummy
->>    ip link add mc0 link dummy0 type macvlan
->>    ip link del dummy0
->>
->>     =20
-> Strange, I could not reproduce it with linux-2.6 current tree
->   =20
+Le mardi 24 ao=C3=BBt 2010 =C3=A0 20:25 +0300, Plamen Petrov a =C3=A9cr=
+it :
+> Above patch applied, and happy to report the machine now spits data
+> in the logs instead of oopsing. Here is what we have now:=20
+> [  707.276981] ---[ end trace 75e4f8534893c910 ]---
+> [  707.376998] 100: csum_start 306, offset 16, headroom 390, headlen =
+70,=20
+> len 70
+> [  707.477015] nr_frags=3D0 gso_size=3D0
+> [  707.577031]
+> [ 1021.032794] ---[ end trace 75e4f8534893c911 ]---
+> [ 1021.132812] 100: csum_start 306, offset 16, headroom 390, headlen =
+153,=20
+> len 153
+> [ 1021.232828] nr_frags=3D0 gso_size=3D0
+> [ 1021.332844]=20
+>=20
 
-Right, I was not up to date. The bug does no longer appear with the=20
-net-next-2.6 git head.
+Thanks !
 
-Sorry for the noise.
+csum_offset =3D 16.
 
-   -- Daniel
+so its offsetof(struct tcphdr, check)
+
+maybe a bug in net/ipv4/netfilter/nf_nat_helper.c ?
+
+We should trace all spots where we set csum_start/csum_offset
+
+Or/And trace the skb content.
+
+Please add a :
+
+print_hex_dump(KERN_ERR, "skb data:", DUMP_PREFIX_OFFSET,=20
+               16, 1, skb->head, skb_end_pointer(skb)-skb->head,true);
+
+
+call in skb_csum_start_bug(), right after the pr_err("\n") and before
+the "return 1;"
+
+
+int skb_csum_start_bug(const struct sk_buff *skb, int pos)
+{
+
+        if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+                long csstart;
+
+                csstart =3D skb->csum_start - skb_headroom(skb);
+                if (WARN_ON(csstart > skb_headlen(skb))) {
+                        int i;
+
+                        pr_err("%d: csum_start %u, offset %u, headroom =
+%d, headlen %d, len %d\n",
+                                   pos, skb->csum_start, skb->csum_offs=
+et, skb_headroom(skb),
+                                   skb_headlen(skb), skb->len);
+                        pr_err("nr_frags=3D%u gso_size=3D%u ",
+                                        skb_shinfo(skb)->nr_frags,
+                                        skb_shinfo(skb)->gso_size);
+                        for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i+=
++) {
+                                pr_err("frag_size=3D%u ", skb_shinfo(sk=
+b)->frags[i].size);
+                        }
+                        pr_err("\n");
+                        print_hex_dump(KERN_ERR, "skb data:", DUMP_PREF=
+IX_OFFSET,
+                                16, 1, skb->head, skb_end_pointer(skb) =
+- skb->head, true);
+                        return 1;
+                }
+        }
+        return 0;
+}
+
+
