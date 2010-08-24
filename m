@@ -1,66 +1,49 @@
-From: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
-Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at skb_copy_and_csum_dev
-Date: Tue, 24 Aug 2010 11:43:34 +0300
-Message-ID: <4C738636.4000107@fs.uni-ruse.bg>
-References: <20100820193835.GA6025@del.dom.local>	 <20100821074742.GA2367@del.dom.local>	 <1282377058.2636.12.camel@edumazet-laptop>	 <20100821080735.GA2409@del.dom.local> <4C725FCB.2000304@fs.uni-ruse.bg>	 <20100823124736.GA16966@ff.dom.local>	 <1282568443.2486.34.camel@edumazet-laptop>	 <20100823131056.GA19160@ff.dom.local> <4C727B06.2060002@fs.uni-ruse.bg>	 <4C72802D.8090405@fs.uni-ruse.bg> <20100823141437.GA2282@del.dom.local>	 <4C734FB5.1090702@fs.uni-ruse.bg> <1282626102.2378.1351.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix deadlock between boomerang_interrupt and
+ boomerang_start_tx in 3c59x
+Date: Tue, 24 Aug 2010 01:48:42 -0700 (PDT)
+Message-ID: <20100824.014842.193701591.davem@davemloft.net>
+References: <20100823202452.GC12906@hmsreliant.think-freely.org>
+	<1282596538.2378.340.camel@edumazet-laptop>
+	<20100823234006.GA8976@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [83.228.35.12] ([83.228.35.12]:41888 "EHLO fs.ru.acad.bg"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751805Ab0HXInh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 04:43:37 -0400
-In-Reply-To: <1282626102.2378.1351.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59858
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751327Ab0HXIsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 04:48:24 -0400
+In-Reply-To: <20100823234006.GA8976@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D0=9D=D0=B0 24.8.2010 =D0=B3. 08:01, Eric Dumazet =D0=BD=D0=B0=D0=BF=D0=
-=B8=D1=81=D0=B0:
-> Le mardi 24 ao=C3=BBt 2010 =C3=A0 07:51 +0300, Plamen Petrov a =C3=A9=
-crit :
->> So far - not so good. :(
-=2E..
->
-> Hmm... I was thinking adding a call __skb_linearize(), just in case..=
-=2E
->
-> diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-> index f5166dc..10928a2 100644
-> --- a/drivers/net/8139too.c
-> +++ b/drivers/net/8139too.c
-> @@ -1696,7 +1696,7 @@ static netdev_tx_t rtl8139_start_xmit (struct s=
-k_buff *skb,
->   	entry =3D tp->cur_tx % NUM_TX_DESC;
->
->   	/* Note: the chip doesn't have auto-pad! */
-> -	if (likely(len<  TX_BUF_SIZE)) {
-> +	if (likely(len<  TX_BUF_SIZE&&  !__skb_linearize(skb))) {
->   		if (len<  ETH_ZLEN)
->   			memset(tp->tx_buf[entry], 0, ETH_ZLEN);
->   		skb_copy_and_csum_dev(skb, tp->tx_buf[entry]);
->
->
-Here is what I've got while running the kernel with the patch
-I attached earlier plus the above one, after turning GRO on for
-my tg3 nic:
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 23 Aug 2010 19:41:44 -0400
 
-[picture 10]
-http://picpaste.com/37e37f9ff9504e3a003f49092f9b1be6.jpg
+> Ah, I see what your saying.  Since bitfield access is not a single instruction
+> you get races when multiple accesses take place at once, since the assignment is
+> non-atomic, nor is the read.
+> 
+> In this case, thats ok.  I say that because in the only time we really care what
+> the value of this bitfield is, is when we've recursed from the interrupt handler
+> to the netconsole module, back into the transmit path on the same cpu.  In that
+> case the read is guaranteed to be ordered after the write, since its a linear
+> code path.  In the case where cpu 0 is in the interrupt handler and cpu1 is
+> going into the transmit method for this driver, we don't really care what the
+> value of the bitfield is, its a don't care.  If we read it as a zero, thats ok,
+> we have the driver-internal sempahore still protecting us (the one that
+> deadlocks if you recurse via netconsole on the same cpu).  And if we read it as
+> a 1, thats ok too, because we simply cause the network scheduler to queue the
+> frame and send it again as soon as we're out of the interrupt handler.
 
-[picture 11]
-http://picpaste.com/5663ca7c5041c0ed7a1f3e6a9aa17a9e.jpg
+Right this should be OK.
 
-[picture 12]
-http://picpaste.com/17f2ecaa409a1ebbf835a2e0519d3099.jpg
+The only write to the bit happens with the lock held.
 
-Now moving on to the second proposed patch from Jarek.
+The other bits are never modified while the device is active
+and interrupts can run.
 
-Thanks,
-Plamen
+I've applied Neil's patch, thanks Neil.
