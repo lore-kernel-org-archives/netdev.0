@@ -1,65 +1,40 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] netfilter: xt_condition: add security capability
- support
-Date: Tue, 24 Aug 2010 09:32:35 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1008240921230.24349@obet.zrqbmnf.qr>
-References: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>  <AANLkTi=2H+ytOQU9nC_dRp_GB5Sy1831VY14oW=YSOrG@mail.gmail.com>  <1282570935.7198.5.camel@powerslave>  <alpine.LNX.2.01.1008231628010.21000@obet.zrqbmnf.qr>  <1282589101.7198.28.camel@powerslave>
-  <alpine.LNX.2.01.1008232052170.31619@obet.zrqbmnf.qr> <1282633220.7198.123.camel@powerslave>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: tcp_shift_skb_data uses wrong mss in non-gso case?
+Date: Tue, 24 Aug 2010 00:46:37 -0700
+Message-ID: <20100824074637.GA24604@gondor.apana.org.au>
+References: <D3B72A8DFCA0A8418CB61D1E9E310A99E5F35219@US01XMB01.org.nasdaqomx.com> <AANLkTi=ygaa_fV4SwaLY2gP9H+Nn54QdXcGXkfGukSCD@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ext Changli Gao <xiaosuo@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	"linux-security-module@vger.kernel.org"
-	<linux-security-module@vger.kernel.org>
-To: Luciano Coelho <luciano.coelho@nokia.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1282633220.7198.123.camel@powerslave>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Evans <robert.evans@nasdaqomx.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:38742 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751692Ab0HXHqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 03:46:46 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTi=ygaa_fV4SwaLY2gP9H+Nn54QdXcGXkfGukSCD@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Aug 23, 2010 at 03:34:04PM -0700, Jesse Brandeburg wrote:
+> CC Ilpo, the creator of this patch being discussed:
+> 
+> On Tue, Aug 17, 2010 at 3:35 PM, Robert Evans
+> > This ends up being troublesome if the segment is later retransmitted and the
+> > device driver has trouble with very small gso_size (e1000e seems to be an
+> > example).
 
-On Tuesday 2010-08-24 09:00, Luciano Coelho wrote:
->>
->>It is strange that you check this capability from a module focused
->>on packet handling. For lack of a better example, it's as if you
->>tried to check the uid of the file, the latter of which is better
->>left to the routines in fs/.
->
->What I don't understand is that I see lots of components, which have
->nothing to do with security, making this kind of checks. Most of
->them (if not all) are checking for input from userspace where they
->provide their own interfaces (eg. ioctl calls, netlink messages).
->[..] Now, with the xt_condition, we're opening a new route from
->userspace to the kernel and I think it might be a good idea to
->protect that too.
+I don't see the problem.  If mss == skb->len then tcp_shifted_skb
+will zero gso_size.
 
-Indeed so. But you did not invent any new interface. You are reusing
-files, which can be protected by DAC modes, or LSMs doing
-funky-stuff. xt_{condition,recent,..} already implement file modes,
-but does it check for it? Well no, because fs/namei.c does it for
-them. As for LSMs, well, I hope they do cater for testing for
-capability bits.
+Which code path is setting gso_size to skb->len?
 
->It's kind of useless to protect someone without CAP_NET_ADMIN from
->creating a condition rule if it is possible to change the condition from
->userspace without any capability protection.
-
-Certainly not. An administrator may create a condition rule and thus
-procfs entry, but the rule may be sufficiently safe and/or integrated
-that a subordinate may be given permission to control things in a
-limited fashion on a per-need basis. One I use personally is
-
-	-A FORWARD -m condition --condition windows -s
-	192.168.100.0/25 -i eth1 -o eth0 -j ACCEPT
-	-P FORWARD DROP
-
-	chown jengelh /proc/net/nf_condition/windows;
-
-The presence of such rule would indicate that the administrator
-generally allows Windows machines out; but personal paranoia defaults
-to rejecting that unless explicitly enabled. (Gives the reassurance
-that they won't succeed talking home unless Internet connectivity is
-explicitly needed by the user.)
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
