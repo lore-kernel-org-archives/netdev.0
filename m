@@ -1,79 +1,61 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 5/5] net/netfilter/ipvs: Eliminate memory leak
-Date: Tue, 24 Aug 2010 16:39:49 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008241639300.15172__14684.1086018414$1282661056$gmane$org@ask.diku.dk>
+From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Subject: Re: [PATCH] TCP_FAILFAST: a new socket option to timeout/abort a
+ connection quicker
+Date: Tue, 24 Aug 2010 16:58:58 +0200
+Message-ID: <4C73DE32.1030802@nets.rwth-aachen.de>
+References: <1282630819-23104-1-git-send-email-hkchu@google.com> <1282632262.2378.1681.camel@edumazet-laptop> <4C737D15.5060400@nets.rwth-aachen.de> <423116d1d215b0fb3d1c966fb8167508@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"H.K. Jerry Chu" <hkchu@google.com>, ilpo.jarvinen@helsinki.fi,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:59427 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751452Ab0HXOjv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 10:39:51 -0400
+Received: from mail-i4.nets.RWTH-Aachen.DE ([137.226.12.21]:46091 "EHLO
+	MAIL-i4.nets.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751980Ab0HXO7h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 10:59:37 -0400
+In-Reply-To: <423116d1d215b0fb3d1c966fb8167508@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+Hi,
 
-__ip_vs_service_get and __ip_vs_svc_fwm_get increment a reference count, so
-that reference count should be decremented before leaving the function in an
-error case.
+Am 24.08.2010 11:10, schrieb Hagen Paul Pfeifer:
+> 
+> On Tue, 24 Aug 2010 10:04:37 +0200, Arnd Hannemann wrote:
+> 
+>> Why not call it TCP_USERTIMEOUT?
+> 
+>> Later you can also send it via the TCP user timeout option... (RFC5482)
+> 
+>> Hmm... is the ms granularity really needed? Does it make sense to abort
+> 
+>> a connection below a second?
+> 
+> 
+> 
+> I am working on a patch for UTO, the lion share is already implemented. As
 
-A simplified version of the semantic match that finds this problem is:
-(http://coccinelle.lip6.fr/)
+Nice, so did you come up with a name for the socket option yet?
 
-// <smpl>
-@r exists@
-local idexpression x;
-expression E;
-identifier f1;
-iterator I;
-@@
+> I can see this patch introduce a upper limit (max) where UTO on the other
+> 
+> hand provides a lower limit (min). Therefore I am not sure if we should
+> 
+> call this option TCP_USERTIMEOUT.
 
-x = __ip_vs_service_get(...);
-<... when != x
-     when != true (x == NULL || ...)
-     when != if (...) { <+...x...+> }
-     when != I (...) { <+...x...+> }
-(
- x == NULL
-|
- x == E
-|
- x->f1
-)
-...>
-* return ...;
-// </smpl>
+Hmm, is there really a difference? If an application specifies
+a wanted timeout e.g. with USER_TIMEOUT, CHANGEABLE will
+become false and the value would be announced via ADV_UTO.
+The connection could be aborted locally after that time passed,
+regardless of what the remote site thinks the timeout should be.
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+As I understand it U_LIMIT and L_LIMIT would only be there
+for safety to disallow nonsensical values of USER_TIMEOUT.
 
----
- net/netfilter/ipvs/ip_vs_ctl.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Did I miss something?
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 0f0c079..f98169b 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2155,7 +2155,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- 	if (cmd != IP_VS_SO_SET_ADD
- 	    && (svc == NULL || svc->protocol != usvc.protocol)) {
- 		ret = -ESRCH;
--		goto out_unlock;
-+		goto out_drop_service;
- 	}
- 
- 	switch (cmd) {
-@@ -2189,6 +2189,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
- 		ret = -EINVAL;
- 	}
- 
-+out_drop_service:
- 	if (svc)
- 		ip_vs_service_put(svc);
- 
+Best regards,
+Arnd
