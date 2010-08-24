@@ -1,34 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bna: fix stats handling
-Date: Tue, 24 Aug 2010 12:36:45 -0700 (PDT)
-Message-ID: <20100824.123645.39174077.davem@davemloft.net>
-References: <20100823.203552.63040549.davem@davemloft.net>
-	<1282627901.2378.1451.camel@edumazet-laptop>
-	<E5313AF6F2BFD14293E5FD0F94750F86A4AE225D69@HQ1-EXCH01.corp.brocade.com>
+From: Marc Aurele La France <tsi@ualberta.ca>
+Subject: Re: RFC: MTU for serving NFS on Infiniband
+Date: Tue, 24 Aug 2010 13:49:14 -0600 (Mountain Daylight Time)
+Message-ID: <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
+References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca> <20100823080543.319143e3@nehalam> <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca> <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	amathur@brocade.com, ddutt@Brocade.COM, huangj@Brocade.COM
-To: rmody@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35045
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753317Ab0HXTg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 15:36:27 -0400
-In-Reply-To: <E5313AF6F2BFD14293E5FD0F94750F86A4AE225D69@HQ1-EXCH01.corp.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rasesh Mody <rmody@brocade.com>
-Date: Tue, 24 Aug 2010 11:49:45 -0700
+On Tue, 24 Aug 2010, Ben Hutchings wrote:
+> On Tue, 2010-08-24 at 09:14 -0600, Marc Aurele La France wrote:
+>> On Mon, 23 Aug 2010, Stephen Hemminger wrote:
+>>> On Mon, 23 Aug 2010 08:44:37 -0600 (MDT)
+>>> Marc Aurele La France <tsi@ualberta.ca> wrote:
+>>>> In regrouping for my next tack at this, I noticed that all stack traces go
+>>>> through ip_append_data().  This would be ipv6_append_data() in the IPv6 case.
+>>>> A _very_ rough draft that would have ip_append_data() temporarily drop down
+>>>> to a smaller fake MTU follows ...
 
-> We tried applying the patch to the source, it looks corrupted. Can
-> you please resubmit the patch?
+>>> Why doesn't NFS generate page size fragments?  Does Infiniband or your
+>>> device not support this?  Any thing that requires higher order allocation
+>>> is going to unstable under load.  Let's fix the cause not the apply bandaid
+>>> solution to the symptom.
 
-His patch applies absolutely cleanly to net-next-2.6
+>> From what I can tell, IP fragmentation is done centrally.
+> [...]
 
-I had to make fixes to your driver, as I mentioned when I checked
-in your patch yesterday, so you absolutely must test against
-what I added to net-next-2.6 and not what you have locally in
-your trees.
+> Stephen and I are not talking about IP fragmentation, but about the
+> ability to append 'fragments' to an skb rather than putting the entire
+> packet payload in a linear buffer.  See
+> <http://vger.kernel.org/~davem/skb_data.html>.
+
+Any payload has to either fit in the MTU, or has to be broken up into 
+MTU-sized (or less) fragments, come hell or high water.  That this is done 
+centrally is a good thing.  It is the "(or less)" part that I am working 
+towards here.
+
+Marc.
+
++----------------------------------+----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310          |
+|  Academic Information and        |  fax:    1-780-492-1729          |
+|    Communications Technologies   |  email:  tsi@ualberta.ca         |
+|  352 General Services Building   +----------------------------------+
+|  University of Alberta           |                                  |
+|  Edmonton, Alberta               |    Standard disclaimers apply    |
+|  T6G 2H1                         |                                  |
+|  CANADA                          |                                  |
++----------------------------------+----------------------------------+
