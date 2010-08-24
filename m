@@ -1,11 +1,17 @@
-From: Marc Aurele La France <tsi@ualberta.ca>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: RFC: MTU for serving NFS on Infiniband
-Date: Tue, 24 Aug 2010 13:49:14 -0600 (Mountain Daylight Time)
-Message-ID: <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
-References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca> <20100823080543.319143e3@nehalam> <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca> <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
+Date: Tue, 24 Aug 2010 22:09:32 +0200
+Message-ID: <1282680572.2467.78.camel@edumazet-laptop>
+References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
+	 <20100823080543.319143e3@nehalam>
+	 <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca>
+	 <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
+	 <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -13,49 +19,45 @@ Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: Marc Aurele La France <tsi@ualberta.ca>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
+In-Reply-To: <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Aug 2010, Ben Hutchings wrote:
-> On Tue, 2010-08-24 at 09:14 -0600, Marc Aurele La France wrote:
->> On Mon, 23 Aug 2010, Stephen Hemminger wrote:
->>> On Mon, 23 Aug 2010 08:44:37 -0600 (MDT)
->>> Marc Aurele La France <tsi@ualberta.ca> wrote:
->>>> In regrouping for my next tack at this, I noticed that all stack traces go
->>>> through ip_append_data().  This would be ipv6_append_data() in the IPv6 case.
->>>> A _very_ rough draft that would have ip_append_data() temporarily drop down
->>>> to a smaller fake MTU follows ...
+Le mardi 24 ao=C3=BBt 2010 =C3=A0 13:49 -0600, Marc Aurele La France a =
+=C3=A9crit :
 
->>> Why doesn't NFS generate page size fragments?  Does Infiniband or your
->>> device not support this?  Any thing that requires higher order allocation
->>> is going to unstable under load.  Let's fix the cause not the apply bandaid
->>> solution to the symptom.
+>=20
+> Any payload has to either fit in the MTU, or has to be broken up into=
+=20
+> MTU-sized (or less) fragments, come hell or high water.  That this is=
+ done=20
+> centrally is a good thing.  It is the "(or less)" part that I am work=
+ing=20
+> towards here.
+>=20
 
->> From what I can tell, IP fragmentation is done centrally.
-> [...]
+Could you post a full stack trace, to help me understand the path from
+NFS to ip_append_data ?
 
-> Stephen and I are not talking about IP fragmentation, but about the
-> ability to append 'fragments' to an skb rather than putting the entire
-> packet payload in a linear buffer.  See
-> <http://vger.kernel.org/~davem/skb_data.html>.
+I suspect this is UDP transport ?
 
-Any payload has to either fit in the MTU, or has to be broken up into 
-MTU-sized (or less) fragments, come hell or high water.  That this is done 
-centrally is a good thing.  It is the "(or less)" part that I am working 
-towards here.
+This reminds me a patch I wrote for IPV6 : We were allocating a huge
+(MTU sized) buffer, just to fill few bytes in it...
 
-Marc.
 
-+----------------------------------+----------------------------------+
-|  Marc Aurele La France           |  work:   1-780-492-9310          |
-|  Academic Information and        |  fax:    1-780-492-1729          |
-|    Communications Technologies   |  email:  tsi@ualberta.ca         |
-|  352 General Services Building   +----------------------------------+
-|  University of Alberta           |                                  |
-|  Edmonton, Alberta               |    Standard disclaimers apply    |
-|  T6G 2H1                         |                                  |
-|  CANADA                          |                                  |
-+----------------------------------+----------------------------------+
+commit 72e09ad107e78d69ff4d3b97a69f0aad2b77280f
+Author: Eric Dumazet <eric.dumazet@gmail.com>
+Date:   Sat Jun 5 03:03:30 2010 -0700
+
+    ipv6: avoid high order allocations
+   =20
+    With mtu=3D9000, mld_newpack() use order-2 GFP_ATOMIC allocations, =
+that
+    are very unreliable, on machines where PAGE_SIZE=3D4K
+   =20
+    Limit allocated skbs to be at most one page. (order-0 allocations)
+   =20
+    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
