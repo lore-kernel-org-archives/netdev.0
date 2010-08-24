@@ -1,28 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] cxgb4 updates
-Date: Mon, 23 Aug 2010 20:38:53 -0700 (PDT)
-Message-ID: <20100823.203853.209986961.davem@davemloft.net>
-References: <1282620061-32608-1-git-send-email-dm@chelsio.com>
+Subject: Re: linux-next: Tree for August 23 (networking)
+Date: Mon, 23 Aug 2010 20:42:44 -0700 (PDT)
+Message-ID: <20100823.204244.216743717.davem@davemloft.net>
+References: <20100823133738.f0a45152.sfr@canb.auug.org.au>
+	<20100823175044.9210f050.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36158
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751822Ab0HXDif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Aug 2010 23:38:35 -0400
-In-Reply-To: <1282620061-32608-1-git-send-email-dm@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100823175044.9210f050.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Mon, 23 Aug 2010 20:20:57 -0700
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Mon, 23 Aug 2010 17:50:44 -0700
 
-> 
-> Here are 4 patches for cxgb4 enabling the driver to work on PCI functions
-> other than 0.  The first 3 are preparatory, the last one updates PCI IDs.
-> All for net-next.
+> ERROR: "ip_send_check" [net/sched/act_csum.ko] undefined!
 
-All applied, thank you.
+I've applied the following to fix this:
+
+--------------------
+pkt_sched: Make act_csum depend upon INET.
+
+It uses ip_send_check() and stuff like that.
+
+Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/sched/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 522d5a9..a36270a 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -520,7 +520,7 @@ config NET_ACT_SKBEDIT
+ 
+ config NET_ACT_CSUM
+         tristate "Checksum Updating"
+-        depends on NET_CLS_ACT
++        depends on NET_CLS_ACT && INET
+         ---help---
+ 	  Say Y here to update some common checksum after some direct
+ 	  packet alterations.
+-- 
+1.7.2.2
