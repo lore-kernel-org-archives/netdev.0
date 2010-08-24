@@ -1,55 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] be2net: get rid of be_get_stats()
-Date: Tue, 24 Aug 2010 17:18:22 +0200
-Message-ID: <1282663102.2477.253.camel@edumazet-laptop>
+From: Marc Aurele La France <tsi@ualberta.ca>
+Subject: Re: RFC: MTU for serving NFS on Infiniband
+Date: Tue, 24 Aug 2010 09:14:54 -0600 (Mountain Daylight Time)
+Message-ID: <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca>
+References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca> <20100823080543.319143e3@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Somnath K <somnathk@serverengines.com>,
-	Ajit Khaparde <ajitk@serverengines.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45024 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752185Ab0HXPS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 11:18:28 -0400
-Received: by wwe15 with SMTP id 15so2027799wwe.1
-        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 08:18:27 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100823080543.319143e3@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-drivers can avoid implementing ndo_get_stats method if using netdevice
-stats structure.
+On Mon, 23 Aug 2010, Stephen Hemminger wrote:
+> On Mon, 23 Aug 2010 08:44:37 -0600 (MDT)
+> Marc Aurele La France <tsi@ualberta.ca> wrote:
+>> In regrouping for my next tack at this, I noticed that all stack traces go
+>> through ip_append_data().  This would be ipv6_append_data() in the IPv6 case.
+>> A _very_ rough draft that would have ip_append_data() temporarily drop down
+>> to a smaller fake MTU follows ...
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/benet/be_main.c |    6 ------
- 1 file changed, 6 deletions(-)
+> Why doesn't NFS generate page size fragments?  Does Infiniband or your
+> device not support this?  Any thing that requires higher order allocation
+> is going to unstable under load.  Let's fix the cause not the apply bandaid
+> solution to the symptom.
 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 74e146f..b89bae0 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -365,11 +365,6 @@ static void be_rx_eqd_update(struct be_adapter *adapter)
- 	rx_eq->cur_eqd = eqd;
- }
- 
--static struct net_device_stats *be_get_stats(struct net_device *dev)
--{
--	return &dev->stats;
--}
--
- static u32 be_calc_rate(u64 bytes, unsigned long ticks)
- {
- 	u64 rate = bytes;
-@@ -2399,7 +2394,6 @@ static struct net_device_ops be_netdev_ops = {
- 	.ndo_open		= be_open,
- 	.ndo_stop		= be_close,
- 	.ndo_start_xmit		= be_xmit,
--	.ndo_get_stats		= be_get_stats,
- 	.ndo_set_rx_mode	= be_set_multicast_list,
- 	.ndo_set_mac_address	= be_mac_addr_set,
- 	.ndo_change_mtu		= be_change_mtu,
+>From what I can tell, IP fragmentation is done centrally.
 
+The MTU is a device attribute, yes.  But, here, it is ip_append_data(), 
+not NFS nor the device driver, whose responsibility it is to break up the 
+payload into fragments, either by itself or using any facility supported 
+by the adapter.  What I'm saying is that there's no reason to require all 
+fragments, except the last, to be MTU-sized.  The RFCs I've looked at 
+allow them to be shorter which can be used to advantage when MTU-sized 
+fragments cannot be allocated in a memory fragmentation scenario, instead 
+of reporting an error.
 
+Marc.
+
++----------------------------------+----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310          |
+|  Academic Information and        |  fax:    1-780-492-1729          |
+|    Communications Technologies   |  email:  tsi@ualberta.ca         |
+|  352 General Services Building   +----------------------------------+
+|  University of Alberta           |                                  |
+|  Edmonton, Alberta               |    Standard disclaimers apply    |
+|  T6G 2H1                         |                                  |
+|  CANADA                          |                                  |
++----------------------------------+----------------------------------+
