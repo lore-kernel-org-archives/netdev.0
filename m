@@ -1,7 +1,7 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 05/14] mlx4_en: Fixed MAX_TX_RINGS definition
-Date: Tue, 24 Aug 2010 16:45:54 +0300
-Message-ID: <4C73CD12.1000005@mellanox.co.il>
+Subject: [PATCH 11/14] mlx4_en: reconfiguring mac address.
+Date: Tue, 24 Aug 2010 16:46:38 +0300
+Message-ID: <4C73CD3E.9040503@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -9,40 +9,67 @@ Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
 	<eugenia@mellanox.co.il>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:50077 "EHLO mellanox.co.il"
+Received: from mail.mellanox.co.il ([194.90.237.43]:50170 "EHLO mellanox.co.il"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755238Ab0HXNp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 09:45:57 -0400
+	id S1755250Ab0HXNql (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Aug 2010 09:46:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Defined as sum of default number of TX rings and number of
-rings used for priority flow control mode.
+When Mac address is removed from one port of the CX2 device, the other device
+should reconfigure its Mac.
+This fixes an issue with failover, when both ports have the same Mac address,
+and one of the ports, is closed, the second one stops receiving traffic.
+(bugzilla #1965 at bugs.openfabrics.org)
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/mlx4/mlx4_en.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/mlx4/en_netdev.c |    6 ++++++
+ drivers/net/mlx4/mlx4_en.h   |    1 +
+ 2 files changed, 7 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
+index 7a1e697..2f8d705 100644
+--- a/drivers/net/mlx4/en_netdev.c
++++ b/drivers/net/mlx4/en_netdev.c
+@@ -513,6 +513,10 @@ static void mlx4_en_do_get_stats(struct work_struct *work)
+ 
+ 		queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
+ 	}
++	if (mdev->mac_removed[MLX4_MAX_PORTS + 1 - priv->port]) {
++		queue_work(mdev->workqueue, &priv->mac_task);
++		mdev->mac_removed[MLX4_MAX_PORTS + 1 - priv->port] = 0;
++	}
+ 	mutex_unlock(&mdev->state_lock);
+ }
+ 
+@@ -653,6 +657,7 @@ int mlx4_en_start_port(struct net_device *dev)
+ 		en_err(priv, "Failed setting port mac\n");
+ 		goto tx_err;
+ 	}
++	mdev->mac_removed[priv->port] = 0;
+ 
+ 	/* Init port */
+ 	en_dbg(HW, priv, "Initializing port\n");
+@@ -709,6 +714,7 @@ void mlx4_en_stop_port(struct net_device *dev)
+ 
+ 	/* Unregister Mac address for the port */
+ 	mlx4_unregister_mac(mdev->dev, priv->port, priv->mac_index);
++	mdev->mac_removed[priv->port] = 1;
+ 
+ 	/* Free TX Rings */
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
 diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index 4492109..f8f3ad3 100644
+index bd39d81..97c30ff 100644
 --- a/drivers/net/mlx4/mlx4_en.h
 +++ b/drivers/net/mlx4/mlx4_en.h
-@@ -61,7 +61,6 @@
+@@ -342,6 +342,7 @@ struct mlx4_en_dev {
+ 	struct mlx4_mr		mr;
+ 	u32                     priv_pdn;
+ 	spinlock_t              uar_lock;
++	u8			mac_removed[MLX4_MAX_PORTS + 1];
+ };
  
- #define MLX4_EN_PAGE_SHIFT	12
- #define MLX4_EN_PAGE_SIZE	(1 << MLX4_EN_PAGE_SHIFT)
--#define MAX_TX_RINGS		16
- #define MAX_RX_RINGS		16
- #define TXBB_SIZE		64
- #define HEADROOM		(2048 / TXBB_SIZE + 1)
-@@ -107,6 +106,7 @@ enum {
- #define MLX4_EN_SMALL_PKT_SIZE		64
- #define MLX4_EN_NUM_TX_RINGS		8
- #define MLX4_EN_NUM_PPP_RINGS		8
-+#define MAX_TX_RINGS			(MLX4_EN_NUM_TX_RINGS + MLX4_EN_NUM_PPP_RINGS)
- #define MLX4_EN_DEF_TX_RING_SIZE	512
- #define MLX4_EN_DEF_RX_RING_SIZE  	1024
  
 -- 
 1.6.1.3
