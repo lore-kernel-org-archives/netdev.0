@@ -1,40 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tcp_shift_skb_data uses wrong mss in non-gso case?
-Date: Tue, 24 Aug 2010 00:46:37 -0700
-Message-ID: <20100824074637.GA24604@gondor.apana.org.au>
-References: <D3B72A8DFCA0A8418CB61D1E9E310A99E5F35219@US01XMB01.org.nasdaqomx.com> <AANLkTi=ygaa_fV4SwaLY2gP9H+Nn54QdXcGXkfGukSCD@mail.gmail.com>
+From: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Subject: Re: [PATCH] TCP_FAILFAST: a new socket option to timeout/abort a
+ connection quicker
+Date: Tue, 24 Aug 2010 10:04:37 +0200
+Message-ID: <4C737D15.5060400@nets.rwth-aachen.de>
+References: <1282630819-23104-1-git-send-email-hkchu@google.com> <1282632262.2378.1681.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Evans <robert.evans@nasdaqomx.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "H.K. Jerry Chu" <hkchu@google.com>, ilpo.jarvinen@helsinki.fi,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:38742 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692Ab0HXHqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 03:46:46 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=ygaa_fV4SwaLY2gP9H+Nn54QdXcGXkfGukSCD@mail.gmail.com>
+Received: from mail-i4.nets.RWTH-Aachen.DE ([137.226.12.21]:53704 "EHLO
+	MAIL-i4.nets.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752227Ab0HXINW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 04:13:22 -0400
+In-Reply-To: <1282632262.2378.1681.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 23, 2010 at 03:34:04PM -0700, Jesse Brandeburg wrote:
-> CC Ilpo, the creator of this patch being discussed:
-> 
-> On Tue, Aug 17, 2010 at 3:35 PM, Robert Evans
-> > This ends up being troublesome if the segment is later retransmitted and the
-> > device driver has trouble with very small gso_size (e1000e seems to be an
-> > example).
+Am 24.08.2010 08:44, schrieb Eric Dumazet:
+> Le lundi 23 ao=C3=BBt 2010 =C3=A0 23:20 -0700, H.K. Jerry Chu a =C3=A9=
+crit :
+>> From: Jerry Chu <hkchu@google.com>
+>>
+>> This is a TCP level socket option that takes an unsigned int to spec=
+ify
+>> how long in ms TCP should resend a lost data packet before giving up
+>> and returning ETIMEDOUT. The normal TCP retry/abort timeout limit st=
+ill
+>> applies. In other words this option is only meant for those applicat=
+ions
+>> that need to "fail faster" than the default TCP timeout. The latter
+>> may take upto 20 minutes in a normal WAN environment.
+>>
+>> The option is disabled (by default) when set to 0. Also it does not
+>> apply during the connection establishment phase.
+>>
+>> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+>=20
+> TCP_FAILFAST might be misleading. It reads as a boolean option, while
+> its an option to cap the timeout, with a time unit, instead of the us=
+ual
+> "number of retransmits".
 
-I don't see the problem.  If mss == skb->len then tcp_shifted_skb
-will zero gso_size.
+Why not call it TCP_USERTIMEOUT?
+Later you can also send it via the TCP user timeout option... (RFC5482)
+Hmm... is the ms granularity really needed? Does it make sense to abort
+a connection below a second?
 
-Which code path is setting gso_size to skb->len?
+> Its also funny you dont ask for a default value, given by a sysctl
+> tunable ;)
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Well retries1/2 would be the tunables, no?
+
+Best regards,
+Arnd
