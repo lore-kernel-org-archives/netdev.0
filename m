@@ -1,141 +1,100 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [PATCH RFC] netns: keep vlan slaves on master netns move
-Date: Tue, 24 Aug 2010 19:00:40 +0200
-Message-ID: <4C73FAB8.1090402@free.fr>
-References: <20100824115056.GA235835@jupiter.n2.diac24.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel hangs when removing a dummy netdev with an attached
+ macvlan
+Date: Tue, 24 Aug 2010 19:01:52 +0200
+Message-ID: <1282669312.2477.262.camel@edumazet-laptop>
+References: <4C73F419.2050204@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: David Lamparter <equinox@diac24.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.17.166]:56716 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755372Ab0HXRAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 13:00:43 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate6.de.ibm.com (8.13.1/8.13.1) with ESMTP id o7OH0gLx027155
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 17:00:42 GMT
-Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o7OH0fm93977470
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 19:00:41 +0200
-Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o7OH0fKm027819
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 19:00:41 +0200
-In-Reply-To: <20100824115056.GA235835@jupiter.n2.diac24.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46200 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752495Ab0HXRB5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 13:01:57 -0400
+Received: by wyb35 with SMTP id 35so683402wyb.19
+        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 10:01:56 -0700 (PDT)
+In-Reply-To: <4C73F419.2050204@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2010 01:50 PM, David Lamparter wrote:
-> Hi everyone,
->
-> attached patch makes it possible to keep macvlan / 802.1q slave devices
-> on moving their master to a different namespace. as the opposite works
-> without problems (moving the slaves into a different namespace), this
-> shouldn't cause problems either.
->
-> i've tested this with 802.1q on real ethernet devs and bridges and,
-> well, it works without crashing, but that obviously doesn't mean it is
-> correct :) - therefore input very welcome.
->
-> RFC,
->
-> David
->
-> P.S.: who do i Cc: on netns related stuff?
+Le mardi 24 ao=C3=BBt 2010 =C3=A0 18:32 +0200, Daniel Lezcano a =C3=A9c=
+rit :
+> Hi all,
+>=20
+> I noticed the kernel hangs when we create a dummy interface, assign a=
+=20
+> macvlan on it and then delete the dummy interface.
+>=20
+> How to reproduce:
+>=20
+>   ip link add dummy0 type dummy
+>   ip link add mc0 link dummy0 type macvlan
+>   ip link del dummy0
+>=20
 
-Definitively the netns is the brain child of:
-Eric W. Biederman <ebiederm@xmission.com>
+Strange, I could not reproduce it with linux-2.6 current tree
 
-As I contributed and I am interested by following the changes, that will 
-be nice if you can Cc me too.
-
-Daniel Lezcano <daniel.lezcano@free.fr>
-
-> --
-> previously, if a vlan master device was moved from one network namespace
-> to another, all 802.1q and macvlan slaves were deleted.
->
-> we can use dev->reg_state to figure out whether dev_change_net_namespace
-> is happening, since that won't set dev->reg_state NETREG_UNREGISTERING.
-> so, this changes 8021q and macvlan to ignore NETDEV_UNREGISTER when
-> reg_state is not NETREG_UNREGISTERING.
->
-> Signed-off-by: David Lamparter<equinox@diac24.net>
-> ---
->   drivers/net/macvlan.c |    4 ++++
->   net/8021q/vlan.c      |    4 ++++
->   net/core/dev.c        |    4 ++++
->   3 files changed, 12 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index f15fe2c..f43f8e4 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -754,6 +754,10 @@ static int macvlan_device_event(struct notifier_block *unused,
->   		}
->   		break;
->   	case NETDEV_UNREGISTER:
-> +		/* twiddle thumbs on netns device moves */
-> +		if (dev->reg_state != NETREG_UNREGISTERING)
-> +			break;
-> +
-
-Hmm, I don't feel comfortable with this change. It is like we are trying 
-to catch a transient state, not clearly defined (you need a comment) and 
-that may lead to some confusion later.
-
-IMHO, it should be convenient to add a NETREG_NETNS_MOVING and set this 
-state in the dev_change_net_namespace.
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5c6f519..0214b77 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -924,6 +924,7 @@ struct net_device {
-
-         /* register/unregister state machine */
-         enum { NETREG_UNINITIALIZED=0,
-+              NETREG_NETNS_MOVING,     /* changing netns */
-                NETREG_REGISTERED,       /* completed register_netdevice */
-                NETREG_UNREGISTERING,    /* called unregister_netdevice */
-                NETREG_UNREGISTERED,     /* completed unregister todo */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e233933..9154123 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5752,6 +5752,8 @@ int dev_change_net_namespace(struct net_device 
-*dev, struct net *net, const char
-         err = -ENODEV;
-         unlist_netdevice(dev);
-
-+       dev->reg_state = NETREG_NETNS_MOVING;
-+
-         synchronize_net();
-
-         /* Shutdown queueing discipline. */
-@@ -5786,6 +5788,8 @@ int dev_change_net_namespace(struct net_device 
-*dev, struct net *net, const char
-         err = netdev_register_kobject(dev);
-         WARN_ON(err);
-
-+       dev->reg_state = NETREG_REGISTERED;
-+
-         /* Add the device back in the hashes */
-         list_netdevice(dev);
+> That triggers:
+>=20
+> Call Trace:
+> Code: 8b 84 24 08 08 00 00 49 81 c4 08 08 00 00 48 83 e8 08 48 8b 58 =
+08=20
+> 48 83 eb 08 eb 1a 48 8b 38 31 f6 48 8b 87 c8 05 00 00 ff 50 50 <48> 8=
+b=20
+> 53 08 48 89 d8 48 8d 5a f8 48 8d 50 08 49 39 d4 75 dd 5a
+> Kernel panic - not syncing: softlockup: hung tasks
+> ------------[ cut here ]------------
+> WARNING: at kernel/lockdep.c:2322 trace_hardirqs_on_caller+0xb8/0x13b=
+()
+> Hardware name: Bochs
+> Modules linked in:
+> Pid: 3915, comm: ip Not tainted 2.6.34 #468
+> Call Trace:
+> <IRQ>  [<ffffffff8102b2c0>] warn_slowpath_common+0x77/0x8f
+>   [<ffffffff814002dd>] ? panic+0xda/0xe7
+>   [<ffffffff8102b2e7>] warn_slowpath_null+0xf/0x11
+>   [<ffffffff81051b9f>] trace_hardirqs_on_caller+0xb8/0x13b
+>   [<ffffffff81051c2f>] trace_hardirqs_on+0xd/0xf
+>   [<ffffffff814002dd>] panic+0xda/0xe7
+>   [<ffffffff81076538>] softlockup_tick+0x164/0x16d
+>   [<ffffffff81038334>] run_local_timers+0x18/0x1a
+>   [<ffffffff81038357>] update_process_times+0x21/0x47
+>   [<ffffffff8104ec6f>] T.289+0x63/0x65
+>   [<ffffffff8104ec80>] tick_handle_periodic+0xf/0x57
+>   [<ffffffff8101330e>] smp_apic_timer_interrupt+0x74/0x86
+>   [<ffffffff81003493>] apic_timer_interrupt+0x13/0x20
+> <EOI>  [<ffffffff812fd7c4>] ? macvlan_device_event+0x101/0x11f
+>   [<ffffffff812fd7c4>] ? macvlan_device_event+0x101/0x11f
+>   [<ffffffff81405d7b>] notifier_call_chain+0x32/0x5e
+>   [<ffffffff81048ad8>] raw_notifier_call_chain+0xf/0x11
+>   [<ffffffff81339942>] call_netdevice_notifiers+0x16/0x18
+>   [<ffffffff8133a22c>] rollback_registered_many+0x11b/0x205
+>   [<ffffffff8133a393>] rollback_registered+0x2c/0x33
+>   [<ffffffff8133a3f7>] unregister_netdevice_queue+0x5d/0x7c
+>   [<ffffffff81342b17>] rtnl_dellink+0xab/0xc0
+>   [<ffffffff8134433c>] rtnetlink_rcv_msg+0x1c1/0x1de
+>   [<ffffffff8134417b>] ? rtnetlink_rcv_msg+0x0/0x1de
+>   [<ffffffff813536e3>] netlink_rcv_skb+0x3e/0x8f
+>   [<ffffffff81344174>] rtnetlink_rcv+0x21/0x28
+>   [<ffffffff81353403>] netlink_unicast+0x226/0x29c
+>   [<ffffffff81353ea8>] netlink_sendmsg+0x269/0x278
+>   [<ffffffff813287fa>] sock_sendmsg+0xd3/0xf4
+>   [<ffffffff810ae5b8>] ? might_fault+0x4c/0x9c
+>   [<ffffffff810ae5b8>] ? might_fault+0x4c/0x9c
+>   [<ffffffff810ae601>] ? might_fault+0x95/0x9c
+>   [<ffffffff810ae5b8>] ? might_fault+0x4c/0x9c
+>   [<ffffffff81332622>] ? verify_iovec+0x59/0x97
+>   [<ffffffff81328a61>] sys_sendmsg+0x209/0x273
+>   [<ffffffff8104823c>] ? up_read+0x1e/0x36
+>   [<ffffffff81405d0c>] ? do_page_fault+0x329/0x366
+>   [<ffffffff810b5921>] ? do_brk+0x23f/0x322
+>   [<ffffffff81051bf8>] ? trace_hardirqs_on_caller+0x111/0x13b
+>   [<ffffffff81402643>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+>   [<ffffffff81002ae8>] system_call_fastpath+0x16/0x1b
+> ---[ end trace 34536d0c9f1bbf5b ]---
+>=20
 
 
-Then you can check in macvlan_device_event
-
-	...
-
-	if (dev->reg_state != NETREG_NETNS_MOVING)
-		break;
-
-	...
-
-
-Does it make sense ?
-
-   -- Daniel
