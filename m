@@ -1,50 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Using GPU to do packet forwarding
-Date: Tue, 24 Aug 2010 15:31:50 -0700 (PDT)
-Message-ID: <20100824.153150.229738721.davem@davemloft.net>
-References: <20100824151507.5c13bd69@s6510>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: RFC: MTU for serving NFS on Infiniband
+Date: Tue, 24 Aug 2010 15:39:20 -0700
+Message-ID: <20100824153920.63360072@s6510>
+References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
+	<20100823080543.319143e3@nehalam>
+	<alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca>
+	<1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
+	<alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
+	<1282688441.22839.34.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: Marc Aurele La France <tsi@ualberta.ca>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42120
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755229Ab0HXWbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 18:31:32 -0400
-In-Reply-To: <20100824151507.5c13bd69@s6510>
+Received: from mail.vyatta.com ([76.74.103.46]:60910 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753283Ab0HXWjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Aug 2010 18:39:24 -0400
+In-Reply-To: <1282688441.22839.34.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 24 Aug 2010 15:15:07 -0700
+On Tue, 24 Aug 2010 23:20:41 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-> Interesting paper:
->   http://www.ndsl.kaist.edu/~kyoungsoo/papers/packetshader.pdf
-> One section of general consideration is the expense of the current
-> skb scheme. At 10G, they measure 60% of the CPU is used doing skb
-> alloc/free; see paper for the alternative of using a huge
-> packet buffer.  Also, they managed to shrink skb to 8 bytes!
+> On Tue, 2010-08-24 at 13:49 -0600, Marc Aurele La France wrote:
+> > On Tue, 24 Aug 2010, Ben Hutchings wrote:
+> > > On Tue, 2010-08-24 at 09:14 -0600, Marc Aurele La France wrote:
+> > >> On Mon, 23 Aug 2010, Stephen Hemminger wrote:
+> > >>> On Mon, 23 Aug 2010 08:44:37 -0600 (MDT)
+> > >>> Marc Aurele La France <tsi@ualberta.ca> wrote:
+> > >>>> In regrouping for my next tack at this, I noticed that all stack traces go
+> > >>>> through ip_append_data().  This would be ipv6_append_data() in the IPv6 case.
+> > >>>> A _very_ rough draft that would have ip_append_data() temporarily drop down
+> > >>>> to a smaller fake MTU follows ...
+> > 
+> > >>> Why doesn't NFS generate page size fragments?  Does Infiniband or your
+> > >>> device not support this?  Any thing that requires higher order allocation
+> > >>> is going to unstable under load.  Let's fix the cause not the apply bandaid
+> > >>> solution to the symptom.
+> > 
+> > >> From what I can tell, IP fragmentation is done centrally.
+> > > [...]
+> > 
+> > > Stephen and I are not talking about IP fragmentation, but about the
+> > > ability to append 'fragments' to an skb rather than putting the entire
+> > > packet payload in a linear buffer.  See
+> > > <http://vger.kernel.org/~davem/skb_data.html>.
+> > 
+> > Any payload has to either fit in the MTU, or has to be broken up into 
+> > MTU-sized (or less) fragments, come hell or high water.  That this is done 
+> > centrally is a good thing.
+> 
+> Not necessarily.  Offloading it to hardware, where possible, is usually
+> a performance win.
+> 
+> > It is the "(or less)" part that I am working towards here.
+> 
+> The inability to allocate large linear buffers is not a good reason to
+> generate packets smaller than the MTU.  You are working around the real
+> problem.
 
-It just means SLAB or SLUB are broken if the number is that high.
-Also, their old kernel has none of the TX multiqueue work we've
-done.
+IF NFS server is smart enough to generate:
+   Header (skb) + one or more pages in fragment list
+then IP fragmentation could do fragmentation by allocating
+new headers skb (small) and assigning the same pages to
+multiple skb's using page ref count.
 
-It should simply be a lockless list unlink, and how that can consume
-%60 of cpu compared to the routing table lookup is beyond me.
+It obviously isn't working that way.
 
-But I suppose you can easily choose an environment and configuration
-to make the numbers of one's techniques look better.
+The whole problem is moot because NFS over UDP has known data corruption
+issues in the face of packet loss.  The sequence number of the IP fragment
+can easily wrap around causing old data to be grouped with new data and
+the UDP checksum is so weak that the resulting UDP packet will be consumed by the NFS
+client ans passed to the user application as corrupted disk block.
 
-Next, they use a binary search ipv6 lookup which is going to touch
-more data than a multi-way trie scheme would, it also avoids the
-routing cache since ipv6 lacks one.  They even admit that they've
-purposely rigged the test such that the working set doesn't fit in the
-cpu cache.
+DON'T USE NFS OVER UDP!
 
-It's an interesting paper, but we're going to have 64-cpu and 128-cpu
-x86 machines commonly quite soon, so the arity of parallelism these
-guys are getting in return (at a cost of generality) will decrease
-steadily over time.
+
+
 
