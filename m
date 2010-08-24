@@ -1,108 +1,48 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH] TCP_FAILFAST: a new socket option to timeout/abort a
- connection quicker
-Date: Tue, 24 Aug 2010 14:56:28 -0700
-Message-ID: <AANLkTimw_J40zOEDmYuiF1qymLr=WsQTjSRr_0XWLboH@mail.gmail.com>
-References: <1282630819-23104-1-git-send-email-hkchu@google.com>
-	<1282632262.2378.1681.camel@edumazet-laptop>
-	<4C737D15.5060400@nets.rwth-aachen.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/14] mlx4_en: Fixed incorrect unmapping on RX flow.
+Date: Tue, 24 Aug 2010 15:07:46 -0700 (PDT)
+Message-ID: <20100824.150746.232758581.davem@davemloft.net>
+References: <4C73CCE1.6050609@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, ilpo.jarvinen@helsinki.fi,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:38205 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755927Ab0HXV4b convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 17:56:31 -0400
-Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
-	by smtp-out.google.com with ESMTP id o7OLuUxb030550
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 14:56:30 -0700
-Received: from ywg8 (ywg8.prod.google.com [10.192.7.8])
-	by wpaz33.hot.corp.google.com with ESMTP id o7OLuTcg030689
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 14:56:29 -0700
-Received: by ywg8 with SMTP id 8so3399978ywg.24
-        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 14:56:29 -0700 (PDT)
-In-Reply-To: <4C737D15.5060400@nets.rwth-aachen.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45896
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751460Ab0HXWH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 18:07:29 -0400
+In-Reply-To: <4C73CCE1.6050609@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 24, 2010 at 1:04 AM, Arnd Hannemann
-<hannemann@nets.rwth-aachen.de> wrote:
-> Am 24.08.2010 08:44, schrieb Eric Dumazet:
->> Le lundi 23 ao=FBt 2010 =E0 23:20 -0700, H.K. Jerry Chu a =E9crit :
->>> From: Jerry Chu <hkchu@google.com>
->>>
->>> This is a TCP level socket option that takes an unsigned int to spe=
-cify
->>> how long in ms TCP should resend a lost data packet before giving u=
-p
->>> and returning ETIMEDOUT. The normal TCP retry/abort timeout limit s=
-till
->>> applies. In other words this option is only meant for those applica=
-tions
->>> that need to "fail faster" than the default TCP timeout. The latter
->>> may take upto 20 minutes in a normal WAN environment.
->>>
->>> The option is disabled (by default) when set to 0. Also it does not
->>> apply during the connection establishment phase.
->>>
->>> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
->>
->> TCP_FAILFAST might be misleading. It reads as a boolean option, whil=
-e
->> its an option to cap the timeout, with a time unit, instead of the u=
-sual
->> "number of retransmits".
->
-> Why not call it TCP_USERTIMEOUT?
-
-Sure, except that it was designed to shorten the system default user ti=
-meout,
-not lengthen it. (But perhaps it can be combined with TCP_UTO?)
-
-The current default user timeout of 13-20minutes in Linux may be adequa=
-te for
-some apps but too long for many others. A per connection socket option =
-solves
-this problem.
-
-> Later you can also send it via the TCP user timeout option... (RFC548=
-2)
-> Hmm... is the ms granularity really needed? Does it make sense to abo=
-rt
-> a connection below a second?
-
-Yes I thought about that too, but decided it's better to allow the
-flexibility of sub-
-sec level timeout for possible future usage in HPC type of applications=
-, rather
-than to regret later.
-
->
->> Its also funny you dont ask for a default value, given by a sysctl
->> tunable ;)
->
-> Well retries1/2 would be the tunables, no?
-
-The was my first thought, to allow tcp_retries2 to be reduced on a per
-connection basis. But I also see a need to reduce TCP_RTO_MAX in
-order to allow a reasonable # of retries, given a shorter timeout.
-
-I saw a patch submitted a couple of months ago to allow tcp_retries2 to=
- be
-configured but haven't seen any forward progress on the patch. If peopl=
-e
-think letting apps configure tcp_retries2 and TCP_RTO_MAX directly is
-a better solution I'm for it too.
-
-Thanks,
-
-Jerry
-
->
-> Best regards,
-> Arnd
->
+DQpBbGwgMTQgcGF0Y2hlcyBhcHBsaWVkLCBidXQgcGF0Y2hlcyAjMTIgYW5kICMxMyBoYWQgYSBs
+b3Qgb2YgY29uZmxpY3RzDQpiZWNhdXNlIHRoZSBMUk8gb3B0aW9ucyB3ZXJlIGFscmVhZHkgZGVs
+ZXRlZCBieSB0aGUgcGF0Y2ggSSBhcHBsaWVkDQpsYXN0IHdlZWsgZnJvbSBBbWVyaWdvIFdhbmc6
+DQoNCmNvbW1pdCBmM2M1OGFjZWFhM2YyMzdiYTQzNzM1ODA1ZjQ2Nzc5NTAzMjdiOGVlDQpBdXRo
+b3I6IEFtZXJpZ28gV2FuZyA8YW13YW5nQHJlZGhhdC5jb20+DQpEYXRlOiAgIFR1ZSBBdWcgMTcg
+MjE6NTE6MTggMjAxMCArMDAwMA0KDQogICAgbWx4NDogcmVtb3ZlIG51bV9scm8gcGFyYW1ldGVy
+DQogICAgDQogICAgQXMgc3VnZ2VzdGVkIGJ5IERhdmlkLCB0aGlzIHBhcmFtZXRlciBjYW4gZGll
+LCB3ZSBjYW4gdXNlIGV0aHRvb2wNCiAgICB0byB0dXJuIExSTyBvbi9vZmYuIENvbXBpbGUgdGVz
+dHMgb25seS4NCiAgICANCiAgICBTaWduZWQtb2ZmLWJ5OiBXQU5HIENvbmcgPGFtd2FuZ0ByZWRo
+YXQuY29tPg0KICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldD4NCg0KSSBmaXhlZCB1cCB0aGUgY29uZmxpY3RzIGJ1dCBwbGVhc2UgZ2VuZXJhdGUg
+eW91ciBwYXRjaGVzIGFnYWluc3QNCnRoZSBjb3JyZWN0IHRyZWUgaW4gdGhlIGZ1dHVyZS4NCg0K
+SSBhbHNvIGhhZCB0byBhZGQgdGhlIGZvbGxvd2luZyBidWlsZCB3YXJuaW5nIGZpeCBhZnRlciBh
+cHBseWluZyB5b3VyDQpwYXRjaGVzLCBkbyB5b3UgbG9vayBhdCB0aGUgYnVpbGQgb3V0cHV0IGF0
+IGFsbHdoZW4geW91IG1ha2UgY2hhbmdlcw0KdG8gdGhpcyBkcml2ZXI/DQoNCi0tLS0tLS0tLS0t
+LS0tLS0tLS0tDQptbHg0X2VuOiBGaXggYnVpbGQgd2FybmluZyBpbiBtbHg0X2VuX2NyZWF0ZV9y
+eF9yaW5nLg0KDQpkcml2ZXJzL25ldC9tbHg0L2VuX3J4LmM6IEluIGZ1bmN0aW9uIKFtbHg0X2Vu
+X2NyZWF0ZV9yeF9yaW5nojoNCmRyaXZlcnMvbmV0L21seDQvZW5fcnguYzozMDU6IHdhcm5pbmc6
+IGxhYmVsIKFlcnJfbWFwoiBkZWZpbmVkIGJ1dCBub3QgdXNlZA0KDQpTaWduZWQtb2ZmLWJ5OiBE
+YXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBkcml2ZXJzL25ldC9t
+bHg0L2VuX3J4LmMgfCAgICAyIC0tDQogMSBmaWxlcyBjaGFuZ2VkLCAwIGluc2VydGlvbnMoKyks
+IDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9tbHg0L2VuX3J4LmMg
+Yi9kcml2ZXJzL25ldC9tbHg0L2VuX3J4LmMNCmluZGV4IGNiN2ZmMDAuLmM0YWFkN2YgMTAwNjQ0
+DQotLS0gYS9kcml2ZXJzL25ldC9tbHg0L2VuX3J4LmMNCisrKyBiL2RyaXZlcnMvbmV0L21seDQv
+ZW5fcnguYw0KQEAgLTMwMiw4ICszMDIsNiBAQCBpbnQgbWx4NF9lbl9jcmVhdGVfcnhfcmluZyhz
+dHJ1Y3QgbWx4NF9lbl9wcml2ICpwcml2LA0KIA0KIAlyZXR1cm4gMDsNCiANCi1lcnJfbWFwOg0K
+LQltbHg0X2VuX3VubWFwX2J1ZmZlcigmcmluZy0+d3FyZXMuYnVmKTsNCiBlcnJfaHdxOg0KIAlt
+bHg0X2ZyZWVfaHdxX3JlcyhtZGV2LT5kZXYsICZyaW5nLT53cXJlcywgcmluZy0+YnVmX3NpemUp
+Ow0KIGVycl9yaW5nOg0KLS0gDQoxLjcuMi4yDQoNCg==
