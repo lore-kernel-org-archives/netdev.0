@@ -1,104 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC] net: save RX queue number in sock for
- dev_pick_tx() use
-Date: Tue, 24 Aug 2010 15:06:13 +0200
-Message-ID: <1282655173.2477.230.camel@edumazet-laptop>
-References: <1282640519-15541-1-git-send-email-xiaosuo@gmail.com>
+From: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
+Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Tue, 24 Aug 2010 16:27:59 +0300
+Message-ID: <4C73C8DF.4060601@fs.uni-ruse.bg>
+References: <20100820193835.GA6025@del.dom.local>	 <20100821074742.GA2367@del.dom.local>	 <1282377058.2636.12.camel@edumazet-laptop>	 <20100821080735.GA2409@del.dom.local> <4C725FCB.2000304@fs.uni-ruse.bg>	 <20100823124736.GA16966@ff.dom.local>	 <1282568443.2486.34.camel@edumazet-laptop>	 <20100823131056.GA19160@ff.dom.local> <4C727B06.2060002@fs.uni-ruse.bg>	 <4C72802D.8090405@fs.uni-ruse.bg> <20100823141437.GA2282@del.dom.local>	 <4C734FB5.1090702@fs.uni-ruse.bg> <1282626102.2378.1351.camel@edumazet-laptop> <4C738636.4000107@fs.uni-ruse.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>, Tom Herbert <therbert@google.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:50528 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752585Ab0HXNGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 09:06:20 -0400
-Received: by wwe15 with SMTP id 15so1861335wwe.1
-        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 06:06:18 -0700 (PDT)
-In-Reply-To: <1282640519-15541-1-git-send-email-xiaosuo@gmail.com>
+Received: from [83.228.35.12] ([83.228.35.12]:32918 "EHLO fs.ru.acad.bg"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755073Ab0HXN2K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Aug 2010 09:28:10 -0400
+In-Reply-To: <4C738636.4000107@fs.uni-ruse.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 24 ao=C3=BBt 2010 =C3=A0 17:01 +0800, Changli Gao a =C3=A9crit=
- :
-> For the packets sent out from a local server socket, we can use the q=
-ueue
-> from which the packets from the client socket are received.
->=20
-> It may help on a TCP or UDP server. Because I don't have a multiqueue=
- NIC,
-> I don't even test it.
->=20
+=D0=9D=D0=B0 24.8.2010 =D0=B3. 11:43, Plamen Petrov =D0=BD=D0=B0=D0=BF=D0=
+=B8=D1=81=D0=B0:
+> =D0=9D=D0=B0 24.8.2010 =D0=B3. 08:01, Eric Dumazet =D0=BD=D0=B0=D0=BF=
+=D0=B8=D1=81=D0=B0:
+>> Le mardi 24 ao=C3=BBt 2010 =C3=A0 07:51 +0300, Plamen Petrov a =C3=A9=
+crit :
+>>> So far - not so good. :(
+=2E..
+>>
+> Here is what I've got while running the kernel with the patch
+> I attached earlier plus the above one, after turning GRO on for
+> my tg3 nic:
+>
+> [picture 10]
+> http://picpaste.com/37e37f9ff9504e3a003f49092f9b1be6.jpg
+>
+> [picture 11]
+> http://picpaste.com/5663ca7c5041c0ed7a1f3e6a9aa17a9e.jpg
+>
+> [picture 12]
+> http://picpaste.com/17f2ecaa409a1ebbf835a2e0519d3099.jpg
+>
+> Now moving on to the second proposed patch from Jarek.
+>
+> Thanks,
+> Plamen
 
-It may help ? or it may not...
+The current status: if I enable GRO on the tg3 - the kernel oopses.
+It just takes a different amount of time to trigger: somewhere from
+30 seconds to 30 minutes.
 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ---
->  include/net/sock.h  |   18 ++++++++++++++++++
->  net/core/dev.c      |   25 ++++++++++++++++++-------
->  net/ipv4/tcp_ipv4.c |    5 ++++-
->  net/ipv4/udp.c      |    4 +++-
->  4 files changed, 43 insertions(+), 9 deletions(-)
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 100e43b..4e5f2f4 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1231,6 +1231,24 @@ static inline int sk_tx_queue_get(const struct=
- sock *sk)
->  	return sk ? sk->sk_tx_queue_mapping : -1;
->  }
-> =20
-> +static inline void sk_rx_queue_save(struct sock *sk, struct sk_buff =
-*skb)
-> +{
-> +	struct dst_entry *dst;
-> +	int rxqueue;
-> +
-> +	if (!skb_rx_queue_recorded(skb))
-> +		return;
-> +	rcu_read_lock();
-> +	dst =3D rcu_dereference_check(sk->sk_dst_cache, 1);
+The oopses looks the same, and here are the latest:
 
-rcu_dereference(sk->sk_dst_cache) is fine here.
+[picture 13]
+http://picpaste.com/c8dbda8f5c15d9ce3e050dd7f245f5d0.jpg
 
-> +	if (dst && !dst->dev->netdev_ops->ndo_select_queue &&
-> +	    dst->dev =3D=3D skb->dev) {
-> +		rxqueue =3D skb_get_rx_queue(skb);
-> +		if (rxqueue !=3D sk_tx_queue_get(sk))
-> +			sk_tx_queue_set(sk, rxqueue);
-> +	}
-> +	rcu_read_unlock();
-> +}
-> +
+[picture 14]
+http://picpaste.com/646cca586b704c5b72d3cf9fa54c7344.jpg
 
-ipv6 not handled
+I was wondering which debug options could help us track this down?
 
-Anyway, should we store a queue number, a rxhash, a cpu number, all
-values ?
-
-Tom Herbert last patch (XPS) is about selecting a txqueue given a cpu
-number at sending time. In its use, no need to add logic at receive tim=
-e
-to remember rxqueue. But logic is wide (for a given NIC)
-
-I do think we should really clarify the needs before writing hundred of
-lines of code that we have to maintain for next decade...
-
-=46or example, storing the cpu number of the cpu that received a UDP/TC=
-P
-frame would probably be nice, and using it as a key for xmit path queue
-selection would probably be faster...
-
-Probably we want a selectable way... A multi threaded UDP application,
-receiving frames on a single socket, might need to select a single
-txqueue (socket property), or multiple queues (based on packet content,
-or sender cpu, or last receive cpu number, ...)
-
-
-
+Thanks,
+Plamen
