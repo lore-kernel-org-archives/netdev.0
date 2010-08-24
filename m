@@ -1,56 +1,53 @@
-From: Marc Aurele La France <tsi@ualberta.ca>
-Subject: Re: RFC: MTU for serving NFS on Infiniband
-Date: Tue, 24 Aug 2010 09:14:54 -0600 (Mountain Daylight Time)
-Message-ID: <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca>
-References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca> <20100823080543.319143e3@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ethoc: get rid of ethoc_stats()
+Date: Tue, 24 Aug 2010 17:22:11 +0200
+Message-ID: <1282663331.2477.255.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100823080543.319143e3@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:38902 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755175Ab0HXPWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 11:22:16 -0400
+Received: by eyg5 with SMTP id 5so3424386eyg.19
+        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 08:22:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Aug 2010, Stephen Hemminger wrote:
-> On Mon, 23 Aug 2010 08:44:37 -0600 (MDT)
-> Marc Aurele La France <tsi@ualberta.ca> wrote:
->> In regrouping for my next tack at this, I noticed that all stack traces go
->> through ip_append_data().  This would be ipv6_append_data() in the IPv6 case.
->> A _very_ rough draft that would have ip_append_data() temporarily drop down
->> to a smaller fake MTU follows ...
+drivers can avoid implementing ndo_get_stats method if using netdevice
+stats structure.
 
-> Why doesn't NFS generate page size fragments?  Does Infiniband or your
-> device not support this?  Any thing that requires higher order allocation
-> is going to unstable under load.  Let's fix the cause not the apply bandaid
-> solution to the symptom.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/ethoc.c |    6 ------
+ 1 file changed, 6 deletions(-)
 
->From what I can tell, IP fragmentation is done centrally.
+diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
+index 6d653c4..c5a2fe0 100644
+--- a/drivers/net/ethoc.c
++++ b/drivers/net/ethoc.c
+@@ -806,11 +806,6 @@ static void ethoc_tx_timeout(struct net_device *dev)
+ 		ethoc_interrupt(dev->irq, dev);
+ }
+ 
+-static struct net_device_stats *ethoc_stats(struct net_device *dev)
+-{
+-	return &dev->stats;
+-}
+-
+ static netdev_tx_t ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct ethoc *priv = netdev_priv(dev);
+@@ -863,7 +858,6 @@ static const struct net_device_ops ethoc_netdev_ops = {
+ 	.ndo_set_multicast_list = ethoc_set_multicast_list,
+ 	.ndo_change_mtu = ethoc_change_mtu,
+ 	.ndo_tx_timeout = ethoc_tx_timeout,
+-	.ndo_get_stats = ethoc_stats,
+ 	.ndo_start_xmit = ethoc_start_xmit,
+ };
+ 
 
-The MTU is a device attribute, yes.  But, here, it is ip_append_data(), 
-not NFS nor the device driver, whose responsibility it is to break up the 
-payload into fragments, either by itself or using any facility supported 
-by the adapter.  What I'm saying is that there's no reason to require all 
-fragments, except the last, to be MTU-sized.  The RFCs I've looked at 
-allow them to be shorter which can be used to advantage when MTU-sized 
-fragments cannot be allocated in a memory fragmentation scenario, instead 
-of reporting an error.
 
-Marc.
-
-+----------------------------------+----------------------------------+
-|  Marc Aurele La France           |  work:   1-780-492-9310          |
-|  Academic Information and        |  fax:    1-780-492-1729          |
-|    Communications Technologies   |  email:  tsi@ualberta.ca         |
-|  352 General Services Building   +----------------------------------+
-|  University of Alberta           |                                  |
-|  Edmonton, Alberta               |    Standard disclaimers apply    |
-|  T6G 2H1                         |                                  |
-|  CANADA                          |                                  |
-+----------------------------------+----------------------------------+
