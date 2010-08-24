@@ -1,69 +1,67 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH] TCP_FAILFAST: a new socket option to timeout/abort a
- connection quicker
-Date: Tue, 24 Aug 2010 13:47:11 -0700
-Message-ID: <AANLkTimsVzH_aNkN3ZS+AuzvJBTVea8GKLPXanWYMe3t@mail.gmail.com>
-References: <1282630819-23104-1-git-send-email-hkchu@google.com>
-	<1282632262.2378.1681.camel@edumazet-laptop>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH net-next-2.6] bna: fix stats handling
+Date: Tue, 24 Aug 2010 13:48:26 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A4AE225DD0@HQ1-EXCH01.corp.brocade.com>
+References: <20100823.203552.63040549.davem@davemloft.net>
+	<1282627901.2378.1451.camel@edumazet-laptop>
+	<E5313AF6F2BFD14293E5FD0F94750F86A4AE225D69@HQ1-EXCH01.corp.brocade.com>
+ <20100824.123645.39174077.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Akshay Mathur <amathur@brocade.com>,
+	Debashis Dutt <ddutt@Brocade.COM>,
+	Jing Huang <huangj@Brocade.COM>
+To: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:4538 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753110Ab0HXUr2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 16:47:28 -0400
-Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
-	by smtp-out.google.com with ESMTP id o7OKlRih027645
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 13:47:27 -0700
-Received: from gwb15 (gwb15.prod.google.com [10.200.2.15])
-	by kpbe14.cbf.corp.google.com with ESMTP id o7OKlPc3016915
-	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 13:47:26 -0700
-Received: by gwb15 with SMTP id 15so173510gwb.40
-        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 13:47:25 -0700 (PDT)
-In-Reply-To: <1282632262.2378.1681.camel@edumazet-laptop>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:55054 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755968Ab0HXUtX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Aug 2010 16:49:23 -0400
+In-Reply-To: <20100824.123645.39174077.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 23, 2010 at 11:44 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> Le lundi 23 ao=FBt 2010 =E0 23:20 -0700, H.K. Jerry Chu a =E9crit :
->> From: Jerry Chu <hkchu@google.com>
->>
->> This is a TCP level socket option that takes an unsigned int to spec=
-ify
->> how long in ms TCP should resend a lost data packet before giving up
->> and returning ETIMEDOUT. The normal TCP retry/abort timeout limit st=
-ill
->> applies. In other words this option is only meant for those applicat=
-ions
->> that need to "fail faster" than the default TCP timeout. The latter
->> may take upto 20 minutes in a normal WAN environment.
->>
->> The option is disabled (by default) when set to 0. Also it does not
->> apply during the connection establishment phase.
->>
->> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
->
-> TCP_FAILFAST might be misleading. It reads as a boolean option, while
-> its an option to cap the timeout, with a time unit, instead of the us=
-ual
-> "number of retransmits".
+Hi Eric, David,
 
-I'm open to better names. Perhaps it can be combined with TCP_UTO
-mentioned in subsequent reply?
+It was a mistake, I think it was a false alarm due to an email client issue. The patch was applied to net-next-2.6 and it went through cleanly. We are testing the patch and the fixes. We will let you know the results soon.
 
->
-> Its also funny you dont ask for a default value, given by a sysctl
-> tunable ;)
+>diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c index 491d148..a935b96 100644
+>--- a/drivers/net/bna/bnad.c
+>+++ b/drivers/net/bna/bnad.c
+>@@ -1964,25 +1964,24 @@ bnad_enable_default_bcast(struct bnad *bnad)
+> 
+> /* Statistics utilities */
+> void
+>-bnad_netdev_qstats_fill(struct bnad *bnad)
+>+bnad_netdev_qstats_fill(struct bnad *bnad, struct rtnl_link_stats64 
+>+*stats)
 
-This socket option takes time unit directly. The other sysctls
-use # of retries and max_rto. (Not sure if that's what you asked.)
+It looks like the email client split the line and also added a + sign, giving an illusion of insertion which was not actually there.
 
->
->
->
->
+Thanks,
+Rasesh
+
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Tuesday, August 24, 2010 12:37 PM
+To: Rasesh Mody
+Cc: eric.dumazet@gmail.com; netdev@vger.kernel.org; Akshay Mathur; Debashis Dutt; Jing Huang
+Subject: Re: [PATCH net-next-2.6] bna: fix stats handling
+
+From: Rasesh Mody <rmody@brocade.com>
+Date: Tue, 24 Aug 2010 11:49:45 -0700
+
+> We tried applying the patch to the source, it looks corrupted. Can
+> you please resubmit the patch?
+
+His patch applies absolutely cleanly to net-next-2.6
+
+I had to make fixes to your driver, as I mentioned when I checked
+in your patch yesterday, so you absolutely must test against
+what I added to net-next-2.6 and not what you have locally in
+your trees.
