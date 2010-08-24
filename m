@@ -1,24 +1,74 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Using GPU to do packet forwarding
-Date: Tue, 24 Aug 2010 15:15:07 -0700
-Message-ID: <20100824151507.5c13bd69@s6510>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: RFC: MTU for serving NFS on Infiniband
+Date: Tue, 24 Aug 2010 23:20:41 +0100
+Message-ID: <1282688441.22839.34.camel@localhost>
+References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
+	 <20100823080543.319143e3@nehalam>
+	 <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca>
+	 <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
+	 <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Marc Aurele La France <tsi@ualberta.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:32915 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932097Ab0HXWPK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 18:15:10 -0400
+Received: from mail.solarflare.com ([216.237.3.220]:17953 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755155Ab0HXWUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 18:20:51 -0400
+In-Reply-To: <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Interesting paper:
-  http://www.ndsl.kaist.edu/~kyoungsoo/papers/packetshader.pdf
-One section of general consideration is the expense of the current
-skb scheme. At 10G, they measure 60% of the CPU is used doing skb
-alloc/free; see paper for the alternative of using a huge
-packet buffer.  Also, they managed to shrink skb to 8 bytes!
+On Tue, 2010-08-24 at 13:49 -0600, Marc Aurele La France wrote:
+> On Tue, 24 Aug 2010, Ben Hutchings wrote:
+> > On Tue, 2010-08-24 at 09:14 -0600, Marc Aurele La France wrote:
+> >> On Mon, 23 Aug 2010, Stephen Hemminger wrote:
+> >>> On Mon, 23 Aug 2010 08:44:37 -0600 (MDT)
+> >>> Marc Aurele La France <tsi@ualberta.ca> wrote:
+> >>>> In regrouping for my next tack at this, I noticed that all stack traces go
+> >>>> through ip_append_data().  This would be ipv6_append_data() in the IPv6 case.
+> >>>> A _very_ rough draft that would have ip_append_data() temporarily drop down
+> >>>> to a smaller fake MTU follows ...
+> 
+> >>> Why doesn't NFS generate page size fragments?  Does Infiniband or your
+> >>> device not support this?  Any thing that requires higher order allocation
+> >>> is going to unstable under load.  Let's fix the cause not the apply bandaid
+> >>> solution to the symptom.
+> 
+> >> From what I can tell, IP fragmentation is done centrally.
+> > [...]
+> 
+> > Stephen and I are not talking about IP fragmentation, but about the
+> > ability to append 'fragments' to an skb rather than putting the entire
+> > packet payload in a linear buffer.  See
+> > <http://vger.kernel.org/~davem/skb_data.html>.
+> 
+> Any payload has to either fit in the MTU, or has to be broken up into 
+> MTU-sized (or less) fragments, come hell or high water.  That this is done 
+> centrally is a good thing.
+
+Not necessarily.  Offloading it to hardware, where possible, is usually
+a performance win.
+
+> It is the "(or less)" part that I am working towards here.
+
+The inability to allocate large linear buffers is not a good reason to
+generate packets smaller than the MTU.  You are working around the real
+problem.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
