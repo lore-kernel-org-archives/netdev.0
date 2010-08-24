@@ -1,48 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/14] mlx4_en: Fixed incorrect unmapping on RX flow.
-Date: Tue, 24 Aug 2010 15:07:46 -0700 (PDT)
-Message-ID: <20100824.150746.232758581.davem@davemloft.net>
-References: <4C73CCE1.6050609@mellanox.co.il>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] TCP_FAILFAST: a new socket option to timeout/abort a
+ connection quicker
+Date: Tue, 24 Aug 2010 15:13:44 -0700
+Message-ID: <AANLkTikAGKObYnczsVoKnUOewJBp2J2036yOD7TncA0F@mail.gmail.com>
+References: <1282630819-23104-1-git-send-email-hkchu@google.com>
+	<1282632262.2378.1681.camel@edumazet-laptop>
+	<4C737D15.5060400@nets.rwth-aachen.de>
+	<423116d1d215b0fb3d1c966fb8167508@localhost>
+	<4C73DE32.1030802@nets.rwth-aachen.de>
+	<20100824162844.GA7889@nuttenaction>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
-To: yevgenyp@mellanox.co.il
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	ilpo.jarvinen@helsinki.fi, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45896
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751460Ab0HXWH3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 18:07:29 -0400
-In-Reply-To: <4C73CCE1.6050609@mellanox.co.il>
+Received: from smtp-out.google.com ([216.239.44.51]:45041 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932166Ab0HXWNs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 18:13:48 -0400
+Received: from hpaq7.eem.corp.google.com (hpaq7.eem.corp.google.com [172.25.149.7])
+	by smtp-out.google.com with ESMTP id o7OMDkjq008895
+	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 15:13:47 -0700
+Received: from ywa6 (ywa6.prod.google.com [10.192.1.6])
+	by hpaq7.eem.corp.google.com with ESMTP id o7OMDjrb009615
+	for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 15:13:45 -0700
+Received: by ywa6 with SMTP id 6so2966248ywa.4
+        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 15:13:45 -0700 (PDT)
+In-Reply-To: <20100824162844.GA7889@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpBbGwgMTQgcGF0Y2hlcyBhcHBsaWVkLCBidXQgcGF0Y2hlcyAjMTIgYW5kICMxMyBoYWQgYSBs
-b3Qgb2YgY29uZmxpY3RzDQpiZWNhdXNlIHRoZSBMUk8gb3B0aW9ucyB3ZXJlIGFscmVhZHkgZGVs
-ZXRlZCBieSB0aGUgcGF0Y2ggSSBhcHBsaWVkDQpsYXN0IHdlZWsgZnJvbSBBbWVyaWdvIFdhbmc6
-DQoNCmNvbW1pdCBmM2M1OGFjZWFhM2YyMzdiYTQzNzM1ODA1ZjQ2Nzc5NTAzMjdiOGVlDQpBdXRo
-b3I6IEFtZXJpZ28gV2FuZyA8YW13YW5nQHJlZGhhdC5jb20+DQpEYXRlOiAgIFR1ZSBBdWcgMTcg
-MjE6NTE6MTggMjAxMCArMDAwMA0KDQogICAgbWx4NDogcmVtb3ZlIG51bV9scm8gcGFyYW1ldGVy
-DQogICAgDQogICAgQXMgc3VnZ2VzdGVkIGJ5IERhdmlkLCB0aGlzIHBhcmFtZXRlciBjYW4gZGll
-LCB3ZSBjYW4gdXNlIGV0aHRvb2wNCiAgICB0byB0dXJuIExSTyBvbi9vZmYuIENvbXBpbGUgdGVz
-dHMgb25seS4NCiAgICANCiAgICBTaWduZWQtb2ZmLWJ5OiBXQU5HIENvbmcgPGFtd2FuZ0ByZWRo
-YXQuY29tPg0KICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldD4NCg0KSSBmaXhlZCB1cCB0aGUgY29uZmxpY3RzIGJ1dCBwbGVhc2UgZ2VuZXJhdGUg
-eW91ciBwYXRjaGVzIGFnYWluc3QNCnRoZSBjb3JyZWN0IHRyZWUgaW4gdGhlIGZ1dHVyZS4NCg0K
-SSBhbHNvIGhhZCB0byBhZGQgdGhlIGZvbGxvd2luZyBidWlsZCB3YXJuaW5nIGZpeCBhZnRlciBh
-cHBseWluZyB5b3VyDQpwYXRjaGVzLCBkbyB5b3UgbG9vayBhdCB0aGUgYnVpbGQgb3V0cHV0IGF0
-IGFsbHdoZW4geW91IG1ha2UgY2hhbmdlcw0KdG8gdGhpcyBkcml2ZXI/DQoNCi0tLS0tLS0tLS0t
-LS0tLS0tLS0tDQptbHg0X2VuOiBGaXggYnVpbGQgd2FybmluZyBpbiBtbHg0X2VuX2NyZWF0ZV9y
-eF9yaW5nLg0KDQpkcml2ZXJzL25ldC9tbHg0L2VuX3J4LmM6IEluIGZ1bmN0aW9uIKFtbHg0X2Vu
-X2NyZWF0ZV9yeF9yaW5nojoNCmRyaXZlcnMvbmV0L21seDQvZW5fcnguYzozMDU6IHdhcm5pbmc6
-IGxhYmVsIKFlcnJfbWFwoiBkZWZpbmVkIGJ1dCBub3QgdXNlZA0KDQpTaWduZWQtb2ZmLWJ5OiBE
-YXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQotLS0NCiBkcml2ZXJzL25ldC9t
-bHg0L2VuX3J4LmMgfCAgICAyIC0tDQogMSBmaWxlcyBjaGFuZ2VkLCAwIGluc2VydGlvbnMoKyks
-IDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9tbHg0L2VuX3J4LmMg
-Yi9kcml2ZXJzL25ldC9tbHg0L2VuX3J4LmMNCmluZGV4IGNiN2ZmMDAuLmM0YWFkN2YgMTAwNjQ0
-DQotLS0gYS9kcml2ZXJzL25ldC9tbHg0L2VuX3J4LmMNCisrKyBiL2RyaXZlcnMvbmV0L21seDQv
-ZW5fcnguYw0KQEAgLTMwMiw4ICszMDIsNiBAQCBpbnQgbWx4NF9lbl9jcmVhdGVfcnhfcmluZyhz
-dHJ1Y3QgbWx4NF9lbl9wcml2ICpwcml2LA0KIA0KIAlyZXR1cm4gMDsNCiANCi1lcnJfbWFwOg0K
-LQltbHg0X2VuX3VubWFwX2J1ZmZlcigmcmluZy0+d3FyZXMuYnVmKTsNCiBlcnJfaHdxOg0KIAlt
-bHg0X2ZyZWVfaHdxX3JlcyhtZGV2LT5kZXYsICZyaW5nLT53cXJlcywgcmluZy0+YnVmX3NpemUp
-Ow0KIGVycl9yaW5nOg0KLS0gDQoxLjcuMi4yDQoNCg==
+On Tue, Aug 24, 2010 at 9:28 AM, Hagen Paul Pfeifer <hagen@jauu.net> wr=
+ote:
+> * Arnd Hannemann | 2010-08-24 16:58:58 [+0200]:
+>
+>>Nice, so did you come up with a name for the socket option yet?
+>
+> +#define =A0 =A0 =A0TCP_UTO =A0 =A0 =A0 18 =A0/* User Timeout Option =
+*/
+>
+> The patch is an early state and details as well as testing is a littl=
+e bit
+> costly.
+>
+>>Hmm, is there really a difference? If an application specifies
+>>a wanted timeout e.g. with USER_TIMEOUT, CHANGEABLE will
+>>become false and the value would be announced via ADV_UTO.
+>>The connection could be aborted locally after that time passed,
+>>regardless of what the remote site thinks the timeout should be.
+>>
+>>As I understand it U_LIMIT and L_LIMIT would only be there
+>>for safety to disallow nonsensical values of USER_TIMEOUT.
+>>
+>>Did I miss something?
+>
+> Maybe not, aot sure. I must take a look at the patch from Jerry. I ha=
+d no time
+> until now.
+
+According to RFC5482
+"Decreasing the user timeouts allows busy servers to explicitly notify
+their clients that they will maintain the connection state only for a
+short time without connectivity."
+
+So it looks like the user timeout can be used in either senario (shorte=
+ning
+or lengthening) and in both cases is a lower bound, i.e., the connectio=
+n
+should abort at or shortly after the specified user timeout.
+
+In this case does it make sense to combine the two? Will your TCP_UTO
+patch be ready anytime soon?
+
+Again an alternative is to allow configuring tcp_retries2 and TCP_RTO_M=
+AX
+directly. I'm open to suggestion but we'd like to get something in soon=
+er.
+
+Thanks,
+
+Jerry
+
+>
+> Hagen
+>
