@@ -1,21 +1,27 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 1/5] drivers/net/irda: Eliminate memory leak
-Date: Tue, 24 Aug 2010 16:38:33 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1008241638130.15172@ask.diku.dk>
+Subject: [PATCH 5/5] net/netfilter/ipvs: Eliminate memory leak
+Date: Tue, 24 Aug 2010 16:39:49 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1008241639300.15172__14684.1086018414$1282661056$gmane$org@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:59427 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751452Ab0HXOjv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Aug 2010 10:39:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
-dev_alloc_skb allocates some memory, so that memory should be freed before
-leaving the function in an error case.
-
-Corrected some typos in a nearby comment as well.
+__ip_vs_service_get and __ip_vs_svc_fwm_get increment a reference count, so
+that reference count should be decremented before leaving the function in an
+error case.
 
 A simplified version of the semantic match that finds this problem is:
 (http://coccinelle.lip6.fr/)
@@ -28,7 +34,7 @@ identifier f1;
 iterator I;
 @@
 
-x = dev_alloc_skb(...);
+x = __ip_vs_service_get(...);
 <... when != x
      when != true (x == NULL || ...)
      when != if (...) { <+...x...+> }
@@ -47,25 +53,27 @@ x = dev_alloc_skb(...);
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/irda/via-ircc.c |    3 ++-
+ net/netfilter/ipvs/ip_vs_ctl.c |    3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
-index b0a6cd8..67c0ad4 100644
---- a/drivers/net/irda/via-ircc.c
-+++ b/drivers/net/irda/via-ircc.c
-@@ -1182,12 +1182,13 @@ F01_E */
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 0f0c079..f98169b 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2155,7 +2155,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 	if (cmd != IP_VS_SO_SET_ADD
+ 	    && (svc == NULL || svc->protocol != usvc.protocol)) {
+ 		ret = -ESRCH;
+-		goto out_unlock;
++		goto out_drop_service;
+ 	}
  
- 		skb = dev_alloc_skb(len + 1 - 4);
- 		/*
--		 * if frame size,data ptr,or skb ptr are wrong ,the get next
-+		 * if frame size, data ptr, or skb ptr are wrong, then get next
- 		 * entry.
- 		 */
- 		if ((skb == NULL) || (skb->data == NULL) ||
- 		    (self->rx_buff.data == NULL) || (len < 6)) {
- 			self->netdev->stats.rx_dropped++;
-+			kfree_skb(skb);
- 			return TRUE;
- 		}
- 		skb_reserve(skb, 1);
+ 	switch (cmd) {
+@@ -2189,6 +2189,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 		ret = -EINVAL;
+ 	}
+ 
++out_drop_service:
+ 	if (svc)
+ 		ip_vs_service_put(svc);
+ 
