@@ -1,62 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] tc: add meta match on receive hash
-Date: Tue, 24 Aug 2010 11:14:40 -0700
-Message-ID: <20100824111440.37eebae1@nehalam>
-References: <20100823130803.7736ebfb@nehalam>
-	<AANLkTik3tnSQOXSQWxX+GqcJpjnEyGuWyZhQ9sbPFYAt@mail.gmail.com>
-	<20100823.204422.85408087.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at
+ skb_copy_and_csum_dev
+Date: Tue, 24 Aug 2010 20:22:35 +0200
+Message-ID: <20100824182235.GA3065@del.dom.local>
+References: <20100823131056.GA19160@ff.dom.local>
+ <4C727B06.2060002@fs.uni-ruse.bg>
+ <4C72802D.8090405@fs.uni-ruse.bg>
+ <20100823141437.GA2282@del.dom.local>
+ <4C734FB5.1090702@fs.uni-ruse.bg>
+ <1282626102.2378.1351.camel@edumazet-laptop>
+ <4C738636.4000107@fs.uni-ruse.bg>
+ <4C73C8DF.4060601@fs.uni-ruse.bg>
+ <1282662532.2477.248.camel@edumazet-laptop>
+ <courier.4C74007C.00000EE4@fs.ru.acad.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, hadi@cyberus.ca, tgraf@redhat.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45140 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751812Ab0HXSOs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 14:14:48 -0400
-In-Reply-To: <20100823.204422.85408087.davem@davemloft.net>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:63589 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752687Ab0HXSWl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 14:22:41 -0400
+Received: by eyg5 with SMTP id 5so3581835eyg.19
+        for <netdev@vger.kernel.org>; Tue, 24 Aug 2010 11:22:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <courier.4C74007C.00000EE4@fs.ru.acad.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Trivial extension to existing meta data match rules to allow
-matching on skb receive hash value.
+On Tue, Aug 24, 2010 at 08:25:16PM +0300, Plamen Petrov wrote:
+> Eric Dumazet ????????????:
+...
+> 
+> Now what?
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Good question. IMHO it looks like skbs are overwritten, so better turn
+off gro until some next patch.
 
----
-This versions uses skb_get_rxhash()
+> 
+> Thanks a lot, Eric and Jarek!
 
---- a/include/linux/tc_ematch/tc_em_meta.h	2010-08-24 08:35:29.555651482 -0700
-+++ b/include/linux/tc_ematch/tc_em_meta.h	2010-08-24 08:36:51.038237590 -0700
-@@ -79,6 +79,7 @@ enum {
-  	TCF_META_ID_SK_SENDMSG_OFF,
-  	TCF_META_ID_SK_WRITE_PENDING,
- 	TCF_META_ID_VLAN_TAG,
-+	TCF_META_ID_RXHASH,
- 	__TCF_META_ID_MAX
- };
- #define TCF_META_ID_MAX (__TCF_META_ID_MAX - 1)
---- a/net/sched/em_meta.c	2010-08-24 08:35:29.535662209 -0700
-+++ b/net/sched/em_meta.c	2010-08-24 08:38:07.191510604 -0700
-@@ -223,6 +223,11 @@ META_COLLECTOR(int_maclen)
- 	dst->value = skb->mac_len;
- }
- 
-+META_COLLECTOR(int_rxhash)
-+{
-+	dst->value = skb_get_rxhash(skb);
-+}
-+
- /**************************************************************************
-  * Netfilter
-  **************************************************************************/
-@@ -541,6 +546,7 @@ static struct meta_ops __meta_ops[TCF_ME
- 		[META_ID(SK_SENDMSG_OFF)]	= META_FUNC(int_sk_sendmsg_off),
- 		[META_ID(SK_WRITE_PENDING)]	= META_FUNC(int_sk_write_pend),
- 		[META_ID(VLAN_TAG)]		= META_FUNC(int_vlan_tag),
-+		[META_ID(RXHASH)]		= META_FUNC(int_rxhash),
- 	}
- };
- 
+Thanks a lot, Plamen and Eric, too!
+
+Jarek P.
