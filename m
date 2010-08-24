@@ -1,29 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bcm63xx_enet: use netdev stats
-Date: Tue, 24 Aug 2010 12:24:13 -0700 (PDT)
-Message-ID: <20100824.122413.183031870.davem@davemloft.net>
-References: <1282665195.2477.261.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] include/linux/if_ether.h: Remove unused #define
+ MAC_FMT
+Date: Tue, 24 Aug 2010 12:30:11 -0700
+Message-ID: <1282678211.25208.1.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mbizon@freebox.fr, ffainelli@freebox.fr
-To: eric.dumazet@gmail.com
+Cc: LKML <linux-kernel@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42628
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752937Ab0HXTXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 15:23:55 -0400
-In-Reply-To: <1282665195.2477.261.camel@edumazet-laptop>
+Received: from mail.perches.com ([173.55.12.10]:1316 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751717Ab0HXTaO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Aug 2010 15:30:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 24 Aug 2010 17:53:15 +0200
+Last use was removed, so remove the #define.
 
-> Use integrated net_device stats instead of a private one
-> 
-> Get rid of bcm_enet_get_stats()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ include/linux/if_ether.h |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-Applied.
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index bed7a46..f9c3df0 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -137,8 +137,6 @@ extern struct ctl_table ether_table[];
+ 
+ extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
+ 
+-#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+-
+ #endif
+ 
+ #endif	/* _LINUX_IF_ETHER_H */
+
+
