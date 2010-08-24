@@ -1,51 +1,51 @@
-From: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
-Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at skb_copy_and_csum_dev
-Date: Tue, 24 Aug 2010 07:51:01 +0300
-Message-ID: <4C734FB5.1090702@fs.uni-ruse.bg>
-References: <20100820193835.GA6025@del.dom.local> <20100821074742.GA2367@del.dom.local> <1282377058.2636.12.camel@edumazet-laptop> <20100821080735.GA2409@del.dom.local> <4C725FCB.2000304@fs.uni-ruse.bg> <20100823124736.GA16966@ff.dom.local> <1282568443.2486.34.camel@edumazet-laptop> <20100823131056.GA19160@ff.dom.local> <4C727B06.2060002@fs.uni-ruse.bg> <4C72802D.8090405@fs.uni-ruse.bg> <20100823141437.GA2282@del.dom.local>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch net-next] net: increase the size of priv_flags and add
+ IFF_OVS_DATAPATH
+Date: Tue, 24 Aug 2010 13:53:05 +0900
+Message-ID: <20100824045256.GA21033@verge.net.au>
+References: <20100824022637.GA11820@verge.net.au>
+ <20100823.204408.35817944.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [83.228.35.12] ([83.228.35.12]:39245 "EHLO fs.ru.acad.bg"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750851Ab0HXEvF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 00:51:05 -0400
-In-Reply-To: <20100823141437.GA2282@del.dom.local>
+Received: from kirsty.vergenet.net ([202.4.237.240]:35539 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840Ab0HXExK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 00:53:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20100823.204408.35817944.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D0=9D=D0=B0 23.8.2010 =D0=B3. 17:14, Jarek Poplawski =D0=BD=D0=B0=D0=BF=
-=D0=B8=D1=81=D0=B0:
-> On Mon, Aug 23, 2010 at 05:05:33PM +0300, Plamen Petrov wrote:
->> Well, so far - so good. No oopses.
->>
->> I think I'm hitting some compiler related issue here...
->>
->> The kernel with the patch I sent applied is working pretty fine
->> even with "generic-receive-offload" ON for my tg3 nic...
->>
->> What is the big difference there?
->
-> Oopses should be replaced with warnings, so please check the
-> syslog etc from time to time.
->
-> Jarek P.
+On Mon, Aug 23, 2010 at 08:44:08PM -0700, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Tue, 24 Aug 2010 11:26:41 +0900
+> 
+> > IFF_OVS_DATAPATH is a place-holder for the Open vSwitch datapath
+> > which I am preparing to submit for merging.
+> > 
+> > As all 16 bits of priv_flags are already assigned flags, also increase
+> > the size of priv_flags to 32 bits.
+> > 
+> > Unfortunately, by my calculations this increases the size of
+> > struct net_device by 4 bytes on 32bit architectures and
+> > 8 bytes on 64 bit architectures. I couldn't see an obvious
+> > way to avoid that.
+> > 
+> > Cc: Jesse Gross <jesse@nicira.com>
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> I can't think of a better way out of this, so applied for now.
+> 
+> Maybe somehow some of those bonding specific flags can get put
+> down into the bonding private structure.  However, that might
+> not be possible if the sole reason those live in ->priv_flags
+> is to allow tests of the flags outside of the bonding code.
 
-So far - not so good. :(
+Thanks.
 
-After I left the machine, i rebooted once. Then I logged in
-via ssh, and turned gro back ON for the tg3 nic - and in the
-next 30 minutes - another reboot.
+It seems to me that there is ample scope to do something.
+But nothing seems obviously correct.
 
-Today I will try to capture a picture of the oops/warning
-with my phone camera, because contrary to what you suggest,
-Jarek, there are no messages in the system logs.
-
-Plamen
