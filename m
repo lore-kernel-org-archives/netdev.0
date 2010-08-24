@@ -1,49 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix deadlock between boomerang_interrupt and
- boomerang_start_tx in 3c59x
-Date: Tue, 24 Aug 2010 01:48:42 -0700 (PDT)
-Message-ID: <20100824.014842.193701591.davem@davemloft.net>
-References: <20100823202452.GC12906@hmsreliant.think-freely.org>
-	<1282596538.2378.340.camel@edumazet-laptop>
-	<20100823234006.GA8976@hmsreliant.think-freely.org>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: IPVS network namespace aware ?
+Date: Tue, 24 Aug 2010 10:53:58 +0200
+Message-ID: <1282640038.25529.38.camel@seasc0214.dyn.rnd.as.sw.ericsson.se>
+References: <1281099450.2518.21.camel@seasc0214.dyn.rnd.as.sw.ericsson.se>
+	 <4C72CA3C.4080708@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59858
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751327Ab0HXIsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 04:48:24 -0400
-In-Reply-To: <20100823234006.GA8976@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4C72CA3C.4080708@free.fr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 23 Aug 2010 19:41:44 -0400
+Hi Daniel
+The progress is good, so far I think everything is ported except for
+Simon Hormans latest patch-set. 
 
-> Ah, I see what your saying.  Since bitfield access is not a single instruction
-> you get races when multiple accesses take place at once, since the assignment is
-> non-atomic, nor is the read.
+Right now I'm struggling with NULL pointers :-)
+i.e. seq_file doesn't carry any netns info.
+
+In the example below *net will be invalid because seq->private is NULL.
+
+static void *ip_vs_info_seq_next(struct seq_file *seq, ....) {
+struct net *net = seq_file_net(seq);
+
+single_open() seems to work, but seq_open() or seq_open_private().
+
+As you can see I'm not ready, so help will be nice.
+I'll remove some debugging stuff and send you a patch-set.
+
+/Hans
+
+
+On Mon, 2010-08-23 at 21:21 +0200, Daniel Lezcano wrote:
+> On 08/06/2010 02:57 PM, Hans Schillstrom wrote:
+> > Hello
+> > Is there any one that have made ipvs network namespace aware ?
+> > There is an urgent need of it within Ericsson.
+> > I could not find any trace of it in any of the normal lists.
+> >
+> > I will start patching ipvs next week or give a helping hand to any
+> > existing work.
 > 
-> In this case, thats ok.  I say that because in the only time we really care what
-> the value of this bitfield is, is when we've recursed from the interrupt handler
-> to the netconsole module, back into the transmit path on the same cpu.  In that
-> case the read is guaranteed to be ordered after the write, since its a linear
-> code path.  In the case where cpu 0 is in the interrupt handler and cpu1 is
-> going into the transmit method for this driver, we don't really care what the
-> value of the bitfield is, its a don't care.  If we read it as a zero, thats ok,
-> we have the driver-internal sempahore still protecting us (the one that
-> deadlocks if you recurse via netconsole on the same cpu).  And if we read it as
-> a 1, thats ok too, because we simply cause the network scheduler to queue the
-> frame and send it again as soon as we're out of the interrupt handler.
+> Hi Hans,
+> 
+> do you have a patchset ready (or just a prototype) ? I will be glad to 
+> help you ;)
+> 
+> Thanks
+>    -- Daniel
 
-Right this should be OK.
-
-The only write to the bit happens with the lock held.
-
-The other bits are never modified while the device is active
-and interrupts can run.
-
-I've applied Neil's patch, thanks Neil.
