@@ -1,70 +1,56 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH net-next-2.6] bnx2x: small fix in stats handling
-Date: Wed, 25 Aug 2010 06:55:49 +0300
-Message-ID: <1282708549.18068.0.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1282628648.2378.1492.camel@edumazet-laptop>
-Reply-To: eilong@broadcom.com
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: linux-next: build failure after merge of the final tree (net
+ tree related)
+Date: Tue, 24 Aug 2010 21:22:19 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A4AE225EE8@HQ1-EXCH01.corp.brocade.com>
+References: <20100825120927.c469ce20.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1409 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932473Ab0HYD4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Aug 2010 23:56:03 -0400
-In-Reply-To: <1282628648.2378.1492.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jing Huang <huangj@Brocade.COM>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100825120927.c469ce20.sfr@canb.auug.org.au>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-08-23 at 22:44 -0700, Eric Dumazet wrote:
-> Use a private variable to fold rx_dropped value, instead of shared
-> destination buffer, as it might break SNMP applications.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Eilon Greenstein <eilong@broadcom.com>
-> CC: Dmitry Kravkov <dmitry@broadcom.com>
+All,
 
-Thanks Eric!
+We are working on a fix and we will submit a patch soon.
 
-Acked-By: Eilon Greenstein <eilong@broadcom.com>
-> ---
->  drivers/net/bnx2x/bnx2x_stats.c |    7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/bnx2x/bnx2x_stats.c b/drivers/net/bnx2x/bnx2x_stats.c
-> index c747244..efa1403 100644
-> --- a/drivers/net/bnx2x/bnx2x_stats.c
-> +++ b/drivers/net/bnx2x/bnx2x_stats.c
-> @@ -969,6 +969,7 @@ static void bnx2x_net_stats_update(struct bnx2x *bp)
->  {
->  	struct bnx2x_eth_stats *estats = &bp->eth_stats;
->  	struct net_device_stats *nstats = &bp->dev->stats;
-> +	unsigned long tmp;
->  	int i;
->  
->  	nstats->rx_packets =
-> @@ -985,10 +986,10 @@ static void bnx2x_net_stats_update(struct bnx2x *bp)
->  
->  	nstats->tx_bytes = bnx2x_hilo(&estats->total_bytes_transmitted_hi);
->  
-> -	nstats->rx_dropped = estats->mac_discard;
-> +	tmp = estats->mac_discard;
->  	for_each_queue(bp, i)
-> -		nstats->rx_dropped +=
-> -			le32_to_cpu(bp->fp[i].old_tclient.checksum_discard);
-> +		tmp += le32_to_cpu(bp->fp[i].old_tclient.checksum_discard);
-> +	nstats->rx_dropped = tmp;
->  
->  	nstats->tx_dropped = 0;
->  
-> 
-> 
-> 
+Regards,
+Rasesh
 
+-----Original Message-----
+From: Stephen Rothwell [mailto:sfr@canb.auug.org.au] 
+Sent: Tuesday, August 24, 2010 7:09 PM
+To: David Miller; netdev@vger.kernel.org
+Cc: linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; Rasesh Mody; Jing Huang; James Bottomley
+Subject: linux-next: build failure after merge of the final tree (net tree related)
 
+Hi all,
 
+After merging the final tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
+
+drivers/net/built-in.o: In function `bfa_ioc_is_operational':
+(.opd+0x1c6c8): multiple definition of `bfa_ioc_is_operational'
+drivers/scsi/built-in.o:(.opd+0x1b1b0): first defined here
+
+and many more ...
+
+Caused by commit 8b230ed8ec96c933047dd0625cf95f739e4939a6 ("bna: Brocade 10Gb Ethernet device driver") interacting with commit a whole series of patches to do with the Brocade BFA FC SCSI driver that are in Linus' tree stretching back to v2.6.32-rc2.
+
+I have reverted that net tree commit (and commit
+f04b4dd2b1f533cef0507e0410ffc6732d21a272 ("bna: Delete get_flags and set_flags ethtool methods") that depends on it).
+
+--
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
