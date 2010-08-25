@@ -1,67 +1,37 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [patch nf-next v2] IPVS: ICMPv6 checksum calculation
-Date: Wed, 25 Aug 2010 22:55:29 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.1008252253180.2907@u.domain.uli>
-References: <20100825080832.GA24863@verge.net.au>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next 2/2] macvlan:  Enable qdisc backoff logic.
+Date: Wed, 25 Aug 2010 21:59:11 +0200
+Message-ID: <201008252159.11227.arnd@arndb.de>
+References: <1282762851-3612-1-git-send-email-greearb@candelatech.com> <201008252124.09917.arnd@arndb.de> <4C756EAF.9090704@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	Xiaoyu Du <tingsrain@gmail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20100825080832.GA24863@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:60346 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751536Ab0HYT7N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 15:59:13 -0400
+In-Reply-To: <4C756EAF.9090704@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-On Wed, 25 Aug 2010, Simon Horman wrote:
-
-> Cc: Xiaoyu Du <tingsrain@gmail.com>
-> Cc: Julian Anastasov <ja@ssi.bg>
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-
-should be enough
-
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+On Wednesday 25 August 2010 21:27:43 Ben Greear wrote:
+> > I suppose we need to do something in macvtap to handle this as
+> > well, right? A guest trying to send a frame through qemu
+> > or vhost net into macvtap needs to be prevented from sending
+> > more when we get into this path. Right now, we just ignore
+> > the return value of macvlan_start_xmit.
 > 
-> --
+> I have a similar, though slightly more complex, patch for 802.1q
+> vlans, but I haven't looked at macvtap at all.
 > 
-> Xiaoyu, is this the change that you tested?
-> If so could you give me a Tested-by line?
-> 
-> Julian, could I get an ack from you?
-> Alternatively, if you want to take ownership of the patch,
-> can I get a signed-off-by from you? In that case I'll change
-> the From accordingly.
-> 
-> Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_core.c
-> ===================================================================
-> --- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_core.c	2010-08-25 16:57:37.000000000 +0900
-> +++ nf-next-2.6/net/netfilter/ipvs/ip_vs_core.c	2010-08-25 17:02:35.000000000 +0900
-> @@ -637,9 +637,11 @@ void ip_vs_nat_icmp_v6(struct sk_buff *s
->  	}
->  
->  	/* And finally the ICMP checksum */
-> -	icmph->icmp6_cksum = 0;
-> -	/* TODO IPv6: is this correct for ICMPv6? */
-> -	ip_vs_checksum_complete(skb, icmp_offset);
-> +	icmph->icmp6_cksum = ~csum_ipv6_magic(&iph->saddr, &iph->daddr,
-> +					      skb->len - icmp_offset,
-> +					      IPPROTO_ICMPV6, 0);
-> +	skb->csum_start = skb_network_header(skb) - skb->head + icmp_offset;
-> +	skb->csum_offset = offsetof(struct icmp6hdr, icmp6_cksum);
->  	skb->ip_summed = CHECKSUM_UNNECESSARY;
->  
->  	if (inout)
-> 
+> If these two patches are accepted, I'll post the .1q patch as well.
 
-Regards
+I think one of us needs to fix macvtap in order for your patch to
+go in, because otherwise there is a memory leak or worse when
+macvtap fails to retransmit the frame.
 
---
-Julian Anastasov <ja@ssi.bg>
+	Arnd
