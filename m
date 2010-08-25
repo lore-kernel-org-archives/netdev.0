@@ -1,83 +1,141 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 3/4] qlcnic: fix fw recovery for PF
-Date: Wed, 25 Aug 2010 07:03:04 -0700
-Message-ID: <1282744985-31540-4-git-send-email-amit.salecha@qlogic.com>
-References: <1282744985-31540-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: davem@davemloft.net
+From: Jon Mason <jon.mason@exar.com>
+Subject: Re: [Resend Patch] s2io: remove lro parameter
+Date: Wed, 25 Aug 2010 09:35:36 -0500
+Message-ID: <20100825143536.GB8646@exar.com>
+References: <20100825102802.6515.21869.sendpatchset@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"sgruszka@redhat.com" <sgruszka@redhat.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Amerigo Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:56386 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753946Ab0HYODG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Aug 2010 10:03:06 -0400
-In-Reply-To: <1282744985-31540-1-git-send-email-amit.salecha@qlogic.com>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:36504 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751762Ab0HYOe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 10:34:26 -0400
+Received: by pzk9 with SMTP id 9so195842pzk.19
+        for <netdev@vger.kernel.org>; Wed, 25 Aug 2010 07:34:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20100825102802.6515.21869.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Privilege function should wait for npar state to be operational
-before creating context.
-
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic_main.c |   22 +++++++++++++++++-----
- 1 files changed, 17 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 0892122..26d9e10 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -997,11 +997,7 @@ check_fw_status:
- set_dev_ready:
- 	QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_READY);
- 	qlcnic_idc_debug_info(adapter, 1);
--	err = qlcnic_check_npar_opertional(adapter);
--	if (err) {
--		qlcnic_release_firmware(adapter);
--		return err;
--	}
-+
- 	if (qlcnic_set_default_offload_settings(adapter))
- 		goto err_out;
- 	if (qlcnic_reset_npar_config(adapter))
-@@ -2602,6 +2598,7 @@ skip_ack_check:
- 
- 		if (!adapter->nic_ops->start_firmware(adapter)) {
- 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
-+			adapter->fw_wait_cnt = 0;
- 			return;
- 		}
- 		goto err_ret;
-@@ -2617,6 +2614,7 @@ wait_npar:
- 	case QLCNIC_DEV_READY:
- 		if (!adapter->nic_ops->start_firmware(adapter)) {
- 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
-+			adapter->fw_wait_cnt = 0;
- 			return;
- 		}
- 	case QLCNIC_DEV_FAILED:
-@@ -2750,7 +2748,21 @@ qlcnic_attach_work(struct work_struct *work)
- 	struct qlcnic_adapter *adapter = container_of(work,
- 				struct qlcnic_adapter, fw_work.work);
- 	struct net_device *netdev = adapter->netdev;
-+	u32 npar_state;
- 
-+	if (adapter->op_mode != QLCNIC_MGMT_FUNC) {
-+		npar_state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+		if (adapter->fw_wait_cnt++ > QLCNIC_DEV_NPAR_OPER_TIMEO)
-+			qlcnic_clr_all_drv_state(adapter, 0);
-+		else if (npar_state != QLCNIC_DEV_NPAR_OPER)
-+			qlcnic_schedule_work(adapter, qlcnic_attach_work,
-+							FW_POLL_DELAY);
-+		else
-+			goto attach;
-+		QLCDB(adapter, DRV, "Waiting for NPAR state to operational\n");
-+		return;
-+	}
-+attach:
- 	if (netif_running(netdev)) {
- 		if (qlcnic_up(adapter, netdev))
- 			goto done;
--- 
-1.6.0.2
-
+On Wed, Aug 25, 2010 at 03:23:39AM -0700, Amerigo Wang wrote:
+> 
+> Remove "lro" parameter of s2io driver.
+> 
+> Signed-off-by: WANG Cong <amwang@redhat.com>
+Acked-by: Jon Mason <jon.mason@exar.com>
+> 
+> ---
+> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+> index 18bc5b7..b3a30ac 100644
+> --- a/drivers/net/s2io.c
+> +++ b/drivers/net/s2io.c
+> @@ -38,8 +38,6 @@
+>   * Tx descriptors that can be associated with each corresponding FIFO.
+>   * intr_type: This defines the type of interrupt. The values can be 0(INTA),
+>   *     2(MSI_X). Default value is '2(MSI_X)'
+> - * lro: Specifies whether to enable Large Receive Offload (LRO) or not.
+> - *     Possible values '1' for enable '0' for disable. Default is '0'
+>   * lro_max_pkts: This parameter defines maximum number of packets can be
+>   *     aggregated as a single large packet
+>   * napi: This parameter used to enable/disable NAPI (polling Rx)
+> @@ -496,8 +494,6 @@ S2IO_PARM_INT(rxsync_frequency, 3);
+>  /* Interrupt type. Values can be 0(INTA), 2(MSI_X) */
+>  S2IO_PARM_INT(intr_type, 2);
+>  /* Large receive offload feature */
+> -static unsigned int lro_enable = 1;
+> -module_param_named(lro, lro_enable, uint, 0);
+>  
+>  /* Max pkts to be aggregated by LRO at one time. If not specified,
+>   * aggregation happens until we hit max IP pkt size(64K)
+> @@ -6735,13 +6731,10 @@ static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+>  		return -EINVAL;
+>  
+>  	if (data & ETH_FLAG_LRO) {
+> -		if (lro_enable) {
+> -			if (!(dev->features & NETIF_F_LRO)) {
+> -				dev->features |= NETIF_F_LRO;
+> -				changed = 1;
+> -			}
+> -		} else
+> -			rc = -EINVAL;
+> +		if (!(dev->features & NETIF_F_LRO)) {
+> +			dev->features |= NETIF_F_LRO;
+> +			changed = 1;
+> +		}
+>  	} else if (dev->features & NETIF_F_LRO) {
+>  		dev->features &= ~NETIF_F_LRO;
+>  		changed = 1;
+> @@ -6750,7 +6743,6 @@ static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+>  	if (changed && netif_running(dev)) {
+>  		s2io_stop_all_tx_queue(sp);
+>  		s2io_card_down(sp);
+> -		sp->lro = !!(dev->features & NETIF_F_LRO);
+>  		rc = s2io_card_up(sp);
+>  		if (rc)
+>  			s2io_reset(sp);
+> @@ -7307,7 +7299,7 @@ static int s2io_card_up(struct s2io_nic *sp)
+>  		struct ring_info *ring = &mac_control->rings[i];
+>  
+>  		ring->mtu = dev->mtu;
+> -		ring->lro = sp->lro;
+> +		ring->lro = !!(dev->features & NETIF_F_LRO);
+>  		ret = fill_rx_buffers(sp, ring, 1);
+>  		if (ret) {
+>  			DBG_PRINT(ERR_DBG, "%s: Out of memory in Open\n",
+> @@ -7341,7 +7333,7 @@ static int s2io_card_up(struct s2io_nic *sp)
+>  	/* Setting its receive mode */
+>  	s2io_set_multicast(dev);
+>  
+> -	if (sp->lro) {
+> +	if (dev->features & NETIF_F_LRO) {
+>  		/* Initialize max aggregatable pkts per session based on MTU */
+>  		sp->lro_max_aggr_per_sess = ((1<<16) - 1) / dev->mtu;
+>  		/* Check if we can use (if specified) user provided value */
+> @@ -7911,7 +7903,6 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+>  	else
+>  		sp->device_type = XFRAME_I_DEVICE;
+>  
+> -	sp->lro = lro_enable;
+>  
+>  	/* Initialize some PCI/PCI-X fields of the NIC. */
+>  	s2io_init_pci(sp);
+> @@ -8047,8 +8038,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+>  	dev->netdev_ops = &s2io_netdev_ops;
+>  	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+>  	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+> -	if (lro_enable)
+> -		dev->features |= NETIF_F_LRO;
+> +	dev->features |= NETIF_F_LRO;
+>  	dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+>  	if (sp->high_dma_flag == true)
+>  		dev->features |= NETIF_F_HIGHDMA;
+> @@ -8283,9 +8273,8 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+>  			  dev->name);
+>  	}
+>  
+> -	if (sp->lro)
+> -		DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
+> -			  dev->name);
+> +	DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
+> +		  dev->name);
+>  	if (ufo)
+>  		DBG_PRINT(ERR_DBG,
+>  			  "%s: UDP Fragmentation Offload(UFO) enabled\n",
+> diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
+> index 0af0335..26c7884 100644
+> --- a/drivers/net/s2io.h
+> +++ b/drivers/net/s2io.h
+> @@ -971,7 +971,6 @@ struct s2io_nic {
+>  
+>  	unsigned long	clubbed_frms_cnt;
+>  	unsigned long	sending_both;
+> -	u8		lro;
+>  	u16		lro_max_aggr_per_sess;
+>  	volatile unsigned long state;
+>  	u64		general_int_mask;
