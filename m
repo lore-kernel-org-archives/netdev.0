@@ -1,43 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Spurious "TCP: too many of orphaned sockets", unable to
- allocate sockets
-Date: Wed, 25 Aug 2010 00:59:29 -0700 (PDT)
-Message-ID: <20100825.005929.15250658.davem@davemloft.net>
+Subject: Re: [PATCH] tcp: Fix sysctl_tcp_max_orphans when PAGE_SIZE != 4k
+Date: Wed, 25 Aug 2010 00:59:58 -0700 (PDT)
+Message-ID: <20100825.005958.242146504.davem@davemloft.net>
 References: <20100825071626.GA13681@kryten>
+	<20100825071701.GA14962@kryten>
+	<1282721941.2467.705.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, miltonm@bga.com
-To: anton@samba.org
+Cc: anton@samba.org, netdev@vger.kernel.org, miltonm@bga.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53204
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53209
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752058Ab0HYH7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 03:59:12 -0400
-In-Reply-To: <20100825071626.GA13681@kryten>
+	by vger.kernel.org with ESMTP id S1751495Ab0HYH7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 03:59:40 -0400
+In-Reply-To: <1282721941.2467.705.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anton Blanchard <anton@samba.org>
-Date: Wed, 25 Aug 2010 17:16:26 +1000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 25 Aug 2010 09:39:01 +0200
 
-> We have a machine running a network test that regularly hits:
+> Considering your previous mail, I suggest you add
 > 
-> TCP: too many of orphaned sockets
-> 
-> Which comes from:
-> 
->                 int orphan_count = percpu_counter_read_positive(
->                                                 sk->sk_prot->orphan_count);
-> 
->                 sk_mem_reclaim(sk);
->                 if (tcp_too_many_orphans(sk, orphan_count)) {
-...
-> 2. Even with this fixed we could hit the original issue. We have been known to
-> test on 1024 thread boxes and we would have the possibility of 32 * 1024
-> = 32k slack in the percpu counters. On this box tcp_max_orphans will be
-> 64k after the fix which is a bit close for comfort. Should we do anything here?
+> 	sysctl_tcp_max_orphans = max(sysctl_tcp_max_orphans,
+> 		     percpu_counter_batch * num_possible_cpus());
 
-Solution seems simple, if the too many orphan check triggers, simply
-redo the check using the expensive but more accurate per-cpu counter
-read (which avoids the skew) to make sure.
+That seems unnecessary, see my other reply to Anton on how to fix this
+skew problem.
