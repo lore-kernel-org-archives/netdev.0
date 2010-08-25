@@ -1,99 +1,84 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH] netfilter: xt_condition: add security capability
- support
-Date: Wed, 25 Aug 2010 10:09:58 +0300
-Message-ID: <1282720198.18016.72.camel@powerslave>
-References: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>
-	 <AANLkTi=2H+ytOQU9nC_dRp_GB5Sy1831VY14oW=YSOrG@mail.gmail.com>
-	 <1282570935.7198.5.camel@powerslave>
-	 <alpine.LNX.2.01.1008231628010.21000@obet.zrqbmnf.qr>
-	 <1282589101.7198.28.camel@powerslave>
-	 <alpine.LNX.2.01.1008232052170.31619@obet.zrqbmnf.qr>
-	 <1282633220.7198.123.camel@powerslave>
-	 <alpine.LNX.2.01.1008240921230.24349@obet.zrqbmnf.qr>
+From: Anton Blanchard <anton@samba.org>
+Subject: Spurious "TCP: too many of orphaned sockets", unable to allocate
+ sockets
+Date: Wed, 25 Aug 2010 17:16:26 +1000
+Message-ID: <20100825071626.GA13681@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ext Changli Gao <xiaosuo@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	"linux-security-module@vger.kernel.org"
-	<linux-security-module@vger.kernel.org>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1008240921230.24349@obet.zrqbmnf.qr>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi Jan,
-
-Thanks for your reply.
+Content-Type: text/plain; charset=us-ascii
+Cc: miltonm@bga.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:33277 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751355Ab0HYHRk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Aug 2010 03:17:40 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On Tue, 2010-08-24 at 09:32 +0200, ext Jan Engelhardt wrote:
-> On Tuesday 2010-08-24 09:00, Luciano Coelho wrote:
-> >>
-> >>It is strange that you check this capability from a module focused
-> >>on packet handling. For lack of a better example, it's as if you
-> >>tried to check the uid of the file, the latter of which is better
-> >>left to the routines in fs/.
-> >
-> >What I don't understand is that I see lots of components, which have
-> >nothing to do with security, making this kind of checks. Most of
-> >them (if not all) are checking for input from userspace where they
-> >provide their own interfaces (eg. ioctl calls, netlink messages).
-> >[..] Now, with the xt_condition, we're opening a new route from
-> >userspace to the kernel and I think it might be a good idea to
-> >protect that too.
-> 
-> Indeed so. But you did not invent any new interface. You are reusing
-> files, which can be protected by DAC modes, or LSMs doing
-> funky-stuff. xt_{condition,recent,..} already implement file modes,
-> but does it check for it? Well no, because fs/namei.c does it for
-> them. As for LSMs, well, I hope they do cater for testing for
-> capability bits.
+Hi,
 
-Thanks, I'll investigate all this a bit more and contact our security
-people again.
+We have a machine running a network test that regularly hits:
 
-I dug deeper into the code and I can see that /sys/net has capability
-checks (implemented in netdev_store() in net-sysfs.c) and nobody without
-CAP_NET_ADMIN will be able to write to the files there.  But in procfs I
-couldn't see anything similar and anyone with file write permissions can
-modify the files in /proc/net/*.
+TCP: too many of orphaned sockets
 
+Which comes from:
 
-> >It's kind of useless to protect someone without CAP_NET_ADMIN from
-> >creating a condition rule if it is possible to change the condition from
-> >userspace without any capability protection.
-> 
-> Certainly not. An administrator may create a condition rule and thus
-> procfs entry, but the rule may be sufficiently safe and/or integrated
-> that a subordinate may be given permission to control things in a
-> limited fashion on a per-need basis. One I use personally is
-> 
-> 	-A FORWARD -m condition --condition windows -s
-> 	192.168.100.0/25 -i eth1 -o eth0 -j ACCEPT
-> 	-P FORWARD DROP
-> 
-> 	chown jengelh /proc/net/nf_condition/windows;
-> 
-> The presence of such rule would indicate that the administrator
-> generally allows Windows machines out; but personal paranoia defaults
-> to rejecting that unless explicitly enabled. (Gives the reassurance
-> that they won't succeed talking home unless Internet connectivity is
-> explicitly needed by the user.)
+                int orphan_count = percpu_counter_read_positive(
+                                                sk->sk_prot->orphan_count);
 
-I see, this is a good example. :) I know that his works (with simple DAC
-control), but I think we're looking into a bit more security than that.
-I have to discuss this with our platform security people.
+                sk_mem_reclaim(sk);
+                if (tcp_too_many_orphans(sk, orphan_count)) {
+                        if (net_ratelimit())
+                                printk(KERN_INFO "TCP: too many of orphaned "
+                                       "sockets\n");
+                        tcp_set_state(sk, TCP_CLOSE);
+                        tcp_send_active_reset(sk, GFP_ATOMIC);
+                        NET_INC_STATS_BH(sock_net(sk),
+                                        LINUX_MIB_TCPABORTONMEMORY);
+                }
 
-Again, thanks for your explanations.
+Looking closer we have:
 
+# cat /proc/sys/net/ipv4/tcp_max_orphans
+4096
 
--- 
-Cheers,
-Luca.
+# grep processor /proc/cpuinfo | wc -l
+128
 
+The problem is we are using percpu_counter_read_positive, so the value can be
+out num_online_cpus() * percpu_counter_batch. percpu_counter_batch is going to
+be 32, so we might be out by 32 * 128 = 4k. Considering tcp_max_orphans is 4k
+that explains the spurious printout and the inability to allocate sockets.
+
+A couple of issues:
+
+1. We size sysctl_tcp_max_orphans based on some second order heuristic
+that uses pages which could be anything from 4k to 64k:
+
+        /* Try to be a bit smarter and adjust defaults depending
+         * on available memory.
+         */
+        for (order = 0; ((1 << order) << PAGE_SHIFT) <
+                        (tcp_hashinfo.bhash_size * sizeof(struct inet_bind_hashbucket));
+                        order++)
+                ;
+        if (order >= 4) {
+                tcp_death_row.sysctl_max_tw_buckets = 180000;
+                sysctl_tcp_max_orphans = 4096 << (order - 4);
+                sysctl_max_syn_backlog = 1024;
+        } else if (order < 3) {
+                tcp_death_row.sysctl_max_tw_buckets >>= (3 - order);
+                sysctl_tcp_max_orphans >>= (3 - order);
+                sysctl_max_syn_backlog = 128;
+        }
+
+I'll follow up with a patch to fix this for PAGE_SIZE != 4k
+
+2. Even with this fixed we could hit the original issue. We have been known to
+test on 1024 thread boxes and we would have the possibility of 32 * 1024
+= 32k slack in the percpu counters. On this box tcp_max_orphans will be
+64k after the fix which is a bit close for comfort. Should we do anything here?
+
+Anton
