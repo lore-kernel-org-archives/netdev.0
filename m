@@ -1,106 +1,61 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] TCP_FAILFAST: a new socket option to timeout/abort a
- connection quicker
-Date: Thu, 26 Aug 2010 00:59:42 +0200
-Message-ID: <20100825225942.GA3190@hell>
-References: <1282630819-23104-1-git-send-email-hkchu@google.com>
- <1282632262.2378.1681.camel@edumazet-laptop>
- <4C737D15.5060400@nets.rwth-aachen.de>
- <423116d1d215b0fb3d1c966fb8167508@localhost>
- <4C73DE32.1030802@nets.rwth-aachen.de>
- <20100824162844.GA7889@nuttenaction>
- <AANLkTikAGKObYnczsVoKnUOewJBp2J2036yOD7TncA0F@mail.gmail.com>
- <cb32d2a8676d5447e04882302228c4b6@localhost>
- <AANLkTi=B4gtLxfDnJOuXUCoA79bV4c0cgSn+y36N0iRb@mail.gmail.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [net-next-2.6 1/1]: bna: Fix build break for allyesconfig
+Date: Wed, 25 Aug 2010 16:05:43 -0700
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A4AE226112@HQ1-EXCH01.corp.brocade.com>
+References: <201008252132.o7PLWA0j029512@blc-10-10.brocade.com>
+ <20100825.152243.260093985.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	ilpo.jarvinen@helsinki.fi, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Jerry Chu <hkchu@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Akshay Mathur <amathur@brocade.com>,
+	Debashis Dutt <ddutt@Brocade.COM>,
+	Jing Huang <huangj@Brocade.COM>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:38188 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751972Ab0HYW7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 18:59:44 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=B4gtLxfDnJOuXUCoA79bV4c0cgSn+y36N0iRb@mail.gmail.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:55531 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751933Ab0HYXFt convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Aug 2010 19:05:49 -0400
+In-Reply-To: <20100825.152243.260093985.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Jerry Chu | 2010-08-25 13:20:52 [-0700]:
-
->Ok, let's try to finalize the API signature so our apps folks can program to it
->now and don't have to change it later when we have a more complete
->implementation involving the TCP option as well.
+>From: David Miller <mailto:davem@davemloft.net>
+>Sent: Wednesday, August 25, 2010 3:23 PM
 >
->What should we call this new option? TCP_UTO or TCP_USERTIMEOUT
->or else?
-
-Well, currently I am not sure if this is the best idea. Your implementation
-address the local timeout, user's can tweak their local timeout. UTO on the
-other hand provides functionality to tweak peer's timeout. I will use your
-timeout implementation (see the comments below) if I receive a TCP UTO options
-message, but via setsockopt TCP_UTO I try to modify peer's TCP timeout. Local
-and remote RTO of them must not necessarily coherent.  For example the local
-RTO can be larger as the remote RTO.
-
-My idea is that TCP_UTO should be used for the remote part. Another option
-should be taken for the local part, no matter if TCP_UTO will overwrite the
-local part too if the local timeout if smaller as the announced timeout.
-
-TCP_REMOTE_UTO and TCP_LOCAL_RTO, ... no idea at the moment! ;(
-
-Any ideas on that?
-
->It will take a single argument of unsigned int in milliseconds
->(right?) that specifies
->"user_timeout". The first retransmit timer pops after user_timeout will cause
->the connection to be aborted and ETIMEOUT to be returned.
-
-2^32 / (1000 * 60 * 60 * 24) > 22 days -> great!
-
->>This interface should be sufficient for you and later
->> for me. Afterwards I provide an patch which apply on your groundwork. My
->> patch handle TCP UTO specific functionality like TCP option protocol
->> handling functionality, socket option, permissions, lower- and upper
->> bounds, ...
+>From: Rasesh Mody <rmody@brocade.com>
+>Date: Wed, 25 Aug 2010 14:32:10 -0700
 >
->The keepalive timer is driven off a different timer sk_timer than
->icsk_retransmit_timer
->so as far as code is concerned they are separate (and I don't see any
->interaction
->between the two).
+>> From: Rasesh Mody <rmody@brocade.com>
+>> 
+>> This patch contains a fix for the build break caused by multiple
+>> definitions of symbols between Brocade's FC/FCOE driver(BFA) 
+>> and 10G Networking Driver(BNA).
+>> 
+>> The fix is to make BNA a module only driver.
+>> 
+>> Signed-off-by: Debashis Dutt <ddutt@brocade.com>
+>> Signed-off-by: Rasesh Mody <rmody@brocade.com>
 >
->But RFC5482 does contain the following paragraph:
+>You have to be kidding me.  This fix is totally unacceptable.
 >
->4.2. TCP Keep-Alives
+>You have to go through your two drivers and:
 >
->   Some TCP implementations, such as those in BSD systems, use a
->   different abort policy for TCP keep-alives than for user data.  Thus,
->   the TCP keep-alive mechanism might abort a connection that would
->   otherwise have survived the transient period without connectivity.
->   Therefore, if a connection that enables keep-alives is also using the
->   TCP User Timeout Option, then the keep-alive timer MUST be set to a
->   value larger than that of the adopted USER TIMEOUT.
+>1) Mark as 'static' symbols that don't actually need global
+>   visibility.
 >
->At this moment I'm not inclined to muck with the keepalive code (although
->the change could be simple) so I'll leave this case for you to handle.
+>2) Make the two drivers use unique namespaces for the function
+>   names that must be globally visible for whatever reason.
 >
->>
->> Today in the evening I will focus on TCP Quick ACK modifications. After
->> that I am in the Alps for vacation for 5 days. Later on I will work on the
->> patch (the patch is in a good state, modification and testing should
->> consume only 2 evenings - hopefully ;-).
->>
->> Cherry, is this ok for you?
->
->Sound good (and it's Jerry, not the girlish Cherry :) Oh, please comment on
->my plan above.
+>You are really trying my patience, fix this properly and promptly
+>or I'm removing your driver from the tree.
 
-Sounds good for me! I mean I must see working code for final conclusion, but
-the basic components are good. And sorry for the naming, Jerry - it was not
-intention!
+David,
 
-Hagen
+We are working on fixing it properly. We will submit the patches as soon as possible.
+
+Thanks,
+Rasesh
