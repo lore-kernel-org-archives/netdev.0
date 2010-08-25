@@ -1,131 +1,161 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [Resend Patch] s2io: remove lro parameter
-Date: Wed, 25 Aug 2010 06:23:39 -0400
-Message-ID: <20100825102802.6515.21869.sendpatchset@localhost.localdomain>
-Cc: sgruszka@redhat.com, jon.mason@exar.com,
-	Amerigo Wang <amwang@redhat.com>, bhutchings@solarflare.com,
-	Ramkrishna.Vepa@exar.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH net-2.6 1/3] be2net: fix net-snmp error because of wrong
+ packet stats
+Date: Wed, 25 Aug 2010 15:55:47 +0530
+Message-ID: <20100825102534.GA14714@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21231 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753235Ab0HYKXt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Aug 2010 06:23:49 -0400
+Received: from segment-124-30.sify.net ([124.30.166.146]:35715 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753209Ab0HYKZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 06:25:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Wrong packet statistics for multicast Rx was causing net-snmp error messages
+every 15 seconds. Instead of picking the multicast stats from hardware,
+now maintain it in the driver itself.
 
-Remove "lro" parameter of s2io driver.
-
-Signed-off-by: WANG Cong <amwang@redhat.com>
-Cc: jon.mason@exar.com
-
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 ---
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 18bc5b7..b3a30ac 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -38,8 +38,6 @@
-  * Tx descriptors that can be associated with each corresponding FIFO.
-  * intr_type: This defines the type of interrupt. The values can be 0(INTA),
-  *     2(MSI_X). Default value is '2(MSI_X)'
-- * lro: Specifies whether to enable Large Receive Offload (LRO) or not.
-- *     Possible values '1' for enable '0' for disable. Default is '0'
-  * lro_max_pkts: This parameter defines maximum number of packets can be
-  *     aggregated as a single large packet
-  * napi: This parameter used to enable/disable NAPI (polling Rx)
-@@ -496,8 +494,6 @@ S2IO_PARM_INT(rxsync_frequency, 3);
- /* Interrupt type. Values can be 0(INTA), 2(MSI_X) */
- S2IO_PARM_INT(intr_type, 2);
- /* Large receive offload feature */
--static unsigned int lro_enable = 1;
--module_param_named(lro, lro_enable, uint, 0);
+ drivers/net/benet/be.h         |    1 +
+ drivers/net/benet/be_ethtool.c |    1 +
+ drivers/net/benet/be_hw.h      |    7 +++++--
+ drivers/net/benet/be_main.c    |   15 +++++++++++----
+ 4 files changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 99197bd..53306bf 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -181,6 +181,7 @@ struct be_drvr_stats {
+ 	u64 be_rx_bytes_prev;
+ 	u64 be_rx_pkts;
+ 	u32 be_rx_rate;
++	u32 be_rx_mcast_pkt;
+ 	/* number of non ether type II frames dropped where
+ 	 * frame len > length field of Mac Hdr */
+ 	u32 be_802_3_dropped_frames;
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index cd16243..13f0abb 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -60,6 +60,7 @@ static const struct be_ethtool_stat et_stats[] = {
+ 	{DRVSTAT_INFO(be_rx_events)},
+ 	{DRVSTAT_INFO(be_tx_compl)},
+ 	{DRVSTAT_INFO(be_rx_compl)},
++	{DRVSTAT_INFO(be_rx_mcast_pkt)},
+ 	{DRVSTAT_INFO(be_ethrx_post_fail)},
+ 	{DRVSTAT_INFO(be_802_3_dropped_frames)},
+ 	{DRVSTAT_INFO(be_802_3_malformed_frames)},
+diff --git a/drivers/net/benet/be_hw.h b/drivers/net/benet/be_hw.h
+index 5d38046..a2ec5df 100644
+--- a/drivers/net/benet/be_hw.h
++++ b/drivers/net/benet/be_hw.h
+@@ -167,8 +167,11 @@
+ #define FLASH_FCoE_BIOS_START_g3           (13631488)
+ #define FLASH_REDBOOT_START_g3             (262144)
  
- /* Max pkts to be aggregated by LRO at one time. If not specified,
-  * aggregation happens until we hit max IP pkt size(64K)
-@@ -6735,13 +6731,10 @@ static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
- 		return -EINVAL;
+-
+-
++/************* Rx Packet Type Encoding **************/
++#define BE_UNICAST_PACKET		0
++#define BE_MULTICAST_PACKET		1
++#define BE_BROADCAST_PACKET		2
++#define BE_RSVD_PACKET			3
  
- 	if (data & ETH_FLAG_LRO) {
--		if (lro_enable) {
--			if (!(dev->features & NETIF_F_LRO)) {
--				dev->features |= NETIF_F_LRO;
--				changed = 1;
--			}
--		} else
--			rc = -EINVAL;
-+		if (!(dev->features & NETIF_F_LRO)) {
-+			dev->features |= NETIF_F_LRO;
-+			changed = 1;
-+		}
- 	} else if (dev->features & NETIF_F_LRO) {
- 		dev->features &= ~NETIF_F_LRO;
- 		changed = 1;
-@@ -6750,7 +6743,6 @@ static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
- 	if (changed && netif_running(dev)) {
- 		s2io_stop_all_tx_queue(sp);
- 		s2io_card_down(sp);
--		sp->lro = !!(dev->features & NETIF_F_LRO);
- 		rc = s2io_card_up(sp);
- 		if (rc)
- 			s2io_reset(sp);
-@@ -7307,7 +7299,7 @@ static int s2io_card_up(struct s2io_nic *sp)
- 		struct ring_info *ring = &mac_control->rings[i];
+ /*
+  * BE descriptors: host memory data structures whose formats
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 74e146f..a5a24e6 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -247,6 +247,7 @@ void netdev_stats_update(struct be_adapter *adapter)
+ 	dev_stats->tx_packets = drvr_stats(adapter)->be_tx_pkts;
+ 	dev_stats->rx_bytes = drvr_stats(adapter)->be_rx_bytes;
+ 	dev_stats->tx_bytes = drvr_stats(adapter)->be_tx_bytes;
++	dev_stats->multicast = drvr_stats(adapter)->be_rx_mcast_pkt;
  
- 		ring->mtu = dev->mtu;
--		ring->lro = sp->lro;
-+		ring->lro = !!(dev->features & NETIF_F_LRO);
- 		ret = fill_rx_buffers(sp, ring, 1);
- 		if (ret) {
- 			DBG_PRINT(ERR_DBG, "%s: Out of memory in Open\n",
-@@ -7341,7 +7333,7 @@ static int s2io_card_up(struct s2io_nic *sp)
- 	/* Setting its receive mode */
- 	s2io_set_multicast(dev);
+ 	/* bad pkts received */
+ 	dev_stats->rx_errors = port_stats->rx_crc_errors +
+@@ -294,7 +295,6 @@ void netdev_stats_update(struct be_adapter *adapter)
+ 	/* no space available in linux */
+ 	dev_stats->tx_dropped = 0;
  
--	if (sp->lro) {
-+	if (dev->features & NETIF_F_LRO) {
- 		/* Initialize max aggregatable pkts per session based on MTU */
- 		sp->lro_max_aggr_per_sess = ((1<<16) - 1) / dev->mtu;
- 		/* Check if we can use (if specified) user provided value */
-@@ -7911,7 +7903,6 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 	else
- 		sp->device_type = XFRAME_I_DEVICE;
+-	dev_stats->multicast = port_stats->rx_multicast_frames;
+ 	dev_stats->collisions = 0;
  
--	sp->lro = lro_enable;
+ 	/* detailed tx_errors */
+@@ -848,7 +848,7 @@ static void be_rx_rate_update(struct be_adapter *adapter)
+ }
  
- 	/* Initialize some PCI/PCI-X fields of the NIC. */
- 	s2io_init_pci(sp);
-@@ -8047,8 +8038,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 	dev->netdev_ops = &s2io_netdev_ops;
- 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--	if (lro_enable)
--		dev->features |= NETIF_F_LRO;
-+	dev->features |= NETIF_F_LRO;
- 	dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
- 	if (sp->high_dma_flag == true)
- 		dev->features |= NETIF_F_HIGHDMA;
-@@ -8283,9 +8273,8 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 			  dev->name);
+ static void be_rx_stats_update(struct be_adapter *adapter,
+-		u32 pktsize, u16 numfrags)
++		u32 pktsize, u16 numfrags, u8 pkt_type)
+ {
+ 	struct be_drvr_stats *stats = drvr_stats(adapter);
+ 
+@@ -856,6 +856,9 @@ static void be_rx_stats_update(struct be_adapter *adapter,
+ 	stats->be_rx_frags += numfrags;
+ 	stats->be_rx_bytes += pktsize;
+ 	stats->be_rx_pkts++;
++
++	if (pkt_type == BE_MULTICAST_PACKET)
++		stats->be_rx_mcast_pkt++;
+ }
+ 
+ static inline bool do_pkt_csum(struct be_eth_rx_compl *rxcp, bool cso)
+@@ -925,9 +928,11 @@ static void skb_fill_rx_data(struct be_adapter *adapter,
+ 	u16 rxq_idx, i, j;
+ 	u32 pktsize, hdr_len, curr_frag_len, size;
+ 	u8 *start;
++	u8 pkt_type;
+ 
+ 	rxq_idx = AMAP_GET_BITS(struct amap_eth_rx_compl, fragndx, rxcp);
+ 	pktsize = AMAP_GET_BITS(struct amap_eth_rx_compl, pktsize, rxcp);
++	pkt_type = AMAP_GET_BITS(struct amap_eth_rx_compl, cast_enc, rxcp);
+ 
+ 	page_info = get_rx_page_info(adapter, rxq_idx);
+ 
+@@ -993,7 +998,7 @@ static void skb_fill_rx_data(struct be_adapter *adapter,
+ 	BUG_ON(j > MAX_SKB_FRAGS);
+ 
+ done:
+-	be_rx_stats_update(adapter, pktsize, num_rcvd);
++	be_rx_stats_update(adapter, pktsize, num_rcvd, pkt_type);
+ }
+ 
+ /* Process the RX completion indicated by rxcp when GRO is disabled */
+@@ -1060,6 +1065,7 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 	u32 num_rcvd, pkt_size, remaining, vlanf, curr_frag_len;
+ 	u16 i, rxq_idx = 0, vid, j;
+ 	u8 vtm;
++	u8 pkt_type;
+ 
+ 	num_rcvd = AMAP_GET_BITS(struct amap_eth_rx_compl, numfrags, rxcp);
+ 	/* Is it a flush compl that has no data */
+@@ -1070,6 +1076,7 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 	vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
+ 	rxq_idx = AMAP_GET_BITS(struct amap_eth_rx_compl, fragndx, rxcp);
+ 	vtm = AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
++	pkt_type = AMAP_GET_BITS(struct amap_eth_rx_compl, cast_enc, rxcp);
+ 
+ 	/* vlanf could be wrongly set in some cards.
+ 	 * ignore if vtm is not set */
+@@ -1125,7 +1132,7 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 		vlan_gro_frags(&eq_obj->napi, adapter->vlan_grp, vid);
  	}
  
--	if (sp->lro)
--		DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
--			  dev->name);
-+	DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
-+		  dev->name);
- 	if (ufo)
- 		DBG_PRINT(ERR_DBG,
- 			  "%s: UDP Fragmentation Offload(UFO) enabled\n",
-diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
-index 0af0335..26c7884 100644
---- a/drivers/net/s2io.h
-+++ b/drivers/net/s2io.h
-@@ -971,7 +971,6 @@ struct s2io_nic {
+-	be_rx_stats_update(adapter, pkt_size, num_rcvd);
++	be_rx_stats_update(adapter, pkt_size, num_rcvd, pkt_type);
+ }
  
- 	unsigned long	clubbed_frms_cnt;
- 	unsigned long	sending_both;
--	u8		lro;
- 	u16		lro_max_aggr_per_sess;
- 	volatile unsigned long state;
- 	u64		general_int_mask;
+ static struct be_eth_rx_compl *be_rx_compl_get(struct be_adapter *adapter)
+-- 
+1.7.0.4
+
