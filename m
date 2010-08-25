@@ -1,51 +1,75 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: Re: [patch 08/20] ibmveth: Dont overallocate buffers
-Date: Wed, 25 Aug 2010 08:44:16 -0500
-Message-ID: <4C751E30.6020408@linux.vnet.ibm.com>
-References: <20100823000930.546065833@samba.org> <20100823001239.041525926@samba.org> <20100823204916.GB15499@linux.vnet.ibm.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH RFC] netns: introduce NETREG_NETNS_MOVING reg_state
+Date: Wed, 25 Aug 2010 15:52:55 +0200
+Message-ID: <20100825135254.GC235835@jupiter.n2.diac24.net>
+References: <20100824115056.GA235835@jupiter.n2.diac24.net>
+ <4C73FAB8.1090402@free.fr>
+ <m1tymjg6w8.fsf@fess.ebiederm.org>
+ <20100825115213.GB235835@jupiter.n2.diac24.net>
+ <4C751484.8030004@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Anton Blanchard <anton@samba.org>, santil@linux.vnet.ibm.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:44697 "EHLO e9.ny.us.ibm.com"
+Received: from spaceboyz.net ([87.106.131.203]:58783 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752233Ab0HYNoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Aug 2010 09:44:16 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e9.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o7PDQJJP000972
-	for <netdev@vger.kernel.org>; Wed, 25 Aug 2010 09:26:19 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o7PDiF5P078532
-	for <netdev@vger.kernel.org>; Wed, 25 Aug 2010 09:44:15 -0400
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o7PDiDpm008038
-	for <netdev@vger.kernel.org>; Wed, 25 Aug 2010 07:44:13 -0600
-In-Reply-To: <20100823204916.GB15499@linux.vnet.ibm.com>
+	id S1752878Ab0HYNxE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Aug 2010 09:53:04 -0400
+Content-Disposition: inline
+In-Reply-To: <4C751484.8030004@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2010 03:49 PM, Robert Jennings wrote:
-> * Anton Blanchard (anton@samba.org) wrote:
->> We were allocating a page, even though we always want 4k. Use kmalloc
->> instead of get_zeroed_page.
+On Wed, Aug 25, 2010 at 03:03:00PM +0200, Daniel Lezcano wrote:
+> > Please note that i'm quite unsure about the correctness of this
+> > patch due to me not having much experience in this kind of
+> > modification...
+> >
+> > In particular, the following might get broken by the new reg_state:
+> > drivers/net/ixgbe/ixgbe_main.c (hot-unplug)
+> > drivers/net/wimax/i2400m/driver.c (device reset)
+> >    
 > 
-> I get a failure during device open when we have a 4k allocation rather
-> than a 64k page allocation.  This is running on a Power6 LPAR without
-> AMS.
+> IMHO, that should be ok. NETREG_NETNS_MOVING is a transient state where 
+> the network device is not registered and not in the netdev list.
 > 
-> (drivers/net/ibmveth.c:621 ua:3000000c) ERROR: h_register_logical_lan failed with -4
-> (drivers/net/ibmveth.c:626 ua:3000000c) ERROR: buffer TCE:0x300 filter TCE:0x2300 rxq desc:0x8000601000004000 MAC:0x763cbdd9d30c
+> I think you should take care of this kind of comparison:
+> 
+> net/core/net-sysfs.c
+> 
+> static inline int dev_isalive(const struct net_device *dev)
+> {
+>          return dev->reg_state <= NETREG_REGISTERED;
+> }
+> 
+> Not sure having NETREG_NETNS_MOVING < NETREG_REGISTERED is right.
 
-According to the architecture, these buffers need to be 4k aligned buffers,
-which is probably the cause of this failure.
+I can't say I fully understand the code and all of its implications, but
+I think all of the attributes sysfs provides access to can theoretically
+be safely accessed while the device is moving.
 
--Brian
+> > What could be done, alternatively, is split the notification:
+> >   * NETDEV_UNREGISTER - now changed to mean "logical unregister"
+> >   * NETDEV_UNREGISTER_PHYSICAL - _not_ sent by netns move, means
+> >      "the device is going for good"
+> >    
+> 
+> Maybe I miss something but that will have a big impact to all the 
+> network stacks no ?
 
--- 
-Brian King
-Linux on Power Virtualization
-IBM Linux Technology Center
+No; since NETDEV_UNREGISTER is still sent in all places where it is
+currently sent, none of the stacks would require changing. However,
+users of the actual, physical device (independent of its network
+namespace) would need changing to NETDEV_UNREGISTER_PHYSICAL, which is a
+new notification that is only sent if the device really disappears.
 
+TBH, I'm not quite sure which is the better solution here;
+NETDEV_UNREGISTER_PHYSICAL or NETREG_NETNS_MOVING...
+... or the initial one?
+
+
+-David
 
