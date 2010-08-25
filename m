@@ -1,92 +1,85 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 5/5] net/netfilter/ipvs: Eliminate memory leak
-Date: Wed, 25 Aug 2010 10:34:43 +0900
-Message-ID: <20100825013443.GC7237@verge.net.au>
-References: <Pine.LNX.4.64.1008241639300.15172@ask.diku.dk>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Subject: [PATCH] tcp: select(writefds) don't hang up when a peer close connection
+Date: Wed, 25 Aug 2010 11:05:48 +0900 (JST)
+Message-ID: <20100825110049.F3C9.A69D9226@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.1008241639300.15172@ask.diku.dk>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: kosaki.motohiro@jp.fujitsu.com,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:42640 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932087Ab0HYCFv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Aug 2010 22:05:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 24, 2010 at 04:39:49PM +0200, Julia Lawall wrote:
-> From: Julia Lawall <julia@diku.dk>
-> 
-> __ip_vs_service_get and __ip_vs_svc_fwm_get increment a reference count, so
-> that reference count should be decremented before leaving the function in an
-> error case.
-> 
-> A simplified version of the semantic match that finds this problem is:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @r exists@
-> local idexpression x;
-> expression E;
-> identifier f1;
-> iterator I;
-> @@
-> 
-> x = __ip_vs_service_get(...);
-> <... when != x
->      when != true (x == NULL || ...)
->      when != if (...) { <+...x...+> }
->      when != I (...) { <+...x...+> }
-> (
->  x == NULL
-> |
->  x == E
-> |
->  x->f1
-> )
-> ...>
-> * return ...;
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+This issue come from ruby language community. Below test program
+hang up when only run on Linux.
 
-Thanks Julia, that looks good to me.
+	% uname -mrsv
+	Linux 2.6.26-2-486 #1 Sat Dec 26 08:37:39 UTC 2009 i686
+	% ruby -rsocket -ve '
+	BasicSocket.do_not_reverse_lookup = true
+	serv = TCPServer.open("127.0.0.1", 0)
+	s1 = TCPSocket.open("127.0.0.1", serv.addr[1])
+	s2 = serv.accept
+	s2.close
+	s1.write("a") rescue p $!
+	s1.write("a") rescue p $!
+	Thread.new {
+	  s1.write("a")
+	}.join'
+	ruby 1.9.3dev (2010-07-06 trunk 28554) [i686-linux]
+	#<Errno::EPIPE: Broken pipe>
+	[Hang Here]
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+FreeBSD, Solaris, Mac doesn't. because Ruby's write() method call
+select() internally. and tcp_poll has a bug.
 
-Patrick, I guess that this should go through nf-next-2.6.
+SUS defined 'ready for writing' of select() as following.
 
-> 
-> ---
->  net/netfilter/ipvs/ip_vs_ctl.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index 0f0c079..f98169b 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -2155,7 +2155,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
->  	if (cmd != IP_VS_SO_SET_ADD
->  	    && (svc == NULL || svc->protocol != usvc.protocol)) {
->  		ret = -ESRCH;
-> -		goto out_unlock;
-> +		goto out_drop_service;
->  	}
->  
->  	switch (cmd) {
-> @@ -2189,6 +2189,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
->  		ret = -EINVAL;
->  	}
->  
-> +out_drop_service:
->  	if (svc)
->  		ip_vs_service_put(svc);
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+|  A descriptor shall be considered ready for writing when a call to an output
+|  function with O_NONBLOCK clear would not block, whether or not the function
+|  would transfer data successfully.
+
+That said, EPIPE situation is clearly one of 'ready for writing'.
+
+We don't have read-side issue because tcp_poll() already has read side
+shutdown care.
+
+|        if (sk->sk_shutdown & RCV_SHUTDOWN)
+|                mask |= POLLIN | POLLRDNORM | POLLRDHUP;
+
+So, Let's insert same logic in write side.
+
+- reference url
+  http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-core/31065
+  http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-core/31068
+
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+---
+ net/ipv4/tcp.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 176e11a..2497e48 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -451,7 +451,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 				if (sk_stream_wspace(sk) >= sk_stream_min_wspace(sk))
+ 					mask |= POLLOUT | POLLWRNORM;
+ 			}
+-		}
++		} else
++			mask |= POLLOUT | POLLWRNORM;
+ 
+ 		if (tp->urg_data & TCP_URG_VALID)
+ 			mask |= POLLPRI;
+-- 
+1.6.5.2
+
+
+
