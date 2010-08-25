@@ -1,28 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4]qlcnic: updates
-Date: Wed, 25 Aug 2010 14:15:44 -0700 (PDT)
-Message-ID: <20100825.141544.183036293.davem@davemloft.net>
-References: <1282744985-31540-1-git-send-email-amit.salecha@qlogic.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2010-08-25
+Date: Wed, 25 Aug 2010 14:22:15 -0700 (PDT)
+Message-ID: <20100825.142215.39168831.davem@davemloft.net>
+References: <20100825203611.GM2557@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: amit.salecha@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35390
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754273Ab0HYVPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 17:15:30 -0400
-In-Reply-To: <1282744985-31540-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100825203611.GM2557-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Wed, 25 Aug 2010 07:03:01 -0700
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 25 Aug 2010 16:36:12 -0400
 
-> Hi
->   Series of 4 patches to update and fix qlcnic driver.
->   Apply them on net-next.
+> Here is the usual huge first pull request for the 2.6.37 series...
+> 
+> Included are the usual batches of driver updates, including ath5k,
+> ath9k, b43, iwlwifi, libertas, rt2x00, wl1251, etc.  There is also a
+> flurry of mac80211 updates.  Also of note are some docbook enhancements
+> from Johannes.
+> 
+> Please let me know if there are problems!
 
-Applied, thanks.
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
