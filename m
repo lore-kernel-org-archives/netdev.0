@@ -1,46 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 1/1]: bna: Fix build break for allyesconfig
-Date: Wed, 25 Aug 2010 15:22:43 -0700 (PDT)
-Message-ID: <20100825.152243.260093985.davem@davemloft.net>
-References: <201008252132.o7PLWA0j029512@blc-10-10.brocade.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 16529] New: xennet driver crashes when using
+ with pseudowire aka l2tpv3
+Date: Wed, 25 Aug 2010 15:31:07 -0700
+Message-ID: <20100825153107.2f547f0e.akpm@linux-foundation.org>
+References: <bug-16529-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amathur@brocade.com, ddutt@brocade.com,
-	huangj@brocade.com
-To: rmody@brocade.com
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	James Chapman <jchapman@katalix.com>,
+	heil@terminal-consulting.de
+To: netdev@vger.kernel.org, Jeremy Fitzhardinge <jeremy@goop.org>,
+	Chris Wright <chrisw@sous-sol.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38564
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752381Ab0HYWW2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 18:22:28 -0400
-In-Reply-To: <201008252132.o7PLWA0j029512@blc-10-10.brocade.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:42525 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751748Ab0HYWb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 18:31:57 -0400
+In-Reply-To: <bug-16529-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rasesh Mody <rmody@brocade.com>
-Date: Wed, 25 Aug 2010 14:32:10 -0700
 
-> From: Rasesh Mody <rmody@brocade.com>
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Fri, 6 Aug 2010 12:46:18 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=16529
 > 
-> This patch contains a fix for the build break caused by multiple
-> definitions of symbols between Brocade's FC/FCOE driver(BFA) 
-> and 10G Networking Driver(BNA).
+>            Summary: xennet driver crashes when using with pseudowire aka
+>                     l2tpv3
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.35
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: heil@terminal-consulting.de
+>         Regression: No
 > 
-> The fix is to make BNA a module only driver.
 > 
-> Signed-off-by: Debashis Dutt <ddutt@brocade.com>
-> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+> I tried to use use the new l2tpv3 implementation on two xen domU's but one of
+> them is crashing when the first l2tpv3 packet is received.
+> 
+> As a great man mentioned: 
+> --
+> guessing that eth_type_trans() has tried to pull an ethernet header from
+> the skb and has run off the end, which suggests an issue with the skb
+> that was passed up. Does the ethernet driver do proper alignment of data
+> in its skbs? Perhaps it doesn't allocate as much headroom as other
+> drivers? Perhaps the L2TP code assumes things about the skb that aren't
+> valid..
+> --
+> Here is a link for the setup
+> http://www.pastebin.org/445975
+> and here a link with more details about the crash http://pastebin.org/449221
+> 
+> According the the hints from James Chapmann we tried generic x86 with a
+> different nic driver like e1000 and this works without any problem. 
+> 
+> Iam using OpenWrt to create the system images. To speed up the process i would
+> prepare Xen images, make them available or whatever is wished because
+> pseudowire is already ready in OpenWrt Trunk so that every man also with "price
+> sensitivy" hardware can use it.
+> 
 
-You have to be kidding me.  This fix is totally unacceptable.
-
-You have to go through your two drivers and:
-
-1) Mark as 'static' symbols that don't actually need global
-   visibility.
-
-2) Make the two drivers use unique namespaces for the function
-   names that must be globally visible for whatever reason.
-
-You are really trying my patience, fix this properly and promptly
-or I'm removing your driver from the tree.
+Seems to be a problem with xennet afacit?
