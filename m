@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bnx2x: small fix in stats handling
-Date: Wed, 25 Aug 2010 16:29:35 -0700 (PDT)
-Message-ID: <20100825.162935.179946627.davem@davemloft.net>
-References: <1282628648.2378.1492.camel@edumazet-laptop>
-	<1282708549.18068.0.camel@lb-tlvb-eilong.il.broadcom.com>
+Subject: Re: [PATCH 1/3] stmmac: fix_mac_speed is called during
+ 10/100<->1000 speed changes
+Date: Wed, 25 Aug 2010 16:30:59 -0700 (PDT)
+Message-ID: <20100825.163059.245412297.davem@davemloft.net>
+References: <1282632042-752-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, dmitry@broadcom.com
-To: eilong@broadcom.com
+Cc: netdev@vger.kernel.org, pawel.moll@st.com
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60452
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40387
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751181Ab0HYX3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 19:29:20 -0400
-In-Reply-To: <1282708549.18068.0.camel@lb-tlvb-eilong.il.broadcom.com>
+	by vger.kernel.org with ESMTP id S1751181Ab0HYXao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 19:30:44 -0400
+In-Reply-To: <1282632042-752-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Wed, 25 Aug 2010 06:55:49 +0300
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Date: Tue, 24 Aug 2010 08:40:40 +0200
 
-> On Mon, 2010-08-23 at 22:44 -0700, Eric Dumazet wrote:
->> Use a private variable to fold rx_dropped value, instead of shared
->> destination buffer, as it might break SNMP applications.
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> CC: Eilon Greenstein <eilong@broadcom.com>
->> CC: Dmitry Kravkov <dmitry@broadcom.com>
+> From: Pawel Moll <pawel.moll@st.com>
 > 
-> Thanks Eric!
+> This patch modifies the stmmac_adjust_link() function so the
+> fix_mac_speed() is called not only when link speed is changing
+> between 10 and 100 Mbps (as required in RMII mode) but also
+> for 1000 Mbps.
 > 
-> Acked-By: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Pawel Moll <pawel.moll@st.com>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Applied, thanks.
+Applied.
