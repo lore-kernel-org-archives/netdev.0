@@ -1,74 +1,81 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: block network access for certain users/groups
-Date: Wed, 25 Aug 2010 20:58:14 +0900
-Message-ID: <201008252058.DDE12933.FOLOHQSJFFOMtV@I-love.SAKURA.ne.jp>
-References: <AANLkTin8w74SAe67ZPqPE0Q=0fPpZOHnTCnjAT+AduCY@mail.gmail.com>
-	<AANLkTikru-pmMAnS-dqjYT7xJC_X21rVNBpjg_2LDmWB@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: RFC: MTU for serving NFS on Infiniband
+Date: Wed, 25 Aug 2010 14:17:43 +0200
+Message-ID: <1282738663.2487.207.camel@edumazet-laptop>
+References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
+	 <20100823080543.319143e3@nehalam>
+	 <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca>
+	 <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
+	 <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
+	 <1282688441.22839.34.camel@localhost> <20100824153920.63360072@s6510>
+	 <1282715698.2467.681.camel@edumazet-laptop>
+	 <20100825121058.GA28498@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: estellnb@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikru-pmMAnS-dqjYT7xJC_X21rVNBpjg_2LDmWB@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Marc Aurele La France <tsi@ualberta.ca>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:41220 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590Ab0HYMRs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 08:17:48 -0400
+In-Reply-To: <20100825121058.GA28498@ms2.inr.ac.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Elmar Stellnberger wrote:
-> Please answer my question:
-> It has not been answered, yet.
-> Thanks for hints like whether to use DROP or REJECT but please answer
-> my question!
-> 
-> I wanna be pointed on how to implement a per user package selection.
+Le mercredi 25 ao=C3=BBt 2010 =C3=A0 16:10 +0400, Alexey Kuznetsov a =C3=
+=A9crit :
+> Hello!
+>=20
+> > It is, but ip_append_data() is allocating a huge head if MTU is hug=
+e.
+>=20
+> Hmm, strange, as I remember, it was supposed to work right.
+>=20
+> If the device supports SG (which is required to accept non-linear skb=
+s anyway),
+> then ip_append_* should allocate skbs not rounded up to mtu and we sh=
+ould
+> allocate small skb with NFS header only. Does not it work?
+>=20
+> I can only guess one possible trap: people could do _one_ huge ip_app=
+end_data()
+> (instead of "planned" scenario, when the header is sent with ip_appen=
+d_data()
+> and the following payload is appended with ip_append_page()). Huge ip=
+_append_data()
+> will generate huge skb indeed. Is this the problem?
+>=20
+>=20
+> BTW this issue could be revisited and this "will generate huge" can b=
+e reconsidered.
+> Automatic generation of fragmented skbs was deliberately suppressed, =
+because it was
+> found that all devices existing at the moment when this code was writ=
+ten
+> are strongly biased against SG. Current code tries to _avoid_ generat=
+ing
+> non-linear skbs, unless it is intended for zero-copy, which compensat=
+ed
+> bias against SG. Modern hardware should work better.
+>=20
+> Alexey
 
-A package sounds something like application. What you want to do is
-"packet selection" (like iptables) rather than "package selection"
-(like rpm/dpkg). Please "sed -e 's/package/packet/g'"...
+Hi Alexey,
 
-> Something similar pretends to be already implemented if you view the
-> man page, but
-> it is only implemented for outgoing packages and it even does not work
-> correctly
-> (blocking outgoing ICMP-ping requests but with lynx you can happily
-> view localhost:631
-> though the rule is on top and applies to any kind of package (raw,
-> tcp, udp)). We have
-> already checked this thouroughly.
+=46ew hours ago, I privately asked to Marc Aurele if its infiniband dev=
+ice
+was supporting NETIF_F_SG in its features ;)
 
-Regarding incoming packets, it is impossible to perform packet filtering based
-on uid/gid because the uid/gid who picks up the packet is not known until a
-user issues accept()/recvmsg(). The socket's owner may change between the
-moment iptables inspected the packet and the moment a user picks up the packet
-because it is possible to send the socket's file descriptor via Unix domain
-socket or call setuid()/setgid().
+Thanks !
 
-> I need to block network access for certain users/groups, fully:
-> 
-> iptables -A mychain -m owner --gid-owner blockedusergroup -j REJECT
-> 
-> ...drops ping packages in the output chain but lets my user happily
-> connect to localhost:631 or any other http address. In deed the rule
-> above is therefore pretty useless.
-> 
-> I need to block ALL incoming and outgoing packages for a certain user/group.
-> At the moment there is only insufficient blocking for outgoing
-> packages available.
-> 
-> Can you help me?
-> What will I have to do to implement network access restrictions on a
-> per user/group basis?
 
-The only way that makes possible to block access by blockedusergroup is to
-insert hooks like http://tomoyo.sourceforge.jp/cgi-bin/lxr/source/net/ipv4/udp.c#L1144
-and http://tomoyo.sourceforge.jp/cgi-bin/lxr/source/net/socket.c#L1504 .
-But such hooks are not acceptable for upstream kernel. Please see
-http://kerneltrap.org/mailarchive/linux-netdev/2010/7/21/6281491 for
-discussion on these hooks.
-
-> Logging such packages is already possible. Why is blocking them not?
-> 
-> ... and yes I have already checked the whole iptables -L -v.
-> The rule is there and would have been supposed to work.
-> 
-> Yours,
-> Elmar Stellnberger
