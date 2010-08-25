@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] be2net: some code changes for net-next-2.6
-Date: Wed, 25 Aug 2010 16:41:42 -0700 (PDT)
-Message-ID: <20100825.164142.258127601.davem@davemloft.net>
-References: <20100825103339.GA15685@serverengines.com>
+Subject: Re: [PATCH -next-2.6] r6040: Free irq line on error path
+Date: Wed, 25 Aug 2010 16:41:49 -0700 (PDT)
+Message-ID: <20100825.164149.233685124.davem@davemloft.net>
+References: <20100825095755.GA8103@hera.kernel.org>
+	<201008251205.09065.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ajitk@serverengines.com
+Cc: dkirjanov@kernel.org, netdev@vger.kernel.org
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46948
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46951
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751392Ab0HYXl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 19:41:26 -0400
-In-Reply-To: <20100825103339.GA15685@serverengines.com>
+	by vger.kernel.org with ESMTP id S1752637Ab0HYXld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 19:41:33 -0400
+In-Reply-To: <201008251205.09065.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ajit Khaparde <ajitk@serverengines.com>
-Date: Wed, 25 Aug 2010 16:03:49 +0530
+From: Florian Fainelli <florian@openwrt.org>
+Date: Wed, 25 Aug 2010 12:05:08 +0200
 
-> Patchset includes changes for net-next-2.6. Please apply.
+> On Wednesday 25 August 2010 11:57:55 Denis Kirjanov wrote:
+>> Free irq line on error path.
+>> 
+>> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 > 
-> 1/2: fix to dynamically generate MAC Address for VFs
-> 2/2: display statistics for packets received due to internal switching in ASIC.
+> Acked-by: Florian Fainelli <florian@openwrt.org>
 
-Both applied, thanks.
+Applied.
