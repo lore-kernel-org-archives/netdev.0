@@ -1,133 +1,90 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Wed, 25 Aug 2010 11:40:40 +0200
-Message-ID: <AANLkTi=nKrRHH6+9mvny718gov8Q+u7DHFikdgNY8YdX@mail.gmail.com>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
-	<363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
-	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
-	<20100817085324.GB3330@riccoc20.at.omicron.at>
-	<1282090963.1734.97.camel@localhost>
-	<20100818071942.GA4096@riccoc20.at.omicron.at>
-	<1282176776.2865.100.camel@localhost.localdomain>
-	<20100819055518.GA4084@riccoc20.at.omicron.at>
-	<1282594125.3111.344.camel@localhost.localdomain>
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Subject: [PATCH -next-2.6] r6040: Free irq line on error path
+Date: Wed, 25 Aug 2010 09:57:55 +0000
+Message-ID: <20100825095755.GA8103@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Arnd Bergmann <arnd@arndb.de>
-To: john stultz <johnstul@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1282594125.3111.344.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: florian@openwrt.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:49862 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753009Ab0HYJ6F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Aug 2010 05:58:05 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 23, 2010 at 10:08 PM, john stultz <johnstul@us.ibm.com> wro=
-te:
-> On Thu, 2010-08-19 at 07:55 +0200, Richard Cochran wrote:
->> On Wed, Aug 18, 2010 at 05:12:56PM -0700, john stultz wrote:
->> > Again, my knowledge in the networking stack is pretty limited. But=
- it
->> > would seem that having an interface that does something to the eff=
-ect of
->> > "adjust the timestamp clock on the hardware that generated it from=
- this
->> > packet by Xppb" would feel like the right level of abstraction. It=
-s
->> > closely related to SO_TIMESTAMP, option right? Would something lik=
-e
->> > using the setsockopt/getsockopt interface with
->> > SO_TIMESTAMP_ADJUST/OFFSET/SET/etc be reasonable?
->>
->> The clock and its adjustment have nothing to do with a network
->> socket. The current PTP hacks floating around all add private ioctls
->> to the MAC driver. That is the *wrong* way to do it.
->
-> Could you clarify on *why* that is the wrong approach?
->
-> Maybe this is where some of the confusion is coming from? The subtlet=
-ies
-> of the more generic PTP algorithm and how the existence of PTP hardwa=
-re
-> clocks change things are not clear to me. My understanding of ptp and
-> the networking details around it is limited, so your expertise is
-> appreciated. =C2=A0Might you consider covering some of this via a
-> Documentation/ptp/overview.txt file in a future version of your patch=
-?
->
-> Here's a summary of what I understand:
-> So from:
-> http://en.wikipedia.org/wiki/Precision_Time_Protocol#Synchronization
->
-> We see the message exchange of Sync/Delay_Req/Delay_Resp, and the
-> calculation of the local offset from the server (and then a frequency
-> adjustment over time as offsets values are accumulated).
->
-> Without the hardware clock, this all of these messages and their
-> corresponding timestamps are likely created by PTPd, using clock_gett=
-ime
-> and then adjtimex() to correct for the calculated offset or freq
-> adjustment. No extra interfaces are necessary, and PTPd is syncing th=
-e
-> system time as accurately as it can. This is how the existing ptpd
-> projects on the web seem to function.
->
-> Now, with PTP hardware on the system, my understanding of what you're
-> trying to enable with your patches is that the PTP hardware does the
-> timestamping on both incoming and outgoing messages. PTPd then reads =
-the
-> pre-timestamped messages, calculates the offset and freq correction, =
-and
-> then feeds that back into the PTP hardware via your interface. No tim=
-e
-> correction is done at all by PTPd.
+Free irq line on error path.
 
-John,
-What you describe here is only one of the use cases. If the hardware
-has a single network port and operates as a PTP slave, it timestamps
-the PTP packets that are sent and received and subsequently uses these
-timestamps and the information it received from the master in the
-packets to steer its clock to align it with the master clock. In such
-a case the timestamping hardware and the clock hardware work together
-closely and it seems to be okay to use the same interface to control
-both the timestamping and the PTP clock.
+Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+---
+ drivers/net/r6040.c |   33 ++++++++++++++++++++-------------
+ 1 files changed, 20 insertions(+), 13 deletions(-)
 
-But we have to consider other use cases, e.g.,
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 7d482a2..dc54aff 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -751,7 +751,7 @@ static int r6040_open(struct net_device *dev)
+ 	ret = request_irq(dev->irq, r6040_interrupt,
+ 		IRQF_SHARED, dev->name, dev);
+ 	if (ret)
+-		return ret;
++		goto out;
+ 
+ 	/* Set MAC address */
+ 	r6040_mac_address(dev);
+@@ -759,30 +759,37 @@ static int r6040_open(struct net_device *dev)
+ 	/* Allocate Descriptor memory */
+ 	lp->rx_ring =
+ 		pci_alloc_consistent(lp->pdev, RX_DESC_SIZE, &lp->rx_ring_dma);
+-	if (!lp->rx_ring)
+-		return -ENOMEM;
++	if (!lp->rx_ring) {
++		ret = -ENOMEM;
++		goto err_free_irq;
++	}
+ 
+ 	lp->tx_ring =
+ 		pci_alloc_consistent(lp->pdev, TX_DESC_SIZE, &lp->tx_ring_dma);
+ 	if (!lp->tx_ring) {
+-		pci_free_consistent(lp->pdev, RX_DESC_SIZE, lp->rx_ring,
+-				     lp->rx_ring_dma);
+-		return -ENOMEM;
++		ret = -ENOMEM;
++		goto err_free_rx_ring;
+ 	}
+ 
+ 	ret = r6040_up(dev);
+-	if (ret) {
+-		pci_free_consistent(lp->pdev, TX_DESC_SIZE, lp->tx_ring,
+-							lp->tx_ring_dma);
+-		pci_free_consistent(lp->pdev, RX_DESC_SIZE, lp->rx_ring,
+-							lp->rx_ring_dma);
+-		return ret;
+-	}
++	if (ret)
++		goto err_free_tx_ring;
+ 
+ 	napi_enable(&lp->napi);
+ 	netif_start_queue(dev);
+ 
+ 	return 0;
++
++err_free_tx_ring:
++	pci_free_consistent(lp->pdev, TX_DESC_SIZE, lp->tx_ring,
++			lp->tx_ring_dma);
++err_free_rx_ring:
++	pci_free_consistent(lp->pdev, RX_DESC_SIZE, lp->rx_ring,
++			lp->rx_ring_dma);
++err_free_irq:
++	free_irq(dev->irq, dev);
++out:
++	return ret;
+ }
+ 
+ static netdev_tx_t r6040_start_xmit(struct sk_buff *skb,
+-- 
+1.6.4.4
 
-1) Boundary clocks:
-We have more than one network port. One port operates as a slave
-clock, our system gets time information via this port and steers its
-PTP clock to align with the master clock. The other network ports of
-our system operate as master clocks and redistribute the time
-information we got from the master to other clocks on these networks.
-In such a case we do timestamping on each of the network ports, but we
-only have a single PTP clock. Each network port's timestamping
-hardware uses the same hardware clock to generate time stamps.
-
-2) Master clock:
-We have one or more network ports. Our system has a really good clock
-(ovenized quartz crystal, an atomic clock, a GPS timing receiver...)
-and it distributes this time on the network. In such a case we do not
-steer our clock based on the (packet) timestamps we get from our
-timestamping unit. Instead, we directly drive our clock hardware with
-a very stable frequency that we get from the OCXO or the atomic
-clock... or we use one of the ancillary features of the PTP clock that
-Richard mentioned to timestamp not network packets but a 1pps signal
-and use these timestamps to steer the clock. Packet time stamping is
-used to distribute the time to the slaves, but it is not part of the
-control loop in this case.
-
-So in the first case we have one PTP clock but several network packet
-timestamping units, whereas in the second case the packet timestamping
-is done but it is not part of the control loop that steers the clock.
-Of course in most hardware implementations both the PTP clock and the
-timestamping unit sit on the same chip and often use the same means of
-communication to the cpu, e.g., the MDIO bus, but I think we need some
-logical separation here.
-
-Christian
