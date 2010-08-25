@@ -1,97 +1,131 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH -next-2.6] r6040: Free irq line on error path
-Date: Wed, 25 Aug 2010 12:05:08 +0200
-Message-ID: <201008251205.09065.florian@openwrt.org>
-References: <20100825095755.GA8103@hera.kernel.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Denis Kirjanov <dkirjanov@kernel.org>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [Resend Patch] s2io: remove lro parameter
+Date: Wed, 25 Aug 2010 06:23:39 -0400
+Message-ID: <20100825102802.6515.21869.sendpatchset@localhost.localdomain>
+Cc: sgruszka@redhat.com, jon.mason@exar.com,
+	Amerigo Wang <amwang@redhat.com>, bhutchings@solarflare.com,
+	Ramkrishna.Vepa@exar.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60865 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752069Ab0HYKHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 06:07:24 -0400
-Received: by wyb35 with SMTP id 35so490916wyb.19
-        for <netdev@vger.kernel.org>; Wed, 25 Aug 2010 03:07:22 -0700 (PDT)
-In-Reply-To: <20100825095755.GA8103@hera.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:21231 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753235Ab0HYKXt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Aug 2010 06:23:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 25 August 2010 11:57:55 Denis Kirjanov wrote:
-> Free irq line on error path.
-> 
-> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 
-Acked-by: Florian Fainelli <florian@openwrt.org>
+Remove "lro" parameter of s2io driver.
 
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: jon.mason@exar.com
 
-> ---
->  drivers/net/r6040.c |   33 ++++++++++++++++++++-------------
->  1 files changed, 20 insertions(+), 13 deletions(-)
-> 
-> diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-> index 7d482a2..dc54aff 100644
-> --- a/drivers/net/r6040.c
-> +++ b/drivers/net/r6040.c
-> @@ -751,7 +751,7 @@ static int r6040_open(struct net_device *dev)
->  	ret = request_irq(dev->irq, r6040_interrupt,
->  		IRQF_SHARED, dev->name, dev);
->  	if (ret)
-> -		return ret;
-> +		goto out;
-> 
->  	/* Set MAC address */
->  	r6040_mac_address(dev);
-> @@ -759,30 +759,37 @@ static int r6040_open(struct net_device *dev)
->  	/* Allocate Descriptor memory */
->  	lp->rx_ring =
->  		pci_alloc_consistent(lp->pdev, RX_DESC_SIZE, &lp->rx_ring_dma);
-> -	if (!lp->rx_ring)
-> -		return -ENOMEM;
-> +	if (!lp->rx_ring) {
-> +		ret = -ENOMEM;
-> +		goto err_free_irq;
-> +	}
-> 
->  	lp->tx_ring =
->  		pci_alloc_consistent(lp->pdev, TX_DESC_SIZE, &lp->tx_ring_dma);
->  	if (!lp->tx_ring) {
-> -		pci_free_consistent(lp->pdev, RX_DESC_SIZE, lp->rx_ring,
-> -				     lp->rx_ring_dma);
-> -		return -ENOMEM;
-> +		ret = -ENOMEM;
-> +		goto err_free_rx_ring;
->  	}
-> 
->  	ret = r6040_up(dev);
-> -	if (ret) {
-> -		pci_free_consistent(lp->pdev, TX_DESC_SIZE, lp->tx_ring,
-> -							lp->tx_ring_dma);
-> -		pci_free_consistent(lp->pdev, RX_DESC_SIZE, lp->rx_ring,
-> -							lp->rx_ring_dma);
-> -		return ret;
-> -	}
-> +	if (ret)
-> +		goto err_free_tx_ring;
-> 
->  	napi_enable(&lp->napi);
->  	netif_start_queue(dev);
-> 
->  	return 0;
-> +
-> +err_free_tx_ring:
-> +	pci_free_consistent(lp->pdev, TX_DESC_SIZE, lp->tx_ring,
-> +			lp->tx_ring_dma);
-> +err_free_rx_ring:
-> +	pci_free_consistent(lp->pdev, RX_DESC_SIZE, lp->rx_ring,
-> +			lp->rx_ring_dma);
-> +err_free_irq:
-> +	free_irq(dev->irq, dev);
-> +out:
-> +	return ret;
->  }
-> 
->  static netdev_tx_t r6040_start_xmit(struct sk_buff *skb,
+---
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 18bc5b7..b3a30ac 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -38,8 +38,6 @@
+  * Tx descriptors that can be associated with each corresponding FIFO.
+  * intr_type: This defines the type of interrupt. The values can be 0(INTA),
+  *     2(MSI_X). Default value is '2(MSI_X)'
+- * lro: Specifies whether to enable Large Receive Offload (LRO) or not.
+- *     Possible values '1' for enable '0' for disable. Default is '0'
+  * lro_max_pkts: This parameter defines maximum number of packets can be
+  *     aggregated as a single large packet
+  * napi: This parameter used to enable/disable NAPI (polling Rx)
+@@ -496,8 +494,6 @@ S2IO_PARM_INT(rxsync_frequency, 3);
+ /* Interrupt type. Values can be 0(INTA), 2(MSI_X) */
+ S2IO_PARM_INT(intr_type, 2);
+ /* Large receive offload feature */
+-static unsigned int lro_enable = 1;
+-module_param_named(lro, lro_enable, uint, 0);
+ 
+ /* Max pkts to be aggregated by LRO at one time. If not specified,
+  * aggregation happens until we hit max IP pkt size(64K)
+@@ -6735,13 +6731,10 @@ static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+ 		return -EINVAL;
+ 
+ 	if (data & ETH_FLAG_LRO) {
+-		if (lro_enable) {
+-			if (!(dev->features & NETIF_F_LRO)) {
+-				dev->features |= NETIF_F_LRO;
+-				changed = 1;
+-			}
+-		} else
+-			rc = -EINVAL;
++		if (!(dev->features & NETIF_F_LRO)) {
++			dev->features |= NETIF_F_LRO;
++			changed = 1;
++		}
+ 	} else if (dev->features & NETIF_F_LRO) {
+ 		dev->features &= ~NETIF_F_LRO;
+ 		changed = 1;
+@@ -6750,7 +6743,6 @@ static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+ 	if (changed && netif_running(dev)) {
+ 		s2io_stop_all_tx_queue(sp);
+ 		s2io_card_down(sp);
+-		sp->lro = !!(dev->features & NETIF_F_LRO);
+ 		rc = s2io_card_up(sp);
+ 		if (rc)
+ 			s2io_reset(sp);
+@@ -7307,7 +7299,7 @@ static int s2io_card_up(struct s2io_nic *sp)
+ 		struct ring_info *ring = &mac_control->rings[i];
+ 
+ 		ring->mtu = dev->mtu;
+-		ring->lro = sp->lro;
++		ring->lro = !!(dev->features & NETIF_F_LRO);
+ 		ret = fill_rx_buffers(sp, ring, 1);
+ 		if (ret) {
+ 			DBG_PRINT(ERR_DBG, "%s: Out of memory in Open\n",
+@@ -7341,7 +7333,7 @@ static int s2io_card_up(struct s2io_nic *sp)
+ 	/* Setting its receive mode */
+ 	s2io_set_multicast(dev);
+ 
+-	if (sp->lro) {
++	if (dev->features & NETIF_F_LRO) {
+ 		/* Initialize max aggregatable pkts per session based on MTU */
+ 		sp->lro_max_aggr_per_sess = ((1<<16) - 1) / dev->mtu;
+ 		/* Check if we can use (if specified) user provided value */
+@@ -7911,7 +7903,6 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 	else
+ 		sp->device_type = XFRAME_I_DEVICE;
+ 
+-	sp->lro = lro_enable;
+ 
+ 	/* Initialize some PCI/PCI-X fields of the NIC. */
+ 	s2io_init_pci(sp);
+@@ -8047,8 +8038,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 	dev->netdev_ops = &s2io_netdev_ops;
+ 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-	if (lro_enable)
+-		dev->features |= NETIF_F_LRO;
++	dev->features |= NETIF_F_LRO;
+ 	dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+ 	if (sp->high_dma_flag == true)
+ 		dev->features |= NETIF_F_HIGHDMA;
+@@ -8283,9 +8273,8 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 			  dev->name);
+ 	}
+ 
+-	if (sp->lro)
+-		DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
+-			  dev->name);
++	DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
++		  dev->name);
+ 	if (ufo)
+ 		DBG_PRINT(ERR_DBG,
+ 			  "%s: UDP Fragmentation Offload(UFO) enabled\n",
+diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
+index 0af0335..26c7884 100644
+--- a/drivers/net/s2io.h
++++ b/drivers/net/s2io.h
+@@ -971,7 +971,6 @@ struct s2io_nic {
+ 
+ 	unsigned long	clubbed_frms_cnt;
+ 	unsigned long	sending_both;
+-	u8		lro;
+ 	u16		lro_max_aggr_per_sess;
+ 	volatile unsigned long state;
+ 	u64		general_int_mask;
