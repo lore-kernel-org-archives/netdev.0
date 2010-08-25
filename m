@@ -1,52 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] gro: __napi_gro_receive() optimizations
-Date: Wed, 25 Aug 2010 13:57:26 -0700 (PDT)
-Message-ID: <20100825.135726.189708768.davem@davemloft.net>
-References: <1282768431.2681.144.camel@edumazet-laptop>
+Subject: Re: linux-next: build failure after merge of the final tree (net
+ tree related)
+Date: Wed, 25 Aug 2010 13:59:57 -0700 (PDT)
+Message-ID: <20100825.135957.112609658.davem@davemloft.net>
+References: <20100825120927.c469ce20.sfr@canb.auug.org.au>
+	<E5313AF6F2BFD14293E5FD0F94750F86A4AE225EE8@HQ1-EXCH01.corp.brocade.com>
+	<20100825.003526.35028751.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52670
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752600Ab0HYU5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 16:57:12 -0400
-In-Reply-To: <1282768431.2681.144.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	huangj@Brocade.COM, James.Bottomley@HansenPartnership.com
+To: rmody@brocade.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100825.003526.35028751.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 25 Aug 2010 22:33:51 +0200
+From: David Miller <davem@davemloft.net>
+Date: Wed, 25 Aug 2010 00:35:26 -0700 (PDT)
 
-> @@ -102,19 +102,9 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
->  	if (vlan_dev)
->  		skb->dev = vlan_dev;
->  	else if (vlan_id)
-> -		goto drop;
-> -
-> -	for (p = napi->gro_list; p; p = p->next) {
-> -		NAPI_GRO_CB(p)->same_flow =
-> -			p->dev == skb->dev && !compare_ether_header(
-> -				skb_mac_header(p), skb_gro_mac_header(skb));
-> -		NAPI_GRO_CB(p)->flush = 0;
-> -	}
-> -
-> -	return dev_gro_receive(napi, skb);
-> +		return GRO_DROP;
->  
-> -drop:
-> -	return GRO_DROP;
-> +	return __napi_gro_receive(napi, skb);
+> From: Rasesh Mody <rmody@brocade.com>
+> Date: Tue, 24 Aug 2010 21:22:19 -0700
+> 
+>> All,
+>> 
+>> We are working on a fix and we will submit a patch soon.
 
-I was looking at this the other day and considering something
-similar but I didn't do it because this now makes the call chain
-deeper.
+Well, where is the fix and why is it taking so long?
 
-And that can make a performance difference.
+Stephen Rothwell is going to build his -next tree for today any minute
+now and will have to revert your driver from his tree again since a
+fix is not yet in place.
 
-I don't want to add this hunk unless some GRO perf regression tests
-are done.
+If I don't see a fix quickly, I'll fix it however I like and however
+I like might be yanking your driver out of the tree.
 
 Thanks.
