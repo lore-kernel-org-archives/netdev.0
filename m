@@ -1,76 +1,81 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 16529] New: xennet driver crashes when using
- with pseudowire aka l2tpv3
-Date: Wed, 25 Aug 2010 15:31:07 -0700
-Message-ID: <20100825153107.2f547f0e.akpm@linux-foundation.org>
-References: <bug-16529-10286@https.bugzilla.kernel.org/>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: select(writefds) don't hang up when a peer close
+ connection
+Date: Wed, 25 Aug 2010 15:34:24 -0700 (PDT)
+Message-ID: <20100825.153424.246521475.davem@davemloft.net>
+References: <20100825110049.F3C9.A69D9226@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	James Chapman <jchapman@katalix.com>,
-	heil@terminal-consulting.de
-To: netdev@vger.kernel.org, Jeremy Fitzhardinge <jeremy@goop.org>,
-	Chris Wright <chrisw@sous-sol.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:42525 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751748Ab0HYWb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 18:31:57 -0400
-In-Reply-To: <bug-16529-10286@https.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: kosaki.motohiro@jp.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100825110049.F3C9.A69D9226@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Wed, 25 Aug 2010 11:05:48 +0900 (JST)
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+> This issue come from ruby language community. Below test program
+> hang up when only run on Linux.
+> 
+> 	% uname -mrsv
+> 	Linux 2.6.26-2-486 #1 Sat Dec 26 08:37:39 UTC 2009 i686
+> 	% ruby -rsocket -ve '
+> 	BasicSocket.do_not_reverse_lookup = true
+> 	serv = TCPServer.open("127.0.0.1", 0)
+> 	s1 = TCPSocket.open("127.0.0.1", serv.addr[1])
+> 	s2 = serv.accept
+> 	s2.close
+> 	s1.write("a") rescue p $!
+> 	s1.write("a") rescue p $!
+> 	Thread.new {
+> 	  s1.write("a")
+> 	}.join'
+> 	ruby 1.9.3dev (2010-07-06 trunk 28554) [i686-linux]
+> 	#<Errno::EPIPE: Broken pipe>
+> 	[Hang Here]
+> 
+> FreeBSD, Solaris, Mac doesn't. because Ruby's write() method call
+> select() internally. and tcp_poll has a bug.
 
-On Fri, 6 Aug 2010 12:46:18 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+In your opinion.
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=16529
+> SUS defined 'ready for writing' of select() as following.
 > 
->            Summary: xennet driver crashes when using with pseudowire aka
->                     l2tpv3
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.35
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: heil@terminal-consulting.de
->         Regression: No
+> |  A descriptor shall be considered ready for writing when a call to an output
+> |  function with O_NONBLOCK clear would not block, whether or not the function
+> |  would transfer data successfully.
 > 
-> 
-> I tried to use use the new l2tpv3 implementation on two xen domU's but one of
-> them is crashing when the first l2tpv3 packet is received.
-> 
-> As a great man mentioned: 
-> --
-> guessing that eth_type_trans() has tried to pull an ethernet header from
-> the skb and has run off the end, which suggests an issue with the skb
-> that was passed up. Does the ethernet driver do proper alignment of data
-> in its skbs? Perhaps it doesn't allocate as much headroom as other
-> drivers? Perhaps the L2TP code assumes things about the skb that aren't
-> valid..
-> --
-> Here is a link for the setup
-> http://www.pastebin.org/445975
-> and here a link with more details about the crash http://pastebin.org/449221
-> 
-> According the the hints from James Chapmann we tried generic x86 with a
-> different nic driver like e1000 and this works without any problem. 
-> 
-> Iam using OpenWrt to create the system images. To speed up the process i would
-> prepare Xen images, make them available or whatever is wished because
-> pseudowire is already ready in OpenWrt Trunk so that every man also with "price
-> sensitivy" hardware can use it.
-> 
+> That said, EPIPE situation is clearly one of 'ready for writing'.
 
-Seems to be a problem with xennet afacit?
+How Linux should behave is defined by many things, and often it is
+simply defined by how we've behaved for a very long time.  This is
+because changing behavior can often break as many applications as it
+can fix.  Standards don't necessarily tell us how we must behave,
+since often is it impractical to follow their definions.
+
+And in this case here, I call into question the behavior of Ruby and
+the application from two perspectives:
+
+1) Unlike all of the other conditions signalled by poll() this is
+   one the application explicitly created and therefore knows about.
+
+   If the application calls close() or shutdown() with the send flag
+   set, IT KNOWS what is going to happen on a write() attempt.
+
+2) Ruby and this script will have to deal with the past 13 years
+   worth of Linux kernels.  Even if I were to apply this fix now
+   it is not going to propagate onto a user's system any time soon.
+
+   Many systems would never ever get this fix.
+
+   Therefore it behooves Ruby and this script to make a very reasonable
+   change, which is to track when close() or send shutdown() calls occur
+   and behave appropriately on a write() call.
+
+I'm therefore not applying this patch, because not only can applications
+handle this properly with information they already have, the change has
+the potential to break applications.
