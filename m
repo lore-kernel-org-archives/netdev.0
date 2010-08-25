@@ -1,106 +1,68 @@
-From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 16821] New: g_ether no carrier while it is
-Date: Tue, 24 Aug 2010 22:38:39 -0700 (PDT)
-Message-ID: <559294.8951.qm@web180302.mail.gq1.yahoo.com>
-References: <20100824164006.0bd7b7e8.akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: RFC: MTU for serving NFS on Infiniband
+Date: Wed, 25 Aug 2010 07:54:58 +0200
+Message-ID: <1282715698.2467.681.camel@edumazet-laptop>
+References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
+	 <20100823080543.319143e3@nehalam>
+	 <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca>
+	 <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
+	 <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
+	 <1282688441.22839.34.camel@localhost>  <20100824153920.63360072@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
-	public.avatar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100824164006.0bd7b7e8.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Marc Aurele La France <tsi@ualberta.ca>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55105 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742Ab0HYFzF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 01:55:05 -0400
+In-Reply-To: <20100824153920.63360072@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Le mardi 24 ao=C3=BBt 2010 =C3=A0 15:39 -0700, Stephen Hemminger a =C3=A9=
+crit :
 
-
---- On Tue, 8/24/10, Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
-
-> From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-> Subject: Re: [Bugme-new] [Bug 16821] New: g_ether no carrier while it=
- is
-> To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, bugme-daemon-590EEB7GvNgfezExeAdx9g@public.gmane.org=
-=2Eorg, "Greg KH" <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, "David Brownell" <david-b@pacbell.n=
-et>, public.avatar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-> Date: Tuesday, August 24, 2010, 4:40 PM
+> IF NFS server is smart enough to generate:
+>    Header (skb) + one or more pages in fragment list
+> then IP fragmentation could do fragmentation by allocating
+> new headers skb (small) and assigning the same pages to
+> multiple skb's using page ref count.
 >=20
-> (switched to email.=A0 Please respond via emailed
-> reply-to-all, not via the
-> bugzilla web interface).
+> It obviously isn't working that way.
 >=20
-> On Mon, 23 Aug 2010 06:24:16 GMT
-> bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org
-> wrote:
+
+It is, but ip_append_data() is allocating a huge head if MTU is huge.
+
+NFS is trying to build paged skb, to avoid order-X allocations (X > 0)
+
+> The whole problem is moot because NFS over UDP has known data corrupt=
+ion
+> issues in the face of packet loss.  The sequence number of the IP fra=
+gment
+> can easily wrap around causing old data to be grouped with new data a=
+nd
+> the UDP checksum is so weak that the resulting UDP packet will be con=
+sumed by the NFS
+> client ans passed to the user application as corrupted disk block.
 >=20
-> > https://bugzilla.kernel.org/show_bug.cgi?id=3D16821
-> >=20
-> >=A0 =A0 =A0 =A0 =A0 =A0 Summary:
-> g_ether no carrier while it is
-> >=A0 =A0 =A0 =A0 =A0 =A0 Product:
-> Networking
-> >=A0 =A0 =A0 =A0 =A0 =A0 Version: 2.5
-> >=A0 =A0=A0=A0Kernel Version: 2.6.3(2 - ok,
-> 3?, 4-6 - fail)
-> >=A0 =A0 =A0 =A0 =A0=A0=A0Platform:
-> All
-> >=A0 =A0 =A0 =A0=A0=A0OS/Version:
-> Linux
-> >=A0 =A0 =A0 =A0 =A0 =A0
-> =A0=A0=A0Tree: Mainline
-> >=A0 =A0 =A0 =A0 =A0
-> =A0=A0=A0Status: NEW
-> >=A0 =A0 =A0 =A0 =A0=A0=A0Severity:
-> blocking
-> >=A0 =A0 =A0 =A0 =A0=A0=A0Priority:
-> P1
-> >=A0 =A0 =A0 =A0 =A0 Component: Other
-> >=A0 =A0 =A0 =A0=A0=A0AssignedTo: acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org
-> >=A0 =A0 =A0 =A0=A0=A0ReportedBy: public.avatar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-> >=A0 =A0 =A0 =A0=A0=A0Regression: Yes
-> >=20
-> >=20
-> > After successfully loaded g_ether module (with
-> use_eem=3D0) usb device appears.
-> > If I configure it at host as ifconfig usb0 blah bah,
-> than network present, all
-> > ok.=20
-> > In windows (with RNDIS config), and in linux with
-> bridge it looks to CARRIER
-> > state. I get in ip addr state DOWN, NO-CARRIER. That's
-> why g_ether usb device
-> > in bridge and windows don't work at all.
->=20
-> So g_ether broke after 2.6.32?
->=20
-> Nobody really seems to do much with that USB driver.
+> DON'T USE NFS OVER UDP!
 
-That's changed then.  There used to be boxes that
-relied on it for their network connectivity...
+But Marc point is using a big MTU, so that no IP fragmentation is
+needed.
 
-Adding EEM support was something... I think the
-issue might be driver changes since last it was
-seriously tested in bridge configs (for which
-the link state, such as carrier, matters LOTS.)
+All UDP applications using MSG_MORE will hit the order-2 allocations if
+MTU=3D9000 for example...
 
 
-> I wonder if some
-> changes in core networking could have triggered this?
 
-Wouldn't be my first thought; but might be.
-
-ISTR getting link/carrier state to behave in
-the first place (with just CDC and RNDIS) was
-complex.  If it wasn't carefully re-tested after
-EEM was added, breakage may have been overlooked.
-
-- Dave
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
