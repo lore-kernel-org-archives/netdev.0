@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] stmmac: make ioaddr 'void __iomem *' rather than
- unsigned long
-Date: Wed, 25 Aug 2010 16:31:11 -0700 (PDT)
-Message-ID: <20100825.163111.232765010.davem@davemloft.net>
-References: <1282632042-752-1-git-send-email-peppe.cavallaro@st.com>
-	<1282632042-752-2-git-send-email-peppe.cavallaro@st.com>
-	<1282632042-752-3-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [patch] plip: remove superflous return
+Date: Wed, 25 Aug 2010 16:37:11 -0700 (PDT)
+Message-ID: <20100825.163711.229731651.davem@davemloft.net>
+References: <20100824120105.GF29330@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
+Cc: netdev@vger.kernel.org, joe@perches.com,
+	kernel-janitors@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40395
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59306
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752341Ab0HYXaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 19:30:55 -0400
-In-Reply-To: <1282632042-752-3-git-send-email-peppe.cavallaro@st.com>
+	by vger.kernel.org with ESMTP id S1751392Ab0HYXg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 19:36:56 -0400
+In-Reply-To: <20100824120105.GF29330@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Tue, 24 Aug 2010 08:40:42 +0200
+From: Dan Carpenter <error27@gmail.com>
+Date: Tue, 24 Aug 2010 14:01:05 +0200
 
-> This avoids unnecessary casting and adds the ioaddr in the
-> private structure.
-> This patch also removes many warning when compile the driver.
+> This return isn't reachable and it obscures the goto on the line before.
 > 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
 Applied.
