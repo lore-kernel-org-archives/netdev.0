@@ -1,47 +1,59 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: RFC: MTU for serving NFS on Infiniband
-Date: Wed, 25 Aug 2010 16:10:58 +0400
-Message-ID: <20100825121058.GA28498@ms2.inr.ac.ru>
-References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca> <20100823080543.319143e3@nehalam> <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca> <1282672647.2302.15.camel@achroite.uk.solarflarecom.com> <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca> <1282688441.22839.34.camel@localhost> <20100824153920.63360072@s6510> <1282715698.2467.681.camel@edumazet-laptop>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH] ll_temac: Fix poll implementation
+Date: Wed, 25 Aug 2010 14:24:05 +0200
+Message-ID: <4C750B65.4090309@monstr.eu>
+References: <1282127194-4185-1-git-send-email-monstr@monstr.eu> <20100819.004845.148553935.davem@davemloft.net>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Marc Aurele La France <tsi@ualberta.ca>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1282715698.2467.681.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: glikely@secretlab.ca, netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:57871 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752013Ab0HYMYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 08:24:11 -0400
+Received: by fxm13 with SMTP id 13so216535fxm.19
+        for <netdev@vger.kernel.org>; Wed, 25 Aug 2010 05:24:09 -0700 (PDT)
+In-Reply-To: <20100819.004845.148553935.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+David Miller wrote:
+> From: Michal Simek <monstr@monstr.eu>
+> Date: Wed, 18 Aug 2010 12:26:34 +0200
+> 
+>> Functions ll_temac_rx_irq and ll_temac_tx_irq
+>> have pointer to net_device as second parameter not
+>> pointer to temac_local.
+>>
+>> Signed-off-by: Michal Simek <monstr@monstr.eu>
+> 
+> Applied, thanks a lot.
+> 
+> I can't count how many times this kind of error has been
+> introduced.  It's of cource because the handle passed to
+> IRQ handlers is an opaque void pointer, so if the underlying
+> type gets changed there is absolutely no type checking done
+> against by-hand calls of the IRQ handler.
+> 
+> Rusty Russell was, if I remember correctly, doing some work
+> to correct this such that IRQ handlers could in fact have
+> some proper typing in their handlers.  Or maybe that was for
+> timer handlers?
+> 
+> Anyways that kind of thing would help here.
+> 
+> Rusty?
 
-> It is, but ip_append_data() is allocating a huge head if MTU is huge.
+Rusty, you there?
 
-Hmm, strange, as I remember, it was supposed to work right.
-
-If the device supports SG (which is required to accept non-linear skbs anyway),
-then ip_append_* should allocate skbs not rounded up to mtu and we should
-allocate small skb with NFS header only. Does not it work?
-
-I can only guess one possible trap: people could do _one_ huge ip_append_data()
-(instead of "planned" scenario, when the header is sent with ip_append_data()
-and the following payload is appended with ip_append_page()). Huge ip_append_data()
-will generate huge skb indeed. Is this the problem?
+Michal
 
 
-BTW this issue could be revisited and this "will generate huge" can be reconsidered.
-Automatic generation of fragmented skbs was deliberately suppressed, because it was
-found that all devices existing at the moment when this code was written
-are strongly biased against SG. Current code tries to _avoid_ generating
-non-linear skbs, unless it is intended for zero-copy, which compensated
-bias against SG. Modern hardware should work better.
-
-Alexey
+-- 
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
+Microblaze U-BOOT custodian
