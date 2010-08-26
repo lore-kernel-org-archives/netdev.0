@@ -1,225 +1,88 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Thu, 26 Aug 2010 08:34:21 -0700
-Message-ID: <20100826083421.456b0d1c@nehalam>
-References: <4C763A67.5040107@dsn.okisemi.com>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [PATCH] Add firmware label support to iproute2
+Date: Thu, 26 Aug 2010 11:38:32 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B90CEAD362@nsmail.netscout.com>
+References: <20100812173537.GA29784@auslistsprd01.us.dell.com><20100812141240.417949e2@s6510><EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com><20100818144124.33a72453@nehalam><20100819213314.GA26135@auslistsprd01.us.dell.com><20100819145308.0fa08522@nehalam><20100825220323.GA12671@auslistsprd01.us.dell.com><20100825171646.3d40b721@nehalam><20100826150116.GB21770@auslistsprd01.us.dell.com><D3F292ADF945FB49B35E96C94C2061B90CEAD321@nsmail.netscout.com> <20100826082138.76bcd315@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	John Linn <john.linn@xilinx.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	Toshiharu Okada <okada533@dsn.okisemi.com>,
-	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
-	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
-To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Matt Domsch" <Matt_Domsch@Dell.com>, <Narendra_K@Dell.com>,
+	<netdev@vger.kernel.org>, <Charles_Rose@Dell.com>,
+	<Jordan_Hargrave@Dell.com>, <linux-pci@vger.kernel.org>,
+	<linux-hotplug@vger.kernel.org>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56618 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754097Ab0HZPeZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Aug 2010 11:34:25 -0400
-In-Reply-To: <4C763A67.5040107@dsn.okisemi.com>
+Received: from exprod6og116.obsmtp.com ([64.18.1.37]:51971 "HELO
+	exprod6og116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754051Ab0HZPih convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 11:38:37 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20100826082138.76bcd315@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Aug 2010 18:56:55 +0900
-Masayuki Ohtake <masa-korg@dsn.okisemi.com> wrote:
+Sorry, my bad.
+I agree w/ your recommendation then - 
+1) stuff it in ifalias(or create a new alias if net_device::ifalias is
+used for snmp etc).
 
-> ---
-> Gigabit Ethernet driver of Topcliff PCH
+But how do we consume it? 
+   1.1) spit it out via sysfs? But Doc/sysfsrules.txt says "Accessing
+/sys/class/net/eth0/device is a bug in the application"
+
+
+Chetan
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> Sent: August 26, 2010 11:22 AM
+> To: Loke, Chetan
+> Cc: Matt Domsch; Narendra_K@Dell.com; netdev@vger.kernel.org;
+> Charles_Rose@Dell.com; Jordan_Hargrave@Dell.com; linux-
+> pci@vger.kernel.org; linux-hotplug@vger.kernel.org
+> Subject: Re: [PATCH] Add firmware label support to iproute2
 > 
-> Topcliff PCH is the platform controller hub that is going to be used in
-> Intel's upcoming general embedded platform. All IO peripherals in
-> Topcliff PCH are actually devices sitting on AMBA bus. 
-> Topcliff PCH has Gigabit Ethernet I/F. Using this I/F, it is able to 
-> access system devices connected to Gigabit Ethernet.
+> On Thu, 26 Aug 2010 11:17:51 -0400
+> "Loke, Chetan" <Chetan.Loke@netscout.com> wrote:
 > 
-> Signed-off-by: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
-> ---
+> > What if we extend 'IFNAMSIZ'(beyond 16 chars. Older apps don't need
+> to
+> > worry because they have been working w/ 16 chars anyways) and also
+> get
+> > ifalias to work in udev(Or is ifalias a bad idea?)?
+> >
+> > Chetan
+> >
+> That is  non-starter for the ioctl() style interface.
+> 
+> struct ifreq {
+> #define IFHWADDRLEN	6
+> 	union
+> 	{
+> 		char	ifrn_name[IFNAMSIZ];		/* if name, e.g.
+"en0"
+> */
+> 	} ifr_ifrn;
+> 
+> 	union {
+> 		struct	sockaddr ifru_addr;
+> 		struct	sockaddr ifru_dstaddr;
+> 		struct	sockaddr ifru_broadaddr;
+> 		struct	sockaddr ifru_netmask;
+> 		struct  sockaddr ifru_hwaddr;
+> 		short	ifru_flags;
+> 		int	ifru_ivalue;
+> 		int	ifru_mtu;
+> 		struct  ifmap ifru_map;
+> 		char	ifru_slave[IFNAMSIZ];	/* Just fits the size */
+> 		char	ifru_newname[IFNAMSIZ];
+> 		void __user *	ifru_data;
+> 		struct	if_settings ifru_settings;
+> 	} ifr_ifru;
+> };
+> 
+> Applications do:
+>    	strncpy(ifr.ifr_name, "my name", IFNAMSIZ);
+> 	ioctl(fd, SIOCGHWADDR, &ifr)
 
-You can initialize your function table at compile time.
-
-> +
-> +struct pch_gbe_hw;
-> +/**
-> + * struct  pch_gbe_functions - HAL APi function pointer
-> + * @get_bus_info:	for pch_gbe_hal_get_bus_info
-> + * @init_hw:		for pch_gbe_hal_init_hw
-> + * @read_phy_reg:	for pch_gbe_hal_read_phy_reg
-> + * @write_phy_reg:	for pch_gbe_hal_write_phy_reg
-> + * @reset_phy:		for pch_gbe_hal_phy_hw_reset
-> + * @sw_reset_phy:	for pch_gbe_hal_phy_sw_reset
-> + * @power_up_phy:	for pch_gbe_hal_power_up_phy
-> + * @power_down_phy:	for pch_gbe_hal_power_down_phy
-> + * @read_mac_addr:	for pch_gbe_hal_read_mac_addr
-> + */
-> +struct pch_gbe_functions {
-> +	void (*get_bus_info) (struct pch_gbe_hw *);
-> +	s32(*init_hw) (struct pch_gbe_hw *);
-> +	s32(*read_phy_reg) (struct pch_gbe_hw *, u32, u16 *);
-> +	s32(*write_phy_reg) (struct pch_gbe_hw *, u32, u16);
-> +	void (*reset_phy) (struct pch_gbe_hw *);
-> +	void (*sw_reset_phy) (struct pch_gbe_hw *);
-> +	void (*power_up_phy) (struct pch_gbe_hw *hw);
-> +	void (*power_down_phy) (struct pch_gbe_hw *hw);
-> +	s32(*read_mac_addr) (struct pch_gbe_hw *);
-> +};
-
-...
-
-> +
-> +/*!
-> + * @ingroup Gigabit Ether driver Layer
-> + * @struct  pch_gbe_hw
-> + * @brief   Hardware infomation
-> + */
-> +struct pch_gbe_hw {
-> +	void *back;
-> +
-> +	struct pch_gbe_regs  __iomem *reg;
-> +	spinlock_t miim_lock;
-> +
-> +	struct pch_gbe_functions func;
-Should be:
-        const struct pch_gbe_functions *func;
-
-> +	struct pch_gbe_mac_info mac;
-> +	struct pch_gbe_phy_info phy;
-> +	struct pch_gbe_bus_info bus;
-> +
-> +	u16 vendor_id;
-> +	u16 device_id;
-> +	u16 subsystem_vendor_id;
-> +	u16 subsystem_device_id;
-> +	u8 revision_id;
-> +};
-...
-
-> --- /dev/null
-> +++ b/drivers/net/pch_gbe/pch_gbe_api.c
-> @@ -0,0 +1,247 @@
-> +/*
-> + * Copyright (C) 2010 OKI SEMICONDUCTOR Co., LTD.
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License as published by
-> + * the Free Software Foundation; version 2 of the License.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program; if not, write to the Free Software
-> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307, USA.
-> + */
-> +
-> +#include "pch_gbe.h"
-> +#include "pch_gbe_phy.h"
-> +
-> +/* bus type values */
-> +#define pch_gbe_bus_type_unknown	0
-> +#define pch_gbe_bus_type_pci		1
-> +#define pch_gbe_bus_type_pcix		2
-> +#define pch_gbe_bus_type_pci_express	3
-> +#define pch_gbe_bus_type_reserved	4
-> +
-> +/* bus speed values */
-> +#define pch_gbe_bus_speed_unknown	0
-> +#define pch_gbe_bus_speed_33		1
-> +#define pch_gbe_bus_speed_66		2
-> +#define pch_gbe_bus_speed_100		3
-> +#define pch_gbe_bus_speed_120		4
-> +#define pch_gbe_bus_speed_133		5
-> +#define pch_gbe_bus_speed_2500		6
-> +#define pch_gbe_bus_speed_reserved	7
-> +
-> +/* bus width values */
-> +#define pch_gbe_bus_width_unknown	0
-> +#define pch_gbe_bus_width_pcie_x1	1
-> +#define pch_gbe_bus_width_pcie_x2	2
-> +#define pch_gbe_bus_width_pcie_x4	4
-> +#define pch_gbe_bus_width_32		5
-> +#define pch_gbe_bus_width_64		6
-> +#define pch_gbe_bus_width_reserved	7
-> +
-> +/**
-> + * pch_gbe_plat_get_bus_info - Obtain bus information for adapter
-> + * @hw:	Pointer to the HW structure
-> + */
-> +static void pch_gbe_plat_get_bus_info(struct pch_gbe_hw *hw)
-> +{
-> +	hw->bus.type  = pch_gbe_bus_type_pci_express;
-> +	hw->bus.speed = pch_gbe_bus_speed_2500;
-> +	hw->bus.width = pch_gbe_bus_width_pcie_x1;
-> +}
-> +
-> +/**
-> + * pch_gbe_plat_init_hw - Initialize hardware
-> + * @hw:	Pointer to the HW structure
-> + * Returns
-> + *	0:		Successfully
-> + *	Negative value:	Failed-EBUSY
-> + */
-> +static s32 pch_gbe_plat_init_hw(struct pch_gbe_hw *hw)
-> +{
-> +	s32 ret_val;
-> +
-> +	ret_val = pch_gbe_phy_get_id(hw);
-> +	if (ret_val) {
-> +		printk(KERN_ERR KBUILD_MODNAME ": "
-> +			"pch_gbe_phy_get_id error\n");
-> +		return ret_val;
-> +	}
-> +	pch_gbe_phy_init_setting(hw);
-> +	/* Setup Mac interface option RGMII */
-> +#ifdef PCH_GBE_MAC_IFOP_RGMII
-> +	pch_gbe_phy_set_rgmii(hw);
-> +#endif
-> +	return ret_val;
-> +}
-> +
-
-static const struct pch_gbe_functions pch_gbe_ops = {
-	.get_bus_info             = pch_gbe_plat_get_bus_info,
-	.init_hw                  = pch_gbe_plat_init_hw,
-	.read_phy_reg             = pch_gbe_phy_read_reg_miic,
-	.write_phy_reg            = pch_gbe_phy_write_reg_miic,
-	.reset_phy                = pch_gbe_phy_hw_reset,
-	.sw_reset_phy             = pch_gbe_phy_sw_reset,
-	.power_up_phy             = pch_gbe_phy_power_up,
-	.power_down_phy           = pch_gbe_phy_power_down,
-	.read_mac_addr            = pch_gbe_mac_read_mac_addr,
-}; 
-
-> +/**
-> + * pch_gbe_plat_init_function_pointers - Init func ptrs
-> + * @hw:	Pointer to the HW structure
-> + */
-> +void pch_gbe_plat_init_function_pointers(struct pch_gbe_hw *hw)
-> +{
-> +	struct pch_gbe_phy_info *phy = &hw->phy;
-> +	struct pch_gbe_functions *func = &hw->func;
-
-	const struct pch_gbe_functions *func = &hw->func;
-
-> +
-> +	/* Set PHY parameter */
-> +	phy->reset_delay_us     = PCH_GBE_PHY_RESET_DELAY_US;
-
-	func = &pch_gbe_ops;
-
-	(Don't init at run time)
-> +}
