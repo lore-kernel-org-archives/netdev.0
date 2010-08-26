@@ -1,66 +1,66 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Add firmware label support to iproute2
-Date: Thu, 26 Aug 2010 08:21:38 -0700
-Message-ID: <20100826082138.76bcd315@nehalam>
-References: <20100812173537.GA29784@auslistsprd01.us.dell.com>
-	<20100812141240.417949e2@s6510>
-	<EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com>
-	<20100818144124.33a72453@nehalam>
-	<20100819213314.GA26135@auslistsprd01.us.dell.com>
-	<20100819145308.0fa08522@nehalam>
-	<20100825220323.GA12671@auslistsprd01.us.dell.com>
-	<20100825171646.3d40b721@nehalam>
-	<20100826150116.GB21770@auslistsprd01.us.dell.com>
-	<D3F292ADF945FB49B35E96C94C2061B90CEAD321@nsmail.netscout.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [net-next 2/2] macvlan:  Enable qdisc backoff logic.
+Date: Thu, 26 Aug 2010 08:33:58 -0700
+Message-ID: <4C768966.30405@candelatech.com>
+References: <1282762851-3612-1-git-send-email-greearb@candelatech.com> <201008252159.11227.arnd@arndb.de> <4C7581D2.3010007@candelatech.com> <201008261555.35250.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Matt Domsch" <Matt_Domsch@Dell.com>, <Narendra_K@Dell.com>,
-	<netdev@vger.kernel.org>, <Charles_Rose@Dell.com>,
-	<Jordan_Hargrave@Dell.com>, <linux-pci@vger.kernel.org>,
-	<linux-hotplug@vger.kernel.org>
-To: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B90CEAD321@nsmail.netscout.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:50660 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754059Ab0HZPeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 11:34:04 -0400
+In-Reply-To: <201008261555.35250.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Aug 2010 11:17:51 -0400
-"Loke, Chetan" <Chetan.Loke@netscout.com> wrote:
-
-> What if we extend 'IFNAMSIZ'(beyond 16 chars. Older apps don't need to
-> worry because they have been working w/ 16 chars anyways) and also get
-> ifalias to work in udev(Or is ifalias a bad idea?)?
-> 
-> Chetan
+On 08/26/2010 06:55 AM, Arnd Bergmann wrote:
+> On Wednesday 25 August 2010, Ben Greear wrote:
+>> On 08/25/2010 12:59 PM, Arnd Bergmann wrote:
+>>> On Wednesday 25 August 2010 21:27:43 Ben Greear wrote:
+>>>>> I suppose we need to do something in macvtap to handle this as
+>>>>> well, right? A guest trying to send a frame through qemu
+>>>>> or vhost net into macvtap needs to be prevented from sending
+>>>>> more when we get into this path. Right now, we just ignore
+>>>>> the return value of macvlan_start_xmit.
+>>>>
+>>>> I have a similar, though slightly more complex, patch for 802.1q
+>>>> vlans, but I haven't looked at macvtap at all.
+>>>>
+>>>> If these two patches are accepted, I'll post the .1q patch as well.
+>>>
+>>> I think one of us needs to fix macvtap in order for your patch to
+>>> go in, because otherwise there is a memory leak or worse when
+>>> macvtap fails to retransmit the frame.
+>>
+>> With no change, the try_ logic will not be called, so it should
+>> be fully backwards compatible.
 >
-That is  non-starter for the ioctl() style interface.
+> How? The macvlan driver is used as the back-end for macvtap,
+> so it calls all the same functions:
+>
+> macvtap_write
+> ->  macvtap_get_user
+> ->  macvlan_start_xmit
+> ->  macvlan->queue_xmit
+> ->  try_dev_queue_xmit
 
-struct ifreq {
-#define IFHWADDRLEN	6
-	union
-	{
-		char	ifrn_name[IFNAMSIZ];		/* if name, e.g. "en0" */
-	} ifr_ifrn;
-	
-	union {
-		struct	sockaddr ifru_addr;
-		struct	sockaddr ifru_dstaddr;
-		struct	sockaddr ifru_broadaddr;
-		struct	sockaddr ifru_netmask;
-		struct  sockaddr ifru_hwaddr;
-		short	ifru_flags;
-		int	ifru_ivalue;
-		int	ifru_mtu;
-		struct  ifmap ifru_map;
-		char	ifru_slave[IFNAMSIZ];	/* Just fits the size */
-		char	ifru_newname[IFNAMSIZ];
-		void __user *	ifru_data;
-		struct	if_settings ifru_settings;
-	} ifr_ifru;
-};
+Ok, I didn't realize that.  I'll look at that later this morning.
 
-Applications do:
-   	strncpy(ifr.ifr_name, "my name", IFNAMSIZ);
-	ioctl(fd, SIOCGHWADDR, &ifr)
+Thanks,
+Ben
 
+>
+> 	Arnd
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
