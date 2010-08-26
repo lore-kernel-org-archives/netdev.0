@@ -1,46 +1,110 @@
 From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 Subject: Re: [PATCH] tcp: select(writefds) don't hang up when a peer close connection
-Date: Thu, 26 Aug 2010 13:02:29 +0900 (JST)
-Message-ID: <20100826130200.F66A.A69D9226@jp.fujitsu.com>
-References: <AANLkTinPhzMSQ01AXZmDQw8h4OnuS8yoQu7eKog637LL@mail.gmail.com> <20100825.205154.191390581.davem@davemloft.net>
+Date: Thu, 26 Aug 2010 12:55:12 +0900 (JST)
+Message-ID: <20100826125357.F667.A69D9226@jp.fujitsu.com>
+References: <20100825.153424.246521475.davem@davemloft.net> <1282785886.22839.199.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:46590 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710Ab0HZECc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 00:02:32 -0400
-In-Reply-To: <20100825.205154.191390581.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: kosaki.motohiro@jp.fujitsu.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1282785886.22839.199.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> Date: Thu, 26 Aug 2010 12:09:55 +0900
-> 
-> > Probably my example is not so good. That's not my point.
-> > In the example application, client and server socket is in the same process.
-> > But it's NOT generic. usually, client and server are another process. then,
-> > client can't expect when server close socket.
+> On Wed, 2010-08-25 at 15:34 -0700, David Miller wrote:
+> > From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+> > Date: Wed, 25 Aug 2010 11:05:48 +0900 (JST)
 > > 
-> > The most big matter is, this is can't be avoided in userland. In addition,
-> > EVERY application don't want application hang up. we don't hesitate
-> > userland change.
+> > > This issue come from ruby language community. Below test program
+> > > hang up when only run on Linux.
+> > > 
+> > > 	% uname -mrsv
+> > > 	Linux 2.6.26-2-486 #1 Sat Dec 26 08:37:39 UTC 2009 i686
+> > > 	% ruby -rsocket -ve '
+> > > 	BasicSocket.do_not_reverse_lookup = true
+> > > 	serv = TCPServer.open("127.0.0.1", 0)
+> > > 	s1 = TCPSocket.open("127.0.0.1", serv.addr[1])
+> > > 	s2 = serv.accept
+> > > 	s2.close
+> > > 	s1.write("a") rescue p $!
+> > > 	s1.write("a") rescue p $!
+> > > 	Thread.new {
+> > > 	  s1.write("a")
+> > > 	}.join'
+> > > 	ruby 1.9.3dev (2010-07-06 trunk 28554) [i686-linux]
+> > > 	#<Errno::EPIPE: Broken pipe>
+> > > 	[Hang Here]
+> [...]
+> > And in this case here, I call into question the behavior of Ruby and
+> > the application from two perspectives:
+> > 
+> > 1) Unlike all of the other conditions signalled by poll() this is
+> >    one the application explicitly created and therefore knows about.
+> >
+> >    If the application calls close() or shutdown() with the send flag
+> >    set, IT KNOWS what is going to happen on a write() attempt.
+> [...]
 > 
-> Ok, you and Ben Hutchings have convinced me to reconsider.
+> This example seems to have both server (serv, s2) and client (s1) in the
+> same process for simplicity.  The server socket (s2) is closed and the
+> client cannot be expected to know that.  Of course the client ought to
+> drop the connection after the first EPIPE, but it's reasonable to expect
+> that this is a sticky condition just as it would be for a pipe.
 > 
-> And this matches what even BSD4.4-Lite does (I checked yesterday before
-> my initial reply), so I will apply this patch.
+> Here's a similar test case in C:
 > 
-> Thanks for your patience.
+> #include <assert.h>
+> #include <signal.h>
+> #include <stdio.h>
+> 
+> #include <sys/select.h>
+> #include <sys/socket.h>
+> #include <sys/types.h>
+> #include <unistd.h>
+> 
+> int main(void)
+> {
+>     struct sockaddr sa;
+>     struct timeval tv;
+>     int serv, s1, s2;
+>     socklen_t len;
+>     fd_set fds;
+> 
+>     signal(SIGPIPE, SIG_IGN);
+> 
+>     serv = socket(AF_INET, SOCK_STREAM, 0);
+>     assert(serv >= 0);
+>     assert(!listen(serv, 1));
+>     len = sizeof(sa);
+>     assert(!getsockname(serv, &sa, &len));
+> 
+>     s1 = socket(AF_INET, SOCK_STREAM, 0);
+>     assert(s1 >= 0);
+>     assert(!connect(s1, &sa, len));
+>     len = sizeof(sa);
+> 
+>     s2 = accept(serv, &sa, &len);
+>     assert(s2 >= 0);
+>     close(s2);
+> 
+>     for (;;) {
+> 	printf("write: %d\n", write(s1, "a", 1));
+> 	FD_ZERO(&fds);
+> 	FD_SET(s1, &fds);
+> 	tv.tv_sec = 1;
+> 	tv.tv_usec = 0;
+> 	printf("select: %d\n", select(s1 + 1, NULL, &fds, NULL, &tv));
+>     }
+>     return 0;
+> }
 
-Great!
+Cool!
 
-Thank you!!
+Ben, I think your code is cleaner than mine. If you allow me, I hope to
+include this one into my patch description.
 
-
-
+Thanks.
