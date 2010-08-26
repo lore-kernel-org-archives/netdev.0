@@ -1,62 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RFC: MTU for serving NFS on Infiniband
-Date: Thu, 26 Aug 2010 13:57:07 +0200
-Message-ID: <1282823827.2476.663.camel@edumazet-laptop>
-References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca>
-	 <20100823080543.319143e3@nehalam>
-	 <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca>
-	 <1282672647.2302.15.camel@achroite.uk.solarflarecom.com>
-	 <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
-	 <1282688441.22839.34.camel@localhost> <20100824153920.63360072@s6510>
-	 <alpine.WNT.2.00.1008251408520.632@cluij.ucs.ualberta.ca>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] tcp: select(writefds) don't hang up when a peer close
+ connection
+Date: Thu, 26 Aug 2010 13:07:28 +0100
+Message-ID: <1282824448.2263.3.camel@achroite.uk.solarflarecom.com>
+References: <20100825.153424.246521475.davem@davemloft.net>
+	 <1282785886.22839.199.camel@localhost>
+	 <20100826125357.F667.A69D9226@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Marc Aurele La France <tsi@ualberta.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:39410 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752502Ab0HZL5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 07:57:19 -0400
-In-Reply-To: <alpine.WNT.2.00.1008251408520.632@cluij.ucs.ualberta.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100826125357.F667.A69D9226@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 26 ao=C3=BBt 2010 =C3=A0 05:40 -0600, Marc Aurele La France a =
-=C3=A9crit :
+On Thu, 2010-08-26 at 12:55 +0900, KOSAKI Motohiro wrote:
+[...]
+> Cool!
+> 
+> Ben, I think your code is cleaner than mine. If you allow me, I hope to
+> include this one into my patch description.
 
-> Steady now.  There's no need to YELL nor be arrogant.  You and I both=
- know=20
-> there's a place for NFS over UDP.  That's not changing any time soon.=
-  While=20
-> I'm aware of the issue you brought up, it is separate from the one at=
- hand in=20
-> this discussion.
->=20
-> I do want to thank you, however, for reminding me of TCP.  It's somet=
-hing=20
-> 20/20 hindsight says I should have checked out before starting this t=
-hread.=20
-> Logistically, it'll be a few days before I can do so though.  If that=
- allows=20
-> me to increase the MTU all the way up to 65520, then this UDP thing w=
-ill=20
-> likely remain unresolved.
->=20
+You can do that if you like, but it seems a bit long for a commit
+message.
 
-Unfortunately, your infiniband device lacks NETIF_F_SG support.
+By the way, I was able to reproduce this bug in RHEL 3 (kernel based on
+2.4.21) so it seems to have been around for a while.
 
-MTU a bit larger than PAGE_SIZE-overhead will need high order
-allocations ?
+Ben.
 
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
