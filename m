@@ -1,128 +1,49 @@
-From: Lars Eggert <lars.eggert@nokia.com>
-Subject: Re: [PATCH] TCP_FAILFAST: a new socket option to timeout/abort a  connection quicker
-Date: Thu, 26 Aug 2010 09:01:31 +0300
-Message-ID: <3CD6E1F6-9143-43B9-A6D2-9B09F18C9C2E@nokia.com>
-References: <1282630819-23104-1-git-send-email-hkchu@google.com> 	<1282632262.2378.1681.camel@edumazet-laptop> 	<4C737D15.5060400@nets.rwth-aachen.de> 	<423116d1d215b0fb3d1c966fb8167508@localhost> 	<4C73DE32.1030802@nets.rwth-aachen.de>	<20100824162844.GA7889@nuttenaction> 	<AANLkTikAGKObYnczsVoKnUOewJBp2J2036yOD7TncA0F@mail.gmail.com> 	<cb32d2a8676d5447e04882302228c4b6@localhost> 	<AANLkTi=B4gtLxfDnJOuXUCoA79bV4c0cgSn+y36N0iRb@mail.gmail.com> 	<20100825225942.GA3190@hell> <AANLkTik5N=j-2NQRFFktOs7gfDEU=Gdrva4fw6BKRqxT@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v1081)
-Content-Type: multipart/signed; boundary=Apple-Mail-17--447386727; protocol="application/pkcs7-signature"; micalg=sha1
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jerry Chu <hkchu@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix three tcp sysctls tuning
+Date: Wed, 25 Aug 2010 23:02:40 -0700 (PDT)
+Message-ID: <20100825.230240.104045673.davem@davemloft.net>
+References: <20100825.165759.27789477.davem@davemloft.net>
+	<20100826003834.GA17882@kryten>
+	<1282799753.2681.714.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: anton@samba.org, netdev@vger.kernel.org, miltonm@bga.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw-sa02.nokia.com ([147.243.1.48]:48164 "EHLO
-	mgw-sa02.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751922Ab0HZGCD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 02:02:03 -0400
-In-Reply-To: <AANLkTik5N=j-2NQRFFktOs7gfDEU=Gdrva4fw6BKRqxT@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43233
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751922Ab0HZGCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 02:02:25 -0400
+In-Reply-To: <1282799753.2681.714.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Aug 2010 07:15:53 +0200
 
---Apple-Mail-17--447386727
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+> As discovered by Anton Blanchard, current code to autotune 
+> tcp_death_row.sysctl_max_tw_buckets, sysctl_tcp_max_orphans and
+> sysctl_max_syn_backlog makes litle sense.
+> 
+> The bigger a page is, the less tcp_max_orphans is : 4096 on a 512GB
+> machine in Anton's case.
+> 
+> (tcp_hashinfo.bhash_size * sizeof(struct inet_bind_hashbucket))
+> is much bigger if spinlock debugging is on. Its wrong to select bigger
+> limits in this case (where kernel structures are also bigger)
+> 
+> bhash_size max is 65536, and we get this value even for small machines. 
+> 
+> A better ground is to use size of ehash table, this also makes code
+> shorter and more obvious.
+> 
+> Based on a patch from Anton, and another from David.
+> 
+> Reported-and-tested-by: Anton Blanchard <anton@samba.org>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Hi,
+I had something in my tree already, but since I didn't push it out
+it's just as easy for me to use this patch instead :-)
 
-On 2010-8-26, at 4:49, Jerry Chu wrote:
-> Yes on a 2nd look RFC5482 seems more complex than I originally =
-thought, allowing
-> many different combinations of local/adv/remote UTO... Are they really
-> useful, e.g.,
-> why allowing USER_TIMEOUT to be different from ADV_UTO?? My original =
-thought
-> was the local UTO will always be the same as the one advertised to
-> remote so only
-> one API will be needed plus bunch of flags for ENABLED, CHANGEABLE...
-
-
-USER_TIMEOUT is what is locally used for a connection (i.e., takes into =
-account what the remote peer advertised and what we'd like to use), =
-while ADV_UTO is (only) what we'd like to use and are advertising.
-
-(Yes, we initially thought we could make the mechanism simpler, but then =
-we started to think through all the corner cases...)
-
-Lars=
-
---Apple-Mail-17--447386727
-Content-Disposition: attachment;
-	filename=smime.p7s
-Content-Type: application/pkcs7-signature;
-	name=smime.p7s
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIKHjCCBMww
-ggQ1oAMCAQICEByunWua9OYvIoqj2nRhbB4wDQYJKoZIhvcNAQEFBQAwXzELMAkGA1UEBhMCVVMx
-FzAVBgNVBAoTDlZlcmlTaWduLCBJbmMuMTcwNQYDVQQLEy5DbGFzcyAxIFB1YmxpYyBQcmltYXJ5
-IENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA1MTAyODAwMDAwMFoXDTE1MTAyNzIzNTk1OVow
-gd0xCzAJBgNVBAYTAlVTMRcwFQYDVQQKEw5WZXJpU2lnbiwgSW5jLjEfMB0GA1UECxMWVmVyaVNp
-Z24gVHJ1c3QgTmV0d29yazE7MDkGA1UECxMyVGVybXMgb2YgdXNlIGF0IGh0dHBzOi8vd3d3LnZl
-cmlzaWduLmNvbS9ycGEgKGMpMDUxHjAcBgNVBAsTFVBlcnNvbmEgTm90IFZhbGlkYXRlZDE3MDUG
-A1UEAxMuVmVyaVNpZ24gQ2xhc3MgMSBJbmRpdmlkdWFsIFN1YnNjcmliZXIgQ0EgLSBHMjCCASIw
-DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMnfrOfq+PgDFMQAktXBfjbCPO98chXLwKuMPRyV
-zm8eECw/AO2XJua2x+atQx0/pIdHR0w+VPhs+Mf8sZ69MHC8l7EDBeqV8a1AxUR6SwWi8mD81zpl
-Yu//EHuiVrvFTnAt1qIfPO2wQuhejVchrKaZ2RHp0hoHwHRHQgv8xTTq/ea6JNEdCBU3otdzzwFB
-L2OyOj++pRpu9MlKWz2VphW7NQIZ+dTvvI8OcXZZu0u2Ptb8Whb01g6J8kn+bAztFenZiHWcec5g
-J925rXXOL3OVekA6hXVJsLjfaLyrzROChRFQo+A8C67AClPN1zBvhTJGG+RJEMJs4q8fef/btLUC
-AwEAAaOCAYQwggGAMBIGA1UdEwEB/wQIMAYBAf8CAQAwRAYDVR0gBD0wOzA5BgtghkgBhvhFAQcX
-ATAqMCgGCCsGAQUFBwIBFhxodHRwczovL3d3dy52ZXJpc2lnbi5jb20vcnBhMAsGA1UdDwQEAwIB
-BjARBglghkgBhvhCAQEEBAMCAQYwLgYDVR0RBCcwJaQjMCExHzAdBgNVBAMTFlByaXZhdGVMYWJl
-bDMtMjA0OC0xNTUwHQYDVR0OBBYEFBF9Xhl9PATfamzWoooaPzHYO5RSMDEGA1UdHwQqMCgwJqAk
-oCKGIGh0dHA6Ly9jcmwudmVyaXNpZ24uY29tL3BjYTEuY3JsMIGBBgNVHSMEejB4oWOkYTBfMQsw
-CQYDVQQGEwJVUzEXMBUGA1UEChMOVmVyaVNpZ24sIEluYy4xNzA1BgNVBAsTLkNsYXNzIDEgUHVi
-bGljIFByaW1hcnkgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHmCEQDNun9W8N/kvFT+IqyzcqpVMA0G
-CSqGSIb3DQEBBQUAA4GBALEv2ZbhkqLugWDlyCog++FnLNYAmFOjAhvpkEv4GESfD0b3+qD+0x0Y
-o9K/HOzWGZ9KTUP4yru+E4BJBd0hczNXwkJavvoAk7LmBDGRTl088HMFN2Prv4NZmP1m3umGMpqS
-KTw6rlTaphJRsY/IytNHeObbpR6HBuPRFMDCIfa6MIIFSjCCBDKgAwIBAgIQM/3DDmRp5mxHvrbX
-tRvSsDANBgkqhkiG9w0BAQUFADCB3TELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWduLCBJ
-bmMuMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTswOQYDVQQLEzJUZXJtcyBvZiB1
-c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYSAoYykwNTEeMBwGA1UECxMVUGVyc29u
-YSBOb3QgVmFsaWRhdGVkMTcwNQYDVQQDEy5WZXJpU2lnbiBDbGFzcyAxIEluZGl2aWR1YWwgU3Vi
-c2NyaWJlciBDQSAtIEcyMB4XDTA5MTAxNDAwMDAwMFoXDTEwMTAxNDIzNTk1OVowggETMRcwFQYD
-VQQKEw5WZXJpU2lnbiwgSW5jLjEfMB0GA1UECxMWVmVyaVNpZ24gVHJ1c3QgTmV0d29yazFGMEQG
-A1UECxM9d3d3LnZlcmlzaWduLmNvbS9yZXBvc2l0b3J5L1JQQSBJbmNvcnAuIGJ5IFJlZi4sTElB
-Qi5MVEQoYyk5ODEeMBwGA1UECxMVUGVyc29uYSBOb3QgVmFsaWRhdGVkMTMwMQYDVQQLEypEaWdp
-dGFsIElEIENsYXNzIDEgLSBOZXRzY2FwZSBGdWxsIFNlcnZpY2UxFDASBgNVBAMUC0xhcnMgRWdn
-ZXJ0MSQwIgYJKoZIhvcNAQkBFhVsYXJzLmVnZ2VydEBub2tpYS5jb20wggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQCrTp9sa04QO3gKan1sQGFAZ91BKjFdECaw29ZXHYOZSFW7JC/oyuAO
-x7pucJp9qDLYlv60I8zLJ1eocDn3bsjBWwAS65GGVT9NLiblzCd5DeWTkn9UD7OMvLL+Z1Z17sE0
-jlmluQSCLjv0P7d6ZCpwVD2hWvuZu37fIQresIEYQLbZHXogwoCMhqwo8k8/WuwDbNcB9RiLq3JW
-FRjZILMmf5qFdExz1AZyG3OdFXe1F0vcxfHhbrGU5cVklV9XI3TfxVZciFNqnTuWsaHFxU0ZrwI0
-njVtpLko1TW1vC5qS2ZIpWq7iDkIke+XL4IYTHlOdH7sM502qEE8JqadXjuTAgMBAAGjgcwwgckw
-CQYDVR0TBAIwADBEBgNVHSAEPTA7MDkGC2CGSAGG+EUBBxcBMCowKAYIKwYBBQUHAgEWHGh0dHBz
-Oi8vd3d3LnZlcmlzaWduLmNvbS9ycGEwCwYDVR0PBAQDAgWgMB0GA1UdJQQWMBQGCCsGAQUFBwME
-BggrBgEFBQcDAjBKBgNVHR8EQzBBMD+gPaA7hjlodHRwOi8vSW5kQzFEaWdpdGFsSUQtY3JsLnZl
-cmlzaWduLmNvbS9JbmRDMURpZ2l0YWxJRC5jcmwwDQYJKoZIhvcNAQEFBQADggEBAJraU8e1Ss8a
-Uj33lweT8ibOcmNLTNn2pnSi7p5BwNCFtrLNp9AdhcGYJfEQMOlanxc7dpQ7OWUbpub4jAYKyP47
-hPQayKMJ73KcKmiN4Czj9g/uCTRwW3kiyhTo22Yl2MWGTM7WI39xTEQo4DOGs9EK6Ldb9zZU4oRl
-ZbaD1G/Lo33LYmuI8MfCLzTBtmT5MybyEnK17457+8bMLXoSFJfFGk5LPCn38SWdiAG/YH2A4had
-3wvpd9Mpx38fxw/RZqlifRSTT8zlOwkq/u/+il9D4o2ruwMEMC1ZwPN3/w/u+QCw4o78wm24BOwU
-KyA6H4H1r9BoUZ1To1zXxwvuI+sxggSLMIIEhwIBATCB8jCB3TELMAkGA1UEBhMCVVMxFzAVBgNV
-BAoTDlZlcmlTaWduLCBJbmMuMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTswOQYD
-VQQLEzJUZXJtcyBvZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYSAoYykwNTEe
-MBwGA1UECxMVUGVyc29uYSBOb3QgVmFsaWRhdGVkMTcwNQYDVQQDEy5WZXJpU2lnbiBDbGFzcyAx
-IEluZGl2aWR1YWwgU3Vic2NyaWJlciBDQSAtIEcyAhAz/cMOZGnmbEe+tte1G9KwMAkGBSsOAwIa
-BQCgggJtMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTEwMDgyNjA2
-MDEzMVowIwYJKoZIhvcNAQkEMRYEFNBIT5L7N6iKXiCfiwxqL6Ls1k47MIIBAwYJKwYBBAGCNxAE
-MYH1MIHyMIHdMQswCQYDVQQGEwJVUzEXMBUGA1UEChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsT
-FlZlcmlTaWduIFRydXN0IE5ldHdvcmsxOzA5BgNVBAsTMlRlcm1zIG9mIHVzZSBhdCBodHRwczov
-L3d3dy52ZXJpc2lnbi5jb20vcnBhIChjKTA1MR4wHAYDVQQLExVQZXJzb25hIE5vdCBWYWxpZGF0
-ZWQxNzA1BgNVBAMTLlZlcmlTaWduIENsYXNzIDEgSW5kaXZpZHVhbCBTdWJzY3JpYmVyIENBIC0g
-RzICEDP9ww5kaeZsR76217Ub0rAwggEFBgsqhkiG9w0BCRACCzGB9aCB8jCB3TELMAkGA1UEBhMC
-VVMxFzAVBgNVBAoTDlZlcmlTaWduLCBJbmMuMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3
-b3JrMTswOQYDVQQLEzJUZXJtcyBvZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3Jw
-YSAoYykwNTEeMBwGA1UECxMVUGVyc29uYSBOb3QgVmFsaWRhdGVkMTcwNQYDVQQDEy5WZXJpU2ln
-biBDbGFzcyAxIEluZGl2aWR1YWwgU3Vic2NyaWJlciBDQSAtIEcyAhAz/cMOZGnmbEe+tte1G9Kw
-MA0GCSqGSIb3DQEBAQUABIIBAKAWlWP5b2QZgq6kPDqcUwAD1rCkM7SQtjJKFylvwTH5CB39wwvU
-9h0ssR3HigJr2g3J1RIUS1mnNCdstPfkuP9DSx0w+zfLGJvpP3jRF1e/jqOFqGr/U1BpDKShaSqO
-VbyofmkzWtkw+hfEMvFRTm0TGHTlawnW7KMO9a4IJuQz/nSYPrV2YyAIBiykfqjJCc/nnEGTNuBS
-uUYmVDqPf43sp7CQ1L6uQYZI7AUAhUoFFl9q6VQ/jtpUb3BhikWLQRF7+XG6BKPx6bPlgv0nKnZi
-KzW6wxcOBlRb28ii4PJNn0O5awfVHZ/WrEyQglb84/q0kIftemq790984RH8q/oAAAAAAAA=
-
---Apple-Mail-17--447386727--
+Thanks everyone!
