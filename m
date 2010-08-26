@@ -1,55 +1,50 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [patch net-next 1/4] [patch nf-next v2] IPVS: ICMPv6 checksum
- calculation
-Date: Thu, 26 Aug 2010 22:36:24 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.1008262234270.3055@u.domain.uli>
-References: <20100826125427.056491061@vergenet.net> <20100826125726.621600393@vergenet.net>
+From: Bernard F6BVP <f6bvp@free.fr>
+Subject: [PATCH] [AX25] missplaced sock_put(sk)
+Date: Thu, 26 Aug 2010 21:34:32 +0200
+Message-ID: <4C76C1C8.6060007@free.fr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Xiaoyu Du <tingsrain@gmail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100826125726.621600393@vergenet.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------040202080800070901050500"
+Cc: davem@davemloft.net, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org, bpidoux@free.fr
+To: ralf@linux-mips.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------040202080800070901050500
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-	Hello,
+[PATCH] [AX25] missplaced sock_put(sk)
 
-On Thu, 26 Aug 2010, Simon Horman wrote:
+This patch moves a missplaced sock_put(sk) after
+bh_unlock_sock(sk)
+like in other parts of AX25 driver.
 
-> Cc: Xiaoyu Du <tingsrain@gmail.com>
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> 
-> Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_core.c
-> ===================================================================
-> --- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_core.c	2010-08-25 16:57:37.000000000 +0900
-> +++ nf-next-2.6/net/netfilter/ipvs/ip_vs_core.c	2010-08-25 17:02:35.000000000 +0900
-> @@ -637,9 +637,11 @@ void ip_vs_nat_icmp_v6(struct sk_buff *s
->  	}
->  
->  	/* And finally the ICMP checksum */
-> -	icmph->icmp6_cksum = 0;
-> -	/* TODO IPv6: is this correct for ICMPv6? */
-> -	ip_vs_checksum_complete(skb, icmp_offset);
-> +	icmph->icmp6_cksum = ~csum_ipv6_magic(&iph->saddr, &iph->daddr,
-> +					      skb->len - icmp_offset,
-> +					      IPPROTO_ICMPV6, 0);
-> +	skb->csum_start = skb_network_header(skb) - skb->head + icmp_offset;
-> +	skb->csum_offset = offsetof(struct icmp6hdr, icmp6_cksum);
->  	skb->ip_summed = CHECKSUM_UNNECESSARY;
+Bernard Pidoux
 
-	Ops, this should be CHECKSUM_PARTIAL
 
->  	if (inout)
 
-Regards
+--------------040202080800070901050500
+Content-Type: text/x-patch;
+ name="ax25_ds_timer.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="ax25_ds_timer.patch"
 
---
-Julian Anastasov <ja@ssi.bg>
+--- linux/net/ax25/ax25_ds_timer.c	2010-08-13 22:44:56.000000000 +0200
++++ linux/net/ax25/ax25_ds_timer.c	2010-08-26 19:55:13.000000000 +0200
+@@ -112,8 +112,8 @@
+ 			if (sk) {
+ 				sock_hold(sk);
+ 				ax25_destroy_socket(ax25);
+-				sock_put(sk);
+ 				bh_unlock_sock(sk);
++				sock_put(sk);
+ 			} else
+ 				ax25_destroy_socket(ax25);
+ 			return;
+
+--------------040202080800070901050500--
