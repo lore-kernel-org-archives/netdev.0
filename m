@@ -1,79 +1,58 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [Bugme-new] [Bug 16529] New: xennet driver crashes when using
- with pseudowire aka l2tpv3
-Date: Thu, 26 Aug 2010 09:14:08 +0100
-Message-ID: <1282810448.12544.3200.camel@zakaz.uk.xensource.com>
-References: <bug-16529-10286@https.bugzilla.kernel.org/>
-	 <20100825153107.2f547f0e.akpm@linux-foundation.org>
-	 <4C759F8C.9050301@goop.org>
-	 <1282806640.3469.26.camel@localhost.localdomain>
-	 <1282809788.2476.59.camel@edumazet-laptop>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH RFC] netns: introduce NETREG_NETNS_MOVING reg_state
+Date: Thu, 26 Aug 2010 10:21:45 +0200
+Message-ID: <20100826082145.GD235835@jupiter.n2.diac24.net>
+References: <20100824115056.GA235835@jupiter.n2.diac24.net>
+ <4C73FAB8.1090402@free.fr>
+ <m1tymjg6w8.fsf@fess.ebiederm.org>
+ <20100825115213.GB235835@jupiter.n2.diac24.net>
+ <4C751484.8030004@free.fr>
+ <20100825135254.GC235835@jupiter.n2.diac24.net>
+ <m139u2fv7u.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chris Wright <chrisw@sous-sol.org>,
-	"bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	James Chapman <jchapman@katalix.com>,
-	"heil@terminal-consulting.de" <heil@terminal-consulting.de>,
-	"Xen-devel@lists.xensource.com" <Xen-devel@lists.xensource.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:30989 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752856Ab0HZIOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 04:14:11 -0400
-In-Reply-To: <1282809788.2476.59.camel@edumazet-laptop>
+Received: from spaceboyz.net ([87.106.131.203]:47580 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753089Ab0HZIVy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Aug 2010 04:21:54 -0400
+Content-Disposition: inline
+In-Reply-To: <m139u2fv7u.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-08-26 at 09:03 +0100, Eric Dumazet wrote:
-> Here is the patch, could you test it please ?
+On Wed, Aug 25, 2010 at 10:39:01AM -0700, Eric W. Biederman wrote:
+> David Lamparter <equinox@diac24.net> writes:
+> > No; since NETDEV_UNREGISTER is still sent in all places where it is
+> > currently sent, none of the stacks would require changing. However,
+> > users of the actual, physical device (independent of its network
+> > namespace) would need changing to NETDEV_UNREGISTER_PHYSICAL, which is a
+> > new notification that is only sent if the device really disappears.
+> >
+> > TBH, I'm not quite sure which is the better solution here;
+> > NETDEV_UNREGISTER_PHYSICAL or NETREG_NETNS_MOVING...
+> > ... or the initial one?
 > 
-> Thanks !
+> Before we get too far down any of these paths, what is it that caused
+> you to notice that moving the physical device broke the connection to
+> the vlan and macvlan devices?
 > 
-> [PATCH] l2tp: test for malicious frames in l2tp_eth_dev_recv()
-> 
-> close https://bugzilla.kernel.org/show_bug.cgi?id=16529
-> 
-> Before calling dev_forward_skb(), we should make sure skb contains at
-> least an ethernet header, even if length included in upper layer said
-> so.
+> I just want to understand this case a little better before we walk down
+> any of these paths.
 
-Does this imply that there is some problem with xen-netfront setting
-skb->len or skb->data_len or something incorrectly? It's not clear where
-data_len has come from in this context.
+I'm doing system configuration software that allows you to manage
+interfaces on a virtual routing platform. I can work around the
+vlan-disappearings, but they kind of disrupt operation, especially as
+they can affect namespaces not even related to what the user is changing
+in the config.
 
-Ian.
+If nothing else, I'd try to push my original patch. It is pretty
+nonintrusive and should be OK with maybe a few more lines of comments.
 
-> 
-> Reported-by: Thomas Heil <heil@terminal-consulting.de>
-> Reported-by: Ian Campbell <Ian.Campbell@eu.citrix.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/l2tp/l2tp_core.c |    2 +-
->  net/l2tp/l2tp_eth.c  |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-> index 58c6c4c..0687c5c 100644
-> --- a/net/l2tp/l2tp_eth.c
-> +++ b/net/l2tp/l2tp_eth.c
-> @@ -132,7 +132,7 @@ static void l2tp_eth_dev_recv(struct l2tp_session *session, struct sk_buff *skb,
->  		printk("\n");
->  	}
->  
-> -	if (data_len < ETH_HLEN)
-> +	if (skb->len < ETH_HLEN)
->  		goto error;
->  
->  	secpath_reset(skb);
-> 
-> 
 
+David
 
