@@ -1,40 +1,50 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 5/5] net/netfilter/ipvs: Eliminate memory leak
-Date: Thu, 26 Aug 2010 09:32:05 +0900
-Message-ID: <20100826003204.GA9771@verge.net.au>
-References: <Pine.LNX.4.64.1008241639300.15172@ask.diku.dk>
- <20100825013443.GC7237@verge.net.au>
- <20100825.163812.242150096.davem@davemloft.net>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH] tcp: Fix sysctl_tcp_max_orphans when PAGE_SIZE != 4k
+Date: Thu, 26 Aug 2010 10:38:34 +1000
+Message-ID: <20100826003834.GA17882@kryten>
+References: <20100825071626.GA13681@kryten>
+ <20100825071701.GA14962@kryten>
+ <1282758634.2487.576.camel@edumazet-laptop>
+ <20100825.165759.27789477.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: julia@diku.dk, wensong@linux-vs.org, ja@ssi.bg, kaber@trash.net,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, miltonm@bga.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:50057 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752789Ab0HZAjs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Aug 2010 20:39:48 -0400
 Content-Disposition: inline
-In-Reply-To: <20100825.163812.242150096.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20100825.165759.27789477.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 25, 2010 at 04:38:12PM -0700, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Wed, 25 Aug 2010 10:34:43 +0900
-> 
-> > On Tue, Aug 24, 2010 at 04:39:49PM +0200, Julia Lawall wrote:
-> >> Signed-off-by: Julia Lawall <julia@diku.dk>
-> > 
-> > Thanks Julia, that looks good to me.
-> > 
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > 
-> > Patrick, I guess that this should go through nf-next-2.6.
-> 
-> Since Patrick appears to be offline, I'll apply this directly so
-> he has less to do when he comes back online :)
 
-I have a handful of other changes queued up,
-do you want to take them too?
+Hi Dave,
 
+> Yeah, something like the following, Anton?
+
+Thanks! I tested on a 512GB box. One thing:
+
+# cat /proc/sys/net/ipv4/tcp_max_syn_backlog 
+128
+
+We probably want to use max():
+
+> -	sysctl_max_syn_backlog = min(128, cnt / 256);
+> +	sysctl_max_syn_backlog = max(128, cnt / 256);
+
+With that change:
+
+# cat /proc/sys/net/ipv4/tcp_max_orphans 
+262144
+# cat /proc/sys/net/ipv4/tcp_max_tw_buckets
+262144
+# cat /proc/sys/net/ipv4/tcp_max_syn_backlog 
+2048
+
+
+Tested-by: Anton Blanchard <anton@samba.org>
+
+Anton
