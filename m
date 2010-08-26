@@ -1,73 +1,43 @@
-From: Bernard F6BVP <f6bvp@free.fr>
-Subject: [PATCH] [ROSE] rose node number was never decreased
-Date: Fri, 27 Aug 2010 00:15:01 +0200
-Message-ID: <4C76E765.9020201@free.fr>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V2
+Date: Thu, 26 Aug 2010 16:21:46 -0600
+Message-ID: <20100826222146.GA23025@obsidianresearch.com>
+References: <adapqx5rtez.fsf@cisco.com> <alpine.DEB.2.00.1008261613160.24174@router.home> <alpine.DEB.2.00.1008261629440.24174@router.home> <20100826.151553.242147157.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030809080406030508080107"
-Cc: davem@davemloft.net, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, bpidoux@free.fr
-To: ralf@linux-mips.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org, yosefe-smomgflXvOZWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100826.151553.242147157.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030809080406030508080107
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, Aug 26, 2010 at 03:15:53PM -0700, David Miller wrote:
+> From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+> Date: Thu, 26 Aug 2010 16:31:14 -0500 (CDT)
+> 
+> > @@ -271,6 +271,13 @@ static void ipoib_ib_handle_rx_wc(struct
+> >  	ipoib_ud_dma_unmap_rx(priv, mapping);
+> >  	ipoib_ud_skb_put_frags(priv, skb, wc->byte_len);
+> > 
+> > +	if ((wc->wc_flags & IB_WC_GRH) &&
+> > +		IN6_IS_ADDR_MULTICAST(&((struct ipv6hdr *)skb->data)->daddr))
+> > +
+> > +		skb->pkt_type = PACKET_MULTICAST;
+> > +	else
+> > +		skb->pkt_type = PACKET_HOST;
+> 
+> I really don't think you can assume there is an ipv6 header here
+> at all.
 
-When a ROSE node was deleted, node number was not
-decremented and addr kept going up when a new node
-was added.
+The 40 bytes at this location are defined by the HW specification to
+be an IB GRH which has an identical layout to an IPv6 header. Roland
+is right, it would be clearer to use ib_grh ->dgid
 
-/proc/net/rose_neigh
-addr  callsign  dev  count use mode restart  t0  tf digipeaters
-00007 F5KBW-9   ax0      1   0  DTE      no   0   0
-00006 F6BVP-11  ax0      2   0  DTE      no   0   0
-00005 F6BVP-9   ax0      2   0  DTE      no   0   0
-00001 RSLOOP-0  ???      0   0  DCE     yes   0   0
-
-With this patch, rose node number is correctly decreased
-when nodes are deleted and new ones added :
-
-/proc/net/rose_neigh
-addr  callsign  dev  count use mode restart  t0  tf digipeaters
-00004 F5KBW-9   ax0      1   0  DTE      no   0   0
-00003 F6BVP-11  ax0      2   0  DTE      no   0   0
-00002 F6BVP-9   ax0      2   0  DTE      no   0   0
-00001 RSLOOP-0  ???      0   0  DCE     yes   0   0
-
-Signed-off-by: Bernard Pidoux <f6bvp@free.fr>
-
-
-
-
---------------030809080406030508080107
-Content-Type: text/x-patch;
- name="rose_route.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="rose_route.patch"
-
---- a/net/rose/rose_route.c	2010-08-13 22:44:56.000000000 +0200
-+++ b/net/rose/rose_route.c	2010-08-26 15:11:13.000000000 +0200
-@@ -240,6 +240,7 @@
- 			ax25_cb_put(rose_neigh->ax25);
- 		kfree(rose_neigh->digipeat);
- 		kfree(rose_neigh);
-+		rose_neigh_no--;
- 		return;
- 	}
- 
-@@ -250,6 +251,7 @@
- 				ax25_cb_put(rose_neigh->ax25);
- 			kfree(rose_neigh->digipeat);
- 			kfree(rose_neigh);
-+			rose_neigh_no--;
- 			return;
- 		}
- 
-
-
---------------030809080406030508080107--
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
