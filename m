@@ -1,45 +1,210 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: Re: [PATCH] Add firmware label support to iproute2
-Date: Thu, 26 Aug 2010 09:10:45 -0500
-Message-ID: <20100826141045.GA21770@auslistsprd01.us.dell.com>
-References: <20100812173537.GA29784@auslistsprd01.us.dell.com> <20100812141240.417949e2@s6510> <EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com> <20100818144124.33a72453@nehalam> <20100819213314.GA26135@auslistsprd01.us.dell.com> <20100819145308.0fa08522@nehalam> <20100825220323.GA12671@auslistsprd01.us.dell.com> <20100825221628.GA24502@kroah.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
+Date: Thu, 26 Aug 2010 07:44:30 -0700
+Message-ID: <1282833870.1875.52.camel@Joe-Laptop>
+References: <4C763A67.5040107@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, Narendra_K@Dell.com,
-	netdev@vger.kernel.org, Charles_Rose@Dell.com,
-	Jordan_Hargrave@Dell.com, linux-pci@vger.kernel.org
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100825221628.GA24502@kroah.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Maxime Bizon <mbizon@freebox.fr>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	John Linn <john.linn@xilinx.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	Andrew <andrew.chih.howe.khor@intel.com>,
+	Intel OTC <joel.clark@intel.com>,
+	"Foster, Margie" <margie.foster@intel.com>,
+	Toshiharu Okada <okada533@dsn.okisemi.com>,
+	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
+	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
+To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1347 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751341Ab0HZOod (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Aug 2010 10:44:33 -0400
+In-Reply-To: <4C763A67.5040107@dsn.okisemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 25, 2010 at 03:16:28PM -0700, Greg KH wrote:
-> On Wed, Aug 25, 2010 at 05:03:23PM -0500, Matt Domsch wrote:
-> > libnetdevname needs to be able to look up a (PCI) device by label.  It
-> > currently does this by glob()ing /sys/class/net/*/device/label to find
-> > all network interfaces that have a PCI device label exposed.  There can
-> > be arbitrarily many network interfaces, making this a very expensive
-> > operation.
-> 
-> So you want to add code to the kernel to make userspace have an easier
-> 'find' path?  I'm all for making stuff easier, but just how "expensive"
-> is such an operation today?
+On Thu, 2010-08-26 at 18:56 +0900, Masayuki Ohtake wrote:
+> Gigabit Ethernet driver of Topcliff PCH
+> +++ b/drivers/net/pch_gbe/pch_gbe.h
 
-it's one newfstatat and one stat for each network interface,
-including interfaces for each vlan, which as Stephen had noted,
-could be tens of thousands.  Just to test, on a system with ~20k vlans
-configured across 5 physical interfaces, the glob() took just over 4
-minutes.  Now, that may not be the typical case, but it does show the
-scalability problem Stephen is concerned about.
+Just a few style comments
 
-Thanks also for the patch review.  Yes, we'll clean up the items
-noted, if we (collectively) come to agreement that this approach to
-solve device naming is valid and warranted.  From Stephen's other
-comments, we're not quite there yet. :-)
+> +#undef FALSE
+> +#define FALSE	0
+> +#undef TRUE
+> +#define TRUE	1
 
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Perhaps better to use the kernel true/false.
+
+> +#ifdef DEBUG
+> +#define PCH_GBE_DEBUG(fmt, args...)\
+> +	printk(KERN_DEBUG KBUILD_MODNAME ": " fmt, ##args)
+> +#else
+> +#define PCH_GBE_DEBUG(fmt, args...)	do { } while (0)
+> +#endif
+
+Better to use
+
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
+and
+
+	pr_debug(fmt, ...);
+
+[]
+
+> +struct pch_gbe_functions {
+> +	void (*get_bus_info) (struct pch_gbe_hw *);
+> +	s32(*init_hw) (struct pch_gbe_hw *);
+> +	s32(*read_phy_reg) (struct pch_gbe_hw *, u32, u16 *);
+
+Trivial: Inconsistent spacing (a few times)
+Perhaps:
+	s32 (*read_phy_reg) etc...
+
+> +	s32(*write_phy_reg) (struct pch_gbe_hw *, u32, u16);
+> +	void (*reset_phy) (struct pch_gbe_hw *);
+[]
+> +	s32(*read_mac_addr) (struct pch_gbe_hw *);
+
+> +++ b/drivers/net/pch_gbe/pch_gbe_api.c
+> @@ -0,0 +1,247 @@
+[]
+
+Convert all the
+	printk(KERN_<level> KBUILD_MODNAME ": " etc
+to
+	pr_<level>(etc
+
+> +#include "pch_gbe.h"
+> +#include "pch_gbe_phy.h"
+[]
+> +static s32 pch_gbe_plat_init_hw(struct pch_gbe_hw *hw)
+> +{
+> +	s32 ret_val;
+> +
+> +	ret_val = pch_gbe_phy_get_id(hw);
+> +	if (ret_val) {
+> +		printk(KERN_ERR KBUILD_MODNAME ": "
+> +			"pch_gbe_phy_get_id error\n");
+
+		pr_err("pch_gbe_phy_get_id error\n");
+
+> +inline s32 pch_gbe_hal_setup_init_funcs(struct pch_gbe_hw *hw)
+> +{
+> +	if (hw->reg) {
+> +		pch_gbe_plat_init_function_pointers(hw);
+> +		return 0;
+> +	}
+> +	printk(KERN_ERR KBUILD_MODNAME ": " "ERROR: Registers not mapped\n");
+
+	pr_err("ERROR: Registers not mapped\n");
+	etc...
+
+> +	return -ENOSYS;
+> +}
+
+These are more commonly written as:
+
+	if (!fn_ptr) {
+		[ report_error_condition ]
+		return -ERRNO;
+	}
+
+	rtn = fn_ptr(foo);
+	if (rtn is err) {
+		[ report_error_condition ]
+		return -ERRNO2;
+	}
+
+	return 0;
+
+For more complicated styles where some unwinding
+is necessary
+
+	if (!fn_ptr) {
+		[ report_error_condition ]
+		err = -ERRNO;
+		goto out;
+	}
+
+	windup
+
+	rtn = fn_ptr(foo);
+	if (rtn is err) {
+		[ report_error_condition ]
+		err = ERRNO2
+		goto out2;
+	}
+
+	return 0;
+
+outn:
+	..
+out2:
+	unwind;
+out:
+	return err;
+
+> +
+> +/**
+> + * pch_gbe_hal_get_bus_info - Obtain bus information for adapter
+> + * @hw:	Pointer to the HW structure
+> + */
+> +inline void pch_gbe_hal_get_bus_info(struct pch_gbe_hw *hw)
+> +{
+> +	if (hw->func.get_bus_info)
+> +		hw->func.get_bus_info(hw);
+> +	else
+> +		printk(KERN_ERR KBUILD_MODNAME ": " "Error: configuration\n");
+
+		pr_err("ERROR: configuration\n");
+		etc...
+
+> +++ b/drivers/net/pch_gbe/pch_gbe_ethtool.c
+
+[]
+
+Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+before any include
+
+> +#include <linux/pci.h>
+> +#include <linux/ethtool.h>
+[]
+> +static int pch_gbe_get_settings(struct net_device *netdev,
+> +				 struct ethtool_cmd *ecmd)
+> +{
+> +	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+> +	int ret;
+> +
+> +	PCH_GBE_DEBUG("ethtool: %s\n", __func__);
+
+If you really want to track entering functions,
+it might be better to use something like:
+
+#define FUNC_ENTER() pr_devel("ethtool: %s enter\n", __func__)
+#define FUNC_EXIT() pr_devel("ethtool: %s exit\n",  __func__)
+
+Unlike pr_debug, pr_devel does not remain active in
+code when DEBUG is not #defined.  Look up dynamic_debug.
+
+> +	PCH_GBE_DEBUG("hw->mac.addr : 0x%02x %02x %02x %02x %02x %02x\n",
+> +		hw->mac.addr[0], hw->mac.addr[1], hw->mac.addr[2],
+> +		hw->mac.addr[3], hw->mac.addr[4], hw->mac.addr[5]);
+
+There's a vsprintf pointer extension "%pM" used for mac addresses
+
+	pr_debug("hw->mac.addr: %pM\n, hw->mac.addr);
+
+etc.
+
