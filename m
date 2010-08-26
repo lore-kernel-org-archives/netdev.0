@@ -1,110 +1,43 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [PATCH] tcp: select(writefds) don't hang up when a peer close connection
-Date: Thu, 26 Aug 2010 12:55:12 +0900 (JST)
-Message-ID: <20100826125357.F667.A69D9226@jp.fujitsu.com>
-References: <20100825.153424.246521475.davem@davemloft.net> <1282785886.22839.199.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6 2/3] be2net: fix a bug in UE detection logic
+Date: Wed, 25 Aug 2010 21:15:00 -0700 (PDT)
+Message-ID: <20100825.211500.193701446.davem@davemloft.net>
+References: <20100825102720.GA14925@serverengines.com>
+	<20100825.142311.115915728.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: kosaki.motohiro@jp.fujitsu.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1282785886.22839.199.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ajitk@serverengines.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43043
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751116Ab0HZEOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 00:14:45 -0400
+In-Reply-To: <20100825.142311.115915728.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Wed, 2010-08-25 at 15:34 -0700, David Miller wrote:
-> > From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> > Date: Wed, 25 Aug 2010 11:05:48 +0900 (JST)
-> > 
-> > > This issue come from ruby language community. Below test program
-> > > hang up when only run on Linux.
-> > > 
-> > > 	% uname -mrsv
-> > > 	Linux 2.6.26-2-486 #1 Sat Dec 26 08:37:39 UTC 2009 i686
-> > > 	% ruby -rsocket -ve '
-> > > 	BasicSocket.do_not_reverse_lookup = true
-> > > 	serv = TCPServer.open("127.0.0.1", 0)
-> > > 	s1 = TCPSocket.open("127.0.0.1", serv.addr[1])
-> > > 	s2 = serv.accept
-> > > 	s2.close
-> > > 	s1.write("a") rescue p $!
-> > > 	s1.write("a") rescue p $!
-> > > 	Thread.new {
-> > > 	  s1.write("a")
-> > > 	}.join'
-> > > 	ruby 1.9.3dev (2010-07-06 trunk 28554) [i686-linux]
-> > > 	#<Errno::EPIPE: Broken pipe>
-> > > 	[Hang Here]
-> [...]
-> > And in this case here, I call into question the behavior of Ruby and
-> > the application from two perspectives:
-> > 
-> > 1) Unlike all of the other conditions signalled by poll() this is
-> >    one the application explicitly created and therefore knows about.
-> >
-> >    If the application calls close() or shutdown() with the send flag
-> >    set, IT KNOWS what is going to happen on a write() attempt.
-> [...]
-> 
-> This example seems to have both server (serv, s2) and client (s1) in the
-> same process for simplicity.  The server socket (s2) is closed and the
-> client cannot be expected to know that.  Of course the client ought to
-> drop the connection after the first EPIPE, but it's reasonable to expect
-> that this is a sticky condition just as it would be for a pipe.
-> 
-> Here's a similar test case in C:
-> 
-> #include <assert.h>
-> #include <signal.h>
-> #include <stdio.h>
-> 
-> #include <sys/select.h>
-> #include <sys/socket.h>
-> #include <sys/types.h>
-> #include <unistd.h>
-> 
-> int main(void)
-> {
->     struct sockaddr sa;
->     struct timeval tv;
->     int serv, s1, s2;
->     socklen_t len;
->     fd_set fds;
-> 
->     signal(SIGPIPE, SIG_IGN);
-> 
->     serv = socket(AF_INET, SOCK_STREAM, 0);
->     assert(serv >= 0);
->     assert(!listen(serv, 1));
->     len = sizeof(sa);
->     assert(!getsockname(serv, &sa, &len));
-> 
->     s1 = socket(AF_INET, SOCK_STREAM, 0);
->     assert(s1 >= 0);
->     assert(!connect(s1, &sa, len));
->     len = sizeof(sa);
-> 
->     s2 = accept(serv, &sa, &len);
->     assert(s2 >= 0);
->     close(s2);
-> 
->     for (;;) {
-> 	printf("write: %d\n", write(s1, "a", 1));
-> 	FD_ZERO(&fds);
-> 	FD_SET(s1, &fds);
-> 	tv.tv_sec = 1;
-> 	tv.tv_usec = 0;
-> 	printf("select: %d\n", select(s1 + 1, NULL, &fds, NULL, &tv));
->     }
->     return 0;
-> }
+From: David Miller <davem@davemloft.net>
+Date: Wed, 25 Aug 2010 14:23:11 -0700 (PDT)
 
-Cool!
+> From: Ajit Khaparde <ajitk@serverengines.com>
+> Date: Wed, 25 Aug 2010 15:57:31 +0530
+> 
+>> The ONLINE registers can return 0xFFFFFFFF on more than one
+>> occassion. On systems that care, reading these registers could
+>> lead to problems.
+>> 
+>> So the new code decides that the ASIC has encountered and error
+>> by reading the UE_STATUS_LOW/HIGH registers. AND them with
+>> the mask values and a non-zero result indicates an error.
+>> 
+>> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+> 
+> Applied.
 
-Ben, I think your code is cleaner than mine. If you allow me, I hope to
-include this one into my patch description.
+You didn't even build test what you submitted to me:
 
-Thanks.
+ERROR: "be_dump_ue" [drivers/net/benet/be2net.ko] undefined!
+
+I'm reverting both patches.
