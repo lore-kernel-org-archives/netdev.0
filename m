@@ -1,310 +1,278 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: block network access for certain users/groups
-Date: Thu, 26 Aug 2010 21:28:37 +0900
-Message-ID: <201008262128.DCG04175.JFQFLFVOMHOtSO@I-love.SAKURA.ne.jp>
-References: <AANLkTin8w74SAe67ZPqPE0Q=0fPpZOHnTCnjAT+AduCY@mail.gmail.com>
-	<AANLkTikru-pmMAnS-dqjYT7xJC_X21rVNBpjg_2LDmWB@mail.gmail.com>
-	<201008252058.DDE12933.FOLOHQSJFFOMtV@I-love.SAKURA.ne.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: estellnb@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <201008252058.DDE12933.FOLOHQSJFFOMtV@I-love.SAKURA.ne.jp>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
+Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
+Date: Thu, 26 Aug 2010 21:47:46 +0900
+Message-ID: <000e01cb451c$f1944ce0$66f8800a@maildom.okisemi.com>
+References: <4C763A67.5040107@dsn.okisemi.com> <20100826102803.GA5301@merkur.ravnborg.org>
+Cc: "LKML" <linux-kernel@vger.kernel.org>,
+	"ML netdev" <netdev@vger.kernel.org>,
+	"Greg Rose" <gregory.v.rose@intel.com>,
+	"Maxime Bizon" <mbizon@freebox.fr>,
+	"Kristoffer Glembo" <kristoffer@gaisler.com>,
+	"Ralf Baechle" <ralf@linux-mips.org>,
+	"John Linn" <john.linn@xilinx.com>,
+	"Randy Dunlap" <randy.dunlap@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"MeeGo" <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	"Andrew" <andrew.chih.howe.khor@intel.com>,
+	"Intel OTC" <joel.clark@intel.com>,
+	"Foster, Margie" <margie.foster@intel.com>,
+	"Toshiharu Okada" <okada533@dsn.okisemi.com>,
+	"Tomoya Morinaga" <morinaga526@dsn.okisemi.com>,
+	"Takahiro Shimizu" <shimizu394@dsn.okisemi.com>
+To: "Sam Ravnborg" <sam@ravnborg.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tetsuo Handa wrote:
-> Elmar Stellnberger wrote:
-> > I need to block network access for certain users/groups, fully:
-Oh, I thought you want to partially block communication by specific user.
+Hi Sam
 
-You want to entirely block communication by specific user? Then, it is easy.
-You can block all socket syscalls by that user using LSM.
-I made an example LSM module which can be added as a loadable kernel module
-( http://www.youtube.com/watch?v=wG8BTLMu5wo ). You can modify it as you like.
+Thank you for your comment.
 
-You can compile and load below module provided that your kernel config has
-CONFIG_SECURITY_NETWORK=y .
+The reply's comment was buried in following.
+I will modify this patch.
 
-Did this module answer your question?
+Thanks, Ohtake(OKISEMI)
+----- Original Message ----- 
+From: "Sam Ravnborg" <sam@ravnborg.org>
+To: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
+Cc: "LKML" <linux-kernel@vger.kernel.org>; "ML netdev" <netdev@vger.kernel.org>; "Greg Rose" <gregory.v.rose@intel.com>;
+"Maxime Bizon" <mbizon@freebox.fr>; "Kristoffer Glembo" <kristoffer@gaisler.com>; "Ralf Baechle" <ralf@linux-mips.org>;
+"John Linn" <john.linn@xilinx.com>; "Randy Dunlap" <randy.dunlap@oracle.com>; "David S. Miller" <davem@davemloft.net>;
+"MeeGo" <meego-dev@meego.com>; "Wang, Qi" <qi.wang@intel.com>; "Wang, Yong Y" <yong.y.wang@intel.com>; "Andrew"
+<andrew.chih.howe.khor@intel.com>; "Intel OTC" <joel.clark@intel.com>; "Foster, Margie" <margie.foster@intel.com>;
+"Toshiharu Okada" <okada533@dsn.okisemi.com>; "Tomoya Morinaga" <morinaga526@dsn.okisemi.com>; "Takahiro Shimizu"
+<shimizu394@dsn.okisemi.com>
+Sent: Thursday, August 26, 2010 7:28 PM
+Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
 
-Thanks.
-----------------------------------------
-/*
- * Uid-NoSock Linux Security Module
- *
- * Author: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
- *
- * This module blocks socket syscalls by specific UID. Use at your own risk.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2, as
- * published by the Free Software Foundation.
- */
-/*
- * Place this file (uid_nosock.c) in some directory and create Makefile
- * containing a line
- *
- *  obj-m += uid_nosock.o
- *
- * and run
- *
- *   make SUBDIRS=directory_containing_this_file/ modules modules_install
- *
- */
-#include <linux/security.h>
-#ifndef CONFIG_SECURITY_NETWORK
-#error This module depends on CONFIG_SECURITY_NETWORK=y
-#endif
-#ifndef CONFIG_SECURITY
-#error This module depends on CONFIG_SECURITY=y
-#endif
-#ifndef CONFIG_KALLSYMS
-#error This module depends on CONFIG_KALLSYMS=y
-#endif
-#ifndef CONFIG_MODULES
-#error This module depends on CONFIG_MODULES=y
-#endif
-#include <linux/module.h>
-#include <linux/pid_namespace.h>
-#include <linux/mount.h>
-#include <linux/fs_struct.h>
-static struct security_operations original_security_ops;
 
-/* UID to block socket syscalls. */
-#define UID_NOSOCK_REJECT_UID 500
+> Hi Masayuki Ohtake.
+>
+> Just a few comments after a very quick scan over some of the files.
+>
+> Sam
+>
+> On Thu, Aug 26, 2010 at 06:56:55PM +0900, Masayuki Ohtake wrote:
+> > ---
+>
+> "---" is used to truncate your changelog, random comments goes below "---".
+> So there would be no changelog entry in this case.
 
-static bool uid_nosock_deny(void)
-{
-	return current_uid() == UID_NOSOCK_REJECT_UID;
-}
+<masa>
+OK
 
-static int uid_nosock_socket_create(int family, int type, int protocol,
-				    int kern)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_create(family, type, protocol,
-						   kern);
-}
+>
+> > diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> > index 2decc59..fcc6b7b 100644
+> > --- a/drivers/net/Kconfig
+> > +++ b/drivers/net/Kconfig
+> > @@ -2004,6 +2004,11 @@ menuconfig NETDEV_1000
+> >    If you say N, all options in this submenu will be skipped and disabled.
+> >
+> >  if NETDEV_1000
+> > +config PCH_GBE
+> > +        tristate "PCH Gigabit Ethernet"
+> > +        ---help---
+> > +          This is an gigabit ethernet driver for PCH.
+> > +          resources.
+>
+> Naive readers do not know what PCH is.
+> Google says it is: Potlatch Corporation
+>
+> Please elaborate much more.
+>
+> For new stuff we use "help" - not "---help---".
+> But you could not know as this is not documented anywhere.
 
-static int uid_nosock_socket_bind(struct socket *sock,
-				  struct sockaddr *address, int addrlen)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_bind(sock, address, addrlen);
-}
+<masa>
+Topcliff PCH is the platform controller hub that is going to be used in
+Intel's upcoming general embedded platform.
 
-static int uid_nosock_socket_connect(struct socket *sock,
-				     struct sockaddr *address, int addrlen)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_connect(sock, address, addrlen);
-}
+Explanation is added to help.
 
-static int uid_nosock_socket_listen(struct socket *sock, int backlog)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_listen(sock, backlog);
-}
 
-static int uid_nosock_socket_accept(struct socket *sock,
-				    struct socket *newsock)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_accept(sock, newsock);
-}
+>
+> > diff --git a/drivers/net/pch_gbe/Makefile b/drivers/net/pch_gbe/Makefile
+> > new file mode 100644
+> > index 0000000..008fa22
+> > --- /dev/null
+> > +++ b/drivers/net/pch_gbe/Makefile
+> > @@ -0,0 +1,6 @@
+> > +ifeq ($(CONFIG_PCH_GBE_DEBUG_CORE),y)
+> > +EXTRA_CFLAGS += -DDEBUG
+> > +endif
+> Use:
+> ccflags-$(CONFIG_PCH_GBE_DEBUG_CORE) := -DDEBUG
+>
+> Btw. where do CONFIG_PCH_GBE_DEBUG_CORE come from. It was not in the Kconfig
+> file you included.
+>
 
-static int uid_nosock_socket_sendmsg(struct socket *sock, struct msghdr *msg,
-				     int size)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_sendmsg(sock, msg, size);
-}
+<masa>
+This deletes.
+Since a standard logging is used
 
-static int uid_nosock_socket_recvmsg(struct socket *sock, struct msghdr *msg,
-				     int size, int flags)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_recvmsg(sock, msg, size, flags);
-}
+> > +
+> > +obj-$(CONFIG_PCH_GBE) += pch_gbe.o
+> > +pch_gbe-objs := pch_gbe_phy.o pch_gbe_ethtool.o pch_gbe_param.o pch_gbe_api.o pch_gbe_main.o
+>
+> Please do not use -objs.
+> Do like this:
+>
+> obj-$(CONFIG_PCH_GBE) += pch_gbe.o
+> pch_gbe-y :=  pch_gbe_phy.o pch_gbe_ethtool.o pch_gbe_param.o
+> pch_gbe-y += pch_gbe_api.o pch_gbe_main.o
+>
 
-static int uid_nosock_socket_getsockname(struct socket *sock)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_getsockname(sock);
-}
+<masa>
+This modifies as above.
 
-static int uid_nosock_socket_getpeername(struct socket *sock)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_getpeername(sock);
-}
+>
+> > diff --git a/drivers/net/pch_gbe/Module.symvers b/drivers/net/pch_gbe/Module.symvers
+> > new file mode 100644
+> > index 0000000..e69de29
+> This file should be dropped.
 
-static int uid_nosock_socket_getsockopt(struct socket *sock, int level,
-					int optname)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_getsockopt(sock, level, optname);
-}
+<masa>
+This modifies
 
-static int uid_nosock_socket_setsockopt(struct socket *sock, int level,
-					int optname)
-{
-	if (uid_nosock_deny())
-		return -EPERM;
-	return original_security_ops.socket_setsockopt(sock, level, optname);
-}
+>
+> > diff --git a/drivers/net/pch_gbe/pch_gbe.h b/drivers/net/pch_gbe/pch_gbe.h
+> > new file mode 100644
+> > index 0000000..a2b92dd
+> > --- /dev/null
+> > +++ b/drivers/net/pch_gbe/pch_gbe.h
+> > @@ -0,0 +1,425 @@
+> > +/*
+> > + * Copyright (C) 2010 OKI SEMICONDUCTOR Co., LTD.
+> > + *
+> > + * This program is free software; you can redistribute it and/or modify
+> > + * it under the terms of the GNU General Public License as published by
+> > + * the Free Software Foundation; version 2 of the License.
+> > + *
+> > + * This program is distributed in the hope that it will be useful,
+> > + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> > + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> > + * GNU General Public License for more details.
+> > + *
+> > + * You should have received a copy of the GNU General Public License
+> > + * along with this program; if not, write to the Free Software
+> > + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307, USA.
+> > + */
+> > +
+> > +#ifndef _PCH_GBE_H_
+> > +#define _PCH_GBE_H_
+> > +
+> > +#include <linux/netdevice.h>
+> > +#include <linux/mii.h>
+> > +
+> > +#undef FALSE
+> > +#define FALSE 0
+> > +#undef TRUE
+> > +#define TRUE 1
+> Use true/false - no reason for these.
+>
 
-/* Find symbols from /proc/kallsyms . */
-static void *__init uid_nosock_find_symbol(const char *keyline)
-{
-	struct file *file;
-	char *buf;
-	unsigned long entry = 0;
-	{
-		struct fs_struct *fs = current->fs;
-		struct vfsmount *mnt = current->nsproxy->pid_ns->proc_mnt;
-		struct path old_path;
-		struct path new_path = { mnt, mnt->mnt_root };
-		spin_lock(&fs->lock); /* was write_lock() till 2.6.35. */
-		old_path = fs->pwd;
-		fs->pwd = new_path;
-		spin_unlock(&fs->lock);
-		file = filp_open("kallsyms", O_RDONLY, 0);
-		spin_lock(&fs->lock);
-		fs->pwd = old_path;
-		spin_unlock(&fs->lock);
-	}
-	if (IS_ERR(file))
-		goto out;
-	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (buf) {
-		int len;
-		int offset = 0;
-		while ((len = kernel_read(file, offset, buf,
-					  PAGE_SIZE - 1)) > 0) {
-			char *cp;
-			buf[len] = '\0';
-			cp = strrchr(buf, '\n');
-			if (!cp)
-				break;
-			*(cp + 1) = '\0';
-			offset += strlen(buf);
-			cp = strstr(buf, keyline);
-			if (!cp)
-				continue;
-			*cp = '\0';
-			while (cp > buf && *(cp - 1) != '\n')
-				cp--;
-			entry = simple_strtoul(cp, NULL, 16);
-			break;
-		}
-		kfree(buf);
-	}
-	filp_close(file, NULL);
-out:
-	return (void *) entry;
-}
+<masa>
+This modifies
 
-/* Never mark this variable as __initdata . */
-static struct security_operations *uid_nosock_security_ops;
+> > +
+> > +#ifdef DEBUG
+> > +#define PCH_GBE_DEBUG(fmt, args...)\
+> > + printk(KERN_DEBUG KBUILD_MODNAME ": " fmt, ##args)
+> > +#else
+> > +#define PCH_GBE_DEBUG(fmt, args...) do { } while (0)
+> > +#endif
+>
+> Use standard logging methods.
+> pr_* and similar.
+>
 
-/* Never mark this function as __init . */
-static int uid_nosock_addr_calculator(struct file *file)
-{
-	return uid_nosock_security_ops->file_alloc_security(file);
-}
+<masa>
+This modifies
 
-static int __init uid_nosock_init(void)
-{
-	struct security_operations **ptr;
-	struct security_operations *ops;
-	int i;
-	const u8 *cp;
-	/*
-	 * Guess "struct security_operations *security_ops;".
-	 * This trick depends on below assumptions.
-	 *
-	 * (1) Compiler generates identical code for security_file_alloc() and
-	 *     uid_nosock_addr_calculator().
-	 * (2) uid_nosock_security_ops is found within 128 bytes from
-	 *     uid_nosock_addr_calculator, even if additional code (e.g. debug
-	 *     symbols) is added.
-	 * (3) It is safe to read 128 bytes from uid_nosock_addr_calculator.
-	 * (4) uid_nosock_security_ops != Byte code except
-	 *     uid_nosock_security_ops.
-	 */
-	cp = (const u8 *) uid_nosock_addr_calculator;
-	for (i = 0; i < 128; i++) {
-		if (sizeof(uid_nosock_security_ops) == sizeof(u32)) {
-			if (*(u32 *) cp == (u32) &uid_nosock_security_ops)
-				break;
-		} else if (sizeof(uid_nosock_security_ops) == sizeof(u64)) {
-			if (*(u64 *) cp == (u64) &uid_nosock_security_ops)
-				break;
-		}
-		cp++;
-	}
-	if (i == 128) {
-		printk(KERN_ERR
-		       "Can't resolve uid_nosock_security_ops structure.\n");
-		return -EINVAL;
-	}
-	cp = (const u8 *) uid_nosock_find_symbol(" security_file_alloc\n");
-	if (!cp) {
-		printk(KERN_ERR "Can't resolve security_file_alloc().\n");
-		return -EINVAL;
-	}
-	/* This should be "struct security_operations *security_ops;". */
-	ptr = *(struct security_operations ***) (cp + i);
-	if (!ptr) {
-		printk(KERN_ERR "Can't resolve security_ops structure.\n");
-		return -EINVAL;
-	}
-	ops = *ptr;
-	if (!ops) {
-		printk(KERN_ERR "No security_operations registered.\n");
-		return -EINVAL;
-	}
-	memmove(&original_security_ops, ops, sizeof(original_security_ops));
-	smp_mb();
-	BUG_ON(ops->socket_create == uid_nosock_socket_create ||
-	       ops->socket_bind == uid_nosock_socket_bind ||
-	       ops->socket_connect == uid_nosock_socket_connect ||
-	       ops->socket_listen == uid_nosock_socket_listen ||
-	       ops->socket_accept == uid_nosock_socket_accept ||
-	       ops->socket_sendmsg == uid_nosock_socket_sendmsg ||
-	       ops->socket_recvmsg == uid_nosock_socket_recvmsg ||
-	       ops->socket_getsockname == uid_nosock_socket_getsockname ||
-	       ops->socket_getpeername == uid_nosock_socket_getpeername ||
-	       ops->socket_getsockopt == uid_nosock_socket_getsockopt ||
-	       ops->socket_setsockopt == uid_nosock_socket_setsockopt);
-	ops->socket_create = uid_nosock_socket_create;
-	ops->socket_bind = uid_nosock_socket_bind;
-	ops->socket_connect = uid_nosock_socket_connect;
-	ops->socket_listen = uid_nosock_socket_listen;
-	ops->socket_accept = uid_nosock_socket_accept;
-	ops->socket_sendmsg = uid_nosock_socket_sendmsg;
-	ops->socket_recvmsg = uid_nosock_socket_recvmsg;
-	ops->socket_getsockname = uid_nosock_socket_getsockname;
-	ops->socket_getpeername = uid_nosock_socket_getpeername;
-	ops->socket_getsockopt = uid_nosock_socket_getsockopt;
-	ops->socket_setsockopt = uid_nosock_socket_setsockopt;
-	printk(KERN_INFO "Uid-Nosock: Blocking socket syscalls by uid=%u.\n",
-	       UID_NOSOCK_REJECT_UID);
-	return 0;
-}
+>
+> > +
+> > +/* Device Driver infomation */
+> > +#define DRV_STRING      "PCH Network Driver"
+> > +#define DRV_EXT         "-NAPI"
+> > +#define DRV_VERSION     "0.95"DRV_EXT
+> > +#define DRV_DESCRIPTION \
+> > + "OKI semiconductor sample Linux driver for PCH Gigabit ethernet"
+> > +#define DRV_COPYRIGHT   "Copyright(c) 2010 OKI semiconductor"
+> > +#define FIRM_VERSION    "N/A"
+> > +/* TX/RX descriptor defines */
+> > +#define PCH_GBE_MAX_TXD                     4096
+> > +#define PCH_GBE_MIN_TXD                        8
+> > +#define PCH_GBE_MAX_RXD                     4096
+> > +#define PCH_GBE_MIN_RXD                        8
+> > +/* Number of Transmit and Receive Descriptors must be a multiple of 8 */
+> > +#define PCH_GBE_TX_DESC_MULTIPLE               8
+> > +#define PCH_GBE_RX_DESC_MULTIPLE               8
+>
+> > +/* only works for sizes that are powers of 2 */
+> > +#define PCH_GBE_ROUNDUP(i, size) ((i) = (((i) + (size) - 1) & ~((size) - 1)))
+> We have this already. Search include/linux/*
+>
 
-module_init(uid_nosock_init);
-MODULE_LICENSE("GPL");
+<masa>
+This modifies
+
+> > + * @read_mac_addr: for pch_gbe_hal_read_mac_addr
+> > + */
+> > +struct pch_gbe_functions {
+> > + void (*get_bus_info) (struct pch_gbe_hw *);
+> > + s32(*init_hw) (struct pch_gbe_hw *);
+> > + s32(*read_phy_reg) (struct pch_gbe_hw *, u32, u16 *);
+> > + s32(*write_phy_reg) (struct pch_gbe_hw *, u32, u16);
+> missign space after s32
+>
+
+<masa>
+This modifies
+
+
+> > + void (*reset_phy) (struct pch_gbe_hw *);
+> > + void (*sw_reset_phy) (struct pch_gbe_hw *);
+> > + void (*power_up_phy) (struct pch_gbe_hw *hw);
+> > + void (*power_down_phy) (struct pch_gbe_hw *hw);
+> > + s32(*read_mac_addr) (struct pch_gbe_hw *);
+> > +};
+> > +
+>
+>
+>
+> > + printk(KERN_ERR KBUILD_MODNAME ": " "ERROR: Registers not mapped\n");
+>
+> In several places...
+> Use standard logging methods to do this simpler.
+
+<masa>
+This modifies
+
+>
+>
+> > +++ b/drivers/net/pch_gbe/pch_gbe_api.h
+> > @@ -0,0 +1,31 @@
+> > +/*
+>
+> Why is two .h files needed for a single driver?
+> As this file live in drivers/net/pch_gbe/ this is purely internal stuff.
+
+<masa>
+This driver is designed be easy to add other PHY.
+The api.c/h wraps the interface of PHY.
+
+>
+> > +#include "pch_gbe_regs.h"
+> > +#include "pch_gbe.h"
+> > +#include "pch_gbe_api.h"
+>
+> As per comment above I realise that this single driver has three .h files.
+> Maybe their size warrants this?
+>
+
+<masa>
+"pch_gbe_regs.h" shows the register of MAC.
+"pch_gbe_regs.h" is merged into "pch_gbe.h".
