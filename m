@@ -1,103 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Fix sysctl_tcp_max_orphans when PAGE_SIZE != 4k
-Date: Wed, 25 Aug 2010 16:57:59 -0700 (PDT)
-Message-ID: <20100825.165759.27789477.davem@davemloft.net>
-References: <20100825071626.GA13681@kryten>
-	<20100825071701.GA14962@kryten>
-	<1282758634.2487.576.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] Add firmware label support to iproute2
+Date: Wed, 25 Aug 2010 17:16:46 -0700
+Message-ID: <20100825171646.3d40b721@nehalam>
+References: <20100812173537.GA29784@auslistsprd01.us.dell.com>
+	<20100812141240.417949e2@s6510>
+	<EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com>
+	<20100818144124.33a72453@nehalam>
+	<20100819213314.GA26135@auslistsprd01.us.dell.com>
+	<20100819145308.0fa08522@nehalam>
+	<20100825220323.GA12671@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: anton@samba.org, netdev@vger.kernel.org, miltonm@bga.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60040
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751824Ab0HYX5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Aug 2010 19:57:44 -0400
-In-Reply-To: <1282758634.2487.576.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Narendra_K@Dell.com, netdev@vger.kernel.org, Charles_Rose@Dell.com,
+	Jordan_Hargrave@Dell.com, linux-pci@vger.kernel.org
+To: Matt Domsch <Matt_Domsch@Dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100825220323.GA12671@auslistsprd01.us.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 25 Aug 2010 19:50:34 +0200
+On Wed, 25 Aug 2010 17:03:23 -0500
+Matt Domsch <Matt_Domsch@Dell.com> wrote:
 
-> In fact, existing code makes litle sense....
+> On Thu, Aug 19, 2010 at 02:53:08PM -0700, Stephen Hemminger wrote:
+> > On Thu, 19 Aug 2010 16:33:14 -0500
+> > Matt Domsch <Matt_Domsch@Dell.com> wrote:
+> > 
+> > > On Wed, Aug 18, 2010 at 02:41:24PM -0700, Stephen Hemminger wrote:
+> > > > The netdev_alias_to_kernelname should only happen after normal lookup failed.
+> > > 
+> > > Stephen, can you enlighten me as to the "right" way to do interface
+> > > name lookups?  While I can still find examples of parsing
+> > > /proc/net/dev, or globbing /sys/class/net/*, I expect these aren't the
+> > > preferred method anymore.  Your own iproute2 suite uses RTM_GETLINK
+> > > netlink calls, though for the seeming simple case of "give me a list of all
+> > > interfaces", your path through there is far more capable (and
+> > > complex) than I would hope to need.
+> > 
+> > There is no magic right way. We have to support multiple interfaces.
+> > I am really concerned that all this alias stuff will turn into a
+> > disaster when there are 10,000 interfaces (Vlans).  The kernel has
+> > lots of tables and hashes to handle this but if the utilities
+> > are doing a dumb scan of all names it will not work.
 > 
-> (tcp_hashinfo.bhash_size * sizeof(struct inet_bind_hashbucket))
-> 
-> is much bigger if spinlock debugging is on. Its strange to select bigger
-> limits in this case (where kernel structures are also bigger)
-> 
-> bhash_size max is 65536, and we get this value even for small machines. 
-> 
-> Sizing would probably be better if using ehash_size instead of
-> bhash_size
 
-Yes, that would avoid debugging unduly influencing this tunable.
+Is it really a good idea to have to change every utility that could
+alter network devices?  There is iproute2, iputils, tcpdump, wireshark,
+quagga, snmp, ...  Many of the utilities come from a BSD world,
+and will be less likely to accept some Linux specific wart.
 
-Also, I think the "4096" constant is a reference to thing we now
-call SK_MEM_QUANTUM.  Back when this sizing code was added in:
-
-commit 1f28b683339f74f9664b77532f4a2f1aad512451
-Author: davem <davem>
-Date:   Sun Jan 16 05:10:52 2000 +0000
-
-    Merge in TCP/UDP optimizations and
-    bug fixing from softnet patches.  Softnet patch
-    set decreases size by approx. 300k
-
-of the netdev-vger-cvs tree, we used the '4096' constant explicitly.
-
-> Maybe remove the 'order' loop and use ehash_size, already a result of
-> the available memory or thash_entries tunable.
-> 
-> unsigned int ehash_size = tcp_hashinfo.ehash_mask + 1;
-> 
-> tcp_death_row.sysctl_max_tw_buckets = cnt / 2;
-> sysctl_tcp_max_orphans = cnt / 2;
-> sysctl_max_syn_backlog = min(128, cnt / 256);
-
-Yeah, something like the following, Anton?
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 197b9b7..403c029 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3209,7 +3209,7 @@ void __init tcp_init(void)
- {
- 	struct sk_buff *skb = NULL;
- 	unsigned long nr_pages, limit;
--	int order, i, max_share;
-+	int order, i, max_share, cnt;
- 	unsigned long jiffy = jiffies;
- 
- 	BUILD_BUG_ON(sizeof(struct tcp_skb_cb) > sizeof(skb->cb));
-@@ -3258,22 +3258,11 @@ void __init tcp_init(void)
- 		INIT_HLIST_HEAD(&tcp_hashinfo.bhash[i].chain);
- 	}
- 
--	/* Try to be a bit smarter and adjust defaults depending
--	 * on available memory.
--	 */
--	for (order = 0; ((1 << order) << PAGE_SHIFT) <
--			(tcp_hashinfo.bhash_size * sizeof(struct inet_bind_hashbucket));
--			order++)
--		;
--	if (order >= 4) {
--		tcp_death_row.sysctl_max_tw_buckets = 180000;
--		sysctl_tcp_max_orphans = 4096 << (order - 4);
--		sysctl_max_syn_backlog = 1024;
--	} else if (order < 3) {
--		tcp_death_row.sysctl_max_tw_buckets >>= (3 - order);
--		sysctl_tcp_max_orphans >>= (3 - order);
--		sysctl_max_syn_backlog = 128;
--	}
-+	cnt = tcp_hashinfo.ehash_mask + 1;
-+
-+	tcp_death_row.sysctl_max_tw_buckets = cnt / 2;
-+	sysctl_tcp_max_orphans = cnt / 2;
-+	sysctl_max_syn_backlog = min(128, cnt / 256);
- 
- 	/* Set the pressure threshold to be a fraction of global memory that
- 	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
+I have lost faith in this library wrapper support everywhere method.
+Let's just keep the firmware stuff in udev. If the user wants to
+have a policy that renames device from eth0 to "Embedded BIOS LAN1" then
+do it in udev. Or if you want to keep the ethX naming convention
+and stuff the firmware label into ifAlias or other sysfs field
+so it can be displayed that will be not a big issue.
