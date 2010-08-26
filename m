@@ -1,71 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 16529] New: xennet driver crashes when using
- with pseudowire aka l2tpv3
-Date: Thu, 26 Aug 2010 09:22:34 +0200
-Message-ID: <1282807354.2681.946.camel@edumazet-laptop>
-References: <bug-16529-10286@https.bugzilla.kernel.org/>
-	 <20100825153107.2f547f0e.akpm@linux-foundation.org>
-	 <4C759F8C.9050301@goop.org>
-	 <1282806640.3469.26.camel@localhost.localdomain>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] =?UTF-8?Q?TCP=5FFAILFAST=3A=20a=20new=20socket=20opti?=  =?UTF-8?Q?on=20to=20timeout/abort=20a=20=20connection=20quicker?=
+Date: Thu, 26 Aug 2010 09:27:40 +0200
+Message-ID: <2a2565dca444fd26e88bb822ae9c3cf4@localhost>
+References: <1282630819-23104-1-git-send-email-hkchu@google.com>
+ <1282632262.2378.1681.camel@edumazet-laptop>
+ <4C737D15.5060400@nets.rwth-aachen.de>
+ <423116d1d215b0fb3d1c966fb8167508@localhost>
+ "<4C73DE32.1030802@nets.rwth-aachen.de>"
+ <20100824162844.GA7889@nuttenaction>
+ <AANLkTikAGKObYnczsVoKnUOewJBp2J2036yOD7TncA0F@mail.gmail.com>
+ <cb32d2a8676d5447e04882302228c4b6@localhost>
+ <AANLkTi=B4gtLxfDnJOuXUCoA79bV4c0cgSn+y36N0iRb@mail.gmail.com>
+ <20100825225942.GA3190@hell>
+ <AANLkTik5N=j-2NQRFFktOs7gfDEU=Gdrva4fw6BKRqxT@mail.gmail.com>
+ <3CD6E1F6-9143-43B9-A6D2-9B09F18C9C2E@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chris Wright <chrisw@sous-sol.org>,
-	"bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	James Chapman <jchapman@katalix.com>,
-	"heil@terminal-consulting.de" <heil@terminal-consulting.de>,
-	"Xen-devel@lists.xensource.com" <Xen-devel@lists.xensource.com>
-To: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jerry Chu <hkchu@google.com>,
+	Arnd Hannemann <hannemann@nets.rwth-aachen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	<ilpo.jarvinen@helsinki.fi>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Lars Eggert <lars.eggert@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:41568 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752239Ab0HZHWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 03:22:42 -0400
-Received: by wwb28 with SMTP id 28so1207189wwb.1
-        for <netdev@vger.kernel.org>; Thu, 26 Aug 2010 00:22:41 -0700 (PDT)
-In-Reply-To: <1282806640.3469.26.camel@localhost.localdomain>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:51666 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752825Ab0HZH1l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 03:27:41 -0400
+In-Reply-To: <3CD6E1F6-9143-43B9-A6D2-9B09F18C9C2E@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 26 ao=C3=BBt 2010 =C3=A0 08:10 +0100, Ian Campbell a =C3=A9cri=
-t :
-> On Wed, 2010-08-25 at 23:56 +0100, Jeremy Fitzhardinge wrote:
->=20
-> > >> Here is a link for the setup
-> > >> http://www.pastebin.org/445975
-> > >> and here a link with more details about the crash http://pastebi=
-n.org/449221
-> >=20
-> > Please attach these to the bug or something; pastebin is not workin=
-g for
-> > me at the moment.
->=20
-> It's really slow for me but got there eventually. I've attached the
-> files.
->=20
-> It's apparently hitting this BUG_ON in __skb_pull:
->        =20
->         static inline unsigned char *__skb_pull(struct sk_buff *skb, =
-unsigned int len)
->         {
->                 skb->len -=3D len;
->                 BUG_ON(skb->len < skb->data_len);
->                 return skb->data +=3D len;
->         }
->=20
-> Ian.
->=20
 
-Thanks a lot.
-
-I'll submit a patch to fix l2tp_eth_dev_recv()=20
-
-Its illegal to call dev_forward_skb() with a too small payload.
+On Thu, 26 Aug 2010 09:01:31 +0300, Lars Eggert wrote:
 
 
 
+Hi Jerry, Hi Lars
+
+
+
+> USER_TIMEOUT is what is locally used for a connection (i.e., takes into
+
+> account what the remote peer advertised and what we'd like to use),
+
+while
+
+> ADV_UTO is (only) what we'd like to use and are advertising.
+
+> 
+
+> (Yes, we initially thought we could make the mechanism simpler, but then
+
+> we started to think through all the corner cases...)
+
+
+
+o TCP_USER_TIMEOUT for the local timeout seems fine. This is consistent
+
+with the literature and everybody knows how to interpret such a variable.
+
+
+
+o TCP_ADV_UTO for the announced timeout. It correspond with the RFC and
+
+inherent the word "advertise".
+
+
+
+Jerry, for you the former is of interest, you can completely ignore my
+
+on-top-functionality. I am satisfied with this!
+
+
+
+Cheers, Hagen
