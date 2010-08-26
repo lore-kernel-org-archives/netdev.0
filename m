@@ -1,210 +1,71 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Thu, 26 Aug 2010 07:44:30 -0700
-Message-ID: <1282833870.1875.52.camel@Joe-Laptop>
-References: <4C763A67.5040107@dsn.okisemi.com>
+From: Marc Aurele La France <tsi@ualberta.ca>
+Subject: Re: RFC: MTU for serving NFS on Infiniband
+Date: Thu, 26 Aug 2010 08:43:42 -0600 (Mountain Daylight Time)
+Message-ID: <alpine.WNT.2.00.1008260835020.2008@cluij.ucs.ualberta.ca>
+References: <alpine.LNX.2.00.1008230842290.9325@abcyxhiz.aict.ualberta.ca> <20100823080543.319143e3@nehalam> <alpine.WNT.2.00.1008240856170.2000@cluij.ucs.ualberta.ca> <1282672647.2302.15.camel@achroite.uk.solarflarecom.com> <alpine.WNT.2.00.1008241338470.1132@cluij.ucs.ualberta.ca>
+ <1282688441.22839.34.camel@localhost> <20100824153920.63360072@s6510> <alpine.WNT.2.00.1008251408520.632@cluij.ucs.ualberta.ca> <1282823827.2476.663.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	John Linn <john.linn@xilinx.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
+Content-Type: MULTIPART/MIXED; BOUNDARY="633328-19643-1282833823=:2008"
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	Toshiharu Okada <okada533@dsn.okisemi.com>,
-	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
-	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
-To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1347 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751341Ab0HZOod (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Aug 2010 10:44:33 -0400
-In-Reply-To: <4C763A67.5040107@dsn.okisemi.com>
+Received: from smtp.srv.ualberta.ca ([129.128.5.19]:59663 "EHLO
+	mail9.srv.ualberta.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753918Ab0HZOov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 10:44:51 -0400
+In-Reply-To: <1282823827.2476.663.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-08-26 at 18:56 +0900, Masayuki Ohtake wrote:
-> Gigabit Ethernet driver of Topcliff PCH
-> +++ b/drivers/net/pch_gbe/pch_gbe.h
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Just a few style comments
+--633328-19643-1282833823=:2008
+Content-Type: TEXT/PLAIN; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-> +#undef FALSE
-> +#define FALSE	0
-> +#undef TRUE
-> +#define TRUE	1
+On Thu, 26 Aug 2010, Eric Dumazet wrote:
+> Le jeudi 26 août 2010 à 05:40 -0600, Marc Aurele La France a écrit :
 
-Perhaps better to use the kernel true/false.
+>> Steady now.  There's no need to YELL nor be arrogant.  You and I both know
+>> there's a place for NFS over UDP.  That's not changing any time soon.  While
+>> I'm aware of the issue you brought up, it is separate from the one at hand in
+>> this discussion.
 
-> +#ifdef DEBUG
-> +#define PCH_GBE_DEBUG(fmt, args...)\
-> +	printk(KERN_DEBUG KBUILD_MODNAME ": " fmt, ##args)
-> +#else
-> +#define PCH_GBE_DEBUG(fmt, args...)	do { } while (0)
-> +#endif
+>> I do want to thank you, however, for reminding me of TCP.  It's something
+>> 20/20 hindsight says I should have checked out before starting this thread.
+>> Logistically, it'll be a few days before I can do so though.  If that allows
+>> me to increase the MTU all the way up to 65520, then this UDP thing will
+>> likely remain unresolved.
 
-Better to use
+> Unfortunately, your infiniband device lacks NETIF_F_SG support.
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+Oh, the device itself probably has something similar, but ipoib 
+(IP-over-Infiniband) doesn't export that capability.
 
-and
+> MTU a bit larger than PAGE_SIZE-overhead will need high order
+> allocations ?
 
-	pr_debug(fmt, ...);
+Right.  And a 65520 MTU allocates sk_buff's with 128K contiguous payloads.
 
-[]
+Marc.
 
-> +struct pch_gbe_functions {
-> +	void (*get_bus_info) (struct pch_gbe_hw *);
-> +	s32(*init_hw) (struct pch_gbe_hw *);
-> +	s32(*read_phy_reg) (struct pch_gbe_hw *, u32, u16 *);
-
-Trivial: Inconsistent spacing (a few times)
-Perhaps:
-	s32 (*read_phy_reg) etc...
-
-> +	s32(*write_phy_reg) (struct pch_gbe_hw *, u32, u16);
-> +	void (*reset_phy) (struct pch_gbe_hw *);
-[]
-> +	s32(*read_mac_addr) (struct pch_gbe_hw *);
-
-> +++ b/drivers/net/pch_gbe/pch_gbe_api.c
-> @@ -0,0 +1,247 @@
-[]
-
-Convert all the
-	printk(KERN_<level> KBUILD_MODNAME ": " etc
-to
-	pr_<level>(etc
-
-> +#include "pch_gbe.h"
-> +#include "pch_gbe_phy.h"
-[]
-> +static s32 pch_gbe_plat_init_hw(struct pch_gbe_hw *hw)
-> +{
-> +	s32 ret_val;
-> +
-> +	ret_val = pch_gbe_phy_get_id(hw);
-> +	if (ret_val) {
-> +		printk(KERN_ERR KBUILD_MODNAME ": "
-> +			"pch_gbe_phy_get_id error\n");
-
-		pr_err("pch_gbe_phy_get_id error\n");
-
-> +inline s32 pch_gbe_hal_setup_init_funcs(struct pch_gbe_hw *hw)
-> +{
-> +	if (hw->reg) {
-> +		pch_gbe_plat_init_function_pointers(hw);
-> +		return 0;
-> +	}
-> +	printk(KERN_ERR KBUILD_MODNAME ": " "ERROR: Registers not mapped\n");
-
-	pr_err("ERROR: Registers not mapped\n");
-	etc...
-
-> +	return -ENOSYS;
-> +}
-
-These are more commonly written as:
-
-	if (!fn_ptr) {
-		[ report_error_condition ]
-		return -ERRNO;
-	}
-
-	rtn = fn_ptr(foo);
-	if (rtn is err) {
-		[ report_error_condition ]
-		return -ERRNO2;
-	}
-
-	return 0;
-
-For more complicated styles where some unwinding
-is necessary
-
-	if (!fn_ptr) {
-		[ report_error_condition ]
-		err = -ERRNO;
-		goto out;
-	}
-
-	windup
-
-	rtn = fn_ptr(foo);
-	if (rtn is err) {
-		[ report_error_condition ]
-		err = ERRNO2
-		goto out2;
-	}
-
-	return 0;
-
-outn:
-	..
-out2:
-	unwind;
-out:
-	return err;
-
-> +
-> +/**
-> + * pch_gbe_hal_get_bus_info - Obtain bus information for adapter
-> + * @hw:	Pointer to the HW structure
-> + */
-> +inline void pch_gbe_hal_get_bus_info(struct pch_gbe_hw *hw)
-> +{
-> +	if (hw->func.get_bus_info)
-> +		hw->func.get_bus_info(hw);
-> +	else
-> +		printk(KERN_ERR KBUILD_MODNAME ": " "Error: configuration\n");
-
-		pr_err("ERROR: configuration\n");
-		etc...
-
-> +++ b/drivers/net/pch_gbe/pch_gbe_ethtool.c
-
-[]
-
-Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-before any include
-
-> +#include <linux/pci.h>
-> +#include <linux/ethtool.h>
-[]
-> +static int pch_gbe_get_settings(struct net_device *netdev,
-> +				 struct ethtool_cmd *ecmd)
-> +{
-> +	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-> +	int ret;
-> +
-> +	PCH_GBE_DEBUG("ethtool: %s\n", __func__);
-
-If you really want to track entering functions,
-it might be better to use something like:
-
-#define FUNC_ENTER() pr_devel("ethtool: %s enter\n", __func__)
-#define FUNC_EXIT() pr_devel("ethtool: %s exit\n",  __func__)
-
-Unlike pr_debug, pr_devel does not remain active in
-code when DEBUG is not #defined.  Look up dynamic_debug.
-
-> +	PCH_GBE_DEBUG("hw->mac.addr : 0x%02x %02x %02x %02x %02x %02x\n",
-> +		hw->mac.addr[0], hw->mac.addr[1], hw->mac.addr[2],
-> +		hw->mac.addr[3], hw->mac.addr[4], hw->mac.addr[5]);
-
-There's a vsprintf pointer extension "%pM" used for mac addresses
-
-	pr_debug("hw->mac.addr: %pM\n, hw->mac.addr);
-
-etc.
-
++----------------------------------+----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310          |
+|  Academic Information and        |  fax:    1-780-492-1729          |
+|    Communications Technologies   |  email:  tsi@ualberta.ca         |
+|  352 General Services Building   +----------------------------------+
+|  University of Alberta           |                                  |
+|  Edmonton, Alberta               |    Standard disclaimers apply    |
+|  T6G 2H1                         |                                  |
+|  CANADA                          |                                  |
++----------------------------------+----------------------------------+
+--633328-19643-1282833823=:2008--
