@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Thu, 26 Aug 2010 08:45:33 -0700
-Message-ID: <20100826084533.1dfbd9bf@nehalam>
+Date: Thu, 26 Aug 2010 08:47:46 -0700
+Message-ID: <20100826084746.4fd266f7@nehalam>
 References: <4C763A67.5040107@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -24,41 +24,53 @@ Cc: LKML <linux-kernel@vger.kernel.org>,
 	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
 	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
 To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46331 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752309Ab0HZPpg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Aug 2010 11:45:36 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <4C763A67.5040107@dsn.okisemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 26 Aug 2010 18:56:55 +0900
+Masayuki Ohtake <masa-korg@dsn.okisemi.com> wrote:
 
 > +/**
-> + * pch_gbe_mac_init_rx_addrs - Initialize receive address's
-> + * @hw:	Pointer to the HW structure
-> + * @mar_count: Receive address registers
+> + * pch_gbe_alloc_queues - Allocate memory for all rings
+> + * @adapter:  Board private structure to initialize
+> + * Returns
+> + *	0:	Successfully
+> + *	Negative value:	Failed
 > + */
-> +void pch_gbe_mac_init_rx_addrs(struct pch_gbe_hw *hw, u16 mar_count)
+> +static int pch_gbe_alloc_queues(struct pch_gbe_adapter *adapter)
 > +{
-> +	u32 i;
-> +	PCH_GBE_DEBUG("pch_gbe_mac_init_rx_addrs\n");
+> +	int size;
 > +
-> +	/* Setup the receive address */
-> +	pch_gbe_mac_mar_set(hw, hw->mac.addr, 0);
+> +	PCH_GBE_DEBUG("%s\n", __func__);
 > +
-> +	/* Zero out the other receive addresses */
-> +	for (i = 1; i < mar_count; i++) {
-> +		iowrite32(0, &hw->reg->mac_adr[i].high);
-> +		iowrite32(0, &hw->reg->mac_adr[i].low);
+> +
+> +	size = (int)sizeof(struct pch_gbe_tx_ring);
+> +	adapter->tx_ring = kmalloc(size, GFP_KERNEL);
+> +	if (!adapter->tx_ring)
+> +		return -ENOMEM;
+> +	memset(adapter->tx_ring, 0, size);
+> +
+> +	size = (int)sizeof(struct pch_gbe_rx_ring);
+> +	adapter->rx_ring = kmalloc(size, GFP_KERNEL);
+> +	if (!adapter->rx_ring) {
+> +		kfree(adapter->tx_ring);
+> +		return -ENOMEM;
 > +	}
-> +	iowrite32(0xFFFE, &hw->reg->ADDR_MASK);
-> +	/* wait busy */
-> +	while ((ioread32(&hw->reg->ADDR_MASK) & PCH_GBE_BUSY))
-> +		;
-> +}
+> +	memset(adapter->rx_ring, 0, size);
+> +
+> +	size = (int)sizeof(struct net_device);
+> +	adapter->polling_netdev = kmalloc(size, GFP_KERNEL);
+> +	if (!adapter->polling_netdev) {
+> +		kfree(adapter->tx_ring);
+> +		kfree(adapter->rx_ring);
+> +		return -ENOMEM;
 
-Use cpu_relax here to allow other hyper-thread to run.
-	/* wait busy */
-	while ((ioread32(&hw->reg->ADDR_MASK) & PCH_GBE_BUSY))
-		cpu_relax();
+This is not allowed, you can not just allocate up a network
+device structure out of kmalloc space. Not sure what you are doing
+with the polling_netdev?  Is it left over from when net_device
+and NAPI were more closely bound?
+
+
+-- 
