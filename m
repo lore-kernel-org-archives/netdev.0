@@ -1,65 +1,62 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: No link on e1000e with 2.6.35.3 and ThinkPad T60
-Date: Thu, 26 Aug 2010 11:22:45 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A13660082E8C5B@rrsmsx501.amr.corp.intel.com>
-References: <20100724092644.GA13353@torres.zugschlus.de>
- <20100824094524.GA17608@torres.zugschlus.de>
- <EA929A9653AAE14F841771FB1DE5A136600821444B@rrsmsx501.amr.corp.intel.com>
- <20100826112732.GA15559@torres.zugschlus.de>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: Generic rx-recycling and emergency skb pool
+Date: Thu, 26 Aug 2010 19:31:08 +0200
+Message-ID: <20100826173108.GA32294@Chamillionaire.breakpoint.cc>
+References: <1278098421-21296-1-git-send-email-sebastian@breakpoint.cc>
+ <1278138205.2474.27.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Marc Haber <mh+linux-kernel@zugschlus.de>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: netdev@vger.kernel.org, tglx@linutronix.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:14778 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751181Ab0HZRWt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Aug 2010 13:22:49 -0400
-In-Reply-To: <20100826112732.GA15559@torres.zugschlus.de>
-Content-Language: en-US
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:39898 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751985Ab0HZRbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 13:31:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1278138205.2474.27.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogTWFyYyBIYWJlciBbbWFpbHRvOm1o
-K2xpbnV4LWtlcm5lbEB6dWdzY2hsdXMuZGVdDQo+U2VudDogVGh1cnNkYXksIEF1Z3VzdCAyNiwg
-MjAxMCA0OjI4IEFNDQo+VG86IFRhbnRpbG92LCBFbWlsIFMNCj5DYzogTGludXggS2VybmVsIERl
-dmVsb3BlcnM7IExpbnV4IEtlcm5lbCBOZXR3b3JrIERldmVsb3BlcnM7IGUxMDAwLQ0KPmRldmVs
-QGxpc3RzLnNvdXJjZWZvcmdlLm5ldA0KPlN1YmplY3Q6IFJlOiBObyBsaW5rIG9uIGUxMDAwZSB3
-aXRoIDIuNi4zNS4zIGFuZCBUaGlua1BhZCBUNjANCj4NCj5PbiBXZWQsIEF1ZyAyNSwgMjAxMCBh
-dCAxMjowMTo0MFBNIC0wNjAwLCBUYW50aWxvdiwgRW1pbCBTIHdyb3RlOg0KPj4gTWFyYyBIYWJl
-ciB3cm90ZToNCj4+ID4gT24gU2F0LCBKdWwgMjQsIDIwMTAgYXQgMTE6MjY6NDRBTSArMDIwMCwg
-TWFyYyBIYWJlciB3cm90ZToNCj4+ID4+IEFkZGl0aW9uYWxseSwgc29tZXRpbWVzLCBwcm9iYWJs
-eSBhZnRlciBzdXNwZW5kL3Jlc3VtZSwgdGhlIHdpcmVkDQo+PiA+PiBldGhlcm5ldCBkb2VzIG5v
-dCBjb21lIHVwIHByb3Blcmx5IGFnYWluLCBpcCBhZGRyIGNsYWltcyAiTk8gQ0FSUklFUiINCj4+
-ID4+IGV2ZW4gaWYgdGhlIExFRHMgb24gdGhlIGludGVyZmFjZSBhbmQgb24gdGhlIHN3aXRjaCBj
-bGFpbSB0aGF0IHRoZXJlDQo+PiA+PiB3YXMgYSBsaW5rLiBObyBwYWNrZXRzIGFyZSByZWNlaXZl
-ZCBieSB0aGUgaW50ZXJmYWNlIHdoZW4gaXQncyBhdA0KPj4gPj4gdGhpcyBzdGFnZS4NCj4+ID4N
-Cj4+ID4gQXMgb2YgMi42LjM1LjMsIHRoaXMgaXNzdWUgaGFzIGJlY29tZSB3b3JzZS4gSXQgbm93
-IGV2ZW4gaGFwcGVucw0KPj4gPiBkaXJlY3RseSBhZnRlciBmcmVzaGx5IGJvb3RpbmcgdGhlIHN5
-c3RlbSB0aGF0IEkgY2Fubm90IGdldCBhIGxpbmsgb24NCj4+ID4gdGhlIHdpcmVkIGV0aGVybmV0
-Lg0KPj4gPg0KPj4gPiBXaGF0IGluZm9ybWF0aW9uIGRvIHlvdSBuZWVkIHRvIGZpbmQgb3V0IHdo
-YXQncyBnb2luZyBvbiB0aGVyZT8NCj4+DQo+PiBDYW4geW91IHBsZWFzZSBwb3N0IHRoZSBvdXRw
-dXQgb2YgZG1pZGVjb2RlPw0KPg0KPkF0dGFjaGVkLg0KPg0KPj4gV2UgaGF2ZSBhIHRvb2wgdGhh
-dCB5b3UgY2FuIHVzZSB0byBkdW1wIHRoZSByZWdpc3RlcnMgZnJvbSB0aGUgcG9ydCBpbg0KPnRo
-ZSBmYWlsZWQgc3RhdGU6DQo+PiBodHRwOi8vc291cmNlZm9yZ2UubmV0L3Byb2plY3RzL2UxMDAw
-L2ZpbGVzL0V0aHJlZ3MlMjAtDQo+JTIwUmVnaXN0ZXIlMjBEdW1wJTIwVG9vbC9ldGhyZWdzLTEu
-MTIuMy8NCj4NCj5BdHRhY2hlZCwgZm9yIGFuIGludGVyZmFjZSBpbiB0aGUgd29ya2luZyBzdGF0
-ZS4gSSdsbCBkZWxpdmVyIGFub3RoZXINCj5yZWdkdW1wIHdoZW4gSSBzZWUgdGhlIGlzc3VlIGFn
-YWluLg0KPg0KPj4gSSBoYXZlIG5vdCBiZWVuIGFibGUgdG8gcmVwcm9kdWNlIGFueSBvZiB0aGUg
-aXNzdWVzIHlvdSByZXBvcnRlZCBvbg0KPj4gVDYwIGhlcmUgaW4gdGhlIGxhYiwgc28gd2UgbmVl
-ZCB0byBzdGFydCBsb29raW5nIGludG8gbW9yZSBkZXRhaWxzLg0KPj4NCj4+IEFsc28sIGNvdWxk
-IHlvdSBwbGVhc2UgZmlsZSBhIGJ1ZyBhdCBlMTAwMC5zZi5uZXQgd2l0aCBhbGwgdGhlDQo+PiBp
-bmZvcm1hdGlvbiB5b3UgcHJvdmlkZWQgc28gZmFyPw0KPg0KPldpbGwgZG8gaW4gdGhlIG5leHQg
-ZGF5cy4NCj4NCj5JIGd1ZXNzIGl0IHdvdWxkIGJlIGJldHRlciB0byBmaWxlIHR3byBidWdzLCBv
-bmUgZm9yIHRoZSBjcmFzaGVzIGFuZA0KPm9uZSBmb3IgdGhlIG5vLWxpbmstaW4tc29tZS1zaXR1
-YXRpb25zIGlzc3VlLCByaWdodD8gT3IgaXMgaXQgbGlrZWx5DQo+dGhhdCB0aGV5IGJvdGggaGF2
-ZSB0aGUgc2FtZSBjYXVzZT8NCg0KSWYgeW91IGZlZWwgbGlrZSB0aGUgaXNzdWVzIGFyZSB1bnJl
-bGF0ZWQgdGhlbiBmaWxlIDIgYnVncy4gDQoNCkFzIGZhciBhcyB0aGUgY3Jhc2hlcyBnbyAtIGl0
-IHdvdWxkIGhlbHAgYSBsb3QgaWYgeW91IGNhbiBnZXQgYSB0cmFjZS4NCllvdSBjYW4gdXNlIGEg
-c2VyaWFsIGNvbnNvbGUgaWYgeW91IGhhdmUgYSBkb2NraW5nIHN0YXRpb24gZm9yIHRoZSBUNjAu
-DQoNCkFsc28gbWFrZSBzdXJlIHRvIGluY2x1ZGUgYWxsIHRoZSBpbmZvcm1hdGlvbiB5b3UgcHJv
-dmlkZWQgc28gZmFyIGluIHRoZSBidWdzLg0KDQpUaGFua3MsDQpFbWlsDQoNCg0K
+* Eric Dumazet | 2010-07-03 08:23:25 [+0200]:
+
+>Sebastian
+Eric,
+
+>Most modern NICS are multiqueue, so that each cpu can use a queue on its
+>own without slowing down other cpus.
+True. gianfar uses multiqueue howver in its napi poll one CPU grabs a
+locks and inspects every queue one by one.
+
+>Yet rx recycling has one queue per device, defeating part of the
+>multiqueue goal.
+Well, we could add rx recycling per queue if you prefer it that way.
+
+>Patch 6/8 even touches dev->refcnt on each emerg packet
+>Patch 6/8 adds 8 bytes (emerg_dev) to skb. Oh well...
+>
+>Adding cache layers, especially dumb ones like this one, is probably the
+>sign something more fundamental is broken somewhere.
+
+The memory for the skbs is comming from slab. slab's latency is getting
+quite high on memory pressure. Therefore I try to avoid talking to slab
+while I'm allocating a new skb. So I created a pool of pre-allocated.
+
+>I do believe for example that netdev_alloc_skb() should not try to use
+>the node affinity of the device, but use current cpu node for sk_buff at
+>least, and possibly for data part too.
+>
+>One other problem of skb are the two memory blocs involved, and fact
+>that first one (skb) is already very big and fat, and filled/dirtied
+>many cycles before its use in RX path.
+>
+>Maybe its time to provide new API, so that a driver can build an skb at
+>the time RX interrupt is handled, not at the time the rx ring buffer is
+>renewed. RX ring should only provide the data part to NIC, and skb
+>should be built when NIC delivers the frame, so that we provide to IP
+>stack a real hot skb.
+
+And where are you allocating the memory from? Remember, SLAB could be
+slow :)
+
+Sebastian
