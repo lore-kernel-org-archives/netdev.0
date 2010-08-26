@@ -1,88 +1,69 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: [PATCH] Add firmware label support to iproute2
-Date: Thu, 26 Aug 2010 11:38:32 -0400
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B90CEAD362@nsmail.netscout.com>
-References: <20100812173537.GA29784@auslistsprd01.us.dell.com><20100812141240.417949e2@s6510><EDA0A4495861324DA2618B4C45DCB3EE612E34@blrx3m08.blr.amer.dell.com><20100818144124.33a72453@nehalam><20100819213314.GA26135@auslistsprd01.us.dell.com><20100819145308.0fa08522@nehalam><20100825220323.GA12671@auslistsprd01.us.dell.com><20100825171646.3d40b721@nehalam><20100826150116.GB21770@auslistsprd01.us.dell.com><D3F292ADF945FB49B35E96C94C2061B90CEAD321@nsmail.netscout.com> <20100826082138.76bcd315@nehalam>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
+Date: Thu, 26 Aug 2010 08:40:22 -0700
+Message-ID: <20100826084022.457ac967@nehalam>
+References: <4C763A67.5040107@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Matt Domsch" <Matt_Domsch@Dell.com>, <Narendra_K@Dell.com>,
-	<netdev@vger.kernel.org>, <Charles_Rose@Dell.com>,
-	<Jordan_Hargrave@Dell.com>, <linux-pci@vger.kernel.org>,
-	<linux-hotplug@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og116.obsmtp.com ([64.18.1.37]:51971 "HELO
-	exprod6og116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754051Ab0HZPih convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 11:38:37 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20100826082138.76bcd315@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Maxime Bizon <mbizon@freebox.fr>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	John Linn <john.linn@xilinx.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	Andrew <andrew.chih.howe.khor@intel.com>,
+	Intel OTC <joel.clark@intel.com>,
+	"Foster, Margie" <margie.foster@intel.com>,
+	Toshiharu Okada <okada533@dsn.okisemi.com>,
+	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
+	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
+To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C763A67.5040107@dsn.okisemi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sorry, my bad.
-I agree w/ your recommendation then - 
-1) stuff it in ifalias(or create a new alias if net_device::ifalias is
-used for snmp etc).
+On Thu, 26 Aug 2010 18:56:55 +0900
+Masayuki Ohtake <masa-korg@dsn.okisemi.com> wrote:
 
-But how do we consume it? 
-   1.1) spit it out via sysfs? But Doc/sysfsrules.txt says "Accessing
-/sys/class/net/eth0/device is a bug in the application"
+> +static int pch_gbe_get_settings(struct net_device *netdev,
+> +				 struct ethtool_cmd *ecmd)
+> +{
+> +	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+> +	int ret;
+> +
+> +	PCH_GBE_DEBUG("ethtool: %s\n", __func__);
+> +
+> +	ret = mii_ethtool_gset(&adapter->mii, ecmd);
+> +	ecmd->supported &= (u32) (~SUPPORTED_TP);
+> +	ecmd->supported &= (u32) (~SUPPORTED_1000baseT_Half);
+> +	ecmd->advertising &= (u32) (~ADVERTISED_TP);
+> +	ecmd->advertising &= (u32) (~ADVERTISED_1000baseT_Half);
+> +
+> +	if (netif_carrier_ok(adapter->netdev)) {
+> +		;
+> +	} else {
+> +		ecmd->speed = 0xFFFF;
+> +		ecmd->duplex = 0xFF;
+> +	}
+> +	return ret;
+> +}
+
+No need for cast to u32 on the masking:
+        ecmd->supported &= ~(SUPPORTED_TP | SUPPORTED_1000baseT_Half);
+	ecmd->advertising &= ~(ADVERTISED_TP | ADVERTISED_1000baseT_Half);
 
 
-Chetan
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: August 26, 2010 11:22 AM
-> To: Loke, Chetan
-> Cc: Matt Domsch; Narendra_K@Dell.com; netdev@vger.kernel.org;
-> Charles_Rose@Dell.com; Jordan_Hargrave@Dell.com; linux-
-> pci@vger.kernel.org; linux-hotplug@vger.kernel.org
-> Subject: Re: [PATCH] Add firmware label support to iproute2
-> 
-> On Thu, 26 Aug 2010 11:17:51 -0400
-> "Loke, Chetan" <Chetan.Loke@netscout.com> wrote:
-> 
-> > What if we extend 'IFNAMSIZ'(beyond 16 chars. Older apps don't need
-> to
-> > worry because they have been working w/ 16 chars anyways) and also
-> get
-> > ifalias to work in udev(Or is ifalias a bad idea?)?
-> >
-> > Chetan
-> >
-> That is  non-starter for the ioctl() style interface.
-> 
-> struct ifreq {
-> #define IFHWADDRLEN	6
-> 	union
-> 	{
-> 		char	ifrn_name[IFNAMSIZ];		/* if name, e.g.
-"en0"
-> */
-> 	} ifr_ifrn;
-> 
-> 	union {
-> 		struct	sockaddr ifru_addr;
-> 		struct	sockaddr ifru_dstaddr;
-> 		struct	sockaddr ifru_broadaddr;
-> 		struct	sockaddr ifru_netmask;
-> 		struct  sockaddr ifru_hwaddr;
-> 		short	ifru_flags;
-> 		int	ifru_ivalue;
-> 		int	ifru_mtu;
-> 		struct  ifmap ifru_map;
-> 		char	ifru_slave[IFNAMSIZ];	/* Just fits the size */
-> 		char	ifru_newname[IFNAMSIZ];
-> 		void __user *	ifru_data;
-> 		struct	if_settings ifru_settings;
-> 	} ifr_ifru;
-> };
-> 
-> Applications do:
->    	strncpy(ifr.ifr_name, "my name", IFNAMSIZ);
-> 	ioctl(fd, SIOCGHWADDR, &ifr)
+Awkward use of if, and don't set other bits in duplex
+       if (!netif_carrier_ok(adapter->netdev))
+                ecmd->speed = -1;
+            
 
+-- 
