@@ -1,46 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] ipv6: Enable netlink notification for tentative
- addresses.
-Date: Thu, 26 Aug 2010 14:27:55 -0700 (PDT)
-Message-ID: <20100826.142755.15249596.davem@davemloft.net>
-References: <4C76C73F.4080206@hp.com>
-	<20100826.131801.246519955.davem@davemloft.net>
-	<4C76DA62.8040109@candelatech.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: Re: No link on e1000e with 2.6.35.3 and ThinkPad T60
+Date: Thu, 26 Aug 2010 15:31:07 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A13660082E9090@rrsmsx501.amr.corp.intel.com>
+References: <20100724092644.GA13353@torres.zugschlus.de>
+	<20100824094524.GA17608@torres.zugschlus.de>
+	<EA929A9653AAE14F841771FB1DE5A136600821444B@rrsmsx501.amr.corp.intel.com>
+	<20100826112732.GA15559@torres.zugschlus.de>
+	<20100826171442.GA22941@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41891
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754061Ab0HZV1k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 17:27:40 -0400
-In-Reply-To: <4C76DA62.8040109@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Marc Haber <mh+linux-kernel@zugschlus.de>, Linux Kernel Developers
+	<linux-kernel@vger.kernel.org>, Linux Kernel Network Developers
+	<netdev@vger.kernel.org>, "e1000-devel@lists.sourcefo
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20100826171442.GA22941@torres.zugschlus.de>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Thu, 26 Aug 2010 14:19:30 -0700
+Marc Haber wrote:
+> On Thu, Aug 26, 2010 at 01:27:32PM +0200, Marc Haber wrote:
+>> On Wed, Aug 25, 2010 at 12:01:40PM -0600, Tantilov, Emil S wrote:
+>>> We have a tool that you can use to dump the registers from the port
+>>> in the failed state:
+>>> http://sourceforge.net/projects/e1000/files/Ethregs%20-%20Register%20Dump%20Tool/ethregs-1.12.3/
+>> 
+>> Attached, for an interface in the working state. I'll deliver another
+>> regdump when I see the issue again
+> 
+> Here we go, with a non-working interface.
 
-> In our case, we enable IPv6 in user-space, and then we want to get
-> some immediate indication that indeed the process is working as
-> expected.
+After reviewing the output from dmidecode I determined that your model T60 is slightly different than mine. It appears that you have the widescreen version. Is that correct?
 
-When DAD completes, you'll get a similar indication.
+Also you seem to be running a fairly old version of the BIOS (1.08). The latest is 1.18:
+http://www-307.ibm.com/pc/support/site.wss/MIGR-67020.html
 
-> In other cases, we want to remove all IPv6 addresses, so if we have
-> not even been notified that the IP exists, then we cannot know how
-> to delete it.
+I would recommend that you upgrade your BIOS. If that does not help we can continue with the investigation. I will also try to locate a widescreen T60 that would hopefully help me with the repro. 
 
-You can add a netlink message to accomplish that.  This has been
-asked for in other contexts as well.
+The model I have has been running all kinds of stress since you first reported this issue, and so far is rock solid.
 
-> We've been running this patch for several years, and it has not
-> caused any obvious problems with other tools, so I think it's safe
-> enough.
+> 
+> Greetings
+> Marc
 
-And your level of exposure compared to upstream is...? :-)
 
-Anyways, even if it's implemented in an error free way it's still
-not necessary the best way to go about this.
+Thanks,
+Emil
+------------------------------------------------------------------------------
+Sell apps to millions through the Intel(R) Atom(Tm) Developer Program
+Be part of this innovative community and reach millions of netbook users 
+worldwide. Take advantage of special opportunities to increase revenue and 
+speed time-to-market. Join now, and jumpstart your future.
+http://p.sf.net/sfu/intel-atom-d2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
