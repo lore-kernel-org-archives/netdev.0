@@ -1,69 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [ROSE] rose node number was never decreased
-Date: Thu, 26 Aug 2010 16:09:57 -0700 (PDT)
-Message-ID: <20100826.160957.212699485.davem@davemloft.net>
-References: <4C76E765.9020201@free.fr>
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V3
+Date: Thu, 26 Aug 2010 18:26:58 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1008261825490.26351@router.home>
+References: <adapqx5rtez.fsf@cisco.com> <alpine.DEB.2.00.1008261613160.24174@router.home> <alpine.DEB.2.00.1008261629440.24174@router.home> <20100826.151553.242147157.davem@davemloft.net> <20100826222146.GA23025@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, bpidoux@free.fr
-To: f6bvp@free.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50910
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753148Ab0HZXJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 19:09:41 -0400
-In-Reply-To: <4C76E765.9020201@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org,
+	yosefe-smomgflXvOZWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100826222146.GA23025-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Bernard F6BVP <f6bvp@free.fr>
-Date: Fri, 27 Aug 2010 00:15:01 +0200
+On Thu, 26 Aug 2010, Jason Gunthorpe wrote:
 
-> When a ROSE node was deleted, node number was not
-> decremented and addr kept going up when a new node
-> was added.
-> 
-> /proc/net/rose_neigh
-> addr  callsign  dev  count use mode restart  t0  tf digipeaters
-> 00007 F5KBW-9   ax0      1   0  DTE      no   0   0
-> 00006 F6BVP-11  ax0      2   0  DTE      no   0   0
-> 00005 F6BVP-9   ax0      2   0  DTE      no   0   0
-> 00001 RSLOOP-0  ???      0   0  DCE     yes   0   0
-> 
-> With this patch, rose node number is correctly decreased
-> when nodes are deleted and new ones added :
-> 
-> /proc/net/rose_neigh
-> addr  callsign  dev  count use mode restart  t0  tf digipeaters
-> 00004 F5KBW-9   ax0      1   0  DTE      no   0   0
-> 00003 F6BVP-11  ax0      2   0  DTE      no   0   0
-> 00002 F6BVP-9   ax0      2   0  DTE      no   0   0
-> 00001 RSLOOP-0  ???      0   0  DCE     yes   0   0
-> 
-> Signed-off-by: Bernard Pidoux <f6bvp@free.fr>
+> The 40 bytes at this location are defined by the HW specification to
+> be an IB GRH which has an identical layout to an IPv6 header. Roland
+> is right, it would be clearer to use ib_grh ->dgid
 
-I don't see how this patch is correct.
+Ok but then we have no nice function that checks for multicast anymore.
 
-The whole point of the rose_neigh_no seems to be to make sure
-that unique numbers are given to the neighbours.
 
-But with your patch, we can end up easily with neighbours assigned the
-same number.  Consider adding 3 nodes, and let's say they get
-rose_neigh_no 1, 2, and 3
 
-A: neigh_no 1
-B: neigh_no 2
-C: neigh_no 3
+Subject: [IPoIB] Identify multicast packets and fix IGMP breakage V3
 
-Delete B, now rose_neigh_no with your patch applied will be '3'.
-Next, add D, which will get neigh_no of '3' which is the same
-as what C has.
+IGMP processing is broken because the IPOIB does not set the
+skb->pkt_type the right way for Multicast traffic. All incoming
+packets are set to PACKET_HOST which means that the igmp_recv()
+function will ignore the IGMP broadcasts/multicasts.
 
-This can't be right.
+This in turn means that the IGMP timers are firing and are sending
+information about multicast subscriptions unnecessarily. In a large
+private network this can cause traffic spikes.
 
-What the code wants is an allocation of unique IDs and a simple
-bitmap along with find_next_zero_bit(), set_bit(), and clear_bit()
-ought to do the trick.
+Signed-off-by: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
 
+---
+
+Index: linux-2.6/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+===================================================================
+--- linux-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2010-08-26 18:24:07.842079559 -0500
++++ linux-2.6/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2010-08-26 18:25:33.859815544 -0500
+@@ -271,6 +271,14 @@
+ 	ipoib_ud_dma_unmap_rx(priv, mapping);
+ 	ipoib_ud_skb_put_frags(priv, skb, wc->byte_len);
+
++	/* First byte of dgid signals multicast when 0xff */
++	if ((wc->wc_flags & IB_WC_GRH) &&
++		((struct ib_grh *)skb->data)->dgid.raw[0] == 0xff)
++
++		skb->pkt_type = PACKET_MULTICAST;
++	else
++		skb->pkt_type = PACKET_HOST;
++
+ 	skb_pull(skb, IB_GRH_BYTES);
+
+ 	skb->protocol = ((struct ipoib_header *) skb->data)->proto;
+@@ -281,9 +289,6 @@
+ 	dev->stats.rx_bytes += skb->len;
+
+ 	skb->dev = dev;
+-	/* XXX get correct PACKET_ type here */
+-	skb->pkt_type = PACKET_HOST;
+-
+ 	if (test_bit(IPOIB_FLAG_CSUM, &priv->flags) && likely(wc->csum_ok))
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
