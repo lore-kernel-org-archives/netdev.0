@@ -1,34 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: fix three tcp sysctls tuning
-Date: Thu, 26 Aug 2010 08:21:59 +0200
-Message-ID: <1282803719.2681.823.camel@edumazet-laptop>
-References: <20100825.165759.27789477.davem@davemloft.net>
-	 <20100826003834.GA17882@kryten> <1282799753.2681.714.camel@edumazet-laptop>
-	 <20100825.230240.104045673.davem@davemloft.net>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH] tcp: Fix sysctl_tcp_max_orphans when PAGE_SIZE != 4k
+Date: Thu, 26 Aug 2010 16:36:37 +1000
+Message-ID: <20100826063637.GD17882@kryten>
+References: <1282758634.2487.576.camel@edumazet-laptop>
+ <20100825.165759.27789477.davem@davemloft.net>
+ <20100826003834.GA17882@kryten>
+ <20100825.205302.241913926.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: anton@samba.org, netdev@vger.kernel.org, miltonm@bga.com
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, miltonm@bga.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43744 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859Ab0HZGWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 02:22:05 -0400
-Received: by wwb28 with SMTP id 28so1128815wwb.1
-        for <netdev@vger.kernel.org>; Wed, 25 Aug 2010 23:22:03 -0700 (PDT)
-In-Reply-To: <20100825.230240.104045673.davem@davemloft.net>
+Received: from ozlabs.org ([203.10.76.45]:46376 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752635Ab0HZGjT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Aug 2010 02:39:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20100825.205302.241913926.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 25 ao=C3=BBt 2010 =C3=A0 23:02 -0700, David Miller a =C3=A9=
-crit :
+ 
+Hi Dave,
 
-> I had something in my tree already, but since I didn't push it out
-> it's just as easy for me to use this patch instead :-)
->=20
-> Thanks everyone!
+> Did you test my percpu orphan fix yet?
 
-You're welcome, thanks David.
+The machine is running some tests, but I will either get time on it or
+replicate the issue on a similar box.
 
-
+Anton
