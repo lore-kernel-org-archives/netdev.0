@@ -1,46 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] ipv6: Enable netlink notification for tentative
- addresses.
-Date: Wed, 25 Aug 2010 21:24:56 -0700 (PDT)
-Message-ID: <20100825.212456.71107442.davem@davemloft.net>
-References: <1282760777-15381-1-git-send-email-greearb@candelatech.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: Fix sysctl_tcp_max_orphans when PAGE_SIZE != 4k
+Date: Thu, 26 Aug 2010 06:45:31 +0200
+Message-ID: <1282797931.2681.663.camel@edumazet-laptop>
+References: <20100825071626.GA13681@kryten> <20100825071701.GA14962@kryten>
+	 <1282758634.2487.576.camel@edumazet-laptop>
+	 <20100825.165759.27789477.davem@davemloft.net>
+	 <20100826003834.GA17882@kryten>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	miltonm@bga.com
+To: Anton Blanchard <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41526
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751116Ab0HZEYl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 00:24:41 -0400
-In-Reply-To: <1282760777-15381-1-git-send-email-greearb@candelatech.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:34640 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751920Ab0HZEph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 00:45:37 -0400
+Received: by wyb35 with SMTP id 35so1685400wyb.19
+        for <netdev@vger.kernel.org>; Wed, 25 Aug 2010 21:45:36 -0700 (PDT)
+In-Reply-To: <20100826003834.GA17882@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Wed, 25 Aug 2010 11:26:17 -0700
+Le jeudi 26 ao=C3=BBt 2010 =C3=A0 10:38 +1000, Anton Blanchard a =C3=A9=
+crit :
+> Hi Dave,
+>=20
+> > Yeah, something like the following, Anton?
+>=20
+> Thanks! I tested on a 512GB box. One thing:
+>=20
+> # cat /proc/sys/net/ipv4/tcp_max_syn_backlog=20
+> 128
+>=20
+> We probably want to use max():
+>=20
+> > -	sysctl_max_syn_backlog =3D min(128, cnt / 256);
+> > +	sysctl_max_syn_backlog =3D max(128, cnt / 256);
+>=20
 
-> By default, netlink messages are not sent when an IPv6 address
-> is added if it is in tentative state.  This makes it harder
-> for user-space applications to know the current state of the
-> IPv6 addresses.  This patch adds an ipv6 sysctl that will
-> allow tentative address notifications to be sent.  The sysctl
-> is off by default.
-> 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
+I believe I make this min()/max() error once per week, sorry ;)
 
-It's inconsistent to send two NEWADDR events for the same add.
+In my mind, I say "I want a minimum value of 128", then I write :
 
-I would advise that we unconditionally do the NEWADDR once,
-when the tentative state address is added, and completely
-elide the one we current send when it leaves tentative state.
+val =3D min(128, val);
 
-Having a sysctl, and having it off by default, just means you haven't
-actually fixes the problem.  Since it's only fixed if someone makes a
-non-standard configuration change.
+instead of=20
 
-Otherwise what you're saying is that this is a very obscure thing for
-very obscure applications, and it very nearly doesn't even matter
-as a result.
+val =3D max(128, val);
+
+Oh well...
+
+> With that change:
+>=20
+> # cat /proc/sys/net/ipv4/tcp_max_orphans=20
+> 262144
+> # cat /proc/sys/net/ipv4/tcp_max_tw_buckets
+> 262144
+> # cat /proc/sys/net/ipv4/tcp_max_syn_backlog=20
+> 2048
+>=20
+>=20
+> Tested-by: Anton Blanchard <anton@samba.org>
+>=20
+> Anton
+
+Seems pretty good to me, thanks !
+
+BTW, we now auto-limit ehash to 512*1024 slots, so you probably have
+same results on a 128GB or 4096GB machine ;)
+
+
 
