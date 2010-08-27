@@ -1,29 +1,57 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V3
-Date: Thu, 26 Aug 2010 21:24:15 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1008262123410.29657@router.home>
-References: <alpine.DEB.2.00.1008261825490.26351@router.home> <20100826234342.GA24333@obsidianresearch.com> <alpine.DEB.2.00.1008261856090.29657@router.home> <20100826.170716.68143372.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Thu, 26 Aug 2010 20:32:36 -0700 (PDT)
+Message-ID: <20100826.203236.71085896.davem@davemloft.net>
+References: <20100827111400.58bf82d1.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jgunthorpe@obsidianresearch.com, rdreier@cisco.com,
-	linux-rdma@vger.kernel.org, ogerlitz@voltaire.com,
-	yosefe@voltaire.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.prem.mail.ac4.yahoo.com ([76.13.13.43]:34715 "HELO
-	smtp104.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752669Ab0H0CYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 22:24:18 -0400
-In-Reply-To: <20100826.170716.68143372.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, peppe.cavallaro@st.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100827111400.58bf82d1.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 27 Aug 2010 11:14:00 +1000
 
-On Thu, 26 Aug 2010, David Miller wrote:
+> After merging the nert tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
+> 
+> drivers/net/stmmac/stmmac_timer.c: In function 'stmmac_open_ext_timer':
+> drivers/net/stmmac/stmmac_timer.c:60: error: 'CONFIG_RTC_HCTOSYS_DEVICE' undeclared (first use in this function)
+> 
+> Maybe exposed by commit ac75791aa943c7953521cb4fa7728bf51f9abd2d ("stmmac:
+> remove dead option in the driver's Kconfig") since presumably we used to
+> not build this driver.
 
-> The highest cost is bringing in that packet header's cache line, which
-> you've already done by reading the byte and checking for 0xff.
+Strange, it built on sparc64 for whatever reason :-)
 
-And then you need to bring in the cacheline of the broadcast address....
-These are pretty long byte strings in the IB case.
+I've just pushed the following fix to net-next-2.6, thanks.
 
+--------------------
+stmmac: Make time functionality depend upon RTC_HCTOSYS_DEVICE
+
+Based upon a report by Stephen Rothwell.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/stmmac/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/stmmac/Kconfig b/drivers/net/stmmac/Kconfig
+index 6439680..3c2af7c 100644
+--- a/drivers/net/stmmac/Kconfig
++++ b/drivers/net/stmmac/Kconfig
+@@ -32,6 +32,7 @@ config STMMAC_DUAL_MAC
+ config STMMAC_TIMER
+ 	bool "STMMAC Timer optimisation"
+ 	default n
++	depends on RTC_HCTOSYS_DEVICE
+ 	help
+ 	  Use an external timer for mitigating the number of network
+ 	  interrupts. Currently, for SH architectures, it is possible
+-- 
+1.7.2.2
