@@ -1,64 +1,68 @@
-From: Patrick Loschmidt <Patrick.Loschmidt@gmx.net>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Fri, 27 Aug 2010 17:21:40 +0200
-Message-ID: <4C77D804.9060500@gmx.net>
-References: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>	<20100817085324.GB3330@riccoc20.at.omicron.at>	<1282090963.1734.97.camel@localhost>	<20100818071942.GA4096@riccoc20.at.omicron.at>	<1282176776.2865.100.camel@localhost.localdomain>	<20100819055518.GA4084@riccoc20.at.omicron.at>	<1282594125.3111.344.camel@localhost.localdomain>	<20100827123849.GC11657@riccoc20.at.omicron.at>	<20100827143844.646eccf6@lxorguk.ukuu.org.uk>	<20100827143437.GB3293@riccoc20.at.omicron.at> <20100827160624.433b3374@lxorguk.ukuu.org.uk>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [net-next 1/2] qdisc: Allow qdiscs to provide backpressure up
+ the stack.
+Date: Fri, 27 Aug 2010 08:26:49 -0700
+Message-ID: <4C77D939.2050807@candelatech.com>
+References: <4C774B8F.2030805@candelatech.com>	<20100826.223604.48516081.davem@davemloft.net>	<4C775411.1000302@candelatech.com> <20100826.231110.260096663.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	john stultz <johnstul@us.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Arnd Bergmann <arnd@arndb.de>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100827160624.433b3374@lxorguk.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:49088 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754525Ab0H0P0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 11:26:53 -0400
+In-Reply-To: <20100826.231110.260096663.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On 08/26/2010 11:11 PM, David Miller wrote:
+> From: Ben Greear<greearb@candelatech.com>
+> Date: Thu, 26 Aug 2010 22:58:41 -0700
+>
+>> And if it does that, then something must know how to restart the
+>> transmit logic.
+>
+> When SKBs get freed up, space opens up in the socket send buffer,
+> waking up the process or signalling it from poll() so it can write
+> more.
 
-I'd like to add my two cents about the discussion. Just to shortly
-introduce myself: I'm working with PTP since version 2002 (now 2008 or
-PTPv2) and I'm developing matching network cards, drivers, and also
-sometimes a bit of the stack.
+Seems there is still room for problems:
 
-I always had the problem of different HW implementations (even my own)
-and how to access the clocks there. So reading this thread, I strongly
-support the idea to provide a driver class, which allows the userspace
-to run certain standard operations (settime, gettime, adjtime, ...) as
-proposed and leave the detailed implementation to a specific PTP clock
-driver. I always made my own char device, but I don't want to open this
-discussion again as for me it doesn't matter.
+*  There may be zero frames already in the qdisc for this UDP connection,
+    so aside from the one that failed to enqueue, none other will be freed.
 
-Concerning the long discussion about PTP clock, system time, etc. I'd
-like to say, that from a point of view of PTP every node/host has only
-one clock. That means, that if you have a NIC with integrated clock
-(required for HW timestamping) it is counted as a node. As soon as you
-want to use multiple NICs this is actually outside the PTP protocol
-definition, unless you have only one clock available to both network
-interfaces (which is hard to achieve).
+*  If deleting that single SKB that was to be enqueued opens space, then it's
+    not really throttling, just busy-spinning on deleting skbs, but I think
+    that the wakeup heuristics won't wake the queue until it's about 1/2 full
+    anyway, so that single skb isn't going to wake any queues in most cases.
 
-So the solution to treat a PTP enabled NIC as a time source for the
-system time is in general sufficient, unless for applications that
-require precise timestamps in applications. I know of use cases where
-code gets instrumented to measure time delays, processing time, and
-sequence in SW, e.g. distributed databases for trading systems at the
-stock exchange.
+I'll look through the code later today and see how much churn it would take
+to support the BUSY return code from dev_queue_xmit, without adding any new
+qdisc API methods.
 
-Summarizing I think it would be a huge step forward, if all the
-different HW implementations could be controlled via a standardised
-interface through the kernel. I need timestamps from my network card
-with ps resolution and to steer the onboard clock from user space. Then
-I would be happy already. :-)
+For the trivial case, I can just kfree_skb when BUSY is returned, for the
+same overall behaviour as today.  For something like UDP, I might be able
+to poke the SKB back into the queue instead of freeing it.
+
+> pktgen eliminates this whole layer of queueing and signalling, which
+> is why it continually succeptible this behavior you dislike.
+
+Proper backoff on error codes from hard_start_xmit and some wake logic
+when the unerlying netdevice wakes up again fixes this.  You can make pktgen
+run w/out busy spinning.  It's a big messy patch (as I coded it up)
+though.
+
+I think we could concentrate on allowing qdisc to return some sort of
+congestion notification w/out always freeing the skb first, and once
+that seems workable, go back to worrying about how to properly propagate
+that through macvlans.
 
 Thanks,
-Patrick
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
