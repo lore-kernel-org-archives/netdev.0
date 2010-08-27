@@ -1,35 +1,55 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V3
-Date: Thu, 26 Aug 2010 18:17:52 -0600
-Message-ID: <20100827001752.GB24333@obsidianresearch.com>
-References: <20100826234342.GA24333@obsidianresearch.com> <7E95F01E94AB484F83061FCFA35B39F89BE276@exil.voltaire.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Fri, 27 Aug 2010 11:14:00 +1000
+Message-ID: <20100827111400.58bf82d1.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Or Gerlitz <ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Yossi Etigin <yosefe-smomgflXvOZWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <7E95F01E94AB484F83061FCFA35B39F89BE276-QfUkFaTmzUSUvQqKE/ONIwC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__27_Aug_2010_11_14_00_+1000_8dEXRpqSHJ3=dM=T"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 27, 2010 at 03:02:54AM +0300, Yossi Etigin wrote:
+--Signature=_Fri__27_Aug_2010_11_14_00_+1000_8dEXRpqSHJ3=dM=T
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Shouldn't struct ib_grh be packed to make this really work?
+Hi all,
 
-No idea what the kernel convention for this is. It looks OK to me, in
-that no arch I am familiar with will insert padding.
+After merging the nert tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-> The code looks a little messy to me anyway... 
-> How about using a local var which is a ptr to packed struct ib_grh? The
-> compiler will probably eliminate it anyway.
+drivers/net/stmmac/stmmac_timer.c: In function 'stmmac_open_ext_timer':
+drivers/net/stmmac/stmmac_timer.c:60: error: 'CONFIG_RTC_HCTOSYS_DEVICE' un=
+declared (first use in this function)
 
-This bike shed is looking pretty well painted already :)
+Maybe exposed by commit ac75791aa943c7953521cb4fa7728bf51f9abd2d ("stmmac:
+remove dead option in the driver's Kconfig") since presumably we used to
+not build this driver.
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I have used the net tree from next-20100826 (with the 2 reverts) for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__27_Aug_2010_11_14_00_+1000_8dEXRpqSHJ3=dM=T
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMdxFYAAoJEDMEi1NhKgbsrRwH/3V+p6pcvpDIOZxjMWIAsKRF
+uy4o+ysnHqfnJKw8yauk+hYOV0ztpHjBVxjVjjvOpOCgsMg7tuKzWvNQ00VwrdDw
+ea6uFmphk3zJ4K84AXBzOGam5WYGk4pLfrMhqYN0z8SdTbri8O8LamYRypdzWyyG
+7OUgIMU/fSOPUK8xEj+dPhir0pup+XLOtxnWOj2/tuXhl7tlwClJwlwutZZXhwTg
+YBy5a4Mx1g1i8VeJdsQclQzxy439q9KBDJFm1nbmIkc/O5blTMPuKvc8DuTtu3/E
+z5g6jRSKXp+E+HBE2fx5U9ciAEANOcd64lLT0f8Zx0yFZonNZWLZGoiYde1AeEc=
+=brKZ
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__27_Aug_2010_11_14_00_+1000_8dEXRpqSHJ3=dM=T--
