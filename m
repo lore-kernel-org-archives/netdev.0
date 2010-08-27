@@ -1,84 +1,89 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Fri, 27 Aug 2010 14:38:44 +0100
-Message-ID: <20100827143844.646eccf6@lxorguk.ukuu.org.uk>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
-	<363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
-	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
-	<20100817085324.GB3330@riccoc20.at.omicron.at>
-	<1282090963.1734.97.camel@localhost>
-	<20100818071942.GA4096@riccoc20.at.omicron.at>
-	<1282176776.2865.100.camel@localhost.localdomain>
-	<20100819055518.GA4084@riccoc20.at.omicron.at>
-	<1282594125.3111.344.camel@localhost.localdomain>
-	<20100827123849.GC11657@riccoc20.at.omicron.at>
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V3
+Date: Fri, 27 Aug 2010 08:29:38 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1008270827280.11792@router.home>
+References: <adapqx5rtez.fsf@cisco.com> <alpine.DEB.2.00.1008261613160.24174@router.home> <alpine.DEB.2.00.1008261629440.24174@router.home> <20100826.151553.242147157.davem@davemloft.net> <20100826222146.GA23025@obsidianresearch.com>
+ <alpine.DEB.2.00.1008261825490.26351@router.home> <20100826234342.GA24333@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20100827123849.GC11657-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org, yosefe-smomgflXvOZWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100826234342.GA24333-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> 2007. If we can justify adding a clock id in this case, surely we can
-> add one for PTP as well!
+On Thu, 26 Aug 2010, Jason Gunthorpe wrote:
 
-But PTP isn't really a clock - its a time sync protocol. You can (and may
-need to) have multiple clocks of this form on the same host because it's
-master based and you may have to deal with multiple masters who disagree.
+> I think doing the memcmp only in the multicast path should be
+> reasonable overhead wise.
 
-> > Further, if we're using PTP to synchoronize the system time, then there
-> > shouldn't be any measurable difference between CLOCK_PTP and
-> > CLOCK_REALTIME, no?
-> 
-> When using software timestamping, then the clocks are one in the same.
+Ok the dgid is only 8 bytes not the whole 40 bytes.... Here is the patch
+somewhat cleaned up with PACKET_BROADCAST.
 
-Technically the POSIX clock is UTC, IEEE1588v2 is TAI.
 
-> It would be possible, but not too nice, IMHO. In contrast to NTP,
-> there is no real need to place the servo in the kernel. Having the
-> protocol code and servo in user space makes life much easier.
+Subject: [IPoIB] Identify multicast packets and fix IGMP breakage V3
 
-We can't currently put it in the kernel anyway for other good reasons.
+IGMP processing is broken because the IPOIB does not set the
+skb->pkt_type the right way for Multicast traffic. All incoming
+packets are set to PACKET_HOST which means that the igmp_recv()
+function will ignore the IGMP broadcasts/multicasts.
 
-> viable approach. After the lkml discussion, I think it is even cleaner
-> and nicer to just offer a new clock id.
+This in turn means that the IGMP timers are firing and are sending
+information about multicast subscriptions unnecessarily. In a large
+private network this can cause traffic spikes.
 
-PTP is not a clock, it's many clocks so a clock id doesn't really work.
-You could assume a single time domain and add a CLOCK_TAI plus then use
-PTP to track it I guess ?
+Signed-off-by: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
 
-The question then is who would consume it and how ?
+---
 
-Generic applications want POSIX time, which is managed by NTP but could
-in userspace also be slewed via the existing API to track a PTP source if
-someone wanted and if there is a GPS source around they can compute UTC
-from it.
+Index: linux-2.6/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+===================================================================
+--- linux-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2010-08-26 18:24:07.842079559 -0500
++++ linux-2.6/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2010-08-27 08:26:37.929641162 -0500
+@@ -223,6 +223,7 @@
+ 	unsigned int wr_id = wc->wr_id & ~IPOIB_OP_RECV;
+ 	struct sk_buff *skb;
+ 	u64 mapping[IPOIB_UD_RX_SG];
++	union ib_gid *dgid;
 
-Specialist applications will presumably need to know which time source or
-sources they are tracking and synchronizing too out of multiple potential
-PTP sources
+ 	ipoib_dbg_data(priv, "recv completion: id %d, status: %d\n",
+ 		       wr_id, wc->status);
+@@ -271,6 +272,21 @@
+ 	ipoib_ud_dma_unmap_rx(priv, mapping);
+ 	ipoib_ud_skb_put_frags(priv, skb, wc->byte_len);
 
-Kernel stuff is more of a problem.
++	/* First byte of dgid signals multicast when 0xff */
++	dgid = &((struct ib_grh *)skb->data)->dgid;
++
++	if (!(wc->wc_flags & IB_WC_GRH) || dgid->raw[0] != 0xff)
++
++		skb->pkt_type = PACKET_HOST;
++
++	else if (memcmp(dgid, dev->broadcast + 4, sizeof(union ib_gid)) == 0)
++
++		skb->pkt_type = PACKET_BROADCAST;
++
++	else
++
++		skb->pkt_type = PACKET_MULTICAST;
++
+ 	skb_pull(skb, IB_GRH_BYTES);
 
-I'm not sure shoehorning a source of many clocks and time sync bases into
-a jump up and down and make it fit single time assumption is wise. Making
-system time bimble track a source makes sense just as with NTP but making
-it a new clock seems the wrong model extending a non-too-bright API when
-you can just put the time sources in a file tree.
+ 	skb->protocol = ((struct ipoib_header *) skb->data)->proto;
+@@ -281,9 +297,6 @@
+ 	dev->stats.rx_bytes += skb->len;
 
-Alan
+ 	skb->dev = dev;
+-	/* XXX get correct PACKET_ type here */
+-	skb->pkt_type = PACKET_HOST;
+-
+ 	if (test_bit(IPOIB_FLAG_CSUM, &priv->flags) && likely(wc->csum_ok))
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
