@@ -1,61 +1,76 @@
-From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
 Subject: Re: [PATCH] wireless: fix 64K kernel heap content leak via ioctl
-Date: Fri, 27 Aug 2010 15:39:26 -0700
-Message-ID: <20100827223926.GB32498@bougret.hpl.hp.com>
-References: <20100827210240.GC4703@outflux.net> <20100827212254.GB32275@bougret.hpl.hp.com> <AANLkTimeEa_=dqX5yFnYzaSaL90TfOg3=MsydG81naAC@mail.gmail.com>
-Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+Date: Fri, 27 Aug 2010 15:51:47 -0700
+Message-ID: <AANLkTinZmG-bv_m0ktL+NBbtMRtHkM+urfD9M1GdLxCD@mail.gmail.com>
+References: <20100827210240.GC4703@outflux.net> <20100827212254.GB32275@bougret.hpl.hp.com>
+ <AANLkTimeEa_=dqX5yFnYzaSaL90TfOg3=MsydG81naAC@mail.gmail.com> <20100827223926.GB32498@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <kees.cook-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTimeEa_=dqX5yFnYzaSaL90TfOg3=MsydG81naAC-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kees Cook <kees.cook@canonical.com>, linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Joe Perches <joe@perches.com>, Tejun Heo <tj@kernel.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: jt@hpl.hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:45072 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751726Ab0H0WwI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 18:52:08 -0400
+In-Reply-To: <20100827223926.GB32498@bougret.hpl.hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 27, 2010 at 03:35:19PM -0700, Luis R. Rodriguez wrote:
-> >
-> > diff -u -p wext.j2.c wext.c
-> > --- wext.j2.c   2010-08-27 14:17:26.000000000 -0700
-> > +++ wext.c      2010-08-27 14:19:33.000000000 -0700
-> > @@ -800,9 +800,12 @@ static int ioctl_standard_iw_point(struc
-> >                        goto out;
-> >                }
-> >
-> > -               if (copy_to_user(iwp->pointer, extra,
-> > -                                iwp->length *
-> > -                                descr->token_size)) {
-> > +               /* Verify how much we should return. Some driver
-> > +                * may abuse iwp->length... */
-> > +               if((iwp->length * descr->token_size) < extra_size)
-> > +                       extra_size = iwp->length * descr->token_size;
-> > +
-> > +               if (copy_to_user(iwp->pointer, extra, extra_size)) {
-> >                        err = -EFAULT;
-> >                        goto out;
-> >                }
-> 
-> 
-> Jean, can you submit in a new thread and right before the SOB add in
-> the commit log Cc: stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org [2.6.32+]
+On Fri, Aug 27, 2010 at 3:39 PM, Jean Tourrilhes <jt@hpl.hp.com> wrote:
+> On Fri, Aug 27, 2010 at 03:35:19PM -0700, Luis R. Rodriguez wrote:
+>> >
+>> > diff -u -p wext.j2.c wext.c
+>> > --- wext.j2.c =C2=A0 2010-08-27 14:17:26.000000000 -0700
+>> > +++ wext.c =C2=A0 =C2=A0 =C2=A02010-08-27 14:19:33.000000000 -0700
+>> > @@ -800,9 +800,12 @@ static int ioctl_standard_iw_point(struc
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0goto out;
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>> >
+>> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (copy_to_use=
+r(iwp->pointer, extra,
+>> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0iwp->length *
+>> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0descr->token_size)) {
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Verify how m=
+uch we should return. Some driver
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* may abu=
+se iwp->length... */
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if((iwp->length=
+ * descr->token_size) < extra_size)
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 extra_size =3D iwp->length * descr->token_size;
+>> > +
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (copy_to_use=
+r(iwp->pointer, extra, extra_size)) {
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0err =3D -EFAULT;
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0goto out;
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>>
+>>
+>> Jean, can you submit in a new thread and right before the SOB add in
+>> the commit log Cc: stable@kernel.org [2.6.32+]
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0The current patch was made for 2.6.27 and =
+was only
+> compiled. Someone would need to verify it works for 2.6.32. I could
+> probably find some time next week.
 
-	The current patch was made for 2.6.27 and was only
-compiled. Someone would need to verify it works for 2.6.32. I could
-probably find some time next week.
+Got it, ah so it would be Cc: stable@kernel.org [2.6.27+]. To get this
+trickled in we first need it for wireless-testing.git, and provide
+links / patches to the backport of the patch for each kernel. Once it
+gets merged into Linus' tree the stable team can apply the respective
+backported patches.
 
->   Luis
-
-	Regards,
-
-	Jean
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  Luis
