@@ -1,37 +1,81 @@
-From: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Subject: [RFC] Support for unidirectional ethernet links
-Date: Fri, 27 Aug 2010 15:42:16 -0400
-Message-ID: <1282938138-17844-1-git-send-email-Kyle.D.Moffett@boeing.com>
-Cc: Kyle Moffett <kyle@moffetthome.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH] net/ipv4: Eliminate kstrdup memory leak
+Date: Fri, 27 Aug 2010 21:47:43 +0200
+Message-ID: <1282938463-26450-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wsip-70-167-241-26.dc.dc.cox.net ([70.167.241.26]:59093 "EHLO
-	firewall1" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752040Ab0H0TmY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Aug 2010 15:42:24 -0400
+Received: from mgw2.diku.dk ([130.225.96.92]:38694 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753509Ab0H0TsC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Aug 2010 15:48:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+The string clone is only used as a temporary copy of the argument val
+within the while loop, and so it should be freed before leaving the
+function.  The call to strsep, however, modifies clone, so a pointer to the
+front of the string is kept in saved_clone, to make it possible to free it.
 
-I'm in the process of dusting off some old unidirectional fiber link
-patches as part of support for a new custom hardware chassis.
+The sematic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
-Specifically, a critical piece of the hardware is unidirectional fiber
-connections between independent computers, with data transmission
-performed using UDP to a static ARP entry.
+// <smpl>
+@r exists@
+local idexpression x;
+expression E;
+identifier l;
+statement S;
+@@
 
-These first 2 RFC patches provide support for off-the-shelf gigabit
-sky2 boards.  I also have another fairly trivial patch to "ethtool"
-which enables it to configure the new ethtool values.
+*x= \(kasprintf\|kstrdup\)(...);
+...
+if (x == NULL) S
+... when != kfree(x)
+    when != E = x
+if (...) {
+  <... when != kfree(x)
+* goto l;
+  ...>
+* return ...;
+}
+// </smpl>
 
-If these patches are acceptable, I'm going to polish up and refine a
-more invasive series which cleans up and extends some of the PHY
-ethtool handling to allow PHYs to handle the unidirectional modes in
-a driver-specific way.
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Cheers,
-Kyle Moffett
+---
+ net/ipv4/tcp_cong.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 0ec9bd0..850c737 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -196,10 +196,10 @@ void tcp_get_allowed_congestion_control(char *buf, size_t maxlen)
+ int tcp_set_allowed_congestion_control(char *val)
+ {
+ 	struct tcp_congestion_ops *ca;
+-	char *clone, *name;
++	char *saved_clone, *clone, *name;
+ 	int ret = 0;
+ 
+-	clone = kstrdup(val, GFP_USER);
++	saved_clone = clone = kstrdup(val, GFP_USER);
+ 	if (!clone)
+ 		return -ENOMEM;
+ 
+@@ -226,6 +226,7 @@ int tcp_set_allowed_congestion_control(char *val)
+ 	}
+ out:
+ 	spin_unlock(&tcp_cong_list_lock);
++	kfree(saved_clone);
+ 
+ 	return ret;
+ }
 
