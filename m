@@ -1,103 +1,175 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH] netfilter: xt_condition: add security capability
- support
-Date: Fri, 27 Aug 2010 10:55:23 +0300
-Message-ID: <1282895723.2006.135.camel@powerslave>
-References: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>
-	 <AANLkTi=2H+ytOQU9nC_dRp_GB5Sy1831VY14oW=YSOrG@mail.gmail.com>
-	 <1282570935.7198.5.camel@powerslave>
-	 <alpine.LNX.2.01.1008231628010.21000@obet.zrqbmnf.qr>
-	 <1282589101.7198.28.camel@powerslave>
-	 <alpine.LNX.2.01.1008232052170.31619@obet.zrqbmnf.qr>
-	 <1282633220.7198.123.camel@powerslave>
-	 <alpine.LNX.2.01.1008240921230.24349@obet.zrqbmnf.qr>
-	 <1282720198.18016.72.camel@powerslave>
-	 <alpine.LNX.2.01.1008251103150.24022@obet.zrqbmnf.qr>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
+Date: Fri, 27 Aug 2010 09:57:27 +0200
+Message-ID: <20100827075727.GA3818@riccoc20.at.omicron.at>
+References: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
+	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
+	<20100817085324.GB3330@riccoc20.at.omicron.at>
+	<1282090963.1734.97.camel@localhost>
+	<20100818071942.GA4096@riccoc20.at.omicron.at>
+	<1282176776.2865.100.camel@localhost.localdomain>
+	<20100819055518.GA4084@riccoc20.at.omicron.at>
+	<1282594125.3111.344.camel@localhost.localdomain>
+	<AANLkTi=nKrRHH6+9mvny718gov8Q+u7DHFikdgNY8YdX@mail.gmail.com>
+	<1282874269.4371.74.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ext Changli Gao <xiaosuo@gmail.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	"linux-security-module@vger.kernel.org"
-	<linux-security-module@vger.kernel.org>
-To: ext Jan Engelhardt <jengelh@medozas.de>,
-	=?ISO-8859-1?Q?M=E4kel=E4?= Juhani
-	<ext-juhani.3.makela@nokia.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1008251103150.24022@obet.zrqbmnf.qr>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1282874269.4371.74.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jan,
+On Thu, Aug 26, 2010 at 06:57:49PM -0700, john stultz wrote:
+> On Wed, 2010-08-25 at 11:40 +0200, Christian Riesch wrote:
+> > 2) Master clock:
+> > We have one or more network ports. Our system has a really good clock
+> > (ovenized quartz crystal, an atomic clock, a GPS timing receiver...)
+> > and it distributes this time on the network. In such a case we do not
+> > steer our clock based on the (packet) timestamps we get from our
+> > timestamping unit. Instead, we directly drive our clock hardware with
+> > a very stable frequency that we get from the OCXO or the atomic
+> > clock...
+>
+> Ok. Following you here...
+>
+> > or we use one of the ancillary features of the PTP clock that
+> > Richard mentioned to timestamp not network packets but a 1pps signal
+> > and use these timestamps to steer the clock.
+>
+> Wait.. I thought we weren't using PTP to steer the clock? But now we're
+> using the pps signal from it to do so? Do I misunderstand you? Or did
+> you just not mean this?
 
-On Wed, 2010-08-25 at 11:04 +0200, ext Jan Engelhardt wrote:
-> On Wednesday 2010-08-25 09:09, Luciano Coelho wrote:
-> >> 
-> >> Indeed so. But you did not invent any new interface. You are reusing
-> >> files, which can be protected by DAC modes, or LSMs doing
-> >> funky-stuff. xt_{condition,recent,..} already implement file modes,
-> >> but does it check for it? Well no, because fs/namei.c does it for
-> >> them. As for LSMs, well, I hope they do cater for testing for
-> >> capability bits.
-> >
-> >I dug deeper into the code and I can see that /sys/net has capability
-> >checks (implemented in netdev_store() in net-sysfs.c) and nobody without
-> >CAP_NET_ADMIN will be able to write to the files there.  But in procfs I
-> >couldn't see anything similar and anyone with file write permissions can
-> >modify the files in /proc/net/*.
-> 
-> I did not say there was. fs/ will handle the DAC part, and if you
-> wanted MAC/capability checking/other sparkles, an LSM sounds like
-> the right spot.
+The master node in a PTP network probably takes its time from a
+precise external time source, like GPS. The GPS provides a 1 PPS
+directly to the PTP clock hardware, which latches the PTP hardware
+clock time on the PPS edge. This provides one sample as input to a
+clock servo (in the PTPd) that, in turn, regulates the PTP clock
+hardware.
 
-There is one fundamental difference that I forgot to point out.  While
-in most cases netfilters are used by _sysadmins_ to route and control
-traffic, we are using it in a very different way.  Our goal is to check
-throughput and other connection characteristics to control power saving
-and other features in an embedded device.  In such devices we typically
-have one single user and the sysadmin is us who define all the rules and
-pre-install them in the device beforehand.  We need to prevent binaries
-rather than users from doing bad things.  Using basic DAC extensively to
-do this may end up getting messy.
+> > Packet time stamping is
+> > used to distribute the time to the slaves, but it is not part of the
+> > control loop in this case.
+>
+> I assume here you mean PTPd is steering the PTP clock according to the
+> system time (which is NTP/GPS/whatever sourced)? And then the PTP clock
+> distributes that time through the network?
 
-That's what I tried to say when I said that we have a security team
-taking care of this.  They are implementing solutions to make the
-product more secure, defending it against malware, misuse, attacks and
-other such things.  In this specific case, security-wise, we are trying
-to prevent some bogus or malicious application from changing our
-netfilter rules and causing havoc.
+Yes, but in this case, "system time" has nothing to do with the Linux
+system time. For a PTP master clock, it really doesn't matter whether
+the Linux time is correct, or not. It doesn't hurt either (but see
+below about chaining servos).
 
-LSM doesn't seem to be an option, here I quote Juhani (my colleague from
-our security team):
+> So first of all, thanks for the extra explanation and context here! I
+> really appreciate it, as I'm not familiar with all the hardware details
+> and possible use cases, but I'm trying to learn.
+>
+> So in the two cases you mention, the time "flow" is something like:
+>
+> #1) [Master Clock on Network1] => [PTP Clock] => [PTPd] =>
+> 	[PTP Clock] => [PTP Clients on Network2]
 
-> The problem with capabilites is that they are assigned to binaries, not
-> users. Kind of a setuid-mechanism, really. In our embedded environment
-> that makes a lot of sense, but in a server-type environment with
-> multiple users and a competent sysadmin, not so much. In such an
-> environment using a LSM might also actually make sense. But for us it's
-> not an option, mostly because LSMs are not stackable - you can have only
-> one effective at any time - and I'm afraid we have already reserved some
-> of the LSM hooks.
+I would only draw the PTP clock once, perhaps like this:
 
-Maybe Juhani can clarify this a bit more.
+                                +------------------------------+
+                                |                              ^
+                                V                              |
+[Master Clock on NW 1]--->[HW timestamp]--->[PTPd]--adj-->[PTP Clock]
+[Slaves on NW 2,3,...]<---[HW timestamp]<---[    ]
 
-One other idea that Juhani had was to add an option to the condition
-match/target where the capability requiremets could be set, instead of
-checking them by default.  If nothing is specified, everything still
-works as before (no caps checks).  Or even a Kconfig option?
+>
+> #2) [GPS] => [NTPd] => [System Time] => [PTPd] => [PTP clock] =>
+> 	[PTP clients on Network]
 
-I don't see any other option for checking the capabilities besides doing
-it in the xt_condition module itself.  Or maybe move the condition
-variable from procfs to sysfs and use the existing netdev_store
-protection that is implemented there? The problem with the latter is the
-same old story we discussed with the idletimer target: where in the
-kernel object tree should the variable be added?
+Nope. More like this:
+
+                                      +------------------------------+
+                                      |                              ^
+                                      V                              |
+[GPS]----------PPS--------->[Latch  timestamp]--->[PTPd]--adj-->[PTP Clock]
+[Slaves on NW 1,2,3,...]<---[HW pkt timestamp]<---[    ]
+
+> And the original case:
+> #3) [Master Clock on Network] => [PTP clock] => [PTPd] => [PTP clock]
+
+More like:
+
+[Master Clock on NW 1]--->[HW timestamp]--->[PTPd]--adj-->[PTP Clock]
+
+> With a secondary control flow:
+> 	[PPS signal from PTP clock] => [NTPd] => [System Time]
+
+Yes.
 
 
--- 
-Cheers,
-Luca.
+> So, just brainstorming here, I guess the question I'm trying to figure
+> out here, is can the "System Time" and "PTP clock" be merged/globbed
+> into a single "Time" interface from the userspace point of view?
 
+This is the core issue and source of misunderstanding, in my view. The
+fact of the matter is, the current generation of computers has
+multiple clocks, and these are usually unsynchronized. I think we
+should not try too hard to cover up or work around this. It is a fact
+of life.
+
+It would be nice if there were only one clock, and that clock could do
+everything that we need. Indeed, the next generation of SoC computers may
+all have PTP build in to the main CPU. Well, one can always wish.
+
+If we can make it appear that multiple clocks are just one clock, then
+I agree that we should do it. But I would not want to sacrifice
+synchronization accuracy or application features just to keep that
+illusion.
+
+> In other words, if internal to the kernel, the PTP clock was always
+> synced to the system time, couldn't the flow look something like:
+>
+> #3') [Master clock on network] => [PTP clock] => [PTPd] =>
+> 	 [System Time] => [in-kernel sync thread] => [PTP clock]
+>
+> So PTPd sees the offset adjustment from the PTP clock, and then feeds
+> that offset correction right into (a possibly enhanced) adjtimex. The
+> kernel would then immediately steer the PTP clock by the same amount to
+> keep it in sync with system time (along with a periodic offset/freq
+> correction step to deal with crystal drift).
+>
+> Similarly:
+>
+> #2') [GPS] => [NTPd] => [System Time] => [in-kernel sync thread] =>
+> 		[PTP clock] => [PTP clients on Network]
+>
+> and
+>
+> #1') [Master Clock on Network1] => [PTP Clock] => [PTPd] =>
+> 	[System Time] => [in-kernel sync thread] => [PTP Clock] =>
+> 	[PTP Clients on Network2]
+>
+> Now, I realize PTP purists probably won't like this, because it
+> effectively makes the in-kernel sync thread similar to a PTP boundary
+> clock (or worse, since the control loop isn't exactly direct).
+
+I don't like it. The experience with PTP boundary clocks already shows
+that the errors in servo loops cascade. It worsens the PTP performance.
+
+However, I think it would fine just to synch the Linux system time to
+the PTP clock using the PPS interface, which is what my patch set
+implements. Linux user applications would not be able to detect the
+difference.
+
+Richard
