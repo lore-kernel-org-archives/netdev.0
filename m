@@ -1,58 +1,44 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: fix wrong return from bnx2x_trylock_hw_lock
-Date: Fri, 27 Aug 2010 07:54:44 +0300
-Message-ID: <1282884884.14181.1.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1282880943.2501.13.camel@edumazet-laptop>
-Reply-To: eilong@broadcom.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 v3] gro: __napi_gro_receive() optimizations
+Date: Thu, 26 Aug 2010 22:01:48 -0700 (PDT)
+Message-ID: <20100826.220148.183036083.davem@davemloft.net>
+References: <1282883713.2501.29.camel@edumazet-laptop>
+	<20100826.213816.112615295.davem@davemloft.net>
+	<1282884224.2501.33.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Vladislav Zolotarov" <vladz@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2654 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753228Ab0H0Ey7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Aug 2010 00:54:59 -0400
-In-Reply-To: <1282880943.2501.13.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52981
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753298Ab0H0FBd convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Aug 2010 01:01:33 -0400
+In-Reply-To: <1282884224.2501.33.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-08-26 at 20:49 -0700, Eric Dumazet wrote:
-> bnx2x_trylock_hw_lock() returns a bool :
-> 
-> true if succeeded to acquire the lock.
-> false in case of error.
-> 
-> -EINVAL is not an acceptable value, since its promoted to true.
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 27 Aug 2010 06:43:44 +0200
 
-Indeed - thanks Eric!
+> Le jeudi 26 ao=FBt 2010 =E0 21:38 -0700, David Miller a =E9crit :
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Fri, 27 Aug 2010 06:35:13 +0200
+>>=20
+>> > +	fold |=3D *(unsigned long *)(a + 6) ^ *(unsigned long *)(b + 6);
+>>=20
+>> Shouldn't these be "+ 8" instead of "+ 6"?
+>=20
+> Not really, we want to compare 14 bytes, not 16
+>=20
+> So we have (sizeof(long) + sizeof(long)) - intersection
 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
+I see.
 
-> ---
-> Cosmetic patch, since compiler probably omits the code anyway.
-> 
-> diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-> index f8c3f08..86cc4b0 100644
-> --- a/drivers/net/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/bnx2x/bnx2x_main.c
-> @@ -781,7 +781,7 @@ static bool bnx2x_trylock_hw_lock(struct bnx2x *bp, u32 resource)
->  		DP(NETIF_MSG_HW,
->  		   "resource(0x%x) > HW_LOCK_MAX_RESOURCE_VALUE(0x%x)\n",
->  		   resource, HW_LOCK_MAX_RESOURCE_VALUE);
-> -		return -EINVAL;
-> +		return false;
->  	}
->  
->  	if (func <= 5)
-> 
-> 
-> 
+> I guess I should comment this :)
 
-
+Yes, that would help feeble minds like mine :-)  Repost with a comment
+and I'll apply it, thanks!
 
