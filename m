@@ -1,66 +1,61 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Fri, 27 Aug 2010 14:03:41 +0200
-Message-ID: <201008271403.41949.arnd@arndb.de>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
-	<1282594899.3111.358.camel@localhost.localdomain>
-	<20100827110855.GA11657@riccoc20.at.omicron.at>
+Date: Fri, 27 Aug 2010 13:41:54 +0100
+Message-ID: <20100827134154.50eef56c@lxorguk.ukuu.org.uk>
+References: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
+	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
+	<20100817085324.GB3330@riccoc20.at.omicron.at>
+	<1282090963.1734.97.camel@localhost>
+	<20100818071942.GA4096@riccoc20.at.omicron.at>
+	<1282176776.2865.100.camel@localhost.localdomain>
+	<20100819055518.GA4084@riccoc20.at.omicron.at>
+	<1282594125.3111.344.camel@localhost.localdomain>
+	<AANLkTi=nKrRHH6+9mvny718gov8Q+u7DHFikdgNY8YdX@mail.gmail.com>
+	<1282874269.4371.74.camel@localhost.localdomain>
+	<20100827075727.GA3818@riccoc20.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20100827110855.GA11657-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Cc: Rodolfo Giometti <giometti@linux.it>, Arnd Bergmann <arnd@arndb.de>,
+	john stultz <johnstul@us.ibm.com>, devicetree-discuss@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org,
+	Christian Riesch <christian.riesch@omicron.at>,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org, Krzysztof Halasa <khc@pm.waw.pl>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20100827075727.GA3818@riccoc20.at.omicron.at>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 27 August 2010, Richard Cochran wrote:
-> On Mon, Aug 23, 2010 at 01:21:39PM -0700, john stultz wrote:
-> > On Thu, 2010-08-19 at 17:38 +0200, Richard Cochran wrote:
-> > > On Thu, Aug 19, 2010 at 02:28:04PM +0200, Arnd Bergmann wrote:
-> > > > Have you considered passing a struct timex instead of ppb and ts?
-> > > 
-> > > Yes, but the timex is not suitable, IMHO.
-> > 
-> > Could you expand on this?
-> 
-> We need to able to specify that the call is for a PTP clock. We could
-> add that to the modes flag, like this:
-> 
-> /*timex.h*/
-> #define ADJ_PTP_0 0x10000
-> #define ADJ_PTP_1 0x20000
-> #define ADJ_PTP_2 0x30000
-> #define ADJ_PTP_3 0x40000
->
-> I can live with this, if everyone else can, too.
+> The master node in a PTP network probably takes its time from a
+> precise external time source, like GPS. The GPS provides a 1 PPS
+> directly to the PTP clock hardware, which latches the PTP hardware
+> clock time on the PPS edge. This provides one sample as input to a
+> clock servo (in the PTPd) that, in turn, regulates the PTP clock
+> hardware.
 
-My suggestion was actually to have a new syscall with the existing
-structure, and pass a clockid_t value to it, similar to your
-sys_clock_adjtime(), not change the actual sys_adjtime syscall.
-  
-> > Could we not add a adjustment mode ADJ_SETOFFSET or something that would
-> > provide the instantaneous offset correction?
-> 
-> Yes, but we would also need to add a struct timespec to the struct
-> timex, in order to get nanosecond resolution. I think it would be
-> possible to do in the padding at the end?
+A PTP clock is TAI, Unix time is UTC.
 
-Yes, that's exactly what the padding is for. Instead of timespec, you can
-probably have a extra values for replacing the existing ppm values with
-ppb values.
+> This is the core issue and source of misunderstanding, in my view. The
+> fact of the matter is, the current generation of computers has
+> multiple clocks, and these are usually unsynchronized. I think we
+> should not try too hard to cover up or work around this. It is a fact
+> of life.
 
-	Arnd
+In this case I don't think you can. Their divergence is rather difficult
+to handle unless you have a GPS to hand.
+
+But all this talk of "PTP this" and "PTP that" is not helpful. Any
+interface for additional time sources should be generic with PTP being
+one use case.
+
+Alan
