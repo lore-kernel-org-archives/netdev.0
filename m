@@ -1,43 +1,241 @@
-From: Glen Turner <gdt@gdt.id.au>
-Subject: Long fat pipe access for netdev people at linux.conf.au 2011
-Date: Fri, 27 Aug 2010 16:58:15 +0930
-Message-ID: <1282894095.3688.21.camel@thrace.adelaide.aarnet.edu.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH v3] slip: Use net_device_stats from struct net_device
+Date: Fri, 27 Aug 2010 10:12:08 +0200
+Message-ID: <1282896728-5211-1-git-send-email-tklauser@distanz.ch>
+References: <1282811286-19659-1-git-send-email-tklauser@distanz.ch>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:46724 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753369Ab0H0IKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 04:10:32 -0400
-Received: from [202.158.193.5] (thrace.adelaide.aarnet.edu.au [202.158.193.5])
-	(authenticated bits=0)
-	by aix.gdt.id.au (8.14.2/8.14.2) with ESMTP id o7R7SGhm022047
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 27 Aug 2010 16:58:17 +0930
+Received: from mx1.zhaw.ch ([160.85.104.50]:55197 "EHLO mx1.zhaw.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750986Ab0H0IMK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Aug 2010 04:12:10 -0400
+In-Reply-To: <1282811286-19659-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+Use net_device->stats for stats instead of private variable copies in
+struct slip. Use ndo_get_stat64 so the additions can be performed on a private
+destination buffer.
 
-AARNet has again been asked to sponsor the connectivity for
-linux.conf.au in Brisbane Australia from 24 January 2011.
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/slip.c |   61 ++++++++++++++++++++++++++-------------------------
+ drivers/net/slip.h |    9 -------
+ 2 files changed, 31 insertions(+), 39 deletions(-)
 
-If people in the netdev community attending LCA would like access to
-some hardware to test their work against a 10Gbps link to
-Brisbane-Seattle running IPv4/IPv4 multicast/IPv6/IPv6 multicast then
-drop me a mail and I'll make arrangements.
-
-As you can guess, Internet users in Australia face a massive round-trip
-time and as speeds increase the RTT stresses TCP algorithms and
-implementations, so we're more than pleased to help kernel programmers
-make our users happier.
-
-Cheers, Glen
-
+diff --git a/drivers/net/slip.c b/drivers/net/slip.c
+index d5a36f5..38547a8 100644
+--- a/drivers/net/slip.c
++++ b/drivers/net/slip.c
+@@ -271,7 +271,7 @@ static int sl_realloc_bufs(struct slip *sl, int mtu)
+ 			memcpy(sl->xbuff, sl->xhead, sl->xleft);
+ 		} else  {
+ 			sl->xleft = 0;
+-			sl->tx_dropped++;
++			dev->stats.tx_dropped++;
+ 		}
+ 	}
+ 	sl->xhead = sl->xbuff;
+@@ -281,7 +281,7 @@ static int sl_realloc_bufs(struct slip *sl, int mtu)
+ 			memcpy(sl->rbuff, rbuff, sl->rcount);
+ 		} else  {
+ 			sl->rcount = 0;
+-			sl->rx_over_errors++;
++			dev->stats.rx_over_errors++;
+ 			set_bit(SLF_ERROR, &sl->flags);
+ 		}
+ 	}
+@@ -319,6 +319,7 @@ static inline void sl_unlock(struct slip *sl)
+ /* Send one completely decapsulated IP datagram to the IP layer. */
+ static void sl_bump(struct slip *sl)
+ {
++	struct net_device *dev = sl->dev;
+ 	struct sk_buff *skb;
+ 	int count;
+ 
+@@ -329,13 +330,13 @@ static void sl_bump(struct slip *sl)
+ 		if (c & SL_TYPE_COMPRESSED_TCP) {
+ 			/* ignore compressed packets when CSLIP is off */
+ 			if (!(sl->mode & SL_MODE_CSLIP)) {
+-				printk(KERN_WARNING "%s: compressed packet ignored\n", sl->dev->name);
++				printk(KERN_WARNING "%s: compressed packet ignored\n", dev->name);
+ 				return;
+ 			}
+ 			/* make sure we've reserved enough space for uncompress
+ 			   to use */
+ 			if (count + 80 > sl->buffsize) {
+-				sl->rx_over_errors++;
++				dev->stats.rx_over_errors++;
+ 				return;
+ 			}
+ 			count = slhc_uncompress(sl->slcomp, sl->rbuff, count);
+@@ -346,7 +347,7 @@ static void sl_bump(struct slip *sl)
+ 				/* turn on header compression */
+ 				sl->mode |= SL_MODE_CSLIP;
+ 				sl->mode &= ~SL_MODE_ADAPTIVE;
+-				printk(KERN_INFO "%s: header compression turned on\n", sl->dev->name);
++				printk(KERN_INFO "%s: header compression turned on\n", dev->name);
+ 			}
+ 			sl->rbuff[0] &= 0x4f;
+ 			if (slhc_remember(sl->slcomp, sl->rbuff, count) <= 0)
+@@ -355,20 +356,20 @@ static void sl_bump(struct slip *sl)
+ 	}
+ #endif  /* SL_INCLUDE_CSLIP */
+ 
+-	sl->rx_bytes += count;
++	dev->stats.rx_bytes += count;
+ 
+ 	skb = dev_alloc_skb(count);
+ 	if (skb == NULL) {
+-		printk(KERN_WARNING "%s: memory squeeze, dropping packet.\n", sl->dev->name);
+-		sl->rx_dropped++;
++		printk(KERN_WARNING "%s: memory squeeze, dropping packet.\n", dev->name);
++		dev->stats.rx_dropped++;
+ 		return;
+ 	}
+-	skb->dev = sl->dev;
++	skb->dev = dev;
+ 	memcpy(skb_put(skb, count), sl->rbuff, count);
+ 	skb_reset_mac_header(skb);
+ 	skb->protocol = htons(ETH_P_IP);
+ 	netif_rx(skb);
+-	sl->rx_packets++;
++	dev->stats.rx_packets++;
+ }
+ 
+ /* Encapsulate one IP datagram and stuff into a TTY queue. */
+@@ -379,7 +380,7 @@ static void sl_encaps(struct slip *sl, unsigned char *icp, int len)
+ 
+ 	if (len > sl->mtu) {		/* Sigh, shouldn't occur BUT ... */
+ 		printk(KERN_WARNING "%s: truncating oversized transmit packet!\n", sl->dev->name);
+-		sl->tx_dropped++;
++		sl->dev->stats.tx_dropped++;
+ 		sl_unlock(sl);
+ 		return;
+ 	}
+@@ -433,7 +434,7 @@ static void slip_write_wakeup(struct tty_struct *tty)
+ 	if (sl->xleft <= 0)  {
+ 		/* Now serial buffer is almost free & we can start
+ 		 * transmission of another packet */
+-		sl->tx_packets++;
++		sl->dev->stats.tx_packets++;
+ 		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+ 		sl_unlock(sl);
+ 		return;
+@@ -496,7 +497,7 @@ sl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ 	sl_lock(sl);
+-	sl->tx_bytes += skb->len;
++	dev->stats.tx_bytes += skb->len;
+ 	sl_encaps(sl, skb->data, skb->len);
+ 	spin_unlock(&sl->lock);
+ 
+@@ -558,16 +559,16 @@ static int sl_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ /* Netdevice get statistics request */
+ 
+-static struct net_device_stats *
+-sl_get_stats(struct net_device *dev)
++static struct rtnl_link_stats64 *
++sl_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ {
+-	struct net_device_stats *stats = &dev->stats;
+-	struct slip *sl = netdev_priv(dev);
++	struct net_device_stats *devstats = &dev->stats;
+ 	unsigned long c_rx_dropped = 0;
+ #ifdef SL_INCLUDE_CSLIP
+ 	unsigned long c_rx_fifo_errors = 0;
+ 	unsigned long c_tx_fifo_errors = 0;
+ 	unsigned long c_collisions = 0;
++	struct slip *sl = netdev_priv(dev);
+ 	struct slcompress *comp = sl->slcomp;
+ 
+ 	if (comp) {
+@@ -580,16 +581,16 @@ sl_get_stats(struct net_device *dev)
+ 	stats->tx_fifo_errors = sl->tx_compressed + c_tx_fifo_errors;
+ 	stats->collisions     = sl->tx_misses + c_collisions;
+ #endif
++	stats->rx_packets     = devstats->rx_packets;
++	stats->tx_packets     = devstats->tx_packets;
++	stats->rx_bytes       = devstats->rx_bytes;
++	stats->tx_bytes       = devstats->tx_bytes;
++	stats->rx_dropped     = devstats->rx_dropped + c_rx_dropped;
++	stats->tx_dropped     = devstats->tx_dropped;
++	stats->tx_errors      = devstats->tx_errors;
++	stats->rx_errors      = devstats->rx_errors;
++	stats->rx_over_errors = devstats->rx_over_errors;
+ 
+-	stats->rx_packets     = sl->rx_packets;
+-	stats->tx_packets     = sl->tx_packets;
+-	stats->rx_bytes	      = sl->rx_bytes;
+-	stats->tx_bytes	      = sl->tx_bytes;
+-	stats->rx_dropped     = sl->rx_dropped + c_rx_dropped;
+-	stats->tx_dropped     = sl->tx_dropped;
+-	stats->tx_errors      = sl->tx_errors;
+-	stats->rx_errors      = sl->rx_errors;
+-	stats->rx_over_errors = sl->rx_over_errors;
+ 	return stats;
+ }
+ 
+@@ -633,7 +634,7 @@ static const struct net_device_ops sl_netdev_ops = {
+ 	.ndo_open		= sl_open,
+ 	.ndo_stop		= sl_close,
+ 	.ndo_start_xmit		= sl_xmit,
+-	.ndo_get_stats	        = sl_get_stats,
++	.ndo_get_stats64        = sl_get_stats64,
+ 	.ndo_change_mtu		= sl_change_mtu,
+ 	.ndo_tx_timeout		= sl_tx_timeout,
+ #ifdef CONFIG_SLIP_SMART
+@@ -681,7 +682,7 @@ static void slip_receive_buf(struct tty_struct *tty, const unsigned char *cp,
+ 	while (count--) {
+ 		if (fp && *fp++) {
+ 			if (!test_and_set_bit(SLF_ERROR, &sl->flags))
+-				sl->rx_errors++;
++				sl->dev->stats.rx_errors++;
+ 			cp++;
+ 			continue;
+ 		}
+@@ -981,7 +982,7 @@ static void slip_unesc(struct slip *sl, unsigned char s)
+ 			sl->rbuff[sl->rcount++] = s;
+ 			return;
+ 		}
+-		sl->rx_over_errors++;
++		sl->dev->stats.rx_over_errors++;
+ 		set_bit(SLF_ERROR, &sl->flags);
+ 	}
+ }
+@@ -1057,7 +1058,7 @@ static void slip_unesc6(struct slip *sl, unsigned char s)
+ 					sl->rbuff[sl->rcount++] = c;
+ 					return;
+ 				}
+-				sl->rx_over_errors++;
++				sl->dev->stats.rx_over_errors++;
+ 				set_bit(SLF_ERROR, &sl->flags);
+ 			}
+ 		}
+diff --git a/drivers/net/slip.h b/drivers/net/slip.h
+index 9ea5c11..914e958 100644
+--- a/drivers/net/slip.h
++++ b/drivers/net/slip.h
+@@ -67,15 +67,6 @@ struct slip {
+   int                   xleft;          /* bytes left in XMIT queue     */
+ 
+   /* SLIP interface statistics. */
+-  unsigned long		rx_packets;	/* inbound frames counter	*/
+-  unsigned long         tx_packets;     /* outbound frames counter      */
+-  unsigned long		rx_bytes;	/* inbound byte counte		*/
+-  unsigned long         tx_bytes;       /* outbound byte counter	*/
+-  unsigned long         rx_errors;      /* Parity, etc. errors          */
+-  unsigned long         tx_errors;      /* Planned stuff                */
+-  unsigned long         rx_dropped;     /* No memory for skb            */
+-  unsigned long         tx_dropped;     /* When MTU change              */
+-  unsigned long         rx_over_errors; /* Frame bigger than SLIP buf.  */
+ #ifdef SL_INCLUDE_CSLIP
+   unsigned long		tx_compressed;
+   unsigned long		rx_compressed;
 -- 
-Glen Turner
-Tel: (02) 6222 3525 or +61 2 6222 3525
-Australia's Academic & Research Network
+1.7.0.4
 
