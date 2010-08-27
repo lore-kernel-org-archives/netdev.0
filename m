@@ -1,28 +1,69 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V3
-Date: Thu, 26 Aug 2010 18:57:09 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1008261856090.29657@router.home>
-References: <adapqx5rtez.fsf@cisco.com> <alpine.DEB.2.00.1008261613160.24174@router.home> <alpine.DEB.2.00.1008261629440.24174@router.home> <20100826.151553.242147157.davem@davemloft.net> <20100826222146.GA23025@obsidianresearch.com>
- <alpine.DEB.2.00.1008261825490.26351@router.home> <20100826234342.GA24333@obsidianresearch.com>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: [PATCH net-next-2.6 1/3] qlcnic: Fix missing error codes
+Date: Thu, 26 Aug 2010 17:02:41 -0700
+Message-ID: <alpine.OSX.2.00.1008261640190.9385@macintosh-2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rdreier@cisco.com, linux-rdma@vger.kernel.org,
-	ogerlitz@voltaire.com, yosefe@voltaire.com, netdev@vger.kernel.org
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.prem.mail.ac4.yahoo.com ([76.13.13.41]:48178 "HELO
-	smtp102.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753906Ab0HZX5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 19:57:13 -0400
-In-Reply-To: <20100826234342.GA24333@obsidianresearch.com>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:23113 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752316Ab0H0ACn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 20:02:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Aug 2010, Jason Gunthorpe wrote:
+From: Sony Chacko <sony.chacko@qlogic.com>
 
-> I think doing the memcmp only in the multicast path should be
-> reasonable overhead wise.
+In the original code, the error codes returned from some of the functions
+are not caught and sent up the caller chain. Fixed it here.
 
-Thats is not always possible. Here the multicast path is the
-default path that is taken 99% of the time.
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic_main.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 630a077..1b8f67d 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -967,7 +967,8 @@ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
+ 	if (load_fw_file)
+ 		qlcnic_request_firmware(adapter);
+ 	else {
+-		if (qlcnic_check_flash_fw_ver(adapter))
++		err = qlcnic_check_flash_fw_ver(adapter);
++		if (err)
+ 			goto err_out;
+ 
+ 		adapter->fw_type = QLCNIC_FLASH_ROMIMAGE;
+@@ -998,9 +999,11 @@ set_dev_ready:
+ 	QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_READY);
+ 	qlcnic_idc_debug_info(adapter, 1);
+ 
+-	if (qlcnic_set_default_offload_settings(adapter))
++	err = qlcnic_set_default_offload_settings(adapter);
++	if (err)
+ 		goto err_out;
+-	if (qlcnic_reset_npar_config(adapter))
++	err = qlcnic_reset_npar_config(adapter);
++	if (err)
+ 		goto err_out;
+ 	qlcnic_dev_set_npar_ready(adapter);
+ 	qlcnic_check_options(adapter);
+@@ -1515,7 +1518,8 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (qlcnic_read_mac_addr(adapter))
+ 		dev_warn(&pdev->dev, "failed to read mac addr\n");
+ 
+-	if (qlcnic_setup_idc_param(adapter))
++	err = qlcnic_setup_idc_param(adapter);
++	if (err)
+ 		goto err_out_iounmap;
+ 
+ 	err = adapter->nic_ops->start_firmware(adapter);
+-- 
+1.7.1
 
