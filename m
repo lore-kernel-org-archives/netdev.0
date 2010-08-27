@@ -1,68 +1,66 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/1] posix clocks: introduce syscall for clock tuning.
-Date: Fri, 27 Aug 2010 13:24:06 +0200
-Message-ID: <20100827112406.GB11657@riccoc20.at.omicron.at>
-References: <cover.1282550649.git.richard.cochran@omicron.at>
- <e253843e07ce5d15c2c8d11ce786bf979ed85ca5.1282550649.git.richard.cochran@omicron.at>
- <201008231457.26690.arnd@arndb.de>
- <1282596073.3111.373.camel@localhost.localdomain>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
+Date: Fri, 27 Aug 2010 14:03:41 +0200
+Message-ID: <201008271403.41949.arnd@arndb.de>
+References: <cover.1281956490.git.richard.cochran@omicron.at>
+	<1282594899.3111.358.camel@localhost.localdomain>
+	<20100827110855.GA11657@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1282596073.3111.373.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20100827110855.GA11657-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 23, 2010 at 01:41:13PM -0700, john stultz wrote:
-> As I mentioned in the previous mail, I agree the new functionality
-> (adjusting the time by an offset instantaneously) is useful, but I'd
-> prefer it be done initially within the existing adjtimex() interface.
-
-But the adjtimex does not support nanosecond resolution.
- 
-> Then if the posix-time clock_id multiplexing version of adjtimex is
-> found to be necessary, the new syscall should be introduced, using the
-> same API (not all clock_ids need to support all the adjtimex modes, but
-> the new interface should be sufficient for NTPd to use).
-
-Would the new syscall need to take a struct timex?
-
-If so, I think it not worth the effort of adding a syscall. Instead,
-we can just add "clockid" flags into the mode field.
-
-> There are some other conceptual issues this new syscall introduces:
+On Friday 27 August 2010, Richard Cochran wrote:
+> On Mon, Aug 23, 2010 at 01:21:39PM -0700, john stultz wrote:
+> > On Thu, 2010-08-19 at 17:38 +0200, Richard Cochran wrote:
+> > > On Thu, Aug 19, 2010 at 02:28:04PM +0200, Arnd Bergmann wrote:
+> > > > Have you considered passing a struct timex instead of ppb and ts?
+> > > 
+> > > Yes, but the timex is not suitable, IMHO.
+> > 
+> > Could you expand on this?
 > 
-> 1) While clock_adjtimex(CLOCK_REALTIME,...) would be equivalent to
-> adjtimex(), would clock_adjtimex(CLOCK_MONOTONIC,...) make sense? 
+> We need to able to specify that the call is for a PTP clock. We could
+> add that to the modes flag, like this:
 > 
-> Given CLOCK_MONOTONIC and CLOCK_REALTIME are both based off the same
-> notion of time, but offset from each other, any adjustment to one clock
-> would be reflected in the other. However, the API would make it seem
-> like they could be adjusted independently.
+> /*timex.h*/
+> #define ADJ_PTP_0 0x10000
+> #define ADJ_PTP_1 0x20000
+> #define ADJ_PTP_2 0x30000
+> #define ADJ_PTP_3 0x40000
+>
+> I can live with this, if everyone else can, too.
 
-You could adjust the frequency of either one. As a side effect, the
-other clock would also be adjusted.
-
-You can only change the time offset on CLOCK_REALTIME, and that would
-have no effect on CLOCK_MONOTONIC.
-
-> 2) The same issue in #1 exists for CLOCK_REALTIME/MONOTONIC_COARSE
-> variants. 
+My suggestion was actually to have a new syscall with the existing
+structure, and pass a clockid_t value to it, similar to your
+sys_clock_adjtime(), not change the actual sys_adjtime syscall.
+  
+> > Could we not add a adjustment mode ADJ_SETOFFSET or something that would
+> > provide the instantaneous offset correction?
 > 
-> 3) Freq steering for MONOTONIC_RAW would defeat the purpose of the
-> clock_id.
+> Yes, but we would also need to add a struct timespec to the struct
+> timex, in order to get nanosecond resolution. I think it would be
+> possible to do in the padding at the end?
 
-If I understand correctly, MONOTONIC_RAW is just access to the
-hardware counter?
- 
-> 4) Does adjustments to CPU_TIME clock_ids make sense?
+Yes, that's exactly what the padding is for. Instead of timespec, you can
+probably have a extra values for replacing the existing ppm values with
+ppb values.
 
-Don't think so.
-
-
-Thanks,
-Richard
+	Arnd
