@@ -1,44 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] slip: Use net_device_stats from struct net_device
-Date: Fri, 27 Aug 2010 10:28:13 +0200
-Message-ID: <1282897693.2487.2.camel@edumazet-laptop>
-References: <1282811286-19659-1-git-send-email-tklauser@distanz.ch>
-	 <1282896728-5211-1-git-send-email-tklauser@distanz.ch>
+From: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
+Subject: Re: [Bugme-new] [Bug 16626] New: Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Fri, 27 Aug 2010 11:44:51 +0300
+Message-ID: <4C777B03.9060203@fs.uni-ruse.bg>
+References: <20100820193835.GA6025@del.dom.local>	 <20100821074742.GA2367@del.dom.local>	 <1282377058.2636.12.camel@edumazet-laptop>	 <20100821080735.GA2409@del.dom.local> <4C725FCB.2000304@fs.uni-ruse.bg>	 <20100823124736.GA16966@ff.dom.local>	 <1282568443.2486.34.camel@edumazet-laptop>	 <20100823131056.GA19160@ff.dom.local> <4C727B06.2060002@fs.uni-ruse.bg>	 <4C72802D.8090405@fs.uni-ruse.bg> <20100823141437.GA2282@del.dom.local>	 <4C734FB5.1090702@fs.uni-ruse.bg>	 <1282626102.2378.1351.camel@edumazet-laptop>	 <4C738636.4000107@fs.uni-ruse.bg>  <4C73C8DF.4060601@fs.uni-ruse.bg> <1282662532.2477.248.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tobias Klauser <tklauser@distanz.ch>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46987 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007Ab0H0I2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 04:28:18 -0400
-Received: by wyb35 with SMTP id 35so3266663wyb.19
-        for <netdev@vger.kernel.org>; Fri, 27 Aug 2010 01:28:16 -0700 (PDT)
-In-Reply-To: <1282896728-5211-1-git-send-email-tklauser@distanz.ch>
+Received: from [83.228.35.12] ([83.228.35.12]:38694 "EHLO fs.ru.acad.bg"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752699Ab0H0Iox (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Aug 2010 04:44:53 -0400
+In-Reply-To: <1282662532.2477.248.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 27 ao=C3=BBt 2010 =C3=A0 10:12 +0200, Tobias Klauser a =C3=A9=
-crit :
-> Use net_device->stats for stats instead of private variable copies in
-> struct slip. Use ndo_get_stat64 so the additions can be performed on =
-a private
-> destination buffer.
->=20
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> ---
->  drivers/net/slip.c |   61 ++++++++++++++++++++++++++----------------=
----------
->  drivers/net/slip.h |    9 -------
->  2 files changed, 31 insertions(+), 39 deletions(-)
->=20
+Current status refresh:
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Just tried 2.6.35.4, but without luck.
 
-Thanks Tobias !
+See the oops at http://picpaste.com/8240d73e92bd2ba25a9b4019010fcabf.jpg
 
+Eric Dumazet and I are continuing to try and find a solution for my
+problem via private email.
 
-
+Thanks,
+Plamen
