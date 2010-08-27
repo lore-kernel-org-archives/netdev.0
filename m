@@ -1,48 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: MTU for serving NFS on Infiniband
-Date: Thu, 26 Aug 2010 17:06:14 -0700 (PDT)
-Message-ID: <20100826.170614.02282407.davem@davemloft.net>
-References: <1282823827.2476.663.camel@edumazet-laptop>
-	<alpine.WNT.2.00.1008260835020.2008@cluij.ucs.ualberta.ca>
-	<20100826165359.3b79b27d@nehalam>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V3
+Date: Thu, 26 Aug 2010 17:07:16 -0700 (PDT)
+Message-ID: <20100826.170716.68143372.davem@davemloft.net>
+References: <alpine.DEB.2.00.1008261825490.26351@router.home>
+	<20100826234342.GA24333@obsidianresearch.com>
+	<alpine.DEB.2.00.1008261856090.29657@router.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tsi@ualberta.ca, eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53347
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752015Ab0H0AF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Aug 2010 20:05:59 -0400
-In-Reply-To: <20100826165359.3b79b27d@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org,
+	yosefe-smomgflXvOZWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.00.1008261856090.29657-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 26 Aug 2010 16:53:59 -0700
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Date: Thu, 26 Aug 2010 18:57:09 -0500 (CDT)
 
-> On Thu, 26 Aug 2010 08:43:42 -0600 (Mountain Daylight Time)
-> Marc Aurele La France <tsi@ualberta.ca> wrote:
+> On Thu, 26 Aug 2010, Jason Gunthorpe wrote:
 > 
->> Right.  And a 65520 MTU allocates sk_buff's with 128K contiguous payloads.
+>> I think doing the memcmp only in the multicast path should be
+>> reasonable overhead wise.
 > 
-> Infiniband device driver needs to be fixed to do SG and checksum offload.
+> Thats is not always possible. Here the multicast path is the
+> default path that is taken 99% of the time.
 
-Agreed, this problem is in the infiniband layer and should be fixed
-there.
+The highest cost is bringing in that packet header's cache line, which
+you've already done by reading the byte and checking for 0xff.
 
-But I fear there is a real potential blocker for this, if the
-infiniband layer can't checksum transmit packets in hardware we cannot
-legitimately add SG support.
-
-Paged SKBs can have references to page cache pages and similar.  These
-can be updated asynchronously to the transmit, there is no locking at
-all to freeze the contents, and therefore full checksum offload is
-required to support SG correctly.
-
-So don't get the idea to do the checksum in software in the infiniband
-layer, and advertize hw checksumming support, to get around this :-)
+I doubt the memcmp() can possibly matter.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
