@@ -1,119 +1,44 @@
-From: Kees Cook <kees.cook@canonical.com>
-Subject: [PATCH] wireless: fix 64K kernel heap content leak via ioctl
-Date: Fri, 27 Aug 2010 14:02:41 -0700
-Message-ID: <20100827210240.GC4703@outflux.net>
+From: "Moffett, Kyle D" <Kyle.D.Moffett@boeing.com>
+Subject: Re: [PATCH 2/2] sky2: Add unidirectional fiber link support
+Date: Fri, 27 Aug 2010 15:51:58 -0500
+Message-ID: <81DAD951-0909-4D3A-8451-AEE3F9B07054@boeing.com>
+References: <1282938138-17844-1-git-send-email-Kyle.D.Moffett@boeing.com><12
+ 82938138-17844-3-git-send-email-Kyle.D.Moffett@boeing.com>
+ <20100827133825.494b8098@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Joe Perches <joe@perches.com>, Jean Tourrilhes <jt@hpl.hp.com>,
-	Tejun Heo <tj@kernel.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Kyle Moffett <kyle@moffetthome.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stl-smtpout-01.boeing.com ([130.76.96.56]:34448 "EHLO
+	stl-smtpout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751034Ab0H0VV4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 17:21:56 -0400
+In-Reply-To: <20100827133825.494b8098@nehalam>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This problem was originally tracked down by Brad Spengler.
+On Aug 27, 2010, at 16:38, Stephen Hemminger wrote:
+> On Fri, 27 Aug 2010 15:42:18 -0400 Kyle Moffett <Kyle.D.Moffett@boeing.com> wrote:
+>> +	/* 
+>> +	 * Once interrupts are reenabled, reset the PHY again to make sure
+>> +	 * that we didn't miss a link-up interrupt.  This is especially
+>> +	 * likely to occur if we're in fiber-txonly mode, as a link-up
+>> +	 * interrupt is generated almost immediately after we finish
+>> +	 * programming the PHY.
+>> +	 */
+>> +	sky2_phy_reinit(sky2);
+> 
+> Won't this cause a renegotiation causing up to 2 second delay?
 
-When calling wireless ioctls, if a driver does not correctly
-validate/shrink iwp->length, the resulting copy_to_user can leak up to
-64K of kernel heap contents.
+Well, I suppose that's possible, but we've only just reset and enabled the PHY moments before, so I don't see where you could get an *extra* 2-second delay.  On the other hand, I suppose it would be much nicer if there was an easy way to fake an extra interrupt there instead of reinitializing the whole PHY.  I'm not all that comfortable with my understanding of the interrupt logic in the sky2 driver, so I figured I would just reuse all the necessary locking from sky2_phy_reinit().
 
-It seems that this is triggerable[1] in 2.6.32 at least on ath5k, but
-I was not able to track down how. The twisty maze of ioctl handlers
-stumped me. :) Other drivers I checked did not appear to have any problems,
-but the potential remains. I'm not sure if this patch is the right approach;
-it was fixed differently[2] in grsecurity.
+Do you have any comments or criticisms of the particular "duplex" method of configuring the unidirectional link support?
 
-[1] http://forums.grsecurity.net/viewtopic.php?f=3&t=2290&start=0
-[2] http://grsecurity.net/~spender/wireless-infoleak-fix2.patch
+Cheers,
+Kyle Moffett
 
-Reported-by: Brad Spengler <spender@grsecurity.net>
-Signed-off-by: Kees Cook <kees.cook@canonical.com>
----
- include/net/iw_handler.h |    1 -
- net/wireless/wext-core.c |   26 ++------------------------
- 2 files changed, 2 insertions(+), 25 deletions(-)
-
-diff --git a/include/net/iw_handler.h b/include/net/iw_handler.h
-index 3afdb21..6c81f29 100644
---- a/include/net/iw_handler.h
-+++ b/include/net/iw_handler.h
-@@ -277,7 +277,6 @@
- #define IW_DESCR_FLAG_EVENT	0x0002	/* Generate an event on SET */
- #define IW_DESCR_FLAG_RESTRICT	0x0004	/* GET : request is ROOT only */
- 				/* SET : Omit payload from generated iwevent */
--#define IW_DESCR_FLAG_NOMAX	0x0008	/* GET : no limit on request size */
- /* Driver level flags */
- #define IW_DESCR_FLAG_WAIT	0x0100	/* Wait for driver event */
- 
-diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
-index 0ef17bc..55b1fd9 100644
---- a/net/wireless/wext-core.c
-+++ b/net/wireless/wext-core.c
-@@ -82,7 +82,6 @@ static const struct iw_ioctl_description standard_ioctl[] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
- 		.token_size	= sizeof(struct iw_priv_args),
- 		.max_tokens	= 16,
--		.flags		= IW_DESCR_FLAG_NOMAX,
- 	},
- 	[IW_IOCTL_IDX(SIOCSIWSTATS)] = {
- 		.header_type	= IW_HEADER_TYPE_NULL,
-@@ -134,7 +133,6 @@ static const struct iw_ioctl_description standard_ioctl[] = {
- 		.token_size	= sizeof(struct sockaddr) +
- 				  sizeof(struct iw_quality),
- 		.max_tokens	= IW_MAX_AP,
--		.flags		= IW_DESCR_FLAG_NOMAX,
- 	},
- 	[IW_IOCTL_IDX(SIOCSIWSCAN)] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
-@@ -146,7 +144,6 @@ static const struct iw_ioctl_description standard_ioctl[] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
- 		.token_size	= 1,
- 		.max_tokens	= IW_SCAN_MAX_DATA,
--		.flags		= IW_DESCR_FLAG_NOMAX,
- 	},
- 	[IW_IOCTL_IDX(SIOCSIWESSID)] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
-@@ -737,28 +734,9 @@ static int ioctl_standard_iw_point(struct iw_point *iwp, unsigned int cmd,
- 			return -EFAULT;
- 		/* Save user space buffer size for checking */
- 		user_length = iwp->length;
--
--		/* Don't check if user_length > max to allow forward
--		 * compatibility. The test user_length < min is
--		 * implied by the test at the end.
--		 */
--
--		/* Support for very large requests */
--		if ((descr->flags & IW_DESCR_FLAG_NOMAX) &&
--		    (user_length > descr->max_tokens)) {
--			/* Allow userspace to GET more than max so
--			 * we can support any size GET requests.
--			 * There is still a limit : -ENOMEM.
--			 */
--			extra_size = user_length * descr->token_size;
--
--			/* Note : user_length is originally a __u16,
--			 * and token_size is controlled by us,
--			 * so extra_size won't get negative and
--			 * won't overflow...
--			 */
--		}
- 	}
-+	/* Support for very large requests */
-+	extra_size = max(extra_size, iwp->length * descr->token_size);
- 
- 	/* kzalloc() ensures NULL-termination for essid_compat. */
- 	extra = kzalloc(extra_size, GFP_KERNEL);
--- 
-1.7.1
-
-
--- 
-Kees Cook
-Ubuntu Security Team
