@@ -1,36 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4: Eliminate kstrdup memory leak
-Date: Fri, 27 Aug 2010 19:32:14 -0700 (PDT)
-Message-ID: <20100827.193214.71098473.davem@davemloft.net>
-References: <1282938463-26450-1-git-send-email-julia@diku.dk>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: julia@diku.dk
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: [PATCH] econet: kill unnecessary spin_lock_init()
+Date: Sat, 28 Aug 2010 11:41:56 +0900
+Message-ID: <1282963316-29938-1-git-send-email-akinobu.mita@gmail.com>
+Cc: Akinobu Mita <akinobu.mita@gmail.com>,
+	Julia Lawall <julia@diku.dk>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52425
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753016Ab0H1Cb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 22:31:58 -0400
-In-Reply-To: <1282938463-26450-1-git-send-email-julia@diku.dk>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:38823 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752378Ab0H1Css (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 22:48:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Fri, 27 Aug 2010 21:47:43 +0200
+The spinlock aun_queue_lock is initialized statically. It is unnecessary
+to initialize by spin_lock_init() at module load time.
 
-> The string clone is only used as a temporary copy of the argument val
-> within the while loop, and so it should be freed before leaving the
-> function.  The call to strsep, however, modifies clone, so a pointer to the
-> front of the string is kept in saved_clone, to make it possible to free it.
-> 
-> The sematic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+This is detected by the semantic patch.
 
-Applied, thanks!
+// <smpl>
+@def@
+declarer name DEFINE_SPINLOCK;
+identifier spinlock;
+@@
+
+DEFINE_SPINLOCK(spinlock);
+
+@@
+identifier def.spinlock;
+@@
+
+- spin_lock_init(&spinlock);
+// </smpl>
+
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: Julia Lawall <julia@diku.dk>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+ net/econet/af_econet.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
+index dc54bd0..baa98fb 100644
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -1009,7 +1009,6 @@ static int __init aun_udp_initialise(void)
+ 	struct sockaddr_in sin;
+ 
+ 	skb_queue_head_init(&aun_queue);
+-	spin_lock_init(&aun_queue_lock);
+ 	setup_timer(&ab_cleanup_timer, ab_cleanup, 0);
+ 	ab_cleanup_timer.expires = jiffies + (HZ*2);
+ 	add_timer(&ab_cleanup_timer);
+@@ -1167,7 +1166,6 @@ static int __init econet_proto_init(void)
+ 		goto out;
+ 	sock_register(&econet_family_ops);
+ #ifdef CONFIG_ECONET_AUNUDP
+-	spin_lock_init(&aun_queue_lock);
+ 	aun_udp_initialise();
+ #endif
+ #ifdef CONFIG_ECONET_NATIVE
+-- 
+1.6.0.6
+
