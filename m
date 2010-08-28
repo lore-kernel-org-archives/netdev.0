@@ -1,53 +1,93 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH  kernel 2.6.36-rc2] pcnet_cs: add new_id
-Date: Sun, 29 Aug 2010 07:45:01 +0900
-Message-ID: <20100829074501.946ebcb8.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
-	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
-	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
-	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
-	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
-	<20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
-	<20100612191728.2d272cc1.ken_kawasaki@spring.nifty.jp>
-	<20100620102427.77d2c7d3.ken_kawasaki@spring.nifty.jp>
-	<20100706202243.95319ab4.ken_kawasaki@spring.nifty.jp>
-	<20100710201813.a3e5c79c.ken_kawasaki@spring.nifty.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ethtool.h: Add #defines for unidirectional
+ ethernet duplex
+Date: Sat, 28 Aug 2010 16:03:57 -0700 (PDT)
+Message-ID: <20100828.160357.102557054.davem@davemloft.net>
+References: <1282938138-17844-1-git-send-email-Kyle.D.Moffett@boeing.com>
+	<1282938138-17844-2-git-send-email-Kyle.D.Moffett@boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, kyle@moffetthome.net,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: Kyle.D.Moffett@boeing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sv1.nifty.com ([220.209.183.60]:14170 "EHLO
-	defg302.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831Ab0H1W5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Aug 2010 18:57:30 -0400
-Received: from userg507.nifty.com (userg507p.nifty.com [172.22.128.87])by defg302.nifty.com with ESMTP id o7SMk2C9011622
-	for <netdev@vger.kernel.org>; Sun, 29 Aug 2010 07:46:02 +0900
-Received: from localhost.localdomain (eaoska169137.adsl.ppp.infoweb.ne.jp [219.116.18.137])by userg507.nifty.com with SMTP id o7SMjEgs021828
-	for <netdev@vger.kernel.org>; Sun, 29 Aug 2010 07:45:14 +0900
-In-Reply-To: <20100710201813.a3e5c79c.ken_kawasaki@spring.nifty.jp>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34047
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751244Ab0H1XDl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Aug 2010 19:03:41 -0400
+In-Reply-To: <1282938138-17844-2-git-send-email-Kyle.D.Moffett@boeing.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+Date: Fri, 27 Aug 2010 15:42:17 -0400
 
-pcnet_cs:
-    add new_id: "KENTRONICS KEP-230" 10Base-T PCMCIA card.
+> A large variety of fiber ethernet PHYs and some copper ethernet PHYs
+> support forced "unidirectional link" modes.  Some signalling modes are
+> designed for last-mile ethernet plants while others are designed for
+> strict security isolation (fiber with no return-path).
+> 
+> In order to configure those kinds of forced modes from userspace, we
+> need to add additional options to the "ethtool" interface.  As such
+> "unidirectional" ethernet modes most closely resemble ethernet "duplex",
+> we add two additional DUPLEX_* defines to the ethtool interface:
+> 
+>   #define DUPLEX_TXONLY 0x02
+>   #define DUPLEX_RXONLY 0x03
+> 
+> Most ethernet PHYs will still need to be configured internally in a mode
+> with autoneg off and duplex full, except for a few model-specific PHY
+> register adjustments.
+> 
+> Most PHYs can simply use a regular forced-mode for rx-only configuration,
+> but it may be useful in the ethernet driver to completely disable the TX
+> queues or similar.
+> 
+> Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
 
+A fine idea, but you're really going to have to audit all of the networking
+drivers to clean up the existing uses that assume this thing is a bitmap
+and that there are only essentially two values ('0' and '1').  For example:
 
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+drivers/net/e1000/e1000_main.c:	case SPEED_10 + DUPLEX_HALF:
+drivers/net/e1000/e1000_main.c:	case SPEED_100 + DUPLEX_HALF:
+drivers/net/e1000/e1000_main.c:	case SPEED_1000 + DUPLEX_HALF: /* not supported */
+drivers/net/e1000e/ethtool.c:	case SPEED_10 + DUPLEX_HALF:
+drivers/net/e1000e/ethtool.c:	case SPEED_100 + DUPLEX_HALF:
+drivers/net/e1000e/ethtool.c:	case SPEED_1000 + DUPLEX_HALF: /* not supported */
+drivers/net/igb/igb_main.c:	case SPEED_10 + DUPLEX_HALF:
+drivers/net/igb/igb_main.c:	case SPEED_100 + DUPLEX_HALF:
+drivers/net/igb/igb_main.c:	case SPEED_1000 + DUPLEX_HALF: /* not supported */
+drivers/net/sungem_phy.c:		phy->duplex |=  DUPLEX_HALF;
+drivers/net/sungem_phy.c:		phy->duplex |=  DUPLEX_HALF;
 
----
+Also, drivers/net/mii.c does stuff like:
 
---- linux-2.6.36-rc2/drivers/net/pcmcia/pcnet_cs.c.orig	2010-08-28 09:34:10.000000000 +0900
-+++ linux-2.6.36-rc2/drivers/net/pcmcia/pcnet_cs.c	2010-08-28 09:36:53.000000000 +0900
-@@ -1637,6 +1637,7 @@ static struct pcmcia_device_id pcnet_ids
- 	PCMCIA_DEVICE_PROD_ID12("IO DATA", "PCETTX", 0x547e66dc, 0x6fc5459b),
- 	PCMCIA_DEVICE_PROD_ID12("iPort", "10/100 Ethernet Card", 0x56c538d2, 0x11b0ffc0),
- 	PCMCIA_DEVICE_PROD_ID12("KANSAI ELECTRIC CO.,LTD", "KLA-PCM/T", 0xb18dc3b4, 0xcc51a956),
-+	PCMCIA_DEVICE_PROD_ID12("KENTRONICS", "KEP-230", 0xaf8144c9, 0x868f6616),
- 	PCMCIA_DEVICE_PROD_ID12("KCI", "PE520 PCMCIA Ethernet Adapter", 0xa89b87d3, 0x1eb88e64),
- 	PCMCIA_DEVICE_PROD_ID12("KINGMAX", "EN10T2T", 0x7bcb459a, 0xa5c81fa5),
- 	PCMCIA_DEVICE_PROD_ID12("Kingston", "KNE-PC2", 0x1128e633, 0xce2a89b3),
+			ecmd->duplex = !!(nego & ADVERTISED_1000baseT_Full);
+
+It also (probably correctly, I don't know, you'll have to decide)
+rejects anything other than the existing values.
+
+	if (ecmd->duplex != DUPLEX_HALF && ecmd->duplex != DUPLEX_FULL)
+		return -EINVAL;
+
+Finally, phy_ethtool_sset() does this too, so with your patch applied even
+phylib would reject the new settings:
+
+	if (cmd->autoneg == AUTONEG_DISABLE &&
+	    ((cmd->speed != SPEED_1000 &&
+	      cmd->speed != SPEED_100 &&
+	      cmd->speed != SPEED_10) ||
+	     (cmd->duplex != DUPLEX_HALF &&
+	      cmd->duplex != DUPLEX_FULL)))
+		return -EINVAL;
+
+making it impossible to add support for TX-only or RX-only in a phylib
+using driver.
+
+There are probably other similar dragons hiding in various drivers, you'll
+really have to do a full audit of how every driver stores and makes use of
+duplex settings before we can seriously apply this patch.
+
+Thanks!
