@@ -1,45 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] slip: Use net_device_stats from struct net_device
-Date: Fri, 27 Aug 2010 19:26:18 -0700 (PDT)
-Message-ID: <20100827.192618.193702625.davem@davemloft.net>
-References: <1282811286-19659-1-git-send-email-tklauser@distanz.ch>
-	<1282896728-5211-1-git-send-email-tklauser@distanz.ch>
-	<1282897693.2487.2.camel@edumazet-laptop>
+Subject: Re: [PATCH] net/ipv4: Eliminate kstrdup memory leak
+Date: Fri, 27 Aug 2010 19:32:14 -0700 (PDT)
+Message-ID: <20100827.193214.71098473.davem@davemloft.net>
+References: <1282938463-26450-1-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tklauser@distanz.ch, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: julia@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59471
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52425
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753016Ab0H1C0D convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Aug 2010 22:26:03 -0400
-In-Reply-To: <1282897693.2487.2.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1753016Ab0H1Cb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 22:31:58 -0400
+In-Reply-To: <1282938463-26450-1-git-send-email-julia@diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 27 Aug 2010 10:28:13 +0200
+From: Julia Lawall <julia@diku.dk>
+Date: Fri, 27 Aug 2010 21:47:43 +0200
 
-> Le vendredi 27 ao=FBt 2010 =E0 10:12 +0200, Tobias Klauser a =E9crit =
-:
->> Use net_device->stats for stats instead of private variable copies i=
-n
->> struct slip. Use ndo_get_stat64 so the additions can be performed on=
- a private
->> destination buffer.
->>=20
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
->> ---
->>  drivers/net/slip.c |   61 ++++++++++++++++++++++++++---------------=
-----------
->>  drivers/net/slip.h |    9 -------
->>  2 files changed, 31 insertions(+), 39 deletions(-)
->>=20
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> The string clone is only used as a temporary copy of the argument val
+> within the while loop, and so it should be freed before leaving the
+> function.  The call to strsep, however, modifies clone, so a pointer to the
+> front of the string is kept in saved_clone, to make it possible to free it.
+> 
+> The sematic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Applied, thanks everyone.
+Applied, thanks!
