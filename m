@@ -1,65 +1,59 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] net: Fix vlan_gro_frags vs netpoll and bonding paths
-Date: Sat, 28 Aug 2010 11:44:33 +0200
-Message-ID: <20100828094433.GA3110@del.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] gro: Is it ok to share a single napi from several devs ?
+Date: Sat, 28 Aug 2010 12:54:06 +0200
+Message-ID: <1282992846.2277.15.camel@edumazet-laptop>
 References: <20100827205042.GA13844@del.dom.local>
- <20100828001337.GA1955@gondor.apana.org.au>
+	 <20100828001337.GA1955@gondor.apana.org.au>
+	 <20100828094433.GA3110@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:61042 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752095Ab0H1Joj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Aug 2010 05:44:39 -0400
-Received: by fxm13 with SMTP id 13so2453364fxm.19
-        for <netdev@vger.kernel.org>; Sat, 28 Aug 2010 02:44:38 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20100828001337.GA1955@gondor.apana.org.au>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:33738 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095Ab0H1KyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Aug 2010 06:54:12 -0400
+Received: by wyb35 with SMTP id 35so4672523wyb.19
+        for <netdev@vger.kernel.org>; Sat, 28 Aug 2010 03:54:10 -0700 (PDT)
+In-Reply-To: <20100828094433.GA3110@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 28, 2010 at 08:13:37AM +0800, Herbert Xu wrote:
-> On Fri, Aug 27, 2010 at 10:50:42PM +0200, Jarek Poplawski wrote:
-> > After positive netpoll_rx_on() check in vlan_gro_receive() there is
-> > skipped part of the "common" GRO_NORMAL path, especially "pull:" in
-> > dev_gro_receive(), where at least eth header should be copied for
-> > entirely paged skbs. So, eth_type_trans() can read zeroed header only.
-> 
-> Right, thanks for catching this.
-> 
-> > diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> > index 01ddb04..58289fe 100644
-> > --- a/net/8021q/vlan_core.c
-> > +++ b/net/8021q/vlan_core.c
-> > @@ -139,13 +139,19 @@ gro_result_t vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
-> >  	if (!skb)
-> >  		return GRO_DROP;
-> >  
-> > -	if (netpoll_rx_on(skb)) {
-> > -		skb->protocol = eth_type_trans(skb, skb->dev);
-> > +	/*
-> > +	 * Complete the eth header here, mainly for skb_bond_should_drop(),
-> > +	 * and for netpoll_rx_on() btw.
-> > +	 */
-> > +	skb_gro_pull_in(skb);
-> > +	skb->protocol = eth_type_trans(skb, skb->dev);
-> > +	skb_gro_pull(skb, -ETH_HLEN);
-> 
-> But this code should go into the netpoll (i.e., slow-path) case
-> only so as not to impede performance.
+In commit f2bde7328633269ee935d9ed96535ade15cc348f
+Author: Stephen Hemminger <shemminger@vyatta.com>
 
-I'm not sure I can understand. What about skb_bond_should_drop()
-mentioned in the comments? IMHO we have to impede performance a bit
-(and treat it similarly to non-fragmented path) just to fix it, and
-consider optimization of this bonding call later.
+    net: allow multiple dev per napi with GRO
+    
+    GRO assumes that there is a one-to-one relationship between NAPI
+    structure and network device. Some devices like sky2 share multiple
+    devices on a single interrupt so only have one NAPI handler. Rather than
+    split GRO from NAPI, just have GRO assume if device changes that
+    it is a different flow.
+   
 
-> 
-> Also, we need to fix this for the non-VLAN case as well.
+It was assumed a napi could be shared by several devs, but I dont really
+understand, since we have an unique ->dev pointer inside "napi_struct",
+this one is set once, and never change.
 
-But the only other non-VLAN case I know was fixed already...
+This pointer is currently used from napi_get_frags() [but that could be
+avoided], and from netpoll_poll_lock().
 
-Cheers,
-Jarek P.
+The netpoll_poll_lock() case is problematic.
+
+static inline void *netpoll_poll_lock(struct napi_struct *napi)
+{
+        struct net_device *dev = napi->_dev;
+
+        if (dev && dev->npinfo) {
+                spin_lock(&napi->poll_lock);
+
+Maybe we should remove 'dev' field from napi_struct and replace it by a
+npinfo pointer ?
+
+
+
+
