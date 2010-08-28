@@ -1,56 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: Fix vlan_gro_frags vs netpoll and bonding paths
-Date: Sat, 28 Aug 2010 08:13:37 +0800
-Message-ID: <20100828001337.GA1955@gondor.apana.org.au>
-References: <20100827205042.GA13844@del.dom.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] slip: Use net_device_stats from struct net_device
+Date: Fri, 27 Aug 2010 19:26:18 -0700 (PDT)
+Message-ID: <20100827.192618.193702625.davem@davemloft.net>
+References: <1282811286-19659-1-git-send-email-tklauser@distanz.ch>
+	<1282896728-5211-1-git-send-email-tklauser@distanz.ch>
+	<1282897693.2487.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tklauser@distanz.ch, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:55002 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752214Ab0H1ANn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Aug 2010 20:13:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20100827205042.GA13844@del.dom.local>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59471
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753016Ab0H1C0D convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Aug 2010 22:26:03 -0400
+In-Reply-To: <1282897693.2487.2.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 27, 2010 at 10:50:42PM +0200, Jarek Poplawski wrote:
-> After positive netpoll_rx_on() check in vlan_gro_receive() there is
-> skipped part of the "common" GRO_NORMAL path, especially "pull:" in
-> dev_gro_receive(), where at least eth header should be copied for
-> entirely paged skbs. So, eth_type_trans() can read zeroed header only.
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 27 Aug 2010 10:28:13 +0200
 
-Right, thanks for catching this.
+> Le vendredi 27 ao=FBt 2010 =E0 10:12 +0200, Tobias Klauser a =E9crit =
+:
+>> Use net_device->stats for stats instead of private variable copies i=
+n
+>> struct slip. Use ndo_get_stat64 so the additions can be performed on=
+ a private
+>> destination buffer.
+>>=20
+>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+>> ---
+>>  drivers/net/slip.c |   61 ++++++++++++++++++++++++++---------------=
+----------
+>>  drivers/net/slip.h |    9 -------
+>>  2 files changed, 31 insertions(+), 39 deletions(-)
+>>=20
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> index 01ddb04..58289fe 100644
-> --- a/net/8021q/vlan_core.c
-> +++ b/net/8021q/vlan_core.c
-> @@ -139,13 +139,19 @@ gro_result_t vlan_gro_frags(struct napi_struct *napi, struct vlan_group *grp,
->  	if (!skb)
->  		return GRO_DROP;
->  
-> -	if (netpoll_rx_on(skb)) {
-> -		skb->protocol = eth_type_trans(skb, skb->dev);
-> +	/*
-> +	 * Complete the eth header here, mainly for skb_bond_should_drop(),
-> +	 * and for netpoll_rx_on() btw.
-> +	 */
-> +	skb_gro_pull_in(skb);
-> +	skb->protocol = eth_type_trans(skb, skb->dev);
-> +	skb_gro_pull(skb, -ETH_HLEN);
-
-But this code should go into the netpoll (i.e., slow-path) case
-only so as not to impede performance.
-
-Also, we need to fix this for the non-VLAN case as well.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied, thanks everyone.
