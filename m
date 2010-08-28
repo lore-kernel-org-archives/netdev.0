@@ -1,52 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] starfire: use BUILD_BUG_ON for netdrv_addr_t
-Date: Sat, 28 Aug 2010 15:41:25 -0700 (PDT)
-Message-ID: <20100828.154125.246523501.davem@davemloft.net>
-References: <1282972125-9968-1-git-send-email-akinobu.mita@gmail.com>
+Subject: Re: [RFC PATCH] net: blackhole route should always be recalculated
+Date: Sat, 28 Aug 2010 15:48:39 -0700 (PDT)
+Message-ID: <20100828.154839.28807157.davem@davemloft.net>
+References: <4C77DE1C.4080506@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ionut@badula.org,
-	fujita.tomonori@lab.ntt.co.jp
-To: akinobu.mita@gmail.com
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56028
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56116
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752874Ab0H1WlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Aug 2010 18:41:09 -0400
-In-Reply-To: <1282972125-9968-1-git-send-email-akinobu.mita@gmail.com>
+	by vger.kernel.org with ESMTP id S1750831Ab0H1WsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Aug 2010 18:48:23 -0400
+In-Reply-To: <4C77DE1C.4080506@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Sat, 28 Aug 2010 14:08:45 +0900
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 27 Aug 2010 17:47:40 +0200
 
-> Detect size mismatch for netdrv_addr_t at build time rather than
-> checking at module load time.
-> 
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-> Cc: Ion Badulescu <ionut@badula.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
+> It seems to come from commit d11a4dc18bf41719c9f0d7ed494d295dd2973b92,
+> which check validy of routes. With this patch, blackhole routes are
+> not recalculated (when route table is not updated).
+> But this kind of routes are used when xfrm_lookup() returns -EREMOTE,
+> so it seems logical to check the route again for next packets, and
+> then get the right route.
 
-Applied, but I suspect we will see some interesting build failures now
-if that ugly and brittle ifdef test which constrols the netdrv_addr_t
-define isn't %100 accurate.
+Thanks Nicolas.  At first glance I think you're approach is correct,
+but I will investigate things more closely to make certain of this.
 
-Fujita-san, what this driver does is actually pretty reasonable.  It
-has two kinds of descriptors, one supports 32-bit addresses and the
-other supports 64-bit addresses.  It wants to CPP test which one to
-use so that the driver is not burdoned with two duplicated sets of
-routines.
-
-Maybe we should provide a DMA_ADDR_T_SIZE or similar macro?  What do
-you think?  Anything is better than what it uses now:
-
-/*
- * This SUCKS.
- * We need a much better method to determine if dma_addr_t is 64-bit.
- */
-#if (defined(__i386__) && defined(CONFIG_HIGHMEM64G)) || defined(__x86_64__) || defined (__ia64__) || defined(__alpha__) || defined(__mips64__) || (defined(__mips__) && defined(CONFIG_HIGHMEM) && defined(CONFIG_64BIT_PHYS_ADDR))
-
-:-)
-
+Blackhole routes never had a check operation, because before the XFRM
+stuff they were never expected to revalidate in the future.  But with
+XFRM now they can, so we likely need to force revalidation now as your
+patch does.
