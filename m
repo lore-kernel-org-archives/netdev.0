@@ -1,48 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] TCP_USER_TIMEOUT: a new socket option to specify max
- timeout before a TCP connection is aborted
-Date: Sat, 28 Aug 2010 16:13:20 -0700 (PDT)
-Message-ID: <20100828.161320.245404727.davem@davemloft.net>
-References: <1282972408-19164-1-git-send-email-hkchu@google.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [RFC] gro: Is it ok to share a single napi from several devs ?
+Date: Sat, 28 Aug 2010 21:07:10 -0700
+Message-ID: <lexmby2wgxuu9h0vljo2a16m.1283054830069@email.android.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, hannemann@nets.rwth-aachen.de,
-	hagen@jauu.net, lars.eggert@nokia.com, netdev@vger.kernel.org
-To: hkchu@google.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: eric.dumazet@gmail.com, jarkao2@gmail.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58736
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751244Ab0H1XNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Aug 2010 19:13:04 -0400
-In-Reply-To: <1282972408-19164-1-git-send-email-hkchu@google.com>
+Received: from mail.vyatta.com ([76.74.103.46]:45342 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750703Ab0H2EHO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Aug 2010 00:07:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "H.K. Jerry Chu" <hkchu@google.com>
-Date: Fri, 27 Aug 2010 22:13:28 -0700
-
-> @@ -556,7 +559,14 @@ static void tcp_keepalive_timer (unsigned long data)
->  	elapsed = keepalive_time_elapsed(tp);
->  
->  	if (elapsed >= keepalive_time_when(tp)) {
-> -		if (icsk->icsk_probes_out >= keepalive_probes(tp)) {
-> +		/* If the TCP_USER_TIMEOUT option is enabled, use that
-> +		 * to determine when to timeout instead.
-> +		 */
-> +		if ((icsk->icsk_user_timeout != 0 &&
-> +		    elapsed >= icsk->icsk_user_timeout &&
-> +		    icsk->icsk_probes_out > 0) ||
-> +		    (icsk->icsk_user_timeout == 0 &&
-> +		    icsk->icsk_probes_out >= keepalive_probes(tp))) {
->  			tcp_send_active_reset(sk, GFP_ATOMIC);
->  			tcp_write_err(sk);
->  			goto out;
-
-I think if we want to add a socket option which overrides, it makes
-more sense to provide overrides in the same units.  This
-transformation here is transforming a check against apples into a
-check against oranges.
-
-But if that's how this thing is specified, so be it... I guess. :-/
+SSBhbSBub3QgcmVhbGx5IHdvcnJpZWQuIGFib3V0IHNreTIgZHVhbCBwb3J0IHNpbmNlIHRoZSBk
+dWFsIHBvcnQgYm9hcmRzIGFyZSByYXJlLiBJIG1pZ2h0IGhhdmUgb25lIG9mIHRoZSBmZXcgaW4g
+dXNlIAoKRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToKCj5Gcm9tOiBT
+dGVwaGVuIEhlbW1pbmdlciA8c2hlbW1pbmdlckB2eWF0dGEuY29tPgo+RGF0ZTogU2F0LCAyOCBB
+dWcgMjAxMCAxNTozMToyNCAtMDcwMAo+Cj4+IE9uIFNhdCwgMjggQXVnIDIwMTAgMTQ6NDE6MzAg
+LTA3MDAgKFBEVCkKPj4gRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToK
+Pj4gCj4+PiBTaW5jZSBuZXRwb2xsIGRvZXMgc2ltaWxhciB0aGluZ3MsIHRoaXMgbWVhbnMgYm90
+aCBOQVBJIGFuZCBuZXRwb2xsCj4+PiBjYW5ub3QgZnVuY3Rpb24gcHJvcGVybHkgd2l0aCBTS1ky
+J3Mgc2Vjb25kIHBvcnQuICBJdCB3aWxsIG9ubHkgd29yawo+Pj4gcmlnaHQgb24gdGhlIGZpcnN0
+IHBvcnQuCj4+IAo+PiBJIGtuZXcgbmV0cG9sbCB3YXMgYnJva2VuIG9uIHNlY29uZCBwb3J0Lgo+
+Cj5XZWxsLCBub3cgd2Uga25vdyB0aGF0IEdSTyBpcyB0b28gOi0pCj4KPklmIHdlIHdpc2ggdG8g
+a2VlcCB0aGUgb25lLXRvLW9uZSBtYXBwaW5nIG9mIE5BUEkgY29udGV4dHMgdG8KPmludGVycnVw
+dCBzb3VyY2VzLCB3aGF0IHdlIGNhbiBkbyBpcyBwcm92aWRlIHNvbWUga2luZCBvZiAiZGV2IGxp
+c3QiLgo+Cj5UaGUgb3RoZXIgb3B0aW9uIGlzIHRvIHJlZ2lzdGVyIHR3byBOQVBJIGNvbnRleHRz
+IGFuZCBzY2hlZHVsZSB0aGVtCj5ib3RoIG9uIGFuIGludGVycnVwdC4KPgo+QnV0IGluIGJvdGgg
+Y2FzZXMsIGRldGVjdGluZyB0aGUgZW5kIG9mIHBvbGxpbmcsIGFuZCB0aHVzIHdoZW4gdG8gdHVy
+bgo+dGhlIGludGVycnVwdHMgYmFjayBvbiwgaXMgbm9uLXRyaXZpYWwuCj4KPkkgcmVhbGx5IGRv
+bid0IGxpa2UgZWl0aGVyIHNvbHV0aW9uLCB0aGVyZWZvcmUsIHNvIEknbGwgdHJ5IHRvIGJyYWlu
+Cj5zdG9ybSBvbiB0aGlzIGEgYml0IG1vcmUuCg==
 
