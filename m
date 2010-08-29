@@ -1,47 +1,53 @@
-From: Christian Riesch <christian@riesch.at>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Sun, 29 Aug 2010 15:32:20 +0200
-Message-ID: <4C7A6164.60208@riesch.at>
-References: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>	<20100817085324.GB3330@riccoc20.at.omicron.at>	<1282090963.1734.97.camel@localhost>	<20100818071942.GA4096@riccoc20.at.omicron.at>	<1282176776.2865.100.camel@localhost.localdomain>	<20100819055518.GA4084@riccoc20.at.omicron.at>	<1282594125.3111.344.camel@localhost.localdomain>	<AANLkTi=nKrRHH6+9mvny718gov8Q+u7DHFikdgNY8YdX@mail.gmail.com>	<1282874269.4371.74.camel@localhost.localdomain>	<20100827075727.GA3818@riccoc20.at.omicron.at>
-	<20100827134154.50eef56c@lxorguk.ukuu.org.uk>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH] net: reset ip_summed in skb_tunnel_rx()
+Date: Sun, 29 Aug 2010 08:35:01 -0700
+Message-ID: <AANLkTimnZDG7O3SxKPiZavw7dj+_OoR8bAq72U7Copjr@mail.gmail.com>
+References: <20100820193835.GA6025@del.dom.local>
+	<20100821074742.GA2367@del.dom.local>
+	<1282377058.2636.12.camel@edumazet-laptop>
+	<20100821080735.GA2409@del.dom.local>
+	<4C725FCB.2000304@fs.uni-ruse.bg>
+	<20100823124736.GA16966@ff.dom.local>
+	<1282568443.2486.34.camel@edumazet-laptop>
+	<20100823131056.GA19160@ff.dom.local>
+	<4C727B06.2060002@fs.uni-ruse.bg>
+	<4C72802D.8090405@fs.uni-ruse.bg>
+	<20100823141437.GA2282@del.dom.local>
+	<4C734FB5.1090702@fs.uni-ruse.bg>
+	<1282626102.2378.1351.camel@edumazet-laptop>
+	<4C738636.4000107@fs.uni-ruse.bg>
+	<4C73C8DF.4060601@fs.uni-ruse.bg>
+	<1282662532.2477.248.camel@edumazet-laptop>
+	<courier.4C74007C.00000EE4@fs.ru.acad.bg>
+	<1282677599.2467.54.camel@edumazet-laptop>
+	<4C74C0C4.5060102@fs.uni-ruse.bg>
+	<1283068124.2277.230.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Rodolfo Giometti <giometti@linux.it>, Arnd Bergmann <arnd@arndb.de>,
-	john stultz <johnstul@us.ibm.com>,
-	Richard Cochran <richardcochran@gmail.com>, linux-kernel@vger.kernel.org,
-	Christian Riesch <christian.riesch@omicron.at>,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	devicetree-discuss@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20100827134154.50eef56c@lxorguk.ukuu.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:58624 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539Ab0H2PfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Aug 2010 11:35:02 -0400
+Received: by iwn5 with SMTP id 5so4160875iwn.19
+        for <netdev@vger.kernel.org>; Sun, 29 Aug 2010 08:35:01 -0700 (PDT)
+In-Reply-To: <1283068124.2277.230.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alan Cox wrote:
->> The master node in a PTP network probably takes its time from a
->> precise external time source, like GPS. The GPS provides a 1 PPS
->> directly to the PTP clock hardware, which latches the PTP hardware
->> clock time on the PPS edge. This provides one sample as input to a
->> clock servo (in the PTPd) that, in turn, regulates the PTP clock
->> hardware.
-> 
-> A PTP clock is TAI, Unix time is UTC.
+On Sun, Aug 29, 2010 at 12:48 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> It seems we forget to reset skb->ip_summed to CHECKSUM_NONE in various
+> tunnels (gre, ipip, sit, ip6_tunnel), before re-entering stack.
+>
+> Add ip_summed initialization in skb_tunnel_rx(), and remove it from
+> ipmr / ip6mr
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Not necessarily. AFAIK, the time distributed by IEEE1588v2 can either be 
-based on the "PTP epoch" (timePropertiesDS.ptpTimescale=TRUE) and thus 
-represent TAI or be based on an implementation specific arbitrary epoch 
-(timePropertiesDS.ptpTimescale=FALSE) and represent time on some 
-arbitrary time scale.
-
-Christian
+This is intentional behavior.  For CHECKSUM_COMPLETE packets we
+subtract off the checksum of the encapsulating headers that we remove
+so we can still get the benefit of checksum hardware for the inner
+packet as well.  GRE does this using skb_postpull_rcsum(), for IPIP it
+is implicit because the outer IP header was already removed, etc.
