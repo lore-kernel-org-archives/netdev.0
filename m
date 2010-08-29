@@ -1,42 +1,47 @@
-From: Pekka Enberg <penberg@kernel.org>
-Subject: Re: 2.6.34.1 page allocation failure
-Date: Sun, 29 Aug 2010 16:17:18 +0300
-Message-ID: <4C7A5DDE.8030106@kernel.org>
-References: <4C70BFF3.8030507@hardwarefreak.com> <alpine.DEB.1.10.1008220842400.8562@uplift.swm.pp.se> <AANLkTin48SJ58HvFqjrOnQBMqLcbECtqXokweV00dNgv@mail.gmail.com> <alpine.DEB.2.00.1008221734410.21916@router.home> <4C724141.8060000@kernel.org> <4C72F7C6.3020109@hardwarefreak.com> <4C74097A.5020504@kernel.org> <alpine.DEB.1.10.1008242114120.8562@uplift.swm.pp.se> <4C7A3B1D.7050500@kernel.org> <alpine.DEB.1.10.1008291433420.8562@uplift.swm.pp.se>
+From: Christian Riesch <christian@riesch.at>
+Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
+Date: Sun, 29 Aug 2010 15:32:20 +0200
+Message-ID: <4C7A6164.60208@riesch.at>
+References: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>	<20100817085324.GB3330@riccoc20.at.omicron.at>	<1282090963.1734.97.camel@localhost>	<20100818071942.GA4096@riccoc20.at.omicron.at>	<1282176776.2865.100.camel@localhost.localdomain>	<20100819055518.GA4084@riccoc20.at.omicron.at>	<1282594125.3111.344.camel@localhost.localdomain>	<AANLkTi=nKrRHH6+9mvny718gov8Q+u7DHFikdgNY8YdX@mail.gmail.com>	<1282874269.4371.74.camel@localhost.localdomain>	<20100827075727.GA3818@riccoc20.at.omicron.at>
+	<20100827134154.50eef56c@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: Stan Hoeppner <stan@hardwarefreak.com>,
- Christoph Lameter <cl@linux.com>,
- Linux Kernel List <linux-kernel@vger.kernel.org>, linux-mm@kvack.org,
- Mel Gorman <mel@csn.ul.ie>,
- Linux Netdev List <netdev@vger.kernel.org>
-To: Mikael Abrahamsson <swmike@swm.pp.se>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.1.10.1008291433420.8562@uplift.swm.pp.se>
-Sender: owner-linux-mm@kvack.org
+Cc: Rodolfo Giometti <giometti@linux.it>, Arnd Bergmann <arnd@arndb.de>,
+	john stultz <johnstul@us.ibm.com>,
+	Richard Cochran <richardcochran@gmail.com>, linux-kernel@vger.kernel.org,
+	Christian Riesch <christian.riesch@omicron.at>,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	devicetree-discuss@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org,
+	Krzysztof Halasa <khc@pm.waw.pl>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20100827134154.50eef56c@lxorguk.ukuu.org.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-  On Sun, 29 Aug 2010, Pekka Enberg wrote:
->> Do you see these out-of-memory problems with 2.6.35?
-On 29.8.2010 15.38, Mikael Abrahamsson wrote:
-> Haven't tried it.
->
-> Has there been substantial work done there that changes things so that 
-> if I reproduce it on 2.6.35, someone will look into the issue in 
-> earnest? Since I'll most likely have to compile a new kernel, are 
-> there any debug options I should enable to give more information to 
-> aid fault finding?
-There aren't any debug options that need to be enabled. The reason I'm 
-asking is because we had a bunch of similar issues being reported 
-earlier that got fixed and it's been calm for a while. That's why it 
-would be interesting to know if 2.6.35 or 2.6.36-rc2 (if it's not too 
-unstable to test) fixes things.
+Alan Cox wrote:
+>> The master node in a PTP network probably takes its time from a
+>> precise external time source, like GPS. The GPS provides a 1 PPS
+>> directly to the PTP clock hardware, which latches the PTP hardware
+>> clock time on the PPS edge. This provides one sample as input to a
+>> clock servo (in the PTPd) that, in turn, regulates the PTP clock
+>> hardware.
+> 
+> A PTP clock is TAI, Unix time is UTC.
 
-             Pekka
+Not necessarily. AFAIK, the time distributed by IEEE1588v2 can either be 
+based on the "PTP epoch" (timePropertiesDS.ptpTimescale=TRUE) and thus 
+represent TAI or be based on an implementation specific arbitrary epoch 
+(timePropertiesDS.ptpTimescale=FALSE) and represent time on some 
+arbitrary time scale.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Christian
