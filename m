@@ -1,98 +1,97 @@
-From: Bandan Das <bandan.das@stratus.com>
-Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
- ip_fragment
-Date: Mon, 30 Aug 2010 19:21:47 -0400
-Message-ID: <20100830232147.GB10754@stratus.com>
-References: <20100830200917.GA10754@stratus.com>
- <1283204118.2405.32.camel@edumazet-laptop>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH v4 0/5] netdev: show a process of packets
+Date: Mon, 30 Aug 2010 19:50:10 -0400
+Message-ID: <1283212210.3656.84.camel@gandalf.stny.rr.com>
+References: <4C72422C.5070102@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, kaneshige.kenji@jp.fujitsu.com,
+	izumi.taku@jp.fujitsu.com, kosaki.motohiro@jp.fujitsu.com,
+	nhorman@tuxdriver.com, laijs@cn.fujitsu.com,
+	scott.a.mcmillan@intel.com, eric.dumazet@gmail.com,
+	fweisbec@gmail.com, mathieu.desnoyers@polymtl.ca
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1283204118.2405.32.camel@edumazet-laptop>
+In-Reply-To: <4C72422C.5070102@jp.fujitsu.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On  0, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Le lundi 30 ao=C3=BBt 2010 =C3=A0 16:09 -0400, Bandan Das a =C3=A9cri=
-t :
-> > The bridge layer can overwrite the IPCB using the
-> > BR_INPUT_SKB_CB macro. In br_nf_dev_queue_xmit,=20
-> > if we recieve a packet greater in size than the bridge=20
-> > device MTU, we call ip_fragment which in turn will lead to=20
-> > icmp_send calling ip_options_echo if the DF flag is set.=20
-> > ip_options_echo will then incorrectly try to parse the IPCB as=20
-> > IP options resulting in a buffer overflow.=20
-> > This change refills the CB area back with IP=20
-> > options before ip_fragment calls icmp_send. If we fail parsing,=20
-> > we zero out the IPCB area to guarantee that the stack does=20
-> > not get corrupted.
-> >=20
-> > Test setup that can exhibit this behavior:
-> > <Remote Machine>--<Host Machine>--<Bridge>--<Tun/Tap>--<KVM Guest>
-> >   1500 mtu          576 mtu        576 mtu   576 mtu    1500 mtu
-> >=20
-> > Example of crash :
-> > Kernel panic - not syncing: stack-protector: Kernel stack is corrup=
-ted in: ffffffff8146dff3
-> > Pid: 3173, comm: qemu-kvm Not tainted 2.6.32-63.el6.x86_64 #1
-> > Call Trace:
-> > Message from <IRQ>  syslogd@kvm at  [<ffffffff814c8285>] panic+0x78=
-/0x137
-> > Aug 30 14:09:50  [<ffffffff8146dff3>] ? icmp_send+0x743/0x780
-> >=20
-> > Signed-off-by: Bandan Das <bandan.das@stratus.com>
-> > ---
-> >  net/ipv4/ip_output.c |   11 +++++++++++
-> >  1 files changed, 11 insertions(+), 0 deletions(-)
-> >=20
-> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> > index e427620..5fef4a9 100644
-> > --- a/net/ipv4/ip_output.c
-> > +++ b/net/ipv4/ip_output.c
-> > @@ -445,6 +445,7 @@ int ip_fragment(struct sk_buff *skb, int (*outp=
-ut)(struct sk_buff *))
-> >  	struct iphdr *iph;
-> >  	int ptr;
-> >  	struct net_device *dev;
-> > +	struct ip_options *opt;
-> >  	struct sk_buff *skb2;
-> >  	unsigned int mtu, hlen, left, len, ll_rs;
-> >  	int offset;
-> > @@ -462,6 +463,16 @@ int ip_fragment(struct sk_buff *skb, int (*out=
-put)(struct sk_buff *))
-> > =20
-> >  	if (unlikely((iph->frag_off & htons(IP_DF)) && !skb->local_df)) {
-> >  		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
-> > +
-> > +		/* Refill CB with IP options */
-> > +		opt =3D &(IPCB(skb)->opt);
-> > +		opt->optlen =3D iph->ihl*4 - sizeof(struct iphdr);
-> > +		if (ip_options_compile(dev_net(dev), opt, skb)) {
-> > +			IP_INC_STATS(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
-> > +			/* If we fail, zero out IPCB and continue */
-> > +			memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-> > +		}
-> > +
-> >  		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
-> >  			  htonl(ip_skb_dst_mtu(skb)));
-> >  		kfree_skb(skb);
->=20
->=20
-> I wonder if we want this.
->=20
-> Maybe setting skb->local_df =3D 1 in bridge should be enough ?
->=20
->=20
-Thanks Eric for looking at this. Indeed, setting local_df to 1 seems to=
- be enough! I will
-respin and post a different patch.
+On Mon, 2010-08-23 at 18:41 +0900, Koki Sanagi wrote:
+> Rebase to the latest net-next.
+> 
+> CHANGE-LOG since v3:
+>     1) change arguments of softirq tracepoint into original one.
+>     2) remove tracepoint of dev_kfree_skb_irq and skb_free_datagram_locked
+>        and add trace_kfree_skb before __kfree_skb instead of them.
+>     3) add tracepoint to netif_rx and display it by netdev-times script.
+> 
+> These patch-set adds tracepoints to show us a process of packets.
+> Using these tracepoints and existing points, we can get the time when
+> packet passes through some points in transmit or receive sequence.
+> For example, this is an output of perf script which is attached by patch 5/5.
+> 
+> 106133.171439sec cpu=0
+>   irq_entry(+0.000msec irq=24:eth4)
+>          |
+>   softirq_entry(+0.006msec)
+>          |
+>          |---netif_receive_skb(+0.010msec skb=f2d15900 len=100)
+>          |            |
+>          |      skb_copy_datagram_iovec(+0.039msec 10291::10291)
+>          |
+>   napi_poll_exit(+0.022msec eth4)
+> 
+> 106134.175634sec cpu=1
+>   irq_entry(+0.000msec irq=28:eth1)
+>          |
+>          |---netif_rx(+0.009msec skb=f3ef0a00)
+>          |
+>   softirq_entry(+0.018msec)
+>          |
+>          |---netif_receive_skb(+0.021msec skb=f3ef0a00 len=84)
+>          |            |
+>          |      skb_copy_datagram_iovec(+0.033msec 0:swapper)
+>          |
+>   napi_poll_exit(+0.035msec (no_device))
+> 
+> The above is a receive side(eth4 is NAPI. eth1 is non-NAPI). Like this, it can
+> show receive sequence frominterrupt(irq_entry) to application
+> (skb_copy_datagram_iovec). 
+> This script shows one NET_RX softirq and events related to it. All relative
+> time bases on first irq_entry which raise NET_RX softirq.
+> 
+>    dev    len      Qdisc               netdevice             free
+>    eth4    74 106125.030004sec        0.006msec             0.009msec
+>    eth4    87 106125.041020sec        0.007msec             0.023msec
+>    eth4    66 106125.042291sec        0.003msec             0.012msec
+>    eth4    66 106125.043274sec        0.006msec             0.004msec
+>    eth4   850 106125.044283sec        0.007msec             0.018msec
+> 
+> The above is a transmit side. There are three check-time-points.
+> Point1 is before putting a packet to Qdisc. point2 is after ndo_start_xmit in
+> dev_hard_start_xmit. It indicates finishing putting a packet to driver.
+> point3 is in consume_skb and kfree_skb. It indicates freeing a transmitted packet.
+> Values of this script are, from left, device name, length of a packet, a time of
+> point1, an interval time between point1 and point2 and an interval time between
+> point2 and point3.
+> 
+> These times are useful to analyze a performance or to detect a point where
+> packet delays. For example,
+> - NET_RX softirq calling is late.
+> - Application is late to take a packet.
+> - It takes much time to put a transmitting packet to driver
+>   (It may be caused by packed queue)
+> 
+> And also, these tracepoint help us to investigate a network driver's trouble
+> from memory dump because ftrace records it to memory. And ftrace is so light
+> even if always trace on. So, in a case investigating a problem which doesn't
+> reproduce, it is useful.
+> 
 
---=20
-Bandan Das
+The entire series:
+
+Acked-by: Steven Rostedt <rostedt@goodmis.org>
+
+-- Steve
