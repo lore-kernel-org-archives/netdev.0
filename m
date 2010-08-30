@@ -1,57 +1,27 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] net/m68k: Hydra Ethernet - print whole resource instead of
- start address
-Date: Mon, 30 Aug 2010 09:43:46 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1008300942560.30729@ayla.of.borg>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [PATCH] pxa168_eth: fix a mdiobus leak
+Date: Mon, 30 Aug 2010 10:47:30 +0200
+Message-ID: <20100830084730.GM9832@bicker>
+References: <20100830072138.GA8797@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org,
-	Linux/m68k <linux-m68k@lists.linux-m68k.org>,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, ssanap@marvell.com, netdev@vger.kernel.org
+To: Denis Kirjanov <dkirjanov@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gerard.telenet-ops.be ([195.130.132.48]:46671 "EHLO
-	gerard.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760Ab0H3Hns (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 03:43:48 -0400
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:57888 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662Ab0H3IsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 04:48:01 -0400
+Received: by eyg5 with SMTP id 5so3024609eyg.19
+        for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 01:48:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20100830072138.GA8797@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-resource_size_t changed from `unsigned long' to `phys_addr_t`, which is either
-`u32' or `u64'.
-Print the whole resource to remove the cast and to make it future-proof.
+On Mon, Aug 30, 2010 at 07:21:38AM +0000, Denis Kirjanov wrote:
+> mdiobus resources must be released on exit
+> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/hydra.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+Acked-by: Dan Carpenter <error27@gmail.com>
 
-diff --git a/drivers/net/hydra.c b/drivers/net/hydra.c
-index 07d8e5b..7eb0e78 100644
---- a/drivers/net/hydra.c
-+++ b/drivers/net/hydra.c
-@@ -173,9 +173,8 @@ static int __devinit hydra_init(struct zorro_dev *z)
- 
-     zorro_set_drvdata(z, dev);
- 
--    printk(KERN_INFO "%s: Hydra at 0x%08llx, address "
--	   "%pM (hydra.c " HYDRA_VERSION ")\n",
--	   dev->name, (unsigned long long)z->resource.start, dev->dev_addr);
-+    pr_info("%s: Hydra at %pR, address %pM (hydra.c " HYDRA_VERSION ")\n",
-+	    dev->name, &z->resource, dev->dev_addr);
- 
-     return 0;
- }
--- 
-1.7.0.4
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
