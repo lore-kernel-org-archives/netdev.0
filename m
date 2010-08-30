@@ -1,42 +1,111 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: block network access for certain users/groups
-Date: Mon, 30 Aug 2010 20:55:43 +0900
-Message-ID: <201008302055.GEG52699.MJHtQLFOFOSFVO@I-love.SAKURA.ne.jp>
-References: <AANLkTin8w74SAe67ZPqPE0Q=0fPpZOHnTCnjAT+AduCY@mail.gmail.com>
-	<AANLkTikru-pmMAnS-dqjYT7xJC_X21rVNBpjg_2LDmWB@mail.gmail.com>
-	<201008252058.DDE12933.FOLOHQSJFFOMtV@I-love.SAKURA.ne.jp>
-	<201008262128.DCG04175.JFQFLFVOMHOtSO@I-love.SAKURA.ne.jp>
-	<AANLkTi=HpQNM_FeHDdejnh-q-RhLMFVK3-O5JgWKejA0@mail.gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 3/5] tcp/dccp: Consolidate common code for RFC 3390
+ conversion
+Date: Mon, 30 Aug 2010 15:59:34 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1008301557590.31318@wel-95.cs.helsinki.fi>
+References: <ccid2_and_tcp_code_sharing> <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: estellnb@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=HpQNM_FeHDdejnh-q-RhLMFVK3-O5JgWKejA0@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
+	Netdev <netdev@vger.kernel.org>
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:36283 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753335Ab0H3M7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 08:59:36 -0400
+In-Reply-To: <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Elmar Stellnberger wrote:
-> However if I compile the kernel module and try to load it that results
-> in a kernel hang that I can only escape by Alt-PrnScr-S-U-B, no matter
-> whether the module is loaded on boot time or in rl5. I have checked
-> all required kernel options and built it like the following (using
-> openSUSE 11.3):
+On Mon, 30 Aug 2010, Gerrit Renker wrote:
 
-This module is for 2.6.36 but openSUSE 11.3 uses 2.6.34 . Did you change
-below spin_lock() to write_lock() and spin_unlock() to write_unlock()?
+> This patch consolidates initial-window code common to TCP and CCID-2:
+>  * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
+>  * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
+> 
+> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> ---
+>  include/net/tcp.h      |   15 +++++++++++++++
+>  net/dccp/ccids/ccid2.c |    8 ++------
+>  net/ipv4/tcp_input.c   |   17 ++---------------
+>  3 files changed, 19 insertions(+), 21 deletions(-)
+> 
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -789,6 +789,21 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
+>  /* Use define here intentionally to get WARN_ON location shown at the caller */
+>  #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
+>  
+> +/*
+> + * Convert RFC 3390 larger initial window into an equivalent number of packets.
+> + *
+> + * John Heffner states:
+> + *
+> + *	The RFC specifies a window of no more than 4380 bytes
+> + *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
+> + *	is a bit misleading because they use a clamp at 4380 bytes
+> + *	rather than a multiplier in the relevant range.
+> + */
+> +static inline u32 rfc3390_bytes_to_packets(const u32 smss)
+> +{
+> +	return smss <= 1095 ? 4 : (smss > 1460 ? 2 : 3);
+> +}
+> +
+>  extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+>  extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
+>  
+> --- a/net/dccp/ccids/ccid2.c
+> +++ b/net/dccp/ccids/ccid2.c
+> @@ -641,12 +641,8 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
+>  	/* RFC 4341, 5: initialise ssthresh to arbitrarily high (max) value */
+>  	hc->tx_ssthresh = ~0U;
+>  
+> -	/*
+> -	 * RFC 4341, 5: "The cwnd parameter is initialized to at most four
+> -	 * packets for new connections, following the rules from [RFC3390]".
+> -	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
+> -	 */
+> -	hc->tx_cwnd = clamp(4380U / dp->dccps_mss_cache, 2U, 4U);
+> +	/* Use larger initial windows (RFC 4341, section 5). */
+> +	hc->tx_cwnd = rfc3390_bytes_to_packets(dp->dccps_mss_cache);
+>  
+>  	/* Make sure that Ack Ratio is enabled and within bounds. */
+>  	max_ratio = DIV_ROUND_UP(hc->tx_cwnd, 2);
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -805,25 +805,12 @@ void tcp_update_metrics(struct sock *sk)
+>  	}
+>  }
+>  
+> -/* Numbers are taken from RFC3390.
+> - *
+> - * John Heffner states:
+> - *
+> - *	The RFC specifies a window of no more than 4380 bytes
+> - *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
+> - *	is a bit misleading because they use a clamp at 4380 bytes
+> - *	rather than use a multiplier in the relevant range.
+> - */
+>  __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
+>  {
+>  	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+>  
+> -	if (!cwnd) {
+> -		if (tp->mss_cache > 1460)
+> -			cwnd = 2;
+> -		else
+> -			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
+> -	}
+> +	if (!cwnd)
+> +		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
+>  	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
+>  }
 
-> > 	{
-> > 		struct fs_struct *fs = current->fs;
-> > 		struct vfsmount *mnt = current->nsproxy->pid_ns->proc_mnt;
-> > 		struct path old_path;
-> > 		struct path new_path = { mnt, mnt->mnt_root };
-> > 		spin_lock(&fs->lock); /* was write_lock() till 2.6.35. */
-> > 		old_path = fs->pwd;
-> > 		fs->pwd = new_path;
-> > 		spin_unlock(&fs->lock);
-> > 		file = filp_open("kallsyms", O_RDONLY, 0);
-> > 		spin_lock(&fs->lock);
-> > 		fs->pwd = old_path;
-> > 		spin_unlock(&fs->lock);
-> > 	}
+What is spelled out in tcp_select_initial_window might also need to follow 
+the same logic?
+
+-- 
+ i.
