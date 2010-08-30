@@ -1,111 +1,111 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 3/5] tcp/dccp: Consolidate common code for RFC 3390
- conversion
-Date: Mon, 30 Aug 2010 15:59:34 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1008301557590.31318@wel-95.cs.helsinki.fi>
-References: <ccid2_and_tcp_code_sharing> <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: [PATCH] UNIX: Do not loop forever at unix_autobind().
+Date: Mon, 30 Aug 2010 22:27:08 +0900
+Message-ID: <201008302227.DJH30258.OQFMFtFJOOVSHL@I-love.SAKURA.ne.jp>
+References: <201008212101.IJG87048.QMOHFtSOVOLFFJ@I-love.SAKURA.ne.jp>
+	<AANLkTi=oWoHUmm_3xkRY7UzoXTuptKvUHzn0gK2WDiSa@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:36283 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753335Ab0H3M7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 08:59:36 -0400
-In-Reply-To: <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from wine.ocn.ne.jp ([122.1.235.145]:65167 "EHLO smtp.wine.ocn.ne.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751972Ab0H3N1L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 09:27:11 -0400
+Received: from CLAMP (p3029-ipbf4202marunouchi.tokyo.ocn.ne.jp [123.224.228.29])
+	by smtp.wine.ocn.ne.jp (Postfix) with ESMTP id E43B554B0
+	for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 22:27:09 +0900 (JST)
+In-Reply-To: <AANLkTi=oWoHUmm_3xkRY7UzoXTuptKvUHzn0gK2WDiSa@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 30 Aug 2010, Gerrit Renker wrote:
+I tried to create and autobind 1048576 UNIX domain sockets using
+http://I-love.SAKURA.ne.jp/tmp/unixloop.asm on 2.6.18-194.11.1.el5.x86_64,
+and found that it needs about 2GB of RAM. Thus, on systems where
+/proc/sys/fs/file-max is larger than 1048576, a local user can create and
+autobind 1048576 UNIX domain sockets in order to let applications fall into
 
-> This patch consolidates initial-window code common to TCP and CCID-2:
->  * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
->  * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> ---
->  include/net/tcp.h      |   15 +++++++++++++++
->  net/dccp/ccids/ccid2.c |    8 ++------
->  net/ipv4/tcp_input.c   |   17 ++---------------
->  3 files changed, 19 insertions(+), 21 deletions(-)
-> 
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -789,6 +789,21 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
->  /* Use define here intentionally to get WARN_ON location shown at the caller */
->  #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
->  
-> +/*
-> + * Convert RFC 3390 larger initial window into an equivalent number of packets.
-> + *
-> + * John Heffner states:
-> + *
-> + *	The RFC specifies a window of no more than 4380 bytes
-> + *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-> + *	is a bit misleading because they use a clamp at 4380 bytes
-> + *	rather than a multiplier in the relevant range.
-> + */
-> +static inline u32 rfc3390_bytes_to_packets(const u32 smss)
-> +{
-> +	return smss <= 1095 ? 4 : (smss > 1460 ? 2 : 3);
-> +}
-> +
->  extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
->  extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
->  
-> --- a/net/dccp/ccids/ccid2.c
-> +++ b/net/dccp/ccids/ccid2.c
-> @@ -641,12 +641,8 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
->  	/* RFC 4341, 5: initialise ssthresh to arbitrarily high (max) value */
->  	hc->tx_ssthresh = ~0U;
->  
-> -	/*
-> -	 * RFC 4341, 5: "The cwnd parameter is initialized to at most four
-> -	 * packets for new connections, following the rules from [RFC3390]".
-> -	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
-> -	 */
-> -	hc->tx_cwnd = clamp(4380U / dp->dccps_mss_cache, 2U, 4U);
-> +	/* Use larger initial windows (RFC 4341, section 5). */
-> +	hc->tx_cwnd = rfc3390_bytes_to_packets(dp->dccps_mss_cache);
->  
->  	/* Make sure that Ack Ratio is enabled and within bounds. */
->  	max_ratio = DIV_ROUND_UP(hc->tx_cwnd, 2);
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -805,25 +805,12 @@ void tcp_update_metrics(struct sock *sk)
->  	}
->  }
->  
-> -/* Numbers are taken from RFC3390.
-> - *
-> - * John Heffner states:
-> - *
-> - *	The RFC specifies a window of no more than 4380 bytes
-> - *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-> - *	is a bit misleading because they use a clamp at 4380 bytes
-> - *	rather than use a multiplier in the relevant range.
-> - */
->  __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
->  {
->  	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
->  
-> -	if (!cwnd) {
-> -		if (tp->mss_cache > 1460)
-> -			cwnd = 2;
-> -		else
-> -			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
-> -	}
-> +	if (!cwnd)
-> +		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
->  	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
->  }
+  while (1)
+  	yield();
 
-What is spelled out in tcp_select_initial_window might also need to follow 
-the same logic?
+loop. Below is the patch (only compile tested) to avoid falling into this loop.
+Is there any reason a name has to be '\0' + 5 letters?
+Shoud I give up after checking 1048576 names rather than after checking
+4294967296 names?
+----------------------------------------
+ From 703b0677bf03afda19665f05fae4850ecf88afe3 Mon Sep 17 00:00:00 2001
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Mon, 30 Aug 2010 22:07:13 +0900
+Subject: [PATCH] UNIX: Do not loop forever at unix_autobind().
 
+We assumed that unix_autobind() never fails if kzalloc() succeeded.
+But unix_autobind() allows only 1048576 names. If /proc/sys/fs/file-max is
+larger than 1048576 (e.g. systems with more than 10GB of RAM), a local user can
+consume all names using fork()/socket()/bind().
+
+If all names are in use, those who call bind() with addr_len == sizeof(short)
+or connect()/sendmsg() with setsockopt(SO_PASSCRED) will continue
+
+  while (1)
+  	yield();
+
+loop at unix_autobind() till a name becomes available.
+
+This patch changes unix_autobind() to check 4294967296 names and also give up
+unix_autobind() if all names are in use.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+---
+ net/unix/af_unix.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 4414a18..1271e98 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -692,6 +692,7 @@ static int unix_autobind(struct socket *sock)
+ 	static u32 ordernum = 1;
+ 	struct unix_address *addr;
+ 	int err;
++	u32 loop = 0;
+ 
+ 	mutex_lock(&u->readlock);
+ 
+@@ -700,7 +701,7 @@ static int unix_autobind(struct socket *sock)
+ 		goto out;
+ 
+ 	err = -ENOMEM;
+-	addr = kzalloc(sizeof(*addr) + sizeof(short) + 16, GFP_KERNEL);
++	addr = kzalloc(sizeof(*addr) + sizeof(short) + 19, GFP_KERNEL);
+ 	if (!addr)
+ 		goto out;
+ 
+@@ -708,11 +709,11 @@ static int unix_autobind(struct socket *sock)
+ 	atomic_set(&addr->refcnt, 1);
+ 
+ retry:
+-	addr->len = sprintf(addr->name->sun_path+1, "%05x", ordernum) + 1 + sizeof(short);
++	addr->len = sprintf(addr->name->sun_path+1, "%08x", ordernum) + 1 + sizeof(short);
+ 	addr->hash = unix_hash_fold(csum_partial(addr->name, addr->len, 0));
+ 
+ 	spin_lock(&unix_table_lock);
+-	ordernum = (ordernum+1)&0xFFFFF;
++	ordernum++;
+ 
+ 	if (__unix_find_socket_byname(net, addr->name, addr->len, sock->type,
+ 				      addr->hash)) {
+@@ -720,6 +721,12 @@ retry:
+ 		/* Sanity yield. It is unusual case, but yet... */
+ 		if (!(ordernum&0xFF))
+ 			yield();
++		/* Give up if all names are in use. */
++		if (unlikely(!++loop)) {
++			err = -EAGAIN;
++			kfree(addr);
++			goto out;
++		}
+ 		goto retry;
+ 	}
+ 	addr->hash ^= sk->sk_type;
 -- 
- i.
+1.6.1
