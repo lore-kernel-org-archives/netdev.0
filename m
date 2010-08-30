@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 1/1] TCP: update initial windows according to RFC
- 5681
-Date: Mon, 30 Aug 2010 13:51:23 -0700 (PDT)
-Message-ID: <20100830.135123.241915070.davem@davemloft.net>
-References: <20100830052734.GB5332@gerrit.erg.abdn.ac.uk>
+Subject: Re: [PATCH] net/m68k: Hydra Ethernet - print whole resource
+ instead of start address
+Date: Mon, 30 Aug 2010 13:51:36 -0700 (PDT)
+Message-ID: <20100830.135136.98876124.davem@davemloft.net>
+References: <alpine.DEB.2.00.1008300942560.30729@ayla.of.borg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56026
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753809Ab0H3UvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 16:51:07 -0400
-In-Reply-To: <20100830052734.GB5332@gerrit.erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1008300942560.30729@ayla.of.borg>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Mon, 30 Aug 2010 07:27:34 +0200
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon, 30 Aug 2010 09:43:46 +0200 (CEST)
 
-> This is an update to the earlier DCCP 5-patch set, sent separately in case this
-> question is a contentious issue. 
+> resource_size_t changed from `unsigned long' to `phys_addr_t`, which is either
+> `u32' or `u64'.
+> Print the whole resource to remove the cast and to make it future-proof.
 > 
-> However, it does look as if the newer RFC 5681 is indeed the normative case for 
-> the RFC 3390 initial window value. 
-> 
-> If there are no objections, I would like to submit this as an update for net-2.6.
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-I don't have any objectioned but I'm going to put it into net-next-2.6
-as I don't see any real reason to rush something like this.
-
-Thanks!
+Applied to net-next-2.6, thanks!
