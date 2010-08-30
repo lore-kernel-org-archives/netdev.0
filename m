@@ -1,74 +1,35 @@
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: Re: [PATCH] e1000e: Intel 82571EB: Don't wait for MNG
- cycle on unmanaged chips
-Date: Mon, 30 Aug 2010 13:49:29 -0700
-Message-ID: <AANLkTin69t9Z4vunB4t4X6p77=QSR9m+JueCcKSm8jEL@mail.gmail.com>
-References: <1282936206-17288-1-git-send-email-Kyle.D.Moffett@boeing.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH 1/1] TCP: update initial windows according to RFC
+ 5681
+Date: Mon, 30 Aug 2010 13:51:23 -0700 (PDT)
+Message-ID: <20100830.135123.241915070.davem@davemloft.net>
+References: <20100830052734.GB5332@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Kyle Moffett <kyle@moffetthome.net>, linux-kernel@vger.kernel.org
-To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1282936206-17288-1-git-send-email-Kyle.D.Moffett@boeing.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56026
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753809Ab0H3UvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 16:51:07 -0400
+In-Reply-To: <20100830052734.GB5332@gerrit.erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 27, 2010 at 12:10 PM, Kyle Moffett
-<Kyle.D.Moffett@boeing.com> wrote:
-> The Intel 82571EB chipset can be used in an unmanaged configuration as a
-> fast dual-port Gig-E controller. =A0Unfortunately a board constructed that
-> way would fail to correctly come up because the driver polls for the
-> completion of a management cycle that will never occur.
->
-> To resolve this problem, we disable the poll and error return on chips
-> whose EEPROMs indicate no management. =A0As a protection against
-> misconfigured chipsets, we still delay for the entire management poll
-> timeout.
->
-> Signed-off-by: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Mon, 30 Aug 2010 07:27:34 +0200
 
-Hi Kyle, thanks for submitting this patch.  Are you fixing this
-problem for a device that is a LOM?  The reason I ask is that most if
-not all of our current eeprom images require some firmware interaction
-to correctly initialize the PHY when the part is reset, even for the
-no_mng (no managability) case.
+> This is an update to the earlier DCCP 5-patch set, sent separately in case this
+> question is a contentious issue. 
+> 
+> However, it does look as if the newer RFC 5681 is indeed the normative case for 
+> the RFC 3390 initial window value. 
+> 
+> If there are no objections, I would like to submit this as an update for net-2.6.
 
-Your code below will avoid reading of and waiting for the cfg_done
-bit, which means that the firmware could end up racing with the
-driver, with them both trying to configure the part.
+I don't have any objectioned but I'm going to put it into net-next-2.6
+as I don't see any real reason to rush something like this.
 
-Was there a specific bug you were trying to fix, and can you reply (if
-you want to me in private) with your ethtool -e ethX output?
-
-The concern here is that you may simply have an out of date eeprom
-image, which might fix the original issue and get the driver to work
-correctly, as the behavior you are describing is not how it should
-work according to our design.
-
-At the very least we would like to reproduce your issue here so we can
-investigate further.
-
-Jesse
-
----------------------------------------------------------------------------=
----
-This SF.net Dev2Dev email is sponsored by:
-
-Show off your parallel programming skills.
-Enter the Intel(R) Threading Challenge 2010.
-http://p.sf.net/sfu/intel-thread-sfd
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
-m/community/wired
+Thanks!
