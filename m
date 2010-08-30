@@ -1,39 +1,42 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: [PATCH] pxa168_eth: fix a mdiobus leak
-Date: Mon, 30 Aug 2010 07:21:38 +0000
-Message-ID: <20100830072138.GA8797@hera.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [rfc] Merging the Open vSwitch datapath
+Date: Mon, 30 Aug 2010 00:25:18 -0700
+Message-ID: <1283153118.7762.83.camel@Joe-Laptop>
+References: <20100830062755.GA22396@verge.net.au>
+	 <1283151125.7762.77.camel@Joe-Laptop> <20100830071147.GB22396@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: error27@gmail.com, ssanap@marvell.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Arnd Bergmann <arnd@arndb.de>,
+	David Miller <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:35330 "EHLO hera.kernel.org"
+Received: from mail.perches.com ([173.55.12.10]:1057 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751537Ab0H3HVl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Aug 2010 03:21:41 -0400
-Content-Disposition: inline
+	id S1753156Ab0H3HZU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 03:25:20 -0400
+In-Reply-To: <20100830071147.GB22396@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-mdiobus resources must be released on exit
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
- drivers/net/pxa168_eth.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+On Mon, 2010-08-30 at 16:11 +0900, Simon Horman wrote:
+> On Sun, Aug 29, 2010 at 11:52:05PM -0700, Joe Perches wrote:
+> > On Mon, 2010-08-30 at 15:27 +0900, Simon Horman wrote:
+> > > I am looking to submit the Open vSwitch datapath for merging into the
+> > > kernel.  To this end I have posted a preliminary round of patches to the
+> > > dev@openvswitch.org mailing list
+> > > 2) The code could do with some cleaning up. The current todo list
+> > >    includes the following items.
+> > >    * Use pr_*
+> > >    * Remove trailing whitespace and other formatting fixes
+> > These are trivial and easy to fix via script.
+> > I think these should be done prior to being merged.
+> > I've got patches if you want them.
+> Yes, please send them.
 
-diff --git a/drivers/net/pxa168_eth.c b/drivers/net/pxa168_eth.c
-index 410ea0a..85eddda 100644
---- a/drivers/net/pxa168_eth.c
-+++ b/drivers/net/pxa168_eth.c
-@@ -1606,6 +1606,8 @@ static int pxa168_eth_remove(struct platform_device *pdev)
- 
- 	iounmap(pep->base);
- 	pep->base = NULL;
-+	mdiobus_unregister(pep->smi_bus);
-+	mdiobus_free(pep->smi_bus);
- 	unregister_netdev(dev);
- 	flush_scheduled_work();
- 	free_netdev(dev);
--- 
-1.6.4.4
+I've send them to you and cc'd the dev@openvswitch.org mailing list.
 
