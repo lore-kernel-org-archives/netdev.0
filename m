@@ -1,36 +1,50 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [PATCH] tcp: select(writefds) don't hang up when a peer close connection
-Date: Mon, 30 Aug 2010 10:08:53 +0900 (JST)
-Message-ID: <20100830085152.5237.A69D9226@jp.fujitsu.com>
-References: <1282824448.2263.3.camel@achroite.uk.solarflarecom.com> <20100826.122104.115920380.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000e: Intel 82571EB: Don't wait for MNG
+ cycle on unmanaged chips
+Date: Sun, 29 Aug 2010 19:42:39 -0700
+Message-ID: <AANLkTimr8-hZYtQyYTTPmvRaNr-upRtVdddtoRbRbQ_y@mail.gmail.com>
+References: <1282936206-17288-1-git-send-email-Kyle.D.Moffett@boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100826.122104.115920380.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Kyle Moffett <kyle@moffetthome.net>, linux-kernel@vger.kernel.org
+To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1282936206-17288-1-git-send-email-Kyle.D.Moffett@boeing.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Thu, 26 Aug 2010 13:07:28 +0100
-> 
-> > By the way, I was able to reproduce this bug in RHEL 3 (kernel based on
-> > 2.4.21) so it seems to have been around for a while.
-> 
-> It's existed since September 1998:
-> 
-> commit 6275af56642b5b9ed9ef15bf5d9718661c5fe79d
-> Author: freitag <freitag>
-> Date:   Sat Sep 26 06:20:25 1998 +0000
-> 
->     Some small fixes.
->     
->     - Remove second check for sk->err in poll as discussed with Linus.
->     - Don't signal writability when the local end has been shut down.
->     - Comment fixes.
-
-because (almostly) nobody were using this feature? ;)
+T24gRnJpLCBBdWcgMjcsIDIwMTAgYXQgMTI6MTAsIEt5bGUgTW9mZmV0dCA8S3lsZS5ELk1vZmZl
+dHRAYm9laW5nLmNvbT4gd3JvdGU6Cj4gVGhlIEludGVsIDgyNTcxRUIgY2hpcHNldCBjYW4gYmUg
+dXNlZCBpbiBhbiB1bm1hbmFnZWQgY29uZmlndXJhdGlvbiBhcyBhCj4gZmFzdCBkdWFsLXBvcnQg
+R2lnLUUgY29udHJvbGxlci4gwqBVbmZvcnR1bmF0ZWx5IGEgYm9hcmQgY29uc3RydWN0ZWQgdGhh
+dAo+IHdheSB3b3VsZCBmYWlsIHRvIGNvcnJlY3RseSBjb21lIHVwIGJlY2F1c2UgdGhlIGRyaXZl
+ciBwb2xscyBmb3IgdGhlCj4gY29tcGxldGlvbiBvZiBhIG1hbmFnZW1lbnQgY3ljbGUgdGhhdCB3
+aWxsIG5ldmVyIG9jY3VyLgo+Cj4gVG8gcmVzb2x2ZSB0aGlzIHByb2JsZW0sIHdlIGRpc2FibGUg
+dGhlIHBvbGwgYW5kIGVycm9yIHJldHVybiBvbiBjaGlwcwo+IHdob3NlIEVFUFJPTXMgaW5kaWNh
+dGUgbm8gbWFuYWdlbWVudC4gwqBBcyBhIHByb3RlY3Rpb24gYWdhaW5zdAo+IG1pc2NvbmZpZ3Vy
+ZWQgY2hpcHNldHMsIHdlIHN0aWxsIGRlbGF5IGZvciB0aGUgZW50aXJlIG1hbmFnZW1lbnQgcG9s
+bAo+IHRpbWVvdXQuCj4KPiBTaWduZWQtb2ZmLWJ5OiBLeWxlIE1vZmZldHQgPEt5bGUuRC5Nb2Zm
+ZXR0QGJvZWluZy5jb20+Cj4gLS0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMGUvODI1NzEuYyB8IMKg
+IMKgNyArKysrKysrCj4gwqAxIGZpbGVzIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgMCBkZWxl
+dGlvbnMoLSkKPgoKVGhhbmtzIEt5bGUsIEkgaGF2ZSBhZGRlZCB0aGUgcGF0Y2ggdG8gbXkgcXVl
+dWUuCgotLSAKQ2hlZXJzLApKZWZmCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KU2VsbCBhcHBzIHRv
+IG1pbGxpb25zIHRocm91Z2ggdGhlIEludGVsKFIpIEF0b20oVG0pIERldmVsb3BlciBQcm9ncmFt
+CkJlIHBhcnQgb2YgdGhpcyBpbm5vdmF0aXZlIGNvbW11bml0eSBhbmQgcmVhY2ggbWlsbGlvbnMg
+b2YgbmV0Ym9vayB1c2VycyAKd29ybGR3aWRlLiBUYWtlIGFkdmFudGFnZSBvZiBzcGVjaWFsIG9w
+cG9ydHVuaXRpZXMgdG8gaW5jcmVhc2UgcmV2ZW51ZSBhbmQgCnNwZWVkIHRpbWUtdG8tbWFya2V0
+LiBKb2luIG5vdywgYW5kIGp1bXBzdGFydCB5b3VyIGZ1dHVyZS4KaHR0cDovL3Auc2YubmV0L3Nm
+dS9pbnRlbC1hdG9tLWQyZApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNl
+Zm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2Ux
+MDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0
+IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
