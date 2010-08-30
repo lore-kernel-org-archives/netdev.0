@@ -1,76 +1,37 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: [PATCH] HFSC - initialize parent's cl_cfmin properly in init_vf()
-Date: Mon, 30 Aug 2010 23:33:15 +0200
-Message-ID: <cover.1283197803.git.soltys@ziu.info>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH][RESEND] netfilter: fix CONFIG_COMPAT support
+Date: Mon, 30 Aug 2010 23:50:04 +0200
+Message-ID: <20100830215004.GD17484@Chamillionaire.breakpoint.cc>
+References: <1282568186-20475-1-git-send-email-fw@strlen.de>
+ <20100823.144146.173873857.davem@davemloft.net>
+ <20100830161037.517d6ea5@schatten.dmk.lab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: denys@visp.net.lb, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.ppgk.com.pl ([80.53.243.36]:4083 "EHLO relay.ppgk.com.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754528Ab0H3Vm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Aug 2010 17:42:27 -0400
+Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Mickler <florian@mickler.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100830161037.517d6ea5@schatten.dmk.lab>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Consider following hierarchy:
+Florian Mickler <florian@mickler.org> wrote:
+> On Mon, 23 Aug 2010 14:41:46 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Florian Westphal <fw@strlen.de>
+> > Date: Mon, 23 Aug 2010 14:56:26 +0200
+> > 
+> > > commit f3c5c1bfd430858d3a05436f82c51e53104feb6b
+> > > (netfilter: xtables: make ip_tables reentrant) forgot to
+> > > also compute the jumpstack size in the compat handlers.
+> > > 
+> > > Result is that "iptables -I INPUT -j userchain" turns into -j DROP.
+[..]
+> 
+> Should this go to stable? 
+> It seems commit f3c5c1bdf was introduced in 2.6.35.
 
-      A(u)
-     /  \
-    X    Y(u)
-
-A and Y have upperlimit curve defined, X - doesn't. We'll assume that no
-realtime curve is present in either of the classes, for the sake of
-simplicity.
-
-Assume that Y is constantly backlogged, and then a new traffic gets
-assigned to X - 1st packet will trigger set_active() and init_vf().
-
-The problem: although init_vf() will properly add X to A's cftree, A's
-cfmin will never be updated. The reason for that is - cftree_insert()
-only inserts, but doesn't really care for that variable. On the other
-hand, last condition in init_vf() function will never be true, thus
-update_cfmin(cl->cl_parent) will not be called as X has no upperlimit
-curve, and all three cl_f, cl_myf, cl_cfmin are always 0 for X.
-
-When some packet from Y gets dequeued, it will update cl_cfmin()
-accordingly, and X's packets will get dequeued in a bursty fashion.
-
-The best way to experience the practical effects of this bug: create the
-above hierarchy in highly assymetric fashion - e.g.:
-
-#tc qdisc add dev eth0 root handle 1:0 hfsc default 301
-#tc class add dev eth0 parent 1:0 classid 1:300 hfsc ls m2 90mbit ul m2 90mbit
-
-#tc class add dev eth0 parent 1:300 classid 1:301 hfsc ls m2 99950kbit
-#tc class add dev eth0 parent 1:300 classid 1:302 hfsc ls m2 50kbit ul m2 50kbit
-
-...and then assign ssh session to 1:301, making sure 1:302 is constantly
-backlogged. Do ls -alR / or edit some file, the effect will be evident.
-
-The problem naturally extends to any hierarchy of classes, where some of
-the leafs have no upperlimit curve. Realtime curve can help a bit - but
-update_vf() doesn't call update_cfmin() unconditionally either, so we're
-left on the mercy of other classes to do so.
-
-Furthermore, each time such a class becomes passive - the problem will
-reappear once we become backlogged again.
-
-The fix is very simple - init_vf() should always call update_cfmin() at
-the end of the for loop. It seems it's not necessary to make update_vf()
-do the same - init_vf() will guarantee the call on the beginning of
-every new backlog period, and the further calls are only necessary if
-cl_f changes.
-
-
-Michal Soltys (1):
-  net/sched/sch_hfsc.c: initialize parent's cl_cfmin properly in init_vf()
-
- net/sched/sch_hfsc.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
--- 
-1.7.2.1
-
+My bad, I forgot to add a "Cc: stable" tag.
+I'll submit it now, thanks for the heads-up...
