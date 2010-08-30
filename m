@@ -1,102 +1,133 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 3/5] tcp/dccp: Consolidate common code for RFC 3390 conversion
-Date: Mon, 30 Aug 2010 07:23:12 +0200
-Message-ID: <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/5] dccp ccid-2: Use u32 timestamps uniformly
+Date: Mon, 30 Aug 2010 07:23:10 +0200
+Message-ID: <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid2_and_tcp_code_sharing>
  <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59461 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754317Ab0H3FXa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Aug 2010 01:23:30 -0400
-In-Reply-To: <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754425Ab0H3FXd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 01:23:33 -0400
+In-Reply-To: <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch consolidates initial-window code common to TCP and CCID-2:
- * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
- * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
+Since CCID-2 is de facto a mini implementation of TCP, it makes sense to share
+as much code as possible.
+
+Hence this patch aligns CCID-2 timestamping with TCP timestamping.
+This also halves the space consumption (on 64-bit systems).
+
+The necessary include file <net/tcp.h> is already included by way of
+net/dccp.h. Redundant includes have been removed.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- include/net/tcp.h      |   15 +++++++++++++++
- net/dccp/ccids/ccid2.c |    8 ++------
- net/ipv4/tcp_input.c   |   17 ++---------------
- 3 files changed, 19 insertions(+), 21 deletions(-)
+ net/dccp/ccids/ccid2.h |   15 ++++++++++-----
+ net/dccp/ccids/ccid2.c |   14 ++++++--------
+ 2 files changed, 16 insertions(+), 13 deletions(-)
 
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -789,6 +789,21 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
- /* Use define here intentionally to get WARN_ON location shown at the caller */
- #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
+--- a/net/dccp/ccids/ccid2.h
++++ b/net/dccp/ccids/ccid2.h
+@@ -18,18 +18,23 @@
+ #ifndef _DCCP_CCID2_H_
+ #define _DCCP_CCID2_H_
  
-+/*
-+ * Convert RFC 3390 larger initial window into an equivalent number of packets.
-+ *
-+ * John Heffner states:
-+ *
-+ *	The RFC specifies a window of no more than 4380 bytes
-+ *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-+ *	is a bit misleading because they use a clamp at 4380 bytes
-+ *	rather than a multiplier in the relevant range.
-+ */
-+static inline u32 rfc3390_bytes_to_packets(const u32 smss)
-+{
-+	return smss <= 1095 ? 4 : (smss > 1460 ? 2 : 3);
-+}
+-#include <linux/dccp.h>
+ #include <linux/timer.h>
+ #include <linux/types.h>
+ #include "../ccid.h"
++#include "../dccp.h"
 +
- extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
- extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
++/*
++ * CCID-2 timestamping faces the same issues as TCP timestamping.
++ * Hence we reuse/share as much of the code as possible.
++ */
++#define ccid2_time_stamp	tcp_time_stamp
++
+ /* NUMDUPACK parameter from RFC 4341, p. 6 */
+ #define NUMDUPACK	3
+ 
+-struct sock;
+-
+ struct ccid2_seq {
+ 	u64			ccid2s_seq;
+-	unsigned long		ccid2s_sent;
++	u32			ccid2s_sent;
+ 	int			ccid2s_acked;
+ 	struct ccid2_seq	*ccid2s_prev;
+ 	struct ccid2_seq	*ccid2s_next;
+@@ -72,7 +77,7 @@ struct ccid2_hc_tx_sock {
+ 
+ 	u64			tx_rpseq;
+ 	int			tx_rpdupack;
+-	unsigned long		tx_last_cong;
++	u32			tx_last_cong;
+ 	u64			tx_high_ack;
+ };
  
 --- a/net/dccp/ccids/ccid2.c
 +++ b/net/dccp/ccids/ccid2.c
-@@ -641,12 +641,8 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
- 	/* RFC 4341, 5: initialise ssthresh to arbitrarily high (max) value */
- 	hc->tx_ssthresh = ~0U;
+@@ -25,8 +25,6 @@
+  */
+ #include <linux/slab.h>
+ #include "../feat.h"
+-#include "../ccid.h"
+-#include "../dccp.h"
+ #include "ccid2.h"
  
--	/*
--	 * RFC 4341, 5: "The cwnd parameter is initialized to at most four
--	 * packets for new connections, following the rules from [RFC3390]".
--	 * We need to convert the bytes of RFC3390 into the packets of RFC 4341.
--	 */
--	hc->tx_cwnd = clamp(4380U / dp->dccps_mss_cache, 2U, 4U);
-+	/* Use larger initial windows (RFC 4341, section 5). */
-+	hc->tx_cwnd = rfc3390_bytes_to_packets(dp->dccps_mss_cache);
  
- 	/* Make sure that Ack Ratio is enabled and within bounds. */
- 	max_ratio = DIV_ROUND_UP(hc->tx_cwnd, 2);
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -805,25 +805,12 @@ void tcp_update_metrics(struct sock *sk)
- 	}
+@@ -175,7 +173,7 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
+ 
+ 	hc->tx_seqh->ccid2s_seq   = dp->dccps_gss;
+ 	hc->tx_seqh->ccid2s_acked = 0;
+-	hc->tx_seqh->ccid2s_sent  = jiffies;
++	hc->tx_seqh->ccid2s_sent  = ccid2_time_stamp;
+ 
+ 	next = hc->tx_seqh->ccid2s_next;
+ 	/* check if we need to alloc more space */
+@@ -250,7 +248,7 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
+ 		struct ccid2_seq *seqp = hc->tx_seqt;
+ 
+ 		while (seqp != hc->tx_seqh) {
+-			ccid2_pr_debug("out seq=%llu acked=%d time=%lu\n",
++			ccid2_pr_debug("out seq=%llu acked=%d time=%u\n",
+ 				       (unsigned long long)seqp->ccid2s_seq,
+ 				       seqp->ccid2s_acked, seqp->ccid2s_sent);
+ 			seqp = seqp->ccid2s_next;
+@@ -431,19 +429,19 @@ static void ccid2_new_ack(struct sock *sk, struct ccid2_seq *seqp,
+ 	 * The cleanest solution is to not use the ccid2s_sent field at all
+ 	 * and instead use DCCP timestamps: requires changes in other places.
+ 	 */
+-	ccid2_rtt_estimator(sk, jiffies - seqp->ccid2s_sent);
++	ccid2_rtt_estimator(sk, ccid2_time_stamp - seqp->ccid2s_sent);
  }
  
--/* Numbers are taken from RFC3390.
-- *
-- * John Heffner states:
-- *
-- *	The RFC specifies a window of no more than 4380 bytes
-- *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-- *	is a bit misleading because they use a clamp at 4380 bytes
-- *	rather than use a multiplier in the relevant range.
-- */
- __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
+ static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
  {
- 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
  
--	if (!cwnd) {
--		if (tp->mss_cache > 1460)
--			cwnd = 2;
--		else
--			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
--	}
-+	if (!cwnd)
-+		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
- 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
- }
+-	if (time_before(seqp->ccid2s_sent, hc->tx_last_cong)) {
++	if ((s32)(seqp->ccid2s_sent - hc->tx_last_cong) < 0) {
+ 		ccid2_pr_debug("Multiple losses in an RTT---treating as one\n");
+ 		return;
+ 	}
  
+-	hc->tx_last_cong = jiffies;
++	hc->tx_last_cong = ccid2_time_stamp;
+ 
+ 	hc->tx_cwnd      = hc->tx_cwnd / 2 ? : 1U;
+ 	hc->tx_ssthresh  = max(hc->tx_cwnd, 2U);
+@@ -683,7 +681,7 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
+ 
+ 	hc->tx_rto	 = DCCP_TIMEOUT_INIT;
+ 	hc->tx_rpdupack  = -1;
+-	hc->tx_last_cong = jiffies;
++	hc->tx_last_cong = ccid2_time_stamp;
+ 	setup_timer(&hc->tx_rtotimer, ccid2_hc_tx_rto_expire,
+ 			(unsigned long)sk);
+ 	return 0;
