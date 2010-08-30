@@ -1,76 +1,75 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [RFC][PATCH 1/1] TCP: update initial windows according to RFC 5681
-Date: Mon, 30 Aug 2010 07:27:34 +0200
-Message-ID: <20100830052734.GB5332@gerrit.erg.abdn.ac.uk>
+From: Simon Horman <horms@verge.net.au>
+Subject: [rfc] Merging the Open vSwitch datapath
+Date: Mon, 30 Aug 2010 15:27:55 +0900
+Message-ID: <20100830062755.GA22396@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Gross <jesse@nicira.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Arnd Bergmann <arnd@arndb.de>,
+	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59564 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753805Ab0H3F1g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Aug 2010 01:27:36 -0400
-Received: from laptev.erg.abdn.ac.uk (Debian-exim@ra-gerrit.erg.abdn.ac.uk [139.133.204.38])
-	by erg.abdn.ac.uk (8.13.4/8.13.4) with ESMTP id o7U5RYgf009000
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 06:27:34 +0100 (BST)
-Received: from gerrit by laptev.erg.abdn.ac.uk with local (Exim 4.69)
-	(envelope-from <gerrit@laptev.erg.abdn.ac.uk>)
-	id 1Opwu6-0001UJ-6v
-	for netdev@vger.kernel.org; Mon, 30 Aug 2010 07:27:34 +0200
+Received: from kirsty.vergenet.net ([202.4.237.240]:57152 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752100Ab0H3G2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 02:28:00 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an update to the earlier DCCP 5-patch set, sent separately in case this
-question is a contentious issue. 
+Hi,
 
-However, it does look as if the newer RFC 5681 is indeed the normative case for 
-the RFC 3390 initial window value. 
+I am looking to submit the Open vSwitch datapath for merging into the
+kernel.  To this end I have posted a preliminary round of patches to the
+dev@openvswitch.org mailing list (unfortunately the online archive seems
+incomplete). It seems to me that I am now at or close to the point where
+the patches can be posted to netdev. However, I have a few questions.
 
-If there are no objections, I would like to submit this as an update for net-2.6.
+1) The current patches place the datapath in drivers/staging/ovs-datapath.
+   It has been proposed that net/openvswitch would be a better location.
+   What is the feeling of netdev on this?
 
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-TCP: use initial window from RFC 5681
+   In a similar vein. Open vSwitch has some headers that are shared
+   with user-space. Is include/net/openvswitch an acceptable location
+   for those headers?
 
-This updates the use of larger initial windows, as originally specified in 
-RFC 3390, to use the newer IW values specified in RFC 5681, section 3.1.
+2) The code could do with some cleaning up. The current todo list
+   includes the following items.
 
-The changes made in RFC 5681 are:
- a) the setting now is more clearly specified in units of segments (as the
-    comments  by John Heffner emphasized, this was not very clear in RFC 3390);
- b) for connections with 1095 < SMSS <= 2190 there is now a change:
-    - RFC 3390 says that IW <= 4380,
-    - RFC 5681 says that IW = 3 * SMSS <= 6570.
+   * Use pr_*
+   * Remove trailing whitespace and other formatting fixes
+   * Stephen Hemminger would like make_writable() removed in favour
+     of using skb_cow_data() or made generic.
+     http://openvswitch.org/pipermail/dev_openvswitch.org/2010-August/002993.html
+   * Removal of compatibility code
+   * Possible use of netlink for user-space interface
+   * Network namespace support
 
-Since RFC 3390 is older and "only" proposed standard, whereas the newer RFC 5681
-is already draft standard, it seems preferable to use the newer IW variant.
+   While the last two items seem to be post-merge material to me.
+   I am wondering if it is ok to handle the other items post-merge too.
+   As the person doing the merge, this would make my life a lot easier
+   but I'm unclear if it is an acceptable approach or not.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- include/net/tcp.h |   10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
 
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -791,17 +791,11 @@ static inline __u32 tcp_current_ssthresh
- 
- /*
-  * Convert RFC 3390 larger initial window into an equivalent number of packets.
-- *
-- * John Heffner states:
-- *
-- *	The RFC specifies a window of no more than 4380 bytes
-- *	unless 2*MSS > 4380.  Reading the pseudocode in the RFC
-- *	is a bit misleading because they use a clamp at 4380 bytes
-- *	rather than a multiplier in the relevant range.
-+ * This is based on the numbers specified in RFC 5681, 3.1.
-  */
- static inline u32 rfc3390_bytes_to_packets(const u32 smss)
- {
--	return smss <= 1095 ? 4 : (smss > 1460 ? 2 : 3);
-+	return smss <= 1095 ? 4 : (smss > 2190 ? 2 : 3);
- }
- 
- extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+About Open vSwitch:
+
+   (Text by Jesse Gross)
+
+   Open vSwitch is a multilayer Ethernet switch targeted at virtualized
+   environments.  In addition to supporting a variety of features
+   expected in a traditional hardware switch, it enables fine-grained
+   programmatic extension and control through the OpenFlow protocol.
+   This control is useful in a wide variety of applications but is
+   particularly important in multi-server virtualization deployments,
+   which are often characterized by highly dynamic endpoints and the need
+   to maintain logical abstractions for multiple tenants.
+
+   The Open vSwitch datapath provides an in-kernel fast path for packet
+   forwarding.  It is complemented by a userspace daemon, ovs-vswitchd,
+   which is able to accept configuration from a variety of sources and
+   translate it into packet processing rules.
+
 
