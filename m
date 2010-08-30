@@ -1,94 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: struct xfrm_tunnel in read_mostly section
-Date: Mon, 30 Aug 2010 19:04:14 +0200
-Message-ID: <1283187854.2723.47.camel@edumazet-laptop>
+From: Ben Pfaff <blp@nicira.com>
+Subject: Re: [rfc] Merging the Open vSwitch datapath
+Date: Mon, 30 Aug 2010 10:22:08 -0700
+Message-ID: <87k4n8ow1r.fsf@benpfaff.org>
+References: <20100830062755.GA22396@verge.net.au>
+Reply-To: Ben Pfaff <blp@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60295 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755398Ab0H3RET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 13:04:19 -0400
-Received: by wwb28 with SMTP id 28so7564573wwb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 10:04:18 -0700 (PDT)
+Received: from lo.gmane.org ([80.91.229.12]:44937 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756042Ab0H3RaF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 13:30:05 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Oq8BI-0007fS-A1
+	for netdev@vger.kernel.org; Mon, 30 Aug 2010 19:30:04 +0200
+Received: from 173-164-220-209-sfba.hfc.comcastbusiness.net ([173.164.220.209])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 19:30:04 +0200
+Received: from blp by 173-164-220-209-sfba.hfc.comcastbusiness.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 19:30:04 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tunnel4_handlers chain being scanned for each incoming packet,
-make sure it doesnt share an often dirtied cache line.
+Simon Horman <horms@verge.net.au> writes:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/ipip.c         |    2 +-
- net/ipv4/tunnel4.c      |    4 ++--
- net/ipv4/xfrm4_tunnel.c |    4 ++--
- net/ipv6/sit.c          |    2 +-
- 4 files changed, 6 insertions(+), 6 deletions(-)
+>    * Possible use of netlink for user-space interface
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index ec03673..3c6f8f3 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -744,7 +744,7 @@ static void __net_init ipip_fb_tunnel_init(struct net_device *dev)
- 	ipn->tunnels_wc[0]	= tunnel;
- }
- 
--static struct xfrm_tunnel ipip_handler = {
-+static struct xfrm_tunnel ipip_handler __read_mostly = {
- 	.handler	=	ipip_rcv,
- 	.err_handler	=	ipip_err,
- 	.priority	=	1,
-diff --git a/net/ipv4/tunnel4.c b/net/ipv4/tunnel4.c
-index 59186ca..942f02d 100644
---- a/net/ipv4/tunnel4.c
-+++ b/net/ipv4/tunnel4.c
-@@ -14,8 +14,8 @@
- #include <net/protocol.h>
- #include <net/xfrm.h>
- 
--static struct xfrm_tunnel *tunnel4_handlers;
--static struct xfrm_tunnel *tunnel64_handlers;
-+static struct xfrm_tunnel *tunnel4_handlers __read_mostly;
-+static struct xfrm_tunnel *tunnel64_handlers __read_mostly;
- static DEFINE_MUTEX(tunnel4_mutex);
- 
- static inline struct xfrm_tunnel **fam_handlers(unsigned short family)
-diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
-index 41f5982..8280645 100644
---- a/net/ipv4/xfrm4_tunnel.c
-+++ b/net/ipv4/xfrm4_tunnel.c
-@@ -58,14 +58,14 @@ static int xfrm_tunnel_err(struct sk_buff *skb, u32 info)
- 	return -ENOENT;
- }
- 
--static struct xfrm_tunnel xfrm_tunnel_handler = {
-+static struct xfrm_tunnel xfrm_tunnel_handler __read_mostly = {
- 	.handler	=	xfrm_tunnel_rcv,
- 	.err_handler	=	xfrm_tunnel_err,
- 	.priority	=	2,
- };
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
--static struct xfrm_tunnel xfrm64_tunnel_handler = {
-+static struct xfrm_tunnel xfrm64_tunnel_handler __read_mostly = {
- 	.handler	=	xfrm_tunnel_rcv,
- 	.err_handler	=	xfrm_tunnel_err,
- 	.priority	=	2,
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 4699cd3..86618eb 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -1132,7 +1132,7 @@ static void __net_init ipip6_fb_tunnel_init(struct net_device *dev)
- 	sitn->tunnels_wc[0]	= tunnel;
- }
- 
--static struct xfrm_tunnel sit_handler = {
-+static struct xfrm_tunnel sit_handler __read_mostly = {
- 	.handler	=	ipip6_rcv,
- 	.err_handler	=	ipip6_err,
- 	.priority	=	1,
-
+I'm working on this one this week, for what it's worth.
 
