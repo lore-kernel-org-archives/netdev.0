@@ -1,35 +1,53 @@
-From: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: mac80211 using different tx queue for frames with same TID and RA
-Date: Mon, 30 Aug 2010 16:01:12 +0200
-Message-ID: <201008301601.12971.helmut.schaa@googlemail.com>
+From: Florian Mickler <florian@mickler.org>
+Subject: Re: [PATCH][RESEND] netfilter: fix CONFIG_COMPAT support
+Date: Mon, 30 Aug 2010 16:10:37 +0200
+Message-ID: <20100830161037.517d6ea5@schatten.dmk.lab>
+References: <1282568186-20475-1-git-send-email-fw@strlen.de>
+	<20100823.144146.173873857.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: fw@strlen.de, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100823.144146.173873857.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, 23 Aug 2010 14:41:46 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-while debugging an issue in rt2x00 I've discovered that in some cases frames
-with the same TID and RA end up in different tx queues (which causes problems
-in rt2x00 when using aggregation).
+> From: Florian Westphal <fw@strlen.de>
+> Date: Mon, 23 Aug 2010 14:56:26 +0200
+> 
+> > commit f3c5c1bfd430858d3a05436f82c51e53104feb6b
+> > (netfilter: xtables: make ip_tables reentrant) forgot to
+> > also compute the jumpstack size in the compat handlers.
+> > 
+> > Result is that "iptables -I INPUT -j userchain" turns into -j DROP.
+> > 
+> > Reported by Sebastian Roesner on #netfilter, closes
+> > http://bugzilla.netfilter.org/show_bug.cgi?id=669.
+> > 
+> > Note: arptables change is compile-tested only.
+> > 
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
+> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Applied, thanks Florian.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Is this behavior expected and we need to handle that case in rt2x00 or is it
-more likely a bug? At least I thought the select_queue implementation in
-mac80211 was meant to always pick the same tx queue for skbs with the same
-priority and hence it shouldn't happen that frames with the same TID are
-queued into different tx queues.
+Should this go to stable? 
+It seems commit f3c5c1bdf was introduced in 2.6.35.
 
-This behavior seems to have changed already a while ago with the patch
-"net: Use sk_tx_queue_mapping for connected sockets" (CC'ing Krishna & netdev).
+It fixes 
+	[Bug #16423] netfilter/iptables stopped logging 2.6.35-rc 
+which was tracked as a regression.
 
-Thanks,
-Helmut
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Flo
