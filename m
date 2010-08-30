@@ -1,95 +1,65 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [rfc] Merging the Open vSwitch datapath
-Date: Mon, 30 Aug 2010 15:15:25 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755F63A0B62@orsmsx508.amr.corp.intel.com>
-References: <20100830062755.GA22396@verge.net.au>
- <20100830183328.GI7629@nicira.com>
- <43F901BD926A4E43B106BF17856F0755F63A092B@orsmsx508.amr.corp.intel.com>
- <201008302304.38061.arnd@arndb.de>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] TCP_USER_TIMEOUT: a new socket option to specify max
+ timeout before a TCP connection is aborted
+Date: Mon, 30 Aug 2010 15:41:26 -0700
+Message-ID: <AANLkTinBcP7KtSeq1daP=jU9YWgkcZbjrc4bqGA9o=8Y@mail.gmail.com>
+References: <AANLkTimW_7a9=yK4po9FshH0i0LT-MZF+fysGRvgT3jG@mail.gmail.com>
+	<20100829.211954.232753860.davem@davemloft.net>
+	<AANLkTinrPcJwMs+frY7J_QKuNv1MDGRQAgPgwofuFydw@mail.gmail.com>
+	<20100830.132502.68138403.davem@davemloft.net>
+	<1283200212.2405.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ben Pfaff <blp@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, hannemann@nets.rwth-aachen.de,
+	hagen@jauu.net, lars.eggert@nokia.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42546 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752486Ab0H3WPt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 18:15:49 -0400
-In-Reply-To: <201008302304.38061.arnd@arndb.de>
-Content-Language: en-US
+Received: from smtp-out.google.com ([216.239.44.51]:41907 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755607Ab0H3Wla convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 18:41:30 -0400
+Received: from wpaz37.hot.corp.google.com (wpaz37.hot.corp.google.com [172.24.198.101])
+	by smtp-out.google.com with ESMTP id o7UMfSoY029414
+	for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 15:41:28 -0700
+Received: from gxk20 (gxk20.prod.google.com [10.202.11.20])
+	by wpaz37.hot.corp.google.com with ESMTP id o7UMfR4V019324
+	for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 15:41:27 -0700
+Received: by gxk20 with SMTP id 20so2650589gxk.31
+        for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 15:41:27 -0700 (PDT)
+In-Reply-To: <1283200212.2405.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of Arnd Bergmann
->Sent: Monday, August 30, 2010 2:05 PM
->To: Rose, Gregory V
->Cc: Ben Pfaff; netdev@vger.kernel.org; Jesse Gross; Stephen Hemminger;
->Chris Wright; Herbert Xu; David Miller
->Subject: Re: [rfc] Merging the Open vSwitch datapath
+Eric, will surly do but perhaps we should wait till Hagen gets his
+TCP_ADV_UTO part so we can update the man page altogether in a
+cohesive way (in case we're missing something, since he's on vacation
+right now)?
+
+Jerry
+
+On Mon, Aug 30, 2010 at 1:30 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le lundi 30 ao=FBt 2010 =E0 13:25 -0700, David Miller a =E9crit :
 >
->On Monday 30 August 2010 20:45:19 Rose, Gregory V wrote:
->> As of now there are no existing ways to get switch configuration to a
->> NIC without resorting to a customized interface such as a private
->IOCTL.
+>> I was just saying that it can result in unexpected situations. =A0Th=
+e
+>> user can increase and increase the timeout they use, but to no effec=
+t
+>> because due to backoff the increase isn't adding any more probes at
+>> all.
+>>
+>> In any event, I've applied your patch, let's see how this goes.
 >
->Well, there are the IFLA_VF_INFO netlink attributes that I would
->assume are to be used for switch configuration and extended where
->required for that, e.g. to set VEPA mode per channel.
 >
->> EVB is an emerging standard that I think would be desirable to support
->> in the kernel.
 >
->Do you mean 802.1Qbg?
-
-Yes, and 802.1Qbh.
-
- Why would you want kernel support? There is
->already support for VEPA in the kernel, and 802.1ad provider bridges
->should probably be added in order to support multi-channel setups.
-
-I should probably read up a bit more on 802.1ad.
-
+> Jerry, could you please send a man update ?
 >
->The other parts are configuration protocols like LLDP and CDP, which
->we normally do in user space (e.g. lldpad).
+> http://www.kernel.org/doc/man-pages/online/pages/man7/tcp.7.html
 >
->What else is there that you think should go into the kernel.
-
-It seems to me that the IFLA_VF_INFO netlink attributes are station oriented.  The kernel support I see there is insufficient for some other things that need to be done for access control, forwarding rules and actions taken on certain kind of packets.  I think there'll be a need to configure the switch itself, not just the stations attached to the switch.
-
+> (To Michael Kerrisk <mtk.manpages@gmail.com> )
 >
->> As you mention netlink is easier to extend and I think
->> it would be a great way to add support for NIC EVB in the kernel.
->> But even with a kernel interface there is still no user level tool.
+> Thanks
 >
->Using the same interface as Open vSwitch would be really nice to
->configure a NIC bridge sounds interesting if we want to speed up
->Open vSwitch, but I don't think it makes any sense for the EVB
->protocols. Quite the contrary, you typically want the NIC to
->get out of the way and do all the bridging in the external
->switch in case of VEPA. Or you actually want to use features of
->the software bridge implementation like iptables.
-
-What if the NIC is the external switch?  I mean, what if the NIC has an edge virtual bridge embedded in it?  The IFLA_VF_INFO messages are sufficient for many features but there are some that it doesn't address.  And I don't know of any way to get iptables rules down to the VF using existing kernel interfaces.  Perhaps I missed something.
-
 >
->One idea that we have discussed in the past is to use the macvlan
->netlink interface to create ports inside a NIC. This interface
->already exists in the kernel, and it allows both bridged and VEPA
->interfaces. The main advantage of this is that the kernel can
->transparently create ports either using software macvlan or
->hardware accelerated functions where available.
-
-This actually sounds like a good idea.  I hadn't thought about that.  It would cover one of the primary issues I'm dealing with right now.
-
-- Greg
-
+>
