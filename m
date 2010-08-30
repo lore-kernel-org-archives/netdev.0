@@ -1,50 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e1000e: Intel 82571EB: Don't wait for MNG
- cycle on unmanaged chips
-Date: Sun, 29 Aug 2010 19:42:39 -0700
-Message-ID: <AANLkTimr8-hZYtQyYTTPmvRaNr-upRtVdddtoRbRbQ_y@mail.gmail.com>
-References: <1282936206-17288-1-git-send-email-Kyle.D.Moffett@boeing.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net tree
+ related)
+Date: Mon, 30 Aug 2010 13:04:53 +1000
+Message-ID: <20100830130453.d810b086.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Kyle Moffett <kyle@moffetthome.net>, linux-kernel@vger.kernel.org
-To: Kyle Moffett <Kyle.D.Moffett@boeing.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1282936206-17288-1-git-send-email-Kyle.D.Moffett@boeing.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Simon Horman <horms@verge.net.au>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCBBdWcgMjcsIDIwMTAgYXQgMTI6MTAsIEt5bGUgTW9mZmV0dCA8S3lsZS5ELk1vZmZl
-dHRAYm9laW5nLmNvbT4gd3JvdGU6Cj4gVGhlIEludGVsIDgyNTcxRUIgY2hpcHNldCBjYW4gYmUg
-dXNlZCBpbiBhbiB1bm1hbmFnZWQgY29uZmlndXJhdGlvbiBhcyBhCj4gZmFzdCBkdWFsLXBvcnQg
-R2lnLUUgY29udHJvbGxlci4gwqBVbmZvcnR1bmF0ZWx5IGEgYm9hcmQgY29uc3RydWN0ZWQgdGhh
-dAo+IHdheSB3b3VsZCBmYWlsIHRvIGNvcnJlY3RseSBjb21lIHVwIGJlY2F1c2UgdGhlIGRyaXZl
-ciBwb2xscyBmb3IgdGhlCj4gY29tcGxldGlvbiBvZiBhIG1hbmFnZW1lbnQgY3ljbGUgdGhhdCB3
-aWxsIG5ldmVyIG9jY3VyLgo+Cj4gVG8gcmVzb2x2ZSB0aGlzIHByb2JsZW0sIHdlIGRpc2FibGUg
-dGhlIHBvbGwgYW5kIGVycm9yIHJldHVybiBvbiBjaGlwcwo+IHdob3NlIEVFUFJPTXMgaW5kaWNh
-dGUgbm8gbWFuYWdlbWVudC4gwqBBcyBhIHByb3RlY3Rpb24gYWdhaW5zdAo+IG1pc2NvbmZpZ3Vy
-ZWQgY2hpcHNldHMsIHdlIHN0aWxsIGRlbGF5IGZvciB0aGUgZW50aXJlIG1hbmFnZW1lbnQgcG9s
-bAo+IHRpbWVvdXQuCj4KPiBTaWduZWQtb2ZmLWJ5OiBLeWxlIE1vZmZldHQgPEt5bGUuRC5Nb2Zm
-ZXR0QGJvZWluZy5jb20+Cj4gLS0tCj4gwqBkcml2ZXJzL25ldC9lMTAwMGUvODI1NzEuYyB8IMKg
-IMKgNyArKysrKysrCj4gwqAxIGZpbGVzIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgMCBkZWxl
-dGlvbnMoLSkKPgoKVGhhbmtzIEt5bGUsIEkgaGF2ZSBhZGRlZCB0aGUgcGF0Y2ggdG8gbXkgcXVl
-dWUuCgotLSAKQ2hlZXJzLApKZWZmCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KU2VsbCBhcHBzIHRv
-IG1pbGxpb25zIHRocm91Z2ggdGhlIEludGVsKFIpIEF0b20oVG0pIERldmVsb3BlciBQcm9ncmFt
-CkJlIHBhcnQgb2YgdGhpcyBpbm5vdmF0aXZlIGNvbW11bml0eSBhbmQgcmVhY2ggbWlsbGlvbnMg
-b2YgbmV0Ym9vayB1c2VycyAKd29ybGR3aWRlLiBUYWtlIGFkdmFudGFnZSBvZiBzcGVjaWFsIG9w
-cG9ydHVuaXRpZXMgdG8gaW5jcmVhc2UgcmV2ZW51ZSBhbmQgCnNwZWVkIHRpbWUtdG8tbWFya2V0
-LiBKb2luIG5vdywgYW5kIGp1bXBzdGFydCB5b3VyIGZ1dHVyZS4KaHR0cDovL3Auc2YubmV0L3Nm
-dS9pbnRlbC1hdG9tLWQyZApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNl
-Zm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2Ux
-MDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0
-IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
+Hi all,
+
+After merging the final tree, today's linux-next build (powerpc
+allyesconfig) failed like this:
+
+net/netfilter/ipvs/ip_vs_core.c: In function 'ip_vs_nat_icmp_v6':
+net/netfilter/ipvs/ip_vs_core.c:640: error: implicit declaration of function 'csum_ipv6_magic'
+
+Caused by commit 8870f8427b8fe30b2684b9e569e5ce038faf41ac ("IPVS: ICMPv6
+checksum calculation").  I added the following patch:
+[I think we have seen this before :-(]
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 30 Aug 2010 13:01:20 +1000
+Subject: [PATCH] IPVS: include net/ip6_checksum.h for csum_ipv6_magic
+
+Fixes this build error:
+
+net/netfilter/ipvs/ip_vs_core.c: In function 'ip_vs_nat_icmp_v6':
+net/netfilter/ipvs/ip_vs_core.c:640: error: implicit declaration of function 'csum_ipv6_magic'
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/netfilter/ipvs/ip_vs_core.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 69661db..edbfb96 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -40,6 +40,7 @@
+ #include <net/udp.h>
+ #include <net/icmp.h>                   /* for icmp_send */
+ #include <net/route.h>
++#include <net/ip6_checksum.h>
+ 
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv4.h>
+-- 
+1.7.1
+
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
