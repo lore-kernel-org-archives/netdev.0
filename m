@@ -1,32 +1,108 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH] starfire: use BUILD_BUG_ON for netdrv_addr_t
-Date: Mon, 30 Aug 2010 13:57:53 +0900
-Message-ID: <20100830135711N.fujita.tomonori@lab.ntt.co.jp>
-References: <20100828.154125.246523501.davem@davemloft.net>
-	<20100830075830R.fujita.tomonori@lab.ntt.co.jp>
-	<20100829.212534.242147552.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, akinobu.mita@gmail.com,
-	netdev@vger.kernel.org, ionut@badula.org,
-	linux-arch@vger.kernel.org
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 2/5] dccp ccid-2: Remove wrappers around sk_{reset,stop}_timer()
+Date: Mon, 30 Aug 2010 07:23:11 +0200
+Message-ID: <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
+References: <ccid2_and_tcp_code_sharing>
+ <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20100829.212534.242147552.davem@davemloft.net>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59461 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753664Ab0H3FX2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 01:23:28 -0400
+In-Reply-To: <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 29 Aug 2010 21:25:34 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+This removes the wrappers around the sk timer functions, since not much is
+gained from using them: the BUG_ON in start_rto_timer will never trigger
+since that function is called only if:
 
-> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> Date: Mon, 30 Aug 2010 07:59:38 +0900
-> 
-> > But the above can't be perfect so about twenty architectures define
-> > dma_addr_t. With CONFIG_DMA_ADDR_T_64BIT, we can clean up all the
-> > mess nicely, I guess.
-> 
-> Yes, that's what we need.
+ * the RTO timer expires (rto_expire, and then timer_pending() is false);
+ * in tx_packet_sent only if !timer_pending() (BUG_ON is redundant here);
+ * previously in new_ack, after stopping the timer (timer_pending() false).
 
-Ok, I'll take care of this.
+Removing the wrappers also clears the way for eventually replacing the
+RTO timer with the icsk-retransmission-timer, as it is already part of the
+DCCP socket.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid2.c |   28 +++-------------------------
+ 1 files changed, 3 insertions(+), 25 deletions(-)
+
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -111,8 +111,6 @@ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
+ 	dp->dccps_l_ack_ratio = val;
+ }
+ 
+-static void ccid2_start_rto_timer(struct sock *sk);
+-
+ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ {
+ 	struct sock *sk = (struct sock *)data;
+@@ -131,7 +129,7 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
+ 	if (hc->tx_rto > DCCP_RTO_MAX)
+ 		hc->tx_rto = DCCP_RTO_MAX;
+ 
+-	ccid2_start_rto_timer(sk);
++	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
+ 
+ 	/* adjust pipe, cwnd etc */
+ 	hc->tx_ssthresh = hc->tx_cwnd / 2;
+@@ -153,16 +151,6 @@ out:
+ 	sock_put(sk);
+ }
+ 
+-static void ccid2_start_rto_timer(struct sock *sk)
+-{
+-	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+-
+-	ccid2_pr_debug("setting RTO timeout=%u\n", hc->tx_rto);
+-
+-	BUG_ON(timer_pending(&hc->tx_rtotimer));
+-	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
+-}
+-
+ static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
+ {
+ 	struct dccp_sock *dp = dccp_sk(sk);
+@@ -239,9 +227,7 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
+ 	}
+ #endif
+ 
+-	/* setup RTO timer */
+-	if (!timer_pending(&hc->tx_rtotimer))
+-		ccid2_start_rto_timer(sk);
++	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
+ 
+ #ifdef CONFIG_IP_DCCP_CCID2_DEBUG
+ 	do {
+@@ -320,14 +306,6 @@ out_invalid_option:
+ 	return -1;
+ }
+ 
+-static void ccid2_hc_tx_kill_rto_timer(struct sock *sk)
+-{
+-	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+-
+-	sk_stop_timer(sk, &hc->tx_rtotimer);
+-	ccid2_pr_debug("deleted RTO timer\n");
+-}
+-
+ /**
+  * ccid2_rtt_estimator - Sample RTT and compute RTO using RFC2988 algorithm
+  * This code is almost identical with TCP's tcp_rtt_estimator(), since
+@@ -692,7 +670,7 @@ static void ccid2_hc_tx_exit(struct sock *sk)
+ 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
+ 	int i;
+ 
+-	ccid2_hc_tx_kill_rto_timer(sk);
++	sk_stop_timer(sk, &hc->tx_rtotimer);
+ 
+ 	for (i = 0; i < hc->tx_seqbufc; i++)
+ 		kfree(hc->tx_seqbuf[i]);
