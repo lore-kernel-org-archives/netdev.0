@@ -1,45 +1,57 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: rp_filter backward compatibility
-Date: Mon, 30 Aug 2010 17:25:22 +0200
-Message-ID: <4C7BCD62.3030805@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] gro: Is it ok to share a single napi from several devs ?
+Date: Mon, 30 Aug 2010 08:57:21 -0700
+Message-ID: <20100830085721.54c8c31b@nehalam>
+References: <1283107162.2297.32.camel@edumazet-laptop>
+	<20100830064231.GA7060@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36766 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754869Ab0H3PZ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 11:25:27 -0400
-Received: by wwb28 with SMTP id 28so7440092wwb.1
-        for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 08:25:26 -0700 (PDT)
+Received: from mail.vyatta.com ([76.74.103.46]:59099 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754893Ab0H3P5Y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 11:57:24 -0400
+In-Reply-To: <20100830064231.GA7060@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm surprised by the commit 27fed4175acf81ddd91d9a4ee2fd298981f60295 (ip: fix 
-logic of reverse path filter sysctl). This commit breaks backward compatibility.
-I know that logic was wrong, but for years it was mandatory to set both 
-all.rp_filter and <device>.rp_filter to enable it, ie setting only all.rp_filter 
-had no consequences. Now, when all.rp_filter is enabled, RPF is enabled for all 
-interfaces.
-Help of Kconfig explains:
+On Mon, 30 Aug 2010 06:42:31 +0000
+Jarek Poplawski <jarkao2@gmail.com> wrote:
 
-                                                                 "To turn
-           rp_filter on use:
+> On 2010-08-29 20:39, Eric Dumazet wrote:
+> > Le dimanche 29 ao=C3=BBt 2010 =C3  10:06 -0700, David Miller a =C3=A9=
+crit :
+> >> From: Jarek Poplawski <jarkao2@gmail.com>
+> >> Date: Sun, 29 Aug 2010 11:59:51 +0200
+> >>
+> >>> Actually, when GRO compares napi->dev to skb->dev?
+> >>
+> >> Hmmm, I thought the code made a skb->dev comparison with the
+> >> existing SKBs in the list when checking for same-flow matches.
+> >>
+> >> It doesn't, probably based upon the assumption that a NAPI
+> >> instance maps to a unique device, the very topic we're
+> >> discussing right now :-/
+> >>
+> >>
+> >=20
+> > It does the check, Stephen added it in the commit I mentioned to st=
+art
+> > this thread.
+> >=20
+> > With net-next-2.6 this now reads :
+> >=20
+>=20
+> Since Stephen didn't seem to miss this too much it seems quite obviou=
+s
+> to me this check should be removed.
 
-           echo 1 > /proc/sys/net/ipv4/conf/<device>/rp_filter
-            *and*
-           echo 1 > /proc/sys/net/ipv4/conf/all/rp_filter"
-
-At least, one of this action should be done:
-  - fixing help (Documentation/networking/ip-sysctl.txt is up to date)
-  - reverting the patch (this will force to set all.rp_filter to 3 if some 
-interfaces use loose mode and some others strict mode)
-
-What is your opinion?
-
-Regards,
-Nicolas
+No. I just don't use that system much, breaking code for
+sake of one comparison is ridiculous. If you need to do some
+performance wanking, go figure out why just loading netfilter
+drops forwarding performance by 20%.
