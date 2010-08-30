@@ -1,56 +1,45 @@
-From: Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: Re: mac80211 using different tx queue for frames with same TID and RA
-Date: Mon, 30 Aug 2010 16:50:39 +0200
-Message-ID: <201008301650.40190.helmut.schaa@googlemail.com>
-References: <201008301601.12971.helmut.schaa@googlemail.com> <201008301634.10122.helmut.schaa@googlemail.com> <1283179307.3691.73.camel@jlt3.sipsolutions.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: rp_filter backward compatibility
+Date: Mon, 30 Aug 2010 17:25:22 +0200
+Message-ID: <4C7BCD62.3030805@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Krishna Kumar <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1283179307.3691.73.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:36766 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754869Ab0H3PZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 11:25:27 -0400
+Received: by wwb28 with SMTP id 28so7440092wwb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Aug 2010 08:25:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Monday 30 August 2010 schrieb Johannes Berg:
-> On Mon, 2010-08-30 at 16:34 +0200, Helmut Schaa wrote:
-> > Am Monday 30 August 2010 schrieb Johannes Berg:
-> > > On Mon, 2010-08-30 at 16:01 +0200, Helmut Schaa wrote:
-> > > 
-> > > > while debugging an issue in rt2x00 I've discovered that in some cases frames
-> > > > with the same TID and RA end up in different tx queues (which causes problems
-> > > > in rt2x00 when using aggregation).
-> > > > 
-> > > > Is this behavior expected and we need to handle that case in rt2x00 or is it
-> > > > more likely a bug? At least I thought the select_queue implementation in
-> > > > mac80211 was meant to always pick the same tx queue for skbs with the same
-> > > > priority and hence it shouldn't happen that frames with the same TID are
-> > > > queued into different tx queues.
-> > > 
-> > > Indeed, that seems like a bug. I don't see how this can happen though,
-> > > since the code _appears_ to not use the sk_tx_queue_mapping when an
-> > > ndo_select_queue method is present.
-> > 
-> > Hmm, this issue seems to only happen when the wifi interface (AP mode)
-> > is part of a bridge and the frame is tx'ed through the bridge.
-> 
-> Ok, I guess in that case it may actually have a socket TX queue mapping
-> already?
+I'm surprised by the commit 27fed4175acf81ddd91d9a4ee2fd298981f60295 (ip: fix 
+logic of reverse path filter sysctl). This commit breaks backward compatibility.
+I know that logic was wrong, but for years it was mandatory to set both 
+all.rp_filter and <device>.rp_filter to enable it, ie setting only all.rp_filter 
+had no consequences. Now, when all.rp_filter is enabled, RPF is enabled for all 
+interfaces.
+Help of Kconfig explains:
 
-Yes, it has. I've just replaced the call to sk_tx_queue_get in dev_pick_tx
-with a -1 assignment and everything works fine in bridge mode as well now.
+                                                                 "To turn
+           rp_filter on use:
 
-> Seems bogus to use it though.
+           echo 1 > /proc/sys/net/ipv4/conf/<device>/rp_filter
+            *and*
+           echo 1 > /proc/sys/net/ipv4/conf/all/rp_filter"
 
-Agreed, I'd like to hear what the netdev folks think about this? Should the
-tx queue mapping used in this case at all? Or should the tx queue mapping be
-on a per netdev base?
+At least, one of this action should be done:
+  - fixing help (Documentation/networking/ip-sysctl.txt is up to date)
+  - reverting the patch (this will force to set all.rp_filter to 3 if some 
+interfaces use loose mode and some others strict mode)
 
-Helmut
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+What is your opinion?
+
+Regards,
+Nicolas
