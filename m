@@ -1,108 +1,31 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/5] dccp ccid-2: Remove wrappers around sk_{reset,stop}_timer()
-Date: Mon, 30 Aug 2010 07:23:11 +0200
-Message-ID: <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: net-2.6 [PATCH 0/5] dccp: ccid-2 clean-up; code sharing between TCP and DCCP
+Date: Mon, 30 Aug 2010 07:23:09 +0200
+Message-ID: <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid2_and_tcp_code_sharing>
- <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59461 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753664Ab0H3FX2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Aug 2010 01:23:28 -0400
-In-Reply-To: <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1753664Ab0H3FX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 01:23:26 -0400
+In-Reply-To: <ccid2_and_tcp_code_sharing>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the wrappers around the sk timer functions, since not much is
-gained from using them: the BUG_ON in start_rto_timer will never trigger
-since that function is called only if:
+Dave,
 
- * the RTO timer expires (rto_expire, and then timer_pending() is false);
- * in tx_packet_sent only if !timer_pending() (BUG_ON is redundant here);
- * previously in new_ack, after stopping the timer (timer_pending() false).
+please can you have a look at the attached set from the DCCP test tree; it 
+tidies up CCID-2 code and implements sharing of code common to TCP and DCCP.
 
-Removing the wrappers also clears the way for eventually replacing the
-RTO timer with the icsk-retransmission-timer, as it is already part of the
-DCCP socket.
+Patch #1: aligns CCID-2 timestamps with those used by TCP.
+Patch #2: removes redundant CCID-2 sk-timer functions.
+Patch #3: consolidates RFC3390 initial-window code common to TCP and CCID-2 
+	  (please note that this still uses the old numbers which have been
+	   updated by RFC 5681: I'll send a separate patch documenting that).
+Patch #4: shares the minimum-RTO code between TCP and CCID-2.
+Patch #5: shares the minimum-RTO code between TCP and CCID-3.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/ccid2.c |   28 +++-------------------------
- 1 files changed, 3 insertions(+), 25 deletions(-)
-
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -111,8 +111,6 @@ static void ccid2_change_l_ack_ratio(struct sock *sk, u32 val)
- 	dp->dccps_l_ack_ratio = val;
- }
- 
--static void ccid2_start_rto_timer(struct sock *sk);
--
- static void ccid2_hc_tx_rto_expire(unsigned long data)
- {
- 	struct sock *sk = (struct sock *)data;
-@@ -131,7 +129,7 @@ static void ccid2_hc_tx_rto_expire(unsigned long data)
- 	if (hc->tx_rto > DCCP_RTO_MAX)
- 		hc->tx_rto = DCCP_RTO_MAX;
- 
--	ccid2_start_rto_timer(sk);
-+	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
- 
- 	/* adjust pipe, cwnd etc */
- 	hc->tx_ssthresh = hc->tx_cwnd / 2;
-@@ -153,16 +151,6 @@ out:
- 	sock_put(sk);
- }
- 
--static void ccid2_start_rto_timer(struct sock *sk)
--{
--	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
--
--	ccid2_pr_debug("setting RTO timeout=%u\n", hc->tx_rto);
--
--	BUG_ON(timer_pending(&hc->tx_rtotimer));
--	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
--}
--
- static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
-@@ -239,9 +227,7 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
- 	}
- #endif
- 
--	/* setup RTO timer */
--	if (!timer_pending(&hc->tx_rtotimer))
--		ccid2_start_rto_timer(sk);
-+	sk_reset_timer(sk, &hc->tx_rtotimer, jiffies + hc->tx_rto);
- 
- #ifdef CONFIG_IP_DCCP_CCID2_DEBUG
- 	do {
-@@ -320,14 +306,6 @@ out_invalid_option:
- 	return -1;
- }
- 
--static void ccid2_hc_tx_kill_rto_timer(struct sock *sk)
--{
--	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
--
--	sk_stop_timer(sk, &hc->tx_rtotimer);
--	ccid2_pr_debug("deleted RTO timer\n");
--}
--
- /**
-  * ccid2_rtt_estimator - Sample RTT and compute RTO using RFC2988 algorithm
-  * This code is almost identical with TCP's tcp_rtt_estimator(), since
-@@ -692,7 +670,7 @@ static void ccid2_hc_tx_exit(struct sock *sk)
- 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
- 	int i;
- 
--	ccid2_hc_tx_kill_rto_timer(sk);
-+	sk_stop_timer(sk, &hc->tx_rtotimer);
- 
- 	for (i = 0; i < hc->tx_seqbufc; i++)
- 		kfree(hc->tx_seqbuf[i]);
+All patches have been tested to compile independently and are at the top of
+git://eden-feed.erg.abdn.ac.uk/dccp_exp (subtree 'dccp').
