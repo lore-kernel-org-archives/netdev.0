@@ -1,39 +1,26 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch net-next] net: fix datapath typo
-Date: Mon, 30 Aug 2010 13:34:18 +0900
-Message-ID: <20100830043418.GB24373@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] net: fix datapath typo
+Date: Sun, 29 Aug 2010 21:58:17 -0700 (PDT)
+Message-ID: <20100829.215817.116350118.davem@davemloft.net>
+References: <20100830043418.GB24373@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jesse@nicira.com, blp@nicira.com
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:41056 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752573Ab0H3EeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 00:34:22 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51337
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753805Ab0H3E6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 00:58:01 -0400
+In-Reply-To: <20100830043418.GB24373@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Ben Pfaff <blp@nicira.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+From: Simon Horman <horms@verge.net.au>
+Date: Mon, 30 Aug 2010 13:34:18 +0900
 
---- 
+> Cc: Ben Pfaff <blp@nicira.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-This time, with the patch
-
-Index: net-next-2.6/include/linux/if.h
-===================================================================
---- net-next-2.6.orig/include/linux/if.h	2010-08-30 12:34:51.000000000 +0900
-+++ net-next-2.6/include/linux/if.h	2010-08-30 12:35:45.000000000 +0900
-@@ -76,7 +76,7 @@
- #define IFF_MACVLAN_PORT	0x4000	/* device used as macvlan port */
- #define IFF_BRIDGE_PORT	0x8000		/* device used as bridge port */
- #define IFF_OVS_DATAPATH	0x10000	/* device used as Open vSwitch
--					 * dapath port */
-+					 * datapath port */
- 
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
-
+Applied, thanks.
