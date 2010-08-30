@@ -1,133 +1,150 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/5] dccp ccid-2: Use u32 timestamps uniformly
-Date: Mon, 30 Aug 2010 07:23:10 +0200
-Message-ID: <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 4/5] dccp ccid-2: Share TCP's minimum RTO code
+Date: Mon, 30 Aug 2010 07:23:13 +0200
+Message-ID: <1283145794-5615-5-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid2_and_tcp_code_sharing>
  <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:59461 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754425Ab0H3FXd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Aug 2010 01:23:33 -0400
-In-Reply-To: <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1754425Ab0H3FXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 01:23:35 -0400
+In-Reply-To: <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since CCID-2 is de facto a mini implementation of TCP, it makes sense to share
-as much code as possible.
+Using a fixed RTO_MIN of 0.2 seconds was found to cause problems for CCID-2
+over 802.11g: at least once per session there was a spurious timeout. It
+helped to then increase the the value of RTO_MIN over this link.
 
-Hence this patch aligns CCID-2 timestamping with TCP timestamping.
-This also halves the space consumption (on 64-bit systems).
+Since the problem is the same as in TCP, this patch makes the solution from
+commit "05bb1fad1cde025a864a90cfeb98dcbefe78a44a"
+       "[TCP]: Allow minimum RTO to be configurable via routing metrics."
+available to DCCP.
 
-The necessary include file <net/tcp.h> is already included by way of
-net/dccp.h. Redundant includes have been removed.
+This avoids reinventing the wheel, so that e.g. the following works in the
+expected way now also for CCID-2:
+
+> ip route change 10.0.0.2 rto_min 800 dev ath0
+
+Luckily this useful rto_min function was recently moved to net/tcp.h,
+which simplifies sharing code originating from TCP.
+
+Documentation also updated (plus minor whitespace fixes).
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid2.h |   15 ++++++++++-----
- net/dccp/ccids/ccid2.c |   14 ++++++--------
- 2 files changed, 16 insertions(+), 13 deletions(-)
+ net/dccp/ccids/ccid2.c            |    5 +++--
+ Documentation/networking/dccp.txt |   26 ++++++++++++++++++++------
+ 2 files changed, 23 insertions(+), 8 deletions(-)
 
---- a/net/dccp/ccids/ccid2.h
-+++ b/net/dccp/ccids/ccid2.h
-@@ -18,18 +18,23 @@
- #ifndef _DCCP_CCID2_H_
- #define _DCCP_CCID2_H_
- 
--#include <linux/dccp.h>
- #include <linux/timer.h>
- #include <linux/types.h>
- #include "../ccid.h"
-+#include "../dccp.h"
-+
-+/*
-+ * CCID-2 timestamping faces the same issues as TCP timestamping.
-+ * Hence we reuse/share as much of the code as possible.
-+ */
-+#define ccid2_time_stamp	tcp_time_stamp
-+
- /* NUMDUPACK parameter from RFC 4341, p. 6 */
- #define NUMDUPACK	3
- 
--struct sock;
--
- struct ccid2_seq {
- 	u64			ccid2s_seq;
--	unsigned long		ccid2s_sent;
-+	u32			ccid2s_sent;
- 	int			ccid2s_acked;
- 	struct ccid2_seq	*ccid2s_prev;
- 	struct ccid2_seq	*ccid2s_next;
-@@ -72,7 +77,7 @@ struct ccid2_hc_tx_sock {
- 
- 	u64			tx_rpseq;
- 	int			tx_rpdupack;
--	unsigned long		tx_last_cong;
-+	u32			tx_last_cong;
- 	u64			tx_high_ack;
- };
- 
 --- a/net/dccp/ccids/ccid2.c
 +++ b/net/dccp/ccids/ccid2.c
-@@ -25,8 +25,6 @@
-  */
- #include <linux/slab.h>
- #include "../feat.h"
--#include "../ccid.h"
--#include "../dccp.h"
- #include "ccid2.h"
+@@ -325,8 +325,9 @@ static void ccid2_rtt_estimator(struct sock *sk, const long mrtt)
+ 		hc->tx_srtt = m << 3;
+ 		hc->tx_mdev = m << 1;
  
- 
-@@ -175,7 +173,7 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
- 
- 	hc->tx_seqh->ccid2s_seq   = dp->dccps_gss;
- 	hc->tx_seqh->ccid2s_acked = 0;
--	hc->tx_seqh->ccid2s_sent  = jiffies;
-+	hc->tx_seqh->ccid2s_sent  = ccid2_time_stamp;
- 
- 	next = hc->tx_seqh->ccid2s_next;
- 	/* check if we need to alloc more space */
-@@ -250,7 +248,7 @@ static void ccid2_hc_tx_packet_sent(struct sock *sk, int more, unsigned int len)
- 		struct ccid2_seq *seqp = hc->tx_seqt;
- 
- 		while (seqp != hc->tx_seqh) {
--			ccid2_pr_debug("out seq=%llu acked=%d time=%lu\n",
-+			ccid2_pr_debug("out seq=%llu acked=%d time=%u\n",
- 				       (unsigned long long)seqp->ccid2s_seq,
- 				       seqp->ccid2s_acked, seqp->ccid2s_sent);
- 			seqp = seqp->ccid2s_next;
-@@ -431,19 +429,19 @@ static void ccid2_new_ack(struct sock *sk, struct ccid2_seq *seqp,
- 	 * The cleanest solution is to not use the ccid2s_sent field at all
- 	 * and instead use DCCP timestamps: requires changes in other places.
- 	 */
--	ccid2_rtt_estimator(sk, jiffies - seqp->ccid2s_sent);
-+	ccid2_rtt_estimator(sk, ccid2_time_stamp - seqp->ccid2s_sent);
- }
- 
- static void ccid2_congestion_event(struct sock *sk, struct ccid2_seq *seqp)
- {
- 	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
- 
--	if (time_before(seqp->ccid2s_sent, hc->tx_last_cong)) {
-+	if ((s32)(seqp->ccid2s_sent - hc->tx_last_cong) < 0) {
- 		ccid2_pr_debug("Multiple losses in an RTT---treating as one\n");
- 		return;
+-		hc->tx_mdev_max = max(TCP_RTO_MIN, hc->tx_mdev);
++		hc->tx_mdev_max = max(hc->tx_mdev, tcp_rto_min(sk));
+ 		hc->tx_rttvar   = hc->tx_mdev_max;
++
+ 		hc->tx_rtt_seq  = dccp_sk(sk)->dccps_gss;
+ 	} else {
+ 		/* Update scaled SRTT as SRTT += 1/8 * (m - SRTT) */
+@@ -367,7 +368,7 @@ static void ccid2_rtt_estimator(struct sock *sk, const long mrtt)
+ 				hc->tx_rttvar -= (hc->tx_rttvar -
+ 						  hc->tx_mdev_max) >> 2;
+ 			hc->tx_rtt_seq  = dccp_sk(sk)->dccps_gss;
+-			hc->tx_mdev_max = TCP_RTO_MIN;
++			hc->tx_mdev_max = tcp_rto_min(sk);
+ 		}
  	}
  
--	hc->tx_last_cong = jiffies;
-+	hc->tx_last_cong = ccid2_time_stamp;
+--- a/Documentation/networking/dccp.txt
++++ b/Documentation/networking/dccp.txt
+@@ -1,18 +1,20 @@
+ DCCP protocol
+-============
++=============
  
- 	hc->tx_cwnd      = hc->tx_cwnd / 2 ? : 1U;
- 	hc->tx_ssthresh  = max(hc->tx_cwnd, 2U);
-@@ -683,7 +681,7 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
  
- 	hc->tx_rto	 = DCCP_TIMEOUT_INIT;
- 	hc->tx_rpdupack  = -1;
--	hc->tx_last_cong = jiffies;
-+	hc->tx_last_cong = ccid2_time_stamp;
- 	setup_timer(&hc->tx_rtotimer, ccid2_hc_tx_rto_expire,
- 			(unsigned long)sk);
- 	return 0;
+ Contents
+ ========
+-
+ - Introduction
+ - Missing features
+ - Socket options
++- Sysctl variables
++- IOCTLs
++- Other tunables
+ - Notes
+ 
++
+ Introduction
+ ============
+-
+ Datagram Congestion Control Protocol (DCCP) is an unreliable, connection
+ oriented protocol designed to solve issues present in UDP and TCP, particularly
+ for real-time and multimedia (streaming) traffic.
+@@ -29,9 +31,9 @@ It has a base protocol and pluggable congestion control IDs (CCIDs).
+ DCCP is a Proposed Standard (RFC 2026), and the homepage for DCCP as a protocol
+ is at http://www.ietf.org/html.charters/dccp-charter.html
+ 
++
+ Missing features
+ ================
+-
+ The Linux DCCP implementation does not currently support all the features that are
+ specified in RFCs 4340...42.
+ 
+@@ -45,7 +47,6 @@ http://linux-net.osdl.org/index.php/DCCP_Testing#Experimental_DCCP_source_tree
+ 
+ Socket options
+ ==============
+-
+ DCCP_SOCKOPT_SERVICE sets the service. The specification mandates use of
+ service codes (RFC 4340, sec. 8.1.2); if this socket option is not set,
+ the socket will fall back to 0 (which means that no meaningful service code
+@@ -112,6 +113,7 @@ DCCP_SOCKOPT_CCID_TX_INFO
+ On unidirectional connections it is useful to close the unused half-connection
+ via shutdown (SHUT_WR or SHUT_RD): this will reduce per-packet processing costs.
+ 
++
+ Sysctl variables
+ ================
+ Several DCCP default parameters can be managed by the following sysctls
+@@ -155,15 +157,27 @@ sync_ratelimit = 125 ms
+ 	sequence-invalid packets on the same socket (RFC 4340, 7.5.4). The unit
+ 	of this parameter is milliseconds; a value of 0 disables rate-limiting.
+ 
++
+ IOCTLS
+ ======
+ FIONREAD
+ 	Works as in udp(7): returns in the `int' argument pointer the size of
+ 	the next pending datagram in bytes, or 0 when no datagram is pending.
+ 
++
++Other tunables
++==============
++Per-route rto_min support
++	CCID-2 supports the RTAX_RTO_MIN per-route setting for the minimum value
++	of the RTO timer. This setting can be modified via the 'rto_min' option
++	of iproute2; for example:
++		> ip route change 10.0.0.0/24   rto_min 250j dev wlan0
++		> ip route add    10.0.0.254/32 rto_min 800j dev wlan0
++		> ip route show dev wlan0
++
++
+ Notes
+ =====
+-
+ DCCP does not travel through NAT successfully at present on many boxes. This is
+ because the checksum covers the pseudo-header as per TCP and UDP. Linux NAT
+ support for DCCP has been added.
