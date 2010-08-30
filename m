@@ -1,53 +1,91 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] wireless: fix 64K kernel heap content leak via ioctl
-Date: Mon, 30 Aug 2010 19:50:02 +0200
-Message-ID: <1283190602.3694.3.camel@jlt3.sipsolutions.net>
-References: <20100827210240.GC4703@outflux.net>
-	 <20100827212254.GB32275@bougret.hpl.hp.com>
-	 <1283158058.3691.10.camel@jlt3.sipsolutions.net>
-	 <1283158704.3691.11.camel@jlt3.sipsolutions.net>
-	 <1283162341.3691.45.camel@jlt3.sipsolutions.net>
-	 <20100830174018.GA3639@bougret.hpl.hp.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] sky2: don't do GRO on second port
+Date: Mon, 30 Aug 2010 10:51:17 -0700
+Message-ID: <20100830105117.0f0cf140@nehalam>
+References: <1283107162.2297.32.camel@edumazet-laptop>
+	<20100830064231.GA7060@ff.dom.local>
+	<20100830085721.54c8c31b@nehalam>
+	<20100830.095012.233695092.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <kees.cook-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100830174018.GA3639-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jarkao2@gmail.com, eric.dumazet@gmail.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:56659 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756078Ab0H3RvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 13:51:20 -0400
+In-Reply-To: <20100830.095012.233695092.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-08-30 at 10:40 -0700, Jean Tourrilhes wrote:
 
->         Ha ! I see. It would be for regular iwpoint queries, not for
-> extended NOMAX queries (scan is a extended NOMAX query).
+ There's something very important I forgot to tell you.
+ What?
 
-Yeah, that took a while to sink in here too ..
+ Don't cross the GRO streams.
+ Why?
 
-> 	I actually like your patch better than mine, it's closer to
-> the original intent of the API. Go for it ;-)
+ It would be bad.
+ I'm fuzzy on the whole good/bad thing. What do you mean, "bad"?
 
-> 	Thanks a lot for the second pair of eyes.
+ Try to imagine all the Internet as you know it stopping instantaneously
+  and every bit in every packet swapping at the speed of light.
+ Total packet reordering.
+ Right. That's bad. Okay. All right. Important safety tip. Thanks, Hubert
 
-And thank you for looking over my patch. I guess the real bug is still
-in cfg80211 there.
+The simplest way to stop this is just avoid doing GRO on the second port.
+Very few Marvell boards support two ports per ring, and GRO is just
+an optimization.
 
-Initially I considered setting iwp->length to zero, rather than
-max_tokens. What do you think about doing that? The reason I decided to
-use max_tokens was that somebody might look at the length value to know
-how much to copy (which is OK only in NOMAX queries); but that would be
-a more severe driver bug ... can't really make up my mind. We just copy
-back zeroes anyway.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-johannes
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/drivers/net/sky2.c	2010-08-30 10:13:28.211536096 -0700
++++ b/drivers/net/sky2.c	2010-08-30 10:22:01.347183151 -0700
+@@ -2520,24 +2520,27 @@ static inline void sky2_tx_done(struct n
+ 	}
+ }
+ 
+-static inline void sky2_skb_rx(const struct sky2_port *sky2,
++static inline void sky2_skb_rx(struct napi_struct *napi,
++			       const struct sky2_port *sky2,
+ 			       u32 status, struct sk_buff *skb)
+ {
+ #ifdef SKY2_VLAN_TAG_USED
+-	u16 vlan_tag = be16_to_cpu(sky2->rx_tag);
+ 	if (sky2->vlgrp && (status & GMR_FS_VLAN)) {
+-		if (skb->ip_summed == CHECKSUM_NONE)
++		u16 vlan_tag = be16_to_cpu(sky2->rx_tag);
++
++		if (skb->ip_summed == CHECKSUM_NONE ||
++		    sky2->netdev != napi->dev)
+ 			vlan_hwaccel_receive_skb(skb, sky2->vlgrp, vlan_tag);
+ 		else
+-			vlan_gro_receive(&sky2->hw->napi, sky2->vlgrp,
+-					 vlan_tag, skb);
++			vlan_gro_receive(napi, sky2->vlgrp, vlan_tag, skb);
+ 		return;
+ 	}
+ #endif
+-	if (skb->ip_summed == CHECKSUM_NONE)
++	if (skb->ip_summed == CHECKSUM_NONE ||
++	    sky2->netdev != napi->dev)
+ 		netif_receive_skb(skb);
+ 	else
+-		napi_gro_receive(&sky2->hw->napi, skb);
++		napi_gro_receive(napi, skb);
+ }
+ 
+ static inline void sky2_rx_done(struct sky2_hw *hw, unsigned port,
+@@ -2638,7 +2641,7 @@ static int sky2_status_intr(struct sky2_
+ 
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 
+-			sky2_skb_rx(sky2, status, skb);
++			sky2_skb_rx(&hw->napi, sky2, status, skb);
+ 
+ 			/* Stop after net poll weight */
+ 			if (++work_done >= to_do)
