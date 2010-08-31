@@ -1,103 +1,67 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [rfc] Merging the Open vSwitch datapath
-Date: Tue, 31 Aug 2010 10:38:47 +0900
-Message-ID: <20100831013847.GA30077@verge.net.au>
-References: <20100830062755.GA22396@verge.net.au>
- <87k4n8ow1r.fsf@benpfaff.org>
- <43F901BD926A4E43B106BF17856F0755F63A08EE@orsmsx508.amr.corp.intel.com>
- <20100830183328.GI7629@nicira.com>
- <43F901BD926A4E43B106BF17856F0755F63A092B@orsmsx508.amr.corp.intel.com>
- <20100830205907.GM30129@sequoia.sous-sol.org>
- <20100831004827.GE11594@verge.net.au>
- <20100831005410.GB30129@sequoia.sous-sol.org>
- <20100831010103.GH11594@verge.net.au>
- <AANLkTi=ha40tm5TJUg+1seRG83Yq1h9DGm=YGyyd+-Ex@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warnings after merge of the net tree
+Date: Tue, 31 Aug 2010 11:55:08 +1000
+Message-ID: <20100831115508.078eb2fa.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chris Wright <chrisw@sous-sol.org>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Ben Pfaff <blp@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Arnd Bergmann <arnd@arndb.de>,
-	David Miller <davem@davemloft.net>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57043 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756468Ab0HaBix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 21:38:53 -0400
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__31_Aug_2010_11_55_08_+1000_a2BO.BmthvtArIjo"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Tue__31_Aug_2010_11_55_08_+1000_a2BO.BmthvtArIjo
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <AANLkTi=ha40tm5TJUg+1seRG83Yq1h9DGm=YGyyd+-Ex@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, Aug 30, 2010 at 06:11:30PM -0700, Jesse Gross wrote:
-> On Mon, Aug 30, 2010 at 6:01 PM, Simon Horman <horms@verge.net.au> wr=
-ote:
-> > On Mon, Aug 30, 2010 at 05:54:10PM -0700, Chris Wright wrote:
-> >> * Simon Horman (horms@verge.net.au) wrote:
-> >> > On Mon, Aug 30, 2010 at 01:59:07PM -0700, Chris Wright wrote:
-> >> > > * Rose, Gregory V (gregory.v.rose@intel.com) wrote:
-> >> > > > >From: Ben Pfaff [mailto:blp@nicira.com]
-> >> > > > >On Mon, Aug 30, 2010 at 11:26:17AM -0700, Rose, Gregory V w=
-rote:
-> >> > > > >> I just want to put in a plug for the netlink interface. =C2=
-=A0For NICs with
-> >> > > > >> EVB we'll need it.
-> >> > > > >
-> >> > > > >Off-hand, the main reasons to use Netlink, instead of the e=
-xisting
-> >> > > > >character device interface, are that Netlink is easier to e=
-xtend and
-> >> > > > >that it should reduce or eliminate the 32-to-64 bit compat =
-layer
-> >> > > > >currently in the Open vSwitch tree.
-> >> > >
-> >> > > That, plus it's a typical way to do network configuration. =C2=
-=A0Esp. with
-> >> > > bi-directional communication. =C2=A0So the userspace bit both =
-listens to
-> >> > > netlink messages, like any of the routing daemons or lldpad or=
- similar
-> >> > > do, and sends netlink messasges to update driver's flow table.
-> >> > >
-> >> > > BTW, this kind of discussion was why Herbert felt strongly aga=
-inst
-> >> > > drivers/staging/. =C2=A0He wanted to be sure the interfaces we=
-re well-defined
-> >> > > first.
-> >> >
-> >> > Is the implication that there is a preference for finalising
-> >> > the interface (as much as that is possible) before merging?
-> >>
-> >> I'll let Herbert chime in, just reminder that was his thought earl=
-ier
-> >> this month at LinuxCon.
-> >
-> > Thanks, I must confess that had slipped my mind.
->=20
-> I think it might be worth delaying the merge until we at least have a
-> starting point.  As the userspace interface is such an important
-> aspect of the code, I don't want to ask people to review code that is
-> expected to undergo a large change soon (obviously comments are alway=
-s
-> welcome at any time).  It's probably also more productive to have a
-> discussion about minor improvements to a proposed interface than a
-> free-for-all.
->=20
-> As Ben mentioned, he's working on designing a Netlink-based interface
-> now.  It shouldn't take too long to get a first cut out the door so
-> we'll have something concrete to discuss.  I'll certainly be the firs=
-t
-> one to promote the different uses that are possible with Open vSwitch
-> but I don't want too get bogged down in the details of future feature=
-s
-> now.  As long as the interface doesn't have serious problems
-> precluding future work, we can merge the existing code and then move
-> onto new things.
+Hi all,
 
-That sounds entirely reasonable.
+After merging the net tree, today's linux-next build (x86_64
+allmodconfig) produced these warnings:
 
+In file included from drivers/net/stmmac/stmmac_ethtool.c:30:
+drivers/net/stmmac/stmmac.h:111: warning: 'struct platform_device' declared=
+ inside parameter list
+drivers/net/stmmac/stmmac.h:111: warning: its scope is only this definition=
+ or declaration, which is probably not what you want
+drivers/net/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
+drivers/net/stmmac/stmmac_main.c:1744: warning: cast from pointer to intege=
+r of different size
+In file included from drivers/net/stmmac/stmmac_mdio.c:31:
+drivers/net/stmmac/stmmac.h:111: warning: 'struct platform_device' declared=
+ inside parameter list
+drivers/net/stmmac/stmmac.h:111: warning: its scope is only this definition=
+ or declaration, which is probably not what you want
+drivers/net/stmmac/dwmac1000_core.c: In function 'dwmac1000_dump_regs':
+drivers/net/stmmac/dwmac1000_core.c:56: warning: cast from pointer to integ=
+er of different size
+
+Probably all revealed by commit ac75791aa943c7953521cb4fa7728bf51f9abd2d
+("stmmac: remove dead option in the driver's Kconfig") which allowed this
+driver to be built on most platforms.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__31_Aug_2010_11_55_08_+1000_a2BO.BmthvtArIjo
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMfGD8AAoJEDMEi1NhKgbsOpUIAJNj39RLYV2OWawNup622XVs
+BfG760DbZtMcWQv8f75GbOJEumVAcvqv9UA0DJLA19QaYdfsRbSF2d7c/hfdAmSo
+u9rakcTMtxRfeLqGeSLr1uz4ClSNbf01M0q5n2OYn3+C4Hq+aRGcrfrnJy5dZoDE
+qvWG/1WiMQ96DB2yrXpSlWhGYZxaEuHicbgk0lUvOdqLkoiqYJKBMlY7KzKM/k85
+LKKjTZxtRjq6OxWs993JVmqdwTMwRJr8DFcJmq42rDpAMvDtlka2g1EHb0NRFfQJ
+Bxswp+h+JBn2sq69j/5mWrrJKF0sXhvOf5XZtRY8TKdX6Tvy1FlR4L39lIUIBsQ=
+=O0NB
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__31_Aug_2010_11_55_08_+1000_a2BO.BmthvtArIjo--
