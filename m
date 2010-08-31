@@ -1,95 +1,50 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 3/4] drivers/net/can/mscan/mpc5xxx_can.c: Add	of_node_put
-	to avoid memory leak
-Date: Tue, 31 Aug 2010 21:22:07 +0200
-Message-ID: <4C7D565F.307@grandegger.com>
-References: <1283269738-14612-1-git-send-email-julia@diku.dk>
-	<1283269738-14612-4-git-send-email-julia@diku.dk>
-	<20100831165153.GB28015@pengutronix.de>
-	<Pine.LNX.4.64.1008311943280.2668@ask.diku.dk>
-	<20100831191014.GA9603@pengutronix.de>
+From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Tue, 31 Aug 2010 21:26:59 +0200
+Message-ID: <20100831192659.GA3093@del.dom.local>
+References: <4LwrqITm-eJ.A.r8G.eFueMB@chimera>
+ <4AUWBNzTkbD.A.ey.cGueMB@chimera>
+ <courier.4C7C99F2.00001F74@fs.ru.acad.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-To: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100831191014.GA9603-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <courier.4C7C99F2.00001F74-Xdw7EbNJKi3354cJYj5R/Q@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/31/2010 09:10 PM, Wolfram Sang wrote:
-> On Tue, Aug 31, 2010 at 07:44:00PM +0200, Julia Lawall wrote:
->> Add a call to of_node_put in the error handling code following a call to
->> of_find_matching_node.
->>
->> This patch also moves the existing call to of_node_put after the call to
->> iounmap in the error handling code, to make it possible to jump to
->> of_node_put without doing iounmap.  These appear to be disjoint operations,
->> so the ordering doesn't matter.
->>
->> This patch furthermore changes the -ENODEV result in the error handling
->> code for of_find_matching_node to a return of 0, as found in the error
->> handling code for of_iomap, because the return type of the function is
->> unsigned.
->>
->> The semantic match that finds this problem is as follows:
->> (http://coccinelle.lip6.fr/)
->>
->> // <smpl>
->> @r exists@
->> local idexpression x;
->> expression E,E1,E2;
->> statement S;
->> @@
->>
->> *x = 
->> (of_find_node_by_path
->> |of_find_node_by_name
->> |of_find_node_by_phandle
->> |of_get_parent
->> |of_get_next_parent
->> |of_get_next_child
->> |of_find_compatible_node
->> |of_match_node
->> |of_find_node_by_type
->> |of_find_node_with_property
->> |of_find_matching_node
->> |of_parse_phandle
->> )(...);
->> ...
->> if (x == NULL) S
->> <... when != x = E
->> *if (...) {
->>   ... when != of_node_put(x)
->>       when != if (...) { ... of_node_put(x); ... }
->> (
->>   return <+...x...+>;
->> |
->> *  return ...;
->> )
->> }
->> ...>
->> (
->> E2 = x;
->> |
->> of_node_put(x);
->> )
->> // </smpl>
->>
->> Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+On Tue, Aug 31, 2010 at 08:58:10AM +0300, Plamen Petrov wrote:
+> Rafael J. Wysocki ????????????:
 > 
-> Reviewed-by: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> >This message has been generated automatically as a part of a summary report
+> >of recent regressions.
+> >
+> >The following bug entry is on the current list of known regressions
+> >from 2.6.35.  Please verify if it still should be listed and let the tracking team
+> >know (either way).
+> >
+> >
+> >Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16626
+> >Subject		: Machine hangs with EIP at skb_copy_and_csum_dev
+> >Submitter	: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
+> >Date		: 2010-08-19 09:57 (11 days old)
+> >Handled-By	:  Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >
+> >
+> 
+> Should "generic receive offload" work on a forwarding setup?
+> If yes - then the bug should remain open.
+> If not - then it's my mistake.
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+If/since it's on by default it should work and it definitely can't be
+your mistake. (Unless we can't find the real reason... ;-)
+
+Jarek P.
