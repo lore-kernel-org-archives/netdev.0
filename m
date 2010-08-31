@@ -1,80 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: PF_NETLINK, SOCK_DGRAM, 2 => EPROTONOSUPPORT
-Date: Mon, 30 Aug 2010 19:06:19 -0700 (PDT)
-Message-ID: <20100830.190619.91328359.davem@davemloft.net>
-References: <alpine.LNX.2.00.1008301158360.28658@er-systems.de>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build warning after merge of the net tree
+Date: Tue, 31 Aug 2010 12:57:38 +1000
+Message-ID: <20100831125738.7f18610b.sfr@canb.auug.org.au>
+References: <20100706142542.d723903f.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tv@lio96.de
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__31_Aug_2010_12_57_38_+1000_VFySImY6pPgQK0F3"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joe Perches <joe@perches.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	James Bottomley <James.Bottomley@suse.de>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54494
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756187Ab0HaCGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 22:06:03 -0400
-In-Reply-To: <alpine.LNX.2.00.1008301158360.28658@er-systems.de>
+Received: from chilli.pcug.org.au ([203.10.76.44]:41844 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756678Ab0HaC5r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 22:57:47 -0400
+In-Reply-To: <20100706142542.d723903f.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Voegtle <tv@lio96.de>
-Date: Mon, 30 Aug 2010 12:02:51 +0200 (CEST)
+--Signature=_Tue__31_Aug_2010_12_57_38_+1000_VFySImY6pPgQK0F3
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Was this intended, that this code snippet doesn't work this way
-> anymore or is this just a bug?
+Hi all,
 
-It's an unintended regression.
+On Tue, 6 Jul 2010 14:25:42 +1000 Stephen Rothwell <sfr@canb.auug.org.au> w=
+rote:
+>
+> After merging the net tree, today's linux-next build (powerpc
+> ppc64_defconfig) produced these warnings:
+>=20
+> drivers/scsi/sym53c8xx_2/sym_hipd.c: In function 'sym_print_msg':
+> drivers/scsi/sym53c8xx_2/sym_hipd.c:78: warning: zero-length gnu_printf f=
+ormat string
+> drivers/scsi/constants.c: In function 'scsi_print_sense':
+> drivers/scsi/constants.c:1407: warning: zero-length gnu_printf format str=
+ing
+> drivers/scsi/constants.c:1413: warning: zero-length gnu_printf format str=
+ing
+> drivers/scsi/constants.c: In function 'scsi_print_result':
+> drivers/scsi/constants.c:1456: warning: zero-length gnu_printf format str=
+ing
+> drivers/scsi/sd.c: In function 'sd_print_sense_hdr':
+> drivers/scsi/sd.c:2599: warning: zero-length gnu_printf format string
+> drivers/scsi/sd.c:2601: warning: zero-length gnu_printf format string
+> drivers/scsi/sd.c: In function 'sd_print_result':
+> drivers/scsi/sd.c:2607: warning: zero-length gnu_printf format string
+>=20
+> (There may be more ...)
+>=20
+> Introduced by commit 99bcf217183e02ebae46373896fba7f12d588001 ("device.h
+> drivers/base/core.c Convert dev_<level> logging macros to functions").
 
-But nobody noticed it, because almost no-one uses NETLINK_USER.
+Can we have a fix for these please?  They make too much noise in the builds.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-This might fix it, give it a test:
+--Signature=_Tue__31_Aug_2010_12_57_38_+1000_VFySImY6pPgQK0F3
+Content-Type: application/pgp-signature
 
-netlink: Make NETLINK_USERSOCK work again.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-Once we started enforcing the a nl_table[] entry exist for
-a protocol, NETLINK_USERSOCK stopped working.  Add a dummy
-table entry so that it works again.
+iQEcBAEBAgAGBQJMfG+iAAoJEDMEi1NhKgbsztMH/2AQV1CSd2cAYQypxMqZgZ9D
+JAmIw387jJwnn45mWnVhkLUQPlrm0tmGPkefjMpx9yOCegFl3KEmh4CnJkrUlhS3
+BDvep+VM8ufLs4sSdcCLP/Bd+JE8XbiHEvRBV8tyHaEJ1Wj6CfQ3BHjavWZbG/pU
+JGuTbZTjkP1JTYWQolIdzZWoC8Hc+xAHzM6QOl06dpdjTDJwTeWy1oIp75WwLL4t
+g9NCz6gN3X2fCqpfZlT2v40PG3dOCx66sOYCjktpOrPCgH8rQYPXqrUgkQ2C6RH/
+rek6UabL2H7eUJI8cqid3onKFweVTITH+6AQyW1ojZ4/hZPVpk3po0UCB5ZofW4=
+=TydS
+-----END PGP SIGNATURE-----
 
-Reported-by: Thomas Voegtle <tv@lio96.de>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 980fe4a..cd96ed3 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2102,6 +2102,26 @@ static void __net_exit netlink_net_exit(struct net *net)
- #endif
- }
- 
-+static void __init netlink_add_usersock_entry(void)
-+{
-+	unsigned long *listeners;
-+	int groups = 32;
-+
-+	listeners = kzalloc(NLGRPSZ(groups) + sizeof(struct listeners_rcu_head),
-+			    GFP_KERNEL);
-+	if (!listeners)
-+		panic("netlink_add_usersock_entry: Cannot allocate listneres\n");
-+
-+	netlink_table_grab();
-+
-+	nl_table[NETLINK_USERSOCK].groups = groups;
-+	nl_table[NETLINK_USERSOCK].listeners = listeners;
-+	nl_table[NETLINK_USERSOCK].module = THIS_MODULE;
-+	nl_table[NETLINK_USERSOCK].registered = 1;
-+
-+	netlink_table_ungrab();
-+}
-+
- static struct pernet_operations __net_initdata netlink_net_ops = {
- 	.init = netlink_net_init,
- 	.exit = netlink_net_exit,
-@@ -2150,6 +2170,8 @@ static int __init netlink_proto_init(void)
- 		hash->rehash_time = jiffies;
- 	}
- 
-+	netlink_add_usersock_entry();
-+
- 	sock_register(&netlink_family_ops);
- 	register_pernet_subsys(&netlink_net_ops);
- 	/* The netlink device handler may be needed early. */
+--Signature=_Tue__31_Aug_2010_12_57_38_+1000_VFySImY6pPgQK0F3--
