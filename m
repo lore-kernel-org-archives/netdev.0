@@ -1,49 +1,31 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
-Date: Wed, 1 Sep 2010 01:48:08 +0400
-Message-ID: <20100831214808.GA32141@ms2.inr.ac.ru>
-References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com> <20100831210101.3c059a91@leibniz> <4C7D5EBD.103@gmail.com> <AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] net: make rx_queue sysfs_ops const
+Date: Tue, 31 Aug 2010 15:14:13 -0700
+Message-ID: <20100831151413.3adb0ea1@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>
-To: Dan Kruchinin <dkruchinin@acm.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:56177 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1750909Ab0HaVsa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Aug 2010 17:48:30 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:41386 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754097Ab0HaWOP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 18:14:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
 
-> Documentation describes latency as something intuitively clear: "the
-> maximum amount of time a packet can sit in the TBF"
-> but tc implementation handles it something like: "an additional time
-> packet can sit int the TBF after main waiting queue which size is
-> equal to the burst size is completely full.". It doesn't seem to have
-> any sense.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Seems, I still can tell what I really meant there:
-burst is supposed to be handled instantly (unless peak rate is not infinite).
-So that, latency is really (limit - burst)/rate.
-Indeed, the case when limit < burst was missed in tc,
-latency should be 0 in this case.
-
-So, think: formula latency = limit/rate, which you suggest, is obviously
-wrong (correct me): everything which is out of bucket is drained with rate of tbf,
-but everyhing inside the burst is drained with rate of the device, which
-cannot even be estimated on base of tbf parameters. (Again, here I ignore
-the case when peak rate is set)
-
-So, it looks like tc is almost correct, only it should print 0 instead
-of negative value. And the phrase in documentation should sound like:
-"maximal queuing delay introduced by TBF".
-
-Alexey
-
-
-
+--- a/net/core/net-sysfs.c	2010-08-31 15:09:51.280223081 -0700
++++ b/net/core/net-sysfs.c	2010-08-31 15:10:03.820257477 -0700
+@@ -515,7 +515,7 @@ static ssize_t rx_queue_attr_store(struc
+ 	return attribute->store(queue, attribute, buf, count);
+ }
+ 
+-static struct sysfs_ops rx_queue_sysfs_ops = {
++static const struct sysfs_ops rx_queue_sysfs_ops = {
+ 	.show = rx_queue_attr_show,
+ 	.store = rx_queue_attr_store,
+ };
