@@ -1,11 +1,12 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Tue, 31 Aug 2010 08:08:06 -0700
-Message-ID: <4C7D1AD6.3080005@oracle.com>
-References: <4C763A67.5040107@dsn.okisemi.com> <4C7D0E7A.5060309@dsn.okisemi.com>
+Date: Tue, 31 Aug 2010 16:51:03 +0200
+Message-ID: <1283266263.2550.106.camel@edumazet-laptop>
+References: <4C763A67.5040107@dsn.okisemi.com>
+	 <4C7D0E7A.5060309@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	Sam Ravnborg <sam@ravnborg.org>, Joe Perches <joe@perches.com>,
 	LKML <linux-kernel@vger.kernel.org>,
@@ -15,6 +16,7 @@ Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	Kristoffer Glembo <kristoffer@gaisler.com>,
 	Ralf Baechle <ralf@linux-mips.org>,
 	John Linn <john.linn@xilinx.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
 	"Wang, Yong Y" <yong.y.wang@intel.com>,
@@ -30,85 +32,71 @@ In-Reply-To: <4C7D0E7A.5060309@dsn.okisemi.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/31/10 07:15, Masayuki Ohtake wrote:
-> 
+Le mardi 31 ao=C3=BBt 2010 =C3=A0 23:15 +0900, Masayuki Ohtake a =C3=A9=
+crit :
 > Hi Sam, Joe and Stephen
-> 
+>=20
 > Thank you for your comments.
 > We have modified this driver for your comment.
-> 
+>=20
 > ---
 > Gigabit Ethernet driver of Topcliff PCH
-> Patch created against 2.6.35
-> 
-> Topcliff PCH is the platform controller hub that is going to be used in
-> Intel's upcoming general embedded platform. All IO peripherals in
-> Topcliff PCH are actually devices sitting on AMBA bus. 
-> Topcliff PCH has Gigabit Ethernet I/F. Using this I/F, it is able to 
-> access system devices connected to Gigabit Ethernet.
-> 
-> Signed-off-by: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
-> ---
->  drivers/net/Kconfig                   |   10 +
->  drivers/net/Makefile                  |    1 +
->  drivers/net/pch_gbe/Makefile          |    4 +
->  drivers/net/pch_gbe/pch_gbe.h         |  683 +++++++++
->  drivers/net/pch_gbe/pch_gbe_api.c     |  246 ++++
->  drivers/net/pch_gbe/pch_gbe_api.h     |   34 +
->  drivers/net/pch_gbe/pch_gbe_ethtool.c |  618 ++++++++
->  drivers/net/pch_gbe/pch_gbe_main.c    | 2591 +++++++++++++++++++++++++++++++++
->  drivers/net/pch_gbe/pch_gbe_param.c   |  519 +++++++
->  drivers/net/pch_gbe/pch_gbe_phy.c     |  276 ++++
->  drivers/net/pch_gbe/pch_gbe_phy.h     |   35 +
->  11 files changed, 5017 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/pch_gbe/Makefile
->  create mode 100644 drivers/net/pch_gbe/pch_gbe.h
->  create mode 100644 drivers/net/pch_gbe/pch_gbe_api.c
->  create mode 100644 drivers/net/pch_gbe/pch_gbe_api.h
->  create mode 100644 drivers/net/pch_gbe/pch_gbe_ethtool.c
->  create mode 100644 drivers/net/pch_gbe/pch_gbe_main.c
->  create mode 100644 drivers/net/pch_gbe/pch_gbe_param.c
->  create mode 100644 drivers/net/pch_gbe/pch_gbe_phy.c
->  create mode 100644 drivers/net/pch_gbe/pch_gbe_phy.h
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index 2decc59..f8102de 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2004,6 +2004,16 @@ menuconfig NETDEV_1000
->  	  If you say N, all options in this submenu will be skipped and disabled.
->  
->  if NETDEV_1000
-> +config PCH_GBE
-> +	tristate "PCH Gigabit Ethernet"
-> +	depends on PCI
 
-IMO it's not nice to list this driver before others that are already there.
+> +			skb->protocol =3D eth_type_trans(skb, netdev);
+> +			if ((tcp_ip_status & PCH_GBE_RXD_ACC_STAT_TCPIPOK) =3D=3D
+> +			    PCH_GBE_RXD_ACC_STAT_TCPIPOK) {
+> +				skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+> +			} else {
+> +				skb->ip_summed =3D CHECKSUM_NONE;
+> +			}
+> +
+> +			if (netif_receive_skb(skb) =3D=3D NET_RX_DROP) {
+> +				adapter->stats.rx_dropped++;
 
-> +	---help---
-> +	  This is an gigabit ethernet driver for Topcliff PCH.
+dont use pr_err() here, dropping a frame is a normal condition.
 
-	  This is a gigabit
+> +				pr_err("Receive Netif Receive Dropped Error\n");
+> +			}
+> +			(*work_done)++;
+> +			netdev->last_rx =3D jiffies;
 
-You aren't going to modify this text after the product is released, are you?
-Might as well make it better now:
+really ? last_rx is a thing of the past.
 
-> +	  Topcliff PCH is the platform controller hub that is going to be used
-
-	  Topcliff PCH is the platform controller hub that is used in Intel's
-	  general embedded platform.
-> +	  in Intel's upcoming general embedded platform.
-> +	  Topcliff PCH has Gigabit Ethernet I/F. Using this I/F, it is able to
-
-	Change "I/F" to "interface".
-
-> +	  access system devices connected to Gigabit Ethernet.
-> +	  This driver enables Gigabit Ethernet function.
->  
->  config ACENIC
->  	tristate "Alteon AceNIC/3Com 3C985/NetGear GA620 Gigabit support"
+> +			pr_debug
+> +			    ("Receive skb->ip_summed: %d length: %d\n",
+> +			     skb->ip_summed, length);
+> +		}
+> +dorrop:
+> +		/* return some buffers to hardware, one at a time is too slow */
+> +		if (unlikely(cleaned_count >=3D PCH_GBE_RX_BUFFER_WRITE)) {
+> +			pch_gbe_alloc_rx_buffers(adapter, rx_ring,
+> +						 cleaned_count);
+> +			cleaned_count =3D 0;
+> +		}
+> +		if (++i =3D=3D rx_ring->count)
+> +			i =3D 0;
+> +	}
+> +	rx_ring->next_to_clean =3D i;
+> +	if (cleaned_count)
+> +		pch_gbe_alloc_rx_buffers(adapter, rx_ring, cleaned_count);
+> +	return cleaned;
+> +}
+> +
 
 
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+
+I find hard to believe this driver needs to copy all outgoing frames on
+pre-allocated skbs.
+
++       /* [Header:14][payload] ---> [Header:14][paddong:2][payload]   =
+ */
++       memcpy(tmp_skb->data, skb->data, ETH_HLEN);
++       tmp_skb->data[ETH_HLEN] =3D 0x00;
++       tmp_skb->data[ETH_HLEN + 1] =3D 0x00;
++       tmp_skb->len =3D skb->len;
++       memcpy(&tmp_skb->data[ETH_HLEN + 2], &skb->data[ETH_HLEN],
++              (skb->len - ETH_HLEN));
++       buffer_info->kernel_skb =3D skb;
++       skb =3D tmp_skb;
+
+Whats the deal here please ?
