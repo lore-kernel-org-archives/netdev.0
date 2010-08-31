@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: add a comment on netdev->last_rx
-Date: Tue, 31 Aug 2010 13:37:27 -0700 (PDT)
-Message-ID: <20100831.133727.235702469.davem@davemloft.net>
-References: <1283276416.2550.140.camel@edumazet-laptop>
+Subject: Re: [patch net-next-2.6] vlan: Use vlan_dev_real_dev in
+ vlan_hwaccel_do_receive
+Date: Tue, 31 Aug 2010 13:37:44 -0700 (PDT)
+Message-ID: <20100831.133744.212393623.davem@davemloft.net>
+References: <20100831145817.GB2795@psychotron.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39915
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39919
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754603Ab0HaUhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 16:37:11 -0400
-In-Reply-To: <1283276416.2550.140.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1755482Ab0HaUh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 16:37:28 -0400
+In-Reply-To: <20100831145817.GB2795@psychotron.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 31 Aug 2010 19:40:16 +0200
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Tue, 31 Aug 2010 16:58:18 +0200
 
-> As some driver authors seem to reintroduce dev->last_rx use,
-> add a comment to strongly discourage this.
+> [patch net-next-2.6] vlan: Use vlan_dev_real_dev in vlan_hwaccel_do_receive
 > 
-> Since commit 6cf3f41e6c0 (bonding, net: Move last_rx update into bonding
-> recv logic), network drivers dont need to update last_rx themselves,
-> unless they use this field to implement a timeout.
+> Use helper as in other places.
 > 
-> Not updating last_rx helps not dirtying a cache line, improving
-> performance in SMP.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
 Applied.
