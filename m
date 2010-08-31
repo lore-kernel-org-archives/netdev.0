@@ -1,50 +1,47 @@
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
-Date: Tue, 31 Aug 2010 21:26:59 +0200
-Message-ID: <20100831192659.GA3093@del.dom.local>
-References: <4LwrqITm-eJ.A.r8G.eFueMB@chimera>
- <4AUWBNzTkbD.A.ey.cGueMB@chimera>
- <courier.4C7C99F2.00001F74@fs.ru.acad.bg>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
+Date: Tue, 31 Aug 2010 21:57:49 +0200
+Message-ID: <4C7D5EBD.103@gmail.com>
+References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com> <20100831210101.3c059a91@leibniz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <courier.4C7C99F2.00001F74-Xdw7EbNJKi3354cJYj5R/Q@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Stephen Hemminger <shemminger@osdl.org>
+To: Dan Kruchinin <dkruchinin@acm.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:53690 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754265Ab0HaT5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 15:57:55 -0400
+Received: by fxm13 with SMTP id 13so4236552fxm.19
+        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 12:57:54 -0700 (PDT)
+In-Reply-To: <20100831210101.3c059a91@leibniz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 31, 2010 at 08:58:10AM +0300, Plamen Petrov wrote:
-> Rafael J. Wysocki ????????????:
-> 
-> >This message has been generated automatically as a part of a summary report
-> >of recent regressions.
-> >
-> >The following bug entry is on the current list of known regressions
-> >from 2.6.35.  Please verify if it still should be listed and let the tracking team
-> >know (either way).
-> >
-> >
-> >Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16626
-> >Subject		: Machine hangs with EIP at skb_copy_and_csum_dev
-> >Submitter	: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-> >Date		: 2010-08-19 09:57 (11 days old)
-> >Handled-By	:  Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >
-> >
-> 
-> Should "generic receive offload" work on a forwarding setup?
-> If yes - then the bug should remain open.
-> If not - then it's my mistake.
+Dan Kruchinin wrote, On 08/31/2010 07:01 PM:
 
-If/since it's on by default it should work and it definitely can't be
-your mistake. (Unless we can't find the real reason... ;-)
+> I'm sorry it seems my email client has broken patch formating.
+> Here is properly formated one:
+> diff --git a/tc/q_tbf.c b/tc/q_tbf.c
+> index dc556fe..850e6db 100644
+> --- a/tc/q_tbf.c
+> +++ b/tc/q_tbf.c
+> @@ -178,7 +178,7 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
+>  	}
+>  
+>  	if (opt.limit == 0) {
+> -		double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC + buffer;
+> +		double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC;
 
+The way limit is calculated here from latency suggests some safety defaults
+are taken wrt. the implementation, which could be omitted while setting the
+limit directly. You try to change/fix this to adhere to the documentation,
+but such a change would definitely break many user configs, so I doubt it's
+the right solution here. Probably you should rather think about fixing the
+manual.
+
+Thanks,
 Jarek P.
+
