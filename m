@@ -1,167 +1,445 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [rfc] Merging the Open vSwitch datapath
-Date: Tue, 31 Aug 2010 10:04:09 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755F6432E3E@orsmsx508.amr.corp.intel.com>
-References: <20100830062755.GA22396@verge.net.au>
- <201008302304.38061.arnd@arndb.de>
- <43F901BD926A4E43B106BF17856F0755F63A0B62@orsmsx508.amr.corp.intel.com>
- <201008311348.55883.arnd@arndb.de>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: [RFC] bonding: fix workqueue re-arming races
+Date: Tue, 31 Aug 2010 19:07:52 +0200
+Message-ID: <20100831170752.GA9743@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ben Pfaff <blp@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: bonding-devel@lists.sourceforge.net, markine@google.com,
+	jarkao2@gmail.com, chavey@google.com, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:39518 "EHLO mga11.intel.com"
+Received: from cantor2.suse.de ([195.135.220.15]:43674 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753770Ab0HaREN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 13:04:13 -0400
-In-Reply-To: <201008311348.55883.arnd@arndb.de>
-Content-Language: en-US
+	id S1753770Ab0HaRGX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 13:06:23 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Arnd Bergmann [mailto:arnd@arndb.de]
->Sent: Tuesday, August 31, 2010 4:49 AM
->To: Rose, Gregory V
->Cc: Ben Pfaff; netdev@vger.kernel.org; Jesse Gross; Stephen Hemminger;
->Chris Wright; Herbert Xu; David Miller
->Subject: Re: [rfc] Merging the Open vSwitch datapath
->
->On Tuesday 31 August 2010, Rose, Gregory V wrote:
->>
->> I should probably read up a bit more on 802.1ad.
->
->What we need here is an extension of the vlan module to allow
->double tagging with the right ethertype on the outer frame.
+Hi,
 
-Yes.
+this is another attempt to solve the bonding workqueue re-arming
+races.
 
->
->> >The other parts are configuration protocols like LLDP and CDP, which
->> >we normally do in user space (e.g. lldpad).
->> >
->> >What else is there that you think should go into the kernel.
->>
->> It seems to me that the IFLA_VF_INFO netlink attributes are station
->> oriented.  The kernel support I see there is insufficient for some
->> other things that need to be done for access control, forwarding
->> rules and actions taken on certain kind of packets.  I think there'll
->> be a need to configure the switch itself, not just the stations
->> attached to the switch.
->
->Ok, I'm beginning to understand what you want to do.
->
->1. VEPA using software: use a traditional NIC, and macvtap (or similar)
->   in the hypervisor to separate traffic between the guests, do
->   bridging in an external switch. Works now.
->2. VEPA using hardware: give each guest a VF, configure VFs into VEPA
->   mode. Requires a trivial addition to IFLA_VF_INFO to allow VEPA
->setting
->3. Simple bridge using software: like 1, but forward traffic between
->   some or all macvtap ports. Works now.
->4. Simple bridge using hardware: Like 2, this is what we do today when
->   using VFs.
->5. Full-featured bridge using brctl/ebtables/iptables. This has access
->   to all features of the Linux kernel. Works today, but requires
->management
->   infrastructure (see: Vyatta) that is not present everywhere.
->6. Full-featured bridge in hardware with the features of
->ebtables/iptables.
->   Not going to happen IMHO, see below.
->7. Full-featured distributed bridge using Open vSwitch. This is
->   what the current discussion is about.
->8. Full-featured distributed bridge using Open vSwitch and hardware
->support.
+The issue has been thoroughly discussed here:
+http://article.gmane.org/gmane.linux.network/146949 "[PATCH]
+bonding: cancel_delayed_work() -> cancel_delayed_work_sync()"
+However, the only outcome was a proposal for an ugly hack with
+busy-waiting on the rtnl.
 
-Yep, that about covers it.
+The problem:
+Bonding uses delayed work that automatically re-arms itself,
+e.g.: bond_mii_monitor().
 
-;-)
+A dev->close() quickly followed by dev->open() on the bonding
+master has a race condition. bond_close() sets kill_timers=1 and
+calls cancel_delayed_work(), hoping that bond_mii_monitor() will
+not re-arm again anymore.  There are two problems with this:
 
-Agree on item # 6.
+- bond->kill_timers is not re-checked after re-acquiring the
+  bond->lock (this would be easy to fix)
 
->I was arguing against 6, which would not even work using the same Open
->vSwitch netlink interface, while I guess what you want is 8.
->
->Now I would not call that "configuring the switch", since the switch in
->this case is basically a daemon running on the host and configuring the
->data path, which has now moved into the hardware from the kernel.
+- bond_open() resets bond->kill_timers to 0. If this happens
+  before bond_mii_monitor() notices the flag and exits, it will
+  re-arm itself. bond_open() then tries to schedule the delayed
+  work, which causes a BUG.
 
-Yeah, the semantics get tricky sometimes but we're on the same page.
+The issue would be solved by calling cancel_delayed_work_sync(),
+but this can not be done from bond_close() since it is called
+under rtnl and the delayed work locks rtnl itself.
 
->>
->> What if the NIC is the external switch?
->
->I don't think that is going to happen. All embedded switches
->are of the edge (a.k.a. dumb) type right now, and I believe that
->will stay this way.
->By an external switch, I mean something that is running an
->operating system and allows users to log in for configuring
->the switch rules.
->
->> I mean, what if the
->> NIC has an edge virtual bridge embedded in it?  The IFLA_VF_INFO
->> messages are sufficient for many features but there are some that
->> it doesn't address.  And I don't know of any way to get iptables
->> rules down to the VF using existing kernel interfaces.
->
->Exactly! The problem is that I don't think any edge virtual bridge
->can ever implement the full set of features we have in software,
->and for this reason I wouldn't spend too much time in adding a small
->subset of the features.
+My proposal is to move all the "commit" work that requires rtnl
+to a separate work and schedule it on the bonding wq. Thus, the
+re-arming work does not need rtnl and can be cancelled using
+cancel_delayed_work_sync().
 
-Not sure I agree there.  I've gotten specific requests for a small number of features that would make an embedded NIC switch useful to some customers.
+Comments?
 
->
->We probably have a few hundreds features implemented in iptables,
->ebtables and tc, e.g. connection tracking, quality of service
->and filtering. Implementing all these on a NIC is both an enourmous
->(or close to impossible) development task and a security risk,
->unless you are thinking of actually running Linux on the NIC
->to implement them.
+[note, this does not deal with bond_loadbalance_arp_mon(), where
+rtnl is now taken as well in net-next; I'll do this if you think
+the idea is good ]
 
-No need to implement all of them but there are a small subset of useful rules and associated actions that would be very useful on the embedded switch of an SR-IOV capable NIC.  And these rules and actions would actually promote security from my point of view.  I agree that the embedded NIC switch will never (and should never) attempt to implement all the features a full fledged external switch.  But as things stand now embedded NIC switches are so dumb as to be almost useless for most security conscious virtualized applications.  With the implementation of a small set of rules and associated actions we could make them more useful for a number of our customers.
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
->
->Anyway, my point was that improvements to the bridging code
->are not directly related to work on EVB, even if we had netfilter
->rules for controlling the integrated bridge in your NIC.
->
->Now, your suggestion to define the Open vSwitch netlink interface
->in a way that works with both hardware bridges as well as the
->kernel code we're discussing does sound great!
->Obviously, there are some nice ways to combine this with the EVB
->protocols, but I can both being useful without the other.
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 822f586..8015e12 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2119,10 +2119,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 
+ 	read_lock(&bond->lock);
+ 
+-	if (bond->kill_timers) {
+-		goto out;
+-	}
+-
+ 	//check if there are any slaves
+ 	if (bond->slave_cnt == 0) {
+ 		goto re_arm;
+@@ -2166,7 +2162,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 
+ re_arm:
+ 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index c746b33..250d027 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1397,6 +1397,23 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
++void bond_alb_promisc_disable(struct work_struct *work)
++{
++	struct bonding *bond = container_of(work, struct bonding,
++					    alb_promisc_disable_work);
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++
++	/*
++	 * dev_set_promiscuity requires rtnl and
++	 * nothing else.
++	 */
++	rtnl_lock();
++	dev_set_promiscuity(bond->curr_active_slave->dev, -1);
++	bond_info->primary_is_promisc = 0;
++	bond_info->rlb_promisc_timeout_counter = 0;
++	rtnl_unlock();
++}
++
+ void bond_alb_monitor(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+@@ -1407,10 +1424,6 @@ void bond_alb_monitor(struct work_struct *work)
+ 
+ 	read_lock(&bond->lock);
+ 
+-	if (bond->kill_timers) {
+-		goto out;
+-	}
+-
+ 	if (bond->slave_cnt == 0) {
+ 		bond_info->tx_rebalance_counter = 0;
+ 		bond_info->lp_counter = 0;
+@@ -1462,25 +1475,11 @@ void bond_alb_monitor(struct work_struct *work)
+ 	if (bond_info->rlb_enabled) {
+ 		if (bond_info->primary_is_promisc &&
+ 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
+-
+-			/*
+-			 * dev_set_promiscuity requires rtnl and
+-			 * nothing else.
+-			 */
+-			read_unlock(&bond->lock);
+-			rtnl_lock();
+-
+-			bond_info->rlb_promisc_timeout_counter = 0;
+-
+ 			/* If the primary was set to promiscuous mode
+ 			 * because a slave was disabled then
+ 			 * it can now leave promiscuous mode.
+ 			 */
+-			dev_set_promiscuity(bond->curr_active_slave->dev, -1);
+-			bond_info->primary_is_promisc = 0;
+-
+-			rtnl_unlock();
+-			read_lock(&bond->lock);
++			queue_work(bond->wq, &bond->alb_promisc_disable_work);
+ 		}
+ 
+ 		if (bond_info->rlb_rebalance) {
+@@ -1505,7 +1504,6 @@ void bond_alb_monitor(struct work_struct *work)
+ 
+ re_arm:
+ 	queue_delayed_work(bond->wq, &bond->alb_work, alb_delta_in_ticks);
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2cc4cfc..3e8b57e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2343,10 +2343,15 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 	return commit;
+ }
+ 
+-static void bond_miimon_commit(struct bonding *bond)
++static void bond_miimon_commit(struct work_struct *work)
+ {
+ 	struct slave *slave;
+ 	int i;
++	struct bonding *bond = container_of(work, struct bonding,
++					    miimon_commit_work);
++
++	rtnl_lock();
++	read_lock(&bond->lock);
+ 
+ 	bond_for_each_slave(bond, slave, i) {
+ 		switch (slave->new_link) {
+@@ -2421,15 +2426,18 @@ static void bond_miimon_commit(struct bonding *bond)
+ 		}
+ 
+ do_failover:
+-		ASSERT_RTNL();
+ 		write_lock_bh(&bond->curr_slave_lock);
+ 		bond_select_active_slave(bond);
+ 		write_unlock_bh(&bond->curr_slave_lock);
+ 	}
+ 
+ 	bond_set_carrier(bond);
++
++	read_unlock(&bond->lock);
++	rtnl_unlock();
+ }
+ 
++
+ /*
+  * bond_mii_monitor
+  *
+@@ -2438,14 +2446,13 @@ do_failover:
+  * an acquisition of appropriate locks followed by a commit phase to
+  * implement whatever link state changes are indicated.
+  */
++
+ void bond_mii_monitor(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+ 					    mii_work.work);
+ 
+ 	read_lock(&bond->lock);
+-	if (bond->kill_timers)
+-		goto out;
+ 
+ 	if (bond->slave_cnt == 0)
+ 		goto re_arm;
+@@ -2462,23 +2469,14 @@ void bond_mii_monitor(struct work_struct *work)
+ 		read_unlock(&bond->curr_slave_lock);
+ 	}
+ 
+-	if (bond_miimon_inspect(bond)) {
+-		read_unlock(&bond->lock);
+-		rtnl_lock();
+-		read_lock(&bond->lock);
+-
+-		bond_miimon_commit(bond);
++	if (bond_miimon_inspect(bond))
++		queue_work(bond->wq, &bond->miimon_commit_work);
+ 
+-		read_unlock(&bond->lock);
+-		rtnl_unlock();	/* might sleep, hold no other locks */
+-		read_lock(&bond->lock);
+-	}
+ 
+ re_arm:
+ 	if (bond->params.miimon)
+ 		queue_delayed_work(bond->wq, &bond->mii_work,
+ 				   msecs_to_jiffies(bond->params.miimon));
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+@@ -2778,9 +2776,6 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 
+ 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+ 
+-	if (bond->kill_timers)
+-		goto out;
+-
+ 	if (bond->slave_cnt == 0)
+ 		goto re_arm;
+ 
+@@ -2867,7 +2862,6 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ re_arm:
+ 	if (bond->params.arp_interval)
+ 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+@@ -2949,13 +2943,19 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
+ /*
+  * Called to commit link state changes noted by inspection step of
+  * active-backup mode ARP monitor.
+- *
+- * Called with RTNL and bond->lock for read.
+  */
+-static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
++static void bond_ab_arp_commit(struct work_struct *work)
+ {
+ 	struct slave *slave;
+ 	int i;
++	int delta_in_ticks;
++	struct bonding *bond = container_of(work, struct bonding,
++					    ab_arp_commit_work);
++
++	rtnl_lock();
++	read_lock(&bond->lock);
++
++	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+ 
+ 	bond_for_each_slave(bond, slave, i) {
+ 		switch (slave->new_link) {
+@@ -3014,6 +3014,9 @@ do_failover:
+ 	}
+ 
+ 	bond_set_carrier(bond);
++
++	read_unlock(&bond->lock);
++	rtnl_unlock();
+ }
+ 
+ /*
+@@ -3093,9 +3096,6 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 
+ 	read_lock(&bond->lock);
+ 
+-	if (bond->kill_timers)
+-		goto out;
+-
+ 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+ 
+ 	if (bond->slave_cnt == 0)
+@@ -3113,24 +3113,15 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 		read_unlock(&bond->curr_slave_lock);
+ 	}
+ 
+-	if (bond_ab_arp_inspect(bond, delta_in_ticks)) {
+-		read_unlock(&bond->lock);
+-		rtnl_lock();
+-		read_lock(&bond->lock);
++	if (bond_ab_arp_inspect(bond, delta_in_ticks))
++		queue_work(bond->wq, &bond->ab_arp_commit_work);
+ 
+-		bond_ab_arp_commit(bond, delta_in_ticks);
+-
+-		read_unlock(&bond->lock);
+-		rtnl_unlock();
+-		read_lock(&bond->lock);
+-	}
+ 
+ 	bond_ab_arp_probe(bond);
+ 
+ re_arm:
+ 	if (bond->params.arp_interval)
+ 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+@@ -3720,8 +3711,6 @@ static int bond_open(struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 
+-	bond->kill_timers = 0;
+-
+ 	if (bond_is_lb(bond)) {
+ 		/* bond_alb_initialize must be called before the timer
+ 		 * is started.
+@@ -3781,26 +3770,23 @@ static int bond_close(struct net_device *bond_dev)
+ 	bond->send_grat_arp = 0;
+ 	bond->send_unsol_na = 0;
+ 
+-	/* signal timers not to re-arm */
+-	bond->kill_timers = 1;
+-
+ 	write_unlock_bh(&bond->lock);
+ 
+ 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
+-		cancel_delayed_work(&bond->mii_work);
++		cancel_delayed_work_sync(&bond->mii_work);
+ 	}
+ 
+ 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
+-		cancel_delayed_work(&bond->arp_work);
++		cancel_delayed_work_sync(&bond->arp_work);
+ 	}
+ 
+ 	switch (bond->params.mode) {
+ 	case BOND_MODE_8023AD:
+-		cancel_delayed_work(&bond->ad_work);
++		cancel_delayed_work_sync(&bond->ad_work);
+ 		break;
+ 	case BOND_MODE_TLB:
+ 	case BOND_MODE_ALB:
+-		cancel_delayed_work(&bond->alb_work);
++		cancel_delayed_work_sync(&bond->alb_work);
+ 		break;
+ 	default:
+ 		break;
+@@ -4660,23 +4646,19 @@ static void bond_setup(struct net_device *bond_dev)
+ 
+ static void bond_work_cancel_all(struct bonding *bond)
+ {
+-	write_lock_bh(&bond->lock);
+-	bond->kill_timers = 1;
+-	write_unlock_bh(&bond->lock);
+-
+ 	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
+-		cancel_delayed_work(&bond->mii_work);
++		cancel_delayed_work_sync(&bond->mii_work);
+ 
+ 	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
+-		cancel_delayed_work(&bond->arp_work);
++		cancel_delayed_work_sync(&bond->arp_work);
+ 
+ 	if (bond->params.mode == BOND_MODE_ALB &&
+ 	    delayed_work_pending(&bond->alb_work))
+-		cancel_delayed_work(&bond->alb_work);
++		cancel_delayed_work_sync(&bond->alb_work);
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD &&
+ 	    delayed_work_pending(&bond->ad_work))
+-		cancel_delayed_work(&bond->ad_work);
++		cancel_delayed_work_sync(&bond->ad_work);
+ }
+ 
+ /*
+@@ -5094,6 +5076,9 @@ static int bond_init(struct net_device *bond_dev)
+ 	bond_prepare_sysfs_group(bond);
+ 
+ 	__hw_addr_init(&bond->mc_list);
++	INIT_WORK(&bond->miimon_commit_work, bond_miimon_commit);
++	INIT_WORK(&bond->ab_arp_commit_work, bond_ab_arp_commit);
++	INIT_WORK(&bond->alb_promisc_disable_work, bond_alb_promisc_disable);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index c6fdd85..e111023 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -198,7 +198,6 @@ struct bonding {
+ 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+ 	rwlock_t lock;
+ 	rwlock_t curr_slave_lock;
+-	s8       kill_timers;
+ 	s8	 send_grat_arp;
+ 	s8	 send_unsol_na;
+ 	s8	 setup_by_slave;
+@@ -223,6 +222,9 @@ struct bonding {
+ 	struct   delayed_work arp_work;
+ 	struct   delayed_work alb_work;
+ 	struct   delayed_work ad_work;
++	struct    work_struct miimon_commit_work;
++	struct    work_struct ab_arp_commit_work;
++	struct    work_struct alb_promisc_disable_work;
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	struct   in6_addr master_ipv6;
+ #endif
+@@ -348,6 +350,7 @@ void bond_select_active_slave(struct bonding *bond);
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+ void bond_register_arp(struct bonding *);
+ void bond_unregister_arp(struct bonding *);
++void bond_alb_promisc_disable(struct work_struct *work);
+ 
+ struct bond_net {
+ 	struct net *		net;	/* Associated network namespace */
 
-Alright, I'm sort of new to Linux.  Most of my past experience is in the embedded space and is more device oriented so I definitely appreciate getting your perspective on this.  Like many folks I just have product features that I need to make available to customers.  Finding a way to do this that is acceptable to the Linux community and promotes the common welfare (so to speak) is all I'm trying to do here.
 
->
->> >One idea that we have discussed in the past is to use the macvlan
->> >netlink interface to create ports inside a NIC. This interface
->> >already exists in the kernel, and it allows both bridged and VEPA
->> >interfaces. The main advantage of this is that the kernel can
->> >transparently create ports either using software macvlan or
->> >hardware accelerated functions where available.
->>
->> This actually sounds like a good idea.  I hadn't thought about that.
->> It would cover one of the primary issues I'm dealing with right now.
->
->Ok, cool. Since this is something I've been meaning to work on for
->some time but never got around to, I'll gladly give help and advice
->if you want to work on the implementation. I have access to a number
->of Intel NICs to test things.
-
-Excellent.  I appreciate the offer and will probably take you up on it.
-
-Thanks!
-
-- Greg
-
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
