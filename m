@@ -1,60 +1,39 @@
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: Re: via-velocity dma-debug warnings again. (2.6.35.2)
-Date: Tue, 31 Aug 2010 11:10:52 +0200
-Message-ID: <20100831111052.31f22185@marrow.netinsight.se>
-References: <20100831011348.GA11993@redhat.com>
+From: Thomas Voegtle <tv@lio96.de>
+Subject: Re: PF_NETLINK, SOCK_DGRAM, 2 => EPROTONOSUPPORT
+Date: Tue, 31 Aug 2010 12:15:26 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1008311213300.3405@er-systems.de>
+References: <alpine.LNX.2.00.1008301158360.28658@er-systems.de> <20100830.190619.91328359.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:48481 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753550Ab0HaJVD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 05:21:03 -0400
-In-Reply-To: <20100831011348.GA11993@redhat.com>
+Received: from er-systems.de ([85.25.136.202]:54365 "EHLO er-systems.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753345Ab0HaKP2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 06:15:28 -0400
+In-Reply-To: <20100830.190619.91328359.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 30 Aug 2010 21:13:49 -0400
-Dave Jones <davej@redhat.com> wrote:
+On Mon, 30 Aug 2010, David Miller wrote:
 
-> I installed the Fedora 14 alpha, which is based on 2.6.35.2, and hit
-> the following trace..
-> 
-> WARNING: at lib/dma-debug.c:811 check_unmap+0x212/0x59b()
-> Hardware name:  
-> via-velocity 0000:00:0e.0: DMA-API: device driver frees DMA memory with different size [device address=0x00000000194ba27e] [map size=66 bytes] [unmap size=182 bytes]
+> From: Thomas Voegtle <tv@lio96.de>
+> Date: Mon, 30 Aug 2010 12:02:51 +0200 (CEST)
+>
+>> Was this intended, that this code snippet doesn't work this way
+>> anymore or is this just a bug?
+>
+> It's an unintended regression.
+>
+> But nobody noticed it, because almost no-one uses NETLINK_USER.
+>
+> This might fix it, give it a test:
 
-I can't reproduce it here, but does the patch below help for you?
 
-// Simon
+Yes, that fixes it. Tested with 2.6.35.4 and 2.6.36-rc3.
 
->From 81fe86ef9e4be4be43cc75e8320384a0708cef1a Mon Sep 17 00:00:00 2001
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Date: Tue, 31 Aug 2010 08:41:26 +0200
-Subject: [PATCH] via-velocity: Correct packet length on tx free
+Thank you,
 
-Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
----
- drivers/net/via-velocity.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index fd69095..305192e 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -1721,7 +1721,7 @@ static void velocity_free_tx_buf(struct velocity_info *vptr,
- 			/* For scatter-gather */
- 			if (skb_shinfo(skb)->nr_frags > 0)
- 				pktlen = max_t(size_t, pktlen,
--						td->td_buf[i].size & ~TD_QUEUE);
-+						skb_headlen(skb));
- 
- 			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i],
- 					le16_to_cpu(pktlen), PCI_DMA_TODEVICE);
--- 
-1.7.0.4
-
+  Thomas
 
