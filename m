@@ -1,76 +1,68 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: rp_filter backward compatibility
-Date: Tue, 31 Aug 2010 17:50:43 +0200
-Message-ID: <4C7D24D3.8060200@6wind.com>
-References: <4C7BCD62.3030805@6wind.com> <20100830.094726.212692387.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] netfilter: fix a race in nf_ct_ext_create()
+Date: Tue, 31 Aug 2010 08:51:37 -0700
+Message-ID: <20100831155137.GE2421@linux.vnet.ibm.com>
+References: <1283269682.2550.111.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020500020400070508040001"
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48159 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932368Ab0HaPuz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 11:50:55 -0400
-Received: by wyb35 with SMTP id 35so8033533wyb.19
-        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 08:50:54 -0700 (PDT)
-In-Reply-To: <20100830.094726.212692387.davem@davemloft.net>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:49653 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932359Ab0HaPvp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 11:51:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1283269682.2550.111.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020500020400070508040001
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Here is the (small) patch.
-
-Regards,
-Nicolas
-
-David Miller wrote:
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Mon, 30 Aug 2010 17:25:22 +0200
+On Tue, Aug 31, 2010 at 05:48:02PM +0200, Eric Dumazet wrote:
+> As soon as rcu_read_unlock() is called, there is no guarantee current
+> thread can safely derefence t pointer, rcu protected.
 > 
->> At least, one of this action should be done:
->>  - fixing help (Documentation/networking/ip-sysctl.txt is up to date)
+> Fix is to copy t->alloc_size in a temporary variable.
+
+Yow!!!  Good catch!!!
+
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/netfilter/nf_conntrack_extend.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
 > 
-> This is the only option.
-
---------------020500020400070508040001
-Content-Type: text/x-diff;
- name="0002-ipv4-minor-fix-about-RPF-in-help-of-Kconfig.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename*0="0002-ipv4-minor-fix-about-RPF-in-help-of-Kconfig.patch"
-
->From a2ea92449b7bfe3952d4714e13df00f5b8595c86 Mon Sep 17 00:00:00 2001
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 31 Aug 2010 17:47:42 +0200
-Subject: [PATCH] ipv4: minor fix about RPF in help of Kconfig
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv4/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 7c3a7d1..571f895 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -46,7 +46,7 @@ config IP_ADVANCED_ROUTER
- 	  rp_filter on use:
- 
- 	  echo 1 > /proc/sys/net/ipv4/conf/<device>/rp_filter
--	   and
-+	   or
- 	  echo 1 > /proc/sys/net/ipv4/conf/all/rp_filter
- 
- 	  Note that some distributions enable it in startup scripts.
--- 
-1.5.6.5
-
-
---------------020500020400070508040001--
+> diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+> index 7dcf7a4..8d9e4c9 100644
+> --- a/net/netfilter/nf_conntrack_extend.c
+> +++ b/net/netfilter/nf_conntrack_extend.c
+> @@ -48,15 +48,17 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
+>  {
+>  	unsigned int off, len;
+>  	struct nf_ct_ext_type *t;
+> +	size_t alloc_size;
+> 
+>  	rcu_read_lock();
+>  	t = rcu_dereference(nf_ct_ext_types[id]);
+>  	BUG_ON(t == NULL);
+>  	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
+>  	len = off + t->len;
+> +	alloc_size = t->alloc_size;
+>  	rcu_read_unlock();
+> 
+> -	*ext = kzalloc(t->alloc_size, gfp);
+> +	*ext = kzalloc(alloc_size, gfp);
+>  	if (!*ext)
+>  		return NULL;
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
