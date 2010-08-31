@@ -1,51 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netfilter: fix a race in nf_ct_ext_create()
-Date: Tue, 31 Aug 2010 17:48:02 +0200
-Message-ID: <1283269682.2550.111.camel@edumazet-laptop>
+From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Subject: [PATCH 3/4] drivers/net/can/mscan/mpc5xxx_can.c: Add of_node_put to
+	avoid memory leak
+Date: Tue, 31 Aug 2010 17:48:57 +0200
+Message-ID: <1283269738-14612-4-git-send-email-julia@diku.dk>
+References: <1283269738-14612-1-git-send-email-julia@diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1283269738-14612-1-git-send-email-julia-dAYI7NvHqcQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-As soon as rcu_read_unlock() is called, there is no guarantee current
-thread can safely derefence t pointer, rcu protected.
+Add a call to of_node_put in the error handling code following a call to
+of_find_matching_node.
 
-Fix is to copy t->alloc_size in a temporary variable.
+This patch also moves the existing call to of_node_put after the call to
+iounmap in the error handling code, to make it possible to jump to
+of_node_put without doing iounmap.  These appear to be disjoint operations,
+so the ordering doesn't matter.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@r exists@
+local idexpression x;
+expression E,E1,E2;
+statement S;
+@@
+
+*x = 
+(of_find_node_by_path
+|of_find_node_by_name
+|of_find_node_by_phandle
+|of_get_parent
+|of_get_next_parent
+|of_get_next_child
+|of_find_compatible_node
+|of_match_node
+|of_find_node_by_type
+|of_find_node_with_property
+|of_find_matching_node
+|of_parse_phandle
+)(...);
+...
+if (x == NULL) S
+<... when != x = E
+*if (...) {
+  ... when != of_node_put(x)
+      when != if (...) { ... of_node_put(x); ... }
+(
+  return <+...x...+>;
+|
+*  return ...;
+)
+}
+...>
+(
+E2 = x;
+|
+of_node_put(x);
+)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+
 ---
- net/netfilter/nf_conntrack_extend.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/can/mscan/mpc5xxx_can.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
-index 7dcf7a4..8d9e4c9 100644
---- a/net/netfilter/nf_conntrack_extend.c
-+++ b/net/netfilter/nf_conntrack_extend.c
-@@ -48,15 +48,17 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
- {
- 	unsigned int off, len;
- 	struct nf_ct_ext_type *t;
-+	size_t alloc_size;
+diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
+index b1bdc90..883959c 100644
+--- a/drivers/net/can/mscan/mpc5xxx_can.c
++++ b/drivers/net/can/mscan/mpc5xxx_can.c
+@@ -148,7 +148,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
+ 	clockctl = of_iomap(np_clock, 0);
+ 	if (!clockctl) {
+ 		dev_err(&ofdev->dev, "couldn't map clock registers\n");
+-		return 0;
++		goto exit_put;
+ 	}
  
- 	rcu_read_lock();
- 	t = rcu_dereference(nf_ct_ext_types[id]);
- 	BUG_ON(t == NULL);
- 	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
- 	len = off + t->len;
-+	alloc_size = t->alloc_size;
- 	rcu_read_unlock();
+ 	/* Determine the MSCAN device index from the physical address */
+@@ -233,9 +233,9 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
+ 		clocksrc == 1 ? "ref_clk" : "sys_clk", clockdiv);
  
--	*ext = kzalloc(t->alloc_size, gfp);
-+	*ext = kzalloc(alloc_size, gfp);
- 	if (!*ext)
- 		return NULL;
- 
-
-
+ exit_unmap:
+-	of_node_put(np_clock);
+ 	iounmap(clockctl);
+-
++exit_put:
++	of_node_put(np_clock);
+ 	return freq;
+ }
+ #else /* !CONFIG_PPC_MPC512x */
