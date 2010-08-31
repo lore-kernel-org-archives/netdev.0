@@ -1,290 +1,167 @@
-From: Dan Kruchinin <dkruchinin@acm.org>
-Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
-Date: Tue, 31 Aug 2010 21:01:01 +0400
-Message-ID: <20100831210101.3c059a91@leibniz>
-References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [rfc] Merging the Open vSwitch datapath
+Date: Tue, 31 Aug 2010 10:04:09 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755F6432E3E@orsmsx508.amr.corp.intel.com>
+References: <20100830062755.GA22396@verge.net.au>
+ <201008302304.38061.arnd@arndb.de>
+ <43F901BD926A4E43B106BF17856F0755F63A0B62@orsmsx508.amr.corp.intel.com>
+ <201008311348.55883.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Stephen Hemminger <shemminger@osdl.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ben Pfaff <blp@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@nicira.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Chris Wright <chrisw@sous-sol.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:43933 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753770Ab0HaRBJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 13:01:09 -0400
-Received: by eyb6 with SMTP id 6so51951eyb.19
-        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 10:01:07 -0700 (PDT)
-In-Reply-To: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:39518 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753770Ab0HaREN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 13:04:13 -0400
+In-Reply-To: <201008311348.55883.arnd@arndb.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm sorry it seems my email client has broken patch formating.
-Here is properly formated one:
-diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-index dc556fe..850e6db 100644
---- a/tc/q_tbf.c
-+++ b/tc/q_tbf.c
-@@ -178,7 +178,7 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 	}
- 
- 	if (opt.limit == 0) {
--		double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC + buffer;
-+		double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC;
- 		if (opt.peakrate.rate) {
- 			double lim2 = opt.peakrate.rate*(double)latency/TIME_UNITS_PER_SEC + mtu;
- 			if (lim2 < lim)
-@@ -263,7 +263,7 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	if (show_raw)
- 		fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
- 
--	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2time(qopt->buffer);
-+	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate);
- 	if (qopt->peakrate.rate) {
- 		double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2time(qopt->mtu);
- 		if (lat2 > latency)
+>-----Original Message-----
+>From: Arnd Bergmann [mailto:arnd@arndb.de]
+>Sent: Tuesday, August 31, 2010 4:49 AM
+>To: Rose, Gregory V
+>Cc: Ben Pfaff; netdev@vger.kernel.org; Jesse Gross; Stephen Hemminger;
+>Chris Wright; Herbert Xu; David Miller
+>Subject: Re: [rfc] Merging the Open vSwitch datapath
+>
+>On Tuesday 31 August 2010, Rose, Gregory V wrote:
+>>
+>> I should probably read up a bit more on 802.1ad.
+>
+>What we need here is an extension of the vlan module to allow
+>double tagging with the right ethertype on the outer frame.
+
+Yes.
+
+>
+>> >The other parts are configuration protocols like LLDP and CDP, which
+>> >we normally do in user space (e.g. lldpad).
+>> >
+>> >What else is there that you think should go into the kernel.
+>>
+>> It seems to me that the IFLA_VF_INFO netlink attributes are station
+>> oriented.  The kernel support I see there is insufficient for some
+>> other things that need to be done for access control, forwarding
+>> rules and actions taken on certain kind of packets.  I think there'll
+>> be a need to configure the switch itself, not just the stations
+>> attached to the switch.
+>
+>Ok, I'm beginning to understand what you want to do.
+>
+>1. VEPA using software: use a traditional NIC, and macvtap (or similar)
+>   in the hypervisor to separate traffic between the guests, do
+>   bridging in an external switch. Works now.
+>2. VEPA using hardware: give each guest a VF, configure VFs into VEPA
+>   mode. Requires a trivial addition to IFLA_VF_INFO to allow VEPA
+>setting
+>3. Simple bridge using software: like 1, but forward traffic between
+>   some or all macvtap ports. Works now.
+>4. Simple bridge using hardware: Like 2, this is what we do today when
+>   using VFs.
+>5. Full-featured bridge using brctl/ebtables/iptables. This has access
+>   to all features of the Linux kernel. Works today, but requires
+>management
+>   infrastructure (see: Vyatta) that is not present everywhere.
+>6. Full-featured bridge in hardware with the features of
+>ebtables/iptables.
+>   Not going to happen IMHO, see below.
+>7. Full-featured distributed bridge using Open vSwitch. This is
+>   what the current discussion is about.
+>8. Full-featured distributed bridge using Open vSwitch and hardware
+>support.
+
+Yep, that about covers it.
+
+;-)
+
+Agree on item # 6.
+
+>I was arguing against 6, which would not even work using the same Open
+>vSwitch netlink interface, while I guess what you want is 8.
+>
+>Now I would not call that "configuring the switch", since the switch in
+>this case is basically a daemon running on the host and configuring the
+>data path, which has now moved into the hardware from the kernel.
+
+Yeah, the semantics get tricky sometimes but we're on the same page.
+
+>>
+>> What if the NIC is the external switch?
+>
+>I don't think that is going to happen. All embedded switches
+>are of the edge (a.k.a. dumb) type right now, and I believe that
+>will stay this way.
+>By an external switch, I mean something that is running an
+>operating system and allows users to log in for configuring
+>the switch rules.
+>
+>> I mean, what if the
+>> NIC has an edge virtual bridge embedded in it?  The IFLA_VF_INFO
+>> messages are sufficient for many features but there are some that
+>> it doesn't address.  And I don't know of any way to get iptables
+>> rules down to the VF using existing kernel interfaces.
+>
+>Exactly! The problem is that I don't think any edge virtual bridge
+>can ever implement the full set of features we have in software,
+>and for this reason I wouldn't spend too much time in adding a small
+>subset of the features.
+
+Not sure I agree there.  I've gotten specific requests for a small number of features that would make an embedded NIC switch useful to some customers.
+
+>
+>We probably have a few hundreds features implemented in iptables,
+>ebtables and tc, e.g. connection tracking, quality of service
+>and filtering. Implementing all these on a NIC is both an enourmous
+>(or close to impossible) development task and a security risk,
+>unless you are thinking of actually running Linux on the NIC
+>to implement them.
+
+No need to implement all of them but there are a small subset of useful rules and associated actions that would be very useful on the embedded switch of an SR-IOV capable NIC.  And these rules and actions would actually promote security from my point of view.  I agree that the embedded NIC switch will never (and should never) attempt to implement all the features a full fledged external switch.  But as things stand now embedded NIC switches are so dumb as to be almost useless for most security conscious virtualized applications.  With the implementation of a small set of rules and associated actions we could make them more useful for a number of our customers.
+
+>
+>Anyway, my point was that improvements to the bridging code
+>are not directly related to work on EVB, even if we had netfilter
+>rules for controlling the integrated bridge in your NIC.
+>
+>Now, your suggestion to define the Open vSwitch netlink interface
+>in a way that works with both hardware bridges as well as the
+>kernel code we're discussing does sound great!
+>Obviously, there are some nice ways to combine this with the EVB
+>protocols, but I can both being useful without the other.
+
+Alright, I'm sort of new to Linux.  Most of my past experience is in the embedded space and is more device oriented so I definitely appreciate getting your perspective on this.  Like many folks I just have product features that I need to make available to customers.  Finding a way to do this that is acceptable to the Linux community and promotes the common welfare (so to speak) is all I'm trying to do here.
+
+>
+>> >One idea that we have discussed in the past is to use the macvlan
+>> >netlink interface to create ports inside a NIC. This interface
+>> >already exists in the kernel, and it allows both bridged and VEPA
+>> >interfaces. The main advantage of this is that the kernel can
+>> >transparently create ports either using software macvlan or
+>> >hardware accelerated functions where available.
+>>
+>> This actually sounds like a good idea.  I hadn't thought about that.
+>> It would cover one of the primary issues I'm dealing with right now.
+>
+>Ok, cool. Since this is something I've been meaning to work on for
+>some time but never got around to, I'll gladly give help and advice
+>if you want to work on the implementation. I have access to a number
+>of Intel NICs to test things.
+
+Excellent.  I appreciate the offer and will probably take you up on it.
+
+Thanks!
+
+- Greg
 
 
-On Tue, 31 Aug 2010 17:56:39 +0400
-Dan Kruchinin <dkruchinin@acm.org> wrote:
-
-> I'm sure there is a problem with TBF algorithm configuration in either
-> tc or documentation describing it. I already mailed description of
-> this problem to lkml-netdev but I didn't get any feedback.
-> May be because my description wasn't clear. So here I try to describe
-> this misbehavior a bit more clear with step-by-step instructions of
-> how to reproduce the problem.
-> Please fix me if I'm wrong somewhere.
-> 
-> Description:
-> man 8 tc-tbf says:
->        limit or latency
->               Limit  is  the  number of bytes that can be queued
-> waiting for tokens to become available. You can also specify this the
-> other way around by setting the latency parameter, which specifies the
->               maximum amount of time a packet can sit in the TBF. The
-> latter calculation takes into account the size of the bucket, the rate
-> and possibly the peakrate (if set).  These  two  parameters  are
->               mutually exclusive.
-> 
-> It's very clear description. According to it the following configuration:
-> % tc qdisc add dev eth2 root tbf rate 12000 limit 1536 burst 15k
-> 
-> TBF should limit the rate to 12Kbit/s(i.e. 1.5Kb/s), set burst to
-> 15Kb(i.e. it may hold 10 packets of 1.5Kb size)
-> and set limit equal to MTU.
-> So I expect that sending packets of equal size(1470 bytes) with a rate
-> 900Kbit/s(i.e. 112.5Kb/s) will transmit only ~17Kb/s:
-> first 15Kb should be sent immediately and 1 packet will be queued to
-> the queue of size equal to limit and will wait for available tokens.
-> Other packets should be dropped.
-> So let's look at the simple test:
-> % qdisc tbf 8001: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1536b lat 4285.8s
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> 
-> As we can see from tc output latency is equal to 4285.8s and it's of
-> course not true. With limit ~1.5k latency(as it described in manual)
-> should be equal to ~1s. But skip this for now.
-> 
-> % iperf -c 192.168.10.2 -u -b 900k -t 1
-> [ ID] Interval       Transfer     Bandwidth
-> [  3]  0.0- 1.0 sec    112 KBytes    900 Kbits/sec
-> [  3] Sent 78 datagrams
-> [  3] Server Report:
-> [  3]  0.0- 2.9 sec  17.2 KBytes  49.3 Kbits/sec  112.169 ms   66/   78 (85%)
-> 
-> %  tc -s -r qdisc show dev eth2
-> qdisc tbf 8001: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1536b lat 4285.8s
->  Sent 19740 bytes 15 pkt (dropped 73, overlimits 77 requeues 0)
->  backlog 0b 0p requeues 0
-> 
-> And iperf server output:
-> [  3]  0.0- 2.9 sec  17.2 KBytes  49.3 Kbits/sec  112.170 ms   66/   78 (85%)
-> 
-> Great. All work as expected(except latency value). But let's replace
-> limit with equivalent latency.
-> As manual says: " You can also specify this the other way around by
-> setting the latency parameter, which specifies the  maximum amount of
-> time a packet can sit in the TBF".
-> So with latency equal to ~1.1 second we should get the same result as
-> above. Let's see:
-> % tc qdisc del dev eth2 root
-> % tc qdisc add dev eth2 root tbf rate 12000 latency 1.1s burst 15k
-> % tc qdisc -s -r show dev eth2
-> qdisc tbf 8002: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 17010b lat 1.1s
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
-> 
-> Even from the tc output we can see that limit is not equal to
-> 1.5k(which is enough to make packet wait for tokens at most 1s. in TBF
-> queue) instead it equals to ~17k. I.e. packet will wait for tokens at
-> most ~11 seconds!
-> 
-> Now let's repeat the last iperf command(as described in first example):
-> % iperf -c 192.168.10.2 -u -b 900k -t 1
-> [  3] local 192.168.10.1 port 50305 connected with 192.168.10.2 port 5001
-> [ ID] Interval       Transfer     Bandwidth
-> [  3]  0.0- 1.0 sec    112 KBytes    900 Kbits/sec
-> [  3] Sent 78 datagrams
-> 
-> % tc -s -r qdisc show dev eth2
-> qdisc tbf 8002: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 17010b lat 1.1s
->  Sent 37088 bytes 30 pkt (dropped 64, overlimits 106 requeues 0)
->  rate 0bit 0pps backlog 0b 0p requeues 0
-> 
-> 
-> And iperf server output:
-> [  4]   0.0-12.9 sec  31.6 KBytes  20.0 Kbits/sec  513.515 ms   56/   78 (72%)
-> 
-> As we can see iperf transmitted > than twice more data than it was
-> expected by our TBF configuration. First 15k were sent immediately as
-> expected. Then TBF should enqueued 1 packet
-> to the queue of packets waiting for tokens but instead it queued 11
-> packets(~ 1.47k each) and then sent them.
-> 
-> Reasons of described behavior:
-> If we take a look at linux/net/sched/sch_tbf.c we'll see that kernel
-> receives limit value from the user-space(see tbf_change) without any
-> modifications. Then it uses limit to set bfifo queue size(it creates
-> bfifo queue equal to limit or changes its size if queue already
-> exist). All incoming packets are queued to this queue. If size of all
-> packets in the queue plus the size of a packet kernel tries to enqueue
-> exceeds queue size(limit), packet is dropped. Tokens are allocated
-> when TBF dequeues packets(see tbf_dequeue). When all tokens are
-> allocated kernel launches a watchdog timer which will raise when
-> enough tokens for the next packet in the queue will be available.
-> 
-> 1)
-> So I make an assumption that tc utility makes invalid calculation of
-> limit by latency. It uses formula(see iproute2/tc/q_tbf.c):
-> double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC +
-> buffer; (function tbf_parse_opt)
-> I.e. limit = (rate * latency)/1000000 + buffer // where buffer == burst size
-> 
-> And then it sends calculated limit value to the kernel. As we can see
-> from this formula we can not get limit < burst using latency.
-> And it doesn't matter if latency equal to 1us or 1 second or 5 second
-> limit will be always greater than burst. And this is invalid
-> behavior(at least it contradicts to TBF documentation)
-> 
-> 2) As we can see from first example we can set limit < than burst
-> size. For example 1536 bytes. In this case tc shows invalid latency:
-> % qdisc show dev eth2
-> qdisc tbf 8001: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1536b lat 4285.8s
-> 
-> It occurs because tc uses the following formula to raise latency by
-> given limit (see iproute2/tc/q_tbf.c: tbf_print_opt):
-> latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) -
-> tc_core_tick2time(qopt->buffer);
-> I.e.
-> latency = 1000000 * (limit / rate) - burst_size.
-> 
-> As we can see if limit < burst, latency will be _negative_. Which is
-> invalid as well.
-> 
-> Possible solutions:
-> 1) Update documentation and fix description of "limit or latency"
-> section in order to described above behavior: at least mention:
-> 1.1) that limit can not be < burst.
-> 1.2) how limit is calculated from latency: i.e. limit = latency * rate + burst.
-> 1.3) replace a string "[latency] which specifies the maximum amount of
-> time a packet can sit in the TBF." In current iproute2 version latency
-> _doesn't_ specifies this.
-> 
-> 2) Use the following patch for tc which fixes limit and latency calculation:
-> diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-> index dc556fe..6722a8d 100644
-> --- a/tc/q_tbf.c
-> +++ b/tc/q_tbf.c
-> @@ -178,7 +178,11 @@ static int tbf_parse_opt(struct qdisc_util *qu,
-> int argc, char **argv, struct nl
->         }
-> 
->         if (opt.limit == 0) {
-> -               double lim =
-> opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC + buffer;
-> +               double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC;
-> +
-> +        if (lim < mtu) {
-> +            lim = mtu;
-> +        }
->                 if (opt.peakrate.rate) {
->                         double lim2 =
-> opt.peakrate.rate*(double)latency/TIME_UNITS_PER_SEC + mtu;
->                         if (lim2 < lim)
-> @@ -263,7 +267,7 @@ static int tbf_print_opt(struct qdisc_util *qu,
-> FILE *f, struct rtattr *opt)
->         if (show_raw)
->                 fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
-> 
-> -       latency =
-> TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) -
-> tc_core_tick2time(qopt->buffer);
-> +       latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate);
->         if (qopt->peakrate.rate) {
->                 double lat2 =
-> TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) -
-> tc_core_tick2time(qopt->mtu);
->                 if (lat2 > latency)
-> === END OF PATCH ===
-> 
-> With the following patch the first example looks like this:
-> % tc qdisc add dev eth2 root tbf rate 12000 limit 1536 burst 15k
-> % tc -s -r qdisc show dev eth2
-> qdisc tbf 8004: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1536b lat 1.0s
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> % iperf -c 192.168.10.2 -u -b 900k -t 1
->  0.0- 2.9 sec  17.2 KBytes  48.7 Kbits/sec  110.741 ms   66/   78 (85%
-> % tc -s -r qdisc show dev eth2
-> qdisc tbf 8004: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1536b lat 1.0s
->  Sent 19740 bytes 15 pkt (dropped 73, overlimits 76 requeues 0)
->  backlog 0b 0p requeues 0
-> 
-> And the second example:
-> % tc qdisc add dev eth2 root tbf rate 12000 latency 1s burst 15k
-> % tc -s -r qdisc show dev eth2
-> qdisc tbf 8005: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1500b lat 1.0s
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> % iperf -c 192.168.10.2 -u -b 900k -t 1
-> [  3] WARNING: did not receive ack of last datagram after 10 tries.
-> %  tc -s -r qdisc show dev eth2
-> qdisc tbf 8008: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1500b lat 1.0s
->  Sent 42 bytes 1 pkt (dropped 88, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> 
-> And the last example:
-> % tc qdisc add dev eth2 root tbf rate 12000 latency 1.1s burst 15
-> % tc -s -r qdisc show dev eth2
-> qdisc tbf 8009: root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1650b lat 1.1s
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
-> % iperf -c 192.168.10.2 -u -b 900k -t 1
-> [  3]  0.0- 2.9 sec  17.2 KBytes  49.3 Kbits/sec  108.758 ms   66/   78 (85%)
-> % tc -s -r qdisc show dev eth2
-> qdisc tbf 800a:  root refcnt 2 rate 12000bit burst 15Kb [09896800]
-> limit 1650b lat 1.1s
->  Sent 19698 bytes 14 pkt (dropped 73, overlimits 77 requeues 0)
->  backlog 0b 0p requeues 0
-> 
-> Thanks for your attention.
-> 
-
-
-
--- 
-W.B.R.
-Dan Kruchinin
