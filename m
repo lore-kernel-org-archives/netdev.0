@@ -1,67 +1,80 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warnings after merge of the net tree
-Date: Tue, 31 Aug 2010 11:55:08 +1000
-Message-ID: <20100831115508.078eb2fa.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: PF_NETLINK, SOCK_DGRAM, 2 => EPROTONOSUPPORT
+Date: Mon, 30 Aug 2010 19:06:19 -0700 (PDT)
+Message-ID: <20100830.190619.91328359.davem@davemloft.net>
+References: <alpine.LNX.2.00.1008301158360.28658@er-systems.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__31_Aug_2010_11_55_08_+1000_a2BO.BmthvtArIjo"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: tv@lio96.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54494
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756187Ab0HaCGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Aug 2010 22:06:03 -0400
+In-Reply-To: <alpine.LNX.2.00.1008301158360.28658@er-systems.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__31_Aug_2010_11_55_08_+1000_a2BO.BmthvtArIjo
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Thomas Voegtle <tv@lio96.de>
+Date: Mon, 30 Aug 2010 12:02:51 +0200 (CEST)
 
-Hi all,
+> Was this intended, that this code snippet doesn't work this way
+> anymore or is this just a bug?
 
-After merging the net tree, today's linux-next build (x86_64
-allmodconfig) produced these warnings:
+It's an unintended regression.
 
-In file included from drivers/net/stmmac/stmmac_ethtool.c:30:
-drivers/net/stmmac/stmmac.h:111: warning: 'struct platform_device' declared=
- inside parameter list
-drivers/net/stmmac/stmmac.h:111: warning: its scope is only this definition=
- or declaration, which is probably not what you want
-drivers/net/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
-drivers/net/stmmac/stmmac_main.c:1744: warning: cast from pointer to intege=
-r of different size
-In file included from drivers/net/stmmac/stmmac_mdio.c:31:
-drivers/net/stmmac/stmmac.h:111: warning: 'struct platform_device' declared=
- inside parameter list
-drivers/net/stmmac/stmmac.h:111: warning: its scope is only this definition=
- or declaration, which is probably not what you want
-drivers/net/stmmac/dwmac1000_core.c: In function 'dwmac1000_dump_regs':
-drivers/net/stmmac/dwmac1000_core.c:56: warning: cast from pointer to integ=
-er of different size
+But nobody noticed it, because almost no-one uses NETLINK_USER.
 
-Probably all revealed by commit ac75791aa943c7953521cb4fa7728bf51f9abd2d
-("stmmac: remove dead option in the driver's Kconfig") which allowed this
-driver to be built on most platforms.
+This might fix it, give it a test:
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+netlink: Make NETLINK_USERSOCK work again.
 
---Signature=_Tue__31_Aug_2010_11_55_08_+1000_a2BO.BmthvtArIjo
-Content-Type: application/pgp-signature
+Once we started enforcing the a nl_table[] entry exist for
+a protocol, NETLINK_USERSOCK stopped working.  Add a dummy
+table entry so that it works again.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+Reported-by: Thomas Voegtle <tv@lio96.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 
-iQEcBAEBAgAGBQJMfGD8AAoJEDMEi1NhKgbsOpUIAJNj39RLYV2OWawNup622XVs
-BfG760DbZtMcWQv8f75GbOJEumVAcvqv9UA0DJLA19QaYdfsRbSF2d7c/hfdAmSo
-u9rakcTMtxRfeLqGeSLr1uz4ClSNbf01M0q5n2OYn3+C4Hq+aRGcrfrnJy5dZoDE
-qvWG/1WiMQ96DB2yrXpSlWhGYZxaEuHicbgk0lUvOdqLkoiqYJKBMlY7KzKM/k85
-LKKjTZxtRjq6OxWs993JVmqdwTMwRJr8DFcJmq42rDpAMvDtlka2g1EHb0NRFfQJ
-Bxswp+h+JBn2sq69j/5mWrrJKF0sXhvOf5XZtRY8TKdX6Tvy1FlR4L39lIUIBsQ=
-=O0NB
------END PGP SIGNATURE-----
-
---Signature=_Tue__31_Aug_2010_11_55_08_+1000_a2BO.BmthvtArIjo--
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 980fe4a..cd96ed3 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2102,6 +2102,26 @@ static void __net_exit netlink_net_exit(struct net *net)
+ #endif
+ }
+ 
++static void __init netlink_add_usersock_entry(void)
++{
++	unsigned long *listeners;
++	int groups = 32;
++
++	listeners = kzalloc(NLGRPSZ(groups) + sizeof(struct listeners_rcu_head),
++			    GFP_KERNEL);
++	if (!listeners)
++		panic("netlink_add_usersock_entry: Cannot allocate listneres\n");
++
++	netlink_table_grab();
++
++	nl_table[NETLINK_USERSOCK].groups = groups;
++	nl_table[NETLINK_USERSOCK].listeners = listeners;
++	nl_table[NETLINK_USERSOCK].module = THIS_MODULE;
++	nl_table[NETLINK_USERSOCK].registered = 1;
++
++	netlink_table_ungrab();
++}
++
+ static struct pernet_operations __net_initdata netlink_net_ops = {
+ 	.init = netlink_net_init,
+ 	.exit = netlink_net_exit,
+@@ -2150,6 +2170,8 @@ static int __init netlink_proto_init(void)
+ 		hash->rehash_time = jiffies;
+ 	}
+ 
++	netlink_add_usersock_entry();
++
+ 	sock_register(&netlink_family_ops);
+ 	register_pernet_subsys(&netlink_net_ops);
+ 	/* The netlink device handler may be needed early. */
