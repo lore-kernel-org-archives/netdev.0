@@ -1,83 +1,161 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [rfc] Merging the Open vSwitch datapath
-Date: Tue, 31 Aug 2010 19:43:52 +0200
-Message-ID: <201008311943.52955.arnd@arndb.de>
-References: <20100830062755.GA22396@verge.net.au> <201008311348.55883.arnd@arndb.de> <43F901BD926A4E43B106BF17856F0755F6432E3E@orsmsx508.amr.corp.intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] drivers/net/pch_gbe: Cleanup stats use
+Date: Tue, 31 Aug 2010 11:38:35 -0700
+Message-ID: <1283279915.1797.66.camel@Joe-Laptop>
+References: <4C763A67.5040107@dsn.okisemi.com>
+	 <4C7D0E7A.5060309@dsn.okisemi.com>  <1283271009.1797.28.camel@Joe-Laptop>
+	 <1283275514.1797.36.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Pfaff <blp@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Chris Wright <chrisw@sous-sol.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Sam Ravnborg <sam@ravnborg.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Maxime Bizon <mbizon@freebox.fr>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	John Linn <john.linn@xilinx.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	Andrew <andrew.chih.howe.khor@intel.com>,
+	Intel OTC <joel.clark@intel.com>,
+	"Foster, Margie" <margie.foster@intel.com>,
+	Toshiharu Okada <okada533@dsn.okisemi.com>,
+	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
+	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
+To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:64101 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754250Ab0HaRoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 13:44:16 -0400
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755F6432E3E@orsmsx508.amr.corp.intel.com>
+Received: from mail.perches.com ([173.55.12.10]:1119 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751548Ab0HaSii (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 14:38:38 -0400
+In-Reply-To: <1283275514.1797.36.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 31 August 2010, Rose, Gregory V wrote:
-> >
-> >Exactly! The problem is that I don't think any edge virtual bridge
-> >can ever implement the full set of features we have in software,
-> >and for this reason I wouldn't spend too much time in adding a small
-> >subset of the features.
-> 
-> Not sure I agree there.  I've gotten specific requests for a small
-> number of features that would make an embedded NIC switch useful
-> to some customers.
+Use c90 initializers
+Use memset
+Use FIELD_SIZEOF
+Remove stat_ from struct pch_gbe_stats members
+Save offset from start of struct pch_gbe_hw_stats
 
-That should be fine. Adding a small number of features probably
-works well enough using extensions to the existing VF_INFO netlink
-attributes, like a way to configure ports into VEPA mode.
+All stat members are u64, so maybe the size field can be removed
 
-I'm totally fine with making small additions here, which is something
-completely different from extending the interface to the point where
-it mimics all the features we have in the linux bridge code.
-  
-> No need to implement all of them but there are a small subset of
-> useful rules and associated actions that would be very useful on
-> the embedded switch of an SR-IOV capable NIC.  And these rules 
-> and actions would actually promote security from my point of view.
-> I agree that the embedded NIC switch will never (and should never)
-> attempt to implement all the features a full fledged external
-> switch.  But as things stand now embedded NIC switches are so 
-> dumb as to be almost useless for most security conscious
-> virtualized applications.  With the implementation of a small 
-> set of rules and associated actions we could make them more
-> useful for a number of our customers.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/pch_gbe/pch_gbe_ethtool.c |   32 +++++++++++++++++---------------
+ drivers/net/pch_gbe/pch_gbe_main.c    |   28 +---------------------------
+ 2 files changed, 18 insertions(+), 42 deletions(-)
 
-Right. Can you share your specific requirements with the rest of us?
-Maybe start a new email thread with the same people on it, since
-this is now really an Open vSwitch topic.
+diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/pch_gbe/pch_gbe_ethtool.c
+index 25b9357..f61b314 100644
+--- a/drivers/net/pch_gbe/pch_gbe_ethtool.c
++++ b/drivers/net/pch_gbe/pch_gbe_ethtool.c
+@@ -31,13 +31,18 @@
+  * pch_gbe_stats - Stats item infomation
+  */
+ struct pch_gbe_stats {
+-	signed char stat_string[ETH_GSTRING_LEN];
+-	int sizeof_stat;
+-	int stat_offset;
++	signed char string[ETH_GSTRING_LEN];
++	size_t size;
++	size_t offset;
+ };
+-#define PCH_GBE_STAT(m)	{#m,\
+-			 sizeof(((struct pch_gbe_adapter *)0)->stats.m),\
+-			 offsetof(struct pch_gbe_adapter, stats.m)}
++
++#define PCH_GBE_STAT(m)						\
++{								\
++	.string = #m,						\
++	.size = FIELD_SIZEOF(struct pch_gbe_hw_stats, m),	\
++	.offset = offsetof(struct pch_gbe_hw_stats, m), 	\
++}
++
+ /**
+  * pch_gbe_gstrings_stats - ethtool information status name list
+  */
+@@ -545,7 +550,7 @@ static void pch_gbe_get_strings(struct net_device *netdev, u32 stringset,
+ 	switch (stringset) {
+ 	case (u32) ETH_SS_STATS:
+ 		for (i = 0; i < PCH_GBE_GLOBAL_STATS_LEN; i++) {
+-			memcpy(p, pch_gbe_gstrings_stats[i].stat_string,
++			memcpy(p, pch_gbe_gstrings_stats[i].string,
+ 			       ETH_GSTRING_LEN);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+@@ -564,16 +569,15 @@ static void pch_gbe_get_ethtool_stats(struct net_device *netdev,
+ {
+ 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+ 	int i;
++	const struct pch_gbe_stats *gstats = pch_gbe_gstrings_stats;
++	char *hw_stats = (char *)&adapter->stats;
+ 
+ 	FUNC_ENTER();
+ 	pch_gbe_update_stats(adapter);
+ 	for (i = 0; i < PCH_GBE_GLOBAL_STATS_LEN; i++) {
+-		signed char *p =
+-			(signed char *)adapter +
+-			pch_gbe_gstrings_stats[i].stat_offset;
+-		data[i] =
+-			(pch_gbe_gstrings_stats[i].sizeof_stat ==
+-			(int)sizeof(u64)) ? *(u64 *) p:(*(u32 *) p);
++		char *p = hw_stats + gstats->offset;
++		data[i] = gstats->size == sizeof(u64) ? *(u64 *)p : *(u32 *)p;
++		gstats++;
+ 	}
+ }
+ 
+@@ -614,5 +618,3 @@ void pch_gbe_set_ethtool_ops(struct net_device *netdev)
+ {
+ 	SET_ETHTOOL_OPS(netdev, &pch_gbe_ethtool_ops);
+ }
+-
+-
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
+index 8195702..c35ad57 100644
+--- a/drivers/net/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/pch_gbe/pch_gbe_main.c
+@@ -438,34 +438,8 @@ static int pch_gbe_alloc_queues(struct pch_gbe_adapter *adapter)
+  */
+ static void pch_gbe_init_stats(struct pch_gbe_adapter *adapter)
+ {
+-	struct pch_gbe_hw_stats *stats = &adapter->stats;
+-
+ 	FUNC_ENTER();
+-	stats->rx_packets = 0;
+-	stats->tx_packets = 0;
+-	stats->rx_bytes = 0;
+-	stats->tx_bytes = 0;
+-	stats->rx_errors = 0;
+-	stats->tx_errors = 0;
+-	stats->rx_dropped = 0;
+-	stats->tx_dropped = 0;
+-	stats->multicast = 0;
+-	stats->collisions = 0;
+-	stats->rx_crc_errors = 0;
+-	stats->rx_frame_errors = 0;
+-	stats->rx_alloc_buff_failed = 0;
+-	stats->tx_length_errors = 0;
+-	stats->tx_aborted_errors = 0;
+-	stats->tx_carrier_errors = 0;
+-	stats->tx_timeout_count = 0;
+-	stats->tx_restart_count = 0;
+-	stats->intr_rx_dsc_empty_count = 0;
+-	stats->intr_rx_frame_err_count = 0;
+-	stats->intr_rx_fifo_err_count = 0;
+-	stats->intr_rx_dma_err_count = 0;
+-	stats->intr_tx_fifo_err_count = 0;
+-	stats->intr_tx_dma_err_count = 0;
+-	stats->intr_tcpip_err_count = 0;
++	memset(&adapter->stats, 0, sizeof(adapter->stats));
+ 	return;
+ }
+ 
 
-> Alright, I'm sort of new to Linux.  Most of my past experience 
-> is in the embedded space and is more device oriented so I
-> definitely appreciate getting your perspective on this.
-> Like many folks I just have product features that I need to make 
-> available to customers.  Finding a way to do this that is 
-> acceptable to the Linux community and promotes the common welfare
-> (so to speak) is all I'm trying to do here.
 
-Ok, cool. Now I think that getting an interface that fits the needs
-of the NIC and Open vSwitch would be great for both Open vSwitch and
-every NIC vendor implementing it, because it means that you can simply
-add a smart NIC and Open vSwitch will run faster without any changes to
-the software setup.
-Even better for you if you are the first one on the market to implement
-it in hardware ;-)
-
-You should probably take a look at the current ioctl based implementation
-in Open vSwitch and figure out if you could make that interface would work
-on your NIC, and if not, tell us all what is missing to make that work
-with the new interface.
-
-	Arnd
