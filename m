@@ -1,47 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH NEXT 02/10] qlcnic: add api version in reg dump
-Date: Tue, 31 Aug 2010 16:26:45 +0100
-Message-ID: <1283268405.2244.4.camel@achroite.uk.solarflarecom.com>
-References: <1283264980-25881-1-git-send-email-amit.salecha@qlogic.com>
-	 <1283264980-25881-3-git-send-email-amit.salecha@qlogic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] netfilter: fix a race in nf_ct_ext_create()
+Date: Tue, 31 Aug 2010 17:48:02 +0200
+Message-ID: <1283269682.2550.111.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	ameen.rahman@qlogic.com,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:43095 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932372Ab0HaP0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 11:26:48 -0400
-In-Reply-To: <1283264980-25881-3-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-08-31 at 07:29 -0700, Amit Kumar Salecha wrote:
-[...]
-> @@ -345,7 +346,10 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
->  	regs->version = (1 << 24) | (adapter->ahw.revision_id << 16) |
->  	    (adapter->pdev)->device;
->  
-> -	for (i = 0; diag_registers[i] != -1; i++)
-> +	regs_buff[0] = (0xcafe0000 | (QLCNIC_DEV_INFO_SIZE & 0xffff));
-> +	regs_buff[1] = QLCNIC_MGMT_API_VERSION;
-> +
-> +	for (i = 2; diag_registers[i] != -1; i++)
->  		regs_buff[i] = QLCRD32(adapter, diag_registers[i]);
->  
->  	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state))
+As soon as rcu_read_unlock() is called, there is no guarantee current
+thread can safely derefence t pointer, rcu protected.
 
-You should either bump the version number or put this extra information
-at the end of the register dump, not the beginning.
+Fix is to copy t->alloc_size in a temporary variable.
 
-Ben.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/netfilter/nf_conntrack_extend.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 7dcf7a4..8d9e4c9 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -48,15 +48,17 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
+ {
+ 	unsigned int off, len;
+ 	struct nf_ct_ext_type *t;
++	size_t alloc_size;
+ 
+ 	rcu_read_lock();
+ 	t = rcu_dereference(nf_ct_ext_types[id]);
+ 	BUG_ON(t == NULL);
+ 	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
+ 	len = off + t->len;
++	alloc_size = t->alloc_size;
+ 	rcu_read_unlock();
+ 
+-	*ext = kzalloc(t->alloc_size, gfp);
++	*ext = kzalloc(alloc_size, gfp);
+ 	if (!*ext)
+ 		return NULL;
+ 
+
 
