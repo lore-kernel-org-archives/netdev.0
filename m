@@ -1,68 +1,65 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] netfilter: fix a race in nf_ct_ext_create()
-Date: Tue, 31 Aug 2010 08:51:37 -0700
-Message-ID: <20100831155137.GE2421@linux.vnet.ibm.com>
-References: <1283269682.2550.111.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] xfrm_user: avoid a warning with some compiler
+Date: Tue, 31 Aug 2010 17:54:00 +0200
+Message-ID: <4C7D2598.5070400@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------000907080507040105060505"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:49653 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932359Ab0HaPvp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Aug 2010 11:51:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1283269682.2550.111.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:53941 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932422Ab0HaPyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 11:54:04 -0400
+Received: by wyb35 with SMTP id 35so8036564wyb.19
+        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 08:54:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 31, 2010 at 05:48:02PM +0200, Eric Dumazet wrote:
-> As soon as rcu_read_unlock() is called, there is no guarantee current
-> thread can safely derefence t pointer, rcu protected.
-> 
-> Fix is to copy t->alloc_size in a temporary variable.
+This is a multi-part message in MIME format.
+--------------000907080507040105060505
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yow!!!  Good catch!!!
+Attached is a small patch to remove a warning ("warning: ISO C90 forbids 
+mixed declarations and code" with gcc 4.3.2).
 
-Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Regards,
+Nicolas
 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/netfilter/nf_conntrack_extend.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
-> index 7dcf7a4..8d9e4c9 100644
-> --- a/net/netfilter/nf_conntrack_extend.c
-> +++ b/net/netfilter/nf_conntrack_extend.c
-> @@ -48,15 +48,17 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
->  {
->  	unsigned int off, len;
->  	struct nf_ct_ext_type *t;
-> +	size_t alloc_size;
-> 
->  	rcu_read_lock();
->  	t = rcu_dereference(nf_ct_ext_types[id]);
->  	BUG_ON(t == NULL);
->  	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
->  	len = off + t->len;
-> +	alloc_size = t->alloc_size;
->  	rcu_read_unlock();
-> 
-> -	*ext = kzalloc(t->alloc_size, gfp);
-> +	*ext = kzalloc(alloc_size, gfp);
->  	if (!*ext)
->  		return NULL;
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--------------000907080507040105060505
+Content-Type: text/x-diff;
+ name="0001-xfrm_user-avoid-a-warning-with-some-compiler.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename*0="0001-xfrm_user-avoid-a-warning-with-some-compiler.patch"
+
+>From 94b066b7f650bda6ef1392a18c5d3014bcc05d6a Mon Sep 17 00:00:00 2001
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 31 Aug 2010 17:41:05 +0200
+Subject: [PATCH] xfrm_user: avoid a warning with some compiler
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/xfrm/xfrm_user.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index b14ed4b..8bae6b2 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1801,7 +1801,7 @@ static int xfrm_add_sa_expire(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	struct xfrm_user_expire *ue = nlmsg_data(nlh);
+ 	struct xfrm_usersa_info *p = &ue->state;
+ 	struct xfrm_mark m;
+-	u32 mark = xfrm_mark_get(attrs, &m);;
++	u32 mark = xfrm_mark_get(attrs, &m);
+ 
+ 	x = xfrm_state_lookup(net, mark, &p->id.daddr, p->id.spi, p->id.proto, p->family);
+ 
+-- 
+1.5.6.5
+
+
+--------------000907080507040105060505--
