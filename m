@@ -1,41 +1,39 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: vhost_dev_cleanup() crash: BUG: unable to handle kernel NULL
- pointer dereference
-Date: Tue, 31 Aug 2010 14:20:54 +0200
-Message-ID: <4C7CF3A6.5060200@kernel.org>
-References: <20100831075705.GA4710@elte.hu>	 <1283251801.2550.53.camel@edumazet-laptop> <20100831111413.GB12853@elte.hu> <1283256357.2550.61.camel@edumazet-laptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
+	ip_fragment
+Date: Tue, 31 Aug 2010 20:36:41 +0800
+Message-ID: <20100831123641.GA31017@gondor.apana.org.au>
+References: <20100830200917.GA10754@stratus.com> <1283204118.2405.32.camel@edumazet-laptop> <20100830232147.GB10754@stratus.com> <1283232031.2405.38.camel@edumazet-laptop> <20100831082444.GB29281@gondor.apana.org.au> <1283246271.2550.35.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bandan Das <bandan.das@stratus.com>,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:56055 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755828Ab0HaMVN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Aug 2010 08:21:13 -0400
-In-Reply-To: <1283256357.2550.61.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1283246271.2550.35.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/31/2010 02:05 PM, Eric Dumazet wrote:
-> Just in case, I resubmit the patch, clearing dev->worker, because I am
-> not sure if vhost_dev_cleanup() can be run several times on same struct
-> vhost_dev. Patch is needed even if you add this check in kthread_stop()
-> 
-> [PATCH v2] vhost: stop worker only if created
-> 
-> Its currently illegal to call kthread_stop(NULL)
-> 
-> Reported-by: Ingo Molnar <mingo@elte.hu>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+On Tue, Aug 31, 2010 at 11:17:51AM +0200, Eric Dumazet wrote:
+>
+> Once again, the IP stack -> bridge -> IP stack flow bites us,
+> because bridge likes to dirty IPCB.
 
-Acked-by: Tejun Heo <tj@kernel.org>
+OK, so we're talking about a locally transmitted packet, with
+IP options leaving the IP stack, entering bridging, and then
+reentering the IP stack?
 
-Thanks.
+In that case the packet should no longer be treated as an IP
+packet when it enters the bridge.  So if it did have options
+and we want to support that in bridging then we need to parse
+IP options there as my comment suggested.
 
+Thanks,
 -- 
-tejun
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
