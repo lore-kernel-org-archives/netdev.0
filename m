@@ -1,43 +1,53 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [rfc] Merging the Open vSwitch datapath
-Date: Tue, 31 Aug 2010 16:18:59 +0800
-Message-ID: <20100831081859.GA29281@gondor.apana.org.au>
-References: <20100830062755.GA22396@verge.net.au> <87k4n8ow1r.fsf@benpfaff.org> <43F901BD926A4E43B106BF17856F0755F63A08EE@orsmsx508.amr.corp.intel.com> <20100830183328.GI7629@nicira.com> <43F901BD926A4E43B106BF17856F0755F63A092B@orsmsx508.amr.corp.intel.com> <20100830205907.GM30129@sequoia.sous-sol.org> <20100831004827.GE11594@verge.net.au> <20100831005410.GB30129@sequoia.sous-sol.org>
+Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
+	ip_fragment
+Date: Tue, 31 Aug 2010 16:24:44 +0800
+Message-ID: <20100831082444.GB29281@gondor.apana.org.au>
+References: <20100830200917.GA10754@stratus.com> <1283204118.2405.32.camel@edumazet-laptop> <20100830232147.GB10754@stratus.com> <1283232031.2405.38.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Ben Pfaff <blp@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	David Miller <davem@davemloft.net>
-To: Chris Wright <chrisw@sous-sol.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bandan Das <bandan.das@stratus.com>,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:50746 "EHLO
+Received: from helcar.apana.org.au ([209.40.204.226]:36736 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932097Ab0HaITK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 04:19:10 -0400
+	with ESMTP id S1751755Ab0HaIYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 04:24:55 -0400
 Content-Disposition: inline
-In-Reply-To: <20100831005410.GB30129@sequoia.sous-sol.org>
+In-Reply-To: <1283232031.2405.38.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 30, 2010 at 05:54:10PM -0700, Chris Wright wrote:
->
-> I'll let Herbert chime in, just reminder that was his thought earlier
-> this month at LinuxCon.
+On Tue, Aug 31, 2010 at 07:20:31AM +0200, Eric Dumazet wrote:
+> Le lundi 30 ao=FBt 2010 =E0 19:21 -0400, Bandan Das a =E9crit :
+> > >=20
+> > > I wonder if we want this.
+> > >=20
+> > > Maybe setting skb->local_df =3D 1 in bridge should be enough ?
+> > >=20
+> > >=20
+> > Thanks Eric for looking at this. Indeed, setting local_df to 1 seem=
+s to be enough! I will
+> > respin and post a different patch.
+> >=20
+>=20
+> Reading this stuff again, I wonder if we should not revert commit
+> 17762060c25590bfddd  and use a different trick
 
-Well my reasoning was that Open vSwitch isn't a hardware driver
-per se, it's much closer to say the bridge module or a tunnel
-implementation.
+I don't quite understand the problem.  Does the packet actually
+have IP options? If not why is it trying to look at IP options?
 
-As such we should be very careful before committing to a user-space
-interface that we may have to carry forward for years to come.
+If it does have options, then we should parse options in the
+bridge driver before passing it to the IP stack (or just drop
+the packet).
 
 Cheers,
--- 
+--=20
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
