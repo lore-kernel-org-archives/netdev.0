@@ -1,49 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] gro: unexport tcp4_gro_receive and
- tcp4_gro_complete
-Date: Tue, 31 Aug 2010 22:23:47 +0200
-Message-ID: <1283286227.2198.7.camel@edumazet-laptop>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: 2.6.34.1 page allocation failure
+Date: Tue, 31 Aug 2010 22:28:13 +0200 (CEST)
+Message-ID: <alpine.DEB.1.10.1008311655450.8562@uplift.swm.pp.se>
+References: <4C70BFF3.8030507@hardwarefreak.com> <alpine.DEB.1.10.1008220842400.8562@uplift.swm.pp.se> <AANLkTin48SJ58HvFqjrOnQBMqLcbECtqXokweV00dNgv@mail.gmail.com> <alpine.DEB.2.00.1008221734410.21916@router.home> <4C724141.8060000@kernel.org>
+ <4C72F7C6.3020109@hardwarefreak.com> <4C74097A.5020504@kernel.org> <alpine.DEB.1.10.1008242114120.8562@uplift.swm.pp.se> <4C7A3B1D.7050500@kernel.org> <alpine.DEB.1.10.1008291433420.8562@uplift.swm.pp.se> <4C7A5DDE.8030106@kernel.org>
+ <alpine.DEB.1.10.1008291736170.8562@uplift.swm.pp.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:51507 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754201Ab0HaUYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 16:24:17 -0400
-Received: by wyb35 with SMTP id 35so8302092wyb.19
-        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 13:24:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: Stan Hoeppner <stan@hardwarefreak.com>,
+	Christoph Lameter <cl@linux.com>,
+	Linux Kernel List <linux-kernel@vger.kernel.org>,
+	linux-mm@kvack.org, Mel Gorman <mel@csn.ul.ie>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pekka Enberg <penberg@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.1008291736170.8562@uplift.swm.pp.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tcp4_gro_receive() and tcp4_gro_complete() dont need to be exported.
+On Sun, 29 Aug 2010, Mikael Abrahamsson wrote:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp_ipv4.c |    2 --
- 1 file changed, 2 deletions(-)
+> On Sun, 29 Aug 2010, Pekka Enberg wrote:
+>
+>> There aren't any debug options that need to be enabled. The reason I'm 
+>> asking is because we had a bunch of similar issues being reported earlier 
+>> that got fixed and it's been calm for a while. That's why it would be 
+>> interesting to know if 2.6.35 or 2.6.36-rc2 (if it's not too unstable to 
+>> test) fixes things.
+>
+> Oki, I have installed 2.6.35 now (found backport from ubuntu 10.10 for 
+> 10.04), just need to do a reboot at some convenient time.
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 0207662..a0232f3 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2571,7 +2571,6 @@ struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 
- 	return tcp_gro_receive(head, skb);
- }
--EXPORT_SYMBOL(tcp4_gro_receive);
- 
- int tcp4_gro_complete(struct sk_buff *skb)
- {
-@@ -2584,7 +2583,6 @@ int tcp4_gro_complete(struct sk_buff *skb)
- 
- 	return tcp_gro_complete(skb);
- }
--EXPORT_SYMBOL(tcp4_gro_complete);
- 
- struct proto tcp_prot = {
- 	.name			= "TCP",
+I just rebooted and ran a similar load of network+disk load that made the 
+machine give "swapper allocation failure" messages before, and I couldn't 
+reproduce it with 2.6.35:
 
+2.6.35-19-generic #25~lucid1-Ubuntu SMP Wed Aug 25 03:50:05 UTC 2010 x86_64 GNU/Linux
 
+Doing "sync" in the middle made sync take more than 5+ minutes to complete 
+(2 hung-task messages in dmesg), but at least nothing ran out of memory.
+
+Considering the amount of people running 2.6.32 and who will be running it 
+in the future, it still worries me that this is present in 2.6.32 (and 
+earlier kernels as well).
+
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
