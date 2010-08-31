@@ -1,160 +1,58 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: [RFC] ipvs: Keep track of backlog connections
-Date: Tue, 31 Aug 2010 14:19:02 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1008311411190.5292@titan.stealer.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
+ ip_fragment
+Date: Tue, 31 Aug 2010 15:13:29 +0200
+Message-ID: <1283260409.2550.87.camel@edumazet-laptop>
+References: <20100830200917.GA10754@stratus.com>
+	 <1283204118.2405.32.camel@edumazet-laptop>
+	 <20100830232147.GB10754@stratus.com>
+	 <1283232031.2405.38.camel@edumazet-laptop>
+	 <20100831082444.GB29281@gondor.apana.org.au>
+	 <1283246271.2550.35.camel@edumazet-laptop>
+	 <20100831123641.GA31017@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: lvs-devel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Bandan Das <bandan.das@stratus.com>,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.stealer.net ([88.198.224.204]:58500 "EHLO
-	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751566Ab0HaNBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 09:01:04 -0400
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60293 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757338Ab0HaNNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 09:13:35 -0400
+In-Reply-To: <20100831123641.GA31017@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Le mardi 31 ao=C3=BBt 2010 =C3=A0 20:36 +0800, Herbert Xu a =C3=A9crit =
+:
+> On Tue, Aug 31, 2010 at 11:17:51AM +0200, Eric Dumazet wrote:
+> >
+> > Once again, the IP stack -> bridge -> IP stack flow bites us,
+> > because bridge likes to dirty IPCB.
+>=20
+> OK, so we're talking about a locally transmitted packet, with
+> IP options leaving the IP stack, entering bridging, and then
+> reentering the IP stack?
+>=20
+> In that case the packet should no longer be treated as an IP
+> packet when it enters the bridge.  So if it did have options
+> and we want to support that in bridging then we need to parse
+> IP options there as my comment suggested.
 
-this patch has been sitting in my local repository for quite some time 
-now. The number of backlog connections helps diagnosing realserver related 
-overload and configuration problems. Is it worth merging? If yes, I'm 
-going to tidy it up and prepare the userspace portion for ipvsadm.
+Bandan did not provide a full stack trace,
+but I believe the problem was :
 
-Sven
+br_nf_dev_queue_xmit() -> ip_fragment -> icmp_send() ->
+ip_options_echo() : crash, because ip_options_echo take bridge CB as
+IPCB data.
+
+http://www.spinics.net/lists/netdev/msg139370.html
 
 
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: [PATCH] ipvs: Keep track of backlog connections
 
-A backlog connection is a connection that is on its way from inactive to
-active. Speaking in TCP language, a connection from which we've seen the
-initial SYN packet, but the three-way handshake hasn't finished yet.
-These connections are expected to move to active soon. When a
-destination is overloaded or isn't able to successfully establish
-connections for various reasons, this count increases quickly and is an
-indication for a problem.
 
-Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
----
- include/linux/ip_vs.h                |    3 +++
- include/net/ip_vs.h                  |    1 +
- net/netfilter/ipvs/ip_vs_conn.c      |    3 +++
- net/netfilter/ipvs/ip_vs_ctl.c       |    3 +++
- net/netfilter/ipvs/ip_vs_proto_tcp.c |   10 ++++++++++
- net/netfilter/ipvs/ip_vs_sync.c      |    4 ++--
- 6 files changed, 22 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
-index 9708de2..4fe6565 100644
---- a/include/linux/ip_vs.h
-+++ b/include/linux/ip_vs.h
-@@ -87,6 +87,7 @@
- #define IP_VS_CONN_F_NO_CPORT	0x0800		/* no client port set yet */
- #define IP_VS_CONN_F_TEMPLATE	0x1000		/* template, not connection */
- #define IP_VS_CONN_F_ONE_PACKET	0x2000		/* forward only one packet */
-+#define IP_VS_CONN_F_BACKLOG	0x4000		/* backlog connection */
- 
- #define IP_VS_SCHEDNAME_MAXLEN	16
- #define IP_VS_IFNAME_MAXLEN	16
-@@ -350,6 +351,8 @@ enum {
- 	IPVS_DEST_ATTR_PERSIST_CONNS,	/* persistent connections */
- 
- 	IPVS_DEST_ATTR_STATS,		/* nested attribute for dest stats */
-+
-+	IPVS_DEST_ATTR_BACKLOG_CONNS,	/* backlog connections */
- 	__IPVS_DEST_ATTR_MAX,
- };
- 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index a4747a0..c39dee6 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -499,6 +499,7 @@ struct ip_vs_dest {
- 	/* connection counters and thresholds */
- 	atomic_t		activeconns;	/* active connections */
- 	atomic_t		inactconns;	/* inactive connections */
-+	atomic_t		backlogconns;	/* backlog connections */
- 	atomic_t		persistconns;	/* persistent connections */
- 	__u32			u_threshold;	/* upper threshold */
- 	__u32			l_threshold;	/* lower threshold */
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index b71c69a..486dd48 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -607,6 +607,9 @@ static inline void ip_vs_unbind_dest(struct ip_vs_conn *cp)
- 		} else {
- 			atomic_dec(&dest->activeconns);
- 		}
-+
-+		if (cp->flags & IP_VS_CONN_F_BACKLOG)
-+			atomic_dec(&dest->backlogconns);
- 	} else {
- 		/* It is a persistent connection/template, so decrease
- 		   the peristent connection counter */
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 0f0c079..1933e60 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2579,6 +2579,7 @@ static const struct nla_policy ip_vs_dest_policy[IPVS_DEST_ATTR_MAX + 1] = {
- 	[IPVS_DEST_ATTR_INACT_CONNS]	= { .type = NLA_U32 },
- 	[IPVS_DEST_ATTR_PERSIST_CONNS]	= { .type = NLA_U32 },
- 	[IPVS_DEST_ATTR_STATS]		= { .type = NLA_NESTED },
-+	[IPVS_DEST_ATTR_BACKLOG_CONNS]	= { .type = NLA_U32 },
- };
- 
- static int ip_vs_genl_fill_stats(struct sk_buff *skb, int container_type,
-@@ -2826,6 +2827,8 @@ static int ip_vs_genl_fill_dest(struct sk_buff *skb, struct ip_vs_dest *dest)
- 		    atomic_read(&dest->activeconns));
- 	NLA_PUT_U32(skb, IPVS_DEST_ATTR_INACT_CONNS,
- 		    atomic_read(&dest->inactconns));
-+	NLA_PUT_U32(skb, IPVS_DEST_ATTR_BACKLOG_CONNS,
-+		    atomic_read(&dest->backlogconns));
- 	NLA_PUT_U32(skb, IPVS_DEST_ATTR_PERSIST_CONNS,
- 		    atomic_read(&dest->persistconns));
- 
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index 282d24d..c92cbab 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -510,6 +510,16 @@ set_tcp_state(struct ip_vs_protocol *pp, struct ip_vs_conn *cp,
- 				atomic_dec(&dest->inactconns);
- 				cp->flags &= ~IP_VS_CONN_F_INACTIVE;
- 			}
-+
-+			if (new_state == IP_VS_TCP_S_SYN_RECV &&
-+					!(cp->flags & IP_VS_CONN_F_BACKLOG)) {
-+				atomic_inc(&dest->backlogconns);
-+				cp->flags |= IP_VS_CONN_F_BACKLOG;
-+			} else if (new_state == IP_VS_TCP_S_ESTABLISHED &&
-+					cp->flags & IP_VS_CONN_F_BACKLOG) {
-+				atomic_dec(&dest->backlogconns);
-+				cp->flags &= ~IP_VS_CONN_F_BACKLOG;
-+			}
- 		}
- 	}
- 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 7ba0693..ceb1cd9 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -264,7 +264,7 @@ void ip_vs_sync_conn(struct ip_vs_conn *cp)
- 	s->caddr = cp->caddr.ip;
- 	s->vaddr = cp->vaddr.ip;
- 	s->daddr = cp->daddr.ip;
--	s->flags = htons(cp->flags & ~IP_VS_CONN_F_HASHED);
-+	s->flags = htons(cp->flags & ~(IP_VS_CONN_F_HASHED | IP_VS_CONN_F_BACKLOG));
- 	s->state = htons(cp->state);
- 	if (cp->flags & IP_VS_CONN_F_SEQ_MASK) {
- 		struct ip_vs_sync_conn_options *opt =
-@@ -334,7 +334,7 @@ static void ip_vs_process_message(const char *buffer, const size_t buflen)
- 		}
- 		s = (struct ip_vs_sync_conn *) p;
- 		flags = ntohs(s->flags) | IP_VS_CONN_F_SYNC;
--		flags &= ~IP_VS_CONN_F_HASHED;
-+		flags &= ~(IP_VS_CONN_F_HASHED | IP_VS_CONN_F_BACKLOG);
- 		if (flags & IP_VS_CONN_F_SEQ_MASK) {
- 			opt = (struct ip_vs_sync_conn_options *)&s[1];
- 			p += FULL_CONN_SIZE;
