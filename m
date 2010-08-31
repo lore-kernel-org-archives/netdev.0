@@ -1,155 +1,94 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: cxacru: USB ethernet port of CX82310-based ADSL routers?
-Date: Tue, 31 Aug 2010 23:13:36 +0200
-Message-ID: <201008312313.39171.linux@rainbow-software.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
+Date: Tue, 31 Aug 2010 23:47:20 +0200
+Message-ID: <20100831214720.GB3093@del.dom.local>
+References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com>
+ <20100831210101.3c059a91@leibniz>
+ <4C7D5EBD.103@gmail.com>
+ <AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: accessrunner-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: cxacru@fire.lp0.eu
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Stephen Hemminger <shemminger@osdl.org>
+To: Dan Kruchinin <dkruchinin@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1-out1.atlantis.sk ([80.94.52.55]:57379 "EHLO
-	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754045Ab0HaVNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 17:13:49 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:39406 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755382Ab0HaVr1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 17:47:27 -0400
+Received: by fxm13 with SMTP id 13so4310951fxm.19
+        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 14:47:26 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-I have an ADSL router based on Conexant CX82310 chip. This chip provides both
-ethernet and USB interfaces. The ethernet interface is often internally
-connected to a 5-port switch (in my case too). The USB interface works as an
-ethernet card in Windows (using proprietary driver). In Linux, the cxacru
-driver binds to the device but does not work (no wonder - it's doing firmware
-things in an attempt to bring an ADSL modem up).
+On Wed, Sep 01, 2010 at 01:00:53AM +0400, Dan Kruchinin wrote:
+> On Tue, Aug 31, 2010 at 11:57 PM, Jarek Poplawski <jarkao2@gmail.com>=
+ wrote:
+> > Dan Kruchinin wrote, On 08/31/2010 07:01 PM:
+> >
+> >> I'm sorry it seems my email client has broken patch formating.
+> >> Here is properly formated one:
+> >> diff --git a/tc/q_tbf.c b/tc/q_tbf.c
+> >> index dc556fe..850e6db 100644
+> >> --- a/tc/q_tbf.c
+> >> +++ b/tc/q_tbf.c
+> >> @@ -178,7 +178,7 @@ static int tbf_parse_opt(struct qdisc_util *qu=
+, int argc, char **argv, struct nl
+> >> =A0 =A0 =A0 }
+> >>
+> >> =A0 =A0 =A0 if (opt.limit =3D=3D 0) {
+> >> - =A0 =A0 =A0 =A0 =A0 =A0 double lim =3D opt.rate.rate*(double)lat=
+ency/TIME_UNITS_PER_SEC + buffer;
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 double lim =3D opt.rate.rate*(double)lat=
+ency/TIME_UNITS_PER_SEC;
+> >
+> > The way limit is calculated here from latency suggests some safety =
+defaults
+> > are taken wrt. the implementation, which could be omitted while set=
+ting the
+> > limit directly. You try to change/fix this to adhere to the documen=
+tation,
+> > but such a change would definitely break many user configs, so I do=
+ubt it's
+> > the right solution here. Probably you should rather think about fix=
+ing the
+> > manual.
+>=20
+> Thank you for comments.
+> The only thing that embarrasses me abut documentation fixing is that
+> the latency loses all its sense.
 
-I captured a log from Windows (device connect, DHCP and disconnect):
-http://www.rainbow-software.org/linux_files/cx82310/cx-run-dhcp.log
+Hmm... As a matter of fact, I'm not too picky about docs (and happy if
+they don't skip some params at all), but your test with such a high
+burst wrt. the rate didn't make much sense to me either. ;-)
 
-The commands seem to match the enums in cxacru
-driver (and go to endpoint 1):
-0x84, 0x85, 0x90, 0x91, 0x92, 0x99 (unknown)
-Data goes to/from endpoint 2 as ethernet frames (with something at the
-beginning).
+> Documentation describes latency as something intuitively clear: "the
+> maximum amount of time a packet can sit in the TBF"
+> but tc implementation handles it something like: "an additional time
+> packet can sit int the TBF after main waiting queue which size is
+> equal to the burst size is completely full.". It doesn't seem to have
+> any sense.
+> Moreover, user can pass "limit" value to tc directly and if this limi=
+t
+> value is less than burst size then latency will be improperly
+> calculated(it'll have a negative value) which is not good as well.
 
-I wonder how to implement support for this device in cxacru driver. Or would
-be a separate driver better?
+Yes, many params could be misused/abused in tc without a warning, so
+people have to test their configs first, and often learn this way how
+it really works. So the docs are often secondary, which is not right
+of course.
 
+> By the way, the following descriptions of TBF algorithm are proposed
+> the same the manual says:
+> http://www.opalsoft.net/qos/DS-24.htm
+> ww.docum.org/docum.org/docs/other/tbf02_kw.ps
+>=20
+> If the documentation should be fixed I'm not sure that latency can be
+> somehow logically described to have any sense at all.
 
-lsusb output:
+I guess there could be added a warning there is such a difference.
 
-Bus 001 Device 003: ID 0572:cb01 Conexant Systems (Rockwell), Inc. GeekADSL Promax Q31 ADSL Modem
-Device Descriptor:
-  bLength                18
-  bDescriptorType         1
-  bcdUSB               1.10
-  bDeviceClass          255 Vendor Specific Class
-  bDeviceSubClass         0 
-  bDeviceProtocol         0 
-  bMaxPacketSize0        64
-  idVendor           0x0572 Conexant Systems (Rockwell), Inc.
-  idProduct          0xcb01 GeekADSL Promax Q31 ADSL Modem
-  bcdDevice            1.00
-  iManufacturer           1 -
-  iProduct                2 USB NET CARD
-  iSerial                 3 00000060
-  bNumConfigurations      1
-  Configuration Descriptor:
-    bLength                 9
-    bDescriptorType         2
-    wTotalLength           67
-    bNumInterfaces          1
-    bConfigurationValue     1
-    iConfiguration          0 
-    bmAttributes         0xc0
-      Self Powered
-    MaxPower               80mA
-    Interface Descriptor:
-      bLength                 9
-      bDescriptorType         4
-      bInterfaceNumber        0
-      bAlternateSetting       0
-      bNumEndpoints           7
-      bInterfaceClass         0 (Defined at Interface level)
-      bInterfaceSubClass      0 
-      bInterfaceProtocol      0 
-      iInterface              0 
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x81  EP 1 IN
-        bmAttributes            3
-          Transfer Type            Interrupt
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               4
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x01  EP 1 OUT
-        bmAttributes            3
-          Transfer Type            Interrupt
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               4
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x82  EP 2 IN
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               1
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x02  EP 2 OUT
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               1
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x83  EP 3 IN
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               1
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x03  EP 3 OUT
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               1
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x84  EP 4 IN
-        bmAttributes            3
-          Transfer Type            Interrupt
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0008  1x 8 bytes
-        bInterval               4
-Device Status:     0x0001
-  Self Powered
-
-
--- 
-Ondrej Zary
+Jarek P.
