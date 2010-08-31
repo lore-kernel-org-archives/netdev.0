@@ -1,37 +1,37 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: [net-next] ipv6:  Export in6addr_any for use by modules.
-Date: Tue, 31 Aug 2010 10:08:15 -0700
-Message-ID: <1283274495-12416-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: Dave Jones <davej@redhat.com>
+Subject: Re: via-velocity dma-debug warnings again. (2.6.35.2)
+Date: Tue, 31 Aug 2010 13:21:07 -0400
+Message-ID: <20100831172106.GC1844@redhat.com>
+References: <20100831011348.GA11993@redhat.com>
+ <20100831111052.31f22185@marrow.netinsight.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Simon Kagstrom <simon.kagstrom@netinsight.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:42906 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754364Ab0HaRIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 13:08:18 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:52503 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754651Ab0HaRVS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 13:21:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20100831111052.31f22185@marrow.netinsight.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some upcoming cifs code, could make use of this, at least.
+On Tue, Aug 31, 2010 at 11:10:52AM +0200, Simon Kagstrom wrote:
+ > On Mon, 30 Aug 2010 21:13:49 -0400
+ > Dave Jones <davej@redhat.com> wrote:
+ > 
+ > > I installed the Fedora 14 alpha, which is based on 2.6.35.2, and hit
+ > > the following trace..
+ > > 
+ > > WARNING: at lib/dma-debug.c:811 check_unmap+0x212/0x59b()
+ > > Hardware name:  
+ > > via-velocity 0000:00:0e.0: DMA-API: device driver frees DMA memory with different size [device address=0x00000000194ba27e] [map size=66 bytes] [unmap size=182 bytes]
+ > 
+ > I can't reproduce it here, but does the patch below help for you?
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-:100644 100644 ab70a3f... 735989a... M	net/ipv6/addrconf.c
- net/ipv6/addrconf.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+It's looking good so far.  It's been up 30 minutes and hasn't triggered yet
+(normally it triggers very shortly after bootup)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index ab70a3f..735989a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -230,6 +230,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 
- /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
- const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
-+EXPORT_SYMBOL(in6addr_any);
- const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
- const struct in6_addr in6addr_linklocal_allnodes = IN6ADDR_LINKLOCAL_ALLNODES_INIT;
- const struct in6_addr in6addr_linklocal_allrouters = IN6ADDR_LINKLOCAL_ALLROUTERS_INIT;
--- 
-1.6.2.5
-
+	Dave
