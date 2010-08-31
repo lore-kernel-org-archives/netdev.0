@@ -1,63 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] skge: add GRO support
-Date: Wed, 01 Sep 2010 00:32:36 +0200
-Message-ID: <1283293956.2198.46.camel@edumazet-laptop>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
+Date: Wed, 1 Sep 2010 02:34:02 +0400
+Message-ID: <20100831223402.GA7101@ms2.inr.ac.ru>
+References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com> <20100831210101.3c059a91@leibniz> <4C7D5EBD.103@gmail.com> <AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com> <20100831214808.GA32141@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>
+To: Dan Kruchinin <dkruchinin@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59627 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752555Ab0HaWck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 18:32:40 -0400
-Received: by wyb35 with SMTP id 35so8428813wyb.19
-        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 15:32:38 -0700 (PDT)
+Received: from minus.inr.ac.ru ([194.67.69.97]:58932 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753129Ab0HaWeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 18:34:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20100831214808.GA32141@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- use napi_gro_receive() instead of netif_receive_skb()
-- use napi_complete() instead of __napi_complete()
-- turn on NETIF_F_GRO by default
-- Tested on a Marvell 88E8801 Gigabit NIC
+Hello!
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/skge.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Hmm. Seems, you are right and I was wrong all these years.
+Somehow, I did wrong calculation once and this rustied to the brains.
+After some thinking the calulation is obviously wrong: no matter what,
+in steady state tbf queue is processed with rate R. What a stupid mistake... :-)
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index 40e5c46..c2e29e3 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -3178,8 +3178,7 @@ static int skge_poll(struct napi_struct *napi, int to_do)
- 
- 		skb = skge_rx_get(dev, e, control, rd->status, rd->csum2);
- 		if (likely(skb)) {
--			netif_receive_skb(skb);
--
-+			napi_gro_receive(napi, skb);
- 			++work_done;
- 		}
- 	}
-@@ -3193,7 +3192,7 @@ static int skge_poll(struct napi_struct *napi, int to_do)
- 		unsigned long flags;
- 
- 		spin_lock_irqsave(&hw->hw_lock, flags);
--		__napi_complete(napi);
-+		napi_complete(napi);
- 		hw->intr_mask |= napimask[skge->port];
- 		skge_write32(hw, B0_IMSK, hw->intr_mask);
- 		skge_read32(hw, B0_IMSK);
-@@ -3849,6 +3848,7 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
- 		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
- 		skge->rx_csum = 1;
- 	}
-+	dev->features |= NETIF_F_GRO;
- 
- 	/* read the mac address */
- 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
+Please, also think how to fix the second part of calculation which deals
+with peak rate. IMHO (for now :-)) it does not even contribute to latency
+and should be deleted.
 
+To Jarek: about the scripts. I do not think something will be broken
+by fixing this error. Eventually, if someone used "latency", he meant
+something about real latency. And even if the value was generated
+using the same wrong logic as tc did, using correct formula would just
+increase limit setting.
 
+Alexey
