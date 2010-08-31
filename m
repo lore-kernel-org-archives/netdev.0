@@ -1,97 +1,77 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v4 0/5] netdev: show a process of packets
-Date: Mon, 30 Aug 2010 19:50:10 -0400
-Message-ID: <1283212210.3656.84.camel@gandalf.stny.rr.com>
-References: <4C72422C.5070102@jp.fujitsu.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-2.6] 3c59x: Remove incorrect locking; correct
+ documented lock hierarchy
+Date: Tue, 31 Aug 2010 01:15:33 +0100
+Message-ID: <1283213733.7653.180.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, kaneshige.kenji@jp.fujitsu.com,
-	izumi.taku@jp.fujitsu.com, kosaki.motohiro@jp.fujitsu.com,
-	nhorman@tuxdriver.com, laijs@cn.fujitsu.com,
-	scott.a.mcmillan@intel.com, eric.dumazet@gmail.com,
-	fweisbec@gmail.com, mathieu.desnoyers@polymtl.ca
-To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C72422C.5070102@jp.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:59440 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754475Ab0HaAPk convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Aug 2010 20:15:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-08-23 at 18:41 +0900, Koki Sanagi wrote:
-> Rebase to the latest net-next.
-> 
-> CHANGE-LOG since v3:
->     1) change arguments of softirq tracepoint into original one.
->     2) remove tracepoint of dev_kfree_skb_irq and skb_free_datagram_locked
->        and add trace_kfree_skb before __kfree_skb instead of them.
->     3) add tracepoint to netif_rx and display it by netdev-times script.
-> 
-> These patch-set adds tracepoints to show us a process of packets.
-> Using these tracepoints and existing points, we can get the time when
-> packet passes through some points in transmit or receive sequence.
-> For example, this is an output of perf script which is attached by patch 5/5.
-> 
-> 106133.171439sec cpu=0
->   irq_entry(+0.000msec irq=24:eth4)
->          |
->   softirq_entry(+0.006msec)
->          |
->          |---netif_receive_skb(+0.010msec skb=f2d15900 len=100)
->          |            |
->          |      skb_copy_datagram_iovec(+0.039msec 10291::10291)
->          |
->   napi_poll_exit(+0.022msec eth4)
-> 
-> 106134.175634sec cpu=1
->   irq_entry(+0.000msec irq=28:eth1)
->          |
->          |---netif_rx(+0.009msec skb=f3ef0a00)
->          |
->   softirq_entry(+0.018msec)
->          |
->          |---netif_receive_skb(+0.021msec skb=f3ef0a00 len=84)
->          |            |
->          |      skb_copy_datagram_iovec(+0.033msec 0:swapper)
->          |
->   napi_poll_exit(+0.035msec (no_device))
-> 
-> The above is a receive side(eth4 is NAPI. eth1 is non-NAPI). Like this, it can
-> show receive sequence frominterrupt(irq_entry) to application
-> (skb_copy_datagram_iovec). 
-> This script shows one NET_RX softirq and events related to it. All relative
-> time bases on first irq_entry which raise NET_RX softirq.
-> 
->    dev    len      Qdisc               netdevice             free
->    eth4    74 106125.030004sec        0.006msec             0.009msec
->    eth4    87 106125.041020sec        0.007msec             0.023msec
->    eth4    66 106125.042291sec        0.003msec             0.012msec
->    eth4    66 106125.043274sec        0.006msec             0.004msec
->    eth4   850 106125.044283sec        0.007msec             0.018msec
-> 
-> The above is a transmit side. There are three check-time-points.
-> Point1 is before putting a packet to Qdisc. point2 is after ndo_start_xmit in
-> dev_hard_start_xmit. It indicates finishing putting a packet to driver.
-> point3 is in consume_skb and kfree_skb. It indicates freeing a transmitted packet.
-> Values of this script are, from left, device name, length of a packet, a time of
-> point1, an interval time between point1 and point2 and an interval time between
-> point2 and point3.
-> 
-> These times are useful to analyze a performance or to detect a point where
-> packet delays. For example,
-> - NET_RX softirq calling is late.
-> - Application is late to take a packet.
-> - It takes much time to put a transmitting packet to driver
->   (It may be caused by packed queue)
-> 
-> And also, these tracepoint help us to investigate a network driver's trouble
-> from memory dump because ftrace records it to memory. And ftrace is so light
-> even if always trace on. So, in a case investigating a problem which doesn't
-> reproduce, it is useful.
-> 
+vortex_ioctl() was grabbing vortex_private::lock around its call to
+generic_mii_ioctl().  This is no longer necessary since there are more
+specific locks which the mdio_{read,write}() functions will obtain.
+Worse, those functions do not save and restore IRQ flags when locking
+the MII state, so interrupts will be enabled when generic_mii_ioctl()
+returns.
 
-The entire series:
+Since there is currently no need for any function to call
+mdio_{read,write}() while holding another spinlock, do not change them
+to save and restore IRQ flags but remove the specification of ordering
+between vortex_private::lock and vortex_private::mii_lock.
 
-Acked-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+I've now borrowed a card to test 3c59x on.  I've seen another regression
+reported <http://bugs.debian.org/586967> after my locking changes, which
+I can't reproduce.
 
--- Steve
+Ben.
+
+ drivers/net/3c59x.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index c685a55..a045559 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -647,7 +647,7 @@ struct vortex_private {
+ 	u16 io_size;						/* Size of PCI region (for release_region) */
+ 
+ 	/* Serialises access to hardware other than MII and variables below.
+-	 * The lock hierarchy is rtnl_lock > lock > mii_lock > window_lock. */
++	 * The lock hierarchy is rtnl_lock > {lock, mii_lock} > window_lock. */
+ 	spinlock_t lock;
+ 
+ 	spinlock_t mii_lock;		/* Serialises access to MII */
+@@ -2984,7 +2984,6 @@ static int vortex_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	int err;
+ 	struct vortex_private *vp = netdev_priv(dev);
+-	unsigned long flags;
+ 	pci_power_t state = 0;
+ 
+ 	if(VORTEX_PCI(vp))
+@@ -2994,9 +2993,7 @@ static int vortex_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 
+ 	if(state != 0)
+ 		pci_set_power_state(VORTEX_PCI(vp), PCI_D0);
+-	spin_lock_irqsave(&vp->lock, flags);
+ 	err = generic_mii_ioctl(&vp->mii, if_mii(rq), cmd, NULL);
+-	spin_unlock_irqrestore(&vp->lock, flags);
+ 	if(state != 0)
+ 		pci_set_power_state(VORTEX_PCI(vp), state);
+ 
+-- 
+1.7.1
+
+
