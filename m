@@ -1,98 +1,48 @@
-From: Dan Kruchinin <dkruchinin@acm.org>
-Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
-Date: Wed, 1 Sep 2010 15:29:25 +0400
-Message-ID: <20100901152925.05374fd1@leibniz>
-References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com>
-	<20100831210101.3c059a91@leibniz>
-	<4C7D5EBD.103@gmail.com>
-	<AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com>
-	<20100831214808.GA32141@ms2.inr.ac.ru>
-	<20100831223402.GA7101@ms2.inr.ac.ru>
+From: Anders Franzen <Anders.Franzen@ericsson.com>
+Subject: [RFC]: not possible to do policy routing for next hop on tunnels.
+Date: Wed, 01 Sep 2010 14:21:25 +0200
+Message-ID: <1283343685.14066.24.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f66.google.com ([74.125.82.66]:33298 "EHLO
-	mail-ww0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752404Ab0IAL3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 07:29:32 -0400
-Received: by wwb31 with SMTP id 31so1986646wwb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 04:29:31 -0700 (PDT)
-In-Reply-To: <20100831223402.GA7101@ms2.inr.ac.ru>
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:48000 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752626Ab0IAMR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 08:17:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Alexey.
 
-On Wed, 1 Sep 2010 02:34:02 +0400
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+If I have multiple routing choices to reach a tunnel end point,
+I would like to mark different flows with iptables, after the
+postrouting of the primary route look up, this would put an fwmark on
+the skb. The route would in my case resolve to an ip6_tunnel.
 
-> Hello!
-> 
-> Hmm. Seems, you are right and I was wrong all these years.
-> Somehow, I did wrong calculation once and this rustied to the brains.
-> After some thinking the calulation is obviously wrong: no matter what,
-> in steady state tbf queue is processed with rate R. What a stupid mistake... :-)
-> 
-> Please, also think how to fix the second part of calculation which deals
-> with peak rate. IMHO (for now :-)) it does not even contribute to latency
-> and should be deleted.
+In the tunnel a secondary route lookup is done to select next hop for
+the tunnel end point.
 
-I absolutely agree about latency option. As I understood from http://www.docum.org/docum.org/docs/other/tbf02_kw.ps
-latency should affect only limit. It has not any sense in context of peakrate. So I think that limit calculation
-by latency _and_ peakrate should be removed from tc code because limit is clearly determined by latency and rate.
-So here is a patch that(I hope) fixes it(please correct me if I'm wrong):
+I would like to apply policy routing to the secondary lookup. 
 
-diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-index dc556fe..643c1e0 100644
---- a/tc/q_tbf.c
-+++ b/tc/q_tbf.c
-@@ -178,12 +178,10 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
-        }
+This will not work, for two reasons:
+
+1. None of the tunnels (ipip, gre, ip6_tunnel) I looked at regards the
+fwmark at the skb, when performing the route lookup.
+
+2. ip6_tunnel is keeping a local dst cache, so it will never reroute as
+long as the current cache is valid.
+
+
+I wonder if there is a reason for not giving the fwmark at the tunnel
+route for tunnels in general?
+
+And the local dst cache for ip6_tunnel, is it needed, is not the routing
+subsystem keeping some form of internal cache (ip route ls cache).
+
+Best Regards
+  /Anders
+
+
  
-        if (opt.limit == 0) {
--               double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC + buffer;
--               if (opt.peakrate.rate) {
--                       double lim2 = opt.peakrate.rate*(double)latency/TIME_UNITS_PER_SEC + mtu;
--                       if (lim2 < lim)
--                               lim = lim2;
--               }
-+               double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC;
-+               if (opt.peakrate.rate && (lim < mtu))
-+                       lim = mtu;
-+
-                opt.limit = lim;
-        }
- 
-@@ -263,12 +261,7 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
-        if (show_raw)
-                fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
- 
--       latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2time(qopt->buffer);
--       if (qopt->peakrate.rate) {
--               double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2time(qopt->mtu);
--               if (lat2 > latency)
--                       latency = lat2;
--       }
-+       latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate);
-        fprintf(f, "lat %s ", sprint_time(latency, b1));
- 
-        if (qopt->rate.overhead) {
 
-> 
-> To Jarek: about the scripts. I do not think something will be broken
-> by fixing this error. Eventually, if someone used "latency", he meant
-> something about real latency. And even if the value was generated
-> using the same wrong logic as tc did, using correct formula would just
-> increase limit setting.
-> 
-> Alexey
-
-
-
--- 
-W.B.R.
-Dan Kruchinin
