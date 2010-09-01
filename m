@@ -1,61 +1,47 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
- to reset
-Date: Wed, 01 Sep 2010 10:40:26 -0400
-Message-ID: <4C7E65DA.5020106@hp.com>
-References: <1282024802.2487.687.camel@edumazet-laptop> <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se> <1282050920.2448.47.camel@edumazet-laptop> <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se> <1282055659.2448.58.camel@edumazet-laptop> <alpine.DEB.1.10.1008171737260.21857@red.crap.retrofitta.se> <20100817171115.GA4134@mcarlson.broadcom.com> <alpine.DEB.1.10.1008171928160.21857@red.crap.retrofitta.se> <20100817183112.GA4351@mcarlson.broadcom.com> <alpine.DEB.1.10.1008172035520.21857@red.crap.retrofitta.se> <20100818012318.GA4630@mcarlson.broadcom.com> <alpine.DEB.1.10.1008180900350.21857@red.crap.retrofitta.se> <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: ERR_PTR pattern in phylib
+Date: Wed, 1 Sep 2010 08:42:49 -0600
+Message-ID: <AANLkTimjVZTNeLdm4qptU1MqREODLASdGGanUyxqxfub@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Thomas Habets <thomas@habets.pp.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Andy Fleming <afleming@freescale.com>,
+	netdev <netdev@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:59294 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755274Ab0IAOnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 10:43:11 -0400
+Received: by gwj17 with SMTP id 17so3022194gwj.19
+        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 07:43:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
+Hi Andy,
 
-On 09/01/2010 05:21 AM, Thomas Habets wrote:
-> 
-> I've continued this a bit off-list but thought I would summarize for the
-> archives.
-> 
-> 
-> Summary
-> -------
-> It looks like a firmware issue on the network card. When ILO is enabled
-> it shares the first network card with the OS. When it does this
-> multicast is broken. When multicast (on a L2 level) is broken IPv6
-> neighbor discovery breaks. Only eth0 breaks, eth1 is unaffected.
+I've been looking at the phylib code, and specifically at the use of
+the ERR_PTR() pattern.  I'm personally not a big fan of ERR_PTR()
+because the compiler cannot type check the result and it runs
+completely counter to the pattern "if (!ptr)" than is common for
+testing a pointer return value.
 
-So are you running with this set to "Shared Network Port" mode?  I'm
-guessing you are.
+(That being said, I do understand the need for it in certain parts of
+the kernel (like the filesystem code) where it is important to be both
+efficient because it is a hot path and still able to accurately return
+an error code that is used by userspace.)
 
-> System
-> ------
-> HP Proliant DL320 G5p
-> Xeon 3GHz
-> 1GB RAM
-> Arch: amd64
-> NIC: Broadcom Corporation NetXtreme BCM5715 Gigabit Ethernet (rev a3)
+It seems to me that phylib is one of the cases where the users (the
+network drivers) don't actually care about the specific error code
+when calling phylib functions.  The drivers only seem to care whether
+or not the function failed, and if it did then bail out.  I've also
+noticed that using the "if (!ptr)" test on phylib return values is a
+common error for driver writers.
 
-There was another report on netdev back in 11/2008 on this exact hardware,
-with the same problem.
+In the interest of making driver code easier to write and review,
+would you be opposed to a set of patches to remove the ERR_PTR()
+pattern from phylib and its users?
 
-> Problem
-> -------
-> Buggy box will not answer IPv6 ND or ping to ff02::1. May work at some
-> point in the boot process, but once box is fully booted it does not.
+g.
 
-I dug-up my notes on the problem, and from what I can tell, the receive
-multicast filters on the NIC were getting removed, causing both incoming
-IPv6 and IPv4 multicast packets to get dropped.  I'm not sure if there
-was ever a fix developed, or if we ever came to a conclusion on where the
-bug was - iLO, tg3, or some other area.
-
--Brian
+-- 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
