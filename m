@@ -1,55 +1,98 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: net-next-2.6 [PATCH 1/1] tcp: add missing initial window (RFC
-	3390) for tcp_output
-Date: Wed, 1 Sep 2010 12:28:35 +0200
-Message-ID: <20100901102835.GA5686@gerrit.erg.abdn.ac.uk>
-References: <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk> <alpine.DEB.2.00.1008301557590.31318@wel-95.cs.helsinki.fi> <20100901052355.GA5379@gerrit.erg.abdn.ac.uk> <20100901053443.GB5379@gerrit.erg.abdn.ac.uk> <428BF15F-19DC-459A-B54A-EC273ECF537E@comsys.rwth-aachen.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Wed, 01 Sep 2010 12:50:51 +0200
+Message-ID: <1283338251.2556.124.camel@edumazet-laptop>
+References: <4LwrqITm-eJ.A.r8G.eFueMB@chimera>
+	 <4AUWBNzTkbD.A.ey.cGueMB@chimera> <courier.4C7C99F2.00001F74@fs.ru.acad.bg>
+	 <20100831192659.GA3093@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>,
+	Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63122 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752155Ab0IAK2q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Sep 2010 06:28:46 -0400
-Content-Disposition: inline
-In-Reply-To: <428BF15F-19DC-459A-B54A-EC273ECF537E@comsys.rwth-aachen.de>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57391 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752155Ab0IAKvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 06:51:15 -0400
+In-Reply-To: <20100831192659.GA3093@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Addressing comments from Alexander, removing comment.
+Plamen, could you test following patch ?
 
->>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-tcp: update also tcp_output with regard to RFC 5681
+I reproduced problem on a dev machine and following patch cured it.
 
-Thanks to Ilpo Jarvinen, this updates also the initial window
-setting for tcp_output with regard to RFC 5681.
+Thanks
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+[PATCH] gro: fix different skb headrooms
+
+packets entering GRO might have different headrooms, even for a given
+flow (because of implementation details in drivers, like copybreak).
+We cant force drivers to deliver packets with a fixed headroom.
+
+1) fix skb_segment()
+
+skb_segment() makes the false assumption headrooms of fragments are same
+than the head. When CHECKSUM_PARTIAL is used, this can give csum_start
+errors, and crash later in skb_copy_and_csum_dev()
+
+2) allocate a minimal skb for head of frag_list
+
+skb_gro_receive() uses netdev_alloc_skb(headroom + skb_gro_offset(p)) to
+allocate a fresh skb. This adds NET_SKB_PAD to a padding already
+provided by netdevice, depending on various things, like copybreak.
+
+Use alloc_skb() to allocate an exact padding, to reduce cache line
+needs:
+NET_SKB_PAD + NET_IP_ALIGN
+
+bugzilla : https://bugzilla.kernel.org/show_bug.cgi?id=16626
+
+Many thanks to Plamen Petrov, testing many debugging patches !
+With help of Jarek Poplawski.
+
+Reported-by: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Jarek Poplawski <jarkao2@gmail.com>
 ---
- net/ipv4/tcp_output.c |   12 +++---------
- 1 file changed, 3 insertions(+), 9 deletions(-)
+patch against linux-2.6 current tree
 
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -224,16 +224,10 @@ void tcp_select_initial_window(int __spa
- 		}
- 	}
+ net/core/skbuff.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3a2513f..26396ff 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2573,6 +2573,10 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
+ 		__copy_skb_header(nskb, skb);
+ 		nskb->mac_len = skb->mac_len;
  
--	/* Set initial window to value enough for senders,
--	 * following RFC2414. Senders, not following this RFC,
--	 * will be satisfied with 2.
--	 */
-+	/* Set initial window to value enough for senders, following RFC5681. */
- 	if (mss > (1 << *rcv_wscale)) {
--		int init_cwnd = 4;
--		if (mss > 1460 * 3)
--			init_cwnd = 2;
--		else if (mss > 1460)
--			init_cwnd = 3;
-+		int init_cwnd = rfc3390_bytes_to_packets(mss);
++		/* nskb and skb might have different headroom */
++		if (nskb->ip_summed == CHECKSUM_PARTIAL)
++			nskb->csum_start += skb_headroom(nskb) - headroom;
 +
- 		/* when initializing use the value from init_rcv_wnd
- 		 * rather than the default from above
- 		 */
+ 		skb_reset_mac_header(nskb);
+ 		skb_set_network_header(nskb, skb->mac_len);
+ 		nskb->transport_header = (nskb->network_header +
+@@ -2702,8 +2706,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	} else if (skb_gro_len(p) != pinfo->gso_size)
+ 		return -E2BIG;
+ 
+-	headroom = skb_headroom(p);
+-	nskb = netdev_alloc_skb(p->dev, headroom + skb_gro_offset(p));
++	headroom = NET_SKB_PAD + NET_IP_ALIGN;
++	nskb = alloc_skb(headroom + skb_gro_offset(p), GFP_ATOMIC);
+ 	if (unlikely(!nskb))
+ 		return -ENOMEM;
+ 
+
+
