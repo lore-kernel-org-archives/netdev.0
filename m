@@ -1,65 +1,96 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [RFC] bonding: fix workqueue re-arming races
-Date: Wed, 1 Sep 2010 15:30:56 +0200
-Message-ID: <20100901133056.GB12447@midget.suse.cz>
-References: <20136.1283288063@death>
- <20100901122356.GB9468@ff.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC]: not possible to do policy routing for next hop on
+ tunnels.
+Date: Wed, 01 Sep 2010 15:37:48 +0200
+Message-ID: <1283348268.2556.326.camel@edumazet-laptop>
+References: <1283343685.14066.24.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
+	 <1283345350.2556.265.camel@edumazet-laptop>
+	 <1283347660.14066.27.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Jiri Bohac <jbohac@suse.cz>,
-	bonding-devel@lists.sourceforge.net, markine@google.com,
-	chavey@google.com, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Anders Franzen <Anders.Franzen@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48262 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753219Ab0IAN3V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Sep 2010 09:29:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20100901122356.GB9468@ff.dom.local>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37996 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752744Ab0IANhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 09:37:54 -0400
+Received: by wyb35 with SMTP id 35so9253678wyb.19
+        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 06:37:52 -0700 (PDT)
+In-Reply-To: <1283347660.14066.27.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 01, 2010 at 12:23:56PM +0000, Jarek Poplawski wrote:
-> On 2010-08-31 22:54, Jay Vosburgh wrote:
-> > 	What prevents this from deadlocking such that cpu A is in
-> > bond_close, holding RTNL and in cancel_delayed_work_sync, while cpu B is
-> > in the above function, trying to acquire RTNL?
-> 
-> I guess this one isn't cancelled in bond_close, so it should be safe.
+Le mercredi 01 septembre 2010 =C3=A0 15:27 +0200, Anders Franzen a =C3=A9=
+crit :
+>=20
+> Quick answer!
+>=20
+> It seems do exactly what I want.
+> Is there a corresponding 'fwmark inherit' parameter added to the ip
+> command somewhere?
+> Will this patch get it into the kernel?
+>=20
+> If you need testing I will do that.
 
-Nah, Jay was correct. Although this work item is not explicitly
-cancelled with cancel_delayed_work_sync(), it is on the same
-workqueue as work items that are being cancelled with
-cancel_delayed_work_sync(), so this can still cause a deadlock.
-Fixed in the new version of the patch by putting these on a
-separate workqueue.
+=46ollowing iproute2 patch (against current git) should be applied.
 
-> > 	Also, assuming for the moment that the above isn't a problem,
-> > curr_active_slave may be NULL if the last slave is removed between the
-> > time bond_alb_promisc_disable is scheduled and when it runs.  I'm not
-> > sure that the alb_bond_info can be guaranteed to be valid, either, if
-> > the mode changed.
-> 
-> Probably some or all of these work functions should test for closing
-> eg. with netif_running() or some other flag/variable under rtnl_lock().
-> 
-> ....
-> >> static void bond_work_cancel_all(struct bonding *bond)
-> >> {
-> >> -	write_lock_bh(&bond->lock);
-> >> -	bond->kill_timers = 1;
-> >> -	write_unlock_bh(&bond->lock);
-> >> -
-> >> 	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
-> 
-> I'd suggest to skip these delayed_work_pending() tests.
+I suggest we continue by private mails to polish patches ;)
 
-I agree, these should not be needed anymore, since bond_close()
-now makes sure the re-arming work is cancelled. I'll update the
-patch if Jay thinks it's otherwise good.
+Thanks
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+diff --git a/include/linux/ip6_tunnel.h b/include/linux/ip6_tunnel.h
+index acb9ad6..bf22b03 100644
+--- a/include/linux/ip6_tunnel.h
++++ b/include/linux/ip6_tunnel.h
+@@ -16,6 +16,8 @@
+ #define IP6_TNL_F_MIP6_DEV 0x8
+ /* copy DSCP from the outer packet */
+ #define IP6_TNL_F_RCV_DSCP_COPY 0x10
++/* copy fwmark from inner packet */
++#define IP6_TNL_F_USE_ORIG_FWMARK 0x20
+=20
+ struct ip6_tnl_parm {
+ 	char name[IFNAMSIZ];	/* name of tunnel device */
+diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
+index 203e4a3..2c406e3 100644
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -51,7 +51,7 @@ static void usage(void)
+ 	fprintf(stderr, "          [ remote ADDR local ADDR ] [ dev PHYS_DEV =
+]\n");
+ 	fprintf(stderr, "          [ encaplimit ELIM ]\n");
+ 	fprintf(stderr ,"          [ hoplimit TTL ] [ tclass TCLASS ] [ flowl=
+abel FLOWLABEL ]\n");
+-	fprintf(stderr, "          [ dscp inherit ]\n");
++	fprintf(stderr, "          [ dscp inherit ] [ fwmark inherit] \n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: NAME      :=3D STRING\n");
+ 	fprintf(stderr, "       ADDR      :=3D IPV6_ADDRESS\n");
+@@ -103,6 +103,10 @@ static void print_tunnel(struct ip6_tnl_parm *p)
+=20
+ 	if (p->flags & IP6_TNL_F_RCV_DSCP_COPY)
+ 		printf(" dscp inherit");
++
++	if (p->flags & IP6_TNL_F_USE_ORIG_FWMARK)
++		printf(" fwmark inherit");
++
+ }
+=20
+ static int parse_args(int argc, char **argv, struct ip6_tnl_parm *p)
+@@ -197,6 +201,11 @@ static int parse_args(int argc, char **argv, struc=
+t ip6_tnl_parm *p)
+ 			if (strcmp(*argv, "inherit") !=3D 0)
+ 				invarg("not inherit", *argv);
+ 			p->flags |=3D IP6_TNL_F_RCV_DSCP_COPY;
++		} else if (strcmp(*argv, "fwmark") =3D=3D 0) {
++			NEXT_ARG();
++			if (strcmp(*argv, "inherit") !=3D 0)
++				invarg("not inherit", *argv);
++			p->flags |=3D IP6_TNL_F_USE_ORIG_FWMARK;
+ 		} else {
+ 			if (strcmp(*argv, "name") =3D=3D 0) {
+ 				NEXT_ARG();
+
 
