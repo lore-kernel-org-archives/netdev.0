@@ -1,47 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] 3c59x: Remove incorrect locking; correct
- documented lock hierarchy
-Date: Wed, 01 Sep 2010 14:38:15 -0700 (PDT)
-Message-ID: <20100901.143815.215547115.davem@davemloft.net>
-References: <1283213733.7653.180.camel@localhost>
+Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
+ ip_fragment
+Date: Wed, 01 Sep 2010 14:46:58 -0700 (PDT)
+Message-ID: <20100901.144658.135972233.davem@davemloft.net>
+References: <1283204118.2405.32.camel@edumazet-laptop>
+	<20100830232147.GB10754@stratus.com>
+	<1283232031.2405.38.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51089
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752142Ab0IAVh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 17:37:58 -0400
-In-Reply-To: <1283213733.7653.180.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bandan.das@stratus.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1283232031.2405.38.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Tue, 31 Aug 2010 01:15:33 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 31 Aug 2010 07:20:31 +0200
 
-> vortex_ioctl() was grabbing vortex_private::lock around its call to
-> generic_mii_ioctl().  This is no longer necessary since there are more
-> specific locks which the mdio_{read,write}() functions will obtain.
-> Worse, those functions do not save and restore IRQ flags when locking
-> the MII state, so interrupts will be enabled when generic_mii_ioctl()
-> returns.
+> We could have a padding in front of struct br_input_skb_cb to make sure
+> we dont overwrite IP (4|6) CB in bridge ?
 > 
-> Since there is currently no need for any function to call
-> mdio_{read,write}() while holding another spinlock, do not change them
-> to save and restore IRQ flags but remove the specification of ordering
-> between vortex_private::lock and vortex_private::mii_lock.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> I've now borrowed a card to test 3c59x on.  I've seen another regression
-> reported <http://bugs.debian.org/586967> after my locking changes, which
-> I can't reproduce.
+> Something like this untested patch :
 
-I think the lock is necessary, in some form.
+This will not help Brandan's case.
 
-Nothing otherwise protects vp->mii, which is accessed and modified by
-not just this ioctl, but also ethtool operation calls.
+His packets are coming straight from TUN/TAP.  They did not live in
+the IP stack at all before hitting the bridge and then heading to
+ip_fragment().
 
-So we can't apply your patch as-is.
+Therefore I'm inclined to agree with Herbert that we need to parse the
+options explicitly before invoke ip_fragment().  We must call it with
+an SKB in the state it expects, and that means with options parsing
+already performed.
