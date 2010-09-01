@@ -1,541 +1,149 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [RFC] bonding: fix workqueue re-arming races
-Date: Wed, 1 Sep 2010 15:16:26 +0200
-Message-ID: <20100901131626.GA12447@midget.suse.cz>
-References: <20100831170752.GA9743@midget.suse.cz>
- <20136.1283288063@death>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
+ to reset
+Date: Wed, 01 Sep 2010 15:19:28 +0200
+Message-ID: <1283347168.2556.319.camel@edumazet-laptop>
+References: <1282024802.2487.687.camel@edumazet-laptop>
+	 <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se>
+	 <1282050920.2448.47.camel@edumazet-laptop>
+	 <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se>
+	 <1282055659.2448.58.camel@edumazet-laptop>
+	 <alpine.DEB.1.10.1008171737260.21857@red.crap.retrofitta.se>
+	 <20100817171115.GA4134@mcarlson.broadcom.com>
+	 <alpine.DEB.1.10.1008171928160.21857@red.crap.retrofitta.se>
+	 <20100817183112.GA4351@mcarlson.broadcom.com>
+	 <alpine.DEB.1.10.1008172035520.21857@red.crap.retrofitta.se>
+	 <20100818012318.GA4630@mcarlson.broadcom.com>
+	 <alpine.DEB.1.10.1008180900350.21857@red.crap.retrofitta.se>
+	 <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Bohac <jbohac@suse.cz>, bonding-devel@lists.sourceforge.net,
-	markine@google.com, jarkao2@gmail.com, chavey@google.com,
-	netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:47817 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753217Ab0IANOz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Sep 2010 09:14:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20136.1283288063@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Thomas Habets <thomas@habets.pp.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 31, 2010 at 01:54:23PM -0700, Jay Vosburgh wrote:
-> Jiri Bohac <jbohac@suse.cz> wrote:
-> >[note, this does not deal with bond_loadbalance_arp_mon(), where
-> >rtnl is now taken as well in net-next; I'll do this if you think
-> >the idea is good ]
-> 
-> 	I don't believe the loadbalance_arp_mon acquires RTNL in
-> net-next.  I recall discussing this with Andy not too long ago, but I
-> didn't think that change went in, and I don't see it in the tree.
+Le mercredi 01 septembre 2010 =C3=A0 11:21 +0200, Thomas Habets a =C3=A9=
+crit :
+> I've continued this a bit off-list but thought I would summarize for =
+the=20
+> archives.
+>=20
+>=20
+> Summary
+> -------
+> It looks like a firmware issue on the network card. When ILO is enabl=
+ed it=20
+> shares the first network card with the OS. When it does this multicas=
+t=20
+> is broken. When multicast (on a L2 level) is broken IPv6 neighbor=20
+> discovery breaks. Only eth0 breaks, eth1 is unaffected.
+>=20
+>=20
+> System
+> ------
+> HP Proliant DL320 G5p
+> Xeon 3GHz
+> 1GB RAM
+> Arch: amd64
+> NIC: Broadcom Corporation NetXtreme BCM5715 Gigabit Ethernet (rev a3)
+> Debian Lenny (5.0.5)
+> Kernels: 2.6.35 mainline, 2.6.33.6
+> Config: http://pastebin.com/raw.php?i=3DY6S8iKW7
+>=20
+>=20
+> Problem
+> -------
+> Buggy box will not answer IPv6 ND or ping to ff02::1. May work at som=
+e=20
+> point in the boot process, but once box is fully booted it does not.
+>=20
+> If I on the neighboring Cisco router run "clear ipv6 neighbors" (or i=
+t=20
+> times out) that router cannot re-acquire the neigborship with the bug=
+gy=20
+> box. Instant IPv6 breakage until I do one of:
+> * Turn on promisc mode long enough for IPv6 ND to do its thing
+> * ip ne del <address of neighbor> on the buggy host.
+>=20
+>=20
+> Workarounds
+> -----------
+> Either one of these will hide the problem:
+> * Set promisc mode on interface (ip link set promisc on eth0) forever
+> * Disable ILO
+> * Use eth1 instead of eth0.
+>=20
+>=20
+> Troubleshooting
+> ---------------
+> Got patch for kernel from Eric Dumazet (eric.dumazet@gmail.com) to ou=
+tput=20
+> what MAC addresses are being subscribed to, and some registers from t=
+he=20
+> card. Output is earlier in this thread, along with "ethtool -i eth0" =
+and=20
+> some other data.
+>=20
+> Managed to get diagnostic tool[1] booting from stick (no CD drive in=20
+> server), but did not set up memory (himem.sys etc..). Running b57udia=
+g=20
+> it therefore failed due to insufficient memory at test "Group D. Driv=
+er=20
+> Associated tests". Card is assumed to be OK anyway.
+>=20
+> Matt Carlson (mcarlson@broadcom.com) suspected firmware bug and asked=
+ me=20
+> to try disabling ASF and/or IPMI using the diagnostic tool, but runni=
+ng=20
+> "setasf -d" and "setipmi -d" inside "b57udiag -cmd" did not seem to s=
+tick=20
+> across reboot. It stuck properly before reboot (confirmed with setasf=
+ -q).=20
+> Also tried "b57udiag -u 0". Tried both C-A-D reboot and powercycling =
+(by=20
+> power cord).
+>=20
+> At boot Linux still said ASF[1] for eth0 and ASF[0] for eth1:
+> tg3 0000:03:04.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] TSOc=
+ap[1]
+> tg3 0000:03:04.1: eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOc=
+ap[1]
+> (this output never changed throughout the process)
+> ethtool -d eth1 | grep 0x047 did not change either.
+>=20
+> Then I disabled ILO and PXE in ILO bios and BIOS respectively. That f=
+ixed=20
+> it. eth0 now works with multicast.
+>=20
+> I don't use ILO on this server so in this case that fixes it for me, =
+but=20
+> the bug is still there.
+>=20
+> At this point Matt thinks I should file a bug report with HP. I will=20
+> attempt to do that.
+>=20
+> I have more detailed logs of what I did and when, and what the effect=
+ was.
+>=20
+>=20
+> Related
+> -------
+> May be the same issue as this:
+>    https://bugs.launchpad.net/ubuntu/+source/linux/+bug/263260
+> Which means it's the same with Ubuntu kernels 2.6.26.3, 2.6.26-5-gene=
+ric=20
+> and 2.6.27-2-generic, and mainline kernels 2.6.25, 2.6.26 and 2.6.27.
+>=20
+>=20
+> [1] http://www.broadcom.com/support/ethernet_nic/netxtreme_server.php
+>=20
 
-Of course, you are right, I misread the e-mail thread and did not look at
-the code.
 
-> >+void bond_alb_promisc_disable(struct work_struct *work)
-> >+{
-> >+	struct bonding *bond = container_of(work, struct bonding,
-> >+					    alb_promisc_disable_work);
-> >+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-> >+
-> >+	/*
-> >+	 * dev_set_promiscuity requires rtnl and
-> >+	 * nothing else.
-> >+	 */
-> >+	rtnl_lock();
-> >+	dev_set_promiscuity(bond->curr_active_slave->dev, -1);
-> >+	bond_info->primary_is_promisc = 0;
-> >+	bond_info->rlb_promisc_timeout_counter = 0;
-> >+	rtnl_unlock();
-> >+}
-> 
-> 	What prevents this from deadlocking such that cpu A is in
-> bond_close, holding RTNL and in cancel_delayed_work_sync, while cpu B is
-> in the above function, trying to acquire RTNL?
-
-The main idea of the patch is to move the code (the "commit"
-functions) that needs rtnl to another work item. Then
-cancel_delayed_work_sync() can be used to cancel the re-arming
-work. But you are absolutely right, there is still a deadlock,
-since I queue the "commit" work on the same workqueue. So when
-cancel_delayed_work_sync() waits for the re-arming work to
-finish, it can wait forever because a previously queued "commit"
-work is waiting for rtnl.
-
-The solution is to move the "commit" work items to a different
-workqueue. Fixed in the new version of the patch below
-(bond->wq_rtnl).
-
-> 	Also, assuming for the moment that the above isn't a problem,
-> curr_active_slave may be NULL if the last slave is removed between the
-> time bond_alb_promisc_disable is scheduled and when it runs.  I'm not
-> sure that the alb_bond_info can be guaranteed to be valid, either, if
-> the mode changed.
-
-Yes, there may be problems like these, but these are present
-already in the current code. Because bond->lock() is released
-before rtnl is taken. 
-
-Sure, it would be good to deal with these problems, but I don't
-think this patch introduces new races like these. They are
-already there ... (see below)
-
-> > void bond_alb_monitor(struct work_struct *work)
-> > {
-> > 	struct bonding *bond = container_of(work, struct bonding,
-> >@@ -1407,10 +1424,6 @@ void bond_alb_monitor(struct work_struct *work)
-> >
-> > 	read_lock(&bond->lock);
-> >
-> >-	if (bond->kill_timers) {
-> >-		goto out;
-> >-	}
-> >-
-> > 	if (bond->slave_cnt == 0) {
-> > 		bond_info->tx_rebalance_counter = 0;
-> > 		bond_info->lp_counter = 0;
-> >@@ -1462,25 +1475,11 @@ void bond_alb_monitor(struct work_struct *work)
-> > 	if (bond_info->rlb_enabled) {
-> > 		if (bond_info->primary_is_promisc &&
-> > 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
-> >-
-> >-			/*
-> >-			 * dev_set_promiscuity requires rtnl and
-> >-			 * nothing else.
-> >-			 */
-> >-			read_unlock(&bond->lock);
-
-... e.g. here; the current slave may change/disappear, the mode
-may change .... 
-
-> >-			rtnl_lock();
-> >-
-> >-			bond_info->rlb_promisc_timeout_counter = 0;
-> >-
-
-I fixed both issues in this new version of the patch.
-
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 822f586..8015e12 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2119,10 +2119,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 
- 	read_lock(&bond->lock);
- 
--	if (bond->kill_timers) {
--		goto out;
--	}
--
- 	//check if there are any slaves
- 	if (bond->slave_cnt == 0) {
- 		goto re_arm;
-@@ -2166,7 +2162,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 
- re_arm:
- 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
--out:
- 	read_unlock(&bond->lock);
- }
- 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index c746b33..e4fa3a5 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1397,6 +1397,35 @@ out:
- 	return NETDEV_TX_OK;
- }
- 
-+void bond_alb_promisc_disable(struct work_struct *work)
-+{
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    alb_promisc_disable_work);
-+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-+
-+	/*
-+	 * dev_set_promiscuity requires rtnl and
-+	 * nothing else.
-+	 */
-+	rtnl_lock();
-+	read_lock(&bond->lock);
-+	read_lock(&bond->curr_slave_lock);
-+
-+	if (!bond_is_lb(bond))
-+		goto out;
-+	if (!bond->curr_active_slave)
-+		goto out;
-+
-+	dev_set_promiscuity(bond->curr_active_slave->dev, -1);
-+	bond_info->primary_is_promisc = 0;
-+	bond_info->rlb_promisc_timeout_counter = 0;
-+
-+out:
-+	read_unlock(&bond->curr_slave_lock);
-+	read_unlock(&bond->lock);
-+	rtnl_unlock();
-+}
-+
- void bond_alb_monitor(struct work_struct *work)
- {
- 	struct bonding *bond = container_of(work, struct bonding,
-@@ -1407,10 +1436,6 @@ void bond_alb_monitor(struct work_struct *work)
- 
- 	read_lock(&bond->lock);
- 
--	if (bond->kill_timers) {
--		goto out;
--	}
--
- 	if (bond->slave_cnt == 0) {
- 		bond_info->tx_rebalance_counter = 0;
- 		bond_info->lp_counter = 0;
-@@ -1462,25 +1487,11 @@ void bond_alb_monitor(struct work_struct *work)
- 	if (bond_info->rlb_enabled) {
- 		if (bond_info->primary_is_promisc &&
- 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
--
--			/*
--			 * dev_set_promiscuity requires rtnl and
--			 * nothing else.
--			 */
--			read_unlock(&bond->lock);
--			rtnl_lock();
--
--			bond_info->rlb_promisc_timeout_counter = 0;
--
- 			/* If the primary was set to promiscuous mode
- 			 * because a slave was disabled then
- 			 * it can now leave promiscuous mode.
- 			 */
--			dev_set_promiscuity(bond->curr_active_slave->dev, -1);
--			bond_info->primary_is_promisc = 0;
--
--			rtnl_unlock();
--			read_lock(&bond->lock);
-+			queue_work(bond->wq_rtnl, &bond->alb_promisc_disable_work);
- 		}
- 
- 		if (bond_info->rlb_rebalance) {
-@@ -1505,7 +1516,6 @@ void bond_alb_monitor(struct work_struct *work)
- 
- re_arm:
- 	queue_delayed_work(bond->wq, &bond->alb_work, alb_delta_in_ticks);
--out:
- 	read_unlock(&bond->lock);
- }
- 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 2cc4cfc..aae2864 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2343,10 +2343,15 @@ static int bond_miimon_inspect(struct bonding *bond)
- 	return commit;
- }
- 
--static void bond_miimon_commit(struct bonding *bond)
-+static void bond_miimon_commit(struct work_struct *work)
- {
- 	struct slave *slave;
- 	int i;
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    miimon_commit_work);
-+
-+	rtnl_lock();
-+	read_lock(&bond->lock);
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		switch (slave->new_link) {
-@@ -2421,15 +2426,18 @@ static void bond_miimon_commit(struct bonding *bond)
- 		}
- 
- do_failover:
--		ASSERT_RTNL();
- 		write_lock_bh(&bond->curr_slave_lock);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
- 	}
- 
- 	bond_set_carrier(bond);
-+
-+	read_unlock(&bond->lock);
-+	rtnl_unlock();
- }
- 
-+
- /*
-  * bond_mii_monitor
-  *
-@@ -2438,14 +2446,13 @@ do_failover:
-  * an acquisition of appropriate locks followed by a commit phase to
-  * implement whatever link state changes are indicated.
-  */
-+
- void bond_mii_monitor(struct work_struct *work)
- {
- 	struct bonding *bond = container_of(work, struct bonding,
- 					    mii_work.work);
- 
- 	read_lock(&bond->lock);
--	if (bond->kill_timers)
--		goto out;
- 
- 	if (bond->slave_cnt == 0)
- 		goto re_arm;
-@@ -2462,23 +2469,14 @@ void bond_mii_monitor(struct work_struct *work)
- 		read_unlock(&bond->curr_slave_lock);
- 	}
- 
--	if (bond_miimon_inspect(bond)) {
--		read_unlock(&bond->lock);
--		rtnl_lock();
--		read_lock(&bond->lock);
-+	if (bond_miimon_inspect(bond))
-+		queue_work(bond->wq_rtnl, &bond->miimon_commit_work);
- 
--		bond_miimon_commit(bond);
--
--		read_unlock(&bond->lock);
--		rtnl_unlock();	/* might sleep, hold no other locks */
--		read_lock(&bond->lock);
--	}
- 
- re_arm:
- 	if (bond->params.miimon)
- 		queue_delayed_work(bond->wq, &bond->mii_work,
- 				   msecs_to_jiffies(bond->params.miimon));
--out:
- 	read_unlock(&bond->lock);
- }
- 
-@@ -2778,9 +2776,6 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 
- 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
- 
--	if (bond->kill_timers)
--		goto out;
--
- 	if (bond->slave_cnt == 0)
- 		goto re_arm;
- 
-@@ -2867,7 +2862,6 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- re_arm:
- 	if (bond->params.arp_interval)
- 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
--out:
- 	read_unlock(&bond->lock);
- }
- 
-@@ -2949,13 +2943,19 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
- /*
-  * Called to commit link state changes noted by inspection step of
-  * active-backup mode ARP monitor.
-- *
-- * Called with RTNL and bond->lock for read.
-  */
--static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
-+static void bond_ab_arp_commit(struct work_struct *work)
- {
- 	struct slave *slave;
- 	int i;
-+	int delta_in_ticks;
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    ab_arp_commit_work);
-+
-+	rtnl_lock();
-+	read_lock(&bond->lock);
-+
-+	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		switch (slave->new_link) {
-@@ -3014,6 +3014,9 @@ do_failover:
- 	}
- 
- 	bond_set_carrier(bond);
-+
-+	read_unlock(&bond->lock);
-+	rtnl_unlock();
- }
- 
- /*
-@@ -3093,9 +3096,6 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 
- 	read_lock(&bond->lock);
- 
--	if (bond->kill_timers)
--		goto out;
--
- 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
- 
- 	if (bond->slave_cnt == 0)
-@@ -3113,24 +3113,15 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 		read_unlock(&bond->curr_slave_lock);
- 	}
- 
--	if (bond_ab_arp_inspect(bond, delta_in_ticks)) {
--		read_unlock(&bond->lock);
--		rtnl_lock();
--		read_lock(&bond->lock);
-+	if (bond_ab_arp_inspect(bond, delta_in_ticks))
-+		queue_work(bond->wq_rtnl, &bond->ab_arp_commit_work);
- 
--		bond_ab_arp_commit(bond, delta_in_ticks);
--
--		read_unlock(&bond->lock);
--		rtnl_unlock();
--		read_lock(&bond->lock);
--	}
- 
- 	bond_ab_arp_probe(bond);
- 
- re_arm:
- 	if (bond->params.arp_interval)
- 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
--out:
- 	read_unlock(&bond->lock);
- }
- 
-@@ -3720,8 +3711,6 @@ static int bond_open(struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 
--	bond->kill_timers = 0;
--
- 	if (bond_is_lb(bond)) {
- 		/* bond_alb_initialize must be called before the timer
- 		 * is started.
-@@ -3781,26 +3770,23 @@ static int bond_close(struct net_device *bond_dev)
- 	bond->send_grat_arp = 0;
- 	bond->send_unsol_na = 0;
- 
--	/* signal timers not to re-arm */
--	bond->kill_timers = 1;
--
- 	write_unlock_bh(&bond->lock);
- 
- 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
--		cancel_delayed_work(&bond->mii_work);
-+		cancel_delayed_work_sync(&bond->mii_work);
- 	}
- 
- 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
--		cancel_delayed_work(&bond->arp_work);
-+		cancel_delayed_work_sync(&bond->arp_work);
- 	}
- 
- 	switch (bond->params.mode) {
- 	case BOND_MODE_8023AD:
--		cancel_delayed_work(&bond->ad_work);
-+		cancel_delayed_work_sync(&bond->ad_work);
- 		break;
- 	case BOND_MODE_TLB:
- 	case BOND_MODE_ALB:
--		cancel_delayed_work(&bond->alb_work);
-+		cancel_delayed_work_sync(&bond->alb_work);
- 		break;
- 	default:
- 		break;
-@@ -4601,6 +4587,8 @@ static void bond_destructor(struct net_device *bond_dev)
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	if (bond->wq)
- 		destroy_workqueue(bond->wq);
-+	if (bond->wq_rtnl)
-+		destroy_workqueue(bond->wq_rtnl);
- 	free_netdev(bond_dev);
- }
- 
-@@ -4660,23 +4648,19 @@ static void bond_setup(struct net_device *bond_dev)
- 
- static void bond_work_cancel_all(struct bonding *bond)
- {
--	write_lock_bh(&bond->lock);
--	bond->kill_timers = 1;
--	write_unlock_bh(&bond->lock);
--
- 	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
--		cancel_delayed_work(&bond->mii_work);
-+		cancel_delayed_work_sync(&bond->mii_work);
- 
- 	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
--		cancel_delayed_work(&bond->arp_work);
-+		cancel_delayed_work_sync(&bond->arp_work);
- 
- 	if (bond->params.mode == BOND_MODE_ALB &&
- 	    delayed_work_pending(&bond->alb_work))
--		cancel_delayed_work(&bond->alb_work);
-+		cancel_delayed_work_sync(&bond->alb_work);
- 
- 	if (bond->params.mode == BOND_MODE_8023AD &&
- 	    delayed_work_pending(&bond->ad_work))
--		cancel_delayed_work(&bond->ad_work);
-+		cancel_delayed_work_sync(&bond->ad_work);
- }
- 
- /*
-@@ -5083,6 +5067,12 @@ static int bond_init(struct net_device *bond_dev)
- 	bond->wq = create_singlethread_workqueue(bond_dev->name);
- 	if (!bond->wq)
- 		return -ENOMEM;
-+	bond->wq_rtnl = create_singlethread_workqueue(bond_dev->name);
-+	if (!bond->wq_rtnl) {
-+		destroy_workqueue(bond->wq);
-+		bond->wq = NULL;
-+		return -ENOMEM;
-+	}
- 
- 	bond_set_lockdep_class(bond_dev);
- 
-@@ -5094,6 +5084,9 @@ static int bond_init(struct net_device *bond_dev)
- 	bond_prepare_sysfs_group(bond);
- 
- 	__hw_addr_init(&bond->mc_list);
-+	INIT_WORK(&bond->miimon_commit_work, bond_miimon_commit);
-+	INIT_WORK(&bond->ab_arp_commit_work, bond_ab_arp_commit);
-+	INIT_WORK(&bond->alb_promisc_disable_work, bond_alb_promisc_disable);
- 	return 0;
- }
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index c6fdd85..43ba807 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -198,7 +198,6 @@ struct bonding {
- 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
- 	rwlock_t lock;
- 	rwlock_t curr_slave_lock;
--	s8       kill_timers;
- 	s8	 send_grat_arp;
- 	s8	 send_unsol_na;
- 	s8	 setup_by_slave;
-@@ -219,10 +218,14 @@ struct bonding {
- 	struct   vlan_group *vlgrp;
- 	struct   packet_type arp_mon_pt;
- 	struct   workqueue_struct *wq;
-+	struct   workqueue_struct *wq_rtnl;
- 	struct   delayed_work mii_work;
- 	struct   delayed_work arp_work;
- 	struct   delayed_work alb_work;
- 	struct   delayed_work ad_work;
-+	struct    work_struct miimon_commit_work;
-+	struct    work_struct ab_arp_commit_work;
-+	struct    work_struct alb_promisc_disable_work;
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 	struct   in6_addr master_ipv6;
- #endif
-@@ -348,6 +351,7 @@ void bond_select_active_slave(struct bonding *bond);
- void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
- void bond_register_arp(struct bonding *);
- void bond_unregister_arp(struct bonding *);
-+void bond_alb_promisc_disable(struct work_struct *work);
- 
- struct bond_net {
- 	struct net *		net;	/* Associated network namespace */
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
-
+Thanks a lot Thomas for this very detailed report !
