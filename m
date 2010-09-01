@@ -1,52 +1,65 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] bonding: fix workqueue re-arming races
-Date: Wed, 1 Sep 2010 22:06:07 +0200
-Message-ID: <20100901200607.GA3204@del.dom.local>
-References: <20136.1283288063@death>
- <20100901122356.GB9468@ff.dom.local>
- <20100901133056.GB12447@midget.suse.cz>
- <20100901151856.GB3091@del.dom.local>
- <20100901153730.GC3091@del.dom.local>
- <20100901190037.GA3030@del.dom.local>
- <20100901191106.GB25227@midget.suse.cz>
- <20100901192026.GA3151@del.dom.local>
- <10270.1283370390@death>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next-2.6] gro: drivers should feed GRO only
+ with TCP packets
+Date: Wed, 01 Sep 2010 13:10:18 -0700 (PDT)
+Message-ID: <20100901.131018.62350311.davem@davemloft.net>
+References: <1283360686.2556.381.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Bohac <jbohac@suse.cz>, bonding-devel@lists.sourceforge.net,
-	markine@google.com, chavey@google.com, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:50255 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755694Ab0IAUGP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 16:06:15 -0400
-Received: by wwb13 with SMTP id 13so242859wwb.1
-        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 13:06:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <10270.1283370390@death>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45560
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754002Ab0IAUKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 16:10:01 -0400
+In-Reply-To: <1283360686.2556.381.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 01, 2010 at 12:46:30PM -0700, Jay Vosburgh wrote:
-> Jarek Poplawski <jarkao2@gmail.com> wrote:
-> 
-> >On Wed, Sep 01, 2010 at 09:11:06PM +0200, Jiri Bohac wrote:
-> >> But these don't do rtnl_lock() inside the work item, do they?
-> >
-> >Exactly. Just like work items cancelled from bond_work_cancel_all()
-> >after your patch.
-> 
-> 	I see what Jarek is getting at here: the mii_commit, etc, work
-> items new to the patch aren't cancelled by bond_close, so bond_close (in
-> cancel_delayed_work_sync) shouldn't care if they're executing or not.
-> 
-> 	This still would leave the new work items (the "commit" ones
-> added in the patch) always free to run at some arbitrary time after
-> close, which makes me uneasy.  I don't think the extra "wq_rtnl" makes
-> any difference, though.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 01 Sep 2010 19:04:46 +0200
 
-Sure, but IIRC it wasn't encouraged. After all, many net drivers do it
-similarly and don't even need their separate workqueue.
+> Many network devices can tell if an incoming frame is a TCP one for a
+> small cost.
+> 
+> Instead of feeding GRO with all packets, we could filter packets on this
+> information ?
+> 
+> This should help machines handling a mixed UDP/TCP workload, keeping gro
+> overhead as small as possible.
+> 
+> patch against tg3 as an example...
+> 
+> Alternative would be to set a bit "is_tcp" on napi_struct to let this
+> choice being done in network stack, not by each driver. 
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Jarek P.
+I would rather have each and every driver unconditionally go through
+the GRO receive routines, than do things like this.  Especially since
+if we apply a patch like your's, the flood gates open and if IP
+fragmentation support is added to GRO we have to undo all of this
+stuff.
+
+So what I actually want to see is that we remove the distinction of
+GRO, and just have things like "net_receive_skb()".  It will have the
+same call signature as napi_gro_receive().
+
+Yes we'll still have things like the skge driver which currently need
+to have a-priori knowledge of how to complete a NAPI sequence for the
+sake of GRO, but we can at least rename the function it calls to
+remove the GRO'ness of it.
+
+Even non-NAPI drivers could use this, passing NULL for 'napi' and a GRO
+usable NAPI context can be placed somewhere else and used purely for
+the sake of GRO.  NULL would also mean "in hardware interrupt", and
+we can make this check cost absolutely nothing by doing something inline
+in net_receive_skb() like:
+
+	if (__builtin_constant_p(napi) && napi == NULL)
+		net_receive_skb_in_irq(skb, dev);
+
+or similar.
+
