@@ -1,43 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ERR_PTR pattern in phylib
-Date: Wed, 01 Sep 2010 12:03:49 -0700 (PDT)
-Message-ID: <20100901.120349.133893738.davem@davemloft.net>
-References: <AANLkTimjVZTNeLdm4qptU1MqREODLASdGGanUyxqxfub@mail.gmail.com>
-	<20100901.082729.135524471.davem@davemloft.net>
-	<AANLkTimkh6ytDmiCQY-gZLHpLzeux1RwMFyr=HyfcDaJ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: skb allocation size question
+Date: Wed, 01 Sep 2010 21:04:45 +0200
+Message-ID: <1283367885.2484.16.camel@edumazet-laptop>
+References: <201009011151.02639.awilliams@atheros.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
-To: grant.likely@secretlab.ca
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Aaron Williams <awilliams@atheros.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38609
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754306Ab0IATDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 15:03:32 -0400
-In-Reply-To: <AANLkTimkh6ytDmiCQY-gZLHpLzeux1RwMFyr=HyfcDaJ@mail.gmail.com>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:38229 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754306Ab0IATEu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 15:04:50 -0400
+Received: by ewy23 with SMTP id 23so4576911ewy.19
+        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 12:04:49 -0700 (PDT)
+In-Reply-To: <201009011151.02639.awilliams@atheros.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Wed, 1 Sep 2010 12:56:29 -0600
+Le mercredi 01 septembre 2010 =C3=A0 11:51 -0700, Aaron Williams a =C3=A9=
+crit :
+> Hi,
+>=20
+> I have been trying to track down an issue in one of our drivers with =
+SKB=20
+> allocation and in my research I came across something that seems a bi=
+t=20
+> strange. In __alloc_skb, a block for the data allocates size + sizeof=
+(struct=20
+> skb_shared_info) bytes, yet skb->truesize is set to size + sizeof(str=
+uct=20
+> sk_buff). Is there a reason for this discrepancy?
 
-> The error codes in phylib are almost arbitrary and don't really give
-> enough information about where the a failure lies.  dev_err() is more
-> useful for debugging.
+Hi Aaron
 
-If it's using bad error codes, that's only indicative of a bug in
-phylib.
+Not really. We also could add in truesize the sizeof(struct
+skb_shared_info).
 
-> How about this as a compromise:  I'll investigate all the users of
-> phylib and if I find even one situation where the specific return code
-> is actually important to a driver, then I'll back off.  phylib has
-> been around for 5 years now which should be enough time for that use
-> case to bubble to the surface.
+Including sizeof(struct sk_buff) is enough to prevent a malicious user
+filling kernel memory with skb of one byte of payload.
 
-Sorry, I'm not agreeable to this.
+Problem is, adding this extra overhead could slowdown some applications=
+,
+using too small RCVBUF / SNDBUF settings.
 
-If there are bugs where drivers are not checking the return
-pointers correctly, please just fix those bugs.  Otherwise
-I see things fine as they are.
+
+
