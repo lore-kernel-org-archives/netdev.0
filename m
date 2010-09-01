@@ -1,96 +1,47 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-2.6] 3c59x: Remove incorrect locking; correct
- documented lock hierarchy
-Date: Wed, 01 Sep 2010 23:08:27 +0100
-Message-ID: <1283378907.5323.287.camel@localhost>
-References: <1283213733.7653.180.camel@localhost>
-	 <20100901.143815.215547115.davem@davemloft.net>
-	 <1283377631.5323.285.camel@localhost>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: How can OOM killer detect process consuming much kernel
+ memory?
+Date: Wed, 1 Sep 2010 15:25:14 -0700 (PDT)
+Message-ID: <alpine.DEB.2.00.1009011519070.29305@chino.kir.corp.google.com>
+References: <201008212101.IJG87048.QMOHFtSOVOLFFJ@I-love.SAKURA.ne.jp> <AANLkTi=oWoHUmm_3xkRY7UzoXTuptKvUHzn0gK2WDiSa@mail.gmail.com> <201008302227.DJH30258.OQFMFtFJOOVSHL@I-love.SAKURA.ne.jp> <201009020633.DHJ01355.OQFMLtHSVOOJFF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-RBDBEt+9ylwVu0XHyxD1"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36951 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752517Ab0IAWJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 18:09:02 -0400
-In-Reply-To: <1283377631.5323.285.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kosaki.motohiro@jp.fujitsu.com, spender@grsecurity.net,
+	eric.dumazet@gmail.com
+To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201009020633.DHJ01355.OQFMLtHSVOOJFF@I-love.SAKURA.ne.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 2 Sep 2010, Tetsuo Handa wrote:
 
---=-RBDBEt+9ylwVu0XHyxD1
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Is it possible to make OOM killer to kill processes consuming kernel memory
+> rather than userspace memory?
+> 
+> I'm happy if OOM killer can select victim process based on both kernel memory
+> usage and userspace memory usage. For example, opening a file requires kernel
+> memory allocation (e.g. /sys/kernel/security/tomoyo/self_domain allocates 8KB
+> of kernel memory). Therefore, I refuse allowing everybody to open that file
+> even if the content is public (because an attacker would open
+> /sys/kernel/security/tomoyo/self_domain as many as possible using
+> fork() and open() in order to exhaust kernel memory).
 
-On Wed, 2010-09-01 at 22:47 +0100, Ben Hutchings wrote:
-> On Wed, 2010-09-01 at 14:38 -0700, David Miller wrote:
-> > From: Ben Hutchings <ben@decadent.org.uk>
-> > Date: Tue, 31 Aug 2010 01:15:33 +0100
-> >=20
-> > > vortex_ioctl() was grabbing vortex_private::lock around its call to
-> > > generic_mii_ioctl().  This is no longer necessary since there are mor=
-e
-> > > specific locks which the mdio_{read,write}() functions will obtain.
-> > > Worse, those functions do not save and restore IRQ flags when locking
-> > > the MII state, so interrupts will be enabled when generic_mii_ioctl()
-> > > returns.
-> > >=20
-> > > Since there is currently no need for any function to call
-> > > mdio_{read,write}() while holding another spinlock, do not change the=
-m
-> > > to save and restore IRQ flags but remove the specification of orderin=
-g
-> > > between vortex_private::lock and vortex_private::mii_lock.
-> > >=20
-> > > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> > > ---
-> > > I've now borrowed a card to test 3c59x on.  I've seen another regress=
-ion
-> > > reported <http://bugs.debian.org/586967> after my locking changes, wh=
-ich
-> > > I can't reproduce.
-> >=20
-> > I think the lock is necessary, in some form.
-> >=20
-> > Nothing otherwise protects vp->mii, which is accessed and modified by
-> > not just this ioctl, but also ethtool operation calls.
-> >=20
-> > So we can't apply your patch as-is.
->=20
-> Hmm, yes, I forgot that mii caches information in struct mii_if_info.
-> Let me rethink this.
+The oom killer has been rewritten for 2.6.36, so it'd probably help to 
+frame it in the context of its new behavior, which you can try out in 
+2.6.36-rc3.
 
-I think this is safe after all because ethtool and MII ioctls are all
-serialised by the RTNL.
+The case you're describing would be difficult to kill with the oom killer 
+because each fork() and exec() would be considered as seperate users of 
+memory, so an aggregate of kernel memory amongst these threads wouldn't be 
+considered.
 
-Ben.
+The oom killer isn't really concerned whether the memory was allocated in 
+userspace or kernelspace, the only thing that matters is that it's used 
+and is unreclaimable (and non-migratable).
 
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-RBDBEt+9ylwVu0XHyxD1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUATH7O1ue/yOyVhhEJAQK3/hAAosYXA3t4DgrWlX+VAY5o3vuOTdC3aPeO
-tjz6cu9ySeDrRqSInr79ABp8aoOVplmuRkvGZmobtl1Z4B6jS+m4GBojysxMF84P
-1i6cpnWo9AdUFmAB+9H0xhwd3O6T3Vho2fitzyqJR3NE9bFJQynonrSnQGKjhU8K
-7Utt9kwqKncg8pi2XTQmCV+t1ZWDZ1tfQqB34qhKL51V0Hea2EiGwMb4X21NdviP
-+35HbOJuS9WpcU+Jep06MgQwC4z0/Plb2R+lsWPm3RPTobCX6UOwhb9diSyRKjEo
-WQAVM+wE+tFPIiyi2Uk8RvA71irZLPuB7055RWbrflHiOxtxKVM2OjY4DAGEUZc3
-GlmytTmugi5uE+SYGHGCKR0a69hnyPL0iHTdDpD3ILV5Gv/8kHdZaGe/iQSuaU/C
-MHWJ0zTJy/8v5a7qKt7yRbcj1ijwOxq+hdh9bnDAJXeO0u2ttH0YfxkdxGZchBfX
-Eko/O3I7hedPgjilMvW7fDzTH1E4ax14GgkW+7Jmmws4zkHitJOffsi1NxyTuc2U
-+ap73edZvCReKsc/zEFqu/jPvyr0UeavKdVsvx0/iwG8FxHx2gjpLYZ+6mUTyS7/
-WPiZfq+XSc4QVGU3/f/yl8ZfPcDTMCVZY/xdWWL36nYam4maa0OzfGqtjbXl+UFK
-aPoVP27yGQY=
-=vcdQ
------END PGP SIGNATURE-----
-
---=-RBDBEt+9ylwVu0XHyxD1--
+The memory controller accounts for user memory, so it's probably not a 
+sufficient alternative either in this case.  Is it not possible for the 
+kernel to intelligently limit the amount of memory that it can allocate 
+through an interface at any given time?
