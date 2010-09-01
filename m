@@ -1,92 +1,103 @@
 From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
-Subject: Re: net-next-2.6 [PATCH 1/1] tcp: add missing initial window (RFC
-	3390) for tcp_output
-Date: Wed, 01 Sep 2010 09:06:10 +0200
-Message-ID: <428BF15F-19DC-459A-B54A-EC273ECF537E@comsys.rwth-aachen.de>
+Subject: Re: [PATCH 3/5] tcp/dccp: Consolidate common code for RFC 3390
+	conversion
+Date: Wed, 01 Sep 2010 09:05:23 +0200
+Message-ID: <3679BD73-A7A2-415F-A508-AD12F3AFF0AD@comsys.rwth-aachen.de>
 References: <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
  <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
  <alpine.DEB.2.00.1008301557590.31318@wel-95.cs.helsinki.fi>
  <20100901052355.GA5379@gerrit.erg.abdn.ac.uk>
- <20100901053443.GB5379@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg=pgp-sha1; boundary=Apple-Mail-8-74892337
+ micalg=pgp-sha1; boundary=Apple-Mail-7-74845882
 Content-Transfer-Encoding: 7bit
 Cc: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
+	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
 	Netdev <netdev@vger.kernel.org>
 To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:60999 "EHLO
-	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752767Ab0IAHGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 03:06:07 -0400
-Received: from ironport-out-2.rz.rwth-aachen.de ([134.130.5.41])
- by mta-2.ms.rz.RWTH-Aachen.de
- (Sun Java(tm) System Messaging Server 6.3-7.04 (built Sep 26 2008))
- with ESMTP id <0L82000943Q5KB30@mta-2.ms.rz.RWTH-Aachen.de> for
- netdev@vger.kernel.org; Wed, 01 Sep 2010 09:06:05 +0200 (CEST)
-Received: from [137.226.12.62] ([unknown] [137.226.12.62])
- by relay-auth-2.ms.rz.rwth-aachen.de
- (Sun Java(tm) System Messaging Server 7.0-3.01 64bit (built Dec  9 2008))
- with ESMTPA id <0L820073H3OVOV60@relay-auth-2.ms.rz.rwth-aachen.de> for
- netdev@vger.kernel.org; Wed, 01 Sep 2010 09:06:05 +0200 (CEST)
-In-reply-to: <20100901053443.GB5379@gerrit.erg.abdn.ac.uk>
+Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:57751 "EHLO
+	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751383Ab0IAHFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 03:05:21 -0400
+In-reply-to: <20100901052355.GA5379@gerrit.erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---Apple-Mail-8-74892337
-Content-Transfer-Encoding: 7bit
+--Apple-Mail-7-74845882
+Content-Transfer-Encoding: quoted-printable
 Content-Type: text/plain; charset=us-ascii
 
 Hi Gerrit,
 
-Am 01.09.2010 um 07:34 schrieb Gerrit Renker:
+Am 01.09.2010 um 07:23 schrieb Gerrit Renker:
 
-> Please can you have a look, I have checked it, appears to be correct
-> and compiles cleanly. Thanks again to Ilpo.
-> 
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-> tcp: update also tcp_output with regard to RFC 5681
-> 
-> Thanks to Ilpo Jarvinen, his updates also the initial window
-> setting for tcp_output with regard to RFC 5681.
-> 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> ---
-> net/ipv4/tcp_output.c |   10 +++-------
-> 1 file changed, 3 insertions(+), 7 deletions(-)
-> 
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -225,15 +225,11 @@ void tcp_select_initial_window(int __spa
-> 	}
-> 
-> 	/* Set initial window to value enough for senders,
-> -	 * following RFC2414. Senders, not following this RFC,
-> -	 * will be satisfied with 2.
-> +	 * following RFC5681 (which updates RFC3390).
+> | > This patch consolidates initial-window code common to TCP and =
+CCID-2:
+> | >  * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
+> | >  * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
+> ...
+> | > +static inline u32 rfc3390_bytes_to_packets(const u32 smss)
+> | > +{
+> | > +	return smss <=3D 1095 ? 4 : (smss > 1460 ? 2 : 3);
+> | > +}
+> | > +
+> ...
+> |=20
+> | What is spelled out in tcp_select_initial_window might also need to =
+follow=20
+> | the same logic?
+> |=20
+> Thank you for paying attention, can you please have a look at the =
+subsequent
+> patch. I went through this yesterday and found that in 4 different =
+places=20
+> there are 4 different interpretations of what RFC 3390 means.
+>=20
+> Having asked someone more familiar with IETF issues, it seems that the =
+RFC 5681
+> interpretation of RFC 3390 is now the 'official' one.
+>=20
+> =
++------------+--------------------+--------------------+------------------=
+--+--------------------+
+> | Condition  |     RFC 2414       |        Linux       |       Linux   =
+     |     RFC 5681       |
+> |            |     RFC 3390       |      tcp_input     |     =
+tcp_output     |                    |
+> =
++------------+--------------------+--------------------+------------------=
+--+--------------------+
+> | 2 segments | 2190 < MSS         | 1460 < MSS         | 4380 < MSS    =
+     | 2190 < MSS         |
+> | 3 segments | 1095 < MSS <=3D 1460 | 1095 < MSS <=3D 1460 | 1460 < =
+MSS <=3D 4380 | 1095 < MSS <=3D 2190 |
 
-In IETF sense, RFC5681 doesn't update RFC3390.
+                              ^^^^^
+
+Are you sure about this?
+
+RFC3390 says (page 2):
+ If (1095 bytes < MSS < 2190 bytes) then win <=3D 4380;
+
+So, IMO it should be 1095 < MSS < 2190 for 3 segments, and 2190 <=3D MSS =
+for 2 segments
+in the "RFC 3390" column.
+
+BTW: I think that we should not reference RFC2414, since RFC3390 =
+obsoletes it.
 
 Alex
 
 
-> 	 */
-> 	if (mss > (1 << *rcv_wscale)) {
-> -		int init_cwnd = 4;
-> -		if (mss > 1460 * 3)
-> -			init_cwnd = 2;
-> -		else if (mss > 1460)
-> -			init_cwnd = 3;
-> +		int init_cwnd = rfc3390_bytes_to_packets(mss);
-> +
-> 		/* when initializing use the value from init_rcv_wnd
-> 		 * rather than the default from above
-> 		 */
+> | 4 segments |        MSS <=3D 1095 |        MSS <=3D 1095 |        =
+MSS <=3D 1460 |        MSS <=3D 1095 |
+> =
++------------+--------------------+--------------------+------------------=
+--+--------------------+
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
@@ -103,7 +114,7 @@ Alex
 //
 
 
---Apple-Mail-8-74892337
+--Apple-Mail-7-74845882
 content-type: application/pgp-signature; x-mac-type=70674453;
 	name=PGP.sig
 content-description: Signierter Teil der Nachricht
@@ -113,9 +124,9 @@ content-transfer-encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (Darwin)
 
-iEYEARECAAYFAkx9+2IACgkQdyiq39b9uS5bTACgqb4fmIpVG7iQUL/Ea9OxyRQA
-rtYAoNJU4F8h75cyM0ze6ovwoxHfa6bW
-=m3Uk
+iEYEARECAAYFAkx9+zMACgkQdyiq39b9uS7bYwCfZLh3gBw368knZDBdh/Z0Rt4+
+9MoAnRJ/AYomX17hDynl5lCng2O8N7GE
+=FRfy
 -----END PGP SIGNATURE-----
 
---Apple-Mail-8-74892337--
+--Apple-Mail-7-74845882--
