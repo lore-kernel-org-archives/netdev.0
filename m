@@ -1,146 +1,132 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: via-velocity dma-debug warnings again. (2.6.35.2)
-Date: Wed, 01 Sep 2010 13:37:33 -0700 (PDT)
-Message-ID: <20100901.133733.223467599.davem@davemloft.net>
-References: <20100901200555.GA30689@redhat.com>
-	<20100901.133414.24593005.davem@davemloft.net>
-	<20100901.133547.236248297.davem@davemloft.net>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [RFC] bonding: fix workqueue re-arming races
+Date: Wed, 1 Sep 2010 22:56:57 +0200
+Message-ID: <20100901205656.GA14982@smudla-wifi.bakulak.kosire.czf>
+References: <20100831170752.GA9743@midget.suse.cz>
+ <20136.1283288063@death>
+ <20100901131626.GA12447@midget.suse.cz>
+ <24764.1283361274@death>
+ <20100901183113.GA25227@midget.suse.cz>
+ <12656.1283371238@death>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: simon.kagstrom@netinsight.net, netdev@vger.kernel.org
-To: davej@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Bohac <jbohac@suse.cz>, bonding-devel@lists.sourceforge.net,
+	markine@google.com, jarkao2@gmail.com, chavey@google.com,
+	netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36968
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751564Ab0IAUhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 16:37:16 -0400
-In-Reply-To: <20100901.133547.236248297.davem@davemloft.net>
+Received: from cantor.suse.de ([195.135.220.2]:50785 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751762Ab0IAUzk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Sep 2010 16:55:40 -0400
+Content-Disposition: inline
+In-Reply-To: <12656.1283371238@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 01 Sep 2010 13:35:47 -0700 (PDT)
-
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 01 Sep 2010 13:34:14 -0700 (PDT)
+On Wed, Sep 01, 2010 at 01:00:38PM -0700, Jay Vosburgh wrote:
+> Jiri Bohac <jbohac@suse.cz> wrote:
+> >I don't think this patch opens new races. The current race
+> >scenario is:
+> >
+> >1) schedule_delayed_work(foo)
+> >2) foo's timer expires and foo is queued on bond->wq
+> >  (possibly, foo starts to run and either gets preempted or
+> >  sleeps on rtnl)
+> >3) bond_close() sets kill_timers=1 and calls
+> >  cancel_delayed_work() which accomplishes nothing
+> >4) bond_open() sets kill_timers=0
+> >5) bond_open() calls schedule_delayed_work(bar)
+> >6) foo may run the "commit" work that should not be run
+> >7) foo re-arms
+> >8) if (foo == bar) -> BUG	/* bond->mode did not change */
+> >
+> >With this patch, it is:
+> >
+> >1) schedule_delayed_work(foo)
+> >2) foo's timer expires and foo is queued on bond->wq
+> >3) foo may have queued foo_commit on bond->wq_rtnl
+> >4) bond_close() cancels foo
+> >5) bond_open()
+> >6) foo_commit may run and it should not be run
+> >
+> >The patch avoids the problem of 7) and 8)
 > 
->> Ugh, while writing this I spotted another bug.  It can't do this
->> ETH_ZLEN thing, it has to use skb_padto().  Otherwise it's just
->> transmitting arbitrary kernel memory at the end of the SKB
->> buffer onto the network which is a big no-no.  I'll fix that
->> with another patch.
+> 	But the "with patch" #6 is a bigger window; it doesn't require
+> step 5; the foo_commit, et al, can always run after bond_close (because
+> nothing ever cancels the foo_commit except for unregistration).  That's
+> the part that makes me nervous.
+
+We can always call cancel_work(foo_commit) in bond_close. This
+should make the race window the same size it is now.
+I didn't do that because I was thinking we'd avoid the race
+somehow completely. Perhaps we can do cancel_work() now and solve
+it cleanly later.
+
+> 	The current race, as I understand it, requires a "close then
+> open" sequence with little delay between the two.
+
+Yeah, not sure how small the delay has to be. With releasing
+bond->lock, acquiring rtnl and re-acquiring bond->lock in most of
+the work items it may be pretty long. Putting an extra check for
+kill_timers after bond->lock is re-acquired will make the window
+much smaller ...  just in case this is the way we want to "fix"
+race conditions ;-)
+
+> >I think the race in 6) remains the same. It is now easier to fix.
+> >This could even be done with a flag (similar to kill_timers),
+> >which would be set each time the "commit" work is queued on wq_rtnl and
+> >cleared by bond_close(). This should avoid the races completely,
+> >I think. The trick is that, unlike kill_timers, bond_open() would
+> >not touch this flag.
 > 
-> Actually, these ETH_ZLEN things in the length calculation can
-> just be deleted. It does in fact use skb_padto() properly earlier
-> in the xmit function.
+> 	I'm chewing on whether or not it's feasible to introduce some
+> kind of generation count into bond_open/close, so that, e.g., at
+> bond_close, the generation is incremented.  Each time any of the work
+> items is queued, the current generation is stashed somewhere private to
+> that work item (in struct bonding, probably).  Then, when it runs, it
+> compares the current generation to the stored one.  If they don't match,
+> then the work item does nothing.
 
-New patch:
+I thought about the generation count as well before I did this
+patch. I don't think you can put the counter in struct bonding --
+because that would be overwritten with the new value if the work
+item is re-scheduled by bond_open.
 
-via-velocity: Fix TX buffer unmapping.
+I think you would have to create a new dynamic structure on each
+work schedule and pass it to the work item in the "data" pointer.
+The structure would contain the counter and the bond pointer. It
+would be freed by thework item. I did not like this too much.
 
-Fix several bugs in TX buffer DMA unmapping:
+> >[BTW, this is https://bugzilla.novell.com/show_bug.cgi?id=602969
+> >,Novell BZ account needeed]
+> 
+> 	My BZ account is unworthy to access that bug; can you provide
+> any information as to how they're hitting the problem?  Presumably
+> they're doing something that's doing a fast down/up cycle on the bond,
+> but anything else?
 
-1) Use pci_unmap_page() as appropriate.
+They are doing "rcnetwork restart", which will do the
+close->open. Perhaps all the contention on the rtnl (lots of work
+with other network interfaces) makes the race window longer. I
+couldn't reproduce this.
 
-2) Don't try to fetch the length from the DMA descriptor,
-   the chip and modify that value.  Use the correct lengths,
-   calculated the same way as is done at map time.
+> 	I'm wondering if there's any utility in the "generation count"
+> idea I mention above.  It's still a sentinel, but if that can be worked
+> out to reliably stop the work items after close, then maybe it's the
+> least bad option.
 
-3) Kill meaningless NULL checks (against embedded sized
-   arrays which can never be NULL, and against the address
-   of the non-zero indexed entry of an array).
+Not without the dynamic allocation, I think.
+How about the "kill_timers" on top of this patch (see my
+previous e-mail) -- a flag that would be set when queuing the
+"commit" work and cleared by bond_close()?
 
-4) max() on ETH_ZLEN is not necessary and just adds
-   confusion, since the xmit function does a proper
-   skb_padto() very early on.
+While this can not stop the re-arming race it is trying to stop
+now, it should be able to stop the "commit" work items (where it
+does not matter if you try to queue them on the workqueue for a
+second time, since it is not a delayed work).
 
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index fd69095..4167e1f 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -1705,28 +1705,21 @@ err_free_dma_rings_0:
-  *	recycle it, if not then unmap the buffer.
-  */
- static void velocity_free_tx_buf(struct velocity_info *vptr,
--		struct velocity_td_info *tdinfo, struct tx_desc *td)
-+		struct velocity_td_info *tdinfo)
- {
- 	struct sk_buff *skb = tdinfo->skb;
-+	int i;
- 
--	/*
--	 *	Don't unmap the pre-allocated tx_bufs
--	 */
--	if (tdinfo->skb_dma) {
--		int i;
--
--		for (i = 0; i < tdinfo->nskb_dma; i++) {
--			size_t pktlen = max_t(size_t, skb->len, ETH_ZLEN);
-+	pci_unmap_single(vptr->pdev, tdinfo->skb_dma[0],
-+			 skb_headlen(skb), PCI_DMA_TODEVICE);
- 
--			/* For scatter-gather */
--			if (skb_shinfo(skb)->nr_frags > 0)
--				pktlen = max_t(size_t, pktlen,
--						td->td_buf[i].size & ~TD_QUEUE);
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
--			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i],
--					le16_to_cpu(pktlen), PCI_DMA_TODEVICE);
--		}
-+		pci_unmap_page(vptr->pdev, tdinfo->skb_dma[i + 1],
-+			       frag->size, PCI_DMA_TODEVICE);
- 	}
-+
- 	dev_kfree_skb_irq(skb);
- 	tdinfo->skb = NULL;
- }
-@@ -1739,22 +1732,8 @@ static void velocity_free_td_ring_entry(struct velocity_info *vptr,
- 							 int q, int n)
- {
- 	struct velocity_td_info *td_info = &(vptr->tx.infos[q][n]);
--	int i;
--
--	if (td_info == NULL)
--		return;
- 
--	if (td_info->skb) {
--		for (i = 0; i < td_info->nskb_dma; i++) {
--			if (td_info->skb_dma[i]) {
--				pci_unmap_single(vptr->pdev, td_info->skb_dma[i],
--					td_info->skb->len, PCI_DMA_TODEVICE);
--				td_info->skb_dma[i] = 0;
--			}
--		}
--		dev_kfree_skb(td_info->skb);
--		td_info->skb = NULL;
--	}
-+	velocity_free_tx_buf(vptr, td_info);
- }
- 
- /**
-@@ -1925,7 +1904,7 @@ static int velocity_tx_srv(struct velocity_info *vptr)
- 				stats->tx_packets++;
- 				stats->tx_bytes += tdinfo->skb->len;
- 			}
--			velocity_free_tx_buf(vptr, tdinfo, td);
-+			velocity_free_tx_buf(vptr, tdinfo);
- 			vptr->tx.used[qnum]--;
- 		}
- 		vptr->tx.tail[qnum] = idx;
-@@ -2534,9 +2513,7 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 		return NETDEV_TX_OK;
- 	}
- 
--	pktlen = skb_shinfo(skb)->nr_frags == 0 ?
--			max_t(unsigned int, skb->len, ETH_ZLEN) :
--				skb_headlen(skb);
-+	pktlen = skb_headlen(skb);
- 
- 	spin_lock_irqsave(&vptr->lock, flags);
- 
