@@ -1,103 +1,98 @@
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
-Date: Wed, 1 Sep 2010 11:20:26 +0000
-Message-ID: <20100901112026.GA9468@ff.dom.local>
-References: <4LwrqITm-eJ.A.r8G.eFueMB@chimera> <4AUWBNzTkbD.A.ey.cGueMB@chimera> <courier.4C7C99F2.00001F74@fs.ru.acad.bg> <20100831192659.GA3093@del.dom.local> <1283338251.2556.124.camel@edumazet-laptop>
+From: Dan Kruchinin <dkruchinin@acm.org>
+Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
+Date: Wed, 1 Sep 2010 15:29:25 +0400
+Message-ID: <20100901152925.05374fd1@leibniz>
+References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com>
+	<20100831210101.3c059a91@leibniz>
+	<4C7D5EBD.103@gmail.com>
+	<AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com>
+	<20100831214808.GA32141@ms2.inr.ac.ru>
+	<20100831223402.GA7101@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1283338251.2556.124.camel@edumazet-laptop>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@gmail.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f66.google.com ([74.125.82.66]:33298 "EHLO
+	mail-ww0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752404Ab0IAL3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 07:29:32 -0400
+Received: by wwb31 with SMTP id 31so1986646wwb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 04:29:31 -0700 (PDT)
+In-Reply-To: <20100831223402.GA7101@ms2.inr.ac.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 01, 2010 at 12:50:51PM +0200, Eric Dumazet wrote:
-> Plamen, could you test following patch ?
-> 
-> I reproduced problem on a dev machine and following patch cured it.
-> 
-> Thanks
-> 
-> [PATCH] gro: fix different skb headrooms
-> 
-> packets entering GRO might have different headrooms, even for a given
-> flow (because of implementation details in drivers, like copybreak).
-> We cant force drivers to deliver packets with a fixed headroom.
-> 
-> 1) fix skb_segment()
-> 
-> skb_segment() makes the false assumption headrooms of fragments are same
-> than the head. When CHECKSUM_PARTIAL is used, this can give csum_start
-> errors, and crash later in skb_copy_and_csum_dev()
+Hello, Alexey.
 
-Eric, probably I missed something, but since the same test as in
-skb_copy_and_csum_dev() gave different result a bit earlier on exactly
-the same skb, I've suspected some sharing (or use after free)
-problems, so I'm not sure your current diagnose can explain this.
-(Unless this old test was dismissed later.)
+On Wed, 1 Sep 2010 02:34:02 +0400
+Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
 
-Thanks,
-Jarek P.
+> Hello!
+> 
+> Hmm. Seems, you are right and I was wrong all these years.
+> Somehow, I did wrong calculation once and this rustied to the brains.
+> After some thinking the calulation is obviously wrong: no matter what,
+> in steady state tbf queue is processed with rate R. What a stupid mistake... :-)
+> 
+> Please, also think how to fix the second part of calculation which deals
+> with peak rate. IMHO (for now :-)) it does not even contribute to latency
+> and should be deleted.
+
+I absolutely agree about latency option. As I understood from http://www.docum.org/docum.org/docs/other/tbf02_kw.ps
+latency should affect only limit. It has not any sense in context of peakrate. So I think that limit calculation
+by latency _and_ peakrate should be removed from tc code because limit is clearly determined by latency and rate.
+So here is a patch that(I hope) fixes it(please correct me if I'm wrong):
+
+diff --git a/tc/q_tbf.c b/tc/q_tbf.c
+index dc556fe..643c1e0 100644
+--- a/tc/q_tbf.c
++++ b/tc/q_tbf.c
+@@ -178,12 +178,10 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
+        }
+ 
+        if (opt.limit == 0) {
+-               double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC + buffer;
+-               if (opt.peakrate.rate) {
+-                       double lim2 = opt.peakrate.rate*(double)latency/TIME_UNITS_PER_SEC + mtu;
+-                       if (lim2 < lim)
+-                               lim = lim2;
+-               }
++               double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC;
++               if (opt.peakrate.rate && (lim < mtu))
++                       lim = mtu;
++
+                opt.limit = lim;
+        }
+ 
+@@ -263,12 +261,7 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+        if (show_raw)
+                fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
+ 
+-       latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2time(qopt->buffer);
+-       if (qopt->peakrate.rate) {
+-               double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2time(qopt->mtu);
+-               if (lat2 > latency)
+-                       latency = lat2;
+-       }
++       latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate);
+        fprintf(f, "lat %s ", sprint_time(latency, b1));
+ 
+        if (qopt->rate.overhead) {
 
 > 
-> 2) allocate a minimal skb for head of frag_list
+> To Jarek: about the scripts. I do not think something will be broken
+> by fixing this error. Eventually, if someone used "latency", he meant
+> something about real latency. And even if the value was generated
+> using the same wrong logic as tc did, using correct formula would just
+> increase limit setting.
 > 
-> skb_gro_receive() uses netdev_alloc_skb(headroom + skb_gro_offset(p)) to
-> allocate a fresh skb. This adds NET_SKB_PAD to a padding already
-> provided by netdevice, depending on various things, like copybreak.
-> 
-> Use alloc_skb() to allocate an exact padding, to reduce cache line
-> needs:
-> NET_SKB_PAD + NET_IP_ALIGN
-> 
-> bugzilla : https://bugzilla.kernel.org/show_bug.cgi?id=16626
-> 
-> Many thanks to Plamen Petrov, testing many debugging patches !
-> With help of Jarek Poplawski.
-> 
-> Reported-by: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-> Signed-off-by: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> CC: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> patch against linux-2.6 current tree
-> 
->  net/core/skbuff.c |    8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 3a2513f..26396ff 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2573,6 +2573,10 @@ struct sk_buff *skb_segment(struct sk_buff *skb, int features)
->  		__copy_skb_header(nskb, skb);
->  		nskb->mac_len = skb->mac_len;
->  
-> +		/* nskb and skb might have different headroom */
-> +		if (nskb->ip_summed == CHECKSUM_PARTIAL)
-> +			nskb->csum_start += skb_headroom(nskb) - headroom;
-> +
->  		skb_reset_mac_header(nskb);
->  		skb_set_network_header(nskb, skb->mac_len);
->  		nskb->transport_header = (nskb->network_header +
-> @@ -2702,8 +2706,8 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
->  	} else if (skb_gro_len(p) != pinfo->gso_size)
->  		return -E2BIG;
->  
-> -	headroom = skb_headroom(p);
-> -	nskb = netdev_alloc_skb(p->dev, headroom + skb_gro_offset(p));
-> +	headroom = NET_SKB_PAD + NET_IP_ALIGN;
-> +	nskb = alloc_skb(headroom + skb_gro_offset(p), GFP_ATOMIC);
->  	if (unlikely(!nskb))
->  		return -ENOMEM;
->  
-> 
-> 
+> Alexey
+
+
+
+-- 
+W.B.R.
+Dan Kruchinin
