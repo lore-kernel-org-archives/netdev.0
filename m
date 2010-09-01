@@ -1,149 +1,144 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
- to reset
-Date: Wed, 01 Sep 2010 15:19:28 +0200
-Message-ID: <1283347168.2556.319.camel@edumazet-laptop>
-References: <1282024802.2487.687.camel@edumazet-laptop>
-	 <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se>
-	 <1282050920.2448.47.camel@edumazet-laptop>
-	 <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se>
-	 <1282055659.2448.58.camel@edumazet-laptop>
-	 <alpine.DEB.1.10.1008171737260.21857@red.crap.retrofitta.se>
-	 <20100817171115.GA4134@mcarlson.broadcom.com>
-	 <alpine.DEB.1.10.1008171928160.21857@red.crap.retrofitta.se>
-	 <20100817183112.GA4351@mcarlson.broadcom.com>
-	 <alpine.DEB.1.10.1008172035520.21857@red.crap.retrofitta.se>
-	 <20100818012318.GA4630@mcarlson.broadcom.com>
-	 <alpine.DEB.1.10.1008180900350.21857@red.crap.retrofitta.se>
-	 <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se>
+From: Anders Franzen <Anders.Franzen@ericsson.com>
+Subject: Re: [RFC]: not possible to do policy routing for next hop on
+ tunnels.
+Date: Wed, 01 Sep 2010 15:27:39 +0200
+Message-ID: <1283347660.14066.27.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
+References: <1283343685.14066.24.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
+	 <1283345350.2556.265.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Thomas Habets <thomas@habets.pp.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Le mercredi 01 septembre 2010 =C3=A0 11:21 +0200, Thomas Habets a =C3=A9=
-crit :
-> I've continued this a bit off-list but thought I would summarize for =
-the=20
-> archives.
->=20
->=20
-> Summary
-> -------
-> It looks like a firmware issue on the network card. When ILO is enabl=
-ed it=20
-> shares the first network card with the OS. When it does this multicas=
-t=20
-> is broken. When multicast (on a L2 level) is broken IPv6 neighbor=20
-> discovery breaks. Only eth0 breaks, eth1 is unaffected.
->=20
->=20
-> System
-> ------
-> HP Proliant DL320 G5p
-> Xeon 3GHz
-> 1GB RAM
-> Arch: amd64
-> NIC: Broadcom Corporation NetXtreme BCM5715 Gigabit Ethernet (rev a3)
-> Debian Lenny (5.0.5)
-> Kernels: 2.6.35 mainline, 2.6.33.6
-> Config: http://pastebin.com/raw.php?i=3DY6S8iKW7
->=20
->=20
-> Problem
-> -------
-> Buggy box will not answer IPv6 ND or ping to ff02::1. May work at som=
-e=20
-> point in the boot process, but once box is fully booted it does not.
->=20
-> If I on the neighboring Cisco router run "clear ipv6 neighbors" (or i=
-t=20
-> times out) that router cannot re-acquire the neigborship with the bug=
-gy=20
-> box. Instant IPv6 breakage until I do one of:
-> * Turn on promisc mode long enough for IPv6 ND to do its thing
-> * ip ne del <address of neighbor> on the buggy host.
->=20
->=20
-> Workarounds
-> -----------
-> Either one of these will hide the problem:
-> * Set promisc mode on interface (ip link set promisc on eth0) forever
-> * Disable ILO
-> * Use eth1 instead of eth0.
->=20
->=20
-> Troubleshooting
-> ---------------
-> Got patch for kernel from Eric Dumazet (eric.dumazet@gmail.com) to ou=
-tput=20
-> what MAC addresses are being subscribed to, and some registers from t=
-he=20
-> card. Output is earlier in this thread, along with "ethtool -i eth0" =
-and=20
-> some other data.
->=20
-> Managed to get diagnostic tool[1] booting from stick (no CD drive in=20
-> server), but did not set up memory (himem.sys etc..). Running b57udia=
-g=20
-> it therefore failed due to insufficient memory at test "Group D. Driv=
-er=20
-> Associated tests". Card is assumed to be OK anyway.
->=20
-> Matt Carlson (mcarlson@broadcom.com) suspected firmware bug and asked=
- me=20
-> to try disabling ASF and/or IPMI using the diagnostic tool, but runni=
-ng=20
-> "setasf -d" and "setipmi -d" inside "b57udiag -cmd" did not seem to s=
-tick=20
-> across reboot. It stuck properly before reboot (confirmed with setasf=
- -q).=20
-> Also tried "b57udiag -u 0". Tried both C-A-D reboot and powercycling =
-(by=20
-> power cord).
->=20
-> At boot Linux still said ASF[1] for eth0 and ASF[0] for eth1:
-> tg3 0000:03:04.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] TSOc=
-ap[1]
-> tg3 0000:03:04.1: eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOc=
-ap[1]
-> (this output never changed throughout the process)
-> ethtool -d eth1 | grep 0x047 did not change either.
->=20
-> Then I disabled ILO and PXE in ILO bios and BIOS respectively. That f=
-ixed=20
-> it. eth0 now works with multicast.
->=20
-> I don't use ILO on this server so in this case that fixes it for me, =
-but=20
-> the bug is still there.
->=20
-> At this point Matt thinks I should file a bug report with HP. I will=20
-> attempt to do that.
->=20
-> I have more detailed logs of what I did and when, and what the effect=
- was.
->=20
->=20
-> Related
-> -------
-> May be the same issue as this:
->    https://bugs.launchpad.net/ubuntu/+source/linux/+bug/263260
-> Which means it's the same with Ubuntu kernels 2.6.26.3, 2.6.26-5-gene=
-ric=20
-> and 2.6.27-2-generic, and mainline kernels 2.6.25, 2.6.26 and 2.6.27.
->=20
->=20
-> [1] http://www.broadcom.com/support/ethernet_nic/netxtreme_server.php
->=20
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:45894 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753219Ab0IANYM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 09:24:12 -0400
+In-Reply-To: <1283345350.2556.265.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Thanks a lot Thomas for this very detailed report !
+
+Quick answer!
+
+It seems do exactly what I want.
+Is there a corresponding 'fwmark inherit' parameter added to the ip
+command somewhere?
+Will this patch get it into the kernel?
+
+If you need testing I will do that.
+
+/Anders
+
+On Wed, 2010-09-01 at 14:49 +0200, Eric Dumazet wrote:
+> Le mercredi 01 septembre 2010 =C3=A0 14:21 +0200, Anders Franzen a =C3=
+=A9crit :
+> > If I have multiple routing choices to reach a tunnel end point,
+> > I would like to mark different flows with iptables, after the
+> > postrouting of the primary route look up, this would put an fwmark =
+on
+> > the skb. The route would in my case resolve to an ip6_tunnel.
+> >=20
+> > In the tunnel a secondary route lookup is done to select next hop f=
+or
+> > the tunnel end point.
+> >=20
+> > I would like to apply policy routing to the secondary lookup.=20
+> >=20
+> > This will not work, for two reasons:
+> >=20
+> > 1. None of the tunnels (ipip, gre, ip6_tunnel) I looked at regards =
+the
+> > fwmark at the skb, when performing the route lookup.
+> >=20
+> > 2. ip6_tunnel is keeping a local dst cache, so it will never rerout=
+e as
+> > long as the current cache is valid.
+> >=20
+> >=20
+> > I wonder if there is a reason for not giving the fwmark at the tunn=
+el
+> > route for tunnels in general?
+> >=20
+> > And the local dst cache for ip6_tunnel, is it needed, is not the ro=
+uting
+> > subsystem keeping some form of internal cache (ip route ls cache).
+>=20
+> ip6_tunnel (or others) could be extended with a
+> IP6_TNL_F_USE_ORIG_FWMARK, and in this case not use/cache the route.
+>=20
+> untested patch to get the idea :
+>=20
+> diff --git a/include/linux/ip6_tunnel.h b/include/linux/ip6_tunnel.h
+> index acb9ad6..bf22b03 100644
+> --- a/include/linux/ip6_tunnel.h
+> +++ b/include/linux/ip6_tunnel.h
+> @@ -16,6 +16,8 @@
+>  #define IP6_TNL_F_MIP6_DEV 0x8
+>  /* copy DSCP from the outer packet */
+>  #define IP6_TNL_F_RCV_DSCP_COPY 0x10
+> +/* copy fwmark from inner packet */
+> +#define IP6_TNL_F_USE_ORIG_FWMARK 0x20
+> =20
+>  struct ip6_tnl_parm {
+>  	char name[IFNAMSIZ];	/* name of tunnel device */
+> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+> index 0fd027f..e31a91f 100644
+> --- a/net/ipv6/ip6_tunnel.c
+> +++ b/net/ipv6/ip6_tunnel.c
+> @@ -858,7 +858,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+>  	int err =3D -1;
+>  	int pkt_len;
+> =20
+> -	if ((dst =3D ip6_tnl_dst_check(t)) !=3D NULL)
+> +	if (!fl->mark && (dst =3D ip6_tnl_dst_check(t)) !=3D NULL)
+>  		dst_hold(dst);
+>  	else {
+>  		dst =3D ip6_route_output(net, NULL, fl);
+> @@ -910,7 +910,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+>  		skb =3D new_skb;
+>  	}
+>  	skb_dst_drop(skb);
+> -	skb_dst_set(skb, dst_clone(dst));
+> +	skb_dst_set(skb, fl->mark ? dst : dst_clone(dst));
+> =20
+>  	skb->transport_header =3D skb->network_header;
+> =20
+> @@ -940,7 +940,9 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+>  		stats->tx_errors++;
+>  		stats->tx_aborted_errors++;
+>  	}
+> -	ip6_tnl_dst_store(t, dst);
+> +	if (!fl->mark)
+> +		ip6_tnl_dst_store(t, dst);
+> +	=09
+>  	return 0;
+>  tx_err_link_failure:
+>  	stats->tx_carrier_errors++;
+> @@ -976,6 +978,8 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_d=
+evice *dev)
+>  	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS))
+>  		fl.fl6_flowlabel |=3D htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
+>  					  & IPV6_TCLASS_MASK;
+> +	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK))
+> +		fl.mark =3D skb->mark;
+> =20
+>  	err =3D ip6_tnl_xmit2(skb, dev, dsfield, &fl, encap_limit, &mtu);
+>  	if (err !=3D 0) {
+> @@ -1026,7 +1030,8 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net=
+_device *dev)
+>  		fl.fl6_flowlabel |=3D (*(__be32 *) ipv6h & IPV6_TCLASS_MASK);
+>  	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL))
+>  		fl.fl6_flowlabel |=3D (*(__be32 *) ipv6h & IPV6_FLOWLABEL_MASK);
+> -
+> +	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK))
+> +		fl.mark =3D skb->mark;
+>  	err =3D ip6_tnl_xmit2(skb, dev, dsfield, &fl, encap_limit, &mtu);
+>  	if (err !=3D 0) {
+>  		if (err =3D=3D -EMSGSIZE)
+>=20
+>=20
+
+
