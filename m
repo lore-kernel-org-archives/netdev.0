@@ -1,48 +1,55 @@
-From: Simon Kagstrom <simon.kagstrom@netinsight.net>
-Subject: Re: via-velocity dma-debug warnings again. (2.6.35.2)
-Date: Wed, 1 Sep 2010 12:20:59 +0200
-Message-ID: <20100901122059.5761802f@marrow.netinsight.se>
-References: <20100831011348.GA11993@redhat.com>
-	<20100831111052.31f22185@marrow.netinsight.se>
-	<20100831172106.GC1844@redhat.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: net-next-2.6 [PATCH 1/1] tcp: add missing initial window (RFC
+	3390) for tcp_output
+Date: Wed, 1 Sep 2010 12:28:35 +0200
+Message-ID: <20100901102835.GA5686@gerrit.erg.abdn.ac.uk>
+References: <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk> <alpine.DEB.2.00.1008301557590.31318@wel-95.cs.helsinki.fi> <20100901052355.GA5379@gerrit.erg.abdn.ac.uk> <20100901053443.GB5379@gerrit.erg.abdn.ac.uk> <428BF15F-19DC-459A-B54A-EC273ECF537E@comsys.rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ernst.netinsight.se ([194.16.221.21]:1206 "HELO
-	ernst.netinsight.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752379Ab0IAKVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 06:21:04 -0400
-In-Reply-To: <20100831172106.GC1844@redhat.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:63122 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752155Ab0IAK2q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Sep 2010 06:28:46 -0400
+Content-Disposition: inline
+In-Reply-To: <428BF15F-19DC-459A-B54A-EC273ECF537E@comsys.rwth-aachen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Aug 2010 13:21:07 -0400
-Dave Jones <davej@redhat.com> wrote:
+Addressing comments from Alexander, removing comment.
 
-> On Tue, Aug 31, 2010 at 11:10:52AM +0200, Simon Kagstrom wrote:
->  > On Mon, 30 Aug 2010 21:13:49 -0400
->  > Dave Jones <davej@redhat.com> wrote:
->  > 
->  > > I installed the Fedora 14 alpha, which is based on 2.6.35.2, and hit
->  > > the following trace..
->  > > 
->  > > WARNING: at lib/dma-debug.c:811 check_unmap+0x212/0x59b()
->  > > Hardware name:  
->  > > via-velocity 0000:00:0e.0: DMA-API: device driver frees DMA memory with different size [device address=0x00000000194ba27e] [map size=66 bytes] [unmap size=182 bytes]
->  > 
->  > I can't reproduce it here, but does the patch below help for you?
-> 
-> It's looking good so far.  It's been up 30 minutes and hasn't triggered yet
-> (normally it triggers very shortly after bootup)
+>>>>>>>>>>>>>>>>>>>>>>> Patch v2 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+tcp: update also tcp_output with regard to RFC 5681
 
-Sounds good. I'll think a bit more about this and submit the patch
-after that.
+Thanks to Ilpo Jarvinen, this updates also the initial window
+setting for tcp_output with regard to RFC 5681.
 
-I'm not really an expert on the subject, but with skb_headlen(), the size
-should be the same for pci_map_single and pci_unmap_single as far as I
-can tell.
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/ipv4/tcp_output.c |   12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
 
-// Simon
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -224,16 +224,10 @@ void tcp_select_initial_window(int __spa
+ 		}
+ 	}
+ 
+-	/* Set initial window to value enough for senders,
+-	 * following RFC2414. Senders, not following this RFC,
+-	 * will be satisfied with 2.
+-	 */
++	/* Set initial window to value enough for senders, following RFC5681. */
+ 	if (mss > (1 << *rcv_wscale)) {
+-		int init_cwnd = 4;
+-		if (mss > 1460 * 3)
+-			init_cwnd = 2;
+-		else if (mss > 1460)
+-			init_cwnd = 3;
++		int init_cwnd = rfc3390_bytes_to_packets(mss);
++
+ 		/* when initializing use the value from init_rcv_wnd
+ 		 * rather than the default from above
+ 		 */
