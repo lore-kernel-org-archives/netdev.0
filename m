@@ -1,62 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build warnings after merge of the net tree
-Date: Wed, 1 Sep 2010 11:25:01 +1000
-Message-ID: <20100901112501.570e06a1.sfr@canb.auug.org.au>
-References: <20100831115508.078eb2fa.sfr@canb.auug.org.au>
-	<20100830.215641.71568585.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6] skge: add GRO support
+Date: Tue, 31 Aug 2010 18:31:05 -0700
+Message-ID: <20100831183105.03b0f2bc@nehalam>
+References: <1283293956.2198.46.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__1_Sep_2010_11_25_01_+1000_I2_Brd3JCOGWyPtW"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, peppe.cavallaro@st.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100830.215641.71568585.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Wed__1_Sep_2010_11_25_01_+1000_I2_Brd3JCOGWyPtW
 Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35411 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751749Ab0IABbH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 21:31:07 -0400
+In-Reply-To: <1283293956.2198.46.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Wed, 01 Sep 2010 00:32:36 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-On Mon, 30 Aug 2010 21:56:41 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> I've checked the following into net-next-2.6 to combat-this (see,
-> proactively fixing warnings in code I'm more or less responsible for
-> instead of letting the issue rot for 2 months :-):
+> @@ -3193,7 +3192,7 @@ static int skge_poll(struct napi_struct *napi, int to_do)
+>  		unsigned long flags;
+>  
+>  		spin_lock_irqsave(&hw->hw_lock, flags);
+> -		__napi_complete(napi);
+> +		napi_complete(napi);
 
-Thanks for that :-)
+This adds a redundant irq_save/irq_restore in the packet
+receive path.
 
-However, I missed one yesterday ...
+In the case of skge, since the both ports share a single
+IRQ mask register, the lock is there to make sure that updates
+to the mask register doesn't race between NAPI finishing
+on one port and IRQ on other port changing same IRQ mask register.
 
-drivers/net/stmmac/dwmac100_core.c: In function 'dwmac100_dump_mac_regs':
-drivers/net/stmmac/dwmac100_core.c:47: warning: cast from pointer to intege=
-r of different size
 
-Sorry about that
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__1_Sep_2010_11_25_01_+1000_I2_Brd3JCOGWyPtW
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJMfatuAAoJEDMEi1NhKgbsxWQIAJD9mN67oaIYUnAM0WgicMG3
-GNRUEZIhZx3+tAcY+c48R6e3N1OmCtDUT5m4zFZtnn1IYKvyhyZTQyNK3eZ8OlDB
-DZTruCDvw5Ncd9Fezk6rPGo/9xIMEgzFLFv8A8AQ8lSrEWyqju//b7NRhTVIDt9x
-c1AP9WWqeUeGRX+KeZX90MPyvqH00JZH/UEYhPIi7DFkEQmjGFBeIZlFc6Nh+oBq
-+X3YQFmcXpWvf6EV+RKPJmPE6uj8qG3rL5qt1Us8okFAec6gX1g5sdhDjIYa/tnl
-MxE8JJY14nCbj4ldd+JMiY8RkNHMAb8j+A7c+E/nWDY3NMXLTFCSzmAnoHPcU5M=
-=Zwq/
------END PGP SIGNATURE-----
-
---Signature=_Wed__1_Sep_2010_11_25_01_+1000_I2_Brd3JCOGWyPtW--
