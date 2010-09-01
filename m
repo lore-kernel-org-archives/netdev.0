@@ -1,642 +1,97 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [RFC] bonding: fix workqueue re-arming races
-Date: Wed, 01 Sep 2010 10:14:34 -0700
-Message-ID: <24764.1283361274@death>
-References: <20100831170752.GA9743@midget.suse.cz> <20136.1283288063@death> <20100901131626.GA12447@midget.suse.cz>
-Cc: bonding-devel@lists.sourceforge.net, markine@google.com,
-	jarkao2@gmail.com, chavey@google.com, netdev@vger.kernel.org
-To: Jiri Bohac <jbohac@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:35311 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752685Ab0IAROi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Sep 2010 13:14:38 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e7.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o81H0Rbq018281
-	for <netdev@vger.kernel.org>; Wed, 1 Sep 2010 13:00:27 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o81HEb4s115220
-	for <netdev@vger.kernel.org>; Wed, 1 Sep 2010 13:14:37 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o81HEb3o029398
-	for <netdev@vger.kernel.org>; Wed, 1 Sep 2010 13:14:37 -0400
-In-reply-to: <20100901131626.GA12447@midget.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fleming Andy-AFLEMING <afleming@freescale.com>
+Subject: Re: ERR_PTR pattern in phylib
+Date: Wed, 1 Sep 2010 10:50:33 -0500
+Message-ID: <15983BAD-0F31-4B58-B6C5-E2744F3A86D2@freescale.com>
+References: <AANLkTimjVZTNeLdm4qptU1MqREODLASdGGanUyxqxfub@mail.gmail.com>
+Mime-Version: 1.0 (iPhone Mail 8A400)
+Content-Type: multipart/mixed; boundary="===============3266086039366293616=="
+Cc: netdev <netdev@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org
+To: "Grant Likely" <grant.likely@secretlab.ca>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <AANLkTimjVZTNeLdm4qptU1MqREODLASdGGanUyxqxfub@mail.gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Bohac <jbohac@suse.cz> wrote:
+--===============3266086039366293616==
+Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative; boundary="Apple-Mail-3-106355893";
+	charset="iso-8859-1"
 
->On Tue, Aug 31, 2010 at 01:54:23PM -0700, Jay Vosburgh wrote:
->> Jiri Bohac <jbohac@suse.cz> wrote:
->> >[note, this does not deal with bond_loadbalance_arp_mon(), where
->> >rtnl is now taken as well in net-next; I'll do this if you think
->> >the idea is good ]
->> 
->> 	I don't believe the loadbalance_arp_mon acquires RTNL in
->> net-next.  I recall discussing this with Andy not too long ago, but I
->> didn't think that change went in, and I don't see it in the tree.
->
->Of course, you are right, I misread the e-mail thread and did not look at
->the code.
->
->> >+void bond_alb_promisc_disable(struct work_struct *work)
->> >+{
->> >+	struct bonding *bond = container_of(work, struct bonding,
->> >+					    alb_promisc_disable_work);
->> >+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
->> >+
->> >+	/*
->> >+	 * dev_set_promiscuity requires rtnl and
->> >+	 * nothing else.
->> >+	 */
->> >+	rtnl_lock();
->> >+	dev_set_promiscuity(bond->curr_active_slave->dev, -1);
->> >+	bond_info->primary_is_promisc = 0;
->> >+	bond_info->rlb_promisc_timeout_counter = 0;
->> >+	rtnl_unlock();
->> >+}
->> 
->> 	What prevents this from deadlocking such that cpu A is in
->> bond_close, holding RTNL and in cancel_delayed_work_sync, while cpu B is
->> in the above function, trying to acquire RTNL?
->
->The main idea of the patch is to move the code (the "commit"
->functions) that needs rtnl to another work item. Then
->cancel_delayed_work_sync() can be used to cancel the re-arming
->work. But you are absolutely right, there is still a deadlock,
->since I queue the "commit" work on the same workqueue. So when
->cancel_delayed_work_sync() waits for the re-arming work to
->finish, it can wait forever because a previously queued "commit"
->work is waiting for rtnl.
->
->The solution is to move the "commit" work items to a different
->workqueue. Fixed in the new version of the patch below
->(bond->wq_rtnl).
->
->> 	Also, assuming for the moment that the above isn't a problem,
->> curr_active_slave may be NULL if the last slave is removed between the
->> time bond_alb_promisc_disable is scheduled and when it runs.  I'm not
->> sure that the alb_bond_info can be guaranteed to be valid, either, if
->> the mode changed.
->
->Yes, there may be problems like these, but these are present
->already in the current code. Because bond->lock() is released
->before rtnl is taken. 
->
->Sure, it would be good to deal with these problems, but I don't
->think this patch introduces new races like these. They are
->already there ... (see below)
-
-	Yep, the current code does appear to have a race in
-bond_alb_monitor that should be fixed (to check curr_active_slave before
-dereferencing it).
-
-	I also thought a bit more, and in the current code, the mode
-shouldn't change in the middle of one of the work functions, because a
-mode change requires the bond to be closed, so the various work things
-will be stopped (more or less; excepting the race under disucssion
-here).
-
-	I don't think this is true for the new wq_rtnl functions,
-however, because its work items are not canceled until the workqueue
-itself is freed in bond_destructor.  Does the wq_rtnl open new races,
-because it's work items are not synchronized with other activities
-(close in particular)?  It's possible for its work functions (which may
-do things like set the active slave, carrier, etc) to be invoked after
-the bond has closed, and possibly reopened, or been otherwise adjusted.
-
-	I'm not sure this is better than one of the alternatives I
-believe we discussed the last time around: having the rtnl-acquiring
-work functions do a conditional acquire of rtnl, and if that fails,
-reschedule themselves.
-
-	So, e.g., bond_mii_monitor becomes something like:
-
-void bond_mii_monitor(struct work_struct *work)
-{
-	struct bonding *bond = container_of(work, struct bonding,
-					    mii_work.work);
-
-	read_lock(&bond->lock);
-
-	if (bond->slave_cnt == 0)
-		goto re_arm;
-
-	if (bond->send_grat_arp) {
-		read_lock(&bond->curr_slave_lock);
-		bond_send_gratuitous_arp(bond);
-		read_unlock(&bond->curr_slave_lock);
-	}
-
-	if (bond->send_unsol_na) {
-		read_lock(&bond->curr_slave_lock);
-		bond_send_unsolicited_na(bond);
-		read_unlock(&bond->curr_slave_lock);
-	}
-
-	if (bond_miimon_inspect(bond)) {
-		read_unlock(&bond->lock);
-		/*
-		 * Awe-inspiring comment explaining why we do this
-		 */
-		if (rtnl_trylock()) {
-			read_lock(&bond->lock);
-
-			bond_miimon_commit(bond);
-
-			read_unlock(&bond->lock);
-			rtnl_unlock();	/* might sleep, hold no other locks */
-			read_lock(&bond->lock);
-		} else {
-			read_lock(&bond->lock);
-			queue_work(bond->wq, &bond->mii_work);
-			read_unlock(&bond->lock);
-			return;
-		}
-	}
-
-re_arm:
-	if (bond->params.miimon)
-		queue_delayed_work(bond->wq, &bond->mii_work,
-				   msecs_to_jiffies(bond->params.miimon));
-out:
-	read_unlock(&bond->lock);
-}
-
-	Which, if I'm not missing something, does not need the
-kill_timers (because I believe we can use cancel_delayed_work_sync now
-that there's no deadlock against rtnl).
-
-	It might need a "fast reschedule" flag of some sort so that the
-gratutious ARPs and NAs aren't bunched up when the trylock fails, but
-that's a secondary concern.
-
-	Thoughts?
-
->> > void bond_alb_monitor(struct work_struct *work)
->> > {
->> > 	struct bonding *bond = container_of(work, struct bonding,
->> >@@ -1407,10 +1424,6 @@ void bond_alb_monitor(struct work_struct *work)
->> >
->> > 	read_lock(&bond->lock);
->> >
->> >-	if (bond->kill_timers) {
->> >-		goto out;
->> >-	}
->> >-
->> > 	if (bond->slave_cnt == 0) {
->> > 		bond_info->tx_rebalance_counter = 0;
->> > 		bond_info->lp_counter = 0;
->> >@@ -1462,25 +1475,11 @@ void bond_alb_monitor(struct work_struct *work)
->> > 	if (bond_info->rlb_enabled) {
->> > 		if (bond_info->primary_is_promisc &&
->> > 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
->> >-
->> >-			/*
->> >-			 * dev_set_promiscuity requires rtnl and
->> >-			 * nothing else.
->> >-			 */
->> >-			read_unlock(&bond->lock);
->
->... e.g. here; the current slave may change/disappear, the mode
->may change .... 
->
->> >-			rtnl_lock();
->> >-
->> >-			bond_info->rlb_promisc_timeout_counter = 0;
->> >-
->
->I fixed both issues in this new version of the patch.
->
->Signed-off-by: Jiri Bohac <jbohac@suse.cz>
->
->
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 822f586..8015e12 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -2119,10 +2119,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->
-> 	read_lock(&bond->lock);
->
->-	if (bond->kill_timers) {
->-		goto out;
->-	}
->-
-> 	//check if there are any slaves
-> 	if (bond->slave_cnt == 0) {
-> 		goto re_arm;
->@@ -2166,7 +2162,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->
-> re_arm:
-> 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
->-out:
-> 	read_unlock(&bond->lock);
-> }
->
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index c746b33..e4fa3a5 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -1397,6 +1397,35 @@ out:
-> 	return NETDEV_TX_OK;
-> }
->
->+void bond_alb_promisc_disable(struct work_struct *work)
->+{
->+	struct bonding *bond = container_of(work, struct bonding,
->+					    alb_promisc_disable_work);
->+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
->+
->+	/*
->+	 * dev_set_promiscuity requires rtnl and
->+	 * nothing else.
->+	 */
->+	rtnl_lock();
->+	read_lock(&bond->lock);
->+	read_lock(&bond->curr_slave_lock);
->+
->+	if (!bond_is_lb(bond))
->+		goto out;
->+	if (!bond->curr_active_slave)
->+		goto out;
->+
->+	dev_set_promiscuity(bond->curr_active_slave->dev, -1);
->+	bond_info->primary_is_promisc = 0;
->+	bond_info->rlb_promisc_timeout_counter = 0;
->+
->+out:
->+	read_unlock(&bond->curr_slave_lock);
->+	read_unlock(&bond->lock);
->+	rtnl_unlock();
-
-	Should we end up using this, it is also holding too many locks
-over the dev_set_promiscuity call.
+--Apple-Mail-3-106355893
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
 
 
->+}
->+
-> void bond_alb_monitor(struct work_struct *work)
-> {
-> 	struct bonding *bond = container_of(work, struct bonding,
->@@ -1407,10 +1436,6 @@ void bond_alb_monitor(struct work_struct *work)
->
-> 	read_lock(&bond->lock);
->
->-	if (bond->kill_timers) {
->-		goto out;
->-	}
->-
-> 	if (bond->slave_cnt == 0) {
-> 		bond_info->tx_rebalance_counter = 0;
-> 		bond_info->lp_counter = 0;
->@@ -1462,25 +1487,11 @@ void bond_alb_monitor(struct work_struct *work)
-> 	if (bond_info->rlb_enabled) {
-> 		if (bond_info->primary_is_promisc &&
-> 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
->-
->-			/*
->-			 * dev_set_promiscuity requires rtnl and
->-			 * nothing else.
->-			 */
->-			read_unlock(&bond->lock);
->-			rtnl_lock();
->-
->-			bond_info->rlb_promisc_timeout_counter = 0;
->-
-> 			/* If the primary was set to promiscuous mode
-> 			 * because a slave was disabled then
-> 			 * it can now leave promiscuous mode.
-> 			 */
->-			dev_set_promiscuity(bond->curr_active_slave->dev, -1);
->-			bond_info->primary_is_promisc = 0;
->-
->-			rtnl_unlock();
->-			read_lock(&bond->lock);
->+			queue_work(bond->wq_rtnl, &bond->alb_promisc_disable_work);
-> 		}
->
-> 		if (bond_info->rlb_rebalance) {
->@@ -1505,7 +1516,6 @@ void bond_alb_monitor(struct work_struct *work)
->
-> re_arm:
-> 	queue_delayed_work(bond->wq, &bond->alb_work, alb_delta_in_ticks);
->-out:
-> 	read_unlock(&bond->lock);
-> }
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 2cc4cfc..aae2864 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2343,10 +2343,15 @@ static int bond_miimon_inspect(struct bonding *bond)
-> 	return commit;
-> }
->
->-static void bond_miimon_commit(struct bonding *bond)
->+static void bond_miimon_commit(struct work_struct *work)
-> {
-> 	struct slave *slave;
-> 	int i;
->+	struct bonding *bond = container_of(work, struct bonding,
->+					    miimon_commit_work);
->+
->+	rtnl_lock();
->+	read_lock(&bond->lock);
->
-> 	bond_for_each_slave(bond, slave, i) {
-> 		switch (slave->new_link) {
->@@ -2421,15 +2426,18 @@ static void bond_miimon_commit(struct bonding *bond)
-> 		}
->
-> do_failover:
->-		ASSERT_RTNL();
-> 		write_lock_bh(&bond->curr_slave_lock);
-> 		bond_select_active_slave(bond);
-> 		write_unlock_bh(&bond->curr_slave_lock);
-> 	}
->
-> 	bond_set_carrier(bond);
->+
->+	read_unlock(&bond->lock);
->+	rtnl_unlock();
-> }
->
->+
-> /*
->  * bond_mii_monitor
->  *
->@@ -2438,14 +2446,13 @@ do_failover:
->  * an acquisition of appropriate locks followed by a commit phase to
->  * implement whatever link state changes are indicated.
->  */
->+
-> void bond_mii_monitor(struct work_struct *work)
-> {
-> 	struct bonding *bond = container_of(work, struct bonding,
-> 					    mii_work.work);
->
-> 	read_lock(&bond->lock);
->-	if (bond->kill_timers)
->-		goto out;
->
-> 	if (bond->slave_cnt == 0)
-> 		goto re_arm;
->@@ -2462,23 +2469,14 @@ void bond_mii_monitor(struct work_struct *work)
-> 		read_unlock(&bond->curr_slave_lock);
-> 	}
->
->-	if (bond_miimon_inspect(bond)) {
->-		read_unlock(&bond->lock);
->-		rtnl_lock();
->-		read_lock(&bond->lock);
->+	if (bond_miimon_inspect(bond))
->+		queue_work(bond->wq_rtnl, &bond->miimon_commit_work);
->
->-		bond_miimon_commit(bond);
->-
->-		read_unlock(&bond->lock);
->-		rtnl_unlock();	/* might sleep, hold no other locks */
->-		read_lock(&bond->lock);
->-	}
->
-> re_arm:
-> 	if (bond->params.miimon)
-> 		queue_delayed_work(bond->wq, &bond->mii_work,
-> 				   msecs_to_jiffies(bond->params.miimon));
->-out:
-> 	read_unlock(&bond->lock);
-> }
->
->@@ -2778,9 +2776,6 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
->
-> 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
->
->-	if (bond->kill_timers)
->-		goto out;
->-
-> 	if (bond->slave_cnt == 0)
-> 		goto re_arm;
->
->@@ -2867,7 +2862,6 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
-> re_arm:
-> 	if (bond->params.arp_interval)
-> 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
->-out:
-> 	read_unlock(&bond->lock);
-> }
->
->@@ -2949,13 +2943,19 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
-> /*
->  * Called to commit link state changes noted by inspection step of
->  * active-backup mode ARP monitor.
->- *
->- * Called with RTNL and bond->lock for read.
->  */
->-static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
->+static void bond_ab_arp_commit(struct work_struct *work)
-> {
-> 	struct slave *slave;
-> 	int i;
->+	int delta_in_ticks;
->+	struct bonding *bond = container_of(work, struct bonding,
->+					    ab_arp_commit_work);
->+
->+	rtnl_lock();
->+	read_lock(&bond->lock);
->+
->+	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
->
-> 	bond_for_each_slave(bond, slave, i) {
-> 		switch (slave->new_link) {
->@@ -3014,6 +3014,9 @@ do_failover:
-> 	}
->
-> 	bond_set_carrier(bond);
->+
->+	read_unlock(&bond->lock);
->+	rtnl_unlock();
-> }
->
-> /*
->@@ -3093,9 +3096,6 @@ void bond_activebackup_arp_mon(struct work_struct *work)
->
-> 	read_lock(&bond->lock);
->
->-	if (bond->kill_timers)
->-		goto out;
->-
-> 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
->
-> 	if (bond->slave_cnt == 0)
->@@ -3113,24 +3113,15 @@ void bond_activebackup_arp_mon(struct work_struct *work)
-> 		read_unlock(&bond->curr_slave_lock);
-> 	}
->
->-	if (bond_ab_arp_inspect(bond, delta_in_ticks)) {
->-		read_unlock(&bond->lock);
->-		rtnl_lock();
->-		read_lock(&bond->lock);
->+	if (bond_ab_arp_inspect(bond, delta_in_ticks))
->+		queue_work(bond->wq_rtnl, &bond->ab_arp_commit_work);
->
->-		bond_ab_arp_commit(bond, delta_in_ticks);
->-
->-		read_unlock(&bond->lock);
->-		rtnl_unlock();
->-		read_lock(&bond->lock);
->-	}
->
-> 	bond_ab_arp_probe(bond);
->
-> re_arm:
-> 	if (bond->params.arp_interval)
-> 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
->-out:
-> 	read_unlock(&bond->lock);
-> }
->
->@@ -3720,8 +3711,6 @@ static int bond_open(struct net_device *bond_dev)
-> {
-> 	struct bonding *bond = netdev_priv(bond_dev);
->
->-	bond->kill_timers = 0;
->-
-> 	if (bond_is_lb(bond)) {
-> 		/* bond_alb_initialize must be called before the timer
-> 		 * is started.
->@@ -3781,26 +3770,23 @@ static int bond_close(struct net_device *bond_dev)
-> 	bond->send_grat_arp = 0;
-> 	bond->send_unsol_na = 0;
->
->-	/* signal timers not to re-arm */
->-	bond->kill_timers = 1;
->-
-> 	write_unlock_bh(&bond->lock);
->
-> 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
->-		cancel_delayed_work(&bond->mii_work);
->+		cancel_delayed_work_sync(&bond->mii_work);
-> 	}
->
-> 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
->-		cancel_delayed_work(&bond->arp_work);
->+		cancel_delayed_work_sync(&bond->arp_work);
-> 	}
->
-> 	switch (bond->params.mode) {
-> 	case BOND_MODE_8023AD:
->-		cancel_delayed_work(&bond->ad_work);
->+		cancel_delayed_work_sync(&bond->ad_work);
-> 		break;
-> 	case BOND_MODE_TLB:
-> 	case BOND_MODE_ALB:
->-		cancel_delayed_work(&bond->alb_work);
->+		cancel_delayed_work_sync(&bond->alb_work);
-> 		break;
-> 	default:
-> 		break;
->@@ -4601,6 +4587,8 @@ static void bond_destructor(struct net_device *bond_dev)
-> 	struct bonding *bond = netdev_priv(bond_dev);
-> 	if (bond->wq)
-> 		destroy_workqueue(bond->wq);
->+	if (bond->wq_rtnl)
->+		destroy_workqueue(bond->wq_rtnl);
-> 	free_netdev(bond_dev);
-> }
->
->@@ -4660,23 +4648,19 @@ static void bond_setup(struct net_device *bond_dev)
->
-> static void bond_work_cancel_all(struct bonding *bond)
-> {
->-	write_lock_bh(&bond->lock);
->-	bond->kill_timers = 1;
->-	write_unlock_bh(&bond->lock);
->-
-> 	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
->-		cancel_delayed_work(&bond->mii_work);
->+		cancel_delayed_work_sync(&bond->mii_work);
->
-> 	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
->-		cancel_delayed_work(&bond->arp_work);
->+		cancel_delayed_work_sync(&bond->arp_work);
->
-> 	if (bond->params.mode == BOND_MODE_ALB &&
-> 	    delayed_work_pending(&bond->alb_work))
->-		cancel_delayed_work(&bond->alb_work);
->+		cancel_delayed_work_sync(&bond->alb_work);
->
-> 	if (bond->params.mode == BOND_MODE_8023AD &&
-> 	    delayed_work_pending(&bond->ad_work))
->-		cancel_delayed_work(&bond->ad_work);
->+		cancel_delayed_work_sync(&bond->ad_work);
-> }
->
-> /*
->@@ -5083,6 +5067,12 @@ static int bond_init(struct net_device *bond_dev)
-> 	bond->wq = create_singlethread_workqueue(bond_dev->name);
-> 	if (!bond->wq)
-> 		return -ENOMEM;
->+	bond->wq_rtnl = create_singlethread_workqueue(bond_dev->name);
->+	if (!bond->wq_rtnl) {
->+		destroy_workqueue(bond->wq);
->+		bond->wq = NULL;
->+		return -ENOMEM;
->+	}
->
-> 	bond_set_lockdep_class(bond_dev);
->
->@@ -5094,6 +5084,9 @@ static int bond_init(struct net_device *bond_dev)
-> 	bond_prepare_sysfs_group(bond);
->
-> 	__hw_addr_init(&bond->mc_list);
->+	INIT_WORK(&bond->miimon_commit_work, bond_miimon_commit);
->+	INIT_WORK(&bond->ab_arp_commit_work, bond_ab_arp_commit);
->+	INIT_WORK(&bond->alb_promisc_disable_work, bond_alb_promisc_disable);
-> 	return 0;
-> }
->
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index c6fdd85..43ba807 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -198,7 +198,6 @@ struct bonding {
-> 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
-> 	rwlock_t lock;
-> 	rwlock_t curr_slave_lock;
->-	s8       kill_timers;
-> 	s8	 send_grat_arp;
-> 	s8	 send_unsol_na;
-> 	s8	 setup_by_slave;
->@@ -219,10 +218,14 @@ struct bonding {
-> 	struct   vlan_group *vlgrp;
-> 	struct   packet_type arp_mon_pt;
-> 	struct   workqueue_struct *wq;
->+	struct   workqueue_struct *wq_rtnl;
-> 	struct   delayed_work mii_work;
-> 	struct   delayed_work arp_work;
-> 	struct   delayed_work alb_work;
-> 	struct   delayed_work ad_work;
->+	struct    work_struct miimon_commit_work;
->+	struct    work_struct ab_arp_commit_work;
->+	struct    work_struct alb_promisc_disable_work;
-> #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> 	struct   in6_addr master_ipv6;
-> #endif
->@@ -348,6 +351,7 @@ void bond_select_active_slave(struct bonding *bond);
-> void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
-> void bond_register_arp(struct bonding *);
-> void bond_unregister_arp(struct bonding *);
->+void bond_alb_promisc_disable(struct work_struct *work);
->
-> struct bond_net {
-> 	struct net *		net;	/* Associated network namespace */
->
->-- 
->Jiri Bohac <jbohac@suse.cz>
->SUSE Labs, SUSE CZ
 
-	-J
+On Sep 1, 2010, at 9:43, Grant Likely <grant.likely@secretlab.ca> wrote:
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>=20
+> In the interest of making driver code easier to write and review,
+> would you be opposed to a set of patches to remove the ERR_PTR()
+> pattern from phylib and its users?
+
+
+Not at all.  I was trying to make sure all the information was available, an=
+d I'm not really a big fan of passing in a **ptr to get set.  But I don't re=
+ally have a strong opinion.  This is just the design i settled on.  Heck, 99=
+.9% of the errors are unlikely to ever happen, a they're caused by hardware m=
+alfunction!
+
+Andy
+
+
+>=20
+> g.
+>=20
+> --=20
+> Grant Likely, B.Sc., P.Eng.
+> Secret Lab Technologies Ltd.
+>=20
+
+--Apple-Mail-3-106355893
+Content-Transfer-Encoding: base64
+Content-Type: text/html; charset="utf-8"
+
+PGh0bWw+PGJvZHkgYmdjb2xvcj0iI0ZGRkZGRiI+PGRpdj48YnI+PGJyPk9uIFNlcCAxLCAyMDEw
+LCBhdCA5OjQzLCBHcmFudCBMaWtlbHkgJmx0OzxhIGhyZWY9Im1haWx0bzpncmFudC5saWtlbHlA
+c2VjcmV0bGFiLmNhIj5ncmFudC5saWtlbHlAc2VjcmV0bGFiLmNhPC9hPiZndDsgd3JvdGU6PGJy
+Pjxmb250IGNsYXNzPSJBcHBsZS1zdHlsZS1zcGFuIiBjb2xvcj0iIzAwMjNBMyI+PGZvbnQgY2xh
+c3M9IkFwcGxlLXN0eWxlLXNwYW4iIGNvbG9yPSIjMDAwMDAwIj48YnI+PC9mb250PjwvZm9udD48
+L2Rpdj48YmxvY2txdW90ZSB0eXBlPSJjaXRlIj48ZGl2PjxzcGFuPjwvc3Bhbj48YnI+PHNwYW4+
+SW4gdGhlIGludGVyZXN0IG9mIG1ha2luZyBkcml2ZXIgY29kZSBlYXNpZXIgdG8gd3JpdGUgYW5k
+IHJldmlldyw8L3NwYW4+PGJyPjxzcGFuPndvdWxkIHlvdSBiZSBvcHBvc2VkIHRvIGEgc2V0IG9m
+IHBhdGNoZXMgdG8gcmVtb3ZlIHRoZSBFUlJfUFRSKCk8L3NwYW4+PGJyPjxzcGFuPnBhdHRlcm4g
+ZnJvbSBwaHlsaWIgYW5kIGl0cyB1c2Vycz88L3NwYW4+PGJyPjwvZGl2PjwvYmxvY2txdW90ZT48
+ZGl2Pjxicj48L2Rpdj48ZGl2Pjxicj48L2Rpdj48ZGl2Pk5vdCBhdCBhbGwuICZuYnNwO0kgd2Fz
+IHRyeWluZyB0byBtYWtlIHN1cmUgYWxsIHRoZSBpbmZvcm1hdGlvbiB3YXMgYXZhaWxhYmxlLCBh
+bmQgSSdtIG5vdCByZWFsbHkgYSBiaWcgZmFuIG9mIHBhc3NpbmcgaW4gYSAqKnB0ciB0byBnZXQg
+c2V0LiAmbmJzcDtCdXQgSSBkb24ndCByZWFsbHkgaGF2ZSBhIHN0cm9uZyBvcGluaW9uLiAmbmJz
+cDtUaGlzIGlzIGp1c3QgdGhlIGRlc2lnbiBpIHNldHRsZWQgb24uICZuYnNwO0hlY2ssIDk5Ljkl
+IG9mIHRoZSBlcnJvcnMgYXJlIHVubGlrZWx5IHRvIGV2ZXIgaGFwcGVuLCBhIHRoZXkncmUgY2F1
+c2VkIGJ5IGhhcmR3YXJlIG1hbGZ1bmN0aW9uITwvZGl2PjxkaXY+PGJyPjwvZGl2PjxkaXY+QW5k
+eTwvZGl2PjxkaXY+PGJyPjwvZGl2Pjxicj48YmxvY2txdW90ZSB0eXBlPSJjaXRlIj48ZGl2Pjxz
+cGFuPjwvc3Bhbj48YnI+PHNwYW4+Zy48L3NwYW4+PGJyPjxzcGFuPjwvc3Bhbj48YnI+PHNwYW4+
+LS0gPC9zcGFuPjxicj48c3Bhbj5HcmFudCBMaWtlbHksIEIuU2MuLCBQLkVuZy48L3NwYW4+PGJy
+PjxzcGFuPlNlY3JldCBMYWIgVGVjaG5vbG9naWVzIEx0ZC48L3NwYW4+PGJyPjxzcGFuPjwvc3Bh
+bj48YnI+PC9kaXY+PC9ibG9ja3F1b3RlPjwvYm9keT48L2h0bWw+
+--Apple-Mail-3-106355893--
+
+--===============3266086039366293616==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@lists.ozlabs.org
+https://lists.ozlabs.org/listinfo/linuxppc-dev
+--===============3266086039366293616==--
