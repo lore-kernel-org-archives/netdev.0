@@ -1,132 +1,159 @@
-From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
-Subject: Re: [PATCH 3/5] tcp/dccp: Consolidate common code for RFC 3390
-	conversion
-Date: Wed, 01 Sep 2010 09:05:23 +0200
-Message-ID: <3679BD73-A7A2-415F-A508-AD12F3AFF0AD@comsys.rwth-aachen.de>
-References: <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <alpine.DEB.2.00.1008301557590.31318@wel-95.cs.helsinki.fi>
- <20100901052355.GA5379@gerrit.erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg=pgp-sha1; boundary=Apple-Mail-7-74845882
-Content-Transfer-Encoding: 7bit
-Cc: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
+Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Wed, 1 Sep 2010 16:45:06 +0900
+Message-ID: <000501cb49a9$9cd4bf00$66f8800a@maildom.okisemi.com>
+References: <4C61EDE5.4030505@dsn.okisemi.com> <4C62981B.8050402@grandegger.com> <D5AB6E638E5A3E4B8F4406B113A5A19A28EA26CC@shsmsx501.ccr.corp.intel.com> <4C63B6C9.5050804@grandegger.com> <D5AB6E638E5A3E4B8F4406B113A5A19A28EA29DF@shsmsx501.ccr.corp.intel.com>
+Cc: "Wang, Yong Y" <yong.y.wang@intel.com>, <arjan@linux.intel.com>,
+	<gregkh@suse.de>, "Qi" <qi.wang@intel.com>,
+	"Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>,
+	"ML linux-kernel" <linux-kernel@vger.kernel.org>,
+	"ML netdev" <netdev@vger.kernel.org>,
+	<socketcan-core@lists.berlios.de>,
+	"Samuel Ortiz" <sameo@linux.intel.com>,
+	"Barry Song" <21cnbao@gmail.com>,
+	"Christian Pellegrin" <chripell@fsfe.org>,
+	"Wolfram Sang" <w.sang@pengutronix.de>,
+	"\"David S. Miller\"" <davem@davemloft.net>
+To: "Wolfgang Grandegger" <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-1.ms.rz.RWTH-Aachen.DE ([134.130.7.72]:57751 "EHLO
-	mta-1.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751383Ab0IAHFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 03:05:21 -0400
-In-reply-to: <20100901052355.GA5379@gerrit.erg.abdn.ac.uk>
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:49027 "EHLO
+	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751199Ab0IAHpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 03:45:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---Apple-Mail-7-74845882
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; charset=us-ascii
-
-Hi Gerrit,
-
-Am 01.09.2010 um 07:23 schrieb Gerrit Renker:
-
-> | > This patch consolidates initial-window code common to TCP and =
-CCID-2:
-> | >  * TCP uses RFC 3390 in a packet-oriented manner (tcp_input.c) and
-> | >  * CCID-2 uses RFC 3390 in packet-oriented manner (RFC 4341).
-> ...
-> | > +static inline u32 rfc3390_bytes_to_packets(const u32 smss)
-> | > +{
-> | > +	return smss <=3D 1095 ? 4 : (smss > 1460 ? 2 : 3);
-> | > +}
-> | > +
-> ...
-> |=20
-> | What is spelled out in tcp_select_initial_window might also need to =
-follow=20
-> | the same logic?
-> |=20
-> Thank you for paying attention, can you please have a look at the =
-subsequent
-> patch. I went through this yesterday and found that in 4 different =
-places=20
-> there are 4 different interpretations of what RFC 3390 means.
->=20
-> Having asked someone more familiar with IETF issues, it seems that the =
-RFC 5681
-> interpretation of RFC 3390 is now the 'official' one.
->=20
-> =
-+------------+--------------------+--------------------+------------------=
---+--------------------+
-> | Condition  |     RFC 2414       |        Linux       |       Linux   =
-     |     RFC 5681       |
-> |            |     RFC 3390       |      tcp_input     |     =
-tcp_output     |                    |
-> =
-+------------+--------------------+--------------------+------------------=
---+--------------------+
-> | 2 segments | 2190 < MSS         | 1460 < MSS         | 4380 < MSS    =
-     | 2190 < MSS         |
-> | 3 segments | 1095 < MSS <=3D 1460 | 1095 < MSS <=3D 1460 | 1460 < =
-MSS <=3D 4380 | 1095 < MSS <=3D 2190 |
-
-                              ^^^^^
-
-Are you sure about this?
-
-RFC3390 says (page 2):
- If (1095 bytes < MSS < 2190 bytes) then win <=3D 4380;
-
-So, IMO it should be 1095 < MSS < 2190 for 3 segments, and 2190 <=3D MSS =
-for 2 segments
-in the "RFC 3390" column.
-
-BTW: I think that we should not reference RFC2414, since RFC3390 =
-obsoletes it.
-
-Alex
+Sorry, for late response.
+----- Original Message ----- 
+From: "Wang, Qi" <qi.wang@intel.com>
+To: "Masayuki Ohtak" <masa-korg@dsn.okisemi.com>
+Cc: "Khor, Andrew Chih Howe" <andrew.chih.howe.khor@intel.com>; <gregkh@suse.de>; <arjan@linux.intel.com>; "Wang, Yong
+Y" <yong.y.wang@intel.com>; "Wolfgang Grandegger" <wg@grandegger.com>
+Sent: Thursday, August 12, 2010 6:00 PM
+Subject: RE: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
 
 
-> | 4 segments |        MSS <=3D 1095 |        MSS <=3D 1095 |        =
-MSS <=3D 1460 |        MSS <=3D 1095 |
-> =
-+------------+--------------------+--------------------+------------------=
---+--------------------+
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Hi Ohtak-san,
+>
+> Would you please answer the question from Wolfgang?
+>
+> Best Regards,
+> Qi.
+>
+> > -----Original Message-----
+> > From: Wolfgang Grandegger [mailto:wg@grandegger.com]
+> > Sent: Thursday, August 12, 2010 4:55 PM
+> > To: Wang, Qi
+> > Cc: Masayuki Ohtak; Khor, Andrew Chih Howe; gregkh@suse.de;
+> > arjan@linux.intel.com; Wang, Yong Y
+> > Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+> >
+> > On 08/12/2010 03:29 AM, Wang, Qi wrote:
+> > >> -----Original Message-----
+> > >> From: Wolfgang Grandegger [mailto:wg@grandegger.com]
+> > >> Sent: Wednesday, August 11, 2010 8:31 PM
+> > >> To: Masayuki Ohtak
+> > >> Cc: meego-dev@meego.com; socketcan-core@lists.berlios.de;
+> > >> netdev@vger.kernel.org; Khor, Andrew Chih Howe; gregkh@suse.de;
+> > >> arjan@linux.intel.com; Wang, Qi; Wang, Yong Y
+> > >> Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+> > >>
+> > >> Hello,
+> > >>
+> > >> On 08/11/2010 02:25 AM, Masayuki Ohtak wrote:
+> > >>> CAN driver of Topcliff PCH
+> > >>>
+> > >>> Topcliff PCH is the platform controller hub that is going to be used in
+> > >>> Intel's upcoming general embedded platform. All IO peripherals in
+> > >>> Topcliff PCH are actually devices sitting on AMBA bus.
+> > >>
+> > >> That's interesting. Where can I/we find more information about this CAN
+> > >> controller, e.g. data-sheets. It seems to have a few interesting
+> > >> features (message scheduler, etc.).
+> > >
+> > > I remove all the maillist, and show you something about this platform.
+> >
+> > Like Greg, I also prefer the public discussion.
+> >
+> > >
+> > > Topcliff PCH is connected with Tunnelcreak (A kind of ATOM-based processor,
+> > which integrate Memory controller, GFX and RC). And Topcliff is a kind of
+> > stand-alone ARM-based processor, so it has AMBA-based peripherals, such as
+> > CAN, GBE, I2C.
+> > >
+> > > Topcliff connected with Tunnelcreak via PCIe x1 lane. And PCH_PHUB works
+> > as a gateway, which transform PCIe transaction to AMBA transaction, and vice
+> > versa.
+> > >
+> > > The datasheet of those two chips aren't open now.
+> >
+> > Thanks for the info.
+> >
+> > >>> Topcliff PCH has CAN I/F. This driver enables CAN function.
+> > >>>
+> > >>> Signed-off-by: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+> > >>
+> > >> Thanks for your contribution. Unfortunately, there are many issues,
+> > >> especially the driver is not yet conform with the Socket-CAN driver API:
+> > >>
+> > >> - My first observation was:
+> > >>
+> > >>   $ wc -l pch_can.c
+> > >>   4076 pch_can.c
+> > >>   $ grep dev_dbg pch_can.c | wc -l
+> > >>   143
+> > >>
+> > >>   That's a lot of code, mainly debugging code, I think. This needs to
+> > >>   be cleaned up sooner than later. dev_dbg's should be restricted to a
+> > >>   few useful for the real users.
 
-//
-// Dipl.-Inform. Alexander Zimmermann
-// Department of Computer Science, Informatik 4
-// RWTH Aachen University
-// Ahornstr. 55, 52056 Aachen, Germany
-// phone: (49-241) 80-21422, fax: (49-241) 80-22221
-// email: zimmermann@cs.rwth-aachen.de
-// web: http://www.umic-mesh.net
-//
+We will reduce dev_dbg code.
+
+> > >>
+> > >> - The values for the hw-specific bit-timing registers should be derived
+> > >>   from the calculated values in "priv->can.bittiming":
+> > >>
+> > >>   http://lxr.linux.no/#linux+v2.6.35/include/linux/can/netlink.h#L17
+> > >>
+
+I show current pch_can code below.
+
++static int pch_set_bittiming(struct net_device *ndev)
++{
++ struct pch_can_priv *priv = netdev_priv(ndev);
++ struct pch_can_os *dev_can_os = priv->pch_can_os_p;
++ const struct can_bittiming *bt = &priv->can.bittiming;
+
+Is the above TRUE, isn't it ?
+
+> > >> - The driver should handle state changes and communicate them to the
+> > >>   user space via error messages, if possible.
+> > >>
+What's "state chage" mean ?
+
+> > >> - The driver should report errors to the user space via error messages.
+> > >>
+Is the above mean using alloc_can_err_skb and set error info and notify to kernel with netif_rx ?
 
 
---Apple-Mail-7-74845882
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: Signierter Teil der Nachricht
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
+> > >> - Bus errors seem not to be handled properly.I'm missing can_bus_off().
+> > >>   Does the controller recover from bus-off automatically?
+No.
+CAN driver recovers from Bus-off state.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (Darwin)
+> > >>
+> > >> - I see that the driver uses many TX and RX objects. How do you avoid
+> > >>   out-of-order transmission and reception?
+> > > What do you mean out-of-order RX and TX?
+> > > Atom processor only supports in-order execution, and PCIe-based peripherals
+> > can solve it with consumer-producer model. Actually IC designer will take care
+> > of out-of-order PCIe CPLD transaction.
+> >
+> > I mean out-of-order transmission to or from the CAN bus. This is handled
+> > by the CAN controller hardware. It has nothing to to with the processor.
+Cannot avoid occurring rx or tx our-of-order.
 
-iEYEARECAAYFAkx9+zMACgkQdyiq39b9uS7bYwCfZLh3gBw368knZDBdh/Z0Rt4+
-9MoAnRJ/AYomX17hDynl5lCng2O8N7GE
-=FRfy
------END PGP SIGNATURE-----
+Thanks, Ohtake(OKISemi)
 
---Apple-Mail-7-74845882--
+
+
