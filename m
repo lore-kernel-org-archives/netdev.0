@@ -1,42 +1,42 @@
 From: "Yaniv Rosner" <yaniv.rosner@broadcom.com>
-Subject: [PATCH net-next 3/8] bnx2x: Reset link before any new link
- settings
-Date: Wed, 1 Sep 2010 22:51:23 +0300
-Message-ID: <1283370683.4403.134.camel@lb-tlvb-yanivr.il.broadcom.com>
+Subject: [PATCH net-next 5/8] bnx2x: Remove unneeded setting of XAUI low
+ power to BCM8727
+Date: Wed, 1 Sep 2010 22:51:30 +0300
+Message-ID: <1283370690.4403.136.camel@lb-tlvb-yanivr.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1335 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1286 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755427Ab0IAQdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Sep 2010 12:33:12 -0400
+	id S1755177Ab0IAQdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Sep 2010 12:33:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reset link before any new link settings to avoid potential link issue
-caused by previous link settings 
+Remove unneeded setting of XAUI low power to BCM8727. This was required
+only in older microcode which is not in the field. 
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com> 
 ---
- drivers/net/bnx2x/bnx2x_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/bnx2x/bnx2x_link.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 7fb9a61..b09fa04 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -1292,6 +1292,7 @@ void bnx2x_link_set(struct bnx2x *bp)
- {
- 	if (!BP_NOMCP(bp)) {
- 		bnx2x_acquire_phy_lock(bp);
-+		bnx2x_link_reset(&bp->link_params, &bp->link_vars, 1);
- 		bnx2x_phy_init(&bp->link_params, &bp->link_vars);
- 		bnx2x_release_phy_lock(bp);
+diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
+index 7a8df7a..e2945b4 100644
+--- a/drivers/net/bnx2x/bnx2x_link.c
++++ b/drivers/net/bnx2x/bnx2x_link.c
+@@ -4200,7 +4200,6 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
+ 				       val);
  
+ 			bnx2x_8727_power_module(bp, params, ext_phy_addr, 1);
+-			bnx2x_bcm8073_set_xaui_low_power_mode(params);
+ 
+ 			bnx2x_cl45_read(bp, params->port,
+ 				      ext_phy_type,
 -- 
 1.7.1
 
