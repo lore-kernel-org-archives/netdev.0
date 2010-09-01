@@ -1,38 +1,55 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next-2.6] skge: add GRO support
-Date: Tue, 31 Aug 2010 18:31:05 -0700
-Message-ID: <20100831183105.03b0f2bc@nehalam>
-References: <1283293956.2198.46.camel@edumazet-laptop>
+Subject: Re: [PATCH] drivers/net/pch_gbe: Cleanup stats use
+Date: Tue, 31 Aug 2010 18:33:31 -0700
+Message-ID: <20100831183331.5a6aa508@nehalam>
+References: <4C763A67.5040107@dsn.okisemi.com>
+	<4C7D0E7A.5060309@dsn.okisemi.com>
+	<1283271009.1797.28.camel@Joe-Laptop>
+	<1283275514.1797.36.camel@Joe-Laptop>
+	<1283279915.1797.66.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
+	Sam Ravnborg <sam@ravnborg.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Maxime Bizon <mbizon@freebox.fr>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	John Linn <john.linn@xilinx.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	Andrew <andrew.chih.howe.khor@intel.com>,
+	Intel OTC <joel.clark@intel.com>,
+	"Foster, Margie" <margie.foster@intel.com>,
+	Toshiharu Okada <okada533@dsn.okisemi.com>,
+	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
+	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35411 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:48684 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751749Ab0IABbH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Aug 2010 21:31:07 -0400
-In-Reply-To: <1283293956.2198.46.camel@edumazet-laptop>
+	id S1751790Ab0IABde (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 21:33:34 -0400
+In-Reply-To: <1283279915.1797.66.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 01 Sep 2010 00:32:36 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Tue, 31 Aug 2010 11:38:35 -0700
+Joe Perches <joe@perches.com> wrote:
 
-> @@ -3193,7 +3192,7 @@ static int skge_poll(struct napi_struct *napi, int to_do)
->  		unsigned long flags;
->  
->  		spin_lock_irqsave(&hw->hw_lock, flags);
-> -		__napi_complete(napi);
-> +		napi_complete(napi);
+>  struct pch_gbe_stats {
+> -	signed char stat_string[ETH_GSTRING_LEN];
+> -	int sizeof_stat;
+> -	int stat_offset;
+> +	signed char string[ETH_GSTRING_LEN];
+> +	size_t size;
+> +	size_t offset;
+>  };
 
-This adds a redundant irq_save/irq_restore in the packet
-receive path.
-
-In the case of skge, since the both ports share a single
-IRQ mask register, the lock is there to make sure that updates
-to the mask register doesn't race between NAPI finishing
-on one port and IRQ on other port changing same IRQ mask register.
-
-
+Is this driver really using 'signed char' here?
+Should just be 'char' for a simple string.
