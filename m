@@ -1,65 +1,146 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] drivers/net/pch_gbe: Cleanup stats use
-Date: Tue, 31 Aug 2010 18:38:45 -0700
-Message-ID: <1283305125.1797.112.camel@Joe-Laptop>
-References: <4C763A67.5040107@dsn.okisemi.com>
-	 <4C7D0E7A.5060309@dsn.okisemi.com> <1283271009.1797.28.camel@Joe-Laptop>
-	 <1283275514.1797.36.camel@Joe-Laptop> <1283279915.1797.66.camel@Joe-Laptop>
-	 <20100831183331.5a6aa508@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
-	Sam Ravnborg <sam@ravnborg.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	John Linn <john.linn@xilinx.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	Toshiharu Okada <okada533@dsn.okisemi.com>,
-	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
-	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Liang Li <liang.li@windriver.com>
+Subject: [v1 PATCH] ucc_geth: fix ethtool set ring param bug
+Date: Wed,  1 Sep 2010 09:43:49 +0800
+Message-ID: <1283305429-8426-1-git-send-email-liang.li@windriver.com>
+References: <1283179677-21262-1-git-send-email-liang.li@windriver.com>
+To: leoli@freescale.com, davem@davemloft.net, avorontsov@ru.mvista.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1151 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754232Ab0IABir (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Aug 2010 21:38:47 -0400
-In-Reply-To: <20100831183331.5a6aa508@nehalam>
+Received: from mail.windriver.com ([147.11.1.11]:47241 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751874Ab0IABmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Aug 2010 21:42:12 -0400
+In-Reply-To: <1283179677-21262-1-git-send-email-liang.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-08-31 at 18:33 -0700, Stephen Hemminger wrote:
-> On Tue, 31 Aug 2010 11:38:35 -0700
-> Joe Perches <joe@perches.com> wrote:
-> 
-> >  struct pch_gbe_stats {
-> > -	signed char stat_string[ETH_GSTRING_LEN];
-> > -	int sizeof_stat;
-> > -	int stat_offset;
-> > +	signed char string[ETH_GSTRING_LEN];
-> > +	size_t size;
-> > +	size_t offset;
-> >  };
-> 
-> Is this driver really using 'signed char' here?
-> Should just be 'char' for a simple string.
+It's common sense that when we should do change to driver ring
+desc/buffer etc only after 'stop/shutdown' the device. When we
+do change while devices/driver is running, kernel oops occur:
 
-You're right.  Probably all the below should just be char.
+[
+root@fsl_8569mds:/root> ethtool -G eth0 tx 256
+root@fsl_8569mds:/root> Oops: Kernel access of bad area, sig: 11 [#1]
+MPC8569 MDS
+last sysfs file: /sys/kernel/uevent_seqnum
+Modules linked in:
+NIP: 00000000 LR: c0072fbc CTR: 00000000
+REGS: effefef0 TRAP: 0400   Not tainted  (2.6.36-rc3-00002-g6c3b118-dirty)
+MSR: 00021000 <ME,CE>  CR: 24442048  XER: 00000000
+TASK = c0518350[0] 'swapper' THREAD: c0544000
+GPR00: 00000000 effeffa0 c0518350 00000020 ef0be000 ef005000 80000000 00000200
+GPR08: c03b5d00 00000000 f1010080 ef08d458 000dda96 00000000 3ffb2900 00000000
+GPR16: 00000000 3ffa8948 3fff1314 3ffac3f8 00000000 00000000 00000000 00000000
+GPR24: 00000000 00000000 00000000 c0530000 00000000 00000000 00000020 ef3709c0
+NIP [00000000] (null)
+LR [c0072fbc] handle_IRQ_event+0x4c/0x12c
+Call Trace:
+[effeffa0] [c0019414] qe_ic_mask_irq+0x1c/0x90 (unreliable)
+[effeffc0] [c0075b74] handle_level_irq+0x88/0x128
+[effeffd0] [c001ca44] qe_ic_cascade_muxed_mpic+0x50/0x88
+[effefff0] [c000d5fc] call_handle_irq+0x18/0x28
+[c0545ea0] [c0004f3c] do_IRQ+0xa8/0x140
+[c0545ed0] [c000e2bc] ret_from_except+0x0/0x18
+-- Exception: 501 at cpu_idle+0x9c/0xdc
+    LR = cpu_idle+0x9c/0xdc
+[c0545f90] [c0008318] cpu_idle+0x54/0xdc (unreliable)
+[c0545fb0] [c000231c] rest_init+0x68/0x7c
+[c0545fc0] [c04e686c] start_kernel+0x230/0x2b0
+[c0545ff0] [c000039c] skpinv+0x2b4/0x2f0
+Instruction dump:
+XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX
+XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX
+Kernel panic - not syncing: Fatal exception in interrupt
+Rebooting in 180 seconds..
+]
 
-$ grep -Pn "\bsigned\s+char\b" drivers/net/pch_gbe/*.[ch]
-pch_gbe_ethtool.c:34:	signed char string[ETH_GSTRING_LEN];
-pch_gbe_param.c:155:	signed char *name;
-pch_gbe_param.c:156:	signed char *err;
-pch_gbe_param.c:165:			struct pch_gbe_opt_list { int i; signed char *str; } *p;
+Then the natural solution would be 'stop driver/device then adjust
+ring buffer parameter then reactivate driver/device'.
 
+v1: add roll back branch for 'auto reopen fail' statement
+
+Signed-off-by: Liang Li <liang.li@windriver.com>
+---
+ drivers/net/ucc_geth.c         |    4 ++--
+ drivers/net/ucc_geth.h         |    2 ++
+ drivers/net/ucc_geth_ethtool.c |   29 +++++++++++++++++++++++------
+ 3 files changed, 27 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 7d2e33a..5eadfa3 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3485,7 +3485,7 @@ err:
+ 
+ /* Called when something needs to use the ethernet device */
+ /* Returns 0 for success. */
+-static int ucc_geth_open(struct net_device *dev)
++int ucc_geth_open(struct net_device *dev)
+ {
+ 	struct ucc_geth_private *ugeth = netdev_priv(dev);
+ 	int err;
+@@ -3542,7 +3542,7 @@ err:
+ }
+ 
+ /* Stops the kernel queue, and halts the controller */
+-static int ucc_geth_close(struct net_device *dev)
++int ucc_geth_close(struct net_device *dev)
+ {
+ 	struct ucc_geth_private *ugeth = netdev_priv(dev);
+ 
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index 05a9558..1cfb400 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -1235,5 +1235,7 @@ int init_flow_control_params(u32 automatic_flow_control_mode,
+ 		u32 __iomem *upsmr_register, u32 __iomem *uempr_register,
+ 		u32 __iomem *maccfg1_register);
+ 
++extern int ucc_geth_open(struct net_device *);
++extern int ucc_geth_close(struct net_device *);
+ 
+ #endif				/* __UCC_GETH_H__ */
+diff --git a/drivers/net/ucc_geth_ethtool.c b/drivers/net/ucc_geth_ethtool.c
+index 6f92e48..644a6db 100644
+--- a/drivers/net/ucc_geth_ethtool.c
++++ b/drivers/net/ucc_geth_ethtool.c
+@@ -255,13 +255,30 @@ uec_set_ringparam(struct net_device *netdev,
+ 		return -EINVAL;
+ 	}
+ 
+-	ug_info->bdRingLenRx[queue] = ring->rx_pending;
+-	ug_info->bdRingLenTx[queue] = ring->tx_pending;
+-
+ 	if (netif_running(netdev)) {
+-		/* FIXME: restart automatically */
+-		printk(KERN_INFO
+-			"Please re-open the interface.\n");
++		u16 rx_t;
++		u16 tx_t;
++		printk(KERN_INFO "Stopping interface %s.\n", netdev->name);
++		ucc_geth_close(netdev);
++
++		rx_t = ug_info->bdRingLenRx[queue];
++		tx_t = ug_info->bdRingLenTx[queue];
++
++		ug_info->bdRingLenRx[queue] = ring->rx_pending;
++		ug_info->bdRingLenTx[queue] = ring->tx_pending;
++
++		printk(KERN_INFO "Reactivating interface %s.\n", netdev->name);
++		ret = ucc_geth_open(netdev);
++		if (ret) {
++			printk(KERN_WARNING "uec_set_ringparam: set ring param for running"
++					" interface %s failed. Please try to make the interface "
++					" down, then try again.\n", netdev->name);
++			ug_info->bdRingLenRx[queue] = rx_t;
++			ug_info->bdRingLenTx[queue] = tx_t;
++		}
++	} else {
++		ug_info->bdRingLenRx[queue] = ring->rx_pending;
++		ug_info->bdRingLenTx[queue] = ring->tx_pending;
+ 	}
+ 
+ 	return ret;
+-- 
+1.7.2
 
