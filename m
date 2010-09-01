@@ -1,62 +1,65 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC] ipvs: Keep track of backlog connections
-Date: Wed, 1 Sep 2010 22:28:35 +0900
-Message-ID: <20100901132834.GI4998@verge.net.au>
-References: <alpine.LNX.2.00.1008311411190.5292@titan.stealer.net>
- <Pine.LNX.4.58.1009011113560.5403@u.domain.uli>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [RFC] bonding: fix workqueue re-arming races
+Date: Wed, 1 Sep 2010 15:30:56 +0200
+Message-ID: <20100901133056.GB12447@midget.suse.cz>
+References: <20136.1283288063@death>
+ <20100901122356.GB9468@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sven Wegener <sven.wegener@stealer.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Jiri Bohac <jbohac@suse.cz>,
+	bonding-devel@lists.sourceforge.net, markine@google.com,
+	chavey@google.com, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:48262 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753219Ab0IAN3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Sep 2010 09:29:21 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.1009011113560.5403@u.domain.uli>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20100901122356.GB9468@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 01, 2010 at 11:32:39AM +0300, Julian Anastasov wrote:
+On Wed, Sep 01, 2010 at 12:23:56PM +0000, Jarek Poplawski wrote:
+> On 2010-08-31 22:54, Jay Vosburgh wrote:
+> > 	What prevents this from deadlocking such that cpu A is in
+> > bond_close, holding RTNL and in cancel_delayed_work_sync, while cpu B is
+> > in the above function, trying to acquire RTNL?
 > 
-> 	Hello,
-> 
-> On Tue, 31 Aug 2010, Sven Wegener wrote:
-> 
-> > Hi all,
-> > 
-> > this patch has been sitting in my local repository for quite some time 
-> > now. The number of backlog connections helps diagnosing realserver related 
-> > overload and configuration problems. Is it worth merging? If yes, I'm 
-> > going to tidy it up and prepare the userspace portion for ipvsadm.
-> > 
-> > Sven
-> > 
-> > 
-> > From: Sven Wegener <sven.wegener@stealer.net>
-> > Subject: [PATCH] ipvs: Keep track of backlog connections
-> > 
-> > A backlog connection is a connection that is on its way from inactive to
-> > active. Speaking in TCP language, a connection from which we've seen the
-> > initial SYN packet, but the three-way handshake hasn't finished yet.
-> > These connections are expected to move to active soon. When a
-> > destination is overloaded or isn't able to successfully establish
-> > connections for various reasons, this count increases quickly and is an
-> > indication for a problem.
-> 
-> 	Looks good but should not be applied now because
-> we should first put some changes for cp->flags, we are
-> reaching the limit of 16 bits for cp->flags. Your
-> intention is IP_VS_CONN_F_BACKLOG not to be sync-ed and
-> I agree. So, your patch will be applied after other
-> changes. I think, Simon will fix it later.
+> I guess this one isn't cancelled in bond_close, so it should be safe.
 
-Hi Julian,
+Nah, Jay was correct. Although this work item is not explicitly
+cancelled with cancel_delayed_work_sync(), it is on the same
+workqueue as work items that are being cancelled with
+cancel_delayed_work_sync(), so this can still cause a deadlock.
+Fixed in the new version of the patch by putting these on a
+separate workqueue.
 
-thanks for spotting this bits issue.
+> > 	Also, assuming for the moment that the above isn't a problem,
+> > curr_active_slave may be NULL if the last slave is removed between the
+> > time bond_alb_promisc_disable is scheduled and when it runs.  I'm not
+> > sure that the alb_bond_info can be guaranteed to be valid, either, if
+> > the mode changed.
+> 
+> Probably some or all of these work functions should test for closing
+> eg. with netif_running() or some other flag/variable under rtnl_lock().
+> 
+> ....
+> >> static void bond_work_cancel_all(struct bonding *bond)
+> >> {
+> >> -	write_lock_bh(&bond->lock);
+> >> -	bond->kill_timers = 1;
+> >> -	write_unlock_bh(&bond->lock);
+> >> -
+> >> 	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
+> 
+> I'd suggest to skip these delayed_work_pending() tests.
 
-On the kernel-side of things, internally it should be easy
-enough to either expand flags or add a new element to the structure.
-So it seems to me that the problem is the kernel/user-space interface.
-And if that is the case, I think the best idea is to just use
-the netlink interface for all new configuration options and have
-new features unsupported through the old, legacy, ioctl interface.
+I agree, these should not be needed anymore, since bond_close()
+now makes sure the re-arming work is cancelled. I'll update the
+patch if Jay thinks it's otherwise good.
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
