@@ -1,56 +1,41 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-next-2.6 [PATCH 1/1] tcp: add missing initial window (RFC
-	3390) for tcp_output
-Date: Wed, 1 Sep 2010 07:34:43 +0200
-Message-ID: <20100901053443.GB5379@gerrit.erg.abdn.ac.uk>
-References: <1283145794-5615-1-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-2-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-3-git-send-email-gerrit@erg.abdn.ac.uk> <1283145794-5615-4-git-send-email-gerrit@erg.abdn.ac.uk> <alpine.DEB.2.00.1008301557590.31318@wel-95.cs.helsinki.fi> <20100901052355.GA5379@gerrit.erg.abdn.ac.uk>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
+Date: Wed, 1 Sep 2010 06:36:03 +0000
+Message-ID: <20100901063602.GA6285@ff.dom.local>
+References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com> <20100831210101.3c059a91@leibniz> <4C7D5EBD.103@gmail.com> <AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com> <20100831214808.GA32141@ms2.inr.ac.ru> <20100831223402.GA7101@ms2.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
+Cc: Dan Kruchinin <dkruchinin@acm.org>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56593 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751132Ab0IAFe6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Sep 2010 01:34:58 -0400
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:55949 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752511Ab0IAGgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 02:36:09 -0400
+Received: by bwz11 with SMTP id 11so5061345bwz.19
+        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 23:36:08 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20100901052355.GA5379@gerrit.erg.abdn.ac.uk>
+In-Reply-To: <20100831223402.GA7101@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please can you have a look, I have checked it, appears to be correct
-and compiles cleanly. Thanks again to Ilpo.
+On Wed, Sep 01, 2010 at 02:34:02AM +0400, Alexey Kuznetsov wrote:
+> Hello!
+Hi!
 
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-tcp: update also tcp_output with regard to RFC 5681
+> To Jarek: about the scripts. I do not think something will be broken
+> by fixing this error. Eventually, if someone used "latency", he meant
+> something about real latency. And even if the value was generated
+> using the same wrong logic as tc did, using correct formula would just
+> increase limit setting.
 
-Thanks to Ilpo Jarvinen, his updates also the initial window
-setting for tcp_output with regard to RFC 5681.
+As I wrote earlier, I'm more worried about configs based on experience,
+not logic. Dan's tests show there could be a difference, and I'm not
+sure users cared about the logic, since it wasn't questioned until now.
+Btw, there could be considered adding a new, alternative parameter, for
+this, like rlatency etc. if it's so crucial. And, of course, it's only
+my little "IMHO", I don't insist on anything.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/ipv4/tcp_output.c |   10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
-
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -225,15 +225,11 @@ void tcp_select_initial_window(int __spa
- 	}
- 
- 	/* Set initial window to value enough for senders,
--	 * following RFC2414. Senders, not following this RFC,
--	 * will be satisfied with 2.
-+	 * following RFC5681 (which updates RFC3390).
- 	 */
- 	if (mss > (1 << *rcv_wscale)) {
--		int init_cwnd = 4;
--		if (mss > 1460 * 3)
--			init_cwnd = 2;
--		else if (mss > 1460)
--			init_cwnd = 3;
-+		int init_cwnd = rfc3390_bytes_to_packets(mss);
-+
- 		/* when initializing use the value from init_rcv_wnd
- 		 * rather than the default from above
- 		 */
+Thanks,
+Jarek P.
