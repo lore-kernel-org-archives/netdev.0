@@ -1,179 +1,159 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 09/10] qlcnic: mac vlan learning support
-Date: Tue, 31 Aug 2010 20:17:52 -0700
-Message-ID: <1283311073-7165-10-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCHv2 NEXT 03/10] qlcnic: fix mac addr read
+Date: Tue, 31 Aug 2010 20:17:46 -0700
+Message-ID: <1283311073-7165-4-git-send-email-amit.salecha@qlogic.com>
 References: <1283311073-7165-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
+	anirban.chakraborty@qlogic.com,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:12046 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:31975 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754032Ab0IADRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Aug 2010 23:17:55 -0400
+	id S1752977Ab0IADRy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Aug 2010 23:17:54 -0400
 In-Reply-To: <1283311073-7165-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hypervisor allows, two VM's interfaces to have same mac address.
-These VM's interfaces get differentiate with Vlan tag.
-This patch add support to learn and configure mac+vlan filter on device.
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
+o Mac addr was read from flash for every fw reset
+for Non-priviledge function.It should be read only once.
+o Remove unnecessary get_mac_addr callback
+
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    3 +++
- drivers/net/qlcnic/qlcnic_hw.c   |   17 +++++++++++------
- drivers/net/qlcnic/qlcnic_main.c |   16 ++++++++++++----
- 3 files changed, 26 insertions(+), 10 deletions(-)
+ drivers/net/qlcnic/qlcnic.h      |    2 --
+ drivers/net/qlcnic/qlcnic_hw.c   |   13 -------------
+ drivers/net/qlcnic/qlcnic_main.c |   28 +++++++++++++---------------
+ 3 files changed, 13 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 4727204..9d21152 100644
+index 74eff18..220370f 100644
 --- a/drivers/net/qlcnic/qlcnic.h
 +++ b/drivers/net/qlcnic/qlcnic.h
-@@ -722,6 +722,8 @@ struct qlcnic_cardrsp_tx_ctx {
- #define QLCNIC_MAC_NOOP	0
- #define QLCNIC_MAC_ADD	1
- #define QLCNIC_MAC_DEL	2
-+#define QLCNIC_MAC_VLAN_ADD	3
-+#define QLCNIC_MAC_VLAN_DEL	4
+@@ -1259,7 +1259,6 @@ int qlcnic_config_bridged_mode(struct qlcnic_adapter *adapter, u32 enable);
+ int qlcnic_send_lro_cleanup(struct qlcnic_adapter *adapter);
+ void qlcnic_update_cmd_producer(struct qlcnic_adapter *adapter,
+ 		struct qlcnic_host_tx_ring *tx_ring);
+-int qlcnic_get_mac_addr(struct qlcnic_adapter *adapter, u8 *mac);
+ void qlcnic_clear_ilb_mode(struct qlcnic_adapter *adapter);
+ int qlcnic_set_ilb_mode(struct qlcnic_adapter *adapter);
+ void qlcnic_fetch_mac(struct qlcnic_adapter *, u32, u32, u8, u8 *);
+@@ -1346,7 +1345,6 @@ static inline u32 qlcnic_tx_avail(struct qlcnic_host_tx_ring *tx_ring)
+ extern const struct ethtool_ops qlcnic_ethtool_ops;
  
- struct qlcnic_mac_list_s {
- 	struct list_head list;
-@@ -932,6 +934,7 @@ struct qlcnic_mac_req {
- struct qlcnic_filter {
- 	struct hlist_node fnode;
- 	u8 faddr[ETH_ALEN];
-+	u16 vlan_id;
- 	unsigned long ftime;
- };
- 
+ struct qlcnic_nic_template {
+-	int (*get_mac_addr) (struct qlcnic_adapter *, u8*);
+ 	int (*config_bridged_mode) (struct qlcnic_adapter *, u32);
+ 	int (*config_led) (struct qlcnic_adapter *, u32, u32);
+ 	int (*start_firmware) (struct qlcnic_adapter *);
 diff --git a/drivers/net/qlcnic/qlcnic_hw.c b/drivers/net/qlcnic/qlcnic_hw.c
-index 5b2bce5..c198df9 100644
+index 5e6f486..670a54a 100644
 --- a/drivers/net/qlcnic/qlcnic_hw.c
 +++ b/drivers/net/qlcnic/qlcnic_hw.c
-@@ -375,7 +375,7 @@ qlcnic_send_cmd_descs(struct qlcnic_adapter *adapter,
- 
- static int
- qlcnic_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
--				unsigned op)
-+				u16 vlan_id, unsigned op)
- {
- 	struct qlcnic_nic_req req;
- 	struct qlcnic_mac_req *mac_req;
-@@ -391,6 +391,8 @@ qlcnic_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
- 	mac_req->op = op;
- 	memcpy(mac_req->mac_addr, addr, 6);
- 
-+	req.words[1] = cpu_to_le64(vlan_id);
-+
- 	return qlcnic_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
+@@ -715,19 +715,6 @@ int qlcnic_change_mtu(struct net_device *netdev, int mtu)
+ 	return rc;
  }
  
-@@ -415,7 +417,7 @@ static int qlcnic_nic_add_mac(struct qlcnic_adapter *adapter, u8 *addr)
- 	memcpy(cur->mac_addr, addr, ETH_ALEN);
- 
- 	if (qlcnic_sre_macaddr_change(adapter,
--				cur->mac_addr, QLCNIC_MAC_ADD)) {
-+				cur->mac_addr, 0, QLCNIC_MAC_ADD)) {
- 		kfree(cur);
- 		return -EIO;
- 	}
-@@ -485,7 +487,7 @@ void qlcnic_free_mac_list(struct qlcnic_adapter *adapter)
- 	while (!list_empty(head)) {
- 		cur = list_entry(head->next, struct qlcnic_mac_list_s, list);
- 		qlcnic_sre_macaddr_change(adapter,
--				cur->mac_addr, QLCNIC_MAC_DEL);
-+				cur->mac_addr, 0, QLCNIC_MAC_DEL);
- 		list_del(&cur->list);
- 		kfree(cur);
- 	}
-@@ -506,7 +508,9 @@ void qlcnic_prune_lb_filters(struct qlcnic_adapter *adapter)
- 			if (jiffies >
- 				(QLCNIC_FILTER_AGE * HZ + tmp_fil->ftime)) {
- 				qlcnic_sre_macaddr_change(adapter,
--					tmp_fil->faddr, QLCNIC_MAC_DEL);
-+					tmp_fil->faddr, tmp_fil->vlan_id,
-+					tmp_fil->vlan_id ? QLCNIC_MAC_VLAN_DEL :
-+					QLCNIC_MAC_DEL);
- 				spin_lock_bh(&adapter->mac_learn_lock);
- 				adapter->fhash.fnum--;
- 				hlist_del(&tmp_fil->fnode);
-@@ -528,8 +532,9 @@ void qlcnic_delete_lb_filters(struct qlcnic_adapter *adapter)
- 		head = &(adapter->fhash.fhead[i]);
- 
- 		hlist_for_each_entry_safe(tmp_fil, tmp_hnode, n, head, fnode) {
--			qlcnic_sre_macaddr_change(adapter,
--					tmp_fil->faddr, QLCNIC_MAC_DEL);
-+			qlcnic_sre_macaddr_change(adapter, tmp_fil->faddr,
-+				tmp_fil->vlan_id, tmp_fil->vlan_id ?
-+				QLCNIC_MAC_VLAN_DEL :  QLCNIC_MAC_DEL);
- 			spin_lock_bh(&adapter->mac_learn_lock);
- 			adapter->fhash.fnum--;
- 			hlist_del(&tmp_fil->fnode);
+-int qlcnic_get_mac_addr(struct qlcnic_adapter *adapter, u8 *mac)
+-{
+-	u32 crbaddr;
+-	int pci_func = adapter->ahw.pci_func;
+-
+-	crbaddr = CRB_MAC_BLOCK_START +
+-		(4 * ((pci_func/2) * 3)) + (4 * (pci_func & 1));
+-
+-	qlcnic_fetch_mac(adapter, crbaddr, crbaddr+4, pci_func & 1, mac);
+-
+-	return 0;
+-}
+-
+ /*
+  * Changes the CRB window to the specified window.
+  */
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 0fbfb53..5a6445a 100644
+index 771a160..3f2f93b 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -1826,7 +1826,7 @@ static void qlcnic_free_lb_filters_mem(struct qlcnic_adapter *adapter)
- }
+@@ -322,7 +322,7 @@ qlcnic_read_mac_addr(struct qlcnic_adapter *adapter)
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct pci_dev *pdev = adapter->pdev;
  
- static void qlcnic_change_filter(struct qlcnic_adapter *adapter,
--		u64 uaddr, struct qlcnic_host_tx_ring *tx_ring)
-+		u64 uaddr, u16 vlan_id, struct qlcnic_host_tx_ring *tx_ring)
+-	if (adapter->nic_ops->get_mac_addr(adapter, mac_addr) != 0)
++	if (qlcnic_get_mac_address(adapter, mac_addr) != 0)
+ 		return -EIO;
+ 
+ 	memcpy(netdev->dev_addr, mac_addr, ETH_ALEN);
+@@ -378,14 +378,12 @@ static const struct net_device_ops qlcnic_netdev_ops = {
+ };
+ 
+ static struct qlcnic_nic_template qlcnic_ops = {
+-	.get_mac_addr = qlcnic_get_mac_address,
+ 	.config_bridged_mode = qlcnic_config_bridged_mode,
+ 	.config_led = qlcnic_config_led,
+ 	.start_firmware = qlcnic_start_firmware
+ };
+ 
+ static struct qlcnic_nic_template qlcnic_vf_ops = {
+-	.get_mac_addr = qlcnic_get_mac_address,
+ 	.config_bridged_mode = qlcnicvf_config_bridged_mode,
+ 	.config_led = qlcnicvf_config_led,
+ 	.start_firmware = qlcnicvf_start_firmware
+@@ -668,7 +666,6 @@ static void
+ qlcnic_check_options(struct qlcnic_adapter *adapter)
  {
- 	struct cmd_desc_type0 *hwdesc;
- 	struct qlcnic_nic_req *req;
-@@ -1845,9 +1845,11 @@ static void qlcnic_change_filter(struct qlcnic_adapter *adapter,
- 	req->req_hdr = cpu_to_le64(word);
+ 	u32 fw_major, fw_minor, fw_build;
+-	char brd_name[QLCNIC_MAX_BOARD_NAME_LEN];
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	struct qlcnic_info nic_info;
  
- 	mac_req = (struct qlcnic_mac_req *)&(req->words[0]);
--	mac_req->op = QLCNIC_MAC_ADD;
-+	mac_req->op = vlan_id ? QLCNIC_MAC_VLAN_ADD : QLCNIC_MAC_ADD;
- 	memcpy(mac_req->mac_addr, &uaddr, ETH_ALEN);
+@@ -678,17 +675,6 @@ qlcnic_check_options(struct qlcnic_adapter *adapter)
  
-+	req->words[1] = cpu_to_le64(vlan_id);
+ 	adapter->fw_version = QLCNIC_VERSION_CODE(fw_major, fw_minor, fw_build);
+ 
+-	if (!(adapter->flags & QLCNIC_ADAPTER_INITIALIZED))
+-		if (qlcnic_read_mac_addr(adapter))
+-			dev_warn(&pdev->dev, "failed to read mac addr\n");
+-	if (adapter->portnum == 0) {
+-		get_brd_name(adapter, brd_name);
+-
+-		pr_info("%s: %s Board Chip rev 0x%x\n",
+-				module_name(THIS_MODULE),
+-				brd_name, adapter->ahw.revision_id);
+-	}
+-
+ 	dev_info(&pdev->dev, "firmware v%d.%d.%d\n",
+ 			fw_major, fw_minor, fw_build);
+ 
+@@ -1468,6 +1454,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int err;
+ 	uint8_t revision_id;
+ 	uint8_t pci_using_dac;
++	char brd_name[QLCNIC_MAX_BOARD_NAME_LEN];
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+@@ -1535,6 +1522,17 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_decr_ref;
+ 	}
+ 
++	if (qlcnic_read_mac_addr(adapter))
++		dev_warn(&pdev->dev, "failed to read mac addr\n");
 +
- 	tx_ring->producer = get_next_index(producer, tx_ring->num_desc);
- }
++	if (adapter->portnum == 0) {
++		get_brd_name(adapter, brd_name);
++
++		pr_info("%s: %s Board Chip rev 0x%x\n",
++				module_name(THIS_MODULE),
++				brd_name, adapter->ahw.revision_id);
++	}
++
+ 	qlcnic_clear_stats(adapter);
  
-@@ -1865,6 +1867,7 @@ qlcnic_send_filter(struct qlcnic_adapter *adapter,
- 	struct hlist_node *tmp_hnode, *n;
- 	struct hlist_head *head;
- 	u64 src_addr = 0;
-+	u16 vlan_id = 0;
- 	u8 hindex;
- 
- 	if (!compare_ether_addr(phdr->h_source, adapter->mac_addr))
-@@ -1873,12 +1876,16 @@ qlcnic_send_filter(struct qlcnic_adapter *adapter,
- 	if (adapter->fhash.fnum >= adapter->fhash.fmax)
- 		return;
- 
-+	/* Only NPAR capable devices support vlan based learning*/
-+	if (adapter->flags & QLCNIC_ESWITCH_ENABLED)
-+		vlan_id = first_desc->vlan_TCI;
- 	memcpy(&src_addr, phdr->h_source, ETH_ALEN);
- 	hindex = QLCNIC_MAC_HASH(src_addr) & (QLCNIC_LB_MAX_FILTERS - 1);
- 	head = &(adapter->fhash.fhead[hindex]);
- 
- 	hlist_for_each_entry_safe(tmp_fil, tmp_hnode, n, head, fnode) {
--		if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN)) {
-+		if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN) &&
-+			    tmp_fil->vlan_id == vlan_id) {
- 			tmp_fil->ftime = jiffies;
- 			return;
- 		}
-@@ -1888,9 +1895,10 @@ qlcnic_send_filter(struct qlcnic_adapter *adapter,
- 	if (!fil)
- 		return;
- 
--	qlcnic_change_filter(adapter, src_addr, tx_ring);
-+	qlcnic_change_filter(adapter, src_addr, vlan_id, tx_ring);
- 
- 	fil->ftime = jiffies;
-+	fil->vlan_id = vlan_id;
- 	memcpy(fil->faddr, &src_addr, ETH_ALEN);
- 	spin_lock(&adapter->mac_learn_lock);
- 	hlist_add_head(&(fil->fnode), head);
+ 	qlcnic_setup_intr(adapter);
 -- 
 1.6.0.2
 
