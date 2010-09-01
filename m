@@ -1,82 +1,35 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH v2] [arch-x86] Allow SRAT integrity check to be skipped
-Date: Wed, 01 Sep 2010 15:59:37 -0700
-Message-ID: <20100901225937.18457.16372.stgit@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
+	ip_fragment
+Date: Thu, 2 Sep 2010 07:30:56 +0800
+Message-ID: <20100901233056.GA15177@gondor.apana.org.au>
+References: <1283204118.2405.32.camel@edumazet-laptop> <20100830232147.GB10754@stratus.com> <1283232031.2405.38.camel@edumazet-laptop> <20100901.144658.135972233.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, andi@firstfloor.org,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com
-To: tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, bandan.das@stratus.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100901.144658.135972233.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On certain BIOSes, SRAT enumeration isn't exported correctly.
-This leads to NUMA node enumeration failure, and causes the kernel
-to fall back onto a single node treated as flat memory.  This
-can happen on large, multi-socket systems (4 or more sockets), and
-becomes problematic for performance.
+On Wed, Sep 01, 2010 at 02:46:58PM -0700, David Miller wrote:
+.
+> Therefore I'm inclined to agree with Herbert that we need to parse the
+> options explicitly before invoke ip_fragment().  We must call it with
+> an SKB in the state it expects, and that means with options parsing
+> already performed.
 
-This patch adds a boot parameter to allow a kernel to be booted
-with the option to skip the SRAT check.  There are BIOSes in
-production that have these failures, so this will allow people
-in the field to work around these BIOS issues.
+FWIW the packet probably doesn't even have IP options.  What is
+happening here is that we've found yet another entry point from
+the bridge driver into the IP stack so we need to duplicate my
+original patch here.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
----
-
- Documentation/x86/x86_64/boot-options.txt |    4 ++++
- arch/x86/mm/srat_64.c                     |   20 +++++++++++++++++---
- 2 files changed, 21 insertions(+), 3 deletions(-)
-
-diff --git a/Documentation/x86/x86_64/boot-options.txt b/Documentation/x86/x86_64/boot-options.txt
-index 7fbbaf8..7863d9c 100644
---- a/Documentation/x86/x86_64/boot-options.txt
-+++ b/Documentation/x86/x86_64/boot-options.txt
-@@ -316,3 +316,7 @@ Miscellaneous
- 		Do not use GB pages for kernel direct mappings.
- 	gbpages
- 		Use GB pages for kernel direct mappings.
-+ 	sratbypassbios
-+		If specified, will skip an SRAT check for PXM coverage
-+		from BIOS enumeration.  Only to be used on systems with
-+		buggy BIOSes that munge the SRAT enumeration.
-diff --git a/arch/x86/mm/srat_64.c b/arch/x86/mm/srat_64.c
-index f9897f7..9fa2e32 100644
---- a/arch/x86/mm/srat_64.c
-+++ b/arch/x86/mm/srat_64.c
-@@ -351,6 +351,15 @@ int __init acpi_get_nodes(struct bootnode *physnodes)
- 	return ret;
- }
- 
-+static int srat_bypass_bios;
-+
-+static int __init srat_bypass_bios_setup(char *str)
-+{
-+        srat_bypass_bios = 1;
-+        return 0;
-+}
-+early_param("sratbypassbios", srat_bypass_bios_setup);
-+
- /* Use the information discovered above to actually set up the nodes. */
- int __init acpi_scan_nodes(unsigned long start, unsigned long end)
- {
-@@ -425,9 +434,14 @@ int __init acpi_scan_nodes(unsigned long start, unsigned long end)
- 						nodes[i].end >> PAGE_SHIFT);
- 	/* for out of order entries in SRAT */
- 	sort_node_map();
--	if (!nodes_cover_memory(nodes)) {
--		bad_srat();
--		return -1;
-+	if (!srat_bypass_bios) {
-+		if (!nodes_cover_memory(nodes)) {
-+			bad_srat();
-+			return -1;
-+		}
-+	} else {
-+		printk(KERN_INFO
-+		           "SRAT: Bypassing NUMA sanity check...bad BIOS...\n");
- 	}
- 
- 	/* Account for nodes with cpus and no memory */
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
