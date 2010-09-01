@@ -1,158 +1,126 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC] bonding: fix workqueue re-arming races
-Date: Wed, 1 Sep 2010 12:23:56 +0000
-Message-ID: <20100901122356.GB9468@ff.dom.local>
-References: <20136.1283288063@death>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC]: not possible to do policy routing for next hop on
+ tunnels.
+Date: Wed, 01 Sep 2010 14:49:10 +0200
+Message-ID: <1283345350.2556.265.camel@edumazet-laptop>
+References: <1283343685.14066.24.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Bohac <jbohac@suse.cz>, bonding-devel@lists.sourceforge.net,
-	markine@google.com, chavey@google.com, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Anders Franzen <Anders.Franzen@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:36766 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752714Ab0IAMYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 08:24:05 -0400
-Received: by bwz11 with SMTP id 11so5234023bwz.19
-        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 05:24:03 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20136.1283288063@death>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39321 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751384Ab0IAMvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 08:51:41 -0400
+Received: by wyb35 with SMTP id 35so9207033wyb.19
+        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 05:51:40 -0700 (PDT)
+In-Reply-To: <1283343685.14066.24.camel@seasc7941.dyn.rnd.as.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-08-31 22:54, Jay Vosburgh wrote:
-> Jiri Bohac <jbohac@suse.cz> wrote:
-> 
->> Hi,
->>
->> this is another attempt to solve the bonding workqueue re-arming
->> races.
->>
->> The issue has been thoroughly discussed here:
->> http://article.gmane.org/gmane.linux.network/146949 "[PATCH]
->> bonding: cancel_delayed_work() -> cancel_delayed_work_sync()"
->> However, the only outcome was a proposal for an ugly hack with
->> busy-waiting on the rtnl.
->>
->> The problem:
->> Bonding uses delayed work that automatically re-arms itself,
->> e.g.: bond_mii_monitor().
->>
->> A dev->close() quickly followed by dev->open() on the bonding
->> master has a race condition. bond_close() sets kill_timers=1 and
->> calls cancel_delayed_work(), hoping that bond_mii_monitor() will
->> not re-arm again anymore.  There are two problems with this:
->>
->> - bond->kill_timers is not re-checked after re-acquiring the
->>  bond->lock (this would be easy to fix)
->>
->> - bond_open() resets bond->kill_timers to 0. If this happens
->>  before bond_mii_monitor() notices the flag and exits, it will
->>  re-arm itself. bond_open() then tries to schedule the delayed
->>  work, which causes a BUG.
->>
->> The issue would be solved by calling cancel_delayed_work_sync(),
->> but this can not be done from bond_close() since it is called
->> under rtnl and the delayed work locks rtnl itself.
->>
->> My proposal is to move all the "commit" work that requires rtnl
->> to a separate work and schedule it on the bonding wq. Thus, the
->> re-arming work does not need rtnl and can be cancelled using
->> cancel_delayed_work_sync().
->>
->> Comments?
+Le mercredi 01 septembre 2010 =C3=A0 14:21 +0200, Anders Franzen a =C3=A9=
+crit :
+> If I have multiple routing choices to reach a tunnel end point,
+> I would like to mark different flows with iptables, after the
+> postrouting of the primary route look up, this would put an fwmark on
+> the skb. The route would in my case resolve to an ip6_tunnel.
+>=20
+> In the tunnel a secondary route lookup is done to select next hop for
+> the tunnel end point.
+>=20
+> I would like to apply policy routing to the secondary lookup.=20
+>=20
+> This will not work, for two reasons:
+>=20
+> 1. None of the tunnels (ipip, gre, ip6_tunnel) I looked at regards th=
+e
+> fwmark at the skb, when performing the route lookup.
+>=20
+> 2. ip6_tunnel is keeping a local dst cache, so it will never reroute =
+as
+> long as the current cache is valid.
+>=20
+>=20
+> I wonder if there is a reason for not giving the fwmark at the tunnel
+> route for tunnels in general?
+>=20
+> And the local dst cache for ip6_tunnel, is it needed, is not the rout=
+ing
+> subsystem keeping some form of internal cache (ip route ls cache).
 
-Looks mostly OK to me, but a bit more below...
+ip6_tunnel (or others) could be extended with a
+IP6_TNL_F_USE_ORIG_FWMARK, and in this case not use/cache the route.
 
->>
->> [note, this does not deal with bond_loadbalance_arp_mon(), where
->> rtnl is now taken as well in net-next; I'll do this if you think
->> the idea is good ]
-> 
-> 	I don't believe the loadbalance_arp_mon acquires RTNL in
-> net-next.  I recall discussing this with Andy not too long ago, but I
-> didn't think that change went in, and I don't see it in the tree.
-> 
->> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
->>
->> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->> index 822f586..8015e12 100644
->> --- a/drivers/net/bonding/bond_3ad.c
->> +++ b/drivers/net/bonding/bond_3ad.c
->> @@ -2119,10 +2119,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->>
->> 	read_lock(&bond->lock);
->>
->> -	if (bond->kill_timers) {
->> -		goto out;
->> -	}
->> -
->> 	//check if there are any slaves
->> 	if (bond->slave_cnt == 0) {
->> 		goto re_arm;
->> @@ -2166,7 +2162,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->>
->> re_arm:
->> 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
->> -out:
->> 	read_unlock(&bond->lock);
->> }
->>
->> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->> index c746b33..250d027 100644
->> --- a/drivers/net/bonding/bond_alb.c
->> +++ b/drivers/net/bonding/bond_alb.c
->> @@ -1397,6 +1397,23 @@ out:
->> 	return NETDEV_TX_OK;
->> }
->>
->> +void bond_alb_promisc_disable(struct work_struct *work)
->> +{
->> +	struct bonding *bond = container_of(work, struct bonding,
->> +					    alb_promisc_disable_work);
->> +	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
->> +
->> +	/*
->> +	 * dev_set_promiscuity requires rtnl and
->> +	 * nothing else.
->> +	 */
->> +	rtnl_lock();
->> +	dev_set_promiscuity(bond->curr_active_slave->dev, -1);
->> +	bond_info->primary_is_promisc = 0;
->> +	bond_info->rlb_promisc_timeout_counter = 0;
->> +	rtnl_unlock();
->> +}
-> 
-> 	What prevents this from deadlocking such that cpu A is in
-> bond_close, holding RTNL and in cancel_delayed_work_sync, while cpu B is
-> in the above function, trying to acquire RTNL?
+untested patch to get the idea :
 
-I guess this one isn't cancelled in bond_close, so it should be safe.
+diff --git a/include/linux/ip6_tunnel.h b/include/linux/ip6_tunnel.h
+index acb9ad6..bf22b03 100644
+--- a/include/linux/ip6_tunnel.h
++++ b/include/linux/ip6_tunnel.h
+@@ -16,6 +16,8 @@
+ #define IP6_TNL_F_MIP6_DEV 0x8
+ /* copy DSCP from the outer packet */
+ #define IP6_TNL_F_RCV_DSCP_COPY 0x10
++/* copy fwmark from inner packet */
++#define IP6_TNL_F_USE_ORIG_FWMARK 0x20
+=20
+ struct ip6_tnl_parm {
+ 	char name[IFNAMSIZ];	/* name of tunnel device */
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 0fd027f..e31a91f 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -858,7 +858,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	int err =3D -1;
+ 	int pkt_len;
+=20
+-	if ((dst =3D ip6_tnl_dst_check(t)) !=3D NULL)
++	if (!fl->mark && (dst =3D ip6_tnl_dst_check(t)) !=3D NULL)
+ 		dst_hold(dst);
+ 	else {
+ 		dst =3D ip6_route_output(net, NULL, fl);
+@@ -910,7 +910,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		skb =3D new_skb;
+ 	}
+ 	skb_dst_drop(skb);
+-	skb_dst_set(skb, dst_clone(dst));
++	skb_dst_set(skb, fl->mark ? dst : dst_clone(dst));
+=20
+ 	skb->transport_header =3D skb->network_header;
+=20
+@@ -940,7 +940,9 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 		stats->tx_errors++;
+ 		stats->tx_aborted_errors++;
+ 	}
+-	ip6_tnl_dst_store(t, dst);
++	if (!fl->mark)
++		ip6_tnl_dst_store(t, dst);
++	=09
+ 	return 0;
+ tx_err_link_failure:
+ 	stats->tx_carrier_errors++;
+@@ -976,6 +978,8 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_dev=
+ice *dev)
+ 	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS))
+ 		fl.fl6_flowlabel |=3D htonl((__u32)iph->tos << IPV6_TCLASS_SHIFT)
+ 					  & IPV6_TCLASS_MASK;
++	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK))
++		fl.mark =3D skb->mark;
+=20
+ 	err =3D ip6_tnl_xmit2(skb, dev, dsfield, &fl, encap_limit, &mtu);
+ 	if (err !=3D 0) {
+@@ -1026,7 +1030,8 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_d=
+evice *dev)
+ 		fl.fl6_flowlabel |=3D (*(__be32 *) ipv6h & IPV6_TCLASS_MASK);
+ 	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL))
+ 		fl.fl6_flowlabel |=3D (*(__be32 *) ipv6h & IPV6_FLOWLABEL_MASK);
+-
++	if ((t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK))
++		fl.mark =3D skb->mark;
+ 	err =3D ip6_tnl_xmit2(skb, dev, dsfield, &fl, encap_limit, &mtu);
+ 	if (err !=3D 0) {
+ 		if (err =3D=3D -EMSGSIZE)
 
-> 
-> 	Also, assuming for the moment that the above isn't a problem,
-> curr_active_slave may be NULL if the last slave is removed between the
-> time bond_alb_promisc_disable is scheduled and when it runs.  I'm not
-> sure that the alb_bond_info can be guaranteed to be valid, either, if
-> the mode changed.
 
-Probably some or all of these work functions should test for closing
-eg. with netif_running() or some other flag/variable under rtnl_lock().
-
-....
->> static void bond_work_cancel_all(struct bonding *bond)
->> {
->> -	write_lock_bh(&bond->lock);
->> -	bond->kill_timers = 1;
->> -	write_unlock_bh(&bond->lock);
->> -
->> 	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
-
-I'd suggest to skip these delayed_work_pending() tests.
-
-Thanks,
-Jarek P.
-
->> -		cancel_delayed_work(&bond->mii_work);
->> +		cancel_delayed_work_sync(&bond->mii_work);
-...
