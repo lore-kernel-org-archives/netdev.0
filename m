@@ -1,273 +1,127 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2010-09-01
-Date: Wed, 1 Sep 2010 14:17:11 -0400
-Message-ID: <20100901181711.GG2486@tuxdriver.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [RFC] bonding: fix workqueue re-arming races
+Date: Wed, 1 Sep 2010 20:31:14 +0200
+Message-ID: <20100901183113.GA25227@midget.suse.cz>
+References: <20100831170752.GA9743@midget.suse.cz>
+ <20136.1283288063@death>
+ <20100901131626.GA12447@midget.suse.cz>
+ <24764.1283361274@death>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Cc: Jiri Bohac <jbohac@suse.cz>, bonding-devel@lists.sourceforge.net,
+	markine@google.com, jarkao2@gmail.com, chavey@google.com,
+	netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54668 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383Ab0IAS3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 14:29:40 -0400
+Received: from cantor.suse.de ([195.135.220.2]:47510 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753622Ab0IAS3l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Sep 2010 14:29:41 -0400
 Content-Disposition: inline
+In-Reply-To: <24764.1283361274@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+On Wed, Sep 01, 2010 at 10:14:34AM -0700, Jay Vosburgh wrote:
+> 	I also thought a bit more, and in the current code, the mode
+> shouldn't change in the middle of one of the work functions, because a
+> mode change requires the bond to be closed, so the various work things
+> will be stopped (more or less; excepting the race under disucssion
+> here).
+>
+> 	I don't think this is true for the new wq_rtnl functions,
+> however, because its work items are not canceled until the workqueue
+> itself is freed in bond_destructor.  Does the wq_rtnl open new races,
+> because it's work items are not synchronized with other activities
+> (close in particular)?  It's possible for its work functions (which may
+> do things like set the active slave, carrier, etc) to be invoked after
+> the bond has closed, and possibly reopened, or been otherwise adjusted.
 
-This batch of fixes is intended for 2.6.36.
+I don't think this patch opens new races. The current race
+scenario is:
 
-Included is a libertas fix for an alignment error introduced by a change
-introduced through another tree during the merge window, an ath5k fix to
-avoid a NULL pointer dereference when the rate control fails to give it
-a usable transmission rate (which is another bug), a p54 fix to avoid
-false transmission failure reports (which prevent power saving), a
-fix for a mac80211 timer leak, a MAINTAINERS fix for a broken URL, a
-wireless extension fix to plug an information leak, a fix for a lockdep
-warning when cfg80211 registers its rfkill device, and a couple of ath9k
-fixes related to regulatory compliance.
+1) schedule_delayed_work(foo)
+2) foo's timer expires and foo is queued on bond->wq
+  (possibly, foo starts to run and either gets preempted or
+  sleeps on rtnl)
+3) bond_close() sets kill_timers=1 and calls
+  cancel_delayed_work() which accomplishes nothing
+4) bond_open() sets kill_timers=0
+5) bond_open() calls schedule_delayed_work(bar)
+6) foo may run the "commit" work that should not be run
+7) foo re-arms
+8) if (foo == bar) -> BUG	/* bond->mode did not change */
 
-Please let me know if there are problems!
+With this patch, it is:
 
-John
+1) schedule_delayed_work(foo)
+2) foo's timer expires and foo is queued on bond->wq
+3) foo may have queued foo_commit on bond->wq_rtnl
+4) bond_close() cancels foo
+5) bond_open()
+6) foo_commit may run and it should not be run
 
----
+The patch avoids the problem of 7) and 8)
 
-The following changes since commit b963ea89f00f13c648af4082e5efb2172d369727:
+I think the race in 6) remains the same. It is now easier to fix.
+This could even be done with a flag (similar to kill_timers),
+which would be set each time the "commit" work is queued on wq_rtnl and
+cleared by bond_close(). This should avoid the races completely,
+I think. The trick is that, unlike kill_timers, bond_open() would
+not touch this flag.
 
-  netlink: Make NETLINK_USERSOCK work again. (2010-08-31 09:51:37 -0700)
+> 	I'm not sure this is better than one of the alternatives I
+> believe we discussed the last time around: having the rtnl-acquiring
+> work functions do a conditional acquire of rtnl, and if that fails,
+> reschedule themselves.
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+[...]
 
-Christian Lamparter (1):
-      p54: fix tx feedback status flag check
+> 		if (rtnl_trylock()) {
+> 			read_lock(&bond->lock);
+> 
+> 			bond_miimon_commit(bond);
+> 
+> 			read_unlock(&bond->lock);
+> 			rtnl_unlock();	/* might sleep, hold no other locks */
+> 			read_lock(&bond->lock);
+> 		} else {
+> 			read_lock(&bond->lock);
+> 			queue_work(bond->wq, &bond->mii_work);
+> 			read_unlock(&bond->lock);
+> 			return;
+> 		}
 
-Johannes Berg (2):
-      mac80211: delete work timer
-      wireless extensions: fix kernel heap content leak
+I actually tried the other variant suggested last time
+(basically:
 
-John W. Linville (3):
-      ath5k: check return value of ieee80211_get_tx_rate
-      MAINTAINERS: change broken url for prism54
-      wireless: register wiphy rfkill w/o holding cfg80211_mutex
+while (!rtnl_trylock()) {
+	read_lock(&bond->lock)
+	kill = bond->kill_timers;
+	read_unlock(&bond->lock)
+	if (kill)
+		return;
+})
 
-Luis R. Rodriguez (2):
-      ath9k_hw: Fix EEPROM uncompress block reading on AR9003
-      ath9k_hw: fix parsing of HT40 5 GHz CTLs
+and gave that to a customer experiencing this problem (I cannot
+reproduce it myself). It was reported to lock up. I suspect some
+kind of live-lock on bond->lock caused by the active waiting, but
+I did not spend too much time debugging this.
+[BTW, this is https://bugzilla.novell.com/show_bug.cgi?id=602969
+,Novell BZ account needeed]
 
-Mike Rapoport (1):
-      libertas: if_sdio: fix buffer alignment in struct if_sdio_card
+FWIW  this would be the only use of rtnl_trylock() in the kernel,
+besides a few places that do:
+	if (!rtnl_trylock()) return restart_syscall();
+I think it is plain ugly -- semaphores are just not supposed to be
+spinned on.
 
- MAINTAINERS                                    |    2 +-
- drivers/net/wireless/ath/ath5k/base.c          |    4 ++++
- drivers/net/wireless/ath/ath9k/ar9003_eeprom.c |    2 +-
- drivers/net/wireless/ath/ath9k/eeprom.h        |    2 +-
- drivers/net/wireless/ath/regd.h                |    1 -
- drivers/net/wireless/libertas/if_sdio.c        |    2 +-
- drivers/net/wireless/p54/txrx.c                |    2 +-
- net/mac80211/main.c                            |    6 ++++++
- net/wireless/core.c                            |   21 ++++++++++++---------
- net/wireless/wext-compat.c                     |    3 +++
- net/wireless/wext-core.c                       |   16 ++++++++++++++++
- 11 files changed, 46 insertions(+), 15 deletions(-)
+Your re-scheduling variant is more or less equivalent to active
+spinning, isn't it? Anyway, if you really think it is a better approach,
+are you going to apply it? I can supply the patch. (Although I
+kinda don't like people seeing my name next to it ;))
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 44620ae..8e85429 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4549,7 +4549,7 @@ F:	include/linux/preempt.h
- PRISM54 WIRELESS DRIVER
- M:	"Luis R. Rodriguez" <mcgrof@gmail.com>
- L:	linux-wireless@vger.kernel.org
--W:	http://prism54.org
-+W:	http://wireless.kernel.org/en/users/Drivers/p54
- S:	Obsolete
- F:	drivers/net/wireless/prism54/
- 
-diff --git a/drivers/net/wireless/ath/ath5k/base.c b/drivers/net/wireless/ath/ath5k/base.c
-index 373dcfe..d77ce99 100644
---- a/drivers/net/wireless/ath/ath5k/base.c
-+++ b/drivers/net/wireless/ath/ath5k/base.c
-@@ -1327,6 +1327,10 @@ ath5k_txbuf_setup(struct ath5k_softc *sc, struct ath5k_buf *bf,
- 			PCI_DMA_TODEVICE);
- 
- 	rate = ieee80211_get_tx_rate(sc->hw, info);
-+	if (!rate) {
-+		ret = -EINVAL;
-+		goto err_unmap;
-+	}
- 
- 	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
- 		flags |= AR5K_TXDESC_NOACK;
-diff --git a/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c b/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
-index b883b17..057fb69 100644
---- a/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
-+++ b/drivers/net/wireless/ath/ath9k/ar9003_eeprom.c
-@@ -797,7 +797,7 @@ static bool ar9300_uncompress_block(struct ath_hw *ah,
- 		length = block[it+1];
- 		length &= 0xff;
- 
--		if (length > 0 && spot >= 0 && spot+length < mdataSize) {
-+		if (length > 0 && spot >= 0 && spot+length <= mdataSize) {
- 			ath_print(common, ATH_DBG_EEPROM,
- 				  "Restore at %d: spot=%d "
- 				  "offset=%d length=%d\n",
-diff --git a/drivers/net/wireless/ath/ath9k/eeprom.h b/drivers/net/wireless/ath/ath9k/eeprom.h
-index 7f48df1..0b09db0 100644
---- a/drivers/net/wireless/ath/ath9k/eeprom.h
-+++ b/drivers/net/wireless/ath/ath9k/eeprom.h
-@@ -62,7 +62,7 @@
- 
- #define SD_NO_CTL               0xE0
- #define NO_CTL                  0xff
--#define CTL_MODE_M              7
-+#define CTL_MODE_M              0xf
- #define CTL_11A                 0
- #define CTL_11B                 1
- #define CTL_11G                 2
-diff --git a/drivers/net/wireless/ath/regd.h b/drivers/net/wireless/ath/regd.h
-index a1c3952..345dd97 100644
---- a/drivers/net/wireless/ath/regd.h
-+++ b/drivers/net/wireless/ath/regd.h
-@@ -31,7 +31,6 @@ enum ctl_group {
- #define NO_CTL 0xff
- #define SD_NO_CTL               0xE0
- #define NO_CTL                  0xff
--#define CTL_MODE_M              7
- #define CTL_11A                 0
- #define CTL_11B                 1
- #define CTL_11G                 2
-diff --git a/drivers/net/wireless/libertas/if_sdio.c b/drivers/net/wireless/libertas/if_sdio.c
-index 6e71346..382f237 100644
---- a/drivers/net/wireless/libertas/if_sdio.c
-+++ b/drivers/net/wireless/libertas/if_sdio.c
-@@ -126,7 +126,7 @@ struct if_sdio_card {
- 	const char		*helper;
- 	const char		*firmware;
- 
--	u8			buffer[65536];
-+	u8			buffer[65536] __attribute__((aligned(4)));
- 
- 	spinlock_t		lock;
- 	struct if_sdio_packet	*packets;
-diff --git a/drivers/net/wireless/p54/txrx.c b/drivers/net/wireless/p54/txrx.c
-index 173aec3..0e937dc 100644
---- a/drivers/net/wireless/p54/txrx.c
-+++ b/drivers/net/wireless/p54/txrx.c
-@@ -446,7 +446,7 @@ static void p54_rx_frame_sent(struct p54_common *priv, struct sk_buff *skb)
- 	}
- 
- 	if (!(info->flags & IEEE80211_TX_CTL_NO_ACK) &&
--	     (!payload->status))
-+	     !(payload->status & P54_TX_FAILED))
- 		info->flags |= IEEE80211_TX_STAT_ACK;
- 	if (payload->status & P54_TX_PSM_CANCELLED)
- 		info->flags |= IEEE80211_TX_STAT_TX_FILTERED;
-diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-index 798a91b..ded5c38 100644
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -732,6 +732,12 @@ void ieee80211_unregister_hw(struct ieee80211_hw *hw)
- 
- 	rtnl_unlock();
- 
-+	/*
-+	 * Now all work items will be gone, but the
-+	 * timer might still be armed, so delete it
-+	 */
-+	del_timer_sync(&local->work_timer);
-+
- 	cancel_work_sync(&local->reconfig_filter);
- 
- 	ieee80211_clear_tx_pending(local);
-diff --git a/net/wireless/core.c b/net/wireless/core.c
-index 541e2ff..d6d046b 100644
---- a/net/wireless/core.c
-+++ b/net/wireless/core.c
-@@ -475,12 +475,10 @@ int wiphy_register(struct wiphy *wiphy)
- 	mutex_lock(&cfg80211_mutex);
- 
- 	res = device_add(&rdev->wiphy.dev);
--	if (res)
--		goto out_unlock;
--
--	res = rfkill_register(rdev->rfkill);
--	if (res)
--		goto out_rm_dev;
-+	if (res) {
-+		mutex_unlock(&cfg80211_mutex);
-+		return res;
-+	}
- 
- 	/* set up regulatory info */
- 	wiphy_update_regulatory(wiphy, NL80211_REGDOM_SET_BY_CORE);
-@@ -509,13 +507,18 @@ int wiphy_register(struct wiphy *wiphy)
- 	cfg80211_debugfs_rdev_add(rdev);
- 	mutex_unlock(&cfg80211_mutex);
- 
-+	/*
-+	 * due to a locking dependency this has to be outside of the
-+	 * cfg80211_mutex lock
-+	 */
-+	res = rfkill_register(rdev->rfkill);
-+	if (res)
-+		goto out_rm_dev;
-+
- 	return 0;
- 
- out_rm_dev:
- 	device_del(&rdev->wiphy.dev);
--
--out_unlock:
--	mutex_unlock(&cfg80211_mutex);
- 	return res;
- }
- EXPORT_SYMBOL(wiphy_register);
-diff --git a/net/wireless/wext-compat.c b/net/wireless/wext-compat.c
-index bb5e0a5..7e5c3a4 100644
---- a/net/wireless/wext-compat.c
-+++ b/net/wireless/wext-compat.c
-@@ -1420,6 +1420,9 @@ int cfg80211_wext_giwessid(struct net_device *dev,
- {
- 	struct wireless_dev *wdev = dev->ieee80211_ptr;
- 
-+	data->flags = 0;
-+	data->length = 0;
-+
- 	switch (wdev->iftype) {
- 	case NL80211_IFTYPE_ADHOC:
- 		return cfg80211_ibss_wext_giwessid(dev, info, data, ssid);
-diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
-index 0ef17bc..8f5116f 100644
---- a/net/wireless/wext-core.c
-+++ b/net/wireless/wext-core.c
-@@ -782,6 +782,22 @@ static int ioctl_standard_iw_point(struct iw_point *iwp, unsigned int cmd,
- 		}
- 	}
- 
-+	if (IW_IS_GET(cmd) && !(descr->flags & IW_DESCR_FLAG_NOMAX)) {
-+		/*
-+		 * If this is a GET, but not NOMAX, it means that the extra
-+		 * data is not bounded by userspace, but by max_tokens. Thus
-+		 * set the length to max_tokens. This matches the extra data
-+		 * allocation.
-+		 * The driver should fill it with the number of tokens it
-+		 * provided, and it may check iwp->length rather than having
-+		 * knowledge of max_tokens. If the driver doesn't change the
-+		 * iwp->length, this ioctl just copies back max_token tokens
-+		 * filled with zeroes. Hopefully the driver isn't claiming
-+		 * them to be valid data.
-+		 */
-+		iwp->length = descr->max_tokens;
-+	}
-+
- 	err = handler(dev, info, (union iwreq_data *) iwp, extra);
- 
- 	iwp->length += essid_compat;
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
