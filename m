@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: tunnels should use rcu_dereference
-Date: Wed, 01 Sep 2010 10:58:08 -0700 (PDT)
-Message-ID: <20100901.105808.85405762.davem@davemloft.net>
-References: <1283202445.2405.27.camel@edumazet-laptop>
+Subject: Re: [PATCH -next-2.6] ns83820: Use helper to disable chip
+ interrupts
+Date: Wed, 01 Sep 2010 10:58:14 -0700 (PDT)
+Message-ID: <20100901.105814.267970947.davem@davemloft.net>
+References: <20100831071915.GA20970@hera.kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: dkirjanov@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58766
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58770
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753687Ab0IAR5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 13:57:51 -0400
-In-Reply-To: <1283202445.2405.27.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1754928Ab0IAR55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 13:57:57 -0400
+In-Reply-To: <20100831071915.GA20970@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 30 Aug 2010 23:07:25 +0200
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Date: Tue, 31 Aug 2010 07:19:15 +0000
 
-> tunnel4_handlers, tunnel64_handlers, tunnel6_handlers and
-> tunnel46_handlers are protected by RCU, but we dont use appropriate rcu
-> primitives to scan them. rcu_lock() is already held by caller.
+> Use helper routine to disable chip interrupts.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 
 Applied.
