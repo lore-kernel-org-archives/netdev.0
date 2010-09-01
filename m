@@ -1,39 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ERR_PTR pattern in phylib
-Date: Wed, 01 Sep 2010 08:27:29 -0700 (PDT)
-Message-ID: <20100901.082729.135524471.davem@davemloft.net>
-References: <AANLkTimjVZTNeLdm4qptU1MqREODLASdGGanUyxqxfub@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [RFC] bonding: fix workqueue re-arming races
+Date: Wed, 1 Sep 2010 17:37:30 +0200
+Message-ID: <20100901153730.GC3091@del.dom.local>
+References: <20136.1283288063@death>
+ <20100901122356.GB9468@ff.dom.local>
+ <20100901133056.GB12447@midget.suse.cz>
+ <20100901151856.GB3091@del.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
-To: grant.likely@secretlab.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	bonding-devel@lists.sourceforge.net, markine@google.com,
+	chavey@google.com, netdev@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56680
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755783Ab0IAP1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 11:27:12 -0400
-In-Reply-To: <AANLkTimjVZTNeLdm4qptU1MqREODLASdGGanUyxqxfub@mail.gmail.com>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:47774 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752876Ab0IAPhg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 11:37:36 -0400
+Received: by gwj17 with SMTP id 17so3050184gwj.19
+        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 08:37:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20100901151856.GB3091@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Wed, 1 Sep 2010 08:42:49 -0600
-
-> It seems to me that phylib is one of the cases where the users (the
-> network drivers) don't actually care about the specific error code
-> when calling phylib functions.  The drivers only seem to care whether
-> or not the function failed, and if it did then bail out.  I've also
-> noticed that using the "if (!ptr)" test on phylib return values is a
-> common error for driver writers.
+On Wed, Sep 01, 2010 at 05:18:56PM +0200, Jarek Poplawski wrote:
+> On Wed, Sep 01, 2010 at 03:30:56PM +0200, Jiri Bohac wrote:
+> > On Wed, Sep 01, 2010 at 12:23:56PM +0000, Jarek Poplawski wrote:
+> > > On 2010-08-31 22:54, Jay Vosburgh wrote:
+> > > > 	What prevents this from deadlocking such that cpu A is in
+> > > > bond_close, holding RTNL and in cancel_delayed_work_sync, while cpu B is
+> > > > in the above function, trying to acquire RTNL?
+> > > 
+> > > I guess this one isn't cancelled in bond_close, so it should be safe.
+> > 
+> > Nah, Jay was correct. Although this work item is not explicitly
+> > cancelled with cancel_delayed_work_sync(), it is on the same
+> > workqueue as work items that are being cancelled with
+> > cancel_delayed_work_sync(), so this can still cause a deadlock.
+> > Fixed in the new version of the patch by putting these on a
+> > separate workqueue.
+> > 
 > 
-> In the interest of making driver code easier to write and review,
-> would you be opposed to a set of patches to remove the ERR_PTR()
-> pattern from phylib and its users?
+> Maybe I miss something, but the same workqueue shouldn't matter here.
 
-I'm opposed to it because it means that if code actually does
-care about the error code it will no longer be able to obtain
-it.
+Hmm... I missed your point completely and Jay was correct!
 
-Please don't make this change, thanks.
+Sorry,
+Jarek P.
