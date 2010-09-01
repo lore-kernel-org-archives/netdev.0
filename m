@@ -1,31 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] ipv6: Export in6addr_any for use by modules.
-Date: Wed, 01 Sep 2010 11:07:10 -0700 (PDT)
-Message-ID: <20100901.110710.67895761.davem@davemloft.net>
-References: <1283274495-12416-1-git-send-email-greearb@candelatech.com>
-	<4C7D89CF.3040307@candelatech.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+From: leitao@linux.vnet.ibm.com
+Subject: [PATCH] MAINTAINERS: Add ehea driver as Supported
+Date: Wed,  1 Sep 2010 15:23:23 -0300
+Message-ID: <1283365403-20877-1-git-send-email-leitao@linux.vnet.ibm.com>
+Cc: THEMANN@de.ibm.com, Breno Leitao <leitao@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56266
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751204Ab0IASGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 14:06:53 -0400
-In-Reply-To: <4C7D89CF.3040307@candelatech.com>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:60811 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751204Ab0IASX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 14:23:29 -0400
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp04.br.ibm.com (8.14.4/8.13.1) with ESMTP id o81IJNe6008620
+	for <netdev@vger.kernel.org>; Wed, 1 Sep 2010 15:19:23 -0300
+Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o81IT1XJ897154
+	for <netdev@vger.kernel.org>; Wed, 1 Sep 2010 15:29:02 -0300
+Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
+	by d24av03.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o81INMbp029119
+	for <netdev@vger.kernel.org>; Wed, 1 Sep 2010 15:23:23 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 31 Aug 2010 16:01:35 -0700
+This change just add the IBM eHEA 10Gb network drivers as supported.
 
-> On 08/31/2010 10:08 AM, Ben Greear wrote:
->> Some upcoming cifs code, could make use of this, at least.
-> 
-> Actually, it's probably not worth the dependency on ipv6
-> for this small bit of code savings, so at least for cifs,
-> this probably isn't useful.
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+---
+ MAINTAINERS |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Completely agreed.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c36f5d7..9f40d29 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2201,6 +2201,12 @@ L:	linux-rdma@vger.kernel.org
+ S:	Supported
+ F:	drivers/infiniband/hw/ehca/
+ 
++EHEA (IBM pSeries eHEA 10Gb ethernet adapter) DRIVER
++M:	Breno Leitao <leitao@linux.vnet.ibm.com>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ehea/
++
+ EMBEDDED LINUX
+ M:	Paul Gortmaker <paul.gortmaker@windriver.com>
+ M:	Matt Mackall <mpm@selenic.com>
+-- 
+1.6.0.4
+
