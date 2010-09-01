@@ -1,41 +1,71 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [RFC][PATCH] QoS TBF and latency configuration misbehavior
-Date: Wed, 1 Sep 2010 06:36:03 +0000
-Message-ID: <20100901063602.GA6285@ff.dom.local>
-References: <AANLkTik4Mrzjfk_-u7Qg-B9Q-4tn_seqkkgmwnqQ8FOq@mail.gmail.com> <20100831210101.3c059a91@leibniz> <4C7D5EBD.103@gmail.com> <AANLkTikMJ2rtSNsBeaVTsVtw1ZmKpLjjyeYL=c+AgoFZ@mail.gmail.com> <20100831214808.GA32141@ms2.inr.ac.ru> <20100831223402.GA7101@ms2.inr.ac.ru>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: Re: cxacru: USB ethernet port of CX82310-based ADSL routers?
+Date: Wed, 01 Sep 2010 07:40:26 +0100
+Message-ID: <4C7DF55A.3080007@simon.arlott.org.uk>
+References: <201008312313.39171.linux@rainbow-software.org> <4C7D7F15.9040402@simon.arlott.org.uk> <201009010048.44644.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Kruchinin <dkruchinin@acm.org>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: accessrunner-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:55949 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752511Ab0IAGgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 02:36:09 -0400
-Received: by bwz11 with SMTP id 11so5061345bwz.19
-        for <netdev@vger.kernel.org>; Tue, 31 Aug 2010 23:36:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20100831223402.GA7101@ms2.inr.ac.ru>
+Received: from proxima.lp0.eu ([81.2.80.65]:49822 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751269Ab0IAGkc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Sep 2010 02:40:32 -0400
+In-Reply-To: <201009010048.44644.linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 01, 2010 at 02:34:02AM +0400, Alexey Kuznetsov wrote:
-> Hello!
-Hi!
+On 31/08/10 23:48, Ondrej Zary wrote:
+> On Wednesday 01 September 2010 00:15:49 Simon Arlott wrote:
+>> On 31/08/10 22:13, Ondrej Zary wrote:
+>> > Hello,
+>> > I have an ADSL router based on Conexant CX82310 chip. This chip provides
+>> > both ethernet and USB interfaces. The ethernet interface is often
+>> > internally connected to a 5-port switch (in my case too). The USB
+>> > interface works as an ethernet card in Windows (using proprietary
+>> > driver). In Linux, the cxacru driver binds to the device but does not
+>> > work (no wonder - it's doing firmware things in an attempt to bring an
+>> > ADSL modem up).
 
-> To Jarek: about the scripts. I do not think something will be broken
-> by fixing this error. Eventually, if someone used "latency", he meant
-> something about real latency. And even if the value was generated
-> using the same wrong logic as tc did, using correct formula would just
-> increase limit setting.
+If you get the firmware loaded, it may implement an existing protocol
+for ethernet over USB like all the ATM modems linux supports do.
 
-As I wrote earlier, I'm more worried about configs based on experience,
-not logic. Dan's tests show there could be a difference, and I'm not
-sure users cared about the logic, since it wasn't questioned until now.
-Btw, there could be considered adding a new, alternative parameter, for
-this, like rlatency etc. if it's so crucial. And, of course, it's only
-my little "IMHO", I don't insist on anything.
+>> > I wonder how to implement support for this device in cxacru driver. Or
+>> > would be a separate driver better?
+>>
+>> Support for this shouldn't really go into the cxacru driver, as that's
+>> for an USB ATM interface (it depends on usbatm for actual ATM traffic)
+>> not ethernet.
+> 
+> That's what I was afraid of...
 
-Thanks,
-Jarek P.
+The firmware loading process is likely to be similar if not identical,
+but these devices usually don't respond to the status command after
+loading with the ADSL firmware.
+
+>> Unfortunately it doesn't look like a trivial task to auto-detect which
+>> driver should handle it... your device itself claims to be an "ADSL
+>> Modem".
+> 
+> In fact, it does not. The idProduct text is from usb.ids file (which is often 
+> incorrect). The device says that it's "USB NET CARD" (iProduct). But I don't 
+> know if Linux can match drivers by iProduct string.
+
+The probe function could ignore it allowing another driver to take it.
+
+> 
+> Maybe ignoring the device if class is 255 and iProduct is "USB NET CARD" (or 
+> does not contain "MODEM"?). 
+> 
+> All these devices seem to use bDeviceClass 0 and iProduct "ADSL USB MODEM".
+> 
+
+However, there may be others that don't. I only have three variants of
+a generic device rebranded... although they don't appear to have a way
+of replacing that string. Ignoring "USB NET CARD" would be reasonable.
+
+-- 
+Simon Arlott
