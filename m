@@ -1,78 +1,61 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
-Date: Wed, 01 Sep 2010 15:57:41 +0200
-Message-ID: <1283349461.2556.333.camel@edumazet-laptop>
-References: <4LwrqITm-eJ.A.r8G.eFueMB@chimera>
-	 <4AUWBNzTkbD.A.ey.cGueMB@chimera> <courier.4C7C99F2.00001F74@fs.ru.acad.bg>
-	 <20100831192659.GA3093@del.dom.local>
-	 <1283338251.2556.124.camel@edumazet-laptop>
-	 <20100901112026.GA9468@ff.dom.local>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
+ to reset
+Date: Wed, 01 Sep 2010 10:40:26 -0400
+Message-ID: <4C7E65DA.5020106@hp.com>
+References: <1282024802.2487.687.camel@edumazet-laptop> <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se> <1282050920.2448.47.camel@edumazet-laptop> <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se> <1282055659.2448.58.camel@edumazet-laptop> <alpine.DEB.1.10.1008171737260.21857@red.crap.retrofitta.se> <20100817171115.GA4134@mcarlson.broadcom.com> <alpine.DEB.1.10.1008171928160.21857@red.crap.retrofitta.se> <20100817183112.GA4351@mcarlson.broadcom.com> <alpine.DEB.1.10.1008172035520.21857@red.crap.retrofitta.se> <20100818012318.GA4630@mcarlson.broadcom.com> <alpine.DEB.1.10.1008180900350.21857@red.crap.retrofitta.se> <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100901112026.GA9468-8HppEYmqbBCE+EvaaNYduQ@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Thomas Habets <thomas@habets.pp.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mercredi 01 septembre 2010 =C3=A0 11:20 +0000, Jarek Poplawski a =C3=
-=A9crit :
-> On Wed, Sep 01, 2010 at 12:50:51PM +0200, Eric Dumazet wrote:
-> > Plamen, could you test following patch ?
-> >=20
-> > I reproduced problem on a dev machine and following patch cured it.
-> >=20
-> > Thanks
-> >=20
-> > [PATCH] gro: fix different skb headrooms
-> >=20
-> > packets entering GRO might have different headrooms, even for a giv=
-en
-> > flow (because of implementation details in drivers, like copybreak)=
-=2E
-> > We cant force drivers to deliver packets with a fixed headroom.
-> >=20
-> > 1) fix skb_segment()
-> >=20
-> > skb_segment() makes the false assumption headrooms of fragments are=
- same
-> > than the head. When CHECKSUM_PARTIAL is used, this can give csum_st=
-art
-> > errors, and crash later in skb_copy_and_csum_dev()
->=20
-> Eric, probably I missed something, but since the same test as in
-> skb_copy_and_csum_dev() gave different result a bit earlier on exactl=
-y
-> the same skb, I've suspected some sharing (or use after free)
-> problems, so I'm not sure your current diagnose can explain this.
-> (Unless this old test was dismissed later.)
+Hi Thomas,
 
-Oh, this is because your patch had an error for the gso part that read =
-:
+On 09/01/2010 05:21 AM, Thomas Habets wrote:
+> 
+> I've continued this a bit off-list but thought I would summarize for the
+> archives.
+> 
+> 
+> Summary
+> -------
+> It looks like a firmware issue on the network card. When ILO is enabled
+> it shares the first network card with the OS. When it does this
+> multicast is broken. When multicast (on a L2 level) is broken IPv6
+> neighbor discovery breaks. Only eth0 breaks, eth1 is unaffected.
 
--               rc =3D ops->ndo_start_xmit(nskb, dev);
-+               if (skb_csum_start_bug(skb, 50)) {
-+                       kfree_skb(skb);
-+                       rc =3D NETDEV_TX_OK;
-+               } else
-+                       rc =3D ops->ndo_start_xmit(nskb, dev);
-+
-                if (unlikely(rc !=3D NETDEV_TX_OK)) {
-                        if (rc & ~NETDEV_TX_MASK)
-                                goto out_kfree_gso_skb;
+So are you running with this set to "Shared Network Port" mode?  I'm
+guessing you are.
 
-You called skb_csum_start_bug(skb, 50) instead of
-skb_csum_start_bug(nskb, 50)
+> System
+> ------
+> HP Proliant DL320 G5p
+> Xeon 3GHz
+> 1GB RAM
+> Arch: amd64
+> NIC: Broadcom Corporation NetXtreme BCM5715 Gigabit Ethernet (rev a3)
 
-Hope this clarify a bit ;)
+There was another report on netdev back in 11/2008 on this exact hardware,
+with the same problem.
 
-Thanks
+> Problem
+> -------
+> Buggy box will not answer IPv6 ND or ping to ff02::1. May work at some
+> point in the boot process, but once box is fully booted it does not.
+
+I dug-up my notes on the problem, and from what I can tell, the receive
+multicast filters on the NIC were getting removed, causing both incoming
+IPv6 and IPv4 multicast packets to get dropped.  I'm not sure if there
+was ever a fix developed, or if we ever came to a conclusion on where the
+bug was - iLO, tg3, or some other area.
+
+-Brian
