@@ -1,82 +1,100 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Thu, 02 Sep 2010 15:40:47 +0200
-Message-ID: <1283434847.2454.726.camel@edumazet-laptop>
-References: <4C763A67.5040107@dsn.okisemi.com>
-	 <4C7D0E7A.5060309@dsn.okisemi.com>
-	 <1283266263.2550.106.camel@edumazet-laptop>
-	 <000a01cb4a9b$e8d6ab00$66f8800a@maildom.okisemi.com>
+Subject: [PATCN net-next-2.6] net: dev_add_pack() & __dev_remove_pack()
+ changes
+Date: Thu, 02 Sep 2010 15:53:46 +0200
+Message-ID: <1283435626.2454.764.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Sam Ravnborg <sam@ravnborg.org>, Joe Perches <joe@perches.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	John Linn <john.linn@xilinx.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	Toshiharu Okada <okada533@dsn.okisemi.com>,
-	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
-	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
-To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <000a01cb4a9b$e8d6ab00$66f8800a@maildom.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:33879 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751966Ab0IBNxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 09:53:51 -0400
+Received: by eyb6 with SMTP id 6so245581eyb.19
+        for <netdev@vger.kernel.org>; Thu, 02 Sep 2010 06:53:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 02 septembre 2010 =C3=A0 21:39 +0900, Masayuki Ohtake a =C3=A9=
-crit :
-> Hi Eric
->=20
-> Thank you for your comments.
->=20
-> > I find hard to believe this driver needs to copy all outgoing frame=
-s on
-> > pre-allocated skbs.
-> >
-> > +       /* [Header:14][payload] ---> [Header:14][paddong:2][payload=
-]    */
-> > +       memcpy(tmp_skb->data, skb->data, ETH_HLEN);
-> > +       tmp_skb->data[ETH_HLEN] =3D 0x00;
-> > +       tmp_skb->data[ETH_HLEN + 1] =3D 0x00;
-> > +       tmp_skb->len =3D skb->len;
-> > +       memcpy(&tmp_skb->data[ETH_HLEN + 2], &skb->data[ETH_HLEN],
-> > +              (skb->len - ETH_HLEN));
-> > +       buffer_info->kernel_skb =3D skb;
-> > +       skb =3D tmp_skb;
-> >
-> > Whats the deal here please ?
->=20
-> This processing depends on hardware specification.
->=20
-> At the time of transmission.
-> Hardware accepts a packet in the following format.
->   [Header: 14octet] + [padding: 2octet] + [payload]
->   Also, it is necessary to align the head of a [Header: 14octet] at 6=
-4byte.
->=20
-> In my knowledge, SKB received by kernel are the following format.
->   [padding: 2octet] + [Header:14octet] + [payload]
->   Also, The head of [payload] has aligned at 16 byte.
->=20
-> So, it has adjusted with the format of hardware by a copy.
+Add a small helper ptype_head() to get the head to manipulate
 
-The two bytes padding can be handled by network stack, if you
-force in your setup phase :
-	dev->hard_header_len =3D ETH_HLEN + 2;
+dev_add_pack() & __dev_remove_pack() can use a spinlock without
+blocking BH, since softirq use RCU, and these functions are run from
+process context only.
 
-then, you can do a single memcpy:
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/dev.c |   32 +++++++++++++++-----------------
+ 1 file changed, 15 insertions(+), 17 deletions(-)
 
-memcpy(tmp_skb->data, skb->data, skb->len);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d8c43e7..efd318d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -371,6 +371,14 @@ static inline void netdev_set_addr_lockdep_class(struct net_device *dev)
+  *							--ANK (980803)
+  */
+ 
++static inline struct list_head *ptype_head(const struct packet_type *pt)
++{
++	if (pt->type == htons(ETH_P_ALL))
++		return &ptype_all;
++	else
++		return &ptype_base[ntohs(pt->type) & PTYPE_HASH_MASK];
++}
++
+ /**
+  *	dev_add_pack - add packet handler
+  *	@pt: packet type declaration
+@@ -386,16 +394,11 @@ static inline void netdev_set_addr_lockdep_class(struct net_device *dev)
+ 
+ void dev_add_pack(struct packet_type *pt)
+ {
+-	int hash;
++	struct list_head *head = ptype_head(pt);
+ 
+-	spin_lock_bh(&ptype_lock);
+-	if (pt->type == htons(ETH_P_ALL))
+-		list_add_rcu(&pt->list, &ptype_all);
+-	else {
+-		hash = ntohs(pt->type) & PTYPE_HASH_MASK;
+-		list_add_rcu(&pt->list, &ptype_base[hash]);
+-	}
+-	spin_unlock_bh(&ptype_lock);
++	spin_lock(&ptype_lock);
++	list_add_rcu(&pt->list, head);
++	spin_unlock(&ptype_lock);
+ }
+ EXPORT_SYMBOL(dev_add_pack);
+ 
+@@ -414,15 +417,10 @@ EXPORT_SYMBOL(dev_add_pack);
+  */
+ void __dev_remove_pack(struct packet_type *pt)
+ {
+-	struct list_head *head;
++	struct list_head *head = ptype_head(pt);
+ 	struct packet_type *pt1;
+ 
+-	spin_lock_bh(&ptype_lock);
+-
+-	if (pt->type == htons(ETH_P_ALL))
+-		head = &ptype_all;
+-	else
+-		head = &ptype_base[ntohs(pt->type) & PTYPE_HASH_MASK];
++	spin_lock(&ptype_lock);
+ 
+ 	list_for_each_entry(pt1, head, list) {
+ 		if (pt == pt1) {
+@@ -433,7 +431,7 @@ void __dev_remove_pack(struct packet_type *pt)
+ 
+ 	printk(KERN_WARNING "dev_remove_pack: %p not found.\n", pt);
+ out:
+-	spin_unlock_bh(&ptype_lock);
++	spin_unlock(&ptype_lock);
+ }
+ EXPORT_SYMBOL(__dev_remove_pack);
+ 
 
-About the 64 byte alignement, it might be a bit more complex :)
+
