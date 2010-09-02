@@ -1,63 +1,48 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH] net: arp: code cleanup
-Date: Thu, 2 Sep 2010 09:28:13 +0800
-Message-ID: <AANLkTik1VFj_8G+G9bH+MvbUyNpSUmDfJUQF+-VCjeKu@mail.gmail.com>
-References: <1283385110-2953-1-git-send-email-xiaosuo@gmail.com> <20100901.175712.199039832.davem@davemloft.net>
+Date: Wed, 01 Sep 2010 18:29:45 -0700
+Message-ID: <1283390985.1797.256.camel@Joe-Laptop>
+References: <1283385110-2953-1-git-send-email-xiaosuo@gmail.com>
+	 <20100901.175712.199039832.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xiaosuo@gmail.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46221 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752546Ab0IBB2g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 21:28:36 -0400
-Received: by wyb35 with SMTP id 35so9956660wyb.19
-        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 18:28:34 -0700 (PDT)
+Received: from mail.perches.com ([173.55.12.10]:1220 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752546Ab0IBB3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Sep 2010 21:29:47 -0400
 In-Reply-To: <20100901.175712.199039832.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 2, 2010 at 8:57 AM, David Miller <davem@davemloft.net> wrot=
-e:
->
-> I do not condone comments being written this way, it wastes precious
-> vertical space in one's terminal window. =A0They should always be
-> written as:
->
-> =A0 =A0 =A0 =A0/* A comment
-> =A0 =A0 =A0 =A0 * looks like this.
-> =A0 =A0 =A0 =A0 */
+On Wed, 2010-09-01 at 17:57 -0700, David Miller wrote:
+> [comments] should always be written as:
+> 
+> 	/* A comment
+> 	 * looks like this.
+> 	 */
+> 
+> in any patch you want me to apply in the networking.
 
-OK. Thanks.
+/*
+ * multiline comment
+ * style 1
+ */
 
->
->> @@ -258,31 +259,31 @@ static int arp_constructor(struct neighbour *n=
-eigh)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 neigh->output =3D neigh->ops->queue_xmit=
-;
->> =A0 =A0 =A0 } else {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Good devices (checked by reading text=
-s, but only Ethernet is
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tested)
->> -
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ARPHRD_ETHER: (ethernet, apfddi)
-> =A0...
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0in old paradigm.
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0* tested)
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0*
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0* ARPHRD_ETHER: (ethernet, apfddi)
->
-> you go and apply COMPLETELY INCONSISTENT changes to other comemnts.
->
-> Leave the comments alone, thanks.
->
+vs
 
-Do you mean that all the multi-line comments should be written as you
-said above or I should not touch any comment? Thanks.
+/* multiline comment
+ * style 2
+ */
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Style 1 vs style 2 in drivers/net: (13600/13785)
+Style 1 vs style 2 in net: (6801/5114)
+
+Style 1 is recommended in Documentation/CodingStyle.
+
+
