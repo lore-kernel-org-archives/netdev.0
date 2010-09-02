@@ -1,63 +1,50 @@
 From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: Re: cgroups/netlink related rcu_dereference_check() without protection
- (2.6.35.4)
-Date: Thu, 02 Sep 2010 13:53:54 +0800
-Message-ID: <4C7F3BF2.1050808@cn.fujitsu.com>
-References: <20100902014337.GC30324@redhat.com>
+Subject: [PATCH] cls_cgroup: Fix rcu lockdep warning
+Date: Thu, 02 Sep 2010 14:30:07 +0800
+Message-ID: <4C7F446F.8040303@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Paul Menage <menage@google.com>
-To: Dave Jones <davej@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64382 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751039Ab0IBFsu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Sep 2010 01:48:50 -0400
-In-Reply-To: <20100902014337.GC30324@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	Dave Jones <davej@redhat.com>, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave Jones wrote:
-> I see this during boot on one of my boxes..
-> 
-> 	Dave
-> 
-> INFO: suspicious rcu_dereference_check() usage. ]
-> ---------------------------------------------------
-> include/linux/cgroup.h:542 invoked rcu_dereference_check() without protection!
-> 
+Calling task_subsys_state() without holding rcu_read_lock or
+cgroup_mutex can cause lockdep warning.
 
-Will send out a fix soon.
+Reported-by: Dave Jones <davej@redhat.com>
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+---
+ include/net/cls_cgroup.h |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-> other info that might help us debug this:
-> 
-> 
-> rcu_scheduler_active = 1, debug_locks = 0
-> 1 lock held by swapper/1:
->  #0:  (net_mutex){+.+.+.}, at: [<c074b595>] register_pernet_subsys+0x17/0x34
-> 
-> stack backtrace:
-> Pid: 1, comm: swapper Not tainted 2.6.35.4-15.fc14.i686.PAE #1
-> Call Trace:
->  [<c07e2197>] ? printk+0x25/0x2e
->  [<c0467969>] lockdep_rcu_dereference+0x7d/0x86
->  [<c07440ea>] sock_update_classid+0x6c/0x8e
->  [<c074416b>] sk_alloc+0x5f/0x6a
->  [<c07674a9>] __netlink_create+0x2a/0x90
->  [<c0768d54>] netlink_kernel_create+0x5f/0x14f
->  [<c075805c>] rtnetlink_net_init+0x23/0x3b
->  [<c0759412>] ? rtnetlink_rcv+0x0/0x27
->  [<c074b388>] ops_init+0xda/0xe9
->  [<c074b4c8>] register_pernet_operations+0x84/0xee
->  [<c074b5a1>] register_pernet_subsys+0x23/0x34
->  [<c0ab7e94>] rtnetlink_init+0x42/0xe0
->  [<c0ab84fa>] netlink_proto_init+0xee/0x103
->  [<c0ab840c>] ? netlink_proto_init+0x0/0x103
->  [<c0403182>] do_one_initcall+0x62/0x170
->  [<c0a809d3>] kernel_init+0x1b9/0x23a
->  [<c0a8081a>] ? kernel_init+0x0/0x23a
->  [<c0408fc2>] kernel_thread_helper+0x6/0x10
-> 
-> 
-> 
+diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+index dd1fdb8..a4dc5b0 100644
+--- a/include/net/cls_cgroup.h
++++ b/include/net/cls_cgroup.h
+@@ -27,11 +27,17 @@ struct cgroup_cls_state
+ #ifdef CONFIG_NET_CLS_CGROUP
+ static inline u32 task_cls_classid(struct task_struct *p)
+ {
++	int classid;
++
+ 	if (in_interrupt())
+ 		return 0;
+ 
+-	return container_of(task_subsys_state(p, net_cls_subsys_id),
+-			    struct cgroup_cls_state, css)->classid;
++	rcu_read_lock();
++	classid = container_of(task_subsys_state(p, net_cls_subsys_id),
++			       struct cgroup_cls_state, css)->classid;
++	rcu_read_unlock();
++
++	return classid;
+ }
+ #else
+ extern int net_cls_subsys_id;
+-- 
+1.6.3
