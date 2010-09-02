@@ -1,54 +1,42 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [patch net-next] ipvs: use pkts for SCTP too
-Date: Thu, 2 Sep 2010 17:19:14 +0900
-Message-ID: <20100902081913.GC28727@verge.net.au>
-References: <Pine.LNX.4.58.1009020242060.14271@u.domain.uli>
- <20100902020331.GS8174@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: arp: code cleanup
+Date: Thu, 02 Sep 2010 10:27:33 +0200
+Message-ID: <1283416053.2454.5.camel@edumazet-laptop>
+References: <1283415511-4772-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/PLAIN; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100902020331.GS8174@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:58876 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750830Ab0IBI1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 04:27:39 -0400
+Received: by wwj40 with SMTP id 40so460026wwj.1
+        for <netdev@vger.kernel.org>; Thu, 02 Sep 2010 01:27:37 -0700 (PDT)
+In-Reply-To: <1283415511-4772-1-git-send-email-xiaosuo@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+Le jeudi 02 septembre 2010 =C3=A0 16:18 +0800, Changli Gao a =C3=A9crit=
+ :
 
-Use correctly the in_pkts packet counter also for SCTP
+> Replace printk(KERN_DEBUG...) with pr_debug(...).
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+pr_debug() is not an exact replacement of printk(KERN_DEBUG ...)
 
---- 
+With pr_debug(), you need to recompile this file with -DDEBUG or
+CONFIG_DYNAMIC_DEBUG if you want to catch the messages.
 
-Dave, can you take this into net-next?
+Thats the reason why Joe Perches usually doesnt touch
+printk(KERN_DEBUG ...) occurrences.
 
-Index: net-next-2.6/net/netfilter/ipvs/ip_vs_core.c
-===================================================================
---- net-next-2.6.orig/net/netfilter/ipvs/ip_vs_core.c	2010-09-02 10:59:53.000000000 +0900
-+++ net-next-2.6/net/netfilter/ipvs/ip_vs_core.c	2010-09-02 11:02:11.000000000 +0900
-@@ -1383,8 +1383,7 @@ ip_vs_in(unsigned int hooknum, struct sk
- 	if (af == AF_INET && (ip_vs_sync_state & IP_VS_STATE_MASTER) &&
- 	    cp->protocol == IPPROTO_SCTP) {
- 		if ((cp->state == IP_VS_SCTP_S_ESTABLISHED &&
--			(atomic_read(&cp->in_pkts) %
--			 sysctl_ip_vs_sync_threshold[1]
-+			(pkts % sysctl_ip_vs_sync_threshold[1]
- 			 == sysctl_ip_vs_sync_threshold[0])) ||
- 				(cp->old_state != cp->state &&
- 				 ((cp->state == IP_VS_SCTP_S_CLOSED) ||
-@@ -1395,7 +1394,8 @@ ip_vs_in(unsigned int hooknum, struct sk
- 		}
- 	}
- 
--	if (af == AF_INET &&
-+	/* Keep this block last: TCP and others with pp->num_states <= 1 */
-+	else if (af == AF_INET &&
- 	    (ip_vs_sync_state & IP_VS_STATE_MASTER) &&
- 	    (((cp->protocol != IPPROTO_TCP ||
- 	       cp->state == IP_VS_TCP_S_ESTABLISHED) &&
+
+
