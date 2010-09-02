@@ -1,263 +1,255 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v2 02/10] davinci: add mdio platform devices
-Date: Thu,  2 Sep 2010 18:03:20 -0400
-Message-ID: <1283465008-18606-3-git-send-email-cyril@ti.com>
+Subject: [PATCH v2 04/10] net: davinci_emac: switch to new mdio
+Date: Thu,  2 Sep 2010 18:03:22 -0400
+Message-ID: <1283465008-18606-5-git-send-email-cyril@ti.com>
 References: <1283465008-18606-1-git-send-email-cyril@ti.com>
 Cc: davinci-linux-open-source@linux.davincidsp.com,
 	linux-omap@vger.kernel.org, nsekhar@ti.com, srk@ti.com,
 	omar.ramirez@ti.com, bparrot@ti.com,
 	Cyril Chemparathy <cyril@ti.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:41558 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755076Ab0IBWDi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Sep 2010 18:03:38 -0400
 In-Reply-To: <1283465008-18606-1-git-send-email-cyril@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds mdio platform devices on SoCs that have the necessary
-hardware.  Clock lookup entries (aliases) have also been added, so that the
-MDIO and EMAC drivers can independently enable/disable a shared underlying
-clock.  Further, the EMAC MMR region has been split down into separate MDIO
-and EMAC regions.
+This patch switches the emac implementation over to the newly separated
+MDIO driver.
+
+With this, the mdio bus frequency defaults to a safe 2.2MHz.  Boards may
+optionally specify a bus frequency via platform data.
+
+The phy identification scheme has been modified to use a phy bus id instead
+of a mask.  This largely serves to eliminate the "phy search" code in emac
+init.
 
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
 ---
- arch/arm/mach-davinci/devices-da8xx.c       |   29 +++++++++++++++++++++++++-
- arch/arm/mach-davinci/dm365.c               |   22 +++++++++++++++++++-
- arch/arm/mach-davinci/dm644x.c              |   22 +++++++++++++++++++-
- arch/arm/mach-davinci/dm646x.c              |   21 ++++++++++++++++++-
- arch/arm/mach-davinci/include/mach/dm365.h  |    1 +
- arch/arm/mach-davinci/include/mach/dm644x.h |    1 +
- arch/arm/mach-davinci/include/mach/dm646x.h |    1 +
- 7 files changed, 92 insertions(+), 5 deletions(-)
+ drivers/net/Kconfig          |    1 +
+ drivers/net/davinci_emac.c   |   88 ++++++++++++++---------------------------
+ include/linux/davinci_emac.h |    1 +
+ 3 files changed, 32 insertions(+), 58 deletions(-)
 
-diff --git a/arch/arm/mach-davinci/devices-da8xx.c b/arch/arm/mach-davinci/devices-da8xx.c
-index caeb7f4..9039221 100644
---- a/arch/arm/mach-davinci/devices-da8xx.c
-+++ b/arch/arm/mach-davinci/devices-da8xx.c
-@@ -352,7 +352,7 @@ int __init da8xx_register_watchdog(void)
- static struct resource da8xx_emac_resources[] = {
- 	{
- 		.start	= DA8XX_EMAC_CPPI_PORT_BASE,
--		.end	= DA8XX_EMAC_CPPI_PORT_BASE + 0x5000 - 1,
-+		.end	= DA8XX_EMAC_CPPI_PORT_BASE + SZ_16K - 1,
- 		.flags	= IORESOURCE_MEM,
- 	},
- 	{
-@@ -396,9 +396,34 @@ static struct platform_device da8xx_emac_device = {
- 	.resource	= da8xx_emac_resources,
- };
- 
-+static struct resource da8xx_mdio_resources[] = {
-+	{
-+		.start	= DA8XX_EMAC_MDIO_BASE,
-+		.end	= DA8XX_EMAC_MDIO_BASE + SZ_4K - 1,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+};
-+
-+static struct platform_device da8xx_mdio_device = {
-+	.name		= "davinci_mdio",
-+	.id		= 0,
-+	.num_resources	= ARRAY_SIZE(da8xx_mdio_resources),
-+	.resource	= da8xx_mdio_resources,
-+};
-+
- int __init da8xx_register_emac(void)
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index c5c86e0..911e7f1 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -951,6 +951,7 @@ config NET_NETX
+ config TI_DAVINCI_EMAC
+ 	tristate "TI DaVinci EMAC Support"
+ 	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
++	select TI_DAVINCI_MDIO
+ 	select PHYLIB
+ 	help
+ 	  This driver supports TI's DaVinci Ethernet .
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 7fbd052..6ed779d 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -500,6 +500,7 @@ struct emac_priv {
+ 	u32 phy_mask;
+ 	/* mii_bus,phy members */
+ 	struct mii_bus *mii_bus;
++	const char *phy_id;
+ 	struct phy_device *phydev;
+ 	spinlock_t lock;
+ 	/*platform specific members*/
+@@ -686,7 +687,7 @@ static int emac_get_settings(struct net_device *ndev,
+ 			     struct ethtool_cmd *ecmd)
  {
--	return platform_device_register(&da8xx_emac_device);
-+	int ret;
-+
-+	ret = platform_device_register(&da8xx_mdio_device);
-+	if (ret < 0)
-+		return ret;
-+	ret = platform_device_register(&da8xx_emac_device);
-+	if (ret < 0)
-+		return ret;
-+	ret = clk_add_alias(NULL, dev_name(&da8xx_mdio_device.dev),
-+			    NULL, &da8xx_emac_device.dev);
-+	return ret;
+ 	struct emac_priv *priv = netdev_priv(ndev);
+-	if (priv->phy_mask)
++	if (priv->phydev)
+ 		return phy_ethtool_gset(priv->phydev, ecmd);
+ 	else
+ 		return -EOPNOTSUPP;
+@@ -704,7 +705,7 @@ static int emac_get_settings(struct net_device *ndev,
+ static int emac_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ {
+ 	struct emac_priv *priv = netdev_priv(ndev);
+-	if (priv->phy_mask)
++	if (priv->phydev)
+ 		return phy_ethtool_sset(priv->phydev, ecmd);
+ 	else
+ 		return -EOPNOTSUPP;
+@@ -841,7 +842,7 @@ static void emac_update_phystatus(struct emac_priv *priv)
+ 	mac_control = emac_read(EMAC_MACCONTROL);
+ 	cur_duplex = (mac_control & EMAC_MACCONTROL_FULLDUPLEXEN) ?
+ 			DUPLEX_FULL : DUPLEX_HALF;
+-	if (priv->phy_mask)
++	if (priv->phydev)
+ 		new_duplex = priv->phydev->duplex;
+ 	else
+ 		new_duplex = DUPLEX_FULL;
+@@ -2485,6 +2486,11 @@ static int emac_devioctl(struct net_device *ndev, struct ifreq *ifrq, int cmd)
+ 	return -EOPNOTSUPP;
  }
  
- static struct resource da830_mcasp1_resources[] = {
-diff --git a/arch/arm/mach-davinci/dm365.c b/arch/arm/mach-davinci/dm365.c
-index 7781e35..0add1ca 100644
---- a/arch/arm/mach-davinci/dm365.c
-+++ b/arch/arm/mach-davinci/dm365.c
-@@ -699,7 +699,7 @@ static struct emac_platform_data dm365_emac_pdata = {
- static struct resource dm365_emac_resources[] = {
- 	{
- 		.start	= DM365_EMAC_BASE,
--		.end	= DM365_EMAC_BASE + 0x47ff,
-+		.end	= DM365_EMAC_BASE + SZ_16K - 1,
- 		.flags	= IORESOURCE_MEM,
- 	},
- 	{
-@@ -734,6 +734,21 @@ static struct platform_device dm365_emac_device = {
- 	.resource	= dm365_emac_resources,
- };
++static int match_first_device(struct device *dev, void *data)
++{
++	return 1;
++}
++
+ /**
+  * emac_dev_open: EMAC device open
+  * @ndev: The DaVinci EMAC network adapter
+@@ -2499,7 +2505,6 @@ static int emac_dev_open(struct net_device *ndev)
+ {
+ 	struct device *emac_dev = &ndev->dev;
+ 	u32 rc, cnt, ch;
+-	int phy_addr;
+ 	struct resource *res;
+ 	int q, m;
+ 	int i = 0;
+@@ -2560,28 +2565,26 @@ static int emac_dev_open(struct net_device *ndev)
+ 		emac_set_coalesce(ndev, &coal);
+ 	}
  
-+static struct resource dm365_mdio_resources[] = {
-+	{
-+		.start	= DM365_EMAC_MDIO_BASE,
-+		.end	= DM365_EMAC_MDIO_BASE + SZ_4K - 1,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+};
-+
-+static struct platform_device dm365_mdio_device = {
-+	.name		= "davinci_mdio",
-+	.id		= 0,
-+	.num_resources	= ARRAY_SIZE(dm365_mdio_resources),
-+	.resource	= dm365_mdio_resources,
-+};
-+
- static u8 dm365_default_priorities[DAVINCI_N_AINTC_IRQ] = {
- 	[IRQ_VDINT0]			= 2,
- 	[IRQ_VDINT1]			= 6,
-@@ -1219,7 +1234,12 @@ static int __init dm365_init_devices(void)
+-	/* find the first phy */
+ 	priv->phydev = NULL;
+-	if (priv->phy_mask) {
+-		emac_mii_reset(priv->mii_bus);
+-		for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
+-			if (priv->mii_bus->phy_map[phy_addr]) {
+-				priv->phydev = priv->mii_bus->phy_map[phy_addr];
+-				break;
+-			}
+-		}
++	/* use the first phy on the bus if pdata did not give us a phy id */
++	if (!priv->phy_id) {
++		struct device *phy;
  
- 	davinci_cfg_reg(DM365_INT_EDMA_CC);
- 	platform_device_register(&dm365_edma_device);
-+
-+	platform_device_register(&dm365_mdio_device);
- 	platform_device_register(&dm365_emac_device);
-+	clk_add_alias(NULL, dev_name(&dm365_mdio_device.dev),
-+		      NULL, &dm365_emac_device.dev);
-+
- 	/* Add isif clock alias */
- 	clk_add_alias("master", dm365_isif_dev.name, "vpss_master", NULL);
- 	platform_device_register(&dm365_vpss_device);
-diff --git a/arch/arm/mach-davinci/dm644x.c b/arch/arm/mach-davinci/dm644x.c
-index 5e5b0a7..7dc71c1 100644
---- a/arch/arm/mach-davinci/dm644x.c
-+++ b/arch/arm/mach-davinci/dm644x.c
-@@ -330,7 +330,7 @@ static struct emac_platform_data dm644x_emac_pdata = {
- static struct resource dm644x_emac_resources[] = {
- 	{
- 		.start	= DM644X_EMAC_BASE,
--		.end	= DM644X_EMAC_BASE + 0x47ff,
-+		.end	= DM644X_EMAC_BASE + SZ_16K - 1,
- 		.flags	= IORESOURCE_MEM,
- 	},
- 	{
-@@ -350,6 +350,21 @@ static struct platform_device dm644x_emac_device = {
-        .resource	= dm644x_emac_resources,
- };
+-		if (!priv->phydev) {
+-			printk(KERN_ERR "%s: no PHY found\n", ndev->name);
+-			return -1;
+-		}
++		phy = bus_find_device(&mdio_bus_type, NULL, NULL,
++				      match_first_device);
++		if (phy)
++			priv->phy_id = dev_name(phy);
++	}
  
-+static struct resource dm644x_mdio_resources[] = {
-+	{
-+		.start	= DM644X_EMAC_MDIO_BASE,
-+		.end	= DM644X_EMAC_MDIO_BASE + SZ_4K - 1,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+};
-+
-+static struct platform_device dm644x_mdio_device = {
-+       .name		= "davinci_mdio",
-+       .id		= 0,
-+       .num_resources	= ARRAY_SIZE(dm644x_mdio_resources),
-+       .resource	= dm644x_mdio_resources,
-+};
-+
- /*
-  * Device specific mux setup
-  *
-@@ -776,7 +791,12 @@ static int __init dm644x_init_devices(void)
- 	clk_add_alias("master", dm644x_ccdc_dev.name, "vpss_master", NULL);
- 	clk_add_alias("slave", dm644x_ccdc_dev.name, "vpss_slave", NULL);
- 	platform_device_register(&dm644x_edma_device);
-+
-+	platform_device_register(&dm644x_mdio_device);
- 	platform_device_register(&dm644x_emac_device);
-+	clk_add_alias(NULL, dev_name(&dm644x_mdio_device.dev),
-+		      NULL, &dm644x_emac_device.dev);
-+
- 	platform_device_register(&dm644x_vpss_device);
- 	platform_device_register(&dm644x_ccdc_dev);
- 	platform_device_register(&vpfe_capture_dev);
-diff --git a/arch/arm/mach-davinci/dm646x.c b/arch/arm/mach-davinci/dm646x.c
-index 26e8a9c..3d636b2 100644
---- a/arch/arm/mach-davinci/dm646x.c
-+++ b/arch/arm/mach-davinci/dm646x.c
-@@ -366,7 +366,7 @@ static struct emac_platform_data dm646x_emac_pdata = {
- static struct resource dm646x_emac_resources[] = {
- 	{
- 		.start	= DM646X_EMAC_BASE,
--		.end	= DM646X_EMAC_BASE + 0x47ff,
-+		.end	= DM646X_EMAC_BASE + SZ_16K - 1,
- 		.flags	= IORESOURCE_MEM,
- 	},
- 	{
-@@ -401,6 +401,21 @@ static struct platform_device dm646x_emac_device = {
- 	.resource	= dm646x_emac_resources,
- };
+-		priv->phydev = phy_connect(ndev, dev_name(&priv->phydev->dev),
+-				&emac_adjust_link, 0, PHY_INTERFACE_MODE_MII);
++	if (priv->phy_id) {
++		priv->phydev = phy_connect(ndev, priv->phy_id,
++					   &emac_adjust_link, 0,
++					   PHY_INTERFACE_MODE_MII);
  
-+static struct resource dm646x_mdio_resources[] = {
-+	{
-+		.start	= DM646X_EMAC_MDIO_BASE,
-+		.end	= DM646X_EMAC_MDIO_BASE + SZ_4K - 1,
-+		.flags	= IORESOURCE_MEM,
-+	},
-+};
-+
-+static struct platform_device dm646x_mdio_device = {
-+	.name		= "davinci_mdio",
-+	.id		= 0,
-+	.num_resources	= ARRAY_SIZE(dm646x_mdio_resources),
-+	.resource	= dm646x_mdio_resources,
-+};
-+
- /*
-  * Device specific mux setup
-  *
-@@ -896,7 +911,11 @@ static int __init dm646x_init_devices(void)
- 	if (!cpu_is_davinci_dm646x())
- 		return 0;
+ 		if (IS_ERR(priv->phydev)) {
+-			printk(KERN_ERR "%s: Could not attach to PHY\n",
+-								ndev->name);
++			dev_err(emac_dev, "could not connect to phy %s\n",
++				priv->phy_id);
++			priv->phydev = NULL;
+ 			return PTR_ERR(priv->phydev);
+ 		}
  
-+	platform_device_register(&dm646x_mdio_device);
- 	platform_device_register(&dm646x_emac_device);
-+	clk_add_alias(NULL, dev_name(&dm646x_mdio_device.dev),
-+		      NULL, &dm646x_emac_device.dev);
-+
+@@ -2589,12 +2592,13 @@ static int emac_dev_open(struct net_device *ndev)
+ 		priv->speed = 0;
+ 		priv->duplex = ~0;
+ 
+-		printk(KERN_INFO "%s: attached PHY driver [%s] "
+-			"(mii_bus:phy_addr=%s, id=%x)\n", ndev->name,
++		dev_info(emac_dev, "attached PHY driver [%s] "
++			"(mii_bus:phy_addr=%s, id=%x)\n",
+ 			priv->phydev->drv->name, dev_name(&priv->phydev->dev),
+ 			priv->phydev->phy_id);
+-	} else{
++	} else {
+ 		/* No PHY , fix the link, speed and duplex settings */
++		dev_notice(emac_dev, "no phy, defaulting to 100/full\n");
+ 		priv->link = 1;
+ 		priv->speed = SPEED_100;
+ 		priv->duplex = DUPLEX_FULL;
+@@ -2607,7 +2611,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 	if (netif_msg_drv(priv))
+ 		dev_notice(emac_dev, "DaVinci EMAC: Opened %s\n", ndev->name);
+ 
+-	if (priv->phy_mask)
++	if (priv->phydev)
+ 		phy_start(priv->phydev);
+ 
  	return 0;
- }
- postcore_initcall(dm646x_init_devices);
-diff --git a/arch/arm/mach-davinci/include/mach/dm365.h b/arch/arm/mach-davinci/include/mach/dm365.h
-index ea5df3b..dbb5052 100644
---- a/arch/arm/mach-davinci/include/mach/dm365.h
-+++ b/arch/arm/mach-davinci/include/mach/dm365.h
-@@ -21,6 +21,7 @@
- #include <media/davinci/vpfe_capture.h>
+@@ -2794,7 +2798,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
  
- #define DM365_EMAC_BASE			(0x01D07000)
-+#define DM365_EMAC_MDIO_BASE		(DM365_EMAC_BASE + 0x4000)
- #define DM365_EMAC_CNTRL_OFFSET		(0x0000)
- #define DM365_EMAC_CNTRL_MOD_OFFSET	(0x3000)
- #define DM365_EMAC_CNTRL_RAM_OFFSET	(0x1000)
-diff --git a/arch/arm/mach-davinci/include/mach/dm644x.h b/arch/arm/mach-davinci/include/mach/dm644x.h
-index 6fca568..5159117 100644
---- a/arch/arm/mach-davinci/include/mach/dm644x.h
-+++ b/arch/arm/mach-davinci/include/mach/dm644x.h
-@@ -28,6 +28,7 @@
- #include <media/davinci/vpfe_capture.h>
+ 	/* MAC addr and PHY mask , RMII enable info from platform_data */
+ 	memcpy(priv->mac_addr, pdata->mac_addr, 6);
+-	priv->phy_mask = pdata->phy_mask;
++	priv->phy_id = pdata->phy_id;
+ 	priv->rmii_en = pdata->rmii_en;
+ 	priv->version = pdata->version;
+ 	priv->int_enable = pdata->interrupt_enable;
+@@ -2871,32 +2875,6 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	}
  
- #define DM644X_EMAC_BASE		(0x01C80000)
-+#define DM644X_EMAC_MDIO_BASE		(DM644X_EMAC_BASE + 0x4000)
- #define DM644X_EMAC_CNTRL_OFFSET	(0x0000)
- #define DM644X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
- #define DM644X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
-diff --git a/arch/arm/mach-davinci/include/mach/dm646x.h b/arch/arm/mach-davinci/include/mach/dm646x.h
-index 0a27ee9..1c4dca9 100644
---- a/arch/arm/mach-davinci/include/mach/dm646x.h
-+++ b/arch/arm/mach-davinci/include/mach/dm646x.h
-@@ -19,6 +19,7 @@
- #include <linux/davinci_emac.h>
  
- #define DM646X_EMAC_BASE		(0x01C80000)
-+#define DM646X_EMAC_MDIO_BASE		(DM646X_EMAC_BASE + 0x4000)
- #define DM646X_EMAC_CNTRL_OFFSET	(0x0000)
- #define DM646X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
- #define DM646X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
+-	/* MII/Phy intialisation, mdio bus registration */
+-	emac_mii = mdiobus_alloc();
+-	if (emac_mii == NULL) {
+-		dev_err(emac_dev, "DaVinci EMAC: Error allocating mii_bus\n");
+-		rc = -ENOMEM;
+-		goto mdio_alloc_err;
+-	}
+-
+-	priv->mii_bus = emac_mii;
+-	emac_mii->name  = "emac-mii",
+-	emac_mii->read  = emac_mii_read,
+-	emac_mii->write = emac_mii_write,
+-	emac_mii->reset = emac_mii_reset,
+-	emac_mii->irq   = mii_irqs,
+-	emac_mii->phy_mask = ~(priv->phy_mask);
+-	emac_mii->parent = &pdev->dev;
+-	emac_mii->priv = priv->remap_addr + pdata->mdio_reg_offset;
+-	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "%x", priv->pdev->id);
+-	mdio_max_freq = pdata->mdio_max_freq;
+-	emac_mii->reset(emac_mii);
+-
+-	/* Register the MII bus */
+-	rc = mdiobus_register(emac_mii);
+-	if (rc)
+-		goto mdiobus_quit;
+-
+ 	if (netif_msg_probe(priv)) {
+ 		dev_notice(emac_dev, "DaVinci EMAC Probe found device "\
+ 			   "(regs: %p, irq: %d)\n",
+@@ -2904,11 +2882,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	}
+ 	return 0;
+ 
+-mdiobus_quit:
+-	mdiobus_free(emac_mii);
+-
+ netdev_reg_err:
+-mdio_alloc_err:
+ 	clk_disable(emac_clk);
+ no_irq_res:
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+@@ -2938,8 +2912,6 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, NULL);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	mdiobus_unregister(priv->mii_bus);
+-	mdiobus_free(priv->mii_bus);
+ 
+ 	release_mem_region(res->start, res->end - res->start + 1);
+ 
+diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
+index a04fd8c..6bcd247 100644
+--- a/include/linux/davinci_emac.h
++++ b/include/linux/davinci_emac.h
+@@ -28,6 +28,7 @@ struct emac_platform_data {
+ 	u32 ctrl_ram_size;
+ 	u32 phy_mask;
+ 	u32 mdio_max_freq;
++	const char *phy_id;
+ 	u8 rmii_en;
+ 	u8 version;
+ 	void (*interrupt_enable) (void);
 -- 
 1.7.0.4
 
