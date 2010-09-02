@@ -1,86 +1,76 @@
-From: Liang Li <liang.li@windriver.com>
-Subject: Re: [v1 PATCH] ucc_geth: fix ethtool set ring param bug
-Date: Thu, 2 Sep 2010 23:48:18 +0800
-Message-ID: <20100902154818.GA30293@localhost>
-References: <1283179677-21262-1-git-send-email-liang.li@windriver.com>
- <1283305429-8426-1-git-send-email-liang.li@windriver.com>
- <1283348550.2268.7.camel@achroite.uk.solarflarecom.com>
- <20100902005034.GA9901@localhost>
- <1283425907.2272.0.camel@achroite.uk.solarflarecom.com>
-Reply-To: Liang Li <liang.li@windriver.com>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: [PATCH] xps-mq: Transmit Packet Steering for multiqueue
+Date: Thu, 2 Sep 2010 11:55:27 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B90D0670C9@nsmail.netscout.com>
+References: <AANLkTin2rmcsxHi6+bFEUykhrkoWs--hrisAx_v__k1D@mail.gmail.com><1283356463.2556.351.camel@edumazet-laptop><AANLkTinOfkr=+_61kb+bZf_0brcahQz8b_P6TWhUgFka@mail.gmail.com> <20100901.183251.106803238.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: leoli@freescale.com, davem@davemloft.net, avorontsov@ru.mvista.com,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <eric.dumazet@gmail.com>, <shemminger@vyatta.com>,
+	<netdev@vger.kernel.org>, <Lee.Schermerhorn@hp.com>
+To: "David Miller" <davem@davemloft.net>, <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:56169 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752433Ab0IBPqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 11:46:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1283425907.2272.0.camel@achroite.uk.solarflarecom.com>
+Received: from exprod6og116.obsmtp.com ([64.18.1.37]:58514 "HELO
+	exprod6og116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1755971Ab0IBPzb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 11:55:31 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20100901.183251.106803238.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 02, 2010 at 12:11:47PM +0100, Ben Hutchings wrote:
-> On Thu, 2010-09-02 at 08:50 +0800, Liang Li wrote:
-> > On Wed, Sep 01, 2010 at 02:42:30PM +0100, Ben Hutchings wrote:
-> > > On Wed, 2010-09-01 at 09:43 +0800, Liang Li wrote:
-> > > > It's common sense that when we should do change to driver ring
-> > > > desc/buffer etc only after 'stop/shutdown' the device. When we
-> > > > do change while devices/driver is running, kernel oops occur:
-> > > [...]
-> > > > -	ug_info->bdRingLenRx[queue] = ring->rx_pending;
-> > > > -	ug_info->bdRingLenTx[queue] = ring->tx_pending;
-> > > > -
-> > > >  	if (netif_running(netdev)) {
-> > > > -		/* FIXME: restart automatically */
-> > > > -		printk(KERN_INFO
-> > > > -			"Please re-open the interface.\n");
-> > > > +		u16 rx_t;
-> > > > +		u16 tx_t;
-> > > > +		printk(KERN_INFO "Stopping interface %s.\n", netdev->name);
-> > > > +		ucc_geth_close(netdev);
-> > > > +
-> > > > +		rx_t = ug_info->bdRingLenRx[queue];
-> > > > +		tx_t = ug_info->bdRingLenTx[queue];
-> > > > +
-> > > > +		ug_info->bdRingLenRx[queue] = ring->rx_pending;
-> > > > +		ug_info->bdRingLenTx[queue] = ring->tx_pending;
-> > > > +
-> > > > +		printk(KERN_INFO "Reactivating interface %s.\n", netdev->name);
-> > > > +		ret = ucc_geth_open(netdev);
-> > > > +		if (ret) {
-> > > > +			printk(KERN_WARNING "uec_set_ringparam: set ring param for running"
-> > > > +					" interface %s failed. Please try to make the interface "
-> > > > +					" down, then try again.\n", netdev->name);
-> > > > +			ug_info->bdRingLenRx[queue] = rx_t;
-> > > > +			ug_info->bdRingLenTx[queue] = tx_t;
-> > > > +		}
-> > > [...]
-> > > 
-> > > Bringing the interface down will call ucc_geth_close(), which will try
-> > > to free resources that have not been allocated!
-> > 
-> > Sorry, I did not understand you on this point. There is no
-> > ucc_geth_close when 'open fail'. What you mean here exactly?
-> [...]
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of David Miller
+> It's becomming increasingly obvious to me that we need (somewhere,
+> not necessarily the kernel) a complete datastructure representing
+> the NUMA, cache, cpu, device hierarchy.
 > 
-> Read your own warning.
-
-So the warning is mis-leading... We may not need it... Still, let's talk
-about the rare case that 'fail of open', may you please show me what is
-the right thing to do 'clean up work' when ever the open fail. Maybe
-dev_close(net_dev)?
-
-Thanks,
-				-Liang Li
-
+> And that can be used to tweak all of this stuff.
 > 
-> Ben.
+> The policy should probably be in userspace, we just need to provide
+> the knobs in the kernel to tweak it however userspace wants.
 > 
-> -- 
-> Ben Hutchings, Senior Software Engineer, Solarflare Communications
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+
+I agree. But only if we have all the knobs in the kernel.
+
+http://www.spinics.net/lists/linux-numa/msg00709.html
+
+I had to do some changes manually. Thanks to Lee for pointing out the
+dma-call.
+
+
+> Userspace should be able to, for example, move a TX queue into a
+> NUMA domain and have this invoke several side effects:
+> 
+> 1) IRQs for that TX queue get rerouted to a cpu in the NUMA
+>    domain.
+> 
+> 2) TX queue datastructures in the driver get reallocated using
+>    memory in that NUMA domain.
+> 
+> 3) TX hashing is configured to use the set of cpus in the NUMA
+>    domain.
+> 
+> It's alot of tedious work and involves some delicate tasks figuring
+> out where each of these things go, but really then we'd solve all
+> of this crap one and for all.
+> --
+
+The MSI-X+MQ combo is something that should be taken care off. We could
+come up with an automatic-node-binding shim in the kernel and then all
+the sub-systems can use that.
+
+Basically, the userland should query 
+i) the adapter-capabilities 
+ii)get the node-binding info
+iii)and then start affinitizing everything
+
+
+Some older msi-x (non-ethernet)adapters assume the msi-x info to remain
+static once the adapter is initialized. If we had an auto-node-binding
+shim then that would mean re-initializing the adapter,correct?
+
+
+
+Chetan Loke
