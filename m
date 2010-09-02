@@ -1,139 +1,63 @@
-From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Thu, 2 Sep 2010 12:19:45 +0900
-Message-ID: <001301cb4a4d$b4c4ba80$66f8800a@maildom.okisemi.com>
-References: <4C61EDE5.4030505@dsn.okisemi.com>	<4C62981B.8050402@grandegger.com>	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA26CC@shsmsx501.ccr.corp.intel.com>	<4C63B6C9.5050804@grandegger.com>	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA29DF@shsmsx501.ccr.corp.intel.com>
-	<000501cb49a9$9cd4bf00$66f8800a@maildom.okisemi.com>
-	<4C7EA0CC.2030609@grandegger.com>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Subject: Re: cgroups/netlink related rcu_dereference_check() without protection
+ (2.6.35.4)
+Date: Thu, 02 Sep 2010 13:53:54 +0800
+Message-ID: <4C7F3BF2.1050808@cn.fujitsu.com>
+References: <20100902014337.GC30324@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Chih Howe <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, gregkh-l3A5Bk7waGM@public.gmane.org, "Wang,
-	Yong Y" <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	ML linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, Qi <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Paul Menage <menage@google.com>
+To: Dave Jones <davej@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:64382 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751039Ab0IBFsu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Sep 2010 01:48:50 -0400
+In-Reply-To: <20100902014337.GC30324@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------ Original Message ----- 
-From: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Cc: "Andrew Chih Howe" <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; "Qi" <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; "ML netdev"
-<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <gregkh-l3A5Bk7waGM@public.gmane.org>; "ML linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; "Wang, Yong Y"
-<yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; "David S. Miller"
-<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>; "Christian Pellegrin" <chripell-VaTbYqLCNhc@public.gmane.org>; "Samuel Ortiz" <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sent: Thursday, September 02, 2010 3:51 AM
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Dave Jones wrote:
+> I see this during boot on one of my boxes..
+> 
+> 	Dave
+> 
+> INFO: suspicious rcu_dereference_check() usage. ]
+> ---------------------------------------------------
+> include/linux/cgroup.h:542 invoked rcu_dereference_check() without protection!
+> 
 
-> ...
-> >>>>> - The values for the hw-specific bit-timing registers should be derived
-> >>>>>   from the calculated values in "priv->can.bittiming":
-> >>>>>
-> >>>>>   http://lxr.linux.no/#linux+v2.6.35/include/linux/can/netlink.h#L17
-> >>>>>
-> >
-> > I show current pch_can code below.
-> >
-> > +static int pch_set_bittiming(struct net_device *ndev)
-> > +{
-> > + struct pch_can_priv *priv = netdev_priv(ndev);
-> > + struct pch_can_os *dev_can_os = priv->pch_can_os_p;
-> > + const struct can_bittiming *bt = &priv->can.bittiming;
-> >
-> > Is the above TRUE, isn't it ?
->
-> The code fragment looks good. In that function you should then *derive*
-> the values of the bit-timing registers from the data fields of "bt". For
-> the SJA1000, you find the code here:
->
-> http://lxr.linux.no/#linux+v2.6.35/drivers/net/can/sja1000/sja1000.c#L202
->
+Will send out a fix soon.
 
-I can't understand the your saying.
-I think our can driver is implemented like your saying.
-
-In function "pch_set_bittiming", get the value of the bit-timing registers from
-the data fields of "bt" at "pch_can_set_baud_custom" or "pch_can_set_baud_simple".
-
-Could you indicate in more detail ?
-
-
-> >>>>> - The driver should handle state changes and communicate them to the
-> >>>>>   user space via error messages, if possible.
-> >>>>>
-> > What's "state chage" mean ?
->
-> Googling for "can bis states" returned:
->
->
-http://www.softing.com/home/en/industrial-automation/products/can-bus/more-can-bus/error-handling/error-states.php?navanchor=3010510
->
-> The CAN controller usually triggers an interrupt when the state changes,
-> which allows the driver to track the CAN state and deliver that
-> information to the user space.
-
-I could understand your saying.
-In our current code, our driver can detect state change, but doesn't notify to
-can-core module or kennel protocol stack.
-We will modify our driver to notify to these.
-
->
-> >>>>> - The driver should report errors to the user space via error messages.
-> >>>>>
-> > Is the above mean using alloc_can_err_skb and set error info and notify to kernel with netif_rx ?
->
-> Yes. Please search "Documentation/networking/can.txt" for "error frames"
-> for further information.
-
-I understand.
-We will modify.
-
->
-> >>>>> - Bus errors seem not to be handled properly.I'm missing can_bus_off().
-> >>>>>   Does the controller recover from bus-off automatically?
-> > No.
-> > CAN driver recovers from Bus-off state.
->
-> You mean: "It does *not" recover automatically"! Right?
-
-I meant like below.
-CAN-HW itself can't recover from bus-off state automatically.
-Cooperate with CAN driver, CAN HW can do automatically.
-
->
-> >
-> >>>>>
-> >>>>> - I see that the driver uses many TX and RX objects. How do you avoid
-> >>>>>   out-of-order transmission and reception?
-> >>>> What do you mean out-of-order RX and TX?
-> >>>> Atom processor only supports in-order execution, and PCIe-based peripherals
-> >>> can solve it with consumer-producer model. Actually IC designer will take care
-> >>> of out-of-order PCIe CPLD transaction.
-> >>>
-> >>> I mean out-of-order transmission to or from the CAN bus. This is handled
-> >>> by the CAN controller hardware. It has nothing to to with the processor.
-> > Cannot avoid occurring rx or tx our-of-order.
->
-> It is a *requirement* as Oliver already pointed out. It's easy to
-> achieve if just one TX object is used but it might be tricky with more
-> than one.
-
-I agree with your indication.
-We will modify so that our CAN driver has only one tx/rx each object.
-
-Thanks, Ohtake(OKISemi)
+> other info that might help us debug this:
+> 
+> 
+> rcu_scheduler_active = 1, debug_locks = 0
+> 1 lock held by swapper/1:
+>  #0:  (net_mutex){+.+.+.}, at: [<c074b595>] register_pernet_subsys+0x17/0x34
+> 
+> stack backtrace:
+> Pid: 1, comm: swapper Not tainted 2.6.35.4-15.fc14.i686.PAE #1
+> Call Trace:
+>  [<c07e2197>] ? printk+0x25/0x2e
+>  [<c0467969>] lockdep_rcu_dereference+0x7d/0x86
+>  [<c07440ea>] sock_update_classid+0x6c/0x8e
+>  [<c074416b>] sk_alloc+0x5f/0x6a
+>  [<c07674a9>] __netlink_create+0x2a/0x90
+>  [<c0768d54>] netlink_kernel_create+0x5f/0x14f
+>  [<c075805c>] rtnetlink_net_init+0x23/0x3b
+>  [<c0759412>] ? rtnetlink_rcv+0x0/0x27
+>  [<c074b388>] ops_init+0xda/0xe9
+>  [<c074b4c8>] register_pernet_operations+0x84/0xee
+>  [<c074b5a1>] register_pernet_subsys+0x23/0x34
+>  [<c0ab7e94>] rtnetlink_init+0x42/0xe0
+>  [<c0ab84fa>] netlink_proto_init+0xee/0x103
+>  [<c0ab840c>] ? netlink_proto_init+0x0/0x103
+>  [<c0403182>] do_one_initcall+0x62/0x170
+>  [<c0a809d3>] kernel_init+0x1b9/0x23a
+>  [<c0a8081a>] ? kernel_init+0x0/0x23a
+>  [<c0408fc2>] kernel_thread_helper+0x6/0x10
+> 
+> 
+> 
