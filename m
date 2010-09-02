@@ -1,66 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: another last_rx round
-Date: Thu, 02 Sep 2010 08:29:58 +0200
-Message-ID: <1283408998.2484.131.camel@edumazet-laptop>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Thu, 02 Sep 2010 08:32:44 +0200
+Message-ID: <4C7F450C.4010002@grandegger.com>
+References: <4C61EDE5.4030505@dsn.okisemi.com>	<4C62981B.8050402@grandegger.com>	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA26CC@shsmsx501.ccr.corp.intel.com>	<4C63B6C9.5050804@grandegger.com>	<D5AB6E638E5A3E4B8F4406B113A5A19A28EA29DF@shsmsx501.ccr.corp.intel.com>	<000501cb49a9$9cd4bf00$66f8800a@maildom.okisemi.com>	<4C7EA0CC.2030609@grandegger.com>
+	<001301cb4a4d$b4c4ba80$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:48947 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881Ab0IBGaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 02:30:04 -0400
-Received: by wwj40 with SMTP id 40so302959wwj.1
-        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 23:30:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Chih Howe <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	ML netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, gregkh-l3A5Bk7waGM@public.gmane.org,
+	ML linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "Wang,
+	Yong Y" <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>, Qi <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <001301cb4a4d$b4c4ba80$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Kill last_rx use in l2tp and two net drivers
+On 09/02/2010 05:19 AM, Masayuki Ohtake wrote:
+> ----- Original Message ----- 
+> From: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> To: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+> Cc: "Andrew Chih Howe" <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; "Qi" <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; "ML netdev"
+> <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <gregkh-l3A5Bk7waGM@public.gmane.org>; "ML linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; "Wang, Yong Y"
+> <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; "David S. Miller"
+> <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>; "Christian Pellegrin" <chripell-VaTbYqLCNhc@public.gmane.org>; "Samuel Ortiz" <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> Sent: Thursday, September 02, 2010 3:51 AM
+> Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+> 
+>> ...
+>>>>>>> - The values for the hw-specific bit-timing registers should be derived
+>>>>>>>   from the calculated values in "priv->can.bittiming":
+>>>>>>>
+>>>>>>>   http://lxr.linux.no/#linux+v2.6.35/include/linux/can/netlink.h#L17
+>>>>>>>
+>>>
+>>> I show current pch_can code below.
+>>>
+>>> +static int pch_set_bittiming(struct net_device *ndev)
+>>> +{
+>>> + struct pch_can_priv *priv = netdev_priv(ndev);
+>>> + struct pch_can_os *dev_can_os = priv->pch_can_os_p;
+>>> + const struct can_bittiming *bt = &priv->can.bittiming;
+>>>
+>>> Is the above TRUE, isn't it ?
+>>
+>> The code fragment looks good. In that function you should then *derive*
+>> the values of the bit-timing registers from the data fields of "bt". For
+>> the SJA1000, you find the code here:
+>>
+>> http://lxr.linux.no/#linux+v2.6.35/drivers/net/can/sja1000/sja1000.c#L202
+>>
+> 
+> I can't understand the your saying.
+> I think our can driver is implemented like your saying.
+> 
+> In function "pch_set_bittiming", get the value of the bit-timing registers from
+> the data fields of "bt" at "pch_can_set_baud_custom" or "pch_can_set_baud_simple".
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/cxgb4vf/sge.c |    1 -
- drivers/net/pxa168_eth.c  |    1 -
- net/l2tp/l2tp_eth.c       |    1 -
- 3 files changed, 3 deletions(-)
+Please *remove* "pch_can_set_baud_custom" or "pch_can_set_baud_simple"
+and use the fields of "const struct can_bittiming *bt" *directly*:
 
-diff --git a/drivers/net/cxgb4vf/sge.c b/drivers/net/cxgb4vf/sge.c
-index eb5a1c9..e00fd9c 100644
---- a/drivers/net/cxgb4vf/sge.c
-+++ b/drivers/net/cxgb4vf/sge.c
-@@ -1520,7 +1520,6 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 	__skb_pull(skb, PKTSHIFT);
- 	skb->protocol = eth_type_trans(skb, rspq->netdev);
- 	skb_record_rx_queue(skb, rspq->idx);
--	skb->dev->last_rx = jiffies;                  /* XXX removed 2.6.29 */
- 	pi = netdev_priv(skb->dev);
- 	rxq->stats.pkts++;
- 
-diff --git a/drivers/net/pxa168_eth.c b/drivers/net/pxa168_eth.c
-index 659915c..764aa90 100644
---- a/drivers/net/pxa168_eth.c
-+++ b/drivers/net/pxa168_eth.c
-@@ -848,7 +848,6 @@ static int rxq_process(struct net_device *dev, int budget)
- 			skb->protocol = eth_type_trans(skb, dev);
- 			netif_receive_skb(skb);
- 		}
--		dev->last_rx = jiffies;
- 	}
- 	/* Fill RX ring with skb's */
- 	rxq_refill(dev);
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 58c6c4c..f3468ba 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -144,7 +144,6 @@ static void l2tp_eth_dev_recv(struct l2tp_session *session, struct sk_buff *skb,
- 	nf_reset(skb);
- 
- 	if (dev_forward_skb(dev, skb) == NET_RX_SUCCESS) {
--		dev->last_rx = jiffies;
- 		dev->stats.rx_packets++;
- 		dev->stats.rx_bytes += data_len;
- 	} else
+  /* Getting the appropriate register value. */
+  reg_val = (((bt->brp & MSK_BITT_BRP) << BIT_BITT_BRP) |
+	    ((bt->prop_seg + bt->phase_seg1 - 1) << BIT_BITT_TSEG1) |
+            ...
 
+> Could you indicate in more detail ?
 
+Please have a closer look to the link mentioned above.
+
+>>>>>>> - The driver should handle state changes and communicate them to the
+>>>>>>>   user space via error messages, if possible.
+>>>>>>>
+>>> What's "state chage" mean ?
+>>
+>> Googling for "can bis states" returned:
+>>
+>>
+> http://www.softing.com/home/en/industrial-automation/products/can-bus/more-can-bus/error-handling/error-states.php?navanchor=3010510
+>>
+>> The CAN controller usually triggers an interrupt when the state changes,
+>> which allows the driver to track the CAN state and deliver that
+>> information to the user space.
+> 
+> I could understand your saying.
+> In our current code, our driver can detect state change, but doesn't notify to
+> can-core module or kennel protocol stack.
+> We will modify our driver to notify to these.
+
+The code is your friend. Please have a more detailed look to the SJA1000
+driver, e.g. search it for "state".
+
+Wolfgang.
