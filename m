@@ -1,51 +1,59 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] [arch-x86] Allow SRAT integrity check to be skipped
-Date: Thu, 2 Sep 2010 08:57:31 +0200
-Message-ID: <20100902065731.GB29972@elte.hu>
-References: <20100901213318.19353.54619.stgit@localhost.localdomain>
+From: Greg Lindahl <greg@blekko.com>
+Subject: Re: [PATCH] xps-mq: Transmit Packet Steering for multiqueue
+Date: Wed, 1 Sep 2010 23:41:36 -0700
+Message-ID: <20100902064136.GA8633@bx9.net>
+References: <AANLkTin2rmcsxHi6+bFEUykhrkoWs--hrisAx_v__k1D@mail.gmail.com> <1283356463.2556.351.camel@edumazet-laptop> <AANLkTinOfkr=+_61kb+bZf_0brcahQz8b_P6TWhUgFka@mail.gmail.com> <20100901.183251.106803238.davem@davemloft.net> <20100901185627.239ad165@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com,
-	x86@kernel.org, linux-kernel@vger.kernel.org, andi@firstfloor.org,
-	netdev@vger.kernel.org
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:55070 "EHLO mx3.mail.elte.hu"
+Received: from rc.bx9.net ([64.13.160.15]:36774 "EHLO rc.bx9.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751649Ab0IBG5m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Sep 2010 02:57:42 -0400
+	id S1753160Ab0IBHOG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Sep 2010 03:14:06 -0400
 Content-Disposition: inline
-In-Reply-To: <20100901213318.19353.54619.stgit@localhost.localdomain>
+In-Reply-To: <20100901185627.239ad165@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Sep 01, 2010 at 06:56:27PM -0700, Stephen Hemminger wrote:
 
-* Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com> wrote:
+> Just to be contrarian :-) This same idea had started before when IBM
+> proposed a user-space NUMA API.  It never got any traction, the concept
+> of "lets make the applications NUMA aware" never got accepted because
+> it is so hard to do right and fragile that it was the wrong idea
+> to start with. The only people that can manage it are the engineers
+> tweeking a one off database benchmark.
 
-> On certain BIOSes, SRAT enumeration isn't exported correctly. This 
-> leads to NUMA node enumeration failure, and causes the kernel to fall 
-> back onto a single node treated as flat memory.  This can happen on 
-> large, multi-socket systems (4 or more sockets), and becomes 
-> problematic for performance.
-> 
-> This patch adds a boot parameter to allow a kernel to be booted with 
-> the option to skip the SRAT check.  There are BIOSes in production 
-> that have these failures, so this will allow people in the field to 
-> work around these BIOS issues.
+As an non-database user-space example, there are many applications
+which know about the typical 'first touch' locality policy for pages
+and use that to be NUMA-aware. Just about every OpenMP program ever
+written does that; it's even fairly portable among OSes.
 
-> + 	sratbypassbios
-> +		If specified, will skip an SRAT check for PXM coverage
-> +		from BIOS enumeration.  Only to be used on systems with
-> +		buggy BIOSes that munge the SRAT enumeration.
+A second user-level example is MPI implementations such as OpenMPI.
+Those guys run 1 process per core and they don't need to move around,
+so getting process locked to a core and all the pages in the right
+place is a nice win without the MPI programmer doing anything.
 
-This isnt a particularly useful solution to users of said systems - they 
-have to figure out that this option exists, and then they have to enter 
-this option on the boot line.
+For kernel (but non-Ethernet) networking examples, HPC interconnects
+typically go out of their way to ensure locality of kernel pages
+related to a given core's workload.  Examples include Myrinet's
+OpenMX+MPI and the InfiniPath InfiniBand adapater, whatever QLogic
+renamed it to this week (TrueScale, I suppose.) How can you get ~ 1
+microsecond messages if you've got a buffer in the wrong place?  Or
+achieve extremely high messaging rates when you're waiting for remote
+memory all the time?
 
-A better solution would be to match these systems using DMI filters - 
-_and_ to also have the boot time option to cover the case where a new 
-system comes out with such a breakage. (or there's some system not yet 
-mapped)
+> I would rather see a "good enough" policy in the kernel that works
+> for everything from a single-core embedded system to a 100 core
+> server environment.
+
+I'd like a pony. Yes, it's challenging to directly aapply the above
+networking example to Ethernet networking, but there's a pony in there
+somewhere.
+
+-- greg
 
 
-	Ingo
