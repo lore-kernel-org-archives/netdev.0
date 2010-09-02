@@ -1,41 +1,35 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC] ipvs: Keep track of backlog connections
-Date: Thu, 2 Sep 2010 03:16:40 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.1009020249090.14356@u.domain.uli>
-References: <alpine.LNX.2.00.1008311411190.5292@titan.stealer.net>
- <Pine.LNX.4.58.1009011113560.5403@u.domain.uli> <20100901132834.GI4998@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] 3c59x: Remove incorrect locking; correct
+ documented lock hierarchy
+Date: Wed, 01 Sep 2010 17:37:36 -0700 (PDT)
+Message-ID: <20100901.173736.190380817.davem@davemloft.net>
+References: <20100901.143815.215547115.davem@davemloft.net>
+	<1283377631.5323.285.camel@localhost>
+	<1283378907.5323.287.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sven Wegener <sven.wegener@stealer.net>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20100901132834.GI4998@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ben@decadent.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36457
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752182Ab0IBAhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 20:37:20 -0400
+In-Reply-To: <1283378907.5323.287.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Wed, 01 Sep 2010 23:08:27 +0100
 
-	Hello,
+> I think this is safe after all because ethtool and MII ioctls are all
+> serialised by the RTNL.
 
-On Wed, 1 Sep 2010, Simon Horman wrote:
+Well since you said that there was a regression that you're unable
+to reproduce, I was trying to find a probably cause for it :-)
 
-> On the kernel-side of things, internally it should be easy
-> enough to either expand flags or add a new element to the structure.
-> So it seems to me that the problem is the kernel/user-space interface.
-> And if that is the case, I think the best idea is to just use
-> the netlink interface for all new configuration options and have
-> new features unsupported through the old, legacy, ioctl interface.
+I think you should work to resolve that report, and resend this
+locking patch once that is sorted out.
 
-	No, there should be no problem with the interface,
-it already uses 32 bits. We should change only cp->flags
-to 32 bits and new flags should go after bit 16 if they
-are not needed for sync. Some flags can be changed safely,
-for example, IP_VS_CONN_F_SYNC: it is not used by ipvsadm,
-it is set only in backup, so it can be moved after bit 16.
-May be another idea is to create 2nd version for the
-struct ip_vs_sync_conn to support more features.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Thanks.
