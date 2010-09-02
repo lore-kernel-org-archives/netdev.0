@@ -1,38 +1,34 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] [arch-x86] Allow SRAT integrity check to be skipped
-Date: Thu, 2 Sep 2010 12:03:08 +0200
-Message-ID: <20100902100308.GA17167@basil.fritz.box>
-References: <20100901213318.19353.54619.stgit@localhost.localdomain>
- <20100902065731.GB29972@elte.hu>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH] cls_cgroup: Fix rcu lockdep warning
+Date: Thu, 02 Sep 2010 12:38:36 +0200
+Message-ID: <1283423916.2059.1847.camel@laptop>
+References: <4C7F446F.8040303@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com,
-	x86@kernel.org, linux-kernel@vger.kernel.org, andi@firstfloor.org,
-	netdev@vger.kernel.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100902065731.GB29972@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Dave Jones <davej@redhat.com>, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Li Zefan <lizf@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:51376 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751022Ab0IBKiu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 06:38:50 -0400
+In-Reply-To: <4C7F446F.8040303@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> This isnt a particularly useful solution to users of said systems - they 
-> have to figure out that this option exists, and then they have to enter 
-> this option on the boot line.
+On Thu, 2010-09-02 at 14:30 +0800, Li Zefan wrote:
+> Calling task_subsys_state() without holding rcu_read_lock or
+> cgroup_mutex can cause lockdep warning.
+> 
 
-This usually only happens in early preproduction systems. So far
-the BIOS always got fixed before they shipped to users.
+That is not a suitable changelog.
 
-But it's still useful to have this option so that the early
-users have a workaround.
+Was the warning correct? Is your patch correct? What does RCU protect
+here and why can we use classid after dropping it.
 
-It's difficult to maintain DMI strings for early systems,
-they are too bleeding edge and the entries would be stale
-as soon as the BIOS is fixed.
-
--Andi
-
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Simply frobbing code to make the warning go away is not good.
