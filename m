@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-09-02
-Date: Thu, 02 Sep 2010 12:46:48 -0700 (PDT)
-Message-ID: <20100902.124648.70205782.davem@davemloft.net>
-References: <20100902180826.GC6802@tuxdriver.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] xps-mq: Transmit Packet Steering for multiqueue
+Date: Thu, 2 Sep 2010 12:52:33 -0700
+Message-ID: <AANLkTimtF7jmoEm+ZexsC_rZGNq8zHxddj7pepomwO35@mail.gmail.com>
+References: <AANLkTin2rmcsxHi6+bFEUykhrkoWs--hrisAx_v__k1D@mail.gmail.com>
+	<1283356463.2556.351.camel@edumazet-laptop>
+	<AANLkTinOfkr=+_61kb+bZf_0brcahQz8b_P6TWhUgFka@mail.gmail.com>
+	<20100901.183251.106803238.davem@davemloft.net>
+	<20100901184802.5a79cf9f@nehalam>
+	<D3F292ADF945FB49B35E96C94C2061B90D0670D1@nsmail.netscout.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: "Loke, Chetan" <Chetan.Loke@netscout.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43371
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753651Ab0IBTqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 15:46:31 -0400
-In-Reply-To: <20100902180826.GC6802@tuxdriver.com>
+Received: from smtp-out.google.com ([74.125.121.35]:13164 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113Ab0IBTwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 15:52:40 -0400
+Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
+	by smtp-out.google.com with ESMTP id o82JqcQh006934
+	for <netdev@vger.kernel.org>; Thu, 2 Sep 2010 12:52:38 -0700
+Received: from yxj4 (yxj4.prod.google.com [10.190.3.68])
+	by kpbe14.cbf.corp.google.com with ESMTP id o82JqWkP003716
+	for <netdev@vger.kernel.org>; Thu, 2 Sep 2010 12:52:36 -0700
+Received: by yxj4 with SMTP id 4so374828yxj.10
+        for <netdev@vger.kernel.org>; Thu, 02 Sep 2010 12:52:36 -0700 (PDT)
+In-Reply-To: <D3F292ADF945FB49B35E96C94C2061B90D0670D1@nsmail.netscout.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 2 Sep 2010 14:08:27 -0400
+> userland folks who actually try to exploit the MQ/MSIX-ness will almost
+> always pin down their high-prio[or subset of] threads/processes.
+>
+I don't really see that.  Pinning is a last resort and in this context
+we could only do that on a dedicated server.  On a shared server, with
+many different apps, pinning for MQ/MSIX is not an easy option;
+meeting scheduler constraints will be the first priority and its up to
+networking to work with the scheduler to to the right thing.
+Scheduler aware networking (or vice versa) is important.
 
-> Here is another batch of patches intended for 2.6.37.  There are a
-> variety of changes ranging from spelling fixes to more significant
-> driver and infrastructure enhancements.  As usual iwlwifi is a
-> major target, supplemented in this batch by rt2x00, ath5k, wl1251,
-> and others.  Johannes seems to have had an itch to tweak mac80211 a
-> bit as well.
-> 
-> Please let me know if there are problems!
-
-Pulled, thanks John.
+Tom
