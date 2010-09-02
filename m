@@ -1,73 +1,86 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-2.6] 3c59x: Remove incorrect locking; correct
- documented lock hierarchy
-Date: Thu, 02 Sep 2010 01:42:58 +0100
-Message-ID: <1283388178.5323.300.camel@localhost>
-References: <20100901.143815.215547115.davem@davemloft.net>
-	 <1283377631.5323.285.camel@localhost> <1283378907.5323.287.camel@localhost>
-	 <20100901.173736.190380817.davem@davemloft.net>
+From: Liang Li <liang.li@windriver.com>
+Subject: Re: [v1 PATCH] ucc_geth: fix ethtool set ring param bug
+Date: Thu, 2 Sep 2010 08:50:34 +0800
+Message-ID: <20100902005034.GA9901@localhost>
+References: <1283179677-21262-1-git-send-email-liang.li@windriver.com>
+ <1283305429-8426-1-git-send-email-liang.li@windriver.com>
+ <1283348550.2268.7.camel@achroite.uk.solarflarecom.com>
+Reply-To: Liang Li <liang.li@windriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-JMBfETpio6Ih2NlygJHe"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: leoli@freescale.com, davem@davemloft.net, avorontsov@ru.mvista.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:59614 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752178Ab0IBAnN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 20:43:13 -0400
-In-Reply-To: <20100901.173736.190380817.davem@davemloft.net>
+Received: from mail.windriver.com ([147.11.1.11]:56550 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754142Ab0IBAs7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 20:48:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1283348550.2268.7.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Sep 01, 2010 at 02:42:30PM +0100, Ben Hutchings wrote:
+> On Wed, 2010-09-01 at 09:43 +0800, Liang Li wrote:
+> > It's common sense that when we should do change to driver ring
+> > desc/buffer etc only after 'stop/shutdown' the device. When we
+> > do change while devices/driver is running, kernel oops occur:
+> [...]
+> > -	ug_info->bdRingLenRx[queue] = ring->rx_pending;
+> > -	ug_info->bdRingLenTx[queue] = ring->tx_pending;
+> > -
+> >  	if (netif_running(netdev)) {
+> > -		/* FIXME: restart automatically */
+> > -		printk(KERN_INFO
+> > -			"Please re-open the interface.\n");
+> > +		u16 rx_t;
+> > +		u16 tx_t;
+> > +		printk(KERN_INFO "Stopping interface %s.\n", netdev->name);
+> > +		ucc_geth_close(netdev);
+> > +
+> > +		rx_t = ug_info->bdRingLenRx[queue];
+> > +		tx_t = ug_info->bdRingLenTx[queue];
+> > +
+> > +		ug_info->bdRingLenRx[queue] = ring->rx_pending;
+> > +		ug_info->bdRingLenTx[queue] = ring->tx_pending;
+> > +
+> > +		printk(KERN_INFO "Reactivating interface %s.\n", netdev->name);
+> > +		ret = ucc_geth_open(netdev);
+> > +		if (ret) {
+> > +			printk(KERN_WARNING "uec_set_ringparam: set ring param for running"
+> > +					" interface %s failed. Please try to make the interface "
+> > +					" down, then try again.\n", netdev->name);
+> > +			ug_info->bdRingLenRx[queue] = rx_t;
+> > +			ug_info->bdRingLenTx[queue] = tx_t;
+> > +		}
+> [...]
+> 
+> Bringing the interface down will call ucc_geth_close(), which will try
+> to free resources that have not been allocated!
 
---=-JMBfETpio6Ih2NlygJHe
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Sorry, I did not understand you on this point. There is no
+ucc_geth_close when 'open fail'. What you mean here exactly?
 
-On Wed, 2010-09-01 at 17:37 -0700, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Wed, 01 Sep 2010 23:08:27 +0100
->=20
-> > I think this is safe after all because ethtool and MII ioctls are all
-> > serialised by the RTNL.
->=20
-> Well since you said that there was a regression that you're unable
-> to reproduce, I was trying to find a probably cause for it :-)
->=20
-> I think you should work to resolve that report, and resend this
-> locking patch once that is sorted out.
+> 
+> If you cannot roll back a failed change then at least use dev_close()
+> and dev_open() rather than calling ucc_geth_{close,open}() directly, so
+> that the interface state is updated correctly.  Or just refuse to make
+> the change if the interface is up.
 
-That regression seems to due to my *earlier* changes to locking.  This
-new patch fixes a different regression I found while trying to reproduce
-that, and it has not been applied in Debian yet.  Sorry for the
-ambiguous wording.
+That make things more simply but I do not think that is necessary.
+Since there is no such restriction exist in most NIC drivers. :)
+Actually I did not see the 'fail of reopen' case. So I assume you
+may witnessed similar 'open fail' case in some rare cases. May you
+please give more input on this then I can 'make re-open safer' here.
 
-Ben.
+Thanks,
+				-Liang Li
 
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-JMBfETpio6Ih2NlygJHe
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUATH7zCOe/yOyVhhEJAQJy6BAApIJS2IgGna9zzeiN4SywSefeqmS8xxVS
-EScQ5NoUXKxjMcm/HdCEg5mAY+MbwdsHNK9YaYP9Lly5mUEe38Hk6PW9PFulv2b0
-nmZ/wHZtf1S6BY8OckHym/6MDr6Hd8nv+sL45FzswZylrCtJ3qOjsi85xctt1jHH
-/7d2or4D2Sr88LgiXEmZIpt6Q9hsM7IZspiKDLgDg+8s5OBpUP1EYcuFCxL+m911
-Z4TXjOdTZ2kY7Jt996lPKwQ2PJ4T0uW1tq07wab44clepvHWfQ5qyNTU3ERCJTTu
-ORzCdKTi1jJxOKYYJPYN3aSXdhOPGiqTpIjzn916OReD9khsQ00fJzS8+kevl5ow
-zSpvolfGanqa4/y8eHLy/PhcXBy3QpGDntb6VDaKh1z9yRu7YJEy77keTz5BbyPo
-sb0CtVGY/5Kf6Xb4flUjo7zg/gziBVnH7c1uCF4WFWMWGRY/gps+jpOYyZM+5lAN
-v8COFOt6t6l3/xnu2Lymm4vOzj00iZf8hL29L19chwjdjm53U4HuIE7eYJvdaWqW
-K5ayLezOnyX+GEm9ODJpI5Ogc/1C8rhbmLZgmZv/Tau5Pq0Ij8AoRgzdpvQkMBkJ
-KS3n+XGDShIIU4pt0mhg/gp5Bc8CmSZrkgmnPtmm1pIym4csj1nf4k28vH7eOh7i
-bBL0BRK2CuQ=
-=fGN1
------END PGP SIGNATURE-----
-
---=-JMBfETpio6Ih2NlygJHe--
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Senior Software Engineer, Solarflare Communications
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
