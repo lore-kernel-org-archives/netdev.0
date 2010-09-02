@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: don't do GRO on second port
-Date: Thu, 02 Sep 2010 10:08:12 -0700 (PDT)
-Message-ID: <20100902.100812.48509810.davem@davemloft.net>
-References: <1283419909.2454.137.camel@edumazet-laptop>
-	<20100902095502.GA8775@ff.dom.local>
-	<1283424105.2454.311.camel@edumazet-laptop>
+Subject: Re: [PATCN net-next-2.6] net: dev_add_pack() & __dev_remove_pack()
+ changes
+Date: Thu, 02 Sep 2010 10:12:30 -0700 (PDT)
+Message-ID: <20100902.101230.260098512.davem@davemloft.net>
+References: <1283435626.2454.764.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, shemminger@vyatta.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34192
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43497
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752921Ab0IBRH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 13:07:56 -0400
-In-Reply-To: <1283424105.2454.311.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1751370Ab0IBRMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 13:12:13 -0400
+In-Reply-To: <1283435626.2454.764.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 02 Sep 2010 12:41:45 +0200
+Date: Thu, 02 Sep 2010 15:53:46 +0200
 
-> [PATCH net-next-2.6] gro: remove use of napi->dev
+> Add a small helper ptype_head() to get the head to manipulate
 > 
-> Only use of napi->dev in GRO stack is the one found in napi_get_frags()
-> 
-> We can remove it and use a plain dev_alloc_skb() call.
+> dev_add_pack() & __dev_remove_pack() can use a spinlock without
+> blocking BH, since softirq use RCU, and these functions are run from
+> process context only.
 > 
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-If you change this to use skb->dev I can apply this.
-
-Thanks.
+Looks good, applied, thanks Eric.
