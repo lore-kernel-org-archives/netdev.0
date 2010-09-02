@@ -1,45 +1,36 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH v2] [arch-x86] Allow SRAT integrity check to be skipped
-Date: Thu, 02 Sep 2010 12:39:00 -0700
-Message-ID: <1283456340.28591.23.camel@pjaxe>
-References: <20100901225937.18457.16372.stgit@localhost.localdomain>
-	 <1283427192.3793.100.camel@jlt3.sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] drivers/net : avoid some skb->ip_summed
+ initializations
+Date: Thu, 02 Sep 2010 12:38:01 -0700 (PDT)
+Message-ID: <20100902.123801.102553189.davem@davemloft.net>
+References: <1283444746.2454.1132.camel@edumazet-laptop>
+	<20100902.094135.112603353.davem@davemloft.net>
+	<1283454780.3699.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"andi@firstfloor.org" <andi@firstfloor.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1283427192.3793.100.camel@jlt3.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40946
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751217Ab0IBTho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 15:37:44 -0400
+In-Reply-To: <1283454780.3699.22.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-09-02 at 04:33 -0700, Johannes Berg wrote:
-> On Wed, 2010-09-01 at 15:59 -0700, Peter P Waskiewicz Jr wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 02 Sep 2010 21:13:00 +0200
+
+> Well, I wanted to keep the CHECKSUM_NONE "as is" to ease grep games.
+
+I understand but it's just too ugly to live, I think.
+
+> Choices are :
 > 
-> > +static int srat_bypass_bios;
-> > +
-> > +static int __init srat_bypass_bios_setup(char *str)
-> > +{
-> > +        srat_bypass_bios = 1;
-> > +        return 0;
-> > +}
-> > +early_param("sratbypassbios", srat_bypass_bios_setup);
-> > +
-> >  /* Use the information discovered above to actually set up the nodes. */
-> >  int __init acpi_scan_nodes(unsigned long start, unsigned long end)
-> >  {
-> 
-> I wonder, since all the things using the variable are __init, could it
-> be as well? Just curious really.
+> 1) put it in lower case : skb_checksum_none_assert()
+> 2) Use a macro instead.
+> 3) Other idea ?
 
-That is a good question.  It makes sense to me, but I just followed what
-other boot-time options did, which are not marked __init.  I'll defer to
-anyone else on the list who is better-equipped to answer that.
-
--PJ
+Respin with #1 please, thanks.
