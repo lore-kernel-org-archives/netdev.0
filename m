@@ -1,44 +1,77 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] 3c59x: Remove incorrect locking; correct
- documented lock hierarchy
-Date: Wed, 01 Sep 2010 18:02:10 -0700 (PDT)
-Message-ID: <20100901.180210.129766746.davem@davemloft.net>
-References: <1283378907.5323.287.camel@localhost>
-	<20100901.173736.190380817.davem@davemloft.net>
-	<1283388178.5323.300.camel@localhost>
+Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
+ ip_fragment
+Date: Wed, 01 Sep 2010 18:09:22 -0700 (PDT)
+Message-ID: <20100901.180922.163252387.davem@davemloft.net>
+References: <1283232031.2405.38.camel@edumazet-laptop>
+	<20100901.144658.135972233.davem@davemloft.net>
+	<20100901233056.GA15177@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38038
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752357Ab0IBBBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 21:01:53 -0400
-In-Reply-To: <1283388178.5323.300.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, bandan.das@stratus.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100901233056.GA15177@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Thu, 02 Sep 2010 01:42:58 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 2 Sep 2010 07:30:56 +0800
 
-> On Wed, 2010-09-01 at 17:37 -0700, David Miller wrote:
->> From: Ben Hutchings <ben@decadent.org.uk>
->> Date: Wed, 01 Sep 2010 23:08:27 +0100
->> 
->> > I think this is safe after all because ethtool and MII ioctls are all
->> > serialised by the RTNL.
->> 
->> Well since you said that there was a regression that you're unable
->> to reproduce, I was trying to find a probably cause for it :-)
->> 
->> I think you should work to resolve that report, and resend this
->> locking patch once that is sorted out.
+> On Wed, Sep 01, 2010 at 02:46:58PM -0700, David Miller wrote:
+> .
+>> Therefore I'm inclined to agree with Herbert that we need to parse the
+>> options explicitly before invoke ip_fragment().  We must call it with
+>> an SKB in the state it expects, and that means with options parsing
+>> already performed.
 > 
-> That regression seems to due to my *earlier* changes to locking.  This
-> new patch fixes a different regression I found while trying to reproduce
-> that, and it has not been applied in Debian yet.  Sorry for the
-> ambiguous wording.
+> FWIW the packet probably doesn't even have IP options.  What is
+> happening here is that we've found yet another entry point from
+> the bridge driver into the IP stack so we need to duplicate my
+> original patch here.
 
-Gotcha, patch applied to net-2.6, thanks.
+With that in mind I'm going to commit the following and
+queue it up to -stable too.
+
+Thanks.
+
+--------------------
+bridge: Clear INET control block of SKBs passed into ip_fragment().
+
+In a similar vain to commit 17762060c25590bfddd68cc1131f28ec720f405f
+("bridge: Clear IPCB before possible entry into IP stack")
+
+Any time we call into the IP stack we have to make sure the state
+there is as expected by the ipv4 code.
+
+With help from Eric Dumazet and Herbert Xu.
+
+Reported-by: Brandan Das <brandan.das@stratus.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/bridge/br_netfilter.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 5ed00bd..137f232 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -761,9 +761,11 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+ {
+ 	if (skb->nfct != NULL && skb->protocol == htons(ETH_P_IP) &&
+ 	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
+-	    !skb_is_gso(skb))
++	    !skb_is_gso(skb)) {
++		/* BUG: Should really parse the IP options here. */
++		memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+ 		return ip_fragment(skb, br_dev_queue_push_xmit);
+-	else
++	} else
+ 		return br_dev_queue_push_xmit(skb);
+ }
+ #else
+-- 
+1.7.2.2
