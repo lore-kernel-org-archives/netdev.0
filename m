@@ -1,64 +1,338 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: [PATCH] xps-mq: Transmit Packet Steering for multiqueue
-Date: Thu, 2 Sep 2010 19:17:05 -0400
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B90D067357@nsmail.netscout.com>
-References: <AANLkTin2rmcsxHi6+bFEUykhrkoWs--hrisAx_v__k1D@mail.gmail.com><1283356463.2556.351.camel@edumazet-laptop><AANLkTinOfkr=+_61kb+bZf_0brcahQz8b_P6TWhUgFka@mail.gmail.com><20100901.183251.106803238.davem@davemloft.net><20100901184802.5a79cf9f@nehalam><D3F292ADF945FB49B35E96C94C2061B90D0670D1@nsmail.netscout.com> <AANLkTimtF7jmoEm+ZexsC_rZGNq8zHxddj7pepomwO35@mail.gmail.com>
+From: Chris Leech <chris.leech@gmail.com>
+Subject: [BUG] __vlan_hwaccel_rx system call causes kernel panic
+Date: Thu, 2 Sep 2010 16:29:14 -0700
+Message-ID: <AANLkTin9ND42s0o-3Wv-vZuG5RTxSheJOCdSnr3qyHX5@mail.gmail.com>
+References: <7360C1812CDFF247A3342E16BF5CBE0A01277F6A@NL-EXC-06.intra.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Stephen Hemminger" <shemminger@vyatta.com>,
-	"David Miller" <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>
-To: "Tom Herbert" <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og101.obsmtp.com ([64.18.1.181]:45304 "HELO
-	exprod6og101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754056Ab0IBXRN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 19:17:13 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <AANLkTimtF7jmoEm+ZexsC_rZGNq8zHxddj7pepomwO35@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-net@vger.kernel.org
+To: Greg Trahair <Greg.Trahair@tomtom.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <7360C1812CDFF247A3342E16BF5CBE0A01277F6A@NL-EXC-06.intra.local>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Tom Herbert [mailto:therbert@google.com]
-> Sent: September 02, 2010 3:53 PM
-> To: Loke, Chetan
-> Cc: Stephen Hemminger; David Miller; eric.dumazet@gmail.com;
-> netdev@vger.kernel.org
-> Subject: Re: [PATCH] xps-mq: Transmit Packet Steering for multiqueue
-> 
-> > userland folks who actually try to exploit the MQ/MSIX-ness will
-> almost
-> > always pin down their high-prio[or subset of] threads/processes.
-> >
-> I don't really see that.  Pinning is a last resort and in this context
-> we could only do that on a dedicated server.  On a shared server, with
-> many different apps, pinning for MQ/MSIX is not an easy option;
-> meeting scheduler constraints will be the first priority and its up to
-> networking to work with the scheduler to to the right thing.
-> Scheduler aware networking (or vice versa) is important.
-> 
+Greg,
 
-For my use-case it's an appliance. Newer adapters might have like 64+(?)
-h/w queues and not just f/w emulated queues. With these many queues you
-could partition your threads/queues, no?
-It's easier to get started that way. All you need is a shim(or just a
-driver stub because you can then load it on any box that had older
-kernels) in the kernel that will tell you which queue-set(for a
-MQ-capable adapter) is still under the high-watermark. If all are full
-then it should just round-robin(across queues and nodes).So make a
-syscall(or shoot a mbx-cmd or pick your trick), find out which queue you
-could use, get the binding info and then launch your threads. So once
-you narrow down the scope, the scheduler will have less work to do.
+You'll probably get a better response for this sort of thing on netdev
+than linux-net.  Also, because this involves an Intel network driver,
+e1000-devel might be able to help.
 
-If the worker threads are short lived then there's no point in this
-binding. And for long-lived tasks, a couple of initial prep-calls will
-not hurt performance that much.And if you still care about syscalls at
-runtime then you could have a dedicated mgmt-thread that will receive
-async-events from the shim. And all other user-land logic could consult
-this mgmt-thread.
+- Chris
+
+=46orwarded conversation
+Subject: [BUG] __vlan_hwaccel_rx system call causes kernel panic
+------------------------
+
+=46rom: Greg Trahair <Greg.Trahair@tomtom.com>
+Date: Thu, Sep 2, 2010 at 1:17 AM
+To: linux-net@vger.kernel.org
+Cc: Sami Kerola <Sami.Kerola@tomtom.com>
 
 
-> Tom
-Chetan Loke
+I have recently upgraded Citrix XenServer from 5.5 to 5.6 (from
+2.6.18-128.1.6.el5.xs5.5.0.505.1024xen to
+2.6.27.42-0.1.1.xs5.6.0.44.111158xen) and when the system either
+brings up, or shuts down a vlan tagged interface, the below stack
+trace appears and system halts.
+
+This problem is intermittent, it doesn't happen every time, but it's
+quite reliably reproducible by starting/stopping OS.
+
+
+Shutting down interface eth4.443: =A0BUG: unable to handle kernel NULL
+pointer dereference at 00000010
+IP: [<c0337695>] __vlan_hwaccel_rx+0x75/0x160
+Oops: 0000 [#1] SMP
+last sysfs file: /sys/class/iscsi_session/session1/ifacename
+Modules linked in: nfs nfs_acl lockd sunrpc 8021q bridge stp llc(N)
+ipt_REJECT nf_conntrack_ipv4 xt_state nf_conntrack xt_tcpudp
+iptable_filter ip_tables x_tables binfmt_misc nls_utf8 isofs(N)
+dm_mirror dm_log dm_mod sbs sbshc fan dock container battery ac
+parport_pc lp parport nvram igb evdev(N) thermal button processor
+thermal_sys bnx2 serio_raw zlib_inflate(N) rtc_cmos rtc_core rtc_lib
+8250_pnp 8250 serial_core pcspkr ide_generic ide_disk mptsas
+scsi_transport_sas mppVhba mptscsih mptbase mppUpper sg sd_mod
+scsi_mod ext3 jbd uhci_hcd ohci_hcd ehci_hcd usbcore fbcon(N) font(N)
+tileblit(N) bitblit(N) softcursor(N) [last unloaded:
+scsi_transport_iscsi]
+Supported: No
+
+Pid: 31322, comm: vconfig Tainted: G
+(2.6.27.42-0.1.1.xs5.6.0.44.111158xen #1)
+EIP: 0061:[<c0337695>] EFLAGS: 00010247 CPU: 0
+EIP is at __vlan_hwaccel_rx+0x75/0x160
+EAX: 00000000 EBX: eeb47c00 ECX: 0000013f EDX: 00000000
+ESI: 00000000 EDI: 0000013f EBP: eb9a7d6c ESP: eb9a7d5c
+=A0DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0069
+Process vconfig (pid: 31322, ti=3Deb9a6000 task=3Deba3f030 task.ti=3Deb=
+9a6000)
+Stack: 00000000 000000e6 eeb6a4c0 eeb47c00 eb9a7e48 f02ba946 00000001 0=
+0000002
+=A0 =A0 =A0 c16bdb00 00000000 eac84900 00000002 00000942 00000000 00000=
+005 01025e93
+=A0 =A0 =A0 eb9a7db0 c01d002c eb0f4000 00000040 ee060dcc eced85c0 eeb6a=
+4c0 ee060dc0
+Call Trace:
+=A0[<f02ba946>] ? igb_poll+0x8e6/0xc90 [igb]
+=A0[<c01d002c>] ? release_sysfs_dirent+0x1c/0xc0
+=A0[<c0346ee5>] ? schedule_timeout+0x75/0xc0
+=A0[<c025b715>] ? device_release+0x15/0x70
+=A0[<c0346ce2>] ? wait_for_completion+0x12/0x20
+=A0[<c02d44a5>] ? net_rx_action+0x165/0x250
+=A0[<c012e322>] ? __do_softirq+0xb2/0x160
+=A0[<c012e457>] ? do_softirq+0x87/0x90
+=A0[<c012e77b>] ? irq_exit+0x3b/0x50
+=A0[<c026d0ec>] ? evtchn_do_upcall+0x1dc/0x1f0
+=A0[<c02c5620>] ? sock_ioctl+0x0/0x220
+=A0[<c0105565>] ? hypervisor_callback+0x41/0x49
+=A0[<c02c5620>] ? sock_ioctl+0x0/0x220
+=A0[<f036fa79>] ? vlan_ioctl_handler+0xa9/0x390 [8021q]
+=A0[<c02c57d0>] ? sock_ioctl+0x1b0/0x220
+=A0[<c02c5620>] ? sock_ioctl+0x0/0x220
+=A0[<c0191458>] ? vfs_ioctl+0x28/0x80
+=A0[<c0191507>] ? do_vfs_ioctl+0x57/0x290
+=A0[<c02c74ff>] ? sys_socketcall+0x6f/0x290
+=A0[<c0182bb9>] ? filp_close+0x49/0x70
+=A0[<c01917a0>] ? sys_ioctl+0x60/0x70
+=A0[<c01053ce>] ? syscall_call+0x7/0xb
+=A0=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+Code: 00 00 8d 74 26 00 0f b7 81 c6 00 00 00 a8 04 75 55 89 f9 8b 75
+f0 66 81 e1 ff 0f 89 c8 66 c1 e8 09 0f b7 c0 66 89 bb 88 00 00 00 <8b>
+54 86 10 31 c0 85 d2 74 0a 89 c8 25 ff 01 00 00 8b 04 82 89
+EIP: [<c0337695>] __vlan_hwaccel_rx+0x75/0x160 SS:ESP 0069:eb9a7d5c
+
+--
+Greg Trahair=A0|=A0Lead System Engineer |=A0TomTom
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-net" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+
+----------
+=46rom: Greg Trahair <Greg.Trahair@tomtom.com>
+Date: Thu, Sep 2, 2010 at 2:43 AM
+To: linux-net@vger.kernel.org
+Cc: Sami Kerola <Sami.Kerola@tomtom.com>
+
+
+Oops, I forgot to include the hardware:
+
+06:00.0 Ethernet controller: Intel Corporation 82576 Gigabit Network
+Connection (rev 01)
+=A0 =A0 =A0 =A0Subsystem: Intel Corporation Gigabit ET Quad Port Server=
+ Adapter
+=A0 =A0 =A0 =A0Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASno=
+op-
+ParErr- Stepping- SERR- FastB2B-
+=A0 =A0 =A0 =A0Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast =
+>TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+=A0 =A0 =A0 =A0Latency: 0, Cache Line Size: 64 bytes
+=A0 =A0 =A0 =A0Interrupt: pin A routed to IRQ 47
+=A0 =A0 =A0 =A0Region 0: Memory at ddfc0000 (32-bit, non-prefetchable) =
+[size=3D128K]
+=A0 =A0 =A0 =A0Region 1: Memory at de000000 (32-bit, non-prefetchable) =
+[size=3D4M]
+=A0 =A0 =A0 =A0Region 2: I/O ports at ecc0 [size=3D32]
+=A0 =A0 =A0 =A0Region 3: Memory at ddfb8000 (32-bit, non-prefetchable) =
+[size=3D16K]
+=A0 =A0 =A0 =A0Capabilities: [40] Power Management version 3
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D=
+0mA
+PME(D0+,D1-,D2-,D3hot+,D3cold+)
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Status: D0 PME-Enable- DSel=3D0 DScale=3D=
+1 PME-
+=A0 =A0 =A0 =A0Capabilities: [50] Message Signalled Interrupts: 64bit+ =
+Queue=3D0/0 Enable-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Address: 0000000000000000 =A0Data: 0000
+=A0 =A0 =A0 =A0Capabilities: [70] MSI-X: Enable+ Mask- TabSize=3D10
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D3 offset=3D00000000
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D3 offset=3D00002000
+=A0 =A0 =A0 =A0Capabilities: [a0] Express Endpoint IRQ 0
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Supported: MaxPayload 512 bytes,=
+ PhantFunc 0, ExtTag-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Latency L0s <512ns, L1 <64us
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: AtnBtn- AtnInd- PwrInd-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Errors: Correctable- Non-Fatal+ =
+=46atal+ Unsupported+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: RlxdOrd+ ExtTag- PhantFunc- AuxP=
+wr- NoSnoop+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: MaxPayload 256 bytes, MaxReadReq=
+ 512 bytes
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Supported Speed 2.5Gb/s, Width x4,=
+ ASPM L0s L1, Port 2
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Latency L0s <4us, L1 <64us
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: ASPM Disabled RCB 64 bytes CommClk=
++ ExtSynch-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Speed 2.5Gb/s, Width x4
+=A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
+=A0 =A0 =A0 =A0Capabilities: [140] Device Serial Number c0-57-55-ff-ff-=
+21-1b-00
+=A0 =A0 =A0 =A0Capabilities: [150] Unknown (14)
+=A0 =A0 =A0 =A0Capabilities: [160] Unknown (16)
+
+06:00.1 Ethernet controller: Intel Corporation 82576 Gigabit Network
+Connection (rev 01)
+=A0 =A0 =A0 =A0Subsystem: Intel Corporation Gigabit ET Quad Port Server=
+ Adapter
+=A0 =A0 =A0 =A0Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASno=
+op-
+ParErr- Stepping- SERR- FastB2B-
+=A0 =A0 =A0 =A0Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast =
+>TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+=A0 =A0 =A0 =A0Latency: 0, Cache Line Size: 64 bytes
+=A0 =A0 =A0 =A0Interrupt: pin B routed to IRQ 46
+=A0 =A0 =A0 =A0Region 0: Memory at ddfe0000 (32-bit, non-prefetchable) =
+[size=3D128K]
+=A0 =A0 =A0 =A0Region 1: Memory at de400000 (32-bit, non-prefetchable) =
+[size=3D4M]
+=A0 =A0 =A0 =A0Region 2: I/O ports at ece0 [size=3D32]
+=A0 =A0 =A0 =A0Region 3: Memory at ddfbc000 (32-bit, non-prefetchable) =
+[size=3D16K]
+=A0 =A0 =A0 =A0Capabilities: [40] Power Management version 3
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D=
+0mA
+PME(D0+,D1-,D2-,D3hot+,D3cold+)
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Status: D0 PME-Enable- DSel=3D0 DScale=3D=
+1 PME-
+=A0 =A0 =A0 =A0Capabilities: [50] Message Signalled Interrupts: 64bit+ =
+Queue=3D0/0 Enable-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Address: 0000000000000000 =A0Data: 0000
+=A0 =A0 =A0 =A0Capabilities: [70] MSI-X: Enable+ Mask- TabSize=3D10
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D3 offset=3D00000000
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D3 offset=3D00002000
+=A0 =A0 =A0 =A0Capabilities: [a0] Express Endpoint IRQ 0
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Supported: MaxPayload 512 bytes,=
+ PhantFunc 0, ExtTag-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Latency L0s <512ns, L1 <64us
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: AtnBtn- AtnInd- PwrInd-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Errors: Correctable- Non-Fatal+ =
+=46atal+ Unsupported+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: RlxdOrd+ ExtTag- PhantFunc- AuxP=
+wr- NoSnoop+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: MaxPayload 256 bytes, MaxReadReq=
+ 512 bytes
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Supported Speed 2.5Gb/s, Width x4,=
+ ASPM L0s L1, Port 2
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Latency L0s <4us, L1 <64us
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: ASPM Disabled RCB 64 bytes CommClk=
++ ExtSynch-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Speed 2.5Gb/s, Width x4
+=A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
+=A0 =A0 =A0 =A0Capabilities: [140] Device Serial Number c0-57-55-ff-ff-=
+21-1b-00
+=A0 =A0 =A0 =A0Capabilities: [150] Unknown (14)
+=A0 =A0 =A0 =A0Capabilities: [160] Unknown (16)
+
+07:00.0 Ethernet controller: Intel Corporation 82576 Gigabit Network
+Connection (rev 01)
+=A0 =A0 =A0 =A0Subsystem: Intel Corporation Gigabit ET Quad Port Server=
+ Adapter
+=A0 =A0 =A0 =A0Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASno=
+op-
+ParErr- Stepping- SERR- FastB2B-
+=A0 =A0 =A0 =A0Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast =
+>TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+=A0 =A0 =A0 =A0Latency: 0, Cache Line Size: 64 bytes
+=A0 =A0 =A0 =A0Interrupt: pin A routed to IRQ 38
+=A0 =A0 =A0 =A0Region 0: Memory at dd3c0000 (32-bit, non-prefetchable) =
+[size=3D128K]
+=A0 =A0 =A0 =A0Region 1: Memory at dd400000 (32-bit, non-prefetchable) =
+[size=3D4M]
+=A0 =A0 =A0 =A0Region 2: I/O ports at dcc0 [size=3D32]
+=A0 =A0 =A0 =A0Region 3: Memory at dd3b8000 (32-bit, non-prefetchable) =
+[size=3D16K]
+=A0 =A0 =A0 =A0Capabilities: [40] Power Management version 3
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D=
+0mA
+PME(D0+,D1-,D2-,D3hot+,D3cold-)
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Status: D0 PME-Enable- DSel=3D0 DScale=3D=
+1 PME-
+=A0 =A0 =A0 =A0Capabilities: [50] Message Signalled Interrupts: 64bit+ =
+Queue=3D0/0 Enable-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Address: 0000000000000000 =A0Data: 0000
+=A0 =A0 =A0 =A0Capabilities: [70] MSI-X: Enable+ Mask- TabSize=3D10
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D3 offset=3D00000000
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D3 offset=3D00002000
+=A0 =A0 =A0 =A0Capabilities: [a0] Express Endpoint IRQ 0
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Supported: MaxPayload 512 bytes,=
+ PhantFunc 0, ExtTag-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Latency L0s <512ns, L1 <64us
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: AtnBtn- AtnInd- PwrInd-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Errors: Correctable- Non-Fatal+ =
+=46atal+ Unsupported+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: RlxdOrd+ ExtTag- PhantFunc- AuxP=
+wr- NoSnoop+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: MaxPayload 256 bytes, MaxReadReq=
+ 512 bytes
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Supported Speed 2.5Gb/s, Width x4,=
+ ASPM L0s L1, Port 4
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Latency L0s <4us, L1 <64us
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: ASPM Disabled RCB 64 bytes CommClk=
++ ExtSynch-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Speed 2.5Gb/s, Width x4
+=A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
+=A0 =A0 =A0 =A0Capabilities: [140] Device Serial Number c4-57-55-ff-ff-=
+21-1b-00
+=A0 =A0 =A0 =A0Capabilities: [150] Unknown (14)
+=A0 =A0 =A0 =A0Capabilities: [160] Unknown (16)
+
+07:00.1 Ethernet controller: Intel Corporation 82576 Gigabit Network
+Connection (rev 01)
+=A0 =A0 =A0 =A0Subsystem: Intel Corporation Gigabit ET Quad Port Server=
+ Adapter
+=A0 =A0 =A0 =A0Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASno=
+op-
+ParErr- Stepping- SERR- FastB2B-
+=A0 =A0 =A0 =A0Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast =
+>TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+=A0 =A0 =A0 =A0Latency: 0, Cache Line Size: 64 bytes
+=A0 =A0 =A0 =A0Interrupt: pin B routed to IRQ 45
+=A0 =A0 =A0 =A0Region 0: Memory at dd3e0000 (32-bit, non-prefetchable) =
+[size=3D128K]
+=A0 =A0 =A0 =A0Region 1: Memory at dd800000 (32-bit, non-prefetchable) =
+[size=3D4M]
+=A0 =A0 =A0 =A0Region 2: I/O ports at dce0 [size=3D32]
+=A0 =A0 =A0 =A0Region 3: Memory at dd3bc000 (32-bit, non-prefetchable) =
+[size=3D16K]
+=A0 =A0 =A0 =A0Capabilities: [40] Power Management version 3
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D=
+0mA
+PME(D0+,D1-,D2-,D3hot+,D3cold-)
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Status: D0 PME-Enable- DSel=3D0 DScale=3D=
+1 PME-
+=A0 =A0 =A0 =A0Capabilities: [50] Message Signalled Interrupts: 64bit+ =
+Queue=3D0/0 Enable-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Address: 0000000000000000 =A0Data: 0000
+=A0 =A0 =A0 =A0Capabilities: [70] MSI-X: Enable+ Mask- TabSize=3D10
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D3 offset=3D00000000
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D3 offset=3D00002000
+=A0 =A0 =A0 =A0Capabilities: [a0] Express Endpoint IRQ 0
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Supported: MaxPayload 512 bytes,=
+ PhantFunc 0, ExtTag-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Latency L0s <512ns, L1 <64us
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: AtnBtn- AtnInd- PwrInd-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Errors: Correctable- Non-Fatal+ =
+=46atal+ Unsupported+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: RlxdOrd+ ExtTag- PhantFunc- AuxP=
+wr- NoSnoop+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: MaxPayload 256 bytes, MaxReadReq=
+ 512 bytes
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Supported Speed 2.5Gb/s, Width x4,=
+ ASPM L0s L1, Port 4
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Latency L0s <4us, L1 <64us
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: ASPM Disabled RCB 64 bytes CommClk=
++ ExtSynch-
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Speed 2.5Gb/s, Width x4
+=A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
+=A0 =A0 =A0 =A0Capabilities: [140] Device Serial Number c4-57-55-ff-ff-=
+21-1b-00
+=A0 =A0 =A0 =A0Capabilities: [150] Unknown (14)
+=A0 =A0 =A0 =A0Capabilities: [160] Unknown (16)
