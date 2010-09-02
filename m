@@ -1,43 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: vhost_dev_cleanup() crash: BUG: unable to handle kernel NULL
- pointer dereference
-Date: Wed, 01 Sep 2010 18:27:41 -0700 (PDT)
-Message-ID: <20100901.182741.73368486.davem@davemloft.net>
-References: <1283256357.2550.61.camel@edumazet-laptop>
-	<20100901.142528.180418526.davem@davemloft.net>
-	<20100901214221.GA15182@redhat.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: arp: code cleanup
+Date: Thu, 2 Sep 2010 09:28:13 +0800
+Message-ID: <AANLkTik1VFj_8G+G9bH+MvbUyNpSUmDfJUQF+-VCjeKu@mail.gmail.com>
+References: <1283385110-2953-1-git-send-email-xiaosuo@gmail.com> <20100901.175712.199039832.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, mingo@elte.hu, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tj@kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100901214221.GA15182@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46221 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752546Ab0IBB2g convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Sep 2010 21:28:36 -0400
+Received: by wyb35 with SMTP id 35so9956660wyb.19
+        for <netdev@vger.kernel.org>; Wed, 01 Sep 2010 18:28:34 -0700 (PDT)
+In-Reply-To: <20100901.175712.199039832.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 2 Sep 2010 00:42:21 +0300
+On Thu, Sep 2, 2010 at 8:57 AM, David Miller <davem@davemloft.net> wrot=
+e:
+>
+> I do not condone comments being written this way, it wastes precious
+> vertical space in one's terminal window. =A0They should always be
+> written as:
+>
+> =A0 =A0 =A0 =A0/* A comment
+> =A0 =A0 =A0 =A0 * looks like this.
+> =A0 =A0 =A0 =A0 */
 
-> On Wed, Sep 01, 2010 at 02:25:28PM -0700, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Tue, 31 Aug 2010 14:05:57 +0200
->> 
->> > [PATCH v2] vhost: stop worker only if created
->> > 
->> > Its currently illegal to call kthread_stop(NULL)
->> > 
->> > Reported-by: Ingo Molnar <mingo@elte.hu>
->> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> 
->> I'll apply this thanks Eric.
-> 
-> Yes, it looks good thanks!
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Or you can wait for my pull request (will have a couple other regression
-> fixes).
+OK. Thanks.
 
-I'll keep it in my tree and whether it's in your's or not git merge
-will work it out.
+>
+>> @@ -258,31 +259,31 @@ static int arp_constructor(struct neighbour *n=
+eigh)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 neigh->output =3D neigh->ops->queue_xmit=
+;
+>> =A0 =A0 =A0 } else {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Good devices (checked by reading text=
+s, but only Ethernet is
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tested)
+>> -
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ARPHRD_ETHER: (ethernet, apfddi)
+> =A0...
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0in old paradigm.
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0* tested)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0*
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0* ARPHRD_ETHER: (ethernet, apfddi)
+>
+> you go and apply COMPLETELY INCONSISTENT changes to other comemnts.
+>
+> Leave the comments alone, thanks.
+>
+
+Do you mean that all the multi-line comments should be written as you
+said above or I should not touch any comment? Thanks.
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
