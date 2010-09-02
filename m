@@ -1,42 +1,145 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: [PATCH] xps-mq: Transmit Packet Steering for multiqueue
-Date: Thu, 2 Sep 2010 12:00:09 -0400
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B90D0670D1@nsmail.netscout.com>
-References: <AANLkTin2rmcsxHi6+bFEUykhrkoWs--hrisAx_v__k1D@mail.gmail.com><1283356463.2556.351.camel@edumazet-laptop><AANLkTinOfkr=+_61kb+bZf_0brcahQz8b_P6TWhUgFka@mail.gmail.com><20100901.183251.106803238.davem@davemloft.net> <20100901184802.5a79cf9f@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <therbert@google.com>, <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>
-To: "Stephen Hemminger" <shemminger@vyatta.com>,
-	"David Miller" <davem@davemloft.net>
+From: Liang Li <liang.li@windriver.com>
+Subject: [v2 PATCH] ucc_geth: fix ethtool set ring param bug
+Date: Fri,  3 Sep 2010 00:02:44 +0800
+Message-ID: <1283443364-2136-1-git-send-email-liang.li@windriver.com>
+References: <1283305429-8426-1-git-send-email-liang.li@windriver.com>
+To: leoli@freescale.com, davem@davemloft.net, avorontsov@ru.mvista.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og114.obsmtp.com ([64.18.1.33]:36661 "HELO
-	exprod6og114.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1755872Ab0IBQAM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 12:00:12 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20100901184802.5a79cf9f@nehalam>
+Received: from mail.windriver.com ([147.11.1.11]:60721 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753744Ab0IBQBF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 12:01:05 -0400
+In-Reply-To: <1283305429-8426-1-git-send-email-liang.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Stephen Hemminger
-> Sent: September 01, 2010 9:48 PM
-> To: David Miller
-> Cc: therbert@google.com; eric.dumazet@gmail.com;
-netdev@vger.kernel.org
-> Subject: Re: [PATCH] xps-mq: Transmit Packet Steering for multiqueue
- 
-> Plus it needs to work with scheduler (not fight it).  All this doesn't
-> work very well if process keeps bouncing away from its resources.
-> 
+It's common sense that when we should do change to driver ring
+desc/buffer etc only after 'stop/shutdown' the device. When we
+do change while devices/driver is running, kernel oops occur:
 
-userland folks who actually try to exploit the MQ/MSIX-ness will almost
-always pin down their high-prio[or subset of] threads/processes.
+[
+root@fsl_8569mds:/root> ethtool -G eth0 tx 256
+root@fsl_8569mds:/root> Oops: Kernel access of bad area, sig: 11 [#1]
+MPC8569 MDS
+last sysfs file: /sys/kernel/uevent_seqnum
+Modules linked in:
+NIP: 00000000 LR: c0072fbc CTR: 00000000
+REGS: effefef0 TRAP: 0400   Not tainted  (2.6.36-rc3-00002-g6c3b118-dirty)
+MSR: 00021000 <ME,CE>  CR: 24442048  XER: 00000000
+TASK = c0518350[0] 'swapper' THREAD: c0544000
+GPR00: 00000000 effeffa0 c0518350 00000020 ef0be000 ef005000 80000000 00000200
+GPR08: c03b5d00 00000000 f1010080 ef08d458 000dda96 00000000 3ffb2900 00000000
+GPR16: 00000000 3ffa8948 3fff1314 3ffac3f8 00000000 00000000 00000000 00000000
+GPR24: 00000000 00000000 00000000 c0530000 00000000 00000000 00000020 ef3709c0
+NIP [00000000] (null)
+LR [c0072fbc] handle_IRQ_event+0x4c/0x12c
+Call Trace:
+[effeffa0] [c0019414] qe_ic_mask_irq+0x1c/0x90 (unreliable)
+[effeffc0] [c0075b74] handle_level_irq+0x88/0x128
+[effeffd0] [c001ca44] qe_ic_cascade_muxed_mpic+0x50/0x88
+[effefff0] [c000d5fc] call_handle_irq+0x18/0x28
+[c0545ea0] [c0004f3c] do_IRQ+0xa8/0x140
+[c0545ed0] [c000e2bc] ret_from_except+0x0/0x18
+-- Exception: 501 at cpu_idle+0x9c/0xdc
+    LR = cpu_idle+0x9c/0xdc
+[c0545f90] [c0008318] cpu_idle+0x54/0xdc (unreliable)
+[c0545fb0] [c000231c] rest_init+0x68/0x7c
+[c0545fc0] [c04e686c] start_kernel+0x230/0x2b0
+[c0545ff0] [c000039c] skpinv+0x2b4/0x2f0
+Instruction dump:
+XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX
+XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX
+Kernel panic - not syncing: Fatal exception in interrupt
+Rebooting in 180 seconds..
+]
 
-Chetan Loke
+Then the natural solution would be 'stop driver/device then adjust
+ring buffer parameter then reactivate driver/device'.
+
+v1: add roll back state for 'auto reopen fail'
+v2: just do dev_close when 'reopen fail'
+
+Signed-off-by: Liang Li <liang.li@windriver.com>
+---
+ drivers/net/ucc_geth.c         |    4 ++--
+ drivers/net/ucc_geth.h         |    2 ++
+ drivers/net/ucc_geth_ethtool.c |   27 +++++++++++++++++++++------
+ 3 files changed, 25 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 7d2e33a..5eadfa3 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3485,7 +3485,7 @@ err:
  
+ /* Called when something needs to use the ethernet device */
+ /* Returns 0 for success. */
+-static int ucc_geth_open(struct net_device *dev)
++int ucc_geth_open(struct net_device *dev)
+ {
+ 	struct ucc_geth_private *ugeth = netdev_priv(dev);
+ 	int err;
+@@ -3542,7 +3542,7 @@ err:
+ }
+ 
+ /* Stops the kernel queue, and halts the controller */
+-static int ucc_geth_close(struct net_device *dev)
++int ucc_geth_close(struct net_device *dev)
+ {
+ 	struct ucc_geth_private *ugeth = netdev_priv(dev);
+ 
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index 05a9558..1cfb400 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -1235,5 +1235,7 @@ int init_flow_control_params(u32 automatic_flow_control_mode,
+ 		u32 __iomem *upsmr_register, u32 __iomem *uempr_register,
+ 		u32 __iomem *maccfg1_register);
+ 
++extern int ucc_geth_open(struct net_device *);
++extern int ucc_geth_close(struct net_device *);
+ 
+ #endif				/* __UCC_GETH_H__ */
+diff --git a/drivers/net/ucc_geth_ethtool.c b/drivers/net/ucc_geth_ethtool.c
+index 6f92e48..2a615ee 100644
+--- a/drivers/net/ucc_geth_ethtool.c
++++ b/drivers/net/ucc_geth_ethtool.c
+@@ -255,13 +255,28 @@ uec_set_ringparam(struct net_device *netdev,
+ 		return -EINVAL;
+ 	}
+ 
+-	ug_info->bdRingLenRx[queue] = ring->rx_pending;
+-	ug_info->bdRingLenTx[queue] = ring->tx_pending;
+-
+ 	if (netif_running(netdev)) {
+-		/* FIXME: restart automatically */
+-		printk(KERN_INFO
+-			"Please re-open the interface.\n");
++		u16 rx_t;
++		u16 tx_t;
++		printk(KERN_INFO "Stopping interface %s.\n", netdev->name);
++		ucc_geth_close(netdev);
++
++		rx_t = ug_info->bdRingLenRx[queue];
++		tx_t = ug_info->bdRingLenTx[queue];
++
++		ug_info->bdRingLenRx[queue] = ring->rx_pending;
++		ug_info->bdRingLenTx[queue] = ring->tx_pending;
++
++		printk(KERN_INFO "Reactivating interface %s.\n", netdev->name);
++		ret = ucc_geth_open(netdev);
++		if (ret) {
++			printk(KERN_WARNING "uec_set_ringparam: set ring param for running"
++					" interface %s failed. Please try again.\n", netdev->name);
++			dev_close(netdev);
++		}
++	} else {
++		ug_info->bdRingLenRx[queue] = ring->rx_pending;
++		ug_info->bdRingLenTx[queue] = ring->tx_pending;
+ 	}
+ 
+ 	return ret;
+-- 
+1.7.2
 
