@@ -1,35 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] cxgb3: new code to deal with adapter
- parity errors
-Date: Fri, 03 Sep 2010 10:04:38 -0700 (PDT)
-Message-ID: <20100903.100438.123990943.davem@davemloft.net>
-References: <241D2F16-4F92-48DD-A904-832771B2F4B4@chelsio.com>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: Re: [PATCH v2 00/10] split out emac cpdma and mdio for reuse
+Date: Fri, 03 Sep 2010 10:24:34 -0700
+Message-ID: <87eida3fl9.fsf@deeprootsystems.com>
+References: <1283465008-18606-1-git-send-email-cyril@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: leedom@chelsio.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com,
+	linux-omap@vger.kernel.org, nsekhar@ti.com, srk@ti.com,
+	omar.ramirez@ti.com, bparrot@ti.com
+To: Cyril Chemparathy <cyril@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53999
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755221Ab0ICREV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 13:04:21 -0400
-In-Reply-To: <241D2F16-4F92-48DD-A904-832771B2F4B4@chelsio.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:45964 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756648Ab0ICRYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 13:24:39 -0400
+In-Reply-To: <1283465008-18606-1-git-send-email-cyril@ti.com> (Cyril
+	Chemparathy's message of "Thu, 2 Sep 2010 18:03:18 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Casey Leedom <leedom@chelsio.com>
-Date: Thu, 2 Sep 2010 16:04:28 -0700
+Cyril Chemparathy <cyril@ti.com> writes:
 
->   These patches implement code to detect and recover from adapter parity errors.
->
->   Two of the following four patches (2/4 and 3/4) were actually
->   implemented by Dimitris Michailidis just before he headed off for
->   vacation.  I've indicated that via a "Signed-off-by" by-line for
->   him as well as one for me which I _think_ is the right way to do
->   this.  The other two patches (1/4 and 4/4) were implemented by me
->   so I've only included a "Signed-off-by" for me on those.  If I've
->   done anything incorrectly please reject the patches and tell me
->   how to correct them.  Thanks!
+[...]
 
-All applied, thanks Casey.
+> Although am3517 (omap) board support code has been updated as needed,
+> emac does not work on this platform.
+
+Just to clarify... did EMAC work on AM3517 before this series?
+
+Kevin
