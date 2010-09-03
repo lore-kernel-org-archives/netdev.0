@@ -1,58 +1,76 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] arm driver net macb
-Date: Fri, 03 Sep 2010 15:41:25 +0200
-Message-ID: <4C80FB05.1040706@atmel.com>
-References: <4C800BAF.2090003@fnac.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
+Date: Fri, 03 Sep 2010 15:43:36 +0200
+Message-ID: <1283521416.2453.823.camel@edumazet-laptop>
+References: <4C763A67.5040107@dsn.okisemi.com>
+	 <4C7D0E7A.5060309@dsn.okisemi.com>
+	 <1283266263.2550.106.camel@edumazet-laptop>
+	 <000a01cb4a9b$e8d6ab00$66f8800a@maildom.okisemi.com>
+	 <1283434847.2454.726.camel@edumazet-laptop>
+	 <20100902081007.2f910bc0@nehalam>
+	 <000e01cb4b6c$73b4c8d0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, jkosina@suse.cz,
-	richard.cochran@omicron.at, jpirko@redhat.com, davem@davemloft.net
-To: Paul Chavent <paul.chavent@fnac.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Sam Ravnborg <sam@ravnborg.org>, Joe Perches <joe@perches.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	ML netdev <netdev@vger.kernel.org>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Maxime Bizon <mbizon@freebox.fr>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	John Linn <john.linn@xilinx.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	Andrew <andrew.chih.howe.khor@intel.com>,
+	Intel OTC <joel.clark@intel.com>,
+	"Foster, Margie" <margie.foster@intel.com>,
+	Toshiharu Okada <okada533@dsn.okisemi.com>,
+	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
+	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
+To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C800BAF.2090003@fnac.net>
+In-Reply-To: <000e01cb4b6c$73b4c8d0$66f8800a@maildom.okisemi.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 02/09/2010 22:40, Paul Chavent :
-> When listing processes on a system with SOFT/HARD_IRQ enabled, the name
-> of the ethernet device is [irq/eth%d] (instead of [irq/eth0] for example).
-> 
-> This patch call the request_irq function after having initialized the
-> name of the device.
-> 
-> Signed-off-by: Paul Chavent <paul.chavent@fnac.net>
+Le vendredi 03 septembre 2010 =C3=A0 22:32 +0900, Masayuki Ohtake a =C3=
+=A9crit :
+> Hi Eric and Stephen
+>=20
+> Thank you for your suggestion.
+>=20
+> I tried modification of "dev->hard_header_len".
+> However, there was no changed to a format of SKB received by kernel.
+>   [Header:14octet] + [payload]
+>=20
+> So, I can not a single memcpy.
 
-[..]
+Hmm, maybe you did this at the wrong place ?
 
-> @@ -1214,13 +1281,23 @@
->  	err = register_netdev(dev);
->  	if (err) {
->  		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
-> -		goto err_out_free_irq;
-> +		goto err_out_iounmap;
->  	}
->  
->  	if (macb_mii_init(bp) != 0) {
->  		goto err_out_unregister_netdev;
->  	}
->  
-> +	dev->irq = platform_get_irq(pdev, 0);
-> +	err = request_irq(dev->irq, macb_interrupt, IRQF_SAMPLE_RANDOM,
-> +			  dev->name, dev);
-> +	if (err) {
-> +		printk(KERN_ERR
-> +		       "%s: Unable to request IRQ %d (error %d)\n",
-> +		       dev->name, dev->irq, err);
-> +		goto err_out_unregister_netdev;
-> +	}
-> +
+Take a look at other drivers how they do this
 
-The string is modified in register_netdev() so why don't you deal 
-with IRQ just after it? I would have placed the code snippet 
-before macb_mii_init(): what do you think about this?
+(network stack default hard_header_len to 14, in net/ethernet/eth.c,
+function ether_setup())
 
-Best regards,
--- 
-Nicolas Ferre
+
+find drivers/net | xargs grep -n hard_header_len
+
+Example in drivers/net/wan/hdlc.c
+
+static void hdlc_setup_dev(struct net_device *dev)
+{
+        /* Re-init all variables changed by HDLC protocol drivers,
+         * including ether_setup() called from hdlc_raw_eth.c.
+         */
+        dev->flags               =3D IFF_POINTOPOINT | IFF_NOARP;
+        dev->priv_flags          =3D IFF_WAN_HDLC;
+        dev->mtu                 =3D HDLC_MAX_MTU;
+        dev->type                =3D ARPHRD_RAWHDLC;
+        dev->hard_header_len     =3D 16;
+        dev->addr_len            =3D 0;
+        dev->header_ops          =3D &hdlc_null_ops;
+}
