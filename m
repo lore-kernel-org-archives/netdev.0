@@ -1,41 +1,55 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: Re: [PATCH v2 00/10] split out emac cpdma and mdio for reuse
-Date: Fri, 03 Sep 2010 11:32:42 -0700
-Message-ID: <87eidaznhx.fsf@deeprootsystems.com>
-References: <1283465008-18606-1-git-send-email-cyril@ti.com>
-	<87eida3fl9.fsf@deeprootsystems.com> <4C813C7F.5090602@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davinci-linux-open-source\@linux.davincidsp.com"
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	"linux-omap\@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"Nori\, Sekhar" <nsekhar@ti.com>,
-	"Govindarajan\, Sriramakrishnan" <srk@ti.com>,
-	"Ramirez Luna\, Omar" <omar.ramirez@ti.com>,
-	"Parrot\, Benoit" <bparrot@ti.com>
-To: cyril@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <4C813C7F.5090602@ti.com> (Cyril Chemparathy's message of "Fri,
-	03 Sep 2010 14:20:47 -0400")
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 4/4] tipc: Fix misleading error code when enabling Ethernet bearers
+Date: Fri,  3 Sep 2010 14:33:42 -0400
+Message-ID: <1283538822-25718-4-git-send-email-paul.gortmaker@windriver.com>
+References: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:54537 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932090Ab0ICSdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 14:33:47 -0400
+In-Reply-To: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cyril Chemparathy <cyril@ti.com> writes:
+From: Allan Stephens <allan.stephens@windriver.com>
 
-> Hi Kevin,
->
-> [...]
->>> Although am3517 (omap) board support code has been updated as needed,
->>> emac does not work on this platform.
->> 
->> Just to clarify... did EMAC work on AM3517 before this series?
->
-> No.  It didn't work before this series.  To get AM3517 EMAC working, the
-> driver needs another patch to enable the interface clock in addition to
-> the functional clock.
+Cause TIPC to return EAGAIN if it is unable to enable a new Ethernet
+bearer because one or more recently disabled Ethernet bearers are
+temporarily consuming resources during shut down.  (The previous error
+code, EDQUOT, is now returned only if all available Ethernet bearer
+data structures are fully enabled at the time the request to enable an
+additional bearer is received.)
 
-Thanks for the clarification.
+Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/eth_media.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-Kevin
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index ff50a17..6e988ba 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -135,6 +135,16 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
+ 	struct eth_bearer *eb_ptr = &eth_bearers[0];
+ 	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
+ 	char *driver_name = strchr((const char *)tb_ptr->name, ':') + 1;
++	int pending_dev = 0;
++
++	/* Find unused Ethernet bearer structure */
++
++	while (eb_ptr->dev) {
++		if (!eb_ptr->bearer)
++			pending_dev++;
++		if (++eb_ptr == stop)
++			return pending_dev ? -EAGAIN : -EDQUOT;
++	}
+ 
+ 	/* Find device with specified name */
+ 
+-- 
+1.7.2.1
 
