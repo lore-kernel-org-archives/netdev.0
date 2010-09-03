@@ -1,274 +1,96 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: Re: [PATCH] [RFC] introduce cx82310_eth: Conexant CX82310-based ADSL
- router USB ethernet driver
-Date: Fri, 03 Sep 2010 23:14:54 +0100
-Message-ID: <4C81735E.3030903@simon.arlott.org.uk>
-References: <201009032317.14954.linux@rainbow-software.org>
+From: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Subject: Re: [PATCH 07/15] pcmcia: move config_{base,index,regs} to struct
+ pcmcia_device
+Date: Fri, 3 Sep 2010 19:32:56 -0300
+Message-ID: <20100903223256.GC16973@vigoh>
+References: <20100903105628.GA21255@comet.dominikbrodowski.net>
+ <1283511434-21620-7-git-send-email-linux@dominikbrodowski.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Brownell <dbrownell@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201009032317.14954.linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-pcmcia@lists.infradead.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-ide@vger.kernel.org,
+	linux-usb@vger.kernel.org, laforge@gnumonks.org,
+	linux-mtd@lists.infradead.org, linux-bluetooth@vger.kernel.org,
+	alsa-devel@alsa-project.org, linux-serial@vger.kernel.org,
+	Jiri Kosina <jkosina@suse.cz>, linux-scsi@vger.kernel.org
+To: Dominik Brodowski <linux@dominikbrodowski.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1283511434-21620-7-git-send-email-linux@dominikbrodowski.net>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/09/10 22:17, Ondrej Zary wrote:
-> Hello,
-> this patch introduces cx82310_eth driver - driver for USB ethernet port of 
-> ADSL routers based on Conexant CX82310 chips. Such routers usually have 
-> ethernet port(s) too which are bridged together with the USB ethernet port, 
-> allowing the USB-connected machine to communicate to the network (and also 
-> internet through the ADSL, of course).
+* Dominik Brodowski <linux@dominikbrodowski.net> [2010-09-03 12:57:06 +0200]:
+
+> Several drivers prefer to explicitly set config_{base,index,regs},
+> formerly known as ConfigBase, ConfigIndex and Present. Instead of
+> passing these values inside config_req_t, store it in struct
+> pcmcia_device.
 > 
-> This is my first driver, so please check thoroughly. As there's no protocol 
-> documentation, it was done with usbsnoop dumps from Windows driver, some 
-> parts (the commands) inspired by cxacru driver and also other usbnet drivers. 
-> The driver passed my testing - some real work and also pings sized from 0 to 
-> 65507 B.
+> CC: netdev@vger.kernel.org
+> CC: linux-wireless@vger.kernel.org
+> CC: linux-ide@vger.kernel.org
+> CC: linux-usb@vger.kernel.org
+> CC: laforge@gnumonks.org
+> CC: linux-mtd@lists.infradead.org
+> CC: linux-bluetooth@vger.kernel.org
+> CC: alsa-devel@alsa-project.org
+> CC: linux-serial@vger.kernel.org
+> CC: Jiri Kosina <jkosina@suse.cz>
+> CC: linux-scsi@vger.kernel.org
+> Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+> ---
+>  drivers/bluetooth/bluecard_cs.c                  |    2 +-
+>  drivers/char/pcmcia/ipwireless/main.c            |    2 +-
+>  drivers/char/pcmcia/synclink_cs.c                |    6 ++--
+>  drivers/ide/ide-cs.c                             |    3 +-
+>  drivers/isdn/hardware/avm/avm_cs.c               |    4 +-
+>  drivers/isdn/hisax/avma1_cs.c                    |    4 +-
+>  drivers/isdn/hisax/elsa_cs.c                     |    2 +-
+>  drivers/isdn/hisax/sedlbauer_cs.c                |    2 +-
+>  drivers/isdn/hisax/teles_cs.c                    |    2 +-
+>  drivers/mtd/maps/pcmciamtd.c                     |    2 +-
+>  drivers/net/pcmcia/3c574_cs.c                    |    2 +-
+>  drivers/net/pcmcia/3c589_cs.c                    |    2 +-
+>  drivers/net/pcmcia/axnet_cs.c                    |    6 ++--
+>  drivers/net/pcmcia/fmvj18x_cs.c                  |   22 ++++++------
+>  drivers/net/pcmcia/ibmtr_cs.c                    |    4 +-
+>  drivers/net/pcmcia/nmclan_cs.c                   |    4 +-
+>  drivers/net/pcmcia/pcnet_cs.c                    |    6 ++--
+>  drivers/net/pcmcia/smc91c92_cs.c                 |   10 +++---
+>  drivers/net/pcmcia/xirc2ps_cs.c                  |    2 +-
+>  drivers/net/wireless/airo_cs.c                   |    2 +-
+>  drivers/net/wireless/hostap/hostap_cs.c          |    2 +-
+>  drivers/net/wireless/ray_cs.c                    |    2 +-
+>  drivers/net/wireless/wl3501_cs.c                 |    2 +-
+>  drivers/parport/parport_cs.c                     |    2 +-
+>  drivers/pcmcia/cs_internal.h                     |    3 --
+>  drivers/pcmcia/ds.c                              |    8 ++--
+>  drivers/pcmcia/pcmcia_cis.c                      |    2 +-
+>  drivers/pcmcia/pcmcia_resource.c                 |   38 +++++++++++-----------
+>  drivers/scsi/pcmcia/aha152x_stub.c               |    2 +-
+>  drivers/scsi/pcmcia/fdomain_stub.c               |    2 +-
+>  drivers/scsi/pcmcia/nsp_cs.c                     |    2 +-
+>  drivers/scsi/pcmcia/qlogic_stub.c                |    2 +-
+>  drivers/serial/serial_cs.c                       |    6 ++--
+>  drivers/staging/comedi/drivers/cb_das16_cs.c     |    2 +-
+>  drivers/staging/comedi/drivers/das08_cs.c        |    2 +-
+>  drivers/staging/comedi/drivers/ni_daq_700.c      |    2 +-
+>  drivers/staging/comedi/drivers/ni_daq_dio24.c    |    2 +-
+>  drivers/staging/comedi/drivers/ni_labpc_cs.c     |    2 +-
+>  drivers/staging/comedi/drivers/quatech_daqp_cs.c |    2 +-
+>  drivers/staging/wlags49_h2/wl_cs.c               |    4 +-
+>  drivers/usb/host/sl811_cs.c                      |    2 +-
+>  include/pcmcia/cs.h                              |   15 --------
+>  include/pcmcia/ds.h                              |   14 ++++++++
+>  sound/pcmcia/pdaudiocf/pdaudiocf.c               |    6 ++--
+>  sound/pcmcia/vx/vxpocket.c                       |    4 +-
+>  45 files changed, 107 insertions(+), 112 deletions(-)
 
-Try http://isic.sourceforge.net/, you can send a flood of junk traffic
-through the device and check what happens. Be careful what else you have
-on the network as they may not handle it well.
+For drivers/bluetooth
 
-> The only problem I found is the ifconfig error counter. When I return 0 (or 1 
-> but empty skb) from rx_fixup(), usbnet increases the error counter although 
-> it's not an error condition (because packets can cross URB boundaries). Maybe 
-> the usbnet should be fixed to allow rx_fixup() to return empty skbs (or some 
-> other value, e.g. 2)?
-> 
-> The USB ID of my device is 0x0572:0xcb01 which conflicts with some ADSL modems 
-> using cxacru driver (they probably use the same chipset but simpler 
-> firmware). The modems seem to use bDeviceClass 0 and iProduct "ADSL USB 
-> MODEM", my router uses bDeviceClass 255 and iProduct "USB NET CARD". The 
-> driver matches only devices with class 255 and checks for the iProduct string 
-> during init. The cxacru driver should be modified to ignore these devices.
-
-You can include the cxacru change as part of your patch; I'll test it.
-
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> 
-> --- /dev/null	2010-09-03 21:17:56.916000000 +0200
-> +++ linux-2.6.35-rc3/drivers/net/usb/cx82310_eth.c	2010-09-03 23:09:16.000000000 +0200
-> @@ -0,0 +1,350 @@
-> +/*
-> + * Driver for USB ethernet port of Conexant CX82310-based ADSL routers
-> + * Copyright (C) 2010 by Ondrej Zary
-> + * some parts inspired by the cxacru driver
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License as published by
-> + * the Free Software Foundation; either version 2 of the License, or
-> + * (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program; if not, write to the Free Software
-> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-> + */
-> +
-> +#include <linux/module.h>
-> +#include <linux/init.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
-> +#include <linux/ethtool.h>
-> +#include <linux/workqueue.h>
-> +#include <linux/mii.h>
-> +#include <linux/usb.h>
-> +#include <linux/usb/usbnet.h>
-> +
-> +enum cx82310_cmd {
-> +	CMD_START		= 0x84,	/* no effect? */
-> +	CMD_STOP		= 0x85,	/* no effect? */
-> +	CMD_GET_STATUS		= 0x90,	/* returns nothing? */
-> +	CMD_GET_MAC_ADDR	= 0x91,	/* read MAC address */
-> +	CMD_GET_LINK_STATUS	= 0x92,	/* not useful, link is always up */
-> +	CMD_ETHERNET_MODE	= 0x99,	/* unknown, needed during init */
-> +};
-> +
-> +enum cx82310_status {
-> +	STATUS_UNDEFINED,
-> +	STATUS_SUCCESS,
-> +	STATUS_ERROR,
-> +	STATUS_UNSUPPORTED,
-> +	STATUS_UNIMPLEMENTED,
-> +	STATUS_PARAMETER_ERROR,
-> +	STATUS_DBG_LOOPBACK,
-> +};
-> +
-> +#define CMD_PACKET_SIZE	64
-> +/* first command after power on can take around 8 seconds */
-> +#define CMD_TIMEOUT	15000
-> +#define CMD_REPLY_RETRY 5
-> +
-> +#define CX82310_MTU	1514
-> +#define CMD_EP		0x01
-> +
-> +/*
-> + * execute control command
-> + *  - optionally send some data (command parameters)
-> + *  - optionally wait for the reply
-> + *  - optionally read some data from the reply
-> + */
-> +static int cx82310_cmd(struct usbnet *dev, enum cx82310_cmd cmd, bool reply,
-> +		       u8 *wdata, int wlen, u8 *rdata, int rlen)
-> +{
-> +	int actual_len, retries, ret;
-> +	struct usb_device *udev = dev->udev;
-> +	u8 *buf = kzalloc(CMD_PACKET_SIZE, GFP_KERNEL);
-> +
-> +	if (!buf)
-> +		return -ENOMEM;
-> +
-> +	/* create command packet */
-> +	buf[0] = cmd;
-> +	if (wdata)
-> +		memcpy(buf + 4, wdata, min_t(int, wlen, CMD_PACKET_SIZE - 4));
-> +
-> +	/* send command packet */
-> +	ret = usb_bulk_msg(udev, usb_sndbulkpipe(udev, CMD_EP), buf,
-> +			   CMD_PACKET_SIZE, &actual_len, CMD_TIMEOUT);
-
->From your previous lsusb output this is an interrupt endpoint, although
-usb_bulk_msg will auto-detect the type.
-
-> +	if (ret < 0) {
-> +		dev_err(&dev->udev->dev, "send command %#x: error %d\n",
-> +			cmd, ret);
-> +		goto end;
-> +	}
-> +
-> +	if (reply) {
-> +		/* wait for reply, retry if it's empty */
-> +		for (retries = 0; retries < CMD_REPLY_RETRY; retries++) {
-> +			ret = usb_bulk_msg(udev, usb_rcvbulkpipe(udev, CMD_EP),
-> +					   buf, CMD_PACKET_SIZE, &actual_len,
-> +					   CMD_TIMEOUT);
-> +			if (ret < 0) {
-> +				dev_err(&dev->udev->dev,
-> +					"reply receive error %d\n", ret);
-> +				goto end;
-> +			}
-> +			if (actual_len > 0)
-> +				break;
-> +		}
-> +		if (actual_len == 0) {
-> +			dev_err(&dev->udev->dev, "no reply to command %#x\n",
-> +				cmd);
-> +			ret = -EIO;
-> +			goto end;
-> +		}
-> +		if (buf[0] != cmd) {
-> +			dev_err(&dev->udev->dev,
-> +				"got reply to command %#x, expected: %#x\n",
-> +				buf[0], cmd);
-> +			ret = -EIO;
-> +			goto end;
-> +		}
-> +		if (buf[1] != STATUS_SUCCESS) {
-> +			dev_err(&dev->udev->dev, "command %#x failed: %#x\n",
-> +				cmd, buf[1]);
-> +			ret = -EIO;
-> +			goto end;
-> +		}
-> +		if (rdata)
-> +			memcpy(rdata, buf + 4,
-> +			       min_t(int, rlen, CMD_PACKET_SIZE - 4));
-> +	}
-> +end:
-> +	kfree(buf);
-> +	return ret;
-> +}
-
-> +#define rx_incomplete	(dev->data[0])
-> +#define rx_remainder	(dev->data[1])
-> +#define incomplete_data	(dev->data[2])
-
-This doesn't make the rest of the code particularly readable.
-
-> +static int cx82310_bind(struct usbnet *dev, struct usb_interface *intf)
-> +{
-> +	int ret;
-> +	char buf[15];
-> +	struct usb_device *udev = dev->udev;
-> +
-> +	/* avoid ADSL modems - continue only if iProduct is "USB NET CARD" */
-> +	if (udev->descriptor.iProduct &&
-> +	    usb_string(udev, udev->descriptor.iProduct, buf, sizeof(buf)) &&
-
-I'm not sure I like the assignment within the if condition here, although
-other drivers do it; ret is available to check the result.
-
-> +	    strcmp(buf, "USB NET CARD")) {
-> +		dev_err(&udev->dev,
-> +			"probably an ADSL modem, use cxacru driver instead\n");
-> +		return -ENODEV;
-> +	}
-> +
-> +	ret = usbnet_get_endpoints(dev, intf);
-> +	if (ret)
-> +		return ret;
-> +
-> +	/*
-> +	 * this must not include ethernet header as the device can send partial
-> +	 * packets with no header (URB is at least 2 bytes long, so 2 is OK)
-> +	 */
-> +	dev->net->hard_header_len = 2;
-> +	/* we can send at most 1514 bytes of data (+ 2-byte header) per URB */
-> +	dev->hard_mtu = CX82310_MTU + dev->net->hard_header_len;
-
-Have you tried sending larger packets?
-With another 8 bytes it would support 802.1Q (VLAN).
-
-> +	/* we can receive URBs up to 4KB from the device */
-> +	dev->rx_urb_size = 4096;
-> +
-> +	incomplete_data = (unsigned long) kmalloc(dev->hard_mtu, GFP_KERNEL);
-> +	if (!incomplete_data)
-> +		return -ENOMEM;
-> +
-> +	/* enable ethernet mode (?) */
-> +	ret = cx82310_cmd(dev, CMD_ETHERNET_MODE, true, "\x01", 1, NULL, 0);
-> +	if (ret) {
-> +		dev_err(&udev->dev, "unable to enable ethernet mode\n");
-
-I'd include the return value in the message, it can be useful to know if
-it was a timeout response or not.
-
-> +		goto err;
-> +	}
-> +
-> +	/* get the MAC address */
-> +	ret = cx82310_cmd(dev, CMD_GET_MAC_ADDR, true, NULL, 0,
-> +			  dev->net->dev_addr, ETH_ALEN);
-> +	if (ret) {
-> +		dev_err(&udev->dev, "unable to read MAC address\n");
-> +		goto err;
-> +	}
-> +
-> +	/* start (does not seem to have any effect?) */
-> +	ret = cx82310_cmd(dev, CMD_START, false, NULL, 0, NULL, 0);
-> +	if (ret)
-> +		goto err;
-> +
-> +	return 0;
-> +err:
-> +	kfree((void *)incomplete_data);
-> +	return ret;
-> +}
-> +
-> +static void cx82310_unbind(struct usbnet *dev, struct usb_interface *intf)
-> +{
-> +	kfree((void *)incomplete_data);
-> +}
-> +
+Acked-by: Gustavo F. Padovan <padovan@profusion.mobi>
 
 -- 
-Simon Arlott
+Gustavo F. Padovan
+ProFUSION embedded systems - http://profusion.mobi
