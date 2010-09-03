@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] cls_cgroup: Fix rcu lockdep warning
-Date: Fri, 03 Sep 2010 09:55:39 -0700 (PDT)
-Message-ID: <20100903.095539.220051635.davem@davemloft.net>
-References: <4C805293.1020305@cn.fujitsu.com>
+Subject: Re: [PATCH net-next 0/4] cxgb3: new code to deal with adapter
+ parity errors
+Date: Fri, 03 Sep 2010 10:04:38 -0700 (PDT)
+Message-ID: <20100903.100438.123990943.davem@davemloft.net>
+References: <241D2F16-4F92-48DD-A904-832771B2F4B4@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, davej@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	peterz@infradead.org, menage@google.com
-To: lizf@cn.fujitsu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C805293.1020305@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: leedom@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53999
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755221Ab0ICREV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 13:04:21 -0400
+In-Reply-To: <241D2F16-4F92-48DD-A904-832771B2F4B4@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Li Zefan <lizf@cn.fujitsu.com>
-Date: Fri, 03 Sep 2010 09:42:43 +0800
+From: Casey Leedom <leedom@chelsio.com>
+Date: Thu, 2 Sep 2010 16:04:28 -0700
 
-> Dave reported an rcu lockdep warning on 2.6.35.4 kernel
-> 
-> task->cgroups and task->cgroups->subsys[i] are protected by RCU.
-> So we avoid accessing invalid pointers here. This might happen,
-> for example, when you are deref-ing those pointers while someone
-> move @task from one cgroup to another.
-> 
-> Reported-by: Dave Jones <davej@redhat.com>
-> Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+>   These patches implement code to detect and recover from adapter parity errors.
+>
+>   Two of the following four patches (2/4 and 3/4) were actually
+>   implemented by Dimitris Michailidis just before he headed off for
+>   vacation.  I've indicated that via a "Signed-off-by" by-line for
+>   him as well as one for me which I _think_ is the right way to do
+>   this.  The other two patches (1/4 and 4/4) were implemented by me
+>   so I've only included a "Signed-off-by" for me on those.  If I've
+>   done anything incorrectly please reject the patches and tell me
+>   how to correct them.  Thanks!
 
-Applied, thanks.
+All applied, thanks Casey.
