@@ -1,31 +1,41 @@
-From: Chetan Loke <chetanloke@gmail.com>
-Subject: rps and pvdrivers
-Date: Fri, 3 Sep 2010 15:49:17 -0400
-Message-ID: <AANLkTimrHh1ZasO=GWUOT9YJbu2EqeAx6OkRXPUSSNJ6@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/4] tipc: Optimize handling excess content on
+ incoming messages
+Date: Fri, 03 Sep 2010 12:55:33 -0700 (PDT)
+Message-ID: <20100903.125533.173857867.davem@davemloft.net>
+References: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
+	<1283538822-25718-3-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org, pv-drivers@vmware.com, therbert@google.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:61727 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752124Ab0ICTtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 15:49:18 -0400
-Received: by fxm13 with SMTP id 13so1428854fxm.19
-        for <netdev@vger.kernel.org>; Fri, 03 Sep 2010 12:49:17 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44786
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753967Ab0ICTzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 15:55:16 -0400
+In-Reply-To: <1283538822-25718-3-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Fri,  3 Sep 2010 14:33:41 -0400
 
-I just tried kernel-2.6.35-0.57.rc6.git1.fc14.x86_64.rpm because
-ksoftirqd was consuming 100% cpu under high packet load(on a 10G
-vNIC). Now with the above combo the vNIC on the monitoring interface
-virtually receives 'zero' interrupts.
-Do I have to configure anything manually? Things work fine with 2.6.33
-and I can capture 250K+ packets but I can't use it on a 10G NIC. I'm
-going to try the stock 2.6.35.4 to see if I get the same results.
+> @@ -248,6 +248,7 @@ void tipc_net_route_msg(struct sk_buff *buf)
+>  
+>  	/* Handle message for another node */
+>  	msg_dbg(msg, "NET>SEND>: ");
+> +	pskb_trim(buf, msg_size(msg));
+>  	tipc_link_send(buf, dnode, msg_link_selector(msg));
+>  }
 
-Is anyone else seeing similar issues?
+1) pskb_trim() can fail, you need to check the return value
+   and act appropriately.
 
+2) pskb_trim() can change all of the packet data pointers, so
+   after you call it you need to reload any pointers to the
+   packet data area.  At a minimum, you woull need to
+   reload 'msg' in this code snippet.
 
-Chetan Loke
+   Otherwise 'msg' can point to freed up memory after the call.
