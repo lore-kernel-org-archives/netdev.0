@@ -1,89 +1,117 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sctp: implement SIOCINQ ioctl() (take 2)
-Date: Fri, 03 Sep 2010 08:55:28 +0200
-Message-ID: <1283496928.3699.1581.camel@edumazet-laptop>
-References: <1283476464-14341-1-git-send-email-flameeyes@gmail.com>
+From: Plamen Petrov <pvp-lsts@fs.uni-ruse.bg>
+Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Fri, 03 Sep 2010 11:00:52 +0300
+Message-ID: <4C80AB34.20501@fs.uni-ruse.bg>
+References: <4LwrqITm-eJ.A.r8G.eFueMB@chimera>	 <4AUWBNzTkbD.A.ey.cGueMB@chimera> <courier.4C7C99F2.00001F74@fs.ru.acad.bg>	 <20100831192659.GA3093@del.dom.local> <1283338251.2556.124.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Diego Elio =?ISO-8859-1?Q?Petten=F2?= <flameeyes@gmail.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48975 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752873Ab0ICG4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 02:56:44 -0400
-Received: by wyg36 with SMTP id 36so164wyg.19
-        for <netdev@vger.kernel.org>; Thu, 02 Sep 2010 23:56:41 -0700 (PDT)
-In-Reply-To: <1283476464-14341-1-git-send-email-flameeyes@gmail.com>
+Received: from [83.228.35.12] ([83.228.35.12]:44776 "EHLO fs.ru.acad.bg"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753457Ab0ICIA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Sep 2010 04:00:56 -0400
+In-Reply-To: <1283338251.2556.124.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 03 septembre 2010 =C3=A0 03:14 +0200, Diego Elio Petten=C3=B2=
- a
-=C3=A9crit :
-> From: Diego Elio 'Flameeyes' Petten=C3=B2 <flameeyes@gmail.com>
->=20
-> This simple patch copies the current approach for SIOCINQ ioctl() fro=
-m DCCP
-> into SCTP so that the userland code working with SCTP can use a simil=
-ar
-> interface across different protocols to know how much space to alloca=
-te for
-> a buffer.
+=D0=9D=D0=B0 01.9.2010 =D0=B3. 13:50, Eric Dumazet =D0=BD=D0=B0=D0=BF=D0=
+=B8=D1=81=D0=B0:
+> Plamen, could you test following patch ?
+>
+> I reproduced problem on a dev machine and following patch cured it.
+>
+> Thanks
+>
+> [PATCH] gro: fix different skb headrooms
+>
+> packets entering GRO might have different headrooms, even for a given
+> flow (because of implementation details in drivers, like copybreak).
+> We cant force drivers to deliver packets with a fixed headroom.
+>
+> 1) fix skb_segment()
+>
+> skb_segment() makes the false assumption headrooms of fragments are s=
+ame
+> than the head. When CHECKSUM_PARTIAL is used, this can give csum_star=
+t
+> errors, and crash later in skb_copy_and_csum_dev()
+>
+> 2) allocate a minimal skb for head of frag_list
+>
+> skb_gro_receive() uses netdev_alloc_skb(headroom + skb_gro_offset(p))=
+ to
+> allocate a fresh skb. This adds NET_SKB_PAD to a padding already
+> provided by netdevice, depending on various things, like copybreak.
+>
+> Use alloc_skb() to allocate an exact padding, to reduce cache line
+> needs:
+> NET_SKB_PAD + NET_IP_ALIGN
+>
+> bugzilla : https://bugzilla.kernel.org/show_bug.cgi?id=3D16626
+>
+> Many thanks to Plamen Petrov, testing many debugging patches !
+> With help of Jarek Poplawski.
+>
+> Reported-by: Plamen Petrov<pvp-lsts@fs.uni-ruse.bg>
+> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
+> CC: Jarek Poplawski<jarkao2@gmail.com>
 > ---
->  net/sctp/socket.c |   35 ++++++++++++++++++++++++++++++++++-
->  1 files changed, 34 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index ca44917..54c01e4 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -3595,7 +3595,40 @@ out:
->  /* The SCTP ioctl handler. */
->  SCTP_STATIC int sctp_ioctl(struct sock *sk, int cmd, unsigned long a=
-rg)
->  {
-> -	return -ENOIOCTLCMD;
-> +	int rc =3D -ENOTCONN;
+> patch against linux-2.6 current tree
+>
+>   net/core/skbuff.c |    8 ++++++--
+>   1 file changed, 6 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 3a2513f..26396ff 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2573,6 +2573,10 @@ struct sk_buff *skb_segment(struct sk_buff *sk=
+b, int features)
+>   		__copy_skb_header(nskb, skb);
+>   		nskb->mac_len =3D skb->mac_len;
+>
+> +		/* nskb and skb might have different headroom */
+> +		if (nskb->ip_summed =3D=3D CHECKSUM_PARTIAL)
+> +			nskb->csum_start +=3D skb_headroom(nskb) - headroom;
 > +
-> +	sctp_lock_sock(sk);
-> +
-> +	/*
-> +	 * SEQPACKET-style sockets in LISTENING state are valid, for
-> +	 * SCTP, so only discard TCP-style sockets in LISTENING state.
-> +	 */
-> +	if (sctp_style(sk, TCP) && sctp_sstate(sk, LISTENING))
-> +		goto out;
-> +
-> +	switch (cmd) {
-> +	case SIOCINQ: {
-> +		struct sk_buff *skb;
-> +		unsigned long amount =3D 0;
+>   		skb_reset_mac_header(nskb);
+>   		skb_set_network_header(nskb, skb->mac_len);
+>   		nskb->transport_header =3D (nskb->network_header +
+> @@ -2702,8 +2706,8 @@ int skb_gro_receive(struct sk_buff **head, stru=
+ct sk_buff *skb)
+>   	} else if (skb_gro_len(p) !=3D pinfo->gso_size)
+>   		return -E2BIG;
+>
+> -	headroom =3D skb_headroom(p);
+> -	nskb =3D netdev_alloc_skb(p->dev, headroom + skb_gro_offset(p));
+> +	headroom =3D NET_SKB_PAD + NET_IP_ALIGN;
+> +	nskb =3D alloc_skb(headroom + skb_gro_offset(p), GFP_ATOMIC);
+>   	if (unlikely(!nskb))
+>   		return -ENOMEM;
+>
+>
+>
 
-why use an 'unsigned long', since user pointer is a 'int *' ?
+I confirm that the above patch applied on top of v2.6.36-rc3 does not
+show the problems that all the kernels since v2.6.35 (both stable
+and Linus' tree) had.
 
-> +
-> +		skb =3D skb_peek(&sk->sk_receive_queue);
-> +		if (skb !=3D NULL) {
-> +			/*
-> +			 * We will only return the amount of this packet since
-> +			 * that is all that will be read.
-> +			 */
-> +			amount =3D skb->len;
-> +		}
-> +		rc =3D put_user(amount, (int __user *)arg);
-> +	}
-> +		break;
-> +	default:
-> +		rc =3D -ENOIOCTLCMD;
-> +		break;
-> +	}
-> +out:
-> +	sctp_release_sock(sk);
-> +	return rc;
->  }
-> =20
->  /* This is the function which gets called during socket creation to
+My problematic machine has been running the patched 36-rc3 for 36 hours=
+,=20
+and couning, with "generic receive offload" enabled only my tg3 nic.
 
+Thank you very much for the wonderful job, Eric!
+Thanks to you, too, Jarek!
 
+Plamen Petrov
