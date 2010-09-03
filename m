@@ -1,41 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/4] tipc: Optimize handling excess content on
- incoming messages
-Date: Fri, 03 Sep 2010 12:55:33 -0700 (PDT)
-Message-ID: <20100903.125533.173857867.davem@davemloft.net>
-References: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
-	<1283538822-25718-3-git-send-email-paul.gortmaker@windriver.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
+Date: Fri, 03 Sep 2010 13:00:08 -0700
+Message-ID: <1283544008.5387.3.camel@Joe-Laptop>
+References: <4C81019E.1010808@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
-To: paul.gortmaker@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44786
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753967Ab0ICTzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 15:55:16 -0400
-In-Reply-To: <1283538822-25718-3-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	ML netdev <netdev@vger.kernel.org>,
+	MeeGo <meego-dev@meego.com>, Maxime Bizon <mbizon@freebox.fr>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Kristoffer Glembo <kristoffer@gaisler.com>,
+	John Linn <john.linn@xilinx.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	"Wang, Qi" <qi.wang@intel.com>,
+	Toshiharu Okada <okada533@dsn.okisemi.com>,
+	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
+	Takahiro Shimizu <shimizu394@dsn.okisemi.com>,
+	Intel OTC <joel.clark@intel.com>,
+	"Foster, Margie" <margie.foster@intel.com>,
+	Andrew <andrew.chih.howe.khor@intel.com>
+To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C81019E.1010808@dsn.okisemi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri,  3 Sep 2010 14:33:41 -0400
+On Fri, 2010-09-03 at 23:09 +0900, Masayuki Ohtake wrote:
+> Thank you for your comments and patch.
+> I have modified.
+> Gigabit Ethernet driver of Topcliff PCH
+> Patch created against 2.6.35
 
-> @@ -248,6 +248,7 @@ void tipc_net_route_msg(struct sk_buff *buf)
->  
->  	/* Handle message for another node */
->  	msg_dbg(msg, "NET>SEND>: ");
-> +	pskb_trim(buf, msg_size(msg));
->  	tipc_link_send(buf, dnode, msg_link_selector(msg));
->  }
+Hello Ohtake.
 
-1) pskb_trim() can fail, you need to check the return value
-   and act appropriately.
+It's a bit tedious to track changes in this code when you
+post the entire patch.
 
-2) pskb_trim() can change all of the packet data pointers, so
-   after you call it you need to reload any pointers to the
-   packet data area.  At a minimum, you woull need to
-   reload 'msg' in this code snippet.
-
-   Otherwise 'msg' can point to freed up memory after the call.
+Do you have a git tree for these Topcliff changes?
