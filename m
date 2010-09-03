@@ -1,76 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Fri, 03 Sep 2010 15:43:36 +0200
-Message-ID: <1283521416.2453.823.camel@edumazet-laptop>
-References: <4C763A67.5040107@dsn.okisemi.com>
-	 <4C7D0E7A.5060309@dsn.okisemi.com>
-	 <1283266263.2550.106.camel@edumazet-laptop>
-	 <000a01cb4a9b$e8d6ab00$66f8800a@maildom.okisemi.com>
-	 <1283434847.2454.726.camel@edumazet-laptop>
-	 <20100902081007.2f910bc0@nehalam>
-	 <000e01cb4b6c$73b4c8d0$66f8800a@maildom.okisemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
+Date: Fri, 03 Sep 2010 06:46:33 -0700 (PDT)
+Message-ID: <20100903.064633.27806839.davem@davemloft.net>
+References: <20100902.204332.02275687.davem@davemloft.net>
+	<1283492880.3699.1437.camel@edumazet-laptop>
+	<1283504972.2453.257.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Sam Ravnborg <sam@ravnborg.org>, Joe Perches <joe@perches.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	ML netdev <netdev@vger.kernel.org>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Maxime Bizon <mbizon@freebox.fr>,
-	Kristoffer Glembo <kristoffer@gaisler.com>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	John Linn <john.linn@xilinx.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	MeeGo <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	Toshiharu Okada <okada533@dsn.okisemi.com>,
-	Tomoya Morinaga <morinaga526@dsn.okisemi.com>,
-	Takahiro Shimizu <shimizu394@dsn.okisemi.com>
-To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <000e01cb4b6c$73b4c8d0$66f8800a@maildom.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59046
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752829Ab0ICNqQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Sep 2010 09:46:16 -0400
+In-Reply-To: <1283504972.2453.257.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 03 septembre 2010 =C3=A0 22:32 +0900, Masayuki Ohtake a =C3=
-=A9crit :
-> Hi Eric and Stephen
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 03 Sep 2010 11:09:32 +0200
+
+> Le vendredi 03 septembre 2010 =E0 07:48 +0200, Eric Dumazet a =E9crit=
+ :
 >=20
-> Thank you for your suggestion.
+>> David, I had this same idea some days ago when reviewing this code,
+>> but when I came to conclusion we could not avoid the get_page /
+>> put_page() on skb_shinfo(skb)->frags[i].page. I thought it was not w=
+orth
+>> trying to avoid the frag_list grab/release operation.
+>>=20
 >=20
-> I tried modification of "dev->hard_header_len".
-> However, there was no changed to a format of SKB received by kernel.
->   [Header:14octet] + [payload]
+> Here is the patch I cooked, for net-next-2.6
 >=20
-> So, I can not a single memcpy.
+> [PATCH net-next-2.6] net: pskb_expand_head() optimization
+>=20
+> pskb_expand_head() blindly takes references on fragments before calli=
+ng
+> skb_release_data(), potentially releasing these references.
+>=20
+> We can add a fast path, avoiding these atomic operations, if we own t=
+he
+> last reference on skb->head.
+>=20
+> Based on a previous patch from David
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Hmm, maybe you did this at the wrong place ?
+Ok, I see how this works now, thanks Eric.  But this looks to be a bit
+too complicated to be worthwhile, I think, so let's hold off on this
+optimization for a while.
 
-Take a look at other drivers how they do this
+Let me tell you why I was swimming around in this area and what my
+ultimate motivation is :-)
 
-(network stack default hard_header_len to 14, in net/ethernet/eth.c,
-function ether_setup())
+In trying to eventually convert sk_buff to list_head one of the
+troubling areas is this frag_list business.
 
+Amusingly, if you look, virtually all of the code which constructs
+frag_list SKBs wants a doubly linked list so it can insert at the tail
+(all LRO gathering, GRO, you name it).
 
-find drivers/net | xargs grep -n hard_header_len
+There are only two operations that make a double-linked list currently
+impossible.  This pskb_expand_head() thing, and pskb_copy().
 
-Example in drivers/net/wan/hdlc.c
+They cause the situation where the list is shared between multiple SKB
+data shared areas.
 
-static void hdlc_setup_dev(struct net_device *dev)
-{
-        /* Re-init all variables changed by HDLC protocol drivers,
-         * including ether_setup() called from hdlc_raw_eth.c.
-         */
-        dev->flags               =3D IFF_POINTOPOINT | IFF_NOARP;
-        dev->priv_flags          =3D IFF_WAN_HDLC;
-        dev->mtu                 =3D HDLC_MAX_MTU;
-        dev->type                =3D ARPHRD_RAWHDLC;
-        dev->hard_header_len     =3D 16;
-        dev->addr_len            =3D 0;
-        dev->header_ops          =3D &hdlc_null_ops;
-}
+And because of this a doubly-linked list like list_head won't work at
+all.
+
+=46or the optimized case of pskb_expand_head() you discovered we can av=
+oid
+this sharing.  And at this point I imagine that for the remaining cases
+we can simply copy the full SKBs in the frag list to avoid this list
+sharing.
+
+So that's where I'm trying to go in all of this.
