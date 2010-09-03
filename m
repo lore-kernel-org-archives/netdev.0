@@ -1,89 +1,34 @@
-From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Fri, 3 Sep 2010 23:11:35 +0900
-Message-ID: <000601cb4b71$ee6adec0$66f8800a@maildom.okisemi.com>
-References: <4C763A67.5040107@dsn.okisemi.com> <4C7D0E7A.5060309@dsn.okisemi.com> <1283266263.2550.106.camel@edumazet-laptop> <000a01cb4a9b$e8d6ab00$66f8800a@maildom.okisemi.com> <1283434847.2454.726.camel@edumazet-laptop> <20100902081007.2f910bc0@nehalam> <000e01cb4b6c$73b4c8d0$66f8800a@maildom.okisemi.com> <1283521416.2453.823.camel@edumazet-laptop>
-Cc: "Stephen Hemminger" <shemminger@vyatta.com>,
-	"Sam Ravnborg" <sam@ravnborg.org>, "Joe Perches" <joe@perches.com>,
-	"LKML" <linux-kernel@vger.kernel.org>,
-	"ML netdev" <netdev@vger.kernel.org>,
-	"Greg Rose" <gregory.v.rose@intel.com>,
-	"Maxime Bizon" <mbizon@freebox.fr>,
-	"Kristoffer Glembo" <kristoffer@gaisler.com>,
-	"Ralf Baechle" <ralf@linux-mips.org>,
-	"John Linn" <john.linn@xilinx.com>,
-	"Randy Dunlap" <randy.dunlap@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"MeeGo" <meego-dev@meego.com>, "Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	"Andrew" <andrew.chih.howe.khor@intel.com>,
-	"Intel OTC" <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	"Toshiharu Okada" <okada533@dsn.okisemi.com>,
-	"Tomoya Morinaga" <morinaga526@dsn.okisemi.com>,
-	"Takahiro Shimizu" <shimizu394@dsn.okisemi.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ipv6: add special mode forwarding=2 to send RS while
+ configured as router
+Date: Fri, 3 Sep 2010 08:00:19 -0700
+Message-ID: <20100903080019.65ee4905@nehalam>
+References: <20100903130420.GB28460@bombadil.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: Thomas Graf <tgraf@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:60779 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754921Ab0ICPAV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Sep 2010 11:00:21 -0400
+In-Reply-To: <20100903130420.GB28460@bombadil.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric
+On Fri, 3 Sep 2010 09:04:20 -0400
+Thomas Graf <tgraf@infradead.org> wrote:
 
-Thank you for your information.
-I will confirm other drivers.
+> Similar to accepting router advertisement, the IPv6 stack does not send router
+> solicitations if forwarding is enabled.
+> 
+> This patch enables this behavior to be overruled by setting forwarding to the
+> special value 2.
+> 
+> Signed-off-by: Thomas Graf <tgraf@infradead.org>
+> 
 
-Thanks, Ohtake(OKISemi)
------ Original Message ----- 
-From: "Eric Dumazet" <eric.dumazet@gmail.com>
-To: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Cc: "Stephen Hemminger" <shemminger@vyatta.com>; "Sam Ravnborg" <sam@ravnborg.org>; "Joe Perches" <joe@perches.com>;
-"LKML" <linux-kernel@vger.kernel.org>; "ML netdev" <netdev@vger.kernel.org>; "Greg Rose" <gregory.v.rose@intel.com>;
-"Maxime Bizon" <mbizon@freebox.fr>; "Kristoffer Glembo" <kristoffer@gaisler.com>; "Ralf Baechle" <ralf@linux-mips.org>;
-"John Linn" <john.linn@xilinx.com>; "Randy Dunlap" <randy.dunlap@oracle.com>; "David S. Miller" <davem@davemloft.net>;
-"MeeGo" <meego-dev@meego.com>; "Wang, Qi" <qi.wang@intel.com>; "Wang, Yong Y" <yong.y.wang@intel.com>; "Andrew"
-<andrew.chih.howe.khor@intel.com>; "Intel OTC" <joel.clark@intel.com>; "Foster, Margie" <margie.foster@intel.com>;
-"Toshiharu Okada" <okada533@dsn.okisemi.com>; "Tomoya Morinaga" <morinaga526@dsn.okisemi.com>; "Takahiro Shimizu"
-<shimizu394@dsn.okisemi.com>
-Sent: Friday, September 03, 2010 10:43 PM
-Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-
-
-> Le vendredi 03 septembre 2010 a 22:32 +0900, Masayuki Ohtake a ecrit :
-> > Hi Eric and Stephen
-> >
-> > Thank you for your suggestion.
-> >
-> > I tried modification of "dev->hard_header_len".
-> > However, there was no changed to a format of SKB received by kernel.
-> >   [Header:14octet] + [payload]
-> >
-> > So, I can not a single memcpy.
->
-> Hmm, maybe you did this at the wrong place ?
->
-> Take a look at other drivers how they do this
->
-> (network stack default hard_header_len to 14, in net/ethernet/eth.c,
-> function ether_setup())
->
->
-> find drivers/net | xargs grep -n hard_header_len
->
-> Example in drivers/net/wan/hdlc.c
->
-> static void hdlc_setup_dev(struct net_device *dev)
-> {
->         /* Re-init all variables changed by HDLC protocol drivers,
->          * including ether_setup() called from hdlc_raw_eth.c.
->          */
->         dev->flags               = IFF_POINTOPOINT | IFF_NOARP;
->         dev->priv_flags          = IFF_WAN_HDLC;
->         dev->mtu                 = HDLC_MAX_MTU;
->         dev->type                = ARPHRD_RAWHDLC;
->         dev->hard_header_len     = 16;
->         dev->addr_len            = 0;
->         dev->header_ops          = &hdlc_null_ops;
-> }
->
->
->
+Please add description to Documentation/networking/ip-sysctl.txt
