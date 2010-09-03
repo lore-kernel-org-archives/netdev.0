@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] tulip: use integrated netdev stats
-Date: Fri, 03 Sep 2010 09:45:12 -0700 (PDT)
-Message-ID: <20100903.094512.42790017.davem@davemloft.net>
-References: <1283521963.2453.848.camel@edumazet-laptop>
+Subject: Re: [PATCH net-2.6 1/3] be2net: fix net-snmp error because of
+ wrong packet stats
+Date: Fri, 03 Sep 2010 09:53:45 -0700 (PDT)
+Message-ID: <20100903.095345.214228753.davem@davemloft.net>
+References: <20100903161659.GA22700@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: ajitk@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44243
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54487
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755961Ab0ICQoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 12:44:55 -0400
-In-Reply-To: <1283521963.2453.848.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1755815Ab0ICQx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 12:53:28 -0400
+In-Reply-To: <20100903161659.GA22700@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 03 Sep 2010 15:52:43 +0200
+From: Ajit Khaparde <ajitk@serverengines.com>
+Date: Fri, 3 Sep 2010 21:47:10 +0530
 
-> struct tulip_private is a bit large (order-1 allocation even on 32bit
-> arch), try to shrink it, remove its net_device_stats field.
+> Wrong packet statistics for multicast Rx was causing net-snmp error messages
+> every 15 seconds. Instead of picking the multicast stats from hardware,
+> now maintain it in the driver itself.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
 
 Applied.
