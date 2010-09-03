@@ -1,84 +1,31 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 3/4] tipc: Optimize handling excess content on incoming messages
-Date: Fri,  3 Sep 2010 14:33:41 -0400
-Message-ID: <1283538822-25718-3-git-send-email-paul.gortmaker@windriver.com>
-References: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
-To: davem@davemloft.net
+From: Chetan Loke <chetanloke@gmail.com>
+Subject: rps and pvdrivers
+Date: Fri, 3 Sep 2010 15:49:17 -0400
+Message-ID: <AANLkTimrHh1ZasO=GWUOT9YJbu2EqeAx6OkRXPUSSNJ6@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org, pv-drivers@vmware.com, therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54535 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757244Ab0ICSdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 14:33:46 -0400
-In-Reply-To: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:61727 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752124Ab0ICTtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 15:49:18 -0400
+Received: by fxm13 with SMTP id 13so1428854fxm.19
+        for <netdev@vger.kernel.org>; Fri, 03 Sep 2010 12:49:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Allan Stephens <allan.stephens@windriver.com>
+Hello,
 
-Remove code that trimmed excess trailing info from incoming messages
-arriving over an Ethernet interface.  TIPC now ignores the extra info
-while the message is being processed by the node, and only trims it off
-if the message is retransmitted to another node.  (This latter step is
-done to ensure the extra info doesn't cause the sk_buff to exceed the
-outgoing interface's MTU limit.)
+I just tried kernel-2.6.35-0.57.rc6.git1.fc14.x86_64.rpm because
+ksoftirqd was consuming 100% cpu under high packet load(on a 10G
+vNIC). Now with the above combo the vNIC on the monitoring interface
+virtually receives 'zero' interrupts.
+Do I have to configure anything manually? Things work fine with 2.6.33
+and I can capture 250K+ packets but I can't use it on a 10G NIC. I'm
+going to try the stock 2.6.35.4 to see if I get the same results.
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- net/tipc/eth_media.c |   13 +++----------
- net/tipc/net.c       |    1 +
- 2 files changed, 4 insertions(+), 10 deletions(-)
+Is anyone else seeing similar issues?
 
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 81253d0..ff50a17 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -101,15 +101,12 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
-  * Accept only packets explicitly sent to this node, or broadcast packets;
-  * ignores packets sent using Ethernet multicast, and traffic sent to other
-  * nodes (which can happen if interface is running in promiscuous mode).
-- * Routine truncates any Ethernet padding/CRC appended to the message,
-- * and ensures message size matches actual length
-  */
- 
- static int recv_msg(struct sk_buff *buf, struct net_device *dev,
- 		    struct packet_type *pt, struct net_device *orig_dev)
- {
- 	struct eth_bearer *eb_ptr = (struct eth_bearer *)pt->af_packet_priv;
--	u32 size;
- 
- 	if (!net_eq(dev_net(dev), &init_net)) {
- 		kfree_skb(buf);
-@@ -118,13 +115,9 @@ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
- 
- 	if (likely(eb_ptr->bearer)) {
- 		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
--			size = msg_size((struct tipc_msg *)buf->data);
--			skb_trim(buf, size);
--			if (likely(buf->len == size)) {
--				buf->next = NULL;
--				tipc_recv_msg(buf, eb_ptr->bearer);
--				return 0;
--			}
-+			buf->next = NULL;
-+			tipc_recv_msg(buf, eb_ptr->bearer);
-+			return 0;
- 		}
- 	}
- 	kfree_skb(buf);
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index f61b769..14bd109 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -248,6 +248,7 @@ void tipc_net_route_msg(struct sk_buff *buf)
- 
- 	/* Handle message for another node */
- 	msg_dbg(msg, "NET>SEND>: ");
-+	pskb_trim(buf, msg_size(msg));
- 	tipc_link_send(buf, dnode, msg_link_selector(msg));
- }
- 
--- 
-1.7.2.1
 
+Chetan Loke
