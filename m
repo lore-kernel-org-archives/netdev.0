@@ -1,69 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] net: Frag list lost on head expansion.
-Date: Thu, 02 Sep 2010 20:43:32 -0700 (PDT)
-Message-ID: <20100902.204332.02275687.davem@davemloft.net>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH v4 0/5] netdev: show a process of packets
+Date: Fri, 3 Sep 2010 06:46:58 +0200
+Message-ID: <20100903044656.GA6589@nowhere>
+References: <4C72422C.5070102@jp.fujitsu.com> <1283212210.3656.84.camel@gandalf.stny.rr.com> <4C80592B.2060406@jp.fujitsu.com> <20100902.191741.233696520.davem@davemloft.net> <4C806388.9020509@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58092
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755747Ab0ICDnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 23:43:16 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 0C77524C087
-	for <netdev@vger.kernel.org>; Thu,  2 Sep 2010 20:43:33 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, rostedt@goodmis.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
+	kosaki.motohiro@jp.fujitsu.com, nhorman@tuxdriver.com,
+	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
+	eric.dumazet@gmail.com, mathieu.desnoyers@polymtl.ca
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C806388.9020509@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Fri, Sep 03, 2010 at 11:55:04AM +0900, Koki Sanagi wrote:
+> (2010/09/03 11:17), David Miller wrote:
+> > From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> > Date: Fri, 03 Sep 2010 11:10:51 +0900
+> > 
+> >> Thanks many acks. and I have one question.
+> >>
+> >> These patches have several component.
+> >>
+> >> Patch1 is kernel component, but patch2-5 are netdev component.
+> >> What tree is good to be included ?
+> >> If it is not net-next, I must rebase to another tree.
+> > 
+> > I would prefer it goes into the tracing tree or whatever is the most appropriate
+> > for patch #1.
+> > 
+> 
+> O.K. I'll rebase to linux-2.6-tip.
 
 
-When pskb_expand_head() releases the data, with skb_release_data(), it
-tries to properly preserve any fragment list using
-skb_clone_fraglist().
+No need, they apply very well :)
 
-Although skb_clone_fraglist() will properly grab a reference to all of
-the fragment list SKBs, it will not block skb_release_data() from
-NULL'ing out the ->frag_list pointer when it calls skb_drop_list() via
-skb_drop_fraglist().
+I'll push that to -tip soon.
 
-As a result we lose the fragment SKBs and they are leaked forever.
-
-Instead, hide the fragment list pointer around the skb_release_data()
-call and restore it afterwards.  This fixes the bug and also makes
-it cheaper since we won't grab and release every single fragment
-list SKB reference.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
-I found this via pure code inspection, please review.
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 26396ff..def2e49 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -789,6 +789,7 @@ EXPORT_SYMBOL(pskb_copy);
- int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 		     gfp_t gfp_mask)
- {
-+	struct sk_buff *frag_list;
- 	int i;
- 	u8 *data;
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
-@@ -822,11 +823,13 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
- 		get_page(skb_shinfo(skb)->frags[i].page);
- 
--	if (skb_has_frags(skb))
--		skb_clone_fraglist(skb);
-+	frag_list = skb_shinfo(skb)->frag_list;
-+	skb_shinfo(skb)->frag_list = NULL;
- 
- 	skb_release_data(skb);
- 
-+	skb_shinfo(skb)->frag_list = frag_list;
-+
- 	off = (data + nhead) - skb->head;
- 
- 	skb->head     = data;
+Thanks.
