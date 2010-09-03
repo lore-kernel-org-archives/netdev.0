@@ -1,158 +1,170 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH 1/2] ipv6: discard overlapping fragment
-Date: Fri, 03 Sep 2010 17:13:05 +0200
-Message-ID: <4C811081.3030500@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Fri, 03 Sep 2010 08:27:30 -0700 (PDT)
+Message-ID: <20100903.082730.241447728.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010907040002000004010103"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:48395 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752244Ab0ICPNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 11:13:09 -0400
-Received: by gwj17 with SMTP id 17so719274gwj.19
-        for <netdev@vger.kernel.org>; Fri, 03 Sep 2010 08:13:08 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57246
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753002Ab0ICP1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 11:27:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010907040002000004010103
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi all,
+1) Fix for IRDA OOPS'er reported by Tavis Ormandy.
 
-here is a patch to take care of RFC5722 "Handling of Overlapping IPv6 Fragments" 
-in IPv6 stack.
+2) NETLINK_USERSOCK unintentionally broken, make it work again.
 
+3) kthread_stop() OOPS'er fix in vhost by Eric Dumazet.
 
-Regards,
-Nicolas
+4) act_police leaks kernel mem, fix from Jeff Mahoney.
 
---------------010907040002000004010103
-Content-Type: text/x-diff;
- name="0001-ipv6-discard-overlapping-fragment.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="0001-ipv6-discard-overlapping-fragment.patch"
+5) mdiobus leak in pxa168 driver, from Denis Kirjanov.
 
->From d3244c5458cb331f635d68dd52511bd507580bcb Mon Sep 17 00:00:00 2001
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 3 Sep 2010 15:31:14 +0200
-Subject: [PATCH] ipv6: discard overlapping fragment
+6) Kill double ";" to rectify compiler warning, from Nicolas Dichtel.
 
-RFC5722 prohibits reassembling fragments when some data overlaps.
+7) Kconfig help for rp_filter is wrong, fix from Nicolas Dichtel.
 
-Bug spotted by Zhang Zuotao <zuotao.zhang@6wind.com>.
+8) Fix MII locking in 3c59x driver, from Ben Hutchings.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/reassembly.c |   71 ++++++++++--------------------------------------
- 1 files changed, 15 insertions(+), 56 deletions(-)
+9) bridge calls ip_fragment() with garbage INET SKB control block,
+   just zero it out like we do elsewhere in bridging.
 
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 545c414..64cfef1 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -149,13 +149,6 @@ int ip6_frag_match(struct inet_frag_queue *q, void *a)
- }
- EXPORT_SYMBOL(ip6_frag_match);
- 
--/* Memory Tracking Functions. */
--static void frag_kfree_skb(struct netns_frags *nf, struct sk_buff *skb)
--{
--	atomic_sub(skb->truesize, &nf->mem);
--	kfree_skb(skb);
--}
--
- void ip6_frag_init(struct inet_frag_queue *q, void *a)
- {
- 	struct frag_queue *fq = container_of(q, struct frag_queue, q);
-@@ -346,58 +339,22 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- 	}
- 
- found:
--	/* We found where to put this one.  Check for overlap with
--	 * preceding fragment, and, if needed, align things so that
--	 * any overlaps are eliminated.
-+	/* RFC5722, Section 4:
-+	 *                                  When reassembling an IPv6 datagram, if
-+	 *   one or more its constituent fragments is determined to be an
-+	 *   overlapping fragment, the entire datagram (and any constituent
-+	 *   fragments, including those not yet received) MUST be silently
-+	 *   discarded.
- 	 */
--	if (prev) {
--		int i = (FRAG6_CB(prev)->offset + prev->len) - offset;
- 
--		if (i > 0) {
--			offset += i;
--			if (end <= offset)
--				goto err;
--			if (!pskb_pull(skb, i))
--				goto err;
--			if (skb->ip_summed != CHECKSUM_UNNECESSARY)
--				skb->ip_summed = CHECKSUM_NONE;
--		}
--	}
-+	/* Check for overlap with preceding fragment. */
-+	if (prev &&
-+	    (FRAG6_CB(prev)->offset + prev->len) - offset > 0)
-+		goto discard_fq;
- 
--	/* Look for overlap with succeeding segments.
--	 * If we can merge fragments, do it.
--	 */
--	while (next && FRAG6_CB(next)->offset < end) {
--		int i = end - FRAG6_CB(next)->offset; /* overlap is 'i' bytes */
--
--		if (i < next->len) {
--			/* Eat head of the next overlapped fragment
--			 * and leave the loop. The next ones cannot overlap.
--			 */
--			if (!pskb_pull(next, i))
--				goto err;
--			FRAG6_CB(next)->offset += i;	/* next fragment */
--			fq->q.meat -= i;
--			if (next->ip_summed != CHECKSUM_UNNECESSARY)
--				next->ip_summed = CHECKSUM_NONE;
--			break;
--		} else {
--			struct sk_buff *free_it = next;
--
--			/* Old fragment is completely overridden with
--			 * new one drop it.
--			 */
--			next = next->next;
--
--			if (prev)
--				prev->next = next;
--			else
--				fq->q.fragments = next;
--
--			fq->q.meat -= free_it->len;
--			frag_kfree_skb(fq->q.net, free_it);
--		}
--	}
-+	/* Look for overlap with succeeding segment. */
-+	if (next && FRAG6_CB(next)->offset < end)
-+		goto discard_fq;
- 
- 	FRAG6_CB(skb)->offset = offset;
- 
-@@ -436,6 +393,8 @@ found:
- 	write_unlock(&ip6_frags.lock);
- 	return -1;
- 
-+discard_fq:
-+	fq_kill(fq);
- err:
- 	IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
- 		      IPSTATS_MIB_REASMFAILS);
--- 
-1.5.4.5
+10) Fix crashes in GRO when packets are merged with different headroom
+    amounts.  The problem is that in this case the ->csum_start
+    packet offset is not adjusted correctly.  Later on we crash trying
+    to fixup the checksum at an out-of-range offset.
 
+    From Eric Dumazet.  Special thanks to Plamen Petrov for testing
+    various debugging patches to help us track this down.
 
---------------010907040002000004010103--
+11) Fix est_tree_lock locking in generic estimator, it must use BH
+    protection.  From Jarek Poplawski.
+
+12) Add new PCNET_CS device ID, from Ken Kawasaki.
+
+13) HFSC packet scheduler fix from Michal Soltys, cfmin of parent must
+    be updated unconditionally in init_vf().
+
+14) Fix DMA mis-alignment problems in libertas on some platforms,
+    from Mike Rapoport.
+
+15) ieee80211_get_tx_rate() return not checked properly in ath5k_txbuf_setup
+    leading to OOPS, from John Linville.
+
+16) Two ath9k fixes from Luis R. Rodriguez.  Fix EEPROM reading, and fix
+    parsing of 5GHz CTL indexes.
+
+17) Fix TX status flag bit check in p54, fixes power save.
+    From Christian Lamparter.
+
+18) mac80211 workqueue timer deletion fix from Johannes Berg.
+
+19) Kernel memory leak fix in wireless extensions, also from Johannes.
+
+20) Circular locking fix in wiphy_register(), from John W. Linville.
+
+21) IPVS passive ftp crash fix from Julian Anastasov.
+
+Please pull, thanks a lot!
+
+The following changes since commit 2bfc96a127bc1cc94d26bfaa40159966064f9c8c:
+
+  Linux 2.6.36-rc3 (2010-08-29 08:36:04 -0700)
+
+are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Ben Hutchings (1):
+      3c59x: Remove incorrect locking; correct documented lock hierarchy
+
+Breno Leitao (1):
+      MAINTAINERS: Add ehea driver as Supported
+
+Christian Lamparter (1):
+      p54: fix tx feedback status flag check
+
+David S. Miller (5):
+      irda: Correctly clean up self->ias_obj on irda_bind() failure.
+      netlink: Make NETLINK_USERSOCK work again.
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
+      bridge: Clear INET control block of SKBs passed into ip_fragment().
+      Revert "sky2: don't do GRO on second port"
+
+Denis Kirjanov (1):
+      pxa168_eth: fix a mdiobus leak
+
+Eric Dumazet (2):
+      vhost: stop worker only if created
+      gro: fix different skb headrooms
+
+Jarek Poplawski (1):
+      pkt_sched: Fix lockdep warning on est_tree_lock in gen_estimator
+
+Jeff Mahoney (1):
+      net sched: fix kernel leak in act_police
+
+Johannes Berg (2):
+      mac80211: delete work timer
+      wireless extensions: fix kernel heap content leak
+
+John W. Linville (3):
+      ath5k: check return value of ieee80211_get_tx_rate
+      MAINTAINERS: change broken url for prism54
+      wireless: register wiphy rfkill w/o holding cfg80211_mutex
+
+Julian Anastasov (1):
+      ipvs: avoid oops for passive FTP
+
+Ken Kawasaki (1):
+      pcnet_cs: add new_id
+
+Luis R. Rodriguez (2):
+      ath9k_hw: Fix EEPROM uncompress block reading on AR9003
+      ath9k_hw: fix parsing of HT40 5 GHz CTLs
+
+Michal Soltys (1):
+      net/sched/sch_hfsc.c: initialize parent's cl_cfmin properly in init_vf()
+
+Mike Rapoport (1):
+      libertas: if_sdio: fix buffer alignment in struct if_sdio_card
+
+Nicolas Dichtel (2):
+      xfrm_user: avoid a warning with some compiler
+      ipv4: minor fix about RPF in help of Kconfig
+
+stephen hemminger (1):
+      sky2: don't do GRO on second port
+
+ MAINTAINERS                                    |    8 +++++++-
+ drivers/net/3c59x.c                            |    5 +----
+ drivers/net/pcmcia/pcnet_cs.c                  |    1 +
+ drivers/net/pxa168_eth.c                       |    2 ++
+ drivers/net/wireless/ath/ath5k/base.c          |    4 ++++
+ drivers/net/wireless/ath/ath9k/ar9003_eeprom.c |    2 +-
+ drivers/net/wireless/ath/ath9k/eeprom.h        |    2 +-
+ drivers/net/wireless/ath/regd.h                |    1 -
+ drivers/net/wireless/libertas/if_sdio.c        |    2 +-
+ drivers/net/wireless/p54/txrx.c                |    2 +-
+ drivers/vhost/vhost.c                          |    5 ++++-
+ net/bridge/br_netfilter.c                      |    6 ++++--
+ net/core/gen_estimator.c                       |   12 ++++++------
+ net/core/skbuff.c                              |    8 ++++++--
+ net/ipv4/Kconfig                               |    2 +-
+ net/irda/af_irda.c                             |    4 ++--
+ net/mac80211/main.c                            |    6 ++++++
+ net/netfilter/ipvs/ip_vs_ftp.c                 |    3 ++-
+ net/netlink/af_netlink.c                       |   22 ++++++++++++++++++++++
+ net/sched/act_police.c                         |   21 +++++++++------------
+ net/sched/sch_hfsc.c                           |    2 +-
+ net/wireless/core.c                            |   21 ++++++++++++---------
+ net/wireless/wext-compat.c                     |    3 +++
+ net/wireless/wext-core.c                       |   16 ++++++++++++++++
+ net/xfrm/xfrm_user.c                           |    2 +-
+ 25 files changed, 114 insertions(+), 48 deletions(-)
