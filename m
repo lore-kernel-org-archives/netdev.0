@@ -1,60 +1,93 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the final tree (net
- tree related)
-Date: Fri, 3 Sep 2010 11:52:26 +1000
-Message-ID: <20100903115226.52d0ccb3.sfr@canb.auug.org.au>
-References: <20100903114750.3d8994b7.sfr@canb.auug.org.au>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH] sctp: implement SIOCINQ ioctl() (take 2)
+Date: Fri, 03 Sep 2010 10:03:42 +0800
+Message-ID: <4C80577E.7050005@cn.fujitsu.com>
+References: <1283476464-14341-1-git-send-email-flameeyes@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__3_Sep_2010_11_52_26_+1000_o1TWxblW/af20o3o"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100903114750.3d8994b7.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: =?UTF-8?B?RGllZ28gRWxpbyBQZXR0ZW7Dsg==?= <flameeyes@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:60965 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752348Ab0ICCFt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 22:05:49 -0400
+In-Reply-To: <1283476464-14341-1-git-send-email-flameeyes@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__3_Sep_2010_11_52_26_+1000_o1TWxblW/af20o3o
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+=46orward to linux-sctp maillist.
 
-Hi all,
 
-On Fri, 3 Sep 2010 11:47:50 +1000 Stephen Rothwell <sfr@canb.auug.org.au> w=
-rote:
->
-> Exposed by commit ac75791aa943c7953521cb4fa7728bf51f9abd2d ("stmmac:
-> remove dead option in the driver's Kconfig")  That allowed the driver to
-> be built on a lot more platforms that previously.
+Diego Elio Petten=C3=B2 wrote, at 09/03/2010 09:14 AM:
+> From: Diego Elio 'Flameeyes' Petten=C3=B2 <flameeyes@gmail.com>
+>=20
+> This simple patch copies the current approach for SIOCINQ ioctl() fro=
+m DCCP
+> into SCTP so that the userland code working with SCTP can use a simil=
+ar
+> interface across different protocols to know how much space to alloca=
+te for
+> a buffer.
 
-That commit was the result of the only platform that this driver was ever
-used on being removed by commit f96691872439ab2071171d4531c4a95b5d493ae5
-("sh: Kill off the remaining ST40 cruft").  So maybe this driver should
-actually be removed from the tree as well?
+lack of your singed-of-by.
+
 
 --=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Best Regards
+-----
+Shan Wei
 
---Signature=_Fri__3_Sep_2010_11_52_26_+1000_o1TWxblW/af20o3o
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJMgFTaAAoJEDMEi1NhKgbs1RIIAIN2P2kPzSeDQNrLQlf7Psp8
-/WjhmyJoR889Qjl9ORbK2ji33tmSvGGoiakZQ3f1H/5x8l9ZGx0fP2Lm11quBI4I
-01EOaXVhE7JHKY+ZqAQcUJdxhFkO4ZDBfSfCWIdnDgO94wrkkMacYXHU6xBWIUzk
-Gw9rl+I7goRJT/uZBptnZGcQF76Z7eymiI5pLPiatsNXqTyn3rdL02VP8jGHm2dl
-1b6qvyH6Fa9W8VFMgciM9tEOmpLwwmlegxDgVDUSDzgfT+azf2hBn6pinPPXipZf
-3Mlnfcekci9Ziu8dZvSo4ZICa6DExll7FNomlm71tqVJ1Ro5rtSOXmXlu8nGLfU=
-=szY4
------END PGP SIGNATURE-----
-
---Signature=_Fri__3_Sep_2010_11_52_26_+1000_o1TWxblW/af20o3o--
+> ---
+>  net/sctp/socket.c |   35 ++++++++++++++++++++++++++++++++++-
+>  1 files changed, 34 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index ca44917..54c01e4 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -3595,7 +3595,40 @@ out:
+>  /* The SCTP ioctl handler. */
+>  SCTP_STATIC int sctp_ioctl(struct sock *sk, int cmd, unsigned long a=
+rg)
+>  {
+> -	return -ENOIOCTLCMD;
+> +	int rc =3D -ENOTCONN;
+> +
+> +	sctp_lock_sock(sk);
+> +
+> +	/*
+> +	 * SEQPACKET-style sockets in LISTENING state are valid, for
+> +	 * SCTP, so only discard TCP-style sockets in LISTENING state.
+> +	 */
+> +	if (sctp_style(sk, TCP) && sctp_sstate(sk, LISTENING))
+> +		goto out;
+> +
+> +	switch (cmd) {
+> +	case SIOCINQ: {
+> +		struct sk_buff *skb;
+> +		unsigned long amount =3D 0;
+> +
+> +		skb =3D skb_peek(&sk->sk_receive_queue);
+> +		if (skb !=3D NULL) {
+> +			/*
+> +			 * We will only return the amount of this packet since
+> +			 * that is all that will be read.
+> +			 */
+> +			amount =3D skb->len;
+> +		}
+> +		rc =3D put_user(amount, (int __user *)arg);
+> +	}
+> +		break;
+> +	default:
+> +		rc =3D -ENOIOCTLCMD;
+> +		break;
+> +	}
+> +out:
+> +	sctp_release_sock(sk);
+> +	return rc;
+>  }
+> =20
+>  /* This is the function which gets called during socket creation to
