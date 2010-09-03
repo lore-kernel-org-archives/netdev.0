@@ -1,56 +1,68 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: [PATCH v2] cls_cgroup: Fix rcu lockdep warning
-Date: Fri, 03 Sep 2010 09:42:43 +0800
-Message-ID: <4C805293.1020305@cn.fujitsu.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the final tree (net tree
+ related)
+Date: Fri, 3 Sep 2010 11:47:50 +1000
+Message-ID: <20100903114750.3d8994b7.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
-	Dave Jones <davej@redhat.com>, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Paul Menage <menage@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__3_Sep_2010_11_47_50_+1000_0n8nWaz3mj88hjRQ"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave reported an rcu lockdep warning on 2.6.35.4 kernel
+--Signature=_Fri__3_Sep_2010_11_47_50_+1000_0n8nWaz3mj88hjRQ
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-task->cgroups and task->cgroups->subsys[i] are protected by RCU.
-So we avoid accessing invalid pointers here. This might happen,
-for example, when you are deref-ing those pointers while someone
-move @task from one cgroup to another.
+Hi all,
 
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
----
- include/net/cls_cgroup.h |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+After merging the final tree, next-20100830 and later builds (s390
+allmodconfig) failed like this:
 
-diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-index dd1fdb8..a4dc5b0 100644
---- a/include/net/cls_cgroup.h
-+++ b/include/net/cls_cgroup.h
-@@ -27,11 +27,17 @@ struct cgroup_cls_state
- #ifdef CONFIG_NET_CLS_CGROUP
- static inline u32 task_cls_classid(struct task_struct *p)
- {
-+	int classid;
-+
- 	if (in_interrupt())
- 		return 0;
- 
--	return container_of(task_subsys_state(p, net_cls_subsys_id),
--			    struct cgroup_cls_state, css)->classid;
-+	rcu_read_lock();
-+	classid = container_of(task_subsys_state(p, net_cls_subsys_id),
-+			       struct cgroup_cls_state, css)->classid;
-+	rcu_read_unlock();
-+
-+	return classid;
- }
- #else
- extern int net_cls_subsys_id;
--- 
-1.6.3
+drivers/net/stmmac/stmmac_main.c: In function 'stmmac_adjust_link':
+drivers/net/stmmac/stmmac_main.c:217: error: implicit declaration of functi=
+on 'readl'
+drivers/net/stmmac/stmmac_main.c:270: error: implicit declaration of functi=
+on 'writel'
+drivers/net/stmmac/stmmac_main.c: In function 'stmmac_dvr_probe':
+drivers/net/stmmac/stmmac_main.c:1676: error: implicit declaration of funct=
+ion 'ioremap'
+drivers/net/stmmac/stmmac_main.c:1676: warning: assignment makes pointer fr=
+om integer without a cast
+drivers/net/stmmac/stmmac_main.c:1744: warning: cast from pointer to intege=
+r of different size
+drivers/net/stmmac/stmmac_main.c:1760: error: implicit declaration of funct=
+ion 'iounmap'
+
+Exposed by commit ac75791aa943c7953521cb4fa7728bf51f9abd2d ("stmmac:
+remove dead option in the driver's Kconfig")  That allowed the driver to
+be built on a lot more platforms that previously.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__3_Sep_2010_11_47_50_+1000_0n8nWaz3mj88hjRQ
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMgFPGAAoJEDMEi1NhKgbsQHMH/jk/JpQC41NE2lWG3UH1fq4r
+LF2l9zEKijpYNPK5vvNsyNgmkD6QHhq8R+2ukmqKzf3xA5OghdBgcmLvd1+SlB4f
+mb8bjmfXNTLV5n8I1o5vKirRdbvRUFdidEZa0KyrMj9ggWj4fuLaC1kRzBsi2pwq
+6dsoXOV4JMqrtC4nDJP9CvkXkkyYCAPne3E73t+0EmQs1pqVT6K+VsXnmoBJpKny
+N1oZJSALVKhK5NbFTPzoF1q8H3pa1sRs43jPI5B//Oz9Xdc5XCUKBLPA+f1Jy5jm
+Vtwmj5Bxj5VkMlZJHHWcLNrv5zos1JuILEDoieMqt7NChq5buSL9WyhVBYTO+bo=
+=Mqn7
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__3_Sep_2010_11_47_50_+1000_0n8nWaz3mj88hjRQ--
