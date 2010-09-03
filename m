@@ -1,80 +1,273 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v9 00/16] Provide a zero-copy method on KVM
- virtio-net.
-Date: Fri, 3 Sep 2010 13:52:33 +0300
-Message-ID: <20100903105233.GA32193@redhat.com>
-References: <1281086624-5765-1-git-send-email-xiaohui.xin@intel.com>
- <1281489804.3391.23.camel@localhost.localdomain>
- <1281490993.3391.25.camel@localhost.localdomain>
- <1281506460.3391.42.camel@localhost.localdomain>
- <1281509704.3391.45.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
-	herbert@gondor.hengli.com.au, jdike@linux.intel.com
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1281509704.3391.45.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Subject: [PATCH 02/15] pcmcia: split up modify_configuration() into two fixup functions
+Date: Fri,  3 Sep 2010 12:57:01 +0200
+Message-ID: <1283511434-21620-2-git-send-email-linux@dominikbrodowski.net>
+References: <20100903105628.GA21255@comet.dominikbrodowski.net>
+Cc: Dominik Brodowski <linux@dominikbrodowski.net>,
+	netdev@vger.kernel.org, linux-mtd@lists.infradead.org
+To: <linux-pcmcia@lists.infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from isilmar-3.linta.de ([188.40.101.200]:44053 "EHLO linta.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757052Ab0ICK5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Sep 2010 06:57:54 -0400
+In-Reply-To: <20100903105628.GA21255@comet.dominikbrodowski.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 10, 2010 at 11:55:04PM -0700, Shirley Ma wrote:
-> On Tue, 2010-08-10 at 23:01 -0700, Shirley Ma wrote:
-> > On Tue, 2010-08-10 at 18:43 -0700, Shirley Ma wrote:
-> > > > Also I found some vhost performance regression on the new
-> > > > kernel with tuning. I used to get 9.4Gb/s, now I couldn't get it. 
-> > > 
-> > > I forgot to mention the kernel I used 2.6.36 one. And I found the
-> > > native
-> > > host BW is limited to 8.0Gb/s, so the regression might come from the
-> > > device driver not vhost.
-> > 
-> > Something is very interesting, when binding ixgbe interrupts to cpu1,
-> > and running netperf/netserver on cpu0, the native host to host
-> > performance is still around 8.0Gb/s, however, the macvtap zero copy
-> > result is 9.0Gb/s.
-> > 
-> > root@localhost ~]# netperf -H 192.168.10.74 -c -C -l60 -T0,0 -- -m 64K
-> > TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.10.74 (192.168..
-> > 10.74) port 0 AF_INET : cpu bind
-> > Recv   Send    Send                          Utilization       Service Demand
-> > Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> > Size   Size    Size     Time     Throughput  local    remote   local   remote
-> > bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-> > 
-> >  87380  16384  65536    60.00      9013.59   53.01    8.21     0.963   0.597
-> > 
-> > Below is perf top output:
-> > 
-> >               578.00  6.5% copy_user_generic_string   
-> >               381.00  4.3% vmx_vcpu_run                
-> >               250.00  2.8% schedule                    
-> >               207.00  2.3% vhost_get_vq_desc           
-> >               204.00  2.3% _raw_spin_lock_irqsave      
-> >               197.00  2.2% translate_desc              
-> >               193.00  2.2% memcpy_fromiovec            
-> >               162.00  1.8% gup_pte_range   
-> > 
-> > We can compare your results with mine to see any difference.
+pcmcia_modify_configuration() was only used by two drivers to fix up
+one issue each: setting the Vpp to a different value, and reducing
+the IO width to 8 bit. Introduce two explicitly named functions
+handling these things, and remove one further typedef.
 
-Could you look at the guest as well?
+CC: netdev@vger.kernel.org
+CC: linux-mtd@lists.infradead.org
+Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+---
+ drivers/mtd/maps/pcmciamtd.c     |    8 +--
+ drivers/net/pcmcia/smc91c92_cs.c |    5 +-
+ drivers/pcmcia/pcmcia_resource.c |  128 +++++++++++++++++++-------------------
+ include/pcmcia/cs.h              |   13 ----
+ include/pcmcia/ds.h              |    4 +-
+ 5 files changed, 69 insertions(+), 89 deletions(-)
 
-> When binding vhost thread to cpu3, qemu I/O thread to cpu2, macvtap zero
-> copy patch can get 9.4Gb/s. 
-> 
-> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.10.74 (192.168.10.74) port 0 AF_INET : cpu bind
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-> 
->  87380  16384  65536    60.00      9408.19   55.69    8.45     0.970   0.589
-> 
-> Shirley
-
-OTOH CPU utilization is up too.
-
+diff --git a/drivers/mtd/maps/pcmciamtd.c b/drivers/mtd/maps/pcmciamtd.c
+index fb3c538..31ce404 100644
+--- a/drivers/mtd/maps/pcmciamtd.c
++++ b/drivers/mtd/maps/pcmciamtd.c
+@@ -316,15 +316,9 @@ static void pcmciamtd_set_vpp(struct map_info *map, int on)
+ {
+ 	struct pcmciamtd_dev *dev = (struct pcmciamtd_dev *)map->map_priv_1;
+ 	struct pcmcia_device *link = dev->p_dev;
+-	modconf_t mod;
+-	int ret;
+-
+-	mod.Attributes = CONF_VPP1_CHANGE_VALID | CONF_VPP2_CHANGE_VALID;
+-	mod.Vcc = 0;
+-	mod.Vpp1 = mod.Vpp2 = on ? dev->vpp : 0;
+ 
+ 	DEBUG(2, "dev = %p on = %d vpp = %d\n", dev, on, dev->vpp);
+-	ret = pcmcia_modify_configuration(link, &mod);
++	pcmcia_fixup_vpp(link, on ? dev->vpp : 0);
+ }
+ 
+ 
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index acc6807..395e586 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -816,13 +816,10 @@ static int check_sig(struct pcmcia_device *link)
+     }
+ 
+     if (width) {
+-	    modconf_t mod = {
+-		    .Attributes = CONF_IO_CHANGE_WIDTH,
+-	    };
+ 	    printk(KERN_INFO "smc91c92_cs: using 8-bit IO window.\n");
+ 
+ 	    smc91c92_suspend(link);
+-	    pcmcia_modify_configuration(link, &mod);
++	    pcmcia_fixup_iowidth(link);
+ 	    smc91c92_resume(link);
+ 	    return check_sig(link);
+     }
+diff --git a/drivers/pcmcia/pcmcia_resource.c b/drivers/pcmcia/pcmcia_resource.c
+index 3ea2e94..45c1ac4 100644
+--- a/drivers/pcmcia/pcmcia_resource.c
++++ b/drivers/pcmcia/pcmcia_resource.c
+@@ -226,90 +226,90 @@ int pcmcia_map_mem_page(struct pcmcia_device *p_dev, struct resource *res,
+ EXPORT_SYMBOL(pcmcia_map_mem_page);
+ 
+ 
+-/** pcmcia_modify_configuration
++/**
++ * pcmcia_fixup_iowidth() - reduce io width to 8bit
+  *
+- * Modify a locked socket configuration
++ * pcmcia_fixup_iowidth() allows a PCMCIA device driver to reduce the
++ * IO width to 8bit after having called pcmcia_request_configuration()
++ * previously.
+  */
+-int pcmcia_modify_configuration(struct pcmcia_device *p_dev,
+-				modconf_t *mod)
++int pcmcia_fixup_iowidth(struct pcmcia_device *p_dev)
+ {
+-	struct pcmcia_socket *s;
+-	config_t *c;
+-	int ret;
+-
+-	s = p_dev->socket;
++	struct pcmcia_socket *s = p_dev->socket;
++	pccard_io_map io_off = { 0, 0, 0, 0, 1 };
++	pccard_io_map io_on;
++	int i, ret = 0;
+ 
+ 	mutex_lock(&s->ops_mutex);
+-	c = p_dev->function_config;
+ 
+-	if (!(s->state & SOCKET_PRESENT)) {
+-		dev_dbg(&s->dev, "No card present\n");
+-		ret = -ENODEV;
+-		goto unlock;
+-	}
+-	if (!(c->state & CONFIG_LOCKED)) {
+-		dev_dbg(&s->dev, "Configuration isnt't locked\n");
++	dev_dbg(&p_dev->dev, "fixup iowidth to 8bit\n");
++
++	if (!(s->state & SOCKET_PRESENT) ||
++		!(p_dev->function_config->state & CONFIG_LOCKED)) {
++		dev_dbg(&s->dev, "No card? Config not locked?\n");
+ 		ret = -EACCES;
+ 		goto unlock;
+ 	}
+ 
+-	if (mod->Attributes & (CONF_IRQ_CHANGE_VALID | CONF_VCC_CHANGE_VALID)) {
+-		dev_dbg(&s->dev,
+-			"changing Vcc or IRQ is not allowed at this time\n");
+-		ret = -EINVAL;
+-		goto unlock;
+-	}
++	io_on.speed = io_speed;
++	for (i = 0; i < MAX_IO_WIN; i++) {
++		if (!s->io[i].res)
++			continue;
++		io_off.map = i;
++		io_on.map = i;
+ 
+-	/* We only allow changing Vpp1 and Vpp2 to the same value */
+-	if ((mod->Attributes & CONF_VPP1_CHANGE_VALID) &&
+-	    (mod->Attributes & CONF_VPP2_CHANGE_VALID)) {
+-		if (mod->Vpp1 != mod->Vpp2) {
+-			dev_dbg(&s->dev, "Vpp1 and Vpp2 must be the same\n");
+-			ret = -EINVAL;
+-			goto unlock;
+-		}
+-		s->socket.Vpp = mod->Vpp1;
+-		if (s->ops->set_socket(s, &s->socket)) {
+-			dev_printk(KERN_WARNING, &s->dev,
+-				   "Unable to set VPP\n");
+-			ret = -EIO;
+-			goto unlock;
+-		}
+-	} else if ((mod->Attributes & CONF_VPP1_CHANGE_VALID) ||
+-		   (mod->Attributes & CONF_VPP2_CHANGE_VALID)) {
+-		dev_dbg(&s->dev, "changing Vcc is not allowed at this time\n");
+-		ret = -EINVAL;
+-		goto unlock;
++		io_on.flags = MAP_ACTIVE | IO_DATA_PATH_WIDTH_8;
++		io_on.start = s->io[i].res->start;
++		io_on.stop = s->io[i].res->end;
++
++		s->ops->set_io_map(s, &io_off);
++		mdelay(40);
++		s->ops->set_io_map(s, &io_on);
+ 	}
++unlock:
++	mutex_unlock(&s->ops_mutex);
+ 
+-	if (mod->Attributes & CONF_IO_CHANGE_WIDTH) {
+-		pccard_io_map io_off = { 0, 0, 0, 0, 1 };
+-		pccard_io_map io_on;
+-		int i;
++	return ret;
++}
++EXPORT_SYMBOL(pcmcia_fixup_iowidth);
+ 
+-		io_on.speed = io_speed;
+-		for (i = 0; i < MAX_IO_WIN; i++) {
+-			if (!s->io[i].res)
+-				continue;
+-			io_off.map = i;
+-			io_on.map = i;
+ 
+-			io_on.flags = MAP_ACTIVE | IO_DATA_PATH_WIDTH_8;
+-			io_on.start = s->io[i].res->start;
+-			io_on.stop = s->io[i].res->end;
++/**
++ * pcmcia_fixup_vpp() - set Vpp to a new voltage level
++ *
++ * pcmcia_fixup_vpp() allows a PCMCIA device driver to set Vpp to
++ * a new voltage level between calls to pcmcia_request_configuration()
++ * and pcmcia_disable_device().
++ */
++int pcmcia_fixup_vpp(struct pcmcia_device *p_dev, unsigned char new_vpp)
++{
++	struct pcmcia_socket *s = p_dev->socket;
++	int ret = 0;
+ 
+-			s->ops->set_io_map(s, &io_off);
+-			mdelay(40);
+-			s->ops->set_io_map(s, &io_on);
+-		}
++	mutex_lock(&s->ops_mutex);
++
++	dev_dbg(&p_dev->dev, "fixup Vpp to %d\n", new_vpp);
++
++	if (!(s->state & SOCKET_PRESENT) ||
++		!(p_dev->function_config->state & CONFIG_LOCKED)) {
++		dev_dbg(&s->dev, "No card? Config not locked?\n");
++		ret = -EACCES;
++		goto unlock;
+ 	}
+-	ret = 0;
++
++	s->socket.Vpp = new_vpp;
++	if (s->ops->set_socket(s, &s->socket)) {
++		dev_printk(KERN_WARNING, &s->dev, "Unable to set VPP\n");
++		ret = -EIO;
++		goto unlock;
++	}
++
+ unlock:
+ 	mutex_unlock(&s->ops_mutex);
+ 
+ 	return ret;
+-} /* modify_configuration */
+-EXPORT_SYMBOL(pcmcia_modify_configuration);
++}
++EXPORT_SYMBOL(pcmcia_fixup_vpp);
+ 
+ 
+ int pcmcia_release_configuration(struct pcmcia_device *p_dev)
+diff --git a/include/pcmcia/cs.h b/include/pcmcia/cs.h
+index 63cb9bb..e13d0cd 100644
+--- a/include/pcmcia/cs.h
++++ b/include/pcmcia/cs.h
+@@ -19,19 +19,6 @@
+ #include <linux/interrupt.h>
+ #endif
+ 
+-/* ModifyConfiguration */
+-typedef struct modconf_t {
+-    u_int	Attributes;
+-    u_int	Vcc, Vpp1, Vpp2;
+-} modconf_t;
+-
+-/* Attributes for ModifyConfiguration */
+-#define CONF_IRQ_CHANGE_VALID	0x0100
+-#define CONF_VCC_CHANGE_VALID	0x0200
+-#define CONF_VPP1_CHANGE_VALID	0x0400
+-#define CONF_VPP2_CHANGE_VALID	0x0800
+-#define CONF_IO_CHANGE_WIDTH	0x1000
+-
+ /* For RequestConfiguration */
+ typedef struct config_req_t {
+     u_int	Attributes;
+diff --git a/include/pcmcia/ds.h b/include/pcmcia/ds.h
+index 6f7cb38..8e307b9 100644
+--- a/include/pcmcia/ds.h
++++ b/include/pcmcia/ds.h
+@@ -212,7 +212,9 @@ int pcmcia_release_window(struct pcmcia_device *p_dev, struct resource *res);
+ int pcmcia_map_mem_page(struct pcmcia_device *p_dev, struct resource *res,
+ 			unsigned int offset);
+ 
+-int pcmcia_modify_configuration(struct pcmcia_device *p_dev, modconf_t *mod);
++int pcmcia_fixup_vpp(struct pcmcia_device *p_dev, unsigned char new_vpp);
++int pcmcia_fixup_iowidth(struct pcmcia_device *p_dev);
++
+ void pcmcia_disable_device(struct pcmcia_device *p_dev);
+ 
+ /* IO ports */
 -- 
-MST
+1.7.0.4
+
