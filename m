@@ -1,338 +1,145 @@
-From: Chris Leech <chris.leech@gmail.com>
-Subject: [BUG] __vlan_hwaccel_rx system call causes kernel panic
-Date: Thu, 2 Sep 2010 16:29:14 -0700
-Message-ID: <AANLkTin9ND42s0o-3Wv-vZuG5RTxSheJOCdSnr3qyHX5@mail.gmail.com>
-References: <7360C1812CDFF247A3342E16BF5CBE0A01277F6A@NL-EXC-06.intra.local>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] wan: make driver strings const
+Date: Thu, 2 Sep 2010 17:29:35 -0700
+Message-ID: <20100902172935.469cfeeb@nehalam>
+References: <20100901181515.02c5abdc@nehalam>
+	<20100901.182014.141246825.davem@davemloft.net>
+	<20100901.191921.66727586.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-net@vger.kernel.org
-To: Greg Trahair <Greg.Trahair@tomtom.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <7360C1812CDFF247A3342E16BF5CBE0A01277F6A@NL-EXC-06.intra.local>
-Sender: linux-net-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@ghostprotocols.net, andrew.hendry@gmail.com,
+	elendil@planet.nl, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:57966 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752444Ab0ICA3i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Sep 2010 20:29:38 -0400
+In-Reply-To: <20100901.191921.66727586.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greg,
+Subject: wan: make read-only data const
 
-You'll probably get a better response for this sort of thing on netdev
-than linux-net.  Also, because this involves an Intel network driver,
-e1000-devel might be able to help.
+Change several wan drivers to make strings and other initialize
+only parameters const.
 
-- Chris
+Compile tested only (with no new warnings)
 
-=46orwarded conversation
-Subject: [BUG] __vlan_hwaccel_rx system call causes kernel panic
-------------------------
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-=46rom: Greg Trahair <Greg.Trahair@tomtom.com>
-Date: Thu, Sep 2, 2010 at 1:17 AM
-To: linux-net@vger.kernel.org
-Cc: Sami Kerola <Sami.Kerola@tomtom.com>
+---
+v2 - fixe get_options_index as well
 
+ drivers/net/wan/cycx_drv.c  |   10 +++++-----
+ drivers/net/wan/cycx_main.c |    6 +++---
+ drivers/net/wan/lapbether.c |    2 +-
+ drivers/net/wan/pc300_drv.c |    2 +-
+ drivers/net/wan/z85230.c    |    2 +-
+ 5 files changed, 11 insertions(+), 11 deletions(-)
 
-I have recently upgraded Citrix XenServer from 5.5 to 5.6 (from
-2.6.18-128.1.6.el5.xs5.5.0.505.1024xen to
-2.6.27.42-0.1.1.xs5.6.0.44.111158xen) and when the system either
-brings up, or shuts down a vlan tagged interface, the below stack
-trace appears and system halts.
-
-This problem is intermittent, it doesn't happen every time, but it's
-quite reliably reproducible by starting/stopping OS.
-
-
-Shutting down interface eth4.443: =A0BUG: unable to handle kernel NULL
-pointer dereference at 00000010
-IP: [<c0337695>] __vlan_hwaccel_rx+0x75/0x160
-Oops: 0000 [#1] SMP
-last sysfs file: /sys/class/iscsi_session/session1/ifacename
-Modules linked in: nfs nfs_acl lockd sunrpc 8021q bridge stp llc(N)
-ipt_REJECT nf_conntrack_ipv4 xt_state nf_conntrack xt_tcpudp
-iptable_filter ip_tables x_tables binfmt_misc nls_utf8 isofs(N)
-dm_mirror dm_log dm_mod sbs sbshc fan dock container battery ac
-parport_pc lp parport nvram igb evdev(N) thermal button processor
-thermal_sys bnx2 serio_raw zlib_inflate(N) rtc_cmos rtc_core rtc_lib
-8250_pnp 8250 serial_core pcspkr ide_generic ide_disk mptsas
-scsi_transport_sas mppVhba mptscsih mptbase mppUpper sg sd_mod
-scsi_mod ext3 jbd uhci_hcd ohci_hcd ehci_hcd usbcore fbcon(N) font(N)
-tileblit(N) bitblit(N) softcursor(N) [last unloaded:
-scsi_transport_iscsi]
-Supported: No
-
-Pid: 31322, comm: vconfig Tainted: G
-(2.6.27.42-0.1.1.xs5.6.0.44.111158xen #1)
-EIP: 0061:[<c0337695>] EFLAGS: 00010247 CPU: 0
-EIP is at __vlan_hwaccel_rx+0x75/0x160
-EAX: 00000000 EBX: eeb47c00 ECX: 0000013f EDX: 00000000
-ESI: 00000000 EDI: 0000013f EBP: eb9a7d6c ESP: eb9a7d5c
-=A0DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0069
-Process vconfig (pid: 31322, ti=3Deb9a6000 task=3Deba3f030 task.ti=3Deb=
-9a6000)
-Stack: 00000000 000000e6 eeb6a4c0 eeb47c00 eb9a7e48 f02ba946 00000001 0=
-0000002
-=A0 =A0 =A0 c16bdb00 00000000 eac84900 00000002 00000942 00000000 00000=
-005 01025e93
-=A0 =A0 =A0 eb9a7db0 c01d002c eb0f4000 00000040 ee060dcc eced85c0 eeb6a=
-4c0 ee060dc0
-Call Trace:
-=A0[<f02ba946>] ? igb_poll+0x8e6/0xc90 [igb]
-=A0[<c01d002c>] ? release_sysfs_dirent+0x1c/0xc0
-=A0[<c0346ee5>] ? schedule_timeout+0x75/0xc0
-=A0[<c025b715>] ? device_release+0x15/0x70
-=A0[<c0346ce2>] ? wait_for_completion+0x12/0x20
-=A0[<c02d44a5>] ? net_rx_action+0x165/0x250
-=A0[<c012e322>] ? __do_softirq+0xb2/0x160
-=A0[<c012e457>] ? do_softirq+0x87/0x90
-=A0[<c012e77b>] ? irq_exit+0x3b/0x50
-=A0[<c026d0ec>] ? evtchn_do_upcall+0x1dc/0x1f0
-=A0[<c02c5620>] ? sock_ioctl+0x0/0x220
-=A0[<c0105565>] ? hypervisor_callback+0x41/0x49
-=A0[<c02c5620>] ? sock_ioctl+0x0/0x220
-=A0[<f036fa79>] ? vlan_ioctl_handler+0xa9/0x390 [8021q]
-=A0[<c02c57d0>] ? sock_ioctl+0x1b0/0x220
-=A0[<c02c5620>] ? sock_ioctl+0x0/0x220
-=A0[<c0191458>] ? vfs_ioctl+0x28/0x80
-=A0[<c0191507>] ? do_vfs_ioctl+0x57/0x290
-=A0[<c02c74ff>] ? sys_socketcall+0x6f/0x290
-=A0[<c0182bb9>] ? filp_close+0x49/0x70
-=A0[<c01917a0>] ? sys_ioctl+0x60/0x70
-=A0[<c01053ce>] ? syscall_call+0x7/0xb
-=A0=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-Code: 00 00 8d 74 26 00 0f b7 81 c6 00 00 00 a8 04 75 55 89 f9 8b 75
-f0 66 81 e1 ff 0f 89 c8 66 c1 e8 09 0f b7 c0 66 89 bb 88 00 00 00 <8b>
-54 86 10 31 c0 85 d2 74 0a 89 c8 25 ff 01 00 00 8b 04 82 89
-EIP: [<c0337695>] __vlan_hwaccel_rx+0x75/0x160 SS:ESP 0069:eb9a7d5c
-
---
-Greg Trahair=A0|=A0Lead System Engineer |=A0TomTom
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-net" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-
-----------
-=46rom: Greg Trahair <Greg.Trahair@tomtom.com>
-Date: Thu, Sep 2, 2010 at 2:43 AM
-To: linux-net@vger.kernel.org
-Cc: Sami Kerola <Sami.Kerola@tomtom.com>
-
-
-Oops, I forgot to include the hardware:
-
-06:00.0 Ethernet controller: Intel Corporation 82576 Gigabit Network
-Connection (rev 01)
-=A0 =A0 =A0 =A0Subsystem: Intel Corporation Gigabit ET Quad Port Server=
- Adapter
-=A0 =A0 =A0 =A0Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASno=
-op-
-ParErr- Stepping- SERR- FastB2B-
-=A0 =A0 =A0 =A0Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast =
->TAbort-
-<TAbort- <MAbort- >SERR- <PERR-
-=A0 =A0 =A0 =A0Latency: 0, Cache Line Size: 64 bytes
-=A0 =A0 =A0 =A0Interrupt: pin A routed to IRQ 47
-=A0 =A0 =A0 =A0Region 0: Memory at ddfc0000 (32-bit, non-prefetchable) =
-[size=3D128K]
-=A0 =A0 =A0 =A0Region 1: Memory at de000000 (32-bit, non-prefetchable) =
-[size=3D4M]
-=A0 =A0 =A0 =A0Region 2: I/O ports at ecc0 [size=3D32]
-=A0 =A0 =A0 =A0Region 3: Memory at ddfb8000 (32-bit, non-prefetchable) =
-[size=3D16K]
-=A0 =A0 =A0 =A0Capabilities: [40] Power Management version 3
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D=
-0mA
-PME(D0+,D1-,D2-,D3hot+,D3cold+)
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Status: D0 PME-Enable- DSel=3D0 DScale=3D=
-1 PME-
-=A0 =A0 =A0 =A0Capabilities: [50] Message Signalled Interrupts: 64bit+ =
-Queue=3D0/0 Enable-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Address: 0000000000000000 =A0Data: 0000
-=A0 =A0 =A0 =A0Capabilities: [70] MSI-X: Enable+ Mask- TabSize=3D10
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D3 offset=3D00000000
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D3 offset=3D00002000
-=A0 =A0 =A0 =A0Capabilities: [a0] Express Endpoint IRQ 0
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Supported: MaxPayload 512 bytes,=
- PhantFunc 0, ExtTag-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Latency L0s <512ns, L1 <64us
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: AtnBtn- AtnInd- PwrInd-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Errors: Correctable- Non-Fatal+ =
-=46atal+ Unsupported+
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: RlxdOrd+ ExtTag- PhantFunc- AuxP=
-wr- NoSnoop+
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: MaxPayload 256 bytes, MaxReadReq=
- 512 bytes
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Supported Speed 2.5Gb/s, Width x4,=
- ASPM L0s L1, Port 2
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Latency L0s <4us, L1 <64us
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: ASPM Disabled RCB 64 bytes CommClk=
-+ ExtSynch-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Speed 2.5Gb/s, Width x4
-=A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
-=A0 =A0 =A0 =A0Capabilities: [140] Device Serial Number c0-57-55-ff-ff-=
-21-1b-00
-=A0 =A0 =A0 =A0Capabilities: [150] Unknown (14)
-=A0 =A0 =A0 =A0Capabilities: [160] Unknown (16)
-
-06:00.1 Ethernet controller: Intel Corporation 82576 Gigabit Network
-Connection (rev 01)
-=A0 =A0 =A0 =A0Subsystem: Intel Corporation Gigabit ET Quad Port Server=
- Adapter
-=A0 =A0 =A0 =A0Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASno=
-op-
-ParErr- Stepping- SERR- FastB2B-
-=A0 =A0 =A0 =A0Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast =
->TAbort-
-<TAbort- <MAbort- >SERR- <PERR-
-=A0 =A0 =A0 =A0Latency: 0, Cache Line Size: 64 bytes
-=A0 =A0 =A0 =A0Interrupt: pin B routed to IRQ 46
-=A0 =A0 =A0 =A0Region 0: Memory at ddfe0000 (32-bit, non-prefetchable) =
-[size=3D128K]
-=A0 =A0 =A0 =A0Region 1: Memory at de400000 (32-bit, non-prefetchable) =
-[size=3D4M]
-=A0 =A0 =A0 =A0Region 2: I/O ports at ece0 [size=3D32]
-=A0 =A0 =A0 =A0Region 3: Memory at ddfbc000 (32-bit, non-prefetchable) =
-[size=3D16K]
-=A0 =A0 =A0 =A0Capabilities: [40] Power Management version 3
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D=
-0mA
-PME(D0+,D1-,D2-,D3hot+,D3cold+)
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Status: D0 PME-Enable- DSel=3D0 DScale=3D=
-1 PME-
-=A0 =A0 =A0 =A0Capabilities: [50] Message Signalled Interrupts: 64bit+ =
-Queue=3D0/0 Enable-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Address: 0000000000000000 =A0Data: 0000
-=A0 =A0 =A0 =A0Capabilities: [70] MSI-X: Enable+ Mask- TabSize=3D10
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D3 offset=3D00000000
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D3 offset=3D00002000
-=A0 =A0 =A0 =A0Capabilities: [a0] Express Endpoint IRQ 0
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Supported: MaxPayload 512 bytes,=
- PhantFunc 0, ExtTag-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Latency L0s <512ns, L1 <64us
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: AtnBtn- AtnInd- PwrInd-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Errors: Correctable- Non-Fatal+ =
-=46atal+ Unsupported+
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: RlxdOrd+ ExtTag- PhantFunc- AuxP=
-wr- NoSnoop+
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: MaxPayload 256 bytes, MaxReadReq=
- 512 bytes
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Supported Speed 2.5Gb/s, Width x4,=
- ASPM L0s L1, Port 2
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Latency L0s <4us, L1 <64us
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: ASPM Disabled RCB 64 bytes CommClk=
-+ ExtSynch-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Speed 2.5Gb/s, Width x4
-=A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
-=A0 =A0 =A0 =A0Capabilities: [140] Device Serial Number c0-57-55-ff-ff-=
-21-1b-00
-=A0 =A0 =A0 =A0Capabilities: [150] Unknown (14)
-=A0 =A0 =A0 =A0Capabilities: [160] Unknown (16)
-
-07:00.0 Ethernet controller: Intel Corporation 82576 Gigabit Network
-Connection (rev 01)
-=A0 =A0 =A0 =A0Subsystem: Intel Corporation Gigabit ET Quad Port Server=
- Adapter
-=A0 =A0 =A0 =A0Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASno=
-op-
-ParErr- Stepping- SERR- FastB2B-
-=A0 =A0 =A0 =A0Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast =
->TAbort-
-<TAbort- <MAbort- >SERR- <PERR-
-=A0 =A0 =A0 =A0Latency: 0, Cache Line Size: 64 bytes
-=A0 =A0 =A0 =A0Interrupt: pin A routed to IRQ 38
-=A0 =A0 =A0 =A0Region 0: Memory at dd3c0000 (32-bit, non-prefetchable) =
-[size=3D128K]
-=A0 =A0 =A0 =A0Region 1: Memory at dd400000 (32-bit, non-prefetchable) =
-[size=3D4M]
-=A0 =A0 =A0 =A0Region 2: I/O ports at dcc0 [size=3D32]
-=A0 =A0 =A0 =A0Region 3: Memory at dd3b8000 (32-bit, non-prefetchable) =
-[size=3D16K]
-=A0 =A0 =A0 =A0Capabilities: [40] Power Management version 3
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D=
-0mA
-PME(D0+,D1-,D2-,D3hot+,D3cold-)
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Status: D0 PME-Enable- DSel=3D0 DScale=3D=
-1 PME-
-=A0 =A0 =A0 =A0Capabilities: [50] Message Signalled Interrupts: 64bit+ =
-Queue=3D0/0 Enable-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Address: 0000000000000000 =A0Data: 0000
-=A0 =A0 =A0 =A0Capabilities: [70] MSI-X: Enable+ Mask- TabSize=3D10
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D3 offset=3D00000000
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D3 offset=3D00002000
-=A0 =A0 =A0 =A0Capabilities: [a0] Express Endpoint IRQ 0
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Supported: MaxPayload 512 bytes,=
- PhantFunc 0, ExtTag-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Latency L0s <512ns, L1 <64us
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: AtnBtn- AtnInd- PwrInd-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Errors: Correctable- Non-Fatal+ =
-=46atal+ Unsupported+
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: RlxdOrd+ ExtTag- PhantFunc- AuxP=
-wr- NoSnoop+
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: MaxPayload 256 bytes, MaxReadReq=
- 512 bytes
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Supported Speed 2.5Gb/s, Width x4,=
- ASPM L0s L1, Port 4
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Latency L0s <4us, L1 <64us
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: ASPM Disabled RCB 64 bytes CommClk=
-+ ExtSynch-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Speed 2.5Gb/s, Width x4
-=A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
-=A0 =A0 =A0 =A0Capabilities: [140] Device Serial Number c4-57-55-ff-ff-=
-21-1b-00
-=A0 =A0 =A0 =A0Capabilities: [150] Unknown (14)
-=A0 =A0 =A0 =A0Capabilities: [160] Unknown (16)
-
-07:00.1 Ethernet controller: Intel Corporation 82576 Gigabit Network
-Connection (rev 01)
-=A0 =A0 =A0 =A0Subsystem: Intel Corporation Gigabit ET Quad Port Server=
- Adapter
-=A0 =A0 =A0 =A0Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASno=
-op-
-ParErr- Stepping- SERR- FastB2B-
-=A0 =A0 =A0 =A0Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast =
->TAbort-
-<TAbort- <MAbort- >SERR- <PERR-
-=A0 =A0 =A0 =A0Latency: 0, Cache Line Size: 64 bytes
-=A0 =A0 =A0 =A0Interrupt: pin B routed to IRQ 45
-=A0 =A0 =A0 =A0Region 0: Memory at dd3e0000 (32-bit, non-prefetchable) =
-[size=3D128K]
-=A0 =A0 =A0 =A0Region 1: Memory at dd800000 (32-bit, non-prefetchable) =
-[size=3D4M]
-=A0 =A0 =A0 =A0Region 2: I/O ports at dce0 [size=3D32]
-=A0 =A0 =A0 =A0Region 3: Memory at dd3bc000 (32-bit, non-prefetchable) =
-[size=3D16K]
-=A0 =A0 =A0 =A0Capabilities: [40] Power Management version 3
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D=
-0mA
-PME(D0+,D1-,D2-,D3hot+,D3cold-)
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Status: D0 PME-Enable- DSel=3D0 DScale=3D=
-1 PME-
-=A0 =A0 =A0 =A0Capabilities: [50] Message Signalled Interrupts: 64bit+ =
-Queue=3D0/0 Enable-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Address: 0000000000000000 =A0Data: 0000
-=A0 =A0 =A0 =A0Capabilities: [70] MSI-X: Enable+ Mask- TabSize=3D10
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Vector table: BAR=3D3 offset=3D00000000
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0PBA: BAR=3D3 offset=3D00002000
-=A0 =A0 =A0 =A0Capabilities: [a0] Express Endpoint IRQ 0
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Supported: MaxPayload 512 bytes,=
- PhantFunc 0, ExtTag-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Latency L0s <512ns, L1 <64us
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: AtnBtn- AtnInd- PwrInd-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: Errors: Correctable- Non-Fatal+ =
-=46atal+ Unsupported+
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: RlxdOrd+ ExtTag- PhantFunc- AuxP=
-wr- NoSnoop+
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Device: MaxPayload 256 bytes, MaxReadReq=
- 512 bytes
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Supported Speed 2.5Gb/s, Width x4,=
- ASPM L0s L1, Port 4
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Latency L0s <4us, L1 <64us
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: ASPM Disabled RCB 64 bytes CommClk=
-+ ExtSynch-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Link: Speed 2.5Gb/s, Width x4
-=A0 =A0 =A0 =A0Capabilities: [100] Advanced Error Reporting
-=A0 =A0 =A0 =A0Capabilities: [140] Device Serial Number c4-57-55-ff-ff-=
-21-1b-00
-=A0 =A0 =A0 =A0Capabilities: [150] Unknown (14)
-=A0 =A0 =A0 =A0Capabilities: [160] Unknown (16)
+--- a/drivers/net/wan/cycx_drv.c	2010-09-02 10:21:41.557110204 -0700
++++ b/drivers/net/wan/cycx_drv.c	2010-09-02 10:36:52.526128313 -0700
+@@ -73,7 +73,7 @@ static int reset_cyc2x(void __iomem *add
+ static int detect_cyc2x(void __iomem *addr);
+ 
+ /* Miscellaneous functions */
+-static int get_option_index(long *optlist, long optval);
++static int get_option_index(const long *optlist, long optval);
+ static u16 checksum(u8 *buf, u32 len);
+ 
+ #define wait_cyc(addr) cycx_exec(addr + CMD_OFFSET)
+@@ -81,23 +81,23 @@ static u16 checksum(u8 *buf, u32 len);
+ /* Global Data */
+ 
+ /* private data */
+-static char modname[] = "cycx_drv";
+-static char fullname[] = "Cyclom 2X Support Module";
+-static char copyright[] = "(c) 1998-2003 Arnaldo Carvalho de Melo "
++static const char modname[] = "cycx_drv";
++static const char fullname[] = "Cyclom 2X Support Module";
++static const char copyright[] = "(c) 1998-2003 Arnaldo Carvalho de Melo "
+ 			  "<acme@conectiva.com.br>";
+ 
+ /* Hardware configuration options.
+  * These are arrays of configuration options used by verification routines.
+  * The first element of each array is its size (i.e. number of options).
+  */
+-static long cyc2x_dpmbase_options[] = {
++static const long cyc2x_dpmbase_options[] = {
+ 	20,
+ 	0xA0000, 0xA4000, 0xA8000, 0xAC000, 0xB0000, 0xB4000, 0xB8000,
+ 	0xBC000, 0xC0000, 0xC4000, 0xC8000, 0xCC000, 0xD0000, 0xD4000,
+ 	0xD8000, 0xDC000, 0xE0000, 0xE4000, 0xE8000, 0xEC000
+ };
+ 
+-static long cycx_2x_irq_options[]  = { 7, 3, 5, 9, 10, 11, 12, 15 };
++static const long cycx_2x_irq_options[]  = { 7, 3, 5, 9, 10, 11, 12, 15 };
+ 
+ /* Kernel Loadable Module Entry Points */
+ /* Module 'insert' entry point.
+@@ -529,7 +529,7 @@ static int detect_cyc2x(void __iomem *ad
+ /* Miscellaneous */
+ /* Get option's index into the options list.
+  *	Return option's index (1 .. N) or zero if option is invalid. */
+-static int get_option_index(long *optlist, long optval)
++static int get_option_index(const long *optlist, long optval)
+ {
+ 	int i = 1;
+ 
+--- a/drivers/net/wan/cycx_main.c	2010-09-02 10:21:41.505110837 -0700
++++ b/drivers/net/wan/cycx_main.c	2010-09-02 10:22:18.512662264 -0700
+@@ -81,9 +81,9 @@ static irqreturn_t cycx_isr(int irq, voi
+  */
+ 
+ /* private data */
+-static char cycx_drvname[] = "cyclomx";
+-static char cycx_fullname[] = "CYCLOM 2X(tm) Sync Card Driver";
+-static char cycx_copyright[] = "(c) 1998-2003 Arnaldo Carvalho de Melo "
++static const char cycx_drvname[] = "cyclomx";
++static const char cycx_fullname[] = "CYCLOM 2X(tm) Sync Card Driver";
++static const char cycx_copyright[] = "(c) 1998-2003 Arnaldo Carvalho de Melo "
+ 			  "<acme@conectiva.com.br>";
+ static int cycx_ncards = CONFIG_CYCX_CARDS;
+ static struct cycx_device *cycx_card_array;	/* adapter data space */
+--- a/drivers/net/wan/lapbether.c	2010-09-02 10:21:41.613109523 -0700
++++ b/drivers/net/wan/lapbether.c	2010-09-02 10:22:18.512662264 -0700
+@@ -46,7 +46,7 @@
+ 
+ #include <net/x25device.h>
+ 
+-static char bcast_addr[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
++static const u8 bcast_addr[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+ 
+ /* If this number is made larger, check that the temporary string buffer
+  * in lapbeth_new_device is large enough to store the probe device name.*/
+--- a/drivers/net/wan/z85230.c	2010-09-02 10:21:41.633109279 -0700
++++ b/drivers/net/wan/z85230.c	2010-09-02 10:22:18.516662216 -0700
+@@ -766,7 +766,7 @@ irqreturn_t z8530_interrupt(int irq, voi
+ 
+ EXPORT_SYMBOL(z8530_interrupt);
+ 
+-static char reg_init[16]=
++static const u8 reg_init[16]=
+ {
+ 	0,0,0,0,
+ 	0,0,0,0,
+@@ -1206,7 +1206,7 @@ EXPORT_SYMBOL(z8530_sync_txdma_close);
+  *	it exists...
+  */
+  
+-static char *z8530_type_name[]={
++static const char *z8530_type_name[]={
+ 	"Z8530",
+ 	"Z85C30",
+ 	"Z85230"
+--- a/drivers/net/wan/pc300_drv.c	2010-09-02 10:21:41.577109961 -0700
++++ b/drivers/net/wan/pc300_drv.c	2010-09-02 10:22:18.516662216 -0700
+@@ -1,5 +1,5 @@
+ #define	USE_PCI_CLOCK
+-static char rcsid[] = 
++static const char rcsid[] =
+ "Revision: 3.4.5 Date: 2002/03/07 ";
+ 
+ /*
