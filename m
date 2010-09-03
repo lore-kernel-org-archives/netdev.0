@@ -1,76 +1,84 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 1/4] tipc: Minor optimizations to name table translation code
-Date: Fri,  3 Sep 2010 14:33:39 -0400
-Message-ID: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 3/4] tipc: Optimize handling excess content on incoming messages
+Date: Fri,  3 Sep 2010 14:33:41 -0400
+Message-ID: <1283538822-25718-3-git-send-email-paul.gortmaker@windriver.com>
+References: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54530 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:54535 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753893Ab0ICSdp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 14:33:45 -0400
+	with ESMTP id S1757244Ab0ICSdq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 14:33:46 -0400
+In-Reply-To: <1283538822-25718-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Optimizes TIPC's name table translation code to avoid unnecessary
-manipulation of the node address field of the resulting port id when
-name translation fails.  This change is possible because a valid port
-id cannot have a reference field of zero, so examining the reference
-only is sufficient to determine if the translation was successful.
+Remove code that trimmed excess trailing info from incoming messages
+arriving over an Ethernet interface.  TIPC now ignores the extra info
+while the message is being processed by the node, and only trims it off
+if the message is retransmitted to another node.  (This latter step is
+done to ensure the extra info doesn't cause the sk_buff to exceed the
+outgoing interface's MTU limit.)
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/name_table.c |    4 +---
- net/tipc/port.c       |    4 ++--
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ net/tipc/eth_media.c |   13 +++----------
+ net/tipc/net.c       |    1 +
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index d504e49..c13c2c7 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -613,8 +613,7 @@ struct publication *tipc_nametbl_remove_publ(u32 type, u32 lower,
- }
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index 81253d0..ff50a17 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -101,15 +101,12 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
+  * Accept only packets explicitly sent to this node, or broadcast packets;
+  * ignores packets sent using Ethernet multicast, and traffic sent to other
+  * nodes (which can happen if interface is running in promiscuous mode).
+- * Routine truncates any Ethernet padding/CRC appended to the message,
+- * and ensures message size matches actual length
+  */
  
- /*
-- * tipc_nametbl_translate(): Translate tipc_name -> tipc_portid.
-- *                      Very time-critical.
-+ * tipc_nametbl_translate - translate name to port id
-  *
-  * Note: on entry 'destnode' is the search domain used during translation;
-  *       on exit it passes back the node address of the matching port (if any)
-@@ -685,7 +684,6 @@ found:
+ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
+ 		    struct packet_type *pt, struct net_device *orig_dev)
+ {
+ 	struct eth_bearer *eb_ptr = (struct eth_bearer *)pt->af_packet_priv;
+-	u32 size;
+ 
+ 	if (!net_eq(dev_net(dev), &init_net)) {
+ 		kfree_skb(buf);
+@@ -118,13 +115,9 @@ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
+ 
+ 	if (likely(eb_ptr->bearer)) {
+ 		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
+-			size = msg_size((struct tipc_msg *)buf->data);
+-			skb_trim(buf, size);
+-			if (likely(buf->len == size)) {
+-				buf->next = NULL;
+-				tipc_recv_msg(buf, eb_ptr->bearer);
+-				return 0;
+-			}
++			buf->next = NULL;
++			tipc_recv_msg(buf, eb_ptr->bearer);
++			return 0;
+ 		}
  	}
- 	spin_unlock_bh(&seq->lock);
- not_found:
--	*destnode = 0;
- 	read_unlock_bh(&tipc_nametbl_lock);
- 	return 0;
- }
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index ebcbc21..d760336 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -1464,7 +1464,7 @@ int tipc_forward2name(u32 ref,
- 	msg_set_destnode(msg, destnode);
- 	msg_set_destport(msg, destport);
+ 	kfree_skb(buf);
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index f61b769..14bd109 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -248,6 +248,7 @@ void tipc_net_route_msg(struct sk_buff *buf)
  
--	if (likely(destport || destnode)) {
-+	if (likely(destport)) {
- 		p_ptr->sent++;
- 		if (likely(destnode == tipc_own_addr))
- 			return tipc_port_recv_sections(p_ptr, num_sect, msg_sect);
-@@ -1542,7 +1542,7 @@ int tipc_forward_buf2name(u32 ref,
- 	skb_push(buf, LONG_H_SIZE);
- 	skb_copy_to_linear_data(buf, msg, LONG_H_SIZE);
- 	msg_dbg(buf_msg(buf),"PREP:");
--	if (likely(destport || destnode)) {
-+	if (likely(destport)) {
- 		p_ptr->sent++;
- 		if (destnode == tipc_own_addr)
- 			return tipc_port_recv_msg(buf);
+ 	/* Handle message for another node */
+ 	msg_dbg(msg, "NET>SEND>: ");
++	pskb_trim(buf, msg_size(msg));
+ 	tipc_link_send(buf, dnode, msg_link_selector(msg));
+ }
+ 
 -- 
 1.7.2.1
 
