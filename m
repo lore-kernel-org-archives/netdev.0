@@ -1,51 +1,38 @@
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: Re: [PATCH v4 0/5] netdev: show a process of packets
-Date: Fri, 03 Sep 2010 14:12:53 +0900
-Message-ID: <4C8083D5.200@jp.fujitsu.com>
-References: <4C72422C.5070102@jp.fujitsu.com> <1283212210.3656.84.camel@gandalf.stny.rr.com> <4C80592B.2060406@jp.fujitsu.com> <20100902.191741.233696520.davem@davemloft.net> <4C806388.9020509@jp.fujitsu.com> <20100903044656.GA6589@nowhere>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] drivers/net : avoid some skb->ip_summed
+ initializations
+Date: Fri, 03 Sep 2010 07:17:21 +0200
+Message-ID: <1283491041.3699.1350.camel@edumazet-laptop>
+References: <20100902.123801.102553189.davem@davemloft.net>
+	 <1283457301.3699.117.camel@edumazet-laptop>
+	 <20100902.130801.232752770.davem@davemloft.net>
+	 <20100902.190733.116374097.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rostedt@goodmis.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
-	kosaki.motohiro@jp.fujitsu.com, nhorman@tuxdriver.com,
-	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
-	eric.dumazet@gmail.com, mathieu.desnoyers@polymtl.ca
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100903044656.GA6589@nowhere>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56613 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900Ab0ICFR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 01:17:28 -0400
+Received: by wwj40 with SMTP id 40so1970706wwj.1
+        for <netdev@vger.kernel.org>; Thu, 02 Sep 2010 22:17:27 -0700 (PDT)
+In-Reply-To: <20100902.190733.116374097.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2010/09/03 13:46), Frederic Weisbecker wrote:
-> On Fri, Sep 03, 2010 at 11:55:04AM +0900, Koki Sanagi wrote:
->> (2010/09/03 11:17), David Miller wrote:
->>> From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
->>> Date: Fri, 03 Sep 2010 11:10:51 +0900
->>>
->>>> Thanks many acks. and I have one question.
->>>>
->>>> These patches have several component.
->>>>
->>>> Patch1 is kernel component, but patch2-5 are netdev component.
->>>> What tree is good to be included ?
->>>> If it is not net-next, I must rebase to another tree.
->>>
->>> I would prefer it goes into the tracing tree or whatever is the most appropriate
->>> for patch #1.
->>>
->>
->> O.K. I'll rebase to linux-2.6-tip.
-> 
-> 
-> No need, they apply very well :)
-> 
-> I'll push that to -tip soon.
-> 
-> Thanks.
-> 
+Le jeudi 02 septembre 2010 =C3=A0 19:07 -0700, David Miller a =C3=A9cri=
+t :
 
-O.K. Thanks!
+> You really didn't compile test this with the debugging actually
+> enabled, did you? :-)
+>=20
+> I fixed the BUG() to be a BUG_ON().
 
-Koki Sanagi.
+Indeed, you are right ;)
+
+Thanks !
+
+
