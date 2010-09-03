@@ -1,40 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: use non-BH variant of RCU
-Date: Fri, 03 Sep 2010 08:34:09 -0700 (PDT)
-Message-ID: <20100903.083409.52185570.davem@davemloft.net>
-References: <20100813175157.GA29586@gondor.apana.org.au>
-	<20100814.235033.02286546.davem@davemloft.net>
-	<20100902172625.GD2349@linux.vnet.ibm.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH v4 1/5] irq: add tracepoint to softirq_raise
+Date: Fri, 03 Sep 2010 11:39:36 -0400
+Message-ID: <1283528376.2356.436.camel@gandalf.stny.rr.com>
+References: <4C72422C.5070102@jp.fujitsu.com>
+	 <4C724298.4050509@jp.fujitsu.com>  <20100903152909.GA5352@nowhere>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, linville@tuxdriver.com,
-	netdev@vger.kernel.org, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, peterz@infradead.org
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49570
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752197Ab0ICPdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 11:33:52 -0400
-In-Reply-To: <20100902172625.GD2349@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
+	kosaki.motohiro@jp.fujitsu.com, nhorman@tuxdriver.com,
+	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
+	eric.dumazet@gmail.com, mathieu.desnoyers@polymtl.ca
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100903152909.GA5352@nowhere>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Thu, 2 Sep 2010 10:26:25 -0700
+On Fri, 2010-09-03 at 17:29 +0200, Frederic Weisbecker wrote:
 
->     softirq: adjust error check
->     
->     The error check for _local_bh_enable_ip() warns on both in_irq() and
->     irqs_disabled().  The check for in_irq() is necessary, because a hardirq
->     might well have interrupted bh execution, in which case it is simply
->     not possible for the hardirq to exclude the bh that got interrupted.
->     
->     However, it is perfectly reasonable to disable bh while hardirqs are
->     disabled, and this in fact promotes common code.  This commit therefore
->     removes the irqs_disabled() check.
->     
->     Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> >  #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
+> >  #define show_softirq_name(val)				\
+> > @@ -93,7 +95,10 @@ DECLARE_EVENT_CLASS(softirq,
+> >  	),
+> >  
+> >  	TP_fast_assign(
+> > -		__entry->vec = (int)(h - vec);
+> > +		if (vec)
+> > +			__entry->vec = (int)(h - vec);
+> > +		else
+> > +			__entry->vec = *((int *)h);
+> >  	),
+> 
+> 
+> 
+> It seems that this will break softirq_entry/exit tracepoints.
+> __entry->vec will deref vec->action() for these two, which is not
+> what we want.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+But for trace_softirq_entry and trace_softirq_exit, vec will not be
+NULL.
+
+
+> 
+> If you can't have the same tracepoint signature for the three, just
+> split the new one in a seperate TRACE_EVENT().
+
+It may be a bit of a hack, and questionable about adding another
+TRACE_EVENT(). There still is a pretty good space savings in using
+DEFINE_EVENT() over TRACE_EVENT() though.
+
+-- Steve
