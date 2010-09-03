@@ -1,35 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/5] netdev: show a process of packets
-Date: Thu, 02 Sep 2010 19:17:41 -0700 (PDT)
-Message-ID: <20100902.191741.233696520.davem@davemloft.net>
-References: <4C72422C.5070102@jp.fujitsu.com>
-	<1283212210.3656.84.camel@gandalf.stny.rr.com>
-	<4C80592B.2060406@jp.fujitsu.com>
+From: Michael Williamson <michael.williamson@criticallink.com>
+Subject: Re: [PATCH v2 05/10] davinci: cleanup unused davinci mdio arch code
+Date: Thu, 02 Sep 2010 22:19:40 -0400
+Message-ID: <4C805B3C.9040804@criticallink.com>
+References: <1283465008-18606-1-git-send-email-cyril@ti.com> <1283465008-18606-6-git-send-email-cyril@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kaneshige.kenji@jp.fujitsu.com,
-	izumi.taku@jp.fujitsu.com, kosaki.motohiro@jp.fujitsu.com,
-	nhorman@tuxdriver.com, laijs@cn.fujitsu.com,
-	scott.a.mcmillan@intel.com, eric.dumazet@gmail.com,
-	fweisbec@gmail.com, mathieu.desnoyers@polymtl.ca
-To: sanagi.koki@jp.fujitsu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C80592B.2060406@jp.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, srk@ti.com,
+	davinci-linux-open-source@linux.davincidsp.com,
+	omar.ramirez@ti.com, linux-omap@vger.kernel.org
+To: Cyril Chemparathy <cyril@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:61850 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348Ab0ICCTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Sep 2010 22:19:44 -0400
+In-Reply-To: <1283465008-18606-6-git-send-email-cyril@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Date: Fri, 03 Sep 2010 11:10:51 +0900
-
-> Thanks many acks. and I have one question.
+On 09/02/2010 06:03 PM, Cyril Chemparathy wrote:
+> This patch removes davinci architecture code that has now been rendered
+> useless by the previous patches in the MDIO separation series.
 > 
-> These patches have several component.
-> 
-> Patch1 is kernel component, but patch2-5 are netdev component.
-> What tree is good to be included ?
-> If it is not net-next, I must rebase to another tree.
+> Signed-off-by: Cyril Chemparathy <cyril@ti.com>
+> ---
+>  arch/arm/mach-davinci/board-da830-evm.c     |    5 -----
+>  arch/arm/mach-davinci/board-da850-evm.c     |    6 ------
+>  arch/arm/mach-davinci/board-dm365-evm.c     |    7 -------
+>  arch/arm/mach-davinci/board-dm644x-evm.c    |    7 -------
+>  arch/arm/mach-davinci/board-dm646x-evm.c    |    8 --------
+>  arch/arm/mach-davinci/board-neuros-osd2.c   |    7 -------
+>  arch/arm/mach-davinci/board-sffsdr.c        |    7 -------
 
-I would prefer it goes into the tracing tree or whatever is the most appropriate
-for patch #1.
+[snip]
+
+There is a new/pending board file in the davinci-linux tree that
+will also need to be updated in similar fashion as the 
+board-da850-evm.
+
+arch/arm/mach-davinci/board-mityomapl138.c
+
+-Mike
