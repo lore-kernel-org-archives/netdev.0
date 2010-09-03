@@ -1,100 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: pskb_expand_head() optimization
-Date: Fri, 03 Sep 2010 11:09:32 +0200
-Message-ID: <1283504972.2453.257.camel@edumazet-laptop>
-References: <20100902.204332.02275687.davem@davemloft.net>
-	 <1283492880.3699.1437.camel@edumazet-laptop>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 0/2] [RFC] posix clock tuning
+Date: Fri, 3 Sep 2010 11:27:59 +0200
+Message-ID: <cover.1283504065.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41330 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751593Ab0ICJKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 05:10:31 -0400
-Received: by wyb35 with SMTP id 35so18430wyb.19
-        for <netdev@vger.kernel.org>; Fri, 03 Sep 2010 02:09:50 -0700 (PDT)
-In-Reply-To: <1283492880.3699.1437.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 03 septembre 2010 =C3=A0 07:48 +0200, Eric Dumazet a =C3=A9=
-crit :
+Recently on the lkml, we discussed how to allow adjustment of posix
+clocks. I have tried to understand and implement the ideas expressed
+in the various threads.
 
-> David, I had this same idea some days ago when reviewing this code,
-> but when I came to conclusion we could not avoid the get_page /
-> put_page() on skb_shinfo(skb)->frags[i].page. I thought it was not wo=
-rth
-> trying to avoid the frag_list grab/release operation.
->=20
+If there is agreement on this approach, I will resubmit these two
+patches as part of a longer series, including support for a new kind
+of hardware clock, so you can see how it all fits together. But first,
+I would like to concentrate on the new syscall itself.
 
-Here is the patch I cooked, for net-next-2.6
+The patches are against a recent net-next tree. Please don't worry if
+the syscall tables are not quite up to date. I can fix that later.
 
-[PATCH net-next-2.6] net: pskb_expand_head() optimization
-
-pskb_expand_head() blindly takes references on fragments before calling
-skb_release_data(), potentially releasing these references.
-
-We can add a fast path, avoiding these atomic operations, if we own the
-last reference on skb->head.
-
-Based on a previous patch from David
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/skbuff.c |   25 ++++++++++++++++++++-----
- 1 file changed, 20 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 231dff0..59b96fe 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -781,6 +781,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead=
-, int ntail,
- 	u8 *data;
- 	int size =3D nhead + (skb_end_pointer(skb) - skb->head) + ntail;
- 	long off;
-+	bool fastpath;
-=20
- 	BUG_ON(nhead < 0);
-=20
-@@ -802,14 +803,28 @@ int pskb_expand_head(struct sk_buff *skb, int nhe=
-ad, int ntail,
- 	       skb_shinfo(skb),
- 	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_fra=
-gs]));
-=20
--	for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
--		get_page(skb_shinfo(skb)->frags[i].page);
-+	/* Check if we can avoid taking references on fragments if we own
-+	 * the last reference on skb->head. (see skb_release_data())
-+	 */
-+	if (!skb->cloned)
-+		fastpath =3D true;
-+	else {
-+		int delta =3D skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1;
-=20
--	if (skb_has_frag_list(skb))
--		skb_clone_fraglist(skb);
-+		fastpath =3D atomic_read(&skb_shinfo(skb)->dataref) =3D=3D delta;
-+	}
-=20
--	skb_release_data(skb);
-+	if (fastpath) {
-+		kfree(skb->head);
-+	} else {
-+		for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
-+			get_page(skb_shinfo(skb)->frags[i].page);
-=20
-+		if (skb_has_frag_list(skb))
-+			skb_clone_fraglist(skb);
-+
-+		skb_release_data(skb);
-+	}
- 	off =3D (data + nhead) - skb->head;
-=20
- 	skb->head     =3D data;
+Thanks,
+Richard
 
 
+Richard Cochran (2):
+  posix clocks: introduce a syscall for clock tuning.
+  posix clocks: introduce a sysfs presence.
+
+ Documentation/ABI/testing/sysfs-timesource |   24 +++++
+ arch/arm/include/asm/unistd.h              |    1 +
+ arch/arm/kernel/calls.S                    |    1 +
+ arch/blackfin/include/asm/unistd.h         |    3 +-
+ arch/blackfin/mach-common/entry.S          |    1 +
+ arch/powerpc/include/asm/systbl.h          |    1 +
+ arch/powerpc/include/asm/unistd.h          |    3 +-
+ arch/x86/ia32/ia32entry.S                  |    1 +
+ arch/x86/include/asm/unistd_32.h           |    3 +-
+ arch/x86/include/asm/unistd_64.h           |    2 +
+ arch/x86/kernel/syscall_table_32.S         |    1 +
+ drivers/char/mmtimer.c                     |    1 +
+ include/linux/posix-timers.h               |   14 +++-
+ include/linux/syscalls.h                   |    2 +
+ include/linux/time.h                       |    2 +
+ include/linux/timex.h                      |    3 +-
+ kernel/compat.c                            |  136 ++++++++++++++++++----------
+ kernel/posix-cpu-timers.c                  |    6 ++
+ kernel/posix-timers.c                      |   98 +++++++++++++++++++--
+ 19 files changed, 243 insertions(+), 60 deletions(-)
+ create mode 100644 Documentation/ABI/testing/sysfs-timesource
