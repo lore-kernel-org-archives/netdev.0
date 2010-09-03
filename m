@@ -1,48 +1,51 @@
-From: Ajit Khaparde <ajitk@serverengines.com>
-Subject: Re: [PATCH net-2.6 2/3] be2net: fix a bug in UE detection logic
-Date: Fri, 3 Sep 2010 10:25:08 +0530
-Message-ID: <20100903045506.GA20511@serverengines.com>
-References: <20100825102720.GA14925@serverengines.com>
- <20100825.142311.115915728.davem@davemloft.net>
- <20100825.211500.193701446.davem@davemloft.net>
-Reply-To: Ajit Khaparde <ajitk@serverengines.com>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: Re: [PATCH v4 0/5] netdev: show a process of packets
+Date: Fri, 03 Sep 2010 14:12:53 +0900
+Message-ID: <4C8083D5.200@jp.fujitsu.com>
+References: <4C72422C.5070102@jp.fujitsu.com> <1283212210.3656.84.camel@gandalf.stny.rr.com> <4C80592B.2060406@jp.fujitsu.com> <20100902.191741.233696520.davem@davemloft.net> <4C806388.9020509@jp.fujitsu.com> <20100903044656.GA6589@nowhere>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:21873 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750761Ab0ICEyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 00:54:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20100825.211500.193701446.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, rostedt@goodmis.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
+	kosaki.motohiro@jp.fujitsu.com, nhorman@tuxdriver.com,
+	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
+	eric.dumazet@gmail.com, mathieu.desnoyers@polymtl.ca
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100903044656.GA6589@nowhere>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 25/08/10 21:15 -0700, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 25 Aug 2010 14:23:11 -0700 (PDT)
+(2010/09/03 13:46), Frederic Weisbecker wrote:
+> On Fri, Sep 03, 2010 at 11:55:04AM +0900, Koki Sanagi wrote:
+>> (2010/09/03 11:17), David Miller wrote:
+>>> From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+>>> Date: Fri, 03 Sep 2010 11:10:51 +0900
+>>>
+>>>> Thanks many acks. and I have one question.
+>>>>
+>>>> These patches have several component.
+>>>>
+>>>> Patch1 is kernel component, but patch2-5 are netdev component.
+>>>> What tree is good to be included ?
+>>>> If it is not net-next, I must rebase to another tree.
+>>>
+>>> I would prefer it goes into the tracing tree or whatever is the most appropriate
+>>> for patch #1.
+>>>
+>>
+>> O.K. I'll rebase to linux-2.6-tip.
 > 
-> > From: Ajit Khaparde <ajitk@serverengines.com>
-> > Date: Wed, 25 Aug 2010 15:57:31 +0530
-> > 
-> >> The ONLINE registers can return 0xFFFFFFFF on more than one
-> >> occassion. On systems that care, reading these registers could
-> >> lead to problems.
-> >> 
-> >> So the new code decides that the ASIC has encountered and error
-> >> by reading the UE_STATUS_LOW/HIGH registers. AND them with
-> >> the mask values and a non-zero result indicates an error.
-> >> 
-> >> Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
-> > 
-> > Applied.
 > 
-> You didn't even build test what you submitted to me:
+> No need, they apply very well :)
 > 
-> ERROR: "be_dump_ue" [drivers/net/benet/be2net.ko] undefined!
+> I'll push that to -tip soon.
 > 
-> I'm reverting both patches.
-Not sure why this happened and how I missed it because I did compile the
-driver before sending the patches out. Will take care of this in future. Thanks
+> Thanks.
+> 
+
+O.K. Thanks!
+
+Koki Sanagi.
