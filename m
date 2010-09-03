@@ -1,97 +1,84 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v4 1/5] irq: add tracepoint to softirq_raise
-Date: Fri, 03 Sep 2010 11:43:12 -0400
-Message-ID: <1283528592.2356.439.camel@gandalf.stny.rr.com>
-References: <4C72422C.5070102@jp.fujitsu.com>
-	 <4C724298.4050509@jp.fujitsu.com>  <20100903152909.GA5352@nowhere>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: [PATCH] ipv6: Update ip-sysctl.txt documentation for recent changes
+ to accept_ra and forwarding
+Date: Fri, 3 Sep 2010 11:47:30 -0400
+Message-ID: <20100903154729.GA27681@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
-	kosaki.motohiro@jp.fujitsu.com, nhorman@tuxdriver.com,
-	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
-	eric.dumazet@gmail.com, mathieu.desnoyers@polymtl.ca
-To: Frederic Weisbecker <fweisbec@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, davem@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.125]:37436 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593Ab0ICPnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 11:43:18 -0400
-In-Reply-To: <20100903152909.GA5352@nowhere>
+Received: from bombadil.infradead.org ([18.85.46.34]:38003 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752167Ab0ICPrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Sep 2010 11:47:31 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-09-03 at 17:29 +0200, Frederic Weisbecker wrote:
+Documentation for recent changes to the tunables accept_ra and
+forwarding.
 
-> >  /*
-> >   * These correspond to the IORESOURCE_IRQ_* defines in
-> > @@ -407,7 +408,12 @@ asmlinkage void do_softirq(void);
-> >  asmlinkage void __do_softirq(void);
-> >  extern void open_softirq(int nr, void (*action)(struct softirq_action *));
-> >  extern void softirq_init(void);
-> > -#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
-> > +static inline void __raise_softirq_irqoff(unsigned int nr)
-> > +{
-> > +	trace_softirq_raise((struct softirq_action *)&nr, NULL);
+Signed-off-by: Thomas Graf <tgraf@infradead.org>
 
-Perhaps doing:
-
-	trace_softirq_raise((struct softirq_action *)((unsigend long)nr),
-				NULL);
-
-and ...
-
-> > +	or_softirq_pending(1UL << nr);
-> > +}
-> > +
-> >  extern void raise_softirq_irqoff(unsigned int nr);
-> >  extern void raise_softirq(unsigned int nr);
-> >  extern void wakeup_softirqd(void);
-> > diff --git a/include/trace/events/irq.h b/include/trace/events/irq.h
-> > index 0e4cfb6..3ddda02 100644
-> > --- a/include/trace/events/irq.h
-> > +++ b/include/trace/events/irq.h
-> > @@ -5,7 +5,9 @@
-> >  #define _TRACE_IRQ_H
-> >  
-> >  #include <linux/tracepoint.h>
-> > -#include <linux/interrupt.h>
-> > +
-> > +struct irqaction;
-> > +struct softirq_action;
-> >  
-> >  #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
-> >  #define show_softirq_name(val)				\
-> > @@ -93,7 +95,10 @@ DECLARE_EVENT_CLASS(softirq,
-> >  	),
-> >  
-> >  	TP_fast_assign(
-> > -		__entry->vec = (int)(h - vec);
-> > +		if (vec)
-> > +			__entry->vec = (int)(h - vec);
-> > +		else
-> > +			__entry->vec = *((int *)h);
-
-			__entry->vec = (int)h;
-
-would be better.
-
-
-> >  	),
-> 
-> 
-> 
-> It seems that this will break softirq_entry/exit tracepoints.
-> __entry->vec will deref vec->action() for these two, which is not
-> what we want.
-> 
-> If you can't have the same tracepoint signature for the three, just
-> split the new one in a seperate TRACE_EVENT().
-
-Doing the above will at least be a bit safer.
-
--- Steve
-
-
+Index: net-2.6/Documentation/networking/ip-sysctl.txt
+===================================================================
+--- net-2.6.orig/Documentation/networking/ip-sysctl.txt
++++ net-2.6/Documentation/networking/ip-sysctl.txt
+@@ -1014,6 +1014,12 @@ conf/interface/*:
+ accept_ra - BOOLEAN
+ 	Accept Router Advertisements; autoconfigure using them.
+ 
++	Possible values are:
++		0 Do not accept Router Advertisements.
++		1 Accept Router Advertisements if forwarding is disabled.
++		2 Overrule forwarding behaviour. Accept Router Advertisements
++		  even if forwarding is enabled.
++
+ 	Functional default: enabled if local forwarding is disabled.
+ 			    disabled if local forwarding is enabled.
+ 
+@@ -1075,7 +1081,12 @@ forwarding - BOOLEAN
+ 	Note: It is recommended to have the same setting on all
+ 	interfaces; mixed router/host scenarios are rather uncommon.
+ 
+-	FALSE:
++	Possible values are:
++		0 Forwarding disabled
++		1 Forwarding enabled
++		2 Forwarding enabled (Hybrid Mode)
++
++	FALSE (0):
+ 
+ 	By default, Host behaviour is assumed.  This means:
+ 
+@@ -1085,18 +1096,24 @@ forwarding - BOOLEAN
+ 	   Advertisements (and do autoconfiguration).
+ 	4. If accept_redirects is TRUE (default), accept Redirects.
+ 
+-	TRUE:
++	TRUE (1):
+ 
+ 	If local forwarding is enabled, Router behaviour is assumed.
+ 	This means exactly the reverse from the above:
+ 
+ 	1. IsRouter flag is set in Neighbour Advertisements.
+ 	2. Router Solicitations are not sent.
+-	3. Router Advertisements are ignored.
++	3. Router Advertisements are ignored unless accept_ra is 2.
+ 	4. Redirects are ignored.
+ 
+-	Default: FALSE if global forwarding is disabled (default),
+-		 otherwise TRUE.
++	TRUE (2):
++
++	Hybrid mode. Same behaviour as TRUE, except for:
++
++	2. Router Solicitations are being sent when necessary.
++
++	Default: 0 (disabled) if global forwarding is disabled (default),
++		 otherwise 1 (enabled).
+ 
+ hop_limit - INTEGER
+ 	Default Hop Limit to set.
