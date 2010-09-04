@@ -1,87 +1,105 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH] usbnet: allow rx_process() to ignore packets
-Date: Sat, 4 Sep 2010 23:52:22 +0200
-Message-ID: <201009042352.24197.linux@rainbow-software.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: David Brownell <dbrownell@users.sourceforge.net>
+From: Alexander Clouter <alex@digriz.org.uk>
+Subject: pimreg zombies
+Date: Sat, 4 Sep 2010 22:12:34 +0100
+Message-ID: <2bpal7-l68.ln1@chipmunk.wormnet.eu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1-out1.atlantis.sk ([80.94.52.55]:53461 "EHLO
-	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753670Ab0IDVwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 17:52:32 -0400
-Content-Disposition: inline
+Received: from lo.gmane.org ([80.91.229.12]:36700 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753670Ab0IDWI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Sep 2010 18:08:57 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Os0us-0002Jr-DW
+	for netdev@vger.kernel.org; Sun, 05 Sep 2010 00:08:54 +0200
+Received: from chipmunk.wormnet.eu ([195.195.131.226])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 05 Sep 2010 00:08:54 +0200
+Received: from alex by chipmunk.wormnet.eu with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 05 Sep 2010 00:08:54 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow rx_process() to ignore a packet without incrementing error counters if 
-rx_fixup() returns value other than 0 or 1 (e.g. 2).
+Hi,
 
-This allows to simplify rx_fixup() functions of drivers who do complex 
-processing there. Currently, drivers must process the last packet in a 
-special way - leave it for usbnet to process. This is not easily possible 
-when a driver (like the new cx82310_eth) needs to process packets that cross 
-URB (and thus skb) boundaries. With this patch, the driver can process all 
-packets in the skb and just return 2 at the end.
+I am writing a multicast pim daemon and noticed that if I call 
+setsockopt(MRT_ADD_VIF), also occurs for IPv6 too, incorrectly on a 
+socket established with socket(AF_INET, SOCK_RAW, IPPROTO_PIM)[1] then 
+when the application quits I have zombie pimreg (and pimreg6) interfaces 
+that can only be disposed of with a reboot.
 
-Also fix asix driver that was returning 2 at one place before this change 
-(probably by mistake).
+I have included the code below to give you something (hopefully) 
+reproducible; this problem I see on a 2.6.35.4 kernel.  No idea if there 
+was ever a safe kernel but maybe all the recent namespace and multiple 
+multicast routing table amendments broke something.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+Obviously I know for Linux I should be calling setsockopt() on the IGMP 
+socket, however I'm pretty sure zombie pim's should not be appearing :)
 
---- linux-2.6.36-rc3-orig/drivers/net/usb/usbnet.c	2010-08-29 17:36:04.000000000 +0200
-+++ linux-2.6.36-rc3/drivers/net/usb/usbnet.c	2010-09-04 23:47:14.000000000 +0200
-@@ -385,18 +385,24 @@ static int rx_submit (struct usbnet *dev
- 
- static inline void rx_process (struct usbnet *dev, struct sk_buff *skb)
- {
--	if (dev->driver_info->rx_fixup &&
--	    !dev->driver_info->rx_fixup (dev, skb))
--		goto error;
--	// else network stack removes extra byte if we forced a short packet
-+	int fixup = 1;
- 
--	if (skb->len)
--		usbnet_skb_return (dev, skb);
--	else {
--		netif_dbg(dev, rx_err, dev->net, "drop\n");
--error:
-+	if (dev->driver_info->rx_fixup)
-+		fixup = dev->driver_info->rx_fixup(dev, skb);
-+
-+	switch (fixup) {
-+	case 1:	/* skb is correct */
-+		if (skb->len) {
-+			usbnet_skb_return(dev, skb);
-+			break;
-+		} else
-+			netif_dbg(dev, rx_err, dev->net, "drop\n");
-+		/* fall through */
-+	case 0: /* skb is incorrect */
- 		dev->net->stats.rx_errors++;
--		skb_queue_tail (&dev->done, skb);
-+		/* fall through */
-+	default: /* skb does not need processing */
-+		skb_queue_tail(&dev->done, skb);
- 	}
- }
- 
---- linux-2.6.36-rc3-orig/drivers/net/usb/asix.c	2010-08-29 17:36:04.000000000 +0200
-+++ linux-2.6.36-rc3/drivers/net/usb/asix.c	2010-09-04 23:48:42.000000000 +0200
-@@ -341,7 +341,7 @@ static int asix_rx_fixup(struct usbnet *
- 				skb->data -= realignment;
- 				skb_set_tail_pointer(skb, size);
- 			}
--			return 2;
-+			return 1;
- 		}
- 
- 		if (size > dev->net->mtu + ETH_HLEN) {
+Cheers
 
+[1] rather than as I should on an IPPROTO_IGMP raw socket
+
+----
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sysexits.h>
+#include <string.h>
+#include <netinet/in.h>
+#include <linux/mroute.h>
+#include <linux/mroute6.h>
+
+int main(int argc, char **argv)
+{
+	int		pim4, pim6;
+	struct vifctl	v4;
+	struct mif6ctl	v6;
+
+	pim4 = socket(AF_INET, SOCK_RAW, IPPROTO_PIM);
+	if (pim4 < 0) {
+		perror("socket(AF_INET, SOCK_RAW, IPPROTO_PIM)");
+		return EX_OSERR;
+	}
+
+	memset(&v4, 0, sizeof(v4));
+	v4.vifc_flags	= VIFF_REGISTER;
+
+	if (setsockopt(pim4, IPPROTO_IP, MRT_ADD_VIF, &v4, sizeof(v4)) < 0) {
+		perror("setsockopt(MRT_ADD_VIF)");
+		close(pim4);
+		return EX_OSERR;
+	}
+
+	close(pim4);
+
+	/***********************/
+
+	pim6 = socket(AF_INET6, SOCK_RAW, IPPROTO_PIM);
+	if (pim6 < 0) {
+		perror("socket(AF_INET6, SOCK_RAW, IPPROTO_PIM)");
+		return EX_OSERR;
+	}
+
+	memset(&v6, 0, sizeof(v6));
+	v6.mif6c_flags = MIFF_REGISTER;
+
+	if (setsockopt(pim6, IPPROTO_IPV6, MRT6_ADD_MIF, &v6, sizeof(v6)) < 0) {
+		perror("setsockopt(MRT6_ADD_MIF)");
+		close(pim6);
+		return EX_OSERR;
+	}
+
+	close(pim6);
+
+	return EX_OK;
+}
+----
 
 -- 
-Ondrej Zary
+Alexander Clouter
+.sigmonster says: You have junk mail.
+
