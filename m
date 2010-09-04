@@ -1,31 +1,41 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: bna: potential null dereference
-Date: Sat, 04 Sep 2010 14:59:54 +0200
-Message-ID: <4C8242CA.3020906@gmail.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] irda: off by one
+Date: Sat, 4 Sep 2010 15:14:35 +0200
+Message-ID: <20100904131435.GL5437@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
-Cc: rmody@brocade.com, "David S. Miller" <davem@davemloft.net>,
-	ML netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: ddutt@brocade.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Li Zefan <lizf@cn.fujitsu.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:48359 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918Ab0IDNPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 09:15:19 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This is an off by one.  We would go past the end when we NUL terminate
+the "value" string at end of the function.  The "value" buffer is
+allocated in irlan_client_parse_response() or
+irlan_provider_parse_command().
 
-stanse found a potential null dereference:
-bnad_cb_tx_cleanup
-  -> struct bnad_unmap_q *unmap_q = tcb->unmap_q;
-  -> -- tcb cannot be null now --
-  -> if (!tcb || (!tcb->unmap_q))
+CC: stable@kernel.org
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-The thing is I have no idea whether the second parameter of cleanup may
-be null (move assignment after the check) or not (remove the check)
-
-Could you fix that?
-
-thanks,
--- 
-js
+diff --git a/net/irda/irlan/irlan_common.c b/net/irda/irlan/irlan_common.c
+index a788f9e..6130f9d 100644
+--- a/net/irda/irlan/irlan_common.c
++++ b/net/irda/irlan/irlan_common.c
+@@ -1102,7 +1102,7 @@ int irlan_extract_param(__u8 *buf, char *name, char *value, __u16 *len)
+ 	memcpy(&val_len, buf+n, 2); /* To avoid alignment problems */
+ 	le16_to_cpus(&val_len); n+=2;
+ 
+-	if (val_len > 1016) {
++	if (val_len >= 1016) {
+ 		IRDA_DEBUG(2, "%s(), parameter length to long\n", __func__ );
+ 		return -RSP_INVALID_COMMAND_FORMAT;
+ 	}
