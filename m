@@ -1,62 +1,100 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: rps: add the shortcut for one rps_cpus
-Date: Sat,  4 Sep 2010 17:12:37 +0800
-Message-ID: <1283591557-31921-1-git-send-email-xiaosuo@gmail.com>
-Cc: netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] UNIX: Do not loop forever at unix_autobind().
+Date: Sat, 04 Sep 2010 18:31:54 +0900
+Message-ID: <201009040931.o849VstI061086@www262.sakura.ne.jp>
+References: <201008212101.IJG87048.QMOHFtSOVOLFFJ@I-love.SAKURA.ne.jp> <AANLkTi=oWoHUmm_3xkRY7UzoXTuptKvUHzn0gK2WDiSa@mail.gmail.com> <201008302227.DJH30258.OQFMFtFJOOVSHL@I-love.SAKURA.ne.jp> <1283370450.2484.19.camel@edumazet-laptop> <201009040658.o846wxnU028775@www262.sakura.ne.jp> <1283584269.3402.9.camel@edumazet-laptop> <201009040740.o847eB4f040772@www262.sakura.ne.jp> <1283588647.3402.12.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:38073 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910Ab0IDJNR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 05:13:17 -0400
-Received: by pwi3 with SMTP id 3so466991pwi.19
-        for <netdev@vger.kernel.org>; Sat, 04 Sep 2010 02:13:16 -0700 (PDT)
+Received: from www262.sakura.ne.jp ([202.181.97.72]:57680 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746Ab0IDJb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 05:31:57 -0400
+In-Reply-To: <1283588647.3402.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When there is only one rps_cpus, skb_get_rxhash() can be eliminated.
+Eric Dumazet wrote:
+> Quite frankly, given __unix_find_socket_byname() can take quite a long
+> time with one million entries in table, we should just remove
+> 
+> if (whatever)
+> 	yield();
+> 
+> and use a more friendly :
+> 
+> cond_resched();
+> 
+I see. What about this one?
+----------------------------------------
+>From 5c11dcc7dd5063584bc3fbdb059ecdaf12aa38ce Mon Sep 17 00:00:00 2001
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Date: Sat, 4 Sep 2010 18:02:26 +0900
+Subject: [PATCH] UNIX: Do not loop forever at unix_autobind().
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+We assumed that unix_autobind() never fails if kzalloc() succeeded.
+But unix_autobind() allows only 1048576 names. If /proc/sys/fs/file-max is
+larger than 1048576 (e.g. systems with more than 10GB of RAM), a local user can
+consume all names using fork()/socket()/bind().
+
+If all names are in use, those who call bind() with addr_len == sizeof(short)
+or connect()/sendmsg() with setsockopt(SO_PASSCRED) will continue
+
+  while (1)
+        yield();
+
+loop at unix_autobind() till a name becomes available.
+This patch adds a loop counter in order to give up after 1048576 attempts.
+
+Calling yield() for once per 256 attempts may not be sufficient when many names
+are already in use, for __unix_find_socket_byname() can take long time under
+such circumstance. Therefore, this patch also adds cond_resched() call.
+
+Note that currently a local user can consume 2GB of kernel memory if the user
+is allowed to create and autobind 1048576 UNIX domain sockets. We should
+consider adding some restriction for autobind operation.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 ---
- net/core/dev.c |   14 +++++++++++---
- 1 file changed, 11 insertions(+), 3 deletions(-)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d8c43e7..2bf740c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2345,7 +2345,7 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 		       struct rps_dev_flow **rflowp)
- {
- 	struct netdev_rx_queue *rxqueue;
--	struct rps_map *map;
-+	struct rps_map *map = NULL;
- 	struct rps_dev_flow_table *flow_table;
- 	struct rps_sock_flow_table *sock_flow_table;
- 	int cpu = -1;
-@@ -2363,8 +2363,17 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 	} else
- 		rxqueue = dev->_rx;
+ net/unix/af_unix.c |   15 ++++++++++++---
+ 1 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 4414a18..1ef37ca 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -692,6 +692,7 @@ static int unix_autobind(struct socket *sock)
+ 	static u32 ordernum = 1;
+ 	struct unix_address *addr;
+ 	int err;
++	unsigned int retries = 0;
  
--	if (!rxqueue->rps_map && !rxqueue->rps_flow_table)
-+	if (rxqueue->rps_map) {
-+		map = rcu_dereference(rxqueue->rps_map);
-+		if (map && map->len == 1) {
-+			tcpu = map->cpus[0];
-+			if (cpu_online(tcpu))
-+				cpu = tcpu;
-+			goto done;
+ 	mutex_lock(&u->readlock);
+ 
+@@ -717,9 +718,17 @@ retry:
+ 	if (__unix_find_socket_byname(net, addr->name, addr->len, sock->type,
+ 				      addr->hash)) {
+ 		spin_unlock(&unix_table_lock);
+-		/* Sanity yield. It is unusual case, but yet... */
+-		if (!(ordernum&0xFF))
+-			yield();
++		/*
++		 * __unix_find_socket_byname() may take long time if many names
++		 * are already in use.
++		 */
++		cond_resched();
++		/* Give up if all names seems to be in use. */
++		if (retries++ == 0xFFFFF) {
++			err = -ENOMEM;
++			kfree(addr);
++			goto out;
 +		}
-+	} else if (!rxqueue->rps_flow_table) {
- 		goto done;
-+	}
- 
- 	skb_reset_network_header(skb);
- 	if (!skb_get_rxhash(skb))
-@@ -2409,7 +2418,6 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 		}
+ 		goto retry;
  	}
- 
--	map = rcu_dereference(rxqueue->rps_map);
- 	if (map) {
- 		tcpu = map->cpus[((u64) skb->rxhash * map->len) >> 32];
- 
+ 	addr->hash ^= sk->sk_type;
+-- 
+1.6.1
+
