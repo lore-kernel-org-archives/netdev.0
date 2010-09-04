@@ -1,66 +1,44 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: [PATCH] cxacru: ignore cx82310_eth devices
-Date: Sat, 04 Sep 2010 17:30:20 +0100
-Message-ID: <4C82741C.2000106@simon.arlott.org.uk>
-References: <201009032317.14954.linux@rainbow-software.org> <4C81735E.3030903@simon.arlott.org.uk> <201009041401.10034.linux@rainbow-software.org>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
+Date: Sat, 4 Sep 2010 12:23:55 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009041221240.888@router.home>
+References: <cover.1283504065.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Ondrej Zary <linux@rainbow-software.org>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201009041401.10034.linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp107.prem.mail.ac4.yahoo.com ([76.13.13.46]:46412 "HELO
+	smtp107.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754402Ab0IDRX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 13:23:58 -0400
+In-Reply-To: <cover.1283504065.git.richard.cochran@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ignore ADSL routers, which can have the same vendor and product IDs
-as ADSL modems but should be handled by the cx82310_eth driver.
+On Fri, 3 Sep 2010, Richard Cochran wrote:
 
-This intentionally ignores device IDs that aren't currently handled
-by cx82310_eth. There may be other device IDs that perhaps shouldn't
-be claimed by cxacru.
+> Recently on the lkml, we discussed how to allow adjustment of posix
+> clocks. I have tried to understand and implement the ideas expressed
+> in the various threads.
+>
+> If there is agreement on this approach, I will resubmit these two
+> patches as part of a longer series, including support for a new kind
+> of hardware clock, so you can see how it all fits together. But first,
+> I would like to concentrate on the new syscall itself.
+>
+> The patches are against a recent net-next tree. Please don't worry if
+> the syscall tables are not quite up to date. I can fix that later.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-[SA: Moved to cxacru_usb_probe, message level lowered to info]
-Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
----
- drivers/usb/atm/cxacru.c |   18 ++++++++++++++++--
- 1 files changed, 16 insertions(+), 2 deletions(-)
+Could you explain why the existing interfaces are not sufficient that do
+what you describe?
 
-diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
-index 593fc5e..96fa736 100644
---- a/drivers/usb/atm/cxacru.c
-+++ b/drivers/usb/atm/cxacru.c
-@@ -1324,8 +1324,22 @@ static struct usbatm_driver cxacru_driver = {
- 	.tx_padding	= 11,
- };
- 
--static int cxacru_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
--{
-+static int cxacru_usb_probe(struct usb_interface *intf,
-+		const struct usb_device_id *id) {
-+	struct usb_device *usb_dev = interface_to_usbdev(intf);
-+	char buf[15];
-+
-+	/* avoid ADSL routers (cx82310_eth)
-+	 * abort if bDeviceClass is 0xff and iProduct is "USB NET CARD" */
-+	if (usb_dev->descriptor.bDeviceClass == 0xff
-+			&& usb_dev->descriptor.iProduct
-+			&& usb_string(usb_dev,
-+				usb_dev->descriptor.iProduct, buf, sizeof(buf))
-+			&& !strcmp(buf, "USB NET CARD")) {
-+		dev_info(&intf->dev, "ignoring cx82310_eth device\n");
-+		return -ENODEV;
-+	}
-+
- 	return usbatm_usb_probe(intf, id, &cxacru_driver);
- }
- 
--- 
-1.7.0.4
+man adjtime
+man adjtimex
+man clock_settime
+?
 
--- 
-Simon Arlott
+Why would you need this to support a new hardware clock? You want the
+clock to run at a different speed from system time?
+
