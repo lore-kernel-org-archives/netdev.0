@@ -1,32 +1,31 @@
 From: Santiago Leon <santil@linux.vnet.ibm.com>
-Subject: [patch 07/21] ibmveth: Add scatter-gather support
-Date: Fri, 03 Sep 2010 23:28:36 -0500
-Message-ID: <20100904042836.2655.14934.sendpatchset@jupiter1-ltc-lp2.austin.ibm.com>
+Subject: [patch 05/21] ibmveth: Add rx_copybreak
+Date: Fri, 03 Sep 2010 23:28:25 -0500
+Message-ID: <20100904042825.2655.81137.sendpatchset@jupiter1-ltc-lp2.austin.ibm.com>
 References: <20100904042758.2655.8093.sendpatchset@jupiter1-ltc-lp2.austin.ibm.com>
 Cc: brking@linux.vnet.ibm.com,
 	Santiago Leon <santil@linux.vnet.ibm.com>, anton@samba.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:36141 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752312Ab0IDE3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 00:29:05 -0400
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by e34.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o844K1LB010596
-	for <netdev@vger.kernel.org>; Fri, 3 Sep 2010 22:20:01 -0600
+Received: from e33.co.us.ibm.com ([32.97.110.151]:43740 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751937Ab0IDE2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 00:28:54 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o844Nu7x001871
+	for <netdev@vger.kernel.org>; Fri, 3 Sep 2010 22:23:56 -0600
 Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o844T4IK210170
-	for <netdev@vger.kernel.org>; Fri, 3 Sep 2010 22:29:04 -0600
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o844Srgx094480
+	for <netdev@vger.kernel.org>; Fri, 3 Sep 2010 22:28:53 -0600
 Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o844T3HA032652
-	for <netdev@vger.kernel.org>; Fri, 3 Sep 2010 22:29:04 -0600
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o844SrPQ032288
+	for <netdev@vger.kernel.org>; Fri, 3 Sep 2010 22:28:53 -0600
 In-Reply-To: <20100904042758.2655.8093.sendpatchset@jupiter1-ltc-lp2.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ibmveth can scatter gather up to 6 segments. If we go over this then
-we have no option but to call skb_linearize, like other drivers with
-similar limitations do.
+For small packets, create a new skb and copy the packet into it so we
+avoid tearing down and creating a TCE entry.
 
 Signed-off-by: Anton Blanchard <anton@samba.org>
 Signed-off-by: Santiago Leon <santil@linux.vnet.ibm.com>
@@ -34,239 +33,65 @@ Signed-off-by: Santiago Leon <santil@linux.vnet.ibm.com>
 
 Index: net-next-2.6/drivers/net/ibmveth.c
 ===================================================================
---- net-next-2.6.orig//drivers/net/ibmveth.c	2010-09-03 22:18:51.000000000 -0500
-+++ net-next-2.6/drivers/net/ibmveth.c	2010-09-03 22:18:51.000000000 -0500
-@@ -897,6 +897,7 @@ static const struct ethtool_ops netdev_e
- 	.get_strings		= ibmveth_get_strings,
- 	.get_sset_count		= ibmveth_get_sset_count,
- 	.get_ethtool_stats	= ibmveth_get_ethtool_stats,
-+	.set_sg			= ethtool_op_set_sg,
- };
+--- net-next-2.6.orig//drivers/net/ibmveth.c	2010-09-03 22:18:45.000000000 -0500
++++ net-next-2.6/drivers/net/ibmveth.c	2010-09-03 22:18:46.000000000 -0500
+@@ -122,6 +122,11 @@ module_param(tx_copybreak, uint, 0644);
+ MODULE_PARM_DESC(tx_copybreak,
+ 	"Maximum size of packet that is copied to a new buffer on transmit");
  
- static int ibmveth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-@@ -906,96 +907,158 @@ static int ibmveth_ioctl(struct net_devi
- 
- #define page_offset(v) ((unsigned long)(v) & ((1 << 12) - 1))
- 
--static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
--				      struct net_device *netdev)
-+static int ibmveth_send(struct ibmveth_adapter *adapter,
-+			union ibmveth_buf_desc *descs)
- {
--	struct ibmveth_adapter *adapter = netdev_priv(netdev);
--	union ibmveth_buf_desc desc;
--	unsigned long lpar_rc;
- 	unsigned long correlator;
- 	unsigned int retry_count;
--	unsigned int tx_dropped = 0;
--	unsigned int tx_bytes = 0;
--	unsigned int tx_packets = 0;
--	unsigned int tx_send_failed = 0;
--	unsigned int tx_map_failed = 0;
--	int used_bounce = 0;
--	unsigned long data_dma_addr;
-+	unsigned long ret;
++static unsigned int rx_copybreak __read_mostly = 128;
++module_param(rx_copybreak, uint, 0644);
++MODULE_PARM_DESC(rx_copybreak,
++	"Maximum size of packet that is copied to a new buffer on receive");
 +
-+	/*
-+	 * The retry count sets a maximum for the number of broadcast and
-+	 * multicast destinations within the system.
-+	 */
-+	retry_count = 1024;
-+	correlator = 0;
-+	do {
-+		ret = h_send_logical_lan(adapter->vdev->unit_address,
-+					     descs[0].desc, descs[1].desc,
-+					     descs[2].desc, descs[3].desc,
-+					     descs[4].desc, descs[5].desc,
-+					     correlator, &correlator);
-+	} while ((ret == H_BUSY) && (retry_count--));
-+
-+	if (ret != H_SUCCESS && ret != H_DROPPED) {
-+		ibmveth_error_printk("tx: h_send_logical_lan failed with "
-+				     "rc=%ld\n", ret);
-+		return 1;
-+	}
-+
-+	return 0;
-+}
+ struct ibmveth_stat {
+ 	char name[ETH_GSTRING_LEN];
+ 	int offset;
+@@ -1002,8 +1007,6 @@ static int ibmveth_poll(struct napi_stru
  
--	desc.fields.flags_len = IBMVETH_BUF_VALID | skb->len;
-+static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
-+				      struct net_device *netdev)
-+{
-+	struct ibmveth_adapter *adapter = netdev_priv(netdev);
-+	unsigned int desc_flags;
-+	union ibmveth_buf_desc descs[6];
-+	int last, i;
-+	int force_bounce = 0;
-+
-+	/*
-+	 * veth handles a maximum of 6 segments including the header, so
-+	 * we have to linearize the skb if there are more than this.
-+	 */
-+	if (skb_shinfo(skb)->nr_frags > 5 && __skb_linearize(skb)) {
-+		netdev->stats.tx_dropped++;
-+		goto out;
-+	}
- 
-+	/* veth can't checksum offload UDP */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
- 	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
- 		ibmveth_error_printk("tx: failed to checksum packet\n");
--		tx_dropped++;
-+		netdev->stats.tx_dropped++;
- 		goto out;
- 	}
- 
-+	desc_flags = IBMVETH_BUF_VALID;
-+
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		unsigned char *buf = skb_transport_header(skb) + skb->csum_offset;
-+		unsigned char *buf = skb_transport_header(skb) +
-+						skb->csum_offset;
- 
--		desc.fields.flags_len |= (IBMVETH_BUF_NO_CSUM | IBMVETH_BUF_CSUM_GOOD);
-+		desc_flags |= (IBMVETH_BUF_NO_CSUM | IBMVETH_BUF_CSUM_GOOD);
- 
- 		/* Need to zero out the checksum */
- 		buf[0] = 0;
- 		buf[1] = 0;
- 	}
- 
--	if (skb->len < tx_copybreak) {
--		used_bounce = 1;
--	} else {
--		data_dma_addr = dma_map_single(&adapter->vdev->dev, skb->data,
--					       skb->len, DMA_TO_DEVICE);
--		if (dma_mapping_error(&adapter->vdev->dev, data_dma_addr)) {
--			if (!firmware_has_feature(FW_FEATURE_CMO))
--				ibmveth_error_printk("tx: unable to map "
--						     "xmit buffer\n");
--			tx_map_failed++;
--			used_bounce = 1;
--		}
--	}
-+retry_bounce:
-+	memset(descs, 0, sizeof(descs));
- 
--	if (used_bounce) {
-+	/*
-+	 * If a linear packet is below the rx threshold then
-+	 * copy it into the static bounce buffer. This avoids the
-+	 * cost of a TCE insert and remove.
-+	 */
-+	if (force_bounce || (!skb_is_nonlinear(skb) &&
-+				(skb->len < tx_copybreak))) {
- 		skb_copy_from_linear_data(skb, adapter->bounce_buffer,
- 					  skb->len);
--		desc.fields.address = adapter->bounce_buffer_dma;
--	} else
--		desc.fields.address = data_dma_addr;
- 
--	/* send the frame. Arbitrarily set retrycount to 1024 */
--	correlator = 0;
--	retry_count = 1024;
--	do {
--		lpar_rc = h_send_logical_lan(adapter->vdev->unit_address,
--					     desc.desc, 0, 0, 0, 0, 0,
--					     correlator, &correlator);
--	} while ((lpar_rc == H_BUSY) && (retry_count--));
-+		descs[0].fields.flags_len = desc_flags | skb->len;
-+		descs[0].fields.address = adapter->bounce_buffer_dma;
- 
--	if(lpar_rc != H_SUCCESS && lpar_rc != H_DROPPED) {
--		ibmveth_error_printk("tx: h_send_logical_lan failed with rc=%ld\n", lpar_rc);
--		ibmveth_error_printk("tx: valid=%d, len=%d, address=0x%08x\n",
--				     (desc.fields.flags_len & IBMVETH_BUF_VALID) ? 1 : 0,
--				     skb->len, desc.fields.address);
--		tx_send_failed++;
--		tx_dropped++;
-+		if (ibmveth_send(adapter, descs)) {
-+			adapter->tx_send_failed++;
-+			netdev->stats.tx_dropped++;
-+		} else {
-+			netdev->stats.tx_packets++;
-+			netdev->stats.tx_bytes += skb->len;
-+		}
-+
-+		goto out;
-+	}
-+
-+	/* Map the header */
-+	descs[0].fields.address = dma_map_single(&adapter->vdev->dev, skb->data,
-+						 skb_headlen(skb),
-+						 DMA_TO_DEVICE);
-+	if (dma_mapping_error(&adapter->vdev->dev, descs[0].fields.address))
-+		goto map_failed;
-+
-+	descs[0].fields.flags_len = desc_flags | skb_headlen(skb);
-+
-+	/* Map the frags */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		unsigned long dma_addr;
-+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+
-+		dma_addr = dma_map_page(&adapter->vdev->dev, frag->page,
-+					frag->page_offset, frag->size,
-+					DMA_TO_DEVICE);
-+
-+		if (dma_mapping_error(&adapter->vdev->dev, dma_addr))
-+			goto map_failed_frags;
-+
-+		descs[i+1].fields.flags_len = desc_flags | frag->size;
-+		descs[i+1].fields.address = dma_addr;
-+	}
-+
-+	if (ibmveth_send(adapter, descs)) {
-+		adapter->tx_send_failed++;
-+		netdev->stats.tx_dropped++;
- 	} else {
--		tx_packets++;
--		tx_bytes += skb->len;
-+		netdev->stats.tx_packets++;
-+		netdev->stats.tx_bytes += skb->len;
- 	}
- 
--	if (!used_bounce)
--		dma_unmap_single(&adapter->vdev->dev, data_dma_addr,
--				 skb->len, DMA_TO_DEVICE);
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags + 1; i++)
-+		dma_unmap_page(&adapter->vdev->dev, descs[i].fields.address,
-+			       descs[i].fields.flags_len & IBMVETH_BUF_LEN_MASK,
-+			       DMA_TO_DEVICE);
- 
- out:
--	netdev->stats.tx_dropped += tx_dropped;
--	netdev->stats.tx_bytes += tx_bytes;
--	netdev->stats.tx_packets += tx_packets;
--	adapter->tx_send_failed += tx_send_failed;
--	adapter->tx_map_failed += tx_map_failed;
+  restart_poll:
+ 	do {
+-		struct sk_buff *skb;
 -
- 	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
+ 		if (!ibmveth_rxq_pending_buffer(adapter))
+ 			break;
+ 
+@@ -1014,20 +1017,34 @@ static int ibmveth_poll(struct napi_stru
+ 			ibmveth_debug_printk("recycling invalid buffer\n");
+ 			ibmveth_rxq_recycle_buffer(adapter);
+ 		} else {
++			struct sk_buff *skb, *new_skb;
+ 			int length = ibmveth_rxq_frame_length(adapter);
+ 			int offset = ibmveth_rxq_frame_offset(adapter);
+ 			int csum_good = ibmveth_rxq_csum_good(adapter);
+ 
+ 			skb = ibmveth_rxq_get_buffer(adapter);
+-			if (csum_good)
+-				skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+-			ibmveth_rxq_harvest_buffer(adapter);
++			new_skb = NULL;
++			if (length < rx_copybreak)
++				new_skb = netdev_alloc_skb(netdev, length);
 +
-+map_failed_frags:
-+	last = i+1;
-+	for (i = 0; i < last; i++)
-+		dma_unmap_page(&adapter->vdev->dev, descs[i].fields.address,
-+			       descs[i].fields.flags_len & IBMVETH_BUF_LEN_MASK,
-+			       DMA_TO_DEVICE);
++			if (new_skb) {
++				skb_copy_to_linear_data(new_skb,
++							skb->data + offset,
++							length);
++				skb = new_skb;
++				ibmveth_rxq_recycle_buffer(adapter);
++			} else {
++				ibmveth_rxq_harvest_buffer(adapter);
++				skb_reserve(skb, offset);
++			}
+ 
+-			skb_reserve(skb, offset);
+ 			skb_put(skb, length);
+ 			skb->protocol = eth_type_trans(skb, netdev);
+ 
++			if (csum_good)
++				skb->ip_summed = CHECKSUM_UNNECESSARY;
 +
-+map_failed:
-+	if (!firmware_has_feature(FW_FEATURE_CMO))
-+		ibmveth_error_printk("tx: unable to map xmit buffer\n");
-+	adapter->tx_map_failed++;
-+	skb_linearize(skb);
-+	force_bounce = 1;
-+	goto retry_bounce;
- }
+ 			netif_receive_skb(skb);	/* send it up */
  
- static int ibmveth_poll(struct napi_struct *napi, int budget)
-@@ -1316,6 +1379,7 @@ static int __devinit ibmveth_probe(struc
- 	netdev->netdev_ops = &ibmveth_netdev_ops;
- 	netdev->ethtool_ops = &netdev_ethtool_ops;
- 	SET_NETDEV_DEV(netdev, &dev->dev);
-+	netdev->features |= NETIF_F_SG;
- 
- 	memcpy(netdev->dev_addr, &adapter->mac_addr, netdev->addr_len);
- 
+ 			netdev->stats.rx_packets++;
