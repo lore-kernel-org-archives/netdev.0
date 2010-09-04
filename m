@@ -1,67 +1,39 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 1/2] drivers/net/fs_enet/fs_enet-main.c: Add of_node_put to avoid memory leak
-Date: Sat,  4 Sep 2010 12:12:43 +0200
-Message-ID: <1283595164-29146-1-git-send-email-julia@diku.dk>
-Cc: kernel-janitors@vger.kernel.org,
-	Vitaly Bordug <vbordug@ru.mvista.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xavier Roche <roche*lkml@httrack.com>
+Subject: "src" attribute ignored for IPv6 (preferred source address selection)
+Date: Sat, 04 Sep 2010 11:47:52 +0200
+Message-ID: <4C8215C8.8000908@httrack.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gob75-8-88-165-216-99.fbx.proxad.net ([88.165.216.99]:42520
+	"EHLO smtp-1.httrack.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751747Ab0IDKXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 06:23:17 -0400
+Received: from [192.168.1.1] (machine-1.localnet [192.168.1.1])
+	by smtp-1.httrack.com (8.14.3/8.14.3/Debian-5+lenny1) with ESMTP id o849lwpE024177
+	for <netdev@vger.kernel.org>; Sat, 4 Sep 2010 11:47:58 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In this case, a device_node structure is stored in another structure that
-is then freed without first decrementing the reference count of the
-device_node structure.
+Hi folks,
 
-The semantic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
+In an attempt to change the source address in various conditions 
+(network prefix, outgoing protocol, user owner id, ..), it appeared that 
+the src attribute of an IPv6 route command (ip -6 route add .. src ..) 
+was simply ignored.
 
-// <smpl>
-@r exists@
-expression x;
-identifier f;
-position p1,p2;
-@@
+The outgoing interface can be selected, but not the preferred source 
+address (see (1)), which remains always the same within an interface.
 
-x@p1->f = \(of_find_node_by_path\|of_find_node_by_name\|of_find_node_by_phandle\|of_get_parent\|of_get_next_parent\|of_get_next_child\|of_find_compatible_node\|of_match_node\|of_find_node_by_type\|of_find_node_with_property\|of_find_matching_node\|of_parse_phandle\|of_node_get\)(...);
-... when != of_node_put(x)
-kfree@p2(x)
+If this a bug ? Or a known limitation of the kernel ?
 
-@script:python@
-p1 << r.p1;
-p2 << r.p2;
-@@
-cocci.print_main("call",p1)
-cocci.print_secs("free",p2)
-// </smpl>
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+(1) IPROUTE2 Utility Suite Howto
+"src ADDRESS --- the source address to prefer using when sending to the 
+destinations covered by route prefix. This address must be defined on a 
+local machine interface. This will come into play when routes and rules 
+are combined with the masquerade rules of the ipchains firewall we 
+discuss later."
 
----
- drivers/net/fs_enet/fs_enet-main.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index d6e3111..d684f18 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -1036,7 +1036,7 @@ static int __devinit fs_enet_probe(struct platform_device *ofdev,
- 	ndev = alloc_etherdev(privsize);
- 	if (!ndev) {
- 		ret = -ENOMEM;
--		goto out_free_fpi;
-+		goto out_put;
- 	}
- 
- 	SET_NETDEV_DEV(ndev, &ofdev->dev);
-@@ -1099,6 +1099,7 @@ out_cleanup_data:
- out_free_dev:
- 	free_netdev(ndev);
- 	dev_set_drvdata(&ofdev->dev, NULL);
-+out_put:
- 	of_node_put(fpi->phy_node);
- out_free_fpi:
- 	kfree(fpi);
