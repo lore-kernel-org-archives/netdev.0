@@ -1,39 +1,47 @@
-From: Xavier Roche <roche*lkml@httrack.com>
-Subject: "src" attribute ignored for IPv6 (preferred source address selection)
-Date: Sat, 04 Sep 2010 11:47:52 +0200
-Message-ID: <4C8215C8.8000908@httrack.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] UNIX: Do not loop forever at unix_autobind().
+Date: Sat, 04 Sep 2010 12:55:29 +0200
+Message-ID: <1283597729.3402.16.camel@edumazet-laptop>
+References: <201008212101.IJG87048.QMOHFtSOVOLFFJ@I-love.SAKURA.ne.jp>
+	 <AANLkTi=oWoHUmm_3xkRY7UzoXTuptKvUHzn0gK2WDiSa@mail.gmail.com>
+	 <201008302227.DJH30258.OQFMFtFJOOVSHL@I-love.SAKURA.ne.jp>
+	 <1283370450.2484.19.camel@edumazet-laptop>
+	 <201009040658.o846wxnU028775@www262.sakura.ne.jp>
+	 <1283584269.3402.9.camel@edumazet-laptop>
+	 <201009040740.o847eB4f040772@www262.sakura.ne.jp>
+	 <1283588647.3402.12.camel@edumazet-laptop>
+	 <201009040931.o849VstI061086@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gob75-8-88-165-216-99.fbx.proxad.net ([88.165.216.99]:42520
-	"EHLO smtp-1.httrack.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751747Ab0IDKXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 06:23:17 -0400
-Received: from [192.168.1.1] (machine-1.localnet [192.168.1.1])
-	by smtp-1.httrack.com (8.14.3/8.14.3/Debian-5+lenny1) with ESMTP id o849lwpE024177
-	for <netdev@vger.kernel.org>; Sat, 4 Sep 2010 11:47:58 +0200
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:53090 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752790Ab0IDKze (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 06:55:34 -0400
+Received: by fxm13 with SMTP id 13so1744079fxm.19
+        for <netdev@vger.kernel.org>; Sat, 04 Sep 2010 03:55:33 -0700 (PDT)
+In-Reply-To: <201009040931.o849VstI061086@www262.sakura.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi folks,
+Le samedi 04 septembre 2010 =C3=A0 18:31 +0900, Tetsuo Handa a =C3=A9cr=
+it :
+> +		cond_resched();
+> +		/* Give up if all names seems to be in use. */
+> +		if (retries++ =3D=3D 0xFFFFF) {
+> +			err =3D -ENOMEM;
+> +			kfree(addr);
+> +			goto out;
+> +		}
+>  		goto retry;
+>  	}
+>  	addr->hash ^=3D sk->sk_type;
 
-In an attempt to change the source address in various conditions 
-(network prefix, outgoing protocol, user owner id, ..), it appeared that 
-the src attribute of an IPv6 route command (ip -6 route add .. src ..) 
-was simply ignored.
-
-The outgoing interface can be selected, but not the preferred source 
-address (see (1)), which remains always the same within an interface.
-
-If this a bug ? Or a known limitation of the kernel ?
+Yes, but please use a different error code, its not ENOMEM...
+maybe EBUSY or ENOSPC ...
 
 
-(1) IPROUTE2 Utility Suite Howto
-"src ADDRESS --- the source address to prefer using when sending to the 
-destinations covered by route prefix. This address must be defined on a 
-local machine interface. This will come into play when routes and rules 
-are combined with the masquerade rules of the ipchains firewall we 
-discuss later."
 
