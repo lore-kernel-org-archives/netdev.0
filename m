@@ -1,85 +1,62 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: net: af_packet: skb_orphan should be avoided in TX path.
-Date: Sun, 05 Sep 2010 20:08:45 +0200
-Message-ID: <4C83DCAD.5040602@hartkopp.net>
-References: <AANLkTi=oXDgEhEjt7V+Z4Pk8kv9X4Z8aCg2yAJDzuJ1J@mail.gmail.com> <1283708635.3402.100.camel@edumazet-laptop> <AANLkTineDkP1EGsTn3GU+9cPO+JnaNc3ekoHyKQa=img@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 8/8] drivers/net/wireless/iwlwifi/iwl-agn.c: Fix return value from an unsigned function
+Date: Sun,  5 Sep 2010 21:00:26 +0200
+Message-ID: <1283713226-8429-9-git-send-email-julia@diku.dk>
+References: <1283713226-8429-1-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Reinette Chatre <reinette.chatre@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:40910 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751627Ab0IESIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Sep 2010 14:08:49 -0400
-In-Reply-To: <AANLkTineDkP1EGsTn3GU+9cPO+JnaNc3ekoHyKQa=img@mail.gmail.com>
+Received: from mgw2.diku.dk ([130.225.96.92]:35493 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754454Ab0IES7j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Sep 2010 14:59:39 -0400
+In-Reply-To: <1283713226-8429-1-git-send-email-julia@diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05.09.2010 19:51, Changli Gao wrote:
-> On Mon, Sep 6, 2010 at 1:43 AM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
->> Le lundi 06 septembre 2010 =E0 01:18 +0800, Changli Gao a =E9crit :
->>> af_packet uses tpacket_destruct_skb() to notify its user a frame is
->>> sent out through NIC, and the memory for that frame is available fo=
-r
->>> the others. If the driver calls skb_orphan() before the frame is se=
-nt
->>> out successfully, and the user may fill other data into the space f=
-or
->>> this frame, this frame will be corrupted. It became more likely aft=
-er
->>> skb_try_orphan() was added into dev_hard_start_xmit().
->>>
->>> Am I correct?
->>>
->>
->> Yes good catch. We might add a :
->>
->> SKBTX_NO_EARLY_ORPHAN =3D 1 << 4,
->>
->> so that skb_orphan_try() do not early orphan this kind of skb
->>
->=20
-> It may solve the issue of skb_orphan_try(), but some NICs still call
-> skb_orphan(). Maybe replacing skb_orphan() with skb_orphan_try() can
-> work around this issue.
->=20
+The function has an unsigned return type, but returns a negative constant
+to indicate an error condition.  Another error condition in the same
+function is indicated by returning 0, and indeed the only call to the
+function checks for 0 to detect errors, so the return of a negative value
+it converted to a return of 0.
 
-Hm - i'm not really sure if skb_orphan_try() helps on this level.
+A sematic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
-E.g. for drivers/net/can/dev.c the skb_orphan is used to handle the cor=
-rect
-order of echo'ed skbs. Other drivers may do similar things.
+// <smpl>
+@exists@
+identifier f;
+constant C;
+@@
 
-AFAIK skb_orphan_try() helps to increase the performance for usual netw=
-ork
-traffic, as it allows the orphan on a 'higher' level inside the network=
-ing stack.
+ unsigned f(...)
+ { <+...
+*  return -C;
+ ...+> }
+// </smpl>
 
-In some cases the skb needs to be untouched, and this can be indicated =
-in the
-shared tx_flags. IMO skb_orphan_try() on driver level would break the c=
-orrect
-behaviour in most cases.
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Regards,
-Oliver
+---
+ drivers/net/wireless/iwlwifi/iwl-agn.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> localhost linux # grep skb_orphan drivers/net/ -r
-> drivers/net/can/dev.c:                  skb_orphan(skb);
-> drivers/net/mlx4/en_tx.c:               skb_orphan(skb);
-> drivers/net/cxgb3/sge.c:                skb_orphan(skb);
-> drivers/net/cxgb4/sge.c:                skb_orphan(skb);
-> drivers/net/niu.c:              skb_orphan(skb);
-> drivers/net/cxgb4vf/sge.c:              skb_orphan(skb);
-> drivers/net/tun.c:      skb_orphan(skb);
-> drivers/net/virtio_net.c:       skb_orphan(skb);
-> drivers/net/loopback.c: skb_orphan(skb);
-> drivers/net/wireless/mac80211_hwsim.c:  skb_orphan(skb);
-> drivers/net/wireless/libertas/tx.c:             skb_orphan(skb);
->=20
+diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
+index ad0e67f..86b55c2 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-agn.c
++++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
+@@ -369,7 +369,7 @@ static unsigned int iwl_hw_get_beacon_cmd(struct iwl_priv *priv,
+ 
+ 	if (!priv->beacon_ctx) {
+ 		IWL_ERR(priv, "trying to build beacon w/o beacon context!\n");
+-		return -EINVAL;
++		return 0;
+ 	}
+ 
+ 	/* Initialize memory */
 
