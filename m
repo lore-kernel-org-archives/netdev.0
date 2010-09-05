@@ -1,52 +1,98 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 3/8] net/9p/trans_fd.c: Fix unsigned return type
-Date: Sun,  5 Sep 2010 21:00:21 +0200
-Message-ID: <1283713226-8429-4-git-send-email-julia@diku.dk>
-References: <1283713226-8429-1-git-send-email-julia@diku.dk>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1283713226-8429-1-git-send-email-julia@diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] cxacru: ignore cx82310_eth devices
+Date: Sun, 5 Sep 2010 12:14:12 -0700
+Message-ID: <20100905191412.GA10835@kroah.com>
+References: <201009032317.14954.linux@rainbow-software.org> <4C82741C.2000106@simon.arlott.org.uk> <20100905040352.GA18538@kroah.com> <201009051901.13851.linux@rainbow-software.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Arlott <simon@fire.lp0.eu>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:38568 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750938Ab0IETrv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Sep 2010 15:47:51 -0400
+Content-Disposition: inline
+In-Reply-To: <201009051901.13851.linux@rainbow-software.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function has an unsigned return type, but returns a negative constant
-to indicate an error condition.  The result of calling the function is
-always stored in a variable of type (signed) int, and thus unsigned can be
-dropped from the return type.
+On Sun, Sep 05, 2010 at 07:01:11PM +0200, Ondrej Zary wrote:
+> On Sunday 05 September 2010 06:03:52 Greg KH wrote:
+> > On Sat, Sep 04, 2010 at 05:30:20PM +0100, Simon Arlott wrote:
+> > > Ignore ADSL routers, which can have the same vendor and product IDs
+> > > as ADSL modems but should be handled by the cx82310_eth driver.
+> > >
+> > > This intentionally ignores device IDs that aren't currently handled
+> > > by cx82310_eth. There may be other device IDs that perhaps shouldn't
+> > > be claimed by cxacru.
+> > >
+> > > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> > > [SA: Moved to cxacru_usb_probe, message level lowered to info]
+> > > Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+> > > ---
+> > >  drivers/usb/atm/cxacru.c |   18 ++++++++++++++++--
+> > >  1 files changed, 16 insertions(+), 2 deletions(-)
+> > >
+> > > diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
+> > > index 593fc5e..96fa736 100644
+> > > --- a/drivers/usb/atm/cxacru.c
+> > > +++ b/drivers/usb/atm/cxacru.c
+> > > @@ -1324,8 +1324,22 @@ static struct usbatm_driver cxacru_driver = {
+> > >  	.tx_padding	= 11,
+> > >  };
+> > >
+> > > -static int cxacru_usb_probe(struct usb_interface *intf, const struct
+> > > usb_device_id *id) -{
+> > > +static int cxacru_usb_probe(struct usb_interface *intf,
+> > > +		const struct usb_device_id *id) {
+> > > +	struct usb_device *usb_dev = interface_to_usbdev(intf);
+> > > +	char buf[15];
+> > > +
+> > > +	/* avoid ADSL routers (cx82310_eth)
+> > > +	 * abort if bDeviceClass is 0xff and iProduct is "USB NET CARD" */
+> > > +	if (usb_dev->descriptor.bDeviceClass == 0xff
+> >
+> > vendor class?  We have a macro for that?
+> >
+> > > +			&& usb_dev->descriptor.iProduct
+> >
+> > Almost everyone has a iProduct, right?  Why even test for that?
+> >
+> > > +			&& usb_string(usb_dev,
+> > > +				usb_dev->descriptor.iProduct, buf, sizeof(buf))
+> >
+> > usb_string() should handle a 0 string, right?
+> >
+> > > +			&& !strcmp(buf, "USB NET CARD")) {
+> >
+> > Just to make it a bit easier to follow, how about you do the
+> > usb_string() call in the if statment, and then compare the string and
+> >
+> > then, if that matches you do:
+> > > +		dev_info(&intf->dev, "ignoring cx82310_eth device\n");
+> > > +		return -ENODEV;
+> 
+> Does it look that much better?:
+> 
+> 	if (usb_dev->descriptor.bDeviceClass == USB_CLASS_VENDOR_SPEC
+> 			&& usb_string(usb_dev, usb_dev->descriptor.iProduct,
+> 				buf, sizeof(buf)) > 0)
+> 		if (!strcmp(buf, "USB NET CARD")) {
+> 			dev_info(&intf->dev, "ignoring cx82310_eth device\n");
+> 			return -ENODEV;
+> 		}
 
-A sematic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
+Yes, don't you think so?
 
-// <smpl>
-@exists@
-identifier f;
-constant C;
-@@
+> I also found a bug in my first patch - usb_string() can return negative value 
+> which can cause problems when not checked for.
 
- unsigned f(...)
- { <+...
-*  return -C;
- ...+> }
-// </smpl>
+Ah, nice catch.  Care to resend it now?
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+thanks,
 
----
- net/9p/trans_fd.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
-index c85109d..078eb16 100644
---- a/net/9p/trans_fd.c
-+++ b/net/9p/trans_fd.c
-@@ -222,7 +222,7 @@ static void p9_conn_cancel(struct p9_conn *m, int err)
- 	}
- }
- 
--static unsigned int
-+static int
- p9_fd_poll(struct p9_client *client, struct poll_table_struct *pt)
- {
- 	int ret, n;
+greg k-h
