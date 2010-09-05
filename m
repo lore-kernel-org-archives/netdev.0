@@ -1,78 +1,63 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] cxacru: ignore cx82310_eth devices
-Date: Sat, 4 Sep 2010 21:03:52 -0700
-Message-ID: <20100905040352.GA18538@kroah.com>
-References: <201009032317.14954.linux@rainbow-software.org> <4C81735E.3030903@simon.arlott.org.uk> <201009041401.10034.linux@rainbow-software.org> <4C82741C.2000106@simon.arlott.org.uk>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
+Date: Sun, 5 Sep 2010 08:22:40 +0200
+Message-ID: <20100905062240.GB2699@riccoc20.at.omicron.at>
+References: <cover.1283504065.git.richard.cochran@omicron.at>
+ <alpine.DEB.2.00.1009041221240.888@router.home>
+ <4C828652.4060804@gmail.com>
+ <alpine.DEB.2.00.1009042042130.9425@router.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ondrej Zary <linux@rainbow-software.org>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Simon Arlott <simon@fire.lp0.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Christian Riesch <christian.riesch-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <4C82741C.2000106@simon.arlott.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <alpine.DEB.2.00.1009042042130.9425-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 04, 2010 at 05:30:20PM +0100, Simon Arlott wrote:
-> Ignore ADSL routers, which can have the same vendor and product IDs
-> as ADSL modems but should be handled by the cx82310_eth driver.
+On Sat, Sep 04, 2010 at 08:47:39PM -0500, Christoph Lameter wrote:
+> On Sat, 4 Sep 2010, Christian Riesch wrote:
 > 
-> This intentionally ignores device IDs that aren't currently handled
-> by cx82310_eth. There may be other device IDs that perhaps shouldn't
-> be claimed by cxacru.
+> > Richard's idea is to support clock hardware for IEEE 1588 (PTP, Precision Time
+> > Protocol). Have a look at the earlier discussions:
+> >
+> > http://lkml.org/lkml/2010/8/16/90
 > 
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> [SA: Moved to cxacru_usb_probe, message level lowered to info]
-> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
-> ---
->  drivers/usb/atm/cxacru.c |   18 ++++++++++++++++--
->  1 files changed, 16 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
-> index 593fc5e..96fa736 100644
-> --- a/drivers/usb/atm/cxacru.c
-> +++ b/drivers/usb/atm/cxacru.c
-> @@ -1324,8 +1324,22 @@ static struct usbatm_driver cxacru_driver = {
->  	.tx_padding	= 11,
->  };
->  
-> -static int cxacru_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
-> -{
-> +static int cxacru_usb_probe(struct usb_interface *intf,
-> +		const struct usb_device_id *id) {
-> +	struct usb_device *usb_dev = interface_to_usbdev(intf);
-> +	char buf[15];
-> +
-> +	/* avoid ADSL routers (cx82310_eth)
-> +	 * abort if bDeviceClass is 0xff and iProduct is "USB NET CARD" */
-> +	if (usb_dev->descriptor.bDeviceClass == 0xff
+> A superficial scan does not give me any definite agreement on an approach.
 
-vendor class?  We have a macro for that?
+Welcome to the club. I am also not too sure how to bring everything
+that was said together.
 
-> +			&& usb_dev->descriptor.iProduct
+I have attempted to synthesize the various ideas from the previous
+threads into a concrete form (a new patch set) in order to see:
 
-Almost everyone has a iProduct, right?  Why even test for that?
+1. If I understood what the commentators were asking for.
+2. Whether people now agree on the approach.
 
-> +			&& usb_string(usb_dev,
-> +				usb_dev->descriptor.iProduct, buf, sizeof(buf))
+> Ok this goes more into something that may prove useful but it would be
+> very helpful still to have a clear discussion as to why this is all
+> needed. From what I can tell the functionality is already there and
+> another clock device (CLOCK_SGI_CYCLE) is already providing a model for
+> how a PTP clock could be controlled and used.
 
-usb_string() should handle a 0 string, right?
+John Stultz warned against that approach in his mail from August 18.
 
-> +			&& !strcmp(buf, "USB NET CARD")) {
+    http://lkml.org/lkml/2010/8/18/264
 
-Just to make it a bit easier to follow, how about you do the
-usb_string() call in the if statment, and then compare the string and
-then, if that matches you do:
+At this point, I think it is clear that, in order to support IEEE
+1588, some kind of changes are needed. I have argued and discussed the
+issues at some length. I am willing to continue the discussion, but I
+would also appreciate more than a "superficial scan." PTP is quite a
+large topic that probably cannot be adequately treated in a single
+email.
 
-> +		dev_info(&intf->dev, "ignoring cx82310_eth device\n");
-> +		return -ENODEV;
+Having said that, if you are convinced that the existing interfaces
+are good enough to support PTP (and possible future methods, as
+discussed in the threads), then I am all ears to find out how to do
+make it work.
 
-Well, actually, dev_info?  I guess so, but do you really want to see
-this message every time?
-
-thanks,
-
-greg k-h
+Thanks,
+Richard
