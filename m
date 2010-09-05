@@ -1,132 +1,99 @@
 From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: [PATCH] usbnet: allow rx_process() to ignore packets
-Date: Sun, 5 Sep 2010 18:16:10 +0200
-Message-ID: <201009051816.12823.linux@rainbow-software.org>
-References: <365612.7945.qm@web180309.mail.gq1.yahoo.com>
+Subject: Re: [PATCH] cxacru: ignore cx82310_eth devices
+Date: Sun, 5 Sep 2010 19:01:11 +0200
+Message-ID: <201009051901.13851.linux@rainbow-software.org>
+References: <201009032317.14954.linux@rainbow-software.org> <4C82741C.2000106@simon.arlott.org.uk> <20100905040352.GA18538@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <dbrownell@users.sourceforge.net>,
+Cc: Simon Arlott <simon@fire.lp0.eu>,
+	David Brownell <dbrownell@users.sourceforge.net>,
 	netdev@vger.kernel.org,
 	Kernel development list <linux-kernel@vger.kernel.org>
-To: David Brownell <david-b@pacbell.net>
+To: Greg KH <greg@kroah.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <365612.7945.qm@web180309.mail.gq1.yahoo.com>
+In-Reply-To: <20100905040352.GA18538@kroah.com>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 05 September 2010 01:24:46 David Brownell wrote:
-> --- On Sat, 9/4/10, Ondrej Zary <linux@rainbow-software.org> wrote:
-> > From: Ondrej Zary <linux@rainbow-software.org>
-> > Subject: [PATCH] usbnet: allow rx_process() to ignore packets
->
-> It already can ... I'm already not
-> liking this patch...
-
-How it can? Currently, rx_process() knows only two cases: either rx_fixup() 
-returns 0 or a non-zero value. If I return 0, the error counter is 
-incremented. If I return non-zero value, packet is processed ("passed up the 
-stack" - usbnet_skb_return() called) if the skb has non-zero length, 
-otherwise the error counter is incremented. There's no way to not pass the 
-packet up the stack without incrementing the error counter.
-
-> You've not convinced me this is even necessary.
->
-> > To: "David Brownell" <dbrownell@users.sourceforge.net>
-> > Cc: netdev@vger.kernel.org, "Kernel development list"
-> > <linux-kernel@vger.kernel.org> Date: Saturday, September 4, 2010, 2:52 PM
-> > Allow rx_process() to ignore a packet
-> > without incrementing error counters if
-> > rx_fixup() returns value other than 0 or 1 (e.g. 2).
+On Sunday 05 September 2010 06:03:52 Greg KH wrote:
+> On Sat, Sep 04, 2010 at 05:30:20PM +0100, Simon Arlott wrote:
+> > Ignore ADSL routers, which can have the same vendor and product IDs
+> > as ADSL modems but should be handled by the cx82310_eth driver.
 > >
-> > This allows to simplify rx_fixup() functions of drivers who
-> > do complex
-> > processing there. Currently, drivers must process
+> > This intentionally ignores device IDs that aren't currently handled
+> > by cx82310_eth. There may be other device IDs that perhaps shouldn't
+> > be claimed by cxacru.
+> >
+> > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> > [SA: Moved to cxacru_usb_probe, message level lowered to info]
+> > Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+> > ---
+> >  drivers/usb/atm/cxacru.c |   18 ++++++++++++++++--
+> >  1 files changed, 16 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
+> > index 593fc5e..96fa736 100644
+> > --- a/drivers/usb/atm/cxacru.c
+> > +++ b/drivers/usb/atm/cxacru.c
+> > @@ -1324,8 +1324,22 @@ static struct usbatm_driver cxacru_driver = {
+> >  	.tx_padding	= 11,
+> >  };
+> >
+> > -static int cxacru_usb_probe(struct usb_interface *intf, const struct
+> > usb_device_id *id) -{
+> > +static int cxacru_usb_probe(struct usb_interface *intf,
+> > +		const struct usb_device_id *id) {
+> > +	struct usb_device *usb_dev = interface_to_usbdev(intf);
+> > +	char buf[15];
+> > +
+> > +	/* avoid ADSL routers (cx82310_eth)
+> > +	 * abort if bDeviceClass is 0xff and iProduct is "USB NET CARD" */
+> > +	if (usb_dev->descriptor.bDeviceClass == 0xff
 >
-> Not many drivers.  Or even most.
+> vendor class?  We have a macro for that?
 >
->  the last
+> > +			&& usb_dev->descriptor.iProduct
 >
-> > packet in a
-> > special way - leave it for usbnet to process.
+> Almost everyone has a iProduct, right?  Why even test for that?
 >
-> Don't you mean "clean up"?  The usbnet core knows
-> exactly zero about packet framing,
-
-I mean "pass up the stack".
-
-> Which in your scenario -- packet crosses URB
-> boundaries, can't be handled by usbnet at all,
-> since it's specific to the framing used by the
-> protocol the driver understands.
+> > +			&& usb_string(usb_dev,
+> > +				usb_dev->descriptor.iProduct, buf, sizeof(buf))
 >
-> The way to handle such perversity (or is it bad
-> design ... just use large-enough RX urbs!
-
-I cannot change the HW. cx82310 merges the packets in URBs and does not care 
-about URB boundaries. If a packet does not fit the URB (4KB), it simply 
-continues in the next URB (without any header).
-
-> Or ... have the usbnet minidriver queue up the
-> packets it's got to re-assemble, and do that
-> work the next time rx_fixup() is called.  Very
-> straightforward, and doesn't affect the core
-> usbnet framework at all.
-
-That's exactly what I'm already doing. When the packet is not complete, I copy 
-the partial data. And return what? I cannot return 1 as the packet is not 
-complete. If I return 0, the error counter gets incremented even if this is 
-not an error condition. This is why this patch was created.
-
-The cx82310_eth (mini)driver already works
-(see http://www.spinics.net/lists/netdev/msg139950.html)
-and the only problem I can see are the error statistics.
-
-> Better of course is to stick to the simple
-> framing model that places the least load on the
-> whole stack:  one Ethernet packet per URB...
-
-The device probably tries to maximize the throughput by merging everything it 
-can.
-
-> This is not
+> usb_string() should handle a 0 string, right?
 >
-> > easily possible
-> > when a driver (like the new cx82310_eth) needs to process
-> > packets that cross
-> > URB (and thus skb) boundaries. With this patch, the driver
-> > can process all
-> > packets in the skb and just return 2 at the end.
+> > +			&& !strcmp(buf, "USB NET CARD")) {
 >
-> With "2" signifying just what?  And what's keeping
-> that routine from handing up multiple SKBs *NOW* ??
-
-"2" means that rx_process() should neither call usbnet_skb_return() nor 
-increment the error counter.
-
-> ISTR nothing is keeping it from doing that, since
-> the RNDIS code has done so forever.  (More evidence
-> that this change is not needed.)
-
-RNDIS processes multiple packets per skb but not packets that cross skb 
-boundaries.
-cdc_eem, smsc75xx, smsc95xx and also rndis_host treat last packet differently 
-just because usbnet need to pass it up the stack by itself.
-
-> > Also fix asix driver that was returning 2 at one place
-> > before this change
-> > (probably by mistake).
+> Just to make it a bit easier to follow, how about you do the
+> usb_string() call in the if statment, and then compare the string and
 >
-> If that's worth fixing, it's worth doing it
-> in a patch by itself, instead of glommed into
-> an otherwise unrelated patch.  Does that really
-> break that driver?
+> then, if that matches you do:
+> > +		dev_info(&intf->dev, "ignoring cx82310_eth device\n");
+> > +		return -ENODEV;
 
-When semantic of "return 2" changes, the asix driver would be doing something 
-other that it's doing now. I don't want to break anything so the driver 
-should be fixed at the same time (or before).
+Does it look that much better?:
+
+	if (usb_dev->descriptor.bDeviceClass == USB_CLASS_VENDOR_SPEC
+			&& usb_string(usb_dev, usb_dev->descriptor.iProduct,
+				buf, sizeof(buf)) > 0)
+		if (!strcmp(buf, "USB NET CARD")) {
+			dev_info(&intf->dev, "ignoring cx82310_eth device\n");
+			return -ENODEV;
+		}
+
+I also found a bug in my first patch - usb_string() can return negative value 
+which can cause problems when not checked for.
+
+> Well, actually, dev_info?  I guess so, but do you really want to see
+> this message every time?
+>
+> thanks,
+>
+> greg k-h
+
+
 
 -- 
 Ondrej Zary
