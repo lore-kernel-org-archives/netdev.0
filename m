@@ -1,65 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 03/13] drivers/net/wireless/iwlwifi: Remove unnecessary casts of private_data
-Date: Sat,  4 Sep 2010 18:52:44 -0700
-Message-ID: <0edcdb63c6c57d0cf810e8c637cf7e8163b80962.1283650107.git.joe@perches.com>
-References: <cover.1283650107.git.joe@perches.com>
-Cc: Reinette Chatre <reinette.chatre@intel.com>,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jiri Kosina <trivial@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1346 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754644Ab0IEBxH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Sep 2010 21:53:07 -0400
-In-Reply-To: <cover.1283650107.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
+Date: Sun, 5 Sep 2010 07:56:21 +0200
+Message-ID: <20100905055621.GA2699@riccoc20.at.omicron.at>
+References: <cover.1283504065.git.richard.cochran@omicron.at>
+ <alpine.DEB.2.00.1009041221240.888@router.home>
+ <4C828652.4060804@gmail.com>
+ <alpine.DEB.2.00.1009042036540.9425@router.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Riesch <christian.riesch-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1009042036540.9425-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/iwlwifi/iwl-agn-debugfs.c |    2 +-
- drivers/net/wireless/iwlwifi/iwl-debugfs.c     |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+On Sat, Sep 04, 2010 at 08:37:22PM -0500, Christoph Lameter wrote:
+> On Sat, 4 Sep 2010, Christian Riesch wrote:
+> 
+> > Richard's idea is to support clock hardware for IEEE 1588 (PTP, Precision Time
+> > Protocol). Have a look at the earlier discussions:
+> 
+> Ok great. A summary of that belongs into the intro of the patchset.
 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-debugfs.c b/drivers/net/wireless/iwlwifi/iwl-agn-debugfs.c
-index d706b8a..215d29e 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn-debugfs.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn-debugfs.c
-@@ -929,7 +929,7 @@ ssize_t iwl_ucode_bt_stats_read(struct file *file,
- 				char __user *user_buf,
- 				size_t count, loff_t *ppos)
- {
--	struct iwl_priv *priv = (struct iwl_priv *)file->private_data;
-+	struct iwl_priv *priv = file->private_data;
- 	int pos = 0;
- 	char *buf;
- 	int bufsz = (sizeof(struct statistics_bt_activity) * 24) + 200;
-diff --git a/drivers/net/wireless/iwlwifi/iwl-debugfs.c b/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-index 0ee8f51..85e5ad4 100644
---- a/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-debugfs.c
-@@ -1528,7 +1528,7 @@ static ssize_t iwl_dbgfs_ucode_bt_stats_read(struct file *file,
- 					char __user *user_buf,
- 					size_t count, loff_t *ppos)
- {
--	struct iwl_priv *priv = (struct iwl_priv *)file->private_data;
-+	struct iwl_priv *priv = file->private_data;
- 
- 	return priv->cfg->ops->lib->debugfs_ops.bt_stats_read(file,
- 			user_buf, count, ppos);
-@@ -1566,7 +1566,7 @@ static ssize_t iwl_dbgfs_bt_traffic_read(struct file *file,
- 					char __user *user_buf,
- 					size_t count, loff_t *ppos) {
- 
--	struct iwl_priv *priv = (struct iwl_priv *)file->private_data;
-+	struct iwl_priv *priv = file->private_data;
- 	int pos = 0;
- 	char buf[200];
- 	const size_t bufsz = sizeof(buf);
--- 
-1.7.2.19.g9a302
+I left off all mention of PTP, since Alan Cox said that all this talk
+of PTP is not helpful. I think that the idea is introduce a method to
+tune a clock referenced by its clockid_t. In other words, a patch for
+tuning posix clocks, just as the subject lines indicate.
 
+Richard
