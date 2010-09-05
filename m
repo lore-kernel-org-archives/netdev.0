@@ -1,37 +1,45 @@
-From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
-Date: Sat, 4 Sep 2010 20:47:39 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1009042042130.9425@router.home>
-References: <cover.1283504065.git.richard.cochran@omicron.at> <alpine.DEB.2.00.1009041221240.888@router.home> <4C828652.4060804@gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christian Riesch <christian.riesch-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4C828652.4060804-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 12/13] net/sunrpc/rpc_pipe.c: Remove unnecessary casts of private_data
+Date: Sat,  4 Sep 2010 18:52:53 -0700
+Message-ID: <dda96f0e94bd038179ae11dab4d73a7ab704276b.1283650107.git.joe@perches.com>
+References: <cover.1283650107.git.joe@perches.com>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>,
+	Neil Brown <neilb@suse.de>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1283650107.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 4 Sep 2010, Christian Riesch wrote:
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/sunrpc/rpc_pipe.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-> Richard's idea is to support clock hardware for IEEE 1588 (PTP, Precision Time
-> Protocol). Have a look at the earlier discussions:
->
-> http://lkml.org/lkml/2010/8/16/90
-
-A superficial scan does not give me any definite agreement on an approach.
-The patchset also needs to be CCed to John Stultz. Without a summary I
-still am not clear what this is supposed to address.
-
-Tuning of the PTP clock can be done with driver specific configuration
-rather than a new POSIX clock. That is at least how SGI_CYCLE is operating
-which is similar.
-
-> http://lkml.org/lkml/2010/8/23/49
-
-Ok this goes more into something that may prove useful but it would be
-very helpful still to have a clear discussion as to why this is all
-needed. From what I can tell the functionality is already there and
-another clock device (CLOCK_SGI_CYCLE) is already providing a model for
-how a PTP clock could be controlled and used.
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index 95ccbcf..1f7fc50 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -204,7 +204,7 @@ rpc_pipe_release(struct inode *inode, struct file *filp)
+ 	mutex_lock(&inode->i_mutex);
+ 	if (rpci->ops == NULL)
+ 		goto out;
+-	msg = (struct rpc_pipe_msg *)filp->private_data;
++	msg = filp->private_data;
+ 	if (msg != NULL) {
+ 		spin_lock(&inode->i_lock);
+ 		msg->errno = -EAGAIN;
+@@ -322,7 +322,7 @@ rpc_pipe_ioctl_unlocked(struct file *filp, unsigned int cmd, unsigned long arg)
+ 		len = rpci->pipelen;
+ 		if (filp->private_data) {
+ 			struct rpc_pipe_msg *msg;
+-			msg = (struct rpc_pipe_msg *)filp->private_data;
++			msg = filp->private_data;
+ 			len += msg->len - msg->copied;
+ 		}
+ 		return put_user(len, (int __user *)arg);
+-- 
+1.7.2.19.g9a302
