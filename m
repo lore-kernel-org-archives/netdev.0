@@ -1,55 +1,21 @@
-From: Mark Lord <kernel@teksavvy.com>
-Subject: PATCH: b44 Handle RX FIFO overflow better (simplified)
-Date: Sat, 04 Sep 2010 20:17:59 -0400
-Message-ID: <1283645879.1672.2.camel@corey>
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
+Date: Sat, 4 Sep 2010 20:37:22 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009042036540.9425@router.home>
+References: <cover.1283504065.git.richard.cochran@omicron.at> <alpine.DEB.2.00.1009041221240.888@router.home> <4C828652.4060804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	James@superbug.co.uk
-To: "linux-kernel-owner@vger.kernel.org"
-	<linux-kernel-owner@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport2-out.teksavvy.com ([206.248.154.183]:38253 "EHLO
-	ironport2-out.pppoe.ca" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754390Ab0IEA16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Sep 2010 20:27:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christian Riesch <christian.riesch-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4C828652.4060804-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch is a simplified version of the original patch from James Courtier-Dutton.
+On Sat, 4 Sep 2010, Christian Riesch wrote:
 
->From: James Courtier-Dutton
->Subject: [PATCH] Fix b44 RX FIFO overflow recovery.
->Date: Wednesday, June 30, 2010 - 1:11 pm
->
->This patch improves the recovery after a RX FIFO overflow on the b44
->Ethernet NIC.
->Before it would do a complete chip reset, resulting is loss of link
->for a few seconds.
->This patch improves this to do recovery in about 20ms without loss of link.
->
->Signed off by: James@superbug.co.uk
+> Richard's idea is to support clock hardware for IEEE 1588 (PTP, Precision Time
+> Protocol). Have a look at the earlier discussions:
 
-Signed-off-by: Mark Lord <mlord@pobox.com>
-
---- a/drivers/net/b44.c	2010-09-04 20:02:27.539248270 -0400
-+++ b/drivers/net/b44.c	2010-09-04 20:07:03.749248234 -0400
-@@ -851,6 +851,15 @@
- 		b44_tx(bp);
- 		/* spin_unlock(&bp->tx_lock); */
- 	}
-+	if (bp->istat & ISTAT_RFO) {	/* fast recovery, in ~20msec */
-+		bp->istat &= ~ISTAT_RFO;
-+		b44_disable_ints(bp);
-+		ssb_device_enable(bp->sdev, 0); /* resets ISTAT_RFO */
-+		b44_init_rings(bp);
-+		b44_init_hw(bp, B44_FULL_RESET_SKIP_PHY);
-+		netif_wake_queue(bp->dev);
-+	}
-+
- 	spin_unlock_irqrestore(&bp->lock, flags);
- 
- 	work_done = 0;
-
-
+Ok great. A summary of that belongs into the intro of the patchset.
