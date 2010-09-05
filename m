@@ -1,98 +1,84 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] cxacru: ignore cx82310_eth devices
-Date: Sun, 5 Sep 2010 12:14:12 -0700
-Message-ID: <20100905191412.GA10835@kroah.com>
-References: <201009032317.14954.linux@rainbow-software.org> <4C82741C.2000106@simon.arlott.org.uk> <20100905040352.GA18538@kroah.com> <201009051901.13851.linux@rainbow-software.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] r8169: fix rx checksum offload
+Date: Sun, 05 Sep 2010 22:03:16 +0200
+Message-ID: <1283716996.3402.342.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Arlott <simon@fire.lp0.eu>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:38568 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750938Ab0IETrv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Sep 2010 15:47:51 -0400
-Content-Disposition: inline
-In-Reply-To: <201009051901.13851.linux@rainbow-software.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:35080 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752795Ab0IEUDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Sep 2010 16:03:24 -0400
+Received: by fxm13 with SMTP id 13so2191344fxm.19
+        for <netdev@vger.kernel.org>; Sun, 05 Sep 2010 13:03:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 05, 2010 at 07:01:11PM +0200, Ondrej Zary wrote:
-> On Sunday 05 September 2010 06:03:52 Greg KH wrote:
-> > On Sat, Sep 04, 2010 at 05:30:20PM +0100, Simon Arlott wrote:
-> > > Ignore ADSL routers, which can have the same vendor and product IDs
-> > > as ADSL modems but should be handled by the cx82310_eth driver.
-> > >
-> > > This intentionally ignores device IDs that aren't currently handled
-> > > by cx82310_eth. There may be other device IDs that perhaps shouldn't
-> > > be claimed by cxacru.
-> > >
-> > > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> > > [SA: Moved to cxacru_usb_probe, message level lowered to info]
-> > > Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
-> > > ---
-> > >  drivers/usb/atm/cxacru.c |   18 ++++++++++++++++--
-> > >  1 files changed, 16 insertions(+), 2 deletions(-)
-> > >
-> > > diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
-> > > index 593fc5e..96fa736 100644
-> > > --- a/drivers/usb/atm/cxacru.c
-> > > +++ b/drivers/usb/atm/cxacru.c
-> > > @@ -1324,8 +1324,22 @@ static struct usbatm_driver cxacru_driver = {
-> > >  	.tx_padding	= 11,
-> > >  };
-> > >
-> > > -static int cxacru_usb_probe(struct usb_interface *intf, const struct
-> > > usb_device_id *id) -{
-> > > +static int cxacru_usb_probe(struct usb_interface *intf,
-> > > +		const struct usb_device_id *id) {
-> > > +	struct usb_device *usb_dev = interface_to_usbdev(intf);
-> > > +	char buf[15];
-> > > +
-> > > +	/* avoid ADSL routers (cx82310_eth)
-> > > +	 * abort if bDeviceClass is 0xff and iProduct is "USB NET CARD" */
-> > > +	if (usb_dev->descriptor.bDeviceClass == 0xff
-> >
-> > vendor class?  We have a macro for that?
-> >
-> > > +			&& usb_dev->descriptor.iProduct
-> >
-> > Almost everyone has a iProduct, right?  Why even test for that?
-> >
-> > > +			&& usb_string(usb_dev,
-> > > +				usb_dev->descriptor.iProduct, buf, sizeof(buf))
-> >
-> > usb_string() should handle a 0 string, right?
-> >
-> > > +			&& !strcmp(buf, "USB NET CARD")) {
-> >
-> > Just to make it a bit easier to follow, how about you do the
-> > usb_string() call in the if statment, and then compare the string and
-> >
-> > then, if that matches you do:
-> > > +		dev_info(&intf->dev, "ignoring cx82310_eth device\n");
-> > > +		return -ENODEV;
-> 
-> Does it look that much better?:
-> 
-> 	if (usb_dev->descriptor.bDeviceClass == USB_CLASS_VENDOR_SPEC
-> 			&& usb_string(usb_dev, usb_dev->descriptor.iProduct,
-> 				buf, sizeof(buf)) > 0)
-> 		if (!strcmp(buf, "USB NET CARD")) {
-> 			dev_info(&intf->dev, "ignoring cx82310_eth device\n");
-> 			return -ENODEV;
-> 		}
+While porting GRO to r8169, I found this driver has a bug in its rx
+path.
 
-Yes, don't you think so?
+All skbs given to network stack had their ip_summed set to
+CHECKSUM_NONE, while hardware said they had correct TCP/UDP checksums.
 
-> I also found a bug in my first patch - usb_string() can return negative value 
-> which can cause problems when not checked for.
+The reason is driver sets skb->ip_summed on the original skb before the
+copy eventually done by copybreak. The fresh skb gets the ip_summed =
+CHECKSUM_NONE value, forcing network stack to recompute checksum, and
+preventing my GRO patch to work.
 
-Ah, nice catch.  Care to resend it now?
+Fix is to make the ip_summed setting after skb copy.
 
-thanks,
+Note : rx_copybreak current value is 16383, so all frames are copied...
 
-greg k-h
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/r8169.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 3554041..b589914 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -4458,9 +4458,8 @@ static inline int rtl8169_fragmented_frame(u32 status)
+ 	return (status & (FirstFrag | LastFrag)) != (FirstFrag | LastFrag);
+ }
+ 
+-static inline void rtl8169_rx_csum(struct sk_buff *skb, struct RxDesc *desc)
++static inline void rtl8169_rx_csum(struct sk_buff *skb, u32 opts1)
+ {
+-	u32 opts1 = le32_to_cpu(desc->opts1);
+ 	u32 status = opts1 & RxProtoMask;
+ 
+ 	if (((status == RxProtoTCP) && !(opts1 & TCPFail)) ||
+@@ -4541,6 +4540,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 			dma_addr_t addr = le64_to_cpu(desc->addr);
+ 			int pkt_size = (status & 0x00001FFF) - 4;
+ 			struct pci_dev *pdev = tp->pci_dev;
++			u32 opts1;
+ 
+ 			/*
+ 			 * The driver does not support incoming fragmented
+@@ -4554,8 +4554,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 				continue;
+ 			}
+ 
+-			rtl8169_rx_csum(skb, desc);
+-
++			opts1 = le32_to_cpu(desc->opts1);
+ 			if (rtl8169_try_rx_copy(&skb, tp, pkt_size, addr)) {
+ 				pci_dma_sync_single_for_device(pdev, addr,
+ 					pkt_size, PCI_DMA_FROMDEVICE);
+@@ -4566,6 +4565,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 				tp->Rx_skbuff[entry] = NULL;
+ 			}
+ 
++			rtl8169_rx_csum(skb, opts1);
+ 			skb_put(skb, pkt_size);
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 
+
+
