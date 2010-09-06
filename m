@@ -1,103 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: af_packet: skb_orphan should be avoided in TX path.
-Date: Mon, 06 Sep 2010 17:44:27 +0200
-Message-ID: <1283787867.2654.600.camel@edumazet-laptop>
-References: <AANLkTi=oXDgEhEjt7V+Z4Pk8kv9X4Z8aCg2yAJDzuJ1J@mail.gmail.com>
-	 <1283708635.3402.100.camel@edumazet-laptop>
-	 <20100906103505.GA15254@redhat.com>
+From: Krzysztof Oledzki <ole@ans.pl>
+Subject: 2.6.34: Problem with UDP traffic on lo + poll(?)
+Date: Mon, 6 Sep 2010 19:11:56 +0200 (CEST)
+Message-ID: <alpine.LNX.1.10.1009061745280.20113@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1144830174-1310514681-1283793116=:20113"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48834 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752692Ab0IFPoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 11:44:34 -0400
-Received: by fxm13 with SMTP id 13so2516123fxm.19
-        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 08:44:32 -0700 (PDT)
-In-Reply-To: <20100906103505.GA15254@redhat.com>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:36731 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794Ab0IFRep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 13:34:45 -0400
+Received: from bizon.gios.gov.pl (ole@localhost6 [IPv6:::1])
+	by bizon.gios.gov.pl (8.14.3/8.14.3) with ESMTP id o86HBuN6028800
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 6 Sep 2010 19:11:58 +0200
+Received: from localhost (ole@localhost)
+	by bizon.gios.gov.pl (8.14.3/8.14.3/Submit) with ESMTP id o86HBuQe028796
+	for <netdev@vger.kernel.org>; Mon, 6 Sep 2010 19:11:56 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 06 septembre 2010 =C3=A0 13:35 +0300, Michael S. Tsirkin a =C3=
-=A9crit :
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> I think there are bigger issues here.  As was pointed out, drivers mi=
-ght
-> orphan skbs before they transmit them.
-> And at least for tun, the reason is that we might hang on
-> to skbs indefinitely because userspace is not reading them.
->=20
-> So in that case, if you just prevent tun from orphaning skbs, the soc=
-ket
-> will be prevented from sending any more packets out even if they are =
-for
-> a completely unrelated destinations, right?
-> Further, module can't get unloaded and I think socket can not get
-> closed, so user can't kill the task which has the socket?
->=20
-> And thinking about this, I think I see
-> another issue related to the use of the destructor callback:
->=20
-> static void tpacket_destruct_skb(struct sk_buff *skb)
-> {
->         struct packet_sock *po =3D pkt_sk(skb->sk);
->         void *ph;
->=20
->         BUG_ON(skb =3D=3D NULL);
->=20
->         if (likely(po->tx_ring.pg_vec)) {
->                 ph =3D skb_shinfo(skb)->destructor_arg;
->                 BUG_ON(__packet_get_status(po, ph) !=3D TP_STATUS_SEN=
-DING);
->                 BUG_ON(atomic_read(&po->tx_ring.pending) =3D=3D 0);
->                 atomic_dec(&po->tx_ring.pending);
->                 __packet_set_status(po, ph, TP_STATUS_AVAILABLE);
->         }
->=20
->         sock_wfree(skb);
->=20
-> <-----
-> at this point we still have to execute instructions
-> in this function to return from it. However
-> socket and thus module reference count
-> got already dropped to 0, so I think module could get unloaded
-> and these instructions could get overwritten.
->=20
-> }
->=20
-> I conclude that destructor callback should never point to a function =
-residing
-> in a module, always to a function that is guaranteed to be builtin, t=
-his
-> function must be the one that drops the last module reference.
+---1144830174-1310514681-1283793116=:20113
+Content-Type: TEXT/PLAIN; format=flowed; charset=iso-8859-2
+Content-Transfer-Encoding: 8BIT
 
-It would be a surprise to use tx mmap (presumably to get high
-performance), and a modular af_unix ;)
+Hello,
 
->=20
-> Comments?
+For the last two days I have been trying to track a starange problem I 
+bumped into after upgrading my kernel from 2.6.31.12 to 2.6.34.6.
 
-The whole thing (packet / tx mmap) is broken, if you ask me.
+The problem is that several times a day, nagios logs that plugins are not 
+able to resolve DNS hostnames of monitored hosts. The DNS service is 
+provided locally by the host itself so all traffic is handled over a 
+loopback interface. The host handles rather moderate traffic - ~1000pps 
+and ~30 DNS requests per second. This DNS service is also provided to 
+other hosts that are also running 2.6.34.6 and are connected over a 
+Ethernet network, but the problem exists only locally.
 
-skb_orphan() is not about protecting data, but doing per socket memory
-accounting.
+After a long investigation I found that I'm able to reproduce this problem 
+by adding: "*.t IN A 127.0.0.1" to the "lan" zone and using the following 
+script:
 
-We have to skb_orphan() while data is still in use by skb, not only in
-drivers but in core network stack. (loopback case for example, no need
-to think about TUN being special ;) )
+--- cut here ---
+a=0
+while strace -o /tmp/s.log.1 -s 1024  /usr/lib64/nagios/plugins/check_icmp -H $a.t.lan ; do
+  date
+  sleep 0.1
+  a=$((a+1))
+done
+-- cut here ---
 
-So I believe using mmap and tx on af_unix is racy in its current design=
-=2E
+Strace shows that the problem is in receiving responses from the 
+nameserver:
 
-We probably can remove some skb_orphan() calls (now its done in core
-network, no real need to make it from some drivers), but not have a
-complete solution to the problem Changli raised, without adding yet
-another field into skb_shared_info...
+socket(PF_INET, SOCK_DGRAM|SOCK_NONBLOCK, IPPROTO_IP) = 4
+connect(4, {sa_family=AF_INET, sin_port=htons(53), sin_addr=inet_addr("192.168.130.53")}, 28) = 0
+poll([{fd=4, events=POLLOUT}], 1, 0)    = 1 ([{fd=4, revents=POLLOUT}])
+sendto(4, "\333b\1\0\0\1\0\0\0\0\0\0\0041817\1t\3lan\0\0\1\0\1", 28, MSG_NOSIGNAL, NULL, 0) = 28
+poll([{fd=4, events=POLLIN}], 1, 5000)  = 0 (Timeout)
+poll([{fd=4, events=POLLOUT}], 1, 0)    = 1 ([{fd=4, revents=POLLOUT}])
+sendto(4, "\333b\1\0\0\1\0\0\0\0\0\0\0041817\1t\3lan\0\0\1\0\1", 28, MSG_NOSIGNAL, NULL, 0) = 28
+poll([{fd=4, events=POLLIN}], 1, 5000)  = 0 (Timeout)
+close(4)                                = 0
 
+However, tcpdump attached to lo shows that both the request and 
+the response are properly delivered:
 
+03:00:47.181529 IP (tos 0x0, ttl 64, id 47869, offset 0, flags [DF], proto UDP (17), length 56)
+     192.168.130.53.41083 > 192.168.130.53.53: 56162+ A? 1817.t.lan. (28)
+03:00:47.181585 IP (tos 0x0, ttl 64, id 29563, offset 0, flags [none], proto UDP (17), length 112)
+     192.168.130.53.53 > 192.168.130.53.41083: 56162* 1/1/1 1817.t.lan. A 127.0.0.1 (84)
+--
+03:00:52.186465 IP (tos 0x0, ttl 64, id 47870, offset 0, flags [DF], proto UDP (17), length 56)
+     192.168.130.53.41083 > 192.168.130.53.53: 56162+ A? 1817.t.lan. (28)
+03:00:52.186580 IP (tos 0x0, ttl 64, id 29576, offset 0, flags [none], proto UDP (17), length 112)
+     192.168.130.53.53 > 192.168.130.53.41083: 56162* 1/1/1 1817.t.lan. A 127.0.0.1 (84)
 
+03:00:57.298221 IP (tos 0x0, ttl 64, id 57985, offset 0, flags [DF], proto UDP (17), length 60)
+     192.168.130.53.39370 > 192.168.130.53.53: 145+ A? 1817.t.lan.lan. (32)
+03:00:57.298300 IP (tos 0x0, ttl 64, id 29584, offset 0, flags [none], proto UDP (17), length 116)
+     192.168.130.53.53 > 192.168.130.53.39370: 145 NXDomain* 0/1/0 (88)
+
+In most cases it takes from 2m to 15m to trigger this error and so far I 
+have not been able to reproduce it on my lab environment. Downgrading 
+the kernel back to 2.6.31 cures the issue.
+
+I have a very short service window so bisecting is nearly impossible. 
+During the next few days I should be able to find if this problem was 
+introduced in 2.6.32 or 2.6.33, but if you have clues what to check first 
+or idea about some smart debug patches, I will be very grateful.
+
+Best regards,
+
+ 			Krzysztof Olêdzki
+---1144830174-1310514681-1283793116=:20113--
