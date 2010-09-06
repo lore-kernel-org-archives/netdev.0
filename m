@@ -1,95 +1,103 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2: link drops when idle on 2.6.36-rc3
-Date: Mon, 6 Sep 2010 08:25:00 -0700
-Message-ID: <C27F8246C663564A84BB7AB3439772421B9134BA22@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <20100906100932.GA15029@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net: af_packet: skb_orphan should be avoided in TX path.
+Date: Mon, 06 Sep 2010 17:44:27 +0200
+Message-ID: <1283787867.2654.600.camel@edumazet-laptop>
+References: <AANLkTi=oXDgEhEjt7V+Z4Pk8kv9X4Z8aCg2yAJDzuJ1J@mail.gmail.com>
+	 <1283708635.3402.100.camel@edumazet-laptop>
+	 <20100906103505.GA15254@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>
-To: "'Michael S. Tsirkin'" <mst@redhat.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3306 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750929Ab0IFPZI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 11:25:08 -0400
-In-Reply-To: <20100906100932.GA15029@redhat.com>
-Content-Language: en-US
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:48834 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752692Ab0IFPoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 11:44:34 -0400
+Received: by fxm13 with SMTP id 13so2516123fxm.19
+        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 08:44:32 -0700 (PDT)
+In-Reply-To: <20100906103505.GA15254@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael S. Tsirkin wrote:
+Le lundi 06 septembre 2010 =C3=A0 13:35 +0300, Michael S. Tsirkin a =C3=
+=A9crit :
 
-> I have an IBM server which after switching to 2.6.36-rc3, started
-> experiencing
-> link drops, where link would go down apparently at random. The link can
-> be
-> brought back up without issues.
-> I started seing this after switching to 2.6.36-rc3.
-> net-2.6 (0b5d404e349c0236b11466c0a4785520c0be6982) also has this issue,
-> 2.6.34 seems to work fine. Did not try bisecting or testing 2.6.35 yet.
-> Even log in hardware monitor shows e.g.
-> 
-> 	SERVPROC 	 05/17/01, 20:13:28 	LAN: Ethernet[0] interface is
-> now active
-> 	SERVPROC 	 05/17/01, 20:09:10 	LAN: Ethernet[0] interface is
-> no longer active
-> 	SERVPROC 	 05/17/01, 19:40:06 	LAN: Ethernet[0] interface is
-> now active
-> 	SERVPROC 	 05/17/01, 19:36:42 	LAN: Ethernet[0] interface is
-> no longer active
-> 
-> The server is mostly idle when this happens.  lspci output for the
-> device is below.  There appears nothing interesting in dmesg.
+> I think there are bigger issues here.  As was pointed out, drivers mi=
+ght
+> orphan skbs before they transmit them.
+> And at least for tun, the reason is that we might hang on
+> to skbs indefinitely because userspace is not reading them.
+>=20
+> So in that case, if you just prevent tun from orphaning skbs, the soc=
+ket
+> will be prevented from sending any more packets out even if they are =
+for
+> a completely unrelated destinations, right?
+> Further, module can't get unloaded and I think socket can not get
+> closed, so user can't kill the task which has the socket?
+>=20
+> And thinking about this, I think I see
+> another issue related to the use of the destructor callback:
+>=20
+> static void tpacket_destruct_skb(struct sk_buff *skb)
+> {
+>         struct packet_sock *po =3D pkt_sk(skb->sk);
+>         void *ph;
+>=20
+>         BUG_ON(skb =3D=3D NULL);
+>=20
+>         if (likely(po->tx_ring.pg_vec)) {
+>                 ph =3D skb_shinfo(skb)->destructor_arg;
+>                 BUG_ON(__packet_get_status(po, ph) !=3D TP_STATUS_SEN=
+DING);
+>                 BUG_ON(atomic_read(&po->tx_ring.pending) =3D=3D 0);
+>                 atomic_dec(&po->tx_ring.pending);
+>                 __packet_set_status(po, ph, TP_STATUS_AVAILABLE);
+>         }
+>=20
+>         sock_wfree(skb);
+>=20
+> <-----
+> at this point we still have to execute instructions
+> in this function to return from it. However
+> socket and thus module reference count
+> got already dropped to 0, so I think module could get unloaded
+> and these instructions could get overwritten.
+>=20
+> }
+>=20
+> I conclude that destructor callback should never point to a function =
+residing
+> in a module, always to a function that is guaranteed to be builtin, t=
+his
+> function must be the one that drops the last module reference.
 
-dmesg should print a linkdown message when link goes down.  Please check.
-Please also provide mii-tool -vvv output when the link is up and when the
-link is down.  Thanks.
+It would be a surprise to use tx mmap (presumably to get high
+performance), and a modular af_unix ;)
 
-> I can open a bugzilla at kernel.org if needed, just need to test
-> 2.6.35 first.
-> 
-> 
-> 04:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708
-> Gigabit Ethernet (rev 12)
-> 	Subsystem: IBM Device 0342
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle+ MemWINV+ VGASnoop-
-> ParErr+ Stepping- SERR+ FastB2B- DisINTx+
-> 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
-> <TAbort- <MAbort- >SERR- <PERR- INTx-
-> 	Latency: 64 (16000ns min), Cache Line Size: 64 bytes
-> 	Interrupt: pin A routed to IRQ 51
-> 	Region 0: Memory at c8000000 (64-bit, non-prefetchable)
-> [size=32M]
-> 	Capabilities: [40] PCI-X non-bridge device
-> 		Command: DPERE- ERO- RBC=512 OST=4
-> 		Status: Dev=04:00.0 64bit+ 133MHz+ SCD- USC- DC=simple
-> DMMRBC=512 DMOST=8 DMCRS=32 RSCEM- 266MHz- 533MHz-
-> 	Capabilities: [48] Power Management version 2
-> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot+,D3cold+)
-> 		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-> 	Capabilities: [50] Vital Product Data
-> 		Product Name: Broadcom NetXtreme II Ethernet Controller
-> 		Read-only fields:
-> 			[PN] Part number: BCM95706A0
-> 			[EC] Engineering changes: 220197-2
-> 			[SN] Serial number: 0123456789
-> 			[MN] Manufacture ID: 31 34 65 34
-> 			[RV] Reserved: checksum bad, 30 byte(s) reserved
-> 		End
-> 	Capabilities: [58] MSI: Enable+ Count=1/1 Maskable- 64bit+
-> 		Address: 00000000fee0800c  Data: 41c9
-> 	Kernel driver in use: bnx2
-> 	Kernel modules: bnx2
-> 
-> Thanks!
-> 
-> --
-> MST
+>=20
+> Comments?
+
+The whole thing (packet / tx mmap) is broken, if you ask me.
+
+skb_orphan() is not about protecting data, but doing per socket memory
+accounting.
+
+We have to skb_orphan() while data is still in use by skb, not only in
+drivers but in core network stack. (loopback case for example, no need
+to think about TUN being special ;) )
+
+So I believe using mmap and tx on af_unix is racy in its current design=
+=2E
+
+We probably can remove some skb_orphan() calls (now its done in core
+network, no real need to make it from some drivers), but not have a
+complete solution to the problem Changli raised, without adding yet
+another field into skb_shared_info...
+
 
 
