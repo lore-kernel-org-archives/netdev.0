@@ -1,45 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH: usbnet: doc updates
-Date: Sun, 05 Sep 2010 17:12:27 -0700 (PDT)
-Message-ID: <20100905.171227.193704987.davem@davemloft.net>
-References: <298165.21593.qm@web180307.mail.gq1.yahoo.com>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: Re: [PATCH v4 1/5] irq: add tracepoint to softirq_raise
+Date: Mon, 06 Sep 2010 10:46:12 +0900
+Message-ID: <4C8447E4.6050606@jp.fujitsu.com>
+References: <4C72422C.5070102@jp.fujitsu.com> <4C724298.4050509@jp.fujitsu.com> <20100903152909.GA5352@nowhere> <1283528592.2356.439.camel@gandalf.stny.rr.com> <20100903155008.GC5352@nowhere>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@rainbow-software.org
-To: david-b@pacbell.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43201
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754270Ab0IFAMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Sep 2010 20:12:10 -0400
-In-Reply-To: <298165.21593.qm@web180307.mail.gq1.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
+	kosaki.motohiro@jp.fujitsu.com, nhorman@tuxdriver.com,
+	laijs@cn.fujitsu.com, scott.a.mcmillan@intel.com,
+	eric.dumazet@gmail.com, mathieu.desnoyers@polymtl.ca
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100903155008.GC5352@nowhere>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Brownell <david-b@pacbell.net>
-Date: Sun, 5 Sep 2010 17:06:10 -0700 (PDT)
+(2010/09/04 0:50), Frederic Weisbecker wrote:
+> On Fri, Sep 03, 2010 at 11:43:12AM -0400, Steven Rostedt wrote:
+>> On Fri, 2010-09-03 at 17:29 +0200, Frederic Weisbecker wrote:
+>>
+>>>>  /*
+>>>>   * These correspond to the IORESOURCE_IRQ_* defines in
+>>>> @@ -407,7 +408,12 @@ asmlinkage void do_softirq(void);
+>>>>  asmlinkage void __do_softirq(void);
+>>>>  extern void open_softirq(int nr, void (*action)(struct softirq_action *));
+>>>>  extern void softirq_init(void);
+>>>> -#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
+>>>> +static inline void __raise_softirq_irqoff(unsigned int nr)
+>>>> +{
+>>>> +	trace_softirq_raise((struct softirq_action *)&nr, NULL);
+>>
+>> Perhaps doing:
+>>
+>> 	trace_softirq_raise((struct softirq_action *)((unsigend long)nr),
+>> 				NULL);
+>>
+>> and ...
+>>
+>>>> +	or_softirq_pending(1UL << nr);
+>>>> +}
+>>>> +
+>>>>  extern void raise_softirq_irqoff(unsigned int nr);
+>>>>  extern void raise_softirq(unsigned int nr);
+>>>>  extern void wakeup_softirqd(void);
+>>>> diff --git a/include/trace/events/irq.h b/include/trace/events/irq.h
+>>>> index 0e4cfb6..3ddda02 100644
+>>>> --- a/include/trace/events/irq.h
+>>>> +++ b/include/trace/events/irq.h
+>>>> @@ -5,7 +5,9 @@
+>>>>  #define _TRACE_IRQ_H
+>>>>  
+>>>>  #include <linux/tracepoint.h>
+>>>> -#include <linux/interrupt.h>
+>>>> +
+>>>> +struct irqaction;
+>>>> +struct softirq_action;
+>>>>  
+>>>>  #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
+>>>>  #define show_softirq_name(val)				\
+>>>> @@ -93,7 +95,10 @@ DECLARE_EVENT_CLASS(softirq,
+>>>>  	),
+>>>>  
+>>>>  	TP_fast_assign(
+>>>> -		__entry->vec = (int)(h - vec);
+>>>> +		if (vec)
+>>>> +			__entry->vec = (int)(h - vec);
+>>>> +		else
+>>>> +			__entry->vec = *((int *)h);
+>>
+>> 			__entry->vec = (int)h;
+>>
+>> would be better.
+>>
+>>
+>>>>  	),
+>>>
+>>>
+>>>
+>>> It seems that this will break softirq_entry/exit tracepoints.
+>>> __entry->vec will deref vec->action() for these two, which is not
+>>> what we want.
+>>>
+>>> If you can't have the same tracepoint signature for the three, just
+>>> split the new one in a seperate TRACE_EVENT().
+>>
+>> Doing the above will at least be a bit safer.
+> 
+> 
+> Agreed, I'm going to change that in the patch.
+> 
+> Thanks.
+> 
 
-> Apologies in advance for sending this as an
-> attachment, but I think it's less likely to get
-> angled (except quoted-printable?) this way.
+I agree.
 
-Well, patchwork didn't grok it at all, and this means your patch is a
-lot more work for me.
-
-Actually looking at the patch, the comment formatting is not all
-that pretty:
-
-+ * Note that the design center for usbnet has one IEEE packet per URB, and
-+maps network TX and RX queues directly to the USB hardware TX/RX queues,
-
-Please start every line of the comment with the
-proper leading " * " rather than going straight to
-the text.
-
-+	/* fixup rx packet ( by stripping framing from URB/SKB.
-+	 *
-+	 - If SKB batches one or more packets, pass all but one of them
-+	   up the stack (clone SKB and fixup each clone before netif_rx)).
-
-Please also do the same here.
+Thanks,
+Koki Sanagi.
