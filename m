@@ -1,55 +1,85 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
-Date: Sun, 5 Sep 2010 18:13:33 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1009051759100.3480@router.home>
-References: <cover.1283504065.git.richard.cochran@omicron.at> <alpine.DEB.2.00.1009041221240.888@router.home> <4C828652.4060804@gmail.com> <alpine.DEB.2.00.1009042042130.9425@router.home> <20100905062240.GB2699@riccoc20.at.omicron.at>
- <20100905072041.GA2928@riccoc20.at.omicron.at>
+From: David Brownell <david-b@pacbell.net>
+Subject: PATCH:  usbnet: doc updates
+Date: Sun, 5 Sep 2010 17:06:10 -0700 (PDT)
+Message-ID: <298165.21593.qm@web180307.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Christian Riesch <christian.riesch@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-api@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100905072041.GA2928@riccoc20.at.omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="0-298549082-1283731570=:21593"
+Cc: Ondrej Zary <linux@rainbow-software.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from n5.bullet.mail.gq1.yahoo.com ([67.195.9.85]:45822 "HELO
+	n5.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754270Ab0IFAGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Sep 2010 20:06:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 5 Sep 2010, Richard Cochran wrote:
+--0-298549082-1283731570=:21593
+Content-Type: text/plain; charset=us-ascii
 
-> Again, I meant "PTP hardware clocks."
->
-> When I get some more time, I'll try to put together an executive
-> summary of PTP and of all the discussions that have taken place over
-> the last few months on linux-netdev and the lkml.
+Apologies in advance for sending this as an
+attachment, but I think it's less likely to get
+angled (except quoted-printable?) this way.
+--0-298549082-1283731570=:21593
+Content-Type: application/octet-stream; name=rxfix
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="rxfix"
 
-I know PTP, I just dont know why you would need to extend the existing
-apis for support. Maybe you could just simply write a PTP clock driver? If
-you follow the way hpet is implemented then you dont even need a clock id.
-See drivers/char/hpet.c. I cannot imagine why someone would want to set
-PTP to a different time and speed (vs. realtime not the hardware
-configuration) than the standard clock. The API you proposed so far is
-not needed as far as I can tell.
+U2lnbmVkLW9mZi1ieTogRGF2aWQgQnJvd25lbGwgPGRicm93bmVsbEB1c2Vy
+cy5zb3VyY2Vmb3JnZS5uZXQ+ClN1YmplY3Q6IHVzYm5ldDogZG9jIHVwZGF0
+ZXMKClByb3ZpZGUgbW9yZSBkb2N1bWVudGF0aW9uIGFib3V0IHRoZSByeF9m
+aXh1cCgpIGNhbGxpbmcgY29udmVudGlvbiwKdG8gaGVscCByZWR1Y2Ugc29t
+ZSByZWNlbnRseS1vYnNlcnZlZCBjb25mdXNpb24uCgpBbHNvIHN1bW1hcml6
+ZSB0aGUgZXF1aXZhbGVuY2Ugb2YgVVNCIGFuZCBuZXR3b3JrIFRYL1JYIHF1
+ZXVlcywgdG8KaGVscCBoaWdobGlnaHQgdGhlIHJvbGVzIG9mIHRoZSBmaXh1
+cCgpIHJvdXRpbmVzIHdpdGggbGluayBwcm90b2NvbHMKdXNpbmcgdGhlIENQ
+VS1pbnRlbnNpdmUgcGFja2V0IGJhdGNoaW5nIG1vZGVscy4KClNpZ25lZC1v
+ZmYtYnk6IERhdmlkIEJyb3duZWxsIDxkYnJvd25lbGxAdXNlcnMuc291cmNl
+Zm9yZ2UubmV0PgotLS0KCgogaW5jbHVkZS9saW51eC91c2IvdXNibmV0Lmgg
+fCAgIDMwICsrKysrKysrKysrKysrKysrKysrKysrKysrKystLQogMSBmaWxl
+IGNoYW5nZWQsIDI4IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCgot
+LS0gYS9pbmNsdWRlL2xpbnV4L3VzYi91c2JuZXQuaAorKysgYi9pbmNsdWRl
+L2xpbnV4L3VzYi91c2JuZXQuaApAQCAtMjIsOCArMjIsMjAgQEAKICNpZm5k
+ZWYJX19MSU5VWF9VU0JfVVNCTkVUX0gKICNkZWZpbmUJX19MSU5VWF9VU0Jf
+VVNCTkVUX0gKIAotLyogaW50ZXJmYWNlIGZyb20gdXNibmV0IGNvcmUgdG8g
+ZWFjaCBVU0IgbmV0d29ya2luZyBsaW5rIHdlIGhhbmRsZSAqLworLyoqIGlu
+dGVyZmFjZSBmcm9tIHVzYm5ldCBjb3JlIHRvIGVhY2ggVVNCIG5ldHdvcmtp
+bmcgbGluayB3ZSBoYW5kbGUKKyAqCisgKiBOb3RlIHRoYXQgdGhlIGRlc2ln
+biBjZW50ZXIgZm9yIHVzYm5ldCBoYXMgb25lIElFRUUgcGFja2V0IHBlciBV
+UkIsIGFuZAorbWFwcyBuZXR3b3JrIFRYIGFuZCBSWCBxdWV1ZXMgZGlyZWN0
+bHkgdG8gdGhlIFVTQiBoYXJkd2FyZSBUWC9SWCBxdWV1ZXMsCisgKiAsIG1p
+bmltaXppbmcgc29mdHdhcmUgYW5kIGhhcmR3YXJlIG92ZXJoZWFkLiAgU29t
+ZSBsaW5rIHByb3RvY29scworICogKGxpa2UgUk5ESVMgYW5kIENEQyBOQ00p
+IHByb21vdGUgIGxlc3MgZWZmaWNpZW50IGRlc2lnbnMgd2hpY2ggaW52b2x2
+ZQorICogYmF0Y2hpbmcgbXVsdGlwbGUgSUVFRSBwYWNrZXRzIGluIGVhY2gg
+VVJCLCB3aXRoIGluY3JlYXNlZCBUWCBvdmVyaGVhZAordG8gY29weSBJRUVF
+IHBhY2tldHMgaW50byBUWCBVUkJzJyBkYXRhIGJ1ZmZlciBpbiB0eF9maXh1
+cCgpIHJvdXRpbmVzLAorcGx1cyB1bmJhdGNoaW5nIHdvcmsgaW4gcnhfZml4
+dXAoKSBhcyB3ZWxsLiAgU29tZXRpbWVzIHRoZSBUWCBvdmVyaGVhZCBjYW4K
+K2JlIG1pbmltaXplZCBvbiBMaW51eCBieSBub3QgYmF0Y2hpbmcsIGJ1dCB0
+aGlzIHVzdWFsbHkgd29uJ3Qgd29yayBmb3IgUlgKK2JlY2F1c2Ugb2YgdGhl
+IG5lZWQgdG8gaW50ZXJvcGVyYXRlIHdpdGggaW1wbGVtZW50YXRpb25zIHdo
+aWNoIGJhdGNoIG9uIFRYLgorICovCiBzdHJ1Y3QgdXNibmV0IHsKKwogCS8q
+IGhvdXNla2VlcGluZyAqLwogCXN0cnVjdCB1c2JfZGV2aWNlCSp1ZGV2Owog
+CXN0cnVjdCB1c2JfaW50ZXJmYWNlCSppbnRmOwpAQCAtMTIxLDcgKzEzMywy
+MSBAQCBzdHJ1Y3QgZHJpdmVyX2luZm8gewogCS8qIGxpbmsgcmVzZXQgaGFu
+ZGxpbmcsIGNhbGxlZCBmcm9tIGRlZmVyX2tldmVudCAqLwogCWludAkoKmxp
+bmtfcmVzZXQpKHN0cnVjdCB1c2JuZXQgKik7CiAKLQkvKiBmaXh1cCByeCBw
+YWNrZXQgKHN0cmlwIGZyYW1pbmcpICovCisJLyogZml4dXAgcnggcGFja2V0
+ICggYnkgc3RyaXBwaW5nIGZyYW1pbmcgZnJvbSBVUkIvU0tCLgorCSAqCisJ
+IC0gSWYgU0tCIGJhdGNoZXMgb25lIG9yIG1vcmUgcGFja2V0cywgcGFzcyBh
+bGwgYnV0IG9uZSBvZiB0aGVtCisJICAgdXAgdGhlIHN0YWNrIChjbG9uZSBT
+S0IgYW5kIGZpeHVwIGVhY2ggY2xvbmUgYmVmb3JlIG5ldGlmX3J4KSkuCisK
+KworCisJIC0gV2hlbiB5b3UgbGVhdmUgb25lIHBhY2tldCBpbiBTS0IgKGlu
+dGVuZGVkIHVzYWdlKSwgcmV0dXJuCisJIG5vbnplcm8gYW5kIGVuc3VyZSBz
+a2ItbGVuIGlzIG5vbnplcm8uICB0aGUgcGFja2V0IHdpbGwgYmUgcGFzc2Vk
+CisJIHVwIHRoZSBuZXR3b3JrIHN0YWNrIGFuZCBhY2NvdW50ZWQgcHJvcGVy
+bHkuCisKKwktIHJldHVybiB6ZXJvIHRvIGluZGljYXRlIGVycm9ycyBzdWNo
+IGFzIHRvbyBtdWNoCisJaGVhZGVyIG9yIGRhdGEsIG9yIGEgYmFkIGNoZWNr
+c3VtOyB0aGUgcGFja2V0IHdpbGwgYmUgZHJvcHBlZAorCWFuZCBhY2NvdW50
+ZWQgYXMgYW4gZXJyb3IuCisJKi8KIAlpbnQJKCpyeF9maXh1cCkoc3RydWN0
+IHVzYm5ldCAqZGV2LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKIAogCS8qIGZp
+eHVwIHR4IHBhY2tldCAoYWRkIGZyYW1pbmcpICovCg==
 
-I really would like a PTP clock as soon as possible. Very very important
-for time sync via the network.
+--0-298549082-1283731570=:21593--
 
-Then there is CLOCK_SGI_CYCLE. Another hw clock that can be set and gotten
-already with the standard posix interface. See drivers/char/mmtimer.c. The
-main benefit from CLOCK_SGI_CYCLE is that you can set it manually (maybe
-you want an offset to realtime? But I do not know of any usecase for
-setting the clock) and that the clock can cause hardware IRQ events
-to cause timer timers in user space (would be great to know if PTP needs
-this?). The clock is also distributed in the local memory space of
-each node. Plus the clock device can be configured in some fashion
-(but then hpet also has some ioctls).
-
-I would not think that PTP needs any of this specialized functionality.
-John point about not wanting to proliferate different APIs and useless
-clock ids is valid. An intial implementation using hpet style stuff would
-be satisfactory and as far as I can tell would be rather trivial to do.
-
-Standardizing the ioctls between the different clock drivers would be
-useful so that they can all be controlled with some common API. But it
-would be great to first have a release of a clock_ptp listing all the
-needed ioctl so that we can see what the common subset is.
