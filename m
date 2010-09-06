@@ -1,41 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/10] split out emac cpdma and mdio for reuse
-Date: Mon, 06 Sep 2010 13:28:02 -0700 (PDT)
-Message-ID: <20100906.132802.260095799.davem@davemloft.net>
-References: <1283465008-18606-1-git-send-email-cyril@ti.com>
-	<87eida3fl9.fsf@deeprootsystems.com>
-	<4C813C7F.5090602@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 2.6.34: Problem with UDP traffic on lo + poll(?)
+Date: Mon, 06 Sep 2010 22:29:15 +0200
+Message-ID: <1283804955.2585.12.camel@edumazet-laptop>
+References: <alpine.LNX.1.10.1009061745280.20113@bizon.gios.gov.pl>
+	 <1283802132.2585.4.camel@edumazet-laptop>  <4C854737.5040503@ans.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: khilman@deeprootsystems.com, netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com,
-	linux-omap@vger.kernel.org, nsekhar@ti.com, srk@ti.com,
-	omar.ramirez@ti.com, bparrot@ti.com
-To: cyril@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <4C813C7F.5090602@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Krzysztof =?UTF-8?Q?Ol=C4=99dzki?= <ole@ans.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35628 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754165Ab0IFU3V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 16:29:21 -0400
+Received: by wwj40 with SMTP id 40so7044426wwj.1
+        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 13:29:20 -0700 (PDT)
+In-Reply-To: <4C854737.5040503@ans.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cyril Chemparathy <cyril@ti.com>
-Date: Fri, 03 Sep 2010 14:20:47 -0400
+Le lundi 06 septembre 2010 =C3=A0 21:55 +0200, Krzysztof Ol=C4=99dzki a=
+ =C3=A9crit :
 
-> Hi Kevin,
-> 
-> [...]
->>> Although am3517 (omap) board support code has been updated as needed,
->>> emac does not work on this platform.
->> 
->> Just to clarify... did EMAC work on AM3517 before this series?
-> 
-> No.  It didn't work before this series.  To get AM3517 EMAC working, the
-> driver needs another patch to enable the interface clock in addition to
-> the functional clock.
+> Yes, conntrack is one of possibilities. However, this problem only=20
+> manifests on 2.6.34 and never on 2.6.31 where iptables and conntrack=20
+> configurations are identically. And of course, each time it is a=20
+> different port.
+>=20
+> Please also note that this problem only exists when communication is=20
+> handled over a loopback interface - I'm not able to trigger this from=
+ a=20
+> remote host even if I run the test on two hosts (local & remote)=20
+> simultaneously.
+>=20
 
-Since this has dependencies on davinci board files and whatnot, why don't
-you merge this via the davinci tree and add my:
+No particular error shown in "netstat -s" ?
 
-Acked-by: David S. Miller <davem@davemloft.net>
+port randomization on UDP changed in the past, and conntracking changed
+a bit too ;)
 
-Ok?
+
+
+
+
