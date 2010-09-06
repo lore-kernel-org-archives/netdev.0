@@ -1,85 +1,45 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: PATCH:  usbnet: doc updates
-Date: Sun, 5 Sep 2010 17:06:10 -0700 (PDT)
-Message-ID: <298165.21593.qm@web180307.mail.gq1.yahoo.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: PATCH: usbnet: doc updates
+Date: Sun, 05 Sep 2010 17:12:27 -0700 (PDT)
+Message-ID: <20100905.171227.193704987.davem@davemloft.net>
+References: <298165.21593.qm@web180307.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0-298549082-1283731570=:21593"
-Cc: Ondrej Zary <linux@rainbow-software.org>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux@rainbow-software.org
+To: david-b@pacbell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n5.bullet.mail.gq1.yahoo.com ([67.195.9.85]:45822 "HELO
-	n5.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754270Ab0IFAGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Sep 2010 20:06:12 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43201
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754270Ab0IFAMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Sep 2010 20:12:10 -0400
+In-Reply-To: <298165.21593.qm@web180307.mail.gq1.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0-298549082-1283731570=:21593
-Content-Type: text/plain; charset=us-ascii
+From: David Brownell <david-b@pacbell.net>
+Date: Sun, 5 Sep 2010 17:06:10 -0700 (PDT)
 
-Apologies in advance for sending this as an
-attachment, but I think it's less likely to get
-angled (except quoted-printable?) this way.
---0-298549082-1283731570=:21593
-Content-Type: application/octet-stream; name=rxfix
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="rxfix"
+> Apologies in advance for sending this as an
+> attachment, but I think it's less likely to get
+> angled (except quoted-printable?) this way.
 
-U2lnbmVkLW9mZi1ieTogRGF2aWQgQnJvd25lbGwgPGRicm93bmVsbEB1c2Vy
-cy5zb3VyY2Vmb3JnZS5uZXQ+ClN1YmplY3Q6IHVzYm5ldDogZG9jIHVwZGF0
-ZXMKClByb3ZpZGUgbW9yZSBkb2N1bWVudGF0aW9uIGFib3V0IHRoZSByeF9m
-aXh1cCgpIGNhbGxpbmcgY29udmVudGlvbiwKdG8gaGVscCByZWR1Y2Ugc29t
-ZSByZWNlbnRseS1vYnNlcnZlZCBjb25mdXNpb24uCgpBbHNvIHN1bW1hcml6
-ZSB0aGUgZXF1aXZhbGVuY2Ugb2YgVVNCIGFuZCBuZXR3b3JrIFRYL1JYIHF1
-ZXVlcywgdG8KaGVscCBoaWdobGlnaHQgdGhlIHJvbGVzIG9mIHRoZSBmaXh1
-cCgpIHJvdXRpbmVzIHdpdGggbGluayBwcm90b2NvbHMKdXNpbmcgdGhlIENQ
-VS1pbnRlbnNpdmUgcGFja2V0IGJhdGNoaW5nIG1vZGVscy4KClNpZ25lZC1v
-ZmYtYnk6IERhdmlkIEJyb3duZWxsIDxkYnJvd25lbGxAdXNlcnMuc291cmNl
-Zm9yZ2UubmV0PgotLS0KCgogaW5jbHVkZS9saW51eC91c2IvdXNibmV0Lmgg
-fCAgIDMwICsrKysrKysrKysrKysrKysrKysrKysrKysrKystLQogMSBmaWxl
-IGNoYW5nZWQsIDI4IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCgot
-LS0gYS9pbmNsdWRlL2xpbnV4L3VzYi91c2JuZXQuaAorKysgYi9pbmNsdWRl
-L2xpbnV4L3VzYi91c2JuZXQuaApAQCAtMjIsOCArMjIsMjAgQEAKICNpZm5k
-ZWYJX19MSU5VWF9VU0JfVVNCTkVUX0gKICNkZWZpbmUJX19MSU5VWF9VU0Jf
-VVNCTkVUX0gKIAotLyogaW50ZXJmYWNlIGZyb20gdXNibmV0IGNvcmUgdG8g
-ZWFjaCBVU0IgbmV0d29ya2luZyBsaW5rIHdlIGhhbmRsZSAqLworLyoqIGlu
-dGVyZmFjZSBmcm9tIHVzYm5ldCBjb3JlIHRvIGVhY2ggVVNCIG5ldHdvcmtp
-bmcgbGluayB3ZSBoYW5kbGUKKyAqCisgKiBOb3RlIHRoYXQgdGhlIGRlc2ln
-biBjZW50ZXIgZm9yIHVzYm5ldCBoYXMgb25lIElFRUUgcGFja2V0IHBlciBV
-UkIsIGFuZAorbWFwcyBuZXR3b3JrIFRYIGFuZCBSWCBxdWV1ZXMgZGlyZWN0
-bHkgdG8gdGhlIFVTQiBoYXJkd2FyZSBUWC9SWCBxdWV1ZXMsCisgKiAsIG1p
-bmltaXppbmcgc29mdHdhcmUgYW5kIGhhcmR3YXJlIG92ZXJoZWFkLiAgU29t
-ZSBsaW5rIHByb3RvY29scworICogKGxpa2UgUk5ESVMgYW5kIENEQyBOQ00p
-IHByb21vdGUgIGxlc3MgZWZmaWNpZW50IGRlc2lnbnMgd2hpY2ggaW52b2x2
-ZQorICogYmF0Y2hpbmcgbXVsdGlwbGUgSUVFRSBwYWNrZXRzIGluIGVhY2gg
-VVJCLCB3aXRoIGluY3JlYXNlZCBUWCBvdmVyaGVhZAordG8gY29weSBJRUVF
-IHBhY2tldHMgaW50byBUWCBVUkJzJyBkYXRhIGJ1ZmZlciBpbiB0eF9maXh1
-cCgpIHJvdXRpbmVzLAorcGx1cyB1bmJhdGNoaW5nIHdvcmsgaW4gcnhfZml4
-dXAoKSBhcyB3ZWxsLiAgU29tZXRpbWVzIHRoZSBUWCBvdmVyaGVhZCBjYW4K
-K2JlIG1pbmltaXplZCBvbiBMaW51eCBieSBub3QgYmF0Y2hpbmcsIGJ1dCB0
-aGlzIHVzdWFsbHkgd29uJ3Qgd29yayBmb3IgUlgKK2JlY2F1c2Ugb2YgdGhl
-IG5lZWQgdG8gaW50ZXJvcGVyYXRlIHdpdGggaW1wbGVtZW50YXRpb25zIHdo
-aWNoIGJhdGNoIG9uIFRYLgorICovCiBzdHJ1Y3QgdXNibmV0IHsKKwogCS8q
-IGhvdXNla2VlcGluZyAqLwogCXN0cnVjdCB1c2JfZGV2aWNlCSp1ZGV2Owog
-CXN0cnVjdCB1c2JfaW50ZXJmYWNlCSppbnRmOwpAQCAtMTIxLDcgKzEzMywy
-MSBAQCBzdHJ1Y3QgZHJpdmVyX2luZm8gewogCS8qIGxpbmsgcmVzZXQgaGFu
-ZGxpbmcsIGNhbGxlZCBmcm9tIGRlZmVyX2tldmVudCAqLwogCWludAkoKmxp
-bmtfcmVzZXQpKHN0cnVjdCB1c2JuZXQgKik7CiAKLQkvKiBmaXh1cCByeCBw
-YWNrZXQgKHN0cmlwIGZyYW1pbmcpICovCisJLyogZml4dXAgcnggcGFja2V0
-ICggYnkgc3RyaXBwaW5nIGZyYW1pbmcgZnJvbSBVUkIvU0tCLgorCSAqCisJ
-IC0gSWYgU0tCIGJhdGNoZXMgb25lIG9yIG1vcmUgcGFja2V0cywgcGFzcyBh
-bGwgYnV0IG9uZSBvZiB0aGVtCisJICAgdXAgdGhlIHN0YWNrIChjbG9uZSBT
-S0IgYW5kIGZpeHVwIGVhY2ggY2xvbmUgYmVmb3JlIG5ldGlmX3J4KSkuCisK
-KworCisJIC0gV2hlbiB5b3UgbGVhdmUgb25lIHBhY2tldCBpbiBTS0IgKGlu
-dGVuZGVkIHVzYWdlKSwgcmV0dXJuCisJIG5vbnplcm8gYW5kIGVuc3VyZSBz
-a2ItbGVuIGlzIG5vbnplcm8uICB0aGUgcGFja2V0IHdpbGwgYmUgcGFzc2Vk
-CisJIHVwIHRoZSBuZXR3b3JrIHN0YWNrIGFuZCBhY2NvdW50ZWQgcHJvcGVy
-bHkuCisKKwktIHJldHVybiB6ZXJvIHRvIGluZGljYXRlIGVycm9ycyBzdWNo
-IGFzIHRvbyBtdWNoCisJaGVhZGVyIG9yIGRhdGEsIG9yIGEgYmFkIGNoZWNr
-c3VtOyB0aGUgcGFja2V0IHdpbGwgYmUgZHJvcHBlZAorCWFuZCBhY2NvdW50
-ZWQgYXMgYW4gZXJyb3IuCisJKi8KIAlpbnQJKCpyeF9maXh1cCkoc3RydWN0
-IHVzYm5ldCAqZGV2LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKIAogCS8qIGZp
-eHVwIHR4IHBhY2tldCAoYWRkIGZyYW1pbmcpICovCg==
+Well, patchwork didn't grok it at all, and this means your patch is a
+lot more work for me.
 
---0-298549082-1283731570=:21593--
+Actually looking at the patch, the comment formatting is not all
+that pretty:
 
++ * Note that the design center for usbnet has one IEEE packet per URB, and
++maps network TX and RX queues directly to the USB hardware TX/RX queues,
+
+Please start every line of the comment with the
+proper leading " * " rather than going straight to
+the text.
+
++	/* fixup rx packet ( by stripping framing from URB/SKB.
++	 *
++	 - If SKB batches one or more packets, pass all but one of them
++	   up the stack (clone SKB and fixup each clone before netif_rx)).
+
+Please also do the same here.
