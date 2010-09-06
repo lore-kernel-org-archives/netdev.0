@@ -1,58 +1,47 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 2/2] mlx4_en: Fixed Ethtool statistics report
-Date: Mon, 6 Sep 2010 11:20:24 +0300
-Message-ID: <4C84A448.9000903@mellanox.co.il>
+From: "System Administrator" <gybz@automation.ro>
+Subject: E-mail Attention: Account Closure.
+Date: Mon, 6 Sep 2010 08:05:59 +0100 (BST)
+Message-ID: <891c09189c3ae8911842f8fb5bfe833f.squirrel@webmail.automation.ro>
+Reply-To: webhelpddesk@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.co.il>,
-	<eugenia@mellanox.co.il>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: notice@webmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:39775 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752850Ab0IFIU1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Sep 2010 04:20:27 -0400
+Received: from [193.231.33.1] ([193.231.33.1]:40935 "EHLO automation.ro"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753157Ab0IFI4j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Sep 2010 04:56:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The values didn't match the title after removing the LRO
-statistics in commit fa37a9586f92051de03a13e55e5ec3880bb6783e
-
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
----
- drivers/net/mlx4/en_ethtool.c |    2 +-
- drivers/net/mlx4/mlx4_en.h    |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/mlx4/en_ethtool.c b/drivers/net/mlx4/en_ethtool.c
-index 01634a3..056152b 100644
---- a/drivers/net/mlx4/en_ethtool.c
-+++ b/drivers/net/mlx4/en_ethtool.c
-@@ -107,7 +107,7 @@ static const char main_strings[][ETH_GSTRING_LEN] = {
- 	"tx_prio_1", "tx_prio_2", "tx_prio_3", "tx_prio_4", "tx_prio_5",
- 	"tx_prio_6", "tx_prio_7",
- };
--#define NUM_MAIN_STATS	18
-+#define NUM_MAIN_STATS	21
- #define NUM_ALL_STATS	(NUM_MAIN_STATS + NUM_PORT_STATS + NUM_PKT_STATS + NUM_PERF_STATS)
- 
- static const char mlx4_en_test_names[][ETH_GSTRING_LEN]= {
-diff --git a/drivers/net/mlx4/mlx4_en.h b/drivers/net/mlx4/mlx4_en.h
-index ce8e233..1fc16ab 100644
---- a/drivers/net/mlx4/mlx4_en.h
-+++ b/drivers/net/mlx4/mlx4_en.h
-@@ -385,7 +385,7 @@ struct mlx4_en_port_stats {
- 	unsigned long rx_chksum_good;
- 	unsigned long rx_chksum_none;
- 	unsigned long tx_chksum_offload;
--#define NUM_PORT_STATS		11
-+#define NUM_PORT_STATS		8
- };
- 
- struct mlx4_en_perf_stats {
 -- 
-1.6.1.3
+Due our latest IP Security upgrades we have reason to believe that
+your webmail account was accessed by a third party. Because
+protecting the security of your webmail account is our primary
+concern, we have limited access to sensitive webmail account
+features. We understand that this may be an inconvenience but please
+understand that this temporary limitation is for your protection.
+
+How can I restore my account access ?  You must reply to this e-mail
+providing us your the Below information:
+
+E-mail : .. . .. . ... ...... ... .. . ... ...... ... ..
+Username/ID : ...  . ... ...... ... ..
+Current Password :  . ... ...... ... ..
+Retype Password:  . ... ...... ... ..
+
+>From this point you will be unable to receive new email as it will
+be returned to the sender, Provide the above information to enable
+us help reset your webmail immediately.
+
+Your Webmail Account Expire in Two (2) Days. After you read this
+message, it is best to REPLY with the required information to
+upgrade Mail Box.
+
+Thank you for your cooperation.
+Help Desk
+
 
 
