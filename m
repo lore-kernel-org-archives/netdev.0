@@ -1,53 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 PATCH] ucc_geth: fix ethtool set ring param bug
-Date: Mon, 06 Sep 2010 13:22:23 -0700 (PDT)
-Message-ID: <20100906.132223.48506151.davem@davemloft.net>
-References: <1283305429-8426-1-git-send-email-liang.li@windriver.com>
-	<1283443364-2136-1-git-send-email-liang.li@windriver.com>
+Subject: Re: [PATCH v2 00/10] split out emac cpdma and mdio for reuse
+Date: Mon, 06 Sep 2010 13:28:02 -0700 (PDT)
+Message-ID: <20100906.132802.260095799.davem@davemloft.net>
+References: <1283465008-18606-1-git-send-email-cyril@ti.com>
+	<87eida3fl9.fsf@deeprootsystems.com>
+	<4C813C7F.5090602@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: leoli@freescale.com, avorontsov@ru.mvista.com,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: liang.li@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33218
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750942Ab0IFUWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 16:22:06 -0400
-In-Reply-To: <1283443364-2136-1-git-send-email-liang.li@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: khilman@deeprootsystems.com, netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com,
+	linux-omap@vger.kernel.org, nsekhar@ti.com, srk@ti.com,
+	omar.ramirez@ti.com, bparrot@ti.com
+To: cyril@ti.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <4C813C7F.5090602@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Liang Li <liang.li@windriver.com>
-Date: Fri,  3 Sep 2010 00:02:44 +0800
+From: Cyril Chemparathy <cyril@ti.com>
+Date: Fri, 03 Sep 2010 14:20:47 -0400
 
-> +		printk(KERN_INFO "Stopping interface %s.\n", netdev->name);
- ...
-> +		printk(KERN_INFO "Reactivating interface %s.\n", netdev->name);
+> Hi Kevin,
+> 
+> [...]
+>>> Although am3517 (omap) board support code has been updated as needed,
+>>> emac does not work on this platform.
+>> 
+>> Just to clarify... did EMAC work on AM3517 before this series?
+> 
+> No.  It didn't work before this series.  To get AM3517 EMAC working, the
+> driver needs another patch to enable the interface clock in addition to
+> the functional clock.
 
-Please get rid of these log messages.
+Since this has dependencies on davinci board files and whatnot, why don't
+you merge this via the davinci tree and add my:
 
-Also, this isn't the way to implement this.
+Acked-by: David S. Miller <davem@davemloft.net>
 
-Abstract out the one and only operation that can fail when you change
-the ring size, which is the memory allocations, into seperate code.
-
-Allocate the newly sized rings first, and if that fails abort the
-ring size change attempt.  This will let the device continue to
-function and operate properly even if the ring resizing fails.
-
-Then stop the RX/TX DMA, switch the ring pointers and configuration
-inside of the device, restart RX/TX DMA, and finally free up the
-old ring memory.
-
-I know why you want to use *_close() and *_open(), it requires less
-coding and work on your part.  But this is why the error handling
-behavior is difficult and what happens on failure (device goes down
-and becomes inoperative) is extremely unpleasant for the user.
-
-The user should be able to make this kind of change over an SSH
-shell that uses the interface itself, and not expect to lose
-connectivity completely just because the ring allocation fails.
-
-Thanks.
+Ok?
