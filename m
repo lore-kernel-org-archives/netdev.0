@@ -1,66 +1,109 @@
-From: Priit Laes <plaes@plaes.org>
-Subject: REGRESSION: e1000e fails to communicate (82566DM)
-Date: Mon, 06 Sep 2010 23:51:44 +0300
-Message-ID: <1283806304.6947.13.camel@chi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: poll() optimizations
+Date: Mon, 06 Sep 2010 23:13:50 +0200
+Message-ID: <1283807630.2585.17.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.store20.com ([212.7.7.16]:51037 "EHLO store20.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751219Ab0IFU7o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 16:59:44 -0400
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56709 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751706Ab0IFVNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 17:13:55 -0400
+Received: by wwj40 with SMTP id 40so7090838wwj.1
+        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 14:13:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Heya!
+No need to test twice sk->sk_shutdown & RCV_SHUTDOWN
 
-After trying out newer 2.6.35-rc3 kernel, the network interface fails to
-communicate (via dhcp and manual IP setup).
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/bluetooth/af_bluetooth.c |    5 ++---
+ net/core/datagram.c          |    5 ++---
+ net/sctp/socket.c            |    5 ++---
+ net/unix/af_unix.c           |    5 ++---
+ 4 files changed, 8 insertions(+), 12 deletions(-)
 
-This seems to be a regression since 2.6.34-rc5:
+diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+index 421c45b..ed0f22f 100644
+--- a/net/bluetooth/af_bluetooth.c
++++ b/net/bluetooth/af_bluetooth.c
+@@ -297,13 +297,12 @@ unsigned int bt_sock_poll(struct file * file, struct socket *sock, poll_table *w
+ 		mask |= POLLERR;
+ 
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+-		mask |= POLLRDHUP;
++		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+ 
+ 	if (sk->sk_shutdown == SHUTDOWN_MASK)
+ 		mask |= POLLHUP;
+ 
+-	if (!skb_queue_empty(&sk->sk_receive_queue) ||
+-			(sk->sk_shutdown & RCV_SHUTDOWN))
++	if (!skb_queue_empty(&sk->sk_receive_queue))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
+ 	if (sk->sk_state == BT_CLOSED)
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 251997a..4df1b7a 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -746,13 +746,12 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR;
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+-		mask |= POLLRDHUP;
++		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+ 	if (sk->sk_shutdown == SHUTDOWN_MASK)
+ 		mask |= POLLHUP;
+ 
+ 	/* readable? */
+-	if (!skb_queue_empty(&sk->sk_receive_queue) ||
+-	    (sk->sk_shutdown & RCV_SHUTDOWN))
++	if (!skb_queue_empty(&sk->sk_receive_queue))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
+ 	/* Connection-based need to check for termination and startup */
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index f4bec27..cf6dcc9 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -5707,13 +5707,12 @@ unsigned int sctp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR;
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+-		mask |= POLLRDHUP;
++		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+ 	if (sk->sk_shutdown == SHUTDOWN_MASK)
+ 		mask |= POLLHUP;
+ 
+ 	/* Is it readable?  Reconsider this code with TCP-style support.  */
+-	if (!skb_queue_empty(&sk->sk_receive_queue) ||
+-	    (sk->sk_shutdown & RCV_SHUTDOWN))
++	if (!skb_queue_empty(&sk->sk_receive_queue))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
+ 	/* The association is either gone or not ready.  */
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 4414a18..9077b4e 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2024,11 +2024,10 @@ static unsigned int unix_poll(struct file *file, struct socket *sock, poll_table
+ 	if (sk->sk_shutdown == SHUTDOWN_MASK)
+ 		mask |= POLLHUP;
+ 	if (sk->sk_shutdown & RCV_SHUTDOWN)
+-		mask |= POLLRDHUP;
++		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
+ 
+ 	/* readable? */
+-	if (!skb_queue_empty(&sk->sk_receive_queue) ||
+-	    (sk->sk_shutdown & RCV_SHUTDOWN))
++	if (!skb_queue_empty(&sk->sk_receive_queue))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
+ 	/* Connection-based need to check for termination and startup */
 
-lspci:
-
-00:19.0 Ethernet controller: Intel Corporation 82566DM Gigabit Network Connection (rev 02)
-	Subsystem: Intel Corporation Device 0001
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-	Latency: 0
-	Interrupt: pin A routed to IRQ 31
-	Region 0: Memory at 90300000 (32-bit, non-prefetchable) [size=128K]
-	Region 1: Memory at 90324000 (32-bit, non-prefetchable) [size=4K]
-	Region 2: I/O ports at 20e0 [size=32]
-	Capabilities: [c8] Power Management version 2
-		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-	Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-		Address: 00000000fee0300c  Data: 41c9
-	Kernel driver in use: e1000e
-
-ethtool:
-Settings for eth0:
-	Supported ports: [ TP ]
-	Supported link modes:   10baseT/Half 10baseT/Full 
-	                        100baseT/Half 100baseT/Full 
-	                        1000baseT/Full 
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full 
-	                        100baseT/Half 100baseT/Full 
-	                        1000baseT/Full 
-	Advertised pause frame use: No
-	Advertised auto-negotiation: Yes
-	Speed: 100Mb/s
-	Duplex: Full
-	Port: Twisted Pair
-	PHYAD: 1
-	Transceiver: internal
-	Auto-negotiation: on
-	MDI-X: off
-	Supports Wake-on: pumbag
-	Wake-on: g
-	Current message level: 0x00000001 (1)
-			       drv
-	Link detected: yes
 
