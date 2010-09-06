@@ -1,47 +1,53 @@
-From: "System Administrator" <gybz@automation.ro>
-Subject: E-mail Attention: Account Closure.
-Date: Mon, 6 Sep 2010 08:05:59 +0100 (BST)
-Message-ID: <891c09189c3ae8911842f8fb5bfe833f.squirrel@webmail.automation.ro>
-Reply-To: webhelpddesk@yahoo.com.hk
+From: Peppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: STMMAC: sleep inside atomic
+Date: Mon, 6 Sep 2010 11:47:20 +0200
+Message-ID: <4C84B8A8.5080503@st.com>
+References: <4C8231E8.5090001@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
-To: notice@webmail.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+	ML netdev <netdev@vger.kernel.org>
+To: Jiri Slaby <jirislaby@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.231.33.1] ([193.231.33.1]:40935 "EHLO automation.ro"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753157Ab0IFI4j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Sep 2010 04:56:39 -0400
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:47259 "EHLO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750890Ab0IFJrc convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Sep 2010 05:47:32 -0400
+In-Reply-To: <4C8231E8.5090001@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ Hi Jiri,
+On 9/4/2010 1:47 PM, Jiri Slaby wrote:
+>
+> Hi,
+>
+> stanse found that the driver may sleep inside atomic:
+> stmmac_resume
+>   -> spin_lock
+>   -> stmmac_open
+>     -> request_irq
+>     -> kzalloc(..., GFP_KERNEL);
+>     -> init_dma_desc_rings
+>       -> kmalloc(..., GFP_KERNEL);
+>     -> and many others...
+>   -> spin_unlock
+>
+> Could you fix that?
+>
+Yes I could ...  kmalloc(...,GFP_KERNEL) can sleep!
+I will fix the spinlock usage in the driver's resume function and send a
+patch to the mailing list asap.
 
--- 
-Due our latest IP Security upgrades we have reason to believe that
-your webmail account was accessed by a third party. Because
-protecting the security of your webmail account is our primary
-concern, we have limited access to sensitive webmail account
-features. We understand that this may be an inconvenience but please
-understand that this temporary limitation is for your protection.
+Many thanks to have found it.
 
-How can I restore my account access ?  You must reply to this e-mail
-providing us your the Below information:
-
-E-mail : .. . .. . ... ...... ... .. . ... ...... ... ..
-Username/ID : ...  . ... ...... ... ..
-Current Password :  . ... ...... ... ..
-Retype Password:  . ... ...... ... ..
-
->From this point you will be unable to receive new email as it will
-be returned to the sender, Provide the above information to enable
-us help reset your webmail immediately.
-
-Your Webmail Account Expire in Two (2) Days. After you read this
-message, it is best to REPLY with the required information to
-upgrade Mail Box.
-
-Thank you for your cooperation.
-Help Desk
-
-
-
+Regards,
+Peppe
+>
+>
+> regards,
+> --
+> js
+>
