@@ -1,41 +1,180 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4_core: module param to limit msix vec allocation
-Date: Mon, 06 Sep 2010 12:51:23 -0700 (PDT)
-Message-ID: <20100906.125123.104055684.davem@davemloft.net>
-References: <20100903221303.GS2464@sgi.com>
-	<20100903.193046.184840227.davem@davemloft.net>
-	<20100906174245.GA12956@sgi.com>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: 2.6.34: Problem with UDP traffic on lo + poll(?)
+Date: Mon, 06 Sep 2010 21:55:35 +0200
+Message-ID: <4C854737.5040503@ans.pl>
+References: <alpine.LNX.1.10.1009061745280.20113@bizon.gios.gov.pl> <1283802132.2585.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: akepner@sgi.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34882
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750775Ab0IFTvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 15:51:07 -0400
-In-Reply-To: <20100906174245.GA12956@sgi.com>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:33970 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752929Ab0IFTzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 15:55:39 -0400
+In-Reply-To: <1283802132.2585.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arthur Kepner <akepner@sgi.com>
-Date: Mon, 6 Sep 2010 10:42:45 -0700
+Hi Eric,
 
-> On Fri, Sep 03, 2010 at 07:30:46PM -0700, David Miller wrote:
->> This also means there would have to be notifications sent to
->> drivers when the distribution and allocation policy of MSI-X
->> interrupts is changed.  This is so that, for example, network
->> drivers can reconfigure their network queues for the new set
->> of MSI-X vectors available to them after the policy change.
-> 
-> Hadn't considered this. Will have to add it.
+On 2010-09-06 21:42, Eric Dumazet wrote:
+> Le lundi 06 septembre 2010 =C3=A0 19:11 +0200, Krzysztof Oledzki a =C3=
+=A9crit :
+>> Hello,
+>>
+>> For the last two days I have been trying to track a starange problem=
+ I
+>> bumped into after upgrading my kernel from 2.6.31.12 to 2.6.34.6.
+>>
+>> The problem is that several times a day, nagios logs that plugins ar=
+e not
+>> able to resolve DNS hostnames of monitored hosts. The DNS service is
+>> provided locally by the host itself so all traffic is handled over a
+>> loopback interface. The host handles rather moderate traffic - ~1000=
+pps
+>> and ~30 DNS requests per second. This DNS service is also provided t=
+o
+>> other hosts that are also running 2.6.34.6 and are connected over a
+>> Ethernet network, but the problem exists only locally.
+>>
+>> After a long investigation I found that I'm able to reproduce this p=
+roblem
+>> by adding: "*.t IN A 127.0.0.1" to the "lan" zone and using the foll=
+owing
+>> script:
+>>
+>> --- cut here ---
+>> a=3D0
+>> while strace -o /tmp/s.log.1 -s 1024  /usr/lib64/nagios/plugins/chec=
+k_icmp -H $a.t.lan ; do
+>>    date
+>>    sleep 0.1
+>>    a=3D$((a+1))
+>> done
+>> -- cut here ---
+>>
+>> Strace shows that the problem is in receiving responses from the
+>> nameserver:
+>>
+>> socket(PF_INET, SOCK_DGRAM|SOCK_NONBLOCK, IPPROTO_IP) =3D 4
+>> connect(4, {sa_family=3DAF_INET, sin_port=3Dhtons(53), sin_addr=3Din=
+et_addr("192.168.130.53")}, 28) =3D 0
+>> poll([{fd=3D4, events=3DPOLLOUT}], 1, 0)    =3D 1 ([{fd=3D4, revents=
+=3DPOLLOUT}])
+>> sendto(4, "\333b\1\0\0\1\0\0\0\0\0\0\0041817\1t\3lan\0\0\1\0\1", 28,=
+ MSG_NOSIGNAL, NULL, 0) =3D 28
+>> poll([{fd=3D4, events=3DPOLLIN}], 1, 5000)  =3D 0 (Timeout)
+>> poll([{fd=3D4, events=3DPOLLOUT}], 1, 0)    =3D 1 ([{fd=3D4, revents=
+=3DPOLLOUT}])
+>> sendto(4, "\333b\1\0\0\1\0\0\0\0\0\0\0041817\1t\3lan\0\0\1\0\1", 28,=
+ MSG_NOSIGNAL, NULL, 0) =3D 28
+>> poll([{fd=3D4, events=3DPOLLIN}], 1, 5000)  =3D 0 (Timeout)
+>> close(4)                                =3D 0
+>>
+>> However, tcpdump attached to lo shows that both the request and
+>> the response are properly delivered:
+>>
+>> 03:00:47.181529 IP (tos 0x0, ttl 64, id 47869, offset 0, flags [DF],=
+ proto UDP (17), length 56)
+>>       192.168.130.53.41083>  192.168.130.53.53: 56162+ A? 1817.t.lan=
+=2E (28)
+>> 03:00:47.181585 IP (tos 0x0, ttl 64, id 29563, offset 0, flags [none=
+], proto UDP (17), length 112)
+>>       192.168.130.53.53>  192.168.130.53.41083: 56162* 1/1/1 1817.t.=
+lan. A 127.0.0.1 (84)
+>> --
+>> 03:00:52.186465 IP (tos 0x0, ttl 64, id 47870, offset 0, flags [DF],=
+ proto UDP (17), length 56)
+>>       192.168.130.53.41083>  192.168.130.53.53: 56162+ A? 1817.t.lan=
+=2E (28)
+>> 03:00:52.186580 IP (tos 0x0, ttl 64, id 29576, offset 0, flags [none=
+], proto UDP (17), length 112)
+>>       192.168.130.53.53>  192.168.130.53.41083: 56162* 1/1/1 1817.t.=
+lan. A 127.0.0.1 (84)
+>>
+>> 03:00:57.298221 IP (tos 0x0, ttl 64, id 57985, offset 0, flags [DF],=
+ proto UDP (17), length 60)
+>>       192.168.130.53.39370>  192.168.130.53.53: 145+ A? 1817.t.lan.l=
+an. (32)
+>> 03:00:57.298300 IP (tos 0x0, ttl 64, id 29584, offset 0, flags [none=
+], proto UDP (17), length 116)
+>>       192.168.130.53.53>  192.168.130.53.39370: 145 NXDomain* 0/1/0 =
+(88)
+>>
+>> In most cases it takes from 2m to 15m to trigger this error and so f=
+ar I
+>> have not been able to reproduce it on my lab environment. Downgradin=
+g
+>> the kernel back to 2.6.31 cures the issue.
+>>
+>> I have a very short service window so bisecting is nearly impossible=
+=2E
+>> During the next few days I should be able to find if this problem wa=
+s
+>> introduced in 2.6.32 or 2.6.33, but if you have clues what to check =
+first
+>> or idea about some smart debug patches, I will be very grateful.
+>
+> Do you have iptables and conntracking loaded ?
 
-BTW, reading this again made me consider another case that
-needs to invoke a notifier.
+2 x Yes:
 
-Let's say that a policy specifies an even distribution of
-MSI-X allocation amongst all present devices behind a PCI
-domain.  Well, if a PCI-E device hot-plugs you'll have to
-do notifications for that too because a card might now be
-able to get more of the MSI-X vectors it wants.
+# iptables-save
+# Generated by iptables-save v1.4.9.1 on Mon Sep  6 21:52:24 2010
+*raw
+:PREROUTING ACCEPT [3061956837:831568193533]
+:OUTPUT ACCEPT [2101642993:2332130961342]
+COMMIT
+# Completed on Mon Sep  6 21:52:24 2010
+# Generated by iptables-save v1.4.9.1 on Mon Sep  6 21:52:24 2010
+*nat
+:PREROUTING ACCEPT [7763503:512346498]
+:OUTPUT ACCEPT [83026014:5350796588]
+:POSTROUTING ACCEPT [83026014:5350796588]
+-A PREROUTING -d 192.168.126.31/32 -j RETURN
+-A PREROUTING -i bond0 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports =
+8088
+COMMIT
+# Completed on Mon Sep  6 21:52:24 2010
+# Generated by iptables-save v1.4.9.1 on Mon Sep  6 21:52:24 2010
+*mangle
+:PREROUTING ACCEPT [3061956837:831568193533]
+:INPUT ACCEPT [3061952879:831567826577]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [2101642993:2332130961342]
+:POSTROUTING ACCEPT [2101704532:2332145225884]
+COMMIT
+# Completed on Mon Sep  6 21:52:24 2010
+# Generated by iptables-save v1.4.9.1 on Mon Sep  6 21:52:24 2010
+*filter
+:INPUT ACCEPT [86498522:24274295687]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [42134743:136784108555]
+COMMIT
+# Completed on Mon Sep  6 21:52:24 2010
+
+# sysctl net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_ma=
+x
+net.netfilter.nf_conntrack_count =3D 375
+net.netfilter.nf_conntrack_max =3D 65536
+
+
+> Maybe frame is droped by firewall on this particular port (39370 )
+
+Yes, conntrack is one of possibilities. However, this problem only=20
+manifests on 2.6.34 and never on 2.6.31 where iptables and conntrack=20
+configurations are identically. And of course, each time it is a=20
+different port.
+
+Please also note that this problem only exists when communication is=20
+handled over a loopback interface - I'm not able to trigger this from a=
+=20
+remote host even if I run the test on two hosts (local & remote)=20
+simultaneously.
+
+Best regards,
+
+			Krzysztof Ol=C4=99dzki
