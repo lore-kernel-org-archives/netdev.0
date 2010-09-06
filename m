@@ -1,91 +1,48 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: [PATCH] cxacru: ignore cx82310_eth devices
-Date: Mon, 6 Sep 2010 15:01:26 +0200
-Message-ID: <201009061501.28037.linux@rainbow-software.org>
-References: <201009032317.14954.linux@rainbow-software.org> <20100905210446.GA4472@kroah.com> <cc069c0375a79353917235d6bf5890821f075cad@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
+From: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
+Subject: [PATCH 06/14] drivers/net: Removing undead ifdef CHELSIO_T1_1G
+Date: Mon, 6 Sep 2010 16:36:25 +0200
+Message-ID: <fd089f3e72b01fc29faf8113606354f6c423f141.1283782701.git.qy03fugy@stud.informatik.uni-erlangen.de>
+References: <cover.1283782698.git.qy03fugy@stud.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Greg KH" <greg@kroah.com>,
-	"David Brownell" <dbrownell@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	"Kernel development list" <linux-kernel@vger.kernel.org>
-To: "Simon Arlott" <simon@fire.lp0.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: vamos-dev@i4.informatik.uni-erlangen.de
+To: "David S. Miller" <davem@davemloft.net>,
+	Roland Dreier <rolandd@cisco.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cc069c0375a79353917235d6bf5890821f075cad@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
 Content-Disposition: inline
+In-Reply-To: <cover.1283782698.git.qy03fugy@stud.informatik.uni-erlangen.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 06 September 2010, Simon Arlott wrote:
-> On Sun, September 5, 2010 22:04, Greg KH wrote:
-> > On Sun, Sep 05, 2010 at 10:12:33PM +0200, Ondrej Zary wrote:
-> >> Ignore ADSL routers, which can have the same vendor and product IDs
-> >> as ADSL modems but should be handled by the cx82310_eth driver.
-> >>
-> >> This intentionally ignores device IDs that aren't currently handled
-> >> by cx82310_eth. There may be other device IDs that perhaps shouldn't
-> >> be claimed by cxacru.
-> >>
-> >> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
->
-> Missing Signed-off-by: you're modifying my changes.
+The CHELSIO_T1_1G ifdef isn't necessary at this point, because it is
+checked in an outer ifdef level already and has no effect here.
 
-Oops, sorry for that. I wanted to remove only the line between the 
-signed-offs...
+Signed-off-by: Christian Dietrich <qy03fugy@stud.informatik.uni-erlangen.de>
+---
+ drivers/net/chelsio/subr.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-> >> --- linux-2.6.36-rc3-orig/drivers/usb/atm/cxacru.c	2010-08-29
-> >> 17:36:04.000000000 +0200 +++
-> >> linux-2.6.36-rc3/drivers/usb/atm/cxacru.c	2010-09-05 18:54:56.000000000
-> >> +0200 @@ -1324,8 +1324,22 @@ static struct usbatm_driver cxacru_drive
-> >> .tx_padding	= 11,
-> >>  };
-> >>
-> >> -static int cxacru_usb_probe(struct usb_interface *intf, const struct
-> >> usb_device_id *id) -{
-> >> +static int cxacru_usb_probe(struct usb_interface *intf,
-> >> +		const struct usb_device_id *id) {
-> >
-> > Ick, what?
->
-> Sorry, this was my fault. I wasn't thinking when I changed it.
->
-> >> +	struct usb_device *usb_dev = interface_to_usbdev(intf);
-> >> +	char buf[15];
-> >> +
-> >> +	/* avoid ADSL routers (cx82310_eth)
-> >> +	 * abort if bDeviceClass is 0xff and iProduct is "USB NET CARD" */
-> >> +	if (usb_dev->descriptor.bDeviceClass == USB_CLASS_VENDOR_SPEC
-> >> +			&& usb_string(usb_dev, usb_dev->descriptor.iProduct,
-> >> +				buf, sizeof(buf)) > 0) {
-> >> +		if (!strcmp(buf, "USB NET CARD")) {
-> >> +			dev_info(&intf->dev, "ignoring cx82310_eth device\n");
-> >> +			return -ENODEV;
-> >> +		}
-> >> +	}
-> >
-> > In thinking about this a bit more, don't you also want to check the
-> > vendor and product id?  You can't always be sure about the string of any
-> > old device, right?
->
-> This is already checked using the driver's id_table.
->
-> I don't know if the vendor and product IDs for the cx82310_eth device
-> should be claimed by cxacru or not. Either Conexant are sharing IDs between
-> devices, or someone added it without confirming it works. There's no
-> comment in the code from 2003 explaining what device it's supposed to be.
-> For this reason I'd prefer to ignore all cxacru-claimed devices that appear
-> to be an "USB NET CARD", and log that it did so.
-
-Yes, these "USB NET CARD" devices will not work with cxacru either. We don't 
-lose anything even if they are ignored by cxacru but not claimed by 
-cx82310_eth. If someone has such device, (s)he can report the IDs to be added 
-to cx82310_eth.
-
-> The 3 variants of the hardware I have all use an iProduct of "ADSL USB
-> MODEM", but I don't want to restrict cxacru to just that in case some
-> devices have different values.
-
+diff --git a/drivers/net/chelsio/subr.c b/drivers/net/chelsio/subr.c
+index 599d178..63ebf76 100644
+--- a/drivers/net/chelsio/subr.c
++++ b/drivers/net/chelsio/subr.c
+@@ -314,14 +314,12 @@ static int mi1_mdio_write(struct net_device *dev, int phy_addr, int mmd_addr,
+ 	return 0;
+ }
+ 
+-#if defined(CONFIG_CHELSIO_T1_1G)
+ static const struct mdio_ops mi1_mdio_ops = {
+ 	.init = mi1_mdio_init,
+ 	.read = mi1_mdio_read,
+ 	.write = mi1_mdio_write,
+ 	.mode_support = MDIO_SUPPORTS_C22
+ };
+-#endif
+ 
+ #endif
+ 
 -- 
-Ondrej Zary
+1.7.0.4
