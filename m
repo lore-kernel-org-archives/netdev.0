@@ -1,46 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bonding: Fix jiffies overflow problems (again)
-Date: Mon, 06 Sep 2010 13:16:47 -0700 (PDT)
-Message-ID: <20100906.131647.115921981.davem@davemloft.net>
-References: <201009021619.46206.jdelvare@suse.de>
-	<1283438186.2454.856.camel@edumazet-laptop>
-	<201009021745.55038.jdelvare@suse.de>
+Subject: Re: [v2 PATCH] ucc_geth: fix ethtool set ring param bug
+Date: Mon, 06 Sep 2010 13:22:23 -0700 (PDT)
+Message-ID: <20100906.132223.48506151.davem@davemloft.net>
+References: <1283305429-8426-1-git-send-email-liang.li@windriver.com>
+	<1283443364-2136-1-git-send-email-liang.li@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jbohac@suse.cz
-To: jdelvare@suse.de
+Cc: leoli@freescale.com, avorontsov@ru.mvista.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: liang.li@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33190
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33218
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751066Ab0IFUQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 16:16:30 -0400
-In-Reply-To: <201009021745.55038.jdelvare@suse.de>
+	by vger.kernel.org with ESMTP id S1750942Ab0IFUWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 16:22:06 -0400
+In-Reply-To: <1283443364-2136-1-git-send-email-liang.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Thu, 2 Sep 2010 17:45:54 +0200
+From: Liang Li <liang.li@windriver.com>
+Date: Fri,  3 Sep 2010 00:02:44 +0800
 
-> From: Jiri Bohac <jbohac@suse.cz>
-> 
-> The time_before_eq()/time_after_eq() functions operate on unsigned
-> long and only work if the difference between the two compared values
-> is smaller than half the range of unsigned long (31 bits on i386).
-> 
-> Some of the variables (slave->jiffies, dev->trans_start, dev->last_rx)
-> used by bonding store a copy of jiffies and may not be updated for a
-> long time. With HZ=1000, time_before_eq()/time_after_eq() will start
-> giving bad results after ~25 days.
-> 
-> jiffies will never be before slave->jiffies, dev->trans_start,
-> dev->last_rx by more than possibly a couple ticks caused by preemption
-> of this code. This allows us to detect/prevent these overflows by
-> replacing time_before_eq()/time_after_eq() with time_in_range().
-> 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> +		printk(KERN_INFO "Stopping interface %s.\n", netdev->name);
+ ...
+> +		printk(KERN_INFO "Reactivating interface %s.\n", netdev->name);
 
-Applied, thanks.
+Please get rid of these log messages.
+
+Also, this isn't the way to implement this.
+
+Abstract out the one and only operation that can fail when you change
+the ring size, which is the memory allocations, into seperate code.
+
+Allocate the newly sized rings first, and if that fails abort the
+ring size change attempt.  This will let the device continue to
+function and operate properly even if the ring resizing fails.
+
+Then stop the RX/TX DMA, switch the ring pointers and configuration
+inside of the device, restart RX/TX DMA, and finally free up the
+old ring memory.
+
+I know why you want to use *_close() and *_open(), it requires less
+coding and work on your part.  But this is why the error handling
+behavior is difficult and what happens on failure (device goes down
+and becomes inoperative) is extremely unpleasant for the user.
+
+The user should be able to make this kind of change over an SSH
+shell that uses the interface itself, and not expect to lose
+connectivity completely just because the ring allocation fails.
+
+Thanks.
