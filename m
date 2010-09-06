@@ -1,44 +1,49 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: PATCH: usbnet: doc updates
-Date: Mon, 6 Sep 2010 11:28:48 -0700 (PDT)
-Message-ID: <537964.70523.qm@web180307.mail.gq1.yahoo.com>
-References: <20100905.215759.193704169.davem@davemloft.net>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: STMMAC: sleep inside atomic
+Date: Mon, 06 Sep 2010 21:25:07 +0200
+Message-ID: <4C854013.70704@gmail.com>
+References: <4C8231E8.5090001@gmail.com> <4C84B8A8.5080503@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux@rainbow-software.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	ML netdev <netdev@vger.kernel.org>
+To: Peppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from n9.bullet.mail.ac4.yahoo.com ([76.13.13.237]:48004 "HELO
-	n9.bullet.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750942Ab0IFS2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 14:28:49 -0400
-In-Reply-To: <20100905.215759.193704169.davem@davemloft.net>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:47674 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750883Ab0IFTZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 15:25:12 -0400
+Received: by fxm13 with SMTP id 13so2614855fxm.19
+        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 12:25:11 -0700 (PDT)
+In-Reply-To: <4C84B8A8.5080503@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 09/06/2010 11:47 AM, Peppe CAVALLARO wrote:
+> On 9/4/2010 1:47 PM, Jiri Slaby wrote:
+>> stanse found that the driver may sleep inside atomic:
+>> stmmac_resume
+>>   -> spin_lock
+>>   -> stmmac_open
+>>     -> request_irq
+>>     -> kzalloc(..., GFP_KERNEL);
+>>     -> init_dma_desc_rings
+>>       -> kmalloc(..., GFP_KERNEL);
+>>     -> and many others...
+>>   -> spin_unlock
+>>
+>> Could you fix that?
+>>
+> Yes I could ...  kmalloc(...,GFP_KERNEL) can sleep!
+> I will fix the spinlock usage in the driver's resume function and send a
+> patch to the mailing list asap.
 
+Hi, I hope you'll carbon-copy me. It's not only kmalloc, request_irq
+and others may sleep too.
 
---- On Sun, 9/5/10, David Miller <davem@davemloft.net> wrote:
+> Many thanks to have found it.
 
-> From: David Brownell <david-b@pacbell.net>
-> Date: Sun, 5 Sep 2010 21:48:01 -0700 (PDT)
-> 
-> > If I had my normal mail access, I'd send this
-> > patch inline; but I don't.
-> 
-> The problem is that you set the content type to octet stream with
-> base64 encoding,
-
-I did no such thing; the mailer must have that
-hard-wired.  The only option I have is whether
-to send HTML mail (never!!) or plain text.
-
-I would really like to have something like my
-normail email setup back again... but too many
-key machines died at the same time, and putting
-such a  setup back together is painful.
-
-You wouldn't know of a Linux distro that comes
-with a "this box will be a NAT firewall" setup
-option?  Ubuntu only has that aftermarket AFAICT.
-
+welcome,
+-- 
+js
