@@ -1,57 +1,128 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] include/net/raw.h: Convert raw_seq_private macro
- to inline
-Date: Mon, 06 Sep 2010 22:01:17 -0700
-Message-ID: <1283835677.23280.108.camel@Joe-Laptop>
-References: <cover.1283650107.git.joe@perches.com>
-	 <dd5d79c3aa9f2cffbca1a8d4a9163b0d6a9492a9.1283650107.git.joe@perches.com>
-	 <20100906.183036.68150190.davem@davemloft.net>
-	 <20100906.184749.214227378.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
+Date: Tue, 07 Sep 2010 07:02:09 +0200
+Message-ID: <1283835729.2585.499.camel@edumazet-laptop>
+References: <1283492880.3699.1437.camel@edumazet-laptop>
+	 <1283504972.2453.257.camel@edumazet-laptop>
+	 <20100903.064633.27806839.davem@davemloft.net>
+	 <20100906.192003.232914158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1493 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751061Ab0IGFBT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Sep 2010 01:01:19 -0400
-In-Reply-To: <20100906.184749.214227378.davem@davemloft.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:39801 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751061Ab0IGFCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 01:02:14 -0400
+Received: by wyf22 with SMTP id 22so3794286wyf.19
+        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 22:02:13 -0700 (PDT)
+In-Reply-To: <20100906.192003.232914158.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-09-06 at 18:47 -0700, David Miller wrote:
-> raw_seq_private() expands to something which dereferences the pointer,
-> which you've now made void, which is illegal and breaks the build.
-> Reverted.
+Le lundi 06 septembre 2010 =C3=A0 19:20 -0700, David Miller a =C3=A9cri=
+t :
 
-Apologies, I had this in my tree which I didn't send
-because it wasn't a private_data cast removal.
+> Eric, this goes on top of your patch and demonstrates the idea.
+>=20
+> Please review if you have a chance:
+>=20
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 2d1bc76..aeb56af 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -327,6 +327,32 @@ static void skb_clone_fraglist(struct sk_buff *s=
+kb)
+>  		skb_get(list);
+>  }
+> =20
+> +static struct sk_buff *skb_copy_fraglist(struct sk_buff *parent,
+> +					 gfp_t gfp_mask)
+> +{
+> +	struct sk_buff *first_skb =3D NULL;
+> +	struct sk_buff *prev_skb =3D NULL;
+> +	struct sk_buff *skb;
+> +
+> +	skb_walk_frags(parent, skb) {
+> +		struct sk_buff *nskb =3D pskb_copy(skb, gfp_mask);
+> +
+> +		if (!nskb)
+> +			goto fail;
+> +		if (!first_skb)
+> +			first_skb =3D skb;
+> +		else
+> +			prev_skb->next =3D skb;
+> +		prev_skb =3D skb;
+> +	}
+> +
+> +	return first_skb;
+> +
+> +fail:
+> +	skb_drop_list(&first_skb);
+> +	return NULL;
+> +}
+> +
+>  static void skb_release_data(struct sk_buff *skb)
+>  {
+>  	if (!skb->cloned ||
+> @@ -812,17 +838,22 @@ int pskb_expand_head(struct sk_buff *skb, int n=
+head, int ntail,
+>  		fastpath =3D atomic_read(&skb_shinfo(skb)->dataref) =3D=3D delta;
+>  	}
+> =20
+> -	if (fastpath) {
+> -		kfree(skb->head);
+> -	} else {
+> +	if (!fastpath) {
+> +		if (skb_has_frag_list(skb)) {
+> +			struct sk_buff *new_list;
+> +
+> +			new_list =3D skb_copy_fraglist(skb, gfp_mask);
+> +			if (!new_list)
+> +				goto free_data;
+> +			skb_shinfo(skb)->frag_list =3D new_list;
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/raw.h |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+Here, skb_shinfo(skb) still points to old shinfo, you should not touch
+it. An other user might need it :)
 
-diff --git a/include/net/raw.h b/include/net/raw.h
-index 43c5750..c621200 100644
---- a/include/net/raw.h
-+++ b/include/net/raw.h
-@@ -45,7 +45,10 @@ struct raw_iter_state {
- 	struct raw_hashinfo *h;
- };
- 
--#define raw_seq_private(seq) ((struct raw_iter_state *)(seq)->private)
-+inline struct raw_iter_state *raw_seq_private(struct seq_file *seq)
-+{
-+	return seq->private;
-+}
- void *raw_seq_start(struct seq_file *seq, loff_t *pos);
- void *raw_seq_next(struct seq_file *seq, void *v, loff_t *pos);
- void raw_seq_stop(struct seq_file *seq, void *v);
+> +		}
+>  		for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
+>  			get_page(skb_shinfo(skb)->frags[i].page);
+> =20
+> -		if (skb_has_frag_list(skb))
+> -			skb_clone_fraglist(skb);
+> -
+> -		skb_release_data(skb);
+>  	}
+
+I believe you cannot remove skb_release_data() call, we really need to
+perform the atomic operation, and test the result on it, or a double
+free could happen.
+
+> +
+> +	kfree(skb->head);
+> +
+>  	off =3D (data + nhead) - skb->head;
+> =20
+>  	skb->head     =3D data;
+> @@ -848,6 +879,8 @@ int pskb_expand_head(struct sk_buff *skb, int nhe=
+ad, int ntail,
+>  	atomic_set(&skb_shinfo(skb)->dataref, 1);
+>  	return 0;
+> =20
+> +free_data:
+> +	kfree(data);
+
+is it a leftover ?
+
+>  nodata:
+>  	return -ENOMEM;
+>  }
+
+I understand what you want to do, but problem is we need to perform a
+CAS2 operation : atomically changes two values (dataref and frag_list)
 
 
 
