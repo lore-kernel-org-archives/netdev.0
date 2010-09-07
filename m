@@ -1,94 +1,56 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v3 00/10] split out emac cpdma and mdio for reuse
-Date: Tue,  7 Sep 2010 16:25:32 -0400
-Message-ID: <1283891142-15522-1-git-send-email-cyril@ti.com>
+Subject: [PATCH v3 06/10] omap: cleanup unused davinci mdio arch code
+Date: Tue,  7 Sep 2010 16:25:38 -0400
+Message-ID: <1283891142-15522-7-git-send-email-cyril@ti.com>
+References: <1283891142-15522-1-git-send-email-cyril@ti.com>
 Cc: davem@davemloft.net, khilman@deeprootsystems.com, tony@atomide.com,
 	Cyril Chemparathy <cyril@ti.com>
 To: netdev@vger.kernel.org,
 	davinci-linux-open-source@linux.davincidsp.com,
 	linux-omap@vger.kernel.org
 Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1283891142-15522-1-git-send-email-cyril@ti.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Davinci's EMAC device has an in-built MDIO controller and a CPDMA engine.
-These hardware modules are not restricted to EMAC device alone.  For example,
-CPSW3G (3-port gigabit ethernet switch) hardware uses these very same modules
-internally.  This patch series separates out EMAC's MDIO and CPDMA
-functionality, allowing these individual pieces to be reused across TI
-hardware.  
+This patch removes davinci architecture code that has now been rendered
+useless by the previous patches in the MDIO separation series.
 
-This patch series has been broadly organized as follows:
+Signed-off-by: Cyril Chemparathy <cyril@ti.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+---
+ arch/arm/mach-omap2/board-am3517evm.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-MDIO:
-  - Add new functionality
-      netdev: separate out davinci mdio controller code
-  - Hookup new functionality
-      davinci: add mdio platform devices
-      omap: add mdio platform devices
-      netdev: switch davinci emac to new mdio driver
-  - Cleanup left over cruft
-      davinci: cleanup unused davinci mdio arch code
-      omap: cleanup unused davinci mdio arch code
-      netdev: cleanup unused davinci mdio emac code
-
-CPDMA:
-  - Add new functionality
-     netdev: separate out davinci cpdma controller code
-  - Hookup new functionality
-     netdev: switch davinci emac to new cpdma layer
-  - Cleanup left over cruft
-     netdev: cleanup unused davinci emac cpdma code
-
-This series has been tested on dm365 and tnetv107x (with additional cpsw
-patches) hardware.  Although am3517 (omap) board support code has been updated
-as needed, emac does not work on this platform.
-
-Changes from v1:
-  1. Fixed memory leak in cpdma_chan_create() failure case
-  2. Included new omap patches for am3517, avoids build breakage
-
-Changes from v2:
-  1. Updated series to include mityomapl138 board
-  2. Minor white-space fixes
-
-Cyril Chemparathy (10):
-  net: davinci_emac: separate out davinci mdio
-  davinci: add mdio platform devices
-  omap: add mdio platform devices
-  net: davinci_emac: switch to new mdio
-  davinci: cleanup unused davinci mdio arch code
-  omap: cleanup unused davinci mdio arch code
-  net: davinci_emac: cleanup unused mdio emac code
-  net: davinci_emac: separate out cpdma code
-  net: davinci_emac: switch to new cpdma layer
-  net: davinci_emac: cleanup unused cpdma code
-
- arch/arm/mach-davinci/board-da830-evm.c     |    5 -
- arch/arm/mach-davinci/board-da850-evm.c     |    6 -
- arch/arm/mach-davinci/board-dm365-evm.c     |    7 -
- arch/arm/mach-davinci/board-dm644x-evm.c    |    7 -
- arch/arm/mach-davinci/board-dm646x-evm.c    |    8 -
- arch/arm/mach-davinci/board-mityomapl138.c  |    7 -
- arch/arm/mach-davinci/board-neuros-osd2.c   |    7 -
- arch/arm/mach-davinci/board-sffsdr.c        |    7 -
- arch/arm/mach-davinci/devices-da8xx.c       |   31 +-
- arch/arm/mach-davinci/dm365.c               |   23 +-
- arch/arm/mach-davinci/dm644x.c              |   23 +-
- arch/arm/mach-davinci/dm646x.c              |   22 +-
- arch/arm/mach-davinci/include/mach/dm365.h  |    2 +-
- arch/arm/mach-davinci/include/mach/dm644x.h |    2 +-
- arch/arm/mach-davinci/include/mach/dm646x.h |    2 +-
- arch/arm/mach-omap2/board-am3517evm.c       |   31 +-
- drivers/net/Kconfig                         |   21 +
- drivers/net/Makefile                        |    2 +
- drivers/net/davinci_cpdma.c                 |  837 +++++++++++++++++
- drivers/net/davinci_cpdma.h                 |  105 +++
- drivers/net/davinci_emac.c                  | 1325 ++++-----------------------
- drivers/net/davinci_mdio.c                  |  386 ++++++++
- include/linux/davinci_emac.h                |    8 +-
- 23 files changed, 1635 insertions(+), 1239 deletions(-)
- create mode 100644 drivers/net/davinci_cpdma.c
- create mode 100644 drivers/net/davinci_cpdma.h
- create mode 100644 drivers/net/davinci_mdio.c
+diff --git a/arch/arm/mach-omap2/board-am3517evm.c b/arch/arm/mach-omap2/board-am3517evm.c
+index 5dd1b73..5225df6 100644
+--- a/arch/arm/mach-omap2/board-am3517evm.c
++++ b/arch/arm/mach-omap2/board-am3517evm.c
+@@ -39,7 +39,6 @@
+ 
+ #include "mux.h"
+ 
+-#define AM35XX_EVM_PHY_MASK		(0xF)
+ #define AM35XX_EVM_MDIO_FREQUENCY	(1000000)
+ 
+ static struct mdio_platform_data am3517_evm_mdio_pdata = {
+@@ -64,8 +63,6 @@ static struct platform_device am3517_mdio_device = {
+ };
+ 
+ static struct emac_platform_data am3517_evm_emac_pdata = {
+-	.phy_mask	= AM35XX_EVM_PHY_MASK,
+-	.mdio_max_freq	= AM35XX_EVM_MDIO_FREQUENCY,
+ 	.rmii_en	= 1,
+ };
+ 
+@@ -135,7 +132,6 @@ void am3517_evm_ethernet_init(struct emac_platform_data *pdata)
+ 	pdata->ctrl_reg_offset		= AM35XX_EMAC_CNTRL_OFFSET;
+ 	pdata->ctrl_mod_reg_offset	= AM35XX_EMAC_CNTRL_MOD_OFFSET;
+ 	pdata->ctrl_ram_offset		= AM35XX_EMAC_CNTRL_RAM_OFFSET;
+-	pdata->mdio_reg_offset		= AM35XX_EMAC_MDIO_OFFSET;
+ 	pdata->ctrl_ram_size		= AM35XX_EMAC_CNTRL_RAM_SIZE;
+ 	pdata->version			= EMAC_VERSION_2;
+ 	pdata->hw_ram_addr		= AM35XX_EMAC_HW_RAM_ADDR;
+-- 
+1.7.0.4
 
