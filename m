@@ -1,109 +1,71 @@
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: fix sleep inside atomic
-Date: Tue, 7 Sep 2010 07:55:55 +0200
-Message-ID: <4C85D3EB.7040208@st.com>
-References: <1283742379-9610-1-git-send-email-peppe.cavallaro@st.com>
- <20100906.131107.183045782.davem@davemloft.net>
+From: =?UTF-8?Q?=E3=83=84_Leandro_Melo_de_Sales?= <leandroal@gmail.com>
+Subject: Re: TCP packet size and delivery packet decisions
+Date: Tue, 7 Sep 2010 03:02:22 -0300
+Message-ID: <AANLkTi=x4+YqyuOvpnUXd2PjMHifMPXEgEA=0=+wfPk7@mail.gmail.com>
+References: <AANLkTikMPENe011GxK15TNTXwdckZSSYfb=3pdDwfUeG@mail.gmail.com>
+ <20100906.221644.123986391.davem@davemloft.net> <AANLkTik75BGz=csDKVRk+Ni9__MqXMpHeqi_sHniu09A@mail.gmail.com>
+ <20100906.223010.173858342.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="_002_4C85D3EB7040208stcom_"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jiri Slaby <jirislaby@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:60063 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756102Ab0IGF42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 01:56:28 -0400
-In-Reply-To: <20100906.131107.183045782.davem@davemloft.net>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:42920 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752711Ab0IGGCn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 02:02:43 -0400
+Received: by fxm13 with SMTP id 13so2804558fxm.19
+        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 23:02:42 -0700 (PDT)
+In-Reply-To: <20100906.223010.173858342.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_002_4C85D3EB7040208stcom_
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
- Hi David,
-On 9/6/2010 10:11 PM, David Miller wrote:
+2010/9/7 David Miller <davem@davemloft.net>:
+> From: =E3=83=84 Leandro Melo de Sales <leandroal@gmail.com>
+> Date: Tue, 7 Sep 2010 02:21:42 -0300
 >
-> From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-> Date: Mon,  6 Sep 2010 05:06:19 +0200
+>> This is a embedded system implemented in a proprietary hardware that=
+ I
+>> can send TCP commands to turn on/off relays. It will be very difficu=
+lt
+>> to find the reason for this behaviour. Since it needs to receive ver=
+y
+>> small data, probably it is not necessary to scaling window.
 >
-> > We cannot use spinlock when kmalloc is invoked with
-> > GFP_KERNEL flag because it can sleep.
-> > So this patch reviews the usage of spinlock within the
-> > stmmac_resume function avoing this bug.
-> >
-> > Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> The small 78 byte window is why the sending system is splitting up th=
+e
+> writes into smaller pieces.
 >
-> Applied, but you are extremely guilty of the sin of omission
-> here.
->
-> Why in the world did you not at least CC: Jiri, the person
-> who reported this problem?  You should do that at a minimum
-> when someone reports a problem with code you are fixing.
->
-You are right and I'm awfully sorry for this (sorry Jiri!).
->
-> And in this case he definitely deserves a
->
-> Reported-by:
->
-> tag in the commit message as well.
->
-> Please don't fail to acknowledge a reporter's efforts like
-> this ever again.
+> I presume that the system advertises exactly a 78 byte window because
+> this is how large the commands are. =C2=A0But this is an extremely fo=
+olish
+> and baroque thing to do, and it's why you are having problems.
 >
 
-This will never happen.
-I've attached the patch reviewed as well.
+David,
+   Yes, 78 bytes is the size of each command. I have concluded the
+same as you. In this case, to deal with this type of situation, how
+about changing TCP implementation on Linux to send the whole packet
+when it is too small such in this case or when TCP notice that there
+is no change in the advertised rcwd or when advertised win is equal to
+advertised MSS, since the receiver is saying "I can receive packets in
+the same size of my cwd"?
 
-I hope this has not hurt Jiri.
+  I'm sorry if I'm suggesting something that does not make sense, but
+since receiver advertises that are able to receive packets in that
+size which is equal to the congwin size, splitting the packet in this
+case only [unnecessarily] increased the flow completion time or avoid
+data to be delivered to the application as soon as possible since it
+arrived splitted. As we could notice from the tcpdump report, TCP
+implementation under Linux does not wait for any ACK of the first 48
+bytes sent out, it just sent the other 30 bytes in a consecutive
+delivery, which is the same as sending 78 bytes at once, since no
+decision is taken to send or not the other last 30 bytes.
 
-Regards,
-Peppe
+   Regardless this discussion, can you at least suggest any workaround
+that I can do in the application layer to make TCP send the whole
+packet at once? As I said, I tried to use TCP_CORK suggested by
+Arnaldo (acme), but it does not work for me in this case.
 
-P.S. I'm waiting for my third baby so I'm quite stressed and busy in
-these days.
-I wanted fixed the issue spotted by Jiri but I was too fast to send the
-patch.
-I hope this can help to save me ;-)
-
---_002_4C85D3EB7040208stcom_
-Content-Type: text/x-patch; name="0001-stmmac-fix-sleep-inside-atomic.patch"
-Content-Description: 0001-stmmac-fix-sleep-inside-atomic.patch
-Content-Disposition: attachment;
-	filename="0001-stmmac-fix-sleep-inside-atomic.patch"; size=1583;
-	creation-date="Tue, 07 Sep 2010 07:55:57 GMT";
-	modification-date="Tue, 07 Sep 2010 07:55:57 GMT"
-Content-Transfer-Encoding: base64
-
-RnJvbSA4OGY0YWM3ZTkwYmZlNGM1NDMxNmE3YWM1ZTA2NDI2NGUxYWNmNmE0IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQ0KRnJvbTogR2l1c2VwcGUgQ2F2YWxsYXJvIDxwZXBwZS5jYXZhbGxhcm9A
-c3QuY29tPg0KRGF0ZTogTW9uLCA2IFNlcCAyMDEwIDA1OjAyOjExICswMjAwDQpTdWJqZWN0OiBb
-UEFUQ0hdIHN0bW1hYzogZml4IHNsZWVwIGluc2lkZSBhdG9taWMNCg0KV2UgY2Fubm90IHVzZSBz
-cGlubG9jayB3aGVuIGttYWxsb2MgaXMgaW52b2tlZCB3aXRoDQpHRlBfS0VSTkVMIGZsYWcgYmVj
-YXVzZSBpdCBjYW4gc2xlZXAuDQpTbyB0aGlzIHBhdGNoIHJldmlld3MgdGhlIHVzYWdlIG9mIHNw
-aW5sb2NrIHdpdGhpbiB0aGUNCnN0bW1hY19yZXN1bWUgZnVuY3Rpb24gYXZvaW5nIHRoaXMgYnVn
-Lg0KDQpTaWduZWQtb2ZmLWJ5OiBHaXVzZXBwZSBDYXZhbGxhcm8gPHBlcHBlLmNhdmFsbGFyb0Bz
-dC5jb20+DQpSZXBvcnRlZC1ieTogSmlyaSBTbGFieSA8amlyaXNsYWJ5QGdtYWlsLmNvbT4NCi0t
-LQ0KIGRyaXZlcnMvbmV0L3N0bW1hYy9zdG1tYWNfbWFpbi5jIHwgICAgOSArKysrLS0tLS0NCiAx
-IGZpbGVzIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkNCg0KZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L3N0bW1hYy9zdG1tYWNfbWFpbi5jIGIvZHJpdmVycy9uZXQvc3Rt
-bWFjL3N0bW1hY19tYWluLmMNCmluZGV4IGJiYjc5NTEuLmE5YmVmZDYgMTAwNjQ0DQotLS0gYS9k
-cml2ZXJzL25ldC9zdG1tYWMvc3RtbWFjX21haW4uYw0KKysrIGIvZHJpdmVycy9uZXQvc3RtbWFj
-L3N0bW1hY19tYWluLmMNCkBAIC0xODY1LDE1ICsxODY1LDE1IEBAIHN0YXRpYyBpbnQgc3RtbWFj
-X3Jlc3VtZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQ0KIAlpZiAoIW5ldGlmX3J1bm5p
-bmcoZGV2KSkNCiAJCXJldHVybiAwOw0KIA0KLQlzcGluX2xvY2soJnByaXYtPmxvY2spOw0KLQ0K
-IAlpZiAocHJpdi0+c2h1dGRvd24pIHsNCiAJCS8qIFJlLW9wZW4gdGhlIGludGVyZmFjZSBhbmQg
-cmUtaW5pdCB0aGUgTUFDL0RNQQ0KLQkJICAgYW5kIHRoZSByaW5ncy4gKi8NCisJCSAgIGFuZCB0
-aGUgcmluZ3MgKGkuZS4gb24gaGliZXJuYXRpb24gc3RhZ2UpICovDQogCQlzdG1tYWNfb3Blbihk
-ZXYpOw0KLQkJZ290byBvdXRfcmVzdW1lOw0KKwkJcmV0dXJuIDA7DQogCX0NCiANCisJc3Bpbl9s
-b2NrKCZwcml2LT5sb2NrKTsNCisNCiAJLyogUG93ZXIgRG93biBiaXQsIGludG8gdGhlIFBNIHJl
-Z2lzdGVyLCBpcyBjbGVhcmVkDQogCSAqIGF1dG9tYXRpY2FsbHkgYXMgc29vbiBhcyBhIG1hZ2lj
-IHBhY2tldCBvciBhIFdha2UtdXAgZnJhbWUNCiAJICogaXMgcmVjZWl2ZWQuIEFueXdheSwgaXQn
-cyBiZXR0ZXIgdG8gbWFudWFsbHkgY2xlYXINCkBAIC0xOTAxLDcgKzE5MDEsNiBAQCBzdGF0aWMg
-aW50IHN0bW1hY19yZXN1bWUoc3RydWN0IHBsYXRmb3JtX2RldmljZSAqcGRldikNCiANCiAJbmV0
-aWZfc3RhcnRfcXVldWUoZGV2KTsNCiANCi1vdXRfcmVzdW1lOg0KIAlzcGluX3VubG9jaygmcHJp
-di0+bG9jayk7DQogCXJldHVybiAwOw0KIH0NCi0tIA0KMS41LjUuNg0KDQo=
-
---_002_4C85D3EB7040208stcom_--
+Leandro.
