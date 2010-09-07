@@ -1,44 +1,52 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: No link on e1000e with 2.6.35.3 and ThinkPad T60
-Date: Tue, 7 Sep 2010 13:15:09 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A13660085FFA51@rrsmsx501.amr.corp.intel.com>
-References: <20100724092644.GA13353@torres.zugschlus.de>
- <20100824094524.GA17608@torres.zugschlus.de>
- <EA929A9653AAE14F841771FB1DE5A136600821444B@rrsmsx501.amr.corp.intel.com>
- <20100826112732.GA15559@torres.zugschlus.de>
- <EA929A9653AAE14F841771FB1DE5A13660082E8C5B@rrsmsx501.amr.corp.intel.com>
- <20100904063433.GB18734@torres.zugschlus.de>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: 2.6.34: Problem with UDP traffic on lo + poll(?)
+Date: Tue, 07 Sep 2010 21:20:58 +0200
+Message-ID: <4C86909A.8010600@ans.pl>
+References: <alpine.LNX.1.10.1009061745280.20113@bizon.gios.gov.pl>	 <1283802132.2585.4.camel@edumazet-laptop>  <4C854737.5040503@ans.pl>	 <1283804955.2585.12.camel@edumazet-laptop> <4C8552B1.8020806@ans.pl>	 <4C855385.7030203@ans.pl>  <4C865C21.5010803@ans.pl> <1283877391.2313.62.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Marc Haber <mh+linux-kernel@zugschlus.de>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40246 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757286Ab0IGTPL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Sep 2010 15:15:11 -0400
-In-Reply-To: <20100904063433.GB18734@torres.zugschlus.de>
-Content-Language: en-US
+Received: from bizon.gios.gov.pl ([195.187.34.71]:50738 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757284Ab0IGTVB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 15:21:01 -0400
+In-Reply-To: <1283877391.2313.62.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TWFyYyBIYWJlciB3cm90ZToNCj4gSGksDQo+IA0KPiBPbiBUaHUsIEF1ZyAyNiwgMjAxMCBhdCAx
-MToyMjo0NUFNIC0wNjAwLCBUYW50aWxvdiwgRW1pbCBTIHdyb3RlOg0KPj4gQXMgZmFyIGFzIHRo
-ZSBjcmFzaGVzIGdvIC0gaXQgd291bGQgaGVscCBhIGxvdCBpZiB5b3UgY2FuIGdldCBhDQo+PiB0
-cmFjZS4gWW91IGNhbiB1c2UgYSBzZXJpYWwgY29uc29sZSBpZiB5b3UgaGF2ZSBhIGRvY2tpbmcg
-c3RhdGlvbg0KPj4gZm9yIHRoZSBUNjAuIA0KPiANCj4gSSBoYXZlIGluZGVlZCByZWNlbnRseSBi
-b3VnaHQgYSBkb2NraW5nIHN0YXRpb24uIEhvdyBkbyBJIG9idGFpbiBhDQo+IHRyYWNlIGZyb20g
-YSBmcm96ZW4gc3lzZW0/DQoNClRoZSBpZGVhIGlzIHRvIGNhdGNoIGFueSBvdXRwdXQgdGhhdCBt
-YXkgYmUgcGVydGluZW50IHRvIHRoZSBjcmFzaC4gV2l0aCBzb21lIGx1Y2sgdGhlIGhhbmcgd291
-bGQgYmUgYXNzb2NpYXRlZCB3aXRoIGEgdHJhY2Ugd2hpY2ggeW91IGNhbiByZWNvcmQgYnkgdXNp
-bmcgYSBzZXJpYWwgY29uc29sZS4gDQoNCkNoZWNrIG91dCB0aGUgc2VyaWFsLWNvbnNvbGUudHh0
-IGZpbGUgZm9yIG1vcmUgaW5mbyBpbiB0aGUgRG9jdW1lbnRhdGlvbiBzZWN0aW9uIG9mIHRoZSBr
-ZXJuZWwgc291cmNlLiBPbmNlIHlvdSBoYXZlIHlvdXIgcHJpbWFyeSBzeXN0ZW0gY29uZmlndXJl
-ZCB5b3UgY2FuIGNvbm5lY3QgdmlhIHNlcmlhbCBjYWJsZSB0byBhIHNlY29uZGFyeSBzeXN0ZW0g
-d2l0aCBtaW5pY29tIChvciBvdGhlciB0ZXJtaW5hbCB0aGF0IGNhbiByZWFkIGZyb20gc2VyaWFs
-IHBvcnQpIHRvIGJlIGFibGUgdG8gY2FwdHVyZSB0aGUgdHJhY2UuDQoNCj4gDQo+IEdyZWV0aW5n
-cw0KPiBNYXJjDQoNClRoYW5rcywNCkVtaWwNCg==
+On 2010-09-07 18:36, Eric Dumazet wrote:
+> Le mardi 07 septembre 2010 =C3=A0 17:37 +0200, Krzysztof Ol=C4=99dzki=
+ a =C3=A9crit :
+>
+>> So far I have found that:
+>>
+>> 2.6.31.7/2.6.31.12: OK
+>> 2.6.32.21: OK
+>> 2.6.33-rc1: bad
+>> 2.6.33-rc5: bad
+>> 2.6.33.7: bad
+>> 2.6.34.4/2.6.34.6: bad
+>>
+>> It looks like the bug must have been introduced in 2.6.33-rc1. There=
+ are
+>> 8904 commits between 2.6.32 and 2.6.33-rc1, so with ~15 more reboots=
+ I
+>> should be able to point the problematic commit. I hope. ;)
+>>
+>>
+>
+> Hmm, I have a pretty good idea of what the problem is, and will post =
+a
+> fix soon ;)
+>
+> Thanks !
+
+Great! So I'm waiting for a patch to test! :)
+
+Best regards,
+
+				Krzysztof Ol=C4=99dzki
