@@ -1,134 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: RFC: Crypto API User-interface
-Date: Tue, 7 Sep 2010 16:42:13 +0800
-Message-ID: <20100907084213.GA4610@gondor.apana.org.au>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [patch] sctp: fix test for end of loop
+Date: Tue, 07 Sep 2010 16:46:58 +0800
+Message-ID: <4C85FC02.3040804@cn.fujitsu.com>
+References: <20100906122344.GA2764@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:48662 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755709Ab0IGImQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 04:42:16 -0400
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:53270 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751369Ab0IGItN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Sep 2010 04:49:13 -0400
+In-Reply-To: <20100906122344.GA2764@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+Dan Carpenter wrote, at 09/06/2010 08:26 PM:
+> +	    &new_addr->transports != &new_asoc->peer.transport_addr_list) {
 
-This is what I am proposing for the Crypto API user-interface.
+why did you add this check?
 
-Note that this is the interface for operations.  There will be
-a separate interface (most likely netlink) for configuring crypto
-algorithms, e.g., picking a specific AES implementation as the
-system default.
 
-First of all let's have a quick look at what the user-space side
-looks like for AEAD:
-
-	int op;
-
-	/* This fd corresponds to a tfm object. */
-	tfmfd = socket(AF_ALG, SOCK_STREAM, 0);
-
-	alg.type = "aead";
-	alg.name = "ccm(aes)";
-	bind(tfmfd, &alg, sizeof(alg));
-
-	setsockopt(tfmfd, SOL_ALG, ALG_AEAD_SET_KEY, key, keylen);
-
-The idea here is that each tfm corresponds to a listening socket.
-
-	/* Each listen call generates one or more fds for input/output
-	 * that behave like pipes.
-	 */
-	listen(tfmfd, 0);
-	/* fd for encryption/decryption */
-	opfd = accept(tfmfd, NULL, 0);
-	/* fd for associated data */
-	adfd = accept(tfmfd, NULL, 0);
-
-Each session corresponds to one or more connections obtained from
-that socket.  The number depends on the number of inputs/outputs
-of that particular type of operation.  For most types, there will
-be a s ingle connection/file descriptor that is used for both input
-and output.  AEAD is one of the few that require two inputs.
-
-	/* These may also be set through sendmsg(2) cmsgs. */
-	op = ALG_AEAD_OP_ENCRYPT;
-	setsockopt(opfd, SOL_ALG, ALG_AEAD_OP, op, sizeof(op));
-	setsockopt(opfd, SOL_ALG, ALG_AEAD_SET_IV, iv, ivlen);
-
-	/* Like pipes, larges writes will block!
-	 * For AEAD, ensure the socket buffer is large enough.
-	 * For ciphers, whenever the write blocks start reading.
-	 * For hashes, writes should never block.
-	 */
-	write(opfd, plain, datalen);
-	write(adfd, ad, adlen);
-
-	/* The first read triggers the operation. */
-	read(opfd, crypt, datalen);
-
-	op = ALG_AEAD_OP_DECRYPT;
-	setsockopt(opfd, SOL_ALG, ALG_AEAD_OP, op, sizeof(op));
-
-	write(opfd, crypt, datalen);
-	write(adfd, ad, adlen);
-
-	/* Returns -1 with errno EBADMSG if auth fails */
-	read(defd, plain, datalen);
-
-	/* Zero-copy */
-	splice(cryptfd, NULL, opfd, NULL, datalen, SPLICE_F_MOVE|SPLIFE_F_MORE);
-	/* We allow writes to be split into multiple system calls. */
-	splice(cryptfd2, NULL, opfd, NULL, datalen, SPLICE_F_MOVE);
-	splice(adatafd, NULL, adfd, NULL, adlen, SPLICE_F_MOVE);
-
-	/* For now reading is copy-only, if and when vmsplice
-	 * starts supporting zero-copy to user then we can do it
-	 * as well.
-	 */
-	read(opfd, plain, datalen);
-
-Ciphers/compression are pretty much the same sans adfd.
-
-For hashes:
-
-	/* This fd corresponds to a tfm object. */
-	tfmfd = socket(AF_ALG, SOCK_STREAM, 0);
-
-	alg.type = "hash";
-	alg.name = "xcbc(aes)";
-	bind(tfmfd, &alg, sizeof(alg));
-
-	setsockopt(tfmfd, SOL_ALG, ALG_HASH_SET_KEY, key, keylen);
-
-	/* Each listen call generates one or more fds for input/output
-	 * that behave like pipes.
-	 */
-	listen(tfmfd, 0);
-	/* fd for hashing */
-	opfd = accept(tfmfd, NULL, 0);
-
-	/* MSG_MORE prevents finalisation */
-	send(opfd, plain, datalen, MSG_MORE);
-
-	/* Reads partial hash state */
-	read(opfd, state, statelen);
-
-	/* Restore from a partial hash state */
-	send(opfd, state, statelen, MSG_OOB);
-
-	/* Finalise */
-	send(opfd, plain, 0, 0);
-	read(opfd, hash, hashlen);
-
-Please comment.
-
-Thanks,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Best Regards
+-----
+Shan Wei
