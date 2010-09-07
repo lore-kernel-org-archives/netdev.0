@@ -1,17 +1,21 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v3 03/10] omap: add mdio platform devices
-Date: Tue,  7 Sep 2010 16:25:35 -0400
-Message-ID: <1283891142-15522-4-git-send-email-cyril@ti.com>
+Subject: [PATCH v3 02/10] davinci: add mdio platform devices
+Date: Tue,  7 Sep 2010 16:25:34 -0400
+Message-ID: <1283891142-15522-3-git-send-email-cyril@ti.com>
 References: <1283891142-15522-1-git-send-email-cyril@ti.com>
 Cc: davem@davemloft.net, khilman@deeprootsystems.com, tony@atomide.com,
 	Cyril Chemparathy <cyril@ti.com>
 To: netdev@vger.kernel.org,
 	davinci-linux-open-source@linux.davincidsp.com,
 	linux-omap@vger.kernel.org
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:45885 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758248Ab0IGUZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Sep 2010 16:25:49 -0400
 In-Reply-To: <1283891142-15522-1-git-send-email-cyril@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This patch adds mdio platform devices on SoCs that have the necessary
 hardware.  Clock lookup entries (aliases) have also been added, so that the
@@ -22,68 +26,243 @@ and EMAC regions.
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 ---
- arch/arm/mach-omap2/board-am3517evm.c |   27 ++++++++++++++++++++++++++-
- 1 files changed, 26 insertions(+), 1 deletions(-)
+ arch/arm/mach-davinci/devices-da8xx.c       |   29 +++++++++++++++++++++++++-
+ arch/arm/mach-davinci/dm365.c               |   22 +++++++++++++++++++-
+ arch/arm/mach-davinci/dm644x.c              |   22 +++++++++++++++++++-
+ arch/arm/mach-davinci/dm646x.c              |   21 ++++++++++++++++++-
+ arch/arm/mach-davinci/include/mach/dm365.h  |    1 +
+ arch/arm/mach-davinci/include/mach/dm644x.h |    1 +
+ arch/arm/mach-davinci/include/mach/dm646x.h |    1 +
+ 7 files changed, 92 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm/mach-omap2/board-am3517evm.c b/arch/arm/mach-omap2/board-am3517evm.c
-index 4d0f585..5dd1b73 100644
---- a/arch/arm/mach-omap2/board-am3517evm.c
-+++ b/arch/arm/mach-omap2/board-am3517evm.c
-@@ -18,6 +18,7 @@
+diff --git a/arch/arm/mach-davinci/devices-da8xx.c b/arch/arm/mach-davinci/devices-da8xx.c
+index caeb7f4..9039221 100644
+--- a/arch/arm/mach-davinci/devices-da8xx.c
++++ b/arch/arm/mach-davinci/devices-da8xx.c
+@@ -352,7 +352,7 @@ int __init da8xx_register_watchdog(void)
+ static struct resource da8xx_emac_resources[] = {
+ 	{
+ 		.start	= DA8XX_EMAC_CPPI_PORT_BASE,
+-		.end	= DA8XX_EMAC_CPPI_PORT_BASE + 0x5000 - 1,
++		.end	= DA8XX_EMAC_CPPI_PORT_BASE + SZ_16K - 1,
+ 		.flags	= IORESOURCE_MEM,
+ 	},
+ 	{
+@@ -396,9 +396,34 @@ static struct platform_device da8xx_emac_device = {
+ 	.resource	= da8xx_emac_resources,
+ };
  
- #include <linux/kernel.h>
- #include <linux/init.h>
-+#include <linux/clk.h>
- #include <linux/platform_device.h>
- #include <linux/gpio.h>
- #include <linux/i2c/pca953x.h>
-@@ -41,6 +42,27 @@
- #define AM35XX_EVM_PHY_MASK		(0xF)
- #define AM35XX_EVM_MDIO_FREQUENCY	(1000000)
- 
-+static struct mdio_platform_data am3517_evm_mdio_pdata = {
-+	.bus_freq	= AM35XX_EVM_MDIO_FREQUENCY,
-+};
-+
-+static struct resource am3517_mdio_resources[] = {
++static struct resource da8xx_mdio_resources[] = {
 +	{
-+		.start  = AM35XX_IPSS_EMAC_BASE + AM35XX_EMAC_MDIO_OFFSET,
-+		.end    = AM35XX_IPSS_EMAC_BASE + AM35XX_EMAC_MDIO_OFFSET +
-+			  SZ_4K - 1,
-+		.flags  = IORESOURCE_MEM,
++		.start	= DA8XX_EMAC_MDIO_BASE,
++		.end	= DA8XX_EMAC_MDIO_BASE + SZ_4K - 1,
++		.flags	= IORESOURCE_MEM,
 +	},
 +};
 +
-+static struct platform_device am3517_mdio_device = {
++static struct platform_device da8xx_mdio_device = {
 +	.name		= "davinci_mdio",
 +	.id		= 0,
-+	.num_resources	= ARRAY_SIZE(am3517_mdio_resources),
-+	.resource	= am3517_mdio_resources,
-+	.dev.platform_data = &am3517_evm_mdio_pdata,
++	.num_resources	= ARRAY_SIZE(da8xx_mdio_resources),
++	.resource	= da8xx_mdio_resources,
 +};
 +
- static struct emac_platform_data am3517_evm_emac_pdata = {
- 	.phy_mask	= AM35XX_EVM_PHY_MASK,
- 	.mdio_max_freq	= AM35XX_EVM_MDIO_FREQUENCY,
-@@ -50,7 +72,7 @@ static struct emac_platform_data am3517_evm_emac_pdata = {
- static struct resource am3517_emac_resources[] = {
+ int __init da8xx_register_emac(void)
+ {
+-	return platform_device_register(&da8xx_emac_device);
++	int ret;
++
++	ret = platform_device_register(&da8xx_mdio_device);
++	if (ret < 0)
++		return ret;
++	ret = platform_device_register(&da8xx_emac_device);
++	if (ret < 0)
++		return ret;
++	ret = clk_add_alias(NULL, dev_name(&da8xx_mdio_device.dev),
++			    NULL, &da8xx_emac_device.dev);
++	return ret;
+ }
+ 
+ static struct resource da830_mcasp1_resources[] = {
+diff --git a/arch/arm/mach-davinci/dm365.c b/arch/arm/mach-davinci/dm365.c
+index 7781e35..0add1ca 100644
+--- a/arch/arm/mach-davinci/dm365.c
++++ b/arch/arm/mach-davinci/dm365.c
+@@ -699,7 +699,7 @@ static struct emac_platform_data dm365_emac_pdata = {
+ static struct resource dm365_emac_resources[] = {
  	{
- 		.start  = AM35XX_IPSS_EMAC_BASE,
--		.end    = AM35XX_IPSS_EMAC_BASE + 0x3FFFF,
-+		.end    = AM35XX_IPSS_EMAC_BASE + 0x2FFFF,
- 		.flags  = IORESOURCE_MEM,
+ 		.start	= DM365_EMAC_BASE,
+-		.end	= DM365_EMAC_BASE + 0x47ff,
++		.end	= DM365_EMAC_BASE + SZ_16K - 1,
+ 		.flags	= IORESOURCE_MEM,
  	},
  	{
-@@ -121,6 +143,9 @@ void am3517_evm_ethernet_init(struct emac_platform_data *pdata)
- 	pdata->interrupt_disable	= am3517_disable_ethernet_int;
- 	am3517_emac_device.dev.platform_data	= pdata;
- 	platform_device_register(&am3517_emac_device);
-+	platform_device_register(&am3517_mdio_device);
-+	clk_add_alias(NULL, dev_name(&am3517_mdio_device.dev),
-+		      NULL, &am3517_emac_device.dev);
+@@ -734,6 +734,21 @@ static struct platform_device dm365_emac_device = {
+ 	.resource	= dm365_emac_resources,
+ };
  
- 	regval = omap_ctrl_readl(AM35XX_CONTROL_IP_SW_RESET);
- 	regval = regval & (~(AM35XX_CPGMACSS_SW_RST));
++static struct resource dm365_mdio_resources[] = {
++	{
++		.start	= DM365_EMAC_MDIO_BASE,
++		.end	= DM365_EMAC_MDIO_BASE + SZ_4K - 1,
++		.flags	= IORESOURCE_MEM,
++	},
++};
++
++static struct platform_device dm365_mdio_device = {
++	.name		= "davinci_mdio",
++	.id		= 0,
++	.num_resources	= ARRAY_SIZE(dm365_mdio_resources),
++	.resource	= dm365_mdio_resources,
++};
++
+ static u8 dm365_default_priorities[DAVINCI_N_AINTC_IRQ] = {
+ 	[IRQ_VDINT0]			= 2,
+ 	[IRQ_VDINT1]			= 6,
+@@ -1219,7 +1234,12 @@ static int __init dm365_init_devices(void)
+ 
+ 	davinci_cfg_reg(DM365_INT_EDMA_CC);
+ 	platform_device_register(&dm365_edma_device);
++
++	platform_device_register(&dm365_mdio_device);
+ 	platform_device_register(&dm365_emac_device);
++	clk_add_alias(NULL, dev_name(&dm365_mdio_device.dev),
++		      NULL, &dm365_emac_device.dev);
++
+ 	/* Add isif clock alias */
+ 	clk_add_alias("master", dm365_isif_dev.name, "vpss_master", NULL);
+ 	platform_device_register(&dm365_vpss_device);
+diff --git a/arch/arm/mach-davinci/dm644x.c b/arch/arm/mach-davinci/dm644x.c
+index 5e5b0a7..22166a5 100644
+--- a/arch/arm/mach-davinci/dm644x.c
++++ b/arch/arm/mach-davinci/dm644x.c
+@@ -330,7 +330,7 @@ static struct emac_platform_data dm644x_emac_pdata = {
+ static struct resource dm644x_emac_resources[] = {
+ 	{
+ 		.start	= DM644X_EMAC_BASE,
+-		.end	= DM644X_EMAC_BASE + 0x47ff,
++		.end	= DM644X_EMAC_BASE + SZ_16K - 1,
+ 		.flags	= IORESOURCE_MEM,
+ 	},
+ 	{
+@@ -350,6 +350,21 @@ static struct platform_device dm644x_emac_device = {
+        .resource	= dm644x_emac_resources,
+ };
+ 
++static struct resource dm644x_mdio_resources[] = {
++	{
++		.start	= DM644X_EMAC_MDIO_BASE,
++		.end	= DM644X_EMAC_MDIO_BASE + SZ_4K - 1,
++		.flags	= IORESOURCE_MEM,
++	},
++};
++
++static struct platform_device dm644x_mdio_device = {
++	.name		= "davinci_mdio",
++	.id		= 0,
++	.num_resources	= ARRAY_SIZE(dm644x_mdio_resources),
++	.resource	= dm644x_mdio_resources,
++};
++
+ /*
+  * Device specific mux setup
+  *
+@@ -776,7 +791,12 @@ static int __init dm644x_init_devices(void)
+ 	clk_add_alias("master", dm644x_ccdc_dev.name, "vpss_master", NULL);
+ 	clk_add_alias("slave", dm644x_ccdc_dev.name, "vpss_slave", NULL);
+ 	platform_device_register(&dm644x_edma_device);
++
++	platform_device_register(&dm644x_mdio_device);
+ 	platform_device_register(&dm644x_emac_device);
++	clk_add_alias(NULL, dev_name(&dm644x_mdio_device.dev),
++		      NULL, &dm644x_emac_device.dev);
++
+ 	platform_device_register(&dm644x_vpss_device);
+ 	platform_device_register(&dm644x_ccdc_dev);
+ 	platform_device_register(&vpfe_capture_dev);
+diff --git a/arch/arm/mach-davinci/dm646x.c b/arch/arm/mach-davinci/dm646x.c
+index 26e8a9c..3d636b2 100644
+--- a/arch/arm/mach-davinci/dm646x.c
++++ b/arch/arm/mach-davinci/dm646x.c
+@@ -366,7 +366,7 @@ static struct emac_platform_data dm646x_emac_pdata = {
+ static struct resource dm646x_emac_resources[] = {
+ 	{
+ 		.start	= DM646X_EMAC_BASE,
+-		.end	= DM646X_EMAC_BASE + 0x47ff,
++		.end	= DM646X_EMAC_BASE + SZ_16K - 1,
+ 		.flags	= IORESOURCE_MEM,
+ 	},
+ 	{
+@@ -401,6 +401,21 @@ static struct platform_device dm646x_emac_device = {
+ 	.resource	= dm646x_emac_resources,
+ };
+ 
++static struct resource dm646x_mdio_resources[] = {
++	{
++		.start	= DM646X_EMAC_MDIO_BASE,
++		.end	= DM646X_EMAC_MDIO_BASE + SZ_4K - 1,
++		.flags	= IORESOURCE_MEM,
++	},
++};
++
++static struct platform_device dm646x_mdio_device = {
++	.name		= "davinci_mdio",
++	.id		= 0,
++	.num_resources	= ARRAY_SIZE(dm646x_mdio_resources),
++	.resource	= dm646x_mdio_resources,
++};
++
+ /*
+  * Device specific mux setup
+  *
+@@ -896,7 +911,11 @@ static int __init dm646x_init_devices(void)
+ 	if (!cpu_is_davinci_dm646x())
+ 		return 0;
+ 
++	platform_device_register(&dm646x_mdio_device);
+ 	platform_device_register(&dm646x_emac_device);
++	clk_add_alias(NULL, dev_name(&dm646x_mdio_device.dev),
++		      NULL, &dm646x_emac_device.dev);
++
+ 	return 0;
+ }
+ postcore_initcall(dm646x_init_devices);
+diff --git a/arch/arm/mach-davinci/include/mach/dm365.h b/arch/arm/mach-davinci/include/mach/dm365.h
+index ea5df3b..dbb5052 100644
+--- a/arch/arm/mach-davinci/include/mach/dm365.h
++++ b/arch/arm/mach-davinci/include/mach/dm365.h
+@@ -21,6 +21,7 @@
+ #include <media/davinci/vpfe_capture.h>
+ 
+ #define DM365_EMAC_BASE			(0x01D07000)
++#define DM365_EMAC_MDIO_BASE		(DM365_EMAC_BASE + 0x4000)
+ #define DM365_EMAC_CNTRL_OFFSET		(0x0000)
+ #define DM365_EMAC_CNTRL_MOD_OFFSET	(0x3000)
+ #define DM365_EMAC_CNTRL_RAM_OFFSET	(0x1000)
+diff --git a/arch/arm/mach-davinci/include/mach/dm644x.h b/arch/arm/mach-davinci/include/mach/dm644x.h
+index 6fca568..5159117 100644
+--- a/arch/arm/mach-davinci/include/mach/dm644x.h
++++ b/arch/arm/mach-davinci/include/mach/dm644x.h
+@@ -28,6 +28,7 @@
+ #include <media/davinci/vpfe_capture.h>
+ 
+ #define DM644X_EMAC_BASE		(0x01C80000)
++#define DM644X_EMAC_MDIO_BASE		(DM644X_EMAC_BASE + 0x4000)
+ #define DM644X_EMAC_CNTRL_OFFSET	(0x0000)
+ #define DM644X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
+ #define DM644X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
+diff --git a/arch/arm/mach-davinci/include/mach/dm646x.h b/arch/arm/mach-davinci/include/mach/dm646x.h
+index 0a27ee9..1c4dca9 100644
+--- a/arch/arm/mach-davinci/include/mach/dm646x.h
++++ b/arch/arm/mach-davinci/include/mach/dm646x.h
+@@ -19,6 +19,7 @@
+ #include <linux/davinci_emac.h>
+ 
+ #define DM646X_EMAC_BASE		(0x01C80000)
++#define DM646X_EMAC_MDIO_BASE		(DM646X_EMAC_BASE + 0x4000)
+ #define DM646X_EMAC_CNTRL_OFFSET	(0x0000)
+ #define DM646X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
+ #define DM646X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
 -- 
 1.7.0.4
 
