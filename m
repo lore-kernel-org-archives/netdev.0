@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Subject: [patch 07/30] hamradio: mkiss: semaphore cleanup
-Date: Tue, 07 Sep 2010 14:32:18 -0000
-Message-ID: <20100907125055.368389976@linutronix.de>
+Subject: [patch 08/30] net: ppp_async: semaphore cleanup
+Date: Tue, 07 Sep 2010 14:32:22 -0000
+Message-ID: <20100907125055.460765783@linutronix.de>
 References: <20100907124636.880953480@linutronix.de>
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	Ingo Molnar <mingo@elte.hu>,
@@ -10,11 +10,11 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:43749 "EHLO www.tglx.de"
+Received: from www.tglx.de ([62.245.132.106]:43764 "EHLO www.tglx.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932114Ab0IGOdI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Sep 2010 10:33:08 -0400
-Content-Disposition: inline; filename=drivers-net-hamradio-mkiss-sema.patch
+	id S932134Ab0IGOdO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Sep 2010 10:33:14 -0400
+Content-Disposition: inline; filename=drivers-net-ppp-async-sema.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,21 +25,21 @@ Cc: David Miller <davem@davemloft.net>
 Cc: netdev@vger.kernel.org
 
 ---
- drivers/net/hamradio/mkiss.c |    2 +-
+ drivers/net/ppp_async.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-Index: linux-2.6/drivers/net/hamradio/mkiss.c
+Index: linux-2.6/drivers/net/ppp_async.c
 ===================================================================
---- linux-2.6.orig/drivers/net/hamradio/mkiss.c
-+++ linux-2.6/drivers/net/hamradio/mkiss.c
-@@ -747,7 +747,7 @@ static int mkiss_open(struct tty_struct 
+--- linux-2.6.orig/drivers/net/ppp_async.c
++++ linux-2.6/drivers/net/ppp_async.c
+@@ -184,7 +184,7 @@ ppp_asynctty_open(struct tty_struct *tty
+ 	tasklet_init(&ap->tsk, ppp_async_process, (unsigned long) ap);
  
- 	spin_lock_init(&ax->buflock);
- 	atomic_set(&ax->refcnt, 1);
--	init_MUTEX_LOCKED(&ax->dead_sem);
-+	sema_init(&ax->dead_sem, 0);
+ 	atomic_set(&ap->refcnt, 1);
+-	init_MUTEX_LOCKED(&ap->dead_sem);
++	sema_init(&ap->dead_sem, 0);
  
- 	ax->tty = tty;
- 	tty->disc_data = ax;
+ 	ap->chan.private = ap;
+ 	ap->chan.ops = &async_ops;
 
 
