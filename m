@@ -1,68 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] r8169: add gro support
-Date: Tue, 07 Sep 2010 06:46:39 +0200
-Message-ID: <1283834799.2585.476.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] include/net/raw.h: Convert raw_seq_private macro
+ to inline
+Date: Mon, 06 Sep 2010 22:01:17 -0700
+Message-ID: <1283835677.23280.108.camel@Joe-Laptop>
+References: <cover.1283650107.git.joe@perches.com>
+	 <dd5d79c3aa9f2cffbca1a8d4a9163b0d6a9492a9.1283650107.git.joe@perches.com>
+	 <20100906.183036.68150190.davem@davemloft.net>
+	 <20100906.184749.214227378.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
+Cc: trivial@kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:35082 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750944Ab0IGEqo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 00:46:44 -0400
-Received: by wwj40 with SMTP id 40so7544174wwj.1
-        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 21:46:43 -0700 (PDT)
+Received: from mail.perches.com ([173.55.12.10]:1493 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751061Ab0IGFBT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Sep 2010 01:01:19 -0400
+In-Reply-To: <20100906.184749.214227378.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Use napi_gro_receive() and vlan_gro_receive()
-- Enable GRO by default
+On Mon, 2010-09-06 at 18:47 -0700, David Miller wrote:
+> raw_seq_private() expands to something which dereferences the pointer,
+> which you've now made void, which is illegal and breaks the build.
+> Reverted.
 
-Tested on a RTL8111/8168 adapter
+Apologies, I had this in my tree which I didn't send
+because it wasn't a private_data cast removal.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/r8169.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ include/net/raw.h |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 56a11e2..ddff42b 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1076,7 +1076,12 @@ static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
- 	int ret;
+diff --git a/include/net/raw.h b/include/net/raw.h
+index 43c5750..c621200 100644
+--- a/include/net/raw.h
++++ b/include/net/raw.h
+@@ -45,7 +45,10 @@ struct raw_iter_state {
+ 	struct raw_hashinfo *h;
+ };
  
- 	if (vlgrp && (opts2 & RxVlanTag)) {
--		__vlan_hwaccel_rx(skb, vlgrp, swab16(opts2 & 0xffff), polling);
-+		u16 vtag = swab16(opts2 & 0xffff);
-+
-+		if (polling)
-+			vlan_gro_receive(&tp->napi, vlgrp, vtag, skb);
-+		else
-+			__vlan_hwaccel_rx(skb, vlgrp, vtag, polling);
- 		ret = 0;
- 	} else
- 		ret = -1;
-@@ -3186,6 +3191,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- #ifdef CONFIG_R8169_VLAN
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
- #endif
-+	dev->features |= NETIF_F_GRO;
- 
- 	tp->intr_mask = 0xffff;
- 	tp->align = cfg->align;
-@@ -4561,7 +4567,7 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
- 
- 			if (rtl8169_rx_vlan_skb(tp, desc, skb, polling) < 0) {
- 				if (likely(polling))
--					netif_receive_skb(skb);
-+					napi_gro_receive(&tp->napi, skb);
- 				else
- 					netif_rx(skb);
- 			}
+-#define raw_seq_private(seq) ((struct raw_iter_state *)(seq)->private)
++inline struct raw_iter_state *raw_seq_private(struct seq_file *seq)
++{
++	return seq->private;
++}
+ void *raw_seq_start(struct seq_file *seq, loff_t *pos);
+ void *raw_seq_next(struct seq_file *seq, void *v, loff_t *pos);
+ void raw_seq_stop(struct seq_file *seq, void *v);
+
 
 
