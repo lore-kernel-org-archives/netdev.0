@@ -1,65 +1,49 @@
-From: Miloslav Trmac <mitr@redhat.com>
-Subject: Re: RFC: Crypto API User-interface
-Date: Tue, 7 Sep 2010 07:27:47 -0400 (EDT)
-Message-ID: <815047906.1056041283858867555.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
-References: <1590523029.1055831283858598965.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [patch] sctp: fix test for end of loop
+Date: Tue, 7 Sep 2010 13:31:15 +0200
+Message-ID: <20100907113115.GB5718@bicker>
+References: <20100906122344.GA2764@bicker> <4C85FC02.3040804@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@holoscopio.com>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:55140 "EHLO
-	mx02.colomx.prod.int.phx2.redhat.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756493Ab0IGL1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 07:27:51 -0400
-In-Reply-To: <1590523029.1055831283858598965.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:39368 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795Ab0IGLgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 07:36:40 -0400
+Content-Disposition: inline
+In-Reply-To: <4C85FC02.3040804@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
------ "Herbert Xu" <herbert@gondor.hengli.com.au> wrote:
-> First of all let's have a quick look at what the user-space side
-> looks like for AEAD:
+On Tue, Sep 07, 2010 at 04:46:58PM +0800, Shan Wei wrote:
+> Dan Carpenter wrote, at 09/06/2010 08:26 PM:
+> > +	    &new_addr->transports != &new_asoc->peer.transport_addr_list) {
 > 
-> 	/* Each listen call generates one or more fds for input/output
-> 	 * that behave like pipes.
-> 	 */
-> 	listen(tfmfd, 0);
-> 	/* fd for encryption/decryption */
-> 	opfd = accept(tfmfd, NULL, 0);
-> 	/* fd for associated data */
-> 	adfd = accept(tfmfd, NULL, 0);
-If nothing else, two consecutive accept() calls with different semantics go rather strongly against the spirit of the socket API IMHO.
+> why did you add this check?
+> 
 
-> 	/* These may also be set through sendmsg(2) cmsgs. */
-> 	op = ALG_AEAD_OP_ENCRYPT;
-> 	setsockopt(opfd, SOL_ALG, ALG_AEAD_OP, op, sizeof(op));
-> 	setsockopt(opfd, SOL_ALG, ALG_AEAD_SET_IV, iv, ivlen);
-So that is 8 syscalls to initialize a single AEAD operation.
- 
-> 	/* Like pipes, larges writes will block!
-> 	 * For AEAD, ensure the socket buffer is large enough.
-> 	 * For ciphers, whenever the write blocks start reading.
-> 	 * For hashes, writes should never block.
-> 	 */
-How does one know the buffer is large enough?
+That's the check which tells us if we broke out of the loop or if we
+came to the end of the list.
 
-"Whenever the write blocks start reading" turns a trivial loop submitting one buffer-size at a time into something that would be much easier to get wrong.
+As I explained before, the only way that the check matters is if the
+list is empty.  With the current code I do not think we ever call this
+function with an empty list, so that check is not needed.  But the code
+could change I suppose and it doesn't hurt to be cautious.  On the other
+hand, I'm fine with removing the check as well.
 
+regards,
+dan carpenter
 
-> 	/* Zero-copy */
-> 	splice(cryptfd, NULL, opfd, NULL, datalen,
-> SPLICE_F_MOVE|SPLIFE_F_MORE);
-So that is "zero copy on input if your data come from a file descriptor"?  I'm not sure many applications will be able to take advantage of that, and there's still the output copy.
-
-Also, is SPLICE_F_MOVE actually implemented?
-
-Why use splice() at all?  Simple write() gives the driver the __user pointers that can be used to access the underlying pages directly.  Yanking user-space pages out from the process address space to make them "owned" by the crypto driver, causing more page faults when the process wants to reuse the buffer, does not seem like a performance improvement.
-
-> Please comment.
-I can't really see any advantage in trying to use existing syscalls for crypto when the syscalls were clearly not intended for the purpose.  setsockopt() is fine for sockets because options are set up once per connection, and the connection very rarely lasts less than several milliseconds; crypto operation options have to be configured much more often.
-
-7 syscalls to compute a single hash is very difficult to accept.
-     Mirek
+> 
+> -- 
+> Best Regards
+> -----
+> Shan Wei
