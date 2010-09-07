@@ -1,41 +1,55 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: (Lack of) specification for RX n-tuple filtering
-Date: Tue, 07 Sep 2010 15:43:57 +0100
-Message-ID: <1283870637.2270.10.camel@achroite.uk.solarflarecom.com>
-References: <1279832544.2104.63.camel@achroite.uk.solarflarecom.com>
-	 <4C48BD1A.4060409@chelsio.com>
+Subject: Re: [PATCH net-next-2.6] ethtool: Complete kernel-doc comments for
+ RX flow filter and hash control
+Date: Tue, 07 Sep 2010 15:46:20 +0100
+Message-ID: <1283870780.2270.12.camel@achroite.uk.solarflarecom.com>
+References: <1283870488.2270.9.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Dimitris Michailidis <dm@chelsio.com>
+Cc: Santwona Behera <santwona.behera@sun.com>,
+	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Dimitris Michailidis <dm@chelsio.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:41679 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:41837 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932081Ab0IGOoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 10:44:00 -0400
-In-Reply-To: <4C48BD1A.4060409@chelsio.com>
+	with ESMTP id S1756518Ab0IGOqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 10:46:24 -0400
+In-Reply-To: <1283870488.2270.9.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-07-22 at 14:50 -0700, Dimitris Michailidis wrote:
-> Ben Hutchings wrote:
-> > The n-tuple filtering facility is half-baked at present.  There is an
-> > interface to add filters but none to remove them!  And ETHTOOL_GRXNTUPLE
-> > is not at all symmetric with ETHTOOL_SRXNTUPLE (which I complained about
-> > at the time it was added, to no avail).
+On Tue, 2010-09-07 at 15:41 +0100, Ben Hutchings wrote:
+> There are now several interfaces within the ethtool API for getting
+> and setting RX flow filtering and hashing behaviour, most of which are
+> poorly documented.  This adds kernel-doc comments for all these
+> interfaces, based on the existing incomplete comments and on the
+> initial implementations.
 > 
-> It's a bit worse than that.  Currently one can only append filters, not 
-> insert at a given position, as ethtool_rx_ntuple doesn't have an index 
-> field.  For devices that use TCAMs, where position matters, it's quite an 
-> obstacle.  It also means one cannot modify an existing filter by specifying 
-> a new filter for the same index.
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+> Santwona, Peter,
+> 
+> Please point out any errors and any information that should be added to
+> the comments to explain the significant differences between the RXNFC
+> and RXNTUPLE interfaces.
+[...]
+> +/**
+> + * struct ethtool_rx_ntuple - command to get or set RX flow filter
+> + * @cmd: Specific command number - %ETHTOOL_GRXNTUPLE or %ETHTOOL_SRXNTUPLE
 
-It looks like drivers for devices that use TCAMs should implement the
-RXNFC interface instead.
+Of course this is wrong - ETHTOOL_GRXNTUPLE uses struct ethtool_gstrings
+instead.
 
 Ben.
+
+> + * @fs: Flow filter specification
+> + */
+>  struct ethtool_rx_ntuple {
+>  	__u32					cmd;
+>  	struct ethtool_rx_ntuple_flow_spec	fs;
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
