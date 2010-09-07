@@ -1,109 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: poll() optimizations
-Date: Mon, 06 Sep 2010 23:13:50 +0200
-Message-ID: <1283807630.2585.17.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix tx queue selection for bridged devices
+ implementing select_queue
+Date: Mon, 06 Sep 2010 17:48:16 -0700 (PDT)
+Message-ID: <20100906.174816.102563052.davem@davemloft.net>
+References: <1283517596-2382-1-git-send-email-helmut.schaa@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net,
+	krkumar2@in.ibm.com
+To: helmut.schaa@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:56709 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751706Ab0IFVNz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 17:13:55 -0400
-Received: by wwj40 with SMTP id 40so7090838wwj.1
-        for <netdev@vger.kernel.org>; Mon, 06 Sep 2010 14:13:54 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56730
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752968Ab0IGAr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 20:47:59 -0400
+In-Reply-To: <1283517596-2382-1-git-send-email-helmut.schaa@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to test twice sk->sk_shutdown & RCV_SHUTDOWN
+From: Helmut Schaa <helmut.schaa@googlemail.com>
+Date: Fri,  3 Sep 2010 14:39:56 +0200
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/bluetooth/af_bluetooth.c |    5 ++---
- net/core/datagram.c          |    5 ++---
- net/sctp/socket.c            |    5 ++---
- net/unix/af_unix.c           |    5 ++---
- 4 files changed, 8 insertions(+), 12 deletions(-)
+> When a net device is implementing the select_queue callback and is part of
+> a bridge, frames coming from the bridge already have a tx queue associated
+> to the socket (introduced in commit a4ee3ce3293dc931fab19beb472a8bde1295aebe,
+> "net: Use sk_tx_queue_mapping for connected sockets"). The call to
+> sk_tx_queue_get will then return the tx queue used by the bridge instead
+> of calling the select_queue callback.
+> 
+> In case of mac80211 this broke QoS which is implemented by using the
+> select_queue callback. Furthermore it introduced problems with rt2x00
+> because frames with the same TID and RA sometimes appeared on different
+> tx queues which the hw cannot handle correctly.
+> 
+> Fix this by always calling select_queue first if it is available and only
+> afterwards use the socket tx queue mapping.
+> 
+> Signed-off-by: Helmut Schaa <helmut.schaa@googlemail.com>
 
-diff --git a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
-index 421c45b..ed0f22f 100644
---- a/net/bluetooth/af_bluetooth.c
-+++ b/net/bluetooth/af_bluetooth.c
-@@ -297,13 +297,12 @@ unsigned int bt_sock_poll(struct file * file, struct socket *sock, poll_table *w
- 		mask |= POLLERR;
- 
- 	if (sk->sk_shutdown & RCV_SHUTDOWN)
--		mask |= POLLRDHUP;
-+		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
- 
- 	if (sk->sk_shutdown == SHUTDOWN_MASK)
- 		mask |= POLLHUP;
- 
--	if (!skb_queue_empty(&sk->sk_receive_queue) ||
--			(sk->sk_shutdown & RCV_SHUTDOWN))
-+	if (!skb_queue_empty(&sk->sk_receive_queue))
- 		mask |= POLLIN | POLLRDNORM;
- 
- 	if (sk->sk_state == BT_CLOSED)
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 251997a..4df1b7a 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -746,13 +746,12 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
- 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
- 		mask |= POLLERR;
- 	if (sk->sk_shutdown & RCV_SHUTDOWN)
--		mask |= POLLRDHUP;
-+		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
- 	if (sk->sk_shutdown == SHUTDOWN_MASK)
- 		mask |= POLLHUP;
- 
- 	/* readable? */
--	if (!skb_queue_empty(&sk->sk_receive_queue) ||
--	    (sk->sk_shutdown & RCV_SHUTDOWN))
-+	if (!skb_queue_empty(&sk->sk_receive_queue))
- 		mask |= POLLIN | POLLRDNORM;
- 
- 	/* Connection-based need to check for termination and startup */
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index f4bec27..cf6dcc9 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -5707,13 +5707,12 @@ unsigned int sctp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
- 		mask |= POLLERR;
- 	if (sk->sk_shutdown & RCV_SHUTDOWN)
--		mask |= POLLRDHUP;
-+		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
- 	if (sk->sk_shutdown == SHUTDOWN_MASK)
- 		mask |= POLLHUP;
- 
- 	/* Is it readable?  Reconsider this code with TCP-style support.  */
--	if (!skb_queue_empty(&sk->sk_receive_queue) ||
--	    (sk->sk_shutdown & RCV_SHUTDOWN))
-+	if (!skb_queue_empty(&sk->sk_receive_queue))
- 		mask |= POLLIN | POLLRDNORM;
- 
- 	/* The association is either gone or not ready.  */
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 4414a18..9077b4e 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2024,11 +2024,10 @@ static unsigned int unix_poll(struct file *file, struct socket *sock, poll_table
- 	if (sk->sk_shutdown == SHUTDOWN_MASK)
- 		mask |= POLLHUP;
- 	if (sk->sk_shutdown & RCV_SHUTDOWN)
--		mask |= POLLRDHUP;
-+		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
- 
- 	/* readable? */
--	if (!skb_queue_empty(&sk->sk_receive_queue) ||
--	    (sk->sk_shutdown & RCV_SHUTDOWN))
-+	if (!skb_queue_empty(&sk->sk_receive_queue))
- 		mask |= POLLIN | POLLRDNORM;
- 
- 	/* Connection-based need to check for termination and startup */
-
-
+Applied to net-2.6, thanks Helmut.
