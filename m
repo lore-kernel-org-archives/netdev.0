@@ -1,54 +1,48 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: RFC: Crypto API User-interface
-Date: Tue, 7 Sep 2010 22:39:00 +0800
-Message-ID: <20100907143859.GA7448@gondor.apana.org.au>
-References: <20100907084213.GA4610@gondor.apana.org.au> <20100907140646.GA31921@infradead.org> <20100907141112.GB6903@gondor.apana.org.au> <20100907142427.GA14207@infradead.org>
+Date: Tue, 7 Sep 2010 22:41:36 +0800
+Message-ID: <20100907144136.GB7448@gondor.apana.org.au>
+References: <1847066281.1081601283869883727.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com> <421339997.1082251283870065826.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:46120 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751910Ab0IGOjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 10:39:01 -0400
+	netdev@vger.kernel.org
+To: Miloslav Trmac <mitr@redhat.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100907142427.GA14207@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <421339997.1082251283870065826.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 07, 2010 at 10:24:27AM -0400, Christoph Hellwig wrote:
+On Tue, Sep 07, 2010 at 10:34:25AM -0400, Miloslav Trmac wrote:
+>
+> > > > 	/* These may also be set through sendmsg(2) cmsgs. */
+> > > > 	op = ALG_AEAD_OP_ENCRYPT;
+> > > > 	setsockopt(opfd, SOL_ALG, ALG_AEAD_OP, op, sizeof(op));
+> > > > 	setsockopt(opfd, SOL_ALG, ALG_AEAD_SET_IV, iv, ivlen);
+> > > So that is 8 syscalls to initialize a single AEAD operation.
+> > 
+> > If this interface is fast enough for TCP, it ought to be fast
+> > enough for crypto.
+> Crypto has much smaller granularity than TCP.  A single TLS handshake involves something on the order of 20 separate crypto operations in addition to setting up the four transforms used throughout the life of the session.
 > 
-> I don't think they matter in practice.  We have less than a handfull
-> of drivers for them, and with CPUs gaining proper instructions they
-> are even less useful.  In addition any sane PCI card should just
-> allow userspace mapping of their descriptors.
+> A single SHA-256 password verification is more than 5000 hash operations by default.
 
-I totally agree that mainstream CPUs won't need this at all.
+You're clearly one of those crazy security people.
 
-However we still have embedded users where the CPUs may not be
-powerful enough per se or where they want to use their CPUs for
-other work.
+If you're processing a small amount of data the last thing you want
+is to go through the kernel if you care about performance.
 
-There are also cases such as the Niagra SPU which may not be
-easy to manage from user-space (correct me if I'm wrong Dave).
+Now on the other hand if you had to go through the kernel for
+certification reasons then why are you talking about performance?
 
-> > Now as a side-effect if this means that we can shut the security
-> > people up about adding another interface then all the better.  But
-> > I will certainly not go out of the way to add more crap to the
-> > kernel for that purpose.
-> 
-> So what is the real use case for this?  In addition to kernel bloat
-> the real fear I have is that the security wankers will just configure
-> the userspace crypto libraries to always use the kernel interface
-> just in case, and once that happens we will have to deal with the whole
-> mess.  Especially for RHEL and Fedora where the inmantes now run the
-> asylum in that respect.
+> The data will in the usual case be in user-space memory, not in file descriptors.  Existing low-level crypto libraries have no access to the file descriptors that are used to work with the data.  And even in the case of TLS where the data does come through a file descriptor, a MAC is then computed on it - so at most half of the (steady-state) crypto is coming through a file descriptor.
 
-I will let the security people answer this :)
+man vmsplice
 
-Cheers,
+Also learn to wrap your lines please.
+
+Thanks,
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
