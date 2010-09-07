@@ -1,91 +1,49 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH] [arch-x86] Allow SRAT integrity check to be skipped
-Date: Tue, 7 Sep 2010 21:56:27 +0200
-Message-ID: <20100907195627.GA16387@elte.hu>
-References: <20100901213318.19353.54619.stgit@localhost.localdomain>
- <20100902065731.GB29972@elte.hu>
- <20100902100308.GA17167@basil.fritz.box>
- <20100903063934.GA25863@elte.hu>
- <1283888337.18468.9.camel@pjaxe>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.34: Problem with UDP traffic on lo + poll(?)
+Date: Tue, 07 Sep 2010 12:59:47 -0700 (PDT)
+Message-ID: <20100907.125947.39192078.davem@davemloft.net>
+References: <4C865C21.5010803@ans.pl>
+	<1283877391.2313.62.camel@edumazet-laptop>
+	<1283887569.2634.95.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1283888337.18468.9.camel@pjaxe>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ole@ans.pl, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34375
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932136Ab0IGT73 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 15:59:29 -0400
+In-Reply-To: <1283887569.2634.95.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 07 Sep 2010 21:26:09 +0200
 
-* Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com> wrote:
+>  	}
+> +/*
+> + * Should connect() change inet_rcv_saddr ?
+> + * It should not IMHO, because we want to specify the peer to which
+> + * datagrams are to be sent, regardless of our source address that might
+> + * change in the future, after a route change.
+> + * To specify our source address, bind() is the right API.
+> + */
+> +#if 0
+>  	if (!inet->inet_saddr)
+>  		inet->inet_saddr = rt->rt_src;	/* Update source address */
+>  	if (!inet->inet_rcv_saddr)
+>  		inet->inet_rcv_saddr = rt->rt_src;
+> +#endif
+>  	inet->inet_daddr = rt->rt_dst;
+>  	inet->inet_dport = usin->sin_port;
+>  	sk->sk_state = TCP_ESTABLISHED;
 
-> On Thu, 2010-09-02 at 23:39 -0700, Ingo Molnar wrote:
-> > * Andi Kleen <andi@firstfloor.org> wrote:
-> > 
-> > > > This isnt a particularly useful solution to users of said systems - 
-> > > > they have to figure out that this option exists, and then they have 
-> > > > to enter this option on the boot line.
-> > > 
-> > > This usually only happens in early preproduction systems. So far the 
-> > > BIOS always got fixed before they shipped to users.
-> > 
-> > 'Usually' != 'always'. Read the changelog:
-> > 
-> >   ' There are BIOSes in production that have these failures, so this will 
-> >     allow people in the field to work around these BIOS issues. '
-> > 
-> > Peter, which system in production that has this problem? That one needs 
-> > a DMI match.
-> 
-> It's one SKU of a Nehalem-EX system.  The BIOS for that SKU has an 
-> issue with resolving SRAT hotplug enumeration, and screws up the 
-> table.  Other SKU's of this same platform do not have the issue.  
-> Efforts are underway to get this BIOS fixed, but in the meantime, 
-> there's nothing for users to work around the bug (aside from disabling 
-> memory hotplug in the BIOS).  Another platform almost shipped with the 
-> same symptoms, but caught it and had it fixed before it shipped 
-> (didn't catch it early because Windows wasn't failing, and most of the 
-> testing on that platform was done under Windows).
->
-> I agree with Andi that adding DMI strings would be overkill and would 
-> leave clutter once the BIOS is fixed. [...]
+Eric, please just delete the code block instead of leaving it
+there inside of an #if 0 block.
 
-We use the following policy for hardware/firmware workarounds in 
-upstream arch/x86: if the system got shipped and if the vendor/OEM wants 
-it fixed, then it has real DMI info (or some PCI ID match method, etc.) 
-and an automatic workaround is very well possible and desirable.
+If there is information conveyed by the unused code, add that
+information to the nice comment you're adding :-)
 
-If the vendor cannot be bothered to add a few lines based on a simple 
-reading of dmidecode output and test it, then we dont really want/need 
-the rest of the patch upstream either.
-
-It should be literally 5 minutes of work to add a DMI match.
-
-> I look at this patch as a stop-gap measure for people to fall back on 
-> until a newer BIOS is available to correct the NUMA enumeration 
-> issues. [...]
-
-We dont do half-done stop-gap measures in the upstream kernel like that, 
-and for various good reasons.
-
-Furthermore, since Windows doesnt have a problem booting with this, i'm 
-afraid that we are bound to see repeat problems of this sort, so we 
-better have the DMI path beaten out - even if in this case it's a single 
-model.
-
-> [...]  Without it, we have nothing to point users to when they run 
-> into this, waiting for a new BIOS.
-
-I by all means support you to give users a real fix - one that applies 
-the workaround automatically with a DMI match. Also, as i said, we can 
-also add the boot option in the same patch.
-
-Thanks,
-
-	Ingo
+Thanks.
