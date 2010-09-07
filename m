@@ -1,58 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6] ethtool: Complete kernel-doc comments for
- RX flow filter and hash control
-Date: Tue, 07 Sep 2010 15:46:20 +0100
-Message-ID: <1283870780.2270.12.camel@achroite.uk.solarflarecom.com>
-References: <1283870488.2270.9.camel@achroite.uk.solarflarecom.com>
+From: Nikos Mavrogiannopoulos <nmav@gnutls.org>
+Subject: Re: RFC: Crypto API User-interface
+Date: Tue, 7 Sep 2010 16:49:46 +0200
+Message-ID: <AANLkTikWRewCXdq3eeBMRQr3Ke7C2q42jnKqbKVwwpCH@mail.gmail.com>
+References: <20100907084213.GA4610@gondor.apana.org.au>
+	<20100907140646.GA31921@infradead.org>
+	<20100907141112.GB6903@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Santwona Behera <santwona.behera@sun.com>,
-	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Dimitris Michailidis <dm@chelsio.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:41837 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756518Ab0IGOqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 10:46:24 -0400
-In-Reply-To: <1283870488.2270.9.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20100907141112.GB6903@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-09-07 at 15:41 +0100, Ben Hutchings wrote:
-> There are now several interfaces within the ethtool API for getting
-> and setting RX flow filtering and hashing behaviour, most of which are
-> poorly documented.  This adds kernel-doc comments for all these
-> interfaces, based on the existing incomplete comments and on the
-> initial implementations.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> Santwona, Peter,
-> 
-> Please point out any errors and any information that should be added to
-> the comments to explain the significant differences between the RXNFC
-> and RXNTUPLE interfaces.
-[...]
-> +/**
-> + * struct ethtool_rx_ntuple - command to get or set RX flow filter
-> + * @cmd: Specific command number - %ETHTOOL_GRXNTUPLE or %ETHTOOL_SRXNTUPLE
+On Tue, Sep 7, 2010 at 4:11 PM, Herbert Xu <herbert@gondor.hengli.com.a=
+u> wrote:
 
-Of course this is wrong - ETHTOOL_GRXNTUPLE uses struct ethtool_gstrings
-instead.
+>> > This is what I am proposing for the Crypto API user-interface.
+>>
+>> Can you explain why we would ever want a userspace interface to it?
+>>
+>> doing crypto in kernel for userspace consumers sis simply insane.
+>> It's computational intensive code which has no business in kernel sp=
+ace
+>> unless absolutely required (e.g. for kernel consumers). =C2=A0In add=
+ition
+>> to that adding the context switch overhead and address space transit=
+ions
+>> is god awfull too.
+>>
+>> This all very much sounds like someone had far too much crack.
+>
+> FWIW I don't care about user-space using kernel software crypto at
+> all. =C2=A0It's the security people that do.
 
-Ben.
+Then I'd suggest to not enforce your design over to people who have
+thought and have interests on that. The NCR api which you rejected
+(for not supporting kernel keyring - which your design also doesn't!),
+has specific security goals and protects against specific threats.
+This design here has been proposed by you quite many times in the past
+and neither you, nor anyone else bothered implementing it. Now we have
+two working implementations that offer user-space access to crypto
+operations, (the openbsd cryptodev port), and NCR, but you discard
+them and insist on a different design. Maybe yours is better (you have
+to argue about that)... Probably I'd use it if it was there, but it
+isn't.
 
-> + * @fs: Flow filter specification
-> + */
->  struct ethtool_rx_ntuple {
->  	__u32					cmd;
->  	struct ethtool_rx_ntuple_flow_spec	fs;
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+regards,
+Nikos
