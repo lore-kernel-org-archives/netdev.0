@@ -1,93 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6] niu: Fix kernel buffer overflow for
- ETHTOOL_GRXCLSRLALL
-Date: Tue, 07 Sep 2010 15:35:19 +0100
-Message-ID: <1283870119.2270.5.camel@achroite.uk.solarflarecom.com>
+From: Miloslav Trmac <mitr@redhat.com>
+Subject: Re: RFC: Crypto API User-interface
+Date: Tue, 7 Sep 2010 10:34:25 -0400 (EDT)
+Message-ID: <421339997.1082251283870065826.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+References: <1847066281.1081601283869883727.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Santwona Behera <santwona.behera@sun.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:41042 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757233Ab0IGOfW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 10:35:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1847066281.1081601283869883727.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-niu_get_ethtool_tcam_all() assumes that its output buffer is the right
-size, and warns before returning if it is not.  However, the output
-buffer size is under user control and ETHTOOL_GRXCLSRLALL is an
-unprivileged ethtool command.  Therefore this is at least a local
-denial-of-service vulnerability.
+----- "Herbert Xu" <herbert@gondor.hengli.com.au> wrote:
+> On Tue, Sep 07, 2010 at 07:27:47AM -0400, Miloslav Trmac wrote:
+> > Hello,
+> > ----- "Herbert Xu" <herbert@gondor.hengli.com.au> wrote:
+> > > First of all let's have a quick look at what the user-space side
+> > > looks like for AEAD:
+> > > 
+> > > 	/* Each listen call generates one or more fds for input/output
+> > > 	 * that behave like pipes.
+> > > 	 */
+> > > 	listen(tfmfd, 0);
+> > > 	/* fd for encryption/decryption */
+> > > 	opfd = accept(tfmfd, NULL, 0);
+> > > 	/* fd for associated data */
+> > > 	adfd = accept(tfmfd, NULL, 0);
+> > If nothing else, two consecutive accept() calls with different
+> semantics go rather strongly against the spirit of the socket API
+> IMHO.
+> 
+> If you have a better suggestion of obtaining multiple fds for
+> multiple input streams please let us know.
+- Don't use a FD for associated data that is limited to 16? bytes
 
-Change it to check before writing each entry and to return an error if
-the buffer is already full.
+- Don't use file descriptors for input data at all, if it makes the interface so complex.
 
-Compile-tested only.
+> > > 	/* These may also be set through sendmsg(2) cmsgs. */
+> > > 	op = ALG_AEAD_OP_ENCRYPT;
+> > > 	setsockopt(opfd, SOL_ALG, ALG_AEAD_OP, op, sizeof(op));
+> > > 	setsockopt(opfd, SOL_ALG, ALG_AEAD_SET_IV, iv, ivlen);
+> > So that is 8 syscalls to initialize a single AEAD operation.
+> 
+> If this interface is fast enough for TCP, it ought to be fast
+> enough for crypto.
+Crypto has much smaller granularity than TCP.  A single TLS handshake involves something on the order of 20 separate crypto operations in addition to setting up the four transforms used throughout the life of the session.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-There may be more of these but AFAIK this is the only RXNFC command that
-deals with variable-length data.
+A single SHA-256 password verification is more than 5000 hash operations by default.
 
-I wonder whether it really makes sense for ethtool getter commands to be
-generally unprivileged.  Does the convenience outweigh the risk of a
-driver bug becoming a local DoS or root hole, or the disclosure of
-information such as (in this case) which flows the administrator
-considers interesting?
+> > Why use splice() at all?  Simple write() gives the driver the __user
+> pointers that can be used to access the underlying pages directly. 
+> Yanking user-space pages out from the process address space to make
+> them "owned" by the crypto driver, causing more page faults when the
+> process wants to reuse the buffer, does not seem like a performance
+> improvement.
+> 
+> For someone working on security I thought you would've considered
+> the pitfalls of inventing yet another interface for moving data
+> between the kernel/user-space.
+The data will in the usual case be in user-space memory, not in file descriptors.  Existing low-level crypto libraries have no access to the file descriptors that are used to work with the data.  And even in the case of TLS where the data does come through a file descriptor, a MAC is then computed on it - so at most half of the (steady-state) crypto is coming through a file descriptor.
 
-Ben.
-
- drivers/net/niu.c |   16 ++++++----------
- 1 files changed, 6 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index b9b9508..340cbec 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -7272,32 +7272,28 @@ static int niu_get_ethtool_tcam_all(struct niu *np,
- 	struct niu_parent *parent = np->parent;
- 	struct niu_tcam_entry *tp;
- 	int i, idx, cnt;
--	u16 n_entries;
- 	unsigned long flags;
--
-+	int ret = 0;
- 
- 	/* put the tcam size here */
- 	nfc->data = tcam_get_size(np);
- 
- 	niu_lock_parent(np, flags);
--	n_entries = nfc->rule_cnt;
- 	for (cnt = 0, i = 0; i < nfc->data; i++) {
- 		idx = tcam_get_index(np, i);
- 		tp = &parent->tcam[idx];
- 		if (!tp->valid)
- 			continue;
-+		if (cnt == nfc->rule_cnt) {
-+			ret = -EMSGSIZE;
-+			break;
-+		}
- 		rule_locs[cnt] = i;
- 		cnt++;
- 	}
- 	niu_unlock_parent(np, flags);
- 
--	if (n_entries != cnt) {
--		/* print warning, this should not happen */
--		netdev_info(np->dev, "niu%d: In %s(): n_entries[%d] != cnt[%d]!!!\n",
--			    np->parent->index, __func__, n_entries, cnt);
--	}
--
--	return 0;
-+	return ret;
- }
- 
- static int niu_get_nfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
--- 
-1.7.2.1
-
-
-
+Finally, when the application uses file descriptors, it uses them to transfer the _encrypted_ form of the data; it keeps plaintext in memory in order to use it.  So avoiding the trip to userspace protects primarily the kind of data that does not need protecting.
+    Mirek
