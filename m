@@ -1,21 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] bnx2x: Dual-media enhancement
-Date: Tue, 07 Sep 2010 13:13:04 -0700 (PDT)
-Message-ID: <20100907.131304.59687385.davem@davemloft.net>
+From: "Yaniv Rosner" <yaniv.rosner@broadcom.com>
+Subject: RE: [PATCH net-next 00/10] bnx2x: Dual-media enhancement
+Date: Tue, 7 Sep 2010 13:17:24 -0700
+Message-ID: <41FDA5AFCC66094F83A3D9545495A2A410BD8FD633@SJEXCHCCR01.corp.ad.broadcom.com>
 References: <1283895645.5452.60.camel@lb-tlvb-yanivr.il.broadcom.com>
+ <20100907.131304.59687385.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: yaniv.rosner@broadcom.com
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60610
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757890Ab0IGUMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 16:12:47 -0400
-In-Reply-To: <1283895645.5452.60.camel@lb-tlvb-yanivr.il.broadcom.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:1331 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756829Ab0IGURl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 16:17:41 -0400
+In-Reply-To: <20100907.131304.59687385.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Dave,
+Thank you so much ! Will do.
+Yaniv
+
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Tuesday, September 07, 2010 11:13 PM
+To: Yaniv Rosner
+Cc: netdev@vger.kernel.org; Eilon Greenstein
+Subject: Re: [PATCH net-next 00/10] bnx2x: Dual-media enhancement
 
 From: "Yaniv Rosner" <yaniv.rosner@broadcom.com>
 Date: Wed, 8 Sep 2010 00:40:45 +0300
@@ -47,3 +62,5 @@ warning: 1 line adds whitespace errors.
 
 I've fixed them up this time, but you will need to take care of these
 things yourself next time or else I'll push the patches back to you.
+
+
