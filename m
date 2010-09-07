@@ -1,89 +1,87 @@
-From: Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org>
-Subject: Re: [PATCHv4] net: Add batman-adv meshing protocol
-Date: Tue, 7 Sep 2010 20:24:51 +0200
-Message-ID: <201009072024.53048.sven.eckelmann@gmx.de>
-References: <1283646353-17811-1-git-send-email-sven.eckelmann@gmx.de>
-	<201009071956.54499.sven.eckelmann@gmx.de>
-	<20100907181000.GF2448@linux.vnet.ibm.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: No link on e1000e with 2.6.35.3 and ThinkPad T60
+Date: Tue, 7 Sep 2010 13:05:45 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A13660085FFA1B@rrsmsx501.amr.corp.intel.com>
+References: <20100724092644.GA13353@torres.zugschlus.de>
+ <20100824094524.GA17608@torres.zugschlus.de>
+ <EA929A9653AAE14F841771FB1DE5A136600821444B@rrsmsx501.amr.corp.intel.com>
+ <20100826112732.GA15559@torres.zugschlus.de>
+ <20100826171442.GA22941@torres.zugschlus.de>
+ <EA929A9653AAE14F841771FB1DE5A13660082E9090@rrsmsx501.amr.corp.intel.com>
+ <20100904063305.GA18734@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart3312287.PMbKDDce3f";
-	protocol="application/pgp-signature"; micalg=pgp-sha512
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwlltHuzzzSOjJt@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20100907181000.GF2448-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Marc Haber <mh+linux-kernel@zugschlus.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:61025 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756992Ab0IGTFs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Sep 2010 15:05:48 -0400
+In-Reply-To: <20100904063305.GA18734@torres.zugschlus.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart3312287.PMbKDDce3f
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-Paul E. McKenney wrote:
-[..]
-> > > I have similar concerns with your other RCU read-side critical
-> > > sections.
-> >=20
-> > Looks to me like a valid point. I have to think a little bit how to sol=
-ve
-> > it correctly. Feel free to add more comments about other rcu cruelties
-> > in it.
->=20
-> One approach would be to extend the RCU read-side critical section to
-> cover all uses of the RCU-protected pointer.  Another approach would be
-> to take a reference count (or something similar) before the pointer
-> leaves the RCU read-side critical section.
-
-I am not the author of the rcu related functionality (it was one of the act=
-ual=20
-maintainers: Simon Wunderlich), but would guess that the rcu protected=20
-"critical section" will be extended.
-
-> Could you please take a look at Documentation/RCU/checklist.txt?
->=20
-> Because I am not familiar with the BATMAN device, it is all too easy
-> for me to miss subtleties in the code.
-
-Yes, will be done (will probably end in reading all the rcu documentation).=
-=20
-But it is really nice that you checked the code for your area of interest.
-
-thanks,
-	Sven
-
---nextPart3312287.PMbKDDce3f
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIcBAABCgAGBQJMhoN0AAoJEF2HCgfBJntGdYkQALvr+YpSccrJriQDihslXiIp
-bvw0WE9K05E1D8DjqT9H8vo/qptnGtIFhMQlUB1GsN1JVVmpxE5J6tvEbCZPVcyv
-uTYEkSkwlBDJe6sSEApqLSc8fkZR4dn882pgJTm32cRN3M843eFy80g3MJ39TnZh
-6UhHK5rh/WI/p6Q+GXX/LMYbrBqWgGMK4yssv3dDTHohRXOa8Y4nwlGBesmuJgbM
-BizlL04XY7iDUv4npHl/jV0xE292wP/QZet2HvszlQmWJDDtGAU9Yc8wP002Py+z
-pBvcJSH3K5UCX5Ab1V8R6htCMOY/Jp7OTKqOMFq5EEdRMqHdeiOTXH3+iPj5DzJG
-2NJuACyN1Gtk4chOnlFHSE2F21FflI9JDOmwmpP2VqnC1Pl7pKlzyhsuwgv+9ww4
-rYXPPkmWJZBLYeQvE79mxRp7GwE62X7ZNLRPirSdZtYoZyWIOUAqYYHLMJqe/PwM
-8wxT+obzrJf/6FIXs9gOVIeWY2oEloqTEJ2IPVAPawF1IBgzG5Abhn8xfB6+GrxI
-fEdlHzIr9XPsFef/xZ8vDTH/CoK9HNTxMUe9D/rB0XJxssf7pxWd1c58V9B36bB7
-8b+b7yECXAhCa79XWhiWI4081dp8eVy+FR1tywZHoozrBsPdZ8y6vpLtgUbNgj43
-0MycGskEVE/HjxnZ60ut
-=SZ2s
------END PGP SIGNATURE-----
-
---nextPart3312287.PMbKDDce3f--
+TWFyYyBIYWJlciB3cm90ZToNCj4gSGksDQo+IA0KPiBPbiBUaHUsIEF1ZyAyNiwgMjAxMCBhdCAw
+MzozMTowN1BNIC0wNjAwLCBUYW50aWxvdiwgRW1pbCBTIHdyb3RlOg0KPj4gTWFyYyBIYWJlciB3
+cm90ZToNCj4+PiBPbiBUaHUsIEF1ZyAyNiwgMjAxMCBhdCAwMToyNzozMlBNICswMjAwLCBNYXJj
+IEhhYmVyIHdyb3RlOg0KPj4+PiBPbiBXZWQsIEF1ZyAyNSwgMjAxMCBhdCAxMjowMTo0MFBNIC0w
+NjAwLCBUYW50aWxvdiwgRW1pbCBTIHdyb3RlOg0KPj4+Pj4gV2UgaGF2ZSBhIHRvb2wgdGhhdCB5
+b3UgY2FuIHVzZSB0byBkdW1wIHRoZSByZWdpc3RlcnMgZnJvbSB0aGUNCj4+Pj4+IHBvcnQgaW4g
+dGhlIGZhaWxlZCBzdGF0ZToNCj4+Pj4+IGh0dHA6Ly9zb3VyY2Vmb3JnZS5uZXQvcHJvamVjdHMv
+ZTEwMDAvZmlsZXMvRXRocmVncyUyMC0lMjBSZWdpc3RlciUyMER1bXAlMjBUb29sL2V0aHJlZ3Mt
+MS4xMi4zLw0KPj4+PiANCj4+Pj4gQXR0YWNoZWQsIGZvciBhbiBpbnRlcmZhY2UgaW4gdGhlIHdv
+cmtpbmcgc3RhdGUuIEknbGwgZGVsaXZlcg0KPj4+PiBhbm90aGVyIHJlZ2R1bXAgd2hlbiBJIHNl
+ZSB0aGUgaXNzdWUgYWdhaW4NCj4+PiANCj4+PiBIZXJlIHdlIGdvLCB3aXRoIGEgbm9uLXdvcmtp
+bmcgaW50ZXJmYWNlLg0KPj4gDQo+PiBBZnRlciByZXZpZXdpbmcgdGhlIG91dHB1dCBmcm9tIGRt
+aWRlY29kZSBJIGRldGVybWluZWQgdGhhdCB5b3VyDQo+PiBtb2RlbCBUNjAgaXMgc2xpZ2h0bHkg
+ZGlmZmVyZW50IHRoYW4gbWluZS4gSXQgYXBwZWFycyB0aGF0IHlvdSBoYXZlDQo+PiB0aGUgd2lk
+ZXNjcmVlbiB2ZXJzaW9uLiBJcyB0aGF0IGNvcnJlY3Q/DQo+IA0KPiBUaGUgZG1pZGVjb2RlIG91
+dHB1dCBpcyBmcm9tIHRoZSB3aWRlc2NyZWVuIG1vZGVsLCB5ZXMsIGJ1dCBJIGFsc28NCj4gaGF2
+ZSB0d28gIm5vcm1hbCIgVDYwIHdpdGggdGhlIG5vbi13aWRlIHNjcmVlbiAxNSIgZGlzcGxheSAo
+d2l0aA0KPiAxNDAweDEwNTAgcGl4ZWxzKS4gVGhlIGZyZWV6ZXMgaGFwcGVuIG9uIGFsbCB0aHJl
+ZS4gVGhlIG9uZSBJIGhhdmUgYXQNCg0KVGhhdCBpcyBnb29kIHRvIGtub3cuIFNvIGl0IHNlZW1z
+IHRoZSBpc3N1ZSBpcyBub3QgbGltaXRlZCB0byBqdXN0IHRoZSB3aWRlc2NyZWVuIG1vZGVsLiAN
+Cg0KPiBoYW5kIGlzIHJ1bm5pbmcgQklPUyAyLjI2IGRhdGVkIDIwMTAtMDQtMDEuIEkgd2lsbCBh
+bHNvIHRyeSB1cGRhdGluZw0KPiB0aGUgV2lkZXNjcmVlbiB1bml0IHdoaWNoIGlzIC0gbm90IHN1
+cnByaXNpbmdseSAtIHRoZSBvbmUgSSB1c2UgdGhlDQo+IG1vc3QuDQo+IA0KPj4gQWxzbyB5b3Ug
+c2VlbSB0byBiZSBydW5uaW5nIGEgZmFpcmx5IG9sZCB2ZXJzaW9uIG9mIHRoZSBCSU9TICgxLjA4
+KS4NCj4+IFRoZSBsYXRlc3QgaXMgMS4xODoNCj4+IGh0dHA6Ly93d3ctMzA3LmlibS5jb20vcGMv
+c3VwcG9ydC9zaXRlLndzcy9NSUdSLTY3MDIwLmh0bWwgDQo+IA0KPiBUaGFua3MgZm9yIHRoYXQg
+cG9pbnRlciwgSSBhbSBoYXZpbmcgZGlmZmljdWx0aWVzIGluIG5hdmlnYXRpbmcgdGhlDQo+IElC
+TS9MZW5vdm8gd2ViIHNpdGVzLg0KPiANCj4+IEkgd291bGQgcmVjb21tZW5kIHRoYXQgeW91IHVw
+Z3JhZGUgeW91ciBCSU9TLiBJZiB0aGF0IGRvZXMgbm90IGhlbHANCj4+IHdlIGNhbiBjb250aW51
+ZSB3aXRoIHRoZSBpbnZlc3RpZ2F0aW9uLiBJIHdpbGwgYWxzbyB0cnkgdG8gbG9jYXRlIGENCj4+
+IHdpZGVzY3JlZW4gVDYwIHRoYXQgd291bGQgaG9wZWZ1bGx5IGhlbHAgbWUgd2l0aCB0aGUgcmVw
+cm8uDQo+IA0KPiBJIGNhbiBnaXZlIHlvdSBzc2ggYWNjZXNzIHRvIG1pbmUgaWYgeW91IHdhbnQg
+dG8uIERvIHlvdSBoYXZlIElQdjYNCj4gY29ubmVjdGl2aXR5PyBJZiB5b3Ugd2FudCBtZSB0bywg
+c2VuZCBtZSB5b3VyIHNzaCBrZXkuDQoNCklzIHlvdXIgdHJhZmZpYyBtb3N0bHkgb3ZlciBJUHY2
+PyBUaGF0IG1heWJlIGEgY2x1ZSBhcyB0aGVyZSBoYXMgYmVlbiBhIGxvdCBvZiBjaGFuZ2VzIGlu
+IHRoZSBJUHY2IGNvZGUgaW4gcmVjZW50IGtlcm5lbHMuDQoNCj4gDQo+PiBUaGUgbW9kZWwgSSBo
+YXZlIGhhcyBiZWVuIHJ1bm5pbmcgYWxsIGtpbmRzIG9mIHN0cmVzcyBzaW5jZSB5b3UgZmlyc3QN
+Cj4+IHJlcG9ydGVkIHRoaXMgaXNzdWUsIGFuZCBzbyBmYXIgaXMgcm9jayBzb2xpZC4NCj4gDQo+
+IFBsZWFzZSBub3RlIHRoYXQgdXN1YWxseSB0aGUgZnJlZXplcyBoYXBwZW4gd2hlbiB0aGUgbmV0
+d29yayBpcyByYXRoZXINCj4gc2xpZ2h0bHkgbG9hZGVkLCBmb3IgZXhhbXBsZSB3aGVuIEknbSB0
+eXBpbmcgaW50byBhbiBzc2ggd2luZG93IHdpdGgNCj4gbm90aGluZyBlbHNlIGhhcHBlbmluZyBv
+biB0aGUgYm94LiBXaGVuIEkgZG8gdGhpbmdzIHRoYXQgYXJlIHJhdGhlcg0KPiB0cmFmZmljIGlu
+dGVuc2l2ZSBzdWNoIGFzIGEgYmFja3VwLCB0aGUgYm94IGlzIGZpbmUuIFRoZSAibm8gbGluayIN
+Cj4gaXNzdWUgYXBwZWFycyBtb3N0IGZyZXF1ZW50bHkgb24gYSBzeXN0ZW0gdGhhdCBoYXMgYmVl
+biBydW5uaW5nIGZvcg0KPiBzb21lIHRpbWUgYW5kIHN1c3BlbmQtdG8tcmFtIHdhcyB1c2VkLiBJ
+IGFtIHRyYXZlbGluZyBhIGxvdCwgYW5kIGV2ZXJ5DQo+IGNoYW5nZSBvZiB0cmFpbiBvciBidXMg
+aW52b2x2ZXMgYSBzdXNwZW5kLXJlc3VtZSBjeWNsZS4NCg0KSSBoYWQgcmFuIGV2ZXJ5dGhpbmcg
+SSBjYW4gdGhpbmsgb2Ygb24gbWluZS4gVGhlIHN5c3RlbSBub3cgaGFzIHVwdGltZSBvZiAxMSBk
+YXlzIGFuZCBJIHJhbiBoZWF2eSBzdHJlc3MsIGxpdGUgc3RyZXNzLCBubyBzdHJlc3MgYW5kIHN1
+c3BlbmQvcmVzdW1lIG11bHRpcGxlIHRpbWVzIHdpdGhvdXQgaXNzdWVzLg0KDQpBdCB0aGlzIHBv
+aW50IHdlIG5lZWQgdG8gc3RhcnQgbG9va2luZyBpbnRvIGRldGFpbHMuIEVzcGVjaWFsbHkgaWYg
+eW91IGNhbiBjb21lIHVwIHdpdGggc29tZSBzb3J0IG9mIHRlc3QgdGhhdCB3b3VsZCBjb25zaXN0
+ZW50bHkgcmVwcm9kdWNlIHRoZSBoYW5nLiBJIHNob3VsZCBiZSBhYmxlIHRvIHJlcHJvIGl0IG9u
+IG15IHN5c3RlbSBpZiBpdCBpcyBhIGdlbmVyaWMgaXNzdWUuDQoNCkkgd291bGQgYWxzbyByZXBl
+YXQgbXkgcmVxdWVzdCB0byBvcGVuIGEgYnVnIGF0IGUxMDAwLnNmLm5ldCBhcyB0aGVyZSBoYXMg
+YmVlbiBhIGxvdCBvZiBpbmZvIGV4Y2hhbmdlZCBpbiBlbWFpbCBhbmQgaXQgd2lsbCBiZSBlYXNp
+ZXIgdG8gZm9sbG93IGlmIGl0IGlzIGluIG9uZSBwbGFjZS4NCg0KPiANCj4gR3JlZXRpbmdzDQo+
+IE1hcmMNCg0KVGhhbmtzLA0KRW1pbA0K
