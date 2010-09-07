@@ -1,51 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.34: Problem with UDP traffic on lo + poll(?)
-Date: Tue, 07 Sep 2010 18:36:31 +0200
-Message-ID: <1283877391.2313.62.camel@edumazet-laptop>
-References: <alpine.LNX.1.10.1009061745280.20113@bizon.gios.gov.pl>
-	 <1283802132.2585.4.camel@edumazet-laptop>  <4C854737.5040503@ans.pl>
-	 <1283804955.2585.12.camel@edumazet-laptop> <4C8552B1.8020806@ans.pl>
-	 <4C855385.7030203@ans.pl>  <4C865C21.5010803@ans.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Krzysztof =?UTF-8?Q?Ol=C4=99dzki?= <ole@ans.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:51261 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757599Ab0IGQgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 12:36:37 -0400
-Received: by fxm16 with SMTP id 16so93524fxm.19
-        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 09:36:36 -0700 (PDT)
-In-Reply-To: <4C865C21.5010803@ans.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Le mardi 07 septembre 2010 =C3=A0 17:37 +0200, Krzysztof Ol=C4=99dzki a=
- =C3=A9crit :
-
-> So far I have found that:
->=20
-> 2.6.31.7/2.6.31.12: OK
-> 2.6.32.21: OK
-> 2.6.33-rc1: bad
-> 2.6.33-rc5: bad
-> 2.6.33.7: bad
-> 2.6.34.4/2.6.34.6: bad
->=20
-> It looks like the bug must have been introduced in 2.6.33-rc1. There =
-are=20
-> 8904 commits between 2.6.32 and 2.6.33-rc1, so with ~15 more reboots =
-I=20
-> should be able to point the problematic commit. I hope. ;)
->=20
->=20
-
-Hmm, I have a pretty good idea of what the problem is, and will post a
-fix soon ;)
-
-Thanks !
+From: "Greg Trahair" <Greg.Trahair@tomtom.com>
+Subject: Re: [BUG] __vlan_hwaccel_rx system call causes kernel
+	panic
+Date: Tue, 7 Sep 2010 18:45:48 +0200
+Message-ID: <2BB8A93A-8837-4670-A82E-E874625518F0@tomtom.com>
+References: <7360C1812CDFF247A3342E16BF5CBE0A01277F6A@NL-EXC-06.intra.local>
+	<AANLkTin9ND42s0o-3Wv-vZuG5RTxSheJOCdSnr3qyHX5@mail.gmail.com>
+	<80769D7B14936844A23C0C43D9FBCF0F25AF9E8E56@orsmsx501.amr.corp.intel.com>
+	<D3EC401C-83E9-4948-A971-F69D2E716592@tomtom.com>
+	<80769D7B14936844A23C0C43D9FBCF0F25AF9E9AA7@orsmsx501.amr.corp.intel.com>
+Mime-Version: 1.0 (iPhone Mail 8A400)
+Content-Type: multipart/mixed; boundary="===============4878167718103939530=="
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Chris Leech <chris.leech@gmail.com>, linux-net@vger.kernel.org
+To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F25AF9E9AA7@orsmsx501.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 
+--===============4878167718103939530==
+Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative; boundary="Apple-Mail-3-628075682";
+	charset="iso-8859-1"
 
+
+--Apple-Mail-3-628075682
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
+
+That's great news.  I'll create a ticket for Citrix to get thus sorted in Xe=
+nServer.
+
+> It looks like the 2.1.9 driver did not have the fix.  The patch that resol=
+ved this upstream is located at:
+> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3Dcom=
+mit;h=3D31b24b955c3ebbb6f3008a6374e61cf7c05a193c
+
+--Apple-Mail-3-628075682--
+
+
+--===============4878167718103939530==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+This SF.net Dev2Dev email is sponsored by:
+
+Show off your parallel programming skills.
+Enter the Intel(R) Threading Challenge 2010.
+http://p.sf.net/sfu/intel-thread-sfd
+--===============4878167718103939530==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============4878167718103939530==--
