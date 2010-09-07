@@ -1,26 +1,42 @@
-From: Christoph Hellwig <hch@infradead.org>
+From: Nikos Mavrogiannopoulos <nmav@gnutls.org>
 Subject: Re: RFC: Crypto API User-interface
-Date: Tue, 7 Sep 2010 10:55:12 -0400
-Message-ID: <20100907145512.GB13027@infradead.org>
-References: <834983542.1086561283871074929.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
- <695962299.1087031283871123333.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+Date: Tue, 7 Sep 2010 16:57:04 +0200
+Message-ID: <AANLkTinfQprsNC2ipocUKUWv894mbVtnDoxd5as9kCt-@mail.gmail.com>
+References: <20100907084213.GA4610@gondor.apana.org.au>
+	<20100907140646.GA31921@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
 	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Miloslav Trmac <mitr@redhat.com>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <695962299.1087031283871123333.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+In-Reply-To: <20100907140646.GA31921@infradead.org>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 07, 2010 at 10:52:03AM -0400, Miloslav Trmac wrote:
-> Because in the real world people want both certification, features _and_ performance.  If all they cared about is certification they could just as well buy a pencil.
+On Tue, Sep 7, 2010 at 4:06 PM, Christoph Hellwig <hch@infradead.org> w=
+rote:
+>> This is what I am proposing for the Crypto API user-interface.
+>
+> Can you explain why we would ever want a userspace interface to it?
+>
+> doing crypto in kernel for userspace consumers sis simply insane.
+> It's computational intensive code which has no business in kernel spa=
+ce
+> unless absolutely required (e.g. for kernel consumers). =C2=A0In addi=
+tion
+> to that adding the context switch overhead and address space transiti=
+ons
+> is god awfull too.
+> This all very much sounds like someone had far too much crack.
 
-Okay Mr Smartass.  Please put away your crackpipe and get down to earth.
-There is absolutely no good reason to ever do crypto for userspace
-applications in the kernel.  If any certification requires that it's not
-worth the paper it's written on.  In fact there's more enough criticial
-systems that do not even have separate kernel vs userspace boundaries.
+Or that someone is not really aware of some cryptographic uses.
+Embedded systems have crypto accelerators in hardware available
+through kernel device drivers. In the systems I worked the
+accelerators via a crypto device interface gave a 50x to 100x boost in
+crypto operations and relieved the CPU from doing them.
+
+regards,
+Nikos
