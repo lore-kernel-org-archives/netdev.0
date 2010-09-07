@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 10/30] irda: semaphore cleanup
-Date: Tue, 07 Sep 2010 09:29:08 -0700 (PDT)
-Message-ID: <20100907.092908.112600616.davem@davemloft.net>
+Subject: Re: [patch 09/30] net: wan/cosa.c: Convert "mutex" to semaphore
+Date: Tue, 07 Sep 2010 09:29:00 -0700 (PDT)
+Message-ID: <20100907.092900.189701056.davem@davemloft.net>
 References: <20100907124636.880953480@linutronix.de>
-	<20100907125055.651362456@linutronix.de>
+	<20100907125055.557578360@linutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,12 +12,12 @@ Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
 	netdev@vger.kernel.org
 To: tglx@linutronix.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100907125055.651362456@linutronix.de>
+In-Reply-To: <20100907125055.557578360@linutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 07 Sep 2010 14:32:30 -0000
+Date: Tue, 07 Sep 2010 14:32:25 -0000
 
 > Get rid of init_MUTEX[_LOCKED]() and use sema_init() instead.
 > 
