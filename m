@@ -1,31 +1,76 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH] [arch-x86] Allow SRAT integrity check to be skipped
-Date: Tue, 07 Sep 2010 13:48:49 -0700
-Message-ID: <4C86A531.1010801@zytor.com>
-References: <20100901213318.19353.54619.stgit@localhost.localdomain>	 <20100902065731.GB29972@elte.hu> <20100902100308.GA17167@basil.fritz.box>	 <20100903063934.GA25863@elte.hu> <1283888337.18468.9.camel@pjaxe>	 <4C869AA3.6000103@zytor.com> <1283890615.18468.11.camel@pjaxe>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: introduce rcu_dereference_read_lock_or_rtnl
+Date: Tue, 07 Sep 2010 22:49:28 +0200
+Message-ID: <4C86A558.6030802@gmail.com>
+References: <1283890291.2634.143.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1283890615.18468.11.camel@pjaxe>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60000 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758308Ab0IGUte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 16:49:34 -0400
+Received: by wwj40 with SMTP id 40so8684439wwj.1
+        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 13:49:33 -0700 (PDT)
+In-Reply-To: <1283890291.2634.143.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/07/2010 01:16 PM, Peter P Waskiewicz Jr wrote:
->>
->> If this is a production BIOS it should have this information.
+Eric Dumazet wrote, On 09/07/2010 10:11 PM:
+
+> We use rcu_dereference_check(p, rcu_read_lock_held() ||
+> lockdep_rtnl_is_held()) several times in network stack.
 > 
-> Responding for both your and Ingo's last email, I'll work on getting a
-> DMI match for this system.
+> More usages to come too, so its time to create a helper.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> include/linux/rtnetlink.h |   12 ++++++++++++
+> 
+> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+> index 58d4449..5ba48bb 100644
+> --- a/include/linux/rtnetlink.h
+> +++ b/include/linux/rtnetlink.h
+> @@ -745,10 +745,22 @@ extern void rtnl_lock(void);
+>  extern void rtnl_unlock(void);
+>  extern int rtnl_trylock(void);
+>  extern int rtnl_is_locked(void);
+> +
+>  #ifdef CONFIG_PROVE_LOCKING
+>  extern int lockdep_rtnl_is_held(void);
+>  #endif /* #ifdef CONFIG_PROVE_LOCKING */
+>  
+> +/**
+> + * rcu_dereference_read_lock_or_rtnl - rcu_dereference with debug checking
+> + * @p: The pointer to read, prior to dereferencing
+> + *
+> + * Do an rcu_dereference(p), but check caller either holds rcu_read_lock()
+> + * or RTNL
+> + */
+> +#define rcu_dereference_read_lock_or_rtnl(p)
+
+
+My proposal is to shorten the name, and since rcu_read_lock
+part seems obvious, maybe rcu_dereference_rtnl() only?
+
+Jarek P.
+
+				\
+> +		rcu_dereference_check(p, rcu_read_lock_held() ||	\
+> +					 lockdep_rtnl_is_held());
+> +
+>  extern void rtnetlink_init(void);
+>  extern void __rtnl_unlock(void);
+>  
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
 
-Great.
 
-	-hpa
