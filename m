@@ -1,1031 +1,444 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v3 08/10] net: davinci_emac: separate out cpdma code
-Date: Tue,  7 Sep 2010 16:25:40 -0400
-Message-ID: <1283891142-15522-9-git-send-email-cyril@ti.com>
+Subject: [PATCH v3 09/10] net: davinci_emac: switch to new cpdma layer
+Date: Tue,  7 Sep 2010 16:25:41 -0400
+Message-ID: <1283891142-15522-10-git-send-email-cyril@ti.com>
 References: <1283891142-15522-1-git-send-email-cyril@ti.com>
 Cc: davem@davemloft.net, khilman@deeprootsystems.com, tony@atomide.com,
 	Cyril Chemparathy <cyril@ti.com>
 To: netdev@vger.kernel.org,
 	davinci-linux-open-source@linux.davincidsp.com,
 	linux-omap@vger.kernel.org
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:38223 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758280Ab0IGUZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 16:25:51 -0400
 In-Reply-To: <1283891142-15522-1-git-send-email-cyril@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In addition to being embedded into the EMAC controller, the CPDMA hardware
-block is used in TI's CPSW switch controller.  Fortunately, the programming
-interface to this hardware block remains pretty nicely consistent across these
-devices.
+This patch hooks up the emac driver with the newly separated cpdma driver.
 
-This patch adds a new CPDMA services layer, which can then be reused across
-EMAC and CPSW drivers.
+Key differences introduced here:
+
+ - The old buffer list scheme is no longer required
+
+ - The original code maintained mac address per rx channel, even if only one
+   rx channel was being used.  With this change, mac address is maintained
+   device wide.  If support for multiple rx channels is added in future, this
+   will need to be reworked a bit.
+
+ - The new CPDMA code handles short packets better than before.  The
+   earlier code was adjusting the length up, without ensuring that the tail
+   end of the padding was cleared - a possible security issue.  This has been
+   fixed to use skb_padto().
 
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/Kconfig         |   10 +
- drivers/net/Makefile        |    1 +
- drivers/net/davinci_cpdma.c |  837 +++++++++++++++++++++++++++++++++++++++++++
- drivers/net/davinci_cpdma.h |  105 ++++++
- 4 files changed, 953 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/davinci_cpdma.c
- create mode 100644 drivers/net/davinci_cpdma.h
+ drivers/net/davinci_emac.c |  232 ++++++++++++++++++++++++++++----------------
+ 1 files changed, 147 insertions(+), 85 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 911e7f1..775fd87 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -952,6 +952,7 @@ config TI_DAVINCI_EMAC
- 	tristate "TI DaVinci EMAC Support"
- 	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
- 	select TI_DAVINCI_MDIO
-+	select TI_DAVINCI_CPDMA
- 	select PHYLIB
- 	help
- 	  This driver supports TI's DaVinci Ethernet .
-@@ -969,6 +970,15 @@ config TI_DAVINCI_MDIO
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called davinci_mdio.  This is recommended.
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 036681a..4147d32 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -63,6 +63,8 @@
+ #include <asm/irq.h>
+ #include <asm/page.h>
  
-+config TI_DAVINCI_CPDMA
-+	tristate "TI DaVinci CPDMA Support"
-+	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
-+	help
-+	  This driver supports TI's DaVinci CPDMA dma engine.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called davinci_cpdma.  This is recommended.
-+
- config DM9000
- 	tristate "DM9000 support"
- 	depends on ARM || BLACKFIN || MIPS
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index d38a7ab..65da885 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -8,6 +8,7 @@ obj-$(CONFIG_PHYLIB) += phy/
- 
- obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
- obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
-+obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
- 
- obj-$(CONFIG_E1000) += e1000/
- obj-$(CONFIG_E1000E) += e1000e/
-diff --git a/drivers/net/davinci_cpdma.c b/drivers/net/davinci_cpdma.c
-new file mode 100644
-index 0000000..ab7ecd7
---- /dev/null
-+++ b/drivers/net/davinci_cpdma.c
-@@ -0,0 +1,837 @@
-+/*
-+ * Texas Instruments CPDMA Driver
-+ *
-+ * Copyright (C) 2010 Texas Instruments
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation version 2.
-+ *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+#include <linux/kernel.h>
-+#include <linux/spinlock.h>
-+#include <linux/device.h>
-+#include <linux/slab.h>
-+#include <linux/err.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/io.h>
-+
 +#include "davinci_cpdma.h"
 +
-+/* DMA Registers */
-+#define CPDMA_TXIDVER		0x00
-+#define CPDMA_TXCONTROL		0x04
-+#define CPDMA_TXTEARDOWN	0x08
-+#define CPDMA_RXIDVER		0x10
-+#define CPDMA_RXCONTROL		0x14
-+#define CPDMA_SOFTRESET		0x1c
-+#define CPDMA_RXTEARDOWN	0x18
-+#define CPDMA_TXINTSTATRAW	0x80
-+#define CPDMA_TXINTSTATMASKED	0x84
-+#define CPDMA_TXINTMASKSET	0x88
-+#define CPDMA_TXINTMASKCLEAR	0x8c
-+#define CPDMA_MACINVECTOR	0x90
-+#define CPDMA_MACEOIVECTOR	0x94
-+#define CPDMA_RXINTSTATRAW	0xa0
-+#define CPDMA_RXINTSTATMASKED	0xa4
-+#define CPDMA_RXINTMASKSET	0xa8
-+#define CPDMA_RXINTMASKCLEAR	0xac
-+#define CPDMA_DMAINTSTATRAW	0xb0
-+#define CPDMA_DMAINTSTATMASKED	0xb4
-+#define CPDMA_DMAINTMASKSET	0xb8
-+#define CPDMA_DMAINTMASKCLEAR	0xbc
-+#define CPDMA_DMAINT_HOSTERR	BIT(1)
-+
-+/* the following exist only if has_ext_regs is set */
-+#define CPDMA_DMACONTROL	0x20
-+#define CPDMA_DMASTATUS		0x24
-+#define CPDMA_RXBUFFOFS		0x28
-+#define CPDMA_EM_CONTROL	0x2c
-+
-+/* Descriptor mode bits */
-+#define CPDMA_DESC_SOP		BIT(31)
-+#define CPDMA_DESC_EOP		BIT(30)
-+#define CPDMA_DESC_OWNER	BIT(29)
-+#define CPDMA_DESC_EOQ		BIT(28)
-+#define CPDMA_DESC_TD_COMPLETE	BIT(27)
-+#define CPDMA_DESC_PASS_CRC	BIT(26)
-+
-+#define CPDMA_TEARDOWN_VALUE	0xfffffffc
-+
-+struct cpdma_desc {
-+	/* hardware fields */
-+	u32			hw_next;
-+	u32			hw_buffer;
-+	u32			hw_len;
-+	u32			hw_mode;
-+	/* software fields */
-+	void			*sw_token;
-+	u32			sw_buffer;
-+	u32			sw_len;
-+};
-+
-+struct cpdma_desc_pool {
-+	u32			phys;
-+	void __iomem		*iomap;		/* ioremap map */
-+	void			*cpumap;	/* dma_alloc map */
-+	int			desc_size, mem_size;
-+	int			num_desc, used_desc;
-+	unsigned long		*bitmap;
-+	struct device		*dev;
-+	spinlock_t		lock;
-+};
-+
-+enum cpdma_state {
-+	CPDMA_STATE_IDLE,
-+	CPDMA_STATE_ACTIVE,
-+	CPDMA_STATE_TEARDOWN,
-+};
-+
-+struct cpdma_ctlr {
-+	enum cpdma_state	state;
-+	struct cpdma_params	params;
-+	struct device		*dev;
-+	struct cpdma_desc_pool	*pool;
-+	spinlock_t		lock;
-+	struct cpdma_chan	*channels[2 * CPDMA_MAX_CHANNELS];
-+};
-+
-+struct cpdma_chan {
-+	enum cpdma_state		state;
-+	struct cpdma_ctlr		*ctlr;
-+	int				chan_num;
-+	spinlock_t			lock;
-+	struct cpdma_desc __iomem	*head, *tail;
-+	int				count;
-+	void __iomem			*hdp, *cp, *rxfree;
-+	u32				mask;
-+	cpdma_handler_fn		handler;
-+	enum dma_data_direction		dir;
-+	struct cpdma_chan_stats		stats;
-+	/* offsets into dmaregs */
-+	int	int_set, int_clear, td;
-+};
-+
-+/* The following make access to common cpdma_ctlr params more readable */
-+#define dmaregs		params.dmaregs
-+#define num_chan	params.num_chan
-+
-+/* various accessors */
-+#define dma_reg_read(ctlr, ofs)		__raw_readl((ctlr)->dmaregs + (ofs))
-+#define chan_read(chan, fld)		__raw_readl((chan)->fld)
-+#define desc_read(desc, fld)		__raw_readl(&(desc)->fld)
-+#define dma_reg_write(ctlr, ofs, v)	__raw_writel(v, (ctlr)->dmaregs + (ofs))
-+#define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
-+#define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
-+
-+/*
-+ * Utility constructs for a cpdma descriptor pool.  Some devices (e.g. davinci
-+ * emac) have dedicated on-chip memory for these descriptors.  Some other
-+ * devices (e.g. cpsw switches) use plain old memory.  Descriptor pools
-+ * abstract out these details
-+ */
-+static struct cpdma_desc_pool *
-+cpdma_desc_pool_create(struct device *dev, u32 phys, int size, int align)
+ static int debug_level;
+ module_param(debug_level, int, 0);
+ MODULE_PARM_DESC(debug_level, "DaVinci EMAC debug level (NETIF_MSG bits)");
+@@ -113,6 +115,7 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ #define EMAC_DEF_MAX_FRAME_SIZE		(1500 + 14 + 4 + 4)
+ #define EMAC_DEF_TX_CH			(0) /* Default 0th channel */
+ #define EMAC_DEF_RX_CH			(0) /* Default 0th channel */
++#define EMAC_DEF_RX_NUM_DESC		(128)
+ #define EMAC_DEF_MAX_TX_CH		(1) /* Max TX channels configured */
+ #define EMAC_DEF_MAX_RX_CH		(1) /* Max RX channels configured */
+ #define EMAC_POLL_WEIGHT		(64) /* Default NAPI poll weight */
+@@ -460,6 +463,9 @@ struct emac_priv {
+ 	u32 hw_ram_addr;
+ 	struct emac_txch *txch[EMAC_DEF_MAX_TX_CH];
+ 	struct emac_rxch *rxch[EMAC_DEF_MAX_RX_CH];
++	struct cpdma_ctlr *dma;
++	struct cpdma_chan *txchan;
++	struct cpdma_chan *rxchan;
+ 	u32 link; /* 1=link on, 0=link off */
+ 	u32 speed; /* 0=Auto Neg, 1=No PHY, 10,100, 1000 - mbps */
+ 	u32 duplex; /* Link duplex: 0=Half, 1=Full */
+@@ -1151,6 +1157,57 @@ static irqreturn_t emac_irq(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
++static struct sk_buff *emac_rx_alloc(struct emac_priv *priv)
 +{
-+	int bitmap_size;
-+	struct cpdma_desc_pool *pool;
-+
-+	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
-+	if (!pool)
++	struct sk_buff *skb = dev_alloc_skb(priv->rx_buf_size);
++	if (WARN_ON(!skb))
 +		return NULL;
-+
-+	spin_lock_init(&pool->lock);
-+
-+	pool->dev	= dev;
-+	pool->mem_size	= size;
-+	pool->desc_size	= ALIGN(sizeof(struct cpdma_desc), align);
-+	pool->num_desc	= size / pool->desc_size;
-+
-+	bitmap_size  = (pool->num_desc / BITS_PER_LONG) * sizeof(long);
-+	pool->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
-+	if (!pool->bitmap)
-+		goto fail;
-+
-+	if (phys) {
-+		pool->phys  = phys;
-+		pool->iomap = ioremap(phys, size);
-+	} else {
-+		pool->cpumap = dma_alloc_coherent(dev, size, &pool->phys,
-+						  GFP_KERNEL);
-+		pool->iomap = (void __force __iomem *)pool->cpumap;
-+	}
-+
-+	if (pool->iomap)
-+		return pool;
-+
-+fail:
-+	kfree(pool->bitmap);
-+	kfree(pool);
-+	return NULL;
++	skb->dev = priv->ndev;
++	skb_reserve(skb, NET_IP_ALIGN);
++	return skb;
 +}
 +
-+static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
++static void emac_rx_handler(void *token, int len, int status)
 +{
-+	unsigned long flags;
-+
-+	if (!pool)
-+		return;
-+
-+	spin_lock_irqsave(&pool->lock, flags);
-+	WARN_ON(pool->used_desc);
-+	kfree(pool->bitmap);
-+	if (pool->cpumap) {
-+		dma_free_coherent(pool->dev, pool->mem_size, pool->cpumap,
-+				  pool->phys);
-+	} else {
-+		iounmap(pool->iomap);
-+	}
-+	spin_unlock_irqrestore(&pool->lock, flags);
-+	kfree(pool);
-+}
-+
-+static inline dma_addr_t desc_phys(struct cpdma_desc_pool *pool,
-+		  struct cpdma_desc __iomem *desc)
-+{
-+	if (!desc)
-+		return 0;
-+	return pool->phys + (__force dma_addr_t)desc -
-+			    (__force dma_addr_t)pool->iomap;
-+}
-+
-+static inline struct cpdma_desc __iomem *
-+desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
-+{
-+	return dma ? pool->iomap + dma - pool->phys : NULL;
-+}
-+
-+static struct cpdma_desc __iomem *
-+cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc)
-+{
-+	unsigned long flags;
-+	int index;
-+	struct cpdma_desc __iomem *desc = NULL;
-+
-+	spin_lock_irqsave(&pool->lock, flags);
-+
-+	index = bitmap_find_next_zero_area(pool->bitmap, pool->num_desc, 0,
-+					   num_desc, 0);
-+	if (index < pool->num_desc) {
-+		bitmap_set(pool->bitmap, index, num_desc);
-+		desc = pool->iomap + pool->desc_size * index;
-+		pool->used_desc++;
-+	}
-+
-+	spin_unlock_irqrestore(&pool->lock, flags);
-+	return desc;
-+}
-+
-+static void cpdma_desc_free(struct cpdma_desc_pool *pool,
-+			    struct cpdma_desc __iomem *desc, int num_desc)
-+{
-+	unsigned long flags, index;
-+
-+	index = ((unsigned long)desc - (unsigned long)pool->iomap) /
-+		pool->desc_size;
-+	spin_lock_irqsave(&pool->lock, flags);
-+	bitmap_clear(pool->bitmap, index, num_desc);
-+	pool->used_desc--;
-+	spin_unlock_irqrestore(&pool->lock, flags);
-+}
-+
-+struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
-+{
-+	struct cpdma_ctlr *ctlr;
-+
-+	ctlr = kzalloc(sizeof(*ctlr), GFP_KERNEL);
-+	if (!ctlr)
-+		return NULL;
-+
-+	ctlr->state = CPDMA_STATE_IDLE;
-+	ctlr->params = *params;
-+	ctlr->dev = params->dev;
-+	spin_lock_init(&ctlr->lock);
-+
-+	ctlr->pool = cpdma_desc_pool_create(ctlr->dev,
-+					    ctlr->params.desc_mem_phys,
-+					    ctlr->params.desc_mem_size,
-+					    ctlr->params.desc_align);
-+	if (!ctlr->pool) {
-+		kfree(ctlr);
-+		return NULL;
-+	}
-+
-+	if (WARN_ON(ctlr->num_chan > CPDMA_MAX_CHANNELS))
-+		ctlr->num_chan = CPDMA_MAX_CHANNELS;
-+	return ctlr;
-+}
-+
-+int cpdma_ctlr_start(struct cpdma_ctlr *ctlr)
-+{
-+	unsigned long flags;
-+	int i;
-+
-+	spin_lock_irqsave(&ctlr->lock, flags);
-+	if (ctlr->state != CPDMA_STATE_IDLE) {
-+		spin_unlock_irqrestore(&ctlr->lock, flags);
-+		return -EBUSY;
-+	}
-+
-+	if (ctlr->params.has_soft_reset) {
-+		unsigned long timeout = jiffies + HZ/10;
-+
-+		dma_reg_write(ctlr, CPDMA_SOFTRESET, 1);
-+		while (time_before(jiffies, timeout)) {
-+			if (dma_reg_read(ctlr, CPDMA_SOFTRESET) == 0)
-+				break;
-+		}
-+		WARN_ON(!time_before(jiffies, timeout));
-+	}
-+
-+	for (i = 0; i < ctlr->num_chan; i++) {
-+		__raw_writel(0, ctlr->params.txhdp + 4 * i);
-+		__raw_writel(0, ctlr->params.rxhdp + 4 * i);
-+		__raw_writel(0, ctlr->params.txcp + 4 * i);
-+		__raw_writel(0, ctlr->params.rxcp + 4 * i);
-+	}
-+
-+	dma_reg_write(ctlr, CPDMA_RXINTMASKCLEAR, 0xffffffff);
-+	dma_reg_write(ctlr, CPDMA_TXINTMASKCLEAR, 0xffffffff);
-+
-+	dma_reg_write(ctlr, CPDMA_TXCONTROL, 1);
-+	dma_reg_write(ctlr, CPDMA_RXCONTROL, 1);
-+
-+	ctlr->state = CPDMA_STATE_ACTIVE;
-+
-+	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
-+		if (ctlr->channels[i])
-+			cpdma_chan_start(ctlr->channels[i]);
-+	}
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	return 0;
-+}
-+
-+int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr)
-+{
-+	unsigned long flags;
-+	int i;
-+
-+	spin_lock_irqsave(&ctlr->lock, flags);
-+	if (ctlr->state != CPDMA_STATE_ACTIVE) {
-+		spin_unlock_irqrestore(&ctlr->lock, flags);
-+		return -EINVAL;
-+	}
-+
-+	ctlr->state = CPDMA_STATE_TEARDOWN;
-+
-+	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
-+		if (ctlr->channels[i])
-+			cpdma_chan_stop(ctlr->channels[i]);
-+	}
-+
-+	dma_reg_write(ctlr, CPDMA_RXINTMASKCLEAR, 0xffffffff);
-+	dma_reg_write(ctlr, CPDMA_TXINTMASKCLEAR, 0xffffffff);
-+
-+	dma_reg_write(ctlr, CPDMA_TXCONTROL, 0);
-+	dma_reg_write(ctlr, CPDMA_RXCONTROL, 0);
-+
-+	ctlr->state = CPDMA_STATE_IDLE;
-+
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	return 0;
-+}
-+
-+int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
-+{
-+	unsigned long flags;
-+	int ret = 0, i;
-+
-+	if (!ctlr)
-+		return -EINVAL;
-+
-+	spin_lock_irqsave(&ctlr->lock, flags);
-+	if (ctlr->state != CPDMA_STATE_IDLE)
-+		cpdma_ctlr_stop(ctlr);
-+
-+	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
-+		if (ctlr->channels[i])
-+			cpdma_chan_destroy(ctlr->channels[i]);
-+	}
-+
-+	cpdma_desc_pool_destroy(ctlr->pool);
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	kfree(ctlr);
-+	return ret;
-+}
-+
-+int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable)
-+{
-+	unsigned long flags;
-+	int i, reg;
-+
-+	spin_lock_irqsave(&ctlr->lock, flags);
-+	if (ctlr->state != CPDMA_STATE_ACTIVE) {
-+		spin_unlock_irqrestore(&ctlr->lock, flags);
-+		return -EINVAL;
-+	}
-+
-+	reg = enable ? CPDMA_DMAINTMASKSET : CPDMA_DMAINTMASKCLEAR;
-+	dma_reg_write(ctlr, reg, CPDMA_DMAINT_HOSTERR);
-+
-+	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
-+		if (ctlr->channels[i])
-+			cpdma_chan_int_ctrl(ctlr->channels[i], enable);
-+	}
-+
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	return 0;
-+}
-+
-+void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr)
-+{
-+	dma_reg_write(ctlr, CPDMA_MACEOIVECTOR, 0);
-+}
-+
-+struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
-+				     cpdma_handler_fn handler)
-+{
-+	struct cpdma_chan *chan;
-+	int ret, offset = (chan_num % CPDMA_MAX_CHANNELS) * 4;
-+	unsigned long flags;
-+
-+	if (__chan_linear(chan_num) >= ctlr->num_chan)
-+		return NULL;
-+
-+	ret = -ENOMEM;
-+	chan = kzalloc(sizeof(*chan), GFP_KERNEL);
-+	if (!chan)
-+		goto err_chan_alloc;
-+
-+	spin_lock_irqsave(&ctlr->lock, flags);
-+	ret = -EBUSY;
-+	if (ctlr->channels[chan_num])
-+		goto err_chan_busy;
-+
-+	chan->ctlr	= ctlr;
-+	chan->state	= CPDMA_STATE_IDLE;
-+	chan->chan_num	= chan_num;
-+	chan->handler	= handler;
-+
-+	if (is_rx_chan(chan)) {
-+		chan->hdp	= ctlr->params.rxhdp + offset;
-+		chan->cp	= ctlr->params.rxcp + offset;
-+		chan->rxfree	= ctlr->params.rxfree + offset;
-+		chan->int_set	= CPDMA_RXINTMASKSET;
-+		chan->int_clear	= CPDMA_RXINTMASKCLEAR;
-+		chan->td	= CPDMA_RXTEARDOWN;
-+		chan->dir	= DMA_FROM_DEVICE;
-+	} else {
-+		chan->hdp	= ctlr->params.txhdp + offset;
-+		chan->cp	= ctlr->params.txcp + offset;
-+		chan->int_set	= CPDMA_TXINTMASKSET;
-+		chan->int_clear	= CPDMA_TXINTMASKCLEAR;
-+		chan->td	= CPDMA_TXTEARDOWN;
-+		chan->dir	= DMA_TO_DEVICE;
-+	}
-+	chan->mask = BIT(chan_linear(chan));
-+
-+	spin_lock_init(&chan->lock);
-+
-+	ctlr->channels[chan_num] = chan;
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	return chan;
-+
-+err_chan_busy:
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	kfree(chan);
-+err_chan_alloc:
-+	return ERR_PTR(ret);
-+}
-+
-+int cpdma_chan_destroy(struct cpdma_chan *chan)
-+{
-+	struct cpdma_ctlr *ctlr = chan->ctlr;
-+	unsigned long flags;
-+
-+	if (!chan)
-+		return -EINVAL;
-+
-+	spin_lock_irqsave(&ctlr->lock, flags);
-+	if (chan->state != CPDMA_STATE_IDLE)
-+		cpdma_chan_stop(chan);
-+	ctlr->channels[chan->chan_num] = NULL;
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	kfree(chan);
-+	return 0;
-+}
-+
-+int cpdma_chan_get_stats(struct cpdma_chan *chan,
-+			 struct cpdma_chan_stats *stats)
-+{
-+	unsigned long flags;
-+	if (!chan)
-+		return -EINVAL;
-+	spin_lock_irqsave(&chan->lock, flags);
-+	memcpy(stats, &chan->stats, sizeof(*stats));
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+	return 0;
-+}
-+
-+static void __cpdma_chan_submit(struct cpdma_chan *chan,
-+				struct cpdma_desc __iomem *desc)
-+{
-+	struct cpdma_ctlr		*ctlr = chan->ctlr;
-+	struct cpdma_desc __iomem	*prev = chan->tail;
-+	struct cpdma_desc_pool		*pool = ctlr->pool;
-+	dma_addr_t			desc_dma;
-+
-+	desc_dma = desc_phys(pool, desc);
-+
-+	/* simple case - idle channel */
-+	if (!chan->head) {
-+		chan->stats.head_enqueue++;
-+		chan->head = desc;
-+		chan->tail = desc;
-+		if (chan->state == CPDMA_STATE_ACTIVE)
-+			chan_write(chan, hdp, desc_dma);
-+		return;
-+	}
-+
-+	/* first chain the descriptor at the tail of the list */
-+	desc_write(prev, hw_next, desc_dma);
-+	chan->tail = desc;
-+	chan->stats.tail_enqueue++;
-+
-+	/* next check if EOQ has been triggered already */
-+	if (desc_read(prev, hw_mode) & CPDMA_DESC_EOQ &&
-+	    chan->state == CPDMA_STATE_ACTIVE) {
-+		chan_write(chan, hdp, desc_dma);
-+		chan->stats.misqueued++;
-+	}
-+}
-+
-+int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
-+		      int len, gfp_t gfp_mask)
-+{
-+	struct cpdma_ctlr		*ctlr = chan->ctlr;
-+	struct cpdma_desc __iomem	*desc;
-+	dma_addr_t			buffer;
-+	unsigned long			flags;
-+	u32				mode;
-+	int				ret = 0;
-+
-+	spin_lock_irqsave(&chan->lock, flags);
-+
-+	if (chan->state == CPDMA_STATE_TEARDOWN) {
-+		ret = -EINVAL;
-+		goto unlock_ret;
-+	}
-+
-+	desc = cpdma_desc_alloc(ctlr->pool, 1);
-+	if (!desc) {
-+		chan->stats.desc_alloc_fail++;
-+		ret = -ENOMEM;
-+		goto unlock_ret;
-+	}
-+
-+	if (len < ctlr->params.min_packet_size) {
-+		len = ctlr->params.min_packet_size;
-+		chan->stats.runt_transmit_buff++;
-+	}
-+
-+	buffer = dma_map_single(ctlr->dev, data, len, chan->dir);
-+	mode = CPDMA_DESC_OWNER | CPDMA_DESC_SOP | CPDMA_DESC_EOP;
-+
-+	desc_write(desc, hw_next,   0);
-+	desc_write(desc, hw_buffer, buffer);
-+	desc_write(desc, hw_len,    len);
-+	desc_write(desc, hw_mode,   mode | len);
-+	desc_write(desc, sw_token,  token);
-+	desc_write(desc, sw_buffer, buffer);
-+	desc_write(desc, sw_len,    len);
-+
-+	__cpdma_chan_submit(chan, desc);
-+
-+	if (chan->state == CPDMA_STATE_ACTIVE && chan->rxfree)
-+		chan_write(chan, rxfree, 1);
-+
-+	chan->count++;
-+
-+unlock_ret:
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+	return ret;
-+}
-+
-+static void __cpdma_chan_free(struct cpdma_chan *chan,
-+			      struct cpdma_desc __iomem *desc,
-+			      int outlen, int status)
-+{
-+	struct cpdma_ctlr		*ctlr = chan->ctlr;
-+	struct cpdma_desc_pool		*pool = ctlr->pool;
-+	dma_addr_t			buff_dma;
-+	int				origlen;
-+	void				*token;
-+
-+	token      = (void *)desc_read(desc, sw_token);
-+	buff_dma   = desc_read(desc, sw_buffer);
-+	origlen    = desc_read(desc, sw_len);
-+
-+	dma_unmap_single(ctlr->dev, buff_dma, origlen, chan->dir);
-+	cpdma_desc_free(pool, desc, 1);
-+	(*chan->handler)(token, outlen, status);
-+}
-+
-+static int __cpdma_chan_process(struct cpdma_chan *chan)
-+{
-+	struct cpdma_ctlr		*ctlr = chan->ctlr;
-+	struct cpdma_desc __iomem	*desc;
-+	int				status, outlen;
-+	struct cpdma_desc_pool		*pool = ctlr->pool;
-+	dma_addr_t			desc_dma;
-+	unsigned long			flags;
-+
-+	spin_lock_irqsave(&chan->lock, flags);
-+
-+	desc = chan->head;
-+	if (!desc) {
-+		chan->stats.empty_dequeue++;
-+		status = -ENOENT;
-+		goto unlock_ret;
-+	}
-+	desc_dma = desc_phys(pool, desc);
-+
-+	status	= __raw_readl(&desc->hw_mode);
-+	outlen	= status & 0x7ff;
-+	if (status & CPDMA_DESC_OWNER) {
-+		chan->stats.busy_dequeue++;
-+		status = -EBUSY;
-+		goto unlock_ret;
-+	}
-+	status	= status & (CPDMA_DESC_EOQ | CPDMA_DESC_TD_COMPLETE);
-+
-+	chan->head = desc_from_phys(pool, desc_read(desc, hw_next));
-+	chan_write(chan, cp, desc_dma);
-+	chan->count--;
-+	chan->stats.good_dequeue++;
-+
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+
-+	__cpdma_chan_free(chan, desc, outlen, status);
-+	return status;
-+
-+unlock_ret:
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+	return status;
-+}
-+
-+int cpdma_chan_process(struct cpdma_chan *chan, int quota)
-+{
-+	int used = 0, ret = 0;
-+
-+	if (chan->state != CPDMA_STATE_ACTIVE)
-+		return -EINVAL;
-+
-+	while (used < quota) {
-+		ret = __cpdma_chan_process(chan);
-+		if (ret < 0)
-+			break;
-+		used++;
-+	}
-+	return used;
-+}
-+
-+int cpdma_chan_start(struct cpdma_chan *chan)
-+{
-+	struct cpdma_ctlr	*ctlr = chan->ctlr;
-+	struct cpdma_desc_pool	*pool = ctlr->pool;
-+	unsigned long		flags;
-+
-+	spin_lock_irqsave(&chan->lock, flags);
-+	if (chan->state != CPDMA_STATE_IDLE) {
-+		spin_unlock_irqrestore(&chan->lock, flags);
-+		return -EBUSY;
-+	}
-+	if (ctlr->state != CPDMA_STATE_ACTIVE) {
-+		spin_unlock_irqrestore(&chan->lock, flags);
-+		return -EINVAL;
-+	}
-+	dma_reg_write(ctlr, chan->int_set, chan->mask);
-+	chan->state = CPDMA_STATE_ACTIVE;
-+	if (chan->head) {
-+		chan_write(chan, hdp, desc_phys(pool, chan->head));
-+		if (chan->rxfree)
-+			chan_write(chan, rxfree, chan->count);
-+	}
-+
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+	return 0;
-+}
-+
-+int cpdma_chan_stop(struct cpdma_chan *chan)
-+{
-+	struct cpdma_ctlr	*ctlr = chan->ctlr;
-+	struct cpdma_desc_pool	*pool = ctlr->pool;
-+	unsigned long		flags;
++	struct sk_buff		*skb = token;
++	struct net_device	*ndev = skb->dev;
++	struct emac_priv	*priv = netdev_priv(ndev);
 +	int			ret;
-+	unsigned long		timeout;
 +
-+	spin_lock_irqsave(&chan->lock, flags);
-+	if (chan->state != CPDMA_STATE_ACTIVE) {
-+		spin_unlock_irqrestore(&chan->lock, flags);
-+		return -EINVAL;
++	if (status < 0) {
++		/* error */
++		goto recycle;
 +	}
 +
-+	chan->state = CPDMA_STATE_TEARDOWN;
-+	dma_reg_write(ctlr, chan->int_clear, chan->mask);
++	skb_put(skb, len);
++	skb->protocol = eth_type_trans(skb, ndev);
++	netif_receive_skb(skb);
++	ndev->stats.rx_bytes += len;
++	ndev->stats.rx_packets++;
 +
-+	/* trigger teardown */
-+	dma_reg_write(ctlr, chan->td, chan->chan_num);
++	/* alloc a new packet for receive */
++	skb = emac_rx_alloc(priv);
 +
-+	/* wait for teardown complete */
-+	timeout = jiffies + HZ/10;	/* 100 msec */
-+	while (time_before(jiffies, timeout)) {
-+		u32 cp = chan_read(chan, cp);
-+		if ((cp & CPDMA_TEARDOWN_VALUE) == CPDMA_TEARDOWN_VALUE)
++recycle:
++	if (skb) {
++		ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
++					skb_tailroom(skb), GFP_KERNEL);
++		WARN_ON(ret < 0);
++	}
++}
++
++static void emac_tx_handler(void *token, int len, int status)
++{
++	struct sk_buff		*skb = token;
++	struct net_device	*ndev = skb->dev;
++
++	if (unlikely(netif_queue_stopped(ndev)))
++		netif_start_queue(ndev);
++	ndev->stats.tx_packets++;
++	ndev->stats.tx_bytes += len;
++	dev_kfree_skb_any(skb);
++}
++
+ /** EMAC on-chip buffer descriptor memory
+  *
+  * WARNING: Please note that the on chip memory is used for both TX and RX
+@@ -1532,42 +1589,36 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	struct device *emac_dev = &ndev->dev;
+ 	int ret_code;
+-	struct emac_netbufobj tx_buf; /* buffer obj-only single frame support */
+-	struct emac_netpktobj tx_packet;  /* packet object */
+ 	struct emac_priv *priv = netdev_priv(ndev);
+ 
+ 	/* If no link, return */
+ 	if (unlikely(!priv->link)) {
+ 		if (netif_msg_tx_err(priv) && net_ratelimit())
+ 			dev_err(emac_dev, "DaVinci EMAC: No link to transmit");
+-		return NETDEV_TX_BUSY;
++		goto fail_tx;
+ 	}
+ 
+-	/* Build the buffer and packet objects - Since only single fragment is
+-	 * supported, need not set length and token in both packet & object.
+-	 * Doing so for completeness sake & to show that this needs to be done
+-	 * in multifragment case
+-	 */
+-	tx_packet.buf_list = &tx_buf;
+-	tx_packet.num_bufs = 1; /* only single fragment supported */
+-	tx_packet.pkt_length = skb->len;
+-	tx_packet.pkt_token = (void *)skb;
+-	tx_buf.length = skb->len;
+-	tx_buf.buf_token = (void *)skb;
+-	tx_buf.data_ptr = skb->data;
+-	ret_code = emac_send(priv, &tx_packet, EMAC_DEF_TX_CH);
++	ret_code = skb_padto(skb, EMAC_DEF_MIN_ETHPKTSIZE);
++	if (unlikely(ret_code < 0)) {
++		if (netif_msg_tx_err(priv) && net_ratelimit())
++			dev_err(emac_dev, "DaVinci EMAC: packet pad failed");
++		goto fail_tx;
++	}
++
++	ret_code = cpdma_chan_submit(priv->txchan, skb, skb->data, skb->len,
++				     GFP_KERNEL);
+ 	if (unlikely(ret_code != 0)) {
+-		if (ret_code == EMAC_ERR_TX_OUT_OF_BD) {
+-			if (netif_msg_tx_err(priv) && net_ratelimit())
+-				dev_err(emac_dev, "DaVinci EMAC: xmit() fatal"\
+-					" err. Out of TX BD's");
+-			netif_stop_queue(priv->ndev);
+-		}
+-		ndev->stats.tx_dropped++;
+-		return NETDEV_TX_BUSY;
++		if (netif_msg_tx_err(priv) && net_ratelimit())
++			dev_err(emac_dev, "DaVinci EMAC: desc submit failed");
++		goto fail_tx;
+ 	}
+ 
+ 	return NETDEV_TX_OK;
++
++fail_tx:
++	ndev->stats.tx_dropped++;
++	netif_stop_queue(ndev);
++	return NETDEV_TX_BUSY;
+ }
+ 
+ /**
+@@ -1590,11 +1641,8 @@ static void emac_dev_tx_timeout(struct net_device *ndev)
+ 
+ 	ndev->stats.tx_errors++;
+ 	emac_int_disable(priv);
+-	emac_stop_txch(priv, EMAC_DEF_TX_CH);
+-	emac_cleanup_txch(priv, EMAC_DEF_TX_CH);
+-	emac_init_txch(priv, EMAC_DEF_TX_CH);
+-	emac_write(EMAC_TXHDP(0), 0);
+-	emac_write(EMAC_TXINTMASKSET, BIT(EMAC_DEF_TX_CH));
++	cpdma_chan_stop(priv->txchan);
++	cpdma_chan_start(priv->txchan);
+ 	emac_int_enable(priv);
+ }
+ 
+@@ -1915,7 +1963,6 @@ static void emac_setmac(struct emac_priv *priv, u32 ch, char *mac_addr)
+ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
+ {
+ 	struct emac_priv *priv = netdev_priv(ndev);
+-	struct emac_rxch *rxch = priv->rxch[EMAC_DEF_RX_CH];
+ 	struct device *emac_dev = &priv->ndev->dev;
+ 	struct sockaddr *sa = addr;
+ 
+@@ -1926,11 +1973,10 @@ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
+ 	memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
+ 	memcpy(ndev->dev_addr, sa->sa_data, ndev->addr_len);
+ 
+-	/* If the interface is down - rxch is NULL. */
+ 	/* MAC address is configured only after the interface is enabled. */
+ 	if (netif_running(ndev)) {
+-		memcpy(rxch->mac_addr, sa->sa_data, ndev->addr_len);
+-		emac_setmac(priv, EMAC_DEF_RX_CH, rxch->mac_addr);
++		memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
++		emac_setmac(priv, EMAC_DEF_RX_CH, priv->mac_addr);
+ 	}
+ 
+ 	if (netif_msg_drv(priv))
+@@ -2139,7 +2185,7 @@ end_emac_rx_bdproc:
+  */
+ static int emac_hw_enable(struct emac_priv *priv)
+ {
+-	u32 ch, val, mbp_enable, mac_control;
++	u32 val, mbp_enable, mac_control;
+ 
+ 	/* Soft reset */
+ 	emac_write(EMAC_SOFTRESET, 1);
+@@ -2182,26 +2228,9 @@ static int emac_hw_enable(struct emac_priv *priv)
+ 	emac_write(EMAC_RXUNICASTCLEAR, EMAC_RX_UNICAST_CLEAR_ALL);
+ 	priv->rx_addr_type = (emac_read(EMAC_MACCONFIG) >> 8) & 0xFF;
+ 
+-	val = emac_read(EMAC_TXCONTROL);
+-	val |= EMAC_TX_CONTROL_TX_ENABLE_VAL;
+-	emac_write(EMAC_TXCONTROL, val);
+-	val = emac_read(EMAC_RXCONTROL);
+-	val |= EMAC_RX_CONTROL_RX_ENABLE_VAL;
+-	emac_write(EMAC_RXCONTROL, val);
+ 	emac_write(EMAC_MACINTMASKSET, EMAC_MAC_HOST_ERR_INTMASK_VAL);
+ 
+-	for (ch = 0; ch < EMAC_DEF_MAX_TX_CH; ch++) {
+-		emac_write(EMAC_TXHDP(ch), 0);
+-		emac_write(EMAC_TXINTMASKSET, BIT(ch));
+-	}
+-	for (ch = 0; ch < EMAC_DEF_MAX_RX_CH; ch++) {
+-		struct emac_rxch *rxch = priv->rxch[ch];
+-		emac_setmac(priv, ch, rxch->mac_addr);
+-		emac_write(EMAC_RXINTMASKSET, BIT(ch));
+-		rxch->queue_active = 1;
+-		emac_write(EMAC_RXHDP(ch),
+-			   emac_virt_to_phys(rxch->active_queue_head, priv));
+-	}
++	emac_setmac(priv, EMAC_DEF_RX_CH, priv->mac_addr);
+ 
+ 	/* Enable MII */
+ 	val = emac_read(EMAC_MACCONTROL);
+@@ -2246,8 +2275,8 @@ static int emac_poll(struct napi_struct *napi, int budget)
+ 		mask = EMAC_DM646X_MAC_IN_VECTOR_TX_INT_VEC;
+ 
+ 	if (status & mask) {
+-		num_tx_pkts = emac_tx_bdproc(priv, EMAC_DEF_TX_CH,
+-					  EMAC_DEF_TX_MAX_SERVICE);
++		num_tx_pkts = cpdma_chan_process(priv->txchan,
++					      EMAC_DEF_TX_MAX_SERVICE);
+ 	} /* TX processing */
+ 
+ 	mask = EMAC_DM644X_MAC_IN_VECTOR_RX_INT_VEC;
+@@ -2256,7 +2285,7 @@ static int emac_poll(struct napi_struct *napi, int budget)
+ 		mask = EMAC_DM646X_MAC_IN_VECTOR_RX_INT_VEC;
+ 
+ 	if (status & mask) {
+-		num_rx_pkts = emac_rx_bdproc(priv, EMAC_DEF_RX_CH, budget);
++		num_rx_pkts = cpdma_chan_process(priv->rxchan, budget);
+ 	} /* RX processing */
+ 
+ 	mask = EMAC_DM644X_MAC_IN_VECTOR_HOST_INT;
+@@ -2397,9 +2426,9 @@ static int match_first_device(struct device *dev, void *data)
+ static int emac_dev_open(struct net_device *ndev)
+ {
+ 	struct device *emac_dev = &ndev->dev;
+-	u32 rc, cnt, ch;
++	u32 cnt;
+ 	struct resource *res;
+-	int q, m;
++	int q, m, ret;
+ 	int i = 0;
+ 	int k = 0;
+ 	struct emac_priv *priv = netdev_priv(ndev);
+@@ -2411,29 +2440,21 @@ static int emac_dev_open(struct net_device *ndev)
+ 	/* Configuration items */
+ 	priv->rx_buf_size = EMAC_DEF_MAX_FRAME_SIZE + NET_IP_ALIGN;
+ 
+-	/* Clear basic hardware */
+-	for (ch = 0; ch < EMAC_MAX_TXRX_CHANNELS; ch++) {
+-		emac_write(EMAC_TXHDP(ch), 0);
+-		emac_write(EMAC_RXHDP(ch), 0);
+-		emac_write(EMAC_RXHDP(ch), 0);
+-		emac_write(EMAC_RXINTMASKCLEAR, EMAC_INT_MASK_CLEAR);
+-		emac_write(EMAC_TXINTMASKCLEAR, EMAC_INT_MASK_CLEAR);
+-	}
+ 	priv->mac_hash1 = 0;
+ 	priv->mac_hash2 = 0;
+ 	emac_write(EMAC_MACHASH1, 0);
+ 	emac_write(EMAC_MACHASH2, 0);
+ 
+-	/* multi ch not supported - open 1 TX, 1RX ch by default */
+-	rc = emac_init_txch(priv, EMAC_DEF_TX_CH);
+-	if (0 != rc) {
+-		dev_err(emac_dev, "DaVinci EMAC: emac_init_txch() failed");
+-		return rc;
+-	}
+-	rc = emac_init_rxch(priv, EMAC_DEF_RX_CH, priv->mac_addr);
+-	if (0 != rc) {
+-		dev_err(emac_dev, "DaVinci EMAC: emac_init_rxch() failed");
+-		return rc;
++	for (i = 0; i < EMAC_DEF_RX_NUM_DESC; i++) {
++		struct sk_buff *skb = emac_rx_alloc(priv);
++
++		if (!skb)
 +			break;
-+		cpu_relax();
-+	}
-+	WARN_ON(!time_before(jiffies, timeout));
-+	chan_write(chan, cp, CPDMA_TEARDOWN_VALUE);
 +
-+	/* handle completed packets */
-+	do {
-+		ret = __cpdma_chan_process(chan);
-+		if (ret < 0)
++		ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
++					skb_tailroom(skb), GFP_KERNEL);
++		if (WARN_ON(ret < 0))
 +			break;
-+	} while ((ret & CPDMA_DESC_TD_COMPLETE) == 0);
+ 	}
+ 
+ 	/* Request IRQ */
+@@ -2458,6 +2479,8 @@ static int emac_dev_open(struct net_device *ndev)
+ 		emac_set_coalesce(ndev, &coal);
+ 	}
+ 
++	cpdma_ctlr_start(priv->dma);
 +
-+	/* remaining packets haven't been tx/rx'ed, clean them up */
-+	while (chan->head) {
-+		struct cpdma_desc __iomem *desc = chan->head;
-+		dma_addr_t next_dma;
+ 	priv->phydev = NULL;
+ 	/* use the first phy on the bus if pdata did not give us a phy id */
+ 	if (!priv->phy_id) {
+@@ -2545,10 +2568,7 @@ static int emac_dev_stop(struct net_device *ndev)
+ 
+ 	netif_carrier_off(ndev);
+ 	emac_int_disable(priv);
+-	emac_stop_txch(priv, EMAC_DEF_TX_CH);
+-	emac_stop_rxch(priv, EMAC_DEF_RX_CH);
+-	emac_cleanup_txch(priv, EMAC_DEF_TX_CH);
+-	emac_cleanup_rxch(priv, EMAC_DEF_RX_CH);
++	cpdma_ctlr_stop(priv->dma);
+ 	emac_write(EMAC_SOFTRESET, 1);
+ 
+ 	if (priv->phydev)
+@@ -2653,9 +2673,10 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	struct resource *res;
+ 	struct net_device *ndev;
+ 	struct emac_priv *priv;
+-	unsigned long size;
++	unsigned long size, hw_ram_addr;
+ 	struct emac_platform_data *pdata;
+ 	struct device *emac_dev;
++	struct cpdma_params dma_params;
+ 
+ 	/* obtain emac clock from kernel */
+ 	emac_clk = clk_get(&pdev->dev, NULL);
+@@ -2731,11 +2752,40 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	priv->ctrl_ram_size = pdata->ctrl_ram_size;
+ 	priv->emac_ctrl_ram = priv->remap_addr + pdata->ctrl_ram_offset;
+ 
+-	if (pdata->hw_ram_addr)
+-		priv->hw_ram_addr = pdata->hw_ram_addr;
+-	else
+-		priv->hw_ram_addr = (u32 __force)res->start +
+-					pdata->ctrl_ram_offset;
++	hw_ram_addr = pdata->hw_ram_addr;
++	if (!hw_ram_addr)
++		hw_ram_addr = (u32 __force)res->start + pdata->ctrl_ram_offset;
 +
-+		next_dma = desc_read(desc, hw_next);
-+		chan->head = desc_from_phys(pool, next_dma);
-+		chan->stats.teardown_dequeue++;
++	memset(&dma_params, 0, sizeof(dma_params));
++	dma_params.dev			= emac_dev;
++	dma_params.dmaregs		= priv->emac_base;
++	dma_params.rxthresh		= priv->emac_base + 0x120;
++	dma_params.rxfree		= priv->emac_base + 0x140;
++	dma_params.txhdp		= priv->emac_base + 0x600;
++	dma_params.rxhdp		= priv->emac_base + 0x620;
++	dma_params.txcp			= priv->emac_base + 0x640;
++	dma_params.rxcp			= priv->emac_base + 0x660;
++	dma_params.num_chan		= EMAC_MAX_TXRX_CHANNELS;
++	dma_params.min_packet_size	= EMAC_DEF_MIN_ETHPKTSIZE;
++	dma_params.desc_mem_phys	= hw_ram_addr;
++	dma_params.desc_mem_size	= pdata->ctrl_ram_size;
++	dma_params.desc_align		= 16;
 +
-+		/* issue callback without locks held */
-+		spin_unlock_irqrestore(&chan->lock, flags);
-+		__cpdma_chan_free(chan, desc, 0, -ENOSYS);
-+		spin_lock_irqsave(&chan->lock, flags);
++	priv->dma = cpdma_ctlr_create(&dma_params);
++	if (!priv->dma) {
++		dev_err(emac_dev, "DaVinci EMAC: Error initializing DMA\n");
++		rc = -ENOMEM;
++		goto no_dma;
 +	}
 +
-+	chan->state = CPDMA_STATE_IDLE;
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+	return 0;
-+}
-+
-+int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&chan->lock, flags);
-+	if (chan->state != CPDMA_STATE_ACTIVE) {
-+		spin_unlock_irqrestore(&chan->lock, flags);
-+		return -EINVAL;
++	priv->txchan = cpdma_chan_create(priv->dma, tx_chan_num(EMAC_DEF_TX_CH),
++				       emac_tx_handler);
++	priv->rxchan = cpdma_chan_create(priv->dma, rx_chan_num(EMAC_DEF_RX_CH),
++				       emac_rx_handler);
++	if (WARN_ON(!priv->txchan || !priv->rxchan)) {
++		rc = -ENOMEM;
++		goto no_irq_res;
 +	}
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+ 	if (!res) {
+@@ -2778,6 +2828,12 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ netdev_reg_err:
+ 	clk_disable(emac_clk);
+ no_irq_res:
++	if (priv->txchan)
++		cpdma_chan_destroy(priv->txchan);
++	if (priv->rxchan)
++		cpdma_chan_destroy(priv->rxchan);
++	cpdma_ctlr_destroy(priv->dma);
++no_dma:
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	release_mem_region(res->start, res->end - res->start + 1);
+ 	iounmap(priv->remap_addr);
+@@ -2806,6 +2862,12 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, NULL);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 
++	if (priv->txchan)
++		cpdma_chan_destroy(priv->txchan);
++	if (priv->rxchan)
++		cpdma_chan_destroy(priv->rxchan);
++	cpdma_ctlr_destroy(priv->dma);
 +
-+	dma_reg_write(chan->ctlr, enable ? chan->int_set : chan->int_clear,
-+		      chan->mask);
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+
-+	return 0;
-+}
-+
-+struct cpdma_control_info {
-+	u32		reg;
-+	u32		shift, mask;
-+	int		access;
-+#define ACCESS_RO	BIT(0)
-+#define ACCESS_WO	BIT(1)
-+#define ACCESS_RW	(ACCESS_RO | ACCESS_WO)
-+};
-+
-+struct cpdma_control_info controls[] = {
-+	[CPDMA_CMD_IDLE]	  = {CPDMA_DMACONTROL,	3,  1,      ACCESS_WO},
-+	[CPDMA_COPY_ERROR_FRAMES] = {CPDMA_DMACONTROL,	4,  1,      ACCESS_RW},
-+	[CPDMA_RX_OFF_LEN_UPDATE] = {CPDMA_DMACONTROL,	2,  1,      ACCESS_RW},
-+	[CPDMA_RX_OWNERSHIP_FLIP] = {CPDMA_DMACONTROL,	1,  1,      ACCESS_RW},
-+	[CPDMA_TX_PRIO_FIXED]	  = {CPDMA_DMACONTROL,	0,  1,      ACCESS_RW},
-+	[CPDMA_STAT_IDLE]	  = {CPDMA_DMASTATUS,	31, 1,      ACCESS_RO},
-+	[CPDMA_STAT_TX_ERR_CODE]  = {CPDMA_DMASTATUS,	20, 0xf,    ACCESS_RW},
-+	[CPDMA_STAT_TX_ERR_CHAN]  = {CPDMA_DMASTATUS,	16, 0x7,    ACCESS_RW},
-+	[CPDMA_STAT_RX_ERR_CODE]  = {CPDMA_DMASTATUS,	12, 0xf,    ACCESS_RW},
-+	[CPDMA_STAT_RX_ERR_CHAN]  = {CPDMA_DMASTATUS,	8,  0x7,    ACCESS_RW},
-+	[CPDMA_RX_BUFFER_OFFSET]  = {CPDMA_RXBUFFOFS,	0,  0xffff, ACCESS_RW},
-+};
-+
-+int cpdma_control_get(struct cpdma_ctlr *ctlr, int control)
-+{
-+	unsigned long flags;
-+	struct cpdma_control_info *info = &controls[control];
-+	int ret;
-+
-+	spin_lock_irqsave(&ctlr->lock, flags);
-+
-+	ret = -ENOTSUPP;
-+	if (!ctlr->params.has_ext_regs)
-+		goto unlock_ret;
-+
-+	ret = -EINVAL;
-+	if (ctlr->state != CPDMA_STATE_ACTIVE)
-+		goto unlock_ret;
-+
-+	ret = -ENOENT;
-+	if (control < 0 || control >= ARRAY_SIZE(controls))
-+		goto unlock_ret;
-+
-+	ret = -EPERM;
-+	if ((info->access & ACCESS_RO) != ACCESS_RO)
-+		goto unlock_ret;
-+
-+	ret = (dma_reg_read(ctlr, info->reg) >> info->shift) & info->mask;
-+
-+unlock_ret:
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	return ret;
-+}
-+
-+int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value)
-+{
-+	unsigned long flags;
-+	struct cpdma_control_info *info = &controls[control];
-+	int ret;
-+	u32 val;
-+
-+	spin_lock_irqsave(&ctlr->lock, flags);
-+
-+	ret = -ENOTSUPP;
-+	if (!ctlr->params.has_ext_regs)
-+		goto unlock_ret;
-+
-+	ret = -EINVAL;
-+	if (ctlr->state != CPDMA_STATE_ACTIVE)
-+		goto unlock_ret;
-+
-+	ret = -ENOENT;
-+	if (control < 0 || control >= ARRAY_SIZE(controls))
-+		goto unlock_ret;
-+
-+	ret = -EPERM;
-+	if ((info->access & ACCESS_WO) != ACCESS_WO)
-+		goto unlock_ret;
-+
-+	val  = dma_reg_read(ctlr, info->reg);
-+	val &= ~(info->mask << info->shift);
-+	val |= (value & info->mask) << info->shift;
-+	dma_reg_write(ctlr, info->reg, val);
-+	ret = 0;
-+
-+unlock_ret:
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
-+	return ret;
-+}
-diff --git a/drivers/net/davinci_cpdma.h b/drivers/net/davinci_cpdma.h
-new file mode 100644
-index 0000000..d50ee35
---- /dev/null
-+++ b/drivers/net/davinci_cpdma.h
-@@ -0,0 +1,105 @@
-+/*
-+ * Texas Instruments CPDMA Driver
-+ *
-+ * Copyright (C) 2010 Texas Instruments
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation version 2.
-+ *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+#ifndef __DAVINCI_CPDMA_H__
-+#define __DAVINCI_CPDMA_H__
-+
-+#define CPDMA_MAX_CHANNELS	BITS_PER_LONG
-+
-+#define tx_chan_num(chan)	(chan)
-+#define rx_chan_num(chan)	((chan) + CPDMA_MAX_CHANNELS)
-+#define is_rx_chan(chan)	((chan)->chan_num >= CPDMA_MAX_CHANNELS)
-+#define is_tx_chan(chan)	(!is_rx_chan(chan))
-+#define __chan_linear(chan_num)	((chan_num) & (CPDMA_MAX_CHANNELS - 1))
-+#define chan_linear(chan)	__chan_linear((chan)->chan_num)
-+
-+struct cpdma_params {
-+	struct device		*dev;
-+	void __iomem		*dmaregs;
-+	void __iomem		*txhdp, *rxhdp, *txcp, *rxcp;
-+	void __iomem		*rxthresh, *rxfree;
-+	int			num_chan;
-+	bool			has_soft_reset;
-+	int			min_packet_size;
-+	u32			desc_mem_phys;
-+	int			desc_mem_size;
-+	int			desc_align;
-+
-+	/*
-+	 * Some instances of embedded cpdma controllers have extra control and
-+	 * status registers.  The following flag enables access to these
-+	 * "extended" registers.
-+	 */
-+	bool			has_ext_regs;
-+};
-+
-+struct cpdma_chan_stats {
-+	u32			head_enqueue;
-+	u32			tail_enqueue;
-+	u32			pad_enqueue;
-+	u32			misqueued;
-+	u32			desc_alloc_fail;
-+	u32			pad_alloc_fail;
-+	u32			runt_receive_buff;
-+	u32			runt_transmit_buff;
-+	u32			empty_dequeue;
-+	u32			busy_dequeue;
-+	u32			good_dequeue;
-+	u32			teardown_dequeue;
-+};
-+
-+struct cpdma_ctlr;
-+struct cpdma_chan;
-+
-+typedef void (*cpdma_handler_fn)(void *token, int len, int status);
-+
-+struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params);
-+int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr);
-+int cpdma_ctlr_start(struct cpdma_ctlr *ctlr);
-+int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr);
-+
-+struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
-+				     cpdma_handler_fn handler);
-+int cpdma_chan_destroy(struct cpdma_chan *chan);
-+int cpdma_chan_start(struct cpdma_chan *chan);
-+int cpdma_chan_stop(struct cpdma_chan *chan);
-+
-+int cpdma_chan_get_stats(struct cpdma_chan *chan,
-+			 struct cpdma_chan_stats *stats);
-+int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
-+		      int len, gfp_t gfp_mask);
-+int cpdma_chan_process(struct cpdma_chan *chan, int quota);
-+
-+int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
-+void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr);
-+int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
-+
-+enum cpdma_control {
-+	CPDMA_CMD_IDLE,			/* write-only */
-+	CPDMA_COPY_ERROR_FRAMES,	/* read-write */
-+	CPDMA_RX_OFF_LEN_UPDATE,	/* read-write */
-+	CPDMA_RX_OWNERSHIP_FLIP,	/* read-write */
-+	CPDMA_TX_PRIO_FIXED,		/* read-write */
-+	CPDMA_STAT_IDLE,		/* read-only */
-+	CPDMA_STAT_TX_ERR_CHAN,		/* read-only */
-+	CPDMA_STAT_TX_ERR_CODE,		/* read-only */
-+	CPDMA_STAT_RX_ERR_CHAN,		/* read-only */
-+	CPDMA_STAT_RX_ERR_CODE,		/* read-only */
-+	CPDMA_RX_BUFFER_OFFSET,		/* read-write */
-+};
-+
-+int cpdma_control_get(struct cpdma_ctlr *ctlr, int control);
-+int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value);
-+
-+#endif
+ 	release_mem_region(res->start, res->end - res->start + 1);
+ 
+ 	unregister_netdev(ndev);
 -- 
 1.7.0.4
 
