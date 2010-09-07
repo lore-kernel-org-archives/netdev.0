@@ -1,7 +1,7 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v3 09/10] net: davinci_emac: switch to new cpdma layer
-Date: Tue,  7 Sep 2010 16:25:41 -0400
-Message-ID: <1283891142-15522-10-git-send-email-cyril@ti.com>
+Subject: [PATCH v3 01/10] net: davinci_emac: separate out davinci mdio
+Date: Tue,  7 Sep 2010 16:25:33 -0400
+Message-ID: <1283891142-15522-2-git-send-email-cyril@ti.com>
 References: <1283891142-15522-1-git-send-email-cyril@ti.com>
 Cc: davem@davemloft.net, khilman@deeprootsystems.com, tony@atomide.com,
 	Cyril Chemparathy <cyril@ti.com>
@@ -9,436 +9,471 @@ To: netdev@vger.kernel.org,
 	davinci-linux-open-source@linux.davincidsp.com,
 	linux-omap@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:38223 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758280Ab0IGUZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 16:25:51 -0400
+Received: from bear.ext.ti.com ([192.94.94.41]:45886 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758249Ab0IGUZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Sep 2010 16:25:49 -0400
 In-Reply-To: <1283891142-15522-1-git-send-email-cyril@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch hooks up the emac driver with the newly separated cpdma driver.
+Davinci's MDIO controller is present on other TI devices, without an
+accompanying EMAC.  For example, on tnetv107x, the same MDIO module is used in
+conjunction with a 3-port switch hardware.
 
-Key differences introduced here:
-
- - The old buffer list scheme is no longer required
-
- - The original code maintained mac address per rx channel, even if only one
-   rx channel was being used.  With this change, mac address is maintained
-   device wide.  If support for multiple rx channels is added in future, this
-   will need to be reworked a bit.
-
- - The new CPDMA code handles short packets better than before.  The
-   earlier code was adjusting the length up, without ensuring that the tail
-   end of the padding was cleared - a possible security issue.  This has been
-   fixed to use skb_padto().
+By separating the MDIO controller code into its own platform driver, this
+patch allows common logic to be reused on such platforms.
 
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/davinci_emac.c |  232 ++++++++++++++++++++++++++++----------------
- 1 files changed, 147 insertions(+), 85 deletions(-)
+ drivers/net/Kconfig          |   10 +
+ drivers/net/Makefile         |    1 +
+ drivers/net/davinci_mdio.c   |  386 ++++++++++++++++++++++++++++++++++++++++++
+ include/linux/davinci_emac.h |    4 +
+ 4 files changed, 401 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/davinci_mdio.c
 
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 036681a..4147d32 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -63,6 +63,8 @@
- #include <asm/irq.h>
- #include <asm/page.h>
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 2cc81a5..c5c86e0 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -958,6 +958,16 @@ config TI_DAVINCI_EMAC
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called davinci_emac_driver.  This is recommended.
  
-+#include "davinci_cpdma.h"
++config TI_DAVINCI_MDIO
++	tristate "TI DaVinci MDIO Support"
++	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
++	select PHYLIB
++	help
++	  This driver supports TI's DaVinci MDIO module.
 +
- static int debug_level;
- module_param(debug_level, int, 0);
- MODULE_PARM_DESC(debug_level, "DaVinci EMAC debug level (NETIF_MSG bits)");
-@@ -113,6 +115,7 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
- #define EMAC_DEF_MAX_FRAME_SIZE		(1500 + 14 + 4 + 4)
- #define EMAC_DEF_TX_CH			(0) /* Default 0th channel */
- #define EMAC_DEF_RX_CH			(0) /* Default 0th channel */
-+#define EMAC_DEF_RX_NUM_DESC		(128)
- #define EMAC_DEF_MAX_TX_CH		(1) /* Max TX channels configured */
- #define EMAC_DEF_MAX_RX_CH		(1) /* Max RX channels configured */
- #define EMAC_POLL_WEIGHT		(64) /* Default NAPI poll weight */
-@@ -460,6 +463,9 @@ struct emac_priv {
- 	u32 hw_ram_addr;
- 	struct emac_txch *txch[EMAC_DEF_MAX_TX_CH];
- 	struct emac_rxch *rxch[EMAC_DEF_MAX_RX_CH];
-+	struct cpdma_ctlr *dma;
-+	struct cpdma_chan *txchan;
-+	struct cpdma_chan *rxchan;
- 	u32 link; /* 1=link on, 0=link off */
- 	u32 speed; /* 0=Auto Neg, 1=No PHY, 10,100, 1000 - mbps */
- 	u32 duplex; /* Link duplex: 0=Half, 1=Full */
-@@ -1151,6 +1157,57 @@ static irqreturn_t emac_irq(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
++	  To compile this driver as a module, choose M here: the module
++	  will be called davinci_mdio.  This is recommended.
++
+ config DM9000
+ 	tristate "DM9000 support"
+ 	depends on ARM || BLACKFIN || MIPS
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 3e8f150..d38a7ab 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -7,6 +7,7 @@ obj-$(CONFIG_MDIO) += mdio.o
+ obj-$(CONFIG_PHYLIB) += phy/
  
-+static struct sk_buff *emac_rx_alloc(struct emac_priv *priv)
+ obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
++obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
+ 
+ obj-$(CONFIG_E1000) += e1000/
+ obj-$(CONFIG_E1000E) += e1000e/
+diff --git a/drivers/net/davinci_mdio.c b/drivers/net/davinci_mdio.c
+new file mode 100644
+index 0000000..d34a53a
+--- /dev/null
++++ b/drivers/net/davinci_mdio.c
+@@ -0,0 +1,386 @@
++/*
++ * DaVinci MDIO Module driver
++ *
++ * Copyright (C) 2010 Texas Instruments.
++ *
++ * Shamelessly ripped out of davinci_emac.c, original copyrights follow:
++ *
++ * Copyright (C) 2009 Texas Instruments.
++ *
++ * ---------------------------------------------------------------------------
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ * ---------------------------------------------------------------------------
++ */
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/platform_device.h>
++#include <linux/delay.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include <linux/phy.h>
++#include <linux/clk.h>
++#include <linux/err.h>
++#include <linux/io.h>
++#include <linux/davinci_emac.h>
++
++#define PHY_REG_MASK		0x1f
++#define PHY_ID_MASK		0x1f
++
++#define DEF_OUT_FREQ		2200000		/* 2.2 MHz */
++
++struct davinci_mdio_regs {
++	u32	version;
++	u32	control;
++#define CONTROL_IDLE		BIT(31)
++#define CONTROL_ENABLE		BIT(30)
++#define CONTROL_MAX_DIV		(0xff)
++
++	u32	alive;
++	u32	link;
++	u32	linkintraw;
++	u32	linkintmasked;
++	u32	__reserved_0[2];
++	u32	userintraw;
++	u32	userintmasked;
++	u32	userintmaskset;
++	u32	userintmaskclr;
++	u32	__reserved_1[20];
++
++	struct {
++		u32	access;
++#define USERACCESS_GO		BIT(31)
++#define USERACCESS_WRITE	BIT(30)
++#define USERACCESS_ACK		BIT(29)
++#define USERACCESS_READ		(0)
++#define USERACCESS_DATA		(0xffff)
++
++		u32	physel;
++	}	user[0];
++};
++
++struct mdio_platform_data default_pdata = {
++	.bus_freq = DEF_OUT_FREQ,
++};
++
++struct davinci_mdio_data {
++	struct mdio_platform_data pdata;
++	struct davinci_mdio_regs __iomem *regs;
++	spinlock_t	lock;
++	struct clk	*clk;
++	struct device	*dev;
++	struct mii_bus	*bus;
++	bool		suspended;
++};
++
++/* wait until hardware is ready for another user access */
++static inline u32 wait_for_user_access(struct davinci_mdio_data *data)
 +{
-+	struct sk_buff *skb = dev_alloc_skb(priv->rx_buf_size);
-+	if (WARN_ON(!skb))
-+		return NULL;
-+	skb->dev = priv->ndev;
-+	skb_reserve(skb, NET_IP_ALIGN);
-+	return skb;
++	struct davinci_mdio_regs __iomem *regs = data->regs;
++	u32 reg;
++
++	while ((reg = __raw_readl(&regs->user[0].access)) & USERACCESS_GO)
++		;
++
++	return reg;
 +}
 +
-+static void emac_rx_handler(void *token, int len, int status)
++/* wait until hardware state machine is idle */
++static inline void wait_for_idle(struct davinci_mdio_data *data)
 +{
-+	struct sk_buff		*skb = token;
-+	struct net_device	*ndev = skb->dev;
-+	struct emac_priv	*priv = netdev_priv(ndev);
-+	int			ret;
++	struct davinci_mdio_regs __iomem *regs = data->regs;
 +
-+	if (status < 0) {
-+		/* error */
-+		goto recycle;
-+	}
-+
-+	skb_put(skb, len);
-+	skb->protocol = eth_type_trans(skb, ndev);
-+	netif_receive_skb(skb);
-+	ndev->stats.rx_bytes += len;
-+	ndev->stats.rx_packets++;
-+
-+	/* alloc a new packet for receive */
-+	skb = emac_rx_alloc(priv);
-+
-+recycle:
-+	if (skb) {
-+		ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
-+					skb_tailroom(skb), GFP_KERNEL);
-+		WARN_ON(ret < 0);
-+	}
++	while ((__raw_readl(&regs->control) & CONTROL_IDLE) == 0)
++		;
 +}
 +
-+static void emac_tx_handler(void *token, int len, int status)
++static int davinci_mdio_read(struct mii_bus *bus, int phy_id, int phy_reg)
 +{
-+	struct sk_buff		*skb = token;
-+	struct net_device	*ndev = skb->dev;
++	struct davinci_mdio_data *data = bus->priv;
++	u32 reg;
 +
-+	if (unlikely(netif_queue_stopped(ndev)))
-+		netif_start_queue(ndev);
-+	ndev->stats.tx_packets++;
-+	ndev->stats.tx_bytes += len;
-+	dev_kfree_skb_any(skb);
++	if (phy_reg & ~PHY_REG_MASK || phy_id & ~PHY_ID_MASK)
++		return -EINVAL;
++
++	spin_lock(&data->lock);
++
++	if (data->suspended) {
++		spin_unlock(&data->lock);
++		return -ENODEV;
++	}
++
++	wait_for_user_access(data);
++	reg = (USERACCESS_GO | USERACCESS_READ | (phy_reg << 21) |
++	       (phy_id << 16));
++	__raw_writel(reg, &data->regs->user[0].access);
++	reg = wait_for_user_access(data);
++	spin_unlock(&data->lock);
++
++	return (reg & USERACCESS_ACK) ? (reg & USERACCESS_DATA) : -EIO;
 +}
 +
- /** EMAC on-chip buffer descriptor memory
-  *
-  * WARNING: Please note that the on chip memory is used for both TX and RX
-@@ -1532,42 +1589,36 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
- {
- 	struct device *emac_dev = &ndev->dev;
- 	int ret_code;
--	struct emac_netbufobj tx_buf; /* buffer obj-only single frame support */
--	struct emac_netpktobj tx_packet;  /* packet object */
- 	struct emac_priv *priv = netdev_priv(ndev);
- 
- 	/* If no link, return */
- 	if (unlikely(!priv->link)) {
- 		if (netif_msg_tx_err(priv) && net_ratelimit())
- 			dev_err(emac_dev, "DaVinci EMAC: No link to transmit");
--		return NETDEV_TX_BUSY;
-+		goto fail_tx;
- 	}
- 
--	/* Build the buffer and packet objects - Since only single fragment is
--	 * supported, need not set length and token in both packet & object.
--	 * Doing so for completeness sake & to show that this needs to be done
--	 * in multifragment case
--	 */
--	tx_packet.buf_list = &tx_buf;
--	tx_packet.num_bufs = 1; /* only single fragment supported */
--	tx_packet.pkt_length = skb->len;
--	tx_packet.pkt_token = (void *)skb;
--	tx_buf.length = skb->len;
--	tx_buf.buf_token = (void *)skb;
--	tx_buf.data_ptr = skb->data;
--	ret_code = emac_send(priv, &tx_packet, EMAC_DEF_TX_CH);
-+	ret_code = skb_padto(skb, EMAC_DEF_MIN_ETHPKTSIZE);
-+	if (unlikely(ret_code < 0)) {
-+		if (netif_msg_tx_err(priv) && net_ratelimit())
-+			dev_err(emac_dev, "DaVinci EMAC: packet pad failed");
-+		goto fail_tx;
++static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
++			      int phy_reg, u16 phy_data)
++{
++	struct davinci_mdio_data *data = bus->priv;
++	u32 reg;
++
++	if (phy_reg & ~PHY_REG_MASK || phy_id & ~PHY_ID_MASK)
++		return -EINVAL;
++
++	spin_lock(&data->lock);
++
++	if (data->suspended) {
++		spin_unlock(&data->lock);
++		return -ENODEV;
 +	}
 +
-+	ret_code = cpdma_chan_submit(priv->txchan, skb, skb->data, skb->len,
-+				     GFP_KERNEL);
- 	if (unlikely(ret_code != 0)) {
--		if (ret_code == EMAC_ERR_TX_OUT_OF_BD) {
--			if (netif_msg_tx_err(priv) && net_ratelimit())
--				dev_err(emac_dev, "DaVinci EMAC: xmit() fatal"\
--					" err. Out of TX BD's");
--			netif_stop_queue(priv->ndev);
--		}
--		ndev->stats.tx_dropped++;
--		return NETDEV_TX_BUSY;
-+		if (netif_msg_tx_err(priv) && net_ratelimit())
-+			dev_err(emac_dev, "DaVinci EMAC: desc submit failed");
-+		goto fail_tx;
- 	}
- 
- 	return NETDEV_TX_OK;
++	wait_for_user_access(data);
++	reg = (USERACCESS_GO | USERACCESS_WRITE | (phy_reg << 21) |
++		   (phy_id << 16) | (phy_data & USERACCESS_DATA));
++	__raw_writel(reg, &data->regs->user[0].access);
++	wait_for_user_access(data);
++	spin_unlock(&data->lock);
 +
-+fail_tx:
-+	ndev->stats.tx_dropped++;
-+	netif_stop_queue(ndev);
-+	return NETDEV_TX_BUSY;
- }
- 
- /**
-@@ -1590,11 +1641,8 @@ static void emac_dev_tx_timeout(struct net_device *ndev)
- 
- 	ndev->stats.tx_errors++;
- 	emac_int_disable(priv);
--	emac_stop_txch(priv, EMAC_DEF_TX_CH);
--	emac_cleanup_txch(priv, EMAC_DEF_TX_CH);
--	emac_init_txch(priv, EMAC_DEF_TX_CH);
--	emac_write(EMAC_TXHDP(0), 0);
--	emac_write(EMAC_TXINTMASKSET, BIT(EMAC_DEF_TX_CH));
-+	cpdma_chan_stop(priv->txchan);
-+	cpdma_chan_start(priv->txchan);
- 	emac_int_enable(priv);
- }
- 
-@@ -1915,7 +1963,6 @@ static void emac_setmac(struct emac_priv *priv, u32 ch, char *mac_addr)
- static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
- {
- 	struct emac_priv *priv = netdev_priv(ndev);
--	struct emac_rxch *rxch = priv->rxch[EMAC_DEF_RX_CH];
- 	struct device *emac_dev = &priv->ndev->dev;
- 	struct sockaddr *sa = addr;
- 
-@@ -1926,11 +1973,10 @@ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
- 	memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
- 	memcpy(ndev->dev_addr, sa->sa_data, ndev->addr_len);
- 
--	/* If the interface is down - rxch is NULL. */
- 	/* MAC address is configured only after the interface is enabled. */
- 	if (netif_running(ndev)) {
--		memcpy(rxch->mac_addr, sa->sa_data, ndev->addr_len);
--		emac_setmac(priv, EMAC_DEF_RX_CH, rxch->mac_addr);
-+		memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
-+		emac_setmac(priv, EMAC_DEF_RX_CH, priv->mac_addr);
- 	}
- 
- 	if (netif_msg_drv(priv))
-@@ -2139,7 +2185,7 @@ end_emac_rx_bdproc:
-  */
- static int emac_hw_enable(struct emac_priv *priv)
- {
--	u32 ch, val, mbp_enable, mac_control;
-+	u32 val, mbp_enable, mac_control;
- 
- 	/* Soft reset */
- 	emac_write(EMAC_SOFTRESET, 1);
-@@ -2182,26 +2228,9 @@ static int emac_hw_enable(struct emac_priv *priv)
- 	emac_write(EMAC_RXUNICASTCLEAR, EMAC_RX_UNICAST_CLEAR_ALL);
- 	priv->rx_addr_type = (emac_read(EMAC_MACCONFIG) >> 8) & 0xFF;
- 
--	val = emac_read(EMAC_TXCONTROL);
--	val |= EMAC_TX_CONTROL_TX_ENABLE_VAL;
--	emac_write(EMAC_TXCONTROL, val);
--	val = emac_read(EMAC_RXCONTROL);
--	val |= EMAC_RX_CONTROL_RX_ENABLE_VAL;
--	emac_write(EMAC_RXCONTROL, val);
- 	emac_write(EMAC_MACINTMASKSET, EMAC_MAC_HOST_ERR_INTMASK_VAL);
- 
--	for (ch = 0; ch < EMAC_DEF_MAX_TX_CH; ch++) {
--		emac_write(EMAC_TXHDP(ch), 0);
--		emac_write(EMAC_TXINTMASKSET, BIT(ch));
--	}
--	for (ch = 0; ch < EMAC_DEF_MAX_RX_CH; ch++) {
--		struct emac_rxch *rxch = priv->rxch[ch];
--		emac_setmac(priv, ch, rxch->mac_addr);
--		emac_write(EMAC_RXINTMASKSET, BIT(ch));
--		rxch->queue_active = 1;
--		emac_write(EMAC_RXHDP(ch),
--			   emac_virt_to_phys(rxch->active_queue_head, priv));
--	}
-+	emac_setmac(priv, EMAC_DEF_RX_CH, priv->mac_addr);
- 
- 	/* Enable MII */
- 	val = emac_read(EMAC_MACCONTROL);
-@@ -2246,8 +2275,8 @@ static int emac_poll(struct napi_struct *napi, int budget)
- 		mask = EMAC_DM646X_MAC_IN_VECTOR_TX_INT_VEC;
- 
- 	if (status & mask) {
--		num_tx_pkts = emac_tx_bdproc(priv, EMAC_DEF_TX_CH,
--					  EMAC_DEF_TX_MAX_SERVICE);
-+		num_tx_pkts = cpdma_chan_process(priv->txchan,
-+					      EMAC_DEF_TX_MAX_SERVICE);
- 	} /* TX processing */
- 
- 	mask = EMAC_DM644X_MAC_IN_VECTOR_RX_INT_VEC;
-@@ -2256,7 +2285,7 @@ static int emac_poll(struct napi_struct *napi, int budget)
- 		mask = EMAC_DM646X_MAC_IN_VECTOR_RX_INT_VEC;
- 
- 	if (status & mask) {
--		num_rx_pkts = emac_rx_bdproc(priv, EMAC_DEF_RX_CH, budget);
-+		num_rx_pkts = cpdma_chan_process(priv->rxchan, budget);
- 	} /* RX processing */
- 
- 	mask = EMAC_DM644X_MAC_IN_VECTOR_HOST_INT;
-@@ -2397,9 +2426,9 @@ static int match_first_device(struct device *dev, void *data)
- static int emac_dev_open(struct net_device *ndev)
- {
- 	struct device *emac_dev = &ndev->dev;
--	u32 rc, cnt, ch;
-+	u32 cnt;
- 	struct resource *res;
--	int q, m;
-+	int q, m, ret;
- 	int i = 0;
- 	int k = 0;
- 	struct emac_priv *priv = netdev_priv(ndev);
-@@ -2411,29 +2440,21 @@ static int emac_dev_open(struct net_device *ndev)
- 	/* Configuration items */
- 	priv->rx_buf_size = EMAC_DEF_MAX_FRAME_SIZE + NET_IP_ALIGN;
- 
--	/* Clear basic hardware */
--	for (ch = 0; ch < EMAC_MAX_TXRX_CHANNELS; ch++) {
--		emac_write(EMAC_TXHDP(ch), 0);
--		emac_write(EMAC_RXHDP(ch), 0);
--		emac_write(EMAC_RXHDP(ch), 0);
--		emac_write(EMAC_RXINTMASKCLEAR, EMAC_INT_MASK_CLEAR);
--		emac_write(EMAC_TXINTMASKCLEAR, EMAC_INT_MASK_CLEAR);
--	}
- 	priv->mac_hash1 = 0;
- 	priv->mac_hash2 = 0;
- 	emac_write(EMAC_MACHASH1, 0);
- 	emac_write(EMAC_MACHASH2, 0);
- 
--	/* multi ch not supported - open 1 TX, 1RX ch by default */
--	rc = emac_init_txch(priv, EMAC_DEF_TX_CH);
--	if (0 != rc) {
--		dev_err(emac_dev, "DaVinci EMAC: emac_init_txch() failed");
--		return rc;
--	}
--	rc = emac_init_rxch(priv, EMAC_DEF_RX_CH, priv->mac_addr);
--	if (0 != rc) {
--		dev_err(emac_dev, "DaVinci EMAC: emac_init_rxch() failed");
--		return rc;
-+	for (i = 0; i < EMAC_DEF_RX_NUM_DESC; i++) {
-+		struct sk_buff *skb = emac_rx_alloc(priv);
++	return 0;
++}
 +
-+		if (!skb)
-+			break;
++static int __devinit davinci_mdio_probe(struct platform_device *pdev)
++{
++	struct mdio_platform_data *pdata = pdev->dev.platform_data;
++	struct device *dev = &pdev->dev;
++	struct davinci_mdio_data *data;
++	struct resource *res;
++	u32 mdio_in_freq, mdio_out_freq, div, phy_mask, ver;
++	struct phy_device *phy;
++	int ret, addr;
 +
-+		ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
-+					skb_tailroom(skb), GFP_KERNEL);
-+		if (WARN_ON(ret < 0))
-+			break;
- 	}
- 
- 	/* Request IRQ */
-@@ -2458,6 +2479,8 @@ static int emac_dev_open(struct net_device *ndev)
- 		emac_set_coalesce(ndev, &coal);
- 	}
- 
-+	cpdma_ctlr_start(priv->dma);
-+
- 	priv->phydev = NULL;
- 	/* use the first phy on the bus if pdata did not give us a phy id */
- 	if (!priv->phy_id) {
-@@ -2545,10 +2568,7 @@ static int emac_dev_stop(struct net_device *ndev)
- 
- 	netif_carrier_off(ndev);
- 	emac_int_disable(priv);
--	emac_stop_txch(priv, EMAC_DEF_TX_CH);
--	emac_stop_rxch(priv, EMAC_DEF_RX_CH);
--	emac_cleanup_txch(priv, EMAC_DEF_TX_CH);
--	emac_cleanup_rxch(priv, EMAC_DEF_RX_CH);
-+	cpdma_ctlr_stop(priv->dma);
- 	emac_write(EMAC_SOFTRESET, 1);
- 
- 	if (priv->phydev)
-@@ -2653,9 +2673,10 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- 	struct resource *res;
- 	struct net_device *ndev;
- 	struct emac_priv *priv;
--	unsigned long size;
-+	unsigned long size, hw_ram_addr;
- 	struct emac_platform_data *pdata;
- 	struct device *emac_dev;
-+	struct cpdma_params dma_params;
- 
- 	/* obtain emac clock from kernel */
- 	emac_clk = clk_get(&pdev->dev, NULL);
-@@ -2731,11 +2752,40 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- 	priv->ctrl_ram_size = pdata->ctrl_ram_size;
- 	priv->emac_ctrl_ram = priv->remap_addr + pdata->ctrl_ram_offset;
- 
--	if (pdata->hw_ram_addr)
--		priv->hw_ram_addr = pdata->hw_ram_addr;
--	else
--		priv->hw_ram_addr = (u32 __force)res->start +
--					pdata->ctrl_ram_offset;
-+	hw_ram_addr = pdata->hw_ram_addr;
-+	if (!hw_ram_addr)
-+		hw_ram_addr = (u32 __force)res->start + pdata->ctrl_ram_offset;
-+
-+	memset(&dma_params, 0, sizeof(dma_params));
-+	dma_params.dev			= emac_dev;
-+	dma_params.dmaregs		= priv->emac_base;
-+	dma_params.rxthresh		= priv->emac_base + 0x120;
-+	dma_params.rxfree		= priv->emac_base + 0x140;
-+	dma_params.txhdp		= priv->emac_base + 0x600;
-+	dma_params.rxhdp		= priv->emac_base + 0x620;
-+	dma_params.txcp			= priv->emac_base + 0x640;
-+	dma_params.rxcp			= priv->emac_base + 0x660;
-+	dma_params.num_chan		= EMAC_MAX_TXRX_CHANNELS;
-+	dma_params.min_packet_size	= EMAC_DEF_MIN_ETHPKTSIZE;
-+	dma_params.desc_mem_phys	= hw_ram_addr;
-+	dma_params.desc_mem_size	= pdata->ctrl_ram_size;
-+	dma_params.desc_align		= 16;
-+
-+	priv->dma = cpdma_ctlr_create(&dma_params);
-+	if (!priv->dma) {
-+		dev_err(emac_dev, "DaVinci EMAC: Error initializing DMA\n");
-+		rc = -ENOMEM;
-+		goto no_dma;
++	data = kzalloc(sizeof(*data), GFP_KERNEL);
++	if (!data) {
++		dev_err(dev, "failed to alloc device data\n");
++		return -ENOMEM;
 +	}
 +
-+	priv->txchan = cpdma_chan_create(priv->dma, tx_chan_num(EMAC_DEF_TX_CH),
-+				       emac_tx_handler);
-+	priv->rxchan = cpdma_chan_create(priv->dma, rx_chan_num(EMAC_DEF_RX_CH),
-+				       emac_rx_handler);
-+	if (WARN_ON(!priv->txchan || !priv->rxchan)) {
-+		rc = -ENOMEM;
-+		goto no_irq_res;
-+	}
- 
- 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
- 	if (!res) {
-@@ -2778,6 +2828,12 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- netdev_reg_err:
- 	clk_disable(emac_clk);
- no_irq_res:
-+	if (priv->txchan)
-+		cpdma_chan_destroy(priv->txchan);
-+	if (priv->rxchan)
-+		cpdma_chan_destroy(priv->rxchan);
-+	cpdma_ctlr_destroy(priv->dma);
-+no_dma:
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	release_mem_region(res->start, res->end - res->start + 1);
- 	iounmap(priv->remap_addr);
-@@ -2806,6 +2862,12 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
- 	platform_set_drvdata(pdev, NULL);
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 
-+	if (priv->txchan)
-+		cpdma_chan_destroy(priv->txchan);
-+	if (priv->rxchan)
-+		cpdma_chan_destroy(priv->rxchan);
-+	cpdma_ctlr_destroy(priv->dma);
++	data->pdata = pdata ? (*pdata) : default_pdata;
 +
- 	release_mem_region(res->start, res->end - res->start + 1);
++	data->bus = mdiobus_alloc();
++	if (!data->bus) {
++		dev_err(dev, "failed to alloc mii bus\n");
++		ret = -ENOMEM;
++		goto bail_out;
++	}
++
++	data->bus->name		= dev_name(dev);
++	data->bus->read		= davinci_mdio_read,
++	data->bus->write	= davinci_mdio_write,
++	data->bus->parent	= dev;
++	data->bus->priv		= data;
++	snprintf(data->bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
++
++	data->clk = clk_get(dev, NULL);
++	if (IS_ERR(data->clk)) {
++		data->clk = NULL;
++		dev_err(dev, "failed to get device clock\n");
++		ret = PTR_ERR(data->clk);
++		goto bail_out;
++	}
++
++	clk_enable(data->clk);
++
++	dev_set_drvdata(dev, data);
++	data->dev = dev;
++	spin_lock_init(&data->lock);
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res) {
++		dev_err(dev, "could not find register map resource\n");
++		ret = -ENOENT;
++		goto bail_out;
++	}
++
++	res = devm_request_mem_region(dev, res->start, resource_size(res),
++					    dev_name(dev));
++	if (!res) {
++		dev_err(dev, "could not allocate register map resource\n");
++		ret = -ENXIO;
++		goto bail_out;
++	}
++
++	data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
++	if (!data->regs) {
++		dev_err(dev, "could not map mdio registers\n");
++		ret = -ENOMEM;
++		goto bail_out;
++	}
++
++	mdio_in_freq = clk_get_rate(data->clk);
++	div = (mdio_in_freq / data->pdata.bus_freq) - 1;
++	if (div > CONTROL_MAX_DIV)
++		div = CONTROL_MAX_DIV;
++	mdio_out_freq = mdio_in_freq / (div + 1);
++
++	/* set enable and clock divider */
++	__raw_writel(div | CONTROL_ENABLE, &data->regs->control);
++
++	/*
++	 * wait for scan logic to settle:
++	 * the scan time consists of (a) a large fixed component, and (b) a
++	 * small component that varies with the mii bus frequency.  These
++	 * were estimated using measurements at 1.1 and 2.2 MHz on tnetv107x
++	 * silicon.  Since the effect of (b) was found to be largely
++	 * negligible, we keep things simple here.
++	 */
++	mdelay(1);
++
++	/* dump hardware version info */
++	ver = __raw_readl(&data->regs->version);
++	dev_info(dev, "davinci mdio revision %d.%d\n",
++			(ver >> 8) & 0xff, ver & 0xff);
++
++	/* get phy mask from the alive register */
++	phy_mask = __raw_readl(&data->regs->alive);
++	if (phy_mask) {
++		/* restrict mdio bus to live phys only */
++		dev_info(dev, "detected phy mask %x\n", ~phy_mask);
++		phy_mask = ~phy_mask;
++	} else {
++		/* desperately scan all phys */
++		dev_warn(dev, "failed to detect live phys, scanning all\n");
++		phy_mask = 0;
++	}
++	data->bus->phy_mask = phy_mask;
++
++	/* register the mii bus */
++	ret = mdiobus_register(data->bus);
++	if (ret)
++		goto bail_out;
++
++	/* scan and dump the bus */
++	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
++		phy = data->bus->phy_map[addr];
++		if (phy) {
++			dev_info(dev, "phy[%d]: device %s, driver %s\n",
++				 phy->addr, dev_name(&phy->dev),
++				 phy->drv ? phy->drv->name : "unknown");
++		}
++	}
++
++	return 0;
++
++bail_out:
++	if (data->bus)
++		mdiobus_free(data->bus);
++
++	if (data->clk) {
++		clk_disable(data->clk);
++		clk_put(data->clk);
++	}
++
++	kfree(data);
++
++	return ret;
++}
++
++static int __devexit davinci_mdio_remove(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct davinci_mdio_data *data = dev_get_drvdata(dev);
++
++	if (data->bus)
++		mdiobus_free(data->bus);
++
++	if (data->clk) {
++		clk_disable(data->clk);
++		clk_put(data->clk);
++	}
++
++	dev_set_drvdata(dev, NULL);
++
++	kfree(data);
++
++	return 0;
++}
++
++static int davinci_mdio_suspend(struct device *dev)
++{
++	struct davinci_mdio_data *data = dev_get_drvdata(dev);
++	u32 ctrl;
++
++	spin_lock(&data->lock);
++
++	/* shutdown the scan state machine */
++	ctrl = __raw_readl(&data->regs->control);
++	ctrl &= ~CONTROL_ENABLE;
++	__raw_writel(ctrl, &data->regs->control);
++	wait_for_idle(data);
++
++	if (data->clk)
++		clk_disable(data->clk);
++
++	data->suspended = true;
++	spin_unlock(&data->lock);
++
++	return 0;
++}
++
++static int davinci_mdio_resume(struct device *dev)
++{
++	struct davinci_mdio_data *data = dev_get_drvdata(dev);
++	u32 ctrl;
++
++	spin_lock(&data->lock);
++	if (data->clk)
++		clk_enable(data->clk);
++
++	/* restart the scan state machine */
++	ctrl = __raw_readl(&data->regs->control);
++	ctrl |= CONTROL_ENABLE;
++	__raw_writel(ctrl, &data->regs->control);
++
++	data->suspended = false;
++	spin_unlock(&data->lock);
++
++	return 0;
++}
++
++static const struct dev_pm_ops davinci_mdio_pm_ops = {
++	.suspend	= davinci_mdio_suspend,
++	.resume		= davinci_mdio_resume,
++};
++
++static struct platform_driver davinci_mdio_driver = {
++	.driver = {
++		.name	 = "davinci_mdio",
++		.owner	 = THIS_MODULE,
++		.pm	 = &davinci_mdio_pm_ops,
++	},
++	.probe = davinci_mdio_probe,
++	.remove = __devexit_p(davinci_mdio_remove),
++};
++
++static int __init davinci_mdio_init(void)
++{
++	return platform_driver_register(&davinci_mdio_driver);
++}
++device_initcall(davinci_mdio_init);
++
++static void __exit davinci_mdio_exit(void)
++{
++	platform_driver_unregister(&davinci_mdio_driver);
++}
++module_exit(davinci_mdio_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("DaVinci MDIO driver");
+diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
+index 7c930db..a04fd8c 100644
+--- a/include/linux/davinci_emac.h
++++ b/include/linux/davinci_emac.h
+@@ -14,6 +14,10 @@
+ #include <linux/if_ether.h>
+ #include <linux/memory.h>
  
- 	unregister_netdev(ndev);
++struct mdio_platform_data {
++	unsigned long		bus_freq;
++};
++
+ struct emac_platform_data {
+ 	char mac_addr[ETH_ALEN];
+ 	u32 ctrl_reg_offset;
 -- 
 1.7.0.4
 
