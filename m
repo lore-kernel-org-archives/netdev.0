@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] mlx4_en: Consider napi_get_frags() failure.
-Date: Mon, 06 Sep 2010 18:39:22 -0700 (PDT)
-Message-ID: <20100906.183922.98874231.davem@davemloft.net>
-References: <4C84A43B.5010605@mellanox.co.il>
+Subject: Re: [PATCH 2/2] mlx4_en: Fixed Ethtool statistics report
+Date: Mon, 06 Sep 2010 18:39:27 -0700 (PDT)
+Message-ID: <20100906.183927.241458338.davem@davemloft.net>
+References: <4C84A448.9000903@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	eugenia@mellanox.co.il
+Cc: netdev@vger.kernel.org, eugenia@mellanox.co.il
 To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57911
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57916
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755532Ab0IGBjF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 21:39:05 -0400
-In-Reply-To: <4C84A43B.5010605@mellanox.co.il>
+	by vger.kernel.org with ESMTP id S1755949Ab0IGBjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 21:39:10 -0400
+In-Reply-To: <4C84A448.9000903@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Mon, 6 Sep 2010 11:20:11 +0300
+Date: Mon, 6 Sep 2010 11:20:24 +0300
 
 > 
-> If failed to get skb frags using napi_get_frags(),
-> the packet is dropped.
+> The values didn't match the title after removing the LRO
+> statistics in commit fa37a9586f92051de03a13e55e5ec3880bb6783e
 > 
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
 > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
 Applied.
