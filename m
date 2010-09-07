@@ -1,31 +1,26 @@
-From: Miloslav Trmac <mitr@redhat.com>
+From: Christoph Hellwig <hch@infradead.org>
 Subject: Re: RFC: Crypto API User-interface
-Date: Tue, 7 Sep 2010 10:54:24 -0400 (EDT)
-Message-ID: <28410754.1087391283871264222.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
-References: <20100907145127.GA13027@infradead.org>
+Date: Tue, 7 Sep 2010 10:55:12 -0400
+Message-ID: <20100907145512.GB13027@infradead.org>
+References: <834983542.1086561283871074929.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+ <695962299.1087031283871123333.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
 	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
+To: Miloslav Trmac <mitr@redhat.com>
 Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20100907145127.GA13027@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <695962299.1087031283871123333.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Sep 07, 2010 at 10:52:03AM -0400, Miloslav Trmac wrote:
+> Because in the real world people want both certification, features _and_ performance.  If all they cared about is certification they could just as well buy a pencil.
 
------ "Christoph Hellwig" <hch@infradead.org> wrote:
-
-> On Tue, Sep 07, 2010 at 10:34:25AM -0400, Miloslav Trmac wrote:
-> > - Don't use a FD for associated data that is limited to 16? bytes
-> > 
-> > - Don't use file descriptors for input data at all, if it makes the
-> interface so complex.
-> 
-> Calling into the kernel for 16 bytes of crypto is a braindead idea to
-> start with.  To preve3nt idiots like you
-1) It was Herbert who used AEAD as an example
-2) That's how AEAD works: One large input stream, one very small.
-     Mirek
+Okay Mr Smartass.  Please put away your crackpipe and get down to earth.
+There is absolutely no good reason to ever do crypto for userspace
+applications in the kernel.  If any certification requires that it's not
+worth the paper it's written on.  In fact there's more enough criticial
+systems that do not even have separate kernel vs userspace boundaries.
