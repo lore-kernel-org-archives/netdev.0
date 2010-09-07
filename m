@@ -1,46 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] r8169: add gro support
-Date: Tue, 07 Sep 2010 13:47:45 -0700 (PDT)
-Message-ID: <20100907.134745.115939406.davem@davemloft.net>
-References: <1283834799.2585.476.camel@edumazet-laptop>
-	<20100907202445.GA11841@electric-eye.fr.zoreil.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH] [arch-x86] Allow SRAT integrity check to be skipped
+Date: Tue, 07 Sep 2010 13:48:49 -0700
+Message-ID: <4C86A531.1010801@zytor.com>
+References: <20100901213318.19353.54619.stgit@localhost.localdomain>	 <20100902065731.GB29972@elte.hu> <20100902100308.GA17167@basil.fritz.box>	 <20100903063934.GA25863@elte.hu> <1283888337.18468.9.camel@pjaxe>	 <4C869AA3.6000103@zytor.com> <1283890615.18468.11.camel@pjaxe>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39597
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755201Ab0IGUr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 16:47:27 -0400
-In-Reply-To: <20100907202445.GA11841@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1283890615.18468.11.camel@pjaxe>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Tue, 7 Sep 2010 22:24:45 +0200
-
-> Eric Dumazet <eric.dumazet@gmail.com> :
->> - Use napi_gro_receive() and vlan_gro_receive()
->> - Enable GRO by default
->> 
->> Tested on a RTL8111/8168 adapter
->> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> CC: Francois Romieu <romieu@fr.zoreil.com>
-> [...]
->> @@ -1076,7 +1076,12 @@ static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
->>  	int ret;
->>  
->>  	if (vlgrp && (opts2 & RxVlanTag)) {
->> -		__vlan_hwaccel_rx(skb, vlgrp, swab16(opts2 & 0xffff), polling);
->> +		u16 vtag = swab16(opts2 & 0xffff);
->> +
->> +		if (polling)
+On 09/07/2010 01:16 PM, Peter P Waskiewicz Jr wrote:
+>>
+>> If this is a production BIOS it should have this information.
 > 
-> 		if (likely(polling))
+> Responding for both your and Ingo's last email, I'll work on getting a
+> DMI match for this system.
 > 
-> Otherwise Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
-I've made this change and applied the patch, thanks guys!
+Great.
+
+	-hpa
