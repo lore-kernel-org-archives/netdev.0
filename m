@@ -1,24 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] NET: bna, fix lock imbalance
-Date: Mon, 06 Sep 2010 18:29:47 -0700 (PDT)
-Message-ID: <20100906.182947.258128485.davem@davemloft.net>
-References: <1283602121-11443-1-git-send-email-jslaby@suse.cz>
+Subject: Re: [patch] isdn: potential buffer overflows
+Date: Mon, 06 Sep 2010 18:30:25 -0700 (PDT)
+Message-ID: <20100906.183025.02291340.davem@davemloft.net>
+References: <20100904183806.GO5437@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	netdev@vger.kernel.org, ddutt@brocade.com, rmody@brocade.com
-To: jslaby@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1283602121-11443-1-git-send-email-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: error27@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50298
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755916Ab0IGBaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Sep 2010 21:30:08 -0400
+In-Reply-To: <20100904183806.GO5437@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Sat,  4 Sep 2010 14:08:41 +0200
+From: Dan Carpenter <error27@gmail.com>
+Date: Sat, 4 Sep 2010 20:38:59 +0200
 
-> bnad_set_rx_mode omit to unlock bna_lock on one fail path. Fix that.
+> cs->ics.parm.setup.phone is a 32 character array.  In each of these
+> cases we're copying from a 35 character array into a 32 character array
+> so we should use strlcpy() instead of strcpy().
 > 
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
 Applied.
