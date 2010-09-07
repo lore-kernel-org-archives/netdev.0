@@ -1,49 +1,65 @@
-From: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PROBLEM] ipw2200: WARNING: at kernel/softirq.c:143
-	local_bh_enable+0x58/0x80()
-Date: Tue, 7 Sep 2010 10:34:13 +0000
-Message-ID: <20100907103412.GA8999@ff.dom.local>
-References: <AANLkTi=BBQL5cS6Ox8MGiy+Pun56xtEhakJxeLwx9UnW@mail.gmail.com>
+From: Miloslav Trmac <mitr@redhat.com>
+Subject: Re: RFC: Crypto API User-interface
+Date: Tue, 7 Sep 2010 07:27:47 -0400 (EDT)
+Message-ID: <815047906.1056041283858867555.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+References: <1590523029.1055831283858598965.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Pekka Enberg <penberg-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=BBQL5cS6Ox8MGiy+Pun56xtEhakJxeLwx9UnW-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx4-phx2.redhat.com ([209.132.183.25]:55140 "EHLO
+	mx02.colomx.prod.int.phx2.redhat.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756493Ab0IGL1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 07:27:51 -0400
+In-Reply-To: <1590523029.1055831283858598965.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2010-09-05 17:11, Pekka Enberg wrote:
-> Hi,
+Hello,
+----- "Herbert Xu" <herbert@gondor.hengli.com.au> wrote:
+> First of all let's have a quick look at what the user-space side
+> looks like for AEAD:
 > 
-> This showed up in dmesg:
-> 
-> [  143.695527] ------------[ cut here ]------------
-> [  143.695550] WARNING: at kernel/softirq.c:143 local_bh_enable+0x58/0x80()
-> [  143.695557] Hardware name: 2373KYG
-> [  143.695562] Modules linked in: ipw2200 libipw
-> [  143.695577] Pid: 4112, comm: NetworkManager Not tainted 2.6.36-rc2+ #182
-> [  143.695584] Call Trace:
-> [  143.695596]  [<c15b8ddc>] ? printk+0x18/0x1a
-> [  143.695610]  [<c1033fbd>] warn_slowpath_common+0x6d/0xa0
-> [  143.695620]  [<c1039568>] ? local_bh_enable+0x58/0x80
-> [  143.695630]  [<c1039568>] ? local_bh_enable+0x58/0x80
-> [  143.695640]  [<c103400b>] warn_slowpath_null+0x1b/0x20
-> [  143.695650]  [<c1039568>] local_bh_enable+0x58/0x80
-> [  143.695662]  [<c1482d25>] netif_rx+0x155/0x180
-> [  143.695677]  [<f807519c>] libipw_rx+0x55c/0xad0 [libipw]
-> [  143.695703]  [<f816f86a>] ipw_handle_data_packet+0x12a/0x260 [ipw2200]
+> 	/* Each listen call generates one or more fds for input/output
+> 	 * that behave like pipes.
+> 	 */
+> 	listen(tfmfd, 0);
+> 	/* fd for encryption/decryption */
+> 	opfd = accept(tfmfd, NULL, 0);
+> 	/* fd for associated data */
+> 	adfd = accept(tfmfd, NULL, 0);
+If nothing else, two consecutive accept() calls with different semantics go rather strongly against the spirit of the socket API IMHO.
 
-Hi,
-Here is the thread:
+> 	/* These may also be set through sendmsg(2) cmsgs. */
+> 	op = ALG_AEAD_OP_ENCRYPT;
+> 	setsockopt(opfd, SOL_ALG, ALG_AEAD_OP, op, sizeof(op));
+> 	setsockopt(opfd, SOL_ALG, ALG_AEAD_SET_IV, iv, ivlen);
+So that is 8 syscalls to initialize a single AEAD operation.
+ 
+> 	/* Like pipes, larges writes will block!
+> 	 * For AEAD, ensure the socket buffer is large enough.
+> 	 * For ciphers, whenever the write blocks start reading.
+> 	 * For hashes, writes should never block.
+> 	 */
+How does one know the buffer is large enough?
 
-http://www.spinics.net/lists/netdev/msg139731.html
+"Whenever the write blocks start reading" turns a trivial loop submitting one buffer-size at a time into something that would be much easier to get wrong.
 
-Jarek P.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+> 	/* Zero-copy */
+> 	splice(cryptfd, NULL, opfd, NULL, datalen,
+> SPLICE_F_MOVE|SPLIFE_F_MORE);
+So that is "zero copy on input if your data come from a file descriptor"?  I'm not sure many applications will be able to take advantage of that, and there's still the output copy.
+
+Also, is SPLICE_F_MOVE actually implemented?
+
+Why use splice() at all?  Simple write() gives the driver the __user pointers that can be used to access the underlying pages directly.  Yanking user-space pages out from the process address space to make them "owned" by the crypto driver, causing more page faults when the process wants to reuse the buffer, does not seem like a performance improvement.
+
+> Please comment.
+I can't really see any advantage in trying to use existing syscalls for crypto when the syscalls were clearly not intended for the purpose.  setsockopt() is fine for sockets because options are set up once per connection, and the connection very rarely lasts less than several milliseconds; crypto operation options have to be configured much more often.
+
+7 syscalls to compute a single hash is very difficult to accept.
+     Mirek
