@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 09/30] net: wan/cosa.c: Convert "mutex" to semaphore
-Date: Tue, 07 Sep 2010 09:29:00 -0700 (PDT)
-Message-ID: <20100907.092900.189701056.davem@davemloft.net>
-References: <20100907124636.880953480@linutronix.de>
-	<20100907125055.557578360@linutronix.de>
+Subject: Re: TCP packet size and delivery packet decisions
+Date: Tue, 07 Sep 2010 09:35:48 -0700 (PDT)
+Message-ID: <20100907.093548.183061848.davem@davemloft.net>
+References: <AANLkTik75BGz=csDKVRk+Ni9__MqXMpHeqi_sHniu09A@mail.gmail.com>
+	<20100906.223010.173858342.davem@davemloft.net>
+	<1283859552.2338.402.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	mingo@elte.hu, peterz@infradead.org, hch@infradead.org,
-	netdev@vger.kernel.org
-To: tglx@linutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100907125055.557578360@linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: leandroal@gmail.com, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58561
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756678Ab0IGQfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 12:35:31 -0400
+In-Reply-To: <1283859552.2338.402.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 07 Sep 2010 14:32:25 -0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 07 Sep 2010 13:39:12 +0200
 
-> Get rid of init_MUTEX[_LOCKED]() and use sema_init() instead.
-> 
-> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+> I am not sure why TSO added a "Bound mss with half of window"
+> requirement for tcp_sync_mss()
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Because if we TSO to the full window the link doesn't fill up
+properly.
+
+We definitely do this on purpose, that's for sure.  :-)
+
+I'll look into the full version control history to unearth the
+exact reason so we can validate your patch, good find Eric.
