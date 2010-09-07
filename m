@@ -1,136 +1,144 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
-Date: Tue, 7 Sep 2010 09:16:14 +0000
-Message-ID: <20100907091614.GA8245@ff.dom.local>
-References: <1283835729.2585.499.camel@edumazet-laptop>
+From: Tomas Mraz <tmraz@redhat.com>
+Subject: Re: RFC: Crypto API User-interface
+Date: Tue, 07 Sep 2010 11:18:46 +0200
+Message-ID: <1283851126.11103.35.camel@vespa.frost.loc>
+References: <20100907084213.GA4610@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:57122 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756118Ab0IGJQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 05:16:20 -0400
-Received: by bwz11 with SMTP id 11so3907769bwz.19
-        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 02:16:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1283835729.2585.499.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20100907084213.GA4610@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2010-09-07 07:02, Eric Dumazet wrote:
-> Le lundi 06 septembre 2010 =C3  19:20 -0700, David Miller a =C3=A9cri=
-t :
->=20
->> Eric, this goes on top of your patch and demonstrates the idea.
->>
->> Please review if you have a chance:
->>
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index 2d1bc76..aeb56af 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -327,6 +327,32 @@ static void skb_clone_fraglist(struct sk_buff *=
-skb)
->>  		skb_get(list);
->>  }
->> =20
->> +static struct sk_buff *skb_copy_fraglist(struct sk_buff *parent,
->> +					 gfp_t gfp_mask)
->> +{
->> +	struct sk_buff *first_skb =3D NULL;
->> +	struct sk_buff *prev_skb =3D NULL;
->> +	struct sk_buff *skb;
->> +
->> +	skb_walk_frags(parent, skb) {
->> +		struct sk_buff *nskb =3D pskb_copy(skb, gfp_mask);
->> +
->> +		if (!nskb)
->> +			goto fail;
->> +		if (!first_skb)
->> +			first_skb =3D skb;
->> +		else
->> +			prev_skb->next =3D skb;
->> +		prev_skb =3D skb;
->> +	}
->> +
->> +	return first_skb;
->> +
->> +fail:
->> +	skb_drop_list(&first_skb);
->> +	return NULL;
->> +}
->> +
->>  static void skb_release_data(struct sk_buff *skb)
->>  {
->>  	if (!skb->cloned ||
->> @@ -812,17 +838,22 @@ int pskb_expand_head(struct sk_buff *skb, int =
-nhead, int ntail,
->>  		fastpath =3D atomic_read(&skb_shinfo(skb)->dataref) =3D=3D delta;
->>  	}
->> =20
->> -	if (fastpath) {
->> -		kfree(skb->head);
->> -	} else {
->> +	if (!fastpath) {
->> +		if (skb_has_frag_list(skb)) {
->> +			struct sk_buff *new_list;
->> +
->> +			new_list =3D skb_copy_fraglist(skb, gfp_mask);
->> +			if (!new_list)
->> +				goto free_data;
->> +			skb_shinfo(skb)->frag_list =3D new_list;
->=20
-> Here, skb_shinfo(skb) still points to old shinfo, you should not touc=
-h
-> it. An other user might need it :)
+On Tue, 2010-09-07 at 16:42 +0800, Herbert Xu wrote: 
+> Hi:
+> 
+> This is what I am proposing for the Crypto API user-interface.
+> 
+> Note that this is the interface for operations.  There will be
+> a separate interface (most likely netlink) for configuring crypto
+> algorithms, e.g., picking a specific AES implementation as the
+> system default.
+> 
+> First of all let's have a quick look at what the user-space side
+> looks like for AEAD:
+> 
+> 	int op;
+> 
+> 	/* This fd corresponds to a tfm object. */
+> 	tfmfd = socket(AF_ALG, SOCK_STREAM, 0);
+> 
+> 	alg.type = "aead";
+> 	alg.name = "ccm(aes)";
+> 	bind(tfmfd, &alg, sizeof(alg));
+> 
+> 	setsockopt(tfmfd, SOL_ALG, ALG_AEAD_SET_KEY, key, keylen);
+> 
+> The idea here is that each tfm corresponds to a listening socket.
+> 
+> 	/* Each listen call generates one or more fds for input/output
+> 	 * that behave like pipes.
+> 	 */
+> 	listen(tfmfd, 0);
+> 	/* fd for encryption/decryption */
+> 	opfd = accept(tfmfd, NULL, 0);
+> 	/* fd for associated data */
+> 	adfd = accept(tfmfd, NULL, 0);
 
-Even if there were no users this is written to the area freed with
-kfree(skb->head) a few lines later, isn't it?
+This has much much higher overhead in terms of number of needed syscalls
+than the previously proposed ioctl interface. Of course in case of large
+data operation the overhead converges to just one or two (for AEAD) more
+syscalls (1. ioctl vs. 2. write+read). But there will be many real
+use-cases where all the setup of the fds will be done again and again.
+And of course it adds an overhead in terms of number of file descriptors
+needed for each crypto operation. Where the old interface had just
+constant one fd overhead per lifetime of the process, this interface has
+3 fds per crypto context in use.
 
->=20
->> +		}
->>  		for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
->>  			get_page(skb_shinfo(skb)->frags[i].page);
->> =20
->> -		if (skb_has_frag_list(skb))
->> -			skb_clone_fraglist(skb);
->> -
->> -		skb_release_data(skb);
->>  	}
->=20
-> I believe you cannot remove skb_release_data() call, we really need t=
-o
-> perform the atomic operation, and test the result on it, or a double
-> free could happen.
->=20
->> +
->> +	kfree(skb->head);
->> +
->>  	off =3D (data + nhead) - skb->head;
->> =20
->>  	skb->head     =3D data;
->> @@ -848,6 +879,8 @@ int pskb_expand_head(struct sk_buff *skb, int nh=
-ead, int ntail,
->>  	atomic_set(&skb_shinfo(skb)->dataref, 1);
->>  	return 0;
->> =20
->> +free_data:
->> +	kfree(data);
->=20
-> is it a leftover ?
->=20
->>  nodata:
->>  	return -ENOMEM;
->>  }
->=20
-> I understand what you want to do, but problem is we need to perform a
-> CAS2 operation : atomically changes two values (dataref and frag_list=
-)
+> Each session corresponds to one or more connections obtained from
+> that socket.  The number depends on the number of inputs/outputs
+> of that particular type of operation.  For most types, there will
+> be a s ingle connection/file descriptor that is used for both input
+> and output.  AEAD is one of the few that require two inputs.
+> 
+> 	/* These may also be set through sendmsg(2) cmsgs. */
+> 	op = ALG_AEAD_OP_ENCRYPT;
+> 	setsockopt(opfd, SOL_ALG, ALG_AEAD_OP, op, sizeof(op));
+> 	setsockopt(opfd, SOL_ALG, ALG_AEAD_SET_IV, iv, ivlen);
+> 
+> 	/* Like pipes, larges writes will block!
+> 	 * For AEAD, ensure the socket buffer is large enough.
+> 	 * For ciphers, whenever the write blocks start reading.
+> 	 * For hashes, writes should never block.
+> 	 */
+> 	write(opfd, plain, datalen);
+> 	write(adfd, ad, adlen);
+> 
+> 	/* The first read triggers the operation. */
+> 	read(opfd, crypt, datalen);
+> 
+> 	op = ALG_AEAD_OP_DECRYPT;
+> 	setsockopt(opfd, SOL_ALG, ALG_AEAD_OP, op, sizeof(op));
+> 
+> 	write(opfd, crypt, datalen);
+> 	write(adfd, ad, adlen);
+> 
+> 	/* Returns -1 with errno EBADMSG if auth fails */
+> 	read(defd, plain, datalen);
+> 
+> 	/* Zero-copy */
+> 	splice(cryptfd, NULL, opfd, NULL, datalen, SPLICE_F_MOVE|SPLIFE_F_MORE);
+> 	/* We allow writes to be split into multiple system calls. */
+> 	splice(cryptfd2, NULL, opfd, NULL, datalen, SPLICE_F_MOVE);
+> 	splice(adatafd, NULL, adfd, NULL, adlen, SPLICE_F_MOVE);
+> 
+> 	/* For now reading is copy-only, if and when vmsplice
+> 	 * starts supporting zero-copy to user then we can do it
+> 	 * as well.
+This is also serious performance penalty for now.
 
-Alas I can't understand why do you think these clone and atomic tests
-in skb_release_data() don't protect skb_shinfo(skb)->frag_list enough.
+> 	read(opfd, plain, datalen);
+> 
+> Ciphers/compression are pretty much the same sans adfd.
+> 
+> For hashes:
+> 
+> 	/* This fd corresponds to a tfm object. */
+> 	tfmfd = socket(AF_ALG, SOCK_STREAM, 0);
+> 
+> 	alg.type = "hash";
+> 	alg.name = "xcbc(aes)";
+> 	bind(tfmfd, &alg, sizeof(alg));
+> 
+> 	setsockopt(tfmfd, SOL_ALG, ALG_HASH_SET_KEY, key, keylen);
+> 
+> 	/* Each listen call generates one or more fds for input/output
+> 	 * that behave like pipes.
+> 	 */
+> 	listen(tfmfd, 0);
+> 	/* fd for hashing */
+> 	opfd = accept(tfmfd, NULL, 0);
+> 
+> 	/* MSG_MORE prevents finalisation */
+> 	send(opfd, plain, datalen, MSG_MORE);
+> 
+> 	/* Reads partial hash state */
+> 	read(opfd, state, statelen);
+> 
+> 	/* Restore from a partial hash state */
+> 	send(opfd, state, statelen, MSG_OOB);
+> 
+> 	/* Finalise */
+> 	send(opfd, plain, 0, 0);
+> 	read(opfd, hash, hashlen);
+Note, that one of frequent hash operations is duplicating the internal
+hash state. How this would be done with this API?
 
-Jarek P.
+-- 
+Tomas Mraz
+No matter how far down the wrong road you've gone, turn back.
+                                              Turkish proverb
