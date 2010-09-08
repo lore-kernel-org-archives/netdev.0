@@ -1,91 +1,88 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: TCP packet size and delivery packet decisions
-Date: Wed, 8 Sep 2010 16:14:50 +0400
-Message-ID: <20100908121450.GA11412@ms2.inr.ac.ru>
-References: <20100906.223010.173858342.davem@davemloft.net> <1283859552.2338.402.camel@edumazet-laptop> <alpine.DEB.2.00.1009071443510.26447@wel-95.cs.helsinki.fi> <20100907.201843.179933180.davem@davemloft.net>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Wed, 8 Sep 2010 17:49:40 +0530
+Message-ID: <OF236C2BD3.D32DAA85-ON65257798.0042D7F4-65257798.00438120@in.ibm.com>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908081011.GC23051@redhat.com> <OFB2808A12.59A863DC-ON65257798.002E987B-65257798.0033564B@in.ibm.com> <20100908104833.GJ23051@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ilpo.jarvinen@helsinki.fi, eric.dumazet@gmail.com,
-	leandroal@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:34273 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1756135Ab0IHMPN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 08:15:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20100907.201843.179933180.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rick.jones2@hp.com, rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100908104833.GJ23051@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 09/08/2010 04:18:33 PM:
 
-> [ Alexey, problem is that when receiver's maximum window is miniscule
->   (f.e. equal to MSS :-), we never send full MSS sized frames due to
->   our sender size SWS implementation. ]
+>
+_______________________________________________________________________________
 
-I see.
+> >
+> > > >                            TCP (#numtxqs=2)
+> > > > N#      BW1     BW2    (%)      SD1     SD2    (%)      RSD1
+RSD2
+> > (%)
+> > > >
+> > >
+> >
+>
+_______________________________________________________________________________
 
-The problem was that we do early packetization. If we chop
-frames to real mss (> max_window/2), we cannot do #3
-(min(D.U) >= Fs * Max(SND.WND)) without subsequent fragmentation.
+> >
+> > > > 4       26387   40716 (54.30)   20      28   (40.00)    86i     85
+> > (-1.16)
+> > > > 8       24356   41843 (71.79)   88      129  (46.59)    372     362
+> > (-2.68)
+> > > > 16      23587   40546 (71.89)   375     564  (50.40)    1558
+1519
+> > (-2.50)
+> > > > 32      22927   39490 (72.24)   1617    2171 (34.26)    6694
+5722
+> > (-14.52)
+> > > > 48      23067   39238 (70.10)   3931    5170 (31.51)    15823
+13552
+> > (-14.35)
+> > > > 64      22927   38750 (69.01)   7142    9914 (38.81)    28972
+26173
+> > (-9.66)
+> > > > 96      22568   38520 (70.68)   16258   27844 (71.26)   65944
+73031
+> > (10.74)
+> > >
+> > > That's a significant hit in TCP SD. Is it caused by the imbalance
+between
+> > > number of queues for TX and RX? Since you mention RX is complete,
+> > > maybe measure with a balanced TX/RX?
+> >
+> > Yes, I am not sure why it is so high.
+>
+> Any errors at higher levels? Are any packets reordered?
 
-The solution to chop to max_window/2 was mine and it was intended
-to solve the problem for devices with _large_ mtu, where max_window
-is comparable with mtu not because window is small, but because mtu is large.
-This case was important from performance viewpoint, fragmentation
-would destroy our smart early packetization technique.
+I haven't seen any messages logged, and retransmission is similar
+to non-mq case. Device also has no errors/dropped packets. Anything
+else I should look for?
 
-What's about the case of sane mtu and small max_window, that case was not
-simply ignored as "not-so-important", it also had a rational explanation, see below.
+On the host:
 
-If the issue must be resolved, I would suggest to:
+# ifconfig vnet0
+vnet0     Link encap:Ethernet  HWaddr 9A:9D:99:E1:CA:CE
+          inet6 addr: fe80::989d:99ff:fee1:cace/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:5090371 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:5054616 errors:0 dropped:0 overruns:65 carrier:0
+          collisions:0 txqueuelen:500
+          RX bytes:237793761392 (221.4 GiB)  TX bytes:333630070 (318.1 MiB)
+# netstat -s  |grep -i retrans
+    1310 segments retransmited
+    35 times recovered from packet loss due to fast retransmit
+    1 timeouts after reno fast retransmit
+    41 fast retransmits
+    1236 retransmits in slow start
 
-1. Complicate mss = min(mss, max_window/2). Probably, do something like:
+So retranmissions are 0.025% of total packets received from the guest.
 
-   if (max_window >= 65536 /* just a guess */)
-	mss = min(mss, max_window/2);
-   else
-	mss = min(mss, max_window);
+Thanks,
 
-2. Add SWS avoidance checks in tcp_write_xmit(). It should detect condition
-   when end_seq > tcp_wnd_end(tp) (like now), but proceed with fragmentation when
-   tp->snd_nxt == tp->snd_una && tp->snd_wnd >= tp->max_window/2.
-   Luckily, all this logic is already there due to TSO, only conditions when
-   to fragment are to be adjusted a little.
+- KK
 
-
-Frankly, I am not so sure that the issue should be resolved.
-There is one more aspect, not related to SWS. When mss > max_window/2 we can have
-only one segment in pipe, which is not good. When mss==max_window and we never see
-full sized frame sent, this looks strange, but I bet it is still better
-for performance under almost any curcumstances.
-
-I do not know actual context, of course. I can guess the situation
-can be like this: "I set window=mss exactly to see only one packet in flight
-all the times. Why the hell linux tries to send two mss/2 sized?" :-)
-
-
-> In ancient times we used to do this straight in sendmsg(), which had
-> the comment:
-> 
-> 			/* We also need to worry about the window.  If
-> 			 * window < 1/2 the maximum window we've seen
-> 			 * from this host, don't use it.  This is
-> 			 * sender side silly window prevention, as
-> 			 * specified in RFC1122.  (Note that this is
-> 			 * different than earlier versions of SWS
-> 			 * prevention, e.g. RFC813.).  What we
-> 			 * actually do is use the whole MSS.  Since
-> 			 * the results in the right edge of the packet
-> 			 * being outside the window, it will be queued
-> 			 * for later rather than sent.
-> 			 */
-
-BTW the comment was good, but this logic was not actually implemented.
-The code below this comment was incorrect, it chopped segments at tail of write_queue
-(with seq > snd_nxt) based on window calculation at head of queue,
-so that it did not work. Actually, this check can be done
-not earlier than in tcp_write_xmit().
-
-Alexey
