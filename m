@@ -1,39 +1,95 @@
-From: "webmaster Maintenance" <info@webmaster.com>
-Subject: &#32852;&#31995;&#31995;&#32479;&#31649;&#29702;&#21592;
-Date: Wed, 8 Sep 2010 15:29:56 +0300 (EEST)
-Message-ID: <64323.115.240.78.138.1283948996.squirrel@webmail2.nebula.fi>
-Reply-To: webmaster_maintenance2010@hotmail.co.uk
+From: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
+Subject: Problems obtaining software TX timestamps
+Date: Wed, 08 Sep 2010 14:11:54 +0200
+Message-ID: <4C877D8A.6040002@edu.uni-klu.ac.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-68.nebula.fi ([83.145.220.68]:49493 "EHLO
-	smtp-68.nebula.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756310Ab0IHMfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 08:35:09 -0400
+Received: from mailsrv.uni-klu.ac.at ([143.205.180.44]:49171 "EHLO
+	mailsrv.uni-klu.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753697Ab0IHMkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 08:40:45 -0400
+Received: from mailsrv.uni-klu.ac.at (localhost [127.0.0.1])
+	by mailsrv.uni-klu.ac.at (Postfix) with ESMTP id 6C72084302
+	for <netdev@vger.kernel.org>; Wed,  8 Sep 2010 14:11:54 +0200 (CEST)
+Received: from [143.205.122.142] (itec142.itec.uni-klu.ac.at [143.205.122.142])
+	by mailsrv.uni-klu.ac.at (Postfix) with ESMTP id 574DF8406A
+	for <netdev@vger.kernel.org>; Wed,  8 Sep 2010 14:11:54 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-&#27492;&#28040;&#24687;&#21457;&#20986;&#20102;&#19968;&#20010;&#37038;&#23616;&#31243;&#24207;&#33258;&#21160;,&#23450;&#26399;&#26816;&#26597;&#22312;&#30418;&#20013;,&#26377;&#26032;&#37038;&#20214;&#25910;&#21040;&#30340;&#22823;&#23567;&#12290;&#35813;&#31243;&#24207;&#36816;&#34892;,&#20197;&#30830;&#20445;&#27809;&#26377;&#20154;&#27599;&#21608;&#30340;&#25910;&#20214;&#31665;&#22686;&#38271;&#36807;&#22823;&#12290;&#22914;&#26524;&#24744;&#30340;&#25910;&#20214;&#31665;&#21464;&#24471;&#22826;&#22823;,&#20320;&#23558;&#26080;&#27861;&#25509;&#25910;&#26032;&#30340;&#30005;&#23376;&#37038;&#20214;&#12290;&#23601;&#22312;&#36825;&#20010;&#28040;&#24687;&#34987;&#21457;&#36865;,&#20320;18Megabytes(MB)&#25110;&#23384;&#20648;&#22312;&#24744;&#30340;Web
-mail.To&#22312;&#25910;&#20214;&#31665;&#20013;&#24110;&#21161;&#25105;&#20204;&#37325;&#26032;&#35774;&#32622;&#25105;&#20204;&#30340;databaseprior&#24744;&#30340;&#31354;&#38388;&#26469;&#32500;&#25252;&#33258;&#24049;&#30340;&#25910;&#20214;&#31665;&#20013;,&#26356;&#35201;&#22238;&#31572;&#36825;&#20010;
-&#30005;&#23376;&#37038;&#20214;&#24182;&#36755;&#20837;&#24744;&#30340;:
+Dear all,
 
-&#21517;&#31216;:
-&#32593;&#32476;&#37038;&#20214;&#35775;&#38382;&#39029;:
-&#29992;&#25143;&#21517;:
-&#23494;&#30721;:
-&#37325;&#26032;&#36755;&#20837;&#23494;&#30721;:
+I am trying to obtain software TX timestamps for a each outgoing packet 
+of an UDP socket. For that purpose I set the SO_TIMESTAMPING socket 
+option to SOF_TIMESTAMPING_TX_SOFTWARE | SOF_TIMESTAMPING_SOFTWARE. The 
+setsockopt call succeeds and also a subsequent getsockopt returns the 
+correct flags. However, if a send a single datagram over the socket and 
+try to fetch the packet as well as its timestamp via the socket's 
+MSG_ERRQUEUE I do not get any information. Rather, the select call waits 
+infinitely on the error queue....
 
-&#25152;&#26377;&#31572;&#22797;&#21644;&#26597;&#35810;&#31995;&#32479;&#31649;&#29702;&#21592;&#24212;&#35813;&#36716;&#21457;&#30005;&#23376;&#37038;&#20214;(webmaster_maintenance2010@hotmail.co.uk)
+I hardly found any documentation on this timestamping mechanism except 
+the text file in the kernel source code. All I've figured out is that if 
+I want to have hardware TX timestamps, I'll have to make a further ioctl 
+which requires root permissions to active the hardware timestamping. But 
+this is not what I want... software timestamps are sufficient for me. 
+Here's my code....
 
-&#20320;&#20250;&#32487;&#32493;&#23450;&#26399;&#25910;&#21040;&#27492;&#35686;&#21578;&#28040;&#24687;&#22914;&#26524;&#24744;&#30340;&#25910;&#20214;&#31665;&#30340;&#22823;&#23567;&#21644;&#25345;&#32493;18&#33267;20
-MB&#30340;&#12290;&#22914;&#26524;&#24744;&#30340;&#25910;&#20214;&#31665;&#22823;&#23567;&#22686;&#38271;&#21040;20MB,&#28982;&#21518;&#22312;&#32593;&#32476;&#19978;&#31227;&#21160;&#24744;&#30340;&#30005;&#23376;&#37038;&#20214;&#31243;&#24207;&#23558;&#26368;&#21476;&#32769;&#30340;&#30005;&#23376;&#37038;&#20214;&#22312;&#24744;&#30340;&#20027;&#30446;&#24405;&#25991;&#20214;&#22841;,&#20197;&#30830;&#20445;&#20320;&#23558;&#32487;&#32493;&#33021;&#22815;&#25509;&#25910;&#20256;&#20837;&#30340;&#30005;&#23376;&#37038;&#20214;&#12290;&#24744;&#23558;&#25910;&#21040;&#30005;&#23376;&#37038;&#20214;&#36890;&#30693;,&#36825;&#24050;&#32463;&#21457;&#29983;&#12290;&#22914;&#26524;&#20320;&#30340;&#25910;&#20214;&#31665;&#22686;&#38271;&#21040;25M&#30340;,&#20320;&#23558;&#26080;&#27861;&#2
- 5509;&#25910;&#26032;&#30340;&#30005;&#23376;&#37038;&#20214;,&#22240;&#20026;&#36825;&#23558;&#36820;&#22238;&#32473;&#21457;&#20214;&#20154;&#12290;&#24403;&#24744;&#38405;&#35835;&#37038;
- &#20214;,&#23427;&#26159;
-&#26368;&#22909;&#30340;&#31572;&#22797;,&#24182;&#20445;&#23384;&#21103;&#26412;&#12290;
 
+int main (int argc, char **argv) {
 
-&#35874;&#35874;,
-&#32593;&#32476;&#37038;&#20214;&#26381;&#21153;&#21488;&#12290;
+    int rv;
+    int sock;
 
+    // allocate a socket
+    printf("allocating socket\n");
+    sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock==-1) return 1;
+
+    // connect socket to IP + port passed via command line
+    printf("connecting socket\n");
+    struct sockaddr_in toAddr;
+    memset(&toAddr, 0, sizeof(struct sockaddr_in));
+    toAddr.sin_family = PF_INET;
+    toAddr.sin_addr.s_addr = inet_addr(argv[1]);
+    toAddr.sin_port = htons(atoi(argv[2]));
+    rv = connect(sock, (struct sockaddr*) &toAddr, sizeof(struct 
+sockaddr_in));
+    if (rv!=0) return 1;
+
+    // try to enable software TX timestamps
+    printf("enabling (?) timestamping\n");
+    int flags =  SOF_TIMESTAMPING_TX_SOFTWARE | SOF_TIMESTAMPING_SOFTWARE;
+    rv = setsockopt(sock, SOL_SOCKET, SO_TIMESTAMPING, &flags, 
+sizeof(flags));
+    if (rv!=0) return 2;
+
+    // check if the setsockopt was successful
+    socklen_t slen = sizeof(flags);
+    rv = getsockopt(sock, SOL_SOCKET, SO_TIMESTAMPING, &flags, &slen);
+    if (rv!=0) return 3;
+    printf("getsockopt returned %d\n", flags);
+   
+    // send something via the socket
+    char buffer[200];
+    int len = sizeof(buffer);
+    rv = send(sock, buffer, len, 0);
+    printf("send returned %d\n", rv);
+
+    // prepare select call to wait for packet on MSG_ERRQUEUE
+    fd_set errorfs;
+    FD_ZERO(&errorfs);   
+    FD_SET(sock, &errorfs);
+    rv = select(sock + 1, 0, 0, &errorfs, NULL);                 <<--- 
+This select blocks forever...
+    printf("select returned %d\n", rv);
+    ...
+
+Any suggestions what's wrong with my code?  Btw. I've tested this with 
+kernel 2.6.31 and 2.6.33...
+
+Thanks and best regards,
+Ingo
