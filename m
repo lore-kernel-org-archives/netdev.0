@@ -1,71 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel Panic on OOM with 10 HTB rules
-Date: Wed, 08 Sep 2010 14:42:58 +0200
-Message-ID: <1283949778.2748.5.camel@edumazet-laptop>
-References: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	shemminger@vyatta.com
-To: Anand Raj Manickam <anandrm@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Namhyung Kim <namhyung@gmail.com>
+Subject: [PATCH 1/2] net/core: remove address space warnings on verify_iovec()
+Date: Wed,  8 Sep 2010 22:48:47 +0900
+Message-ID: <1283953728-15302-1-git-send-email-namhyung@gmail.com>
+Cc: linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:52357 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994Ab0IHNtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 09:49:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 08 septembre 2010 =C3=A0 16:22 +0530, Anand Raj Manickam a
-=C3=A9crit :
-> Hi,
->=20
-> I m struck with
-> Kernel Panic - Out of Memory Issue  when  traffic  is more than 100k
-> pps  and have  around 10 tc rules.
->=20
-> There is NO kernel panic with 1 tc rule .
->=20
-> I using a 2.6.34.6 ( latest stable kernel) with SMP enabled
->=20
-> The rules are simple -
-> 10 iptable rules :
-> iptables -t mangle -I FORWARD -s x.x.x.x  -j CLASSIFY --set-class 0xz=
-:0xy
->=20
-> 10 tc rules :
-> tc  class add dev imq0 parent 1:z classid 1:y htb rate 2kbit ceil 327=
-68kbps
->=20
-> I m using  Intel Xeon Quad core x5570, 12GB RAM , with 8 e1000e , irq
-> affined ( 1 pair per core)
->=20
-> There is NO issue / CRASH with multiple iptable rules marking to the
-> same tc rule/HTB class , i can sucessfully pass more than 200k pps /
-> 800Mbps traffic .
->=20
-> But when each iptable rule is marking to seprate tc rule/HTB class an=
-d
-> when the traffic exceeds 100K pps / 20000 connections per second , we
-> hit this Out of Memory - Kernel panic condition .
-> Any help is appreciated . Do let me know if any more further
-> information is need.
+move_addr_to_kernel() and copy_from_user() requires their argument
+as __user pointer but were missing proper markups. Add it.
+This removes following warnings from sparse.
 
-Hi Anand
+ net/core/iovec.c:44:52: warning: incorrect type in argument 1 (different address spaces)
+ net/core/iovec.c:44:52:    expected void [noderef] <asn:1>*uaddr
+ net/core/iovec.c:44:52:    got void *msg_name
+ net/core/iovec.c:55:34: warning: incorrect type in argument 2 (different address spaces)
+ net/core/iovec.c:55:34:    expected void const [noderef] <asn:1>*from
+ net/core/iovec.c:55:34:    got struct iovec *msg_iov
 
-Could you give :
+Signed-off-by: Namhyung Kim <namhyung@gmail.com>
+---
+ net/core/iovec.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-1) A complete stack trace / panic report
-2) cat /proc/interrupts
-3) ifconfig -a
-4) cat /proc/sys/vm/min_free_kbytes
-5) cat /proc/meminfo
+diff --git a/net/core/iovec.c b/net/core/iovec.c
+index 1cd98df..f4657c2 100644
+--- a/net/core/iovec.c
++++ b/net/core/iovec.c
+@@ -41,7 +41,9 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr *address,
+ 
+ 	if (m->msg_namelen) {
+ 		if (mode == VERIFY_READ) {
+-			err = move_addr_to_kernel(m->msg_name, m->msg_namelen,
++			void __user *namep;
++			namep = (void __user __force *) m->msg_name;
++			err = move_addr_to_kernel(namep, m->msg_namelen,
+ 						  address);
+ 			if (err < 0)
+ 				return err;
+@@ -52,7 +54,7 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr *address,
+ 	}
+ 
+ 	size = m->msg_iovlen * sizeof(struct iovec);
+-	if (copy_from_user(iov, m->msg_iov, size))
++	if (copy_from_user(iov, (void __user __force *) m->msg_iov, size))
+ 		return -EFAULT;
+ 
+ 	m->msg_iov = iov;
+-- 
+1.7.2.2
 
-for each eth*
- ethtool -g eth*
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
