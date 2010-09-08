@@ -1,58 +1,64 @@
 From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: Kernel Panic on OOM with 10 HTB rules
-Date: Wed, 08 Sep 2010 17:02:29 +0200
-Message-ID: <4C87A585.5090109@ans.pl>
-References: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com>	 <1283949778.2748.5.camel@edumazet-laptop>	 <AANLkTimDW-tuTJagnpkFq3TX4t+c_-9UUyG8z-bwPuJ1@mail.gmail.com> <1283957137.2748.71.camel@edumazet-laptop>
+Subject: Re: [PATCH] udp: add rehash on connect()
+Date: Wed, 08 Sep 2010 17:06:29 +0200
+Message-ID: <4C87A675.6080905@ans.pl>
+References: <1283895316.2634.248.camel@edumazet-laptop>	 <4C86F653.6070707@hp.com> <1283921857.2634.747.camel@edumazet-laptop>	 <20100907.223654.70187707.davem@davemloft.net>	 <1283925171.2634.838.camel@edumazet-laptop> <1283940646.2880.36.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Anand Raj Manickam <anandrm@gmail.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, shemminger@vyatta.com
+Cc: David Miller <davem@davemloft.net>, brian.haley@hp.com,
+	netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:46080 "EHLO
+Received: from bizon.gios.gov.pl ([195.187.34.71]:46192 "EHLO
 	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873Ab0IHPCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 11:02:32 -0400
-In-Reply-To: <1283957137.2748.71.camel@edumazet-laptop>
+	with ESMTP id S1753027Ab0IHPGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 11:06:39 -0400
+In-Reply-To: <1283940646.2880.36.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-09-08 16:45, Eric Dumazet wrote:
-<CUT>
-> Thanks
+On 2010-09-08 12:10, Eric Dumazet wrote:
+> commit 30fff923 introduced in linux-2.6.33 (udp: bind() optimisation)
+> added a secondary hash on UDP, hashed on (local addr, local port).
 >
-> You are running a 32bit kernel, so kernel can _not_ use more than 800
-> Mbytes of memory (Lowmem) for his own needs (including all network
-> buffers)
+> Problem is that following sequence :
 >
-> If you cannot switch to 64bit kernel, then you are forced to use lowe=
-r
-> queue lengths (I see your imq devices use insane 11000 txqueuelen)
+> fd =3D socket(...)
+> connect(fd,&remote, ...)
 >
-> Each frame use 4K, maybe 16K, it depends on MTU.
+> not only selects remote end point (address and port), but also sets
+> local address, while UDP stack stored in secondary hash table the soc=
+ket
+> while its local address was INADDR_ANY (or ipv6 equivalent)
 >
-> even if we dont take into account other needs :
-> 11000 * 16K =3D 170 Mbytes per imqX
-> 1000 * 4K =3D 4Mbytes per ethX
+> Sequence is :
+>   - autobind() : choose a random local port, insert socket in hash ta=
+bles
+>                [while local address is INADDR_ANY]
+>   - connect() : set remote address and port, change local address to =
+IP
+>                given by a route lookup.
 >
-> 170M * 8 ->  memory overflow
+> When an incoming UDP frame comes, if more than 10 sockets are found i=
+n
+> primary hash table, we switch to secondary table, and fail to find
+> socket because its local address changed.
 >
-> Also /proc/sys/vm/min_free_kbytes  limit is probably too small.
+> One solution to this problem is to rehash datagram socket if needed.
 >
-> Really, using a 32bit kernel on this machine is not wise.
+> We add a new rehash(struct socket *) method in "struct proto", and
+> implement this method for UDP v4&  v6, using a common helper.
 >
-> Even reducing physical ram to 4GB would be better, you would get more
-> Lowmem memory ;)
+> This rehashing only takes care of secondary hash table, since primary
+> hash (based on local port only) is not changed.
 >
-> Since vmalloc is not used very much on your machine you can reduce
-> vmalloc window from 128M to 32M to save 96MB of low mem
-> (boot parameter : vmalloc=3D32M )
+> Reported-by: Krzysztof Piotr Oledzki <ole@ans.pl>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-It is also possible to build a kernel using 2G/2G MEM SPLIT or even=20
-1G/3G if there is small userspace activity. But indeed, x86-64 is the=20
-proper solution to choose.
+Thanks, I'll test this patch this evening.
+
 
 Best regards,
 
