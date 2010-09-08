@@ -1,74 +1,52 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: [PATCH v2] udp: add rehash on connect()
-Date: Wed, 08 Sep 2010 18:52:10 +0200
-Message-ID: <4C87BF3A.5070004@ans.pl>
-References: <1283895316.2634.248.camel@edumazet-laptop>	 <4C86F653.6070707@hp.com> <1283921857.2634.747.camel@edumazet-laptop>	 <20100907.223654.70187707.davem@davemloft.net>	 <1283925171.2634.838.camel@edumazet-laptop>	 <1283940646.2880.36.camel@edumazet-laptop> <1283958524.2748.82.camel@edumazet-laptop>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Kernel Panic on OOM with 10 HTB rules
+Date: Wed, 08 Sep 2010 19:25:36 +0200
+Message-ID: <4C87C710.8080804@gmail.com>
+References: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com>	 <1283949778.2748.5.camel@edumazet-laptop>	 <AANLkTimDW-tuTJagnpkFq3TX4t+c_-9UUyG8z-bwPuJ1@mail.gmail.com> <1283957137.2748.71.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, brian.haley@hp.com,
-	netdev@vger.kernel.org
+Cc: Anand Raj Manickam <anandrm@gmail.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, shemminger@vyatta.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:54061 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751405Ab0IHQwU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 12:52:20 -0400
-In-Reply-To: <1283958524.2748.82.camel@edumazet-laptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:46393 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751339Ab0IHRZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 13:25:43 -0400
+In-Reply-To: <1283957137.2748.71.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-09-08 17:08, Eric Dumazet wrote:
-> Hmm... We should lock primary hash table too in udp_lib_rehash(), to
-> prevent another thread to insert another socket on same tuple (local
-> addr, local port) while doing our move.
->
-> Thanks
->
-> [PATCH v2] udp: add rehash on connect()
->
-> commit 30fff923 introduced in linux-2.6.33 (udp: bind() optimisation)
-> added a secondary hash on UDP, hashed on (local addr, local port).
->
-> Problem is that following sequence :
->
-> fd =3D socket(...)
-> connect(fd,&remote, ...)
->
-> not only selects remote end point (address and port), but also sets
-> local address, while UDP stack stored in secondary hash table the soc=
-ket
-> while its local address was INADDR_ANY (or ipv6 equivalent)
->
-> Sequence is :
->   - autobind() : choose a random local port, insert socket in hash ta=
-bles
->                [while local address is INADDR_ANY]
->   - connect() : set remote address and port, change local address to =
-IP
->                given by a route lookup.
->
-> When an incoming UDP frame comes, if more than 10 sockets are found i=
-n
-> primary hash table, we switch to secondary table, and fail to find
-> socket because its local address changed.
->
-> One solution to this problem is to rehash datagram socket if needed.
->
-> We add a new rehash(struct socket *) method in "struct proto", and
-> implement this method for UDP v4&  v6, using a common helper.
->
-> This rehashing only takes care of secondary hash table, since primary
-> hash (based on local port only) is not changed.
->
-> Reported-by: Krzysztof Piotr Oledzki <ole@ans.pl>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Eric Dumazet wrote, On 09/08/2010 04:45 PM:
 
-Works like a charm, thank you.
+> Le mercredi 08 septembre 2010 =C3=A0 19:39 +0530, Anand Raj Manickam =
+a
+> =C3=A9crit :
+>>
+>> imq0      Link encap:UNSPEC  HWaddr
+>> 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+>>           UP RUNNING NOARP  MTU:16000  Metric:1
+>>           RX packets:129112 errors:0 dropped:0 overruns:0 frame:0
+>>           TX packets:129114 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:11000
+>>           RX bytes:31060964 (29.6 MiB)  TX bytes:31062207 (29.6 MiB)
+>>
+> If you cannot switch to 64bit kernel, then you are forced to use lowe=
+r
+> queue lengths (I see your imq devices use insane 11000 txqueuelen)
+>=20
+> Each frame use 4K, maybe 16K, it depends on MTU.
+>=20
+> even if we dont take into account other needs :
+> 11000 * 16K =3D 170 Mbytes per imqX
+> 1000 * 4K =3D 4Mbytes per ethX
+>=20
+> 170M * 8 -> memory overflow
+>=20
 
-Tested-by: Krzysztof Piotr Oledzki <ole@ans.pl>
+You should consider that htb creates by default one queue per class
+with txqueuelen limit each. This should probably explain why your
+problems start when you classify to many classes.
 
-Best regards,
-
-			Krzysztof Ol=C4=99dzki
+Jarek P.
