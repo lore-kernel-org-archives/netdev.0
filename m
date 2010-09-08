@@ -1,43 +1,37 @@
-From: "Luis R. Rodriguez" <lrodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 6/8] drivers/net/wireless/ath/ath9k: use ARRAY_SIZE
- macro in ani.c
-Date: Wed, 8 Sep 2010 14:31:28 -0700
-Message-ID: <20100908213128.GD1783@tux>
-References: <1283979457-4649-1-git-send-email-nikitasangelinas@gmail.com>
- <1283981142-5062-1-git-send-email-nikitasangelinas@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] net: blackhole route should always be recalculated
+Date: Wed, 08 Sep 2010 14:36:55 -0700 (PDT)
+Message-ID: <20100908.143655.68120451.davem@davemloft.net>
+References: <4C77DE1C.4080506@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Luis Rodriguez <Luis.Rodriguez-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>,
-	Jouni Malinen <Jouni.Malinen-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>,
-	Vasanth Thiagarajan <Vasanth.Thiagarajan-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>,
-	Senthilkumar Balasubramanian
-	<Senthilkumar.Balasubramanian-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Sujith Manoharan <Sujith.Manoharan-R2DSYHpuZhhBDgjK7y7TUQ@public.gmane.org>,
-	"nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org" <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org" <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Nikitas Angelinas <nikitasangelinas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1283981142-5062-1-git-send-email-nikitasangelinas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48187
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755694Ab0IHVgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 17:36:38 -0400
+In-Reply-To: <4C77DE1C.4080506@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 08, 2010 at 02:25:42PM -0700, Nikitas Angelinas wrote:
-> Replace (sizeof(ofdm_level_table)/sizeof(ofdm_level_table[0]) with
-> ARRAY_SIZE(ofdm_level_table), and (sizeof(cck_level_table)/
-> sizeof(cck_level_table[0]) with ARRAY_SIZE(cck_level_table) in
-> drivers/net/wireless/ath/ath9k/ani.c
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 27 Aug 2010 17:47:40 +0200
+
+>>From 1683b838a42429af30d6ab76d2d15d267c93c455 Mon Sep 17 00:00:00 2001
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Fri, 27 Aug 2010 17:22:17 +0200
+> Subject: [PATCH] net: blackhole route should always be recalculated
 > 
-> Signed-off-by: Nikitas Angelinas <nikitasangelinas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Blackhole routes are used when xfrm_lookup() returns -EREMOTE (error
+> triggered by IKE for example), hence this kind of route is always
+> temporary and so we should check if a better route exists for next
+> packets.
+> Bug has been introduced by commit d11a4dc18bf41719c9f0d7ed494d295dd2973b92.
+> 
+> Signed-off-by: Jianzhao Wang <jianzhao.wang@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Sure.
-
-  Luis
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks!
