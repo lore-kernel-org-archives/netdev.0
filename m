@@ -1,44 +1,112 @@
-From: Anand Raj Manickam <anandrm@gmail.com>
-Subject: Kernel Panic on OOM with 10 HTB rules
-Date: Wed, 8 Sep 2010 16:22:28 +0530
-Message-ID: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Wed, 8 Sep 2010 13:48:33 +0300
+Message-ID: <20100908104833.GJ23051@redhat.com>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com>
+ <20100908081011.GC23051@redhat.com>
+ <OFB2808A12.59A863DC-ON65257798.002E987B-65257798.0033564B@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	shemminger@vyatta.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au, rick.jones2@hp.com
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <OFB2808A12.59A863DC-ON65257798.002E987B-65257798.0033564B@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Sep 08, 2010 at 02:53:03PM +0530, Krishna Kumar2 wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 09/08/2010 01:40:11 PM:
+> 
+> >
+> _______________________________________________________________________________
+> 
+> > >                            TCP (#numtxqs=2)
+> > > N#      BW1     BW2    (%)      SD1     SD2    (%)      RSD1    RSD2
+> (%)
+> > >
+> >
+> _______________________________________________________________________________
+> 
+> > > 4       26387   40716 (54.30)   20      28   (40.00)    86i     85
+> (-1.16)
+> > > 8       24356   41843 (71.79)   88      129  (46.59)    372     362
+> (-2.68)
+> > > 16      23587   40546 (71.89)   375     564  (50.40)    1558    1519
+> (-2.50)
+> > > 32      22927   39490 (72.24)   1617    2171 (34.26)    6694    5722
+> (-14.52)
+> > > 48      23067   39238 (70.10)   3931    5170 (31.51)    15823   13552
+> (-14.35)
+> > > 64      22927   38750 (69.01)   7142    9914 (38.81)    28972   26173
+> (-9.66)
+> > > 96      22568   38520 (70.68)   16258   27844 (71.26)   65944   73031
+> (10.74)
+> >
+> > That's a significant hit in TCP SD. Is it caused by the imbalance between
+> > number of queues for TX and RX? Since you mention RX is complete,
+> > maybe measure with a balanced TX/RX?
+> 
+> Yes, I am not sure why it is so high.
 
-I m struck with
-Kernel Panic - Out of Memory Issue  when  traffic  is more than 100k
-pps  and have  around 10 tc rules.
+Any errors at higher levels? Are any packets reordered?
 
-There is NO kernel panic with 1 tc rule .
-
-I using a 2.6.34.6 ( latest stable kernel) with SMP enabled
-
-The rules are simple -
-10 iptable rules :
-iptables -t mangle -I FORWARD -s x.x.x.x  -j CLASSIFY --set-class 0xz:0xy
-
-10 tc rules :
-tc  class add dev imq0 parent 1:z classid 1:y htb rate 2kbit ceil 32768kbps
-
-I m using  Intel Xeon Quad core x5570, 12GB RAM , with 8 e1000e , irq
-affined ( 1 pair per core)
-
-There is NO issue / CRASH with multiple iptable rules marking to the
-same tc rule/HTB class , i can sucessfully pass more than 200k pps /
-800Mbps traffic .
-
-But when each iptable rule is marking to seprate tc rule/HTB class and
-when the traffic exceeds 100K pps / 20000 connections per second , we
-hit this Out of Memory - Kernel panic condition .
-Any help is appreciated . Do let me know if any more further
-information is need.
-
-Thanks,
-Anand
+> I found the same with #RX=#TX
+> too. As a hack, I tried ixgbe without MQ (set "indices=1" before
+> calling alloc_etherdev_mq, not sure if that is entirely correct) -
+> here too SD worsened by around 40%. I can't explain it, since the
+> virtio-net driver runs lock free once sch_direct_xmit gets
+> HARD_TX_LOCK for the specific txq. Maybe the SD calculation is not strictly
+> correct since
+> more threads are now running parallel and load is higher? Eg, if you
+> compare SD between
+> #netperfs = 8 vs 16 for original code (cut-n-paste relevant columns
+> only) ...
+> 
+> N#         BW        SD
+> 8           24356   88
+> 16         23587   375
+> 
+> ... SD has increased more than 4 times for the same BW.
+> 
+> > What happens with a single netperf?
+> > host -> guest performance with TCP and small packet speed
+> > are also worth measuring.
+> 
+> OK, I will do this and send the results later today.
+> 
+> > At some level, host/guest communication is easy in that we don't really
+> > care which queue is used.  I would like to give some thought (and
+> > testing) to how is this going to work with a real NIC card and packet
+> > steering at the backend.
+> > Any idea?
+> 
+> I have done a little testing with guest -> remote server both
+> using a bridge and with macvtap (mq is required only for rx).
+> I didn't understand what you mean by packet steering though,
+> is it whether packets go out of the NIC on different queues?
+> If so, I verified that is the case by putting a counter and
+> displaying through /debug interface on the host. dev_queue_xmit
+> on the host handles it by calling dev_pick_tx().
+> 
+> > > Guest interrupts for a 4 TXQ device after a 5 min test:
+> > > # egrep "virtio0|CPU" /proc/interrupts
+> > >       CPU0     CPU1     CPU2    CPU3
+> > > 40:   0        0        0       0        PCI-MSI-edge  virtio0-config
+> > > 41:   126955   126912   126505  126940   PCI-MSI-edge  virtio0-input
+> > > 42:   108583   107787   107853  107716   PCI-MSI-edge  virtio0-output.0
+> > > 43:   300278   297653   299378  300554   PCI-MSI-edge  virtio0-output.1
+> > > 44:   372607   374884   371092  372011   PCI-MSI-edge  virtio0-output.2
+> > > 45:   162042   162261   163623  162923   PCI-MSI-edge  virtio0-output.3
+> >
+> > Does this mean each interrupt is constantly bouncing between CPUs?
+> 
+> Yes. I didn't do *any* tuning for the tests. The only "tuning"
+> was to use 64K IO size with netperf. When I ran default netperf
+> (16K), I got a little lesser improvement in BW and worse(!) SD
+> than with 64K.
+> 
+> Thanks,
+> 
+> - KK
