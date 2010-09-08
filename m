@@ -1,35 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Suppress lockdep-RCU false positive in FIB trie
- (3)
-Date: Wed, 08 Sep 2010 14:14:47 -0700 (PDT)
-Message-ID: <20100908.141447.200359390.davem@davemloft.net>
-References: <20100907175117.GA1993@del.dom.local>
+Subject: Re: [PATCH net-next-2.6] net: introduce rcu_dereference_rtnl
+Date: Wed, 08 Sep 2010 14:15:47 -0700 (PDT)
+Message-ID: <20100908.141547.212676559.davem@davemloft.net>
+References: <1283893657.2634.210.camel@edumazet-laptop>
+	<1283970567.2237.0.camel@achroite.uk.solarflarecom.com>
+	<1283971469.2428.9.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, eric.dumazet@gmail.com,
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bhutchings@solarflare.com, jarkao2@gmail.com,
 	netdev@vger.kernel.org
-To: jarkao2@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50501
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50505
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754787Ab0IHVOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 17:14:30 -0400
-In-Reply-To: <20100907175117.GA1993@del.dom.local>
+	by vger.kernel.org with ESMTP id S1754142Ab0IHVP3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Sep 2010 17:15:29 -0400
+In-Reply-To: <1283971469.2428.9.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 7 Sep 2010 19:51:17 +0200
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 08 Sep 2010 20:44:29 +0200
 
-> Here is one more of these warnings and a patch below:
- ...
-> Allow trie_firstleaf() to be called either under rcu_read_lock()
-> protection or with RTNL held. The same annotation is added to
-> node_parent_rcu() to prevent a similar warning a bit later.
-> 
-> Followup of commits 634a4b20 and 4eaa0e3c.
-> 
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Le mercredi 08 septembre 2010 =E0 19:29 +0100, Ben Hutchings a =E9cri=
+t :
+>=20
+>> No semicolon on the end, please.  The 'caller' will add that.
+>=20
+> Oh definitely, thanks !
+>=20
+> [PATCH net-next-2.6] net: introduce rcu_dereference_rtnl
+>=20
+> We use rcu_dereference_check(p, rcu_read_lock_held() ||
+> lockdep_rtnl_is_held()) several times in network stack.
+>=20
+> More usages to come too, so its time to create a helper.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks Jarek.
+Applied, thanks Eric.
