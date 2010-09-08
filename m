@@ -1,68 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] inet: dont set inet_rcv_saddr in connect()
-Date: Wed, 08 Sep 2010 06:57:37 +0200
-Message-ID: <1283921857.2634.747.camel@edumazet-laptop>
-References: <4C865C21.5010803@ans.pl>
-	 <1283877391.2313.62.camel@edumazet-laptop>
-	 <1283887569.2634.95.camel@edumazet-laptop>
-	 <20100907.125947.39192078.davem@davemloft.net>
-	 <1283895316.2634.248.camel@edumazet-laptop>  <4C86F653.6070707@hp.com>
+Subject: Re: [PATCH] netlink: Fix kfree NULL pointer
+Date: Wed, 08 Sep 2010 07:19:45 +0200
+Message-ID: <1283923185.2634.772.camel@edumazet-laptop>
+References: <AANLkTikp0m8cQYfEBHP_E8XpGZqdMj6Cr4M=aWCnei=X@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, ole@ans.pl,
-	netdev@vger.kernel.org
-To: Brian Haley <brian.haley@hp.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes.berg@intel.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexey Dobriyan <adobriyan@openvz.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jovi zhang <bookjovi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:64352 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:38471 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499Ab0IHE5n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 00:57:43 -0400
-Received: by fxm16 with SMTP id 16so504674fxm.19
-        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 21:57:42 -0700 (PDT)
-In-Reply-To: <4C86F653.6070707@hp.com>
+	with ESMTP id S1751122Ab0IHFTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 01:19:51 -0400
+In-Reply-To: <AANLkTikp0m8cQYfEBHP_E8XpGZqdMj6Cr4M=aWCnei=X@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 07 septembre 2010 =C3=A0 22:34 -0400, Brian Haley a =C3=A9crit=
- :
-
-> Is this really the right thing to do?  Linux has been doing this fore=
-ver,
-> right?  Just like BSD has done it forever.  The way I've always "clea=
-red"
-> a local address is to set the address family to AF_UNSPEC on the next
-> connect() call, as mentioned on the man page.  I just want to make su=
-re
-> we're not changing something just to work around a broken application=
-,
-> sendto()/sendmsg() work perfect in this case by not setting the local=
- address.
+Le mercredi 08 septembre 2010 =C3=A0 13:13 +0800, jovi zhang a =C3=A9cr=
+it :
+> It will kfree NULL pointer if listeners is NULL. fix it.
 >=20
-> BTW, it seems as though the reason this might only happen sometimes i=
-s
-> that if the first connect() is to 127.0.0.1, you won't be able to the=
-n
-> try and connect to say, 192.168.1.1.  If you first connect() to a rem=
-ote
-> address things will probably just work.
+> Signed-off-by: bookjovi@gmail.com
+> net/netlink/af_netlink.c |    5 +++--
+> 1 files changed, 3 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 980fe4a..1c7bf48 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -1532,8 +1532,10 @@ netlink_kernel_create(struct net *net, int
+> unit, unsigned int groups,
+>        if (input)
+>                nlk_sk(sk)->netlink_rcv =3D input;
+>=20
+> -       if (netlink_insert(sk, net, 0))
+> +       if (netlink_insert(sk, net, 0)) {
+> +               kfree(listeners);
+>                goto out_sock_release;
+> +       }
+>=20
+>        nlk =3D nlk_sk(sk);
+>        nlk->flags |=3D NETLINK_KERNEL_SOCKET;
+> @@ -1553,7 +1555,6 @@ netlink_kernel_create(struct net *net, int unit=
+,
+> unsigned int groups,
+>        return sk;
+>=20
+> out_sock_release:
+> -       kfree(listeners);
+>        netlink_kernel_release(sk);
+>        return NULL;
 
 
-I believe we have the following choice :
+This patch is not needed
 
-1) connect(AF_UNIX) sets the remote address/port
-   bind() sets the local port (and optionally address)
-   connect(AF_UNSPEC) clears remote addess/port,
-                      let local address/port unchanged
-
-2) Correct UDP hashing, when local address changes from 0 to x.y.z.t
-   (cost : two locks taken), and a possible packet drop during the
-operation.
-
-   Document that connect() also sets local address, and that before
-doing a second connect() to change remote address, its mandatory to
-first issue a connect(AF_UNSPEC) to clear local address (if not locked
-by a prior bind() call)
+kfree(NULL) is legal
 
 
 
