@@ -1,71 +1,65 @@
-From: Avi Kivity <avi@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 08 Sep 2010 10:47:34 +0300
-Message-ID: <4C873F96.5020203@redhat.com>
+Date: Wed, 8 Sep 2010 11:10:11 +0300
+Message-ID: <20100908081011.GC23051@redhat.com>
 References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: rusty@rustcorp.com.au, davem@davemloft.net, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, anthony@codemonkey.ws, mst@redhat.com
+	kvm@vger.kernel.org, anthony@codemonkey.ws
 To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6381 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:12147 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756349Ab0IHHrt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 03:47:49 -0400
+	id S1758390Ab0IHIQV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Sep 2010 04:16:21 -0400
+Content-Disposition: inline
 In-Reply-To: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  On 09/08/2010 10:28 AM, Krishna Kumar wrote:
+On Wed, Sep 08, 2010 at 12:58:59PM +0530, Krishna Kumar wrote:
 > Following patches implement Transmit mq in virtio-net.  Also
 > included is the user qemu changes.
->
+> 
 > 1. This feature was first implemented with a single vhost.
->     Testing showed 3-8% performance gain for upto 8 netperf
->     sessions (and sometimes 16), but BW dropped with more
->     sessions.  However, implementing per-txq vhost improved
->     BW significantly all the way to 128 sessions.
-
-Why were vhost kernel changes required?  Can't you just instantiate more 
-vhost queues?
-
+>    Testing showed 3-8% performance gain for upto 8 netperf
+>    sessions (and sometimes 16), but BW dropped with more
+>    sessions.  However, implementing per-txq vhost improved
+>    BW significantly all the way to 128 sessions.
 > 2. For this mq TX patch, 1 daemon is created for RX and 'n'
->     daemons for the 'n' TXQ's, for a total of (n+1) daemons.
->     The (subsequent) RX mq patch changes that to a total of
->     'n' daemons, where RX and TX vq's share 1 daemon.
+>    daemons for the 'n' TXQ's, for a total of (n+1) daemons.
+>    The (subsequent) RX mq patch changes that to a total of
+>    'n' daemons, where RX and TX vq's share 1 daemon.
 > 3. Service Demand increases for TCP, but significantly
->     improves for UDP.
+>    improves for UDP.
 > 4. Interoperability: Many combinations, but not all, of
->     qemu, host, guest tested together.
-
-Please update the virtio-pci spec @ http://ozlabs.org/~rusty/virtio-spec/.
-
->
->                    Enabling mq on virtio:
->                    -----------------------
->
+>    qemu, host, guest tested together.
+> 
+> 
+>                   Enabling mq on virtio:
+>                   -----------------------
+> 
 > When following options are passed to qemu:
->          - smp>  1
->          - vhost=on
->          - mq=on (new option, default:off)
+>         - smp > 1
+>         - vhost=on
+>         - mq=on (new option, default:off)
 > then #txqueues = #cpus.  The #txqueues can be changed by using
 > an optional 'numtxqs' option. e.g.  for a smp=4 guest:
->          vhost=on,mq=on             ->    #txqueues = 4
->          vhost=on,mq=on,numtxqs=8   ->    #txqueues = 8
->          vhost=on,mq=on,numtxqs=2   ->    #txqueues = 2
->
->
->                     Performance (guest ->  local host):
->                     -----------------------------------
->
+>         vhost=on,mq=on             ->   #txqueues = 4
+>         vhost=on,mq=on,numtxqs=8   ->   #txqueues = 8
+>         vhost=on,mq=on,numtxqs=2   ->   #txqueues = 2
+> 
+> 
+>                    Performance (guest -> local host):
+>                    -----------------------------------
+> 
 > System configuration:
->          Host:  8 Intel Xeon, 8 GB memory
->          Guest: 4 cpus, 2 GB memory
+>         Host:  8 Intel Xeon, 8 GB memory
+>         Guest: 4 cpus, 2 GB memory
 > All testing without any tuning, and TCP netperf with 64K I/O
 > _______________________________________________________________________________
->                             TCP (#numtxqs=2)
+>                            TCP (#numtxqs=2)
 > N#      BW1     BW2    (%)      SD1     SD2    (%)      RSD1    RSD2    (%)
 > _______________________________________________________________________________
 > 4       26387   40716 (54.30)   20      28   (40.00)    86i     85     (-1.16)
@@ -75,8 +69,14 @@ Please update the virtio-pci spec @ http://ozlabs.org/~rusty/virtio-spec/.
 > 48      23067   39238 (70.10)   3931    5170 (31.51)    15823   13552  (-14.35)
 > 64      22927   38750 (69.01)   7142    9914 (38.81)    28972   26173  (-9.66)
 > 96      22568   38520 (70.68)   16258   27844 (71.26)   65944   73031  (10.74)
+
+That's a significant hit in TCP SD. Is it caused by the imbalance between
+number of queues for TX and RX? Since you mention RX is complete,
+maybe measure with a balanced TX/RX?
+
+
 > _______________________________________________________________________________
->                         UDP (#numtxqs=8)
+>                        UDP (#numtxqs=8)
 > N#      BW1     BW2   (%)      SD1     SD2   (%)
 > __________________________________________________________
 > 4       29836   56761 (90.24)   67      63    (-5.97)
@@ -86,34 +86,43 @@ Please update the virtio-pci spec @ http://ozlabs.org/~rusty/virtio-spec/.
 > 48      26146   64629 (147.18)  12813   9316  (-27.29)
 > 64      25575   65448 (155.90)  23063   16346 (-29.12)
 > 128     26454   63772 (141.06)  91054   85051 (-6.59)
-
-Impressive results.
-
 > __________________________________________________________
 > N#: Number of netperf sessions, 90 sec runs
 > BW1,SD1,RSD1: Bandwidth (sum across 2 runs in mbps), SD and Remote
->                SD for original code
+>               SD for original code
 > BW2,SD2,RSD2: Bandwidth (sum across 2 runs in mbps), SD and Remote
->                SD for new code. e.g. BW2=40716 means average BW2 was
->                20358 mbps.
->
->
->                         Next steps:
->                         -----------
->
+>               SD for new code. e.g. BW2=40716 means average BW2 was
+>               20358 mbps.
+> 
+
+What happens with a single netperf?
+host -> guest performance with TCP and small packet speed
+are also worth measuring.
+
+
+>                        Next steps:
+>                        -----------
+> 
 > 1. mq RX patch is also complete - plan to submit once TX is OK.
 > 2. Cache-align data structures: I didn't see any BW/SD improvement
->     after making the sq's (and similarly for vhost) cache-aligned
->     statically:
->          struct virtnet_info {
->                  ...
->                  struct send_queue sq[16] ____cacheline_aligned_in_smp;
->                  ...
->          };
->
+>    after making the sq's (and similarly for vhost) cache-aligned
+>    statically:
+>         struct virtnet_info {
+>                 ...
+>                 struct send_queue sq[16] ____cacheline_aligned_in_smp;
+>                 ...
+>         };
+> 
+
+At some level, host/guest communication is easy in that we don't really
+care which queue is used.  I would like to give some thought (and
+testing) to how is this going to work with a real NIC card and packet
+steering at the backend.
+Any idea?
+
 > Guest interrupts for a 4 TXQ device after a 5 min test:
-> # egrep "virtio0|CPU" /proc/interrupts
->        CPU0     CPU1     CPU2    CPU3
+> # egrep "virtio0|CPU" /proc/interrupts 
+>       CPU0     CPU1     CPU2    CPU3       
 > 40:   0        0        0       0        PCI-MSI-edge  virtio0-config
 > 41:   126955   126912   126505  126940   PCI-MSI-edge  virtio0-input
 > 42:   108583   107787   107853  107716   PCI-MSI-edge  virtio0-output.0
@@ -121,15 +130,9 @@ Impressive results.
 > 44:   372607   374884   371092  372011   PCI-MSI-edge  virtio0-output.2
 > 45:   162042   162261   163623  162923   PCI-MSI-edge  virtio0-output.3
 
-How are vhost threads and host interrupts distributed?  We need to move 
-vhost queue threads to be colocated with the related vcpu threads (if no 
-extra cores are available) or on the same socket (if extra cores are 
-available).  Similarly, move device interrupts to the same core as the 
-vhost thread.
+Does this mean each interrupt is constantly bouncing between CPUs?
 
-
-
--- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
-
+> Review/feedback appreciated.
+> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> ---
