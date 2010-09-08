@@ -1,33 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] inet: dont set inet_rcv_saddr in connect()
-Date: Wed, 08 Sep 2010 06:13:28 +0200
-Message-ID: <1283919208.2634.664.camel@edumazet-laptop>
-References: <20100907.125947.39192078.davem@davemloft.net>
-	 <1283895316.2634.248.camel@edumazet-laptop> <4C86B402.5000205@ans.pl>
-	 <20100907.191606.102548977.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ole@ans.pl, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Mitchell Erblich <erblichs@earthlink.net>
+Subject: Re: r8169 not workin on resume due allocation failure
+Date: Tue, 7 Sep 2010 21:11:28 -0700
+Message-ID: <E4FE5659-F160-424C-92E7-4F7D3972E50C@earthlink.net>
+References: <loom.20100908T054044-695@post.gmane.org>
+Mime-Version: 1.0 (Apple Message framework v1081)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Holger Freyther <zecke@selfish.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:61236 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab0IHENe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 00:13:34 -0400
-Received: by fxm16 with SMTP id 16so494196fxm.19
-        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 21:13:32 -0700 (PDT)
-In-Reply-To: <20100907.191606.102548977.davem@davemloft.net>
+Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:59004 "EHLO
+	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750901Ab0IHERS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 00:17:18 -0400
+In-Reply-To: <loom.20100908T054044-695@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 07 septembre 2010 =C3=A0 19:16 -0700, David Miller a =C3=A9cri=
-t :
+Holger, et al,
 
-> Eric, ipv6 has the same problem so I fixed it there too.
->=20
-> Here is the final patch I put into net-2.6, thanks!
+Actually wouldn't it make sense if a system type fix is done?
 
-Thanks David for taking care of ipv6 too :)
+I would add a delay if not already done and check to see
+ if some dirty pages could be cleaned, then freed.
 
+The assumption is then those pages would be minor faulted
+back in and prefetched.
+
+Another approach is to make sure that pages are cleaned on
+a more frequent basis independent on the number of free
+pages (free pages may not be continuous) that wants to make 
+sure higher order allocs are allocatable over time.
+
+Mitchell Erblich
+
+On Sep 7, 2010, at 8:44 PM, Holger Freyther wrote:
+
+> Hi all,
+> 
+> I'm using the r8169 module on my notebook and after a couple of days
+> of running with suspend/resume the networking stops working. I have
+> the dmesg output at the end of the email. From my understanding this
+> is due that on suspend the interface will be brought down, the rx buffers
+> are freed and that on resume it is not possible to allocate a continous
+> buffer for the sizes required.
+> 
+> My approach to handle this would be to add an option to not free the
+> buffers until the module is unloaded and guard this with an option. Is
+> that an acceptable solution?
+> 
+> 
+> NetworkManager: page allocation failure. order:3, mode:0x4020
+> Pid: 1291, comm: NetworkManager \n
+> Not tainted 2.6.35.4-12.fc14.i686.PAE #1
+> Call Trace:
+> [<c07e2197>] ? printk+0x25/0x2e
+> [<c04c1af6>] __alloc_pages_nodemask+0x5bc/0x62f
+> [<c04c1b83>] __get_free_pages+0x1a/0x2c
+> [<c04e7bd6>] __kmalloc_track_caller+0x32/0x144
+> [<c07465fb>] ? __netdev_alloc_skb+0x1b/0x36
+> [<c07464fd>] __alloc_skb+0x59/0x100
+> [<c07465fb>] __netdev_alloc_skb+0x1b/0x36
+> [<f9796a8f>] rtl8169_rx_fill+0x99/0x132 [r8169]
+> [<f9797913>] rtl8169_init_ring+0x66/0x96 [r8169]
+> [<f9797e98>] rtl8169_open+0x7f/0x1d7 [r8169]
+> [<c0750b04>] __dev_open+0x79/0xaa
+> [<c0750cf9>] __dev_change_flags+0x98/0x10d
+> [<c0750dde>] dev_change_flags+0x18/0x44
+> [<c075976f>] do_setlink+0x253/0x52e
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
