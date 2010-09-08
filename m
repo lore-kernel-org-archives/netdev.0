@@ -1,52 +1,62 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] inet: dont set inet_rcv_saddr in connect()
-Date: Tue, 07 Sep 2010 22:51:46 -0700 (PDT)
-Message-ID: <20100907.225146.232739797.davem@davemloft.net>
-References: <4C86F653.6070707@hp.com>
-	<20100907.203410.245386536.davem@davemloft.net>
-	<1283920965.2634.723.camel@edumazet-laptop>
+Date: Wed, 08 Sep 2010 07:52:51 +0200
+Message-ID: <1283925171.2634.838.camel@edumazet-laptop>
+References: <1283895316.2634.248.camel@edumazet-laptop>
+	 <4C86F653.6070707@hp.com> <1283921857.2634.747.camel@edumazet-laptop>
+	 <20100907.223654.70187707.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: brian.haley@hp.com, ole@ans.pl, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46572
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751228Ab0IHFv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 01:51:28 -0400
-In-Reply-To: <1283920965.2634.723.camel@edumazet-laptop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:35987 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570Ab0IHFw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 01:52:57 -0400
+Received: by fxm16 with SMTP id 16so517372fxm.19
+        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 22:52:56 -0700 (PDT)
+In-Reply-To: <20100907.223654.70187707.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 08 Sep 2010 06:42:45 +0200
+Le mardi 07 septembre 2010 =C3=A0 22:36 -0700, David Miller a =C3=A9cri=
+t :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 08 Sep 2010 06:57:37 +0200
+>=20
+> >    Document that connect() also sets local address, and that before
+> > doing a second connect() to change remote address, its mandatory to
+> > first issue a connect(AF_UNSPEC) to clear local address (if not loc=
+ked
+> > by a prior bind() call)
+>=20
+> For connectionless sockets, the application may connect() as many
+> times as it wishes to change the remote address.  The local address
+> remains set if it were set before such a re-associating connect().
+>=20
+> It need only issue a connect(AF_UNSPEC) to make the socket have no
+> remote association, and as you state this operation will also wipe ou=
+t
+> any local address settings not created by a bind() call.
+>=20
+> And nicely our man pages are very clear about this :-) as is BSD and
+> Steven's volume 2.
+>=20
+> This has been legal for decades, so we have to keep working this way.
 
-> Problem is AF_UNSPEC always clears the remote address (as stated in
-> manual), and sometimes local one (as not stated)
-> 
-> if (!(sk->sk_userlocks & SOCK_BINDADDR_LOCK))
-> 	inet_reset_saddr(sk);
-> 
-> This is the workaround that was coded years ago in Linux to undo the
-> local addr setting ;)
+Yes, its also buggy, if 2nd remote address is not reachable on same int=
+erface.
+Even if we try a connect(AF_UNSPEC), the local address stay as is :
 
-Ok, I mis-remembered about AF_UNSPEC, I thought BSD did it too, it
-does not.
+after bind(port 5555) local addr=3D0x0:5555=20
+after connect(123) local addr=3D0x7f000001:5555 remote addr=3D0x7f00000=
+1:123=20
+Could not connect, errno=3D22
+after connect(AF_UNSPEC) local addr=3D0x7f000001:5555=20
+connect: Invalid argument
 
-But we really offer the most flexibility here because we offer this.
+I'll work on UDP fix anyway.
 
-In BSD case, connect() on an already connect()'d UDP socket
-unconditionally zaps the local address setting (because, as Stevens
-states, that local address "might" have been created by a previous
-connect()).
 
-This forces the application to re-bind() the local address if it wants
-to use something other than what connect() is going to choose.
-
-We leave the local settings alone for normal connect() on already
-connect()'d sockets, and provide connect(AF_UNSPEC) to explicitly kill
-connect() created local and remote associations.
-
-This allows bind() settings to survive through multiple connect()
-calls if the user wants, a facility BSD does not provide.
