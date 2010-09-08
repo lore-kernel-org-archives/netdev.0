@@ -1,110 +1,58 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [patch] sctp: fix test for end of loop
-Date: Wed, 08 Sep 2010 16:34:46 -0400
-Message-ID: <4C87F366.3070002@hp.com>
-References: <20100906122344.GA2764@bicker> <20100908.132420.179918700.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
+Date: Wed, 08 Sep 2010 13:36:27 -0700 (PDT)
+Message-ID: <20100908.133627.70178420.davem@davemloft.net>
+References: <4C81019E.1010808@dsn.okisemi.com>
+	<4C85A6AD.9080301@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: error27@gmail.com, sri@us.ibm.com, yjwei@cn.fujitsu.com,
-	cascardo@holoscopio.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:43055 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754979Ab0IHUex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 16:34:53 -0400
-In-Reply-To: <20100908.132420.179918700.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: randy.dunlap@oracle.com, ralf@linux-mips.org,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	meego-dev@meego.com, mbizon@freebox.fr,
+	linux-kernel@vger.kernel.org, kristoffer@gaisler.com,
+	john.linn@xilinx.com, joe@perches.com, gregory.v.rose@intel.com,
+	yong.y.wang@intel.com, qi.wang@intel.com, okada533@dsn.okisemi.com,
+	morinaga526@dsn.okisemi.com, shimizu394@dsn.okisemi.com,
+	joel.clark@intel.com, margie.foster@intel.com,
+	andrew.chih.howe.khor@intel.com
+To: masa-korg@dsn.okisemi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C85A6AD.9080301@dsn.okisemi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/08/2010 04:24 PM, David Miller wrote:
-> From: Dan Carpenter <error27@gmail.com>
-> Date: Mon, 6 Sep 2010 14:26:39 +0200
-> 
->> "new_addr" is the list cursor here and it's always non-NULL.
->>
->> We're trying to test if we exited because the loop ended or we hit the
->> break statement.  Really testing !found is enough so long as 
->> "new_asoc->peer.transport_addr_list" is not empty and I believe it never
->> is empty at this point.  So this is never really a bug with the current
->> code.
->>
->> Signed-off-by: Dan Carpenter <error27@gmail.com>
-> 
-> If you don't mind, I still think the code is confusing after your
-> patch even if the result is correct.
-> 
-> What do you think about the following kind of approach instead?
-> 
-> Thanks!
-> 
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index 8b28443..3d5bbae7 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -1241,7 +1241,7 @@ static int sctp_sf_check_restart_addrs(const struct sctp_association *new_asoc,
->  				       sctp_cmd_seq_t *commands)
->  {
->  	struct sctp_transport *new_addr, *addr;
-> -	int found;
-> +	int ret = 1;
->  
->  	/* Implementor's Guide - Sectin 5.2.2
->  	 * ...
-> @@ -1254,31 +1254,28 @@ static int sctp_sf_check_restart_addrs(const struct sctp_association *new_asoc,
->  	/* Search through all current addresses and make sure
->  	 * we aren't adding any new ones.
->  	 */
-> -	new_addr = NULL;
-> -	found = 0;
-> -
->  	list_for_each_entry(new_addr, &new_asoc->peer.transport_addr_list,
->  			transports) {
-> -		found = 0;
->  		list_for_each_entry(addr, &asoc->peer.transport_addr_list,
->  				transports) {
->  			if (sctp_cmp_addr_exact(&new_addr->ipaddr,
-> -						&addr->ipaddr)) {
-> -				found = 1;
-> -				break;
-> -			}
-> +						&addr->ipaddr))
-> +				goto next;
->  		}
-> -		if (!found)
-> -			break;
-> -	}
->  
-> -	/* If a new address was added, ABORT the sender. */
-> -	if (!found && new_addr) {
-> +		/* 'new_addr' could not be found in the transport address
-> +		 * list of 'asoc', abort.
-> +		 */
->  		sctp_sf_send_restart_abort(&new_addr->ipaddr, init, commands);
-> +		ret = 0;
-> +		break;
-> +
-> +	next:
-> +		;
->  	}
->  
+From: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Date: Tue, 07 Sep 2010 11:42:53 +0900
 
-This would certainly make things clearer as well.  It essentially does what I suggested
-(moving the abort into the loop once we know we have a new address) and clean up all
-the 'found' mess at the same time.
+> +/**
+> + * pch_gbe_clean_rx - Send received data up the network stack; legacy
+> + * @adapter:     Board private structure
+> + * @rx_ring:     Rx descriptor ring
+> + * @work_done:   Completed count
+> + * @work_to_do:  Request count
+> + * Returns
+> + *	true:  Cleaned the descriptor
+> + *	false: Not cleaned the descriptor
+> + */
+> +static bool
+> +pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
+> +		 struct pch_gbe_rx_ring *rx_ring,
+> +		 int *work_done, int work_to_do)
+> +{
+..
+> +			if (netif_receive_skb(skb) == NET_RX_DROP) {
+> +				adapter->stats.rx_dropped++;
 
-The empty goto tag would give my old profs an apoplexy though. :)
+pch_gbe_clean_rx() should be given the "napi_struct" pointer
+argument from it's caller, and packets should be given to the
+stack using napi_gro_receive().  Finally, NETIF_F_GRO should
+be set in netdev->flags at probe time.
 
-I would ack this.
+Also, you should not use the return value of netif_receive_skb() to
+bump the standard rx_dropped statistics value, those return code are
+for other purposes.  No other driver does what you are doing with this
+return value.
 
--vlad
->  	/* Return success if all addresses were found. */
-> -	return found;
-> +	return ret;
->  }
->  
->  /* Populate the verification/tie tags based on overlapping INIT
-> 
-
+If you wish to increment some extended stastic value (like
+drivers/net/gianfar.c does) with another name, that's fine.
