@@ -1,50 +1,56 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH] [arch-x86] Allow SRAT integrity check to be skipped
-Date: Wed, 08 Sep 2010 12:09:16 -0700
-Message-ID: <4C87DF5C.70801@zytor.com>
-References: <20100901213318.19353.54619.stgit@localhost.localdomain>	 <41621.148.87.67.139.1283378664.squirrel@www.xenotime.net> <1283379098.28591.20.camel@pjaxe>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: [PATCHv4] net: Add batman-adv meshing protocol
+Date: Wed, 8 Sep 2010 21:12:14 +0200
+Message-ID: <201009082112.14877.lindner_marek@yahoo.de>
+References: <1283646353-17811-1-git-send-email-sven.eckelmann@gmx.de>
+	<201009081142.31610.sven.eckelmann@gmx.de>
+	<AANLkTimnBqkiO26wqEQOm+AgSJgQLtQmAe8R-kB6CqtZ@mail.gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "rdunlap@xenotime.net" <rdunlap@xenotime.net>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"andi@firstfloor.org" <andi@firstfloor.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1283379098.28591.20.camel@pjaxe>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+	Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <AANLkTimnBqkiO26wqEQOm+AgSJgQLtQmAe8R-kB6CqtZ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09/01/2010 03:11 PM, Peter P Waskiewicz Jr wrote:
-> On Wed, 2010-09-01 at 15:04 -0700, rdunlap@xenotime.net wrote:
->> On Wed, September 1, 2010 2:33 pm, Peter P Waskiewicz Jr wrote:
->>> Documentation/x86/x86_64/boot-options.txt |    4 ++++
->>> arch/x86/mm/srat_64.c                     |   20 +++++++++++++++++--- 2
->>> files changed, 21 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/arch/x86/mm/srat_64.c b/arch/x86/mm/srat_64.c index
->>> f9897f7..8719472 100644 --- a/arch/x86/mm/srat_64.c
->>> +++ b/arch/x86/mm/srat_64.c
->>> @@ -351,6 +351,15 @@ int __init acpi_get_nodes(struct bootnode *physnodes)
->>>  return ret; }
->>>
->>>
->>> +int srat_bypass_bios = 0;
->>
->> static int srat_bypass_bios;
->>
->> Don't need to init to 0.
-> 
-> I'll fix and send a second version.  Thanks Randy.
-> 
+On Wednesday 08 September 2010 20:22:42 Jesse Gross wrote:
+> Potentially one way to do this is to build on top of Open vSwitch.  It
+> contains a pretty generic flow-based kernel module for forwarding data
+> packets and making simple modifications.  Control packets can be sent
+> to userspace to handle the routing logic, while data packets remain in
+> the kernel for performance.  This would dramatically reduce the amount
+> of code that needs to be in the kernel and may even help performance
+> by simplifying the fast path.
 
-Should be static *bool* srat_bypass_bios;
+Thanks for your input.
 
-Please use bool for actual booleans; it prevents someone from being
-"smart" and using values like 2 or -1 for "special cases".
+I had a quick look at the website to get an idea but I had to notice that 
+there is quite a collection of daemons, kernel modules and apps. As you seem 
+involved in this project, could you point us to the collection of tools that 
+you think we would need to achieve the following:
 
-	-hpa
+* sending protocol traffic
+* transmitting the routing logic
+* encapsulation of the various packet types (see http://www.open-
+mesh.org/browser/trunk/batman-adv/packet.h to get an idea)
+* directly influence the traffic flow, i.e., ARQ for broadcasts, interface 
+alternating, bonding, forward error correction, etc
+* layer 2 fragmentation
+
+
+Cheers,
+Marek
