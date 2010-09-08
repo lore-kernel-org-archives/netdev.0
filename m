@@ -1,31 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Problems obtaining software TX timestamps
-Date: Wed, 08 Sep 2010 14:24:01 -0700 (PDT)
-Message-ID: <20100908.142401.233712108.davem@davemloft.net>
-References: <4C877D8A.6040002@edu.uni-klu.ac.at>
-	<1283958771.2748.85.camel@edumazet-laptop>
-	<4C87FE60.7090209@edu.uni-klu.ac.at>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 4/7 v3] au1000-eth: fix bad printk usages
+Date: Wed, 08 Sep 2010 14:24:51 -0700
+Message-ID: <1283981091.2479.51.camel@Joe-Laptop>
+References: <201009082311.45685.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: ikofler@edu.uni-klu.ac.at
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60904
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754807Ab0IHVXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 17:23:43 -0400
-In-Reply-To: <4C87FE60.7090209@edu.uni-klu.ac.at>
+Received: from mail.perches.com ([173.55.12.10]:1532 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752542Ab0IHVYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Sep 2010 17:24:53 -0400
+In-Reply-To: <201009082311.45685.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
-Date: Wed, 08 Sep 2010 23:21:36 +0200
+On Wed, 2010-09-08 at 23:11 +0200, Florian Fainelli wrote:
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+> @@ -1199,7 +1203,8 @@ static int __devinit au1000_probe(struct platform_device *pdev)
+>  	netdev_info(dev, "Au1xx0 Ethernet found at 0x%lx, irq %d\n",
+>  			(unsigned long)base->start, irq);
+>  	if (version_printed++ == 0)
+> -		printk("%s version %s %s\n", DRV_NAME, DRV_VERSION, DRV_AUTHOR);
+> +		pr_info("%s version %s %s\n",
+> +					DRV_NAME, DRV_VERSION, DRV_AUTHOR);
 
-> Ok, for hardware timestamps it seems logically for me that the driver
-> has to support this. But what about the software timestamps - do they
-> also require support from the driver? Is there no generic
-> implementation in the networking stack?
+You could also remove version_printed and use
+printk_once(KERN_INFO etc...)
 
-Each and every driver must add the hook because it must be inside of
-the driver's transmit function due to packet lifetime issues etc.
+
