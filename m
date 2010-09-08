@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] lockdep warning in gen_kill_estimator
-Date: Wed, 08 Sep 2010 13:02:50 -0700 (PDT)
-Message-ID: <20100908.130250.59696102.davem@davemloft.net>
-References: <1283971234.2428.4.camel@edumazet-laptop>
-	<20100908121628.0eee5294@nehalam>
-	<1283973783.2428.11.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: NFS writes broken in net-next-2.6
+Date: Wed, 08 Sep 2010 13:05:50 -0700 (PDT)
+Message-ID: <20100908.130550.115952209.davem@davemloft.net>
+References: <1283976068.2237.8.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56390
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753632Ab0IHUCd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 16:02:33 -0400
-In-Reply-To: <1283973783.2428.11.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1283976068.2237.8.camel-xQnnTUlwzDrdvaEqJLTMTA9jg9n5Vt1AMm0uRHvK7Nw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 08 Sep 2010 21:23:03 +0200
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Date: Wed, 08 Sep 2010 21:01:08 +0100
 
-> Le mercredi 08 septembre 2010 =E0 12:16 -0700, Stephen Hemminger a =E9=
-crit :
->=20
->> But that commit adds unnecessary bh_disable
->> -------
->=20
-> Yes I mentioned it in the original patch discussion
+> In net-next-2.6, close() of a file after writing tends to return 1.
+> This causes e.g. gcc to abort.
+> 
+> This appears to have been fixed in 2.6.36-rc2:
+> 
+> commit 0702099bd86c33c2dcdbd3963433a61f3f503901
+> Author: J. R. Okajima <hooanon05-/E1597aS9LR3+QwDJ9on6Q@public.gmane.org>
+> Date:   Wed Aug 11 13:10:16 2010 -0400
+> 
+>     NFS: fix the return value of nfs_file_fsync()
+> 
+> Please consider merging this fix in some way.
 
-I'll apply this to net-next-2.6 after my next merge of net-2.6
-into net-next-2.6
+Ben, and please I've told you this before, if you need a specific
+upstream fix do your testing on a branch that pulls in Linus's tree
+or, alternatively, apply the fix you need by hand using "git stash" or
+similar.
+
+All of this is in your own hands.  You do not need me to merge in
+every single upstream fix you might need.
+
+I have this issue myself when testing both the sparc tree and the
+various net trees all the time.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
