@@ -1,63 +1,69 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] lockdep warning in gen_kill_estimator
-Date: Wed, 08 Sep 2010 20:40:34 +0200
-Message-ID: <1283971234.2428.4.camel@edumazet-laptop>
-References: <20100908112719.3f4b4644@nehalam>
+Subject: Re: [PATCH net-next-2.6] net: introduce rcu_dereference_rtnl
+Date: Wed, 08 Sep 2010 20:44:29 +0200
+Message-ID: <1283971469.2428.9.camel@edumazet-laptop>
+References: <1283890291.2634.143.camel@edumazet-laptop>
+	 <4C86A558.6030802@gmail.com>  <1283893657.2634.210.camel@edumazet-laptop>
+	 <1283970567.2237.0.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:53282 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:58952 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752122Ab0IHSki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 14:40:38 -0400
-Received: by fxm16 with SMTP id 16so340585fxm.19
-        for <netdev@vger.kernel.org>; Wed, 08 Sep 2010 11:40:37 -0700 (PDT)
-In-Reply-To: <20100908112719.3f4b4644@nehalam>
+	with ESMTP id S1752122Ab0IHSoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 14:44:34 -0400
+Received: by fxm16 with SMTP id 16so344283fxm.19
+        for <netdev@vger.kernel.org>; Wed, 08 Sep 2010 11:44:33 -0700 (PDT)
+In-Reply-To: <1283970567.2237.0.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 08 septembre 2010 =C3=A0 11:27 -0700, Stephen Hemminger a =C3=
-=A9crit :
-> Saw big lockdep SOFTIRQ-unsafe lock warning in gen_kill_estimator whe=
-n doing.
->=20
->   tc qdisc del dev dummy0 root
->=20
+Le mercredi 08 septembre 2010 =C3=A0 19:29 +0100, Ben Hutchings a =C3=A9=
+crit :
 
->=20
-> --- a/net/core/gen_estimator.c	2010-09-08 11:16:10.184368926 -0700
-> +++ b/net/core/gen_estimator.c	2010-09-08 11:16:24.694194050 -0700
-> @@ -270,18 +270,18 @@ void gen_kill_estimator(struct gnet_stat
->  {
->  	struct gen_estimator *e;
-> =20
-> -	spin_lock(&est_tree_lock);
-> +	spin_lock_bh(&est_tree_lock);
->  	while ((e =3D gen_find_node(bstats, rate_est))) {
->  		rb_erase(&e->node, &est_root);
-> =20
-> -		write_lock_bh(&est_lock);
-> +		write_lock(&est_lock);
->  		e->bstats =3D NULL;
-> -		write_unlock_bh(&est_lock);
-> +		write_unlock(&est_lock);
-> =20
->  		list_del_rcu(&e->list);
->  		call_rcu(&e->e_rcu, __gen_kill_estimator);
->  	}
-> -	spin_unlock(&est_tree_lock);
-> +	spin_unlock_bh(&est_tree_lock);
->  }
->  EXPORT_SYMBOL(gen_kill_estimator);
-> =20
+> No semicolon on the end, please.  The 'caller' will add that.
 
-Hmm... I think commit 0b5d404e349c0236
-already takes care of this ?
+Oh definitely, thanks !
 
-Already in Linus tree=20
+[PATCH net-next-2.6] net: introduce rcu_dereference_rtnl
 
+We use rcu_dereference_check(p, rcu_read_lock_held() ||
+lockdep_rtnl_is_held()) several times in network stack.
+
+More usages to come too, so its time to create a helper.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/rtnetlink.h |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 58d4449..263690d 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -749,6 +749,17 @@ extern int rtnl_is_locked(void);
+ extern int lockdep_rtnl_is_held(void);
+ #endif /* #ifdef CONFIG_PROVE_LOCKING */
+=20
++/**
++ * rcu_dereference_rtnl - rcu_dereference with debug checking
++ * @p: The pointer to read, prior to dereferencing
++ *
++ * Do an rcu_dereference(p), but check caller either holds rcu_read_lo=
+ck()
++ * or RTNL
++ */
++#define rcu_dereference_rtnl(p)					\
++	rcu_dereference_check(p, rcu_read_lock_held() ||	\
++				 lockdep_rtnl_is_held())
++
+ extern void rtnetlink_init(void);
+ extern void __rtnl_unlock(void);
+=20
 
 
