@@ -1,55 +1,50 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: [PATCH] cxacru: ignore cx82310_eth devices
-Date: Wed, 8 Sep 2010 22:56:05 +0200
-Message-ID: <201009082256.07618.linux@rainbow-software.org>
-References: <201009032317.14954.linux@rainbow-software.org> <201009052212.37015.linux@rainbow-software.org> <20100905210446.GA4472@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] niu: Fix kernel buffer overflow for
+ ETHTOOL_GRXCLSRLALL
+Date: Wed, 08 Sep 2010 14:03:59 -0700 (PDT)
+Message-ID: <20100908.140359.15225710.davem@davemloft.net>
+References: <1283870119.2270.5.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Simon Arlott <simon@fire.lp0.eu>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
+Cc: netdev@vger.kernel.org, santwona.behera@sun.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1-out1.atlantis.sk ([80.94.52.55]:60820 "EHLO
-	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754142Ab0IHU4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 16:56:14 -0400
-In-Reply-To: <20100905210446.GA4472@kroah.com>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42955
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753392Ab0IHVDl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 17:03:41 -0400
+In-Reply-To: <1283870119.2270.5.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 05 September 2010 23:04:46 Greg KH wrote:
-> On Sun, Sep 05, 2010 at 10:12:33PM +0200, Ondrej Zary wrote:
-> > Ignore ADSL routers, which can have the same vendor and product IDs
-> > as ADSL modems but should be handled by the cx82310_eth driver.
-> >
-> > This intentionally ignores device IDs that aren't currently handled
-> > by cx82310_eth. There may be other device IDs that perhaps shouldn't
-> > be claimed by cxacru.
-> >
-> > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> >
-> > --- linux-2.6.36-rc3-orig/drivers/usb/atm/cxacru.c	2010-08-29
-> > 17:36:04.000000000 +0200 +++
-> > linux-2.6.36-rc3/drivers/usb/atm/cxacru.c	2010-09-05 18:54:56.000000000
-> > +0200 @@ -1324,8 +1324,22 @@ static struct usbatm_driver cxacru_drive
-> >  	.tx_padding	= 11,
-> >  };
-> >
-> > -static int cxacru_usb_probe(struct usb_interface *intf, const struct
-> > usb_device_id *id) -{
-> > +static int cxacru_usb_probe(struct usb_interface *intf,
-> > +		const struct usb_device_id *id) {
->
-> Ick, what?
->
-> Did you run this patch through scripts/checkpatch.pl?
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 07 Sep 2010 15:35:19 +0100
 
-Yes - and it passed. Maybe checkpatch.pl can't handle multiple lines there.
+> niu_get_ethtool_tcam_all() assumes that its output buffer is the right
+> size, and warns before returning if it is not.  However, the output
+> buffer size is under user control and ETHTOOL_GRXCLSRLALL is an
+> unprivileged ethtool command.  Therefore this is at least a local
+> denial-of-service vulnerability.
+> 
+> Change it to check before writing each entry and to return an error if
+> the buffer is already full.
+> 
+> Compile-tested only.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
--- 
-Ondrej Zary
+Good catch, thanks Ben.
+
+> There may be more of these but AFAIK this is the only RXNFC command that
+> deals with variable-length data.
+> 
+> I wonder whether it really makes sense for ethtool getter commands to be
+> generally unprivileged.  Does the convenience outweigh the risk of a
+> driver bug becoming a local DoS or root hole, or the disclosure of
+> information such as (in this case) which flows the administrator
+> considers interesting?
+
+I'm ambivalent about this specific case, to be honest.  Although one
+argument for what we do now is that often admins do things as root
+as little as possible and this helps that.
