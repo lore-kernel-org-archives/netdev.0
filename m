@@ -1,147 +1,125 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH] [arch-x86] Allow SRAT integrity check to be skipped
-Date: Wed, 08 Sep 2010 11:51:29 -0700
-Message-ID: <1283971889.18468.13.camel@pjaxe>
-References: <20100901213318.19353.54619.stgit@localhost.localdomain>
-	 <20100902065731.GB29972@elte.hu>	<20100902100308.GA17167@basil.fritz.box>
-	 <20100903063934.GA25863@elte.hu> <1283888337.18468.9.camel@pjaxe>
-	 <4C869AA3.6000103@zytor.com> <87wrqwiv1l.fsf@basil.nowhere.org>
-	 <4C87CFFC.8050709@zytor.com>
+From: Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org>
+Subject: Re: [PATCHv4] net: Add batman-adv meshing protocol
+Date: Wed, 8 Sep 2010 20:58:14 +0200
+Message-ID: <201009082058.15533.sven.eckelmann@gmx.de>
+References: <1283646353-17811-1-git-send-email-sven.eckelmann@gmx.de>
+	<201009081142.31610.sven.eckelmann@gmx.de>
+	<AANLkTimnBqkiO26wqEQOm+AgSJgQLtQmAe8R-kB6CqtZ@mail.gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature"; boundary="=-+gRnzAKHixa+op5uo75f"
-Cc: Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:2889 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752868Ab0IHSpn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 14:45:43 -0400
-In-Reply-To: <4C87CFFC.8050709@zytor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="nextPart6760549.a6m0x8x2ty";
+	protocol="application/pgp-signature"; micalg=pgp-sha512
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	b.a.t.m.a.n-ZwoEplunGu2X36UT3dwlltHuzzzSOjJt@public.gmane.org
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <AANLkTimnBqkiO26wqEQOm+AgSJgQLtQmAe8R-kB6CqtZ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
---=-+gRnzAKHixa+op5uo75f
-Content-Type: text/plain; charset="UTF-8"
+--nextPart6760549.a6m0x8x2ty
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2010-09-08 at 11:03 -0700, H. Peter Anvin wrote:
-> On 09/07/2010 11:55 PM, Andi Kleen wrote:
-> > "H. Peter Anvin" <hpa@zytor.com> writes:
-> >>
-> >> If this is a production BIOS it should have this information.
+Jesse Gross wrote:
+> On Wed, Sep 8, 2010 at 2:42 AM, Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org>=20
+wrote:
+> > Hi,
 > >=20
-> > The point was -- it wasn't a production BIOS and the production
-> > BIOS will be fixed.
+> > here are some raw references without any judgment. Maybe Marek will send
+> > some more information about that topic later.
 > >=20
+> > Andi Kleen wrote:
+> >> Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org> writes:
+> >> > B.A.T.M.A.N. (better approach to mobile ad-hoc networking) is a
+> >> > routing protocol for multi-hop ad-hoc mesh networks. The networks may
+> >> > be wired or wireless. See http://www.open-mesh.org/ for more
+> >> > information and user space tools.
+> >>=20
+> >> It seems rather unusual to have the complete routing protocol in
+> >> kernel. And this is a lot of code. The normal way to do such things is
+> >> to have the routing policy etc. in a user daemon and only let the kern=
+el
+> >> provide some services to this.
+> >>=20
+> >> Could you elaborate a bit why this approach was not chosen?
+> >>=20
+> >> I assume if it needs a switch it could have a switching "hot path" lay=
+er
+> >> in kernel and the policy somewhere else.
 >=20
-> From the original description:
+> Potentially one way to do this is to build on top of Open vSwitch.  It
+> contains a pretty generic flow-based kernel module for forwarding data
+> packets and making simple modifications.  Control packets can be sent
+> to userspace to handle the routing logic, while data packets remain in
+> the kernel for performance.  This would dramatically reduce the amount
+> of code that needs to be in the kernel and may even help performance
+> by simplifying the fast path.
 >=20
-> This patch adds a boot parameter to allow a kernel to be booted
-> with the option to skip the SRAT check.  There are BIOSes in
->                                          ^^^^^^^^^^^^^^^^^^^
-> production that have these failures, so this will allow people
-> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> in the field to work around these BIOS issues.
->=20
->=20
-> Agreed that command-line option is a good thing to have in general and
-> that it is not necessary to have DMI quirks for preproduction BIOSes.
+> I don't know the details of your protocol well enough to know if this
+> is feasible but it seems like something you might want to look into.
+> Open vSwitch is currently in the process of finalizing its interfaces
+> to prepare for upstreaming.
 
-Right.  The new patchset (when I finish it) will have the DMI quirk for
-this specific production NHM-EX, plus the command-line option.
+It sounds interesting. I haven't looked into it yet, but maybe you could=20
+easily answer some questions:
+ * Does it allow to generate multiple net_devices on the system?
+ * Does it allow to attach multiple net_devices to a single openvswitch
+   device?
+ * Does the attaching of a net_device to a openvswitch device prevent it to=
+ be
+   added to another openvswitch device?
+ * Does it propagate the information about the incoming device to the
+   userspace in case of the not routed packets (everything which should
+ * Does it allow to append extra header information to the packet?
+ * Does it allow fragmentation of packets (not real fragmentation, but more
+   single split)?
+ * Does it allow to define outgoing patterns (on which attached interface
+   goes the thing out again) on packet number or incoming device (the real
+   hardware device it was coming in)?
+ * Is it possible to define rules like: "If this is a broadcast of an udp/ip
+   packet with target port 123 which may or may not have a vlan tag, but is
+   coming directly from the virtual device and is not routed by us, then
+   change the mac address to following"?
+ * Can it be backported to old kernels (~2.6.21 - yes, their are "customers=
+"=20
+   who need even older kernels due to the fantastic vendors out their)?
 
--PJ
+Thanks,
+	Sven
 
---=-+gRnzAKHixa+op5uo75f
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
+--nextPart6760549.a6m0x8x2ty
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIPAjCCAz0w
-ggKmoAMCAQICAwWw/zANBgkqhkiG9w0BAQUFADBOMQswCQYDVQQGEwJVUzEQMA4GA1UEChMHRXF1
-aWZheDEtMCsGA1UECxMkRXF1aWZheCBTZWN1cmUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MB4XDTA2
-MDIxNjE4MDEzMFoXDTE2MDIxOTE4MDEzMFowUjELMAkGA1UEBhMCVVMxGjAYBgNVBAoTEUludGVs
-IENvcnBvcmF0aW9uMScwJQYDVQQDEx5JbnRlbCBFeHRlcm5hbCBCYXNpYyBQb2xpY3kgQ0EwggEi
-MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDBpd/XOb9QVqEZ8mQ1042TdOIq3ATDIsV2xDyt
-30yLyMR5Wjtus0bn3B+he89BiNO/LP6+rFzEwlD55PlX+HLGIKeNNG97dqyc30FElEUjZzTZFq2N
-4e3kVJ/XAEEgANzV8v9qp7qWwxugPgfc3z9BkYot+CifozexHLb/hEZj+yISCU61kRZvuSQ0E11y
-YL4dRgcglJeaHo3oX57rvIckaLsYV5/1Aj+R8DM1Ppk965XQAKsHfnyT7C4S50T4lVn4lz36wOdN
-Zn/zegG1zp41lnoTFfT4KuKVJH5x7YD1p6KbgJCKLovnujGuohquBNfdXKpZkvz6pGv+iC1HawJd
-AgMBAAGjgaAwgZ0wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBQaxgxKxEdvqNutK/D0Vgaj7TdU
-DDA6BgNVHR8EMzAxMC+gLaArhilodHRwOi8vY3JsLmdlb3RydXN0LmNvbS9jcmxzL3NlY3VyZWNh
-LmNybDAfBgNVHSMEGDAWgBRI5mj5K9KylddH2CMgEE8zmJCf1DAPBgNVHRMBAf8EBTADAQH/MA0G
-CSqGSIb3DQEBBQUAA4GBABMQOK2kVKVIlUWwLTdywJ+e2O+PC/uQltK2F3lRyrPfBn69tOkIP4Sg
-DJOfsxyobIrPLe75kBLw+Dom13OBDp/EMZJZ1CglQfVV8co9mT3aZMjSGGQiMgkJLR3jMfr900fX
-ZKj5XeqCJ+JP0mEhJGEdVCY+FFlksJjV86fDrq1QMIIFijCCBHKgAwIBAgIKYSCKYgAAAAAACDAN
-BgkqhkiG9w0BAQUFADBSMQswCQYDVQQGEwJVUzEaMBgGA1UEChMRSW50ZWwgQ29ycG9yYXRpb24x
-JzAlBgNVBAMTHkludGVsIEV4dGVybmFsIEJhc2ljIFBvbGljeSBDQTAeFw0wOTA1MTUxOTI3MjZa
-Fw0xNTA1MTUxOTM3MjZaMFYxCzAJBgNVBAYTAlVTMRowGAYDVQQKExFJbnRlbCBDb3Jwb3JhdGlv
-bjErMCkGA1UEAxMiSW50ZWwgRXh0ZXJuYWwgQmFzaWMgSXNzdWluZyBDQSAzQjCCASIwDQYJKoZI
-hvcNAQEBBQADggEPADCCAQoCggEBAKQEM1Wn9TU9vc9C+/Tc7KB+eiYElmrcEWE32WUdHvWG+IcQ
-HVQsikTmMyKKojNLw2B5s6Iekc8ivDo/wCfjZzX9JyftMnc+AArc0la87Olybzm8K9jXEfTBvTnU
-SFSiI9ZYefITdiUgqlAFuljFZEHYKYtLuhrRacpmQfP4mV63NKdc2bT804HRf6YptZFa4k6YN94z
-lrGNrBuQQ74WFzz/jLBusbUpEkro6Mu/ZYFOFWQrV9lBhF9Ruk8yN+3N6n9fUo/qBigiF2kEn9xV
-h1ykl7SCGL2jBUkXx4qgV27a6Si8lRRdgrHGtN/HWnSWlLXTH5l575H4Lq++77OFv38CAwEAAaOC
-AlwwggJYMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFA7GKvdZsggQkCVvw939imYxMCvFMAsG
-A1UdDwQEAwIBhjASBgkrBgEEAYI3FQEEBQIDAQABMCMGCSsGAQQBgjcVAgQWBBQ5oFY2ekKQ/5Kt
-im+VdMeSWb4QWTAZBgkrBgEEAYI3FAIEDB4KAFMAdQBiAEMAQTAfBgNVHSMEGDAWgBQaxgxKxEdv
-qNutK/D0Vgaj7TdUDDCBvQYDVR0fBIG1MIGyMIGvoIGsoIGphk5odHRwOi8vd3d3LmludGVsLmNv
-bS9yZXBvc2l0b3J5L0NSTC9JbnRlbCUyMEV4dGVybmFsJTIwQmFzaWMlMjBQb2xpY3klMjBDQS5j
-cmyGV2h0dHA6Ly9jZXJ0aWZpY2F0ZXMuaW50ZWwuY29tL3JlcG9zaXRvcnkvQ1JML0ludGVsJTIw
-RXh0ZXJuYWwlMjBCYXNpYyUyMFBvbGljeSUyMENBLmNybDCB4wYIKwYBBQUHAQEEgdYwgdMwYwYI
-KwYBBQUHMAKGV2h0dHA6Ly93d3cuaW50ZWwuY29tL3JlcG9zaXRvcnkvY2VydGlmaWNhdGVzL0lu
-dGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMFBvbGljeSUyMENBLmNydDBsBggrBgEFBQcwAoZgaHR0
-cDovL2NlcnRpZmljYXRlcy5pbnRlbC5jb20vcmVwb3NpdG9yeS9jZXJ0aWZpY2F0ZXMvSW50ZWwl
-MjBFeHRlcm5hbCUyMEJhc2ljJTIwUG9saWN5JTIwQ0EuY3J0MA0GCSqGSIb3DQEBBQUAA4IBAQCx
-tQEHchVQhXyjEqtMVUMe6gkmPsIczHxSeqNbo9dsD+6xbT65JT+oYgpIAtfEsYXeUJu1cChqpb22
-U5bMAz7eaQcW5bzefufWvA6lg2048B8oczBj/q+5P5NpYrUO8jOmN4jTjfJq3ElZ7yFWpy7rB3Vm
-/aN6ATYqWfMbS/xfh+JCxmH3droUmMJI0/aZJHsLtjbjFnNsHDNrJZX1vxlM78Lb1hjskTENPmhb
-VbfTj5i/ZGnhv4tmI8QZPCNtcegXJrfhRl2D9bWpdTOPrWiLDUqzy1Z6KL7TcOS/PCl8RHCJXkPa
-u/thTQCpIoDa2+c+3XA++gRTfAQ4svTO260NMIIGLzCCBRegAwIBAgIKf0es/QABAABRFTANBgkq
-hkiG9w0BAQUFADBWMQswCQYDVQQGEwJVUzEaMBgGA1UEChMRSW50ZWwgQ29ycG9yYXRpb24xKzAp
-BgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElzc3VpbmcgQ0EgM0IwHhcNMTAwNDA5MDgyNzMw
-WhcNMTMwMzI0MDgyNzMwWjBRMR8wHQYDVQQDExZXYXNraWV3aWN6IEpyLCBQZXRlciBQMS4wLAYJ
-KoZIhvcNAQkBFh9wZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tMIIBIjANBgkqhkiG9w0B
-AQEFAAOCAQ8AMIIBCgKCAQEAxNvzDG+qS7UFSaYiqMqQr7exXHirCVe1tapLZoFlJZLPfqZsBsAA
-UqARnY+v3RQj3WDmoIOtTMHxtnmo4pd5UXrsk+PraedGAilso9tkfp5ZjRjZo9LL06AZzjiBVfAx
-gvyxMPsoKhdfFijzqSJRpc12kB662PAJWfyJO+f6lg5+Cd4KgRVGrpGI4bvBKEVGMeOqwD+kcVti
-wRcqNygx35GqdcpJCCJqOSAJsLI3DR7tDvATeNzsasweaHgWonaK4D6qaHkoGx4VHknC6uNn/FK/
-wXtFbXkeOrnRGJIzaZNsOBVhTou9w3NYU1EjuK75hZJ4Fd4/r1gHafxWD+VzrwIDAQABo4IDAjCC
-Av4wCwYDVR0PBAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIbDjHWEmeVRg/2BKIWO
-n1OCkcAJZ4HevTmV8EMCAWQCAQgwHQYDVR0OBBYEFLtB44dRTSgY1071RY+nMiKRkn1PMB8GA1Ud
-IwQYMBaAFA7GKvdZsggQkCVvw939imYxMCvFMIHPBgNVHR8EgccwgcQwgcGggb6ggbuGV2h0dHA6
-Ly93d3cuaW50ZWwuY29tL3JlcG9zaXRvcnkvQ1JML0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUy
-MElzc3VpbmclMjBDQSUyMDNCKDEpLmNybIZgaHR0cDovL2NlcnRpZmljYXRlcy5pbnRlbC5jb20v
-cmVwb3NpdG9yeS9DUkwvSW50ZWwlMjBFeHRlcm5hbCUyMEJhc2ljJTIwSXNzdWluZyUyMENBJTIw
-M0IoMSkuY3JsMIH1BggrBgEFBQcBAQSB6DCB5TBsBggrBgEFBQcwAoZgaHR0cDovL3d3dy5pbnRl
-bC5jb20vcmVwb3NpdG9yeS9jZXJ0aWZpY2F0ZXMvSW50ZWwlMjBFeHRlcm5hbCUyMEJhc2ljJTIw
-SXNzdWluZyUyMENBJTIwM0IoMSkuY3J0MHUGCCsGAQUFBzAChmlodHRwOi8vY2VydGlmaWNhdGVz
-LmludGVsLmNvbS9yZXBvc2l0b3J5L2NlcnRpZmljYXRlcy9JbnRlbCUyMEV4dGVybmFsJTIwQmFz
-aWMlMjBJc3N1aW5nJTIwQ0ElMjAzQigxKS5jcnQwHwYDVR0lBBgwFgYIKwYBBQUHAwQGCisGAQQB
-gjcKAwwwKQYJKwYBBAGCNxUKBBwwGjAKBggrBgEFBQcDBDAMBgorBgEEAYI3CgMMMFsGA1UdEQRU
-MFKgLwYKKwYBBAGCNxQCA6AhDB9wZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tgR9wZXRl
-ci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29tMA0GCSqGSIb3DQEBBQUAA4IBAQBYea1KThIl9gNf
-1uIob1trWtsthhWAXsdUu1V+gl10RBChuM4okZccJf1JXItFA2z7J2UR4cu/tRZBRFartVPhGBjK
-ntLofxsaW7wwzfsinbNy30gHGShG83XDADdGUteL8PmupDcDf/MtbRIlfjEknLiuOnrM25WVajtB
-3fB1pOA2jmLaaNmasza9ordaD3afJD3IWr/Zj+aevMu4zrKzwdOZqBZW1J1Qc7uog8Mn+mm+wRMm
-EY0z7VFdjsZjJH9EQA0UbF1aYcshv0a/M2deKN9TdYuJ1eTKRSZdzSiRG5w75xujFMYZgo4ETlu1
-Behgey1jvJiyWdOsPt7at08QMYIB6jCCAeYCAQEwZDBWMQswCQYDVQQGEwJVUzEaMBgGA1UEChMR
-SW50ZWwgQ29ycG9yYXRpb24xKzApBgNVBAMTIkludGVsIEV4dGVybmFsIEJhc2ljIElzc3Vpbmcg
-Q0EgM0ICCn9HrP0AAQAAURUwCQYFKw4DAhoFAKBdMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEw
-HAYJKoZIhvcNAQkFMQ8XDTEwMDkwODE4NTEyOVowIwYJKoZIhvcNAQkEMRYEFP6nyW8sZVm603Ht
-8MPcRXCw+qEYMA0GCSqGSIb3DQEBAQUABIIBAFyxLvBDnsKVqJDlj+T/mWw8FPSvYK+WLQNvCk4F
-x5zmqdwlceHcR1zhacOT1jfa0E5nGTjzo9fLeeTqSaOSRezPqktbAlUTZew3vAZ0AogwiXjI2Qu1
-hOv/MOru7E37xWBgNl/wCMdUqdeTilm33P5XeEDeDuxyP27kSSuJU5lMNjKqdO2Dp+CtHBznd/JJ
-Ls1yV4/r9fuEWeFIEEC1vbBxDn1U45a+MRAnRktCmskLibTasA0gIndpAuI0moVVey0Ik/SocOWI
-ozzPCRTCbwfnRRqmONnNJvJ3xxWXAR/uZ40sxPJlxMbAqeI+us41woE75cwimjmDW3gcvaDvEF0A
-AAAAAAA=
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
+iQIcBAABCgAGBQJMh9zGAAoJEF2HCgfBJntG2DUQAIWWaGTq9VE2HOyupUD3Ulye
+BYQ/6/ycX1EGJoWmeBRMZn0YqQl5WG0pnlraIkOWVNTCjSwgifFB5D3G1YaGFI0J
+Hsw6M6Y7+CMnCJo7xXugkoN68dyIQhetMtz1guUlrtJI4IIIKI5FgkILqmUo5kbE
+5gwLkaVxoYRutxsUdP0e58e6UCGDSYRQ9FEffwjK//QP3mSm/LtI3xoOB/1BaZTs
+ffHwVHHqoOD2hWYFfIMhUJHjomM0pWM96WJmIy/nbLFUSfEvBfcPGaTNwIJ/kV8y
+qmRfgnKyTolNEEnayqjORLeFdJhzvLGBgJxGmsEaB1VOrD6WNLyINj9EFjXnNJLc
+mBvPM02BhiEZLeprl/9q6aDr9rjz90cCpYLU4oLUfVB7C5t4wo1/27XRNVVXWUaS
+LtRU3u2serYOCOZ25kavneHyIhd69nLEdsYUmARK+5Ae3YnuZTNV8+XFpNrWwm6f
+dVMZV1kFbFlXoG/UBVWsm2agYo3h3QcMPotePsfquYSGbtWKw1w4PB3qo85M2Mxa
+jxuLpLTocjF5Mx6RcreGyRHE7Fjr1JXYyyWbpNphWca2GXtDZyQa0z8i9F5nIca+
+gHkwU1Lv2ubemjY1vavmqo4NAtLKo1AsabTmykjpa3dw3BXCyl/qAi6sgoe0sfLV
+947tBbfmCCF3SMvpMKQv
+=8jTQ
+-----END PGP SIGNATURE-----
 
---=-+gRnzAKHixa+op5uo75f--
-
+--nextPart6760549.a6m0x8x2ty--
