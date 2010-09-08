@@ -1,95 +1,71 @@
-From: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
-Subject: Problems obtaining software TX timestamps
-Date: Wed, 08 Sep 2010 14:11:54 +0200
-Message-ID: <4C877D8A.6040002@edu.uni-klu.ac.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel Panic on OOM with 10 HTB rules
+Date: Wed, 08 Sep 2010 14:42:58 +0200
+Message-ID: <1283949778.2748.5.camel@edumazet-laptop>
+References: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailsrv.uni-klu.ac.at ([143.205.180.44]:49171 "EHLO
-	mailsrv.uni-klu.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753697Ab0IHMkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 08:40:45 -0400
-Received: from mailsrv.uni-klu.ac.at (localhost [127.0.0.1])
-	by mailsrv.uni-klu.ac.at (Postfix) with ESMTP id 6C72084302
-	for <netdev@vger.kernel.org>; Wed,  8 Sep 2010 14:11:54 +0200 (CEST)
-Received: from [143.205.122.142] (itec142.itec.uni-klu.ac.at [143.205.122.142])
-	by mailsrv.uni-klu.ac.at (Postfix) with ESMTP id 574DF8406A
-	for <netdev@vger.kernel.org>; Wed,  8 Sep 2010 14:11:54 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	shemminger@vyatta.com
+To: Anand Raj Manickam <anandrm@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear all,
+Le mercredi 08 septembre 2010 =C3=A0 16:22 +0530, Anand Raj Manickam a
+=C3=A9crit :
+> Hi,
+>=20
+> I m struck with
+> Kernel Panic - Out of Memory Issue  when  traffic  is more than 100k
+> pps  and have  around 10 tc rules.
+>=20
+> There is NO kernel panic with 1 tc rule .
+>=20
+> I using a 2.6.34.6 ( latest stable kernel) with SMP enabled
+>=20
+> The rules are simple -
+> 10 iptable rules :
+> iptables -t mangle -I FORWARD -s x.x.x.x  -j CLASSIFY --set-class 0xz=
+:0xy
+>=20
+> 10 tc rules :
+> tc  class add dev imq0 parent 1:z classid 1:y htb rate 2kbit ceil 327=
+68kbps
+>=20
+> I m using  Intel Xeon Quad core x5570, 12GB RAM , with 8 e1000e , irq
+> affined ( 1 pair per core)
+>=20
+> There is NO issue / CRASH with multiple iptable rules marking to the
+> same tc rule/HTB class , i can sucessfully pass more than 200k pps /
+> 800Mbps traffic .
+>=20
+> But when each iptable rule is marking to seprate tc rule/HTB class an=
+d
+> when the traffic exceeds 100K pps / 20000 connections per second , we
+> hit this Out of Memory - Kernel panic condition .
+> Any help is appreciated . Do let me know if any more further
+> information is need.
 
-I am trying to obtain software TX timestamps for a each outgoing packet 
-of an UDP socket. For that purpose I set the SO_TIMESTAMPING socket 
-option to SOF_TIMESTAMPING_TX_SOFTWARE | SOF_TIMESTAMPING_SOFTWARE. The 
-setsockopt call succeeds and also a subsequent getsockopt returns the 
-correct flags. However, if a send a single datagram over the socket and 
-try to fetch the packet as well as its timestamp via the socket's 
-MSG_ERRQUEUE I do not get any information. Rather, the select call waits 
-infinitely on the error queue....
+Hi Anand
 
-I hardly found any documentation on this timestamping mechanism except 
-the text file in the kernel source code. All I've figured out is that if 
-I want to have hardware TX timestamps, I'll have to make a further ioctl 
-which requires root permissions to active the hardware timestamping. But 
-this is not what I want... software timestamps are sufficient for me. 
-Here's my code....
+Could you give :
+
+1) A complete stack trace / panic report
+2) cat /proc/interrupts
+3) ifconfig -a
+4) cat /proc/sys/vm/min_free_kbytes
+5) cat /proc/meminfo
+
+for each eth*
+ ethtool -g eth*
 
 
-int main (int argc, char **argv) {
 
-    int rv;
-    int sock;
-
-    // allocate a socket
-    printf("allocating socket\n");
-    sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sock==-1) return 1;
-
-    // connect socket to IP + port passed via command line
-    printf("connecting socket\n");
-    struct sockaddr_in toAddr;
-    memset(&toAddr, 0, sizeof(struct sockaddr_in));
-    toAddr.sin_family = PF_INET;
-    toAddr.sin_addr.s_addr = inet_addr(argv[1]);
-    toAddr.sin_port = htons(atoi(argv[2]));
-    rv = connect(sock, (struct sockaddr*) &toAddr, sizeof(struct 
-sockaddr_in));
-    if (rv!=0) return 1;
-
-    // try to enable software TX timestamps
-    printf("enabling (?) timestamping\n");
-    int flags =  SOF_TIMESTAMPING_TX_SOFTWARE | SOF_TIMESTAMPING_SOFTWARE;
-    rv = setsockopt(sock, SOL_SOCKET, SO_TIMESTAMPING, &flags, 
-sizeof(flags));
-    if (rv!=0) return 2;
-
-    // check if the setsockopt was successful
-    socklen_t slen = sizeof(flags);
-    rv = getsockopt(sock, SOL_SOCKET, SO_TIMESTAMPING, &flags, &slen);
-    if (rv!=0) return 3;
-    printf("getsockopt returned %d\n", flags);
-   
-    // send something via the socket
-    char buffer[200];
-    int len = sizeof(buffer);
-    rv = send(sock, buffer, len, 0);
-    printf("send returned %d\n", rv);
-
-    // prepare select call to wait for packet on MSG_ERRQUEUE
-    fd_set errorfs;
-    FD_ZERO(&errorfs);   
-    FD_SET(sock, &errorfs);
-    rv = select(sock + 1, 0, 0, &errorfs, NULL);                 <<--- 
-This select blocks forever...
-    printf("select returned %d\n", rv);
-    ...
-
-Any suggestions what's wrong with my code?  Btw. I've tested this with 
-kernel 2.6.31 and 2.6.33...
-
-Thanks and best regards,
-Ingo
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
