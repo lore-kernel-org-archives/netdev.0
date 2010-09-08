@@ -1,33 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Is via-velocity broken in 2.6.34?
-Date: Tue, 07 Sep 2010 17:24:34 -0700 (PDT)
-Message-ID: <20100907.172434.28821101.davem@davemloft.net>
-References: <AANLkTinK4VywsJ86jaC8wQjbXjzvP-z44JD3XbZbMM2a@mail.gmail.com>
-	<20100907.163331.260082741.davem@davemloft.net>
-	<AANLkTin6RcDPFWpG4YBRF4O-8nrsA6e77K=knBA-uyf9@mail.gmail.com>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH] usbnet: allow rx_process() to ignore packets
+Date: Tue, 7 Sep 2010 17:46:04 -0700 (PDT)
+Message-ID: <621591.67832.qm@web180301.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: matt.causey@gmail.com
+Content-Type: multipart/mixed; boundary="0-14384708-1283906764=:67832"
+Cc: David Brownell <dbrownell@users.sourceforge.net>,
+	netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54760
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755429Ab0IHAYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 20:24:17 -0400
-In-Reply-To: <AANLkTin6RcDPFWpG4YBRF4O-8nrsA6e77K=knBA-uyf9@mail.gmail.com>
+Received: from n54b.bullet.mail.sp1.yahoo.com ([98.136.45.27]:46869 "HELO
+	n54b.bullet.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755480Ab0IHAqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Sep 2010 20:46:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Causey <matt.causey@gmail.com>
-Date: Tue, 7 Sep 2010 17:13:14 -0700
+--0-14384708-1283906764=:67832
+Content-Type: text/plain; charset=us-ascii
 
-> So before I posted to the list, I actually dug through looking for
-> recent changes which would be trivial for me to back out.  This was
-> the only one I had found, so I tried it.  :-)  No luck though...same
-> result.
+--- On Tue, 9/7/10, Ondrej Zary <linux@rainbow-software.org> wrote:
+> 
+> It's not a garbage, just a packet that is not yet
+> complete.
 
-Thanks, please continue reading up on how to bisect this down,
-that will help us figure out what the problem is.
+Sorry, I guess I was being dense.
 
-Thanks.
+I thought packets were by definition complete... :)
+
+I think you're saying this is one of N fragments
+which the minidriver will be re-assembling into
+a bigger packet, before somehow passing it up
+the stack...
+
+I attach my doc update patch.  (should be the
+same as what I sent before.  Consider my apology
+for using an attachment as repeated here; my email
+setup remains partly broken).  Can you send
+a version of your defrag-enabling patch which
+applies on top of it, and documents your new
+calling convention (with a third return case
+for rx_process() too?
+--0-14384708-1283906764=:67832
+Content-Type: application/octet-stream; name=rxfix
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=rxfix
+
+U2lnbmVkLW9mZi1ieTogRGF2aWQgQnJvd25lbGwgPGRicm93bmVsbEB1c2Vy
+cy5zb3VyY2Vmb3JnZS5uZXQ+ClN1YmplY3Q6IHVzYm5ldDogZG9jIHVwZGF0
+ZXMKClByb3ZpZGUgbW9yZSBkb2N1bWVudGF0aW9uIGFib3V0IHRoZSByeF9m
+aXh1cCgpIGNhbGxpbmcgY29udmVudGlvbiwKdG8gaGVscCByZWR1Y2Ugc29t
+ZSByZWNlbnRseS1vYnNlcnZlZCBjb25mdXNpb24uCgpBbHNvIHN1bW1hcml6
+ZSB0aGUgZXF1aXZhbGVuY2Ugb2YgVVNCIGFuZCBuZXR3b3JrIFRYL1JYIHF1
+ZXVlcywgdG8KaGVscCBoaWdobGlnaHQgdGhlIHJvbGVzIG9mIHRoZSBmaXh1
+cCgpIHJvdXRpbmVzIHdpdGggbGluayBwcm90b2NvbHMKdXNpbmcgdGhlIENQ
+VS1pbnRlbnNpdmUgcGFja2V0IGJhdGNoaW5nIG1vZGVscy4KClNpZ25lZC1v
+ZmYtYnk6IERhdmlkIEJyb3duZWxsIDxkYnJvd25lbGxAdXNlcnMuc291cmNl
+Zm9yZ2UubmV0PgotLS0KCgogaW5jbHVkZS9saW51eC91c2IvdXNibmV0Lmgg
+fCAgIDMxICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0KIDEgZmls
+ZSBjaGFuZ2VkLCAyOSBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQoK
+LS0tIGEvaW5jbHVkZS9saW51eC91c2IvdXNibmV0LmgKKysrIGIvaW5jbHVk
+ZS9saW51eC91c2IvdXNibmV0LmgKQEAgLTIyLDggKzIyLDIyIEBACiAjaWZu
+ZGVmCV9fTElOVVhfVVNCX1VTQk5FVF9ICiAjZGVmaW5lCV9fTElOVVhfVVNC
+X1VTQk5FVF9ICiAKLS8qIGludGVyZmFjZSBmcm9tIHVzYm5ldCBjb3JlIHRv
+IGVhY2ggVVNCIG5ldHdvcmtpbmcgbGluayB3ZSBoYW5kbGUgKi8KKy8qKiBp
+bnRlcmZhY2UgZnJvbSB1c2JuZXQgY29yZSB0byBlYWNoIFVTQiBuZXR3b3Jr
+aW5nIGxpbmsgd2UgaGFuZGxlLgorICoKKyAqIE5vdGUgdGhhdCB0aGUgZGVz
+aWduIGNlbnRlciBmb3IgdXNibmV0IGhhcyBvbmUgSUVFRSBwYWNrZXQgcGVy
+IFVSQiwKKyAqIGFuZCBtYXBzIG5ldHdvcmsgVFggYW5kIFJYIHF1ZXVlcyBk
+aXJlY3RseSB0byB0aGUKKyAqIFVTQiBoYXJkd2FyZSBUWC9SWCBxdWV1ZXMs
+IG1pbmltaXppbmcgc29mdHdhcmUgYW5kIGhhcmR3YXJlIG92ZXJoZWFkLgor
+ICogU29tZSBsaW5rIHByb3RvY29scyAobGlrZSBSTkRJUyBhbmQgQ0RDIE5D
+TSkgcHJvbW90ZSAgbGVzcyBlZmZpY2llbnQKKyAqIGRlc2lnbnMgd2hpY2gg
+aW52b2x2ZSBiYXRjaGluZyBtdWx0aXBsZSBJRUVFIHBhY2tldHMgaW4gZWFj
+aCBVUkIsCisgKiB3aXRoIGluY3JlYXNlZCBUWCBvdmVyaGVhZCB0byBjb3B5
+IElFRUUgcGFja2V0cyBpbnRvIFRYIFVSQnMnIGRhdGEKKyAqIGJ1ZmZlcnMg
+aW4gdHhfZml4dXAoKSByb3V0aW5lcywgcGx1cyB1bmJhdGNoaW5nIHdvcmsg
+aW4gcnhfZml4dXAoKSB0b28uCisgKiBTb21ldGltZXMgdGhlIFRYIG92ZXJo
+ZWFkIGNhbiBiZSBtaW5pbWl6ZWQgb24gTGludXggYnkgbm90IGJhdGNoaW5n
+LCBidXQKKyAqIHRoaXMgdXN1YWxseSB3b24ndCB3b3JrIGZvciBSWCBiZWNh
+dXNlIG9mIHRoZSBuZWVkIHRvIGludGVyb3BlcmF0ZSB3aXRoCisgKiBpbXBs
+ZW1lbnRhdGlvbnMgd2hpY2ggYmF0Y2ggb24gVFguCisgKi8KKwogc3RydWN0
+IHVzYm5ldCB7CisKIAkvKiBob3VzZWtlZXBpbmcgKi8KIAlzdHJ1Y3QgdXNi
+X2RldmljZQkqdWRldjsKIAlzdHJ1Y3QgdXNiX2ludGVyZmFjZQkqaW50ZjsK
+QEAgLTExMyw3ICsxMjcsMjAgQEAgc3RydWN0IGRyaXZlcl9pbmZvIHsKIAkv
+KiBsaW5rIHJlc2V0IGhhbmRsaW5nLCBjYWxsZWQgZnJvbSBkZWZlcl9rZXZl
+bnQgKi8KIAlpbnQJKCpsaW5rX3Jlc2V0KShzdHJ1Y3QgdXNibmV0ICopOwog
+Ci0JLyogZml4dXAgcnggcGFja2V0IChzdHJpcCBmcmFtaW5nKSAqLworCS8q
+IGZpeHVwIHJ4IHBhY2tldCAoIGJ5IHN0cmlwcGluZyBmcmFtaW5nIGZyb20g
+VVJCL1NLQi4KKwkgKgorCSAqIElmIFNLQiBiYXRjaGVzIG9uZSBvciBtb3Jl
+IHBhY2tldHMsIHBhc3MgYWxsIGJ1dCBvbmUgb2YgdGhlbQorCSAqIHVwIHRo
+ZSBzdGFjayAoY2xvbmUgU0tCIGFuZCBmaXh1cCBlYWNoIGNsb25lIGJlZm9y
+ZSBuZXRpZl9yeCkpLgorCSAqCisKKwkgKiBXaGVuIHlvdSBsZWF2ZSBvbmUg
+cGFja2V0IGluIFNLQiAoaW50ZW5kZWQgdXNhZ2UpLCByZXR1cm4KKwkgKiBu
+b256ZXJvIGFuZCBlbnN1cmUgc2tiLWxlbiBpcyBub256ZXJvLiAgdGhlIHBh
+Y2tldCB3aWxsIGJlCisJICogcGFzc2VkIHVwIHRoZSBuZXR3b3JrIHN0YWNr
+IGFuZCBhY2NvdW50ZWQgcHJvcGVybHkuCisJICoKKwkgKiByZXR1cm4gemVy
+byB0byBpbmRpY2F0ZSBlcnJvcnMgc3VjaCBhcyB0b28gbXVjaCBoZWFkZXIg
+b3IKKwkgKiBkYXRhLCBvciBhIGJhZCBjaGVja3N1bTsgdGhlIHBhY2tldCB3
+aWxsIGJlIGRyb3BwZWQKKwkgKiBhbmQgYWNjb3VudGVkIGFzIGFuIGVycm9y
+LgorCSovCiAJaW50CSgqcnhfZml4dXApKHN0cnVjdCB1c2JuZXQgKmRldiwg
+c3RydWN0IHNrX2J1ZmYgKnNrYik7CiAKIAkvKiBmaXh1cCB0eCBwYWNrZXQg
+KGFkZCBmcmFtaW5nKSAqLwo=
+
+--0-14384708-1283906764=:67832--
+
