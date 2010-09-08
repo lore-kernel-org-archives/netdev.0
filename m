@@ -1,30 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove address space warnings in net/socket.c
-Date: Wed, 08 Sep 2010 13:46:32 -0700 (PDT)
-Message-ID: <20100908.134632.35051274.davem@davemloft.net>
-References: <1283867700-24132-1-git-send-email-namhyung@gmail.com>
+From: Andrew <nitr0@seti.kr.ua>
+Subject: VIA Velocity 6130 - is it supported?
+Date: Wed, 08 Sep 2010 23:01:14 +0300
+Message-ID: <4C87EB8A.6050503@seti.kr.ua>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1251; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: namhyung@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44993
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751557Ab0IHUqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 16:46:14 -0400
-In-Reply-To: <1283867700-24132-1-git-send-email-namhyung@gmail.com>
+Received: from imap.seti.kr.ua ([91.202.132.4]:56984 "EHLO mail.seti.kr.ua"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753682Ab0IHUtb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Sep 2010 16:49:31 -0400
+Received: from [91.202.133.246] (helo=[172.19.32.10])
+	by mail.seti.kr.ua with esmtpa (Exim 4.68)
+	(envelope-from <nitr0@seti.kr.ua>)
+	id 1OtQpP-0000y2-MV
+	for netdev@vger.kernel.org; Wed, 08 Sep 2010 23:01:08 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Namhyung Kim <namhyung@gmail.com>
-Date: Tue,  7 Sep 2010 22:55:00 +0900
-
-> Casts __kernel to __user pointer require __force markup, so add it. Also
-> sock_get/setsockopt() takes @optval and/or @optlen arguments as user pointers
-> but were taking kernel pointers, use new variables 'uoptval' and/or 'uoptlen'
-> to fix it. These remove following warnings from sparse:
-...
-> Signed-off-by: Namhyung Kim <namhyung@gmail.com>
-
-Applied to net-next-2.6, thank you.
+  Hi all.
+I tried to run VT6130 on 2.6.35.2 kernel - but as result I have eth 
+device with MAC ff:ff:ff:ff:ff:ff, that can't be upped - RNETLINK 
+returns a lot of errors 'can't set address".
+Is this device supported by kernel drivers?
