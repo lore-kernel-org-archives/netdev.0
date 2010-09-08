@@ -1,29 +1,103 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH v3 06/10] omap: cleanup unused davinci mdio arch code
-Date: Tue, 7 Sep 2010 18:00:56 -0700
-Message-ID: <20100908010055.GG22507@atomide.com>
+From: Kevin Hilman <khilman@deeprootsystems.com>
+Subject: Re: [PATCH v3 00/10] split out emac cpdma and mdio for reuse
+Date: Tue, 07 Sep 2010 18:18:20 -0700
+Message-ID: <871v95f2xv.fsf@deeprootsystems.com>
 References: <1283891142-15522-1-git-send-email-cyril@ti.com>
- <1283891142-15522-7-git-send-email-cyril@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org,
 	davinci-linux-open-source@linux.davincidsp.com,
-	linux-omap@vger.kernel.org, davem@davemloft.net,
-	khilman@deeprootsystems.com
+	linux-omap@vger.kernel.org, davem@davemloft.net, tony@atomide.com
 To: Cyril Chemparathy <cyril@ti.com>
 Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1283891142-15522-7-git-send-email-cyril@ti.com>
+In-Reply-To: <1283891142-15522-1-git-send-email-cyril@ti.com> (Cyril
+	Chemparathy's message of "Tue, 7 Sep 2010 16:25:32 -0400")
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Cyril Chemparathy <cyril@ti.com> [100907 13:17]:
-> This patch removes davinci architecture code that has now been rendered
-> useless by the previous patches in the MDIO separation series.
-> 
-> Signed-off-by: Cyril Chemparathy <cyril@ti.com>
-> Acked-by: David S. Miller <davem@davemloft.net>
+Cyril Chemparathy <cyril@ti.com> writes:
 
-This one too:
+> Davinci's EMAC device has an in-built MDIO controller and a CPDMA engine.
+> These hardware modules are not restricted to EMAC device alone.  For example,
+> CPSW3G (3-port gigabit ethernet switch) hardware uses these very same modules
+> internally.  This patch series separates out EMAC's MDIO and CPDMA
+> functionality, allowing these individual pieces to be reused across TI
+> hardware.  
 
-Acked-by: Tony Lindgren <tony@atomide.com>
+OK, queuing this series for 2.6.37 in davinci-next.
+
+Kevin
+
+> This patch series has been broadly organized as follows:
+>
+> MDIO:
+>   - Add new functionality
+>       netdev: separate out davinci mdio controller code
+>   - Hookup new functionality
+>       davinci: add mdio platform devices
+>       omap: add mdio platform devices
+>       netdev: switch davinci emac to new mdio driver
+>   - Cleanup left over cruft
+>       davinci: cleanup unused davinci mdio arch code
+>       omap: cleanup unused davinci mdio arch code
+>       netdev: cleanup unused davinci mdio emac code
+>
+> CPDMA:
+>   - Add new functionality
+>      netdev: separate out davinci cpdma controller code
+>   - Hookup new functionality
+>      netdev: switch davinci emac to new cpdma layer
+>   - Cleanup left over cruft
+>      netdev: cleanup unused davinci emac cpdma code
+>
+> This series has been tested on dm365 and tnetv107x (with additional cpsw
+> patches) hardware.  Although am3517 (omap) board support code has been updated
+> as needed, emac does not work on this platform.
+>
+> Changes from v1:
+>   1. Fixed memory leak in cpdma_chan_create() failure case
+>   2. Included new omap patches for am3517, avoids build breakage
+>
+> Changes from v2:
+>   1. Updated series to include mityomapl138 board
+>   2. Minor white-space fixes
+>
+> Cyril Chemparathy (10):
+>   net: davinci_emac: separate out davinci mdio
+>   davinci: add mdio platform devices
+>   omap: add mdio platform devices
+>   net: davinci_emac: switch to new mdio
+>   davinci: cleanup unused davinci mdio arch code
+>   omap: cleanup unused davinci mdio arch code
+>   net: davinci_emac: cleanup unused mdio emac code
+>   net: davinci_emac: separate out cpdma code
+>   net: davinci_emac: switch to new cpdma layer
+>   net: davinci_emac: cleanup unused cpdma code
+>
+>  arch/arm/mach-davinci/board-da830-evm.c     |    5 -
+>  arch/arm/mach-davinci/board-da850-evm.c     |    6 -
+>  arch/arm/mach-davinci/board-dm365-evm.c     |    7 -
+>  arch/arm/mach-davinci/board-dm644x-evm.c    |    7 -
+>  arch/arm/mach-davinci/board-dm646x-evm.c    |    8 -
+>  arch/arm/mach-davinci/board-mityomapl138.c  |    7 -
+>  arch/arm/mach-davinci/board-neuros-osd2.c   |    7 -
+>  arch/arm/mach-davinci/board-sffsdr.c        |    7 -
+>  arch/arm/mach-davinci/devices-da8xx.c       |   31 +-
+>  arch/arm/mach-davinci/dm365.c               |   23 +-
+>  arch/arm/mach-davinci/dm644x.c              |   23 +-
+>  arch/arm/mach-davinci/dm646x.c              |   22 +-
+>  arch/arm/mach-davinci/include/mach/dm365.h  |    2 +-
+>  arch/arm/mach-davinci/include/mach/dm644x.h |    2 +-
+>  arch/arm/mach-davinci/include/mach/dm646x.h |    2 +-
+>  arch/arm/mach-omap2/board-am3517evm.c       |   31 +-
+>  drivers/net/Kconfig                         |   21 +
+>  drivers/net/Makefile                        |    2 +
+>  drivers/net/davinci_cpdma.c                 |  837 +++++++++++++++++
+>  drivers/net/davinci_cpdma.h                 |  105 +++
+>  drivers/net/davinci_emac.c                  | 1325 ++++-----------------------
+>  drivers/net/davinci_mdio.c                  |  386 ++++++++
+>  include/linux/davinci_emac.h                |    8 +-
+>  23 files changed, 1635 insertions(+), 1239 deletions(-)
+>  create mode 100644 drivers/net/davinci_cpdma.c
+>  create mode 100644 drivers/net/davinci_cpdma.h
+>  create mode 100644 drivers/net/davinci_mdio.c
