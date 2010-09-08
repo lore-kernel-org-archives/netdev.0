@@ -1,56 +1,103 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: oops in tcp_xmit_retransmit_queue() w/ v2.6.32.15
-Date: Wed, 8 Sep 2010 12:32:57 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1009081232060.26447@wel-95.cs.helsinki.fi>
-References: <4C358AAA.9080400@kernel.org> <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi> <4C3EF7EA.2040900@nets.rwth-aachen.de> <1279195528.2496.2.camel@edumazet-laptop> <4C3F053F.7090704@nets.rwth-aachen.de>
- <alpine.DEB.2.00.1007161448330.13946@melkinpaasi.cs.helsinki.fi> <4C4467E0.9080907@kernel.org>
+From: Sven Eckelmann <sven.eckelmann@gmx.de>
+Subject: Re: [PATCHv4] net: Add batman-adv meshing protocol
+Date: Wed, 8 Sep 2010 11:42:30 +0200
+Message-ID: <201009081142.31610.sven.eckelmann@gmx.de>
+References: <1283646353-17811-1-git-send-email-sven.eckelmann@gmx.de> <87sk1kiu5m.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1361224060-1283938377=:26447"
-Cc: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart25681580.NLbAIoH7hq";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha512
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>, davem@davemloft.net,
+	netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.net
+To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:56732 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806Ab0IHJc7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 05:32:59 -0400
-In-Reply-To: <4C4467E0.9080907@kernel.org>
+Received: from mailout-de.gmx.net ([213.165.64.22]:36244 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1756714Ab0IHJmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Sep 2010 05:42:13 -0400
+In-Reply-To: <87sk1kiu5m.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+--nextPart25681580.NLbAIoH7hq
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
---8323329-1361224060-1283938377=:26447
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+Hi,
 
-On Mon, 19 Jul 2010, Tejun Heo wrote:
+here are some raw references without any judgment. Maybe Marek will send so=
+me=20
+more information about that topic later.
 
-> Hello,
-> 
-> On 07/16/2010 02:02 PM, Ilpo Järvinen wrote:
-> > Besides, Tejun has also found that it's hint->next ptr which is NULL in 
-> > his case so this won't solve his case anyway. Tejun, can you confirm 
-> > whether it was retransmit_skb_hint->next being NULL on _entry time_ to 
-> > tcp_xmit_retransmit_queue() or later on in the loop after the updates done 
-> > by the loop itself to the hint (or that your testing didn't conclude 
-> > either)?
-> 
-> Sorry about the delay.  I was traveling last week.  Unfortunately, I
-> don't know whether ->next was NULL on entry or not.  I hacked up the
-> following ugly patch for the next test run.  It should have everything
-> which has come up till now + list and hint sanity checking before
-> starting processing them.  I'm planning on deploying it w/ crashdump
-> enabled in several days.  If I've missed something, please let me
-> know.
+Andi Kleen wrote:
+> Sven Eckelmann <sven.eckelmann@gmx.de> writes:
+> > B.A.T.M.A.N. (better approach to mobile ad-hoc networking) is a routing
+> > protocol for multi-hop ad-hoc mesh networks. The networks may be wired =
+or
+> > wireless. See http://www.open-mesh.org/ for more information and user
+> > space tools.
+>=20
+> It seems rather unusual to have the complete routing protocol in
+> kernel. And this is a lot of code. The normal way to do such things is
+> to have the routing policy etc. in a user daemon and only let the kernel
+> provide some services to this.
+>=20
+> Could you elaborate a bit why this approach was not chosen?
+>=20
+> I assume if it needs a switch it could have a switching "hot path" layer
+> in kernel and the policy somewhere else.
 
-Any news on this one?
+https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2010-July/003119.html
+https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2010-July/003120.html
+https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2010-July/003121.html
 
--- 
- i.
---8323329-1361224060-1283938377=:26447--
+Just as note: the mentioned parts which move to the userspace or stays insi=
+de=20
+the kernel doesn't include the parts which must be added as interface for=20
+other kernel modules/userspace daemon.
+
+> You write
+>=20
+> > +Batman advanced was implemented as a Linux kernel driver  to  re-
+> > +duce the overhead to a minimum. It does not depend on any (other)
+>=20
+> What overhead exactly?
+
+https://lists.open-mesh.org/pipermail/b.a.t.m.a.n/2010-June/003029.html
+
+So the mentioned overhead was related to throughput and latency of the actu=
+al=20
+data packets send over the complete userspace implementation (receiving stu=
+ff,=20
+getting stuff from kernel, modifying it, putting it back in the kernel,=20
+sending it).
+
+Best regards,
+	Sven
+
+--nextPart25681580.NLbAIoH7hq
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIcBAABCgAGBQJMh1qGAAoJEF2HCgfBJntGbuUQAKQH42AGEnoP03bTH4glCBHT
+CkRtve5+l4PRnuaa17qkJzk3OykexHuykPUUIkmGTz6DPHVe6oagmpPX8+eok4qI
+LE6tdOdX785DRTgL6nBjgEn4Po6r1o6W9/HQdG90kZTzQUAhzJSQvNGyDyDvnD3t
+k50N0qZ0zwTKGen58FNf4rBGF6MU+aS9bFT59tFuv0L2qqfqDrDg+QOE5HeHSRLJ
+wceQvocRsHM3r79UuxhWukBxJCJ8juaz951Y6mL0nxEmfqvnwCMqJT3JquulqKN7
+LKDnZRhNLY9+8EhoWWqCQhguZBn3byfle9QgDd/2SwO9XRU2T1dqwVYmjcopG1Zs
+z/2rolrpg9rt9QyJECfgS4KmNzHZEBmMel0Hol5dYzTgVPEWA3qufzoxz+9buZLv
+nYDqaVrKcNKstc3NkWc5WZ72V+b1Em0qIE5WTrANQo80bKvMrfZZDdV8cLx8pV5p
+hJNcrPXJdXTuGUhbCIa9U4i0eswk2uYTDD42IlrD7worZTb9/AETxxTfJRz9IOH8
+rh/9HtKh4tQkBS9wa65nr9VcWLf5Yufpjbu/dr4GATmlanA8yEDN7MFkBKenQWUF
+PDWmzbSIzp2YHQDsn4rS72xmU6lNansadlV+8j+k+uR7JAR7jaeSZ1KGQBhUSXSM
+NE5nI+ZP1CFVjKCOH+KR
+=oCfH
+-----END PGP SIGNATURE-----
+
+--nextPart25681580.NLbAIoH7hq--
