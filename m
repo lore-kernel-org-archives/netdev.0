@@ -1,48 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] e1000: fix Tx hangs by disabling 64-bit
- DMA
-Date: Wed, 08 Sep 2010 14:22:07 -0700 (PDT)
-Message-ID: <20100908.142207.258102173.davem@davemloft.net>
-References: <20100908065835.315.15437.stgit@localhost.localdomain>
+Subject: Re: Problems obtaining software TX timestamps
+Date: Wed, 08 Sep 2010 14:24:01 -0700 (PDT)
+Message-ID: <20100908.142401.233712108.davem@davemloft.net>
+References: <4C877D8A.6040002@edu.uni-klu.ac.at>
+	<1283958771.2748.85.camel@edumazet-laptop>
+	<4C87FE60.7090209@edu.uni-klu.ac.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	jesse.brandeburg@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: ikofler@edu.uni-klu.ac.at
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60899
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60904
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755589Ab0IHVVt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 17:21:49 -0400
-In-Reply-To: <20100908065835.315.15437.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754807Ab0IHVXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 17:23:43 -0400
+In-Reply-To: <4C87FE60.7090209@edu.uni-klu.ac.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 08 Sep 2010 00:01:12 -0700
+From: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
+Date: Wed, 08 Sep 2010 23:21:36 +0200
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> Several users report issues with 32-bit adapters when plugged
-> into PCI slots in machines with >= 4GB ram.  In particular AMD
-> systems with HyperTransport to PCI bridges seem to trigger the
-> issue, but it isn't limited to only them.
-> 
-> This issue is not easily reproducible here, yet still continues
-> to occur in the field.  For e1000 on PCI devices, just disable DMA
-> addresses over the 4GB boundary when in PCI (not PCI-X) mode, to
-> prevent the issue from continuing to pop up.  The performance
-> impact for this is negligible.
-> 
-> The code was refactored to move the init of the hw struct to its
-> own function. This allows the init to be called very early in
-> probe, which then allows using hw-> members for this fix.
-> 
-> A slight refactor to the DMA mask code was done for minor
-> correctness based on the instructions in DMA-API-HOWTO.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Ok, for hardware timestamps it seems logically for me that the driver
+> has to support this. But what about the software timestamps - do they
+> also require support from the driver? Is there no generic
+> implementation in the networking stack?
 
-Applied, thanks guys.
+Each and every driver must add the hook because it must be inside of
+the driver's transmit function due to packet lifetime issues etc.
