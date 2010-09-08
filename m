@@ -1,90 +1,64 @@
 From: "Arce, Abraham" <x0066660@ti.com>
-Subject: [PATCH] KS8851: Correct RX packet allocation
-Date: Wed, 8 Sep 2010 18:26:55 -0500
-Message-ID: <27F9C60D11D683428E133F85D2BB4A530450AB386D@dlee03.ent.ti.com>
+Subject: RE: NULL Pointer Deference: NFS & Telnet
+Date: Wed, 8 Sep 2010 18:27:16 -0500
+Message-ID: <27F9C60D11D683428E133F85D2BB4A530450AB386F@dlee03.ent.ti.com>
+References: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
+	 <27F9C60D11D683428E133F85D2BB4A53043E3EDFE6@dlee03.ent.ti.com>
+	 <20100525.185236.193707791.davem@davemloft.net>
+	 <27F9C60D11D683428E133F85D2BB4A53043E3EDFF1@dlee03.ent.ti.com>
+	 <1274851741.25136.16.camel@edumazet-laptop>
+	 <27F9C60D11D683428E133F85D2BB4A53043E3EE6A3@dlee03.ent.ti.com>
+	 <1274906933.2542.17.camel@edumazet-laptop>
+	 <27F9C60D11D683428E133F85D2BB4A5304509AF8DA@dlee03.ent.ti.com>
+ <1283962550.2748.92.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"Shilimkar, Santosh" <santosh.shilimkar@ti.com>,
 	"Ha, Tristram" <Tristram.Ha@micrel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:41960 "EHLO bear.ext.ti.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:49697 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756679Ab0IHX1A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 19:27:00 -0400
+	id S1756655Ab0IHX1U convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 19:27:20 -0400
+In-Reply-To: <1283962550.2748.92.camel@edumazet-laptop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+Thanks Eric,
 
-Use netdev_alloc_skb_ip_align() helper and do correct allocation
+> Le mardi 07 septembre 2010 =E0 16:43 -0500, Arce, Abraham a =E9crit :
+> > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
 
-Tested-by: Abraham Arce <x0066660@ti.com>
-Signed-off-by: Abraham Arce <x0066660@ti.com>
----
- drivers/net/ks8851.c |   39 +++++++++++++++++++++------------------
- 1 files changed, 21 insertions(+), 18 deletions(-)
+[..]
 
-diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
-index b4fb07a..51919fc 100644
---- a/drivers/net/ks8851.c
-+++ b/drivers/net/ks8851.c
-@@ -503,30 +503,33 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
- 		ks8851_wrreg16(ks, KS_RXQCR,
- 			       ks->rc_rxqcr | RXQCR_SDA | RXQCR_ADRFE);
- 
--		if (rxlen > 0) {
--			skb = netdev_alloc_skb(ks->netdev, rxlen + 2 + 8);
--			if (!skb) {
--				/* todo - dump frame and move on */
--			}
-+		if (rxlen > 4) {
-+			unsigned int rxalign;
-+
-+			rxlen -= 4;
-+			rxalign = ALIGN(rxlen, 4);
-+			skb = netdev_alloc_skb_ip_align(ks->netdev, rxalign);
-+			if (skb) {
- 
--			/* two bytes to ensure ip is aligned, and four bytes
--			 * for the status header and 4 bytes of garbage */
--			skb_reserve(skb, 2 + 4 + 4);
-+				/* 4 bytes of status header + 4 bytes of
-+				 * garbage: we put them before ethernet
-+				 * header, so that they are copied,
-+				 * but ignored.
-+				 */
- 
--			rxpkt = skb_put(skb, rxlen - 4) - 8;
-+				rxpkt = skb_put(skb, rxlen) - 8;
- 
--			/* align the packet length to 4 bytes, and add 4 bytes
--			 * as we're getting the rx status header as well */
--			ks8851_rdfifo(ks, rxpkt, ALIGN(rxlen, 4) + 8);
-+				ks8851_rdfifo(ks, rxpkt, rxalign + 8);
- 
--			if (netif_msg_pktdata(ks))
--				ks8851_dbg_dumpkkt(ks, rxpkt);
-+				if (netif_msg_pktdata(ks))
-+					ks8851_dbg_dumpkkt(ks, rxpkt);
- 
--			skb->protocol = eth_type_trans(skb, ks->netdev);
--			netif_rx(skb);
-+				skb->protocol = eth_type_trans(skb, ks->netdev);
-+				netif_rx(skb);
- 
--			ks->netdev->stats.rx_packets++;
--			ks->netdev->stats.rx_bytes += rxlen - 4;
-+				ks->netdev->stats.rx_packets++;
-+				ks->netdev->stats.rx_bytes += rxlen;
-+			}
- 		}
- 
- 		ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
--- 
-1.5.4.3
+> > How about the following patch? I am using added helper function:
+> > netdev_alloc_skb_ip_align()
+>=20
+> Hmm, I prefer following patch (not tested), to really cope with
+> allocation errors (instead of crashing because of NULL dereference), =
+and
+> allocate and skb of exactly the needed size.
+
+Patch tested, 2 minor modifications:
+
+ - Added an ending brace
+ - Line size correction
+
+It has been tested in a SDP OMAP4 ES1.0
+
+- Filesystem over nfs
+- Multiple file creation
+- Throughput measurement
+
+I'll send it as a new patch
+
+ [PATCH] KS8851: Correct RX packet allocation
+
+Best Regards
+Abraham
 
