@@ -1,33 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 4/7 v3] au1000-eth: fix bad printk usages
-Date: Wed, 08 Sep 2010 14:24:51 -0700
-Message-ID: <1283981091.2479.51.camel@Joe-Laptop>
-References: <201009082311.45685.florian@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1532 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752542Ab0IHVYx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 17:24:53 -0400
-In-Reply-To: <201009082311.45685.florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikitas Angelinas <nikitasangelinas@gmail.com>
+Subject: [PATCH 6/8] drivers/net/wireless/ath/ath9k: use ARRAY_SIZE macro in ani.c
+Date: Wed,  8 Sep 2010 22:25:42 +0100
+Message-ID: <1283981142-5062-1-git-send-email-nikitasangelinas@gmail.com>
+References: <1283979457-4649-1-git-send-email-nikitasangelinas@gmail.com>
+Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nikitas Angelinas <nikitasangelinas@gmail.com>
+To: lrodriguez@atheros.com, jmalinen@atheros.com, vasanth@atheros.com,
+	senthilkumar@atheros.com, linville@tuxdriver.com,
+	Sujith.Manoharan@atheros.com, nbd@openwrt.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1283979457-4649-1-git-send-email-nikitasangelinas@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-09-08 at 23:11 +0200, Florian Fainelli wrote:
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-> @@ -1199,7 +1203,8 @@ static int __devinit au1000_probe(struct platform_device *pdev)
->  	netdev_info(dev, "Au1xx0 Ethernet found at 0x%lx, irq %d\n",
->  			(unsigned long)base->start, irq);
->  	if (version_printed++ == 0)
-> -		printk("%s version %s %s\n", DRV_NAME, DRV_VERSION, DRV_AUTHOR);
-> +		pr_info("%s version %s %s\n",
-> +					DRV_NAME, DRV_VERSION, DRV_AUTHOR);
+Replace (sizeof(ofdm_level_table)/sizeof(ofdm_level_table[0]) with
+ARRAY_SIZE(ofdm_level_table), and (sizeof(cck_level_table)/
+sizeof(cck_level_table[0]) with ARRAY_SIZE(cck_level_table) in
+drivers/net/wireless/ath/ath9k/ani.c
 
-You could also remove version_printed and use
-printk_once(KERN_INFO etc...)
+Signed-off-by: Nikitas Angelinas <nikitasangelinas@gmail.com>
+---
+ drivers/net/wireless/ath/ath9k/ani.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-
+diff --git a/drivers/net/wireless/ath/ath9k/ani.c b/drivers/net/wireless/ath/ath9k/ani.c
+index cc648b6..0496f96 100644
+--- a/drivers/net/wireless/ath/ath9k/ani.c
++++ b/drivers/net/wireless/ath/ath9k/ani.c
+@@ -14,6 +14,7 @@
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
+ 
++#include <linux/kernel.h>
+ #include "hw.h"
+ #include "hw-ops.h"
+ 
+@@ -48,7 +49,7 @@ static const struct ani_ofdm_level_entry ofdm_level_table[] = {
+ 	{  7,  8,  0  }  /* lvl 9 */
+ };
+ #define ATH9K_ANI_OFDM_NUM_LEVEL \
+-	(sizeof(ofdm_level_table)/sizeof(ofdm_level_table[0]))
++	ARRAY_SIZE(ofdm_level_table)
+ #define ATH9K_ANI_OFDM_MAX_LEVEL \
+ 	(ATH9K_ANI_OFDM_NUM_LEVEL-1)
+ #define ATH9K_ANI_OFDM_DEF_LEVEL \
+@@ -94,7 +95,7 @@ static const struct ani_cck_level_entry cck_level_table[] = {
+ };
+ 
+ #define ATH9K_ANI_CCK_NUM_LEVEL \
+-	(sizeof(cck_level_table)/sizeof(cck_level_table[0]))
++	ARRAY_SIZE(cck_level_table)
+ #define ATH9K_ANI_CCK_MAX_LEVEL \
+ 	(ATH9K_ANI_CCK_NUM_LEVEL-1)
+ #define ATH9K_ANI_CCK_MAX_LEVEL_LOW_RSSI \
+-- 
+1.7.2.3
