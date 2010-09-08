@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Wed, 8 Sep 2010 07:54:03 -0700
-Message-ID: <20100908075403.7d31758a@nehalam>
+Date: Wed, 8 Sep 2010 07:55:45 -0700
+Message-ID: <20100908075545.79023fa9@nehalam>
 References: <4C81019E.1010808@dsn.okisemi.com>
 	<4C8123D6.8020001@suse.cz>
 	<003901cb4f5d$bf977c80$66f8800a@maildom.okisemi.com>
@@ -46,9 +46,11 @@ Jiri Slaby <jslaby@suse.cz> wrote:
 > > 
 > > [masa]
 > > Since warning appears at the time of a make.  
+> 
+> OK, then you have type error which you should fix instead. Perhaps
+> define the constnts with U suffix?
 
-Better to use the "_t" version which does the necessary cast.
-        rxdr->count = clamp_t(u32, ring->rx_pending,
-				PCH_GBE_MIN_RXD, PCH_GBE_MAX_RXD)
-
--- 
+Better yet:
+	rxdr->count = clamp_val(ring->rx_pending,
+				PCH_GBE_MIN_RXD,
+				PCH_GBE_MAX_RXD);
