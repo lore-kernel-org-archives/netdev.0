@@ -1,517 +1,685 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 1/4] [PATCH] qdio: extend API to allow polling
-Date: Wed, 08 Sep 2010 09:14:39 +0200
-Message-ID: <20100908071601.097250895@de.ibm.com>
+Subject: [patch 4/4] [PATCH] qeth: NAPI support for l2 and l3 discipline
+Date: Wed, 08 Sep 2010 09:14:42 +0200
+Message-ID: <20100908071601.574417098@de.ibm.com>
 References: <20100908071438.085729717@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Jan Glauber <jang@linux.vnet.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.17.161]:37623 "EHLO
+Received: from mtagate1.de.ibm.com ([195.212.17.161]:37622 "EHLO
 	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755136Ab0IHHQE (ORCPT
+	with ESMTP id S1756537Ab0IHHQE (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 03:16:04 -0400
-Content-Disposition: inline; filename=101-napi-qdio.diff
+Content-Disposition: inline; filename=603-qeth-napi.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Glauber <jang@linux.vnet.ibm.com>
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Extend the qdio API to allow polling in the upper-layer driver. This
-is needed by qeth to use NAPI.
+This patch adds NAPI support to the qeth layer 2 and layer 3
+discipline. It is important to understand that we can not enable/disable
+IRQs as usual, we have to use the corresponding new QDIO interface.
+Also to not overdraw the budget we have to stop and restart buffer
+processing at any point during processing a bulk of QDIO buffers.
+Having the driver NAPI enabled it is possible to turn on GRO for the
+layer 3 discipline.
 
-To use the new interface the upper-layer driver must specify the
-queue_start_poll(). This callback is used to signal the upper-layer
-driver that is has initiative and must process the inbound queue by
-calling qdio_get_next_buffers(). If the upper-layer driver wants to
-stop polling it calls qdio_start_irq().
-
-Since adapter interrupts are not completely stoppable qdio implements
-a software bit QDIO_QUEUE_IRQS_DISABLED to safely disable interrupts for an
-input queue.
-
-The old interface is preserved and will be used as is by zfcp.
-
-Signed-off-by: Jan Glauber <jang@linux.vnet.ibm.com>
-Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
- arch/s390/include/asm/qdio.h    |   13 ++-
- drivers/s390/cio/qdio.h         |   29 ++++++++
- drivers/s390/cio/qdio_debug.c   |   33 +++------
- drivers/s390/cio/qdio_main.c    |  138 +++++++++++++++++++++++++++++++++++++++-
- drivers/s390/cio/qdio_setup.c   |    1 
- drivers/s390/cio/qdio_thinint.c |   66 +++++++++++--------
- drivers/s390/scsi/zfcp_qdio.c   |    6 -
- 7 files changed, 225 insertions(+), 61 deletions(-)
+ drivers/s390/net/qeth_core.h      |   17 +++
+ drivers/s390/net/qeth_core_main.c |   26 +++++
+ drivers/s390/net/qeth_l2_main.c   |  173 ++++++++++++++++++++++--------------
+ drivers/s390/net/qeth_l3_main.c   |  182 +++++++++++++++++++++++---------------
+ 4 files changed, 260 insertions(+), 138 deletions(-)
 
-diff -urpN linux-2.6/arch/s390/include/asm/qdio.h linux-2.6-patched/arch/s390/include/asm/qdio.h
---- linux-2.6/arch/s390/include/asm/qdio.h	2010-09-07 09:57:16.000000000 +0200
-+++ linux-2.6-patched/arch/s390/include/asm/qdio.h	2010-09-07 09:57:23.000000000 +0200
-@@ -360,6 +360,7 @@ struct qdio_initialize {
- 	unsigned int no_output_qs;
+diff -urpN linux-2.6/drivers/s390/net/qeth_core.h linux-2.6-patched/drivers/s390/net/qeth_core.h
+--- linux-2.6/drivers/s390/net/qeth_core.h	2010-09-07 09:57:18.000000000 +0200
++++ linux-2.6-patched/drivers/s390/net/qeth_core.h	2010-09-07 09:57:35.000000000 +0200
+@@ -676,6 +676,7 @@ enum qeth_discipline_id {
+ };
+ 
+ struct qeth_discipline {
++	void (*start_poll)(struct ccw_device *, int, unsigned long);
  	qdio_handler_t *input_handler;
  	qdio_handler_t *output_handler;
-+	void (*queue_start_poll) (struct ccw_device *, int, unsigned long);
- 	unsigned long int_parm;
- 	void **input_sbal_addr_array;
- 	void **output_sbal_addr_array;
-@@ -377,11 +378,13 @@ struct qdio_initialize {
- extern int qdio_allocate(struct qdio_initialize *);
- extern int qdio_establish(struct qdio_initialize *);
- extern int qdio_activate(struct ccw_device *);
--
--extern int do_QDIO(struct ccw_device *cdev, unsigned int callflags,
--		   int q_nr, unsigned int bufnr, unsigned int count);
--extern int qdio_shutdown(struct ccw_device*, int);
-+extern int do_QDIO(struct ccw_device *, unsigned int, int, unsigned int,
-+		   unsigned int);
-+extern int qdio_start_irq(struct ccw_device *, int);
-+extern int qdio_stop_irq(struct ccw_device *, int);
-+extern int qdio_get_next_buffers(struct ccw_device *, int, int *, int *);
-+extern int qdio_shutdown(struct ccw_device *, int);
- extern int qdio_free(struct ccw_device *);
--extern int qdio_get_ssqd_desc(struct ccw_device *dev, struct qdio_ssqd_desc*);
-+extern int qdio_get_ssqd_desc(struct ccw_device *, struct qdio_ssqd_desc *);
+ 	int (*recover)(void *ptr);
+@@ -702,6 +703,16 @@ struct qeth_skb_data {
+ #define QETH_SKB_MAGIC 0x71657468
+ #define QETH_SIGA_CC2_RETRIES 3
  
- #endif /* __QDIO_H__ */
-diff -urpN linux-2.6/drivers/s390/cio/qdio_debug.c linux-2.6-patched/drivers/s390/cio/qdio_debug.c
---- linux-2.6/drivers/s390/cio/qdio_debug.c	2010-08-02 00:11:14.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/cio/qdio_debug.c	2010-09-07 09:57:23.000000000 +0200
-@@ -56,9 +56,16 @@ static int qstat_show(struct seq_file *m
- 
- 	seq_printf(m, "DSCI: %d   nr_used: %d\n",
- 		   *(u32 *)q->irq_ptr->dsci, atomic_read(&q->nr_buf_used));
--	seq_printf(m, "ftc: %d  last_move: %d\n", q->first_to_check, q->last_move);
--	seq_printf(m, "polling: %d  ack start: %d  ack count: %d\n",
--		   q->u.in.polling, q->u.in.ack_start, q->u.in.ack_count);
-+	seq_printf(m, "ftc: %d  last_move: %d\n",
-+		   q->first_to_check, q->last_move);
-+	if (q->is_input_q) {
-+		seq_printf(m, "polling: %d  ack start: %d  ack count: %d\n",
-+			   q->u.in.polling, q->u.in.ack_start,
-+			   q->u.in.ack_count);
-+		seq_printf(m, "IRQs disabled: %u\n",
-+			   test_bit(QDIO_QUEUE_IRQS_DISABLED,
-+			   &q->u.in.queue_irq_state));
-+	}
- 	seq_printf(m, "SBAL states:\n");
- 	seq_printf(m, "|0      |8      |16     |24     |32     |40     |48     |56  63|\n");
- 
-@@ -113,22 +120,6 @@ static int qstat_show(struct seq_file *m
- 	return 0;
- }
- 
--static ssize_t qstat_seq_write(struct file *file, const char __user *buf,
--			       size_t count, loff_t *off)
--{
--	struct seq_file *seq = file->private_data;
--	struct qdio_q *q = seq->private;
--
--	if (!q)
--		return 0;
--	if (q->is_input_q)
--		xchg(q->irq_ptr->dsci, 1);
--	local_bh_disable();
--	tasklet_schedule(&q->tasklet);
--	local_bh_enable();
--	return count;
--}
--
- static int qstat_seq_open(struct inode *inode, struct file *filp)
- {
- 	return single_open(filp, qstat_show,
-@@ -139,7 +130,6 @@ static const struct file_operations debu
- 	.owner	 = THIS_MODULE,
- 	.open	 = qstat_seq_open,
- 	.read	 = seq_read,
--	.write	 = qstat_seq_write,
- 	.llseek  = seq_lseek,
- 	.release = single_release,
- };
-@@ -166,7 +156,8 @@ static char *qperf_names[] = {
- 	"QEBSM eqbs",
- 	"QEBSM eqbs partial",
- 	"QEBSM sqbs",
--	"QEBSM sqbs partial"
-+	"QEBSM sqbs partial",
-+	"Discarded interrupts"
- };
- 
- static int qperf_show(struct seq_file *m, void *v)
-diff -urpN linux-2.6/drivers/s390/cio/qdio.h linux-2.6-patched/drivers/s390/cio/qdio.h
---- linux-2.6/drivers/s390/cio/qdio.h	2010-08-02 00:11:14.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/cio/qdio.h	2010-09-07 09:57:23.000000000 +0200
-@@ -208,6 +208,7 @@ struct qdio_dev_perf_stat {
- 	unsigned int eqbs_partial;
- 	unsigned int sqbs;
- 	unsigned int sqbs_partial;
-+	unsigned int int_discarded;
- } ____cacheline_aligned;
- 
- struct qdio_queue_perf_stat {
-@@ -222,6 +223,10 @@ struct qdio_queue_perf_stat {
- 	unsigned int nr_sbal_total;
- };
- 
-+enum qdio_queue_irq_states {
-+	QDIO_QUEUE_IRQS_DISABLED,
++struct qeth_rx {
++	int b_count;
++	int b_index;
++	struct qdio_buffer_element *b_element;
++	int e_offset;
++	int qdio_err;
 +};
 +
- struct qdio_input_q {
- 	/* input buffer acknowledgement flag */
- 	int polling;
-@@ -231,6 +236,10 @@ struct qdio_input_q {
- 	int ack_count;
- 	/* last time of noticing incoming data */
- 	u64 timestamp;
-+	/* upper-layer polling flag */
-+	unsigned long queue_irq_state;
-+	/* callback to start upper-layer polling */
-+	void (*queue_start_poll) (struct ccw_device *, int, unsigned long);
++#define QETH_NAPI_WEIGHT 128
++
+ struct qeth_card {
+ 	struct list_head list;
+ 	enum qeth_card_states state;
+@@ -749,6 +760,8 @@ struct qeth_card {
+ 	debug_info_t *debug;
+ 	struct mutex conf_mutex;
+ 	struct mutex discipline_mutex;
++	struct napi_struct napi;
++	struct qeth_rx rx;
  };
  
- struct qdio_output_q {
-@@ -399,6 +408,26 @@ static inline int multicast_outbound(str
- #define sub_buf(bufnr, dec) \
- 	((bufnr - dec) & QDIO_MAX_BUFFERS_MASK)
- 
-+#define queue_irqs_enabled(q)			\
-+	(test_bit(QDIO_QUEUE_IRQS_DISABLED, &q->u.in.queue_irq_state) == 0)
-+#define queue_irqs_disabled(q)			\
-+	(test_bit(QDIO_QUEUE_IRQS_DISABLED, &q->u.in.queue_irq_state) != 0)
-+
-+#define TIQDIO_SHARED_IND		63
-+
-+/* device state change indicators */
-+struct indicator_t {
-+	u32 ind;	/* u32 because of compare-and-swap performance */
-+	atomic_t count; /* use count, 0 or 1 for non-shared indicators */
-+};
-+
-+extern struct indicator_t *q_indicators;
-+
-+static inline int shared_ind(struct qdio_irq *irq_ptr)
-+{
-+	return irq_ptr->dsci == &q_indicators[TIQDIO_SHARED_IND].ind;
-+}
-+
- /* prototypes for thin interrupt */
- void qdio_setup_thinint(struct qdio_irq *irq_ptr);
- int qdio_establish_thinint(struct qdio_irq *irq_ptr);
-diff -urpN linux-2.6/drivers/s390/cio/qdio_main.c linux-2.6-patched/drivers/s390/cio/qdio_main.c
---- linux-2.6/drivers/s390/cio/qdio_main.c	2010-08-02 00:11:14.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/cio/qdio_main.c	2010-09-07 09:57:23.000000000 +0200
-@@ -884,8 +884,19 @@ static void qdio_int_handler_pci(struct
- 	if (unlikely(irq_ptr->state == QDIO_IRQ_STATE_STOPPED))
- 		return;
- 
--	for_each_input_queue(irq_ptr, q, i)
--		tasklet_schedule(&q->tasklet);
-+	for_each_input_queue(irq_ptr, q, i) {
-+		if (q->u.in.queue_start_poll) {
-+			/* skip if polling is enabled or already in work */
-+			if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
-+				     &q->u.in.queue_irq_state)) {
-+				qperf_inc(q, int_discarded);
-+				continue;
-+			}
-+			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
-+						 q->irq_ptr->int_parm);
-+		} else
-+			tasklet_schedule(&q->tasklet);
-+	}
- 
- 	if (!(irq_ptr->qib.ac & QIB_AC_OUTBOUND_PCI_SUPPORTED))
- 		return;
-@@ -1519,6 +1530,129 @@ int do_QDIO(struct ccw_device *cdev, uns
- }
- EXPORT_SYMBOL_GPL(do_QDIO);
- 
-+/**
-+ * qdio_start_irq - process input buffers
-+ * @cdev: associated ccw_device for the qdio subchannel
-+ * @nr: input queue number
-+ *
-+ * Return codes
-+ *   0 - success
-+ *   1 - irqs not started since new data is available
-+ */
-+int qdio_start_irq(struct ccw_device *cdev, int nr)
-+{
-+	struct qdio_q *q;
-+	struct qdio_irq *irq_ptr = cdev->private->qdio_data;
-+
-+	if (!irq_ptr)
-+		return -ENODEV;
-+	q = irq_ptr->input_qs[nr];
-+
-+	WARN_ON(queue_irqs_enabled(q));
-+
-+	if (!shared_ind(q->irq_ptr))
-+		xchg(q->irq_ptr->dsci, 0);
-+
-+	qdio_stop_polling(q);
-+	clear_bit(QDIO_QUEUE_IRQS_DISABLED, &q->u.in.queue_irq_state);
-+
-+	/*
-+	 * We need to check again to not lose initiative after
-+	 * resetting the ACK state.
-+	 */
-+	if (!shared_ind(q->irq_ptr) && *q->irq_ptr->dsci)
-+		goto rescan;
-+	if (!qdio_inbound_q_done(q))
-+		goto rescan;
-+	return 0;
-+
-+rescan:
-+	if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
-+			     &q->u.in.queue_irq_state))
-+		return 0;
-+	else
-+		return 1;
-+
-+}
-+EXPORT_SYMBOL(qdio_start_irq);
-+
-+/**
-+ * qdio_get_next_buffers - process input buffers
-+ * @cdev: associated ccw_device for the qdio subchannel
-+ * @nr: input queue number
-+ * @bufnr: first filled buffer number
-+ * @error: buffers are in error state
-+ *
-+ * Return codes
-+ *   < 0 - error
-+ *   = 0 - no new buffers found
-+ *   > 0 - number of processed buffers
-+ */
-+int qdio_get_next_buffers(struct ccw_device *cdev, int nr, int *bufnr,
-+			  int *error)
-+{
-+	struct qdio_q *q;
-+	int start, end;
-+	struct qdio_irq *irq_ptr = cdev->private->qdio_data;
-+
-+	if (!irq_ptr)
-+		return -ENODEV;
-+	q = irq_ptr->input_qs[nr];
-+	WARN_ON(queue_irqs_enabled(q));
-+
-+	qdio_sync_after_thinint(q);
-+
-+	/*
-+	 * The interrupt could be caused by a PCI request. Check the
-+	 * PCI capable outbound queues.
-+	 */
-+	qdio_check_outbound_after_thinint(q);
-+
-+	if (!qdio_inbound_q_moved(q))
-+		return 0;
-+
-+	/* Note: upper-layer MUST stop processing immediately here ... */
-+	if (unlikely(q->irq_ptr->state != QDIO_IRQ_STATE_ACTIVE))
-+		return -EIO;
-+
-+	start = q->first_to_kick;
-+	end = q->first_to_check;
-+	*bufnr = start;
-+	*error = q->qdio_error;
-+
-+	/* for the next time */
-+	q->first_to_kick = end;
-+	q->qdio_error = 0;
-+	return sub_buf(end, start);
-+}
-+EXPORT_SYMBOL(qdio_get_next_buffers);
-+
-+/**
-+ * qdio_stop_irq - disable interrupt processing for the device
-+ * @cdev: associated ccw_device for the qdio subchannel
-+ * @nr: input queue number
-+ *
-+ * Return codes
-+ *   0 - interrupts were already disabled
-+ *   1 - interrupts successfully disabled
-+ */
-+int qdio_stop_irq(struct ccw_device *cdev, int nr)
-+{
-+	struct qdio_q *q;
-+	struct qdio_irq *irq_ptr = cdev->private->qdio_data;
-+
-+	if (!irq_ptr)
-+		return -ENODEV;
-+	q = irq_ptr->input_qs[nr];
-+
-+	if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
-+			     &q->u.in.queue_irq_state))
-+		return 0;
-+	else
-+		return 1;
-+}
-+EXPORT_SYMBOL(qdio_stop_irq);
-+
- static int __init init_QDIO(void)
- {
- 	int rc;
-diff -urpN linux-2.6/drivers/s390/cio/qdio_setup.c linux-2.6-patched/drivers/s390/cio/qdio_setup.c
---- linux-2.6/drivers/s390/cio/qdio_setup.c	2010-09-07 09:57:18.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/cio/qdio_setup.c	2010-09-07 09:57:23.000000000 +0200
-@@ -161,6 +161,7 @@ static void setup_queues(struct qdio_irq
- 		setup_queues_misc(q, irq_ptr, qdio_init->input_handler, i);
- 
- 		q->is_input_q = 1;
-+		q->u.in.queue_start_poll = qdio_init->queue_start_poll;
- 		setup_storage_lists(q, irq_ptr, input_sbal_array, i);
- 		input_sbal_array += QDIO_MAX_BUFFERS_PER_Q;
- 
-diff -urpN linux-2.6/drivers/s390/cio/qdio_thinint.c linux-2.6-patched/drivers/s390/cio/qdio_thinint.c
---- linux-2.6/drivers/s390/cio/qdio_thinint.c	2010-08-02 00:11:14.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/cio/qdio_thinint.c	2010-09-07 09:57:23.000000000 +0200
-@@ -25,24 +25,20 @@
-  */
- #define TIQDIO_NR_NONSHARED_IND		63
- #define TIQDIO_NR_INDICATORS		(TIQDIO_NR_NONSHARED_IND + 1)
--#define TIQDIO_SHARED_IND		63
- 
- /* list of thin interrupt input queues */
- static LIST_HEAD(tiq_list);
- DEFINE_MUTEX(tiq_list_lock);
- 
- /* adapter local summary indicator */
--static unsigned char *tiqdio_alsi;
-+static u8 *tiqdio_alsi;
- 
--/* device state change indicators */
--struct indicator_t {
--	u32 ind;	/* u32 because of compare-and-swap performance */
--	atomic_t count; /* use count, 0 or 1 for non-shared indicators */
--};
--static struct indicator_t *q_indicators;
-+struct indicator_t *q_indicators;
- 
- static int css_qdio_omit_svs;
- 
-+static u64 last_ai_time;
-+
- static inline unsigned long do_clear_global_summary(void)
- {
- 	register unsigned long __fn asm("1") = 3;
-@@ -116,59 +112,73 @@ void tiqdio_remove_input_queues(struct q
+ struct qeth_card_list_struct {
+@@ -831,6 +844,10 @@ struct sk_buff *qeth_core_get_next_skb(s
+ 		struct qdio_buffer *, struct qdio_buffer_element **, int *,
+ 		struct qeth_hdr **);
+ void qeth_schedule_recovery(struct qeth_card *);
++void qeth_qdio_start_poll(struct ccw_device *, int, unsigned long);
++void qeth_qdio_input_handler(struct ccw_device *,
++		unsigned int, unsigned int, int,
++		int, unsigned long);
+ void qeth_qdio_output_handler(struct ccw_device *, unsigned int,
+ 			int, int, int, unsigned long);
+ void qeth_clear_ipacmd_list(struct qeth_card *);
+diff -urpN linux-2.6/drivers/s390/net/qeth_core_main.c linux-2.6-patched/drivers/s390/net/qeth_core_main.c
+--- linux-2.6/drivers/s390/net/qeth_core_main.c	2010-09-07 09:57:18.000000000 +0200
++++ linux-2.6-patched/drivers/s390/net/qeth_core_main.c	2010-09-07 09:57:35.000000000 +0200
+@@ -2911,6 +2911,27 @@ static void qeth_check_outbound_queue(st
  	}
  }
  
--static inline int shared_ind(struct qdio_irq *irq_ptr)
-+static inline int shared_ind_used(void)
- {
--	return irq_ptr->dsci == &q_indicators[TIQDIO_SHARED_IND].ind;
-+	return atomic_read(&q_indicators[TIQDIO_SHARED_IND].count);
++void qeth_qdio_start_poll(struct ccw_device *ccwdev, int queue,
++		unsigned long card_ptr)
++{
++	struct qeth_card *card = (struct qeth_card *)card_ptr;
++
++	if (card->dev)
++		napi_schedule(&card->napi);
++}
++EXPORT_SYMBOL_GPL(qeth_qdio_start_poll);
++
++void qeth_qdio_input_handler(struct ccw_device *ccwdev, unsigned int qdio_err,
++		unsigned int queue, int first_element, int count,
++		unsigned long card_ptr)
++{
++	struct qeth_card *card = (struct qeth_card *)card_ptr;
++
++	if (qdio_err)
++		qeth_schedule_recovery(card);
++}
++EXPORT_SYMBOL_GPL(qeth_qdio_input_handler);
++
+ void qeth_qdio_output_handler(struct ccw_device *ccwdev,
+ 		unsigned int qdio_error, int __queue, int first_element,
+ 		int count, unsigned long card_ptr)
+@@ -3843,6 +3864,7 @@ static int qeth_qdio_establish(struct qe
+ 	init_data.no_output_qs           = card->qdio.no_out_queues;
+ 	init_data.input_handler          = card->discipline.input_handler;
+ 	init_data.output_handler         = card->discipline.output_handler;
++	init_data.queue_start_poll	 = card->discipline.start_poll;
+ 	init_data.int_parm               = (unsigned long) card;
+ 	init_data.input_sbal_addr_array  = (void **) in_sbal_ptrs;
+ 	init_data.output_sbal_addr_array = (void **) out_sbal_ptrs;
+@@ -4513,8 +4535,8 @@ static struct {
+ /* 20 */{"queue 1 buffer usage"},
+ 	{"queue 2 buffer usage"},
+ 	{"queue 3 buffer usage"},
+-	{"rx handler time"},
+-	{"rx handler count"},
++	{"rx poll time"},
++	{"rx poll count"},
+ 	{"rx do_QDIO time"},
+ 	{"rx do_QDIO count"},
+ 	{"tx handler time"},
+diff -urpN linux-2.6/drivers/s390/net/qeth_l2_main.c linux-2.6-patched/drivers/s390/net/qeth_l2_main.c
+--- linux-2.6/drivers/s390/net/qeth_l2_main.c	2010-09-07 09:57:18.000000000 +0200
++++ linux-2.6-patched/drivers/s390/net/qeth_l2_main.c	2010-09-07 09:57:35.000000000 +0200
+@@ -407,29 +407,25 @@ static int qeth_l2_stop_card(struct qeth
+ 	return rc;
  }
  
- /**
-  * tiqdio_thinint_handler - thin interrupt handler for qdio
-- * @ind: pointer to adapter local summary indicator
-- * @drv_data: NULL
-+ * @alsi: pointer to adapter local summary indicator
-+ * @data: NULL
-  */
--static void tiqdio_thinint_handler(void *ind, void *drv_data)
-+static void tiqdio_thinint_handler(void *alsi, void *data)
+-static void qeth_l2_process_inbound_buffer(struct qeth_card *card,
+-			    struct qeth_qdio_buffer *buf, int index)
++static int qeth_l2_process_inbound_buffer(struct qeth_card *card,
++				int budget, int *done)
  {
- 	struct qdio_q *q;
+-	struct qdio_buffer_element *element;
++	int work_done = 0;
+ 	struct sk_buff *skb;
+ 	struct qeth_hdr *hdr;
+-	int offset;
+ 	unsigned int len;
  
-+	last_ai_time = S390_lowcore.int_clock;
-+
- 	/*
- 	 * SVS only when needed: issue SVS to benefit from iqdio interrupt
--	 * avoidance (SVS clears adapter interrupt suppression overwrite)
-+	 * avoidance (SVS clears adapter interrupt suppression overwrite).
- 	 */
- 	if (!css_qdio_omit_svs)
- 		do_clear_global_summary();
- 
--	/*
--	 * reset local summary indicator (tiqdio_alsi) to stop adapter
--	 * interrupts for now
--	 */
--	xchg((u8 *)ind, 0);
-+	/* reset local summary indicator */
-+	if (shared_ind_used())
-+		xchg(tiqdio_alsi, 0);
- 
- 	/* protect tiq_list entries, only changed in activate or shutdown */
- 	rcu_read_lock();
- 
- 	/* check for work on all inbound thinint queues */
--	list_for_each_entry_rcu(q, &tiq_list, entry)
-+	list_for_each_entry_rcu(q, &tiq_list, entry) {
-+
- 		/* only process queues from changed sets */
--		if (*q->irq_ptr->dsci) {
--			qperf_inc(q, adapter_int);
-+		if (!*q->irq_ptr->dsci)
-+			continue;
- 
-+		if (q->u.in.queue_start_poll) {
-+			/* skip if polling is enabled or already in work */
-+			if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
-+					     &q->u.in.queue_irq_state)) {
-+				qperf_inc(q, int_discarded);
-+				continue;
-+			}
-+
-+			/* avoid dsci clear here, done after processing */
-+			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
-+						 q->irq_ptr->int_parm);
-+		} else {
- 			/* only clear it if the indicator is non-shared */
- 			if (!shared_ind(q->irq_ptr))
- 				xchg(q->irq_ptr->dsci, 0);
- 			/*
--			 * don't call inbound processing directly since
--			 * that could starve other thinint queues
-+			 * Call inbound processing but not directly
-+			 * since that could starve other thinint queues.
- 			 */
- 			tasklet_schedule(&q->tasklet);
+-	/* get first element of current buffer */
+-	element = (struct qdio_buffer_element *)&buf->buffer->element[0];
+-	offset = 0;
+-	if (card->options.performance_stats)
+-		card->perf_stats.bufs_rec++;
+-	while ((skb = qeth_core_get_next_skb(card, buf->buffer, &element,
+-				       &offset, &hdr))) {
+-		skb->dev = card->dev;
+-		/* is device UP ? */
+-		if (!(card->dev->flags & IFF_UP)) {
+-			dev_kfree_skb_any(skb);
+-			continue;
++	*done = 0;
++	BUG_ON(!budget);
++	while (budget) {
++		skb = qeth_core_get_next_skb(card,
++			card->qdio.in_q->bufs[card->rx.b_index].buffer,
++			&card->rx.b_element, &card->rx.e_offset, &hdr);
++		if (!skb) {
++			*done = 1;
++			break;
  		}
 -
-+		qperf_inc(q, adapter_int);
++		skb->dev = card->dev;
+ 		switch (hdr->hdr.l2.id) {
+ 		case QETH_HEADER_TYPE_LAYER2:
+ 			skb->pkt_type = PACKET_HOST;
+@@ -441,7 +437,7 @@ static void qeth_l2_process_inbound_buff
+ 			if (skb->protocol == htons(ETH_P_802_2))
+ 				*((__u32 *)skb->cb) = ++card->seqno.pkt_seqno;
+ 			len = skb->len;
+-			netif_rx(skb);
++			netif_receive_skb(skb);
+ 			break;
+ 		case QETH_HEADER_TYPE_OSN:
+ 			if (card->info.type == QETH_CARD_TYPE_OSN) {
+@@ -459,9 +455,87 @@ static void qeth_l2_process_inbound_buff
+ 			QETH_DBF_HEX(CTRL, 3, hdr, QETH_DBF_CTRL_LEN);
+ 			continue;
+ 		}
++		work_done++;
++		budget--;
+ 		card->stats.rx_packets++;
+ 		card->stats.rx_bytes += len;
+ 	}
++	return work_done;
++}
++
++static int qeth_l2_poll(struct napi_struct *napi, int budget)
++{
++	struct qeth_card *card = container_of(napi, struct qeth_card, napi);
++	int work_done = 0;
++	struct qeth_qdio_buffer *buffer;
++	int done;
++	int new_budget = budget;
++
++	if (card->options.performance_stats) {
++		card->perf_stats.inbound_cnt++;
++		card->perf_stats.inbound_start_time = qeth_get_micros();
 +	}
- 	rcu_read_unlock();
++
++	while (1) {
++		if (!card->rx.b_count) {
++			card->rx.qdio_err = 0;
++			card->rx.b_count = qdio_get_next_buffers(
++				card->data.ccwdev, 0, &card->rx.b_index,
++				&card->rx.qdio_err);
++			if (card->rx.b_count <= 0) {
++				card->rx.b_count = 0;
++				break;
++			}
++			card->rx.b_element =
++				&card->qdio.in_q->bufs[card->rx.b_index]
++				.buffer->element[0];
++			card->rx.e_offset = 0;
++		}
++
++		while (card->rx.b_count) {
++			buffer = &card->qdio.in_q->bufs[card->rx.b_index];
++			if (!(card->rx.qdio_err &&
++			    qeth_check_qdio_errors(card, buffer->buffer,
++			    card->rx.qdio_err, "qinerr")))
++				work_done += qeth_l2_process_inbound_buffer(
++					card, new_budget, &done);
++			else
++				done = 1;
++
++			if (done) {
++				if (card->options.performance_stats)
++					card->perf_stats.bufs_rec++;
++				qeth_put_buffer_pool_entry(card,
++					buffer->pool_entry);
++				qeth_queue_input_buffer(card, card->rx.b_index);
++				card->rx.b_count--;
++				if (card->rx.b_count) {
++					card->rx.b_index =
++						(card->rx.b_index + 1) %
++						QDIO_MAX_BUFFERS_PER_Q;
++					card->rx.b_element =
++						&card->qdio.in_q
++						->bufs[card->rx.b_index]
++						.buffer->element[0];
++					card->rx.e_offset = 0;
++				}
++			}
++
++			if (work_done >= budget)
++				goto out;
++			else
++				new_budget = budget - work_done;
++		}
++	}
++
++	napi_complete(napi);
++	if (qdio_start_irq(card->data.ccwdev, 0))
++		napi_schedule(&card->napi);
++out:
++	if (card->options.performance_stats)
++		card->perf_stats.inbound_time += qeth_get_micros() -
++			card->perf_stats.inbound_start_time;
++	return work_done;
+ }
  
- 	/*
--	 * if we used the shared indicator clear it now after all queues
--	 * were processed
-+	 * If the shared indicator was used clear it now after all queues
-+	 * were processed.
- 	 */
--	if (atomic_read(&q_indicators[TIQDIO_SHARED_IND].count)) {
-+	if (shared_ind_used()) {
- 		xchg(&q_indicators[TIQDIO_SHARED_IND].ind, 0);
+ static int qeth_l2_send_setdelmac(struct qeth_card *card, __u8 *mac,
+@@ -755,49 +829,10 @@ tx_drop:
+ 	return NETDEV_TX_OK;
+ }
  
- 		/* prevent racing */
-diff -urpN linux-2.6/drivers/s390/scsi/zfcp_qdio.c linux-2.6-patched/drivers/s390/scsi/zfcp_qdio.c
---- linux-2.6/drivers/s390/scsi/zfcp_qdio.c	2010-09-07 09:57:18.000000000 +0200
-+++ linux-2.6-patched/drivers/s390/scsi/zfcp_qdio.c	2010-09-07 09:57:23.000000000 +0200
-@@ -277,16 +277,12 @@ int zfcp_qdio_send(struct zfcp_qdio *qdi
- static void zfcp_qdio_setup_init_data(struct qdio_initialize *id,
- 				      struct zfcp_qdio *qdio)
- {
+-static void qeth_l2_qdio_input_handler(struct ccw_device *ccwdev,
+-			unsigned int qdio_err, unsigned int queue,
+-			int first_element, int count, unsigned long card_ptr)
+-{
+-	struct net_device *net_dev;
+-	struct qeth_card *card;
+-	struct qeth_qdio_buffer *buffer;
+-	int index;
+-	int i;
 -
-+	memset(id, 0, sizeof(*id));
- 	id->cdev = qdio->adapter->ccw_device;
- 	id->q_format = QDIO_ZFCP_QFMT;
- 	memcpy(id->adapter_name, dev_name(&id->cdev->dev), 8);
- 	ASCEBC(id->adapter_name, 8);
- 	id->qib_rflags = QIB_RFLAGS_ENABLE_DATA_DIV;
--	id->qib_param_field_format = 0;
--	id->qib_param_field = NULL;
--	id->input_slib_elements = NULL;
--	id->output_slib_elements = NULL;
- 	id->no_input_qs = 1;
- 	id->no_output_qs = 1;
- 	id->input_handler = zfcp_qdio_int_resp;
+-	card = (struct qeth_card *) card_ptr;
+-	net_dev = card->dev;
+-	if (card->options.performance_stats) {
+-		card->perf_stats.inbound_cnt++;
+-		card->perf_stats.inbound_start_time = qeth_get_micros();
+-	}
+-	if (qdio_err & QDIO_ERROR_ACTIVATE_CHECK_CONDITION) {
+-		QETH_CARD_TEXT(card, 1, "qdinchk");
+-		QETH_CARD_TEXT_(card, 1, "%04X%04X", first_element,
+-				count);
+-		QETH_CARD_TEXT_(card, 1, "%04X", queue);
+-		qeth_schedule_recovery(card);
+-		return;
+-	}
+-	for (i = first_element; i < (first_element + count); ++i) {
+-		index = i % QDIO_MAX_BUFFERS_PER_Q;
+-		buffer = &card->qdio.in_q->bufs[index];
+-		if (!(qdio_err &&
+-		      qeth_check_qdio_errors(card, buffer->buffer, qdio_err,
+-					     "qinerr")))
+-			qeth_l2_process_inbound_buffer(card, buffer, index);
+-		/* clear buffer and give back to hardware */
+-		qeth_put_buffer_pool_entry(card, buffer->pool_entry);
+-		qeth_queue_input_buffer(card, index);
+-	}
+-	if (card->options.performance_stats)
+-		card->perf_stats.inbound_time += qeth_get_micros() -
+-			card->perf_stats.inbound_start_time;
+-}
+-
+ static int qeth_l2_open(struct net_device *dev)
+ {
+ 	struct qeth_card *card = dev->ml_priv;
++	int rc = 0;
+ 
+ 	QETH_CARD_TEXT(card, 4, "qethopen");
+ 	if (card->state != CARD_STATE_SOFTSETUP)
+@@ -814,18 +849,24 @@ static int qeth_l2_open(struct net_devic
+ 
+ 	if (!card->lan_online && netif_carrier_ok(dev))
+ 		netif_carrier_off(dev);
+-	return 0;
++	if (qdio_stop_irq(card->data.ccwdev, 0) >= 0) {
++		napi_enable(&card->napi);
++		napi_schedule(&card->napi);
++	} else
++		rc = -EIO;
++	return rc;
+ }
+ 
+-
+ static int qeth_l2_stop(struct net_device *dev)
+ {
+ 	struct qeth_card *card = dev->ml_priv;
+ 
+ 	QETH_CARD_TEXT(card, 4, "qethstop");
+ 	netif_tx_disable(dev);
+-	if (card->state == CARD_STATE_UP)
++	if (card->state == CARD_STATE_UP) {
+ 		card->state = CARD_STATE_SOFTSETUP;
++		napi_disable(&card->napi);
++	}
+ 	return 0;
+ }
+ 
+@@ -836,8 +877,9 @@ static int qeth_l2_probe_device(struct c
+ 	INIT_LIST_HEAD(&card->vid_list);
+ 	INIT_LIST_HEAD(&card->mc_list);
+ 	card->options.layer2 = 1;
++	card->discipline.start_poll = qeth_qdio_start_poll;
+ 	card->discipline.input_handler = (qdio_handler_t *)
+-		qeth_l2_qdio_input_handler;
++		qeth_qdio_input_handler;
+ 	card->discipline.output_handler = (qdio_handler_t *)
+ 		qeth_qdio_output_handler;
+ 	card->discipline.recover = qeth_l2_recover;
+@@ -923,6 +965,7 @@ static int qeth_l2_setup_netdev(struct q
+ 	card->info.broadcast_capable = 1;
+ 	qeth_l2_request_initial_mac(card);
+ 	SET_NETDEV_DEV(card->dev, &card->gdev->dev);
++	netif_napi_add(card->dev, &card->napi, qeth_l2_poll, QETH_NAPI_WEIGHT);
+ 	return register_netdev(card->dev);
+ }
+ 
+@@ -955,6 +998,7 @@ static int __qeth_l2_set_online(struct c
+ 		qeth_l2_send_setmac(card, &card->dev->dev_addr[0]);
+ 
+ 	card->state = CARD_STATE_HARDSETUP;
++	memset(&card->rx, 0, sizeof(struct qeth_rx));
+ 	qeth_print_status_message(card);
+ 
+ 	/* softsetup */
+@@ -1086,9 +1130,6 @@ static int qeth_l2_recover(void *ptr)
+ 	card->use_hard_stop = 1;
+ 	__qeth_l2_set_offline(card->gdev, 1);
+ 	rc = __qeth_l2_set_online(card->gdev, 1);
+-	/* don't run another scheduled recovery */
+-	qeth_clear_thread_start_bit(card, QETH_RECOVER_THREAD);
+-	qeth_clear_thread_running_bit(card, QETH_RECOVER_THREAD);
+ 	if (!rc)
+ 		dev_info(&card->gdev->dev,
+ 			"Device successfully recovered!\n");
+@@ -1099,6 +1140,8 @@ static int qeth_l2_recover(void *ptr)
+ 		dev_warn(&card->gdev->dev, "The qeth device driver "
+ 			"failed to recover an error on the device\n");
+ 	}
++	qeth_clear_thread_start_bit(card, QETH_RECOVER_THREAD);
++	qeth_clear_thread_running_bit(card, QETH_RECOVER_THREAD);
+ 	return 0;
+ }
+ 
+diff -urpN linux-2.6/drivers/s390/net/qeth_l3_main.c linux-2.6-patched/drivers/s390/net/qeth_l3_main.c
+--- linux-2.6/drivers/s390/net/qeth_l3_main.c	2010-09-07 09:57:35.000000000 +0200
++++ linux-2.6-patched/drivers/s390/net/qeth_l3_main.c	2010-09-07 09:57:35.000000000 +0200
+@@ -2107,51 +2107,44 @@ static inline __u16 qeth_l3_rebuild_skb(
+ 	return vlan_id;
+ }
+ 
+-static void qeth_l3_process_inbound_buffer(struct qeth_card *card,
+-			    struct qeth_qdio_buffer *buf, int index)
++static int qeth_l3_process_inbound_buffer(struct qeth_card *card,
++				int budget, int *done)
+ {
+-	struct qdio_buffer_element *element;
++	int work_done = 0;
+ 	struct sk_buff *skb;
+ 	struct qeth_hdr *hdr;
+-	int offset;
+ 	__u16 vlan_tag = 0;
+ 	unsigned int len;
+-	/* get first element of current buffer */
+-	element = (struct qdio_buffer_element *)&buf->buffer->element[0];
+-	offset = 0;
+-	if (card->options.performance_stats)
+-		card->perf_stats.bufs_rec++;
+-	while ((skb = qeth_core_get_next_skb(card, buf->buffer, &element,
+-				       &offset, &hdr))) {
+-		skb->dev = card->dev;
+-		/* is device UP ? */
+-		if (!(card->dev->flags & IFF_UP)) {
+-			dev_kfree_skb_any(skb);
+-			continue;
+-		}
+ 
++	*done = 0;
++	BUG_ON(!budget);
++	while (budget) {
++		skb = qeth_core_get_next_skb(card,
++			card->qdio.in_q->bufs[card->rx.b_index].buffer,
++			&card->rx.b_element, &card->rx.e_offset, &hdr);
++		if (!skb) {
++			*done = 1;
++			break;
++		}
++		skb->dev = card->dev;
+ 		switch (hdr->hdr.l3.id) {
+ 		case QETH_HEADER_TYPE_LAYER3:
+ 			vlan_tag = qeth_l3_rebuild_skb(card, skb, hdr);
+ 			len = skb->len;
+ 			if (vlan_tag && !card->options.sniffer)
+ 				if (card->vlangrp)
+-					vlan_hwaccel_rx(skb, card->vlangrp,
+-						vlan_tag);
++					vlan_gro_receive(&card->napi,
++						card->vlangrp, vlan_tag, skb);
+ 				else {
+ 					dev_kfree_skb_any(skb);
+ 					continue;
+ 				}
+ 			else
+-				netif_rx(skb);
++				napi_gro_receive(&card->napi, skb);
+ 			break;
+ 		case QETH_HEADER_TYPE_LAYER2: /* for HiperSockets sniffer */
+ 			skb->pkt_type = PACKET_HOST;
+ 			skb->protocol = eth_type_trans(skb, skb->dev);
+-			if (card->options.checksum_type == NO_CHECKSUMMING)
+-				skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			else
+-				skb->ip_summed = CHECKSUM_NONE;
+ 			len = skb->len;
+ 			netif_receive_skb(skb);
+ 			break;
+@@ -2161,10 +2154,87 @@ static void qeth_l3_process_inbound_buff
+ 			QETH_DBF_HEX(CTRL, 3, hdr, QETH_DBF_CTRL_LEN);
+ 			continue;
+ 		}
+-
++		work_done++;
++		budget--;
+ 		card->stats.rx_packets++;
+ 		card->stats.rx_bytes += len;
+ 	}
++	return work_done;
++}
++
++static int qeth_l3_poll(struct napi_struct *napi, int budget)
++{
++	struct qeth_card *card = container_of(napi, struct qeth_card, napi);
++	int work_done = 0;
++	struct qeth_qdio_buffer *buffer;
++	int done;
++	int new_budget = budget;
++
++	if (card->options.performance_stats) {
++		card->perf_stats.inbound_cnt++;
++		card->perf_stats.inbound_start_time = qeth_get_micros();
++	}
++
++	while (1) {
++		if (!card->rx.b_count) {
++			card->rx.qdio_err = 0;
++			card->rx.b_count = qdio_get_next_buffers(
++				card->data.ccwdev, 0, &card->rx.b_index,
++				&card->rx.qdio_err);
++			if (card->rx.b_count <= 0) {
++				card->rx.b_count = 0;
++				break;
++			}
++			card->rx.b_element =
++				&card->qdio.in_q->bufs[card->rx.b_index]
++				.buffer->element[0];
++			card->rx.e_offset = 0;
++		}
++
++		while (card->rx.b_count) {
++			buffer = &card->qdio.in_q->bufs[card->rx.b_index];
++			if (!(card->rx.qdio_err &&
++			    qeth_check_qdio_errors(card, buffer->buffer,
++			    card->rx.qdio_err, "qinerr")))
++				work_done += qeth_l3_process_inbound_buffer(
++					card, new_budget, &done);
++			else
++				done = 1;
++
++			if (done) {
++				if (card->options.performance_stats)
++					card->perf_stats.bufs_rec++;
++				qeth_put_buffer_pool_entry(card,
++					buffer->pool_entry);
++				qeth_queue_input_buffer(card, card->rx.b_index);
++				card->rx.b_count--;
++				if (card->rx.b_count) {
++					card->rx.b_index =
++						(card->rx.b_index + 1) %
++						QDIO_MAX_BUFFERS_PER_Q;
++					card->rx.b_element =
++						&card->qdio.in_q
++						->bufs[card->rx.b_index]
++						.buffer->element[0];
++					card->rx.e_offset = 0;
++				}
++			}
++
++			if (work_done >= budget)
++				goto out;
++			else
++				new_budget = budget - work_done;
++		}
++	}
++
++	napi_complete(napi);
++	if (qdio_start_irq(card->data.ccwdev, 0))
++		napi_schedule(&card->napi);
++out:
++	if (card->options.performance_stats)
++		card->perf_stats.inbound_time += qeth_get_micros() -
++			card->perf_stats.inbound_start_time;
++	return work_done;
+ }
+ 
+ static int qeth_l3_verify_vlan_dev(struct net_device *dev,
+@@ -3098,6 +3168,7 @@ tx_drop:
+ static int qeth_l3_open(struct net_device *dev)
+ {
+ 	struct qeth_card *card = dev->ml_priv;
++	int rc = 0;
+ 
+ 	QETH_CARD_TEXT(card, 4, "qethopen");
+ 	if (card->state != CARD_STATE_SOFTSETUP)
+@@ -3108,7 +3179,12 @@ static int qeth_l3_open(struct net_devic
+ 
+ 	if (!card->lan_online && netif_carrier_ok(dev))
+ 		netif_carrier_off(dev);
+-	return 0;
++	if (qdio_stop_irq(card->data.ccwdev, 0) >= 0) {
++		napi_enable(&card->napi);
++		napi_schedule(&card->napi);
++	} else
++		rc = -EIO;
++	return rc;
+ }
+ 
+ static int qeth_l3_stop(struct net_device *dev)
+@@ -3117,8 +3193,10 @@ static int qeth_l3_stop(struct net_devic
+ 
+ 	QETH_CARD_TEXT(card, 4, "qethstop");
+ 	netif_tx_disable(dev);
+-	if (card->state == CARD_STATE_UP)
++	if (card->state == CARD_STATE_UP) {
+ 		card->state = CARD_STATE_SOFTSETUP;
++		napi_disable(&card->napi);
++	}
+ 	return 0;
+ }
+ 
+@@ -3288,57 +3366,19 @@ static int qeth_l3_setup_netdev(struct q
+ 	card->dev->gso_max_size = 15 * PAGE_SIZE;
+ 
+ 	SET_NETDEV_DEV(card->dev, &card->gdev->dev);
++	netif_napi_add(card->dev, &card->napi, qeth_l3_poll, QETH_NAPI_WEIGHT);
+ 	return register_netdev(card->dev);
+ }
+ 
+-static void qeth_l3_qdio_input_handler(struct ccw_device *ccwdev,
+-		unsigned int qdio_err, unsigned int queue, int first_element,
+-		int count, unsigned long card_ptr)
+-{
+-	struct net_device *net_dev;
+-	struct qeth_card *card;
+-	struct qeth_qdio_buffer *buffer;
+-	int index;
+-	int i;
+-
+-	card = (struct qeth_card *) card_ptr;
+-	net_dev = card->dev;
+-	if (card->options.performance_stats) {
+-		card->perf_stats.inbound_cnt++;
+-		card->perf_stats.inbound_start_time = qeth_get_micros();
+-	}
+-	if (qdio_err & QDIO_ERROR_ACTIVATE_CHECK_CONDITION) {
+-		QETH_CARD_TEXT(card, 1, "qdinchk");
+-		QETH_CARD_TEXT_(card, 1, "%04X%04X",
+-				first_element, count);
+-		QETH_CARD_TEXT_(card, 1, "%04X", queue);
+-		qeth_schedule_recovery(card);
+-		return;
+-	}
+-	for (i = first_element; i < (first_element + count); ++i) {
+-		index = i % QDIO_MAX_BUFFERS_PER_Q;
+-		buffer = &card->qdio.in_q->bufs[index];
+-		if (!(qdio_err &&
+-		      qeth_check_qdio_errors(card, buffer->buffer,
+-					     qdio_err, "qinerr")))
+-			qeth_l3_process_inbound_buffer(card, buffer, index);
+-		/* clear buffer and give back to hardware */
+-		qeth_put_buffer_pool_entry(card, buffer->pool_entry);
+-		qeth_queue_input_buffer(card, index);
+-	}
+-	if (card->options.performance_stats)
+-		card->perf_stats.inbound_time += qeth_get_micros() -
+-			card->perf_stats.inbound_start_time;
+-}
+-
+ static int qeth_l3_probe_device(struct ccwgroup_device *gdev)
+ {
+ 	struct qeth_card *card = dev_get_drvdata(&gdev->dev);
+ 
+ 	qeth_l3_create_device_attributes(&gdev->dev);
+ 	card->options.layer2 = 0;
++	card->discipline.start_poll = qeth_qdio_start_poll;
+ 	card->discipline.input_handler = (qdio_handler_t *)
+-		qeth_l3_qdio_input_handler;
++		qeth_qdio_input_handler;
+ 	card->discipline.output_handler = (qdio_handler_t *)
+ 		qeth_qdio_output_handler;
+ 	card->discipline.recover = qeth_l3_recover;
+@@ -3397,6 +3437,7 @@ static int __qeth_l3_set_online(struct c
+ 	}
+ 
+ 	card->state = CARD_STATE_HARDSETUP;
++	memset(&card->rx, 0, sizeof(struct qeth_rx));
+ 	qeth_print_status_message(card);
+ 
+ 	/* softsetup */
+@@ -3533,9 +3574,6 @@ static int qeth_l3_recover(void *ptr)
+ 	card->use_hard_stop = 1;
+ 	__qeth_l3_set_offline(card->gdev, 1);
+ 	rc = __qeth_l3_set_online(card->gdev, 1);
+-	/* don't run another scheduled recovery */
+-	qeth_clear_thread_start_bit(card, QETH_RECOVER_THREAD);
+-	qeth_clear_thread_running_bit(card, QETH_RECOVER_THREAD);
+ 	if (!rc)
+ 		dev_info(&card->gdev->dev,
+ 			"Device successfully recovered!\n");
+@@ -3546,6 +3584,8 @@ static int qeth_l3_recover(void *ptr)
+ 		dev_warn(&card->gdev->dev, "The qeth device driver "
+ 			"failed to recover an error on the device\n");
+ 	}
++	qeth_clear_thread_start_bit(card, QETH_RECOVER_THREAD);
++	qeth_clear_thread_running_bit(card, QETH_RECOVER_THREAD);
+ 	return 0;
+ }
+ 
 
