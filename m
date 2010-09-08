@@ -1,152 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] inet: dont set inet_rcv_saddr in connect()
-Date: Wed, 08 Sep 2010 06:42:45 +0200
-Message-ID: <1283920965.2634.723.camel@edumazet-laptop>
-References: <20100907.125947.39192078.davem@davemloft.net>
-	 <1283895316.2634.248.camel@edumazet-laptop> <4C86F653.6070707@hp.com>
-	 <20100907.203410.245386536.davem@davemloft.net>
+From: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
+Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
+Date: Wed, 08 Sep 2010 07:57:31 +0300
+Message-ID: <4C8717BB.2050504@fs.uni-ruse.bg>
+References: <20100904203429.GA4891@del.dom.local> <1283672983.3402.38.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: brian.haley@hp.com, ole@ans.pl, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:52310 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751267Ab0IHEmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 00:42:52 -0400
-Received: by fxm16 with SMTP id 16so501400fxm.19
-        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 21:42:51 -0700 (PDT)
-In-Reply-To: <20100907.203410.245386536.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1283672983.3402.38.camel@edumazet-laptop>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 07 septembre 2010 =C3=A0 20:34 -0700, David Miller a =C3=A9cri=
-t :
-> From: Brian Haley <brian.haley@hp.com>
-> Date: Tue, 07 Sep 2010 22:34:59 -0400
->=20
-> > Is this really the right thing to do?  Linux has been doing this fo=
-rever,
-> > right?  Just like BSD has done it forever.
->=20
-> Indeed, I checked for this in Stevens volume 2 when I reviewed
-> Eric's patch, the logic is identical.
->=20
-> > The way I've always "cleared" a local address is to set the address
-> > family to AF_UNSPEC on the next connect() call, as mentioned on the
-> > man page.  I just want to make sure we're not changing something
-> > just to work around a broken application, sendto()/sendmsg() work
-> > perfect in this case by not setting the local address.
-> >=20
+=D0=9D=D0=B0 05.9.2010 =D0=B3. 10:49, Eric Dumazet =D0=BD=D0=B0=D0=BF=D0=
+=B8=D1=81=D0=B0:
+> Le samedi 04 septembre 2010 =C3=A0 22:34 +0200, Jarek Poplawski a =C3=
+=A9crit :
+>
+>> Hi again,
+>>
+>> Just had a second look, and unless I miss something...
+>>
+>> Plamen, could you test this patch, too? (Without removing the previo=
+us
+>> one.)
+>>
+>> Thanks,
+>> Jarek P.
+>>
+>> ------------------->
+>>
+>> [PATCH] gro: Re-fix different skb headrooms
+>>
+>> The patch: "gro: fix different skb headrooms" in its part:
+>> "2) allocate a minimal skb for head of frag_list" is buggy. The copi=
+ed
+>> skb has p->data set at the ip header at the moment, and skb_gro_offs=
+et
+>> is the length of ip + tcp headers. So, after the change the length o=
+f
+>> mac header is skipped. Later skb_set_mac_header() sets it into the
+>> NET_SKB_PAD area (if it's long enough) and ip header is misaligned a=
+t
+>> NET_SKB_PAD + NET_IP_ALIGN offset. There is no reason to assume the
+>> original skb was wrongly allocated, so let's copy it as it was.
+>>
+>> bugzilla : https://bugzilla.kernel.org/show_bug.cgi?id=3D16626
+>> fixes commit: 3d3be4333fdf6faa080947b331a6a19bce1a4f57
+>>
+>> Reported-by: Plamen Petrov<pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
+>> Signed-off-by: Jarek Poplawski<jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> CC: Eric Dumazet<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> ---
+>>
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 26396ff..c83b421 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -2706,7 +2706,7 @@ int skb_gro_receive(struct sk_buff **head, str=
+uct sk_buff *skb)
+>>   	} else if (skb_gro_len(p) !=3D pinfo->gso_size)
+>>   		return -E2BIG;
+>>
+>> -	headroom =3D NET_SKB_PAD + NET_IP_ALIGN;
+>> +	headroom =3D skb_headroom(p);
+>>   	nskb =3D alloc_skb(headroom + skb_gro_offset(p), GFP_ATOMIC);
+>>   	if (unlikely(!nskb))
+>>   		return -ENOMEM;
+>
+> You are right, thanks for reviewing this patch again :)
+>
+> By the way, NET_IP_ALIGN is now 0 on x86, so technically speaking, yo=
+ur
+> patch un-aligns IP header on x86, but thats OK, since other arches mi=
+ght
+> want it being aligned, while x86 doesnt care.
+>
+> Acked-by: Eric Dumazet<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>
+>
+>
 
-Problem is AF_UNSPEC always clears the remote address (as stated in
-manual), and sometimes local one (as not stated)
+Well, now that I'm back at work, I'm glad to report
+that I tested both variants of the patch, and as Eric
+points out - it works both ways.
 
-if (!(sk->sk_userlocks & SOCK_BINDADDR_LOCK))
-	inet_reset_saddr(sk);
+So, which ever fits you guys better.
 
-This is the workaround that was coded years ago in Linux to undo the
-local addr setting ;)
-
-
-=46ollowing program produces this output :
-
-local addr=3D0x7f000001 sin_port=3D37877
-after connect(AF_UNSPEC) local addr=3D0x0 sin_port=3D0
-local addr=3D0x7f000001 sin_port=3D37877
-after connect(AF_UNSPEC) local addr=3D0x7f000001 sin_port=3D0
-
-
-
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <stdio.h>
-
-int main(int argc, char *argv[])
-{
-	int fd;
-	struct sockaddr_in target, me;
-	socklen_t len;
-
-	if ((fd =3D socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) =3D=3D -1) {
-		perror("socket");
-		return 1;
-	}
-	memset(&target, 0, sizeof(target));
-	target.sin_family =3D AF_INET;
-	target.sin_port =3D 123;
-	target.sin_addr.s_addr =3D htonl(0x7f000001);
-	if (connect(fd, (const struct sockaddr *)&target, sizeof(target)) =3D=3D=
- -1) {
-		perror("connect");
-		close(fd);
-		return 2;
-	}
-	len =3D sizeof(me);
-	if (getsockname(fd, (struct sockaddr *)&me, &len)=3D=3D -1) {
-		perror("getsockname");
-		close(fd);
-		return 3;
-	}
-	printf("local addr=3D0x%x sin_port=3D%u\n",
-		ntohl(me.sin_addr.s_addr), ntohs(me.sin_port));
-	memset(&target, 0, sizeof(target));
-	target.sin_family =3D AF_UNSPEC;
-	if (connect(fd, (const struct sockaddr *)&target, sizeof(target)) =3D=3D=
- -1) {
-		perror("connect AF_UNSPEC");
-		close(fd);
-		return 4;
-	}=09
-	len =3D sizeof(me);
-	if (getsockname(fd, (struct sockaddr *)&me, &len)=3D=3D -1) {
-		perror("getsockname 2");
-		close(fd);
-		return 3;
-	}
-	printf("after connect(AF_UNSPEC) local addr=3D0x%x sin_port=3D%u\n",
-		ntohl(me.sin_addr.s_addr), ntohs(me.sin_port));
-	memset(&target, 0, sizeof(target));
-	target.sin_family =3D AF_INET;
-	target.sin_addr.s_addr =3D htonl(0x7f000001);
-	if (bind(fd, (const struct sockaddr *)&target, sizeof(target)) =3D=3D =
--1) {
-		perror("bind");
-		close(fd);
-		return 2;
-	}
-	len =3D sizeof(me);
-	if (getsockname(fd, (struct sockaddr *)&me, &len)=3D=3D -1) {
-		perror("getsockname");
-		close(fd);
-		return 3;
-	}
-	printf("local addr=3D0x%x sin_port=3D%u\n",
-		ntohl(me.sin_addr.s_addr), ntohs(me.sin_port));
-
-	memset(&target, 0, sizeof(target));
-	target.sin_family =3D AF_UNSPEC;
-	if (connect(fd, (const struct sockaddr *)&target, sizeof(target)) =3D=3D=
- -1) {
-		perror("connect AF_UNSPEC");
-		close(fd);
-		return 4;
-	}=09
-
-	len =3D sizeof(me);
-	if (getsockname(fd, (struct sockaddr *)&me, &len)=3D=3D -1) {
-		perror("getsockname 2");
-		close(fd);
-		return 3;
-	}
-	printf("after connect(AF_UNSPEC) local addr=3D0x%x sin_port=3D%u\n",
-		ntohl(me.sin_addr.s_addr), ntohs(me.sin_port));
-	return 0;
-}
-
-
-
+Thanks a lot!
