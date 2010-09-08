@@ -1,63 +1,74 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 8 Sep 2010 22:17:49 +0530
-Message-ID: <OF70542242.6CAA236A-ON65257798.0044A4E0-65257798.005C0E7C@in.ibm.com>
-References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908081011.GC23051@redhat.com>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: [PATCH v2] udp: add rehash on connect()
+Date: Wed, 08 Sep 2010 18:52:10 +0200
+Message-ID: <4C87BF3A.5070004@ans.pl>
+References: <1283895316.2634.248.camel@edumazet-laptop>	 <4C86F653.6070707@hp.com> <1283921857.2634.747.camel@edumazet-laptop>	 <20100907.223654.70187707.davem@davemloft.net>	 <1283925171.2634.838.camel@edumazet-laptop>	 <1283940646.2880.36.camel@edumazet-laptop> <1283958524.2748.82.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100908081011.GC23051@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, brian.haley@hp.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:54061 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405Ab0IHQwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 12:52:20 -0400
+In-Reply-To: <1283958524.2748.82.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 09/08/2010 01:40:11 PM:
-
+On 2010-09-08 17:08, Eric Dumazet wrote:
+> Hmm... We should lock primary hash table too in udp_lib_rehash(), to
+> prevent another thread to insert another socket on same tuple (local
+> addr, local port) while doing our move.
 >
-_______________________________________________________________________________
-
-> >                        UDP (#numtxqs=8)
-> > N#      BW1     BW2   (%)      SD1     SD2   (%)
-> > __________________________________________________________
-> > 4       29836   56761 (90.24)   67      63    (-5.97)
-> > 8       27666   63767 (130.48)  326     265   (-18.71)
-> > 16      25452   60665 (138.35)  1396    1269  (-9.09)
-> > 32      26172   63491 (142.59)  5617    4202  (-25.19)
-> > 48      26146   64629 (147.18)  12813   9316  (-27.29)
-> > 64      25575   65448 (155.90)  23063   16346 (-29.12)
-> > 128     26454   63772 (141.06)  91054   85051 (-6.59)
-> > __________________________________________________________
-> > N#: Number of netperf sessions, 90 sec runs
-> > BW1,SD1,RSD1: Bandwidth (sum across 2 runs in mbps), SD and Remote
-> >               SD for original code
-> > BW2,SD2,RSD2: Bandwidth (sum across 2 runs in mbps), SD and Remote
-> >               SD for new code. e.g. BW2=40716 means average BW2 was
-> >               20358 mbps.
-> >
+> Thanks
 >
-> What happens with a single netperf?
-> host -> guest performance with TCP and small packet speed
-> are also worth measuring.
+> [PATCH v2] udp: add rehash on connect()
+>
+> commit 30fff923 introduced in linux-2.6.33 (udp: bind() optimisation)
+> added a secondary hash on UDP, hashed on (local addr, local port).
+>
+> Problem is that following sequence :
+>
+> fd =3D socket(...)
+> connect(fd,&remote, ...)
+>
+> not only selects remote end point (address and port), but also sets
+> local address, while UDP stack stored in secondary hash table the soc=
+ket
+> while its local address was INADDR_ANY (or ipv6 equivalent)
+>
+> Sequence is :
+>   - autobind() : choose a random local port, insert socket in hash ta=
+bles
+>                [while local address is INADDR_ANY]
+>   - connect() : set remote address and port, change local address to =
+IP
+>                given by a route lookup.
+>
+> When an incoming UDP frame comes, if more than 10 sockets are found i=
+n
+> primary hash table, we switch to secondary table, and fail to find
+> socket because its local address changed.
+>
+> One solution to this problem is to rehash datagram socket if needed.
+>
+> We add a new rehash(struct socket *) method in "struct proto", and
+> implement this method for UDP v4&  v6, using a common helper.
+>
+> This rehashing only takes care of secondary hash table, since primary
+> hash (based on local port only) is not changed.
+>
+> Reported-by: Krzysztof Piotr Oledzki <ole@ans.pl>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Guest -> Host (single netperf):
-I am getting a drop of almost 20%. I am trying to figure out
-why.
+Works like a charm, thank you.
 
-Host -> guest (single netperf):
-I am getting an improvement of almost 15%. Again - unexpected.
+Tested-by: Krzysztof Piotr Oledzki <ole@ans.pl>
 
-Guest -> Host TCP_RR: I get an average 7.4% increase in #packets
-for runs upto 128 sessions. With fewer netperf (under 8), there
-was a drop of 3-7% in #packets, but beyond that, the #packets
-improved significantly to give an average improvement of 7.4%.
+Best regards,
 
-So it seems that fewer sessions is having negative effect for
-some reason on the tx side. The code path in virtio-net has not
-changed much, so the drop in some cases is quite unexpected.
-
-Thanks,
-
-- KK
-
+			Krzysztof Ol=C4=99dzki
