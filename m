@@ -1,99 +1,68 @@
-From: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
-Date: Wed, 08 Sep 2010 07:57:31 +0300
-Message-ID: <4C8717BB.2050504@fs.uni-ruse.bg>
-References: <20100904203429.GA4891@del.dom.local> <1283672983.3402.38.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] inet: dont set inet_rcv_saddr in connect()
+Date: Wed, 08 Sep 2010 06:57:37 +0200
+Message-ID: <1283921857.2634.747.camel@edumazet-laptop>
+References: <4C865C21.5010803@ans.pl>
+	 <1283877391.2313.62.camel@edumazet-laptop>
+	 <1283887569.2634.95.camel@edumazet-laptop>
+	 <20100907.125947.39192078.davem@davemloft.net>
+	 <1283895316.2634.248.camel@edumazet-laptop>  <4C86F653.6070707@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jarek Poplawski <jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1283672983.3402.38.camel@edumazet-laptop>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, ole@ans.pl,
+	netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:64352 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499Ab0IHE5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 00:57:43 -0400
+Received: by fxm16 with SMTP id 16so504674fxm.19
+        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 21:57:42 -0700 (PDT)
+In-Reply-To: <4C86F653.6070707@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=D0=9D=D0=B0 05.9.2010 =D0=B3. 10:49, Eric Dumazet =D0=BD=D0=B0=D0=BF=D0=
-=B8=D1=81=D0=B0:
-> Le samedi 04 septembre 2010 =C3=A0 22:34 +0200, Jarek Poplawski a =C3=
-=A9crit :
->
->> Hi again,
->>
->> Just had a second look, and unless I miss something...
->>
->> Plamen, could you test this patch, too? (Without removing the previo=
-us
->> one.)
->>
->> Thanks,
->> Jarek P.
->>
->> ------------------->
->>
->> [PATCH] gro: Re-fix different skb headrooms
->>
->> The patch: "gro: fix different skb headrooms" in its part:
->> "2) allocate a minimal skb for head of frag_list" is buggy. The copi=
-ed
->> skb has p->data set at the ip header at the moment, and skb_gro_offs=
-et
->> is the length of ip + tcp headers. So, after the change the length o=
-f
->> mac header is skipped. Later skb_set_mac_header() sets it into the
->> NET_SKB_PAD area (if it's long enough) and ip header is misaligned a=
-t
->> NET_SKB_PAD + NET_IP_ALIGN offset. There is no reason to assume the
->> original skb was wrongly allocated, so let's copy it as it was.
->>
->> bugzilla : https://bugzilla.kernel.org/show_bug.cgi?id=3D16626
->> fixes commit: 3d3be4333fdf6faa080947b331a6a19bce1a4f57
->>
->> Reported-by: Plamen Petrov<pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
->> Signed-off-by: Jarek Poplawski<jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> CC: Eric Dumazet<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
->>
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index 26396ff..c83b421 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -2706,7 +2706,7 @@ int skb_gro_receive(struct sk_buff **head, str=
-uct sk_buff *skb)
->>   	} else if (skb_gro_len(p) !=3D pinfo->gso_size)
->>   		return -E2BIG;
->>
->> -	headroom =3D NET_SKB_PAD + NET_IP_ALIGN;
->> +	headroom =3D skb_headroom(p);
->>   	nskb =3D alloc_skb(headroom + skb_gro_offset(p), GFP_ATOMIC);
->>   	if (unlikely(!nskb))
->>   		return -ENOMEM;
->
-> You are right, thanks for reviewing this patch again :)
->
-> By the way, NET_IP_ALIGN is now 0 on x86, so technically speaking, yo=
-ur
-> patch un-aligns IP header on x86, but thats OK, since other arches mi=
-ght
-> want it being aligned, while x86 doesnt care.
->
-> Acked-by: Eric Dumazet<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
->
->
+Le mardi 07 septembre 2010 =C3=A0 22:34 -0400, Brian Haley a =C3=A9crit=
+ :
 
-Well, now that I'm back at work, I'm glad to report
-that I tested both variants of the patch, and as Eric
-points out - it works both ways.
+> Is this really the right thing to do?  Linux has been doing this fore=
+ver,
+> right?  Just like BSD has done it forever.  The way I've always "clea=
+red"
+> a local address is to set the address family to AF_UNSPEC on the next
+> connect() call, as mentioned on the man page.  I just want to make su=
+re
+> we're not changing something just to work around a broken application=
+,
+> sendto()/sendmsg() work perfect in this case by not setting the local=
+ address.
+>=20
+> BTW, it seems as though the reason this might only happen sometimes i=
+s
+> that if the first connect() is to 127.0.0.1, you won't be able to the=
+n
+> try and connect to say, 192.168.1.1.  If you first connect() to a rem=
+ote
+> address things will probably just work.
 
-So, which ever fits you guys better.
 
-Thanks a lot!
+I believe we have the following choice :
+
+1) connect(AF_UNIX) sets the remote address/port
+   bind() sets the local port (and optionally address)
+   connect(AF_UNSPEC) clears remote addess/port,
+                      let local address/port unchanged
+
+2) Correct UDP hashing, when local address changes from 0 to x.y.z.t
+   (cost : two locks taken), and a possible packet drop during the
+operation.
+
+   Document that connect() also sets local address, and that before
+doing a second connect() to change remote address, its mandatory to
+first issue a connect(AF_UNSPEC) to clear local address (if not locked
+by a prior bind() call)
+
+
+
