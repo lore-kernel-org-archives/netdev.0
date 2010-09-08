@@ -1,77 +1,152 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Re: r8169 not workin on resume due allocation failure
-Date: Tue, 7 Sep 2010 21:11:28 -0700
-Message-ID: <E4FE5659-F160-424C-92E7-4F7D3972E50C@earthlink.net>
-References: <loom.20100908T054044-695@post.gmane.org>
-Mime-Version: 1.0 (Apple Message framework v1081)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Holger Freyther <zecke@selfish.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] inet: dont set inet_rcv_saddr in connect()
+Date: Wed, 08 Sep 2010 06:42:45 +0200
+Message-ID: <1283920965.2634.723.camel@edumazet-laptop>
+References: <20100907.125947.39192078.davem@davemloft.net>
+	 <1283895316.2634.248.camel@edumazet-laptop> <4C86F653.6070707@hp.com>
+	 <20100907.203410.245386536.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: brian.haley@hp.com, ole@ans.pl, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:59004 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750901Ab0IHERS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 00:17:18 -0400
-In-Reply-To: <loom.20100908T054044-695@post.gmane.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:52310 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751267Ab0IHEmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 00:42:52 -0400
+Received: by fxm16 with SMTP id 16so501400fxm.19
+        for <netdev@vger.kernel.org>; Tue, 07 Sep 2010 21:42:51 -0700 (PDT)
+In-Reply-To: <20100907.203410.245386536.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Holger, et al,
+Le mardi 07 septembre 2010 =C3=A0 20:34 -0700, David Miller a =C3=A9cri=
+t :
+> From: Brian Haley <brian.haley@hp.com>
+> Date: Tue, 07 Sep 2010 22:34:59 -0400
+>=20
+> > Is this really the right thing to do?  Linux has been doing this fo=
+rever,
+> > right?  Just like BSD has done it forever.
+>=20
+> Indeed, I checked for this in Stevens volume 2 when I reviewed
+> Eric's patch, the logic is identical.
+>=20
+> > The way I've always "cleared" a local address is to set the address
+> > family to AF_UNSPEC on the next connect() call, as mentioned on the
+> > man page.  I just want to make sure we're not changing something
+> > just to work around a broken application, sendto()/sendmsg() work
+> > perfect in this case by not setting the local address.
+> >=20
 
-Actually wouldn't it make sense if a system type fix is done?
+Problem is AF_UNSPEC always clears the remote address (as stated in
+manual), and sometimes local one (as not stated)
 
-I would add a delay if not already done and check to see
- if some dirty pages could be cleaned, then freed.
+if (!(sk->sk_userlocks & SOCK_BINDADDR_LOCK))
+	inet_reset_saddr(sk);
 
-The assumption is then those pages would be minor faulted
-back in and prefetched.
+This is the workaround that was coded years ago in Linux to undo the
+local addr setting ;)
 
-Another approach is to make sure that pages are cleaned on
-a more frequent basis independent on the number of free
-pages (free pages may not be continuous) that wants to make 
-sure higher order allocs are allocatable over time.
 
-Mitchell Erblich
+=46ollowing program produces this output :
 
-On Sep 7, 2010, at 8:44 PM, Holger Freyther wrote:
+local addr=3D0x7f000001 sin_port=3D37877
+after connect(AF_UNSPEC) local addr=3D0x0 sin_port=3D0
+local addr=3D0x7f000001 sin_port=3D37877
+after connect(AF_UNSPEC) local addr=3D0x7f000001 sin_port=3D0
 
-> Hi all,
-> 
-> I'm using the r8169 module on my notebook and after a couple of days
-> of running with suspend/resume the networking stops working. I have
-> the dmesg output at the end of the email. From my understanding this
-> is due that on suspend the interface will be brought down, the rx buffers
-> are freed and that on resume it is not possible to allocate a continous
-> buffer for the sizes required.
-> 
-> My approach to handle this would be to add an option to not free the
-> buffers until the module is unloaded and guard this with an option. Is
-> that an acceptable solution?
-> 
-> 
-> NetworkManager: page allocation failure. order:3, mode:0x4020
-> Pid: 1291, comm: NetworkManager \n
-> Not tainted 2.6.35.4-12.fc14.i686.PAE #1
-> Call Trace:
-> [<c07e2197>] ? printk+0x25/0x2e
-> [<c04c1af6>] __alloc_pages_nodemask+0x5bc/0x62f
-> [<c04c1b83>] __get_free_pages+0x1a/0x2c
-> [<c04e7bd6>] __kmalloc_track_caller+0x32/0x144
-> [<c07465fb>] ? __netdev_alloc_skb+0x1b/0x36
-> [<c07464fd>] __alloc_skb+0x59/0x100
-> [<c07465fb>] __netdev_alloc_skb+0x1b/0x36
-> [<f9796a8f>] rtl8169_rx_fill+0x99/0x132 [r8169]
-> [<f9797913>] rtl8169_init_ring+0x66/0x96 [r8169]
-> [<f9797e98>] rtl8169_open+0x7f/0x1d7 [r8169]
-> [<c0750b04>] __dev_open+0x79/0xaa
-> [<c0750cf9>] __dev_change_flags+0x98/0x10d
-> [<c0750dde>] dev_change_flags+0x18/0x44
-> [<c075976f>] do_setlink+0x253/0x52e
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdio.h>
+
+int main(int argc, char *argv[])
+{
+	int fd;
+	struct sockaddr_in target, me;
+	socklen_t len;
+
+	if ((fd =3D socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) =3D=3D -1) {
+		perror("socket");
+		return 1;
+	}
+	memset(&target, 0, sizeof(target));
+	target.sin_family =3D AF_INET;
+	target.sin_port =3D 123;
+	target.sin_addr.s_addr =3D htonl(0x7f000001);
+	if (connect(fd, (const struct sockaddr *)&target, sizeof(target)) =3D=3D=
+ -1) {
+		perror("connect");
+		close(fd);
+		return 2;
+	}
+	len =3D sizeof(me);
+	if (getsockname(fd, (struct sockaddr *)&me, &len)=3D=3D -1) {
+		perror("getsockname");
+		close(fd);
+		return 3;
+	}
+	printf("local addr=3D0x%x sin_port=3D%u\n",
+		ntohl(me.sin_addr.s_addr), ntohs(me.sin_port));
+	memset(&target, 0, sizeof(target));
+	target.sin_family =3D AF_UNSPEC;
+	if (connect(fd, (const struct sockaddr *)&target, sizeof(target)) =3D=3D=
+ -1) {
+		perror("connect AF_UNSPEC");
+		close(fd);
+		return 4;
+	}=09
+	len =3D sizeof(me);
+	if (getsockname(fd, (struct sockaddr *)&me, &len)=3D=3D -1) {
+		perror("getsockname 2");
+		close(fd);
+		return 3;
+	}
+	printf("after connect(AF_UNSPEC) local addr=3D0x%x sin_port=3D%u\n",
+		ntohl(me.sin_addr.s_addr), ntohs(me.sin_port));
+	memset(&target, 0, sizeof(target));
+	target.sin_family =3D AF_INET;
+	target.sin_addr.s_addr =3D htonl(0x7f000001);
+	if (bind(fd, (const struct sockaddr *)&target, sizeof(target)) =3D=3D =
+-1) {
+		perror("bind");
+		close(fd);
+		return 2;
+	}
+	len =3D sizeof(me);
+	if (getsockname(fd, (struct sockaddr *)&me, &len)=3D=3D -1) {
+		perror("getsockname");
+		close(fd);
+		return 3;
+	}
+	printf("local addr=3D0x%x sin_port=3D%u\n",
+		ntohl(me.sin_addr.s_addr), ntohs(me.sin_port));
+
+	memset(&target, 0, sizeof(target));
+	target.sin_family =3D AF_UNSPEC;
+	if (connect(fd, (const struct sockaddr *)&target, sizeof(target)) =3D=3D=
+ -1) {
+		perror("connect AF_UNSPEC");
+		close(fd);
+		return 4;
+	}=09
+
+	len =3D sizeof(me);
+	if (getsockname(fd, (struct sockaddr *)&me, &len)=3D=3D -1) {
+		perror("getsockname 2");
+		close(fd);
+		return 3;
+	}
+	printf("after connect(AF_UNSPEC) local addr=3D0x%x sin_port=3D%u\n",
+		ntohl(me.sin_addr.s_addr), ntohs(me.sin_port));
+	return 0;
+}
+
+
 
