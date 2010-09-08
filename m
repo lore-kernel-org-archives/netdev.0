@@ -1,26 +1,62 @@
-From: Andrew <nitr0@seti.kr.ua>
-Subject: VIA Velocity 6130 - is it supported?
-Date: Wed, 08 Sep 2010 23:01:14 +0300
-Message-ID: <4C87EB8A.6050503@seti.kr.ua>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH v3] cxacru: ignore cx82310_eth devices
+Date: Wed, 8 Sep 2010 22:52:12 +0200
+Message-ID: <201009082252.15865.linux@rainbow-software.org>
+References: <201009051901.13851.linux@rainbow-software.org> <201009052212.37015.linux@rainbow-software.org> <20100908.131227.28827971.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: greg@kroah.com, simon@fire.lp0.eu, dbrownell@users.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imap.seti.kr.ua ([91.202.132.4]:56984 "EHLO mail.seti.kr.ua"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753682Ab0IHUtb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 16:49:31 -0400
-Received: from [91.202.133.246] (helo=[172.19.32.10])
-	by mail.seti.kr.ua with esmtpa (Exim 4.68)
-	(envelope-from <nitr0@seti.kr.ua>)
-	id 1OtQpP-0000y2-MV
-	for netdev@vger.kernel.org; Wed, 08 Sep 2010 23:01:08 +0300
+Received: from mail1-out1.atlantis.sk ([80.94.52.55]:44385 "EHLO
+	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754148Ab0IHUwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 16:52:24 -0400
+In-Reply-To: <20100908.131227.28827971.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  Hi all.
-I tried to run VT6130 on 2.6.35.2 kernel - but as result I have eth 
-device with MAC ff:ff:ff:ff:ff:ff, that can't be upped - RNETLINK 
-returns a lot of errors 'can't set address".
-Is this device supported by kernel drivers?
+Ignore ADSL routers, which can have the same vendor and product IDs
+as ADSL modems but should be handled by the cx82310_eth driver.
+
+This intentionally ignores device IDs that aren't currently handled
+by cx82310_eth. There may be other device IDs that perhaps shouldn't
+be claimed by cxacru.
+
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+
+--- linux-2.6.36-rc3-orig/drivers/usb/atm/cxacru.c	2010-08-29 17:36:04.000000000 +0200
++++ linux-2.6.36-rc3/drivers/usb/atm/cxacru.c	2010-09-08 22:42:47.000000000 +0200
+@@ -1324,8 +1324,23 @@ static struct usbatm_driver cxacru_drive
+ 	.tx_padding	= 11,
+ };
+ 
+-static int cxacru_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
++static int cxacru_usb_probe(struct usb_interface *intf,
++		const struct usb_device_id *id)
+ {
++	struct usb_device *usb_dev = interface_to_usbdev(intf);
++	char buf[15];
++
++	/* avoid ADSL routers (cx82310_eth)
++	 * abort if bDeviceClass is 0xff and iProduct is "USB NET CARD" */
++	if (usb_dev->descriptor.bDeviceClass == USB_CLASS_VENDOR_SPEC
++			&& usb_string(usb_dev, usb_dev->descriptor.iProduct,
++				buf, sizeof(buf)) > 0) {
++		if (!strcmp(buf, "USB NET CARD")) {
++			dev_info(&intf->dev, "ignoring cx82310_eth device\n");
++			return -ENODEV;
++		}
++	}
++
+ 	return usbatm_usb_probe(intf, id, &cxacru_driver);
+ }
+ 
+
+-- 
+Ondrej Zary
