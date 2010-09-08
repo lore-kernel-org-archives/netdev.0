@@ -1,49 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] MAINTAINERS: Add CAIF
-Date: Tue, 07 Sep 2010 23:33:24 -0700
-Message-ID: <1283927604.2479.1.camel@Joe-Laptop>
-References: <1283880791.23280.153.camel@Joe-Laptop>
-	 <81C3A93C17462B4BBD7E272753C1057916DE7CC568@EXDCVYMBSTM005.EQ1STM.local>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] [arch-x86] Allow SRAT integrity check to be skipped
+Date: Wed, 08 Sep 2010 08:55:18 +0200
+Message-ID: <87wrqwiv1l.fsf@basil.nowhere.org>
+References: <20100901213318.19353.54619.stgit@localhost.localdomain>
+	<20100902065731.GB29972@elte.hu>
+	<20100902100308.GA17167@basil.fritz.box>
+	<20100903063934.GA25863@elte.hu> <1283888337.18468.9.camel@pjaxe>
+	<4C869AA3.6000103@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	"tglx\@linutronix.de" <tglx@linutronix.de>,
+	"mingo\@redhat.com" <mingo@redhat.com>,
+	"x86\@kernel.org" <x86@kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: "H. Peter Anvin" <hpa@zytor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1522 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750893Ab0IHGdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 02:33:25 -0400
-In-Reply-To: <81C3A93C17462B4BBD7E272753C1057916DE7CC568@EXDCVYMBSTM005.EQ1STM.local>
+Received: from one.firstfloor.org ([213.235.205.2]:59101 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757323Ab0IHGzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 02:55:20 -0400
+In-Reply-To: <4C869AA3.6000103@zytor.com> (H. Peter Anvin's message of "Tue,
+	07 Sep 2010 13:03:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- MAINTAINERS |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+"H. Peter Anvin" <hpa@zytor.com> writes:
+>
+> If this is a production BIOS it should have this information.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index c36f5d7..f2b3ece 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1445,6 +1445,16 @@ S:	Maintained
- F:	Documentation/video4linux/cafe_ccic
- F:	drivers/media/video/cafe_ccic*
- 
-+CAIF NETWORK LAYER
-+M:	Sjur Braendeland <sjur.brandeland@stericsson.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+F:	Documentation/networking/caif/
-+F:	drivers/net/caif/
-+F:	include/linux/caif/
-+F:	include/net/caif/
-+F:	net/caif/
-+
- CALGARY x86-64 IOMMU
- M:	Muli Ben-Yehuda <muli@il.ibm.com>
- M:	"Jon D. Mason" <jdmason@kudzu.us>
+The point was -- it wasn't a production BIOS and the production
+BIOS will be fixed.
 
+If you want you call fill the DMI tables with all bugs in preproduction
+BIOS, but I suspect that will fill them up rather quickly. Preproduction
+BIOS tend to be buggy (that is why they are pre-production)
 
+Another problem also with adding stuff for early BIOS is that the later
+BIOS likely have this fixed and then you have a quirk that runs but is
+not needed (unless you add another DMI match for the fixed production
+BIOS etc.) While for this case it would be probably harmless, 
+this has caused problems in the past with other quirks.
+
+Normally early users are also ok with having to specify an option
+as a workaround, they just need something they can specify.
+
+IMHO also it's good coding practice to have a command line option
+for every DMI quirk anyways. This makes it easier to let 
+users test if they need a particular quirk and helps
+with users running older kernels.
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only.
