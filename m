@@ -1,79 +1,101 @@
-From: "Gustavo F. Padovan" <padovan@profusion.mobi>
-Subject: [PATCH] Bluetooth: Simplify L2CAP Streaming mode sending
-Date: Wed,  8 Sep 2010 20:32:07 -0300
-Message-ID: <1283988727-1456-2-git-send-email-padovan@profusion.mobi>
-References: <1283988727-1456-1-git-send-email-padovan@profusion.mobi>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	marcel@holtmann.org, davem@davemloft.net
-To: linux-bluetooth@vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCHv4] net: Add batman-adv meshing protocol
+Date: Wed, 8 Sep 2010 16:37:17 -0700
+Message-ID: <AANLkTim-jswWzG=H0AQP5Z3byxoR1uXoV-ZhdaZ7+Sqd@mail.gmail.com>
+References: <1283646353-17811-1-git-send-email-sven.eckelmann@gmx.de>
+	<201009082058.15533.sven.eckelmann@gmx.de>
+	<AANLkTi=FVyLE6OHTd+_qDbzSLk6fY5j6wBOWkYA810Dj@mail.gmail.com>
+	<201009082225.47498.sven.eckelmann@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: b.a.t.m.a.n@lists.open-mesh.org, Andi Kleen <andi@firstfloor.org>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.net
+To: Sven Eckelmann <sven.eckelmann@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:53412 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756674Ab0IHXcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 19:32:15 -0400
-In-Reply-To: <1283988727-1456-1-git-send-email-padovan@profusion.mobi>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:64310 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932159Ab0IHXhS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 19:37:18 -0400
+Received: by iwn5 with SMTP id 5so452638iwn.19
+        for <netdev@vger.kernel.org>; Wed, 08 Sep 2010 16:37:17 -0700 (PDT)
+In-Reply-To: <201009082225.47498.sven.eckelmann@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As we don't have any error control on the Streaming mode, i.e., we don't
-need to keep a copy of the skb for later resending we don't need to
-call skb_clone() on it.
-Then we can go one further here, and dequeue the skb before sending it,
-that also means we don't need to look to sk->sk_send_head anymore.
+On Wed, Sep 8, 2010 at 1:25 PM, Sven Eckelmann <sven.eckelmann@gmx.de> =
+wrote:
+>> > =A0* Does it allow to append extra header information to the packe=
+t?
+>> > =A0* Does it allow fragmentation of packets (not real fragmentatio=
+n, but
+>> > more single split)?
+>>
+>> I'm assuming that both of these questions are for tunneling. =A0Open
+>> vSwitch currently supports a few different L2 over L3 tunneling
+>> mechanisms and has a tunnel library that makes adding additional
+>> protocols easy. =A0It probably can't do exactly what you need right =
+now,
+>> but it should be fairly easy to extend.
+>
+> Hm, low overhead tunneling is one of the main parts, but if you think=
+ that it
+> is easy to extend then fine.
 
-The patch saves memory and time when sending Streaming mode data, so
-it is good to mainline.
+I understand that tunneling needs to go in the kernel.  However, as I
+said, several tunneling mechanisms already exist in Open vSwitch
+(maybe one of them even already meets your needs) and adding another
+one would certainly be less code than the approximately 9000 lines
+that this patch entails.
 
-Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
----
- net/bluetooth/l2cap.c |   24 +++++++-----------------
- 1 files changed, 7 insertions(+), 17 deletions(-)
+>
+>> > =A0* Does it allow to define outgoing patterns (on which attached =
+interface
+>> > =A0 goes the thing out again) on packet number or incoming device =
+(the real
+>> > =A0 hardware device it was coming in)?
+>>
+>> I'm not sure what you mean by "packet number". =A0It does allow you =
+to
+>> specify the output interface based on a number of factors, include t=
+he
+>> input device.
+>
+> It would mean that for example 5 packets goes over device 1, the next=
+ 5
+> packets goes over
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 9fad312..f2062aa 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -1441,33 +1441,23 @@ static inline void l2cap_do_send(struct sock *sk, struct sk_buff *skb)
- 
- static void l2cap_streaming_send(struct sock *sk)
- {
--	struct sk_buff *skb, *tx_skb;
-+	struct sk_buff *skb;
- 	struct l2cap_pinfo *pi = l2cap_pi(sk);
- 	u16 control, fcs;
- 
--	while ((skb = sk->sk_send_head)) {
--		tx_skb = skb_clone(skb, GFP_ATOMIC);
--
--		control = get_unaligned_le16(tx_skb->data + L2CAP_HDR_SIZE);
-+	while ((skb = skb_dequeue(TX_QUEUE(sk)))) {
-+		control = get_unaligned_le16(skb->data + L2CAP_HDR_SIZE);
- 		control |= pi->next_tx_seq << L2CAP_CTRL_TXSEQ_SHIFT;
--		put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
-+		put_unaligned_le16(control, skb->data + L2CAP_HDR_SIZE);
- 
- 		if (pi->fcs == L2CAP_FCS_CRC16) {
--			fcs = crc16(0, (u8 *)tx_skb->data, tx_skb->len - 2);
--			put_unaligned_le16(fcs, tx_skb->data + tx_skb->len - 2);
-+			fcs = crc16(0, (u8 *)skb->data, skb->len - 2);
-+			put_unaligned_le16(fcs, skb->data + skb->len - 2);
- 		}
- 
--		l2cap_do_send(sk, tx_skb);
-+		l2cap_do_send(sk, skb);
- 
- 		pi->next_tx_seq = (pi->next_tx_seq + 1) % 64;
--
--		if (skb_queue_is_last(TX_QUEUE(sk), skb))
--			sk->sk_send_head = NULL;
--		else
--			sk->sk_send_head = skb_queue_next(TX_QUEUE(sk), skb);
--
--		skb = skb_dequeue(TX_QUEUE(sk));
--		kfree_skb(skb);
- 	}
- }
- 
--- 
-1.7.2.2
+I'm assuming that those packets are from different higher level flows,
+right?  Otherwise you will have significant reordering issues.
+Assuming that is the case, then yes, this is possible and is how Open
+vSwitch implements bonding purely in userspace.
 
+>
+>> > * directly influence the traffic flow, i.e., ARQ for broadcasts,
+>
+> Could you please comment on that one (taken from Mareks mail). Think =
+about
+> that one:
+> =A0* A Broadcast packet must be send over wifi (adhoc)
+> =A0* This packet is probably dropped due to some interferences. So ea=
+ch node
+> =A0 must transmit the broadcast more than one time to be (with a good=
+ chance
+> =A0 successful). This is quite essential on l2 based adhoc wifi mesh =
+networks
+> =A0 (as tests showed - but please ask Marek for the actual test setup=
+s)
+
+This isn't something that Open vSwitch currently has support for since
+it expects the properties of Ethernet, which is best effort, and
+assumes the upper layers will do any retransmission if desired.
+However, I know that for lossy wireless networks sometimes this is not
+sufficient.  Open vSwitch has a virtual port abstraction in the kernel
+that works well for this type of application specific code and is
+where I would expect you to put your tunneling protocol.  I suspect
+that this may fit in there as well.  Again, I understand that there
+are some areas where the existing Open vSwitch does not exactly fit
+all of your needs.  However, I think that you will find that the parts
+of the kernel that require extension are actually quite small and well
+abstracted.
