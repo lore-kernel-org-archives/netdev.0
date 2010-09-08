@@ -1,51 +1,47 @@
-From: David Miller <davem@davemloft.net>
+From: Matt Causey <matt.causey@gmail.com>
 Subject: Re: Is via-velocity broken in 2.6.34?
-Date: Tue, 07 Sep 2010 16:33:31 -0700 (PDT)
-Message-ID: <20100907.163331.260082741.davem@davemloft.net>
+Date: Tue, 7 Sep 2010 17:05:08 -0700
+Message-ID: <AANLkTi=-o68GqqvOeQgEBThBJo=v2kUEy4+VDU14b3us@mail.gmail.com>
 References: <AANLkTinK4VywsJ86jaC8wQjbXjzvP-z44JD3XbZbMM2a@mail.gmail.com>
+	<20100907232957.GA11595@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: matt.causey@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Simon Kagstrom <simon.kagstrom@netinsight.net>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinK4VywsJ86jaC8wQjbXjzvP-z44JD3XbZbMM2a@mail.gmail.com>
+In-Reply-To: <20100907232957.GA11595@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Sep 7, 2010 at 4:29 PM, Francois Romieu <romieu@fr.zoreil.com> =
+wrote:
+> Please Cc: netdev@vger.kernel.org
 
-Please always CC: netdev@vger.kernel.org for networking reports.
+Done, cheers for that I didn't know.
 
-Give this patch a try:
+>
+> Matt Causey <matt.causey@gmail.com> :
+> [2.6.29 -> 2.6.34 regression]
+>> Attached is debug.tar. =A0It contains dmesg, config.gz, ethtool,
+>> ifconfig, and lspci output. =A0I'm not sure what else to do at this
+>> point. =A0Is there some debugging I can enable in the kernel to give
+>> more clues as to what's gone wrong?
+>
+> Any chance you could bisect the regression or narrow it down a bit ?
+>
 
---------------------
-via-velocity: Turn scatter-gather support back off.
+I've never bisected before.  But I'll lookup some documentation and
+give it a go.  :-)
 
-It causes all kinds of DMA API debugging assertions and
-all straight-forward attempts to fix it have failed.
+> Otherwise may I assume that there is no difference in the
+> userspace tools (just in case) ?
+>
 
-So turn off SG, and we'll tackle making this work
-properly in net-next-2.6
+That's a valid assumption.  The userland was exactly the same, just
+different kernel version.
 
-Reported-by: Dave Jones <davej@redhat.com>
-Tested-by: Dave Jones <davej@redhat.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/via-velocity.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index fd69095..f534123 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -2824,7 +2824,7 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
- 	netif_napi_add(dev, &vptr->napi, velocity_poll, VELOCITY_NAPI_WEIGHT);
- 
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
--		NETIF_F_HW_VLAN_RX | NETIF_F_IP_CSUM | NETIF_F_SG;
-+		NETIF_F_HW_VLAN_RX | NETIF_F_IP_CSUM;
- 
- 	ret = register_netdev(dev);
- 	if (ret < 0)
--- 
-1.7.2.2
+--
+Matt
