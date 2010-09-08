@@ -1,36 +1,90 @@
-From: Justin Pettit <jpettit@nicira.com>
-Subject: Re: [PATCHv4] net: Add batman-adv meshing protocol
-Date: Wed, 8 Sep 2010 16:13:51 -0700
-Message-ID: <72E610F4-6157-47CA-B409-92CE151843A8@nicira.com>
-References: <1283646353-17811-1-git-send-email-sven.eckelmann@gmx.de> <201009082058.15533.sven.eckelmann@gmx.de> <AANLkTi=FVyLE6OHTd+_qDbzSLk6fY5j6wBOWkYA810Dj@mail.gmail.com> <201009082225.47498.sven.eckelmann@gmx.de>
-Mime-Version: 1.0 (Apple Message framework v1081)
-Content-Type: text/plain; charset=us-ascii
+From: "Arce, Abraham" <x0066660@ti.com>
+Subject: [PATCH] KS8851: Correct RX packet allocation
+Date: Wed, 8 Sep 2010 18:26:55 -0500
+Message-ID: <27F9C60D11D683428E133F85D2BB4A530450AB386D@dlee03.ent.ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Jesse Gross <jesse@nicira.com>, b.a.t.m.a.n@lists.open-mesh.org,
-	Andi Kleen <andi@firstfloor.org>, davem@davemloft.net,
-	netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.net
-To: Sven Eckelmann <sven.eckelmann@gmx.de>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Shilimkar, Santosh" <santosh.shilimkar@ti.com>,
+	"Ha, Tristram" <Tristram.Ha@micrel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:40187 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932095Ab0IHXN6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 19:13:58 -0400
-Received: by pvg2 with SMTP id 2so249785pvg.19
-        for <netdev@vger.kernel.org>; Wed, 08 Sep 2010 16:13:57 -0700 (PDT)
-In-Reply-To: <201009082225.47498.sven.eckelmann@gmx.de>
+Received: from bear.ext.ti.com ([192.94.94.41]:41960 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756679Ab0IHX1A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Sep 2010 19:27:00 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sep 8, 2010, at 1:25 PM, Sven Eckelmann wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-> Without checking any facts: This sounds a little bit heavy - does it only 
-> sound heavy and in reality is extreme slim? The problem is that it must run on 
-> those low end, "please don't run code on me, because I cannot crunch numbers 
-> and have no ram" machines like the FON2100 or WRT54GL.
+Use netdev_alloc_skb_ip_align() helper and do correct allocation
 
+Tested-by: Abraham Arce <x0066660@ti.com>
+Signed-off-by: Abraham Arce <x0066660@ti.com>
+---
+ drivers/net/ks8851.c |   39 +++++++++++++++++++++------------------
+ 1 files changed, 21 insertions(+), 18 deletions(-)
 
-We used to run early versions of Open vSwitch on the WRTSL54GS (which is only a bit beefier than the WRT54GL) and didn't have any problems.  My guess is that it would run even better now, since the code has gone through a number of optimizations.  If packets are hitting the kernel cache, it's really only header parsing and a hash lookup, which is pretty cheap.
-
---Justin
-
+diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
+index b4fb07a..51919fc 100644
+--- a/drivers/net/ks8851.c
++++ b/drivers/net/ks8851.c
+@@ -503,30 +503,33 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
+ 		ks8851_wrreg16(ks, KS_RXQCR,
+ 			       ks->rc_rxqcr | RXQCR_SDA | RXQCR_ADRFE);
+ 
+-		if (rxlen > 0) {
+-			skb = netdev_alloc_skb(ks->netdev, rxlen + 2 + 8);
+-			if (!skb) {
+-				/* todo - dump frame and move on */
+-			}
++		if (rxlen > 4) {
++			unsigned int rxalign;
++
++			rxlen -= 4;
++			rxalign = ALIGN(rxlen, 4);
++			skb = netdev_alloc_skb_ip_align(ks->netdev, rxalign);
++			if (skb) {
+ 
+-			/* two bytes to ensure ip is aligned, and four bytes
+-			 * for the status header and 4 bytes of garbage */
+-			skb_reserve(skb, 2 + 4 + 4);
++				/* 4 bytes of status header + 4 bytes of
++				 * garbage: we put them before ethernet
++				 * header, so that they are copied,
++				 * but ignored.
++				 */
+ 
+-			rxpkt = skb_put(skb, rxlen - 4) - 8;
++				rxpkt = skb_put(skb, rxlen) - 8;
+ 
+-			/* align the packet length to 4 bytes, and add 4 bytes
+-			 * as we're getting the rx status header as well */
+-			ks8851_rdfifo(ks, rxpkt, ALIGN(rxlen, 4) + 8);
++				ks8851_rdfifo(ks, rxpkt, rxalign + 8);
+ 
+-			if (netif_msg_pktdata(ks))
+-				ks8851_dbg_dumpkkt(ks, rxpkt);
++				if (netif_msg_pktdata(ks))
++					ks8851_dbg_dumpkkt(ks, rxpkt);
+ 
+-			skb->protocol = eth_type_trans(skb, ks->netdev);
+-			netif_rx(skb);
++				skb->protocol = eth_type_trans(skb, ks->netdev);
++				netif_rx(skb);
+ 
+-			ks->netdev->stats.rx_packets++;
+-			ks->netdev->stats.rx_bytes += rxlen - 4;
++				ks->netdev->stats.rx_packets++;
++				ks->netdev->stats.rx_bytes += rxlen;
++			}
+ 		}
+ 
+ 		ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
+-- 
+1.5.4.3
 
