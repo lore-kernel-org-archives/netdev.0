@@ -1,34 +1,35 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] atlx: make strings const
-Date: Wed, 8 Sep 2010 18:54:14 -0700
-Message-ID: <20100908185414.52f6f35a@nehalam>
-References: <20100908151836.3c40cc81@nehalam>
-	<1283986691.24986.31.camel@Joe-Laptop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
+Date: Thu, 9 Sep 2010 13:19:39 +0930
+Message-ID: <201009091319.40274.rusty@rustcorp.com.au>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908072905.23769.10732.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, anthony@codemonkey.ws,
+	kvm@vger.kernel.org, mst@redhat.com
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60038 "EHLO mail.vyatta.com"
+Received: from ozlabs.org ([203.10.76.45]:51275 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754993Ab0IIByR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 21:54:17 -0400
-In-Reply-To: <1283986691.24986.31.camel@Joe-Laptop>
+	id S1751168Ab0IIDtm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Sep 2010 23:49:42 -0400
+In-Reply-To: <20100908072905.23769.10732.sendpatchset@krkumar2.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 08 Sep 2010 15:58:11 -0700
-Joe Perches <joe@perches.com> wrote:
+On Wed, 8 Sep 2010 04:59:05 pm Krishna Kumar wrote:
+> Add virtio_get_queue_index() to get the queue index of a
+> vq.  This is needed by the cb handler to locate the queue
+> that should be processed.
 
-> On Wed, 2010-09-08 at 15:18 -0700, Stephen Hemminger wrote:
-> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> > Acked-by: Chris Snook <chris.snook@gmail.com>
-> > 
-> 
-> Shouldn't that be done with all of the global
-> static char foo[] = "bar"; declarations?
+This seems a bit weird.  I mean, the driver used vdev->config->find_vqs
+to find the queues, which returns them (in order).  So, can't you put this
+into your struct send_queue?
 
-Yes, that what I was looking at when I found some of these.
-Those that are __initdata don't matter as much since they
-get dropped (although they could be changed to __initconst).
+Also, why define VIRTIO_MAX_TXQS?  If the driver can't handle all of them,
+it should simply not use them...
+
+Thanks!
+Rusty.
