@@ -1,82 +1,77 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: [PATCH 1/2] posix clocks: introduce a syscall for clock
- tuning.
-Date: Thu, 9 Sep 2010 23:16:56 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.1009092244390.2477@localhost6.localdomain6>
-References: <cover.1283504065.git.richard.cochran@omicron.at> <7f4815cdfcf5bc49df4bdd09d59a4f56ca2598f5.1283504065.git.richard.cochran@omicron.at> <alpine.LFD.2.00.1009091159260.2477@localhost6.localdomain6> <20100909133449.GB2823@riccoc20.at.omicron.at>
- <alpine.LFD.2.00.1009092102150.2477@localhost6.localdomain6>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: [RFC] bnx2x: Insane RX rings
+Date: Thu, 09 Sep 2010 23:21:01 +0200
+Message-ID: <4C894FBD.2020109@ans.pl>
+References: <1284065105.4782.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.00.1009092102150.2477-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:42136 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753658Ab0IIVVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 17:21:08 -0400
+In-Reply-To: <1284065105.4782.11.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 9 Sep 2010, Thomas Gleixner wrote:
-> On Thu, 9 Sep 2010, Richard Cochran wrote:
-> 
-> > On Thu, Sep 09, 2010 at 12:49:27PM +0200, Thomas Gleixner wrote:
-> > > On Fri, 3 Sep 2010, Richard Cochran wrote:
-> > > > In addition, the POSIX clock code has been augmented to offer a
-> > > > dynamic clock creation method. Instead of registering a hard
-> > > > coded clock ID, modules may call create_posix_clock(), which
-> > > > returns a new clock ID.
-> > > 
-> > > This has been discussed for years and I still fail to see the
-> > > requirement for this. The only result is that it allows folks to
-> > > create their special purpose clock stuff and keep it out of tree
-> > > instead of fixing the problems they have with the existing clock
-> > > infrastructure in the kernel.
-> > 
-> > Do you have any pointers to this discussion?
-> 
-> Not out of the box. Need to ask the oracle of google [ I wonder if
-> this expression is politically correct today :) ]
-> 
-> My personal stance on this is clear: Assign fixed ID.
-> 
-> The point is, that if we provide something like CLOCK_PTP, then we can
-> abstract the real hardware drivers behind this clock id and we get a
-> consistent feature set for these drivers and a consistent behaviour on
-> the user space interface. There still might be a hardware driver which
-> cannot provide a specific feature, but there is nothing wrong to
-> return -ENOSYS in such a case.
+On 2010-09-09 22:45, Eric Dumazet wrote:
+> So I have a small dev machine, 4GB of ram,
+> a dual E5540 cpu (quad core, 2 threads per core),
+> so a total of 16 threads.
+>
+> Two ethernet ports, eth0 and eth1,
+>
+> 02:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM577=
+11E 10Gigabit PCIe
+> 02:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM577=
+11E 10Gigabit PCIe
+>
+> bnx2x 0000:02:00.0: eth0: using MSI-X  IRQs: sp 68  fp[0] 69 ... fp[1=
+5] 84
+> bnx2x 0000:02:00.1: eth1: using MSI-X  IRQs: sp 85  fp[0] 86 ... fp[1=
+5] 101
+>
+>
+> Default configuration :
+>
+> ethtool -g eth0
+> Ring parameters for eth0:
+> Pre-set maximums:
+> RX:		4078
+> RX Mini:	0
+> RX Jumbo:	0
+> TX:		4078
+> Current hardware settings:
+> RX:		4078
+> RX Mini:	0
+> RX Jumbo:	0
+> TX:		4078
+>
+> Problem is : With 16 RX queues per device , thats 4078*16*2Kbytes per
+> ethernet port.
+>
+> Total :
+>
+> skbuff_head_cache 130747 131025    256   15    1 : tunables  120   60=
+    8 : slabdata   8735   8735     40
+> size-2048         130866 130888   2048    2    1 : tunables   24   12=
+    8 : slabdata  65444  65444     28
+>
+> Thats about 300 Mbytes of memory, just in case some network trafic wi=
+ll occur.
+>
+> Lets do something about that ?
 
-Hmm. Talked to John Stultz about this and got enlightened that there
-might be more than one of these beasts. That changes the story
-slightly.
- 
-So yes, I've been wrong as usual and we'll need some way of assigning
-those ids dynamically, but I'm still opposed to providing an
-unconfined "give me one of those id's" interface for public
-consumption.
+Yep, it is ~8MB per queue, not so much alone, but a lot together. For=20
+this reason I use something like bnx2.num_queues=3D2 on servers where I=
+=20
+don't need much CPU power for network workload.
 
-I'd rather see a controlled environment for device classes like PTP
-clocks. That would have a couple of advantages:
+Best regards,
 
- - clear association of the device to a well defined functionality
-
- - avoidance of duplicated code
-
- - consistent sysfs interfaces for functionality which is device class
-   specific
-
- - simpler identification for interested applications
-
- - preventing the random spread of clock id consumers
-
-So the clock device class code would provide the interface for these
-class specific hardware drivers and consult the posix timer core code
-to give out an id.
-
-And that would apply to any other class of clock devices which do not
-fall into the general clocksource category (e.g. RTCs, audio clocks
-..)
-
-Thoughts ?
-
-	 tglx
+			Krzysztof Ol=C4=99dzki
