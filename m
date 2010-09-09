@@ -1,74 +1,59 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] bnx2x: Insane RX rings
-Date: Thu, 09 Sep 2010 14:38:27 -0700
-Message-ID: <4C8953D3.9060204@hp.com>
-References: <1284065105.4782.11.camel@edumazet-laptop>	<4C894FBD.2020109@ans.pl> <20100909.143001.104050644.davem@davemloft.net>
+From: Michael Williamson <michael.williamson@criticallink.com>
+Subject: Re: [PATCH v3 00/10] split out emac cpdma and mdio for reuse
+Date: Thu, 09 Sep 2010 17:45:44 -0400
+Message-ID: <4C895588.3060500@criticallink.com>
+References: <1283891142-15522-1-git-send-email-cyril@ti.com>	<871v95f2xv.fsf@deeprootsystems.com>	<4C86F369.6040906@criticallink.com> <4C880733.5010909@ti.com>	<4C882EAA.9030903@criticallink.com>	<4C892AC0.80409@criticallink.com> <4C893ADE.809@ti.com> <4C89507E.9040407@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ole@ans.pl, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	eilong@broadcom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:11736 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753111Ab0IIVia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 17:38:30 -0400
-In-Reply-To: <20100909.143001.104050644.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "davinci-linux-open-source@linux.davincidsp.com"
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tony@atomide.com" <tony@atomide.com>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: cyril@ti.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <4C89507E.9040407@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Krzysztof Ol=C4=99dzki <ole@ans.pl>
-> Date: Thu, 09 Sep 2010 23:21:01 +0200
->=20
->=20
->>On 2010-09-09 22:45, Eric Dumazet wrote:
->>
->>>Problem is : With 16 RX queues per device , thats 4078*16*2Kbytes pe=
-r
->>>ethernet port.
->>>
->>>Total :
->>>
->>>skbuff_head_cache 130747 131025 256 15 1 : tunables 120 60 8 :
->>>slabdata 8735 8735 40
->>>size-2048 130866 130888 2048 2 1 : tunables 24 12 8 : slabdata 65444
->>>65444 28
->>>
->>>Thats about 300 Mbytes of memory, just in case some network trafic
->>>will occur.
->>>
->>>Lets do something about that ?
->>
->>Yep, it is ~8MB per queue, not so much alone, but a lot together. For
->>this reason I use something like bnx2.num_queues=3D2 on servers where=
- I
->>don't need much CPU power for network workload.
->=20
->=20
-> I think simply that the RX queue size should be scaled by the number
-> of queues we have.
->=20
-> If people want enormous RX ring sizes even when there are many queues=
-,
-> they can use ethtool to get that.
->=20
-> Taking up 130MB of memory per-card, just for RX packet buffers, is
-> certainly over the top.
+On 09/09/2010 05:24 PM, Cyril Chemparathy wrote:
+> Hi Mike,
+> 
+> [...]
+>> An EMAC soft-reset clobbering the MDIO controller state is a
+>> possibility.  I will poll TI designers to see if this could be the case.
+> 
+> To test this theory out, I hacked up a crude
+> beat-it-to-death-and-see-if-it-breaks kinda patch (attached).  This
+> tests 10000 mdio read cycles while constantly doing an emac soft-reset.
+> 
+> I ran this on a dm365 evm, and the test didn't raise a single failed read:
+>> davinci_mdio davinci_mdio.0: davinci mdio revision 1.4
+>> davinci_mdio davinci_mdio.0: detected phy mask fffffffc
+>> 10000 test loops completed, 10000 reads ok
+> 
+> The failure in question seems to be limited to the da8xx family (tested
+> da830 evm), where:
+>> davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
+>> davinci_mdio davinci_mdio.0: detected phy mask fffffff1
+>> idle triggered!!
+> 
+> The MDIO module upgrade (rev 1.4 -> 1.5) could have something to do with
+> this behavior.  Even so, I can't explain why this issue wasn't seen on
+> da8xx prior to this series.  The original code should (at least in
+> theory) have sporadically locked up on emac open.
+> 
 
-It gets even better if one consideres JumboFrames...  that said, I've h=
-ad=20
-customer contacts (indirect) where they were quite keep to have a ring =
-size of=20
-at least 2048 packets - I never could get it confirmed, but I suspect t=
-hey had=20
-applications/systems that might "go out to lunch" for long-enough perio=
-ds of=20
-time they wanted that degree of FIFO.
+I think, if I understand it correctly, that in the previous version of 
+this code, the emac was reset *prior* to enabling, scanning, and assigning 
+the associated phy on the MDIO bus.  The new implementation sets up and scans 
+the MDIO bus first, then comes back around to the EMAC second... hits a reset,
+and doesn't re-ENABLE the MDIO.
 
-Doesn't necessarily change "what should be the defaults" much but there=
- it is.
+Also, maybe hitting the EMAC reset while the MDIO state machine is up is *bad*, I 
+seem to recall some text in the user's guide about waiting for the state
+machine to stop before disabling it.  I wonder if that also applies to reset?
 
-rick jones
+-Mike
