@@ -1,74 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: inet_add_protocol() can use cmpxchg()
-Date: Thu, 09 Sep 2010 07:23:14 +0200
-Message-ID: <1284009794.2428.32.camel@edumazet-laptop>
-References: <1283986576.2428.21.camel@edumazet-laptop>
-	 <AANLkTimZ=i1=c3SaEsw2_ncWJenuOgoSmHpMuN_UiG4K@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] cxacru: ignore cx82310_eth devices
+Date: Wed, 08 Sep 2010 23:07:47 -0700 (PDT)
+Message-ID: <20100908.230747.71591658.davem@davemloft.net>
+References: <20100908.131227.28827971.davem@davemloft.net>
+	<201009082252.15865.linux@rainbow-software.org>
+	<20100909033557.GA3723@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux@rainbow-software.org, simon@fire.lp0.eu,
+	dbrownell@users.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:61166 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111Ab0IIFXU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 01:23:20 -0400
-Received: by fxm16 with SMTP id 16so666073fxm.19
-        for <netdev@vger.kernel.org>; Wed, 08 Sep 2010 22:23:19 -0700 (PDT)
-In-Reply-To: <AANLkTimZ=i1=c3SaEsw2_ncWJenuOgoSmHpMuN_UiG4K@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50353
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750996Ab0IIGH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 02:07:29 -0400
+In-Reply-To: <20100909033557.GA3723@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 08 septembre 2010 =C3=A0 16:49 -0700, Jesse Gross a =C3=A9c=
-rit :
-> On Wed, Sep 8, 2010 at 3:56 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> > Use cmpxchg() to get rid of spinlocks in inet_add_protocol() and
-> > friends.
-> >
-> > inet_protos[] & inet6_protos[] are moved to read_mostly section
-> >
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> What's the benefit to this?  It's hard to imagine that add/deleting
-> protocols is highly contended.  On the other hand, a simple spinlock
-> is very easy to look at and verify correct, while this takes a little
-> more thought.
+From: Greg KH <greg@kroah.com>
+Date: Wed, 8 Sep 2010 20:35:57 -0700
 
-Good question.
+> On Wed, Sep 08, 2010 at 10:52:12PM +0200, Ondrej Zary wrote:
+>> Ignore ADSL routers, which can have the same vendor and product IDs
+>> as ADSL modems but should be handled by the cx82310_eth driver.
+>> 
+>> This intentionally ignores device IDs that aren't currently handled
+>> by cx82310_eth. There may be other device IDs that perhaps shouldn't
+>> be claimed by cxacru.
+> 
+> Looks good, thanks, I'll go queue it up.
 
-Did you know that _bh() was not necessary for example at this point ?
-
-Its a leftover of an RCU conversion, done many years ago. It _was_
-working of course, but it really hurts my mind. We could use
-stop_machine or other brute force thing too ;)
-
-
-Before patch :
-
-# size net/ipv4/protocol.o net/ipv6/protocol.o
-   text	   data	    bss	    dec	    hex	filename
-    340	      0	   2052	   2392	    958	net/ipv4/protocol.o
-    342	      0	   2052	   2394	    95a	net/ipv6/protocol.o
-
-After patch :
-
-# size net/ipv4/protocol.o net/ipv6/protocol.o
-   text	   data	    bss	    dec	    hex	filename
-    220	   2048	      0	   2268	    8dc	net/ipv4/protocol.o
-    222	   2048	      0	   2270	    8de	net/ipv6/protocol.o
-
-45 lines removed, 240 bytes of text removed, I found this interesting.
-
-Removing the ____cacheline_aligned_in_smp is also good, because
-the .data alignement, is reduced and linker is not force to propagate
-this alignement to upper .o files, with many holes.
-
-If you take a look at most patches flying around, this one at least too=
-k
-me to think a bit ;)
-
-Thanks
-
-
+Greg, see my reply, I already tossed this into net-next-2.6
