@@ -1,38 +1,27 @@
-From: Kyle McMartin <kmcmartin@redhat.com>
-Subject: Re: r8169 transmit queue time outs
-Date: Thu, 9 Sep 2010 13:32:34 -0400
-Message-ID: <20100909173234.GB19458@ihatethathostname.lab.bos.redhat.com>
-References: <20100506141715.GC4480@ihatethathostname.lab.bos.redhat.com>
- <20100506201024.GA3541@electric-eye.fr.zoreil.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: REGRESSION: e1000e fails to communicate (82566DM)
+Date: Thu, 9 Sep 2010 11:51:50 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1366008739474@rrsmsx501.amr.corp.intel.com>
+References: <1283806304.6947.13.camel@chi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kyle McMartin <kmcmartin@redhat.com>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Priit Laes <plaes@plaes.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43497 "EHLO mx1.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:24052 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753281Ab0IIRcr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Sep 2010 13:32:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20100506201024.GA3541@electric-eye.fr.zoreil.com>
+	id S1753087Ab0IIRv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Sep 2010 13:51:58 -0400
+In-Reply-To: <1283806304.6947.13.camel@chi>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 06, 2010 at 10:10:24PM +0200, Francois Romieu wrote:
-> Kyle McMartin <kmcmartin@redhat.com> :
-> [...]
-> > Some of our users have been seeing their r8169 cards just up and stop
-> > transmitting packets pretty quickly after boot with recent kernels.
-> [...]
-> > Pid: 0, comm: swapper Not tainted 2.6.31.5-127.fc12.i686.PAE #1
-> 
-> Can they upgrade to 2.6.32.11-99.fc12.i686 and try an out-of-tree build
-> of the driver at http://userweb.kernel.org/~romieu/r8169/2.6.32.11-99.fc12/ ?
-> 
-> It should be quite close to the current git kernel.
-
-Just fyi, we finally figured out what this problem was, or at least, a
-workaround for it. Turning off PCI Express ASPM seemed to work around
-the problem.
-
-regards, Kyle
+UHJpaXQgTGFlcyB3cm90ZToNCj4gSGV5YSENCj4gDQo+IEFmdGVyIHRyeWluZyBvdXQgbmV3ZXIg
+Mi42LjM1LXJjMyBrZXJuZWwsIHRoZSBuZXR3b3JrIGludGVyZmFjZSBmYWlscw0KPiB0byANCg0K
+SXMgdGhpcyBzdGlsbCBhbiBpc3N1ZSBpbiB0aGUgbGF0ZXN0IG5ldC1uZXh0IHB1bGw/DQoNCkFs
+c28gcGxlYXNlIHByb3ZpZGUgdGhlIG91dHB1dCBvZiBldGh0b29sIC1lLg0KDQpUaGFua3MsDQpF
+bWlsDQo=
