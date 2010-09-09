@@ -1,37 +1,42 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
-Date: Thu, 9 Sep 2010 11:58:09 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.1009091152300.2477@localhost6.localdomain6>
-References: <cover.1283504065.git.richard.cochran@omicron.at>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: inet_add_protocol() can use cmpxchg()
+Date: Thu, 9 Sep 2010 09:59:20 +0000
+Message-ID: <20100909095920.GB8404@ff.dom.local>
+References: <20100909064222.GA6951@ff.dom.local> <1284015345.2428.37.camel@edumazet-laptop> <20100909070926.GB6951@ff.dom.local> <20100909072453.GA7383@ff.dom.local> <20100909090816.GA7450@ff.dom.local> <1284024237.2589.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1283504065.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, jesse@nicira.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43496 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754333Ab0IIJ7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 05:59:24 -0400
+Received: by bwz11 with SMTP id 11so948210bwz.19
+        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 02:59:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1284024237.2589.15.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 3 Sep 2010, Richard Cochran wrote:
+On Thu, Sep 09, 2010 at 11:23:57AM +0200, Eric Dumazet wrote:
+> Le jeudi 09 septembre 2010 ?? 09:08 +0000, Jarek Poplawski a =E9crit =
+:
+> > xactly, without "after some time" I couldn't tell this
+> > either. Is seems some barriers might have been changed, but I might
+> > be wrong. Anyway, it would be nice to have some comment on that in
+> > the changelog.
+>=20
+> Jarek, cmpxchg() is a very strong primitive, as documented
+> in Documentation/memory-barriers.txt :
+=2E..
+> Its not needed to document each cmpxchg() use, because of these
+> strong requirements.
+>=20
 
-> Recently on the lkml, we discussed how to allow adjustment of posix
-> clocks. I have tried to understand and implement the ideas expressed
-> in the various threads.
+Btw, I wonder if for readability and debuging it shouldn't be made
+generic as rcu_cmpxchg_pointer() etc.?
 
-Cc'ing the relevant maintainers to such discussions and patches might
-be helpful. Seems I need to do some archive digging.
-
-> If there is agreement on this approach, I will resubmit these two
-> patches as part of a longer series, including support for a new kind
-> of hardware clock, so you can see how it all fits together. But first,
-> I would like to concentrate on the new syscall itself.
-> 
-> The patches are against a recent net-next tree. Please don't worry if
-> the syscall tables are not quite up to date. I can fix that later.
-
-How is this related to net-next ? 
-
-Thanks,
-
-	tglx
+Jarek P.
