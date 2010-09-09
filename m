@@ -1,70 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: inet_add_protocol() can use cmpxchg()
-Date: Thu, 09 Sep 2010 14:57:38 +0200
-Message-ID: <1284037058.2589.169.camel@edumazet-laptop>
-References: <20100909064222.GA6951@ff.dom.local>
-	 <1284015345.2428.37.camel@edumazet-laptop>
-	 <20100909070926.GB6951@ff.dom.local> <20100909072453.GA7383@ff.dom.local>
-	 <20100909090816.GA7450@ff.dom.local>
-	 <1284024237.2589.15.camel@edumazet-laptop>
-	 <20100909095920.GB8404@ff.dom.local>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Thu, 9 Sep 2010 18:48:31 +0530
+Message-ID: <OF6AD3DC8F.0443E9CD-ON65257799.004585FA-65257799.0048E37E@in.ibm.com>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908081011.GC23051@redhat.com> <OF70542242.6CAA236A-ON65257798.0044A4E0-65257798.005C0E7C@LocalDomain> <OF8043B2B7.7048D739-ON65257799.0021A2EE-65257799.00356B3E@LocalDomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jesse@nicira.com,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:44237 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751451Ab0IIM5n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 08:57:43 -0400
-Received: by fxm16 with SMTP id 16so816845fxm.19
-        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 05:57:42 -0700 (PDT)
-In-Reply-To: <20100909095920.GB8404@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <OF8043B2B7.7048D739-ON65257799.0021A2EE-65257799.00356B3E@LocalDomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 09 septembre 2010 =C3=A0 09:59 +0000, Jarek Poplawski a =C3=A9=
-crit :
+Krishna Kumar2/India/IBM wrote on 09/09/2010 03:15:53 PM:
 
-> Btw, I wonder if for readability and debuging it shouldn't be made
-> generic as rcu_cmpxchg_pointer() etc.?
+> I will start a full test run of original vs submitted
+> code with minimal tuning (Avi also suggested the same),
+> and re-send. Please let me know if you need any other
+> data.
 
-There are a lot of things to do in this area (with proper __rcu sparse
-annotations, this can be not very readable ...)
+Same patch, only change is that I ran "taskset -p 03
+<all vhost threads>", no other tuning on host or guest.
+Default netperf without any options. The BW is the sum
+across two iterations, each is 60secs. Guest is started
+with 2 txqs.
 
+BW1/BW2: BW for org & new in mbps
+SD1/SD2: SD for org & new
+RSD1/RSD2: Remote SD for org & new
+_______________________________________________________________________________
+#    BW1       BW2    (%)        SD1    SD2   (%)      RSD1    RSD2  (%)
+_______________________________________________________________________________
+1    20903     19422  (-7.08)    1      1    (0)       6       7
+(16.66)
+2    21963     24330  (10.77)    6      6    (0)       25      25    (0)
+4    22042     31841  (44.45)    23     28   (21.73)   102     110   (7.84)
+8    21674     32045  (47.84)    97     111  (14.43)   419     421   (.47)
+16   22281     31361  (40.75)    379    551  (45.38)   1663    2110
+(26.87)
+24   22521     31945  (41.84)    857    981  (14.46)   3748    3742  (-.16)
+32   22976     32473  (41.33)    1528   1806  (18.19)  6594    6885  (4.41)
+40   23197     32594  (40.50)    2390   2755  (15.27)  10239   10450 (2.06)
+48   22973     32757  (42.58)    3542   3786  (6.88)   15074   14395
+(-4.50)
+64   23809     32814  (37.82)    6486   6981  (7.63)   27244   26381
+(-3.16)
+80   23564     32682  (38.69)    10169  11133 (9.47)   43118   41397
+(-3.99)
+96   22977     33069  (43.92)    14954  15881 (6.19)   62948   59071
+(-6.15)
+128  23649     33032  (39.67)    27067  28832 (6.52)   113892  106096
+(-6.84)
+_______________________________________________________________________________
+     294534    400371 (35.9)     67504  72858 (7.9)    285077  271096
+(-4.9)
+_______________________________________________________________________________
 
-/**
- * rcu_cmpxchg - atomic compare and exchange, SMP & rcu safe
- * @p: pointer to value
- * @old: old value
- * @new: new value
- *
- * Equivalent to :
- *    ATOMIC_BEGIN
- *     ret =3D *p;
- *     if (ret =3D=3D old)
- *             rcu_assign_pointer(*p, new);
- *    ATOMIC_END
- *    return ret;
- *
- * cmpxpchg() contains full memory barriers, so can be used
- * in rcu write side without additional smp_wmb() barrier
- */
-#define rcu_cmpxchg(p, old, new) cmpxchg(p, old, new)
+I will try more tuning later as Avi suggested, wanted to test
+the minimal for now.
 
+Thanks,
 
-const struct net_protocol __rcu *
-        inet_protos[MAX_INET_PROTOS] __read_mostly;
-
-=2E..
-
-return !rcu_cmpxchg(&inet_protos[hash],=20
-                    NULL,
-                    (const struct net_protocol __force __rcu *)prot) ?
-		0 : -1;
-
-=2E..
-
+- KK
 
