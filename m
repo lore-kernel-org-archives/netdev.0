@@ -1,42 +1,54 @@
-From: Western Union <elsemanaldigital@elsemanaldigital.com>
-Subject: MONEY TRANSFER CONTROL NUMBER
-Date: Thu, 9 Sep 2010 13:44:20 +0200
-Message-ID: <9376.1284032661@elsemanaldigital.com>
-Reply-To: elsemanaldigital@elsemanaldigital.com
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
+Date: Thu, 9 Sep 2010 21:44:25 +0930
+Message-ID: <201009092144.26484.rusty@rustcorp.com.au>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <201009091319.40274.rusty@rustcorp.com.au> <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-To: <info@wwesternunion.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from misiva17.acens.net ([217.116.26.28]:54134 "EHLO
-	misiva17.acens.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752443Ab0IILvD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 07:51:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-My associate has helped me to send your first payment of US$7,500 
-to you as instructed by Mr.James Gordon Brown the British prime 
-minister after the last G20 meeting that was held on February 27th 
-in London, making you one of the beneficaries. Here is the 
-information below:
+On Thu, 9 Sep 2010 02:53:52 pm Krishna Kumar2 wrote:
+> Rusty Russell <rusty@rustcorp.com.au> wrote on 09/09/2010 09:19:39 AM:
+> 
+> > On Wed, 8 Sep 2010 04:59:05 pm Krishna Kumar wrote:
+> > > Add virtio_get_queue_index() to get the queue index of a
+> > > vq.  This is needed by the cb handler to locate the queue
+> > > that should be processed.
+> >
+> > This seems a bit weird.  I mean, the driver used vdev->config->find_vqs
+> > to find the queues, which returns them (in order).  So, can't you put
+> this
+> > into your struct send_queue?
+> 
+> I am saving the vqs in the send_queue, but the cb needs
+> to locate the device txq from the svq. The only other way
+> I could think of is to iterate through the send_queue's
+> and compare svq against sq[i]->svq, but cb's happen quite
+> a bit. Is there a better way?
 
-MONEY TRANSFER CONTROL NUMBER: 1499256767
-SENDER NAME: Scott 
-Last name: Britten
-AMOUNT: US$7,500
+Ah, good point.  Move the queue index into the struct virtqueue?
 
-You can track your payment online at our website www.westernunion.com 
-for confirmation purpose.
+> > Also, why define VIRTIO_MAX_TXQS?  If the driver can't handle all of
+> them,
+> > it should simply not use them...
+> 
+> The main reason was vhost :) Since vhost_net_release
+> should not fail (__fput can't handle f_op->release()
+> failure), I needed a maximum number of socks to
+> clean up:
 
-I told him to keep sending you US$7,500 twice a week until the FULL
-payment of (US $360,000.00 Dollars) is completed within 6 (six) Months.
-For track, send your
+Ah, then it belongs in the vhost headers.  The guest shouldn't see such
+a restriction if it doesn't apply; it's a host thing.
 
-Full Names via Email to:
-Mr Garry Moore
-E-mail: westernofix@yahoo.co.uk 
+Oh, and I think you could profitably use virtio_config_val(), too.
 
-
-
-
+Thanks!
+Rusty.
