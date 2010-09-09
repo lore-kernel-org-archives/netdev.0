@@ -1,43 +1,65 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: inet_add_protocol() can use cmpxchg()
-Date: Thu, 9 Sep 2010 07:24:53 +0000
-Message-ID: <20100909072453.GA7383@ff.dom.local>
-References: <20100909064222.GA6951@ff.dom.local> <1284015345.2428.37.camel@edumazet-laptop> <20100909070926.GB6951@ff.dom.local>
+From: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
+Subject: Re: Problems obtaining software TX timestamps
+Date: Thu, 09 Sep 2010 10:26:06 +0200
+Message-ID: <4C889A1E.6050405@edu.uni-klu.ac.at>
+References: <4C877D8A.6040002@edu.uni-klu.ac.at> <1283958771.2748.85.camel@edumazet-laptop> <4C87FE60.7090209@edu.uni-klu.ac.at> <20100909063541.GA3305@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jesse@nicira.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:36435 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750870Ab0IIHY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 03:24:59 -0400
-Received: by bwz11 with SMTP id 11so869710bwz.19
-        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 00:24:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20100909070926.GB6951@ff.dom.local>
+Received: from mailsrv.uni-klu.ac.at ([143.205.180.44]:49812 "EHLO
+	mailsrv.uni-klu.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751497Ab0III0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 04:26:08 -0400
+In-Reply-To: <20100909063541.GA3305@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 09, 2010 at 07:09:26AM +0000, Jarek Poplawski wrote:
-> On Thu, Sep 09, 2010 at 08:55:45AM +0200, Eric Dumazet wrote:
-> > Le jeudi 09 septembre 2010 ?? 06:42 +0000, Jarek Poplawski a =E9cri=
-t :
-> > > Of course, each case is different, but generally I understand Jes=
-se's
-> > > concern. Smaller data section argument shouldn't be enough. There=
- is
-> > > some reason we do it in C not asm, and there is some cost of
-> > > unreadable code too.
-> >=20
-> > Sure, but is cmpxchg() really not readable for you ? ;)
->=20
-> Just like for Jesse: "this takes a little more thought". ;-)
+Richard Cochran wrote:
+> On Wed, Sep 08, 2010 at 11:21:36PM +0200, Ingo Kofler wrote:
+>   
+>> Ok, for hardware timestamps it seems logically for me that the
+>> driver has to support this. But what about the software timestamps -
+>> do they also require support from the driver? Is there no generic
+>> implementation in the networking stack?
+>>     
+>
+> There was once a completely generic implementation, but the Tx path
+> had issues. The generic Tx SW code was reverted in
+>
+> cd4d8fdad1f13205c769266dfa99015e226b6e07
+>
+> Now, there is a way to support this again, but it requires adding one
+> line into each and every MAC driver. It is not very hard to do:
+>
+> linux/skbuff.h:1992
+> /**
+>  * skb_tx_timestamp() - Driver hook for transmit timestamping
+>  *
+>  * Ethernet MAC Drivers should call this function in their hard_xmit()
+>  * function as soon as possible after giving the sk_buff to the MAC
+>  * hardware, but before freeing the sk_buff.
+>  *
+>  * @skb: A socket buffer.
+>  */
+> static inline void skb_tx_timestamp(struct sk_buff *skb);
+>
+> I am already carrying patches for this privately. If you post a patch
+> for your MAC, then you can be the first one to support this feature! ;^)
+>   
+Thank you very much for this clarification. Are there any drawbacks with 
+this approach, e.g. performance issues? Honestly, I am just wondering 
+why driver developers do not add this single line if it's that easy....
 
-But more exactly, it's not about this one line, but the time you need
-when reading this after some time to tell: yes, this place is properly
-locked for sure.
+Ingo
+> Richard
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>   
 
-Jarek P.
