@@ -1,54 +1,82 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
-Date: Thu, 9 Sep 2010 21:44:25 +0930
-Message-ID: <201009092144.26484.rusty@rustcorp.com.au>
-References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <201009091319.40274.rusty@rustcorp.com.au> <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
+Date: Thu, 9 Sep 2010 14:21:56 +0200
+Message-ID: <20100909122156.GA2823@riccoc20.at.omicron.at>
+References: <cover.1283504065.git.richard.cochran@omicron.at>
+ <alpine.LFD.2.00.1009091152300.2477@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
-	mst@redhat.com, netdev@vger.kernel.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1009091152300.2477-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Sep 2010 02:53:52 pm Krishna Kumar2 wrote:
-> Rusty Russell <rusty@rustcorp.com.au> wrote on 09/09/2010 09:19:39 AM:
+On Thu, Sep 09, 2010 at 11:58:09AM +0200, Thomas Gleixner wrote:
+> On Fri, 3 Sep 2010, Richard Cochran wrote:
 > 
-> > On Wed, 8 Sep 2010 04:59:05 pm Krishna Kumar wrote:
-> > > Add virtio_get_queue_index() to get the queue index of a
-> > > vq.  This is needed by the cb handler to locate the queue
-> > > that should be processed.
-> >
-> > This seems a bit weird.  I mean, the driver used vdev->config->find_vqs
-> > to find the queues, which returns them (in order).  So, can't you put
-> this
-> > into your struct send_queue?
+> > Recently on the lkml, we discussed how to allow adjustment of posix
+> > clocks. I have tried to understand and implement the ideas expressed
+> > in the various threads.
 > 
-> I am saving the vqs in the send_queue, but the cb needs
-> to locate the device txq from the svq. The only other way
-> I could think of is to iterate through the send_queue's
-> and compare svq against sq[i]->svq, but cb's happen quite
-> a bit. Is there a better way?
+> Cc'ing the relevant maintainers to such discussions and patches might
+> be helpful. Seems I need to do some archive digging.
 
-Ah, good point.  Move the queue index into the struct virtqueue?
+Sorry about that. Still learning how to work on the list.  The story
+so far is...
 
-> > Also, why define VIRTIO_MAX_TXQS?  If the driver can't handle all of
-> them,
-> > it should simply not use them...
+** PTP hardware clock as a character device (54 messages)
+
+   http://lkml.org/lkml/2010/8/16/90
+
+   The general mood of this was something like: "You have made a
+   chardev for PTP clocks. The ioctls look similar to the posix clock
+   api. Why not just use the posix api?"
+
+** posix clock tuning syscall, static clockid (13 messages)
+
+   http://lkml.org/lkml/2010/8/23/49
+
+   The general mood of this one was: "I don't like a static clockid
+   for PTP clocks. But a dynamic id would be just fine."
+
+** posix clock tuning syscall, dynamic clockid (16 messages)
+
+   http://lkml.org/lkml/2010/9/3/119 (This thread)
+
+   The mood seems to be, "why not use a chardev for that?"
+
+>From my point of view, the discussion is going round in circles. There
+seems to be agreement that supporting PTP hardware clocks is a good
+idea. The objections seem to be about the form of the API. In general,
+there are three avenues.
+
+1. character device (like hpet)
+2. posix clock api
+3. sysfs
+
+Or possibly some combination of the three.
+
+I have my preference, but I am willing to work it according to
+taste. Would you have some preference?
+
+> > If there is agreement on this approach, I will resubmit these two
+> > patches as part of a longer series, including support for a new kind
+> > of hardware clock, so you can see how it all fits together. But first,
+> > I would like to concentrate on the new syscall itself.
+> > 
+> > The patches are against a recent net-next tree. Please don't worry if
+> > the syscall tables are not quite up to date. I can fix that later.
 > 
-> The main reason was vhost :) Since vhost_net_release
-> should not fail (__fput can't handle f_op->release()
-> failure), I needed a maximum number of socks to
-> clean up:
+> How is this related to net-next ? 
 
-Ah, then it belongs in the vhost headers.  The guest shouldn't see such
-a restriction if it doesn't apply; it's a host thing.
+The whole hardware timestamping and PTP clock issue is somewhat
+network related. In particular, needed to start there to get some
+background support for timestamping within PHY devices.
 
-Oh, and I think you could profitably use virtio_config_val(), too.
+Thanks,
 
-Thanks!
-Rusty.
+Richard
