@@ -1,45 +1,70 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
-Date: Thu, 9 Sep 2010 14:50:57 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.1009091443250.2477@localhost6.localdomain6>
-References: <cover.1283504065.git.richard.cochran@omicron.at> <alpine.LFD.2.00.1009091152300.2477@localhost6.localdomain6> <20100909122156.GA2823@riccoc20.at.omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: inet_add_protocol() can use cmpxchg()
+Date: Thu, 09 Sep 2010 14:57:38 +0200
+Message-ID: <1284037058.2589.169.camel@edumazet-laptop>
+References: <20100909064222.GA6951@ff.dom.local>
+	 <1284015345.2428.37.camel@edumazet-laptop>
+	 <20100909070926.GB6951@ff.dom.local> <20100909072453.GA7383@ff.dom.local>
+	 <20100909090816.GA7450@ff.dom.local>
+	 <1284024237.2589.15.camel@edumazet-laptop>
+	 <20100909095920.GB8404@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100909122156.GA2823-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, jesse@nicira.com,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:44237 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451Ab0IIM5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 08:57:43 -0400
+Received: by fxm16 with SMTP id 16so816845fxm.19
+        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 05:57:42 -0700 (PDT)
+In-Reply-To: <20100909095920.GB8404@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 9 Sep 2010, Richard Cochran wrote:
-> From my point of view, the discussion is going round in circles. There
+Le jeudi 09 septembre 2010 =C3=A0 09:59 +0000, Jarek Poplawski a =C3=A9=
+crit :
 
-Sorry for coming late and adding more to the general confusion. :)
+> Btw, I wonder if for readability and debuging it shouldn't be made
+> generic as rcu_cmpxchg_pointer() etc.?
 
-> seems to be agreement that supporting PTP hardware clocks is a good
-> idea. The objections seem to be about the form of the API. In general,
-> there are three avenues.
-> 
-> 1. character device (like hpet)
-> 2. posix clock api
-> 3. sysfs
-> 
-> Or possibly some combination of the three.
+There are a lot of things to do in this area (with proper __rcu sparse
+annotations, this can be not very readable ...)
 
-I fail to see the requirement for any of those. Either the hardware
-clock is suitable as a clocksource for general consumption, then it
-should just be used as a clock source. If it's not - e.g. because it's
-too slow to access - then it just should serve as a reference in the
-NTP style and steer the timekeeping into sync.
 
-As I said in the other reply, I know that you want a global
-synchronized clock aside of CLOCK_REALTIME, but that's an easy to
-solve problem.
+/**
+ * rcu_cmpxchg - atomic compare and exchange, SMP & rcu safe
+ * @p: pointer to value
+ * @old: old value
+ * @new: new value
+ *
+ * Equivalent to :
+ *    ATOMIC_BEGIN
+ *     ret =3D *p;
+ *     if (ret =3D=3D old)
+ *             rcu_assign_pointer(*p, new);
+ *    ATOMIC_END
+ *    return ret;
+ *
+ * cmpxpchg() contains full memory barriers, so can be used
+ * in rcu write side without additional smp_wmb() barrier
+ */
+#define rcu_cmpxchg(p, old, new) cmpxchg(p, old, new)
 
-See my other reply for details.
 
-Thanks,
+const struct net_protocol __rcu *
+        inet_protos[MAX_INET_PROTOS] __read_mostly;
 
-	tglx
+=2E..
+
+return !rcu_cmpxchg(&inet_protos[hash],=20
+                    NULL,
+                    (const struct net_protocol __force __rcu *)prot) ?
+		0 : -1;
+
+=2E..
+
+
