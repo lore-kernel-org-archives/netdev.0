@@ -1,36 +1,54 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH v3] cxacru: ignore cx82310_eth devices
-Date: Wed, 8 Sep 2010 23:25:47 -0700
-Message-ID: <20100909062547.GA1774@kroah.com>
-References: <20100908.131227.28827971.davem@davemloft.net> <201009082252.15865.linux@rainbow-software.org> <20100909033557.GA3723@kroah.com> <20100908.230747.71591658.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: Problems obtaining software TX timestamps
+Date: Thu, 9 Sep 2010 08:35:41 +0200
+Message-ID: <20100909063541.GA3305@riccoc20.at.omicron.at>
+References: <4C877D8A.6040002@edu.uni-klu.ac.at>
+ <1283958771.2748.85.camel@edumazet-laptop>
+ <4C87FE60.7090209@edu.uni-klu.ac.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux@rainbow-software.org, simon@fire.lp0.eu,
-	dbrownell@users.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:36375 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752043Ab0IIGfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 02:35:51 -0400
+Received: by bwz11 with SMTP id 11so847602bwz.19
+        for <netdev@vger.kernel.org>; Wed, 08 Sep 2010 23:35:50 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20100908.230747.71591658.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4C87FE60.7090209@edu.uni-klu.ac.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 08, 2010 at 11:07:47PM -0700, David Miller wrote:
-> From: Greg KH <greg@kroah.com>
-> Date: Wed, 8 Sep 2010 20:35:57 -0700
-> 
-> > On Wed, Sep 08, 2010 at 10:52:12PM +0200, Ondrej Zary wrote:
-> >> Ignore ADSL routers, which can have the same vendor and product IDs
-> >> as ADSL modems but should be handled by the cx82310_eth driver.
-> >> 
-> >> This intentionally ignores device IDs that aren't currently handled
-> >> by cx82310_eth. There may be other device IDs that perhaps shouldn't
-> >> be claimed by cxacru.
-> > 
-> > Looks good, thanks, I'll go queue it up.
-> 
-> Greg, see my reply, I already tossed this into net-next-2.6
+On Wed, Sep 08, 2010 at 11:21:36PM +0200, Ingo Kofler wrote:
+> Ok, for hardware timestamps it seems logically for me that the
+> driver has to support this. But what about the software timestamps -
+> do they also require support from the driver? Is there no generic
+> implementation in the networking stack?
 
-Ah, that's fine, thanks for doing this, much appreciated.
+There was once a completely generic implementation, but the Tx path
+had issues. The generic Tx SW code was reverted in
 
-greg k-h
+cd4d8fdad1f13205c769266dfa99015e226b6e07
+
+Now, there is a way to support this again, but it requires adding one
+line into each and every MAC driver. It is not very hard to do:
+
+linux/skbuff.h:1992
+/**
+ * skb_tx_timestamp() - Driver hook for transmit timestamping
+ *
+ * Ethernet MAC Drivers should call this function in their hard_xmit()
+ * function as soon as possible after giving the sk_buff to the MAC
+ * hardware, but before freeing the sk_buff.
+ *
+ * @skb: A socket buffer.
+ */
+static inline void skb_tx_timestamp(struct sk_buff *skb);
+
+I am already carrying patches for this privately. If you post a patch
+for your MAC, then you can be the first one to support this feature! ;^)
+
+Richard
+
