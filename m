@@ -1,115 +1,37 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Thu, 9 Sep 2010 15:15:53 +0530
-Message-ID: <OF8043B2B7.7048D739-ON65257799.0021A2EE-65257799.00356B3E@in.ibm.com>
-References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908081011.GC23051@redhat.com> <OF70542242.6CAA236A-ON65257798.0044A4E0-65257798.005C0E7C@LocalDomain>
+From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
+Date: Thu, 9 Sep 2010 11:58:09 +0200 (CEST)
+Message-ID: <alpine.LFD.2.00.1009091152300.2477@localhost6.localdomain6>
+References: <cover.1283504065.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	rusty@rustcorp.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <OF70542242.6CAA236A-ON65257798.0044A4E0-65257798.005C0E7C@LocalDomain>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1283504065.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Krishna Kumar2/India/IBM wrote on 09/08/2010 10:17:49 PM:
+On Fri, 3 Sep 2010, Richard Cochran wrote:
 
-Some more results and likely cause for single netperf
-degradation below.
+> Recently on the lkml, we discussed how to allow adjustment of posix
+> clocks. I have tried to understand and implement the ideas expressed
+> in the various threads.
 
+Cc'ing the relevant maintainers to such discussions and patches might
+be helpful. Seems I need to do some archive digging.
 
-> Guest -> Host (single netperf):
-> I am getting a drop of almost 20%. I am trying to figure out
-> why.
->
-> Host -> guest (single netperf):
-> I am getting an improvement of almost 15%. Again - unexpected.
->
-> Guest -> Host TCP_RR: I get an average 7.4% increase in #packets
-> for runs upto 128 sessions. With fewer netperf (under 8), there
-> was a drop of 3-7% in #packets, but beyond that, the #packets
-> improved significantly to give an average improvement of 7.4%.
->
-> So it seems that fewer sessions is having negative effect for
-> some reason on the tx side. The code path in virtio-net has not
-> changed much, so the drop in some cases is quite unexpected.
+> If there is agreement on this approach, I will resubmit these two
+> patches as part of a longer series, including support for a new kind
+> of hardware clock, so you can see how it all fits together. But first,
+> I would like to concentrate on the new syscall itself.
+> 
+> The patches are against a recent net-next tree. Please don't worry if
+> the syscall tables are not quite up to date. I can fix that later.
 
-The drop for the single netperf seems to be due to multiple vhost.
-I changed the patch to start *single* vhost:
-
-Guest -> Host (1 netperf, 64K): BW: 10.79%, SD: -1.45%
-Guest -> Host (1 netperf)     : Latency: -3%, SD: 3.5%
-
-Single vhost performs well but hits the barrier at 16 netperf
-sessions:
-
-SINGLE vhost (Guest -> Host):
-	1 netperf:    BW: 10.7%     SD: -1.4%
-	4 netperfs:   BW: 3%        SD: 1.4%
-	8 netperfs:   BW: 17.7%     SD: -10%
-      16 netperfs:  BW: 4.7%      SD: -7.0%
-      32 netperfs:  BW: -6.1%     SD: -5.7%
-BW and SD both improves (guest multiple txqs help). For 32
-netperfs, SD improves.
-
-But with multiple vhosts, guest is able to send more packets
-and BW increases much more (SD too increases, but I think
-that is expected). From the earlier results:
-
-N#      BW1     BW2    (%)      SD1     SD2    (%)      RSD1    RSD2    (%)
-_______________________________________________________________________________
-4       26387   40716 (54.30)   20      28   (40.00)    86      85
-(-1.16)
-8       24356   41843 (71.79)   88      129  (46.59)    372     362
-(-2.68)
-16      23587   40546 (71.89)   375     564  (50.40)    1558    1519
-(-2.50)
-32      22927   39490 (72.24)   1617    2171 (34.26)    6694    5722
-(-14.52)
-48      23067   39238 (70.10)   3931    5170 (31.51)    15823   13552
-(-14.35)
-64      22927   38750 (69.01)   7142    9914 (38.81)    28972   26173
-(-9.66)
-96      22568   38520 (70.68)   16258   27844 (71.26)   65944   73031
-(10.74)
-_______________________________________________________________________________
-(All tests were done without any tuning)
-
->From my testing:
-
-1. Single vhost improves mq guest performance upto 16
-   netperfs but degrades after that.
-2. Multiple vhost degrades single netperf guest
-   performance, but significantly improves performance
-   for any number of netperf sessions.
-
-Likely cause for the 1 stream degradation with multiple
-vhost patch:
-
-1. Two vhosts run handling the RX and TX respectively.
-   I think the issue is related to cache ping-pong esp
-   since these run on different cpus/sockets.
-2. I (re-)modified the patch to share RX with TX[0]. The
-   performance drop is the same, but the reason is the
-   guest is not using txq[0] in most cases (dev_pick_tx),
-   so vhost's rx and tx are running on different threads.
-   But whenever the guest uses txq[0], only one vhost
-   runs and the performance is similar to original.
-
-I went back to my *submitted* patch and started a guest
-with numtxq=16 and pinned every vhost to cpus #0&1. Now
-whether guest used txq[0] or txq[n], the performance is
-similar or better (between 10-27% across 10 runs) than
-original code. Also, -6% to -24% improvement in SD.
-
-I will start a full test run of original vs submitted
-code with minimal tuning (Avi also suggested the same),
-and re-send. Please let me know if you need any other
-data.
+How is this related to net-next ? 
 
 Thanks,
 
-- KK
-
+	tglx
