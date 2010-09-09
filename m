@@ -1,35 +1,36 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
-Date: Thu, 9 Sep 2010 13:19:39 +0930
-Message-ID: <201009091319.40274.rusty@rustcorp.com.au>
-References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908072905.23769.10732.sendpatchset@krkumar2.in.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] cxacru: ignore cx82310_eth devices
+Date: Wed, 08 Sep 2010 21:29:41 -0700 (PDT)
+Message-ID: <20100908.212941.241936726.davem@davemloft.net>
+References: <201009052212.37015.linux@rainbow-software.org>
+	<20100908.131227.28827971.davem@davemloft.net>
+	<201009082252.15865.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, anthony@codemonkey.ws,
-	kvm@vger.kernel.org, mst@redhat.com
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Cc: greg@kroah.com, simon@fire.lp0.eu, dbrownell@users.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux@rainbow-software.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51275 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751168Ab0IIDtm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Sep 2010 23:49:42 -0400
-In-Reply-To: <20100908072905.23769.10732.sendpatchset@krkumar2.in.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50720
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750958Ab0IIE3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 00:29:24 -0400
+In-Reply-To: <201009082252.15865.linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 8 Sep 2010 04:59:05 pm Krishna Kumar wrote:
-> Add virtio_get_queue_index() to get the queue index of a
-> vq.  This is needed by the cb handler to locate the queue
-> that should be processed.
+From: Ondrej Zary <linux@rainbow-software.org>
+Date: Wed, 8 Sep 2010 22:52:12 +0200
 
-This seems a bit weird.  I mean, the driver used vdev->config->find_vqs
-to find the queues, which returns them (in order).  So, can't you put this
-into your struct send_queue?
+> Ignore ADSL routers, which can have the same vendor and product IDs
+> as ADSL modems but should be handled by the cx82310_eth driver.
+> 
+> This intentionally ignores device IDs that aren't currently handled
+> by cx82310_eth. There may be other device IDs that perhaps shouldn't
+> be claimed by cxacru.
+> 
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 
-Also, why define VIRTIO_MAX_TXQS?  If the driver can't handle all of them,
-it should simply not use them...
-
-Thanks!
-Rusty.
+Applied with some minor comment formatting fixes, thanks!
