@@ -1,70 +1,71 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: oops in tcp_xmit_retransmit_queue() w/ v2.6.32.15
-Date: Thu, 9 Sep 2010 13:45:13 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1009091328170.26447@wel-95.cs.helsinki.fi>
-References: <4C358AAA.9080400@kernel.org> <alpine.DEB.2.00.1007111825510.15736@melkinpaasi.cs.helsinki.fi> <4C3EF7EA.2040900@nets.rwth-aachen.de> <1279195528.2496.2.camel@edumazet-laptop> <4C3F053F.7090704@nets.rwth-aachen.de>
- <alpine.DEB.2.00.1007161448330.13946@melkinpaasi.cs.helsinki.fi> <4C4467E0.9080907@kernel.org> <alpine.DEB.2.00.1009081232060.26447@wel-95.cs.helsinki.fi> <4C8764B2.1070509@kernel.org> <alpine.DEB.2.00.1009081329140.26447@wel-95.cs.helsinki.fi>
- <4C88B687.60907@kernel.org>
+From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] posix clocks: introduce a syscall for clock
+ tuning.
+Date: Thu, 9 Sep 2010 12:49:27 +0200 (CEST)
+Message-ID: <alpine.LFD.2.00.1009091159260.2477@localhost6.localdomain6>
+References: <cover.1283504065.git.richard.cochran@omicron.at> <7f4815cdfcf5bc49df4bdd09d59a4f56ca2598f5.1283504065.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="8323329-276696241-1284028492=:26447"
-Cc: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Fehrmann, Henning" <henning.fehrmann@aei.mpg.de>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:54096 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753644Ab0IIKpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 06:45:15 -0400
-In-Reply-To: <4C88B687.60907@kernel.org>
-Content-ID: <alpine.DEB.2.00.1009091344300.26447@wel-95.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <7f4815cdfcf5bc49df4bdd09d59a4f56ca2598f5.1283504065.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, 3 Sep 2010, Richard Cochran wrote:
 
---8323329-276696241-1284028492=:26447
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-Content-ID: <alpine.DEB.2.00.1009091344301.26447@wel-95.cs.helsinki.fi>
+This patch needs to be split in pieces. The syscall change is totally
+unrelated to the dynamic clock id creation. Though I do not like
+either of them. :)
 
-On Thu, 9 Sep 2010, Tejun Heo wrote:
-
-> On 09/08/2010 12:34 PM, Ilpo Järvinen wrote:
-> >> Unfortunately, we haven't been able to reproduce the problem anymore.
-> > 
-> > With my debug patch or not at all?
+> A new syscall is introduced that allows tuning of a POSIX clock. The
+> syscall is implemented for four architectures: arm, blackfin, powerpc,
+> and x86.
 > 
-> With the ugly merged patch I posted previously in this thread which
-> contained debug messages if any of the worked around condition
-> triggers.
-> 
-> >> It could be (but not likely given that none of the debugging messages
-> >> is triggering) that I was mistaken and the previously posted fixed the
-> >> issue. The network used by the cluster went through some changes at
-> >> the time and there have been issues with packet losses.  Given that
-> >> the problem needs packet losses to trigger, it's likely that packet
-> >> loss pattern here changed such that the patterns of packet losses
-> >> which trigger the problem aren't happening anymore.  (Carsten,
-> >> Henning, please feel free to fill in if I'm missing something).
-> > 
-> > That might well be true, however, you're already a second guy who 
-> > cannot reproduce it with the debug patch so I would not rule out other 
-> > possibilities unless you've tried without debug patch too since the 
-> > changes?
-> 
-> Unfortunately, I can't really tell one way or the other at this point.
-> Carsten will be back in a few days.  I'll ask him for more details.
+> The new syscall, clock_adjtime, takes two parameters, the clock ID,
+> and a pointer to a struct timex. The semantics of the timex struct
+> have been expanded by one additional mode flag, which allows an
+> absolute offset correction. When specificied, the clock offset is
+> immediately corrected by skipping to the new time value.
 
-Once you get the info, if not yet done, I'd recommend you try without the 
-debug patch (assuming a possible crash isn't too devasting for the actual 
-stuff you're doing with the machines :-)). ...If it crashes without, then 
-it's time to start looking into compiler versions, etc.
+And why do we need a separate syscall for this?
 
--- 
- i.
---8323329-276696241-1284028492=:26447--
+> In addition, the POSIX clock code has been augmented to offer a
+> dynamic clock creation method. Instead of registering a hard
+> coded clock ID, modules may call create_posix_clock(), which
+> returns a new clock ID.
+
+This has been discussed for years and I still fail to see the
+requirement for this. The only result is that it allows folks to
+create their special purpose clock stuff and keep it out of tree
+instead of fixing the problems they have with the existing clock
+infrastructure in the kernel.
+
+As far as I understood from the previous discussions, the final goal
+is to provide PTP support, right?
+
+But what I see is an approach which tries to implement disconnected
+special purpose clocks which have the ability to be adjusted
+independently. What's the purpose of this ? Why can't we just use the
+existing clocks and make PTP work on them ?
+
+I know that lots of embedded folks think that they need their special
+timers and extra magic to make stuff work, but that's the wrong
+approach.
+
+What's wrong with the existing clocks? Nothing, except that we have no
+way to sync CLOCK_MONOTONIC across several machines. And that's what
+you really want if you try to do distributed control and data
+acquisition stuff.
+
+That's a single CLOCK_MONOTONIC_GLOBAL and not a bunch of completely
+disconnected clock implementations with random clock ids and random
+feature sets.
+
+Thoughts ?
+
+
+	 tglx
