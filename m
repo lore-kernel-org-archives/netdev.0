@@ -1,61 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6] ethtool: Complete kernel-doc comments for
- RX flow filter and hash control
-Date: Thu, 09 Sep 2010 14:52:33 +0100
-Message-ID: <1284040353.2250.0.camel@achroite.uk.solarflarecom.com>
-References: <1283870488.2270.9.camel@achroite.uk.solarflarecom.com>
-	 <1283870780.2270.12.camel@achroite.uk.solarflarecom.com>
-	 <20100908.140512.242117688.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: Problems obtaining software TX timestamps
+Date: Thu, 9 Sep 2010 15:57:16 +0200
+Message-ID: <20100909135716.GA8706@riccoc20.at.omicron.at>
+References: <4C877D8A.6040002@edu.uni-klu.ac.at>
+ <1283958771.2748.85.camel@edumazet-laptop>
+ <4C87FE60.7090209@edu.uni-klu.ac.at>
+ <20100909063541.GA3305@riccoc20.at.omicron.at>
+ <4C889A1E.6050405@edu.uni-klu.ac.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: santwona.behera@sun.com, peter.p.waskiewicz.jr@intel.com,
-	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	dm@chelsio.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:44431 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753786Ab0IINwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 09:52:37 -0400
-In-Reply-To: <20100908.140512.242117688.davem@davemloft.net>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:35954 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752276Ab0IIN52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 09:57:28 -0400
+Received: by bwz11 with SMTP id 11so1125641bwz.19
+        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 06:57:27 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4C889A1E.6050405@edu.uni-klu.ac.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-09-08 at 14:05 -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 07 Sep 2010 15:46:20 +0100
-> 
-> > On Tue, 2010-09-07 at 15:41 +0100, Ben Hutchings wrote:
-> >> There are now several interfaces within the ethtool API for getting
-> >> and setting RX flow filtering and hashing behaviour, most of which are
-> >> poorly documented.  This adds kernel-doc comments for all these
-> >> interfaces, based on the existing incomplete comments and on the
-> >> initial implementations.
-> >> 
-> >> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> >> ---
-> >> Santwona, Peter,
-> >> 
-> >> Please point out any errors and any information that should be added to
-> >> the comments to explain the significant differences between the RXNFC
-> >> and RXNTUPLE interfaces.
-> > [...]
-> >> +/**
-> >> + * struct ethtool_rx_ntuple - command to get or set RX flow filter
-> >> + * @cmd: Specific command number - %ETHTOOL_GRXNTUPLE or %ETHTOOL_SRXNTUPLE
-> > 
-> > Of course this is wrong - ETHTOOL_GRXNTUPLE uses struct ethtool_gstrings
-> > instead.
-> 
-> Ben, please submit a fixed up version of the patch.
+On Thu, Sep 09, 2010 at 10:26:06AM +0200, Ingo Kofler wrote:
+> Thank you very much for this clarification. Are there any drawbacks
+> with this approach, e.g. performance issues? Honestly, I am just
+> wondering why driver developers do not add this single line if it's
+> that easy....
 
-Will do, but I'm still waiting for feedback from Santwona and Peter.
+Adding the line only tests one flag, so it is not a huge performance
+hit. This fix is very recent, that is why it has not been used in MAC
+drivers yet.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Richard
 
