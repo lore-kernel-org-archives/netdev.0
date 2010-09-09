@@ -1,46 +1,38 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: Problems obtaining software TX timestamps
-Date: Thu, 9 Sep 2010 19:32:28 +0200
-Message-ID: <20100909173228.GA2657@riccoc20.at.omicron.at>
-References: <4C877D8A.6040002@edu.uni-klu.ac.at>
- <1283958771.2748.85.camel@edumazet-laptop>
- <4C87FE60.7090209@edu.uni-klu.ac.at>
- <20100909063541.GA3305@riccoc20.at.omicron.at>
- <4C889A1E.6050405@edu.uni-klu.ac.at>
- <20100909135716.GA8706@riccoc20.at.omicron.at>
- <1284040958.2589.178.camel@edumazet-laptop>
+From: Kyle McMartin <kmcmartin@redhat.com>
+Subject: Re: r8169 transmit queue time outs
+Date: Thu, 9 Sep 2010 13:32:34 -0400
+Message-ID: <20100909173234.GB19458@ihatethathostname.lab.bos.redhat.com>
+References: <20100506141715.GC4480@ihatethathostname.lab.bos.redhat.com>
+ <20100506201024.GA3541@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Kofler <ikofler@edu.uni-klu.ac.at>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Kyle McMartin <kmcmartin@redhat.com>, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:43339 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751800Ab0IIRcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 13:32:39 -0400
-Received: by bwz11 with SMTP id 11so1334314bwz.19
-        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 10:32:38 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:43497 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753281Ab0IIRcr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Sep 2010 13:32:47 -0400
 Content-Disposition: inline
-In-Reply-To: <1284040958.2589.178.camel@edumazet-laptop>
+In-Reply-To: <20100506201024.GA3541@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 09, 2010 at 04:02:38PM +0200, Eric Dumazet wrote:
-> Should drivers call it at start_xmit() time, or at tx completion time ?
+On Thu, May 06, 2010 at 10:10:24PM +0200, Francois Romieu wrote:
+> Kyle McMartin <kmcmartin@redhat.com> :
+> [...]
+> > Some of our users have been seeing their r8169 cards just up and stop
+> > transmitting packets pretty quickly after boot with recent kernels.
+> [...]
+> > Pid: 0, comm: swapper Not tainted 2.6.31.5-127.fc12.i686.PAE #1
+> 
+> Can they upgrade to 2.6.32.11-99.fc12.i686 and try an out-of-tree build
+> of the driver at http://userweb.kernel.org/~romieu/r8169/2.6.32.11-99.fc12/ ?
+> 
+> It should be quite close to the current git kernel.
 
-If I could tell you that, I could also describe the sound of one hand
-clapping.
+Just fyi, we finally figured out what this problem was, or at least, a
+workaround for it. Turning off PCI Express ASPM seemed to work around
+the problem.
 
-IMHO, it should be done as immediately after the buffer has been
-handed off to the hardware. Not all MACs have a completion method, so
-that would at least make the "rule" consistent.
-
-In general, the goals of high volume and timestamp accuracy are in
-conflict (unless you have HW timestamping). If users are relying on SW
-timestamping, then they should be aware of the fact that high network
-traffic will spoil their fun.
-
-Having said that, I don't know enough about all the different kinds of
-MACs out there to really answer the question definitively.
-
-Richard
+regards, Kyle
