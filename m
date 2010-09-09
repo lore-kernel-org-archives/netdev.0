@@ -1,62 +1,61 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
-Date: Thu, 9 Sep 2010 19:19:33 +0530
-Message-ID: <OF371A1B54.B0F5B4A1-ON65257799.00491939-65257799.004BBB65@in.ibm.com>
-References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <201009091319.40274.rusty@rustcorp.com.au> <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com> <201009092144.26484.rusty@rustcorp.com.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6] ethtool: Complete kernel-doc comments for
+ RX flow filter and hash control
+Date: Thu, 09 Sep 2010 14:52:33 +0100
+Message-ID: <1284040353.2250.0.camel@achroite.uk.solarflarecom.com>
+References: <1283870488.2270.9.camel@achroite.uk.solarflarecom.com>
+	 <1283870780.2270.12.camel@achroite.uk.solarflarecom.com>
+	 <20100908.140512.242117688.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
-	mst@redhat.com, netdev@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: santwona.behera@sun.com, peter.p.waskiewicz.jr@intel.com,
+	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	dm@chelsio.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp02.in.ibm.com ([122.248.162.2]:59005 "EHLO
-	e28smtp02.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752169Ab0IINrQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 09:47:16 -0400
-In-Reply-To: <201009092144.26484.rusty@rustcorp.com.au>
+Received: from mail.solarflare.com ([216.237.3.220]:44431 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753786Ab0IINwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 09:52:37 -0400
+In-Reply-To: <20100908.140512.242117688.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rusty Russell <rusty@rustcorp.com.au> wrote on 09/09/2010 05:44:25 PM:
->
-> > > This seems a bit weird.  I mean, the driver used vdev->config->
-find_vqs
-> > > to find the queues, which returns them (in order).  So, can't you put
-> > this
-> > > into your struct send_queue?
-> >
-> > I am saving the vqs in the send_queue, but the cb needs
-> > to locate the device txq from the svq. The only other way
-> > I could think of is to iterate through the send_queue's
-> > and compare svq against sq[i]->svq, but cb's happen quite
-> > a bit. Is there a better way?
->
-> Ah, good point.  Move the queue index into the struct virtqueue?
+On Wed, 2010-09-08 at 14:05 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Tue, 07 Sep 2010 15:46:20 +0100
+> 
+> > On Tue, 2010-09-07 at 15:41 +0100, Ben Hutchings wrote:
+> >> There are now several interfaces within the ethtool API for getting
+> >> and setting RX flow filtering and hashing behaviour, most of which are
+> >> poorly documented.  This adds kernel-doc comments for all these
+> >> interfaces, based on the existing incomplete comments and on the
+> >> initial implementations.
+> >> 
+> >> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> >> ---
+> >> Santwona, Peter,
+> >> 
+> >> Please point out any errors and any information that should be added to
+> >> the comments to explain the significant differences between the RXNFC
+> >> and RXNTUPLE interfaces.
+> > [...]
+> >> +/**
+> >> + * struct ethtool_rx_ntuple - command to get or set RX flow filter
+> >> + * @cmd: Specific command number - %ETHTOOL_GRXNTUPLE or %ETHTOOL_SRXNTUPLE
+> > 
+> > Of course this is wrong - ETHTOOL_GRXNTUPLE uses struct ethtool_gstrings
+> > instead.
+> 
+> Ben, please submit a fixed up version of the patch.
 
-Is it OK to move the queue_index from virtio_pci_vq_info
-to virtqueue? I didn't want to change any data structures
-in virtio for this patch, but I can do it either way.
+Will do, but I'm still waiting for feedback from Santwona and Peter.
 
-> > > Also, why define VIRTIO_MAX_TXQS?  If the driver can't handle all of
-> > them,
-> > > it should simply not use them...
-> >
-> > The main reason was vhost :) Since vhost_net_release
-> > should not fail (__fput can't handle f_op->release()
-> > failure), I needed a maximum number of socks to
-> > clean up:
->
-> Ah, then it belongs in the vhost headers.  The guest shouldn't see such
-> a restriction if it doesn't apply; it's a host thing.
->
-> Oh, and I think you could profitably use virtio_config_val(), too.
+Ben.
 
-OK, I will make those changes. Thanks for the reference to
-virtio_config_val(), I will use it in guest probe instead of
-the cumbersome way I am doing now. Unfortunately I need a
-constant in vhost for now.
-
-Thanks,
-
-- KK
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
