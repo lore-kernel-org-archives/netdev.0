@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] udp: add rehash on connect()
-Date: Wed, 08 Sep 2010 21:39:38 -0700 (PDT)
-Message-ID: <20100908.213938.13735619.davem@davemloft.net>
-References: <1283940646.2880.36.camel@edumazet-laptop>
-	<1283958524.2748.82.camel@edumazet-laptop>
-	<4C87BF3A.5070004@ans.pl>
+Subject: Re: [net-next-2.6 PATCH 1/4] ixgbe: fix TX ring enable issues seen
+ when VMDQ is enabled
+Date: Wed, 08 Sep 2010 21:41:41 -0700 (PDT)
+Message-ID: <20100908.214141.58417891.davem@davemloft.net>
+References: <20100908073229.722.61015.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, brian.haley@hp.com, netdev@vger.kernel.org
-To: ole@ans.pl
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	alexander.h.duyck@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46427
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58588
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751003Ab0IIEjV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Sep 2010 00:39:21 -0400
-In-Reply-To: <4C87BF3A.5070004@ans.pl>
+	by vger.kernel.org with ESMTP id S1751047Ab0IIElX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 00:41:23 -0400
+In-Reply-To: <20100908073229.722.61015.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Krzysztof Ol=EAdzki <ole@ans.pl>
-Date: Wed, 08 Sep 2010 18:52:10 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 08 Sep 2010 00:34:29 -0700
 
-> On 2010-09-08 17:08, Eric Dumazet wrote:
->> [PATCH v2] udp: add rehash on connect()
- ...
->> Reported-by: Krzysztof Piotr Oledzki <ole@ans.pl>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Works like a charm, thank you.
->=20
-> Tested-by: Krzysztof Piotr Oledzki <ole@ans.pl>
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> The ordering of operations was messed up in the init and as a result when
+> VMDQ was enabled we were trying to enable TX rings before setting the VFTE
+> bits. This resulted in a ring that appeared to fail to enable when in fact
+> it was blocked because the VFTE bits were cleared after the reset.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied, thanks!
+Applied.
