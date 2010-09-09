@@ -1,51 +1,63 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: Problems obtaining software TX timestamps
-Date: Thu, 9 Sep 2010 10:31:45 -0400
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B90D19931F@nsmail.netscout.com>
-References: <4C877D8A.6040002@edu.uni-klu.ac.at> <1283958771.2748.85.camel@edumazet-laptop> <4C87FE60.7090209@edu.uni-klu.ac.at> <20100909063541.GA3305@riccoc20.at.omicron.at> <4C889A1E.6050405@edu.uni-klu.ac.at> <20100909135716.GA8706@riccoc20.at.omicron.at> <1284040958.2589.178.camel@edumazet-laptop>
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
+Date: Thu, 9 Sep 2010 16:02:17 +0100
+Message-ID: <20100909160217.59f9c491@lxorguk.ukuu.org.uk>
+References: <cover.1283504065.git.richard.cochran@omicron.at>
+	<alpine.LFD.2.00.1009091152300.2477@localhost6.localdomain6>
+	<20100909122156.GA2823@riccoc20.at.omicron.at>
+	<alpine.LFD.2.00.1009091443250.2477@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: "Ingo Kofler" <ikofler@edu.uni-klu.ac.at>, <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Richard Cochran" <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og114.obsmtp.com ([64.18.1.33]:40272 "HELO
-	exprod6og114.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753273Ab0IIObu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 10:31:50 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1284040958.2589.178.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LFD.2.00.1009091443250.2477-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBv
-d25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDog
-U2VwdGVtYmVyIDA5LCAyMDEwIDEwOjAzIEFNDQo+IFRvOiBSaWNoYXJkIENvY2hyYW4NCj4gQ2M6
-IEluZ28gS29mbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBQcm9i
-bGVtcyBvYnRhaW5pbmcgc29mdHdhcmUgVFggdGltZXN0YW1wcw0KPiANCj4gTGUgamV1ZGkgMDkg
-c2VwdGVtYnJlIDIwMTAgw6AgMTU6NTcgKzAyMDAsIFJpY2hhcmQgQ29jaHJhbiBhIMOpY3JpdCA6
-DQo+ID4gT24gVGh1LCBTZXAgMDksIDIwMTAgYXQgMTA6MjY6MDZBTSArMDIwMCwgSW5nbyBLb2Zs
-ZXIgd3JvdGU6DQo+ID4gPiBUaGFuayB5b3UgdmVyeSBtdWNoIGZvciB0aGlzIGNsYXJpZmljYXRp
-b24uIEFyZSB0aGVyZSBhbnkgZHJhd2JhY2tzDQo+ID4gPiB3aXRoIHRoaXMgYXBwcm9hY2gsIGUu
-Zy4gcGVyZm9ybWFuY2UgaXNzdWVzPyBIb25lc3RseSwgSSBhbSBqdXN0DQo+ID4gPiB3b25kZXJp
-bmcgd2h5IGRyaXZlciBkZXZlbG9wZXJzIGRvIG5vdCBhZGQgdGhpcyBzaW5nbGUgbGluZSBpZiBp
-dCdzDQo+ID4gPiB0aGF0IGVhc3kuLi4uDQo+ID4NCj4gPiBBZGRpbmcgdGhlIGxpbmUgb25seSB0
-ZXN0cyBvbmUgZmxhZywgc28gaXQgaXMgbm90IGEgaHVnZSBwZXJmb3JtYW5jZQ0KPiA+IGhpdC4g
-VGhpcyBmaXggaXMgdmVyeSByZWNlbnQsIHRoYXQgaXMgd2h5IGl0IGhhcyBub3QgYmVlbiB1c2Vk
-IGluIE1BQw0KPiA+IGRyaXZlcnMgeWV0Lg0KPiANCj4gU2hvdWxkIGRyaXZlcnMgY2FsbCBpdCBh
-dCBzdGFydF94bWl0KCkgdGltZSwgb3IgYXQgdHggY29tcGxldGlvbiB0aW1lID8NCj4gDQo+IDEp
-IHN0YXJ0X3htaXQoKSB0aW1lIDogRWFybGllciB0aGFuIHJlYWwgaGFyZHdhcmUgeG1pdCAod2l0
-aCB1cCB0byAxMDAwDQo+IHBhY2tldHMgcXVldWVkIGluIFRYIHJpbmcsIGRlbGF5IG1pZ2h0IGJl
-IHZlcnkgbGFyZ2UpDQo+IA0KPiAyKSB0eCBjb21wbGV0aW9uIHRpbWUgOiBBZnRlciByZWFsIGhh
-cmR3YXJlIHhtaXQNCj4gICAgKG9uIHRnMywgZXRodG9vbCAtYyBnaXZlcyA6IHR4LXVzZWNzOiA3
-MiAgLCB0eC1mcmFtZXM6IDUzLCBzbyB3ZSBjYW4NCj4gaGF2ZSBhIGRlbGF5IG9mIDcyIHVzIGJl
-Zm9yZSBOSUMgYWNrbm93bGVkZ2VzIHRoZSBmcmFtZSB4bWl0KQ0KPiANCg0KSSdtIG5vdCBmYW1p
-bGlhciB3LyB0aGUgY29kZSBidXQgSSB3b3VsZCB0aGluayByaWdodCBiZWZvcmUgdGhlIFR4LWRl
-c2NyaXB0b3JzIGFyZSBwb3N0ZWQuIFRoYXQgaXMsIGJlZm9yZSBhIHBjaS13cml0ZSwgd2hlcmUg
-dGhlIFR4LXF1ZXVlIHB1dA0KcHRycyBhcmUgdXBkYXRlZC4gQmVjYXVzZSBpZiB0aGUgTklDIGlz
-IG92ZXJsb2FkZWQgdGhlbiB0aGVyZSB3aWxsIGJlIHNvbWUgZGVsYXkgYmVmb3JlIHRoZSBwa3Rz
-IGFyZSBYbWl0J2QuIEJ1dCBpZiB0aGVyZSBpcyBhIE4vVyBUQVAgdGhlbiB3ZSB3b3VsZCBhdGxl
-YXN0IHJvdWdobHkga25vdyB3aGVyZSB3ZSBjb3VsZCBzdGFydCB0cm91Ymxlc2hvb3RpbmcuDQoN
-CkNoZXRhbiBMb2tlDQo=
+> > 1. character device (like hpet)
+> > 2. posix clock api
+> > 3. sysfs
+> > 
+> > Or possibly some combination of the three.
+> 
+> I fail to see the requirement for any of those. Either the hardware
+> clock is suitable as a clocksource for general consumption, then it
+> should just be used as a clock source. If it's not - e.g. because it's
+> too slow to access - then it just should serve as a reference in the
+> NTP style and steer the timekeeping into sync.
+
+I think you are confusing clocks, time stamps and the system time.
+
+System time is a single default reference source defined by POSIX in
+terms of sort of UTC.
+
+There are lots of other time sources which don't necessarily tally with
+oen another and there are times you have to respect more than one of them
+because you are not the master clock nor can you dictate synchronization
+between the two pieces of infrastructure you span
+
+Consider a large rock gig - your control systems for the speakers and PA
+are tightly synchronized and delivering audio with very precise delays to
+different amp/speaker combinations. At the same time if you are managing
+effects and the like then the instrument timings for those will be coming
+off another clock, which is also very precise and differently sourced.
+
+So what we actually have is
+
+- multiple input devices that report timestamps (the PC clock, GPS, PTP,
+  time synchronized busses, synchronous ethernet, network provided reports
+  etc)
+
+- some of those inputs get turned into clocks with varying degrees of
+  hardware and software processing which are consumed by various bits of
+  software and drivers
+
+- a subset of those clocks in some form are algmated into a generic
+  system time. which provides a meaningful representation of general time
+  to the majority of apps that simple can't care less
+
+Apps and drivers need access to all three layers.
