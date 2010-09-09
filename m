@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] cxacru: ignore cx82310_eth devices
-Date: Wed, 08 Sep 2010 21:29:41 -0700 (PDT)
-Message-ID: <20100908.212941.241936726.davem@davemloft.net>
-References: <201009052212.37015.linux@rainbow-software.org>
-	<20100908.131227.28827971.davem@davemloft.net>
-	<201009082252.15865.linux@rainbow-software.org>
+Subject: Re: [PATCH net-next-2.6] net: inet_add_protocol() can use cmpxchg()
+Date: Wed, 08 Sep 2010 21:30:59 -0700 (PDT)
+Message-ID: <20100908.213059.98904271.davem@davemloft.net>
+References: <1283986576.2428.21.camel@edumazet-laptop>
+	<AANLkTimZ=i1=c3SaEsw2_ncWJenuOgoSmHpMuN_UiG4K@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, simon@fire.lp0.eu, dbrownell@users.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linux@rainbow-software.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50720
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50725
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750958Ab0IIE3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 00:29:24 -0400
-In-Reply-To: <201009082252.15865.linux@rainbow-software.org>
+	by vger.kernel.org with ESMTP id S1751003Ab0IIEal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 00:30:41 -0400
+In-Reply-To: <AANLkTimZ=i1=c3SaEsw2_ncWJenuOgoSmHpMuN_UiG4K@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ondrej Zary <linux@rainbow-software.org>
-Date: Wed, 8 Sep 2010 22:52:12 +0200
+From: Jesse Gross <jesse@nicira.com>
+Date: Wed, 8 Sep 2010 16:49:27 -0700
 
-> Ignore ADSL routers, which can have the same vendor and product IDs
-> as ADSL modems but should be handled by the cx82310_eth driver.
+> On Wed, Sep 8, 2010 at 3:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> Use cmpxchg() to get rid of spinlocks in inet_add_protocol() and
+>> friends.
+>>
+>> inet_protos[] & inet6_protos[] are moved to read_mostly section
+>>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 > 
-> This intentionally ignores device IDs that aren't currently handled
-> by cx82310_eth. There may be other device IDs that perhaps shouldn't
-> be claimed by cxacru.
-> 
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+> What's the benefit to this?  It's hard to imagine that add/deleting
+> protocols is highly contended.  On the other hand, a simple spinlock
+> is very easy to look at and verify correct, while this takes a little
+> more thought.
 
-Applied with some minor comment formatting fixes, thanks!
+Smaller data section is the benefit, thus less cache pressure there.
+
+It's not about contention at all.
+
+We've already applied other similar changes from Eric doing exactly
+this kind of transformation and it's not all that non-trivial to me,
+frankly.
