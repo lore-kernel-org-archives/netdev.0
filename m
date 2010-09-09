@@ -1,120 +1,134 @@
-From: john stultz <johnstul@us.ibm.com>
-Subject: Re: [PATCH 1/2] posix clocks: introduce a syscall for clock tuning.
-Date: Thu, 09 Sep 2010 15:53:13 -0700
-Message-ID: <1284072793.2762.259.camel@localhost.localdomain>
-References: <cover.1283504065.git.richard.cochran@omicron.at>
-	 <7f4815cdfcf5bc49df4bdd09d59a4f56ca2598f5.1283504065.git.richard.cochran@omicron.at>
-	 <alpine.LFD.2.00.1009091159260.2477@localhost6.localdomain6>
-	 <20100909133449.GB2823@riccoc20.at.omicron.at>
-	 <alpine.LFD.2.00.1009092102150.2477@localhost6.localdomain6>
-	 <alpine.LFD.2.00.1009092244390.2477@localhost6.localdomain6>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Thu, 09 Sep 2010 16:00:24 -0700
+Message-ID: <4C896708.1050607@us.ibm.com>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908081011.GC23051@redhat.com> <OF70542242.6CAA236A-ON65257798.0044A4E0-65257798.005C0E7C@LocalDomain> <OF8043B2B7.7048D739-ON65257799.0021A2EE-65257799.00356B3E@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, linux-api@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:37427 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757286Ab0IIWxT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Sep 2010 18:53:19 -0400
-In-Reply-To: <alpine.LFD.2.00.1009092244390.2477@localhost6.localdomain6>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:42954 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756912Ab0IIXA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 19:00:59 -0400
+In-Reply-To: <OF8043B2B7.7048D739-ON65257799.0021A2EE-65257799.00356B3E@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-09-09 at 23:16 +0200, Thomas Gleixner wrote:
-> Hmm. Talked to John Stultz about this and got enlightened that there
-> might be more than one of these beasts. That changes the story
-> slightly.
-> 
-> So yes, I've been wrong as usual and we'll need some way of assigning
-> those ids dynamically, but I'm still opposed to providing an
-> unconfined "give me one of those id's" interface for public
-> consumption.
-> 
-> I'd rather see a controlled environment for device classes like PTP
-> clocks. That would have a couple of advantages:
-> 
->  - clear association of the device to a well defined functionality
-> 
->  - avoidance of duplicated code
-> 
->  - consistent sysfs interfaces for functionality which is device class
->    specific
-> 
->  - simpler identification for interested applications
-> 
->  - preventing the random spread of clock id consumers
-> 
-> So the clock device class code would provide the interface for these
-> class specific hardware drivers and consult the posix timer core code
-> to give out an id.
-> 
-> And that would apply to any other class of clock devices which do not
-> fall into the general clocksource category (e.g. RTCs, audio clocks
-> ..)
-> 
-> Thoughts ?
-
-So at first I was concerned, because I thought you were suggesting we
-distinguish between the classes of clocks in our userspace interface. 
-
-But after some clarification on IRC, you made it clear that you want
-some generic infrastructure that supports what the PTP driver needs that
-would then be re-usable by other clocks we want to similarly expose to
-userland via a clockid.
-
-So basically you want something akin to the struct clocksource for the
-driver to register that would minimize code duplication.
-
-My initial reaction, is that we already have the k_clock structure (from
-include/linux/posix-timers.h):
-struct k_clock {
-	int res;		/* in nanoseconds */
-	int (*clock_getres) (const clockid_t which_clock, struct timespec *tp);
-	int (*clock_set) (const clockid_t which_clock, struct timespec * tp);
-	int (*clock_get) (const clockid_t which_clock, struct timespec * tp);
-	int (*timer_create) (struct k_itimer *timer);
-	int (*nsleep) (const clockid_t which_clock, int flags,
-		       struct timespec *, struct timespec __user *);
-	long (*nsleep_restart) (struct restart_block *restart_block);
-	int (*timer_set) (struct k_itimer * timr, int flags,
-			  struct itimerspec * new_setting,
-			  struct itimerspec * old_setting);
-	int (*timer_del) (struct k_itimer * timr);
-	void (*timer_get) (struct k_itimer * timr,
-			   struct itimerspec * cur_setting);
-};
+  On 9/9/2010 2:45 AM, Krishna Kumar2 wrote:
+>> Krishna Kumar2/India/IBM wrote on 09/08/2010 10:17:49 PM:
+> Some more results and likely cause for single netperf
+> degradation below.
+>
+>
+>> Guest ->  Host (single netperf):
+>> I am getting a drop of almost 20%. I am trying to figure out
+>> why.
+>>
+>> Host ->  guest (single netperf):
+>> I am getting an improvement of almost 15%. Again - unexpected.
+>>
+>> Guest ->  Host TCP_RR: I get an average 7.4% increase in #packets
+>> for runs upto 128 sessions. With fewer netperf (under 8), there
+>> was a drop of 3-7% in #packets, but beyond that, the #packets
+>> improved significantly to give an average improvement of 7.4%.
+>>
+>> So it seems that fewer sessions is having negative effect for
+>> some reason on the tx side. The code path in virtio-net has not
+>> changed much, so the drop in some cases is quite unexpected.
+> The drop for the single netperf seems to be due to multiple vhost.
+> I changed the patch to start *single* vhost:
+>
+> Guest ->  Host (1 netperf, 64K): BW: 10.79%, SD: -1.45%
+> Guest ->  Host (1 netperf)     : Latency: -3%, SD: 3.5%
+I remember seeing similar issue when using a separate vhost thread for 
+TX and
+RX queues.  Basically, we should have the same vhost thread process a 
+TCP flow
+in both directions. I guess this allows the data and ACKs to be 
+processed in sync.
 
 
-This is still very close to the level of the posix clocks/timers api, so
-maybe you're wanting something a little lower level, possibly as low as
-the clocksource/clockevent structures? 
-
-The only problem there is from the examples, it seems some PTP hardware
-can be fairly self-contained. So its a actual ns clock that can be freq
-adjusted in hardware, not a constant freq counter that is then converted
-to nanoseconds and freq managed in software. So the interface probably
-can't be quite as low-level as the clocksource/clockevent structures.
-
-In fact, from the example drivers posted already, it looks like the
-k_clock structure maps fairly close to what the hardware uses.
-
-Other clock types that we may want to expose, such as the RTC also can
-map fairly close to k_clock. The audio clocks may need some research, as
-I suspect they're just a clocksource style counter, so some additional
-software cycle->ns layering similar to the timekeeping core (but likely
-much simpler) may be needed.
-
-So the question to Richard is, what does the above k_clock not provide
-that the PTP driver needs?  If you've already made some stabs at it,
-seeing an example of the generic header and a trivial example driver
-that includes the k_clock structure, so we can see what it removed from
-your earlier chardev implementation would be helpful.
-
-thanks
--john
+Thanks
+Sridhar
+> Single vhost performs well but hits the barrier at 16 netperf
+> sessions:
+>
+> SINGLE vhost (Guest ->  Host):
+> 	1 netperf:    BW: 10.7%     SD: -1.4%
+> 	4 netperfs:   BW: 3%        SD: 1.4%
+> 	8 netperfs:   BW: 17.7%     SD: -10%
+>        16 netperfs:  BW: 4.7%      SD: -7.0%
+>        32 netperfs:  BW: -6.1%     SD: -5.7%
+> BW and SD both improves (guest multiple txqs help). For 32
+> netperfs, SD improves.
+>
+> But with multiple vhosts, guest is able to send more packets
+> and BW increases much more (SD too increases, but I think
+> that is expected). From the earlier results:
+>
+> N#      BW1     BW2    (%)      SD1     SD2    (%)      RSD1    RSD2    (%)
+> _______________________________________________________________________________
+> 4       26387   40716 (54.30)   20      28   (40.00)    86      85
+> (-1.16)
+> 8       24356   41843 (71.79)   88      129  (46.59)    372     362
+> (-2.68)
+> 16      23587   40546 (71.89)   375     564  (50.40)    1558    1519
+> (-2.50)
+> 32      22927   39490 (72.24)   1617    2171 (34.26)    6694    5722
+> (-14.52)
+> 48      23067   39238 (70.10)   3931    5170 (31.51)    15823   13552
+> (-14.35)
+> 64      22927   38750 (69.01)   7142    9914 (38.81)    28972   26173
+> (-9.66)
+> 96      22568   38520 (70.68)   16258   27844 (71.26)   65944   73031
+> (10.74)
+> _______________________________________________________________________________
+> (All tests were done without any tuning)
+>
+>  From my testing:
+>
+> 1. Single vhost improves mq guest performance upto 16
+>     netperfs but degrades after that.
+> 2. Multiple vhost degrades single netperf guest
+>     performance, but significantly improves performance
+>     for any number of netperf sessions.
+>
+> Likely cause for the 1 stream degradation with multiple
+> vhost patch:
+>
+> 1. Two vhosts run handling the RX and TX respectively.
+>     I think the issue is related to cache ping-pong esp
+>     since these run on different cpus/sockets.
+> 2. I (re-)modified the patch to share RX with TX[0]. The
+>     performance drop is the same, but the reason is the
+>     guest is not using txq[0] in most cases (dev_pick_tx),
+>     so vhost's rx and tx are running on different threads.
+>     But whenever the guest uses txq[0], only one vhost
+>     runs and the performance is similar to original.
+>
+> I went back to my *submitted* patch and started a guest
+> with numtxq=16 and pinned every vhost to cpus #0&1. Now
+> whether guest used txq[0] or txq[n], the performance is
+> similar or better (between 10-27% across 10 runs) than
+> original code. Also, -6% to -24% improvement in SD.
+>
+> I will start a full test run of original vs submitted
+> code with minimal tuning (Avi also suggested the same),
+> and re-send. Please let me know if you need any other
+> data.
+>
+> Thanks,
+>
+> - KK
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
