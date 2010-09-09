@@ -1,63 +1,63 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [PATCH 0/2] [RFC] posix clock tuning
-Date: Thu, 9 Sep 2010 16:02:17 +0100
-Message-ID: <20100909160217.59f9c491@lxorguk.ukuu.org.uk>
-References: <cover.1283504065.git.richard.cochran@omicron.at>
-	<alpine.LFD.2.00.1009091152300.2477@localhost6.localdomain6>
-	<20100909122156.GA2823@riccoc20.at.omicron.at>
-	<alpine.LFD.2.00.1009091443250.2477@localhost6.localdomain6>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] tunnels: missing rcu_assign_pointer()
+Date: Thu, 09 Sep 2010 17:33:43 +0200
+Message-ID: <1284046423.2589.188.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.00.1009091443250.2477-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:52279 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753170Ab0IIPdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 11:33:49 -0400
+Received: by fxm16 with SMTP id 16so964398fxm.19
+        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 08:33:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > 1. character device (like hpet)
-> > 2. posix clock api
-> > 3. sysfs
-> > 
-> > Or possibly some combination of the three.
-> 
-> I fail to see the requirement for any of those. Either the hardware
-> clock is suitable as a clocksource for general consumption, then it
-> should just be used as a clock source. If it's not - e.g. because it's
-> too slow to access - then it just should serve as a reference in the
-> NTP style and steer the timekeeping into sync.
+xfrm4_tunnel_register() & xfrm6_tunnel_register() should
+use rcu_assign_pointer() to make sure previous writes
+(to handler->next) are committed to memory before chain
+insertion.
 
-I think you are confusing clocks, time stamps and the system time.
+deregister functions dont need a particular barrier.
 
-System time is a single default reference source defined by POSIX in
-terms of sort of UTC.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+No risk of crash, because handler->next is NULL before register()
+call, but a possibility of packet being dropped.
 
-There are lots of other time sources which don't necessarily tally with
-oen another and there are times you have to respect more than one of them
-because you are not the master clock nor can you dictate synchronization
-between the two pieces of infrastructure you span
+ net/ipv4/tunnel4.c |    2 +-
+ net/ipv6/tunnel6.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Consider a large rock gig - your control systems for the speakers and PA
-are tightly synchronized and delivering audio with very precise delays to
-different amp/speaker combinations. At the same time if you are managing
-effects and the like then the instrument timings for those will be coming
-off another clock, which is also very precise and differently sourced.
+diff --git a/net/ipv4/tunnel4.c b/net/ipv4/tunnel4.c
+index df59d16..9a17bd2 100644
+--- a/net/ipv4/tunnel4.c
++++ b/net/ipv4/tunnel4.c
+@@ -39,7 +39,7 @@ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family)
+ 	}
+ 
+ 	handler->next = *pprev;
+-	*pprev = handler;
++	rcu_assign_pointer(*pprev, handler);
+ 
+ 	ret = 0;
+ 
+diff --git a/net/ipv6/tunnel6.c b/net/ipv6/tunnel6.c
+index 3177fe0..d986472 100644
+--- a/net/ipv6/tunnel6.c
++++ b/net/ipv6/tunnel6.c
+@@ -51,7 +51,7 @@ int xfrm6_tunnel_register(struct xfrm6_tunnel *handler, unsigned short family)
+ 	}
+ 
+ 	handler->next = *pprev;
+-	*pprev = handler;
++	rcu_assign_pointer(*pprev, handler);
+ 
+ 	ret = 0;
+ 
 
-So what we actually have is
 
-- multiple input devices that report timestamps (the PC clock, GPS, PTP,
-  time synchronized busses, synchronous ethernet, network provided reports
-  etc)
-
-- some of those inputs get turned into clocks with varying degrees of
-  hardware and software processing which are consumed by various bits of
-  software and drivers
-
-- a subset of those clocks in some form are algmated into a generic
-  system time. which provides a meaningful representation of general time
-  to the majority of apps that simple can't care less
-
-Apps and drivers need access to all three layers.
