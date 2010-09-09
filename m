@@ -1,36 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] 2.6.32.21 bnx2_napi->hw_tx_cons_ptr NULL pointer
- dereference
-Date: Wed, 08 Sep 2010 21:58:09 -0700 (PDT)
-Message-ID: <20100908.215809.232892441.davem@davemloft.net>
-References: <20100909013437.GA6400@lintop>
-	<C27F8246C663564A84BB7AB3439772421B9134BA2E@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
+Date: Thu, 9 Sep 2010 10:53:52 +0530
+Message-ID: <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908072905.23769.10732.sendpatchset@krkumar2.in.ibm.com> <201009091319.40274.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shawn.bohrer@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@kernel.org
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60306
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750905Ab0IIE5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 00:57:52 -0400
-In-Reply-To: <C27F8246C663564A84BB7AB3439772421B9134BA2E@IRVEXCHCCR01.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <201009091319.40274.rusty@rustcorp.com.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 8 Sep 2010 21:55:29 -0700
+Rusty Russell <rusty@rustcorp.com.au> wrote on 09/09/2010 09:19:39 AM:
 
-> Shawn Bohrer wrote:
-> 
->> Is there any reason these can't/shouldn't be applied to the 2.6.32.y
->> stable series?  It looks like they apply cleanly.
->>
-> 
-> No reason.  I just didn't know how far back to apply these patches.
-> The crash was triggered by changes in netpoll some time ago and
-> the problem has been present for some time.
+> On Wed, 8 Sep 2010 04:59:05 pm Krishna Kumar wrote:
+> > Add virtio_get_queue_index() to get the queue index of a
+> > vq.  This is needed by the cb handler to locate the queue
+> > that should be processed.
+>
+> This seems a bit weird.  I mean, the driver used vdev->config->find_vqs
+> to find the queues, which returns them (in order).  So, can't you put
+this
+> into your struct send_queue?
 
-Michael, please submit these to -stable then, thanks!
+I am saving the vqs in the send_queue, but the cb needs
+to locate the device txq from the svq. The only other way
+I could think of is to iterate through the send_queue's
+and compare svq against sq[i]->svq, but cb's happen quite
+a bit. Is there a better way?
+
+static void skb_xmit_done(struct virtqueue *svq)
+{
+	struct virtnet_info *vi = svq->vdev->priv;
+	int qnum = virtio_get_queue_index(svq) - 1;     /* 0 is RX vq */
+
+	/* Suppress further interrupts. */
+	virtqueue_disable_cb(svq);
+
+	/* We were probably waiting for more output buffers. */
+	netif_wake_subqueue(vi->dev, qnum);
+}
+
+> Also, why define VIRTIO_MAX_TXQS?  If the driver can't handle all of
+them,
+> it should simply not use them...
+
+The main reason was vhost :) Since vhost_net_release
+should not fail (__fput can't handle f_op->release()
+failure), I needed a maximum number of socks to
+clean up:
+
+#define MAX_VQS	(1 + VIRTIO_MAX_TXQS)
+static int vhost_net_release(struct inode *inode, struct file *f)
+{
+	struct vhost_net *n = f->private_data;
+	struct vhost_dev *dev = &n->dev;
+	struct socket *socks[MAX_VQS];
+	int i;
+
+	vhost_net_stop(n, socks);
+	vhost_net_flush(n);
+	vhost_dev_cleanup(dev);
+
+	for (i = n->dev.nvqs - 1; i >= 0; i--)
+		if (socks[i])
+			fput(socks[i]->file);
+	...
+}
+
+Thanks,
+
+- KK
+
