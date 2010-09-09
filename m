@@ -1,71 +1,84 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: [PATCH 1/2] posix clocks: introduce a syscall for clock
- tuning.
-Date: Thu, 9 Sep 2010 12:49:27 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.1009091159260.2477@localhost6.localdomain6>
-References: <cover.1283504065.git.richard.cochran@omicron.at> <7f4815cdfcf5bc49df4bdd09d59a4f56ca2598f5.1283504065.git.richard.cochran@omicron.at>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [RFC/PATCH] kernel/irq: allow more precise irq affinity
+ policies
+Date: Thu, 9 Sep 2010 13:03:38 +0200 (CEST)
+Message-ID: <alpine.LFD.2.00.1009091056280.2477@localhost6.localdomain6>
+References: <20100906233827.GB12956@sgi.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <7f4815cdfcf5bc49df4bdd09d59a4f56ca2598f5.1283504065.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Arthur Kepner <akepner@sgi.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.tglx.de ([62.245.132.106]:47166 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753840Ab0IILDv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Sep 2010 07:03:51 -0400
+In-Reply-To: <20100906233827.GB12956@sgi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 3 Sep 2010, Richard Cochran wrote:
-
-This patch needs to be split in pieces. The syscall change is totally
-unrelated to the dynamic clock id creation. Though I do not like
-either of them. :)
-
-> A new syscall is introduced that allows tuning of a POSIX clock. The
-> syscall is implemented for four architectures: arm, blackfin, powerpc,
-> and x86.
+On Mon, 6 Sep 2010, Arthur Kepner wrote:
+ 
+> SGI has encountered situations where particular CPUs run out of 
+> interrupt vectors on systems with many (several hundred or more) 
+> CPUs. This happens because some drivers (particularly the mlx4_core 
+> driver) select the number of interrupts they allocate based on the 
+> number of CPUS, and because of how the default irq affinity is used.
 > 
-> The new syscall, clock_adjtime, takes two parameters, the clock ID,
-> and a pointer to a struct timex. The semantics of the timex struct
-> have been expanded by one additional mode flag, which allows an
-> absolute offset correction. When specificied, the clock offset is
-> immediately corrected by skipping to the new time value.
+> The following patch allows for a more precise policy about how irq 
+> affinities are assigned by the kernel (though it doesn't implement 
+> any new policy, except for a practically useless example).
+> 
+> This is a work in progress. I know that it needs several additional 
+> things, including:
+> 
+> 	- redistribute interrupts when the 'current_irq_policy' is 
+> 	  updated (for now it only affects irqs allocated after the 
+> 	  policy is changed)
 
-And why do we need a separate syscall for this?
+We implement mechanisms not policies in the kernel. And we already
+have a mechanism to redistribute interrupts.
 
-> In addition, the POSIX clock code has been augmented to offer a
-> dynamic clock creation method. Instead of registering a hard
-> coded clock ID, modules may call create_posix_clock(), which
-> returns a new clock ID.
+Let's look at the problem you're tyring to solve.
 
-This has been discussed for years and I still fail to see the
-requirement for this. The only result is that it allows folks to
-create their special purpose clock stuff and keep it out of tree
-instead of fixing the problems they have with the existing clock
-infrastructure in the kernel.
+Your network driver wants to use one interrupt per cpu, which are now
+assigned to a single core due to the way the default irq affinity
+settings work. On a large system this exceeds the number of vectors
+per cpu. Ok, that's bad.
 
-As far as I understood from the previous discussions, the final goal
-is to provide PTP support, right?
+But now you try to solve that problem with magic policies in the
+generic irq code. That's wrong.
 
-But what I see is an approach which tries to implement disconnected
-special purpose clocks which have the ability to be adjusted
-independently. What's the purpose of this ? Why can't we just use the
-existing clocks and make PTP work on them ?
+What you really want is a way to tell the generic code that your
+driver would like to see a particular interrupt assigned to a
+particular core, right ?
 
-I know that lots of embedded folks think that they need their special
-timers and extra magic to make stuff work, but that's the wrong
-approach.
+We already have the affinity_hint mechanism in place, which allows a
+driver to give a hint to the user space irq balancer, which of course
+does not help if your device comes up before user space runs.
 
-What's wrong with the existing clocks? Nothing, except that we have no
-way to sync CLOCK_MONOTONIC across several machines. And that's what
-you really want if you try to do distributed control and data
-acquisition stuff.
+So the obvious solution is to extend that mechanism and let the kernel
+use the affinity hint as a first selection criteria as well - user
+space can still override it.
 
-That's a single CLOCK_MONOTONIC_GLOBAL and not a bunch of completely
-disconnected clock implementations with random clock ids and random
-feature sets.
+That's a trivial change and does not impose any policies on the
+kernel. 
 
-Thoughts ?
+> 	- a means to notify drivers about irq_policy changes (so 
+> 	  they can adjust network queues, etc.)
 
+I can understand that, but again it's not about policies. What you
+want is a callback into the driver which is called _before_ a user
+space irq affinity setting is applied. That way a driver could even
+veto such a change if there are hard restrictions on which core or
+node it can be placed.
 
-	 tglx
+OTOH, it's more straight forward to tell the driver to move a specific
+queue to a specific core and handle it from there. That keeps the
+magic confined to the driver and does not affect generic code.
+
+Thanks,
+
+	tglx
