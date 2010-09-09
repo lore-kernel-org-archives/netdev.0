@@ -1,49 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Problems obtaining software TX timestamps
-Date: Thu, 09 Sep 2010 16:02:38 +0200
-Message-ID: <1284040958.2589.178.camel@edumazet-laptop>
-References: <4C877D8A.6040002@edu.uni-klu.ac.at>
-	 <1283958771.2748.85.camel@edumazet-laptop>
-	 <4C87FE60.7090209@edu.uni-klu.ac.at>
-	 <20100909063541.GA3305@riccoc20.at.omicron.at>
-	 <4C889A1E.6050405@edu.uni-klu.ac.at>
-	 <20100909135716.GA8706@riccoc20.at.omicron.at>
+From: "Loke, Chetan" <Chetan.Loke@netscout.com>
+Subject: RE: Problems obtaining software TX timestamps
+Date: Thu, 9 Sep 2010 10:31:45 -0400
+Message-ID: <D3F292ADF945FB49B35E96C94C2061B90D19931F@nsmail.netscout.com>
+References: <4C877D8A.6040002@edu.uni-klu.ac.at> <1283958771.2748.85.camel@edumazet-laptop> <4C87FE60.7090209@edu.uni-klu.ac.at> <20100909063541.GA3305@riccoc20.at.omicron.at> <4C889A1E.6050405@edu.uni-klu.ac.at> <20100909135716.GA8706@riccoc20.at.omicron.at> <1284040958.2589.178.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Kofler <ikofler@edu.uni-klu.ac.at>, netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: "Ingo Kofler" <ikofler@edu.uni-klu.ac.at>, <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Richard Cochran" <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:39873 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857Ab0IIOCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 10:02:44 -0400
-Received: by fxm16 with SMTP id 16so872484fxm.19
-        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 07:02:43 -0700 (PDT)
-In-Reply-To: <20100909135716.GA8706@riccoc20.at.omicron.at>
+Received: from exprod6og114.obsmtp.com ([64.18.1.33]:40272 "HELO
+	exprod6og114.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753273Ab0IIObu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 10:31:50 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1284040958.2589.178.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 09 septembre 2010 =C3=A0 15:57 +0200, Richard Cochran a =C3=A9=
-crit :
-> On Thu, Sep 09, 2010 at 10:26:06AM +0200, Ingo Kofler wrote:
-> > Thank you very much for this clarification. Are there any drawbacks
-> > with this approach, e.g. performance issues? Honestly, I am just
-> > wondering why driver developers do not add this single line if it's
-> > that easy....
->=20
-> Adding the line only tests one flag, so it is not a huge performance
-> hit. This fix is very recent, that is why it has not been used in MAC
-> drivers yet.
-
-Should drivers call it at start_xmit() time, or at tx completion time ?
-
-1) start_xmit() time : Earlier than real hardware xmit (with up to 1000
-packets queued in TX ring, delay might be very large)
-
-2) tx completion time : After real hardware xmit
-   (on tg3, ethtool -c gives : tx-usecs: 72  , tx-frames: 53, so we can
-have a delay of 72 us before NIC acknowledges the frame xmit)
-
-
-
+PiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBv
+d25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDog
+U2VwdGVtYmVyIDA5LCAyMDEwIDEwOjAzIEFNDQo+IFRvOiBSaWNoYXJkIENvY2hyYW4NCj4gQ2M6
+IEluZ28gS29mbGVyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBQcm9i
+bGVtcyBvYnRhaW5pbmcgc29mdHdhcmUgVFggdGltZXN0YW1wcw0KPiANCj4gTGUgamV1ZGkgMDkg
+c2VwdGVtYnJlIDIwMTAgw6AgMTU6NTcgKzAyMDAsIFJpY2hhcmQgQ29jaHJhbiBhIMOpY3JpdCA6
+DQo+ID4gT24gVGh1LCBTZXAgMDksIDIwMTAgYXQgMTA6MjY6MDZBTSArMDIwMCwgSW5nbyBLb2Zs
+ZXIgd3JvdGU6DQo+ID4gPiBUaGFuayB5b3UgdmVyeSBtdWNoIGZvciB0aGlzIGNsYXJpZmljYXRp
+b24uIEFyZSB0aGVyZSBhbnkgZHJhd2JhY2tzDQo+ID4gPiB3aXRoIHRoaXMgYXBwcm9hY2gsIGUu
+Zy4gcGVyZm9ybWFuY2UgaXNzdWVzPyBIb25lc3RseSwgSSBhbSBqdXN0DQo+ID4gPiB3b25kZXJp
+bmcgd2h5IGRyaXZlciBkZXZlbG9wZXJzIGRvIG5vdCBhZGQgdGhpcyBzaW5nbGUgbGluZSBpZiBp
+dCdzDQo+ID4gPiB0aGF0IGVhc3kuLi4uDQo+ID4NCj4gPiBBZGRpbmcgdGhlIGxpbmUgb25seSB0
+ZXN0cyBvbmUgZmxhZywgc28gaXQgaXMgbm90IGEgaHVnZSBwZXJmb3JtYW5jZQ0KPiA+IGhpdC4g
+VGhpcyBmaXggaXMgdmVyeSByZWNlbnQsIHRoYXQgaXMgd2h5IGl0IGhhcyBub3QgYmVlbiB1c2Vk
+IGluIE1BQw0KPiA+IGRyaXZlcnMgeWV0Lg0KPiANCj4gU2hvdWxkIGRyaXZlcnMgY2FsbCBpdCBh
+dCBzdGFydF94bWl0KCkgdGltZSwgb3IgYXQgdHggY29tcGxldGlvbiB0aW1lID8NCj4gDQo+IDEp
+IHN0YXJ0X3htaXQoKSB0aW1lIDogRWFybGllciB0aGFuIHJlYWwgaGFyZHdhcmUgeG1pdCAod2l0
+aCB1cCB0byAxMDAwDQo+IHBhY2tldHMgcXVldWVkIGluIFRYIHJpbmcsIGRlbGF5IG1pZ2h0IGJl
+IHZlcnkgbGFyZ2UpDQo+IA0KPiAyKSB0eCBjb21wbGV0aW9uIHRpbWUgOiBBZnRlciByZWFsIGhh
+cmR3YXJlIHhtaXQNCj4gICAgKG9uIHRnMywgZXRodG9vbCAtYyBnaXZlcyA6IHR4LXVzZWNzOiA3
+MiAgLCB0eC1mcmFtZXM6IDUzLCBzbyB3ZSBjYW4NCj4gaGF2ZSBhIGRlbGF5IG9mIDcyIHVzIGJl
+Zm9yZSBOSUMgYWNrbm93bGVkZ2VzIHRoZSBmcmFtZSB4bWl0KQ0KPiANCg0KSSdtIG5vdCBmYW1p
+bGlhciB3LyB0aGUgY29kZSBidXQgSSB3b3VsZCB0aGluayByaWdodCBiZWZvcmUgdGhlIFR4LWRl
+c2NyaXB0b3JzIGFyZSBwb3N0ZWQuIFRoYXQgaXMsIGJlZm9yZSBhIHBjaS13cml0ZSwgd2hlcmUg
+dGhlIFR4LXF1ZXVlIHB1dA0KcHRycyBhcmUgdXBkYXRlZC4gQmVjYXVzZSBpZiB0aGUgTklDIGlz
+IG92ZXJsb2FkZWQgdGhlbiB0aGVyZSB3aWxsIGJlIHNvbWUgZGVsYXkgYmVmb3JlIHRoZSBwa3Rz
+IGFyZSBYbWl0J2QuIEJ1dCBpZiB0aGVyZSBpcyBhIE4vVyBUQVAgdGhlbiB3ZSB3b3VsZCBhdGxl
+YXN0IHJvdWdobHkga25vdyB3aGVyZSB3ZSBjb3VsZCBzdGFydCB0cm91Ymxlc2hvb3RpbmcuDQoN
+CkNoZXRhbiBMb2tlDQo=
