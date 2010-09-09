@@ -1,65 +1,111 @@
-From: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
-Subject: Re: Problems obtaining software TX timestamps
-Date: Thu, 09 Sep 2010 10:26:06 +0200
-Message-ID: <4C889A1E.6050405@edu.uni-klu.ac.at>
-References: <4C877D8A.6040002@edu.uni-klu.ac.at> <1283958771.2748.85.camel@edumazet-laptop> <4C87FE60.7090209@edu.uni-klu.ac.at> <20100909063541.GA3305@riccoc20.at.omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ixgbevf: remove private net_device_stats
+Date: Thu, 09 Sep 2010 10:48:31 +0200
+Message-ID: <1284022111.2589.4.camel@edumazet-laptop>
+References: <20100908073601.789.95153.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailsrv.uni-klu.ac.at ([143.205.180.44]:49812 "EHLO
-	mailsrv.uni-klu.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751497Ab0III0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 04:26:08 -0400
-In-Reply-To: <20100909063541.GA3305@riccoc20.at.omicron.at>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:49448 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752614Ab0IIIsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 04:48:35 -0400
+Received: by fxm16 with SMTP id 16so716994fxm.19
+        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 01:48:34 -0700 (PDT)
+In-Reply-To: <20100908073601.789.95153.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Richard Cochran wrote:
-> On Wed, Sep 08, 2010 at 11:21:36PM +0200, Ingo Kofler wrote:
->   
->> Ok, for hardware timestamps it seems logically for me that the
->> driver has to support this. But what about the software timestamps -
->> do they also require support from the driver? Is there no generic
->> implementation in the networking stack?
->>     
->
-> There was once a completely generic implementation, but the Tx path
-> had issues. The generic Tx SW code was reverted in
->
-> cd4d8fdad1f13205c769266dfa99015e226b6e07
->
-> Now, there is a way to support this again, but it requires adding one
-> line into each and every MAC driver. It is not very hard to do:
->
-> linux/skbuff.h:1992
-> /**
->  * skb_tx_timestamp() - Driver hook for transmit timestamping
->  *
->  * Ethernet MAC Drivers should call this function in their hard_xmit()
->  * function as soon as possible after giving the sk_buff to the MAC
->  * hardware, but before freeing the sk_buff.
->  *
->  * @skb: A socket buffer.
->  */
-> static inline void skb_tx_timestamp(struct sk_buff *skb);
->
-> I am already carrying patches for this privately. If you post a patch
-> for your MAC, then you can be the first one to support this feature! ;^)
->   
-Thank you very much for this clarification. Are there any drawbacks with 
-this approach, e.g. performance issues? Honestly, I am just wondering 
-why driver developers do not add this single line if it's that easy....
+Use the net_device provided net_device_stats structure.
 
-Ingo
-> Richard
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->   
+Remove ixgbevf_get_stats() now its not needed.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/ixgbevf/ixgbevf.h      |    1 -
+ drivers/net/ixgbevf/ixgbevf_main.c |   26 +++++---------------------
+ 2 files changed, 5 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/ixgbevf/ixgbevf.h b/drivers/net/ixgbevf/ixgbevf.h
+index f7015ef..da4033c 100644
+--- a/drivers/net/ixgbevf/ixgbevf.h
++++ b/drivers/net/ixgbevf/ixgbevf.h
+@@ -243,7 +243,6 @@ struct ixgbevf_adapter {
+ 	/* OS defined structs */
+ 	struct net_device *netdev;
+ 	struct pci_dev *pdev;
+-	struct net_device_stats net_stats;
+ 
+ 	/* structs defined in ixgbe_vf.h */
+ 	struct ixgbe_hw hw;
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index bdbd26c..3eda1bd 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -308,8 +308,8 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_adapter *adapter,
+ 	tx_ring->total_bytes += total_bytes;
+ 	tx_ring->total_packets += total_packets;
+ 
+-	adapter->net_stats.tx_bytes += total_bytes;
+-	adapter->net_stats.tx_packets += total_packets;
++	netdev->stats.tx_bytes += total_bytes;
++	netdev->stats.tx_packets += total_packets;
+ 
+ 	return (count < tx_ring->work_limit);
+ }
+@@ -639,8 +639,8 @@ next_desc:
+ 
+ 	rx_ring->total_packets += total_rx_packets;
+ 	rx_ring->total_bytes += total_rx_bytes;
+-	adapter->net_stats.rx_bytes += total_rx_bytes;
+-	adapter->net_stats.rx_packets += total_rx_packets;
++	adapter->netdev->stats.rx_bytes += total_rx_bytes;
++	adapter->netdev->stats.rx_packets += total_rx_packets;
+ 
+ 	return cleaned;
+ }
+@@ -2297,7 +2297,7 @@ void ixgbevf_update_stats(struct ixgbevf_adapter *adapter)
+ 				adapter->stats.vfmprc);
+ 
+ 	/* Fill out the OS statistics structure */
+-	adapter->net_stats.multicast = adapter->stats.vfmprc -
++	adapter->netdev->stats.multicast = adapter->stats.vfmprc -
+ 		adapter->stats.base_vfmprc;
+ }
+ 
+@@ -3181,21 +3181,6 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ }
+ 
+ /**
+- * ixgbevf_get_stats - Get System Network Statistics
+- * @netdev: network interface device structure
+- *
+- * Returns the address of the device statistics structure.
+- * The statistics are actually updated from the timer callback.
+- **/
+-static struct net_device_stats *ixgbevf_get_stats(struct net_device *netdev)
+-{
+-	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+-
+-	/* only return the current stats */
+-	return &adapter->net_stats;
+-}
+-
+-/**
+  * ixgbevf_set_mac - Change the Ethernet Address of the NIC
+  * @netdev: network interface device structure
+  * @p: pointer to an address structure
+@@ -3272,7 +3257,6 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_open		= &ixgbevf_open,
+ 	.ndo_stop		= &ixgbevf_close,
+ 	.ndo_start_xmit		= &ixgbevf_xmit_frame,
+-	.ndo_get_stats		= &ixgbevf_get_stats,
+ 	.ndo_set_rx_mode	= &ixgbevf_set_rx_mode,
+ 	.ndo_set_multicast_list	= &ixgbevf_set_rx_mode,
+ 	.ndo_validate_addr	= eth_validate_addr,
+
 
