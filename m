@@ -1,54 +1,46 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: Problems obtaining software TX timestamps
-Date: Thu, 9 Sep 2010 08:35:41 +0200
-Message-ID: <20100909063541.GA3305@riccoc20.at.omicron.at>
-References: <4C877D8A.6040002@edu.uni-klu.ac.at>
- <1283958771.2748.85.camel@edumazet-laptop>
- <4C87FE60.7090209@edu.uni-klu.ac.at>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: inet_add_protocol() can use cmpxchg()
+Date: Thu, 9 Sep 2010 06:42:22 +0000
+Message-ID: <20100909064222.GA6951@ff.dom.local>
+References: <20100908.213059.98904271.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Ingo Kofler <ikofler@edu.uni-klu.ac.at>
+Cc: jesse@nicira.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:36375 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:39103 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752043Ab0IIGfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 02:35:51 -0400
-Received: by bwz11 with SMTP id 11so847602bwz.19
-        for <netdev@vger.kernel.org>; Wed, 08 Sep 2010 23:35:50 -0700 (PDT)
+	with ESMTP id S1752526Ab0IIGmc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 02:42:32 -0400
+Received: by bwz11 with SMTP id 11so850392bwz.19
+        for <netdev@vger.kernel.org>; Wed, 08 Sep 2010 23:42:27 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <4C87FE60.7090209@edu.uni-klu.ac.at>
+In-Reply-To: <20100908.213059.98904271.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 08, 2010 at 11:21:36PM +0200, Ingo Kofler wrote:
-> Ok, for hardware timestamps it seems logically for me that the
-> driver has to support this. But what about the software timestamps -
-> do they also require support from the driver? Is there no generic
-> implementation in the networking stack?
+On 2010-09-09 06:30, David Miller wrote:
+> From: Jesse Gross <jesse@nicira.com>
+> Date: Wed, 8 Sep 2010 16:49:27 -0700
+> 
+>> On Wed, Sep 8, 2010 at 3:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>> Use cmpxchg() to get rid of spinlocks in inet_add_protocol() and
+>>> friends.
+>>>
+>>> inet_protos[] & inet6_protos[] are moved to read_mostly section
+>>>
+>>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>>
+>> What's the benefit to this?  It's hard to imagine that add/deleting
+>> protocols is highly contended.  On the other hand, a simple spinlock
+>> is very easy to look at and verify correct, while this takes a little
+>> more thought.
+> 
+> Smaller data section is the benefit, thus less cache pressure there.
+> 
+Of course, each case is different, but generally I understand Jesse's
+concern. Smaller data section argument shouldn't be enough. There is
+some reason we do it in C not asm, and there is some cost of
+unreadable code too.
 
-There was once a completely generic implementation, but the Tx path
-had issues. The generic Tx SW code was reverted in
-
-cd4d8fdad1f13205c769266dfa99015e226b6e07
-
-Now, there is a way to support this again, but it requires adding one
-line into each and every MAC driver. It is not very hard to do:
-
-linux/skbuff.h:1992
-/**
- * skb_tx_timestamp() - Driver hook for transmit timestamping
- *
- * Ethernet MAC Drivers should call this function in their hard_xmit()
- * function as soon as possible after giving the sk_buff to the MAC
- * hardware, but before freeing the sk_buff.
- *
- * @skb: A socket buffer.
- */
-static inline void skb_tx_timestamp(struct sk_buff *skb);
-
-I am already carrying patches for this privately. If you post a patch
-for your MAC, then you can be the first one to support this feature! ;^)
-
-Richard
-
+Jarek P.
