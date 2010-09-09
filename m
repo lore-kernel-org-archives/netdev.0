@@ -1,91 +1,62 @@
-From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-Date: Thu, 9 Sep 2010 22:37:48 +0900
-Message-ID: <002401cb5024$5a2044a0$66f8800a@maildom.okisemi.com>
-References: <4C81019E.1010808@dsn.okisemi.com><4C8123D6.8020001@suse.cz><003901cb4f5d$bf977c80$66f8800a@maildom.okisemi.com><4C879AAB.6000905@suse.cz> <20100908075545.79023fa9@nehalam>
-Cc: "Randy Dunlap" <randy.dunlap@oracle.com>,
-	"Ralf Baechle" <ralf@linux-mips.org>,
-	"ML netdev" <netdev@vger.kernel.org>,
-	"MeeGo" <meego-dev@meego.com>, "Maxime Bizon" <mbizon@freebox.fr>,
-	"LKML" <linux-kernel@vger.kernel.org>,
-	"Kristoffer Glembo" <kristoffer@gaisler.com>,
-	"John Linn" <john.linn@xilinx.com>,
-	"Joe Perches" <joe@perches.com>,
-	"Greg Rose" <gregory.v.rose@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	"Wang, Qi" <qi.wang@intel.com>,
-	"Toshiharu Okada" <okada533@dsn.okisemi.com>,
-	"Tomoya Morinaga" <morinaga526@dsn.okisemi.com>,
-	"Takahiro Shimizu" <shimizu394@dsn.okisemi.com>,
-	"Intel OTC" <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	"Andrew" <andrew.chih.howe.khor@intel.com>
-To: "Stephen Hemminger" <shemminger@vyatta.com>,
-	"Jiri Slaby" <jslaby@suse.cz>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
+Date: Thu, 9 Sep 2010 19:19:33 +0530
+Message-ID: <OF371A1B54.B0F5B4A1-ON65257799.00491939-65257799.004BBB65@in.ibm.com>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <201009091319.40274.rusty@rustcorp.com.au> <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com> <201009092144.26484.rusty@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:24640 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752169Ab0IINi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 09:38:59 -0400
+Received: from e28smtp02.in.ibm.com ([122.248.162.2]:59005 "EHLO
+	e28smtp02.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752169Ab0IINrQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 09:47:16 -0400
+In-Reply-To: <201009092144.26484.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 8 Sep 2010 07:55:45 -0700
-Stephen Hemminger <shemminger@vyatta.com> wrote:
+Rusty Russell <rusty@rustcorp.com.au> wrote on 09/09/2010 05:44:25 PM:
 >
-> Better yet:
-> rxdr->count = clamp_val(ring->rx_pending,
-> PCH_GBE_MIN_RXD,
-> PCH_GBE_MAX_RXD);
-
-Hi Stephen
-
-Thank you for your suggestion.
-I will modify like your suggestion.
-.
-Thanks, Ohtake
------ Original Message ----- 
-From: "Stephen Hemminger" <shemminger@vyatta.com>
-To: "Jiri Slaby" <jslaby@suse.cz>
-Cc: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>; "Randy Dunlap" <randy.dunlap@oracle.com>; "Ralf Baechle"
-<ralf@linux-mips.org>; "ML netdev" <netdev@vger.kernel.org>; "MeeGo" <meego-dev@meego.com>; "Maxime Bizon"
-<mbizon@freebox.fr>; "LKML" <linux-kernel@vger.kernel.org>; "Kristoffer Glembo" <kristoffer@gaisler.com>; "John Linn"
-<john.linn@xilinx.com>; "Joe Perches" <joe@perches.com>; "Greg Rose" <gregory.v.rose@intel.com>; "David S. Miller"
-<davem@davemloft.net>; "Wang, Yong Y" <yong.y.wang@intel.com>; "Wang, Qi" <qi.wang@intel.com>; "Toshiharu Okada"
-<okada533@dsn.okisemi.com>; "Tomoya Morinaga" <morinaga526@dsn.okisemi.com>; "Takahiro Shimizu"
-<shimizu394@dsn.okisemi.com>; "Intel OTC" <joel.clark@intel.com>; "Foster, Margie" <margie.foster@intel.com>; "Andrew"
-<andrew.chih.howe.khor@intel.com>
-Sent: Wednesday, September 08, 2010 11:55 PM
-Subject: Re: [PATCH] Gigabit Ethernet driver of Topcliff PCH
-
-
-> On Wed, 08 Sep 2010 16:16:11 +0200
-> Jiri Slaby <jslaby@suse.cz> wrote:
->
-> > >>> +
-> > >>> + rxdr->count = max(ring->rx_pending, (u32) PCH_GBE_MIN_RXD);
-> > >>> + rxdr->count = min(rxdr->count, (u32) PCH_GBE_MAX_RXD);
-> > >>
-> > >> clamp()
-> > >> And why you need the cast?
-> > >
-> > > [masa]
-> > > Since warning appears at the time of a make.
+> > > This seems a bit weird.  I mean, the driver used vdev->config->
+find_vqs
+> > > to find the queues, which returns them (in order).  So, can't you put
+> > this
+> > > into your struct send_queue?
 > >
-> > OK, then you have type error which you should fix instead. Perhaps
-> > define the constnts with U suffix?
+> > I am saving the vqs in the send_queue, but the cb needs
+> > to locate the device txq from the svq. The only other way
+> > I could think of is to iterate through the send_queue's
+> > and compare svq against sq[i]->svq, but cb's happen quite
+> > a bit. Is there a better way?
 >
-> Better yet:
-> rxdr->count = clamp_val(ring->rx_pending,
-> PCH_GBE_MIN_RXD,
-> PCH_GBE_MAX_RXD);
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> Ah, good point.  Move the queue index into the struct virtqueue?
 
+Is it OK to move the queue_index from virtio_pci_vq_info
+to virtqueue? I didn't want to change any data structures
+in virtio for this patch, but I can do it either way.
 
+> > > Also, why define VIRTIO_MAX_TXQS?  If the driver can't handle all of
+> > them,
+> > > it should simply not use them...
+> >
+> > The main reason was vhost :) Since vhost_net_release
+> > should not fail (__fput can't handle f_op->release()
+> > failure), I needed a maximum number of socks to
+> > clean up:
+>
+> Ah, then it belongs in the vhost headers.  The guest shouldn't see such
+> a restriction if it doesn't apply; it's a host thing.
+>
+> Oh, and I think you could profitably use virtio_config_val(), too.
+
+OK, I will make those changes. Thanks for the reference to
+virtio_config_val(), I will use it in guest probe instead of
+the cumbersome way I am doing now. Unfortunately I need a
+constant in vhost for now.
+
+Thanks,
+
+- KK
 
