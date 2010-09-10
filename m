@@ -1,63 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] vxge: potential NULL dereference
-Date: Fri, 10 Sep 2010 13:32:55 -0700 (PDT)
-Message-ID: <20100910.133255.137830993.davem@davemloft.net>
-References: <20100910115423.GC5959@bicker>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH net-2.6] bonding: correctly process LACPDUs in non-linear
+	skbs
+Date: Fri, 10 Sep 2010 16:38:45 -0400
+Message-ID: <20100910203845.GW7497@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ramkrishna.vepa@exar.com, sivakumar.subramani@exar.com,
-	sreenivasa.honnur@exar.com, jon.mason@exar.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: error27@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	stable@kernel.org
+To: netdev@vger.kernel.org, fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50656
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754699Ab0IJUch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 16:32:37 -0400
-In-Reply-To: <20100910115423.GC5959@bicker>
+Received: from mx1.redhat.com ([209.132.183.28]:42769 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751075Ab0IJUvd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Sep 2010 16:51:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Fri, 10 Sep 2010 13:54:23 +0200
 
-> At the start of the function we test whether the "vpath" is NULL but we
-> need another test here as well.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
-> ---
-> This is a static checker bug, I'm not sure if we ever pass a NULL
-> pointer for "vpath".
+It was recently brought to my attention that 802.3ad mode bonds would no
+longer form when using some network hardware after a driver update.
+After snooping around I realized that the particular hardware was using
+page-based skbs and found that skb->data did not contain a valid LACPDU
+as it wasn't stored there.  That explained the inability to form an
+802.3ad-based bond.
 
-I cannot see any case where this can happen.  There are two
-cases:
+This patch fixes the issue in my tests and should be applied to 2.6.36
+and as far back as anyone cares to add it to stable.
 
-1) __vxge_hw_vpath_alarm_process() is invoked via vxge_hw_device_begin_irq(),
-   which looks like:
+Thanks to Alexander Duyck <alexander.h.duyck@intel.com> and Jesse
+Brandeburg <jesse.brandeburg@intel.com> for the suggestions on this one.
 
-			ret = __vxge_hw_vpath_alarm_process(
-				&hldev->virtual_paths[i], skip_alarms);
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: stable@kernel.org
 
-   that vpath pointer first argument will never be NULL.
+---
+ drivers/net/bonding/bond_3ad.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-2) __vxge_hw_vpath_alarm_process() is invoked via vxge_hw_vpath_alarm_process()
-   which uses:
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 822f586..0ddf4c6 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2466,6 +2466,9 @@ int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct pac
+ 	if (!(dev->flags & IFF_MASTER))
+ 		goto out;
+ 
++	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
++		goto out;
++
+ 	read_lock(&bond->lock);
+ 	slave = bond_get_slave_by_dev((struct bonding *)netdev_priv(dev),
+ 					orig_dev);
+-- 
+1.7.0.1
 
-	status = __vxge_hw_vpath_alarm_process(vp->vpath, skip_alarms);
-
-   All vpath valid active vpath handles always have a non-NULL vp->vpath
-   virtual path back pointer, as setup by vxge_hw_vpath_open():
-
- ...
-	vp->vpath = vpath;
-...
-	*vpath_handle = vp;
-
-	attr->fifo_attr.userdata = vpath->fifoh;
-	attr->ring_attr.userdata = vpath->ringh;
-
-	return VXGE_HW_OK;
-
-So we can simply remove the first NULL check as this can never actually
-be NULL.
