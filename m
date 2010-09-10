@@ -1,54 +1,48 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 00/10] sfc changes for 2.6.37
-Date: Fri, 10 Sep 2010 17:40:17 +0100
-Message-ID: <1284136817.2267.93.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-next-2.6 01/10] sfc: Use MCDI RX_BAD_FCS_PKTS count as
+ MAC rx_bad count
+Date: Fri, 10 Sep 2010 17:41:00 +0100
+Message-ID: <1284136860.2267.95.camel@achroite.uk.solarflarecom.com>
+References: <1284136817.2267.93.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:25356 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:25459 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755575Ab0IJQkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 12:40:21 -0400
+	with ESMTP id S1755648Ab0IJQlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 12:41:04 -0400
+In-Reply-To: <1284136817.2267.93.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One new feature - variable ring sizes - and a few bug fixes.
+Calculating rx_bad as rx_packets - rx_good is unnecessary and
+incorrect, since rx_good does not include control frames (e.g.
+pause frames) and rx_packets does.
 
-Ben.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/siena.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Ben Hutchings (9):
-  sfc: Use MCDI RX_BAD_FCS_PKTS count as MAC rx_bad count
-  sfc: Accumulate RX_NODESC_DROP count in rx_dropped, not
-    rx_over_errors
-  sfc: Remove declarations of functions that no longer exist
-  sfc: Fix failure paths in efx_probe_port()
-  sfc: Allocate DMA and event rings using GFP_KERNEL
-  sfc: Abstract channel and index lookup for RX queues
-  sfc: Refactor channel and queue lookup and iteration
-  sfc: Allocate each channel separately, along with its RX and TX
-    queues
-  sfc: Allow changing the DMA ring sizes dynamically via ethtool
-
-Steve Hodgson (1):
-  sfc: Make the dmaq size a run-time setting (rather than compile-time)
-
- drivers/net/sfc/efx.c        |  302 +++++++++++++++++++++++++++++++-----------
- drivers/net/sfc/efx.h        |   22 ++-
- drivers/net/sfc/ethtool.c    |   53 +++++++-
- drivers/net/sfc/falcon.c     |   14 +--
- drivers/net/sfc/net_driver.h |  103 ++++++++++-----
- drivers/net/sfc/nic.c        |  182 ++++++++++++++-----------
- drivers/net/sfc/rx.c         |   71 ++++++-----
- drivers/net/sfc/selftest.c   |    7 +-
- drivers/net/sfc/siena.c      |    2 +-
- drivers/net/sfc/tx.c         |   78 ++++++-----
- 10 files changed, 543 insertions(+), 291 deletions(-)
-
+diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
+index 3fab030..9f53680 100644
+--- a/drivers/net/sfc/siena.c
++++ b/drivers/net/sfc/siena.c
+@@ -450,7 +450,7 @@ static int siena_try_update_nic_stats(struct efx_nic *efx)
+ 				    mac_stats->rx_bad_bytes);
+ 	MAC_STAT(rx_packets, RX_PKTS);
+ 	MAC_STAT(rx_good, RX_GOOD_PKTS);
+-	mac_stats->rx_bad = mac_stats->rx_packets - mac_stats->rx_good;
++	MAC_STAT(rx_bad, RX_BAD_FCS_PKTS);
+ 	MAC_STAT(rx_pause, RX_PAUSE_PKTS);
+ 	MAC_STAT(rx_control, RX_CONTROL_PKTS);
+ 	MAC_STAT(rx_unicast, RX_UNICAST_PKTS);
 -- 
 1.7.2.1
+
 
 
 -- 
