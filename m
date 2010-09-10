@@ -1,24 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL net-2.6] vhost-net: 2.6.36 regression fixes
-Date: Thu, 09 Sep 2010 22:00:03 -0700 (PDT)
-Message-ID: <20100909.220003.57449843.davem@davemloft.net>
-References: <20100906113606.GA16143@redhat.com>
+From: MK <stardust496@gmail.com>
+Subject: empty ack packets
+Date: Fri, 10 Sep 2010 01:12:44 -0400
+Message-ID: <AANLkTimkvDsqY==1JQRhH54+P7yAzFX4omYN0r9+_mi=@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100906113606.GA16143@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:56514 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750903Ab0IJFMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 01:12:45 -0400
+Received: by vws3 with SMTP id 3so2138668vws.19
+        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 22:12:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 6 Sep 2010 14:36:06 +0300
+Hello list,
 
-> The following tree includes more regression fixes for vhost-net
-> in 2.6.36.  It is on top of net-2.6.
-> Please merge it for 2.6.36.
+I am looking at a tcpdump and I see that very very frequently, after
+receiving a segment, my tcp is sending an empty ack back in a matter
+of several (around 20 - 50) microseconds. And then after several more
+microseconds, my tcp is sending some valid outgoing data. I am trying
+to understand why it decided to send an empty ack back when that ack
+could potentially have been delayed by microseconds and get
+piggybacked on the outgoing data.
 
-Pulled, thanks Michael.
+>From the code, it appears that the delayed ack timeout is 40 millisecs
+so it is likely not the delack timer that is causing this. (And I do
+not have the quickack option)
+
+This is RHEL5 (2.6.18) kernel.
+
+Does anybody have an idea as to what is happening?
+
+Thanks a lot!!
