@@ -1,34 +1,24 @@
-From: "Sam L. Carl" <mail@traffictractor.com>
-Subject: Don't Be a Victim of Scams!
-Date: Fri, 10 Sep 2010 00:55:59 +0100
-Message-ID: <0111bfe4$40431$45f40388827315@regina>
-Reply-To: "Sam L. Carl" <mail@traffictractor.com>
+From: "Marcia Regina Cortez" <marcia.regina@saude.mg.gov.br>
+Subject: Please Reply now
+Date: Thu, 9 Sep 2010 21:00:23 -0300
+Message-ID: <20100910000024.M81603__2371.30431128225$1284077308$gmane$org@saude.mg.gov.br>
+Reply-To: dralexkudi2@info.al
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset=iso-8859-1
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.ip09ir2.opaltelecom.net ([62.24.128.245]:63814 "EHLO
-	out1.ip09ir2.opaltelecom.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753551Ab0IIX4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 19:56:03 -0400
+Received: from hermes.saude.mg.gov.br ([200.198.43.4]:48850 "EHLO
+	hermes.saude.mg.gov.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753250Ab0IJAHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Sep 2010 20:07:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey,
+I have a business proposal for you,Should you be interested,please respond to 
+my letter immediately, so we can commence all arrangements and I will give 
+you !more information on the project.Send all Reply to (dralexkudi2@info.al)
 
-Just a quick email to tell you about the amount of scams online especially with the "make money online" niche. 
-
-How can you protect yourself? 
-
-Well, I have just released my brand new report on the top 10 make money online products available today. I and over 600 other people have tested and tested over 200 products and only 10 of them are really good.
-
-We have gotten impressive results with these top ten, even generating a massive $20,000 - $25,000 a month income.
-
-You can download my report for free. Yes it's 100% free, no hidden charges, no sales page just a simple download.
-
-So visit http://www.StopGuruScams.com and download my report today.
-
-All the best,
-Sam L. Carl
-
+Truly Yours,
+Dr Alexander Dankudi
+Email=  dralexkudi2@info.al
