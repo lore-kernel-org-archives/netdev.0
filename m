@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 09/10] sfc: Make the dmaq size a run-time
- setting (rather than compile-time)
-Date: Fri, 10 Sep 2010 17:42:22 +0100
-Message-ID: <1284136942.2267.104.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-next-2.6 10/10] sfc: Allow changing the DMA ring sizes
+ dynamically via ethtool
+Date: Fri, 10 Sep 2010 17:42:33 +0100
+Message-ID: <1284136953.2267.105.camel@achroite.uk.solarflarecom.com>
 References: <1284136817.2267.93.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,680 +10,495 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:25782 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:25815 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755901Ab0IJQm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 12:42:26 -0400
+	with ESMTP id S1755811Ab0IJQmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 12:42:37 -0400
 In-Reply-To: <1284136817.2267.93.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Hodgson <shodgson@solarflare.com>
+This requires some reorganisation of channel setup and teardown to
+ensure that we can always roll-back a failed change.
 
-- Allow the ring size to be specified in non
-   power-of-two sizes (for instance to limit
-   the amount of receive buffers).
- - Automatically size the event queue.
+Based on work by Steve Hodgson <shodgson@solarflare.com>
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c        |   15 ++++++++---
- drivers/net/sfc/efx.h        |   13 +++++----
- drivers/net/sfc/net_driver.h |   13 +++++++--
- drivers/net/sfc/nic.c        |   53 +++++++++++++++++++++------------------
- drivers/net/sfc/rx.c         |   33 +++++++++++++++---------
- drivers/net/sfc/selftest.c   |    2 +-
- drivers/net/sfc/tx.c         |   56 +++++++++++++++++++++++------------------
- 7 files changed, 109 insertions(+), 76 deletions(-)
+ drivers/net/sfc/efx.c        |  218 +++++++++++++++++++++++++++++++++---------
+ drivers/net/sfc/efx.h        |    7 ++
+ drivers/net/sfc/ethtool.c    |   38 +++++++
+ drivers/net/sfc/net_driver.h |    4 +-
+ drivers/net/sfc/nic.c        |    9 +-
+ 5 files changed, 224 insertions(+), 52 deletions(-)
 
 diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 4b42e61..6166e22 100644
+index 6166e22..f702f1f 100644
 --- a/drivers/net/sfc/efx.c
 +++ b/drivers/net/sfc/efx.c
-@@ -348,7 +348,7 @@ void efx_process_channel_now(struct efx_channel *channel)
- 	napi_disable(&channel->napi_str);
+@@ -201,10 +201,13 @@ MODULE_PARM_DESC(debug, "Bitmapped debugging message enable value");
+  * Utility functions and prototypes
+  *
+  *************************************************************************/
+-static void efx_remove_channel(struct efx_channel *channel);
++
++static void efx_remove_channels(struct efx_nic *efx);
+ static void efx_remove_port(struct efx_nic *efx);
+ static void efx_fini_napi(struct efx_nic *efx);
+-static void efx_fini_channels(struct efx_nic *efx);
++static void efx_fini_struct(struct efx_nic *efx);
++static void efx_start_all(struct efx_nic *efx);
++static void efx_stop_all(struct efx_nic *efx);
  
- 	/* Poll the channel */
--	efx_process_channel(channel, EFX_EVQ_SIZE);
-+	efx_process_channel(channel, channel->eventq_mask + 1);
+ #define EFX_ASSERT_RESET_SERIALISED(efx)		\
+ 	do {						\
+@@ -413,6 +416,63 @@ static void efx_remove_eventq(struct efx_channel *channel)
+  *
+  *************************************************************************/
  
- 	/* Ack the eventq. This may cause an interrupt to be generated
- 	 * when they are reenabled */
-@@ -365,9 +365,18 @@ void efx_process_channel_now(struct efx_channel *channel)
-  */
- static int efx_probe_eventq(struct efx_channel *channel)
++/* Allocate and initialise a channel structure, optionally copying
++ * parameters (but not resources) from an old channel structure. */
++static struct efx_channel *
++efx_alloc_channel(struct efx_nic *efx, int i, struct efx_channel *old_channel)
++{
++	struct efx_channel *channel;
++	struct efx_rx_queue *rx_queue;
++	struct efx_tx_queue *tx_queue;
++	int j;
++
++	if (old_channel) {
++		channel = kmalloc(sizeof(*channel), GFP_KERNEL);
++		if (!channel)
++			return NULL;
++
++		*channel = *old_channel;
++
++		memset(&channel->eventq, 0, sizeof(channel->eventq));
++
++		rx_queue = &channel->rx_queue;
++		rx_queue->buffer = NULL;
++		memset(&rx_queue->rxd, 0, sizeof(rx_queue->rxd));
++
++		for (j = 0; j < EFX_TXQ_TYPES; j++) {
++			tx_queue = &channel->tx_queue[j];
++			if (tx_queue->channel)
++				tx_queue->channel = channel;
++			tx_queue->buffer = NULL;
++			memset(&tx_queue->txd, 0, sizeof(tx_queue->txd));
++		}
++	} else {
++		channel = kzalloc(sizeof(*channel), GFP_KERNEL);
++		if (!channel)
++			return NULL;
++
++		channel->efx = efx;
++		channel->channel = i;
++
++		for (j = 0; j < EFX_TXQ_TYPES; j++) {
++			tx_queue = &channel->tx_queue[j];
++			tx_queue->efx = efx;
++			tx_queue->queue = i * EFX_TXQ_TYPES + j;
++			tx_queue->channel = channel;
++		}
++	}
++
++	spin_lock_init(&channel->tx_stop_lock);
++	atomic_set(&channel->tx_stop_count, 1);
++
++	rx_queue = &channel->rx_queue;
++	rx_queue->efx = efx;
++	setup_timer(&rx_queue->slow_fill, efx_rx_slow_fill,
++		    (unsigned long)rx_queue);
++
++	return channel;
++}
++
+ static int efx_probe_channel(struct efx_channel *channel)
  {
-+	struct efx_nic *efx = channel->efx;
-+	unsigned long entries;
-+
- 	netif_dbg(channel->efx, probe, channel->efx->net_dev,
- 		  "chan %d create event queue\n", channel->channel);
- 
-+	/* Build an event queue with room for one event per tx and rx buffer,
-+	 * plus some extra for link state events and MCDI completions. */
-+	entries = roundup_pow_of_two(efx->rxq_entries + efx->txq_entries + 128);
-+	EFX_BUG_ON_PARANOID(entries > EFX_MAX_EVQ_SIZE);
-+	channel->eventq_mask = max(entries, EFX_MIN_EVQ_SIZE) - 1;
-+
- 	return efx_nic_probe_eventq(channel);
+ 	struct efx_tx_queue *tx_queue;
+@@ -469,11 +529,38 @@ static void efx_set_channel_names(struct efx_nic *efx)
+ 				number -= efx->n_rx_channels;
+ 			}
+ 		}
+-		snprintf(channel->name, sizeof(channel->name),
++		snprintf(efx->channel_name[channel->channel],
++			 sizeof(efx->channel_name[0]),
+ 			 "%s%s-%d", efx->name, type, number);
+ 	}
  }
  
-@@ -1191,6 +1200,7 @@ static int efx_probe_all(struct efx_nic *efx)
++static int efx_probe_channels(struct efx_nic *efx)
++{
++	struct efx_channel *channel;
++	int rc;
++
++	/* Restart special buffer allocation */
++	efx->next_buffer_table = 0;
++
++	efx_for_each_channel(channel, efx) {
++		rc = efx_probe_channel(channel);
++		if (rc) {
++			netif_err(efx, probe, efx->net_dev,
++				  "failed to create channel %d\n",
++				  channel->channel);
++			goto fail;
++		}
++	}
++	efx_set_channel_names(efx);
++
++	return 0;
++
++fail:
++	efx_remove_channels(efx);
++	return rc;
++}
++
+ /* Channels are shutdown and reinitialised whilst the NIC is running
+  * to propagate configuration changes (mtu, checksum offload), or
+  * to clear hardware error conditions
+@@ -611,6 +698,75 @@ static void efx_remove_channel(struct efx_channel *channel)
+ 	efx_remove_eventq(channel);
+ }
+ 
++static void efx_remove_channels(struct efx_nic *efx)
++{
++	struct efx_channel *channel;
++
++	efx_for_each_channel(channel, efx)
++		efx_remove_channel(channel);
++}
++
++int
++efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries)
++{
++	struct efx_channel *other_channel[EFX_MAX_CHANNELS], *channel;
++	u32 old_rxq_entries, old_txq_entries;
++	unsigned i;
++	int rc;
++
++	efx_stop_all(efx);
++	efx_fini_channels(efx);
++
++	/* Clone channels */
++	memset(other_channel, 0, sizeof(other_channel));
++	for (i = 0; i < efx->n_channels; i++) {
++		channel = efx_alloc_channel(efx, i, efx->channel[i]);
++		if (!channel) {
++			rc = -ENOMEM;
++			goto out;
++		}
++		other_channel[i] = channel;
++	}
++
++	/* Swap entry counts and channel pointers */
++	old_rxq_entries = efx->rxq_entries;
++	old_txq_entries = efx->txq_entries;
++	efx->rxq_entries = rxq_entries;
++	efx->txq_entries = txq_entries;
++	for (i = 0; i < efx->n_channels; i++) {
++		channel = efx->channel[i];
++		efx->channel[i] = other_channel[i];
++		other_channel[i] = channel;
++	}
++
++	rc = efx_probe_channels(efx);
++	if (rc)
++		goto rollback;
++
++	/* Destroy old channels */
++	for (i = 0; i < efx->n_channels; i++)
++		efx_remove_channel(other_channel[i]);
++out:
++	/* Free unused channel structures */
++	for (i = 0; i < efx->n_channels; i++)
++		kfree(other_channel[i]);
++
++	efx_init_channels(efx);
++	efx_start_all(efx);
++	return rc;
++
++rollback:
++	/* Swap back */
++	efx->rxq_entries = old_rxq_entries;
++	efx->txq_entries = old_txq_entries;
++	for (i = 0; i < efx->n_channels; i++) {
++		channel = efx->channel[i];
++		efx->channel[i] = other_channel[i];
++		other_channel[i] = channel;
++	}
++	goto out;
++}
++
+ void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue)
+ {
+ 	mod_timer(&rx_queue->slow_fill, jiffies + msecs_to_jiffies(100));
+@@ -1182,41 +1338,28 @@ static void efx_remove_nic(struct efx_nic *efx)
+ 
+ static int efx_probe_all(struct efx_nic *efx)
+ {
+-	struct efx_channel *channel;
+ 	int rc;
+ 
+-	/* Create NIC */
+ 	rc = efx_probe_nic(efx);
+ 	if (rc) {
+ 		netif_err(efx, probe, efx->net_dev, "failed to create NIC\n");
+ 		goto fail1;
  	}
  
- 	/* Create channels */
-+	efx->rxq_entries = efx->txq_entries = EFX_DEFAULT_DMAQ_SIZE;
- 	efx_for_each_channel(channel, efx) {
- 		rc = efx_probe_channel(channel);
- 		if (rc) {
-@@ -2101,9 +2111,6 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+-	/* Create port */
+ 	rc = efx_probe_port(efx);
+ 	if (rc) {
+ 		netif_err(efx, probe, efx->net_dev, "failed to create port\n");
+ 		goto fail2;
+ 	}
+ 
+-	/* Create channels */
+ 	efx->rxq_entries = efx->txq_entries = EFX_DEFAULT_DMAQ_SIZE;
+-	efx_for_each_channel(channel, efx) {
+-		rc = efx_probe_channel(channel);
+-		if (rc) {
+-			netif_err(efx, probe, efx->net_dev,
+-				  "failed to create channel %d\n",
+-				  channel->channel);
+-			goto fail3;
+-		}
+-	}
+-	efx_set_channel_names(efx);
++	rc = efx_probe_channels(efx);
++	if (rc)
++		goto fail3;
+ 
+ 	return 0;
+ 
+  fail3:
+-	efx_for_each_channel(channel, efx)
+-		efx_remove_channel(channel);
+ 	efx_remove_port(efx);
+  fail2:
+ 	efx_remove_nic(efx);
+@@ -1346,10 +1489,7 @@ static void efx_stop_all(struct efx_nic *efx)
+ 
+ static void efx_remove_all(struct efx_nic *efx)
+ {
+-	struct efx_channel *channel;
+-
+-	efx_for_each_channel(channel, efx)
+-		efx_remove_channel(channel);
++	efx_remove_channels(efx);
+ 	efx_remove_port(efx);
+ 	efx_remove_nic(efx);
+ }
+@@ -2058,10 +2198,7 @@ static struct efx_phy_operations efx_dummy_phy_operations = {
+ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 			   struct pci_dev *pci_dev, struct net_device *net_dev)
+ {
+-	struct efx_channel *channel;
+-	struct efx_tx_queue *tx_queue;
+-	struct efx_rx_queue *rx_queue;
+-	int i, j;
++	int i;
+ 
+ 	/* Initialise common structures */
+ 	memset(efx, 0, sizeof(*efx));
+@@ -2089,24 +2226,9 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 	INIT_WORK(&efx->mac_work, efx_mac_work);
+ 
+ 	for (i = 0; i < EFX_MAX_CHANNELS; i++) {
+-		efx->channel[i] = kzalloc(sizeof(*channel), GFP_KERNEL);
+-		channel = efx->channel[i];
+-		channel->efx = efx;
+-		channel->channel = i;
+-		spin_lock_init(&channel->tx_stop_lock);
+-		atomic_set(&channel->tx_stop_count, 1);
+-
+-		for (j = 0; j < EFX_TXQ_TYPES; j++) {
+-			tx_queue = &channel->tx_queue[j];
+-			tx_queue->efx = efx;
+-			tx_queue->queue = i * EFX_TXQ_TYPES + j;
+-			tx_queue->channel = channel;
+-		}
+-
+-		rx_queue = &channel->rx_queue;
+-		rx_queue->efx = efx;
+-		setup_timer(&rx_queue->slow_fill, efx_rx_slow_fill,
+-			    (unsigned long)rx_queue);
++		efx->channel[i] = efx_alloc_channel(efx, i, NULL);
++		if (!efx->channel[i])
++			goto fail;
+ 	}
  
  	efx->type = type;
+@@ -2122,9 +2244,13 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 		 pci_name(pci_dev));
+ 	efx->workqueue = create_singlethread_workqueue(efx->workqueue_name);
+ 	if (!efx->workqueue)
+-		return -ENOMEM;
++		goto fail;
  
--	/* As close as we can get to guaranteeing that we don't overflow */
--	BUILD_BUG_ON(EFX_EVQ_SIZE < EFX_TXQ_SIZE + EFX_RXQ_SIZE);
--
- 	EFX_BUG_ON_PARANOID(efx->type->phys_addr_channels > EFX_MAX_CHANNELS);
+ 	return 0;
++
++fail:
++	efx_fini_struct(efx);
++	return -ENOMEM;
+ }
  
- 	/* Higher numbered interrupt modes are less capable! */
+ static void efx_fini_struct(struct efx_nic *efx)
 diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
-index d6b172b..c15a2d3 100644
+index c15a2d3..e783c0f 100644
 --- a/drivers/net/sfc/efx.h
 +++ b/drivers/net/sfc/efx.h
-@@ -37,8 +37,6 @@ efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb);
- extern void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
- extern void efx_stop_queue(struct efx_channel *channel);
- extern void efx_wake_queue(struct efx_channel *channel);
--#define EFX_TXQ_SIZE 1024
--#define EFX_TXQ_MASK (EFX_TXQ_SIZE - 1)
+@@ -59,8 +59,15 @@ extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
+ #define EFX_MAX_EVQ_SIZE 16384UL
+ #define EFX_MIN_EVQ_SIZE 512UL
  
- /* RX */
- extern int efx_probe_rx_queue(struct efx_rx_queue *rx_queue);
-@@ -53,13 +51,16 @@ extern void __efx_rx_packet(struct efx_channel *channel,
- extern void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 			  unsigned int len, bool checksummed, bool discard);
- extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
--#define EFX_RXQ_SIZE 1024
--#define EFX_RXQ_MASK (EFX_RXQ_SIZE - 1)
++/* The smallest [rt]xq_entries that the driver supports. Callers of
++ * efx_wake_queue() assume that they can subsequently send at least one
++ * skb. Falcon/A1 may require up to three descriptors per skb_frag. */
++#define EFX_MIN_RING_SIZE (roundup_pow_of_two(2 * 3 * MAX_SKB_FRAGS))
 +
-+#define EFX_MAX_DMAQ_SIZE 4096UL
-+#define EFX_DEFAULT_DMAQ_SIZE 1024UL
-+#define EFX_MIN_DMAQ_SIZE 512UL
-+
-+#define EFX_MAX_EVQ_SIZE 16384UL
-+#define EFX_MIN_EVQ_SIZE 512UL
- 
  /* Channels */
  extern void efx_process_channel_now(struct efx_channel *channel);
--#define EFX_EVQ_SIZE 4096
--#define EFX_EVQ_MASK (EFX_EVQ_SIZE - 1)
++extern int
++efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries);
  
  /* Ports */
  extern int efx_reconfigure_port(struct efx_nic *efx);
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index b9291db..7f735d8 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -742,6 +742,42 @@ static int efx_ethtool_set_coalesce(struct net_device *net_dev,
+ 	return 0;
+ }
+ 
++static void efx_ethtool_get_ringparam(struct net_device *net_dev,
++				      struct ethtool_ringparam *ring)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++
++	ring->rx_max_pending = EFX_MAX_DMAQ_SIZE;
++	ring->tx_max_pending = EFX_MAX_DMAQ_SIZE;
++	ring->rx_mini_max_pending = 0;
++	ring->rx_jumbo_max_pending = 0;
++	ring->rx_pending = efx->rxq_entries;
++	ring->tx_pending = efx->txq_entries;
++	ring->rx_mini_pending = 0;
++	ring->rx_jumbo_pending = 0;
++}
++
++static int efx_ethtool_set_ringparam(struct net_device *net_dev,
++				     struct ethtool_ringparam *ring)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++
++	if (ring->rx_mini_pending || ring->rx_jumbo_pending ||
++	    ring->rx_pending > EFX_MAX_DMAQ_SIZE ||
++	    ring->tx_pending > EFX_MAX_DMAQ_SIZE)
++		return -EINVAL;
++
++	if (ring->rx_pending < EFX_MIN_RING_SIZE ||
++	    ring->tx_pending < EFX_MIN_RING_SIZE) {
++		netif_err(efx, drv, efx->net_dev,
++			  "TX and RX queues cannot be smaller than %ld\n",
++			  EFX_MIN_RING_SIZE);
++		return -EINVAL;
++	}
++
++	return efx_realloc_channels(efx, ring->rx_pending, ring->tx_pending);
++}
++
+ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
+ 				      struct ethtool_pauseparam *pause)
+ {
+@@ -972,6 +1008,8 @@ const struct ethtool_ops efx_ethtool_ops = {
+ 	.set_eeprom		= efx_ethtool_set_eeprom,
+ 	.get_coalesce		= efx_ethtool_get_coalesce,
+ 	.set_coalesce		= efx_ethtool_set_coalesce,
++	.get_ringparam		= efx_ethtool_get_ringparam,
++	.set_ringparam		= efx_ethtool_set_ringparam,
+ 	.get_pauseparam         = efx_ethtool_get_pauseparam,
+ 	.set_pauseparam         = efx_ethtool_set_pauseparam,
+ 	.get_rx_csum		= efx_ethtool_get_rx_csum,
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index cfc65f5..ac622ab 100644
+index ac622ab..4b3f680 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -137,6 +137,7 @@ struct efx_tx_buffer {
-  * @channel: The associated channel
-  * @buffer: The software buffer ring
-  * @txd: The hardware descriptor ring
-+ * @ptr_mask: The size of the ring minus 1.
-  * @flushed: Used when handling queue flushing
-  * @read_count: Current read pointer.
-  *	This is the number of buffers that have been removed from both rings.
-@@ -170,6 +171,7 @@ struct efx_tx_queue {
- 	struct efx_nic *nic;
- 	struct efx_tx_buffer *buffer;
- 	struct efx_special_buffer txd;
-+	unsigned int ptr_mask;
- 	enum efx_flush_state flushed;
- 
- 	/* Members used mainly on the completion path */
-@@ -227,6 +229,7 @@ struct efx_rx_page_state {
-  * @efx: The associated Efx NIC
-  * @buffer: The software buffer ring
-  * @rxd: The hardware descriptor ring
-+ * @ptr_mask: The size of the ring minus 1.
-  * @added_count: Number of buffers added to the receive queue.
-  * @notified_count: Number of buffers given to NIC (<= @added_count).
-  * @removed_count: Number of buffers removed from the receive queue.
-@@ -238,9 +241,6 @@ struct efx_rx_page_state {
-  * @min_fill: RX descriptor minimum non-zero fill level.
-  *	This records the minimum fill level observed when a ring
-  *	refill was triggered.
-- * @min_overfill: RX descriptor minimum overflow fill level.
-- *	This records the minimum fill level at which RX queue
-- *	overflow was observed.  It should never be set.
-  * @alloc_page_count: RX allocation strategy counter.
-  * @alloc_skb_count: RX allocation strategy counter.
-  * @slow_fill: Timer used to defer efx_nic_generate_fill_event().
-@@ -250,6 +250,7 @@ struct efx_rx_queue {
+@@ -299,7 +299,6 @@ enum efx_rx_alloc_method {
+  *
+  * @efx: Associated Efx NIC
+  * @channel: Channel instance number
+- * @name: Name for channel and IRQ
+  * @enabled: Channel enabled indicator
+  * @irq: IRQ number (MSI and MSI-X only)
+  * @irq_moderation: IRQ moderation value (in hardware ticks)
+@@ -333,7 +332,6 @@ enum efx_rx_alloc_method {
+ struct efx_channel {
  	struct efx_nic *efx;
- 	struct efx_rx_buffer *buffer;
- 	struct efx_special_buffer rxd;
-+	unsigned int ptr_mask;
- 
- 	int added_count;
- 	int notified_count;
-@@ -307,6 +308,7 @@ enum efx_rx_alloc_method {
-  * @reset_work: Scheduled reset work thread
-  * @work_pending: Is work pending via NAPI?
-  * @eventq: Event queue buffer
-+ * @eventq_mask: Event queue pointer mask
-  * @eventq_read_ptr: Event queue read pointer
-  * @last_eventq_read_ptr: Last event queue read pointer value.
-  * @magic_count: Event queue test event count
-@@ -339,6 +341,7 @@ struct efx_channel {
- 	struct napi_struct napi_str;
- 	bool work_pending;
- 	struct efx_special_buffer eventq;
-+	unsigned int eventq_mask;
- 	unsigned int eventq_read_ptr;
- 	unsigned int last_eventq_read_ptr;
- 	unsigned int magic_count;
-@@ -641,6 +644,8 @@ union efx_multicast_hash {
+ 	int channel;
+-	char name[IFNAMSIZ + 6];
+ 	bool enabled;
+ 	int irq;
+ 	unsigned int irq_moderation;
+@@ -644,6 +642,7 @@ union efx_multicast_hash {
   * @tx_queue: TX DMA queues
   * @rx_queue: RX DMA queues
   * @channel: Channels
-+ * @rxq_entries: Size of receive queues requested by user.
-+ * @txq_entries: Size of transmit queues requested by user.
++ * @channel_name: Names for channels and their IRQs
+  * @rxq_entries: Size of receive queues requested by user.
+  * @txq_entries: Size of transmit queues requested by user.
   * @next_buffer_table: First available buffer table id
-  * @n_channels: Number of channels in use
-  * @n_rx_channels: Number of channels used for RX (= number of RX queues)
-@@ -726,6 +731,8 @@ struct efx_nic {
+@@ -730,6 +729,7 @@ struct efx_nic {
+ 	enum reset_type reset_pending;
  
  	struct efx_channel *channel[EFX_MAX_CHANNELS];
++	char channel_name[IFNAMSIZ + 6][EFX_MAX_CHANNELS];
  
-+	unsigned rxq_entries;
-+	unsigned txq_entries;
- 	unsigned next_buffer_table;
- 	unsigned n_channels;
- 	unsigned n_rx_channels;
+ 	unsigned rxq_entries;
+ 	unsigned txq_entries;
 diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
-index 9e35633..0deb5c3 100644
+index 0deb5c3..6c5c0ce 100644
 --- a/drivers/net/sfc/nic.c
 +++ b/drivers/net/sfc/nic.c
-@@ -356,7 +356,7 @@ static inline void efx_notify_tx_desc(struct efx_tx_queue *tx_queue)
- 	unsigned write_ptr;
- 	efx_dword_t reg;
- 
--	write_ptr = tx_queue->write_count & EFX_TXQ_MASK;
-+	write_ptr = tx_queue->write_count & tx_queue->ptr_mask;
- 	EFX_POPULATE_DWORD_1(reg, FRF_AZ_TX_DESC_WPTR_DWORD, write_ptr);
- 	efx_writed_page(tx_queue->efx, &reg,
- 			FR_AZ_TX_DESC_UPD_DWORD_P0, tx_queue->queue);
-@@ -377,7 +377,7 @@ void efx_nic_push_buffers(struct efx_tx_queue *tx_queue)
- 	BUG_ON(tx_queue->write_count == tx_queue->insert_count);
- 
- 	do {
--		write_ptr = tx_queue->write_count & EFX_TXQ_MASK;
-+		write_ptr = tx_queue->write_count & tx_queue->ptr_mask;
- 		buffer = &tx_queue->buffer[write_ptr];
- 		txd = efx_tx_desc(tx_queue, write_ptr);
- 		++tx_queue->write_count;
-@@ -398,10 +398,11 @@ void efx_nic_push_buffers(struct efx_tx_queue *tx_queue)
- int efx_nic_probe_tx(struct efx_tx_queue *tx_queue)
- {
- 	struct efx_nic *efx = tx_queue->efx;
--	BUILD_BUG_ON(EFX_TXQ_SIZE < 512 || EFX_TXQ_SIZE > 4096 ||
--		     EFX_TXQ_SIZE & EFX_TXQ_MASK);
-+	unsigned entries;
-+
-+	entries = tx_queue->ptr_mask + 1;
- 	return efx_alloc_special_buffer(efx, &tx_queue->txd,
--					EFX_TXQ_SIZE * sizeof(efx_qword_t));
-+					entries * sizeof(efx_qword_t));
- }
- 
- void efx_nic_init_tx(struct efx_tx_queue *tx_queue)
-@@ -526,30 +527,32 @@ efx_build_rx_desc(struct efx_rx_queue *rx_queue, unsigned index)
+@@ -1478,7 +1478,7 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
   */
- void efx_nic_notify_rx_desc(struct efx_rx_queue *rx_queue)
+ static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
  {
-+	struct efx_nic *efx = rx_queue->efx;
- 	efx_dword_t reg;
- 	unsigned write_ptr;
- 
- 	while (rx_queue->notified_count != rx_queue->added_count) {
--		efx_build_rx_desc(rx_queue,
--				  rx_queue->notified_count &
--				  EFX_RXQ_MASK);
-+		efx_build_rx_desc(
-+			rx_queue,
-+			rx_queue->notified_count & rx_queue->ptr_mask);
- 		++rx_queue->notified_count;
- 	}
- 
- 	wmb();
--	write_ptr = rx_queue->added_count & EFX_RXQ_MASK;
-+	write_ptr = rx_queue->added_count & rx_queue->ptr_mask;
- 	EFX_POPULATE_DWORD_1(reg, FRF_AZ_RX_DESC_WPTR_DWORD, write_ptr);
--	efx_writed_page(rx_queue->efx, &reg, FR_AZ_RX_DESC_UPD_DWORD_P0,
-+	efx_writed_page(efx, &reg, FR_AZ_RX_DESC_UPD_DWORD_P0,
- 			efx_rx_queue_index(rx_queue));
- }
- 
- int efx_nic_probe_rx(struct efx_rx_queue *rx_queue)
- {
- 	struct efx_nic *efx = rx_queue->efx;
--	BUILD_BUG_ON(EFX_RXQ_SIZE < 512 || EFX_RXQ_SIZE > 4096 ||
--		     EFX_RXQ_SIZE & EFX_RXQ_MASK);
-+	unsigned entries;
-+
-+	entries = rx_queue->ptr_mask + 1;
- 	return efx_alloc_special_buffer(efx, &rx_queue->rxd,
--					EFX_RXQ_SIZE * sizeof(efx_qword_t));
-+					entries * sizeof(efx_qword_t));
- }
- 
- void efx_nic_init_rx(struct efx_rx_queue *rx_queue)
-@@ -685,7 +688,7 @@ efx_handle_tx_event(struct efx_channel *channel, efx_qword_t *event)
- 		tx_queue = efx_channel_get_tx_queue(
- 			channel, tx_ev_q_label % EFX_TXQ_TYPES);
- 		tx_packets = ((tx_ev_desc_ptr - tx_queue->read_count) &
--			      EFX_TXQ_MASK);
-+			      tx_queue->ptr_mask);
- 		channel->irq_mod_score += tx_packets;
- 		efx_xmit_done(tx_queue, tx_ev_desc_ptr);
- 	} else if (EFX_QWORD_FIELD(*event, FSF_AZ_TX_EV_WQ_FF_FULL)) {
-@@ -796,8 +799,8 @@ efx_handle_rx_bad_index(struct efx_rx_queue *rx_queue, unsigned index)
- 	struct efx_nic *efx = rx_queue->efx;
- 	unsigned expected, dropped;
- 
--	expected = rx_queue->removed_count & EFX_RXQ_MASK;
--	dropped = (index - expected) & EFX_RXQ_MASK;
-+	expected = rx_queue->removed_count & rx_queue->ptr_mask;
-+	dropped = (index - expected) & rx_queue->ptr_mask;
- 	netif_info(efx, rx_err, efx->net_dev,
- 		   "dropped %d events (index=%d expected=%d)\n",
- 		   dropped, index, expected);
-@@ -835,7 +838,7 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
- 	rx_queue = efx_channel_get_rx_queue(channel);
- 
- 	rx_ev_desc_ptr = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_DESC_PTR);
--	expected_ptr = rx_queue->removed_count & EFX_RXQ_MASK;
-+	expected_ptr = rx_queue->removed_count & rx_queue->ptr_mask;
- 	if (unlikely(rx_ev_desc_ptr != expected_ptr))
- 		efx_handle_rx_bad_index(rx_queue, rx_ev_desc_ptr);
- 
-@@ -1002,6 +1005,7 @@ efx_handle_driver_event(struct efx_channel *channel, efx_qword_t *event)
- 
- int efx_nic_process_eventq(struct efx_channel *channel, int budget)
- {
-+	struct efx_nic *efx = channel->efx;
- 	unsigned int read_ptr;
- 	efx_qword_t event, *p_event;
- 	int ev_code;
-@@ -1026,7 +1030,7 @@ int efx_nic_process_eventq(struct efx_channel *channel, int budget)
- 		EFX_SET_QWORD(*p_event);
- 
- 		/* Increment read pointer */
--		read_ptr = (read_ptr + 1) & EFX_EVQ_MASK;
-+		read_ptr = (read_ptr + 1) & channel->eventq_mask;
- 
- 		ev_code = EFX_QWORD_FIELD(event, FSF_AZ_EV_CODE);
- 
-@@ -1038,7 +1042,7 @@ int efx_nic_process_eventq(struct efx_channel *channel, int budget)
- 			break;
- 		case FSE_AZ_EV_CODE_TX_EV:
- 			tx_packets += efx_handle_tx_event(channel, &event);
--			if (tx_packets >= EFX_TXQ_SIZE) {
-+			if (tx_packets > efx->txq_entries) {
- 				spent = budget;
- 				goto out;
- 			}
-@@ -1073,10 +1077,11 @@ out:
- int efx_nic_probe_eventq(struct efx_channel *channel)
- {
+-	struct efx_channel *channel = dev_id;
++	struct efx_channel *channel = *(struct efx_channel **)dev_id;
  	struct efx_nic *efx = channel->efx;
--	BUILD_BUG_ON(EFX_EVQ_SIZE < 512 || EFX_EVQ_SIZE > 32768 ||
--		     EFX_EVQ_SIZE & EFX_EVQ_MASK);
-+	unsigned entries;
-+
-+	entries = channel->eventq_mask + 1;
- 	return efx_alloc_special_buffer(efx, &channel->eventq,
--					EFX_EVQ_SIZE * sizeof(efx_qword_t));
-+					entries * sizeof(efx_qword_t));
+ 	efx_oword_t *int_ker = efx->irq_status.addr;
+ 	int syserr;
+@@ -1553,7 +1553,8 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
+ 	efx_for_each_channel(channel, efx) {
+ 		rc = request_irq(channel->irq, efx_msi_interrupt,
+ 				 IRQF_PROBE_SHARED, /* Not shared */
+-				 channel->name, channel);
++				 efx->channel_name[channel->channel],
++				 &efx->channel[channel->channel]);
+ 		if (rc) {
+ 			netif_err(efx, drv, efx->net_dev,
+ 				  "failed to hook IRQ %d\n", channel->irq);
+@@ -1565,7 +1566,7 @@ int efx_nic_init_interrupt(struct efx_nic *efx)
+ 
+  fail2:
+ 	efx_for_each_channel(channel, efx)
+-		free_irq(channel->irq, channel);
++		free_irq(channel->irq, &efx->channel[channel->channel]);
+  fail1:
+ 	return rc;
  }
- 
- void efx_nic_init_eventq(struct efx_channel *channel)
-@@ -1172,7 +1177,7 @@ static void efx_poll_flush_events(struct efx_nic *efx)
- 	struct efx_tx_queue *tx_queue;
- 	struct efx_rx_queue *rx_queue;
- 	unsigned int read_ptr = channel->eventq_read_ptr;
--	unsigned int end_ptr = (read_ptr - 1) & EFX_EVQ_MASK;
-+	unsigned int end_ptr = (read_ptr - 1) & channel->eventq_mask;
- 
- 	do {
- 		efx_qword_t *event = efx_event(channel, read_ptr);
-@@ -1212,7 +1217,7 @@ static void efx_poll_flush_events(struct efx_nic *efx)
- 		 * it's ok to throw away every non-flush event */
- 		EFX_SET_QWORD(*event);
- 
--		read_ptr = (read_ptr + 1) & EFX_EVQ_MASK;
-+		read_ptr = (read_ptr + 1) & channel->eventq_mask;
- 	} while (read_ptr != end_ptr);
- 
- 	channel->eventq_read_ptr = read_ptr;
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index 6651d93..6d0959b 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -133,7 +133,7 @@ static int efx_init_rx_buffers_skb(struct efx_rx_queue *rx_queue)
- 	unsigned index, count;
- 
- 	for (count = 0; count < EFX_RX_BATCH; ++count) {
--		index = rx_queue->added_count & EFX_RXQ_MASK;
-+		index = rx_queue->added_count & rx_queue->ptr_mask;
- 		rx_buf = efx_rx_buffer(rx_queue, index);
- 
- 		rx_buf->skb = netdev_alloc_skb(net_dev, skb_len);
-@@ -208,7 +208,7 @@ static int efx_init_rx_buffers_page(struct efx_rx_queue *rx_queue)
- 		dma_addr += sizeof(struct efx_rx_page_state);
- 
- 	split:
--		index = rx_queue->added_count & EFX_RXQ_MASK;
-+		index = rx_queue->added_count & rx_queue->ptr_mask;
- 		rx_buf = efx_rx_buffer(rx_queue, index);
- 		rx_buf->dma_addr = dma_addr + EFX_PAGE_IP_ALIGN;
- 		rx_buf->skb = NULL;
-@@ -285,7 +285,7 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
- 	 * we'd like to insert an additional descriptor whilst leaving
- 	 * EFX_RXD_HEAD_ROOM for the non-recycle path */
- 	fill_level = (rx_queue->added_count - rx_queue->removed_count + 2);
--	if (unlikely(fill_level >= EFX_RXQ_SIZE - EFX_RXD_HEAD_ROOM)) {
-+	if (unlikely(fill_level > rx_queue->max_fill)) {
- 		/* We could place "state" on a list, and drain the list in
- 		 * efx_fast_push_rx_descriptors(). For now, this will do. */
- 		return;
-@@ -294,7 +294,7 @@ static void efx_resurrect_rx_buffer(struct efx_rx_queue *rx_queue,
- 	++state->refcnt;
- 	get_page(rx_buf->page);
- 
--	index = rx_queue->added_count & EFX_RXQ_MASK;
-+	index = rx_queue->added_count & rx_queue->ptr_mask;
- 	new_buf = efx_rx_buffer(rx_queue, index);
- 	new_buf->dma_addr = rx_buf->dma_addr ^ (PAGE_SIZE >> 1);
- 	new_buf->skb = NULL;
-@@ -319,7 +319,7 @@ static void efx_recycle_rx_buffer(struct efx_channel *channel,
- 	    page_count(rx_buf->page) == 1)
- 		efx_resurrect_rx_buffer(rx_queue, rx_buf);
- 
--	index = rx_queue->added_count & EFX_RXQ_MASK;
-+	index = rx_queue->added_count & rx_queue->ptr_mask;
- 	new_buf = efx_rx_buffer(rx_queue, index);
- 
- 	memcpy(new_buf, rx_buf, sizeof(*new_buf));
-@@ -347,7 +347,7 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- 
- 	/* Calculate current fill level, and exit if we don't need to fill */
- 	fill_level = (rx_queue->added_count - rx_queue->removed_count);
--	EFX_BUG_ON_PARANOID(fill_level > EFX_RXQ_SIZE);
-+	EFX_BUG_ON_PARANOID(fill_level > rx_queue->efx->rxq_entries);
- 	if (fill_level >= rx_queue->fast_fill_trigger)
- 		goto out;
- 
-@@ -650,15 +650,22 @@ void efx_rx_strategy(struct efx_channel *channel)
- int efx_probe_rx_queue(struct efx_rx_queue *rx_queue)
- {
- 	struct efx_nic *efx = rx_queue->efx;
--	unsigned int rxq_size;
-+	unsigned int entries;
- 	int rc;
- 
-+	/* Create the smallest power-of-two aligned ring */
-+	entries = max(roundup_pow_of_two(efx->rxq_entries), EFX_MIN_DMAQ_SIZE);
-+	EFX_BUG_ON_PARANOID(entries > EFX_MAX_DMAQ_SIZE);
-+	rx_queue->ptr_mask = entries - 1;
-+
- 	netif_dbg(efx, probe, efx->net_dev,
--		  "creating RX queue %d\n", efx_rx_queue_index(rx_queue));
-+		  "creating RX queue %d size %#x mask %#x\n",
-+		  efx_rx_queue_index(rx_queue), efx->rxq_entries,
-+		  rx_queue->ptr_mask);
- 
- 	/* Allocate RX buffers */
--	rxq_size = EFX_RXQ_SIZE * sizeof(*rx_queue->buffer);
--	rx_queue->buffer = kzalloc(rxq_size, GFP_KERNEL);
-+	rx_queue->buffer = kzalloc(entries * sizeof(*rx_queue->buffer),
-+				   GFP_KERNEL);
- 	if (!rx_queue->buffer)
- 		return -ENOMEM;
- 
-@@ -672,6 +679,7 @@ int efx_probe_rx_queue(struct efx_rx_queue *rx_queue)
- 
- void efx_init_rx_queue(struct efx_rx_queue *rx_queue)
- {
-+	struct efx_nic *efx = rx_queue->efx;
- 	unsigned int max_fill, trigger, limit;
- 
- 	netif_dbg(rx_queue->efx, drv, rx_queue->efx->net_dev,
-@@ -682,10 +690,9 @@ void efx_init_rx_queue(struct efx_rx_queue *rx_queue)
- 	rx_queue->notified_count = 0;
- 	rx_queue->removed_count = 0;
- 	rx_queue->min_fill = -1U;
--	rx_queue->min_overfill = -1U;
- 
- 	/* Initialise limit fields */
--	max_fill = EFX_RXQ_SIZE - EFX_RXD_HEAD_ROOM;
-+	max_fill = efx->rxq_entries - EFX_RXD_HEAD_ROOM;
- 	trigger = max_fill * min(rx_refill_threshold, 100U) / 100U;
- 	limit = max_fill * min(rx_refill_limit, 100U) / 100U;
- 
-@@ -710,7 +717,7 @@ void efx_fini_rx_queue(struct efx_rx_queue *rx_queue)
- 
- 	/* Release RX buffers NB start at index 0 not current HW ptr */
- 	if (rx_queue->buffer) {
--		for (i = 0; i <= EFX_RXQ_MASK; i++) {
-+		for (i = 0; i <= rx_queue->ptr_mask; i++) {
- 			rx_buf = efx_rx_buffer(rx_queue, i);
- 			efx_fini_rx_buffer(rx_queue, rx_buf);
- 		}
-diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
-index 11153d9..da4473b 100644
---- a/drivers/net/sfc/selftest.c
-+++ b/drivers/net/sfc/selftest.c
-@@ -506,7 +506,7 @@ efx_test_loopback(struct efx_tx_queue *tx_queue,
- 
- 	for (i = 0; i < 3; i++) {
- 		/* Determine how many packets to send */
--		state->packet_count = EFX_TXQ_SIZE / 3;
-+		state->packet_count = efx->txq_entries / 3;
- 		state->packet_count = min(1 << (i << 2), state->packet_count);
- 		state->skbs = kzalloc(sizeof(state->skbs[0]) *
- 				      state->packet_count, GFP_KERNEL);
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index 6a6acc4..1172698 100644
---- a/drivers/net/sfc/tx.c
-+++ b/drivers/net/sfc/tx.c
-@@ -28,7 +28,7 @@
-  * The tx_queue descriptor ring fill-level must fall below this value
-  * before we restart the netif queue
-  */
--#define EFX_TXQ_THRESHOLD (EFX_TXQ_MASK / 2u)
-+#define EFX_TXQ_THRESHOLD(_efx) ((_efx)->txq_entries / 2u)
- 
- /* We need to be able to nest calls to netif_tx_stop_queue(), partly
-  * because of the 2 hardware queues associated with each core queue,
-@@ -207,7 +207,7 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+@@ -1578,7 +1579,7 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
+ 	/* Disable MSI/MSI-X interrupts */
+ 	efx_for_each_channel(channel, efx) {
+ 		if (channel->irq)
+-			free_irq(channel->irq, channel);
++			free_irq(channel->irq, &efx->channel[channel->channel]);
  	}
  
- 	fill_level = tx_queue->insert_count - tx_queue->old_read_count;
--	q_space = EFX_TXQ_MASK - 1 - fill_level;
-+	q_space = efx->txq_entries - 1 - fill_level;
- 
- 	/* Map for DMA.  Use pci_map_single rather than pci_map_page
- 	 * since this is more efficient on machines with sparse
-@@ -244,14 +244,14 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
- 					&tx_queue->read_count;
- 				fill_level = (tx_queue->insert_count
- 					      - tx_queue->old_read_count);
--				q_space = EFX_TXQ_MASK - 1 - fill_level;
-+				q_space = efx->txq_entries - 1 - fill_level;
- 				if (unlikely(q_space-- <= 0))
- 					goto stop;
- 				smp_mb();
- 				--tx_queue->stopped;
- 			}
- 
--			insert_ptr = tx_queue->insert_count & EFX_TXQ_MASK;
-+			insert_ptr = tx_queue->insert_count & tx_queue->ptr_mask;
- 			buffer = &tx_queue->buffer[insert_ptr];
- 			efx_tsoh_free(tx_queue, buffer);
- 			EFX_BUG_ON_PARANOID(buffer->tsoh);
-@@ -320,7 +320,7 @@ netdev_tx_t efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
- 	/* Work backwards until we hit the original insert pointer value */
- 	while (tx_queue->insert_count != tx_queue->write_count) {
- 		--tx_queue->insert_count;
--		insert_ptr = tx_queue->insert_count & EFX_TXQ_MASK;
-+		insert_ptr = tx_queue->insert_count & tx_queue->ptr_mask;
- 		buffer = &tx_queue->buffer[insert_ptr];
- 		efx_dequeue_buffer(tx_queue, buffer);
- 		buffer->len = 0;
-@@ -350,8 +350,8 @@ static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
- 	struct efx_nic *efx = tx_queue->efx;
- 	unsigned int stop_index, read_ptr;
- 
--	stop_index = (index + 1) & EFX_TXQ_MASK;
--	read_ptr = tx_queue->read_count & EFX_TXQ_MASK;
-+	stop_index = (index + 1) & tx_queue->ptr_mask;
-+	read_ptr = tx_queue->read_count & tx_queue->ptr_mask;
- 
- 	while (read_ptr != stop_index) {
- 		struct efx_tx_buffer *buffer = &tx_queue->buffer[read_ptr];
-@@ -368,7 +368,7 @@ static void efx_dequeue_buffers(struct efx_tx_queue *tx_queue,
- 		buffer->len = 0;
- 
- 		++tx_queue->read_count;
--		read_ptr = tx_queue->read_count & EFX_TXQ_MASK;
-+		read_ptr = tx_queue->read_count & tx_queue->ptr_mask;
- 	}
- }
- 
-@@ -402,7 +402,7 @@ void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index)
- 	unsigned fill_level;
- 	struct efx_nic *efx = tx_queue->efx;
- 
--	EFX_BUG_ON_PARANOID(index > EFX_TXQ_MASK);
-+	EFX_BUG_ON_PARANOID(index > tx_queue->ptr_mask);
- 
- 	efx_dequeue_buffers(tx_queue, index);
- 
-@@ -412,7 +412,7 @@ void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index)
- 	smp_mb();
- 	if (unlikely(tx_queue->stopped) && likely(efx->port_enabled)) {
- 		fill_level = tx_queue->insert_count - tx_queue->read_count;
--		if (fill_level < EFX_TXQ_THRESHOLD) {
-+		if (fill_level < EFX_TXQ_THRESHOLD(efx)) {
- 			EFX_BUG_ON_PARANOID(!efx_dev_registered(efx));
- 
- 			/* Do this under netif_tx_lock(), to avoid racing
-@@ -430,18 +430,24 @@ void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index)
- int efx_probe_tx_queue(struct efx_tx_queue *tx_queue)
- {
- 	struct efx_nic *efx = tx_queue->efx;
--	unsigned int txq_size;
-+	unsigned int entries;
- 	int i, rc;
- 
--	netif_dbg(efx, probe, efx->net_dev, "creating TX queue %d\n",
--		  tx_queue->queue);
-+	/* Create the smallest power-of-two aligned ring */
-+	entries = max(roundup_pow_of_two(efx->txq_entries), EFX_MIN_DMAQ_SIZE);
-+	EFX_BUG_ON_PARANOID(entries > EFX_MAX_DMAQ_SIZE);
-+	tx_queue->ptr_mask = entries - 1;
-+
-+	netif_dbg(efx, probe, efx->net_dev,
-+		  "creating TX queue %d size %#x mask %#x\n",
-+		  tx_queue->queue, efx->txq_entries, tx_queue->ptr_mask);
- 
- 	/* Allocate software ring */
--	txq_size = EFX_TXQ_SIZE * sizeof(*tx_queue->buffer);
--	tx_queue->buffer = kzalloc(txq_size, GFP_KERNEL);
-+	tx_queue->buffer = kzalloc(entries * sizeof(*tx_queue->buffer),
-+				   GFP_KERNEL);
- 	if (!tx_queue->buffer)
- 		return -ENOMEM;
--	for (i = 0; i <= EFX_TXQ_MASK; ++i)
-+	for (i = 0; i <= tx_queue->ptr_mask; ++i)
- 		tx_queue->buffer[i].continuation = true;
- 
- 	/* Allocate hardware ring */
-@@ -481,7 +487,7 @@ void efx_release_tx_buffers(struct efx_tx_queue *tx_queue)
- 
- 	/* Free any buffers left in the ring */
- 	while (tx_queue->read_count != tx_queue->write_count) {
--		buffer = &tx_queue->buffer[tx_queue->read_count & EFX_TXQ_MASK];
-+		buffer = &tx_queue->buffer[tx_queue->read_count & tx_queue->ptr_mask];
- 		efx_dequeue_buffer(tx_queue, buffer);
- 		buffer->continuation = true;
- 		buffer->len = 0;
-@@ -741,7 +747,7 @@ static int efx_tx_queue_insert(struct efx_tx_queue *tx_queue,
- 
- 	fill_level = tx_queue->insert_count - tx_queue->old_read_count;
- 	/* -1 as there is no way to represent all descriptors used */
--	q_space = EFX_TXQ_MASK - 1 - fill_level;
-+	q_space = efx->txq_entries - 1 - fill_level;
- 
- 	while (1) {
- 		if (unlikely(q_space-- <= 0)) {
-@@ -757,7 +763,7 @@ static int efx_tx_queue_insert(struct efx_tx_queue *tx_queue,
- 				*(volatile unsigned *)&tx_queue->read_count;
- 			fill_level = (tx_queue->insert_count
- 				      - tx_queue->old_read_count);
--			q_space = EFX_TXQ_MASK - 1 - fill_level;
-+			q_space = efx->txq_entries - 1 - fill_level;
- 			if (unlikely(q_space-- <= 0)) {
- 				*final_buffer = NULL;
- 				return 1;
-@@ -766,13 +772,13 @@ static int efx_tx_queue_insert(struct efx_tx_queue *tx_queue,
- 			--tx_queue->stopped;
- 		}
- 
--		insert_ptr = tx_queue->insert_count & EFX_TXQ_MASK;
-+		insert_ptr = tx_queue->insert_count & tx_queue->ptr_mask;
- 		buffer = &tx_queue->buffer[insert_ptr];
- 		++tx_queue->insert_count;
- 
- 		EFX_BUG_ON_PARANOID(tx_queue->insert_count -
--				    tx_queue->read_count >
--				    EFX_TXQ_MASK);
-+				    tx_queue->read_count >=
-+				    efx->txq_entries);
- 
- 		efx_tsoh_free(tx_queue, buffer);
- 		EFX_BUG_ON_PARANOID(buffer->len);
-@@ -813,7 +819,7 @@ static void efx_tso_put_header(struct efx_tx_queue *tx_queue,
- {
- 	struct efx_tx_buffer *buffer;
- 
--	buffer = &tx_queue->buffer[tx_queue->insert_count & EFX_TXQ_MASK];
-+	buffer = &tx_queue->buffer[tx_queue->insert_count & tx_queue->ptr_mask];
- 	efx_tsoh_free(tx_queue, buffer);
- 	EFX_BUG_ON_PARANOID(buffer->len);
- 	EFX_BUG_ON_PARANOID(buffer->unmap_len);
-@@ -838,7 +844,7 @@ static void efx_enqueue_unwind(struct efx_tx_queue *tx_queue)
- 	while (tx_queue->insert_count != tx_queue->write_count) {
- 		--tx_queue->insert_count;
- 		buffer = &tx_queue->buffer[tx_queue->insert_count &
--					   EFX_TXQ_MASK];
-+					   tx_queue->ptr_mask];
- 		efx_tsoh_free(tx_queue, buffer);
- 		EFX_BUG_ON_PARANOID(buffer->skb);
- 		if (buffer->unmap_len) {
-@@ -1168,7 +1174,7 @@ static void efx_fini_tso(struct efx_tx_queue *tx_queue)
- 	unsigned i;
- 
- 	if (tx_queue->buffer) {
--		for (i = 0; i <= EFX_TXQ_MASK; ++i)
-+		for (i = 0; i <= tx_queue->ptr_mask; ++i)
- 			efx_tsoh_free(tx_queue, &tx_queue->buffer[i]);
- 	}
- 
+ 	/* ACK legacy interrupt */
 -- 
 1.7.2.1
-
 
 
 -- 
