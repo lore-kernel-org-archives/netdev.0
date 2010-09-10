@@ -1,38 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: Add CAIF
-Date: Thu, 09 Sep 2010 21:42:13 -0700 (PDT)
-Message-ID: <20100909.214213.98872494.davem@davemloft.net>
-References: <1283927604.2479.1.camel@Joe-Laptop>
-	<20100909.143657.189709165.davem@davemloft.net>
-	<1284081877.24986.251.camel@Joe-Laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] ipheth: remove incorrect devtype to WWAN
+Date: Thu, 09 Sep 2010 21:42:21 -0700 (PDT)
+Message-ID: <20100909.214221.241458705.davem@davemloft.net>
+References: <1283968247.2839.14.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sjur.brandeland@stericsson.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40917
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751476Ab0IJEl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 00:41:56 -0400
-In-Reply-To: <1284081877.24986.251.camel@Joe-Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, diego-KR0zwsgql1HQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1283968247.2839.14.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 09 Sep 2010 18:24:37 -0700
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Wed, 08 Sep 2010 12:50:47 -0500
 
-> On Thu, 2010-09-09 at 14:36 -0700, David Miller wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Tue, 07 Sep 2010 23:33:24 -0700
->> > Signed-off-by: Joe Perches <joe@perches.com>
->> Saying something is "Supported" is a non-trivial commitment, so I'm
->> not applying this until there is at least some kind of ACK from
->> Sjur or one of the other CAIF hackers.
+> The 'wwan' devtype is meant for devices that require preconfiguration
+> and *every* time setup before the ethernet interface can be used, like
+> cellular modems which require a series of setup commands on serial ports
+> or other mechanisms before the ethernet interface will handle packets.
 > 
-> No worries, I corresponded with Sjur before posting that.
+> As ipheth only requires one-per-hotplug pairing setup with no
+> preconfiguration (like APN, phone #, etc) and the network interface is
+> usable at any time after that initial setup, remove the incorrect
+> devtype wwan.
 > 
-> He should definitely ack it so you can commit it.
+> Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Fair enough, applied, thanks.
+Applied, thanks Dan.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
