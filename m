@@ -1,36 +1,34 @@
-From: MK <stardust496@gmail.com>
-Subject: empty ack packets
-Date: Fri, 10 Sep 2010 01:12:44 -0400
-Message-ID: <AANLkTimkvDsqY==1JQRhH54+P7yAzFX4omYN0r9+_mi=@mail.gmail.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Fri, 10 Sep 2010 10:49:40 +0530
+Message-ID: <OFD6515F67.3E6B35FB-ON6525779A.001910C3-6525779A.001D0C88@in.ibm.com>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <20100908081011.GC23051@redhat.com> <OF70542242.6CAA236A-ON65257798.0044A4E0-65257798.005C0E7C@LocalDomain> <OF8043B2B7.7048D739-ON65257799.0021A2EE-65257799.00356B3E@in.ibm.com> <4C896708.1050607@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:56514 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750903Ab0IJFMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 01:12:45 -0400
-Received: by vws3 with SMTP id 3so2138668vws.19
-        for <netdev@vger.kernel.org>; Thu, 09 Sep 2010 22:12:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4C896708.1050607@us.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello list,
+Sridhar Samudrala <sri@us.ibm.com> wrote on 09/10/2010 04:30:24 AM:
 
-I am looking at a tcpdump and I see that very very frequently, after
-receiving a segment, my tcp is sending an empty ack back in a matter
-of several (around 20 - 50) microseconds. And then after several more
-microseconds, my tcp is sending some valid outgoing data. I am trying
-to understand why it decided to send an empty ack back when that ack
-could potentially have been delayed by microseconds and get
-piggybacked on the outgoing data.
+> I remember seeing similar issue when using a separate vhost thread for
+> TX and
+> RX queues.  Basically, we should have the same vhost thread process a
+> TCP flow
+> in both directions. I guess this allows the data and ACKs to be
+> processed in sync.
 
->From the code, it appears that the delayed ack timeout is 40 millisecs
-so it is likely not the delack timer that is causing this. (And I do
-not have the quickack option)
+I was trying that by sharing threads between rx and tx[0], but
+that didn't work either since guest rarely picks txq=0. I was
+able to get reasonable single stream performance by pinning
+vhosts to the same cpu.
 
-This is RHEL5 (2.6.18) kernel.
+Thanks,
 
-Does anybody have an idea as to what is happening?
+- KK
 
-Thanks a lot!!
