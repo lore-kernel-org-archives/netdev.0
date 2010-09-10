@@ -1,59 +1,39 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH v2] usbnet: do not count empty skbs as errors in rx_process()
-Date: Fri, 10 Sep 2010 23:35:58 +0200
-Message-ID: <201009102336.00722.linux@rainbow-software.org>
-References: <436709.64173.qm@web180305.mail.gq1.yahoo.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] vxge: potential NULL dereference
+Date: Fri, 10 Sep 2010 14:40:44 -0700 (PDT)
+Message-ID: <20100910.144044.90810785.davem@davemloft.net>
+References: <20100910115423.GC5959@bicker>
+	<20100910.133255.137830993.davem@davemloft.net>
+	<20100910213214.GH22321@exar.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <dbrownell@users.sourceforge.net>,
-	netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: David Brownell <david-b@pacbell.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <436709.64173.qm@web180305.mail.gq1.yahoo.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: error27@gmail.com, Ramkrishna.Vepa@exar.com,
+	Sivakumar.Subramani@exar.com, Sreenivasa.Honnur@exar.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: jon.mason@exar.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42132
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753223Ab0IJVk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 17:40:26 -0400
+In-Reply-To: <20100910213214.GH22321@exar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If rx_fixup() returns an empty skb (because it consumed all data inside), do
-not count it as error.
+From: Jon Mason <jon.mason@exar.com>
+Date: Fri, 10 Sep 2010 17:32:15 -0400
 
-This is needed for cx82310_eth. It also may allow other usbnet minidrivers'
-rx_fixup() functions to be simplified (no need to leave the last packet in the
-skb anymore).
+> It is possible to the vpath to be NULL in this array if it is not
+> populated in __vxge_hw_vp_initialize due to the vpath being masked off
+> my the adapter.  vxge_hw_device_begin_irq calls
+> __vxge_hw_vpath_alarm_process on all possible vpaths regardless of
+> their allocation.  This is the case we need to worry about.
+> 
+> It is not an issue because in the first instance of the vpath being
+> NULL, its sets the alarm_event to be VXGE_HW_EVENT_UNKNOWN.  The first
+> check in the out2 error path checks for VXGE_HW_EVENT_UNKNOWN and
+> returns.  So its not possible to hit this...though it is ugly code.  I
+> welcome a reworking of the code to something mroe elegant. :)
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
----
-The patch does not pass checkpatch.pl because the function calls match the
-style used in usbnet.c.
-
---- linux-2.6.36-rc3-orig/drivers/net/usb/usbnet.c	2010-08-29 17:36:04.000000000 +0200
-+++ linux-2.6.36-rc3/drivers/net/usb/usbnet.c	2010-09-10 20:10:10.000000000 +0200
-@@ -387,17 +387,11 @@
- {
- 	if (dev->driver_info->rx_fixup &&
- 	    !dev->driver_info->rx_fixup (dev, skb))
--		goto error;
--	// else network stack removes extra byte if we forced a short packet
--
--	if (skb->len)
--		usbnet_skb_return (dev, skb);
--	else {
--		netif_dbg(dev, rx_err, dev->net, "drop\n");
--error:
- 		dev->net->stats.rx_errors++;
--		skb_queue_tail (&dev->done, skb);
--	}
-+	else if (skb->len)
-+		return usbnet_skb_return (dev, skb);
-+
-+	skb_queue_tail (&dev->done, skb);
- }
- 
- /*-------------------------------------------------------------------------*/
-
-
--- 
-Ondrej Zary
+Aha, I see, thanks for explaining this.
