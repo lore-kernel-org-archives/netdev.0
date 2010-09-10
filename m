@@ -1,174 +1,79 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] flow: better memory management
-Date: Fri, 10 Sep 2010 19:00:25 +0200
-Message-ID: <1284138025.24675.100.camel@edumazet-laptop>
+Subject: Re: [PATCH] net: af_packet: don't call tpacket_destruct_skb()
+ until the skb is sent out
+Date: Fri, 10 Sep 2010 19:12:13 +0200
+Message-ID: <1284138733.24675.104.camel@edumazet-laptop>
+References: <1284124960-3266-1-git-send-email-xiaosuo@gmail.com>
+	 <1284128770.24675.41.camel@edumazet-laptop>
+	 <AANLkTi=ZzvCNef7r81WZdbZsiSquYhDrnYAY73r4mo+t@mail.gmail.com>
+	 <1284137906.24675.97.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:61860 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:52281 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755078Ab0IJRAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 13:00:30 -0400
-Received: by fxm16 with SMTP id 16so1888987fxm.19
-        for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 10:00:28 -0700 (PDT)
+	with ESMTP id S1753318Ab0IJRMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 13:12:18 -0400
+Received: by fxm16 with SMTP id 16so1900272fxm.19
+        for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 10:12:17 -0700 (PDT)
+In-Reply-To: <1284137906.24675.97.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate hash tables for every online cpus, not every possible ones.
+Le vendredi 10 septembre 2010 =C3=A0 18:58 +0200, Eric Dumazet a =C3=A9=
+crit :
+> Le samedi 11 septembre 2010 =C3=A0 00:47 +0800, Changli Gao a =C3=A9c=
+rit :
+> > On Fri, Sep 10, 2010 at 10:26 PM, Eric Dumazet <eric.dumazet@gmail.=
+com> wrote:
+>=20
+>=20
+> > > Are you sure sock_wfree(skb) is still needed ?
+> >=20
+> > sock_wfree(skb) is also used to wake up the users who sleep on
+> > poll(2). If sock_wfree(skb) is moved into skb->destructor(), and
+> > called before skb is sent out, pollers will be waked up without
+> > POLLOUT, and since the later skb_shinfo(skb)->destructor() doesn't
+> > wake up the pollers, POLLOUT events will be lost, and the poller wi=
+ll
+> > be blocked forever.
+> >=20
+>=20
+> Then implement poll() to use the number of available slots.
+> (not use the default poll() that relies on generic sk / inet queues a=
+nd
+> counters)
+>=20
+> Really, sock_wfree() cannot be used at all, or we also must disable
+> early orphaning of these skbs.
+>=20
+> Goal is to replace skb->destructor use in af_packet by
+> shinfo->destructor, not mix the two.
 
-NUMA aware allocations.
+Thinking again about this, we also might avoid taking references on
+pages and releasing references too.
 
-Dont use a full page on arches where PAGE_SIZE > 1024*sizeof(void *)
+shinfo->destructor should replace the skb_release_data() logic,
+not complement it.
 
-misc:
-  __percpu , __read_mostly, __cpuinit annotations
-  flow_compare_t is just an "unsigned long"
+if (shinfo->destructor) {
+	shinfo->destructor(skb);
+} else {
+	for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
+		put_page(skb_shinfo(skb)->frags[i].page);
+	if (skb_has_frag_list(skb))
+	....
+	kfree(skb->head);
+}
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/flow.c |   78 ++++++++++++++++++++++++----------------------
- 1 files changed, 42 insertions(+), 36 deletions(-)
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index f67dcbf..a092b9c 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -53,8 +53,7 @@ struct flow_flush_info {
- 
- struct flow_cache {
- 	u32				hash_shift;
--	unsigned long			order;
--	struct flow_cache_percpu	*percpu;
-+	struct flow_cache_percpu __percpu *percpu;
- 	struct notifier_block		hotcpu_notifier;
- 	int				low_watermark;
- 	int				high_watermark;
-@@ -64,7 +63,7 @@ struct flow_cache {
- atomic_t flow_cache_genid = ATOMIC_INIT(0);
- EXPORT_SYMBOL(flow_cache_genid);
- static struct flow_cache flow_cache_global;
--static struct kmem_cache *flow_cachep;
-+static struct kmem_cache *flow_cachep __read_mostly;
- 
- static DEFINE_SPINLOCK(flow_cache_gc_lock);
- static LIST_HEAD(flow_cache_gc_list);
-@@ -181,11 +180,7 @@ static u32 flow_hash_code(struct flow_cache *fc,
- 		& (flow_cache_hash_size(fc) - 1));
- }
- 
--#if (BITS_PER_LONG == 64)
--typedef u64 flow_compare_t;
--#else
--typedef u32 flow_compare_t;
--#endif
-+typedef unsigned long flow_compare_t;
- 
- /* I hear what you're saying, use memcmp.  But memcmp cannot make
-  * important assumptions that we can here, such as alignment and
-@@ -357,62 +352,73 @@ void flow_cache_flush(void)
- 	put_online_cpus();
- }
- 
--static void __init flow_cache_cpu_prepare(struct flow_cache *fc,
--					  struct flow_cache_percpu *fcp)
-+static int __cpuinit flow_cache_cpu_prepare(struct flow_cache *fc, int cpu)
- {
--	fcp->hash_table = (struct hlist_head *)
--		__get_free_pages(GFP_KERNEL|__GFP_ZERO, fc->order);
--	if (!fcp->hash_table)
--		panic("NET: failed to allocate flow cache order %lu\n", fc->order);
-+	struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, cpu);
-+	size_t sz = sizeof(struct hlist_head) * flow_cache_hash_size(fc);
- 
--	fcp->hash_rnd_recalc = 1;
--	fcp->hash_count = 0;
--	tasklet_init(&fcp->flush_tasklet, flow_cache_flush_tasklet, 0);
-+	if (!fcp->hash_table) {
-+		fcp->hash_table = kzalloc_node(sz, GFP_KERNEL, cpu_to_node(cpu));
-+		if (!fcp->hash_table) {
-+			pr_err("NET: failed to allocate flow cache sz %zu\n", sz);
-+			return -ENOMEM;
-+		}
-+		fcp->hash_rnd_recalc = 1;
-+		fcp->hash_count = 0;
-+		tasklet_init(&fcp->flush_tasklet, flow_cache_flush_tasklet, 0);
-+	}
-+	return 0;
- }
- 
--static int flow_cache_cpu(struct notifier_block *nfb,
-+static int __cpuinit flow_cache_cpu(struct notifier_block *nfb,
- 			  unsigned long action,
- 			  void *hcpu)
- {
- 	struct flow_cache *fc = container_of(nfb, struct flow_cache, hotcpu_notifier);
--	int cpu = (unsigned long) hcpu;
-+	int res, cpu = (unsigned long) hcpu;
- 	struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, cpu);
- 
--	if (action == CPU_DEAD || action == CPU_DEAD_FROZEN)
-+	switch (action) {
-+	case CPU_UP_PREPARE:
-+	case CPU_UP_PREPARE_FROZEN:
-+		res = flow_cache_cpu_prepare(fc, cpu);
-+		if (res)
-+			return notifier_from_errno(res);	
-+		break;
-+	case CPU_DEAD:
-+	case CPU_DEAD_FROZEN:
- 		__flow_cache_shrink(fc, fcp, 0);
-+		break;
-+	}
- 	return NOTIFY_OK;
- }
- 
--static int flow_cache_init(struct flow_cache *fc)
-+static int __init flow_cache_init(struct flow_cache *fc)
- {
--	unsigned long order;
- 	int i;
- 
- 	fc->hash_shift = 10;
- 	fc->low_watermark = 2 * flow_cache_hash_size(fc);
- 	fc->high_watermark = 4 * flow_cache_hash_size(fc);
- 
--	for (order = 0;
--	     (PAGE_SIZE << order) <
--		     (sizeof(struct hlist_head)*flow_cache_hash_size(fc));
--	     order++)
--		/* NOTHING */;
--	fc->order = order;
- 	fc->percpu = alloc_percpu(struct flow_cache_percpu);
-+	if (!fc->percpu)
-+		return -ENOMEM;
- 
--	setup_timer(&fc->rnd_timer, flow_cache_new_hashrnd,
--		    (unsigned long) fc);
--	fc->rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
--	add_timer(&fc->rnd_timer);
--
--	for_each_possible_cpu(i)
--		flow_cache_cpu_prepare(fc, per_cpu_ptr(fc->percpu, i));
--
-+	for_each_online_cpu(i) {
-+		if (flow_cache_cpu_prepare(fc, i))
-+			return -ENOMEM;
-+	}
- 	fc->hotcpu_notifier = (struct notifier_block){
- 		.notifier_call = flow_cache_cpu,
- 	};
- 	register_hotcpu_notifier(&fc->hotcpu_notifier);
- 
-+	setup_timer(&fc->rnd_timer, flow_cache_new_hashrnd,
-+		    (unsigned long) fc);
-+	fc->rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
-+	add_timer(&fc->rnd_timer);
-+
- 	return 0;
- }
- 
+As long as the mmap zone is correctly protected in af_packet code, of
+course (not releasing it as long as some packets are still in flight)
+
 
 
