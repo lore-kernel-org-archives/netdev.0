@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 06/10] sfc: Abstract channel and index lookup
- for RX queues
-Date: Fri, 10 Sep 2010 17:41:36 +0100
-Message-ID: <1284136896.2267.100.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-next-2.6 08/10] sfc: Allocate each channel separately,
+ along with its RX and TX queues
+Date: Fri, 10 Sep 2010 17:41:57 +0100
+Message-ID: <1284136917.2267.103.camel@achroite.uk.solarflarecom.com>
 References: <1284136817.2267.93.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,288 +10,333 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:25645 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:25735 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755809Ab0IJQlj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 12:41:39 -0400
+	with ESMTP id S1755905Ab0IJQmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 12:42:01 -0400
 In-Reply-To: <1284136817.2267.93.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This will allow for reallocation of channel structures and rings.
+
+Change module parameter separate_tx_channels to be read-only, since we
+now require its value to be constant.
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/net_driver.h |   11 +++++++++++
- drivers/net/sfc/nic.c        |   31 +++++++++++++++++--------------
- drivers/net/sfc/rx.c         |   38 +++++++++++++++++++-------------------
- 3 files changed, 47 insertions(+), 33 deletions(-)
+ drivers/net/sfc/efx.c        |   61 +++++++++++++++++++++++------------------
+ drivers/net/sfc/falcon.c     |   14 +++-------
+ drivers/net/sfc/net_driver.h |   62 +++++++++++++++--------------------------
+ 3 files changed, 61 insertions(+), 76 deletions(-)
 
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 3dd71aa..4b42e61 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -114,7 +114,7 @@ static struct workqueue_struct *reset_workqueue;
+  * This is only used in MSI-X interrupt mode
+  */
+ static unsigned int separate_tx_channels;
+-module_param(separate_tx_channels, uint, 0644);
++module_param(separate_tx_channels, uint, 0444);
+ MODULE_PARM_DESC(separate_tx_channels,
+ 		 "Use separate channels for TX and RX");
+ 
+@@ -334,6 +334,7 @@ void efx_process_channel_now(struct efx_channel *channel)
+ {
+ 	struct efx_nic *efx = channel->efx;
+ 
++	BUG_ON(channel->channel >= efx->n_channels);
+ 	BUG_ON(!channel->enabled);
+ 
+ 	/* Disable interrupts and wait for ISRs to complete */
+@@ -1098,26 +1099,32 @@ static void efx_remove_interrupts(struct efx_nic *efx)
+ 	efx->legacy_irq = 0;
+ }
+ 
++struct efx_tx_queue *
++efx_get_tx_queue(struct efx_nic *efx, unsigned index, unsigned type)
++{
++	unsigned tx_channel_offset =
++		separate_tx_channels ? efx->n_channels - efx->n_tx_channels : 0;
++	EFX_BUG_ON_PARANOID(index >= efx->n_tx_channels ||
++			    type >= EFX_TXQ_TYPES);
++	return &efx->channel[tx_channel_offset + index]->tx_queue[type];
++}
++
+ static void efx_set_channels(struct efx_nic *efx)
+ {
+ 	struct efx_channel *channel;
+ 	struct efx_tx_queue *tx_queue;
+-	struct efx_rx_queue *rx_queue;
+ 	unsigned tx_channel_offset =
+ 		separate_tx_channels ? efx->n_channels - efx->n_tx_channels : 0;
+ 
++	/* Channel pointers were set in efx_init_struct() but we now
++	 * need to clear them for TX queues in any RX-only channels. */
+ 	efx_for_each_channel(channel, efx) {
+-		if (channel->channel - tx_channel_offset < efx->n_tx_channels) {
+-			channel->tx_queue = &efx->tx_queue[
+-				(channel->channel - tx_channel_offset) *
+-				EFX_TXQ_TYPES];
++		if (channel->channel - tx_channel_offset >=
++		    efx->n_tx_channels) {
+ 			efx_for_each_channel_tx_queue(tx_queue, channel)
+-				tx_queue->channel = channel;
++				tx_queue->channel = NULL;
+ 		}
+ 	}
+-
+-	efx_for_each_rx_queue(rx_queue, efx)
+-		rx_queue->channel = &efx->channel[rx_queue->queue];
+ }
+ 
+ static int efx_probe_nic(struct efx_nic *efx)
+@@ -2044,7 +2051,7 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 	struct efx_channel *channel;
+ 	struct efx_tx_queue *tx_queue;
+ 	struct efx_rx_queue *rx_queue;
+-	int i;
++	int i, j;
+ 
+ 	/* Initialise common structures */
+ 	memset(efx, 0, sizeof(*efx));
+@@ -2072,27 +2079,22 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 	INIT_WORK(&efx->mac_work, efx_mac_work);
+ 
+ 	for (i = 0; i < EFX_MAX_CHANNELS; i++) {
+-		channel = &efx->channel[i];
++		efx->channel[i] = kzalloc(sizeof(*channel), GFP_KERNEL);
++		channel = efx->channel[i];
+ 		channel->efx = efx;
+ 		channel->channel = i;
+-		channel->work_pending = false;
+ 		spin_lock_init(&channel->tx_stop_lock);
+ 		atomic_set(&channel->tx_stop_count, 1);
+-	}
+-	for (i = 0; i < EFX_MAX_TX_QUEUES; i++) {
+-		tx_queue = &efx->tx_queue[i];
+-		tx_queue->efx = efx;
+-		tx_queue->queue = i;
+-		tx_queue->buffer = NULL;
+-		tx_queue->channel = &efx->channel[0]; /* for safety */
+-		tx_queue->tso_headers_free = NULL;
+-	}
+-	for (i = 0; i < EFX_MAX_RX_QUEUES; i++) {
+-		rx_queue = &efx->rx_queue[i];
++
++		for (j = 0; j < EFX_TXQ_TYPES; j++) {
++			tx_queue = &channel->tx_queue[j];
++			tx_queue->efx = efx;
++			tx_queue->queue = i * EFX_TXQ_TYPES + j;
++			tx_queue->channel = channel;
++		}
++
++		rx_queue = &channel->rx_queue;
+ 		rx_queue->efx = efx;
+-		rx_queue->queue = i;
+-		rx_queue->channel = &efx->channel[0]; /* for safety */
+-		rx_queue->buffer = NULL;
+ 		setup_timer(&rx_queue->slow_fill, efx_rx_slow_fill,
+ 			    (unsigned long)rx_queue);
+ 	}
+@@ -2120,6 +2122,11 @@ static int efx_init_struct(struct efx_nic *efx, struct efx_nic_type *type,
+ 
+ static void efx_fini_struct(struct efx_nic *efx)
+ {
++	int i;
++
++	for (i = 0; i < EFX_MAX_CHANNELS; i++)
++		kfree(efx->channel[i]);
++
+ 	if (efx->workqueue) {
+ 		destroy_workqueue(efx->workqueue);
+ 		efx->workqueue = NULL;
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index 4f9d33f..b4d8efe 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -159,7 +159,6 @@ irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
+ {
+ 	struct efx_nic *efx = dev_id;
+ 	efx_oword_t *int_ker = efx->irq_status.addr;
+-	struct efx_channel *channel;
+ 	int syserr;
+ 	int queues;
+ 
+@@ -194,15 +193,10 @@ irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
+ 	wmb(); /* Ensure the vector is cleared before interrupt ack */
+ 	falcon_irq_ack_a1(efx);
+ 
+-	/* Schedule processing of any interrupting queues */
+-	channel = &efx->channel[0];
+-	while (queues) {
+-		if (queues & 0x01)
+-			efx_schedule_channel(channel);
+-		channel++;
+-		queues >>= 1;
+-	}
+-
++	if (queues & 1)
++		efx_schedule_channel(efx_get_channel(efx, 0));
++	if (queues & 2)
++		efx_schedule_channel(efx_get_channel(efx, 1));
+ 	return IRQ_HANDLED;
+ }
+ /**************************************************************************
 diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 64e7caa..89c6e02 100644
+index eb35375..cfc65f5 100644
 --- a/drivers/net/sfc/net_driver.h
 +++ b/drivers/net/sfc/net_driver.h
-@@ -943,6 +943,17 @@ struct efx_nic_type {
- 			continue;					\
- 		else
+@@ -225,8 +225,6 @@ struct efx_rx_page_state {
+ /**
+  * struct efx_rx_queue - An Efx RX queue
+  * @efx: The associated Efx NIC
+- * @queue: DMA queue number
+- * @channel: The associated channel
+  * @buffer: The software buffer ring
+  * @rxd: The hardware descriptor ring
+  * @added_count: Number of buffers added to the receive queue.
+@@ -250,8 +248,6 @@ struct efx_rx_page_state {
+  */
+ struct efx_rx_queue {
+ 	struct efx_nic *efx;
+-	int queue;
+-	struct efx_channel *channel;
+ 	struct efx_rx_buffer *buffer;
+ 	struct efx_special_buffer rxd;
  
-+static inline struct efx_channel *
-+efx_rx_queue_channel(struct efx_rx_queue *rx_queue)
-+{
-+	return rx_queue->channel;
-+}
+@@ -327,9 +323,10 @@ enum efx_rx_alloc_method {
+  * @n_rx_frm_trunc: Count of RX_FRM_TRUNC errors
+  * @n_rx_overlength: Count of RX_OVERLENGTH errors
+  * @n_skbuff_leaks: Count of skbuffs leaked due to RX overrun
+- * @tx_queue: Pointer to first TX queue, or %NULL if not used for TX
++ * @rx_queue: RX queue for this channel
+  * @tx_stop_count: Core TX queue stop count
+  * @tx_stop_lock: Core TX queue stop lock
++ * @tx_queue: TX queues for this channel
+  */
+ struct efx_channel {
+ 	struct efx_nic *efx;
+@@ -366,9 +363,12 @@ struct efx_channel {
+ 	struct efx_rx_buffer *rx_pkt;
+ 	bool rx_pkt_csummed;
+ 
+-	struct efx_tx_queue *tx_queue;
++	struct efx_rx_queue rx_queue;
 +
-+static inline int efx_rx_queue_index(struct efx_rx_queue *rx_queue)
-+{
-+	return rx_queue->queue;
-+}
+ 	atomic_t tx_stop_count;
+ 	spinlock_t tx_stop_lock;
 +
++	struct efx_tx_queue tx_queue[2];
+ };
+ 
+ enum efx_led_mode {
+@@ -724,9 +724,7 @@ struct efx_nic {
+ 	enum nic_state state;
+ 	enum reset_type reset_pending;
+ 
+-	struct efx_tx_queue tx_queue[EFX_MAX_TX_QUEUES];
+-	struct efx_rx_queue rx_queue[EFX_MAX_RX_QUEUES];
+-	struct efx_channel channel[EFX_MAX_CHANNELS];
++	struct efx_channel *channel[EFX_MAX_CHANNELS];
+ 
+ 	unsigned next_buffer_table;
+ 	unsigned n_channels;
+@@ -913,34 +911,30 @@ static inline struct efx_channel *
+ efx_get_channel(struct efx_nic *efx, unsigned index)
+ {
+ 	EFX_BUG_ON_PARANOID(index >= efx->n_channels);
+-	return &efx->channel[index];
++	return efx->channel[index];
+ }
+ 
+ /* Iterate over all used channels */
+ #define efx_for_each_channel(_channel, _efx)				\
+-	for (_channel = &((_efx)->channel[0]);				\
+-	     _channel < &((_efx)->channel[(efx)->n_channels]);		\
+-	     _channel++)
++	for (_channel = (_efx)->channel[0];				\
++	     _channel;							\
++	     _channel = (_channel->channel + 1 < (_efx)->n_channels) ?	\
++		     (_efx)->channel[_channel->channel + 1] : NULL)
+ 
+-static inline struct efx_tx_queue *
+-efx_get_tx_queue(struct efx_nic *efx, unsigned index, unsigned type)
+-{
+-	EFX_BUG_ON_PARANOID(index >= efx->n_tx_channels ||
+-			    type >= EFX_TXQ_TYPES);
+-	return &efx->tx_queue[index * EFX_TXQ_TYPES + type];
+-}
++extern struct efx_tx_queue *
++efx_get_tx_queue(struct efx_nic *efx, unsigned index, unsigned type);
+ 
+ static inline struct efx_tx_queue *
+ efx_channel_get_tx_queue(struct efx_channel *channel, unsigned type)
+ {
+ 	struct efx_tx_queue *tx_queue = channel->tx_queue;
+ 	EFX_BUG_ON_PARANOID(type >= EFX_TXQ_TYPES);
+-	return tx_queue ? tx_queue + type : NULL;
++	return tx_queue->channel ? tx_queue + type : NULL;
+ }
+ 
+ /* Iterate over all TX queues belonging to a channel */
+ #define efx_for_each_channel_tx_queue(_tx_queue, _channel)		\
+-	for (_tx_queue = (_channel)->tx_queue;				\
++	for (_tx_queue = efx_channel_get_tx_queue(channel, 0);		\
+ 	     _tx_queue && _tx_queue < (_channel)->tx_queue + EFX_TXQ_TYPES; \
+ 	     _tx_queue++)
+ 
+@@ -948,41 +942,31 @@ static inline struct efx_rx_queue *
+ efx_get_rx_queue(struct efx_nic *efx, unsigned index)
+ {
+ 	EFX_BUG_ON_PARANOID(index >= efx->n_rx_channels);
+-	return &efx->rx_queue[index];
++	return &efx->channel[index]->rx_queue;
+ }
+ 
+-/* Iterate over all used RX queues */
+-#define efx_for_each_rx_queue(_rx_queue, _efx)				\
+-	for (_rx_queue = &((_efx)->rx_queue[0]);			\
+-	     _rx_queue < &((_efx)->rx_queue[(_efx)->n_rx_channels]);	\
+-	     _rx_queue++)
+-
+ static inline struct efx_rx_queue *
+ efx_channel_get_rx_queue(struct efx_channel *channel)
+ {
+-	struct efx_rx_queue *rx_queue =
+-		&channel->efx->rx_queue[channel->channel];
+-	return rx_queue->channel == channel ? rx_queue : NULL;
++	return channel->channel < channel->efx->n_rx_channels ?
++		&channel->rx_queue : NULL;
+ }
+ 
+ /* Iterate over all RX queues belonging to a channel */
+ #define efx_for_each_channel_rx_queue(_rx_queue, _channel)		\
+-	for (_rx_queue = &((_channel)->efx->rx_queue[(_channel)->channel]); \
++	for (_rx_queue = efx_channel_get_rx_queue(channel);		\
+ 	     _rx_queue;							\
+-	     _rx_queue = NULL)						\
+-		if (_rx_queue->channel != (_channel))			\
+-			continue;					\
+-		else
++	     _rx_queue = NULL)
+ 
+ static inline struct efx_channel *
+ efx_rx_queue_channel(struct efx_rx_queue *rx_queue)
+ {
+-	return rx_queue->channel;
++	return container_of(rx_queue, struct efx_channel, rx_queue);
+ }
+ 
+ static inline int efx_rx_queue_index(struct efx_rx_queue *rx_queue)
+ {
+-	return rx_queue->queue;
++	return efx_rx_queue_channel(rx_queue)->channel;
+ }
+ 
  /* Returns a pointer to the specified receive buffer in the RX
-  * descriptor queue.
-  */
-diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
-index 8efe1ca..be4d552 100644
---- a/drivers/net/sfc/nic.c
-+++ b/drivers/net/sfc/nic.c
-@@ -539,8 +539,8 @@ void efx_nic_notify_rx_desc(struct efx_rx_queue *rx_queue)
- 	wmb();
- 	write_ptr = rx_queue->added_count & EFX_RXQ_MASK;
- 	EFX_POPULATE_DWORD_1(reg, FRF_AZ_RX_DESC_WPTR_DWORD, write_ptr);
--	efx_writed_page(rx_queue->efx, &reg,
--			FR_AZ_RX_DESC_UPD_DWORD_P0, rx_queue->queue);
-+	efx_writed_page(rx_queue->efx, &reg, FR_AZ_RX_DESC_UPD_DWORD_P0,
-+			efx_rx_queue_index(rx_queue));
- }
- 
- int efx_nic_probe_rx(struct efx_rx_queue *rx_queue)
-@@ -561,7 +561,7 @@ void efx_nic_init_rx(struct efx_rx_queue *rx_queue)
- 
- 	netif_dbg(efx, hw, efx->net_dev,
- 		  "RX queue %d ring in special buffers %d-%d\n",
--		  rx_queue->queue, rx_queue->rxd.index,
-+		  efx_rx_queue_index(rx_queue), rx_queue->rxd.index,
- 		  rx_queue->rxd.index + rx_queue->rxd.entries - 1);
- 
- 	rx_queue->flushed = FLUSH_NONE;
-@@ -575,9 +575,10 @@ void efx_nic_init_rx(struct efx_rx_queue *rx_queue)
- 			      FRF_AZ_RX_ISCSI_HDIG_EN, iscsi_digest_en,
- 			      FRF_AZ_RX_DESCQ_BUF_BASE_ID, rx_queue->rxd.index,
- 			      FRF_AZ_RX_DESCQ_EVQ_ID,
--			      rx_queue->channel->channel,
-+			      efx_rx_queue_channel(rx_queue)->channel,
- 			      FRF_AZ_RX_DESCQ_OWNER_ID, 0,
--			      FRF_AZ_RX_DESCQ_LABEL, rx_queue->queue,
-+			      FRF_AZ_RX_DESCQ_LABEL,
-+			      efx_rx_queue_index(rx_queue),
- 			      FRF_AZ_RX_DESCQ_SIZE,
- 			      __ffs(rx_queue->rxd.entries),
- 			      FRF_AZ_RX_DESCQ_TYPE, 0 /* kernel queue */ ,
-@@ -585,7 +586,7 @@ void efx_nic_init_rx(struct efx_rx_queue *rx_queue)
- 			      FRF_AZ_RX_DESCQ_JUMBO, !is_b0,
- 			      FRF_AZ_RX_DESCQ_EN, 1);
- 	efx_writeo_table(efx, &rx_desc_ptr, efx->type->rxd_ptr_tbl_base,
--			 rx_queue->queue);
-+			 efx_rx_queue_index(rx_queue));
- }
- 
- static void efx_flush_rx_queue(struct efx_rx_queue *rx_queue)
-@@ -598,7 +599,8 @@ static void efx_flush_rx_queue(struct efx_rx_queue *rx_queue)
- 	/* Post a flush command */
- 	EFX_POPULATE_OWORD_2(rx_flush_descq,
- 			     FRF_AZ_RX_FLUSH_DESCQ_CMD, 1,
--			     FRF_AZ_RX_FLUSH_DESCQ, rx_queue->queue);
-+			     FRF_AZ_RX_FLUSH_DESCQ,
-+			     efx_rx_queue_index(rx_queue));
- 	efx_writeo(efx, &rx_flush_descq, FR_AZ_RX_FLUSH_DESCQ);
- }
- 
-@@ -613,7 +615,7 @@ void efx_nic_fini_rx(struct efx_rx_queue *rx_queue)
- 	/* Remove RX descriptor ring from card */
- 	EFX_ZERO_OWORD(rx_desc_ptr);
- 	efx_writeo_table(efx, &rx_desc_ptr, efx->type->rxd_ptr_tbl_base,
--			 rx_queue->queue);
-+			 efx_rx_queue_index(rx_queue));
- 
- 	/* Unpin RX descriptor ring */
- 	efx_fini_special_buffer(efx, &rx_queue->rxd);
-@@ -714,6 +716,7 @@ static void efx_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
- 				 bool *rx_ev_pkt_ok,
- 				 bool *discard)
- {
-+	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
- 	struct efx_nic *efx = rx_queue->efx;
- 	bool rx_ev_buf_owner_id_err, rx_ev_ip_hdr_chksum_err;
- 	bool rx_ev_tcp_udp_chksum_err, rx_ev_eth_crc_err;
-@@ -746,14 +749,14 @@ static void efx_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
- 	/* Count errors that are not in MAC stats.  Ignore expected
- 	 * checksum errors during self-test. */
- 	if (rx_ev_frm_trunc)
--		++rx_queue->channel->n_rx_frm_trunc;
-+		++channel->n_rx_frm_trunc;
- 	else if (rx_ev_tobe_disc)
--		++rx_queue->channel->n_rx_tobe_disc;
-+		++channel->n_rx_tobe_disc;
- 	else if (!efx->loopback_selftest) {
- 		if (rx_ev_ip_hdr_chksum_err)
--			++rx_queue->channel->n_rx_ip_hdr_chksum_err;
-+			++channel->n_rx_ip_hdr_chksum_err;
- 		else if (rx_ev_tcp_udp_chksum_err)
--			++rx_queue->channel->n_rx_tcp_udp_chksum_err;
-+			++channel->n_rx_tcp_udp_chksum_err;
- 	}
- 
- 	/* The frame must be discarded if any of these are true. */
-@@ -769,7 +772,7 @@ static void efx_handle_rx_not_ok(struct efx_rx_queue *rx_queue,
- 		netif_dbg(efx, rx_err, efx->net_dev,
- 			  " RX queue %d unexpected RX event "
- 			  EFX_QWORD_FMT "%s%s%s%s%s%s%s%s\n",
--			  rx_queue->queue, EFX_QWORD_VAL(*event),
-+			  efx_rx_queue_index(rx_queue), EFX_QWORD_VAL(*event),
- 			  rx_ev_buf_owner_id_err ? " [OWNER_ID_ERR]" : "",
- 			  rx_ev_ip_hdr_chksum_err ?
- 			  " [IP_HDR_CHKSUM_ERR]" : "",
-@@ -1269,7 +1272,7 @@ int efx_nic_flush_queues(struct efx_nic *efx)
- 		if (rx_queue->flushed != FLUSH_DONE)
- 			netif_err(efx, hw, efx->net_dev,
- 				  "rx queue %d flush command timed out\n",
--				  rx_queue->queue);
-+				  efx_rx_queue_index(rx_queue));
- 		rx_queue->flushed = FLUSH_DONE;
- 	}
- 
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index acb372e..1e6c8cf 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -341,7 +341,7 @@ static void efx_recycle_rx_buffer(struct efx_channel *channel,
-  */
- void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- {
--	struct efx_channel *channel = rx_queue->channel;
-+	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
- 	unsigned fill_level;
- 	int space, rc = 0;
- 
-@@ -364,7 +364,8 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- 	netif_vdbg(rx_queue->efx, rx_status, rx_queue->efx->net_dev,
- 		   "RX queue %d fast-filling descriptor ring from"
- 		   " level %d to level %d using %s allocation\n",
--		   rx_queue->queue, fill_level, rx_queue->fast_fill_limit,
-+		   efx_rx_queue_index(rx_queue), fill_level,
-+		   rx_queue->fast_fill_limit,
- 		   channel->rx_alloc_push_pages ? "page" : "skb");
- 
- 	do {
-@@ -382,7 +383,7 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- 
- 	netif_vdbg(rx_queue->efx, rx_status, rx_queue->efx->net_dev,
- 		   "RX queue %d fast-filled descriptor ring "
--		   "to level %d\n", rx_queue->queue,
-+		   "to level %d\n", efx_rx_queue_index(rx_queue),
- 		   rx_queue->added_count - rx_queue->removed_count);
- 
-  out:
-@@ -393,7 +394,7 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
- void efx_rx_slow_fill(unsigned long context)
- {
- 	struct efx_rx_queue *rx_queue = (struct efx_rx_queue *)context;
--	struct efx_channel *channel = rx_queue->channel;
-+	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
- 
- 	/* Post an event to cause NAPI to run and refill the queue */
- 	efx_nic_generate_fill_event(channel);
-@@ -421,7 +422,7 @@ static void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
- 			netif_err(efx, rx_err, efx->net_dev,
- 				  " RX queue %d seriously overlength "
- 				  "RX event (0x%x > 0x%x+0x%x). Leaking\n",
--				  rx_queue->queue, len, max_len,
-+				  efx_rx_queue_index(rx_queue), len, max_len,
- 				  efx->type->rx_buffer_padding);
- 		/* If this buffer was skb-allocated, then the meta
- 		 * data at the end of the skb will be trashed. So
-@@ -434,10 +435,10 @@ static void efx_rx_packet__check_len(struct efx_rx_queue *rx_queue,
- 			netif_err(efx, rx_err, efx->net_dev,
- 				  " RX queue %d overlength RX event "
- 				  "(0x%x > 0x%x)\n",
--				  rx_queue->queue, len, max_len);
-+				  efx_rx_queue_index(rx_queue), len, max_len);
- 	}
- 
--	rx_queue->channel->n_rx_overlength++;
-+	efx_rx_queue_channel(rx_queue)->n_rx_overlength++;
- }
- 
- /* Pass a received packet up through the generic LRO stack
-@@ -507,7 +508,7 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 		   unsigned int len, bool checksummed, bool discard)
- {
- 	struct efx_nic *efx = rx_queue->efx;
--	struct efx_channel *channel = rx_queue->channel;
-+	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
- 	struct efx_rx_buffer *rx_buf;
- 	bool leak_packet = false;
- 
-@@ -528,7 +529,7 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 
- 	netif_vdbg(efx, rx_status, efx->net_dev,
- 		   "RX queue %d received id %x at %llx+%x %s%s\n",
--		   rx_queue->queue, index,
-+		   efx_rx_queue_index(rx_queue), index,
- 		   (unsigned long long)rx_buf->dma_addr, len,
- 		   (checksummed ? " [SUMMED]" : ""),
- 		   (discard ? " [DISCARD]" : ""));
-@@ -560,12 +561,11 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 	 */
- 	rx_buf->len = len;
- out:
--	if (rx_queue->channel->rx_pkt)
--		__efx_rx_packet(rx_queue->channel,
--				rx_queue->channel->rx_pkt,
--				rx_queue->channel->rx_pkt_csummed);
--	rx_queue->channel->rx_pkt = rx_buf;
--	rx_queue->channel->rx_pkt_csummed = checksummed;
-+	if (channel->rx_pkt)
-+		__efx_rx_packet(channel,
-+				channel->rx_pkt, channel->rx_pkt_csummed);
-+	channel->rx_pkt = rx_buf;
-+	channel->rx_pkt_csummed = checksummed;
- }
- 
- /* Handle a received packet.  Second half: Touches packet payload. */
-@@ -654,7 +654,7 @@ int efx_probe_rx_queue(struct efx_rx_queue *rx_queue)
- 	int rc;
- 
- 	netif_dbg(efx, probe, efx->net_dev,
--		  "creating RX queue %d\n", rx_queue->queue);
-+		  "creating RX queue %d\n", efx_rx_queue_index(rx_queue));
- 
- 	/* Allocate RX buffers */
- 	rxq_size = EFX_RXQ_SIZE * sizeof(*rx_queue->buffer);
-@@ -675,7 +675,7 @@ void efx_init_rx_queue(struct efx_rx_queue *rx_queue)
- 	unsigned int max_fill, trigger, limit;
- 
- 	netif_dbg(rx_queue->efx, drv, rx_queue->efx->net_dev,
--		  "initialising RX queue %d\n", rx_queue->queue);
-+		  "initialising RX queue %d\n", efx_rx_queue_index(rx_queue));
- 
- 	/* Initialise ptr fields */
- 	rx_queue->added_count = 0;
-@@ -703,7 +703,7 @@ void efx_fini_rx_queue(struct efx_rx_queue *rx_queue)
- 	struct efx_rx_buffer *rx_buf;
- 
- 	netif_dbg(rx_queue->efx, drv, rx_queue->efx->net_dev,
--		  "shutting down RX queue %d\n", rx_queue->queue);
-+		  "shutting down RX queue %d\n", efx_rx_queue_index(rx_queue));
- 
- 	del_timer_sync(&rx_queue->slow_fill);
- 	efx_nic_fini_rx(rx_queue);
-@@ -720,7 +720,7 @@ void efx_fini_rx_queue(struct efx_rx_queue *rx_queue)
- void efx_remove_rx_queue(struct efx_rx_queue *rx_queue)
- {
- 	netif_dbg(rx_queue->efx, drv, rx_queue->efx->net_dev,
--		  "destroying RX queue %d\n", rx_queue->queue);
-+		  "destroying RX queue %d\n", efx_rx_queue_index(rx_queue));
- 
- 	efx_nic_remove_rx(rx_queue);
- 
 -- 
 1.7.2.1
 
