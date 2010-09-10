@@ -1,31 +1,59 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [patch] vxge: potential NULL dereference
-Date: Fri, 10 Sep 2010 23:12:57 +0200
-Message-ID: <20100910211257.GI5959@bicker>
-References: <20100910115423.GC5959@bicker> <20100910.133255.137830993.davem@davemloft.net>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH v2] usbnet: do not count empty skbs as errors in rx_process()
+Date: Fri, 10 Sep 2010 23:35:58 +0200
+Message-ID: <201009102336.00722.linux@rainbow-software.org>
+References: <436709.64173.qm@web180305.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ramkrishna.vepa@exar.com, sivakumar.subramani@exar.com,
-	sreenivasa.honnur@exar.com, jon.mason@exar.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:53998 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754773Ab0IJVNn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 17:13:43 -0400
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Brownell <dbrownell@users.sourceforge.net>,
+	netdev@vger.kernel.org,
+	Kernel development list <linux-kernel@vger.kernel.org>
+To: David Brownell <david-b@pacbell.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <436709.64173.qm@web180305.mail.gq1.yahoo.com>
 Content-Disposition: inline
-In-Reply-To: <20100910.133255.137830993.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 10, 2010 at 01:32:55PM -0700, David Miller wrote:
-> So we can simply remove the first NULL check as this can never actually
-> be NULL.
+If rx_fixup() returns an empty skb (because it consumed all data inside), do
+not count it as error.
 
-Ok.  Thanks, Dave.  I should have looked more into this myself.  I'll
-send a patch to remove the check tomorrow.
+This is needed for cx82310_eth. It also may allow other usbnet minidrivers'
+rx_fixup() functions to be simplified (no need to leave the last packet in the
+skb anymore).
 
-regards,
-dan carpenter
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+---
+The patch does not pass checkpatch.pl because the function calls match the
+style used in usbnet.c.
 
+--- linux-2.6.36-rc3-orig/drivers/net/usb/usbnet.c	2010-08-29 17:36:04.000000000 +0200
++++ linux-2.6.36-rc3/drivers/net/usb/usbnet.c	2010-09-10 20:10:10.000000000 +0200
+@@ -387,17 +387,11 @@
+ {
+ 	if (dev->driver_info->rx_fixup &&
+ 	    !dev->driver_info->rx_fixup (dev, skb))
+-		goto error;
+-	// else network stack removes extra byte if we forced a short packet
+-
+-	if (skb->len)
+-		usbnet_skb_return (dev, skb);
+-	else {
+-		netif_dbg(dev, rx_err, dev->net, "drop\n");
+-error:
+ 		dev->net->stats.rx_errors++;
+-		skb_queue_tail (&dev->done, skb);
+-	}
++	else if (skb->len)
++		return usbnet_skb_return (dev, skb);
++
++	skb_queue_tail (&dev->done, skb);
+ }
+ 
+ /*-------------------------------------------------------------------------*/
+
+
+-- 
+Ondrej Zary
