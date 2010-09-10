@@ -1,68 +1,69 @@
-From: Mat Martineau <mathewm-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: Possible regression with skb_clone() in 2.6.36
-Date: Fri, 10 Sep 2010 09:53:31 -0700 (PDT)
-Message-ID: <alpine.DEB.2.00.1009100920270.14322@linux-sea-02>
-References: <1283988727-1456-1-git-send-email-padovan@profusion.mobi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: af_packet: don't call tpacket_destruct_skb()
+ until the skb is sent out
+Date: Fri, 10 Sep 2010 18:58:26 +0200
+Message-ID: <1284137906.24675.97.camel@edumazet-laptop>
+References: <1284124960-3266-1-git-send-email-xiaosuo@gmail.com>
+	 <1284128770.24675.41.camel@edumazet-laptop>
+	 <AANLkTi=ZzvCNef7r81WZdbZsiSquYhDrnYAY73r4mo+t@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1283988727-1456-1-git-send-email-padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:44541 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750992Ab0IJQ6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 12:58:32 -0400
+Received: by fxm16 with SMTP id 16so1887237fxm.19
+        for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 09:58:31 -0700 (PDT)
+In-Reply-To: <AANLkTi=ZzvCNef7r81WZdbZsiSquYhDrnYAY73r4mo+t@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Le samedi 11 septembre 2010 =C3=A0 00:47 +0800, Changli Gao a =C3=A9cri=
+t :
+> On Fri, Sep 10, 2010 at 10:26 PM, Eric Dumazet <eric.dumazet@gmail.co=
+m> wrote:
 
 
-Gustavo -
+> > Are you sure sock_wfree(skb) is still needed ?
+>=20
+> sock_wfree(skb) is also used to wake up the users who sleep on
+> poll(2). If sock_wfree(skb) is moved into skb->destructor(), and
+> called before skb is sent out, pollers will be waked up without
+> POLLOUT, and since the later skb_shinfo(skb)->destructor() doesn't
+> wake up the pollers, POLLOUT events will be lost, and the poller will
+> be blocked forever.
+>=20
 
-I'm not sure why the streaming code used to work, but this does not 
-look like an skb_clone() problem.  Your patch to remove the 
-skb_clone() call in l2cap_streaming_send() addresses the root cause of 
-this crash.
+Then implement poll() to use the number of available slots.
+(not use the default poll() that relies on generic sk / inet queues and
+counters)
 
-On Wed, 8 Sep 2010, Gustavo F. Padovan wrote:
+Really, sock_wfree() cannot be used at all, or we also must disable
+early orphaning of these skbs.
 
-> I've been experiencing some problems when running the L2CAP Streaming mode in
-> 2.6.36. The system quickly runs in an Out Of Memory condition and crash. That
-> wasn't happening before, so I think we may have a regression here (I didn't
-> find where yet). The crash log is below.
->
-> The following patch does not fix the regression, but shows that removing the
-> skb_clone() call from l2cap_streaming_send() we workaround the problem. The
-> patch is good anyway because it saves memory and time.
->
-> By now I have no idea on how to fix this.
->
-> <snip>
+Goal is to replace skb->destructor use in af_packet by
+shinfo->destructor, not mix the two.
 
-This has to do with the sk->sk_wmem_alloc accounting that controls the 
-amount of write buffer space used on the socket.
 
-When the L2CAP streaming mode socket segments its data, it allocates 
-memory using sock_alloc_send_skb() (via bt_skb_send_alloc()).  Before 
-that allocation call returns, skb_set_owner_w() is called on the new 
-skb.  This adds to sk->sk_wmem_alloc and sets skb->destructor so that 
-sk->sk_wmem_alloc is correctly updated when the skb is freed.
+> >
+> >
+> >> +     kfree(arg);
+> >
+> > this new kmalloc()/kfree() for each sent packet wont please the guy=
+s
+> > using af_packet/mmap interface...
+>=20
+> Embed these two pointers into skb_shared_info? It may slow the others=
+=2E
 
-When that skb is cloned, the clone is not "owned" by the write buffer. 
-The clone's destructor is set to NULL in __skb_clone().  The version 
-of l2cap_streaming_send() that runs out of memory is passing the 
-non-owned skb clone down to the HCI layer.  The original skb (the one 
-that's "owned by w") is immediately freed, which adjusts 
-sk->sk_wmem_alloc back down - the socket thinks it has unlimited write 
-buffer space.  As a result, bt_skb_send_alloc() never blocks waiting 
-for buffer space (or returns EAGAIN for nonblocking writes) and the 
-HCI send queue keeps growing.
+we have some room because of SKB_PAD alignment,
 
-This isn't a problem for the ERTM sends, because the original skbs are 
-kept in the ERTM tx queue until they are acked.  Once they're acked, 
-the write buffer space is freed and additional skbs can be allocated.
 
-Regards,
 
---
-Mat Martineau
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum
+
