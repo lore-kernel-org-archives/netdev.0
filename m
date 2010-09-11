@@ -1,91 +1,72 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: [PATCH net-next] sundance: Add power management hooks
-Date: Sat, 11 Sep 2010 09:23:13 +0000
-Message-ID: <20100911092313.GA5887@hera.kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: xiaohui.xin@intel.com
+Subject: [RFC PATCH v10 02/16] Add a new struct for device to manipulate external buffer.
+Date: Sat, 11 Sep 2010 17:52:55 +0800
+Message-ID: <1284198789-5358-3-git-send-email-xiaohui.xin@intel.com>
+References: <1284198789-5358-1-git-send-email-xiaohui.xin@intel.com>
+ <1284198789-5358-2-git-send-email-xiaohui.xin@intel.com>
+Cc: Xin Xiaohui <xiaohui.xin@intel.com>
+To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	jdike@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:42703 "EHLO hera.kernel.org"
+Received: from mga11.intel.com ([192.55.52.93]:50447 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750871Ab0IKJXO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Sep 2010 05:23:14 -0400
-Content-Disposition: inline
+	id S1751000Ab0IKJgm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Sep 2010 05:36:42 -0400
+In-Reply-To: <1284198789-5358-2-git-send-email-xiaohui.xin@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch to adds support for PM hooks into sundance driver
+From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- drivers/net/sundance.c |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 48 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |   22 +++++++++++++++++++++-
+ 1 files changed, 21 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index 3fa9497..7dfdbee 100644
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -1757,11 +1757,59 @@ static void __devexit sundance_remove1 (struct pci_dev *pdev)
- 	}
- }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index fa8b476..ba582e1 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -530,6 +530,25 @@ struct netdev_queue {
+ 	unsigned long		tx_dropped;
+ } ____cacheline_aligned_in_smp;
  
-+#ifdef CONFIG_PM
-+
-+static int sundance_suspend(struct pci_dev *pci_dev, pm_message_t state)
-+{
-+	struct net_device *dev = pci_get_drvdata(pci_dev);
-+
-+	if (!netif_running(dev))
-+		return 0;
-+
-+	netdev_close(dev);
-+	netif_device_detach(dev);
-+
-+	pci_save_state(pci_dev);
-+	pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state));
-+
-+	return 0;
-+}
-+
-+static int sundance_resume(struct pci_dev *pci_dev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pci_dev);
-+	int err = 0;
-+
-+	if (!netif_running(dev))
-+		return 0;
-+
-+	pci_set_power_state(pci_dev, PCI_D0);
-+	pci_restore_state(pci_dev);
-+
-+	err = netdev_open(dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: Can't resume interface!\n",
-+				dev->name);
-+		goto out;
-+	}
-+
-+	netif_device_attach(dev);
-+
-+out:
-+	return err;
-+}
-+
-+#endif /* CONFIG_PM */
-+
- static struct pci_driver sundance_driver = {
- 	.name		= DRV_NAME,
- 	.id_table	= sundance_pci_tbl,
- 	.probe		= sundance_probe1,
- 	.remove		= __devexit_p(sundance_remove1),
-+#ifdef CONFIG_PM
-+	.suspend	= sundance_suspend,
-+	.resume		= sundance_resume,
-+#endif /* CONFIG_PM */
- };
++/* Add a structure in structure net_device, the new field is
++ * named as mp_port. It's for mediate passthru (zero-copy).
++ * It contains the capability for the net device driver,
++ * a socket, and an external buffer creator, external means
++ * skb buffer belongs to the device may not be allocated from
++ * kernel space.
++ */
++struct mpassthru_port	{
++	int		hdr_len;
++	int		data_len;
++	int		npages;
++	unsigned	flags;
++	struct socket	*sock;
++	int		vnet_hlen;
++	struct skb_ext_page *(*ctor)(struct mpassthru_port *,
++				struct sk_buff *, int);
++	struct skb_ext_page *(*hash)(struct net_device *,
++				struct page *);
++};
  
- static int __init sundance_init(void)
+ /*
+  * This structure defines the management hooks for network devices.
+@@ -952,7 +971,8 @@ struct net_device {
+ 	struct macvlan_port	*macvlan_port;
+ 	/* GARP */
+ 	struct garp_port	*garp_port;
+-
++	/* mpassthru */
++	struct mpassthru_port	*mp_port;
+ 	/* class/net/name entry */
+ 	struct device		dev;
+ 	/* space for optional device, statistics, and wireless sysfs groups */
 -- 
-1.6.4.4
+1.5.4.4
 
