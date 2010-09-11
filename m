@@ -1,209 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Fri, 10 Sep 2010 21:26:06 -0700 (PDT)
-Message-ID: <20100910.212606.226784672.davem@davemloft.net>
+From: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/2 v2] man - IP_NODEFRAG option for IPv4 socket
+Date: Sat, 11 Sep 2010 07:36:15 +0200
+Message-ID: <AANLkTi=T0EA_9k13nR9+ivpwUQbugnfkVNQ9ZTZuqY=C@mail.gmail.com>
+References: <1276600052-16499-1-git-send-email-jolsa@redhat.com>
+ <1276600052-16499-3-git-send-email-jolsa@redhat.com> <AANLkTim4N5rc8Sn_uo5bXsb9vjvKd3GTQD3p-1uApbB8@mail.gmail.com>
+ <20100626.095857.137828263.davem@davemloft.net> <20100626191315.GA2076@jolsa.nomadprime.subscribe.loganwifi.com>
+Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100626191315.GA2076-Wm2NNL2RFAC1BuvyT83C0lrZeV2/+9ztveTR/H6W3zQlvuHqEAARLw@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hello Jiri
 
-Some fixes for regressions added this merge window in here, but some
-fixes are for some even older regressions too :-/
+On Sat, Jun 26, 2010 at 9:13 PM, Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Sat, Jun 26, 2010 at 09:58:57AM -0700, David Miller wrote:
+>> From: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Date: Sat, 26 Jun 2010 15:01:03 +0200
+>>
+>> >> =A0sent from this socket.
+>> >> +.TP
+>> >> +.BR IP_NODEFRAG " (since Linux 2.6)"
+>> >
+>> > here, we'd write the exact version in which the flag is added. It
+>> > looks like that might be 2.36, right?
+>>
+>> It'll show up in 2.6.36
+>>
+>> I doubt I'll be alive when we make it to 2.36 :-)
+>
+> :) ok, attaching changed patch
 
-1) Fine grained MII locking regression fix in 3c59x driver from
-   Ben Hutchings.
+I tweaked that slightly, and applied the below for man-pages-3.27.
 
-2) Off by one in NULL termination in IRDA stack.  Fix from Dan
-   Carpenter.
+Thanks,
 
-3) Exhausting bind naming space in AF_UNIX can make unix_autobind()
-   loop forever.  Fix from Tetsuo Handa.
+Michael
 
-4) Multipath routing breaks reverse-patch filtering.  It would just
-   assume a device match when multiple hops exist for a route, instead
-   of properly walking the next-hops array to find a device match.
-
-5) VIA velocity emits lots of DMA debug assertions, and attempts to fix
-   those lead to functional regressions, so turn scatter-gather
-   support back off by default until we can find a way to fix this
-   properly.
-
-   Thanks to Dave Jones for the report and patch testing.
-
-6) Follow-up fix to Eric Dumazet's GRO packet merging adjustments to
-   handle differing headroom amounts properly.  From Jarek Poplawski.
-   Thanks to Plamen Patrov for the original crash report and seemingly
-   endless help with testing.
-
-7) Fix interactions between VHOST and control groups, from Michael S.
-   Tsirkin.
-
-8) be2net driver fixes from Ajit Khaparde, wrong stats bump on multicast,
-   fix uncorrectable error detection, remove invalid BUG_ON() assertion.
-
-9) stmmac sleeps while holding a spinlock, fix from Giuseppe Cavallaro,
-   report by Jiri Slaby.
-
-10) Jiffies overflows in bonding ARp load balancer, from Jiri Bohac.
-
-11) When bridging, need to use device ->select_queue() override when
-    present otherwise wireless devices fail, from Helmut Schaa.
-
-12) In IPV6 overlapping fragments are now considered completely illegal,
-    because they allow bypassing of firewall rules (ie. first frag has
-    TCP header with flow information that's allowed, next flag overlaps
-    and overwrites TCP header with attacker's desired ports).  From
-    Nicolas Dichtel.
-
-13) Get b44 fifo recovery down to 20msc from several seconds because it
-    can happen frequently for users, from Mark Lord and James
-    Courtier-Dutton.
-
-14) Active FTP regression fix in IPVS from Julian Anastasov.
-
-15) Potential buffer overflow in niu driver ethtool code, from
-    Ben Hutchings.
-
-16) FIB trie lockdep-RCU fixes from Jarek Poplawski.
-
-17) Always relookup routes currently pointing to the blackhole rule,
-    as these routes are temporary.  This fixes regressions in IPSEC.
-    Fix from Jianzhao Wang.
-
-18) Fix a UDP hashing regression added in 2.6.33, the secondary hash needs
-    to be recalculated when the implicit local address change happens
-    as a side effect of connect().  From Eric Dumazet.
-
-19) KS8851 RX packet allocation can missize the buffer and allow
-    memory corruption.  From Eric Dumazet and Abraham Arce.
-
-20) SCTP address validation tests list_head iterater against NULL
-    but that's not what such an iterator is set to when a
-    list_for_each_entry() loop exits normally.  From Joe Perches
-    and Dan Carpenter.
-
-21) ipheth is marked as "wwan" net device type, but that is not correct.
-    Fix from Dan Williams.
-
-Please pull, thanks a lot!
-
-The following changes since commit 3e6dce76d99b328716b43929b9195adfee1de00c:
-
-  Merge branch 'drm-intel-fixes' of git://git.kernel.org/pub/scm/linux/kernel/git/ickle/drm-intel (2010-09-10 18:19:43 -0700)
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Ajit Khaparde (3):
-      be2net: fix net-snmp error because of wrong packet stats
-      be2net: fix a bug in UE detection logic
-      be2net: remove a BUG_ON in be_cmds.c
-
-Ben Hutchings (2):
-      3c59x: Fix deadlock in vortex_error()
-      niu: Fix kernel buffer overflow for ETHTOOL_GRXCLSRLALL
-
-Dan Carpenter (1):
-      irda: off by one
-
-Dan Williams (1):
-      ipheth: remove incorrect devtype to WWAN
-
-David S. Miller (4):
-      ipv4: Fix reverse path filtering with multipath routing.
-      via-velocity: Turn scatter-gather support back off.
-      Merge branch 'master' of master.kernel.org:/.../torvalds/linux-2.6
-      Merge branch 'vhost-net' of git://git.kernel.org/.../mst/vhost
-
-Eric Dumazet (2):
-      udp: add rehash on connect()
-      KS8851: Correct RX packet allocation
-
-Giuseppe Cavallaro (1):
-      stmmac: fix sleep inside atomic
-
-Helmut Schaa (1):
-      net: fix tx queue selection for bridged devices implementing select_queue
-
-Jarek Poplawski (2):
-      gro: Re-fix different skb headrooms
-      ipv4: Suppress lockdep-RCU false positive in FIB trie (3)
-
-Jianzhao Wang (1):
-      net: blackhole route should always be recalculated
-
-Jiri Bohac (1):
-      bonding: Fix jiffies overflow problems (again)
-
-Joe Perches (2):
-      sctp: fix test for end of loop
-      MAINTAINERS: Add CAIF
-
-Julian Anastasov (1):
-      ipvs: fix active FTP
-
-Li Zefan (1):
-      cls_cgroup: Fix rcu lockdep warning
-
-Mark Lord (1):
-      PATCH: b44 Handle RX FIFO overflow better (simplified)
-
-Michael S. Tsirkin (3):
-      cgroups: fix API thinko
-      vhost: fix attach to cgroups regression
-      vhost: error handling fix
-
-Nicolas Dichtel (2):
-      ipv6: discard overlapping fragment
-      netfilter: discard overlapping IPv6 fragment
-
-Tetsuo Handa (1):
-      UNIX: Do not loop forever at unix_autobind().
-
- MAINTAINERS                             |   10 ++++
- drivers/net/3c59x.c                     |   10 +++-
- drivers/net/b44.c                       |    9 ++++
- drivers/net/benet/be.h                  |    1 +
- drivers/net/benet/be_cmds.c             |    8 +--
- drivers/net/benet/be_cmds.h             |    2 +-
- drivers/net/benet/be_ethtool.c          |    1 +
- drivers/net/benet/be_hw.h               |    7 ++-
- drivers/net/benet/be_main.c             |   47 +++++++-----------
- drivers/net/bonding/bond_main.c         |   56 +++++++++++++++-------
- drivers/net/ks8851.c                    |   39 ++++++++-------
- drivers/net/niu.c                       |   16 ++----
- drivers/net/stmmac/stmmac_main.c        |    9 ++--
- drivers/net/usb/ipheth.c                |    7 +--
- drivers/net/via-velocity.c              |    2 +-
- drivers/vhost/vhost.c                   |   80 ++++++++++++++++++++++--------
- include/linux/cgroup.h                  |   11 ++++-
- include/net/cls_cgroup.h                |   10 +++-
- include/net/ip_vs.h                     |    3 +
- include/net/sock.h                      |    1 +
- include/net/udp.h                       |    1 +
- kernel/cgroup.c                         |    9 ++--
- net/core/dev.c                          |   16 +++---
- net/core/skbuff.c                       |    2 +-
- net/ipv4/datagram.c                     |    5 ++-
- net/ipv4/fib_frontend.c                 |   15 +++++-
- net/ipv4/fib_trie.c                     |    8 ++-
- net/ipv4/route.c                        |    7 ++-
- net/ipv4/udp.c                          |   44 +++++++++++++++++
- net/ipv6/datagram.c                     |    7 ++-
- net/ipv6/netfilter/nf_conntrack_reasm.c |   80 ++++++-------------------------
- net/ipv6/reassembly.c                   |   71 ++++++---------------------
- net/ipv6/udp.c                          |   10 ++++
- net/irda/irlan/irlan_common.c           |    2 +-
- net/netfilter/ipvs/ip_vs_core.c         |    1 +
- net/netfilter/ipvs/ip_vs_ftp.c          |    6 --
- net/netfilter/ipvs/ip_vs_xmit.c         |   18 +++++--
- net/sctp/sm_statefuns.c                 |   46 +++++++++---------
- net/unix/af_unix.c                      |   15 +++++-
- 39 files changed, 391 insertions(+), 301 deletions(-)
+--- a/man7/ip.7
++++ b/man7/ip.7
+@@ -399,6 +399,14 @@ The default is 1 which means that multicast
+packets don't leave the local
+ network unless the user program explicitly requests it.
+ Argument is an integer.
+ .TP
++.BR IP_NODEFRAG " (since Linux 2.6.36)"
++If enabled (argument is nonzero),
++the reassembly of outgoing packets is disabled in the netfilter layer.
++This option is only valid for
++.B SOCK_RAW
++sockets.
++The argument is an integer.
++.TP
+ .BR IP_OPTIONS " (since Linux 2.0)"
+ .\" Precisely: 1.3.30
+ Set or get the IP options to be sent with every packet from this socke=
+t.
+--=20
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
