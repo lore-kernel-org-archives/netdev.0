@@ -1,55 +1,47 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH net-next-2.6] cx82310_eth: allow empty URBs
-Date: Sat, 11 Sep 2010 17:40:16 +0200
-Message-ID: <201009111740.18843.linux@rainbow-software.org>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [PATCH v2] usbnet: do not count empty skbs as errors in rx_process()
+Date: Sat, 11 Sep 2010 12:07:59 -0700 (PDT)
+Message-ID: <704982.67431.qm@web180312.mail.gq1.yahoo.com>
+References: <201009102336.00722.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org,
 	Kernel development list <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: Ondrej Zary <linux@rainbow-software.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <201009102336.00722.linux@rainbow-software.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Empty received URBs are currently counted as errors but the device sends them
-sometimes as part of regular traffic - so remove this check.
-
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-
---- linux-2.6.36-rc3-/drivers/net/usb/cx82310_eth.c	2010-09-11 17:31:44.000000000 +0200
-+++ linux-2.6.36-rc3/drivers/net/usb/cx82310_eth.c	2010-09-11 17:21:22.000000000 +0200
-@@ -150,11 +150,11 @@ static int cx82310_bind(struct usbnet *d
- 
- 	/*
- 	 * this must not include ethernet header as the device can send partial
--	 * packets with no header (URB is at least 2 bytes long, so 2 is OK)
-+	 * packets with no header (and sometimes even empty URBs)
- 	 */
--	dev->net->hard_header_len = 2;
-+	dev->net->hard_header_len = 0;
- 	/* we can send at most 1514 bytes of data (+ 2-byte header) per URB */
--	dev->hard_mtu = CX82310_MTU + dev->net->hard_header_len;
-+	dev->hard_mtu = CX82310_MTU + 2;
- 	/* we can receive URBs up to 4KB from the device */
- 	dev->rx_urb_size = 4096;
- 
-@@ -228,12 +228,6 @@ static int cx82310_rx_fixup(struct usbne
- 			return 1;
- 	}
- 
--	if (skb->len < 2) {
--		dev_err(&dev->udev->dev, "RX frame too short: %d B\n",
--			skb->len);
--		return 0;
--	}
--
- 	/* a skb can contain multiple packets */
- 	while (skb->len > 1) {
- 		/* first two bytes are packet length */
 
 
--- 
-Ondrej Zary
+--- On Fri, 9/10/10, Ondrej Zary <linux@rainbow-software.org> wrote:
+
+> From: Ondrej Zary <linux@rainbow-software.org>
+> Subject: [PATCH v2] usbnet: do not count empty skbs as errors in rx_process()
+
+NAK to this backwards-incompatible change.
+
+At this point there's no way to know how many
+drivers it breaks ... I do know that counting
+such SKBs as errors has previously turned up
+link-level errors, and thus led to bugfixes.
+
+
+> If rx_fixup() returns an empty skb
+> (because it consumed all data inside),
+
+The canonical reason the SKB would be empty is
+because after rx_fixup() removed all header and
+trailer data, there was no packet body left.
+Which is likely a link error, and has been
+worth accounting as such in the past (turned up
+bugs on TX or RX sides).
+
+> do not count it as error.
+> 
+> This is needed for cx82310_eth.
+
+I'd far rather see that driver fixed, than see
+the core usbnet framework broken to avoid such
+fixes to a very new driver ...
