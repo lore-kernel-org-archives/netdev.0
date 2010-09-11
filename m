@@ -1,56 +1,40 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: [PATCH v2] usbnet: do not count empty skbs as errors in rx_process()
-Date: Sat, 11 Sep 2010 23:21:07 +0200
-Message-ID: <201009112321.10002.linux@rainbow-software.org>
-References: <749423.9282.qm@web180313.mail.gq1.yahoo.com>
+From: Robert Hancock <hancockrwd@gmail.com>
+Subject: Re: Is via-velocity broken in 2.6.34?
+Date: Sat, 11 Sep 2010 16:53:18 -0600
+Message-ID: <4C8C085E.4050200@gmail.com>
+References: <AANLkTi=kbonQ11mLpkd4EnSr3ch8yDssnjaUsgw_tVw9@mail.gmail.com>	<20100908.083022.189687100.davem@davemloft.net>	<AANLkTimRPOD857-pFXUJPxBw0RYXYe8OiPFwisY28x5B@mail.gmail.com> <20100909.125710.226781968.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: David Brownell <david-b@pacbell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1-out1.atlantis.sk ([80.94.52.55]:45437 "EHLO
-	mail.atlantis.sk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752503Ab0IKVVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Sep 2010 17:21:17 -0400
-In-Reply-To: <749423.9282.qm@web180313.mail.gq1.yahoo.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: matt.causey@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100909.125710.226781968.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 11 September 2010 23:15:29 David Brownell wrote:
-> --- On Sat, 9/11/10, Ondrej Zary wrote:
-> > Date: Saturday, September 11, 2010, 1:22 PM
-> > On Saturday 11 September 2010
-> >
-> > 21:07:59 David Brownell wrote:
-> > > NAK to this backwards-incompatible change.
-> > >
-> > > > This is needed for cx82310_eth.
+On 09/09/2010 01:57 PM, David Miller wrote:
+> From: Matt Causey<matt.causey@gmail.com>
+> Date: Thu, 9 Sep 2010 10:42:21 -0700
 >
-> Backwards-incompatible changes are NOT "needed"
+>> So it wasn't immediately intuitive that we would need power
+>> management enabled in order to use other parts of the system.
 >
-> > > I'd far rather see that driver fixed, than see
-> > > the core usbnet framework broken to avoid such
-> > > fixes to a very new driver ...
-> >
-> > I already tried to explain that the driver is not broken
+> ACPI is not power management.
 >
-> Yet you keep saying it doesn't work right, which
-> is the classic definition of "broken, needs fix".
+> It's a set of infrastructure (including an interpreter and small
+> firmware programs to drive specialized hardware) that allows the
+> important details of your motherboard to be described accurately to
+> the kernel by firmware authors.
 >
-> > and so it cannot be
-> > fixed. It's the way the hardware works and usbnet
-> > is not > ready for it.
+> That's why it's called "Advanced Configuration and Power Interface"
+> and not just "Advanced Power Interface" :-)
 >
-> And when we went over this before, I said how
-> to resolve this:   a *BACKWARD-COMPATIBLE change
-> that adds a new return state to rx_fixup(), used
-> in the cx82310 code.  Why didn't you try that?
+> It also provides more accurate tables to describe things like
+> the cpus in your system etc., to replace deprecated mechanisms
+> for that such as MPS.
 
-Something like the first patch that started this thread?
-
--- 
-Ondrej Zary
+I'd think we'd save some trouble if we forced ACPI to on unless EMBEDDED 
+was set or something, to indicate you shouldn't turn it off unless you 
+really know what you're doing..
