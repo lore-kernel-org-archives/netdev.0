@@ -1,126 +1,41 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-2.6 v2] bonding: correctly process non-linear skbs
-Date: Fri, 10 Sep 2010 18:08:35 -0700
-Message-ID: <19704.1284167315@death>
-References: <20100910203845.GW7497@gospo.rdu.redhat.com> <22437.1284152640@death> <20100910214320.GX7497@gospo.rdu.redhat.com>
-Cc: netdev@vger.kernel.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	stable@kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] IPv6: Change addrconf code to deal with link changes
+ better
+Date: Fri, 10 Sep 2010 21:10:29 -0400
+Message-ID: <4C8AD705.10200@hp.com>
+References: <4C8A9BF7.2090102@hp.com> <40oql7-6f5.ln1@chipmunk.wormnet.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Alexander Clouter <alex@digriz.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:39843 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751657Ab0IKBJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Sep 2010 21:09:12 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o8B0rw0j006469
-	for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 20:53:58 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o8B19Bcn479440
-	for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 21:09:11 -0400
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o8B19Ako015464
-	for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 19:09:11 -0600
-In-reply-to: <20100910214320.GX7497@gospo.rdu.redhat.com>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:33003 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916Ab0IKBKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 21:10:33 -0400
+In-Reply-To: <40oql7-6f5.ln1@chipmunk.wormnet.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
+On 09/10/2010 06:27 PM, Alexander Clouter wrote:
+> Brian Haley <brian.haley@hp.com> wrote:
+>>
+>> [snipped]
+>>
+>> Change the IPv6 addrconf code to handle the case where the NIC link
+>> state goes UP-DOWN-UP by removing all the autoconfigured addresses
+>> when it goes down, so that when it comes back up they will get added
+>> again and DAD will be triggered.  
+>>
+> Surely this is going to result in me sending you lots of rude emails 
+> everytime cursing you when my SSH connections are terminated for no real 
+> reason on a link flap?  Privacy addresses are handy on servers too such 
+> as DNS servers...
 
->On Fri, Sep 10, 2010 at 02:04:00PM -0700, Jay Vosburgh wrote:
->> Andy Gospodarek <andy@greyhouse.net> wrote:
->> 
->> >
->> >It was recently brought to my attention that 802.3ad mode bonds would no
->> >longer form when using some network hardware after a driver update.
->> >After snooping around I realized that the particular hardware was using
->> >page-based skbs and found that skb->data did not contain a valid LACPDU
->> >as it wasn't stored there.  That explained the inability to form an
->> >802.3ad-based bond.
->> >
->> >This patch fixes the issue in my tests and should be applied to 2.6.36
->> >and as far back as anyone cares to add it to stable.
->> >
->> >Thanks to Alexander Duyck <alexander.h.duyck@intel.com> and Jesse
->> >Brandeburg <jesse.brandeburg@intel.com> for the suggestions on this one.
->> >
->> >Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
->> >CC: Alexander Duyck <alexander.h.duyck@intel.com>
->> >CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> >CC: stable@kernel.org
->> 
->> 	Did you by any chance also test balance-alb mode?  Inspection
->> suggests that rlb_arp_recv may suffer from the same problem.
->> 
->> 	If you agree, could you add that to the patch and resubmit it?
->> 
->> 	Either way, the patch looks good.
->> 
->
->You are correct, Jay.  I did a quick test and confirmed that ARPs might
->not be properly processed when using balance-ALB too.  Below is a patch
->to fix both spots:
->
->
->[PATCH net-2.6 v2] bonding: correctly process non-linear skbs
->
->It was recently brought to my attention that 802.3ad mode bonds would no
->longer form when using some network hardware after a driver update.
->After snooping around I realized that the particular hardware was using
->page-based skbs and found that skb->data did not contain a valid LACPDU
->as it was not stored there.  That explained the inability to form an
->802.3ad-based bond.  For balance-alb mode bonds this was also an issue
->as ARPs would not be properly processed.
->
->This patch fixes the issue in my tests and should be applied to 2.6.36
->and as far back as anyone cares to add it to stable.
->
->Thanks to Alexander Duyck <alexander.h.duyck@intel.com> and Jesse
->Brandeburg <jesse.brandeburg@intel.com> for the suggestions on this one.
->
->Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
->CC: Alexander Duyck <alexander.h.duyck@intel.com>
->CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
->CC: stable@kerne.org
+No, you'd be sending me some rude emails, I didn't test that particular
+case, so Dave, don't apply this.  I guess we've lived with it long enough
+the way it is that dropping a few packets at initialization isn't *that*
+bad.  I'll see if I can figure out a better way in the meantime...
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-
->---
-> drivers/net/bonding/bond_3ad.c |    3 +++
-> drivers/net/bonding/bond_alb.c |    3 +++
-> 2 files changed, 6 insertions(+), 0 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 822f586..0ddf4c6 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -2466,6 +2466,9 @@ int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct pac
-> 	if (!(dev->flags & IFF_MASTER))
-> 		goto out;
->
->+	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
->+		goto out;
->+
-> 	read_lock(&bond->lock);
-> 	slave = bond_get_slave_by_dev((struct bonding *)netdev_priv(dev),
-> 					orig_dev);
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index c746b33..26bb118 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -362,6 +362,9 @@ static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct
-> 		goto out;
-> 	}
->
->+	if (!pskb_may_pull(skb, arp_hdr_len(bond_dev)))
->+		goto out;
->+
-> 	if (skb->len < sizeof(struct arp_pkt)) {
-> 		pr_debug("Packet is too small to be an ARP\n");
-> 		goto out;
->
->-- 
->1.7.0.1
->
+-Brian
