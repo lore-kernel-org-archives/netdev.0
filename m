@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC PATCH v10 12/16] Add a kconfig entry and make entry for mp device.
-Date: Sat, 11 Sep 2010 17:53:05 +0800
-Message-ID: <1284198789-5358-13-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC PATCH v10 07/16] Modify netdev_alloc_page() to get external buffer
+Date: Sat, 11 Sep 2010 17:53:00 +0800
+Message-ID: <1284198789-5358-8-git-send-email-xiaohui.xin@intel.com>
 References: <1284198789-5358-1-git-send-email-xiaohui.xin@intel.com>
  <1284198789-5358-2-git-send-email-xiaohui.xin@intel.com>
  <1284198789-5358-3-git-send-email-xiaohui.xin@intel.com>
@@ -9,11 +9,6 @@ References: <1284198789-5358-1-git-send-email-xiaohui.xin@intel.com>
  <1284198789-5358-5-git-send-email-xiaohui.xin@intel.com>
  <1284198789-5358-6-git-send-email-xiaohui.xin@intel.com>
  <1284198789-5358-7-git-send-email-xiaohui.xin@intel.com>
- <1284198789-5358-8-git-send-email-xiaohui.xin@intel.com>
- <1284198789-5358-9-git-send-email-xiaohui.xin@intel.com>
- <1284198789-5358-10-git-send-email-xiaohui.xin@intel.com>
- <1284198789-5358-11-git-send-email-xiaohui.xin@intel.com>
- <1284198789-5358-12-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
@@ -22,48 +17,66 @@ To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:50447 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752537Ab0IKJg7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Sep 2010 05:36:59 -0400
-In-Reply-To: <1284198789-5358-12-git-send-email-xiaohui.xin@intel.com>
+	id S1751433Ab0IKJgv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Sep 2010 05:36:51 -0400
+In-Reply-To: <1284198789-5358-7-git-send-email-xiaohui.xin@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
----
- drivers/vhost/Kconfig  |   10 ++++++++++
- drivers/vhost/Makefile |    2 ++
- 2 files changed, 12 insertions(+), 0 deletions(-)
+    Currently, it can get external buffers from mp device.
 
-diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
-index e4e2fd1..a6b8cbf 100644
---- a/drivers/vhost/Kconfig
-+++ b/drivers/vhost/Kconfig
-@@ -9,3 +9,13 @@ config VHOST_NET
- 	  To compile this driver as a module, choose M here: the module will
- 	  be called vhost_net.
+    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+    Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+    Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+---
+ net/core/skbuff.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 117d82b..1a61e2b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -269,11 +269,38 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(__netdev_alloc_skb);
  
-+config MEDIATE_PASSTHRU
-+	tristate "mediate passthru network driver (EXPERIMENTAL)"
-+	depends on VHOST_NET
-+	---help---
-+	  zerocopy network I/O support, we call it as mediate passthru to
-+	  be distiguish with hardare passthru.
++struct page *netdev_alloc_ext_pages(struct net_device *dev, int npages)
++{
++	struct mpassthru_port *port;
++	struct skb_ext_page *ext_page = NULL;
 +
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called mpassthru.
++	port = dev->mp_port;
++	if (!port)
++		goto out;
++	ext_page = port->ctor(port, NULL, npages);
++	if (ext_page)
++		return ext_page->page;
++out:
++	return NULL;
 +
-diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
-index 72dd020..c18b9fc 100644
---- a/drivers/vhost/Makefile
-+++ b/drivers/vhost/Makefile
-@@ -1,2 +1,4 @@
- obj-$(CONFIG_VHOST_NET) += vhost_net.o
- vhost_net-y := vhost.o net.o
++}
++EXPORT_SYMBOL(netdev_alloc_ext_pages);
 +
-+obj-$(CONFIG_MEDIATE_PASSTHRU) += mpassthru.o
++struct page *netdev_alloc_ext_page(struct net_device *dev)
++{
++	return netdev_alloc_ext_pages(dev, 1);
++
++}
++EXPORT_SYMBOL(netdev_alloc_ext_page);
++
+ struct page *__netdev_alloc_page(struct net_device *dev, gfp_t gfp_mask)
+ {
+ 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
+ 	struct page *page;
+ 
++	if (dev_is_mpassthru(dev))
++		return netdev_alloc_ext_page(dev);
++
+ 	page = alloc_pages_node(node, gfp_mask, 0);
+ 	return page;
+ }
 -- 
 1.5.4.4
 
