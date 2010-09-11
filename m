@@ -1,54 +1,42 @@
-From: Alexander Clouter <alex@digriz.org.uk>
-Subject: Re: [PATCH] IPv6: Change addrconf code to deal with link changes better
-Date: Fri, 10 Sep 2010 23:27:48 +0100
-Message-ID: <40oql7-6f5.ln1@chipmunk.wormnet.eu>
-References: <4C8A9BF7.2090102@hp.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:46690 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751991Ab0IJXIT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Sep 2010 19:08:19 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1OuChe-0003bJ-LX
-	for netdev@vger.kernel.org; Sat, 11 Sep 2010 01:08:18 +0200
-Received: from chipmunk.wormnet.eu ([195.195.131.226])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 11 Sep 2010 01:08:18 +0200
-Received: from alex by chipmunk.wormnet.eu with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 11 Sep 2010 01:08:18 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 2/2] posix clocks: introduce a sysfs presence.
+Date: Fri, 10 Sep 2010 17:20:20 -0700
+Message-ID: <20100911002020.GA20252@kroah.com>
+References: <cover.1283504065.git.richard.cochran@omicron.at> <84124d2479b8967cac2b35f852fc0fcae6ad9444.1283504065.git.richard.cochran@omicron.at> <20100910000008.1483fdd7@lxorguk.ukuu.org.uk> <20100910093135.GB10179@riccoc20.at.omicron.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100910093135.GB10179-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Brian Haley <brian.haley@hp.com> wrote:
+On Fri, Sep 10, 2010 at 11:31:35AM +0200, Richard Cochran wrote:
+> On Fri, Sep 10, 2010 at 12:00:08AM +0100, Alan Cox wrote:
+> > Also we have existing time sources that don't follow the poxix clock
+> > model - I can open /dev/rtc and I can open the hpet and so on.
+> > 
+> > I like /sys/class/time* *but* you need to be able to open the sysfs
+> > device and apply operations to it in order for it to work when your closk
+> > can be dynamically created and destroyed and to get a sane Unix API.
+> > 
+> > To start with try applying permissions to clock sources via the POSIX
+> > API. That is something that will be required for some applications.
+> > 
+> > I need to be able to open sys/clock/foo/something and get a meaningful
+> > handle. Sure it's quite likely the operations it supports are related to
+> > the POSIX timer ops.
 > 
-> [snipped]
+> Do you mean this:
 > 
-> Change the IPv6 addrconf code to handle the case where the NIC link
-> state goes UP-DOWN-UP by removing all the autoconfigured addresses
-> when it goes down, so that when it comes back up they will get added
-> again and DAD will be triggered.  
-> 
-Surely this is going to result in me sending you lots of rude emails 
-everytime cursing you when my SSH connections are terminated for no real 
-reason on a link flap?  Privacy addresses are handy on servers too such 
-as DNS servers...
+>    id = read(/sys/clock/foo/lock); /* clock is busy, cannot be removed */
 
-When on occasion I am forced to use Windows, those darn PuTTY disconnect 
-popups I see each time I disconnect/connect from our wireless network 
-nearly put axe swinging mood as it is.  Please, spare me experiencing 
-this pain under Linux...
+That's not for sysfs, if you want to do something like this, create
+clockfs please :)
 
-Of course I could be talking nonsense, so ignore this email and keep up 
-the good work :)
+thanks,
 
-Cheers
-
--- 
-Alexander Clouter
-.sigmonster says: Cole's Law:
-                  	Thinly sliced cabbage.
-
+greg k-h
