@@ -1,88 +1,126 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: af_packet: don't call tpacket_destruct_skb() until
- the skb is sent out
-Date: Sat, 11 Sep 2010 08:19:39 +0800
-Message-ID: <AANLkTinXxyVzvPWT_nnpos4-tVVj68T+7iHCvokHG+2m@mail.gmail.com>
-References: <1284124960-3266-1-git-send-email-xiaosuo@gmail.com>
- <1284128770.24675.41.camel@edumazet-laptop> <AANLkTi=ZzvCNef7r81WZdbZsiSquYhDrnYAY73r4mo+t@mail.gmail.com>
- <1284137906.24675.97.camel@edumazet-laptop> <1284138733.24675.104.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-2.6 v2] bonding: correctly process non-linear skbs
+Date: Fri, 10 Sep 2010 18:08:35 -0700
+Message-ID: <19704.1284167315@death>
+References: <20100910203845.GW7497@gospo.rdu.redhat.com> <22437.1284152640@death> <20100910214320.GX7497@gospo.rdu.redhat.com>
+Cc: netdev@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	stable@kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36826 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755675Ab0IKAUA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 20:20:00 -0400
-Received: by wwb13 with SMTP id 13so542878wwb.1
-        for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 17:19:59 -0700 (PDT)
-In-Reply-To: <1284138733.24675.104.camel@edumazet-laptop>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:39843 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751657Ab0IKBJM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Sep 2010 21:09:12 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o8B0rw0j006469
+	for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 20:53:58 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o8B19Bcn479440
+	for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 21:09:11 -0400
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o8B19Ako015464
+	for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 19:09:11 -0600
+In-reply-to: <20100910214320.GX7497@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 11, 2010 at 1:12 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le vendredi 10 septembre 2010 =E0 18:58 +0200, Eric Dumazet a =E9crit=
- :
->> Le samedi 11 septembre 2010 =E0 00:47 +0800, Changli Gao a =E9crit :
->> > On Fri, Sep 10, 2010 at 10:26 PM, Eric Dumazet <eric.dumazet@gmail=
-=2Ecom> wrote:
->>
->>
->> > > Are you sure sock_wfree(skb) is still needed ?
+Andy Gospodarek <andy@greyhouse.net> wrote:
+
+>On Fri, Sep 10, 2010 at 02:04:00PM -0700, Jay Vosburgh wrote:
+>> Andy Gospodarek <andy@greyhouse.net> wrote:
+>> 
 >> >
->> > sock_wfree(skb) is also used to wake up the users who sleep on
->> > poll(2). If sock_wfree(skb) is moved into skb->destructor(), and
->> > called before skb is sent out, pollers will be waked up without
->> > POLLOUT, and since the later skb_shinfo(skb)->destructor() doesn't
->> > wake up the pollers, POLLOUT events will be lost, and the poller w=
-ill
->> > be blocked forever.
+>> >It was recently brought to my attention that 802.3ad mode bonds would no
+>> >longer form when using some network hardware after a driver update.
+>> >After snooping around I realized that the particular hardware was using
+>> >page-based skbs and found that skb->data did not contain a valid LACPDU
+>> >as it wasn't stored there.  That explained the inability to form an
+>> >802.3ad-based bond.
 >> >
->>
->> Then implement poll() to use the number of available slots.
->> (not use the default poll() that relies on generic sk / inet queues =
-and
->> counters)
->>
->> Really, sock_wfree() cannot be used at all, or we also must disable
->> early orphaning of these skbs.
->>
->> Goal is to replace skb->destructor use in af_packet by
->> shinfo->destructor, not mix the two.
+>> >This patch fixes the issue in my tests and should be applied to 2.6.36
+>> >and as far back as anyone cares to add it to stable.
+>> >
+>> >Thanks to Alexander Duyck <alexander.h.duyck@intel.com> and Jesse
+>> >Brandeburg <jesse.brandeburg@intel.com> for the suggestions on this one.
+>> >
+>> >Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>> >CC: Alexander Duyck <alexander.h.duyck@intel.com>
+>> >CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> >CC: stable@kernel.org
+>> 
+>> 	Did you by any chance also test balance-alb mode?  Inspection
+>> suggests that rlb_arp_recv may suffer from the same problem.
+>> 
+>> 	If you agree, could you add that to the patch and resubmit it?
+>> 
+>> 	Either way, the patch looks good.
+>> 
 >
-> Thinking again about this, we also might avoid taking references on
-> pages and releasing references too.
->
-> shinfo->destructor should replace the skb_release_data() logic,
-> not complement it.
->
-> if (shinfo->destructor) {
-> =A0 =A0 =A0 =A0shinfo->destructor(skb);
-> } else {
-> =A0 =A0 =A0 =A0for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0put_page(skb_shinfo(skb)->frags[i].pag=
-e);
-> =A0 =A0 =A0 =A0if (skb_has_frag_list(skb))
-> =A0 =A0 =A0 =A0....
-> =A0 =A0 =A0 =A0kfree(skb->head);
-> }
+>You are correct, Jay.  I did a quick test and confirmed that ARPs might
+>not be properly processed when using balance-ALB too.  Below is a patch
+>to fix both spots:
 >
 >
-> As long as the mmap zone is correctly protected in af_packet code, of
-> course (not releasing it as long as some packets are still in flight)
+>[PATCH net-2.6 v2] bonding: correctly process non-linear skbs
 >
+>It was recently brought to my attention that 802.3ad mode bonds would no
+>longer form when using some network hardware after a driver update.
+>After snooping around I realized that the particular hardware was using
+>page-based skbs and found that skb->data did not contain a valid LACPDU
+>as it was not stored there.  That explained the inability to form an
+>802.3ad-based bond.  For balance-alb mode bonds this was also an issue
+>as ARPs would not be properly processed.
+>
+>This patch fixes the issue in my tests and should be applied to 2.6.36
+>and as far back as anyone cares to add it to stable.
+>
+>Thanks to Alexander Duyck <alexander.h.duyck@intel.com> and Jesse
+>Brandeburg <jesse.brandeburg@intel.com> for the suggestions on this one.
+>
+>Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>CC: Alexander Duyck <alexander.h.duyck@intel.com>
+>CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>CC: stable@kerne.org
 
-It touches too much internal implementation.
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-I think most of your ideas are about optimizations, and should be
-addressed in separate patches. I'll avoid kmalloc/kfree in the next
-version. Thanks.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+>---
+> drivers/net/bonding/bond_3ad.c |    3 +++
+> drivers/net/bonding/bond_alb.c |    3 +++
+> 2 files changed, 6 insertions(+), 0 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>index 822f586..0ddf4c6 100644
+>--- a/drivers/net/bonding/bond_3ad.c
+>+++ b/drivers/net/bonding/bond_3ad.c
+>@@ -2466,6 +2466,9 @@ int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct pac
+> 	if (!(dev->flags & IFF_MASTER))
+> 		goto out;
+>
+>+	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
+>+		goto out;
+>+
+> 	read_lock(&bond->lock);
+> 	slave = bond_get_slave_by_dev((struct bonding *)netdev_priv(dev),
+> 					orig_dev);
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index c746b33..26bb118 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -362,6 +362,9 @@ static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct
+> 		goto out;
+> 	}
+>
+>+	if (!pskb_may_pull(skb, arp_hdr_len(bond_dev)))
+>+		goto out;
+>+
+> 	if (skb->len < sizeof(struct arp_pkt)) {
+> 		pr_debug("Packet is too small to be an ARP\n");
+> 		goto out;
+>
+>-- 
+>1.7.0.1
+>
