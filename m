@@ -1,129 +1,60 @@
-From: Michael Williamson <michael.williamson@criticallink.com>
-Subject: Re: [PATCH v3 00/10] split out emac cpdma and mdio for reuse
-Date: Sat, 11 Sep 2010 09:14:14 -0400
-Message-ID: <4C8B80A6.5060609@criticallink.com>
-References: <1283891142-15522-1-git-send-email-cyril@ti.com> <871v95f2xv.fsf@deeprootsystems.com> <4C86F369.6040906@criticallink.com> <4C880733.5010909@ti.com> <4C882EAA.9030903@criticallink.com> <4C892AC0.80409@criticallink.com> <4C893ADE.809@ti.com> <4C8950D4.9060102@criticallink.com> <4C8AB85A.8060909@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Hilman <khilman@deeprootsystems.com>,
-	"tony@atomide.com" <tony@atomide.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davinci-linux-open-source@linux.davincidsp.com"
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: cyril@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <4C8AB85A.8060909@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: [PATCH] uwb: use '%pM' format to print MAC address
+Date: Sat, 11 Sep 2010 18:05:46 +0300
+Message-ID: <1284217546-29934-1-git-send-email-andy.shevchenko@gmail.com>
+Cc: David Vrabel <david.vrabel@csr.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:46982 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751059Ab0IKPGE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Sep 2010 11:06:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Cyril,
+Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+---
+ drivers/uwb/address.c    |    5 +----
+ drivers/uwb/wlp/wss-lc.c |    8 +++-----
+ 2 files changed, 4 insertions(+), 9 deletions(-)
 
-On 09/10/2010 06:59 PM, Cyril Chemparathy wrote:
-> Hi Mike,
-> 
-> I have merged your latest two emails and responded to both here.
-> 
-[...]
-> One of the patches posted on my repo [1] replaces the dumb mdelay() with
-> a bit more logic that calculates the worst-case access time.  This
-> mechanism may work a lot better for you.  Would you mind trying it out?
-> 
+diff --git a/drivers/uwb/address.c b/drivers/uwb/address.c
+index 9733213..0336eab 100644
+--- a/drivers/uwb/address.c
++++ b/drivers/uwb/address.c
+@@ -363,10 +363,7 @@ size_t __uwb_addr_print(char *buf, size_t buf_size, const unsigned char *addr,
+ {
+ 	size_t result;
+ 	if (type)
+-		result = scnprintf(buf, buf_size,
+-				  "%02x:%02x:%02x:%02x:%02x:%02x",
+-				  addr[0], addr[1], addr[2],
+-				  addr[3], addr[4], addr[5]);
++		result = scnprintf(buf, buf_size, "%pM", &addr[0]);
+ 	else
+ 		result = scnprintf(buf, buf_size, "%02x:%02x",
+ 				  addr[1], addr[0]);
+diff --git a/drivers/uwb/wlp/wss-lc.c b/drivers/uwb/wlp/wss-lc.c
+index a005d2a..bb5d2ae 100644
+--- a/drivers/uwb/wlp/wss-lc.c
++++ b/drivers/uwb/wlp/wss-lc.c
+@@ -791,11 +791,9 @@ int wlp_wss_prep_hdr(struct wlp *wlp, struct wlp_eda_node *eda_entry,
+ 	} else {
+ 		if (printk_ratelimit())
+ 			dev_err(dev, "WLP: Destination neighbor (Ethernet: "
+-				"%02x:%02x:%02x:%02x:%02x:%02x, Dev: "
+-				"%02x:%02x) is not connected. \n", eth_addr[0],
+-				eth_addr[1], eth_addr[2], eth_addr[3],
+-				eth_addr[4], eth_addr[5], dev_addr->data[1],
+-				dev_addr->data[0]);
++				"%pM, Dev: %02x:%02x) is not connected.\n",
++				&eth_addr[0],
++				dev_addr->data[1], dev_addr->data[0]);
+ 		result = -EINVAL;
+ 	}
+ 	return result;
+-- 
+1.7.2.2
 
-You patch from [1] is working much more reliably now (well, 6 for 6 boot cycles as well as
-several ifup/ifdown cycles).  I do get the "resetting idled controlled" console message
-every cycle, it seems that will be expected now.
-
-[...]
-
->>
->> Also, your while(1) loops with the continue conditions on the second wait_for_user_access() 
->> in the read and writes might need some consideration, i.e.:
->>
->>         while (1) {
->>                 ret = wait_for_user_access(data);
->>                 if (ret == -EAGAIN)
->>                         continue;
->>                 if (ret < 0)
->>                         break;
->>
->>                 __raw_writel(reg, &data->regs->user[0].access);
->>
->>                 ret = wait_for_user_access(data);
->>                 if (ret == -EAGAIN)
->>                         continue;
->>                         ^^^^^^^^^ <--- this will re-issue the request.... what you want?
-> 
-> Yes, the wait_for_user_access() would have reset the controller,
-> throwing the current transaction out.  The intent here is to restart the
-> current transaction with a newly initialized controller.
-> 
-
-OK.  Makes sense.  Looking at it felt like there was a chance for end endless spin, but that
-seems unlikely given how that condition might fire.
-
-[...]
-
->> Also, on the shutdown, I get a major kernel trace.  Here is the dump, as much 
->> as I could catch of it.... (I need a better terminal program)
-> 
-> [...]
->> WARNING: at drivers/net/davinci_emac.c:1025 __cpdma_chan_free+0xac/0xb0()
-> 
-> The current code spits out a huge volume of stuff as a result of a
-> WARN_ON in the rx handler.  The gitweb on [1] has a patch that fixes this.
-> 
-
-Yes,  these messages are no longer issued with the patches from [1].  Thanks.
-
-> [...]
->>>> The MDIO module upgrade (rev 1.4 -> 1.5) could have something to do with
->>>> this behavior.  Even so, I can't explain why this issue wasn't seen on
->>>> da8xx prior to this series.  The original code should (at least in
->>>> theory) have sporadically locked up on emac open.
->>>>
->> I think, if I understand it correctly, that in the previous version of 
->> this code, the emac was reset *prior* to enabling, scanning, and assigning 
->> the associated phy on the MDIO bus.  The new implementation sets up and scans 
->> the MDIO bus first, then comes back around to the EMAC second... hits a reset,
->> and doesn't re-ENABLE the MDIO.
-> 
-> AFAICS, that isn't entirely accurate.  In the previous version, the mdio
-> bus was being brought up at probe time in davinci_emac_probe().  The
-> soft-reset was happening later on when the device is opened, in
-> emac_hw_enable().
-> 
-> The difference, however, is that the original code forced an
-> emac_mii_reset() immediately after the emac_hw_enable().  This is not
-> being done with the separated mdio, and that is the problem.  In terms
-> of behavior, with the current work around, the new and old versions
-> should be close to identical.  More below...
-> 
->> Also, maybe hitting the EMAC reset while the MDIO state machine is up is *bad*, I 
->> seem to recall some text in the user's guide about waiting for the state
->> machine to stop before disabling it.  I wonder if that also applies to reset?
-> 
-> You are correct.  EMAC soft-reset stops the MDIO mid-transaction, quite
-> unlike disabling the module via the control register.  Therefore, there
-> is a risk that a badly designed phy could be left hanging in an
-> arbitrary state.  However, all earlier versions of the emac code have
-> been exposed to this very same vulnerability (i.e. arbitrary emac
-> soft-reset regardless of mdio state) all along.
-> 
-
-Thanks for straightening me out on this, Cryil.  Your patch series in [1] seems to
-have resolved the issues I've been able to see on the da850 based board I'm using
-here.  I appreciate your patience and quick response.  I may try to beat on it a 
-bit more with some network performance tests (even though it's not at all related 
-to the immediate problems you've fixed) -- we've had that on our list of todos 
-anyway for this module.
-
-I think it would be good to float your patches over to davinci-next, if possible, before the
-37 merge window opens...  Speaking, of course, from a very partial perspective.
-
-> [1]
-> http://arago-project.org/git/people/?p=cyril/linux-tnetv107x.git;a=shortlog;h=refs/heads/emac-cpdma-mdio-fixes
-
--Mike
