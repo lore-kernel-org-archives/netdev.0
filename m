@@ -1,179 +1,209 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2] net: af_packet: don't call tpacket_destruct_skb() until the skb is sent out
-Date: Sat, 11 Sep 2010 11:23:23 +0800
-Message-ID: <1284175403-3228-1-git-send-email-xiaosuo@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:61980 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753862Ab0IKDXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Sep 2010 23:23:54 -0400
-Received: by pzk34 with SMTP id 34so1242379pzk.19
-        for <netdev@vger.kernel.org>; Fri, 10 Sep 2010 20:23:53 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Fri, 10 Sep 2010 21:26:06 -0700 (PDT)
+Message-ID: <20100910.212606.226784672.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since skb->destructor() is used to account socket memory, and maybe called
-before the skb is sent out, a corrupt skb maybe sent out finally.
 
-A new destructor is added into structure skb_shared_info(), and it won't
-be called until the last reference to the data of an skb is put. af_packet
-uses this destructor instead.
+Some fixes for regressions added this merge window in here, but some
+fixes are for some even older regressions too :-/
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
-v2: avoid kmalloc/kfree
- include/linux/skbuff.h |    3 ++-
- net/core/skbuff.c      |   19 ++++++++++++++-----
- net/packet/af_packet.c |   24 +++++++++++-------------
- 3 files changed, 27 insertions(+), 19 deletions(-)
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 9e8085a..1a8cfa1 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -191,6 +191,7 @@ struct skb_shared_info {
- 	__u8		tx_flags;
- 	struct sk_buff	*frag_list;
- 	struct skb_shared_hwtstamps hwtstamps;
-+	void		(*destructor)(struct sk_buff *skb);
- 
- 	/*
- 	 * Warning : all fields before dataref are cleared in __alloc_skb()
-@@ -199,7 +200,7 @@ struct skb_shared_info {
- 
- 	/* Intermediate layers must ensure that destructor_arg
- 	 * remains valid until skb destructor */
--	void *		destructor_arg;
-+	void		*destructor_arg[2];
- 	/* must be last field, see pskb_expand_head() */
- 	skb_frag_t	frags[MAX_SKB_FRAGS];
- };
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 752c197..fef81f3 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -332,10 +332,14 @@ static void skb_release_data(struct sk_buff *skb)
- 	if (!skb->cloned ||
- 	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
- 			       &skb_shinfo(skb)->dataref)) {
--		if (skb_shinfo(skb)->nr_frags) {
-+		struct skb_shared_info *shinfo = skb_shinfo(skb);
-+
-+		if (shinfo->destructor)
-+			shinfo->destructor(skb);
-+		if (shinfo->nr_frags) {
- 			int i;
--			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
--				put_page(skb_shinfo(skb)->frags[i].page);
-+			for (i = 0; i < shinfo->nr_frags; i++)
-+				put_page(shinfo->frags[i].page);
- 		}
- 
- 		if (skb_has_frag_list(skb))
-@@ -497,9 +501,12 @@ bool skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	if (skb_shared(skb) || skb_cloned(skb))
- 		return false;
- 
-+	shinfo = skb_shinfo(skb);
-+	if (shinfo->destructor)
-+		return false;
-+
- 	skb_release_head_state(skb);
- 
--	shinfo = skb_shinfo(skb);
- 	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
- 	atomic_set(&shinfo->dataref, 1);
- 
-@@ -799,7 +806,9 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 
- 	memcpy((struct skb_shared_info *)(data + size),
- 	       skb_shinfo(skb),
--	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
-+	       offsetof(struct skb_shared_info,
-+			frags[skb_shinfo(skb)->nr_frags]));
-+	skb_shinfo(skb)->destructor = NULL;
- 
- 	/* Check if we can avoid taking references on fragments if we own
- 	 * the last reference on skb->head. (see skb_release_data())
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 3616f27..ce81c45 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -825,19 +825,18 @@ ring_is_full:
- 
- static void tpacket_destruct_skb(struct sk_buff *skb)
- {
--	struct packet_sock *po = pkt_sk(skb->sk);
--	void *ph;
--
--	BUG_ON(skb == NULL);
-+	struct packet_sock *po = pkt_sk(skb_shinfo(skb)->destructor_arg[0]);
- 
- 	if (likely(po->tx_ring.pg_vec)) {
--		ph = skb_shinfo(skb)->destructor_arg;
-+		void *ph = skb_shinfo(skb)->destructor_arg[1];
-+
- 		BUG_ON(__packet_get_status(po, ph) != TP_STATUS_SENDING);
- 		BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
- 		atomic_dec(&po->tx_ring.pending);
- 		__packet_set_status(po, ph, TP_STATUS_AVAILABLE);
- 	}
- 
-+	skb->sk = &po->sk;
- 	sock_wfree(skb);
- }
- 
-@@ -862,7 +861,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	skb->dev = dev;
- 	skb->priority = po->sk.sk_priority;
- 	skb->mark = po->sk.sk_mark;
--	skb_shinfo(skb)->destructor_arg = ph.raw;
- 
- 	switch (po->tp_version) {
- 	case TPACKET_V2:
-@@ -884,9 +882,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	to_write = tp_len;
- 
- 	if (sock->type == SOCK_DGRAM) {
--		err = dev_hard_header(skb, dev, ntohs(proto), addr,
--				NULL, tp_len);
--		if (unlikely(err < 0))
-+		if (unlikely(dev_hard_header(skb, dev, ntohs(proto), addr,
-+					     NULL, tp_len) < 0))
- 			return -EINVAL;
- 	} else if (dev->hard_header_len) {
- 		/* net device doesn't like empty head */
-@@ -897,8 +894,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		}
- 
- 		skb_push(skb, dev->hard_header_len);
--		err = skb_store_bits(skb, 0, data,
--				dev->hard_header_len);
-+		err = skb_store_bits(skb, 0, data, dev->hard_header_len);
- 		if (unlikely(err))
- 			return err;
- 
-@@ -906,7 +902,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 		to_write -= dev->hard_header_len;
- 	}
- 
--	err = -EFAULT;
- 	page = virt_to_page(data);
- 	offset = offset_in_page(data);
- 	len_max = PAGE_SIZE - offset;
-@@ -1028,7 +1023,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 			}
- 		}
- 
--		skb->destructor = tpacket_destruct_skb;
-+		skb_shinfo(skb)->destructor_arg[0] = &po->sk;
-+		skb_shinfo(skb)->destructor_arg[1] = ph;
-+		skb->destructor = NULL;
-+		skb_shinfo(skb)->destructor = tpacket_destruct_skb;
- 		__packet_set_status(po, ph, TP_STATUS_SENDING);
- 		atomic_inc(&po->tx_ring.pending);
- 
+1) Fine grained MII locking regression fix in 3c59x driver from
+   Ben Hutchings.
+
+2) Off by one in NULL termination in IRDA stack.  Fix from Dan
+   Carpenter.
+
+3) Exhausting bind naming space in AF_UNIX can make unix_autobind()
+   loop forever.  Fix from Tetsuo Handa.
+
+4) Multipath routing breaks reverse-patch filtering.  It would just
+   assume a device match when multiple hops exist for a route, instead
+   of properly walking the next-hops array to find a device match.
+
+5) VIA velocity emits lots of DMA debug assertions, and attempts to fix
+   those lead to functional regressions, so turn scatter-gather
+   support back off by default until we can find a way to fix this
+   properly.
+
+   Thanks to Dave Jones for the report and patch testing.
+
+6) Follow-up fix to Eric Dumazet's GRO packet merging adjustments to
+   handle differing headroom amounts properly.  From Jarek Poplawski.
+   Thanks to Plamen Patrov for the original crash report and seemingly
+   endless help with testing.
+
+7) Fix interactions between VHOST and control groups, from Michael S.
+   Tsirkin.
+
+8) be2net driver fixes from Ajit Khaparde, wrong stats bump on multicast,
+   fix uncorrectable error detection, remove invalid BUG_ON() assertion.
+
+9) stmmac sleeps while holding a spinlock, fix from Giuseppe Cavallaro,
+   report by Jiri Slaby.
+
+10) Jiffies overflows in bonding ARp load balancer, from Jiri Bohac.
+
+11) When bridging, need to use device ->select_queue() override when
+    present otherwise wireless devices fail, from Helmut Schaa.
+
+12) In IPV6 overlapping fragments are now considered completely illegal,
+    because they allow bypassing of firewall rules (ie. first frag has
+    TCP header with flow information that's allowed, next flag overlaps
+    and overwrites TCP header with attacker's desired ports).  From
+    Nicolas Dichtel.
+
+13) Get b44 fifo recovery down to 20msc from several seconds because it
+    can happen frequently for users, from Mark Lord and James
+    Courtier-Dutton.
+
+14) Active FTP regression fix in IPVS from Julian Anastasov.
+
+15) Potential buffer overflow in niu driver ethtool code, from
+    Ben Hutchings.
+
+16) FIB trie lockdep-RCU fixes from Jarek Poplawski.
+
+17) Always relookup routes currently pointing to the blackhole rule,
+    as these routes are temporary.  This fixes regressions in IPSEC.
+    Fix from Jianzhao Wang.
+
+18) Fix a UDP hashing regression added in 2.6.33, the secondary hash needs
+    to be recalculated when the implicit local address change happens
+    as a side effect of connect().  From Eric Dumazet.
+
+19) KS8851 RX packet allocation can missize the buffer and allow
+    memory corruption.  From Eric Dumazet and Abraham Arce.
+
+20) SCTP address validation tests list_head iterater against NULL
+    but that's not what such an iterator is set to when a
+    list_for_each_entry() loop exits normally.  From Joe Perches
+    and Dan Carpenter.
+
+21) ipheth is marked as "wwan" net device type, but that is not correct.
+    Fix from Dan Williams.
+
+Please pull, thanks a lot!
+
+The following changes since commit 3e6dce76d99b328716b43929b9195adfee1de00c:
+
+  Merge branch 'drm-intel-fixes' of git://git.kernel.org/pub/scm/linux/kernel/git/ickle/drm-intel (2010-09-10 18:19:43 -0700)
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Ajit Khaparde (3):
+      be2net: fix net-snmp error because of wrong packet stats
+      be2net: fix a bug in UE detection logic
+      be2net: remove a BUG_ON in be_cmds.c
+
+Ben Hutchings (2):
+      3c59x: Fix deadlock in vortex_error()
+      niu: Fix kernel buffer overflow for ETHTOOL_GRXCLSRLALL
+
+Dan Carpenter (1):
+      irda: off by one
+
+Dan Williams (1):
+      ipheth: remove incorrect devtype to WWAN
+
+David S. Miller (4):
+      ipv4: Fix reverse path filtering with multipath routing.
+      via-velocity: Turn scatter-gather support back off.
+      Merge branch 'master' of master.kernel.org:/.../torvalds/linux-2.6
+      Merge branch 'vhost-net' of git://git.kernel.org/.../mst/vhost
+
+Eric Dumazet (2):
+      udp: add rehash on connect()
+      KS8851: Correct RX packet allocation
+
+Giuseppe Cavallaro (1):
+      stmmac: fix sleep inside atomic
+
+Helmut Schaa (1):
+      net: fix tx queue selection for bridged devices implementing select_queue
+
+Jarek Poplawski (2):
+      gro: Re-fix different skb headrooms
+      ipv4: Suppress lockdep-RCU false positive in FIB trie (3)
+
+Jianzhao Wang (1):
+      net: blackhole route should always be recalculated
+
+Jiri Bohac (1):
+      bonding: Fix jiffies overflow problems (again)
+
+Joe Perches (2):
+      sctp: fix test for end of loop
+      MAINTAINERS: Add CAIF
+
+Julian Anastasov (1):
+      ipvs: fix active FTP
+
+Li Zefan (1):
+      cls_cgroup: Fix rcu lockdep warning
+
+Mark Lord (1):
+      PATCH: b44 Handle RX FIFO overflow better (simplified)
+
+Michael S. Tsirkin (3):
+      cgroups: fix API thinko
+      vhost: fix attach to cgroups regression
+      vhost: error handling fix
+
+Nicolas Dichtel (2):
+      ipv6: discard overlapping fragment
+      netfilter: discard overlapping IPv6 fragment
+
+Tetsuo Handa (1):
+      UNIX: Do not loop forever at unix_autobind().
+
+ MAINTAINERS                             |   10 ++++
+ drivers/net/3c59x.c                     |   10 +++-
+ drivers/net/b44.c                       |    9 ++++
+ drivers/net/benet/be.h                  |    1 +
+ drivers/net/benet/be_cmds.c             |    8 +--
+ drivers/net/benet/be_cmds.h             |    2 +-
+ drivers/net/benet/be_ethtool.c          |    1 +
+ drivers/net/benet/be_hw.h               |    7 ++-
+ drivers/net/benet/be_main.c             |   47 +++++++-----------
+ drivers/net/bonding/bond_main.c         |   56 +++++++++++++++-------
+ drivers/net/ks8851.c                    |   39 ++++++++-------
+ drivers/net/niu.c                       |   16 ++----
+ drivers/net/stmmac/stmmac_main.c        |    9 ++--
+ drivers/net/usb/ipheth.c                |    7 +--
+ drivers/net/via-velocity.c              |    2 +-
+ drivers/vhost/vhost.c                   |   80 ++++++++++++++++++++++--------
+ include/linux/cgroup.h                  |   11 ++++-
+ include/net/cls_cgroup.h                |   10 +++-
+ include/net/ip_vs.h                     |    3 +
+ include/net/sock.h                      |    1 +
+ include/net/udp.h                       |    1 +
+ kernel/cgroup.c                         |    9 ++--
+ net/core/dev.c                          |   16 +++---
+ net/core/skbuff.c                       |    2 +-
+ net/ipv4/datagram.c                     |    5 ++-
+ net/ipv4/fib_frontend.c                 |   15 +++++-
+ net/ipv4/fib_trie.c                     |    8 ++-
+ net/ipv4/route.c                        |    7 ++-
+ net/ipv4/udp.c                          |   44 +++++++++++++++++
+ net/ipv6/datagram.c                     |    7 ++-
+ net/ipv6/netfilter/nf_conntrack_reasm.c |   80 ++++++-------------------------
+ net/ipv6/reassembly.c                   |   71 ++++++---------------------
+ net/ipv6/udp.c                          |   10 ++++
+ net/irda/irlan/irlan_common.c           |    2 +-
+ net/netfilter/ipvs/ip_vs_core.c         |    1 +
+ net/netfilter/ipvs/ip_vs_ftp.c          |    6 --
+ net/netfilter/ipvs/ip_vs_xmit.c         |   18 +++++--
+ net/sctp/sm_statefuns.c                 |   46 +++++++++---------
+ net/unix/af_unix.c                      |   15 +++++-
+ 39 files changed, 391 insertions(+), 301 deletions(-)
