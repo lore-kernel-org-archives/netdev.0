@@ -1,47 +1,19 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: [PATCH v2] usbnet: do not count empty skbs as errors in rx_process()
-Date: Sat, 11 Sep 2010 12:07:59 -0700 (PDT)
-Message-ID: <704982.67431.qm@web180312.mail.gq1.yahoo.com>
-References: <201009102336.00722.linux@rainbow-software.org>
+From: <camilla.moretti@fastwebnet.it>
+Subject: Greetings
+Date: Sat, 11 Sep 2010 20:23:44 +0200 (CEST)
+Message-ID: <24746343.1945261284229424628.JavaMail.defaultUser@defaultHost>
+Reply-To: tomosand1nori005@w.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Kernel development list <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201009102336.00722.linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aa013msr.fastwebnet.it ([85.18.95.73]:52642 "EHLO
+	aa013msr.fastwebnet.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379Ab0IKTtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Sep 2010 15:49:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Partnership
 
-
---- On Fri, 9/10/10, Ondrej Zary <linux@rainbow-software.org> wrote:
-
-> From: Ondrej Zary <linux@rainbow-software.org>
-> Subject: [PATCH v2] usbnet: do not count empty skbs as errors in rx_process()
-
-NAK to this backwards-incompatible change.
-
-At this point there's no way to know how many
-drivers it breaks ... I do know that counting
-such SKBs as errors has previously turned up
-link-level errors, and thus led to bugfixes.
-
-
-> If rx_fixup() returns an empty skb
-> (because it consumed all data inside),
-
-The canonical reason the SKB would be empty is
-because after rx_fixup() removed all header and
-trailer data, there was no packet body left.
-Which is likely a link error, and has been
-worth accounting as such in the past (turned up
-bugs on TX or RX sides).
-
-> do not count it as error.
-> 
-> This is needed for cx82310_eth.
-
-I'd far rather see that driver fixed, than see
-the core usbnet framework broken to avoid such
-fixes to a very new driver ...
