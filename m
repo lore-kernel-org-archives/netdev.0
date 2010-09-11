@@ -1,61 +1,50 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: tcp collapse+splice bug still present in -stable
-Date: Sat, 11 Sep 2010 07:42:55 +0200
-Message-ID: <20100911054255.GB29288@1wt.eu>
+From: Michael Kerrisk <mtk.manpages@gmail.com>
+Subject: [PATCH] enable getsockopt() for IP_NODEFRAG
+Date: Sat, 11 Sep 2010 08:26:56 +0200
+Message-ID: <4C8B2130.7030605@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@kernel.org
-To: David Miller <davem@davemloft.net>, Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:44321 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750801Ab0IKFn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Sep 2010 01:43:26 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, jengelh@medozas.de, kaber@trash.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-man@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Jiri Olsa <jolsa@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David, Greg,
+Hello Jiri
 
-one of our customers was encountering frequent kernel panics up to
-2.6.32.21 that were always related to splicing and tcp_collapse().
-I found the precise BUG_ON() line but I've not forgotten it, something
-about ->seq not being OK.
+While integrating your man-pages patch for IP_NODEFRAG, I noticed 
+that this option is settable by setsockopt(), but not gettable by 
+getsockopt(). I suppose this is not intended. The (untested, 
+trivial) patch below adds getsockopt() support.
 
-I found the following fix in 2.6.35 which looked to be related to the
-same issue, and we could verify that it definitely solves it. Could we
-please have it in other stable versions ?
+The patch is against 2.6.36-rc3.
 
-Thanks in advance,
-Willy
+Cheers,
 
---
->From baff42ab1494528907bf4d5870359e31711746ae Mon Sep 17 00:00:00 2001
-From: Steven J. Magnani <steve@digidescorp.com>
-Date: Tue, 30 Mar 2010 13:56:01 -0700
-Subject: [PATCH] net: Fix oops from tcp_collapse() when using splice()
+Michael
 
-tcp_read_sock() can have a eat skbs without immediately advancing copied_seq.
-This can cause a panic in tcp_collapse() if it is called as a result
-of the recv_actor dropping the socket lock.
+PS I've just configured Thunderbird on this machine, hopefully the 
+patch is not mangled. Please let me know if there are problems.
 
-A userspace program that splices data from a socket to either another
-socket or to a file can trigger this bug.
+Signed-off-by: Michael kerrisk <mtk.manpages@gmail.com>
 
-Signed-off-by: Steven J. Magnani <steve@digidescorp.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 6afb6d8..2c75f89 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1368,6 +1368,7 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
- 		sk_eat_skb(sk, skb, 0);
- 		if (!desc->count)
- 			break;
-+		tp->copied_seq = seq;
- 	}
- 	tp->copied_seq = seq;
- 
-
+--- net/ipv4/ip_sockglue.c.orig	2010-09-11 07:25:58.000000000 +0200
++++ net/ipv4/ip_sockglue.c	2010-09-11 07:43:43.000000000 +0200
+@@ -1129,6 +1129,9 @@ static int do_ip_getsockopt(struct sock
+ 	case IP_HDRINCL:
+ 		val = inet->hdrincl;
+ 		break;
++	case IP_NODEFRAG:
++		val = inet->nodefrag;
++		break;
+ 	case IP_MTU_DISCOVER:
+ 		val = inet->pmtudisc;
+ 		break;
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Watch my Linux system programming book progress towards publication!
+http://blog.man7.org/
