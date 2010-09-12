@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bna: potential null dereference
-Date: Sun, 12 Sep 2010 12:02:30 -0700 (PDT)
-Message-ID: <20100912.120230.71108625.davem@davemloft.net>
-References: <4C8242CA.3020906@gmail.com>
+Subject: Re: pimreg zombies
+Date: Sun, 12 Sep 2010 12:08:22 -0700 (PDT)
+Message-ID: <20100912.120822.104051832.davem@davemloft.net>
+References: <2bpal7-l68.ln1@chipmunk.wormnet.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ddutt@brocade.com, rmody@brocade.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jirislaby@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C8242CA.3020906@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: alex@digriz.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59862
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751817Ab0ILTIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Sep 2010 15:08:04 -0400
+In-Reply-To: <2bpal7-l68.ln1@chipmunk.wormnet.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Slaby <jirislaby@gmail.com>
-Date: Sat, 04 Sep 2010 14:59:54 +0200
+From: Alexander Clouter <alex@digriz.org.uk>
+Date: Sat, 4 Sep 2010 22:12:34 +0100
 
-> stanse found a potential null dereference:
-> bnad_cb_tx_cleanup
->   -> struct bnad_unmap_q *unmap_q = tcb->unmap_q;
->   -> -- tcb cannot be null now --
->   -> if (!tcb || (!tcb->unmap_q))
-> 
-> The thing is I have no idea whether the second parameter of cleanup may
-> be null (move assignment after the check) or not (remove the check)
-> 
-> Could you fix that?
+> I am writing a multicast pim daemon and noticed that if I call 
+> setsockopt(MRT_ADD_VIF), also occurs for IPv6 too, incorrectly on a 
+> socket established with socket(AF_INET, SOCK_RAW, IPPROTO_PIM)[1] then 
+> when the application quits I have zombie pimreg (and pimreg6) interfaces 
+> that can only be disposed of with a reboot.
 
-Since the Brocade folks can't be bothered to fix this for more than
-a week I'll take care of this, thanks Jiri.
+Thanks for this report, I'll take a look.
