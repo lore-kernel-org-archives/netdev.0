@@ -1,66 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp collapse+splice bug still present in -stable
-Date: Sat, 11 Sep 2010 20:32:41 -0700 (PDT)
-Message-ID: <20100911.203241.226784531.davem@davemloft.net>
-References: <20100911054255.GB29288@1wt.eu>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 00/11] treewide: Remove pr_<level> uses with KERN_<level>
+Date: Sat, 11 Sep 2010 22:10:48 -0700
+Message-ID: <cover.1284267142.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@kernel.org
-To: w@1wt.eu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38183
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751587Ab0ILDcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Sep 2010 23:32:23 -0400
-In-Reply-To: <20100911054255.GB29288@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
+	Marcelo Tosatti <mtosatti@redhat.com>, kvm@vger.kernel.org,
+	Takashi Iwai <tiwai@suse.de>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Steve Wise <swise@opengridcomputing.com>,
+	Tom Tucker <tom@opengridcomputing.com>, Jaroslav Kysela <perex@perex.cz>,
+	Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>,
+	Sean Hefty <sean.hefty@intel.com>, devel@driverdev.osuosl.org,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	linux-rdma@vger.kernel.org, x86@kernel.org,
+	Alexander Graf <agraf@suse.de>, Ingo Molnar <mingo@redhat.com>,
+	Avi Kivity <avi@redhat.com>, Roland Dreier <rolandd@cisco.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>, cbe-oss-dev@lists.ozlabs.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	microblaze-uclinux@itee.uq.edu.au, kvm-ppc@vger.kern
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Sender: devel-bounces@linuxdriverproject.org
+Errors-To: devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Sat, 11 Sep 2010 07:42:55 +0200
+Most of these are pr_debug(KERN_<foo>.
+pr_<level>(KERN_<level> is unnecessary.
 
-> David, Greg,
-> 
-> one of our customers was encountering frequent kernel panics up to
-> 2.6.32.21 that were always related to splicing and tcp_collapse().
-> I found the precise BUG_ON() line but I've not forgotten it, something
-> about ->seq not being OK.
-> 
-> I found the following fix in 2.6.35 which looked to be related to the
-> same issue, and we could verify that it definitely solves it. Could we
-> please have it in other stable versions ?
+Joe Perches (11):
+  arch/arm: Remove pr_<level> uses of KERN_<level>
+  arch/avr32: Remove pr_<level> uses of KERN_<level>
+  arch/microblaze: Remove pr_<level> uses of KERN_<level>
+  arch/mips: Remove pr_<level> uses of KERN_<level>
+  arch/powerpc: Remove pr_<level> uses of KERN_<level>
+  arch/x86: Remove pr_<level> uses of KERN_<level>
+  drivers/infiniband: Remove pr_<level> uses of KERN_<level>
+  drivers/net/skfp: Remove pr_<level> uses of KERN_<level>
+  drivers/staging/msm: Remove pr_<level> uses of KERN_<level>
+  drivers/usb/gadget: Remove pr_<level> uses of KERN_<level>
+  sound: Remove pr_<level> uses of KERN_<level>
 
-I'll make sure I send this to Greg in my next -stable
-networking batch, thanks!
+ arch/arm/mach-pxa/cpufreq-pxa2xx.c       |    3 +-
+ arch/avr32/mach-at32ap/at32ap700x.c      |    4 +-
+ arch/microblaze/kernel/exceptions.c      |   16 ++----
+ arch/mips/kernel/irq-gic.c               |    2 +-
+ arch/mips/pci/pci-rc32434.c              |    2 +-
+ arch/powerpc/kvm/emulate.c               |    4 +-
+ arch/powerpc/sysdev/pmi.c                |    2 +-
+ arch/x86/kernel/apb_timer.c              |    4 +-
+ drivers/infiniband/hw/amso1100/c2_intr.c |    4 +-
+ drivers/net/skfp/skfddi.c                |   84 +++++++++++++++---------------
+ drivers/staging/msm/staging-devices.c    |    2 +-
+ drivers/usb/gadget/r8a66597-udc.c        |    2 +-
+ sound/ppc/snd_ps3.c                      |    2 +-
+ sound/soc/s3c24xx/s3c-dma.c              |    3 +-
+ 14 files changed, 64 insertions(+), 70 deletions(-)
 
-> --
->>From baff42ab1494528907bf4d5870359e31711746ae Mon Sep 17 00:00:00 2001
-> From: Steven J. Magnani <steve@digidescorp.com>
-> Date: Tue, 30 Mar 2010 13:56:01 -0700
-> Subject: [PATCH] net: Fix oops from tcp_collapse() when using splice()
-> 
-> tcp_read_sock() can have a eat skbs without immediately advancing copied_seq.
-> This can cause a panic in tcp_collapse() if it is called as a result
-> of the recv_actor dropping the socket lock.
-> 
-> A userspace program that splices data from a socket to either another
-> socket or to a file can trigger this bug.
-> 
-> Signed-off-by: Steven J. Magnani <steve@digidescorp.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 6afb6d8..2c75f89 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1368,6 +1368,7 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
->  		sk_eat_skb(sk, skb, 0);
->  		if (!desc->count)
->  			break;
-> +		tp->copied_seq = seq;
->  	}
->  	tp->copied_seq = seq;
->  
-> 
+-- 
+1.7.3.rc1
