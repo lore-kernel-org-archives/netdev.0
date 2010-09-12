@@ -1,35 +1,66 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
-Date: Sat, 11 Sep 2010 20:30:02 -0700 (PDT)
-Message-ID: <20100911.203002.193707453.davem@davemloft.net>
-References: <1283852248.2338.160.camel@edumazet-laptop>
-	<20100910.125449.235704956.davem@davemloft.net>
-	<20100911123140.GA1939@del.dom.local>
+Subject: Re: tcp collapse+splice bug still present in -stable
+Date: Sat, 11 Sep 2010 20:32:41 -0700 (PDT)
+Message-ID: <20100911.203241.226784531.davem@davemloft.net>
+References: <20100911054255.GB29288@1wt.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Cc: greg@kroah.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@kernel.org
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59654
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38183
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751528Ab0ILD3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Sep 2010 23:29:45 -0400
-In-Reply-To: <20100911123140.GA1939@del.dom.local>
+	by vger.kernel.org with ESMTP id S1751587Ab0ILDcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Sep 2010 23:32:23 -0400
+In-Reply-To: <20100911054255.GB29288@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 11 Sep 2010 14:31:40 +0200
+From: Willy Tarreau <w@1wt.eu>
+Date: Sat, 11 Sep 2010 07:42:55 +0200
 
-> Otherwise seems OK, but I still would like to know the scenario
-> demanding this change.
+> David, Greg,
+> 
+> one of our customers was encountering frequent kernel panics up to
+> 2.6.32.21 that were always related to splicing and tcp_collapse().
+> I found the precise BUG_ON() line but I've not forgotten it, something
+> about ->seq not being OK.
+> 
+> I found the following fix in 2.6.35 which looked to be related to the
+> same issue, and we could verify that it definitely solves it. Could we
+> please have it in other stable versions ?
 
-I want to make sk_buff use list_head, including all uses such as
-frag_list et al.
+I'll make sure I send this to Greg in my next -stable
+networking batch, thanks!
 
-If the frag_list chain can be shared, a doubly linked list cannot be
-used.
-
-This is someting I've been gradually working on now for more than 2
-years :)
+> --
+>>From baff42ab1494528907bf4d5870359e31711746ae Mon Sep 17 00:00:00 2001
+> From: Steven J. Magnani <steve@digidescorp.com>
+> Date: Tue, 30 Mar 2010 13:56:01 -0700
+> Subject: [PATCH] net: Fix oops from tcp_collapse() when using splice()
+> 
+> tcp_read_sock() can have a eat skbs without immediately advancing copied_seq.
+> This can cause a panic in tcp_collapse() if it is called as a result
+> of the recv_actor dropping the socket lock.
+> 
+> A userspace program that splices data from a socket to either another
+> socket or to a file can trigger this bug.
+> 
+> Signed-off-by: Steven J. Magnani <steve@digidescorp.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 6afb6d8..2c75f89 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -1368,6 +1368,7 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+>  		sk_eat_skb(sk, skb, 0);
+>  		if (!desc->count)
+>  			break;
+> +		tp->copied_seq = seq;
+>  	}
+>  	tp->copied_seq = seq;
+>  
+> 
