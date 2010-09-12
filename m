@@ -1,44 +1,53 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
-Date: Sun, 12 Sep 2010 19:28:20 +0200
-Message-ID: <201009121928.20238.rjw@sisk.pl>
-References: <1283672983.3402.38.camel@edumazet-laptop> <201009082221.16356.rjw@sisk.pl> <4C8C7957.7080207@fs.uni-ruse.bg>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-	kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4C8C7957.7080207-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: [PATCHv2] uwb: use '%pM' format to print MAC address
+Date: Sun, 12 Sep 2010 21:16:26 +0300
+Message-ID: <1284315386-27054-1-git-send-email-andy.shevchenko@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday, September 12, 2010, Plamen Petrov wrote:
-> =D0=9D=D0=B0 08.9.2010 =D0=B3. 23:21, Rafael J. Wysocki =D0=BD=D0=B0=D0=
-=BF=D0=B8=D1=81=D0=B0:
-> > On Wednesday, September 08, 2010, David Miller wrote:
-> >> From: Jarek Poplawski<jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> Date: Wed, 8 Sep 2010 06:20:04 +0000
-> >>
-> >>> We need both of them. I hope David could add this too:
-> >>>
-> >>> Tested-by: Plamen Petrov<pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-> >>
-> >> Done, and applied, thanks :-)
-> >
-> > Please kindly let me know when Linus gets them, so that I can close=
- the bug.
-> >
-> > Rafael
->=20
-> Now that both commits that fix my problems are in Linus' tree, the
-> bug can be closed, but these fixes should go in 2.6.35.y, too.
-> So, CCing -stable.
+Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+---
+ drivers/uwb/address.c    |    5 +----
+ drivers/uwb/wlp/wss-lc.c |    7 ++-----
+ 2 files changed, 3 insertions(+), 9 deletions(-)
 
-Thanks, bug closed.
-
-Rafael
+diff --git a/drivers/uwb/address.c b/drivers/uwb/address.c
+index 9733213..8739c4f 100644
+--- a/drivers/uwb/address.c
++++ b/drivers/uwb/address.c
+@@ -363,10 +363,7 @@ size_t __uwb_addr_print(char *buf, size_t buf_size, const unsigned char *addr,
+ {
+ 	size_t result;
+ 	if (type)
+-		result = scnprintf(buf, buf_size,
+-				  "%02x:%02x:%02x:%02x:%02x:%02x",
+-				  addr[0], addr[1], addr[2],
+-				  addr[3], addr[4], addr[5]);
++		result = scnprintf(buf, buf_size, "%pM", addr);
+ 	else
+ 		result = scnprintf(buf, buf_size, "%02x:%02x",
+ 				  addr[1], addr[0]);
+diff --git a/drivers/uwb/wlp/wss-lc.c b/drivers/uwb/wlp/wss-lc.c
+index a005d2a..67872c8 100644
+--- a/drivers/uwb/wlp/wss-lc.c
++++ b/drivers/uwb/wlp/wss-lc.c
+@@ -791,11 +791,8 @@ int wlp_wss_prep_hdr(struct wlp *wlp, struct wlp_eda_node *eda_entry,
+ 	} else {
+ 		if (printk_ratelimit())
+ 			dev_err(dev, "WLP: Destination neighbor (Ethernet: "
+-				"%02x:%02x:%02x:%02x:%02x:%02x, Dev: "
+-				"%02x:%02x) is not connected. \n", eth_addr[0],
+-				eth_addr[1], eth_addr[2], eth_addr[3],
+-				eth_addr[4], eth_addr[5], dev_addr->data[1],
+-				dev_addr->data[0]);
++				"%pM, Dev: %02x:%02x) is not connected.\n",
++				eth_addr, dev_addr->data[1], dev_addr->data[0]);
+ 		result = -EINVAL;
+ 	}
+ 	return result;
+-- 
+1.7.2.2
