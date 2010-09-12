@@ -1,29 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [Bug #16626] Machine hangs with EIP at skb_copy_and_csum_dev
-Date: Sun, 12 Sep 2010 08:55:09 -0700 (PDT)
-Message-ID: <20100912.085509.193705327.davem@davemloft.net>
-References: <20100908.103256.112592448.davem@davemloft.net>
-	<201009082221.16356.rjw@sisk.pl>
-	<4C8C7957.7080207@fs.uni-ruse.bg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
+Date: Sun, 12 Sep 2010 08:58:33 -0700 (PDT)
+Message-ID: <20100912.085833.226777368.davem@davemloft.net>
+References: <20100911123140.GA1939@del.dom.local>
+	<20100911.203002.193707453.davem@davemloft.net>
+	<20100912104534.GA2056@del.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rjw-KKrjLPT3xs0@public.gmane.org, jarkao2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4C8C7957.7080207-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: jarkao2@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59692
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753584Ab0ILP6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Sep 2010 11:58:14 -0400
+In-Reply-To: <20100912104534.GA2056@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Plamen Petrov <pvp-lsts-s6OjJRe3oxUfI6EYonfoRA@public.gmane.org>
-Date: Sun, 12 Sep 2010 09:55:19 +0300
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sun, 12 Sep 2010 12:45:34 +0200
 
-> Now that both commits that fix my problems are in Linus' tree, the
-> bug can be closed, but these fixes should go in 2.6.35.y, too.
-> So, CCing -stable.
+> Then a few more questions:
+> 1) if doubly linked lists really require such pskb_copying, isn't it
+>    all too costly?
 
-You don't need to do this, I will submit whatever is appropriate for
-networking to -stable as needed.
+In the common case the data reference will be one, so we will not
+copy.
+
+> 2) why skb_clone isn't enough instead of pskb_copy?
+
+Can't share the metadata.
+
+> 3) since skb_clone has some cost too, why e.g. saving only the pointer
+>    to the tail of the list in skb_shared_info isn't enough?
+
+Then we won't get the rest of the advantages of using list_head such
+as prefetching during traversals, automatic debugging facilities, et al.
