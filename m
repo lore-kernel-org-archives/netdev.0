@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: pimreg zombies
-Date: Sun, 12 Sep 2010 12:08:22 -0700 (PDT)
-Message-ID: <20100912.120822.104051832.davem@davemloft.net>
+Date: Sun, 12 Sep 2010 12:17:13 -0700 (PDT)
+Message-ID: <20100912.121713.189706279.davem@davemloft.net>
 References: <2bpal7-l68.ln1@chipmunk.wormnet.eu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: alex@digriz.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59862
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38886
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751817Ab0ILTIE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Sep 2010 15:08:04 -0400
+	by vger.kernel.org with ESMTP id S1752211Ab0ILTQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Sep 2010 15:16:55 -0400
 In-Reply-To: <2bpal7-l68.ln1@chipmunk.wormnet.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,4 +26,10 @@ Date: Sat, 4 Sep 2010 22:12:34 +0100
 > when the application quits I have zombie pimreg (and pimreg6) interfaces 
 > that can only be disposed of with a reboot.
 
-Thanks for this report, I'll take a look.
+pimreg interfaces can only be instantiated and removed from userspace
+by using the appropriate MRT_*.  So you can get rid of these
+interfaces by using an appropriate MRT_DEL_VIF call on an IPPROTO_PIM
+socket.
+
+They are not automatically removed by the closing of that userland
+socket.
