@@ -1,63 +1,59 @@
-From: Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] enable getsockopt() for IP_NODEFRAG
-Date: Sun, 12 Sep 2010 23:52:30 +0200
-Message-ID: <20100912215230.GA2091@jolsa.Belkin>
-References: <4C8B2130.7030605@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
+Date: Sun, 12 Sep 2010 15:08:54 -0700 (PDT)
+Message-ID: <20100912.150854.193715637.davem@davemloft.net>
+References: <20100912.085833.226777368.davem@davemloft.net>
+	<20100912.091353.71112923.davem@davemloft.net>
+	<20100912205722.GB2585@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4C8B2130.7030605-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: jarkao2@gmail.cthom
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39644
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753857Ab0ILWIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Sep 2010 18:08:36 -0400
+In-Reply-To: <20100912205722.GB2585@del.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 11, 2010 at 08:26:56AM +0200, Michael Kerrisk wrote:
-> Hello Jiri
-> 
-> While integrating your man-pages patch for IP_NODEFRAG, I noticed 
-> that this option is settable by setsockopt(), but not gettable by 
-> getsockopt(). I suppose this is not intended. The (untested, 
-> trivial) patch below adds getsockopt() support.
-> 
-> The patch is against 2.6.36-rc3.
-> 
-> Cheers,
-> 
-> Michael
-> 
-> PS I've just configured Thunderbird on this machine, hopefully the 
-> patch is not mangled. Please let me know if there are problems.
-hi,
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Sun, 12 Sep 2010 22:57:22 +0200
 
-applied ok, compiled ok ;) thanks
-
-Acked-by: Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
+> On Sun, Sep 12, 2010 at 09:13:53AM -0700, David Miller wrote:
+>> 
+>> BTW, Jarek, as to your idea to store a tail pointer in the shinfo, how
+>> will you sync that tail pointer in all of the shinfo instances
+>> referencing the frag list?
+>> 
+>> It simply can't work, we have to copy.
 > 
-> Signed-off-by: Michael kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> --- net/ipv4/ip_sockglue.c.orig	2010-09-11 07:25:58.000000000 +0200
-> +++ net/ipv4/ip_sockglue.c	2010-09-11 07:43:43.000000000 +0200
-> @@ -1129,6 +1129,9 @@ static int do_ip_getsockopt(struct sock
->  	case IP_HDRINCL:
->  		val = inet->hdrincl;
->  		break;
-> +	case IP_NODEFRAG:
-> +		val = inet->nodefrag;
-> +		break;
->  	case IP_MTU_DISCOVER:
->  		val = inet->pmtudisc;
->  		break;
-> -- 
-> Michael Kerrisk
-> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-> Watch my Linux system programming book progress towards publication!
-> http://blog.man7.org/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The question is if we need to sync at all? This is shared data at the
+> moment, so I can't imagine how the list (especialy doubly linked)
+> could be changed without locking? And even if it's possible, I doubt
+> copying e.g. like in your current patch can help when an skb is added
+> at the tail later.
+
+That's the fundamental issue.
+
+If you look, everywhere we curently do that trick of "use the
+skb->prev pointer to remmeber the frag_list tail" the code knows
+it has exclusive access to both the skb metadata and the
+underlying data.
+
+But for modifications of the frag list during the SKBs lifetime
+that's another issue, entirely.  All of these functions trimming
+the head or tail of the SKB data which can modify the frag
+list elements, they can be called from all kinds of contexts.
+Look for Alexey Kuznetsov's comments in skbuff.c that read
+"mincing fragments" and similar.
+
+The real win with my work is complete unification of all list
+handling, and making our packet handling code much more "hackable"
+by non-networking kernel hackers.
+
+Really we have the last major core datastructures that do not
+use standard lists, and I'm going to convert it so we can
+be sane like the rest of the kernel. :-)
