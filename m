@@ -1,51 +1,78 @@
-From: Debashis Dutt <ddutt@Brocade.COM>
-Subject: RE: bna: potential null dereference
-Date: Sun, 12 Sep 2010 15:41:53 -0700
-Message-ID: <F363E7AC84E1B646A0358B281A46F4AEA9C0AE4D03@HQ1-EXCH03.corp.brocade.com>
-References: <4C8242CA.3020906@gmail.com>
-	<20100912.120230.71108625.davem@davemloft.net>
-	<AANLkTi=cZyLYJac8b8MsyAA4HitCvpD3NaH7nifzHDLw@mail.gmail.com>
- <20100912.153805.226772440.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP packet size and delivery packet decisions
+Date: Sun, 12 Sep 2010 18:23:08 -0700 (PDT)
+Message-ID: <20100912.182308.71115181.davem@davemloft.net>
+References: <alpine.DEB.2.00.1009071443510.26447@wel-95.cs.helsinki.fi>
+	<20100907.201843.179933180.davem@davemloft.net>
+	<20100908121450.GA11412@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "jirislaby@gmail.com" <jirislaby@gmail.com>,
-	Rasesh Mody <rmody@brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"debdut@gmail.com" <debdut@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100912.153805.226772440.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ilpo.jarvinen@helsinki.fi, eric.dumazet@gmail.com,
+	leandroal@gmail.com, netdev@vger.kernel.org
+To: kuznet@ms2.inr.ac.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33151
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753832Ab0IMBWu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Sep 2010 21:22:50 -0400
+In-Reply-To: <20100908121450.GA11412@ms2.inr.ac.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Wed, 8 Sep 2010 16:14:50 +0400
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Sunday, September 12, 2010 3:38 PM
-To: debdut@gmail.com
-Cc: jirislaby@gmail.com; Debashis Dutt; Rasesh Mody; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-Subject: Re: bna: potential null dereference
+> I do not know actual context, of course. I can guess the situation
+> can be like this: "I set window=mss exactly to see only one packet in flight
+> all the times. Why the hell linux tries to send two mss/2 sized?" :-)
 
-From: Debashis Dutt <debdut@gmail.com>
-Date: Sun, 12 Sep 2010 15:35:41 -0700
+The context is that a very stupid embedded device takes commands that
+are all some specific size (I think it was 75 bytes), and it's
+TCP stack sets MSS and window to exactly 75 bytes.
 
-> A patch is on the way by tomorrow. BTW, this is just an unnecessary
-> check that should be removed and not a NULL de-reference.
+Device will only process the commands sent to it over TCP properly
+if they are sent full sized, 75 bytes, by the sending TCP stack.
+Linux is the only stack with which the device will not work.
 
-I've already made a fix in the net-next-2.6 tree.
+To be honest, at such tiny MSS and window sizes, such packetization
+for the sake of SWS done by us is stupid.
 
-You should send me fixes like this when you have them and are
-reasonably confident of the change, which for something like
-this should have been a day or two at most, not a week later.
+Let's be a little bit postmodern and just turn off this stuff using
+perhaps a modified version of your idea #1, elide the SWS "window / 2"
+logic when "max_window >= 512" or something like that.
 
+It seems to handle every angle:
 
-Sure David. 
+1) Huge MTU (>= 65535) devices are still covered.
 
-Apologize for the delay again. Had too many things on my plate.
-Would be more prompt hence forth.
+2) For sane ethernet derived MSS and normal large window
+   behavior stays the same.
 
-Thanks
---Debashis
+3) When speaking to devices using super tiny windows, it is
+   apparent that loss recovery performance is not their primary
+   concern. :-)
+
+Therefore, how about the following?
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index eaa9582..f8744e0 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -475,7 +475,15 @@ extern unsigned int tcp_current_mss(struct sock *sk);
+ /* Bound MSS / TSO packet size with the half of the window */
+ static inline int tcp_bound_to_half_wnd(struct tcp_sock *tp, int pktsize)
+ {
+-	if (tp->max_window && pktsize > (tp->max_window >> 1))
++	/* When peer uses tiny windows, there is no use in packetizing
++	 * to sub-MSS pieces for the sake of SWS or making sure there
++	 * are enough packets in the pipe for fast recovery.
++	 *
++	 * On the other hand, for extremely large MSS devices, handling
++	 * smaller than MSS windows in this way does make sense.
++	 */
++	if (tp->max_window >= 512 &&
++	    pktsize > (tp->max_window >> 1))
+ 		return max(tp->max_window >> 1, 68U - tp->tcp_header_len);
+ 	else
+ 		return pktsize;
