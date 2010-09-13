@@ -1,48 +1,55 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 12/25] drivers/net/qlcnic: Use static const char arrays
-Date: Mon, 13 Sep 2010 12:47:50 -0700
-Message-ID: <4f9ef3036179e7a6cf4d238fad64920d8130015c.1284406638.git.joe@perches.com>
+Subject: [PATCH 09/25] drivers/net/atl1e: Use static const char arrays
+Date: Mon, 13 Sep 2010 12:47:47 -0700
+Message-ID: <695286413101e74814ff1a905e4b980d80fdd1a3.1284406638.git.joe@perches.com>
 References: <cover.1284406638.git.joe@perches.com>
-Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	linux-driver@qlogic.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1885 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755219Ab0IMTs1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Sep 2010 15:48:27 -0400
 In-Reply-To: <cover.1284406638.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |    2 +-
- drivers/net/qlcnic/qlcnic_main.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/atl1e/atl1e.h      |    4 ++--
+ drivers/net/atl1e/atl1e_main.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index cc8385a..7effdad 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -345,7 +345,7 @@ struct uni_data_desc{
- #define QLCNIC_UNIFIED_ROMIMAGE_NAME	"phanfw.bin"
- #define QLCNIC_FLASH_ROMIMAGE_NAME	"flash"
+diff --git a/drivers/net/atl1e/atl1e.h b/drivers/net/atl1e/atl1e.h
+index 490d3b3..6c4cab3 100644
+--- a/drivers/net/atl1e/atl1e.h
++++ b/drivers/net/atl1e/atl1e.h
+@@ -498,8 +498,8 @@ struct atl1e_adapter {
+ #define AT_READ_REG_ARRAY(a, reg, offset) ( \
+ 		readl(((a)->hw_addr + reg) + ((offset) << 2)))
  
--extern char qlcnic_driver_name[];
-+extern const char qlcnic_driver_name[];
+-extern char atl1e_driver_name[];
+-extern char atl1e_driver_version[];
++extern const char atl1e_driver_name[];
++extern const char atl1e_driver_version[];
  
- /* Number of status descriptors to handle per interrupt */
- #define MAX_STATUS_HANDLE	(64)
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 5fd2abd..ad40171 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -41,7 +41,7 @@ MODULE_LICENSE("GPL");
- MODULE_VERSION(QLCNIC_LINUX_VERSIONID);
- MODULE_FIRMWARE(QLCNIC_UNIFIED_ROMIMAGE_NAME);
+ extern void atl1e_check_options(struct atl1e_adapter *adapter);
+ extern int atl1e_up(struct atl1e_adapter *adapter);
+diff --git a/drivers/net/atl1e/atl1e_main.c b/drivers/net/atl1e/atl1e_main.c
+index 56ace3f..860dfd3 100644
+--- a/drivers/net/atl1e/atl1e_main.c
++++ b/drivers/net/atl1e/atl1e_main.c
+@@ -23,8 +23,8 @@
  
--char qlcnic_driver_name[] = "qlcnic";
-+const char qlcnic_driver_name[] = "qlcnic";
- static const char qlcnic_driver_string[] = "QLogic 1/10 GbE "
- 	"Converged/Intelligent Ethernet Driver v" QLCNIC_LINUX_VERSIONID;
+ #define DRV_VERSION "1.0.0.7-NAPI"
  
+-char atl1e_driver_name[] = "ATL1E";
+-char atl1e_driver_version[] = DRV_VERSION;
++const char atl1e_driver_name[] = "ATL1E";
++const char atl1e_driver_version[] = DRV_VERSION;
+ #define PCI_DEVICE_ID_ATTANSIC_L1E      0x1026
+ /*
+  * atl1e_pci_tbl - PCI Device ID Table
 -- 
 1.7.3.rc1
+
