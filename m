@@ -1,37 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 18212] New: force_igmp_version ignored when a IGMPv3
- query received (+1 line patch)
-Date: Mon, 13 Sep 2010 12:51:35 -0700 (PDT)
-Message-ID: <20100913.125135.48504701.davem@davemloft.net>
-References: <20100910091936.75eabbf6@nehalam>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 06/25] drivers/isdn: Use static const char arrays
+Date: Mon, 13 Sep 2010 12:47:44 -0700
+Message-ID: <0456ee44384064d43253cf1b0837f88e318bddf2.1284406638.git.joe@perches.com>
+References: <cover.1284406638.git.joe@perches.com>
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52740
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755518Ab0IMTvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 15:51:17 -0400
-In-Reply-To: <20100910091936.75eabbf6@nehalam>
+Received: from mail.perches.com ([173.55.12.10]:1875 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755166Ab0IMTsZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Sep 2010 15:48:25 -0400
+In-Reply-To: <cover.1284406638.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Fri, 10 Sep 2010 09:19:36 -0700
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/isdn/hysdn/hycapi.c  |    2 +-
+ drivers/isdn/mISDN/dsp_cmx.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-> --- net/ipv4/igmp.c_orig        2010-09-10 08:48:21.390711944 -0700
-> +++ net/ipv4/igmp.c     2010-09-10 08:48:45.244218573 -0700
-> @@ -834,7 +834,7 @@
->         int                     mark = 0;
-> 
-> 
-> -       if (len == 8) {
-> +       if (len == 8 || IGMP_V2_SEEN(in_dev)) {
->                 if (ih->code == 0) {
->                         /* Alas, old v1 router presents here. */
-> 
-> ---------------------------------
+diff --git a/drivers/isdn/hysdn/hycapi.c b/drivers/isdn/hysdn/hycapi.c
+index 6299b06..5de3a93 100644
+--- a/drivers/isdn/hysdn/hycapi.c
++++ b/drivers/isdn/hysdn/hycapi.c
+@@ -151,7 +151,7 @@ static void
+ hycapi_register_internal(struct capi_ctr *ctrl, __u16 appl,
+ 			 capi_register_params *rp)
+ {
+-	char ExtFeatureDefaults[] = "49  /0/0/0/0,*/1,*/2,*/3,*/4,*/5,*/6,*/7,*/8,*/9,*";
++	static const char ExtFeatureDefaults[] = "49  /0/0/0/0,*/1,*/2,*/3,*/4,*/5,*/6,*/7,*/8,*/9,*";
+ 	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
+ 	hysdn_card *card = cinfo->card;
+ 	struct sk_buff *skb;
+diff --git a/drivers/isdn/mISDN/dsp_cmx.c b/drivers/isdn/mISDN/dsp_cmx.c
+index 76d9e67..3d80990 100644
+--- a/drivers/isdn/mISDN/dsp_cmx.c
++++ b/drivers/isdn/mISDN/dsp_cmx.c
+@@ -1155,7 +1155,7 @@ int delaycount;
+ static void
+ showdelay(struct dsp *dsp, int samples, int delay)
+ {
+-	char bar[] = "--------------------------------------------------|";
++	static const char bar[] = "--------------------------------------------------|";
+ 	int sdelay;
+ 
+ 	delaycount += samples;
+-- 
+1.7.3.rc1
 
-I'll queue this up, thanks.
