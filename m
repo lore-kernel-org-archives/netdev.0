@@ -1,39 +1,42 @@
-From: Cyril Chemparathy <cyril@ti.com>
-Subject: Re: [PATCH v3 00/10] split out emac cpdma and mdio for reuse
-Date: Mon, 13 Sep 2010 11:46:00 -0400
-Message-ID: <4C8E4738.3040809@ti.com>
-References: <1283891142-15522-1-git-send-email-cyril@ti.com> <4C8950D4.9060102@criticallink.com> <201009101823.52755.caglarakyuz@gmail.com> <201009111154.42171.caglarakyuz@gmail.com> <4C8E308B.7020003@ti.com>
-Reply-To: cyril@ti.com
+From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Mon, 13 Sep 2010 08:22:04 -0700
+Message-ID: <20100913152204.GA24088@suse.de>
+References: <4C61EDE5.4030505@dsn.okisemi.com>
+	<4C629FE5.6000204@pengutronix.de>
+	<005f01cb533e$5c21d530$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Caglar Akyuz <caglarakyuz@gmail.com>,
-	Michael Williamson <michael.williamson@criticallink.com>,
-	Kevin Hilman <khilman@deeprootsystems.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davinci-linux-open-source@linux.davincidsp.com"
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: "Chemparathy, Cyril" <cyril@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <4C8E308B.7020003@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
+	arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <005f01cb533e$5c21d530$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Caglar,
+On Mon, Sep 13, 2010 at 09:07:44PM +0900, Masayuki Ohtake wrote:
+> > - Try to send patches directly with git send-email
+> In our network environment, we can't use send-email.
 
-[...]
-> Assuming that the DMA got stuck at some point leading up to the transmit
-> timeout, any ideas as to why a host error was not thrown?  To help
-> debug, I'll post out a set of patches that dump out the MAC (and DMA)
-> registers on timeout.  That should give us some visibility into the problem.
+Then try setting up a Linux server to handle email issues to prevent
+patches from going through Exchange, which is known to corrupt patches.
+Lots of other companies do this for Linux development, including
+Microsoft :)
 
-I have posted a couple of additional patches for this on [1].  Would you
-mind giving these a quick try?  The register dumps should prove useful
-in figuring this out.
+thanks,
 
-Regards
-Cyril.
-
-[1]
-http://arago-project.org/git/people/?p=cyril/linux-tnetv107x.git;a=shortlog;h=refs/heads/emac-cpdma-mdio-fixes
+greg k-h
