@@ -1,103 +1,143 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH RFC] netns: keep vlan slaves on master netns move
-Date: Mon, 13 Sep 2010 13:43:15 +0200
-Message-ID: <20100913114315.GA859019@jupiter.n2.diac24.net>
-References: <20100824115056.GA235835@jupiter.n2.diac24.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 0/4] Implement multiqueue virtio-net
+Date: Mon, 13 Sep 2010 13:50:55 +0200
+Message-ID: <20100913115054.GA5584@redhat.com>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com>
+ <20100908081011.GC23051@redhat.com>
+ <OF70542242.6CAA236A-ON65257798.0044A4E0-65257798.005C0E7C@LocalDomain>
+ <OF8043B2B7.7048D739-ON65257799.0021A2EE-65257799.00356B3E@in.ibm.com>
+ <20100912114024.GA22982@redhat.com>
+ <OF7E84392C.8FAA20F2-ON6525779D.00112DE2-6525779D.0016E2C5@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>
-To: David Lamparter <equinox@diac24.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:37201 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755057Ab0IMLn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Sep 2010 07:43:26 -0400
+Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au, avi@redhat.com
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100824115056.GA235835@jupiter.n2.diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <OF7E84392C.8FAA20F2-ON6525779D.00112DE2-6525779D.0016E2C5@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-previously, if a vlan master device was moved from one network namespace
-to another, all 802.1q and macvlan slaves were deleted.
+On Mon, Sep 13, 2010 at 09:42:22AM +0530, Krishna Kumar2 wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 09/12/2010 05:10:25 PM:
+> 
+> > > SINGLE vhost (Guest -> Host):
+> > >    1 netperf:    BW: 10.7%     SD: -1.4%
+> > >    4 netperfs:   BW: 3%        SD: 1.4%
+> > >    8 netperfs:   BW: 17.7%     SD: -10%
+> > >       16 netperfs:  BW: 4.7%      SD: -7.0%
+> > >       32 netperfs:  BW: -6.1%     SD: -5.7%
+> > > BW and SD both improves (guest multiple txqs help). For 32
+> > > netperfs, SD improves.
+> > >
+> > > But with multiple vhosts, guest is able to send more packets
+> > > and BW increases much more (SD too increases, but I think
+> > > that is expected).
+> >
+> > Why is this expected?
+> 
+> Results with the original kernel:
+> _____________________________
+> #       BW      SD      RSD
+> ______________________________
+> 1       20903   1       6
+> 2       21963   6       25
+> 4       22042   23      102
+> 8       21674   97      419
+> 16      22281   379     1663
+> 24      22521   857     3748
+> 32      22976   1528    6594
+> 40      23197   2390    10239
+> 48      22973   3542    15074
+> 64      23809   6486    27244
+> 80      23564   10169   43118
+> 96      22977   14954   62948
+> 128     23649   27067   113892
+> ________________________________
+> 
+> With higher number of threads running in parallel, SD
+> increased. In this case most threads run in parallel
+> only till __dev_xmit_skb (#numtxqs=1). With mq TX patch,
+> higher number of threads run in parallel through
+> ndo_start_xmit. I *think* the increase in SD is to do
+> with higher # of threads running for larger code path
+> >From the numbers I posted with the patch (cut-n-paste
+> only the % parts), BW increased much more than the SD,
+> sometimes more than twice the increase in SD.
 
-we can use dev->reg_state to figure out whether dev_change_net_namespace
-is happening, since that won't set dev->reg_state NETREG_UNREGISTERING.
-so, this changes 8021q and macvlan to ignore NETDEV_UNREGISTER when
-reg_state is not NETREG_UNREGISTERING.
+Service demand is BW/CPU, right? So if BW goes up by 50%
+and SD by 40%, this means that CPU more than doubled.
 
-Signed-off-by: David Lamparter <equinox@diac24.net>
---
+> N#      BW%     SD%      RSD%
+> 4       54.30   40.00    -1.16
+> 8       71.79   46.59    -2.68
+> 16      71.89   50.40    -2.50
+> 32      72.24   34.26    -14.52
+> 48      70.10   31.51    -14.35
+> 64      69.01   38.81    -9.66
+> 96      70.68   71.26    10.74
+> 
+> I also think SD calculation gets skewed for guest->local
+> host testing.
 
-On Tue, Aug 24, 2010 at 01:50:56PM +0200, David Lamparter wrote:
-> attached patch makes it possible to keep macvlan / 802.1q slave devices
-> on moving their master to a different namespace. as the opposite works
-> without problems (moving the slaves into a different namespace), this
-> shouldn't cause problems either.
+If it's broken, let's fix it?
 
-I would like to resurrect this. After the small excursion into
-NETREG_NETNS_MOVING i've reevaluated my personal opinion and think the
-behaviour is the desired one and this patch is the cleanest way to
-implement it. While it depends on somewhat "fine print" on the reg_state
-state machine, the probability of major screw-ups in this region is
-rather small and it also quite likely makes a nice large boom when it is
-unduly tampered with.
+> For this test, I ran a guest with numtxqs=16.
+> The first result below is with my patch, which creates 16
+> vhosts. The second result is with a modified patch which
+> creates only 2 vhosts (testing with #netperfs = 64):
 
+My guess is it's not a good idea to have more TX VQs than guest CPUs.
 
--David
+I realize for management it's easier to pass in a single vhost fd, but
+just for testing it's probably easier to add code in userspace to open
+/dev/vhost multiple times.
 
+> 
+> #vhosts  BW%     SD%        RSD%
+> 16       20.79   186.01     149.74
+> 2        30.89   34.55      18.44
+> 
+> The remote SD increases with the number of vhost threads,
+> but that number seems to correlate with guest SD. So though
+> BW% increased slightly from 20% to 30%, SD fell drastically
+> from 186% to 34%. I think it could be a calculation skew
+> with host SD, which also fell from 150% to 18%.
 
- drivers/net/macvlan.c |    4 ++++
- net/8021q/vlan.c      |    4 ++++
- net/core/dev.c        |    4 ++++
- 3 files changed, 12 insertions(+), 0 deletions(-)
+I think by default netperf looks in /proc/stat for CPU utilization data:
+so host CPU utilization will include the guest CPU, I think?
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index f15fe2c..f43f8e4 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -754,6 +754,10 @@ static int macvlan_device_event(struct notifier_block *unused,
- 		}
- 		break;
- 	case NETDEV_UNREGISTER:
-+		/* twiddle thumbs on netns device moves */
-+		if (dev->reg_state != NETREG_UNREGISTERING)
-+			break;
-+
- 		list_for_each_entry_safe(vlan, next, &port->vlans, list)
- 			vlan->dev->rtnl_link_ops->dellink(vlan->dev, NULL);
- 		break;
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 3c1c8c1..cdc37e8 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -516,6 +516,10 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		break;
- 
- 	case NETDEV_UNREGISTER:
-+		/* twiddle thumbs on netns device moves */
-+		if (dev->reg_state != NETREG_UNREGISTERING)
-+			break;
-+
- 		/* Delete all VLANs for this dev. */
- 		grp->killall = 1;
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1f466e8..b1589bc 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5618,6 +5618,10 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 
- 	/* Notify protocols, that we are about to destroy
- 	   this device. They should clean all the things.
-+
-+	   Note that dev->reg_state stays at NETREG_REGISTERED.
-+	   This is wanted because this way 8021q and macvlan know
-+	   the device is just moving and can keep their slaves up.
- 	*/
- 	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
- 	call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
+I would go further and claim that for host/guest TCP
+CPU utilization and SD should always be identical.
+Makes sense?
+
+> 
+> I am planning to submit 2nd patch rev with restricted
+> number of vhosts.
+> 
+> > > Likely cause for the 1 stream degradation with multiple
+> > > vhost patch:
+> > >
+> > > 1. Two vhosts run handling the RX and TX respectively.
+> > >    I think the issue is related to cache ping-pong esp
+> > >    since these run on different cpus/sockets.
+> >
+> > Right. With TCP I think we are better off handling
+> > TX and RX for a socket by the same vhost, so that
+> > packet and its ack are handled by the same thread.
+> > Is this what happens with RX multiqueue patch?
+> > How do we select an RX queue to put the packet on?
+> 
+> My (unsubmitted) RX patch doesn't do this yet, that is
+> something I will check.
+> 
+> Thanks,
+> 
+> - KK
+
+You'll want to work on top of net-next, I think there's
+RX flow filtering work going on there.
+
 -- 
-1.7.0.4
-
+MST
