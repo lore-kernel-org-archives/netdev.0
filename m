@@ -1,55 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 08/25] drivers/net/atl1c: Use static const char arrays
-Date: Mon, 13 Sep 2010 12:47:46 -0700
-Message-ID: <709846346da82e1fe8ca60953f9f4193001d6cab.1284406638.git.joe@perches.com>
-References: <cover.1284406638.git.joe@perches.com>
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1883 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755193Ab0IMTs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Sep 2010 15:48:26 -0400
-In-Reply-To: <cover.1284406638.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [33-stable regression ssb/broadcom]
+Date: Mon, 13 Sep 2010 15:36:47 -0400
+Message-ID: <20100913193647.GD4052@tuxdriver.com>
+References: <4C8E6192.2010003@mandriva.org>
+ <20100913.122329.39186333.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: tmb@mandriva.org, stable@kernel.org, gregkh@suse.de,
+	Larry.Finger@lwfinger.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100913.122329.39186333.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/atl1c/atl1c.h      |    4 ++--
- drivers/net/atl1c/atl1c_main.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+On Mon, Sep 13, 2010 at 12:23:29PM -0700, David Miller wrote:
+> From: Thomas Backlund <tmb@mandriva.org>
+> Date: Mon, 13 Sep 2010 20:38:26 +0300
+> 
+> > In Mandriva 2010.1 we noticed that 2.6.33.7 broke ssb/Broadcom lan for
+> > several users...
+> > 
+> > Issue is tracked at:
+> > https://qa.mandriva.com/show_bug.cgi?id=60968
+> > 
+> > Reverting the commit restores a working lan.
+> > 
+> > The offending commit is:
+> 
+> Please always CC: netdev on networking reports, otherwise you are
+> very unlikely to get any experts looking into your issue.
 
-diff --git a/drivers/net/atl1c/atl1c.h b/drivers/net/atl1c/atl1c.h
-index ef4115b..05558a0 100644
---- a/drivers/net/atl1c/atl1c.h
-+++ b/drivers/net/atl1c/atl1c.h
-@@ -628,8 +628,8 @@ struct atl1c_adapter {
- #define AT_READ_REG_ARRAY(a, reg, offset) ( \
- 		readl(((a)->hw_addr + reg) + ((offset) << 2)))
- 
--extern char atl1c_driver_name[];
--extern char atl1c_driver_version[];
-+extern const char atl1c_driver_name[];
-+extern const char atl1c_driver_version[];
- 
- extern int atl1c_up(struct atl1c_adapter *adapter);
- extern void atl1c_down(struct atl1c_adapter *adapter);
-diff --git a/drivers/net/atl1c/atl1c_main.c b/drivers/net/atl1c/atl1c_main.c
-index 553230e..aaac76b 100644
---- a/drivers/net/atl1c/atl1c_main.c
-+++ b/drivers/net/atl1c/atl1c_main.c
-@@ -22,8 +22,8 @@
- #include "atl1c.h"
- 
- #define ATL1C_DRV_VERSION "1.0.1.0-NAPI"
--char atl1c_driver_name[] = "atl1c";
--char atl1c_driver_version[] = ATL1C_DRV_VERSION;
-+const char atl1c_driver_name[] = "atl1c";
-+const char atl1c_driver_version[] = ATL1C_DRV_VERSION;
- #define PCI_DEVICE_ID_ATTANSIC_L2C      0x1062
- #define PCI_DEVICE_ID_ATTANSIC_L1C      0x1063
- #define PCI_DEVICE_ID_ATHEROS_L2C_B	0x2060 /* AR8152 v1.1 Fast 10/100 */
+IIRC, there was a bad patch that got sent for the 2.6.33.y series.
+I thought it had been reverted or fixed already?
+
+John
 -- 
-1.7.3.rc1
-
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
