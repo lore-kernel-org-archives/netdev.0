@@ -1,42 +1,67 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [33-stable regression ssb/broadcom]
-Date: Mon, 13 Sep 2010 15:36:47 -0400
-Message-ID: <20100913193647.GD4052@tuxdriver.com>
-References: <4C8E6192.2010003@mandriva.org>
- <20100913.122329.39186333.davem@davemloft.net>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: RE: [PATCH 14/25] drivers/net/vnxnet3: Use static const char arrays
+Date: Mon, 13 Sep 2010 13:07:06 -0700
+Message-ID: <89E2752CFA8EC044846EB8499819134102BE8EEF9E@EXCH-MBX-4.vmware.com>
+References: <cover.1284406638.git.joe@perches.com>
+ <a2e0d6f77c221ebf7f642dd02da85bcd41947242.1284406638.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tmb@mandriva.org, stable@kernel.org, gregkh@suse.de,
-	Larry.Finger@lwfinger.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "VMware, Inc." <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100913.122329.39186333.davem@davemloft.net>
+In-Reply-To: <a2e0d6f77c221ebf7f642dd02da85bcd41947242.1284406638.git.joe@perches.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 13, 2010 at 12:23:29PM -0700, David Miller wrote:
-> From: Thomas Backlund <tmb@mandriva.org>
-> Date: Mon, 13 Sep 2010 20:38:26 +0300
-> 
-> > In Mandriva 2010.1 we noticed that 2.6.33.7 broke ssb/Broadcom lan for
-> > several users...
-> > 
-> > Issue is tracked at:
-> > https://qa.mandriva.com/show_bug.cgi?id=60968
-> > 
-> > Reverting the commit restores a working lan.
-> > 
-> > The offending commit is:
-> 
-> Please always CC: netdev on networking reports, otherwise you are
-> very unlikely to get any experts looking into your issue.
+Thanks Joe.
 
-IIRC, there was a bad patch that got sent for the 2.6.33.y series.
-I thought it had been reverted or fixed already?
+Acked-by: Shreyas Bhatewara <sbhatewara@vmware.com>
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+> -----Original Message-----
+> From: Joe Perches [mailto:joe@perches.com]
+> Sent: Monday, September 13, 2010 12:48 PM
+> To: linux-kernel@vger.kernel.org
+> Cc: Shreyas Bhatewara; VMware, Inc.; netdev@vger.kernel.org
+> Subject: [PATCH 14/25] drivers/net/vnxnet3: Use static const char
+> arrays
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/vmxnet3/vmxnet3_drv.c |    2 +-
+>  drivers/net/vmxnet3/vmxnet3_int.h |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
+> b/drivers/net/vmxnet3/vmxnet3_drv.c
+> index 198ce92..dfc0014 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+> @@ -28,7 +28,7 @@
+> 
+>  #include "vmxnet3_int.h"
+> 
+> -char vmxnet3_driver_name[] = "vmxnet3";
+> +const char vmxnet3_driver_name[] = "vmxnet3";
+>  #define VMXNET3_DRIVER_DESC "VMware vmxnet3 virtual NIC driver"
+> 
+>  /*
+> diff --git a/drivers/net/vmxnet3/vmxnet3_int.h
+> b/drivers/net/vmxnet3/vmxnet3_int.h
+> index 2121c73..201fcf7 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_int.h
+> +++ b/drivers/net/vmxnet3/vmxnet3_int.h
+> @@ -384,5 +384,5 @@ vmxnet3_create_queues(struct vmxnet3_adapter
+> *adapter,
+>  extern void vmxnet3_set_ethtool_ops(struct net_device *netdev);
+>  extern struct net_device_stats *vmxnet3_get_stats(struct net_device
+> *netdev);
+> 
+> -extern char vmxnet3_driver_name[];
+> +extern const char vmxnet3_driver_name[];
+>  #endif
+> --
+> 1.7.3.rc1
