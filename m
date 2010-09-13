@@ -1,51 +1,48 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 06/25] drivers/isdn: Use static const char arrays
-Date: Mon, 13 Sep 2010 12:47:44 -0700
-Message-ID: <0456ee44384064d43253cf1b0837f88e318bddf2.1284406638.git.joe@perches.com>
+Subject: [PATCH 12/25] drivers/net/qlcnic: Use static const char arrays
+Date: Mon, 13 Sep 2010 12:47:50 -0700
+Message-ID: <4f9ef3036179e7a6cf4d238fad64920d8130015c.1284406638.git.joe@perches.com>
 References: <cover.1284406638.git.joe@perches.com>
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	linux-driver@qlogic.com, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1875 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755166Ab0IMTsZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Sep 2010 15:48:25 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1284406638.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/isdn/hysdn/hycapi.c  |    2 +-
- drivers/isdn/mISDN/dsp_cmx.c |    2 +-
+ drivers/net/qlcnic/qlcnic.h      |    2 +-
+ drivers/net/qlcnic/qlcnic_main.c |    2 +-
  2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/hysdn/hycapi.c b/drivers/isdn/hysdn/hycapi.c
-index 6299b06..5de3a93 100644
---- a/drivers/isdn/hysdn/hycapi.c
-+++ b/drivers/isdn/hysdn/hycapi.c
-@@ -151,7 +151,7 @@ static void
- hycapi_register_internal(struct capi_ctr *ctrl, __u16 appl,
- 			 capi_register_params *rp)
- {
--	char ExtFeatureDefaults[] = "49  /0/0/0/0,*/1,*/2,*/3,*/4,*/5,*/6,*/7,*/8,*/9,*";
-+	static const char ExtFeatureDefaults[] = "49  /0/0/0/0,*/1,*/2,*/3,*/4,*/5,*/6,*/7,*/8,*/9,*";
- 	hycapictrl_info *cinfo = (hycapictrl_info *)(ctrl->driverdata);
- 	hysdn_card *card = cinfo->card;
- 	struct sk_buff *skb;
-diff --git a/drivers/isdn/mISDN/dsp_cmx.c b/drivers/isdn/mISDN/dsp_cmx.c
-index 76d9e67..3d80990 100644
---- a/drivers/isdn/mISDN/dsp_cmx.c
-+++ b/drivers/isdn/mISDN/dsp_cmx.c
-@@ -1155,7 +1155,7 @@ int delaycount;
- static void
- showdelay(struct dsp *dsp, int samples, int delay)
- {
--	char bar[] = "--------------------------------------------------|";
-+	static const char bar[] = "--------------------------------------------------|";
- 	int sdelay;
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index cc8385a..7effdad 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -345,7 +345,7 @@ struct uni_data_desc{
+ #define QLCNIC_UNIFIED_ROMIMAGE_NAME	"phanfw.bin"
+ #define QLCNIC_FLASH_ROMIMAGE_NAME	"flash"
  
- 	delaycount += samples;
+-extern char qlcnic_driver_name[];
++extern const char qlcnic_driver_name[];
+ 
+ /* Number of status descriptors to handle per interrupt */
+ #define MAX_STATUS_HANDLE	(64)
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 5fd2abd..ad40171 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -41,7 +41,7 @@ MODULE_LICENSE("GPL");
+ MODULE_VERSION(QLCNIC_LINUX_VERSIONID);
+ MODULE_FIRMWARE(QLCNIC_UNIFIED_ROMIMAGE_NAME);
+ 
+-char qlcnic_driver_name[] = "qlcnic";
++const char qlcnic_driver_name[] = "qlcnic";
+ static const char qlcnic_driver_string[] = "QLogic 1/10 GbE "
+ 	"Converged/Intelligent Ethernet Driver v" QLCNIC_LINUX_VERSIONID;
+ 
 -- 
 1.7.3.rc1
-
