@@ -1,42 +1,68 @@
-From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Mon, 13 Sep 2010 08:22:04 -0700
-Message-ID: <20100913152204.GA24088@suse.de>
-References: <4C61EDE5.4030505@dsn.okisemi.com>
-	<4C629FE5.6000204@pengutronix.de>
-	<005f01cb533e$5c21d530$66f8800a@maildom.okisemi.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
+Date: Mon, 13 Sep 2010 10:59:34 -0500
+Message-ID: <4C8E4A66.8030907@codemonkey.ws>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <201009091319.40274.rusty@rustcorp.com.au> <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com> <201009092144.26484.rusty@rustcorp.com.au> <OF371A1B54.B0F5B4A1-ON65257799.00491939-65257799.004BBB65@in.ibm.com> <20100912114637.GB22982@redhat.com> <OF32429FD6.3F8CAEC5-ON6525779D.00169473-6525779D.0017A613@in.ibm.com> <20100913090415.GB29333@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
-	arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <005f01cb533e$5c21d530$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, davem@davemloft.net,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100913090415.GB29333@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 13, 2010 at 09:07:44PM +0900, Masayuki Ohtake wrote:
-> > - Try to send patches directly with git send-email
-> In our network environment, we can't use send-email.
+On 09/13/2010 04:04 AM, Michael S. Tsirkin wrote:
+> On Mon, Sep 13, 2010 at 09:50:42AM +0530, Krishna Kumar2 wrote:
+>    
+>> "Michael S. Tsirkin"<mst@redhat.com>  wrote on 09/12/2010 05:16:37 PM:
+>>
+>>      
+>>> "Michael S. Tsirkin"<mst@redhat.com>
+>>> 09/12/2010 05:16 PM
+>>>
+>>> On Thu, Sep 09, 2010 at 07:19:33PM +0530, Krishna Kumar2 wrote:
+>>>        
+>>>> Unfortunately I need a
+>>>> constant in vhost for now.
+>>>>          
+>>> Maybe not even that: you create multiple vhost-net
+>>> devices so vhost-net in kernel does not care about these
+>>> either, right? So this can be just part of vhost_net.h
+>>> in qemu.
+>>>        
+>> Sorry, I didn't understand what you meant.
+>>
+>> I can remove all socks[] arrays/constants by pre-allocating
+>> sockets in vhost_setup_vqs. Then I can remove all "socks"
+>> parameters in vhost_net_stop, vhost_net_release and
+>> vhost_net_reset_owner.
+>>
+>> Does this make sense?
+>>
+>> Thanks,
+>>
+>> - KK
+>>      
+> Here's what I mean: each vhost device includes 1 TX
+> and 1 RX VQ. Instead of teaching vhost about multiqueue,
+> we could simply open /dev/vhost-net multiple times.
+> How many times would be up to qemu.
+>    
 
-Then try setting up a Linux server to handle email issues to prevent
-patches from going through Exchange, which is known to corrupt patches.
-Lots of other companies do this for Linux development, including
-Microsoft :)
+Trouble is, each vhost-net device is associated with 1 tun/tap device 
+which means that each vhost-net device is associated with a transmit and 
+receive queue.
 
-thanks,
+I don't know if you'll always have an equal number of transmit and 
+receive queues but there's certainly  challenge in terms of flexibility 
+with this model.
 
-greg k-h
+Regards,
+
+Anthony Liguori
+
+
