@@ -1,75 +1,52 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [33-stable regression ssb/broadcom]
-Date: Mon, 13 Sep 2010 14:01:45 -0700
-Message-ID: <20100913210145.GA18969@suse.de>
-References: <4C8E6192.2010003@mandriva.org>
- <20100913.122329.39186333.davem@davemloft.net>
- <20100913193647.GD4052@tuxdriver.com>
- <4C8E8AC2.2030201@mandriva.org>
- <4C8E8C73.60306@mandriva.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH v9 00/16] Provide a zero-copy method on KVM
+ virtio-net.
+Date: Mon, 13 Sep 2010 14:35:53 -0700
+Message-ID: <1284413753.13351.17.camel@localhost.localdomain>
+References: <1281086624-5765-1-git-send-email-xiaohui.xin@intel.com>
+	 <1281489804.3391.23.camel@localhost.localdomain>
+	 <1281490993.3391.25.camel@localhost.localdomain>
+	 <1281506460.3391.42.camel@localhost.localdomain>
+	 <1281509704.3391.45.camel@localhost.localdomain>
+	 <20100903105233.GA32193@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "stable@kernel.org" <stable@kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	"Larry.Finger@lwfinger.net" <Larry.Finger@lwfinger.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Thomas Backlund <tmb@mandriva.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:37961 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751895Ab0IMVCc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Sep 2010 17:02:32 -0400
-Content-Disposition: inline
-In-Reply-To: <4C8E8C73.60306@mandriva.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
+	herbert@gondor.hengli.com.au, jdike@linux.intel.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100903105233.GA32193@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 13, 2010 at 11:41:23PM +0300, Thomas Backlund wrote:
-> Thomas Backlund skrev 13.9.2010 23:34:
-> >John W. Linville skrev 13.9.2010 22:36:
-> >>On Mon, Sep 13, 2010 at 12:23:29PM -0700, David Miller wrote:
-> >>>From: Thomas Backlund<tmb@mandriva.org>
-> >>>Date: Mon, 13 Sep 2010 20:38:26 +0300
-> >>>
-> >>>>In Mandriva 2010.1 we noticed that 2.6.33.7 broke ssb/Broadcom lan for
-> >>>>several users...
-> >>>>
-> >>>>Issue is tracked at:
-> >>>>https://qa.mandriva.com/show_bug.cgi?id=60968
-> >>>>
-> >>>>Reverting the commit restores a working lan.
-> >>>>
-> >>>>The offending commit is:
-> >>>
-> >>>Please always CC: netdev on networking reports, otherwise you are
-> >>>very unlikely to get any experts looking into your issue.
-> >>
-> >>IIRC, there was a bad patch that got sent for the 2.6.33.y series.
-> >>I thought it had been reverted or fixed already?
-> >>
-> >
-> >Nope.
-> >
-> >It got added in 2.6.33.7
-> >http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.33.y.git;a=commit;h=6fb037c2ed8378c7ab0c1e00536ba6b2a866503e
-> >
+On Fri, 2010-09-03 at 13:52 +0300, Michael S. Tsirkin wrote:
+> > When binding vhost thread to cpu3, qemu I/O thread to cpu2, macvtap
+> zero
+> > copy patch can get 9.4Gb/s. 
+> > 
+> > TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+> 192.168.10.74 (192.168.10.74) port 0 AF_INET : cpu bind
+> > Recv   Send    Send                          Utilization
+> Service Demand
+> > Socket Socket  Message  Elapsed              Send     Recv     Send
+> Recv
+> > Size   Size    Size     Time     Throughput  local    remote   local
+> remote
+> > bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB
+> us/KB
+> > 
+> >  87380  16384  65536    60.00      9408.19   55.69    8.45     0.970
+> 0.589
+> > 
+> > Shirley
 > 
-> After checking some more...
-> 
-> I see the revert of the broken patch was done in 2.6.34.3 and a set
-> of ssb patches replacing it...
-> 
-> but it didn't happend for 2.6.33.y
+> OTOH CPU utilization is up too.
 
-Yeah, I think I "dropped" support for .33 by then and I really didn't
-care anymore.
+w/i macvtap zero copy patch, the BW can reach link w/i more cpu usage,
+w/o macvtap zero copy patch, the BW can't be up to link speed. To
+achieve same BW, CPU utilization is lower when using zero copy.
 
-Note, I have gotten a few rumblings that I should bring .33 back to life
-for some loving due to a few distros relying on it, but I need to find
-the time in my schedule to do so...
+Shirley
 
-thanks,
-
-greg k-h
