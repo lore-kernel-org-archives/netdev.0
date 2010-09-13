@@ -1,46 +1,45 @@
-From: Cyril Chemparathy <cyril@ti.com>
-Subject: Re: [PATCH v3 00/10] split out emac cpdma and mdio for reuse
-Date: Mon, 13 Sep 2010 10:09:15 -0400
-Message-ID: <4C8E308B.7020003@ti.com>
-References: <1283891142-15522-1-git-send-email-cyril@ti.com> <4C8950D4.9060102@criticallink.com> <201009101823.52755.caglarakyuz@gmail.com> <201009111154.42171.caglarakyuz@gmail.com>
-Reply-To: cyril@ti.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next-2.6] sfc: Fix order of channel_name array
+ dimensions
+Date: Mon, 13 Sep 2010 15:14:49 +0100
+Message-ID: <1284387289.2316.34.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Williamson <michael.williamson@criticallink.com>,
-	Kevin Hilman <khilman@deeprootsystems.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davinci-linux-open-source@linux.davincidsp.com"
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Caglar Akyuz <caglarakyuz@gmail.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <201009111154.42171.caglarakyuz@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:22229 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399Ab0IMOOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 10:14:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Caglar,
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/net_driver.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-[...]
-> Unfortunately emac driver is not stable after this series. I face lock-ups 
-> time to time, followed by attached kernel trace.
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 4b3f680..152342d 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -729,7 +729,7 @@ struct efx_nic {
+ 	enum reset_type reset_pending;
+ 
+ 	struct efx_channel *channel[EFX_MAX_CHANNELS];
+-	char channel_name[IFNAMSIZ + 6][EFX_MAX_CHANNELS];
++	char channel_name[EFX_MAX_CHANNELS][IFNAMSIZ + 6];
+ 
+ 	unsigned rxq_entries;
+ 	unsigned txq_entries;
+-- 
+1.7.2.1
 
-Could you elaborate on your test scenario so that I can try and
-reproduce the problem at my end?  Also, did you have the contents of my
-commit stack in this particular kernel build?
 
-Assuming that the DMA got stuck at some point leading up to the transmit
-timeout, any ideas as to why a host error was not thrown?  To help
-debug, I'll post out a set of patches that dump out the MAC (and DMA)
-registers on timeout.  That should give us some visibility into the problem.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-> [ 1651.440000] nfs: server 192.168.2.34 not responding, still trying
-> [ 1859.010000] ------------[ cut here ]------------
-> [ 1859.010000] WARNING: at net/sched/sch_generic.c:258 
-> dev_watchdog+0x184/0x294()
-> [ 1859.020000] NETDEV WATCHDOG: eth0 (davinci_emac): transmit queue 0 timed 
-> out
-[...]
-
-Regards
-Cyril.
