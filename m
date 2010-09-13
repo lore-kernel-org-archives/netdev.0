@@ -1,30 +1,37 @@
 From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [RFC PATCH 0/1] macvtap TX zero copy between guest and host kernel
-Date: Mon, 13 Sep 2010 13:43:00 -0700
-Message-ID: <1284410580.13351.10.camel@localhost.localdomain>
+Subject: RFC PATCH 1/2] macvtap: A new sock zero copy flag
+Date: Mon, 13 Sep 2010 13:47:01 -0700
+Message-ID: <1284410821.13351.13.camel@localhost.localdomain>
+References: <1284410580.13351.10.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:38424 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754101Ab0IMUnH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Sep 2010 16:43:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>, mst@redhat.com,
+	Avi Kivity <avi@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1284410580.13351.10.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch induces a new sock flag ZEROCOPY to avoid copy between
-userspace and kernel. macvtap is the first user of zero copy between
-guest and host kernel. It only uses when the lower device supports high
-memory DMA. The first set of patch only addresses transmission TX side.
-The test has shown big improvement on either CPU utilization reduction
-or BW increase on 10GbE Intel NIC. Performance data will be submitted in
-the coming email.
+/* Add a new flag to support sock zero copy from user space to kernel */
 
-thanks
-Shirley
+Signed-off-by: Shirley Ma <xma@us.ibm.com>
+---
 
+ include/net/sock.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index adab9dc..80172de 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -543,6 +543,7 @@ enum sock_flags {
+ 	SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SOF_TIMESTAMPING_SYS_HARDWARE */
+ 	SOCK_FASYNC, /* fasync() active */
+ 	SOCK_RXQ_OVFL,
++	SOCK_ZEROCOPY, /* zerocopy from user space to kernel */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
