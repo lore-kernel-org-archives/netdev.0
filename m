@@ -1,38 +1,96 @@
-From: Chris Mason <chris.mason@oracle.com>
-Subject: Re: [rds-devel] net-next pull request: RDS
-Date: Mon, 13 Sep 2010 13:14:28 -0400
-Message-ID: <20100913171428.GR21374@think>
-References: <4C892C9C.4060304@oracle.com>
- <4C8C9422.2070306@Voltaire.com>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
+Date: Mon, 13 Sep 2010 12:40:11 -0500
+Message-ID: <4C8E61FB.30805@codemonkey.ws>
+References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com> <201009091319.40274.rusty@rustcorp.com.au> <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com> <201009092144.26484.rusty@rustcorp.com.au> <OF371A1B54.B0F5B4A1-ON65257799.00491939-65257799.004BBB65@in.ibm.com> <20100912114637.GB22982@redhat.com> <OF32429FD6.3F8CAEC5-ON6525779D.00169473-6525779D.0017A613@in.ibm.com> <20100913090415.GB29333@redhat.com> <4C8E4A66.8030907@codemonkey.ws> <20100913163037.GA18233@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Grover <andy.grover@oracle.com>, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, RDS Devel <rds-devel@oss.oracle.com>,
-	Roland Dreier <rdreier@cisco.com>
-To: Or Gerlitz <ogerlitz@voltaire.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:29232 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771Ab0IMROp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 13:14:45 -0400
-Content-Disposition: inline
-In-Reply-To: <4C8C9422.2070306@Voltaire.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, davem@davemloft.net,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100913163037.GA18233@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 12, 2010 at 10:49:38AM +0200, Or Gerlitz wrote:
-> Hi Andy, 
-> 
-> Some clarifications/questions from whatever quick look one can have over 107 patches...
-> 
-> Zach Brown's "RDS/IB: print IB event strings as well as their number" - commit
-> 1bde04a63d532c2540d6fdee0a661530a62b1686 in net-next-2.6 looks perfect to reside as a helper function in the core IB stack which can be in use by other rdma drivers (e.g ipoib, iser, srp, etc). 
-> 
-> Chris Mason's "rds: recycle FMRs through lockless lists added net/rds/xlist.h" - 6fa70da6081bbcf948801fd5ee0be4d222298a43 adds net/rds/xlist.h - isn't this something that better be placed under include/linux/. etc?
+On 09/13/2010 11:30 AM, Michael S. Tsirkin wrote:
+> On Mon, Sep 13, 2010 at 10:59:34AM -0500, Anthony Liguori wrote:
+>    
+>> On 09/13/2010 04:04 AM, Michael S. Tsirkin wrote:
+>>      
+>>> On Mon, Sep 13, 2010 at 09:50:42AM +0530, Krishna Kumar2 wrote:
+>>>        
+>>>> "Michael S. Tsirkin"<mst@redhat.com>   wrote on 09/12/2010 05:16:37 PM:
+>>>>
+>>>>          
+>>>>> "Michael S. Tsirkin"<mst@redhat.com>
+>>>>> 09/12/2010 05:16 PM
+>>>>>
+>>>>> On Thu, Sep 09, 2010 at 07:19:33PM +0530, Krishna Kumar2 wrote:
+>>>>>            
+>>>>>> Unfortunately I need a
+>>>>>> constant in vhost for now.
+>>>>>>              
+>>>>> Maybe not even that: you create multiple vhost-net
+>>>>> devices so vhost-net in kernel does not care about these
+>>>>> either, right? So this can be just part of vhost_net.h
+>>>>> in qemu.
+>>>>>            
+>>>> Sorry, I didn't understand what you meant.
+>>>>
+>>>> I can remove all socks[] arrays/constants by pre-allocating
+>>>> sockets in vhost_setup_vqs. Then I can remove all "socks"
+>>>> parameters in vhost_net_stop, vhost_net_release and
+>>>> vhost_net_reset_owner.
+>>>>
+>>>> Does this make sense?
+>>>>
+>>>> Thanks,
+>>>>
+>>>> - KK
+>>>>          
+>>> Here's what I mean: each vhost device includes 1 TX
+>>> and 1 RX VQ. Instead of teaching vhost about multiqueue,
+>>> we could simply open /dev/vhost-net multiple times.
+>>> How many times would be up to qemu.
+>>>        
+>> Trouble is, each vhost-net device is associated with 1 tun/tap
+>> device which means that each vhost-net device is associated with a
+>> transmit and receive queue.
+>>
+>> I don't know if you'll always have an equal number of transmit and
+>> receive queues but there's certainly  challenge in terms of
+>> flexibility with this model.
+>>
+>> Regards,
+>>
+>> Anthony Liguori
+>>      
+> Not really, TX and RX can be mapped to different devices,
+>    
 
-Yes, I plan on expanding xlist.h a little and trying to use it in a few
-other places.  But since RDS is currently the only consumer it made sense
-to me to keep it in rds until I had more code in line to take advantage
-of it.
+It's just a little odd.  Would you bond multiple tun tap devices to 
+achieve multi-queue TX?  For RX, do you somehow limit RX to only one of 
+those devices?
 
--chris
+If we were doing this in QEMU (and btw, there needs to be userspace 
+patches before we implement this in the kernel side), I think it would 
+make more sense to just rely on doing a multithreaded write to a single 
+tun/tap device and then to hope that in can be made smarter at the 
+macvtap layer.
+
+Regards,
+
+Anthony Liguori
+
+Regards,
+
+Anthony Liguori
+
+> or you can only map one of these. What is the trouble?
+> What other features would you desire in terms of flexibility?
+>
+>    
+
