@@ -1,58 +1,30 @@
-From: Thomas Backlund <tmb@mandriva.org>
-Subject: Re: [33-stable regression ssb/broadcom]
-Date: Mon, 13 Sep 2010 23:41:23 +0300
-Message-ID: <4C8E8C73.60306@mandriva.org>
-References: <4C8E6192.2010003@mandriva.org> <20100913.122329.39186333.davem@davemloft.net> <20100913193647.GD4052@tuxdriver.com> <4C8E8AC2.2030201@mandriva.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [RFC PATCH 0/1] macvtap TX zero copy between guest and host kernel
+Date: Mon, 13 Sep 2010 13:43:00 -0700
+Message-ID: <1284410580.13351.10.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	"gregkh@suse.de" <gregkh@suse.de>,
-	"Larry.Finger@lwfinger.net" <Larry.Finger@lwfinger.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "stable@kernel.org" <stable@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C8E8AC2.2030201@mandriva.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:38424 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754101Ab0IMUnH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Sep 2010 16:43:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thomas Backlund skrev 13.9.2010 23:34:
-> John W. Linville skrev 13.9.2010 22:36:
->> On Mon, Sep 13, 2010 at 12:23:29PM -0700, David Miller wrote:
->>> From: Thomas Backlund<tmb@mandriva.org>
->>> Date: Mon, 13 Sep 2010 20:38:26 +0300
->>>
->>>> In Mandriva 2010.1 we noticed that 2.6.33.7 broke ssb/Broadcom lan for
->>>> several users...
->>>>
->>>> Issue is tracked at:
->>>> https://qa.mandriva.com/show_bug.cgi?id=60968
->>>>
->>>> Reverting the commit restores a working lan.
->>>>
->>>> The offending commit is:
->>>
->>> Please always CC: netdev on networking reports, otherwise you are
->>> very unlikely to get any experts looking into your issue.
->>
->> IIRC, there was a bad patch that got sent for the 2.6.33.y series.
->> I thought it had been reverted or fixed already?
->>
->
-> Nope.
->
-> It got added in 2.6.33.7
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.33.y.git;a=commit;h=6fb037c2ed8378c7ab0c1e00536ba6b2a866503e
->
+This patch induces a new sock flag ZEROCOPY to avoid copy between
+userspace and kernel. macvtap is the first user of zero copy between
+guest and host kernel. It only uses when the lower device supports high
+memory DMA. The first set of patch only addresses transmission TX side.
+The test has shown big improvement on either CPU utilization reduction
+or BW increase on 10GbE Intel NIC. Performance data will be submitted in
+the coming email.
 
-After checking some more...
+thanks
+Shirley
 
-I see the revert of the broken patch was done in 2.6.34.3 and a set of 
-ssb patches replacing it...
-
-but it didn't happend for 2.6.33.y
-
---
-Thomas
