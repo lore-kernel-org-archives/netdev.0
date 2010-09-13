@@ -1,84 +1,72 @@
-From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH 3/9] net: davinci_cpdma: requeue on early end-of-queue
-Date: Mon, 13 Sep 2010 14:07:25 -0400
-Message-ID: <1284401251-8846-4-git-send-email-cyril@ti.com>
+From: Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH 1/9] net: davinci_emac: allow forced 100/full via phy_id
+Date: Mon, 13 Sep 2010 14:07:23 -0400
+Message-ID: <1284401251-8846-2-git-send-email-cyril@ti.com>
 References: <1284401251-8846-1-git-send-email-cyril@ti.com>
-Cc: michael.williamson@criticallink.com, caglarakyuz@gmail.com,
-	bparrot@ti.com, Cyril Chemparathy <cyril@ti.com>
-To: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com,
-	linux-omap@vger.kernel.org
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1284401251-8846-1-git-send-email-cyril@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+        linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1284401251-8846-1-git-send-email-cyril-l0cyMroinI0@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When chaining descriptors to the end of a cpdma queue, there is a chance that
-the cpdma engine has already traversed the last descriptor and signalled an
-end-of-queue.  The original cpdma code detected this condition and requeued
-descriptors on submission.
+With this patch, phy_id can be one of the following:
+  1) NULL		: use the first phy on the bus,
+  2) ""			: force to 100/full, no mdio control
+  3) "<bus>:<addr>"	: use the specified bus and phy
 
-With this patch, an early end-of-queue condition is detected on descriptor
-submission as well.  This is necessary on davinci style emac controllers, and
-prevents transmit timeouts when sending out a burst of packets.
+The ability to force 100/full is necessary on some platforms (e.g. da830 evm),
+where an on-board switch may be connected on the emac mii.
 
-Signed-off-by: Cyril Chemparathy <cyril@ti.com>
-Signed-off-by: Michael Williamson <michael.williamson@criticallink.com>
-Signed-off-by: Caglar Akyuz <caglarakyuz@gmail.com>
+Signed-off-by: Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>
+Signed-off-by: Michael Williamson <michael.williamson-wZX4cNJlHJ2sVWG7oymsAA@public.gmane.org>
+Signed-off-by: Caglar Akyuz <caglarakyuz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/davinci_cpdma.c |   12 ++++++++++--
- drivers/net/davinci_cpdma.h |    1 +
- 2 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/davinci_emac.c   |    2 +-
+ include/linux/davinci_emac.h |    7 +++++++
+ 2 files changed, 8 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/davinci_cpdma.c b/drivers/net/davinci_cpdma.c
-index ab7ecd7..abc2b14 100644
---- a/drivers/net/davinci_cpdma.c
-+++ b/drivers/net/davinci_cpdma.c
-@@ -488,6 +488,7 @@ static void __cpdma_chan_submit(struct cpdma_chan *chan,
- 	struct cpdma_desc __iomem	*prev = chan->tail;
- 	struct cpdma_desc_pool		*pool = ctlr->pool;
- 	dma_addr_t			desc_dma;
-+	u32				mode;
- 
- 	desc_dma = desc_phys(pool, desc);
- 
-@@ -507,8 +508,10 @@ static void __cpdma_chan_submit(struct cpdma_chan *chan,
- 	chan->stats.tail_enqueue++;
- 
- 	/* next check if EOQ has been triggered already */
--	if (desc_read(prev, hw_mode) & CPDMA_DESC_EOQ &&
--	    chan->state == CPDMA_STATE_ACTIVE) {
-+	mode = desc_read(prev, hw_mode);
-+	if (((mode & (CPDMA_DESC_EOQ | CPDMA_DESC_OWNER)) == CPDMA_DESC_EOQ) &&
-+	    (chan->state == CPDMA_STATE_ACTIVE)) {
-+		desc_write(prev, hw_mode, mode & ~CPDMA_DESC_EOQ);
- 		chan_write(chan, hdp, desc_dma);
- 		chan->stats.misqueued++;
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 525b84c..363c970 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -1566,7 +1566,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 			priv->phy_id = dev_name(phy);
  	}
-@@ -618,6 +621,11 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
- 	chan->count--;
- 	chan->stats.good_dequeue++;
  
-+	if (status & CPDMA_DESC_EOQ) {
-+		chan->stats.requeue++;
-+		chan_write(chan, hdp, desc_phys(pool, chan->head));
-+	}
+-	if (priv->phy_id) {
++	if (priv->phy_id && *priv->phy_id) {
+ 		priv->phydev = phy_connect(ndev, priv->phy_id,
+ 					   &emac_adjust_link, 0,
+ 					   PHY_INTERFACE_MODE_MII);
+diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
+index 7508e49..9ae9ff0 100644
+--- a/include/linux/davinci_emac.h
++++ b/include/linux/davinci_emac.h
+@@ -25,6 +25,13 @@ struct emac_platform_data {
+ 	u32 ctrl_ram_offset;
+ 	u32 hw_ram_addr;
+ 	u32 ctrl_ram_size;
 +
- 	spin_unlock_irqrestore(&chan->lock, flags);
- 
- 	__cpdma_chan_free(chan, desc, outlen, status);
-diff --git a/drivers/net/davinci_cpdma.h b/drivers/net/davinci_cpdma.h
-index d50ee35..9baacca 100644
---- a/drivers/net/davinci_cpdma.h
-+++ b/drivers/net/davinci_cpdma.h
-@@ -56,6 +56,7 @@ struct cpdma_chan_stats {
- 	u32			empty_dequeue;
- 	u32			busy_dequeue;
- 	u32			good_dequeue;
-+	u32			requeue;
- 	u32			teardown_dequeue;
- };
- 
++	/*
++	 * phy_id can be one of the following:
++	 *   - NULL		: use the first phy on the bus,
++	 *   - ""		: force to 100/full, no mdio control
++	 *   - "<bus>:<addr>"	: use the specified bus and phy
++	 */
+ 	const char *phy_id;
+ 	u8 rmii_en;
+ 	u8 version;
 -- 
 1.7.0.4
-
