@@ -1,31 +1,64 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH v9 00/16] Provide a zero-copy method on KVM
- virtio-net.
-Date: Mon, 13 Sep 2010 11:48:08 -0700
-Message-ID: <1284403688.13351.1.camel@localhost.localdomain>
-References: <1281086624-5765-1-git-send-email-xiaohui.xin@intel.com>
-	 <1281489804.3391.23.camel@localhost.localdomain>
-	 <1281490993.3391.25.camel@localhost.localdomain>
-	 <1281506460.3391.42.camel@localhost.localdomain>
-	 <1281509704.3391.45.camel@localhost.localdomain>
-	 <20100903105233.GA32193@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [33-stable regression ssb/broadcom]
+Date: Mon, 13 Sep 2010 12:23:29 -0700 (PDT)
+Message-ID: <20100913.122329.39186333.davem@davemloft.net>
+References: <4C8E6192.2010003@mandriva.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
-	herbert@gondor.hengli.com.au, jdike@linux.intel.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100903105233.GA32193@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stable@kernel.org, gregkh@suse.de, Larry.Finger@lwfinger.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: tmb@mandriva.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59681
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755050Ab0IMTXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 15:23:11 -0400
+In-Reply-To: <4C8E6192.2010003@mandriva.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-09-03 at 13:52 +0300, Michael S. Tsirkin wrote:
-> Could you look at the guest as well?
+From: Thomas Backlund <tmb@mandriva.org>
+Date: Mon, 13 Sep 2010 20:38:26 +0300
 
-I just finished the patch built against the recent kernel. I will submit
-perf data for both guest, host along with the patch.
+> In Mandriva 2010.1 we noticed that 2.6.33.7 broke ssb/Broadcom lan for
+> several users...
+> 
+> Issue is tracked at:
+> https://qa.mandriva.com/show_bug.cgi?id=60968
+> 
+> Reverting the commit restores a working lan.
+> 
+> The offending commit is:
 
-Thanks
-Shirley
+Please always CC: netdev on networking reports, otherwise you are
+very unlikely to get any experts looking into your issue.
+
+> --- cut ---
+> From 6fb037c2ed8378c7ab0c1e00536ba6b2a866503e Mon Sep 17 00:00:00 2001
+> From: Christoph Fritz <chf.fritz@googlemail.com>
+> Date: Sun, 11 Jul 2010 18:26:15 -0500
+> Subject: [PATCH] ssb: Handle Netbook devices where the SPROM address
+> is changed
+> 
+> For some Netbook computers with Broadcom BCM4312 wireless interfaces,
+> the SPROM has been moved to a new location. When the ssb driver tries
+> to
+> read the old location, the systems hangs when trying to read a
+> non-existent location. Such freezes are particularly bad as they do
+> not
+> log the failure.
+> 
+> This patch is modified from commit
+> da1fdb02d9200ff28b6f3a380d21930335fe5429 with some pieces from other
+> mainline changes so that it can be applied to stable 2.6.34.Y.
+> --- cut ---
+> 
+> --
+> Thomas
+> --
+> To unsubscribe from this list: send the line "unsubscribe
+> linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
