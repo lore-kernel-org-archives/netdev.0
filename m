@@ -1,57 +1,38 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
-Date: Mon, 13 Sep 2010 11:04:15 +0200
-Message-ID: <20100913090415.GB29333@redhat.com>
-References: <20100908072859.23769.97363.sendpatchset@krkumar2.in.ibm.com>
- <201009091319.40274.rusty@rustcorp.com.au>
- <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com>
- <201009092144.26484.rusty@rustcorp.com.au>
- <OF371A1B54.B0F5B4A1-ON65257799.00491939-65257799.004BBB65@in.ibm.com>
- <20100912114637.GB22982@redhat.com>
- <OF32429FD6.3F8CAEC5-ON6525779D.00169473-6525779D.0017A613@in.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] flow: better memory management
+Date: Mon, 13 Sep 2010 11:52:03 +0200
+Message-ID: <1284371524.2587.214.camel@edumazet-laptop>
+References: <1284138025.24675.100.camel@edumazet-laptop>
+	 <87tyluk35t.fsf@basil.nowhere.org>
+	 <1284357111.5560.2533.camel@edumazet-laptop>
+	 <20100913104344.308e9392@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, davem@davemloft.net, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OF32429FD6.3F8CAEC5-ON6525779D.00169473-6525779D.0017A613@in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:46914 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752662Ab0IMJwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 05:52:08 -0400
+Received: by fxm16 with SMTP id 16so2986447fxm.19
+        for <netdev@vger.kernel.org>; Mon, 13 Sep 2010 02:52:07 -0700 (PDT)
+In-Reply-To: <20100913104344.308e9392@basil.nowhere.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 13, 2010 at 09:50:42AM +0530, Krishna Kumar2 wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 09/12/2010 05:16:37 PM:
-> 
-> > "Michael S. Tsirkin" <mst@redhat.com>
-> > 09/12/2010 05:16 PM
-> >
-> > On Thu, Sep 09, 2010 at 07:19:33PM +0530, Krishna Kumar2 wrote:
-> > > Unfortunately I need a
-> > > constant in vhost for now.
-> >
-> > Maybe not even that: you create multiple vhost-net
-> > devices so vhost-net in kernel does not care about these
-> > either, right? So this can be just part of vhost_net.h
-> > in qemu.
-> 
-> Sorry, I didn't understand what you meant.
-> 
-> I can remove all socks[] arrays/constants by pre-allocating
-> sockets in vhost_setup_vqs. Then I can remove all "socks"
-> parameters in vhost_net_stop, vhost_net_release and
-> vhost_net_reset_owner.
-> 
-> Does this make sense?
-> 
-> Thanks,
-> 
-> - KK
+Le lundi 13 septembre 2010 =C3=A0 10:43 +0200, Andi Kleen a =C3=A9crit =
+:
+> >=20
+> > At boot : Allocate tables for online cpus
+> >=20
+> > When bringing up a cpu online : allocate table for this "new" cpu.
+>=20
+> You're right, I misread the patch. I thought that part was missing.
+>=20
 
-Here's what I mean: each vhost device includes 1 TX
-and 1 RX VQ. Instead of teaching vhost about multiqueue,
-we could simply open /dev/vhost-net multiple times.
-How many times would be up to qemu.
+Ah, OK, thanks for clarification !
 
--- 
-MST
+
+
