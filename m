@@ -1,101 +1,90 @@
-From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
-Subject: Re: [PATCHv4] net: Add batman-adv meshing protocol
-Date: Tue, 14 Sep 2010 21:21:02 +0200
-Message-ID: <20100914192102.GA30906@pandem0nium>
-References: <1283646353-17811-1-git-send-email-sven.eckelmann@gmx.de>
-	<201009082058.15533.sven.eckelmann@gmx.de>
-	<AANLkTi=FVyLE6OHTd+_qDbzSLk6fY5j6wBOWkYA810Dj@mail.gmail.com>
-	<201009082225.47498.sven.eckelmann@gmx.de>
-	<AANLkTim-jswWzG=H0AQP5Z3byxoR1uXoV-ZhdaZ7+Sqd@mail.gmail.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="k1lZvvs/B4yU6o8G"
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Sven Eckelmann <sven.eckelmann-Mmb7MZpHnFY@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTim-jswWzG=H0AQP5Z3byxoR1uXoV-ZhdaZ7+Sqd-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 13/18] i4l: kill big kernel lock
+Date: Tue, 14 Sep 2010 21:35:04 +0200
+Message-ID: <1284492909-7147-14-git-send-email-arnd@arndb.de>
+References: <1284492909-7147-1-git-send-email-arnd@arndb.de>
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.187]:56107 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754832Ab0INTfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 15:35:37 -0400
+In-Reply-To: <1284492909-7147-1-git-send-email-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The isdn4linux driver uses the big kernel lock only
+to serialize access to a few fields in its own
+modem_info structure.
 
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=utf8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The easiest replacement is a driver-wide mutex.
+More fine-grained locking would be more appropriate
+here, but likely harder to implement.
 
-Hello,
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: netdev@vger.kernel.org
+---
+ drivers/isdn/i4l/isdn_tty.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-thank you for your comments. As already said, splitting batman-advanced into
-a kernel space part for switching and a user space part for making route
-decision is an already discussed idea which is quite interesting. I wouldn't
-say that it's completely unusual to decide routing in the kernel, as we see
-other mesh protocols like 802.11s/HWMP or STP (not really a mesh protocol)
-integrated in the kernel as well. We have discussed a possible openvswitch =
-port
-internally with some of the main contributors, and we see the following iss=
-ues:
+diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
+index 51dc60d..981f7ab 100644
+--- a/drivers/isdn/i4l/isdn_tty.c
++++ b/drivers/isdn/i4l/isdn_tty.c
+@@ -14,7 +14,7 @@
+ #include <linux/isdn.h>
+ #include <linux/slab.h>
+ #include <linux/delay.h>
+-#include <linux/smp_lock.h>
++#include <linux/mutex.h>
+ #include "isdn_common.h"
+ #include "isdn_tty.h"
+ #ifdef CONFIG_ISDN_AUDIO
+@@ -28,6 +28,7 @@
+ 
+ /* Prototypes */
+ 
++static DEFINE_MUTEX(modem_info_mutex);
+ static int isdn_tty_edit_at(const char *, int, modem_info *);
+ static void isdn_tty_check_esc(const u_char *, u_char, int, int *, u_long *);
+ static void isdn_tty_modem_reset_regs(modem_info *, int);
+@@ -1354,14 +1355,14 @@ isdn_tty_tiocmget(struct tty_struct *tty, struct file *file)
+ 	if (tty->flags & (1 << TTY_IO_ERROR))
+ 		return -EIO;
+ 
+-	lock_kernel();
++	mutex_lock(&modem_info_mutex);
+ #ifdef ISDN_DEBUG_MODEM_IOCTL
+ 	printk(KERN_DEBUG "ttyI%d ioctl TIOCMGET\n", info->line);
+ #endif
+ 
+ 	control = info->mcr;
+ 	status = info->msr;
+-	unlock_kernel();
++	mutex_unlock(&modem_info_mutex);
+ 	return ((control & UART_MCR_RTS) ? TIOCM_RTS : 0)
+ 	    | ((control & UART_MCR_DTR) ? TIOCM_DTR : 0)
+ 	    | ((status & UART_MSR_DCD) ? TIOCM_CAR : 0)
+@@ -1385,7 +1386,7 @@ isdn_tty_tiocmset(struct tty_struct *tty, struct file *file,
+ 	printk(KERN_DEBUG "ttyI%d ioctl TIOCMxxx: %x %x\n", info->line, set, clear);
+ #endif
+ 
+-	lock_kernel();
++	mutex_lock(&modem_info_mutex);
+ 	if (set & TIOCM_RTS)
+ 		info->mcr |= UART_MCR_RTS;
+ 	if (set & TIOCM_DTR) {
+@@ -1407,7 +1408,7 @@ isdn_tty_tiocmset(struct tty_struct *tty, struct file *file,
+ 			isdn_tty_modem_hup(info, 1);
+ 		}
+ 	}
+-	unlock_kernel();
++	mutex_unlock(&modem_info_mutex);
+ 	return 0;
+ }
+ 
+-- 
+1.7.1
 
-Looking at openvswitch, it seems that the target application is very differ=
-ent.
-batman-adv is targeted to support 802.11 WiFi networks on low-end hardware,=
- while
-openvswitch was designed as switching environment for virtual machines. This
-implies different design decisions - batman-adv should be able to run witho=
-ut any
-additional userspace applications if needed, while openvswitch comes with q=
-uite a
-big, rich featured environment required for operation.
-
-Next to this fact, one thing which worries us is that openvswitch seems to
-replace quite some standard linux tools/facilities (e.g. the bridge module),
-which is often used in most of the APs we have seen, along with ebtables and
-the configuration interfaces it provides. Changing to openvswitch would imp=
-ly
-to change the configuration interfaces and firmwares plus educating all our
-users which depend on those standard tools.
-
-Porting batman-adv to the openvswitch framework would of course require an
-enormous effort itself. batman-adv as a software which is already "finished=
-",
-well tested and integrated in various products/firmwares and ready for kern=
-el
-integration. Porting to openvswitch would mean a step backwards for our pro=
-ject
-as it is not predictable for us when openvswitch will be finished or integr=
-ated in
-the kernel.
-
-Maybe we should move forward in this direction after openvswitch is settled=
- as
-the way to go for layer 2 tunneling/abstraction in the Linux kernel, but
-currently we don't see the benefit for us to port it.
-
-best regards,
-    Simon   =20
-
---k1lZvvs/B4yU6o8G
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkyPyx4ACgkQrzg/fFk7axaG4QCfWW2n31p1Jtr02UtvfQ5D/Pof
-Z1YAoLlkMQ1vXI7gjYISjoFMkHg///Nj
-=Q48j
------END PGP SIGNATURE-----
-
---k1lZvvs/B4yU6o8G--
