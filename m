@@ -1,60 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] ipv4: release dev refcnt early when destroying
- inetdev
-Date: Tue, 14 Sep 2010 13:45:29 -0700 (PDT)
-Message-ID: <20100914.134529.45905377.davem@davemloft.net>
-References: <1284128679.24675.38.camel@edumazet-laptop>
-	<4C8A474C.3040502@6wind.com>
-	<1284131774.24675.46.camel@edumazet-laptop>
+From: Michal Suchanek <hramrach@centrum.cz>
+Subject: Re: [Bugme-new] [Bug 18492] New: kernel softirq warning on boot
+Date: Tue, 14 Sep 2010 22:45:19 +0200
+Message-ID: <AANLkTinE50xFx9nShGBeOf483G2FhogO-BCj=dfHBZS7@mail.gmail.com>
+References: <bug-18492-10286@https.bugzilla.kernel.org/> <20100914120738.6a658f69.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41638
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753835Ab0INUpK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Sep 2010 16:45:10 -0400
-In-Reply-To: <1284131774.24675.46.camel@edumazet-laptop>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:55057 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754275Ab0INUpk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 16:45:40 -0400
+Received: by gxk23 with SMTP id 23so2538870gxk.19
+        for <netdev@vger.kernel.org>; Tue, 14 Sep 2010 13:45:39 -0700 (PDT)
+In-Reply-To: <20100914120738.6a658f69.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Sep 2010 17:16:14 +0200
+On 14 September 2010 21:07, Andrew Morton <akpm@linux-foundation.org> w=
+rote:
+>
+> (switched to email. =C2=A0Please respond via emailed reply-to-all, no=
+t via the
+> bugzilla web interface).
+>
+> On Tue, 14 Sep 2010 15:19:30 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=3D18492
+>>
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Summary: kernel softirq war=
+ning on boot
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Product: Drivers
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Version: 2.5
+>> =C2=A0 =C2=A0 Kernel Version: 2.6.36-rc4
+>
+> Looks like a post-2.6.35 regression. =C2=A0I'd be looking at the
 
-> Le vendredi 10 septembre 2010 =E0 16:57 +0200, Nicolas Dichtel a =E9c=
-rit :
->=20
->> Is this not true in IPv6? What is the difference?
->=20
-> It might be a bug on ipv6, who knows ?
->=20
-> Releasing a reference count, but not setting idev->dev to NULL is=20
-> a sign something is wrong...
+Indeed, I found a log from booting 2.6.35 kernel while trying to work
+around anouther issue and the warning did not show in it.
 
-If anything this is more of a BUG trap than a true correctness patch,
-but either way if you want me to apply this please formally submit
-this with a proper commit message and signoff, thanks!
+> rcu_read_unlock_bh() in netpoll_rx(), added by "netpoll: Fix RCU
+> usage".
 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 5bc893e..26e39bc 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -330,6 +330,7 @@ void in6_dev_finish_destroy(struct inet6_dev *ide=
-v)
->  	printk(KERN_DEBUG "in6_dev_finish_destroy: %s\n", dev ? dev->name :=
- "NIL");
->  #endif
->  	dev_put(dev);
-> +	idev->dev =3D NULL;
->  	if (!idev->dead) {
->  		pr_warning("Freeing alive inet6 device %p\n", idev);
->  		return;
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Do you mean de85d99eb7b595f6751550184b94c1e2f74a828b?
+
+I am not sure reverting just that would work, nor that the kernel
+around that point is in shape for trying on a system I would want to
+still use. It's way back in history for a kernel which is just to be
+released.
+
+Thanks
+
+Michal
