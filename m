@@ -1,8 +1,9 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net-next-2.6 1/2] ethtool: Complete kernel-doc comments
- for RX flow filter and hash control
-Date: Tue, 14 Sep 2010 20:10:03 +0100
-Message-ID: <1284491403.2289.5.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-next-2.6 2/2] ethtool: Remove unimplemented flow
+ specification types
+Date: Tue, 14 Sep 2010 20:13:08 +0100
+Message-ID: <1284491588.2289.8.camel@achroite.uk.solarflarecom.com>
+References: <1284491403.2289.5.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,236 +12,162 @@ Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
 	Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:17520 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:17788 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753089Ab0INTKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 15:10:07 -0400
+	with ESMTP id S1753840Ab0INTNL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 15:13:11 -0400
+In-Reply-To: <1284491403.2289.5.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are now several interfaces within the ethtool API for getting
-and setting RX flow filtering and hashing behaviour, most of which are
-poorly documented.  This adds kernel-doc comments for all these
-interfaces, based on the existing incomplete comments and on the
-initial implementations.
+struct ethtool_rawip4_spec and struct ethtool_ether_spec are neither
+commented nor used by any driver, so remove them.  Adjust padding in
+the user-visible unions that included these structures.
+
+Fix references to struct ethtool_rawip4_spec in
+ethtool_get_rx_ntuple(), which should use struct ethtool_usrip4_spec.
+
+struct ethtool_usrip4_spec cannot hold IPv6 host addresses and there
+is no separate structure that can, so remove ETH_RX_NFC_IP6 and the
+reference to it in niu.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-Changes since v1:
-- Mention ETHTOOL_RXNTUPLE_ACTION_DROP as a specific possible action for
-  ethtool_rx_ntuple_flow_spec
-- Don't claim that ETHTOOL_GRXNTUPLE uses struct ethtool_rx_ntuple
-- Add comments for the IPv4 flow specification structures that are
-  currently used
+Compile-tested only.
 
 Ben.
 
- include/linux/ethtool.h |  129 +++++++++++++++++++++++++++++++++++++++++------
- 1 files changed, 113 insertions(+), 16 deletions(-)
+ drivers/net/niu.c       |   19 +++++--------------
+ include/linux/ethtool.h |   21 ++-------------------
+ net/core/ethtool.c      |    8 ++++----
+ 3 files changed, 11 insertions(+), 37 deletions(-)
 
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index 8e1859c..e36a838 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -7462,10 +7462,12 @@ static int niu_add_ethtool_tcam_entry(struct niu *np,
+ 	if (fsp->flow_type == IP_USER_FLOW) {
+ 		int i;
+ 		int add_usr_cls = 0;
+-		int ipv6 = 0;
+ 		struct ethtool_usrip4_spec *uspec = &fsp->h_u.usr_ip4_spec;
+ 		struct ethtool_usrip4_spec *umask = &fsp->m_u.usr_ip4_spec;
+ 
++		if (uspec->ip_ver != ETH_RX_NFC_IP4)
++			return -EINVAL;
++
+ 		niu_lock_parent(np, flags);
+ 
+ 		for (i = 0; i < NIU_L3_PROG_CLS; i++) {
+@@ -7494,9 +7496,7 @@ static int niu_add_ethtool_tcam_entry(struct niu *np,
+ 				default:
+ 					break;
+ 				}
+-				if (uspec->ip_ver == ETH_RX_NFC_IP6)
+-					ipv6 = 1;
+-				ret = tcam_user_ip_class_set(np, class, ipv6,
++				ret = tcam_user_ip_class_set(np, class, 0,
+ 							     uspec->proto,
+ 							     uspec->tos,
+ 							     umask->tos);
+@@ -7553,16 +7553,7 @@ static int niu_add_ethtool_tcam_entry(struct niu *np,
+ 		ret = -EINVAL;
+ 		goto out;
+ 	case IP_USER_FLOW:
+-		if (fsp->h_u.usr_ip4_spec.ip_ver == ETH_RX_NFC_IP4) {
+-			niu_get_tcamkey_from_ip4fs(fsp, tp, l2_rdc_table,
+-						   class);
+-		} else {
+-			/* Not yet implemented */
+-			netdev_info(np->dev, "niu%d: In %s(): usr flow for IPv6 not implemented\n",
+-				    parent->index, __func__);
+-			ret = -EINVAL;
+-			goto out;
+-		}
++		niu_get_tcamkey_from_ip4fs(fsp, tp, l2_rdc_table, class);
+ 		break;
+ 	default:
+ 		netdev_info(np->dev, "niu%d: In %s(): Unknown flow type %d\n",
 diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 991269e..4b3ba05 100644
+index 4b3ba05..d64e246 100644
 --- a/include/linux/ethtool.h
 +++ b/include/linux/ethtool.h
-@@ -314,9 +314,20 @@ enum ethtool_flags {
- };
- 
- /* The following structures are for supporting RX network flow
-- * classification configuration. Note, all multibyte fields, e.g.,
-- * ip4src, ip4dst, psrc, pdst, spi, etc. are expected to be in network
-- * byte order.
-+ * classification and RX n-tuple configuration. Note, all multibyte
-+ * fields, e.g., ip4src, ip4dst, psrc, pdst, spi, etc. are expected to
-+ * be in network byte order.
-+ */
-+
-+/**
-+ * struct ethtool_tcpip4_spec - flow specification for TCP/IPv4 etc.
-+ * @ip4src: Source host
-+ * @ip4dst: Destination host
-+ * @psrc: Source port
-+ * @pdst: Destination port
-+ * @tos: Type-of-service
-+ *
-+ * This can be used to specify a TCP/IPv4, UDP/IPv4 or SCTP/IPv4 flow.
-  */
- struct ethtool_tcpip4_spec {
- 	__be32	ip4src;
-@@ -326,6 +337,15 @@ struct ethtool_tcpip4_spec {
+@@ -353,20 +353,7 @@ struct ethtool_ah_espip4_spec {
  	__u8    tos;
  };
  
-+/**
-+ * struct ethtool_ah_espip4_spec - flow specification for IPsec/IPv4
-+ * @ip4src: Source host
-+ * @ip4dst: Destination host
-+ * @spi: Security parameters index
-+ * @tos: Type-of-service
-+ *
-+ * This can be used to specify an IPsec transport or tunnel over IPv4.
-+ */
- struct ethtool_ah_espip4_spec {
- 	__be32	ip4src;
- 	__be32	ip4dst;
-@@ -348,6 +368,15 @@ struct ethtool_ether_spec {
+-struct ethtool_rawip4_spec {
+-	__be32	ip4src;
+-	__be32	ip4dst;
+-	__u8	hdata[64];
+-};
+-
+-struct ethtool_ether_spec {
+-	__be16	ether_type;
+-	__u8	frame_size;
+-	__u8	eframe[16];
+-};
+-
  #define	ETH_RX_NFC_IP4	1
- #define	ETH_RX_NFC_IP6	2
+-#define	ETH_RX_NFC_IP6	2
  
-+/**
-+ * struct ethtool_usrip4_spec - general flow specification for IPv4
-+ * @ip4src: Source host
-+ * @ip4dst: Destination host
-+ * @l4_4_bytes: First 4 bytes of transport (layer 4) header
-+ * @tos: Type-of-service
-+ * @ip_ver: Value must be %ETH_RX_NFC_IP4; mask must be 0
-+ * @proto: Transport protocol number; mask must be 0
-+ */
- struct ethtool_usrip4_spec {
- 	__be32	ip4src;
- 	__be32	ip4dst;
-@@ -357,6 +386,15 @@ struct ethtool_usrip4_spec {
- 	__u8    proto;
- };
- 
-+/**
-+ * struct ethtool_rx_flow_spec - specification for RX flow filter
-+ * @flow_type: Type of match to perform, e.g. %TCP_V4_FLOW
-+ * @h_u: Flow fields to match (dependent on @flow_type)
-+ * @m_u: Masks for flow field bits to be ignored
-+ * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
-+ *	if packets should be discarded
-+ * @location: Index of filter in hardware table
-+ */
- struct ethtool_rx_flow_spec {
- 	__u32		flow_type;
- 	union {
-@@ -369,32 +407,87 @@ struct ethtool_rx_flow_spec {
- 		struct ethtool_ether_spec		ether_spec;
+ /**
+  * struct ethtool_usrip4_spec - general flow specification for IPv4
+@@ -403,10 +390,8 @@ struct ethtool_rx_flow_spec {
+ 		struct ethtool_tcpip4_spec		sctp_ip4_spec;
+ 		struct ethtool_ah_espip4_spec		ah_ip4_spec;
+ 		struct ethtool_ah_espip4_spec		esp_ip4_spec;
+-		struct ethtool_rawip4_spec		raw_ip4_spec;
+-		struct ethtool_ether_spec		ether_spec;
  		struct ethtool_usrip4_spec		usr_ip4_spec;
- 		__u8					hdata[64];
--	} h_u, m_u; /* entry, mask */
-+	} h_u, m_u;
+-		__u8					hdata[64];
++		__u8					hdata[72];
+ 	} h_u, m_u;
  	__u64		ring_cookie;
  	__u32		location;
- };
- 
-+/**
-+ * struct ethtool_rxnfc - command to get or set RX flow classification rules
-+ * @cmd: Specific command number - %ETHTOOL_GRXFH, %ETHTOOL_SRXFH,
-+ *	%ETHTOOL_GRXRINGS, %ETHTOOL_GRXCLSRLCNT, %ETHTOOL_GRXCLSRULE,
-+ *	%ETHTOOL_GRXCLSRLALL, %ETHTOOL_SRXCLSRLDEL or %ETHTOOL_SRXCLSRLINS
-+ * @flow_type: Type of flow to be affected, e.g. %TCP_V4_FLOW
-+ * @data: Command-dependent value
-+ * @fs: Flow filter specification
-+ * @rule_cnt: Number of rules to be affected
-+ * @rule_locs: Array of valid rule indices
-+ *
-+ * For %ETHTOOL_GRXFH and %ETHTOOL_SRXFH, @data is a bitmask indicating
-+ * the fields included in the flow hash, e.g. %RXH_IP_SRC.  The following
-+ * structure fields must not be used.
-+ *
-+ * For %ETHTOOL_GRXRINGS, @data is set to the number of RX rings/queues
-+ * on return.
-+ *
-+ * For %ETHTOOL_GRXCLSRLCNT, @rule_cnt is set to the number of defined
-+ * rules on return.
-+ *
-+ * For %ETHTOOL_GRXCLSRULE, @fs.@location specifies the index of an
-+ * existing filter rule on entry and @fs contains the rule on return.
-+ *
-+ * For %ETHTOOL_GRXCLSRLALL, @rule_cnt specifies the array size of the
-+ * user buffer for @rule_locs on entry.  On return, @data is the size
-+ * of the filter table and @rule_locs contains the indices of the
-+ * defined rules.
-+ *
-+ * For %ETHTOOL_SRXCLSRLINS, @fs specifies the filter rule to add or
-+ * update.  @fs.@location specifies the index to use and must not be
-+ * ignored.
-+ *
-+ * For %ETHTOOL_SRXCLSRLDEL, @fs.@location specifies the index of an
-+ * existing filter rule on entry.
-+ *
-+ * Implementation of indexed classification rules generally requires a
-+ * TCAM.
-+ */
- struct ethtool_rxnfc {
- 	__u32				cmd;
- 	__u32				flow_type;
--	/* The rx flow hash value or the rule DB size */
- 	__u64				data;
--	/* The following fields are not valid and must not be used for
--	 * the ETHTOOL_{G,X}RXFH commands. */
- 	struct ethtool_rx_flow_spec	fs;
- 	__u32				rule_cnt;
- 	__u32				rule_locs[0];
- };
- 
-+/**
-+ * struct ethtool_rxfh_indir - command to get or set RX flow hash indirection
-+ * @cmd: Specific command number - %ETHTOOL_GRXFHINDIR or %ETHTOOL_SRXFHINDIR
-+ * @size: On entry, the array size of the user buffer.  On return from
-+ *	%ETHTOOL_GRXFHINDIR, the array size of the hardware indirection table.
-+ * @ring_index: RX ring/queue index for each hash value
-+ */
- struct ethtool_rxfh_indir {
- 	__u32	cmd;
--	/* On entry, this is the array size of the user buffer.  On
--	 * return from ETHTOOL_GRXFHINDIR, this is the array size of
--	 * the hardware indirection table. */
- 	__u32	size;
--	__u32	ring_index[0];	/* ring/queue index for each hash value */
-+	__u32	ring_index[0];
- };
- 
-+/**
-+ * struct ethtool_rx_ntuple_flow_spec - specification for RX flow filter
-+ * @flow_type: Type of match to perform, e.g. %TCP_V4_FLOW
-+ * @h_u: Flow field values to match (dependent on @flow_type)
-+ * @m_u: Masks for flow field value bits to be ignored
-+ * @vlan_tag: VLAN tag to match
-+ * @vlan_tag_mask: Mask for VLAN tag bits to be ignored
-+ * @data: Driver-dependent data to match
-+ * @data_mask: Mask for driver-dependent data bits to be ignored
-+ * @action: RX ring/queue index to deliver to (non-negative) or other action
-+ *	(negative, e.g. %ETHTOOL_RXNTUPLE_ACTION_DROP)
-+ *
-+ * Zero values in @h_u may be ignored, as if all the corresponding
-+ * mask bits were set.
-+ */
- struct ethtool_rx_ntuple_flow_spec {
- 	__u32		 flow_type;
- 	union {
-@@ -407,18 +500,22 @@ struct ethtool_rx_ntuple_flow_spec {
- 		struct ethtool_ether_spec		ether_spec;
+@@ -496,10 +481,8 @@ struct ethtool_rx_ntuple_flow_spec {
+ 		struct ethtool_tcpip4_spec		sctp_ip4_spec;
+ 		struct ethtool_ah_espip4_spec		ah_ip4_spec;
+ 		struct ethtool_ah_espip4_spec		esp_ip4_spec;
+-		struct ethtool_rawip4_spec		raw_ip4_spec;
+-		struct ethtool_ether_spec		ether_spec;
  		struct ethtool_usrip4_spec		usr_ip4_spec;
- 		__u8					hdata[64];
--	} h_u, m_u; /* entry, mask */
-+	} h_u, m_u;
+-		__u8					hdata[64];
++		__u8					hdata[72];
+ 	} h_u, m_u;
  
  	__u16	        vlan_tag;
- 	__u16	        vlan_tag_mask;
--	__u64		data;      /* user-defined flow spec data */
--	__u64		data_mask; /* user-defined flow spec mask */
-+	__u64		data;
-+	__u64		data_mask;
- 
--	/* signed to distinguish between queue and actions (DROP) */
- 	__s32		action;
--#define ETHTOOL_RXNTUPLE_ACTION_DROP -1
-+#define ETHTOOL_RXNTUPLE_ACTION_DROP -1		/* drop packet */
- };
- 
-+/**
-+ * struct ethtool_rx_ntuple - command to set RX flow filter
-+ * @cmd: Command number - %ETHTOOL_SRXNTUPLE
-+ * @fs: Flow filter specification
-+ */
- struct ethtool_rx_ntuple {
- 	__u32					cmd;
- 	struct ethtool_rx_ntuple_flow_spec	fs;
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 970eb98..fcd62757 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -673,19 +673,19 @@ static int ethtool_get_rx_ntuple(struct net_device *dev, void __user *useraddr)
+ 			break;
+ 		case IP_USER_FLOW:
+ 			sprintf(p, "\tSrc IP addr: 0x%x\n",
+-				fsc->fs.h_u.raw_ip4_spec.ip4src);
++				fsc->fs.h_u.usr_ip4_spec.ip4src);
+ 			p += ETH_GSTRING_LEN;
+ 			num_strings++;
+ 			sprintf(p, "\tSrc IP mask: 0x%x\n",
+-				fsc->fs.m_u.raw_ip4_spec.ip4src);
++				fsc->fs.m_u.usr_ip4_spec.ip4src);
+ 			p += ETH_GSTRING_LEN;
+ 			num_strings++;
+ 			sprintf(p, "\tDest IP addr: 0x%x\n",
+-				fsc->fs.h_u.raw_ip4_spec.ip4dst);
++				fsc->fs.h_u.usr_ip4_spec.ip4dst);
+ 			p += ETH_GSTRING_LEN;
+ 			num_strings++;
+ 			sprintf(p, "\tDest IP mask: 0x%x\n",
+-				fsc->fs.m_u.raw_ip4_spec.ip4dst);
++				fsc->fs.m_u.usr_ip4_spec.ip4dst);
+ 			p += ETH_GSTRING_LEN;
+ 			num_strings++;
+ 			break;
 -- 
 1.7.2.1
-
 
 
 -- 
