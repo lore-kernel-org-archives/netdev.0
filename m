@@ -1,56 +1,64 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: 2.6.36-rc4/iwl: warning triggered in net/mac80211/scan.c:266
-Date: Tue, 14 Sep 2010 16:36:28 +0200
-Message-ID: <1284474988.3704.10.camel@jlt3.sipsolutions.net>
-References: <20100914142814.GA8744@redhat.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Tue, 14 Sep 2010 08:05:19 -0700
+Message-ID: <1284476719.13351.35.camel@localhost.localdomain>
+References: <1284410580.13351.10.camel@localhost.localdomain>
+	 <1284410883.13351.14.camel@localhost.localdomain>
+	 <20100913.201730.27805132.davem@davemloft.net>
+	 <4C8F3C77.7010302@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Reinette Chatre <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Wey-Yi Guy <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100914142814.GA8744-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>, arnd@arndb.de, mst@redhat.com,
+	xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C8F3C77.7010302@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-09-14 at 16:28 +0200, Michael S. Tsirkin wrote:
-> I am running 2.6.36-rc4 on T60 with an iwlagn wireless card:
-> 03:00.0 Network controller: Intel Corporation PRO/Wireless 5100 AGN [Shiloh] Network Connection
+On Tue, 2010-09-14 at 11:12 +0200, Avi Kivity wrote:
+> >> +            base = (unsigned long)from->iov_base + offset1;
+> >> +            size = ((base&  ~PAGE_MASK) + len + ~PAGE_MASK)>>
+> PAGE_SHIFT;
+> >> +            num_pages = get_user_pages_fast(base, size,
+> 0,&page[i]);
+> >> +            if ((num_pages != size) ||
+> >> +                (num_pages>  MAX_SKB_FRAGS -
+> skb_shinfo(skb)->nr_frags))
+> >> +                    /* put_page is in skb free */
+> >> +                    return -EFAULT;
+> > What keeps the user from writing to these pages in it's address
+> space
+> > after the write call returns?
+> >
+> > A write() return of success means:
+> >
+> >       "I wrote what you gave to me"
+> >
+> > not
+> >
+> >       "I wrote what you gave to me, oh and BTW don't touch these
+> >           pages for a while."
+> >
+> > In fact "a while" isn't even defined in any way, as there is no way
+> > for the write() invoker to know when the networking card is done
+> with
+> > those pages.
 > 
-> I was compiling a large file which stressed the box heavily, and the
-> following warning in net/mac80211/scan.c triggered:
-> 
->         /*
->          * It's ok to abort a not-yet-running scan (that
->          * we have one at all will be verified by checking
->          * local->scan_req next), but not to complete it
->          * successfully.
->          */
->         if (WARN_ON(!local->scanning && !aborted))
->                 aborted = true;
-> 
-> dmesg below:
-> 
-> [84379.361297] ------------[ cut here ]------------
-> [84379.361307] WARNING: at net/mac80211/scan.c:266 ieee80211_scan_completed+0x43/0x17f()
+> That's what io_submit() is for.  Then io_getevents() tells you what
+> "a 
+> while" actually was.
 
-> Should this happen? Does anyone care?
-> I am not sure how reproducible this is.
+This macvtap zero copy uses iov buffers from vhost ring, which is
+allocated from guest kernel. In host kernel, vhost calls macvtap
+sendmsg. macvtap sendmsg calls get_user_pages_fast to pin these buffers'
+pages for zero copy.
 
-No, it shouldn't happen. But there are various races in iwlwifi that can
-cause this. Stanislaw has fixed them recently, but it's a fairly large
-patchset. I'm not sure, but I don't think this is really new in .36.
+The patch is relying on how vhost handle these buffers. I need to look
+at vhost code (qemu) first for addressing the questions here.
 
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+Shirley
