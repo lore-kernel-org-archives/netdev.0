@@ -1,36 +1,51 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 0/1] macvtap TX zero copy between guest and host
- kernel
-Date: Tue, 14 Sep 2010 14:05:45 +0200
-Message-ID: <20100914120545.GC703@redhat.com>
-References: <1284410580.13351.10.camel@localhost.localdomain>
+Subject: [PATCH] vhost-net: fix range checking in mrg bufs case
+Date: Tue, 14 Sep 2010 15:15:52 +0200
+Message-ID: <20100914131552.GA1937@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+To: "Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1284410580.13351.10.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 13, 2010 at 01:43:00PM -0700, Shirley Ma wrote:
-> This patch induces a new sock flag ZEROCOPY to avoid copy between
-> userspace and kernel. macvtap is the first user of zero copy between
-> guest and host kernel. It only uses when the lower device supports high
-> memory DMA. The first set of patch only addresses transmission TX side.
-> The test has shown big improvement on either CPU utilization reduction
-> or BW increase on 10GbE Intel NIC. Performance data will be submitted in
-> the coming email.
-> 
-> thanks
-> Shirley
+In mergeable buffer case, we use headcount, log_num
+and seg as indexes in same-size arrays, and
+we know that headcount <= seg and
+log_num equals either 0 or seg.
 
-While others pointed out correctness issues with the patch,
-I would still like to see the performance numbers, just so we
-understand what's possible.
+Therefore, the right thing to do is range-check seg,
+not headcount as we do now: these will be different
+if guest chains s/g descriptors (this does not
+happen now, but we can not trust the guest).
 
+Long term, we should add BUG_ON checks to verify
+two other indexes are what we think they should be.
+
+Reported-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+
+Dave, I'll queue this on my tree, no need to bother.
+
+ drivers/vhost/net.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 6400cd5..f095de6 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -245,7 +245,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 	int r, nlogs = 0;
+ 
+ 	while (datalen > 0) {
+-		if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
++		if (unlikely(seg >= VHOST_NET_MAX_SG)) {
+ 			r = -ENOBUFS;
+ 			goto err;
+ 		}
 -- 
-MST
+1.7.3.rc1.5.ge5969
