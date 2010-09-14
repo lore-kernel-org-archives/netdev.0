@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e1000e: Simplify MSI interrupt testing
-Date: Mon, 13 Sep 2010 20:13:40 -0700 (PDT)
-Message-ID: <20100913.201340.68129542.davem@davemloft.net>
-References: <201009131045.40018.jdelvare@suse.de>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Mon, 13 Sep 2010 20:17:30 -0700 (PDT)
+Message-ID: <20100913.201730.27805132.davem@davemloft.net>
+References: <1284410580.13351.10.camel@localhost.localdomain>
+	<1284410883.13351.14.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
-	netdev@vger.kernel.org
-To: jdelvare@suse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38668
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752107Ab0INDN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 23:13:27 -0400
-In-Reply-To: <201009131045.40018.jdelvare@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: avi@redhat.com, arnd@arndb.de, mst@redhat.com,
+	xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mashirle@us.ibm.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1284410883.13351.14.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Mon, 13 Sep 2010 10:45:39 +0200
+From: Shirley Ma <mashirle@us.ibm.com>
+Date: Mon, 13 Sep 2010 13:48:03 -0700
 
-> The code is quite convoluted, simplify it. This also avoids calling
-> e1000_request_irq() without testing the value it returned, which was
-> bad.
-> 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
-> I understand that we need to request the IRQ again after testing, but
-> why doing it twice?
-> 
-> I sent this patch to the e1000-devel list on August 26th, 2010, but
-> didn't receive any answer:
-> http://sourceforge.net/mailarchive/forum.php?thread_name=201008261445.44334.jdelvare%40suse.de&forum_name=e1000-devel
+> +		base = (unsigned long)from->iov_base + offset1;
+> +		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+> +		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+> +		if ((num_pages != size) ||
+> +		    (num_pages > MAX_SKB_FRAGS - skb_shinfo(skb)->nr_frags))
+> +			/* put_page is in skb free */
+> +			return -EFAULT;
 
-Intel folks, please provide feedback or else I'll just blindly apply Jean's
-patch to the net-next-2.6 tree as long as it compiles ;-)
+What keeps the user from writing to these pages in it's address space
+after the write call returns?
+
+A write() return of success means:
+
+	"I wrote what you gave to me"
+
+not
+
+	"I wrote what you gave to me, oh and BTW don't touch these
+         pages for a while."
+
+In fact "a while" isn't even defined in any way, as there is no way
+for the write() invoker to know when the networking card is done with
+those pages.
