@@ -1,70 +1,34 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Tue, 14 Sep 2010 20:27:07 +0200
-Message-ID: <20100914182707.GB15549@redhat.com>
-References: <1284410580.13351.10.camel@localhost.localdomain>
- <4C8F3C77.7010302@redhat.com>
- <1284476719.13351.35.camel@localhost.localdomain>
- <201009141721.13202.arnd@arndb.de>
- <20100914152231.GA13105@redhat.com>
- <1284480025.13351.49.camel@localhost.localdomain>
- <20100914162952.GB13560@redhat.com>
- <1284483745.13351.71.camel@localhost.localdomain>
+From: Zach Brown <zach.brown-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [rds-devel] net-next pull request: RDS
+Date: Tue, 14 Sep 2010 11:35:14 -0700
+Message-ID: <20100914183514.GA3417@takashi.pdx.zabbo.net>
+References: <4C892C9C.4060304@oracle.com>
+ <4C8C9422.2070306@Voltaire.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3070 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752079Ab0INSdP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Sep 2010 14:33:15 -0400
+Cc: Andy Grover <andy.grover-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, RDS Devel <rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org>,
+	Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+To: Or Gerlitz <ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1284483745.13351.71.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4C8C9422.2070306-hKgKHo2Ms0FWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 14, 2010 at 10:02:25AM -0700, Shirley Ma wrote:
-> On Tue, 2010-09-14 at 18:29 +0200, Michael S. Tsirkin wrote:
-> > Precisely. This is what the patch from Xin Xiaohui does.  That code
-> > already seems to do most of what you are trying to do, right?
-> 
-> I thought host pins guest kernel buffer pages was good enough for TX
-> thought I didn't look up xiaohui's vhost asycn io patch in details.
+> Zach Brown's "RDS/IB: print IB event strings as well as their number" - commit
+> 1bde04a63d532c2540d6fdee0a661530a62b1686 in net-next-2.6 looks perfect to
+> reside as a helper function in the core IB stack which can be in use by other
+> rdma drivers (e.g ipoib, iser, srp, etc). 
 
-As others said, the harder issues for TX are in determining that it's safe
-to unpin the memory, and how much memory is it safe to pin to beging
-with.  For RX we have some more complexity.
+Yeah, if those other drivers were interested in the little helpers then it
+would make sense to bring the functionality up into the core stack.
 
-> What's the performance data Xiaohui got from using kiocb? I haven't seen
-> any performance number from him yet.
-> 
-> > The main thing missing seems to be macvtap integration, so that we can
-> > fall back
-> > on data copy if zero copy is unavailable?
-> > How hard would it be to basically link the mp and macvtap modules
-> > together to get us this functionality? Anyone? 
-> 
-> The simple integration is using macvtap + xiaohui's vhost asycn io
-> patch. I can make a try for TX only.
-> 
-> Thanks
-> Shirley
+Note that there's another later commit in net-next that gives other event
+strings the same treatment: 59f740a6aeb2cde2f79fe0df38262d4c1ef35cd8 .
 
-Well it's up to you of course, but this is not what I would try:
-if you look at the
-patchset vhost changes is not the largest part of it,
-so this sounds a bit like effort duplication.
-
-TX only is also much less interesting than full zero copy.
-
-I think that you should be able to simply combine
-the two drivers together, add an ioctl to
-enable/disable zero copy mode of operation.
-
--- 
-MST
+- z
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
