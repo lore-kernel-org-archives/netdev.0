@@ -1,48 +1,36 @@
-From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Tue, 14 Sep 2010 06:10:02 -0700
-Message-ID: <20100914131002.GA375@suse.de>
-References: <4C61EDE5.4030505@dsn.okisemi.com>
-	<4C629FE5.6000204@pengutronix.de>
-	<005f01cb533e$5c21d530$66f8800a@maildom.okisemi.com>
-	<20100913152204.GA24088@suse.de>
-	<00ca01cb53e9$a50c1930$66f8800a@maildom.okisemi.com>
+From: Luca Tettamanti <kronos.it@gmail.com>
+Subject: Re: [BUG] atl1 causes lockup/reboot on resume from STR
+Date: Tue, 14 Sep 2010 15:59:04 +0200
+Message-ID: <AANLkTinqRimgYh_ueYdwcfyHBLT546obyYFQHJvOkQjc@mail.gmail.com>
+References: <20100911131209.GA3756@nb-core2.darkstar.lan>
+	<4C8BEAE9.4030907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
-	arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <00ca01cb53e9$a50c1930$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:33119 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753777Ab0INN7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 09:59:05 -0400
+Received: by pzk34 with SMTP id 34so2429881pzk.19
+        for <netdev@vger.kernel.org>; Tue, 14 Sep 2010 06:59:05 -0700 (PDT)
+In-Reply-To: <4C8BEAE9.4030907@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 14, 2010 at 05:48:43PM +0900, Masayuki Ohtake wrote:
-> Hi Greg,
-> 
-> > Then try setting up a Linux server to handle email issues to prevent
-> > patches from going through Exchange, which is known to corrupt patches.
-> We want to use "git send-email".
-> I have already installed "git send-email".
-> What's else setting we need ?
+On Sat, Sep 11, 2010 at 10:47 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+[...]
+>> I've no idea on how to debug this, the machine does not have a serial
+>> port (and netconsole obviously does not help)... help :)
+>
+> Here is an example of kernel photography with an interesting hint
+> by Andrew Morton:
+> https://bugzilla.kernel.org/show_bug.cgi?id=16626
 
-You just need to use it then :)
+Thanks for the tip, however the stack trace is extremely elusive: the
+machine keeps resetting.
+Anyway I've managed to track it down the old way (sticking printk
+everywhere and commenting out random pieces of code :P)
 
-Read the documention on how to do so, it is quite detailed.
-
-good luck,
-
-greg k-h
+Luca
