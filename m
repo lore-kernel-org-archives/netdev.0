@@ -1,36 +1,30 @@
-From: Luca Tettamanti <kronos.it@gmail.com>
-Subject: Re: [BUG] atl1 causes lockup/reboot on resume from STR
-Date: Tue, 14 Sep 2010 15:59:04 +0200
-Message-ID: <AANLkTinqRimgYh_ueYdwcfyHBLT546obyYFQHJvOkQjc@mail.gmail.com>
-References: <20100911131209.GA3756@nb-core2.darkstar.lan>
-	<4C8BEAE9.4030907@gmail.com>
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V3
+Date: Tue, 14 Sep 2010 09:02:05 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009140901260.28926@router.home>
+References: <adapqx5rtez.fsf@cisco.com> <alpine.DEB.2.00.1008261613160.24174@router.home> <alpine.DEB.2.00.1008261629440.24174@router.home> <20100826.151553.242147157.davem@davemloft.net> <20100826222146.GA23025@obsidianresearch.com>
+ <alpine.DEB.2.00.1008261825490.26351@router.home> <20100826234342.GA24333@obsidianresearch.com> <alpine.DEB.2.00.1008270827280.11792@router.home> <4C8F23DB.2040105@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:33119 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753777Ab0INN7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 09:59:05 -0400
-Received: by pzk34 with SMTP id 34so2429881pzk.19
-        for <netdev@vger.kernel.org>; Tue, 14 Sep 2010 06:59:05 -0700 (PDT)
-In-Reply-To: <4C8BEAE9.4030907@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yosefe-smomgflXvOZWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Or Gerlitz <ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4C8F23DB.2040105-smomgflXvOZWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 11, 2010 at 10:47 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-[...]
->> I've no idea on how to debug this, the machine does not have a serial
->> port (and netconsole obviously does not help)... help :)
->
-> Here is an example of kernel photography with an interesting hint
-> by Andrew Morton:
-> https://bugzilla.kernel.org/show_bug.cgi?id=16626
+On Tue, 14 Sep 2010, Or Gerlitz wrote:
 
-Thanks for the tip, however the stack trace is extremely elusive: the
-machine keeps resetting.
-Anyway I've managed to track it down the old way (sticking printk
-everywhere and commenting out random pieces of code :P)
+> I don't see this patch in Roland's for-next branch nor Dave's net-next-2.6
+> tree, is anything else needed to merge that?
 
-Luca
+No there is nothing else needed.
+
+Roland said he is going to merge it for 2.6.37.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
