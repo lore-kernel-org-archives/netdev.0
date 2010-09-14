@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e1000e: Simplify MSI interrupt testing
-Date: Tue, 14 Sep 2010 14:29:49 -0700 (PDT)
-Message-ID: <20100914.142949.184836973.davem@davemloft.net>
-References: <201009131045.40018.jdelvare@suse.de>
-	<AANLkTikhxka-HHX+SWMpXHcANZCMzedEz+XyiwmF48AK@mail.gmail.com>
+Subject: Re: [PATCH] phylib: fix PAL state machine restart on resume
+Date: Tue, 14 Sep 2010 14:31:15 -0700 (PDT)
+Message-ID: <20100914.143115.124060138.davem@davemloft.net>
+References: <1284451921-9937-1-git-send-email-simon@sequanux.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdelvare@suse.de, bruce.w.allan@intel.com, netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, sguinot@lacie.com
+To: simon@sequanux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52921
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37302
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752930Ab0INV3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 17:29:31 -0400
-In-Reply-To: <AANLkTikhxka-HHX+SWMpXHcANZCMzedEz+XyiwmF48AK@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1750834Ab0INVa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 17:30:57 -0400
+In-Reply-To: <1284451921-9937-1-git-send-email-simon@sequanux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 13 Sep 2010 23:34:54 -0700
+From: Simon Guinot <simon@sequanux.org>
+Date: Tue, 14 Sep 2010 10:12:01 +0200
 
-> On Mon, Sep 13, 2010 at 01:45, Jean Delvare <jdelvare@suse.de> wrote:
->> The code is quite convoluted, simplify it. This also avoids calling
->> e1000_request_irq() without testing the value it returned, which was
->> bad.
->>
->> Signed-off-by: Jean Delvare <jdelvare@suse.de>
->> Cc: Bruce Allan <bruce.w.allan@intel.com>
+> From: Simon Guinot <sguinot@lacie.com>
 > 
-> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> On resume, before starting the PAL state machine, check if the
+> adjust_link() method is well supplied. If not, this would lead to a
+> NULL pointer dereference in the phy_state_machine() function.
 > 
-> FYI - Emil tested this while I was out, and all was good.  Sorry for
-> the delayed response Jean.
+> This scenario can happen if the Ethernet driver call manually the PHY
+> functions instead of using the PAL state machine. The mv643xx_eth driver
+> is a such example.
+> 
+> Signed-off-by: Simon Guinot <sguinot@lacie.com>
 
-Applied, thanks a lot.
+Applied, thanks.
