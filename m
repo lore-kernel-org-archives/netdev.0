@@ -1,77 +1,55 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Tue, 14 Sep 2010 09:08:48 +0200
-Message-ID: <4C8F1F80.5050505@pengutronix.de>
-References: <4C61EDE5.4030505@dsn.okisemi.com>	<4C629FE5.6000204@pengutronix.de> <005f01cb533e$5c21d530$66f8800a@maildom.okisemi.com> <4C8E1918.5000007@pengutronix.de> <003a01cb53a6$4ca724d0$66f8800a@maildom.okisemi.com>
+From: Ivo Van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH next 09/16] drivers/net/wireless: Use static const char *
+ const where possible
+Date: Tue, 14 Sep 2010 09:12:58 +0200
+Message-ID: <AANLkTi=QzToh00xz15mw9+v2YJ5bWigc21S4cGzAQE_X@mail.gmail.com>
+References: <cover.1284435709.git.joe@perches.com>
+	<ccc9236f25803fbd8bc082e4fef2af8a0885ebf4.1284435710.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigB376FB62D7045DD117621BB1"
-Cc: Wolfgang Grandegger <wg@grandegger.com>, arjan@linux.intel.com,
-	meego-dev@meego.com, Morinaga <morinaga526@dsn.okisemi.com>,
-	socketcan-core@lists.berlios.de, yong.y.wang@intel.com,
-	gregkh@suse.de, netdev@vger.kernel.org, qi.wang@intel.com,
-	andrew.chih.howe.khor@intel.com
-To: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:60182 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752507Ab0INHJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 03:09:08 -0400
-In-Reply-To: <003a01cb53a6$4ca724d0$66f8800a@maildom.okisemi.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:37371 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752526Ab0INHNA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 03:13:00 -0400
+In-Reply-To: <ccc9236f25803fbd8bc082e4fef2af8a0885ebf4.1284435710.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigB376FB62D7045DD117621BB1
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Tue, Sep 14, 2010 at 6:23 AM, Joe Perches <joe@perches.com> wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-On 09/14/2010 02:46 AM, Masayuki Ohtake wrote:
+Acked-by: Ivo van Doorn <IvDoorn@gmail.com>
 
->>>> - implement NAPI
->>> Since Topcliff CAN HW register has only single rx buffer,
->>> I think NAPI is unnecessary.
->=20
->> Doesn't matter. Please try to implement it.
->=20
-> Our CAN driver must pull received data from CAN-HW rx buffer as fast as=
- it can
-> so that the received data is not over-written by next received data.
-> In case of implemented with NAPI,
-> since NAPI has time-lagging after receiving first packet,
-> probability of over-written(discarded) buffer is to be high.
-> Thus, for our CAN HW, we should NOT implement with NAPI but normal "net=
-if_rx".
-
-Okay, point taken.
-
-Regarding the one and only rx buffer. Is it a driver or a hardware
-limitation?
-
-BTW: Are the datasheets of this CAN core available somewhere?
-
-cheers Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigB376FB62D7045DD117621BB1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkyPH4UACgkQjTAFq1RaXHODoACeJqeVrDA9Ie942MNE6MHH0XvK
-qVoAnRDVzC7qIJ6lcZI2hbAlVuLtHdBT
-=hDvx
------END PGP SIGNATURE-----
-
---------------enigB376FB62D7045DD117621BB1--
+> ---
+> =A0drivers/net/wireless/rt2x00/rt2x00debug.c | =A0 =A02 +-
+> =A01 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.c b/drivers/net/=
+wireless/rt2x00/rt2x00debug.c
+> index b8cf45c..c1710b2 100644
+> --- a/drivers/net/wireless/rt2x00/rt2x00debug.c
+> +++ b/drivers/net/wireless/rt2x00/rt2x00debug.c
+> @@ -380,7 +380,7 @@ static ssize_t rt2x00debug_read_crypto_stats(stru=
+ct file *file,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 loff_t *offset)
+> =A0{
+> =A0 =A0 =A0 =A0struct rt2x00debug_intf *intf =3D file->private_data;
+> - =A0 =A0 =A0 char *name[] =3D { "WEP64", "WEP128", "TKIP", "AES" };
+> + =A0 =A0 =A0 static const char * const name[] =3D { "WEP64", "WEP128=
+", "TKIP", "AES" };
+> =A0 =A0 =A0 =A0char *data;
+> =A0 =A0 =A0 =A0char *temp;
+> =A0 =A0 =A0 =A0size_t size;
+> --
+> 1.7.3.rc1
+>
+>
