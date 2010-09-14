@@ -1,262 +1,569 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v4 04/10] net: davinci_emac: switch to new mdio
-Date: Tue, 14 Sep 2010 17:10:06 -0400
-Message-ID: <1284498612-25294-5-git-send-email-cyril@ti.com>
+Subject: [PATCH v4 01/10] net: davinci_emac: separate out davinci mdio
+Date: Tue, 14 Sep 2010 17:10:03 -0400
+Message-ID: <1284498612-25294-2-git-send-email-cyril@ti.com>
 References: <1284498612-25294-1-git-send-email-cyril@ti.com>
 Cc: michael.williamson@criticallink.com, caglarakyuz@gmail.com,
 	bparrot@ti.com, Cyril Chemparathy <cyril@ti.com>
 To: netdev@vger.kernel.org,
 	davinci-linux-open-source@linux.davincidsp.com,
 	linux-omap@vger.kernel.org
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:58866 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753824Ab0INVKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Sep 2010 17:10:33 -0400
 In-Reply-To: <1284498612-25294-1-git-send-email-cyril@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch switches the emac implementation over to the newly separated
-MDIO driver.
+Davinci's MDIO controller is present on other TI devices, without an
+accompanying EMAC.  For example, on tnetv107x, the same MDIO module is used in
+conjunction with a 3-port switch hardware.
 
-With this, the mdio bus frequency defaults to a safe 2.2MHz.  Boards may
-optionally specify a bus frequency via platform data.
-
-The phy identification scheme has been modified to use a phy bus id instead
-of a mask.  This largely serves to eliminate the "phy search" code in emac
-init.
+By separating the MDIO controller code into its own platform driver, this
+patch allows common logic to be reused on such platforms.
 
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
-Acked-by: David S. Miller <davem@davemloft.net>
 Tested-by: Michael Williamson <michael.williamson@criticallink.com>
 Tested-by: Caglar Akyuz <caglarakyuz@gmail.com>
 ---
- drivers/net/Kconfig          |    1 +
- drivers/net/davinci_emac.c   |   88 ++++++++++++++---------------------------
- include/linux/davinci_emac.h |    9 ++++
- 3 files changed, 40 insertions(+), 58 deletions(-)
+ drivers/net/Kconfig          |   10 +
+ drivers/net/Makefile         |    1 +
+ drivers/net/davinci_mdio.c   |  475 ++++++++++++++++++++++++++++++++++++++++++
+ include/linux/davinci_emac.h |    4 +
+ 4 files changed, 490 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/davinci_mdio.c
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index c5c86e0..911e7f1 100644
+index 2cc81a5..c5c86e0 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -951,6 +951,7 @@ config NET_NETX
- config TI_DAVINCI_EMAC
- 	tristate "TI DaVinci EMAC Support"
- 	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
-+	select TI_DAVINCI_MDIO
- 	select PHYLIB
- 	help
- 	  This driver supports TI's DaVinci Ethernet .
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 7fbd052..997f599 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -500,6 +500,7 @@ struct emac_priv {
- 	u32 phy_mask;
- 	/* mii_bus,phy members */
- 	struct mii_bus *mii_bus;
-+	const char *phy_id;
- 	struct phy_device *phydev;
- 	spinlock_t lock;
- 	/*platform specific members*/
-@@ -686,7 +687,7 @@ static int emac_get_settings(struct net_device *ndev,
- 			     struct ethtool_cmd *ecmd)
- {
- 	struct emac_priv *priv = netdev_priv(ndev);
--	if (priv->phy_mask)
-+	if (priv->phydev)
- 		return phy_ethtool_gset(priv->phydev, ecmd);
- 	else
- 		return -EOPNOTSUPP;
-@@ -704,7 +705,7 @@ static int emac_get_settings(struct net_device *ndev,
- static int emac_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
- {
- 	struct emac_priv *priv = netdev_priv(ndev);
--	if (priv->phy_mask)
-+	if (priv->phydev)
- 		return phy_ethtool_sset(priv->phydev, ecmd);
- 	else
- 		return -EOPNOTSUPP;
-@@ -841,7 +842,7 @@ static void emac_update_phystatus(struct emac_priv *priv)
- 	mac_control = emac_read(EMAC_MACCONTROL);
- 	cur_duplex = (mac_control & EMAC_MACCONTROL_FULLDUPLEXEN) ?
- 			DUPLEX_FULL : DUPLEX_HALF;
--	if (priv->phy_mask)
-+	if (priv->phydev)
- 		new_duplex = priv->phydev->duplex;
- 	else
- 		new_duplex = DUPLEX_FULL;
-@@ -2485,6 +2486,11 @@ static int emac_devioctl(struct net_device *ndev, struct ifreq *ifrq, int cmd)
- 	return -EOPNOTSUPP;
- }
+@@ -958,6 +958,16 @@ config TI_DAVINCI_EMAC
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called davinci_emac_driver.  This is recommended.
  
-+static int match_first_device(struct device *dev, void *data)
-+{
-+	return 1;
-+}
++config TI_DAVINCI_MDIO
++	tristate "TI DaVinci MDIO Support"
++	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
++	select PHYLIB
++	help
++	  This driver supports TI's DaVinci MDIO module.
 +
- /**
-  * emac_dev_open: EMAC device open
-  * @ndev: The DaVinci EMAC network adapter
-@@ -2499,7 +2505,6 @@ static int emac_dev_open(struct net_device *ndev)
- {
- 	struct device *emac_dev = &ndev->dev;
- 	u32 rc, cnt, ch;
--	int phy_addr;
- 	struct resource *res;
- 	int q, m;
- 	int i = 0;
-@@ -2560,28 +2565,26 @@ static int emac_dev_open(struct net_device *ndev)
- 		emac_set_coalesce(ndev, &coal);
- 	}
++	  To compile this driver as a module, choose M here: the module
++	  will be called davinci_mdio.  This is recommended.
++
+ config DM9000
+ 	tristate "DM9000 support"
+ 	depends on ARM || BLACKFIN || MIPS
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 3e8f150..d38a7ab 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -7,6 +7,7 @@ obj-$(CONFIG_MDIO) += mdio.o
+ obj-$(CONFIG_PHYLIB) += phy/
  
--	/* find the first phy */
- 	priv->phydev = NULL;
--	if (priv->phy_mask) {
--		emac_mii_reset(priv->mii_bus);
--		for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
--			if (priv->mii_bus->phy_map[phy_addr]) {
--				priv->phydev = priv->mii_bus->phy_map[phy_addr];
--				break;
--			}
--		}
-+	/* use the first phy on the bus if pdata did not give us a phy id */
-+	if (!priv->phy_id) {
-+		struct device *phy;
+ obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
++obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
  
--		if (!priv->phydev) {
--			printk(KERN_ERR "%s: no PHY found\n", ndev->name);
--			return -1;
--		}
-+		phy = bus_find_device(&mdio_bus_type, NULL, NULL,
-+				      match_first_device);
-+		if (phy)
-+			priv->phy_id = dev_name(phy);
-+	}
- 
--		priv->phydev = phy_connect(ndev, dev_name(&priv->phydev->dev),
--				&emac_adjust_link, 0, PHY_INTERFACE_MODE_MII);
-+	if (priv->phy_id && *priv->phy_id) {
-+		priv->phydev = phy_connect(ndev, priv->phy_id,
-+					   &emac_adjust_link, 0,
-+					   PHY_INTERFACE_MODE_MII);
- 
- 		if (IS_ERR(priv->phydev)) {
--			printk(KERN_ERR "%s: Could not attach to PHY\n",
--								ndev->name);
-+			dev_err(emac_dev, "could not connect to phy %s\n",
-+				priv->phy_id);
-+			priv->phydev = NULL;
- 			return PTR_ERR(priv->phydev);
- 		}
- 
-@@ -2589,12 +2592,13 @@ static int emac_dev_open(struct net_device *ndev)
- 		priv->speed = 0;
- 		priv->duplex = ~0;
- 
--		printk(KERN_INFO "%s: attached PHY driver [%s] "
--			"(mii_bus:phy_addr=%s, id=%x)\n", ndev->name,
-+		dev_info(emac_dev, "attached PHY driver [%s] "
-+			"(mii_bus:phy_addr=%s, id=%x)\n",
- 			priv->phydev->drv->name, dev_name(&priv->phydev->dev),
- 			priv->phydev->phy_id);
--	} else{
-+	} else {
- 		/* No PHY , fix the link, speed and duplex settings */
-+		dev_notice(emac_dev, "no phy, defaulting to 100/full\n");
- 		priv->link = 1;
- 		priv->speed = SPEED_100;
- 		priv->duplex = DUPLEX_FULL;
-@@ -2607,7 +2611,7 @@ static int emac_dev_open(struct net_device *ndev)
- 	if (netif_msg_drv(priv))
- 		dev_notice(emac_dev, "DaVinci EMAC: Opened %s\n", ndev->name);
- 
--	if (priv->phy_mask)
-+	if (priv->phydev)
- 		phy_start(priv->phydev);
- 
- 	return 0;
-@@ -2794,7 +2798,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- 
- 	/* MAC addr and PHY mask , RMII enable info from platform_data */
- 	memcpy(priv->mac_addr, pdata->mac_addr, 6);
--	priv->phy_mask = pdata->phy_mask;
-+	priv->phy_id = pdata->phy_id;
- 	priv->rmii_en = pdata->rmii_en;
- 	priv->version = pdata->version;
- 	priv->int_enable = pdata->interrupt_enable;
-@@ -2871,32 +2875,6 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- 	}
- 
- 
--	/* MII/Phy intialisation, mdio bus registration */
--	emac_mii = mdiobus_alloc();
--	if (emac_mii == NULL) {
--		dev_err(emac_dev, "DaVinci EMAC: Error allocating mii_bus\n");
--		rc = -ENOMEM;
--		goto mdio_alloc_err;
--	}
--
--	priv->mii_bus = emac_mii;
--	emac_mii->name  = "emac-mii",
--	emac_mii->read  = emac_mii_read,
--	emac_mii->write = emac_mii_write,
--	emac_mii->reset = emac_mii_reset,
--	emac_mii->irq   = mii_irqs,
--	emac_mii->phy_mask = ~(priv->phy_mask);
--	emac_mii->parent = &pdev->dev;
--	emac_mii->priv = priv->remap_addr + pdata->mdio_reg_offset;
--	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "%x", priv->pdev->id);
--	mdio_max_freq = pdata->mdio_max_freq;
--	emac_mii->reset(emac_mii);
--
--	/* Register the MII bus */
--	rc = mdiobus_register(emac_mii);
--	if (rc)
--		goto mdiobus_quit;
--
- 	if (netif_msg_probe(priv)) {
- 		dev_notice(emac_dev, "DaVinci EMAC Probe found device "\
- 			   "(regs: %p, irq: %d)\n",
-@@ -2904,11 +2882,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
- 	}
- 	return 0;
- 
--mdiobus_quit:
--	mdiobus_free(emac_mii);
--
- netdev_reg_err:
--mdio_alloc_err:
- 	clk_disable(emac_clk);
- no_irq_res:
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -2938,8 +2912,6 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, NULL);
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	mdiobus_unregister(priv->mii_bus);
--	mdiobus_free(priv->mii_bus);
- 
- 	release_mem_region(res->start, res->end - res->start + 1);
- 
-diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
-index a04fd8c..46a759f 100644
---- a/include/linux/davinci_emac.h
-+++ b/include/linux/davinci_emac.h
-@@ -28,6 +28,15 @@ struct emac_platform_data {
- 	u32 ctrl_ram_size;
- 	u32 phy_mask;
- 	u32 mdio_max_freq;
+ obj-$(CONFIG_E1000) += e1000/
+ obj-$(CONFIG_E1000E) += e1000e/
+diff --git a/drivers/net/davinci_mdio.c b/drivers/net/davinci_mdio.c
+new file mode 100644
+index 0000000..7615040
+--- /dev/null
++++ b/drivers/net/davinci_mdio.c
+@@ -0,0 +1,475 @@
++/*
++ * DaVinci MDIO Module driver
++ *
++ * Copyright (C) 2010 Texas Instruments.
++ *
++ * Shamelessly ripped out of davinci_emac.c, original copyrights follow:
++ *
++ * Copyright (C) 2009 Texas Instruments.
++ *
++ * ---------------------------------------------------------------------------
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ * ---------------------------------------------------------------------------
++ */
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/platform_device.h>
++#include <linux/delay.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include <linux/phy.h>
++#include <linux/clk.h>
++#include <linux/err.h>
++#include <linux/io.h>
++#include <linux/davinci_emac.h>
++
++/*
++ * This timeout definition is a worst-case ultra defensive measure against
++ * unexpected controller lock ups.  Ideally, we should never ever hit this
++ * scenario in practice.
++ */
++#define MDIO_TIMEOUT		100 /* msecs */
++
++#define PHY_REG_MASK		0x1f
++#define PHY_ID_MASK		0x1f
++
++#define DEF_OUT_FREQ		2200000		/* 2.2 MHz */
++
++struct davinci_mdio_regs {
++	u32	version;
++	u32	control;
++#define CONTROL_IDLE		BIT(31)
++#define CONTROL_ENABLE		BIT(30)
++#define CONTROL_MAX_DIV		(0xff)
++
++	u32	alive;
++	u32	link;
++	u32	linkintraw;
++	u32	linkintmasked;
++	u32	__reserved_0[2];
++	u32	userintraw;
++	u32	userintmasked;
++	u32	userintmaskset;
++	u32	userintmaskclr;
++	u32	__reserved_1[20];
++
++	struct {
++		u32	access;
++#define USERACCESS_GO		BIT(31)
++#define USERACCESS_WRITE	BIT(30)
++#define USERACCESS_ACK		BIT(29)
++#define USERACCESS_READ		(0)
++#define USERACCESS_DATA		(0xffff)
++
++		u32	physel;
++	}	user[0];
++};
++
++struct mdio_platform_data default_pdata = {
++	.bus_freq = DEF_OUT_FREQ,
++};
++
++struct davinci_mdio_data {
++	struct mdio_platform_data pdata;
++	struct davinci_mdio_regs __iomem *regs;
++	spinlock_t	lock;
++	struct clk	*clk;
++	struct device	*dev;
++	struct mii_bus	*bus;
++	bool		suspended;
++	unsigned long	access_time; /* jiffies */
++};
++
++static void __davinci_mdio_reset(struct davinci_mdio_data *data)
++{
++	u32 mdio_in, div, mdio_out_khz, access_time;
++
++	mdio_in = clk_get_rate(data->clk);
++	div = (mdio_in / data->pdata.bus_freq) - 1;
++	if (div > CONTROL_MAX_DIV)
++		div = CONTROL_MAX_DIV;
++
++	/* set enable and clock divider */
++	__raw_writel(div | CONTROL_ENABLE, &data->regs->control);
 +
 +	/*
-+	 * phy_id can be one of the following:
-+	 *   - NULL		: use the first phy on the bus,
-+	 *   - ""		: force to 100/full, no mdio control
-+	 *   - "<bus>:<addr>"	: use the specified bus and phy
++	 * One mdio transaction consists of:
++	 *	32 bits of preamble
++	 *	32 bits of transferred data
++	 *	24 bits of bus yield (not needed unless shared?)
 +	 */
-+	const char *phy_id;
++	mdio_out_khz = mdio_in / (1000 * (div + 1));
++	access_time  = (88 * 1000) / mdio_out_khz;
 +
- 	u8 rmii_en;
- 	u8 version;
- 	void (*interrupt_enable) (void);
++	/*
++	 * In the worst case, we could be kicking off a user-access immediately
++	 * after the mdio bus scan state-machine triggered its own read.  If
++	 * so, our request could get deferred by one access cycle.  We
++	 * defensively allow for 4 access cycles.
++	 */
++	data->access_time = usecs_to_jiffies(access_time * 4);
++	if (!data->access_time)
++		data->access_time = 1;
++}
++
++static int davinci_mdio_reset(struct mii_bus *bus)
++{
++	struct davinci_mdio_data *data = bus->priv;
++	u32 phy_mask, ver;
++
++	__davinci_mdio_reset(data);
++
++	/* wait for scan logic to settle */
++	msleep(PHY_MAX_ADDR * data->access_time);
++
++	/* dump hardware version info */
++	ver = __raw_readl(&data->regs->version);
++	dev_info(data->dev, "davinci mdio revision %d.%d\n",
++		 (ver >> 8) & 0xff, ver & 0xff);
++
++	/* get phy mask from the alive register */
++	phy_mask = __raw_readl(&data->regs->alive);
++	if (phy_mask) {
++		/* restrict mdio bus to live phys only */
++		dev_info(data->dev, "detected phy mask %x\n", ~phy_mask);
++		phy_mask = ~phy_mask;
++	} else {
++		/* desperately scan all phys */
++		dev_warn(data->dev, "no live phy, scanning all\n");
++		phy_mask = 0;
++	}
++	data->bus->phy_mask = phy_mask;
++
++	return 0;
++}
++
++/* wait until hardware is ready for another user access */
++static inline int wait_for_user_access(struct davinci_mdio_data *data)
++{
++	struct davinci_mdio_regs __iomem *regs = data->regs;
++	unsigned long timeout = jiffies + msecs_to_jiffies(MDIO_TIMEOUT);
++	u32 reg;
++
++	while (time_after(timeout, jiffies)) {
++		reg = __raw_readl(&regs->user[0].access);
++		if ((reg & USERACCESS_GO) == 0)
++			return 0;
++
++		reg = __raw_readl(&regs->control);
++		if ((reg & CONTROL_IDLE) == 0)
++			continue;
++
++		/*
++		 * An emac soft_reset may have clobbered the mdio controller's
++		 * state machine.  We need to reset and retry the current
++		 * operation
++		 */
++		dev_warn(data->dev, "resetting idled controller\n");
++		__davinci_mdio_reset(data);
++		return -EAGAIN;
++	}
++	dev_err(data->dev, "timed out waiting for user access\n");
++	return -ETIMEDOUT;
++}
++
++/* wait until hardware state machine is idle */
++static inline int wait_for_idle(struct davinci_mdio_data *data)
++{
++	struct davinci_mdio_regs __iomem *regs = data->regs;
++	unsigned long timeout = jiffies + msecs_to_jiffies(MDIO_TIMEOUT);
++
++	while (time_after(timeout, jiffies)) {
++		if (__raw_readl(&regs->control) & CONTROL_IDLE)
++			return 0;
++	}
++	dev_err(data->dev, "timed out waiting for idle\n");
++	return -ETIMEDOUT;
++}
++
++static int davinci_mdio_read(struct mii_bus *bus, int phy_id, int phy_reg)
++{
++	struct davinci_mdio_data *data = bus->priv;
++	u32 reg;
++	int ret;
++
++	if (phy_reg & ~PHY_REG_MASK || phy_id & ~PHY_ID_MASK)
++		return -EINVAL;
++
++	spin_lock(&data->lock);
++
++	if (data->suspended) {
++		spin_unlock(&data->lock);
++		return -ENODEV;
++	}
++
++	reg = (USERACCESS_GO | USERACCESS_READ | (phy_reg << 21) |
++	       (phy_id << 16));
++
++	while (1) {
++		ret = wait_for_user_access(data);
++		if (ret == -EAGAIN)
++			continue;
++		if (ret < 0)
++			break;
++
++		__raw_writel(reg, &data->regs->user[0].access);
++
++		ret = wait_for_user_access(data);
++		if (ret == -EAGAIN)
++			continue;
++		if (ret < 0)
++			break;
++
++		reg = __raw_readl(&data->regs->user[0].access);
++		ret = (reg & USERACCESS_ACK) ? (reg & USERACCESS_DATA) : -EIO;
++		break;
++	}
++
++	spin_unlock(&data->lock);
++
++	return ret;
++}
++
++static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
++			      int phy_reg, u16 phy_data)
++{
++	struct davinci_mdio_data *data = bus->priv;
++	u32 reg;
++	int ret;
++
++	if (phy_reg & ~PHY_REG_MASK || phy_id & ~PHY_ID_MASK)
++		return -EINVAL;
++
++	spin_lock(&data->lock);
++
++	if (data->suspended) {
++		spin_unlock(&data->lock);
++		return -ENODEV;
++	}
++
++	reg = (USERACCESS_GO | USERACCESS_WRITE | (phy_reg << 21) |
++		   (phy_id << 16) | (phy_data & USERACCESS_DATA));
++
++	while (1) {
++		ret = wait_for_user_access(data);
++		if (ret == -EAGAIN)
++			continue;
++		if (ret < 0)
++			break;
++
++		__raw_writel(reg, &data->regs->user[0].access);
++
++		ret = wait_for_user_access(data);
++		if (ret == -EAGAIN)
++			continue;
++		break;
++	}
++
++	spin_unlock(&data->lock);
++
++	return 0;
++}
++
++static int __devinit davinci_mdio_probe(struct platform_device *pdev)
++{
++	struct mdio_platform_data *pdata = pdev->dev.platform_data;
++	struct device *dev = &pdev->dev;
++	struct davinci_mdio_data *data;
++	struct resource *res;
++	struct phy_device *phy;
++	int ret, addr;
++
++	data = kzalloc(sizeof(*data), GFP_KERNEL);
++	if (!data) {
++		dev_err(dev, "failed to alloc device data\n");
++		return -ENOMEM;
++	}
++
++	data->pdata = pdata ? (*pdata) : default_pdata;
++
++	data->bus = mdiobus_alloc();
++	if (!data->bus) {
++		dev_err(dev, "failed to alloc mii bus\n");
++		ret = -ENOMEM;
++		goto bail_out;
++	}
++
++	data->bus->name		= dev_name(dev);
++	data->bus->read		= davinci_mdio_read,
++	data->bus->write	= davinci_mdio_write,
++	data->bus->reset	= davinci_mdio_reset,
++	data->bus->parent	= dev;
++	data->bus->priv		= data;
++	snprintf(data->bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
++
++	data->clk = clk_get(dev, NULL);
++	if (IS_ERR(data->clk)) {
++		data->clk = NULL;
++		dev_err(dev, "failed to get device clock\n");
++		ret = PTR_ERR(data->clk);
++		goto bail_out;
++	}
++
++	clk_enable(data->clk);
++
++	dev_set_drvdata(dev, data);
++	data->dev = dev;
++	spin_lock_init(&data->lock);
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res) {
++		dev_err(dev, "could not find register map resource\n");
++		ret = -ENOENT;
++		goto bail_out;
++	}
++
++	res = devm_request_mem_region(dev, res->start, resource_size(res),
++					    dev_name(dev));
++	if (!res) {
++		dev_err(dev, "could not allocate register map resource\n");
++		ret = -ENXIO;
++		goto bail_out;
++	}
++
++	data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
++	if (!data->regs) {
++		dev_err(dev, "could not map mdio registers\n");
++		ret = -ENOMEM;
++		goto bail_out;
++	}
++
++	/* register the mii bus */
++	ret = mdiobus_register(data->bus);
++	if (ret)
++		goto bail_out;
++
++	/* scan and dump the bus */
++	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
++		phy = data->bus->phy_map[addr];
++		if (phy) {
++			dev_info(dev, "phy[%d]: device %s, driver %s\n",
++				 phy->addr, dev_name(&phy->dev),
++				 phy->drv ? phy->drv->name : "unknown");
++		}
++	}
++
++	return 0;
++
++bail_out:
++	if (data->bus)
++		mdiobus_free(data->bus);
++
++	if (data->clk) {
++		clk_disable(data->clk);
++		clk_put(data->clk);
++	}
++
++	kfree(data);
++
++	return ret;
++}
++
++static int __devexit davinci_mdio_remove(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct davinci_mdio_data *data = dev_get_drvdata(dev);
++
++	if (data->bus)
++		mdiobus_free(data->bus);
++
++	if (data->clk) {
++		clk_disable(data->clk);
++		clk_put(data->clk);
++	}
++
++	dev_set_drvdata(dev, NULL);
++
++	kfree(data);
++
++	return 0;
++}
++
++static int davinci_mdio_suspend(struct device *dev)
++{
++	struct davinci_mdio_data *data = dev_get_drvdata(dev);
++	u32 ctrl;
++
++	spin_lock(&data->lock);
++
++	/* shutdown the scan state machine */
++	ctrl = __raw_readl(&data->regs->control);
++	ctrl &= ~CONTROL_ENABLE;
++	__raw_writel(ctrl, &data->regs->control);
++	wait_for_idle(data);
++
++	if (data->clk)
++		clk_disable(data->clk);
++
++	data->suspended = true;
++	spin_unlock(&data->lock);
++
++	return 0;
++}
++
++static int davinci_mdio_resume(struct device *dev)
++{
++	struct davinci_mdio_data *data = dev_get_drvdata(dev);
++	u32 ctrl;
++
++	spin_lock(&data->lock);
++	if (data->clk)
++		clk_enable(data->clk);
++
++	/* restart the scan state machine */
++	ctrl = __raw_readl(&data->regs->control);
++	ctrl |= CONTROL_ENABLE;
++	__raw_writel(ctrl, &data->regs->control);
++
++	data->suspended = false;
++	spin_unlock(&data->lock);
++
++	return 0;
++}
++
++static const struct dev_pm_ops davinci_mdio_pm_ops = {
++	.suspend	= davinci_mdio_suspend,
++	.resume		= davinci_mdio_resume,
++};
++
++static struct platform_driver davinci_mdio_driver = {
++	.driver = {
++		.name	 = "davinci_mdio",
++		.owner	 = THIS_MODULE,
++		.pm	 = &davinci_mdio_pm_ops,
++	},
++	.probe = davinci_mdio_probe,
++	.remove = __devexit_p(davinci_mdio_remove),
++};
++
++static int __init davinci_mdio_init(void)
++{
++	return platform_driver_register(&davinci_mdio_driver);
++}
++device_initcall(davinci_mdio_init);
++
++static void __exit davinci_mdio_exit(void)
++{
++	platform_driver_unregister(&davinci_mdio_driver);
++}
++module_exit(davinci_mdio_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("DaVinci MDIO driver");
+diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
+index 7c930db..a04fd8c 100644
+--- a/include/linux/davinci_emac.h
++++ b/include/linux/davinci_emac.h
+@@ -14,6 +14,10 @@
+ #include <linux/if_ether.h>
+ #include <linux/memory.h>
+ 
++struct mdio_platform_data {
++	unsigned long		bus_freq;
++};
++
+ struct emac_platform_data {
+ 	char mac_addr[ETH_ALEN];
+ 	u32 ctrl_reg_offset;
 -- 
 1.7.0.4
 
