@@ -1,51 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 18212] New: force_igmp_version ignored when a IGMPv3
- query received (+1 line patch)
-Date: Tue, 14 Sep 2010 14:24:18 -0700 (PDT)
-Message-ID: <20100914.142418.149835514.davem@davemloft.net>
-References: <20100910091936.75eabbf6@nehalam>
-	<OF1A09F28B.15E7E7BC-ON8825779E.00741A65-8825779E.007540E3@us.ibm.com>
+Subject: Re: [PATCH net-2.6 v2] bonding: correctly process non-linear skbs
+Date: Tue, 14 Sep 2010 14:26:05 -0700 (PDT)
+Message-ID: <20100914.142605.108789529.davem@davemloft.net>
+References: <22437.1284152640@death>
+	<20100910214320.GX7497@gospo.rdu.redhat.com>
+	<19704.1284167315@death>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, herbert@gondor.hengli.com.au,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: dlstevens@us.ibm.com
+Cc: andy@greyhouse.net, netdev@vger.kernel.org,
+	alexander.h.duyck@intel.com, jesse.brandeburg@intel.com,
+	stable@kernel.org
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44789
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44793
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755561Ab0INVYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 17:24:00 -0400
-In-Reply-To: <OF1A09F28B.15E7E7BC-ON8825779E.00741A65-8825779E.007540E3@us.ibm.com>
+	by vger.kernel.org with ESMTP id S1755548Ab0INVZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 17:25:47 -0400
+In-Reply-To: <19704.1284167315@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Tue, 14 Sep 2010 14:20:40 -0700
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Fri, 10 Sep 2010 18:08:35 -0700
 
-> netdev-owner@vger.kernel.org wrote on 09/10/2010 09:19:36 AM:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
+>>[PATCH net-2.6 v2] bonding: correctly process non-linear skbs
+>>
+>>It was recently brought to my attention that 802.3ad mode bonds would no
+>>longer form when using some network hardware after a driver update.
+>>After snooping around I realized that the particular hardware was using
+>>page-based skbs and found that skb->data did not contain a valid LACPDU
+>>as it was not stored there.  That explained the inability to form an
+>>802.3ad-based bond.  For balance-alb mode bonds this was also an issue
+>>as ARPs would not be properly processed.
+>>
+>>This patch fixes the issue in my tests and should be applied to 2.6.36
+>>and as far back as anyone cares to add it to stable.
+>>
+>>Thanks to Alexander Duyck <alexander.h.duyck@intel.com> and Jesse
+>>Brandeburg <jesse.brandeburg@intel.com> for the suggestions on this one.
+>>
+>>Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>>CC: Alexander Duyck <alexander.h.duyck@intel.com>
+>>CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>CC: stable@kerne.org
 > 
->> 
->> https://bugzilla.kernel.org/show_bug.cgi?id=18212
->> 
->>            Summary: force_igmp_version ignored when a IGMPv3 query
->>                     received (+1 line patch)
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 > 
->> 
->> Created an attachment (id=29512)
->>  --> (https://bugzilla.kernel.org/attachment.cgi?id=29512)
->> fix force_igmp_version v3 query problem
->> 
->> After all these years, it turns out that the
->>     /proc/sys/net/ipv4/conf/*/force_igmp_version
->> parameter isn't fully implemented.
-> 
->         I don't think it's correct to send a v2 response to a v3
-> query in any case. The question for answering v3 queries was
-> whether to answer them with a v3 report, or to drop them and
-> ignore them when force_igmp_version==2. I chose to respond,
-> but I can see the case for dropping it too. I don't agree that
-> a v3 query should be answered with a v2 resport (a real v2
-> host would drop it).
 
-Do you have an alternative patch to suggest?
+Applied, thanks everyone.
