@@ -1,42 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2/2] mac80211: fix compilation warning
-Date: Tue, 14 Sep 2010 07:17:12 +0200
-Message-ID: <1284441432.3704.0.camel@jlt3.sipsolutions.net>
-References: <1284289829-25425-1-git-send-email-felipe.contreras@gmail.com>
-	 <1284289829-25425-3-git-send-email-felipe.contreras@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000e: Simplify MSI interrupt testing
+Date: Mon, 13 Sep 2010 22:20:55 -0700
+Message-ID: <AANLkTinh6pAT9PsHZa1vaD6uQQZY_qWV68Bmx--f0Y4m@mail.gmail.com>
+References: <201009131045.40018.jdelvare@suse.de>
+	<20100913.201340.68129542.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jiri Kosina <jkosina@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kalle Valo <kalle.valo@iki.fi>,
-	Felix Fietkau <nbd@openwrt.org>, Jouni Malinen <j@w1.fi>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Felipe Contreras <felipe.contreras@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1284289829-25425-3-git-send-email-felipe.contreras@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: jdelvare@suse.de, bruce.w.allan@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:60848 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751129Ab0INFU5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 01:20:57 -0400
+Received: by iwn5 with SMTP id 5so5782182iwn.19
+        for <netdev@vger.kernel.org>; Mon, 13 Sep 2010 22:20:56 -0700 (PDT)
+In-Reply-To: <20100913.201340.68129542.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-09-12 at 14:10 +0300, Felipe Contreras wrote:
+On Mon, Sep 13, 2010 at 20:13, David Miller <davem@davemloft.net> wrote:
+> From: Jean Delvare <jdelvare@suse.de>
+> Date: Mon, 13 Sep 2010 10:45:39 +0200
+>
+>> The code is quite convoluted, simplify it. This also avoids calling
+>> e1000_request_irq() without testing the value it returned, which was
+>> bad.
+>>
+>> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+>> Cc: Bruce Allan <bruce.w.allan@intel.com>
+>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> ---
+>> I understand that we need to request the IRQ again after testing, but
+>> why doing it twice?
+>>
+>> I sent this patch to the e1000-devel list on August 26th, 2010, but
+>> didn't receive any answer:
+>> http://sourceforge.net/mailarchive/forum.php?thread_name=201008261445.44334.jdelvare%40suse.de&forum_name=e1000-devel
+>
+> Intel folks, please provide feedback or else I'll just blindly apply Jean's
+> patch to the net-next-2.6 tree as long as it compiles ;-)
+> --
 
->  	struct ieee80211_hdr hdr;
-> -	struct ieee80211s_hdr mesh_hdr;
->  	const u8 *encaps_data;
->  	int encaps_len, skip_header_bytes;
->  	int nh_pos, h_pos;
-> @@ -1755,7 +1754,9 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
->  		hdrlen = 30;
->  		break;
->  #ifdef CONFIG_MAC80211_MESH
-> -	case NL80211_IFTYPE_MESH_POINT:
-> +	case NL80211_IFTYPE_MESH_POINT: {
-> +		struct ieee80211s_hdr mesh_hdr;
-> +
+Sorry, I believe this patch is good to go.  I am still trying to catch
+up on email after being out on vacation.
 
-...
+Let me verify that we tested this patch and get back to you (later
+tonight) Dave.
 
-might be nicer to just add __maybe_unused.
-
-johannes
+-- 
+Cheers,
+Jeff
