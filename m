@@ -1,162 +1,94 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [RFC PATCH] xmit_compl_seq: information to reclaim vmsplice
- buffers
-Date: Tue, 14 Sep 2010 13:28:08 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.1009141318490.20088@pokey.mtv.corp.google.com>
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Subject: [PATCH] Remove atomic context inside vortex_{set|get}_wol
+Date: Tue, 14 Sep 2010 20:35:23 +0000
+Message-ID: <20100914203209.GA22498@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: sridharr@google.com
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: andrew@beldisplaytech.com, ben@decadent.org.uk,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:37862 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754321Ab0INU2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 16:28:15 -0400
+Received: from hera.kernel.org ([140.211.167.34]:52963 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751931Ab0INUfd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Sep 2010 16:35:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In this patch we propose to adds some socket API to retrieve the
- "transmit completion sequence number", essentially a byte counter
-for the number of bytes that have been transmitted and will not be
-retransmitted.  In the case of TCP, this should correspond to snd_una.
+There is no need to use spinlocks in vortex_{set|get}_wol.
+This also fixes a bug:
+[  254.214993] 3c59x 0000:00:0d.0: PME# enabled
+[  254.215021] BUG: sleeping function called from invalid context at kernel/mutex.c:94
+[  254.215030] in_atomic(): 0, irqs_disabled(): 1, pid: 4875, name: ethtool
+[  254.215042] Pid: 4875, comm: ethtool Tainted: G        W   2.6.36-rc3+ #7
+[  254.215049] Call Trace:
+[  254.215050]  [] __might_sleep+0xb1/0xb6
+[  254.215050]  [] mutex_lock+0x17/0x30
+[  254.215050]  [] acpi_enable_wakeup_device_power+0x2b/0xb1
+[  254.215050]  [] acpi_pm_device_sleep_wake+0x42/0x7f
+[  254.215050]  [] acpi_pci_sleep_wake+0x5d/0x63
+[  254.215050]  [] platform_pci_sleep_wake+0x1d/0x20
+[  254.215050]  [] __pci_enable_wake+0x90/0xd0
+[  254.215050]  [] acpi_set_WOL+0x8e/0xf5 [3c59x]
+[  254.215050]  [] vortex_set_wol+0x4e/0x5e [3c59x]
+[  254.215050]  [] dev_ethtool+0x1cf/0xb61
+[  254.215050]  [] ? debug_mutex_free_waiter+0x45/0x4a
+[  254.215050]  [] ? __mutex_lock_common+0x204/0x20e
+[  254.215050]  [] ? __mutex_lock_slowpath+0x12/0x15
+[  254.215050]  [] ? mutex_lock+0x23/0x30
+[  254.215050]  [] dev_ioctl+0x42c/0x533
+[  254.215050]  [] ? _cond_resched+0x8/0x1c
+[  254.215050]  [] ? lock_page+0x1c/0x30
+[  254.215050]  [] ? page_address+0x15/0x7c
+[  254.215050]  [] ? filemap_fault+0x187/0x2c4
+[  254.215050]  [] sock_ioctl+0x1d4/0x1e0
+[  254.215050]  [] ? sock_ioctl+0x0/0x1e0
+[  254.215050]  [] vfs_ioctl+0x19/0x33
+[  254.215050]  [] do_vfs_ioctl+0x424/0x46f
+[  254.215050]  [] ? selinux_file_ioctl+0x3c/0x40
+[  254.215050]  [] sys_ioctl+0x40/0x5a
+[  254.215050]  [] sysenter_do_call+0x12/0x22
 
-The purpose of this API is to provide information to userspace about
-which buffers can be reclaimed when sending with vmsplice() on a
-socket.
+vortex_set_wol protected with a spinlock, but nested  acpi_set_WOL acquires a mutex inside atomic context.
 
-There are two methods for retrieving the completed sequence number:
-through a simple getsockopt (implemented here for TCP), as well as
-returning the value in the ancilary data of a recvmsg.
-
-The expected flow would be something like:
-   - Connect is created
-   - Initial completion seq # is retrieved through the sockopt, and is
-     stored in userspace "compl_seq" variable for the connection.
-   - Whenever a send is done, compl_seq += # bytes sent.
-   - When doing a vmsplice the completion sequence number is saved
-     for each user space buffer, buffer_compl_seq = compl_seq.
-   - When recvmsg returns with a completion sequence number in
-     ancillary data, any buffers cover by that sequence number
-     (where buffer_compl_seq < recvmsg_compl_seq) are reclaimed
-     and can be written to again.
-   - If no data is receieved on a connection (recvmsg does not
-     return), a timeout can be used to call the getsockopt and
-     reclaim buffers as a fallback.
-
-Using recvmsg data in this manner is sort of a cheap way to get a
-"callback" for when a vmspliced buffer is consumed.  It will work
-well for a client where the response causes recvmsg to return.
-On the server side it works well if there are a sufficient
-number of requests coming on the connection (resorting to the
-timeout if necessary as described above).
-
+Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 ---
-diff --git a/include/asm-generic/socket.h b/include/asm-generic/socket.h
-index 9a6115e..6dc1ed8 100644
---- a/include/asm-generic/socket.h
-+++ b/include/asm-generic/socket.h
-@@ -64,4 +64,7 @@
- #define SO_DOMAIN		39
+ drivers/net/3c59x.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 7a01588..da6df86 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -2922,13 +2922,11 @@ static void vortex_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ {
+ 	struct vortex_private *vp = netdev_priv(dev);
  
- #define SO_RXQ_OVFL             40
-+
-+#define SO_XMIT_COMPL_SEQ	41
-+#define SCM_XMIT_COMPL_SEQ	SO_XMIT_COMPL_SEQ
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index e64f4c6..f044aff 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -106,6 +106,7 @@ enum {
- #define TCP_THIN_LINEAR_TIMEOUTS 16      /* Use linear timeouts for thin streams*/
- #define TCP_THIN_DUPACK         17      /* Fast retrans. after 1 dupack */
- #define TCP_USER_TIMEOUT	18	/* How long for loss retry before timeout */
-+#define TCP_XMIT_COMPL_SEQ	19	/* Return current snd_una */
+-	spin_lock_irq(&vp->lock);
+ 	wol->supported = WAKE_MAGIC;
  
- /* for TCP_INFO socket option */
- #define TCPI_OPT_TIMESTAMPS	1
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 8ae97c4..e820e2b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -543,6 +543,7 @@ enum sock_flags {
- 	SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SOF_TIMESTAMPING_SYS_HARDWARE */
- 	SOCK_FASYNC, /* fasync() active */
- 	SOCK_RXQ_OVFL,
-+	SOCK_XMIT_COMPL_SEQ, /* SO_XMIT_COMPL_SEQ setting */
- };
+ 	wol->wolopts = 0;
+ 	if (vp->enable_wol)
+ 		wol->wolopts |= WAKE_MAGIC;
+-	spin_unlock_irq(&vp->lock);
+ }
  
- static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index f3a06c4..7a10215 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -740,6 +740,12 @@ set_rcvbuf:
- 		else
- 			sock_reset_flag(sk, SOCK_RXQ_OVFL);
- 		break;
-+	case SO_XMIT_COMPL_SEQ:
-+		if (valbool)
-+			sock_set_flag(sk, SOCK_XMIT_COMPL_SEQ);
-+		else
-+			sock_reset_flag(sk, SOCK_XMIT_COMPL_SEQ);
-+		break;
- 	default:
- 		ret = -ENOPROTOOPT;
- 		break;
-@@ -961,6 +967,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		v.val = !!sock_flag(sk, SOCK_RXQ_OVFL);
- 		break;
+ static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+@@ -2937,13 +2935,11 @@ static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ 	if (wol->wolopts & ~WAKE_MAGIC)
+ 		return -EINVAL;
  
-+	case SO_XMIT_COMPL_SEQ:
-+		v.val = !!sock_flag(sk, SOCK_XMIT_COMPL_SEQ);
-+		break;
-+
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 3e8a4db..5e30381 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1387,6 +1387,21 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
- EXPORT_SYMBOL(tcp_read_sock);
+-	spin_lock_irq(&vp->lock);
+ 	if (wol->wolopts & WAKE_MAGIC)
+ 		vp->enable_wol = 1;
+ 	else
+ 		vp->enable_wol = 0;
+ 	acpi_set_WOL(dev);
+-	spin_unlock_irq(&vp->lock);
  
- /*
-+ * Copy the first unacked seq into the receive msg control part.
-+ */
-+static inline void tcp_sock_xmit_compl_seq(struct msghdr *msg,
-+					   struct sock *sk)
-+{
-+	if (sock_flag(sk, SOCK_XMIT_COMPL_SEQ)) {
-+		struct tcp_sock *tp = tcp_sk(sk);
-+		if (msg->msg_controllen >= sizeof(tp->snd_una)) {
-+			put_cmsg(msg, SOL_SOCKET, SCM_XMIT_COMPL_SEQ,
-+			    sizeof(tp->snd_una), &tp->snd_una);
-+		}
-+	}
-+}
-+
-+/*
-  *	This routine copies from a sock struct into the user buffer.
-  *
-  *	Technical note: in 2.3 we work on _locked_ socket, so that
-@@ -1763,6 +1778,8 @@ skip_copy:
- 	 * on connected socket. I was just happy when found this 8) --ANK
- 	 */
- 
-+	tcp_sock_xmit_compl_seq(msg, sk);
-+
- 	/* Clean up data we have read: This will do ACK frames. */
- 	tcp_cleanup_rbuf(sk, copied);
- 
-@@ -2617,6 +2634,9 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
- 	case TCP_USER_TIMEOUT:
- 		val = jiffies_to_msecs(icsk->icsk_user_timeout);
- 		break;
-+	case TCP_XMIT_COMPL_SEQ:
-+		val = tp->snd_una;
-+		break;
- 	default:
- 		return -ENOPROTOOPT;
- 	}
+ 	return 0;
+ }
+-- 
+1.6.4.4
+
