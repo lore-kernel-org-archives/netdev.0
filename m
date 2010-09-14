@@ -1,62 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: 2.6.36-rc4/iwl: warning triggered in net/mac80211/scan.c:266
-Date: Tue, 14 Sep 2010 17:14:39 +0200
-Message-ID: <20100914151439.GA13028@redhat.com>
-References: <20100914142814.GA8744@redhat.com>
- <1284474988.3704.10.camel@jlt3.sipsolutions.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host kernel
+Date: Tue, 14 Sep 2010 17:21:13 +0200
+Message-ID: <201009141721.13202.arnd@arndb.de>
+References: <1284410580.13351.10.camel@localhost.localdomain> <4C8F3C77.7010302@redhat.com> <1284476719.13351.35.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7594 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752888Ab0INPVA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Sep 2010 11:21:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1284474988.3704.10.camel@jlt3.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
+	mst@redhat.com, xiaohui.xin@intel.com, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1284476719.13351.35.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 14, 2010 at 04:36:28PM +0200, Johannes Berg wrote:
-> On Tue, 2010-09-14 at 16:28 +0200, Michael S. Tsirkin wrote:
-> > I am running 2.6.36-rc4 on T60 with an iwlagn wireless card:
-> > 03:00.0 Network controller: Intel Corporation PRO/Wireless 5100 AGN [Shiloh] Network Connection
-> > 
-> > I was compiling a large file which stressed the box heavily, and the
-> > following warning in net/mac80211/scan.c triggered:
-> > 
-> >         /*
-> >          * It's ok to abort a not-yet-running scan (that
-> >          * we have one at all will be verified by checking
-> >          * local->scan_req next), but not to complete it
-> >          * successfully.
-> >          */
-> >         if (WARN_ON(!local->scanning && !aborted))
-> >                 aborted = true;
-> > 
-> > dmesg below:
-> > 
-> > [84379.361297] ------------[ cut here ]------------
-> > [84379.361307] WARNING: at net/mac80211/scan.c:266 ieee80211_scan_completed+0x43/0x17f()
+On Tuesday 14 September 2010, Shirley Ma wrote:
+> On Tue, 2010-09-14 at 11:12 +0200, Avi Kivity wrote:
+>
+> > That's what io_submit() is for.  Then io_getevents() tells you what
+> > "a 
+> > while" actually was.
 > 
-> > Should this happen? Does anyone care?
-> > I am not sure how reproducible this is.
+> This macvtap zero copy uses iov buffers from vhost ring, which is
+> allocated from guest kernel. In host kernel, vhost calls macvtap
+> sendmsg. macvtap sendmsg calls get_user_pages_fast to pin these buffers'
+> pages for zero copy.
 > 
-> No, it shouldn't happen. But there are various races in iwlwifi that can
-> cause this. Stanislaw has fixed them recently, but it's a fairly large
-> patchset. I'm not sure, but I don't think this is really new in .36.
-> 
-> johannes
+> The patch is relying on how vhost handle these buffers. I need to look
+> at vhost code (qemu) first for addressing the questions here.
 
-So ... get back to you after 2.6.37?
+I guess the best solution would be to make macvtap_aio_write return
+-EIOCBQUEUED when a packet gets passed down to the adapter, and
+call aio_complete when the adapter is done with it.
 
--- 
-MST
+This would change the regular behavior of macvtap into a model where
+every write on the file blocks until the packet has left the machine,
+which gives us better flow control, but does slow down the traffic
+when we only put one packet at a time into the queue.
+
+It also allows the user to call io_submit instead of write in order
+to do an asynchronous submission as Avi was suggesting.
+
+	Arnd
