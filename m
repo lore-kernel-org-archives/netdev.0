@@ -1,13 +1,9 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH next 09/16] drivers/net/wireless: Use static const char * const where possible
-Date: Mon, 13 Sep 2010 21:23:55 -0700
-Message-ID: <ccc9236f25803fbd8bc082e4fef2af8a0885ebf4.1284435710.git.joe@perches.com>
+Subject: [PATCH next 06/16] drivers/isdn: Use static const char * const where possible
+Date: Mon, 13 Sep 2010 21:23:52 -0700
+Message-ID: <9a19051e63b3f6c857b08ccd1e0876c604713575.1284435709.git.joe@perches.com>
 References: <cover.1284435709.git.joe@perches.com>
-Cc: Ivo van Doorn <IvDoorn@gmail.com>,
-	Gertjan van Wingerde <gwingerde@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1284435709.git.joe@perches.com>
@@ -16,21 +12,35 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/rt2x00/rt2x00debug.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/isdn/pcbit/edss1.c |    2 +-
+ drivers/isdn/pcbit/edss1.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/rt2x00/rt2x00debug.c b/drivers/net/wireless/rt2x00/rt2x00debug.c
-index b8cf45c..c1710b2 100644
---- a/drivers/net/wireless/rt2x00/rt2x00debug.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00debug.c
-@@ -380,7 +380,7 @@ static ssize_t rt2x00debug_read_crypto_stats(struct file *file,
- 					     loff_t *offset)
- {
- 	struct rt2x00debug_intf *intf = file->private_data;
--	char *name[] = { "WEP64", "WEP128", "TKIP", "AES" };
-+	static const char * const name[] = { "WEP64", "WEP128", "TKIP", "AES" };
- 	char *data;
- 	char *temp;
- 	size_t size;
+diff --git a/drivers/isdn/pcbit/edss1.c b/drivers/isdn/pcbit/edss1.c
+index d5920ae..80c9c16 100644
+--- a/drivers/isdn/pcbit/edss1.c
++++ b/drivers/isdn/pcbit/edss1.c
+@@ -33,7 +33,7 @@
+ #include "callbacks.h"
+ 
+ 
+-char * isdn_state_table[] = {
++const char * const isdn_state_table[] = {
+   "Closed",
+   "Call initiated",
+   "Overlap sending",
+diff --git a/drivers/isdn/pcbit/edss1.h b/drivers/isdn/pcbit/edss1.h
+index 0b64f97..39f8346 100644
+--- a/drivers/isdn/pcbit/edss1.h
++++ b/drivers/isdn/pcbit/edss1.h
+@@ -90,7 +90,7 @@ struct fsm_timer_entry {
+ 	unsigned long timeout;          /* in seconds */
+ };
+ 
+-extern char * isdn_state_table[];
++extern const char * const isdn_state_table[];
+ 
+ void pcbit_fsm_event(struct pcbit_dev *, struct pcbit_chan *,
+ 		     unsigned short event, struct callb_data *);
 -- 
 1.7.3.rc1
