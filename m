@@ -1,34 +1,80 @@
-From: Zach Brown <zach.brown-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [rds-devel] net-next pull request: RDS
-Date: Tue, 14 Sep 2010 11:35:14 -0700
-Message-ID: <20100914183514.GA3417@takashi.pdx.zabbo.net>
-References: <4C892C9C.4060304@oracle.com>
- <4C8C9422.2070306@Voltaire.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 15/25] drivers/net/wireless/ipw2x00: Use static const
+ char arrays
+Date: Tue, 14 Sep 2010 14:41:43 -0400
+Message-ID: <20100914184142.GE2484@tuxdriver.com>
+References: <cover.1284406638.git.joe@perches.com>
+ <9c135a60c2ed3431ee59c8de0b39414f6c10299a.1284406638.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andy Grover <andy.grover-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, RDS Devel <rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org>,
-	Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-To: Or Gerlitz <ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4C8C9422.2070306-hKgKHo2Ms0FWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <9c135a60c2ed3431ee59c8de0b39414f6c10299a.1284406638.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Zach Brown's "RDS/IB: print IB event strings as well as their number" - commit
-> 1bde04a63d532c2540d6fdee0a661530a62b1686 in net-next-2.6 looks perfect to
-> reside as a helper function in the core IB stack which can be in use by other
-> rdma drivers (e.g ipoib, iser, srp, etc). 
+On Mon, Sep 13, 2010 at 12:47:53PM -0700, Joe Perches wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/wireless/ipw2x00/ipw2100.c       |    2 +-
+>  drivers/net/wireless/ipw2x00/ipw2200.c       |    2 +-
+>  drivers/net/wireless/ipw2x00/libipw_module.c |    2 +-
+>  3 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+> index 61915f3..f64103c 100644
+> --- a/drivers/net/wireless/ipw2x00/ipw2100.c
+> +++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+> @@ -4261,7 +4261,7 @@ static ssize_t store_scan_age(struct device *d, struct device_attribute *attr,
+>  {
+>  	struct ipw2100_priv *priv = dev_get_drvdata(d);
+>  	struct net_device *dev = priv->net_dev;
+> -	char buffer[] = "00000000";
+> +	char buffer[sizeof("00000000")];
+>  	unsigned long len =
+>  	    (sizeof(buffer) - 1) > count ? count : sizeof(buffer) - 1;
+>  	unsigned long val;
 
-Yeah, if those other drivers were interested in the little helpers then it
-would make sense to bring the functionality up into the core stack.
+Had to look twice, since you replaced an initialization with a
+declaration.  But in all these cases the initial value was already
+being overwritten before use anyway.
 
-Note that there's another later commit in net-next that gives other event
-strings the same treatment: 59f740a6aeb2cde2f79fe0df38262d4c1ef35cd8 .
+Acked-by: John W. Linville <linville@tuxdriver.com>
 
-- z
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+> index 0f25083..75e83c9 100644
+> --- a/drivers/net/wireless/ipw2x00/ipw2200.c
+> +++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+> @@ -1486,7 +1486,7 @@ static ssize_t store_scan_age(struct device *d, struct device_attribute *attr,
+>  {
+>  	struct ipw_priv *priv = dev_get_drvdata(d);
+>  	struct net_device *dev = priv->net_dev;
+> -	char buffer[] = "00000000";
+> +	char buffer[sizeof("00000000")];
+>  	unsigned long len =
+>  	    (sizeof(buffer) - 1) > count ? count : sizeof(buffer) - 1;
+>  	unsigned long val;
+> diff --git a/drivers/net/wireless/ipw2x00/libipw_module.c b/drivers/net/wireless/ipw2x00/libipw_module.c
+> index 32dee2c..d0c8a67 100644
+> --- a/drivers/net/wireless/ipw2x00/libipw_module.c
+> +++ b/drivers/net/wireless/ipw2x00/libipw_module.c
+> @@ -261,7 +261,7 @@ static int debug_level_proc_open(struct inode *inode, struct file *file)
+>  static ssize_t debug_level_proc_write(struct file *file,
+>  		const char __user *buffer, size_t count, loff_t *pos)
+>  {
+> -	char buf[] = "0x00000000\n";
+> +	char buf[sizeof("0x00000000\n")];
+>  	size_t len = min(sizeof(buf) - 1, count);
+>  	unsigned long val;
+>  
+> -- 
+> 1.7.3.rc1
+> 
+> 
+
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
