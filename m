@@ -1,80 +1,63 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 15/25] drivers/net/wireless/ipw2x00: Use static const
- char arrays
-Date: Tue, 14 Sep 2010 14:41:43 -0400
-Message-ID: <20100914184142.GE2484@tuxdriver.com>
-References: <cover.1284406638.git.joe@perches.com>
- <9c135a60c2ed3431ee59c8de0b39414f6c10299a.1284406638.git.joe@perches.com>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Tue, 14 Sep 2010 11:49:03 -0700
+Message-ID: <1284490143.13351.82.camel@localhost.localdomain>
+References: <1284410580.13351.10.camel@localhost.localdomain>
+	 <4C8F3C77.7010302@redhat.com>
+	 <1284476719.13351.35.camel@localhost.localdomain>
+	 <201009141721.13202.arnd@arndb.de> <20100914152231.GA13105@redhat.com>
+	 <1284480025.13351.49.camel@localhost.localdomain>
+	 <20100914162952.GB13560@redhat.com>
+	 <1284483745.13351.71.camel@localhost.localdomain>
+	 <20100914182707.GB15549@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9c135a60c2ed3431ee59c8de0b39414f6c10299a.1284406638.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:49826 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630Ab0INStI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 14:49:08 -0400
+In-Reply-To: <20100914182707.GB15549@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 13, 2010 at 12:47:53PM -0700, Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/wireless/ipw2x00/ipw2100.c       |    2 +-
->  drivers/net/wireless/ipw2x00/ipw2200.c       |    2 +-
->  drivers/net/wireless/ipw2x00/libipw_module.c |    2 +-
->  3 files changed, 3 insertions(+), 3 deletions(-)
+On Tue, 2010-09-14 at 20:27 +0200, Michael S. Tsirkin wrote:
+> As others said, the harder issues for TX are in determining that it's
+> safe
+> to unpin the memory, and how much memory is it safe to pin to beging
+> with.  For RX we have some more complexity.
+
+I think unpin the memory is in kfree_skb() whenever the last reference
+is gone for TX. What we discussed about here is when/how vhost get
+notified to update ring buffer descriptors. Do I misunderstand something
+here? 
+
+> Well it's up to you of course, but this is not what I would try:
+> if you look at the
+> patchset vhost changes is not the largest part of it,
+> so this sounds a bit like effort duplication.
 > 
-> diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-> index 61915f3..f64103c 100644
-> --- a/drivers/net/wireless/ipw2x00/ipw2100.c
-> +++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-> @@ -4261,7 +4261,7 @@ static ssize_t store_scan_age(struct device *d, struct device_attribute *attr,
->  {
->  	struct ipw2100_priv *priv = dev_get_drvdata(d);
->  	struct net_device *dev = priv->net_dev;
-> -	char buffer[] = "00000000";
-> +	char buffer[sizeof("00000000")];
->  	unsigned long len =
->  	    (sizeof(buffer) - 1) > count ? count : sizeof(buffer) - 1;
->  	unsigned long val;
+> TX only is also much less interesting than full zero copy.
 
-Had to look twice, since you replaced an initialization with a
-declaration.  But in all these cases the initial value was already
-being overwritten before use anyway.
+It's not true. From the performance, TX only has gained big improvement.
+We need to identify how much gain from TX zero copy, and how much gain
+from RX zero copy.
 
-Acked-by: John W. Linville <linville@tuxdriver.com>
+> I think that you should be able to simply combine
+> the two drivers together, add an ioctl to
+> enable/disable zero copy mode of operation. 
 
-> diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-> index 0f25083..75e83c9 100644
-> --- a/drivers/net/wireless/ipw2x00/ipw2200.c
-> +++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-> @@ -1486,7 +1486,7 @@ static ssize_t store_scan_age(struct device *d, struct device_attribute *attr,
->  {
->  	struct ipw_priv *priv = dev_get_drvdata(d);
->  	struct net_device *dev = priv->net_dev;
-> -	char buffer[] = "00000000";
-> +	char buffer[sizeof("00000000")];
->  	unsigned long len =
->  	    (sizeof(buffer) - 1) > count ? count : sizeof(buffer) - 1;
->  	unsigned long val;
-> diff --git a/drivers/net/wireless/ipw2x00/libipw_module.c b/drivers/net/wireless/ipw2x00/libipw_module.c
-> index 32dee2c..d0c8a67 100644
-> --- a/drivers/net/wireless/ipw2x00/libipw_module.c
-> +++ b/drivers/net/wireless/ipw2x00/libipw_module.c
-> @@ -261,7 +261,7 @@ static int debug_level_proc_open(struct inode *inode, struct file *file)
->  static ssize_t debug_level_proc_write(struct file *file,
->  		const char __user *buffer, size_t count, loff_t *pos)
->  {
-> -	char buf[] = "0x00000000\n";
-> +	char buf[sizeof("0x00000000\n")];
->  	size_t len = min(sizeof(buf) - 1, count);
->  	unsigned long val;
->  
-> -- 
-> 1.7.3.rc1
-> 
-> 
+That could work. But what's the purpose to have two drivers if one
+driver can handle it?
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Thanks
+Shirley
+
+
