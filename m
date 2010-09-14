@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: Spread rx buffers between allocated
- queues
-Date: Mon, 13 Sep 2010 20:04:41 -0700 (PDT)
-Message-ID: <20100913.200441.258119112.davem@davemloft.net>
-References: <1284306508.5534.1.camel@lb-tlvb-dmitry>
+Subject: Re: [PATCH] e1000e: Simplify MSI interrupt testing
+Date: Mon, 13 Sep 2010 20:13:40 -0700 (PDT)
+Message-ID: <20100913.201340.68129542.davem@davemloft.net>
+References: <201009131045.40018.jdelvare@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, eilong@broadcom.com
-To: dmitry@broadcom.com
+Cc: jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
+	netdev@vger.kernel.org
+To: jdelvare@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49755
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38668
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753662Ab0INDEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 23:04:22 -0400
-In-Reply-To: <1284306508.5534.1.camel@lb-tlvb-dmitry>
+	by vger.kernel.org with ESMTP id S1752107Ab0INDN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 23:13:27 -0400
+In-Reply-To: <201009131045.40018.jdelvare@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Sun, 12 Sep 2010 17:48:28 +0200
+From: Jean Delvare <jdelvare@suse.de>
+Date: Mon, 13 Sep 2010 10:45:39 +0200
 
->  Default number of rx buffers will be divided equally
->  between allocated queues. This will decrease amount of
->  pre-allocated buffers on systems with multiple CPUs.
->  User can override this behavior with ethtool -G.
->  Minimum amount of rx buffers per queue set to 128.
+> The code is quite convoluted, simplify it. This also avoids calling
+> e1000_request_irq() without testing the value it returned, which was
+> bad.
 > 
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Cc: Bruce Allan <bruce.w.allan@intel.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+> I understand that we need to request the IRQ again after testing, but
+> why doing it twice?
 > 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> I sent this patch to the e1000-devel list on August 26th, 2010, but
+> didn't receive any answer:
+> http://sourceforge.net/mailarchive/forum.php?thread_name=201008261445.44334.jdelvare%40suse.de&forum_name=e1000-devel
 
-Applied, thank you.
+Intel folks, please provide feedback or else I'll just blindly apply Jean's
+patch to the net-next-2.6 tree as long as it compiles ;-)
