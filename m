@@ -1,48 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] enable getsockopt() for IP_NODEFRAG
-Date: Mon, 13 Sep 2010 19:57:43 -0700 (PDT)
-Message-ID: <20100913.195743.70199815.davem@davemloft.net>
-References: <4C8B2130.7030605@gmail.com>
-	<20100912215230.GA2091@jolsa.Belkin>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] flow: better memory management
+Date: Mon, 13 Sep 2010 20:03:26 -0700 (PDT)
+Message-ID: <20100913.200326.232747308.davem@davemloft.net>
+References: <1284138025.24675.100.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org,
-	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100912215230.GA2091-Iosbtnj8/lepmqaOOeWOyQ@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49718
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752177Ab0INDDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 23:03:08 -0400
+In-Reply-To: <1284138025.24675.100.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Sun, 12 Sep 2010 23:52:30 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 10 Sep 2010 19:00:25 +0200
 
-> On Sat, Sep 11, 2010 at 08:26:56AM +0200, Michael Kerrisk wrote:
->> Hello Jiri
->> 
->> While integrating your man-pages patch for IP_NODEFRAG, I noticed 
->> that this option is settable by setsockopt(), but not gettable by 
->> getsockopt(). I suppose this is not intended. The (untested, 
->> trivial) patch below adds getsockopt() support.
->> 
->> The patch is against 2.6.36-rc3.
->> 
->> Cheers,
->> 
->> Michael
->> 
->> PS I've just configured Thunderbird on this machine, hopefully the 
->> patch is not mangled. Please let me know if there are problems.
-> hi,
+> Allocate hash tables for every online cpus, not every possible ones.
 > 
-> applied ok, compiled ok ;) thanks
+> NUMA aware allocations.
 > 
-> Acked-by: Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Dont use a full page on arches where PAGE_SIZE > 1024*sizeof(void *)
+> 
+> misc:
+>   __percpu , __read_mostly, __cpuinit annotations
+>   flow_compare_t is just an "unsigned long"
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks everyone.
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Eric.
+
+> +			return notifier_from_errno(res);	
+
+Trailing whitespace, tsk tsk :-)
