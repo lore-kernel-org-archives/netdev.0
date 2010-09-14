@@ -1,21 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] uwb: use '%pM' format to print MAC address
-Date: Mon, 13 Sep 2010 20:04:19 -0700 (PDT)
-Message-ID: <20100913.200419.200376832.davem@davemloft.net>
-References: <1284315386-27054-1-git-send-email-andy.shevchenko@gmail.com>
+Subject: Re: [PATCH 08/11] drivers/net/skfp: Remove pr_<level> uses of
+ KERN_<level>
+Date: Mon, 13 Sep 2010 20:04:32 -0700 (PDT)
+Message-ID: <20100913.200432.212692652.davem@davemloft.net>
+References: <cover.1284267142.git.joe@perches.com>
+	<fc7fcc49a05ef1c1df45a60130ede87583dbecad.1284267142.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andy.shevchenko@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1284315386-27054-1-git-send-email-andy.shevchenko@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: trivial@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49750
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753674Ab0INDEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 23:04:14 -0400
+In-Reply-To: <fc7fcc49a05ef1c1df45a60130ede87583dbecad.1284267142.git.joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Date: Sun, 12 Sep 2010 21:16:26 +0300
+From: Joe Perches <joe@perches.com>
+Date: Sat, 11 Sep 2010 22:10:56 -0700
 
-> Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 Applied.
