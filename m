@@ -1,78 +1,97 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Tue, 14 Sep 2010 21:01:56 +0200
-Message-ID: <20100914190156.GA16037@redhat.com>
-References: <1284410580.13351.10.camel@localhost.localdomain>
- <4C8F3C77.7010302@redhat.com>
- <1284476719.13351.35.camel@localhost.localdomain>
- <201009141721.13202.arnd@arndb.de>
- <20100914152231.GA13105@redhat.com>
- <1284480025.13351.49.camel@localhost.localdomain>
- <20100914162952.GB13560@redhat.com>
- <1284483745.13351.71.camel@localhost.localdomain>
- <20100914182707.GB15549@redhat.com>
- <1284490143.13351.82.camel@localhost.localdomain>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 18492] New: kernel softirq warning on boot
+Date: Tue, 14 Sep 2010 12:07:38 -0700
+Message-ID: <20100914120738.6a658f69.akpm@linux-foundation.org>
+References: <bug-18492-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1284490143.13351.82.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, hramrach@centrum.cz,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38857 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754674Ab0INTIK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 15:08:10 -0400
+In-Reply-To: <bug-18492-10286@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 14, 2010 at 11:49:03AM -0700, Shirley Ma wrote:
-> On Tue, 2010-09-14 at 20:27 +0200, Michael S. Tsirkin wrote:
-> > As others said, the harder issues for TX are in determining that it's
-> > safe
-> > to unpin the memory, and how much memory is it safe to pin to beging
-> > with.  For RX we have some more complexity.
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Tue, 14 Sep 2010 15:19:30 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=18492
 > 
-> I think unpin the memory is in kfree_skb() whenever the last reference
-> is gone for TX. What we discussed about here is when/how vhost get
-> notified to update ring buffer descriptors. Do I misunderstand something
-> here? 
+>            Summary: kernel softirq warning on boot
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.36-rc4
 
-Right, that's a better way to put it.
+Looks like a post-2.6.35 regression.  I'd be looking at the
+rcu_read_unlock_bh() in netpoll_rx(), added by "netpoll: Fix RCU
+usage".
 
-> > Well it's up to you of course, but this is not what I would try:
-> > if you look at the
-> > patchset vhost changes is not the largest part of it,
-> > so this sounds a bit like effort duplication.
-> > 
-> > TX only is also much less interesting than full zero copy.
+
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: hramrach@centrum.cz
+>         Regression: No
 > 
-> It's not true. From the performance, TX only has gained big improvement.
-> We need to identify how much gain from TX zero copy, and how much gain
-> from RX zero copy.
-
-I was speaking from the code point of view:
-since we'll want both TX and RX eventually it's nice to
-see that some thought was given to RX even if we only merge
-TX as a first step.
-
->From the product POV, RX is already slower (more interrupts, etc)
-than TX so speeding it up might be more important,
-but I agree, every bit helps.
-
-> > I think that you should be able to simply combine
-> > the two drivers together, add an ioctl to
-> > enable/disable zero copy mode of operation. 
 > 
-> That could work. But what's the purpose to have two drivers if one
-> driver can handle it?
+> In the 2.6.36 rc kernels I noticed a warning on every boot.
 > 
-> Thanks
-> Shirley
+> It may be related to upgrading the cpu to dual-core rather than upgrading the
+> kernel.
+> 
+>  [   14.332011] ------------[ cut here ]------------
+>  [   14.332021] WARNING: at kernel/softirq.c:143
+> _local_bh_enable_ip+0x41/0x8b()
+>  [   14.332024] Hardware name: System Product Name
+>  [   14.332026] Modules linked in: bridge stp llc reiserfs fuse coretemp
+> hwmon_vid radeonfb fb_d
+> dc loop firewire_sbp2 snd_hda_codec_realtek snd_hda_intel snd_hda_codec
+> snd_hwdep snd_pcm_oss snd_mixer_oss snd_pcm snd_seq_mid
+> i snd_rawmidi snd_seq_midi_event snd_seq snd_timer snd_seq_device asus_atk0110
+> snd wacom processor soundcore button psmouse lm6
+> 3 snd_page_alloc led_class parport_pc i2c_i801 shpchp parport serio_raw joydev
+> evdev tpm_tis pci_hotplug tpm tpm_bios rng_core 
+> ext3 jbd mbcache usbhid hid sg sr_mod cdrom sd_mod crc_t10dif radeon pata_acpi
+> ttm ata_generic drm_kms_helper ata_piix ehci_hcd
+>  uhci_hcd drm i2c_algo_bit i2c_core libata atl1 thermal thermal_sys
+> firewire_ohci usbcore mii firewire_core crc_itu_t scsi_mod 
+> nls_base [last unloaded: scsi_wait_scan]
+>  [   14.332101] Pid: 0, comm: swapper Not tainted 2.6.36-rc4-r600fence-amd64 #1
+>  [   14.332104] Call Trace:
+>  [   14.332106]  <IRQ>  [<ffffffff810442f8>] ? warn_slowpath_common+0x78/0x8c
+>  [   14.332116]  [<ffffffff8104985b>] ? _local_bh_enable_ip+0x41/0x8b
+>  [   14.332122]  [<ffffffff812515e5>] ? netpoll_rx+0x6d/0x79
+>  [   14.332126]  [<ffffffff81253721>] ? netif_rx+0xd/0x7b
+>  [   14.332130]  [<ffffffff810403a6>] ? rebalance_domains+0xd1/0x13b
+>  [   14.332135]  [<ffffffff810aaf19>] ? perf_event_task_tick+0x6a/0x186
+>  [   14.332146]  [<ffffffffa00c2994>] ? atl1_intr+0x8d9/0x9a5 [atl1]
+>  [   14.332151]  [<ffffffff8108d68b>] ? handle_IRQ_event+0x4c/0x104
+>  [   14.332156]  [<ffffffff8100e6a6>] ? read_tsc+0x5/0x16
+>  [   14.332160]  [<ffffffff8108f2fb>] ? handle_edge_irq+0xd9/0x120
+>  [   14.332164]  [<ffffffff8100af68>] ? handle_irq+0x17/0x1f
+>  [   14.332168]  [<ffffffff8100a62a>] ? do_IRQ+0x54/0xb9
+>  [   14.332173]  [<ffffffff81305093>] ? ret_from_intr+0x0/0x11
+>  [   14.332175]  <EOI>  [<ffffffff8100fb50>] ? mwait_idle+0x75/0x80
+>  [   14.332182]  [<ffffffff8100fb02>] ? mwait_idle+0x27/0x80
+>  [   14.332187]  [<ffffffff81007b64>] ? cpu_idle+0xaa/0x120
+>  [   14.332192]  [<ffffffff816bad4f>] ? start_kernel+0x3ce/0x3d9
+>  [   14.332197]  [<ffffffff816ba3ba>] ? x86_64_start_kernel+0xf9/0x106
+>  [   14.332200] ---[ end trace 76feca083f1d81b1 ]---
+> 
 
-This was just an idea: I thought it's a good way for people interested
-in this zero copy thing to combine forces and avoid making
-the same mistakes, but it's not a must of course.
-
--- 
-MST
