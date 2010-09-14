@@ -1,39 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] flow: better memory management
-Date: Mon, 13 Sep 2010 20:03:26 -0700 (PDT)
-Message-ID: <20100913.200326.232747308.davem@davemloft.net>
-References: <1284138025.24675.100.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next] sundance: Add power management hooks
+Date: Mon, 13 Sep 2010 20:03:44 -0700 (PDT)
+Message-ID: <20100913.200344.229747761.davem@davemloft.net>
+References: <20100911092313.GA5887@hera.kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: dkirjanov@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49718
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49722
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752177Ab0INDDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 23:03:08 -0400
-In-Reply-To: <1284138025.24675.100.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1752177Ab0INDDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Sep 2010 23:03:25 -0400
+In-Reply-To: <20100911092313.GA5887@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Sep 2010 19:00:25 +0200
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Date: Sat, 11 Sep 2010 09:23:13 +0000
 
-> Allocate hash tables for every online cpus, not every possible ones.
+> This patch to adds support for PM hooks into sundance driver
 > 
-> NUMA aware allocations.
-> 
-> Dont use a full page on arches where PAGE_SIZE > 1024*sizeof(void *)
-> 
-> misc:
->   __percpu , __read_mostly, __cpuinit annotations
->   flow_compare_t is just an "unsigned long"
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 
-Applied, thanks Eric.
-
-> +			return notifier_from_errno(res);	
-
-Trailing whitespace, tsk tsk :-)
+Applied.
