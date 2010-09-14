@@ -1,7 +1,7 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v4 01/10] net: davinci_emac: separate out davinci mdio
-Date: Tue, 14 Sep 2010 17:10:03 -0400
-Message-ID: <1284498612-25294-2-git-send-email-cyril@ti.com>
+Subject: [PATCH v4 05/10] davinci: cleanup mdio arch code and switch to phy_id
+Date: Tue, 14 Sep 2010 17:10:07 -0400
+Message-ID: <1284498612-25294-6-git-send-email-cyril@ti.com>
 References: <1284498612-25294-1-git-send-email-cyril@ti.com>
 Cc: michael.williamson@criticallink.com, caglarakyuz@gmail.com,
 	bparrot@ti.com, Cyril Chemparathy <cyril@ti.com>
@@ -9,561 +9,336 @@ To: netdev@vger.kernel.org,
 	davinci-linux-open-source@linux.davincidsp.com,
 	linux-omap@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:58866 "EHLO arroyo.ext.ti.com"
+Received: from bear.ext.ti.com ([192.94.94.41]:49012 "EHLO bear.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753824Ab0INVKd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Sep 2010 17:10:33 -0400
+	id S1753205Ab0INVKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Sep 2010 17:10:34 -0400
 In-Reply-To: <1284498612-25294-1-git-send-email-cyril@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Davinci's MDIO controller is present on other TI devices, without an
-accompanying EMAC.  For example, on tnetv107x, the same MDIO module is used in
-conjunction with a 3-port switch hardware.
+This patch removes davinci architecture code that has now been rendered
+useless by the previous patches in the MDIO separation series.
 
-By separating the MDIO controller code into its own platform driver, this
-patch allows common logic to be reused on such platforms.
+In addition, the earlier phy_mask definitions have been replaced with
+corresponding phy_id definitions.
 
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
 Tested-by: Michael Williamson <michael.williamson@criticallink.com>
 Tested-by: Caglar Akyuz <caglarakyuz@gmail.com>
 ---
- drivers/net/Kconfig          |   10 +
- drivers/net/Makefile         |    1 +
- drivers/net/davinci_mdio.c   |  475 ++++++++++++++++++++++++++++++++++++++++++
- include/linux/davinci_emac.h |    4 +
- 4 files changed, 490 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/davinci_mdio.c
+ arch/arm/mach-davinci/board-da830-evm.c     |    7 ++-----
+ arch/arm/mach-davinci/board-da850-evm.c     |    7 ++-----
+ arch/arm/mach-davinci/board-dm365-evm.c     |    7 ++-----
+ arch/arm/mach-davinci/board-dm644x-evm.c    |    8 ++------
+ arch/arm/mach-davinci/board-dm646x-evm.c    |    7 ++-----
+ arch/arm/mach-davinci/board-mityomapl138.c  |    8 ++------
+ arch/arm/mach-davinci/board-neuros-osd2.c   |    7 ++-----
+ arch/arm/mach-davinci/board-sffsdr.c        |    7 ++-----
+ arch/arm/mach-davinci/devices-da8xx.c       |    2 --
+ arch/arm/mach-davinci/dm365.c               |    1 -
+ arch/arm/mach-davinci/dm644x.c              |    1 -
+ arch/arm/mach-davinci/dm646x.c              |    1 -
+ arch/arm/mach-davinci/include/mach/dm365.h  |    1 -
+ arch/arm/mach-davinci/include/mach/dm644x.h |    1 -
+ arch/arm/mach-davinci/include/mach/dm646x.h |    1 -
+ 15 files changed, 16 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 2cc81a5..c5c86e0 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -958,6 +958,16 @@ config TI_DAVINCI_EMAC
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called davinci_emac_driver.  This is recommended.
+diff --git a/arch/arm/mach-davinci/board-da830-evm.c b/arch/arm/mach-davinci/board-da830-evm.c
+index ef1ab0b..1bb89d3 100644
+--- a/arch/arm/mach-davinci/board-da830-evm.c
++++ b/arch/arm/mach-davinci/board-da830-evm.c
+@@ -31,9 +31,7 @@
+ #include <mach/usb.h>
+ #include <mach/aemif.h>
  
-+config TI_DAVINCI_MDIO
-+	tristate "TI DaVinci MDIO Support"
-+	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
-+	select PHYLIB
-+	help
-+	  This driver supports TI's DaVinci MDIO module.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called davinci_mdio.  This is recommended.
-+
- config DM9000
- 	tristate "DM9000 support"
- 	depends on ARM || BLACKFIN || MIPS
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 3e8f150..d38a7ab 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -7,6 +7,7 @@ obj-$(CONFIG_MDIO) += mdio.o
- obj-$(CONFIG_PHYLIB) += phy/
+-#define DA830_EVM_PHY_MASK		0x0
+-#define DA830_EVM_MDIO_FREQUENCY	2200000	/* PHY bus frequency */
+-
++#define DA830_EVM_PHY_ID		""
+ /*
+  * USB1 VBUS is controlled by GPIO1[15], over-current is reported on GPIO2[4].
+  */
+@@ -558,9 +556,8 @@ static __init void da830_evm_init(void)
  
- obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
-+obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
+ 	da830_evm_usb_init();
  
- obj-$(CONFIG_E1000) += e1000/
- obj-$(CONFIG_E1000E) += e1000e/
-diff --git a/drivers/net/davinci_mdio.c b/drivers/net/davinci_mdio.c
-new file mode 100644
-index 0000000..7615040
---- /dev/null
-+++ b/drivers/net/davinci_mdio.c
-@@ -0,0 +1,475 @@
-+/*
-+ * DaVinci MDIO Module driver
-+ *
-+ * Copyright (C) 2010 Texas Instruments.
-+ *
-+ * Shamelessly ripped out of davinci_emac.c, original copyrights follow:
-+ *
-+ * Copyright (C) 2009 Texas Instruments.
-+ *
-+ * ---------------------------------------------------------------------------
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ * ---------------------------------------------------------------------------
-+ */
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/platform_device.h>
-+#include <linux/delay.h>
-+#include <linux/sched.h>
-+#include <linux/slab.h>
-+#include <linux/phy.h>
-+#include <linux/clk.h>
-+#include <linux/err.h>
-+#include <linux/io.h>
-+#include <linux/davinci_emac.h>
-+
-+/*
-+ * This timeout definition is a worst-case ultra defensive measure against
-+ * unexpected controller lock ups.  Ideally, we should never ever hit this
-+ * scenario in practice.
-+ */
-+#define MDIO_TIMEOUT		100 /* msecs */
-+
-+#define PHY_REG_MASK		0x1f
-+#define PHY_ID_MASK		0x1f
-+
-+#define DEF_OUT_FREQ		2200000		/* 2.2 MHz */
-+
-+struct davinci_mdio_regs {
-+	u32	version;
-+	u32	control;
-+#define CONTROL_IDLE		BIT(31)
-+#define CONTROL_ENABLE		BIT(30)
-+#define CONTROL_MAX_DIV		(0xff)
-+
-+	u32	alive;
-+	u32	link;
-+	u32	linkintraw;
-+	u32	linkintmasked;
-+	u32	__reserved_0[2];
-+	u32	userintraw;
-+	u32	userintmasked;
-+	u32	userintmaskset;
-+	u32	userintmaskclr;
-+	u32	__reserved_1[20];
-+
-+	struct {
-+		u32	access;
-+#define USERACCESS_GO		BIT(31)
-+#define USERACCESS_WRITE	BIT(30)
-+#define USERACCESS_ACK		BIT(29)
-+#define USERACCESS_READ		(0)
-+#define USERACCESS_DATA		(0xffff)
-+
-+		u32	physel;
-+	}	user[0];
-+};
-+
-+struct mdio_platform_data default_pdata = {
-+	.bus_freq = DEF_OUT_FREQ,
-+};
-+
-+struct davinci_mdio_data {
-+	struct mdio_platform_data pdata;
-+	struct davinci_mdio_regs __iomem *regs;
-+	spinlock_t	lock;
-+	struct clk	*clk;
-+	struct device	*dev;
-+	struct mii_bus	*bus;
-+	bool		suspended;
-+	unsigned long	access_time; /* jiffies */
-+};
-+
-+static void __davinci_mdio_reset(struct davinci_mdio_data *data)
-+{
-+	u32 mdio_in, div, mdio_out_khz, access_time;
-+
-+	mdio_in = clk_get_rate(data->clk);
-+	div = (mdio_in / data->pdata.bus_freq) - 1;
-+	if (div > CONTROL_MAX_DIV)
-+		div = CONTROL_MAX_DIV;
-+
-+	/* set enable and clock divider */
-+	__raw_writel(div | CONTROL_ENABLE, &data->regs->control);
-+
-+	/*
-+	 * One mdio transaction consists of:
-+	 *	32 bits of preamble
-+	 *	32 bits of transferred data
-+	 *	24 bits of bus yield (not needed unless shared?)
-+	 */
-+	mdio_out_khz = mdio_in / (1000 * (div + 1));
-+	access_time  = (88 * 1000) / mdio_out_khz;
-+
-+	/*
-+	 * In the worst case, we could be kicking off a user-access immediately
-+	 * after the mdio bus scan state-machine triggered its own read.  If
-+	 * so, our request could get deferred by one access cycle.  We
-+	 * defensively allow for 4 access cycles.
-+	 */
-+	data->access_time = usecs_to_jiffies(access_time * 4);
-+	if (!data->access_time)
-+		data->access_time = 1;
-+}
-+
-+static int davinci_mdio_reset(struct mii_bus *bus)
-+{
-+	struct davinci_mdio_data *data = bus->priv;
-+	u32 phy_mask, ver;
-+
-+	__davinci_mdio_reset(data);
-+
-+	/* wait for scan logic to settle */
-+	msleep(PHY_MAX_ADDR * data->access_time);
-+
-+	/* dump hardware version info */
-+	ver = __raw_readl(&data->regs->version);
-+	dev_info(data->dev, "davinci mdio revision %d.%d\n",
-+		 (ver >> 8) & 0xff, ver & 0xff);
-+
-+	/* get phy mask from the alive register */
-+	phy_mask = __raw_readl(&data->regs->alive);
-+	if (phy_mask) {
-+		/* restrict mdio bus to live phys only */
-+		dev_info(data->dev, "detected phy mask %x\n", ~phy_mask);
-+		phy_mask = ~phy_mask;
-+	} else {
-+		/* desperately scan all phys */
-+		dev_warn(data->dev, "no live phy, scanning all\n");
-+		phy_mask = 0;
-+	}
-+	data->bus->phy_mask = phy_mask;
-+
-+	return 0;
-+}
-+
-+/* wait until hardware is ready for another user access */
-+static inline int wait_for_user_access(struct davinci_mdio_data *data)
-+{
-+	struct davinci_mdio_regs __iomem *regs = data->regs;
-+	unsigned long timeout = jiffies + msecs_to_jiffies(MDIO_TIMEOUT);
-+	u32 reg;
-+
-+	while (time_after(timeout, jiffies)) {
-+		reg = __raw_readl(&regs->user[0].access);
-+		if ((reg & USERACCESS_GO) == 0)
-+			return 0;
-+
-+		reg = __raw_readl(&regs->control);
-+		if ((reg & CONTROL_IDLE) == 0)
-+			continue;
-+
-+		/*
-+		 * An emac soft_reset may have clobbered the mdio controller's
-+		 * state machine.  We need to reset and retry the current
-+		 * operation
-+		 */
-+		dev_warn(data->dev, "resetting idled controller\n");
-+		__davinci_mdio_reset(data);
-+		return -EAGAIN;
-+	}
-+	dev_err(data->dev, "timed out waiting for user access\n");
-+	return -ETIMEDOUT;
-+}
-+
-+/* wait until hardware state machine is idle */
-+static inline int wait_for_idle(struct davinci_mdio_data *data)
-+{
-+	struct davinci_mdio_regs __iomem *regs = data->regs;
-+	unsigned long timeout = jiffies + msecs_to_jiffies(MDIO_TIMEOUT);
-+
-+	while (time_after(timeout, jiffies)) {
-+		if (__raw_readl(&regs->control) & CONTROL_IDLE)
-+			return 0;
-+	}
-+	dev_err(data->dev, "timed out waiting for idle\n");
-+	return -ETIMEDOUT;
-+}
-+
-+static int davinci_mdio_read(struct mii_bus *bus, int phy_id, int phy_reg)
-+{
-+	struct davinci_mdio_data *data = bus->priv;
-+	u32 reg;
-+	int ret;
-+
-+	if (phy_reg & ~PHY_REG_MASK || phy_id & ~PHY_ID_MASK)
-+		return -EINVAL;
-+
-+	spin_lock(&data->lock);
-+
-+	if (data->suspended) {
-+		spin_unlock(&data->lock);
-+		return -ENODEV;
-+	}
-+
-+	reg = (USERACCESS_GO | USERACCESS_READ | (phy_reg << 21) |
-+	       (phy_id << 16));
-+
-+	while (1) {
-+		ret = wait_for_user_access(data);
-+		if (ret == -EAGAIN)
-+			continue;
-+		if (ret < 0)
-+			break;
-+
-+		__raw_writel(reg, &data->regs->user[0].access);
-+
-+		ret = wait_for_user_access(data);
-+		if (ret == -EAGAIN)
-+			continue;
-+		if (ret < 0)
-+			break;
-+
-+		reg = __raw_readl(&data->regs->user[0].access);
-+		ret = (reg & USERACCESS_ACK) ? (reg & USERACCESS_DATA) : -EIO;
-+		break;
-+	}
-+
-+	spin_unlock(&data->lock);
-+
-+	return ret;
-+}
-+
-+static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
-+			      int phy_reg, u16 phy_data)
-+{
-+	struct davinci_mdio_data *data = bus->priv;
-+	u32 reg;
-+	int ret;
-+
-+	if (phy_reg & ~PHY_REG_MASK || phy_id & ~PHY_ID_MASK)
-+		return -EINVAL;
-+
-+	spin_lock(&data->lock);
-+
-+	if (data->suspended) {
-+		spin_unlock(&data->lock);
-+		return -ENODEV;
-+	}
-+
-+	reg = (USERACCESS_GO | USERACCESS_WRITE | (phy_reg << 21) |
-+		   (phy_id << 16) | (phy_data & USERACCESS_DATA));
-+
-+	while (1) {
-+		ret = wait_for_user_access(data);
-+		if (ret == -EAGAIN)
-+			continue;
-+		if (ret < 0)
-+			break;
-+
-+		__raw_writel(reg, &data->regs->user[0].access);
-+
-+		ret = wait_for_user_access(data);
-+		if (ret == -EAGAIN)
-+			continue;
-+		break;
-+	}
-+
-+	spin_unlock(&data->lock);
-+
-+	return 0;
-+}
-+
-+static int __devinit davinci_mdio_probe(struct platform_device *pdev)
-+{
-+	struct mdio_platform_data *pdata = pdev->dev.platform_data;
-+	struct device *dev = &pdev->dev;
-+	struct davinci_mdio_data *data;
-+	struct resource *res;
-+	struct phy_device *phy;
-+	int ret, addr;
-+
-+	data = kzalloc(sizeof(*data), GFP_KERNEL);
-+	if (!data) {
-+		dev_err(dev, "failed to alloc device data\n");
-+		return -ENOMEM;
-+	}
-+
-+	data->pdata = pdata ? (*pdata) : default_pdata;
-+
-+	data->bus = mdiobus_alloc();
-+	if (!data->bus) {
-+		dev_err(dev, "failed to alloc mii bus\n");
-+		ret = -ENOMEM;
-+		goto bail_out;
-+	}
-+
-+	data->bus->name		= dev_name(dev);
-+	data->bus->read		= davinci_mdio_read,
-+	data->bus->write	= davinci_mdio_write,
-+	data->bus->reset	= davinci_mdio_reset,
-+	data->bus->parent	= dev;
-+	data->bus->priv		= data;
-+	snprintf(data->bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
-+
-+	data->clk = clk_get(dev, NULL);
-+	if (IS_ERR(data->clk)) {
-+		data->clk = NULL;
-+		dev_err(dev, "failed to get device clock\n");
-+		ret = PTR_ERR(data->clk);
-+		goto bail_out;
-+	}
-+
-+	clk_enable(data->clk);
-+
-+	dev_set_drvdata(dev, data);
-+	data->dev = dev;
-+	spin_lock_init(&data->lock);
-+
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	if (!res) {
-+		dev_err(dev, "could not find register map resource\n");
-+		ret = -ENOENT;
-+		goto bail_out;
-+	}
-+
-+	res = devm_request_mem_region(dev, res->start, resource_size(res),
-+					    dev_name(dev));
-+	if (!res) {
-+		dev_err(dev, "could not allocate register map resource\n");
-+		ret = -ENXIO;
-+		goto bail_out;
-+	}
-+
-+	data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
-+	if (!data->regs) {
-+		dev_err(dev, "could not map mdio registers\n");
-+		ret = -ENOMEM;
-+		goto bail_out;
-+	}
-+
-+	/* register the mii bus */
-+	ret = mdiobus_register(data->bus);
-+	if (ret)
-+		goto bail_out;
-+
-+	/* scan and dump the bus */
-+	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
-+		phy = data->bus->phy_map[addr];
-+		if (phy) {
-+			dev_info(dev, "phy[%d]: device %s, driver %s\n",
-+				 phy->addr, dev_name(&phy->dev),
-+				 phy->drv ? phy->drv->name : "unknown");
-+		}
-+	}
-+
-+	return 0;
-+
-+bail_out:
-+	if (data->bus)
-+		mdiobus_free(data->bus);
-+
-+	if (data->clk) {
-+		clk_disable(data->clk);
-+		clk_put(data->clk);
-+	}
-+
-+	kfree(data);
-+
-+	return ret;
-+}
-+
-+static int __devexit davinci_mdio_remove(struct platform_device *pdev)
-+{
-+	struct device *dev = &pdev->dev;
-+	struct davinci_mdio_data *data = dev_get_drvdata(dev);
-+
-+	if (data->bus)
-+		mdiobus_free(data->bus);
-+
-+	if (data->clk) {
-+		clk_disable(data->clk);
-+		clk_put(data->clk);
-+	}
-+
-+	dev_set_drvdata(dev, NULL);
-+
-+	kfree(data);
-+
-+	return 0;
-+}
-+
-+static int davinci_mdio_suspend(struct device *dev)
-+{
-+	struct davinci_mdio_data *data = dev_get_drvdata(dev);
-+	u32 ctrl;
-+
-+	spin_lock(&data->lock);
-+
-+	/* shutdown the scan state machine */
-+	ctrl = __raw_readl(&data->regs->control);
-+	ctrl &= ~CONTROL_ENABLE;
-+	__raw_writel(ctrl, &data->regs->control);
-+	wait_for_idle(data);
-+
-+	if (data->clk)
-+		clk_disable(data->clk);
-+
-+	data->suspended = true;
-+	spin_unlock(&data->lock);
-+
-+	return 0;
-+}
-+
-+static int davinci_mdio_resume(struct device *dev)
-+{
-+	struct davinci_mdio_data *data = dev_get_drvdata(dev);
-+	u32 ctrl;
-+
-+	spin_lock(&data->lock);
-+	if (data->clk)
-+		clk_enable(data->clk);
-+
-+	/* restart the scan state machine */
-+	ctrl = __raw_readl(&data->regs->control);
-+	ctrl |= CONTROL_ENABLE;
-+	__raw_writel(ctrl, &data->regs->control);
-+
-+	data->suspended = false;
-+	spin_unlock(&data->lock);
-+
-+	return 0;
-+}
-+
-+static const struct dev_pm_ops davinci_mdio_pm_ops = {
-+	.suspend	= davinci_mdio_suspend,
-+	.resume		= davinci_mdio_resume,
-+};
-+
-+static struct platform_driver davinci_mdio_driver = {
-+	.driver = {
-+		.name	 = "davinci_mdio",
-+		.owner	 = THIS_MODULE,
-+		.pm	 = &davinci_mdio_pm_ops,
-+	},
-+	.probe = davinci_mdio_probe,
-+	.remove = __devexit_p(davinci_mdio_remove),
-+};
-+
-+static int __init davinci_mdio_init(void)
-+{
-+	return platform_driver_register(&davinci_mdio_driver);
-+}
-+device_initcall(davinci_mdio_init);
-+
-+static void __exit davinci_mdio_exit(void)
-+{
-+	platform_driver_unregister(&davinci_mdio_driver);
-+}
-+module_exit(davinci_mdio_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("DaVinci MDIO driver");
-diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
-index 7c930db..a04fd8c 100644
---- a/include/linux/davinci_emac.h
-+++ b/include/linux/davinci_emac.h
-@@ -14,6 +14,10 @@
- #include <linux/if_ether.h>
- #include <linux/memory.h>
+-	soc_info->emac_pdata->phy_mask = DA830_EVM_PHY_MASK;
+-	soc_info->emac_pdata->mdio_max_freq = DA830_EVM_MDIO_FREQUENCY;
+ 	soc_info->emac_pdata->rmii_en = 1;
++	soc_info->emac_pdata->phy_id = DA830_EVM_PHY_ID;
  
-+struct mdio_platform_data {
-+	unsigned long		bus_freq;
-+};
-+
- struct emac_platform_data {
- 	char mac_addr[ETH_ALEN];
- 	u32 ctrl_reg_offset;
+ 	ret = davinci_cfg_reg_list(da830_cpgmac_pins);
+ 	if (ret)
+diff --git a/arch/arm/mach-davinci/board-da850-evm.c b/arch/arm/mach-davinci/board-da850-evm.c
+index ac2297c..5e435b0 100644
+--- a/arch/arm/mach-davinci/board-da850-evm.c
++++ b/arch/arm/mach-davinci/board-da850-evm.c
+@@ -38,9 +38,7 @@
+ #include <mach/mux.h>
+ #include <mach/aemif.h>
+ 
+-#define DA850_EVM_PHY_MASK		0x1
+-#define DA850_EVM_MDIO_FREQUENCY	2200000 /* PHY bus frequency */
+-
++#define DA850_EVM_PHY_ID		"0:00"
+ #define DA850_LCD_PWR_PIN		GPIO_TO_PIN(2, 8)
+ #define DA850_LCD_BL_PIN		GPIO_TO_PIN(2, 15)
+ 
+@@ -678,8 +676,7 @@ static int __init da850_evm_config_emac(void)
+ 	/* Enable/Disable MII MDIO clock */
+ 	gpio_direction_output(DA850_MII_MDIO_CLKEN_PIN, rmii_en);
+ 
+-	soc_info->emac_pdata->phy_mask = DA850_EVM_PHY_MASK;
+-	soc_info->emac_pdata->mdio_max_freq = DA850_EVM_MDIO_FREQUENCY;
++	soc_info->emac_pdata->phy_id = DA850_EVM_PHY_ID;
+ 
+ 	ret = da8xx_register_emac();
+ 	if (ret)
+diff --git a/arch/arm/mach-davinci/board-dm365-evm.c b/arch/arm/mach-davinci/board-dm365-evm.c
+index bdea2da..a06b84c 100644
+--- a/arch/arm/mach-davinci/board-dm365-evm.c
++++ b/arch/arm/mach-davinci/board-dm365-evm.c
+@@ -54,9 +54,7 @@ static inline int have_tvp7002(void)
+ 	return 0;
+ }
+ 
+-#define DM365_EVM_PHY_MASK		(0x2)
+-#define DM365_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
+-
++#define DM365_EVM_PHY_ID		"0:01"
+ /*
+  * A MAX-II CPLD is used for various board control functions.
+  */
+@@ -535,8 +533,7 @@ fail:
+ 
+ 		/* ... and ENET ... */
+ 		dm365evm_emac_configure();
+-		soc_info->emac_pdata->phy_mask = DM365_EVM_PHY_MASK;
+-		soc_info->emac_pdata->mdio_max_freq = DM365_EVM_MDIO_FREQUENCY;
++		soc_info->emac_pdata->phy_id = DM365_EVM_PHY_ID;
+ 		resets &= ~BIT(3);
+ 
+ 		/* ... and AIC33 */
+diff --git a/arch/arm/mach-davinci/board-dm644x-evm.c b/arch/arm/mach-davinci/board-dm644x-evm.c
+index 65bb940..44a2f0a 100644
+--- a/arch/arm/mach-davinci/board-dm644x-evm.c
++++ b/arch/arm/mach-davinci/board-dm644x-evm.c
+@@ -39,9 +39,7 @@
+ #include <mach/usb.h>
+ #include <mach/aemif.h>
+ 
+-#define DM644X_EVM_PHY_MASK		(0x2)
+-#define DM644X_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
+-
++#define DM644X_EVM_PHY_ID		"0:01"
+ #define LXT971_PHY_ID	(0x001378e2)
+ #define LXT971_PHY_MASK	(0xfffffff0)
+ 
+@@ -707,9 +705,7 @@ static __init void davinci_evm_init(void)
+ 	davinci_serial_init(&uart_config);
+ 	dm644x_init_asp(&dm644x_evm_snd_data);
+ 
+-	soc_info->emac_pdata->phy_mask = DM644X_EVM_PHY_MASK;
+-	soc_info->emac_pdata->mdio_max_freq = DM644X_EVM_MDIO_FREQUENCY;
+-
++	soc_info->emac_pdata->phy_id = DM644X_EVM_PHY_ID;
+ 	/* Register the fixup for PHY on DaVinci */
+ 	phy_register_fixup_for_uid(LXT971_PHY_ID, LXT971_PHY_MASK,
+ 					davinci_phy_fixup);
+diff --git a/arch/arm/mach-davinci/board-dm646x-evm.c b/arch/arm/mach-davinci/board-dm646x-evm.c
+index 5a29955..67669bb 100644
+--- a/arch/arm/mach-davinci/board-dm646x-evm.c
++++ b/arch/arm/mach-davinci/board-dm646x-evm.c
+@@ -729,9 +729,7 @@ static struct davinci_uart_config uart_config __initdata = {
+ 	.enabled_uarts = (1 << 0),
+ };
+ 
+-#define DM646X_EVM_PHY_MASK		(0x2)
+-#define DM646X_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
+-
++#define DM646X_EVM_PHY_ID		"0:01"
+ /*
+  * The following EDMA channels/slots are not being used by drivers (for
+  * example: Timer, GPIO, UART events etc) on dm646x, hence they are being
+@@ -784,8 +782,7 @@ static __init void evm_init(void)
+ 	if (HAS_ATA)
+ 		davinci_init_ide();
+ 
+-	soc_info->emac_pdata->phy_mask = DM646X_EVM_PHY_MASK;
+-	soc_info->emac_pdata->mdio_max_freq = DM646X_EVM_MDIO_FREQUENCY;
++	soc_info->emac_pdata->phy_id = DM646X_EVM_PHY_ID;
+ }
+ 
+ #define DM646X_EVM_REF_FREQ		27000000
+diff --git a/arch/arm/mach-davinci/board-mityomapl138.c b/arch/arm/mach-davinci/board-mityomapl138.c
+index 84d5aff..6f12a18 100644
+--- a/arch/arm/mach-davinci/board-mityomapl138.c
++++ b/arch/arm/mach-davinci/board-mityomapl138.c
+@@ -24,9 +24,7 @@
+ #include <mach/nand.h>
+ #include <mach/mux.h>
+ 
+-#define MITYOMAPL138_PHY_MASK		0x08 /* hardcoded for now */
+-#define MITYOMAPL138_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
+-
++#define MITYOMAPL138_PHY_ID		"0:03"
+ static struct davinci_i2c_platform_data mityomap_i2c_0_pdata = {
+ 	.bus_freq	= 100,	/* kHz */
+ 	.bus_delay	= 0,	/* usec */
+@@ -273,9 +271,7 @@ static void __init mityomapl138_config_emac(void)
+ 	/* configure the CFGCHIP3 register for RMII or MII */
+ 	__raw_writel(val, cfg_chip3_base);
+ 
+-	soc_info->emac_pdata->phy_mask = MITYOMAPL138_PHY_MASK;
+-	pr_debug("setting phy_mask to %x\n", soc_info->emac_pdata->phy_mask);
+-	soc_info->emac_pdata->mdio_max_freq = MITYOMAPL138_MDIO_FREQUENCY;
++	soc_info->emac_pdata->phy_id = MITYOMAPL138_PHY_ID;
+ 
+ 	ret = da8xx_register_emac();
+ 	if (ret)
+diff --git a/arch/arm/mach-davinci/board-neuros-osd2.c b/arch/arm/mach-davinci/board-neuros-osd2.c
+index 4c30e92..04a8d16 100644
+--- a/arch/arm/mach-davinci/board-neuros-osd2.c
++++ b/arch/arm/mach-davinci/board-neuros-osd2.c
+@@ -39,9 +39,7 @@
+ #include <mach/mmc.h>
+ #include <mach/usb.h>
+ 
+-#define NEUROS_OSD2_PHY_MASK		0x2
+-#define NEUROS_OSD2_MDIO_FREQUENCY	2200000 /* PHY bus frequency */
+-
++#define NEUROS_OSD2_PHY_ID		"0:01"
+ #define LXT971_PHY_ID			0x001378e2
+ #define LXT971_PHY_MASK			0xfffffff0
+ 
+@@ -252,8 +250,7 @@ static __init void davinci_ntosd2_init(void)
+ 	davinci_serial_init(&uart_config);
+ 	dm644x_init_asp(&dm644x_ntosd2_snd_data);
+ 
+-	soc_info->emac_pdata->phy_mask = NEUROS_OSD2_PHY_MASK;
+-	soc_info->emac_pdata->mdio_max_freq = NEUROS_OSD2_MDIO_FREQUENCY;
++	soc_info->emac_pdata->phy_id = NEUROS_OSD2_PHY_ID;
+ 
+ 	davinci_setup_usb(1000, 8);
+ 	/*
+diff --git a/arch/arm/mach-davinci/board-sffsdr.c b/arch/arm/mach-davinci/board-sffsdr.c
+index 23e664a..ab4292d 100644
+--- a/arch/arm/mach-davinci/board-sffsdr.c
++++ b/arch/arm/mach-davinci/board-sffsdr.c
+@@ -42,9 +42,7 @@
+ #include <mach/mux.h>
+ #include <mach/usb.h>
+ 
+-#define SFFSDR_PHY_MASK		(0x2)
+-#define SFFSDR_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
+-
++#define SFFSDR_PHY_ID		"0:01"
+ static struct mtd_partition davinci_sffsdr_nandflash_partition[] = {
+ 	/* U-Boot Environment: Block 0
+ 	 * UBL:                Block 1
+@@ -143,8 +141,7 @@ static __init void davinci_sffsdr_init(void)
+ 			     ARRAY_SIZE(davinci_sffsdr_devices));
+ 	sffsdr_init_i2c();
+ 	davinci_serial_init(&uart_config);
+-	soc_info->emac_pdata->phy_mask = SFFSDR_PHY_MASK;
+-	soc_info->emac_pdata->mdio_max_freq = SFFSDR_MDIO_FREQUENCY;
++	soc_info->emac_pdata->phy_id = SFFSDR_PHY_ID;
+ 	davinci_setup_usb(0, 0); /* We support only peripheral mode. */
+ 
+ 	/* mux VLYNQ pins */
+diff --git a/arch/arm/mach-davinci/devices-da8xx.c b/arch/arm/mach-davinci/devices-da8xx.c
+index 9039221..9eec630 100644
+--- a/arch/arm/mach-davinci/devices-da8xx.c
++++ b/arch/arm/mach-davinci/devices-da8xx.c
+@@ -42,7 +42,6 @@
+ #define DA8XX_EMAC_CTRL_REG_OFFSET	0x3000
+ #define DA8XX_EMAC_MOD_REG_OFFSET	0x2000
+ #define DA8XX_EMAC_RAM_OFFSET		0x0000
+-#define DA8XX_MDIO_REG_OFFSET		0x4000
+ #define DA8XX_EMAC_CTRL_RAM_SIZE	SZ_8K
+ 
+ void __iomem *da8xx_syscfg0_base;
+@@ -381,7 +380,6 @@ struct emac_platform_data da8xx_emac_pdata = {
+ 	.ctrl_reg_offset	= DA8XX_EMAC_CTRL_REG_OFFSET,
+ 	.ctrl_mod_reg_offset	= DA8XX_EMAC_MOD_REG_OFFSET,
+ 	.ctrl_ram_offset	= DA8XX_EMAC_RAM_OFFSET,
+-	.mdio_reg_offset	= DA8XX_MDIO_REG_OFFSET,
+ 	.ctrl_ram_size		= DA8XX_EMAC_CTRL_RAM_SIZE,
+ 	.version		= EMAC_VERSION_2,
+ };
+diff --git a/arch/arm/mach-davinci/dm365.c b/arch/arm/mach-davinci/dm365.c
+index 71f0f9d..240f392 100644
+--- a/arch/arm/mach-davinci/dm365.c
++++ b/arch/arm/mach-davinci/dm365.c
+@@ -691,7 +691,6 @@ static struct emac_platform_data dm365_emac_pdata = {
+ 	.ctrl_reg_offset	= DM365_EMAC_CNTRL_OFFSET,
+ 	.ctrl_mod_reg_offset	= DM365_EMAC_CNTRL_MOD_OFFSET,
+ 	.ctrl_ram_offset	= DM365_EMAC_CNTRL_RAM_OFFSET,
+-	.mdio_reg_offset	= DM365_EMAC_MDIO_OFFSET,
+ 	.ctrl_ram_size		= DM365_EMAC_CNTRL_RAM_SIZE,
+ 	.version		= EMAC_VERSION_2,
+ };
+diff --git a/arch/arm/mach-davinci/dm644x.c b/arch/arm/mach-davinci/dm644x.c
+index c103b2c..41b7a95 100644
+--- a/arch/arm/mach-davinci/dm644x.c
++++ b/arch/arm/mach-davinci/dm644x.c
+@@ -322,7 +322,6 @@ static struct emac_platform_data dm644x_emac_pdata = {
+ 	.ctrl_reg_offset	= DM644X_EMAC_CNTRL_OFFSET,
+ 	.ctrl_mod_reg_offset	= DM644X_EMAC_CNTRL_MOD_OFFSET,
+ 	.ctrl_ram_offset	= DM644X_EMAC_CNTRL_RAM_OFFSET,
+-	.mdio_reg_offset	= DM644X_EMAC_MDIO_OFFSET,
+ 	.ctrl_ram_size		= DM644X_EMAC_CNTRL_RAM_SIZE,
+ 	.version		= EMAC_VERSION_1,
+ };
+diff --git a/arch/arm/mach-davinci/dm646x.c b/arch/arm/mach-davinci/dm646x.c
+index 8da886b..08db90f 100644
+--- a/arch/arm/mach-davinci/dm646x.c
++++ b/arch/arm/mach-davinci/dm646x.c
+@@ -358,7 +358,6 @@ static struct emac_platform_data dm646x_emac_pdata = {
+ 	.ctrl_reg_offset	= DM646X_EMAC_CNTRL_OFFSET,
+ 	.ctrl_mod_reg_offset	= DM646X_EMAC_CNTRL_MOD_OFFSET,
+ 	.ctrl_ram_offset	= DM646X_EMAC_CNTRL_RAM_OFFSET,
+-	.mdio_reg_offset	= DM646X_EMAC_MDIO_OFFSET,
+ 	.ctrl_ram_size		= DM646X_EMAC_CNTRL_RAM_SIZE,
+ 	.version		= EMAC_VERSION_2,
+ };
+diff --git a/arch/arm/mach-davinci/include/mach/dm365.h b/arch/arm/mach-davinci/include/mach/dm365.h
+index dbb5052..2563bf4 100644
+--- a/arch/arm/mach-davinci/include/mach/dm365.h
++++ b/arch/arm/mach-davinci/include/mach/dm365.h
+@@ -25,7 +25,6 @@
+ #define DM365_EMAC_CNTRL_OFFSET		(0x0000)
+ #define DM365_EMAC_CNTRL_MOD_OFFSET	(0x3000)
+ #define DM365_EMAC_CNTRL_RAM_OFFSET	(0x1000)
+-#define DM365_EMAC_MDIO_OFFSET		(0x4000)
+ #define DM365_EMAC_CNTRL_RAM_SIZE	(0x2000)
+ 
+ /* Base of key scan register bank */
+diff --git a/arch/arm/mach-davinci/include/mach/dm644x.h b/arch/arm/mach-davinci/include/mach/dm644x.h
+index 5159117..5a1b26d 100644
+--- a/arch/arm/mach-davinci/include/mach/dm644x.h
++++ b/arch/arm/mach-davinci/include/mach/dm644x.h
+@@ -32,7 +32,6 @@
+ #define DM644X_EMAC_CNTRL_OFFSET	(0x0000)
+ #define DM644X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
+ #define DM644X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
+-#define DM644X_EMAC_MDIO_OFFSET		(0x4000)
+ #define DM644X_EMAC_CNTRL_RAM_SIZE	(0x2000)
+ 
+ #define DM644X_ASYNC_EMIF_CONTROL_BASE	0x01E00000
+diff --git a/arch/arm/mach-davinci/include/mach/dm646x.h b/arch/arm/mach-davinci/include/mach/dm646x.h
+index 1c4dca9..7a27f3f 100644
+--- a/arch/arm/mach-davinci/include/mach/dm646x.h
++++ b/arch/arm/mach-davinci/include/mach/dm646x.h
+@@ -23,7 +23,6 @@
+ #define DM646X_EMAC_CNTRL_OFFSET	(0x0000)
+ #define DM646X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
+ #define DM646X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
+-#define DM646X_EMAC_MDIO_OFFSET		(0x4000)
+ #define DM646X_EMAC_CNTRL_RAM_SIZE	(0x2000)
+ 
+ #define DM646X_ASYNC_EMIF_CONTROL_BASE	0x20008000
 -- 
 1.7.0.4
 
