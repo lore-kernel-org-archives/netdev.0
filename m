@@ -1,90 +1,54 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [IPoIB] Identify multicast packets and fix IGMP breakage V3
-Date: Tue, 14 Sep 2010 09:27:23 +0200
-Message-ID: <4C8F23DB.2040105@voltaire.com>
-References: <adapqx5rtez.fsf@cisco.com>	<alpine.DEB.2.00.1008261613160.24174@router.home>	<alpine.DEB.2.00.1008261629440.24174@router.home>	<20100826.151553.242147157.davem@davemloft.net>	<20100826222146.GA23025@obsidianresearch.com>	<alpine.DEB.2.00.1008261825490.26351@router.home>	<20100826234342.GA24333@obsidianresearch.com> <alpine.DEB.2.00.1008270827280.11792@router.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	linux-rdma@vger.kernel.org, yosefe@voltaire.com,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Christoph Lameter <cl@linux.com>, Roland Dreier <rdreier@cisco.com>
+From: Simon Guinot <simon@sequanux.org>
+Subject: [PATCH] phylib: fix PAL state machine restart on resume
+Date: Tue, 14 Sep 2010 10:12:01 +0200
+Message-ID: <1284451921-9937-1-git-send-email-simon@sequanux.org>
+Cc: Simon Guinot <sguinot@lacie.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:16336 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752034Ab0INH13 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Sep 2010 03:27:29 -0400
-In-Reply-To: <alpine.DEB.2.00.1008270827280.11792@router.home>
+Received: from ns39351.ovh.net ([91.121.21.191]:42498 "EHLO ns39351.ovh.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752221Ab0INISq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Sep 2010 04:18:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter wrote:
-> Here is the patch somewhat cleaned up with PACKET_BROADCAST.
-> Subject: [IPoIB] Identify multicast packets and fix IGMP breakage V3
->   
+From: Simon Guinot <sguinot@lacie.com>
 
-I don't see this patch in Roland's for-next branch nor Dave's 
-net-next-2.6 tree, is anything else needed to merge that?
+On resume, before starting the PAL state machine, check if the
+adjust_link() method is well supplied. If not, this would lead to a
+NULL pointer dereference in the phy_state_machine() function.
 
-Or.
+This scenario can happen if the Ethernet driver call manually the PHY
+functions instead of using the PAL state machine. The mv643xx_eth driver
+is a such example.
 
-> IGMP processing is broken because the IPOIB does not set the
-> skb->pkt_type the right way for Multicast traffic. All incoming
-> packets are set to PACKET_HOST which means that the igmp_recv()
-> function will ignore the IGMP broadcasts/multicasts.
->
-> This in turn means that the IGMP timers are firing and are sending
-> information about multicast subscriptions unnecessarily. In a large
-> private network this can cause traffic spikes.
->
-> Signed-off-by: Christoph Lameter <cl@linux.com>
->
-> ---
->
-> Index: linux-2.6/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2010-08-26 18:24:07.842079559 -0500
-> +++ linux-2.6/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2010-08-27 08:26:37.929641162 -0500
-> @@ -223,6 +223,7 @@
->  	unsigned int wr_id = wc->wr_id & ~IPOIB_OP_RECV;
->  	struct sk_buff *skb;
->  	u64 mapping[IPOIB_UD_RX_SG];
-> +	union ib_gid *dgid;
->
->  	ipoib_dbg_data(priv, "recv completion: id %d, status: %d\n",
->  		       wr_id, wc->status);
-> @@ -271,6 +272,21 @@
->  	ipoib_ud_dma_unmap_rx(priv, mapping);
->  	ipoib_ud_skb_put_frags(priv, skb, wc->byte_len);
->
-> +	/* First byte of dgid signals multicast when 0xff */
-> +	dgid = &((struct ib_grh *)skb->data)->dgid;
-> +
-> +	if (!(wc->wc_flags & IB_WC_GRH) || dgid->raw[0] != 0xff)
-> +
-> +		skb->pkt_type = PACKET_HOST;
-> +
-> +	else if (memcmp(dgid, dev->broadcast + 4, sizeof(union ib_gid)) == 0)
-> +
-> +		skb->pkt_type = PACKET_BROADCAST;
-> +
-> +	else
-> +
-> +		skb->pkt_type = PACKET_MULTICAST;
-> +
->  	skb_pull(skb, IB_GRH_BYTES);
->
->  	skb->protocol = ((struct ipoib_header *) skb->data)->proto;
-> @@ -281,9 +297,6 @@
->  	dev->stats.rx_bytes += skb->len;
->
->  	skb->dev = dev;
-> -	/* XXX get correct PACKET_ type here */
-> -	skb->pkt_type = PACKET_HOST;
-> -
->  	if (test_bit(IPOIB_FLAG_CSUM, &priv->flags) && likely(wc->csum_ok))
->  		skb->ip_summed = CHECKSUM_UNNECESSARY;
->
->   
+Signed-off-by: Simon Guinot <sguinot@lacie.com>
+---
+ drivers/net/phy/mdio_bus.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 6a6b819..6c58da2 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -308,7 +308,7 @@ static int mdio_bus_suspend(struct device *dev)
+ 	 * may call phy routines that try to grab the same lock, and that may
+ 	 * lead to a deadlock.
+ 	 */
+-	if (phydev->attached_dev)
++	if (phydev->attached_dev && phydev->adjust_link)
+ 		phy_stop_machine(phydev);
+ 
+ 	if (!mdio_bus_phy_may_suspend(phydev))
+@@ -331,7 +331,7 @@ static int mdio_bus_resume(struct device *dev)
+ 		return ret;
+ 
+ no_resume:
+-	if (phydev->attached_dev)
++	if (phydev->attached_dev && phydev->adjust_link)
+ 		phy_start_machine(phydev, NULL);
+ 
+ 	return 0;
+-- 
+1.6.3.1
 
