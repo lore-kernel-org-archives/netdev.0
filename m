@@ -1,57 +1,65 @@
-From: David Howells <dhowells@redhat.com>
-Subject: (unknown)
-Date: Tue, 14 Sep 2010 10:14:45 +0100
-Message-ID: <28081.1284455685@redhat.com>
-References: <cover.1284406638.git.joe@perches.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: TCP packet size and delivery packet decisions
+Date: Tue, 14 Sep 2010 13:37:58 +0400
+Message-ID: <20100914093758.GA24348@ms2.inr.ac.ru>
+References: <alpine.DEB.2.00.1009071443510.26447@wel-95.cs.helsinki.fi> <20100907.201843.179933180.davem@davemloft.net> <20100908121450.GA11412@ms2.inr.ac.ru> <20100912.182308.71115181.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>, linux-fbdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
-	James Smart <james.smart@emulex.com>, linux-mips@linux-mips.org, "VMware,
-	Inc." <pv-drivers@vmware.com>, Bruce Allan <bruce.w.allan@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	alsa-devel@alsa-project.org, Jaroslav Kysela <perex@perex.cz>,
-	dhowells@redhat.com, "James E.J. Bottomley" <James.Bottomley@suse.de>,
-	Paul Mackerras <paulus@samba.org>, linux-i2c@vger.kernel.org,
-	Brett Rudley <brudley@broadcom.com>, sparclinux@vger.kernel.org,
-	devel@driverdev.osuosl.org, linux-s390@vger.kernel.org,
-	linux-scsi@vger.kernel.org,
-	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
-	e1000-devel@lists.sourceforge.net,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>, linux-acpi@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <cover.1284406638.git.joe@perches.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Sender: devel-bounces@linuxdriverproject.org
-Errors-To: devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ilpo.jarvinen@helsinki.fi, eric.dumazet@gmail.com,
+	leandroal@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from minus.inr.ac.ru ([194.67.69.97]:53871 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751696Ab0INJiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Sep 2010 05:38:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20100912.182308.71115181.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe@perches.com> wrote:
+Hello!
 
-> Using static const char foo[] = "bar" can save some
-> code and text space, so change the places where it's possible.
+> Therefore, how about the following?
 
-That's reasonable.
+This will work.
 
-> Also change the places that use
-> 	char foo[] = "barX";
-> 	...
-> 	foo[3] = value + '0';
-> where X is typically changed
-> 	char foo[sizeof("barX")];
-> 	...
-> 	sprintf(foo, "bar%c", value + '0');
+There is one trap though. If pktsize > max_window, packets never
+will be transmitted in normal path, only from probe timer, which
+will be very slow.
 
-You haven't said what this gains.  I can see what it may cost, though
-(depending on how gcc loads foo[]).
+If we do not want to mess with tcp_write_xmit(), it is still possible
+to relax the bound to tp->max_window. (BTW, this even does not
+contradict to RFC, only Fs = 1 for tiny windows). This should work:
 
-David
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 34f5cc2..8cf8cdb 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -501,8 +501,22 @@ extern unsigned int tcp_current_mss(struct sock *sk);
+ /* Bound MSS / TSO packet size with the half of the window */
+ static inline int tcp_bound_to_half_wnd(struct tcp_sock *tp, int pktsize)
+ {
+-	if (tp->max_window && pktsize > (tp->max_window >> 1))
+-		return max(tp->max_window >> 1, 68U - tp->tcp_header_len);
++	int cutoff;
++
++	/* When peer uses tiny windows, there is no use in packetizing
++	 * to sub-MSS pieces for the sake of SWS or making sure there
++	 * are enough packets in the pipe for fast recovery.
++	 *
++	 * On the other hand, for extremely large MSS devices, handling
++	 * smaller than MSS windows in this way does make sense.
++	 */
++	if (tp->max_window >= 512)
++		cutoff = (tp->max_window >> 1);
++	else
++		cutoff = tp->max_window;
++
++	if (cutoff && pktsize > cutoff)
++		return max(cutoff, 68U - tp->tcp_header_len);
+ 	else
+ 		return pktsize;
+ }
+
+
