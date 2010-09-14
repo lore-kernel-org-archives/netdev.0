@@ -1,94 +1,60 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: [PATCH] Remove atomic context inside vortex_{set|get}_wol
-Date: Tue, 14 Sep 2010 20:35:23 +0000
-Message-ID: <20100914203209.GA22498@hera.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] ipv4: release dev refcnt early when destroying
+ inetdev
+Date: Tue, 14 Sep 2010 13:45:29 -0700 (PDT)
+Message-ID: <20100914.134529.45905377.davem@davemloft.net>
+References: <1284128679.24675.38.camel@edumazet-laptop>
+	<4C8A474C.3040502@6wind.com>
+	<1284131774.24675.46.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andrew@beldisplaytech.com, ben@decadent.org.uk,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:52963 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751931Ab0INUfd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Sep 2010 16:35:33 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41638
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753835Ab0INUpK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Sep 2010 16:45:10 -0400
+In-Reply-To: <1284131774.24675.46.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need to use spinlocks in vortex_{set|get}_wol.
-This also fixes a bug:
-[  254.214993] 3c59x 0000:00:0d.0: PME# enabled
-[  254.215021] BUG: sleeping function called from invalid context at kernel/mutex.c:94
-[  254.215030] in_atomic(): 0, irqs_disabled(): 1, pid: 4875, name: ethtool
-[  254.215042] Pid: 4875, comm: ethtool Tainted: G        W   2.6.36-rc3+ #7
-[  254.215049] Call Trace:
-[  254.215050]  [] __might_sleep+0xb1/0xb6
-[  254.215050]  [] mutex_lock+0x17/0x30
-[  254.215050]  [] acpi_enable_wakeup_device_power+0x2b/0xb1
-[  254.215050]  [] acpi_pm_device_sleep_wake+0x42/0x7f
-[  254.215050]  [] acpi_pci_sleep_wake+0x5d/0x63
-[  254.215050]  [] platform_pci_sleep_wake+0x1d/0x20
-[  254.215050]  [] __pci_enable_wake+0x90/0xd0
-[  254.215050]  [] acpi_set_WOL+0x8e/0xf5 [3c59x]
-[  254.215050]  [] vortex_set_wol+0x4e/0x5e [3c59x]
-[  254.215050]  [] dev_ethtool+0x1cf/0xb61
-[  254.215050]  [] ? debug_mutex_free_waiter+0x45/0x4a
-[  254.215050]  [] ? __mutex_lock_common+0x204/0x20e
-[  254.215050]  [] ? __mutex_lock_slowpath+0x12/0x15
-[  254.215050]  [] ? mutex_lock+0x23/0x30
-[  254.215050]  [] dev_ioctl+0x42c/0x533
-[  254.215050]  [] ? _cond_resched+0x8/0x1c
-[  254.215050]  [] ? lock_page+0x1c/0x30
-[  254.215050]  [] ? page_address+0x15/0x7c
-[  254.215050]  [] ? filemap_fault+0x187/0x2c4
-[  254.215050]  [] sock_ioctl+0x1d4/0x1e0
-[  254.215050]  [] ? sock_ioctl+0x0/0x1e0
-[  254.215050]  [] vfs_ioctl+0x19/0x33
-[  254.215050]  [] do_vfs_ioctl+0x424/0x46f
-[  254.215050]  [] ? selinux_file_ioctl+0x3c/0x40
-[  254.215050]  [] sys_ioctl+0x40/0x5a
-[  254.215050]  [] sysenter_do_call+0x12/0x22
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 10 Sep 2010 17:16:14 +0200
 
-vortex_set_wol protected with a spinlock, but nested  acpi_set_WOL acquires a mutex inside atomic context.
+> Le vendredi 10 septembre 2010 =E0 16:57 +0200, Nicolas Dichtel a =E9c=
+rit :
+>=20
+>> Is this not true in IPv6? What is the difference?
+>=20
+> It might be a bug on ipv6, who knows ?
+>=20
+> Releasing a reference count, but not setting idev->dev to NULL is=20
+> a sign something is wrong...
 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
- drivers/net/3c59x.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+If anything this is more of a BUG trap than a true correctness patch,
+but either way if you want me to apply this please formally submit
+this with a proper commit message and signoff, thanks!
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index 7a01588..da6df86 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -2922,13 +2922,11 @@ static void vortex_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- {
- 	struct vortex_private *vp = netdev_priv(dev);
- 
--	spin_lock_irq(&vp->lock);
- 	wol->supported = WAKE_MAGIC;
- 
- 	wol->wolopts = 0;
- 	if (vp->enable_wol)
- 		wol->wolopts |= WAKE_MAGIC;
--	spin_unlock_irq(&vp->lock);
- }
- 
- static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-@@ -2937,13 +2935,11 @@ static int vortex_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- 	if (wol->wolopts & ~WAKE_MAGIC)
- 		return -EINVAL;
- 
--	spin_lock_irq(&vp->lock);
- 	if (wol->wolopts & WAKE_MAGIC)
- 		vp->enable_wol = 1;
- 	else
- 		vp->enable_wol = 0;
- 	acpi_set_WOL(dev);
--	spin_unlock_irq(&vp->lock);
- 
- 	return 0;
- }
--- 
-1.6.4.4
-
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 5bc893e..26e39bc 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -330,6 +330,7 @@ void in6_dev_finish_destroy(struct inet6_dev *ide=
+v)
+>  	printk(KERN_DEBUG "in6_dev_finish_destroy: %s\n", dev ? dev->name :=
+ "NIL");
+>  #endif
+>  	dev_put(dev);
+> +	idev->dev =3D NULL;
+>  	if (!idev->dead) {
+>  		pr_warning("Freeing alive inet6 device %p\n", idev);
+>  		return;
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
