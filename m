@@ -1,110 +1,262 @@
-From: Cyril Chemparathy <cyril-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH v4 00/10] split out emac cpdma and mdio for reuse
-Date: Tue, 14 Sep 2010 17:10:02 -0400
-Message-ID: <1284498612-25294-1-git-send-email-cyril@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-        linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+From: Cyril Chemparathy <cyril@ti.com>
+Subject: [PATCH v4 04/10] net: davinci_emac: switch to new mdio
+Date: Tue, 14 Sep 2010 17:10:06 -0400
+Message-ID: <1284498612-25294-5-git-send-email-cyril@ti.com>
+References: <1284498612-25294-1-git-send-email-cyril@ti.com>
+Cc: michael.williamson@criticallink.com, caglarakyuz@gmail.com,
+	bparrot@ti.com, Cyril Chemparathy <cyril@ti.com>
+To: netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com,
+	linux-omap@vger.kernel.org
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1284498612-25294-1-git-send-email-cyril@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Davinci's EMAC device has an in-built MDIO controller and a CPDMA engine.
-These hardware modules are not restricted to EMAC device alone.  For example,
-CPSW3G (3-port gigabit ethernet switch) hardware uses these very same modules
-internally.  This patch series separates out EMAC's MDIO and CPDMA
-functionality, allowing these individual pieces to be reused across TI
-hardware.  
+This patch switches the emac implementation over to the newly separated
+MDIO driver.
 
-This patch series has been broadly organized as follows:
+With this, the mdio bus frequency defaults to a safe 2.2MHz.  Boards may
+optionally specify a bus frequency via platform data.
 
-MDIO:
-  - Add new functionality
-      netdev: separate out davinci mdio controller code
-  - Hookup new functionality
-      davinci: add mdio platform devices
-      omap: add mdio platform devices
-      netdev: switch davinci emac to new mdio driver
-  - Cleanup left over cruft
-      davinci: cleanup unused davinci mdio arch code
-      omap: cleanup unused davinci mdio arch code
-      netdev: cleanup unused davinci mdio emac code
+The phy identification scheme has been modified to use a phy bus id instead
+of a mask.  This largely serves to eliminate the "phy search" code in emac
+init.
 
-CPDMA:
-  - Add new functionality
-     netdev: separate out davinci cpdma controller code
-  - Hookup new functionality
-     netdev: switch davinci emac to new cpdma layer
-  - Cleanup left over cruft
-     netdev: cleanup unused davinci emac cpdma code
+Signed-off-by: Cyril Chemparathy <cyril@ti.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+Tested-by: Michael Williamson <michael.williamson@criticallink.com>
+Tested-by: Caglar Akyuz <caglarakyuz@gmail.com>
+---
+ drivers/net/Kconfig          |    1 +
+ drivers/net/davinci_emac.c   |   88 ++++++++++++++---------------------------
+ include/linux/davinci_emac.h |    9 ++++
+ 3 files changed, 40 insertions(+), 58 deletions(-)
 
-This series has been tested on dm365 and tnetv107x (with additional cpsw
-patches) hardware.  Although am3517 (omap) board support code has been updated
-as needed, emac does not work on this platform.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index c5c86e0..911e7f1 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -951,6 +951,7 @@ config NET_NETX
+ config TI_DAVINCI_EMAC
+ 	tristate "TI DaVinci EMAC Support"
+ 	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
++	select TI_DAVINCI_MDIO
+ 	select PHYLIB
+ 	help
+ 	  This driver supports TI's DaVinci Ethernet .
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 7fbd052..997f599 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -500,6 +500,7 @@ struct emac_priv {
+ 	u32 phy_mask;
+ 	/* mii_bus,phy members */
+ 	struct mii_bus *mii_bus;
++	const char *phy_id;
+ 	struct phy_device *phydev;
+ 	spinlock_t lock;
+ 	/*platform specific members*/
+@@ -686,7 +687,7 @@ static int emac_get_settings(struct net_device *ndev,
+ 			     struct ethtool_cmd *ecmd)
+ {
+ 	struct emac_priv *priv = netdev_priv(ndev);
+-	if (priv->phy_mask)
++	if (priv->phydev)
+ 		return phy_ethtool_gset(priv->phydev, ecmd);
+ 	else
+ 		return -EOPNOTSUPP;
+@@ -704,7 +705,7 @@ static int emac_get_settings(struct net_device *ndev,
+ static int emac_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ {
+ 	struct emac_priv *priv = netdev_priv(ndev);
+-	if (priv->phy_mask)
++	if (priv->phydev)
+ 		return phy_ethtool_sset(priv->phydev, ecmd);
+ 	else
+ 		return -EOPNOTSUPP;
+@@ -841,7 +842,7 @@ static void emac_update_phystatus(struct emac_priv *priv)
+ 	mac_control = emac_read(EMAC_MACCONTROL);
+ 	cur_duplex = (mac_control & EMAC_MACCONTROL_FULLDUPLEXEN) ?
+ 			DUPLEX_FULL : DUPLEX_HALF;
+-	if (priv->phy_mask)
++	if (priv->phydev)
+ 		new_duplex = priv->phydev->duplex;
+ 	else
+ 		new_duplex = DUPLEX_FULL;
+@@ -2485,6 +2486,11 @@ static int emac_devioctl(struct net_device *ndev, struct ifreq *ifrq, int cmd)
+ 	return -EOPNOTSUPP;
+ }
+ 
++static int match_first_device(struct device *dev, void *data)
++{
++	return 1;
++}
++
+ /**
+  * emac_dev_open: EMAC device open
+  * @ndev: The DaVinci EMAC network adapter
+@@ -2499,7 +2505,6 @@ static int emac_dev_open(struct net_device *ndev)
+ {
+ 	struct device *emac_dev = &ndev->dev;
+ 	u32 rc, cnt, ch;
+-	int phy_addr;
+ 	struct resource *res;
+ 	int q, m;
+ 	int i = 0;
+@@ -2560,28 +2565,26 @@ static int emac_dev_open(struct net_device *ndev)
+ 		emac_set_coalesce(ndev, &coal);
+ 	}
+ 
+-	/* find the first phy */
+ 	priv->phydev = NULL;
+-	if (priv->phy_mask) {
+-		emac_mii_reset(priv->mii_bus);
+-		for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
+-			if (priv->mii_bus->phy_map[phy_addr]) {
+-				priv->phydev = priv->mii_bus->phy_map[phy_addr];
+-				break;
+-			}
+-		}
++	/* use the first phy on the bus if pdata did not give us a phy id */
++	if (!priv->phy_id) {
++		struct device *phy;
+ 
+-		if (!priv->phydev) {
+-			printk(KERN_ERR "%s: no PHY found\n", ndev->name);
+-			return -1;
+-		}
++		phy = bus_find_device(&mdio_bus_type, NULL, NULL,
++				      match_first_device);
++		if (phy)
++			priv->phy_id = dev_name(phy);
++	}
+ 
+-		priv->phydev = phy_connect(ndev, dev_name(&priv->phydev->dev),
+-				&emac_adjust_link, 0, PHY_INTERFACE_MODE_MII);
++	if (priv->phy_id && *priv->phy_id) {
++		priv->phydev = phy_connect(ndev, priv->phy_id,
++					   &emac_adjust_link, 0,
++					   PHY_INTERFACE_MODE_MII);
+ 
+ 		if (IS_ERR(priv->phydev)) {
+-			printk(KERN_ERR "%s: Could not attach to PHY\n",
+-								ndev->name);
++			dev_err(emac_dev, "could not connect to phy %s\n",
++				priv->phy_id);
++			priv->phydev = NULL;
+ 			return PTR_ERR(priv->phydev);
+ 		}
+ 
+@@ -2589,12 +2592,13 @@ static int emac_dev_open(struct net_device *ndev)
+ 		priv->speed = 0;
+ 		priv->duplex = ~0;
+ 
+-		printk(KERN_INFO "%s: attached PHY driver [%s] "
+-			"(mii_bus:phy_addr=%s, id=%x)\n", ndev->name,
++		dev_info(emac_dev, "attached PHY driver [%s] "
++			"(mii_bus:phy_addr=%s, id=%x)\n",
+ 			priv->phydev->drv->name, dev_name(&priv->phydev->dev),
+ 			priv->phydev->phy_id);
+-	} else{
++	} else {
+ 		/* No PHY , fix the link, speed and duplex settings */
++		dev_notice(emac_dev, "no phy, defaulting to 100/full\n");
+ 		priv->link = 1;
+ 		priv->speed = SPEED_100;
+ 		priv->duplex = DUPLEX_FULL;
+@@ -2607,7 +2611,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 	if (netif_msg_drv(priv))
+ 		dev_notice(emac_dev, "DaVinci EMAC: Opened %s\n", ndev->name);
+ 
+-	if (priv->phy_mask)
++	if (priv->phydev)
+ 		phy_start(priv->phydev);
+ 
+ 	return 0;
+@@ -2794,7 +2798,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 
+ 	/* MAC addr and PHY mask , RMII enable info from platform_data */
+ 	memcpy(priv->mac_addr, pdata->mac_addr, 6);
+-	priv->phy_mask = pdata->phy_mask;
++	priv->phy_id = pdata->phy_id;
+ 	priv->rmii_en = pdata->rmii_en;
+ 	priv->version = pdata->version;
+ 	priv->int_enable = pdata->interrupt_enable;
+@@ -2871,32 +2875,6 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	}
+ 
+ 
+-	/* MII/Phy intialisation, mdio bus registration */
+-	emac_mii = mdiobus_alloc();
+-	if (emac_mii == NULL) {
+-		dev_err(emac_dev, "DaVinci EMAC: Error allocating mii_bus\n");
+-		rc = -ENOMEM;
+-		goto mdio_alloc_err;
+-	}
+-
+-	priv->mii_bus = emac_mii;
+-	emac_mii->name  = "emac-mii",
+-	emac_mii->read  = emac_mii_read,
+-	emac_mii->write = emac_mii_write,
+-	emac_mii->reset = emac_mii_reset,
+-	emac_mii->irq   = mii_irqs,
+-	emac_mii->phy_mask = ~(priv->phy_mask);
+-	emac_mii->parent = &pdev->dev;
+-	emac_mii->priv = priv->remap_addr + pdata->mdio_reg_offset;
+-	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "%x", priv->pdev->id);
+-	mdio_max_freq = pdata->mdio_max_freq;
+-	emac_mii->reset(emac_mii);
+-
+-	/* Register the MII bus */
+-	rc = mdiobus_register(emac_mii);
+-	if (rc)
+-		goto mdiobus_quit;
+-
+ 	if (netif_msg_probe(priv)) {
+ 		dev_notice(emac_dev, "DaVinci EMAC Probe found device "\
+ 			   "(regs: %p, irq: %d)\n",
+@@ -2904,11 +2882,7 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
+ 	}
+ 	return 0;
+ 
+-mdiobus_quit:
+-	mdiobus_free(emac_mii);
+-
+ netdev_reg_err:
+-mdio_alloc_err:
+ 	clk_disable(emac_clk);
+ no_irq_res:
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+@@ -2938,8 +2912,6 @@ static int __devexit davinci_emac_remove(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, NULL);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	mdiobus_unregister(priv->mii_bus);
+-	mdiobus_free(priv->mii_bus);
+ 
+ 	release_mem_region(res->start, res->end - res->start + 1);
+ 
+diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
+index a04fd8c..46a759f 100644
+--- a/include/linux/davinci_emac.h
++++ b/include/linux/davinci_emac.h
+@@ -28,6 +28,15 @@ struct emac_platform_data {
+ 	u32 ctrl_ram_size;
+ 	u32 phy_mask;
+ 	u32 mdio_max_freq;
++
++	/*
++	 * phy_id can be one of the following:
++	 *   - NULL		: use the first phy on the bus,
++	 *   - ""		: force to 100/full, no mdio control
++	 *   - "<bus>:<addr>"	: use the specified bus and phy
++	 */
++	const char *phy_id;
++
+ 	u8 rmii_en;
+ 	u8 version;
+ 	void (*interrupt_enable) (void);
+-- 
+1.7.0.4
 
-Changes from v1:
-  1. Fixed memory leak in cpdma_chan_create() failure case
-  2. Included new omap patches for am3517, avoids build breakage
-
-Changes from v2:
-  1. Updated series to include mityomapl138 board
-  2. Minor white-space fixes
-
-Changes from v3 (rolled in "post cpdma/mdio refactoring fixes" series):
-  1. allow forced 100/full mode instead of phy auto-detect
-  2. specify phy_id on boards that had a phy_mask defined earlier
-  3. requeue cpdma descriptors when EOQ at submit
-  4. use calculated mdio bus access times instead of hardcoded delays
-  5. work around emac soft-reset impact on mdio controller state
-  6. extend register dumps to include cpdma registers
-
-
-Cyril Chemparathy (10):
-  net: davinci_emac: separate out davinci mdio
-  davinci: add mdio platform devices
-  omap: add mdio platform devices
-  net: davinci_emac: switch to new mdio
-  davinci: cleanup mdio arch code and switch to phy_id
-  omap: cleanup unused davinci mdio arch code
-  net: davinci_emac: cleanup unused mdio emac code
-  net: davinci_emac: separate out cpdma code
-  net: davinci_emac: switch to new cpdma layer
-  net: davinci_emac: cleanup unused cpdma code
-
- arch/arm/mach-davinci/board-da830-evm.c     |    7 +-
- arch/arm/mach-davinci/board-da850-evm.c     |    7 +-
- arch/arm/mach-davinci/board-dm365-evm.c     |    7 +-
- arch/arm/mach-davinci/board-dm644x-evm.c    |    8 +-
- arch/arm/mach-davinci/board-dm646x-evm.c    |    7 +-
- arch/arm/mach-davinci/board-mityomapl138.c  |    8 +-
- arch/arm/mach-davinci/board-neuros-osd2.c   |    7 +-
- arch/arm/mach-davinci/board-sffsdr.c        |    7 +-
- arch/arm/mach-davinci/devices-da8xx.c       |   31 +-
- arch/arm/mach-davinci/dm365.c               |   23 +-
- arch/arm/mach-davinci/dm644x.c              |   23 +-
- arch/arm/mach-davinci/dm646x.c              |   22 +-
- arch/arm/mach-davinci/include/mach/dm365.h  |    2 +-
- arch/arm/mach-davinci/include/mach/dm644x.h |    2 +-
- arch/arm/mach-davinci/include/mach/dm646x.h |    2 +-
- arch/arm/mach-omap2/board-am3517evm.c       |   31 +-
- drivers/net/Kconfig                         |   21 +
- drivers/net/Makefile                        |    2 +
- drivers/net/davinci_cpdma.c                 |  965 +++++++++++++++++++
- drivers/net/davinci_cpdma.h                 |  108 +++
- drivers/net/davinci_emac.c                  | 1338 ++++-----------------------
- drivers/net/davinci_mdio.c                  |  475 ++++++++++
- include/linux/davinci_emac.h                |   16 +-
- 23 files changed, 1894 insertions(+), 1225 deletions(-)
- create mode 100644 drivers/net/davinci_cpdma.c
- create mode 100644 drivers/net/davinci_cpdma.h
- create mode 100644 drivers/net/davinci_mdio.c
