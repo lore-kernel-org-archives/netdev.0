@@ -1,65 +1,36 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: TCP packet size and delivery packet decisions
-Date: Tue, 14 Sep 2010 13:37:58 +0400
-Message-ID: <20100914093758.GA24348@ms2.inr.ac.ru>
-References: <alpine.DEB.2.00.1009071443510.26447@wel-95.cs.helsinki.fi> <20100907.201843.179933180.davem@davemloft.net> <20100908121450.GA11412@ms2.inr.ac.ru> <20100912.182308.71115181.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 0/1] macvtap TX zero copy between guest and host
+ kernel
+Date: Tue, 14 Sep 2010 14:05:45 +0200
+Message-ID: <20100914120545.GC703@redhat.com>
+References: <1284410580.13351.10.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ilpo.jarvinen@helsinki.fi, eric.dumazet@gmail.com,
-	leandroal@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:53871 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751696Ab0INJiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Sep 2010 05:38:19 -0400
+Cc: Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100912.182308.71115181.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1284410580.13351.10.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+On Mon, Sep 13, 2010 at 01:43:00PM -0700, Shirley Ma wrote:
+> This patch induces a new sock flag ZEROCOPY to avoid copy between
+> userspace and kernel. macvtap is the first user of zero copy between
+> guest and host kernel. It only uses when the lower device supports high
+> memory DMA. The first set of patch only addresses transmission TX side.
+> The test has shown big improvement on either CPU utilization reduction
+> or BW increase on 10GbE Intel NIC. Performance data will be submitted in
+> the coming email.
+> 
+> thanks
+> Shirley
 
-> Therefore, how about the following?
+While others pointed out correctness issues with the patch,
+I would still like to see the performance numbers, just so we
+understand what's possible.
 
-This will work.
-
-There is one trap though. If pktsize > max_window, packets never
-will be transmitted in normal path, only from probe timer, which
-will be very slow.
-
-If we do not want to mess with tcp_write_xmit(), it is still possible
-to relax the bound to tp->max_window. (BTW, this even does not
-contradict to RFC, only Fs = 1 for tiny windows). This should work:
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 34f5cc2..8cf8cdb 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -501,8 +501,22 @@ extern unsigned int tcp_current_mss(struct sock *sk);
- /* Bound MSS / TSO packet size with the half of the window */
- static inline int tcp_bound_to_half_wnd(struct tcp_sock *tp, int pktsize)
- {
--	if (tp->max_window && pktsize > (tp->max_window >> 1))
--		return max(tp->max_window >> 1, 68U - tp->tcp_header_len);
-+	int cutoff;
-+
-+	/* When peer uses tiny windows, there is no use in packetizing
-+	 * to sub-MSS pieces for the sake of SWS or making sure there
-+	 * are enough packets in the pipe for fast recovery.
-+	 *
-+	 * On the other hand, for extremely large MSS devices, handling
-+	 * smaller than MSS windows in this way does make sense.
-+	 */
-+	if (tp->max_window >= 512)
-+		cutoff = (tp->max_window >> 1);
-+	else
-+		cutoff = tp->max_window;
-+
-+	if (cutoff && pktsize > cutoff)
-+		return max(cutoff, 68U - tp->tcp_header_len);
- 	else
- 		return pktsize;
- }
-
-
+-- 
+MST
