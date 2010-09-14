@@ -1,69 +1,177 @@
-From: "Andrew O. Shadoura" <bugzilla@tut.by>
-Subject: Re: suspend warning with 3c59x
-Date: Tue, 14 Sep 2010 18:52:24 +0300
-Message-ID: <201009141852.24775.bugzilla@tut.by>
-References: <4C8F9598.60309@kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH] vhost: max s/g to match qemu
+Date: Tue, 14 Sep 2010 23:53:05 +0800
+Message-ID: <20100914155305.3293.92519.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1563074.vZnYPHiWk5";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Denis Kirjanov <dkirjanov@kernel.org>, ben@decadent.org.uk
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:36513 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753149Ab0INPw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 11:52:27 -0400
-Received: by iwn5 with SMTP id 5so6180150iwn.19
-        for <netdev@vger.kernel.org>; Tue, 14 Sep 2010 08:52:26 -0700 (PDT)
-In-Reply-To: <4C8F9598.60309@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---nextPart1563074.vZnYPHiWk5
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+Qemu supports up to UIO_MAXIOV s/g so we have to match that because guest
+drivers may rely on this.
 
-Hello.
+Allocate indirect and log arrays dynamically to avoid using too much contigious
+memory and make the length of hdr array to match the header length since each
+iovec entry has a least one byte.
 
-On Tuesday 14 September 2010 18:32:40 you wrote:
-> I have got a warning with the 3c59.
-> (reproduced with pm-suspend)
->=20
-> [  254.214993] 3c59x 0000:00:0d.0: PME# enabled
-> [  254.215021] BUG: sleeping function called from invalid context at
-> kernel/mutex.c:94
-> [  254.215030] in_atomic(): 0, irqs_disabled(): 1, pid: 4875, name: ethto=
-ol
-> [  254.215042] Pid: 4875, comm: ethtool Tainted: G   =20
->    W   2.6.36-rc3+ #7 [  254.215049] Call Trace:
-=20
-> Warning introduced with commit 690a1f2002a3091bd18a501f46c9530f10481463:
-> 3c59x: Add ethtool WOL support
+Test with copying large files w/ and w/o migration in both linux and windows
+guests.
 
-> vortex_set_wol protected with a spinlock, but nested  acpi_set_WOL acquir=
-es
-> a mutex inside atomic context. Do we really need to protect .set_wol with
-> a vp->lock at all?
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/net.c   |    2 +-
+ drivers/vhost/vhost.c |   49 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/vhost/vhost.h |   18 ++++++++----------
+ 3 files changed, 57 insertions(+), 12 deletions(-)
 
-Yes, that was my mistake, we do not actually need it.
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 29e850a..e828ef1 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -243,7 +243,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 	int r, nlogs = 0;
+ 
+ 	while (datalen > 0) {
+-		if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
++		if (unlikely(headcount >= UIO_MAXIOV)) {
+ 			r = -ENOBUFS;
+ 			goto err;
+ 		}
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index c579dcc..a45270e 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -212,6 +212,45 @@ static int vhost_worker(void *data)
+ 	}
+ }
+ 
++/* Helper to allocate iovec buffers for all vqs. */
++static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
++{
++	int i;
++	for (i = 0; i < dev->nvqs; ++i) {
++		dev->vqs[i].indirect = kmalloc(sizeof *dev->vqs[i].indirect *
++					       UIO_MAXIOV, GFP_KERNEL);
++		dev->vqs[i].log = kmalloc(sizeof *dev->vqs[i].log * UIO_MAXIOV,
++					  GFP_KERNEL);
++		dev->vqs[i].heads = kmalloc(sizeof *dev->vqs[i].heads *
++					    UIO_MAXIOV, GFP_KERNEL);
++
++		if (!dev->vqs[i].indirect || !dev->vqs[i].log ||
++			!dev->vqs[i].heads)
++			goto err_nomem;
++	}
++	return 0;
++err_nomem:
++	for (; i >= 0; --i) {
++		kfree(dev->vqs[i].indirect);
++		kfree(dev->vqs[i].log);
++		kfree(dev->vqs[i].heads);
++	}
++	return -ENOMEM;
++}
++
++static void vhost_dev_free_iovecs(struct vhost_dev *dev)
++{
++	int i;
++	for (i = 0; i < dev->nvqs; ++i) {
++		kfree(dev->vqs[i].indirect);
++		dev->vqs[i].indirect = NULL;
++		kfree(dev->vqs[i].log);
++		dev->vqs[i].log = NULL;
++		kfree(dev->vqs[i].heads);
++		dev->vqs[i].heads = NULL;
++	}
++}
++
+ long vhost_dev_init(struct vhost_dev *dev,
+ 		    struct vhost_virtqueue *vqs, int nvqs)
+ {
+@@ -229,6 +268,9 @@ long vhost_dev_init(struct vhost_dev *dev,
+ 	dev->worker = NULL;
+ 
+ 	for (i = 0; i < dev->nvqs; ++i) {
++		dev->vqs[i].log = NULL;
++		dev->vqs[i].indirect = NULL;
++		dev->vqs[i].heads = NULL;
+ 		dev->vqs[i].dev = dev;
+ 		mutex_init(&dev->vqs[i].mutex);
+ 		vhost_vq_reset(dev, dev->vqs + i);
+@@ -295,6 +337,10 @@ static long vhost_dev_set_owner(struct vhost_dev *dev)
+ 	if (err)
+ 		goto err_cgroup;
+ 
++	err = vhost_dev_alloc_iovecs(dev);
++	if (err)
++		goto err_cgroup;
++
+ 	return 0;
+ err_cgroup:
+ 	kthread_stop(worker);
+@@ -345,6 +391,7 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
+ 			fput(dev->vqs[i].call);
+ 		vhost_vq_reset(dev, dev->vqs + i);
+ 	}
++	vhost_dev_free_iovecs(dev);
+ 	if (dev->log_ctx)
+ 		eventfd_ctx_put(dev->log_ctx);
+ 	dev->log_ctx = NULL;
+@@ -946,7 +993,7 @@ static int get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 	}
+ 
+ 	ret = translate_desc(dev, indirect->addr, indirect->len, vq->indirect,
+-			     ARRAY_SIZE(vq->indirect));
++			     UIO_MAXIOV);
+ 	if (unlikely(ret < 0)) {
+ 		vq_err(vq, "Translation failure %d in indirect.\n", ret);
+ 		return ret;
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index afd7729..edc8929 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -15,11 +15,6 @@
+ 
+ struct vhost_device;
+ 
+-enum {
+-	/* Enough place for all fragments, head, and virtio net header. */
+-	VHOST_NET_MAX_SG = MAX_SKB_FRAGS + 2,
+-};
+-
+ struct vhost_work;
+ typedef void (*vhost_work_fn_t)(struct vhost_work *work);
+ 
+@@ -93,12 +88,15 @@ struct vhost_virtqueue {
+ 	bool log_used;
+ 	u64 log_addr;
+ 
+-	struct iovec indirect[VHOST_NET_MAX_SG];
+-	struct iovec iov[VHOST_NET_MAX_SG];
+-	struct iovec hdr[VHOST_NET_MAX_SG];
++	struct iovec iov[UIO_MAXIOV];
++	/* hdr is used to store the virtio header.
++	 * Since each iovec has >= 1 byte length, we never need more than
++	 * header length entries to store the header. */
++	struct iovec hdr[sizeof(struct virtio_net_hdr_mrg_rxbuf)];
++	struct iovec *indirect;
+ 	size_t vhost_hlen;
+ 	size_t sock_hlen;
+-	struct vring_used_elem heads[VHOST_NET_MAX_SG];
++	struct vring_used_elem *heads;
+ 	/* We use a kind of RCU to access private pointer.
+ 	 * All readers access it from worker, which makes it possible to
+ 	 * flush the vhost_work instead of synchronize_rcu. Therefore readers do
+@@ -109,7 +107,7 @@ struct vhost_virtqueue {
+ 	void *private_data;
+ 	/* Log write descriptors */
+ 	void __user *log_base;
+-	struct vhost_log log[VHOST_NET_MAX_SG];
++	struct vhost_log *log;
+ };
+ 
+ struct vhost_dev {
 
-=2D-=20
-WBR, Andrew
-
---nextPart1563074.vZnYPHiWk5
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEABECAAYFAkyPmjgACgkQ/mQMD2bMZ2siRgCfRDGmR0Cc1u9chkIyYEXFVzsC
-Z6AAn1C4aCmNGpGqh2Mb3Axt6LWTJlDT
-=0QYg
------END PGP SIGNATURE-----
-
---nextPart1563074.vZnYPHiWk5--
