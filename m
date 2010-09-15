@@ -1,63 +1,67 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 00/15] change default_llseek action
-Date: Wed, 15 Sep 2010 11:38:56 -0400
-Message-ID: <9828.1284565136@localhost>
-References: <1284495763-7506-1-git-send-email-arnd@arndb.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Wed, 15 Sep 2010 17:39:27 +0200
+Message-ID: <20100915153927.GA1065@redhat.com>
+References: <1284483745.13351.71.camel@localhost.localdomain>
+ <20100914182707.GB15549@redhat.com>
+ <1284490143.13351.82.camel@localhost.localdomain>
+ <20100914190156.GA16037@redhat.com>
+ <1284492983.13351.95.camel@localhost.localdomain>
+ <20100915051241.GA25340@redhat.com>
+ <1284531675.24603.259.camel@localhost.localdomain>
+ <20100915101000.GB28016@redhat.com>
+ <1284562354.2573.12.camel@localhost.localdomain>
+ <20100915150412.GA679@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1284565136_4463P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
-	Christoph Hellwig <hch@infradead.org>,
-	David Airlie <airlied@linux.ie>,
-	dri-devel@lists.freedesktop.org, Jeremy Kerr <jk@ozlabs.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Julia Lawall <julia@diku.dk>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-fsdevel@vger.kernel.org, linux-omap@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Tony Lindgren <tony@atomide.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Tue, 14 Sep 2010 22:22:28 +0200."
-             <1284495763-7506-1-git-send-email-arnd@arndb.de>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---==_Exmh_1284565136_4463P
 Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45490 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754672Ab0IOPpl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 11:45:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20100915150412.GA679@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Sep 2010 22:22:28 +0200, Arnd Bergmann said:
+On Wed, Sep 15, 2010 at 05:04:12PM +0200, Michael S. Tsirkin wrote:
+> On Wed, Sep 15, 2010 at 07:52:34AM -0700, Shirley Ma wrote:
+> > On Wed, 2010-09-15 at 12:10 +0200, Michael S. Tsirkin wrote:
+> > > Another issue is that macvtap can be bound to almost
+> > > anything, including e.g. a tap device or a bridge,
+> > > which might hang on to skb fragments for unlimited time.
+> > > Zero copy TX won't easily work there.
+> > > I can imagine either somehow triggering a data copy after the
+> > > fact (hard), or detecting such devices and avoiding
+> > > zero copy (unfortunate for guest to guest, and drivers
+> > > will need tuning).
+> > 
+> > So far macvtap zero copy patch is limited to lower devices supports high
+> > memory DMA, it doesn't apply to a tap device or a bridge.
+> 
+> Okay. What about macvtap in bridge mode?
 
-> This changes *all* instances of struct file_operations in
-> the kernel to have a .llseek operation and then changes
-> the default to no_llseek, which returns -ESPIPE, which
-> is what we had decided some time ago in a discussion
-> with Christoph Hellwig.
+In fact, I rechecked: both bridge and loopback have NETIF_F_HIGHDMA set.
+So maybe we should check NETIF_F_NETNS_LOCAL ...
 
-I don't suppose there's any clean way to throw a build error or a
-printk_on_once() or something if we encounter an unconverted 'struct
-file_operations', is there? I have this creeping fear that this patch will go
-upstream during the merge window - as will 12 new staging/ drivers from authors
-who didn't get the memo yet.
+macvtap in bridged mode is interesting as well.
 
-Other than the "missed converting a new usage" issue, it looks OK to me.
-
-
-
---==_Exmh_1284565136_4463P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFMkOiQcC3lWbTT17ARAqwmAKDtt7WLCtHcS+CHyD0HhQqZdVYOywCgg7fS
-U3JZpm40giJnTm/uyS6JlMA=
-=9mVq
------END PGP SIGNATURE-----
-
---==_Exmh_1284565136_4463P--
-
+> > > >  Don't you think once I address vhost_add_used_and_signal update
+> > > > issue, it is a simple and complete patch for macvtap TX zero copy?
+> > > > 
+> > > > Thanks
+> > > > Shirley
+> > > 
+> > > I like the fact that the patch is simple. Unfortunately
+> > > I suspect it'll stop being simple by the time it's complete :) 
+> > 
+> > I can make a try. :)
+> > 
+> > Thanks
+> > Shirley
