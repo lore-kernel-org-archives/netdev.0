@@ -1,70 +1,77 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 8/9] tg3: Dynamically allocate VPD data memory
-Date: Wed, 15 Sep 2010 12:00:00 -0700
-Message-ID: <1284577201-6117-9-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 1/9] tg3: Fix read DMA FIFO overruns on recent
+ devices
+Date: Wed, 15 Sep 2010 11:59:53 -0700
+Message-ID: <1284577201-6117-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1189 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2586 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755097Ab0IOTBB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 15:01:01 -0400
+	id S1755134Ab0IOTBC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 15:01:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch eases stack pressure by dynamically allocating the memory
-used to temporarily store VPD data.
+Earlier versions of tg3 devices had a problem where the read DMA FIFO
+could be overrun in certain edge conditions.  The fix was to limit the
+number of rx BDs the hardware would fetch at a time.  For later devices
+(5761, 5784 and later ASIC revs), there is a hardware fix that must be
+enabled to fix the same problem.  This patch adds that hardware fix.
+
+There is a gap in the ASIC revision lineage where neither fix is
+applied.  This is intentional as these ASIC revisions are not afflicted
+by the bug.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   15 +++++++++++----
- 1 files changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/tg3.c |   10 ++++++++++
+ drivers/net/tg3.h |    6 +++++-
+ 2 files changed, 15 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index a4fbe4f..0d0deaa 100644
+index 9f6ffff..c3a430c 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -12415,14 +12415,18 @@ skip_phy_reset:
+@@ -8015,6 +8015,16 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780)
+ 		rdmac_mode |= RDMAC_MODE_IPV6_LSO_EN;
  
- static void __devinit tg3_read_vpd(struct tg3 *tp)
- {
--	u8 vpd_data[TG3_NVM_VPD_LEN];
-+	u8 *vpd_data;
- 	unsigned int block_end, rosize, len;
- 	int j, i = 0;
- 	u32 magic;
- 
- 	if ((tp->tg3_flags3 & TG3_FLG3_NO_NVRAM) ||
- 	    tg3_nvram_read(tp, 0x0, &magic))
--		goto out_not_found;
-+		goto out_no_vpd;
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 ||
++	    (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)) {
++		val = tr32(TG3_RDMA_RSRVCTRL_REG);
++		tw32(TG3_RDMA_RSRVCTRL_REG,
++		     val | TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX);
++	}
 +
-+	vpd_data = kmalloc(TG3_NVM_VPD_LEN, GFP_KERNEL);
-+	if (!vpd_data)
-+		goto out_no_vpd;
- 
- 	if (magic == TG3_EEPROM_MAGIC) {
- 		for (i = 0; i < TG3_NVM_VPD_LEN; i += 4) {
-@@ -12506,9 +12510,12 @@ partno:
- 
- 	memcpy(tp->board_part_number, &vpd_data[i], len);
- 
--	return;
--
- out_not_found:
-+	kfree(vpd_data);
-+	if (!tp->board_part_number[0])
-+		return;
+ 	/* Receive/send statistics. */
+ 	if (tp->tg3_flags2 & TG3_FLG2_5750_PLUS) {
+ 		val = tr32(RCVLPC_STATS_ENABLE);
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 4937bd1..783cd77 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -1302,7 +1302,11 @@
+ #define  RDMAC_STATUS_FIFOURUN		 0x00000080
+ #define  RDMAC_STATUS_FIFOOREAD		 0x00000100
+ #define  RDMAC_STATUS_LNGREAD		 0x00000200
+-/* 0x4808 --> 0x4c00 unused */
++/* 0x4808 --> 0x4900 unused */
 +
-+out_no_vpd:
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
- 		strcpy(tp->board_part_number, "BCM95906");
- 	else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 &&
++#define TG3_RDMA_RSRVCTRL_REG		0x00004900
++#define TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX	 0x00000004
++/* 0x4904 --> 0x4c00 unused */
+ 
+ /* Write DMA control registers */
+ #define WDMAC_MODE			0x00004c00
 -- 
 1.7.1
 
