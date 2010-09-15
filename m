@@ -1,54 +1,53 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Wed, 15 Sep 2010 19:30:34 +0200
-Message-ID: <20100915173034.GB2612@redhat.com>
-References: <1284490143.13351.82.camel@localhost.localdomain>
- <20100914190156.GA16037@redhat.com>
- <1284492983.13351.95.camel@localhost.localdomain>
- <20100915051241.GA25340@redhat.com>
- <1284531675.24603.259.camel@localhost.localdomain>
- <20100915101000.GB28016@redhat.com>
- <1284562354.2573.12.camel@localhost.localdomain>
- <20100915150412.GA679@redhat.com>
- <20100915153927.GA1065@redhat.com>
- <1284570004.2573.14.camel@localhost.localdomain>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: BUG: IPv6 stops working after a while, needs ip ne del command
+ to reset
+Date: Wed, 15 Sep 2010 13:37:05 -0400
+Message-ID: <4C910441.20107@hp.com>
+References: <1282024802.2487.687.camel@edumazet-laptop> <alpine.DEB.1.10.1008171053230.21857@red.crap.retrofitta.se> <1282050920.2448.47.camel@edumazet-laptop> <alpine.DEB.1.10.1008171547090.21857@red.crap.retrofitta.se> <1282055659.2448.58.camel@edumazet-laptop> <alpine.DEB.1.10.1008171737260.21857@red.crap.retrofitta.se> <20100817171115.GA4134@mcarlson.broadcom.com> <alpine.DEB.1.10.1008171928160.21857@red.crap.retrofitta.se> <20100817183112.GA4351@mcarlson.broadcom.com> <alpine.DEB.1.10.1008172035520.21857@red.crap.retrofitta.se> <20100818012318.GA4630@mcarlson.broadcom.com> <alpine.DEB.1.10.1008180900350.21857@red.crap.retrofitta.se> <alpine.DEB.1.10.1009011034560.31938@red.crap.retrofitta.se> <4C7E65DA.5020106@hp.com> <alpine.DEB.1.10.1009142134440.25664@red.crap.retrofitta.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8872 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752560Ab0IORgq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 13:36:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1284570004.2573.14.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Thomas Habets <thomas@habets.pp.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.1009142134440.25664@red.crap.retrofitta.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 15, 2010 at 10:00:04AM -0700, Shirley Ma wrote:
-> On Wed, 2010-09-15 at 17:39 +0200, Michael S. Tsirkin wrote:
-> > In fact, I rechecked: both bridge and loopback have NETIF_F_HIGHDMA
-> > set.
-> > So maybe we should check NETIF_F_NETNS_LOCAL ...
-> > 
-> > macvtap in bridged mode is interesting as well. 
+On 09/14/2010 03:56 PM, Thomas Habets wrote:
 > 
-> I found that too, just wondered which flag to use is better. :)
+> Sorry for the late reply. I've been swamped.
 > 
-> Thanks
-> Shirley
+> On Wed, 1 Sep 2010, Brian Haley wrote:
+>> So are you running with this set to "Shared Network Port" mode?  I'm
+>> guessing you are.
+> 
+> Yes, there's no dedicated ILO port.
+> 
+>> There was another report on netdev back in 11/2008 on this exact
+>> hardware,
+>> with the same problem.
+> 
+> I can't seem to find it. Do you happen to have the subject line or
+> something?
 
-At some level NETIF_F_NETNS_LOCAL makes sense: local packets
-can get anywhere. OTOH one wonders whether there might be other
-issues, e.g. in theory devices could hang on to frag pages
-just by doing get_page.  There might be other issues.
-Maybe we are better off white-listing known-good drivers
-with a new flag?
+It was actually a month earlier in 2008, I mis-typed, here's the link:
 
--- 
-MST
+http://marc.info/?l=linux-netdev&m=122280545121251&w=2
+
+>> I dug-up my notes on the problem, and from what I can tell, the receive
+>> multicast filters on the NIC were getting removed, causing both incoming
+>> IPv6 and IPv4 multicast packets to get dropped.
+> 
+> Sounds about right. From what I understand the relevant registers were
+> still the same for me when it wasn't working though (if that indeed is
+> how the filter is implemented).
+
+One of the outcomes of that investigation was to update the firmware
+and/or iLO, I'm not sure if either fixed the problem.
+
+-Brian
