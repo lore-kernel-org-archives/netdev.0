@@ -1,153 +1,78 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 9/9] tg3: phy tmp variable roundup
-Date: Wed, 15 Sep 2010 12:00:01 -0700
-Message-ID: <1284577201-6117-10-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 5/9] tg3: Clarify semantics of TG3_IRQ_MAX_VECS
+Date: Wed, 15 Sep 2010 11:59:57 -0700
+Message-ID: <1284577201-6117-6-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1189 "EHLO MMS3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3174 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755094Ab0IOTBG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 15:01:06 -0400
+	id S1755145Ab0IOTBH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 15:01:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tg3's phy routines define temporary variables in many locations
-within the same routine.  This patch unifies all temporary variables
-into one location.
+TG3_IRQ_MAX_VECS should be seen as the maximum number of vectors that
+any device could be expected to use.  tp->irq_max represents the maximum
+number of vectors the current device can use.  This patch clarifies the
+semantics of the code to match the above description.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   45 +++++++++++++++------------------------------
- 1 files changed, 15 insertions(+), 30 deletions(-)
+ drivers/net/tg3.c |    6 +++---
+ drivers/net/tg3.h |    3 ++-
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 0d0deaa..e7a2ba8 100644
+index 4e92b81..7468479 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -1917,19 +1917,16 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
-  */
- static int tg3_phy_reset(struct tg3 *tp)
- {
--	u32 cpmuctrl;
--	u32 phy_status;
-+	u32 val, cpmuctrl;
- 	int err;
+@@ -7564,7 +7564,7 @@ static void tg3_rings_reset(struct tg3 *tp)
  
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
--		u32 val;
--
- 		val = tr32(GRC_MISC_CFG);
- 		tw32_f(GRC_MISC_CFG, val & ~GRC_MISC_CFG_EPHY_IDDQ);
- 		udelay(40);
- 	}
--	err  = tg3_readphy(tp, MII_BMSR, &phy_status);
--	err |= tg3_readphy(tp, MII_BMSR, &phy_status);
-+	err  = tg3_readphy(tp, MII_BMSR, &val);
-+	err |= tg3_readphy(tp, MII_BMSR, &val);
- 	if (err != 0)
- 		return -EBUSY;
+ 	/* Zero mailbox registers. */
+ 	if (tp->tg3_flags & TG3_FLAG_SUPPORT_MSIX) {
+-		for (i = 1; i < TG3_IRQ_MAX_VECS; i++) {
++		for (i = 1; i < tp->irq_max; i++) {
+ 			tp->napi[i].tx_prod = 0;
+ 			tp->napi[i].tx_cons = 0;
+ 			if (tp->tg3_flags3 & TG3_FLG3_ENABLE_TSS)
+@@ -9886,7 +9886,7 @@ static int tg3_set_ringparam(struct net_device *dev, struct ethtool_ringparam *e
+ 		tp->rx_pending = 63;
+ 	tp->rx_jumbo_pending = ering->rx_jumbo_pending;
  
-@@ -1961,18 +1958,14 @@ static int tg3_phy_reset(struct tg3 *tp)
- 		return err;
+-	for (i = 0; i < TG3_IRQ_MAX_VECS; i++)
++	for (i = 0; i < tp->irq_max; i++)
+ 		tp->napi[i].tx_pending = ering->tx_pending;
  
- 	if (cpmuctrl & CPMU_CTRL_GPHY_10MB_RXONLY) {
--		u32 phy;
--
--		phy = MII_TG3_DSP_EXP8_AEDW | MII_TG3_DSP_EXP8_REJ2MHz;
--		tg3_phydsp_write(tp, MII_TG3_DSP_EXP8, phy);
-+		val = MII_TG3_DSP_EXP8_AEDW | MII_TG3_DSP_EXP8_REJ2MHz;
-+		tg3_phydsp_write(tp, MII_TG3_DSP_EXP8, val);
+ 	if (netif_running(dev)) {
+@@ -14598,7 +14598,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	intmbx = MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW;
+ 	rcvmbx = MAILBOX_RCVRET_CON_IDX_0 + TG3_64BIT_REG_LOW;
+ 	sndmbx = MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW;
+-	for (i = 0; i < TG3_IRQ_MAX_VECS; i++) {
++	for (i = 0; i < tp->irq_max; i++) {
+ 		struct tg3_napi *tnapi = &tp->napi[i];
  
- 		tw32(TG3_CPMU_CTRL, cpmuctrl);
- 	}
+ 		tnapi->tp = tp;
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 5cd0653..d39426f 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2659,7 +2659,8 @@ struct tg3_rx_prodring_set {
+ 	dma_addr_t			rx_jmb_mapping;
+ };
  
- 	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5784_AX ||
- 	    GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5761_AX) {
--		u32 val;
--
- 		val = tr32(TG3_CPMU_LSPD_1000MB_CLK);
- 		if ((val & CPMU_LSPD_1000MB_MACCLK_MASK) ==
- 		    CPMU_LSPD_1000MB_MACCLK_12_5) {
-@@ -2028,23 +2021,19 @@ out:
- 		/* Cannot do read-modify-write on 5401 */
- 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4c20);
- 	} else if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
--		u32 phy_reg;
--
- 		/* Set bit 14 with read-modify-write to preserve other bits */
- 		if (!tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0007) &&
--		    !tg3_readphy(tp, MII_TG3_AUX_CTRL, &phy_reg))
--			tg3_writephy(tp, MII_TG3_AUX_CTRL, phy_reg | 0x4000);
-+		    !tg3_readphy(tp, MII_TG3_AUX_CTRL, &val))
-+			tg3_writephy(tp, MII_TG3_AUX_CTRL, val | 0x4000);
- 	}
+-#define TG3_IRQ_MAX_VECS 5
++#define TG3_IRQ_MAX_VECS_RSS		5
++#define TG3_IRQ_MAX_VECS		TG3_IRQ_MAX_VECS_RSS
  
- 	/* Set phy register 0x10 bit 0 to high fifo elasticity to support
- 	 * jumbo frames transmission.
- 	 */
- 	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
--		u32 phy_reg;
--
--		if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &phy_reg))
-+		if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &val))
- 			tg3_writephy(tp, MII_TG3_EXT_CTRL,
--				     phy_reg | MII_TG3_EXT_CTRL_FIFO_ELASTIC);
-+				     val | MII_TG3_EXT_CTRL_FIFO_ELASTIC);
- 	}
- 
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
-@@ -3060,7 +3049,7 @@ static int tg3_adv_1000T_flowctrl_ok(struct tg3 *tp, u32 *lcladv, u32 *rmtadv)
- static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
- {
- 	int current_link_up;
--	u32 bmsr, dummy;
-+	u32 bmsr, val;
- 	u32 lcl_adv, rmt_adv;
- 	u16 current_speed;
- 	u8 current_duplex;
-@@ -3140,8 +3129,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
- 	}
- 
- 	/* Clear pending interrupts... */
--	tg3_readphy(tp, MII_TG3_ISTAT, &dummy);
--	tg3_readphy(tp, MII_TG3_ISTAT, &dummy);
-+	tg3_readphy(tp, MII_TG3_ISTAT, &val);
-+	tg3_readphy(tp, MII_TG3_ISTAT, &val);
- 
- 	if (tp->phy_flags & TG3_PHYFLG_USE_MI_INTERRUPT)
- 		tg3_writephy(tp, MII_TG3_IMASK, ~MII_TG3_INT_LINKCHG);
-@@ -3162,8 +3151,6 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
- 	current_duplex = DUPLEX_INVALID;
- 
- 	if (tp->phy_flags & TG3_PHYFLG_CAPACITIVE_COUPLING) {
--		u32 val;
--
- 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4007);
- 		tg3_readphy(tp, MII_TG3_AUX_CTRL, &val);
- 		if (!(val & (1 << 10))) {
-@@ -3238,13 +3225,11 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
- 
- relink:
- 	if (current_link_up == 0 || (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
--		u32 tmp;
--
- 		tg3_phy_copper_begin(tp);
- 
--		tg3_readphy(tp, MII_BMSR, &tmp);
--		if (!tg3_readphy(tp, MII_BMSR, &tmp) &&
--		    (tmp & BMSR_LSTATUS))
-+		tg3_readphy(tp, MII_BMSR, &bmsr);
-+		if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
-+		    (bmsr & BMSR_LSTATUS))
- 			current_link_up = 1;
- 	}
- 
+ struct tg3_napi {
+ 	struct napi_struct		napi	____cacheline_aligned;
 -- 
 1.7.1
 
