@@ -1,292 +1,95 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: Re: [PATCH] 3c59x: Remove atomic context inside vortex_{set|get}_wol
-Date: Wed, 15 Sep 2010 14:58:46 +0400
-Message-ID: <4C90A6E6.8040608@kernel.org>
-References: <20100915062453.GA16772@hera.kernel.org>	 <1284532517.2271.8.camel@edumazet-laptop>  <4C909CAD.8010905@kernel.org> <1284547021.2495.1.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
+Date: Wed, 15 Sep 2010 13:28:11 +0200
+Message-ID: <20100915112811.GB29267@redhat.com>
+References: <1281086624-5765-10-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-11-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-12-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-13-git-send-email-xiaohui.xin@intel.com>
+ <1281086624-5765-14-git-send-email-xiaohui.xin@intel.com>
+ <20100906111126.GA15608@redhat.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D79280489A9C9@shsmsx502.ccr.corp.intel.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D79280489AA05@shsmsx502.ccr.corp.intel.com>
+ <20100912133703.GJ22982@redhat.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D792B8C815365@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, ben@decadent.org.uk
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:44505 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752009Ab0IOK6d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 06:58:33 -0400
-In-Reply-To: <1284547021.2495.1.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792B8C815365@shsmsx502.ccr.corp.intel.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/15/2010 02:37 PM, Eric Dumazet wrote:
-> Le mercredi 15 septembre 2010 =C3=A0 14:15 +0400, Denis Kirjanov a =C3=
-=A9crit :
->> On 09/15/2010 10:35 AM, Eric Dumazet wrote:
->>> Le mercredi 15 septembre 2010 =C3=A0 06:24 +0000, Denis Kirjanov a =
-=C3=A9crit :
->>>> There is no need to use spinlocks in vortex_{set|get}_wol.
->>>> This also fixes a bug:
->>>> [  254.214993] 3c59x 0000:00:0d.0: PME# enabled
->>>> [  254.215021] BUG: sleeping function called from invalid context =
-at kernel/mutex.c:94
->>>> [  254.215030] in_atomic(): 0, irqs_disabled(): 1, pid: 4875, name=
-: ethtool
->>>> [  254.215042] Pid: 4875, comm: ethtool Tainted: G        W   2.6.=
-36-rc3+ #7
->>>> [  254.215049] Call Trace:
->>>> [  254.215050]  [] __might_sleep+0xb1/0xb6
->>>> [  254.215050]  [] mutex_lock+0x17/0x30
->>>> [  254.215050]  [] acpi_enable_wakeup_device_power+0x2b/0xb1
->>>> [  254.215050]  [] acpi_pm_device_sleep_wake+0x42/0x7f
->>>> [  254.215050]  [] acpi_pci_sleep_wake+0x5d/0x63
->>>> [  254.215050]  [] platform_pci_sleep_wake+0x1d/0x20
->>>> [  254.215050]  [] __pci_enable_wake+0x90/0xd0
->>>> [  254.215050]  [] acpi_set_WOL+0x8e/0xf5 [3c59x]
->>>> [  254.215050]  [] vortex_set_wol+0x4e/0x5e [3c59x]
->>>> [  254.215050]  [] dev_ethtool+0x1cf/0xb61
->>>> [  254.215050]  [] ? debug_mutex_free_waiter+0x45/0x4a
->>>> [  254.215050]  [] ? __mutex_lock_common+0x204/0x20e
->>>> [  254.215050]  [] ? __mutex_lock_slowpath+0x12/0x15
->>>> [  254.215050]  [] ? mutex_lock+0x23/0x30
->>>> [  254.215050]  [] dev_ioctl+0x42c/0x533
->>>> [  254.215050]  [] ? _cond_resched+0x8/0x1c
->>>> [  254.215050]  [] ? lock_page+0x1c/0x30
->>>> [  254.215050]  [] ? page_address+0x15/0x7c
->>>> [  254.215050]  [] ? filemap_fault+0x187/0x2c4
->>>> [  254.215050]  [] sock_ioctl+0x1d4/0x1e0
->>>> [  254.215050]  [] ? sock_ioctl+0x0/0x1e0
->>>> [  254.215050]  [] vfs_ioctl+0x19/0x33
->>>> [  254.215050]  [] do_vfs_ioctl+0x424/0x46f
->>>> [  254.215050]  [] ? selinux_file_ioctl+0x3c/0x40
->>>> [  254.215050]  [] sys_ioctl+0x40/0x5a
->>>> [  254.215050]  [] sysenter_do_call+0x12/0x22
->>>>
->>>> vortex_set_wol protected with a spinlock, but nested  acpi_set_WOL=
- acquires a mutex inside atomic context.
->>>> Ethtool operations are already serialized by RTNL mutex, so it is =
-safe to drop the locks.
->>>>
->>>> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
->>>> ---
->>>>  drivers/net/3c59x.c |    6 ++----
->>>>  1 files changed, 2 insertions(+), 4 deletions(-)
->>>>
->>>> diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
->>>> index 7a01588..a5c697b 100644
->>>> --- a/drivers/net/3c59x.c
->>>> +++ b/drivers/net/3c59x.c
->>>> @@ -634,6 +634,8 @@ struct vortex_private {
->>>>  		medialock:1,
->>>>  		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O r=
-egion */
->>>>  		large_frames:1;			/* accept large frames */
->>>> +	/* {get|set}_wol operations are already serialized by rtnl.
->>>> +	 * no additional locking is required for the enable_wol and acpi=
-_set_WOL() */
->>>
->>> Please format this comment like this :
->>>
->>> 	/* This is a fine ............................
->>> 	 * and long comment ..................................
->>> 	 */
->>>
->>>>  	int drv_flags;
->>>>  	u16 status_enable;
->>>>  	u16 intr_enable;
->>>> @@ -2922,13 +2924,11 @@ static void vortex_get_wol(struct net_devi=
-ce *dev, struct ethtool_wolinfo *wol)
->>>>  {
->>>>  	struct vortex_private *vp =3D netdev_priv(dev);
->>>> =20
->>>> -	spin_lock_irq(&vp->lock);
->>>>  	wol->supported =3D WAKE_MAGIC;
->>>> =20
->>>>  	wol->wolopts =3D 0;
->>>>  	if (vp->enable_wol)
->>>>  		wol->wolopts |=3D WAKE_MAGIC;
->>>> -	spin_unlock_irq(&vp->lock);
->>>>  }
->>>> =20
->>>>  static int vortex_set_wol(struct net_device *dev, struct ethtool_=
-wolinfo *wol)
->>>> @@ -2937,13 +2937,11 @@ static int vortex_set_wol(struct net_devic=
-e *dev, struct ethtool_wolinfo *wol)
->>>>  	if (wol->wolopts & ~WAKE_MAGIC)
->>>>  		return -EINVAL;
->>>> =20
->>>> -	spin_lock_irq(&vp->lock);
->>>>  	if (wol->wolopts & WAKE_MAGIC)
->>>>  		vp->enable_wol =3D 1;
->>>>  	else
->>>>  		vp->enable_wol =3D 0;
->>>>  	acpi_set_WOL(dev);
->>>> -	spin_unlock_irq(&vp->lock);
->>>> =20
->>>>  	return 0;
->>>>  }
->>>
->>>
->> Comments fixed, thanks Eric
->>
->=20
-> Yes, but you forgot to submit your patch completely, with changelog a=
-nd
-> your Signned-off-by ;)
->=20
->> ---
->>  drivers/net/3c59x.c |    7 +++----
->>  1 files changed, 3 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
->> index 7a01588..afcad74 100644
->> --- a/drivers/net/3c59x.c
->> +++ b/drivers/net/3c59x.c
->> @@ -634,6 +634,9 @@ struct vortex_private {
->>  		medialock:1,
->>  		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O reg=
-ion */
->>  		large_frames:1;			/* accept large frames */
->> +	/* {get|set}_wol operations are already serialized by rtnl.
->> +	 * no additional locking is required for the enable_wol and acpi_s=
-et_WOL()
->> +	 */
->>  	int drv_flags;
->>  	u16 status_enable;
->>  	u16 intr_enable;
->> @@ -2922,13 +2925,11 @@ static void vortex_get_wol(struct net_device=
- *dev, struct ethtool_wolinfo *wol)
->>  {
->>  	struct vortex_private *vp =3D netdev_priv(dev);
->> =20
->> -	spin_lock_irq(&vp->lock);
->>  	wol->supported =3D WAKE_MAGIC;
->> =20
->>  	wol->wolopts =3D 0;
->>  	if (vp->enable_wol)
->>  		wol->wolopts |=3D WAKE_MAGIC;
->> -	spin_unlock_irq(&vp->lock);
->>  }
->> =20
->>  static int vortex_set_wol(struct net_device *dev, struct ethtool_wo=
-linfo *wol)
->> @@ -2937,13 +2938,11 @@ static int vortex_set_wol(struct net_device =
-*dev, struct ethtool_wolinfo *wol)
->>  	if (wol->wolopts & ~WAKE_MAGIC)
->>  		return -EINVAL;
->> =20
->> -	spin_lock_irq(&vp->lock);
->>  	if (wol->wolopts & WAKE_MAGIC)
->>  		vp->enable_wol =3D 1;
->>  	else
->>  		vp->enable_wol =3D 0;
->>  	acpi_set_WOL(dev);
->> -	spin_unlock_irq(&vp->lock);
->> =20
->>  	return 0;
->>  }
->=20
->=20
-Next attempt. With a changelog :)
+On Wed, Sep 15, 2010 at 11:13:44AM +0800, Xin, Xiaohui wrote:
+> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
+> >Sent: Sunday, September 12, 2010 9:37 PM
+> >To: Xin, Xiaohui
+> >Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+> >mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
+> >jdike@linux.intel.com
+> >Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
+> >
+> >On Sat, Sep 11, 2010 at 03:41:14PM +0800, Xin, Xiaohui wrote:
+> >> >>Playing with rlimit on data path, transparently to the application in this way
+> >> >>looks strange to me, I suspect this has unexpected security implications.
+> >> >>Further, applications may have other uses for locked memory
+> >> >>besides mpassthru - you should not just take it because it's there.
+> >> >>
+> >> >>Can we have an ioctl that lets userspace configure how much
+> >> >>memory to lock? This ioctl will decrement the rlimit and store
+> >> >>the data in the device structure so we can do accounting
+> >> >>internally. Put it back on close or on another ioctl.
+> >> >Yes, we can decrement the rlimit in ioctl in one time to avoid
+> >> >data path.
+> >> >
+> >> >>Need to be careful for when this operation gets called
+> >> >>again with 0 or another small value while we have locked memory -
+> >> >>maybe just fail with EBUSY?  or wait until it gets unlocked?
+> >> >>Maybe 0 can be special-cased and deactivate zero-copy?.
+> >> >>
+> >>
+> >> How about we don't use a new ioctl, but just check the rlimit
+> >> in one MPASSTHRU_BINDDEV ioctl? If we find mp device
+> >> break the rlimit, then we fail the bind ioctl, and thus can't do
+> >> zero copy any more.
+> >
+> >Yes, and not just check, but decrement as well.
+> >I think we should give userspace control over
+> >how much memory we can lock and subtract from the rlimit.
+> >It's OK to add this as a parameter to MPASSTHRU_BINDDEV.
+> >Then increment the rlimit back on unbind and on close?
+> >
+> >This opens up an interesting condition: process 1
+> >calls bind, process 2 calls unbind or close.
+> >This will increment rlimit for process 2.
+> >Not sure how to fix this properly.
+> >
+> I can't too, can we do any synchronous operations on rlimit stuff?
+> I quite suspect in it.
+>  
+> >--
+> >MST
 
-Thanks.
+Here's what infiniband does: simply pass the amount of memory userspace
+wants you to lock on an ioctl, and verify that either you have
+CAP_IPC_LOCK or this number does not exceed the current rlimit.  (must
+be on ioctl, not on open, as we likely want the fd passed around between
+processes), but do not decrement rlimit.  Use this on following
+operations.  Be careful if this can be changed while operations are in
+progress.
 
-[PATCH v2] 3c59x: Remove atomic context inside vortex_{set|get}_wol
+This does mean that the effective amount of memory that userspace can
+lock is doubled, but at least it is not unlimited, and we sidestep all
+other issues such as userspace running out of lockable memory simply by
+virtue of using the driver.
 
-There is no need to use spinlocks in vortex_{set|get}_wol.
-This also fixes a bug:
-[  254.214993] 3c59x 0000:00:0d.0: PME# enabled
-[  254.215021] BUG: sleeping function called from invalid context at ke=
-rnel/mutex.c:94
-[  254.215030] in_atomic(): 0, irqs_disabled(): 1, pid: 4875, name: eth=
-tool
-[  254.215042] Pid: 4875, comm: ethtool Tainted: G        W   2.6.36-rc=
-3+ #7
-[  254.215049] Call Trace:
-[  254.215050]  [] __might_sleep+0xb1/0xb6
-[  254.215050]  [] mutex_lock+0x17/0x30
-[  254.215050]  [] acpi_enable_wakeup_device_power+0x2b/0xb1
-[  254.215050]  [] acpi_pm_device_sleep_wake+0x42/0x7f
-[  254.215050]  [] acpi_pci_sleep_wake+0x5d/0x63
-[  254.215050]  [] platform_pci_sleep_wake+0x1d/0x20
-[  254.215050]  [] __pci_enable_wake+0x90/0xd0
-[  254.215050]  [] acpi_set_WOL+0x8e/0xf5 [3c59x]
-[  254.215050]  [] vortex_set_wol+0x4e/0x5e [3c59x]
-[  254.215050]  [] dev_ethtool+0x1cf/0xb61
-[  254.215050]  [] ? debug_mutex_free_waiter+0x45/0x4a
-[  254.215050]  [] ? __mutex_lock_common+0x204/0x20e
-[  254.215050]  [] ? __mutex_lock_slowpath+0x12/0x15
-[  254.215050]  [] ? mutex_lock+0x23/0x30
-[  254.215050]  [] dev_ioctl+0x42c/0x533
-[  254.215050]  [] ? _cond_resched+0x8/0x1c
-[  254.215050]  [] ? lock_page+0x1c/0x30
-[  254.215050]  [] ? page_address+0x15/0x7c
-[  254.215050]  [] ? filemap_fault+0x187/0x2c4
-[  254.215050]  [] sock_ioctl+0x1d4/0x1e0
-[  254.215050]  [] ? sock_ioctl+0x0/0x1e0
-[  254.215050]  [] vfs_ioctl+0x19/0x33
-[  254.215050]  [] do_vfs_ioctl+0x424/0x46f
-[  254.215050]  [] ? selinux_file_ioctl+0x3c/0x40
-[  254.215050]  [] sys_ioctl+0x40/0x5a
-[  254.215050]  [] sysenter_do_call+0x12/0x22
-
-vortex_set_wol protected with a spinlock, but nested  acpi_set_WOL acqu=
-ires a mutex inside atomic context.
-Ethtool operations are already serialized by RTNL mutex, so it is safe =
-to drop the locks.
-
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
-V2: fixed comments issue
-
- drivers/net/3c59x.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index 7a01588..afcad74 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -634,6 +634,9 @@ struct vortex_private {
- 		medialock:1,
- 		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O region=
- */
- 		large_frames:1;			/* accept large frames */
-+	/* {get|set}_wol operations are already serialized by rtnl.
-+	 * no additional locking is required for the enable_wol and acpi_set_=
-WOL()
-+	 */
- 	int drv_flags;
- 	u16 status_enable;
- 	u16 intr_enable;
-@@ -2922,13 +2925,11 @@ static void vortex_get_wol(struct net_device *d=
-ev, struct ethtool_wolinfo *wol)
- {
- 	struct vortex_private *vp =3D netdev_priv(dev);
-=20
--	spin_lock_irq(&vp->lock);
- 	wol->supported =3D WAKE_MAGIC;
-=20
- 	wol->wolopts =3D 0;
- 	if (vp->enable_wol)
- 		wol->wolopts |=3D WAKE_MAGIC;
--	spin_unlock_irq(&vp->lock);
- }
-=20
- static int vortex_set_wol(struct net_device *dev, struct ethtool_wolin=
-fo *wol)
-@@ -2937,13 +2938,11 @@ static int vortex_set_wol(struct net_device *de=
-v, struct ethtool_wolinfo *wol)
- 	if (wol->wolopts & ~WAKE_MAGIC)
- 		return -EINVAL;
-=20
--	spin_lock_irq(&vp->lock);
- 	if (wol->wolopts & WAKE_MAGIC)
- 		vp->enable_wol =3D 1;
- 	else
- 		vp->enable_wol =3D 0;
- 	acpi_set_WOL(dev);
--	spin_unlock_irq(&vp->lock);
-=20
- 	return 0;
- }
---=20
-1.6.4.4
+-- 
+MST
