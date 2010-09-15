@@ -1,199 +1,338 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/3] dccp ccid-3: remove buggy RTT-sampling history lookup
-Date: Wed, 15 Sep 2010 14:10:22 +0200
-Message-ID: <1284552623-16283-3-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <dccp_ccid3_simplifications>
- <1284552623-16283-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1284552623-16283-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: davem@davemloft.net
+From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
+Subject: Re: [PATCH v3] Gigabit Ethernet driver of Topcliff PCH
+Date: Wed, 15 Sep 2010 21:20:12 +0900
+Message-ID: <001801cb54d3$3c0711c0$66f8800a@maildom.okisemi.com>
+References: <4C89C23A.6090707@dsn.okisemi.com> <4C89EA12.3000409@suse.cz>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Randy Dunlap" <randy.dunlap@oracle.com>,
+	"John Linn" <john.linn@xilinx.com>,
+	"Ralf Baechle" <ralf@linux-mips.org>,
+	"Kristoffer Glembo" <kristoffer@gaisler.com>,
+	"Maxime Bizon" <mbizon@freebox.fr>,
+	"Greg Rose" <gregory.v.rose@intel.com>,
+	"ML netdev" <netdev@vger.kernel.org>,
+	"LKML" <linux-kernel@vger.kernel.org>,
+	"MeeGo" <meego-dev@meego.com>,
+	"Stephen Hemminger" <shemminger@vyatta.com>,
+	"FUJITA Tomonori" <fujita.tomonori@lab.ntt.co.jp>,
+	"Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	"Andrew" <andrew.chih.howe.khor@intel.com>,
+	"Intel OTC" <joel.clark@intel.com>,
+	"Foster, Margie" <margie.foster@intel.com>,
+	"Arjan" <arjan@linux.intel.com>,
+	"Toshiharu Okada" <okada533@dsn.okisemi.com>,
+	"Takahiro Shimizu" <shimizu394@dsn.okisemi.com>,
+	"Tomoya Morinaga" <morinaga526@dsn.okisemi.com>,
+	"Rafael J. Wysocki"
+To: "Jiri Slaby" <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56033 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753297Ab0IOMKn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 08:10:43 -0400
-In-Reply-To: <1284552623-16283-2-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:25225 "EHLO
+	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752681Ab0IOMky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 08:40:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes the RTT-sampling function tfrc_tx_hist_rtt(), since
+Hi Jiri
 
- 1. it suffered from complex passing of return values (the return value both
-    indicated successful lookup while the value doubled as RTT sample);
+Thank you for your comments.
 
- 2. when for some odd reason the sample value equalled 0, this triggered a bug
-    warning about "bogus Ack", due to the ambiguity of the return value;
+My reply comments are included in the following.
+I will resubmit after modified.
 
- 3. on a passive host which has not sent anything the TX history is empty and
-    thus will lead to unwanted "bogus Ack" warnings such as
-    ccid3_hc_tx_packet_recv: server(e7b7d518): DATAACK with bogus ACK-28197148
-    ccid3_hc_tx_packet_recv: server(e7b7d518): DATAACK with bogus ACK-26641606.
+Thanks Ohtake
+-----
+Date: Fri, 10 Sep 2010 10:19:30 +0200
+From: "Jiri Slaby" <jslaby@suse.cz>
+> Ccing Rafael (please find pch_gbe_resume here)
+>
+> On 09/10/2010 07:29 AM, Masayuki Ohtake wrote:
+> > Hi Fujita, Jili and Stephen
+>
+> Hi, Jili sounds funny :D.
 
-The fix is to replace the implicit encoding by performing the steps manually.
+[masa]
+Sorry, :-}
 
-Furthermore, the "bogus Ack" warning has been removed, since it can actually be
-triggered due to several reasons (network reordering, old packet, (3) above),
-hence it is not very useful.
+>
+> > --- /dev/null
+> > +++ b/drivers/net/pch_gbe/pch_gbe_ethtool.c
+> > @@ -0,0 +1,587 @@
+> ...
+> > +static void pch_gbe_get_regs(struct net_device *netdev,
+> > + struct ethtool_regs *regs, void *p)
+> > +{
+> > + struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+> > + struct pch_gbe_hw *hw = &adapter->hw;
+> > + struct pci_dev *pdev = adapter->pdev;
+> > + u32 *regs_buff = p;
+> > + u16 i, reg, tmp;
+> > +
+> > + regs->version = pdev->revision;
+> > + regs->version = 0x1000000 | (regs->version << 16) | pdev->device;
+> > + memset(p, 0, PCH_GBE_REGS_LEN * (int)sizeof(u32));
+> > + for (i = 0; i < PCH_GBE_MAC_REGS_LEN; i++)
+> > + regs_buff[i] = ioread32(&hw->reg->INT_ST + i);
+>
+> Well, you switched to ioremap, but left ioread/iowrite*. I wrote you
+> either use pci_iomap+ioread/iowrite32 or pci_ioremap_bar+readl/writel
+> which is faster. (But can be used iff you know it is an MMIO space).
+>
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/ccid3.c              |   34 +++++++++++++++++-------------
- net/dccp/ccids/lib/packet_history.c |   39 -----------------------------------
- net/dccp/ccids/lib/packet_history.h |   22 +++++++++++++++++--
- 3 files changed, 38 insertions(+), 57 deletions(-)
+[masa]
+This will be modified.
+"pci_iomap+ioread/iowrite32" will be used.
 
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -370,6 +370,7 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- {
- 	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
- 	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
-+	struct tfrc_tx_hist_entry *acked;
- 	ktime_t now;
- 	unsigned long t_nfb;
- 	u32 pinv, r_sample;
-@@ -383,17 +384,24 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 	    hc->tx_state != TFRC_SSTATE_NO_FBACK)
- 		return;
- 
--	now = ktime_get_real();
--
--	/* Estimate RTT from history if ACK number is valid */
--	r_sample = tfrc_tx_hist_rtt(hc->tx_hist,
--				    DCCP_SKB_CB(skb)->dccpd_ack_seq, now);
--	if (r_sample == 0) {
--		DCCP_WARN("%s(%p): %s with bogus ACK-%llu\n", dccp_role(sk), sk,
--			  dccp_packet_name(DCCP_SKB_CB(skb)->dccpd_type),
--			  (unsigned long long)DCCP_SKB_CB(skb)->dccpd_ack_seq);
-+	/*
-+	 * Locate the acknowledged packet in the TX history.
-+	 *
-+	 * Returning "entry not found" here can for instance happen when
-+	 *  - the host has not sent out anything (e.g. a passive server),
-+	 *  - the Ack is outdated (packet with higher Ack number was received),
-+	 *  - it is a bogus Ack (for a packet not sent on this connection).
-+	 */
-+	acked = tfrc_tx_hist_find_entry(hc->tx_hist, dccp_hdr_ack_seq(skb));
-+	if (acked == NULL)
- 		return;
--	}
-+	/* For the sake of RTT sampling, ignore/remove all older entries */
-+	tfrc_tx_hist_purge(&acked->next);
-+
-+	/* Update the moving average for the RTT estimate (RFC 3448, 4.3) */
-+	now	  = ktime_get_real();
-+	r_sample  = dccp_sample_rtt(sk, ktime_us_delta(now, acked->stamp));
-+	hc->tx_rtt = tfrc_ewma(hc->tx_rtt, r_sample, 9);
- 
- 	/* Update receive rate in units of 64 * bytes/second */
- 	hc->tx_x_recv = opt_recv->ccid3or_receive_rate;
-@@ -405,11 +413,7 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 		hc->tx_p = 0;
- 	else				       /* can not exceed 100% */
- 		hc->tx_p = scaled_div(1, pinv);
--	/*
--	 * Validate new RTT sample and update moving average
--	 */
--	r_sample = dccp_sample_rtt(sk, r_sample);
--	hc->tx_rtt = tfrc_ewma(hc->tx_rtt, r_sample, 9);
-+
- 	/*
- 	 * Update allowed sending rate X as per draft rfc3448bis-00, 4.2/3
- 	 */
---- a/net/dccp/ccids/lib/packet_history.h
-+++ b/net/dccp/ccids/lib/packet_history.h
-@@ -40,12 +40,28 @@
- #include <linux/slab.h>
- #include "tfrc.h"
- 
--struct tfrc_tx_hist_entry;
-+/**
-+ *  tfrc_tx_hist_entry  -  Simple singly-linked TX history list
-+ *  @next:  next oldest entry (LIFO order)
-+ *  @seqno: sequence number of this entry
-+ *  @stamp: send time of packet with sequence number @seqno
-+ */
-+struct tfrc_tx_hist_entry {
-+	struct tfrc_tx_hist_entry *next;
-+	u64			  seqno;
-+	ktime_t			  stamp;
-+};
-+
-+static inline struct tfrc_tx_hist_entry *
-+	tfrc_tx_hist_find_entry(struct tfrc_tx_hist_entry *head, u64 seqno)
-+{
-+	while (head != NULL && head->seqno != seqno)
-+		head = head->next;
-+	return head;
-+}
- 
- extern int  tfrc_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno);
- extern void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp);
--extern u32  tfrc_tx_hist_rtt(struct tfrc_tx_hist_entry *head,
--			     const u64 seqno, const ktime_t now);
- 
- /* Subtraction a-b modulo-16, respects circular wrap-around */
- #define SUB16(a, b) (((a) + 16 - (b)) & 0xF)
---- a/net/dccp/ccids/lib/packet_history.c
-+++ b/net/dccp/ccids/lib/packet_history.c
-@@ -38,18 +38,6 @@
- #include "packet_history.h"
- #include "../../dccp.h"
- 
--/**
-- *  tfrc_tx_hist_entry  -  Simple singly-linked TX history list
-- *  @next:  next oldest entry (LIFO order)
-- *  @seqno: sequence number of this entry
-- *  @stamp: send time of packet with sequence number @seqno
-- */
--struct tfrc_tx_hist_entry {
--	struct tfrc_tx_hist_entry *next;
--	u64			  seqno;
--	ktime_t			  stamp;
--};
--
- /*
-  * Transmitter History Routines
-  */
-@@ -71,15 +59,6 @@ void tfrc_tx_packet_history_exit(void)
- 	}
- }
- 
--static struct tfrc_tx_hist_entry *
--	tfrc_tx_hist_find_entry(struct tfrc_tx_hist_entry *head, u64 seqno)
--{
--	while (head != NULL && head->seqno != seqno)
--		head = head->next;
--
--	return head;
--}
--
- int tfrc_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno)
- {
- 	struct tfrc_tx_hist_entry *entry = kmem_cache_alloc(tfrc_tx_hist_slab, gfp_any());
-@@ -107,24 +86,6 @@ void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp)
- 	*headp = NULL;
- }
- 
--u32 tfrc_tx_hist_rtt(struct tfrc_tx_hist_entry *head, const u64 seqno,
--		     const ktime_t now)
--{
--	u32 rtt = 0;
--	struct tfrc_tx_hist_entry *packet = tfrc_tx_hist_find_entry(head, seqno);
--
--	if (packet != NULL) {
--		rtt = ktime_us_delta(now, packet->stamp);
--		/*
--		 * Garbage-collect older (irrelevant) entries:
--		 */
--		tfrc_tx_hist_purge(&packet->next);
--	}
--
--	return rtt;
--}
--
--
- /*
-  *	Receiver History Routines
-  */
+
+> > +static void pch_gbe_get_ethtool_stats(struct net_device *netdev,
+> > +   struct ethtool_stats *stats, u64 *data)
+> > +{
+> > + struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+> > + int i;
+> > + const struct pch_gbe_stats *gstats = pch_gbe_gstrings_stats;
+> > + char *hw_stats = (char *)&adapter->stats;
+> > +
+> > + pch_gbe_update_stats(adapter);
+> > + for (i = 0; i < PCH_GBE_GLOBAL_STATS_LEN; i++) {
+> > + char *p = hw_stats + gstats->offset;
+> > + data[i] = gstats->size == sizeof(u64) ? *(u64 *)p:(*(u32 *)p);
+>
+> Actually, how you protect 64-bit stat numbers on 32-bit to be atomic?
+> You change adapter->stats from the irq context and it may need to update
+> 2 words on 32-bit. So instead of having 0x100000000 you can get here
+> 0x1ffffffff or 0x0 since read/write of u64 on 32bit are not atomic and
+> both words may not reach the memory yet. I don't know if that matters --
+> what are the stats from ethtool used for, but returning invalid values
+> is not nice. Do you need 64bit stats on 32-bit at all? Wouldn't be
+> netdev_stats (they are ulong) enough?
+>
+> Example:
+> Given stat = 0xffffffff; on 32-bit stat is composed of stat_hi|stat_lo,
+> compiler generates for instance:
+> stat_lo++;
+> if (overflow)    (1)
+>   stat_hi++
+>
+> Then if you read stat from this ethtool function at point (1), you will
+> get 0x0.
+
+[masa]
+This will be changed to 32bit stats .
+
+
+>
+> > + gstats++;
+> > + }
+> > +}
+> ...
+> > --- /dev/null
+> > +++ b/drivers/net/pch_gbe/pch_gbe_main.c
+> > @@ -0,0 +1,2526 @@
+> ...
+> > +void pch_gbe_mac_mar_set(struct pch_gbe_hw *hw, u8 * addr, u32 index)
+> > +{
+> > + u32 mar_low, mar_high, adrmask;
+> > +
+> > + pr_debug("index : 0x%x\n", index);
+> > +
+> > + /*
+> > + * HW expects these in little endian so we reverse the byte order
+> > + * from network order (big endian) to little endian
+> > + */
+> > + mar_high = ((u32) addr[0] | ((u32) addr[1] << 8) |
+> > +    ((u32) addr[2] << 16) | ((u32) addr[3] << 24));
+> > + mar_low = ((u32) addr[4] | ((u32) addr[5] << 8));
+> > + /* Stop the MAC Address of index. */
+> > + adrmask = ioread32(&hw->reg->ADDR_MASK);
+> > + iowrite32((adrmask | (0x0001 << index)), &hw->reg->ADDR_MASK);
+> > + /* wait busy */
+> > + while ((ioread32(&hw->reg->ADDR_MASK) & PCH_GBE_BUSY)) {
+> > + int tmp = 0;
+> > + udelay(20);
+> > + tmp++;
+> > + if (tmp == 1000) {
+> > + pr_err("Address mask bit is not cleared\n");
+> > + break;
+> > + }
+> > + }
+>
+> Maybe it would make sense to create a helper for that.
+
+[masa]
+The function for wait will be added.
+
+>
+> > +static void pch_gbe_tx_queue(struct pch_gbe_adapter *adapter,
+> > +       struct pch_gbe_tx_ring *tx_ring,
+> > +       struct sk_buff *skb)
+> > +{
+> ...
+> > + buffer_info->kernel_skb = skb;
+>
+> Just curious, why you need ->kernel_skb and ->skb in that structure?
+> Can't you use just ->skb?
+
+[masa]
+"->kernel_skb " will be deleted.
+
+>
+> > +int pch_gbe_setup_tx_resources(struct pch_gbe_adapter *adapter,
+> > + struct pch_gbe_tx_ring *tx_ring)
+> > +{
+> > + struct pci_dev *pdev = adapter->pdev;
+> > + struct pch_gbe_tx_desc *tx_desc;
+> > + int size;
+> > + int desNo;
+> > +
+> > + size = (int)sizeof(struct pch_gbe_buffer) * tx_ring->count;
+> > + tx_ring->buffer_info = vmalloc(size);
+> > + if (!tx_ring->buffer_info) {
+> > + pr_err("Unable to allocate memory for the buffer infomation\n");
+> > + return -ENOMEM;
+> > + }
+> > + memset(tx_ring->buffer_info, 0, size);
+> > +
+> > + tx_ring->size = tx_ring->count * (int)sizeof(struct pch_gbe_tx_desc);
+> > +
+> > + tx_ring->desc =
+> > + pci_alloc_consistent(pdev, tx_ring->size, &tx_ring->dma);
+>
+> As you can sleep here now, you may use dma_alloc_coherent(..., GFP_KERNEL)
+> which allows for better memory reclaim and will fail in less cases.
+> For two reasons:
+> 1) pci_alloc_consistent is deprecated AFAIK
+> 2) pci_alloc_consistent calls page allocator with GFP_ATOMIC and may
+> fail for huge allocations early. And as I computed last time, you
+> allocate up to order-4 pages here.
+>
+> The same for RX dir.
+
+[masa]
+This will be modified so.
+
+
+>
+> > +static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+> > +{
+> > + struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+> > + struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
+> > + unsigned long flags;
+> > +
+> > + if (unlikely(skb->len <= 0)) {
+>
+> Can this happen at all? ndev people should tell you better...
+
+[masa]
+This will be deleted.
+
+>
+> > + dev_kfree_skb_any(skb);
+> > + pr_debug("Return : OK  skb len : %d\n", skb->len);
+> > + return NETDEV_TX_OK;
+> > + }
+> > + if (unlikely(skb->len > (adapter->hw.mac.max_frame_size - 4))) {
+> > + pr_err("Transfer length Error: skb len: %d > max: %d\n",
+> > +        skb->len, adapter->hw.mac.max_frame_size);
+> > + adapter->stats.tx_length_errors++;
+> > + return NETDEV_TX_BUSY;
+>
+> Ok, then it's not busy (it will try to send the skb in a loop forever).
+> You should free it and return OK, I think. Anyway, properly set MTU
+> should gurantee that, but it is my guess.
+
+[masa]
+dev_kfree_skb_any(skb);
+return NETDEV_TX_OK;
+
+>
+> > +static struct net_device_stats *pch_gbe_get_stats(
+> > + struct net_device *netdev)
+> > +{
+> > + struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+> > +
+> > + /* only return the current stats */
+> > + return &adapter->net_stats;
+>
+> Ah, you have your own copy of netstats. You may use netdev->stats all
+> over the code.
+
+[masa]
+"netdev->stats" will be used
+
+>
+> > +#ifdef CONFIG_PM
+> > +static int pch_gbe_resume(struct pci_dev *pdev)
+> > +{
+> > + struct net_device *netdev = pci_get_drvdata(pdev);
+> > + struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+> > + struct pch_gbe_hw *hw = &adapter->hw;
+> > + u32 err;
+> > +
+> > + pci_enable_wake(pdev, PCI_D0, 0);
+> > + pci_set_power_state(pdev, PCI_D0);
+> > + pci_restore_state(pdev);
+> > + err = pci_enable_device(pdev);
+> > + if (err) {
+> > + pr_err("Cannot enable PCI device from suspend\n");
+> > + return err;
+> > + }
+> > + pci_set_master(pdev);
+>
+> Not sure which of those you need. Rafael may tell you more. You should
+> not set power state and restore state, but I might be wrong.
+>
+> The same you need not to save state from ->suspend.
+>
+
+[masa]
+I confirm Rafael's comment.
+
+
+> > + pch_gbe_hal_power_up_phy(hw);
+> > + pch_gbe_reset(adapter);
+> > + /* Clear wake on lan control and status */
+> > + pch_gbe_mac_set_wol_event(hw, 0);
+> > +
+> > + if (netif_running(netdev))
+> > + pch_gbe_up(adapter);
+> > + netif_device_attach(netdev);
+> > +
+> > + return 0;
+> > +}
+> > +#endif /* CONFIG_PM */
+> ...
+> > --- /dev/null
+> > +++ b/drivers/net/pch_gbe/pch_gbe_param.c
+> > @@ -0,0 +1,501 @@
+> ...
+> > +const struct pch_gbe_opt_list speed_list[] = {
+>
+> static? And all below...
+
+[masa]
+This will be modified.
+
+>
+> > + { 0, "" },
+> > + { SPEED_10, "" },
+> > + { SPEED_100, "" },
+> > + { SPEED_1000, "" }
+> > +};
+> ...
+> > +static void pch_gbe_check_copper_options(struct pch_gbe_adapter *adapter)
+> > +{
+> > + struct pch_gbe_hw *hw = &adapter->hw;
+> > + int speed, dplx;
+> > +
+> > + { /* Speed */
+> > + struct pch_gbe_option opt = {
+>
+> So may be this static const? And all below...
+
+[masa]
+This will be modified.
+
+
+
+
