@@ -1,61 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Wed, 15 Sep 2010 17:04:12 +0200
-Message-ID: <20100915150412.GA679@redhat.com>
-References: <20100914162952.GB13560@redhat.com>
- <1284483745.13351.71.camel@localhost.localdomain>
- <20100914182707.GB15549@redhat.com>
- <1284490143.13351.82.camel@localhost.localdomain>
- <20100914190156.GA16037@redhat.com>
- <1284492983.13351.95.camel@localhost.localdomain>
- <20100915051241.GA25340@redhat.com>
- <1284531675.24603.259.camel@localhost.localdomain>
- <20100915101000.GB28016@redhat.com>
- <1284562354.2573.12.camel@localhost.localdomain>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: E1000E/82567LM-3: link reported up too soon
+Date: Wed, 15 Sep 2010 17:34:30 +0200
+Message-ID: <87pqwff2bd.fsf@small.ssi.corp>
+References: <87eicvi0cz.fsf@small.ssi.corp> <4C90E11B.7020807@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51309 "EHLO mx1.redhat.com"
+Received: from copper.chdir.org ([88.191.97.87]:44200 "EHLO copper.chdir.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754293Ab0IOPKU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 11:10:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1284562354.2573.12.camel@localhost.localdomain>
+	id S1753483Ab0IOPdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 11:33:46 -0400
+In-Reply-To: <4C90E11B.7020807@hp.com> (Brian Haley's message of "Wed, 15 Sep
+	2010 11:07:07 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 15, 2010 at 07:52:34AM -0700, Shirley Ma wrote:
-> On Wed, 2010-09-15 at 12:10 +0200, Michael S. Tsirkin wrote:
-> > Another issue is that macvtap can be bound to almost
-> > anything, including e.g. a tap device or a bridge,
-> > which might hang on to skb fragments for unlimited time.
-> > Zero copy TX won't easily work there.
-> > I can imagine either somehow triggering a data copy after the
-> > fact (hard), or detecting such devices and avoiding
-> > zero copy (unfortunate for guest to guest, and drivers
-> > will need tuning).
-> 
-> So far macvtap zero copy patch is limited to lower devices supports high
-> memory DMA, it doesn't apply to a tap device or a bridge.
+Hi Brian,
 
-Okay. What about macvtap in bridge mode?
+Brian Haley <brian.haley@hp.com> writes:
 
-> > >  Don't you think once I address vhost_add_used_and_signal update
-> > > issue, it is a simple and complete patch for macvtap TX zero copy?
-> > > 
-> > > Thanks
-> > > Shirley
-> > 
-> > I like the fact that the patch is simple. Unfortunately
-> > I suspect it'll stop being simple by the time it's complete :) 
-> 
-> I can make a try. :)
-> 
-> Thanks
-> Shirley
+>> <snip>
+>> 
+>> I tested it with 2 different 100M/s switches (Cisco Catalyst 2960 and a
+>> Planex FX08-Mini) so I guess the switch is not the root of the issue. I
+>> came to the conclusion that the link is reported up too soon by the
+>> driver.
+>> 
+>> Because the first packets are losts, the result is that address
+>> autoconfiguration is delayed by a few seconds as can be seen on
+>> following capture on the laptop:
+>
+> I've seen similar things on various NICs,
+
+I remember I add the same kind of issue on a broadcom chip on a dell
+D600 but had no time to investigate at that time. Did you notice the
+problem for different brands? Do you think those are driver-related
+issues or something in common code?
+ 
+> posted a patch last week that unfortunately had other bad
+> side-effects.  When I have time I'll work on it again, but I'd also be
+> curious if there's something that can be done at the driver level to
+> help out, since it seemed like part of the problem is that the link-UP
+> came before the device was actually able to transmit packets, so the
+> DAD was lost.
+
+I am not familiar with e1000e code but as I said previously I'd be happy
+to test patches to help determine precisely where the packet gets lost
+and why.
+
+Cheers,
+
+a+
