@@ -1,55 +1,124 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 4/9] tg3: Unlock 5717 B0+ support
-Date: Wed, 15 Sep 2010 11:59:56 -0700
-Message-ID: <1284577201-6117-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 3/9] tg3: Don't send APE events for NCSI
+ firmware
+Date: Wed, 15 Sep 2010 11:59:55 -0700
+Message-ID: <1284577201-6117-4-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1189 "EHLO MMS3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1194 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755171Ab0IOTAf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 15:00:35 -0400
+	id S1755144Ab0IOTAb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 15:00:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adjusts the driver to use the tg3_start_xmit_dma_bug()
-transmit routine for all revisions of 5717 asic rev devices and then
-allows the driver to attach to B0 and later devices.
+NCSI firmware does not accept APE events.  It relies on a "driver state"
+location in shared memory to tell it what the driver's current state is.
+
+This patch pivots the code to use the new driver state scheme.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
+ drivers/net/tg3.c |   22 ++++++++++++++++++++--
+ drivers/net/tg3.h |    9 ++++++++-
+ 2 files changed, 28 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index fc9706c..4e92b81 100644
+index 38f1b19..fc9706c 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -13431,10 +13431,6 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	if (err)
- 		return err;
+@@ -6596,6 +6596,10 @@ static void tg3_ape_send_event(struct tg3 *tp, u32 event)
+ 	int i;
+ 	u32 apedata;
  
--	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 &&
--	    tp->pci_chip_rev_id != CHIPREV_ID_5717_A0)
--		return -ENOTSUPP;
--
- 	/* Initialize data/descriptor byte/word swapping. */
- 	val = tr32(GRC_MODE);
- 	val &= GRC_MODE_HOST_STACKUP;
-@@ -14463,7 +14459,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 	}
++	/* NCSI does not support APE events */
++	if (tp->tg3_flags3 & TG3_FLG3_APE_HAS_NCSI)
++		return;
++
+ 	apedata = tg3_ape_read32(tp, TG3_APE_SEG_SIG);
+ 	if (apedata != APE_SEG_SIG_MAGIC)
+ 		return;
+@@ -6647,6 +6651,8 @@ static void tg3_ape_driver_state_change(struct tg3 *tp, int kind)
+ 			APE_HOST_DRIVER_ID_MAGIC(TG3_MAJ_NUM, TG3_MIN_NUM));
+ 		tg3_ape_write32(tp, TG3_APE_HOST_BEHAVIOR,
+ 				APE_HOST_BEHAV_NO_PHYLOCK);
++		tg3_ape_write32(tp, TG3_APE_HOST_DRVR_STATE,
++				    TG3_APE_HOST_DRVR_STATE_START);
  
- 	if ((tp->tg3_flags3 & TG3_FLG3_5755_PLUS) &&
--	    tp->pci_chip_rev_id != CHIPREV_ID_5717_A0 &&
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5717 &&
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5719)
- 		dev->netdev_ops = &tg3_netdev_ops;
- 	else
+ 		event = APE_EVENT_STATUS_STATE_START;
+ 		break;
+@@ -6658,6 +6664,16 @@ static void tg3_ape_driver_state_change(struct tg3 *tp, int kind)
+ 		 */
+ 		tg3_ape_write32(tp, TG3_APE_HOST_SEG_SIG, 0x0);
+ 
++		if (device_may_wakeup(&tp->pdev->dev) &&
++		    (tp->tg3_flags & TG3_FLAG_WOL_ENABLE)) {
++			tg3_ape_write32(tp, TG3_APE_HOST_WOL_SPEED,
++					    TG3_APE_HOST_WOL_SPEED_AUTO);
++			apedata = TG3_APE_HOST_DRVR_STATE_WOL;
++		} else
++			apedata = TG3_APE_HOST_DRVR_STATE_UNLOAD;
++
++		tg3_ape_write32(tp, TG3_APE_HOST_DRVR_STATE, apedata);
++
+ 		event = APE_EVENT_STATUS_STATE_UNLOAD;
+ 		break;
+ 	case RESET_KIND_SUSPEND:
+@@ -12739,10 +12755,12 @@ static void __devinit tg3_read_dash_ver(struct tg3 *tp)
+ 
+ 	apedata = tg3_ape_read32(tp, TG3_APE_FW_VERSION);
+ 
+-	if (tg3_ape_read32(tp, TG3_APE_FW_FEATURES) & TG3_APE_FW_FEATURE_NCSI)
++	if (tg3_ape_read32(tp, TG3_APE_FW_FEATURES) & TG3_APE_FW_FEATURE_NCSI) {
++		tp->tg3_flags3 |= TG3_FLG3_APE_HAS_NCSI;
+ 		fwtype = "NCSI";
+-	else
++	} else {
+ 		fwtype = "DASH";
++	}
+ 
+ 	vlen = strlen(tp->fw_ver);
+ 
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 783cd77..5cd0653 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -2180,7 +2180,7 @@
+ #define TG3_APE_HOST_SEG_SIG		0x4200
+ #define  APE_HOST_SEG_SIG_MAGIC		 0x484f5354
+ #define TG3_APE_HOST_SEG_LEN		0x4204
+-#define  APE_HOST_SEG_LEN_MAGIC		 0x0000001c
++#define  APE_HOST_SEG_LEN_MAGIC		 0x00000020
+ #define TG3_APE_HOST_INIT_COUNT		0x4208
+ #define TG3_APE_HOST_DRIVER_ID		0x420c
+ #define  APE_HOST_DRIVER_ID_LINUX	 0xf0000000
+@@ -2192,6 +2192,12 @@
+ #define  APE_HOST_HEARTBEAT_INT_DISABLE	 0
+ #define  APE_HOST_HEARTBEAT_INT_5SEC	 5000
+ #define TG3_APE_HOST_HEARTBEAT_COUNT	0x4218
++#define TG3_APE_HOST_DRVR_STATE		0x421c
++#define TG3_APE_HOST_DRVR_STATE_START	 0x00000001
++#define TG3_APE_HOST_DRVR_STATE_UNLOAD	 0x00000002
++#define TG3_APE_HOST_DRVR_STATE_WOL	 0x00000003
++#define TG3_APE_HOST_WOL_SPEED		0x4224
++#define TG3_APE_HOST_WOL_SPEED_AUTO	 0x00008000
+ 
+ #define TG3_APE_EVENT_STATUS		0x4300
+ 
+@@ -2854,6 +2860,7 @@ struct tg3 {
+ #define TG3_FLG3_USE_JUMBO_BDFLAG	0x00400000
+ #define TG3_FLG3_L1PLLPD_EN		0x00800000
+ #define TG3_FLG3_5717_PLUS		0x01000000
++#define TG3_FLG3_APE_HAS_NCSI		0x02000000
+ 
+ 	struct timer_list		timer;
+ 	u16				timer_counter;
 -- 
 1.7.1
 
