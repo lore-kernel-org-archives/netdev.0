@@ -1,52 +1,63 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ixgbe: add GRO to vlan_features
-Date: Tue, 14 Sep 2010 21:35:44 -0700 (PDT)
-Message-ID: <20100914.213544.112598547.davem@davemloft.net>
-References: <20100915015052.GA6602@mmm.home.ifup.org>
+Subject: Re: SPARC32 SMP 2.6.36-rc3 build error
+Date: Tue, 14 Sep 2010 21:42:35 -0700 (PDT)
+Message-ID: <20100914.214235.183040334.davem@davemloft.net>
+References: <4C8F78F3.7020408@gaisler.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: bphilips@suse.de
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20100915015052.GA6602@mmm.home.ifup.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: sparclinux@vger.kernel.org, netdev@vger.kernel.org
+To: daniel@gaisler.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <4C8F78F3.7020408@gaisler.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Brandon Philips <bphilips@suse.de>
-Date: Tue, 14 Sep 2010 18:50:53 -0700
+From: Daniel Hellstrom <daniel@gaisler.com>
+Date: Tue, 14 Sep 2010 15:30:27 +0200
 
-> When running a vlan -> bridge -> domU setup I was noticing poor RX
-> performance. It seems ixgbe and other drivers don't have NETIF_F_GRO set
-> in vlan_features and thus GRO is off by default for vlans.
+> I have problems linking Linux SPARC32 when SMP is enabled:
 > 
-> I see no reason why the other drivers shouldn't be fixed. If this is OK
-> I will go off and fix the rest.
-> 
-> Signed-off-by: Brandon Philips <bphilips@suse.de>
+>  LD      vmlinux
+>  SYSMAP  System.map
+>  SYSMAP  .tmp_System.map
+>  BTFIX   arch/sparc/boot/btfix.S
+>  AS      arch/sparc/boot/btfix.o
+>  LD      arch/sparc/boot/image
+> net/built-in.o: In function `net_rps_action_and_irq_enable':
+> /home/daniel/linux/linux/linux-2.6/net/core/dev.c:3337: undefined
+> reference to `__smp_call_function_single'
+> make[1]: *** [arch/sparc/boot/image] Error 1
+> make: *** [zImage] Error 2
 
-I think it should be set, but why don't we do this another way?
+It's a missing dependency in the networking code, I'll fix this
+in the net-2.6 tree as follows:
 
-This feature is a software feature, essentially, so if it is published
-in netdev->features we can simply propagate it automatically to
-netdev->vlan_features at device registry time in the core networking.
+--------------------
+net: RPS needs to depend upon USE_GENERIC_SMP_HELPERS
 
-------------------------------------------------------------------------------
-Start uncovering the many advantages of virtual appliances
-and start using them to simplify application deployment and
-accelerate your shift to cloud computing.
-http://p.sf.net/sfu/novell-sfdev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+You cannot invoke __smp_call_function_single() unless the
+architecture sets this symbol.
+
+Reported-by: Daniel Hellstrom <daniel@gaisler.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/Kconfig b/net/Kconfig
+index e330594..e926884 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -217,7 +217,7 @@ source "net/dns_resolver/Kconfig"
+ 
+ config RPS
+ 	boolean
+-	depends on SMP && SYSFS
++	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+ 	default y
+ 
+ menu "Network testing"
+-- 
+1.7.2.2
+
