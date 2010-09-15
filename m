@@ -1,81 +1,58 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] net: af_packet: don't call tpacket_destruct_skb()
- until the skb is sent out
-Date: Wed, 15 Sep 2010 07:23:32 +0200
-Message-ID: <20100915052332.GB25340@redhat.com>
-References: <1284175403-3228-1-git-send-email-xiaosuo@gmail.com>
- <20100912121349.GD22982@redhat.com>
- <20100914.202023.193706826.davem@davemloft.net>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Wed, 15 Sep 2010 07:27:24 +0200
+Message-ID: <20100915052724.GA25481@redhat.com>
+References: <1284410580.13351.10.camel@localhost.localdomain>
+ <1284410883.13351.14.camel@localhost.localdomain>
+ <20100913.201730.27805132.davem@davemloft.net>
+ <4C8F3C77.7010302@redhat.com>
+ <1284476719.13351.35.camel@localhost.localdomain>
+ <F2E9EB7348B8264F86B6AB8151CE2D792B8C8152A0@shsmsx502.ccr.corp.intel.com>
+ <1284518452.13351.111.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: xiaosuo@gmail.com, eric.dumazet@gmail.com, socketcan@hartkopp.net,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50120 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751216Ab0IOF3g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 01:29:36 -0400
+Cc: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	Avi Kivity <avi@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100914.202023.193706826.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1284518452.13351.111.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 14, 2010 at 08:20:23PM -0700, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Sun, 12 Sep 2010 14:13:49 +0200
+On Tue, Sep 14, 2010 at 07:40:52PM -0700, Shirley Ma wrote:
+> On Wed, 2010-09-15 at 09:50 +0800, Xin, Xiaohui wrote:
+> > I think what David said is what we have thought before in mp device.
+> > Since we are not sure the exact time the tx buffer was wrote though
+> > DMA operation.
+> > But the deadline is when the tx buffer was freed. So we only notify
+> > the vhost stuff
+> > about the write when tx buffer freed. But the deadline is maybe too
+> > late for performance.
 > 
-> > On Sat, Sep 11, 2010 at 11:23:23AM +0800, Changli Gao wrote:
-> >> @@ -799,7 +806,9 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
-> >>  
-> >>  	memcpy((struct skb_shared_info *)(data + size),
-> >>  	       skb_shinfo(skb),
-> >> -	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
-> >> +	       offsetof(struct skb_shared_info,
-> >> +			frags[skb_shinfo(skb)->nr_frags]));
-> >> +	skb_shinfo(skb)->destructor = NULL;
-> >>  
-> >>  	/* Check if we can avoid taking references on fragments if we own
-> >>  	 * the last reference on skb->head. (see skb_release_data())
-> > 
-> > So it looks like pskb_expand_head will prevent the shinfo desctructor
-> > from being called, ever? If so, won't this break af_packet?
+> Have you tried it? If so what's the performance penalty you have seen by
+> notifying vhost when tx buffer freed?
 > 
-> >From what I read, he is propagating it into the new SKB data blob
-> with expanded head area.  It would get invoked when the skb's
-> new data is put.
+> I am thinking to have a callback in skb destructor,
+> vhost_add_used_and_signal gets updated when skb is actually freed, vhost
+> vq & head need to be passed to the callback. This might requires vhost
+> ring size is at least as big as the lower device driver. 
 > 
-> I am not sure this is correct, however.
-> 
-> Destructor register only cares about original data area, but what
-> constitutes "original data" is ambiguous.  In fact it seems
-> impossible to catch the freeing of all parts properly.
-> 
-> When pskb_expand_head() is invoked we get new linear part, but
-> non-linear part stays the same.  However, entity which registered
-> skb data destructor cares about old linear data lifetime, which
-> we will no longer track after destructor is propagated only to
-> the new shinfo.
-> 
-> So we need to do something different here.  I bet original code
-> overriding socket destructor semantics had a similar problem.
-> 
-> Changli, I have one other minor request, please name this something
-> like "shinfo->data_destructor" and "shinfo->data_destructor_arg".
-> 
-> I think that will make it easier for other humans to understand :)
-> 
-> Thank you.
+> Thanks
+> Shirley
 
-Hmm, and there's another issue I think I see here:
-destructor_arg now points to a socket.
-What happens if the skb gets queued on an interface for a very long time
-(as can be the case with e.g. tap), and meanwhile
-you try to kill the task that owns the socket, which
-will try to destroy the socket?
+For some of the issues, try following the discussion around
+net: af_packet: don't call tpacket_destruct_skb() until the skb is sent
+out.
 
-Original code handles this by relevant devices orphaning an skb
-if it's queued indefinitely.
+Summary: it's difficult to do correctly generally. Limiting ourselves
+to transmit on specific devices might make it possible.
 
 -- 
 MST
