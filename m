@@ -1,119 +1,49 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH RFC] netns: keep vlan slaves on master netns move
-Date: Tue, 14 Sep 2010 19:10:01 -0700
-Message-ID: <m1bp7z4v0m.fsf@fess.ebiederm.org>
-References: <20100824115056.GA235835@jupiter.n2.diac24.net>
-	<20100913114315.GA859019@jupiter.n2.diac24.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: RE: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Tue, 14 Sep 2010 19:40:52 -0700
+Message-ID: <1284518452.13351.111.camel@localhost.localdomain>
+References: <1284410580.13351.10.camel@localhost.localdomain>
+	 <1284410883.13351.14.camel@localhost.localdomain>
+	 <20100913.201730.27805132.davem@davemloft.net>
+	 <4C8F3C77.7010302@redhat.com>
+	 <1284476719.13351.35.camel@localhost.localdomain>
+	 <F2E9EB7348B8264F86B6AB8151CE2D792B8C8152A0@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Daniel Lezcano <daniel.lezcano@free.fr>,
-	Patrick McHardy <kaber@trash.net>,
-	David Lamparter <equinox@diac24.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
+	"arnd@arndb.de" <arnd@arndb.de>, "mst@redhat.com" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:60490 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751536Ab0IOCKM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 22:10:12 -0400
-In-Reply-To: <20100913114315.GA859019@jupiter.n2.diac24.net> (David
-	Lamparter's message of "Mon, 13 Sep 2010 13:43:15 +0200")
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:34427 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752244Ab0IOCk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Sep 2010 22:40:58 -0400
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792B8C8152A0@shsmsx502.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2010-09-15 at 09:50 +0800, Xin, Xiaohui wrote:
+> I think what David said is what we have thought before in mp device.
+> Since we are not sure the exact time the tx buffer was wrote though
+> DMA operation.
+> But the deadline is when the tx buffer was freed. So we only notify
+> the vhost stuff
+> about the write when tx buffer freed. But the deadline is maybe too
+> late for performance.
 
-Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Have you tried it? If so what's the performance penalty you have seen by
+notifying vhost when tx buffer freed?
 
-My inclination is that the best way to handle this is to would be to
-push the device deletion for vlan and macvlan devices into the device
-core, where we could get the advantage of batched deletions.  Right
-now vlan and macvlan devices are the only devices I know of that cause
-other devices to be removed during unregister, so removing that
-specialness seems reasonable.
+I am thinking to have a callback in skb destructor,
+vhost_add_used_and_signal gets updated when skb is actually freed, vhost
+vq & head need to be passed to the callback. This might requires vhost
+ring size is at least as big as the lower device driver. 
 
-However not being able to move the primary vlan to a different network
-namespace is usability bug with no real alternatives.  There are
-not any other patches on the table right now, and your patch below
-seems obviously correct.  Let's get this merged before we forget about
-this, bug fix.
+Thanks
+Shirley
 
-David Lamparter <equinox@diac24.net> writes:
-
-> previously, if a vlan master device was moved from one network namespace
-> to another, all 802.1q and macvlan slaves were deleted.
->
-> we can use dev->reg_state to figure out whether dev_change_net_namespace
-> is happening, since that won't set dev->reg_state NETREG_UNREGISTERING.
-> so, this changes 8021q and macvlan to ignore NETDEV_UNREGISTER when
-> reg_state is not NETREG_UNREGISTERING.
->
-> Signed-off-by: David Lamparter <equinox@diac24.net>
-> --
->
-> On Tue, Aug 24, 2010 at 01:50:56PM +0200, David Lamparter wrote:
->> attached patch makes it possible to keep macvlan / 802.1q slave devices
->> on moving their master to a different namespace. as the opposite works
->> without problems (moving the slaves into a different namespace), this
->> shouldn't cause problems either.
->
-> I would like to resurrect this. After the small excursion into
-> NETREG_NETNS_MOVING i've reevaluated my personal opinion and think the
-> behaviour is the desired one and this patch is the cleanest way to
-> implement it. While it depends on somewhat "fine print" on the reg_state
-> state machine, the probability of major screw-ups in this region is
-> rather small and it also quite likely makes a nice large boom when it is
-> unduly tampered with.
->
->
-> -David
->
->
->  drivers/net/macvlan.c |    4 ++++
->  net/8021q/vlan.c      |    4 ++++
->  net/core/dev.c        |    4 ++++
->  3 files changed, 12 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index f15fe2c..f43f8e4 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -754,6 +754,10 @@ static int macvlan_device_event(struct notifier_block *unused,
->  		}
->  		break;
->  	case NETDEV_UNREGISTER:
-> +		/* twiddle thumbs on netns device moves */
-> +		if (dev->reg_state != NETREG_UNREGISTERING)
-> +			break;
-> +
->  		list_for_each_entry_safe(vlan, next, &port->vlans, list)
->  			vlan->dev->rtnl_link_ops->dellink(vlan->dev, NULL);
->  		break;
-> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-> index 3c1c8c1..cdc37e8 100644
-> --- a/net/8021q/vlan.c
-> +++ b/net/8021q/vlan.c
-> @@ -516,6 +516,10 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
->  		break;
->  
->  	case NETDEV_UNREGISTER:
-> +		/* twiddle thumbs on netns device moves */
-> +		if (dev->reg_state != NETREG_UNREGISTERING)
-> +			break;
-> +
->  		/* Delete all VLANs for this dev. */
->  		grp->killall = 1;
->  
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 1f466e8..b1589bc 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5618,6 +5618,10 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
->  
->  	/* Notify protocols, that we are about to destroy
->  	   this device. They should clean all the things.
-> +
-> +	   Note that dev->reg_state stays at NETREG_REGISTERED.
-> +	   This is wanted because this way 8021q and macvlan know
-> +	   the device is just moving and can keep their slaves up.
->  	*/
->  	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
->  	call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
