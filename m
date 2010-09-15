@@ -1,63 +1,81 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Wed, 15 Sep 2010 07:12:41 +0200
-Message-ID: <20100915051241.GA25340@redhat.com>
-References: <1284476719.13351.35.camel@localhost.localdomain>
- <201009141721.13202.arnd@arndb.de>
- <20100914152231.GA13105@redhat.com>
- <1284480025.13351.49.camel@localhost.localdomain>
- <20100914162952.GB13560@redhat.com>
- <1284483745.13351.71.camel@localhost.localdomain>
- <20100914182707.GB15549@redhat.com>
- <1284490143.13351.82.camel@localhost.localdomain>
- <20100914190156.GA16037@redhat.com>
- <1284492983.13351.95.camel@localhost.localdomain>
+Subject: Re: [PATCH v2] net: af_packet: don't call tpacket_destruct_skb()
+ until the skb is sent out
+Date: Wed, 15 Sep 2010 07:23:32 +0200
+Message-ID: <20100915052332.GB25340@redhat.com>
+References: <1284175403-3228-1-git-send-email-xiaosuo@gmail.com>
+ <20100912121349.GD22982@redhat.com>
+ <20100914.202023.193706826.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
+Cc: xiaosuo@gmail.com, eric.dumazet@gmail.com, socketcan@hartkopp.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33700 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50120 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752406Ab0IOFSs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 01:18:48 -0400
+	id S1751216Ab0IOF3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 01:29:36 -0400
 Content-Disposition: inline
-In-Reply-To: <1284492983.13351.95.camel@localhost.localdomain>
+In-Reply-To: <20100914.202023.193706826.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 14, 2010 at 12:36:23PM -0700, Shirley Ma wrote:
-> On Tue, 2010-09-14 at 21:01 +0200, Michael S. Tsirkin wrote:
-> > > > I think that you should be able to simply combine
-> > > > the two drivers together, add an ioctl to
-> > > > enable/disable zero copy mode of operation. 
-> > > 
-> > > That could work. But what's the purpose to have two drivers if one
-> > > driver can handle it?
-> > > 
-> > > Thanks
-> > > Shirley
+On Tue, Sep 14, 2010 at 08:20:23PM -0700, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Sun, 12 Sep 2010 14:13:49 +0200
+> 
+> > On Sat, Sep 11, 2010 at 11:23:23AM +0800, Changli Gao wrote:
+> >> @@ -799,7 +806,9 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+> >>  
+> >>  	memcpy((struct skb_shared_info *)(data + size),
+> >>  	       skb_shinfo(skb),
+> >> -	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
+> >> +	       offsetof(struct skb_shared_info,
+> >> +			frags[skb_shinfo(skb)->nr_frags]));
+> >> +	skb_shinfo(skb)->destructor = NULL;
+> >>  
+> >>  	/* Check if we can avoid taking references on fragments if we own
+> >>  	 * the last reference on skb->head. (see skb_release_data())
 > > 
-> > This was just an idea: I thought it's a good way for people interested
-> > in this zero copy thing to combine forces and avoid making
-> > the same mistakes, but it's not a must of course. 
+> > So it looks like pskb_expand_head will prevent the shinfo desctructor
+> > from being called, ever? If so, won't this break af_packet?
 > 
-> Ok, I will make a simple patch by reusing Xiaohui's some vhost code on
-> handling vhost_add_used_and_signal() to see any performance changes.
+> >From what I read, he is propagating it into the new SKB data blob
+> with expanded head area.  It would get invoked when the skb's
+> new data is put.
 > 
-> The interesting thing here when I run 32 instances netperf/netserver I
-> didn't see any issue w/i this patch.
+> I am not sure this is correct, however.
 > 
-> Thanks
-> Shirley
+> Destructor register only cares about original data area, but what
+> constitutes "original data" is ambiguous.  In fact it seems
+> impossible to catch the freeing of all parts properly.
+> 
+> When pskb_expand_head() is invoked we get new linear part, but
+> non-linear part stays the same.  However, entity which registered
+> skb data destructor cares about old linear data lifetime, which
+> we will no longer track after destructor is propagated only to
+> the new shinfo.
+> 
+> So we need to do something different here.  I bet original code
+> overriding socket destructor semantics had a similar problem.
+> 
+> Changli, I have one other minor request, please name this something
+> like "shinfo->data_destructor" and "shinfo->data_destructor_arg".
+> 
+> I think that will make it easier for other humans to understand :)
+> 
+> Thank you.
 
-Yes, I agree this patch is useful for demo purposes:
-simple, and shows what kind of performance gains
-we can expect for TX.
+Hmm, and there's another issue I think I see here:
+destructor_arg now points to a socket.
+What happens if the skb gets queued on an interface for a very long time
+(as can be the case with e.g. tap), and meanwhile
+you try to kill the task that owns the socket, which
+will try to destroy the socket?
+
+Original code handles this by relevant devices orphaning an skb
+if it's queued indefinitely.
 
 -- 
 MST
