@@ -1,113 +1,182 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: [33-stable regression ssb/broadcom]
-Date: Wed, 15 Sep 2010 12:02:23 +0200
-Message-ID: <4C9099AF.6030303@ans.pl>
-References: <4C8E6192.2010003@mandriva.org> <20100913.122329.39186333.davem@davemloft.net> <20100913193647.GD4052@tuxdriver.com> <4C8E8AC2.2030201@mandriva.org> <4C8E8C73.60306@mandriva.org> <20100913210145.GA18969@suse.de> <4C9097BA.1080208@mandriva.org>
+From: Denis Kirjanov <dkirjanov@kernel.org>
+Subject: Re: [PATCH] 3c59x: Remove atomic context inside vortex_{set|get}_wol
+Date: Wed, 15 Sep 2010 14:15:09 +0400
+Message-ID: <4C909CAD.8010905@kernel.org>
+References: <20100915062453.GA16772@hera.kernel.org> <1284532517.2271.8.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg KH <gregkh@suse.de>, "stable@kernel.org" <stable@kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>,
-	"Larry.Finger@lwfinger.net" <Larry.Finger@lwfinger.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Thomas Backlund <tmb@mandriva.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, ben@decadent.org.uk
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:55845 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751615Ab0IOKK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 06:10:29 -0400
-In-Reply-To: <4C9097BA.1080208@mandriva.org>
+Received: from hera.kernel.org ([140.211.167.34]:43642 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753120Ab0IOKO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 06:14:58 -0400
+In-Reply-To: <1284532517.2271.8.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-09-15 11:54, Thomas Backlund wrote:
-> Greg KH skrev 14.9.2010 00:01:
->> On Mon, Sep 13, 2010 at 11:41:23PM +0300, Thomas Backlund wrote:
->>> Thomas Backlund skrev 13.9.2010 23:34:
->>>> John W. Linville skrev 13.9.2010 22:36:
->>>>> On Mon, Sep 13, 2010 at 12:23:29PM -0700, David Miller wrote:
->>>>>> From: Thomas Backlund<tmb@mandriva.org>
->>>>>> Date: Mon, 13 Sep 2010 20:38:26 +0300
->>>>>>
->>>>>>> In Mandriva 2010.1 we noticed that 2.6.33.7 broke ssb/Broadcom =
-lan for
->>>>>>> several users...
->>>>>>>
->>>>>>> Issue is tracked at:
->>>>>>> https://qa.mandriva.com/show_bug.cgi?id=3D60968
->>>>>>>
->>>>>>> Reverting the commit restores a working lan.
->>>>>>>
->>>>>>> The offending commit is:
->>>>>>
->>>>>> Please always CC: netdev on networking reports, otherwise you ar=
-e
->>>>>> very unlikely to get any experts looking into your issue.
->>>>>
->>>>> IIRC, there was a bad patch that got sent for the 2.6.33.y series=
-=2E
->>>>> I thought it had been reverted or fixed already?
->>>>>
->>>>
->>>> Nope.
->>>>
->>>> It got added in 2.6.33.7
->>>> http://git.kernel.org/?p=3Dlinux/kernel/git/stable/linux-2.6.33.y.=
-git;a=3Dcommit;h=3D6fb037c2ed8378c7ab0c1e00536ba6b2a866503e
->>>>
->>>
->>> After checking some more...
->>>
->>> I see the revert of the broken patch was done in 2.6.34.3 and a set
->>> of ssb patches replacing it...
->>>
->>> but it didn't happend for 2.6.33.y
+On 09/15/2010 10:35 AM, Eric Dumazet wrote:
+> Le mercredi 15 septembre 2010 =C3=A0 06:24 +0000, Denis Kirjanov a =C3=
+=A9crit :
+>> There is no need to use spinlocks in vortex_{set|get}_wol.
+>> This also fixes a bug:
+>> [  254.214993] 3c59x 0000:00:0d.0: PME# enabled
+>> [  254.215021] BUG: sleeping function called from invalid context at=
+ kernel/mutex.c:94
+>> [  254.215030] in_atomic(): 0, irqs_disabled(): 1, pid: 4875, name: =
+ethtool
+>> [  254.215042] Pid: 4875, comm: ethtool Tainted: G        W   2.6.36=
+-rc3+ #7
+>> [  254.215049] Call Trace:
+>> [  254.215050]  [] __might_sleep+0xb1/0xb6
+>> [  254.215050]  [] mutex_lock+0x17/0x30
+>> [  254.215050]  [] acpi_enable_wakeup_device_power+0x2b/0xb1
+>> [  254.215050]  [] acpi_pm_device_sleep_wake+0x42/0x7f
+>> [  254.215050]  [] acpi_pci_sleep_wake+0x5d/0x63
+>> [  254.215050]  [] platform_pci_sleep_wake+0x1d/0x20
+>> [  254.215050]  [] __pci_enable_wake+0x90/0xd0
+>> [  254.215050]  [] acpi_set_WOL+0x8e/0xf5 [3c59x]
+>> [  254.215050]  [] vortex_set_wol+0x4e/0x5e [3c59x]
+>> [  254.215050]  [] dev_ethtool+0x1cf/0xb61
+>> [  254.215050]  [] ? debug_mutex_free_waiter+0x45/0x4a
+>> [  254.215050]  [] ? __mutex_lock_common+0x204/0x20e
+>> [  254.215050]  [] ? __mutex_lock_slowpath+0x12/0x15
+>> [  254.215050]  [] ? mutex_lock+0x23/0x30
+>> [  254.215050]  [] dev_ioctl+0x42c/0x533
+>> [  254.215050]  [] ? _cond_resched+0x8/0x1c
+>> [  254.215050]  [] ? lock_page+0x1c/0x30
+>> [  254.215050]  [] ? page_address+0x15/0x7c
+>> [  254.215050]  [] ? filemap_fault+0x187/0x2c4
+>> [  254.215050]  [] sock_ioctl+0x1d4/0x1e0
+>> [  254.215050]  [] ? sock_ioctl+0x0/0x1e0
+>> [  254.215050]  [] vfs_ioctl+0x19/0x33
+>> [  254.215050]  [] do_vfs_ioctl+0x424/0x46f
+>> [  254.215050]  [] ? selinux_file_ioctl+0x3c/0x40
+>> [  254.215050]  [] sys_ioctl+0x40/0x5a
+>> [  254.215050]  [] sysenter_do_call+0x12/0x22
 >>
->> Yeah, I think I "dropped" support for .33 by then and I really didn'=
-t
->> care anymore.
+>> vortex_set_wol protected with a spinlock, but nested  acpi_set_WOL a=
+cquires a mutex inside atomic context.
+>> Ethtool operations are already serialized by RTNL mutex, so it is sa=
+fe to drop the locks.
 >>
->=20
-> Yep.
-> final 2.6.33.7 was released 8 days before 2.6.34.3.
->=20
->> Note, I have gotten a few rumblings that I should bring .33 back to =
-life
->> for some loving due to a few distros relying on it, but I need to fi=
-nd
->> the time in my schedule to do so...
+>> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+>> ---
+>>  drivers/net/3c59x.c |    6 ++----
+>>  1 files changed, 2 insertions(+), 4 deletions(-)
 >>
+>> diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+>> index 7a01588..a5c697b 100644
+>> --- a/drivers/net/3c59x.c
+>> +++ b/drivers/net/3c59x.c
+>> @@ -634,6 +634,8 @@ struct vortex_private {
+>>  		medialock:1,
+>>  		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O reg=
+ion */
+>>  		large_frames:1;			/* accept large frames */
+>> +	/* {get|set}_wol operations are already serialized by rtnl.
+>> +	 * no additional locking is required for the enable_wol and acpi_s=
+et_WOL() */
 >=20
-> Well,
-> if you dont want to really bring it back to life, I'd suggest to simp=
-ly
-> released a 2.6.33.8 with only reverting the broken patch as it would
-> "unbreak" the tree and call it a day :-)
+> Please format this comment like this :
 >=20
-> Otherwise...
-> I now have merged the ssb fixes from 26.34.3:
-> 19bfed793ee38ce027326a3c518ff6201f673a8d ssb: do not read SPROM if it
-> does not exist
-> 3ca696ca403b2715018bd5c693ab105c3a3ea888 ssb: Look for SPROM at
-> different offset on higher rev CC
-> a8515c84db1a9c9be19d8d873b059473474b6dab ssb: fix NULL ptr deref when
-> pcihost_wrapper is used
-> 8235ddc2cd7a3367b688e0ed52ab377eac6cfad4 ssb: Handle alternate SSPROM
-> location
+> 	/* This is a fine ............................
+> 	 * and long comment ..................................
+> 	 */
 >=20
-> into 2.6.33.7 after reverting the broken commit and have confirmation
-> from users that it still works, so thats what I'll do for Mandriva 20=
-10.1
+>>  	int drv_flags;
+>>  	u16 status_enable;
+>>  	u16 intr_enable;
+>> @@ -2922,13 +2924,11 @@ static void vortex_get_wol(struct net_device=
+ *dev, struct ethtool_wolinfo *wol)
+>>  {
+>>  	struct vortex_private *vp =3D netdev_priv(dev);
+>> =20
+>> -	spin_lock_irq(&vp->lock);
+>>  	wol->supported =3D WAKE_MAGIC;
+>> =20
+>>  	wol->wolopts =3D 0;
+>>  	if (vp->enable_wol)
+>>  		wol->wolopts |=3D WAKE_MAGIC;
+>> -	spin_unlock_irq(&vp->lock);
+>>  }
+>> =20
+>>  static int vortex_set_wol(struct net_device *dev, struct ethtool_wo=
+linfo *wol)
+>> @@ -2937,13 +2937,11 @@ static int vortex_set_wol(struct net_device =
+*dev, struct ethtool_wolinfo *wol)
+>>  	if (wol->wolopts & ~WAKE_MAGIC)
+>>  		return -EINVAL;
+>> =20
+>> -	spin_lock_irq(&vp->lock);
+>>  	if (wol->wolopts & WAKE_MAGIC)
+>>  		vp->enable_wol =3D 1;
+>>  	else
+>>  		vp->enable_wol =3D 0;
+>>  	acpi_set_WOL(dev);
+>> -	spin_unlock_irq(&vp->lock);
+>> =20
+>>  	return 0;
+>>  }
+>=20
+>=20
+Comments fixed, thanks Eric
 
-If a new 2.6.33-stable kernel is going to be release there is one more
-important bugfix worth to be backported:
- http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commitdiff_plain;h=3D719f835853a92f6090258114a72ffe41f09155cd
+---
+ drivers/net/3c59x.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
-This bug is present in 2.6.33, 2.6.34 and 2.6.35.
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 7a01588..afcad74 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -634,6 +634,9 @@ struct vortex_private {
+ 		medialock:1,
+ 		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O region=
+ */
+ 		large_frames:1;			/* accept large frames */
++	/* {get|set}_wol operations are already serialized by rtnl.
++	 * no additional locking is required for the enable_wol and acpi_set_=
+WOL()
++	 */
+ 	int drv_flags;
+ 	u16 status_enable;
+ 	u16 intr_enable;
+@@ -2922,13 +2925,11 @@ static void vortex_get_wol(struct net_device *d=
+ev, struct ethtool_wolinfo *wol)
+ {
+ 	struct vortex_private *vp =3D netdev_priv(dev);
+=20
+-	spin_lock_irq(&vp->lock);
+ 	wol->supported =3D WAKE_MAGIC;
+=20
+ 	wol->wolopts =3D 0;
+ 	if (vp->enable_wol)
+ 		wol->wolopts |=3D WAKE_MAGIC;
+-	spin_unlock_irq(&vp->lock);
+ }
+=20
+ static int vortex_set_wol(struct net_device *dev, struct ethtool_wolin=
+fo *wol)
+@@ -2937,13 +2938,11 @@ static int vortex_set_wol(struct net_device *de=
+v, struct ethtool_wolinfo *wol)
+ 	if (wol->wolopts & ~WAKE_MAGIC)
+ 		return -EINVAL;
+=20
+-	spin_lock_irq(&vp->lock);
+ 	if (wol->wolopts & WAKE_MAGIC)
+ 		vp->enable_wol =3D 1;
+ 	else
+ 		vp->enable_wol =3D 0;
+ 	acpi_set_WOL(dev);
+-	spin_unlock_irq(&vp->lock);
+=20
+ 	return 0;
+ }
+--=20
+1.6.4.4
 
-Best regards,
 
-			Krzysztof Ol=C4=99dzki
