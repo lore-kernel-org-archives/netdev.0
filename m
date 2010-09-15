@@ -1,29 +1,135 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: net-next-2.6 [PATCH 0/3] dccp: ccid-3 fixes and simplifications
-Date: Wed, 15 Sep 2010 14:10:20 +0200
-Message-ID: <1284552623-16283-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/3] dccp ccid-3: Simplify and consolidate tx_parse_options
+Date: Wed, 15 Sep 2010 14:10:23 +0200
+Message-ID: <1284552623-16283-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <dccp_ccid3_simplifications>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+ <1284552623-16283-1-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1284552623-16283-2-git-send-email-gerrit@erg.abdn.ac.uk>
+ <1284552623-16283-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:56033 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752002Ab0IOMKg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 08:10:36 -0400
-In-Reply-To: <dccp_ccid3_simplifications>
+	id S1752002Ab0IOMKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 08:10:38 -0400
+In-Reply-To: <1284552623-16283-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+This simplifies and consolidates the TX option-parsing code:
 
-please find attached a set of 3 CCID-3 patches from the test tree.
-All have been in the test tree a long time and compile independently.
+ 1. The Loss Intervals option is not currently used, so dead code related to
+    this option is removed. I am aware of no plans to support the option, but
+    if someone wants to implement it (e.g. for inter-op tests), it is better
+    to start afresh than having to also update currently unused code.
 
- Patch #1: Fixes a bug and simplifies the packet scheduling algorithm.
- Patch #2: Replaces buggy RTT sampling history lookup.
- Patch #3: Simplifies the CCID-3 tx-option parsing routine.
+ 2. The Loss Event and Receive Rate options have a lot of code in common (both
+    are 32 bit, both have same length etc.), so this is consolidated.
 
-This set is also available based on a fresh (today's) copy of net-next-2.6, 
+ 3. The test against GSR is not necessary, because
+    - on first loading CCID3, ccid_new() zeroes out all fields in the socket;
+    - ccid3_hc_tx_packet_recv() treats 0 and ~0U equivalently, due to
 
-	git://eden-feed.erg.abdn.ac.uk/net-next-2.6  [subtree 'dccp']
+	pinv = opt_recv->ccid3or_loss_event_rate;
+	if (pinv == ~0U || pinv == 0)
+		hctx->p = 0;
 
+    - as a result, the sequence number field is removed from opt_recv.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/ccids/ccid3.h |    3 --
+ net/dccp/ccids/ccid3.c |   57 +++++++++++------------------------------------
+ 2 files changed, 14 insertions(+), 46 deletions(-)
+
+--- a/net/dccp/ccids/ccid3.h
++++ b/net/dccp/ccids/ccid3.h
+@@ -68,9 +68,6 @@ enum ccid3_options {
+ };
+ 
+ struct ccid3_options_received {
+-	u64 ccid3or_seqno:48,
+-	    ccid3or_loss_intervals_idx:16;
+-	u16 ccid3or_loss_intervals_len;
+ 	u32 ccid3or_loss_event_rate;
+ 	u32 ccid3or_receive_rate;
+ };
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -485,60 +485,31 @@ static int ccid3_hc_tx_parse_options(struct sock *sk, unsigned char option,
+ 				     unsigned char len, u16 idx,
+ 				     unsigned char *value)
+ {
+-	int rc = 0;
+-	const struct dccp_sock *dp = dccp_sk(sk);
+ 	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
+ 	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
+ 	__be32 opt_val;
+ 
+-	if (opt_recv->ccid3or_seqno != dp->dccps_gsr) {
+-		opt_recv->ccid3or_seqno		     = dp->dccps_gsr;
+-		opt_recv->ccid3or_loss_event_rate    = ~0;
+-		opt_recv->ccid3or_loss_intervals_idx = 0;
+-		opt_recv->ccid3or_loss_intervals_len = 0;
+-		opt_recv->ccid3or_receive_rate	     = 0;
+-	}
+-
+ 	switch (option) {
++	case TFRC_OPT_RECEIVE_RATE:
+ 	case TFRC_OPT_LOSS_EVENT_RATE:
+ 		if (unlikely(len != 4)) {
+-			DCCP_WARN("%s(%p), invalid len %d "
+-				  "for TFRC_OPT_LOSS_EVENT_RATE\n",
+-				  dccp_role(sk), sk, len);
+-			rc = -EINVAL;
+-		} else {
+-			opt_val = get_unaligned((__be32 *)value);
+-			opt_recv->ccid3or_loss_event_rate = ntohl(opt_val);
+-			ccid3_pr_debug("%s(%p), LOSS_EVENT_RATE=%u\n",
+-				       dccp_role(sk), sk,
+-				       opt_recv->ccid3or_loss_event_rate);
++			DCCP_WARN("%s(%p), invalid len %d for %u\n",
++				  dccp_role(sk), sk, len, option);
++			return -EINVAL;
+ 		}
+-		break;
+-	case TFRC_OPT_LOSS_INTERVALS:
+-		opt_recv->ccid3or_loss_intervals_idx = idx;
+-		opt_recv->ccid3or_loss_intervals_len = len;
+-		ccid3_pr_debug("%s(%p), LOSS_INTERVALS=(%u, %u)\n",
+-			       dccp_role(sk), sk,
+-			       opt_recv->ccid3or_loss_intervals_idx,
+-			       opt_recv->ccid3or_loss_intervals_len);
+-		break;
+-	case TFRC_OPT_RECEIVE_RATE:
+-		if (unlikely(len != 4)) {
+-			DCCP_WARN("%s(%p), invalid len %d "
+-				  "for TFRC_OPT_RECEIVE_RATE\n",
+-				  dccp_role(sk), sk, len);
+-			rc = -EINVAL;
+-		} else {
+-			opt_val = get_unaligned((__be32 *)value);
+-			opt_recv->ccid3or_receive_rate = ntohl(opt_val);
++		opt_val = ntohl(get_unaligned((__be32 *)value));
++
++		if (option == TFRC_OPT_RECEIVE_RATE) {
++			opt_recv->ccid3or_receive_rate = opt_val;
+ 			ccid3_pr_debug("%s(%p), RECEIVE_RATE=%u\n",
+-				       dccp_role(sk), sk,
+-				       opt_recv->ccid3or_receive_rate);
++				       dccp_role(sk), sk, opt_val);
++		} else {
++			opt_recv->ccid3or_loss_event_rate = opt_val;
++			ccid3_pr_debug("%s(%p), LOSS_EVENT_RATE=%u\n",
++				       dccp_role(sk), sk, opt_val);
+ 		}
+-		break;
+ 	}
+-
+-	return rc;
++	return 0;
+ }
+ 
+ static int ccid3_hc_tx_init(struct ccid *ccid, struct sock *sk)
