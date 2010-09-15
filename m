@@ -1,214 +1,153 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 6/9] tg3: Move producer ring struct to tg3_napi
-Date: Wed, 15 Sep 2010 11:59:58 -0700
-Message-ID: <1284577201-6117-7-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 9/9] tg3: phy tmp variable roundup
+Date: Wed, 15 Sep 2010 12:00:01 -0700
+Message-ID: <1284577201-6117-10-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3189 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1189 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755146Ab0IOTBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 15:01:08 -0400
+	id S1755094Ab0IOTBG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 15:01:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that each NAPI instance has its own producer ring, it no longer
-makes sense to keep the producer ring structure external.  This patch
-migrates the producer ring struct to tg3_napi and pivots the code to the
-new implementation.
+The tg3's phy routines define temporary variables in many locations
+within the same routine.  This patch unifies all temporary variables
+into one location.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   39 +++++++++++++++++----------------------
- drivers/net/tg3.h |    4 +---
- 2 files changed, 18 insertions(+), 25 deletions(-)
+ drivers/net/tg3.c |   45 +++++++++++++++------------------------------
+ 1 files changed, 15 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 7468479..179eb65 100644
+index 0d0deaa..e7a2ba8 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4549,7 +4549,7 @@ static void tg3_recycle_rx(struct tg3_napi *tnapi,
- 	struct tg3 *tp = tnapi->tp;
- 	struct tg3_rx_buffer_desc *src_desc, *dest_desc;
- 	struct ring_info *src_map, *dest_map;
--	struct tg3_rx_prodring_set *spr = &tp->prodring[0];
-+	struct tg3_rx_prodring_set *spr = &tp->napi[0].prodring;
- 	int dest_idx;
- 
- 	switch (opaque_key) {
-@@ -4619,7 +4619,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 	u32 sw_idx = tnapi->rx_rcb_ptr;
- 	u16 hw_idx;
- 	int received;
--	struct tg3_rx_prodring_set *tpr = tnapi->prodring;
-+	struct tg3_rx_prodring_set *tpr = &tnapi->prodring;
- 
- 	hw_idx = *(tnapi->rx_rcb_prod_idx);
- 	/*
-@@ -4644,13 +4644,13 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		desc_idx = desc->opaque & RXD_OPAQUE_INDEX_MASK;
- 		opaque_key = desc->opaque & RXD_OPAQUE_RING_MASK;
- 		if (opaque_key == RXD_OPAQUE_RING_STD) {
--			ri = &tp->prodring[0].rx_std_buffers[desc_idx];
-+			ri = &tp->napi[0].prodring.rx_std_buffers[desc_idx];
- 			dma_addr = dma_unmap_addr(ri, mapping);
- 			skb = ri->skb;
- 			post_ptr = &std_prod_idx;
- 			rx_std_posted++;
- 		} else if (opaque_key == RXD_OPAQUE_RING_JUMBO) {
--			ri = &tp->prodring[0].rx_jmb_buffers[desc_idx];
-+			ri = &tp->napi[0].prodring.rx_jmb_buffers[desc_idx];
- 			dma_addr = dma_unmap_addr(ri, mapping);
- 			skb = ri->skb;
- 			post_ptr = &jmb_prod_idx;
-@@ -4981,14 +4981,14 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
- 		work_done += tg3_rx(tnapi, budget - work_done);
- 
- 	if ((tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS) && tnapi == &tp->napi[1]) {
--		struct tg3_rx_prodring_set *dpr = &tp->prodring[0];
-+		struct tg3_rx_prodring_set *dpr = &tp->napi[0].prodring;
- 		int i, err = 0;
- 		u32 std_prod_idx = dpr->rx_std_prod_idx;
- 		u32 jmb_prod_idx = dpr->rx_jmb_prod_idx;
- 
- 		for (i = 1; i < tp->irq_cnt; i++)
- 			err |= tg3_rx_prodring_xfer(tp, dpr,
--						    tp->napi[i].prodring);
-+						    &tp->napi[i].prodring);
- 
- 		wmb();
- 
-@@ -6057,7 +6057,7 @@ static void tg3_rx_prodring_free(struct tg3 *tp,
+@@ -1917,19 +1917,16 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
+  */
+ static int tg3_phy_reset(struct tg3 *tp)
  {
- 	int i;
+-	u32 cpmuctrl;
+-	u32 phy_status;
++	u32 val, cpmuctrl;
+ 	int err;
  
--	if (tpr != &tp->prodring[0]) {
-+	if (tpr != &tp->napi[0].prodring) {
- 		for (i = tpr->rx_std_cons_idx; i != tpr->rx_std_prod_idx;
- 		     i = (i + 1) % TG3_RX_RING_SIZE)
- 			tg3_rx_skb_free(tp, &tpr->rx_std_buffers[i],
-@@ -6103,7 +6103,7 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
- 	tpr->rx_jmb_cons_idx = 0;
- 	tpr->rx_jmb_prod_idx = 0;
- 
--	if (tpr != &tp->prodring[0]) {
-+	if (tpr != &tp->napi[0].prodring) {
- 		memset(&tpr->rx_std_buffers[0], 0, TG3_RX_STD_BUFF_RING_SIZE);
- 		if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE)
- 			memset(&tpr->rx_jmb_buffers[0], 0,
-@@ -6253,7 +6253,7 @@ static void tg3_free_rings(struct tg3 *tp)
- 	for (j = 0; j < tp->irq_cnt; j++) {
- 		struct tg3_napi *tnapi = &tp->napi[j];
- 
--		tg3_rx_prodring_free(tp, &tp->prodring[j]);
-+		tg3_rx_prodring_free(tp, &tnapi->prodring);
- 
- 		if (!tnapi->tx_buffers)
- 			continue;
-@@ -6325,7 +6325,7 @@ static int tg3_init_rings(struct tg3 *tp)
- 		if (tnapi->rx_rcb)
- 			memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
- 
--		if (tg3_rx_prodring_alloc(tp, &tp->prodring[i])) {
-+		if (tg3_rx_prodring_alloc(tp, &tnapi->prodring)) {
- 			tg3_free_rings(tp);
- 			return -ENOMEM;
- 		}
-@@ -6361,6 +6361,8 @@ static void tg3_free_consistent(struct tg3 *tp)
- 			tnapi->rx_rcb = NULL;
- 		}
- 
-+		tg3_rx_prodring_fini(tp, &tnapi->prodring);
-+
- 		if (tnapi->hw_status) {
- 			pci_free_consistent(tp->pdev, TG3_HW_STATUS_SIZE,
- 					    tnapi->hw_status,
-@@ -6374,9 +6376,6 @@ static void tg3_free_consistent(struct tg3 *tp)
- 				    tp->hw_stats, tp->stats_mapping);
- 		tp->hw_stats = NULL;
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+-		u32 val;
+-
+ 		val = tr32(GRC_MISC_CFG);
+ 		tw32_f(GRC_MISC_CFG, val & ~GRC_MISC_CFG_EPHY_IDDQ);
+ 		udelay(40);
  	}
--
--	for (i = 0; i < tp->irq_cnt; i++)
--		tg3_rx_prodring_fini(tp, &tp->prodring[i]);
- }
+-	err  = tg3_readphy(tp, MII_BMSR, &phy_status);
+-	err |= tg3_readphy(tp, MII_BMSR, &phy_status);
++	err  = tg3_readphy(tp, MII_BMSR, &val);
++	err |= tg3_readphy(tp, MII_BMSR, &val);
+ 	if (err != 0)
+ 		return -EBUSY;
  
- /*
-@@ -6387,11 +6386,6 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+@@ -1961,18 +1958,14 @@ static int tg3_phy_reset(struct tg3 *tp)
+ 		return err;
+ 
+ 	if (cpmuctrl & CPMU_CTRL_GPHY_10MB_RXONLY) {
+-		u32 phy;
+-
+-		phy = MII_TG3_DSP_EXP8_AEDW | MII_TG3_DSP_EXP8_REJ2MHz;
+-		tg3_phydsp_write(tp, MII_TG3_DSP_EXP8, phy);
++		val = MII_TG3_DSP_EXP8_AEDW | MII_TG3_DSP_EXP8_REJ2MHz;
++		tg3_phydsp_write(tp, MII_TG3_DSP_EXP8, val);
+ 
+ 		tw32(TG3_CPMU_CTRL, cpmuctrl);
+ 	}
+ 
+ 	if (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5784_AX ||
+ 	    GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5761_AX) {
+-		u32 val;
+-
+ 		val = tr32(TG3_CPMU_LSPD_1000MB_CLK);
+ 		if ((val & CPMU_LSPD_1000MB_MACCLK_MASK) ==
+ 		    CPMU_LSPD_1000MB_MACCLK_12_5) {
+@@ -2028,23 +2021,19 @@ out:
+ 		/* Cannot do read-modify-write on 5401 */
+ 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4c20);
+ 	} else if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
+-		u32 phy_reg;
+-
+ 		/* Set bit 14 with read-modify-write to preserve other bits */
+ 		if (!tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x0007) &&
+-		    !tg3_readphy(tp, MII_TG3_AUX_CTRL, &phy_reg))
+-			tg3_writephy(tp, MII_TG3_AUX_CTRL, phy_reg | 0x4000);
++		    !tg3_readphy(tp, MII_TG3_AUX_CTRL, &val))
++			tg3_writephy(tp, MII_TG3_AUX_CTRL, val | 0x4000);
+ 	}
+ 
+ 	/* Set phy register 0x10 bit 0 to high fifo elasticity to support
+ 	 * jumbo frames transmission.
+ 	 */
+ 	if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) {
+-		u32 phy_reg;
+-
+-		if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &phy_reg))
++		if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &val))
+ 			tg3_writephy(tp, MII_TG3_EXT_CTRL,
+-				     phy_reg | MII_TG3_EXT_CTRL_FIFO_ELASTIC);
++				     val | MII_TG3_EXT_CTRL_FIFO_ELASTIC);
+ 	}
+ 
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
+@@ -3060,7 +3049,7 @@ static int tg3_adv_1000T_flowctrl_ok(struct tg3 *tp, u32 *lcladv, u32 *rmtadv)
+ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
  {
- 	int i;
+ 	int current_link_up;
+-	u32 bmsr, dummy;
++	u32 bmsr, val;
+ 	u32 lcl_adv, rmt_adv;
+ 	u16 current_speed;
+ 	u8 current_duplex;
+@@ -3140,8 +3129,8 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 	}
  
--	for (i = 0; i < tp->irq_cnt; i++) {
--		if (tg3_rx_prodring_init(tp, &tp->prodring[i]))
--			goto err_out;
--	}
+ 	/* Clear pending interrupts... */
+-	tg3_readphy(tp, MII_TG3_ISTAT, &dummy);
+-	tg3_readphy(tp, MII_TG3_ISTAT, &dummy);
++	tg3_readphy(tp, MII_TG3_ISTAT, &val);
++	tg3_readphy(tp, MII_TG3_ISTAT, &val);
+ 
+ 	if (tp->phy_flags & TG3_PHYFLG_USE_MI_INTERRUPT)
+ 		tg3_writephy(tp, MII_TG3_IMASK, ~MII_TG3_INT_LINKCHG);
+@@ -3162,8 +3151,6 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
+ 	current_duplex = DUPLEX_INVALID;
+ 
+ 	if (tp->phy_flags & TG3_PHYFLG_CAPACITIVE_COUPLING) {
+-		u32 val;
 -
- 	tp->hw_stats = pci_alloc_consistent(tp->pdev,
- 					    sizeof(struct tg3_hw_stats),
- 					    &tp->stats_mapping);
-@@ -6413,6 +6407,9 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 		memset(tnapi->hw_status, 0, TG3_HW_STATUS_SIZE);
- 		sblk = tnapi->hw_status;
+ 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4007);
+ 		tg3_readphy(tp, MII_TG3_AUX_CTRL, &val);
+ 		if (!(val & (1 << 10))) {
+@@ -3238,13 +3225,11 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
  
-+		if (tg3_rx_prodring_init(tp, &tnapi->prodring))
-+			goto err_out;
-+
- 		/* If multivector TSS is enabled, vector 0 does not handle
- 		 * tx interrupts.  Don't allocate any resources for it.
- 		 */
-@@ -6452,8 +6449,6 @@ static int tg3_alloc_consistent(struct tg3 *tp)
- 			break;
- 		}
- 
--		tnapi->prodring = &tp->prodring[i];
+ relink:
+ 	if (current_link_up == 0 || (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
+-		u32 tmp;
 -
- 		/*
- 		 * If multivector RSS is enabled, vector 0 does not handle
- 		 * rx or tx interrupts.  Don't allocate any resources for it.
-@@ -7647,7 +7642,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- {
- 	u32 val, rdmac_mode;
- 	int i, err, limit;
--	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
-+	struct tg3_rx_prodring_set *tpr = &tp->napi[0].prodring;
+ 		tg3_phy_copper_begin(tp);
  
- 	tg3_disable_ints(tp);
+-		tg3_readphy(tp, MII_BMSR, &tmp);
+-		if (!tg3_readphy(tp, MII_BMSR, &tmp) &&
+-		    (tmp & BMSR_LSTATUS))
++		tg3_readphy(tp, MII_BMSR, &bmsr);
++		if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
++		    (bmsr & BMSR_LSTATUS))
+ 			current_link_up = 1;
+ 	}
  
-@@ -10627,7 +10622,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 	int num_pkts, tx_len, rx_len, i, err;
- 	struct tg3_rx_buffer_desc *desc;
- 	struct tg3_napi *tnapi, *rnapi;
--	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
-+	struct tg3_rx_prodring_set *tpr = &tp->napi[0].prodring;
- 
- 	tnapi = &tp->napi[0];
- 	rnapi = &tp->napi[0];
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index d39426f..44733e4 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -2679,7 +2679,7 @@ struct tg3_napi {
- 	u32				consmbox;
- 	u32				rx_rcb_ptr;
- 	u16				*rx_rcb_prod_idx;
--	struct tg3_rx_prodring_set	*prodring;
-+	struct tg3_rx_prodring_set	prodring;
- 
- 	struct tg3_rx_buffer_desc	*rx_rcb;
- 	struct tg3_tx_buffer_desc	*tx_ring;
-@@ -2766,8 +2766,6 @@ struct tg3 {
- 	struct vlan_group		*vlgrp;
- #endif
- 
--	struct tg3_rx_prodring_set	prodring[TG3_IRQ_MAX_VECS];
--
- 
- 	/* begin "everything else" cacheline(s) section */
- 	struct rtnl_link_stats64	net_stats;
 -- 
 1.7.1
 
