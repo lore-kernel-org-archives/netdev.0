@@ -1,45 +1,57 @@
-From: Kevin Hilman <khilman@deeprootsystems.com>
-Subject: Re: [PATCH v4 00/10] split out emac cpdma and mdio for reuse
-Date: Wed, 15 Sep 2010 07:54:03 -0700
-Message-ID: <87aanjgir8.fsf@deeprootsystems.com>
-References: <1284559890-31346-1-git-send-email-cyril@ti.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: E1000E/82567LM-3: link reported up too soon
+Date: Wed, 15 Sep 2010 11:07:07 -0400
+Message-ID: <4C90E11B.7020807@hp.com>
+References: <87eicvi0cz.fsf@small.ssi.corp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com,
-	linux-omap@vger.kernel.org, michael.williamson@criticallink.com,
-	caglarakyuz@gmail.com, bparrot@ti.com
-To: Cyril Chemparathy <cyril@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1284559890-31346-1-git-send-email-cyril@ti.com> (Cyril
-	Chemparathy's message of "Wed, 15 Sep 2010 10:11:20 -0400")
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Arnaud Ebalard <arno@natisbad.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:44743 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079Ab0IOPHL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 11:07:11 -0400
+In-Reply-To: <87eicvi0cz.fsf@small.ssi.corp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cyril Chemparathy <cyril@ti.com> writes:
+On 09/15/2010 09:48 AM, Arnaud Ebalard wrote:
+> Hi,
+> 
+> I have a Dell E4300 Laptop running 2.6.35.4. It contains an Intel
+> 82567LM-3 Gigabit chipset. Here is what lspci reports:
+> 
+<snip>
+> 
+> When connecting the laptop to an ethernet switch, the driver performs
+> autoneg and then reports the link up via Netlink. This is monitored by
+> both netplug and UMIP to emit a DHCP request and an IPv6 Router
+> Solicitation (respectively) as soon as the link is reported UP and
+> RUNNING.
+> 
+> Most of the time, those first packets never reach the switch, i.e. the
+> packets are visible locally via tcpdump but are not seen on the remote
+> side.
+> 
+> I tested it with 2 different 100M/s switches (Cisco Catalyst 2960 and a
+> Planex FX08-Mini) so I guess the switch is not the root of the issue. I
+> came to the conclusion that the link is reported up too soon by the
+> driver.
+> 
+> Because the first packets are losts, the result is that address
+> autoconfiguration is delayed by a few seconds as can be seen on
+> following capture on the laptop:
 
-> Davinci's EMAC device has an in-built MDIO controller and a CPDMA engine.
-> These hardware modules are not restricted to EMAC device alone.  For example,
-> CPSW3G (3-port gigabit ethernet switch) hardware uses these very same modules
-> internally.  This patch series separates out EMAC's MDIO and CPDMA
-> functionality, allowing these individual pieces to be reused across TI
-> hardware.  
+I've seen similar things on various NICs, posted a patch last week that
+unfortunately had other bad side-effects.  When I have time I'll work on
+it again, but I'd also be curious if there's something that can be done
+at the driver level to help out, since it seemed like part of the problem
+is that the link-UP came before the device was actually able to transmit
+packets, so the DAD was lost.
 
-[...]
-
-> Changes from v3 (rolled in "post cpdma/mdio refactoring fixes" series):
->   1. allow forced 100/full mode instead of phy auto-detect
->   2. specify phy_id on boards that had a phy_mask defined earlier
->   3. requeue cpdma descriptors when EOQ at submit
->   4. use calculated mdio bus access times instead of hardcoded delays
->   5. work around emac soft-reset impact on mdio controller state
->   6. extend register dumps to include cpdma registers
->   7. updated sign offs and acks
-
-Thanks Cyril for one more spin with these updates.  Queuing this one for
-2.6.37 in davinci-next.
-
-davinci git is now updated with this series (may take a bit to propagate
-to kernel.org mirrors though)
-
-Kevin
+-Brian
