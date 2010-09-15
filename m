@@ -1,29 +1,33 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH RESEND 2/3] netfilter: xt_condition: change the value
- from boolean to u32
-Date: Wed, 15 Sep 2010 22:46:27 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1009152246180.5146@obet.zrqbmnf.qr>
-References: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com> <1282034213-1829-3-git-send-email-luciano.coelho@nokia.com> <4C912F84.9030809@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH RESEND 1/3] netfilter: xtables: inclusion of xt_condition
+Date: Wed, 15 Sep 2010 22:59:12 +0200
+Message-ID: <4C9133A0.7050601@trash.net>
+References: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com> <1282034213-1829-2-git-send-email-luciano.coelho@nokia.com> <4C912EFC.9070406@trash.net> <alpine.LNX.2.01.1009152246320.5146@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 Cc: Luciano Coelho <luciano.coelho@nokia.com>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	sameo@linux.intel.com, janne.ylalehto@nokia.com
-To: Patrick McHardy <kaber@trash.net>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4C912F84.9030809@trash.net>
+In-Reply-To: <alpine.LNX.2.01.1009152246320.5146@obet.zrqbmnf.qr>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 2010-09-15 22:41, Patrick McHardy wrote:
+On 15.09.2010 22:52, Jan Engelhardt wrote:
+> 
+> On Wednesday 2010-09-15 22:39, Patrick McHardy wrote:
+>> Am 17.08.2010 10:36, schrieb Luciano Coelho:
+>>> +/* Defaults, these can be overridden on the module command-line. */
+>>> +static unsigned int condition_list_perms = S_IRUGO | S_IWUSR;
+>>> +static unsigned int condition_uid_perms = 0;
+>>> +static unsigned int condition_gid_perms = 0;
+>>
+>> I'm not sure whether we already discussed this, but this isn't
+>> useful if namespaces are used since the IDs aren't global.
+> 
+> Well it's also done for other xt modules that offer a procfs interface.
+> It does not really cost much to have this present I'd say.
 
->Am 17.08.2010 10:36, schrieb Luciano Coelho:
->>  static struct xt_match condition_mt_reg __read_mostly = {
->>  	.name       = "condition",
->> -	.revision   = 1,
->> +	.revision   = 2,
->
->Is this previous version actually compatible with anything that has
->ever been released?
-
-Yes, rev1 is used by Xtables-addons.
+They should simply set the permissions for the current namespace.
