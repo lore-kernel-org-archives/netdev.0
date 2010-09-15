@@ -1,7 +1,7 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v4 03/10] omap: add mdio platform devices
-Date: Wed, 15 Sep 2010 10:11:23 -0400
-Message-ID: <1284559890-31346-4-git-send-email-cyril@ti.com>
+Subject: [PATCH v4 07/10] net: davinci_emac: cleanup unused mdio emac code
+Date: Wed, 15 Sep 2010 10:11:27 -0400
+Message-ID: <1284559890-31346-8-git-send-email-cyril@ti.com>
 References: <1284559890-31346-1-git-send-email-cyril@ti.com>
 Cc: michael.williamson@criticallink.com, caglarakyuz@gmail.com,
 	bparrot@ti.com, Cyril Chemparathy <cyril@ti.com>
@@ -13,78 +13,193 @@ In-Reply-To: <1284559890-31346-1-git-send-email-cyril@ti.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds mdio platform devices on SoCs that have the necessary
-hardware.  Clock lookup entries (aliases) have also been added, so that the
-MDIO and EMAC drivers can independently enable/disable a shared underlying
-clock.  Further, the EMAC MMR region has been split down into separate MDIO
-and EMAC regions.
+This patch removes code that has been rendered useless by the previous patches
+in this series.
 
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
 Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Tony Lindgren <tony@atomide.com>
+Tested-by: Michael Williamson <michael.williamson@criticallink.com>
+Tested-by: Caglar Akyuz <caglarakyuz@gmail.com>
 ---
- arch/arm/mach-omap2/board-am3517evm.c |   27 ++++++++++++++++++++++++++-
- 1 files changed, 26 insertions(+), 1 deletions(-)
+ drivers/net/davinci_emac.c   |  107 ------------------------------------------
+ include/linux/davinci_emac.h |    3 -
+ 2 files changed, 0 insertions(+), 110 deletions(-)
 
-diff --git a/arch/arm/mach-omap2/board-am3517evm.c b/arch/arm/mach-omap2/board-am3517evm.c
-index 4d0f585..5dd1b73 100644
---- a/arch/arm/mach-omap2/board-am3517evm.c
-+++ b/arch/arm/mach-omap2/board-am3517evm.c
-@@ -18,6 +18,7 @@
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 997f599..d4298cb 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -113,7 +113,6 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ #define EMAC_DEF_MAX_FRAME_SIZE		(1500 + 14 + 4 + 4)
+ #define EMAC_DEF_TX_CH			(0) /* Default 0th channel */
+ #define EMAC_DEF_RX_CH			(0) /* Default 0th channel */
+-#define EMAC_DEF_MDIO_TICK_MS		(10) /* typically 1 tick=1 ms) */
+ #define EMAC_DEF_MAX_TX_CH		(1) /* Max TX channels configured */
+ #define EMAC_DEF_MAX_RX_CH		(1) /* Max RX channels configured */
+ #define EMAC_POLL_WEIGHT		(64) /* Default NAPI poll weight */
+@@ -303,25 +302,6 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ #define EMAC_DM644X_INTMIN_INTVL	0x1
+ #define EMAC_DM644X_INTMAX_INTVL	(EMAC_DM644X_EWINTCNT_MASK)
  
- #include <linux/kernel.h>
- #include <linux/init.h>
-+#include <linux/clk.h>
- #include <linux/platform_device.h>
- #include <linux/gpio.h>
- #include <linux/i2c/pca953x.h>
-@@ -41,6 +42,27 @@
- #define AM35XX_EVM_PHY_MASK		(0xF)
- #define AM35XX_EVM_MDIO_FREQUENCY	(1000000)
+-/* EMAC MDIO related */
+-/* Mask & Control defines */
+-#define MDIO_CONTROL_CLKDIV	(0xFF)
+-#define MDIO_CONTROL_ENABLE	BIT(30)
+-#define MDIO_USERACCESS_GO	BIT(31)
+-#define MDIO_USERACCESS_WRITE	BIT(30)
+-#define MDIO_USERACCESS_READ	(0)
+-#define MDIO_USERACCESS_REGADR	(0x1F << 21)
+-#define MDIO_USERACCESS_PHYADR	(0x1F << 16)
+-#define MDIO_USERACCESS_DATA	(0xFFFF)
+-#define MDIO_USERPHYSEL_LINKSEL	BIT(7)
+-#define MDIO_VER_MODID		(0xFFFF << 16)
+-#define MDIO_VER_REVMAJ		(0xFF   << 8)
+-#define MDIO_VER_REVMIN		(0xFF)
+-
+-#define MDIO_USERACCESS(inst)	(0x80 + (inst * 8))
+-#define MDIO_USERPHYSEL(inst)	(0x84 + (inst * 8))
+-#define MDIO_CONTROL		(0x04)
+-
+ /* EMAC DM646X control module registers */
+ #define EMAC_DM646X_CMINTCTRL	0x0C
+ #define EMAC_DM646X_CMRXINTEN	0x14
+@@ -493,13 +473,6 @@ struct emac_priv {
+ 	u32 mac_hash2;
+ 	u32 multicast_hash_cnt[EMAC_NUM_MULTICAST_BITS];
+ 	u32 rx_addr_type;
+-	/* periodic timer required for MDIO polling */
+-	struct timer_list periodic_timer;
+-	u32 periodic_ticks;
+-	u32 timer_active;
+-	u32 phy_mask;
+-	/* mii_bus,phy members */
+-	struct mii_bus *mii_bus;
+ 	const char *phy_id;
+ 	struct phy_device *phydev;
+ 	spinlock_t lock;
+@@ -511,7 +484,6 @@ struct emac_priv {
+ /* clock frequency for EMAC */
+ static struct clk *emac_clk;
+ static unsigned long emac_bus_frequency;
+-static unsigned long mdio_max_freq;
  
-+static struct mdio_platform_data am3517_evm_mdio_pdata = {
-+	.bus_freq	= AM35XX_EVM_MDIO_FREQUENCY,
-+};
-+
-+static struct resource am3517_mdio_resources[] = {
-+	{
-+		.start  = AM35XX_IPSS_EMAC_BASE + AM35XX_EMAC_MDIO_OFFSET,
-+		.end    = AM35XX_IPSS_EMAC_BASE + AM35XX_EMAC_MDIO_OFFSET +
-+			  SZ_4K - 1,
-+		.flags  = IORESOURCE_MEM,
-+	},
-+};
-+
-+static struct platform_device am3517_mdio_device = {
-+	.name		= "davinci_mdio",
-+	.id		= 0,
-+	.num_resources	= ARRAY_SIZE(am3517_mdio_resources),
-+	.resource	= am3517_mdio_resources,
-+	.dev.platform_data = &am3517_evm_mdio_pdata,
-+};
-+
- static struct emac_platform_data am3517_evm_emac_pdata = {
- 	.phy_mask	= AM35XX_EVM_PHY_MASK,
- 	.mdio_max_freq	= AM35XX_EVM_MDIO_FREQUENCY,
-@@ -50,7 +72,7 @@ static struct emac_platform_data am3517_evm_emac_pdata = {
- static struct resource am3517_emac_resources[] = {
- 	{
- 		.start  = AM35XX_IPSS_EMAC_BASE,
--		.end    = AM35XX_IPSS_EMAC_BASE + 0x3FFFF,
-+		.end    = AM35XX_IPSS_EMAC_BASE + 0x2FFFF,
- 		.flags  = IORESOURCE_MEM,
- 	},
- 	{
-@@ -121,6 +143,9 @@ void am3517_evm_ethernet_init(struct emac_platform_data *pdata)
- 	pdata->interrupt_disable	= am3517_disable_ethernet_int;
- 	am3517_emac_device.dev.platform_data	= pdata;
- 	platform_device_register(&am3517_emac_device);
-+	platform_device_register(&am3517_mdio_device);
-+	clk_add_alias(NULL, dev_name(&am3517_mdio_device.dev),
-+		      NULL, &am3517_emac_device.dev);
+ #define emac_virt_to_phys(addr, priv) \
+ 	(((u32 __force)(addr) - (u32 __force)(priv->emac_ctrl_ram)) \
+@@ -549,9 +521,6 @@ static char *emac_rxhost_errcodes[16] = {
+ #define emac_ctrl_read(reg)	  ioread32((priv->ctrl_base + (reg)))
+ #define emac_ctrl_write(reg, val) iowrite32(val, (priv->ctrl_base + (reg)))
  
- 	regval = omap_ctrl_readl(AM35XX_CONTROL_IP_SW_RESET);
- 	regval = regval & (~(AM35XX_CPGMACSS_SW_RST));
+-#define emac_mdio_read(reg)	  ioread32(bus->priv + (reg))
+-#define emac_mdio_write(reg, val) iowrite32(val, (bus->priv + (reg)))
+-
+ /**
+  * emac_dump_regs: Dump important EMAC registers to debug terminal
+  * @priv: The DaVinci EMAC private adapter structure
+@@ -657,9 +626,6 @@ static void emac_dump_regs(struct emac_priv *priv)
+ 		emac_read(EMAC_RXDMAOVERRUNS));
+ }
+ 
+-/*************************************************************************
+- *  EMAC MDIO/Phy Functionality
+- *************************************************************************/
+ /**
+  * emac_get_drvinfo: Get EMAC driver information
+  * @ndev: The DaVinci EMAC network adapter
+@@ -2349,79 +2315,6 @@ void emac_poll_controller(struct net_device *ndev)
+ }
+ #endif
+ 
+-/* PHY/MII bus related */
+-
+-/* Wait until mdio is ready for next command */
+-#define MDIO_WAIT_FOR_USER_ACCESS\
+-		while ((emac_mdio_read((MDIO_USERACCESS(0))) &\
+-			MDIO_USERACCESS_GO) != 0)
+-
+-static int emac_mii_read(struct mii_bus *bus, int phy_id, int phy_reg)
+-{
+-	unsigned int phy_data = 0;
+-	unsigned int phy_control;
+-
+-	/* Wait until mdio is ready for next command */
+-	MDIO_WAIT_FOR_USER_ACCESS;
+-
+-	phy_control = (MDIO_USERACCESS_GO |
+-		       MDIO_USERACCESS_READ |
+-		       ((phy_reg << 21) & MDIO_USERACCESS_REGADR) |
+-		       ((phy_id << 16) & MDIO_USERACCESS_PHYADR) |
+-		       (phy_data & MDIO_USERACCESS_DATA));
+-	emac_mdio_write(MDIO_USERACCESS(0), phy_control);
+-
+-	/* Wait until mdio is ready for next command */
+-	MDIO_WAIT_FOR_USER_ACCESS;
+-
+-	return emac_mdio_read(MDIO_USERACCESS(0)) & MDIO_USERACCESS_DATA;
+-
+-}
+-
+-static int emac_mii_write(struct mii_bus *bus, int phy_id,
+-			  int phy_reg, u16 phy_data)
+-{
+-
+-	unsigned int control;
+-
+-	/*  until mdio is ready for next command */
+-	MDIO_WAIT_FOR_USER_ACCESS;
+-
+-	control = (MDIO_USERACCESS_GO |
+-		   MDIO_USERACCESS_WRITE |
+-		   ((phy_reg << 21) & MDIO_USERACCESS_REGADR) |
+-		   ((phy_id << 16) & MDIO_USERACCESS_PHYADR) |
+-		   (phy_data & MDIO_USERACCESS_DATA));
+-	emac_mdio_write(MDIO_USERACCESS(0), control);
+-
+-	return 0;
+-}
+-
+-static int emac_mii_reset(struct mii_bus *bus)
+-{
+-	unsigned int clk_div;
+-	int mdio_bus_freq = emac_bus_frequency;
+-
+-	if (mdio_max_freq && mdio_bus_freq)
+-		clk_div = ((mdio_bus_freq / mdio_max_freq) - 1);
+-	else
+-		clk_div = 0xFF;
+-
+-	clk_div &= MDIO_CONTROL_CLKDIV;
+-
+-	/* Set enable and clock divider in MDIOControl */
+-	emac_mdio_write(MDIO_CONTROL, (clk_div | MDIO_CONTROL_ENABLE));
+-
+-	return 0;
+-
+-}
+-
+-static int mii_irqs[PHY_MAX_ADDR] = { PHY_POLL, PHY_POLL };
+-
+-/* emac_driver: EMAC MII bus structure */
+-
+-static struct mii_bus *emac_mii;
+-
+ static void emac_adjust_link(struct net_device *ndev)
+ {
+ 	struct emac_priv *priv = netdev_priv(ndev);
+diff --git a/include/linux/davinci_emac.h b/include/linux/davinci_emac.h
+index 46a759f..5dd4285 100644
+--- a/include/linux/davinci_emac.h
++++ b/include/linux/davinci_emac.h
+@@ -24,10 +24,7 @@ struct emac_platform_data {
+ 	u32 ctrl_mod_reg_offset;
+ 	u32 ctrl_ram_offset;
+ 	u32 hw_ram_addr;
+-	u32 mdio_reg_offset;
+ 	u32 ctrl_ram_size;
+-	u32 phy_mask;
+-	u32 mdio_max_freq;
+ 
+ 	/*
+ 	 * phy_id can be one of the following:
 -- 
 1.7.0.4
 
