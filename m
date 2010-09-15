@@ -1,90 +1,71 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH 00/15] change default_llseek action
-Date: Wed, 15 Sep 2010 19:39:26 +1000
-Message-ID: <20100915193926.ae2fe838.sfr@canb.auug.org.au>
-References: <1284495763-7506-1-git-send-email-arnd@arndb.de>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Wed, 15 Sep 2010 11:42:48 +0200
+Message-ID: <4C909518.5010309@hartkopp.net>
+References: <4C61EDE5.4030505@dsn.okisemi.com>	<4C629FE5.6000204@pengutronix.de>	<005f01cb533e$5c21d530$66f8800a@maildom.okisemi.com>	<4C8E1918.5000007@pengutronix.de>	<003a01cb53a6$4ca724d0$66f8800a@maildom.okisemi.com>
+	<4C9078D3.50300@grandegger.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__15_Sep_2010_19_39_26_+1000_DQXdvYbRSl_dI/ss"
-Cc: linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
-	Christoph Hellwig <hch@infradead.org>,
-	David Airlie <airlied@linux.ie>,
-	dri-devel@lists.freedesktop.org, Jeremy Kerr <jk@ozlabs.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Julia Lawall <julia@diku.dk>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-fsdevel@vger.kernel.org, linux-omap@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
-	Tony Lindgren <tony@atomide.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1284495763-7506-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
+	arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4C9078D3.50300-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__15_Sep_2010_19_39_26_+1000_DQXdvYbRSl_dI/ss
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 15.09.2010 09:42, Wolfgang Grandegger wrote:
+> On 09/14/2010 02:46 AM, Masayuki Ohtake wrote:
+>> Hi Marc,
+>>
+>>>>> - implement NAPI
+>>>> Since Topcliff CAN HW register has only single rx buffer,
+>>>> I think NAPI is unnecessary.
+>>
+>>> Doesn't matter. Please try to implement it.
+>>
+>> Our CAN driver must pull received data from CAN-HW rx buffer as fast as it can
+>> so that the received data is not over-written by next received data.
+>> In case of implemented with NAPI,
+>> since NAPI has time-lagging after receiving first packet,
+>> probability of over-written(discarded) buffer is to be high.
+>> Thus, for our CAN HW, we should NOT implement with NAPI but normal "netif_rx".
+> 
+> True, if you just use one RX-Object. But it just helps a little bit and
+> it would be much better to use the buffering on RX messages in the CAN
+> controller hardware, either by using more than one RX object, or
+> combining RX objects to a FIFO, or whatever your CAN controller supports.
 
-Hi Arnd,
+Good point!
 
-On Tue, 14 Sep 2010 22:22:28 +0200 Arnd Bergmann <arnd@arndb.de> wrote:
->
-> Stephen, please add
-> git+ssh://master.kernel.org/pub/scm/linux/kernel/git/arnd/bkl.git llseek
+As long as the order of the received CAN frames is not shuffled (-> plain FIFO
+behaviour) using more than one RX buffer is a good idea.
 
-Added from today.
+Just a remark:
 
-Thanks for adding your subsystem tree as a participant of linux-next.  As
-you may know, this is not a judgment of your code.  The purpose of
-linux-next is for integration testing and to lower the impact of
-conflicts between subsystems in the next merge window.=20
+During the IDF the informations about the Topcliff Controller Hub have been
+reworked, so that some of the documentation became available for the public:
 
-You will need to ensure that the patches/commits in your tree/series have
-been:
-     * submitted under GPL v2 (or later) and include the Contributor's
-	Signed-off-by,
-     * posted to the relevant mailing list,
-     * reviewed by you (or another maintainer of your subsystem tree),
-     * successfully unit tested, and=20
-     * destined for the current or next Linux merge window.
+http://edc.intel.com/Platforms/Atom-E6xx/#hardware
 
-Basically, this should be just what you would send to Linus (or ask him
-to fetch).  It is allowed to be rebased if you deem it necessary.
+Especially the Datasheet for the Platform Controller Hub EG20T can be found:
 
---=20
-Cheers,
-Stephen Rothwell=20
-sfr@canb.auug.org.au
+http://download.intel.com/embedded/chipsets/datasheet/324211.pdf
 
-Legal Stuff:
-By participating in linux-next, your subsystem tree contributions are
-public and will be included in the linux-next trees.  You may be sent
-e-mail messages indicating errors or other issues when the
-patches/commits from your subsystem tree are merged and tested in
-linux-next.  These messages may also be cross-posted to the linux-next
-mailing list, the linux-kernel mailing list, etc.  The linux-next tree
-project and IBM (my employer) make no warranties regarding the linux-next
-project, the testing procedures, the results, the e-mails, etc.  If you
-don't agree to these ground rules, let me know and I'll remove your tree
-from participation in linux-next.
+In chapter 13 there are some details about the CAN controller.
 
---Signature=_Wed__15_Sep_2010_19_39_26_+1000_DQXdvYbRSl_dI/ss
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJMkJROAAoJEDMEi1NhKgbsYp0H+wXse/dv0zaLotuqwSwNBEwU
-pGyUJJlbgnsQrSCuQ0RowdoQ0djjfK9vpruhdv82egNE/g/Fce/cGx7W4VH1danv
-kAEkH42TGgqfbRZ2/bzxBNrewRNLZWd35RPHraMbuYWifGWvrvcY0XqbXL8shP1a
-7yQhIdm7yhETa0pCWNgNr96Uxm6zn5Dh6VcF7ux+CoabO9OJ/UTHwnS9YSg2Jq8V
-IY9XXeTrwUbKHiZlBTyLXqexe74h04hK5Dl6xz1+PQw+cLnwwgX07lNa+MzEMeLC
-FnQcuYnjVedEKfJvTdO4omXXPscchuPj1fJAAVs6jD8/2n4/+fA6nY6UNCKzN9k=
-=B+lf
------END PGP SIGNATURE-----
-
---Signature=_Wed__15_Sep_2010_19_39_26_+1000_DQXdvYbRSl_dI/ss--
+Regards,
+Oliver
