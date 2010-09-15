@@ -1,56 +1,50 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 7/9] tg3: Use skb_is_gso_v6()
-Date: Wed, 15 Sep 2010 11:59:59 -0700
-Message-ID: <1284577201-6117-8-git-send-email-mcarlson@broadcom.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH] drivers/net/tg3.c: Raise Jumbo Frame MTU to 9216?
+Date: Wed, 15 Sep 2010 12:14:55 -0700
+Message-ID: <1284578095.10223.27.camel@Joe-Laptop>
+References: <1284572516.10223.12.camel@Joe-Laptop>
+	 <1284573454.8929.221.camel@HP1>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2586 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755134Ab0IOTBH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 15:01:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Matthew Carlson <mcarlson@broadcom.com>,
+	Benjamin Li <benli@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1284573454.8929.221.camel@HP1>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch converts the driver to prefer the skb_is_gso_v6() helper over
-the explicit inlined version.
+On Wed, 2010-09-15 at 10:57 -0700, Michael Chan wrote:
+> On Wed, 2010-09-15 at 10:41 -0700, Joe Perches wrote:
+> > The TG3 apparently supports 9K frame sizes.
+> > http://www.broadcom.com/collateral/pb/5704C-PB05-R.pdf
+> > Is exactly 9000 a hardware limit?
+> > Should the jumbo frame MTU be raised to 9216 or 9216
+> > less the size of MAC, VLAN, IP and TCP headers?
+> 9000 has been the de facto standard, has it been changed recently?
 
-Reviewed-by: Benjamin Li <benli@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/tg3.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+I know of a performance lab that's trying to use 9216 as a "standard"
+jumbo frame length.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 179eb65..a4fbe4f 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -5574,9 +5574,9 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb,
- 			goto out_unlock;
- 		}
- 
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-+		if (skb_is_gso_v6(skb)) {
- 			hdrlen = skb_headlen(skb) - ETH_HLEN;
--		else {
-+		} else {
- 			struct iphdr *iph = ip_hdr(skb);
- 
- 			tcp_opt_len = tcp_optlen(skb);
-@@ -5798,7 +5798,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
- 		iph = ip_hdr(skb);
- 		tcp_opt_len = tcp_optlen(skb);
- 
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
-+		if (skb_is_gso_v6(skb)) {
- 			hdr_len = skb_headlen(skb) - ETH_HLEN;
- 		} else {
- 			u32 ip_tcp_len;
--- 
-1.7.1
+Unrelated to the performance lab:
+http://www.uoregon.edu/~joe/jumbo-clean-gear.html
+9216 seems popular, especially with Cisco gear.
+Contrary to that link, the Cisco 3750 does work with 9216 length
+jumbo frames.
 
+> Anyway, we've never done any testing on 9216.  As it uses up to 2 more
+> internal mbufs per packet, there may not be sufficient buffers inside
+> the chip for optimal operations.  At best, some water marks will need to
+> be tweaked.  The hardware statistics counters (ethtool -S) also may not
+> work for packets bigger than 9022 bytes.
 
+Thanks, do you have pointers to where the tweaking needs to be done?
+
+Is this define a hardware upper bound?
+#define TG3_RX_JMB_DMA_SZ		9046
+
+cheers, Joe
