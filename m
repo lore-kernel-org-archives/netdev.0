@@ -1,340 +1,1167 @@
 From: Cyril Chemparathy <cyril@ti.com>
-Subject: [PATCH v4 05/10] davinci: cleanup mdio arch code and switch to phy_id
-Date: Wed, 15 Sep 2010 10:11:25 -0400
-Message-ID: <1284559890-31346-6-git-send-email-cyril@ti.com>
+Subject: [PATCH v4 08/10] net: davinci_emac: separate out cpdma code
+Date: Wed, 15 Sep 2010 10:11:28 -0400
+Message-ID: <1284559890-31346-9-git-send-email-cyril@ti.com>
 References: <1284559890-31346-1-git-send-email-cyril@ti.com>
 Cc: michael.williamson@criticallink.com, caglarakyuz@gmail.com,
 	bparrot@ti.com, Cyril Chemparathy <cyril@ti.com>
 To: netdev@vger.kernel.org,
 	davinci-linux-open-source@linux.davincidsp.com,
 	linux-omap@vger.kernel.org
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:50549 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754129Ab0IOOLi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 10:11:38 -0400
 In-Reply-To: <1284559890-31346-1-git-send-email-cyril@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch removes davinci architecture code that has now been rendered
-useless by the previous patches in the MDIO separation series.
+In addition to being embedded into the EMAC controller, the CPDMA hardware
+block is used in TI's CPSW switch controller.  Fortunately, the programming
+interface to this hardware block remains pretty nicely consistent across these
+devices.
 
-In addition, the earlier phy_mask definitions have been replaced with
-corresponding phy_id definitions.
+This patch adds a new CPDMA services layer, which can then be reused across
+EMAC and CPSW drivers.
 
 Signed-off-by: Cyril Chemparathy <cyril@ti.com>
 Tested-by: Michael Williamson <michael.williamson@criticallink.com>
 Tested-by: Caglar Akyuz <caglarakyuz@gmail.com>
 ---
- arch/arm/mach-davinci/board-da830-evm.c     |    7 ++-----
- arch/arm/mach-davinci/board-da850-evm.c     |    7 ++-----
- arch/arm/mach-davinci/board-dm365-evm.c     |    7 ++-----
- arch/arm/mach-davinci/board-dm644x-evm.c    |    8 ++------
- arch/arm/mach-davinci/board-dm646x-evm.c    |    7 ++-----
- arch/arm/mach-davinci/board-mityomapl138.c  |    8 ++------
- arch/arm/mach-davinci/board-neuros-osd2.c   |    7 ++-----
- arch/arm/mach-davinci/board-sffsdr.c        |    7 ++-----
- arch/arm/mach-davinci/devices-da8xx.c       |    2 --
- arch/arm/mach-davinci/dm365.c               |    1 -
- arch/arm/mach-davinci/dm644x.c              |    1 -
- arch/arm/mach-davinci/dm646x.c              |    1 -
- arch/arm/mach-davinci/include/mach/dm365.h  |    1 -
- arch/arm/mach-davinci/include/mach/dm644x.h |    1 -
- arch/arm/mach-davinci/include/mach/dm646x.h |    1 -
- 15 files changed, 16 insertions(+), 50 deletions(-)
+ drivers/net/Kconfig         |   10 +
+ drivers/net/Makefile        |    1 +
+ drivers/net/davinci_cpdma.c |  965 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/davinci_cpdma.h |  108 +++++
+ 4 files changed, 1084 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/davinci_cpdma.c
+ create mode 100644 drivers/net/davinci_cpdma.h
 
-diff --git a/arch/arm/mach-davinci/board-da830-evm.c b/arch/arm/mach-davinci/board-da830-evm.c
-index ef1ab0b..1bb89d3 100644
---- a/arch/arm/mach-davinci/board-da830-evm.c
-+++ b/arch/arm/mach-davinci/board-da830-evm.c
-@@ -31,9 +31,7 @@
- #include <mach/usb.h>
- #include <mach/aemif.h>
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 911e7f1..775fd87 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -952,6 +952,7 @@ config TI_DAVINCI_EMAC
+ 	tristate "TI DaVinci EMAC Support"
+ 	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
+ 	select TI_DAVINCI_MDIO
++	select TI_DAVINCI_CPDMA
+ 	select PHYLIB
+ 	help
+ 	  This driver supports TI's DaVinci Ethernet .
+@@ -969,6 +970,15 @@ config TI_DAVINCI_MDIO
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called davinci_mdio.  This is recommended.
  
--#define DA830_EVM_PHY_MASK		0x0
--#define DA830_EVM_MDIO_FREQUENCY	2200000	/* PHY bus frequency */
--
-+#define DA830_EVM_PHY_ID		""
- /*
-  * USB1 VBUS is controlled by GPIO1[15], over-current is reported on GPIO2[4].
-  */
-@@ -558,9 +556,8 @@ static __init void da830_evm_init(void)
++config TI_DAVINCI_CPDMA
++	tristate "TI DaVinci CPDMA Support"
++	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
++	help
++	  This driver supports TI's DaVinci CPDMA dma engine.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called davinci_cpdma.  This is recommended.
++
+ config DM9000
+ 	tristate "DM9000 support"
+ 	depends on ARM || BLACKFIN || MIPS
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index d38a7ab..65da885 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -8,6 +8,7 @@ obj-$(CONFIG_PHYLIB) += phy/
  
- 	da830_evm_usb_init();
+ obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
+ obj-$(CONFIG_TI_DAVINCI_MDIO) += davinci_mdio.o
++obj-$(CONFIG_TI_DAVINCI_CPDMA) += davinci_cpdma.o
  
--	soc_info->emac_pdata->phy_mask = DA830_EVM_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = DA830_EVM_MDIO_FREQUENCY;
- 	soc_info->emac_pdata->rmii_en = 1;
-+	soc_info->emac_pdata->phy_id = DA830_EVM_PHY_ID;
- 
- 	ret = davinci_cfg_reg_list(da830_cpgmac_pins);
- 	if (ret)
-diff --git a/arch/arm/mach-davinci/board-da850-evm.c b/arch/arm/mach-davinci/board-da850-evm.c
-index ac2297c..5e435b0 100644
---- a/arch/arm/mach-davinci/board-da850-evm.c
-+++ b/arch/arm/mach-davinci/board-da850-evm.c
-@@ -38,9 +38,7 @@
- #include <mach/mux.h>
- #include <mach/aemif.h>
- 
--#define DA850_EVM_PHY_MASK		0x1
--#define DA850_EVM_MDIO_FREQUENCY	2200000 /* PHY bus frequency */
--
-+#define DA850_EVM_PHY_ID		"0:00"
- #define DA850_LCD_PWR_PIN		GPIO_TO_PIN(2, 8)
- #define DA850_LCD_BL_PIN		GPIO_TO_PIN(2, 15)
- 
-@@ -678,8 +676,7 @@ static int __init da850_evm_config_emac(void)
- 	/* Enable/Disable MII MDIO clock */
- 	gpio_direction_output(DA850_MII_MDIO_CLKEN_PIN, rmii_en);
- 
--	soc_info->emac_pdata->phy_mask = DA850_EVM_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = DA850_EVM_MDIO_FREQUENCY;
-+	soc_info->emac_pdata->phy_id = DA850_EVM_PHY_ID;
- 
- 	ret = da8xx_register_emac();
- 	if (ret)
-diff --git a/arch/arm/mach-davinci/board-dm365-evm.c b/arch/arm/mach-davinci/board-dm365-evm.c
-index bdea2da..a06b84c 100644
---- a/arch/arm/mach-davinci/board-dm365-evm.c
-+++ b/arch/arm/mach-davinci/board-dm365-evm.c
-@@ -54,9 +54,7 @@ static inline int have_tvp7002(void)
- 	return 0;
- }
- 
--#define DM365_EVM_PHY_MASK		(0x2)
--#define DM365_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
-+#define DM365_EVM_PHY_ID		"0:01"
- /*
-  * A MAX-II CPLD is used for various board control functions.
-  */
-@@ -535,8 +533,7 @@ fail:
- 
- 		/* ... and ENET ... */
- 		dm365evm_emac_configure();
--		soc_info->emac_pdata->phy_mask = DM365_EVM_PHY_MASK;
--		soc_info->emac_pdata->mdio_max_freq = DM365_EVM_MDIO_FREQUENCY;
-+		soc_info->emac_pdata->phy_id = DM365_EVM_PHY_ID;
- 		resets &= ~BIT(3);
- 
- 		/* ... and AIC33 */
-diff --git a/arch/arm/mach-davinci/board-dm644x-evm.c b/arch/arm/mach-davinci/board-dm644x-evm.c
-index 65bb940..44a2f0a 100644
---- a/arch/arm/mach-davinci/board-dm644x-evm.c
-+++ b/arch/arm/mach-davinci/board-dm644x-evm.c
-@@ -39,9 +39,7 @@
- #include <mach/usb.h>
- #include <mach/aemif.h>
- 
--#define DM644X_EVM_PHY_MASK		(0x2)
--#define DM644X_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
-+#define DM644X_EVM_PHY_ID		"0:01"
- #define LXT971_PHY_ID	(0x001378e2)
- #define LXT971_PHY_MASK	(0xfffffff0)
- 
-@@ -707,9 +705,7 @@ static __init void davinci_evm_init(void)
- 	davinci_serial_init(&uart_config);
- 	dm644x_init_asp(&dm644x_evm_snd_data);
- 
--	soc_info->emac_pdata->phy_mask = DM644X_EVM_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = DM644X_EVM_MDIO_FREQUENCY;
--
-+	soc_info->emac_pdata->phy_id = DM644X_EVM_PHY_ID;
- 	/* Register the fixup for PHY on DaVinci */
- 	phy_register_fixup_for_uid(LXT971_PHY_ID, LXT971_PHY_MASK,
- 					davinci_phy_fixup);
-diff --git a/arch/arm/mach-davinci/board-dm646x-evm.c b/arch/arm/mach-davinci/board-dm646x-evm.c
-index 5a29955..67669bb 100644
---- a/arch/arm/mach-davinci/board-dm646x-evm.c
-+++ b/arch/arm/mach-davinci/board-dm646x-evm.c
-@@ -729,9 +729,7 @@ static struct davinci_uart_config uart_config __initdata = {
- 	.enabled_uarts = (1 << 0),
- };
- 
--#define DM646X_EVM_PHY_MASK		(0x2)
--#define DM646X_EVM_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
-+#define DM646X_EVM_PHY_ID		"0:01"
- /*
-  * The following EDMA channels/slots are not being used by drivers (for
-  * example: Timer, GPIO, UART events etc) on dm646x, hence they are being
-@@ -784,8 +782,7 @@ static __init void evm_init(void)
- 	if (HAS_ATA)
- 		davinci_init_ide();
- 
--	soc_info->emac_pdata->phy_mask = DM646X_EVM_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = DM646X_EVM_MDIO_FREQUENCY;
-+	soc_info->emac_pdata->phy_id = DM646X_EVM_PHY_ID;
- }
- 
- #define DM646X_EVM_REF_FREQ		27000000
-diff --git a/arch/arm/mach-davinci/board-mityomapl138.c b/arch/arm/mach-davinci/board-mityomapl138.c
-index 84d5aff..6f12a18 100644
---- a/arch/arm/mach-davinci/board-mityomapl138.c
-+++ b/arch/arm/mach-davinci/board-mityomapl138.c
-@@ -24,9 +24,7 @@
- #include <mach/nand.h>
- #include <mach/mux.h>
- 
--#define MITYOMAPL138_PHY_MASK		0x08 /* hardcoded for now */
--#define MITYOMAPL138_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
-+#define MITYOMAPL138_PHY_ID		"0:03"
- static struct davinci_i2c_platform_data mityomap_i2c_0_pdata = {
- 	.bus_freq	= 100,	/* kHz */
- 	.bus_delay	= 0,	/* usec */
-@@ -273,9 +271,7 @@ static void __init mityomapl138_config_emac(void)
- 	/* configure the CFGCHIP3 register for RMII or MII */
- 	__raw_writel(val, cfg_chip3_base);
- 
--	soc_info->emac_pdata->phy_mask = MITYOMAPL138_PHY_MASK;
--	pr_debug("setting phy_mask to %x\n", soc_info->emac_pdata->phy_mask);
--	soc_info->emac_pdata->mdio_max_freq = MITYOMAPL138_MDIO_FREQUENCY;
-+	soc_info->emac_pdata->phy_id = MITYOMAPL138_PHY_ID;
- 
- 	ret = da8xx_register_emac();
- 	if (ret)
-diff --git a/arch/arm/mach-davinci/board-neuros-osd2.c b/arch/arm/mach-davinci/board-neuros-osd2.c
-index 4c30e92..04a8d16 100644
---- a/arch/arm/mach-davinci/board-neuros-osd2.c
-+++ b/arch/arm/mach-davinci/board-neuros-osd2.c
-@@ -39,9 +39,7 @@
- #include <mach/mmc.h>
- #include <mach/usb.h>
- 
--#define NEUROS_OSD2_PHY_MASK		0x2
--#define NEUROS_OSD2_MDIO_FREQUENCY	2200000 /* PHY bus frequency */
--
-+#define NEUROS_OSD2_PHY_ID		"0:01"
- #define LXT971_PHY_ID			0x001378e2
- #define LXT971_PHY_MASK			0xfffffff0
- 
-@@ -252,8 +250,7 @@ static __init void davinci_ntosd2_init(void)
- 	davinci_serial_init(&uart_config);
- 	dm644x_init_asp(&dm644x_ntosd2_snd_data);
- 
--	soc_info->emac_pdata->phy_mask = NEUROS_OSD2_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = NEUROS_OSD2_MDIO_FREQUENCY;
-+	soc_info->emac_pdata->phy_id = NEUROS_OSD2_PHY_ID;
- 
- 	davinci_setup_usb(1000, 8);
- 	/*
-diff --git a/arch/arm/mach-davinci/board-sffsdr.c b/arch/arm/mach-davinci/board-sffsdr.c
-index 23e664a..ab4292d 100644
---- a/arch/arm/mach-davinci/board-sffsdr.c
-+++ b/arch/arm/mach-davinci/board-sffsdr.c
-@@ -42,9 +42,7 @@
- #include <mach/mux.h>
- #include <mach/usb.h>
- 
--#define SFFSDR_PHY_MASK		(0x2)
--#define SFFSDR_MDIO_FREQUENCY	(2200000) /* PHY bus frequency */
--
-+#define SFFSDR_PHY_ID		"0:01"
- static struct mtd_partition davinci_sffsdr_nandflash_partition[] = {
- 	/* U-Boot Environment: Block 0
- 	 * UBL:                Block 1
-@@ -143,8 +141,7 @@ static __init void davinci_sffsdr_init(void)
- 			     ARRAY_SIZE(davinci_sffsdr_devices));
- 	sffsdr_init_i2c();
- 	davinci_serial_init(&uart_config);
--	soc_info->emac_pdata->phy_mask = SFFSDR_PHY_MASK;
--	soc_info->emac_pdata->mdio_max_freq = SFFSDR_MDIO_FREQUENCY;
-+	soc_info->emac_pdata->phy_id = SFFSDR_PHY_ID;
- 	davinci_setup_usb(0, 0); /* We support only peripheral mode. */
- 
- 	/* mux VLYNQ pins */
-diff --git a/arch/arm/mach-davinci/devices-da8xx.c b/arch/arm/mach-davinci/devices-da8xx.c
-index 9039221..9eec630 100644
---- a/arch/arm/mach-davinci/devices-da8xx.c
-+++ b/arch/arm/mach-davinci/devices-da8xx.c
-@@ -42,7 +42,6 @@
- #define DA8XX_EMAC_CTRL_REG_OFFSET	0x3000
- #define DA8XX_EMAC_MOD_REG_OFFSET	0x2000
- #define DA8XX_EMAC_RAM_OFFSET		0x0000
--#define DA8XX_MDIO_REG_OFFSET		0x4000
- #define DA8XX_EMAC_CTRL_RAM_SIZE	SZ_8K
- 
- void __iomem *da8xx_syscfg0_base;
-@@ -381,7 +380,6 @@ struct emac_platform_data da8xx_emac_pdata = {
- 	.ctrl_reg_offset	= DA8XX_EMAC_CTRL_REG_OFFSET,
- 	.ctrl_mod_reg_offset	= DA8XX_EMAC_MOD_REG_OFFSET,
- 	.ctrl_ram_offset	= DA8XX_EMAC_RAM_OFFSET,
--	.mdio_reg_offset	= DA8XX_MDIO_REG_OFFSET,
- 	.ctrl_ram_size		= DA8XX_EMAC_CTRL_RAM_SIZE,
- 	.version		= EMAC_VERSION_2,
- };
-diff --git a/arch/arm/mach-davinci/dm365.c b/arch/arm/mach-davinci/dm365.c
-index 71f0f9d..240f392 100644
---- a/arch/arm/mach-davinci/dm365.c
-+++ b/arch/arm/mach-davinci/dm365.c
-@@ -691,7 +691,6 @@ static struct emac_platform_data dm365_emac_pdata = {
- 	.ctrl_reg_offset	= DM365_EMAC_CNTRL_OFFSET,
- 	.ctrl_mod_reg_offset	= DM365_EMAC_CNTRL_MOD_OFFSET,
- 	.ctrl_ram_offset	= DM365_EMAC_CNTRL_RAM_OFFSET,
--	.mdio_reg_offset	= DM365_EMAC_MDIO_OFFSET,
- 	.ctrl_ram_size		= DM365_EMAC_CNTRL_RAM_SIZE,
- 	.version		= EMAC_VERSION_2,
- };
-diff --git a/arch/arm/mach-davinci/dm644x.c b/arch/arm/mach-davinci/dm644x.c
-index c103b2c..41b7a95 100644
---- a/arch/arm/mach-davinci/dm644x.c
-+++ b/arch/arm/mach-davinci/dm644x.c
-@@ -322,7 +322,6 @@ static struct emac_platform_data dm644x_emac_pdata = {
- 	.ctrl_reg_offset	= DM644X_EMAC_CNTRL_OFFSET,
- 	.ctrl_mod_reg_offset	= DM644X_EMAC_CNTRL_MOD_OFFSET,
- 	.ctrl_ram_offset	= DM644X_EMAC_CNTRL_RAM_OFFSET,
--	.mdio_reg_offset	= DM644X_EMAC_MDIO_OFFSET,
- 	.ctrl_ram_size		= DM644X_EMAC_CNTRL_RAM_SIZE,
- 	.version		= EMAC_VERSION_1,
- };
-diff --git a/arch/arm/mach-davinci/dm646x.c b/arch/arm/mach-davinci/dm646x.c
-index 8da886b..08db90f 100644
---- a/arch/arm/mach-davinci/dm646x.c
-+++ b/arch/arm/mach-davinci/dm646x.c
-@@ -358,7 +358,6 @@ static struct emac_platform_data dm646x_emac_pdata = {
- 	.ctrl_reg_offset	= DM646X_EMAC_CNTRL_OFFSET,
- 	.ctrl_mod_reg_offset	= DM646X_EMAC_CNTRL_MOD_OFFSET,
- 	.ctrl_ram_offset	= DM646X_EMAC_CNTRL_RAM_OFFSET,
--	.mdio_reg_offset	= DM646X_EMAC_MDIO_OFFSET,
- 	.ctrl_ram_size		= DM646X_EMAC_CNTRL_RAM_SIZE,
- 	.version		= EMAC_VERSION_2,
- };
-diff --git a/arch/arm/mach-davinci/include/mach/dm365.h b/arch/arm/mach-davinci/include/mach/dm365.h
-index dbb5052..2563bf4 100644
---- a/arch/arm/mach-davinci/include/mach/dm365.h
-+++ b/arch/arm/mach-davinci/include/mach/dm365.h
-@@ -25,7 +25,6 @@
- #define DM365_EMAC_CNTRL_OFFSET		(0x0000)
- #define DM365_EMAC_CNTRL_MOD_OFFSET	(0x3000)
- #define DM365_EMAC_CNTRL_RAM_OFFSET	(0x1000)
--#define DM365_EMAC_MDIO_OFFSET		(0x4000)
- #define DM365_EMAC_CNTRL_RAM_SIZE	(0x2000)
- 
- /* Base of key scan register bank */
-diff --git a/arch/arm/mach-davinci/include/mach/dm644x.h b/arch/arm/mach-davinci/include/mach/dm644x.h
-index 5159117..5a1b26d 100644
---- a/arch/arm/mach-davinci/include/mach/dm644x.h
-+++ b/arch/arm/mach-davinci/include/mach/dm644x.h
-@@ -32,7 +32,6 @@
- #define DM644X_EMAC_CNTRL_OFFSET	(0x0000)
- #define DM644X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
- #define DM644X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
--#define DM644X_EMAC_MDIO_OFFSET		(0x4000)
- #define DM644X_EMAC_CNTRL_RAM_SIZE	(0x2000)
- 
- #define DM644X_ASYNC_EMIF_CONTROL_BASE	0x01E00000
-diff --git a/arch/arm/mach-davinci/include/mach/dm646x.h b/arch/arm/mach-davinci/include/mach/dm646x.h
-index 1c4dca9..7a27f3f 100644
---- a/arch/arm/mach-davinci/include/mach/dm646x.h
-+++ b/arch/arm/mach-davinci/include/mach/dm646x.h
-@@ -23,7 +23,6 @@
- #define DM646X_EMAC_CNTRL_OFFSET	(0x0000)
- #define DM646X_EMAC_CNTRL_MOD_OFFSET	(0x1000)
- #define DM646X_EMAC_CNTRL_RAM_OFFSET	(0x2000)
--#define DM646X_EMAC_MDIO_OFFSET		(0x4000)
- #define DM646X_EMAC_CNTRL_RAM_SIZE	(0x2000)
- 
- #define DM646X_ASYNC_EMIF_CONTROL_BASE	0x20008000
+ obj-$(CONFIG_E1000) += e1000/
+ obj-$(CONFIG_E1000E) += e1000e/
+diff --git a/drivers/net/davinci_cpdma.c b/drivers/net/davinci_cpdma.c
+new file mode 100644
+index 0000000..e92b2b6
+--- /dev/null
++++ b/drivers/net/davinci_cpdma.c
+@@ -0,0 +1,965 @@
++/*
++ * Texas Instruments CPDMA Driver
++ *
++ * Copyright (C) 2010 Texas Instruments
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation version 2.
++ *
++ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
++ * kind, whether express or implied; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++#include <linux/kernel.h>
++#include <linux/spinlock.h>
++#include <linux/device.h>
++#include <linux/slab.h>
++#include <linux/err.h>
++#include <linux/dma-mapping.h>
++#include <linux/io.h>
++
++#include "davinci_cpdma.h"
++
++/* DMA Registers */
++#define CPDMA_TXIDVER		0x00
++#define CPDMA_TXCONTROL		0x04
++#define CPDMA_TXTEARDOWN	0x08
++#define CPDMA_RXIDVER		0x10
++#define CPDMA_RXCONTROL		0x14
++#define CPDMA_SOFTRESET		0x1c
++#define CPDMA_RXTEARDOWN	0x18
++#define CPDMA_TXINTSTATRAW	0x80
++#define CPDMA_TXINTSTATMASKED	0x84
++#define CPDMA_TXINTMASKSET	0x88
++#define CPDMA_TXINTMASKCLEAR	0x8c
++#define CPDMA_MACINVECTOR	0x90
++#define CPDMA_MACEOIVECTOR	0x94
++#define CPDMA_RXINTSTATRAW	0xa0
++#define CPDMA_RXINTSTATMASKED	0xa4
++#define CPDMA_RXINTMASKSET	0xa8
++#define CPDMA_RXINTMASKCLEAR	0xac
++#define CPDMA_DMAINTSTATRAW	0xb0
++#define CPDMA_DMAINTSTATMASKED	0xb4
++#define CPDMA_DMAINTMASKSET	0xb8
++#define CPDMA_DMAINTMASKCLEAR	0xbc
++#define CPDMA_DMAINT_HOSTERR	BIT(1)
++
++/* the following exist only if has_ext_regs is set */
++#define CPDMA_DMACONTROL	0x20
++#define CPDMA_DMASTATUS		0x24
++#define CPDMA_RXBUFFOFS		0x28
++#define CPDMA_EM_CONTROL	0x2c
++
++/* Descriptor mode bits */
++#define CPDMA_DESC_SOP		BIT(31)
++#define CPDMA_DESC_EOP		BIT(30)
++#define CPDMA_DESC_OWNER	BIT(29)
++#define CPDMA_DESC_EOQ		BIT(28)
++#define CPDMA_DESC_TD_COMPLETE	BIT(27)
++#define CPDMA_DESC_PASS_CRC	BIT(26)
++
++#define CPDMA_TEARDOWN_VALUE	0xfffffffc
++
++struct cpdma_desc {
++	/* hardware fields */
++	u32			hw_next;
++	u32			hw_buffer;
++	u32			hw_len;
++	u32			hw_mode;
++	/* software fields */
++	void			*sw_token;
++	u32			sw_buffer;
++	u32			sw_len;
++};
++
++struct cpdma_desc_pool {
++	u32			phys;
++	void __iomem		*iomap;		/* ioremap map */
++	void			*cpumap;	/* dma_alloc map */
++	int			desc_size, mem_size;
++	int			num_desc, used_desc;
++	unsigned long		*bitmap;
++	struct device		*dev;
++	spinlock_t		lock;
++};
++
++enum cpdma_state {
++	CPDMA_STATE_IDLE,
++	CPDMA_STATE_ACTIVE,
++	CPDMA_STATE_TEARDOWN,
++};
++
++const char *cpdma_state_str[] = { "idle", "active", "teardown" };
++
++struct cpdma_ctlr {
++	enum cpdma_state	state;
++	struct cpdma_params	params;
++	struct device		*dev;
++	struct cpdma_desc_pool	*pool;
++	spinlock_t		lock;
++	struct cpdma_chan	*channels[2 * CPDMA_MAX_CHANNELS];
++};
++
++struct cpdma_chan {
++	enum cpdma_state		state;
++	struct cpdma_ctlr		*ctlr;
++	int				chan_num;
++	spinlock_t			lock;
++	struct cpdma_desc __iomem	*head, *tail;
++	int				count;
++	void __iomem			*hdp, *cp, *rxfree;
++	u32				mask;
++	cpdma_handler_fn		handler;
++	enum dma_data_direction		dir;
++	struct cpdma_chan_stats		stats;
++	/* offsets into dmaregs */
++	int	int_set, int_clear, td;
++};
++
++/* The following make access to common cpdma_ctlr params more readable */
++#define dmaregs		params.dmaregs
++#define num_chan	params.num_chan
++
++/* various accessors */
++#define dma_reg_read(ctlr, ofs)		__raw_readl((ctlr)->dmaregs + (ofs))
++#define chan_read(chan, fld)		__raw_readl((chan)->fld)
++#define desc_read(desc, fld)		__raw_readl(&(desc)->fld)
++#define dma_reg_write(ctlr, ofs, v)	__raw_writel(v, (ctlr)->dmaregs + (ofs))
++#define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
++#define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
++
++/*
++ * Utility constructs for a cpdma descriptor pool.  Some devices (e.g. davinci
++ * emac) have dedicated on-chip memory for these descriptors.  Some other
++ * devices (e.g. cpsw switches) use plain old memory.  Descriptor pools
++ * abstract out these details
++ */
++static struct cpdma_desc_pool *
++cpdma_desc_pool_create(struct device *dev, u32 phys, int size, int align)
++{
++	int bitmap_size;
++	struct cpdma_desc_pool *pool;
++
++	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
++	if (!pool)
++		return NULL;
++
++	spin_lock_init(&pool->lock);
++
++	pool->dev	= dev;
++	pool->mem_size	= size;
++	pool->desc_size	= ALIGN(sizeof(struct cpdma_desc), align);
++	pool->num_desc	= size / pool->desc_size;
++
++	bitmap_size  = (pool->num_desc / BITS_PER_LONG) * sizeof(long);
++	pool->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
++	if (!pool->bitmap)
++		goto fail;
++
++	if (phys) {
++		pool->phys  = phys;
++		pool->iomap = ioremap(phys, size);
++	} else {
++		pool->cpumap = dma_alloc_coherent(dev, size, &pool->phys,
++						  GFP_KERNEL);
++		pool->iomap = (void __force __iomem *)pool->cpumap;
++	}
++
++	if (pool->iomap)
++		return pool;
++
++fail:
++	kfree(pool->bitmap);
++	kfree(pool);
++	return NULL;
++}
++
++static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
++{
++	unsigned long flags;
++
++	if (!pool)
++		return;
++
++	spin_lock_irqsave(&pool->lock, flags);
++	WARN_ON(pool->used_desc);
++	kfree(pool->bitmap);
++	if (pool->cpumap) {
++		dma_free_coherent(pool->dev, pool->mem_size, pool->cpumap,
++				  pool->phys);
++	} else {
++		iounmap(pool->iomap);
++	}
++	spin_unlock_irqrestore(&pool->lock, flags);
++	kfree(pool);
++}
++
++static inline dma_addr_t desc_phys(struct cpdma_desc_pool *pool,
++		  struct cpdma_desc __iomem *desc)
++{
++	if (!desc)
++		return 0;
++	return pool->phys + (__force dma_addr_t)desc -
++			    (__force dma_addr_t)pool->iomap;
++}
++
++static inline struct cpdma_desc __iomem *
++desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
++{
++	return dma ? pool->iomap + dma - pool->phys : NULL;
++}
++
++static struct cpdma_desc __iomem *
++cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc)
++{
++	unsigned long flags;
++	int index;
++	struct cpdma_desc __iomem *desc = NULL;
++
++	spin_lock_irqsave(&pool->lock, flags);
++
++	index = bitmap_find_next_zero_area(pool->bitmap, pool->num_desc, 0,
++					   num_desc, 0);
++	if (index < pool->num_desc) {
++		bitmap_set(pool->bitmap, index, num_desc);
++		desc = pool->iomap + pool->desc_size * index;
++		pool->used_desc++;
++	}
++
++	spin_unlock_irqrestore(&pool->lock, flags);
++	return desc;
++}
++
++static void cpdma_desc_free(struct cpdma_desc_pool *pool,
++			    struct cpdma_desc __iomem *desc, int num_desc)
++{
++	unsigned long flags, index;
++
++	index = ((unsigned long)desc - (unsigned long)pool->iomap) /
++		pool->desc_size;
++	spin_lock_irqsave(&pool->lock, flags);
++	bitmap_clear(pool->bitmap, index, num_desc);
++	pool->used_desc--;
++	spin_unlock_irqrestore(&pool->lock, flags);
++}
++
++struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
++{
++	struct cpdma_ctlr *ctlr;
++
++	ctlr = kzalloc(sizeof(*ctlr), GFP_KERNEL);
++	if (!ctlr)
++		return NULL;
++
++	ctlr->state = CPDMA_STATE_IDLE;
++	ctlr->params = *params;
++	ctlr->dev = params->dev;
++	spin_lock_init(&ctlr->lock);
++
++	ctlr->pool = cpdma_desc_pool_create(ctlr->dev,
++					    ctlr->params.desc_mem_phys,
++					    ctlr->params.desc_mem_size,
++					    ctlr->params.desc_align);
++	if (!ctlr->pool) {
++		kfree(ctlr);
++		return NULL;
++	}
++
++	if (WARN_ON(ctlr->num_chan > CPDMA_MAX_CHANNELS))
++		ctlr->num_chan = CPDMA_MAX_CHANNELS;
++	return ctlr;
++}
++
++int cpdma_ctlr_start(struct cpdma_ctlr *ctlr)
++{
++	unsigned long flags;
++	int i;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++	if (ctlr->state != CPDMA_STATE_IDLE) {
++		spin_unlock_irqrestore(&ctlr->lock, flags);
++		return -EBUSY;
++	}
++
++	if (ctlr->params.has_soft_reset) {
++		unsigned long timeout = jiffies + HZ/10;
++
++		dma_reg_write(ctlr, CPDMA_SOFTRESET, 1);
++		while (time_before(jiffies, timeout)) {
++			if (dma_reg_read(ctlr, CPDMA_SOFTRESET) == 0)
++				break;
++		}
++		WARN_ON(!time_before(jiffies, timeout));
++	}
++
++	for (i = 0; i < ctlr->num_chan; i++) {
++		__raw_writel(0, ctlr->params.txhdp + 4 * i);
++		__raw_writel(0, ctlr->params.rxhdp + 4 * i);
++		__raw_writel(0, ctlr->params.txcp + 4 * i);
++		__raw_writel(0, ctlr->params.rxcp + 4 * i);
++	}
++
++	dma_reg_write(ctlr, CPDMA_RXINTMASKCLEAR, 0xffffffff);
++	dma_reg_write(ctlr, CPDMA_TXINTMASKCLEAR, 0xffffffff);
++
++	dma_reg_write(ctlr, CPDMA_TXCONTROL, 1);
++	dma_reg_write(ctlr, CPDMA_RXCONTROL, 1);
++
++	ctlr->state = CPDMA_STATE_ACTIVE;
++
++	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
++		if (ctlr->channels[i])
++			cpdma_chan_start(ctlr->channels[i]);
++	}
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	return 0;
++}
++
++int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr)
++{
++	unsigned long flags;
++	int i;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++	if (ctlr->state != CPDMA_STATE_ACTIVE) {
++		spin_unlock_irqrestore(&ctlr->lock, flags);
++		return -EINVAL;
++	}
++
++	ctlr->state = CPDMA_STATE_TEARDOWN;
++
++	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
++		if (ctlr->channels[i])
++			cpdma_chan_stop(ctlr->channels[i]);
++	}
++
++	dma_reg_write(ctlr, CPDMA_RXINTMASKCLEAR, 0xffffffff);
++	dma_reg_write(ctlr, CPDMA_TXINTMASKCLEAR, 0xffffffff);
++
++	dma_reg_write(ctlr, CPDMA_TXCONTROL, 0);
++	dma_reg_write(ctlr, CPDMA_RXCONTROL, 0);
++
++	ctlr->state = CPDMA_STATE_IDLE;
++
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	return 0;
++}
++
++int cpdma_ctlr_dump(struct cpdma_ctlr *ctlr)
++{
++	struct device *dev = ctlr->dev;
++	unsigned long flags;
++	int i;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++
++	dev_info(dev, "CPDMA: state: %s", cpdma_state_str[ctlr->state]);
++
++	dev_info(dev, "CPDMA: txidver: %x",
++		 dma_reg_read(ctlr, CPDMA_TXIDVER));
++	dev_info(dev, "CPDMA: txcontrol: %x",
++		 dma_reg_read(ctlr, CPDMA_TXCONTROL));
++	dev_info(dev, "CPDMA: txteardown: %x",
++		 dma_reg_read(ctlr, CPDMA_TXTEARDOWN));
++	dev_info(dev, "CPDMA: rxidver: %x",
++		 dma_reg_read(ctlr, CPDMA_RXIDVER));
++	dev_info(dev, "CPDMA: rxcontrol: %x",
++		 dma_reg_read(ctlr, CPDMA_RXCONTROL));
++	dev_info(dev, "CPDMA: softreset: %x",
++		 dma_reg_read(ctlr, CPDMA_SOFTRESET));
++	dev_info(dev, "CPDMA: rxteardown: %x",
++		 dma_reg_read(ctlr, CPDMA_RXTEARDOWN));
++	dev_info(dev, "CPDMA: txintstatraw: %x",
++		 dma_reg_read(ctlr, CPDMA_TXINTSTATRAW));
++	dev_info(dev, "CPDMA: txintstatmasked: %x",
++		 dma_reg_read(ctlr, CPDMA_TXINTSTATMASKED));
++	dev_info(dev, "CPDMA: txintmaskset: %x",
++		 dma_reg_read(ctlr, CPDMA_TXINTMASKSET));
++	dev_info(dev, "CPDMA: txintmaskclear: %x",
++		 dma_reg_read(ctlr, CPDMA_TXINTMASKCLEAR));
++	dev_info(dev, "CPDMA: macinvector: %x",
++		 dma_reg_read(ctlr, CPDMA_MACINVECTOR));
++	dev_info(dev, "CPDMA: maceoivector: %x",
++		 dma_reg_read(ctlr, CPDMA_MACEOIVECTOR));
++	dev_info(dev, "CPDMA: rxintstatraw: %x",
++		 dma_reg_read(ctlr, CPDMA_RXINTSTATRAW));
++	dev_info(dev, "CPDMA: rxintstatmasked: %x",
++		 dma_reg_read(ctlr, CPDMA_RXINTSTATMASKED));
++	dev_info(dev, "CPDMA: rxintmaskset: %x",
++		 dma_reg_read(ctlr, CPDMA_RXINTMASKSET));
++	dev_info(dev, "CPDMA: rxintmaskclear: %x",
++		 dma_reg_read(ctlr, CPDMA_RXINTMASKCLEAR));
++	dev_info(dev, "CPDMA: dmaintstatraw: %x",
++		 dma_reg_read(ctlr, CPDMA_DMAINTSTATRAW));
++	dev_info(dev, "CPDMA: dmaintstatmasked: %x",
++		 dma_reg_read(ctlr, CPDMA_DMAINTSTATMASKED));
++	dev_info(dev, "CPDMA: dmaintmaskset: %x",
++		 dma_reg_read(ctlr, CPDMA_DMAINTMASKSET));
++	dev_info(dev, "CPDMA: dmaintmaskclear: %x",
++		 dma_reg_read(ctlr, CPDMA_DMAINTMASKCLEAR));
++
++	if (!ctlr->params.has_ext_regs) {
++		dev_info(dev, "CPDMA: dmacontrol: %x",
++			 dma_reg_read(ctlr, CPDMA_DMACONTROL));
++		dev_info(dev, "CPDMA: dmastatus: %x",
++			 dma_reg_read(ctlr, CPDMA_DMASTATUS));
++		dev_info(dev, "CPDMA: rxbuffofs: %x",
++			 dma_reg_read(ctlr, CPDMA_RXBUFFOFS));
++	}
++
++	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++)
++		if (ctlr->channels[i])
++			cpdma_chan_dump(ctlr->channels[i]);
++
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	return 0;
++}
++
++int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
++{
++	unsigned long flags;
++	int ret = 0, i;
++
++	if (!ctlr)
++		return -EINVAL;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++	if (ctlr->state != CPDMA_STATE_IDLE)
++		cpdma_ctlr_stop(ctlr);
++
++	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
++		if (ctlr->channels[i])
++			cpdma_chan_destroy(ctlr->channels[i]);
++	}
++
++	cpdma_desc_pool_destroy(ctlr->pool);
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	kfree(ctlr);
++	return ret;
++}
++
++int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable)
++{
++	unsigned long flags;
++	int i, reg;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++	if (ctlr->state != CPDMA_STATE_ACTIVE) {
++		spin_unlock_irqrestore(&ctlr->lock, flags);
++		return -EINVAL;
++	}
++
++	reg = enable ? CPDMA_DMAINTMASKSET : CPDMA_DMAINTMASKCLEAR;
++	dma_reg_write(ctlr, reg, CPDMA_DMAINT_HOSTERR);
++
++	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
++		if (ctlr->channels[i])
++			cpdma_chan_int_ctrl(ctlr->channels[i], enable);
++	}
++
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	return 0;
++}
++
++void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr)
++{
++	dma_reg_write(ctlr, CPDMA_MACEOIVECTOR, 0);
++}
++
++struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
++				     cpdma_handler_fn handler)
++{
++	struct cpdma_chan *chan;
++	int ret, offset = (chan_num % CPDMA_MAX_CHANNELS) * 4;
++	unsigned long flags;
++
++	if (__chan_linear(chan_num) >= ctlr->num_chan)
++		return NULL;
++
++	ret = -ENOMEM;
++	chan = kzalloc(sizeof(*chan), GFP_KERNEL);
++	if (!chan)
++		goto err_chan_alloc;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++	ret = -EBUSY;
++	if (ctlr->channels[chan_num])
++		goto err_chan_busy;
++
++	chan->ctlr	= ctlr;
++	chan->state	= CPDMA_STATE_IDLE;
++	chan->chan_num	= chan_num;
++	chan->handler	= handler;
++
++	if (is_rx_chan(chan)) {
++		chan->hdp	= ctlr->params.rxhdp + offset;
++		chan->cp	= ctlr->params.rxcp + offset;
++		chan->rxfree	= ctlr->params.rxfree + offset;
++		chan->int_set	= CPDMA_RXINTMASKSET;
++		chan->int_clear	= CPDMA_RXINTMASKCLEAR;
++		chan->td	= CPDMA_RXTEARDOWN;
++		chan->dir	= DMA_FROM_DEVICE;
++	} else {
++		chan->hdp	= ctlr->params.txhdp + offset;
++		chan->cp	= ctlr->params.txcp + offset;
++		chan->int_set	= CPDMA_TXINTMASKSET;
++		chan->int_clear	= CPDMA_TXINTMASKCLEAR;
++		chan->td	= CPDMA_TXTEARDOWN;
++		chan->dir	= DMA_TO_DEVICE;
++	}
++	chan->mask = BIT(chan_linear(chan));
++
++	spin_lock_init(&chan->lock);
++
++	ctlr->channels[chan_num] = chan;
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	return chan;
++
++err_chan_busy:
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	kfree(chan);
++err_chan_alloc:
++	return ERR_PTR(ret);
++}
++
++int cpdma_chan_destroy(struct cpdma_chan *chan)
++{
++	struct cpdma_ctlr *ctlr = chan->ctlr;
++	unsigned long flags;
++
++	if (!chan)
++		return -EINVAL;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++	if (chan->state != CPDMA_STATE_IDLE)
++		cpdma_chan_stop(chan);
++	ctlr->channels[chan->chan_num] = NULL;
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	kfree(chan);
++	return 0;
++}
++
++int cpdma_chan_get_stats(struct cpdma_chan *chan,
++			 struct cpdma_chan_stats *stats)
++{
++	unsigned long flags;
++	if (!chan)
++		return -EINVAL;
++	spin_lock_irqsave(&chan->lock, flags);
++	memcpy(stats, &chan->stats, sizeof(*stats));
++	spin_unlock_irqrestore(&chan->lock, flags);
++	return 0;
++}
++
++int cpdma_chan_dump(struct cpdma_chan *chan)
++{
++	unsigned long flags;
++	struct device *dev = chan->ctlr->dev;
++
++	spin_lock_irqsave(&chan->lock, flags);
++
++	dev_info(dev, "channel %d (%s %d) state %s",
++		 chan->chan_num, is_rx_chan(chan) ? "rx" : "tx",
++		 chan_linear(chan), cpdma_state_str[chan->state]);
++	dev_info(dev, "\thdp: %x\n", chan_read(chan, hdp));
++	dev_info(dev, "\tcp: %x\n", chan_read(chan, cp));
++	if (chan->rxfree) {
++		dev_info(dev, "\trxfree: %x\n",
++			 chan_read(chan, rxfree));
++	}
++
++	dev_info(dev, "\tstats head_enqueue: %d\n",
++		 chan->stats.head_enqueue);
++	dev_info(dev, "\tstats tail_enqueue: %d\n",
++		 chan->stats.tail_enqueue);
++	dev_info(dev, "\tstats pad_enqueue: %d\n",
++		 chan->stats.pad_enqueue);
++	dev_info(dev, "\tstats misqueued: %d\n",
++		 chan->stats.misqueued);
++	dev_info(dev, "\tstats desc_alloc_fail: %d\n",
++		 chan->stats.desc_alloc_fail);
++	dev_info(dev, "\tstats pad_alloc_fail: %d\n",
++		 chan->stats.pad_alloc_fail);
++	dev_info(dev, "\tstats runt_receive_buff: %d\n",
++		 chan->stats.runt_receive_buff);
++	dev_info(dev, "\tstats runt_transmit_buff: %d\n",
++		 chan->stats.runt_transmit_buff);
++	dev_info(dev, "\tstats empty_dequeue: %d\n",
++		 chan->stats.empty_dequeue);
++	dev_info(dev, "\tstats busy_dequeue: %d\n",
++		 chan->stats.busy_dequeue);
++	dev_info(dev, "\tstats good_dequeue: %d\n",
++		 chan->stats.good_dequeue);
++	dev_info(dev, "\tstats requeue: %d\n",
++		 chan->stats.requeue);
++	dev_info(dev, "\tstats teardown_dequeue: %d\n",
++		 chan->stats.teardown_dequeue);
++
++	spin_unlock_irqrestore(&chan->lock, flags);
++	return 0;
++}
++
++static void __cpdma_chan_submit(struct cpdma_chan *chan,
++				struct cpdma_desc __iomem *desc)
++{
++	struct cpdma_ctlr		*ctlr = chan->ctlr;
++	struct cpdma_desc __iomem	*prev = chan->tail;
++	struct cpdma_desc_pool		*pool = ctlr->pool;
++	dma_addr_t			desc_dma;
++	u32				mode;
++
++	desc_dma = desc_phys(pool, desc);
++
++	/* simple case - idle channel */
++	if (!chan->head) {
++		chan->stats.head_enqueue++;
++		chan->head = desc;
++		chan->tail = desc;
++		if (chan->state == CPDMA_STATE_ACTIVE)
++			chan_write(chan, hdp, desc_dma);
++		return;
++	}
++
++	/* first chain the descriptor at the tail of the list */
++	desc_write(prev, hw_next, desc_dma);
++	chan->tail = desc;
++	chan->stats.tail_enqueue++;
++
++	/* next check if EOQ has been triggered already */
++	mode = desc_read(prev, hw_mode);
++	if (((mode & (CPDMA_DESC_EOQ | CPDMA_DESC_OWNER)) == CPDMA_DESC_EOQ) &&
++	    (chan->state == CPDMA_STATE_ACTIVE)) {
++		desc_write(prev, hw_mode, mode & ~CPDMA_DESC_EOQ);
++		chan_write(chan, hdp, desc_dma);
++		chan->stats.misqueued++;
++	}
++}
++
++int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
++		      int len, gfp_t gfp_mask)
++{
++	struct cpdma_ctlr		*ctlr = chan->ctlr;
++	struct cpdma_desc __iomem	*desc;
++	dma_addr_t			buffer;
++	unsigned long			flags;
++	u32				mode;
++	int				ret = 0;
++
++	spin_lock_irqsave(&chan->lock, flags);
++
++	if (chan->state == CPDMA_STATE_TEARDOWN) {
++		ret = -EINVAL;
++		goto unlock_ret;
++	}
++
++	desc = cpdma_desc_alloc(ctlr->pool, 1);
++	if (!desc) {
++		chan->stats.desc_alloc_fail++;
++		ret = -ENOMEM;
++		goto unlock_ret;
++	}
++
++	if (len < ctlr->params.min_packet_size) {
++		len = ctlr->params.min_packet_size;
++		chan->stats.runt_transmit_buff++;
++	}
++
++	buffer = dma_map_single(ctlr->dev, data, len, chan->dir);
++	mode = CPDMA_DESC_OWNER | CPDMA_DESC_SOP | CPDMA_DESC_EOP;
++
++	desc_write(desc, hw_next,   0);
++	desc_write(desc, hw_buffer, buffer);
++	desc_write(desc, hw_len,    len);
++	desc_write(desc, hw_mode,   mode | len);
++	desc_write(desc, sw_token,  token);
++	desc_write(desc, sw_buffer, buffer);
++	desc_write(desc, sw_len,    len);
++
++	__cpdma_chan_submit(chan, desc);
++
++	if (chan->state == CPDMA_STATE_ACTIVE && chan->rxfree)
++		chan_write(chan, rxfree, 1);
++
++	chan->count++;
++
++unlock_ret:
++	spin_unlock_irqrestore(&chan->lock, flags);
++	return ret;
++}
++
++static void __cpdma_chan_free(struct cpdma_chan *chan,
++			      struct cpdma_desc __iomem *desc,
++			      int outlen, int status)
++{
++	struct cpdma_ctlr		*ctlr = chan->ctlr;
++	struct cpdma_desc_pool		*pool = ctlr->pool;
++	dma_addr_t			buff_dma;
++	int				origlen;
++	void				*token;
++
++	token      = (void *)desc_read(desc, sw_token);
++	buff_dma   = desc_read(desc, sw_buffer);
++	origlen    = desc_read(desc, sw_len);
++
++	dma_unmap_single(ctlr->dev, buff_dma, origlen, chan->dir);
++	cpdma_desc_free(pool, desc, 1);
++	(*chan->handler)(token, outlen, status);
++}
++
++static int __cpdma_chan_process(struct cpdma_chan *chan)
++{
++	struct cpdma_ctlr		*ctlr = chan->ctlr;
++	struct cpdma_desc __iomem	*desc;
++	int				status, outlen;
++	struct cpdma_desc_pool		*pool = ctlr->pool;
++	dma_addr_t			desc_dma;
++	unsigned long			flags;
++
++	spin_lock_irqsave(&chan->lock, flags);
++
++	desc = chan->head;
++	if (!desc) {
++		chan->stats.empty_dequeue++;
++		status = -ENOENT;
++		goto unlock_ret;
++	}
++	desc_dma = desc_phys(pool, desc);
++
++	status	= __raw_readl(&desc->hw_mode);
++	outlen	= status & 0x7ff;
++	if (status & CPDMA_DESC_OWNER) {
++		chan->stats.busy_dequeue++;
++		status = -EBUSY;
++		goto unlock_ret;
++	}
++	status	= status & (CPDMA_DESC_EOQ | CPDMA_DESC_TD_COMPLETE);
++
++	chan->head = desc_from_phys(pool, desc_read(desc, hw_next));
++	chan_write(chan, cp, desc_dma);
++	chan->count--;
++	chan->stats.good_dequeue++;
++
++	if (status & CPDMA_DESC_EOQ) {
++		chan->stats.requeue++;
++		chan_write(chan, hdp, desc_phys(pool, chan->head));
++	}
++
++	spin_unlock_irqrestore(&chan->lock, flags);
++
++	__cpdma_chan_free(chan, desc, outlen, status);
++	return status;
++
++unlock_ret:
++	spin_unlock_irqrestore(&chan->lock, flags);
++	return status;
++}
++
++int cpdma_chan_process(struct cpdma_chan *chan, int quota)
++{
++	int used = 0, ret = 0;
++
++	if (chan->state != CPDMA_STATE_ACTIVE)
++		return -EINVAL;
++
++	while (used < quota) {
++		ret = __cpdma_chan_process(chan);
++		if (ret < 0)
++			break;
++		used++;
++	}
++	return used;
++}
++
++int cpdma_chan_start(struct cpdma_chan *chan)
++{
++	struct cpdma_ctlr	*ctlr = chan->ctlr;
++	struct cpdma_desc_pool	*pool = ctlr->pool;
++	unsigned long		flags;
++
++	spin_lock_irqsave(&chan->lock, flags);
++	if (chan->state != CPDMA_STATE_IDLE) {
++		spin_unlock_irqrestore(&chan->lock, flags);
++		return -EBUSY;
++	}
++	if (ctlr->state != CPDMA_STATE_ACTIVE) {
++		spin_unlock_irqrestore(&chan->lock, flags);
++		return -EINVAL;
++	}
++	dma_reg_write(ctlr, chan->int_set, chan->mask);
++	chan->state = CPDMA_STATE_ACTIVE;
++	if (chan->head) {
++		chan_write(chan, hdp, desc_phys(pool, chan->head));
++		if (chan->rxfree)
++			chan_write(chan, rxfree, chan->count);
++	}
++
++	spin_unlock_irqrestore(&chan->lock, flags);
++	return 0;
++}
++
++int cpdma_chan_stop(struct cpdma_chan *chan)
++{
++	struct cpdma_ctlr	*ctlr = chan->ctlr;
++	struct cpdma_desc_pool	*pool = ctlr->pool;
++	unsigned long		flags;
++	int			ret;
++	unsigned long		timeout;
++
++	spin_lock_irqsave(&chan->lock, flags);
++	if (chan->state != CPDMA_STATE_ACTIVE) {
++		spin_unlock_irqrestore(&chan->lock, flags);
++		return -EINVAL;
++	}
++
++	chan->state = CPDMA_STATE_TEARDOWN;
++	dma_reg_write(ctlr, chan->int_clear, chan->mask);
++
++	/* trigger teardown */
++	dma_reg_write(ctlr, chan->td, chan->chan_num);
++
++	/* wait for teardown complete */
++	timeout = jiffies + HZ/10;	/* 100 msec */
++	while (time_before(jiffies, timeout)) {
++		u32 cp = chan_read(chan, cp);
++		if ((cp & CPDMA_TEARDOWN_VALUE) == CPDMA_TEARDOWN_VALUE)
++			break;
++		cpu_relax();
++	}
++	WARN_ON(!time_before(jiffies, timeout));
++	chan_write(chan, cp, CPDMA_TEARDOWN_VALUE);
++
++	/* handle completed packets */
++	do {
++		ret = __cpdma_chan_process(chan);
++		if (ret < 0)
++			break;
++	} while ((ret & CPDMA_DESC_TD_COMPLETE) == 0);
++
++	/* remaining packets haven't been tx/rx'ed, clean them up */
++	while (chan->head) {
++		struct cpdma_desc __iomem *desc = chan->head;
++		dma_addr_t next_dma;
++
++		next_dma = desc_read(desc, hw_next);
++		chan->head = desc_from_phys(pool, next_dma);
++		chan->stats.teardown_dequeue++;
++
++		/* issue callback without locks held */
++		spin_unlock_irqrestore(&chan->lock, flags);
++		__cpdma_chan_free(chan, desc, 0, -ENOSYS);
++		spin_lock_irqsave(&chan->lock, flags);
++	}
++
++	chan->state = CPDMA_STATE_IDLE;
++	spin_unlock_irqrestore(&chan->lock, flags);
++	return 0;
++}
++
++int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&chan->lock, flags);
++	if (chan->state != CPDMA_STATE_ACTIVE) {
++		spin_unlock_irqrestore(&chan->lock, flags);
++		return -EINVAL;
++	}
++
++	dma_reg_write(chan->ctlr, enable ? chan->int_set : chan->int_clear,
++		      chan->mask);
++	spin_unlock_irqrestore(&chan->lock, flags);
++
++	return 0;
++}
++
++struct cpdma_control_info {
++	u32		reg;
++	u32		shift, mask;
++	int		access;
++#define ACCESS_RO	BIT(0)
++#define ACCESS_WO	BIT(1)
++#define ACCESS_RW	(ACCESS_RO | ACCESS_WO)
++};
++
++struct cpdma_control_info controls[] = {
++	[CPDMA_CMD_IDLE]	  = {CPDMA_DMACONTROL,	3,  1,      ACCESS_WO},
++	[CPDMA_COPY_ERROR_FRAMES] = {CPDMA_DMACONTROL,	4,  1,      ACCESS_RW},
++	[CPDMA_RX_OFF_LEN_UPDATE] = {CPDMA_DMACONTROL,	2,  1,      ACCESS_RW},
++	[CPDMA_RX_OWNERSHIP_FLIP] = {CPDMA_DMACONTROL,	1,  1,      ACCESS_RW},
++	[CPDMA_TX_PRIO_FIXED]	  = {CPDMA_DMACONTROL,	0,  1,      ACCESS_RW},
++	[CPDMA_STAT_IDLE]	  = {CPDMA_DMASTATUS,	31, 1,      ACCESS_RO},
++	[CPDMA_STAT_TX_ERR_CODE]  = {CPDMA_DMASTATUS,	20, 0xf,    ACCESS_RW},
++	[CPDMA_STAT_TX_ERR_CHAN]  = {CPDMA_DMASTATUS,	16, 0x7,    ACCESS_RW},
++	[CPDMA_STAT_RX_ERR_CODE]  = {CPDMA_DMASTATUS,	12, 0xf,    ACCESS_RW},
++	[CPDMA_STAT_RX_ERR_CHAN]  = {CPDMA_DMASTATUS,	8,  0x7,    ACCESS_RW},
++	[CPDMA_RX_BUFFER_OFFSET]  = {CPDMA_RXBUFFOFS,	0,  0xffff, ACCESS_RW},
++};
++
++int cpdma_control_get(struct cpdma_ctlr *ctlr, int control)
++{
++	unsigned long flags;
++	struct cpdma_control_info *info = &controls[control];
++	int ret;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++
++	ret = -ENOTSUPP;
++	if (!ctlr->params.has_ext_regs)
++		goto unlock_ret;
++
++	ret = -EINVAL;
++	if (ctlr->state != CPDMA_STATE_ACTIVE)
++		goto unlock_ret;
++
++	ret = -ENOENT;
++	if (control < 0 || control >= ARRAY_SIZE(controls))
++		goto unlock_ret;
++
++	ret = -EPERM;
++	if ((info->access & ACCESS_RO) != ACCESS_RO)
++		goto unlock_ret;
++
++	ret = (dma_reg_read(ctlr, info->reg) >> info->shift) & info->mask;
++
++unlock_ret:
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	return ret;
++}
++
++int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value)
++{
++	unsigned long flags;
++	struct cpdma_control_info *info = &controls[control];
++	int ret;
++	u32 val;
++
++	spin_lock_irqsave(&ctlr->lock, flags);
++
++	ret = -ENOTSUPP;
++	if (!ctlr->params.has_ext_regs)
++		goto unlock_ret;
++
++	ret = -EINVAL;
++	if (ctlr->state != CPDMA_STATE_ACTIVE)
++		goto unlock_ret;
++
++	ret = -ENOENT;
++	if (control < 0 || control >= ARRAY_SIZE(controls))
++		goto unlock_ret;
++
++	ret = -EPERM;
++	if ((info->access & ACCESS_WO) != ACCESS_WO)
++		goto unlock_ret;
++
++	val  = dma_reg_read(ctlr, info->reg);
++	val &= ~(info->mask << info->shift);
++	val |= (value & info->mask) << info->shift;
++	dma_reg_write(ctlr, info->reg, val);
++	ret = 0;
++
++unlock_ret:
++	spin_unlock_irqrestore(&ctlr->lock, flags);
++	return ret;
++}
+diff --git a/drivers/net/davinci_cpdma.h b/drivers/net/davinci_cpdma.h
+new file mode 100644
+index 0000000..868e50e
+--- /dev/null
++++ b/drivers/net/davinci_cpdma.h
+@@ -0,0 +1,108 @@
++/*
++ * Texas Instruments CPDMA Driver
++ *
++ * Copyright (C) 2010 Texas Instruments
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation version 2.
++ *
++ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
++ * kind, whether express or implied; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++#ifndef __DAVINCI_CPDMA_H__
++#define __DAVINCI_CPDMA_H__
++
++#define CPDMA_MAX_CHANNELS	BITS_PER_LONG
++
++#define tx_chan_num(chan)	(chan)
++#define rx_chan_num(chan)	((chan) + CPDMA_MAX_CHANNELS)
++#define is_rx_chan(chan)	((chan)->chan_num >= CPDMA_MAX_CHANNELS)
++#define is_tx_chan(chan)	(!is_rx_chan(chan))
++#define __chan_linear(chan_num)	((chan_num) & (CPDMA_MAX_CHANNELS - 1))
++#define chan_linear(chan)	__chan_linear((chan)->chan_num)
++
++struct cpdma_params {
++	struct device		*dev;
++	void __iomem		*dmaregs;
++	void __iomem		*txhdp, *rxhdp, *txcp, *rxcp;
++	void __iomem		*rxthresh, *rxfree;
++	int			num_chan;
++	bool			has_soft_reset;
++	int			min_packet_size;
++	u32			desc_mem_phys;
++	int			desc_mem_size;
++	int			desc_align;
++
++	/*
++	 * Some instances of embedded cpdma controllers have extra control and
++	 * status registers.  The following flag enables access to these
++	 * "extended" registers.
++	 */
++	bool			has_ext_regs;
++};
++
++struct cpdma_chan_stats {
++	u32			head_enqueue;
++	u32			tail_enqueue;
++	u32			pad_enqueue;
++	u32			misqueued;
++	u32			desc_alloc_fail;
++	u32			pad_alloc_fail;
++	u32			runt_receive_buff;
++	u32			runt_transmit_buff;
++	u32			empty_dequeue;
++	u32			busy_dequeue;
++	u32			good_dequeue;
++	u32			requeue;
++	u32			teardown_dequeue;
++};
++
++struct cpdma_ctlr;
++struct cpdma_chan;
++
++typedef void (*cpdma_handler_fn)(void *token, int len, int status);
++
++struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params);
++int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr);
++int cpdma_ctlr_start(struct cpdma_ctlr *ctlr);
++int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr);
++int cpdma_ctlr_dump(struct cpdma_ctlr *ctlr);
++
++struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
++				     cpdma_handler_fn handler);
++int cpdma_chan_destroy(struct cpdma_chan *chan);
++int cpdma_chan_start(struct cpdma_chan *chan);
++int cpdma_chan_stop(struct cpdma_chan *chan);
++int cpdma_chan_dump(struct cpdma_chan *chan);
++
++int cpdma_chan_get_stats(struct cpdma_chan *chan,
++			 struct cpdma_chan_stats *stats);
++int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
++		      int len, gfp_t gfp_mask);
++int cpdma_chan_process(struct cpdma_chan *chan, int quota);
++
++int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
++void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr);
++int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
++
++enum cpdma_control {
++	CPDMA_CMD_IDLE,			/* write-only */
++	CPDMA_COPY_ERROR_FRAMES,	/* read-write */
++	CPDMA_RX_OFF_LEN_UPDATE,	/* read-write */
++	CPDMA_RX_OWNERSHIP_FLIP,	/* read-write */
++	CPDMA_TX_PRIO_FIXED,		/* read-write */
++	CPDMA_STAT_IDLE,		/* read-only */
++	CPDMA_STAT_TX_ERR_CHAN,		/* read-only */
++	CPDMA_STAT_TX_ERR_CODE,		/* read-only */
++	CPDMA_STAT_RX_ERR_CHAN,		/* read-only */
++	CPDMA_STAT_RX_ERR_CODE,		/* read-only */
++	CPDMA_RX_BUFFER_OFFSET,		/* read-write */
++};
++
++int cpdma_control_get(struct cpdma_ctlr *ctlr, int control);
++int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value);
++
++#endif
 -- 
 1.7.0.4
 
