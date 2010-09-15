@@ -1,95 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
-Date: Wed, 15 Sep 2010 13:28:11 +0200
-Message-ID: <20100915112811.GB29267@redhat.com>
-References: <1281086624-5765-10-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-11-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-12-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-13-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-14-git-send-email-xiaohui.xin@intel.com>
- <20100906111126.GA15608@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D79280489A9C9@shsmsx502.ccr.corp.intel.com>
- <F2E9EB7348B8264F86B6AB8151CE2D79280489AA05@shsmsx502.ccr.corp.intel.com>
- <20100912133703.GJ22982@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D792B8C815365@shsmsx502.ccr.corp.intel.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Wed, 15 Sep 2010 14:04:13 +0200
+Message-ID: <4C90B63D.9030201@pengutronix.de>
+References: <4C61EDE5.4030505@dsn.okisemi.com>	<4C629FE5.6000204@pengutronix.de>	<005f01cb533e$5c21d530$66f8800a@maildom.okisemi.com>	<4C8E1918.5000007@pengutronix.de>	<003a01cb53a6$4ca724d0$66f8800a@maildom.okisemi.com>	<4C9078D3.50300@grandegger.com> <4C909518.5010309@hartkopp.net> <4C90A60E.5040900@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792B8C815365@shsmsx502.ccr.corp.intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigA6B7827F61A3863B0D15CE72"
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	andrew.chih.howe.khor@intel.com, socketcan-core@lists.berlios.de,
+	qi.wang@intel.com, netdev@vger.kernel.org, gregkh@suse.de,
+	yong.y.wang@intel.com, Masayuki Ohtake <masa-korg@dsn.okisemi.com>,
+	Morinaga <morinaga526@dsn.okisemi.com>, meego-dev@meego.com,
+	arjan@linux.intel.com
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:43212 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492Ab0IOME0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 08:04:26 -0400
+In-Reply-To: <4C90A60E.5040900@grandegger.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 15, 2010 at 11:13:44AM +0800, Xin, Xiaohui wrote:
-> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
-> >Sent: Sunday, September 12, 2010 9:37 PM
-> >To: Xin, Xiaohui
-> >Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
-> >mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
-> >jdike@linux.intel.com
-> >Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
-> >
-> >On Sat, Sep 11, 2010 at 03:41:14PM +0800, Xin, Xiaohui wrote:
-> >> >>Playing with rlimit on data path, transparently to the application in this way
-> >> >>looks strange to me, I suspect this has unexpected security implications.
-> >> >>Further, applications may have other uses for locked memory
-> >> >>besides mpassthru - you should not just take it because it's there.
-> >> >>
-> >> >>Can we have an ioctl that lets userspace configure how much
-> >> >>memory to lock? This ioctl will decrement the rlimit and store
-> >> >>the data in the device structure so we can do accounting
-> >> >>internally. Put it back on close or on another ioctl.
-> >> >Yes, we can decrement the rlimit in ioctl in one time to avoid
-> >> >data path.
-> >> >
-> >> >>Need to be careful for when this operation gets called
-> >> >>again with 0 or another small value while we have locked memory -
-> >> >>maybe just fail with EBUSY?  or wait until it gets unlocked?
-> >> >>Maybe 0 can be special-cased and deactivate zero-copy?.
-> >> >>
-> >>
-> >> How about we don't use a new ioctl, but just check the rlimit
-> >> in one MPASSTHRU_BINDDEV ioctl? If we find mp device
-> >> break the rlimit, then we fail the bind ioctl, and thus can't do
-> >> zero copy any more.
-> >
-> >Yes, and not just check, but decrement as well.
-> >I think we should give userspace control over
-> >how much memory we can lock and subtract from the rlimit.
-> >It's OK to add this as a parameter to MPASSTHRU_BINDDEV.
-> >Then increment the rlimit back on unbind and on close?
-> >
-> >This opens up an interesting condition: process 1
-> >calls bind, process 2 calls unbind or close.
-> >This will increment rlimit for process 2.
-> >Not sure how to fix this properly.
-> >
-> I can't too, can we do any synchronous operations on rlimit stuff?
-> I quite suspect in it.
->  
-> >--
-> >MST
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigA6B7827F61A3863B0D15CE72
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Here's what infiniband does: simply pass the amount of memory userspace
-wants you to lock on an ioctl, and verify that either you have
-CAP_IPC_LOCK or this number does not exceed the current rlimit.  (must
-be on ioctl, not on open, as we likely want the fd passed around between
-processes), but do not decrement rlimit.  Use this on following
-operations.  Be careful if this can be changed while operations are in
-progress.
+On 09/15/2010 12:55 PM, Wolfgang Grandegger wrote:
+>> Just a remark:
+>>
+>> During the IDF the informations about the Topcliff Controller Hub have=
+ been
+>> reworked, so that some of the documentation became available for the p=
+ublic:
+>>
+>> http://edc.intel.com/Platforms/Atom-E6xx/#hardware
+>>
+>> Especially the Datasheet for the Platform Controller Hub EG20T can be =
+found:
+>>
+>> http://download.intel.com/embedded/chipsets/datasheet/324211.pdf
+>>
+>> In chapter 13 there are some details about the CAN controller.
+>=20
+> Ah, thanks for the link. The CAN controller seems then to be similar to=
 
-This does mean that the effective amount of memory that userspace can
-lock is doubled, but at least it is not unlimited, and we sidestep all
-other issues such as userspace running out of lockable memory simply by
-virtue of using the driver.
+> the OKI MSM9225B.
 
--- 
-MST
+According to the datasheet for the msm9225 I found, the chip has got an
+8 bit interface (mmap'ed or spi). The Intel is 32 bit based (most, maybe
+all, upper 16 bit are marked as reserverd).
+
+cheers, Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigA6B7827F61A3863B0D15CE72
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAkyQtkEACgkQjTAFq1RaXHNDkACfe2QLOU2W8I4LY5TxuNVcO49d
+WDcAn2Dpm9PkmeLDZR5j3PHeZmD8o3qr
+=rEDf
+-----END PGP SIGNATURE-----
+
+--------------enigA6B7827F61A3863B0D15CE72--
