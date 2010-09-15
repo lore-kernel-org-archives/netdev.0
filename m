@@ -1,39 +1,76 @@
-From: Joe Perches <joe@perches.com>
-Subject: [RFC PATCH] drivers/net/tg3.c: Raise Jumbo Frame MTU to 9216?
-Date: Wed, 15 Sep 2010 10:41:56 -0700
-Message-ID: <1284572516.10223.12.camel@Joe-Laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net/sched/sch_hfsc.c: initialize parent's cl_cfmin properly
+ in init_vf()
+Date: Wed, 15 Sep 2010 19:54:49 +0200
+Message-ID: <4C910869.1050800@trash.net>
+References: <cover.1283197803.git.soltys@ziu.info>	<8100ed4475ac7a301a3d69611e97d510ea498c5d.1283197803.git.soltys@ziu.info> <20100901.143038.170100274.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/mixed;
+ boundary="------------050303030401090903070708"
+Cc: soltys@ziu.info, denys@visp.net.lb, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:55361 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753373Ab0IORyv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 13:54:51 -0400
+In-Reply-To: <20100901.143038.170100274.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------050303030401090903070708
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Benjamin Li <benli@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-The TG3 apparently supports 9K frame sizes.
+Am 01.09.2010 23:30, schrieb David Miller:
+> From: Michal Soltys <soltys@ziu.info>
+> Date: Mon, 30 Aug 2010 23:34:10 +0200
+> 
+>> This patch fixes init_vf() function, so on each new backlog period parent's
+>> cl_cfmin is properly updated (including further propgation towards the root),
+>> even if the activated leaf has no upperlimit curve defined.
+>>
+>> Signed-off-by: Michal Soltys <soltys@ziu.info>
+> 
+> Applied, thanks.
 
-http://www.broadcom.com/collateral/pb/5704C-PB05-R.pdf
+For the record, the patch seems fine to me. The root cause seems to be
+an optimization I introduced (pre-git, even history.git unfortunately)
+in vttree_get_minvt() that wasn't present in the original version:
 
-Is exactly 9000 a hardware limit?
+static struct hfsc_class *
+vttree_get_minvt(struct hfsc_class *cl, u64 cur_time)
+{
+        /* if root-class's cfmin is bigger than cur_time nothing to do */
+        if (cl->cl_cfmin > cur_time)
+                return NULL;
 
-Should the jumbo frame MTU be raised to 9216 or 9216
-less the size of MAC, VLAN, IP and TCP headers?
+I'd prefer to remove this check since it's obviously not correct and
+might cause other problems. Michal, could you please test whether this
+patch fixes the problem as well? Thanks!
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 9f6ffff..3727070 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -95,7 +95,7 @@
- /* hardware minimum and maximum for a single frame's data payload */
- #define TG3_MIN_MTU			60
- #define TG3_MAX_MTU(tp)	\
--	((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) ? 9000 : 1500)
-+	((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) ? 9216 : 1500)
- 
- /* These numbers seem to be hard coded in the NIC firmware somehow.
-  * You can't change the ring sizes, but you can change where you place
+--------------050303030401090903070708
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="x"
+
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 4749609..466518e 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -312,10 +312,6 @@ vttree_firstfit(struct hfsc_class *cl, u64 cur_time)
+ static struct hfsc_class *
+ vttree_get_minvt(struct hfsc_class *cl, u64 cur_time)
+ {
+-	/* if root-class's cfmin is bigger than cur_time nothing to do */
+-	if (cl->cl_cfmin > cur_time)
+-		return NULL;
+-
+ 	while (cl->level > 0) {
+ 		cl = vttree_firstfit(cl, cur_time);
+ 		if (cl == NULL)
+
+--------------050303030401090903070708--
