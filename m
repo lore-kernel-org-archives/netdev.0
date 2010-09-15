@@ -1,56 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: xt_condition: add security capability support
-Date: Wed, 15 Sep 2010 22:14:39 +0200
-Message-ID: <4C91292F.3090602@trash.net>
-References: <1282567801-2673-1-git-send-email-luciano.coelho@nokia.com>	 <AANLkTi=2H+ytOQU9nC_dRp_GB5Sy1831VY14oW=YSOrG@mail.gmail.com>	 <1282570935.7198.5.camel@powerslave>	 <alpine.LNX.2.01.1008231628010.21000@obet.zrqbmnf.qr>	 <1282589101.7198.28.camel@powerslave>	 <alpine.LNX.2.01.1008232052170.31619@obet.zrqbmnf.qr>	 <1282633220.7198.123.camel@powerslave>	 <alpine.LNX.2.01.1008240921230.24349@obet.zrqbmnf.qr>	 <1282720198.18016.72.camel@powerslave>	 <alpine.LNX.2.01.1008251103150.24022@obet.zrqbmnf.qr> <1282895723.2006.135.camel@powerslave>
+From: Tom Marshall <tdm.code@gmail.com>
+Subject: Small problem with tcp_poll and RST
+Date: Wed, 15 Sep 2010 13:17:39 -0700
+Message-ID: <AANLkTik-FQ7aF0Cp0NicERYLG1vFG4SAe4aeeMHzxNhO@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: ext Jan Engelhardt <jengelh@medozas.de>,
-	=?UTF-8?B?Te+/vWtlbO+/vSBKdWg=?= =?UTF-8?B?YW5p?=
-	<ext-juhani.3.makela@nokia.com>,
-	ext Changli Gao <xiaosuo@gmail.com>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	"linux-security-module@vger.kernel.org"
-	<linux-security-module@vger.kernel.org>
-To: Luciano Coelho <luciano.coelho@nokia.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58414 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753359Ab0IOUOo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 16:14:44 -0400
-In-Reply-To: <1282895723.2006.135.camel@powerslave>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:48828 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753501Ab0IOURk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 16:17:40 -0400
+Received: by qwh6 with SMTP id 6so439772qwh.19
+        for <netdev@vger.kernel.org>; Wed, 15 Sep 2010 13:17:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 27.08.2010 09:55, schrieb Luciano Coelho:
-> That's what I tried to say when I said that we have a security team
-> taking care of this.  They are implementing solutions to make the
-> product more secure, defending it against malware, misuse, attacks and
-> other such things.  In this specific case, security-wise, we are trying
-> to prevent some bogus or malicious application from changing our
-> netfilter rules and causing havoc.
-> 
-> LSM doesn't seem to be an option, here I quote Juhani (my colleague from
-> our security team):
-> 
->> The problem with capabilites is that they are assigned to binaries, not
->> users. Kind of a setuid-mechanism, really. In our embedded environment
->> that makes a lot of sense, but in a server-type environment with
->> multiple users and a competent sysadmin, not so much. In such an
->> environment using a LSM might also actually make sense. But for us it's
->> not an option, mostly because LSMs are not stackable - you can have only
->> one effective at any time - and I'm afraid we have already reserved some
->> of the LSM hooks.
-> 
-> Maybe Juhani can clarify this a bit more.
-> 
-> One other idea that Juhani had was to add an option to the condition
-> match/target where the capability requiremets could be set, instead of
-> checking them by default.  If nothing is specified, everything still
-> works as before (no caps checks).  Or even a Kconfig option?
+The code in tcp_poll seems to suffer from a race condition which can
+result in POLLIN but not POLLOUT for an outbound socket connection to
+a closed peer.
 
-I agree with Jan, adding module parameters to control permission checks
-or capabilities seems like a bad precedent.
+This can happen if, for example, the RST comes in immediately after
+checking sk->sk_err.=A0 It is a small window of opportunity and so it
+only happens rarely.
+
+Note this code has remained pretty much unchanged in 2.6.x for years,
+and the problem readily reproduces on a wide variety of systems (RHEL
+5.x, Ubuntu 10.04, etc.)
+
+I suppose it is arguable whether this is a bug or whether it deserves
+to be fixed, but it did cause an issue with some (admittedly broken)
+userspace code at my company.
+
+I do not fully understand the intricacies of the interactions between
+the TCP state machine and the tcp_poll function (which runs unlocked).
+ However, I did find that the below appears to fix the issue.=A0 Since
+the overhead is minimal when the socket state does not change, it
+should have very little performance impact.
+
+=A0=A0=A0=A0=A0=A0=A0 unsigned char oldstate;
+again:
+=A0=A0=A0=A0=A0=A0=A0 oldstate =3D sk->sk_state;
+
+=A0=A0=A0=A0=A0=A0=A0 /* body of tcp_poll */
+
+=A0=A0=A0=A0=A0=A0=A0 if (sk->sk_state !=3D oldstate)
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 goto again;
+
+Thanks!
