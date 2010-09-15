@@ -1,44 +1,36 @@
 From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: [PATCH v2] drivers/net/eql.c: prevent reading uninitialized stack
- memory
-Date: Wed, 15 Sep 2010 17:43:04 -0400
-Message-ID: <1284586984.6275.92.camel@dan>
+Subject: [PATCH v2] drivers/net/cxgb3/cxgb3_main.c: prevent reading
+ uninitialized stack memory
+Date: Wed, 15 Sep 2010 17:43:12 -0400
+Message-ID: <1284586992.6275.93.camel@dan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, security@kernel.org, stable@kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:63304 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752009Ab0IOVt1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 17:49:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	security@kernel.org
+To: divy@chelsio.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Fixed formatting (tabs and line breaks).
 
-The EQL_GETMASTRCFG device ioctl allows unprivileged users to read 16
-bytes of uninitialized stack memory, because the "master_name" member of
-the master_config_t struct declared on the stack in eql_g_master_cfg()
-is not altered or zeroed before being copied back to the user.  This
-patch takes care of it.
+The CHELSIO_GET_QSET_NUM device ioctl allows unprivileged users to read
+4 bytes of uninitialized stack memory, because the "addr" member of the
+ch_reg struct declared on the stack in cxgb_extension_ioctl() is not
+altered or zeroed before being copied back to the user.  This patch
+takes care of it.
 
 Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
 
---- linux-2.6.35.4.orig/drivers/net/eql.c	2010-08-26 19:47:12.000000000 -0400
-+++ linux-2.6.35.4/drivers/net/eql.c	2010-09-14 21:25:27.719474445 -0400
-@@ -555,6 +555,8 @@ static int eql_g_master_cfg(struct net_d
- 	equalizer_t *eql;
- 	master_config_t mc;
+--- linux-2.6.35.4.orig/drivers/net/cxgb3/cxgb3_main.c	2010-08-26 19:47:12.000000000 -0400
++++ linux-2.6.35.4/drivers/net/cxgb3/cxgb3_main.c	2010-09-14 21:24:34.369511115 -0400
+@@ -2296,6 +2296,8 @@ static int cxgb_extension_ioctl(struct n
+ 	case CHELSIO_GET_QSET_NUM:{
+ 		struct ch_reg edata;
  
-+	memset(&mc, 0, sizeof(master_config_t));
++		memset(&edata, 0, sizeof(struct ch_reg));
 +
- 	if (eql_is_master(dev)) {
- 		eql = netdev_priv(dev);
- 		mc.max_slaves = eql->max_slaves;
-
-
-
-
-
+ 		edata.cmd = CHELSIO_GET_QSET_NUM;
+ 		edata.val = pi->nqsets;
+ 		if (copy_to_user(useraddr, &edata, sizeof(edata)))
