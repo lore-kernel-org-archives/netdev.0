@@ -1,80 +1,66 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
-Date: Wed, 15 Sep 2010 11:13:44 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D792B8C815365@shsmsx502.ccr.corp.intel.com>
-References: <1281086624-5765-8-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-9-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-10-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-11-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-12-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-13-git-send-email-xiaohui.xin@intel.com>
- <1281086624-5765-14-git-send-email-xiaohui.xin@intel.com>
- <20100906111126.GA15608@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D79280489A9C9@shsmsx502.ccr.corp.intel.com>
- <F2E9EB7348B8264F86B6AB8151CE2D79280489AA05@shsmsx502.ccr.corp.intel.com>
- <20100912133703.GJ22982@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: af_packet: don't call tpacket_destruct_skb()
+ until the skb is sent out
+Date: Tue, 14 Sep 2010 20:20:23 -0700 (PDT)
+Message-ID: <20100914.202023.193706826.davem@davemloft.net>
+References: <1284175403-3228-1-git-send-email-xiaosuo@gmail.com>
+	<20100912121349.GD22982@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100912133703.GJ22982@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xiaosuo@gmail.com, eric.dumazet@gmail.com, socketcan@hartkopp.net,
+	netdev@vger.kernel.org
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57336
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753517Ab0IODUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 23:20:05 -0400
+In-Reply-To: <20100912121349.GD22982@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->From: Michael S. Tsirkin [mailto:mst@redhat.com]
->Sent: Sunday, September 12, 2010 9:37 PM
->To: Xin, Xiaohui
->Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
->mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
->jdike@linux.intel.com
->Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
->
->On Sat, Sep 11, 2010 at 03:41:14PM +0800, Xin, Xiaohui wrote:
->> >>Playing with rlimit on data path, transparently to the application in this way
->> >>looks strange to me, I suspect this has unexpected security implications.
->> >>Further, applications may have other uses for locked memory
->> >>besides mpassthru - you should not just take it because it's there.
->> >>
->> >>Can we have an ioctl that lets userspace configure how much
->> >>memory to lock? This ioctl will decrement the rlimit and store
->> >>the data in the device structure so we can do accounting
->> >>internally. Put it back on close or on another ioctl.
->> >Yes, we can decrement the rlimit in ioctl in one time to avoid
->> >data path.
->> >
->> >>Need to be careful for when this operation gets called
->> >>again with 0 or another small value while we have locked memory -
->> >>maybe just fail with EBUSY?  or wait until it gets unlocked?
->> >>Maybe 0 can be special-cased and deactivate zero-copy?.
->> >>
->>
->> How about we don't use a new ioctl, but just check the rlimit
->> in one MPASSTHRU_BINDDEV ioctl? If we find mp device
->> break the rlimit, then we fail the bind ioctl, and thus can't do
->> zero copy any more.
->
->Yes, and not just check, but decrement as well.
->I think we should give userspace control over
->how much memory we can lock and subtract from the rlimit.
->It's OK to add this as a parameter to MPASSTHRU_BINDDEV.
->Then increment the rlimit back on unbind and on close?
->
->This opens up an interesting condition: process 1
->calls bind, process 2 calls unbind or close.
->This will increment rlimit for process 2.
->Not sure how to fix this properly.
->
-I can't too, can we do any synchronous operations on rlimit stuff?
-I quite suspect in it.
- 
->--
->MST
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 12 Sep 2010 14:13:49 +0200
+
+> On Sat, Sep 11, 2010 at 11:23:23AM +0800, Changli Gao wrote:
+>> @@ -799,7 +806,9 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+>>  
+>>  	memcpy((struct skb_shared_info *)(data + size),
+>>  	       skb_shinfo(skb),
+>> -	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
+>> +	       offsetof(struct skb_shared_info,
+>> +			frags[skb_shinfo(skb)->nr_frags]));
+>> +	skb_shinfo(skb)->destructor = NULL;
+>>  
+>>  	/* Check if we can avoid taking references on fragments if we own
+>>  	 * the last reference on skb->head. (see skb_release_data())
+> 
+> So it looks like pskb_expand_head will prevent the shinfo desctructor
+> from being called, ever? If so, won't this break af_packet?
+
+>From what I read, he is propagating it into the new SKB data blob
+with expanded head area.  It would get invoked when the skb's
+new data is put.
+
+I am not sure this is correct, however.
+
+Destructor register only cares about original data area, but what
+constitutes "original data" is ambiguous.  In fact it seems
+impossible to catch the freeing of all parts properly.
+
+When pskb_expand_head() is invoked we get new linear part, but
+non-linear part stays the same.  However, entity which registered
+skb data destructor cares about old linear data lifetime, which
+we will no longer track after destructor is propagated only to
+the new shinfo.
+
+So we need to do something different here.  I bet original code
+overriding socket destructor semantics had a similar problem.
+
+Changli, I have one other minor request, please name this something
+like "shinfo->data_destructor" and "shinfo->data_destructor_arg".
+
+I think that will make it easier for other humans to understand :)
+
+Thank you.
