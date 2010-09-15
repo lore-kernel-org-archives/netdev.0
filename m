@@ -1,58 +1,90 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [Bug 18212] New: force_igmp_version ignored when a IGMPv3	query
- received (+1 line patch)
-Date: Wed, 15 Sep 2010 02:33:53 -0700
-Message-ID: <OF1B791AE0.746C5AF2-ON8825779F.003251E3-8825779F.00348B8A@us.ibm.com>
-References: <20100910091936.75eabbf6@nehalam> <OF1A09F28B.15E7E7BC-ON8825779E.00741A65-8825779E.007540E3@us.ibm.com> <20100914.142418.149835514.davem@davemloft.net> <20100915020240.GA19372@gondor.apana.org.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 00/15] change default_llseek action
+Date: Wed, 15 Sep 2010 19:39:26 +1000
+Message-ID: <20100915193926.ae2fe838.sfr@canb.auug.org.au>
+References: <1284495763-7506-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, shemminger@linux-foundation.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:39541 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711Ab0IOJd4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 05:33:56 -0400
-In-Reply-To: <20100915020240.GA19372@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__15_Sep_2010_19_39_26_+1000_DQXdvYbRSl_dI/ss"
+Cc: linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
+	Christoph Hellwig <hch@infradead.org>,
+	David Airlie <airlied@linux.ie>,
+	dri-devel@lists.freedesktop.org, Jeremy Kerr <jk@ozlabs.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Julia Lawall <julia@diku.dk>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-fsdevel@vger.kernel.org, linux-omap@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
+	Tony Lindgren <tony@atomide.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1284495763-7506-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote on 09/14/2010 07:02:40 PM:
+--Signature=_Wed__15_Sep_2010_19_39_26_+1000_DQXdvYbRSl_dI/ss
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
+Hi Arnd,
 
- 
-> I have gone through both IGMPv2/v3 RFCs and can't find anything
-> that forbids an IGMPv2 host from replying with a v2 report to a
-> v3 query.  On the other hand I think dropping the v3 query is also
-> allowed.
-> 
-> For interoperability, it would seem slightly better to reply with
-> a v2 report, although I will defer to David Stevens on this :)
+On Tue, 14 Sep 2010 22:22:28 +0200 Arnd Bergmann <arnd@arndb.de> wrote:
+>
+> Stephen, please add
+> git+ssh://master.kernel.org/pub/scm/linux/kernel/git/arnd/bkl.git llseek
 
-Herbert, I don't think "forbids" applies -- there's nothing that
-suggests you would answer a v3 query with anything but a v3 report.
+Added from today.
 
-Ordinarily, hosts listen and switch to v2 if a v2 querier is present.
-The intent is that if anyone can't support v3, then everyone falls
-back to v2 (and similarly with v1), and with the loss of functionality
-provided by the higher version number.
+Thanks for adding your subsystem tree as a participant of linux-next.  As
+you may know, this is not a judgment of your code.  The purpose of
+linux-next is for integration testing and to lower the impact of
+conflicts between subsystems in the next merge window.=20
 
-In this case, a switch that sees v2 queries from the other switch is
-still sending a v3 query itself. To me, that's a broken switch. The
-v2 switch can do queries of its own, too; answering a v3 query doesn't
-forbid answering a v2 query (with a v2 report) should one come in.
+You will need to ensure that the patches/commits in your tree/series have
+been:
+     * submitted under GPL v2 (or later) and include the Contributor's
+	Signed-off-by,
+     * posted to the relevant mailing list,
+     * reviewed by you (or another maintainer of your subsystem tree),
+     * successfully unit tested, and=20
+     * destined for the current or next Linux merge window.
 
-So, really, it seems like a hack to me specific to this broken v3
-switch. It should send v2 queries because the v2 switch is present;
-then linux would answer with a v2 query and everyone would see it.
-A host that only supports v2 will not correctly work with this set-up
-either -- the v3-only query part is broken, not linux.
+Basically, this should be just what you would send to Linus (or ask him
+to fetch).  It is allowed to be rebased if you deem it necessary.
 
-My recommendation would be not to mix this v3 switch with v2-only
-switches and/or report the v3-only queries as a bug to the switch
-vendor. Once you see a v2 query, everyone should switch to v2.
+--=20
+Cheers,
+Stephen Rothwell=20
+sfr@canb.auug.org.au
 
-                                                                +-DLS
+Legal Stuff:
+By participating in linux-next, your subsystem tree contributions are
+public and will be included in the linux-next trees.  You may be sent
+e-mail messages indicating errors or other issues when the
+patches/commits from your subsystem tree are merged and tested in
+linux-next.  These messages may also be cross-posted to the linux-next
+mailing list, the linux-kernel mailing list, etc.  The linux-next tree
+project and IBM (my employer) make no warranties regarding the linux-next
+project, the testing procedures, the results, the e-mails, etc.  If you
+don't agree to these ground rules, let me know and I'll remove your tree
+from participation in linux-next.
 
+--Signature=_Wed__15_Sep_2010_19_39_26_+1000_DQXdvYbRSl_dI/ss
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJMkJROAAoJEDMEi1NhKgbsYp0H+wXse/dv0zaLotuqwSwNBEwU
+pGyUJJlbgnsQrSCuQ0RowdoQ0djjfK9vpruhdv82egNE/g/Fce/cGx7W4VH1danv
+kAEkH42TGgqfbRZ2/bzxBNrewRNLZWd35RPHraMbuYWifGWvrvcY0XqbXL8shP1a
+7yQhIdm7yhETa0pCWNgNr96Uxm6zn5Dh6VcF7ux+CoabO9OJ/UTHwnS9YSg2Jq8V
+IY9XXeTrwUbKHiZlBTyLXqexe74h04hK5Dl6xz1+PQw+cLnwwgX07lNa+MzEMeLC
+FnQcuYnjVedEKfJvTdO4omXXPscchuPj1fJAAVs6jD8/2n4/+fA6nY6UNCKzN9k=
+=B+lf
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__15_Sep_2010_19_39_26_+1000_DQXdvYbRSl_dI/ss--
