@@ -1,77 +1,214 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 1/9] tg3: Fix read DMA FIFO overruns on recent
- devices
-Date: Wed, 15 Sep 2010 11:59:53 -0700
-Message-ID: <1284577201-6117-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 6/9] tg3: Move producer ring struct to tg3_napi
+Date: Wed, 15 Sep 2010 11:59:58 -0700
+Message-ID: <1284577201-6117-7-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2586 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3189 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755134Ab0IOTBC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 15:01:02 -0400
+	id S1755146Ab0IOTBI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 15:01:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Earlier versions of tg3 devices had a problem where the read DMA FIFO
-could be overrun in certain edge conditions.  The fix was to limit the
-number of rx BDs the hardware would fetch at a time.  For later devices
-(5761, 5784 and later ASIC revs), there is a hardware fix that must be
-enabled to fix the same problem.  This patch adds that hardware fix.
-
-There is a gap in the ASIC revision lineage where neither fix is
-applied.  This is intentional as these ASIC revisions are not afflicted
-by the bug.
+Now that each NAPI instance has its own producer ring, it no longer
+makes sense to keep the producer ring structure external.  This patch
+migrates the producer ring struct to tg3_napi and pivots the code to the
+new implementation.
 
 Reviewed-by: Benjamin Li <benli@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/tg3.c |   10 ++++++++++
- drivers/net/tg3.h |    6 +++++-
- 2 files changed, 15 insertions(+), 1 deletions(-)
+ drivers/net/tg3.c |   39 +++++++++++++++++----------------------
+ drivers/net/tg3.h |    4 +---
+ 2 files changed, 18 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 9f6ffff..c3a430c 100644
+index 7468479..179eb65 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -8015,6 +8015,16 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780)
- 		rdmac_mode |= RDMAC_MODE_IPV6_LSO_EN;
+@@ -4549,7 +4549,7 @@ static void tg3_recycle_rx(struct tg3_napi *tnapi,
+ 	struct tg3 *tp = tnapi->tp;
+ 	struct tg3_rx_buffer_desc *src_desc, *dest_desc;
+ 	struct ring_info *src_map, *dest_map;
+-	struct tg3_rx_prodring_set *spr = &tp->prodring[0];
++	struct tg3_rx_prodring_set *spr = &tp->napi[0].prodring;
+ 	int dest_idx;
  
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5784 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5785 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57780 ||
-+	    (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)) {
-+		val = tr32(TG3_RDMA_RSRVCTRL_REG);
-+		tw32(TG3_RDMA_RSRVCTRL_REG,
-+		     val | TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX);
-+	}
+ 	switch (opaque_key) {
+@@ -4619,7 +4619,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 	u32 sw_idx = tnapi->rx_rcb_ptr;
+ 	u16 hw_idx;
+ 	int received;
+-	struct tg3_rx_prodring_set *tpr = tnapi->prodring;
++	struct tg3_rx_prodring_set *tpr = &tnapi->prodring;
+ 
+ 	hw_idx = *(tnapi->rx_rcb_prod_idx);
+ 	/*
+@@ -4644,13 +4644,13 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		desc_idx = desc->opaque & RXD_OPAQUE_INDEX_MASK;
+ 		opaque_key = desc->opaque & RXD_OPAQUE_RING_MASK;
+ 		if (opaque_key == RXD_OPAQUE_RING_STD) {
+-			ri = &tp->prodring[0].rx_std_buffers[desc_idx];
++			ri = &tp->napi[0].prodring.rx_std_buffers[desc_idx];
+ 			dma_addr = dma_unmap_addr(ri, mapping);
+ 			skb = ri->skb;
+ 			post_ptr = &std_prod_idx;
+ 			rx_std_posted++;
+ 		} else if (opaque_key == RXD_OPAQUE_RING_JUMBO) {
+-			ri = &tp->prodring[0].rx_jmb_buffers[desc_idx];
++			ri = &tp->napi[0].prodring.rx_jmb_buffers[desc_idx];
+ 			dma_addr = dma_unmap_addr(ri, mapping);
+ 			skb = ri->skb;
+ 			post_ptr = &jmb_prod_idx;
+@@ -4981,14 +4981,14 @@ static int tg3_poll_work(struct tg3_napi *tnapi, int work_done, int budget)
+ 		work_done += tg3_rx(tnapi, budget - work_done);
+ 
+ 	if ((tp->tg3_flags3 & TG3_FLG3_ENABLE_RSS) && tnapi == &tp->napi[1]) {
+-		struct tg3_rx_prodring_set *dpr = &tp->prodring[0];
++		struct tg3_rx_prodring_set *dpr = &tp->napi[0].prodring;
+ 		int i, err = 0;
+ 		u32 std_prod_idx = dpr->rx_std_prod_idx;
+ 		u32 jmb_prod_idx = dpr->rx_jmb_prod_idx;
+ 
+ 		for (i = 1; i < tp->irq_cnt; i++)
+ 			err |= tg3_rx_prodring_xfer(tp, dpr,
+-						    tp->napi[i].prodring);
++						    &tp->napi[i].prodring);
+ 
+ 		wmb();
+ 
+@@ -6057,7 +6057,7 @@ static void tg3_rx_prodring_free(struct tg3 *tp,
+ {
+ 	int i;
+ 
+-	if (tpr != &tp->prodring[0]) {
++	if (tpr != &tp->napi[0].prodring) {
+ 		for (i = tpr->rx_std_cons_idx; i != tpr->rx_std_prod_idx;
+ 		     i = (i + 1) % TG3_RX_RING_SIZE)
+ 			tg3_rx_skb_free(tp, &tpr->rx_std_buffers[i],
+@@ -6103,7 +6103,7 @@ static int tg3_rx_prodring_alloc(struct tg3 *tp,
+ 	tpr->rx_jmb_cons_idx = 0;
+ 	tpr->rx_jmb_prod_idx = 0;
+ 
+-	if (tpr != &tp->prodring[0]) {
++	if (tpr != &tp->napi[0].prodring) {
+ 		memset(&tpr->rx_std_buffers[0], 0, TG3_RX_STD_BUFF_RING_SIZE);
+ 		if (tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE)
+ 			memset(&tpr->rx_jmb_buffers[0], 0,
+@@ -6253,7 +6253,7 @@ static void tg3_free_rings(struct tg3 *tp)
+ 	for (j = 0; j < tp->irq_cnt; j++) {
+ 		struct tg3_napi *tnapi = &tp->napi[j];
+ 
+-		tg3_rx_prodring_free(tp, &tp->prodring[j]);
++		tg3_rx_prodring_free(tp, &tnapi->prodring);
+ 
+ 		if (!tnapi->tx_buffers)
+ 			continue;
+@@ -6325,7 +6325,7 @@ static int tg3_init_rings(struct tg3 *tp)
+ 		if (tnapi->rx_rcb)
+ 			memset(tnapi->rx_rcb, 0, TG3_RX_RCB_RING_BYTES(tp));
+ 
+-		if (tg3_rx_prodring_alloc(tp, &tp->prodring[i])) {
++		if (tg3_rx_prodring_alloc(tp, &tnapi->prodring)) {
+ 			tg3_free_rings(tp);
+ 			return -ENOMEM;
+ 		}
+@@ -6361,6 +6361,8 @@ static void tg3_free_consistent(struct tg3 *tp)
+ 			tnapi->rx_rcb = NULL;
+ 		}
+ 
++		tg3_rx_prodring_fini(tp, &tnapi->prodring);
 +
- 	/* Receive/send statistics. */
- 	if (tp->tg3_flags2 & TG3_FLG2_5750_PLUS) {
- 		val = tr32(RCVLPC_STATS_ENABLE);
+ 		if (tnapi->hw_status) {
+ 			pci_free_consistent(tp->pdev, TG3_HW_STATUS_SIZE,
+ 					    tnapi->hw_status,
+@@ -6374,9 +6376,6 @@ static void tg3_free_consistent(struct tg3 *tp)
+ 				    tp->hw_stats, tp->stats_mapping);
+ 		tp->hw_stats = NULL;
+ 	}
+-
+-	for (i = 0; i < tp->irq_cnt; i++)
+-		tg3_rx_prodring_fini(tp, &tp->prodring[i]);
+ }
+ 
+ /*
+@@ -6387,11 +6386,6 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < tp->irq_cnt; i++) {
+-		if (tg3_rx_prodring_init(tp, &tp->prodring[i]))
+-			goto err_out;
+-	}
+-
+ 	tp->hw_stats = pci_alloc_consistent(tp->pdev,
+ 					    sizeof(struct tg3_hw_stats),
+ 					    &tp->stats_mapping);
+@@ -6413,6 +6407,9 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ 		memset(tnapi->hw_status, 0, TG3_HW_STATUS_SIZE);
+ 		sblk = tnapi->hw_status;
+ 
++		if (tg3_rx_prodring_init(tp, &tnapi->prodring))
++			goto err_out;
++
+ 		/* If multivector TSS is enabled, vector 0 does not handle
+ 		 * tx interrupts.  Don't allocate any resources for it.
+ 		 */
+@@ -6452,8 +6449,6 @@ static int tg3_alloc_consistent(struct tg3 *tp)
+ 			break;
+ 		}
+ 
+-		tnapi->prodring = &tp->prodring[i];
+-
+ 		/*
+ 		 * If multivector RSS is enabled, vector 0 does not handle
+ 		 * rx or tx interrupts.  Don't allocate any resources for it.
+@@ -7647,7 +7642,7 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ {
+ 	u32 val, rdmac_mode;
+ 	int i, err, limit;
+-	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
++	struct tg3_rx_prodring_set *tpr = &tp->napi[0].prodring;
+ 
+ 	tg3_disable_ints(tp);
+ 
+@@ -10627,7 +10622,7 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
+ 	int num_pkts, tx_len, rx_len, i, err;
+ 	struct tg3_rx_buffer_desc *desc;
+ 	struct tg3_napi *tnapi, *rnapi;
+-	struct tg3_rx_prodring_set *tpr = &tp->prodring[0];
++	struct tg3_rx_prodring_set *tpr = &tp->napi[0].prodring;
+ 
+ 	tnapi = &tp->napi[0];
+ 	rnapi = &tp->napi[0];
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 4937bd1..783cd77 100644
+index d39426f..44733e4 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -1302,7 +1302,11 @@
- #define  RDMAC_STATUS_FIFOURUN		 0x00000080
- #define  RDMAC_STATUS_FIFOOREAD		 0x00000100
- #define  RDMAC_STATUS_LNGREAD		 0x00000200
--/* 0x4808 --> 0x4c00 unused */
-+/* 0x4808 --> 0x4900 unused */
-+
-+#define TG3_RDMA_RSRVCTRL_REG		0x00004900
-+#define TG3_RDMA_RSRVCTRL_FIFO_OFLW_FIX	 0x00000004
-+/* 0x4904 --> 0x4c00 unused */
+@@ -2679,7 +2679,7 @@ struct tg3_napi {
+ 	u32				consmbox;
+ 	u32				rx_rcb_ptr;
+ 	u16				*rx_rcb_prod_idx;
+-	struct tg3_rx_prodring_set	*prodring;
++	struct tg3_rx_prodring_set	prodring;
  
- /* Write DMA control registers */
- #define WDMAC_MODE			0x00004c00
+ 	struct tg3_rx_buffer_desc	*rx_rcb;
+ 	struct tg3_tx_buffer_desc	*tx_ring;
+@@ -2766,8 +2766,6 @@ struct tg3 {
+ 	struct vlan_group		*vlgrp;
+ #endif
+ 
+-	struct tg3_rx_prodring_set	prodring[TG3_IRQ_MAX_VECS];
+-
+ 
+ 	/* begin "everything else" cacheline(s) section */
+ 	struct rtnl_link_stats64	net_stats;
 -- 
 1.7.1
 
