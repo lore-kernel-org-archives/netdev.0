@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3c59x: Remove atomic context inside
- vortex_{set|get}_wol
-Date: Wed, 15 Sep 2010 14:36:25 -0700 (PDT)
-Message-ID: <20100915.143625.58442873.davem@davemloft.net>
-References: <4C909CAD.8010905@kernel.org>
-	<1284547021.2495.1.camel@edumazet-laptop>
-	<4C90A6E6.8040608@kernel.org>
+Subject: Re: [PATCH net-next-2.6 2/2] ethtool: Remove unimplemented flow
+ specification types
+Date: Wed, 15 Sep 2010 14:41:52 -0700 (PDT)
+Message-ID: <20100915.144152.91337452.davem@davemloft.net>
+References: <1284491403.2289.5.camel@achroite.uk.solarflarecom.com>
+	<1284491588.2289.8.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, ben@decadent.org.uk
-To: dkirjanov@kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	santwona.behera@sun.com, peter.p.waskiewicz.jr@intel.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57271
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49690
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754241Ab0IOVgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 17:36:07 -0400
-In-Reply-To: <4C90A6E6.8040608@kernel.org>
+	by vger.kernel.org with ESMTP id S1754286Ab0IOVld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 17:41:33 -0400
+In-Reply-To: <1284491588.2289.8.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Date: Wed, 15 Sep 2010 14:58:46 +0400
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 14 Sep 2010 20:13:08 +0100
 
-> [PATCH v2] 3c59x: Remove atomic context inside vortex_{set|get}_wol
+> struct ethtool_rawip4_spec and struct ethtool_ether_spec are neither
+> commented nor used by any driver, so remove them.  Adjust padding in
+> the user-visible unions that included these structures.
 > 
-> There is no need to use spinlocks in vortex_{set|get}_wol.
-> This also fixes a bug:
-...
-> vortex_set_wol protected with a spinlock, but nested  acpi_set_WOL acquires a mutex inside atomic context.
-> Ethtool operations are already serialized by RTNL mutex, so it is safe to drop the locks.
+> Fix references to struct ethtool_rawip4_spec in
+> ethtool_get_rx_ntuple(), which should use struct ethtool_usrip4_spec.
 > 
-> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
-> ---
-> V2: fixed comments issue
+> struct ethtool_usrip4_spec cannot hold IPv6 host addresses and there
+> is no separate structure that can, so remove ETH_RX_NFC_IP6 and the
+> reference to it in niu.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Applied, thanks.
+Yeah.  The NIU chip's TCAM can only match on 32-bits (I think the
+least significant) of the IPV6 address since that's how many bits
+it has in the TCAM entries for addreses and address masks.
+
+I'll apply this, thanks.
