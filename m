@@ -1,36 +1,47 @@
 From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: [PATCH v2] drivers/net/cxgb3/cxgb3_main.c: prevent reading
- uninitialized stack memory
-Date: Wed, 15 Sep 2010 17:43:12 -0400
-Message-ID: <1284586992.6275.93.camel@dan>
+Subject: [PATCH v2] drivers/net/tulip/de4x5.c
+Date: Wed, 15 Sep 2010 17:43:18 -0400
+Message-ID: <1284586998.6275.94.camel@dan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kyle@mcmartin.ca, davem@davemloft.net, jeffm@suse.com,
 	security@kernel.org
-To: divy@chelsio.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: grundler@parisc-linux.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.vsecurity.com ([209.67.252.12]:54459 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755275Ab0IOVtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 17:49:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Fixed formatting (tabs and line breaks).
 
-The CHELSIO_GET_QSET_NUM device ioctl allows unprivileged users to read
-4 bytes of uninitialized stack memory, because the "addr" member of the
-ch_reg struct declared on the stack in cxgb_extension_ioctl() is not
-altered or zeroed before being copied back to the user.  This patch
-takes care of it.
+This was previously reported as a security issue due to leakage of
+uninitialized stack memory.  Jeff Mahoney pointed out that this is
+incorrect since the copied data is from a union (rather than a struct).
+Therefore, this patch is only under consideration for the sake of
+correctness, and is not security relevant. 
 
 Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
---- linux-2.6.35.4.orig/drivers/net/cxgb3/cxgb3_main.c	2010-08-26 19:47:12.000000000 -0400
-+++ linux-2.6.35.4/drivers/net/cxgb3/cxgb3_main.c	2010-09-14 21:24:34.369511115 -0400
-@@ -2296,6 +2296,8 @@ static int cxgb_extension_ioctl(struct n
- 	case CHELSIO_GET_QSET_NUM:{
- 		struct ch_reg edata;
+--- linux-2.6.35.4.orig/drivers/net/tulip/de4x5.c	2010-08-26 19:47:12.000000000 -0400
++++ linux-2.6.35.4/drivers/net/tulip/de4x5.c	2010-09-14 21:26:52.499474207 -0400
+@@ -5474,7 +5474,7 @@ de4x5_ioctl(struct net_device *dev, stru
+ 	tmp.lval[6] = inl(DE4X5_STRR); j+=4;
+ 	tmp.lval[7] = inl(DE4X5_SIGR); j+=4;
+ 	ioc->len = j;
+-	if (copy_to_user(ioc->data, tmp.addr, ioc->len)) return -EFAULT;
++	if (copy_to_user(ioc->data, tmp.lval, ioc->len)) return -EFAULT;
+ 	break;
  
-+		memset(&edata, 0, sizeof(struct ch_reg));
-+
- 		edata.cmd = CHELSIO_GET_QSET_NUM;
- 		edata.val = pi->nqsets;
- 		if (copy_to_user(useraddr, &edata, sizeof(edata)))
+ #define DE4X5_DUMP              0x0f /* Dump the DE4X5 Status */
+
+
+
+
+
+
