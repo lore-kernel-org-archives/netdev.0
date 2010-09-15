@@ -1,115 +1,52 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 1/4] Add a new API to virtio-pci
-Date: Wed, 15 Sep 2010 07:40:43 +0200
-Message-ID: <20100915054043.GC25566@redhat.com>
-References: <201009091319.40274.rusty@rustcorp.com.au>
- <OFB29E6C59.96686002-ON65257799.00174D50-65257799.001D6F7B@in.ibm.com>
- <201009092144.26484.rusty@rustcorp.com.au>
- <OF371A1B54.B0F5B4A1-ON65257799.00491939-65257799.004BBB65@in.ibm.com>
- <20100912114637.GB22982@redhat.com>
- <OF32429FD6.3F8CAEC5-ON6525779D.00169473-6525779D.0017A613@in.ibm.com>
- <20100913090415.GB29333@redhat.com>
- <4C8E4A66.8030907@codemonkey.ws>
- <20100913163037.GA18233@redhat.com>
- <4C8E61FB.30805@codemonkey.ws>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] ipv4: release dev refcnt early when destroying
+ inetdev
+Date: Wed, 15 Sep 2010 08:01:24 +0200
+Message-ID: <1284530484.2271.5.camel@edumazet-laptop>
+References: <1284128679.24675.38.camel@edumazet-laptop>
+	 <4C8A474C.3040502@6wind.com> <1284131774.24675.46.camel@edumazet-laptop>
+	 <20100914.134529.45905377.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, davem@davemloft.net,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Anthony Liguori <anthony@codemonkey.ws>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37872 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750907Ab0IOFqt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 01:46:49 -0400
-Content-Disposition: inline
-In-Reply-To: <4C8E61FB.30805@codemonkey.ws>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:38055 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774Ab0IOGB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 02:01:29 -0400
+Received: by wyf22 with SMTP id 22so8226189wyf.19
+        for <netdev@vger.kernel.org>; Tue, 14 Sep 2010 23:01:28 -0700 (PDT)
+In-Reply-To: <20100914.134529.45905377.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 13, 2010 at 12:40:11PM -0500, Anthony Liguori wrote:
-> On 09/13/2010 11:30 AM, Michael S. Tsirkin wrote:
-> >On Mon, Sep 13, 2010 at 10:59:34AM -0500, Anthony Liguori wrote:
-> >>On 09/13/2010 04:04 AM, Michael S. Tsirkin wrote:
-> >>>On Mon, Sep 13, 2010 at 09:50:42AM +0530, Krishna Kumar2 wrote:
-> >>>>"Michael S. Tsirkin"<mst@redhat.com>   wrote on 09/12/2010 05:16:37 PM:
-> >>>>
-> >>>>>"Michael S. Tsirkin"<mst@redhat.com>
-> >>>>>09/12/2010 05:16 PM
-> >>>>>
-> >>>>>On Thu, Sep 09, 2010 at 07:19:33PM +0530, Krishna Kumar2 wrote:
-> >>>>>>Unfortunately I need a
-> >>>>>>constant in vhost for now.
-> >>>>>Maybe not even that: you create multiple vhost-net
-> >>>>>devices so vhost-net in kernel does not care about these
-> >>>>>either, right? So this can be just part of vhost_net.h
-> >>>>>in qemu.
-> >>>>Sorry, I didn't understand what you meant.
-> >>>>
-> >>>>I can remove all socks[] arrays/constants by pre-allocating
-> >>>>sockets in vhost_setup_vqs. Then I can remove all "socks"
-> >>>>parameters in vhost_net_stop, vhost_net_release and
-> >>>>vhost_net_reset_owner.
-> >>>>
-> >>>>Does this make sense?
-> >>>>
-> >>>>Thanks,
-> >>>>
-> >>>>- KK
-> >>>Here's what I mean: each vhost device includes 1 TX
-> >>>and 1 RX VQ. Instead of teaching vhost about multiqueue,
-> >>>we could simply open /dev/vhost-net multiple times.
-> >>>How many times would be up to qemu.
-> >>Trouble is, each vhost-net device is associated with 1 tun/tap
-> >>device which means that each vhost-net device is associated with a
-> >>transmit and receive queue.
-> >>
-> >>I don't know if you'll always have an equal number of transmit and
-> >>receive queues but there's certainly  challenge in terms of
-> >>flexibility with this model.
-> >>
-> >>Regards,
-> >>
-> >>Anthony Liguori
-> >Not really, TX and RX can be mapped to different devices,
-> 
-> It's just a little odd.  Would you bond multiple tun tap devices to
-> achieve multi-queue TX?  For RX, do you somehow limit RX to only one
-> of those devices?
+Le mardi 14 septembre 2010 =C3=A0 13:45 -0700, David Miller a =C3=A9cri=
+t :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 10 Sep 2010 17:16:14 +0200
+>=20
+> > Le vendredi 10 septembre 2010 =C3=A0 16:57 +0200, Nicolas Dichtel a=
+ =C3=A9crit :
+> >=20
+> >> Is this not true in IPv6? What is the difference?
+> >=20
+> > It might be a bug on ipv6, who knows ?
+> >=20
+> > Releasing a reference count, but not setting idev->dev to NULL is=20
+> > a sign something is wrong...
+>=20
+> If anything this is more of a BUG trap than a true correctness patch,
+> but either way if you want me to apply this please formally submit
+> this with a proper commit message and signoff, thanks!
 
-Exatly in the way the patches we discuss here do this:
-we already have a per-queue fd.
+This was not a patch for inclusion, this was to show my point.
+I suspect this will trigger NULL dereference at some points later...
 
-> If we were doing this in QEMU (and btw, there needs to be userspace
-> patches before we implement this in the kernel side),
+I do think a correct patch would be to change ipv6 to mimic ipv4 way of
+course. I'll take a look at this later.
 
-I agree that Feature parity is nice to have, but
-I don't see a huge problem with (hopefully temporarily) only
-supporting feature X with kernel acceleration, BTW.
-This is already the case with checksum offloading features.
+Thanks
 
-> I think it
-> would make more sense to just rely on doing a multithreaded write to
-> a single tun/tap device and then to hope that in can be made smarter
-> at the macvtap layer.
 
-No, an fd serializes access, so you need seperate fds for multithreaded
-writes to work.  Think about how e.g. select will work.
-
-> Regards,
-> 
-> Anthony Liguori
-> 
-> Regards,
-> 
-> Anthony Liguori
-> 
-> >or you can only map one of these. What is the trouble?
-> >What other features would you desire in terms of flexibility?
-> >
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
