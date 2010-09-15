@@ -1,27 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] X.25 remove bkl in connect
-Date: Tue, 14 Sep 2010 20:40:54 -0700 (PDT)
-Message-ID: <20100914.204054.189709120.davem@davemloft.net>
-References: <1284507123.1742.57.camel@jaunty>
+From: Andrew Hendry <andrew.hendry@gmail.com>
+Subject: Re: [PATCH 1/4] X.25 remove bkl in listen
+Date: Wed, 15 Sep 2010 13:43:06 +1000
+Message-ID: <AANLkTimT72LxUH9gsfKVWeZWiz1GQD-gU7kXO-6DtX-1@mail.gmail.com>
+References: <1284507076.1742.51.camel@jaunty>
+	<20100914.204017.226779854.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev@vger.kernel.org
-To: andrew.hendry@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37273
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753161Ab0IODkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 23:40:36 -0400
-In-Reply-To: <1284507123.1742.57.camel@jaunty>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47964 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753234Ab0IODnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 23:43:08 -0400
+Received: by wwd20 with SMTP id 20so619179wwd.1
+        for <netdev@vger.kernel.org>; Tue, 14 Sep 2010 20:43:06 -0700 (PDT)
+In-Reply-To: <20100914.204017.226779854.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Date: Wed, 15 Sep 2010 09:32:03 +1000
+Thanks, I'll test that and have a close look at it for the next round.
 
-> Connect already has socket locking.
-> 
-> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
-
-Applied.
+On Wed, Sep 15, 2010 at 1:40 PM, David Miller <davem@davemloft.net> wrote:
+> From: Andrew Hendry <andrew.hendry@gmail.com>
+> Date: Wed, 15 Sep 2010 09:31:16 +1000
+>
+>> Listen updates socket values and needs lock_sock.
+>>
+>> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+>
+> Applied.
+>
+> Although you may want to think about whether we need to also hold the
+> x25_list_lock as a writer here so that scanners of the socket list see
+> consistent state changes.
+>
