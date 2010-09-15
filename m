@@ -1,65 +1,119 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bug 18212] New: force_igmp_version ignored when a IGMPv3
-	query received (+1 line patch)
-Date: Wed, 15 Sep 2010 10:02:40 +0800
-Message-ID: <20100915020240.GA19372@gondor.apana.org.au>
-References: <20100910091936.75eabbf6@nehalam> <OF1A09F28B.15E7E7BC-ON8825779E.00741A65-8825779E.007540E3@us.ibm.com> <20100914.142418.149835514.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH RFC] netns: keep vlan slaves on master netns move
+Date: Tue, 14 Sep 2010 19:10:01 -0700
+Message-ID: <m1bp7z4v0m.fsf@fess.ebiederm.org>
+References: <20100824115056.GA235835@jupiter.n2.diac24.net>
+	<20100913114315.GA859019@jupiter.n2.diac24.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dlstevens@us.ibm.com, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Daniel Lezcano <daniel.lezcano@free.fr>,
+	Patrick McHardy <kaber@trash.net>,
+	David Lamparter <equinox@diac24.net>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:36411 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752094Ab0IOCCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 22:02:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20100914.142418.149835514.davem@davemloft.net>
+Received: from out02.mta.xmission.com ([166.70.13.232]:60490 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751536Ab0IOCKM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 22:10:12 -0400
+In-Reply-To: <20100913114315.GA859019@jupiter.n2.diac24.net> (David
+	Lamparter's message of "Mon, 13 Sep 2010 13:43:15 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 14, 2010 at 02:24:18PM -0700, David Miller wrote:
-> From: David Stevens <dlstevens@us.ibm.com>
-> Date: Tue, 14 Sep 2010 14:20:40 -0700
-> 
-> > netdev-owner@vger.kernel.org wrote on 09/10/2010 09:19:36 AM:
-> > 
-> >> 
-> >> https://bugzilla.kernel.org/show_bug.cgi?id=18212
-> >> 
-> >>            Summary: force_igmp_version ignored when a IGMPv3 query
-> >>                     received (+1 line patch)
-> > 
-> >> 
-> >> Created an attachment (id=29512)
-> >>  --> (https://bugzilla.kernel.org/attachment.cgi?id=29512)
-> >> fix force_igmp_version v3 query problem
-> >> 
-> >> After all these years, it turns out that the
-> >>     /proc/sys/net/ipv4/conf/*/force_igmp_version
-> >> parameter isn't fully implemented.
-> > 
-> >         I don't think it's correct to send a v2 response to a v3
-> > query in any case. The question for answering v3 queries was
-> > whether to answer them with a v3 report, or to drop them and
-> > ignore them when force_igmp_version==2. I chose to respond,
-> > but I can see the case for dropping it too. I don't agree that
-> > a v3 query should be answered with a v2 resport (a real v2
-> > host would drop it).
-> 
-> Do you have an alternative patch to suggest?
 
-I have gone through both IGMPv2/v3 RFCs and can't find anything
-that forbids an IGMPv2 host from replying with a v2 report to a
-v3 query.  On the other hand I think dropping the v3 query is also
-allowed.
+Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-For interoperability, it would seem slightly better to reply with
-a v2 report, although I will defer to David Stevens on this :)
+My inclination is that the best way to handle this is to would be to
+push the device deletion for vlan and macvlan devices into the device
+core, where we could get the advantage of batched deletions.  Right
+now vlan and macvlan devices are the only devices I know of that cause
+other devices to be removed during unregister, so removing that
+specialness seems reasonable.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+However not being able to move the primary vlan to a different network
+namespace is usability bug with no real alternatives.  There are
+not any other patches on the table right now, and your patch below
+seems obviously correct.  Let's get this merged before we forget about
+this, bug fix.
+
+David Lamparter <equinox@diac24.net> writes:
+
+> previously, if a vlan master device was moved from one network namespace
+> to another, all 802.1q and macvlan slaves were deleted.
+>
+> we can use dev->reg_state to figure out whether dev_change_net_namespace
+> is happening, since that won't set dev->reg_state NETREG_UNREGISTERING.
+> so, this changes 8021q and macvlan to ignore NETDEV_UNREGISTER when
+> reg_state is not NETREG_UNREGISTERING.
+>
+> Signed-off-by: David Lamparter <equinox@diac24.net>
+> --
+>
+> On Tue, Aug 24, 2010 at 01:50:56PM +0200, David Lamparter wrote:
+>> attached patch makes it possible to keep macvlan / 802.1q slave devices
+>> on moving their master to a different namespace. as the opposite works
+>> without problems (moving the slaves into a different namespace), this
+>> shouldn't cause problems either.
+>
+> I would like to resurrect this. After the small excursion into
+> NETREG_NETNS_MOVING i've reevaluated my personal opinion and think the
+> behaviour is the desired one and this patch is the cleanest way to
+> implement it. While it depends on somewhat "fine print" on the reg_state
+> state machine, the probability of major screw-ups in this region is
+> rather small and it also quite likely makes a nice large boom when it is
+> unduly tampered with.
+>
+>
+> -David
+>
+>
+>  drivers/net/macvlan.c |    4 ++++
+>  net/8021q/vlan.c      |    4 ++++
+>  net/core/dev.c        |    4 ++++
+>  3 files changed, 12 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index f15fe2c..f43f8e4 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -754,6 +754,10 @@ static int macvlan_device_event(struct notifier_block *unused,
+>  		}
+>  		break;
+>  	case NETDEV_UNREGISTER:
+> +		/* twiddle thumbs on netns device moves */
+> +		if (dev->reg_state != NETREG_UNREGISTERING)
+> +			break;
+> +
+>  		list_for_each_entry_safe(vlan, next, &port->vlans, list)
+>  			vlan->dev->rtnl_link_ops->dellink(vlan->dev, NULL);
+>  		break;
+> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+> index 3c1c8c1..cdc37e8 100644
+> --- a/net/8021q/vlan.c
+> +++ b/net/8021q/vlan.c
+> @@ -516,6 +516,10 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+>  		break;
+>  
+>  	case NETDEV_UNREGISTER:
+> +		/* twiddle thumbs on netns device moves */
+> +		if (dev->reg_state != NETREG_UNREGISTERING)
+> +			break;
+> +
+>  		/* Delete all VLANs for this dev. */
+>  		grp->killall = 1;
+>  
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 1f466e8..b1589bc 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5618,6 +5618,10 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+>  
+>  	/* Notify protocols, that we are about to destroy
+>  	   this device. They should clean all the things.
+> +
+> +	   Note that dev->reg_state stays at NETREG_REGISTERED.
+> +	   This is wanted because this way 8021q and macvlan know
+> +	   the device is just moving and can keep their slaves up.
+>  	*/
+>  	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+>  	call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
