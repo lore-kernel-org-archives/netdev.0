@@ -1,44 +1,40 @@
-From: Brandon Philips <bphilips@suse.de>
-Subject: Re: [PATCH] ixgbe: add GRO to vlan_features
-Date: Wed, 15 Sep 2010 09:38:09 -0700
-Message-ID: <20100915163809.GB4191@mmm.home.ifup.org>
-References: <20100915015052.GA6602@mmm.home.ifup.org>
- <20100914.213544.112598547.davem@davemloft.net>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Wed, 15 Sep 2010 10:00:04 -0700
+Message-ID: <1284570004.2573.14.camel@localhost.localdomain>
+References: <1284483745.13351.71.camel@localhost.localdomain>
+	 <20100914182707.GB15549@redhat.com>
+	 <1284490143.13351.82.camel@localhost.localdomain>
+	 <20100914190156.GA16037@redhat.com>
+	 <1284492983.13351.95.camel@localhost.localdomain>
+	 <20100915051241.GA25340@redhat.com>
+	 <1284531675.24603.259.camel@localhost.localdomain>
+	 <20100915101000.GB28016@redhat.com>
+	 <1284562354.2573.12.camel@localhost.localdomain>
+	 <20100915150412.GA679@redhat.com>  <20100915153927.GA1065@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	donald.c.skidmore@intel.com, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33619 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754484Ab0IOQlk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 12:41:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20100914.213544.112598547.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100915153927.GA1065@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21:35 Tue 14 Sep 2010, David Miller wrote:
-> From: Brandon Philips <bphilips@suse.de>
-> Date: Tue, 14 Sep 2010 18:50:53 -0700
+On Wed, 2010-09-15 at 17:39 +0200, Michael S. Tsirkin wrote:
+> In fact, I rechecked: both bridge and loopback have NETIF_F_HIGHDMA
+> set.
+> So maybe we should check NETIF_F_NETNS_LOCAL ...
 > 
-> > When running a vlan -> bridge -> domU setup I was noticing poor RX
-> > performance. It seems ixgbe and other drivers don't have NETIF_F_GRO set
-> > in vlan_features and thus GRO is off by default for vlans.
-> > 
-> > I see no reason why the other drivers shouldn't be fixed. If this is OK
-> > I will go off and fix the rest.
-> > 
-> > Signed-off-by: Brandon Philips <bphilips@suse.de>
-> 
-> I think it should be set, but why don't we do this another way?
-> 
-> This feature is a software feature, essentially, so if it is published
-> in netdev->features we can simply propagate it automatically to
-> netdev->vlan_features at device registry time in the core networking.
+> macvtap in bridged mode is interesting as well. 
 
-Agreed. I will just send a patch to vlan_dev.c then.
+I found that too, just wondered which flag to use is better. :)
+
+Thanks
+Shirley
+
