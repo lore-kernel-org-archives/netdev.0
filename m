@@ -1,87 +1,103 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: [PATCH] net/sched/sch_hfsc.c: initialize parent's cl_cfmin properly
- in init_vf()
-Date: Wed, 15 Sep 2010 23:42:57 +0200
-Message-ID: <4C913DE1.6040401@ziu.info>
-References: <cover.1283197803.git.soltys@ziu.info>	<8100ed4475ac7a301a3d69611e97d510ea498c5d.1283197803.git.soltys@ziu.info> <20100901.143038.170100274.davem@davemloft.net> <4C910869.1050800@trash.net>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH net-next-2.6] Phonet: remove dangling pipe if an endpoint is closed early
+Date: Thu, 16 Sep 2010 01:19:53 +0300
+Message-ID: <1284589193-26089-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, denys@visp.net.lb,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([80.72.38.138]:1088 "EHLO drutsystem.com"
+Received: from yop.chewa.net ([91.121.105.214]:36390 "EHLO yop.chewa.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751961Ab0IOWN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 18:13:26 -0400
-In-Reply-To: <4C910869.1050800@trash.net>
+	id S1751778Ab0IOW1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 18:27:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10-09-15 19:54, Patrick McHardy wrote:
-> Am 01.09.2010 23:30, schrieb David Miller:
->>  From: Michal Soltys<soltys@ziu.info>
->>  Date: Mon, 30 Aug 2010 23:34:10 +0200
->>
->>>  This patch fixes init_vf() function, so on each new backlog period parent's
->>>  cl_cfmin is properly updated (including further propgation towards the root),
->>>  even if the activated leaf has no upperlimit curve defined.
->>>
->>>  Signed-off-by: Michal Soltys<soltys@ziu.info>
->>
->>  Applied, thanks.
->
-> For the record, the patch seems fine to me. The root cause seems to be
-> an optimization I introduced (pre-git, even history.git unfortunately)
-> in vttree_get_minvt() that wasn't present in the original version:
->
-> static struct hfsc_class *
-> vttree_get_minvt(struct hfsc_class *cl, u64 cur_time)
-> {
->          /* if root-class's cfmin is bigger than cur_time nothing to do */
->          if (cl->cl_cfmin>  cur_time)
->                  return NULL;
->
-> I'd prefer to remove this check since it's obviously not correct and
-> might cause other problems. Michal, could you please test whether this
-> patch fixes the problem as well? Thanks!
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Sure, will do. Although with a tad bit more complex scenario than from 
-my cover email, I think there will still be problems. For example:
+Closing a pipe endpoint is not normally allowed by the Phonet pipe,
+other than as a side after-effect of removing the pipe between two
+endpoints. But there is no way to prevent Linux userspace processes
+from being killed or suffering from bugs, so this can still happen.
+We might as well forcefully close Phonet pipe endpoints then.
 
-     A
-    / \
-   B   C(u2)
-  / \
-D   E(u1)
+The cellular modem supports only a few existing pipes at a time. So we
+really should not leak them. This change instructs the modem to destroy
+the pipe if either of the pipe's endpoint (Linux socket) is closed too
+early.
 
-C and E are constantly backlogged, D becomes active. It will add itself 
-to B's vt_tree, but won't update B's cl_cfmin (without my earlier fix). 
-B is already active, its myf and cfmin didn't change, so neither did f. 
-And so nothing will change for A either.
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ include/net/phonet/pep.h |    5 +++++
+ net/phonet/pep.c         |   27 ++++++++++++++++++++++++++-
+ 2 files changed, 31 insertions(+), 1 deletions(-)
 
-Now we try a dequeue. Without your old optimization (btw I think it's a 
-good shortcut, if I didn't miss anything), A will choose min vt from B 
-and C, if their f <= cur_time. B's f should be at this moment 0 (D has 
-no upperlimit and became active), but it remained unchanged. So we have 
-the same problem as previously. This would work with a trivial hierarchy 
-though, such as:
-
-     A
-    / \
-   B   C(u2)
-
-But deeper scenarios seem problematic. Of course I'll do the actual 
-tests to be sure.
-
-A bit more constrained version from my patch (to limit update_cfmin() 
-calls) could be:
-                 f = max(cl->cl_myf, cl->cl_cfmin);
-                 if (f != cl->cl_f) {
-                         cl->cl_f = f;
-                         cftree_update(cl);
-                         update_cfmin(cl->cl_parent);
-                 } else if (go_active)
-                         update_cfmin(cl->cl_parent);
+diff --git a/include/net/phonet/pep.h b/include/net/phonet/pep.h
+index 35672b1..37f23dc 100644
+--- a/include/net/phonet/pep.h
++++ b/include/net/phonet/pep.h
+@@ -77,6 +77,11 @@ static inline struct pnpipehdr *pnp_hdr(struct sk_bu=
+ff *skb)
+ #define MAX_PNPIPE_HEADER (MAX_PHONET_HEADER + 4)
+=20
+ enum {
++	PNS_PIPE_CREATE_REQ =3D 0x00,
++	PNS_PIPE_CREATE_RESP,
++	PNS_PIPE_REMOVE_REQ,
++	PNS_PIPE_REMOVE_RESP,
++
+ 	PNS_PIPE_DATA =3D 0x20,
+ 	PNS_PIPE_ALIGNED_DATA,
+=20
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index 04e3419..d0e7eb2 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -620,6 +620,28 @@ drop:
+ 	return err;
+ }
+=20
++static int pipe_do_remove(struct sock *sk)
++{
++	struct pep_sock *pn =3D pep_sk(sk);
++	struct pnpipehdr *ph;
++	struct sk_buff *skb;
++
++	skb =3D alloc_skb(MAX_PNPIPE_HEADER, GFP_KERNEL);
++	if (!skb)
++		return -ENOMEM;
++
++	skb_reserve(skb, MAX_PNPIPE_HEADER);
++	__skb_push(skb, sizeof(*ph));
++	skb_reset_transport_header(skb);
++	ph =3D pnp_hdr(skb);
++	ph->utid =3D 0;
++	ph->message_id =3D PNS_PIPE_REMOVE_REQ;
++	ph->pipe_handle =3D pn->pipe_handle;
++	ph->data[0] =3D PAD;
++
++	return pn_skb_send(sk, skb, &pipe_srv);
++}
++
+ /* associated socket ceases to exist */
+ static void pep_sock_close(struct sock *sk, long timeout)
+ {
+@@ -638,7 +660,10 @@ static void pep_sock_close(struct sock *sk, long t=
+imeout)
+ 		sk_for_each_safe(sknode, p, n, &pn->ackq)
+ 			sk_del_node_init(sknode);
+ 		sk->sk_state =3D TCP_CLOSE;
+-	}
++	} else if ((1 << sk->sk_state) & (TCPF_SYN_RECV|TCPF_ESTABLISHED))
++		/* Forcefully remove dangling Phonet pipe */
++		pipe_do_remove(sk);
++
+ 	ifindex =3D pn->ifindex;
+ 	pn->ifindex =3D 0;
+ 	release_sock(sk);
+--=20
+1.7.0.4
 
