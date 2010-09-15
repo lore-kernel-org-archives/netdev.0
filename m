@@ -1,71 +1,95 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Wed, 15 Sep 2010 11:42:48 +0200
-Message-ID: <4C909518.5010309@hartkopp.net>
-References: <4C61EDE5.4030505@dsn.okisemi.com>	<4C629FE5.6000204@pengutronix.de>	<005f01cb533e$5c21d530$66f8800a@maildom.okisemi.com>	<4C8E1918.5000007@pengutronix.de>	<003a01cb53a6$4ca724d0$66f8800a@maildom.okisemi.com>
-	<4C9078D3.50300@grandegger.com>
+From: Thomas Backlund <tmb@mandriva.org>
+Subject: Re: [33-stable regression ssb/broadcom]
+Date: Wed, 15 Sep 2010 12:54:02 +0300
+Message-ID: <4C9097BA.1080208@mandriva.org>
+References: <4C8E6192.2010003@mandriva.org> <20100913.122329.39186333.davem@davemloft.net> <20100913193647.GD4052@tuxdriver.com> <4C8E8AC2.2030201@mandriva.org> <4C8E8C73.60306@mandriva.org> <20100913210145.GA18969@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
-	arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4C9078D3.50300-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "stable@kernel.org" <stable@kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	"Larry.Finger@lwfinger.net" <Larry.Finger@lwfinger.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Greg KH <gregkh@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mbox1.netikka.net ([213.250.81.202]:53592 "EHLO
+	mbox1.netikka.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222Ab0IOJyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 05:54:07 -0400
+In-Reply-To: <20100913210145.GA18969@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15.09.2010 09:42, Wolfgang Grandegger wrote:
-> On 09/14/2010 02:46 AM, Masayuki Ohtake wrote:
->> Hi Marc,
+Greg KH skrev 14.9.2010 00:01:
+> On Mon, Sep 13, 2010 at 11:41:23PM +0300, Thomas Backlund wrote:
+>> Thomas Backlund skrev 13.9.2010 23:34:
+>>> John W. Linville skrev 13.9.2010 22:36:
+>>>> On Mon, Sep 13, 2010 at 12:23:29PM -0700, David Miller wrote:
+>>>>> From: Thomas Backlund<tmb@mandriva.org>
+>>>>> Date: Mon, 13 Sep 2010 20:38:26 +0300
+>>>>>
+>>>>>> In Mandriva 2010.1 we noticed that 2.6.33.7 broke ssb/Broadcom lan for
+>>>>>> several users...
+>>>>>>
+>>>>>> Issue is tracked at:
+>>>>>> https://qa.mandriva.com/show_bug.cgi?id=60968
+>>>>>>
+>>>>>> Reverting the commit restores a working lan.
+>>>>>>
+>>>>>> The offending commit is:
+>>>>>
+>>>>> Please always CC: netdev on networking reports, otherwise you are
+>>>>> very unlikely to get any experts looking into your issue.
+>>>>
+>>>> IIRC, there was a bad patch that got sent for the 2.6.33.y series.
+>>>> I thought it had been reverted or fixed already?
+>>>>
+>>>
+>>> Nope.
+>>>
+>>> It got added in 2.6.33.7
+>>> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.33.y.git;a=commit;h=6fb037c2ed8378c7ab0c1e00536ba6b2a866503e
+>>>
 >>
->>>>> - implement NAPI
->>>> Since Topcliff CAN HW register has only single rx buffer,
->>>> I think NAPI is unnecessary.
+>> After checking some more...
 >>
->>> Doesn't matter. Please try to implement it.
+>> I see the revert of the broken patch was done in 2.6.34.3 and a set
+>> of ssb patches replacing it...
 >>
->> Our CAN driver must pull received data from CAN-HW rx buffer as fast as it can
->> so that the received data is not over-written by next received data.
->> In case of implemented with NAPI,
->> since NAPI has time-lagging after receiving first packet,
->> probability of over-written(discarded) buffer is to be high.
->> Thus, for our CAN HW, we should NOT implement with NAPI but normal "netif_rx".
-> 
-> True, if you just use one RX-Object. But it just helps a little bit and
-> it would be much better to use the buffering on RX messages in the CAN
-> controller hardware, either by using more than one RX object, or
-> combining RX objects to a FIFO, or whatever your CAN controller supports.
+>> but it didn't happend for 2.6.33.y
+>
+> Yeah, I think I "dropped" support for .33 by then and I really didn't
+> care anymore.
+>
 
-Good point!
+Yep.
+final 2.6.33.7 was released 8 days before 2.6.34.3.
 
-As long as the order of the received CAN frames is not shuffled (-> plain FIFO
-behaviour) using more than one RX buffer is a good idea.
+> Note, I have gotten a few rumblings that I should bring .33 back to life
+> for some loving due to a few distros relying on it, but I need to find
+> the time in my schedule to do so...
+>
 
-Just a remark:
+Well,
+if you dont want to really bring it back to life, I'd suggest to simply
+released a 2.6.33.8 with only reverting the broken patch as it would 
+"unbreak" the tree and call it a day :-)
 
-During the IDF the informations about the Topcliff Controller Hub have been
-reworked, so that some of the documentation became available for the public:
+Otherwise...
+I now have merged the ssb fixes from 26.34.3:
+19bfed793ee38ce027326a3c518ff6201f673a8d ssb: do not read SPROM if it 
+does not exist
+3ca696ca403b2715018bd5c693ab105c3a3ea888 ssb: Look for SPROM at 
+different offset on higher rev CC
+a8515c84db1a9c9be19d8d873b059473474b6dab ssb: fix NULL ptr deref when 
+pcihost_wrapper is used
+8235ddc2cd7a3367b688e0ed52ab377eac6cfad4 ssb: Handle alternate SSPROM 
+location
 
-http://edc.intel.com/Platforms/Atom-E6xx/#hardware
+into 2.6.33.7 after reverting the broken commit and have confirmation 
+from users that it still works, so thats what I'll do for Mandriva 2010.1
 
-Especially the Datasheet for the Platform Controller Hub EG20T can be found:
-
-http://download.intel.com/embedded/chipsets/datasheet/324211.pdf
-
-In chapter 13 there are some details about the CAN controller.
-
-Regards,
-Oliver
+--
+Thomas
