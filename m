@@ -1,33 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next-2.6 1/2] ethtool: Complete kernel-doc
- comments for RX flow filter and hash control
-Date: Wed, 15 Sep 2010 14:42:01 -0700 (PDT)
-Message-ID: <20100915.144201.45897638.davem@davemloft.net>
-References: <1284491403.2289.5.camel@achroite.uk.solarflarecom.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH v2] drivers/net/eql.c: prevent reading uninitialized stack
+ memory
+Date: Wed, 15 Sep 2010 17:43:04 -0400
+Message-ID: <1284586984.6275.92.camel@dan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	santwona.behera@sun.com, peter.p.waskiewicz.jr@intel.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, security@kernel.org, stable@kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49695
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754286Ab0IOVln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 17:41:43 -0400
-In-Reply-To: <1284491403.2289.5.camel@achroite.uk.solarflarecom.com>
+Received: from mx1.vsecurity.com ([209.67.252.12]:63304 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752009Ab0IOVt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 17:49:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 14 Sep 2010 20:10:03 +0100
+Fixed formatting (tabs and line breaks).
 
-> There are now several interfaces within the ethtool API for getting
-> and setting RX flow filtering and hashing behaviour, most of which are
-> poorly documented.  This adds kernel-doc comments for all these
-> interfaces, based on the existing incomplete comments and on the
-> initial implementations.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+The EQL_GETMASTRCFG device ioctl allows unprivileged users to read 16
+bytes of uninitialized stack memory, because the "master_name" member of
+the master_config_t struct declared on the stack in eql_g_master_cfg()
+is not altered or zeroed before being copied back to the user.  This
+patch takes care of it.
 
-I'll apply this too, thanks Ben.
+Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
+
+--- linux-2.6.35.4.orig/drivers/net/eql.c	2010-08-26 19:47:12.000000000 -0400
++++ linux-2.6.35.4/drivers/net/eql.c	2010-09-14 21:25:27.719474445 -0400
+@@ -555,6 +555,8 @@ static int eql_g_master_cfg(struct net_d
+ 	equalizer_t *eql;
+ 	master_config_t mc;
+ 
++	memset(&mc, 0, sizeof(master_config_t));
++
+ 	if (eql_is_master(dev)) {
+ 		eql = netdev_priv(dev);
+ 		mc.max_slaves = eql->max_slaves;
+
+
+
+
+
