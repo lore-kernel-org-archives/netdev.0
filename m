@@ -1,64 +1,64 @@
-From: Brandon Philips <bphilips@suse.de>
-Subject: [PATCH] ixgbe: add GRO to vlan_features
-Date: Tue, 14 Sep 2010 18:50:53 -0700
-Message-ID: <20100915015052.GA6602@mmm.home.ifup.org>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Wed, 15 Sep 2010 09:56:10 +0800
+Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D792B8C8152AA@shsmsx502.ccr.corp.intel.com>
+References: <1284410580.13351.10.camel@localhost.localdomain>
+ <4C8F3C77.7010302@redhat.com>
+ <1284476719.13351.35.camel@localhost.localdomain>
+ <201009141721.13202.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	donald.c.skidmo
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Transfer-Encoding: 8BIT
+Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
+	"mst@redhat.com" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>, Shirley Ma <mashirle@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201009141721.13202.arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When running a vlan -> bridge -> domU setup I was noticing poor RX
-performance. It seems ixgbe and other drivers don't have NETIF_F_GRO set
-in vlan_features and thus GRO is off by default for vlans.
+>From: Arnd Bergmann [mailto:arnd@arndb.de]
+>Sent: Tuesday, September 14, 2010 11:21 PM
+>To: Shirley Ma
+>Cc: Avi Kivity; David Miller; mst@redhat.com; Xin, Xiaohui; netdev@vger.kernel.org;
+>kvm@vger.kernel.org; linux-kernel@vger.kernel.org
+>Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host kernel
+>
+>On Tuesday 14 September 2010, Shirley Ma wrote:
+>> On Tue, 2010-09-14 at 11:12 +0200, Avi Kivity wrote:
+>>
+>> > That's what io_submit() is for.  Then io_getevents() tells you what
+>> > "a
+>> > while" actually was.
+>>
+>> This macvtap zero copy uses iov buffers from vhost ring, which is
+>> allocated from guest kernel. In host kernel, vhost calls macvtap
+>> sendmsg. macvtap sendmsg calls get_user_pages_fast to pin these buffers'
+>> pages for zero copy.
+>>
+>> The patch is relying on how vhost handle these buffers. I need to look
+>> at vhost code (qemu) first for addressing the questions here.
+>
+>I guess the best solution would be to make macvtap_aio_write return
+>-EIOCBQUEUED when a packet gets passed down to the adapter, and
+>call aio_complete when the adapter is done with it.
+>
+>This would change the regular behavior of macvtap into a model where
+>every write on the file blocks until the packet has left the machine,
+>which gives us better flow control, but does slow down the traffic
+>when we only put one packet at a time into the queue.
+>
+>It also allows the user to call io_submit instead of write in order
+>to do an asynchronous submission as Avi was suggesting.
+>
 
-I see no reason why the other drivers shouldn't be fixed. If this is OK
-I will go off and fix the rest.
-
-Signed-off-by: Brandon Philips <bphilips@suse.de>
-
----
- drivers/net/ixgbe/ixgbe_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index d03eef9..0b39757 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6817,6 +6817,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	netdev->vlan_features |= NETIF_F_IP_CSUM;
- 	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
- 	netdev->vlan_features |= NETIF_F_SG;
-+	netdev->vlan_features |= NETIF_F_GRO;
+But currently, this patch is communicated with vhost-net, which is almost
+in the kernel side. If it uses aio stuff, it should be communicate with user
+space Backend. 
  
- 	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
- 		adapter->flags &= ~(IXGBE_FLAG_RSS_ENABLED |
--- 
-1.7.1
-
-
-------------------------------------------------------------------------------
-Start uncovering the many advantages of virtual appliances
-and start using them to simplify application deployment and
-accelerate your shift to cloud computing.
-http://p.sf.net/sfu/novell-sfdev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+>	Arnd
