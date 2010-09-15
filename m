@@ -1,167 +1,69 @@
-From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Subject: Re: [PATCH v3] Gigabit Ethernet driver of Topcliff PCH
-Date: Wed, 15 Sep 2010 21:19:46 +0900
-Message-ID: <001701cb54d3$3b75a730$66f8800a@maildom.okisemi.com>
-References: <4C89C23A.6090707@dsn.okisemi.com> <1284100327.24986.324.camel@Joe-Laptop>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Randy Dunlap" <randy.dunlap@oracle.com>,
-	"John Linn" <john.linn@xilinx.com>,
-	"Ralf Baechle" <ralf@linux-mips.org>,
-	"Kristoffer Glembo" <kristoffer@gaisler.com>,
-	"Maxime Bizon" <mbizon@freebox.fr>,
-	"Greg Rose" <gregory.v.rose@intel.com>,
-	"ML netdev" <netdev@vger.kernel.org>,
-	"LKML" <linux-kernel@vger.kernel.org>,
-	"MeeGo" <meego-dev@meego.com>,
-	"Stephen Hemminger" <shemminger@vyatta.com>,
-	"Jili Slaby" <jslaby@suse.cz>,
-	"FUJITA Tomonori" <fujita.tomonori@lab.ntt.co.jp>,
-	"Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	"Andrew" <andrew.chih.howe.khor@intel.com>,
-	"Intel OTC" <joel.clark@intel.com>,
-	"Foster, Margie" <margie.foster@intel.com>,
-	"Arjan" <arjan@linux.intel.com>,
-	"Toshiharu Okada" <okada533@dsn.okisemi.com>,
-	"Takahiro Shimizu" <shimizu394@dsn.okisemi.com>,
-	"Tomoya Morinaga" <morinaga526@dsn.ok
-To: "Joe Perches" <joe@perches.com>
+From: Thomas Dreibholz <dreibh@iem.uni-due.de>
+Subject: Re: [PATCH] net: SCTP NULL-pointer dereference problem description and fix
+Date: Wed, 15 Sep 2010 14:53:11 +0200
+Message-ID: <201009151453.14465.dreibh@iem.uni-due.de>
+References: <201009151003.17407.dreibh@iem.uni-due.de> <4C908768.4040502@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Martin Becke <martin.becke@uni-due.de>
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:25206 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752724Ab0IOMkx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 08:40:53 -0400
+Received: from mailout.uni-due.de ([132.252.185.19]:37657 "EHLO
+	mailout.uni-due.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947Ab0IOMxX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 08:53:23 -0400
+In-Reply-To: <4C908768.4040502@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Joe
+On Mittwoch 15 September 2010, Shan Wei wrote:
+> Thomas Dreibholz wrote, at 09/15/2010 04:03 PM:
+> > sctp_assoc_update_retran_path() in net/sctp/associola.c may derefer=
+ence a
+> > NULL-pointer when compiled with SCTP_DEBUG option: t will be NULL i=
+f
+> > there is no usable path for retransmission. SCTP_DEBUG_PRINTK_IPADD=
+R()
+> > makes an access to t->ipaddr.v4.sin_port, without checking t before=
+=2E
+> > t=3D=3DNULL =3D> oops.
+> >=20
+> > The patch below against 2.6.36-rc4 (git repository) simply ensures =
+that t
+> > is checked for not being set to NULL before calling
+> > SCTP_DEBUG_PRINTK_IPADDR().
+>=20
+> This bug has been reported by WeiYongjun and fixed by vlad for severa=
+l
+> months. About the details see .
+> http://marc.info/?l=3Dlinux-sctp&m=3D127359276009851&w=3D2
+>=20
+> But this patch is still in vlad's net-next tree, not in main tree.
+> See the patch:
+> http://git.kernel.org/?p=3Dlinux/kernel/git/vxy/lksctp-dev.git;a=3Dco=
+mmit;h=3Deb1
+> 639d206320e6a09168d6dd77306eaf5f02582
 
-Thank you for your comments.
-
-My reply comments are included in the following.
-I will resubmit after modified.
-
-Thanks Ohtake
------
-Date: Thu, 09 Sep 2010 23:32:07 -0700
-From: "Joe Perches" <joe@perches.com>
-> > diff --git a/drivers/net/pch_gbe/pch_gbe_ethtool.c b/drivers/net/pch_gbe/pch_gbe_ethtool.c
-> []
-> > +static void pch_gbe_get_regs(struct net_device *netdev,
-> > + struct ethtool_regs *regs, void *p)
-> > +{
-> > + struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-> > + struct pch_gbe_hw *hw = &adapter->hw;
-> > + struct pci_dev *pdev = adapter->pdev;
-> > + u32 *regs_buff = p;
-> > + u16 i, reg, tmp;
-> > +
-> > + regs->version = pdev->revision;
-> > + regs->version = 0x1000000 | (regs->version << 16) | pdev->device;
->
-> Might be simpler as:
-> regs->version = 0x1000000 | (__u32)pdev->revision << 16 | pdev->device;
->
-> The block below is a bit confusing to me.
-
-[masa]
-This will be modified so.
-
-
-> > + memset(p, 0, PCH_GBE_REGS_LEN * (int)sizeof(u32));
->
-> It seems the memset is unnecessary as it's completely
-> overwritten below.
-
-[masa]
-This will be deleted.
-
->
-> > + for (i = 0; i < PCH_GBE_MAC_REGS_LEN; i++)
-> > + regs_buff[i] = ioread32(&hw->reg->INT_ST + i);
-> > + /* PHY register */
-> > + for (i = PCH_GBE_MAC_REGS_LEN, reg = 0; reg < PCH_GBE_PHY_REGS_LEN;
-> > +      i++, reg++) {
-> > + pch_gbe_hal_read_phy_reg(&adapter->hw, reg, &tmp);
-> > + regs_buff[i] = tmp;
-> > + }
->
-> I think i'd be simpler to do something like:
->
-> for (i = 0; i < PCH_GBE_MAC_REGS_LEN; i++)
-> *regs_buff++ = ioread32(&hw->reg->INT_ST + i);
->
-> /* PHY register */
-> for (i = 0; i < PCH_GBE_PHY_REGS_LEN; i++) {
-> pch_gbe_hal_read_phy_reg(&adapter->hw, i, &tmp);
-> *regs_buff++ = tmp;
-> }
-
-[masa]
-This will be modified so.
+This patch resolves the problem. I am using the main tree. The patch sh=
+ould=20
+also be applied there.
 
 
-> +void pch_gbe_mac_mar_set(struct pch_gbe_hw *hw, u8 * addr, u32 index)
-> > +{
-> > + u32 mar_low, mar_high, adrmask;
-> > +
-> > + pr_debug("index : 0x%x\n", index);
-> > +
-> > + /*
-> > + * HW expects these in little endian so we reverse the byte order
-> > + * from network order (big endian) to little endian
-> > + */
-> > + mar_high = ((u32) addr[0] | ((u32) addr[1] << 8) |
-> > +    ((u32) addr[2] << 16) | ((u32) addr[3] << 24));
-> > + mar_low = ((u32) addr[4] | ((u32) addr[5] << 8));
-> > + /* Stop the MAC Address of index. */
-> > + adrmask = ioread32(&hw->reg->ADDR_MASK);
-> > + iowrite32((adrmask | (0x0001 << index)), &hw->reg->ADDR_MASK);
-> > + /* wait busy */
-> > + while ((ioread32(&hw->reg->ADDR_MASK) & PCH_GBE_BUSY)) {
-> > + int tmp = 0;
-> > + udelay(20);
-> > + tmp++;
-> > + if (tmp == 1000) {
-> > + pr_err("Address mask bit is not cleared\n");
-> > + break;
-> > + }
-> > + }
->
-> You need to move the declaration of tmp out of the while.
->
-> Do these really need to be busy-waits?
+Best regards
+--=20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+ Dr. Thomas Dreibholz
 
-[masa]
-The declaration of tmp will be moved.
-It is necessary to wait for BUSY by the specification of hardware.
-
->
-> > + /* Set the MAC address to the MAC address 1A/1B register */
-> > + iowrite32(mar_high, &hw->reg->mac_adr[index].high);
-> > + iowrite32(mar_low, &hw->reg->mac_adr[index].low);
-> > + /* Start the MAC address of index */
-> > + iowrite32((adrmask & ~(0x0001 << index)), &hw->reg->ADDR_MASK);
-> > + /* wait busy */
-> > + while ((ioread32(&hw->reg->ADDR_MASK) & PCH_GBE_BUSY)) {
-> > + int tmp = 0;
-> > + udelay(20);
-> > + tmp++;
-> > + if (tmp == 1000) {
-> > + pr_err("Address mask bit is not cleared\n");
-> > + break;
-> > + }
-> > + }
-> > +}
->
-> Here too.  There are more of these too I'm not listing.
-> Perhaps you could review the logic a bit more.
->
-
-[masa]
-This will be modified.
-
-
-
-
-
+ University of Duisburg-Essen,                   Room ES210
+ Inst. for Experimental Mathematics              Ellernstra=C3=9Fe 29
+ Computer Networking Technology Group            D-45326 Essen/Germany
+-----------------------------------------------------------------------
+ E-Mail:     dreibh@iem.uni-due.de
+ Homepage:   http://www.iem.uni-due.de/~dreibh
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
