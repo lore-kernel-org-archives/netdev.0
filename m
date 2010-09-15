@@ -1,74 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 18492] New: kernel softirq warning on boot
-Date: Wed, 15 Sep 2010 14:46:55 +0800
-Message-ID: <20100915064655.GA21021@gondor.apana.org.au>
-References: <20100914120738.6a658f69.akpm@linux-foundation.org> <AANLkTinE50xFx9nShGBeOf483G2FhogO-BCj=dfHBZS7@mail.gmail.com> <20100914135730.8af6bc76.akpm@linux-foundation.org> <20100914.141103.123996613.davem@davemloft.net>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [PATCH RFC] netns: keep vlan slaves on master netns move
+Date: Wed, 15 Sep 2010 08:47:51 +0200
+Message-ID: <4C906C17.6020205@free.fr>
+References: <20100824115056.GA235835@jupiter.n2.diac24.net> <20100913114315.GA859019@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, hramrach@centrum.cz,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:33405 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153Ab0IOGrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 02:47:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20100914.141103.123996613.davem@davemloft.net>
+Received: from mtagate7.de.ibm.com ([195.212.17.167]:58351 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727Ab0IOGsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 02:48:05 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate7.de.ibm.com (8.13.1/8.13.1) with ESMTP id o8F6m2VL017095
+	for <netdev@vger.kernel.org>; Wed, 15 Sep 2010 06:48:02 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o8F6m2EK3870870
+	for <netdev@vger.kernel.org>; Wed, 15 Sep 2010 08:48:02 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o8F6m1rG003418
+	for <netdev@vger.kernel.org>; Wed, 15 Sep 2010 08:48:01 +0200
+In-Reply-To: <20100913114315.GA859019@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 14, 2010 at 02:11:03PM -0700, David Miller wrote:
+On 09/13/2010 01:43 PM, David Lamparter wrote:
+> previously, if a vlan master device was moved from one network namespace
+> to another, all 802.1q and macvlan slaves were deleted.
 >
-> I'll take a closer look at this if Herbert doesn't beat me to it.
-
-I thought we were going to use this patch until Paul's BH warning
-removal made it into mainline?
-
-netpoll: Disable IRQ around RCU dereference in netpoll_rx
-
-We cannot use rcu_dereference_bh safely in netpoll_rx as we may
-be called with IRQs disabled.  We could however simply disable
-IRQs as that too causes BH to be disabled and is safe in either
-case.
-
-Thanks to John Linville for discovering this bug and providing
-a patch.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 413742c..54f286b 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -63,20 +63,20 @@ static inline bool netpoll_rx(struct sk_buff *skb)
- 	unsigned long flags;
- 	bool ret = false;
- 
--	rcu_read_lock_bh();
-+	local_irq_save(flags);
- 	npinfo = rcu_dereference_bh(skb->dev->npinfo);
- 
- 	if (!npinfo || (list_empty(&npinfo->rx_np) && !npinfo->rx_flags))
- 		goto out;
- 
--	spin_lock_irqsave(&npinfo->rx_lock, flags);
-+	spin_lock(&npinfo->rx_lock);
- 	/* check rx_flags again with the lock held */
- 	if (npinfo->rx_flags && __netpoll_rx(skb))
- 		ret = true;
--	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
-+	spin_unlock(&npinfo->rx_lock);
- 
- out:
--	rcu_read_unlock_bh();
-+	local_irq_restore(flags);
- 	return ret;
- }
- 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> we can use dev->reg_state to figure out whether dev_change_net_namespace
+> is happening, since that won't set dev->reg_state NETREG_UNREGISTERING.
+> so, this changes 8021q and macvlan to ignore NETDEV_UNREGISTER when
+> reg_state is not NETREG_UNREGISTERING.
+>
+> Signed-off-by: David Lamparter<equinox@diac24.net>
+>    
+Acked-by: Daniel Lezcano <daniel.lezcano@free.fr>
