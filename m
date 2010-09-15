@@ -1,33 +1,201 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH RESEND 1/3] netfilter: xtables: inclusion of xt_condition
-Date: Wed, 15 Sep 2010 22:59:12 +0200
-Message-ID: <4C9133A0.7050601@trash.net>
-References: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com> <1282034213-1829-2-git-send-email-luciano.coelho@nokia.com> <4C912EFC.9070406@trash.net> <alpine.LNX.2.01.1009152246320.5146@obet.zrqbmnf.qr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6 2/3] ipip: get rid of ipip_lock
+Date: Wed, 15 Sep 2010 23:07:24 +0200
+Message-ID: <1284584844.2462.70.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Luciano Coelho <luciano.coelho@nokia.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	sameo@linux.intel.com, janne.ylalehto@nokia.com
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1009152246320.5146@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49854 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754154Ab0IOVH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 17:07:29 -0400
+Received: by mail-wy0-f174.google.com with SMTP id 22so681880wyf.19
+        for <netdev@vger.kernel.org>; Wed, 15 Sep 2010 14:07:29 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15.09.2010 22:52, Jan Engelhardt wrote:
-> 
-> On Wednesday 2010-09-15 22:39, Patrick McHardy wrote:
->> Am 17.08.2010 10:36, schrieb Luciano Coelho:
->>> +/* Defaults, these can be overridden on the module command-line. */
->>> +static unsigned int condition_list_perms = S_IRUGO | S_IWUSR;
->>> +static unsigned int condition_uid_perms = 0;
->>> +static unsigned int condition_gid_perms = 0;
->>
->> I'm not sure whether we already discussed this, but this isn't
->> useful if namespaces are used since the IDs aren't global.
-> 
-> Well it's also done for other xt modules that offer a procfs interface.
-> It does not really cost much to have this present I'd say.
+As RTNL is held while doing tunnels inserts and deletes, we can remove
+ipip_lock spinlock. My initial RCU conversion was conservative and
+converted the rwlock to spinlock, with no RTNL requirement.
 
-They should simply set the permissions for the current namespace.
+Use appropriate rcu annotations and modern lockdep checks as well.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+Tested with CONFIG_PROVE_RCU=y
+
+ net/ipv4/ipip.c |   67 +++++++++++++++++++++++-----------------------
+ 1 files changed, 34 insertions(+), 33 deletions(-)
+
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 3c6f8f3..8de8888 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -122,11 +122,11 @@
+ 
+ static int ipip_net_id __read_mostly;
+ struct ipip_net {
+-	struct ip_tunnel *tunnels_r_l[HASH_SIZE];
+-	struct ip_tunnel *tunnels_r[HASH_SIZE];
+-	struct ip_tunnel *tunnels_l[HASH_SIZE];
+-	struct ip_tunnel *tunnels_wc[1];
+-	struct ip_tunnel **tunnels[4];
++	struct ip_tunnel __rcu *tunnels_r_l[HASH_SIZE];
++	struct ip_tunnel __rcu *tunnels_r[HASH_SIZE];
++	struct ip_tunnel __rcu *tunnels_l[HASH_SIZE];
++	struct ip_tunnel __rcu *tunnels_wc[1];
++	struct ip_tunnel __rcu **tunnels[4];
+ 
+ 	struct net_device *fb_tunnel_dev;
+ };
+@@ -135,9 +135,8 @@ static void ipip_tunnel_init(struct net_device *dev);
+ static void ipip_tunnel_setup(struct net_device *dev);
+ 
+ /*
+- * Locking : hash tables are protected by RCU and a spinlock
++ * Locking : hash tables are protected by RCU and RTNL
+  */
+-static DEFINE_SPINLOCK(ipip_lock);
+ 
+ #define for_each_ip_tunnel_rcu(start) \
+ 	for (t = rcu_dereference(start); t; t = rcu_dereference(t->next))
+@@ -145,8 +144,8 @@ static DEFINE_SPINLOCK(ipip_lock);
+ static struct ip_tunnel * ipip_tunnel_lookup(struct net *net,
+ 		__be32 remote, __be32 local)
+ {
+-	unsigned h0 = HASH(remote);
+-	unsigned h1 = HASH(local);
++	unsigned int h0 = HASH(remote);
++	unsigned int h1 = HASH(local);
+ 	struct ip_tunnel *t;
+ 	struct ipip_net *ipn = net_generic(net, ipip_net_id);
+ 
+@@ -169,12 +168,12 @@ static struct ip_tunnel * ipip_tunnel_lookup(struct net *net,
+ 	return NULL;
+ }
+ 
+-static struct ip_tunnel **__ipip_bucket(struct ipip_net *ipn,
++static struct ip_tunnel __rcu **__ipip_bucket(struct ipip_net *ipn,
+ 		struct ip_tunnel_parm *parms)
+ {
+ 	__be32 remote = parms->iph.daddr;
+ 	__be32 local = parms->iph.saddr;
+-	unsigned h = 0;
++	unsigned int h = 0;
+ 	int prio = 0;
+ 
+ 	if (remote) {
+@@ -188,7 +187,7 @@ static struct ip_tunnel **__ipip_bucket(struct ipip_net *ipn,
+ 	return &ipn->tunnels[prio][h];
+ }
+ 
+-static inline struct ip_tunnel **ipip_bucket(struct ipip_net *ipn,
++static inline struct ip_tunnel __rcu **ipip_bucket(struct ipip_net *ipn,
+ 		struct ip_tunnel *t)
+ {
+ 	return __ipip_bucket(ipn, &t->parms);
+@@ -196,13 +195,14 @@ static inline struct ip_tunnel **ipip_bucket(struct ipip_net *ipn,
+ 
+ static void ipip_tunnel_unlink(struct ipip_net *ipn, struct ip_tunnel *t)
+ {
+-	struct ip_tunnel **tp;
+-
+-	for (tp = ipip_bucket(ipn, t); *tp; tp = &(*tp)->next) {
+-		if (t == *tp) {
+-			spin_lock_bh(&ipip_lock);
+-			*tp = t->next;
+-			spin_unlock_bh(&ipip_lock);
++	struct ip_tunnel __rcu **tp;
++	struct ip_tunnel *iter;
++
++	for (tp = ipip_bucket(ipn, t);
++	     (iter = rtnl_dereference(*tp)) != NULL;
++	     tp = &iter->next) {
++		if (t == iter) {
++			rcu_assign_pointer(*tp, t->next);
+ 			break;
+ 		}
+ 	}
+@@ -210,12 +210,10 @@ static void ipip_tunnel_unlink(struct ipip_net *ipn, struct ip_tunnel *t)
+ 
+ static void ipip_tunnel_link(struct ipip_net *ipn, struct ip_tunnel *t)
+ {
+-	struct ip_tunnel **tp = ipip_bucket(ipn, t);
++	struct ip_tunnel __rcu **tp = ipip_bucket(ipn, t);
+ 
+-	spin_lock_bh(&ipip_lock);
+-	t->next = *tp;
++	rcu_assign_pointer(t->next, rtnl_dereference(*tp));
+ 	rcu_assign_pointer(*tp, t);
+-	spin_unlock_bh(&ipip_lock);
+ }
+ 
+ static struct ip_tunnel * ipip_tunnel_locate(struct net *net,
+@@ -223,12 +221,15 @@ static struct ip_tunnel * ipip_tunnel_locate(struct net *net,
+ {
+ 	__be32 remote = parms->iph.daddr;
+ 	__be32 local = parms->iph.saddr;
+-	struct ip_tunnel *t, **tp, *nt;
++	struct ip_tunnel *t, *nt;
++	struct ip_tunnel __rcu **tp;
+ 	struct net_device *dev;
+ 	char name[IFNAMSIZ];
+ 	struct ipip_net *ipn = net_generic(net, ipip_net_id);
+ 
+-	for (tp = __ipip_bucket(ipn, parms); (t = *tp) != NULL; tp = &t->next) {
++	for (tp = __ipip_bucket(ipn, parms);
++		 (t = rtnl_dereference(*tp)) != NULL;
++		 tp = &t->next) {
+ 		if (local == t->parms.iph.saddr && remote == t->parms.iph.daddr)
+ 			return t;
+ 	}
+@@ -268,16 +269,15 @@ failed_free:
+ 	return NULL;
+ }
+ 
++/* called with RTNL */
+ static void ipip_tunnel_uninit(struct net_device *dev)
+ {
+ 	struct net *net = dev_net(dev);
+ 	struct ipip_net *ipn = net_generic(net, ipip_net_id);
+ 
+-	if (dev == ipn->fb_tunnel_dev) {
+-		spin_lock_bh(&ipip_lock);
+-		ipn->tunnels_wc[0] = NULL;
+-		spin_unlock_bh(&ipip_lock);
+-	} else
++	if (dev == ipn->fb_tunnel_dev)
++		rcu_assign_pointer(ipn->tunnels_wc[0], NULL);
++	else
+ 		ipip_tunnel_unlink(ipn, netdev_priv(dev));
+ 	dev_put(dev);
+ }
+@@ -741,7 +741,7 @@ static void __net_init ipip_fb_tunnel_init(struct net_device *dev)
+ 	iph->ihl		= 5;
+ 
+ 	dev_hold(dev);
+-	ipn->tunnels_wc[0]	= tunnel;
++	rcu_assign_pointer(ipn->tunnels_wc[0], tunnel);
+ }
+ 
+ static struct xfrm_tunnel ipip_handler __read_mostly = {
+@@ -760,11 +760,12 @@ static void ipip_destroy_tunnels(struct ipip_net *ipn, struct list_head *head)
+ 	for (prio = 1; prio < 4; prio++) {
+ 		int h;
+ 		for (h = 0; h < HASH_SIZE; h++) {
+-			struct ip_tunnel *t = ipn->tunnels[prio][h];
++			struct ip_tunnel *t;
+ 
++			t = rtnl_dereference(ipn->tunnels[prio][h]);
+ 			while (t != NULL) {
+ 				unregister_netdevice_queue(t->dev, head);
+-				t = t->next;
++				t = rtnl_dereference(t->next);
+ 			}
+ 		}
+ 	}
+
+
