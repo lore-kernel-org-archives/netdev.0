@@ -1,58 +1,63 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: E1000E/82567LM-3: link reported up too soon
-Date: Wed, 15 Sep 2010 17:34:30 +0200
-Message-ID: <87pqwff2bd.fsf@small.ssi.corp>
-References: <87eicvi0cz.fsf@small.ssi.corp> <4C90E11B.7020807@hp.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH 00/15] change default_llseek action
+Date: Wed, 15 Sep 2010 11:38:56 -0400
+Message-ID: <9828.1284565136@localhost>
+References: <1284495763-7506-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1284565136_4463P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
+	Christoph Hellwig <hch@infradead.org>,
+	David Airlie <airlied@linux.ie>,
+	dri-devel@lists.freedesktop.org, Jeremy Kerr <jk@ozlabs.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Julia Lawall <julia@diku.dk>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-fsdevel@vger.kernel.org, linux-omap@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Tony Lindgren <tony@atomide.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Tue, 14 Sep 2010 22:22:28 +0200."
+             <1284495763-7506-1-git-send-email-arnd@arndb.de>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--==_Exmh_1284565136_4463P
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:44200 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753483Ab0IOPdq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 11:33:46 -0400
-In-Reply-To: <4C90E11B.7020807@hp.com> (Brian Haley's message of "Wed, 15 Sep
-	2010 11:07:07 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Hi Brian,
+On Tue, 14 Sep 2010 22:22:28 +0200, Arnd Bergmann said:
 
-Brian Haley <brian.haley@hp.com> writes:
+> This changes *all* instances of struct file_operations in
+> the kernel to have a .llseek operation and then changes
+> the default to no_llseek, which returns -ESPIPE, which
+> is what we had decided some time ago in a discussion
+> with Christoph Hellwig.
 
->> <snip>
->> 
->> I tested it with 2 different 100M/s switches (Cisco Catalyst 2960 and a
->> Planex FX08-Mini) so I guess the switch is not the root of the issue. I
->> came to the conclusion that the link is reported up too soon by the
->> driver.
->> 
->> Because the first packets are losts, the result is that address
->> autoconfiguration is delayed by a few seconds as can be seen on
->> following capture on the laptop:
->
-> I've seen similar things on various NICs,
+I don't suppose there's any clean way to throw a build error or a
+printk_on_once() or something if we encounter an unconverted 'struct
+file_operations', is there? I have this creeping fear that this patch will go
+upstream during the merge window - as will 12 new staging/ drivers from authors
+who didn't get the memo yet.
 
-I remember I add the same kind of issue on a broadcom chip on a dell
-D600 but had no time to investigate at that time. Did you notice the
-problem for different brands? Do you think those are driver-related
-issues or something in common code?
- 
-> posted a patch last week that unfortunately had other bad
-> side-effects.  When I have time I'll work on it again, but I'd also be
-> curious if there's something that can be done at the driver level to
-> help out, since it seemed like part of the problem is that the link-UP
-> came before the device was actually able to transmit packets, so the
-> DAD was lost.
+Other than the "missed converting a new usage" issue, it looks OK to me.
 
-I am not familiar with e1000e code but as I said previously I'd be happy
-to test patches to help determine precisely where the packet gets lost
-and why.
 
-Cheers,
 
-a+
+--==_Exmh_1284565136_4463P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFMkOiQcC3lWbTT17ARAqwmAKDtt7WLCtHcS+CHyD0HhQqZdVYOywCgg7fS
+U3JZpm40giJnTm/uyS6JlMA=
+=9mVq
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1284565136_4463P--
+
