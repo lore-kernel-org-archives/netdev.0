@@ -1,94 +1,70 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 17622] New: snmp trap ALG issue
-Date: Tue, 14 Sep 2010 16:32:08 -0700
-Message-ID: <20100914163208.2ba165ca.akpm@linux-foundation.org>
-References: <bug-17622-10286@https.bugzilla.kernel.org/>
+From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Wed, 15 Sep 2010 10:21:09 +0900
+Message-ID: <001501cb5474$4ad629c0$66f8800a@maildom.okisemi.com>
+References: <4C61EDE5.4030505@dsn.okisemi.com>
+	<4C629FE5.6000204@pengutronix.de>
+	<005f01cb533e$5c21d530$66f8800a@maildom.okisemi.com>
+	<20100913152204.GA24088@suse.de>
+	<00ca01cb53e9$a50c1930$66f8800a@maildom.okisemi.com>
+	<20100914131002.GA375@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>
-To: wtweeker@163.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:33503 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755396Ab0INXcl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 19:32:41 -0400
-In-Reply-To: <bug-17622-10286@https.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Morinaga <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>, meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org,
+	arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: "Greg KH" <gregkh-l3A5Bk7waGM@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Hi Greg,
 
-On Thu, 2 Sep 2010 09:25:12 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
+We have already tried to execute "git send-email" for sending our patch.
+Command "git send-email" returns success message,
+but destination email client can't receive the patch.
+We will continue analyzing so that "git send-email" works well.
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=17622
-> 
->            Summary: snmp trap ALG issue
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 2.6.35.4
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: wtweeker@163.com
->         Regression: No
-> 
-> 
-> Symptom:
-> SNMP manager can't show trap when SNMP agent set trap message to  version1.
-> 
-> steps to reproduce:
-> (1)SNMP agent-----linux device(NAT)-----SNMP manager.
-> (2)Set SNMP agent trap message to version 1, destination IP as SNMP   manger's
-> IP.
-> (3)Do some operation to generate trap message, such as make one port of SNMP
-> agent up and down. But SNMP manger can't accept trap message.
-> 
-> I have capured the packet by Ethereal software, and check the SNMP trap packet,
-> found that the UDP checksum is incorrect. 
-> I think that the function fast_csum()(nf_nat_snmp_basic.c) have some problem.
-> 
-
-and
+Thanks, Ohtake(OKISemi)
+----- Original Message ----- 
+From: "Greg KH" <gregkh-l3A5Bk7waGM@public.gmane.org>
+To: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Cc: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>; <meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org>; "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>;
+<socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>;
+<qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; "Morinaga" <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Sent: Tuesday, September 14, 2010 10:10 PM
+Subject: Re: [MeeGo-Dev][PATCH] Topcliff: Update PCH_CAN driver to 2.6.35
 
 
-> I have changed this function by refering to other checksum algorithm.
-> And tested it, it can work. the checksum is correct. 
-> 
-> static void fast_csum(__sum16 *csum,
->               const unsigned char *optr,
->               const unsigned char *nptr,
->               int offset)
-> {
->     unsigned char s[4];
-> 
->     if (offset & 1) {
->         s[0] = s[2] = 0;
->         s[0] = ~s[0]; //this line is add by me
->         s[1] = ~*optr;
->         s[3] = *nptr;
->     } else {
->         s[1] = s[3] = 0;
->         s[1] = ~s[1];//this line is add by me
->         s[0] = ~*optr;
->         s[2] = *nptr;
->     }
-> 
->     *csum = csum_fold(csum_partial(s, 4, ~csum_unfold(*csum)));
-> }
-
-Great.  Please prepare a kernel patch as per
-Documentation/SubmittingPatches and send it via a reply-to-all to this
-email?
-
-Thanks.
+> On Tue, Sep 14, 2010 at 05:48:43PM +0900, Masayuki Ohtake wrote:
+> > Hi Greg,
+> >
+> > > Then try setting up a Linux server to handle email issues to prevent
+> > > patches from going through Exchange, which is known to corrupt patches.
+> > We want to use "git send-email".
+> > I have already installed "git send-email".
+> > What's else setting we need ?
+>
+> You just need to use it then :)
+>
+> Read the documention on how to do so, it is quite detailed.
+>
+> good luck,
+>
+> greg k-h
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
