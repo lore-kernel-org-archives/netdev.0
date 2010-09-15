@@ -1,40 +1,64 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Wed, 15 Sep 2010 10:00:04 -0700
-Message-ID: <1284570004.2573.14.camel@localhost.localdomain>
-References: <1284483745.13351.71.camel@localhost.localdomain>
-	 <20100914182707.GB15549@redhat.com>
-	 <1284490143.13351.82.camel@localhost.localdomain>
-	 <20100914190156.GA16037@redhat.com>
-	 <1284492983.13351.95.camel@localhost.localdomain>
-	 <20100915051241.GA25340@redhat.com>
-	 <1284531675.24603.259.camel@localhost.localdomain>
-	 <20100915101000.GB28016@redhat.com>
-	 <1284562354.2573.12.camel@localhost.localdomain>
-	 <20100915150412.GA679@redhat.com>  <20100915153927.GA1065@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] vlan: enable GRO if real_dev supports it
+Date: Wed, 15 Sep 2010 19:08:40 +0200
+Message-ID: <1284570520.2462.5.camel@edumazet-laptop>
+References: <20100915015052.GA6602@mmm.home.ifup.org>
+	 <20100914.213544.112598547.davem@davemloft.net>
+	 <20100915163749.GA4191@mmm.home.ifup.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Avi Kivity <avi@redhat.com>,
-	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100915153927.GA1065@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	alexander.h.duyck@intel.com, peter.p.waskiewicz.jr@intel.com,
+	john.ronciak@intel.com, donald.c.skidmore@intel.com,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Brandon Philips <bphilips@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:34721 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727Ab0IORIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 13:08:50 -0400
+Received: by wwb18 with SMTP id 18so605441wwb.1
+        for <netdev@vger.kernel.org>; Wed, 15 Sep 2010 10:08:46 -0700 (PDT)
+In-Reply-To: <20100915163749.GA4191@mmm.home.ifup.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-09-15 at 17:39 +0200, Michael S. Tsirkin wrote:
-> In fact, I rechecked: both bridge and loopback have NETIF_F_HIGHDMA
-> set.
-> So maybe we should check NETIF_F_NETNS_LOCAL ...
-> 
-> macvtap in bridged mode is interesting as well. 
+Le mercredi 15 septembre 2010 =C3=A0 09:37 -0700, Brandon Philips a =C3=
+=A9crit :
+> Currently vlan devices don't have GRO by default as none of the Ether=
+net
+> drivers add NETIF_F_GRO to their vlan_features.
+>=20
+> As GRO is a software feature just propogate GRO from the real_dev in =
+the
+> vlan core. There is no need to have the drivers each add NETIF_F_GRO =
+to
+> their vlan_features.
+>=20
+> Signed-off-by: Brandon Philips <bphilips@suse.de>
+> ---
+>  net/8021q/vlan_dev.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index 3bccdd1..6fbc445 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -735,6 +735,7 @@ static int vlan_dev_init(struct net_device *dev)
+>  					  (1<<__LINK_STATE_DORMANT))) |
+>  		      (1<<__LINK_STATE_PRESENT);
+> =20
+> +	dev->features |=3D real_dev->features & NETIF_F_GRO;
+>  	dev->features |=3D real_dev->features & real_dev->vlan_features;
+>  	dev->gso_max_size =3D real_dev->gso_max_size;
+> =20
 
-I found that too, just wondered which flag to use is better. :)
+Hmm, this is only part of a generic solution.
 
-Thanks
-Shirley
+If I enable gro with "ethtool -K eth0 gro on", should we propagate GRO
+on vlan eth0.555 ?
+
+
 
