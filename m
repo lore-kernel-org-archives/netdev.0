@@ -1,64 +1,65 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Wed, 15 Sep 2010 09:56:10 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D792B8C8152AA@shsmsx502.ccr.corp.intel.com>
-References: <1284410580.13351.10.camel@localhost.localdomain>
- <4C8F3C77.7010302@redhat.com>
- <1284476719.13351.35.camel@localhost.localdomain>
- <201009141721.13202.arnd@arndb.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bug 18212] New: force_igmp_version ignored when a IGMPv3
+	query received (+1 line patch)
+Date: Wed, 15 Sep 2010 10:02:40 +0800
+Message-ID: <20100915020240.GA19372@gondor.apana.org.au>
+References: <20100910091936.75eabbf6@nehalam> <OF1A09F28B.15E7E7BC-ON8825779E.00741A65-8825779E.007540E3@us.ibm.com> <20100914.142418.149835514.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Avi Kivity <avi@redhat.com>, David Miller <davem@davemloft.net>,
-	"mst@redhat.com" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>, Shirley Ma <mashirle@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201009141721.13202.arnd@arndb.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dlstevens@us.ibm.com, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:36411 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752094Ab0IOCCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Sep 2010 22:02:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20100914.142418.149835514.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->From: Arnd Bergmann [mailto:arnd@arndb.de]
->Sent: Tuesday, September 14, 2010 11:21 PM
->To: Shirley Ma
->Cc: Avi Kivity; David Miller; mst@redhat.com; Xin, Xiaohui; netdev@vger.kernel.org;
->kvm@vger.kernel.org; linux-kernel@vger.kernel.org
->Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host kernel
->
->On Tuesday 14 September 2010, Shirley Ma wrote:
->> On Tue, 2010-09-14 at 11:12 +0200, Avi Kivity wrote:
->>
->> > That's what io_submit() is for.  Then io_getevents() tells you what
->> > "a
->> > while" actually was.
->>
->> This macvtap zero copy uses iov buffers from vhost ring, which is
->> allocated from guest kernel. In host kernel, vhost calls macvtap
->> sendmsg. macvtap sendmsg calls get_user_pages_fast to pin these buffers'
->> pages for zero copy.
->>
->> The patch is relying on how vhost handle these buffers. I need to look
->> at vhost code (qemu) first for addressing the questions here.
->
->I guess the best solution would be to make macvtap_aio_write return
->-EIOCBQUEUED when a packet gets passed down to the adapter, and
->call aio_complete when the adapter is done with it.
->
->This would change the regular behavior of macvtap into a model where
->every write on the file blocks until the packet has left the machine,
->which gives us better flow control, but does slow down the traffic
->when we only put one packet at a time into the queue.
->
->It also allows the user to call io_submit instead of write in order
->to do an asynchronous submission as Avi was suggesting.
->
+On Tue, Sep 14, 2010 at 02:24:18PM -0700, David Miller wrote:
+> From: David Stevens <dlstevens@us.ibm.com>
+> Date: Tue, 14 Sep 2010 14:20:40 -0700
+> 
+> > netdev-owner@vger.kernel.org wrote on 09/10/2010 09:19:36 AM:
+> > 
+> >> 
+> >> https://bugzilla.kernel.org/show_bug.cgi?id=18212
+> >> 
+> >>            Summary: force_igmp_version ignored when a IGMPv3 query
+> >>                     received (+1 line patch)
+> > 
+> >> 
+> >> Created an attachment (id=29512)
+> >>  --> (https://bugzilla.kernel.org/attachment.cgi?id=29512)
+> >> fix force_igmp_version v3 query problem
+> >> 
+> >> After all these years, it turns out that the
+> >>     /proc/sys/net/ipv4/conf/*/force_igmp_version
+> >> parameter isn't fully implemented.
+> > 
+> >         I don't think it's correct to send a v2 response to a v3
+> > query in any case. The question for answering v3 queries was
+> > whether to answer them with a v3 report, or to drop them and
+> > ignore them when force_igmp_version==2. I chose to respond,
+> > but I can see the case for dropping it too. I don't agree that
+> > a v3 query should be answered with a v2 resport (a real v2
+> > host would drop it).
+> 
+> Do you have an alternative patch to suggest?
 
-But currently, this patch is communicated with vhost-net, which is almost
-in the kernel side. If it uses aio stuff, it should be communicate with user
-space Backend. 
- 
->	Arnd
+I have gone through both IGMPv2/v3 RFCs and can't find anything
+that forbids an IGMPv2 host from replying with a v2 report to a
+v3 query.  On the other hand I think dropping the v3 query is also
+allowed.
+
+For interoperability, it would seem slightly better to reply with
+a v2 report, although I will defer to David Stevens on this :)
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
