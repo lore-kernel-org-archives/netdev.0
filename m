@@ -1,40 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next2.6] ipv4: ip_ptr cleanups
-Date: Thu, 16 Sep 2010 07:26:08 +0200
-Message-ID: <1284614768.2462.87.camel@edumazet-laptop>
-References: <1284559471.2495.147.camel@edumazet-laptop>
-	 <20100915.214335.135526473.davem@davemloft.net>
-	 <20100915.220522.25138138.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sky2: enable GRO by default
+Date: Wed, 15 Sep 2010 22:29:41 -0700 (PDT)
+Message-ID: <20100915.222941.63035178.davem@davemloft.net>
+References: <20100915202217.365fee46@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:54074 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238Ab0IPF0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 01:26:44 -0400
-Received: by wwd20 with SMTP id 20so192727wwd.1
-        for <netdev@vger.kernel.org>; Wed, 15 Sep 2010 22:26:42 -0700 (PDT)
-In-Reply-To: <20100915.220522.25138138.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58972
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752158Ab0IPF3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 01:29:22 -0400
+In-Reply-To: <20100915202217.365fee46@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 15 septembre 2010 =C3=A0 22:05 -0700, David Miller a =C3=A9=
-crit :
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 15 Sep 2010 20:22:17 -0700
 
-> Eric this introduces a build failure when lockdep or RCU checking
-> is enabled.
->=20
-> The problem is that inetdevice.h now references lockdep_rtnl_is_held(=
-)
-> but does not include rtnetlink.h
->=20
-> I'll simply ammend your commit with that header include added.
->=20
-> Just FYI...
+> The driver has supported GRO for a while, but it was not enabled
+> by default.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Gahh, you're right, thanks !
-
-
+Applied.
