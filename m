@@ -1,12 +1,12 @@
-From: Steven Rostedt <rostedt@goodmis.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: Remaining BKL users, what to do
-Date: Thu, 16 Sep 2010 10:49:09 -0400
-Message-ID: <1284648549.23787.26.camel@gandalf.stny.rr.com>
+Date: Thu, 16 Sep 2010 16:07:59 +0100
+Message-ID: <20100916160759.4411786c@lxorguk.ukuu.org.uk>
 References: <201009161632.59210.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: codalist@coda.cs.cmu.edu, autofs@linux.kernel.org,
+Cc: codalist@TELEMANN.coda.cs.cmu.edu, autofs@linux.kernel.org,
 	linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
 	Christoph Hellwig <hch@infradead.org>,
 	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
@@ -19,25 +19,24 @@ Cc: codalist@coda.cs.cmu.edu, autofs@linux.kernel.org,
 	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
 	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	Andrew Hendry <andrew.hendry@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>, Jens Axboe <jaxboe@fusionio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:46064 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754584Ab0IPOuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 10:50:51 -0400
 In-Reply-To: <201009161632.59210.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-09-16 at 16:32 +0200, Arnd Bergmann wrote:
-> The big kernel lock is gone from almost all code in linux-next, this is
-> the status of what I think will happen to the remaining users:
+> net/appletalk:
+> net/ipx/af_ipx.c:
+> net/irda/af_irda.c:
+> 	Can probably be saved from retirement in drivers/staging if the
+> 	maintainers still care.
 
-> kernel/trace/blktrace.c:
-> 	Should be easy. Ingo? Steven?
-> 
+IPX and Appletalk both have active users. They also look fairly fixable
+as the lock_kernel just maps to a stack private mutex, or in several
+cases can simply be dropped - its just a push down legacy.
 
-Jens,
-
-Git blame shows this to be your code (copied from block/blktrace.c from
-years past).
-
-Is the lock_kernel() needed here? (although Arnd did add it in 62c2a7d9)
-
--- Steve
+IRDA may well be a candidate for staging
