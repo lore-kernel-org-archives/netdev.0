@@ -1,34 +1,35 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] sky2: enable GRO by default
-Date: Wed, 15 Sep 2010 20:22:17 -0700
-Message-ID: <20100915202217.365fee46@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next-2.6 [PATCH 0/3] dccp: ccid-3 fixes and simplifications
+Date: Wed, 15 Sep 2010 20:26:52 -0700 (PDT)
+Message-ID: <20100915.202652.124065501.davem@davemloft.net>
+References: <dccp_ccid3_simplifications>
+	<1284552623-16283-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50478 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751694Ab0IPDWU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Sep 2010 23:22:20 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37961
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752355Ab0IPD0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 23:26:33 -0400
+In-Reply-To: <1284552623-16283-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver has supported GRO for a while, but it was not enabled
-by default.
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Wed, 15 Sep 2010 14:10:20 +0200
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> please find attached a set of 3 CCID-3 patches from the test tree.
+> All have been in the test tree a long time and compile independently.
+> 
+>  Patch #1: Fixes a bug and simplifies the packet scheduling algorithm.
+>  Patch #2: Replaces buggy RTT sampling history lookup.
+>  Patch #3: Simplifies the CCID-3 tx-option parsing routine.
+> 
+> This set is also available based on a fresh (today's) copy of net-next-2.6, 
+> 
+> 	git://eden-feed.erg.abdn.ac.uk/net-next-2.6  [subtree 'dccp']
 
---- a/drivers/net/sky2.c	2010-09-15 18:09:55.656753541 -0700
-+++ b/drivers/net/sky2.c	2010-09-15 18:13:50.953918039 -0700
-@@ -4581,7 +4581,8 @@ static __devinit struct net_device *sky2
- 
- 	sky2->port = port;
- 
--	dev->features |= NETIF_F_TSO | NETIF_F_IP_CSUM | NETIF_F_SG;
-+	dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG
-+		| NETIF_F_TSO  | NETIF_F_GRO;
- 	if (highmem)
- 		dev->features |= NETIF_F_HIGHDMA;
- 
+Looks good, pulled, thanks a lot Gerrit!
