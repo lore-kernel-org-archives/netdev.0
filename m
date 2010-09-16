@@ -1,47 +1,70 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v5 2/2] netfilter: save the hash of the tuple in the original
- direction for latter use
-Date: Thu, 16 Sep 2010 08:18:38 +0200
-Message-ID: <4C91B6BE.8020300@trash.net>
-References: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [E1000-devel] [PATCH] net: enable GRO by default for vlan
+ devices
+Date: Wed, 15 Sep 2010 23:21:25 -0700
+Message-ID: <20100915232125.4430a421@nehalam>
+References: <1284588203.2462.81.camel@edumazet-laptop>
+	<1284589691.2462.85.camel@edumazet-laptop>
+	<20100915181616.578fcd37@nehalam>
+	<20100915.225146.35823170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, bphilips@suse.de,
+	e1000-devel@lists.sourceforge.net, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:48823 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752079Ab0IPGV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Sep 2010 02:21:28 -0400
+In-Reply-To: <20100915.225146.35823170.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21.08.2010 00:49, Changli Gao wrote:
-> Since we don't change the tuple in the original direction, we can save it
-> in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_confirm()
-> use.
+On Wed, 15 Sep 2010 22:51:46 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-I like this idea. We could actually do the same for the reply tuple
-and invalidate the saved hash in case the reply tuple is changed
-(nf_conntrack_alter_reply()), which only happens when NAT is used.
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Wed, 15 Sep 2010 18:16:16 -0700
+> 
+> > On Thu, 16 Sep 2010 00:28:11 +0200
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > 
+> >> BTW, we have a similar problem for bonding ( GRO is disabled )
+> >> 
+> >> # ethtool -K bond0 gro off
+> >> # ethtool -K bond0 gro on
+> >> Cannot set device GRO settings: Invalid argument
+> >> 
+> >> Same for vlans on top of bond0
+> > 
+> > Bridge has same problem as well.
+> 
+> Looking this over it should be a simple matter of:
+> 
+> 1) Adding the generic get/set gro ethtool ops to bonding
+>    and bridge device ops.
+> 
+> 2) Set NETIF_F_GRO in bond/bridge device flags
+> 
+> 3) Maybe some minor fiddling with netdev_increment_features
+>    and the flag macros it uses?
+> 
+> Patches welcome :-)
 
-> __hash_conntrack() is split into two steps: ____hash_conntrack() is used
-> to get the raw hash, and __hash_bucket() is used to get the bucket id.
+I think it is more complex than that. GRO is tied to NAPI,
+and bridge/bond don't use NAPI directly. They use netif_rx() for receiving
+because layered drivers can't directly up call because of possible
+issues with stack depth. 
 
-This patch uses underscores a bit excessively, how about renaming:
+To get GRO working for netif_rx case,
+the logic in process_backlog would have to change.
+But this queue is processing packets from multiple devices so
+it is not clear if GRO could be used.
 
-- ____hash_conntrack() => hash_conntrack_raw()
-- __hash variables => hash
-- hash variables => bucket
 
-> @@ -408,7 +438,8 @@ __nf_conntrack_confirm(struct sk_buff *skb)
->  		return NF_ACCEPT;
->  
->  	zone = nf_ct_zone(ct);
-> -	hash = hash_conntrack(net, zone, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
-> +	/* reuse the __hash saved before */
-> +	hash = hash_bucket(*(unsigned long *)&ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev, net);
-
-Please try to stay at least close to the 80 characters limit.
+-- 
