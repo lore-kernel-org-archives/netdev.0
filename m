@@ -1,46 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: enable GRO by default for vlan devices
-Date: Wed, 15 Sep 2010 22:32:40 -0700 (PDT)
-Message-ID: <20100915.223240.216746981.davem@davemloft.net>
-References: <1284571476.2293.5.camel@achroite.uk.solarflarecom.com>
-	<20100915192424.GE4191@mmm.home.ifup.org>
-	<1284588203.2462.81.camel@edumazet-laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH RESEND 1/3] netfilter: xtables: inclusion of xt_condition
+Date: Thu, 16 Sep 2010 07:38:09 +0200
+Message-ID: <4C91AD41.1020802@trash.net>
+References: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com> <1282034213-1829-2-git-send-email-luciano.coelho@nokia.com> <4C912EFC.9070406@trash.net> <alpine.LNX.2.01.1009152246320.5146@obet.zrqbmnf.qr> <4C9133A0.7050601@trash.net> <alpine.LNX.2.01.1009152309140.6445@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bphilips@suse.de, bhutchings@solarflare.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com,
-	donald.c.skidmore@intel.com, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42223
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752159Ab0IPFcW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Sep 2010 01:32:22 -0400
-In-Reply-To: <1284588203.2462.81.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Luciano Coelho <luciano.coelho@nokia.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	sameo@linux.intel.com, janne.ylalehto@nokia.com
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1009152309140.6445@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 16 Sep 2010 00:03:23 +0200
+On 15.09.2010 23:09, Jan Engelhardt wrote:
+> 
+> On Wednesday 2010-09-15 22:59, Patrick McHardy wrote:
+>> On 15.09.2010 22:52, Jan Engelhardt wrote:
+>>>
+>>> On Wednesday 2010-09-15 22:39, Patrick McHardy wrote:
+>>>> Am 17.08.2010 10:36, schrieb Luciano Coelho:
+>>>>> +/* Defaults, these can be overridden on the module command-line. */
+>>>>> +static unsigned int condition_list_perms = S_IRUGO | S_IWUSR;
+>>>>> +static unsigned int condition_uid_perms = 0;
+>>>>> +static unsigned int condition_gid_perms = 0;
+>>>>
+>>>> I'm not sure whether we already discussed this, but this isn't
+>>>> useful if namespaces are used since the IDs aren't global.
+>>>
+>>> Well it's also done for other xt modules that offer a procfs interface.
+>>> It does not really cost much to have this present I'd say.
+>>
+>> They should simply set the permissions for the current namespace.
+>>
+> IIRC, the namespace stuff was going to be a later patch to keep
+> early patches simpler.
 
-> Le mercredi 15 septembre 2010 =E0 12:24 -0700, Brandon Philips a =E9c=
-rit :
->> Currently vlan devices don't have GRO by default as none of the Ethe=
-rnet
->> drivers add NETIF_F_GRO to their vlan_features.
->>=20
->> As GRO is a software feature add GRO to dev->vlan_features in
->> register_netdevice() and let vlan_dev_init() take care that it gets
->> enabled only when dev->features has NETIF_F_GRO too.
->>=20
->> Signed-off-by: Brandon Philips <bphilips@suse.de>
->>=20
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Applied.
+I'm fine with that as long as its done before merging the patches
+upstream.
