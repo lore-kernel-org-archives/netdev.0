@@ -1,71 +1,141 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Kernel Panic on OOM with 10 HTB rules
-Date: Thu, 16 Sep 2010 11:35:29 +0200
-Message-ID: <4C91E4E1.4030001@trash.net>
-References: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com> <1283949778.2748.5.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
+ kernel
+Date: Thu, 16 Sep 2010 12:02:01 +0200
+Message-ID: <20100916100201.GI20864@redhat.com>
+References: <1284410580.13351.10.camel@localhost.localdomain>
+ <4C8F3C77.7010302@redhat.com>
+ <1284476719.13351.35.camel@localhost.localdomain>
+ <201009141721.13202.arnd@arndb.de>
+ <20100914152231.GA13105@redhat.com>
+ <1284480025.13351.49.camel@localhost.localdomain>
+ <20100914162952.GB13560@redhat.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D792B8C815314@shsmsx502.ccr.corp.intel.com>
+ <20100915095837.GA28016@redhat.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D792B8CAA02B1@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, shemminger@vyatta.com
-To: Anand Raj Manickam <anandrm@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1283949778.2748.5.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Shirley Ma <mashirle@us.ibm.com>, Arnd Bergmann <arnd@arndb.de>,
+	Avi Kivity <avi@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792B8CAA02B1@shsmsx502.ccr.corp.intel.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08.09.2010 14:42, Eric Dumazet wrote:
-> Le mercredi 08 septembre 2010 =E0 16:22 +0530, Anand Raj Manickam a
-> =E9crit :
->> I m struck with
->> Kernel Panic - Out of Memory Issue  when  traffic  is more than 100k
->> pps  and have  around 10 tc rules.
->>
->> There is NO kernel panic with 1 tc rule .
->>
->> I using a 2.6.34.6 ( latest stable kernel) with SMP enabled
->>
->> The rules are simple -
->> 10 iptable rules :
->> iptables -t mangle -I FORWARD -s x.x.x.x  -j CLASSIFY --set-class 0x=
-z:0xy
->>
->> 10 tc rules :
->> tc  class add dev imq0 parent 1:z classid 1:y htb rate 2kbit ceil 32=
-768kbps
->>
->> I m using  Intel Xeon Quad core x5570, 12GB RAM , with 8 e1000e , ir=
-q
->> affined ( 1 pair per core)
->>
->> There is NO issue / CRASH with multiple iptable rules marking to the
->> same tc rule/HTB class , i can sucessfully pass more than 200k pps /
->> 800Mbps traffic .
->>
->> But when each iptable rule is marking to seprate tc rule/HTB class a=
-nd
->> when the traffic exceeds 100K pps / 20000 connections per second , w=
-e
->> hit this Out of Memory - Kernel panic condition .
->> Any help is appreciated . Do let me know if any more further
->> information is need.
->=20
-> Hi Anand
->=20
-> Could you give :
->=20
-> 1) A complete stack trace / panic report
-> 2) cat /proc/interrupts
-> 3) ifconfig -a
-> 4) cat /proc/sys/vm/min_free_kbytes
-> 5) cat /proc/meminfo
->=20
-> for each eth*
->  ethtool -g eth*
+On Thu, Sep 16, 2010 at 04:18:10PM +0800, Xin, Xiaohui wrote:
+> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
+> >Sent: Wednesday, September 15, 2010 5:59 PM
+> >To: Xin, Xiaohui
+> >Cc: Shirley Ma; Arnd Bergmann; Avi Kivity; David Miller; netdev@vger.kernel.org;
+> >kvm@vger.kernel.org; linux-kernel@vger.kernel.org
+> >Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host kernel
+> >
+> >On Wed, Sep 15, 2010 at 10:46:02AM +0800, Xin, Xiaohui wrote:
+> >> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
+> >> >Sent: Wednesday, September 15, 2010 12:30 AM
+> >> >To: Shirley Ma
+> >> >Cc: Arnd Bergmann; Avi Kivity; Xin, Xiaohui; David Miller; netdev@vger.kernel.org;
+> >> >kvm@vger.kernel.org; linux-kernel@vger.kernel.org
+> >> >Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host kernel
+> >> >
+> >> >On Tue, Sep 14, 2010 at 09:00:25AM -0700, Shirley Ma wrote:
+> >> >> On Tue, 2010-09-14 at 17:22 +0200, Michael S. Tsirkin wrote:
+> >> >> > I would expect this to hurt performance significantly.
+> >> >> > We could do this for asynchronous requests only to avoid the
+> >> >> > slowdown.
+> >> >>
+> >> >> Is kiocb in sendmsg helpful here? It is not used now.
+> >> >>
+> >> >> Shirley
+> >> >
+> >> >Precisely. This is what the patch from Xin Xiaohui does.  That code
+> >> >already seems to do most of what you are trying to do, right?
+> >> >
+> >> >The main thing missing seems to be macvtap integration, so that we can fall back
+> >> >on data copy if zero copy is unavailable?
+> >> >How hard would it be to basically link the mp and macvtap modules
+> >> >together to get us this functionality? Anyone?
+> >> >
+> >> Michael,
+> >> Is to support macvtap with zero-copy through mp device the functionality
+> >> you mentioned above?
+> >
+> >I have trouble parsing the above question.  At some point Arnd suggested
+> >that the mp device functionality would fit nicely as part of the macvtap
+> >driver.  It seems to make sense superficially, the advantage if it
+> >worked would be that we would get zero copy (mostly) transparently.
+> >
+> >Do you agree with this goal?
+> >
+> 
+> I would say yes.
 
-Please try to reproduce without the imq patch.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In that case, it's a blocker for upstream merge because this change
+affects userspace.
+
+> >> Before Shirley Ma has suggested to move the zero-copy functionality into
+> >> tun/tap device or macvtap device. How do you think about that?
+> >> I suspect
+> >> there will be a lot of duplicate code in that three drivers except we can extract
+> >> code of zero-copy into kernel APIs and vhost APIs.
+> >
+> >
+> >tap would be very hard at this point as it does not bind to a device.
+> >macvtap might work, we mainly need to figure out a way to detect that
+> >device can do zero copy so the right mode is used.  I think a first step
+> >could be to simply link mp code into macvtap module, pass necessary
+> >ioctls on, then move some code around as necessary.  This might get rid
+> >of code duplication nicely.
+> 
+> I'll look into this to see how much effort would be.
+> 
+> >
+> >
+> >> Do you think that's worth to do and help current process which is blocked too
+> >> long than I expected?
+> >
+> >I think it's nice to have.
+> >
+> >And if done hopefully this will get the folk working on the macvtap
+> >driver to review the code, which will help find all issues faster.
+> >
+> >I think if you post some performance numbers,
+> >this will also help get people excited and looking at the code.
+> >
+> 
+> The performance data I have posted before is compared with raw socket on vhost-net.
+> But currently, the raw socket backend is removed from the qemu side.
+> So I can only compare with tap on vhost-net. But unfortunately, I missed something
+> that I even can't bring it up. I was blocked by this for a time.
+
+Hey, maybe you are seeing the bug that was reported recently.
+Could you try tcpdump -i on the tap interface in host and ethX on guest
+and tell me what you see?
+If you see packet in guest but not in host, could you try
+adding printks in vhost handle_tx to see whether it gets called
+and if yes where it fails?
+
+> >I also don't see the process as completely blocked, each review round points
+> >out more issues: we aren't going back and forth changing
+> >same lines again and again, are we?
+> >
+> >One thing that might help is increase the frequency of updates,
+> >try sending them out sooner.
+> >On the other hand 10 new patches each revision is a lot:
+> >if there is a part of patchset that has stabilised you can split it out,
+> >post once and keep posting the changing part separately.
+> >
+> >I hope these suggestions help.
+> 
+> Thanks, Michael!
+> 
+> >
+> >> >
+> >> >--
+> >> >MST
