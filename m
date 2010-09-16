@@ -1,53 +1,52 @@
-From: =?ISO-8859-1?Q?Mart=EDn_Ferrari?= <martin.ferrari@gmail.com>
-Subject: Announcing the netns library
-Date: Thu, 16 Sep 2010 15:31:03 +0200
-Message-ID: <AANLkTikw8qb7Gv11VpWFgeafp3qs=5cVHRihRXh5_dA2@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH NEXT 1/5] qlcnic: support vlan rx accleration
+Date: Thu, 16 Sep 2010 15:36:49 +0200
+Message-ID: <1284644209.3352.35.camel@edumazet-laptop>
+References: <1284642872-27832-1-git-send-email-amit.salecha@qlogic.com>
+	 <1284642872-27832-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>,
-	Alina Quereilhac <Alina.Quereilhac@sophia.inria.fr>
-To: netdev <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, anirban.chakraborty@qlogic.com
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:53031 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456Ab0IPNbE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 09:31:04 -0400
-Received: by iwn5 with SMTP id 5so1084078iwn.19
-        for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 06:31:03 -0700 (PDT)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43808 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753084Ab0IPNgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 09:36:54 -0400
+Received: by bwz11 with SMTP id 11so1575189bwz.19
+        for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 06:36:53 -0700 (PDT)
+In-Reply-To: <1284642872-27832-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le jeudi 16 septembre 2010 =C3=A0 06:14 -0700, Amit Kumar Salecha a =C3=
+=A9crit :
 
-After a few months pestering this list with my bugs, I would like to
-bive something back by showing what I have been working on, in case it
-is useful for somebody.
+> -	if (unlikely(adapter->pvid)) {
+> -		if (qlcnic_check_rx_tagging(adapter, skb)) {
+> -			adapter->stats.rxdropped++;
+> -			dev_kfree_skb_any(skb);
+> -			return buffer;
+> -		}
+> +	if (unlikely(qlcnic_check_rx_tagging(adapter, skb, &vid))) {
+> +		adapter->stats.rxdropped++;
+> +		dev_kfree_skb_any(skb);
 
-The netns library is a Python library that tries to make it easy to
-create a virtual network with realistic characteristics. It uses
-namespaces for the virtual nodes, veth links and bridges to connect
-them, and netem+tbf to emulate real world conditions. It is mainly
-aimed at network research, and it is part of a bigger project called
-NEPI, but I think netns is useful on its own, even when you just need
-something to handle all the painful configuration to set up
-namespaces.
+Its a bit strange you use dev_kfree_skb_any(skb) here.
 
-Of course, at this stage the API is not stable, and there are bugs,
-but the basic functionality is there.
+We run in NAPI mode, so you can use dev_kfree_skb().
 
-You can see more information about it here:
-http://yans.pl.sophia.inria.fr/trac/nepi/wiki/netns
-The mercurial repository is here:
-http://yans.pl.sophia.inria.fr/trac/nepi/wiki/netns
+> +		return buffer;
+>  	}
+> =20
+>  	skb->protocol =3D eth_type_trans(skb, netdev);
+> =20
+> -	napi_gro_receive(&sds_ring->napi, skb);
+> +	if ((vid !=3D 0xffff) && adapter->vlgrp)
+> +		vlan_hwaccel_receive_skb(skb, adapter->vlgrp, vid);
+> +	else
+> +		napi_gro_receive(&sds_ring->napi, skb);
 
-A sample script to show the basic usage:
-http://yans.pl.sophia.inria.fr/code/hgwebdir.cgi/netns/file/tip/sample.=
-py
 
-Don't hesitate to contact me if you are interested or have doubts.
-
-Mart=EDn.
-
---=20
-Mart=EDn Ferrari
