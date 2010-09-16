@@ -1,50 +1,40 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v2] drivers/net/usb/hso.c: prevent reading
- uninitialized memory
-Date: Thu, 16 Sep 2010 11:57:45 -0400
-Message-ID: <20100916155745.GB14318@home.goodmis.org>
-References: <1284587008.6275.95.camel@dan>
+From: Anders Larsen <al@alarsen.net>
+Subject: Re: Remaining BKL users, what to do
+Date: Thu, 16 Sep 2010 18:09:10 +0200
+Message-ID: <1284653350l.20726l.1l@i-dmzi_al.realan.de>
+References: <201009161632.59210.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: j.dumon@option.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, security@kernel.org, davem@davemloft.net,
-	stable@kernel.org
-To: Dan Rosenberg <drosenberg@vsecurity.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.122]:57921 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754944Ab0IPP5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 11:57:47 -0400
+Content-Transfer-Encoding: 8BIT
+Cc: codalist@coda.cs.cmu.edu, autofs@linux.kernel.org,
+	linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	Christoph Hellwig <hch@infradead.org>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>, Jan Kara <jack@suse.cz>,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Andrew Hendry <andrew.hendry@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201009161632.59210.arnd@arndb.de> (from arnd@arndb.de on Thu
+	Sep 16 16:32:59 2010)
 Content-Disposition: inline
-In-Reply-To: <1284587008.6275.95.camel@dan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 15, 2010 at 05:43:28PM -0400, Dan Rosenberg wrote:
-> Fixed formatting (tabs and line breaks).
-> 
-> The TIOCGICOUNT device ioctl allows unprivileged users to read
-> uninitialized stack memory, because the "reserved" member of the
-> serial_icounter_struct struct declared on the stack in hso_get_count()
-> is not altered or zeroed before being copied back to the user.  This
-> patch takes care of it.
-> 
-> Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
-> 
-> --- linux-2.6.35.4.orig/drivers/net/usb/hso.c	2010-08-26 19:47:12.000000000 -0400
-> +++ linux-2.6.35.4/drivers/net/usb/hso.c	2010-09-14 21:26:18.477585183 -0400
-> @@ -1653,6 +1653,8 @@ static int hso_get_count(struct hso_seri
->  	struct uart_icount cnow;
->  	struct hso_tiocmget  *tiocmget = serial->tiocmget;
->  
-> +	memset(&icount, 0, sizeof(struct serial_icounter_struct));
-> +
+On 2010-09-16 16:32:59, Arnd Bergmann wrote:
+> The big kernel lock is gone from almost all code in linux-next, this is
+> the status of what I think will happen to the remaining users:
 
-Move the above to after the spinlocks.
+> fs/qnx4:
+> 	Should be easy to fix, there are only a few places in the code that
+> 	use the BKL. Anders?
 
--- Steve
+Will do.
 
->  	if (!tiocmget)
->  		 return -ENOENT;
->  	spin_lock_irq(&serial->serial_lock);
-> 
+Cheers
+Anders
