@@ -1,53 +1,48 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the pcmcia tree with the net tree
-Date: Thu, 16 Sep 2010 12:31:52 +1000
-Message-ID: <20100916123152.61d6e10a.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] r8169: Handle rxfifo errors on 8168 chips
+Date: Wed, 15 Sep 2010 19:33:45 -0700 (PDT)
+Message-ID: <20100915.193345.184829695.davem@davemloft.net>
+References: <1284501431-23263-1-git-send-email-mjg@redhat.com>
+	<20100915222719.GA13385@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__16_Sep_2010_12_31_52_+1000_wV9LWLOtLJgb=iHu"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Joe Perches <joe@perches.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Dominik Brodowski <linux@dominikbrodowski.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mjg@redhat.com, netdev@vger.kernel.org, jglisse@redhat.com
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58352
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752350Ab0IPCd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 22:33:26 -0400
+In-Reply-To: <20100915222719.GA13385@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__16_Sep_2010_12_31_52_+1000_wV9LWLOtLJgb=iHu
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 16 Sep 2010 00:27:19 +0200
 
-Hi Dominik,
+> Matthew Garrett <mjg@redhat.com> :
+> [...]
+>> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+>> index 078bbf4..a0da4a1 100644
+>> --- a/drivers/net/r8169.c
+>> +++ b/drivers/net/r8169.c
+> [...]
+>> @@ -4625,8 +4625,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+>>  		}
+>>  
+>>  		/* Work around for rx fifo overflow */
+>> -		if (unlikely(status & RxFIFOOver) &&
+>> -		(tp->mac_version == RTL_GIGA_MAC_VER_11)) {
+>> +		if (unlikely(status & RxFIFOOver)) {
+>>  			netif_stop_queue(dev);
+>>  			rtl8169_tx_timeout(dev);
+>>  			break;
+> 
+> 
+> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+> 
+> Realtek's driver does something similar with the revision RTL_GIGA_MAC_VER_11
+> of the 8168.
 
-Today's linux-next merge of the pcmcia tree got a conflict in
-drivers/net/pcmcia/pcnet_cs.c between commit
-7136e11e0cf520ab3fc7b55a20e60c2ec5ea88e1 ("pcnet_cs: Use pr_fmt and
-pr_<level>") from the net tree and commit
-b76dc0546709aef18f123847680108c2fd33f203 ("pcmcia pcnet_cs: try setting
-io_lines to 16 if card setup fails") from the pcmcia tree.
-
-The latter used dev_notice/info (and moved the code) where the former
-used pr_notice, so I used the latter.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Thu__16_Sep_2010_12_31_52_+1000_wV9LWLOtLJgb=iHu
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJMkYGYAAoJEDMEi1NhKgbs5PwH/RO8WGsdtjiL+QtZaeeV8CQV
-1shJDcr8YCwtWnYvNPBsX8aYy3HuVGG5MXEct1Uwi6LChWfH1XfftvtJ1NlmEvvk
-smdTyoSDORPjaYrPTvVq3ZEAxL4ttx0pNPzq0m+alMsGnHYsKySY0ZrXr6DFXvp3
-iNWOhaGIG/FNg3LxqmQG4HO0j2c+rNhSzY+IJJm0sRaJlTp3rGwh8S0jUWruxb8F
-g1AcpLyjntZ0kMAGZUqSs0SNxH+M3dY/2xMfmeSlV8GdrDfMcCP3Ja9CmydQuPJn
-9F03I0ZSvFiGeFf26mc4Cywfw/MiGLy6AObioRn6UFut492i9iWFIGt78ekSxOA=
-=O/0W
------END PGP SIGNATURE-----
-
---Signature=_Thu__16_Sep_2010_12_31_52_+1000_wV9LWLOtLJgb=iHu--
+Applied, thanks everyone.
