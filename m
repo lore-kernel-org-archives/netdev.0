@@ -1,42 +1,37 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH RESEND 1/3] netfilter: xtables: inclusion of xt_condition
-Date: Thu, 16 Sep 2010 07:38:09 +0200
-Message-ID: <4C91AD41.1020802@trash.net>
-References: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com> <1282034213-1829-2-git-send-email-luciano.coelho@nokia.com> <4C912EFC.9070406@trash.net> <alpine.LNX.2.01.1009152246320.5146@obet.zrqbmnf.qr> <4C9133A0.7050601@trash.net> <alpine.LNX.2.01.1009152309140.6445@obet.zrqbmnf.qr>
+Subject: Re: [PATCH 5/5] net/netfilter/ipvs: Eliminate memory leak
+Date: Thu, 16 Sep 2010 07:42:43 +0200
+Message-ID: <4C91AE53.2050901@trash.net>
+References: <Pine.LNX.4.64.1008241639300.15172@ask.diku.dk>	<20100825013443.GC7237@verge.net.au> <20100825.163812.242150096.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Luciano Coelho <luciano.coelho@nokia.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	sameo@linux.intel.com, janne.ylalehto@nokia.com
-To: Jan Engelhardt <jengelh@medozas.de>
+Cc: horms@verge.net.au, julia@diku.dk, wensong@linux-vs.org, ja@ssi.bg,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1009152309140.6445@obet.zrqbmnf.qr>
+In-Reply-To: <20100825.163812.242150096.davem@davemloft.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 15.09.2010 23:09, Jan Engelhardt wrote:
+On 26.08.2010 01:38, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Wed, 25 Aug 2010 10:34:43 +0900
 > 
-> On Wednesday 2010-09-15 22:59, Patrick McHardy wrote:
->> On 15.09.2010 22:52, Jan Engelhardt wrote:
->>>
->>> On Wednesday 2010-09-15 22:39, Patrick McHardy wrote:
->>>> Am 17.08.2010 10:36, schrieb Luciano Coelho:
->>>>> +/* Defaults, these can be overridden on the module command-line. */
->>>>> +static unsigned int condition_list_perms = S_IRUGO | S_IWUSR;
->>>>> +static unsigned int condition_uid_perms = 0;
->>>>> +static unsigned int condition_gid_perms = 0;
->>>>
->>>> I'm not sure whether we already discussed this, but this isn't
->>>> useful if namespaces are used since the IDs aren't global.
->>>
->>> Well it's also done for other xt modules that offer a procfs interface.
->>> It does not really cost much to have this present I'd say.
+>> On Tue, Aug 24, 2010 at 04:39:49PM +0200, Julia Lawall wrote:
+>>> Signed-off-by: Julia Lawall <julia@diku.dk>
 >>
->> They should simply set the permissions for the current namespace.
+>> Thanks Julia, that looks good to me.
 >>
-> IIRC, the namespace stuff was going to be a later patch to keep
-> early patches simpler.
+>> Signed-off-by: Simon Horman <horms@verge.net.au>
+>>
+>> Patrick, I guess that this should go through nf-next-2.6.
+> 
+> Since Patrick appears to be offline, I'll apply this directly so
+> he has less to do when he comes back online :)
 
-I'm fine with that as long as its done before merging the patches
-upstream.
+Thanks Dave. I should be done catching up by tonight and will start
+taking care of IPVS patches again.
