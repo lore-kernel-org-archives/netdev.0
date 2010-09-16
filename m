@@ -1,48 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: Handle rxfifo errors on 8168 chips
-Date: Wed, 15 Sep 2010 19:33:45 -0700 (PDT)
-Message-ID: <20100915.193345.184829695.davem@davemloft.net>
-References: <1284501431-23263-1-git-send-email-mjg@redhat.com>
-	<20100915222719.GA13385@electric-eye.fr.zoreil.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] sky2: enable GRO by default
+Date: Wed, 15 Sep 2010 20:22:17 -0700
+Message-ID: <20100915202217.365fee46@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mjg@redhat.com, netdev@vger.kernel.org, jglisse@redhat.com
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58352
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752350Ab0IPCd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 22:33:26 -0400
-In-Reply-To: <20100915222719.GA13385@electric-eye.fr.zoreil.com>
+Received: from mail.vyatta.com ([76.74.103.46]:50478 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751694Ab0IPDWU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Sep 2010 23:22:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Thu, 16 Sep 2010 00:27:19 +0200
+The driver has supported GRO for a while, but it was not enabled
+by default.
 
-> Matthew Garrett <mjg@redhat.com> :
-> [...]
->> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
->> index 078bbf4..a0da4a1 100644
->> --- a/drivers/net/r8169.c
->> +++ b/drivers/net/r8169.c
-> [...]
->> @@ -4625,8 +4625,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
->>  		}
->>  
->>  		/* Work around for rx fifo overflow */
->> -		if (unlikely(status & RxFIFOOver) &&
->> -		(tp->mac_version == RTL_GIGA_MAC_VER_11)) {
->> +		if (unlikely(status & RxFIFOOver)) {
->>  			netif_stop_queue(dev);
->>  			rtl8169_tx_timeout(dev);
->>  			break;
-> 
-> 
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-> 
-> Realtek's driver does something similar with the revision RTL_GIGA_MAC_VER_11
-> of the 8168.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied, thanks everyone.
+--- a/drivers/net/sky2.c	2010-09-15 18:09:55.656753541 -0700
++++ b/drivers/net/sky2.c	2010-09-15 18:13:50.953918039 -0700
+@@ -4581,7 +4581,8 @@ static __devinit struct net_device *sky2
+ 
+ 	sky2->port = port;
+ 
+-	dev->features |= NETIF_F_TSO | NETIF_F_IP_CSUM | NETIF_F_SG;
++	dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG
++		| NETIF_F_TSO  | NETIF_F_GRO;
+ 	if (highmem)
+ 		dev->features |= NETIF_F_HIGHDMA;
+ 
