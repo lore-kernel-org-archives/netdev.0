@@ -1,62 +1,84 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH] net-2.6 be2net: fix to get RX IDs 0 and 1
-Date: Thu, 16 Sep 2010 17:09:02 +0530
-Message-ID: <20100916113842.GA3937@serverengines.com>
-Reply-To: Somnath Kotur <somnath.kotur@emulex.com>
+From: Anand Raj Manickam <anandrm@gmail.com>
+Subject: Re: Kernel Panic on OOM with 10 HTB rules
+Date: Thu, 16 Sep 2010 17:50:39 +0530
+Message-ID: <AANLkTi=H5WnSWBNW3s8M9cWfAt32JFyvNwNTSoYiiF1W@mail.gmail.com>
+References: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com>
+	<1283949778.2748.5.camel@edumazet-laptop>
+	<4C91E4E1.4030001@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:45415 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753856Ab0IPLix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 07:38:53 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4C91E4E1.4030001@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change made to allocate RX IDs 0 and 1 for the two ports.
-To get RX Q IDs 0 and 1 enable RSS Capability for that interface.
-RX IDs 0 and 1 have 32 bit drop counters which will take a long time
-to wrap around thereby presenting a consistent stats display.
+Things seem to be fine now after i reduced imq devs txqueuelen to 32
+and MTU to 1600 and no of imqs to 2.
+Thank you all for the Suggestions .
+Anand
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/benet/be_hw.h   |    6 ++++++
- drivers/net/benet/be_main.c |    2 ++
- 2 files changed, 8 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/benet/be_hw.h b/drivers/net/benet/be_hw.h
-index a2ec5df..e836ca6 100644
---- a/drivers/net/benet/be_hw.h
-+++ b/drivers/net/benet/be_hw.h
-@@ -52,6 +52,12 @@
-  */
- #define MEMBAR_CTRL_INT_CTRL_HOSTINTR_MASK	(1 << 29) /* bit 29 */
- 
-+/********* PCI Function Capability ************/
-+#define BE_FUNCTION_CAPS_UNCLASSIFIED_STATS	0x1
-+#define BE_FUNCTION_CAPS_RSS			0x2
-+#define BE_FUNCTION_CAPS_PROMISCUOUS		0x4
-+#define BE_FUNCTION_CAPS_LEGACY_MODE		0x8
-+
- /********* Power management (WOL) **********/
- #define PCICFG_PM_CONTROL_OFFSET		0x44
- #define PCICFG_PM_CONTROL_MASK			0x108	/* bits 3 & 8 */
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 6eda7a0..f3cfb7b 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -2094,6 +2094,8 @@ static int be_setup(struct be_adapter *adapter)
- 	cap_flags = en_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST;
- 
- 	if (be_physfn(adapter)) {
-+		if (adapter->function_caps & BE_FUNCTION_CAPS_RSS)
-+			cap_flags |= BE_IF_FLAGS_RSS;
- 		cap_flags |= BE_IF_FLAGS_MCAST_PROMISCUOUS |
- 				BE_IF_FLAGS_PROMISCUOUS |
- 				BE_IF_FLAGS_PASS_L3L4_ERRORS;
--- 
-1.5.6.1
-
+On Thu, Sep 16, 2010 at 3:05 PM, Patrick McHardy <kaber@trash.net> wrot=
+e:
+> On 08.09.2010 14:42, Eric Dumazet wrote:
+>> Le mercredi 08 septembre 2010 =E0 16:22 +0530, Anand Raj Manickam a
+>> =E9crit :
+>>> I m struck with
+>>> Kernel Panic - Out of Memory Issue =A0when =A0traffic =A0is more th=
+an 100k
+>>> pps =A0and have =A0around 10 tc rules.
+>>>
+>>> There is NO kernel panic with 1 tc rule .
+>>>
+>>> I using a 2.6.34.6 ( latest stable kernel) with SMP enabled
+>>>
+>>> The rules are simple -
+>>> 10 iptable rules :
+>>> iptables -t mangle -I FORWARD -s x.x.x.x =A0-j CLASSIFY --set-class=
+ 0xz:0xy
+>>>
+>>> 10 tc rules :
+>>> tc =A0class add dev imq0 parent 1:z classid 1:y htb rate 2kbit ceil=
+ 32768kbps
+>>>
+>>> I m using =A0Intel Xeon Quad core x5570, 12GB RAM , with 8 e1000e ,=
+ irq
+>>> affined ( 1 pair per core)
+>>>
+>>> There is NO issue / CRASH with multiple iptable rules marking to th=
+e
+>>> same tc rule/HTB class , i can sucessfully pass more than 200k pps =
+/
+>>> 800Mbps traffic .
+>>>
+>>> But when each iptable rule is marking to seprate tc rule/HTB class =
+and
+>>> when the traffic exceeds 100K pps / 20000 connections per second , =
+we
+>>> hit this Out of Memory - Kernel panic condition .
+>>> Any help is appreciated . Do let me know if any more further
+>>> information is need.
+>>
+>> Hi Anand
+>>
+>> Could you give :
+>>
+>> 1) A complete stack trace / panic report
+>> 2) cat /proc/interrupts
+>> 3) ifconfig -a
+>> 4) cat /proc/sys/vm/min_free_kbytes
+>> 5) cat /proc/meminfo
+>>
+>> for each eth*
+>> =A0ethtool -g eth*
+>
+> Please try to reproduce without the imq patch.
+>
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
