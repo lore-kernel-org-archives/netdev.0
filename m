@@ -1,36 +1,38 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] net/llc: storing negative error codes in unsigned short
-Date: Thu, 16 Sep 2010 20:12:55 +0200
-Message-ID: <20100916181155.GB7867@bicker>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH NEXT 3/5] qlcnic: vlan lro support
+Date: Thu, 16 Sep 2010 13:13:10 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86F7FFB2@MNEXMB2.qlogic.org>
+References: <1284642872-27832-1-git-send-email-amit.salecha@qlogic.com>
+	 <1284642872-27832-4-git-send-email-amit.salecha@qlogic.com>
+ <1284643638.3352.30.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:36310 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753612Ab0IPSNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 14:13:10 -0400
-Content-Disposition: inline
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:4606 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754816Ab0IPSNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 14:13:16 -0400
+In-Reply-To: <1284643638.3352.30.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the alloc_skb() fails then we return 65431 instead of -ENOBUFS
-(-105). 
-
-Signed-off-by: Dan Carpenter <error27@gmail.com>
-
-diff --git a/net/llc/llc_station.c b/net/llc/llc_station.c
-index e4dae02..cf4aea3 100644
---- a/net/llc/llc_station.c
-+++ b/net/llc/llc_station.c
-@@ -689,7 +689,7 @@ static void llc_station_rcv(struct sk_buff *skb)
- 
- int __init llc_station_init(void)
- {
--	u16 rc = -ENOBUFS;
-+	int rc = -ENOBUFS;
- 	struct sk_buff *skb;
- 	struct llc_station_state_ev *ev;
- 
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIFNlcHRlbWJl
+ciAxNiwgMjAxMCA2OjU3IFBNDQo+IFRvOiBBbWl0IFNhbGVjaGENCj4gQ2M6IGRhdmVtQGRhdmVt
+bG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEFtZWVuIFJhaG1hbjsgQW5pcmJhbg0K
+PiBDaGFrcmFib3J0eQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIE5FWFQgMy81XSBxbGNuaWM6IHZs
+YW4gbHJvIHN1cHBvcnQNCj4gDQo+IExlIGpldWRpIDE2IHNlcHRlbWJyZSAyMDEwIMOgIDA2OjE0
+IC0wNzAwLCBBbWl0IEt1bWFyIFNhbGVjaGEgYSDDqWNyaXQgOg0KPiA+IExSTyArIEdSTyArIHZs
+YW4gcnggYWNjbGVyYXRpb24gc3VwcG9ydCwgcGVyZm9ybWFuY2UgaW5jcmVhc2VzDQo+ID4gYXJv
+dW5kIDIwJSBhbmQgY3B1IHV0aWxpemF0aW9uIHJlZHVjZXMgYXJvdW5kIDcwJSBvbiB2bGFuIGlu
+dGVyZmFjZS4NCj4gDQo+IEludGVyZXN0aW5nLiBXaGF0IGlzIHRoZSB3b3JrbG9hZCB0aGF0IGRl
+bW9uc3RyYXRlcyBzdWNoIGdhaW5zID8NCj4NCkkgcmFuIGlwZXJmICh0Y3ApIHdpdGggOCB0aHJl
+YWQgd2l0aG91dCB0aGVzZSBwYXRjaGVzIGFuZCB3aXRoIHRoZXNlIHBhdGNoZXMuDQpXaGF0IGtp
+bmQgb2YgdGVzdCBjb21tdW5pdHkgZXhwZWN0ID8NCj4NCg0KIA0KDQo=
