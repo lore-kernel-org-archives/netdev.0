@@ -1,50 +1,71 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [MeeGo-Dev][PATCH v2] Topcliff: Update PCH_CAN driver to 2.6.35
-Date: Thu, 16 Sep 2010 11:10:56 +0200
-Message-ID: <4C91DF20.7040807@grandegger.com>
-References: <4C8E1773.9090000@dsn.okisemi.com>
-	<4C8E3FDE.2000002@pengutronix.de>
-	<002601cb557c$69292180$66f8800a@maildom.okisemi.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Kernel Panic on OOM with 10 HTB rules
+Date: Thu, 16 Sep 2010 11:35:29 +0200
+Message-ID: <4C91E4E1.4030001@trash.net>
+References: <AANLkTinQbuN4Y6yUgHhjhOkLGe3GPk9aN5z1gasvQ-zW@mail.gmail.com> <1283949778.2748.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-l3A5Bk7waGM@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org, arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: Masayuki Ohtake <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <002601cb557c$69292180$66f8800a-a06+6cuVnkTSQfdrb5gaxUEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, shemminger@vyatta.com
+To: Anand Raj Manickam <anandrm@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1283949778.2748.5.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/16/2010 10:51 AM, Masayuki Ohtake wrote:
-> Hi Marc,
-> 
->> - Please remove rx-filter handling from the driver completely, simply
->>   receive every can frame
-> 
-> This rx-filter function is for Topcliff's CAN HW function.
-> This function is important.
-> Could you tell us the reason why should we remove filter function ?
+On 08.09.2010 14:42, Eric Dumazet wrote:
+> Le mercredi 08 septembre 2010 =E0 16:22 +0530, Anand Raj Manickam a
+> =E9crit :
+>> I m struck with
+>> Kernel Panic - Out of Memory Issue  when  traffic  is more than 100k
+>> pps  and have  around 10 tc rules.
+>>
+>> There is NO kernel panic with 1 tc rule .
+>>
+>> I using a 2.6.34.6 ( latest stable kernel) with SMP enabled
+>>
+>> The rules are simple -
+>> 10 iptable rules :
+>> iptables -t mangle -I FORWARD -s x.x.x.x  -j CLASSIFY --set-class 0x=
+z:0xy
+>>
+>> 10 tc rules :
+>> tc  class add dev imq0 parent 1:z classid 1:y htb rate 2kbit ceil 32=
+768kbps
+>>
+>> I m using  Intel Xeon Quad core x5570, 12GB RAM , with 8 e1000e , ir=
+q
+>> affined ( 1 pair per core)
+>>
+>> There is NO issue / CRASH with multiple iptable rules marking to the
+>> same tc rule/HTB class , i can sucessfully pass more than 200k pps /
+>> 800Mbps traffic .
+>>
+>> But when each iptable rule is marking to seprate tc rule/HTB class a=
+nd
+>> when the traffic exceeds 100K pps / 20000 connections per second , w=
+e
+>> hit this Out of Memory - Kernel panic condition .
+>> Any help is appreciated . Do let me know if any more further
+>> information is need.
+>=20
+> Hi Anand
+>=20
+> Could you give :
+>=20
+> 1) A complete stack trace / panic report
+> 2) cat /proc/interrupts
+> 3) ifconfig -a
+> 4) cat /proc/sys/vm/min_free_kbytes
+> 5) cat /proc/meminfo
+>=20
+> for each eth*
+>  ethtool -g eth*
 
-We do not (yet) support the filtering capability of the CAN controller
-hardware. Therefore please configure the hardware filter to accept *any*
-CAN message like all other drivers do, e.g.:
-
-http://lxr.linux.no/#linux+v2.6.35.4/drivers/net/can/sja1000/sja1000.c#L249
-
-Wolfgang.
+Please try to reproduce without the imq patch.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
