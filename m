@@ -1,49 +1,39 @@
-From: Luca Tettamanti <kronos.it@gmail.com>
-Subject: [PATCH 2/2] atl1: zero out CMB and SBM in atl1_free_ring_resources
-Date: Thu, 16 Sep 2010 21:29:47 +0200
-Message-ID: <1284665387-10289-3-git-send-email-kronos.it@gmail.com>
-References: <AANLkTincBZrpHch0rv60YRXW2g=cqgO9vueAafcs=+RQ@mail.gmail.com>
-Cc: Luca Tettamanti <kronos.it@gmail.com>,
-	atl1-devel@lists.sourceforge.net, jcliburn@gmail.com,
-	chris.snook@gmail.com, jie.yang@atheros.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:55813 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755962Ab0IPTar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 15:30:47 -0400
-Received: by wwb18 with SMTP id 18so304234wwb.1
-        for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 12:30:46 -0700 (PDT)
-To: netdev@vger.kernel.org
-In-Reply-To: <AANLkTincBZrpHch0rv60YRXW2g=cqgO9vueAafcs=+RQ@mail.gmail.com>
-In-Reply-To: <AANLkTincBZrpHch0rv60YRXW2g=cqgO9vueAafcs=+RQ@mail.gmail.com>
-References: <AANLkTincBZrpHch0rv60YRXW2g=cqgO9vueAafcs=+RQ@mail.gmail.com>
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maciej Rutecki <maciej.rutecki@gmail.com>
+Subject: Re: 2.6.36-rc4/iwl: warning triggered in net/mac80211/scan.c:266
+Date: Thu, 16 Sep 2010 22:05:53 +0200
+Message-ID: <201009162205.54034.maciej.rutecki@gmail.com>
+References: <20100914142814.GA8744@redhat.com>
+Reply-To: maciej.rutecki@gmail.com
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	"Wey-Yi Guy" <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100914142814.GA8744@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-They are allocated in atl1_setup_ring_resources, zero out the pointers
-in atl1_free_ring_resources (like the other resources).
----
- drivers/net/atlx/atl1.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+On wtorek, 14 wrze=C5=9Bnia 2010 o 16:28:15 Michael S. Tsirkin wrote:
+> I am running 2.6.36-rc4 on T60 with an iwlagn wireless card:
+> 03:00.0 Network controller: Intel Corporation PRO/Wireless 5100 AGN
+> [Shiloh] Network Connection
+>=20
+> I was compiling a large file which stressed the box heavily, and the
+> following warning in net/mac80211/scan.c triggered:
 
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index bbd6e30..c73be28 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -1251,6 +1251,12 @@ static void atl1_free_ring_resources(struct atl1_adapter *adapter)
- 
- 	rrd_ring->desc = NULL;
- 	rrd_ring->dma = 0;
-+
-+	adapter->cmb.dma = 0;
-+	adapter->cmb.cmb = NULL;
-+
-+	adapter->smb.dma = 0;
-+	adapter->smb.smb = NULL;
- }
- 
- static void atl1_setup_mac_ctrl(struct atl1_adapter *adapter)
--- 
-1.7.1
+I created a Bugzilla entry at=20
+https://bugzilla.kernel.org/show_bug.cgi?id=3D18692
+for your bug report, please add your address to the CC list in there, t=
+hanks!
 
+--=20
+Maciej Rutecki
+http://www.maciek.unixy.pl
