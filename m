@@ -1,209 +1,495 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Regression, bisected: WARNING spam with ipsec since 2.6.35
-Date: Fri, 17 Sep 2010 00:27:50 +0200
-Message-ID: <1284676070.4784.25.camel@edumazet-laptop>
-References: <20100916213138.GA6605@elliptictech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Nick Bowler <nbowler@elliptictech.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RFC] bonding: fix workqueue re-arming races
+Date: Thu, 16 Sep 2010 15:44:33 -0700
+Message-ID: <25924.1284677073@death>
+References: <20100831170752.GA9743@midget.suse.cz> <20136.1283288063@death> <20100901131626.GA12447@midget.suse.cz> <24764.1283361274@death> <20100901183113.GA25227@midget.suse.cz> <12656.1283371238@death> <20100901205656.GA14982@smudla-wifi.bakulak.kosire.czf> <3617.1283388840@death> <20100902170847.GB8840@midget.suse.cz> <9698.1283990791@death>
+Cc: bonding-devel@lists.sourceforge.net, markine@google.com,
+	jarkao2@gmail.com, chavey@google.com, netdev@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37016 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755134Ab0IPW14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 18:27:56 -0400
-In-Reply-To: <20100916213138.GA6605@elliptictech.com>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:50514 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752950Ab0IPWoi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 18:44:38 -0400
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by e36.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o8GMedpV001901
+	for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 16:40:39 -0600
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o8GMib33212002
+	for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 16:44:37 -0600
+Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o8GMiaEg006851
+	for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 16:44:37 -0600
+In-reply-to: <9698.1283990791@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 16 septembre 2010 =C3=A0 17:31 -0400, Nick Bowler a =C3=A9crit=
- :
-> Attempting to use IPSec since 2.6.35 has resulted in WARNINGs (one of
-> them is included further down) being spammed to the kernel log.  The
-> packets seem to be transmitted fine, but the constant printk's degrad=
-e
-> performance to the point of uselessness (there are about a half dozen
-> call traces for every packet transmitted).  I've attached the full lo=
-g
-> after booting the kernel, running the setkey script, and sending a
-> single ping.
->=20
-> This is the setkey script I used to produce the issue:
->=20
->   add 192.168.0.1 192.168.0.2 esp 0x6B8B4567  -f seq-pad
->    -E rijndael-cbc 0x643C98696633487374B0DC5119495CFF
->    -A null;
->  =20
->   add 192.168.0.2 192.168.0.1 esp 0x327B23C6  -f seq-pad
->    -E rijndael-cbc 0x3D1B58BA507ED7AB2EB141F241B71EFB
->    -A null;
->  =20
->   spdadd 192.168.0.2 192.168.0.1 any -P out ipsec
->    esp/transport//require;
->   spdadd 192.168.0.1 192.168.0.2 any -P in ipsec
->    esp/transport//require;
->=20
-> and here's the first warning:
->=20
->   ------------[ cut here ]------------
->   WARNING: at include/linux/skbuff.h:472 xfrm_output_resume+0x4b8/0x5=
-0d()
->   Hardware name:        =20
->   Modules linked in: authenc esp4 deflate zlib_deflate ctr aes_generi=
-c des_generic cbc sha256_generic sha1_generic md5 crypto_null af_key au=
-tofs4 sunrpc iptable_filter ip_tables ip6t_REJECT xt_tcpudp nf_conntrac=
-k_ipv6 xt_state nf_conntrack ip6table_filter ip6_tables x_tables ipv6 l=
-oop parport_pc sg psmouse parport evdev skge rng_core button ext4 mbcac=
-he jbd2 crc16 sr_mod sd_mod cdrom ata_piix libata ehci_hcd uhci_hcd scs=
-i_mod usbcore dm_mod [last unloaded: scsi_wait_scan]
->   Pid: 2391, comm: ping Not tainted 2.6.35 #3
->   Call Trace:
->    [<c102e21f>] warn_slowpath_common+0x65/0x7a
->    [<c127ee2e>] ? xfrm_output_resume+0x4b8/0x50d
->    [<c102e243>] warn_slowpath_null+0xf/0x13
->    [<c127ee2e>] xfrm_output_resume+0x4b8/0x50d
->    [<c127ee90>] xfrm_output2+0xd/0xf
->    [<c127ef57>] xfrm_output+0xc5/0xce
->    [<c1277f55>] xfrm4_output_finish+0xa1/0xa4
->    [<c1277fe0>] xfrm4_output+0x88/0x8f
->    [<c124ce58>] ip_local_out+0x50/0x53
->    [<c124d0c4>] ip_push_pending_frames+0x269/0x2b2
->    [<c126578f>] raw_sendmsg+0x614/0x691
->    [<c1051c01>] ? trace_hardirqs_on_caller+0x1e/0x121
->    [<c126d46c>] inet_sendmsg+0xbd/0xc6
->    [<c1223f62>] sock_sendmsg+0xa5/0xbb
->    [<c108deb6>] ? might_fault+0x6e/0x88
->    [<c108deb6>] ? might_fault+0x6e/0x88
->    [<c122bd43>] ? verify_iovec+0x3e/0x6b
->    [<c1224368>] sys_sendmsg+0x149/0x196
->    [<c1023c2b>] ? get_parent_ip+0xb/0x31
->    [<c107e377>] ? unlock_page+0x3b/0x3e
->    [<c108f99a>] ? handle_mm_fault+0x219/0x49b
->    [<c1053d13>] ? lock_release_non_nested+0x86/0x221
->    [<c108deb6>] ? might_fault+0x6e/0x88
->    [<c108deb6>] ? might_fault+0x6e/0x88
->    [<c12255ba>] sys_socketcall+0x146/0x18b
->    [<c110b4b4>] ? trace_hardirqs_on_thunk+0xc/0x10
->    [<c1002690>] sysenter_do_call+0x12/0x36
->   ---[ end trace c8ae605bd7809dcc ]---
->=20
-> Bisection implicates the following commit:
->=20
->   8764ab2ca7ab5055e1ca80f9cfa4970c34acb804 is the first bad commit
->   commit 8764ab2ca7ab5055e1ca80f9cfa4970c34acb804
->   Author: Steffen Klassert <steffen.klassert@secunet.com>
->   Date:   Fri Jun 4 01:57:38 2010 +0000
->  =20
->       net: check for refcount if pop a stacked dst_entry
->      =20
->       xfrm triggers a warning if dst_pop() drops a refcount
->       on a noref dst. This patch changes dst_pop() to
->       skb_dst_pop(). skb_dst_pop() drops the refcnt only
->       on a refcounted dst. Also we don't clone the child
->       dst_entry, so it is not refcounted and we can use
->       skb_dst_set_noref() in xfrm_output_one().
->      =20
->       Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
->       Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->       Signed-off-by: David S. Miller <davem@davemloft.net>
->  =20
->   :040000 040000 3f0e1574919d0e581b3e9537a4d59ce397a926f1 f272ab5b895=
-c46b3166d321a2da759c2a6e08ae0 M	include
->   :040000 040000 a4fbff22e9ae9f57f4f8c5416f5a7be186635cab eb04849588c=
-be4b2b99030c2aa59e3433187c6df M	net
->  =20
->   git bisect start
->   # bad: [9c03f1622af051004416dd3e24d8a0fa31e34178] Merge ssh://maste=
-r.kernel.org/home/hpa/tree/sec
->   git bisect bad 9c03f1622af051004416dd3e24d8a0fa31e34178
->   # bad: [9fe6206f400646a2322096b56c59891d530e8d51] Linux 2.6.35
->   git bisect bad 9fe6206f400646a2322096b56c59891d530e8d51
->   # good: [e40152ee1e1c7a63f4777791863215e3faa37a86] Linus 2.6.34
->   git bisect good e40152ee1e1c7a63f4777791863215e3faa37a86
->   # good: [e0bc5d4a54938eedcde14005210e6c08aa9727e4] Merge branch 'i2=
-c-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jdelvare/=
-staging
->   git bisect good e0bc5d4a54938eedcde14005210e6c08aa9727e4
->   # good: [d30fda355188272430d3865db2ff9e24b4135ae3] posix-cpu-timers=
-: avoid "task->signal !=3D NULL" checks
->   git bisect good d30fda355188272430d3865db2ff9e24b4135ae3
->   # good: [9a9620db07b27700a4de9e86985735fffb78e2f8] Merge branch 'li=
-nux_next' of git://git.kernel.org/pub/scm/linux/kernel/git/mchehab/i7co=
-re
->   git bisect good 9a9620db07b27700a4de9e86985735fffb78e2f8
->   # bad: [985b823b919273fe1327d56d2196b4f92e5d0fae] drm/i915: fix hib=
-ernation since i915 self-reclaim fixes
->   git bisect bad 985b823b919273fe1327d56d2196b4f92e5d0fae
->   # bad: [b5edfefc65526b34960bbff3477ded477b0328f6] Merge branch 'for=
--linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/securi=
-ty-testing-2.6
->   git bisect bad b5edfefc65526b34960bbff3477ded477b0328f6
->   # bad: [fcdcddbcbbd39a3363bd48414bfe44553b6d698a] microblaze: Fix s=
-g_dma_len() regression
->   git bisect bad fcdcddbcbbd39a3363bd48414bfe44553b6d698a
->   # bad: [ed7dc1dfbcef301407a1e3138a49dc94e5a19d0a] Merge git://git.k=
-ernel.org/pub/scm/linux/kernel/git/davem/net-2.6
->   git bisect bad ed7dc1dfbcef301407a1e3138a49dc94e5a19d0a
->   # good: [90ec7819737d42a0ad1c2df1ff56016facae3c6e] Merge git://git.=
-kernel.org/pub/scm/linux/kernel/git/rusty/linux-2.6-for-linus
->   git bisect good 90ec7819737d42a0ad1c2df1ff56016facae3c6e
->   # good: [a1868dc2878e61778b9d6d8c61d5368e51d68a29] ixgbe: return IX=
-GBE_ERR_RAR_INDEX when out of range
->   git bisect good a1868dc2878e61778b9d6d8c61d5368e51d68a29
->   # good: [7926e0bfbbc5ff81ddad0fda831eef7060e40997] Merge branch 'fo=
-r-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/ryusuke/nilfs=
-2
->   git bisect good 7926e0bfbbc5ff81ddad0fda831eef7060e40997
->   # bad: [ca739481662137b8f717bc21f16719cda3c33d6b] ixgbe: only check=
- pfc bits in hang logic if pfc is enabled
->   git bisect bad ca739481662137b8f717bc21f16719cda3c33d6b
->   # good: [51a0d38de26226f2779912d92f155b93d539da9a] mac80211: fix di=
-alog token allocator
->   git bisect good 51a0d38de26226f2779912d92f155b93d539da9a
->   # bad: [8764ab2ca7ab5055e1ca80f9cfa4970c34acb804] net: check for re=
-fcount if pop a stacked dst_entry
->   git bisect bad 8764ab2ca7ab5055e1ca80f9cfa4970c34acb804
->   # good: [4f4aeb7fd0f7e6ca008bb2147ba36cee13876595] Merge branch 'ma=
-ster' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireles=
-s-2.6
->   git bisect good 4f4aeb7fd0f7e6ca008bb2147ba36cee13876595
->=20
+Jay Vosburgh <fubar@us.ibm.com> wrote:
 
-Thanks Nick !
+>Jiri Bohac <jbohac@suse.cz> wrote:
+>
+>>On Wed, Sep 01, 2010 at 05:54:00PM -0700, Jay Vosburgh wrote:
+>>> Jiri Bohac <jbohac@suse.cz> wrote:
+>>> 
+>>> 	In looking at bond_open a bit, I wonder if a contributing factor
+>>> to the crash (if that's what happens) is that INIT_DELAYED_WORK is being
+>>> done in bond_open on a work item that's already queued or running (left
+>>> over from the kill_timers sentinel being missed).  Calling
+>>> queue_delayed_work when the work item is already queued is ok, I
+>>> believe, so I don't think that part is an issue (or at least not a
+>>> panic-worthy one).
+>>
+>>Yes, it is the INIT_DELAYED_WORK (zeroes the pending flag), followed by
+>>queue_delayed_work(). What then happens is
+>>queue_delayed_work()->queue_delayed_work_on()->BUG_ON(timer_pending(timer));
+>
+>	Just an update; I'm setting up this patch to give it some
+>testing.  I've only got one comment so far (below).  
+>
+>	My current thought after having looked at the code is that this
+>is getting a little too complicated, so my inclination is to instead
+>verify that it's permissible (as in, "won't break anything") for the
+>various commit things to run after bond_close exits and then not worry
+>about the various sentinels.
+>
+>	I suspect that if bond_close sets all of the slave->new_link
+>fields to NOCHANGE, the two commit functions won't do anything.  The
+>promisc one is probably not a problem here, although I haven't really
+>looked at it much yet.  It might need to not check for bond_is_lb, so
+>that the promisc setting doesn't end up orphaned if the mode changes.
+[...]
 
-CC netdev
+	I had some time to work on this, and I fixed a few nits in the
+most recent patch, and also modified it as I describe above (the
+new_link business).  This seems to do the right thing for the mii/arp
+commit functions.
 
-ip_local_out() is called with rcu_read_lock() from ip_queue_xmit()
-but not from other call sites.
+	The alb_promisc alb_promisc function, however, still has a race.
+The curr_active_slave could change between the time the function is
+scheduled and when it executes.  That window is pretty small, but does
+exist.  Losing the race means that some interface stays promisc when it
+shouldn't; I don't believe it will panic.  Fixing that is probably a
+matter of stashing a pointer to the slave to be de-promisc-ified
+somewhere, but that stash would have to be handled if the slave were to
+be removed from the bond.
 
-I suspect following patch is needed, before further changes.
+	I've tested this a bit, and it seems ok, but I can't reproduce
+the original problem, so I'm not entirely sure this doesn't break
+something very subtle.
+
+	Also, I'll be out of the office for the next two weeks, so I
+won't get back to this until I return.  If any interested parties could
+test this out and provide some feedback before then, it would be
+appreciated.
+
+	-J
 
 
-[PATCH] xfrm: dont assume rcu_read_lock in xfrm_output_one()
 
-ip_local_out() is called with rcu_read_lock() held from ip_queue_xmit()
-but not from other call sites.
-
-Reported-and-bisected-by: Nick Bowler <nbowler@elliptictech.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/xfrm/xfrm_output.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index a3cca0a..64f2ae1 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -101,7 +101,7 @@ resume:
- 			err =3D -EHOSTUNREACH;
- 			goto error_nolock;
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 822f586..8015e12 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2119,10 +2119,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 
+ 	read_lock(&bond->lock);
+ 
+-	if (bond->kill_timers) {
+-		goto out;
+-	}
+-
+ 	//check if there are any slaves
+ 	if (bond->slave_cnt == 0) {
+ 		goto re_arm;
+@@ -2166,7 +2162,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 
+ re_arm:
+ 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index c746b33..8242ee2 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1397,6 +1397,40 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
++void bond_alb_promisc_disable(struct work_struct *work)
++{
++	struct bonding *bond = container_of(work, struct bonding,
++					    alb_promisc_disable_work);
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct net_device *dev = NULL;
++
++	/*
++	 * dev_set_promiscuity requires rtnl and
++	 * nothing else.
++	 */
++	rtnl_lock();
++	read_lock(&bond->lock);
++	read_lock(&bond->curr_slave_lock);
++
++	if (!bond_is_lb(bond))
++		goto out;
++	if (bond->curr_active_slave)
++		dev = bond->curr_active_slave->dev;
++	if (!dev)
++		goto out;
++
++	bond_info->primary_is_promisc = 0;
++	bond_info->rlb_promisc_timeout_counter = 0;
++
++out:
++	read_unlock(&bond->curr_slave_lock);
++	read_unlock(&bond->lock);
++	if (dev)
++		dev_set_promiscuity(dev, -1);
++
++	rtnl_unlock();
++}
++
+ void bond_alb_monitor(struct work_struct *work)
+ {
+ 	struct bonding *bond = container_of(work, struct bonding,
+@@ -1407,10 +1441,6 @@ void bond_alb_monitor(struct work_struct *work)
+ 
+ 	read_lock(&bond->lock);
+ 
+-	if (bond->kill_timers) {
+-		goto out;
+-	}
+-
+ 	if (bond->slave_cnt == 0) {
+ 		bond_info->tx_rebalance_counter = 0;
+ 		bond_info->lp_counter = 0;
+@@ -1462,25 +1492,11 @@ void bond_alb_monitor(struct work_struct *work)
+ 	if (bond_info->rlb_enabled) {
+ 		if (bond_info->primary_is_promisc &&
+ 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
+-
+-			/*
+-			 * dev_set_promiscuity requires rtnl and
+-			 * nothing else.
+-			 */
+-			read_unlock(&bond->lock);
+-			rtnl_lock();
+-
+-			bond_info->rlb_promisc_timeout_counter = 0;
+-
+ 			/* If the primary was set to promiscuous mode
+ 			 * because a slave was disabled then
+ 			 * it can now leave promiscuous mode.
+ 			 */
+-			dev_set_promiscuity(bond->curr_active_slave->dev, -1);
+-			bond_info->primary_is_promisc = 0;
+-
+-			rtnl_unlock();
+-			read_lock(&bond->lock);
++			queue_work(bond->wq, &bond->alb_promisc_disable_work);
  		}
--		skb_dst_set_noref(skb, dst);
-+		skb_dst_set(skb, dst_clone(dst));
- 		x =3D dst->xfrm;
- 	} while (x && !(x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL));
-=20
+ 
+ 		if (bond_info->rlb_rebalance) {
+@@ -1505,7 +1521,6 @@ void bond_alb_monitor(struct work_struct *work)
+ 
+ re_arm:
+ 	queue_delayed_work(bond->wq, &bond->alb_work, alb_delta_in_ticks);
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2cc4cfc..0ad562b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2343,10 +2343,15 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 	return commit;
+ }
+ 
+-static void bond_miimon_commit(struct bonding *bond)
++static void bond_miimon_commit(struct work_struct *work)
+ {
+ 	struct slave *slave;
+ 	int i;
++	struct bonding *bond = container_of(work, struct bonding,
++					    miimon_commit_work);
++
++	rtnl_lock();
++	read_lock(&bond->lock);
+ 
+ 	bond_for_each_slave(bond, slave, i) {
+ 		switch (slave->new_link) {
+@@ -2421,13 +2426,14 @@ static void bond_miimon_commit(struct bonding *bond)
+ 		}
+ 
+ do_failover:
+-		ASSERT_RTNL();
+ 		write_lock_bh(&bond->curr_slave_lock);
+ 		bond_select_active_slave(bond);
+ 		write_unlock_bh(&bond->curr_slave_lock);
+ 	}
+ 
+ 	bond_set_carrier(bond);
++	read_unlock(&bond->lock);
++	rtnl_unlock();
+ }
+ 
+ /*
+@@ -2444,8 +2450,6 @@ void bond_mii_monitor(struct work_struct *work)
+ 					    mii_work.work);
+ 
+ 	read_lock(&bond->lock);
+-	if (bond->kill_timers)
+-		goto out;
+ 
+ 	if (bond->slave_cnt == 0)
+ 		goto re_arm;
+@@ -2462,23 +2466,14 @@ void bond_mii_monitor(struct work_struct *work)
+ 		read_unlock(&bond->curr_slave_lock);
+ 	}
+ 
+-	if (bond_miimon_inspect(bond)) {
+-		read_unlock(&bond->lock);
+-		rtnl_lock();
+-		read_lock(&bond->lock);
+-
+-		bond_miimon_commit(bond);
++	if (bond_miimon_inspect(bond))
++		queue_work(bond->wq, &bond->miimon_commit_work);
+ 
+-		read_unlock(&bond->lock);
+-		rtnl_unlock();	/* might sleep, hold no other locks */
+-		read_lock(&bond->lock);
+-	}
+ 
+ re_arm:
+ 	if (bond->params.miimon)
+ 		queue_delayed_work(bond->wq, &bond->mii_work,
+ 				   msecs_to_jiffies(bond->params.miimon));
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+@@ -2778,9 +2773,6 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 
+ 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+ 
+-	if (bond->kill_timers)
+-		goto out;
+-
+ 	if (bond->slave_cnt == 0)
+ 		goto re_arm;
+ 
+@@ -2867,7 +2859,6 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ re_arm:
+ 	if (bond->params.arp_interval)
+ 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+@@ -2949,13 +2940,19 @@ static int bond_ab_arp_inspect(struct bonding *bond, int delta_in_ticks)
+ /*
+  * Called to commit link state changes noted by inspection step of
+  * active-backup mode ARP monitor.
+- *
+- * Called with RTNL and bond->lock for read.
+  */
+-static void bond_ab_arp_commit(struct bonding *bond, int delta_in_ticks)
++static void bond_ab_arp_commit(struct work_struct *work)
+ {
+ 	struct slave *slave;
+ 	int i;
++	int delta_in_ticks;
++	struct bonding *bond = container_of(work, struct bonding,
++					    ab_arp_commit_work);
++
++	rtnl_lock();
++	read_lock(&bond->lock);
++
++	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+ 
+ 	bond_for_each_slave(bond, slave, i) {
+ 		switch (slave->new_link) {
+@@ -3014,6 +3011,8 @@ do_failover:
+ 	}
+ 
+ 	bond_set_carrier(bond);
++	read_unlock(&bond->lock);
++	rtnl_unlock();
+ }
+ 
+ /*
+@@ -3093,9 +3092,6 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 
+ 	read_lock(&bond->lock);
+ 
+-	if (bond->kill_timers)
+-		goto out;
+-
+ 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
+ 
+ 	if (bond->slave_cnt == 0)
+@@ -3113,24 +3109,14 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+ 		read_unlock(&bond->curr_slave_lock);
+ 	}
+ 
+-	if (bond_ab_arp_inspect(bond, delta_in_ticks)) {
+-		read_unlock(&bond->lock);
+-		rtnl_lock();
+-		read_lock(&bond->lock);
+-
+-		bond_ab_arp_commit(bond, delta_in_ticks);
+-
+-		read_unlock(&bond->lock);
+-		rtnl_unlock();
+-		read_lock(&bond->lock);
+-	}
++	if (bond_ab_arp_inspect(bond, delta_in_ticks))
++		queue_work(bond->wq, &bond->ab_arp_commit_work);
+ 
+ 	bond_ab_arp_probe(bond);
+ 
+ re_arm:
+ 	if (bond->params.arp_interval)
+ 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
+-out:
+ 	read_unlock(&bond->lock);
+ }
+ 
+@@ -3720,8 +3706,6 @@ static int bond_open(struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 
+-	bond->kill_timers = 0;
+-
+ 	if (bond_is_lb(bond)) {
+ 		/* bond_alb_initialize must be called before the timer
+ 		 * is started.
+@@ -3767,6 +3751,8 @@ static int bond_open(struct net_device *bond_dev)
+ static int bond_close(struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
++	struct slave *slave;
++	int i;
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		/* Unregister the receive of LACPDUs */
+@@ -3781,32 +3767,36 @@ static int bond_close(struct net_device *bond_dev)
+ 	bond->send_grat_arp = 0;
+ 	bond->send_unsol_na = 0;
+ 
+-	/* signal timers not to re-arm */
+-	bond->kill_timers = 1;
++	/* There's a race between close and the rearming timers over RNTL,
++	 * so any RTNL-needing work is done as a separate work item.
++	 * Here, we arrange for the monitor commit functions to do nothing
++	 * should they happen to run after bond_close.
++	 */
++	bond_for_each_slave(bond, slave, i)
++		slave->new_link = BOND_LINK_NOCHANGE;
+ 
+ 	write_unlock_bh(&bond->lock);
+ 
+ 	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
+-		cancel_delayed_work(&bond->mii_work);
++		cancel_delayed_work_sync(&bond->mii_work);
+ 	}
+ 
+ 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
+-		cancel_delayed_work(&bond->arp_work);
++		cancel_delayed_work_sync(&bond->arp_work);
+ 	}
+ 
+ 	switch (bond->params.mode) {
+ 	case BOND_MODE_8023AD:
+-		cancel_delayed_work(&bond->ad_work);
++		cancel_delayed_work_sync(&bond->ad_work);
+ 		break;
+ 	case BOND_MODE_TLB:
+ 	case BOND_MODE_ALB:
+-		cancel_delayed_work(&bond->alb_work);
++		cancel_delayed_work_sync(&bond->alb_work);
+ 		break;
+ 	default:
+ 		break;
+ 	}
+ 
+-
+ 	if (bond_is_lb(bond)) {
+ 		/* Must be called only after all
+ 		 * slaves have been released
+@@ -4660,23 +4650,19 @@ static void bond_setup(struct net_device *bond_dev)
+ 
+ static void bond_work_cancel_all(struct bonding *bond)
+ {
+-	write_lock_bh(&bond->lock);
+-	bond->kill_timers = 1;
+-	write_unlock_bh(&bond->lock);
+-
+ 	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
+-		cancel_delayed_work(&bond->mii_work);
++		cancel_delayed_work_sync(&bond->mii_work);
+ 
+ 	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
+-		cancel_delayed_work(&bond->arp_work);
++		cancel_delayed_work_sync(&bond->arp_work);
+ 
+ 	if (bond->params.mode == BOND_MODE_ALB &&
+ 	    delayed_work_pending(&bond->alb_work))
+-		cancel_delayed_work(&bond->alb_work);
++		cancel_delayed_work_sync(&bond->alb_work);
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD &&
+ 	    delayed_work_pending(&bond->ad_work))
+-		cancel_delayed_work(&bond->ad_work);
++		cancel_delayed_work_sync(&bond->ad_work);
+ }
+ 
+ /*
+@@ -5094,6 +5080,9 @@ static int bond_init(struct net_device *bond_dev)
+ 	bond_prepare_sysfs_group(bond);
+ 
+ 	__hw_addr_init(&bond->mc_list);
++	INIT_WORK(&bond->miimon_commit_work, bond_miimon_commit);
++	INIT_WORK(&bond->ab_arp_commit_work, bond_ab_arp_commit);
++	INIT_WORK(&bond->alb_promisc_disable_work, bond_alb_promisc_disable);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index c6fdd85..ddf3a94 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -198,7 +198,6 @@ struct bonding {
+ 	s32      slave_cnt; /* never change this value outside the attach/detach wrappers */
+ 	rwlock_t lock;
+ 	rwlock_t curr_slave_lock;
+-	s8       kill_timers;
+ 	s8	 send_grat_arp;
+ 	s8	 send_unsol_na;
+ 	s8	 setup_by_slave;
+@@ -223,6 +222,9 @@ struct bonding {
+ 	struct   delayed_work arp_work;
+ 	struct   delayed_work alb_work;
+ 	struct   delayed_work ad_work;
++	struct   work_struct miimon_commit_work;
++	struct   work_struct ab_arp_commit_work;
++	struct   work_struct alb_promisc_disable_work;
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	struct   in6_addr master_ipv6;
+ #endif
+@@ -348,6 +350,7 @@ void bond_select_active_slave(struct bonding *bond);
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+ void bond_register_arp(struct bonding *);
+ void bond_unregister_arp(struct bonding *);
++void bond_alb_promisc_disable(struct work_struct *work);
+ 
+ struct bond_net {
+ 	struct net *		net;	/* Associated network namespace */
 
 
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
