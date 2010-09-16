@@ -1,49 +1,52 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] iputils: arping fails to set correct broadcast address
-Date: Thu, 16 Sep 2010 17:28:28 +0900
-Message-ID: <4C91D52C.5010109@linux-ipv6.org>
-References: <1281692696.23856.37.camel@firesoul.comx.local>
+From: "Masayuki Ohtake" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [MeeGo-Dev][PATCH v2] Topcliff: Update PCH_CAN driver to 2.6.35
+Date: Thu, 16 Sep 2010 17:51:45 +0900
+Message-ID: <002601cb557c$69292180$66f8800a@maildom.okisemi.com>
+References: <4C8E1773.9090000@dsn.okisemi.com>
+	<4C8E3FDE.2000002@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 585591@bugs.debian.org,
-	Noah Meyerhans <noahm@debian.org>, Paul Martin <pm@debian.org>
-To: Jesper Dangaard Brouer <hawk@comx.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46634 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752159Ab0IPIeu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 04:34:50 -0400
-In-Reply-To: <1281692696.23856.37.camel@firesoul.comx.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gregkh-l3A5Bk7waGM@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	Tomoya MORINAGA <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org, arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi Marc,
 
-(4:59), Jesper Dangaard Brouer wrote:
-> 
-> From: Paul Martin<pm@debian.org>
-> 
-> There seems to have been introduced a bug in iputils release s20100418.
-> 
-> This patch is based upon git://www.linux-ipv6.org/gitroot/iputils.git
-> (git commit fe342ca3148)
-> 
-> The regression is caused by commit 56018bf1b3
->   arping: Support link-layer type with larger link-layer address.
-> 
-> As reported by: Paul Martin<pm@debian.org>  in Debian bugreport #585591.
-> 
->   There's a logic error in the function that parses the interface's
->   broadcast address, causing it not to fill the broadcast address array
->   correctly.
-> 
-> Please apply.
-> 
-> Reported-by: Paul Martin<pm@debian.org>
-> Tested-by: Jesper Dangaard Brouer<hawk@comx.dk>
-> Signed-off-by: Jesper Dangaard Brouer<hawk@comx.dk>
+> - Please remove rx-filter handling from the driver completely, simply
+>   receive every can frame
 
-Applied.  Thank you very much!
+This rx-filter function is for Topcliff's CAN HW function.
+This function is important.
+Could you tell us the reason why should we remove filter function ?
 
---yoshfuji
+Thanks, Ohtake(OKISemi)
+
+----- Original Message ----- 
+From: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: "Masayuki Ohtak" <masa-korg-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Cc: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>; "Wolfram Sang"
+<w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>; "Christian Pellegrin" <chripell-VaTbYqLCNhc@public.gmane.org>; "Barry Song" <21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>; "Samuel Ortiz"
+<sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>;
+<meego-dev-WXzIur8shnEAvxtiuMwx3w@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <gregkh-l3A5Bk7waGM@public.gmane.org>;
+<yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; "Tomoya MORINAGA" <morinaga526-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>; <arjan-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Sent: Tuesday, September 14, 2010 12:14 AM
+Subject: Re: [MeeGo-Dev][PATCH v2] Topcliff: Update PCH_CAN driver to 2.6.35
