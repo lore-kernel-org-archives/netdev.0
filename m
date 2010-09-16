@@ -1,66 +1,47 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] vhost-net: fix range checking in mrg bufs case
-Date: Thu, 16 Sep 2010 02:12:45 -0400 (EDT)
-Message-ID: <1191794336.2270351284617565643.JavaMail.root@zmail05.collab.prod.int.phx2.redhat.com>
-References: <20100914131552.GA1937@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v5 2/2] netfilter: save the hash of the tuple in the original
+ direction for latter use
+Date: Thu, 16 Sep 2010 08:18:38 +0200
+Message-ID: <4C91B6BE.8020300@trash.net>
+References: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3-phx2.redhat.com ([209.132.183.24]:42263 "EHLO
-	mx01.colomx.prod.int.phx2.redhat.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751240Ab0IPGMx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 02:12:53 -0400
-In-Reply-To: <20100914131552.GA1937@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tested-by: Jason Wang <jasowang@redhat.com>
+On 21.08.2010 00:49, Changli Gao wrote:
+> Since we don't change the tuple in the original direction, we can save it
+> in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_confirm()
+> use.
 
------ "Michael S. Tsirkin" <mst@redhat.com> wrote:
+I like this idea. We could actually do the same for the reply tuple
+and invalidate the saved hash in case the reply tuple is changed
+(nf_conntrack_alter_reply()), which only happens when NAT is used.
 
-> In mergeable buffer case, we use headcount, log_num
-> and seg as indexes in same-size arrays, and
-> we know that headcount <= seg and
-> log_num equals either 0 or seg.
-> 
-> Therefore, the right thing to do is range-check seg,
-> not headcount as we do now: these will be different
-> if guest chains s/g descriptors (this does not
-> happen now, but we can not trust the guest).
-> 
-> Long term, we should add BUG_ON checks to verify
-> two other indexes are what we think they should be.
-> 
-> Reported-by: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
-> 
-> Dave, I'll queue this on my tree, no need to bother.
-> 
->  drivers/vhost/net.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 6400cd5..f095de6 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -245,7 +245,7 @@ static int get_rx_bufs(struct vhost_virtqueue
-> *vq,
->  	int r, nlogs = 0;
+> __hash_conntrack() is split into two steps: ____hash_conntrack() is used
+> to get the raw hash, and __hash_bucket() is used to get the bucket id.
+
+This patch uses underscores a bit excessively, how about renaming:
+
+- ____hash_conntrack() => hash_conntrack_raw()
+- __hash variables => hash
+- hash variables => bucket
+
+> @@ -408,7 +438,8 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+>  		return NF_ACCEPT;
 >  
->  	while (datalen > 0) {
-> -		if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
-> +		if (unlikely(seg >= VHOST_NET_MAX_SG)) {
->  			r = -ENOBUFS;
->  			goto err;
->  		}
-> -- 
-> 1.7.3.rc1.5.ge5969
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/virtualization
+>  	zone = nf_ct_zone(ct);
+> -	hash = hash_conntrack(net, zone, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+> +	/* reuse the __hash saved before */
+> +	hash = hash_bucket(*(unsigned long *)&ct->tuplehash[IP_CT_DIR_REPLY].hnnode.pprev, net);
+
+Please try to stay at least close to the 80 characters limit.
