@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 13/18] i4l: kill big kernel lock
-Date: Wed, 15 Sep 2010 19:31:31 -0700 (PDT)
-Message-ID: <20100915.193131.108799689.davem@davemloft.net>
-References: <1284492909-7147-1-git-send-email-arnd@arndb.de>
-	<1284492909-7147-14-git-send-email-arnd@arndb.de>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the pcmcia tree with the net tree
+Date: Thu, 16 Sep 2010 12:31:44 +1000
+Message-ID: <20100916123144.d34aa46f.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58343
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753217Ab0IPCbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 22:31:13 -0400
-In-Reply-To: <1284492909-7147-14-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joe Perches <joe@perches.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Dominik Brodowski <linux@dominikbrodowski.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 14 Sep 2010 21:35:04 +0200
+Hi Dominik,
 
-> The isdn4linux driver uses the big kernel lock only
-> to serialize access to a few fields in its own
-> modem_info structure.
-> 
-> The easiest replacement is a driver-wide mutex.
-> More fine-grained locking would be more appropriate
-> here, but likely harder to implement.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Today's linux-next merge of the pcmcia tree got a conflict in
+drivers/net/pcmcia/smc91c92_cs.c between commit
+636b8116d4e116eca1ac978f546b16fadfc15a6c ("drivers/net/pcmcia: Use
+pr_<level> and netdev_<level>") from the net tree and commit
+ba0ff6e64dab1a2492d88fdcc40b4eddabd8b451 ("pcmcia: split up
+modify_configuration() into two fixup functions") from the pcmcia tree.
 
-Applied.
+Just context changes.  I fixed it up (see below) and can carry the fix as
+necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/pcmcia/smc91c92_cs.c
+index 3d1c549,0af2fc8..0000000
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@@ -819,13 -792,10 +794,10 @@@ static int check_sig(struct pcmcia_devi
+      }
+  
+      if (width) {
+- 	    modconf_t mod = {
+- 		    .Attributes = CONF_IO_CHANGE_WIDTH,
+- 	    };
+ -	    printk(KERN_INFO "smc91c92_cs: using 8-bit IO window.\n");
+ +	    pr_info("using 8-bit IO window\n");
+  
+  	    smc91c92_suspend(link);
+- 	    pcmcia_modify_configuration(link, &mod);
++ 	    pcmcia_fixup_iowidth(link);
+  	    smc91c92_resume(link);
+  	    return check_sig(link);
+      }
