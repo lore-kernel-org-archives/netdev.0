@@ -1,39 +1,39 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: 2.6.36-rc4/iwl: warning triggered in net/mac80211/scan.c:266
-Date: Thu, 16 Sep 2010 22:05:53 +0200
-Message-ID: <201009162205.54034.maciej.rutecki@gmail.com>
-References: <20100914142814.GA8744@redhat.com>
-Reply-To: maciej.rutecki@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: Remaining BKL users, what to do
+Date: Thu, 16 Sep 2010 13:08:09 -0700 (PDT)
+Message-ID: <20100916.130809.176654647.davem@davemloft.net>
+References: <201009161632.59210.arnd@arndb.de>
+	<1284656277.2962.0.camel@sortiz-mobl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	"Wey-Yi Guy" <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100914142814.GA8744@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, codalist@coda.cs.cmu.edu, autofs@linux.kernel.org,
+	linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	hch@infradead.org, mikulas@artax.karlin.mff.cuni.cz,
+	Trond.Myklebust@netapp.com, vandrove@vc.cvut.cz, al@alarsen.net,
+	jack@suse.cz, dushistov@mail.ru, mingo@elte.hu,
+	netdev@vger.kernel.org, acme@ghostprotocols.net,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	andrew.hendry@gmail.com
+To: samuel@sortiz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55443
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754164Ab0IPUHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 16:07:51 -0400
+In-Reply-To: <1284656277.2962.0.camel@sortiz-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On wtorek, 14 wrze=C5=9Bnia 2010 o 16:28:15 Michael S. Tsirkin wrote:
-> I am running 2.6.36-rc4 on T60 with an iwlagn wireless card:
-> 03:00.0 Network controller: Intel Corporation PRO/Wireless 5100 AGN
-> [Shiloh] Network Connection
->=20
-> I was compiling a large file which stressed the box heavily, and the
-> following warning in net/mac80211/scan.c triggered:
+From: Samuel Ortiz <samuel@sortiz.org>
+Date: Thu, 16 Sep 2010 18:57:56 +0200
 
-I created a Bugzilla entry at=20
-https://bugzilla.kernel.org/show_bug.cgi?id=3D18692
-for your bug report, please add your address to the CC list in there, t=
-hanks!
+> On Thu, 2010-09-16 at 16:32 +0200, Arnd Bergmann wrote:
+>> net/appletalk:
+>> net/ipx/af_ipx.c:
+>> net/irda/af_irda.c:
+>> 	Can probably be saved from retirement in drivers/staging if the
+>> 	maintainers still care.
+> I'll take care of the IrDA part.
 
---=20
-Maciej Rutecki
-http://www.maciek.unixy.pl
+Thanks a lot Sam.
