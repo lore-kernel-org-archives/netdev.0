@@ -1,40 +1,37 @@
-From: Anders Larsen <al@alarsen.net>
-Subject: Re: Remaining BKL users, what to do
-Date: Thu, 16 Sep 2010 18:09:10 +0200
-Message-ID: <1284653350l.20726l.1l@i-dmzi_al.realan.de>
-References: <201009161632.59210.arnd@arndb.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH v2] drivers/net/usb/hso.c: prevent reading uninitialized
+ memory
+Date: Thu, 16 Sep 2010 18:07:10 +0100
+Message-ID: <20100916180710.07821bdd@lxorguk.ukuu.org.uk>
+References: <1284587008.6275.95.camel@dan>
+	<20100916155745.GB14318@home.goodmis.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: codalist@coda.cs.cmu.edu, autofs@linux.kernel.org,
-	linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	Christoph Hellwig <hch@infradead.org>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Petr Vandrovec <vandrove@vc.cvut.cz>, Jan Kara <jack@suse.cz>,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Andrew Hendry <andrew.hendry@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201009161632.59210.arnd@arndb.de> (from arnd@arndb.de on Thu
-	Sep 16 16:32:59 2010)
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Dan Rosenberg <drosenberg@vsecurity.com>, j.dumon@option.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	security@kernel.org, davem@davemloft.net, stable@kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:38055 "EHLO
+	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753491Ab0IPQpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 12:45:46 -0400
+In-Reply-To: <20100916155745.GB14318@home.goodmis.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2010-09-16 16:32:59, Arnd Bergmann wrote:
-> The big kernel lock is gone from almost all code in linux-next, this is
-> the status of what I think will happen to the remaining users:
+->tiocmget;
+> >  
+> > +	memset(&icount, 0, sizeof(struct serial_icounter_struct));
+> > +
+> 
+> Move the above to after the spinlocks.
 
-> fs/qnx4:
-> 	Should be easy to fix, there are only a few places in the code that
-> 	use the BKL. Anders?
+Why - its a local variable ?
 
-Will do.
+Easier to write
 
-Cheers
-Anders
+	struct serial_icounter_struct icount = { 0 };
+
+though
