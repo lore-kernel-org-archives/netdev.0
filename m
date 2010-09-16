@@ -1,38 +1,59 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH NEXT 3/5] qlcnic: vlan lro support
-Date: Thu, 16 Sep 2010 13:13:10 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86F7FFB2@MNEXMB2.qlogic.org>
-References: <1284642872-27832-1-git-send-email-amit.salecha@qlogic.com>
-	 <1284642872-27832-4-git-send-email-amit.salecha@qlogic.com>
- <1284643638.3352.30.camel@edumazet-laptop>
+From: Jens Axboe <jaxboe@fusionio.com>
+Subject: Re: Remaining BKL users, what to do
+Date: Thu, 16 Sep 2010 20:32:36 +0200
+Message-ID: <4C9262C4.9050006@fusionio.com>
+References: <201009161632.59210.arnd@arndb.de> <1284648549.23787.26.camel@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"codalist@coda.cs.cmu.edu" <codalist@coda.cs.cmu.edu>,
+	"autofs@linux.kernel.org" <autofs@linux.kernel.org>,
+	"linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
+	"dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Anders Larsen <al@alarsen.net>, Jan Kara <jack@suse.cz>,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Samuel Ortiz <samuel@sortiz.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	Andrew Hendry <andrew.hendry@gmail.com>
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:4606 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754816Ab0IPSNQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 14:13:16 -0400
-In-Reply-To: <1284643638.3352.30.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mx2.fusionio.com ([64.244.102.31]:36628 "EHLO mx2.fusionio.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754568Ab0IPSvF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Sep 2010 14:51:05 -0400
+In-Reply-To: <1284648549.23787.26.camel@gandalf.stny.rr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIFNlcHRlbWJl
-ciAxNiwgMjAxMCA2OjU3IFBNDQo+IFRvOiBBbWl0IFNhbGVjaGENCj4gQ2M6IGRhdmVtQGRhdmVt
-bG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEFtZWVuIFJhaG1hbjsgQW5pcmJhbg0K
-PiBDaGFrcmFib3J0eQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIE5FWFQgMy81XSBxbGNuaWM6IHZs
-YW4gbHJvIHN1cHBvcnQNCj4gDQo+IExlIGpldWRpIDE2IHNlcHRlbWJyZSAyMDEwIMOgIDA2OjE0
-IC0wNzAwLCBBbWl0IEt1bWFyIFNhbGVjaGEgYSDDqWNyaXQgOg0KPiA+IExSTyArIEdSTyArIHZs
-YW4gcnggYWNjbGVyYXRpb24gc3VwcG9ydCwgcGVyZm9ybWFuY2UgaW5jcmVhc2VzDQo+ID4gYXJv
-dW5kIDIwJSBhbmQgY3B1IHV0aWxpemF0aW9uIHJlZHVjZXMgYXJvdW5kIDcwJSBvbiB2bGFuIGlu
-dGVyZmFjZS4NCj4gDQo+IEludGVyZXN0aW5nLiBXaGF0IGlzIHRoZSB3b3JrbG9hZCB0aGF0IGRl
-bW9uc3RyYXRlcyBzdWNoIGdhaW5zID8NCj4NCkkgcmFuIGlwZXJmICh0Y3ApIHdpdGggOCB0aHJl
-YWQgd2l0aG91dCB0aGVzZSBwYXRjaGVzIGFuZCB3aXRoIHRoZXNlIHBhdGNoZXMuDQpXaGF0IGtp
-bmQgb2YgdGVzdCBjb21tdW5pdHkgZXhwZWN0ID8NCj4NCg0KIA0KDQo=
+On 2010-09-16 16:49, Steven Rostedt wrote:
+> On Thu, 2010-09-16 at 16:32 +0200, Arnd Bergmann wrote:
+>> The big kernel lock is gone from almost all code in linux-next, this is
+>> the status of what I think will happen to the remaining users:
+> 
+>> kernel/trace/blktrace.c:
+>> 	Should be easy. Ingo? Steven?
+>>
+> 
+> Jens,
+> 
+> Git blame shows this to be your code (copied from block/blktrace.c from
+> years past).
+> 
+> Is the lock_kernel() needed here? (although Arnd did add it in 62c2a7d9)
+
+It isn't, it can be removed.
+
+-- 
+Jens Axboe
+
+
+Confidentiality Notice: This e-mail message, its contents and any attachments to it are confidential to the intended recipient, and may contain information that is privileged and/or exempt from disclosure under applicable law. If you are not the intended recipient, please immediately notify the sender and destroy the original e-mail message and any attachments (and any copies that may have been made) from your system or otherwise. Any unauthorized use, copying, disclosure or distribution of this information is strictly prohibited.
