@@ -1,37 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 5/5] net/netfilter/ipvs: Eliminate memory leak
-Date: Thu, 16 Sep 2010 07:42:43 +0200
-Message-ID: <4C91AE53.2050901@trash.net>
-References: <Pine.LNX.4.64.1008241639300.15172@ask.diku.dk>	<20100825013443.GC7237@verge.net.au> <20100825.163812.242150096.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [E1000-devel] [PATCH] net: enable GRO by default for vlan
+ devices
+Date: Wed, 15 Sep 2010 22:51:46 -0700 (PDT)
+Message-ID: <20100915.225146.35823170.davem@davemloft.net>
+References: <1284588203.2462.81.camel@edumazet-laptop>
+	<1284589691.2462.85.camel@edumazet-laptop>
+	<20100915181616.578fcd37@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, julia@diku.dk, wensong@linux-vs.org, ja@ssi.bg,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100825.163812.242150096.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, bphilips@suse.de,
+	e1000-devel@lists.sourceforge.net, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49812
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750714Ab0IPFv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 01:51:28 -0400
+In-Reply-To: <20100915181616.578fcd37@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 26.08.2010 01:38, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Wed, 25 Aug 2010 10:34:43 +0900
-> 
->> On Tue, Aug 24, 2010 at 04:39:49PM +0200, Julia Lawall wrote:
->>> Signed-off-by: Julia Lawall <julia@diku.dk>
->>
->> Thanks Julia, that looks good to me.
->>
->> Signed-off-by: Simon Horman <horms@verge.net.au>
->>
->> Patrick, I guess that this should go through nf-next-2.6.
-> 
-> Since Patrick appears to be offline, I'll apply this directly so
-> he has less to do when he comes back online :)
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 15 Sep 2010 18:16:16 -0700
 
-Thanks Dave. I should be done catching up by tonight and will start
-taking care of IPVS patches again.
+> On Thu, 16 Sep 2010 00:28:11 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+>> BTW, we have a similar problem for bonding ( GRO is disabled )
+>> 
+>> # ethtool -K bond0 gro off
+>> # ethtool -K bond0 gro on
+>> Cannot set device GRO settings: Invalid argument
+>> 
+>> Same for vlans on top of bond0
+> 
+> Bridge has same problem as well.
+
+Looking this over it should be a simple matter of:
+
+1) Adding the generic get/set gro ethtool ops to bonding
+   and bridge device ops.
+
+2) Set NETIF_F_GRO in bond/bridge device flags
+
+3) Maybe some minor fiddling with netdev_increment_features
+   and the flag macros it uses?
+
+Patches welcome :-)
