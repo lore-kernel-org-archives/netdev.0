@@ -1,44 +1,49 @@
-From: =?ISO-8859-1?Q?Mart=EDn_Ferrari?= <martin.ferrari@gmail.com>
-Subject: Problem with tun driver
-Date: Thu, 16 Sep 2010 10:30:42 +0200
-Message-ID: <AANLkTinzLJia4WV-GUse0sX=3Ht8DrD-vVd3YkxUE8xO@mail.gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] iputils: arping fails to set correct broadcast address
+Date: Thu, 16 Sep 2010 17:28:28 +0900
+Message-ID: <4C91D52C.5010109@linux-ipv6.org>
+References: <1281692696.23856.37.camel@firesoul.comx.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@aristanetworks.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 585591@bugs.debian.org,
+	Noah Meyerhans <noahm@debian.org>, Paul Martin <pm@debian.org>
+To: Jesper Dangaard Brouer <hawk@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:49127 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751711Ab0IPIam convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 04:30:42 -0400
-Received: by iwn5 with SMTP id 5so869865iwn.19
-        for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 01:30:42 -0700 (PDT)
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46634 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752159Ab0IPIeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 04:34:50 -0400
+In-Reply-To: <1281692696.23856.37.camel@firesoul.comx.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(copying Eric as he seems to have been writing patches for tun to work
-with netns)
+Hello.
 
-Hello,
+(4:59), Jesper Dangaard Brouer wrote:
+> 
+> From: Paul Martin<pm@debian.org>
+> 
+> There seems to have been introduced a bug in iputils release s20100418.
+> 
+> This patch is based upon git://www.linux-ipv6.org/gitroot/iputils.git
+> (git commit fe342ca3148)
+> 
+> The regression is caused by commit 56018bf1b3
+>   arping: Support link-layer type with larger link-layer address.
+> 
+> As reported by: Paul Martin<pm@debian.org>  in Debian bugreport #585591.
+> 
+>   There's a logic error in the function that parses the interface's
+>   broadcast address, causing it not to fill the broadcast address array
+>   correctly.
+> 
+> Please apply.
+> 
+> Reported-by: Paul Martin<pm@debian.org>
+> Tested-by: Jesper Dangaard Brouer<hawk@comx.dk>
+> Signed-off-by: Jesper Dangaard Brouer<hawk@comx.dk>
 
-I am seeing a strange behaviour with the TUN driver when using it
-inside a network name space, hope that somebody can help me...
+Applied.  Thank you very much!
 
-I still couldn' t reproduce this problem outside of my program, so it
-complicates things more. What I am doing is creating a tap device,
-moving it into a namespace and then passing the filedescriptor to
-another process which in turn starts reading from it.
-
-=46rom strace I see that many reads succeed (Ipv6 autoconfig and arp
-requests), and at some point, read returns EBADF. I don't see the
-other processes doing anything suspicious on it at the same time. From
-reading the kernel sources, it seems to be failing the call to
-tun_get(), but I don' t understand how that could be happening...
-
-Any pointers?
-
-Thanks
-
---=20
-Mart=EDn Ferrari
+--yoshfuji
