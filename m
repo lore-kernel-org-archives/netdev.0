@@ -1,141 +1,123 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host
- kernel
-Date: Thu, 16 Sep 2010 12:02:01 +0200
-Message-ID: <20100916100201.GI20864@redhat.com>
-References: <1284410580.13351.10.camel@localhost.localdomain>
- <4C8F3C77.7010302@redhat.com>
- <1284476719.13351.35.camel@localhost.localdomain>
- <201009141721.13202.arnd@arndb.de>
- <20100914152231.GA13105@redhat.com>
- <1284480025.13351.49.camel@localhost.localdomain>
- <20100914162952.GB13560@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D792B8C815314@shsmsx502.ccr.corp.intel.com>
- <20100915095837.GA28016@redhat.com>
- <F2E9EB7348B8264F86B6AB8151CE2D792B8CAA02B1@shsmsx502.ccr.corp.intel.com>
+From: Thomas Dreibholz <dreibh@iem.uni-due.de>
+Subject: Re: [PATCH] net: SCTP remote/local Denial of Service vulnerability description and fix
+Date: Thu, 16 Sep 2010 12:43:06 +0200
+Message-ID: <201009161243.10710.dreibh@iem.uni-due.de>
+References: <201009151001.59860.dreibh@iem.uni-due.de> <4C90D1E8.7000404@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shirley Ma <mashirle@us.ibm.com>, Arnd Bergmann <arnd@arndb.de>,
-	Avi Kivity <avi@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792B8CAA02B1@shsmsx502.ccr.corp.intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Martin Becke <martin.becke@uni-due.de>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.uni-due.de ([132.252.185.19]:60416 "EHLO
+	mailout.uni-due.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754148Ab0IPKnT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 06:43:19 -0400
+In-Reply-To: <4C90D1E8.7000404@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 16, 2010 at 04:18:10PM +0800, Xin, Xiaohui wrote:
-> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
-> >Sent: Wednesday, September 15, 2010 5:59 PM
-> >To: Xin, Xiaohui
-> >Cc: Shirley Ma; Arnd Bergmann; Avi Kivity; David Miller; netdev@vger.kernel.org;
-> >kvm@vger.kernel.org; linux-kernel@vger.kernel.org
-> >Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host kernel
-> >
-> >On Wed, Sep 15, 2010 at 10:46:02AM +0800, Xin, Xiaohui wrote:
-> >> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
-> >> >Sent: Wednesday, September 15, 2010 12:30 AM
-> >> >To: Shirley Ma
-> >> >Cc: Arnd Bergmann; Avi Kivity; Xin, Xiaohui; David Miller; netdev@vger.kernel.org;
-> >> >kvm@vger.kernel.org; linux-kernel@vger.kernel.org
-> >> >Subject: Re: [RFC PATCH 2/2] macvtap: TX zero copy between guest and host kernel
-> >> >
-> >> >On Tue, Sep 14, 2010 at 09:00:25AM -0700, Shirley Ma wrote:
-> >> >> On Tue, 2010-09-14 at 17:22 +0200, Michael S. Tsirkin wrote:
-> >> >> > I would expect this to hurt performance significantly.
-> >> >> > We could do this for asynchronous requests only to avoid the
-> >> >> > slowdown.
-> >> >>
-> >> >> Is kiocb in sendmsg helpful here? It is not used now.
-> >> >>
-> >> >> Shirley
-> >> >
-> >> >Precisely. This is what the patch from Xin Xiaohui does.  That code
-> >> >already seems to do most of what you are trying to do, right?
-> >> >
-> >> >The main thing missing seems to be macvtap integration, so that we can fall back
-> >> >on data copy if zero copy is unavailable?
-> >> >How hard would it be to basically link the mp and macvtap modules
-> >> >together to get us this functionality? Anyone?
-> >> >
-> >> Michael,
-> >> Is to support macvtap with zero-copy through mp device the functionality
-> >> you mentioned above?
-> >
-> >I have trouble parsing the above question.  At some point Arnd suggested
-> >that the mp device functionality would fit nicely as part of the macvtap
-> >driver.  It seems to make sense superficially, the advantage if it
-> >worked would be that we would get zero copy (mostly) transparently.
-> >
-> >Do you agree with this goal?
-> >
-> 
-> I would say yes.
+On Mittwoch 15 September 2010, Vlad Yasevich wrote:
+> On 09/15/2010 04:01 AM, Thomas Dreibholz wrote:
+> > sctp_outq_flush() in net/sctp/outqueue.c may call sctp_packet_reset=
+() on
+> > a packet structure which has already been filled with chunks.
+> > sctp_packet_reset() will not take care of the chunks in its list an=
+d
+> > only reset the packet length. After that, the SCTP code assumes the
+> > packet to be re-initialized and adds further chunks to the structur=
+e.
+> > The length will be wrong. When actually trying to transmit the pack=
+et,
+> > the packet sk_buff structure may be exceeded within
+> > sctp_packet_transmit(), resulting in skb_over_panic() =3D> denial o=
+f
+> > service.
+> >=20
+> > Such a DoS can be triggered by a malicious remote SCTP instance, as
+> > follows: - The remote endpoint has to use two paths (i.e. 2 IP
+> > addresses); easy to achieve using an IPv4 address and an IPv6 addre=
+ss ->
+> > path A and B. - The remote user has to trigger the transmission of =
+a
+> > HEARTBEAT_ACK on path A. This is trivial, by sending a HEARTBEAT ch=
+unk.
+> > sctp_outq_flush() will call sctp_packet_config() for the packet on =
+path
+> > A. The HEARTBEAT_ACK will be added to this packet.
+> > - The remote user has to trigger a DATA chunk retransmission on pat=
+h B.
+> > This is trivial, since it only has to send appropriate SACK chunks.
+> > sctp_outq_flush() notices that the retransmission is on a different=
+ path
+> > and calls sctp_packet_config() for the packet on path B. The DATA c=
+hunk
+> > to be retransmitted is added to this packet.
+> > - The local instance has to send another DATA chunk on path A. This
+> > depends on the application, but should be easy to trigger from a re=
+mote
+> > instance. sctp_outq_flush() notices that the path has changed again=
+, and
+> > calls sctp_packet_config() for the packet on path A. This resets th=
+e
+> > size of the HEARTBEAT_ACK chunk, but the chunk remains in the packe=
+t. If
+> > size(HEARTBEAT_ACK) + size(DATA) > MTU - overhead, the next call to
+> > sctp_packet_transmit() causes the kernel panic =3D> DoS.
+> > In a similar way, the problem can also be triggered by a local user=
+,
+> > having only the permission to establish SCTP associations. Of cours=
+e,
+> > the problem can also occur during normal network operation, just by=
+ a
+> > retransmission at the wrong time.
+> >=20
+> > The patch below against 2.6.36-rc4 (git repository) fixes
+> > sctp_outq_flush() by ensuring that the packet on each path is
+> > initialized only once. Furthermore, a BUG_ON() statement ensures th=
+at
+> > further problems by calling
+> > sctp_packet_reset() on packets with chunks are detected directly.
+>=20
+> Actually I have a much easier solution.  When calling packet_config, =
+we
+> should not be resetting the packet contents.
+>=20
+> Packet contents need to be reset when a new packet is created or when=
+ the
+> packet has been sent.  We explicitly reset it after sending in
+> sctp_packet_transmit.  We also reset it in sctp_packet_init().  So, c=
+ode
+> such as:
+> 	sctp_packet_init()
+> 	sctp_packet_config()
+>=20
+> already guarantees that at config time we have a clear packet.
+>=20
+> So, simply removing a reset call from sctp_packet_config() solves thi=
+s
 
-In that case, it's a blocker for upstream merge because this change
-affects userspace.
+Great! It works fine.
 
-> >> Before Shirley Ma has suggested to move the zero-copy functionality into
-> >> tun/tap device or macvtap device. How do you think about that?
-> >> I suspect
-> >> there will be a lot of duplicate code in that three drivers except we can extract
-> >> code of zero-copy into kernel APIs and vhost APIs.
-> >
-> >
-> >tap would be very hard at this point as it does not bind to a device.
-> >macvtap might work, we mainly need to figure out a way to detect that
-> >device can do zero copy so the right mode is used.  I think a first step
-> >could be to simply link mp code into macvtap module, pass necessary
-> >ioctls on, then move some code around as necessary.  This might get rid
-> >of code duplication nicely.
-> 
-> I'll look into this to see how much effort would be.
-> 
-> >
-> >
-> >> Do you think that's worth to do and help current process which is blocked too
-> >> long than I expected?
-> >
-> >I think it's nice to have.
-> >
-> >And if done hopefully this will get the folk working on the macvtap
-> >driver to review the code, which will help find all issues faster.
-> >
-> >I think if you post some performance numbers,
-> >this will also help get people excited and looking at the code.
-> >
-> 
-> The performance data I have posted before is compared with raw socket on vhost-net.
-> But currently, the raw socket backend is removed from the qemu side.
-> So I can only compare with tap on vhost-net. But unfortunately, I missed something
-> that I even can't bring it up. I was blocked by this for a time.
+I hope this bugfix will go into the main tree soon, in order to get the=
+=20
+distribution kernels fixed.
 
-Hey, maybe you are seeing the bug that was reported recently.
-Could you try tcpdump -i on the tap interface in host and ethX on guest
-and tell me what you see?
-If you see packet in guest but not in host, could you try
-adding printks in vhost handle_tx to see whether it gets called
-and if yes where it fails?
 
-> >I also don't see the process as completely blocked, each review round points
-> >out more issues: we aren't going back and forth changing
-> >same lines again and again, are we?
-> >
-> >One thing that might help is increase the frequency of updates,
-> >try sending them out sooner.
-> >On the other hand 10 new patches each revision is a lot:
-> >if there is a part of patchset that has stabilised you can split it out,
-> >post once and keep posting the changing part separately.
-> >
-> >I hope these suggestions help.
-> 
-> Thanks, Michael!
-> 
-> >
-> >> >
-> >> >--
-> >> >MST
+Best regards
+--=20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+ Dr. Thomas Dreibholz
+
+ University of Duisburg-Essen,                   Room ES210
+ Inst. for Experimental Mathematics              Ellernstra=DFe 29
+ Computer Networking Technology Group            D-45326 Essen/Germany
+-----------------------------------------------------------------------
+ E-Mail:     dreibh@iem.uni-due.de
+ Homepage:   http://www.iem.uni-due.de/~dreibh
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
