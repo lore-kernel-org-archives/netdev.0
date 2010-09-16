@@ -1,24 +1,25 @@
-From: Nicola Padovano <nicola.padovano@gmail.com>
-Subject: Re: problem with flowi structure
-Date: Thu, 16 Sep 2010 21:25:57 +0200
-Message-ID: <AANLkTi=Y7beG4vPDx5eNg-gTN1CVg_G=1+dWwi2Xd2-R@mail.gmail.com>
-References: <AANLkTi=bGsvMqnTSanA73FhDH_DashmXTcA1sddtj0P6@mail.gmail.com>
- <1284650768.3352.37.camel@edumazet-laptop> <AANLkTimo1AeBS3rpQj0KtZL15Ct-DGTQMBUsL8hrVNOL@mail.gmail.com>
- <1284652453.3352.38.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1284652453.3352.38.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Luca Tettamanti <kronos.it@gmail.com>
+Subject: Re: [BUG] atl1 causes lockup/reboot on resume from STR
+Date: Thu, 16 Sep 2010 21:29:45 +0200
+Message-ID: <1284665387-10289-1-git-send-email-kronos.it@gmail.com>
+References: <AANLkTincBZrpHch0rv60YRXW2g=cqgO9vueAafcs=+RQ@mail.gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:54767 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755939Ab0IPTaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 15:30:16 -0400
+Received: by wyf22 with SMTP id 22so1697062wyf.19
+        for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 12:30:15 -0700 (PDT)
+Received: from kronos by localhost with local (Exim 4.72)
+	(envelope-from <kronos@nb-core2.darkstar.lan>)
+	id 1OwK9s-0002gY-Et
+	for netdev@vger.kernel.org; Thu, 16 Sep 2010 21:30:12 +0200
+In-Reply-To: <AANLkTincBZrpHch0rv60YRXW2g=cqgO9vueAafcs=+RQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ok, let's step back...
-what's the task of ip_route_output_key function ?
+Ok, I'll be AFK till next monday so here's the patches.
+I think the first one is suitable for -stable.
 
--- 
-Nicola Padovano
-e-mail: nicola.padovano@gmail.com
-web: http://npadovano.altervista.org
+Luca
