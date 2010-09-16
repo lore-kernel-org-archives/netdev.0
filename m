@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 4/4] sit: get rid of ipip6_lock
-Date: Wed, 15 Sep 2010 19:31:15 -0700 (PDT)
-Message-ID: <20100915.193115.173869070.davem@davemloft.net>
-References: <1284586510.2462.77.camel@edumazet-laptop>
+Subject: Re: [PATCH 08/15] irda/irnet: use noop_llseek
+Date: Wed, 15 Sep 2010 19:31:25 -0700 (PDT)
+Message-ID: <20100915.193125.149817205.davem@davemloft.net>
+References: <1284495763-7506-1-git-send-email-arnd@arndb.de>
+	<1284495763-7506-9-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58333
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752474Ab0IPCa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 22:30:56 -0400
-In-Reply-To: <1284586510.2462.77.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, samuel@sortiz.org,
+	netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1284495763-7506-9-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 15 Sep 2010 23:35:10 +0200
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 14 Sep 2010 22:22:36 +0200
 
-> As RTNL is held while doing tunnels inserts and deletes, we can remove
-> ipip6_lock spinlock. My initial RCU conversion was conservative and
-> converted the rwlock to spinlock, with no RTNL requirement.
+> There may be applications trying to seek
+> on the irnet character device, so we should
+> use noop_llseek to avoid returning an error
+> when the default llseek changes to no_llseek.
 > 
-> Use appropriate rcu annotations and modern lockdep checks as well.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
 Applied.
