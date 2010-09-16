@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: Problem with tun driver
-Date: Thu, 16 Sep 2010 06:16:32 -0700
-Message-ID: <m1iq256d73.fsf@fess.ebiederm.org>
+Date: Thu, 16 Sep 2010 06:16:42 -0700
+Message-ID: <m1hbhp6d6t.fsf@fess.ebiederm.org>
 References: <AANLkTinzLJia4WV-GUse0sX=3Ht8DrD-vVd3YkxUE8xO@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev <netdev@vger.kernel.org>
 To: =?utf-8?Q?Mart=C3=ADn?= Ferrari <martin.ferrari@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:35433 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754157Ab0IPNQh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 09:16:37 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:58219 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754473Ab0IPNQq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 09:16:46 -0400
 In-Reply-To: <AANLkTinzLJia4WV-GUse0sX=3Ht8DrD-vVd3YkxUE8xO@mail.gmail.com>
 	(=?utf-8?Q?=22Mart=C3=ADn?= Ferrari"'s message of "Thu, 16 Sep 2010
  10:30:42 +0200")
