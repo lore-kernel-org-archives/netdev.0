@@ -1,35 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [PATCH 0/3] dccp: ccid-3 fixes and simplifications
-Date: Wed, 15 Sep 2010 20:26:52 -0700 (PDT)
-Message-ID: <20100915.202652.124065501.davem@davemloft.net>
-References: <dccp_ccid3_simplifications>
-	<1284552623-16283-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+From: Breno Leitao <leitao@linux.vnet.ibm.com>
+Subject: [PATCH] ehea: Remove a silly return
+Date: Thu, 16 Sep 2010 00:54:22 -0300
+Message-ID: <1284609262-8653-1-git-send-email-leitao@linux.vnet.ibm.com>
+Cc: Breno Leitao <leitao@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37961
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752355Ab0IPD0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 23:26:33 -0400
-In-Reply-To: <1284552623-16283-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:58634 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752731Ab0IPDzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Sep 2010 23:55:01 -0400
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp04.br.ibm.com (8.14.4/8.13.1) with ESMTP id o8G3oM70028940
+	for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 00:50:22 -0300
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.8.31.93])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o8G40niv835660
+	for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 01:00:50 -0300
+Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
+	by d24av02.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o8G3shEv014350
+	for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 00:54:43 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Wed, 15 Sep 2010 14:10:20 +0200
+This patch removes the unconditional return in the end of the
+function check_sqs()
 
-> please find attached a set of 3 CCID-3 patches from the test tree.
-> All have been in the test tree a long time and compile independently.
-> 
->  Patch #1: Fixes a bug and simplifies the packet scheduling algorithm.
->  Patch #2: Replaces buggy RTT sampling history lookup.
->  Patch #3: Simplifies the CCID-3 tx-option parsing routine.
-> 
-> This set is also available based on a fresh (today's) copy of net-next-2.6, 
-> 
-> 	git://eden-feed.erg.abdn.ac.uk/net-next-2.6  [subtree 'dccp']
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+---
+ drivers/net/ehea/ehea_main.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-Looks good, pulled, thanks a lot Gerrit!
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index a333b42..d77015b 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -818,8 +818,6 @@ static void check_sqs(struct ehea_port *port)
+ 			}
+ 		}
+ 	}
+-
+-	return;
+ }
+ 
+ 
+-- 
+1.7.2.2
+
