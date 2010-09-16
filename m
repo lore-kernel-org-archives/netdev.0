@@ -1,46 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 18492] New: kernel softirq warning on boot
-Date: Wed, 15 Sep 2010 21:40:37 -0700 (PDT)
-Message-ID: <20100915.214037.90800289.davem@davemloft.net>
-References: <20100914135730.8af6bc76.akpm@linux-foundation.org>
-	<20100914.141103.123996613.davem@davemloft.net>
-	<20100915064655.GA21021@gondor.apana.org.au>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
+Subject: Re: [PATCH net-next-2.6] Phonet: remove dangling pipe if an endpoint is closed early
+Date: Thu, 16 Sep 2010 07:41:16 +0300
+Message-ID: <201009160741.16973.remi@remlab.net>
+References: <1284589193-26089-1-git-send-email-remi@remlab.net> <20100915.213258.212397416.davem@davemloft.net> <20100915.213518.137835427.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, hramrach@centrum.cz,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40245
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750807Ab0IPEkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 00:40:18 -0400
-In-Reply-To: <20100915064655.GA21021@gondor.apana.org.au>
+Received: from yop.chewa.net ([91.121.105.214]:57062 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751404Ab0IPElV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Sep 2010 00:41:21 -0400
+In-Reply-To: <20100915.213518.137835427.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 15 Sep 2010 14:46:55 +0800
+   Hello,
 
-> On Tue, Sep 14, 2010 at 02:11:03PM -0700, David Miller wrote:
->>
->> I'll take a closer look at this if Herbert doesn't beat me to it.
-> 
-> I thought we were going to use this patch until Paul's BH warning
-> removal made it into mainline?
-> 
-> netpoll: Disable IRQ around RCU dereference in netpoll_rx
+On Thursday 16 September 2010, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 15 Sep 2010 21:32:58 -0700 (PDT)
+>=20
+> > Applied.
+>=20
+> Btw, I had to apply the following warning fix against your other
+> set of changes.
 
-I hadn't anticipated it taking this long for Paul's patch to
-get upstream.
+Oh yeah, I only have 32-bits systems at hand so ptrdiff_t =3D=3D int fo=
+r me :-(
+Sorry.
 
-So I only queued this up for -stable, not Linus's tree.
-
-Paul has started the work of moving his patch upstream, so I suspect
-that if I queued this patch of our's up to my tree now it would land
-in Linus's tree about the same time :-)
-
-If something non-trivially stalls Paul's submission work, we can
-queue this up.
+--=20
+R=E9mi Denis-Courmont
+http://www.remlab.net/
