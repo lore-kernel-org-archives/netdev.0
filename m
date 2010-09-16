@@ -1,40 +1,88 @@
-From: "Huangqiang Zhou" <linuxkernel.xqiang@gmail.com>
-Subject: How about the order of Network stack initialize
-Date: Thu, 16 Sep 2010 09:06:16 +0800
-Message-ID: <201009160906134537778@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] net: enable GRO by default for vlan
+ devices
+Date: Wed, 15 Sep 2010 18:16:16 -0700
+Message-ID: <20100915181616.578fcd37@nehalam>
+References: <20100914.213544.112598547.davem@davemloft.net>
+	<20100915163749.GA4191@mmm.home.ifup.org>
+	<1284570520.2462.5.camel@edumazet-laptop>
+	<20100915.101418.59680213.davem@davemloft.net>
+	<1284571476.2293.5.camel@achroite.uk.solarflarecom.com>
+	<20100915192424.GE4191@mmm.home.ifup.org>
+	<1284588203.2462.81.camel@edumazet-laptop>
+	<1284589691.2462.85.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "linux-net" <linux-net@vger.kernel.org>,
-	"netdev" <netdev@vger.kernel.org>
-To: "ly" <ly@yahoo.com.cn>
-Return-path: <linux-net-owner@vger.kernel.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Brandon Philips <bphilips@suse.de>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, David, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, Ben Hutchings <bhutchings@solarflare.com>,
+	Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1284589691.2462.85.camel@edumazet-laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-SGkgYWxso7oNCg0KSSBoYXZlIGEgcXVlc3Rpb24gYWJvdXQgdGhlIG9yZGVyIG9mICBuZXR3b3Jr
-IHN0YWNrIGluaXRpYWxpemUuDQoNCkZyb20gc29tZSBib29rcyBpdCBzYXlzIHRoZSBvcmRlciBp
-cyBhcyBiZWxvdzoNCjEuY29yZV9pbml0Y2FsbDogc29ja19pbml0DQoyLmZzX2luaXRjYWxsOiBp
-bmV0X2luaXQNCjMuc3Vic3lzX2luaXRjYWxsOiBuZXRfZGV2X2luaXQNCjQuZGV2aWNlX2luaXRj
-YWxsOiBkZXZpY2UgaW5pdA0KDQppbiB0aGUgc291cmNlIGNvZGUgb2YgbGludXgyLjYuMTg6DQoj
-ZGVmaW5lIGNvcmVfaW5pdGNhbGwoZm4pIF9fZGVmaW5lX2luaXRjYWxsKCIxIixmbikNCiNkZWZp
-bmUgcG9zdGNvcmVfaW5pdGNhbGwoZm4pIF9fZGVmaW5lX2luaXRjYWxsKCIyIixmbikNCiNkZWZp
-bmUgYXJjaF9pbml0Y2FsbChmbikgX19kZWZpbmVfaW5pdGNhbGwoIjMiLGZuKQ0KI2RlZmluZSBz
-dWJzeXNfaW5pdGNhbGwoZm4pIF9fZGVmaW5lX2luaXRjYWxsKCI0IixmbikNCiNkZWZpbmUgZnNf
-aW5pdGNhbGwoZm4pIF9fZGVmaW5lX2luaXRjYWxsKCI1IixmbikNCiNkZWZpbmUgZGV2aWNlX2lu
-aXRjYWxsKGZuKSBfX2RlZmluZV9pbml0Y2FsbCgiNiIsZm4pDQojZGVmaW5lIGxhdGVfaW5pdGNh
-bGwoZm4pIF9fZGVmaW5lX2luaXRjYWxsKCI3IixmbikNCg0Kb2J2aW91c2x5Og0KbWFjcm8gICAg
-ICAgICAgICAgICAgIHNlY3Rpb24NCmNvcmVfaW5pdGNhbGwgPC0tPiAuaW5pdGNhbGwxLmluaXQg
-DQpmc19pbml0Y2FsbCA8LS0+IC5pbml0Y2FsbDUuaW5pdA0Kc3Vic3lzX2luaXRjYWxsIDwtLT4g
-LmluaXRjYWxsNC5pbml0DQpkZXZpY2VfaW50Y2FsbCA8LS0+IC5pbml0Y2FsbDYuaW5pdA0KDQpT
-b21lIGFsc28gc2F5c6O6DQqhsEV2ZXJ5IGNoaWxkIGlzIHRvIGRldGVybWluZSB0aGUgc2VxdWVu
-Y2UgYmV0d2VlbiBzZWN0aW9ucywgdGhlIGZpcnN0IGNhbGwuIEluaXRjYWxsMSBpbml0LiANCiBU
-aGUgZnVuY3Rpb24gcG9pbnRlciwgYWdhaW4uIEluaXRjYWxsMiBpbml0LiBDYWxsIHRoZSBmdW5j
-dGlvbiBwb2ludGVyLCBldGMuIEFuZCBpbiBlYWNoIHNlY3Rpb24gDQogb2YgdGhlIGZ1bmN0aW9u
-IHBvaW50ZXIgaXMgYXNzb2NpYXRlZCB3aXRoIGxpbmtzIHRvIG9yZGVyLCBpcyB1bmNlcnRhaW4g
-obENCg0KIEFzIHRoZSBhYm92ZSBzYXlzLCB0aGUgb3JkZXIgc2hvdWxkIGJlOiBjb3JlX2luaXRj
-YWxsLT5zdWJzeXNfaW5pdGNhbGwtPmZzX2luaXRjYWxsLT5kZXZpY2VfaW50Y2FsbA0KDQpTbyB3
-aGljaCBvbmUgaXMgcmVhbGx5IGNvcnJlY3Q/DQoNCjIwMTAtMDktMTUgDQpIdWFuZ3FpYW5nIFpo
-b3UNCg==
+On Thu, 16 Sep 2010 00:28:11 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
+> Le jeudi 16 septembre 2010 =E0 00:03 +0200, Eric Dumazet a =E9crit :
+> > Le mercredi 15 septembre 2010 =E0 12:24 -0700, Brandon Philips a =E9cri=
+t :
+> > > Currently vlan devices don't have GRO by default as none of the Ether=
+net
+> > > drivers add NETIF_F_GRO to their vlan_features.
+> > > =
+
+> > > As GRO is a software feature add GRO to dev->vlan_features in
+> > > register_netdevice() and let vlan_dev_init() take care that it gets
+> > > enabled only when dev->features has NETIF_F_GRO too.
+> > > =
+
+> > > Signed-off-by: Brandon Philips <bphilips@suse.de>
+> > > =
+
+> > =
+
+> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > =
+
+> =
+
+> BTW, we have a similar problem for bonding ( GRO is disabled )
+> =
+
+> # ethtool -K bond0 gro off
+> # ethtool -K bond0 gro on
+> Cannot set device GRO settings: Invalid argument
+> =
+
+> Same for vlans on top of bond0
+
+Bridge has same problem as well.
+
+
+-- =
+
+
+---------------------------------------------------------------------------=
+---
+Start uncovering the many advantages of virtual appliances
+and start using them to simplify application deployment and
+accelerate your shift to cloud computing.
+http://p.sf.net/sfu/novell-sfdev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
+m/community/wired
