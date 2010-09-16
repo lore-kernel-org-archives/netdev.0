@@ -1,41 +1,37 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v2] drivers/net/usb/hso.c: prevent reading
- uninitialized memory
-Date: Thu, 16 Sep 2010 12:52:40 -0400
-Message-ID: <1284655960.23787.34.camel@gandalf.stny.rr.com>
-References: <1284587008.6275.95.camel@dan>
-	 <20100916155745.GB14318@home.goodmis.org>
-	 <20100916180710.07821bdd@lxorguk.ukuu.org.uk>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: Re: Remaining BKL users, what to do
+Date: Thu, 16 Sep 2010 18:57:56 +0200
+Message-ID: <1284656277.2962.0.camel@sortiz-mobl>
+References: <201009161632.59210.arnd@arndb.de>
+Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dan Rosenberg <drosenberg@vsecurity.com>, j.dumon@option.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	security@kernel.org, davem@davemloft.net, stable@kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: codalist@coda.cs.cmu.edu, autofs@linux.kernel.org,
+	linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	Christoph Hellwig <hch@infradead.org>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Petr Vandrovec <vandrove@vc.cvut.cz>,
+	Anders Larsen <al@alarsen.net>, Jan Kara <jack@suse.cz>,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Andrew Hendry <andrew.hendry@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100916180710.07821bdd@lxorguk.ukuu.org.uk>
+In-Reply-To: <201009161632.59210.arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-09-16 at 18:07 +0100, Alan Cox wrote:
-> ->tiocmget;
-> > >  
-> > > +	memset(&icount, 0, sizeof(struct serial_icounter_struct));
-> > > +
-> > 
-> > Move the above to after the spinlocks.
-> 
-> Why - its a local variable ?
-> 
-> Easier to write
-> 
-> 	struct serial_icounter_struct icount = { 0 };
-> 
-> though
+On Thu, 2010-09-16 at 16:32 +0200, Arnd Bergmann wrote:
+> net/appletalk:
+> net/ipx/af_ipx.c:
+> net/irda/af_irda.c:
+> 	Can probably be saved from retirement in drivers/staging if the
+> 	maintainers still care.
+I'll take care of the IrDA part.
 
-True, but if we want to micro-optimize, moving it after the spinlocks
-means we do no zero initialization in the tiocmget == 0. Although gcc
-may be smart enough to realize that too.
-
--- Steve
+Cheers,
+Samuel.
