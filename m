@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Linux Plumbers Conference: User-visible Network Issues
- Mini-Conf
-Date: Fri, 17 Sep 2010 15:57:46 -0700 (PDT)
-Message-ID: <20100917.155746.171491800.davem@davemloft.net>
-References: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM>
+Subject: Re: [PATCH net-next-2.6] ipv4: add rcu annotations in route.c
+Date: Fri, 17 Sep 2010 15:59:30 -0700 (PDT)
+Message-ID: <20100917.155930.219742425.davem@davemloft.net>
+References: <1284739159.3391.95.camel@edumazet-laptop>
+	<1284753573.4373.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Matt_Domsch@Dell.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50740
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50743
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752478Ab0IQW51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 18:57:27 -0400
-In-Reply-To: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM>
+	by vger.kernel.org with ESMTP id S1752478Ab0IQW7L convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Sep 2010 18:59:11 -0400
+In-Reply-To: <1284753573.4373.7.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <Matt_Domsch@Dell.com>
-Date: Fri, 17 Sep 2010 14:12:29 -0500
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 17 Sep 2010 21:59:33 +0200
 
-> At the Linux Plumbers Conference [1] November 3-5, 2010 in
-> Cambridge, MA, we have a half-day mini-conference [2] set aside to
-> discuss "User-visible Network Issues" - challenges that users face,
-> that could benefit from both userspace and kernel enhancements to
-> make their lives easier.
+> Le vendredi 17 septembre 2010 =E0 17:59 +0200, Eric Dumazet a =E9crit=
+ :
+>> Use __rcu attribute where appropriate.
+>>=20
+>> Use rcu_dereference_raw() in contexts where no lock is held.
+>>=20
+>> Use rcu_dereference_check() in contexts where the chain spinlock is
+>> held.
+>=20
+> Hmm, it should be rcu_dereference_protected(), I'll send a v2
 
-When you schedule this track, try to keep it off of November 3rd as
-the core kernel network folk are holding netconf at LPC for that
-entire day.
-
-That is, unless you don't want any of us to attend :-)
+Ok.
