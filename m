@@ -1,83 +1,73 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: linux-next: build failure after merge of the rcu tree
-Date: Fri, 17 Sep 2010 16:17:41 -0700
-Message-ID: <20100917231741.GB3060@linux.vnet.ibm.com>
-References: <20100917124238.aa0596cb.sfr@canb.auug.org.au>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 1/2] net: add IFLA_NUM_TXQ attribute
+Date: Fri, 17 Sep 2010 16:29:58 -0700 (PDT)
+Message-ID: <20100917.162958.221590019.davem@davemloft.net>
+References: <1284712288.3391.36.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100917124238.aa0596cb.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58358
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751136Ab0IQX3j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 19:29:39 -0400
+In-Reply-To: <1284712288.3391.36.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 17, 2010 at 12:42:38PM +1000, Stephen Rothwell wrote:
-> Hi Paul,
-> 
-> After merging the rcu tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
-> 
-> net/core/dev.c: In function 'netdev_run_todo':
-> net/core/dev.c:5294: error: dereferencing pointer to incomplete type
-> net/core/dev.c:5294: warning: type defaults to 'int' in declaration of '_________p1'
-> net/core/dev.c:5294: error: dereferencing pointer to incomplete type
-> net/core/dev.c:5294: warning: type defaults to 'int' in declaration of 'type name'
-> net/core/dev.c:5294: error: dereferencing pointer to incomplete type
-> net/core/dev.c:5294: warning: type defaults to 'int' in declaration of 'type name'
-> net/core/dev.c:5294: warning: comparison of distinct pointer types lacks a cast
-> net/core/dev.c:5294: error: dereferencing pointer to incomplete type
-> net/core/dev.c:5294: warning: type defaults to 'int' in declaration of 'type name'
-> 
-> Caused by commit ca5ecddfa8fcbd948c95530e7e817cee9fb43a3d ("rcu: define
-> __rcu address space modifier for sparse") interacting with commit
-> 95ae6b228f814fc0528d0506ee9f18ac333d6851 ("ipv4: ip_ptr cleanups") from
-> the net tree.
-> 
-> rcu_dereference_raw() now needs to know the type of the object its
-> argument points to.  I added the following merge fix (which could be
-> applied to the net tree anyway).
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 17 Sep 2010 12:36:36 +1000
-> Subject: [PATCH] net: include inetdevice.h for rcu_dereference_raw api change
-> 
-> rcu_dereference_raw() now needs to know the type of its argument.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 17 Sep 2010 10:31:28 +0200
 
-Good catch, thank you!!!
+> In order to enable multiqueue support on some devices,
+> add IFLA_NUM_TXQ attribute, number of transmit queues, that "ip link"
+> can use, at creation and show time :
+> 
+> # ip link add gre34 txqueues 8 type gre remote 192.168.20.80
+> 
+> # ip link sho dev gre34
+> 8: gre34: <POINTOPOINT,NOARP> mtu 1476 qdisc noop state DOWN txqueues 8 
+>     link/gre 0.0.0.0 peer 192.168.20.80
+> 
+> Drivers not yet multiqueue aware are supported, because core network
+> temporary sets real_num_tx_queues to one.
+> 
+> Multiqueue enabled drivers must then sets real_num_tx_queues to
+> num_tx_queues in their newlink() method.
+> 
+> Limits number of queues to 256 for the moment.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-							Thanx, Paul
+This is one way to solve the problem, but I think we can do a lot
+better.
 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  net/core/dev.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index c6d837a..cadd28c 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -129,6 +129,7 @@
->  #include <linux/random.h>
->  #include <trace/events/napi.h>
->  #include <linux/pci.h>
-> +#include <linux/inetdevice.h>
-> 
->  #include "net-sysfs.h"
-> 
-> -- 
-> 1.7.1
-> 
-> -- 
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
-> http://www.canb.auug.org.au/~sfr/
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+What is the true barrier for full parallel processing over GRE tunnels
+at the moment?
+
+It seems to me that the only issue that exists is the TXQ->lock done
+by dev_queue_xmit() for the GRE tunnel xmit.
+
+This is something we should have fixed ages ago, and we tried with the
+ugly LLTX thing.  In my opinion all paths leading to a non-queueing
+device should not take the TX lock, because by definition there is no
+queueing state or synchronization to be cognizant of.
+
+Actually, statistics can matter but we already have to address that
+problem seperately for the sake of 64-bit stats on 32-bit machines.
+
+Alexey even open condones this in the huge comment that sits in
+the "!q->enqueue" path of dev_queue_xmit().
+
+If we take care of this, then TX multi-queue works transparently for
+all software devices layered on top of suitably capable hardware,
+without us having to make any explicit multi-queue changes to the
+software device code.
+
+Eric, if you can demonstrate a real need for this once we solve the
+fundamental issue, as I have outlined above, I am happy to add this
+netlink attribute and tunable.  But for now I'm deferring these
+two patches.
+
+Thanks!
