@@ -1,55 +1,100 @@
-From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
-Subject: Re: [PATCH NEXT 3/5] qlcnic: vlan lro support
-Date: Fri, 17 Sep 2010 11:34:46 +0400
-Message-ID: <381611284708887@web110.yandex.ru>
-References: <1284642872-27832-1-git-send-email-amit.salecha@qlogic.com>
-	 <1284642872-27832-4-git-send-email-amit.salecha@qlogic.com>
- <1284643638.3352.30.camel@edumazet-laptop> <99737F4847ED0A48AECC9F4A1974A4B80F86F8005A@MNEXMB2.qlogic.org>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: [PATCH -tip] perf: Document of netdev-times perf script
+Date: Fri, 17 Sep 2010 17:23:45 +0900
+Message-ID: <4C932591.5090101@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Amit Salecha <amit.salecha@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward6.mail.yandex.net ([77.88.60.125]:49308 "EHLO
-	forward6.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826Ab0IQHlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 03:41:12 -0400
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80F86F8005A@MNEXMB2.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com,
+	acme@ghostprotocols.net, fweisbec@gmail.com, mingo@elte.hu,
+	rostedt@goodmis.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This patch adds a document of netdev-times which is used by perf.
+This document shows how to use it.
 
+Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+---
+ tools/perf/Documentation/netdev-times.txt |   70 +++++++++++++++++++++++++++++
+ 1 files changed, 70 insertions(+), 0 deletions(-)
 
-17.09.2010, 11:10, "Amit Salecha" <amit.salecha@qlogic.com>:
->> =C2=A0-----Original Message-----
->> =C2=A0From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->> =C2=A0Sent: Thursday, September 16, 2010 6:57 PM
->> =C2=A0To: Amit Salecha
->> =C2=A0Cc: davem@davemloft.net; netdev@vger.kernel.org; Ameen Rahman;=
- Anirban
->> =C2=A0Chakraborty
->> =C2=A0Subject: Re: [PATCH NEXT 3/5] qlcnic: vlan lro support
->>
->> =C2=A0Le jeudi 16 septembre 2010 =C3=A0 06:14 -0700, Amit Kumar Sale=
-cha a =C3=A9crit :
->>> =C2=A0LRO + GRO + vlan rx accleration support, performance increase=
-s
->>> =C2=A0around 20% and cpu utilization reduces around 70% on vlan int=
-erface.
->> =C2=A0Interesting. What is the workload that demonstrates such gains=
- ?
->
-> Just to demonstrate decrease in cpu utilization further:
-> I have taken numbers with various load. I used iperf application to r=
-un tcp traffic on vlan interface.
-
-> There is around 80-90% of reduction in cpu utilization.
-
-I'm wondering, how can this scale further. For example if I have 200K l=
-ow speed simultaneous
-TCP connections (router appliance case with many users). Can GRO give u=
-s some gain here?
-
---
-wbr, Oleg.
+diff --git a/tools/perf/Documentation/netdev-times.txt b/tools/perf/Documentation/netdev-times.txt
+new file mode 100644
+index 0000000..a905650
+--- /dev/null
++++ b/tools/perf/Documentation/netdev-times.txt
+@@ -0,0 +1,70 @@
++netdev-times(1)
++===============
++
++NAME
++----
++netdev-times - Tool to analysis packets processing
++
++SYNOPSIS
++--------
++'perf trace record netdev-times' [<script>]
++or
++'perf trace report netdev-times' [<options>]
++
++DESCRIPTION
++-----------
++This script shows packets processing and processed time.
++There are two steps to use it:
++
++ 'perf trace record netdev-times' [<script>] to record the events
++ which relates to packets processing.
++
++ 'perf trace report netdev-times' [<options>] to report a time-chart of
++ pakcets processing and processed time.
++
++OPTIONS
++-------
++tx::
++	Show only transmited packets processing.
++
++rx::
++	Show only received packets procssing.
++
++dev=<device>::
++	Show processing on the specified device.
++
++debug::
++	Work with debug mode. It shows buffer status.
++
++EXAMPLES
++--------
++If you want to use this, you need to record a perf.data like following.
++
++ # perf trace record netdev-times [<script>]
++
++If you set script, perf gathers events until it ends.
++If not, you must do Ctrl-C to stop recording.
++
++And if you want a report from the recorded data,
++
++ # perf trace report netdev-times [<options>]
++
++If you use some options, you can limit an output.
++For example, if you want to show a process of received packets associated
++with eth4,
++
++#perf trace report netdev-times rx dev=eth4
++106133.171439sec cpu=0
++  irq_entry(+0.000msec irq=24:eth4)
++         |
++  softirq_entry(+0.006msec)
++         |
++         |---netif_receive_skb(+0.010msec skb=f2d15900 len=100)
++         |            |
++         |      skb_copy_datagram_iovec(+0.039msec 10291::10291)
++         |
++  napi_poll_exit(+0.022msec eth4)
++
++SEE ALSO
++--------
++linkperf:perf-record[1], linkperf:perf-report[1], linkperf:perf-trace[1]
