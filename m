@@ -1,100 +1,70 @@
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [PATCH -tip] perf: Document of netdev-times perf script
-Date: Fri, 17 Sep 2010 17:23:45 +0900
-Message-ID: <4C932591.5090101@jp.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH NEXT 3/5] qlcnic: vlan lro support
+Date: Fri, 17 Sep 2010 10:28:26 +0200
+Message-ID: <1284712107.3391.32.camel@edumazet-laptop>
+References: <1284642872-27832-1-git-send-email-amit.salecha@qlogic.com>
+	 <1284642872-27832-4-git-send-email-amit.salecha@qlogic.com>
+	 <1284643638.3352.30.camel@edumazet-laptop>
+	 <99737F4847ED0A48AECC9F4A1974A4B80F86F8005A@MNEXMB2.qlogic.org>
+	 <381611284708887@web110.yandex.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com,
-	acme@ghostprotocols.net, fweisbec@gmail.com, mingo@elte.hu,
-	rostedt@goodmis.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Amit Salecha <amit.salecha@qlogic.com>, netdev@vger.kernel.org
+To: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f47.google.com ([74.125.82.47]:36715 "EHLO
+	mail-ww0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751652Ab0IQIeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 04:34:07 -0400
+Received: by wwf26 with SMTP id 26so1037459wwf.4
+        for <netdev@vger.kernel.org>; Fri, 17 Sep 2010 01:34:05 -0700 (PDT)
+In-Reply-To: <381611284708887@web110.yandex.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a document of netdev-times which is used by perf.
-This document shows how to use it.
+Le vendredi 17 septembre 2010 =C3=A0 11:34 +0400, "Oleg A. Arkhangelsky=
+" a
+=C3=A9crit :
+>=20
+> 17.09.2010, 11:10, "Amit Salecha" <amit.salecha@qlogic.com>:
+> >>  -----Original Message-----
+> >>  From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> >>  Sent: Thursday, September 16, 2010 6:57 PM
+> >>  To: Amit Salecha
+> >>  Cc: davem@davemloft.net; netdev@vger.kernel.org; Ameen Rahman; An=
+irban
+> >>  Chakraborty
+> >>  Subject: Re: [PATCH NEXT 3/5] qlcnic: vlan lro support
+> >>
+> >>  Le jeudi 16 septembre 2010 =C3=A0 06:14 -0700, Amit Kumar Salecha=
+ a =C3=A9crit :
+> >>>  LRO + GRO + vlan rx accleration support, performance increases
+> >>>  around 20% and cpu utilization reduces around 70% on vlan interf=
+ace.
+> >>  Interesting. What is the workload that demonstrates such gains ?
+> >
+> > Just to demonstrate decrease in cpu utilization further:
+> > I have taken numbers with various load. I used iperf application to=
+ run tcp traffic on vlan interface.
+>=20
+> > There is around 80-90% of reduction in cpu utilization.
+>=20
+> I'm wondering, how can this scale further. For example if I have 200K=
+ low speed simultaneous
+> TCP connections (router appliance case with many users). Can GRO give=
+ us some gain here?
+>=20
 
-Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
----
- tools/perf/Documentation/netdev-times.txt |   70 +++++++++++++++++++++++++++++
- 1 files changed, 70 insertions(+), 0 deletions(-)
+I dont think it can help in a mixed trafic:
 
-diff --git a/tools/perf/Documentation/netdev-times.txt b/tools/perf/Documentation/netdev-times.txt
-new file mode 100644
-index 0000000..a905650
---- /dev/null
-+++ b/tools/perf/Documentation/netdev-times.txt
-@@ -0,0 +1,70 @@
-+netdev-times(1)
-+===============
-+
-+NAME
-+----
-+netdev-times - Tool to analysis packets processing
-+
-+SYNOPSIS
-+--------
-+'perf trace record netdev-times' [<script>]
-+or
-+'perf trace report netdev-times' [<options>]
-+
-+DESCRIPTION
-+-----------
-+This script shows packets processing and processed time.
-+There are two steps to use it:
-+
-+ 'perf trace record netdev-times' [<script>] to record the events
-+ which relates to packets processing.
-+
-+ 'perf trace report netdev-times' [<options>] to report a time-chart of
-+ pakcets processing and processed time.
-+
-+OPTIONS
-+-------
-+tx::
-+	Show only transmited packets processing.
-+
-+rx::
-+	Show only received packets procssing.
-+
-+dev=<device>::
-+	Show processing on the specified device.
-+
-+debug::
-+	Work with debug mode. It shows buffer status.
-+
-+EXAMPLES
-+--------
-+If you want to use this, you need to record a perf.data like following.
-+
-+ # perf trace record netdev-times [<script>]
-+
-+If you set script, perf gathers events until it ends.
-+If not, you must do Ctrl-C to stop recording.
-+
-+And if you want a report from the recorded data,
-+
-+ # perf trace report netdev-times [<options>]
-+
-+If you use some options, you can limit an output.
-+For example, if you want to show a process of received packets associated
-+with eth4,
-+
-+#perf trace report netdev-times rx dev=eth4
-+106133.171439sec cpu=0
-+  irq_entry(+0.000msec irq=24:eth4)
-+         |
-+  softirq_entry(+0.006msec)
-+         |
-+         |---netif_receive_skb(+0.010msec skb=f2d15900 len=100)
-+         |            |
-+         |      skb_copy_datagram_iovec(+0.039msec 10291::10291)
-+         |
-+  napi_poll_exit(+0.022msec eth4)
-+
-+SEE ALSO
-+--------
-+linkperf:perf-record[1], linkperf:perf-report[1], linkperf:perf-trace[1]
+GRO in itself has an overhead and cannot handle more than 8 different
+sessions per NAPI run.
+
+UDP frames hit the overhead but not the GRO gain.
+
+Because most tcp sessions are short lived and initcwnd is small, most
+frames wont be coalesced.
+
+
+
