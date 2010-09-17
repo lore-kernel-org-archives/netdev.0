@@ -1,60 +1,42 @@
-From: AIJAZ BAIG <aijazbaig1@gmail.com>
-Subject: Re: problem with flowi structure
-Date: Fri, 17 Sep 2010 11:10:09 +0530
-Message-ID: <AANLkTim7TeMCG9RQyrrk8WS4+S_y1q06+8FG2-X=1cB-@mail.gmail.com>
-References: <AANLkTi=bGsvMqnTSanA73FhDH_DashmXTcA1sddtj0P6@mail.gmail.com>
-	<1284650768.3352.37.camel@edumazet-laptop>
-	<AANLkTimo1AeBS3rpQj0KtZL15Ct-DGTQMBUsL8hrVNOL@mail.gmail.com>
-	<1284652453.3352.38.camel@edumazet-laptop>
-	<AANLkTi=Y7beG4vPDx5eNg-gTN1CVg_G=1+dWwi2Xd2-R@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [Security] [PATCH v4] drivers/net/tulip/de4x5.c: fix union member name in DE4X5_GET_REG ioctl
+Date: Fri, 17 Sep 2010 08:36:02 +0200
+Message-ID: <20100917063602.GA2341@1wt.eu>
+References: <1284699944.2565.4.camel@dan> <20100916.222740.135972127.davem@davemloft.net> <1284701436.2565.6.camel@dan> <20100916.223441.93463391.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Nicola Padovano <nicola.padovano@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=Y7beG4vPDx5eNg-gTN1CVg_G=1+dWwi2Xd2-R@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: drosenberg@vsecurity.com, security@kernel.org,
+	grundler@parisc-linux.org, netdev@vger.kernel.org, jeffm@suse.com,
+	linux-kernel@vger.kernel.org, kyle@mcmartin.ca
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100916.223441.93463391.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi there,
+On Thu, Sep 16, 2010 at 10:34:41PM -0700, David Miller wrote:
+> From: Dan Rosenberg <drosenberg@vsecurity.com>
+> Date: Fri, 17 Sep 2010 01:30:36 -0400
+> 
+> > Tiring doesn't begin to describe it.  Formatting undamaged.
+> 
+> :-)  Thanks.
+> 
+> > This was previously reported as a security issue due to leakage of
+> > uninitialized stack memory.  Jeff Mahoney pointed out that this is
+> > incorrect since the copied data is from a union (rather than a struct).
+> > Therefore, this patch is only under consideration for the sake of
+> > correctness, and is not security relevant. 
+> > 
+> > Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
+> > Acked-by: Grant Grundler <grundler@parisc-linux.org>
+> 
+> Applied.
 
-Well..if u see the code, ull see that ip_route_output_key is a wrapper
-around ip_route_output_flow which in turn internally calls
-__ip_route_output_key. This later function tries to find a route for a
-packet first by looking up the routing cache and then if it isnt found
-there it  constructs a cache entry by calling its slow counterpart
-which is ip_route_output_slow.
-
-Now, the name tells u a lot. First ip_route_output_key tells u that
-this function 'routes' an 'output' packet. An output packet normally
-means that the packet is a locally generated packet. The routing (L3)
-protocol being used is ip (ipv4 specifically) and key tells us that we
-are specifying the key to be used to check the routing cache (since
-the cache is organized as a hash and it needs a key to retrieve an
-entry).
-
-Thus all in all, the ip_route_output_key function is used to get a
-route for an output packet either from the routing cache if an entry
-is present or create one and update the cache accordingly.
-
-Hope it helped.
+David, just for the record, as was already reported on the list, this
+fix is finally more a cleanup than a security fix because "tmp" is a
+union and not a struct, so tmp.addr == tmp.lval.
 
 Regards,
-Aijaz
-
-On 9/17/10, Nicola Padovano <nicola.padovano@gmail.com> wrote:
-> ok, let's step back...
-> what's the task of ip_route_output_key function ?
->
-> --
-> Nicola Padovano
-> e-mail: nicola.padovano@gmail.com
-> web: http://npadovano.altervista.org
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel"
-> in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Willy
