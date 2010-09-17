@@ -1,42 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [stable] [PATCH 1/2] atl1: fix resume
-Date: Thu, 16 Sep 2010 21:47:20 -0700 (PDT)
-Message-ID: <20100916.214720.223472810.davem@davemloft.net>
-References: <AANLkTincBZrpHch0rv60YRXW2g=cqgO9vueAafcs=+RQ@mail.gmail.com>
-	<1284665387-10289-2-git-send-email-kronos.it@gmail.com>
-	<20100916211318.GA29619@kroah.com>
+Subject: Re: [PATCH] net-2.6 be2net: fix to get RX IDs 0 and 1
+Date: Thu, 16 Sep 2010 21:50:56 -0700 (PDT)
+Message-ID: <20100916.215056.133407514.davem@davemloft.net>
+References: <20100916113842.GA3937@serverengines.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kronos.it@gmail.com, netdev@vger.kernel.org, jcliburn@gmail.com,
-	chris.snook@gmail.com, jie.yang@atheros.com,
-	atl1-devel@lists.sourceforge.net, stable@kernel.org
-To: greg@kroah.com
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59639
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59645
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750818Ab0IQErB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 00:47:01 -0400
-In-Reply-To: <20100916211318.GA29619@kroah.com>
+	by vger.kernel.org with ESMTP id S1750818Ab0IQEui (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 00:50:38 -0400
+In-Reply-To: <20100916113842.GA3937@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg@kroah.com>
-Date: Thu, 16 Sep 2010 14:13:18 -0700
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Thu, 16 Sep 2010 17:09:02 +0530
 
-> On Thu, Sep 16, 2010 at 09:29:46PM +0200, Luca Tettamanti wrote:
->> adapter->cmb.cmb is initialized when the device is opened and freed when
->> it's closed. Accessing it unconditionally during resume results either
->> in a crash (NULL pointer dereference, when the interface has not been
->> opened yet) or data corruption (when the interface has been used and
->> brought down adapter->cmb.cmb points to a deallocated memory area).
->> 
->> Cc: stable@kernel.org
->> ---
+> Change made to allocate RX IDs 0 and 1 for the two ports.
+> To get RX Q IDs 0 and 1 enable RSS Capability for that interface.
+> RX IDs 0 and 1 have 32 bit drop counters which will take a long time
+> to wrap around thereby presenting a consistent stats display.
 > 
-> You do realize you need to sign-off on a patch you create, right?
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 
-Right.
+I don't understand this commit message at all.
 
-Luca please formally resubmit these patches with a proper signoff
-and all of the accumulated ACKs so far.
+The patch looks like it's simply respecting capability flags
+stored in the chip, and thus will now enable RSS on more
+interfaces than it did before.
+
+And that has absolutely nothing to do with allocating specific
+RX IDs or anything like that.
+
+It also, therefore, has nothing to do with fixing any kind of
+serious regression in this driver.  Therefore this patch is
+absolutely not appropriate for net-2.6
+
+Please give a more accurate and understandable commit message
+for this patch, and target it for net-next-2.6 unless you can
+show that this fixes a very serious bug in 2.6.36
