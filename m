@@ -1,50 +1,38 @@
-From: Michal Suchanek <hramrach@centrum.cz>
-Subject: Re: [Bugme-new] [Bug 18492] New: kernel softirq warning on boot
-Date: Fri, 17 Sep 2010 20:00:42 +0200
-Message-ID: <AANLkTinyhM30KV+Etg2qDzEoqOjcPj7gv5EkPbknxYVQ@mail.gmail.com>
-References: <20100914120738.6a658f69.akpm@linux-foundation.org>
- <AANLkTinE50xFx9nShGBeOf483G2FhogO-BCj=dfHBZS7@mail.gmail.com>
- <20100914135730.8af6bc76.akpm@linux-foundation.org> <20100914.141103.123996613.davem@davemloft.net>
- <20100915064655.GA21021@gondor.apana.org.au>
+From: Nicola Padovano <nicola.padovano@gmail.com>
+Subject: Re: problem with flowi structure
+Date: Fri, 17 Sep 2010 20:01:59 +0200
+Message-ID: <AANLkTinx_18cVq52tmC0-g0qLYXJ5c_u9aad_rz_p2ND@mail.gmail.com>
+References: <AANLkTi=bGsvMqnTSanA73FhDH_DashmXTcA1sddtj0P6@mail.gmail.com>
+ <1284650768.3352.37.camel@edumazet-laptop> <AANLkTimo1AeBS3rpQj0KtZL15Ct-DGTQMBUsL8hrVNOL@mail.gmail.com>
+ <1284652453.3352.38.camel@edumazet-laptop> <AANLkTi=Y7beG4vPDx5eNg-gTN1CVg_G=1+dWwi2Xd2-R@mail.gmail.com>
+ <AANLkTim7TeMCG9RQyrrk8WS4+S_y1q06+8FG2-X=1cB-@mail.gmail.com>
+ <AANLkTimpnqNSE21u=2qjb5VGJrn_3_--Bqp4veCNXMPE@mail.gmail.com>
+ <1284714533.3391.53.camel@edumazet-laptop> <AANLkTi=r__RA=5UfNnhsKizDF6OFVYXcSe9KOPx1zW0u@mail.gmail.com>
+ <1284741295.3391.100.camel@edumazet-laptop> <AANLkTi=t2=jqu3XCC-3LK7x1_icke168Bqt-kmds6eOt@mail.gmail.com>
+ <1284745887.2235.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:58587 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755884Ab0IQSBE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 14:01:04 -0400
-Received: by ywh1 with SMTP id 1so816641ywh.19
-        for <netdev@vger.kernel.org>; Fri, 17 Sep 2010 11:01:03 -0700 (PDT)
-In-Reply-To: <20100915064655.GA21021@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: AIJAZ BAIG <aijazbaig1@gmail.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1284745887.2235.7.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15 September 2010 08:46, Herbert Xu <herbert@gondor.apana.org.au> wr=
-ote:
-> On Tue, Sep 14, 2010 at 02:11:03PM -0700, David Miller wrote:
->>
->> I'll take a closer look at this if Herbert doesn't beat me to it.
+> if you say now :
 >
-> I thought we were going to use this patch until Paul's BH warning
-> removal made it into mainline?
->
-> netpoll: Disable IRQ around RCU dereference in netpoll_rx
->
-> We cannot use rcu_dereference_bh safely in netpoll_rx as we may
-> be called with IRQs disabled. =C2=A0We could however simply disable
-> IRQs as that too causes BH to be disabled and is safe in either
-> case.
->
-> Thanks to John Linville for discovering this bug and providing
-> a patch.
->
-With the patch applied I no longet get the warning.
+> Send a packet to google, please, I dont care of what source address you
+> chose, but I am interested to receive an answer, of course. (application
+> does not use bind() system call, only a send())
 
-Thanks
+why an application that wants to send a packet to google would send it
+with a different source ip of the host in which it resides?
+ie. an application is on a machine which ip is: 192.168.0.2 and the
+machine has only one ip address...
 
-Michal
+-- 
+Nicola Padovano
+e-mail: nicola.padovano@gmail.com
+web: http://npadovano.altervista.org
