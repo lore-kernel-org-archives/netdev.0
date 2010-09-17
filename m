@@ -1,38 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] drivers/net/tulip/de4x5.c: fix union member name in
- DE4X5_GET_REG ioctl
-Date: Thu, 16 Sep 2010 22:27:40 -0700 (PDT)
-Message-ID: <20100916.222740.135972127.davem@davemloft.net>
-References: <1284586998.6275.94.camel@dan>
-	<20100916.215313.180410528.davem@davemloft.net>
-	<1284699944.2565.4.camel@dan>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2 NEXT 1/5] qlcnic: support vlan rx accleration
+Date: Fri, 17 Sep 2010 07:29:43 +0200
+Message-ID: <1284701383.4784.34.camel@edumazet-laptop>
+References: <1284700483-16397-1-git-send-email-amit.salecha@qlogic.com>
+	 <1284700483-16397-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: grundler@parisc-linux.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kyle@mcmartin.ca, jeffm@suse.com,
-	security@kernel.org
-To: drosenberg@vsecurity.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1284699944.2565.4.camel@dan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com, anirban.chakraborty@qlogic.com
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:50816 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860Ab0IQF3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 01:29:48 -0400
+Received: by wyf22 with SMTP id 22so2053807wyf.19
+        for <netdev@vger.kernel.org>; Thu, 16 Sep 2010 22:29:46 -0700 (PDT)
+In-Reply-To: <1284700483-16397-2-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Date: Fri, 17 Sep 2010 01:05:44 -0400
+Le jeudi 16 septembre 2010 =C3=A0 22:14 -0700, Amit Kumar Salecha a =C3=
+=A9crit :
+> Implemented vlan rx accleration in driver.
+> This helps in increasing significant performance and
+> reduces cpu utilization with GRO and LRO.
+>=20
+> Eric Dumazet:
+> 	"Its a bit strange you use dev_kfree_skb_any(skb) here."
+> 	"We run in NAPI mode, so you can use dev_kfree_skb()."
+> Amit:
+> 	Done. Using dev_kfree_skb();
+>=20
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-> Now with descriptive title, as requested.
-> 
-> This was previously reported as a security issue due to leakage of
-> uninitialized stack memory.  Jeff Mahoney pointed out that this is
-> incorrect since the copied data is from a union (rather than a struct).
-> Therefore, this patch is only under consideration for the sake of
-> correctness, and is not security relevant. 
-> 
-> Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
-> Acked-by: Grant Grundler <grundler@parisc-linux.org>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Tab et al. damaged by your email client.
 
-This is getting tiring for me, I guess it's getting tiring for
-you too? :-)
