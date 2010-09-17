@@ -1,45 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-2.6 be2net: fix to get RX IDs 0 and 1
-Date: Thu, 16 Sep 2010 21:50:56 -0700 (PDT)
-Message-ID: <20100916.215056.133407514.davem@davemloft.net>
-References: <20100916113842.GA3937@serverengines.com>
+Subject: Re: [PATCH v2] drivers/net/tulip/de4x5.c
+Date: Thu, 16 Sep 2010 21:53:13 -0700 (PDT)
+Message-ID: <20100916.215313.180410528.davem@davemloft.net>
+References: <1284586998.6275.94.camel@dan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: somnath.kotur@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59645
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750818Ab0IQEui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 00:50:38 -0400
-In-Reply-To: <20100916113842.GA3937@serverengines.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: grundler@parisc-linux.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kyle@mcmartin.ca, jeffm@suse.com,
+	security@kernel.org
+To: drosenberg@vsecurity.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1284586998.6275.94.camel@dan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Date: Thu, 16 Sep 2010 17:09:02 +0530
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Date: Wed, 15 Sep 2010 17:43:18 -0400
 
-> Change made to allocate RX IDs 0 and 1 for the two ports.
-> To get RX Q IDs 0 and 1 enable RSS Capability for that interface.
-> RX IDs 0 and 1 have 32 bit drop counters which will take a long time
-> to wrap around thereby presenting a consistent stats display.
+> Fixed formatting (tabs and line breaks).
 > 
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> This was previously reported as a security issue due to leakage of
+> uninitialized stack memory.  Jeff Mahoney pointed out that this is
+> incorrect since the copied data is from a union (rather than a struct).
+> Therefore, this patch is only under consideration for the sake of
+> correctness, and is not security relevant. 
+> 
+> Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
+> Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
-I don't understand this commit message at all.
+You need to give something more descriptive than just the name of the
+file you're editing in the Subject: line of this commit message.
 
-The patch looks like it's simply respecting capability flags
-stored in the chip, and thus will now enable RSS on more
-interfaces than it did before.
+Otherwise people scanning "shortlog" and similar output won't have
+even a general idea of what kind of change your commit is making.
 
-And that has absolutely nothing to do with allocating specific
-RX IDs or anything like that.
-
-It also, therefore, has nothing to do with fixing any kind of
-serious regression in this driver.  Therefore this patch is
-absolutely not appropriate for net-2.6
-
-Please give a more accurate and understandable commit message
-for this patch, and target it for net-next-2.6 unless you can
-show that this fixes a very serious bug in 2.6.36
+Please formally resubmit this with a proper commit header line.
