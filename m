@@ -1,83 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: problem with flowi structure
-Date: Fri, 17 Sep 2010 19:51:27 +0200
-Message-ID: <1284745887.2235.7.camel@edumazet-laptop>
-References: <AANLkTi=bGsvMqnTSanA73FhDH_DashmXTcA1sddtj0P6@mail.gmail.com>
-	 <1284650768.3352.37.camel@edumazet-laptop>
-	 <AANLkTimo1AeBS3rpQj0KtZL15Ct-DGTQMBUsL8hrVNOL@mail.gmail.com>
-	 <1284652453.3352.38.camel@edumazet-laptop>
-	 <AANLkTi=Y7beG4vPDx5eNg-gTN1CVg_G=1+dWwi2Xd2-R@mail.gmail.com>
-	 <AANLkTim7TeMCG9RQyrrk8WS4+S_y1q06+8FG2-X=1cB-@mail.gmail.com>
-	 <AANLkTimpnqNSE21u=2qjb5VGJrn_3_--Bqp4veCNXMPE@mail.gmail.com>
-	 <1284714533.3391.53.camel@edumazet-laptop>
-	 <AANLkTi=r__RA=5UfNnhsKizDF6OFVYXcSe9KOPx1zW0u@mail.gmail.com>
-	 <1284741295.3391.100.camel@edumazet-laptop>
-	 <AANLkTi=t2=jqu3XCC-3LK7x1_icke168Bqt-kmds6eOt@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netns: keep vlan slaves on master netns move
+Date: Fri, 17 Sep 2010 10:56:08 -0700 (PDT)
+Message-ID: <20100917.105608.139110330.davem@davemloft.net>
+References: <20100913114315.GA859019@jupiter.n2.diac24.net>
+	<m1bp7z4v0m.fsf@fess.ebiederm.org>
+	<20100917132219.GA2363813@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: AIJAZ BAIG <aijazbaig1@gmail.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Nicola Padovano <nicola.padovano@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
+	daniel.lezcano@free.fr
+To: equinox@diac24.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45530 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755148Ab0IQRvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 13:51:32 -0400
-In-Reply-To: <AANLkTi=t2=jqu3XCC-3LK7x1_icke168Bqt-kmds6eOt@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47413
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755716Ab0IQRzt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 13:55:49 -0400
+In-Reply-To: <20100917132219.GA2363813@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dont top post, please.
+From: David Lamparter <equinox@diac24.net>
+Date: Fri, 17 Sep 2010 15:22:19 +0200
 
-Le vendredi 17 septembre 2010 =C3=A0 19:05 +0200, Nicola Padovano a =C3=
-=A9crit :
-> ok man :)
-> the last question is about  fl.nl_u.ip4_u.saddr =3D 0...
-> is it a kind of "jolly" selector of the source address?
-> i.e. if we have a simplified cache route
->=20
-> SOURCE IP    DEST IP    NEXT HOP
-> ips1                  google         nexthop1
-> ips2                  google         nexthop2
->=20
-> with
-> ...saddr =3D 0
-> ....daddr =3D google
-> ....tos =3D....
-> i get nexthop1 or nexthop2. right?
+> previously, if a vlan master device was moved from one network namespace
+> to another, all 802.1q and macvlan slaves were deleted.
+> 
+> we can use dev->reg_state to figure out whether dev_change_net_namespace
+> is happening, since that won't set dev->reg_state NETREG_UNREGISTERING.
+> so, this changes 8021q and macvlan to ignore NETDEV_UNREGISTER when
+> reg_state is not NETREG_UNREGISTERING.
+> 
+> Signed-off-by: David Lamparter <equinox@diac24.net>
+> Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Acked-by: Daniel Lezcano <daniel.lezcano@free.fr>
+> Acked-by: Patrick McHardy <kaber@trash.net>
+> ---
+> Hi David,
+> 
+> Q)ueue, F)eedback, A)pply?
 
-
-Not "or" but exactly one.
-
-If you have say 65534 ip addresses on your host (a full /16 network)
-
-192.168.X.Y
-
-If you want to send a frame from 182.168.1.2 to google, for sure the
-route you are going to use is :
-
-192.168.1.2  ->  google
-
-
-If you want to send a frame from 182.168.10.20 to google, for sure the
-route you are going to use is :
-
-192.168.10.20  ->  google
-
-and not the 192.168.1.2 -> google
-
-if you say now :
-
-Send a packet to google, please, I dont care of what source address you
-chose, but I am interested to receive an answer, of course. (applicatio=
-n
-does not use bind() system call, only a send())
-
-Then we look at the routing table given all the keys (for example, the
-socket FWMARK or TOS value), and choose the primary address of the
-network device the routes takes to join google.
-
-
-
+I'll apply this when I get a chance, thanks.
