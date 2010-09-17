@@ -1,48 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool: change ethtool_set_gro() to use
- ethtool_op_get_rx_csum
-Date: Fri, 17 Sep 2010 11:57:07 -0700 (PDT)
-Message-ID: <20100917.115707.106807995.davem@davemloft.net>
-References: <20100915.233851.85414928.davem@davemloft.net>
-	<1284619376.2462.95.camel@edumazet-laptop>
-	<1284624663.3352.9.camel@edumazet-laptop>
+From: <Matt_Domsch@Dell.com>
+Subject: Linux Plumbers Conference: User-visible Network Issues Mini-Conf
+Date: Fri, 17 Sep 2010 14:12:29 -0500
+Message-ID: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, bphilips@suse.de,
-	e1000-devel@lists.sourceforge.net, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50472
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754475Ab0IQS4s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 14:56:48 -0400
-In-Reply-To: <1284624663.3352.9.camel@edumazet-laptop>
+Received: from ausxipps301.us.dell.com ([143.166.148.223]:30735 "EHLO
+	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754374Ab0IQTMc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 15:12:32 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 16 Sep 2010 10:11:03 +0200
+At the Linux Plumbers Conference [1] November 3-5, 2010 in Cambridge, MA, we have a half-day mini-conference [2] set aside to discuss "User-visible Network Issues" - challenges that users face, that could benefit from both userspace and kernel enhancements to make their lives easier.
 
-> [PATCH] ethtool: change ethtool_set_gro() to use ethtool_op_get_rx_csum
-> 
-> To be able to switch on GRO on a device, ethtool_set_gro() checks this
-> device provides a get_rx_csum() method.
-> 
-> Some devices dont provide this method, while they do support RX
-> checksumming.
-> 
-> This patch allows bonding to support GRO :
-> 
-> ethtool -K bond0 gro on
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Discussion proposals for this track are:
 
-Applied, thanks Eric.
+* Achieving Better Out-of-the-box Network Scaling 
+This is a discussion of how Linux needs to scale better out-of-the-box with large I/O network devices. 
+Peter Waskiewicz
 
-Can you do whatever change is needed to get it enabled by default?
+* Challenges in Mobile Networking 
+Challenges that we have with networking in the mobile space.
+Dan Williams and Marcel Holtmann
 
-Thanks again.
+* Data Center Bridging: Creating DCB aware networks 
+Presentation will highlight the ongoing efforts for enabling data center bridging technologies in the Linux kernel to meet the requirements of applications and stacks over Ethernet. 
+John Fastabend
+
+* Network Device Naming 
+Which of my NICs is eth0? 
+Matt Domsch 
+
+* Scaling techniques in the stack for servers with high connection rates 
+This talk will describe some techniques for scaling front end servers. In particular, we will describe the the use of SO_REUSEPORT in scaling servers for high connection rates with a single listening port. 
+Tom Herbert 
+
+* Simplifying network configuration for VMs by harmonizing multiple Bridging, QOS, DCB and CNA implementations 
+Shyam Iyer
+
+
+While I'm sure the individual topics will generate great discussion, it will be vital that members of the netdev community be present to represent the kernel developers' perspectives on the problems and to help brainstorm solutions.  Most of these topics have significant kernel components to them, and without additional kernel developer participation, I fear we would just be talking to ourselves, but no real progress made.
+
+I invite you to attend LPC, and this mini-conf in particular, and lend your expertise.  If you will be attending, which of the above topics are of most interest to you? We won't be able to cover all of these in the mini-conf, so those with the most interest  (plus mine of course!) will make the agenda.
+
+Thanks,
+Matt
+
+[1] http://www.linuxplumbersconf.org/2010/
+[2] http://www.linuxplumbersconf.org/2010/ocw/events/LPC2010MC/tracks/63
+
+--
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
+
