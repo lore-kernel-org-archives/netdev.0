@@ -1,124 +1,93 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH] netns: keep vlan slaves on master netns move
-Date: Fri, 17 Sep 2010 15:22:19 +0200
-Message-ID: <20100917132219.GA2363813@jupiter.n2.diac24.net>
-References: <20100824115056.GA235835@jupiter.n2.diac24.net>
- <20100913114315.GA859019@jupiter.n2.diac24.net>
- <m1bp7z4v0m.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	David Lamparter <equinox@diac24.net>
-To: David Miller <davem@davemloft.net>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next 1/4] stmmac: add CSR Clock range selection
+Date: Fri, 17 Sep 2010 15:23:39 +0200
+Message-ID: <1284729822-29176-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Johannes Stezenbach <js@sig21.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:35513 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751567Ab0IQNWc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Sep 2010 09:22:32 -0400
-Content-Disposition: inline
-In-Reply-To: <m1bp7z4v0m.fsf@fess.ebiederm.org>
+Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:57753 "EHLO
+	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752350Ab0IQNYC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 09:24:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-previously, if a vlan master device was moved from one network namespace
-to another, all 802.1q and macvlan slaves were deleted.
+This patch adds the CSR Clock range selection.
 
-we can use dev->reg_state to figure out whether dev_change_net_namespace
-is happening, since that won't set dev->reg_state NETREG_UNREGISTERING.
-so, this changes 8021q and macvlan to ignore NETDEV_UNREGISTER when
-reg_state is not NETREG_UNREGISTERING.
+Original patch from Johannes Stezenbach fixed the CSR
+in the stmmac_mdio. We agreed to provide this through
+the platform instead of.
+Also thanks to Johannes for having tested it on ARM.
 
-Signed-off-by: David Lamparter <equinox@diac24.net>
-Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Acked-by: Daniel Lezcano <daniel.lezcano@free.fr>
-Acked-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Signed-off-by: Johannes Stezenbach <js@sig21.net>
 ---
-Hi David,
+ drivers/net/stmmac/stmmac.h      |    1 +
+ drivers/net/stmmac/stmmac_main.c |    1 +
+ drivers/net/stmmac/stmmac_mdio.c |    5 +++--
+ include/linux/stmmac.h           |    1 +
+ 4 files changed, 6 insertions(+), 2 deletions(-)
 
-Q)ueue, F)eedback, A)pply?
-
--David
-
-On Tue, Sep 14, 2010 at 07:10:01PM -0700, Eric W. Biederman wrote:
-> Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> 
-> My inclination is that the best way to handle this is to would be to
-> push the device deletion for vlan and macvlan devices into the device
-> core, where we could get the advantage of batched deletions.  Right
-> now vlan and macvlan devices are the only devices I know of that cause
-> other devices to be removed during unregister, so removing that
-> specialness seems reasonable.
-> 
-> However not being able to move the primary vlan to a different network
-> namespace is usability bug with no real alternatives.  There are
-> not any other patches on the table right now, and your patch below
-> seems obviously correct.  Let's get this merged before we forget about
-> this, bug fix.
-> 
-> David Lamparter <equinox@diac24.net> writes:
-> > On Tue, Aug 24, 2010 at 01:50:56PM +0200, David Lamparter wrote:
-> >> attached patch makes it possible to keep macvlan / 802.1q slave devices
-> >> on moving their master to a different namespace. as the opposite works
-> >> without problems (moving the slaves into a different namespace), this
-> >> shouldn't cause problems either.
-> >
-> > I would like to resurrect this. After the small excursion into
-> > NETREG_NETNS_MOVING i've reevaluated my personal opinion and think the
-> > behaviour is the desired one and this patch is the cleanest way to
-> > implement it. While it depends on somewhat "fine print" on the reg_state
-> > state machine, the probability of major screw-ups in this region is
-> > rather small and it also quite likely makes a nice large boom when it is
-> > unduly tampered with.
-
- drivers/net/macvlan.c |    4 ++++
- net/8021q/vlan.c      |    4 ++++
- net/core/dev.c        |    4 ++++
- 3 files changed, 12 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index f15fe2c..f43f8e4 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -754,6 +754,10 @@ static int macvlan_device_event(struct notifier_block *unused,
- 		}
- 		break;
- 	case NETDEV_UNREGISTER:
-+		/* twiddle thumbs on netns device moves */
-+		if (dev->reg_state != NETREG_UNREGISTERING)
-+			break;
-+
- 		list_for_each_entry_safe(vlan, next, &port->vlans, list)
- 			vlan->dev->rtnl_link_ops->dellink(vlan->dev, NULL);
- 		break;
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 3c1c8c1..cdc37e8 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -516,6 +516,10 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 		break;
+diff --git a/drivers/net/stmmac/stmmac.h b/drivers/net/stmmac/stmmac.h
+index d0ddab0..12d1cb0 100644
+--- a/drivers/net/stmmac/stmmac.h
++++ b/drivers/net/stmmac/stmmac.h
+@@ -78,6 +78,7 @@ struct stmmac_priv {
+ 	unsigned int flow_ctrl;
+ 	unsigned int pause;
+ 	struct mii_bus *mii;
++	int mii_clk_csr;
  
- 	case NETDEV_UNREGISTER:
-+		/* twiddle thumbs on netns device moves */
-+		if (dev->reg_state != NETREG_UNREGISTERING)
-+			break;
-+
- 		/* Delete all VLANs for this dev. */
- 		grp->killall = 1;
+ 	u32 msg_enable;
+ 	spinlock_t lock;
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index 03c160c..a169b14 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -1704,6 +1704,7 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
+ 	plat_dat = pdev->dev.platform_data;
+ 	priv->bus_id = plat_dat->bus_id;
+ 	priv->pbl = plat_dat->pbl;	/* TLI */
++	priv->mii_clk_csr = plat_dat->clk_csr;
+ 	priv->is_gmac = plat_dat->has_gmac;	/* GMAC is on board */
+ 	priv->enh_desc = plat_dat->enh_desc;
+ 	priv->ioaddr = addr;
+diff --git a/drivers/net/stmmac/stmmac_mdio.c b/drivers/net/stmmac/stmmac_mdio.c
+index 03dea14..d744161 100644
+--- a/drivers/net/stmmac/stmmac_mdio.c
++++ b/drivers/net/stmmac/stmmac_mdio.c
+@@ -53,7 +53,7 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+ 	int data;
+ 	u16 regValue = (((phyaddr << 11) & (0x0000F800)) |
+ 			((phyreg << 6) & (0x000007C0)));
+-	regValue |= MII_BUSY;	/* in case of GMAC */
++	regValue |= MII_BUSY | ((priv->mii_clk_csr & 7) << 2);
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1f466e8..b1589bc 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5618,6 +5618,10 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
+ 	writel(regValue, priv->ioaddr + mii_address);
+@@ -85,7 +85,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+ 	    (((phyaddr << 11) & (0x0000F800)) | ((phyreg << 6) & (0x000007C0)))
+ 	    | MII_WRITE;
  
- 	/* Notify protocols, that we are about to destroy
- 	   this device. They should clean all the things.
+-	value |= MII_BUSY;
++	value |= MII_BUSY | ((priv->mii_clk_csr & 7) << 2);
 +
-+	   Note that dev->reg_state stays at NETREG_REGISTERED.
-+	   This is wanted because this way 8021q and macvlan know
-+	   the device is just moving and can keep their slaves up.
- 	*/
- 	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
- 	call_netdevice_notifiers(NETDEV_UNREGISTER_BATCH, dev);
+ 
+ 	/* Wait until any existing MII operation is complete */
+ 	do {} while (((readl(priv->ioaddr + mii_address)) & MII_BUSY) == 1);
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index a4adf0d..c87c88c 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -32,6 +32,7 @@
+ struct plat_stmmacenet_data {
+ 	int bus_id;
+ 	int pbl;
++	int clk_csr;
+ 	int has_gmac;
+ 	int enh_desc;
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+-- 
+1.7.0.4
+
