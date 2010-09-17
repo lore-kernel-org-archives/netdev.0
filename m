@@ -1,87 +1,140 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [v2 RFC PATCH 2/4] Changes for virtio-net
-Date: Fri, 17 Sep 2010 17:57:54 +0530
-Message-ID: <OF4A8774FB.F21849D9-ON652577A1.003A4D4E-652577A1.00443FC7@in.ibm.com>
-References: <20100917100307.21276.79185.sendpatchset@krkumar2.in.ibm.com>	 <20100917100319.21276.271.sendpatchset@krkumar2.in.ibm.com> <1284719154.3391.84.camel@edumazet-laptop>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: sunrpc: remove the big kernel lock
+Date: Fri, 17 Sep 2010 14:38:02 +0200
+Message-ID: <201009171438.02313.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp07.in.ibm.com ([122.248.162.7]:57481 "EHLO
-	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753746Ab0IQMZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 08:25:35 -0400
-In-Reply-To: <1284719154.3391.84.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote on 09/17/2010 03:55:54 PM:
+The sunrpc cache_ioctl function does not need the big kernel lock
+because it uses its own queue_lock already.
 
-> > +/* Our representation of a send virtqueue */
-> > +struct send_queue {
-> > +   struct virtqueue *svq;
-> > +
-> > +   /* TX: fragments + linear part + virtio header */
-> > +   struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
-> > +};
->
-> You probably want ____cacheline_aligned_in_smp
+rpc_pipe_ioctl apparently should be using i_lock like the other
+operations on the pipe file descriptor do.
 
-I had tried this and mentioned this in Patch 0/4:
-"2. Cache-align data structures: I didn't see any BW/SD improvement
-   after making the sq's (and similarly for vhost) cache-aligned
-   statically:
-        struct virtnet_info {
-                ...
-                struct send_queue sq[16] ____cacheline_aligned_in_smp;
-                ...
-        };
-"
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+---
+I missed this one because I considered the use of the BKL to
+be part of nfs/nfsd, but in this is really an unrelated usage.
+Please apply to an appropriate tree.
 
-I am not sure why this made no difference?
-
-> > +
-> >  struct virtnet_info {
-> >     struct virtio_device *vdev;
-> > -   struct virtqueue *rvq, *svq, *cvq;
-> > +   int numtxqs;         /* Number of tx queues */
-> > +   struct send_queue *sq;
-> > +   struct virtqueue *rvq;
-> > +   struct virtqueue *cvq;
-> >     struct net_device *dev;
->
-> struct napi will probably be dirtied by RX processing
->
-> You should make sure it doesnt dirty cache line of above (read mostly)
-> fields
-
-I am changing the layout of napi wrt other pointers in
-this patch, though the to-be-submitted RX patch does that.
-Should I do something for this TX-only patch?
-
-> > +#define MAX_DEVICE_NAME      16
-> > +static int initialize_vqs(struct virtnet_info *vi, int numtxqs)
-> > +{
-> > +   vq_callback_t **callbacks;
-> > +   struct virtqueue **vqs;
-> > +   int i, err = -ENOMEM;
-> > +   int totalvqs;
-> > +   char **names;
-> > +
-> > +   /* Allocate send queues */
->
-> no check on numtxqs ? Hmm...
->
-> Please then use kcalloc(numtxqs, sizeof(*vi->sq), GFP_KERNEL) so that
-> some check is done for you ;)
-
-Right! I need to re-introduce some limit. Rusty, should I simply
-add a check for a constant (like 256) here?
-
-Thanks for your review, Eric!
-
-- KK
-
+diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+index 5b7b56f..9e4827c 100644
+--- a/net/sunrpc/cache.c
++++ b/net/sunrpc/cache.c
+@@ -28,7 +28,6 @@
+ #include <linux/workqueue.h>
+ #include <linux/mutex.h>
+ #include <linux/pagemap.h>
+-#include <linux/smp_lock.h>
+ #include <asm/ioctls.h>
+ #include <linux/sunrpc/types.h>
+ #include <linux/sunrpc/cache.h>
+@@ -1426,15 +1425,10 @@ static unsigned int cache_poll_procfs(struct file *filp, poll_table *wait)
+ static long cache_ioctl_procfs(struct file *filp,
+ 			       unsigned int cmd, unsigned long arg)
+ {
+-	long ret;
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+ 	struct cache_detail *cd = PDE(inode)->data;
+ 
+-	lock_kernel();
+-	ret = cache_ioctl(inode, filp, cmd, arg, cd);
+-	unlock_kernel();
+-
+-	return ret;
++	return cache_ioctl(inode, filp, cmd, arg, cd);
+ }
+ 
+ static int cache_open_procfs(struct inode *inode, struct file *filp)
+@@ -1634,13 +1628,8 @@ static long cache_ioctl_pipefs(struct file *filp,
+ {
+ 	struct inode *inode = filp->f_dentry->d_inode;
+ 	struct cache_detail *cd = RPC_I(inode)->private;
+-	long ret;
+ 
+-	lock_kernel();
+-	ret = cache_ioctl(inode, filp, cmd, arg, cd);
+-	unlock_kernel();
+-
+-	return ret;
++	return cache_ioctl(inode, filp, cmd, arg, cd);
+ }
+ 
+ static int cache_open_pipefs(struct inode *inode, struct file *filp)
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index 8c8eef2..28bcd52 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -27,7 +27,6 @@
+ #include <linux/workqueue.h>
+ #include <linux/sunrpc/rpc_pipe_fs.h>
+ #include <linux/sunrpc/cache.h>
+-#include <linux/smp_lock.h>
+ 
+ static struct vfsmount *rpc_mount __read_mostly;
+ static int rpc_mount_count;
+@@ -309,40 +308,33 @@ rpc_pipe_poll(struct file *filp, struct poll_table_struct *wait)
+ 	return mask;
+ }
+ 
+-static int
+-rpc_pipe_ioctl_unlocked(struct file *filp, unsigned int cmd, unsigned long arg)
++static long
++rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ {
+-	struct rpc_inode *rpci = RPC_I(filp->f_path.dentry->d_inode);
++	struct inode *inode = filp->f_path.dentry->d_inode;
++	struct rpc_inode *rpci = RPC_I(inode);
+ 	int len;
+ 
+ 	switch (cmd) {
+ 	case FIONREAD:
+-		if (rpci->ops == NULL)
++		spin_lock(&inode->i_lock);
++		if (rpci->ops == NULL) {
++			spin_unlock(&inode->i_lock);
+ 			return -EPIPE;
++		}
+ 		len = rpci->pipelen;
+ 		if (filp->private_data) {
+ 			struct rpc_pipe_msg *msg;
+ 			msg = (struct rpc_pipe_msg *)filp->private_data;
+ 			len += msg->len - msg->copied;
+ 		}
++		spin_unlock(&inode->i_lock);
+ 		return put_user(len, (int __user *)arg);
+ 	default:
+ 		return -EINVAL;
+ 	}
+ }
+ 
+-static long
+-rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+-{
+-	long ret;
+-
+-	lock_kernel();
+-	ret = rpc_pipe_ioctl_unlocked(filp, cmd, arg);
+-	unlock_kernel();
+-
+-	return ret;
+-}
+-
+ static const struct file_operations rpc_pipe_fops = {
+ 	.owner		= THIS_MODULE,
+ 	.llseek		= no_llseek,
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
