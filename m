@@ -1,7 +1,7 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [v2 RFC PATCH 2/4] Changes for virtio-net
-Date: Fri, 17 Sep 2010 15:33:19 +0530
-Message-ID: <20100917100319.21276.271.sendpatchset@krkumar2.in.ibm.com>
+Subject: [v2 RFC PATCH 4/4] qemu changes
+Date: Fri, 17 Sep 2010 15:33:32 +0530
+Message-ID: <20100917100332.21276.33767.sendpatchset@krkumar2.in.ibm.com>
 References: <20100917100307.21276.79185.sendpatchset@krkumar2.in.ibm.com>
 Cc: kvm@vger.kernel.org, arnd@arndb.de, netdev@vger.kernel.org,
 	avi@redhat.com, anthony@codemonkey.ws,
@@ -12,410 +12,535 @@ In-Reply-To: <20100917100307.21276.79185.sendpatchset@krkumar2.in.ibm.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement mq virtio-net driver. 
-
-Though struct virtio_net_config changes, it works with old
-qemu's since the last element is not accessed, unless qemu
-sets VIRTIO_NET_F_NUMTXQS.
+Changes in qemu to support mq TX.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- drivers/net/virtio_net.c   |  213 ++++++++++++++++++++++++++---------
- include/linux/virtio_net.h |    3 
- 2 files changed, 163 insertions(+), 53 deletions(-)
+ hw/vhost.c      |    8 ++-
+ hw/vhost.h      |    2 
+ hw/vhost_net.c  |   16 +++++--
+ hw/vhost_net.h  |    2 
+ hw/virtio-net.c |   97 ++++++++++++++++++++++++++++++----------------
+ hw/virtio-net.h |    2 
+ hw/virtio-pci.c |    2 
+ net.c           |   17 ++++++++
+ net.h           |    1 
+ net/tap.c       |   27 ++++++++++--
+ 10 files changed, 129 insertions(+), 45 deletions(-)
 
-diff -ruNp org2/include/linux/virtio_net.h tx_only2/include/linux/virtio_net.h
---- org2/include/linux/virtio_net.h	2010-02-10 13:20:27.000000000 +0530
-+++ tx_only2/include/linux/virtio_net.h	2010-09-16 15:24:01.000000000 +0530
-@@ -26,6 +26,7 @@
- #define VIRTIO_NET_F_CTRL_RX	18	/* Control channel RX mode support */
- #define VIRTIO_NET_F_CTRL_VLAN	19	/* Control channel VLAN filtering */
- #define VIRTIO_NET_F_CTRL_RX_EXTRA 20	/* Extra RX mode control support */
-+#define VIRTIO_NET_F_NUMTXQS	21	/* Device supports multiple TX queue */
+diff -ruNp org2/hw/vhost.c tx_only.rev2/hw/vhost.c
+--- org2/hw/vhost.c	2010-08-09 09:51:58.000000000 +0530
++++ tx_only.rev2/hw/vhost.c	2010-09-16 16:23:56.000000000 +0530
+@@ -599,23 +599,27 @@ static void vhost_virtqueue_cleanup(stru
+                               0, virtio_queue_get_desc_size(vdev, idx));
+ }
  
- #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
+-int vhost_dev_init(struct vhost_dev *hdev, int devfd)
++int vhost_dev_init(struct vhost_dev *hdev, int devfd, int numtxqs)
+ {
+     uint64_t features;
+     int r;
+     if (devfd >= 0) {
+         hdev->control = devfd;
++        hdev->nvqs = 2;
+     } else {
+         hdev->control = open("/dev/vhost-net", O_RDWR);
+         if (hdev->control < 0) {
+             return -errno;
+         }
+     }
+-    r = ioctl(hdev->control, VHOST_SET_OWNER, NULL);
++
++    r = ioctl(hdev->control, VHOST_SET_OWNER, numtxqs);
+     if (r < 0) {
+         goto fail;
+     }
  
-@@ -34,6 +35,8 @@ struct virtio_net_config {
- 	__u8 mac[6];
- 	/* See VIRTIO_NET_F_STATUS and VIRTIO_NET_S_* above */
- 	__u16 status;
-+	/* number of transmit queues */
-+	__u16 numtxqs;
++    hdev->nvqs = numtxqs + 1;
++
+     r = ioctl(hdev->control, VHOST_GET_FEATURES, &features);
+     if (r < 0) {
+         goto fail;
+diff -ruNp org2/hw/vhost.h tx_only.rev2/hw/vhost.h
+--- org2/hw/vhost.h	2010-07-01 11:42:09.000000000 +0530
++++ tx_only.rev2/hw/vhost.h	2010-09-16 16:23:56.000000000 +0530
+@@ -40,7 +40,7 @@ struct vhost_dev {
+     unsigned long long log_size;
+ };
+ 
+-int vhost_dev_init(struct vhost_dev *hdev, int devfd);
++int vhost_dev_init(struct vhost_dev *hdev, int devfd, int nvqs);
+ void vhost_dev_cleanup(struct vhost_dev *hdev);
+ int vhost_dev_start(struct vhost_dev *hdev, VirtIODevice *vdev);
+ void vhost_dev_stop(struct vhost_dev *hdev, VirtIODevice *vdev);
+diff -ruNp org2/hw/vhost_net.c tx_only.rev2/hw/vhost_net.c
+--- org2/hw/vhost_net.c	2010-08-09 09:51:58.000000000 +0530
++++ tx_only.rev2/hw/vhost_net.c	2010-09-16 16:23:56.000000000 +0530
+@@ -36,7 +36,8 @@
+ 
+ struct vhost_net {
+     struct vhost_dev dev;
+-    struct vhost_virtqueue vqs[2];
++    struct vhost_virtqueue *vqs;
++    int nvqs;
+     int backend;
+     VLANClientState *vc;
+ };
+@@ -76,7 +77,8 @@ static int vhost_net_get_fd(VLANClientSt
+     }
+ }
+ 
+-struct vhost_net *vhost_net_init(VLANClientState *backend, int devfd)
++struct vhost_net *vhost_net_init(VLANClientState *backend, int devfd,
++				 int numtxqs)
+ {
+     int r;
+     struct vhost_net *net = qemu_malloc(sizeof *net);
+@@ -93,10 +95,14 @@ struct vhost_net *vhost_net_init(VLANCli
+         (1 << VHOST_NET_F_VIRTIO_NET_HDR);
+     net->backend = r;
+ 
+-    r = vhost_dev_init(&net->dev, devfd);
++    r = vhost_dev_init(&net->dev, devfd, numtxqs);
+     if (r < 0) {
+         goto fail;
+     }
++
++    net->nvqs = numtxqs + 1;
++    net->vqs = qemu_malloc(net->nvqs * (sizeof *net->vqs));
++
+     if (~net->dev.features & net->dev.backend_features) {
+         fprintf(stderr, "vhost lacks feature mask %" PRIu64 " for backend\n",
+                 (uint64_t)(~net->dev.features & net->dev.backend_features));
+@@ -118,7 +124,6 @@ int vhost_net_start(struct vhost_net *ne
+     struct vhost_vring_file file = { };
+     int r;
+ 
+-    net->dev.nvqs = 2;
+     net->dev.vqs = net->vqs;
+     r = vhost_dev_start(&net->dev, dev);
+     if (r < 0) {
+@@ -166,7 +171,8 @@ void vhost_net_cleanup(struct vhost_net 
+     qemu_free(net);
+ }
+ #else
+-struct vhost_net *vhost_net_init(VLANClientState *backend, int devfd)
++struct vhost_net *vhost_net_init(VLANClientState *backend, int devfd,
++				 int nvqs)
+ {
+ 	return NULL;
+ }
+diff -ruNp org2/hw/vhost_net.h tx_only.rev2/hw/vhost_net.h
+--- org2/hw/vhost_net.h	2010-07-01 11:42:09.000000000 +0530
++++ tx_only.rev2/hw/vhost_net.h	2010-09-16 16:23:56.000000000 +0530
+@@ -6,7 +6,7 @@
+ struct vhost_net;
+ typedef struct vhost_net VHostNetState;
+ 
+-VHostNetState *vhost_net_init(VLANClientState *backend, int devfd);
++VHostNetState *vhost_net_init(VLANClientState *backend, int devfd, int nvqs);
+ 
+ int vhost_net_start(VHostNetState *net, VirtIODevice *dev);
+ void vhost_net_stop(VHostNetState *net, VirtIODevice *dev);
+diff -ruNp org2/hw/virtio-net.c tx_only.rev2/hw/virtio-net.c
+--- org2/hw/virtio-net.c	2010-07-19 12:41:28.000000000 +0530
++++ tx_only.rev2/hw/virtio-net.c	2010-09-16 16:23:56.000000000 +0530
+@@ -32,17 +32,17 @@ typedef struct VirtIONet
+     uint8_t mac[ETH_ALEN];
+     uint16_t status;
+     VirtQueue *rx_vq;
+-    VirtQueue *tx_vq;
++    VirtQueue **tx_vq;
+     VirtQueue *ctrl_vq;
+     NICState *nic;
+-    QEMUTimer *tx_timer;
+-    int tx_timer_active;
++    QEMUTimer **tx_timer;
++    int *tx_timer_active;
+     uint32_t has_vnet_hdr;
+     uint8_t has_ufo;
+     struct {
+         VirtQueueElement elem;
+         ssize_t len;
+-    } async_tx;
++    } *async_tx;
+     int mergeable_rx_bufs;
+     uint8_t promisc;
+     uint8_t allmulti;
+@@ -61,6 +61,7 @@ typedef struct VirtIONet
+     } mac_table;
+     uint32_t *vlans;
+     DeviceState *qdev;
++    uint16_t numtxqs;
+ } VirtIONet;
+ 
+ /* TODO
+@@ -78,6 +79,7 @@ static void virtio_net_get_config(VirtIO
+     struct virtio_net_config netcfg;
+ 
+     netcfg.status = n->status;
++    netcfg.numtxqs = n->numtxqs;
+     memcpy(netcfg.mac, n->mac, ETH_ALEN);
+     memcpy(config, &netcfg, sizeof(netcfg));
+ }
+@@ -162,6 +164,8 @@ static uint32_t virtio_net_get_features(
+     VirtIONet *n = to_virtio_net(vdev);
+ 
+     features |= (1 << VIRTIO_NET_F_MAC);
++    if (n->numtxqs > 1)
++        features |= (1 << VIRTIO_NET_F_NUMTXQS);
+ 
+     if (peer_has_vnet_hdr(n)) {
+         tap_using_vnet_hdr(n->nic->nc.peer, 1);
+@@ -625,13 +629,16 @@ static void virtio_net_tx_complete(VLANC
+ {
+     VirtIONet *n = DO_UPCAST(NICState, nc, nc)->opaque;
+ 
+-    virtqueue_push(n->tx_vq, &n->async_tx.elem, n->async_tx.len);
+-    virtio_notify(&n->vdev, n->tx_vq);
++    /*
++     * If this function executes, we are single TX and hence use only txq[0]
++     */
++    virtqueue_push(n->tx_vq[0], &n->async_tx[0].elem, n->async_tx[0].len);
++    virtio_notify(&n->vdev, n->tx_vq[0]);
+ 
+-    n->async_tx.elem.out_num = n->async_tx.len = 0;
++    n->async_tx[0].elem.out_num = n->async_tx[0].len = 0;
+ 
+-    virtio_queue_set_notification(n->tx_vq, 1);
+-    virtio_net_flush_tx(n, n->tx_vq);
++    virtio_queue_set_notification(n->tx_vq[0], 1);
++    virtio_net_flush_tx(n, n->tx_vq[0]);
+ }
+ 
+ /* TX */
+@@ -642,8 +649,8 @@ static void virtio_net_flush_tx(VirtIONe
+     if (!(n->vdev.status & VIRTIO_CONFIG_S_DRIVER_OK))
+         return;
+ 
+-    if (n->async_tx.elem.out_num) {
+-        virtio_queue_set_notification(n->tx_vq, 0);
++    if (n->async_tx[0].elem.out_num) {
++        virtio_queue_set_notification(n->tx_vq[0], 0);
+         return;
+     }
+ 
+@@ -678,9 +685,9 @@ static void virtio_net_flush_tx(VirtIONe
+         ret = qemu_sendv_packet_async(&n->nic->nc, out_sg, out_num,
+                                       virtio_net_tx_complete);
+         if (ret == 0) {
+-            virtio_queue_set_notification(n->tx_vq, 0);
+-            n->async_tx.elem = elem;
+-            n->async_tx.len  = len;
++            virtio_queue_set_notification(n->tx_vq[0], 0);
++            n->async_tx[0].elem = elem;
++            n->async_tx[0].len  = len;
+             return;
+         }
+ 
+@@ -695,15 +702,15 @@ static void virtio_net_handle_tx(VirtIOD
+ {
+     VirtIONet *n = to_virtio_net(vdev);
+ 
+-    if (n->tx_timer_active) {
++    if (n->tx_timer_active[0]) {
+         virtio_queue_set_notification(vq, 1);
+-        qemu_del_timer(n->tx_timer);
+-        n->tx_timer_active = 0;
++        qemu_del_timer(n->tx_timer[0]);
++        n->tx_timer_active[0] = 0;
+         virtio_net_flush_tx(n, vq);
+     } else {
+-        qemu_mod_timer(n->tx_timer,
++        qemu_mod_timer(n->tx_timer[0],
+                        qemu_get_clock(vm_clock) + TX_TIMER_INTERVAL);
+-        n->tx_timer_active = 1;
++        n->tx_timer_active[0] = 1;
+         virtio_queue_set_notification(vq, 0);
+     }
+ }
+@@ -712,18 +719,19 @@ static void virtio_net_tx_timer(void *op
+ {
+     VirtIONet *n = opaque;
+ 
+-    n->tx_timer_active = 0;
++    n->tx_timer_active[0] = 0;
+ 
+     /* Just in case the driver is not ready on more */
+     if (!(n->vdev.status & VIRTIO_CONFIG_S_DRIVER_OK))
+         return;
+ 
+-    virtio_queue_set_notification(n->tx_vq, 1);
+-    virtio_net_flush_tx(n, n->tx_vq);
++    virtio_queue_set_notification(n->tx_vq[0], 1);
++    virtio_net_flush_tx(n, n->tx_vq[0]);
+ }
+ 
+ static void virtio_net_save(QEMUFile *f, void *opaque)
+ {
++    int i;
+     VirtIONet *n = opaque;
+ 
+     if (n->vhost_started) {
+@@ -735,7 +743,9 @@ static void virtio_net_save(QEMUFile *f,
+     virtio_save(&n->vdev, f);
+ 
+     qemu_put_buffer(f, n->mac, ETH_ALEN);
+-    qemu_put_be32(f, n->tx_timer_active);
++    qemu_put_be16(f, n->numtxqs);
++    for (i = 0; i < n->numtxqs; i++)
++        qemu_put_be32(f, n->tx_timer_active[i]);
+     qemu_put_be32(f, n->mergeable_rx_bufs);
+     qemu_put_be16(f, n->status);
+     qemu_put_byte(f, n->promisc);
+@@ -764,7 +774,9 @@ static int virtio_net_load(QEMUFile *f, 
+     virtio_load(&n->vdev, f);
+ 
+     qemu_get_buffer(f, n->mac, ETH_ALEN);
+-    n->tx_timer_active = qemu_get_be32(f);
++    n->numtxqs = qemu_get_be16(f);
++    for (i = 0; i < n->numtxqs; i++)
++        n->tx_timer_active[i] = qemu_get_be32(f);
+     n->mergeable_rx_bufs = qemu_get_be32(f);
+ 
+     if (version_id >= 3)
+@@ -840,9 +852,10 @@ static int virtio_net_load(QEMUFile *f, 
+     }
+     n->mac_table.first_multi = i;
+ 
+-    if (n->tx_timer_active) {
+-        qemu_mod_timer(n->tx_timer,
+-                       qemu_get_clock(vm_clock) + TX_TIMER_INTERVAL);
++    for (i = 0; i < n->numtxqs; i++) {
++        if (n->tx_timer_active[i])
++            qemu_mod_timer(n->tx_timer[i],
++                           qemu_get_clock(vm_clock) + TX_TIMER_INTERVAL);
+     }
+     return 0;
+ }
+@@ -905,12 +918,15 @@ static void virtio_net_vmstate_change(vo
+ 
+ VirtIODevice *virtio_net_init(DeviceState *dev, NICConf *conf)
+ {
++    int i;
+     VirtIONet *n;
+ 
+     n = (VirtIONet *)virtio_common_init("virtio-net", VIRTIO_ID_NET,
+                                         sizeof(struct virtio_net_config),
+                                         sizeof(VirtIONet));
+ 
++    n->numtxqs = conf->peer->numtxqs;
++
+     n->vdev.get_config = virtio_net_get_config;
+     n->vdev.set_config = virtio_net_set_config;
+     n->vdev.get_features = virtio_net_get_features;
+@@ -918,8 +934,24 @@ VirtIODevice *virtio_net_init(DeviceStat
+     n->vdev.bad_features = virtio_net_bad_features;
+     n->vdev.reset = virtio_net_reset;
+     n->vdev.set_status = virtio_net_set_status;
++
+     n->rx_vq = virtio_add_queue(&n->vdev, 256, virtio_net_handle_rx);
+-    n->tx_vq = virtio_add_queue(&n->vdev, 256, virtio_net_handle_tx);
++
++    n->tx_vq = qemu_mallocz(n->numtxqs * sizeof(*n->tx_vq));
++    n->tx_timer = qemu_mallocz(n->numtxqs * sizeof(*n->tx_timer));
++    n->tx_timer_active = qemu_mallocz(n->numtxqs * sizeof(*n->tx_timer_active));
++    n->async_tx = qemu_mallocz(n->numtxqs * sizeof(*n->async_tx));
++
++    /* Allocate per tx vq's */
++    for (i = 0; i < n->numtxqs; i++) {
++        n->tx_vq[i] = virtio_add_queue(&n->vdev, 256, virtio_net_handle_tx);
++
++        /* setup timer per tx vq */
++        n->tx_timer[i] = qemu_new_timer(vm_clock, virtio_net_tx_timer, n);
++        n->tx_timer_active[i] = 0;
++    }
++
++    /* Allocate control vq */
+     n->ctrl_vq = virtio_add_queue(&n->vdev, 64, virtio_net_handle_ctrl);
+     qemu_macaddr_default_if_unset(&conf->macaddr);
+     memcpy(&n->mac[0], &conf->macaddr, sizeof(n->mac));
+@@ -929,8 +961,6 @@ VirtIODevice *virtio_net_init(DeviceStat
+ 
+     qemu_format_nic_info_str(&n->nic->nc, conf->macaddr.a);
+ 
+-    n->tx_timer = qemu_new_timer(vm_clock, virtio_net_tx_timer, n);
+-    n->tx_timer_active = 0;
+     n->mergeable_rx_bufs = 0;
+     n->promisc = 1; /* for compatibility */
+ 
+@@ -948,6 +978,7 @@ VirtIODevice *virtio_net_init(DeviceStat
+ 
+ void virtio_net_exit(VirtIODevice *vdev)
+ {
++    int i;
+     VirtIONet *n = DO_UPCAST(VirtIONet, vdev, vdev);
+     qemu_del_vm_change_state_handler(n->vmstate);
+ 
+@@ -962,8 +993,10 @@ void virtio_net_exit(VirtIODevice *vdev)
+     qemu_free(n->mac_table.macs);
+     qemu_free(n->vlans);
+ 
+-    qemu_del_timer(n->tx_timer);
+-    qemu_free_timer(n->tx_timer);
++    for (i = 0; i < n->numtxqs; i++) {
++        qemu_del_timer(n->tx_timer[i]);
++        qemu_free_timer(n->tx_timer[i]);
++    }
+ 
+     virtio_cleanup(&n->vdev);
+     qemu_del_vlan_client(&n->nic->nc);
+diff -ruNp org2/hw/virtio-net.h tx_only.rev2/hw/virtio-net.h
+--- org2/hw/virtio-net.h	2010-07-01 11:42:09.000000000 +0530
++++ tx_only.rev2/hw/virtio-net.h	2010-09-16 16:23:56.000000000 +0530
+@@ -44,6 +44,7 @@
+ #define VIRTIO_NET_F_CTRL_RX    18      /* Control channel RX mode support */
+ #define VIRTIO_NET_F_CTRL_VLAN  19      /* Control channel VLAN filtering */
+ #define VIRTIO_NET_F_CTRL_RX_EXTRA 20   /* Extra RX mode control support */
++#define VIRTIO_NET_F_NUMTXQS    21      /* Supports multiple TX queues */
+ 
+ #define VIRTIO_NET_S_LINK_UP    1       /* Link is up */
+ 
+@@ -58,6 +59,7 @@ struct virtio_net_config
+     uint8_t mac[ETH_ALEN];
+     /* See VIRTIO_NET_F_STATUS and VIRTIO_NET_S_* above */
+     uint16_t status;
++    uint16_t numtxqs;	/* number of transmit queues */
  } __attribute__((packed));
  
  /* This is the first element of the scatter-gather list.  If you don't
-diff -ruNp org2/drivers/net/virtio_net.c tx_only2/drivers/net/virtio_net.c
---- org2/drivers/net/virtio_net.c	2010-07-08 12:54:32.000000000 +0530
-+++ tx_only2/drivers/net/virtio_net.c	2010-09-16 15:24:01.000000000 +0530
-@@ -40,9 +40,20 @@ module_param(gso, bool, 0444);
- 
- #define VIRTNET_SEND_COMMAND_SG_MAX    2
- 
-+/* Our representation of a send virtqueue */
-+struct send_queue {
-+	struct virtqueue *svq;
-+
-+	/* TX: fragments + linear part + virtio header */
-+	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
-+};
-+
- struct virtnet_info {
- 	struct virtio_device *vdev;
--	struct virtqueue *rvq, *svq, *cvq;
-+	int numtxqs;			/* Number of tx queues */
-+	struct send_queue *sq;
-+	struct virtqueue *rvq;
-+	struct virtqueue *cvq;
- 	struct net_device *dev;
- 	struct napi_struct napi;
- 	unsigned int status;
-@@ -62,9 +73,8 @@ struct virtnet_info {
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
- 
--	/* fragments + linear part + virtio header */
-+	/* RX: fragments + linear part + virtio header */
- 	struct scatterlist rx_sg[MAX_SKB_FRAGS + 2];
--	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
- };
- 
- struct skb_vnet_hdr {
-@@ -120,12 +130,13 @@ static struct page *get_a_page(struct vi
- static void skb_xmit_done(struct virtqueue *svq)
+diff -ruNp org2/hw/virtio-pci.c tx_only.rev2/hw/virtio-pci.c
+--- org2/hw/virtio-pci.c	2010-09-08 12:46:36.000000000 +0530
++++ tx_only.rev2/hw/virtio-pci.c	2010-09-16 16:23:56.000000000 +0530
+@@ -99,6 +99,7 @@ typedef struct {
+     uint32_t addr;
+     uint32_t class_code;
+     uint32_t nvectors;
++    uint32_t mq;
+     BlockConf block;
+     NICConf nic;
+     uint32_t host_features;
+@@ -722,6 +723,7 @@ static PCIDeviceInfo virtio_info[] = {
+         .romfile    = "pxe-virtio.bin",
+         .qdev.props = (Property[]) {
+             DEFINE_PROP_UINT32("vectors", VirtIOPCIProxy, nvectors, 3),
++	    DEFINE_PROP_UINT32("mq", VirtIOPCIProxy, mq, 1),
+             DEFINE_VIRTIO_NET_FEATURES(VirtIOPCIProxy, host_features),
+             DEFINE_NIC_PROPERTIES(VirtIOPCIProxy, nic),
+             DEFINE_PROP_END_OF_LIST(),
+diff -ruNp org2/net/tap.c tx_only.rev2/net/tap.c
+--- org2/net/tap.c	2010-07-01 11:42:09.000000000 +0530
++++ tx_only.rev2/net/tap.c	2010-09-16 16:23:56.000000000 +0530
+@@ -299,13 +299,14 @@ static NetClientInfo net_tap_info = {
+ static TAPState *net_tap_fd_init(VLANState *vlan,
+                                  const char *model,
+                                  const char *name,
+-                                 int fd,
++                                 int fd, int numtxqs,
+                                  int vnet_hdr)
  {
- 	struct virtnet_info *vi = svq->vdev->priv;
-+	int qnum = svq->queue_index - 1;	/* 0 is RX vq */
+     VLANClientState *nc;
+     TAPState *s;
  
- 	/* Suppress further interrupts. */
- 	virtqueue_disable_cb(svq);
+     nc = qemu_new_net_client(&net_tap_info, vlan, NULL, model, name);
++    nc->numtxqs = numtxqs;
  
- 	/* We were probably waiting for more output buffers. */
--	netif_wake_queue(vi->dev);
-+	netif_wake_subqueue(vi->dev, qnum);
- }
+     s = DO_UPCAST(TAPState, nc, nc);
  
- static void set_skb_frag(struct sk_buff *skb, struct page *page,
-@@ -495,12 +506,13 @@ again:
- 	return received;
- }
- 
--static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
-+static unsigned int free_old_xmit_skbs(struct virtnet_info *vi,
-+				       struct virtqueue *svq)
+@@ -403,6 +404,24 @@ int net_init_tap(QemuOpts *opts, Monitor
  {
- 	struct sk_buff *skb;
- 	unsigned int len, tot_sgs = 0;
+     TAPState *s;
+     int fd, vnet_hdr = 0;
++    int vhost;
++    int numtxqs = 1;
++
++    vhost = qemu_opt_get_bool(opts, "vhost", 0);
++
++    /*
++     * We support multiple tx queues if:
++     *      1. smp > 1
++     *      2. vhost=on
++     *      3. mq=on
++     * In this case, #txqueues = #cpus. This value can be changed by
++     * using the "numtxqs" option.
++     */
++    if (vhost && smp_cpus > 1) {
++        if (qemu_opt_get_bool(opts, "mq", 0)) {
++            numtxqs = qemu_opt_get_number(opts, "numtxqs", smp_cpus);
++        }
++    }
  
--	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
-+	while ((skb = virtqueue_get_buf(svq, &len)) != NULL) {
- 		pr_debug("Sent skb %p\n", skb);
- 		vi->dev->stats.tx_bytes += skb->len;
- 		vi->dev->stats.tx_packets++;
-@@ -510,7 +522,8 @@ static unsigned int free_old_xmit_skbs(s
- 	return tot_sgs;
- }
+     if (qemu_opt_get(opts, "fd")) {
+         if (qemu_opt_get(opts, "ifname") ||
+@@ -436,7 +455,7 @@ int net_init_tap(QemuOpts *opts, Monitor
+         }
+     }
  
--static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
-+static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb,
-+		    struct virtqueue *svq, struct scatterlist *tx_sg)
- {
- 	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
- 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
-@@ -548,12 +561,12 @@ static int xmit_skb(struct virtnet_info 
+-    s = net_tap_fd_init(vlan, "tap", name, fd, vnet_hdr);
++    s = net_tap_fd_init(vlan, "tap", name, fd, numtxqs, vnet_hdr);
+     if (!s) {
+         close(fd);
+         return -1;
+@@ -465,7 +484,7 @@ int net_init_tap(QemuOpts *opts, Monitor
+         }
+     }
  
- 	/* Encode metadata header at front. */
- 	if (vi->mergeable_rx_bufs)
--		sg_set_buf(vi->tx_sg, &hdr->mhdr, sizeof hdr->mhdr);
-+		sg_set_buf(tx_sg, &hdr->mhdr, sizeof hdr->mhdr);
- 	else
--		sg_set_buf(vi->tx_sg, &hdr->hdr, sizeof hdr->hdr);
-+		sg_set_buf(tx_sg, &hdr->hdr, sizeof hdr->hdr);
+-    if (qemu_opt_get_bool(opts, "vhost", !!qemu_opt_get(opts, "vhostfd"))) {
++    if (vhost) {
+         int vhostfd, r;
+         if (qemu_opt_get(opts, "vhostfd")) {
+             r = net_handle_fd_param(mon, qemu_opt_get(opts, "vhostfd"));
+@@ -476,7 +495,7 @@ int net_init_tap(QemuOpts *opts, Monitor
+         } else {
+             vhostfd = -1;
+         }
+-        s->vhost_net = vhost_net_init(&s->nc, vhostfd);
++        s->vhost_net = vhost_net_init(&s->nc, vhostfd, numtxqs);
+         if (!s->vhost_net) {
+             error_report("vhost-net requested but could not be initialized");
+             return -1;
+diff -ruNp org2/net.c tx_only.rev2/net.c
+--- org2/net.c	2010-09-08 12:46:36.000000000 +0530
++++ tx_only.rev2/net.c	2010-09-16 16:23:56.000000000 +0530
+@@ -814,6 +814,15 @@ static int net_init_nic(QemuOpts *opts,
+         return -1;
+     }
  
--	hdr->num_sg = skb_to_sgvec(skb, vi->tx_sg + 1, 0, skb->len) + 1;
--	return virtqueue_add_buf(vi->svq, vi->tx_sg, hdr->num_sg,
-+	hdr->num_sg = skb_to_sgvec(skb, tx_sg + 1, 0, skb->len) + 1;
-+	return virtqueue_add_buf(svq, tx_sg, hdr->num_sg,
- 					0, skb);
- }
++    if (nd->netdev->numtxqs > 1 && nd->nvectors == DEV_NVECTORS_UNSPECIFIED) {
++        /*
++         * User specified mq for guest, but no "vectors=", tune
++         * it automatically to 'numtxqs' TX + 1 RX + 1 controlq.
++         */
++        nd->nvectors = nd->netdev->numtxqs + 1 + 1;
++        monitor_printf(mon, "nvectors tuned to %d\n", nd->nvectors);
++    }
++
+     nd->used = 1;
+     nb_nics++;
  
-@@ -561,31 +574,34 @@ static netdev_tx_t start_xmit(struct sk_
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	int capacity;
-+	int qnum = skb_get_queue_mapping(skb);
-+	struct virtqueue *svq = vi->sq[qnum].svq;
- 
- 	/* Free up any pending old buffers before queueing new ones. */
--	free_old_xmit_skbs(vi);
-+	free_old_xmit_skbs(vi, svq);
- 
- 	/* Try to transmit */
--	capacity = xmit_skb(vi, skb);
-+	capacity = xmit_skb(vi, skb, svq, vi->sq[qnum].tx_sg);
- 
- 	/* This can happen with OOM and indirect buffers. */
- 	if (unlikely(capacity < 0)) {
- 		if (net_ratelimit()) {
- 			if (likely(capacity == -ENOMEM)) {
- 				dev_warn(&dev->dev,
--					 "TX queue failure: out of memory\n");
-+					 "TXQ (%d) failure: out of memory\n",
-+					 qnum);
- 			} else {
- 				dev->stats.tx_fifo_errors++;
- 				dev_warn(&dev->dev,
--					 "Unexpected TX queue failure: %d\n",
--					 capacity);
-+					 "Unexpected TXQ (%d) failure: %d\n",
-+					 qnum, capacity);
- 			}
- 		}
- 		dev->stats.tx_dropped++;
- 		kfree_skb(skb);
- 		return NETDEV_TX_OK;
- 	}
--	virtqueue_kick(vi->svq);
-+	virtqueue_kick(svq);
- 
- 	/* Don't wait up for transmitted skbs to be freed. */
- 	skb_orphan(skb);
-@@ -594,13 +610,13 @@ static netdev_tx_t start_xmit(struct sk_
- 	/* Apparently nice girls don't return TX_BUSY; stop the queue
- 	 * before it gets out of hand.  Naturally, this wastes entries. */
- 	if (capacity < 2+MAX_SKB_FRAGS) {
--		netif_stop_queue(dev);
--		if (unlikely(!virtqueue_enable_cb(vi->svq))) {
-+		netif_stop_subqueue(dev, qnum);
-+		if (unlikely(!virtqueue_enable_cb(svq))) {
- 			/* More just got used, free them then recheck. */
--			capacity += free_old_xmit_skbs(vi);
-+			capacity += free_old_xmit_skbs(vi, svq);
- 			if (capacity >= 2+MAX_SKB_FRAGS) {
--				netif_start_queue(dev);
--				virtqueue_disable_cb(vi->svq);
-+				netif_start_subqueue(dev, qnum);
-+				virtqueue_disable_cb(svq);
- 			}
- 		}
- 	}
-@@ -871,10 +887,10 @@ static void virtnet_update_status(struct
- 
- 	if (vi->status & VIRTIO_NET_S_LINK_UP) {
- 		netif_carrier_on(vi->dev);
--		netif_wake_queue(vi->dev);
-+		netif_tx_wake_all_queues(vi->dev);
- 	} else {
- 		netif_carrier_off(vi->dev);
--		netif_stop_queue(vi->dev);
-+		netif_tx_stop_all_queues(vi->dev);
- 	}
- }
- 
-@@ -885,18 +901,112 @@ static void virtnet_config_changed(struc
- 	virtnet_update_status(vi);
- }
- 
-+#define MAX_DEVICE_NAME		16
-+static int initialize_vqs(struct virtnet_info *vi, int numtxqs)
-+{
-+	vq_callback_t **callbacks;
-+	struct virtqueue **vqs;
-+	int i, err = -ENOMEM;
-+	int totalvqs;
-+	char **names;
-+
-+	/* Allocate send queues */
-+	vi->sq = kzalloc(numtxqs * sizeof(*vi->sq), GFP_KERNEL);
-+	if (!vi->sq)
-+		goto out;
-+
-+	/* setup initial send queue parameters */
-+	for (i = 0; i < numtxqs; i++)
-+		sg_init_table(vi->sq[i].tx_sg, ARRAY_SIZE(vi->sq[i].tx_sg));
-+
-+	/*
-+	 * We expect 1 RX virtqueue followed by 'numtxqs' TX virtqueues, and
-+	 * optionally one control virtqueue.
-+	 */
-+	totalvqs = 1 + numtxqs +
-+		   virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ);
-+
-+	/* Setup parameters for find_vqs */
-+	vqs = kmalloc(totalvqs * sizeof(*vqs), GFP_KERNEL);
-+	callbacks = kmalloc(totalvqs * sizeof(*callbacks), GFP_KERNEL);
-+	names = kzalloc(totalvqs * sizeof(*names), GFP_KERNEL);
-+	if (!vqs || !callbacks || !names)
-+		goto free_mem;
-+
-+	/* Parameters for recv virtqueue */
-+	callbacks[0] = skb_recv_done;
-+	names[0] = "input";
-+
-+	/* Parameters for send virtqueues */
-+	for (i = 1; i <= numtxqs; i++) {
-+		callbacks[i] = skb_xmit_done;
-+		names[i] = kmalloc(MAX_DEVICE_NAME * sizeof(*names[i]),
-+				   GFP_KERNEL);
-+		if (!names[i])
-+			goto free_mem;
-+		sprintf(names[i], "output.%d", i - 1);
-+	}
-+
-+	/* Parameters for control virtqueue, if any */
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
-+		callbacks[i] = NULL;
-+		names[i] = "control";
-+	}
-+
-+	err = vi->vdev->config->find_vqs(vi->vdev, totalvqs, vqs, callbacks,
-+					 (const char **)names);
-+	if (err)
-+		goto free_mem;
-+
-+	vi->rvq = vqs[0];
-+	for (i = 0; i < numtxqs; i++)
-+		vi->sq[i].svq = vqs[i + 1];
-+
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
-+		vi->cvq = vqs[i + 1];
-+
-+		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
-+			vi->dev->features |= NETIF_F_HW_VLAN_FILTER;
-+	}
-+
-+free_mem:
-+	if (names) {
-+		for (i = 1; i <= numtxqs; i++)
-+			kfree(names[i]);
-+		kfree(names);
-+	}
-+
-+	kfree(callbacks);
-+	kfree(vqs);
-+
-+	if (err)
-+		kfree(vi->sq);
-+
-+out:
-+	return err;
-+}
-+
- static int virtnet_probe(struct virtio_device *vdev)
- {
- 	int err;
-+	u16 numtxqs;
- 	struct net_device *dev;
- 	struct virtnet_info *vi;
--	struct virtqueue *vqs[3];
--	vq_callback_t *callbacks[] = { skb_recv_done, skb_xmit_done, NULL};
--	const char *names[] = { "input", "output", "control" };
--	int nvqs;
-+
-+	/*
-+	 * Find if host passed the number of transmit queues supported
-+	 * by the device
-+	 */
-+	err = virtio_config_val(vdev, VIRTIO_NET_F_NUMTXQS,
-+				offsetof(struct virtio_net_config, numtxqs),
-+				&numtxqs);
-+
-+	/* We need atleast one txq */
-+	if (err || !numtxqs)
-+		numtxqs = 1;
- 
- 	/* Allocate ourselves a network device with room for our info */
--	dev = alloc_etherdev(sizeof(struct virtnet_info));
-+	dev = alloc_etherdev_mq(sizeof(struct virtnet_info), numtxqs);
- 	if (!dev)
- 		return -ENOMEM;
- 
-@@ -940,9 +1050,9 @@ static int virtnet_probe(struct virtio_d
- 	vi->vdev = vdev;
- 	vdev->priv = vi;
- 	vi->pages = NULL;
-+	vi->numtxqs = numtxqs;
- 	INIT_DELAYED_WORK(&vi->refill, refill_work);
- 	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
--	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
- 
- 	/* If we can receive ANY GSO packets, we must allocate large ones. */
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-@@ -953,23 +1063,10 @@ static int virtnet_probe(struct virtio_d
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
- 		vi->mergeable_rx_bufs = true;
- 
--	/* We expect two virtqueues, receive then send,
--	 * and optionally control. */
--	nvqs = virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ) ? 3 : 2;
--
--	err = vdev->config->find_vqs(vdev, nvqs, vqs, callbacks, names);
-+	/* Initialize our rx/tx queue parameters, and invoke find_vqs */
-+	err = initialize_vqs(vi, numtxqs);
- 	if (err)
--		goto free;
--
--	vi->rvq = vqs[0];
--	vi->svq = vqs[1];
--
--	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
--		vi->cvq = vqs[2];
--
--		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
--			dev->features |= NETIF_F_HW_VLAN_FILTER;
--	}
-+		goto free_netdev;
- 
- 	err = register_netdev(dev);
- 	if (err) {
-@@ -986,6 +1083,9 @@ static int virtnet_probe(struct virtio_d
- 		goto unregister;
- 	}
- 
-+	dev_info(&dev->dev, "(virtio-net) Allocated 1 RX and %d TX vq's\n",
-+		 numtxqs);
-+
- 	vi->status = VIRTIO_NET_S_LINK_UP;
- 	virtnet_update_status(vi);
- 	netif_carrier_on(dev);
-@@ -998,7 +1098,8 @@ unregister:
- 	cancel_delayed_work_sync(&vi->refill);
- free_vqs:
- 	vdev->config->del_vqs(vdev);
--free:
-+	kfree(vi->sq);
-+free_netdev:
- 	free_netdev(dev);
- 	return err;
- }
-@@ -1006,11 +1107,17 @@ free:
- static void free_unused_bufs(struct virtnet_info *vi)
- {
- 	void *buf;
--	while (1) {
--		buf = virtqueue_detach_unused_buf(vi->svq);
--		if (!buf)
--			break;
--		dev_kfree_skb(buf);
-+	int i;
-+
-+	for (i = 0; i < vi->numtxqs; i++) {
-+		struct virtqueue *svq = vi->sq[i].svq;
-+
-+		while (1) {
-+			buf = virtqueue_detach_unused_buf(svq);
-+			if (!buf)
-+				break;
-+			dev_kfree_skb(buf);
-+		}
- 	}
- 	while (1) {
- 		buf = virtqueue_detach_unused_buf(vi->rvq);
-@@ -1059,7 +1166,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
- 	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
- 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
--	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
-+	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN, VIRTIO_NET_F_NUMTXQS,
- };
- 
- static struct virtio_driver virtio_net_driver = {
+@@ -957,6 +966,14 @@ static const struct {
+             },
+ #ifndef _WIN32
+             {
++                .name = "mq",
++                .type = QEMU_OPT_BOOL,
++                .help = "enable multiqueue on network i/f",
++            }, {
++                .name = "numtxqs",
++                .type = QEMU_OPT_NUMBER,
++                .help = "optional number of TX queues, if mq is enabled",
++            }, {
+                 .name = "fd",
+                 .type = QEMU_OPT_STRING,
+                 .help = "file descriptor of an already opened tap",
+diff -ruNp org2/net.h tx_only.rev2/net.h
+--- org2/net.h	2010-07-01 11:42:09.000000000 +0530
++++ tx_only.rev2/net.h	2010-09-16 16:23:56.000000000 +0530
+@@ -62,6 +62,7 @@ struct VLANClientState {
+     struct VLANState *vlan;
+     VLANClientState *peer;
+     NetQueue *send_queue;
++    int numtxqs;
+     char *model;
+     char *name;
+     char info_str[256];
