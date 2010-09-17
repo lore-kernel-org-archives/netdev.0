@@ -1,49 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Security] [PATCH v4] drivers/net/tulip/de4x5.c: fix union
- member name in DE4X5_GET_REG ioctl
-Date: Thu, 16 Sep 2010 23:53:05 -0700 (PDT)
-Message-ID: <20100916.235305.233408955.davem@davemloft.net>
-References: <1284701436.2565.6.camel@dan>
-	<20100916.223441.93463391.davem@davemloft.net>
-	<20100917063602.GA2341@1wt.eu>
+From: Amit Salecha <amit.salecha@qlogic.com>
+Subject: RE: [PATCH NEXT 3/5] qlcnic: vlan lro support
+Date: Fri, 17 Sep 2010 02:10:32 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86F8005A@MNEXMB2.qlogic.org>
+References: <1284642872-27832-1-git-send-email-amit.salecha@qlogic.com>
+	 <1284642872-27832-4-git-send-email-amit.salecha@qlogic.com>
+ <1284643638.3352.30.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: drosenberg@vsecurity.com, security@kernel.org,
-	grundler@parisc-linux.org, netdev@vger.kernel.org, jeffm@suse.com,
-	linux-kernel@vger.kernel.org, kyle@mcmartin.ca
-To: w@1wt.eu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100917063602.GA2341@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:9740 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742Ab0IQHKh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 03:10:37 -0400
+In-Reply-To: <1284643638.3352.30.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Fri, 17 Sep 2010 08:36:02 +0200
-
-> On Thu, Sep 16, 2010 at 10:34:41PM -0700, David Miller wrote:
->> From: Dan Rosenberg <drosenberg@vsecurity.com>
->> Date: Fri, 17 Sep 2010 01:30:36 -0400
->> 
->> > Tiring doesn't begin to describe it.  Formatting undamaged.
->> 
->> :-)  Thanks.
->> 
->> > This was previously reported as a security issue due to leakage of
->> > uninitialized stack memory.  Jeff Mahoney pointed out that this is
->> > incorrect since the copied data is from a union (rather than a struct).
->> > Therefore, this patch is only under consideration for the sake of
->> > correctness, and is not security relevant. 
->> > 
->> > Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
->> > Acked-by: Grant Grundler <grundler@parisc-linux.org>
->> 
->> Applied.
-> 
-> David, just for the record, as was already reported on the list, this
-> fix is finally more a cleanup than a security fix because "tmp" is a
-> union and not a struct, so tmp.addr == tmp.lval.
-
-I can read, thanks :-)
-
-That's why I applied it to net-next-2.6 and not net-2.6
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIFNlcHRlbWJl
+ciAxNiwgMjAxMCA2OjU3IFBNDQo+IFRvOiBBbWl0IFNhbGVjaGENCj4gQ2M6IGRhdmVtQGRhdmVt
+bG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEFtZWVuIFJhaG1hbjsgQW5pcmJhbg0K
+PiBDaGFrcmFib3J0eQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIE5FWFQgMy81XSBxbGNuaWM6IHZs
+YW4gbHJvIHN1cHBvcnQNCj4gDQo+IExlIGpldWRpIDE2IHNlcHRlbWJyZSAyMDEwIMOgIDA2OjE0
+IC0wNzAwLCBBbWl0IEt1bWFyIFNhbGVjaGEgYSDDqWNyaXQgOg0KPiA+IExSTyArIEdSTyArIHZs
+YW4gcnggYWNjbGVyYXRpb24gc3VwcG9ydCwgcGVyZm9ybWFuY2UgaW5jcmVhc2VzDQo+ID4gYXJv
+dW5kIDIwJSBhbmQgY3B1IHV0aWxpemF0aW9uIHJlZHVjZXMgYXJvdW5kIDcwJSBvbiB2bGFuIGlu
+dGVyZmFjZS4NCj4gDQo+IEludGVyZXN0aW5nLiBXaGF0IGlzIHRoZSB3b3JrbG9hZCB0aGF0IGRl
+bW9uc3RyYXRlcyBzdWNoIGdhaW5zID8NCj4gDQo+IA0KSnVzdCB0byBkZW1vbnN0cmF0ZSBkZWNy
+ZWFzZSBpbiBjcHUgdXRpbGl6YXRpb24gZnVydGhlcjoNCkkgaGF2ZSB0YWtlbiBudW1iZXJzIHdp
+dGggdmFyaW91cyBsb2FkLiBJIHVzZWQgaXBlcmYgYXBwbGljYXRpb24gdG8gcnVuIHRjcCB0cmFm
+ZmljIG9uIHZsYW4gaW50ZXJmYWNlLg0KDQpOdW1iZXIgb2YgVENQIGNvbm5lY3Rpb24JIENwdSAg
+JWlkbGUJCUNwdSAlaWRsZQ0KCQkJCQkgKHcvbyBwYXRjaCkJKHdpdGggcGF0Y2gpDQoNCgk4CQkJ
+CTM0LjE0CQkJNjMuMDENCgkxNgkJCQkzNC4zNgkJCTYyLjM4DQoJMzIJCQkJMzMuODYJCQk2Mi4x
+OA0KCTY0CQkJCTMwLjYyCQkJNjEuOTQNCgkxMjgJCQkJMjkuMzMJCQk2MS4xMw0KCTI1NgkJCQky
+Ny43OQkJCTU5LjQ2DQoJNTEyCQkJCTI1LjMzCQkJNTkuMzgNCg0KVGhlcmUgaXMgYXJvdW5kIDgw
+LTkwJSBvZiByZWR1Y3Rpb24gaW4gY3B1IHV0aWxpemF0aW9uLg0KDQotQW1pdA0KDQoNCg==
