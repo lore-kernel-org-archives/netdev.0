@@ -1,40 +1,38 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 NEXT 5/5] qlcnic: update version 5.0.10
-Date: Thu, 16 Sep 2010 22:14:43 -0700
-Message-ID: <1284700483-16397-6-git-send-email-amit.salecha@qlogic.com>
-References: <1284700483-16397-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:11117 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752058Ab0IQFOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Sep 2010 01:14:45 -0400
-In-Reply-To: <1284700483-16397-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] drivers/net/tulip/de4x5.c: fix union member name in
+ DE4X5_GET_REG ioctl
+Date: Thu, 16 Sep 2010 22:27:40 -0700 (PDT)
+Message-ID: <20100916.222740.135972127.davem@davemloft.net>
+References: <1284586998.6275.94.camel@dan>
+	<20100916.215313.180410528.davem@davemloft.net>
+	<1284699944.2565.4.camel@dan>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: grundler@parisc-linux.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kyle@mcmartin.ca, jeffm@suse.com,
+	security@kernel.org
+To: drosenberg@vsecurity.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1284699944.2565.4.camel@dan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Date: Fri, 17 Sep 2010 01:05:44 -0400
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index c8caec9..714ddf4 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -51,8 +51,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 9
--#define QLCNIC_LINUX_VERSIONID  "5.0.9"
-+#define _QLCNIC_LINUX_SUBVERSION 10
-+#define QLCNIC_LINUX_VERSIONID  "5.0.10"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
--- 
-1.6.0.2
+> Now with descriptive title, as requested.
+> 
+> This was previously reported as a security issue due to leakage of
+> uninitialized stack memory.  Jeff Mahoney pointed out that this is
+> incorrect since the copied data is from a union (rather than a struct).
+> Therefore, this patch is only under consideration for the sake of
+> correctness, and is not security relevant. 
+> 
+> Signed-off-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
+> Acked-by: Grant Grundler <grundler@parisc-linux.org>
 
+Tab et al. damaged by your email client.
+
+This is getting tiring for me, I guess it's getting tiring for
+you too? :-)
