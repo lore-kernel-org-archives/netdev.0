@@ -1,50 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: enable gro by default
-Date: Fri, 17 Sep 2010 16:54:09 -0700 (PDT)
-Message-ID: <20100917.165409.00470792.davem@davemloft.net>
-References: <1284624663.3352.9.camel@edumazet-laptop>
-	<20100917.115707.106807995.davem@davemloft.net>
-	<1284751507.2235.17.camel@edumazet-laptop>
+Subject: Re: [Bugme-new] [Bug 18492] New: kernel softirq warning on boot
+Date: Fri, 17 Sep 2010 16:55:36 -0700 (PDT)
+Message-ID: <20100917.165536.254856822.davem@davemloft.net>
+References: <20100914.141103.123996613.davem@davemloft.net>
+	<20100915064655.GA21021@gondor.apana.org.au>
+	<AANLkTinyhM30KV+Etg2qDzEoqOjcPj7gv5EkPbknxYVQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bphilips@suse.de, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	fubar@us.ibm.com, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	jeffrey.t.kirsher@intel.com, bhutchings@solarflare.com
-To: eric.dumazet@gmail.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1284751507.2235.17.camel@edumazet-laptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: hramrach@centrum.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55554
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751752Ab0IQXzR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Sep 2010 19:55:17 -0400
+In-Reply-To: <AANLkTinyhM30KV+Etg2qDzEoqOjcPj7gv5EkPbknxYVQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 17 Sep 2010 21:25:07 +0200
+=46rom: Michal Suchanek <hramrach@centrum.cz>
+Date: Fri, 17 Sep 2010 20:00:42 +0200
 
-> gro can be enabled by default on bonding devices.
-> 
-> Actual support depends on the lower devices.
-> 
-> One can still use ethtool to switch off GRO if needed.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> On 15 September 2010 08:46, Herbert Xu <herbert@gondor.apana.org.au> =
+wrote:
+>> On Tue, Sep 14, 2010 at 02:11:03PM -0700, David Miller wrote:
+>>>
+>>> I'll take a closer look at this if Herbert doesn't beat me to it.
+>>
+>> I thought we were going to use this patch until Paul's BH warning
+>> removal made it into mainline?
+>>
+>> netpoll: Disable IRQ around RCU dereference in netpoll_rx
+>>
+>> We cannot use rcu_dereference_bh safely in netpoll_rx as we may
+>> be called with IRQs disabled. =A0We could however simply disable
+>> IRQs as that too causes BH to be disabled and is safe in either
+>> case.
+>>
+>> Thanks to John Linville for discovering this bug and providing
+>> a patch.
+>>
+> With the patch applied I no longet get the warning.
 
-Applied, thanks Eric.
+Ok I'll toss this upstream since I have no indication that Paul's
+RCU change will hit Linus's tree any time soon.
 
-------------------------------------------------------------------------------
-Start uncovering the many advantages of virtual appliances
-and start using them to simplify application deployment and
-accelerate your shift to cloud computing.
-http://p.sf.net/sfu/novell-sfdev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thanks.
