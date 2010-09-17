@@ -1,60 +1,70 @@
-From: <Matt_Domsch@Dell.com>
-Subject: Linux Plumbers Conference: User-visible Network Issues Mini-Conf
-Date: Fri, 17 Sep 2010 14:12:29 -0500
-Message-ID: <1B9798A3396AB0429545ADFEA207931510536C7C8E@AUSX7MCPS302.AMER.DELL.COM>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bonding: enable gro by default
+Date: Fri, 17 Sep 2010 21:25:07 +0200
+Message-ID: <1284751507.2235.17.camel@edumazet-laptop>
+References: <20100915.233851.85414928.davem@davemloft.net>
+	 <1284619376.2462.95.camel@edumazet-laptop>
+	 <1284624663.3352.9.camel@edumazet-laptop>
+	 <20100917.115707.106807995.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, bphilips@suse.de,
+	e1000-devel@lists.sourceforge.net, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>, Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:30735 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754374Ab0IQTMc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 15:12:32 -0400
-Content-Language: en-US
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56695 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753220Ab0IQTZO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 15:25:14 -0400
+Received: by wyf22 with SMTP id 22so2713393wyf.19
+        for <netdev@vger.kernel.org>; Fri, 17 Sep 2010 12:25:12 -0700 (PDT)
+In-Reply-To: <20100917.115707.106807995.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At the Linux Plumbers Conference [1] November 3-5, 2010 in Cambridge, MA, we have a half-day mini-conference [2] set aside to discuss "User-visible Network Issues" - challenges that users face, that could benefit from both userspace and kernel enhancements to make their lives easier.
+Le vendredi 17 septembre 2010 =C3=A0 11:57 -0700, David Miller a =C3=A9=
+crit :
 
-Discussion proposals for this track are:
+> Applied, thanks Eric.
+>=20
+> Can you do whatever change is needed to get it enabled by default?
+>=20
 
-* Achieving Better Out-of-the-box Network Scaling 
-This is a discussion of how Linux needs to scale better out-of-the-box with large I/O network devices. 
-Peter Waskiewicz
+Sure ;)
 
-* Challenges in Mobile Networking 
-Challenges that we have with networking in the mobile space.
-Dan Williams and Marcel Holtmann
+[PATCH] bonding: enable gro by default
 
-* Data Center Bridging: Creating DCB aware networks 
-Presentation will highlight the ongoing efforts for enabling data center bridging technologies in the Linux kernel to meet the requirements of applications and stacks over Ethernet. 
-John Fastabend
+gro can be enabled by default on bonding devices.
 
-* Network Device Naming 
-Which of my NICs is eth0? 
-Matt Domsch 
+Actual support depends on the lower devices.
 
-* Scaling techniques in the stack for servers with high connection rates 
-This talk will describe some techniques for scaling front end servers. In particular, we will describe the the use of SO_REUSEPORT in scaling servers for high connection rates with a single listening port. 
-Tom Herbert 
+One can still use ethtool to switch off GRO if needed.
 
-* Simplifying network configuration for VMs by harmonizing multiple Bridging, QOS, DCB and CNA implementations 
-Shyam Iyer
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/bonding/bond_main.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index 3b16f62..80610a6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4678,6 +4678,10 @@ static void bond_setup(struct net_device *bond_d=
+ev)
+ 			       NETIF_F_HW_VLAN_RX |
+ 			       NETIF_F_HW_VLAN_FILTER);
+=20
++	/* By default, we enable GRO on bonding devices.
++	 * Actual support requires lowlevel drivers are GRO ready.
++	 */
++	bond_dev->features |=3D NETIF_F_GRO;
+ }
+=20
+ static void bond_work_cancel_all(struct bonding *bond)
 
-While I'm sure the individual topics will generate great discussion, it will be vital that members of the netdev community be present to represent the kernel developers' perspectives on the problems and to help brainstorm solutions.  Most of these topics have significant kernel components to them, and without additional kernel developer participation, I fear we would just be talking to ourselves, but no real progress made.
-
-I invite you to attend LPC, and this mini-conf in particular, and lend your expertise.  If you will be attending, which of the above topics are of most interest to you? We won't be able to cover all of these in the mini-conf, so those with the most interest  (plus mine of course!) will make the agenda.
-
-Thanks,
-Matt
-
-[1] http://www.linuxplumbersconf.org/2010/
-[2] http://www.linuxplumbersconf.org/2010/ocw/events/LPC2010MC/tracks/63
-
---
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
 
