@@ -1,57 +1,36 @@
-From: Ollie Wild <aaw@google.com>
-Subject: Re: [PATCH] Move "struct net" declaration inside the __KERNEL__ macro guard
-Date: Fri, 17 Sep 2010 14:38:59 -0500
-Message-ID: <AANLkTimRSjqewc_mC5vwdXy1t4Ax5rAf5svpOTbUEF7o@mail.gmail.com>
-References: <AANLkTimXnjnkNgwtEVpXKYMxXgmBdye=Gtjeggd4N9UA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ipv4: add rcu annotations in route.c
+Date: Fri, 17 Sep 2010 21:59:33 +0200
+Message-ID: <1284753573.4373.7.camel@edumazet-laptop>
+References: <1284739159.3391.95.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	David Marmaros <davem@google.com>
-To: linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimXnjnkNgwtEVpXKYMxXgmBdye=Gtjeggd4N9UA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:46332 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753023Ab0IQT7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 15:59:40 -0400
+Received: by wwb39 with SMTP id 39so1311429wwb.1
+        for <netdev@vger.kernel.org>; Fri, 17 Sep 2010 12:59:38 -0700 (PDT)
+In-Reply-To: <1284739159.3391.95.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(Resending with a proper signoff.)
+Le vendredi 17 septembre 2010 =C3=A0 17:59 +0200, Eric Dumazet a =C3=A9=
+crit :
+> Use __rcu attribute where appropriate.
+>=20
+> Use rcu_dereference_raw() in contexts where no lock is held.
+>=20
+> Use rcu_dereference_check() in contexts where the chain spinlock is
+> held.
 
-This patch reduces namespace pollution by moving the "struct net" declaration
-out of the userspace-facing portion of linux/netlink.h.  It has no impact on
-the kernel, and the declaration is not referenced anywhere outside the
-__KERNEL__ macro guard.
+Hmm, it should be rcu_dereference_protected(), I'll send a v2
 
-(This came up because we have several C++ applications which use "net" as a
-namespace name.)
+This is a bit tricky ...
 
-Ollie
 
-Signed-off-by: Ollie Wild <aaw@google.com>
 
----
- include/linux/netlink.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 59d0669..1235669 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -27,8 +27,6 @@
-
- #define MAX_LINKS 32
-
--struct net;
--
- struct sockaddr_nl {
-      sa_family_t     nl_family;      /* AF_NETLINK   */
-      unsigned short  nl_pad;         /* zero         */
-@@ -151,6 +149,8 @@ struct nlattr {
- #include <linux/capability.h>
- #include <linux/skbuff.h>
-
-+struct net;
-+
- static inline struct nlmsghdr *nlmsg_hdr(const struct sk_buff *skb)
- {
-      return (struct nlmsghdr *)skb->data;
---
-1.7.0.4
