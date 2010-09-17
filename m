@@ -1,76 +1,140 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: Possible regression with skb_clone() in 2.6.36
-Date: Fri, 17 Sep 2010 15:34:40 -0700
-Message-ID: <20100917153440.474b93e4.akpm@linux-foundation.org>
-References: <1283209824-8795-1-git-send-email-padovan@profusion.mobi>
+From: =?utf-8?q?R=C3=A9mi=20Denis-Courmont?= <remi@remlab.net>
+Subject: [PATCH stable-2.6.32] Phonet: disable network namespace support
+Date: Sat, 18 Sep 2010 01:36:46 +0300
+Message-ID: <1284763006-22075-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-To: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1283209824-8795-1-git-send-email-padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: lkml@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yop.chewa.net ([91.121.105.214]:41448 "EHLO yop.chewa.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753971Ab0IQWgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Sep 2010 18:36:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 30 Aug 2010 20:10:23 -0300
-"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org> wrote:
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-> I've been experiencing some problems when running the L2CAP Streaming mode in
-> 2.6.36. The system quickly runs in an Out Of Memory condition and crash. That
-> wasn't happening before, so I think we may have a regression here (I didn't find
-> where yet). The crash log is below.
+Network namespace in the Phonet socket stack causes an OOPS when a
+namespace is destroyed. This occurs as the loopback exit_net handler is
+called after the Phonet exit_net handler, and re-enters the Phonet
+stack. I cannot think of any nice way to fix this in kernel <=3D 2.6.32=
+=2E
 
-So 2.6.35 was OK?
+=46or lack of a better solution, disable namespace support completely.
+If you need that, upgrade to a newer kernel.
 
-> The following patch does not fix the regression, but shows that removing the
-> skb_clone() call from l2cap_streaming_send() makes the problem goes away. The
-> patch is good anyway since it saves memory and time when sending Streaming mode
-> packets.
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/phonet/af_phonet.c  |    4 ++++
+ net/phonet/pn_dev.c     |   12 ++++++++++--
+ net/phonet/pn_netlink.c |    9 ++++++++-
+ 3 files changed, 22 insertions(+), 3 deletions(-)
 
-How does "make it go away" differ from "fix the regression" :)
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index f60c0c2..519ff9d 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -67,6 +67,8 @@ static int pn_socket_create(struct net *net, struct s=
+ocket *sock, int protocol)
+ 	struct phonet_protocol *pnp;
+ 	int err;
+=20
++	if (!net_eq(net, &init_net))
++		return -EAFNOSUPPORT;
+ 	if (!capable(CAP_SYS_ADMIN))
+ 		return -EPERM;
+=20
+@@ -353,6 +355,8 @@ static int phonet_rcv(struct sk_buff *skb, struct n=
+et_device *dev,
+ 	struct sockaddr_pn sa;
+ 	u16 len;
+=20
++	if (!net_eq(net, &init_net))
++		goto out;
+ 	/* check we have at least a full Phonet header */
+ 	if (!pskb_pull(skb, sizeof(struct phonethdr)))
+ 		goto out;
+diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+index 5f42f30..5a2275c 100644
+--- a/net/phonet/pn_dev.c
++++ b/net/phonet/pn_dev.c
+@@ -246,7 +246,11 @@ static struct notifier_block phonet_device_notifie=
+r =3D {
+ /* Per-namespace Phonet devices handling */
+ static int phonet_init_net(struct net *net)
+ {
+-	struct phonet_net *pnn =3D kmalloc(sizeof(*pnn), GFP_KERNEL);
++	struct phonet_net *pnn;
++
++	if (!net_eq(net, &init_net))
++		return 0;
++	pnn =3D kmalloc(sizeof(*pnn), GFP_KERNEL);
+ 	if (!pnn)
+ 		return -ENOMEM;
+=20
+@@ -263,9 +267,13 @@ static int phonet_init_net(struct net *net)
+=20
+ static void phonet_exit_net(struct net *net)
+ {
+-	struct phonet_net *pnn =3D net_generic(net, phonet_net_id);
++	struct phonet_net *pnn;
+ 	struct net_device *dev;
+=20
++	if (!net_eq(net, &init_net))
++		return;
++	pnn =3D net_generic(net, phonet_net_id);
++
+ 	rtnl_lock();
+ 	for_each_netdev(net, dev)
+ 		phonet_device_destroy(dev);
+diff --git a/net/phonet/pn_netlink.c b/net/phonet/pn_netlink.c
+index d21fd35..7acab1e 100644
+--- a/net/phonet/pn_netlink.c
++++ b/net/phonet/pn_netlink.c
+@@ -68,6 +68,8 @@ static int addr_doit(struct sk_buff *skb, struct nlms=
+ghdr *nlh, void *attr)
+ 	int err;
+ 	u8 pnaddr;
+=20
++	if (!net_eq(net, &init_net))
++		return -EOPNOTSUPP;
+ 	if (!capable(CAP_SYS_ADMIN))
+ 		return -EPERM;
+=20
+@@ -124,12 +126,16 @@ nla_put_failure:
+=20
+ static int getaddr_dumpit(struct sk_buff *skb, struct netlink_callback=
+ *cb)
+ {
++	struct net *net =3D sock_net(skb->sk);
+ 	struct phonet_device_list *pndevs;
+ 	struct phonet_device *pnd;
+ 	int dev_idx =3D 0, dev_start_idx =3D cb->args[0];
+ 	int addr_idx =3D 0, addr_start_idx =3D cb->args[1];
+=20
+-	pndevs =3D phonet_device_list(sock_net(skb->sk));
++	if (!net_eq(net, &init_net))
++		goto skip;
++
++	pndevs =3D phonet_device_list(net);
+ 	spin_lock_bh(&pndevs->lock);
+ 	list_for_each_entry(pnd, &pndevs->list, list) {
+ 		u8 addr;
+@@ -154,6 +160,7 @@ static int getaddr_dumpit(struct sk_buff *skb, stru=
+ct netlink_callback *cb)
+=20
+ out:
+ 	spin_unlock_bh(&pndevs->lock);
++skip:
+ 	cb->args[0] =3D dev_idx;
+ 	cb->args[1] =3D addr_idx;
+=20
+--=20
+1.7.0.4
 
-But yes, if we don't understand the source of the bug then it may well
-still be there.  Did you make any progress in understanding the cause?
-
-> 
-> [ 5066.137533] Bluetooth: L2CAP ver 2.15
-> [ 5066.137873] Bluetooth: L2CAP socket layer initialized
-> [ 5066.545179] Bluetooth: RFCOMM TTY layer initialized
-> [ 5066.545879] Bluetooth: RFCOMM socket layer initialized
-> [ 5066.546582] Bluetooth: RFCOMM ver 1.11
-> [ 5092.268021] l2test invoked oom-killer: gfp_mask=0x4d0, order=0, oom_adj=0, oom_score_adj=0
-> [ 5092.268872] Pid: 3897, comm: l2test Not tainted 2.6.36-rc3 #5
-> [ 5092.269863] Call Trace:
-> [ 5092.270265]  [<ffffffff8138b6a6>] ? _raw_spin_unlock+0x26/0x30
-> [ 5092.270878]  [<ffffffff810c0827>] T.427+0x77/0x1e0
-> [ 5092.271874]  [<ffffffff811b85e7>] ? security_real_capable_noaudit+0x37/0x60
-> [ 5092.272956]  [<ffffffff810c0e3a>] out_of_memory+0x2ca/0x2f0
-> [ 5092.273894]  [<ffffffff810c3d43>] __alloc_pages_nodemask+0x693/0x6b0
-> [ 5092.274871]  [<ffffffff810ea3e6>] cache_alloc_refill+0x2d6/0x5c0
-> [ 5092.275864]  [<ffffffff810ea805>] __kmalloc+0x135/0x150
-> [ 5092.276876]  [<ffffffff8130f2ae>] __alloc_skb+0x6e/0x150
-> [ 5092.277865]  [<ffffffff810d3a00>] ? might_fault+0x40/0x90
-> [ 5092.278652]  [<ffffffff8130ace2>] sock_alloc_send_pskb+0x1c2/0x320
-> [ 5092.278927]  [<ffffffff810d3a00>] ? might_fault+0x40/0x90
-> [ 5092.279864]  [<ffffffff81312add>] ? memcpy_fromiovec+0x6d/0x90
-> [ 5092.280864]  [<ffffffff8130ae50>] sock_alloc_send_skb+0x10/0x20
-> [ 5092.281867]  [<ffffffffa00e600f>] l2cap_create_iframe_pdu+0x9f/0x2c0 [l2cap]
-> [ 5092.282865]  [<ffffffffa00e84b9>] l2cap_sock_sendmsg+0x5d9/0x910 [l2cap]
-> [ 5092.283932]  [<ffffffff8138ba3c>] ? restore_args+0x0/0x30
-> [ 5092.284865]  [<ffffffff8130725b>] sock_sendmsg+0xdb/0x100
-> [ 5092.285652]  [<ffffffff8138ba3c>] ? restore_args+0x0/0x30
-> [ 5092.285864]  [<ffffffff8138ba3c>] ? restore_args+0x0/0x30
-> [ 5092.286864]  [<ffffffff813073c0>] sys_sendto+0xf0/0x130
-> [ 5092.287864]  [<ffffffff8138b60b>] ? _raw_spin_unlock_irq+0x2b/0x40
-> [ 5092.288872]  [<ffffffff81093cfd>] ? trace_hardirqs_on_caller+0x13d/0x180
-> [ 5092.289927]  [<ffffffff81093d4d>] ? trace_hardirqs_on+0xd/0x10
-> [ 5092.290864]  [<ffffffff810d3a00>] ? might_fault+0x40/0x90
-> [ 5092.291649]  [<ffffffff810d3a00>] ? might_fault+0x40/0x90
-> [ 5092.291864]  [<ffffffff810d3a00>] ? might_fault+0x40/0x90
-> [ 5092.292864]  [<ffffffff8130740f>] sys_send+0xf/0x20
-> [ 5092.293870]  [<ffffffff8132ccd6>] compat_sys_socketcall+0x146/0x1f0
-> [ 5092.294875]  [<ffffffff81053ee4>] sysenter_dispatch+0x7/0x30
-
-That's a pretty serious regression.
