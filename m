@@ -1,106 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6 1/2] net: add IFLA_NUM_TXQ attribute
-Date: Fri, 17 Sep 2010 10:31:28 +0200
-Message-ID: <1284712288.3391.36.camel@edumazet-laptop>
+From: Nicola Padovano <nicola.padovano@gmail.com>
+Subject: Re: problem with flowi structure
+Date: Fri, 17 Sep 2010 10:46:10 +0200
+Message-ID: <AANLkTimpnqNSE21u=2qjb5VGJrn_3_--Bqp4veCNXMPE@mail.gmail.com>
+References: <AANLkTi=bGsvMqnTSanA73FhDH_DashmXTcA1sddtj0P6@mail.gmail.com>
+ <1284650768.3352.37.camel@edumazet-laptop> <AANLkTimo1AeBS3rpQj0KtZL15Ct-DGTQMBUsL8hrVNOL@mail.gmail.com>
+ <1284652453.3352.38.camel@edumazet-laptop> <AANLkTi=Y7beG4vPDx5eNg-gTN1CVg_G=1+dWwi2Xd2-R@mail.gmail.com>
+ <AANLkTim7TeMCG9RQyrrk8WS4+S_y1q06+8FG2-X=1cB-@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: AIJAZ BAIG <aijazbaig1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49979 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753091Ab0IQIim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 04:38:42 -0400
-Received: by wyf22 with SMTP id 22so2149592wyf.19
-        for <netdev@vger.kernel.org>; Fri, 17 Sep 2010 01:38:41 -0700 (PDT)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:54873 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268Ab0IQIqb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 04:46:31 -0400
+In-Reply-To: <AANLkTim7TeMCG9RQyrrk8WS4+S_y1q06+8FG2-X=1cB-@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to enable multiqueue support on some devices,
-add IFLA_NUM_TXQ attribute, number of transmit queues, that "ip link"
-can use, at creation and show time :
+Aijaz, great! Now it' clear. Thank you.
+It remains a problem: the meaning of
 
-# ip link add gre34 txqueues 8 type gre remote 192.168.20.80
+fl.nl_u.ip4_u.saddr =3D 0
 
-# ip link sho dev gre34
-8: gre34: <POINTOPOINT,NOARP> mtu 1476 qdisc noop state DOWN txqueues 8 
-    link/gre 0.0.0.0 peer 192.168.20.80
+But, first of all:
+- we know that a routing table doesn't contain the ip source
+- but the routing cache contains it.
 
-Drivers not yet multiqueue aware are supported, because core network
-temporary sets real_num_tx_queues to one.
+so my first question is: why routing cache has it and routing cache
+not? what it its usage?
+Then my second question: the meaning of fl.nl_u.ip4_u.saddr =3D 0
 
-Multiqueue enabled drivers must then sets real_num_tx_queues to
-num_tx_queues in their newlink() method.
+thank you very much
 
-Limits number of queues to 256 for the moment.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/linux/if_link.h |    1 +
- net/core/rtnetlink.c    |   17 +++++++++++++++++
- 2 files changed, 18 insertions(+)
-
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 2fc66dd..87dca81 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -116,6 +116,7 @@ enum {
- 	IFLA_STATS64,
- 	IFLA_VF_PORTS,
- 	IFLA_PORT_SELF,
-+	IFLA_NUM_TXQ,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index b2a718d..1b9af34 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -676,6 +676,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev)
- 	       + nla_total_size(1) /* IFLA_OPERSTATE */
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
- 	       + nla_total_size(4) /* IFLA_NUM_VF */
-+	       + nla_total_size(4) /* IFLA_NUM_TXQ */
- 	       + rtnl_vfinfo_size(dev) /* IFLA_VFINFO_LIST */
- 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
-@@ -791,6 +792,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (dev->master)
- 		NLA_PUT_U32(skb, IFLA_MASTER, dev->master->ifindex);
- 
-+	if (dev->real_num_tx_queues > 1)
-+		NLA_PUT_U32(skb, IFLA_NUM_TXQ, dev->real_num_tx_queues);
-+
- 	if (dev->qdisc)
- 		NLA_PUT_STRING(skb, IFLA_QDISC, dev->qdisc->ops->id);
- 
-@@ -922,6 +926,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_MTU]		= { .type = NLA_U32 },
- 	[IFLA_LINK]		= { .type = NLA_U32 },
- 	[IFLA_TXQLEN]		= { .type = NLA_U32 },
-+	[IFLA_NUM_TXQ]		= { .type = NLA_U32 },
- 	[IFLA_WEIGHT]		= { .type = NLA_U32 },
- 	[IFLA_OPERSTATE]	= { .type = NLA_U8 },
- 	[IFLA_LINKMODE]		= { .type = NLA_U8 },
-@@ -1357,6 +1362,18 @@ struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
- 		if (err)
- 			goto err;
- 	}
-+	if (tb[IFLA_NUM_TXQ]) {
-+		err = -EINVAL;
-+		num_queues = nla_get_u32(tb[IFLA_NUM_TXQ]);
-+		if (num_queues < 1 || num_queues > 256)
-+			goto err;
-+		/* multiqueue drivers have to set
-+		 * dev->real_num_tx_queues = dev->num_tx_queues;
-+		 * in their ->newlink() method. We force a temporary
-+		 * single queue to be compatable with old drivers.
-+		 */
-+		real_num_queues = 1;
-+	}
- 	err = -ENOMEM;
- 	dev = alloc_netdev_mq(ops->priv_size, ifname, ops->setup, num_queues);
- 	if (!dev)
+On Fri, Sep 17, 2010 at 7:40 AM, AIJAZ BAIG <aijazbaig1@gmail.com> wrot=
+e:
+> Hi there,
+>
+> Well..if u see the code, ull see that ip_route_output_key is a wrappe=
+r
+> around ip_route_output_flow which in turn internally calls
+> __ip_route_output_key. This later function tries to find a route for =
+a
+> packet first by looking up the routing cache and then if it isnt foun=
+d
+> there it =A0constructs a cache entry by calling its slow counterpart
+> which is ip_route_output_slow.
+>
+> Now, the name tells u a lot. First ip_route_output_key tells u that
+> this function 'routes' an 'output' packet. An output packet normally
+> means that the packet is a locally generated packet. The routing (L3)
+> protocol being used is ip (ipv4 specifically) and key tells us that w=
+e
+> are specifying the key to be used to check the routing cache (since
+> the cache is organized as a hash and it needs a key to retrieve an
+> entry).
+>
+> Thus all in all, the ip_route_output_key function is used to get a
+> route for an output packet either from the routing cache if an entry
+> is present or create one and update the cache accordingly.
+>
+> Hope it helped.
+>
+> Regards,
+> Aijaz
+>
+> On 9/17/10, Nicola Padovano <nicola.padovano@gmail.com> wrote:
+>> ok, let's step back...
+>> what's the task of ip_route_output_key function ?
+>>
+>> --
+>> Nicola Padovano
+>> e-mail: nicola.padovano@gmail.com
+>> web: http://npadovano.altervista.org
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netfilter-=
+devel"
+>> in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>>
+>
 
 
+
+--=20
+Nicola Padovano
+e-mail: nicola.padovano@gmail.com
+web: http://npadovano.altervista.org
