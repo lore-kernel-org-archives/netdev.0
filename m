@@ -1,59 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/sched/sch_hfsc.c: initialize parent's cl_cfmin
- properly in init_vf()
-Date: Fri, 17 Sep 2010 16:41:27 -0700 (PDT)
-Message-ID: <20100917.164127.09754402.davem@davemloft.net>
-References: <8100ed4475ac7a301a3d69611e97d510ea498c5d.1283197803.git.soltys@ziu.info>
-	<20100901.143038.170100274.davem@davemloft.net>
-	<4C910869.1050800@trash.net>
+Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
+ ip_fragment
+Date: Fri, 17 Sep 2010 16:43:56 -0700 (PDT)
+Message-ID: <20100917.164356.22528384.davem@davemloft.net>
+References: <20100903044941.GA28300@gondor.apana.org.au>
+	<20100915173209.GB9086@stratus.com>
+	<20100917065117.GA9577@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: soltys@ziu.info, denys@visp.net.lb, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47607
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751136Ab0IQXlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 19:41:08 -0400
-In-Reply-To: <4C910869.1050800@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bandan.das@stratus.com, bunk@kernel.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100917065117.GA9577@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 15 Sep 2010 19:54:49 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 17 Sep 2010 14:51:17 +0800
 
-> Am 01.09.2010 23:30, schrieb David Miller:
->> From: Michal Soltys <soltys@ziu.info>
->> Date: Mon, 30 Aug 2010 23:34:10 +0200
->> 
->>> This patch fixes init_vf() function, so on each new backlog period parent's
->>> cl_cfmin is properly updated (including further propgation towards the root),
->>> even if the activated leaf has no upperlimit curve defined.
->>>
->>> Signed-off-by: Michal Soltys <soltys@ziu.info>
->> 
->> Applied, thanks.
+> On Wed, Sep 15, 2010 at 01:32:09PM -0400, Bandan Das wrote:
+>>
+>> Sorry for the late response. Here's a patch that I put up based on Herbert's
+>> suggestions. I ofcourse don't see the problem anymore after 
+>> commit 87f94b4e91dc042620c527f3c30c37e5127ef757 but a generic helper such as this 
+>> can be used anytime the bridge code is sending a packet over to the IP layer. 
+>> Compile tested only but based on responses, will test it before submitting a 
+>> final change. Also added it at two places where I know we do send a packet over to
+>> the IP layer. I will add it at other places later as I come across them.
 > 
-> For the record, the patch seems fine to me. The root cause seems to be
-> an optimization I introduced (pre-git, even history.git unfortunately)
-> in vttree_get_minvt() that wasn't present in the original version:
-> 
-> static struct hfsc_class *
-> vttree_get_minvt(struct hfsc_class *cl, u64 cur_time)
-> {
->         /* if root-class's cfmin is bigger than cur_time nothing to do */
->         if (cl->cl_cfmin > cur_time)
->                 return NULL;
+> Looks fine to me.
 
-Actually, the HFSC scheduler was added with this test present.
-The function had a different name, actlist_get_minvt(), at the
-time.  See commit:
+Bandan, please submit this formally with proper commit message,
+signoff, also the new function you added needs a minor coding
+style fix, there needs to be a space after "if" and the openning
+left parenthesis.
 
-commit 6e22ce74ea0666a869ce82f418ce78b5be089fb4
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Wed Jan 28 20:15:03 2004 -0800
-
-    [NET_SCHED]: Add HFSC packet scheduler.
-
-in the history-2.6 GIT tree.
+Thanks.
