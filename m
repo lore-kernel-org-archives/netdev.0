@@ -1,63 +1,48 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] qlcnic: dont assume NET_IP_ALIGN is 2
-Date: Fri, 17 Sep 2010 05:53:03 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86F80082@MNEXMB2.qlogic.org>
-References: <1284700483-16397-1-git-send-email-amit.salecha@qlogic.com>
-	 <1284700483-16397-2-git-send-email-amit.salecha@qlogic.com>
- <1284717448.3391.75.camel@edumazet-laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch v1 00/12] IPVS: SIP Persistence Engine
+Date: Fri, 17 Sep 2010 13:53:10 +0200
+Message-ID: <4C9356A6.5080208@trash.net>
+References: <20100822124457.339517323@vergenet.net> <4C91D157.1090804@trash.net> <20100917025232.GH30855@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:26301 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401Ab0IQKxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 06:53:08 -0400
-In-Reply-To: <1284717448.3391.75.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20100917025232.GH30855@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBTZXB0ZW1iZXIg
-MTcsIDIwMTAgMzoyNyBQTQ0KPiBUbzogQW1pdCBTYWxlY2hhDQo+IENjOiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnOyBBbWVlbiBSYWhtYW47IEFuaXJiYW4gQ2hha3JhYm9ydHk7IERhdmlkDQo+IE1p
-bGxlcg0KPiBTdWJqZWN0OiBbUEFUQ0hdIHFsY25pYzogZG9udCBhc3N1bWUgTkVUX0lQX0FMSUdO
-IGlzIDINCj4gDQo+IEFtaXQsIEkgbm90aWNlZCBmb2xsb3dpbmcgYnVnIGluIHFsbmljIGRyaXZl
-ci4NCj4gDQo+IEFsc28sIHNrYi0+dHJ1ZXNpemUgc2hvdWxkIG5vdCBiZSBjaGFuZ2VkIGJ5IGRy
-aXZlcnMsIHVubGVzcyBkZWFsaW5nDQo+IHdpdGggZnJhZ21lbnRzLg0KPiANCj4gV2hlbiB5b3Ug
-aGF2ZSA6DQo+IAlza2ItPnRydWVzaXplID0gc2tiLT5sZW4gKyBzaXplb2Yoc3RydWN0IHNrX2J1
-ZmYpOw0KPiANCj4geW91IGFyZSBseWluZyB0byBzdGFjayB0aGF0IGNhbiBxdWV1ZSBtYW55ICJz
-bWFsbCIgVURQIHBhY2tldHMsDQo+IGFjY291dGluZyBmb3Igc21hbGwgcGFja2V0cyBpbiBzb2Nr
-ZXQgcmN2YnVmLCB3aGlsZSB0aGUgdHJ1ZXNpemUgd2FzDQo+IHJlYWxseSAxNTMyICsgc2l6ZW9m
-KHN0cnVjdCBza19idWZmKQ0KPiANCj4gQ291bGQgeW91IHRha2UgYSBsb29rID8NCg0KSSB3aWxs
-IHRha2UgYSBsb29rIGFuZCBnZXQgYmFjayB0byB5b3UuDQoNCi0gVGhhbmtzLg0KDQo+IA0KPiBU
-aGFua3MNCj4gDQo+IA0KPiBbUEFUQ0hdIHFsY25pYzogZG9udCBhc3N1bWUgTkVUX0lQX0FMSUdO
-IGlzIDINCj4gDQo+IHFsY25pYyBkcml2ZXIgYWxsb2NhdGVzIHJ4IHNrYnMgYW5kIGdpdmVzIHRv
-IGhhcmR3YXJlIHRvbyBieXRlcyBvZg0KPiBleHRyYQ0KPiBzdG9yYWdlLCBhbGxvd2luZyBmb3Ig
-Y29ycnVwdGlvbiBvZiBrZXJuZWwgZGF0YS4NCj4gDQo+IE5FVF9JUF9BTElHTiBiZWluZyAwIG9u
-IHNvbWUgcGxhdGZvcm1zIChpbmNsdWRpbmcgeDg2KSwgZHJpdmVycyBzaG91bGQNCj4gbm90IGFz
-c3VtZSBpdCdzIDIuDQo+IA0KPiByZHNfcmluZy0+c2tiX3NpemUgPSByZHNfcmluZy0+ZG1hX3Np
-emUgKyBORVRfSVBfQUxJR047DQo+IC4uLg0KPiBza2IgPSBkZXZfYWxsb2Nfc2tiKHJkc19yaW5n
-LT5za2Jfc2l6ZSk7DQo+IHNrYl9yZXNlcnZlKHNrYiwgMik7DQo+IHBjaV9tYXBfc2luZ2xlKHBk
-ZXYsIHNrYi0+ZGF0YSwgcmRzX3JpbmctPmRtYV9zaXplLA0KPiBQQ0lfRE1BX0ZST01ERVZJQ0Up
-Ow0KPiANCj4gKGFuZCByZHNfcmluZy0+c2tiX3NpemUgPT0gcmRzX3JpbmctPmRtYV9zaXplKSAt
-PiBidWcNCj4gDQo+IA0KPiBCZWNhdXNlIG9mIGV4dHJhIGFsaWdubWVudCAoMTUwMCArIDMyKSAt
-PiBmb3VyIGV4dHJhIGJ5dGVzIGFyZQ0KPiBhdmFpbGFibGUNCj4gYmVmb3JlIHRoZSBzdHJ1Y3Qg
-c2tiX3NoYXJlZF9pbmZvLCBzbyBjb3JydXB0aW9uIGlzIG5vdCBub3RpY2VkLg0KPiANCj4gTm90
-ZTogdGhpcyBkcml2ZXIgY291bGQgdXNlIG5ldGRldl9hbGxvY19za2JfaXBfYWxpZ24oKQ0KPiAN
-Cj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0K
-PiAtLS0NCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3FsY25pYy9xbGNuaWNfaW5pdC5jDQo+
-IGIvZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19pbml0LmMNCj4gaW5kZXggNzViYTc0NC4uNjBh
-Yjc1MyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19pbml0LmMNCj4g
-KysrIGIvZHJpdmVycy9uZXQvcWxjbmljL3FsY25pY19pbml0LmMNCj4gQEAgLTEzMTYsNyArMTMx
-Niw3IEBAIHFsY25pY19hbGxvY19yeF9za2Ioc3RydWN0IHFsY25pY19hZGFwdGVyDQo+ICphZGFw
-dGVyLA0KPiAgCQlyZXR1cm4gLUVOT01FTTsNCj4gIAl9DQo+IA0KPiAtCXNrYl9yZXNlcnZlKHNr
-YiwgMik7DQo+ICsJc2tiX3Jlc2VydmUoc2tiLCBORVRfSVBfQUxJR04pOw0KPiANCj4gIAlkbWEg
-PSBwY2lfbWFwX3NpbmdsZShwZGV2LCBza2ItPmRhdGEsDQo+ICAJCQlyZHNfcmluZy0+ZG1hX3Np
-emUsIFBDSV9ETUFfRlJPTURFVklDRSk7DQo+IA0KPiANCg0K
+Am 17.09.2010 04:52, schrieb Simon Horman:
+> On Thu, Sep 16, 2010 at 10:12:07AM +0200, Patrick McHardy wrote:
+>> Am 22.08.2010 14:44, schrieb Simon Horman:
+>>> This patch series adds load-balancing of UDP SIP based on Call-ID to
+>>> IPVS as well as a frame-work for extending IPVS to handle alternate
+>>> persistence requirements.
+>>>
+>>> REVISIONS
+>>>
+>>> This is "patch v1" of this series, which addresses a few minor problems, as
+>>> annotated on a per-patch basis, since the initial "rfc" posting. Internally
+>>> there were 4 rfc versions, 0.1, 0.2, 0.3 and 0.4, some of the notes for
+>>> some of the patches reflect those versions.
+>>
+>> This looks fine to me as far as I can judge.
+>>
+>>> CODE AVAILABILITY
+>>>
+>>> The kernel patches (13) are available in git as the pe-0.4 branch of
+>>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git
+>>
+>> Just to clarify, do you want me to merge this version?
+> 
+> Assuming that it applies cleanly, yes.
+> Otherwise I can re-base an re-post.
+
+There are some smaller conflicts, please rebase to the current nf-next
+tree. Thanks.
