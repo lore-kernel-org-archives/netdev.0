@@ -1,44 +1,55 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH NEXT 3/5] qlcnic: vlan lro support
-Date: Fri, 17 Sep 2010 02:10:32 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86F8005A@MNEXMB2.qlogic.org>
+From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Subject: Re: [PATCH NEXT 3/5] qlcnic: vlan lro support
+Date: Fri, 17 Sep 2010 11:34:46 +0400
+Message-ID: <381611284708887@web110.yandex.ru>
 References: <1284642872-27832-1-git-send-email-amit.salecha@qlogic.com>
 	 <1284642872-27832-4-git-send-email-amit.salecha@qlogic.com>
- <1284643638.3352.30.camel@edumazet-laptop>
+ <1284643638.3352.30.camel@edumazet-laptop> <99737F4847ED0A48AECC9F4A1974A4B80F86F8005A@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Amit Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:9740 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742Ab0IQHKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 03:10:37 -0400
-In-Reply-To: <1284643638.3352.30.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from forward6.mail.yandex.net ([77.88.60.125]:49308 "EHLO
+	forward6.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826Ab0IQHlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 03:41:12 -0400
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80F86F8005A@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIFNlcHRlbWJl
-ciAxNiwgMjAxMCA2OjU3IFBNDQo+IFRvOiBBbWl0IFNhbGVjaGENCj4gQ2M6IGRhdmVtQGRhdmVt
-bG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEFtZWVuIFJhaG1hbjsgQW5pcmJhbg0K
-PiBDaGFrcmFib3J0eQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIE5FWFQgMy81XSBxbGNuaWM6IHZs
-YW4gbHJvIHN1cHBvcnQNCj4gDQo+IExlIGpldWRpIDE2IHNlcHRlbWJyZSAyMDEwIMOgIDA2OjE0
-IC0wNzAwLCBBbWl0IEt1bWFyIFNhbGVjaGEgYSDDqWNyaXQgOg0KPiA+IExSTyArIEdSTyArIHZs
-YW4gcnggYWNjbGVyYXRpb24gc3VwcG9ydCwgcGVyZm9ybWFuY2UgaW5jcmVhc2VzDQo+ID4gYXJv
-dW5kIDIwJSBhbmQgY3B1IHV0aWxpemF0aW9uIHJlZHVjZXMgYXJvdW5kIDcwJSBvbiB2bGFuIGlu
-dGVyZmFjZS4NCj4gDQo+IEludGVyZXN0aW5nLiBXaGF0IGlzIHRoZSB3b3JrbG9hZCB0aGF0IGRl
-bW9uc3RyYXRlcyBzdWNoIGdhaW5zID8NCj4gDQo+IA0KSnVzdCB0byBkZW1vbnN0cmF0ZSBkZWNy
-ZWFzZSBpbiBjcHUgdXRpbGl6YXRpb24gZnVydGhlcjoNCkkgaGF2ZSB0YWtlbiBudW1iZXJzIHdp
-dGggdmFyaW91cyBsb2FkLiBJIHVzZWQgaXBlcmYgYXBwbGljYXRpb24gdG8gcnVuIHRjcCB0cmFm
-ZmljIG9uIHZsYW4gaW50ZXJmYWNlLg0KDQpOdW1iZXIgb2YgVENQIGNvbm5lY3Rpb24JIENwdSAg
-JWlkbGUJCUNwdSAlaWRsZQ0KCQkJCQkgKHcvbyBwYXRjaCkJKHdpdGggcGF0Y2gpDQoNCgk4CQkJ
-CTM0LjE0CQkJNjMuMDENCgkxNgkJCQkzNC4zNgkJCTYyLjM4DQoJMzIJCQkJMzMuODYJCQk2Mi4x
-OA0KCTY0CQkJCTMwLjYyCQkJNjEuOTQNCgkxMjgJCQkJMjkuMzMJCQk2MS4xMw0KCTI1NgkJCQky
-Ny43OQkJCTU5LjQ2DQoJNTEyCQkJCTI1LjMzCQkJNTkuMzgNCg0KVGhlcmUgaXMgYXJvdW5kIDgw
-LTkwJSBvZiByZWR1Y3Rpb24gaW4gY3B1IHV0aWxpemF0aW9uLg0KDQotQW1pdA0KDQoNCg==
+
+
+17.09.2010, 11:10, "Amit Salecha" <amit.salecha@qlogic.com>:
+>> =C2=A0-----Original Message-----
+>> =C2=A0From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+>> =C2=A0Sent: Thursday, September 16, 2010 6:57 PM
+>> =C2=A0To: Amit Salecha
+>> =C2=A0Cc: davem@davemloft.net; netdev@vger.kernel.org; Ameen Rahman;=
+ Anirban
+>> =C2=A0Chakraborty
+>> =C2=A0Subject: Re: [PATCH NEXT 3/5] qlcnic: vlan lro support
+>>
+>> =C2=A0Le jeudi 16 septembre 2010 =C3=A0 06:14 -0700, Amit Kumar Sale=
+cha a =C3=A9crit :
+>>> =C2=A0LRO + GRO + vlan rx accleration support, performance increase=
+s
+>>> =C2=A0around 20% and cpu utilization reduces around 70% on vlan int=
+erface.
+>> =C2=A0Interesting. What is the workload that demonstrates such gains=
+ ?
+>
+> Just to demonstrate decrease in cpu utilization further:
+> I have taken numbers with various load. I used iperf application to r=
+un tcp traffic on vlan interface.
+
+> There is around 80-90% of reduction in cpu utilization.
+
+I'm wondering, how can this scale further. For example if I have 200K l=
+ow speed simultaneous
+TCP connections (router appliance case with many users). Can GRO give u=
+s some gain here?
+
+--
+wbr, Oleg.
