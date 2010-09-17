@@ -1,140 +1,51 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: sunrpc: remove the big kernel lock
-Date: Fri, 17 Sep 2010 14:38:02 +0200
-Message-ID: <201009171438.02313.arnd@arndb.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH RFC] netns: keep vlan slaves on master netns move
+Date: Fri, 17 Sep 2010 14:49:15 +0200
+Message-ID: <4C9363CB.7050302@trash.net>
+References: <20100824115056.GA235835@jupiter.n2.diac24.net>	<20100913114315.GA859019@jupiter.n2.diac24.net> <m1bp7z4v0m.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	David Lamparter <equinox@diac24.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:40402 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752159Ab0IQMtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Sep 2010 08:49:20 -0400
+In-Reply-To: <m1bp7z4v0m.fsf@fess.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The sunrpc cache_ioctl function does not need the big kernel lock
-because it uses its own queue_lock already.
+Am 15.09.2010 04:10, schrieb Eric W. Biederman:
+> 
+> Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> 
+> My inclination is that the best way to handle this is to would be to
+> push the device deletion for vlan and macvlan devices into the device
+> core, where we could get the advantage of batched deletions.
 
-rpc_pipe_ioctl apparently should be using i_lock like the other
-operations on the pipe file descriptor do.
+We've added batched deletion to both about a year ago, what exactly
+is the problem?
 
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
----
-I missed this one because I considered the use of the BKL to
-be part of nfs/nfsd, but in this is really an unrelated usage.
-Please apply to an appropriate tree.
+>  Right
+> now vlan and macvlan devices are the only devices I know of that cause
+> other devices to be removed during unregister, so removing that
+> specialness seems reasonable.
 
-diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-index 5b7b56f..9e4827c 100644
---- a/net/sunrpc/cache.c
-+++ b/net/sunrpc/cache.c
-@@ -28,7 +28,6 @@
- #include <linux/workqueue.h>
- #include <linux/mutex.h>
- #include <linux/pagemap.h>
--#include <linux/smp_lock.h>
- #include <asm/ioctls.h>
- #include <linux/sunrpc/types.h>
- #include <linux/sunrpc/cache.h>
-@@ -1426,15 +1425,10 @@ static unsigned int cache_poll_procfs(struct file *filp, poll_table *wait)
- static long cache_ioctl_procfs(struct file *filp,
- 			       unsigned int cmd, unsigned long arg)
- {
--	long ret;
- 	struct inode *inode = filp->f_path.dentry->d_inode;
- 	struct cache_detail *cd = PDE(inode)->data;
- 
--	lock_kernel();
--	ret = cache_ioctl(inode, filp, cmd, arg, cd);
--	unlock_kernel();
--
--	return ret;
-+	return cache_ioctl(inode, filp, cmd, arg, cd);
- }
- 
- static int cache_open_procfs(struct inode *inode, struct file *filp)
-@@ -1634,13 +1628,8 @@ static long cache_ioctl_pipefs(struct file *filp,
- {
- 	struct inode *inode = filp->f_dentry->d_inode;
- 	struct cache_detail *cd = RPC_I(inode)->private;
--	long ret;
- 
--	lock_kernel();
--	ret = cache_ioctl(inode, filp, cmd, arg, cd);
--	unlock_kernel();
--
--	return ret;
-+	return cache_ioctl(inode, filp, cmd, arg, cd);
- }
- 
- static int cache_open_pipefs(struct inode *inode, struct file *filp)
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 8c8eef2..28bcd52 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -27,7 +27,6 @@
- #include <linux/workqueue.h>
- #include <linux/sunrpc/rpc_pipe_fs.h>
- #include <linux/sunrpc/cache.h>
--#include <linux/smp_lock.h>
- 
- static struct vfsmount *rpc_mount __read_mostly;
- static int rpc_mount_count;
-@@ -309,40 +308,33 @@ rpc_pipe_poll(struct file *filp, struct poll_table_struct *wait)
- 	return mask;
- }
- 
--static int
--rpc_pipe_ioctl_unlocked(struct file *filp, unsigned int cmd, unsigned long arg)
-+static long
-+rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
- {
--	struct rpc_inode *rpci = RPC_I(filp->f_path.dentry->d_inode);
-+	struct inode *inode = filp->f_path.dentry->d_inode;
-+	struct rpc_inode *rpci = RPC_I(inode);
- 	int len;
- 
- 	switch (cmd) {
- 	case FIONREAD:
--		if (rpci->ops == NULL)
-+		spin_lock(&inode->i_lock);
-+		if (rpci->ops == NULL) {
-+			spin_unlock(&inode->i_lock);
- 			return -EPIPE;
-+		}
- 		len = rpci->pipelen;
- 		if (filp->private_data) {
- 			struct rpc_pipe_msg *msg;
- 			msg = (struct rpc_pipe_msg *)filp->private_data;
- 			len += msg->len - msg->copied;
- 		}
-+		spin_unlock(&inode->i_lock);
- 		return put_user(len, (int __user *)arg);
- 	default:
- 		return -EINVAL;
- 	}
- }
- 
--static long
--rpc_pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
--{
--	long ret;
--
--	lock_kernel();
--	ret = rpc_pipe_ioctl_unlocked(filp, cmd, arg);
--	unlock_kernel();
--
--	return ret;
--}
--
- static const struct file_operations rpc_pipe_fops = {
- 	.owner		= THIS_MODULE,
- 	.llseek		= no_llseek,
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Actually all devices can cause this when used as a lower device by
+vlan or macvlan. Both vlan and macvlan are useless without a lower
+device, so I don't see why we shouldn't remove them when the lower
+device is unregistered.
+
+> However not being able to move the primary vlan to a different network
+> namespace is usability bug with no real alternatives.  There are
+> not any other patches on the table right now, and your patch below
+> seems obviously correct.  Let's get this merged before we forget about
+> this, bug fix.
+
+Looks reasonable to me.
+
+Acked-by: Patrick McHardy <kaber@trash.net>
