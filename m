@@ -1,105 +1,75 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: [PATCH] net/sched/sch_hfsc.c: initialize parent's cl_cfmin
- properly in init_vf()
-Date: Sat, 18 Sep 2010 16:08:16 +0200
-Message-ID: <20100918140816.GA974@mott.hasevolq.tld>
-References: <cover.1283197803.git.soltys@ziu.info>
- <8100ed4475ac7a301a3d69611e97d510ea498c5d.1283197803.git.soltys@ziu.info>
- <20100901.143038.170100274.davem@davemloft.net>
- <4C910869.1050800@trash.net>
- <4C913DE1.6040401@ziu.info>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: E1000E/82567LM-3: link reported up too soon
+Date: Sat, 18 Sep 2010 16:14:16 +0200
+Message-ID: <87bp7vnnpj.fsf@small.ssi.corp>
+References: <87eicvi0cz.fsf@small.ssi.corp> <4C90E11B.7020807@hp.com>
+	<87pqwff2bd.fsf@small.ssi.corp> <4C90EDF3.8010401@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, denys@visp.net.lb,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.ppgk.com.pl ([80.53.243.36]:36357 "EHLO relay.ppgk.com.pl"
+Received: from copper.chdir.org ([88.191.97.87]:60643 "EHLO copper.chdir.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755049Ab0IROIb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Sep 2010 10:08:31 -0400
-Content-Disposition: inline
-In-Reply-To: <4C913DE1.6040401@ziu.info>
+	id S1755290Ab0IROOU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Sep 2010 10:14:20 -0400
+In-Reply-To: <4C90EDF3.8010401@hp.com> (Brian Haley's message of "Wed, 15 Sep
+	2010 12:01:55 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 15, 2010 at 11:42:57PM +0200, Michal Soltys wrote:
-> On 10-09-15 19:54, Patrick McHardy wrote:
-> >Am 01.09.2010 23:30, schrieb David Miller:
-> >> From: Michal Soltys<soltys@ziu.info>
-> >> Date: Mon, 30 Aug 2010 23:34:10 +0200
-> >>
-> >>> This patch fixes init_vf() function, so on each new backlog period parent's
-> >>> cl_cfmin is properly updated (including further propgation towards the root),
-> >>> even if the activated leaf has no upperlimit curve defined.
-> >>>
-> >>> Signed-off-by: Michal Soltys<soltys@ziu.info>
-> >>
-> >> Applied, thanks.
-> >
-> >For the record, the patch seems fine to me. The root cause seems to be
-> >an optimization I introduced (pre-git, even history.git unfortunately)
-> >in vttree_get_minvt() that wasn't present in the original version:
-> >
-> >static struct hfsc_class *
-> >vttree_get_minvt(struct hfsc_class *cl, u64 cur_time)
-> >{
-> >         /* if root-class's cfmin is bigger than cur_time nothing to do */
-> >         if (cl->cl_cfmin>  cur_time)
-> >                 return NULL;
-> >
-> >I'd prefer to remove this check since it's obviously not correct and
-> >might cause other problems. Michal, could you please test whether this
-> >patch fixes the problem as well? Thanks!
-> 
-> Sure, will do. Although with a tad bit more complex scenario than
-> from my cover email, I think there will still be problems.
+Hi Brian and David,                         [removed Intel people from CC]
 
-Ok, did the tests. The results confirmed the earlier theory - namely, if I
-removed my fix and your optimization, the only scenario it helped with was if
-the leafs were directly attached to the root qdisc, eg.:
+Brian Haley <brian.haley@hp.com> writes:
 
-    root
-    /  \
-   A    B(u)
+>> I am not familiar with e1000e code but as I said previously I'd be happy
+>> to test patches to help determine precisely where the packet gets lost
+>> and why.
+>
+> I'm not either, the patches I've tried are all for IPv6.
 
-Here, making decision at root would go through childrens' 'vt's and 'f's times
-and properly dequeue A without any delays.
+I definitely think the issue is not chipset-specific (keep reading) and
+that it is not just a matter of few milliseconds. It also not
+IPv6-specific. 
 
-Anything deeper though, like:
+I spent some additional time on it in userspace. I implemented a
+*workaround* in UMIP to allow configuration of a per-interface
+additional delay before sending RS after a link up event. I initially
+thought few milliseconds would be sufficient. It is not. Obviously, this
+gets better when delay is increased but still.
 
-     |                / \
-     A               A   B(u)
-    / \             / \
-   B   C(u)        C  D(u)
+I progressively increased the value until RS is no more dropped. Below,
+UMIP is configured to send RS only *550ms* after the RTM_NEWLINK event
+(indicating link is up and running event) is received and the packet is
+still dropped locally. Note that the IPv4 DHCP Request below is sent as
+soon as link gets up to show the time difference (RS is indeed sent
+550ms later):
 
-still cause problems - while the decision would go through 'vt's and 'f's - the
-'f's are calculated as max(myf, cfmin), and cfmin won't be updated updwards
-from the leafs that have no upperlimit.
+15:12:32.728429 ethertype IPv4 (0x0800), length 342: 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request
+15:12:33.256201 ethertype IPv6 (0x86dd), length 62: :: > ff02::2: ICMP6, router solicitation, length 8
+15:12:35.729668 ethertype IPv4 (0x0800), length 342: 0.0.0.0.68 > 255.255.255.255.67: BOOTP/DHCP, Request
+15:12:35.741238 ethertype IPv4 (0x0800), length 590: 192.168.0.254.67 > 192.168.0.16.68: BOOTP/DHCP, Reply
 
-Regarding your optimization - its results should be consistent with the first
-vttree_firstfit() call (if cf_min is properly updated). I don't see how it
-could cause any misbehaviour.
+The switch is a 5 ports Planex gigabit switch connected to the 82567LM-3
+on my Dell E4300 (negotiated 1000baseT-FD flow-control, link ok). Still
+on a 2.6.35.4 kernel.
 
-Speaking about hfsc, I have few other potential changes with reference to how
-vt is handled and updated (especially cvtmin), but that's for different mail.
+Then, I decided to test with a totally different kind of ethernet
+interface. An USB2 Ethernet 10/100 dongle. Here is what lsusb reports
+about it:
 
-Additional 'if' condition (mentioned in previous mail) in my fix seemed to work
-fine as well, namely:
+Bus 002 Device 003: ID 0411:003d MelCo., Inc. LUA-U2-KTX Ethernet
 
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 4749609..e9768b2 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -761,8 +761,9 @@ init_vf(struct hfsc_class *cl, unsigned int len)
- 		if (f != cl->cl_f) {
- 			cl->cl_f = f;
- 			cftree_update(cl);
--		}
--		update_cfmin(cl->cl_parent);
-+			update_cfmin(cl->cl_parent);
-+		} else if (go_active)
-+			update_cfmin(cl->cl_parent);
- 	}
- }
+Below, UMIP is configured w/o any additional delay before RS emission on
+that interface. No DHCP running either:
 
+15:40:22.984311 ethertype IPv6 (0x86dd), length 62: :: > ff02::2: ICMP6, router solicitation, length 8
+15:40:26.984845 ethertype IPv6 (0x86dd), length 62: :: > ff02::2: ICMP6, router solicitation, length 8
+15:40:26.989264 ethertype IPv6 (0x86dd), length 158: fe80::224:d5ff:fed4:476c > ff02::1: ICMP6, router advertisement
+
+David, any idea on where this may come from and how to track the cause?
+
+Cheers,
+
+a+
