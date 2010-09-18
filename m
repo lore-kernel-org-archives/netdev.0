@@ -1,56 +1,105 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch v1 00/12] IPVS: SIP Persistence Engine
-Date: Sat, 18 Sep 2010 21:52:22 +0900
-Message-ID: <20100918125219.GA15548@verge.net.au>
-References: <20100822124457.339517323@vergenet.net>
- <4C91D157.1090804@trash.net>
- <20100917025232.GH30855@verge.net.au>
- <4C9356A6.5080208@trash.net>
+From: Michal Soltys <soltys@ziu.info>
+Subject: Re: [PATCH] net/sched/sch_hfsc.c: initialize parent's cl_cfmin
+ properly in init_vf()
+Date: Sat, 18 Sep 2010 16:08:16 +0200
+Message-ID: <20100918140816.GA974@mott.hasevolq.tld>
+References: <cover.1283197803.git.soltys@ziu.info>
+ <8100ed4475ac7a301a3d69611e97d510ea498c5d.1283197803.git.soltys@ziu.info>
+ <20100901.143038.170100274.davem@davemloft.net>
+ <4C910869.1050800@trash.net>
+ <4C913DE1.6040401@ziu.info>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
+Cc: David Miller <davem@davemloft.net>, denys@visp.net.lb,
+	netdev@vger.kernel.org
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.ppgk.com.pl ([80.53.243.36]:36357 "EHLO relay.ppgk.com.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755049Ab0IROIb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Sep 2010 10:08:31 -0400
 Content-Disposition: inline
-In-Reply-To: <4C9356A6.5080208@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4C913DE1.6040401@ziu.info>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 17, 2010 at 01:53:10PM +0200, Patrick McHardy wrote:
-> Am 17.09.2010 04:52, schrieb Simon Horman:
-> > On Thu, Sep 16, 2010 at 10:12:07AM +0200, Patrick McHardy wrote:
-> >> Am 22.08.2010 14:44, schrieb Simon Horman:
-> >>> This patch series adds load-balancing of UDP SIP based on Call-ID to
-> >>> IPVS as well as a frame-work for extending IPVS to handle alternate
-> >>> persistence requirements.
-> >>>
-> >>> REVISIONS
-> >>>
-> >>> This is "patch v1" of this series, which addresses a few minor problems, as
-> >>> annotated on a per-patch basis, since the initial "rfc" posting. Internally
-> >>> there were 4 rfc versions, 0.1, 0.2, 0.3 and 0.4, some of the notes for
-> >>> some of the patches reflect those versions.
+On Wed, Sep 15, 2010 at 11:42:57PM +0200, Michal Soltys wrote:
+> On 10-09-15 19:54, Patrick McHardy wrote:
+> >Am 01.09.2010 23:30, schrieb David Miller:
+> >> From: Michal Soltys<soltys@ziu.info>
+> >> Date: Mon, 30 Aug 2010 23:34:10 +0200
 > >>
-> >> This looks fine to me as far as I can judge.
-> >>
-> >>> CODE AVAILABILITY
+> >>> This patch fixes init_vf() function, so on each new backlog period parent's
+> >>> cl_cfmin is properly updated (including further propgation towards the root),
+> >>> even if the activated leaf has no upperlimit curve defined.
 > >>>
-> >>> The kernel patches (13) are available in git as the pe-0.4 branch of
-> >>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git
+> >>> Signed-off-by: Michal Soltys<soltys@ziu.info>
 > >>
-> >> Just to clarify, do you want me to merge this version?
-> > 
-> > Assuming that it applies cleanly, yes.
-> > Otherwise I can re-base an re-post.
+> >> Applied, thanks.
+> >
+> >For the record, the patch seems fine to me. The root cause seems to be
+> >an optimization I introduced (pre-git, even history.git unfortunately)
+> >in vttree_get_minvt() that wasn't present in the original version:
+> >
+> >static struct hfsc_class *
+> >vttree_get_minvt(struct hfsc_class *cl, u64 cur_time)
+> >{
+> >         /* if root-class's cfmin is bigger than cur_time nothing to do */
+> >         if (cl->cl_cfmin>  cur_time)
+> >                 return NULL;
+> >
+> >I'd prefer to remove this check since it's obviously not correct and
+> >might cause other problems. Michal, could you please test whether this
+> >patch fixes the problem as well? Thanks!
 > 
-> There are some smaller conflicts, please rebase to the current nf-next
-> tree. Thanks.
+> Sure, will do. Although with a tad bit more complex scenario than
+> from my cover email, I think there will still be problems.
 
-Unfortunately a few bugs have shown up.
-I'll get them ironed out before reposting.
+Ok, did the tests. The results confirmed the earlier theory - namely, if I
+removed my fix and your optimization, the only scenario it helped with was if
+the leafs were directly attached to the root qdisc, eg.:
+
+    root
+    /  \
+   A    B(u)
+
+Here, making decision at root would go through childrens' 'vt's and 'f's times
+and properly dequeue A without any delays.
+
+Anything deeper though, like:
+
+     |                / \
+     A               A   B(u)
+    / \             / \
+   B   C(u)        C  D(u)
+
+still cause problems - while the decision would go through 'vt's and 'f's - the
+'f's are calculated as max(myf, cfmin), and cfmin won't be updated updwards
+from the leafs that have no upperlimit.
+
+Regarding your optimization - its results should be consistent with the first
+vttree_firstfit() call (if cf_min is properly updated). I don't see how it
+could cause any misbehaviour.
+
+Speaking about hfsc, I have few other potential changes with reference to how
+vt is handled and updated (especially cvtmin), but that's for different mail.
+
+Additional 'if' condition (mentioned in previous mail) in my fix seemed to work
+fine as well, namely:
+
+diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
+index 4749609..e9768b2 100644
+--- a/net/sched/sch_hfsc.c
++++ b/net/sched/sch_hfsc.c
+@@ -761,8 +761,9 @@ init_vf(struct hfsc_class *cl, unsigned int len)
+ 		if (f != cl->cl_f) {
+ 			cl->cl_f = f;
+ 			cftree_update(cl);
+-		}
+-		update_cfmin(cl->cl_parent);
++			update_cfmin(cl->cl_parent);
++		} else if (go_active)
++			update_cfmin(cl->cl_parent);
+ 	}
+ }
 
