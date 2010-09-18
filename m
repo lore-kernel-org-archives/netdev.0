@@ -1,44 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: reorder struct netdev_hw_addr
-Date: Sat, 18 Sep 2010 08:17:44 +0200
-Message-ID: <1284790664.4373.610.camel@edumazet-laptop>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 06/12] BKL: Remove BKL from capifs
+Date: Sat, 18 Sep 2010 09:55:09 +0200
+Message-ID: <201009180955.10129.arnd@arndb.de>
+References: <1284659185-8942-1-git-send-email-arnd@arndb.de> <1284659185-8942-7-git-send-email-arnd@arndb.de> <20100917.163530.266095048.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37752 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753770Ab0IRGRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Sep 2010 02:17:50 -0400
-Received: by wyf22 with SMTP id 22so3001116wyf.19
-        for <netdev@vger.kernel.org>; Fri, 17 Sep 2010 23:17:49 -0700 (PDT)
+Received: from moutng.kundenserver.de ([212.227.126.171]:56746 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754444Ab0IRHzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Sep 2010 03:55:17 -0400
+In-Reply-To: <20100917.163530.266095048.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move 'synced' and 'global_use' fields before 'refcount', to shrinks
-struct netdev_hw_addr by 8 bytes (on 64bit arches).
+On Saturday 18 September 2010 01:35:30 David Miller wrote:
+> 
+> From: Arnd Bergmann <arnd@arndb.de>
+> Date: Thu, 16 Sep 2010 19:46:19 +0200
+> 
+> > The BKL is only used in fill_super, which is  protected by the superblocks
+> > s_umount rw_semaphore. Therefore it is safe to remove the BKL entirely.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > Cc: netdev@vger.kernel.org
+> 
+> I've searched Linus's tree, net-2.6, and net-next-2.6 and I cannot
+> find one reference to lock_kernel() in drivers/isdn/capi/capifs.c
+> in any of them.
+> 
+> What did you write this patch against?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/linux/netdevice.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+As I wrote in my [PATCH 0/12], it applies on top of the pushdown
+of the BKL into the get_sb operation, and I intend to submit it
+to Linus with the full series.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ec17887..f7f1302 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -228,9 +228,9 @@ struct netdev_hw_addr {
- #define NETDEV_HW_ADDR_T_SLAVE		3
- #define NETDEV_HW_ADDR_T_UNICAST	4
- #define NETDEV_HW_ADDR_T_MULTICAST	5
--	int			refcount;
- 	bool			synced;
- 	bool			global_use;
-+	int			refcount;
- 	struct rcu_head		rcu_head;
- };
- 
+I agree that this particular patch is a bit pointless because
+all it does is to undo the change from the pushdown. I guess
+that at the time when the first patch was written, the BKL
+was still present in other parts of capifs.
 
-
+	Arnd
