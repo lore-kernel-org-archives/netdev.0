@@ -1,51 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] Gigabit Ethernet driver of Topcliff PCH
-Date: Fri, 17 Sep 2010 23:08:46 -0700 (PDT)
-Message-ID: <20100917.230846.226755853.davem@davemloft.net>
-References: <4C90CBC9.7000203@dsn.okisemi.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: reorder struct netdev_hw_addr
+Date: Sat, 18 Sep 2010 08:17:44 +0200
+Message-ID: <1284790664.4373.610.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, john.linn@xilinx.com, ralf@linux-mips.org,
-	kristoffer@gaisler.com, mbizon@freebox.fr,
-	gregory.v.rose@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rjw@sisk.pl,
-	okada533@dsn.okisemi.com, shimizu394@dsn.okisemi.com,
-	morinaga526@dsn.okisemi.com, qi.wang@intel.com,
-	yong.y.wang@intel.com, andrew.chih.howe.khor@intel.com,
-	joel.clark@intel.com, margie.foster@intel.com,
-	arjan@linux.intel.com
-To: masa-korg@dsn.okisemi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C90CBC9.7000203@dsn.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37752 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753770Ab0IRGRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Sep 2010 02:17:50 -0400
+Received: by wyf22 with SMTP id 22so3001116wyf.19
+        for <netdev@vger.kernel.org>; Fri, 17 Sep 2010 23:17:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
-Date: Wed, 15 Sep 2010 22:36:09 +0900
+Move 'synced' and 'global_use' fields before 'refcount', to shrinks
+struct netdev_hw_addr by 8 bytes (on 64bit arches).
 
-> +struct pch_gbe_regs_mac_adr {
-> +	u32 high;
-> +	u32 low;
-> +} __attribute__ ((packed));;
- ...
-> +struct pch_gbe_regs {
- ...
-> +} __attribute__ ((packed));
-...
-> +struct pch_gbe_rx_desc {
- ...
-> +} __attribute__ ((packed));;
- ...
-> +struct pch_gbe_tx_desc {
- ...
-> +} __attribute__ ((packed));;
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/netdevice.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The packed attribute should not be necessary for any of these
-datastructures, so unless you can prove they are needed please
-remove the attribute tag.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ec17887..f7f1302 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -228,9 +228,9 @@ struct netdev_hw_addr {
+ #define NETDEV_HW_ADDR_T_SLAVE		3
+ #define NETDEV_HW_ADDR_T_UNICAST	4
+ #define NETDEV_HW_ADDR_T_MULTICAST	5
+-	int			refcount;
+ 	bool			synced;
+ 	bool			global_use;
++	int			refcount;
+ 	struct rcu_head		rcu_head;
+ };
+ 
 
-Besides being unnecessary, it will make cpu access to these
-descriptors extremely slow on risc cpus, as the compiler will
-emit byte-at-a-time accesses for all members of the structure
-larger than one byte.
+
