@@ -1,50 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qlcnic: dont assume NET_IP_ALIGN is 2
-Date: Fri, 17 Sep 2010 22:58:24 -0700 (PDT)
-Message-ID: <20100917.225824.193719467.davem@davemloft.net>
-References: <1284700483-16397-1-git-send-email-amit.salecha@qlogic.com>
-	<1284700483-16397-2-git-send-email-amit.salecha@qlogic.com>
-	<1284717448.3391.75.camel@edumazet-laptop>
+Subject: Re: [PATCH v4] Gigabit Ethernet driver of Topcliff PCH
+Date: Fri, 17 Sep 2010 23:08:46 -0700 (PDT)
+Message-ID: <20100917.230846.226755853.davem@davemloft.net>
+References: <4C90CBC9.7000203@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amit.salecha@qlogic.com, netdev@vger.kernel.org,
-	ameen.rahman@qlogic.com, anirban.chakraborty@qlogic.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51385
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752595Ab0IRF6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Sep 2010 01:58:06 -0400
-In-Reply-To: <1284717448.3391.75.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: randy.dunlap@oracle.com, john.linn@xilinx.com, ralf@linux-mips.org,
+	kristoffer@gaisler.com, mbizon@freebox.fr,
+	gregory.v.rose@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rjw@sisk.pl,
+	okada533@dsn.okisemi.com, shimizu394@dsn.okisemi.com,
+	morinaga526@dsn.okisemi.com, qi.wang@intel.com,
+	yong.y.wang@intel.com, andrew.chih.howe.khor@intel.com,
+	joel.clark@intel.com, margie.foster@intel.com,
+	arjan@linux.intel.com
+To: masa-korg@dsn.okisemi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C90CBC9.7000203@dsn.okisemi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 17 Sep 2010 11:57:28 +0200
+From: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+Date: Wed, 15 Sep 2010 22:36:09 +0900
 
-> [PATCH] qlcnic: dont assume NET_IP_ALIGN is 2
-> 
-> qlcnic driver allocates rx skbs and gives to hardware too bytes of extra
-> storage, allowing for corruption of kernel data.
-> 
-> NET_IP_ALIGN being 0 on some platforms (including x86), drivers should
-> not assume it's 2.
-> 
-> rds_ring->skb_size = rds_ring->dma_size + NET_IP_ALIGN;
-> ...
-> skb = dev_alloc_skb(rds_ring->skb_size);
-> skb_reserve(skb, 2);
-> pci_map_single(pdev, skb->data, rds_ring->dma_size, PCI_DMA_FROMDEVICE);
-> 
-> (and rds_ring->skb_size == rds_ring->dma_size) -> bug
-> 
-> 
-> Because of extra alignment (1500 + 32) -> four extra bytes are available
-> before the struct skb_shared_info, so corruption is not noticed.
-> 
-> Note: this driver could use netdev_alloc_skb_ip_align()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> +struct pch_gbe_regs_mac_adr {
+> +	u32 high;
+> +	u32 low;
+> +} __attribute__ ((packed));;
+ ...
+> +struct pch_gbe_regs {
+ ...
+> +} __attribute__ ((packed));
+...
+> +struct pch_gbe_rx_desc {
+ ...
+> +} __attribute__ ((packed));;
+ ...
+> +struct pch_gbe_tx_desc {
+ ...
+> +} __attribute__ ((packed));;
 
-Applied to net-2.6, thanks Eric.
+The packed attribute should not be necessary for any of these
+datastructures, so unless you can prove they are needed please
+remove the attribute tag.
+
+Besides being unnecessary, it will make cpu access to these
+descriptors extremely slow on risc cpus, as the compiler will
+emit byte-at-a-time accesses for all members of the structure
+larger than one byte.
