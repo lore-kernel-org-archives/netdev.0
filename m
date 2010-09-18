@@ -1,47 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 06/12] BKL: Remove BKL from capifs
-Date: Sat, 18 Sep 2010 09:55:09 +0200
-Message-ID: <201009180955.10129.arnd@arndb.de>
-References: <1284659185-8942-1-git-send-email-arnd@arndb.de> <1284659185-8942-7-git-send-email-arnd@arndb.de> <20100917.163530.266095048.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch v1 00/12] IPVS: SIP Persistence Engine
+Date: Sat, 18 Sep 2010 21:52:22 +0900
+Message-ID: <20100918125219.GA15548@verge.net.au>
+References: <20100822124457.339517323@vergenet.net>
+ <4C91D157.1090804@trash.net>
+ <20100917025232.GH30855@verge.net.au>
+ <4C9356A6.5080208@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:56746 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754444Ab0IRHzR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Sep 2010 03:55:17 -0400
-In-Reply-To: <20100917.163530.266095048.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C9356A6.5080208@trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 18 September 2010 01:35:30 David Miller wrote:
-> 
-> From: Arnd Bergmann <arnd@arndb.de>
-> Date: Thu, 16 Sep 2010 19:46:19 +0200
-> 
-> > The BKL is only used in fill_super, which is  protected by the superblocks
-> > s_umount rw_semaphore. Therefore it is safe to remove the BKL entirely.
+On Fri, Sep 17, 2010 at 01:53:10PM +0200, Patrick McHardy wrote:
+> Am 17.09.2010 04:52, schrieb Simon Horman:
+> > On Thu, Sep 16, 2010 at 10:12:07AM +0200, Patrick McHardy wrote:
+> >> Am 22.08.2010 14:44, schrieb Simon Horman:
+> >>> This patch series adds load-balancing of UDP SIP based on Call-ID to
+> >>> IPVS as well as a frame-work for extending IPVS to handle alternate
+> >>> persistence requirements.
+> >>>
+> >>> REVISIONS
+> >>>
+> >>> This is "patch v1" of this series, which addresses a few minor problems, as
+> >>> annotated on a per-patch basis, since the initial "rfc" posting. Internally
+> >>> there were 4 rfc versions, 0.1, 0.2, 0.3 and 0.4, some of the notes for
+> >>> some of the patches reflect those versions.
+> >>
+> >> This looks fine to me as far as I can judge.
+> >>
+> >>> CODE AVAILABILITY
+> >>>
+> >>> The kernel patches (13) are available in git as the pe-0.4 branch of
+> >>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git
+> >>
+> >> Just to clarify, do you want me to merge this version?
 > > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Cc: netdev@vger.kernel.org
+> > Assuming that it applies cleanly, yes.
+> > Otherwise I can re-base an re-post.
 > 
-> I've searched Linus's tree, net-2.6, and net-next-2.6 and I cannot
-> find one reference to lock_kernel() in drivers/isdn/capi/capifs.c
-> in any of them.
-> 
-> What did you write this patch against?
+> There are some smaller conflicts, please rebase to the current nf-next
+> tree. Thanks.
 
-As I wrote in my [PATCH 0/12], it applies on top of the pushdown
-of the BKL into the get_sb operation, and I intend to submit it
-to Linus with the full series.
+Unfortunately a few bugs have shown up.
+I'll get them ironed out before reposting.
 
-I agree that this particular patch is a bit pointless because
-all it does is to undo the change from the pushdown. I guess
-that at the time when the first patch was written, the BKL
-was still present in other parts of capifs.
-
-	Arnd
