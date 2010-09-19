@@ -1,40 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] ixgbevf: potential NULL dereference on allocation
- failure
-Date: Sun, 19 Sep 2010 11:33:47 -0700 (PDT)
-Message-ID: <20100919.113347.39185228.davem@davemloft.net>
-References: <20100910115234.GB5959@bicker>
-	<20100910.132137.212394088.davem@davemloft.net>
-	<43F901BD926A4E43B106BF17856F0755F66821BC@orsmsx508.amr.corp.intel.com>
+Subject: Re: [RFC PATCH] xmit_compl_seq: information to reclaim vmsplice
+ buffers
+Date: Sun, 19 Sep 2010 11:35:33 -0700 (PDT)
+Message-ID: <20100919.113533.59698518.davem@davemloft.net>
+References: <alpine.DEB.1.00.1009141318490.20088@pokey.mtv.corp.google.com>
+	<20100915.213832.43031989.davem@davemloft.net>
+	<AANLkTimoHcbpyp95a23GXxWO3gQTxB6SJuP0WSJf1DB-@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: error27@gmail.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: gregory.v.rose@intel.com
+Cc: netdev@vger.kernel.org, sridharr@google.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44106
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44111
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754843Ab0ISSd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Sep 2010 14:33:28 -0400
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755F66821BC@orsmsx508.amr.corp.intel.com>
+	by vger.kernel.org with ESMTP id S1755219Ab0ISSfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Sep 2010 14:35:14 -0400
+In-Reply-To: <AANLkTimoHcbpyp95a23GXxWO3gQTxB6SJuP0WSJf1DB-@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Date: Tue, 14 Sep 2010 09:57:46 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Thu, 16 Sep 2010 12:09:08 -0700
 
-> I've taken up your suggestions and implemented them (roughly) as
-> suggested below.  After looking at the code I had to agree that it
-> would be very confusing for a user to set new ring parameters, have
-> the call partially succeed but get no error and then look at the
-> parameters again and not see what he expected.  Now the code will do
-> as suggested and just unwind all prior allocations and return an
-> error if the new ring sizing didn't work.  The user will be left
-> with the prior ring size allocations which is probably what he would
-> expect.
->
-> The patch is going to be posted internally and after it goes through
-> our review process it will be posted to netdev.
+> We return the seq # as part of receive message since: 1) the socket is
+> already being accessed in the recvmsg, so tacking on this data should be
+> cheap 2) the recvmsg may often coincide with an acknowledgment that would
+> allow buffers to be reclaimed (esp. in response of a client request) 3) this
+> could also be achieved by another system call after recvmsg, but then we're
+> adding the cost of the system call.
+> 
+> The recvmsg and sockopt return the sequence number of first unacknowleged
+> data, as opposed to the number of bytes outstanding.  The sequence number is
+> not a relative value for our purposes, but the other is.  Given just the
+> number of bytes outstanding, we would also need the # bytes that have ever
+> been written by application at that instant to compute the completed byte
+> number for reclaiming buffers-- so we would need synchronization between
+> read and write path in the application (lock needed).
 
-Thanks for doing this work Greg.
+Ok, I'm convinced, thanks for explaining.
+
+Please address the other feedback you've received (if any) and formally
+submit this for inclusion into net-next-2.6
+
+Thanks.
