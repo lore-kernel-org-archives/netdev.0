@@ -1,48 +1,32 @@
-From: Bandan Das <bandan.das@stratus.com>
-Subject: Re: [PATCH net-next-2.6] net/ipv4: push IP options to CB in
- ip_fragment
-Date: Sun, 19 Sep 2010 15:36:01 -0400
-Message-ID: <20100919193601.GG31036@stratus.com>
-References: <20100903044941.GA28300@gondor.apana.org.au>
- <20100915173209.GB9086@stratus.com>
- <20100917065117.GA9577@gondor.apana.org.au>
- <20100917.164356.22528384.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] bridge : Sanitize skb before it enters
+ the IP stack
+Date: Sun, 19 Sep 2010 13:24:12 -0700 (PDT)
+Message-ID: <20100919.132412.102552920.davem@davemloft.net>
+References: <20100919193433.GF31036@stratus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.hengli.com.au, bandan.das@stratus.com,
-	bunk@kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, herbert@gondor.hengli.com.au,
+	kaber@trash.net
+To: bandan.das@stratus.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100917.164356.22528384.davem@davemloft.net>
+In-Reply-To: <20100919193433.GF31036@stratus.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On  0, David Miller <davem@davemloft.net> wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Fri, 17 Sep 2010 14:51:17 +0800
-> 
-> > On Wed, Sep 15, 2010 at 01:32:09PM -0400, Bandan Das wrote:
-> >>
-> >> Sorry for the late response. Here's a patch that I put up based on Herbert's
-> >> suggestions. I ofcourse don't see the problem anymore after 
-> >> commit 87f94b4e91dc042620c527f3c30c37e5127ef757 but a generic helper such as this 
-> >> can be used anytime the bridge code is sending a packet over to the IP layer. 
-> >> Compile tested only but based on responses, will test it before submitting a 
-> >> final change. Also added it at two places where I know we do send a packet over to
-> >> the IP layer. I will add it at other places later as I come across them.
-> > 
-> > Looks fine to me.
-> 
-> Bandan, please submit this formally with proper commit message,
-> signoff, also the new function you added needs a minor coding
-> style fix, there needs to be a space after "if" and the openning
-> left parenthesis.
-> 
-> Thanks.
+From: Bandan Das <bandan.das@stratus.com>
+Date: Sun, 19 Sep 2010 15:34:33 -0400
 
-Submitted. And also incorporated the coding style fixes you mentioned.
+> Related dicussion here : http://lkml.org/lkml/2010/9/3/16
+> 
+> Introduce a function br_parse_ip_options that will audit the 
+> skb and possibly refill IP options before a packet enters the
+> IP stack. If no options are present, the function will zero out
+> the skb cb area so that it is not misinterpreted as options by some
+> unsuspecting IP layer routine. If packet consistency fails, drop it.
+> 
+> Signed-off-by: Bandan Das <bandan.das@stratus.com>
 
-Thanks
-Bandan
+Applied, thanks a lot!
