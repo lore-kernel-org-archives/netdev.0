@@ -1,32 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bridge : Sanitize skb before it enters
- the IP stack
-Date: Sun, 19 Sep 2010 13:24:12 -0700 (PDT)
-Message-ID: <20100919.132412.102552920.davem@davemloft.net>
-References: <20100919193433.GF31036@stratus.com>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: ipsec encryption
+Date: Sun, 19 Sep 2010 17:04:38 -0400
+Message-ID: <4C967AE6.2020207@earthlink.net>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, herbert@gondor.hengli.com.au,
-	kaber@trash.net
-To: bandan.das@stratus.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100919193433.GF31036@stratus.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:43568
+	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754487Ab0ISVEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Sep 2010 17:04:40 -0400
+Received: from [69.22.83.66] (helo=joker.seclark.com)
+	by elasmtp-spurfowl.atl.sa.earthlink.net with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.67)
+	(envelope-from <sclark46@earthlink.net>)
+	id 1OxR3w-0004gt-5k
+	for netdev@vger.kernel.org; Sun, 19 Sep 2010 17:04:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bandan Das <bandan.das@stratus.com>
-Date: Sun, 19 Sep 2010 15:34:33 -0400
+Hello List,
 
-> Related dicussion here : http://lkml.org/lkml/2010/9/3/16
-> 
-> Introduce a function br_parse_ip_options that will audit the 
-> skb and possibly refill IP options before a packet enters the
-> IP stack. If no options are present, the function will zero out
-> the skb cb area so that it is not misinterpreted as options by some
-> unsuspecting IP layer routine. If packet consistency fails, drop it.
-> 
-> Signed-off-by: Bandan Das <bandan.das@stratus.com>
+I have been searching for a diagram that shows where in the packet flow thru
+the kernel that ipsec encryption/encapsulation takes place in relation 
+to the
+netfilter flow diagrams. None of the netfilter diagrams I have found 
+indicate
+where ipsec encryption/decryption takes place.
 
-Applied, thanks a lot!
+Thanks in advance,
+Steve
+
+-- 
+
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
+
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
+
+
+
