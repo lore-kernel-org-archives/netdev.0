@@ -1,58 +1,55 @@
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: Re: idr_get_new_exact ?
-Date: Mon, 20 Sep 2010 15:07:40 -0500
-Message-ID: <4C97BF0C.6070809@opengridcomputing.com>
-References: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV@mail.gmail.com> <20100920123140.f524de79.akpm@linux-foundation.org>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: E1000E/82567LM-3: link reported up too soon
+Date: Mon, 20 Sep 2010 22:09:16 +0200
+Message-ID: <87y6awjhxv.fsf@small.ssi.corp>
+References: <87bp7vnnpj.fsf@small.ssi.corp>
+	<20100920.112213.42810338.davem@davemloft.net>
+	<878w2wnsyd.fsf@small.ssi.corp>
+	<20100920.125447.220082714.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Jean Delvare (PC drivers, core)" <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>,
-	"Ben Dooks (embedded platforms)" <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
-	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Steve Wise <swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100920123140.f524de79.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: brian.haley@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from copper.chdir.org ([88.191.97.87]:60697 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754531Ab0ITUIc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Sep 2010 16:08:32 -0400
+In-Reply-To: <20100920.125447.220082714.davem@davemloft.net> (David Miller's
+	message of "Mon, 20 Sep 2010 12:54:47 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/20/2010 02:31 PM, Andrew Morton wrote:
-> On Mon, 20 Sep 2010 16:11:31 +0200
-> Ohad Ben-Cohen<ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>  wrote:
+Hi David,
+
+David Miller <davem@davemloft.net> writes:
+
+> From: arno@natisbad.org (Arnaud Ebalard)
+> Date: Mon, 20 Sep 2010 20:57:46 +0200
 >
->    
->> Occasionally, drivers care about the value that idr associates with
->> their pointers.
->>
->> Today we have idr_get_new_above() which allocates a new idr entry
->> above or equal to a given starting id, but sometimes drivers need to
->> force an exact value.
->>
->> To overcome this small API gap, drivers are wrapping idr_get_new_above
->> and then either BUG_ON() or just call idr_remove() and returns -EBUSY
->> when idr allocates them an id which is different than their requested
->> value.
->>
->> There are only a handful of users who need this (see below. especially
->> note the i2c comment :), but it might be nice to have such an API (a
->> bit less of code, and a bit less error prone).
->>
->> Would something like the below be desirable/acceptable ?
->>      
-> It seems OK to me - it's an improvement over what we have now.
+>> On some ethernet devices (at least), link may be reported up (NEWLINK
+>> received by userspace with flags indicating UP and RUNNING) before the
+>> interface is really usable. When sending packets as soon as the link is
+>> available, the first one may be dropped. That's what you see on the
+>> capture above.
 >
->    
+> The link being up doesn't mean an address has been assigned to the
+> interface for the protocol you are using yet.
+>
+> I think you have to schedule whatever it is you need to make sure it
+> runs after dhcp successfully complete.
 
-Looks ok to me also.  This is exactly what cxgb* needs.  IE the driver 
-manages the ID space and never expects an idr insertion to fail because 
-its already inserted.  That constitutes a driver bug (which is why the 
-BUG_ON() is there :)).
+Maybe I was a bit unclear.
 
-Steve.
+The packets sent are an IPv6 Router Solicitation (to get IPv6 subnet
+prefixes from the router) and a DHCP Request (to get an IPv4 address
+from the DHCP server). 
+
+The former is sent from the unspecified address (::) and the latter from
+0.0.0.0. The former is sent by UMIP Mobile IPv6 daemon. The second by my
+DHCP client. They both use netlink to do that as soon as the link is up.
+Both are for address configuration ...
+
+Cheers,
+
+a+
