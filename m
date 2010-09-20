@@ -1,32 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [GIT PULL net-2.6] vhost-net: fix range checking
-Date: Mon, 20 Sep 2010 19:42:22 +0200
-Message-ID: <20100920174222.GA30510@redhat.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] xmit_compl_seq: information to reclaim vmsplice buffers
+Date: Mon, 20 Sep 2010 10:50:22 -0700
+Message-ID: <AANLkTi=53F3O511Uq83dP75brGkJMgN_-OR9W0VJS1p-@mail.gmail.com>
+References: <alpine.DEB.1.00.1009191451090.5120@pokey.mtv.corp.google.com>
+	<AANLkTinyZxF4ep7tv_uSpcPD8gfNoddX6G7p+ZuA2ze9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sridharr@google.com
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:28778 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831Ab0ITRuk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 13:50:40 -0400
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id o8KHoOhV011398
+	for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 10:50:25 -0700
+Received: from pzk4 (pzk4.prod.google.com [10.243.19.132])
+	by wpaz33.hot.corp.google.com with ESMTP id o8KHo1K3028779
+	for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 10:50:22 -0700
+Received: by pzk4 with SMTP id 4so2199325pzk.35
+        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 10:50:22 -0700 (PDT)
+In-Reply-To: <AANLkTinyZxF4ep7tv_uSpcPD8gfNoddX6G7p+ZuA2ze9@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
-The following tree includes a bugfix for vhost-net.
-It is on top of net-2.6.  Please merge it for 2.6.36.
-Thanks!
+>
+> > Using recvmsg data in this manner is sort of a cheap way to get a
+> > "callback" for when a vmspliced buffer is consumed. =A0It will work
+> > well for a client where the response causes recvmsg to return.
+>
+> In this case, we don't need it. The response is sufficient to indicat=
+e
+> the request is sent out, and the corresponding pages are available fo=
+r
+> the other use.
 
-The following changes since commit 053d8f6622701f849fda2ca2c9ae596c13599ba9:
+The response might seem sufficient, but there is no guarantee this
+works generally for every application protocol.=A0 The specific
+requirement for TCP is that the page cannot be reused before its data
+has been acked; if this does not hold then data corruption becomes an
+issue.=A0 Given that danger, I would rather the mechanism be unambiguou=
+s
+about when the data has been consumed, rather than each application
+protocol trying to figure this out using its heuristics.
 
-  Merge branch 'vhost-net' of git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost (2010-09-09 21:59:51 -0700)
+>
+> > On the server side it works well if there are a sufficient
+> > number of requests coming on the connection (resorting to the
+> > timeout if necessary as described above).
+>
+> If no response is sent out by the client, the timeout mechanism may
+> slow down the data transfer.
+>
+Why would that slow down a transfer?
 
-are available in the git repository at:
+>
+> I think we should not mix RX and TX. Maybe we can add a new epoll
+> event to indicate that the snd bufer is advanced.
+>
+This is possible, but seems more heavyweight that needed.=A0 I don't se=
+e
+that it's going to be critical to reclaim buffers as soon as they have
+been completed, some laziness in do this seems like a reasonable
+tradeoff and we should still have a reasonable working set.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+Tom
 
-Michael S. Tsirkin (1):
-      vhost-net: fix range checking in mrg bufs case
-
- drivers/vhost/net.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> --
+> Regards,
+> Changli Gao(xiaosuo@gmail.com)
