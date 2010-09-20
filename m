@@ -1,87 +1,60 @@
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Subject: Re: 2.6.36-rc4-git5: Reported regressions from 2.6.35
-Date: Mon, 20 Sep 2010 21:19:58 +0200
-Message-ID: <AANLkTinLR0Js0ueVOGEkbs27d4FEH14c=1wuhUqPsiHx@mail.gmail.com>
-References: <1fwtoy8sG5H.A.veG.9D7lMB@chimera>
-Reply-To: sedat.dilek@gmail.com
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: idr_get_new_exact ?
+Date: Mon, 20 Sep 2010 12:31:40 -0700
+Message-ID: <20100920123140.f524de79.akpm@linux-foundation.org>
+References: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>, harn-solo@gmx.de
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1fwtoy8sG5H.A.veG.9D7lMB@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Jean Delvare (PC drivers, core)" <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>,
+	"Ben Dooks (embedded platforms)" <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
+	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Steve Wise <swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rafael,
+On Mon, 20 Sep 2010 16:11:31 +0200
+Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org> wrote:
 
-can you please add the following, Thanks in advance.
-> Bug-Entry       : http://bugzilla.kernel.org/show_bug.cgi?id=3D18872
-> Subject         : Radeon KMS r100 and STR problems
-> Submitter       : Richard Mittendorfer <delist@gmx.net>
-> Date            : 2010-09-17 18:26 (4 days old)
-> Message-ID      : <20100917202647.aa4b6300.delist@gmx.net>
-> References      : http://marc.info/?l=3Dlinux-kernel&m=3D128474802809=
-779&w=3D2
+> Occasionally, drivers care about the value that idr associates with
+> their pointers.
+> 
+> Today we have idr_get_new_above() which allocates a new idr entry
+> above or equal to a given starting id, but sometimes drivers need to
+> force an exact value.
+> 
+> To overcome this small API gap, drivers are wrapping idr_get_new_above
+> and then either BUG_ON() or just call idr_remove() and returns -EBUSY
+> when idr allocates them an id which is different than their requested
+> value.
+> 
+> There are only a handful of users who need this (see below. especially
+> note the i2c comment :), but it might be nice to have such an API (a
+> bit less of code, and a bit less error prone).
+> 
+> Would something like the below be desirable/acceptable ?
 
-On Mon, Sep 20, 2010 at 8:47 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> This message contains a list of some regressions from 2.6.35,
-> for which there are no fixes in the mainline known to the tracking te=
-am.
-> If any of them have been fixed already, please let us know.
->
-> If you know of any other unresolved regressions from 2.6.35, please l=
-et us
-> know either and we'll add them to the list. =C2=A0Also, please let us=
- know
-> if any of the entries below are invalid.
->
-> Each entry from the list will be sent additionally in an automatic re=
-ply
-> to this message with CCs to the people involved in reporting and hand=
-ling
-> the issue.
->
->
-> Listed regressions statistics:
->
-> =C2=A0Date =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0Total =C2=A0Pending =C2=A0=
-Unresolved
-> =C2=A0----------------------------------------
-> =C2=A02010-09-20 =C2=A0 =C2=A0 =C2=A0 38 =C2=A0 =C2=A0 =C2=A0 15 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A015
-> =C2=A02010-09-12 =C2=A0 =C2=A0 =C2=A0 28 =C2=A0 =C2=A0 =C2=A0 14 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A013
-> =C2=A02010-08-30 =C2=A0 =C2=A0 =C2=A0 21 =C2=A0 =C2=A0 =C2=A0 16 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A015
->
->
-> Unresolved regressions
+It seems OK to me - it's an improvement over what we have now.
 
-Hi Rafael,
+> (untested. and i just picked the simplest and straight-forward way to
+> implement this; obviously it's not optimal since there's no reason to
+> even allocate an id if we know it's not the id we're looking for. but
+> it's enough to get the idea, it's not a hot path, and it's what
+> drivers are doing today)
 
-can you please add the following Bug, Thanks in advance.
+Sure, we can speed it up later if that appears to be necessary.
 
-Bug-Entry       : https://bugzilla.kernel.org/show_bug.cgi?id=3D16140
-Subject         : Suspend To RAM/ Resume broken - Radeon KMS on RV250
-Submitter       : Michael Long <harn-solo@gmx.de>
-Date            : 2010-06-06 09:52
-Message-ID      : ???
-References      : ???
-
-What is with "Regression:	No" in the BR? Change?
-
-Regards,
-- Sedat -
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
