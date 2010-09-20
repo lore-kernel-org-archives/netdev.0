@@ -1,284 +1,178 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [RFC][PATCH 1/4] IRQ: IRQ groups for multiqueue devices
-Date: Mon, 20 Sep 2010 20:08:05 +0100
-Message-ID: <1285009685.2282.127.camel@achroite.uk.solarflarecom.com>
-References: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: 2.6.36-rc4-git5: Reported regressions from 2.6.35
+Date: Mon, 20 Sep 2010 20:47:53 +0200 (CEST)
+Message-ID: <1fwtoy8sG5H.A.veG.9D7lMB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:9446 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756688Ab0ITTII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 15:08:08 -0400
-In-Reply-To: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When initiating I/O on multiqueue devices, we usually want to select a
-queue for which the response will be handled on the same or a nearby
-CPU.  IRQ groups hold a mapping of CPU to IRQ which will be updated
-based on the inverse of IRQ CPU-affinities plus CPU topology
-information.
----
- include/linux/irq.h |   52 ++++++++++++++++++
- kernel/irq/manage.c |  149 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 201 insertions(+), 0 deletions(-)
+This message contains a list of some regressions from 2.6.35,
+for which there are no fixes in the mainline known to the tracking team.
+If any of them have been fixed already, please let us know.
 
-diff --git a/include/linux/irq.h b/include/linux/irq.h
-index c03243a..bbddd5f 100644
---- a/include/linux/irq.h
-+++ b/include/linux/irq.h
-@@ -196,6 +196,8 @@ struct irq_desc {
- #ifdef CONFIG_SMP
- 	cpumask_var_t		affinity;
- 	const struct cpumask	*affinity_hint;
-+	struct irq_group	*group;
-+	u16			group_index;
- 	unsigned int		node;
- #ifdef CONFIG_GENERIC_PENDING_IRQ
- 	cpumask_var_t		pending_mask;
-@@ -498,6 +500,33 @@ static inline void free_desc_masks(struct irq_desc *old_desc,
- #endif
- }
- 
-+/**
-+ * struct irq_group - IRQ group for multiqueue devices
-+ * @closest: For each CPU, the index and distance to the closest IRQ,
-+ *	based on affinity masks
-+ * @size: Size of the group
-+ * @used: Number of IRQs currently included in the group
-+ * @irq: Descriptors for IRQs in the group
-+ */
-+struct irq_group {
-+	struct {
-+		u16	index;
-+		u16	dist;
-+	} closest[NR_CPUS];
-+	unsigned int	size, used;
-+	struct irq_desc *irq[0];
-+};
-+#define IRQ_CPU_DIST_INF 0xffff
-+
-+extern struct irq_group *alloc_irq_group(unsigned int size, gfp_t flags);
-+extern void free_irq_group(struct irq_group *group);
-+extern void irq_group_add(struct irq_group *group, unsigned int irq);
-+
-+static inline u16 irq_group_get_index(struct irq_group *group, int cpu)
-+{
-+	return group->closest[cpu].index;
-+}
-+
- #else /* !CONFIG_SMP */
- 
- static inline bool alloc_desc_masks(struct irq_desc *desc, int node,
-@@ -519,6 +548,29 @@ static inline void free_desc_masks(struct irq_desc *old_desc,
- 				   struct irq_desc *new_desc)
- {
- }
-+
-+struct irq_group {
-+};
-+
-+static inline struct irq_group *alloc_irq_group(unsigned int size, gfp_t flags)
-+{
-+	static struct irq_group dummy;
-+	return &dummy;
-+}
-+
-+static inline void free_irq_group(struct irq_group *group)
-+{
-+}
-+
-+static inline void irq_group_add(struct irq_group *group, unsigned int irq)
-+{
-+}
-+
-+static inline u16 irq_group_get_index(struct irq_group *group, int cpu)
-+{
-+	return 0;
-+}
-+
- #endif	/* CONFIG_SMP */
- 
- #endif /* _LINUX_IRQ_H */
-diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index c3003e9..3f2b1a9 100644
---- a/kernel/irq/manage.c
-+++ b/kernel/irq/manage.c
-@@ -100,6 +100,154 @@ void irq_set_thread_affinity(struct irq_desc *desc)
- 	}
- }
- 
-+static void irq_group_update_neigh(struct irq_group *group,
-+				   const struct cpumask *mask,
-+				   u16 index, u16 dist)
-+{
-+	int cpu;
-+
-+	for_each_cpu(cpu, mask) {
-+		if (dist < group->closest[cpu].dist) {
-+			group->closest[cpu].index = index;
-+			group->closest[cpu].dist = dist;
-+		}
-+	}
-+}
-+
-+static bool irq_group_copy_neigh(struct irq_group *group, int cpu,
-+				 const struct cpumask *mask, u16 dist)
-+{
-+	int neigh;
-+
-+	for_each_cpu(neigh, mask) {
-+		if (group->closest[neigh].dist <= dist) {
-+			group->closest[cpu].index = group->closest[neigh].index;
-+			group->closest[cpu].dist = dist;
-+			return true;
-+		}
-+	}
-+	return false;
-+}
-+
-+/* Update the per-CPU closest IRQs following a change of affinity */
-+static void
-+irq_update_group(struct irq_desc *desc, const struct cpumask *affinity)
-+{
-+	struct irq_group *group = desc->group;
-+	unsigned index = desc->group_index;
-+	int cpu;
-+
-+	if (!group)
-+		return;
-+
-+	/* Invalidate old distances to this IRQ */
-+	for_each_online_cpu(cpu)
-+		if (group->closest[cpu].index == index)
-+			group->closest[cpu].dist = IRQ_CPU_DIST_INF;
-+
-+	/*
-+	 * Set this as the closest IRQ for all CPUs in the affinity mask,
-+	 * plus the following CPUs if they don't have a closer IRQ:
-+	 * - all other threads in the same core (distance 1);
-+	 * - all other cores in the same package (distance 2);
-+	 * - all other packages in the same NUMA node (distance 3).
-+	 */
-+	for_each_cpu(cpu, affinity) {
-+		group->closest[cpu].index = index;
-+		group->closest[cpu].dist = 0;
-+		irq_group_update_neigh(group, topology_thread_cpumask(cpu),
-+				       index, 1);
-+		irq_group_update_neigh(group, topology_core_cpumask(cpu),
-+				       index, 2);
-+		irq_group_update_neigh(group, cpumask_of_node(cpu_to_node(cpu)),
-+				       index, 3);
-+	}
-+
-+	/* Find new closest IRQ for any CPUs left with invalid distances */
-+	for_each_online_cpu(cpu) {
-+		if (!(group->closest[cpu].index == index &&
-+		      group->closest[cpu].dist == IRQ_CPU_DIST_INF))
-+			continue;
-+		if (irq_group_copy_neigh(group, cpu,
-+					 topology_thread_cpumask(cpu), 1))
-+			continue;
-+		if (irq_group_copy_neigh(group, cpu,
-+					 topology_core_cpumask(cpu), 2))
-+			continue;
-+		if (irq_group_copy_neigh(group, cpu,
-+					 cpumask_of_node(cpu_to_node(cpu)), 3))
-+			continue;
-+		/* We could continue into NUMA node distances, but for now
-+		 * we give up. */
-+	}
-+}
-+
-+/**
-+ *	alloc_irq_group - allocate IRQ group
-+ *	@size:		Size of the group
-+ *	@flags:		Allocation flags e.g. %GFP_KERNEL
-+ */
-+struct irq_group *alloc_irq_group(unsigned int size, gfp_t flags)
-+{
-+	struct irq_group *group =
-+		kzalloc(sizeof(*group) + size * sizeof(group->irq[0]), flags);
-+	int cpu;
-+
-+	if (!group)
-+		return NULL;
-+
-+	/* Initially assign CPUs to IRQs on a rota */
-+	for (cpu = 0; cpu < NR_CPUS; cpu++) {
-+		group->closest[cpu].index = cpu % size;
-+		group->closest[cpu].dist = IRQ_CPU_DIST_INF;
-+	}
-+
-+	group->size = size;
-+	return group;
-+}
-+EXPORT_SYMBOL(alloc_irq_group);
-+
-+/**
-+ *	free_irq_group - free IRQ group
-+ *	@group:		IRQ group allocated with alloc_irq_group(), or %NULL
-+ */
-+void free_irq_group(struct irq_group *group)
-+{
-+	struct irq_desc *desc;
-+	unsigned int i;
-+
-+	if (!group)
-+		return;
-+
-+	/* Remove all descriptors from the group */
-+	for (i = 0; i < group->used; i++) {
-+		desc = group->irq[i];
-+		BUG_ON(desc->group != group || desc->group_index != i);
-+		desc->group = NULL;
-+	}
-+
-+	kfree(group);
-+}
-+EXPORT_SYMBOL(free_irq_group);
-+
-+/**
-+ *	irq_group_add - add IRQ to a group
-+ *	@group:		IRQ group allocated with alloc_irq_group()
-+ *	@irq:		Interrupt to add to group
-+ */
-+void irq_group_add(struct irq_group *group, unsigned int irq)
-+{
-+	struct irq_desc *desc = irq_to_desc(irq);
-+
-+	BUG_ON(desc->group);
-+	BUG_ON(group->used >= group->size);
-+
-+	desc->group = group;
-+	desc->group_index = group->used;
-+	group->irq[group->used++] = desc;
-+}
-+EXPORT_SYMBOL(irq_group_add);
-+
- /**
-  *	irq_set_affinity - Set the irq affinity of a given irq
-  *	@irq:		Interrupt to set affinity
-@@ -134,6 +282,7 @@ int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask)
- 	}
- #endif
- 	desc->status |= IRQ_AFFINITY_SET;
-+	irq_update_group(desc, cpumask);
- 	raw_spin_unlock_irqrestore(&desc->lock, flags);
- 	return 0;
- }
--- 
-1.7.2.1
+If you know of any other unresolved regressions from 2.6.35, please let us
+know either and we'll add them to the list.  Also, please let us know
+if any of the entries below are invalid.
+
+Each entry from the list will be sent additionally in an automatic reply
+to this message with CCs to the people involved in reporting and handling
+the issue.
 
 
+Listed regressions statistics:
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+  Date          Total  Pending  Unresolved
+  ----------------------------------------
+  2010-09-20       38       15          15
+  2010-09-12       28       14          13
+  2010-08-30       21       16          15
+
+
+Unresolved regressions
+----------------------
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18872
+Subject		: Radeon KMS r100 and STR problems
+Submitter	: Richard Mittendorfer <delist@gmx.net>
+Date		: 2010-09-17 18:26 (4 days old)
+Message-ID	: <20100917202647.aa4b6300.delist@gmx.net>
+References	: http://marc.info/?l=linux-kernel&m=128474802809779&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18862
+Subject		: [BUG]Kernel 2.6.36rc4 crash when rmmod pm8001
+Submitter	: Jack Wang <jack_wang@usish.com>
+Date		: 2010-09-17 10:11 (4 days old)
+Message-ID	: <3219F4D1734640238A632382C50F633E@usish.com.cn>
+References	: http://marc.info/?l=linux-kernel&m=128471846828998&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18742
+Subject		: PROBLEM: Kernel panic on 2.6.36-rc4 when loading intel_ips on Core i3 laptop
+Submitter	: infernix <infernix@infernix.net>
+Date		: 2010-09-15 14:35 (6 days old)
+Message-ID	: <4C90D998.6050103@infernix.net>
+References	: http://marc.info/?l=linux-kernel&m=128456187928496&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18692
+Subject		: 2.6.36-rc4/iwl: warning triggered in net/mac80211/scan.c:266
+Submitter	: Michael S. Tsirkin <mst@redhat.com>
+Date		: 2010-09-14 14:28 (7 days old)
+Message-ID	: <20100914142814.GA8744@redhat.com>
+References	: http://marc.info/?l=linux-kernel&m=128447487918792&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18432
+Subject		: radeon kms freezes on boot with video= option
+Submitter	: Jose Marino <braket@hotmail.com>
+Date		: 2010-09-13 22:28 (8 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18402
+Subject		: 2.6.36-rc4 KPs whenever booting on a Pentium 4 HT system
+Submitter	: Michael Marley <michael@michaelmarley.com>
+Date		: 2010-09-13 15:07 (8 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18342
+Subject		: [regression] i915 incorrectly detects bogus LVDS connection instead of LVDS1
+Submitter	: Woody Suwalski <terraluna977@gmail.com>
+Date		: 2010-09-08 15:10 (13 days old)
+Message-ID	: <AANLkTim2mrVRCKg-2couMTFV7krHQp0+2e_cbaiT_KYW@mail.gmail.com>
+References	: http://marc.info/?l=linux-kernel&m=128395866331382&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18332
+Subject		: [regression] *ERROR* timed out waiting for FORCE_DETECT in 36rc3 on i915
+Submitter	: Andi Kleen <andi@firstfloor.org>
+Date		: 2010-09-08 13:53 (13 days old)
+Message-ID	: <87mxrswddf.fsf@basil.nowhere.org>
+References	: http://marc.info/?l=linux-kernel&m=128395400624946&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17752
+Subject		: 2.6.36-rc3: inconsistent lock state (iprune_sem, shrink_icache_memory)
+Submitter	: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Date		: 2010-09-01 6:37 (20 days old)
+Message-ID	: <tkrat.ed8eda6bc8ffe64e@s5r6.in-berlin.de>
+References	: http://marc.info/?l=linux-kernel&m=128332308528119&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17722
+Subject		: 2.6.36-rc3: WARNING: at net/mac80211/scan.c:269 ieee80211_scan_completed
+Submitter	: Thomas Meyer <thomas@m3y3r.de>
+Date		: 2010-08-31 20:14 (21 days old)
+Message-ID	: <201008312214.52473.thomas@m3y3r.de>
+References	: http://marc.info/?l=linux-kernel&m=128328580504227&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17361
+Subject		: Watchdog detected hard LOCKUP in jbd2_journal_get_write_access
+Submitter	: Christian Casteyde <casteyde.christian@free.fr>
+Date		: 2010-08-29 19:59 (23 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17341
+Subject		: kdump regression compared to v2.6.35
+Submitter	: CAI Qian <caiqian@redhat.com>
+Date		: 2010-08-27 12:35 (25 days old)
+Message-ID	: <2136707099.1405541282912500148.JavaMail.root@zmail06.collab.prod.int.phx2.redhat.com>
+References	: http://marc.info/?l=linux-kernel&m=128291252612135&w=2
+Handled-By	: Tejun Heo <tj@kernel.org>
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17061
+Subject		: 2.6.36-rc1 on zaurus: bluetooth regression
+Submitter	: Pavel Machek <pavel@ucw.cz>
+Date		: 2010-08-21 15:24 (31 days old)
+Message-ID	: <20100821152445.GA1536@ucw.cz>
+References	: http://marc.info/?l=linux-kernel&m=128240433828087&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16971
+Subject		: qla4xxx compile failure on 32-bit PowerPC: missing readq and writeq
+Submitter	: Meelis Roos <mroos@linux.ee>
+Date		: 2010-08-19 21:03 (33 days old)
+Message-ID	: <alpine.SOC.1.00.1008192359310.19654@math.ut.ee>
+References	: http://marc.info/?l=linux-kernel&m=128225184900892&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16951
+Subject		: hackbench regression with 2.6.36-rc1
+Submitter	: Zhang, Yanmin <yanmin_zhang@linux.intel.com>
+Date		: 2010-08-18 6:18 (34 days old)
+Message-ID	: <1282112318.21202.8.camel@ymzhang.sh.intel.com>
+References	: http://marc.info/?l=linux-kernel&m=128211235904910&w=2
+
+
+For details, please visit the bug entries and follow the links given in
+references.
+
+As you can see, there is a Bugzilla entry for each of the listed regressions.
+There also is a Bugzilla entry used for tracking the regressions from 2.6.35,
+unresolved as well as resolved, at:
+
+http://bugzilla.kernel.org/show_bug.cgi?id=16444
+
+Please let the tracking team know if there are any Bugzilla entries that
+should be added to the list in there.
+
+Thanks!
 
