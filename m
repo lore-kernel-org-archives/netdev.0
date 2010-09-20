@@ -1,37 +1,39 @@
-From: Nick Bowler <nbowler@elliptictech.com>
-Subject: Re: Regression, bisected: reference leak with IPSec since ~2.6.31
-Date: Mon, 20 Sep 2010 17:23:04 -0400
-Message-ID: <20100920212304.GA2042@elliptictech.com>
-References: <20100920174443.GA5515@elliptictech.com>
- <1285006844.2323.17.camel@edumazet-laptop>
- <20100920195256.GA14330@elliptictech.com>
- <20100920.130047.124017922.davem@davemloft.net>
+From: Tejun Heo <htejun@gmail.com>
+Subject: Re: idr_get_new_exact ?
+Date: Mon, 20 Sep 2010 23:26:47 +0200
+Message-ID: <4C97D197.9070703@gmail.com>
+References: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV@mail.gmail.com> <adaiq20f90h.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100920.130047.124017922.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ohad Ben-Cohen <ohad@wizery.com>, linux-kernel@vger.kernel.org,
+	"Jean Delvare \(PC drivers\, core\)" <khali@linux-fr.org>,
+	"Ben Dooks (embedded platforms)" <ben-linux@fluff.org>,
+	Roland Dreier <rolandd@cisco.com>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Steve Wise <swise@chelsio.com>, Neil Brown <neilb@suse.de>,
+	Paul Mackerras <paulus@samba.org>, linux-i2c@vger.kernel.org,
+	linux-rdma@vger.kernel.org, dm-devel@redhat.com,
+	linux-raid@vger.kernel.org, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <adaiq20f90h.fsf@cisco.com>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2010-09-20 13:00 -0700, David Miller wrote:
-> From: Nick Bowler <nbowler@elliptictech.com>
-> > The long answer, however, is interesting: With latest Linus' git, the
-> > references are cleaned up much later than I would expect.
-[...]
-> This is because we actually cache IPSEC routes correctly, previously
-> we'd create a new routing cache entry every time a lookup happened.
+Hello,
 
-But this means that the SAs, including their cryptographic keys, are
-kept in memory indefinitely after the SAD/SPD entries are destroyed.
-Why aren't the cache entries invalidated when this occurs?
+On 09/20/2010 10:35 PM, Roland Dreier wrote:
+> Looks fine to me as an improvement over the status quo, but I wonder how
+> many of these places could use the radix_tree stuff instead?  If you're
+> not using the ability of the idr code to assign an id for you, then it
+> seems the radix_tree API is a better fit.
 
-This also makes it extremely difficult to unload the xfrm modules,
-something we often need to do during testing, as references to them
-are held indefinitely.
+I agree.  Wouldn't those users better off simply using radix tree?
+
+Thanks.
 
 -- 
-Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
+tejun
