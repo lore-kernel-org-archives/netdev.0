@@ -1,98 +1,65 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Re: Fwd: LVS on local node
-Date: Mon, 20 Sep 2010 14:56:11 +0900
-Message-ID: <20100920055611.GC13555@verge.net.au>
-References: <27901279770680@web67.yandex.ru>
- <20100722132502.GB28362@verge.net.au>
- <111551279817984@web84.yandex.ru>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
+Date: Mon, 20 Sep 2010 07:21:49 +0000
+Message-ID: <20100920072149.GA6353@ff.dom.local>
+References: <1283852248.2338.160.camel@edumazet-laptop> <20100910.125449.235704956.davem@davemloft.net> <20100911123140.GA1939@del.dom.local> <20100919.171725.245378386.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: wensong@linux-vs.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Franchoze Eric <franchoze@yandex.ru>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:37716 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752848Ab0ITHVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 03:21:55 -0400
+Received: by bwz11 with SMTP id 11so4048409bwz.19
+        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 00:21:54 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <111551279817984@web84.yandex.ru>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20100919.171725.245378386.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 22, 2010 at 08:59:44PM +0400, Franchoze Eric wrote:
+On Sun, Sep 19, 2010 at 05:17:25PM -0700, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@gmail.com>
+> Date: Sat, 11 Sep 2010 14:31:40 +0200
 > 
+> > Otherwise seems OK, but I still would like to know the scenario
+> > demanding this change.
 > 
-> 22.07.10, 17:25, "Simon Horman" <horms@verge.net.au>:
+> Ok Jarek, after some more consideration I agree with you.
+> Removing this kind of sharing would be unwise, ho hum...
 > 
-> > On Thu, Jul 22, 2010 at 07:51:20AM +0400, Franchoze Eric wrote:
-> >  > Hello,
-> >  > 
-> >  > I'm trying to do load balancing of incoming traffic to my applications. This applications are not very  smp friendly, and I want try to run some instances according to number of cpus on single machine. And balance load of incoming traffic/connections to this applications.
-> >  > Looks like is should be similar to http://www.austintek.com/LVS/LVS-HOWTO/HOWTO/LVS-HOWTO.localnode.html
-> >  > 
-> >  >  linux kernel 2.6.32 with  or without hide interface patches.  Tried different configurations but could not see packets on application layer.
-> >  > 
-> >  > 192.168.1.165 - eth0 - interface for external connections
-> >  > 195.0.0.1 - dummy0 - virtual interface, real application is binded to that address.
-> >  > 
-> >  > Configuration is:
-> >  > -A -t 192.168.1.165:1234 -s wlc
-> >  > -a -t 192.168.1.165:1234 -r 195.0.0.1:1234 -g -w
-> >  > 
-> >  > #ipvsadm -L -n
-> >  > IP Virtual Server version 1.2.1 (size=4096)
-> >  > Prot LocalAddress:Port Scheduler Flags
-> >  >   -> RemoteAddress:Port           Forward Weight ActiveConn InActConn
-> >  > TCP  192.168.1.165:1234 wlc
-> >  >   -> 195.0.0.1:1234               Local   1      0          0        
-> >  > #
-> >  > 
-> >  > Log:
-> >  > [ 2106.897409] IPVS: lookup/out TCP 192.168.1.165:44847->192.168.1.165:1234 not hit
-> >  > [ 2106.897412] IPVS: lookup service: fwm 0 TCP 192.168.1.165:1234 hit
-> >  > [ 2106.897414] IPVS: ip_vs_wlc_schedule(): Scheduling...
-> >  > [ 2106.897416] IPVS: WLC: server 195.0.0.1:1234 activeconns 0 refcnt 2 weight 1 overhead 1
-> >  > [ 2106.897418] IPVS: Enter: ip_vs_conn_new, net/netfilter/ipvs/ip_vs_conn.c line 693
-> >  > [ 2106.897421] IPVS: Bind-dest TCP c:192.168.1.165:44847 v:192.168.1.165:1234 d:195.0.0.1:1234 fwd:L s:0 conn->flags:181 conn->refcnt:1 dest->refcnt:3
-> >  > [ 2106.897425] IPVS: Schedule fwd:L c:192.168.1.165:44847 v:192.168.1.165:1234 d:195.0.0.1:1234 conn->flags:1C1 conn->refcnt:2
-> >  > [ 2106.897429] IPVS: TCP input  [S...] 195.0.0.1:1234->192.168.1.165:44847 state: NONE->SYN_RECV conn->refcnt:2
-> >  > [ 2106.897431] IPVS: Enter: ip_vs_null_xmit, net/netfilter/ipvs/ip_vs_xmit.c line 212
-> >  > [ 2106.897439] IPVS: lookup/in TCP 192.168.1.165:1234->192.168.1.165:44847 not hit
-> >  > [ 2106.897441] IPVS: lookup/out TCP 192.168.1.165:1234->192.168.1.165:44847 not hit
-> >  > [ 2107.277535] IPVS: packet type=1 proto=17 daddr=255.255.255.255 ignored
-> >  > [ 2108.542691] IPVS: packet type=1 proto=17 daddr=192.168.1.255 ignored
-> >  > 
-> >  > As the result, server application does receive anything on accept(). I tried to make dummy0 a hidden device and play with arp settings. But without result.
-> >  > 
-> >  > I will be happy to hear any idea how to do connection in this environment.
-> >  
-> >  Hi,
-> >  
-> >  while others have suggested not using LVS for this task for various reasons.
-> >  I would just like to comment that this should work and this smells
-> >  like a bug to me. I will try and confirm that. But it won't be today.
-> >  
-> >  
-> >  
+> While pondering over this I thought about why we even need
+> frag lists at all.  We need them for two reasons:
 > 
-> With the latest kernel I see that: LVS accepts connections, selects right destination (if round robin is selected destination changes accoring it), then it detects that it is local node and do:
-> net/netfilter/ipvs/ip_vs_xmit.c:
->    ip_vs_null_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
->  struct ip_vs_protocol *pp)
+> 1) Because we have an inability to turn kmalloc data references into
+>    page based ones easily.
 > 
-> Which does nothing with skb. (here I do not understand what happens with that packet then)
-> I think if VLS could change destination for packets which go from local node to local node then connection can be established. Is it reasonable?
+>    We've run into this sort of problem with socket splice() too.
+> 
+> 2) For recording the segmentation points of a fragmented packet.
+> 
+> We definitely don't use frag lists for performance, if you look
+> in the GRO history the GRO code specifically has been changed
+> to prefer accumulating into the page vector whenever possible
+> because using frag lists is a lot slower.
 
-Hi,
+Yes, and GRO made frag lists more popular btw.
 
-sorry for taking a very long time to look into this more closely.
-I believe that the problem is that you need to make sure that
-the source IP address used by the client (application) is not the VIP
-as the VIP also exists on the real-server and thus the real-server will
-ignore packets from the VIP.
+> Anyways, even if we somehow solved #1 we'd still have a lot of
+> code (even bluetooth) using it for the sake of issue #2.
 
-You also need to make sure that the source address can be receive
-packets from the real-server. So you can't use 127.0.0.1.
+Since there exist drivers using entirely paged skbs and napi_gro_frags
+path I can't see why #1 or #2 could be unsolvable elsewhere.
 
-What I suggest is have a different 192.168.1.x address as the primary
-address on eth0 (or whatever the interface in question is) on the
-client/linux-director. And add 192.168.1.165 as a secondary address on the
-same interface.
+> So for the time being there is no clear path for trying to
+> eliminate frag lists altogether if we wanted to do that either.
 
+Probably we could start from enhacing moving drivers to paged skbs
+where possible. And maybe simplifying the skb model by not allowing
+frags and frag lists together?
+
+Btw, I wonder what is the exact reason we can't use only
+NET_SKBUFF_DATA_USES_OFFSET?
+
+Jarek P.
