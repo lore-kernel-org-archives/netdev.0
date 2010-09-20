@@ -1,112 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] qlnic: dont set skb->truesize
-Date: Mon, 20 Sep 2010 14:28:59 +0200
-Message-ID: <1284985739.3420.284.camel@edumazet-laptop>
-References: <1284700483-16397-1-git-send-email-amit.salecha@qlogic.com>
-	 <1284700483-16397-2-git-send-email-amit.salecha@qlogic.com>
-	 <1284717448.3391.75.camel@edumazet-laptop>
-	 <99737F4847ED0A48AECC9F4A1974A4B80F86F8018D@MNEXMB2.qlogic.org>
-	 <1284985118.3420.270.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
+Date: Mon, 20 Sep 2010 14:40:42 +0200
+Message-ID: <1284986442.3420.307.camel@edumazet-laptop>
+References: <1283852248.2338.160.camel@edumazet-laptop>
+	 <20100910.125449.235704956.davem@davemloft.net>
+	 <20100911123140.GA1939@del.dom.local>
+	 <20100919.171725.245378386.davem@davemloft.net>
+	 <20100920072149.GA6353@ff.dom.local>
+	 <1284973320.3420.49.camel@edumazet-laptop>
+	 <20100920091425.GA8381@ff.dom.local>  <20100920121232.GA9931@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
-	David Miller <davem@davemloft.net>
-To: Amit Salecha <amit.salecha@qlogic.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33031 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755350Ab0ITM3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 08:29:05 -0400
-Received: by wyf22 with SMTP id 22so4225648wyf.19
-        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 05:29:03 -0700 (PDT)
-In-Reply-To: <1284985118.3420.270.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51576 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755350Ab0ITMks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 08:40:48 -0400
+Received: by wwj40 with SMTP id 40so1017wwj.1
+        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 05:40:46 -0700 (PDT)
+In-Reply-To: <20100920121232.GA9931@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 20 septembre 2010 =C3=A0 14:18 +0200, Eric Dumazet a =C3=A9cri=
-t :
-> Le lundi 20 septembre 2010 =C3=A0 06:16 -0500, Amit Salecha a =C3=A9c=
-rit :
->=20
-> > This can be cleaned up.=20
-> > Though I have one doubt. We are allocating larger packets than the =
-actual data used.
-> > Doesn't it will break accounting ?
->=20
-> truesize accounts for the real size of buffers, not the used part in
-> them.
->=20
-> IMHO, a driver not dealing with fragments should not touch skb->trues=
-ize
->=20
-> # grep truesize drivers/net/tg3.c
-> <nothing>
->=20
-> If a driver deals with fragments, it probably should use "+=3D" opera=
-tor
-> only, not hardcoding sizeof(struct sk_buff) thing that only core netw=
-ork
-> has to deal with.
->=20
-> $ find drivers/net/bnx2x|xargs grep truesize
-> drivers/net/bnx2x/bnx2x_cmn.c:		skb->truesize +=3D frag_len;
->=20
-> Almost all drivers are fine, they are some of them that should be
-> changed.
->=20
->=20
+Le lundi 20 septembre 2010 =C3=A0 12:12 +0000, Jarek Poplawski a =C3=A9=
+crit :
 
-I suspect following patch should be fine :
+> Hmm... I probably misread your reasoning. So, if no real reason,
+> really, how about turning this NET_SKBUFF_DATA_USES_OFFSET on
+> unconditionally in net-next, until somebody spots the difference?
 
-[PATCH net-next-2.6] qlnic: dont set skb->truesize
+Yes, but most developpers use 64bit kernels anyway, I suspect nobody
+will ever notice :(
 
-skb->truesize is set in core network.
+Here (with a typical config), here is the vmlinux size before and after
+this patch :
 
-Dont change it unless dealing with fragments.
+$ size vmlinux.old
+   text	   data	    bss	    dec	    hex	filename
+6061748	 640208	7285056	13987012	 d56cc4	vmlinux.old
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/qlcnic/qlcnic_init.c |    6 ------
- 1 file changed, 6 deletions(-)
+$ size vmlinux
+   text	   data	    bss	    dec	    hex	filename
+6070420	 640208	7285056	13995684	 d58ea4	vmlinux
 
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcn=
-ic_init.c
-index e26fa95..16dd9eb 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1418,8 +1418,6 @@ qlcnic_process_rcv(struct qlcnic_adapter *adapter=
-,
- 	if (pkt_offset)
- 		skb_pull(skb, pkt_offset);
-=20
--	skb->truesize =3D skb->len + sizeof(struct sk_buff);
--
- 	if (unlikely(qlcnic_check_rx_tagging(adapter, skb, &vid))) {
- 		adapter->stats.rxdropped++;
- 		dev_kfree_skb(skb);
-@@ -1491,8 +1489,6 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter=
-,
-=20
- 	skb_put(skb, lro_length + data_offset);
-=20
--	skb->truesize =3D skb->len + sizeof(struct sk_buff) + skb_headroom(sk=
-b);
--
- 	skb_pull(skb, l2_hdr_offset);
-=20
- 	if (unlikely(qlcnic_check_rx_tagging(adapter, skb, &vid))) {
-@@ -1732,8 +1728,6 @@ qlcnic_process_rcv_diag(struct qlcnic_adapter *ad=
-apter,
- 	if (pkt_offset)
- 		skb_pull(skb, pkt_offset);
-=20
--	skb->truesize =3D skb->len + sizeof(struct sk_buff);
--
- 	if (!qlcnic_check_loopback_buff(skb->data))
- 		adapter->diag_cnt++;
-=20
+
+Thats 8672 bytes of text increase.
+
+(1330326 instructions instead of 1328472 -> 1854 more instructions)
+
 
 
