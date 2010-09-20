@@ -1,55 +1,114 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
-Date: Mon, 20 Sep 2010 14:40:42 +0200
-Message-ID: <1284986442.3420.307.camel@edumazet-laptop>
-References: <1283852248.2338.160.camel@edumazet-laptop>
-	 <20100910.125449.235704956.davem@davemloft.net>
-	 <20100911123140.GA1939@del.dom.local>
-	 <20100919.171725.245378386.davem@davemloft.net>
-	 <20100920072149.GA6353@ff.dom.local>
-	 <1284973320.3420.49.camel@edumazet-laptop>
-	 <20100920091425.GA8381@ff.dom.local>  <20100920121232.GA9931@ff.dom.local>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [RFC][PATCH 1/3] IRQ: Add irq_get_numa_node()
+Date: Mon, 20 Sep 2010 13:44:31 +0100
+Message-ID: <1284986671.2282.41.camel@achroite.uk.solarflarecom.com>
+References: <AANLkTin2rmcsxHi6+bFEUykhrkoWs--hrisAx_v__k1D@mail.gmail.com>
+	 <1283356463.2556.351.camel@edumazet-laptop>
+	 <AANLkTinOfkr=+_61kb+bZf_0brcahQz8b_P6TWhUgFka@mail.gmail.com>
+	 <20100901.183251.106803238.davem@davemloft.net>
+	 <1284673961.2283.57.camel@achroite.uk.solarflarecom.com>
+	 <20100919172451.GA12878@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	eric.dumazet@gmail.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:51576 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755350Ab0ITMks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 08:40:48 -0400
-Received: by wwj40 with SMTP id 40so1017wwj.1
-        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 05:40:46 -0700 (PDT)
-In-Reply-To: <20100920121232.GA9931@ff.dom.local>
+Received: from exchange.solarflare.com ([216.237.3.220]:38676 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755350Ab0ITMoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 08:44:34 -0400
+In-Reply-To: <20100919172451.GA12878@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 20 septembre 2010 =C3=A0 12:12 +0000, Jarek Poplawski a =C3=A9=
-crit :
+This will be used to support NUMA-aware memory allocation of
+structures used in interrupt handlers, starting with network drivers.
+---
+irq_get_numa_node() probably needs to grab desc->lock.  Other than that,
+this should work.
 
-> Hmm... I probably misread your reasoning. So, if no real reason,
-> really, how about turning this NET_SKBUFF_DATA_USES_OFFSET on
-> unconditionally in net-next, until somebody spots the difference?
+Ben.
 
-Yes, but most developpers use 64bit kernels anyway, I suspect nobody
-will ever notice :(
+ include/linux/interrupt.h |    9 +++++++++
+ kernel/irq/manage.c       |   35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 44 insertions(+), 0 deletions(-)
 
-Here (with a typical config), here is the vmlinux size before and after
-this patch :
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index a0384a4..82e9a08 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -260,6 +260,15 @@ static inline int irq_set_affinity_hint(unsigned int irq,
+ }
+ #endif /* CONFIG_SMP && CONFIG_GENERIC_HARDIRQS */
+ 
++#if defined(CONFIG_NUMA) && defined(CONFIG_GENERIC_HARDIRQS)
++extern int irq_get_numa_node(unsigned int irq);
++#else
++static inline int irq_get_numa_node(unsigned int irq)
++{
++	return -1;
++}
++#endif
++
+ #ifdef CONFIG_GENERIC_HARDIRQS
+ /*
+  * Special lockdep variants of irq disabling/enabling.
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index c3003e9..03e683e 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -154,6 +154,41 @@ int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m)
+ }
+ EXPORT_SYMBOL_GPL(irq_set_affinity_hint);
+ 
++#ifdef CONFIG_NUMA
++/**
++ *	irq_get_numa_node - get the NUMA node of a given IRQ
++ *	@irq:		Interrupt to get NUMA node for
++ *
++ *	If the current SMP affinity mask of the IRQ corresponds to a
++ *	single NUMA node, return the node number.  Otherwise return
++ *	%NUMA_NO_NODE.
++ */
++int irq_get_numa_node(unsigned int irq)
++{
++	struct irq_desc *desc = irq_to_desc(irq);
++	const struct cpumask *mask;
++	int cpu, node = NUMA_NO_NODE;
++
++	if (!desc)
++		return node;
++
++	mask = desc->affinity;
++#ifdef CONFIG_GENERIC_PENDING_IRQ
++	if (desc->status & IRQ_MOVE_PENDING)
++		mask = desc->pending_mask;
++#endif
++
++	for_each_cpu(cpu, mask) {
++		if (node < 0)
++			node = cpu_to_node(cpu);
++		else if (node != cpu_to_node(cpu))
++			return NUMA_NO_NODE;
++	}
++
++	return node;
++}
++#endif
++
+ #ifndef CONFIG_AUTO_IRQ_AFFINITY
+ /*
+  * Generic version of the affinity autoselector.
+-- 
+1.7.2.1
 
-$ size vmlinux.old
-   text	   data	    bss	    dec	    hex	filename
-6061748	 640208	7285056	13987012	 d56cc4	vmlinux.old
-
-$ size vmlinux
-   text	   data	    bss	    dec	    hex	filename
-6070420	 640208	7285056	13995684	 d58ea4	vmlinux
 
 
-Thats 8672 bytes of text increase.
-
-(1330326 instructions instead of 1328472 -> 1854 more instructions)
-
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
