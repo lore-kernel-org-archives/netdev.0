@@ -1,178 +1,239 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 2.6.36-rc4-git5: Reported regressions from 2.6.35
-Date: Mon, 20 Sep 2010 20:47:53 +0200 (CEST)
-Message-ID: <1fwtoy8sG5H.A.veG.9D7lMB@chimera>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [RFC][PATCH 2/4] net: RPS: Enable hardware acceleration
+Date: Mon, 20 Sep 2010 20:10:19 +0100
+Message-ID: <1285009819.2282.130.camel@achroite.uk.solarflarecom.com>
+References: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:9553 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757191Ab0ITTKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 15:10:22 -0400
+In-Reply-To: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This message contains a list of some regressions from 2.6.35,
-for which there are no fixes in the mainline known to the tracking team.
-If any of them have been fixed already, please let us know.
+Allow drivers for multiqueue hardware with flow filter tables to
+accelerate RFS.  The driver must:
 
-If you know of any other unresolved regressions from 2.6.35, please let us
-know either and we'll add them to the list.  Also, please let us know
-if any of the entries below are invalid.
+1. Set net_device::rx_irq_group to an irq_group of the RX completion
+IRQs (in queue order).  This will provide a mapping from CPUs to the
+queues for which completions are handled nearest to them.
 
-Each entry from the list will be sent additionally in an automatic reply
-to this message with CCs to the people involved in reporting and handling
-the issue.
+2. Implement net_device_ops::ndo_rx_flow_steer.  This operation adds
+or replaces a filter steering the given flow to the given RX queue, if
+possible.
+
+3. Periodically remove filters for which rps_may_expire_flow() returns
+true.
+---
+The heuristic in rps_may_expire_flow() is quite possibly bogus.  I'm not
+even sure whether expiry of flows should be triggered by the driver or
+from the RPS/RFS core.  Any better ideas on how to do this?
+
+Ben.
+
+ include/linux/netdevice.h |   29 +++++++++++++--
+ net/core/dev.c            |   88 +++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 108 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f7f1302..897118f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -524,14 +524,16 @@ struct rps_map {
+ #define RPS_MAP_SIZE(_num) (sizeof(struct rps_map) + (_num * sizeof(u16)))
+ 
+ /*
+- * The rps_dev_flow structure contains the mapping of a flow to a CPU and the
+- * tail pointer for that CPU's input queue at the time of last enqueue.
++ * The rps_dev_flow structure contains the mapping of a flow to a CPU, the
++ * tail pointer for that CPU's input queue at the time of last enqueue, and
++ * a hardware filter index.
+  */
+ struct rps_dev_flow {
+ 	u16 cpu;
+-	u16 fill;
++	u16 filter;
+ 	unsigned int last_qtail;
+ };
++#define RPS_NO_FILTER 0xffff
+ 
+ /*
+  * The rps_dev_flow_table structure contains a table of flow mappings.
+@@ -581,6 +583,9 @@ static inline void rps_reset_sock_flow(struct rps_sock_flow_table *table,
+ 
+ extern struct rps_sock_flow_table *rps_sock_flow_table;
+ 
++extern bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
++				u32 flow_id, u16 filter_id);
++
+ /* This structure contains an instance of an RX queue. */
+ struct netdev_rx_queue {
+ 	struct rps_map *rps_map;
+@@ -701,6 +706,13 @@ struct netdev_rx_queue {
+  * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
+  *			  struct nlattr *port[]);
+  * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
++ *
++ *	RFS acceleration.
++ * int (*ndo_rx_flow_steer)(struct net_device *dev, const struct sk_buff *skb,
++ *			    u16 rxq_index, u32 flow_id);
++ *	Set hardware filter for RFS.  rxq_index is the target queue index;
++ *	flow_id is a flow ID to be passed to rps_may_expire_flow() later.
++ *	Return the filter ID on success, or a negative error code.
+  */
+ #define HAVE_NET_DEVICE_OPS
+ struct net_device_ops {
+@@ -773,6 +785,12 @@ struct net_device_ops {
+ 	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
+ 						    u64 *wwn, int type);
+ #endif
++#ifdef CONFIG_RPS
++	int			(*ndo_rx_flow_steer)(struct net_device *dev,
++						     const struct sk_buff *skb,
++						     u16 rxq_index,
++						     u32 flow_id);
++#endif
+ };
+ 
+ /*
+@@ -978,6 +996,11 @@ struct net_device {
+ 
+ 	/* Number of RX queues allocated at alloc_netdev_mq() time  */
+ 	unsigned int		num_rx_queues;
++
++	/* IRQ group for RX completion interrupts, indexed by RX queue
++	 * number.  Assigned by driver.  This must only be set if the
++	 * ndo_rx_flow_steer operation is defined. */
++	struct irq_group	*rx_irq_group;
+ #endif
+ 
+ 	rx_handler_func_t	*rx_handler;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2c7934f..50301eb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2335,6 +2335,49 @@ EXPORT_SYMBOL(__skb_get_rxhash);
+ struct rps_sock_flow_table *rps_sock_flow_table __read_mostly;
+ EXPORT_SYMBOL(rps_sock_flow_table);
+ 
++static struct rps_dev_flow *
++set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
++	    struct rps_dev_flow *rflow, u16 next_cpu)
++{
++	struct netdev_rx_queue *rxqueue;
++	struct rps_dev_flow_table *flow_table;
++	struct rps_dev_flow *old_rflow;
++	u32 flow_id;
++	u16 rxq_index;
++	u16 tcpu;
++	int rc;
++
++	tcpu = rflow->cpu = next_cpu;
++	if (tcpu == RPS_NO_CPU)
++		return rflow;
++
++	/* Should we steer this flow to a different hardware queue? */
++	if (!skb_rx_queue_recorded(skb) || !dev->rx_irq_group)
++		goto out;
++	rxq_index = irq_group_get_index(dev->rx_irq_group, next_cpu);
++	if (rxq_index == skb_get_rx_queue(skb))
++		goto out;
++
++	rxqueue = dev->_rx + rxq_index;
++	flow_table = rcu_dereference(rxqueue->rps_flow_table);
++	if (!flow_table)
++		goto out;
++	flow_id = skb->rxhash & flow_table->mask;
++	rc = dev->netdev_ops->ndo_rx_flow_steer(dev, skb, rxq_index, flow_id);
++	if (rc < 0)
++		goto out;
++	old_rflow = rflow;
++	rflow = &flow_table->flows[flow_id];
++	rflow->cpu = next_cpu;
++	rflow->filter = rc;
++	if (old_rflow->filter == rflow->filter)
++		old_rflow->filter = RPS_NO_FILTER;
++
++out:
++	rflow->last_qtail = per_cpu(softnet_data, tcpu).input_queue_head;
++	return rflow;
++}
++
+ /*
+  * get_rps_cpu is called from netif_receive_skb and returns the target
+  * CPU from the RPS map of the receiving queue for a given skb.
+@@ -2404,12 +2447,9 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 		if (unlikely(tcpu != next_cpu) &&
+ 		    (tcpu == RPS_NO_CPU || !cpu_online(tcpu) ||
+ 		     ((int)(per_cpu(softnet_data, tcpu).input_queue_head -
+-		      rflow->last_qtail)) >= 0)) {
+-			tcpu = rflow->cpu = next_cpu;
+-			if (tcpu != RPS_NO_CPU)
+-				rflow->last_qtail = per_cpu(softnet_data,
+-				    tcpu).input_queue_head;
+-		}
++		      rflow->last_qtail)) >= 0))
++			rflow = set_rps_cpu(dev, skb, rflow, next_cpu);
++
+ 		if (tcpu != RPS_NO_CPU && cpu_online(tcpu)) {
+ 			*rflowp = rflow;
+ 			cpu = tcpu;
+@@ -2430,6 +2470,42 @@ done:
+ 	return cpu;
+ }
+ 
++/**
++ * rps_may_expire_flow - check whether an RFS hardware filter may be removed
++ * @dev: Device on which the filter was set
++ * @rxq_index: RX queue index
++ * @flow_id: Flow ID passed to ndo_rx_flow_steer()
++ * @filter_id: Filter ID returned by ndo_rx_flow_steer()
++ *
++ * Drivers that implement ndo_rx_flow_steer() should periodically call
++ * this function for each installed filter and remove the filters for
++ * which it returns %true.
++ */
++bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
++			 u32 flow_id, u16 filter_id)
++{
++	struct netdev_rx_queue *rxqueue = dev->_rx + rxq_index;
++	struct rps_dev_flow_table *flow_table;
++	struct rps_dev_flow *rflow;
++	bool expire = true;
++	int cpu;
++
++	rcu_read_lock();
++	flow_table = rcu_dereference(rxqueue->rps_flow_table);
++	if (flow_table && flow_id <= flow_table->mask) {
++		rflow = &flow_table->flows[flow_id];
++		cpu = ACCESS_ONCE(rflow->cpu);
++		if (rflow->filter == filter_id && cpu != RPS_NO_CPU &&
++		    ((int)(per_cpu(softnet_data, cpu).input_queue_head -
++			   rflow->last_qtail) <
++		     (int)(10 * flow_table->mask)))
++			expire = false;
++	}
++	rcu_read_unlock();
++	return expire;
++}
++EXPORT_SYMBOL(rps_may_expire_flow);
++
+ /* Called from hardirq (IPI) context */
+ static void rps_trigger_softirq(void *data)
+ {
+-- 
+1.7.2.1
 
 
-Listed regressions statistics:
 
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2010-09-20       38       15          15
-  2010-09-12       28       14          13
-  2010-08-30       21       16          15
-
-
-Unresolved regressions
-----------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18872
-Subject		: Radeon KMS r100 and STR problems
-Submitter	: Richard Mittendorfer <delist@gmx.net>
-Date		: 2010-09-17 18:26 (4 days old)
-Message-ID	: <20100917202647.aa4b6300.delist@gmx.net>
-References	: http://marc.info/?l=linux-kernel&m=128474802809779&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18862
-Subject		: [BUG]Kernel 2.6.36rc4 crash when rmmod pm8001
-Submitter	: Jack Wang <jack_wang@usish.com>
-Date		: 2010-09-17 10:11 (4 days old)
-Message-ID	: <3219F4D1734640238A632382C50F633E@usish.com.cn>
-References	: http://marc.info/?l=linux-kernel&m=128471846828998&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18742
-Subject		: PROBLEM: Kernel panic on 2.6.36-rc4 when loading intel_ips on Core i3 laptop
-Submitter	: infernix <infernix@infernix.net>
-Date		: 2010-09-15 14:35 (6 days old)
-Message-ID	: <4C90D998.6050103@infernix.net>
-References	: http://marc.info/?l=linux-kernel&m=128456187928496&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18692
-Subject		: 2.6.36-rc4/iwl: warning triggered in net/mac80211/scan.c:266
-Submitter	: Michael S. Tsirkin <mst@redhat.com>
-Date		: 2010-09-14 14:28 (7 days old)
-Message-ID	: <20100914142814.GA8744@redhat.com>
-References	: http://marc.info/?l=linux-kernel&m=128447487918792&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18432
-Subject		: radeon kms freezes on boot with video= option
-Submitter	: Jose Marino <braket@hotmail.com>
-Date		: 2010-09-13 22:28 (8 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18402
-Subject		: 2.6.36-rc4 KPs whenever booting on a Pentium 4 HT system
-Submitter	: Michael Marley <michael@michaelmarley.com>
-Date		: 2010-09-13 15:07 (8 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18342
-Subject		: [regression] i915 incorrectly detects bogus LVDS connection instead of LVDS1
-Submitter	: Woody Suwalski <terraluna977@gmail.com>
-Date		: 2010-09-08 15:10 (13 days old)
-Message-ID	: <AANLkTim2mrVRCKg-2couMTFV7krHQp0+2e_cbaiT_KYW@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=128395866331382&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=18332
-Subject		: [regression] *ERROR* timed out waiting for FORCE_DETECT in 36rc3 on i915
-Submitter	: Andi Kleen <andi@firstfloor.org>
-Date		: 2010-09-08 13:53 (13 days old)
-Message-ID	: <87mxrswddf.fsf@basil.nowhere.org>
-References	: http://marc.info/?l=linux-kernel&m=128395400624946&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17752
-Subject		: 2.6.36-rc3: inconsistent lock state (iprune_sem, shrink_icache_memory)
-Submitter	: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Date		: 2010-09-01 6:37 (20 days old)
-Message-ID	: <tkrat.ed8eda6bc8ffe64e@s5r6.in-berlin.de>
-References	: http://marc.info/?l=linux-kernel&m=128332308528119&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17722
-Subject		: 2.6.36-rc3: WARNING: at net/mac80211/scan.c:269 ieee80211_scan_completed
-Submitter	: Thomas Meyer <thomas@m3y3r.de>
-Date		: 2010-08-31 20:14 (21 days old)
-Message-ID	: <201008312214.52473.thomas@m3y3r.de>
-References	: http://marc.info/?l=linux-kernel&m=128328580504227&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17361
-Subject		: Watchdog detected hard LOCKUP in jbd2_journal_get_write_access
-Submitter	: Christian Casteyde <casteyde.christian@free.fr>
-Date		: 2010-08-29 19:59 (23 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17341
-Subject		: kdump regression compared to v2.6.35
-Submitter	: CAI Qian <caiqian@redhat.com>
-Date		: 2010-08-27 12:35 (25 days old)
-Message-ID	: <2136707099.1405541282912500148.JavaMail.root@zmail06.collab.prod.int.phx2.redhat.com>
-References	: http://marc.info/?l=linux-kernel&m=128291252612135&w=2
-Handled-By	: Tejun Heo <tj@kernel.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17061
-Subject		: 2.6.36-rc1 on zaurus: bluetooth regression
-Submitter	: Pavel Machek <pavel@ucw.cz>
-Date		: 2010-08-21 15:24 (31 days old)
-Message-ID	: <20100821152445.GA1536@ucw.cz>
-References	: http://marc.info/?l=linux-kernel&m=128240433828087&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16971
-Subject		: qla4xxx compile failure on 32-bit PowerPC: missing readq and writeq
-Submitter	: Meelis Roos <mroos@linux.ee>
-Date		: 2010-08-19 21:03 (33 days old)
-Message-ID	: <alpine.SOC.1.00.1008192359310.19654@math.ut.ee>
-References	: http://marc.info/?l=linux-kernel&m=128225184900892&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16951
-Subject		: hackbench regression with 2.6.36-rc1
-Submitter	: Zhang, Yanmin <yanmin_zhang@linux.intel.com>
-Date		: 2010-08-18 6:18 (34 days old)
-Message-ID	: <1282112318.21202.8.camel@ymzhang.sh.intel.com>
-References	: http://marc.info/?l=linux-kernel&m=128211235904910&w=2
-
-
-For details, please visit the bug entries and follow the links given in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regressions.
-There also is a Bugzilla entry used for tracking the regressions from 2.6.35,
-unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=16444
-
-Please let the tracking team know if there are any Bugzilla entries that
-should be added to the list in there.
-
-Thanks!
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
