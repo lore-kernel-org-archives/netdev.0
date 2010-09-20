@@ -1,56 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6 7/8] sfc: Set net_device::num_rx_queues
- once we know the correct value
-Date: Mon, 20 Sep 2010 20:54:27 +0200
-Message-ID: <1285008867.2323.60.camel@edumazet-laptop>
-References: <1285008056.2282.103.camel@achroite.uk.solarflarecom.com>
-	 <1285008239.2282.110.camel@achroite.uk.solarflarecom.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: E1000E/82567LM-3: link reported up too soon
+Date: Mon, 20 Sep 2010 20:57:46 +0200
+Message-ID: <878w2wnsyd.fsf@small.ssi.corp>
+References: <87pqwff2bd.fsf@small.ssi.corp> <4C90EDF3.8010401@hp.com>
+	<87bp7vnnpj.fsf@small.ssi.corp>
+	<20100920.112213.42810338.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: brian.haley@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52981 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752371Ab0ITSyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 14:54:35 -0400
-Received: by wwj40 with SMTP id 40so5617wwj.1
-        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 11:54:33 -0700 (PDT)
-In-Reply-To: <1285008239.2282.110.camel@achroite.uk.solarflarecom.com>
+Received: from copper.chdir.org ([88.191.97.87]:46775 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753262Ab0ITS5H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Sep 2010 14:57:07 -0400
+In-Reply-To: <20100920.112213.42810338.davem@davemloft.net> (David Miller's
+	message of "Mon, 20 Sep 2010 11:22:13 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 20 septembre 2010 =C3=A0 19:43 +0100, Ben Hutchings a =C3=A9cr=
-it :
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/sfc/efx.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->=20
-> diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-> index 4a1c93f..48e2bf4 100644
-> --- a/drivers/net/sfc/efx.c
-> +++ b/drivers/net/sfc/efx.c
-> @@ -1315,6 +1315,7 @@ static int efx_probe_nic(struct efx_nic *efx)
-> =20
->  	efx_set_channels(efx);
->  	efx->net_dev->real_num_tx_queues =3D efx->n_tx_channels;
-> +	efx->net_dev->num_rx_queues =3D efx->n_rx_channels;
-> =20
->  	/* Initialise the interrupt moderation settings */
->  	efx_init_irq_moderation(efx, tx_irq_mod_usec, rx_irq_mod_usec, true=
-);
-> --=20
-> 1.7.2.1
->=20
->=20
->=20
+Hi,
 
-Interesting, but why ?
+David Miller <davem@davemloft.net> writes:
 
-No other driver does this AFAIK...
+> From: arno@natisbad.org (Arnaud Ebalard)
+> Date: Sat, 18 Sep 2010 16:14:16 +0200
+>
+>> Below, UMIP is configured w/o any additional delay before RS emission on
+>> that interface. No DHCP running either:
+>> 
+>> 15:40:22.984311 ethertype IPv6 (0x86dd), length 62: :: > ff02::2: ICMP6, router solicitation, length 8
+>> 15:40:26.984845 ethertype IPv6 (0x86dd), length 62: :: > ff02::2: ICMP6, router solicitation, length 8
+>> 15:40:26.989264 ethertype IPv6 (0x86dd), length 158: fe80::224:d5ff:fed4:476c > ff02::1: ICMP6, router advertisement
+>> 
+>> David, any idea on where this may come from and how to track the cause?
+>
+> I have no context, what's the exact problem?
 
+On some ethernet devices (at least), link may be reported up (NEWLINK
+received by userspace with flags indicating UP and RUNNING) before the
+interface is really usable. When sending packets as soon as the link is
+available, the first one may be dropped. That's what you see on the
+capture above.
 
+I think all the details are in the first message of the thread:
 
+  http://www.spinics.net/lists/netdev/msg140916.html
+
+I started adding printk in net/core/dev.c and net/sched/sch_generic.c
+and I am now in e1000e code ... I will report what I found if it's
+interesting.
+
+Cheers,
+
+a+
