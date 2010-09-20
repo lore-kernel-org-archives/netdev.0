@@ -1,69 +1,136 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v5 2/2] netfilter: save the hash of the tuple in the
- original direction for latter use
-Date: Mon, 20 Sep 2010 23:04:33 +0800
-Message-ID: <AANLkTikZeFrS9pj6jxmOxqY6dsaAf1U+FAXe5jNwQ-nV@mail.gmail.com>
-References: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com> <4C91B6BE.8020300@trash.net>
+From: Michal Nazarewicz <m.nazarewicz@samsung.com>
+Subject: [PATCH] net: core: dev.c: use spin_lock_irqsave() rather than
+Date: Mon, 20 Sep 2010 17:08:55 +0200
+Message-ID: <ee14e5e38e7a5df520d902ef8a236bbe9ed206fa.1284991149.git.m.nazarewicz@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C91B6BE.8020300@trash.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 16, 2010 at 2:18 PM, Patrick McHardy <kaber@trash.net> wrot=
-e:
-> On 21.08.2010 00:49, Changli Gao wrote:
->> Since we don't change the tuple in the original direction, we can sa=
-ve it
->> in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_con=
-firm()
->> use.
->
-> I like this idea. We could actually do the same for the reply tuple
-> and invalidate the saved hash in case the reply tuple is changed
-> (nf_conntrack_alter_reply()), which only happens when NAT is used.
->
+This commit fixes a warning that was issued when g_ether gadget
+was connected to Windows host.  In g_ether, the dev_txq_stats_fold()
+can be called from context other then soft-irq so _bh version of
+spin_lock is not adequate.
 
-We can't do that, as the unconfirmed ct owned maybe dropped, and
-pre-computing will wast CPU cycles in this case.
+Changing from spin_lock_bh() to spin_lock_irqsave() is always safe (as
+irqsave is superset of all other spin lock operations) is always safe
+so this commit should not break anything.
 
->> __hash_conntrack() is split into two steps: ____hash_conntrack() is =
-used
->> to get the raw hash, and __hash_bucket() is used to get the bucket i=
-d.
->
-> This patch uses underscores a bit excessively, how about renaming:
->
-> - ____hash_conntrack() =3D> hash_conntrack_raw()
-> - __hash variables =3D> hash
-> - hash variables =3D> bucket
+As Eric Dumazet said, dev_txq_stats_fold() is a slow patch so there
+is no need to optimise that much.
 
-OK. Thanks.
+Signed-off-by: Michal Nazarewicz <m.nazarewicz@samsung.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/dev.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
->
->> @@ -408,7 +438,8 @@ __nf_conntrack_confirm(struct sk_buff *skb)
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NF_ACCEPT;
->>
->> =A0 =A0 =A0 zone =3D nf_ct_zone(ct);
->> - =A0 =A0 hash =3D hash_conntrack(net, zone, &ct->tuplehash[IP_CT_DI=
-R_ORIGINAL].tuple);
->> + =A0 =A0 /* reuse the __hash saved before */
->> + =A0 =A0 hash =3D hash_bucket(*(unsigned long *)&ct->tuplehash[IP_C=
-T_DIR_REPLY].hnnode.pprev, net);
->
-> Please try to stay at least close to the 80 characters limit.
->
+Hello David,
 
-OK. Thanks.
+could you pull this patch.  I think it's best to get it in 2.6.36.
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+
+Without this patch, I got the following warning when RNDIS
+configuration is chosen:
+
+> ------------[ cut here ]------------
+> WARNING: at kernel/softirq.c:143 local_bh_enable_ip+0x44/0xc0()
+> Modules linked in:
+> [<c002d73c>] (unwind_backtrace+0x0/0xf0) from [<c0043b60>] (warn_slowpath_common+0x4c/0x64)
+> [<c0043b60>] (warn_slowpath_common+0x4c/0x64) from [<c0043b90>] (warn_slowpath_null+0x18/0x1c)
+> [<c0043b90>] (warn_slowpath_null+0x18/0x1c) from [<c0049024>] (local_bh_enable_ip+0x44/0xc0)
+> [<c0049024>] (local_bh_enable_ip+0x44/0xc0) from [<c025ef18>] (dev_txq_stats_fold+0xac/0x108)
+> [<c025ef18>] (dev_txq_stats_fold+0xac/0x108) from [<c025f018>] (dev_get_stats+0xa4/0xac)
+> [<c025f018>] (dev_get_stats+0xa4/0xac) from [<c01f72bc>] (gen_ndis_query_resp+0x4c/0x43c)
+> [<c01f72bc>] (gen_ndis_query_resp+0x4c/0x43c) from [<c01f784c>] (rndis_msg_parser+0x1a0/0x32c)
+> [<c01f784c>] (rndis_msg_parser+0x1a0/0x32c) from [<c01f79f8>] (rndis_command_complete+0x20/0x4c)
+> [<c01f79f8>] (rndis_command_complete+0x20/0x4c) from [<c01f3278>] (done+0x5c/0x70)
+> [<c01f3278>] (done+0x5c/0x70) from [<c01f3c60>] (complete_tx+0xf0/0x1a8)
+> [<c01f3c60>] (complete_tx+0xf0/0x1a8) from [<c01f3d8c>] (process_ep_in_intr+0x74/0x14c)
+> [<c01f3d8c>] (process_ep_in_intr+0x74/0x14c) from [<c01f470c>] (s3c_udc_irq+0x2c8/0x3f4)
+> [<c01f470c>] (s3c_udc_irq+0x2c8/0x3f4) from [<c006dfd0>] (handle_IRQ_event+0x24/0xe4)
+> [<c006dfd0>] (handle_IRQ_event+0x24/0xe4) from [<c006fe40>] (handle_level_irq+0xb0/0x12c)
+> [<c006fe40>] (handle_level_irq+0xb0/0x12c) from [<c0027074>] (asm_do_IRQ+0x74/0x98)
+> [<c0027074>] (asm_do_IRQ+0x74/0x98) from [<c0027ca4>] (__irq_usr+0x44/0xc0)
+> Exception stack(0xe735ffb0 to 0xe735fff8)
+> ffa0:                                     000cc328 00000000 00000000 bec76520
+> ffc0: 000ee008 000bd210 00000000 00000000 000ee068 000ee008 bec76524 bec76520
+> ffe0: 000ec108 bec76508 000471f4 000458e8 80000010 ffffffff
+> ---[ end trace 92e33c96fb76fb3d ]---
+
+After some investigation I found out that commit
+bd27290a593f80cb99e95287cb29c72c0d57608b is the culprit:
+
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index fdc3f29..b626289 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -501,9 +501,9 @@ struct netdev_queue {
+>  	 * please use this field instead of dev->trans_start
+>  	 */
+>  	unsigned long		trans_start;
+> -	unsigned long		tx_bytes;
+> -	unsigned long		tx_packets;
+> -	unsigned long		tx_dropped;
+> +	u64			tx_bytes;
+> +	u64			tx_packets;
+> +	u64			tx_dropped;
+>  } ____cacheline_aligned_in_smp;
+>  
+>  #ifdef CONFIG_RPS
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 1c002c7..9de75cd 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5282,15 +5282,17 @@ void netdev_run_todo(void)
+>  void dev_txq_stats_fold(const struct net_device *dev,
+>  			struct rtnl_link_stats64 *stats)
+>  {
+> -	unsigned long tx_bytes = 0, tx_packets = 0, tx_dropped = 0;
+> +	u64 tx_bytes = 0, tx_packets = 0, tx_dropped = 0;
+>  	unsigned int i;
+>  	struct netdev_queue *txq;
+>  
+>  	for (i = 0; i < dev->num_tx_queues; i++) {
+>  		txq = netdev_get_tx_queue(dev, i);
+> +		spin_lock_bh(&txq->_xmit_lock);
+>  		tx_bytes   += txq->tx_bytes;
+>  		tx_packets += txq->tx_packets;
+>  		tx_dropped += txq->tx_dropped;
+> +		spin_unlock_bh(&txq->_xmit_lock);
+>  	}
+>  	if (tx_bytes || tx_packets || tx_dropped) {
+>  		stats->tx_bytes   = tx_bytes;
+
+Changing spin_lock_bh() to spin_lock_irqsave().
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1ae6543..278bd08 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5289,12 +5289,13 @@ void dev_txq_stats_fold(const struct net_device *dev,
+ 	struct netdev_queue *txq;
+ 
+ 	for (i = 0; i < dev->num_tx_queues; i++) {
++		unsigned long flags;
+ 		txq = netdev_get_tx_queue(dev, i);
+-		spin_lock_bh(&txq->_xmit_lock);
++		spin_lock_irqsave(&txq->_xmit_lock, flags);
+ 		tx_bytes   += txq->tx_bytes;
+ 		tx_packets += txq->tx_packets;
+ 		tx_dropped += txq->tx_dropped;
+-		spin_unlock_bh(&txq->_xmit_lock);
++		spin_unlock_irqrestore(&txq->_xmit_lock, flags);
+ 	}
+ 	if (tx_bytes || tx_packets || tx_dropped) {
+ 		stats->tx_bytes   = tx_bytes;
+-- 
+1.7.1
