@@ -1,31 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: core: dev.c: use spin_lock_irqsave() rather than
-Date: Mon, 20 Sep 2010 09:14:07 -0700 (PDT)
-Message-ID: <20100920.091407.241426689.davem@davemloft.net>
-References: <ee14e5e38e7a5df520d902ef8a236bbe9ed206fa.1284991149.git.m.nazarewicz@samsung.com>
-	<1284998621.3420.539.camel@edumazet-laptop>
+From: "WILLIAMS" <prodigysportsman@aol.com>
+Subject: RE PRIVATE MATTER DEAR FRIEND.
+Date: Mon, 20 Sep 2010 16:32:25 +0200
+Message-ID: <201009201630.o8KGUPih005198@imr-ma03.mx.aol.com>
+Reply-To: <drdakeywilliams2@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="Windows-1251"
 Content-Transfer-Encoding: 7bit
-Cc: m.nazarewicz@samsung.com, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46142
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751786Ab0ITQNs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 12:13:48 -0400
-In-Reply-To: <1284998621.3420.539.camel@edumazet-laptop>
+Received: from imr-ma03.mx.aol.com ([64.12.206.41]:46563 "EHLO
+	imr-ma03.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048Ab0ITQc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 12:32:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 20 Sep 2010 18:03:41 +0200
-
-> Hmm, while your patch is technically correct, it seems strange all this
-> stuff runs in hard irq context.
-
-I would much rather this RNDIS query response handler get
-scheduled to run into softirq context or similar instead.
-
-I am not applying this patch.
+Please find attach. Original message.....
