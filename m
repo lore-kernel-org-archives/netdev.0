@@ -1,34 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: E1000E/82567LM-3: link reported up too soon
-Date: Mon, 20 Sep 2010 11:22:13 -0700 (PDT)
-Message-ID: <20100920.112213.42810338.davem@davemloft.net>
-References: <87pqwff2bd.fsf@small.ssi.corp>
-	<4C90EDF3.8010401@hp.com>
-	<87bp7vnnpj.fsf@small.ssi.corp>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next-2.6 0/8] sfc and ethtool changes for 2.6.37
+Date: Mon, 20 Sep 2010 19:40:56 +0100
+Message-ID: <1285008056.2282.103.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, netdev@vger.kernel.org
-To: arno@natisbad.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45034
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757100Ab0ITSVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 14:21:54 -0400
-In-Reply-To: <87bp7vnnpj.fsf@small.ssi.corp>
+Received: from mail.solarflare.com ([216.237.3.220]:7046 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338Ab0ITSk7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 14:40:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: arno@natisbad.org (Arnaud Ebalard)
-Date: Sat, 18 Sep 2010 16:14:16 +0200
+This series adds Ethernet-level filtering and explicit filter clearing
+to the ethtool RX n-tuple interface, and implements it in the sfc
+driver.
 
-> Below, UMIP is configured w/o any additional delay before RS emission on
-> that interface. No DHCP running either:
-> 
-> 15:40:22.984311 ethertype IPv6 (0x86dd), length 62: :: > ff02::2: ICMP6, router solicitation, length 8
-> 15:40:26.984845 ethertype IPv6 (0x86dd), length 62: :: > ff02::2: ICMP6, router solicitation, length 8
-> 15:40:26.989264 ethertype IPv6 (0x86dd), length 158: fe80::224:d5ff:fed4:476c > ff02::1: ICMP6, router advertisement
-> 
-> David, any idea on where this may come from and how to track the cause?
+There is a cleanup patch on the end which is preparation for the
+following RFC patch series but is worthwhile anyway.
 
-I have no context, what's the exact problem?
+Ben.
+
+Ben Hutchings (8):
+  ethtool: Define RX n-tuple action to clear a rule
+  ethtool: Add Ethernet MAC-level filtering/steering
+  ethtool: Allocate register dump buffer with vmalloc()
+  sfc: Add filter table management
+  sfc: Implement the ethtool RX n-tuple control functions
+  sfc: Include RX IP filter table in register dump
+  sfc: Set net_device::num_rx_queues once we know the correct value
+  sfc: Clean up and correct comments on efx_monitor()
+
+ drivers/net/sfc/Makefile     |    2 +-
+ drivers/net/sfc/efx.c        |   35 ++--
+ drivers/net/sfc/efx.h        |   14 ++
+ drivers/net/sfc/ethtool.c    |  118 +++++++++++-
+ drivers/net/sfc/falcon.c     |    2 +-
+ drivers/net/sfc/filter.c     |  445 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/sfc/filter.h     |  189 ++++++++++++++++++
+ drivers/net/sfc/net_driver.h |    4 +
+ drivers/net/sfc/nic.c        |    5 +-
+ drivers/net/sfc/regs.h       |   14 ++
+ drivers/net/sfc/siena.c      |    2 +-
+ include/linux/ethtool.h      |   11 +-
+ net/core/ethtool.c           |    4 +-
+ 13 files changed, 819 insertions(+), 26 deletions(-)
+ create mode 100644 drivers/net/sfc/filter.c
+ create mode 100644 drivers/net/sfc/filter.h
+
+-- 
+1.7.2.1
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
