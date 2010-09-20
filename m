@@ -1,39 +1,52 @@
-From: Tejun Heo <htejun@gmail.com>
-Subject: Re: idr_get_new_exact ?
-Date: Mon, 20 Sep 2010 23:26:47 +0200
-Message-ID: <4C97D197.9070703@gmail.com>
-References: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV@mail.gmail.com> <adaiq20f90h.fsf@cisco.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: E1000E/82567LM-3: link reported up too soon
+Date: Mon, 20 Sep 2010 23:28:57 +0200
+Message-ID: <87aancqf3a.fsf@small.ssi.corp>
+References: <878w2wnsyd.fsf@small.ssi.corp>
+	<20100920.125447.220082714.davem@davemloft.net>
+	<87y6awjhxv.fsf@small.ssi.corp>
+	<20100920.131839.173838219.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ohad Ben-Cohen <ohad@wizery.com>, linux-kernel@vger.kernel.org,
-	"Jean Delvare \(PC drivers\, core\)" <khali@linux-fr.org>,
-	"Ben Dooks (embedded platforms)" <ben-linux@fluff.org>,
-	Roland Dreier <rolandd@cisco.com>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Steve Wise <swise@chelsio.com>, Neil Brown <neilb@suse.de>,
-	Paul Mackerras <paulus@samba.org>, linux-i2c@vger.kernel.org,
-	linux-rdma@vger.kernel.org, dm-devel@redhat.com,
-	linux-raid@vger.kernel.org, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <adaiq20f90h.fsf@cisco.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: brian.haley@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from copper.chdir.org ([88.191.97.87]:36083 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755051Ab0ITV2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Sep 2010 17:28:08 -0400
+In-Reply-To: <20100920.131839.173838219.davem@davemloft.net> (David Miller's
+	message of "Mon, 20 Sep 2010 13:18:39 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi,
 
-On 09/20/2010 10:35 PM, Roland Dreier wrote:
-> Looks fine to me as an improvement over the status quo, but I wonder how
-> many of these places could use the radix_tree stuff instead?  If you're
-> not using the ability of the idr code to assign an id for you, then it
-> seems the radix_tree API is a better fit.
+David Miller <davem@davemloft.net> writes:
 
-I agree.  Wouldn't those users better off simply using radix tree?
+> From: arno@natisbad.org (Arnaud Ebalard)
+> Date: Mon, 20 Sep 2010 22:09:16 +0200
+>
+>> The packets sent are an IPv6 Router Solicitation (to get IPv6 subnet
+>> prefixes from the router) and a DHCP Request (to get an IPv4 address
+>> from the DHCP server). 
+>> 
+>> The former is sent from the unspecified address (::) and the latter from
+>> 0.0.0.0. The former is sent by UMIP Mobile IPv6 daemon. The second by my
+>> DHCP client. They both use netlink to do that as soon as the link is up.
+>> Both are for address configuration ...
+>
+> So do both DHCP request and the IPV6 RS get dropped, or just the IPV6 RS?
 
-Thanks.
+I added printk() to see where/if those first packets get dropped in
+e1000e code. I followed those first packets to e1000_xmit_frame() and
+don't see anything obvious happening there, i.e. they are passed to the
+device as expected.
 
--- 
-tejun
+If I find some time tomorrow, I will try and take a look at
+e1000_watchdog_task() and other functions that may perform asynchronous
+tasks.
+
+Cheers,
+
+a+
