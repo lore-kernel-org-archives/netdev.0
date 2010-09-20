@@ -1,43 +1,37 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: idr_get_new_exact ?
-Date: Mon, 20 Sep 2010 13:35:42 -0700
-Message-ID: <adaiq20f90h.fsf@cisco.com>
-References: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV@mail.gmail.com>
+From: Nick Bowler <nbowler@elliptictech.com>
+Subject: Re: Regression, bisected: reference leak with IPSec since ~2.6.31
+Date: Mon, 20 Sep 2010 17:23:04 -0400
+Message-ID: <20100920212304.GA2042@elliptictech.com>
+References: <20100920174443.GA5515@elliptictech.com>
+ <1285006844.2323.17.camel@edumazet-laptop>
+ <20100920195256.GA14330@elliptictech.com>
+ <20100920.130047.124017922.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Jean Delvare \(PC drivers\, core\)" <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>,
-	"Ben Dooks \(embedded platforms\)" <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
-	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Steve Wise <swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-To: Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Ohad Ben-Cohen's message of "Mon, 20 Sep 2010 16:11:31 +0200")
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100920.130047.124017922.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Occasionally, drivers care about the value that idr associates with
- > their pointers.
- > 
- > Today we have idr_get_new_above() which allocates a new idr entry
- > above or equal to a given starting id, but sometimes drivers need to
- > force an exact value.
- > 
- > To overcome this small API gap, drivers are wrapping idr_get_new_above
- > and then either BUG_ON() or just call idr_remove() and returns -EBUSY
- > when idr allocates them an id which is different than their requested
- > value.
+On 2010-09-20 13:00 -0700, David Miller wrote:
+> From: Nick Bowler <nbowler@elliptictech.com>
+> > The long answer, however, is interesting: With latest Linus' git, the
+> > references are cleaned up much later than I would expect.
+[...]
+> This is because we actually cache IPSEC routes correctly, previously
+> we'd create a new routing cache entry every time a lookup happened.
 
-Looks fine to me as an improvement over the status quo, but I wonder how
-many of these places could use the radix_tree stuff instead?  If you're
-not using the ability of the idr code to assign an id for you, then it
-seems the radix_tree API is a better fit.
+But this means that the SAs, including their cryptographic keys, are
+kept in memory indefinitely after the SAD/SPD entries are destroyed.
+Why aren't the cache entries invalidated when this occurs?
 
- - R.
+This also makes it extremely difficult to unload the xfrm modules,
+something we often need to do during testing, as references to them
+are held indefinitely.
+
+-- 
+Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
