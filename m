@@ -1,76 +1,43 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFC][PATCH 0/4] RFS hardware acceleration
-Date: Mon, 20 Sep 2010 12:36:20 -0700
-Message-ID: <AANLkTikS8y0sCbA7wcAfV2i6L+UYQ14d-3dL5jg55Atq@mail.gmail.com>
-References: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>
+From: Nick Bowler <nbowler@elliptictech.com>
+Subject: Re: Regression, bisected: reference leak with IPSec since ~2.6.31
+Date: Mon, 20 Sep 2010 15:52:56 -0400
+Message-ID: <20100920195256.GA14330@elliptictech.com>
+References: <20100920174443.GA5515@elliptictech.com>
+ <1285006844.2323.17.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Bob Felderman <feldy@google.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:61877 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757135Ab0ITTg0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 15:36:26 -0400
-Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
-	by smtp-out.google.com with ESMTP id o8KJaMVA026793
-	for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 12:36:22 -0700
-Received: from pwj1 (pwj1.prod.google.com [10.241.219.65])
-	by kpbe14.cbf.corp.google.com with ESMTP id o8KJaKeT005919
-	for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 12:36:20 -0700
-Received: by pwj1 with SMTP id 1so1467715pwj.6
-        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 12:36:20 -0700 (PDT)
-In-Reply-To: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1285006844.2323.17.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks Ben, this does look interesting.  We'll try to take a look.
+On 2010-09-20 20:20 +0200, Eric Dumazet wrote:
+> If you change your program to send small frames (so they are not
+> fragmented), is the problem still present ?
 
+I changed MAX_DGRAM_SIZE in the test program to 1000 (mtu on the
+interface is 1500).  The short answer is that the references are
+not leaked, and things seem to get cleaned up.  So the rest of this
+mail probably describes a separate issue.
 
-On Mon, Sep 20, 2010 at 12:01 PM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
-> Tom,
->
-> This patch series extends RFS to use hardware RX filters where
-> available. =A0Depending on the number of hardware RX queues and their
-> IRQs' affinity, this should reduce the need for IPIs or at least get
-> packets delivered to the right NUMA node.
->
-> I've implemented the driver side of this for our hardware, though I
-> don't know whether you have any of that to test on. =A0I would be ver=
-y
-> interested to know how much this can help in the sort of cases where =
-you
-> use RFS.
->
-> Ben.
->
-> Ben Hutchings (4):
-> =A0IRQ: IRQ groups for multiqueue devices
-> =A0net: RPS: Enable hardware acceleration
-> =A0sfc: Implement RFS acceleration
-> =A0sfc/RFS/irq_group debug output
->
-> =A0drivers/net/sfc/efx.c =A0 =A0 | =A0 49 +++++++++++---
-> =A0drivers/net/sfc/efx.h =A0 =A0 | =A0 =A09 +++
-> =A0drivers/net/sfc/filter.c =A0| =A0109 +++++++++++++++++++++++++++++
-> =A0include/linux/irq.h =A0 =A0 =A0 | =A0 52 ++++++++++++++
-> =A0include/linux/netdevice.h | =A0 29 +++++++-
-> =A0kernel/irq/manage.c =A0 =A0 =A0 | =A0170 +++++++++++++++++++++++++=
-++++++++++++++++++++
-> =A0net/core/dev.c =A0 =A0 =A0 =A0 =A0 =A0| =A0 88 +++++++++++++++++++=
-+++--
-> =A07 files changed, 488 insertions(+), 18 deletions(-)
->
-> --
-> 1.7.2.1
->
->
-> --
-> Ben Hutchings, Senior Software Engineer, Solarflare Communications
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
->
+The long answer, however, is interesting: With latest Linus' git, the
+references are cleaned up much later than I would expect.  After running
+the test program and flushing the SAD/SPD, the reference count is still
+1.  If I repeat the test immediately, the reference count will increase
+further.  I can easily raise the reference count to, say, 100.  Now, if
+I wait a while (10 minutes or so), the reference count will still be
+100.  However, when I run the setkey script after this delay, the
+reference count drops immediately to 1.  If I then flush the SAD/SPD, it
+drops to 0.
+
+This behaviour is new: newer than the reported leak.  For example, with
+2.6.34, everything works perfectly with MAX_DGRAM_SIZE set to 1000 (the
+SAs are destroyed immediately when the SAD/SPD are flushed), but the
+leak occurs with MAX_DGRAM_SIZE set to 10000.
+
+-- 
+Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
