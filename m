@@ -1,349 +1,180 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [RFC][PATCH 1/4] IRQ: IRQ groups for multiqueue devices
-Date: Mon, 20 Sep 2010 23:27:01 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.1009202137580.2416@localhost6.localdomain6>
-References: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com> <1285009685.2282.127.camel@achroite.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Regression, bisected: reference leak with IPSec since ~2.6.31
+Date: Mon, 20 Sep 2010 23:31:12 +0200
+Message-ID: <1285018272.2323.243.camel@edumazet-laptop>
+References: <20100920174443.GA5515@elliptictech.com>
+	 <1285006844.2323.17.camel@edumazet-laptop>
+	 <20100920195256.GA14330@elliptictech.com>
+	 <1285013853.2323.148.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Nick Bowler <nbowler@elliptictech.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285009685.2282.127.camel@achroite.uk.solarflarecom.com>
+In-Reply-To: <1285013853.2323.148.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben,
+Le lundi 20 septembre 2010 =C3=A0 22:17 +0200, Eric Dumazet a =C3=A9cri=
+t :
+> Le lundi 20 septembre 2010 =C3=A0 15:52 -0400, Nick Bowler a =C3=A9cr=
+it :
+> > On 2010-09-20 20:20 +0200, Eric Dumazet wrote:
+> > > If you change your program to send small frames (so they are not
+> > > fragmented), is the problem still present ?
+> >=20
+> > I changed MAX_DGRAM_SIZE in the test program to 1000 (mtu on the
+> > interface is 1500).  The short answer is that the references are
+> > not leaked, and things seem to get cleaned up.  So the rest of this
+> > mail probably describes a separate issue.
+> >=20
+> > The long answer, however, is interesting: With latest Linus' git, t=
+he
+> > references are cleaned up much later than I would expect.  After ru=
+nning
+> > the test program and flushing the SAD/SPD, the reference count is s=
+till
+> > 1.  If I repeat the test immediately, the reference count will incr=
+ease
+> > further.  I can easily raise the reference count to, say, 100.  Now=
+, if
+> > I wait a while (10 minutes or so), the reference count will still b=
+e
+> > 100.  However, when I run the setkey script after this delay, the
+> > reference count drops immediately to 1.  If I then flush the SAD/SP=
+D, it
+> > drops to 0.
+> >=20
+> > This behaviour is new: newer than the reported leak.  For example, =
+with
+> > 2.6.34, everything works perfectly with MAX_DGRAM_SIZE set to 1000 =
+(the
+> > SAs are destroyed immediately when the SAD/SPD are flushed), but th=
+e
+> > leak occurs with MAX_DGRAM_SIZE set to 10000.
+> >=20
+>=20
+> Thanks Nick
+>=20
+> I suspect a skb->truesize bug somewhere.
+>=20
+> I can see atomic_read(&sk->sk_wmem_alloc) becoming negative after a
+> while...
+>=20
+> I am investigating and let you know.
+>=20
+> Thanks
+>=20
 
-On Mon, 20 Sep 2010, Ben Hutchings wrote:
+OK, I found a bug in ip_fragment() and ip6_fragment()
 
-it would have been nice if I'd been cc'ed on that, but of course it's
-my fault that there is no entry in MAINTAINERS. No, it's not.
+In case slow_path is hit, we have a truesize mismatch
 
-> When initiating I/O on multiqueue devices, we usually want to select a
+Could you try following patch ?
 
-"we usually" is pretty useless for people not familiar with the
-problem at hand. A [PATCH 0/4] intro would have been helpful along
-with the users (aka [PATCH 2-4/4]) of the new facility.
+Thanks !
 
-Don't take it personally and I'm sure that you're solving a real world
-problem, but I'm starting to get grumpy that especially networking
-folks (aside of various driver developers) believe that adding random
-stuff to kernel/irq is their private pleasure. Is it that hard to talk
-to me upfront ?
+[PATCH] ip : fix truesize mismatch in ip fragmentation
 
-> queue for which the response will be handled on the same or a nearby
-> CPU.  IRQ groups hold a mapping of CPU to IRQ which will be updated
-> based on the inverse of IRQ CPU-affinities plus CPU topology
-> information.
+We should not set frag->destructor to sock_wkfree() until we are sure w=
+e
+dont hit slow path in ip_fragment(). Or we risk uncharging
+frag->truesize twice, and in the end, having negative socket
+sk_wmem_alloc counter, or even freeing socket sooner than expected.
 
-Can you please explain, why you need that reverse mapping including
-the below code ? What problem does this solve which can not be deduced
-by the exisiting information/infrastructure ? And why is that reverse
-mapping tied to interrupts and not something which we want to see in
-some generic available (library) code ?
+Many thanks to Nick Bowler, who provided a very clean bug report and
+test programs.
 
-More comments inline.
+While Nick bisection pointed to commit 2b85a34e911bf483 (net: No more
+expensive sock_hold()/sock_put() on each tx), underlying bug is older.
 
-> ---
->  include/linux/irq.h |   52 ++++++++++++++++++
->  kernel/irq/manage.c |  149 +++++++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 201 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/irq.h b/include/linux/irq.h
-> index c03243a..bbddd5f 100644
-> --- a/include/linux/irq.h
-> +++ b/include/linux/irq.h
-> @@ -196,6 +196,8 @@ struct irq_desc {
->  #ifdef CONFIG_SMP
->  	cpumask_var_t		affinity;
->  	const struct cpumask	*affinity_hint;
+Reported-and-bisected-by: Nick Bowler <nbowler@elliptictech.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/ip_output.c  |    8 ++++----
+ net/ipv6/ip6_output.c |   10 +++++-----
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-  How about updating the kernel doc above the struct ?
-
-> +	struct irq_group	*group;
-
-  Grr, how does this compile ? That needs at least a forward
-  declaration of struct irq_group. RFC is _NOT_ an excuse
-
-> +	u16			group_index;
-
-  What's group_index doing and what's the point of an u16 here ?
-
->  	unsigned int		node;
->  #ifdef CONFIG_GENERIC_PENDING_IRQ
->  	cpumask_var_t		pending_mask;
-> @@ -498,6 +500,33 @@ static inline void free_desc_masks(struct irq_desc *old_desc,
->  #endif
->  }
->  
-> +/**
-> + * struct irq_group - IRQ group for multiqueue devices
-> + * @closest: For each CPU, the index and distance to the closest IRQ,
-> + *	based on affinity masks
-
-  index of what ?
-
-  Btw, please follow the style of the other kernel doc comments in this
-  file where the explanation is aligned for readability sake
-
-> + * @size: Size of the group
-> + * @used: Number of IRQs currently included in the group
-> + * @irq: Descriptors for IRQs in the group
-
-  That's an array of pointers to irq descriptors, right ?
-
-  Insert some sensible decription what irq groups are and for which
-  problem space they are useful if at all.
-
-> + */
-> +struct irq_group {
-> +	struct {
-> +		u16	index;
-> +		u16	dist;
-> +	} closest[NR_CPUS];
-> +	unsigned int	size, used;
-
-  Separate lines please
-
-> +	struct irq_desc *irq[0];
-> +};
-
-  Please separate this with a newline and add some useful comment
-  about the meaning and purpose of this not selfexplaining constant.
-
-> +#define IRQ_CPU_DIST_INF 0xffff
-
-> +static inline u16 irq_group_get_index(struct irq_group *group, int cpu)
-> +{
-> +	return group->closest[cpu].index;
-> +}
-> +
-
-  So you have an accessor function for closest[cpu].index. Are the
-  other members meant to be accessible directly by random driver ?
-
->  #else /* !CONFIG_SMP */
->  
->  static inline bool alloc_desc_masks(struct irq_desc *desc, int node,
-> @@ -519,6 +548,29 @@ static inline void free_desc_masks(struct irq_desc *old_desc,
->  				   struct irq_desc *new_desc)
->  {
->  }
-> +
-> +struct irq_group {
-> +};
-> +
-> +static inline struct irq_group *alloc_irq_group(unsigned int size, gfp_t flags)
-> +{
-> +	static struct irq_group dummy;
-
-  That will create one static instance per callsite. Is that on
-  purpose? If yes, it needs a damned good comment.
-
-> +	return &dummy;
-
->  #endif	/* CONFIG_SMP */
->  
->  #endif /* _LINUX_IRQ_H */
-> diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-> index c3003e9..3f2b1a9 100644
-> --- a/kernel/irq/manage.c
-> +++ b/kernel/irq/manage.c
-> @@ -100,6 +100,154 @@ void irq_set_thread_affinity(struct irq_desc *desc)
->  	}
->  }
->  
-> +static void irq_group_update_neigh(struct irq_group *group,
-> +				   const struct cpumask *mask,
-> +				   u16 index, u16 dist)
-> +{
-> +	int cpu;
-> +
-> +	for_each_cpu(cpu, mask) {
-> +		if (dist < group->closest[cpu].dist) {
-> +			group->closest[cpu].index = index;
-> +			group->closest[cpu].dist = dist;
-> +		}
-> +	}
-> +}
-
-  I have not the faintest idea how group, index and dist are related
-  to each other. And I have no intention to decode the information
-  about that piecewise by reverse engineering that obfuscated code.
-
-> +static bool irq_group_copy_neigh(struct irq_group *group, int cpu,
-> +				 const struct cpumask *mask, u16 dist)
-> +{
-> +	int neigh;
-> +
-> +	for_each_cpu(neigh, mask) {
-> +		if (group->closest[neigh].dist <= dist) {
-> +			group->closest[cpu].index = group->closest[neigh].index;
-> +			group->closest[cpu].dist = dist;
-> +			return true;
-> +		}
-> +	}
-> +	return false;
-
-  What's the reason for copying or not ?
-
-> +}
-> +
-> +/* Update the per-CPU closest IRQs following a change of affinity */
-> +static void
-> +irq_update_group(struct irq_desc *desc, const struct cpumask *affinity)
-> +{
-> +	struct irq_group *group = desc->group;
-> +	unsigned index = desc->group_index;
-> +	int cpu;
-> +
-> +	if (!group)
-> +		return;
-> +
-> +	/* Invalidate old distances to this IRQ */
-> +	for_each_online_cpu(cpu)
-> +		if (group->closest[cpu].index == index)
-> +			group->closest[cpu].dist = IRQ_CPU_DIST_INF;
-> +
-> +	/*
-> +	 * Set this as the closest IRQ for all CPUs in the affinity mask,
-> +	 * plus the following CPUs if they don't have a closer IRQ:
-> +	 * - all other threads in the same core (distance 1);
-> +	 * - all other cores in the same package (distance 2);
-> +	 * - all other packages in the same NUMA node (distance 3).
-> +	 */
-> +	for_each_cpu(cpu, affinity) {
-> +		group->closest[cpu].index = index;
-> +		group->closest[cpu].dist = 0;
-> +		irq_group_update_neigh(group, topology_thread_cpumask(cpu),
-> +				       index, 1);
-> +		irq_group_update_neigh(group, topology_core_cpumask(cpu),
-> +				       index, 2);
-> +		irq_group_update_neigh(group, cpumask_of_node(cpu_to_node(cpu)),
-> +				       index, 3);
-> +	}
-> +
-> +	/* Find new closest IRQ for any CPUs left with invalid distances */
-> +	for_each_online_cpu(cpu) {
-> +		if (!(group->closest[cpu].index == index &&
-> +		      group->closest[cpu].dist == IRQ_CPU_DIST_INF))
-> +			continue;
-> +		if (irq_group_copy_neigh(group, cpu,
-> +					 topology_thread_cpumask(cpu), 1))
-> +			continue;
-> +		if (irq_group_copy_neigh(group, cpu,
-> +					 topology_core_cpumask(cpu), 2))
-> +			continue;
-> +		if (irq_group_copy_neigh(group, cpu,
-> +					 cpumask_of_node(cpu_to_node(cpu)), 3))
-> +			continue;
-> +		/* We could continue into NUMA node distances, but for now
-> +		 * we give up. */
-
-  What are the consequences of giving up ? Does not happen ? Should
-  not happen ? Will break ? Don't care ? ....
-
-> +	}
-
-  This is called from irq_set_affinity() with desc->lock held and
-  interrupts disabled. You're not serious about that, are you ?
-
-  Damned, there are two iterations over each online cpu and another
-  one over the affinity mask. Did you ever extrapolate how long that
-  runs on a really large machine ?
-
-  If CPU affinity of an IRQ changes, then it does not matter if one or
-  two interrupts end up in the wrong space. Those changes are not
-  happening every other interrupt.
-
-> +}
-> +
-> +/**
-> + *	alloc_irq_group - allocate IRQ group
-> + *	@size:		Size of the group
-
-  size of what ? I guess number of interrupts, right ?
-
-> + *	@flags:		Allocation flags e.g. %GFP_KERNEL
-> + */
-> +struct irq_group *alloc_irq_group(unsigned int size, gfp_t flags)
-> +{
-> +	struct irq_group *group =
-> +		kzalloc(sizeof(*group) + size * sizeof(group->irq[0]), flags);
-> +	int cpu;
-> +
-> +	if (!group)
-> +		return NULL;
-> +
-> +	/* Initially assign CPUs to IRQs on a rota */
-> +	for (cpu = 0; cpu < NR_CPUS; cpu++) {
-> +		group->closest[cpu].index = cpu % size;
-
-  So here we randomly assign index with the lower cpu numbers no
-  matter whether they are online or possible ?
-
-> +		group->closest[cpu].dist = IRQ_CPU_DIST_INF;
-> +	}
-> +
-> +	group->size = size;
-> +	return group;
-> +}
-> +EXPORT_SYMBOL(alloc_irq_group);
-
-  EXPORT_SYMBOL_GPL if at all. Same for the other exports
-
-> +
-> +/**
-> + *	free_irq_group - free IRQ group
-> + *	@group:		IRQ group allocated with alloc_irq_group(), or %NULL
-
-  How is this serialized or sanity checked against free_irq() ?
-
-> + */
-> +void free_irq_group(struct irq_group *group)
-> +{
-> +	struct irq_desc *desc;
-> +	unsigned int i;
-> +
-> +	if (!group)
-> +		return;
-> +
-> +	/* Remove all descriptors from the group */
-> +	for (i = 0; i < group->used; i++) {
-> +		desc = group->irq[i];
-> +		BUG_ON(desc->group != group || desc->group_index != i);
-> +		desc->group = NULL;
-> +	}
-> +
-> +	kfree(group);
-> +}
-> +EXPORT_SYMBOL(free_irq_group);
-> +
-> +/**
-> + *	irq_group_add - add IRQ to a group
-> + *	@group:		IRQ group allocated with alloc_irq_group()
-> + *	@irq:		Interrupt to add to group
-> + */
-> +void irq_group_add(struct irq_group *group, unsigned int irq)
-> +{
-> +	struct irq_desc *desc = irq_to_desc(irq);
-
-  Again, how is this serialized against anything else fiddling with
-  irq_desc[irq]?
-
-> +	BUG_ON(desc->group);
-> +	BUG_ON(group->used >= group->size);
-> +
-> +	desc->group = group;
-> +	desc->group_index = group->used;
-> +	group->irq[group->used++] = desc;
-> +}
-> +EXPORT_SYMBOL(irq_group_add);
-
-Thanks,
-
-	tglx
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 04b6989..126d9b3 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -490,7 +490,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(=
+struct sk_buff *))
+ 	if (skb_has_frags(skb)) {
+ 		struct sk_buff *frag;
+ 		int first_len =3D skb_pagelen(skb);
+-		int truesizes =3D 0;
+=20
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+@@ -510,11 +509,13 @@ int ip_fragment(struct sk_buff *skb, int (*output=
+)(struct sk_buff *))
+ 				goto slow_path;
+=20
+ 			BUG_ON(frag->sk);
+-			if (skb->sk) {
++		}
++		if (skb->sk) {
++			skb_walk_frags(skb, frag) {
+ 				frag->sk =3D skb->sk;
+ 				frag->destructor =3D sock_wfree;
++				skb->truesize -=3D frag->truesize;
+ 			}
+-			truesizes +=3D frag->truesize;
+ 		}
+=20
+ 		/* Everything is OK. Generate! */
+@@ -524,7 +525,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(=
+struct sk_buff *))
+ 		frag =3D skb_shinfo(skb)->frag_list;
+ 		skb_frag_list_init(skb);
+ 		skb->data_len =3D first_len - skb_headlen(skb);
+-		skb->truesize -=3D truesizes;
+ 		skb->len =3D first_len;
+ 		iph->tot_len =3D htons(first_len);
+ 		iph->frag_off =3D htons(IP_MF);
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index d40b330..10983ab 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -639,7 +639,6 @@ static int ip6_fragment(struct sk_buff *skb, int (*=
+output)(struct sk_buff *))
+=20
+ 	if (skb_has_frags(skb)) {
+ 		int first_len =3D skb_pagelen(skb);
+-		int truesizes =3D 0;
+=20
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+@@ -658,13 +657,15 @@ static int ip6_fragment(struct sk_buff *skb, int =
+(*output)(struct sk_buff *))
+ 				goto slow_path;
+=20
+ 			BUG_ON(frag->sk);
+-			if (skb->sk) {
++		}
++		if (skb->sk) {
++			skb_walk_frags(skb, frag) {
+ 				frag->sk =3D skb->sk;
+ 				frag->destructor =3D sock_wfree;
+-				truesizes +=3D frag->truesize;
++				skb->truesize -=3D frag->truesize;
+ 			}
+ 		}
+-
++			=09
+ 		err =3D 0;
+ 		offset =3D 0;
+ 		frag =3D skb_shinfo(skb)->frag_list;
+@@ -693,7 +694,6 @@ static int ip6_fragment(struct sk_buff *skb, int (*=
+output)(struct sk_buff *))
+=20
+ 		first_len =3D skb_pagelen(skb);
+ 		skb->data_len =3D first_len - skb_headlen(skb);
+-		skb->truesize -=3D truesizes;
+ 		skb->len =3D first_len;
+ 		ipv6_hdr(skb)->payload_len =3D htons(first_len -
+ 						   sizeof(struct ipv6hdr));
