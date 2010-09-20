@@ -1,43 +1,58 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
-Date: Mon, 20 Sep 2010 12:12:32 +0000
-Message-ID: <20100920121232.GA9931@ff.dom.local>
-References: <1283852248.2338.160.camel@edumazet-laptop> <20100910.125449.235704956.davem@davemloft.net> <20100911123140.GA1939@del.dom.local> <20100919.171725.245378386.davem@davemloft.net> <20100920072149.GA6353@ff.dom.local> <1284973320.3420.49.camel@edumazet-laptop> <20100920091425.GA8381@ff.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] qlcnic: dont assume NET_IP_ALIGN is 2
+Date: Mon, 20 Sep 2010 14:18:38 +0200
+Message-ID: <1284985118.3420.270.camel@edumazet-laptop>
+References: <1284700483-16397-1-git-send-email-amit.salecha@qlogic.com>
+	 <1284700483-16397-2-git-send-email-amit.salecha@qlogic.com>
+	 <1284717448.3391.75.camel@edumazet-laptop>
+	 <99737F4847ED0A48AECC9F4A1974A4B80F86F8018D@MNEXMB2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	David Miller <davem@davemloft.net>
+To: Amit Salecha <amit.salecha@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:61866 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755965Ab0ITMMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 08:12:35 -0400
-Received: by bwz11 with SMTP id 11so4163416bwz.19
-        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 05:12:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20100920091425.GA8381@ff.dom.local>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41941 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754054Ab0ITMSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 08:18:43 -0400
+Received: by wwj40 with SMTP id 40so40596wwj.1
+        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 05:18:42 -0700 (PDT)
+In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80F86F8018D@MNEXMB2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 20, 2010 at 09:14:25AM +0000, Jarek Poplawski wrote:
-> On Mon, Sep 20, 2010 at 11:02:00AM +0200, Eric Dumazet wrote:
-> > Le lundi 20 septembre 2010 ?? 07:21 +0000, Jarek Poplawski a =E9cri=
+Le lundi 20 septembre 2010 =C3=A0 06:16 -0500, Amit Salecha a =C3=A9cri=
 t :
-> > > Btw, I wonder what is the exact reason we can't use only
-> > > NET_SKBUFF_DATA_USES_OFFSET?
-> >=20
-> > I see no real reason.
-> >=20
-> > On 32bit arches, it might be faster to manipulate pointers, and not
-> > 'base+offset' values.
->=20
-> The only reason is code readability and maintenance. Did anybody chec=
+
+> This can be cleaned up.=20
+> Though I have one doubt. We are allocating larger packets than the ac=
+tual data used.
+> Doesn't it will break accounting ?
+
+truesize accounts for the real size of buffers, not the used part in
+them.
+
+IMHO, a driver not dealing with fragments should not touch skb->truesiz=
+e
+
+# grep truesize drivers/net/tg3.c
+<nothing>
+
+If a driver deals with fragments, it probably should use "+=3D" operato=
+r
+only, not hardcoding sizeof(struct sk_buff) thing that only core networ=
 k
-> how much faster?
+has to deal with.
 
-Hmm... I probably misread your reasoning. So, if no real reason,
-really, how about turning this NET_SKBUFF_DATA_USES_OFFSET on
-unconditionally in net-next, until somebody spots the difference?
+$ find drivers/net/bnx2x|xargs grep truesize
+drivers/net/bnx2x/bnx2x_cmn.c:		skb->truesize +=3D frag_len;
 
-Jarek P.
+Almost all drivers are fine, they are some of them that should be
+changed.
+
+
+
