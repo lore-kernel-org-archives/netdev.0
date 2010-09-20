@@ -1,47 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Regression, bisected: reference leak with IPSec since ~2.6.31
-Date: Mon, 20 Sep 2010 13:00:47 -0700 (PDT)
-Message-ID: <20100920.130047.124017922.davem@davemloft.net>
-References: <20100920174443.GA5515@elliptictech.com>
-	<1285006844.2323.17.camel@edumazet-laptop>
-	<20100920195256.GA14330@elliptictech.com>
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: Re: idr_get_new_exact ?
+Date: Mon, 20 Sep 2010 15:07:40 -0500
+Message-ID: <4C97BF0C.6070809@opengridcomputing.com>
+References: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV@mail.gmail.com> <20100920123140.f524de79.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: nbowler@elliptictech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55737
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756509Ab0ITUA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 16:00:28 -0400
-In-Reply-To: <20100920195256.GA14330@elliptictech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Jean Delvare (PC drivers, core)" <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>,
+	"Ben Dooks (embedded platforms)" <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
+	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Steve Wise <swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100920123140.f524de79.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nick Bowler <nbowler@elliptictech.com>
-Date: Mon, 20 Sep 2010 15:52:56 -0400
+On 09/20/2010 02:31 PM, Andrew Morton wrote:
+> On Mon, 20 Sep 2010 16:11:31 +0200
+> Ohad Ben-Cohen<ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>  wrote:
+>
+>    
+>> Occasionally, drivers care about the value that idr associates with
+>> their pointers.
+>>
+>> Today we have idr_get_new_above() which allocates a new idr entry
+>> above or equal to a given starting id, but sometimes drivers need to
+>> force an exact value.
+>>
+>> To overcome this small API gap, drivers are wrapping idr_get_new_above
+>> and then either BUG_ON() or just call idr_remove() and returns -EBUSY
+>> when idr allocates them an id which is different than their requested
+>> value.
+>>
+>> There are only a handful of users who need this (see below. especially
+>> note the i2c comment :), but it might be nice to have such an API (a
+>> bit less of code, and a bit less error prone).
+>>
+>> Would something like the below be desirable/acceptable ?
+>>      
+> It seems OK to me - it's an improvement over what we have now.
+>
+>    
 
-> On 2010-09-20 20:20 +0200, Eric Dumazet wrote:
->> If you change your program to send small frames (so they are not
->> fragmented), is the problem still present ?
-> 
-> I changed MAX_DGRAM_SIZE in the test program to 1000 (mtu on the
-> interface is 1500).  The short answer is that the references are
-> not leaked, and things seem to get cleaned up.  So the rest of this
-> mail probably describes a separate issue.
-> 
-> The long answer, however, is interesting: With latest Linus' git, the
-> references are cleaned up much later than I would expect.  After running
-> the test program and flushing the SAD/SPD, the reference count is still
-> 1.  If I repeat the test immediately, the reference count will increase
-> further.  I can easily raise the reference count to, say, 100.  Now, if
-> I wait a while (10 minutes or so), the reference count will still be
-> 100.  However, when I run the setkey script after this delay, the
-> reference count drops immediately to 1.  If I then flush the SAD/SPD, it
-> drops to 0.
+Looks ok to me also.  This is exactly what cxgb* needs.  IE the driver 
+manages the ID space and never expects an idr insertion to fail because 
+its already inserted.  That constitutes a driver bug (which is why the 
+BUG_ON() is there :)).
 
-This is because we actually cache IPSEC routes correctly, previously
-we'd create a new routing cache entry every time a lookup happened.
-
+Steve.
