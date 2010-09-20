@@ -1,55 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] rose: Fix signedness issues wrt. digi count.
-Date: Mon, 20 Sep 2010 15:40:03 -0700 (PDT)
-Message-ID: <20100920.154003.112580452.davem@davemloft.net>
+Subject: Re: [PATCH] Fix race in tcp_poll
+Date: Mon, 20 Sep 2010 15:42:41 -0700 (PDT)
+Message-ID: <20100920.154241.183059064.davem@davemloft.net>
+References: <20100920185719.GA13355@gmail.com>
+	<1285019646.2323.267.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dan.j.rosenberg@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tdm.code@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57875
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58964
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750960Ab0ITWjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 18:39:43 -0400
+	by vger.kernel.org with ESMTP id S1750960Ab0ITWmW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Sep 2010 18:42:22 -0400
+In-Reply-To: <1285019646.2323.267.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 20 Sep 2010 23:54:06 +0200
 
-Just use explicit casts, since we really can't change the
-types of structures exported to userspace which have been
-around for 15 years or so.
+> Le lundi 20 septembre 2010 =E0 12:18 -0700, Tom Marshall a =E9crit :
+>> If a RST comes in immediately after checking sk->sk_err, tcp_poll wi=
+ll
+>> return POLLIN but not POLLOUT.  Fix this by checking sk->sk_err at t=
+he end
+>> of tcp_poll.  Additionally, ensure the correct order of operations o=
+n SMP
+>> machines with memory barriers.
+>>=20
+>> Signed-off-by: Tom Marshall <tdm.code@gmail.com>
+=2E..
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Maybe this is the last time we can avoid taking socket lock in
+> tcp_poll() ;)
 
-Reported-by: Dan Rosenberg <dan.j.rosenberg@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
-The only two cases are bind() and connect().  And we only need to
-guard against negative (ie. very large unsigned) values, the other
-tests against addr->srose_ndigis are sane as long as we make this
-check.
-
-Committed to net-2.6
-
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 8e45e76..d952e7e 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -679,7 +679,7 @@ static int rose_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	if (addr_len == sizeof(struct sockaddr_rose) && addr->srose_ndigis > 1)
- 		return -EINVAL;
- 
--	if (addr->srose_ndigis > ROSE_MAX_DIGIS)
-+	if ((unsigned int) addr->srose_ndigis > ROSE_MAX_DIGIS)
- 		return -EINVAL;
- 
- 	if ((dev = rose_dev_get(&addr->srose_addr)) == NULL) {
-@@ -739,7 +739,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
- 	if (addr_len == sizeof(struct sockaddr_rose) && addr->srose_ndigis > 1)
- 		return -EINVAL;
- 
--	if (addr->srose_ndigis > ROSE_MAX_DIGIS)
-+	if ((unsigned int) addr->srose_ndigis > ROSE_MAX_DIGIS)
- 		return -EINVAL;
- 
- 	/* Source + Destination digis should not exceed ROSE_MAX_DIGIS */
+:-)  Applied, thanks everyone.
