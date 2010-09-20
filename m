@@ -1,28 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
-Date: Mon, 20 Sep 2010 10:06:27 -0700 (PDT)
-Message-ID: <20100920.100627.13732675.davem@davemloft.net>
-References: <1284987700.3420.333.camel@edumazet-laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v5 2/2] netfilter: save the hash of the tuple in the original
+ direction for latter use
+Date: Mon, 20 Sep 2010 19:08:37 +0200
+Message-ID: <4C979515.4060908@trash.net>
+References: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com> <4C91B6BE.8020300@trash.net> <AANLkTikZeFrS9pj6jxmOxqY6dsaAf1U+FAXe5jNwQ-nV@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59956
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757005Ab0ITRGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 13:06:08 -0400
-In-Reply-To: <1284987700.3420.333.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikZeFrS9pj6jxmOxqY6dsaAf1U+FAXe5jNwQ-nV@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 20 Sep 2010 15:01:40 +0200
-
-> ipv6 can be a module, we should test CONFIG_IPV6 and CONFIG_IPV6_MODULE
-> to enable ipv6 bits in ip_gre.
+On 20.09.2010 17:04, Changli Gao wrote:
+> On Thu, Sep 16, 2010 at 2:18 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> On 21.08.2010 00:49, Changli Gao wrote:
+>>> Since we don't change the tuple in the original direction, we can save it
+>>> in ct->tuplehash[IP_CT_DIR_REPLY].hnode.pprev for __nf_conntrack_confirm()
+>>> use.
+>>
+>> I like this idea. We could actually do the same for the reply tuple
+>> and invalidate the saved hash in case the reply tuple is changed
+>> (nf_conntrack_alter_reply()), which only happens when NAT is used.
+>>
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> We can't do that, as the unconfirmed ct owned maybe dropped, and
+> pre-computing will wast CPU cycles in this case.
 
-Applied to net-2.6, thanks Eric.
+Sure we can, dropping unconfirmed conntracks is a rare exception,
+not a common case. Even under DoS we usually drop *unassured*
+conntracks, which have already enterered the hash. If we're unable
+to do that, we won't even allocate a new conntrack.
