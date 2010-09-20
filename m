@@ -1,60 +1,76 @@
-From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: idr_get_new_exact ?
-Date: Mon, 20 Sep 2010 12:31:40 -0700
-Message-ID: <20100920123140.f524de79.akpm@linux-foundation.org>
-References: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [RFC][PATCH 0/4] RFS hardware acceleration
+Date: Mon, 20 Sep 2010 12:36:20 -0700
+Message-ID: <AANLkTikS8y0sCbA7wcAfV2i6L+UYQ14d-3dL5jg55Atq@mail.gmail.com>
+References: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Jean Delvare (PC drivers, core)" <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>,
-	"Ben Dooks (embedded platforms)" <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
-	Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Steve Wise <swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTi=ZLupVyFR0e2v-TLpeNWdw1bVMZUAhgyxLJ7OV-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	Bob Felderman <feldy@google.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.35]:61877 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757135Ab0ITTg0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 15:36:26 -0400
+Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
+	by smtp-out.google.com with ESMTP id o8KJaMVA026793
+	for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 12:36:22 -0700
+Received: from pwj1 (pwj1.prod.google.com [10.241.219.65])
+	by kpbe14.cbf.corp.google.com with ESMTP id o8KJaKeT005919
+	for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 12:36:20 -0700
+Received: by pwj1 with SMTP id 1so1467715pwj.6
+        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 12:36:20 -0700 (PDT)
+In-Reply-To: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Sep 2010 16:11:31 +0200
-Ohad Ben-Cohen <ohad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org> wrote:
+Thanks Ben, this does look interesting.  We'll try to take a look.
 
-> Occasionally, drivers care about the value that idr associates with
-> their pointers.
-> 
-> Today we have idr_get_new_above() which allocates a new idr entry
-> above or equal to a given starting id, but sometimes drivers need to
-> force an exact value.
-> 
-> To overcome this small API gap, drivers are wrapping idr_get_new_above
-> and then either BUG_ON() or just call idr_remove() and returns -EBUSY
-> when idr allocates them an id which is different than their requested
-> value.
-> 
-> There are only a handful of users who need this (see below. especially
-> note the i2c comment :), but it might be nice to have such an API (a
-> bit less of code, and a bit less error prone).
-> 
-> Would something like the below be desirable/acceptable ?
 
-It seems OK to me - it's an improvement over what we have now.
-
-> (untested. and i just picked the simplest and straight-forward way to
-> implement this; obviously it's not optimal since there's no reason to
-> even allocate an id if we know it's not the id we're looking for. but
-> it's enough to get the idea, it's not a hot path, and it's what
-> drivers are doing today)
-
-Sure, we can speed it up later if that appears to be necessary.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Mon, Sep 20, 2010 at 12:01 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> Tom,
+>
+> This patch series extends RFS to use hardware RX filters where
+> available. =A0Depending on the number of hardware RX queues and their
+> IRQs' affinity, this should reduce the need for IPIs or at least get
+> packets delivered to the right NUMA node.
+>
+> I've implemented the driver side of this for our hardware, though I
+> don't know whether you have any of that to test on. =A0I would be ver=
+y
+> interested to know how much this can help in the sort of cases where =
+you
+> use RFS.
+>
+> Ben.
+>
+> Ben Hutchings (4):
+> =A0IRQ: IRQ groups for multiqueue devices
+> =A0net: RPS: Enable hardware acceleration
+> =A0sfc: Implement RFS acceleration
+> =A0sfc/RFS/irq_group debug output
+>
+> =A0drivers/net/sfc/efx.c =A0 =A0 | =A0 49 +++++++++++---
+> =A0drivers/net/sfc/efx.h =A0 =A0 | =A0 =A09 +++
+> =A0drivers/net/sfc/filter.c =A0| =A0109 +++++++++++++++++++++++++++++
+> =A0include/linux/irq.h =A0 =A0 =A0 | =A0 52 ++++++++++++++
+> =A0include/linux/netdevice.h | =A0 29 +++++++-
+> =A0kernel/irq/manage.c =A0 =A0 =A0 | =A0170 +++++++++++++++++++++++++=
+++++++++++++++++++++
+> =A0net/core/dev.c =A0 =A0 =A0 =A0 =A0 =A0| =A0 88 +++++++++++++++++++=
++++--
+> =A07 files changed, 488 insertions(+), 18 deletions(-)
+>
+> --
+> 1.7.2.1
+>
+>
+> --
+> Ben Hutchings, Senior Software Engineer, Solarflare Communications
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
+>
