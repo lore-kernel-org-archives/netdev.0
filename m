@@ -1,45 +1,28 @@
-From: =?utf-8?B?TWljaGHFgiBOYXphcmV3aWN6?= <m.nazarewicz-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH] net: core: dev.c: use spin_lock_irqsave() rather than
-Date: Mon, 20 Sep 2010 19:07:28 +0200
-Message-ID: <op.vjcciqgk7p4s8u@pikus>
-References: <ee14e5e38e7a5df520d902ef8a236bbe9ed206fa.1284991149.git.m.nazarewicz@samsung.com>
- <1284998621.3420.539.camel@edumazet-laptop>
- <20100920.091407.241426689.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip_gre: CONFIG_IPV6_MODULE support
+Date: Mon, 20 Sep 2010 10:06:27 -0700 (PDT)
+Message-ID: <20100920.100627.13732675.davem@davemloft.net>
+References: <1284987700.3420.333.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed	delsp=yes
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-reply-to: <20100920.091407.241426689.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59956
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757005Ab0ITRGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 13:06:08 -0400
+In-Reply-To: <1284987700.3420.333.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Sep 2010 18:14:07 +0200, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> =
-wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 20 Sep 2010 15:01:40 +0200
 
-> From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Mon, 20 Sep 2010 18:03:41 +0200
->
->> Hmm, while your patch is technically correct, it seems strange all t=
-his
->> stuff runs in hard irq context.
->
-> I would much rather this RNDIS query response handler get
-> scheduled to run into softirq context or similar instead.
->
-> I am not applying this patch.
+> ipv6 can be a module, we should test CONFIG_IPV6 and CONFIG_IPV6_MODULE
+> to enable ipv6 bits in ip_gre.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Eh...  I'll try to look at RNDIS than.
-
---=20
-Best regards,                                        _     _
-| Humble Liege of Serenely Enlightened Majesty of  o' \,=3D./ `o
-| Computer Science,  Micha=C5=82 "mina86" Nazarewicz       (o o)
-+----[mina86*mina86.com]---[mina86*jabber.org]----ooO--(_)--Ooo--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-2.6, thanks Eric.
