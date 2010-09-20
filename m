@@ -1,41 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix race in tcp_poll
-Date: Mon, 20 Sep 2010 15:42:41 -0700 (PDT)
-Message-ID: <20100920.154241.183059064.davem@davemloft.net>
-References: <20100920185719.GA13355@gmail.com>
-	<1285019646.2323.267.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tdm.code@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: [PATCH 2/3] sunrpc/cache: don't use custom hex_to_bin() converter
+Date: Tue, 21 Sep 2010 02:27:07 +0300
+Message-ID: <caff03788e07cab152f750489ea08d43bc13efed.1285024850.git.andy.shevchenko@gmail.com>
+References: <ee8a4349cc0eb3a881994b77e1e415b92ff7e669.1285024850.git.andy.shevchenko@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	linux-nfs@vger.kernel.org
+To: linux-kernel@vger.krenel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58964
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750960Ab0ITWmW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Sep 2010 18:42:22 -0400
-In-Reply-To: <1285019646.2323.267.camel@edumazet-laptop>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:62431 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754304Ab0ITX12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 19:27:28 -0400
+In-Reply-To: <ee8a4349cc0eb3a881994b77e1e415b92ff7e669.1285024850.git.andy.shevchenko@gmail.com>
+In-Reply-To: <ee8a4349cc0eb3a881994b77e1e415b92ff7e669.1285024850.git.andy.shevchenko@gmail.com>
+References: <ee8a4349cc0eb3a881994b77e1e415b92ff7e669.1285024850.git.andy.shevchenko@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 20 Sep 2010 23:54:06 +0200
+Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>
+Cc: linux-nfs@vger.kernel.org
+---
+ net/sunrpc/cache.c |   20 +++++++++++++-------
+ 1 files changed, 13 insertions(+), 7 deletions(-)
 
-> Le lundi 20 septembre 2010 =E0 12:18 -0700, Tom Marshall a =E9crit :
->> If a RST comes in immediately after checking sk->sk_err, tcp_poll wi=
-ll
->> return POLLIN but not POLLOUT.  Fix this by checking sk->sk_err at t=
-he end
->> of tcp_poll.  Additionally, ensure the correct order of operations o=
-n SMP
->> machines with memory barriers.
->>=20
->> Signed-off-by: Tom Marshall <tdm.code@gmail.com>
-=2E..
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Maybe this is the last time we can avoid taking socket lock in
-> tcp_poll() ;)
+diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+index 5b7b56f..c944a24 100644
+--- a/net/sunrpc/cache.c
++++ b/net/sunrpc/cache.c
+@@ -1171,13 +1171,19 @@ int qword_get(char **bpp, char *dest, int bufsize)
+ 	if (bp[0] == '\\' && bp[1] == 'x') {
+ 		/* HEX STRING */
+ 		bp += 2;
+-		while (isxdigit(bp[0]) && isxdigit(bp[1]) && len < bufsize) {
+-			int byte = isdigit(*bp) ? *bp-'0' : toupper(*bp)-'A'+10;
+-			bp++;
+-			byte <<= 4;
+-			byte |= isdigit(*bp) ? *bp-'0' : toupper(*bp)-'A'+10;
+-			*dest++ = byte;
+-			bp++;
++		while (len < bufsize) {
++			int h, l;
++
++			h = hex_to_bin(bp[0]);
++			if (h < 0)
++				break;
++
++			l = hex_to_bin(bp[1]);
++			if (l < 0)
++				break;
++
++			*dest++ = (h << 4) | l;
++			bp += 2;
+ 			len++;
+ 		}
+ 	} else {
+-- 
+1.7.2.2
 
-:-)  Applied, thanks everyone.
