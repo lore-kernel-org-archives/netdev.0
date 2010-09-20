@@ -1,109 +1,51 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [rfc] IPVS: Masq local real-servers
-Date: Mon, 20 Sep 2010 18:09:14 +0900
-Message-ID: <20100920090911.GA4646@verge.net.au>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: pskb_expand_head() optimization
+Date: Mon, 20 Sep 2010 09:14:26 +0000
+Message-ID: <20100920091425.GA8381@ff.dom.local>
+References: <1283852248.2338.160.camel@edumazet-laptop> <20100910.125449.235704956.davem@davemloft.net> <20100911123140.GA1939@del.dom.local> <20100919.171725.245378386.davem@davemloft.net> <20100920072149.GA6353@ff.dom.local> <1284973320.3420.49.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:58697 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752209Ab0ITJOa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 05:14:30 -0400
+Received: by bwz11 with SMTP id 11so4086633bwz.19
+        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 02:14:28 -0700 (PDT)
 Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1284973320.3420.49.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-IPVS has a special Local forwarding mechanism that is used if the
-real-server is a local IP address. Like the Route and Tunnel forwarding
-mechanism Local does not allow port mapping, and thus the port of the
-real-server is always set to be the same as the virtual service.
+On Mon, Sep 20, 2010 at 11:02:00AM +0200, Eric Dumazet wrote:
+> Le lundi 20 septembre 2010 ?? 07:21 +0000, Jarek Poplawski a =E9crit =
+:
+>=20
+> > Probably we could start from enhacing moving drivers to paged skbs
+> > where possible. And maybe simplifying the skb model by not allowing
+> > frags and frag lists together?
+> >=20
+>=20
+> Sure. I believe current model, pre-allocating skb in huge tx rings is=
+ a
+> waste of mem bandwidth anyway. (I am refering to the struct sk_buff
+> itself, not the payload part)
+>=20
+> Of course some drivers are doing it right, using netdev_alloc_skb()
+> right before feeding this skb to network stack, not an old one.
+>=20
+> > Btw, I wonder what is the exact reason we can't use only
+> > NET_SKBUFF_DATA_USES_OFFSET?
+>=20
+> I see no real reason.
+>=20
+> On 32bit arches, it might be faster to manipulate pointers, and not
+> 'base+offset' values.
 
-The Masq forwarding mechanism does allow port mapping, and this causes some
-confusion when the real-server happens to be local.
+The only reason is code readability and maintenance. Did anybody check
+how much faster?
 
-This patch addresses this confusion by not using the Local forwarding
-mechanism if the masq forwarding mechanism is requested. That is, the masq
-forwarding mechanism will be used, and the real-servers may have a
-different port to the virtual service.
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
---- 
-
-I considered using Local for the case where the real-server and virtual
-service ports are the same. However, this would require updating the
-real-servers if the port of the virtual-service was changed, however
-editing the forwarding mechanism of a real-server currently isn't
-supported and the extra complexity for an unmeasured performance gain seems
-to be at best left for another patch.
-
-Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_core.c
-===================================================================
---- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_core.c	2010-09-19 20:51:30.000000000 +0900
-+++ nf-next-2.6/net/netfilter/ipvs/ip_vs_core.c	2010-09-20 16:30:59.000000000 +0900
-@@ -1496,6 +1496,22 @@ static struct nf_hook_ops ip_vs_ops[] __
- 		.hooknum        = NF_INET_FORWARD,
- 		.priority       = 100,
- 	},
-+	/* change source only for local VS/NAT */
-+	{
-+	       .hook           = ip_vs_out,
-+	       .owner          = THIS_MODULE,
-+	       .pf             = PF_INET,
-+	       .hooknum        = NF_INET_LOCAL_OUT,
-+	       .priority       = 100,
-+	},
-+	/* change source only for local VS/NAT */
-+	{
-+	       .hook           = ip_vs_out,
-+	       .owner          = THIS_MODULE,
-+	       .pf             = PF_INET,
-+	       .hooknum        = NF_INET_LOCAL_OUT,
-+	       .priority       = 100,
-+	},
- 	/* After packet filtering (but before ip_vs_out_icmp), catch icmp
- 	 * destined for 0.0.0.0/0, which is for incoming IPVS connections */
- 	{
-Index: nf-next-2.6/net/netfilter/ipvs/ip_vs_ctl.c
-===================================================================
---- nf-next-2.6.orig/net/netfilter/ipvs/ip_vs_ctl.c	2010-09-20 15:07:27.000000000 +0900
-+++ nf-next-2.6/net/netfilter/ipvs/ip_vs_ctl.c	2010-09-20 17:45:46.000000000 +0900
-@@ -766,7 +766,7 @@ ip_vs_zero_stats(struct ip_vs_stats *sta
-  *	Update a destination in the given service
-  */
- static void
--__ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
-+_ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
- 		    struct ip_vs_dest_user_kern *udest, int add)
- {
- 	int conn_flags;
-@@ -777,18 +777,22 @@ __ip_vs_update_dest(struct ip_vs_service
- 	conn_flags |= IP_VS_CONN_F_INACTIVE;
- 
- 	/* check if local node and update the flags */
-+	if ((conn_flags & IP_VS_CONN_F_FWD_MASK) != IP_VS_CONN_F_MASQ ||
-+	    svc->fwmark) {
- #ifdef CONFIG_IP_VS_IPV6
--	if (svc->af == AF_INET6) {
--		if (__ip_vs_addr_is_local_v6(&udest->addr.in6)) {
--			conn_flags = (conn_flags & ~IP_VS_CONN_F_FWD_MASK)
--				| IP_VS_CONN_F_LOCALNODE;
--		}
--	} else
-+		if (svc->af == AF_INET6) {
-+			if (__ip_vs_addr_is_local_v6(&udest->addr.in6)) {
-+				conn_flags = (conn_flags &
-+					      ~IP_VS_CONN_F_FWD_MASK) |
-+					IP_VS_CONN_F_LOCALNODE;
-+			}
-+		} else
- #endif
- 		if (inet_addr_type(&init_net, udest->addr.ip) == RTN_LOCAL) {
- 			conn_flags = (conn_flags & ~IP_VS_CONN_F_FWD_MASK)
- 				| IP_VS_CONN_F_LOCALNODE;
- 		}
-+	}
- 
- 	/* set the IP_VS_CONN_F_NOOUTPUT flag if not masquerading/NAT */
- 	if ((conn_flags & IP_VS_CONN_F_FWD_MASK) != IP_VS_CONN_F_MASQ) {
+Jarek P.
