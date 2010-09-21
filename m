@@ -1,85 +1,48 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: [PATCH 3/3] net: core: use kernel's converter from hex to bin
-Date: Tue, 21 Sep 2010 02:27:08 +0300
-Message-ID: <73beeb8a098468e777af27fe3f7950881cdb394b.1285024850.git.andy.shevchenko@gmail.com>
-References: <ee8a4349cc0eb3a881994b77e1e415b92ff7e669.1285024850.git.andy.shevchenko@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andy Shevchenko <andy.shevchenko@gmail.com>
-To: linux-kernel@vger.krenel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:62431 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755050Ab0ITX1a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 19:27:30 -0400
-Received: by mail-ew0-f46.google.com with SMTP id 23so1764617ewy.19
-        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 16:27:29 -0700 (PDT)
-In-Reply-To: <ee8a4349cc0eb3a881994b77e1e415b92ff7e669.1285024850.git.andy.shevchenko@gmail.com>
-In-Reply-To: <ee8a4349cc0eb3a881994b77e1e415b92ff7e669.1285024850.git.andy.shevchenko@gmail.com>
-References: <ee8a4349cc0eb3a881994b77e1e415b92ff7e669.1285024850.git.andy.shevchenko@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v5 2/2] netfilter: save the hash of the tuple in the
+ original direction for latter use
+Date: Tue, 21 Sep 2010 08:02:43 +0800
+Message-ID: <AANLkTi=NXj9PjYA06+UFYms8q5K3Z4DsPMcpVHpj7Gmq@mail.gmail.com>
+References: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com>
+ <4C91B6BE.8020300@trash.net> <AANLkTikZeFrS9pj6jxmOxqY6dsaAf1U+FAXe5jNwQ-nV@mail.gmail.com>
+ <4C979515.4060908@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4C979515.4060908@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
----
- net/core/pktgen.c |   10 ++++------
- net/core/utils.c  |   13 +++++++------
- 2 files changed, 11 insertions(+), 12 deletions(-)
+On Tue, Sep 21, 2010 at 1:08 AM, Patrick McHardy <kaber@trash.net> wrote:
+>
+> Sure we can, dropping unconfirmed conntracks is a rare exception,
+> not a common case. Even under DoS we usually drop *unassured*
+> conntracks, which have already enterered the hash. If we're unable
+> to do that, we won't even allocate a new conntrack.
+>
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 386c228..168e3b6 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -729,16 +729,14 @@ static int hex32_arg(const char __user *user_buffer, unsigned long maxlen,
- 	*num = 0;
- 
- 	for (; i < maxlen; i++) {
-+		int value;
- 		char c;
- 		*num <<= 4;
- 		if (get_user(c, &user_buffer[i]))
- 			return -EFAULT;
--		if ((c >= '0') && (c <= '9'))
--			*num |= c - '0';
--		else if ((c >= 'a') && (c <= 'f'))
--			*num |= c - 'a' + 10;
--		else if ((c >= 'A') && (c <= 'F'))
--			*num |= c - 'A' + 10;
-+		value = hex_to_bin(*num);
-+		if (value >= 0)
-+			*num |= value;
- 		else
- 			break;
- 	}
-diff --git a/net/core/utils.c b/net/core/utils.c
-index f418544..ec6bb32 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -92,18 +92,19 @@ EXPORT_SYMBOL(in_aton);
- 
- static inline int xdigit2bin(char c, int delim)
- {
-+	int val;
-+
- 	if (c == delim || c == '\0')
- 		return IN6PTON_DELIM;
- 	if (c == ':')
- 		return IN6PTON_COLON_MASK;
- 	if (c == '.')
- 		return IN6PTON_DOT;
--	if (c >= '0' && c <= '9')
--		return (IN6PTON_XDIGIT | IN6PTON_DIGIT| (c - '0'));
--	if (c >= 'a' && c <= 'f')
--		return (IN6PTON_XDIGIT | (c - 'a' + 10));
--	if (c >= 'A' && c <= 'F')
--		return (IN6PTON_XDIGIT | (c - 'A' + 10));
-+
-+	val = hex_to_bin(c);
-+	if (val >= 0)
-+		return val | IN6PTON_XDIGIT | (val < 10 ? IN6PTON_DIGIT : 0);
-+
- 	if (delim == -1)
- 		return IN6PTON_DELIM;
- 	return IN6PTON_UNKNOWN;
+Even so, saving the hash of the reply tuple isn't a good idea.
+
+If NAT is turned on, the current code is:
+
+mangle the reply tuple -> compute the hash of the reply tuple ->
+insert into the conntrack hash table.
+
+the new code is
+
+compute the hash of the reply tuple -> mangle the reply tuple ->
+recompute the hash of the reply tuple -> insert into the conntrack
+hash table.
+
+As you see, the hash computing is done twice, and we use more CPU
+cycles than before.
+
 -- 
-1.7.2.2
-
+Regards,
+Changli Gao(xiaosuo@gmail.com)
