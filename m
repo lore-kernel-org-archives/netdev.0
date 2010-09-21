@@ -1,43 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] skge: limit DMA to 32 bit
-Date: Tue, 21 Sep 2010 08:02:53 -0700
-Message-ID: <20100921080253.3d89d60a@nehalam>
-References: <20100921071518.GA9081@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v5 2/2] netfilter: save the hash of the tuple in the original
+ direction for latter use
+Date: Tue, 21 Sep 2010 17:32:18 +0200
+Message-ID: <4C98D002.3000309@trash.net>
+References: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com> <4C91B6BE.8020300@trash.net> <AANLkTikZeFrS9pj6jxmOxqY6dsaAf1U+FAXe5jNwQ-nV@mail.gmail.com> <4C979515.4060908@trash.net> <AANLkTi=NXj9PjYA06+UFYms8q5K3Z4DsPMcpVHpj7Gmq@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:54448 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752257Ab0IUPDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 11:03:25 -0400
-In-Reply-To: <20100921071518.GA9081@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=NXj9PjYA06+UFYms8q5K3Z4DsPMcpVHpj7Gmq@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Sep 2010 09:15:19 +0200
-Stanislaw Gruszka <sgruszka@redhat.com> wrote:
+Am 21.09.2010 02:02, schrieb Changli Gao:
+> On Tue, Sep 21, 2010 at 1:08 AM, Patrick McHardy <kaber@trash.net> wrote:
+>>
+>> Sure we can, dropping unconfirmed conntracks is a rare exception,
+>> not a common case. Even under DoS we usually drop *unassured*
+>> conntracks, which have already enterered the hash. If we're unable
+>> to do that, we won't even allocate a new conntrack.
+>>
+> 
+> Even so, saving the hash of the reply tuple isn't a good idea.
+> 
+> If NAT is turned on, the current code is:
+> 
+> mangle the reply tuple -> compute the hash of the reply tuple ->
+> insert into the conntrack hash table.
+> 
+> the new code is
+> 
+> compute the hash of the reply tuple -> mangle the reply tuple ->
+> recompute the hash of the reply tuple -> insert into the conntrack
+> hash table.
+> 
+> As you see, the hash computing is done twice, and we use more CPU
+> cycles than before.
 
-> We have old fedora bug report about not working skge device on some
-> Gigabyte motherboard:
-> https://bugzilla.redhat.com/show_bug.cgi?id=447489
-> 
-> In dmesg there are messages:
-> 
-> skge 0000:02:0b.0: PCI error cmd=0x7 status=0x22b0
-> skge 0000:02:0b.0: unable to clear error (so ignoring them)
-> 
-> Status value 0x22b0 include PCI_STATUS_REC_MASTER_ABORT bit set, what
-> mean that DMA transfer on PCI bus was aborted.
-> 
-> I provided to user modified driver with module parameter, that allow
-> to experiment with different dma_mask's. He told that maximum working 
-> dma_mask for him is 32 bits set.
-> 
-> Is 32bit DMA limit for every skge device acceptable patch?
-
-No. The device does support 64 bit DMA, the problem is a crap implementation
-of the device the motherboard. Therefore a PCI quirk or module parameter
-is a better solution.
+You're right of course, we actually don't compute the reply hash
+before inserting the conntrack into the hash table (except in a
+few NAT cases, but we can look at those later).
