@@ -1,94 +1,168 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 4/5] dccp tfrc/ccid-3: computing the loss rate from the Loss Event Rate
-Date: Tue, 21 Sep 2010 12:28:57 +0200
-Message-ID: <1285064938-5933-5-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 3/5] dccp ccid-3: remove dead states
+Date: Tue, 21 Sep 2010 12:28:56 +0200
+Message-ID: <1285064938-5933-4-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <miscellaneous_dccp_ccid_fixes>
  <1285064938-5933-1-git-send-email-gerrit@erg.abdn.ac.uk>
  <1285064938-5933-2-git-send-email-gerrit@erg.abdn.ac.uk>
  <1285064938-5933-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1285064938-5933-4-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64858 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752393Ab0IUK3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Sep 2010 06:29:16 -0400
-In-Reply-To: <1285064938-5933-4-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1757450Ab0IUK3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Sep 2010 06:29:21 -0400
+In-Reply-To: <1285064938-5933-3-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a function to take care of the following, separate cases occurring in
-the computation of the Loss Rate p:
+This patch is thanks to an investigation by Leandro Sales de Melo and his
+colleagues. They worked out two state diagrams which highlight the fact that
+the xxx_TERM states in CCID-3/4 are in fact not necessary.
 
- * 1/(2^32-1) is mapped into 0% as per RFC 4342, 8.5;
- * 1/0        is mapped into 100%, the maximum;
- * to avoid that p = 1/x is rounded down to 0 when x is very large, since this
-   means accidentally re-entering slow-start indicated by p == 0, the minimum
-   resolution value of p is now returned instead;
- * a bug in ccid3_hc_rx_getsockopt is fixed: 1/0 was mapped into ~0U.
+And this can be confirmed by in turn looking at the code: the xxx_TERM states
+are only ever set in ccid3_hc_{rx,tx}_exit(): when CCID-3 sets the state
+to xxx_TERM, it is at a time where no more processing should be going on,
+hence it is not necessary to introduce a dedicated exit state - this is already
+implied by unloading the CCID.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.c             |    9 ++++-----
- net/dccp/ccids/lib/tfrc.h          |    1 +
- net/dccp/ccids/lib/tfrc_equation.c |   14 ++++++++++++++
- 3 files changed, 19 insertions(+), 5 deletions(-)
+ net/dccp/ccids/ccid3.h |    2 --
+ net/dccp/ccids/ccid3.c |   37 +++++++++----------------------------
+ 2 files changed, 9 insertions(+), 30 deletions(-)
 
+--- a/net/dccp/ccids/ccid3.h
++++ b/net/dccp/ccids/ccid3.h
+@@ -77,7 +77,6 @@ enum ccid3_hc_tx_states {
+ 	TFRC_SSTATE_NO_SENT = 1,
+ 	TFRC_SSTATE_NO_FBACK,
+ 	TFRC_SSTATE_FBACK,
+-	TFRC_SSTATE_TERM,
+ };
+ 
+ /**
+@@ -130,7 +129,6 @@ static inline struct ccid3_hc_tx_sock *ccid3_hc_tx_sk(const struct sock *sk)
+ enum ccid3_hc_rx_states {
+ 	TFRC_RSTATE_NO_DATA = 1,
+ 	TFRC_RSTATE_DATA,
+-	TFRC_RSTATE_TERM    = 127,
+ };
+ 
+ /**
 --- a/net/dccp/ccids/ccid3.c
 +++ b/net/dccp/ccids/ccid3.c
-@@ -400,10 +400,10 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+@@ -54,7 +54,6 @@ static const char *ccid3_tx_state_name(enum ccid3_hc_tx_states state)
+ 	[TFRC_SSTATE_NO_SENT]  = "NO_SENT",
+ 	[TFRC_SSTATE_NO_FBACK] = "NO_FBACK",
+ 	[TFRC_SSTATE_FBACK]    = "FBACK",
+-	[TFRC_SSTATE_TERM]     = "TERM",
+ 	};
  
- 	/* Update loss event rate (which is scaled by 1e6) */
- 	pinv = opt_recv->ccid3or_loss_event_rate;
--	if (pinv == ~0U || pinv == 0)	       /* see RFC 4342, 8.5   */
-+	if (pinv == 0)
- 		hc->tx_p = 0;
--	else				       /* can not exceed 100% */
--		hc->tx_p = scaled_div(1, pinv);
-+	else
-+		hc->tx_p = tfrc_invert_loss_event_rate(pinv);
+ 	return ccid3_state_names[state];
+@@ -208,10 +207,13 @@ static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
+ 	ccid3_pr_debug("%s(%p, state=%s) - entry\n", dccp_role(sk), sk,
+ 		       ccid3_tx_state_name(hc->tx_state));
+ 
++	/* Ignore and do not restart after leaving the established state */
++	if ((1 << sk->sk_state) & ~(DCCPF_OPEN | DCCPF_PARTOPEN))
++		goto out;
++
++	/* Reset feedback state to "no feedback received" */
+ 	if (hc->tx_state == TFRC_SSTATE_FBACK)
+ 		ccid3_hc_tx_set_state(sk, TFRC_SSTATE_NO_FBACK);
+-	else if (hc->tx_state != TFRC_SSTATE_NO_FBACK)
+-		goto out;
  
  	/*
- 	 * Update allowed sending rate X as per draft rfc3448bis-00, 4.2/3
-@@ -834,8 +834,7 @@ static int ccid3_hc_rx_getsockopt(struct sock *sk, const int optname, int len,
- 			return -EINVAL;
- 		rx_info.tfrcrx_x_recv = hc->rx_x_recv;
- 		rx_info.tfrcrx_rtt    = hc->rx_rtt;
--		rx_info.tfrcrx_p      = hc->rx_pinv == 0 ? ~0U :
--					   scaled_div(1, hc->rx_pinv);
-+		rx_info.tfrcrx_p      = tfrc_invert_loss_event_rate(hc->rx_pinv);
- 		len = sizeof(rx_info);
- 		val = &rx_info;
- 		break;
---- a/net/dccp/ccids/lib/tfrc.h
-+++ b/net/dccp/ccids/lib/tfrc.h
-@@ -57,6 +57,7 @@ static inline u32 tfrc_ewma(const u32 avg, const u32 newval, const u8 weight)
+ 	 * Determine new allowed sending rate X as per draft rfc3448bis-00, 4.4
+@@ -287,8 +289,7 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
+ 	if (unlikely(skb->len == 0))
+ 		return -EBADMSG;
  
- extern u32  tfrc_calc_x(u16 s, u32 R, u32 p);
- extern u32  tfrc_calc_x_reverse_lookup(u32 fvalue);
-+extern u32  tfrc_invert_loss_event_rate(u32 loss_event_rate);
+-	switch (hc->tx_state) {
+-	case TFRC_SSTATE_NO_SENT:
++	if (hc->tx_state == TFRC_SSTATE_NO_SENT) {
+ 		sk_reset_timer(sk, &hc->tx_no_feedback_timer, (jiffies +
+ 			       usecs_to_jiffies(TFRC_INITIAL_TIMEOUT)));
+ 		hc->tx_last_win_count	= 0;
+@@ -323,9 +324,8 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
+ 		ccid3_update_send_interval(hc);
  
- extern int  tfrc_tx_packet_history_init(void);
- extern void tfrc_tx_packet_history_exit(void);
---- a/net/dccp/ccids/lib/tfrc_equation.c
-+++ b/net/dccp/ccids/lib/tfrc_equation.c
-@@ -687,3 +687,17 @@ u32 tfrc_calc_x_reverse_lookup(u32 fvalue)
- 	index = tfrc_binsearch(fvalue, 0);
- 	return (index + 1) * 1000000 / TFRC_CALC_X_ARRSIZE;
- }
+ 		ccid3_hc_tx_set_state(sk, TFRC_SSTATE_NO_FBACK);
+-		break;
+-	case TFRC_SSTATE_NO_FBACK:
+-	case TFRC_SSTATE_FBACK:
 +
-+/**
-+ * tfrc_invert_loss_event_rate  -  Compute p so that 10^6 corresponds to 100%
-+ * When @loss_event_rate is large, there is a chance that p is truncated to 0.
-+ * To avoid re-entering slow-start in that case, we set p = TFRC_SMALLEST_P > 0.
-+ */
-+u32 tfrc_invert_loss_event_rate(u32 loss_event_rate)
-+{
-+	if (loss_event_rate == UINT_MAX)		/* see RFC 4342, 8.5 */
-+		return 0;
-+	if (unlikely(loss_event_rate == 0))		/* map 1/0 into 100% */
-+		return 1000000;
-+	return max_t(u32, scaled_div(1, loss_event_rate), TFRC_SMALLEST_P);
-+}
++	} else {
+ 		delay = ktime_us_delta(hc->tx_t_nom, now);
+ 		ccid3_pr_debug("delay=%ld\n", (long)delay);
+ 		/*
+@@ -340,10 +340,6 @@ static int ccid3_hc_tx_send_packet(struct sock *sk, struct sk_buff *skb)
+ 			return (u32)delay / USEC_PER_MSEC;
+ 
+ 		ccid3_hc_tx_update_win_count(hc, now);
+-		break;
+-	case TFRC_SSTATE_TERM:
+-		DCCP_BUG("%s(%p) - Illegal state TERM", dccp_role(sk), sk);
+-		return -EINVAL;
+ 	}
+ 
+ 	/* prepare to send now (add options etc.) */
+@@ -379,11 +375,6 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (!(DCCP_SKB_CB(skb)->dccpd_type == DCCP_PKT_ACK ||
+ 	      DCCP_SKB_CB(skb)->dccpd_type == DCCP_PKT_DATAACK))
+ 		return;
+-	/* ... and only in the established state */
+-	if (hc->tx_state != TFRC_SSTATE_FBACK &&
+-	    hc->tx_state != TFRC_SSTATE_NO_FBACK)
+-		return;
+-
+ 	/*
+ 	 * Locate the acknowledged packet in the TX history.
+ 	 *
+@@ -529,9 +520,7 @@ static void ccid3_hc_tx_exit(struct sock *sk)
+ {
+ 	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
+ 
+-	ccid3_hc_tx_set_state(sk, TFRC_SSTATE_TERM);
+ 	sk_stop_timer(sk, &hc->tx_no_feedback_timer);
+-
+ 	tfrc_tx_hist_purge(&hc->tx_hist);
+ }
+ 
+@@ -590,7 +579,6 @@ static const char *ccid3_rx_state_name(enum ccid3_hc_rx_states state)
+ 	static const char *const ccid3_rx_state_names[] = {
+ 	[TFRC_RSTATE_NO_DATA] = "NO_DATA",
+ 	[TFRC_RSTATE_DATA]    = "DATA",
+-	[TFRC_RSTATE_TERM]    = "TERM",
+ 	};
+ 
+ 	return ccid3_rx_state_names[state];
+@@ -616,14 +604,9 @@ static void ccid3_hc_rx_send_feedback(struct sock *sk,
+ {
+ 	struct ccid3_hc_rx_sock *hc = ccid3_hc_rx_sk(sk);
+ 	struct dccp_sock *dp = dccp_sk(sk);
+-	ktime_t now;
++	ktime_t now = ktime_get_real();
+ 	s64 delta = 0;
+ 
+-	if (unlikely(hc->rx_state == TFRC_RSTATE_TERM))
+-		return;
+-
+-	now = ktime_get_real();
+-
+ 	switch (fbtype) {
+ 	case CCID3_FBACK_INITIAL:
+ 		hc->rx_x_recv = 0;
+@@ -827,8 +810,6 @@ static void ccid3_hc_rx_exit(struct sock *sk)
+ {
+ 	struct ccid3_hc_rx_sock *hc = ccid3_hc_rx_sk(sk);
+ 
+-	ccid3_hc_rx_set_state(sk, TFRC_RSTATE_TERM);
+-
+ 	tfrc_rx_hist_purge(&hc->rx_hist);
+ 	tfrc_lh_cleanup(&hc->rx_li_hist);
+ }
