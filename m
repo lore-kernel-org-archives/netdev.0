@@ -1,77 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Amit Salecha <amit.salecha@qlogic.com>
 Subject: RE: [PATCH] qlcnic: dont assume NET_IP_ALIGN is 2
-Date: Tue, 21 Sep 2010 10:34:33 +0200
-Message-ID: <1285058073.2617.73.camel@edumazet-laptop>
+Date: Tue, 21 Sep 2010 03:41:42 -0500
+Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F86F80278@MNEXMB2.qlogic.org>
 References: <1284700483-16397-2-git-send-email-amit.salecha@qlogic.com>
 	 <1284717448.3391.75.camel@edumazet-laptop>
 	 <99737F4847ED0A48AECC9F4A1974A4B80F86F8018D@MNEXMB2.qlogic.org>
 	 <20100920.085857.98907191.davem@davemloft.net>
 	 <99737F4847ED0A48AECC9F4A1974A4B80F86F80270@MNEXMB2.qlogic.org>
+ <1285058073.2617.73.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Ameen Rahman <ameen.rahman@qlogic.com>,
 	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Amit Salecha <amit.salecha@qlogic.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:37344 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756446Ab0IUIek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 04:34:40 -0400
-Received: by wyf22 with SMTP id 22so5163628wyf.19
-        for <netdev@vger.kernel.org>; Tue, 21 Sep 2010 01:34:38 -0700 (PDT)
-In-Reply-To: <99737F4847ED0A48AECC9F4A1974A4B80F86F80270@MNEXMB2.qlogic.org>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:57111 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755989Ab0IUIlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 04:41:46 -0400
+In-Reply-To: <1285058073.2617.73.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 21 septembre 2010 =C3=A0 03:19 -0500, Amit Salecha a =C3=A9cri=
-t :
->=20
-> > -----Original Message-----
-> > From: David Miller [mailto:davem@davemloft.net]
-> > Sent: Monday, September 20, 2010 9:29 PM
-> > To: Amit Salecha
-> > Cc: eric.dumazet@gmail.com; netdev@vger.kernel.org; Ameen Rahman;
-> > Anirban Chakraborty
-> > Subject: Re: [PATCH] qlcnic: dont assume NET_IP_ALIGN is 2
-> >=20
-> > From: Amit Salecha <amit.salecha@qlogic.com>
-> > Date: Mon, 20 Sep 2010 06:16:31 -0500
-> >=20
-> > > Though I have one doubt. We are allocating larger packets than th=
-e
-> > actual data used.
-> > > Doesn't it will break accounting ?
-> >=20
-> > No, it will "fix" accounting.
-> >=20
-> > You must charge to the SKB all of the non-shared memory that was
-> > allocated to the SKB.
-> >=20
-> > This means even if the packet only uses 128 bytes of the SKB
-> > data area, you must still account for the full blob of linear
-> > memory that was allocated for the SKB data area in skb->truesize.
-> >=20
-> > Otherwise remote attackers could consume enormous amounts of memory=
- by
-> > tricking our socket accounting via carefully sized packets.
->=20
-> Wont this affect throughput ?
-> As problem discuss in this thread http://www.mail-archive.com/netdev@=
-vger.kernel.org/msg06848.html, it can affect tcp window scaling.
->=20
-
-Amit, if you believe this is a problem, you should address it for all
-NICS, not only qlcnic.
-
-Qlcnic was lying to stack, because it consumed 2Kbytes blocs and
-pretended they were consuming skb->len bytes.
-(assuming MTU=3D1500, problem is worse if MTU is bigger)
-
-So in order to improve "throughput", you were allowing for memory
-exhaust and freeze of the _machine_ ?
-
-
-
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
+biBCZWhhbGYgT2YgRXJpYyBEdW1hemV0DQo+IFNlbnQ6IFR1ZXNkYXksIFNlcHRlbWJlciAyMSwg
+MjAxMCAyOjA1IFBNDQo+IFRvOiBBbWl0IFNhbGVjaGENCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsgQW1lZW4gUmFobWFuOyBBbmlyYmFuDQo+IENoYWtyYWJvcnR5
+DQo+IFN1YmplY3Q6IFJFOiBbUEFUQ0hdIHFsY25pYzogZG9udCBhc3N1bWUgTkVUX0lQX0FMSUdO
+IGlzIDINCj4gDQo+IExlIG1hcmRpIDIxIHNlcHRlbWJyZSAyMDEwIMOgIDAzOjE5IC0wNTAwLCBB
+bWl0IFNhbGVjaGEgYSDDqWNyaXQgOg0KPiA+DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2Ut
+LS0tLQ0KPiA+ID4gRnJvbTogRGF2aWQgTWlsbGVyIFttYWlsdG86ZGF2ZW1AZGF2ZW1sb2Z0Lm5l
+dF0NCj4gPiA+IFNlbnQ6IE1vbmRheSwgU2VwdGVtYmVyIDIwLCAyMDEwIDk6MjkgUE0NCj4gPiA+
+IFRvOiBBbWl0IFNhbGVjaGENCj4gPiA+IENjOiBlcmljLmR1bWF6ZXRAZ21haWwuY29tOyBuZXRk
+ZXZAdmdlci5rZXJuZWwub3JnOyBBbWVlbiBSYWhtYW47DQo+ID4gPiBBbmlyYmFuIENoYWtyYWJv
+cnR5DQo+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIXSBxbGNuaWM6IGRvbnQgYXNzdW1lIE5FVF9J
+UF9BTElHTiBpcyAyDQo+ID4gPg0KPiA+ID4gRnJvbTogQW1pdCBTYWxlY2hhIDxhbWl0LnNhbGVj
+aGFAcWxvZ2ljLmNvbT4NCj4gPiA+IERhdGU6IE1vbiwgMjAgU2VwIDIwMTAgMDY6MTY6MzEgLTA1
+MDANCj4gPiA+DQo+ID4gPiA+IFRob3VnaCBJIGhhdmUgb25lIGRvdWJ0LiBXZSBhcmUgYWxsb2Nh
+dGluZyBsYXJnZXIgcGFja2V0cyB0aGFuDQo+IHRoZQ0KPiA+ID4gYWN0dWFsIGRhdGEgdXNlZC4N
+Cj4gPiA+ID4gRG9lc24ndCBpdCB3aWxsIGJyZWFrIGFjY291bnRpbmcgPw0KPiA+ID4NCj4gPiA+
+IE5vLCBpdCB3aWxsICJmaXgiIGFjY291bnRpbmcuDQo+ID4gPg0KPiA+ID4gWW91IG11c3QgY2hh
+cmdlIHRvIHRoZSBTS0IgYWxsIG9mIHRoZSBub24tc2hhcmVkIG1lbW9yeSB0aGF0IHdhcw0KPiA+
+ID4gYWxsb2NhdGVkIHRvIHRoZSBTS0IuDQo+ID4gPg0KPiA+ID4gVGhpcyBtZWFucyBldmVuIGlm
+IHRoZSBwYWNrZXQgb25seSB1c2VzIDEyOCBieXRlcyBvZiB0aGUgU0tCDQo+ID4gPiBkYXRhIGFy
+ZWEsIHlvdSBtdXN0IHN0aWxsIGFjY291bnQgZm9yIHRoZSBmdWxsIGJsb2Igb2YgbGluZWFyDQo+
+ID4gPiBtZW1vcnkgdGhhdCB3YXMgYWxsb2NhdGVkIGZvciB0aGUgU0tCIGRhdGEgYXJlYSBpbiBz
+a2ItPnRydWVzaXplLg0KPiA+ID4NCj4gPiA+IE90aGVyd2lzZSByZW1vdGUgYXR0YWNrZXJzIGNv
+dWxkIGNvbnN1bWUgZW5vcm1vdXMgYW1vdW50cyBvZiBtZW1vcnkNCj4gYnkNCj4gPiA+IHRyaWNr
+aW5nIG91ciBzb2NrZXQgYWNjb3VudGluZyB2aWEgY2FyZWZ1bGx5IHNpemVkIHBhY2tldHMuDQo+
+ID4NCj4gPiBXb250IHRoaXMgYWZmZWN0IHRocm91Z2hwdXQgPw0KPiA+IEFzIHByb2JsZW0gZGlz
+Y3VzcyBpbiB0aGlzIHRocmVhZCBodHRwOi8vd3d3Lm1haWwtDQo+IGFyY2hpdmUuY29tL25ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmcvbXNnMDY4NDguaHRtbCwgaXQgY2FuIGFmZmVjdCB0Y3ANCj4gd2lu
+ZG93IHNjYWxpbmcuDQo+ID4NCj4gDQo+IEFtaXQsIGlmIHlvdSBiZWxpZXZlIHRoaXMgaXMgYSBw
+cm9ibGVtLCB5b3Ugc2hvdWxkIGFkZHJlc3MgaXQgZm9yIGFsbA0KPiBOSUNTLCBub3Qgb25seSBx
+bGNuaWMuDQo+IA0KPiBRbGNuaWMgd2FzIGx5aW5nIHRvIHN0YWNrLCBiZWNhdXNlIGl0IGNvbnN1
+bWVkIDJLYnl0ZXMgYmxvY3MgYW5kDQo+IHByZXRlbmRlZCB0aGV5IHdlcmUgY29uc3VtaW5nIHNr
+Yi0+bGVuIGJ5dGVzLg0KPiAoYXNzdW1pbmcgTVRVPTE1MDAsIHByb2JsZW0gaXMgd29yc2UgaWYg
+TVRVIGlzIGJpZ2dlcikNCj4gDQo+IFNvIGluIG9yZGVyIHRvIGltcHJvdmUgInRocm91Z2hwdXQi
+LCB5b3Ugd2VyZSBhbGxvd2luZyBmb3IgbWVtb3J5DQo+IGV4aGF1c3QgYW5kIGZyZWV6ZSBvZiB0
+aGUgX21hY2hpbmVfID8NCj4NClRoaXMgd29uJ3QgbGVhZCB0byBzdWNoIHByb2JsZW0uIHRydWVz
+aXplIGlzIHVzZWQgZm9yIGFjY291bnRpbmcgb25seS4NCj4gDQo+IA0KPiAtLQ0KPiBUbyB1bnN1
+YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2
+IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9y
+Zw0KPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9y
+ZG9tby1pbmZvLmh0bWwNCg0K
