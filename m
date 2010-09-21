@@ -1,63 +1,39 @@
-From: gwurster@scs.carleton.ca
-Subject: (unknown)
-Date: Tue, 21 Sep 2010 16:59:02 -0400
-Message-ID: <E1Oy9va-0001v2-CP__6013.02797808803$1285105842$gmane$org@shakespeare.ccsl.carleton.ca>
-To: unlisted-recipients:; (no To-header on input)
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 7/8] sfc: Set net_device::num_rx_queues
+ once we know the correct value
+Date: Tue, 21 Sep 2010 14:57:03 -0700 (PDT)
+Message-ID: <20100921.145703.189694076.davem@davemloft.net>
+References: <1285008239.2282.110.camel@achroite.uk.solarflarecom.com>
+	<1285008867.2323.60.camel@edumazet-laptop>
+	<1285009546.2282.126.camel@achroite.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shakespeare.ccsl.carleton.ca ([134.117.225.11]:37219 "EHLO
-	shakespeare.ccsl.carleton.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755435Ab0IUVuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 17:50:12 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50949
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752821Ab0IUV4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 17:56:44 -0400
+In-Reply-To: <1285009546.2282.126.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From ca1c566f51eeff4195b483addb86c6a73eaa37e0 Mon Sep 17 00:00:00 2001
-From: Glenn Wurster <gwurster@scs.carleton.ca>
-Date: Tue, 21 Sep 2010 16:59:00 -0400
-Subject: [PATCH 2.6.36-rc3 1/1] IPv6: Create temporary address if none exists.
-Cc: "David S. Miller" <davem@davemloft.net>,
- Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
- "Pekka Savola (ipv6)" <pekkas@netcore.fi>,
- James Morris <jmorris@namei.org>,
- Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
- Patrick McHardy <kaber@trash.net>,
- Stephen Hemminger <shemminger@vyatta.com>,
- Eric Dumazet <eric.dumazet@gmail.com>,
- Herbert Xu <herbert@gondor.apana.org.au>,
- netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-X-Length: 1674
-X-UID: 10
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-Message-Id: <201009211659.02014.gwurster@scs.carleton.ca>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 20 Sep 2010 20:05:46 +0100
 
-If privacy extentions are enabled, but no current temporary address exists,
-then create one when we get a router advertisement.
+> If RPS is enabled there's a separate kobject for each RX queue.  Those
+> other drivers probably should be setting it.
+> 
+> Oh, but this only exists if CONFIG_RPS is enabled.  I think we need an
+> inline function for setting this.
 
-Signed-off-by: Glenn Wurster <gwurster@scs.carleton.ca>
----
- net/ipv6/addrconf.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+It's set in the core by alloc_netdev_mq(), you should never have to
+set this in your driver.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index ab70a3f..cfee6ae 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2022,10 +2022,11 @@ ok:
- 					ipv6_ifa_notify(0, ift);
- 			}
- 
--			if (create && in6_dev->cnf.use_tempaddr > 0) {
-+			if ((create || list_empty(&in6_dev->tempaddr_list)) && 
-in6_dev->cnf.use_tempaddr > 0) {
- 				/*
- 				 * When a new public address is created as described in [ADDRCONF],
--				 * also create a new temporary address.
-+				 * also create a new temporary address. Also create a temporary
-+				 * address if it's enabled but no temporary address currently exists.
- 				 */
- 				read_unlock_bh(&in6_dev->lock);
- 				ipv6_create_tempaddr(ifp, NULL);
+And that also takes care of the CONFIG_RPS dependency in one spot,
+another good argument for drivers never touching this value.
 
+I'm not applying this patch.
