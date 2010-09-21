@@ -1,53 +1,61 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: Remaining BKL users, what to do
-Date: Tue, 21 Sep 2010 22:01:37 +0200
-Message-ID: <201009212201.37372.arnd@arndb.de>
-References: <ead83d0d-e0ae-456d-8702-16ed8d3a179a@email.android.com>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH RESEND 1/3] netfilter: xtables: inclusion of
+ xt_condition
+Date: Tue, 21 Sep 2010 23:02:07 +0300
+Message-ID: <1285099327.10579.20.camel@powerslave>
+References: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com>
+	 <1282034213-1829-2-git-send-email-luciano.coelho@nokia.com>
+	 <4C912EFC.9070406@trash.net>
+	 <alpine.LNX.2.01.1009152246320.5146@obet.zrqbmnf.qr>
+	 <4C9133A0.7050601@trash.net>
+	 <alpine.LNX.2.01.1009152309140.6445@obet.zrqbmnf.qr>
+	 <4C91AD41.1020802@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Anton Altaparmakov <aia21@cam.ac.uk>, Jan Kara <jack@suse.cz>,
-	codalist@coda.cs.cmu.edu, autofs@linux.kernel.org,
-	linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
-	Christoph Hellwig <hch@infradead.org>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Anders Larsen <al@alarsen.net>,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Andrew Hendry <andrew.hendry@gmail.com>
-To: Petr Vandrovec <vandrove@vc.cvut.cz>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <ead83d0d-e0ae-456d-8702-16ed8d3a179a@email.android.com>
-Sender: linux-media-owner@vger.kernel.org
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"sameo@linux.intel.com" <sameo@linux.intel.com>,
+	"Ylalehto Janne (Nokia-MS/Tampere)" <janne.ylalehto@nokia.com>
+To: ext Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4C91AD41.1020802@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 18 September 2010 01:21:41 Petr Vandrovec wrote:
+On Thu, 2010-09-16 at 07:38 +0200, ext Patrick McHardy wrote:
+> On 15.09.2010 23:09, Jan Engelhardt wrote:
+> > 
+> > On Wednesday 2010-09-15 22:59, Patrick McHardy wrote:
+> >> On 15.09.2010 22:52, Jan Engelhardt wrote:
+> >>>
+> >>> On Wednesday 2010-09-15 22:39, Patrick McHardy wrote:
+> >>>> Am 17.08.2010 10:36, schrieb Luciano Coelho:
+> >>>>> +/* Defaults, these can be overridden on the module command-line. */
+> >>>>> +static unsigned int condition_list_perms = S_IRUGO | S_IWUSR;
+> >>>>> +static unsigned int condition_uid_perms = 0;
+> >>>>> +static unsigned int condition_gid_perms = 0;
+> >>>>
+> >>>> I'm not sure whether we already discussed this, but this isn't
+> >>>> useful if namespaces are used since the IDs aren't global.
+> >>>
+> >>> Well it's also done for other xt modules that offer a procfs interface.
+> >>> It does not really cost much to have this present I'd say.
+> >>
+> >> They should simply set the permissions for the current namespace.
+> >>
+> > IIRC, the namespace stuff was going to be a later patch to keep
+> > early patches simpler.
 > 
-> I'll try to come up with something for ncpfs.
+> I'm fine with that as long as its done before merging the patches
+> upstream.
 
-Ok, good.
+I'll try to fix this and create a new patch on top of the existing ones,
+then I'll send them all as a single patchset.
 
-> Trivial lock replacement will open deadlock possibility when
-> someone reads to page which is also mmaped from the same 
-> filesystem (like grep likes to do). BKL with its automated
-> release on sleep helped (or papered over) a lot here.
 
-Right, I was more or less expecting something like this.
-So I guess this is some AB-BA deadlock with another mutex
-or a call to flush_scheduled_work that is currently done
-under the BKL?
+-- 
+Cheers,
+Luca.
 
-There is still the possibility of just working around those
-by adding explicit mutex_unlock() calls around those, which
-is what I initially did in the tty subsystem. The better
-long-term approach would obviously be to understand all of
-the data structures that actually need locking and only
-lock the actual accesses, but that may be more work than
-you are willing to spend on it.
-
-	Arnd
