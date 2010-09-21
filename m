@@ -1,107 +1,49 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [RFC] skge: limit DMA to 32 bit
-Date: Tue, 21 Sep 2010 09:15:19 +0200
-Message-ID: <20100921071518.GA9081@redhat.com>
+From: Priit Laes <plaes@plaes.org>
+Subject: Re: REGRESSION: e1000e fails to communicate in
+	2.6.36-rcx (82566DM)
+Date: Tue, 21 Sep 2010 10:26:58 +0300
+Message-ID: <1285054018.1487.28.camel@chi>
+References: <1283806304.6947.13.camel@chi>
+	<EA929A9653AAE14F841771FB1DE5A1366008739474@rrsmsx501.amr.corp.intel.com>
+	<1284112667.10960.3.camel@chi>
+	<EA929A9653AAE14F841771FB1DE5A1366008789CE3@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49456 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755739Ab0IUHOR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Sep 2010 03:14:17 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1366008789CE3@rrsmsx501.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-We have old fedora bug report about not working skge device on some
-Gigabyte motherboard:
-https://bugzilla.redhat.com/show_bug.cgi?id=447489
-
-In dmesg there are messages:
-
-skge 0000:02:0b.0: PCI error cmd=0x7 status=0x22b0
-skge 0000:02:0b.0: unable to clear error (so ignoring them)
-
-Status value 0x22b0 include PCI_STATUS_REC_MASTER_ABORT bit set, what
-mean that DMA transfer on PCI bus was aborted.
-
-I provided to user modified driver with module parameter, that allow
-to experiment with different dma_mask's. He told that maximum working 
-dma_mask for him is 32 bits set.
-
-Is 32bit DMA limit for every skge device acceptable patch?
-
-Note, patch change possible driver DMA address space as below:
-- 32bit     - no change, still low mem only (896MB)
-- 32bit-PAE - down from 36bit to low mem (896MB)
-- 64bit     - down from 64bit to 32bit
-
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index a8a6358..1a674e3 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -3797,8 +3797,7 @@ static const struct net_device_ops skge_netdev_ops = {
- 
- 
- /* Initialize network device */
--static struct net_device *skge_devinit(struct skge_hw *hw, int port,
--				       int highmem)
-+static struct net_device *skge_devinit(struct skge_hw *hw, int port)
- {
- 	struct skge_port *skge;
- 	struct net_device *dev = alloc_etherdev(sizeof(*skge));
-@@ -3814,9 +3813,6 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
- 	dev->watchdog_timeo = TX_WATCHDOG;
- 	dev->irq = hw->pdev->irq;
- 
--	if (highmem)
--		dev->features |= NETIF_F_HIGHDMA;
--
- 	skge = netdev_priv(dev);
- 	netif_napi_add(dev, &skge->napi, skge_poll, NAPI_WEIGHT);
- 	skge->netdev = dev;
-@@ -3874,7 +3870,7 @@ static int __devinit skge_probe(struct pci_dev *pdev,
- {
- 	struct net_device *dev, *dev1;
- 	struct skge_hw *hw;
--	int err, using_dac = 0;
-+	int err;
- 
- 	err = pci_enable_device(pdev);
- 	if (err) {
-@@ -3890,13 +3886,9 @@ static int __devinit skge_probe(struct pci_dev *pdev,
- 
- 	pci_set_master(pdev);
- 
--	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
--		using_dac = 1;
--		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
--	} else if (!(err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32)))) {
--		using_dac = 0;
-+	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-+	if (!err)
- 		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
--	}
- 
- 	if (err) {
- 		dev_err(&pdev->dev, "no usable DMA configuration\n");
-@@ -3944,7 +3936,7 @@ static int __devinit skge_probe(struct pci_dev *pdev,
- 		(unsigned long long)pci_resource_start(pdev, 0), pdev->irq,
- 		skge_board_name(hw), hw->chip_rev);
- 
--	dev = skge_devinit(hw, 0, using_dac);
-+	dev = skge_devinit(hw, 0);
- 	if (!dev)
- 		goto err_out_led_off;
- 
-@@ -3967,7 +3959,7 @@ static int __devinit skge_probe(struct pci_dev *pdev,
- 	skge_show_addr(dev);
- 
- 	if (hw->ports > 1) {
--		dev1 = skge_devinit(hw, 1, using_dac);
-+		dev1 = skge_devinit(hw, 1);
- 		if (dev1 && register_netdev(dev1) == 0)
- 			skge_show_addr(dev1);
- 		else {
+w5xoZWwga2VuYWwgcMOkZXZhbCwgUiwgMjAxMC0wOS0xMCBrZWxsIDExOjIxLCBraXJqdXRhcyBU
+YW50aWxvdiwgRW1pbCBTOgo+ID4+ID4gQWZ0ZXIgdHJ5aW5nIG91dCBuZXdlciAyLjYuMzUtcmMz
+IGtlcm5lbCwgdGhlIG5ldHdvcmsgaW50ZXJmYWNlIGZhaWxzCj4gPj4gPiB0bwo+ID4KPiA+VWhv
+aC4uIGl0IHdhcyBhIHR5cG8gXl4sIHJlYWwga2VybmVsIHZlcnNpb24gaXMgMi42LjM2LXJjMysg
+OlMKPiA+Cj4gPj4gSXMgdGhpcyBzdGlsbCBhbiBpc3N1ZSBpbiB0aGUgbGF0ZXN0IG5ldC1uZXh0
+IHB1bGw/Cj4gPlllcywgaXQgaXMgc3RpbGwgbm90IHdvcmtpbmcgKGxhdGVzdCBuZXQtbmV4dCBw
+dWxsIHdhcyBvbiA0dGggb2YgQXVnKQo+ID4KPiA+PiBBbHNvIHBsZWFzZSBwcm92aWRlIHRoZSBv
+dXRwdXQgb2YgZXRodG9vbCAtZS4KPiA+Cj4gPkF0dGFjaGVkIG91dHB1dCBmcm9tIDIuNi4zNi1y
+YzMKPiAKPiBJIHRoaW5rIHRoaXMgaXMgYSBrbm93biBpc3N1ZSBmb3IgdGhpcyBkZXZpY2UgLSB3
+ZSBoYXZlIGEgcGF0Y2ggY3VycmVudGx5IAo+IGluIHRlc3QsIGFuZCB3ZSBzaG91bGQgaGF2ZSBp
+dCBvdXQgc29vbi4KCkFueSBuZXdzIG9uIHRoZSBwYXRjaD8KCjIuNi4zNi1yYzUgaXMgYWxyZWFk
+eSBvdXQgYW5kIEkgcmVhbGx5IGRvIG5vdCB3YW50IHRvIHNlZSBpdCBnZXR0aW5nCmludG8gbWFq
+b3IgcmVsZWFzZSA6KAoKQ2hlZXJzLApQcmlpdCA6KQoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tClN0
+YXJ0IHVuY292ZXJpbmcgdGhlIG1hbnkgYWR2YW50YWdlcyBvZiB2aXJ0dWFsIGFwcGxpYW5jZXMK
+YW5kIHN0YXJ0IHVzaW5nIHRoZW0gdG8gc2ltcGxpZnkgYXBwbGljYXRpb24gZGVwbG95bWVudCBh
+bmQKYWNjZWxlcmF0ZSB5b3VyIHNoaWZ0IHRvIGNsb3VkIGNvbXB1dGluZy4KaHR0cDovL3Auc2Yu
+bmV0L3NmdS9ub3ZlbGwtc2ZkZXYyZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0
+cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlz
+dGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5l
+dCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
