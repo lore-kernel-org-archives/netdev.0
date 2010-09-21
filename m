@@ -1,170 +1,149 @@
-From: Stephan Gatzka <stephan-tNItQxeJkt8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Tue, 21 Sep 2010 18:54:55 +0200
-Message-ID: <4C98E35F.6050207@gatzka.org>
-References: <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>	<AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>	<20100817085324.GB3330@riccoc20.at.omicron.at>	<1282090963.1734.97.camel@localhost>	<20100818071942.GA4096@riccoc20.at.omicron.at>	<1282176776.2865.100.camel@localhost.localdomain>	<20100819055518.GA4084@riccoc20.at.omicron.at>	<1282594125.3111.344.camel@localhost.localdomain>	<20100827123849.GC11657@riccoc20.at.omicron.at>	<1282948239.2268.155.camel@jstultz-laptop>
-	<20100906063327.GA4549@riccoc20.at.omicron.at>
-Reply-To: stephan-tNItQxeJkt8dnm+yROfE0A@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ipv6: addrconf.h cleanups
+Date: Tue, 21 Sep 2010 18:57:39 +0200
+Message-ID: <1285088259.2617.717.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0613915320413771153=="
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20100906063327.GA4549-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is a cryptographically signed message in MIME format.
-
---===============0613915320413771153==
-Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=sha1; boundary="------------ms070909030708060909060906"
-
-This is a cryptographically signed message in MIME format.
-
---------------ms070909030708060909060906
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-
-Hi Richard,
-
-> 1. Character device
-> 2. POSIX clock with dynamic ids
->
-> Please, just take your pick ;^)
-
-Just to reopen this nearly dead but very interesting thread: I'm happy=20
-with every solution that has no impact on the accuracy of the PTP clock.
-
-If I can choose, I would prefer the POSIX clock with dynamic ids solution=
-=2E
-
-Kind regards and thanks for your effort,
-
-Stephan Gatzka
-
-
---------------ms070909030708060909060906
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIO5jCC
-BEYwggOvoAMCAQICEGb9R+PCGeToms2Z3fU6yyQwDQYJKoZIhvcNAQEFBQAwXzELMAkGA1UE
-BhMCVVMxFzAVBgNVBAoTDlZlcmlTaWduLCBJbmMuMTcwNQYDVQQLEy5DbGFzcyAxIFB1Ymxp
-YyBQcmltYXJ5IENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA1MTAyODAwMDAwMFoXDTE1
-MTAyNzIzNTk1OVowgd0xCzAJBgNVBAYTAlVTMRcwFQYDVQQKEw5WZXJpU2lnbiwgSW5jLjEf
-MB0GA1UECxMWVmVyaVNpZ24gVHJ1c3QgTmV0d29yazE7MDkGA1UECxMyVGVybXMgb2YgdXNl
-IGF0IGh0dHBzOi8vd3d3LnZlcmlzaWduLmNvbS9ycGEgKGMpMDUxHjAcBgNVBAsTFVBlcnNv
-bmEgTm90IFZhbGlkYXRlZDE3MDUGA1UEAxMuVmVyaVNpZ24gQ2xhc3MgMSBJbmRpdmlkdWFs
-IFN1YnNjcmliZXIgQ0EgLSBHMjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMnf
-rOfq+PgDFMQAktXBfjbCPO98chXLwKuMPRyVzm8eECw/AO2XJua2x+atQx0/pIdHR0w+VPhs
-+Mf8sZ69MHC8l7EDBeqV8a1AxUR6SwWi8mD81zplYu//EHuiVrvFTnAt1qIfPO2wQuhejVch
-rKaZ2RHp0hoHwHRHQgv8xTTq/ea6JNEdCBU3otdzzwFBL2OyOj++pRpu9MlKWz2VphW7NQIZ
-+dTvvI8OcXZZu0u2Ptb8Whb01g6J8kn+bAztFenZiHWcec5gJ925rXXOL3OVekA6hXVJsLjf
-aLyrzROChRFQo+A8C67AClPN1zBvhTJGG+RJEMJs4q8fef/btLUCAwEAAaOB/zCB/DASBgNV
-HRMBAf8ECDAGAQH/AgEAMEQGA1UdIAQ9MDswOQYLYIZIAYb4RQEHFwEwKjAoBggrBgEFBQcC
-ARYcaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYTALBgNVHQ8EBAMCAQYwEQYJYIZIAYb4
-QgEBBAQDAgEGMC4GA1UdEQQnMCWkIzAhMR8wHQYDVQQDExZQcml2YXRlTGFiZWwzLTIwNDgt
-MTU1MB0GA1UdDgQWBBQRfV4ZfTwE32ps1qKKGj8x2DuUUjAxBgNVHR8EKjAoMCagJKAihiBo
-dHRwOi8vY3JsLnZlcmlzaWduLmNvbS9wY2ExLmNybDANBgkqhkiG9w0BAQUFAAOBgQA8o9oC
-YzrEk6qrctPcrVA4HgyeFkqIt+7r2f8PjZWg1rv6aguuYYTYaEeJ70+ssh9JQZtJM3aTi55u
-uUMcYL3C3Ioth8FFwBFyBBprJCpsb+f8BxMp0Hc6I+f1wYVoGb/GAVQgGa41gsxiPGEJxvTV
-67APpp8zhZrTcY5Qj5ndYjCCBUowggQyoAMCAQICEGYeo7xQ0H5LubI9b+ru3w4wDQYJKoZI
-hvcNAQEFBQAwgd0xCzAJBgNVBAYTAlVTMRcwFQYDVQQKEw5WZXJpU2lnbiwgSW5jLjEfMB0G
-A1UECxMWVmVyaVNpZ24gVHJ1c3QgTmV0d29yazE7MDkGA1UECxMyVGVybXMgb2YgdXNlIGF0
-IGh0dHBzOi8vd3d3LnZlcmlzaWduLmNvbS9ycGEgKGMpMDUxHjAcBgNVBAsTFVBlcnNvbmEg
-Tm90IFZhbGlkYXRlZDE3MDUGA1UEAxMuVmVyaVNpZ24gQ2xhc3MgMSBJbmRpdmlkdWFsIFN1
-YnNjcmliZXIgQ0EgLSBHMjAeFw0wOTExMTMwMDAwMDBaFw0xMDExMTMyMzU5NTlaMIIBEzEX
-MBUGA1UEChMOVmVyaVNpZ24sIEluYy4xHzAdBgNVBAsTFlZlcmlTaWduIFRydXN0IE5ldHdv
-cmsxRjBEBgNVBAsTPXd3dy52ZXJpc2lnbi5jb20vcmVwb3NpdG9yeS9SUEEgSW5jb3JwLiBi
-eSBSZWYuLExJQUIuTFREKGMpOTgxHjAcBgNVBAsTFVBlcnNvbmEgTm90IFZhbGlkYXRlZDEz
-MDEGA1UECxMqRGlnaXRhbCBJRCBDbGFzcyAxIC0gTmV0c2NhcGUgRnVsbCBTZXJ2aWNlMRcw
-FQYDVQQDFA5TdGVwaGFuIEdhdHprYTEhMB8GCSqGSIb3DQEJARYSc3RlcGhhbkBnYXR6a2Eu
-b3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzoYff7/WOfp73wx1jWbTO26u
-vXBVo5E5ScnXuN1NozLAeUw7ZbFwLlRjQfbcz4oMQqhR5P4G620sF0MPu8PxkFwmiCmBPNcJ
-oFvlHtZEktXp4Zj6hzIRFKZjdjDZWmyL7niIHUr1mh1x1yHAyPgA74KrfwaZaHqawflfjVl5
-CJv8QwEFaTGSwW7XU3l5czwLrzUTSkdEytANFSSPI7aL5ub1uwzWltu9QsVa1mosFk4lKO4f
-jKhKaixKV03hoTm9Yv6p2arRbBprtrq076QjH6r28c6ndiTPveVbQ9WNNJ3UrFQjEK9AnJGR
-nfyA4FD62+YL5/s5aHMGd5zJeE793QIDAQABo4HMMIHJMAkGA1UdEwQCMAAwRAYDVR0gBD0w
-OzA5BgtghkgBhvhFAQcXATAqMCgGCCsGAQUFBwIBFhxodHRwczovL3d3dy52ZXJpc2lnbi5j
-b20vcnBhMAsGA1UdDwQEAwIFoDAdBgNVHSUEFjAUBggrBgEFBQcDBAYIKwYBBQUHAwIwSgYD
-VR0fBEMwQTA/oD2gO4Y5aHR0cDovL0luZEMxRGlnaXRhbElELWNybC52ZXJpc2lnbi5jb20v
-SW5kQzFEaWdpdGFsSUQuY3JsMA0GCSqGSIb3DQEBBQUAA4IBAQAntbPeTrLjXajrDpS4CKTK
-CW3SFpIJ7qxrvXhXO0aT1w/tmpWEmGJks7QkJkReDNTi9fb4qAoywb8XTdWcWRAxxiVHHvya
-o3quyuqa2yl7Te9UxqDUlXKV9d6WBGudlPDpcFGk/lgaMZ15Zb6mvfMx7IZMFCPJAOB3ns7g
-SW++HOm8d4mKKd/x5pY1zLCqD1RTp9wD+y4rj0Xm6v8tNgJXWLBO7d9bfZIhajfju907yEaA
-IyQXiLGq/AM52fbsss/RNp3qeOvRf81bAoseLhWV5CiuXCKsK5BTtREeMZwMLnl/rDwcsdzR
-Pu8ccRl3aKKR6gl40l3MZEy77bb1PP0HMIIFSjCCBDKgAwIBAgIQZh6jvFDQfku5sj1v6u7f
-DjANBgkqhkiG9w0BAQUFADCB3TELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWduLCBJ
-bmMuMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTswOQYDVQQLEzJUZXJtcyBv
-ZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYSAoYykwNTEeMBwGA1UECxMV
-UGVyc29uYSBOb3QgVmFsaWRhdGVkMTcwNQYDVQQDEy5WZXJpU2lnbiBDbGFzcyAxIEluZGl2
-aWR1YWwgU3Vic2NyaWJlciBDQSAtIEcyMB4XDTA5MTExMzAwMDAwMFoXDTEwMTExMzIzNTk1
-OVowggETMRcwFQYDVQQKEw5WZXJpU2lnbiwgSW5jLjEfMB0GA1UECxMWVmVyaVNpZ24gVHJ1
-c3QgTmV0d29yazFGMEQGA1UECxM9d3d3LnZlcmlzaWduLmNvbS9yZXBvc2l0b3J5L1JQQSBJ
-bmNvcnAuIGJ5IFJlZi4sTElBQi5MVEQoYyk5ODEeMBwGA1UECxMVUGVyc29uYSBOb3QgVmFs
-aWRhdGVkMTMwMQYDVQQLEypEaWdpdGFsIElEIENsYXNzIDEgLSBOZXRzY2FwZSBGdWxsIFNl
-cnZpY2UxFzAVBgNVBAMUDlN0ZXBoYW4gR2F0emthMSEwHwYJKoZIhvcNAQkBFhJzdGVwaGFu
-QGdhdHprYS5vcmcwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDOhh9/v9Y5+nvf
-DHWNZtM7bq69cFWjkTlJyde43U2jMsB5TDtlsXAuVGNB9tzPigxCqFHk/gbrbSwXQw+7w/GQ
-XCaIKYE81wmgW+Ue1kSS1enhmPqHMhEUpmN2MNlabIvueIgdSvWaHXHXIcDI+ADvgqt/Bplo
-eprB+V+NWXkIm/xDAQVpMZLBbtdTeXlzPAuvNRNKR0TK0A0VJI8jtovm5vW7DNaW271CxVrW
-aiwWTiUo7h+MqEpqLEpXTeGhOb1i/qnZqtFsGmu2urTvpCMfqvbxzqd2JM+95VtD1Y00ndSs
-VCMQr0CckZGd/IDgUPrb5gvn+zlocwZ3nMl4Tv3dAgMBAAGjgcwwgckwCQYDVR0TBAIwADBE
-BgNVHSAEPTA7MDkGC2CGSAGG+EUBBxcBMCowKAYIKwYBBQUHAgEWHGh0dHBzOi8vd3d3LnZl
-cmlzaWduLmNvbS9ycGEwCwYDVR0PBAQDAgWgMB0GA1UdJQQWMBQGCCsGAQUFBwMEBggrBgEF
-BQcDAjBKBgNVHR8EQzBBMD+gPaA7hjlodHRwOi8vSW5kQzFEaWdpdGFsSUQtY3JsLnZlcmlz
-aWduLmNvbS9JbmRDMURpZ2l0YWxJRC5jcmwwDQYJKoZIhvcNAQEFBQADggEBACe1s95OsuNd
-qOsOlLgIpMoJbdIWkgnurGu9eFc7RpPXD+2alYSYYmSztCQmRF4M1OL19vioCjLBvxdN1ZxZ
-EDHGJUce/Jqjeq7K6prbKXtN71TGoNSVcpX13pYEa52U8OlwUaT+WBoxnXllvqa98zHshkwU
-I8kA4HeezuBJb74c6bx3iYop3/HmljXMsKoPVFOn3AP7LiuPRebq/y02AldYsE7t31t9kiFq
-N+O73TvIRoAjJBeIsar8AznZ9uyyz9E2nep469F/zVsCix4uFZXkKK5cIqwrkFO1ER4xnAwu
-eX+sPByx3NE+7xxxGXdoopHqCXjSXcxkTLvttvU8/QcxggTsMIIE6AIBATCB8jCB3TELMAkG
-A1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWduLCBJbmMuMR8wHQYDVQQLExZWZXJpU2lnbiBU
-cnVzdCBOZXR3b3JrMTswOQYDVQQLEzJUZXJtcyBvZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVy
-aXNpZ24uY29tL3JwYSAoYykwNTEeMBwGA1UECxMVUGVyc29uYSBOb3QgVmFsaWRhdGVkMTcw
-NQYDVQQDEy5WZXJpU2lnbiBDbGFzcyAxIEluZGl2aWR1YWwgU3Vic2NyaWJlciBDQSAtIEcy
-AhBmHqO8UNB+S7myPW/q7t8OMAkGBSsOAwIaBQCgggLOMBgGCSqGSIb3DQEJAzELBgkqhkiG
-9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTEwMDkyMTE2NTQ1NVowIwYJKoZIhvcNAQkEMRYEFDCM
-/8duUHF+gw6onqWgUyq5lJJ6MF8GCSqGSIb3DQEJDzFSMFAwCwYJYIZIAWUDBAECMAoGCCqG
-SIb3DQMHMA4GCCqGSIb3DQMCAgIAgDANBggqhkiG9w0DAgIBQDAHBgUrDgMCBzANBggqhkiG
-9w0DAgIBKDCCAQMGCSsGAQQBgjcQBDGB9TCB8jCB3TELMAkGA1UEBhMCVVMxFzAVBgNVBAoT
-DlZlcmlTaWduLCBJbmMuMR8wHQYDVQQLExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTswOQYD
-VQQLEzJUZXJtcyBvZiB1c2UgYXQgaHR0cHM6Ly93d3cudmVyaXNpZ24uY29tL3JwYSAoYykw
-NTEeMBwGA1UECxMVUGVyc29uYSBOb3QgVmFsaWRhdGVkMTcwNQYDVQQDEy5WZXJpU2lnbiBD
-bGFzcyAxIEluZGl2aWR1YWwgU3Vic2NyaWJlciBDQSAtIEcyAhBmHqO8UNB+S7myPW/q7t8O
-MIIBBQYLKoZIhvcNAQkQAgsxgfWggfIwgd0xCzAJBgNVBAYTAlVTMRcwFQYDVQQKEw5WZXJp
-U2lnbiwgSW5jLjEfMB0GA1UECxMWVmVyaVNpZ24gVHJ1c3QgTmV0d29yazE7MDkGA1UECxMy
-VGVybXMgb2YgdXNlIGF0IGh0dHBzOi8vd3d3LnZlcmlzaWduLmNvbS9ycGEgKGMpMDUxHjAc
-BgNVBAsTFVBlcnNvbmEgTm90IFZhbGlkYXRlZDE3MDUGA1UEAxMuVmVyaVNpZ24gQ2xhc3Mg
-MSBJbmRpdmlkdWFsIFN1YnNjcmliZXIgQ0EgLSBHMgIQZh6jvFDQfku5sj1v6u7fDjANBgkq
-hkiG9w0BAQEFAASCAQA3Y4uuJCOgplAkCBnh9AdqpvdyOCHyS0fQEiI6og30oczahk/jlAKf
-7gohYZ+P5UIQmGCvadd9O9A+AdR5FZVKJeZtGiRe2/R9SrzMN57eUNuJodHBIE4fEH6GpGuR
-NUx85QJQ+F0nJx9OvR26D2z5lG6nvKGvy/8c//CkIxtDpa5zvgKqv5NLi7m2ARb3jT12BrWn
-+Vx2ldKgnCtpoiAY9CXNzNVE+WI9a01dw31nByATlsDQfYH2gnpwf0/oavqHe8Y94Rum2lXR
-2k7YmeDjkMI2GzRf7rjg36AVEK8JkDNPrQFT+q2iuj2EPWr/z6kYuGu8hpWHS2Emixv98fkX
-AAAAAAAA
---------------ms070909030708060909060906--
-
---===============0613915320413771153==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:35038 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755873Ab0IUQ5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 12:57:44 -0400
+Received: by fxm3 with SMTP id 3so1565792fxm.19
+        for <netdev@vger.kernel.org>; Tue, 21 Sep 2010 09:57:43 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-devicetree-discuss mailing list
-devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-https://lists.ozlabs.org/listinfo/devicetree-discuss
+- Use rcu_dereference_rtnl() in __in6_dev_get
+- kerneldoc for __in6_dev_get() and in6_dev_get()
+- Use inline functions instead of macros
 
---===============0613915320413771153==--
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/addrconf.h |   63 ++++++++++++++++++++++++++-------------
+ 1 file changed, 43 insertions(+), 20 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 45375b4..39cf213 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -174,20 +174,32 @@ extern int ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
+ extern int register_inet6addr_notifier(struct notifier_block *nb);
+ extern int unregister_inet6addr_notifier(struct notifier_block *nb);
+ 
+-static inline struct inet6_dev *
+-__in6_dev_get(struct net_device *dev)
++/**
++ * __in6_dev_get - get inet6_dev pointer from netdevice
++ * @dev: network device
++ *
++ * Caller must hold rcu_read_lock or RTNL, because this function
++ * does not take a reference on the inet6_dev.
++ */
++static inline struct inet6_dev *__in6_dev_get(const struct net_device *dev)
+ {
+-	return rcu_dereference_check(dev->ip6_ptr,
+-				     rcu_read_lock_held() ||
+-				     lockdep_rtnl_is_held());
++	return rcu_dereference_rtnl(dev->ip6_ptr);
+ }
+ 
+-static inline struct inet6_dev *
+-in6_dev_get(struct net_device *dev)
++/**
++ * in6_dev_get - get inet6_dev pointer from netdevice
++ * @dev: network device
++ *
++ * This version can be used in any context, and takes a reference
++ * on the inet6_dev. Callers must use in6_dev_put() later to
++ * release this reference.
++ */
++static inline struct inet6_dev *in6_dev_get(const struct net_device *dev)
+ {
+-	struct inet6_dev *idev = NULL;
++	struct inet6_dev *idev;
++
+ 	rcu_read_lock();
+-	idev = __in6_dev_get(dev);
++	idev = rcu_dereference(dev->ip6_ptr);
+ 	if (idev)
+ 		atomic_inc(&idev->refcnt);
+ 	rcu_read_unlock();
+@@ -196,16 +208,21 @@ in6_dev_get(struct net_device *dev)
+ 
+ extern void in6_dev_finish_destroy(struct inet6_dev *idev);
+ 
+-static inline void
+-in6_dev_put(struct inet6_dev *idev)
++static inline void in6_dev_put(struct inet6_dev *idev)
+ {
+ 	if (atomic_dec_and_test(&idev->refcnt))
+ 		in6_dev_finish_destroy(idev);
+ }
+ 
+-#define __in6_dev_put(idev)  atomic_dec(&(idev)->refcnt)
+-#define in6_dev_hold(idev)   atomic_inc(&(idev)->refcnt)
++static inline void __in6_dev_put(struct inet6_dev *idev)
++{
++	atomic_dec(&idev->refcnt);
++}
+ 
++static inline void in6_dev_hold(struct inet6_dev *idev)
++{
++	atomic_inc(&idev->refcnt);
++}
+ 
+ extern void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp);
+ 
+@@ -215,9 +232,15 @@ static inline void in6_ifa_put(struct inet6_ifaddr *ifp)
+ 		inet6_ifa_finish_destroy(ifp);
+ }
+ 
+-#define __in6_ifa_put(ifp)	atomic_dec(&(ifp)->refcnt)
+-#define in6_ifa_hold(ifp)	atomic_inc(&(ifp)->refcnt)
++static inline void __in6_ifa_put(struct inet6_ifaddr *ifp)
++{
++	atomic_dec(&ifp->refcnt);
++}
+ 
++static inline void in6_ifa_hold(struct inet6_ifaddr *ifp)
++{
++	atomic_inc(&ifp->refcnt);
++}
+ 
+ 
+ /*
+@@ -240,23 +263,23 @@ static inline int ipv6_addr_is_multicast(const struct in6_addr *addr)
+ 
+ static inline int ipv6_addr_is_ll_all_nodes(const struct in6_addr *addr)
+ {
+-	return (((addr->s6_addr32[0] ^ htonl(0xff020000)) |
++	return ((addr->s6_addr32[0] ^ htonl(0xff020000)) |
+ 		addr->s6_addr32[1] | addr->s6_addr32[2] |
+-		(addr->s6_addr32[3] ^ htonl(0x00000001))) == 0);
++		(addr->s6_addr32[3] ^ htonl(0x00000001))) == 0;
+ }
+ 
+ static inline int ipv6_addr_is_ll_all_routers(const struct in6_addr *addr)
+ {
+-	return (((addr->s6_addr32[0] ^ htonl(0xff020000)) |
++	return ((addr->s6_addr32[0] ^ htonl(0xff020000)) |
+ 		addr->s6_addr32[1] | addr->s6_addr32[2] |
+-		(addr->s6_addr32[3] ^ htonl(0x00000002))) == 0);
++		(addr->s6_addr32[3] ^ htonl(0x00000002))) == 0;
+ }
+ 
+ extern int __ipv6_isatap_ifid(u8 *eui, __be32 addr);
+ 
+ static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
+ {
+-	return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
++	return (addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE);
+ }
+ 
+ #ifdef CONFIG_PROC_FS
+
+
