@@ -1,80 +1,188 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2010-09-21
-Date: Tue, 21 Sep 2010 14:26:20 -0400
-Message-ID: <20100921182620.GB2448@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] ip: fix truesize mismatch in ip fragmentation
+Date: Tue, 21 Sep 2010 20:47:45 +0200
+Message-ID: <1285094865.2452.2.camel@edumazet-laptop>
+References: <20100920174443.GA5515@elliptictech.com>
+	 <1285006844.2323.17.camel@edumazet-laptop>
+	 <20100920195256.GA14330@elliptictech.com>
+	 <1285013853.2323.148.camel@edumazet-laptop>
+	 <1285018272.2323.243.camel@edumazet-laptop>
+	 <20100921140501.GA21572@elliptictech.com>
+	 <1285078613.2617.503.camel@edumazet-laptop>
+	 <1285084705.2617.636.camel@edumazet-laptop>
+	 <20100921175014.GA2066@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nick Bowler <nbowler@elliptictech.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <20100921175014.GA2066@del.dom.local>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
 
-Here are two more small fixes intended for 2.6.36.  One is a one-liner
-(kmalloc->kzalloc) that prevents a potential information leak.
-The other is a small fix that skips firmware reloads (a workaround
-for firmware problems) while a scan is in progress in order to avoid
-the stack trace cited in the commit log.
+> Looks better and better to me, except, checkpatch complains about the
+> (existing) indentation fault here (and later), but I guess you've seen
+> that?
+> 
 
-Please let me know if there are problems!
+Indeed, there is checkpatch somewhere ;)
 
-Thanks,
+Thanks !
 
-John
+[PATCH v4] ip: fix truesize mismatch in ip fragmentation
 
+Special care should be taken when slow path is hit in ip_fragment() :
+
+When walking through frags, we transfert truesize ownership from skb to
+frags. Then if we hit a slow_path condition, we must undo this or risk
+uncharging frags->truesize twice, and in the end, having negative socket
+sk_wmem_alloc counter, or even freeing socket sooner than expected.
+
+Many thanks to Nick Bowler, who provided a very clean bug report and
+test program.
+
+Thanks to Jarek for reviewing my first patch and providing a V2
+
+While Nick bisection pointed to commit 2b85a34e911 (net: No more
+expensive sock_hold()/sock_put() on each tx), underlying bug is older
+(2.6.12-rc5)
+
+A side effect is to extend work done in commit b2722b1c3a893e
+(ip_fragment: also adjust skb->truesize for packets not owned by a
+socket) to ipv6 as well.
+
+Reported-and-bisected-by: Nick Bowler <nbowler@elliptictech.com>
+Tested-by: Nick Bowler <nbowler@elliptictech.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Jarek Poplawski <jarkao2@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
 ---
+ net/ipv4/ip_output.c  |   19 +++++++++++++------
+ net/ipv6/ip6_output.c |   18 +++++++++++++-----
+ 2 files changed, 26 insertions(+), 11 deletions(-)
 
-The following changes since commit 3779298b81cd9a2531cec93e3beefc1acdb01382:
-
-  Merge branch 'vhost-net' of git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost (2010-09-20 11:13:34 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Johannes Berg (1):
-      wext: fix potential private ioctl memory content leak
-
-Wey-Yi Guy (1):
-      iwlwifi: do not perferm force reset while doing scan
-
- drivers/net/wireless/iwlwifi/iwl-core.c |    5 +++++
- net/wireless/wext-priv.c                |    2 +-
- 2 files changed, 6 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
-index 07dbc27..e23c406 100644
---- a/drivers/net/wireless/iwlwifi/iwl-core.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-core.c
-@@ -2613,6 +2613,11 @@ int iwl_force_reset(struct iwl_priv *priv, int mode, bool external)
- 	if (test_bit(STATUS_EXIT_PENDING, &priv->status))
- 		return -EINVAL;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 04b6989..7649d77 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -488,9 +488,8 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 	 * we can switch to copy when see the first bad fragment.
+ 	 */
+ 	if (skb_has_frags(skb)) {
+-		struct sk_buff *frag;
++		struct sk_buff *frag, *frag2;
+ 		int first_len = skb_pagelen(skb);
+-		int truesizes = 0;
  
-+	if (test_bit(STATUS_SCANNING, &priv->status)) {
-+		IWL_DEBUG_INFO(priv, "scan in progress.\n");
-+		return -EINVAL;
-+	}
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+@@ -503,18 +502,18 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 			if (frag->len > mtu ||
+ 			    ((frag->len & 7) && frag->next) ||
+ 			    skb_headroom(frag) < hlen)
+-			    goto slow_path;
++				goto slow_path_clean;
+ 
+ 			/* Partially cloned skb? */
+ 			if (skb_shared(frag))
+-				goto slow_path;
++				goto slow_path_clean;
+ 
+ 			BUG_ON(frag->sk);
+ 			if (skb->sk) {
+ 				frag->sk = skb->sk;
+ 				frag->destructor = sock_wfree;
+ 			}
+-			truesizes += frag->truesize;
++			skb->truesize -= frag->truesize;
+ 		}
+ 
+ 		/* Everything is OK. Generate! */
+@@ -524,7 +523,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 		frag = skb_shinfo(skb)->frag_list;
+ 		skb_frag_list_init(skb);
+ 		skb->data_len = first_len - skb_headlen(skb);
+-		skb->truesize -= truesizes;
+ 		skb->len = first_len;
+ 		iph->tot_len = htons(first_len);
+ 		iph->frag_off = htons(IP_MF);
+@@ -576,6 +574,15 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 		}
+ 		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
+ 		return err;
 +
- 	if (mode >= IWL_MAX_FORCE_RESET) {
- 		IWL_DEBUG_INFO(priv, "invalid reset request.\n");
- 		return -EINVAL;
-diff --git a/net/wireless/wext-priv.c b/net/wireless/wext-priv.c
-index 3feb28e..674d426 100644
---- a/net/wireless/wext-priv.c
-+++ b/net/wireless/wext-priv.c
-@@ -152,7 +152,7 @@ static int ioctl_private_iw_point(struct iw_point *iwp, unsigned int cmd,
- 	} else if (!iwp->pointer)
- 		return -EFAULT;
++slow_path_clean:
++		skb_walk_frags(skb, frag2) {
++			if (frag2 == frag)
++				break;
++			frag2->sk = NULL;
++			frag2->destructor = NULL;
++			skb->truesize += frag2->truesize;
++		}
+ 	}
  
--	extra = kmalloc(extra_size, GFP_KERNEL);
-+	extra = kzalloc(extra_size, GFP_KERNEL);
- 	if (!extra)
- 		return -ENOMEM;
+ slow_path:
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index d40b330..980912e 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -639,7 +639,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
  
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+ 	if (skb_has_frags(skb)) {
+ 		int first_len = skb_pagelen(skb);
+-		int truesizes = 0;
++		struct sk_buff *frag2;
+ 
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+@@ -651,18 +651,18 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 			if (frag->len > mtu ||
+ 			    ((frag->len & 7) && frag->next) ||
+ 			    skb_headroom(frag) < hlen)
+-			    goto slow_path;
++				goto slow_path_clean;
+ 
+ 			/* Partially cloned skb? */
+ 			if (skb_shared(frag))
+-				goto slow_path;
++				goto slow_path_clean;
+ 
+ 			BUG_ON(frag->sk);
+ 			if (skb->sk) {
+ 				frag->sk = skb->sk;
+ 				frag->destructor = sock_wfree;
+-				truesizes += frag->truesize;
+ 			}
++			skb->truesize -= frag->truesize;
+ 		}
+ 
+ 		err = 0;
+@@ -693,7 +693,6 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 
+ 		first_len = skb_pagelen(skb);
+ 		skb->data_len = first_len - skb_headlen(skb);
+-		skb->truesize -= truesizes;
+ 		skb->len = first_len;
+ 		ipv6_hdr(skb)->payload_len = htons(first_len -
+ 						   sizeof(struct ipv6hdr));
+@@ -756,6 +755,15 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 			      IPSTATS_MIB_FRAGFAILS);
+ 		dst_release(&rt->dst);
+ 		return err;
++
++slow_path_clean:
++		skb_walk_frags(skb, frag2) {
++			if (frag2 == frag)
++				break;
++			frag2->sk = NULL;
++			frag2->destructor = NULL;
++			skb->truesize += frag2->truesize;
++		}
+ 	}
+ 
+ slow_path:
