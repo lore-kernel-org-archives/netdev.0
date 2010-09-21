@@ -1,123 +1,48 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Regression, bisected: reference leak with IPSec since ~2.6.31
-Date: Tue, 21 Sep 2010 10:48:21 +0000
-Message-ID: <20100921104821.GA8986@ff.dom.local>
-References: <20100921091248.GA8424@ff.dom.local> <1285060860.2617.158.camel@edumazet-laptop> <20100921093853.GA8664@ff.dom.local> <1285062948.2617.204.camel@edumazet-laptop> <1285063657.2617.226.camel@edumazet-laptop>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: E1000E/82567LM-3: link reported up too soon
+Date: Tue, 21 Sep 2010 13:03:10 +0200
+Message-ID: <87iq1z8ikx.fsf@small.ssi.corp>
+References: <87y6awjhxv.fsf@small.ssi.corp>
+	<20100920.131839.173838219.davem@davemloft.net>
+	<87aancqf3a.fsf@small.ssi.corp>
+	<20100920.152352.193726412.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nick Bowler <nbowler@elliptictech.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: brian.haley@hp.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:47728 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753881Ab0IUKs2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 06:48:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1285063657.2617.226.camel@edumazet-laptop>
+Received: from copper.chdir.org ([88.191.97.87]:51226 "EHLO copper.chdir.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753085Ab0IULC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Sep 2010 07:02:29 -0400
+In-Reply-To: <20100920.152352.193726412.davem@davemloft.net> (David Miller's
+	message of "Mon, 20 Sep 2010 15:23:52 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 21, 2010 at 12:07:37PM +0200, Eric Dumazet wrote:
-> Le mardi 21 septembre 2010 ?? 11:55 +0200, Eric Dumazet a =E9crit :
-> > Le mardi 21 septembre 2010 ?? 09:38 +0000, Jarek Poplawski a =E9cri=
-t :
-> > > On Tue, Sep 21, 2010 at 11:21:00AM +0200, Eric Dumazet wrote:
-> >=20
-> > > I hope you're right with this.
-> > >=20
-> > > >=20
-> > > > I liked the :
-> > > >=20
-> > > > <check everything without changing state>
-> > > > if something wrong
-> > > > 	goto slow_path
-> > > > else
-> > > > 	<OK, lets do destructive things>
-> > > >=20
-> > >=20
-> > > But it's an optimization of the "unlikely" case btw. ;-)
-> > >=20
-> >=20
-> > This is a bug fix, in a complex function.
-> >=20
-> > in -next branch, we can try to be smart, adding more code in slow_p=
-ath
-> > to revert what was done in the hope fast path would be taken.
-> > And pray we dont add another bug :)
+Hi,
 
-But if you were honest about caches there is no reason to be smart
-no more. ;-)
+David Miller <davem@davemloft.net> writes:
 
-Below is your patch mostly as an example only that I didn't mean
-nothing complex (ipv4 only, not compiled).
+> From: arno@natisbad.org (Arnaud Ebalard)
+> Date: Mon, 20 Sep 2010 23:28:57 +0200
+>
+>> I added printk() to see where/if those first packets get dropped in
+>> e1000e code. I followed those first packets to e1000_xmit_frame() and
+>> don't see anything obvious happening there, i.e. they are passed to the
+>> device as expected.
+>
+> I suspect the packet is sucessfully given to the chip and the PHY simply
+> doesn't put it onto the wire for whatever reason.
 
-Jarek P.
----
+I spent additional time on it, putting printk() at various locations in
+e1000e driver code and also using driver's debug functions to see what
+could be different in the internal state when the first packet is
+delivered and when it is not. I just found nothing, so AFAICT your guess
+above is backed up by those tests. 
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 04b6989..049d61f 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -490,7 +490,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(=
-struct sk_buff *))
- 	if (skb_has_frags(skb)) {
- 		struct sk_buff *frag;
- 		int first_len =3D skb_pagelen(skb);
--		int truesizes =3D 0;
-=20
- 		if (first_len - hlen > mtu ||
- 		    ((first_len - hlen) & 7) ||
-@@ -503,18 +502,18 @@ int ip_fragment(struct sk_buff *skb, int (*output=
-)(struct sk_buff *))
- 			if (frag->len > mtu ||
- 			    ((frag->len & 7) && frag->next) ||
- 			    skb_headroom(frag) < hlen)
--			    goto slow_path;
-+			    goto slow_path_clean;
-=20
- 			/* Partially cloned skb? */
- 			if (skb_shared(frag))
--				goto slow_path;
-+				goto slow_path_clean;
-=20
- 			BUG_ON(frag->sk);
- 			if (skb->sk) {
- 				frag->sk =3D skb->sk;
- 				frag->destructor =3D sock_wfree;
-+				skb->truesize -=3D frag->truesize;
- 			}
--			truesizes +=3D frag->truesize;
- 		}
-=20
- 		/* Everything is OK. Generate! */
-@@ -524,7 +523,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(=
-struct sk_buff *))
- 		frag =3D skb_shinfo(skb)->frag_list;
- 		skb_frag_list_init(skb);
- 		skb->data_len =3D first_len - skb_headlen(skb);
--		skb->truesize -=3D truesizes;
- 		skb->len =3D first_len;
- 		iph->tot_len =3D htons(first_len);
- 		iph->frag_off =3D htons(IP_MF);
-@@ -576,6 +574,17 @@ int ip_fragment(struct sk_buff *skb, int (*output)=
-(struct sk_buff *))
- 		}
- 		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
- 		return err;
-+
-+slow_path_clean:
-+		if (skb->sk) {
-+			skb_walk_frags(skb, frag) {
-+				if (!frag->sk)
-+					break;
-+				frag->sk =3D NULL;
-+				frag->destructor =3D NULL;
-+				skb->truesize +=3D frag->truesize;
-+			}
-+		}
- 	}
-=20
- slow_path:
+I will try and summarize that for Intel ethernet drivers maintainers.
+
+Cheers,
+
+a+
