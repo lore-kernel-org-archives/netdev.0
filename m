@@ -1,134 +1,92 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Regression, bisected: reference leak with IPSec since ~2.6.31
-Date: Tue, 21 Sep 2010 12:39:46 +0000
-Message-ID: <20100921123946.GB8986@ff.dom.local>
-References: <20100921091248.GA8424@ff.dom.local> <1285060860.2617.158.camel@edumazet-laptop> <20100921093853.GA8664@ff.dom.local> <1285062948.2617.204.camel@edumazet-laptop> <1285063657.2617.226.camel@edumazet-laptop> <20100921104821.GA8986@ff.dom.local> <1285070310.2617.359.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
+Date: Tue, 21 Sep 2010 15:14:22 +0200
+Message-ID: <20100921131421.GA10439@redhat.com>
+References: <20100915112811.GB29267@redhat.com>
+ <1284970128-7343-1-git-send-email-xiaohui.xin@intel.com>
+ <20100920113643.GB23898@redhat.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D792B8CAA0F6A@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nick Bowler <nbowler@elliptictech.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:56976 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751767Ab0IUMjx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 08:39:53 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1285070310.2617.359.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D792B8CAA0F6A@shsmsx502.ccr.corp.intel.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 21, 2010 at 01:58:30PM +0200, Eric Dumazet wrote:
-> Le mardi 21 septembre 2010 ?? 10:48 +0000, Jarek Poplawski a =E9crit =
-:
->=20
-> > But if you were honest about caches there is no reason to be smart
-> > no more. ;-)
-> >=20
-> > Below is your patch mostly as an example only that I didn't mean
-> > nothing complex (ipv4 only, not compiled).
-> >=20
-> > Jarek P.
-> > ---
-> >=20
-> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> > index 04b6989..049d61f 100644
-> > --- a/net/ipv4/ip_output.c
-> > +++ b/net/ipv4/ip_output.c
-> > @@ -490,7 +490,6 @@ int ip_fragment(struct sk_buff *skb, int (*outp=
-ut)(struct sk_buff *))
-> >  	if (skb_has_frags(skb)) {
-> >  		struct sk_buff *frag;
-> >  		int first_len =3D skb_pagelen(skb);
-> > -		int truesizes =3D 0;
-> > =20
-> >  		if (first_len - hlen > mtu ||
-> >  		    ((first_len - hlen) & 7) ||
-> > @@ -503,18 +502,18 @@ int ip_fragment(struct sk_buff *skb, int (*ou=
-tput)(struct sk_buff *))
-> >  			if (frag->len > mtu ||
-> >  			    ((frag->len & 7) && frag->next) ||
-> >  			    skb_headroom(frag) < hlen)
-> > -			    goto slow_path;
-> > +			    goto slow_path_clean;
-> > =20
-> >  			/* Partially cloned skb? */
-> >  			if (skb_shared(frag))
-> > -				goto slow_path;
-> > +				goto slow_path_clean;
-> > =20
-> >  			BUG_ON(frag->sk);
-> >  			if (skb->sk) {
-> >  				frag->sk =3D skb->sk;
-> >  				frag->destructor =3D sock_wfree;
-> > +				skb->truesize -=3D frag->truesize;
-> >  			}
-> > -			truesizes +=3D frag->truesize;
-> >  		}
-> > =20
-> >  		/* Everything is OK. Generate! */
-> > @@ -524,7 +523,6 @@ int ip_fragment(struct sk_buff *skb, int (*outp=
-ut)(struct sk_buff *))
-> >  		frag =3D skb_shinfo(skb)->frag_list;
-> >  		skb_frag_list_init(skb);
-> >  		skb->data_len =3D first_len - skb_headlen(skb);
-> > -		skb->truesize -=3D truesizes;
-> >  		skb->len =3D first_len;
-> >  		iph->tot_len =3D htons(first_len);
-> >  		iph->frag_off =3D htons(IP_MF);
-> > @@ -576,6 +574,17 @@ int ip_fragment(struct sk_buff *skb, int (*out=
-put)(struct sk_buff *))
-> >  		}
-> >  		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
-> >  		return err;
-> > +
-> > +slow_path_clean:
-> > +		if (skb->sk) {
-> > +			skb_walk_frags(skb, frag) {
-> > +				if (!frag->sk)
-> > +					break;
-> > +				frag->sk =3D NULL;
-> > +				frag->destructor =3D NULL;
-> > +				skb->truesize +=3D frag->truesize;
-> > +			}
-> > +		}
-> >  	}
-> > =20
-> >  slow_path:
->=20
-> Nice try, but this adds a bug unfortunately, or if you prefer makes t=
-he
-> "BUG_ON(frag->sk);" being not fully covered.
->=20
-> If we hit slow path, and one or more frags had frag->sk set, we silen=
-tly
-> unset it, instead of a nice BUG_ON().
+On Tue, Sep 21, 2010 at 09:39:31AM +0800, Xin, Xiaohui wrote:
+> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
+> >Sent: Monday, September 20, 2010 7:37 PM
+> >To: Xin, Xiaohui
+> >Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+> >mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
+> >jdike@linux.intel.com
+> >Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
+> >
+> >On Mon, Sep 20, 2010 at 04:08:48PM +0800, xiaohui.xin@intel.com wrote:
+> >> From: Xin Xiaohui <xiaohui.xin@intel.com>
+> >>
+> >> ---
+> >> Michael,
+> >> I have move the ioctl to configure the locked memory to vhost
+> >
+> >It's ok to move this to vhost but vhost does not
+> >know how much memory is needed by the backend.
+> 
+> I think the backend here you mean is mp device.
+> Actually, the memory needed is related to vq->num to run zero-copy
+> smoothly.
+> That means mp device did not know it but vhost did.
 
-Which exactly BUG_ON() on the slow path do you mean?
+Well, this might be so if you insist on locking
+all posted buffers immediately. However, let's assume I have a
+very large ring and prepost a ton of RX buffers:
+there's no need to lock all of them directly:
 
->=20
-> If you really want to have a slow_path_clean, you should use a differ=
-ent
-> frag2 iterator :
->=20
-> slow_path_clean:
->        if (skb->sk) {
->                 skb_walk_frags(skb, frag2) {
->                        if (frag2 =3D=3D frag)
->                                break;
->                        frag2->sk =3D NULL;
->                        frag2->destructor =3D NULL;
->                        skb->truesize +=3D frag2->truesize;
->                }
->        }
->=20
-> Face it, this is too complex for net-2.6, could we just fix the bug, =
-and
-> 'optimize' later ?
+if we have buffers A and B, we can lock A, pass it
+to hardware, and when A is consumed unlock A, lock B
+and pass it to hardware.
 
-I thought it's clear I didn't intend to change anything with this
-example, but in any case I admit it: I'm 100% OK with your patch.
 
-Jarek P.
+It's not really critical. But note we can always have userspace
+tell MP device all it wants to know, after all.
+
+> And the rlimt stuff is per process, we use current pointer to set
+> and check the rlimit, the operations should be in the same process.
+
+Well no, the ring is handled from the kernel thread: we switch the mm to
+point to the owner task so copy from/to user and friends work, but you
+can't access the rlimit etc.
+
+> Now the check operations are in vhost process, as mp_recvmsg() or
+> mp_sendmsg() are called by vhost.
+
+Hmm, what do you mean by the check operations?
+send/recv are data path operations, they shouldn't
+do any checks, should they?
+
+> So set operations should be in
+> vhost process too, it's natural.
+> 
+> >So I think we'll need another ioctl in the backend
+> >to tell userspace how much memory is needed?
+> >
+> Except vhost tells it to mp device, mp did not know
+> how much memory is needed to run zero-copy smoothly.
+> Is userspace interested about the memory mp is needed?
+
+Couldn't parse this last question.
+I think userspace generally does want control over
+how much memory we'll lock. We should not just lock
+as much as we can.
+
+-- 
+MST
