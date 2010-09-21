@@ -1,49 +1,38 @@
-From: Priit Laes <plaes@plaes.org>
-Subject: Re: REGRESSION: e1000e fails to communicate in
-	2.6.36-rcx (82566DM)
-Date: Tue, 21 Sep 2010 10:26:58 +0300
-Message-ID: <1285054018.1487.28.camel@chi>
-References: <1283806304.6947.13.camel@chi>
-	<EA929A9653AAE14F841771FB1DE5A1366008739474@rrsmsx501.amr.corp.intel.com>
-	<1284112667.10960.3.camel@chi>
-	<EA929A9653AAE14F841771FB1DE5A1366008789CE3@rrsmsx501.amr.corp.intel.com>
+From: LEROY Christophe <christophe.leroy@c-s.fr>
+Subject: Dual ethernet attachment with single FEC
+Date: Tue, 21 Sep 2010 09:30:10 +0200
+Message-ID: <4C985F02.7060403@c-s.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1366008789CE3@rrsmsx501.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+To: LinuxPPC-dev <linuxppc-dev@lists.ozlabs.org>, netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-w5xoZWwga2VuYWwgcMOkZXZhbCwgUiwgMjAxMC0wOS0xMCBrZWxsIDExOjIxLCBraXJqdXRhcyBU
-YW50aWxvdiwgRW1pbCBTOgo+ID4+ID4gQWZ0ZXIgdHJ5aW5nIG91dCBuZXdlciAyLjYuMzUtcmMz
-IGtlcm5lbCwgdGhlIG5ldHdvcmsgaW50ZXJmYWNlIGZhaWxzCj4gPj4gPiB0bwo+ID4KPiA+VWhv
-aC4uIGl0IHdhcyBhIHR5cG8gXl4sIHJlYWwga2VybmVsIHZlcnNpb24gaXMgMi42LjM2LXJjMysg
-OlMKPiA+Cj4gPj4gSXMgdGhpcyBzdGlsbCBhbiBpc3N1ZSBpbiB0aGUgbGF0ZXN0IG5ldC1uZXh0
-IHB1bGw/Cj4gPlllcywgaXQgaXMgc3RpbGwgbm90IHdvcmtpbmcgKGxhdGVzdCBuZXQtbmV4dCBw
-dWxsIHdhcyBvbiA0dGggb2YgQXVnKQo+ID4KPiA+PiBBbHNvIHBsZWFzZSBwcm92aWRlIHRoZSBv
-dXRwdXQgb2YgZXRodG9vbCAtZS4KPiA+Cj4gPkF0dGFjaGVkIG91dHB1dCBmcm9tIDIuNi4zNi1y
-YzMKPiAKPiBJIHRoaW5rIHRoaXMgaXMgYSBrbm93biBpc3N1ZSBmb3IgdGhpcyBkZXZpY2UgLSB3
-ZSBoYXZlIGEgcGF0Y2ggY3VycmVudGx5IAo+IGluIHRlc3QsIGFuZCB3ZSBzaG91bGQgaGF2ZSBp
-dCBvdXQgc29vbi4KCkFueSBuZXdzIG9uIHRoZSBwYXRjaD8KCjIuNi4zNi1yYzUgaXMgYWxyZWFk
-eSBvdXQgYW5kIEkgcmVhbGx5IGRvIG5vdCB3YW50IHRvIHNlZSBpdCBnZXR0aW5nCmludG8gbWFq
-b3IgcmVsZWFzZSA6KAoKQ2hlZXJzLApQcmlpdCA6KQoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tClN0
-YXJ0IHVuY292ZXJpbmcgdGhlIG1hbnkgYWR2YW50YWdlcyBvZiB2aXJ0dWFsIGFwcGxpYW5jZXMK
-YW5kIHN0YXJ0IHVzaW5nIHRoZW0gdG8gc2ltcGxpZnkgYXBwbGljYXRpb24gZGVwbG95bWVudCBh
-bmQKYWNjZWxlcmF0ZSB5b3VyIHNoaWZ0IHRvIGNsb3VkIGNvbXB1dGluZy4KaHR0cDovL3Auc2Yu
-bmV0L3NmdS9ub3ZlbGwtc2ZkZXYyZGV2Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0
-cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlz
-dGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5l
-dCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+Hello,
+
+I have a board with 2 PHYs attached to one FEC ethernet controler on 
+powerpc.
+I want to implement some kind of main-standby attachment to LAN by 
+setting the ISOLATE bit on one on the two PHYs then monitoring the link 
+status and switch to the other PHY when the link status goes down.
+
+I see this behaviour is implemented in the sis900 driver, but it doesn't 
+use the standard PHY layer as the Freescale FEC driver does.
+
+What would be the most proper way to implement this functionality ?
+* Modify FEC driver to manage that ?
+* Implement a virtual PHY driver that would manage that ?
+* Other solution ?
+
+Best regards
+C. Leroy
