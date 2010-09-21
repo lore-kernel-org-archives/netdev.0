@@ -1,81 +1,46 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Regression, bisected: reference leak with IPSec since ~2.6.31
-Date: Tue, 21 Sep 2010 12:07:37 +0200
-Message-ID: <1285063657.2617.226.camel@edumazet-laptop>
-References: <20100921091248.GA8424@ff.dom.local>
-	 <1285060860.2617.158.camel@edumazet-laptop>
-	 <20100921093853.GA8664@ff.dom.local>
-	 <1285062948.2617.204.camel@edumazet-laptop>
+Subject: Re: [2.6.36-rc5] INET?: possible irq lock inversion dependency
+Date: Tue, 21 Sep 2010 12:13:31 +0200
+Message-ID: <1285064011.2617.238.camel@edumazet-laptop>
+References: <201006242053.IAG26562.JHQFFOMSVFtOLO@I-love.SAKURA.ne.jp>
+	 <201009072132.FHA93457.MHOJFQOOFLVStF@I-love.SAKURA.ne.jp>
+	 <201009210651.o8L6pbkP038129@www262.sakura.ne.jp>
+	 <1285055760.2617.27.camel@edumazet-laptop>
+	 <201009210910.o8L9Anaf071504@www262.sakura.ne.jp>
+	 <1285061757.2617.176.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nick Bowler <nbowler@elliptictech.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285062948.2617.204.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:53301 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752522Ab0IUKNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 06:13:35 -0400
+In-Reply-To: <1285061757.2617.176.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 21 septembre 2010 =C3=A0 11:55 +0200, Eric Dumazet a =C3=A9cri=
+Le mardi 21 septembre 2010 =C3=A0 11:36 +0200, Eric Dumazet a =C3=A9cri=
 t :
-> Le mardi 21 septembre 2010 =C3=A0 09:38 +0000, Jarek Poplawski a =C3=A9=
-crit :
-> > On Tue, Sep 21, 2010 at 11:21:00AM +0200, Eric Dumazet wrote:
->=20
-> > I hope you're right with this.
-> >=20
+> Le mardi 21 septembre 2010 =C3=A0 18:10 +0900, Tetsuo Handa a =C3=A9c=
+rit :
+> > Eric Dumazet wrote:
+> > > I would say someone calls xs_tcp_state_change() while softirqs ar=
+e not
+> > > masked.
 > > >=20
-> > > I liked the :
-> > >=20
-> > > <check everything without changing state>
-> > > if something wrong
-> > > 	goto slow_path
-> > > else
-> > > 	<OK, lets do destructive things>
-> > >=20
+> > > If its expected, then following patch is needed ?
 > >=20
-> > But it's an optimization of the "unlikely" case btw. ;-)
-> >=20
+> > After applying your patch, I got the same warning on different plac=
+e.
+> > I got this when doing "mount 127.0.0.1:/usr/src/ /mnt/".
 >=20
-> This is a bug fix, in a complex function.
->=20
-> in -next branch, we can try to be smart, adding more code in slow_pat=
-h
-> to revert what was done in the hope fast path would be taken.
-> And pray we dont add another bug :)
+> Hmm, but what are the changes in your tree ?
 >=20
 
-My initial patch was somehing like :
+(Because I dont have these lockdep splats here with 2.6.36-rc5)
 
-<loop to check everything is ok>
-  compute truesizes =3D sum (frag->truesize)
-  not modifying frag->sk/frag->destructor
 
-if problem -> goto slow_path
-else {
-	skb->truesize -=3D truesizes;
-       send(skb)
 
-	for each frag
-		set frag->sk =3D original_sk
-                set frag->destructor =3D sock_wfree
-		send(frag)
-
-Problem was if we got an error while sending skb or one frag :
-It was leaking some truesize accounting.
-(an extra loop was needed to set frag->sk/frag->destructor for remainin=
-g
-frags before freeing them)
-
-So I added the extra loop to :
-
-for each frag {
-	set frag->sk =3D skb->sk
-	set frag->destructor =3D sock_wfree
-	skb->truesize -=3D frag->truesize
-}
-
-It removed the need to compute sum(frag->truesize) in a temp variable
-(truesizes)
