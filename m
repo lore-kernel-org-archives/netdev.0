@@ -1,38 +1,57 @@
-From: LEROY Christophe <christophe.leroy@c-s.fr>
-Subject: Dual ethernet attachment with single FEC
-Date: Tue, 21 Sep 2010 09:30:10 +0200
-Message-ID: <4C985F02.7060403@c-s.fr>
+From: Meelis Roos <mroos@linux.ee>
+Subject: [PATCH] tmspci: fix tr%d in printk
+Date: Tue, 21 Sep 2010 10:19:03 +0300 (EEST)
+Message-ID: <alpine.SOC.1.00.1009211011150.28446@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-To: LinuxPPC-dev <linuxppc-dev@lists.ozlabs.org>, netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:59281 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754118Ab0IUHjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Sep 2010 03:39:06 -0400
+Received: from math.ut.ee (math.ut.ee [193.40.36.2])
+	by smtp2.it.da.ut.ee (Postfix) with ESMTP id DE4E473D699
+	for <netdev@vger.kernel.org>; Tue, 21 Sep 2010 10:19:03 +0300 (EEST)
+Received: from localhost (localhost [127.0.0.1])
+	by math.ut.ee (Postfix) with ESMTP id A8225DAF80
+	for <netdev@vger.kernel.org>; Tue, 21 Sep 2010 10:19:03 +0300 (EEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+tmspci driver uses dev->name before register_netdev() and so prints tr%d 
+in initialization messages. Fix it by using dev_info.
 
-I have a board with 2 PHYs attached to one FEC ethernet controler on 
-powerpc.
-I want to implement some kind of main-standby attachment to LAN by 
-setting the ISOLATE bit on one on the two PHYs then monitoring the link 
-status and switch to the other PHY when the link status goes down.
+Found and tested on real hardware.
 
-I see this behaviour is implemented in the sis900 driver, but it doesn't 
-use the standard PHY layer as the Freescale FEC driver does.
+Signed-off-by: Meelis Roos <mroos@linux.ee>
 
-What would be the most proper way to implement this functionality ?
-* Modify FEC driver to manage that ?
-* Implement a virtual PHY driver that would manage that ?
-* Other solution ?
-
-Best regards
-C. Leroy
+diff --git a/drivers/net/tokenring/tmspci.c b/drivers/net/tokenring/tmspci.c
+index d4c7c0c..d3e788a 100644
+--- a/drivers/net/tokenring/tmspci.c
++++ b/drivers/net/tokenring/tmspci.c
+@@ -125,18 +125,16 @@ static int __devinit tms_pci_attach(struct pci_dev *pdev, const struct pci_devic
+ 	dev->irq 	= pci_irq_line;
+ 	dev->dma	= 0;
+ 
+-	printk("%s: %s\n", dev->name, cardinfo->name);
+-	printk("%s:    IO: %#4lx  IRQ: %d\n",
+-	       dev->name, dev->base_addr, dev->irq);
++	dev_info(&pdev->dev, "%s\n", cardinfo->name);
++	dev_info(&pdev->dev, "    IO: %#4lx  IRQ: %d\n", dev->base_addr, dev->irq);
+ 		
+ 	tms_pci_read_eeprom(dev);
+ 
+-	printk("%s:    Ring Station Address: %pM\n",
+-	       dev->name, dev->dev_addr);
++	dev_info(&pdev->dev, "    Ring Station Address: %pM\n", dev->dev_addr);
+ 		
+ 	ret = tmsdev_init(dev, &pdev->dev);
+ 	if (ret) {
+-		printk("%s: unable to get memory for dev->priv.\n", dev->name);
++		dev_info(&pdev->dev, "unable to get memory for dev->priv.\n");
+ 		goto err_out_region;
+ 	}
+ 
+-- 
+Meelis Roos (mroos@linux.ee)
