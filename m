@@ -1,42 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/8] sfc and ethtool changes for 2.6.37
-Date: Tue, 21 Sep 2010 14:58:27 -0700 (PDT)
-Message-ID: <20100921.145827.112592957.davem@davemloft.net>
-References: <1285008056.2282.103.camel@achroite.uk.solarflarecom.com>
+Subject: Re: [PATCH v3] ip: fix truesize mismatch in ip fragmentation
+Date: Tue, 21 Sep 2010 15:15:34 -0700 (PDT)
+Message-ID: <20100921.151534.183050170.davem@davemloft.net>
+References: <20100921175014.GA2066@del.dom.local>
+	<1285094865.2452.2.camel@edumazet-laptop>
+	<20100921192154.GA2115@del.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50953
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752821Ab0IUV6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 17:58:07 -0400
-In-Reply-To: <1285008056.2282.103.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, nbowler@elliptictech.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net
+To: jarkao2@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100921192154.GA2115@del.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 20 Sep 2010 19:40:56 +0100
+From: Jarek Poplawski <jarkao2@gmail.com>
+Date: Tue, 21 Sep 2010 21:21:54 +0200
 
-> This series adds Ethernet-level filtering and explicit filter clearing
-> to the ethtool RX n-tuple interface, and implements it in the sfc
-> driver.
+> On Tue, Sep 21, 2010 at 08:47:45PM +0200, Eric Dumazet wrote:
+>> [PATCH v4] ip: fix truesize mismatch in ip fragmentation
+>> 
+>> Special care should be taken when slow path is hit in ip_fragment() :
+>> 
+>> When walking through frags, we transfert truesize ownership from skb to
+>> frags. Then if we hit a slow_path condition, we must undo this or risk
+>> uncharging frags->truesize twice, and in the end, having negative socket
+>> sk_wmem_alloc counter, or even freeing socket sooner than expected.
+>> 
+>> Many thanks to Nick Bowler, who provided a very clean bug report and
+>> test program.
+>> 
+>> Thanks to Jarek for reviewing my first patch and providing a V2
+>> 
+>> While Nick bisection pointed to commit 2b85a34e911 (net: No more
+>> expensive sock_hold()/sock_put() on each tx), underlying bug is older
+>> (2.6.12-rc5)
+>> 
+>> A side effect is to extend work done in commit b2722b1c3a893e
+>> (ip_fragment: also adjust skb->truesize for packets not owned by a
+>> socket) to ipv6 as well.
+>> 
+>> Reported-and-bisected-by: Nick Bowler <nbowler@elliptictech.com>
+>> Tested-by: Nick Bowler <nbowler@elliptictech.com>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> CC: Jarek Poplawski <jarkao2@gmail.com>
+>> CC: Patrick McHardy <kaber@trash.net>
 > 
-> There is a cleanup patch on the end which is preparation for the
-> following RFC patch series but is worthwhile anyway.
-> 
-> Ben Hutchings (8):
->   ethtool: Define RX n-tuple action to clear a rule
->   ethtool: Add Ethernet MAC-level filtering/steering
->   ethtool: Allocate register dump buffer with vmalloc()
->   sfc: Add filter table management
->   sfc: Implement the ethtool RX n-tuple control functions
->   sfc: Include RX IP filter table in register dump
->   sfc: Set net_device::num_rx_queues once we know the correct value
->   sfc: Clean up and correct comments on efx_monitor()
+> Looks perfect to me.
 
-All applied except patch #7 as noted in the thread for that patch.
+Great work everyone!
 
-Thanks!
+Applied, thanks.
