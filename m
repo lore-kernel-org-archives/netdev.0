@@ -1,60 +1,51 @@
-From: Kyle Moffett <kyle@moffetthome.net>
-Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
-Date: Tue, 21 Sep 2010 16:47:45 -0400
-Message-ID: <AANLkTinRM3_kBc5S3wV=_S6P8+x7A43kz0qSYbixJYnq@mail.gmail.com>
-References: <cover.1281956490.git.richard.cochran@omicron.at>
- <363bd749a38d0b785d8431e591bf54c38db4c2d7.1281956490.git.richard.cochran@omicron.at>
- <AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
- <20100817085324.GB3330@riccoc20.at.omicron.at> <1282090963.1734.97.camel@localhost>
- <20100818071942.GA4096@riccoc20.at.omicron.at> <1282176776.2865.100.camel@localhost.localdomain>
- <20100819055518.GA4084@riccoc20.at.omicron.at> <1282594125.3111.344.camel@localhost.localdomain>
- <20100827123849.GC11657@riccoc20.at.omicron.at> <1282948239.2268.155.camel@jstultz-laptop>
+From: pacman@kosh.dhis.org
+Subject: mv643xx pegasos breakage again
+Date: Tue, 21 Sep 2010 16:06:39 -0500 (GMT+5)
+Message-ID: <20100921210639.20777.qmail@kosh.dhis.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Arnd Bergmann <arnd@arndb.de>
-To: John Stultz <johnstul@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1282948239.2268.155.camel@jstultz-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from c-69-245-226-104.hsd1.in.comcast.net ([69.245.226.104]:33776
+	"HELO kosh.dhis.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754149Ab0IUVNV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 17:13:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 27, 2010 at 18:30, John Stultz <johnstul@us.ibm.com> wrote:
-> On one side, there is the view that the kernel should abstract and hide
-> the hardware details to increase app portability. And the other is that
-> the raw hardware details should be exposed, so the OS stays out of the
-> way.
->
-> Neither of these views are always right. Ideally we can come up with a
-> abstracted way to provide the hardware data needed that's generic enough
-> that applications don't have to be changed when moving between hardware
-> or configurations.
->
-> The posix clock id interface is frustrating because the flat static
-> enumeration is really limiting.
->
-> I wonder if a dynamic enumeration for posix clocks would be possibly a
-> way to go?
+Long ago, in another thread started by me,
 
-Well how about something much more straightforward:
+Lennert Buytenhek wrote:
+>Also, since the mv643xx_eth phylib conversion, it appears that the
+>PHY on the Pegasos board fails to initialise properly, and this can
+>apparently be worked around by turning the Marvell phylib driver off.
+>Are you seeing this as well?
 
-#define CLOCK_FD 0x80000000
-fd = open("/dev/clocks/some_clock_name", O_RDONLY);
-clock_gettime(CLOCK_FD | fd, &ts);
+Gabriel Paubert answered:
+>At least I experienced this problem. On the Pegasos, the generic
+>PHY driver works, the Marvell specific ones screws up (at least 
+>when connected to a 100Mb/s hub, it detects it as 1Gb). 
 
-This would provide all of the standard character-device semantics that
-everyone is accustomed to, and furthermore you could allow non-root
-users to manage specific clocks using just DAC permission bits.
+I didn't have anything to add at the time, having never actually tried the
+marvell phy driver, and I quickly forgot about the issue. But now I've put a
+2.6.35 kernel on a pegasos, and the marvell phy driver is being autoloaded.
+The above symptom appears. Previously, it was possible to have the offending
+driver harmlessly sitting in /lib/modules and as long as it wasn't loaded,
+things were OK.
 
-You'd still probably need to add a clock_adjtimex() syscall, but it
-could easily fail with EINVAL for software or per-thread clocks, but
-that seems like it would nicely abstract the hardware without forcing
-a numeric address space.
+The misdetected speed is only the first symptom. No packets are ever
+received, even after manually setting the speed.
 
-Cheers,
-Kyle Moffett
+Also during one experiment, the kernel allowed me to rmmod marvell and then
+Oopsed, which I thought was a little rude.
+
+It's still easy to work around: just don't build that driver.
+
+Since this "new" problem was hard for me to identify (the marvell phy driver
+doesn't announce itself in the kernel log, so there was no obvious sign that
+a different driver was being loaded, and I had to git bisect to figure out
+what happened between 2.6.34 and 2.6.35) I figure I should at least put my
+solution on the record. And volunteer for further testing in case someone is
+interested in digging deeper into why pegasos doesn't like marvell.ko.
+
