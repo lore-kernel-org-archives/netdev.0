@@ -1,62 +1,80 @@
-From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Subject: Re: [PATCH v3] ip: fix truesize mismatch in ip fragmentation
-Date: Tue, 21 Sep 2010 15:09:40 -0300
-Message-ID: <20100921180940.GA8754@khazad-dum.debian.net>
-References: <20100920174443.GA5515@elliptictech.com>
- <1285006844.2323.17.camel@edumazet-laptop>
- <20100920195256.GA14330@elliptictech.com>
- <1285013853.2323.148.camel@edumazet-laptop>
- <1285018272.2323.243.camel@edumazet-laptop>
- <20100921140501.GA21572@elliptictech.com>
- <1285078613.2617.503.camel@edumazet-laptop>
- <1285084705.2617.636.camel@edumazet-laptop>
- <20100921162657.GA22183@khazad-dum.debian.net>
- <1285086679.2617.672.camel@edumazet-laptop>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless-2.6 2010-09-21
+Date: Tue, 21 Sep 2010 14:26:20 -0400
+Message-ID: <20100921182620.GB2448@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nick Bowler <nbowler@elliptictech.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2.smtp.messagingengine.com ([66.111.4.26]:50388 "EHLO
-	out2.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755668Ab0IUSJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 14:09:44 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1285086679.2617.672.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Sep 2010, Eric Dumazet wrote:
-> Le mardi 21 septembre 2010 =E0 13:26 -0300, Henrique de Moraes Holsch=
-uh a
-> =E9crit :
-> > Should this be a candidate for -stable?
-> >=20
->=20
-> Yes, of course, but David wants to handle stable submissions himself.
->=20
-> I am not sure we want to bug stable team with dozens of mails while
-> polishing patches ?
+Dave,
 
-We don't.  But one often marks commits that should go to -stable using =
-a Cc:
-pseudo-header, and also includes relevant information (e.g. to which st=
-able
-kernels it should be applied to) to the commit message.
+Here are two more small fixes intended for 2.6.36.  One is a one-liner
+(kmalloc->kzalloc) that prevents a potential information leak.
+The other is a small fix that skips firmware reloads (a workaround
+for firmware problems) while a scan is in progress in order to avoid
+the stack trace cited in the commit log.
 
-Since there wasn't one, and I didn't readly find any post in this threa=
-d
-that mentioned it should also go to stable, AND it looked at first glan=
-ce
-like something that should go to stable, I asked about it.
+Please let me know if there are problems!
 
---=20
-  "One disk to rule them all, One disk to find them. One disk to bring
-  them all and in the darkness grind them. In the Land of Redmond
-  where the shadows lie." -- The Silicon Valley Tarot
-  Henrique Holschuh
+Thanks,
+
+John
+
+---
+
+The following changes since commit 3779298b81cd9a2531cec93e3beefc1acdb01382:
+
+  Merge branch 'vhost-net' of git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost (2010-09-20 11:13:34 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
+
+Johannes Berg (1):
+      wext: fix potential private ioctl memory content leak
+
+Wey-Yi Guy (1):
+      iwlwifi: do not perferm force reset while doing scan
+
+ drivers/net/wireless/iwlwifi/iwl-core.c |    5 +++++
+ net/wireless/wext-priv.c                |    2 +-
+ 2 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
+index 07dbc27..e23c406 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-core.c
++++ b/drivers/net/wireless/iwlwifi/iwl-core.c
+@@ -2613,6 +2613,11 @@ int iwl_force_reset(struct iwl_priv *priv, int mode, bool external)
+ 	if (test_bit(STATUS_EXIT_PENDING, &priv->status))
+ 		return -EINVAL;
+ 
++	if (test_bit(STATUS_SCANNING, &priv->status)) {
++		IWL_DEBUG_INFO(priv, "scan in progress.\n");
++		return -EINVAL;
++	}
++
+ 	if (mode >= IWL_MAX_FORCE_RESET) {
+ 		IWL_DEBUG_INFO(priv, "invalid reset request.\n");
+ 		return -EINVAL;
+diff --git a/net/wireless/wext-priv.c b/net/wireless/wext-priv.c
+index 3feb28e..674d426 100644
+--- a/net/wireless/wext-priv.c
++++ b/net/wireless/wext-priv.c
+@@ -152,7 +152,7 @@ static int ioctl_private_iw_point(struct iw_point *iwp, unsigned int cmd,
+ 	} else if (!iwp->pointer)
+ 		return -EFAULT;
+ 
+-	extra = kmalloc(extra_size, GFP_KERNEL);
++	extra = kzalloc(extra_size, GFP_KERNEL);
+ 	if (!extra)
+ 		return -ENOMEM;
+ 
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
