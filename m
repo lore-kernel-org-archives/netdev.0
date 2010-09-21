@@ -1,122 +1,173 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 5/5] dccp ccid-3: Remove redundant 'options_received' struct
-Date: Tue, 21 Sep 2010 12:28:58 +0200
-Message-ID: <1285064938-5933-6-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/5] dccp: Add packet type information to CCID-specific option parsing
+Date: Tue, 21 Sep 2010 12:28:54 +0200
+Message-ID: <1285064938-5933-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <miscellaneous_dccp_ccid_fixes>
  <1285064938-5933-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1285064938-5933-2-git-send-email-gerrit@erg.abdn.ac.uk>
- <1285064938-5933-3-git-send-email-gerrit@erg.abdn.ac.uk>
- <1285064938-5933-4-git-send-email-gerrit@erg.abdn.ac.uk>
- <1285064938-5933-5-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64858 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757434Ab0IUK3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Sep 2010 06:29:18 -0400
-In-Reply-To: <1285064938-5933-5-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1757481Ab0IUK3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Sep 2010 06:29:24 -0400
+In-Reply-To: <1285064938-5933-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The `options_received' struct is redundant, since it re-duplicates the existing
-`p' and `x_recv' fields. This patch removes the sub-struct and migrates the
-format conversion operations to ccid3_hc_tx_parse_options().
+This
+ 1. adds packet type information to ccid_hc_{rx,tx}_parse_options(). This is
+    necessary, since table 3 in RFC 4340, 5.8 leaves it to the CCIDs to state
+    which options may (not) appear on what packet type.
+
+ 2. adds such a check for CCID-3's {Loss Event, Receive} Rate as specified in
+    RFC 4340 8.3 ("Receive Rate options MUST NOT be sent on DCCP-Data packets")
+    and 8.5 ("Loss Event Rate options MUST NOT be sent on DCCP-Data packets").
+
+ 3. removes an unused argument `idx' from ccid_hc_{rx,tx}_parse_options(). This
+    is also no longer necessary, since the CCID-specific option-parsing routines
+    are passed every single parameter of the type-length-value option encoding.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/ccids/ccid3.h |    7 -------
- net/dccp/ccids/ccid3.c |   24 ++++++++----------------
- 2 files changed, 8 insertions(+), 23 deletions(-)
+ net/dccp/ccid.h        |   46 +++++++++++++++++++++++-----------------------
+ net/dccp/ccids/ccid3.c |   14 ++++++++------
+ net/dccp/options.c     |   16 ++++------------
+ 3 files changed, 35 insertions(+), 41 deletions(-)
 
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -62,18 +62,14 @@ struct ccid_operations {
+ 	void		(*ccid_hc_tx_exit)(struct sock *sk);
+ 	void		(*ccid_hc_rx_packet_recv)(struct sock *sk,
+ 						  struct sk_buff *skb);
+-	int		(*ccid_hc_rx_parse_options)(struct sock *sk,
+-						    unsigned char option,
+-						    unsigned char len, u16 idx,
+-						    unsigned char* value);
++	int		(*ccid_hc_rx_parse_options)(struct sock *sk, u8 pkt,
++						    u8 opt, u8 *val, u8 len);
+ 	int		(*ccid_hc_rx_insert_options)(struct sock *sk,
+ 						     struct sk_buff *skb);
+ 	void		(*ccid_hc_tx_packet_recv)(struct sock *sk,
+ 						  struct sk_buff *skb);
+-	int		(*ccid_hc_tx_parse_options)(struct sock *sk,
+-						    unsigned char option,
+-						    unsigned char len, u16 idx,
+-						    unsigned char* value);
++	int		(*ccid_hc_tx_parse_options)(struct sock *sk, u8 pkt,
++						    u8 opt, u8 *val, u8 len);
+ 	int		(*ccid_hc_tx_send_packet)(struct sock *sk,
+ 						  struct sk_buff *skb);
+ 	void		(*ccid_hc_tx_packet_sent)(struct sock *sk,
+@@ -168,27 +164,31 @@ static inline void ccid_hc_tx_packet_recv(struct ccid *ccid, struct sock *sk,
+ 		ccid->ccid_ops->ccid_hc_tx_packet_recv(sk, skb);
+ }
+ 
++/**
++ * ccid_hc_tx_parse_options  -  Parse CCID-specific options sent by the receiver
++ * @pkt: type of packet that @opt appears on (RFC 4340, 5.1)
++ * @opt: the CCID-specific option type (RFC 4340, 5.8 and 10.3)
++ * @val: value of @opt
++ * @len: length of @val in bytes
++ */
+ static inline int ccid_hc_tx_parse_options(struct ccid *ccid, struct sock *sk,
+-					   unsigned char option,
+-					   unsigned char len, u16 idx,
+-					   unsigned char* value)
++					   u8 pkt, u8 opt, u8 *val, u8 len)
+ {
+-	int rc = 0;
+-	if (ccid->ccid_ops->ccid_hc_tx_parse_options != NULL)
+-		rc = ccid->ccid_ops->ccid_hc_tx_parse_options(sk, option, len, idx,
+-						    value);
+-	return rc;
++	if (ccid->ccid_ops->ccid_hc_tx_parse_options == NULL)
++		return 0;
++	return ccid->ccid_ops->ccid_hc_tx_parse_options(sk, pkt, opt, val, len);
+ }
+ 
++/**
++ * ccid_hc_rx_parse_options  -  Parse CCID-specific options sent by the sender
++ * Arguments are analogous to ccid_hc_tx_parse_options()
++ */
+ static inline int ccid_hc_rx_parse_options(struct ccid *ccid, struct sock *sk,
+-					   unsigned char option,
+-					   unsigned char len, u16 idx,
+-					   unsigned char* value)
++					   u8 pkt, u8 opt, u8 *val, u8 len)
+ {
+-	int rc = 0;
+-	if (ccid->ccid_ops->ccid_hc_rx_parse_options != NULL)
+-		rc = ccid->ccid_ops->ccid_hc_rx_parse_options(sk, option, len, idx, value);
+-	return rc;
++	if (ccid->ccid_ops->ccid_hc_rx_parse_options == NULL)
++		return 0;
++	return ccid->ccid_ops->ccid_hc_rx_parse_options(sk, pkt, opt, val, len);
+ }
+ 
+ static inline int ccid_hc_rx_insert_options(struct ccid *ccid, struct sock *sk,
 --- a/net/dccp/ccids/ccid3.c
 +++ b/net/dccp/ccids/ccid3.c
-@@ -365,11 +365,10 @@ static void ccid3_hc_tx_packet_sent(struct sock *sk, int more,
- static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
+@@ -481,9 +481,8 @@ done_computing_x:
+ 			   jiffies + usecs_to_jiffies(t_nfb));
+ }
+ 
+-static int ccid3_hc_tx_parse_options(struct sock *sk, unsigned char option,
+-				     unsigned char len, u16 idx,
+-				     unsigned char *value)
++static int ccid3_hc_tx_parse_options(struct sock *sk, u8 packet_type,
++				     u8 option, u8 *optval, u8 optlen)
  {
  	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
--	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
- 	struct tfrc_tx_hist_entry *acked;
- 	ktime_t now;
- 	unsigned long t_nfb;
--	u32 pinv, r_sample;
-+	u32 r_sample;
- 
- 	/* we are only interested in ACKs */
- 	if (!(DCCP_SKB_CB(skb)->dccpd_type == DCCP_PKT_ACK ||
-@@ -394,17 +393,6 @@ static void ccid3_hc_tx_packet_recv(struct sock *sk, struct sk_buff *skb)
- 	r_sample  = dccp_sample_rtt(sk, ktime_us_delta(now, acked->stamp));
- 	hc->tx_rtt = tfrc_ewma(hc->tx_rtt, r_sample, 9);
- 
--	/* Update receive rate in units of 64 * bytes/second */
--	hc->tx_x_recv = opt_recv->ccid3or_receive_rate;
--	hc->tx_x_recv <<= 6;
--
--	/* Update loss event rate (which is scaled by 1e6) */
--	pinv = opt_recv->ccid3or_loss_event_rate;
--	if (pinv == 0)
--		hc->tx_p = 0;
--	else
--		hc->tx_p = tfrc_invert_loss_event_rate(pinv);
--
- 	/*
- 	 * Update allowed sending rate X as per draft rfc3448bis-00, 4.2/3
- 	 */
-@@ -476,7 +464,6 @@ static int ccid3_hc_tx_parse_options(struct sock *sk, u8 packet_type,
- 				     u8 option, u8 *optval, u8 optlen)
- {
- 	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
--	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
- 	__be32 opt_val;
- 
+ 	struct ccid3_options_received *opt_recv = &hc->tx_options_received;
+@@ -492,12 +491,15 @@ static int ccid3_hc_tx_parse_options(struct sock *sk, unsigned char option,
  	switch (option) {
-@@ -493,11 +480,16 @@ static int ccid3_hc_tx_parse_options(struct sock *sk, u8 packet_type,
- 		opt_val = ntohl(get_unaligned((__be32 *)optval));
+ 	case TFRC_OPT_RECEIVE_RATE:
+ 	case TFRC_OPT_LOSS_EVENT_RATE:
+-		if (unlikely(len != 4)) {
++		/* Must be ignored on Data packets, cf. RFC 4342 8.3 and 8.5 */
++		if (packet_type == DCCP_PKT_DATA)
++			break;
++		if (unlikely(optlen != 4)) {
+ 			DCCP_WARN("%s(%p), invalid len %d for %u\n",
+-				  dccp_role(sk), sk, len, option);
++				  dccp_role(sk), sk, optlen, option);
+ 			return -EINVAL;
+ 		}
+-		opt_val = ntohl(get_unaligned((__be32 *)value));
++		opt_val = ntohl(get_unaligned((__be32 *)optval));
  
  		if (option == TFRC_OPT_RECEIVE_RATE) {
--			opt_recv->ccid3or_receive_rate = opt_val;
-+			/* Receive Rate is kept in units of 64 bytes/second */
-+			hc->tx_x_recv = opt_val;
-+			hc->tx_x_recv <<= 6;
-+
- 			ccid3_pr_debug("%s(%p), RECEIVE_RATE=%u\n",
- 				       dccp_role(sk), sk, opt_val);
- 		} else {
--			opt_recv->ccid3or_loss_event_rate = opt_val;
-+			/* Update the fixpoint Loss Event Rate fraction */
-+			hc->tx_p = tfrc_invert_loss_event_rate(opt_val);
-+
- 			ccid3_pr_debug("%s(%p), LOSS_EVENT_RATE=%u\n",
- 				       dccp_role(sk), sk, opt_val);
- 		}
---- a/net/dccp/ccids/ccid3.h
-+++ b/net/dccp/ccids/ccid3.h
-@@ -67,11 +67,6 @@ enum ccid3_options {
- 	TFRC_OPT_RECEIVE_RATE	 = 194,
- };
- 
--struct ccid3_options_received {
--	u32 ccid3or_loss_event_rate;
--	u32 ccid3or_receive_rate;
--};
+ 			opt_recv->ccid3or_receive_rate = opt_val;
+--- a/net/dccp/options.c
++++ b/net/dccp/options.c
+@@ -226,23 +226,15 @@ int dccp_parse_options(struct sock *sk, struct dccp_request_sock *dreq,
+ 			dccp_pr_debug("%s rx opt: ELAPSED_TIME=%d\n",
+ 				      dccp_role(sk), elapsed_time);
+ 			break;
+-		case 128 ... 191: {
+-			const u16 idx = value - options;
 -
- /* TFRC sender states */
- enum ccid3_hc_tx_states {
- 	TFRC_SSTATE_NO_SENT = 1,
-@@ -97,7 +92,6 @@ enum ccid3_hc_tx_states {
-  * @tx_t_ld:		  Time last doubled during slow start
-  * @tx_t_nom:		  Nominal send time of next packet
-  * @tx_hist:		  Packet history
-- * @tx_options_received:  Parsed set of retrieved options
-  */
- struct ccid3_hc_tx_sock {
- 	u64				tx_x;
-@@ -115,7 +109,6 @@ struct ccid3_hc_tx_sock {
- 	ktime_t				tx_t_ld;
- 	ktime_t				tx_t_nom;
- 	struct tfrc_tx_hist_entry	*tx_hist;
--	struct ccid3_options_received	tx_options_received;
- };
- 
- static inline struct ccid3_hc_tx_sock *ccid3_hc_tx_sk(const struct sock *sk)
++		case 128 ... 191:
+ 			if (ccid_hc_rx_parse_options(dp->dccps_hc_rx_ccid, sk,
+-						     opt, len, idx,
+-						     value) != 0)
++						     pkt_type, opt, value, len))
+ 				goto out_invalid_option;
+-		}
+ 			break;
+-		case 192 ... 255: {
+-			const u16 idx = value - options;
+-
++		case 192 ... 255:
+ 			if (ccid_hc_tx_parse_options(dp->dccps_hc_tx_ccid, sk,
+-						     opt, len, idx,
+-						     value) != 0)
++						     pkt_type, opt, value, len))
+ 				goto out_invalid_option;
+-		}
+ 			break;
+ 		default:
+ 			DCCP_CRIT("DCCP(%p): option %d(len=%d) not "
