@@ -1,47 +1,47 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v5 2/2] netfilter: save the hash of the tuple in the
- original direction for latter use
-Date: Tue, 21 Sep 2010 08:02:43 +0800
-Message-ID: <AANLkTi=NXj9PjYA06+UFYms8q5K3Z4DsPMcpVHpj7Gmq@mail.gmail.com>
-References: <1282344540-5306-1-git-send-email-xiaosuo@gmail.com>
- <4C91B6BE.8020300@trash.net> <AANLkTikZeFrS9pj6jxmOxqY6dsaAf1U+FAXe5jNwQ-nV@mail.gmail.com>
- <4C979515.4060908@trash.net>
+Subject: Re: [PATCH] xmit_compl_seq: information to reclaim vmsplice buffers
+Date: Tue, 21 Sep 2010 08:14:01 +0800
+Message-ID: <AANLkTint-pWd2vBsHHcc_i77V20GOrHwLo32b_=GX2EO@mail.gmail.com>
+References: <alpine.DEB.1.00.1009191451090.5120@pokey.mtv.corp.google.com>
+ <AANLkTinyZxF4ep7tv_uSpcPD8gfNoddX6G7p+ZuA2ze9@mail.gmail.com> <AANLkTi=53F3O511Uq83dP75brGkJMgN_-OR9W0VJS1p-@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4C979515.4060908@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sridharr@google.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:58779 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755369Ab0IUAWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Sep 2010 20:22:31 -0400
+Received: by wyf22 with SMTP id 22so4902188wyf.19
+        for <netdev@vger.kernel.org>; Mon, 20 Sep 2010 17:22:30 -0700 (PDT)
+In-Reply-To: <AANLkTi=53F3O511Uq83dP75brGkJMgN_-OR9W0VJS1p-@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 21, 2010 at 1:08 AM, Patrick McHardy <kaber@trash.net> wrote:
+On Tue, Sep 21, 2010 at 1:50 AM, Tom Herbert <therbert@google.com> wrote:
 >
-> Sure we can, dropping unconfirmed conntracks is a rare exception,
-> not a common case. Even under DoS we usually drop *unassured*
-> conntracks, which have already enterered the hash. If we're unable
-> to do that, we won't even allocate a new conntrack.
->
+>>
+>> > On the server side it works well if there are a sufficient
+>> > number of requests coming on the connection (resorting to the
+>> > timeout if necessary as described above).
+>>
+>> If no response is sent out by the client, the timeout mechanism may
+>> slow down the data transfer.
+>>
+> Why would that slow down a transfer?
 
-Even so, saving the hash of the reply tuple isn't a good idea.
 
-If NAT is turned on, the current code is:
+vmsplice(sock, page).
+epoll(sock.read_event, timeo);
+/* time out */
+if_the_page_is_available.
+  reclaim_page_and_send_the_next_data.
 
-mangle the reply tuple -> compute the hash of the reply tuple ->
-insert into the conntrack hash table.
+The page maybe available before timeout, and you may not send the next
+data in time.
 
-the new code is
 
-compute the hash of the reply tuple -> mangle the reply tuple ->
-recompute the hash of the reply tuple -> insert into the conntrack
-hash table.
-
-As you see, the hash computing is done twice, and we use more CPU
-cycles than before.
 
 -- 
 Regards,
