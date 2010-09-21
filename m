@@ -1,45 +1,31 @@
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: Re: Possible regression with skb_clone() in 2.6.36
-Date: Tue, 21 Sep 2010 01:10:39 -0300
-Message-ID: <20100921041039.GA8978@vigoh>
-References: <1283209824-8795-1-git-send-email-padovan@profusion.mobi>
- <20100917153440.474b93e4.akpm@linux-foundation.org>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] iputils ping,ping6: use monotonic clock to schedule pings
+Date: Tue, 21 Sep 2010 14:40:28 +0900
+Message-ID: <4C98454C.6000602@linux-ipv6.org>
+References: <alpine.DEB.1.10.1009051453090.13886@red.crap.retrofitta.se> <4C839797.50607@computer.org> <alpine.DEB.1.10.1009051521120.13886@red.crap.retrofitta.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20100917153440.474b93e4.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Jan Ceuleers <jan.ceuleers@computer.org>, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Thomas Habets <thomas@habets.pp.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:55781 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752146Ab0IUFlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 01:41:07 -0400
+In-Reply-To: <alpine.DEB.1.10.1009051521120.13886@red.crap.retrofitta.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> [2010-09-17 15:34:40 -0700]:
+Hello
 
-> On Mon, 30 Aug 2010 20:10:23 -0300
-> "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org> wrote:
+(2010/09/05 22:25), Thomas Habets wrote:
+> This fixes the problem where when time is set backwards 'ping' appears
+> to freeze until the walltime catches up with the previously set time.
 > 
-> > I've been experiencing some problems when running the L2CAP Streaming mode in
-> > 2.6.36. The system quickly runs in an Out Of Memory condition and crash. That
-> > wasn't happening before, so I think we may have a regression here (I didn't find
-> > where yet). The crash log is below.
-> 
-> So 2.6.35 was OK?
-> 
-> > The following patch does not fix the regression, but shows that removing the
-> > skb_clone() call from l2cap_streaming_send() makes the problem goes away. The
-> > patch is good anyway since it saves memory and time when sending Streaming mode
-> > packets.
-> 
-> How does "make it go away" differ from "fix the regression" :)
-> 
-> But yes, if we don't understand the source of the bug then it may well
-> still be there.  Did you make any progress in understanding the cause?
+> Adds dependency on librt.
 
-I did some progress and found that this really fix the bug. We are fine
-here then. :)
+Why don't we convert most (if not all) gettimeofday(), then?
 
--- 
-Gustavo F. Padovan
-ProFUSION embedded systems - http://profusion.mobi
+--yoshfuji
