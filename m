@@ -1,135 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ip : fix truesize mismatch in ip fragmentation
-Date: Tue, 21 Sep 2010 16:16:53 +0200
-Message-ID: <1285078613.2617.503.camel@edumazet-laptop>
-References: <20100920174443.GA5515@elliptictech.com>
-	 <1285006844.2323.17.camel@edumazet-laptop>
-	 <20100920195256.GA14330@elliptictech.com>
-	 <1285013853.2323.148.camel@edumazet-laptop>
-	 <1285018272.2323.243.camel@edumazet-laptop>
-	 <20100921140501.GA21572@elliptictech.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] net/sched/sch_hfsc.c: initialize parent's cl_cfmin properly
+ in init_vf()
+Date: Tue, 21 Sep 2010 17:00:46 +0200
+Message-ID: <4C98C89E.6080103@trash.net>
+References: <8100ed4475ac7a301a3d69611e97d510ea498c5d.1283197803.git.soltys@ziu.info>	<20100901.143038.170100274.davem@davemloft.net>	<4C910869.1050800@trash.net> <20100917.164127.09754402.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Nick Bowler <nbowler@elliptictech.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100921140501.GA21572@elliptictech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: soltys@ziu.info, denys@visp.net.lb, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:38746 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756195Ab0IUPAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 11:00:48 -0400
+In-Reply-To: <20100917.164127.09754402.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 21 septembre 2010 =C3=A0 10:05 -0400, Nick Bowler a =C3=A9crit=
- :
+Am 18.09.2010 01:41, schrieb David Miller:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Wed, 15 Sep 2010 19:54:49 +0200
+> 
+>> Am 01.09.2010 23:30, schrieb David Miller:
+>>> From: Michal Soltys <soltys@ziu.info>
+>>> Date: Mon, 30 Aug 2010 23:34:10 +0200
+>>>
+>>>> This patch fixes init_vf() function, so on each new backlog period parent's
+>>>> cl_cfmin is properly updated (including further propgation towards the root),
+>>>> even if the activated leaf has no upperlimit curve defined.
+>>>>
+>>>> Signed-off-by: Michal Soltys <soltys@ziu.info>
+>>>
+>>> Applied, thanks.
+>>
+>> For the record, the patch seems fine to me. The root cause seems to be
+>> an optimization I introduced (pre-git, even history.git unfortunately)
+>> in vttree_get_minvt() that wasn't present in the original version:
+>>
+>> static struct hfsc_class *
+>> vttree_get_minvt(struct hfsc_class *cl, u64 cur_time)
+>> {
+>>         /* if root-class's cfmin is bigger than cur_time nothing to do */
+>>         if (cl->cl_cfmin > cur_time)
+>>                 return NULL;
+> 
+> Actually, the HFSC scheduler was added with this test present.
+> The function had a different name, actlist_get_minvt(), at the
+> time.  See commit:
+> 
+> commit 6e22ce74ea0666a869ce82f418ce78b5be089fb4
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Wed Jan 28 20:15:03 2004 -0800
+> 
+>     [NET_SCHED]: Add HFSC packet scheduler.
+> 
+> in the history-2.6 GIT tree.
 
-> This hunk introduces some whitespace damage.
->=20
-> Anyway, I tried this with ESP on both IPv4 and IPv6 and it appears to
-> correct the issue.  Thanks!
->=20
-
-Indeed good catch.
-
-Here is an updated patch, I added your Tested-by
-
-Thanks for testing !
-
-[PATCH] ip : fix truesize mismatch in ip fragmentation
-
-We should not set frag->destructor to sock_wkfree() until we are sure w=
-e
-dont hit slow path in ip_fragment(). Or we risk uncharging
-frag->truesize twice, and in the end, having negative socket
-sk_wmem_alloc counter, or even freeing socket sooner than expected.
-
-Many thanks to Nick Bowler, who provided a very clean bug report and
-test program.
-
-While Nick bisection pointed to commit 2b85a34e911bf483 (net: No more
-expensive sock_hold()/sock_put() on each tx), underlying bug is older.
-
-Reported-and-bisected-by: Nick Bowler <nbowler@elliptictech.com>
-Tested-by: Nick Bowler <nbowler@elliptictech.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/ip_output.c  |    8 ++++----
- net/ipv6/ip6_output.c |    8 ++++----
- 2 files changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 04b6989..126d9b3 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -490,7 +490,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(=
-struct sk_buff *))
- 	if (skb_has_frags(skb)) {
- 		struct sk_buff *frag;
- 		int first_len =3D skb_pagelen(skb);
--		int truesizes =3D 0;
-=20
- 		if (first_len - hlen > mtu ||
- 		    ((first_len - hlen) & 7) ||
-@@ -510,11 +509,13 @@ int ip_fragment(struct sk_buff *skb, int (*output=
-)(struct sk_buff *))
- 				goto slow_path;
-=20
- 			BUG_ON(frag->sk);
--			if (skb->sk) {
-+		}
-+		if (skb->sk) {
-+			skb_walk_frags(skb, frag) {
- 				frag->sk =3D skb->sk;
- 				frag->destructor =3D sock_wfree;
-+				skb->truesize -=3D frag->truesize;
- 			}
--			truesizes +=3D frag->truesize;
- 		}
-=20
- 		/* Everything is OK. Generate! */
-@@ -524,7 +525,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(=
-struct sk_buff *))
- 		frag =3D skb_shinfo(skb)->frag_list;
- 		skb_frag_list_init(skb);
- 		skb->data_len =3D first_len - skb_headlen(skb);
--		skb->truesize -=3D truesizes;
- 		skb->len =3D first_len;
- 		iph->tot_len =3D htons(first_len);
- 		iph->frag_off =3D htons(IP_MF);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d40b330..633217d 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -639,7 +639,6 @@ static int ip6_fragment(struct sk_buff *skb, int (*=
-output)(struct sk_buff *))
-=20
- 	if (skb_has_frags(skb)) {
- 		int first_len =3D skb_pagelen(skb);
--		int truesizes =3D 0;
-=20
- 		if (first_len - hlen > mtu ||
- 		    ((first_len - hlen) & 7) ||
-@@ -658,10 +657,12 @@ static int ip6_fragment(struct sk_buff *skb, int =
-(*output)(struct sk_buff *))
- 				goto slow_path;
-=20
- 			BUG_ON(frag->sk);
--			if (skb->sk) {
-+		}
-+		if (skb->sk) {
-+			skb_walk_frags(skb, frag) {
- 				frag->sk =3D skb->sk;
- 				frag->destructor =3D sock_wfree;
--				truesizes +=3D frag->truesize;
-+				skb->truesize -=3D frag->truesize;
- 			}
- 		}
-=20
-@@ -693,7 +694,6 @@ static int ip6_fragment(struct sk_buff *skb, int (*=
-output)(struct sk_buff *))
-=20
- 		first_len =3D skb_pagelen(skb);
- 		skb->data_len =3D first_len - skb_headlen(skb);
--		skb->truesize -=3D truesizes;
- 		skb->len =3D first_len;
- 		ipv6_hdr(skb)->payload_len =3D htons(first_len -
- 						   sizeof(struct ipv6hdr));
+Indeed, what I meant to say was that I made this optimization
+before HFSC was added to BitKeeper, so there's no changelog
+present for this particular optimization.
