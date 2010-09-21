@@ -1,56 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ip: fix truesize mismatch in ip fragmentation
-Date: Tue, 21 Sep 2010 15:15:34 -0700 (PDT)
-Message-ID: <20100921.151534.183050170.davem@davemloft.net>
-References: <20100921175014.GA2066@del.dom.local>
-	<1285094865.2452.2.camel@edumazet-laptop>
-	<20100921192154.GA2115@del.dom.local>
+Subject: Re: net-next-2.6 [PATCH 0/5] dccp: miscellaneous CCID fixes and
+ clean-up
+Date: Tue, 21 Sep 2010 16:03:47 -0700 (PDT)
+Message-ID: <20100921.160347.193718359.davem@davemloft.net>
+References: <miscellaneous_dccp_ccid_fixes>
+	<1285064938-5933-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, nbowler@elliptictech.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net
-To: jarkao2@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100921192154.GA2115@del.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45311
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751484Ab0IUXD2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 19:03:28 -0400
+In-Reply-To: <1285064938-5933-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Tue, 21 Sep 2010 21:21:54 +0200
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Tue, 21 Sep 2010 12:28:53 +0200
 
-> On Tue, Sep 21, 2010 at 08:47:45PM +0200, Eric Dumazet wrote:
->> [PATCH v4] ip: fix truesize mismatch in ip fragmentation
->> 
->> Special care should be taken when slow path is hit in ip_fragment() :
->> 
->> When walking through frags, we transfert truesize ownership from skb to
->> frags. Then if we hit a slow_path condition, we must undo this or risk
->> uncharging frags->truesize twice, and in the end, having negative socket
->> sk_wmem_alloc counter, or even freeing socket sooner than expected.
->> 
->> Many thanks to Nick Bowler, who provided a very clean bug report and
->> test program.
->> 
->> Thanks to Jarek for reviewing my first patch and providing a V2
->> 
->> While Nick bisection pointed to commit 2b85a34e911 (net: No more
->> expensive sock_hold()/sock_put() on each tx), underlying bug is older
->> (2.6.12-rc5)
->> 
->> A side effect is to extend work done in commit b2722b1c3a893e
->> (ip_fragment: also adjust skb->truesize for packets not owned by a
->> socket) to ipv6 as well.
->> 
->> Reported-and-bisected-by: Nick Bowler <nbowler@elliptictech.com>
->> Tested-by: Nick Bowler <nbowler@elliptictech.com>
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->> CC: Jarek Poplawski <jarkao2@gmail.com>
->> CC: Patrick McHardy <kaber@trash.net>
+> please find attached a tested set of 2 + 3 cleanup patches; 
+>  * the first two affect the DCCP CCID interface in general,
+>  * the last three conclude the first set of CCID-3 patches.
 > 
-> Looks perfect to me.
+>  Patch #1: allows the CCID option-parsing routines to see the packet type.
+>  Patch #2: replaces magic CCID-specific numbers with symbolic constants.
+>  Patch #3: removes a redundant CCID-3 state (thanks to Leandro Sales de Melo).
+>  Patch #4: fixes several issues in computing the CCID-3 loss rate.
+>  Patch #5: removes redundant CCID-3 TX 'options_received' struct.
+> 
+> The set has also been placed into a fresh (today's) copy of net-next-2.6, on
+> 
+>     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
+> 
+> All patches have been tested and compile independently.    
 
-Great work everyone!
-
-Applied, thanks.
+All looks good, pulled, thanks Gerrit!
