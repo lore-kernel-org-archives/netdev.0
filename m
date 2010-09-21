@@ -1,45 +1,53 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH RESEND 2/3] netfilter: xt_condition: change the value
- from boolean to u32
-Date: Tue, 21 Sep 2010 23:00:50 +0300
-Message-ID: <1285099250.10579.18.camel@powerslave>
-References: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com>
-	 <1282034213-1829-3-git-send-email-luciano.coelho@nokia.com>
-	 <4C912F84.9030809@trash.net>
-	 <alpine.LNX.2.01.1009152246180.5146@obet.zrqbmnf.qr>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: Remaining BKL users, what to do
+Date: Tue, 21 Sep 2010 22:01:37 +0200
+Message-ID: <201009212201.37372.arnd@arndb.de>
+References: <ead83d0d-e0ae-456d-8702-16ed8d3a179a@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"sameo@linux.intel.com" <sameo@linux.intel.com>,
-	"Ylalehto Janne (Nokia-MS/Tampere)" <janne.ylalehto@nokia.com>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1009152246180.5146@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Anton Altaparmakov <aia21@cam.ac.uk>, Jan Kara <jack@suse.cz>,
+	codalist@coda.cs.cmu.edu, autofs@linux.kernel.org,
+	linux-media@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	Christoph Hellwig <hch@infradead.org>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Anders Larsen <al@alarsen.net>,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Andrew Hendry <andrew.hendry@gmail.com>
+To: Petr Vandrovec <vandrove@vc.cvut.cz>
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <ead83d0d-e0ae-456d-8702-16ed8d3a179a@email.android.com>
+Sender: linux-media-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-09-15 at 22:46 +0200, ext Jan Engelhardt wrote:
-> On Wednesday 2010-09-15 22:41, Patrick McHardy wrote:
+On Saturday 18 September 2010 01:21:41 Petr Vandrovec wrote:
 > 
-> >Am 17.08.2010 10:36, schrieb Luciano Coelho:
-> >>  static struct xt_match condition_mt_reg __read_mostly = {
-> >>  	.name       = "condition",
-> >> -	.revision   = 1,
-> >> +	.revision   = 2,
-> >
-> >Is this previous version actually compatible with anything that has
-> >ever been released?
-> 
-> Yes, rev1 is used by Xtables-addons.
+> I'll try to come up with something for ncpfs.
 
-Indeed.  It was Jan who recommended this to be changed to 2 to avoid
-conflict with Xtables-addons.
+Ok, good.
 
+> Trivial lock replacement will open deadlock possibility when
+> someone reads to page which is also mmaped from the same 
+> filesystem (like grep likes to do). BKL with its automated
+> release on sleep helped (or papered over) a lot here.
 
--- 
-Cheers,
-Luca.
+Right, I was more or less expecting something like this.
+So I guess this is some AB-BA deadlock with another mutex
+or a call to flush_scheduled_work that is currently done
+under the BKL?
 
+There is still the possibility of just working around those
+by adding explicit mutex_unlock() calls around those, which
+is what I initially did in the tty subsystem. The better
+long-term approach would obviously be to understand all of
+the data structures that actually need locking and only
+lock the actual accesses, but that may be more work than
+you are willing to spend on it.
+
+	Arnd
