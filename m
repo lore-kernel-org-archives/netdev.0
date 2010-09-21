@@ -1,53 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/8] sfc and ethtool changes for 2.6.37
-Date: Tue, 21 Sep 2010 16:23:26 -0700 (PDT)
-Message-ID: <20100921.162326.226765001.davem@davemloft.net>
-References: <1285008056.2282.103.camel@achroite.uk.solarflarecom.com>
-	<20100921.145827.112592957.davem@davemloft.net>
+Subject: Re: [PATCH] ip : take care of last fragment in ip_append_data
+Date: Tue, 21 Sep 2010 16:38:56 -0700 (PDT)
+Message-ID: <20100921.163856.71124744.davem@davemloft.net>
+References: <1285013853.2323.148.camel@edumazet-laptop>
+	<1285018272.2323.243.camel@edumazet-laptop>
+	<1285049787.2323.797.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33024
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751015Ab0IUXXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 19:23:06 -0400
-In-Reply-To: <20100921.145827.112592957.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nbowler@elliptictech.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1285049787.2323.797.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 21 Sep 2010 14:58:27 -0700 (PDT)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 21 Sep 2010 08:16:27 +0200
 
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 20 Sep 2010 19:40:56 +0100
+> [PATCH] ip : take care of last fragment in ip_append_data
 > 
->> This series adds Ethernet-level filtering and explicit filter clearing
->> to the ethtool RX n-tuple interface, and implements it in the sfc
->> driver.
->> 
->> There is a cleanup patch on the end which is preparation for the
->> following RFC patch series but is worthwhile anyway.
->> 
->> Ben Hutchings (8):
->>   ethtool: Define RX n-tuple action to clear a rule
->>   ethtool: Add Ethernet MAC-level filtering/steering
->>   ethtool: Allocate register dump buffer with vmalloc()
->>   sfc: Add filter table management
->>   sfc: Implement the ethtool RX n-tuple control functions
->>   sfc: Include RX IP filter table in register dump
->>   sfc: Set net_device::num_rx_queues once we know the correct value
->>   sfc: Clean up and correct comments on efx_monitor()
+> While investigating a bit, I found ip_fragment() slow path was taken
+> because ip_append_data() provides following layout for a send(MTU +
+> N*(MTU - 20)) syscall :
 > 
-> All applied except patch #7 as noted in the thread for that patch.
+> - one skb with 1500 (mtu) bytes
+> - N fragments of 1480 (mtu-20) bytes (before adding IP header)
+> last fragment gets 17 bytes of trail data because of following bit:
+> 
+> 	if (datalen == length + fraggap)
+> 		alloclen += rt->dst.trailer_len;
+> 
+> Then esp4 adds 16 bytes of data (while trailer_len is 17... hmm...
+> another bug ?)
+> 
+> In ip_fragment(), we notice last fragment is too big (1496 + 20) > mtu,
+> so we take slow path, building another skb chain.
+> 
+> In order to avoid taking slow path, we should correct ip_append_data()
+> to make sure last fragment has real trail space, under mtu...
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Ben, just FYI, I had to add "linux/vmalloc.h" includes to both
-net/core/ethtool.c and drivers/net/sfc/net_driver.h otherwise
-the build breaks on some architectures.
+This patch largely looks fine, but:
 
-x86 can be a really bad arch to validates builds on because it
-currently gets vmalloc.h implicitly by some of it's core header files.
+1) I want to find out where that "17" tailer_len comes from before
+   applying this, that doesn't make any sense.
 
-In particular, asm/io.h :-/
+2) Even with #1 addressed, this function is tricky so I want to review
+   this patch some more.
