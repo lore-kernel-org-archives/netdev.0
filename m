@@ -1,149 +1,72 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv6: addrconf.h cleanups
-Date: Tue, 21 Sep 2010 18:57:39 +0200
-Message-ID: <1285088259.2617.717.camel@edumazet-laptop>
+Subject: Re: [PATCH] mm: do not print backtraces on GFP_ATOMIC failures
+Date: Tue, 21 Sep 2010 19:00:27 +0200
+Message-ID: <1285088427.2617.723.camel@edumazet-laptop>
+References: <20100921121818.4745f038@annuminas.surriel.com>
+	 <20100921094638.9910add0.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:35038 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755873Ab0IUQ5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 12:57:44 -0400
-Received: by fxm3 with SMTP id 3so1565792fxm.19
-        for <netdev@vger.kernel.org>; Tue, 21 Sep 2010 09:57:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: Rik van Riel <riel@redhat.com>, linux-mm@kvack.org,  linux-kernel@vger.kernel.org, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,  netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20100921094638.9910add0.akpm@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-- Use rcu_dereference_rtnl() in __in6_dev_get
-- kerneldoc for __in6_dev_get() and in6_dev_get()
-- Use inline functions instead of macros
+Le mardi 21 septembre 2010 =C3=A0 09:46 -0700, Andrew Morton a =C3=A9crit=
+ :
+> On Tue, 21 Sep 2010 12:18:18 -0400 Rik van Riel <riel@redhat.com> wrote=
+:
+>=20
+> > Atomic allocations cannot fall back to the page eviction code
+> > and are expected to fail.  In fact, in some network intensive
+> > workloads, it is common to experience hundreds of GFP_ATOMIC
+> > allocation failures.
+> >=20
+> > Printing out a backtrace for every one of those expected
+> > allocation failures accomplishes nothing good. At multi-gigabit
+> > network speeds with jumbo frames, a burst of allocation failure
+> > backtraces could even slow down the system.
+> >=20
+> > We're better off not printing out backtraces on GFP_ATOMIC
+> > allocation failures.
+> >=20
+> > Signed-off-by: Rik van Riel <riel@redhat.com>
+> >=20
+> > diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+> > index 975609c..5a0bddb 100644
+> > --- a/include/linux/gfp.h
+> > +++ b/include/linux/gfp.h
+> > @@ -72,7 +72,7 @@ struct vm_area_struct;
+> >  /* This equals 0, but use constants in case they ever change */
+> >  #define GFP_NOWAIT	(GFP_ATOMIC & ~__GFP_HIGH)
+> >  /* GFP_ATOMIC means both !wait (__GFP_WAIT not set) and use emergenc=
+y pool */
+> > -#define GFP_ATOMIC	(__GFP_HIGH)
+> > +#define GFP_ATOMIC	(__GFP_HIGH | __GFP_NOWARN)
+> >  #define GFP_NOIO	(__GFP_WAIT)
+> >  #define GFP_NOFS	(__GFP_WAIT | __GFP_IO)
+> >  #define GFP_KERNEL	(__GFP_WAIT | __GFP_IO | __GFP_FS)
+>=20
+> A much finer-tuned implementation would be to add __GFP_NOWARN just to
+> the networking call sites.  I asked about this in June and it got
+> nixed:
+>=20
+> http://www.spinics.net/lists/netdev/msg131965.html
+> --
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/addrconf.h |   63 ++++++++++++++++++++++++++-------------
- 1 file changed, 43 insertions(+), 20 deletions(-)
+Yes, I remember this particular report was useful to find and correct a
+bug.
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 45375b4..39cf213 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -174,20 +174,32 @@ extern int ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
- extern int register_inet6addr_notifier(struct notifier_block *nb);
- extern int unregister_inet6addr_notifier(struct notifier_block *nb);
- 
--static inline struct inet6_dev *
--__in6_dev_get(struct net_device *dev)
-+/**
-+ * __in6_dev_get - get inet6_dev pointer from netdevice
-+ * @dev: network device
-+ *
-+ * Caller must hold rcu_read_lock or RTNL, because this function
-+ * does not take a reference on the inet6_dev.
-+ */
-+static inline struct inet6_dev *__in6_dev_get(const struct net_device *dev)
- {
--	return rcu_dereference_check(dev->ip6_ptr,
--				     rcu_read_lock_held() ||
--				     lockdep_rtnl_is_held());
-+	return rcu_dereference_rtnl(dev->ip6_ptr);
- }
- 
--static inline struct inet6_dev *
--in6_dev_get(struct net_device *dev)
-+/**
-+ * in6_dev_get - get inet6_dev pointer from netdevice
-+ * @dev: network device
-+ *
-+ * This version can be used in any context, and takes a reference
-+ * on the inet6_dev. Callers must use in6_dev_put() later to
-+ * release this reference.
-+ */
-+static inline struct inet6_dev *in6_dev_get(const struct net_device *dev)
- {
--	struct inet6_dev *idev = NULL;
-+	struct inet6_dev *idev;
-+
- 	rcu_read_lock();
--	idev = __in6_dev_get(dev);
-+	idev = rcu_dereference(dev->ip6_ptr);
- 	if (idev)
- 		atomic_inc(&idev->refcnt);
- 	rcu_read_unlock();
-@@ -196,16 +208,21 @@ in6_dev_get(struct net_device *dev)
- 
- extern void in6_dev_finish_destroy(struct inet6_dev *idev);
- 
--static inline void
--in6_dev_put(struct inet6_dev *idev)
-+static inline void in6_dev_put(struct inet6_dev *idev)
- {
- 	if (atomic_dec_and_test(&idev->refcnt))
- 		in6_dev_finish_destroy(idev);
- }
- 
--#define __in6_dev_put(idev)  atomic_dec(&(idev)->refcnt)
--#define in6_dev_hold(idev)   atomic_inc(&(idev)->refcnt)
-+static inline void __in6_dev_put(struct inet6_dev *idev)
-+{
-+	atomic_dec(&idev->refcnt);
-+}
- 
-+static inline void in6_dev_hold(struct inet6_dev *idev)
-+{
-+	atomic_inc(&idev->refcnt);
-+}
- 
- extern void inet6_ifa_finish_destroy(struct inet6_ifaddr *ifp);
- 
-@@ -215,9 +232,15 @@ static inline void in6_ifa_put(struct inet6_ifaddr *ifp)
- 		inet6_ifa_finish_destroy(ifp);
- }
- 
--#define __in6_ifa_put(ifp)	atomic_dec(&(ifp)->refcnt)
--#define in6_ifa_hold(ifp)	atomic_inc(&(ifp)->refcnt)
-+static inline void __in6_ifa_put(struct inet6_ifaddr *ifp)
-+{
-+	atomic_dec(&ifp->refcnt);
-+}
- 
-+static inline void in6_ifa_hold(struct inet6_ifaddr *ifp)
-+{
-+	atomic_inc(&ifp->refcnt);
-+}
- 
- 
- /*
-@@ -240,23 +263,23 @@ static inline int ipv6_addr_is_multicast(const struct in6_addr *addr)
- 
- static inline int ipv6_addr_is_ll_all_nodes(const struct in6_addr *addr)
- {
--	return (((addr->s6_addr32[0] ^ htonl(0xff020000)) |
-+	return ((addr->s6_addr32[0] ^ htonl(0xff020000)) |
- 		addr->s6_addr32[1] | addr->s6_addr32[2] |
--		(addr->s6_addr32[3] ^ htonl(0x00000001))) == 0);
-+		(addr->s6_addr32[3] ^ htonl(0x00000001))) == 0;
- }
- 
- static inline int ipv6_addr_is_ll_all_routers(const struct in6_addr *addr)
- {
--	return (((addr->s6_addr32[0] ^ htonl(0xff020000)) |
-+	return ((addr->s6_addr32[0] ^ htonl(0xff020000)) |
- 		addr->s6_addr32[1] | addr->s6_addr32[2] |
--		(addr->s6_addr32[3] ^ htonl(0x00000002))) == 0);
-+		(addr->s6_addr32[3] ^ htonl(0x00000002))) == 0;
- }
- 
- extern int __ipv6_isatap_ifid(u8 *eui, __be32 addr);
- 
- static inline int ipv6_addr_is_isatap(const struct in6_addr *addr)
- {
--	return ((addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE));
-+	return (addr->s6_addr32[2] | htonl(0x02000000)) == htonl(0x02005EFE);
- }
- 
- #ifdef CONFIG_PROC_FS
+I dont know what to say.
+
+Being silent or verbose, it really depends on the context ?
 
 
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
