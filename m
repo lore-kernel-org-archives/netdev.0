@@ -1,73 +1,75 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v3] ip: fix truesize mismatch in ip fragmentation
-Date: Tue, 21 Sep 2010 21:21:54 +0200
-Message-ID: <20100921192154.GA2115@del.dom.local>
-References: <20100920174443.GA5515@elliptictech.com>
- <1285006844.2323.17.camel@edumazet-laptop>
- <20100920195256.GA14330@elliptictech.com>
- <1285013853.2323.148.camel@edumazet-laptop>
- <1285018272.2323.243.camel@edumazet-laptop>
- <20100921140501.GA21572@elliptictech.com>
- <1285078613.2617.503.camel@edumazet-laptop>
- <1285084705.2617.636.camel@edumazet-laptop>
- <20100921175014.GA2066@del.dom.local>
- <1285094865.2452.2.camel@edumazet-laptop>
+Date: Tue, 21 Sep 2010 12:24:06 -0700 (PDT)
+Message-ID: <20100921.122406.193718558.davem@davemloft.net>
+References: <20100921162657.GA22183@khazad-dum.debian.net>
+	<1285086679.2617.672.camel@edumazet-laptop>
+	<20100921180940.GA8754@khazad-dum.debian.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nick Bowler <nbowler@elliptictech.com>,
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, nbowler@elliptictech.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33719 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755333Ab0IUTWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 15:22:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1285094865.2452.2.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	jarkao2@gmail.com, kaber@trash.net
+To: hmh@hmh.eng.br
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100921180940.GA8754@khazad-dum.debian.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 21, 2010 at 08:47:45PM +0200, Eric Dumazet wrote:
-> 
-> > Looks better and better to me, except, checkpatch complains about the
-> > (existing) indentation fault here (and later), but I guess you've seen
-> > that?
-> > 
-> 
-> Indeed, there is checkpatch somewhere ;)
-> 
-> Thanks !
-> 
-> [PATCH v4] ip: fix truesize mismatch in ip fragmentation
-> 
-> Special care should be taken when slow path is hit in ip_fragment() :
-> 
-> When walking through frags, we transfert truesize ownership from skb to
-> frags. Then if we hit a slow_path condition, we must undo this or risk
-> uncharging frags->truesize twice, and in the end, having negative socket
-> sk_wmem_alloc counter, or even freeing socket sooner than expected.
-> 
-> Many thanks to Nick Bowler, who provided a very clean bug report and
-> test program.
-> 
-> Thanks to Jarek for reviewing my first patch and providing a V2
-> 
-> While Nick bisection pointed to commit 2b85a34e911 (net: No more
-> expensive sock_hold()/sock_put() on each tx), underlying bug is older
-> (2.6.12-rc5)
-> 
-> A side effect is to extend work done in commit b2722b1c3a893e
-> (ip_fragment: also adjust skb->truesize for packets not owned by a
-> socket) to ipv6 as well.
-> 
-> Reported-and-bisected-by: Nick Bowler <nbowler@elliptictech.com>
-> Tested-by: Nick Bowler <nbowler@elliptictech.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Jarek Poplawski <jarkao2@gmail.com>
-> CC: Patrick McHardy <kaber@trash.net>
+=46rom: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Date: Tue, 21 Sep 2010 15:09:40 -0300
 
-Looks perfect to me.
+> On Tue, 21 Sep 2010, Eric Dumazet wrote:
+>> Le mardi 21 septembre 2010 =E0 13:26 -0300, Henrique de Moraes Holsc=
+huh a
+>> =E9crit :
+>> > Should this be a candidate for -stable?
+>> >=20
+>>=20
+>> Yes, of course, but David wants to handle stable submissions himself=
+=2E
+>>=20
+>> I am not sure we want to bug stable team with dozens of mails while
+>> polishing patches ?
+>=20
+> We don't.  But one often marks commits that should go to -stable usin=
+g a Cc:
+> pseudo-header, and also includes relevant information (e.g. to which =
+stable
+> kernels it should be applied to) to the commit message.
+>=20
+> Since there wasn't one, and I didn't readly find any post in this thr=
+ead
+> that mentioned it should also go to stable, AND it looked at first gl=
+ance
+> like something that should go to stable, I asked about it.
 
-Jarek P.
+Sorry, that is not how we typically handle things in the networking.
+
+I queue up all appropriate -stable patches automatically.
+
+I do this mainly because:
+
+1) It isn't the submitter who gets to decide all by himself that
+   something is -stable material, that's partly my job too.
+
+   So if the submitter puts the CC: stable thing in the commit
+   message, that takes me out of the decision making process.
+
+2) I do not want -stable submissions to go in just because a patch
+   made it into Linus's tree.
+
+   I want fixes to sit and cook in Linus's tree for a while before
+   they go to -stable unless it's an _incredibly_ obvious fix.
+   This allows any bugs in the fix to be shaken out first.
+
+   Again, the CC: stable tag subverts that.
+
+I really think the "CC: stable" tag is only appropriate for a very
+limited scope of bug fixes.  The incredibly obvious ones that need
+almost no testing and time exposure in Linus's tree.
+
+All of the rest should be carefully queued up for -stable and
+submitted there after a week or two of the patch sitting in Linus's
+tree.
