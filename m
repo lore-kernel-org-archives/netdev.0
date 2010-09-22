@@ -1,241 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: fix a lockdep splat
-Date: Wed, 22 Sep 2010 21:34:48 +0200
-Message-ID: <1285184088.2380.18.camel@edumazet-laptop>
-References: <201006242053.IAG26562.JHQFFOMSVFtOLO@I-love.SAKURA.ne.jp>
-	 <201009072132.FHA93457.MHOJFQOOFLVStF@I-love.SAKURA.ne.jp>
-	 <201009210651.o8L6pbkP038129@www262.sakura.ne.jp>
-	 <1285055760.2617.27.camel@edumazet-laptop>
-	 <201009210910.o8L9Anaf071504@www262.sakura.ne.jp>
-	 <1285061757.2617.176.camel@edumazet-laptop>
-	 <1285064011.2617.238.camel@edumazet-laptop>
-	 <201009220714.o8M7Ebps067361@www262.sakura.ne.jp>
-	 <1285144306.2639.90.camel@edumazet-laptop>
-	 <1285144471.2639.96.camel@edumazet-laptop>
-	 <1285144681.2639.102.camel@edumazet-laptop>
-	 <201009220858.o8M8w8s3094017@www262.sakura.ne.jp>
-	 <1285176935.2639.453.camel@edumazet-laptop>
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp
+ reports
+Date: Wed, 22 Sep 2010 14:58:15 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009221448460.32661@router.home>
+References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42142 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755146Ab0IVTey (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 15:34:54 -0400
-In-Reply-To: <1285176935.2639.453.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
+To: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 22 septembre 2010 =C3=A0 19:35 +0200, Eric Dumazet a =C3=A9=
-crit :
+On Wed, 22 Sep 2010, David Stevens wrote:
 
-> Thanks !
->=20
-> We have for each socket :
->=20
-> One spinlock (sk_slock.slock)
-> One rwlock (sk_callback_lock)
->=20
-> It is legal to use :
->=20
-> A) (this is used in net/sunrpc/xprtsock.c)
-> read_lock(&sk->sk_callback_lock) (without blocking BH)
-> <BH>
-> spin_lock(&sk->sk_slock.slock);
-> ...
-> read_lock(&sk->sk_callback_lock);
-> ...
->=20
-> Its also legal to do
->=20
-> B)
-> write_lock_bh(&sk->sk_callback_lock)
-> stuff
-> write_unlock_bh(&sk->sk_callback_lock)
->=20
->=20
-> But if we have a path that :
->=20
-> C)
-> spin_lock_bh(&sk->sk_slock)
-> ...
-> write_lock_bh(&sk->sk_callback_lock)
-> stuff
-> write_unlock_bh(&sk->sk_callback_lock)
->=20
-> Then we can have a deadlock with A)
->=20
-> CPU1 [A]                                CPU2 [C]
-> read_lock(&sk->sk_callback_lock)
-> <BH>					spin_lock_bh(&sk->sk_slock)
-> <wait to spin_lock(slock)>
-> 					<wait to write_lock_bh(callback_lock)>
->=20
-> We have one such path C) in inet_csk_listen_stop() :
->=20
-> local_bh_disable();
-> bh_lock_sock(child); // spin_lock_bh(&sk->sk_slock)
-> WARN_ON(sock_owned_by_user(child));
-> ...
-> sock_orphan(child); // write_lock_bh(&sk->sk_callback_lock)
->=20
-> This is a false positive because its not possible that this particula=
-r
-> deadlock can occur, since inet_csk_listen_stop() manipulates half
-> sockets (not yet given to a listener)
->=20
-> Give me a moment to think about it and write a fix.
->=20
->=20
+>         I feel your pain, but the protocol allows this to be 0 and all
+> of the unsolicited reports can be lost. I don't think adding a minimum
+> latency solves a general problem. Perhaps the device should queue some
 
-Could you try following patch ?
+The protocol does not specificy the intervals during unsolicited igmp
+sends. It only specifies the intervals as a result of a igmp query.
 
-Thanks !
+> packets if it isn't ready quickly? A querier is what makes these
+> reliable, but for the start-up in particular, I think it'd be better
+> to not initiate the send on devices that have this problem until the
+> device is actually ready to send-- why not put the delay in the device
+> driver on initialization?
 
-[PATCH] net: fix a lockdep splat
+The device is ready. Its just the multicast group that has not been
+established yet.
 
-We have for each socket :
+> > an igmp query but the result of a join request in the code.
+>
+>         These are also staggered to prevent a storm by mass reboots, e.g.,
+> from a power outage, and the default groups are joined on interface
+> bring-up.
 
-One spinlock (sk_slock.slock)
-One rwlock (sk_callback_lock)
+There is still some staggering left (see IGMP_Unsolicited_Fuzz). I can
+increase that if necessary.
 
-Possible scenarios are :
+There also cannot be any storm since any unsolicited igmp report by any
+system will stop the unsolicited igmp reports by any other system.
 
-(A) (this is used in net/sunrpc/xprtsock.c)
-read_lock(&sk->sk_callback_lock) (without blocking BH)
-<BH>
-spin_lock(&sk->sk_slock.slock);
-=2E..
-read_lock(&sk->sk_callback_lock);
-=2E..
+> > So unsolicited reports are send for an interval of at least a minute
+> > (reports are aborted if igmp reports or other info is seen).
+>
+>         This is outside the protocol spec, and the intervals are neither
+> random nor scaled based on any network performance metric.
+
+Where does it say that in the spec? Again this is an *unsolicited* igmp
+report.
+
+> 2) I think this would better be solved in the driver-- don't do the
+>         upper initialization and group joins until the sends can actually
+>         succeed.
+
+The driver is fine. Its just the multicast path in the network that take
+time to establish.
+
+> 3) I don't think it's a good idea to make up intervals, and especially
+>         non-randomized ones. The probability of getting all minimum
+> intervals
+>         is very low (which goes back to #1) and sending fixed intervals
+> may
+>         introduce a problem (packet storms) that isn't there per RFC.
+> These
+>         fixed intervals can also be either way too long or way too short,
+>         depending on link characteristics they don't account for. Leaving
+>         the intervals randomized based on querier-supplied data seems much
+>         more appropriate to me.
+
+These are *unsolicited* igmp reports. There is *no* querier supplied data
+yet. The first querier supplied data (or any other unsolicited igmp
+report) will immediately stop the unsolicited reports and then will
+continue to respond in randomized intervals based on the data that the
+querier has supplied.
 
 
-(B)
-write_lock_bh(&sk->sk_callback_lock)
-stuff
-write_unlock_bh(&sk->sk_callback_lock)
-
-
-(C)
-spin_lock_bh(&sk->sk_slock)
-=2E..
-write_lock_bh(&sk->sk_callback_lock)
-stuff
-write_unlock_bh(&sk->sk_callback_lock)
-spin_unlock_bh(&sk->sk_slock)
-
-This (C) case conflicts with (A) :
-
-CPU1 [A]                         CPU2 [C]
-read_lock(callback_lock)
-<BH>                             spin_lock_bh(slock)
-<wait to spin_lock(slock)>
-                                 <wait to write_lock_bh(callback_lock)>
-
-We have one problematic (C) use case in inet_csk_listen_stop() :
-
-local_bh_disable();
-bh_lock_sock(child); // spin_lock_bh(&sk->sk_slock)
-WARN_ON(sock_owned_by_user(child));
-=2E..
-sock_orphan(child); // write_lock_bh(&sk->sk_callback_lock)
-
-lockdep is not happy with this, as reported by Tetsuo Handa
-
-This patch makes sure inet_csk_listen_stop() uses following lock order =
-:
-
-write_lock_bh(&sk->sk_callback_lock)
-spin_lock(&sk->sk_slock)
-=2E..
-spin_unlock(&sk->sk_slock)
-write_unlock_bh(&sk->sk_callback_lock)
-
-Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/sock.h              |   18 +++++++++++++++---
- net/ipv4/inet_connection_sock.c |    7 ++++---
- 2 files changed, 19 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index adab9dc..b6c60d5 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1242,6 +1242,14 @@ static inline wait_queue_head_t *sk_sleep(struct=
- sock *sk)
- {
- 	return &sk->sk_wq->wait;
- }
-+
-+static inline void __sock_orphan(struct sock *sk)
-+{
-+	sock_set_flag(sk, SOCK_DEAD);
-+	sk_set_socket(sk, NULL);
-+	sk->sk_wq  =3D NULL;
-+}
-+
- /* Detach socket from process context.
-  * Announce socket dead, detach it from wait queue and inode.
-  * Note that parent inode held reference count on this struct sock,
-@@ -1251,15 +1259,19 @@ static inline wait_queue_head_t *sk_sleep(struc=
-t sock *sk)
-  */
- static inline void sock_orphan(struct sock *sk)
- {
-+#ifdef CONFIG_PROVE_LOCKING
-+	WARN_ON(lockdep_is_held(&sk->sk_lock.slock));
-+#endif
- 	write_lock_bh(&sk->sk_callback_lock);
--	sock_set_flag(sk, SOCK_DEAD);
--	sk_set_socket(sk, NULL);
--	sk->sk_wq  =3D NULL;
-+	__sock_orphan(sk);
- 	write_unlock_bh(&sk->sk_callback_lock);
- }
-=20
- static inline void sock_graft(struct sock *sk, struct socket *parent)
- {
-+#ifdef CONFIG_PROVE_LOCKING
-+	WARN_ON(lockdep_is_held(&sk->sk_lock.slock));
-+#endif
- 	write_lock_bh(&sk->sk_callback_lock);
- 	rcu_assign_pointer(sk->sk_wq, parent->wq);
- 	parent->sk =3D sk;
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection=
-_sock.c
-index 7174370..c65df13 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -685,21 +685,22 @@ void inet_csk_listen_stop(struct sock *sk)
-=20
- 		acc_req =3D req->dl_next;
-=20
--		local_bh_disable();
-+		write_lock_bh(&child->sk_callback_lock);
-+
- 		bh_lock_sock(child);
- 		WARN_ON(sock_owned_by_user(child));
- 		sock_hold(child);
-=20
- 		sk->sk_prot->disconnect(child, O_NONBLOCK);
-=20
--		sock_orphan(child);
-+		__sock_orphan(child);
-=20
- 		percpu_counter_inc(sk->sk_prot->orphan_count);
-=20
- 		inet_csk_destroy_sock(child);
-=20
- 		bh_unlock_sock(child);
--		local_bh_enable();
-+		write_unlock_bh(&child->sk_callback_lock);
- 		sock_put(child);
-=20
- 		sk_acceptq_removed(sk);
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
