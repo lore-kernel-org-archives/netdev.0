@@ -1,60 +1,55 @@
 From: kaber@trash.net
-Subject: [PATCH 3/6] netfilter: fix ipt_REJECT TCP RST routing for indev == outdev
-Date: Wed, 22 Sep 2010 09:17:31 +0200
-Message-ID: <1285139854-11827-4-git-send-email-kaber@trash.net>
+Subject: [PATCH 5/6] netfilter: nf_nat_snmp: fix checksum calculation (v4)
+Date: Wed, 22 Sep 2010 09:17:33 +0200
+Message-ID: <1285139854-11827-6-git-send-email-kaber@trash.net>
 References: <1285139854-11827-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:53999 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752237Ab0IVHRi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 03:17:38 -0400
 In-Reply-To: <1285139854-11827-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
 
-ip_route_me_harder can't create the route cache when the outdev is the same
-with the indev for the skbs whichout a valid protocol set.
+Fix checksum calculation in nf_nat_snmp_basic.
 
-__mkroute_input functions has this check:
-1998         if (skb->protocol != htons(ETH_P_IP)) {
-1999                 /* Not IP (i.e. ARP). Do not create route, if it is
-2000                  * invalid for proxy arp. DNAT routes are always valid.
-2001                  *
-2002                  * Proxy arp feature have been extended to allow, ARP
-2003                  * replies back to the same interface, to support
-2004                  * Private VLAN switch technologies. See arp.c.
-2005                  */
-2006                 if (out_dev == in_dev &&
-2007                     IN_DEV_PROXY_ARP_PVLAN(in_dev) == 0) {
-2008                         err = -EINVAL;
-2009                         goto cleanup;
-2010                 }
-2011         }
+Based on patches by Clark Wang <wtweeker@163.com> and
+Stephen Hemminger <shemminger@vyatta.com>.
 
-This patch gives the new skb a valid protocol to bypass this check. In order
-to make ipt_REJECT work with bridges, you also need to enable ip_forward.
+https://bugzilla.kernel.org/show_bug.cgi?id=17622
 
-This patch also fixes a regression. When we used skb_copy_expand(), we
-didn't have this issue stated above, as the protocol was properly set.
-
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/ipt_REJECT.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/ipv4/netfilter/nf_nat_snmp_basic.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
-index b254daf..43eec80 100644
---- a/net/ipv4/netfilter/ipt_REJECT.c
-+++ b/net/ipv4/netfilter/ipt_REJECT.c
-@@ -112,6 +112,7 @@ static void send_reset(struct sk_buff *oldskb, int hook)
- 	/* ip_route_me_harder expects skb->dst to be set */
- 	skb_dst_set_noref(nskb, skb_dst(oldskb));
+diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+index 1679e2c..ee5f419 100644
+--- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
++++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+@@ -893,13 +893,15 @@ static void fast_csum(__sum16 *csum,
+ 	unsigned char s[4];
  
-+	nskb->protocol = htons(ETH_P_IP);
- 	if (ip_route_me_harder(nskb, addr_type))
- 		goto free_nskb;
+ 	if (offset & 1) {
+-		s[0] = s[2] = 0;
++		s[0] = ~0;
+ 		s[1] = ~*optr;
++		s[2] = 0;
+ 		s[3] = *nptr;
+ 	} else {
+-		s[1] = s[3] = 0;
+ 		s[0] = ~*optr;
++		s[1] = ~0;
+ 		s[2] = *nptr;
++		s[3] = 0;
+ 	}
  
+ 	*csum = csum_fold(csum_partial(s, 4, ~csum_unfold(*csum)));
 -- 
 1.7.1
 
