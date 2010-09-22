@@ -1,52 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] Use firmware provided index to register a network
- interface
-Date: Wed, 22 Sep 2010 15:16:45 -0700
-Message-ID: <20100922151645.649d3d7a@nehalam>
-References: <20100922183137.GA7607@auslistsprd01.us.dell.com>
-	<4C9A7E39.2020304@buttersideup.com>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH 2/2] siw: Add support for CRC32C offload instruction
+	using libcrypto crc32c-intel
+Date: Wed, 22 Sep 2010 15:36:29 -0700
+Message-ID: <1285194989.1849.130.camel@haakon2.linux-iscsi.org>
+References: <1285187425-10950-1-git-send-email-nab@linux-iscsi.org>
+	 <4C9A698B.90806@linux.intel.com>
+	 <1285187901.1849.85.camel@haakon2.linux-iscsi.org>
+	 <20100922205943.GI11157@obsidianresearch.com>
+	 <1285189241.1849.112.camel@haakon2.linux-iscsi.org>
+	 <20100922211808.GJ11157@obsidianresearch.com>
+	 <1285191511.1849.126.camel@haakon2.linux-iscsi.org>
+	 <20100922220611.GL11157@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Narendra K <Narendra_K@dell.com>, netdev@vger.kernel.org,
-	linux-hotplug@vger.kernel.org, linux-pci@vger.kernel.org,
-	matt_domsch@dell.com, charles_rose@dell.com,
-	jordan_hargrave@dell.com, vijay_nijhawan@dell.com
-To: Tim Small <tim@buttersideup.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <4C9A7E39.2020304@buttersideup.com>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-rdma <linux-rdma@vger.kernel.org>,
+	Bernard Metzler <BMT@zurich.ibm.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100922220611.GL11157@obsidianresearch.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2010 23:07:53 +0100
-Tim Small <tim@buttersideup.com> wrote:
-
-> Narendra K wrote:
-> > Hello,
-> >
-> > Here is another approach to address the issue of "eth0 does not always
-> > map to the Integrated NIC Port 1 as denoted on server chassis label".
-> > For more details please refer to the thread -
-> > http://marc.info/?l=linux-netdev&m=128163454631618&w=3.
-> >   
+On Wed, 2010-09-22 at 16:06 -0600, Jason Gunthorpe wrote:
+> On Wed, Sep 22, 2010 at 02:38:31PM -0700, Nicholas A. Bellinger wrote:
 > 
+> > So I think the main bit here is the ability to request
+> > crc32c-intel.ko first, and then fall back to crc32c.ko when the
+> > former is not available on CONFIG_X86.
 > 
-> Hi,
-> 
-> Out of interest, that link says that doing it in usespace was rejected,
-> but doesn't give any references... I'd be interested to know why this
-> wasn't viable - since this seemed like the best fit at first glance -
-> most people will never use this, so no need to grow their kernel size
-> and complexity?
+> Well, it is what Andi said, everything is working fine but there is no
+> mechanism to autoload the accelerated crypto module. If you did
+> modprobe crc32c_intel prior to loading your driver it would
+> automatically get crc32c-intel when it asks for crc32c since it is
+> loaded and a higher priority.
 > 
 
-This proposal was to ad changes into every application that
-knows about network names (iproute, iptables, snmp, quagga, openswan, ...)
-to do aliasing at the application layer.
+Ah, OK.  I see what you mean now here wrt to libcrypto priorities and
+crc32c + crc32c_intel modules.   My apologies for the in-experience with
+libcrypto here..
 
-I rejected it as an unmanageable since it would require changes to so
-many packages (many of which are more BSD focused). Also doing aliasing
-would lead to security and other issues. For example, if you write a
-iptables rule based on the "Embedded NIC 1" rule would it work and know
-when the packet name lookup returned eth0, or what about device names
-in the Quagga RIB, ...
+> So, the drivers are correct to just request crc32c .. The work around
+> to limited autoprobing is so trivial (modprob crc32_intel) I'm not
+> sure including extra autoprobing code in the drivers is worthwhile?
+> 
+
+Indeed, I am happy to drop this patch if Bernard would be nice enough to
+add a 'modprobe crc32_intel' into the SIW scripts.
+
+Thanks for your comments Jason!
+
+--nab
