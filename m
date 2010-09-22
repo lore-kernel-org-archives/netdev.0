@@ -1,182 +1,277 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Subject: Re: [2.6.36-rc5] INET?: possible irq lock inversion dependency
-Date: Wed, 22 Sep 2010 10:38:01 +0200
-Message-ID: <1285144681.2639.102.camel@edumazet-laptop>
-References: <201006242053.IAG26562.JHQFFOMSVFtOLO@I-love.SAKURA.ne.jp>
-	 <201009072132.FHA93457.MHOJFQOOFLVStF@I-love.SAKURA.ne.jp>
-	 <201009210651.o8L6pbkP038129@www262.sakura.ne.jp>
-	 <1285055760.2617.27.camel@edumazet-laptop>
-	 <201009210910.o8L9Anaf071504@www262.sakura.ne.jp>
-	 <1285061757.2617.176.camel@edumazet-laptop>
-	 <1285064011.2617.238.camel@edumazet-laptop>
-	 <201009220714.o8M7Ebps067361@www262.sakura.ne.jp>
-	 <1285144306.2639.90.camel@edumazet-laptop>
-	 <1285144471.2639.96.camel@edumazet-laptop>
+Date: Wed, 22 Sep 2010 17:58:08 +0900
+Message-ID: <201009220858.o8M8w8s3094017@www262.sakura.ne.jp>
+References: <201006242053.IAG26562.JHQFFOMSVFtOLO@I-love.SAKURA.ne.jp> <201009072132.FHA93457.MHOJFQOOFLVStF@I-love.SAKURA.ne.jp> <201009210651.o8L6pbkP038129@www262.sakura.ne.jp> <1285055760.2617.27.camel@edumazet-laptop> <201009210910.o8L9Anaf071504@www262.sakura.ne.jp> <1285061757.2617.176.camel@edumazet-laptop> <1285064011.2617.238.camel@edumazet-laptop> <201009220714.o8M7Ebps067361@www262.sakura.ne.jp> <1285144306.2639.90.camel@edumazet-laptop> <1285144471.2639.96.camel@edumazet-laptop> <1285144681.2639.102.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
 Cc: linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1285144471.2639.96.camel@edumazet-laptop>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www262.sakura.ne.jp ([202.181.97.72]:54911 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752040Ab0IVI6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 04:58:11 -0400
+In-Reply-To: <1285144681.2639.102.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 22 septembre 2010 =C3=A0 10:34 +0200, Eric Dumazet a =C3=A9=
-crit :
+> Updated and booted/tested patch :
 
-> small bug in my patch , please delete the orphan line :
->=20
-> >  			af_callback_keys + sk->sk_family,
->=20
->=20
-> >  			af_family_clock_key_strings[sk->sk_family]);
-> > =20
->=20
+The warning by test.sh disappeared by your patch.
+But the warning which I encounter upon reboot still appears.
 
-Updated and booted/tested patch :
+[   74.289683] nfsd: last server has exited, flushing export cache
+[   75.935807] 
+[   75.935811] =========================================================
+[   75.937431] [ INFO: possible irq lock inversion dependency detected ]
+[   75.937431] 2.6.36-rc5 #2
+[   75.937431] ---------------------------------------------------------
+[   75.937431] kworker/1:1/418 just changed the state of lock:
+[   75.937431]  (clock-AF_INET#2){++.?..}, at: [<c135ddee>] xs_tcp_state_change+0x1e/0x1d0
+[   75.937431] but this lock was taken by another, SOFTIRQ-safe lock in the past:
+[   75.937431]  (slock-AF_INET){+.-...}
+[   75.937431] 
+[   75.937431] and interrupts could create inverse lock ordering between them.
+[   75.937431] 
+[   75.937431] 
+[   75.937431] other info that might help us debug this:
+[   75.937431] 3 locks held by kworker/1:1/418:
+[   75.937431]  #0:  (rpciod){+.+.+.}, at: [<c10514d6>] process_one_work+0xd6/0x3a0
+[   75.937431]  #1:  ((&xprt->task_cleanup)){+.+...}, at: [<c10514d6>] process_one_work+0xd6/0x3a0
+[   75.937431]  #2:  (sk_lock-AF_INET-RPC){+.+...}, at: [<c1332549>] inet_shutdown+0x49/0x110
+[   75.937431] 
+[   75.937431] the shortest dependencies between 2nd lock and 1st lock:
+[   75.937431]  -> (slock-AF_INET){+.-...} ops: 1648 {
+[   75.937431]     HARDIRQ-ON-W at:
+[   75.937431]                                          [<c106a8de>] mark_irqflags+0xfe/0x180
+[   75.937431]                                          [<c106b65d>] __lock_acquire+0x38d/0x8e0
+[   75.937431]                                          [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]                                          [<c138be6e>] _raw_spin_lock_bh+0x3e/0x80
+[   75.937431]                                          [<c12daf79>] lock_sock_fast+0x29/0x90
+[   75.937431]                                          [<c132b1e4>] udp_destroy_sock+0x14/0x40
+[   75.937431]                                          [<c12db2d3>] sk_common_release+0xb3/0xc0
+[   75.937431]                                          [<c132bb58>] udp_lib_close+0x8/0x10
+[   75.937431]                                          [<c1331abe>] inet_release+0xbe/0x100
+[   75.937431]                                          [<c12d5476>] sock_release+0x66/0x80
+[   75.937431]                                          [<c12d61f2>] sock_close+0x12/0x30
+[   75.937431]                                          [<c10c637b>] __fput+0x1cb/0x240
+[   75.937431]                                          [<c10c6409>] fput+0x19/0x20
+[   75.937431]                                          [<c10c4263>] filp_close+0x43/0x70
+[   75.937431]                                          [<c103fdcd>] close_files+0xad/0x150
+[   75.937431]                                          [<c103fed9>] put_files_struct+0x29/0xf0
+[   75.937431]                                          [<c1040030>] exit_files+0x40/0x50
+[   75.937431]                                          [<c10406f6>] do_exit+0x116/0x2e0
+[   75.937431]                                          [<c1040924>] do_group_exit+0x34/0xb0
+[   75.937431]                                          [<c10409af>] sys_exit_group+0xf/0x20
+[   75.937431]                                          [<c138c911>] syscall_call+0x7/0xb
+[   75.937431]     IN-SOFTIRQ-W at:
+[   75.937431]                                          [<c106a8fe>] mark_irqflags+0x11e/0x180
+[   75.937431]                                          [<c106b65d>] __lock_acquire+0x38d/0x8e0
+[   75.937431]                                          [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]                                          [<c138bcf9>] _raw_spin_lock+0x39/0x70
+[   75.937431]                                          [<c12d98d1>] sk_clone+0xb1/0x2e0
+[   75.937431]                                          [<c130fdba>] inet_csk_clone+0x1a/0xb0
+[   75.937431]                                          [<c132539c>] tcp_create_openreq_child+0x1c/0x460
+[   75.937431]                                          [<c1322a6f>] tcp_v4_syn_recv_sock+0x3f/0x1e0
+[   75.937431]                                          [<c132596c>] tcp_check_req+0x18c/0x3b0
+[   75.937431]                                          [<c1322c5d>] tcp_v4_hnd_req+0x4d/0x160
+[   75.937431]                                          [<c1322f89>] tcp_v4_do_rcv+0x159/0x280
+[   75.937431]                                          [<c1323624>] tcp_v4_rcv+0x574/0xa30
+[   75.937431]                                          [<c1305483>] ip_local_deliver_finish+0x103/0x320
+[   75.937431]                                          [<c13056d0>] ip_local_deliver+0x30/0x40
+[   75.937431]                                          [<c1305849>] ip_rcv_finish+0x169/0x480
+[   75.937431]                                          [<c1305cfa>] ip_rcv+0x19a/0x2b0
+[   75.937431]                                          [<c12e695d>] __netif_receive_skb+0x21d/0x310
+[   75.937431]                                          [<c12e7468>] process_backlog+0x88/0x160
+[   75.937431]                                          [<c12e7837>] net_rx_action+0x127/0x140
+[   75.937431]                                          [<c1042e70>] __do_softirq+0xd0/0x130
+[   75.937431]     INITIAL USE at:
+[   75.937431]                                         [<c106b490>] __lock_acquire+0x1c0/0x8e0
+[   75.937431]                                         [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]                                         [<c138be6e>] _raw_spin_lock_bh+0x3e/0x80
+[   75.937431]                                         [<c12daf79>] lock_sock_fast+0x29/0x90
+[   75.937431]                                         [<c132b1e4>] udp_destroy_sock+0x14/0x40
+[   75.937431]                                         [<c12db2d3>] sk_common_release+0xb3/0xc0
+[   75.937431]                                         [<c132bb58>] udp_lib_close+0x8/0x10
+[   75.937431]                                         [<c1331abe>] inet_release+0xbe/0x100
+[   75.937431]                                         [<c12d5476>] sock_release+0x66/0x80
+[   75.937431]                                         [<c12d61f2>] sock_close+0x12/0x30
+[   75.937431]                                         [<c10c637b>] __fput+0x1cb/0x240
+[   75.937431]                                         [<c10c6409>] fput+0x19/0x20
+[   75.937431]                                         [<c10c4263>] filp_close+0x43/0x70
+[   75.937431]                                         [<c103fdcd>] close_files+0xad/0x150
+[   75.937431]                                         [<c103fed9>] put_files_struct+0x29/0xf0
+[   75.937431]                                         [<c1040030>] exit_files+0x40/0x50
+[   75.937431]                                         [<c10406f6>] do_exit+0x116/0x2e0
+[   75.937431]                                         [<c1040924>] do_group_exit+0x34/0xb0
+[   75.937431]                                         [<c10409af>] sys_exit_group+0xf/0x20
+[   75.937431]                                         [<c138c911>] syscall_call+0x7/0xb
+[   75.937431]   }
+[   75.937431]   ... key      at: [<c1d4c9d0>] af_family_slock_keys+0x10/0x140
+[   75.937431]   ... acquired at:
+[   75.937431]    [<c106910b>] check_prevs_add+0xab/0x100
+[   75.937431]    [<c1069495>] validate_chain+0x305/0x5a0
+[   75.937431]    [<c106b57d>] __lock_acquire+0x2ad/0x8e0
+[   75.937431]    [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]    [<c138c4ae>] _raw_write_lock_bh+0x3e/0x80
+[   75.937431]    [<c13100e6>] inet_csk_listen_stop+0x86/0x160
+[   75.937431]    [<c1312c42>] tcp_close+0x382/0x390
+[   75.937431]    [<c1331abe>] inet_release+0xbe/0x100
+[   75.937431]    [<c12d5476>] sock_release+0x66/0x80
+[   75.937431]    [<c12d61f2>] sock_close+0x12/0x30
+[   75.937431]    [<c10c637b>] __fput+0x1cb/0x240
+[   75.937431]    [<c10c6409>] fput+0x19/0x20
+[   75.937431]    [<c10c4263>] filp_close+0x43/0x70
+[   75.937431]    [<c10c42fd>] sys_close+0x6d/0x110
+[   75.937431]    [<c138c911>] syscall_call+0x7/0xb
+[   75.937431] 
+[   75.937431] -> (clock-AF_INET#2){++.?..} ops: 96 {
+[   75.937431]    HARDIRQ-ON-W at:
+[   75.937431]                                        [<c106a8de>] mark_irqflags+0xfe/0x180
+[   75.937431]                                        [<c106b65d>] __lock_acquire+0x38d/0x8e0
+[   75.937431]                                        [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]                                        [<c138c4ae>] _raw_write_lock_bh+0x3e/0x80
+[   75.937431]                                        [<c135eac3>] xs_tcp_finish_connecting+0x73/0x120
+[   75.937431]                                        [<c135ebcb>] xs_tcp_setup_socket+0x5b/0x180
+[   75.937431]                                        [<c135ee04>] xs_tcp_connect_worker4+0x14/0x20
+[   75.937431]                                        [<c1051547>] process_one_work+0x147/0x3a0
+[   75.937431]                                        [<c1051886>] worker_thread+0xa6/0x200
+[   75.937431]                                        [<c1056765>] kthread+0x75/0x80
+[   75.937431]                                        [<c10031fa>] kernel_thread_helper+0x6/0x1c
+[   75.937431]    HARDIRQ-ON-R at:
+[   75.937431]                                        [<c106a84e>] mark_irqflags+0x6e/0x180
+[   75.937431]                                        [<c106b65d>] __lock_acquire+0x38d/0x8e0
+[   75.937431]                                        [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]                                        [<c138c019>] _raw_read_lock+0x39/0x70
+[   75.937431]                                        [<c135ddee>] xs_tcp_state_change+0x1e/0x1d0
+[   75.937431]                                        [<c131bd78>] tcp_rcv_synsent_state_process+0x398/0x590
+[   75.937431]                                        [<c131c417>] tcp_rcv_state_process+0x4a7/0x560
+[   75.937431]                                        [<c1322ea1>] tcp_v4_do_rcv+0x71/0x280
+[   75.937431]                                        [<c12da226>] __release_sock+0x66/0x150
+[   75.937431]                                        [<c12daf47>] release_sock+0x87/0x90
+[   75.937431]                                        [<c1331eaa>] inet_stream_connect+0x5a/0x1b0
+[   75.937431]                                        [<c12d7d68>] kernel_connect+0x18/0x30
+[   75.937431]                                        [<c135ea9e>] xs_tcp_finish_connecting+0x4e/0x120
+[   75.937431]                                        [<c135ebcb>] xs_tcp_setup_socket+0x5b/0x180
+[   75.937431]                                        [<c135ee04>] xs_tcp_connect_worker4+0x14/0x20
+[   75.937431]                                        [<c1051547>] process_one_work+0x147/0x3a0
+[   75.937431]                                        [<c1051886>] worker_thread+0xa6/0x200
+[   75.937431]                                        [<c1056765>] kthread+0x75/0x80
+[   75.937431]                                        [<c10031fa>] kernel_thread_helper+0x6/0x1c
+[   75.937431]    IN-SOFTIRQ-R at:
+[   75.937431]                                        [<c106a8fe>] mark_irqflags+0x11e/0x180
+[   75.937431]                                        [<c106b65d>] __lock_acquire+0x38d/0x8e0
+[   75.937431]                                        [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]                                        [<c138c019>] _raw_read_lock+0x39/0x70
+[   75.937431]                                        [<c135dcc1>] xs_tcp_data_ready+0x21/0x90
+[   75.937431]                                        [<c131a238>] tcp_data_queue+0x248/0x820
+[   75.937431]                                        [<c131b5ae>] tcp_rcv_established+0xae/0x4e0
+[   75.937431]                                        [<c1323001>] tcp_v4_do_rcv+0x1d1/0x280
+[   75.937431]                                        [<c1323624>] tcp_v4_rcv+0x574/0xa30
+[   75.937431]                                        [<c1305483>] ip_local_deliver_finish+0x103/0x320
+[   75.937431]                                        [<c13056d0>] ip_local_deliver+0x30/0x40
+[   75.937431]                                        [<c1305849>] ip_rcv_finish+0x169/0x480
+[   75.937431]                                        [<c1305cfa>] ip_rcv+0x19a/0x2b0
+[   75.937431]                                        [<c12e695d>] __netif_receive_skb+0x21d/0x310
+[   75.937431]                                        [<c12e7468>] process_backlog+0x88/0x160
+[   75.937431]                                        [<c12e7837>] net_rx_action+0x127/0x140
+[   75.937431]                                        [<c1042e70>] __do_softirq+0xd0/0x130
+[   75.937431]    SOFTIRQ-ON-R at:
+[   75.937431]                                        [<c106a8c2>] mark_irqflags+0xe2/0x180
+[   75.937431]                                        [<c106b65d>] __lock_acquire+0x38d/0x8e0
+[   75.937431]                                        [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]                                        [<c138c019>] _raw_read_lock+0x39/0x70
+[   75.937431]                                        [<c135ddee>] xs_tcp_state_change+0x1e/0x1d0
+[   75.937431]                                        [<c1332597>] inet_shutdown+0x97/0x110
+[   75.937431]                                        [<c12d7f69>] kernel_sock_shutdown+0x9/0x10
+[   75.937431]                                        [<c135d0e7>] xs_tcp_shutdown+0x17/0x20
+[   75.937431]                                        [<c135d3e7>] xs_tcp_close+0x27/0x30
+[   75.937431]                                        [<c135b63d>] xprt_autoclose+0x1d/0x50
+[   75.937431]                                        [<c1051547>] process_one_work+0x147/0x3a0
+[   75.937431]                                        [<c1051886>] worker_thread+0xa6/0x200
+[   75.937431]                                        [<c1056765>] kthread+0x75/0x80
+[   75.937431]                                        [<c10031fa>] kernel_thread_helper+0x6/0x1c
+[   75.937431]    INITIAL USE at:
+[   75.937431]                                       [<c106b490>] __lock_acquire+0x1c0/0x8e0
+[   75.937431]                                       [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]                                       [<c138c4ae>] _raw_write_lock_bh+0x3e/0x80
+[   75.937431]                                       [<c135eac3>] xs_tcp_finish_connecting+0x73/0x120
+[   75.937431]                                       [<c135ebcb>] xs_tcp_setup_socket+0x5b/0x180
+[   75.937431]                                       [<c135ee04>] xs_tcp_connect_worker4+0x14/0x20
+[   75.937431]                                       [<c1051547>] process_one_work+0x147/0x3a0
+[   75.937431]                                       [<c1051886>] worker_thread+0xa6/0x200
+[   75.937431]                                       [<c1056765>] kthread+0x75/0x80
+[   75.937431]                                       [<c10031fa>] kernel_thread_helper+0x6/0x1c
+[   75.937431]  }
+[   75.937431]  ... key      at: [<c1d4cb10>] af_callback_keys+0x10/0x130
+[   75.937431]  ... acquired at:
+[   75.937431]    [<c1069d46>] check_usage_backwards+0x76/0xd0
+[   75.937431]    [<c1069f59>] mark_lock_irq+0x99/0x240
+[   75.937431]    [<c106abfc>] mark_lock+0x21c/0x3c0
+[   75.937431]    [<c106a8c2>] mark_irqflags+0xe2/0x180
+[   75.937431]    [<c106b65d>] __lock_acquire+0x38d/0x8e0
+[   75.937431]    [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]    [<c138c019>] _raw_read_lock+0x39/0x70
+[   75.937431]    [<c135ddee>] xs_tcp_state_change+0x1e/0x1d0
+[   75.937431]    [<c1332597>] inet_shutdown+0x97/0x110
+[   75.937431]    [<c12d7f69>] kernel_sock_shutdown+0x9/0x10
+[   75.937431]    [<c135d0e7>] xs_tcp_shutdown+0x17/0x20
+[   75.937431]    [<c135d3e7>] xs_tcp_close+0x27/0x30
+[   75.937431]    [<c135b63d>] xprt_autoclose+0x1d/0x50
+[   75.937431]    [<c1051547>] process_one_work+0x147/0x3a0
+[   75.937431]    [<c1051886>] worker_thread+0xa6/0x200
+[   75.937431]    [<c1056765>] kthread+0x75/0x80
+[   75.937431]    [<c10031fa>] kernel_thread_helper+0x6/0x1c
+[   75.937431] 
+[   75.937431] 
+[   75.937431] stack backtrace:
+[   75.937431] Pid: 418, comm: kworker/1:1 Not tainted 2.6.36-rc5 #2
+[   75.937431] Call Trace:
+[   75.937431]  [<c103deb8>] ? printk+0x18/0x20
+[   75.937431]  [<c1069bd8>] print_irq_inversion_bug+0x108/0x120
+[   75.937431]  [<c1069d46>] check_usage_backwards+0x76/0xd0
+[   75.937431]  [<c1069f59>] mark_lock_irq+0x99/0x240
+[   75.937431]  [<c1069cd0>] ? check_usage_backwards+0x0/0xd0
+[   75.937431]  [<c106abfc>] mark_lock+0x21c/0x3c0
+[   75.937431]  [<c106a8c2>] mark_irqflags+0xe2/0x180
+[   75.937431]  [<c106b65d>] __lock_acquire+0x38d/0x8e0
+[   75.937431]  [<c106c95a>] ? __lock_is_held+0x3a/0x60
+[   75.937431]  [<c106cbfa>] lock_acquire+0x7a/0xa0
+[   75.937431]  [<c135ddee>] ? xs_tcp_state_change+0x1e/0x1d0
+[   75.937431]  [<c138c019>] _raw_read_lock+0x39/0x70
+[   75.937431]  [<c135ddee>] ? xs_tcp_state_change+0x1e/0x1d0
+[   75.937431]  [<c135ddee>] xs_tcp_state_change+0x1e/0x1d0
+[   75.937431]  [<c131f2af>] ? tcp_send_fin+0x4f/0xc0
+[   75.937431]  [<c1332597>] inet_shutdown+0x97/0x110
+[   75.937431]  [<c12d7f69>] kernel_sock_shutdown+0x9/0x10
+[   75.937431]  [<c135d0e7>] xs_tcp_shutdown+0x17/0x20
+[   75.937431]  [<c135d3e7>] xs_tcp_close+0x27/0x30
+[   75.937431]  [<c135b63d>] xprt_autoclose+0x1d/0x50
+[   75.937431]  [<c1051547>] process_one_work+0x147/0x3a0
+[   75.937431]  [<c10514d6>] ? process_one_work+0xd6/0x3a0
+[   75.937431]  [<c106d179>] ? __lock_acquired+0x119/0x1c0
+[   75.937431]  [<c135b620>] ? xprt_autoclose+0x0/0x50
+[   75.937431]  [<c10517fc>] ? worker_thread+0x1c/0x200
+[   75.937431]  [<c1050317>] ? __need_more_worker+0x17/0x40
+[   75.937431]  [<c1051886>] worker_thread+0xa6/0x200
+[   75.937431]  [<c1056765>] kthread+0x75/0x80
+[   75.937431]  [<c10517e0>] ? worker_thread+0x0/0x200
+[   75.937431]  [<c10566f0>] ? kthread+0x0/0x80
+[   75.937431]  [<c10031fa>] kernel_thread_helper+0x6/0x1c
+[   83.749463] Restarting system.
+[   83.751581] machine restart
 
- include/net/sock.h |    1 +
- net/core/sock.c    |    8 ++++++--
- net/ipv4/udp.c     |    3 +++
- net/ipv4/udplite.c |    3 +++
- net/ipv6/udp.c     |    3 +++
- net/ipv6/udplite.c |    3 +++
- 6 files changed, 19 insertions(+), 2 deletions(-)
+FYI,
 
+  # cat /etc/exports
+  /usr/src/ *(rw,no_root_squash,async)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index adab9dc..c5104bc 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -800,6 +800,7 @@ struct proto {
- #ifdef SOCK_REFCNT_DEBUG
- 	atomic_t		socks;
- #endif
-+	struct lock_class_key *callback_key;
- };
-=20
- extern int proto_register(struct proto *prot, int alloc_slab);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index b05b9b6..79ef50a 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1210,7 +1210,9 @@ struct sock *sk_clone(const struct sock *sk, cons=
-t gfp_t priority)
- 		spin_lock_init(&newsk->sk_dst_lock);
- 		rwlock_init(&newsk->sk_callback_lock);
- 		lockdep_set_class_and_name(&newsk->sk_callback_lock,
--				af_callback_keys + newsk->sk_family,
-+				sk->sk_prot->callback_key ?
-+					sk->sk_prot->callback_key :
-+					af_callback_keys + newsk->sk_family,
- 				af_family_clock_key_strings[newsk->sk_family]);
-=20
- 		newsk->sk_dst_cache	=3D NULL;
-@@ -1965,7 +1967,9 @@ void sock_init_data(struct socket *sock, struct s=
-ock *sk)
- 	spin_lock_init(&sk->sk_dst_lock);
- 	rwlock_init(&sk->sk_callback_lock);
- 	lockdep_set_class_and_name(&sk->sk_callback_lock,
--			af_callback_keys + sk->sk_family,
-+			sk->sk_prot->callback_key ?
-+				sk->sk_prot->callback_key :
-+				af_callback_keys + sk->sk_family,
- 			af_family_clock_key_strings[sk->sk_family]);
-=20
- 	sk->sk_state_change	=3D	sock_def_wakeup;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index fb23c2e..c0877b6 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1870,6 +1870,8 @@ unsigned int udp_poll(struct file *file, struct s=
-ocket *sock, poll_table *wait)
- }
- EXPORT_SYMBOL(udp_poll);
-=20
-+static struct lock_class_key udp_callback_key;
-+
- struct proto udp_prot =3D {
- 	.name		   =3D "UDP",
- 	.owner		   =3D THIS_MODULE,
-@@ -1899,6 +1901,7 @@ struct proto udp_prot =3D {
- 	.compat_setsockopt =3D compat_udp_setsockopt,
- 	.compat_getsockopt =3D compat_udp_getsockopt,
- #endif
-+	.callback_key	   =3D &udp_callback_key,
- };
- EXPORT_SYMBOL(udp_prot);
-=20
-diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
-index ab76aa9..51b159d 100644
---- a/net/ipv4/udplite.c
-+++ b/net/ipv4/udplite.c
-@@ -32,6 +32,8 @@ static const struct net_protocol udplite_protocol =3D=
- {
- 	.netns_ok	=3D 1,
- };
-=20
-+static struct lock_class_key udplite_callback_key;
-+
- struct proto 	udplite_prot =3D {
- 	.name		   =3D "UDP-Lite",
- 	.owner		   =3D THIS_MODULE,
-@@ -57,6 +59,7 @@ struct proto 	udplite_prot =3D {
- 	.compat_setsockopt =3D compat_udp_setsockopt,
- 	.compat_getsockopt =3D compat_udp_getsockopt,
- #endif
-+	.callback_key	   =3D &udplite_callback_key,
- };
- EXPORT_SYMBOL(udplite_prot);
-=20
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 5acb356..0777934 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1441,6 +1441,8 @@ void udp6_proc_exit(struct net *net) {
-=20
- /* -------------------------------------------------------------------=
------ */
-=20
-+static struct lock_class_key udp6_callback_key;
-+
- struct proto udpv6_prot =3D {
- 	.name		   =3D "UDPv6",
- 	.owner		   =3D THIS_MODULE,
-@@ -1469,6 +1471,7 @@ struct proto udpv6_prot =3D {
- 	.compat_setsockopt =3D compat_udpv6_setsockopt,
- 	.compat_getsockopt =3D compat_udpv6_getsockopt,
- #endif
-+	.callback_key	   =3D &udp6_callback_key,
- };
-=20
- static struct inet_protosw udpv6_protosw =3D {
-diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
-index 5f48fad..7bbb627 100644
---- a/net/ipv6/udplite.c
-+++ b/net/ipv6/udplite.c
-@@ -31,6 +31,8 @@ static const struct inet6_protocol udplitev6_protocol=
- =3D {
- 	.flags		=3D	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
- };
-=20
-+static struct lock_class_key udp6lite_callback_key;
-+
- struct proto udplitev6_prot =3D {
- 	.name		   =3D "UDPLITEv6",
- 	.owner		   =3D THIS_MODULE,
-@@ -55,6 +57,7 @@ struct proto udplitev6_prot =3D {
- 	.compat_setsockopt =3D compat_udpv6_setsockopt,
- 	.compat_getsockopt =3D compat_udpv6_getsockopt,
- #endif
-+	.callback_key	   =3D &udp6lite_callback_key,
- };
-=20
- static struct inet_protosw udplite6_protosw =3D {
+  # grep nfs /proc/mounts
+  127.0.0.1:/usr/src/ /mnt nfs rw,relatime,vers=3,rsize=32768,wsize=32768,namlen=255,hard,proto=udp,port=65535,timeo=7,retrans=3,sec=sys,addr=127.0.0.1 0 0
 
+test.sh does not trigger this warning on 2.6.34.7 and
+triggers this warning on 2.6.35.5 .
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
-" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards.
