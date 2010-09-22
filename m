@@ -1,141 +1,144 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: kvm networking todo wiki
-Date: Wed, 22 Sep 2010 15:46:22 -0700
-Message-ID: <4C9A873E.6010403@us.ibm.com>
-References: <20100921161124.GC22845@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: rcu warning
+Date: Thu, 23 Sep 2010 01:04:25 +0200
+Message-ID: <1285196665.2380.54.camel@edumazet-laptop>
+References: <20100922214438.GN2435@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="------------060303030306080505060902"
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, lmr@redhat.com, "Xin,
-	Xiaohui" <xiaohui.xin@intel.com>,
-	Rusty Russell <rusty@rustcorp.com.au>, akong@redhat.com,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	Shirley Ma <mashirle@us.ibm.com>,
-	David Stevens <dlstevens@us.ibm.com>, qemu-devel@nongnu.org,
-	herbert@gondor.hengli.com.au, jdike@linux.intel.com, sri@linux.vnet.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <20100921161124.GC22845@redhat.com>
-List-Unsubscribe: <http://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <http://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:62594 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015Ab0IVXEb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 19:04:31 -0400
+Received: by fxm12 with SMTP id 12so433242fxm.19
+        for <netdev@vger.kernel.org>; Wed, 22 Sep 2010 16:04:29 -0700 (PDT)
+In-Reply-To: <20100922214438.GN2435@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060303030306080505060902
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Le mercredi 22 septembre 2010 =C3=A0 14:44 -0700, Paul E. McKenney a =C3=
+=A9crit :
+> > Date: Wed, 22 Sep 2010 13:52:28 -0700
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > To: "Paul E. McKenney" <paulmck@us.ibm.com>
+> > Subject: rcu warning
+> > X-Mailer: Sylpheed 2.4.8 (GTK+ 2.12.9; x86_64-pc-linux-gnu)
+> >=20
+> > [   56.803750]=20
+> > [   56.803752] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > [   56.804082] [ INFO: suspicious rcu_dereference_check() usage. ]
+> > [   56.804249] ---------------------------------------------------
+> > [   56.804421] include/linux/inetdevice.h:219 invoked rcu_dereferen=
+ce_check() without protection!
+> > [   56.804708]=20
+> > [   56.804709] other info that might help us debug this:
+> > [   56.804710]=20
+> > [   56.805183]=20
+> > [   56.805184] rcu_scheduler_active =3D 1, debug_locks =3D 1
+> > [   56.805501] 3 locks held by kworker/0:1/0:
+> > [   56.805664]  #0:  (&in_dev->mr_ifc_timer){+.-...}, at: [<fffffff=
+f81042466>] run_timer_softirq+0xfd/0x226
+> > [   56.806126]  #1:  (&in_dev->mc_list_lock){++.-..}, at: [<fffffff=
+f8133e81d>] igmp_ifc_timer_expire+0x2a/0x221
+> > [   56.806588]  #2:  (&(&im->lock)->rlock){+.-...}, at: [<ffffffff8=
+133e948>] igmp_ifc_timer_expire+0x155/0x221
+> > [   56.807043]=20
+> > [   56.807044] stack backtrace:
+> > [   56.807364] Pid: 0, comm: kworker/0:1 Not tainted 2.6.36-rc5-mm1=
+ #1
+> > [   56.807561] Call Trace:
+> > [   56.807723]  <IRQ>  [<ffffffff8105b88b>] lockdep_rcu_dereference=
++0x99/0xa2
+> > [   56.807948]  [<ffffffff8130dc66>] __ip_route_output_key+0x34f/0x=
+b19
+> > [   56.808120]  [<ffffffff8130d94a>] ? __ip_route_output_key+0x33/0=
+xb19
+> > [   56.814367]  [<ffffffff8130e453>] ip_route_output_flow+0x23/0x1e=
+e
+> > [   56.814536]  [<ffffffff8130e62c>] ip_route_output_key+0xe/0x10
+> > [   56.814704]  [<ffffffff8133e19d>] igmpv3_newpack+0x7f/0x1c2
+> > [   56.814873]  [<ffffffff8133e30d>] add_grhead+0x2d/0x94
+> > [   56.815039]  [<ffffffff8133e6c2>] add_grec+0x34e/0x38c
+> > [   56.815206]  [<ffffffff8133e9a8>] igmp_ifc_timer_expire+0x1b5/0x=
+221
+> > [   56.815375]  [<ffffffff810424e8>] run_timer_softirq+0x17f/0x226
+> > [   56.815547]  [<ffffffff81042466>] ? run_timer_softirq+0xfd/0x226
+> > [   56.815715]  [<ffffffff8133e7f3>] ? igmp_ifc_timer_expire+0x0/0x=
+221
+> > [   56.815885]  [<ffffffff8103ca8f>] __do_softirq+0xa5/0x13a
+> > [   56.816051]  [<ffffffff8100390c>] call_softirq+0x1c/0x28
+> > [   56.816219]  [<ffffffff81004eba>] do_softirq+0x38/0x82
+> > [   56.816385]  [<ffffffff8103c9e8>] irq_exit+0x47/0x49
+> > [   56.816553]  [<ffffffff81019ce3>] smp_apic_timer_interrupt+0x88/=
+0x96
+> > [   56.816722]  [<ffffffff810033d3>] apic_timer_interrupt+0x13/0x20
+> > [   56.816888]  <EOI>  [<ffffffff8138607a>] ? __atomic_notifier_cal=
+l_chain+0x0/0x84
+> > [   56.817215]  [<ffffffff81009a9b>] ? mwait_idle+0x65/0x71
+> > [   56.817382]  [<ffffffff81009a91>] ? mwait_idle+0x5b/0x71
+> > [   56.817549]  [<ffffffff810014ca>] cpu_idle+0x48/0x66
+> > [   56.817716]  [<ffffffff8137b4da>] start_secondary+0x1b9/0x1bd
+> > [   56.817883]  [<ffffffff8137b321>] ? start_secondary+0x0/0x1bd
+>=20
+> Hello, Eric,
+>=20
+> In linux/master, there is an rcu_read_lock_bh() in the call path, but
+> an rcu_dereference() instead of an rcu_dereference_bh().  Thoughts?
+>=20
+> (I have asked Andrew what kernel this is against -- I don't see the
+> rcu_read_lock() that I would expect to see in the lockdep output.)
+>=20
+> 							Thanx, Paul
 
-  On Tue, 2010-09-21 at 18:11 +0200, Michael S. Tsirkin wrote:
-> I've put up a wiki page with a kvm networking todo list,
-> mainly to avoid effort duplication, but also in the hope
-> to draw attention to what I think we should try addressing
-> in KVM:
->
-> http://www.linux-kvm.org/page/NetworkingTodo
->
-> This page could cover all networking related activity in KVM,
-> currently most info is related to virtio-net.
->
-> Note: if there's no developer listed for an item,
-> this just means I don't know of anyone actively working
-> on an issue at the moment, not that no one intends to.
->
-> I would appreciate it if others working on one of the items on this list
-> would add their names so we can communicate better.  If others like this
-> wiki page, please go ahead and add stuff you are working on if any.
->
-> It would be especially nice to add autotest projects:
-> there is just a short test matrix and a catch-all
-> 'Cover test matrix with autotest', currently.
->
-> Currently there are some links to Red Hat bugzilla entries,
-> feel free to add links to other bugzillas.
+This seems strange
 
-Thanks for capturing these items. It is really useful.
+include/linux/inetdevice.h:219
 
-Another item that is missing is
-- support assigning SR-IOV VF to a guest via tap/macvtap
+static inline struct in_device *__in_dev_get_rtnl(const struct net_devi=
+ce *dev)
+{
+	return rcu_dereference_check(dev->ip_ptr, lockdep_rtnl_is_held());
+}
 
-Currently, this requires
-  - VF to be put in promiscuous mode when using a bridge/tap
-  - add a new mac address to VF when using macvtap.
+But I dont think RTNL can possibly be held at this point ???
 
-I don't think any of the VF drivers provide these capabilities
-at this time.
+Oh wait, this is line 2582 in net/ipv4/route.c
 
--Sridhar
+It seems buggy and proud of it :)
+
+	/* RACE: Check return value of inet_select_addr instead. */=20
+	if (__in_dev_get_rtnl(dev_out) =3D=3D NULL) {
+
+This should be changed to=20
+
+	if (rcu_dereference_raw(dev_out->ip_ptr) =3D=3D NULL) {
+
+No ?
 
 
---------------060303030306080505060902
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by e6.ny.us.ibm.com id o8MMklt7016965
+In commit e5ed639913eea3e, Herbert mentioned a race so I suspect some
+more thinking is needed before applying the following patch
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-  <head>
-    <meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3DUTF=
--8">
-    <meta name=3D"GENERATOR" content=3D"GtkHTML/3.26.3">
-  </head>
-  <body bgcolor=3D"#ffffff" text=3D"#000000">
-    On Tue, 2010-09-21 at 18:11 +0200, Michael S. Tsirkin wrote:
-    <blockquote type=3D"CITE">
-      <pre><!--+GtkHTML:<DATA class=3D"ClueFlow" key=3D"orig" value=3D"1"=
->-->I've put up a wiki page with a kvm networking todo list,
-mainly to avoid effort duplication, but also in the hope
-to draw attention to what I think we should try addressing
-in KVM:
+Sorry its late here, I now need to sleep :)
 
-<a href=3D"http://www.linux-kvm.org/page/NetworkingTodo">http://www.linux=
--kvm.org/page/NetworkingTodo</a>
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index e24d48d..8d08377 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2579,7 +2579,7 @@ static int ip_route_output_slow(struct net *net, =
+struct rtable **rp,
+ 			goto out;
+=20
+ 		/* RACE: Check return value of inet_select_addr instead. */
+-		if (__in_dev_get_rtnl(dev_out) =3D=3D NULL) {
++		if (rcu_dereference_raw(dev_out->ip_ptr) =3D=3D NULL) {
+ 			dev_put(dev_out);
+ 			goto out;	/* Wrong error code */
+ 		}
 
-This page could cover all networking related activity in KVM,
-currently most info is related to virtio-net.
 
-Note: if there's no developer listed for an item,
-this just means I don't know of anyone actively working
-on an issue at the moment, not that no one intends to.
-
-I would appreciate it if others working on one of the items on this list
-would add their names so we can communicate better.  If others like this
-wiki page, please go ahead and add stuff you are working on if any.
-
-It would be especially nice to add autotest projects:
-there is just a short test matrix and a catch-all
-'Cover test matrix with autotest', currently.
-
-Currently there are some links to Red Hat bugzilla entries,
-feel free to add links to other bugzillas.
-</pre>
-    </blockquote>
-    <!--+GtkHTML:<DATA class=3D"ClueFlow" key=3D"orig" value=3D"0">--><br=
->
-    <!--+GtkHTML:<DATA class=3D"ClueFlow" key=3D"orig" value=3D"0">--><tt=
->Thanks
-      for capturing these items. It is really useful.<br>
-      <br>
-      Another item that is missing is<br>
-      - support assigning SR-IOV VF to a guest via tap/macvtap<br>
-      <br>
-      Currently, this requires <br>
-      =C2=A0- VF to be put in promiscuous mode when using a bridge/tap<br=
->
-      =C2=A0- add a new mac address to VF when using macvtap.<br>
-      <br>
-      I don't think any of the VF drivers provide these capabilities<br>
-      at this time.<br>
-    </tt>
-    <pre><tt></tt>-Sridhar
-</pre>
-  </body>
-</html>
-
---------------060303030306080505060902--
