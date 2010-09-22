@@ -1,86 +1,50 @@
-From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp
- reports
-Date: Wed, 22 Sep 2010 14:58:15 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1009221448460.32661@router.home>
-References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next-2.6 0/2] sfc: Falcon board/PHY support
+Date: Wed, 22 Sep 2010 20:58:21 +0100
+Message-ID: <1285185501.2279.14.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-To: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:23959 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755353Ab0IVT6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 15:58:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Sep 2010, David Stevens wrote:
+These patches update the board and PHY code to support precisely the
+boards that are actually in use.
 
->         I feel your pain, but the protocol allows this to be 0 and all
-> of the unsolicited reports can be lost. I don't think adding a minimum
-> latency solves a general problem. Perhaps the device should queue some
+Ben.
 
-The protocol does not specificy the intervals during unsolicited igmp
-sends. It only specifies the intervals as a result of a igmp query.
+Ben Hutchings (2):
+  sfc: Remove support for SFN4111T, SFT9001 and Falcon GMAC
+  sfc: Add support for SFE4003 board and TXC43128 PHY
 
-> packets if it isn't ready quickly? A querier is what makes these
-> reliable, but for the start-up in particular, I think it'd be better
-> to not initiate the send on devices that have this problem until the
-> device is actually ready to send-- why not put the delay in the device
-> driver on initialization?
+ drivers/net/sfc/Makefile        |    5 +-
+ drivers/net/sfc/falcon.c        |  120 ++-------
+ drivers/net/sfc/falcon_boards.c |  203 ++++++---------
+ drivers/net/sfc/falcon_gmac.c   |  230 ----------------
+ drivers/net/sfc/mac.h           |    1 -
+ drivers/net/sfc/mdio_10g.c      |   30 +--
+ drivers/net/sfc/net_driver.h    |    2 -
+ drivers/net/sfc/phy.h           |   18 +-
+ drivers/net/sfc/tenxpress.c     |  424 ++---------------------------
+ drivers/net/sfc/txc43128_phy.c  |  560 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/sfc/workarounds.h   |    9 +-
+ 11 files changed, 710 insertions(+), 892 deletions(-)
+ delete mode 100644 drivers/net/sfc/falcon_gmac.c
+ create mode 100644 drivers/net/sfc/txc43128_phy.c
 
-The device is ready. Its just the multicast group that has not been
-established yet.
-
-> > an igmp query but the result of a join request in the code.
->
->         These are also staggered to prevent a storm by mass reboots, e.g.,
-> from a power outage, and the default groups are joined on interface
-> bring-up.
-
-There is still some staggering left (see IGMP_Unsolicited_Fuzz). I can
-increase that if necessary.
-
-There also cannot be any storm since any unsolicited igmp report by any
-system will stop the unsolicited igmp reports by any other system.
-
-> > So unsolicited reports are send for an interval of at least a minute
-> > (reports are aborted if igmp reports or other info is seen).
->
->         This is outside the protocol spec, and the intervals are neither
-> random nor scaled based on any network performance metric.
-
-Where does it say that in the spec? Again this is an *unsolicited* igmp
-report.
-
-> 2) I think this would better be solved in the driver-- don't do the
->         upper initialization and group joins until the sends can actually
->         succeed.
-
-The driver is fine. Its just the multicast path in the network that take
-time to establish.
-
-> 3) I don't think it's a good idea to make up intervals, and especially
->         non-randomized ones. The probability of getting all minimum
-> intervals
->         is very low (which goes back to #1) and sending fixed intervals
-> may
->         introduce a problem (packet storms) that isn't there per RFC.
-> These
->         fixed intervals can also be either way too long or way too short,
->         depending on link characteristics they don't account for. Leaving
->         the intervals randomized based on querier-supplied data seems much
->         more appropriate to me.
-
-These are *unsolicited* igmp reports. There is *no* querier supplied data
-yet. The first querier supplied data (or any other unsolicited igmp
-report) will immediately stop the unsolicited reports and then will
-continue to respond in randomized intervals based on the data that the
-querier has supplied.
+-- 
+1.7.2.1
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
