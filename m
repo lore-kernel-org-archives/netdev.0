@@ -1,63 +1,53 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH 2/2] X.25 remove bkl in poll
-Date: Wed, 22 Sep 2010 11:24:45 +1000
-Message-ID: <1285118685.28503.46.camel@jaunty>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6 7/8] sfc: Set net_device::num_rx_queues once we know the correct value
+Date: Wed, 22 Sep 2010 02:31:36 +0100
+Message-ID: <1285106878.2697.96.camel@localhost>
+References: <1285008239.2282.110.camel@achroite.uk.solarflarecom.com> <1285008867.2323.60.camel@edumazet-laptop> <1285009546.2282.126.camel@achroite.uk.solarflarecom.com> <20100921.145703.189694076.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:41780 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755752Ab0IVBYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 21:24:51 -0400
-Received: by qyk36 with SMTP id 36so4573206qyk.19
-        for <netdev@vger.kernel.org>; Tue, 21 Sep 2010 18:24:51 -0700 (PDT)
+Received: from exchange.solarflare.com ([216.237.3.220]:12534 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755183Ab0IVBbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Sep 2010 21:31:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20100921.145703.189694076.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The x25_datagram_poll didn't add anything, removed it.
+On Tue, 2010-09-21 at 14:57 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Mon, 20 Sep 2010 20:05:46 +0100
+> 
+> > If RPS is enabled there's a separate kobject for each RX queue.  Those
+> > other drivers probably should be setting it.
+> > 
+> > Oh, but this only exists if CONFIG_RPS is enabled.  I think we need an
+> > inline function for setting this.
+> 
+> It's set in the core by alloc_netdev_mq(), you should never have to
+> set this in your driver.
 
-Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+That specifies the maximum possible number of queues, but we don't
+require that the actual number of TX queues (real_num_tx_queues) is the
+same as the maximum (num_tx_queues) and nor should we assume that of RX
+queues.  I don't think we should require that the maximum numbers of RX
+and TX queues are the same either, for that matter.
 
----
- net/x25/af_x25.c |   14 +-------------
- 1 files changed, 1 insertions(+), 13 deletions(-)
+> And that also takes care of the CONFIG_RPS dependency in one spot,
+> another good argument for drivers never touching this value.
+> 
+> I'm not applying this patch.
 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 4ebde0d..b371a47 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -923,18 +923,6 @@ out:
- 	return rc;
- }
- 
--static unsigned int x25_datagram_poll(struct file *file, struct socket *sock,
--			   poll_table *wait)
--{
--	int rc;
--
--	lock_kernel();
--	rc = datagram_poll(file, sock, wait);
--	unlock_kernel();
--
--	return rc;
--}
--
- int x25_rx_call_request(struct sk_buff *skb, struct x25_neigh *nb,
- 			unsigned int lci)
- {
-@@ -1742,7 +1730,7 @@ static const struct proto_ops x25_proto_ops = {
- 	.socketpair =	sock_no_socketpair,
- 	.accept =	x25_accept,
- 	.getname =	x25_getname,
--	.poll =		x25_datagram_poll,
-+	.poll =		datagram_poll,
- 	.ioctl =	x25_ioctl,
- #ifdef CONFIG_COMPAT
- 	.compat_ioctl = compat_x25_ioctl,
+Right, but we do need to have some way for drivers to specify the actual
+number of RX queues.
+
+Ben.
+
 -- 
-1.7.0.4
-
-
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
