@@ -1,32 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/2] sfc: Falcon board/PHY support
-Date: Wed, 22 Sep 2010 13:27:01 -0700 (PDT)
-Message-ID: <20100922.132701.260094704.davem@davemloft.net>
-References: <1285185501.2279.14.camel@achroite.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45583
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753293Ab0IVU0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 16:26:41 -0400
-In-Reply-To: <1285185501.2279.14.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: [PATCH 1/2] siw: Fix ib_register_device() for > v2.6.34 kernels
+Date: Wed, 22 Sep 2010 13:30:17 -0700
+Message-ID: <1285187417-10928-1-git-send-email-nab@linux-iscsi.org>
+Cc: David Miller <davem@davemloft.net>,
+	Matthew Wilcox <willy@linux.intel.com>,
+	Andi Keen <ak@linux.intel.com>,
+	Roland Dreier <rdreier@cisco.com>,
+	Nicholas Bellinger <nab@linux-iscsi.org>
+To: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-rdma <linux-rdma@vger.kernel.org>,
+	Bernard Metzler <BMT@zurich.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 22 Sep 2010 20:58:21 +0100
+From: Nicholas Bellinger <nab@linux-iscsi.org>
 
-> These patches update the board and PHY code to support precisely the
-> boards that are actually in use.
-> 
-> Ben.
-> 
-> Ben Hutchings (2):
->   sfc: Remove support for SFN4111T, SFT9001 and Falcon GMAC
->   sfc: Add support for SFE4003 board and TXC43128 PHY
+This patch adds a LINUX_VERSION_CODE > v2.6.34 check inside of siw_main.c:siw_register_device()
+around the use of ib_register_device().  In post v2.6.34 kernels this function accepts a second
+parameter used a sysfs port callback described here:
 
-Both applied, thanks Ben.
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9a6edb60ec10d86b1025a0cdad68fd89f1ddaf02
+
+This patch currently sets this second parameter to NULL.
+
+Signed-off-by: Nicholas A. Bellinger <nab@linux-iscsi.org>
+---
+ softiwarp/siw_main.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/softiwarp/siw_main.c b/softiwarp/siw_main.c
+index cacedea..c97adee 100644
+--- a/softiwarp/siw_main.c
++++ b/softiwarp/siw_main.c
+@@ -233,8 +233,11 @@ int siw_register_device(struct siw_dev *dev)
+ 	ibdev->iwcm->add_ref = siw_qp_get_ref;
+ 	ibdev->iwcm->rem_ref = siw_qp_put_ref;
+ 	ibdev->iwcm->get_qp = siw_get_ofaqp;
+-
++#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34)
++	rv = ib_register_device(ibdev, NULL);
++#else
+ 	rv = ib_register_device(ibdev);
++#endif
+ 	if (rv) {
+ 		dprint(DBG_DM|DBG_ON, "(dev=%s): "
+ 			"ib_register_device failed: rv=%d\n", ibdev->name, rv);
+-- 
+1.5.6.5
