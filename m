@@ -1,44 +1,45 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v2] net: af_packet: don't call tpacket_destruct_skb()
- until the skb is sent out
-Date: Wed, 22 Sep 2010 17:35:07 +0800
-Message-ID: <AANLkTi=iYahjwZt5w53xFsU7fyHr72wXHd9tycwUiNE9@mail.gmail.com>
-References: <1284175403-3228-1-git-send-email-xiaosuo@gmail.com>
- <20100912121349.GD22982@redhat.com> <20100914.202023.193706826.davem@davemloft.net>
- <20100915052332.GB25340@redhat.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/5] ptp: Added a brand new class driver for ptp clocks.
+Date: Wed, 22 Sep 2010 12:14:21 +0200
+Message-ID: <20100922101421.GA3337@riccoc20.at.omicron.at>
+References: <AANLkTik_2MKMhOuDGOmu8Kzyq-ipLe+Bxrb3FaD+Tv4U@mail.gmail.com>
+	<20100817085324.GB3330@riccoc20.at.omicron.at>
+	<1282090963.1734.97.camel@localhost>
+	<20100818071942.GA4096@riccoc20.at.omicron.at>
+	<1282176776.2865.100.camel@localhost.localdomain>
+	<20100819055518.GA4084@riccoc20.at.omicron.at>
+	<1282594125.3111.344.camel@localhost.localdomain>
+	<20100827123849.GC11657@riccoc20.at.omicron.at>
+	<1282948239.2268.155.camel@jstultz-laptop>
+	<AANLkTinRM3_kBc5S3wV=_S6P8+x7A43kz0qSYbixJYnq@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	socketcan@hartkopp.net, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64624 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753265Ab0IVJf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 05:35:28 -0400
-Received: by wyf22 with SMTP id 22so284336wyf.19
-        for <netdev@vger.kernel.org>; Wed, 22 Sep 2010 02:35:27 -0700 (PDT)
-In-Reply-To: <20100915052332.GB25340@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Kyle Moffett <kyle-hoO6YkzgTuCM0SS3m2neIg@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTinRM3_kBc5S3wV=_S6P8+x7A43kz0qSYbixJYnq-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 15, 2010 at 1:23 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
->
-> Hmm, and there's another issue I think I see here:
-> destructor_arg now points to a socket.
-> What happens if the skb gets queued on an interface for a very long time
-> (as can be the case with e.g. tap), and meanwhile
-> you try to kill the task that owns the socket, which
-> will try to destroy the socket?
->
-> Original code handles this by relevant devices orphaning an skb
-> if it's queued indefinitely.
->
+On Tue, Sep 21, 2010 at 04:47:45PM -0400, Kyle Moffett wrote:
+> Well how about something much more straightforward:
 
-I don't think the skb_orphan() there is used to destroy the socket in
-time, but notify the socket that skbs are sent out and it can send new
-skbs.
+I am about to post another patch set for discussion, so please comment
+on it when it appears.
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Thanks,
+Richard
