@@ -1,55 +1,47 @@
 From: kaber@trash.net
-Subject: [PATCH 5/6] netfilter: nf_nat_snmp: fix checksum calculation (v4)
-Date: Wed, 22 Sep 2010 09:17:33 +0200
-Message-ID: <1285139854-11827-6-git-send-email-kaber@trash.net>
+Subject: [PATCH 6/6] netfilter: nf_conntrack_defrag: check socket type before touching nodefrag flag
+Date: Wed, 22 Sep 2010 09:17:34 +0200
+Message-ID: <1285139854-11827-7-git-send-email-kaber@trash.net>
 References: <1285139854-11827-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53999 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752237Ab0IVHRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 03:17:38 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1285139854-11827-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+From: Jiri Olsa <jolsa@redhat.com>
 
-Fix checksum calculation in nf_nat_snmp_basic.
+we need to check proper socket type within ipv4_conntrack_defrag
+function before referencing the nodefrag flag.
 
-Based on patches by Clark Wang <wtweeker@163.com> and
-Stephen Hemminger <shemminger@vyatta.com>.
+For example the tun driver receive path produces skbs with
+AF_UNSPEC socket type, and so current code is causing unwanted
+fragmented packets going out.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=17622
-
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/nf_nat_snmp_basic.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ net/ipv4/netfilter/nf_defrag_ipv4.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index 1679e2c..ee5f419 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -893,13 +893,15 @@ static void fast_csum(__sum16 *csum,
- 	unsigned char s[4];
+diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
+index eab8de3..f3a9b42 100644
+--- a/net/ipv4/netfilter/nf_defrag_ipv4.c
++++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
+@@ -66,9 +66,11 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
+ 					  const struct net_device *out,
+ 					  int (*okfn)(struct sk_buff *))
+ {
++	struct sock *sk = skb->sk;
+ 	struct inet_sock *inet = inet_sk(skb->sk);
  
- 	if (offset & 1) {
--		s[0] = s[2] = 0;
-+		s[0] = ~0;
- 		s[1] = ~*optr;
-+		s[2] = 0;
- 		s[3] = *nptr;
- 	} else {
--		s[1] = s[3] = 0;
- 		s[0] = ~*optr;
-+		s[1] = ~0;
- 		s[2] = *nptr;
-+		s[3] = 0;
- 	}
+-	if (inet && inet->nodefrag)
++	if (sk && (sk->sk_family == PF_INET) &&
++	    inet->nodefrag)
+ 		return NF_ACCEPT;
  
- 	*csum = csum_fold(csum_partial(s, 4, ~csum_unfold(*csum)));
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 -- 
 1.7.1
 
