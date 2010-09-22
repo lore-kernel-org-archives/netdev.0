@@ -1,30 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 4/6] netfilter: fix a race in nf_ct_ext_create()
-Date: Wed, 22 Sep 2010 09:28:13 +0200
-Message-ID: <4C99B00D.2020704@trash.net>
-References: <1285139854-11827-1-git-send-email-kaber@trash.net>	 <1285139854-11827-5-git-send-email-kaber@trash.net> <1285140220.6378.211.camel@edumazet-laptop>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [RFC] skge: limit DMA to 32 bit
+Date: Wed, 22 Sep 2010 09:34:01 +0200
+Message-ID: <20100922073400.GA9942@redhat.com>
+References: <20100921071518.GA9081@redhat.com>
+ <20100921080253.3d89d60a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1285140220.6378.211.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51937 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751780Ab0IVHc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Sep 2010 03:32:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20100921080253.3d89d60a@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 22.09.2010 09:23, schrieb Eric Dumazet:
-> Le mercredi 22 septembre 2010 =C3=A0 09:17 +0200, kaber@trash.net a =C3=
-=A9crit :
->> From: Eric Dumazet <Eric Dumazet>
->>
->=20
-> strange email address ;)
+On Tue, Sep 21, 2010 at 08:02:53AM -0700, Stephen Hemminger wrote:
+> > Is 32bit DMA limit for every skge device acceptable patch?
+> 
+> No. The device does support 64 bit DMA, the problem is a crap implementation
+> of the device the motherboard. Therefore a PCI quirk or module parameter
+> is a better solution.
 
-Indeed, cut-and-paste error, sorry :)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ok, I will use dmi_check_system() to recognize broken board and limit DMA
+address space when detected.
+
+Thanks
+Stanislaw
