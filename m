@@ -1,49 +1,98 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp reports
-Date: Wed, 22 Sep 2010 14:41:37 -0700
-Message-ID: <OF5594D8AA.554725F5-ON882577A6.00768526-882577A6.00772BB2@us.ibm.com>
-References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com> <alpine.DEB.2.00.1009221448460.32661@router.home> <4C9A6D87.2000103@rincon.com> <alpine.DEB.2.00.1009221631520.32661@router.home>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH 2/2] siw: Add support for CRC32C offload instruction
+	using libcrypto crc32c-intel
+Date: Wed, 22 Sep 2010 14:38:31 -0700
+Message-ID: <1285191511.1849.126.camel@haakon2.linux-iscsi.org>
+References: <1285187425-10950-1-git-send-email-nab@linux-iscsi.org>
+	 <4C9A698B.90806@linux.intel.com>
+	 <1285187901.1849.85.camel@haakon2.linux-iscsi.org>
+	 <20100922205943.GI11157@obsidianresearch.com>
+	 <1285189241.1849.112.camel@haakon2.linux-iscsi.org>
+	 <20100922211808.GJ11157@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bob Arendt <rda@rincon.com>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:53610 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750739Ab0IVVlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 17:41:40 -0400
-In-Reply-To: <alpine.DEB.2.00.1009221631520.32661@router.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-rdma <linux-rdma@vger.kernel.org>,
+	Bernard Metzler <BMT@zurich.ibm.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100922211808.GJ11157@obsidianresearch.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Christoph Lameter <cl@linux.com> wrote on 09/22/2010 02:33:14 PM:
-
- This can address issues where joins are slow because the initial join is
-> frequently lost.
+On Wed, 2010-09-22 at 15:18 -0600, Jason Gunthorpe wrote:
+> [cc list chopped]
 > 
-> Also increment the frequency so that we get a 10 reports send over a
-> few seconds.
+> On Wed, Sep 22, 2010 at 02:00:41PM -0700, Nicholas A. Bellinger wrote:
+> > On Wed, 2010-09-22 at 14:59 -0600, Jason Gunthorpe wrote:
+> > > On Wed, Sep 22, 2010 at 01:38:21PM -0700, Nicholas A. Bellinger wrote:
+> > > 
+> > > > Indeed, this would clean up the explict RX/TX CRC32C case quite a
+> > > > bit..  Unfortuately I am too busy with other items atm to cook up
+> > > > this patch, but I would be happy to test it if someone wants to take
+> > > > it.  ;)
+> > > 
+> > > Do you even need to do anything at all? crc32c is provided by
+> > > crc32c-intel at a higher priority already, so it should be used if it
+> > > is available..
+> > 
+> > I believe with the current libcrypto code that consumers are still
+> > required to explictly ask for crc32c-intel offload.
+> 
+> Really? It all looks OK to me.. What does your /proc/crypto say on a
+> system with crc32c-intel support?
 
-        Except you want to conform and not conform at the same time. :-)
-IGMPv2 should be: default count 2, interval 10secs
-IGMPv3 should be: default count 2, interval 1sec
+After a fresh boot /proc/crypto looks like:
 
-...and no way is it a good idea to send 10 unsolicited reports on an
-Ethernet.
+name         : stdrng
+driver       : krng
+module       : kernel
+priority     : 200
+refcnt       : 1
+selftest     : passed
+type         : rng
+seedsize     : 0
 
-I think system-wide defaults must be as suggested (which allows for
-v3 being shortened to 1sec, but not v2) and if you want to use longer
-values, you should have either a *per-interface* tunable [ie, the default
-value for your interface only] or make these per-interface variables and
-have the IB code bump them up for IB interfaces only. An attached
-Ethernet on the same system shouldn't be using larger values unless
-bumped for some reason by an administrator.
+name         : crc32c
+driver       : crc32c-generic
+module       : kernel
+priority     : 100
+refcnt       : 2
+selftest     : passed
+type         : shash
+blocksize    : 1
+digestsize   : 4
 
-There is no problem with current values on Ethernet; lets not create
-one. :-)
+name         : sha1
+driver       : sha1-generic
+module       : kernel
+priority     : 0
+refcnt       : 1
+selftest     : passed
+type         : shash
+blocksize    : 64
+digestsize   : 20
 
-                                                                +-DLS
+Once I start up the LIO-Target stack and some iSCSI Initiators login
+and request crc32c-intel using crypto_alloc_hash() using a method similar
+to what this patch for Softiwarp does, the following appears in at the top
+of /proc/crypto:
 
+name         : crc32c
+driver       : crc32c-intel
+module       : crc32c_intel
+priority     : 200
+refcnt       : 5
+selftest     : passed
+type         : shash
+blocksize    : 1
+digestsize   : 4
+
+So I think the main bit here is the ability to request crc32c-intel.ko first,
+and then fall back to crc32c.ko when the former is not available on CONFIG_X86.
+
+Best,
+
+--nab
