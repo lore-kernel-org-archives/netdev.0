@@ -1,7 +1,7 @@
 From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: [PATCH 1/2] siw: Fix ib_register_device() for > v2.6.34 kernels
-Date: Wed, 22 Sep 2010 13:30:17 -0700
-Message-ID: <1285187417-10928-1-git-send-email-nab@linux-iscsi.org>
+Subject: [PATCH 0/2] siw: Fix build failure for > v2.6.34 + add crc32c-intel.ko offload
+Date: Wed, 22 Sep 2010 13:30:08 -0700
+Message-ID: <1285187408-10905-1-git-send-email-nab@linux-iscsi.org>
 Cc: David Miller <davem@davemloft.net>,
 	Matthew Wilcox <willy@linux.intel.com>,
 	Andi Keen <ak@linux.intel.com>,
@@ -17,35 +17,26 @@ List-Id: netdev.vger.kernel.org
 
 From: Nicholas Bellinger <nab@linux-iscsi.org>
 
-This patch adds a LINUX_VERSION_CODE > v2.6.34 check inside of siw_main.c:siw_register_device()
-around the use of ib_register_device().  In post v2.6.34 kernels this function accepts a second
-parameter used a sysfs port callback described here:
+Greetings Bernard and NetDev folks,
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9a6edb60ec10d86b1025a0cdad68fd89f1ddaf02
+Attached are two patches for softiwarp/kernel.git, the first of which fixes a build
+failure on > v2.6.34 kernels with ib_register_device(), and the second is the addition
+of proper support for libcrypto crc32c-intel.ko using Nehalem SSE v4.2 instruction offload
+which is an item that has been recently added into our LIO-Target v4.0.0-rc4 release
+over on the linux-scsi list.
 
-This patch currently sets this second parameter to NULL.
+Please note that this code has only been compile tested so far, but I do plan to have
+a deeper look at your teams work once I have a bit more free time on my hands.
+
+Many great thanks for all of your efforts with IBM Software iWARP stack!
 
 Signed-off-by: Nicholas A. Bellinger <nab@linux-iscsi.org>
----
- softiwarp/siw_main.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/softiwarp/siw_main.c b/softiwarp/siw_main.c
-index cacedea..c97adee 100644
---- a/softiwarp/siw_main.c
-+++ b/softiwarp/siw_main.c
-@@ -233,8 +233,11 @@ int siw_register_device(struct siw_dev *dev)
- 	ibdev->iwcm->add_ref = siw_qp_get_ref;
- 	ibdev->iwcm->rem_ref = siw_qp_put_ref;
- 	ibdev->iwcm->get_qp = siw_get_ofaqp;
--
-+#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34)
-+	rv = ib_register_device(ibdev, NULL);
-+#else
- 	rv = ib_register_device(ibdev);
-+#endif
- 	if (rv) {
- 		dprint(DBG_DM|DBG_ON, "(dev=%s): "
- 			"ib_register_device failed: rv=%d\n", ibdev->name, rv);
--- 
-1.5.6.5
+Nicholas Bellinger (2):
+  siw: Fix ib_register_device() for > v2.6.34 kernels
+  siw: Add support for CRC32C offload instruction using libcrypto
+    crc32c-intel
+
+ softiwarp/siw_main.c  |    5 ++++-
+ softiwarp/siw_verbs.c |   37 ++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 40 insertions(+), 2 deletions(-)
