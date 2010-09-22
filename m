@@ -1,49 +1,135 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] net: af_packet: don't call tpacket_destruct_skb()
- until the skb is sent out
-Date: Wed, 22 Sep 2010 12:59:01 +0200
-Message-ID: <20100922105901.GB16028@redhat.com>
-References: <1284175403-3228-1-git-send-email-xiaosuo@gmail.com>
- <20100912121349.GD22982@redhat.com>
- <20100914.202023.193706826.davem@davemloft.net>
- <20100915052332.GB25340@redhat.com>
- <AANLkTi=iYahjwZt5w53xFsU7fyHr72wXHd9tycwUiNE9@mail.gmail.com>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
+Date: Wed, 22 Sep 2010 19:41:36 +0800
+Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D792D171853DF@shsmsx502.ccr.corp.intel.com>
+References: <20100915112811.GB29267@redhat.com>
+ <1284970128-7343-1-git-send-email-xiaohui.xin@intel.com>
+ <20100920113643.GB23898@redhat.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D792B8CAA0F6A@shsmsx502.ccr.corp.intel.com>
+ <20100921131421.GA10439@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	socketcan@hartkopp.net, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49408 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752099Ab0IVLFE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Sep 2010 07:05:04 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=iYahjwZt5w53xFsU7fyHr72wXHd9tycwUiNE9@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"herbert@gondor.hengli.com.au" <herbert@gondor.hengli.com.au>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100921131421.GA10439@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 22, 2010 at 05:35:07PM +0800, Changli Gao wrote:
-> On Wed, Sep 15, 2010 at 1:23 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> >
-> > Hmm, and there's another issue I think I see here:
-> > destructor_arg now points to a socket.
-> > What happens if the skb gets queued on an interface for a very long time
-> > (as can be the case with e.g. tap), and meanwhile
-> > you try to kill the task that owns the socket, which
-> > will try to destroy the socket?
-> >
-> > Original code handles this by relevant devices orphaning an skb
-> > if it's queued indefinitely.
-> >
-> 
-> I don't think the skb_orphan() there is used to destroy the socket in
-> time, but notify the socket that skbs are sent out and it can send new
-> skbs.
+>-----Original Message-----
+>From: Michael S. Tsirkin [mailto:mst@redhat.com]
+>Sent: Tuesday, September 21, 2010 9:14 PM
+>To: Xin, Xiaohui
+>Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+>mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
+>jdike@linux.intel.com
+>Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
+>
+>On Tue, Sep 21, 2010 at 09:39:31AM +0800, Xin, Xiaohui wrote:
+>> >From: Michael S. Tsirkin [mailto:mst@redhat.com]
+>> >Sent: Monday, September 20, 2010 7:37 PM
+>> >To: Xin, Xiaohui
+>> >Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
+>> >mingo@elte.hu; davem@davemloft.net; herbert@gondor.hengli.com.au;
+>> >jdike@linux.intel.com
+>> >Subject: Re: [RFC PATCH v9 12/16] Add mp(mediate passthru) device.
+>> >
+>> >On Mon, Sep 20, 2010 at 04:08:48PM +0800, xiaohui.xin@intel.com wrote:
+>> >> From: Xin Xiaohui <xiaohui.xin@intel.com>
+>> >>
+>> >> ---
+>> >> Michael,
+>> >> I have move the ioctl to configure the locked memory to vhost
+>> >
+>> >It's ok to move this to vhost but vhost does not
+>> >know how much memory is needed by the backend.
+>>
+>> I think the backend here you mean is mp device.
+>> Actually, the memory needed is related to vq->num to run zero-copy
+>> smoothly.
+>> That means mp device did not know it but vhost did.
+>
+>Well, this might be so if you insist on locking
+>all posted buffers immediately. However, let's assume I have a
+>very large ring and prepost a ton of RX buffers:
+>there's no need to lock all of them directly:
+>
+>if we have buffers A and B, we can lock A, pass it
+>to hardware, and when A is consumed unlock A, lock B
+>and pass it to hardware.
+>
+>
+>It's not really critical. But note we can always have userspace
+>tell MP device all it wants to know, after all.
+>
+Ok. Here are two values we have mentioned, one is how much memory
+user application wants to lock, and one is how much memory locked
+is needed to run smoothly. When net backend is setup, we first need
+an ioctl to get how much memory is needed to lock, and then we call
+another ioctl to set how much it want to lock. Is that what's in your mind? 
 
-Well, the result is that we drop a socket reference from the skb,
-so it becomes possible to free the socket.
+>> And the rlimt stuff is per process, we use current pointer to set
+>> and check the rlimit, the operations should be in the same process.
+>
+>Well no, the ring is handled from the kernel thread: we switch the mm to
+>point to the owner task so copy from/to user and friends work, but you
+>can't access the rlimit etc.
+>
+Yes, the userspace and vhost kernel is not the same process. But we can
+record the task pointer as mm.
 
-> -- 
-> Regards,
-> Changli Gao(xiaosuo@gmail.com)
+>> Now the check operations are in vhost process, as mp_recvmsg() or
+>> mp_sendmsg() are called by vhost.
+>
+>Hmm, what do you mean by the check operations?
+>send/recv are data path operations, they shouldn't
+>do any checks, should they?
+>
+As you mentioned what infiniband driver done:
+        down_write(&current->mm->mmap_sem);
+
+        locked     = npages + current->mm->locked_vm;
+        lock_limit = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
+
+        if ((locked > lock_limit) && !capable(CAP_IPC_LOCK)) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        cur_base = addr & PAGE_MASK;
+
+        ret = 0;
+        while (npages) {
+                ret = get_user_pages(current, current->mm, cur_base,
+                                     min_t(unsigned long, npages,
+                                           PAGE_SIZE / sizeof (struct page *)),
+                                     1, !umem->writable, page_list, vma_list);
+
+I think it's a data path too. We do the check because get_user_pages() really pin and locked
+the memory. 
+
+>> So set operations should be in
+>> vhost process too, it's natural.
+>>
+>> >So I think we'll need another ioctl in the backend
+>> >to tell userspace how much memory is needed?
+>> >
+>> Except vhost tells it to mp device, mp did not know
+>> how much memory is needed to run zero-copy smoothly.
+>> Is userspace interested about the memory mp is needed?
+>
+>Couldn't parse this last question.
+>I think userspace generally does want control over
+>how much memory we'll lock. We should not just lock
+>as much as we can.
+>
+>--
+>MST
