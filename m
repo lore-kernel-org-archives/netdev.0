@@ -1,29 +1,51 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: Re: Seeing transmit timeouts on 8139cp
-Date: Tue, 21 Sep 2010 23:30:33 -0700
-Message-ID: <4C99A289.2030109@redfish-solutions.com>
-References: <4C92F853.8050701@redfish-solutions.com> <20100917200024.GA7288@electric-eye.fr.zoreil.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH RESEND 1/3] netfilter: xtables: inclusion of xt_condition
+Date: Wed, 22 Sep 2010 08:46:54 +0200
+Message-ID: <4C99A65E.7080606@trash.net>
+References: <1282034213-1829-1-git-send-email-luciano.coelho@nokia.com>	 <1282034213-1829-2-git-send-email-luciano.coelho@nokia.com>	 <4C912EFC.9070406@trash.net>	 <alpine.LNX.2.01.1009152246320.5146@obet.zrqbmnf.qr>	 <4C9133A0.7050601@trash.net>	 <alpine.LNX.2.01.1009152309140.6445@obet.zrqbmnf.qr>	 <4C91AD41.1020802@trash.net> <1285099327.10579.20.camel@powerslave>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:43716 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750910Ab0IVGan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 02:30:43 -0400
-In-Reply-To: <20100917200024.GA7288@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"sameo@linux.intel.com" <sameo@linux.intel.com>,
+	"Ylalehto Janne (Nokia-MS/Tampere)" <janne.ylalehto@nokia.com>
+To: Luciano Coelho <luciano.coelho@nokia.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1285099327.10579.20.camel@powerslave>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  On 9/17/10 1:00 PM, Francois Romieu wrote:
-> Philip Prindeville<philipp_subx@redfish-solutions.com>  :
-> [...]
->> Does this look familiar to anyone?
-> 349124a00754129a5f1e43efa84733e364bf3749 ?
->
-> It would be a bit too easy.
->
-Thanks.  I'll give it a try now.
+Am 21.09.2010 22:02, schrieb Luciano Coelho:
+> On Thu, 2010-09-16 at 07:38 +0200, ext Patrick McHardy wrote:
+>> On 15.09.2010 23:09, Jan Engelhardt wrote:
+>>>
+>>> On Wednesday 2010-09-15 22:59, Patrick McHardy wrote:
+>>>> On 15.09.2010 22:52, Jan Engelhardt wrote:
+>>>>>
+>>>>> On Wednesday 2010-09-15 22:39, Patrick McHardy wrote:
+>>>>>> Am 17.08.2010 10:36, schrieb Luciano Coelho:
+>>>>>>> +/* Defaults, these can be overridden on the module command-line. */
+>>>>>>> +static unsigned int condition_list_perms = S_IRUGO | S_IWUSR;
+>>>>>>> +static unsigned int condition_uid_perms = 0;
+>>>>>>> +static unsigned int condition_gid_perms = 0;
+>>>>>>
+>>>>>> I'm not sure whether we already discussed this, but this isn't
+>>>>>> useful if namespaces are used since the IDs aren't global.
+>>>>>
+>>>>> Well it's also done for other xt modules that offer a procfs interface.
+>>>>> It does not really cost much to have this present I'd say.
+>>>>
+>>>> They should simply set the permissions for the current namespace.
+>>>>
+>>> IIRC, the namespace stuff was going to be a later patch to keep
+>>> early patches simpler.
+>>
+>> I'm fine with that as long as its done before merging the patches
+>> upstream.
+> 
+> I'll try to fix this and create a new patch on top of the existing ones,
+> then I'll send them all as a single patchset.
 
+Sounds good, thanks.
