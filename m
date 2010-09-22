@@ -1,50 +1,51 @@
-From: Luca Tettamanti <kronos.it@gmail.com>
-Subject: [PATCH 2/2] atl1: zero out CMB and SBM in atl1_free_ring_resources
-Date: Wed, 22 Sep 2010 22:42:31 +0200
-Message-ID: <20100922204231.GA1401@nb-core2.darkstar.lan>
-References: <20100922.132341.48506736.davem@davemloft.net>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH 2/2] siw: Add support for CRC32C offload instruction
+	using libcrypto crc32c-intel
+Date: Wed, 22 Sep 2010 13:38:21 -0700
+Message-ID: <1285187901.1849.85.camel@haakon2.linux-iscsi.org>
+References: <1285187425-10950-1-git-send-email-nab@linux-iscsi.org>
+	 <4C9A698B.90806@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: atl1-devel@lists.sourceforge.net, jcliburn@gmail.com,
-	chris.snook@gmail.com, jie.yang@atheros.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:34405 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752802Ab0IVUmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 16:42:49 -0400
-Received: by wwb34 with SMTP id 34so16982wwb.1
-        for <netdev@vger.kernel.org>; Wed, 22 Sep 2010 13:42:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20100922.132341.48506736.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-rdma <linux-rdma@vger.kernel.org>,
+	Bernard Metzler <BMT@zurich.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Matthew Wilcox <willy@linux.intel.com>,
+	Roland Dreier <rdreier@cisco.com>
+To: Andi Kleen <ak@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C9A698B.90806@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-They are allocated in atl1_setup_ring_resources, zero out the pointers
-in atl1_free_ring_resources (like the other resources).
+On Wed, 2010-09-22 at 22:39 +0200, Andi Kleen wrote:
+> On 9/22/2010 10:30 PM, Nicholas A. Bellinger wrote:
+> > From: Nicholas Bellinger<nab@linux-iscsi.org>
+> >
+> > This patch updates siw_create_qp() to check for the CONFIG_X86 + cpu_has_xmm4_2
+> > dependent use of the CRC32C instruction offload using libcrypto crc32c-intel.ko.
+> > This patch will by default use crc32c-intel when available, and fall back to the
+> > legacy slicing by 1x libcrypto crc32c.ko code when the instruction offload is not
+> > availabe.
+> 
+> I don't think every caller should handle checks like this. The crypto 
+> layer should load the right driver
+> instead and provide the best driver under a generic algorithm name.
+> 
 
-Signed-off-by: Luca Tettamanti <kronos.it@gmail.com>
-Acked-by: Chris Snook <chris.snook@gmail.com>
----
- drivers/net/atlx/atl1.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+Indeed, this would clean up the explict RX/TX CRC32C case quite a bit..
+Unfortuately I am too busy with other items atm to cook up this patch,
+but I would be happy to test it if someone wants to take it.  ;)
 
-diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
-index bbd6e30..c73be28 100644
---- a/drivers/net/atlx/atl1.c
-+++ b/drivers/net/atlx/atl1.c
-@@ -1251,6 +1251,12 @@ static void atl1_free_ring_resources(struct atl1_adapter *adapter)
- 
- 	rrd_ring->desc = NULL;
- 	rrd_ring->dma = 0;
-+
-+	adapter->cmb.dma = 0;
-+	adapter->cmb.cmb = NULL;
-+
-+	adapter->smb.dma = 0;
-+	adapter->smb.smb = NULL;
- }
- 
- static void atl1_setup_mac_ctrl(struct atl1_adapter *adapter)
--- 
-1.7.1
+> Need CPUID module auto probing. I have an older patch that needs some fixes.
+> 
+
+Hmm, I don't see how that fits in here exactly.  Would you mind
+elaborating a bit..?
+
+Thanks!
+
+--nab
