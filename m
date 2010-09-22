@@ -1,55 +1,59 @@
 From: kaber@trash.net
-Subject: [PATCH 4/6] netfilter: fix a race in nf_ct_ext_create()
-Date: Wed, 22 Sep 2010 09:17:32 +0200
-Message-ID: <1285139854-11827-5-git-send-email-kaber@trash.net>
+Subject: [PATCH 3/6] netfilter: fix ipt_REJECT TCP RST routing for indev == outdev
+Date: Wed, 22 Sep 2010 09:17:31 +0200
+Message-ID: <1285139854-11827-4-git-send-email-kaber@trash.net>
 References: <1285139854-11827-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53998 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989Ab0IVHRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 03:17:37 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1285139854-11827-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <Eric Dumazet>
+From: Changli Gao <xiaosuo@gmail.com>
 
-As soon as rcu_read_unlock() is called, there is no guarantee current
-thread can safely derefence t pointer, rcu protected.
+ip_route_me_harder can't create the route cache when the outdev is the same
+with the indev for the skbs whichout a valid protocol set.
 
-Fix is to copy t->alloc_size in a temporary variable.
+__mkroute_input functions has this check:
+1998         if (skb->protocol != htons(ETH_P_IP)) {
+1999                 /* Not IP (i.e. ARP). Do not create route, if it is
+2000                  * invalid for proxy arp. DNAT routes are always valid.
+2001                  *
+2002                  * Proxy arp feature have been extended to allow, ARP
+2003                  * replies back to the same interface, to support
+2004                  * Private VLAN switch technologies. See arp.c.
+2005                  */
+2006                 if (out_dev == in_dev &&
+2007                     IN_DEV_PROXY_ARP_PVLAN(in_dev) == 0) {
+2008                         err = -EINVAL;
+2009                         goto cleanup;
+2010                 }
+2011         }
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+This patch gives the new skb a valid protocol to bypass this check. In order
+to make ipt_REJECT work with bridges, you also need to enable ip_forward.
+
+This patch also fixes a regression. When we used skb_copy_expand(), we
+didn't have this issue stated above, as the protocol was properly set.
+
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nf_conntrack_extend.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ net/ipv4/netfilter/ipt_REJECT.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
-index 7dcf7a4..8d9e4c9 100644
---- a/net/netfilter/nf_conntrack_extend.c
-+++ b/net/netfilter/nf_conntrack_extend.c
-@@ -48,15 +48,17 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
- {
- 	unsigned int off, len;
- 	struct nf_ct_ext_type *t;
-+	size_t alloc_size;
+diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
+index b254daf..43eec80 100644
+--- a/net/ipv4/netfilter/ipt_REJECT.c
++++ b/net/ipv4/netfilter/ipt_REJECT.c
+@@ -112,6 +112,7 @@ static void send_reset(struct sk_buff *oldskb, int hook)
+ 	/* ip_route_me_harder expects skb->dst to be set */
+ 	skb_dst_set_noref(nskb, skb_dst(oldskb));
  
- 	rcu_read_lock();
- 	t = rcu_dereference(nf_ct_ext_types[id]);
- 	BUG_ON(t == NULL);
- 	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
- 	len = off + t->len;
-+	alloc_size = t->alloc_size;
- 	rcu_read_unlock();
- 
--	*ext = kzalloc(t->alloc_size, gfp);
-+	*ext = kzalloc(alloc_size, gfp);
- 	if (!*ext)
- 		return NULL;
++	nskb->protocol = htons(ETH_P_IP);
+ 	if (ip_route_me_harder(nskb, addr_type))
+ 		goto free_nskb;
  
 -- 
 1.7.1
