@@ -1,32 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] atl1: zero out CMB and SBM in
- atl1_free_ring_resources
-Date: Wed, 22 Sep 2010 13:53:34 -0700 (PDT)
-Message-ID: <20100922.135334.245404482.davem@davemloft.net>
-References: <20100922.132341.48506736.davem@davemloft.net>
-	<20100922204231.GA1401@nb-core2.darkstar.lan>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH 2/2] siw: Add support for CRC32C offload instruction
+	using libcrypto crc32c-intel
+Date: Wed, 22 Sep 2010 14:59:43 -0600
+Message-ID: <20100922205943.GI11157@obsidianresearch.com>
+References: <1285187425-10950-1-git-send-email-nab@linux-iscsi.org> <4C9A698B.90806@linux.intel.com> <1285187901.1849.85.camel@haakon2.linux-iscsi.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, atl1-devel@lists.sourceforge.net,
-	jcliburn@gmail.com, chris.snook@gmail.com, jie.yang@atheros.com
-To: kronos.it@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42224
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755265Ab0IVUxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 16:53:15 -0400
-In-Reply-To: <20100922204231.GA1401@nb-core2.darkstar.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Matthew Wilcox <willy-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+To: "Nicholas A. Bellinger" <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1285187901.1849.85.camel-Y1+j5t8j3WgjMeEPmliV8E/sVC8ogwMJ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Luca Tettamanti <kronos.it@gmail.com>
-Date: Wed, 22 Sep 2010 22:42:31 +0200
+On Wed, Sep 22, 2010 at 01:38:21PM -0700, Nicholas A. Bellinger wrote:
 
-> They are allocated in atl1_setup_ring_resources, zero out the pointers
-> in atl1_free_ring_resources (like the other resources).
-> 
-> Signed-off-by: Luca Tettamanti <kronos.it@gmail.com>
-> Acked-by: Chris Snook <chris.snook@gmail.com>
+> Indeed, this would clean up the explict RX/TX CRC32C case quite a
+> bit..  Unfortuately I am too busy with other items atm to cook up
+> this patch, but I would be happy to test it if someone wants to take
+> it.  ;)
 
-Applied.
+Do you even need to do anything at all? crc32c is provided by
+crc32c-intel at a higher priority already, so it should be used if it
+is available..
+ 
+> > Need CPUID module auto probing. I have an older patch that needs
+> > some fixes.
+
+> Hmm, I don't see how that fits in here exactly.  Would you mind
+> elaborating a bit..?
+
+Unless the module is loaded the optimized algorithm will not be
+available for automatic use. Maybe your patch causes it to autoload
+because of the by-name reference? Identifying modules to load by CPUID
+will let userspace auto load the appropriate ones based on CPU...
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
