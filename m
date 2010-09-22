@@ -1,44 +1,49 @@
 From: kaber@trash.net
-Subject: [PATCH 2/6] netfilter: nf_ct_sip: default to NF_ACCEPT in sip_help_tcp()
-Date: Wed, 22 Sep 2010 09:17:30 +0200
-Message-ID: <1285139854-11827-3-git-send-email-kaber@trash.net>
+Subject: [PATCH 1/6] netfilter: tproxy: nf_tproxy_assign_sock() can handle tw sockets
+Date: Wed, 22 Sep 2010 09:17:29 +0200
+Message-ID: <1285139854-11827-2-git-send-email-kaber@trash.net>
 References: <1285139854-11827-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:53997 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963Ab0IVHRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 03:17:37 -0400
 In-Reply-To: <1285139854-11827-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-I initially noticed this because of the compiler warning below, but it
-does seem to be a valid concern in the case where ct_sip_get_header()
-returns 0 in the first iteration of the while loop.
+transparent field of a socket is either inet_twsk(sk)->tw_transparent
+for timewait sockets, or inet_sk(sk)->transparent for other sockets
+(TCP/UDP).
 
-net/netfilter/nf_conntrack_sip.c: In function 'sip_help_tcp':
-net/netfilter/nf_conntrack_sip.c:1379: warning: 'ret' may be used uninitialized in this function
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-[Patrick: changed NF_DROP to NF_ACCEPT]
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nf_conntrack_sip.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/netfilter/nf_tproxy_core.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 53d8922..f64de95 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1376,7 +1376,7 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
- 	unsigned int msglen, origlen;
- 	const char *dptr, *end;
- 	s16 diff, tdiff = 0;
--	int ret;
-+	int ret = NF_ACCEPT;
- 	typeof(nf_nat_sip_seq_adjust_hook) nf_nat_sip_seq_adjust;
- 
- 	if (ctinfo != IP_CT_ESTABLISHED &&
+diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
+index 5490fc3..daab8c4 100644
+--- a/net/netfilter/nf_tproxy_core.c
++++ b/net/netfilter/nf_tproxy_core.c
+@@ -70,7 +70,11 @@ nf_tproxy_destructor(struct sk_buff *skb)
+ int
+ nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk)
+ {
+-	if (inet_sk(sk)->transparent) {
++	bool transparent = (sk->sk_state == TCP_TIME_WAIT) ?
++				inet_twsk(sk)->tw_transparent :
++				inet_sk(sk)->transparent;
++
++	if (transparent) {
+ 		skb_orphan(skb);
+ 		skb->sk = sk;
+ 		skb->destructor = nf_tproxy_destructor;
 -- 
 1.7.1
 
