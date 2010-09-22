@@ -1,83 +1,91 @@
-From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp reports
-Date: Wed, 22 Sep 2010 13:36:17 -0700
-Message-ID: <OFAB7DE0DE.BD125180-ON882577A6.006F6717-882577A6.00713062@us.ibm.com>
-References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com> <alpine.DEB.2.00.1009221448460.32661@router.home>
+From: "Nicholas A. Bellinger" <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>
+Subject: Re: software iwarp stack update
+Date: Wed, 22 Sep 2010 13:35:10 -0700
+Message-ID: <1285187710.1849.82.camel@haakon2.linux-iscsi.org>
+References: <OF64770AFC.B48EBEF2-ONC12577A6.002CC793-C12577A6.002DC569@ch.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bob Arendt <rda-x0S3BwdUo6DQT0dZR+AlfA@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Matthew Wilcox <matthew-Ztpu424NOJ8@public.gmane.org>,
+	Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+To: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.DEB.2.00.1009221448460.32661-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
+In-Reply-To: <OF64770AFC.B48EBEF2-ONC12577A6.002CC793-C12577A6.002DC569-Xeyd2O9EBijQT0dZR+AlfA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org> wrote:
+On Wed, 2010-09-22 at 10:19 +0200, Bernard Metzler wrote:
+> Earlier this year, we announced the availability of an open source,
+> full software implementation of the iWARP RDMA protocol stack - see
+> my email "software iwarp stack" from March 14th at the linux-rdma list
+> (http://www.mail-archive.com/linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org/msg02940.html)
+> While since then working on performance and stability, we provided
+> some source code updates. Current user and kernel code is available at
+> gitorious.org/softiwarp. Please see the CHANGES file in the
+> kernel/ directory for a summary of the most recent changes.
 > 
-> On Wed, 22 Sep 2010, David Stevens wrote:
+> For more convenient testing, the latest update now allows for a
+> stand-alone build of the kernel module without full kernel source
+> code access. We tested the code with kernel version 2.6.34. If
+> you are interested in a full software RDMA stack on Ethernet,
+> please try it out.
 > 
-> >         I feel your pain, but the protocol allows this to be 0 and all
-> > of the unsolicited reports can be lost. I don't think adding a minimum
-> > latency solves a general problem. Perhaps the device should queue some
+> In the hope of providing useful information, I put
+> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org on copy. Subscribers of this list,
+> please put me on private cc in case you reply or comment, since
+> I am not subscribed to the list.
+> We would be more than happy if you netdev folks would consider
+> a hardware independent RDMA kernel service as something useful and
+> potentially to be integrated into the mainline network stack.
 > 
-> The protocol does not specificy the intervals during unsolicited igmp
-> sends. It only specifies the intervals as a result of a igmp query.
-
-RFC 3376:
-"  To cover the possibility of the State-Change Report being missed by
-   one or more multicast routers, it is retransmitted [Robustness
-   Variable] - 1 more times, at intervals chosen at random from the
-   range (0, [Unsolicited Report Interval])."
-and
-"8.11. Unsolicited Report Interval
-
-   The Unsolicited Report Interval is the time between repetitions of a
-   host's initial report of membership in a group.  Default: 1 second."
-
-> The device is ready. Its just the multicast group that has not been
-> established yet.
-        Well, if you know that's going to happen with your device, then
-again, why not queue them on start up until you have indication that
-the group has been established, or delay in the driver.
-        You're changing IGMP for all device types to fix a problem in
-only one.
- 
-> There also cannot be any storm since any unsolicited igmp report by any
-> system will stop the unsolicited igmp reports by any other system.
-
-        Not if they are simultaneous, which is exactly when it is a 
-problem. :-)
+> Why might it be useful?
+> A software RDMA stack makes the semantic advantages of
+> asynchronous and one-sided communication available while obsoleting
+> the need to deploy dedicated RDMA hardware or any protocol offloading
+> (while not matching the lowest delay numbers of real RDMA hardware).
+> Implementing the IETF's iWARP protocol stack on top of TCP kernel
+> sockets, softiwarp integrates with the open fabrics environment
+> and thus exports the RDMA kernel and user verbs interface.
 > 
-> > > So unsolicited reports are send for an interval of at least a minute
-> > > (reports are aborted if igmp reports or other info is seen).
-> >
-> >         This is outside the protocol spec, and the intervals are 
-neither
-> > random nor scaled based on any network performance metric.
+> The efficiency of the Linux TCP/IP network stack together with intrinsic
+> advantages of the RDMA communication model (async. posting of work
+> and reaping of work completions, transfer of send buffer ownership
+> to the kernel which enables zero copy transmit, peer data placement
+> without application scheduling, one-sided remote read operations etc.)
+> can result in improved application-to-application performance and
+> less CPU load, while using the unchanged kernel TCP stack.
 > 
-> Where does it say that in the spec? Again this is an *unsolicited* igmp
-> report.
+> A software RDMA stack might promote wider RDMA deployment,
+> since when using the host TCP stack, it enables RDMA semantic
+> independent of dedicated hardware. softiwarp peers with real
+> RNICs (tested with Chelsio's T3 adapter).
+> 
+> softiwarp is still work in progress and we are very thankful for any
+> suggestions/comments/bug reports. Please advise how we should proceed
+> to bring the stack further to your attention. Would it be useful to
+> provide patches against the current stable kernel version or the next
+> release candidate?
+> 
 
-        See quotes above.
- 
-> These are *unsolicited* igmp reports. There is *no* querier supplied 
-data
-> yet. The first querier supplied data (or any other unsolicited igmp
-> report) will immediately stop the unsolicited reports and then will
-> continue to respond in randomized intervals based on the data that the
-> querier has supplied.
+Hi Bernard,
 
-        There are initial values, which are currently constants, but it'd
-be (more) reasonable to turn those into per-interface tunables or
-per-interface initial values with IB interfaces using larger values.
+So what I would recommend doing here to make things more appealing to
+DaveM and other interested NetDev folks would be to clone a seperate
+tree from the net-2.6.git or net-next-2.6.git repositories and include
+the softiwarp/kernel.git code into a fresh 'in-kernel' clone tracking
+the latest netdev code, and then keep git rebase'ing against DaveM's
+last changes and update your local tree to the lastest netdev code.
 
-IGMP_Unsolicited_Report_Count (default 2)
-IGMP_Unsolicited_Report_Interval (default 10secs which is 10x larger,as
-        you want, than the RFC suggests).
+Of course you will want to remove all of the 'out of tree' LINUX_VERSION
+build macros and any other legacy bits to follow mainline kernel
+convention for your 'in-kernel' softiwarp tree.
 
-                                                                +-DLS
+Best,
+
+--nab
+
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
