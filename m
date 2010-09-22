@@ -1,79 +1,82 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [RFC][PATCH 1/4] IRQ: IRQ groups for multiqueue devices
-Date: Wed, 22 Sep 2010 18:06:32 +0200 (CEST)
-Message-ID: <alpine.LFD.2.00.1009221803170.2416@localhost6.localdomain6>
-References: <1285009290.2282.121.camel@achroite.uk.solarflarecom.com>  <1285009685.2282.127.camel@achroite.uk.solarflarecom.com>  <alpine.LFD.2.00.1009202137580.2416@localhost6.localdomain6>  <1285071945.2307.21.camel@achroite.uk.solarflarecom.com>
- <alpine.LFD.2.00.1009211455140.2416@localhost6.localdomain6>  <alpine.LFD.2.00.1009211827440.2416@localhost6.localdomain6> <1285171249.2279.11.camel@achroite.uk.solarflarecom.com>
+From: Ulrich Weber <uweber@astaro.com>
+Subject: [RFC PATCH] dont create cached routes from ARP requests
+Date: Wed, 22 Sep 2010 18:22:09 +0200
+Message-ID: <20100922162209.GA10281@babylon>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285171249.2279.11.camel@achroite.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dhost002-15.dex002.intermedia.net ([64.78.21.81]:39183 "EHLO
+	dhost002-15.dex002.intermedia.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752085Ab0IVQhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 12:37:31 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Sep 2010, Ben Hutchings wrote:
+Do we really have to cache routes based on ARP requests?
+Are there any other reasons than expecting new connections?
 
-> On Tue, 2010-09-21 at 21:04 +0200, Thomas Gleixner wrote:
-> [...]
-> > Talked to Peter about it and we came to the conclusion, that we should
-> > just provide a callback infrastructure in the irq code which does not
-> > care about the action behind it. That's going to solve #1,#2,#3,#5,#6
-> > and parts of #8
-> > 
-> > That queue/index map code should move to lib/ or some other
-> > appropriate place so it can be shared with storage or whatever is
-> > going to grow multiqueue. comments #4, #7, #8 (s@kernel/irq@lib/@)
-> > above still apply :)
-> 
-> OK.
-> 
-> > The modification to the genirq code would be based on registering
-> > 
-> > struct irq_affinity_callback {
-> > 	unsigned int irq;
-> > 	struct kref kref;
-> > 	struct work work;
-> > 	void (*callback)(struct irq_affinity_callback *, const cpumask_t *mask);
-> > 	void (*release)(struct kref *ref);
-> > };
-> > 
-> > for an interrupt via 
-> > 
-> > int irq_set_affinity_callback(unsigned int irq,
-> >     			      struct irq_affinity_callback *cb);
-> > 
-> > That function can be called with cb=NULL to remove the callback. if
-> > cb!=NULL, irq, kref and work are initialized.
-> 
-> When should it be called, relative to {request,free}_irq() and
-> pci_{disable,enable}_msix()?
+Attached is a patch to skip caching for ARP requests
+not related to local IP addresses or ARP proxy.
 
-It should be called before request_irq and before free_irq. free_irq
-will warn when the pointer is !NULL.
+Background: At home I have two Internet connections, DSL and Cable.
+DSL is the primary uplink while Cable is the secondary.
+My Cable ISP is flooding me with ARP request from 10.0.0.0/8,
+which creates routes via the primary uplink.
+There are thousands of cached routes and after some time
+I get "Neighbour table overflow" messages.
+
+Cheers
+ Ulrich
+
+---
+[PATCH] dont create cached routes from ARP requests
+
+except for local destination or enabled ARP proxy. Otherwise
+Neighbour table can overflow on broken network setups.
+
+Signed-off-by: Ulrich Weber <uweber@astaro.com>
+---
+ include/linux/in_route.h |    1 +
+ net/ipv4/route.c         |    5 ++++-
+ 2 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/in_route.h b/include/linux/in_route.h
+index b261b8c..d97dd35 100644
+--- a/include/linux/in_route.h
++++ b/include/linux/in_route.h
+@@ -18,6 +18,7 @@
+ #define RTCF_MASQ	0x00400000 /* unused */
+ #define RTCF_SNAT	0x00800000 /* unused */
+ #define RTCF_DOREDIRECT 0x01000000
++#define RTCF_NOCACHE	0x02000000
+ #define RTCF_DIRECTSRC	0x04000000
+ #define RTCF_DNAT	0x08000000
+ #define RTCF_BROADCAST	0x10000000
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index e24d48d..7f05e45 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1090,7 +1090,7 @@ restart:
+ 	candp = NULL;
+ 	now = jiffies;
  
-> [...]
-> > That allows you to do all kind of magic in thread context, updating
-> > the queue map, reallocating queue memory when the node affinity
-> > changes (I know that you want to), go wild.
-> 
-> I definitely don't want to reallocate queues if node affinity of the IRQ
-> is changed by irqbalance, because this will disrupt traffic.  So
-> changing the node affinity of queues has to be a separate operation.
-
-Fair enough.
+-	if (!rt_caching(dev_net(rt->dst.dev))) {
++	if (rt->rt_flags & RTCF_NOCACHE || !rt_caching(dev_net(rt->dst.dev))) {
+ 		/*
+ 		 * If we're not caching, just tell the caller we
+ 		 * were successful and don't touch the route.  The
+@@ -2001,6 +2001,9 @@ static int __mkroute_input(struct sk_buff *skb,
+ 			err = -EINVAL;
+ 			goto cleanup;
+ 		}
++		if (!(out_dev->dev->flags & IFF_LOOPBACK) &&
++		    !IN_DEV_PROXY_ARP(in_dev) && !IN_DEV_PROXY_ARP_PVLAN(in_dev))
++			flags |= RTCF_NOCACHE;
+ 	}
  
-> > Thoughts ?
-> 
-> This does look like something I can use, thanks.
+ 
+-- 
+1.7.0.4
 
-Will look into it in the next days.
-
-Thanks,
-
-	tglx
