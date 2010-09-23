@@ -1,182 +1,76 @@
-From: john stultz <johnstul@us.ibm.com>
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
-Date: Thu, 23 Sep 2010 12:38:53 -0700
-Message-ID: <1285270733.2587.46.camel@localhost.localdomain>
+Date: Thu, 23 Sep 2010 14:15:09 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009231402420.2962@router.home>
 References: <cover.1285261533.git.richard.cochran@omicron.at>
+	<alpine.DEB.2.00.1009231238170.2962@router.home>
+	<1285268380.2587.11.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Rodolfo Giometti <giometti@linux.it>, Arnd Bergmann <arnd@arndb.de>,
-	Peter Zijlstra <peterz@infradead.org>, linux-api@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	Christoph Lameter <cl@linux.com>, linuxppc-dev@lists.ozlabs.org,
-	David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <cover.1285261533.git.richard.cochran@omicron.at>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Cc: Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1285268380.2587.11.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-09-23 at 19:30 +0200, Richard Cochran wrote:
-> Here is the sixth version of my patch set adding PTP hardware clock
-> support to the Linux kernel. The main difference to v5 is that the
-> character device interface has been replaced with one based on the
-> posix clock system calls.
-> 
-> The first three patches add necessary background support in the posix
-> clock code. The last five add the new PTP hardware clock features.
-> Previously, I had tried to present the posix clock changes all by
-> themselves, but commentators asked to see the whole context.
+On Thu, 23 Sep 2010, john stultz wrote:
 
-Richard,
-	Its great to see this work continue and the patch set is shaping up
-nicely! There's still a few details to work out, but I think the
-remaining issues are relatively small.
+> This was my initial gut reaction as well, but in the end, I agree with
+> Richard that in the case of one or multiple PTP hardware clocks, we
+> really can't abstract over the different time domains.
 
+My (arguably still superficial) review of the source does not show
+anything that would make me reach that conclusion.
 
-> 3.2.3 Dynamic POSIX Clock IDs 
-> ------------------------------
-> 
->     The reaction on the list to having a static id like CLOCK_PTP was
->     mostly negative. However, the idea of generating a clock id
->     dynamically seems to have gained acceptance. The general idea is
->     to advertise the available clock ids to user space via sysfs. This
->     patch set implements two different ways:
-> 
->     /sys/class/timesource/<name>/id
->     /sys/class/ptp/ptp_clock_X/id
-> 
->     Note: I am not too sure that this is exactly what people imagined,
->           but it is my best understanding so far. I gleaned two
->           different ideas about where to offer the clock id. In order
->           to keep just one way, I will be happy to remove the less
->           popular one.
+> I really don't think the PTP clock can be used as a clocksource sanely.
+>
+> First, the hardware access is much to slow for system timekeeping.
 
-So yea, I'm not a fan of the "timesource" sysfs interface. One, I think
-the name is poor (posix_clocks or something a little more specific would
-be an improvement), and second, I don't like the dictionary interface,
-where one looks up the clock by name.
+The HPET or pit timesource are also quite slow these days. You only need
+access periodically to essentially tune the TSC ratio.
 
-Instead, I think having the id hanging off the class driver is much
-better, as it allows mapping the actual hardware to the id more clearly.
+> Second, there is the problem that the system time is a software clock,
+> and adjustments made (like freq) are made in the layer that interprets
+> the underlying hardware cycle counter. Adjustments made in PTP (in order
+> to sync the network timestamps) are made at the hardware level.
 
-So I'd drop the "timesource" listing. And maybe change "id" to
-"clock_id" so its a little more clear what the id is for.
+>From what I can see the PTP clocks are periodic hardware cycle counters
+like any other clock that we currently support. If its configurable enough
+then setup a hardware cycle counter that mimics nanoseconds since the
+epoch as closely as possible and use that to sync the TSC rate to. Makes
+it very easy.
 
+> This would cause a disconnect between the hardware freq understood by
+> the system time management code and the actual hardware freq.
 
+We can switch underlying clocks for system time already. We can adapt to a
+different hw frequency. But then I do not know why adjust the freq? I
+thought the point was that the periodic clock was network synchronized and
+can be used as "the" master clock for multiple machines?
 
-> 3.3 Synchronizing the Linux System Time 
-> ========================================
-> 
->    One could offer a PHC as a combined clock source and clock event
->    device. The advantage of this approach would be that it obviates
->    the need for synchronization when the PHC is selected as the system
->    timer. However, some PHCs, namely the PHY based clocks, cannot be
->    used in this way.
+> Richard, I'd actually strike this paragraph from the rational, as I feel
+> it has the tendency to confuse as it suggests having the PHC as a
+> clocksource is feasible when really it isn't. Or alternatively, maybe
+> express more clearly why its not feasible, so it doesn't just seem like
+> a minor design choice.
 
-Again, I'd scratch this. 
-
-What I think you might want to mention is that an application like NTP
-could use the PTP clockid much like NTP currently can be configured to
-use the RTC to steer the system time.
-
-Possibly the PTPd could just do this, reducing the number of deamons and
-avoiding mixing NTP up in what is really a different sync algorithm.
-
->    Instead, the patch set provides a way to offer a Pulse Per Second
->    (PPS) event from the PHC to the Linux PPS subsystem. A user space
->    application can read the PPS events and tune the system clock, just
->    like when using other external time sources like radio clocks or
->    GPS.
-
-Forgive me for a bit of a tangent here:
-	So while I think this PPS method is a neat idea, I'm a little curious
-how much of a difference the PPS method for syncing the clock would be
-over just a simple reading of the two clocks and correcting the offset.
-
-It seems much of it depends on the read latency of the PTP hardware vs
-the interrupt latency. Also the PTP clock granularity would effect the
-read accuracy (like on the RTC, you don't really know how close to the
-second boundary you are).
-
-Have you done any such measurements between the two methods? I just
-wonder if it would actually be something noticeable, and if its not, how
-much lighter this patch-set would be without the PPS connection.
-
-Again, this isn't super critical, just trying to make sure we don't end
-up adding a bunch of code that doesn't end up being used. Also PPS
-interrupts are awfully frequent, so systems concerned with power-saving
-and deep idles probably would like something that could be done at a
-more coarse interval.
-
-
-> 3.5 User timers 
-> ================
-> 
->    Using the POSIX clock API gived user space the possibility to
->    create and use timers with timer_create and timer_settime. In the
->    current patch set the kernel functionality is not implemented,
->    since there are some issues to consider first. I see two ways to do
->    about this.
-> 
->    1. Implement the functionality anew. This approach might end up
->       duplicating similar code that already exists. Also, looking at
->       the hrtimer code, getting user timers right seems to have a
->       number of gotchas and thorny issues.
-> 
->    2. Reuse the hrtimer code. Since the hrtimer code uses a clock
->       event device under the hood, it might be possible (in theory) to
->       offer capable PHCs as clock event devices. However, the current
->       hrtimers are hard-coded to the event device via a per-cpu
->       global. Perhaps one could associate an event device with a
->       hrtimer via the timer itself.
-> 
->    At this point I am not optimistic about either approach, and I
->    would vote for postponing the timer issue indefinitely. The
->    implementation effort would be high, but the utility low.
-
-So I'm working on this! I've pulled out the basic rbtree based timer
-list manipulation out of the hrtimer code and into its own lib code.
-
-I'll send those patches out for RFC shortly.
-
-
->    If the Linux system time is synchronized to the PHC via the PPS
->    method, then using standard hrtimers would be good enough for most
->    purposes. Consider the time scales involved. The PHC can be
->    synchronized to within 100 nanoseconds of an external time source,
->    while timer wakeup latency (even with rt kernels) is tens of
->    microseconds.
-
-Hmm. I think this point touches on my earlier tangent.
-
-
-
-> 4 Drivers 
-> ~~~~~~~~~~
-> 
-> 4.1 Supported Hardware Clocks 
-> ==============================
-> 
->    + Standard Linux system timer
->      This driver exports the standard Linux timer as a PTP clock.
->      Although this duplicates CLOCK_REALTIME, the code serves as a
->      simple example for driver development and lets people who without
->      special hardware try the new API.
-
-Still not a fan of this one, figure the app should handle the special
-case where there are no PTP clocks and just use CLOCK_REALTIME rather
-then funneling CLOCK_REALTIME through the PTP interface.
-
-thanks
--john
+Sorry but I still feel that this is pretty much a misguided approach that
+creates unnecessary layers in the kernel. The trivial easy approach was
+not done (copy a driver from drivers/clocksource, modify so that it
+programs access to a centralized periodic ptp signal and uses it for
+system sync).
