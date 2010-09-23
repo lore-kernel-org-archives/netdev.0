@@ -1,73 +1,58 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH] Use firmware provided index to register a network interface
-Date: Thu, 23 Sep 2010 20:43:19 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE6A0AF9@blrx3m08.blr.amer.dell.com>
-References: <20100922183137.GA7607@auslistsprd01.us.dell.com>	<4C9A7E39.2020304@buttersideup.com> <20100922151645.649d3d7a@nehalam> <4C9AF4EC.7020408@seoss.co.uk>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 7/8] net: Allow setting the network namespace by fd
+Date: Thu, 23 Sep 2010 08:14:50 -0700
+Message-ID: <m139t0jxud.fsf@fess.ebiederm.org>
+References: <m1ocborgq7.fsf@fess.ebiederm.org>
+	<m1hbhgq1v1.fsf@fess.ebiederm.org> <1285240926.5036.7.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>, <Matt_Domsch@Dell.com>,
-	<Charles_Rose@Dell.com>, <Jordan_Hargrave@Dell.com>,
-	<Vijay_Nijhawan@Dell.com>
-To: <tim@seoss.co.uk>, <shemminger@vyatta.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <4C9AF4EC.7020408@seoss.co.uk>
-Sender: linux-hotplug-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>
+To: hadi@cyberus.ca
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1285240926.5036.7.camel@bigi> (jamal's message of "Thu, 23 Sep
+	2010 07:22:06 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Tim Small [mailto:tim@seoss.co.uk]
-> Sent: Thursday, September 23, 2010 12:04 PM
-> To: Stephen Hemminger
-> Cc: K, Narendra; netdev@vger.kernel.org;
-linux-hotplug@vger.kernel.org;
-> linux-pci@vger.kernel.org; Domsch, Matt; Rose, Charles; Hargrave,
-> Jordan; Nijhawan, Vijay
-> Subject: Re: [PATCH] Use firmware provided index to register a network
-> interface
-> 
-> Stephen Hemminger wrote:
-> >>> http://marc.info/?l=linux-netdev&m=125510301513312&w=2
-> >> Out of interest, that link says that doing it in usespace was
-> rejected,
-> >> but doesn't give any references... I'd be interested to know why
-> this
-> >> wasn't viable - since this seemed like the best fit at first glance
-> -
-> >> most people will never use this, so no need to grow their kernel
-> size
-> >> and complexity?
-> >>
-> >>
-> >
-> > This proposal was to ad changes into every application that
-> > knows about network names (iproute, iptables, snmp, quagga,
-openswan,
-> ...)
-> > to do aliasing at the application layer.
-> >
-> 
-> 
-> OK, that's bonkers, but what I was referring to was the line in the
-> linked post which said "Achieve the above in userspace only using
-udev"
-> - which I assumed meant to do it once in a udev rename rule by
-adapting
-> /etc/udev/rules.d/70-persistent-net.rules , /lib/udev/write_net_rules
-> etc. - which is what I've used to enforce this sort of convention
-> myself
-> from time to time.
-> 
+jamal <hadi@cyberus.ca> writes:
 
-Hi,
+> On Thu, 2010-09-23 at 01:51 -0700, Eric W. Biederman wrote:
+>> Take advantage of the new abstraction and allow network devices
+>> to be placed in any network namespace that we have a fd to talk
+>> about.
+>> 
+>
+> So ... why just netdevice? could you allow migration of other
+> net "items" eg a route table since they are all tagged by
+> netns?
 
-I was referring to the solution proposed in this thread -
-http://marc.info/?l=linux-netdev&m=125619338904322&w=3 ([PATCH] udev:
-create empty regular files to represent net). 
+For this patchset because we only support migrating physical
+network devices between network namespaces today.
 
-With regards,
-Narendra K
+In the bigger picture migrating things between network namespaces is
+race prone.  Fixing those races probably would reduce network stack
+performance and increase code complexity for not particularly good
+reason.  Network devices are special because they are physical hardware
+and in combination with the rule that all packets coming a network
+device go to a single network namespace we have to implement migration
+for network devices.
 
+Eric
