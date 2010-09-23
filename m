@@ -1,37 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: fix a lockdep splat
-Date: Thu, 23 Sep 2010 08:44:51 +0200
-Message-ID: <1285224291.2380.112.camel@edumazet-laptop>
-References: <201009220858.o8M8w8s3094017@www262.sakura.ne.jp>
-	 <1285176935.2639.453.camel@edumazet-laptop>
-	 <1285184088.2380.18.camel@edumazet-laptop> <4C9A7F7F.5010507@gmail.com>
-	 <1285195419.2380.39.camel@edumazet-laptop>
-	 <201009231532.JFD65132.OFtFSVFJHQOMLO@I-love.SAKURA.ne.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jarkao2@gmail.com, davem@davemloft.net,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <201009231532.JFD65132.OFtFSVFJHQOMLO@I-love.SAKURA.ne.jp>
-Sender: linux-fsdevel-owner@vger.kernel.org
+From: matt mooney <mfm@muteddisk.com>
+Subject: [PATCH 20/20] net: change to new flag variable
+Date: Wed, 22 Sep 2010 23:51:55 -0700
+Message-ID: <1285224715-30137-1-git-send-email-mfm@muteddisk.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 23 septembre 2010 =C3=A0 15:32 +0900, Tetsuo Handa a =C3=A9cri=
-t :
-> Eric Dumazet wrote:
-> > [PATCH v2] net: fix a lockdep splat
->=20
-> The lockdep warning disappeared for both
-> linux-2.6.35.5.tar.bz2 and linux-2.6.36-rc5.tar.bz2 .
->=20
+Replace EXTRA_CFLAGS with ccflags-y.
 
-Thanks Tetsuo !
+Signed-off-by: matt mooney <mfm@muteddisk.com>
+---
+ net/caif/Makefile |    4 +---
+ net/rds/Makefile  |    4 +---
+ 2 files changed, 2 insertions(+), 6 deletions(-)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
-" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/caif/Makefile b/net/caif/Makefile
+index f87481f..38581ba 100644
+--- a/net/caif/Makefile
++++ b/net/caif/Makefile
+@@ -1,6 +1,4 @@
+-ifeq ($(CONFIG_CAIF_DEBUG),y)
+-EXTRA_CFLAGS += -DDEBUG
+-endif
++ccflags-$(CONFIG_CAIF_DEBUG) := -DDEBUG
+ 
+ caif-objs := caif_dev.o \
+ 	cfcnfg.o cfmuxl.o cfctrl.o  \
+diff --git a/net/rds/Makefile b/net/rds/Makefile
+index b46eca1..f00fb19 100644
+--- a/net/rds/Makefile
++++ b/net/rds/Makefile
+@@ -15,7 +15,5 @@ obj-$(CONFIG_RDS_TCP) += rds_tcp.o
+ rds_tcp-objs :=		tcp.o tcp_connect.o tcp_listen.o tcp_recv.o \
+ 			tcp_send.o tcp_stats.o
+ 
+-ifeq ($(CONFIG_RDS_DEBUG), y)
+-EXTRA_CFLAGS += -DDEBUG
+-endif
++ccflags-$(CONFIG_RDS_DEBUG) := -DDEBUG
+ 
+-- 
+1.7.2.1
