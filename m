@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] e1000/e1000e/igb/ixgb/ixgbe: set
- NETIF_F_HIGHDMA for VLAN feature flags
-Date: Wed, 22 Sep 2010 21:20:23 -0700 (PDT)
-Message-ID: <20100922.212023.91330415.davem@davemloft.net>
-References: <20100923035755.11561.14170.stgit@localhost.localdomain>
+Subject: Re: [net-next-2.6 PATCH 2/2] igb: Add support for DH89xxCC
+Date: Wed, 22 Sep 2010 21:20:18 -0700 (PDT)
+Message-ID: <20100922.212018.58438872.davem@davemloft.net>
+References: <20100923035538.11511.16233.stgit@localhost.localdomain>
+	<20100923035641.11511.84199.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	yi.zou@intel.com
+	joseph.gasparakis@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52580
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52576
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752438Ab0IWEUE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 00:20:04 -0400
-In-Reply-To: <20100923035755.11561.14170.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1752024Ab0IWET6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 00:19:58 -0400
+In-Reply-To: <20100923035641.11511.84199.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 22 Sep 2010 20:57:58 -0700
+Date: Wed, 22 Sep 2010 20:56:44 -0700
 
-> From: Yi Zou <yi.zou@intel.com>
+> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
 > 
-> If the netdev->features is set with NETIF_F_HIGHDMA, we should set the
-> corresponding netdev->vlan_features as well to allow VLAN netdev created
-> on top of the real netdev to be able to also benefit from HIGHDMA on 32bit
-> system, reducing the performance hit that is caused by __skb_linearize(),
-> particularly for large send. This is fixed in this patch for all Intel e1000,
-> e1000e, igb, ixgbe, and ixgbe drivers since this should be beneficial
-> to all devices supported by these drivers.
+> This patch adds support for the Intel(r) DH89xxCC series. The new
+> device will be using Intel(r) i347-AT4 and Marvell(r) M88E1322 and
+> M88E1112 PHYs. Support for these devices has also been added here.
 > 
-> Signed-off-by: Yi Zou <yi.zou@intel.com>
-> Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
