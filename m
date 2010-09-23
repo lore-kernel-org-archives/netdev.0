@@ -1,149 +1,90 @@
-From: Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 2/2] Bluetooth: hidp: Add support for hidraw
- HIDIOCGFEATURE  and HIDIOCSFEATURE
-Date: Thu, 23 Sep 2010 14:51:08 +0300
-Message-ID: <20100923115108.GC2379@null>
-References: <1281442367.12579.206.camel@localhost.localdomain>
- <1281990059-3562-3-git-send-email-alan@signal11.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] net: af_packet: don't call tpacket_destruct_skb()
+ until the skb is sent out
+Date: Thu, 23 Sep 2010 14:29:30 +0200
+Message-ID: <1285244970.2864.46.camel@edumazet-laptop>
+References: <1285236939-3239-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Stefan Achatz <erazor_de-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>,
-	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Stephane Chatty <chatty-rXV5z7KbLFk@public.gmane.org>,
-	Michael Poole <mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Bastien Nocera <hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: ext Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1281990059-3562-3-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:47546 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753203Ab0IWM3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 08:29:35 -0400
+Received: by fxm12 with SMTP id 12so668380fxm.19
+        for <netdev@vger.kernel.org>; Thu, 23 Sep 2010 05:29:34 -0700 (PDT)
+In-Reply-To: <1285236939-3239-1-git-send-email-xiaosuo@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alan,
-
-One comment.
-
-On Mon, Aug 16, 2010 at 10:20:59PM +0200, ext Alan Ott wrote:
-> This patch adds support or getting and setting feature reports for bluetooth
-> HID devices from HIDRAW.
-> 
-> Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Le jeudi 23 septembre 2010 =C3=A0 18:15 +0800, Changli Gao a =C3=A9crit=
+ :
+> Since skb->destructor() is used to account socket memory, and maybe c=
+alled
+> before the skb is sent out, a corrupt skb maybe sent out finally.
+>=20
+> A new destructor is added into structure skb_shared_info(), and it wo=
+n't
+> be called until the last reference to the data of an skb is put. af_p=
+acket
+> uses this destructor instead.
+>=20
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 > ---
->  net/bluetooth/hidp/core.c |  114 +++++++++++++++++++++++++++++++++++++++++++--
->  net/bluetooth/hidp/hidp.h |    8 +++
->  2 files changed, 118 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-> index bfe641b..0e4880e 100644
-> --- a/net/bluetooth/hidp/core.c
-> +++ b/net/bluetooth/hidp/core.c
-> @@ -36,6 +36,7 @@
->  #include <linux/file.h>
->  #include <linux/init.h>
->  #include <linux/wait.h>
-> +#include <linux/mutex.h>
->  #include <net/sock.h>
->  
->  #include <linux/input.h>
-> @@ -313,6 +314,86 @@ static int hidp_send_report(struct hidp_session *session, struct hid_report *rep
->  	return hidp_queue_report(session, buf, rsize);
->  }
->  
-> +static int hidp_get_raw_report(struct hid_device *hid,
-> +		unsigned char report_number,
-> +		unsigned char *data, size_t count,
-> +		unsigned char report_type)
-> +{
-> +	struct hidp_session *session = hid->driver_data;
-> +	struct sk_buff *skb;
-> +	size_t len;
-> +	int numbered_reports = hid->report_enum[report_type].numbered;
-> +
-> +	switch (report_type) {
-> +	case HID_FEATURE_REPORT:
-> +		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_FEATURE;
-> +		break;
-> +	case HID_INPUT_REPORT:
-> +		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_INPUT;
-> +		break;
-> +	case HID_OUTPUT_REPORT:
-> +		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_OUPUT;
-> +		break;
-> +	default:
-> +		return -EINVAL;
-> +	}
-> +
-> +	if (mutex_lock_interruptible(&session->report_mutex))
-> +		return -ERESTARTSYS;
-> +
-> +	/* Set up our wait, and send the report request to the device. */
-> +	session->waiting_report_type = report_type & HIDP_DATA_RTYPE_MASK;
-> +	session->waiting_report_number = numbered_reports ? report_number : -1;
-> +	set_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-> +	data[0] = report_number;
-> +	if (hidp_send_ctrl_message(hid->driver_data, report_type, data, 1))
-> +		goto err_eio;
-> +
-> +	/* Wait for the return of the report. The returned report
-> +	   gets put in session->report_return.  */
-> +	while (test_bit(HIDP_WAITING_FOR_RETURN, &session->flags)) {
-> +		int res;
-> +
-> +		res = wait_event_interruptible_timeout(session->report_queue,
-> +			!test_bit(HIDP_WAITING_FOR_RETURN, &session->flags),
-> +			5*HZ);
-> +		if (res == 0) {
-> +			/* timeout */
-> +			goto err_eio;
-> +		}
-> +		if (res < 0) {
-> +			/* signal */
-> +			goto err_restartsys;
-> +		}
-> +	}
-> +
-> +	skb = session->report_return;
-> +	if (skb) {
-> +		len = skb->len < count ? skb->len : count;
-> +		memcpy(data, skb->data, len);
-> +
-> +		kfree_skb(skb);
-> +		session->report_return = NULL;
-> +	} else {
-> +		/* Device returned a HANDSHAKE, indicating  protocol error. */
-> +		len = -EIO;
-> +	}
-> +
-> +	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-> +	mutex_unlock(&session->report_mutex);
-> +
-> +	return len;
-> +
-> +err_restartsys:
-> +	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-> +	mutex_unlock(&session->report_mutex);
-> +	return -ERESTARTSYS;
-> +err_eio:
-> +	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-> +	mutex_unlock(&session->report_mutex);
-> +	return -EIO;
-> +}
+> v3: rename destructor to data_destructor, destructor_arg to data_dest=
+ructor_arg,
+>     fix splice the skbs generated by AF_PACKET socket to the pipe.
 
-How about a variable called ret and using that to return len or errno? It
-would eliminate code dublication.
+I dont understand this.
 
--- 
-Ville
+Could you describe how splice(from af_packet to pipe) is possible with
+af_packet send path ?
+
+Also, on such risky patch, could you please avoid inserting cleanups ?
+I am referring to these bits :
+
+
+
+@@ -884,9 +883,8 @@ static int tpacket_fill_skb(struct packet_sock *po,=
+ struct sk_buff *skb,
+        to_write =3D tp_len;
+=20
+        if (sock->type =3D=3D SOCK_DGRAM) {
+-               err =3D dev_hard_header(skb, dev, ntohs(proto), addr,
+-                               NULL, tp_len);
+-               if (unlikely(err < 0))
++               if (unlikely(dev_hard_header(skb, dev, ntohs(proto), ad=
+dr,
++                                            NULL, tp_len) < 0))
+                        return -EINVAL;
+        } else if (dev->hard_header_len) {
+                /* net device doesn't like empty head */
+@@ -897,8 +895,7 @@ static int tpacket_fill_skb(struct packet_sock *po,
+struct sk_buff *skb,
+                }
+=20
+                skb_push(skb, dev->hard_header_len);
+-               err =3D skb_store_bits(skb, 0, data,
+-                               dev->hard_header_len);
++               err =3D skb_store_bits(skb, 0, data, dev->hard_header_l=
+en);
+                if (unlikely(err))
+                        return err;
+=20
+@@ -906,7 +903,6 @@ static int tpacket_fill_skb(struct packet_sock *po,=
+ struct sk_buff *skb,
+                to_write -=3D dev->hard_header_len;
+        }
+=20
+-       err =3D -EFAULT;
+        page =3D virt_to_page(data);
+        offset =3D offset_in_page(data);
+        len_max =3D PAGE_SIZE - offset;
+
+
+
