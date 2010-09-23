@@ -1,78 +1,100 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 3/3] e1000: use GRO for receive
-Date: Wed, 22 Sep 2010 21:23:05 -0700
-Message-ID: <20100923042303.11798.50335.stgit@localhost.localdomain>
-References: <20100923042126.11798.49675.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: fix a lockdep splat
+Date: Thu, 23 Sep 2010 07:05:00 +0200
+Message-ID: <1285218300.2380.68.camel@edumazet-laptop>
+References: <4C9A7F7F.5010507@gmail.com>
+	 <1285195419.2380.39.camel@edumazet-laptop>
+	 <20100922.205324.68141587.davem@davemloft.net>
+	 <20100922.212332.45886457.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jarkao2@gmail.com, penguin-kernel@I-love.SAKURA.ne.jp,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta14.westchester.pa.mail.comcast.net ([76.96.59.212]:39000
-	"EHLO qmta14.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752771Ab0IWEXZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 00:23:25 -0400
-In-Reply-To: <20100923042126.11798.49675.stgit@localhost.localdomain>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:41165 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752804Ab0IWFFH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 01:05:07 -0400
+In-Reply-To: <20100922.212332.45886457.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Le mercredi 22 septembre 2010 =C3=A0 21:23 -0700, David Miller a =C3=A9=
+crit :
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 22 Sep 2010 20:53:24 -0700 (PDT)
+>=20
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date: Thu, 23 Sep 2010 00:43:39 +0200
+> >=20
+> >> (A) (this is used in net/sunrpc/xprtsock.c)
+> >> read_lock(&sk->sk_callback_lock) (without blocking BH)
+> >> <BH>
+> >> spin_lock(&sk->sk_slock.slock);
+> >> ...
+> >> read_lock(&sk->sk_callback_lock);
+> >> ...
+> >=20
+> > What's the exact path that leads to this?  I looked quickly and cou=
+ldn't
+> > find which sunrpc callback override does it.
+>=20
+> Sorry, I'm being unusually dense at the moment, ignore this question =
+:-)
 
-E1000 can benefit from calling the GRO receive functions.
+No problem ;)
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+But we might answer it anyway for other readers :
 
- drivers/net/e1000/e1000_main.c |   19 ++++++++-----------
- 1 files changed, 8 insertions(+), 11 deletions(-)
+vi +1417 net/sunrpc/xprtsock.c
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index c88439d..796523f 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3664,13 +3664,14 @@ static void e1000_consume_page(struct e1000_buffer *bi, struct sk_buff *skb,
- static void e1000_receive_skb(struct e1000_adapter *adapter, u8 status,
- 			      __le16 vlan, struct sk_buff *skb)
- {
--	if (unlikely(adapter->vlgrp && (status & E1000_RXD_STAT_VP))) {
--		vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
--		                         le16_to_cpu(vlan) &
--		                         E1000_RXD_SPC_VLAN_MASK);
--	} else {
--		netif_receive_skb(skb);
--	}
-+	skb->protocol = eth_type_trans(skb, adapter->netdev);
-+
-+	if ((unlikely(adapter->vlgrp && (status & E1000_RXD_STAT_VP))))
-+		vlan_gro_receive(&adapter->napi, adapter->vlgrp,
-+				 le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK,
-+				 skb);
-+	else
-+		napi_gro_receive(&adapter->napi, skb);
- }
- 
- /**
-@@ -3828,8 +3829,6 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_adapter *adapter,
- 			goto next_desc;
- 		}
- 
--		skb->protocol = eth_type_trans(skb, netdev);
--
- 		e1000_receive_skb(adapter, status, rx_desc->special, skb);
- 
- next_desc:
-@@ -3992,8 +3991,6 @@ static bool e1000_clean_rx_irq(struct e1000_adapter *adapter,
- 				  ((u32)(rx_desc->errors) << 24),
- 				  le16_to_cpu(rx_desc->csum), skb);
- 
--		skb->protocol = eth_type_trans(skb, netdev);
--
- 		e1000_receive_skb(adapter, status, rx_desc->special, skb);
- 
- next_desc:
+static void xs_udp_write_space(struct sock *sk)
+{
+        read_lock(&sk->sk_callback_lock);
+
+// We can be interrupted here and call INPUT_PATH()
+
+        /* from net/core/sock.c:sock_def_write_space */
+        if (sock_writeable(sk))
+                xs_write_space(sk);
+
+        read_unlock(&sk->sk_callback_lock);
+}
+
+INPUT_PATH()
+{
+	spin_lock(&sk->slock);
+	queue skb to receive queue or backlog
+	spin_unlock(&sk->slock);
+}
+
+
+If another cpu does (C), we can deadlock.
+
+C)
+spin_lock_bh(&sk->sk_slock)
+=2E..
+write_lock_bh(&sk->sk_callback_lock)
+=2E..
+
+Then we can have a deadlock with (A)
+
+CPU1 [A]                                CPU2 [C]
+read_lock(&sk->sk_callback_lock)
+<BH>                                    spin_lock_bh(&sk->sk_slock)
+<wait to spin_lock(slock)>
+                                        <wait to write_lock_bh(callback=
+_lock)>
+
+
+It seems only TCP stack contains [C] cases, in very unlikely paths, but=
+ still...
+
+Since all AF_INET sockets share the same af_callback_key=20
+*and* the same af_family_slock_keys, lockdep warned Tetsuo because
+ it detects an UDP [A] case and a TCP [C] case.
+
+
 
