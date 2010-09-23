@@ -1,166 +1,223 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 7/8] net: Allow setting the network namespace by fd
-Date: Thu, 23 Sep 2010 11:41:25 +0200
-Message-ID: <1285234885.2864.1.camel@edumazet-laptop>
-References: <m1ocborgq7.fsf@fess.ebiederm.org>
-	 <m1hbhgq1v1.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Daniel Lezcano <daniel.lezcano@free.fr>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Ulrich Drepper <drepper@gmail.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Matt Helsley <matthltc@us.ibm.com>,
-	Jonathan Corbet <corbet@lwn.net>,
-	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <m1hbhgq1v1.fsf@fess.ebiederm.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v3] net: af_packet: don't call tpacket_destruct_skb() until the skb is sent out
+Date: Thu, 23 Sep 2010 18:15:39 +0800
+Message-ID: <1285236939-3239-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:53980 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039Ab0IWKQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 06:16:07 -0400
+Received: by pxi10 with SMTP id 10so358066pxi.19
+        for <netdev@vger.kernel.org>; Thu, 23 Sep 2010 03:16:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 23 septembre 2010 =C3=A0 01:51 -0700, Eric W. Biederman a =C3=A9=
-crit :
-> Take advantage of the new abstraction and allow network devices
-> to be placed in any network namespace that we have a fd to talk
-> about.
->=20
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  include/linux/if_link.h     |    1 +
->  include/net/net_namespace.h |    1 +
->  net/core/net_namespace.c    |   26 ++++++++++++++++++++++++++
->  net/core/rtnetlink.c        |    4 +++-
->  4 files changed, 31 insertions(+), 1 deletions(-)
->=20
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index 2fc66dd..ae73d5e 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -116,6 +116,7 @@ enum {
->  	IFLA_STATS64,
->  	IFLA_VF_PORTS,
->  	IFLA_PORT_SELF,
-> +	IFLA_NET_NS_FD,
->  	__IFLA_MAX
->  };
-> =20
-> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.=
-h
-> index bd10a79..68672ce 100644
-> --- a/include/net/net_namespace.h
-> +++ b/include/net/net_namespace.h
-> @@ -114,6 +114,7 @@ static inline struct net *copy_net_ns(unsigned lo=
-ng flags, struct net *net_ns)
->  extern struct list_head net_namespace_list;
-> =20
->  extern struct net *get_net_ns_by_pid(pid_t pid);
-> +extern struct net *get_net_ns_by_fd(int pid);
-> =20
->  #ifdef CONFIG_NET_NS
->  extern void __put_net(struct net *net);
-> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> index 581a088..a9b54a7 100644
-> --- a/net/core/net_namespace.c
-> +++ b/net/core/net_namespace.c
-> @@ -8,6 +8,8 @@
->  #include <linux/idr.h>
->  #include <linux/rculist.h>
->  #include <linux/nsproxy.h>
-> +#include <linux/proc_fs.h>
-> +#include <linux/file.h>
->  #include <net/net_namespace.h>
->  #include <net/netns/generic.h>
-> =20
-> @@ -341,6 +343,30 @@ struct net *get_net_ns_by_pid(pid_t pid)
->  }
->  EXPORT_SYMBOL_GPL(get_net_ns_by_pid);
-> =20
-> +struct net *get_net_ns_by_fd(int fd)
-> +{
-> +	struct proc_inode *ei;
-> +	struct file *file;
-> +	struct net *net;
-> +
-> +	file =3D NULL;
-> +	net =3D ERR_PTR(-EINVAL);
-> +	file =3D proc_ns_fget(fd);
-> +	if (!fd)
-> +		goto out;
-> +		return ERR_PTR(-EINVAL);
-> +
-> +	ei =3D PROC_I(file->f_dentry->d_inode);
-> +	if (ei->ns_ops !=3D &netns_operations)
-> +		goto out;
-> +
-> +	net =3D get_net(ei->ns);
-> +out:
-> +	if (file)
-> +		fput(file);
-> +	return net;
-> +}
-> +
->  static int __init net_ns_init(void)
->  {
->  	struct net_generic *ng;
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index f78d821..771d8be 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1003,6 +1003,8 @@ struct net *rtnl_link_get_net(struct net *src_n=
-et, struct nlattr *tb[])
->  	 */
->  	if (tb[IFLA_NET_NS_PID])
->  		net =3D get_net_ns_by_pid(nla_get_u32(tb[IFLA_NET_NS_PID]));
-> +	else if (tb[IFLA_NET_NS_FD])
-> +		net =3D get_net_ns_by_fd(nla_get_u32(tb[IFLA_NET_NS_FD]));
->  	else
->  		net =3D get_net(src_net);
->  	return net;
-> @@ -1077,7 +1079,7 @@ static int do_setlink(struct net_device *dev, s=
-truct ifinfomsg *ifm,
->  	int send_addr_notify =3D 0;
->  	int err;
-> =20
-> -	if (tb[IFLA_NET_NS_PID]) {
-> +	if (tb[IFLA_NET_NS_PID] || tb[IFLA_NET_NS_FD]) {
->  		struct net *net =3D rtnl_link_get_net(dev_net(dev), tb);
->  		if (IS_ERR(net)) {
->  			err =3D PTR_ERR(net);
+Since skb->destructor() is used to account socket memory, and maybe called
+before the skb is sent out, a corrupt skb maybe sent out finally.
 
-You probably want to add following chunk :
+A new destructor is added into structure skb_shared_info(), and it won't
+be called until the last reference to the data of an skb is put. af_packet
+uses this destructor instead.
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index b2a718d..35bb6de 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -927,6 +927,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] =3D=
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+v3: rename destructor to data_destructor, destructor_arg to data_destructor_arg,
+    fix splice the skbs generated by AF_PACKET socket to the pipe.
+v2: avoid kmalloc/kfree
+ include/linux/skbuff.h |    7 ++++---
+ net/core/skbuff.c      |   29 ++++++++++++++++++++---------
+ net/packet/af_packet.c |   25 ++++++++++++-------------
+ 3 files changed, 36 insertions(+), 25 deletions(-)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 9e8085a..0854135 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -191,15 +191,16 @@ struct skb_shared_info {
+ 	__u8		tx_flags;
+ 	struct sk_buff	*frag_list;
+ 	struct skb_shared_hwtstamps hwtstamps;
++	void		(*data_destructor)(struct sk_buff *skb);
+ 
+ 	/*
+ 	 * Warning : all fields before dataref are cleared in __alloc_skb()
+ 	 */
+ 	atomic_t	dataref;
+ 
+-	/* Intermediate layers must ensure that destructor_arg
+-	 * remains valid until skb destructor */
+-	void *		destructor_arg;
++	/* Intermediate layers must ensure that data_destructor_arg
++	 * remains valid until skb data destructor */
++	void		*data_destructor_arg[2];
+ 	/* must be last field, see pskb_expand_head() */
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+ };
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 752c197..95a48fb 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -332,10 +332,14 @@ static void skb_release_data(struct sk_buff *skb)
+ 	if (!skb->cloned ||
+ 	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+ 			       &skb_shinfo(skb)->dataref)) {
+-		if (skb_shinfo(skb)->nr_frags) {
++		struct skb_shared_info *shinfo = skb_shinfo(skb);
++
++		if (shinfo->data_destructor)
++			shinfo->data_destructor(skb);
++		if (shinfo->nr_frags) {
+ 			int i;
+-			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+-				put_page(skb_shinfo(skb)->frags[i].page);
++			for (i = 0; i < shinfo->nr_frags; i++)
++				put_page(shinfo->frags[i].page);
+ 		}
+ 
+ 		if (skb_has_frag_list(skb))
+@@ -497,9 +501,12 @@ bool skb_recycle_check(struct sk_buff *skb, int skb_size)
+ 	if (skb_shared(skb) || skb_cloned(skb))
+ 		return false;
+ 
++	shinfo = skb_shinfo(skb);
++	if (shinfo->data_destructor)
++		return false;
++
+ 	skb_release_head_state(skb);
+ 
+-	shinfo = skb_shinfo(skb);
+ 	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+ 	atomic_set(&shinfo->dataref, 1);
+ 
+@@ -799,7 +806,9 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 
+ 	memcpy((struct skb_shared_info *)(data + size),
+ 	       skb_shinfo(skb),
+-	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
++	       offsetof(struct skb_shared_info,
++			frags[skb_shinfo(skb)->nr_frags]));
++	skb_shinfo(skb)->data_destructor = NULL;
+ 
+ 	/* Check if we can avoid taking references on fragments if we own
+ 	 * the last reference on skb->head. (see skb_release_data())
+@@ -1408,7 +1417,7 @@ new_page:
+ static inline int spd_fill_page(struct splice_pipe_desc *spd,
+ 				struct pipe_inode_info *pipe, struct page *page,
+ 				unsigned int *len, unsigned int offset,
+-				struct sk_buff *skb, int linear,
++				struct sk_buff *skb, bool linear,
+ 				struct sock *sk)
  {
- 	[IFLA_LINKMODE]		=3D { .type =3D NLA_U8 },
- 	[IFLA_LINKINFO]		=3D { .type =3D NLA_NESTED },
- 	[IFLA_NET_NS_PID]	=3D { .type =3D NLA_U32 },
-+	[IFLA_NET_NS_FD]	=3D { .type =3D NLA_U32 },
- 	[IFLA_IFALIAS]	        =3D { .type =3D NLA_STRING, .len =3D IFALIASZ-=
-1 },
- 	[IFLA_VFINFO_LIST]	=3D {. type =3D NLA_NESTED },
- 	[IFLA_VF_PORTS]		=3D { .type =3D NLA_NESTED },
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	if (unlikely(spd->nr_pages == pipe->buffers))
+@@ -1446,7 +1455,7 @@ static inline void __segment_seek(struct page **page, unsigned int *poff,
+ static inline int __splice_segment(struct page *page, unsigned int poff,
+ 				   unsigned int plen, unsigned int *off,
+ 				   unsigned int *len, struct sk_buff *skb,
+-				   struct splice_pipe_desc *spd, int linear,
++				   struct splice_pipe_desc *spd, bool linear,
+ 				   struct sock *sk,
+ 				   struct pipe_inode_info *pipe)
+ {
+@@ -1498,7 +1507,7 @@ static int __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+ 	if (__splice_segment(virt_to_page(skb->data),
+ 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
+ 			     skb_headlen(skb),
+-			     offset, len, skb, spd, 1, sk, pipe))
++			     offset, len, skb, spd, true, sk, pipe))
+ 		return 1;
+ 
+ 	/*
+@@ -1508,7 +1517,9 @@ static int __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+ 		const skb_frag_t *f = &skb_shinfo(skb)->frags[seg];
+ 
+ 		if (__splice_segment(f->page, f->page_offset, f->size,
+-				     offset, len, skb, spd, 0, sk, pipe))
++				     offset, len, skb, spd,
++				     skb_shinfo(skb)->data_destructor != NULL,
++				     sk, pipe))
+ 			return 1;
+ 	}
+ 
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 3616f27..ecf57c7 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -825,19 +825,19 @@ ring_is_full:
+ 
+ static void tpacket_destruct_skb(struct sk_buff *skb)
+ {
+-	struct packet_sock *po = pkt_sk(skb->sk);
+-	void *ph;
+-
+-	BUG_ON(skb == NULL);
++	struct packet_sock *po;
+ 
++	po = pkt_sk(skb_shinfo(skb)->data_destructor_arg[0]);
+ 	if (likely(po->tx_ring.pg_vec)) {
+-		ph = skb_shinfo(skb)->destructor_arg;
++		void *ph = skb_shinfo(skb)->data_destructor_arg[1];
++
+ 		BUG_ON(__packet_get_status(po, ph) != TP_STATUS_SENDING);
+ 		BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
+ 		atomic_dec(&po->tx_ring.pending);
+ 		__packet_set_status(po, ph, TP_STATUS_AVAILABLE);
+ 	}
+ 
++	skb->sk = &po->sk;
+ 	sock_wfree(skb);
+ }
+ 
+@@ -862,7 +862,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 	skb->dev = dev;
+ 	skb->priority = po->sk.sk_priority;
+ 	skb->mark = po->sk.sk_mark;
+-	skb_shinfo(skb)->destructor_arg = ph.raw;
+ 
+ 	switch (po->tp_version) {
+ 	case TPACKET_V2:
+@@ -884,9 +883,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 	to_write = tp_len;
+ 
+ 	if (sock->type == SOCK_DGRAM) {
+-		err = dev_hard_header(skb, dev, ntohs(proto), addr,
+-				NULL, tp_len);
+-		if (unlikely(err < 0))
++		if (unlikely(dev_hard_header(skb, dev, ntohs(proto), addr,
++					     NULL, tp_len) < 0))
+ 			return -EINVAL;
+ 	} else if (dev->hard_header_len) {
+ 		/* net device doesn't like empty head */
+@@ -897,8 +895,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		}
+ 
+ 		skb_push(skb, dev->hard_header_len);
+-		err = skb_store_bits(skb, 0, data,
+-				dev->hard_header_len);
++		err = skb_store_bits(skb, 0, data, dev->hard_header_len);
+ 		if (unlikely(err))
+ 			return err;
+ 
+@@ -906,7 +903,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 		to_write -= dev->hard_header_len;
+ 	}
+ 
+-	err = -EFAULT;
+ 	page = virt_to_page(data);
+ 	offset = offset_in_page(data);
+ 	len_max = PAGE_SIZE - offset;
+@@ -1028,7 +1024,10 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 			}
+ 		}
+ 
+-		skb->destructor = tpacket_destruct_skb;
++		skb_shinfo(skb)->data_destructor_arg[0] = &po->sk;
++		skb_shinfo(skb)->data_destructor_arg[1] = ph;
++		skb->destructor = NULL;
++		skb_shinfo(skb)->data_destructor = tpacket_destruct_skb;
+ 		__packet_set_status(po, ph, TP_STATUS_SENDING);
+ 		atomic_inc(&po->tx_ring.pending);
+ 
