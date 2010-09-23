@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: return operator cleanup
-Date: Thu, 23 Sep 2010 14:34:41 -0700 (PDT)
-Message-ID: <20100923.143441.235699425.davem@davemloft.net>
-References: <1285224237.2380.111.camel@edumazet-laptop>
+Subject: Re: [net-next-2.6 PATCH 3/3] e1000: use GRO for receive
+Date: Thu, 23 Sep 2010 14:34:33 -0700 (PDT)
+Message-ID: <20100923.143433.186317675.davem@davemloft.net>
+References: <20100923042126.11798.49675.stgit@localhost.localdomain>
+	<20100923042303.11798.50335.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	jesse.brandeburg@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38134
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38130
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754348Ab0IWVeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 17:34:22 -0400
-In-Reply-To: <1285224237.2380.111.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1753498Ab0IWVeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 17:34:14 -0400
+In-Reply-To: <20100923042303.11798.50335.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Sep 2010 08:43:57 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 22 Sep 2010 21:23:05 -0700
 
-> Change "return (EXPR);" to "return EXPR;"
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> return is not a function, parentheses are not required.
+> E1000 can benefit from calling the GRO receive functions.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
