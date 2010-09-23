@@ -1,79 +1,62 @@
-From: Karl Hiramoto <karl@hiramoto.org>
-Subject: [PATCH] br2684: fix scheduling while atomic
-Date: Thu, 23 Sep 2010 13:50:54 +0200
-Message-ID: <1285242654-9891-1-git-send-email-karl@hiramoto.org>
-References: <20100922144329.0cb3cf86@thirdoffive.cmf.nrl.navy.mil>
-Cc: davem@davemloft.net, chas@cmf.nrl.navy.mil,
-	Karl Hiramoto <karl@hiramoto.org>
-To: netdev@vger.kernel.org, mmvinni@yahoo.com
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH 8/8] net: Implement socketat.
+Date: Thu, 23 Sep 2010 15:53:00 +0400
+Message-ID: <4C9B3F9C.8080506@parallels.com>
+References: <m1ocborgq7.fsf@fess.ebiederm.org>	 <m1bp7oq1u8.fsf@fess.ebiederm.org>  <4C9B162E.7040201@parallels.com>	 <1285240797.5036.5.camel@bigi>  <4C9B3B06.900@parallels.com> <1285242055.5036.9.camel@bigi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Ulrich Drepper <drepper@gmail.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	Ben Greear <greearb@candelatech.com>,
+	Matt Helsley <matthltc@us.ibm.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Patrick McHardy <kaber@trash.net>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:41706 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754667Ab0IWLvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 07:51:38 -0400
-Received: from homiemail-a28.g.dreamhost.com (caiajhbdccac.dreamhost.com [208.97.132.202])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id C69D917AA73
-	for <netdev@vger.kernel.org>; Thu, 23 Sep 2010 04:51:37 -0700 (PDT)
-In-Reply-To: <20100922144329.0cb3cf86@thirdoffive.cmf.nrl.navy.mil>
+Received: from mailhub.sw.ru ([195.214.232.25]:31378 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754528Ab0IWLyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Sep 2010 07:54:23 -0400
+In-Reply-To: <1285242055.5036.9.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You can't call atomic_notifier_chain_unregister() while in atomic context.
+On 09/23/2010 03:40 PM, jamal wrote:
+> On Thu, 2010-09-23 at 15:33 +0400, Pavel Emelyanov wrote:
+> 
+>> This particular usecase is unneeded once you have the "enter" ability.
+> 
+> Is that cheaper from a syscall count/cost?
 
-Fix, call un/register_atmdevice_notifier in module __init and __exit.
+Why does it matter? You told, that the usage scenario was to
+add routes to container. If I do 2 syscalls instead of 1, is
+it THAT worse?
 
-Bug report:
-http://comments.gmane.org/gmane.linux.network/172603
+> i.e do I have to enter every time i want to write/read this fd?
 
-Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
----
- net/atm/br2684.c |   12 ++----------
- 1 files changed, 2 insertions(+), 10 deletions(-)
+No - you enter once, create a socket and do whatever you need
+withing the enterned namespace.
 
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index 651babd..ad2b232 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -399,12 +399,6 @@ static void br2684_push(struct atm_vcc *atmvcc, struct sk_buff *skb)
- 			unregister_netdev(net_dev);
- 			free_netdev(net_dev);
- 		}
--		read_lock_irq(&devs_lock);
--		if (list_empty(&br2684_devs)) {
--			/* last br2684 device */
--			unregister_atmdevice_notifier(&atm_dev_notifier);
--		}
--		read_unlock_irq(&devs_lock);
- 		return;
- 	}
- 
-@@ -675,7 +669,6 @@ static int br2684_create(void __user *arg)
- 
- 	if (list_empty(&br2684_devs)) {
- 		/* 1st br2684 device */
--		register_atmdevice_notifier(&atm_dev_notifier);
- 		brdev->number = 1;
- 	} else
- 		brdev->number = BRPRIV(list_entry_brdev(br2684_devs.prev))->number + 1;
-@@ -815,6 +808,7 @@ static int __init br2684_init(void)
- 		return -ENOMEM;
- #endif
- 	register_atm_ioctl(&br2684_ioctl_ops);
-+	register_atmdevice_notifier(&atm_dev_notifier);
- 	return 0;
- }
- 
-@@ -830,9 +824,7 @@ static void __exit br2684_exit(void)
- #endif
- 
- 
--	/* if not already empty */
--	if (!list_empty(&br2684_devs))
--		unregister_atmdevice_notifier(&atm_dev_notifier);
-+	unregister_atmdevice_notifier(&atm_dev_notifier);
- 
- 	while (!list_empty(&br2684_devs)) {
- 		net_dev = list_entry_brdev(br2684_devs.next);
--- 
-1.7.2.2
+> How does poll/select work in that enter scenario?
+
+Just like it used to before the enter.
+
+> cheers,
+> jamal
+> 
+> 
 
