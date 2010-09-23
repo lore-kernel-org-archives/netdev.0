@@ -1,34 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix a lockdep splat
-Date: Wed, 22 Sep 2010 20:53:24 -0700 (PDT)
-Message-ID: <20100922.205324.68141587.davem@davemloft.net>
-References: <1285184088.2380.18.camel@edumazet-laptop>
-	<4C9A7F7F.5010507@gmail.com>
-	<1285195419.2380.39.camel@edumazet-laptop>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/2] igb: clear VF_PROMISC bits instead of
+	setting all other bits
+Date: Wed, 22 Sep 2010 20:56:20 -0700
+Message-ID: <20100923035538.11511.16233.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: jarkao2@gmail.com, penguin-kernel@I-love.SAKURA.ne.jp,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1285195419.2380.39.camel@edumazet-laptop>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:56846
+	"EHLO qmta03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752985Ab0IWD4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 23:56:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Sep 2010 00:43:39 +0200
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> (A) (this is used in net/sunrpc/xprtsock.c)
-> read_lock(&sk->sk_callback_lock) (without blocking BH)
-> <BH>
-> spin_lock(&sk->sk_slock.slock);
-> ...
-> read_lock(&sk->sk_callback_lock);
-> ...
+This change corrects an issue in which we were setting all flag bits except
+for promisc instead of clearing the promisc bits due to the incorrect use
+of an |= instead of an &=.
 
-What's the exact path that leads to this?  I looked quickly and couldn't
-find which sunrpc callback override does it.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Thanks.
+ drivers/net/igb/igb_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index c4d861b..fd922e7 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -4659,12 +4659,13 @@ static int igb_set_vf_promisc(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
+ 	u32 vmolr = rd32(E1000_VMOLR(vf));
+ 	struct vf_data_storage *vf_data = &adapter->vf_data[vf];
+ 
+-	vf_data->flags |= ~(IGB_VF_FLAG_UNI_PROMISC |
++	vf_data->flags &= ~(IGB_VF_FLAG_UNI_PROMISC |
+ 	                    IGB_VF_FLAG_MULTI_PROMISC);
+ 	vmolr &= ~(E1000_VMOLR_ROPE | E1000_VMOLR_ROMPE | E1000_VMOLR_MPME);
+ 
+ 	if (*msgbuf & E1000_VF_SET_PROMISC_MULTICAST) {
+ 		vmolr |= E1000_VMOLR_MPME;
++		vf_data->flags |= IGB_VF_FLAG_MULTI_PROMISC;
+ 		*msgbuf &= ~E1000_VF_SET_PROMISC_MULTICAST;
+ 	} else {
+ 		/*
 
