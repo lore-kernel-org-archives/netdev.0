@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH 4/6] e1000e: 82579 unaccounted missed packets
-Date: Wed, 22 Sep 2010 20:16:18 -0700
-Message-ID: <20100923031617.10976.68976.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH 5/6] e1000e: 82579 jumbo frame workaround causing CRC
+	errors
+Date: Wed, 22 Sep 2010 20:16:40 -0700
+Message-ID: <20100923031639.10976.20852.stgit@localhost.localdomain>
 References: <20100923031432.10976.81909.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,121 +12,135 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta04.westchester.pa.mail.comcast.net ([76.96.62.40]:50463
-	"EHLO qmta04.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751893Ab0IWDQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 23:16:39 -0400
+Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:43838
+	"EHLO qmta06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751893Ab0IWDRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Sep 2010 23:17:00 -0400
 In-Reply-To: <20100923031432.10976.81909.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-On 82579, there is a hardware bug that can cause received packets to not
-get transferred from the PHY to the MAC due to K1 (a power saving feature
-of the PHY-MAC interconnect similar to ASPM L1).  Since the MAC controls
-the accounting of missed packets, these will go unnoticed.  Workaround the
-issue by setting the K1 beacon duration according to the link speed.
+The subject workaround was causing CRC errors due to writing the wrong
+register with updates of the RCTL register.  It was also found that the
+workaround function which modifies the RCTL register was being called in
+the middle of a read-modify-write operation of the RCTL register, so the
+function call has been moved appropriately.  Lastly, jumbo frames must not
+be allowed when CRC stripping is disabled by a module parameter because the
+workaround requires the CRC be stripped.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/hw.h      |    1 +
- drivers/net/e1000e/ich8lan.c |   48 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 49 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/ich8lan.c |   12 +-----------
+ drivers/net/e1000e/netdev.c  |   29 +++++++++++++++++++----------
+ 2 files changed, 20 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 66ed08f..ba302a5 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -57,6 +57,7 @@ enum e1e_registers {
- 	E1000_SCTL     = 0x00024, /* SerDes Control - RW */
- 	E1000_FCAL     = 0x00028, /* Flow Control Address Low - RW */
- 	E1000_FCAH     = 0x0002C, /* Flow Control Address High -RW */
-+	E1000_FEXTNVM4 = 0x00024, /* Future Extended NVM 4 - RW */
- 	E1000_FEXTNVM  = 0x00028, /* Future Extended NVM - RW */
- 	E1000_FCT      = 0x00030, /* Flow Control Type - RW */
- 	E1000_VET      = 0x00038, /* VLAN Ether Type - RW */
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 6f9cb0d..89b1e1a 100644
+index 89b1e1a..bb346ae 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -105,6 +105,10 @@
- #define E1000_FEXTNVM_SW_CONFIG		1
- #define E1000_FEXTNVM_SW_CONFIG_ICH8M (1 << 27) /* Bit redefined for ICH8M :/ */
- 
-+#define E1000_FEXTNVM4_BEACON_DURATION_MASK    0x7
-+#define E1000_FEXTNVM4_BEACON_DURATION_8USEC   0x7
-+#define E1000_FEXTNVM4_BEACON_DURATION_16USEC  0x3
-+
- #define PCIE_ICH8_SNOOP_ALL		PCIE_NO_SNOOP_ALL
- 
- #define E1000_ICH_RAR_ENTRIES		7
-@@ -238,6 +242,7 @@ static s32  e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
- static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw);
- static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw);
- static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw);
-+static s32 e1000_k1_workaround_lv(struct e1000_hw *hw);
- 
- static inline u16 __er16flash(struct e1000_hw *hw, unsigned long reg)
- {
-@@ -653,6 +658,12 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
+@@ -1475,10 +1475,6 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
  			goto out;
+ 
+ 		/* Enable jumbo frame workaround in the PHY */
+-		e1e_rphy(hw, PHY_REG(769, 20), &data);
+-		ret_val = e1e_wphy(hw, PHY_REG(769, 20), data & ~(1 << 14));
+-		if (ret_val)
+-			goto out;
+ 		e1e_rphy(hw, PHY_REG(769, 23), &data);
+ 		data &= ~(0x7F << 5);
+ 		data |= (0x37 << 5);
+@@ -1487,7 +1483,6 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
+ 			goto out;
+ 		e1e_rphy(hw, PHY_REG(769, 16), &data);
+ 		data &= ~(1 << 13);
+-		data |= (1 << 12);
+ 		ret_val = e1e_wphy(hw, PHY_REG(769, 16), data);
+ 		if (ret_val)
+ 			goto out;
+@@ -1512,7 +1507,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
+ 
+ 		mac_reg = er32(RCTL);
+ 		mac_reg &= ~E1000_RCTL_SECRC;
+-		ew32(FFLT_DBG, mac_reg);
++		ew32(RCTL, mac_reg);
+ 
+ 		ret_val = e1000e_read_kmrn_reg(hw,
+ 						E1000_KMRNCTRLSTA_CTRL_OFFSET,
+@@ -1538,17 +1533,12 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
+ 			goto out;
+ 
+ 		/* Write PHY register values back to h/w defaults */
+-		e1e_rphy(hw, PHY_REG(769, 20), &data);
+-		ret_val = e1e_wphy(hw, PHY_REG(769, 20), data & ~(1 << 14));
+-		if (ret_val)
+-			goto out;
+ 		e1e_rphy(hw, PHY_REG(769, 23), &data);
+ 		data &= ~(0x7F << 5);
+ 		ret_val = e1e_wphy(hw, PHY_REG(769, 23), data);
+ 		if (ret_val)
+ 			goto out;
+ 		e1e_rphy(hw, PHY_REG(769, 16), &data);
+-		data &= ~(1 << 12);
+ 		data |= (1 << 13);
+ 		ret_val = e1e_wphy(hw, PHY_REG(769, 16), data);
+ 		if (ret_val)
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 2b8ef44..e561d15 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2704,6 +2704,16 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+ 	u32 psrctl = 0;
+ 	u32 pages = 0;
+ 
++	/* Workaround Si errata on 82579 - configure jumbo frame flow */
++	if (hw->mac.type == e1000_pch2lan) {
++		s32 ret_val;
++
++		if (adapter->netdev->mtu > ETH_DATA_LEN)
++			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, true);
++		else
++			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, false);
++	}
++
+ 	/* Program MC offset vector base */
+ 	rctl = er32(RCTL);
+ 	rctl &= ~(3 << E1000_RCTL_MO_SHIFT);
+@@ -2744,16 +2754,6 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+ 		e1e_wphy(hw, 22, phy_data);
  	}
  
-+	if (hw->mac.type == e1000_pch2lan) {
-+		ret_val = e1000_k1_workaround_lv(hw);
-+		if (ret_val)
-+			goto out;
-+	}
-+
- 	/*
- 	 * Check if there was DownShift, must be checked
- 	 * immediately after link-up
-@@ -1583,6 +1594,43 @@ out:
- }
+-	/* Workaround Si errata on 82579 - configure jumbo frame flow */
+-	if (hw->mac.type == e1000_pch2lan) {
+-		s32 ret_val;
+-
+-		if (rctl & E1000_RCTL_LPE)
+-			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, true);
+-		else
+-			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, false);
+-	}
+-
+ 	/* Setup buffer sizes */
+ 	rctl &= ~E1000_RCTL_SZ_4096;
+ 	rctl |= E1000_RCTL_BSEX;
+@@ -4833,6 +4833,15 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 		return -EINVAL;
+ 	}
  
- /**
-+ *  e1000_k1_gig_workaround_lv - K1 Si workaround
-+ *  @hw:   pointer to the HW structure
-+ *
-+ *  Workaround to set the K1 beacon duration for 82579 parts
-+ **/
-+static s32 e1000_k1_workaround_lv(struct e1000_hw *hw)
-+{
-+	s32 ret_val = 0;
-+	u16 status_reg = 0;
-+	u32 mac_reg;
-+
-+	if (hw->mac.type != e1000_pch2lan)
-+		goto out;
-+
-+	/* Set K1 beacon duration based on 1Gbps speed or otherwise */
-+	ret_val = e1e_rphy(hw, HV_M_STATUS, &status_reg);
-+	if (ret_val)
-+		goto out;
-+
-+	if ((status_reg & (HV_M_STATUS_LINK_UP | HV_M_STATUS_AUTONEG_COMPLETE))
-+	    == (HV_M_STATUS_LINK_UP | HV_M_STATUS_AUTONEG_COMPLETE)) {
-+		mac_reg = er32(FEXTNVM4);
-+		mac_reg &= ~E1000_FEXTNVM4_BEACON_DURATION_MASK;
-+
-+		if (status_reg & HV_M_STATUS_SPEED_1000)
-+			mac_reg |= E1000_FEXTNVM4_BEACON_DURATION_8USEC;
-+		else
-+			mac_reg |= E1000_FEXTNVM4_BEACON_DURATION_16USEC;
-+
-+		ew32(FEXTNVM4, mac_reg);
++	/* Jumbo frame workaround on 82579 requires CRC be stripped */
++	if ((adapter->hw.mac.type == e1000_pch2lan) &&
++	    !(adapter->flags2 & FLAG2_CRC_STRIPPING) &&
++	    (new_mtu > ETH_DATA_LEN)) {
++		e_err("Jumbo Frames not supported on 82579 when CRC "
++		      "stripping is disabled.\n");
++		return -EINVAL;
 +	}
 +
-+out:
-+	return ret_val;
-+}
-+
-+/**
-  *  e1000_lan_init_done_ich8lan - Check for PHY config completion
-  *  @hw: pointer to the HW structure
-  *
+ 	/* 82573 Errata 17 */
+ 	if (((adapter->hw.mac.type == e1000_82573) ||
+ 	     (adapter->hw.mac.type == e1000_82574)) &&
 
