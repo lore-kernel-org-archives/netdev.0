@@ -1,54 +1,50 @@
 From: Christoph Lameter <cl@linux.com>
 Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp
  reports
-Date: Thu, 23 Sep 2010 10:32:17 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1009231026510.32567@router.home>
-References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com> <alpine.DEB.2.00.1009221448460.32661@router.home>
- <20100922215052.GK11157@obsidianresearch.com>
+Date: Thu, 23 Sep 2010 10:37:48 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009231021080.32567@router.home>
+References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com> <alpine.DEB.2.00.1009221448460.32661@router.home> <4C9A6D87.2000103@rincon.com>
+ <alpine.DEB.2.00.1009221631520.32661@router.home> <OF5594D8AA.554725F5-ON882577A6.00768526-882577A6.00772BB2@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Bob Arendt <rda@rincon.com>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.prem.mail.ac4.yahoo.com ([76.13.13.41]:32921 "HELO
-	smtp102.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752578Ab0IWPcV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 11:32:21 -0400
-In-Reply-To: <20100922215052.GK11157@obsidianresearch.com>
+Received: from smtp108.prem.mail.ac4.yahoo.com ([76.13.13.47]:43596 "HELO
+	smtp108.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752760Ab0IWPhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 11:37:52 -0400
+In-Reply-To: <OF5594D8AA.554725F5-ON882577A6.00768526-882577A6.00772BB2@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Sep 2010, Jason Gunthorpe wrote:
+On Wed, 22 Sep 2010, David Stevens wrote:
 
-> > The device is ready. Its just the multicast group that has not been
-> > established yet.
+> >
+> > Also increment the frequency so that we get a 10 reports send over a
+> > few seconds.
 >
-> In IB when the SA replies to a group join the group should be ready,
-> prior to that the device can't send into the group because it has no
-> MLID for the group.. If you have a MLID then the group is working.
+>         Except you want to conform and not conform at the same time. :-)
+> IGMPv2 should be: default count 2, interval 10secs
+> IGMPv3 should be: default count 2, interval 1sec
 
-When the SA replies it has created the MLID but not reconfigured the
-fabric yet. So the initial IGMP messages get lost.
+This is during the period of unsolicited igmp reports. We do not know if
+this group is managed using V3 or V2 since no igmp query/report has been
+received yet.
 
-> Is the issue you are dropping IGMP packets because the 224.0.0.2 join
-> hasn't finished? Ideally you'd wait for the SA to reply before sending
-> a IGMP, but a simpler solution might just be to use the broadcast MLID
-> for packets addressed to a MGID that has not yet got a MLID. This
-> would bebe similar to the ethernet behaviour of flooding.
+> ...and no way is it a good idea to send 10 unsolicited reports on an
+> Ethernet.
 
-IGMP reports are sent on the multicast group not on 224.0.0.2. 224.0.0.2
-is only used when leaving a multicast group.
+Why would that be an issue?
 
-I thought also about solutions along the same lines. We could modify the
-IB layer to send to 224.0.0.2 while until the SA has confirmed the
-creation of the MC group. For that to work we first would need to modify
-the SA logic to ensure that it only sends confirmation *after* the fabric
-has been reconfigured. Then we need to switch the MLIDs of the MC group
-when the notification is received.
+The IGMPv2 RFC has no strict limit and RFC3376
+mentions that the retransmission occurs "Robustness Variable" times
+minus one. Choosing 10 for the "Robustness Variable" is certainly ok.
 
-If the IB layer has not joined 224.0.0.2 yet (and it will take awhile)
-then we could even fallback to broadcast until its ready.
+If we do not increase the number of reports but just limit the interval
+then the chance of outages of a second or so during mc group creation
+causing routers missing igmp reports is significantly increased.
 
