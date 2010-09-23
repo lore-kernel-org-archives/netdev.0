@@ -1,54 +1,54 @@
-From: Bernard Metzler <BMT@zurich.ibm.com>
-Subject: Re: [PATCH 2/2] siw: Add support for CRC32C offload instruction	using
- libcrypto crc32c-intel
-Date: Thu, 23 Sep 2010 17:31:23 +0200
-Message-ID: <OF8F21A2C4.F0CC977E-ONC12577A7.0054E314-C12577A7.00554592@ch.ibm.com>
-References: <1285194989.1849.130.camel@haakon2.linux-iscsi.org>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: igmp: Staggered igmp report intervals for unsolicited igmp
+ reports
+Date: Thu, 23 Sep 2010 10:32:17 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1009231026510.32567@router.home>
+References: <alpine.DEB.2.00.1009221354410.32661@router.home> <alpine.DEB.2.00.1009221400010.32661@router.home> <OFF06BBC88.0B6755D5-ON882577A6.0068F4F8-882577A6.006B31FB@us.ibm.com> <alpine.DEB.2.00.1009221448460.32661@router.home>
+ <20100922215052.GK11157@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-rdma <linux-rdma@vger.kernel.org>,
-	linux-rdma-owner@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1285194989.1849.130.camel@haakon2.linux-iscsi.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	Bob Arendt <rda@rincon.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp102.prem.mail.ac4.yahoo.com ([76.13.13.41]:32921 "HELO
+	smtp102.prem.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752578Ab0IWPcV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 11:32:21 -0400
+In-Reply-To: <20100922215052.GK11157@obsidianresearch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 22 Sep 2010, Jason Gunthorpe wrote:
 
-
-linux-rdma-owner@vger.kernel.org wrote on 09/23/2010 12:36:29 AM:
-
-> On Wed, 2010-09-22 at 16:06 -0600, Jason Gunthorpe wrote:
-> > On Wed, Sep 22, 2010 at 02:38:31PM -0700, Nicholas A. Bellinger wrote:
-> >
-> > > So I think the main bit here is the ability to request
-> > > crc32c-intel.ko first, and then fall back to crc32c.ko when the
-> > > former is not available on CONFIG_X86.
-> >
-> > Well, it is what Andi said, everything is working fine but there is no
-> > mechanism to autoload the accelerated crypto module. If you did
-> > modprobe crc32c_intel prior to loading your driver it would
-> > automatically get crc32c-intel when it asks for crc32c since it is
-> > loaded and a higher priority.
-> >
+> > The device is ready. Its just the multicast group that has not been
+> > established yet.
 >
-> Ah, OK.  I see what you mean now here wrt to libcrypto priorities and
-> crc32c + crc32c_intel modules.   My apologies for the in-experience with
-> libcrypto here..
->
-> > So, the drivers are correct to just request crc32c .. The work around
-> > to limited autoprobing is so trivial (modprob crc32_intel) I'm not
-> > sure including extra autoprobing code in the drivers is worthwhile?
-> >
->
-> Indeed, I am happy to drop this patch if Bernard would be nice enough to
-> add a 'modprobe crc32_intel' into the SIW scripts.
->
+> In IB when the SA replies to a group join the group should be ready,
+> prior to that the device can't send into the group because it has no
+> MLID for the group.. If you have a MLID then the group is working.
 
-Ok, thanks for the CRC comments, quite instructive.  To sum up, now I'll
-add
-a minimum siw bringup script to the kernel part.
+When the SA replies it has created the MLID but not reconfigured the
+fabric yet. So the initial IGMP messages get lost.
 
-Bernard
+> Is the issue you are dropping IGMP packets because the 224.0.0.2 join
+> hasn't finished? Ideally you'd wait for the SA to reply before sending
+> a IGMP, but a simpler solution might just be to use the broadcast MLID
+> for packets addressed to a MGID that has not yet got a MLID. This
+> would bebe similar to the ethernet behaviour of flooding.
+
+IGMP reports are sent on the multicast group not on 224.0.0.2. 224.0.0.2
+is only used when leaving a multicast group.
+
+I thought also about solutions along the same lines. We could modify the
+IB layer to send to 224.0.0.2 while until the SA has confirmed the
+creation of the MC group. For that to work we first would need to modify
+the SA logic to ensure that it only sends confirmation *after* the fabric
+has been reconfigured. Then we need to switch the MLIDs of the MC group
+when the notification is received.
+
+If the IB layer has not joined 224.0.0.2 yet (and it will take awhile)
+then we could even fallback to broadcast until its ready.
+
