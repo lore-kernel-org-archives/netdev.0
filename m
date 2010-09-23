@@ -1,57 +1,115 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 7/7] ethtool: Add my authorship and Solarflare
- copyright notice
-Date: Thu, 23 Sep 2010 22:50:12 +0100
-Message-ID: <1285278612.7794.34.camel@achroite.uk.solarflarecom.com>
-References: <1285278428.7794.27.camel@achroite.uk.solarflarecom.com>
+From: john stultz <johnstul@us.ibm.com>
+Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
+Date: Thu, 23 Sep 2010 15:03:40 -0700
+Message-ID: <1285279420.2587.175.camel@localhost.localdomain>
+References: <cover.1285261533.git.richard.cochran@omicron.at>
+	 <20100923213654.0c64b047@lxorguk.ukuu.org.uk>
+	 <1285274952.2587.113.camel@localhost.localdomain>
+	 <20100923223025.2877cce2@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:54753 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755167Ab0IWVuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 17:50:15 -0400
-In-Reply-To: <1285278428.7794.27.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linux-api@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100923223025.2877cce2@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- AUTHORS   |    1 +
- ethtool.c |    2 ++
- 2 files changed, 3 insertions(+), 0 deletions(-)
+On Thu, 2010-09-23 at 22:30 +0100, Alan Cox wrote:
+> O> I don't see how this is a problem, as it exposes the multiple hardware
+> > clocks via different posix clock ids. So in the boundary clock case, you
+> > can configure which side is the client and which side is the master in a
+> > config file and the PTPd will appropriately steer them individually.
+> 
+> They may all be slaves - that means you can't treat them as part of
+> system time.
 
-diff --git a/AUTHORS b/AUTHORS
-index 77500ce..aed04fa 100644
---- a/AUTHORS
-+++ b/AUTHORS
-@@ -6,3 +6,4 @@ Eli Kupermann <eli.kupermann@intel.com>
- Chris Leech <christopher.leech@intel.com>
- Scott Feldman <scott.feldman@intel.com>
- Andi Kleen
-+Ben Hutchings <bhutchings@solarflare.com>
-diff --git a/ethtool.c b/ethtool.c
-index 31158f8..7612b14 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -14,6 +14,8 @@
-  * amd8111e support by Reeja John <reeja.john@amd.com>
-  * long arguments by Andi Kleen.
-  * SMSC LAN911x support by Steve Glendinning <steve.glendinning@smsc.com>
-+ * Various features by Ben Hutchings <bhutchings@solarflare.com>;
-+ *	Copyright 2009, 2010 Solarflare Communications
-  *
-  * TODO:
-  *   * no-args => summary of each device (mii-tool style)
--- 
-1.7.2.1
+Sure, and that's something one would configure. So I'm not sure I see
+how exposing the different hardware bits via a clock_id is problematic.
+They're just clocks that are being exposed. The steering of system time
+to PTP or PTP to system time  (or just PTP to other PTP clocks).
 
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> > on module unload, but I don't think we need a use-count to prevent the
+> > module from being unloaded.
+> > 
+> > My question would be: How do we handle a USB network device ($14.99 now
+> > with PTP!) being unplugged? We can't say "Sorry! That's in use!". So we
+> > note the hardware is gone, and return the proper error code.
+> > 
+> > Or am I missing something else?
+> 
+> Open list
+> Oh number 31 appears to be the device I want
+> Close list
+> 
+> 	USB unplugged
+> 	Random other device plugged
+> 
+> clock_op(31, ....)
+> 
+> Oh bugger I've just reprogrammed the wrong time source.
 
+Ok. So its just the issue of clock_id reuse. I was confusing it with
+some sort of module use counting issue.  And yea, I can see how it might
+be  easier to re-use the file descriptor then re-implementing the reuse
+logic in the posix-clock registration.
+
+
+> We don't have stop the device being removed, instead of a disaster you get
+> 
+> 	clock_op(fd, blah)
+> 	-ENODEV
+> 
+> which btw is how just about everything else USB works when you pull the
+> hardware.
+
+Right, which was what I was thinking as well, but assuming we didn't
+re-use clockids quickly.
+ 
+> > So, I don't really see how that's so different from what is being
+> > proposed. The clock_id is dynamically assigned per registered clock, and
+> > exposed via the sysfs interface from ptp hardware entry.
+> > 
+> > The only difference is the open/close reference counting, which I don't
+> > think is necessary here (since we can't always keep the hardware from
+> > going away).
+> 
+> It is absolutely neccessary in order that you can be sure that two calls
+> actually relate to the *same* device. It's as fundamental as the
+> difference betweeh chmod and fchmod although with the added ugliness of
+> some random numeric identifier stuck in the middle.
+> 
+> It also btw makes it much easier to fix up the existing random collection
+> of /dev/rtc devices - because you can open them and issue fclock_adjtime
+> if we are careful how we do it and it makes sense.
+
+Wait, you're suggesting we add new fclock_* calls that duplicate the
+posix interface? That doesn't sound great to me.
+
+What did you think of Kyle Moffett's suggestion of utilizing the fd to
+map to the clock_id which could then be used by the posix clocks
+interface?
+
+Although I'm still not sure if it wouldn't be so hard to just simply
+increment the id on each registration and index to a clock through a
+reasonably small hash table. I suspect that would solve the
+enumeration/reuse issue without much trouble (but again, I'm open to
+being corrected if I'm missing something larger).
+
+But yes, in summary, this is an issue to be addressed one way or
+another.
+
+thanks
+-john
