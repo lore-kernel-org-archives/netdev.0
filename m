@@ -1,74 +1,87 @@
-From: Bernard Metzler <BMT-OA+xvbQnYDHMbYB6QlFGEg@public.gmane.org>
-Subject: Re: [PATCH 1/2] siw: Fix ib_register_device() for > v2.6.34 kernels
-Date: Thu, 23 Sep 2010 17:26:16 +0200
-Message-ID: <OF5AB6498C.AF25B239-ONC12577A7.0054B7CD-C12577A7.0054CDCD@ch.ibm.com>
-References: <1285187417-10928-1-git-send-email-nab@linux-iscsi.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] Use firmware provided index to register a network
+ interface
+Date: Thu, 23 Sep 2010 08:27:30 -0700
+Message-ID: <20100923152730.GA1261@kroah.com>
+References: <20100922183137.GA7607@auslistsprd01.us.dell.com>
+ <20100922192228.GB29899@kroah.com>
+ <EDA0A4495861324DA2618B4C45DCB3EE6A0AF8@blrx3m08.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Andi Keen <ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Nicholas Bellinger <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Matthew Wilcox <willy-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-To: "Nicholas A. Bellinger" <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1285187417-10928-1-git-send-email-nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-pci@vger.kernel.org, Matt_Domsch@Dell.com,
+	Charles_Rose@Dell.com, Jordan_Hargrave@Dell.com,
+	Vijay_Nijhawan@Dell.com
+To: Narendra_K@Dell.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE6A0AF8@blrx3m08.blr.amer.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks, Nicholas. Just applied your patch.
+On Thu, Sep 23, 2010 at 08:40:44PM +0530, Narendra_K@Dell.com wrote:
+> > -----Original Message-----
+> > From: Greg KH [mailto:greg@kroah.com]
+> > Sent: Thursday, September 23, 2010 12:52 AM
+> > To: K, Narendra
+> > Cc: netdev@vger.kernel.org; linux-hotplug@vger.kernel.org; linux-
+> > pci@vger.kernel.org; Domsch, Matt; Rose, Charles; Hargrave, Jordan;
+> > Nijhawan, Vijay
+> > Subject: Re: [PATCH] Use firmware provided index to register a network
+> > interface
+> > 
+> > On Wed, Sep 22, 2010 at 01:31:38PM -0500, Narendra K wrote:
+> > > Hello,
+> > >
+> > > Here is another approach to address the issue of "eth0 does not
+> > always
+> > > map to the Integrated NIC Port 1 as denoted on server chassis
+> label".
+> > > For more details please refer to the thread -
+> > > http://marc.info/?l=linux-netdev&m=128163454631618&w=3.
+> > >
+> > > Patch makes use of the firmware provided index to derive ethN names.
+> > > That way the naming scheme adheres to the existing requirements of
+> > > ethN namespace and with IFNAMSIZ length.
+> > 
+> > Ick, again, what's wrong with using udev for this as it is designed
+> to?
+> > That way no kernel changes are needed, and no one has to rely on the
+> > BIOS getting the firmware number right (meaning it will work on all
+> > types of systems.)
+> > 
+> 
+> 1. We tried addressing this issue using udev only and without any kernel
+> changes, during Nov-Dec 2008 timeframe using Biosdevname udev helper
+> utility. Biosdevname utility has the ability to suggest BIOS intended
+> name of an interface given its OS name.
+> 
+> /sbin/biosdevname -I eth2 - (OS name)
+> eth0 - (Name according to the BIOS)
+> 
+> KERNEL!="eth*", GOTO="biosdevname_end"
+> ACTION!="add",  GOTO="biosdevname_end"
+> NAME=="?*",     GOTO="biosdevname_end"
+> 
+> PROGRAM="/sbin/biosdevname --policy=all_ethN -i %k",
+> ENV{INTERFACE_NAME}="%c"
+> 
+> LABEL="biosdevname_end"
+> 
+> We observed that renames in the same namespace, which is ethN namespace,
+> resulted in interface names like eth_rename_ren. The solution was
+> susceptible to driver load order. Please refer to this bug report-
+> https://bugzilla.novell.com/show_bug.cgi?id=441079.
+> 
+> This solution was not favored.
 
-Bernard.
+That's because for some reason you don't want to accept the fact that if
+you want to rename things in a persistant manner, you have to do so in a
+namespace that is outside of the kernel's normal one.
 
-linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org wrote on 09/22/2010 10:30:17 PM:
+Now trying to change the kernel namespace itself seems like a bad hack
+around this fact.
 
-> From: Nicholas Bellinger <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>
->
-> This patch adds a LINUX_VERSION_CODE > v2.6.34 check inside of
-> siw_main.c:siw_register_device()
-> around the use of ib_register_device().  In post v2.6.34 kernels
-> this function accepts a second
-> parameter used a sysfs port callback described here:
->
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;
-> a=commitdiff;h=9a6edb60ec10d86b1025a0cdad68fd89f1ddaf02
->
-> This patch currently sets this second parameter to NULL.
->
-> Signed-off-by: Nicholas A. Bellinger <nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org>
-> ---
->  softiwarp/siw_main.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletions(-)
->
-> diff --git a/softiwarp/siw_main.c b/softiwarp/siw_main.c
-> index cacedea..c97adee 100644
-> --- a/softiwarp/siw_main.c
-> +++ b/softiwarp/siw_main.c
-> @@ -233,8 +233,11 @@ int siw_register_device(struct siw_dev *dev)
->     ibdev->iwcm->add_ref = siw_qp_get_ref;
->     ibdev->iwcm->rem_ref = siw_qp_put_ref;
->     ibdev->iwcm->get_qp = siw_get_ofaqp;
-> -
-> +#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34)
-> +   rv = ib_register_device(ibdev, NULL);
-> +#else
->     rv = ib_register_device(ibdev);
-> +#endif
->     if (rv) {
->        dprint(DBG_DM|DBG_ON, "(dev=%s): "
->           "ib_register_device failed: rv=%d\n", ibdev->name, rv);
-> --
-> 1.5.6.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+thanks,
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+greg k-h
