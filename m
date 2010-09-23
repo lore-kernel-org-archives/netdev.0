@@ -1,227 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 1/2] net: Allow changing number of RX queues
- after device allocation
-Date: Thu, 23 Sep 2010 21:19:54 +0100
-Message-ID: <1285273194.7794.24.camel@achroite.uk.solarflarecom.com>
-References: <1285273118.7794.23.camel@achroite.uk.solarflarecom.com>
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Subject: Re: [PATCH 6/8] ptp: Added a clock that uses the eTSEC found on the
+ MPC85xx.
+Date: Thu, 23 Sep 2010 21:43:59 +0100
+Message-ID: <20100923214359.3f287b11@lxorguk.ukuu.org.uk>
+References: <cover.1285261533.git.richard.cochran@omicron.at>
+	<57b64051c816dc9cb856bbb9f38fc901c9d3d651.1285261535.git.richard.cochran@omicron.at>
+	<alpine.DEB.2.00.1009231348150.2962@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:49078 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756537Ab0IWUT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 16:19:58 -0400
-In-Reply-To: <1285273118.7794.23.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.00.1009231348150.2962-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-For RPS, we create a kobject for each RX queue based on the number of
-queues passed to alloc_netdev_mq().  However, drivers generally do not
-determine the numbers of hardware queues to use until much later, so
-this usually represents the maximum number the driver may use and not
-the actual number in use.
+> Please do not introduce useless additional layers for clock sync. Load
+> these ptp clocks like the other regular clock modules and make them sync
+> system time like any other clock.
 
-For TX queues, drivers can update the actual number using
-netif_set_real_num_tx_queues().  Add a corresponding function for RX
-queues, netif_set_real_num_rx_queues().
+I don't think you understand PTP. PTP has masters, a system can need to
+be honouring multiple conflicting masters at once.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- include/linux/netdevice.h |   14 ++++++++++++++
- net/core/dev.c            |   43 +++++++++++++++++++++++++++++++++++++++----
- net/core/net-sysfs.c      |   34 +++++++++++++++++++---------------
- net/core/net-sysfs.h      |    4 ++++
- 4 files changed, 76 insertions(+), 19 deletions(-)
+> Really guys: I want a PTP solution! Now! And not some idiotic additional
+> kernel layers that just pass bits around because its so much fun and
+> screws up clock accurary in due to the latency noise introduced while
+> having so much fun with the bits.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f7f1302..c2b3880 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -978,6 +978,9 @@ struct net_device {
- 
- 	/* Number of RX queues allocated at alloc_netdev_mq() time  */
- 	unsigned int		num_rx_queues;
-+
-+	/* Number of RX queues currently active in device  */
-+	unsigned int		real_num_rx_queues;
- #endif
- 
- 	rx_handler_func_t	*rx_handler;
-@@ -1682,6 +1685,17 @@ static inline int netif_is_multiqueue(const struct net_device *dev)
- extern void netif_set_real_num_tx_queues(struct net_device *dev,
- 					 unsigned int txq);
- 
-+#ifdef CONFIG_RPS
-+extern int netif_set_real_num_rx_queues(struct net_device *dev,
-+					unsigned int rxq);
-+#else
-+static inline int netif_set_real_num_rx_queues(struct net_device *dev,
-+						unsigned int rxq)
-+{
-+	return 0;
-+}
-+#endif
-+
- /* Use this variant when it is known for sure that it
-  * is executing from hardware interrupt context or with hardware interrupts
-  * disabled.
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2c7934f..1287ce1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1567,6 +1567,38 @@ void netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
- }
- EXPORT_SYMBOL(netif_set_real_num_tx_queues);
- 
-+#ifdef CONFIG_RPS
-+/**
-+ *	netif_set_real_num_rx_queues - set actual number of RX queues used
-+ *	@dev: Network device
-+ *	@rxq: Actual number of RX queues.  Must not be greater than the
-+ *		queue count specified at device allocation time.
-+ *
-+ * This must be called either with the rtnl_lock held or before registration
-+ * of the net device.  Returns 0 on success, or a negative error code.
-+ * If called before registration, it always succeeds.
-+ */
-+int netif_set_real_num_rx_queues(struct net_device *dev, unsigned int rxq)
-+{
-+	int rc;
-+
-+	if (rxq > dev->num_rx_queues)
-+		return -EINVAL;
-+
-+	if (dev->reg_state == NETREG_REGISTERED) {
-+		ASSERT_RTNL();
-+		rc = net_rx_queue_update_kobjects(dev, dev->real_num_rx_queues,
-+						  rxq);
-+		if (rc)
-+			return rc;
-+	}
-+
-+	dev->real_num_rx_queues = rxq;
-+	return 0;
-+}
-+EXPORT_SYMBOL(netif_set_real_num_rx_queues);
-+#endif
-+
- static inline void __netif_reschedule(struct Qdisc *q)
- {
- 	struct softnet_data *sd;
-@@ -2352,10 +2384,11 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 
- 	if (skb_rx_queue_recorded(skb)) {
- 		u16 index = skb_get_rx_queue(skb);
--		if (unlikely(index >= dev->num_rx_queues)) {
--			WARN_ONCE(dev->num_rx_queues > 1, "%s received packet "
--				"on queue %u, but number of RX queues is %u\n",
--				dev->name, index, dev->num_rx_queues);
-+		if (unlikely(index >= dev->real_num_rx_queues)) {
-+			WARN_ONCE(dev->real_num_rx_queues > 1,
-+				  "%s received packet on queue %u, but number "
-+				  "of RX queues is %u\n",
-+				  dev->name, index, dev->real_num_rx_queues);
- 			goto done;
- 		}
- 		rxqueue = dev->_rx + index;
-@@ -5017,6 +5050,7 @@ int register_netdevice(struct net_device *dev)
- 		dev->_rx->first = dev->_rx;
- 		atomic_set(&dev->_rx->count, 1);
- 		dev->num_rx_queues = 1;
-+		dev->real_num_rx_queues = 1;
- 	}
- #endif
- 	/* Init, if this function is available */
-@@ -5479,6 +5513,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- #ifdef CONFIG_RPS
- 	dev->_rx = rx;
- 	dev->num_rx_queues = queue_count;
-+	dev->real_num_rx_queues = queue_count;
- #endif
- 
- 	dev->gso_max_size = GSO_MAX_SIZE;
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 76485a3..4791cfc 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -742,34 +742,38 @@ static int rx_queue_add_kobject(struct net_device *net, int index)
- 	return error;
- }
- 
--static int rx_queue_register_kobjects(struct net_device *net)
-+int
-+net_rx_queue_update_kobjects(struct net_device *net, int old_num, int new_num)
- {
- 	int i;
- 	int error = 0;
--
--	net->queues_kset = kset_create_and_add("queues",
--	    NULL, &net->dev.kobj);
--	if (!net->queues_kset)
--		return -ENOMEM;
--	for (i = 0; i < net->num_rx_queues; i++) {
-+	
-+	for (i = old_num; i < new_num; i++) {
- 		error = rx_queue_add_kobject(net, i);
--		if (error)
-+		if (error) {
-+			new_num = old_num;
- 			break;
-+		}
- 	}
- 
--	if (error)
--		while (--i >= 0)
--			kobject_put(&net->_rx[i].kobj);
-+	while (--i >= new_num)
-+		kobject_put(&net->_rx[i].kobj);
- 
- 	return error;
- }
- 
--static void rx_queue_remove_kobjects(struct net_device *net)
-+static int rx_queue_register_kobjects(struct net_device *net)
- {
--	int i;
-+	net->queues_kset = kset_create_and_add("queues",
-+	    NULL, &net->dev.kobj);
-+	if (!net->queues_kset)
-+		return -ENOMEM;
-+	return net_rx_queue_update_kobjects(net, 0, net->real_num_rx_queues);
-+}
- 
--	for (i = 0; i < net->num_rx_queues; i++)
--		kobject_put(&net->_rx[i].kobj);
-+static void rx_queue_remove_kobjects(struct net_device *net)
-+{
-+	net_rx_queue_update_kobjects(net, net->real_num_rx_queues, 0);
- 	kset_unregister(net->queues_kset);
- }
- #endif /* CONFIG_RPS */
-diff --git a/net/core/net-sysfs.h b/net/core/net-sysfs.h
-index 805555e..778e157 100644
---- a/net/core/net-sysfs.h
-+++ b/net/core/net-sysfs.h
-@@ -4,4 +4,8 @@
- int netdev_kobject_init(void);
- int netdev_register_kobject(struct net_device *);
- void netdev_unregister_kobject(struct net_device *);
-+#ifdef CONFIG_RPS
-+int net_rx_queue_update_kobjects(struct net_device *, int old_num, int new_num);
-+#endif
-+
- #endif
--- 
-1.7.2.1
-
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+There are some interesting complications in putting a PTP sync
+interface in kernel.
