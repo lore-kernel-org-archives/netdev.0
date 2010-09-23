@@ -1,221 +1,79 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] ixgbevf: Refactor ring parameter re-size
-Date: Thu, 23 Sep 2010 15:46:25 -0700
-Message-ID: <20100923224543.13046.68372.stgit@localhost.localdomain>
+From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Subject: Re: [PATCH v4 0/2] Get and Set Feature Reports on HIDRAW (USB and   Bluetooth)
+Date: Thu, 23 Sep 2010 19:40:02 -0400
+Message-ID: <4C9BE552.6080404@signal11.us>
+References: <1281442367.12579.206.camel@localhost.localdomain> <1281990059-3562-1-git-send-email-alan@signal11.us> <20100923162521.GA15641@null>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:54577 "EHLO
-	qmta02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751919Ab0IWWqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 18:46:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	Stefan Achatz <erazor_de-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>,
+	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Stephane Chatty <chatty-rXV5z7KbLFk@public.gmane.org>,
+	Michael Poole <mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Bastien Nocera <hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100923162521.GA15641@null>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On 09/23/2010 12:25 PM, Ville Tervo wrote:
+> Hi Alan,
+>
+> On Mon, Aug 16, 2010 at 10:20:57PM +0200, ext Alan Ott wrote:
+>    
+>> This is version 4. Built against 2.6.35+ revision 320b2b8de12698 .
+>>      
+>
+> I gave a try to to this patch using your test tool [1] and very old BT
+> keyboard. I don't have anything else ATM to test with. Is there some BT hid
+> devices which support setting and getting features?
+>    
 
-The function to resize the Tx/Rx rings had the potential to
-dereference a NULL pointer and the code would attempt to resize
-the Tx ring even if the Rx ring allocation had failed.  This
-would cause some confusion in the return code semantics.  Fixed
-up to just unwind the allocations if any of them fail and return
-an error.
+A keyboard is the only BT device I've used which has feature reports.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+> Shouldn't HIDIOCSFEATURE's bt version have similar wait as HIDIOCGFEATURE to
+> get report status back from the device? or is there even any status coming back
+> in successful case? Sorry I'm a newbie with HID and trying to understand how
+> this should work.
+>
+> Now it just returns num of send bytes even if the remote device returned some
+> error. Which one is the expected behavior?
+>    
 
- drivers/net/ixgbevf/ethtool.c |  153 +++++++++++++++++++++--------------------
- 1 files changed, 79 insertions(+), 74 deletions(-)
+I made it function the same as the existing hidp_output_raw_report(). 
+Nothing in net/bluetooth/hidp/core.c is acked at all. I'm not sure of 
+the reasons.
 
-diff --git a/drivers/net/ixgbevf/ethtool.c b/drivers/net/ixgbevf/ethtool.c
-index 4680b06..4cc817a 100644
---- a/drivers/net/ixgbevf/ethtool.c
-+++ b/drivers/net/ixgbevf/ethtool.c
-@@ -330,10 +330,8 @@ static int ixgbevf_set_ringparam(struct net_device *netdev,
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbevf_ring *tx_ring = NULL, *rx_ring = NULL;
--	int i, err;
-+	int i, err = 0;
- 	u32 new_rx_count, new_tx_count;
--	bool need_tx_update = false;
--	bool need_rx_update = false;
- 
- 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
- 		return -EINVAL;
-@@ -355,89 +353,96 @@ static int ixgbevf_set_ringparam(struct net_device *netdev,
- 	while (test_and_set_bit(__IXGBEVF_RESETTING, &adapter->state))
- 		msleep(1);
- 
--	if (new_tx_count != adapter->tx_ring_count) {
--		tx_ring = kcalloc(adapter->num_tx_queues,
--				  sizeof(struct ixgbevf_ring), GFP_KERNEL);
--		if (!tx_ring) {
--			err = -ENOMEM;
--			goto err_setup;
--		}
--		memcpy(tx_ring, adapter->tx_ring,
--		       adapter->num_tx_queues * sizeof(struct ixgbevf_ring));
--		for (i = 0; i < adapter->num_tx_queues; i++) {
--			tx_ring[i].count = new_tx_count;
--			err = ixgbevf_setup_tx_resources(adapter,
--							 &tx_ring[i]);
--			if (err) {
--				while (i) {
--					i--;
--					ixgbevf_free_tx_resources(adapter,
--								  &tx_ring[i]);
--				}
--				kfree(tx_ring);
--				goto err_setup;
--			}
--			tx_ring[i].v_idx = adapter->tx_ring[i].v_idx;
--		}
--		need_tx_update = true;
-+	/*
-+	 * If the adapter isn't up and running then just set the
-+	 * new parameters and scurry for the exits.
-+	 */
-+	if (!netif_running(adapter->netdev)) {
-+		for (i = 0; i < adapter->num_tx_queues; i++)
-+			adapter->tx_ring[i].count = new_tx_count;
-+		for (i = 0; i < adapter->num_rx_queues; i++)
-+			adapter->rx_ring[i].count = new_rx_count;
-+		adapter->tx_ring_count = new_tx_count;
-+		adapter->rx_ring_count = new_rx_count;
-+		goto clear_reset;
- 	}
- 
--	if (new_rx_count != adapter->rx_ring_count) {
--		rx_ring = kcalloc(adapter->num_rx_queues,
--				  sizeof(struct ixgbevf_ring), GFP_KERNEL);
--		if ((!rx_ring) && (need_tx_update)) {
--			err = -ENOMEM;
--			goto err_rx_setup;
--		}
--		memcpy(rx_ring, adapter->rx_ring,
--		       adapter->num_rx_queues * sizeof(struct ixgbevf_ring));
--		for (i = 0; i < adapter->num_rx_queues; i++) {
--			rx_ring[i].count = new_rx_count;
--			err = ixgbevf_setup_rx_resources(adapter,
--							 &rx_ring[i]);
--			if (err) {
--				while (i) {
--					i--;
--					ixgbevf_free_rx_resources(adapter,
--								  &rx_ring[i]);
--				}
--				kfree(rx_ring);
--				goto err_rx_setup;
--			}
--			rx_ring[i].v_idx = adapter->rx_ring[i].v_idx;
--		}
--		need_rx_update = true;
-+	tx_ring = kcalloc(adapter->num_tx_queues,
-+			  sizeof(struct ixgbevf_ring), GFP_KERNEL);
-+	if (!tx_ring) {
-+		err = -ENOMEM;
-+		goto clear_reset;
- 	}
- 
--err_rx_setup:
--	/* if rings need to be updated, here's the place to do it in one shot */
--	if (need_tx_update || need_rx_update) {
--		if (netif_running(netdev))
--			ixgbevf_down(adapter);
-+	rx_ring = kcalloc(adapter->num_rx_queues,
-+			  sizeof(struct ixgbevf_ring), GFP_KERNEL);
-+	if (!rx_ring) {
-+		err = -ENOMEM;
-+		goto err_rx_setup;
- 	}
- 
--	/* tx */
--	if (need_tx_update) {
--		kfree(adapter->tx_ring);
--		adapter->tx_ring = tx_ring;
--		tx_ring = NULL;
--		adapter->tx_ring_count = new_tx_count;
-+	ixgbevf_down(adapter);
-+
-+	memcpy(tx_ring, adapter->tx_ring,
-+	       adapter->num_tx_queues * sizeof(struct ixgbevf_ring));
-+	for (i = 0; i < adapter->num_tx_queues; i++) {
-+		tx_ring[i].count = new_tx_count;
-+		err = ixgbevf_setup_tx_resources(adapter, &tx_ring[i]);
-+		if (err) {
-+			while (i) {
-+				i--;
-+				ixgbevf_free_tx_resources(adapter,
-+							  &tx_ring[i]);
-+			}
-+			goto err_tx_ring_setup;
-+		}
-+		tx_ring[i].v_idx = adapter->tx_ring[i].v_idx;
- 	}
- 
--	/* rx */
--	if (need_rx_update) {
--		kfree(adapter->rx_ring);
--		adapter->rx_ring = rx_ring;
--		rx_ring = NULL;
--		adapter->rx_ring_count = new_rx_count;
-+	memcpy(rx_ring, adapter->rx_ring,
-+	       adapter->num_rx_queues * sizeof(struct ixgbevf_ring));
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		rx_ring[i].count = new_rx_count;
-+		err = ixgbevf_setup_rx_resources(adapter, &rx_ring[i]);
-+		if (err) {
-+			while (i) {
-+				i--;
-+				ixgbevf_free_rx_resources(adapter,
-+							  &rx_ring[i]);
-+			}
-+				goto err_rx_ring_setup;
-+		}
-+		rx_ring[i].v_idx = adapter->rx_ring[i].v_idx;
- 	}
- 
-+	/*
-+	 * Only switch to new rings if all the prior allocations
-+	 * and ring setups have succeeded.
-+	 */
-+	kfree(adapter->tx_ring);
-+	adapter->tx_ring = tx_ring;
-+	adapter->tx_ring_count = new_tx_count;
-+
-+	kfree(adapter->rx_ring);
-+	adapter->rx_ring = rx_ring;
-+	adapter->rx_ring_count = new_rx_count;
-+
- 	/* success! */
--	err = 0;
--	if (netif_running(netdev))
--		ixgbevf_up(adapter);
-+	ixgbevf_up(adapter);
-+
-+	goto clear_reset;
-+
-+err_rx_ring_setup:
-+	for(i = 0; i < adapter->num_tx_queues; i++)
-+		ixgbevf_free_tx_resources(adapter, &tx_ring[i]);
-+
-+err_tx_ring_setup:
-+	kfree(rx_ring);
-+
-+err_rx_setup:
-+	kfree(tx_ring);
- 
--err_setup:
-+clear_reset:
- 	clear_bit(__IXGBEVF_RESETTING, &adapter->state);
- 	return err;
- }
+Jiri, Marcel, any ideas?
 
+> Other problem is that Get report is getting now handshake from set report.
+>
+>
+>    
+
+Yeah, that makes sense. I hadn't considered the set_report failing. In 
+that case, I guess it means we _must_ wait for an ack for sent packets.
+
+Anyone else agree or disagree?
+
+Alan.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
