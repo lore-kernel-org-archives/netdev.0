@@ -1,191 +1,119 @@
-From: Jacob Keller <jacob.keller@gmail.com>
+From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
 Subject: Re: [PATCH v6 0/8] ptp: IEEE 1588 hardware clock support
-Date: Thu, 23 Sep 2010 11:21:55 -0700
-Message-ID: <AANLkTim0JqVTyvrvjLRp1Cg423MdrwmyZG2uN6uSyeLb@mail.gmail.com>
+Date: Thu, 23 Sep 2010 22:30:25 +0100
+Message-ID: <20100923223025.2877cce2@lxorguk.ukuu.org.uk>
 References: <cover.1285261533.git.richard.cochran@omicron.at>
-	<alpine.DEB.2.00.1009231238170.2962@router.home>
+	<20100923213654.0c64b047@lxorguk.ukuu.org.uk>
+	<1285274952.2587.113.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1437980119197724313=="
-Cc: John Stultz <johnstul@us.ibm.com>, Rodolfo Giometti <giometti@linux.it>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Peter Zijlstra <peterz@infradead.org>, linux-api@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
-	linuxppc-dev@lists.ozlabs.org, Richard Cochran <richardcochran@gmail.com>,
-	linux-arm-kernel@lists.infradead.org, Krzysztof Halasa <khc@pm.waw.pl>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <alpine.DEB.2.00.1009231238170.2962@router.home>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1285274952.2587.113.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---===============1437980119197724313==
-Content-Type: multipart/alternative; boundary=0015174bf266d2ff860490f15719
+O> I don't see how this is a problem, as it exposes the multiple hardware
+> clocks via different posix clock ids. So in the boundary clock case, you
+> can configure which side is the client and which side is the master in a
+> config file and the PTPd will appropriately steer them individually.
 
---0015174bf266d2ff860490f15719
-Content-Type: text/plain; charset=ISO-8859-1
+They may all be slaves - that means you can't treat them as part of
+system time.
+> 
 
->
-> >     In contrast to the standard Linux system clock, a PHC is
-> >     adjustable in hardware, for example using frequency compensation
-> >     registers or a VCO. The ability to directly tune the PHC is
-> >     essential to reap the benefit of hardware timestamping.
->
-> There is a reason for not being able to shift posix clocks: The system has
-> one time base. The various clocks are contributing to maintaining that
-> sytem wide time.
->
-> Adjusting clocks is absolutely essential for proper functioning of the PTP
-protocol. The slave obtains and calculates the offset from master and uses
-that in order to adjust the clock properly, The problem is that the
-timestamps are done via the hardware. We need a method to expose that
-hardware so that the ptp software can properly adjust those clocks.
+> on module unload, but I don't think we need a use-count to prevent the
+> module from being unloaded.
+> 
+> My question would be: How do we handle a USB network device ($14.99 now
+> with PTP!) being unplugged? We can't say "Sorry! That's in use!". So we
+> note the hardware is gone, and return the proper error code.
+> 
+> Or am I missing something else?
+
+Open list
+Oh number 31 appears to be the device I want
+Close list
+
+	USB unplugged
+	Random other device plugged
+
+clock_op(31, ....)
+
+Oh bugger I've just reprogrammed the wrong time source.
+
+We don't have stop the device being removed, instead of a disaster you get
+
+	clock_op(fd, blah)
+	-ENODEV
+
+which btw is how just about everything else USB works when you pull the
+hardware.
+
+> > And about 40 already supported by char driver interface clocks and rtcs
+> > in the kernel...
+> 
+> And those char driver interfaces are all subtly different.
+> 
+> I actually recently submitted an RFC to expose the RTC devices via the
+> posix clock/timer interface, because working with the RTC hardware
+> device directly is terrible for managing alarm interrupts. 
+
+Given that driver interfaces are sane and posix clock/timer interfaces
+have totally broken enumeration maybe you have it backwards. But if you
+follow through to my proposal maybe there is a saner answer still
+ 
+> For instance, you easily run into the case where your TV recording
+> application programs an alarm to record your favorite show at 8pm. Then
+> your backup script programs an alarm to wake up at 2am to do your
+> nightly backups. Your box suspends and the next morning, you're missing
+> your favorite show!
+
+Poor resource management, and yes I'd agree you want a sensible interface.
 
 
-> I do not understand why you want to maintain different clocks running at
-> different speeds. Certainly interesting for some uses I guess that I
-> do not have the energy to imagine right now. But can we get the PTP killer
-> feature of synchronized accurate system time first?
->
+> > Drop the clockid_t and swap it for a file handle like a proper Unix or
+> > Linux interface. The rest is much the same
+> > 
+> > 	fd = open /sys/class/timesource/[whatever]
+> > 
+> > 	various queries you may want to do to check the name etc
+> > 
+> > 	fclock_adjtime(fd, ...)
+> > 	
+> > 
+> > The posix interface is fundamentally flawed. It only works for staticly
+> > enumerable objects. Unix avoided that forty years ago by making the
+> > identifier a handle which immediately cures all your object lifetime
+> > problems in one swoop.
+> 
+> So, I don't really see how that's so different from what is being
+> proposed. The clock_id is dynamically assigned per registered clock, and
+> exposed via the sysfs interface from ptp hardware entry.
+> 
+> The only difference is the open/close reference counting, which I don't
+> think is necessary here (since we can't always keep the hardware from
+> going away).
 
-The problem is maintaining a hardware clock at the correct speed/frequency
-and time. The timestamping is done via hardware, and that hardware clock
-needs to be accurate. We need to be able to modify that clock. Yes, having
-the system time be the same value would be nice, but the problem comes
-because we don't want to jump through hoops to keep that hardware clock
-accurate to the ptp protocol running on the network.
+It is absolutely neccessary in order that you can be sure that two calls
+actually relate to the *same* device. It's as fundamental as the
+difference betweeh chmod and fchmod although with the added ugliness of
+some random numeric identifier stuck in the middle.
 
+It also btw makes it much easier to fix up the existing random collection
+of /dev/rtc devices - because you can open them and issue fclock_adjtime
+if we are careful how we do it and it makes sense.
 
-
->
-> >    Instead, the patch set provides a way to offer a Pulse Per Second
-> >    (PPS) event from the PHC to the Linux PPS subsystem. A user space
-> >    application can read the PPS events and tune the system clock, just
-> >    like when using other external time sources like radio clocks or
-> >    GPS.
->
-> User space is subject to various latencies created by the OS etc. I would
-> that in order to have fine grained (read microsecond) accurary we would
-> have to run the portions that are relevant to obtaining the desired
-> accuracy in the kernel.
->
-
-All of the necessary features for microsecond or better accuracy are done
-via the hardware. You can get accuracy to within <10 mircoseconds while only
-sending sync packets and such once per second. The reason is because the
-hardware timestamps are very accurate. But if we can't properly adjust the
-clocks time and frequency, we cannot maintain the accuracy of the
-timestamps.
-
->
->
- --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
---0015174bf266d2ff860490f15719
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-<br><br><div class=3D"gmail_quote"><blockquote class=3D"gmail_quote" style=
-=3D"margin: 0pt 0pt 0pt 0.8ex; border-left: 1px solid rgb(204, 204, 204); p=
-adding-left: 1ex;"><div class=3D"im">
-&gt;<br>
-&gt; =A0 =A0 In contrast to the standard Linux system clock, a PHC is<br>
-&gt; =A0 =A0 adjustable in hardware, for example using frequency compensati=
-on<br>
-&gt; =A0 =A0 registers or a VCO. The ability to directly tune the PHC is<br=
->
-&gt; =A0 =A0 essential to reap the benefit of hardware timestamping.<br>
-<br>
-</div>There is a reason for not being able to shift posix clocks: The syste=
-m has<br>
-one time base. The various clocks are contributing to maintaining that<br>
-sytem wide time.<br>
-<br></blockquote><div>Adjusting clocks is absolutely essential for proper f=
-unctioning of the PTP protocol. The slave obtains and calculates the offset=
- from master and uses that in order to adjust the clock properly, The probl=
-em is that the timestamps are done via the hardware. We need a method to ex=
-pose that hardware so that the ptp software can properly adjust those clock=
-s.<br>
-
-=A0</div><blockquote class=3D"gmail_quote" style=3D"margin: 0pt 0pt 0pt 0.8=
-ex; border-left: 1px solid rgb(204, 204, 204); padding-left: 1ex;">
-I do not understand why you want to maintain different clocks running at<br=
->
-different speeds. Certainly interesting for some uses I guess that I<br>
-do not have the energy to imagine right now. But can we get the PTP killer<=
-br>
-feature of synchronized accurate system time first?<br></blockquote><div><b=
-r>The problem is maintaining a hardware clock at the correct speed/frequenc=
-y and time. The timestamping is done via hardware, and that hardware clock =
-needs to be accurate. We need to be able to modify that clock. Yes, having =
-the system time be the same value would be nice, but the problem comes beca=
-use we don&#39;t want to jump through hoops to keep that hardware clock acc=
-urate to the ptp protocol running on the network.<br>
-
-</div><div><br>=A0</div><blockquote class=3D"gmail_quote" style=3D"margin: =
-0pt 0pt 0pt 0.8ex; border-left: 1px solid rgb(204, 204, 204); padding-left:=
- 1ex;">
-<div class=3D"im"><br>
-&gt; =A0 =A0Instead, the patch set provides a way to offer a Pulse Per Seco=
-nd<br>
-&gt; =A0 =A0(PPS) event from the PHC to the Linux PPS subsystem. A user spa=
-ce<br>
-&gt; =A0 =A0application can read the PPS events and tune the system clock, =
-just<br>
-&gt; =A0 =A0like when using other external time sources like radio clocks o=
-r<br>
-&gt; =A0 =A0GPS.<br>
-<br>
-</div>User space is subject to various latencies created by the OS etc. I w=
-ould<br>
-that in order to have fine grained (read microsecond) accurary we would<br>
-have to run the portions that are relevant to obtaining the desired<br>
-accuracy in the kernel. <br></blockquote><div><br>All of the necessary feat=
-ures for microsecond or better accuracy are done via the hardware. You can =
-get accuracy to within &lt;10 mircoseconds while only sending sync packets =
-and such once per second. The reason is because the hardware timestamps are=
- very accurate. But if we can&#39;t properly adjust the clocks time and fre=
-quency, we cannot maintain the accuracy of the timestamps. <br>
-
-</div><blockquote class=3D"gmail_quote" style=3D"margin: 0pt 0pt 0pt 0.8ex;=
- border-left: 1px solid rgb(204, 204, 204); padding-left: 1ex;"><div><div>=
-=A0</div></div></blockquote><blockquote class=3D"gmail_quote" style=3D"marg=
-in: 0pt 0pt 0pt 0.8ex; border-left: 1px solid rgb(204, 204, 204); padding-l=
-eft: 1ex;">
-
-<div><div class=3D"h5">
---<br>
-To unsubscribe from this list: send the line &quot;unsubscribe netdev&quot;=
- in<br>
-the body of a message to <a href=3D"mailto:majordomo@vger.kernel.org">major=
-domo@vger.kernel.org</a><br>
-More majordomo info at =A0<a href=3D"http://vger.kernel.org/majordomo-info.=
-html" target=3D"_blank">http://vger.kernel.org/majordomo-info.html</a><br>
-</div></div></blockquote><br></div><br>
-
---0015174bf266d2ff860490f15719--
-
---===============1437980119197724313==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@lists.ozlabs.org
-https://lists.ozlabs.org/listinfo/linuxppc-dev
---===============1437980119197724313==--
+Alan
