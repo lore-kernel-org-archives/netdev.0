@@ -1,55 +1,71 @@
-From: Ping Cheng <pinglinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 0/2] Get and Set Feature Reports on HIDRAW (USB and Bluetooth)
-Date: Thu, 23 Sep 2010 10:07:07 -0700
-Message-ID: <AANLkTinJXYbZh_MvG81iJMu84LKBOKL3s-Gbfe77Vq7q@mail.gmail.com>
-References: <1281442367.12579.206.camel@localhost.localdomain>
-	<1281990059-3562-1-git-send-email-alan@signal11.us>
-	<20100923162521.GA15641@null>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 RFC PATCH] e1000e: NUMA changes, add Node=
+ parameter
+Date: Thu, 23 Sep 2010 18:17:24 +0100
+Message-ID: <1285262244.7794.11.camel@achroite.uk.solarflarecom.com>
+References: <20100923032534.11274.77976.stgit@localhost.localdomain>
+	 <20100922.203642.02274207.davem@davemloft.net>
+	 <alpine.WNT.2.00.1009230932300.5948@jbrandeb-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: ext Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	Stefan Achatz <erazor_de-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>,
-	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Stephane Chatty <chatty-rXV5z7KbLFk@public.gmane.org>,
-	Michael Poole <mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Bastien Nocera <hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
-	=?ISO-8859-2?Q?Przemys=B3aw_Firszt?= <przemo-q9SP4D9nreWHXe+LvDLADg@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100923162521.GA15641@null>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>,
+	shemminger@linux-foundation.org
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:32892 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755600Ab0IWRR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Sep 2010 13:17:28 -0400
+In-Reply-To: <alpine.WNT.2.00.1009230932300.5948@jbrandeb-desk1.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 23, 2010 at 9:25 AM, Ville Tervo <ville.tervo-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org> wrote:
-> Hi Alan,
->
-> On Mon, Aug 16, 2010 at 10:20:57PM +0200, ext Alan Ott wrote:
->> This is version 4. Built against 2.6.35+ revision 320b2b8de12698 .
->
-> I gave a try to to this patch using your test tool [1] and very old BT
-> keyboard. I don't have anything else ATM to test with. Is there some BT hid
-> devices which support setting and getting features?
+On Thu, 2010-09-23 at 09:46 -0700, Brandeburg, Jesse wrote:
+> 
+> On Wed, 22 Sep 2010, David Miller wrote:
+> 
+> > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > Date: Wed, 22 Sep 2010 20:28:10 -0700
+> > 
+> > > Although a module parameter is not the preferred way for
+> > > in-tree modules, this problem is not solvable in ethtool without
+> > > mod params because of needing the information at probe time to
+> > > control early allocations of memory.  Ideally there would even be
+> > > a way to control the node where the memory of the netdev struct
+> > > would be allocated also.
+> > 
+> > Sorry, no.
+> > 
+> > Various folks are working on infrastructure such that the Numa node of
+> > everything other than the netdev struct can be dynamically choosen.
+> > 
+> > I'm sure we can find a way to dynamically reallocate and re-attach the
+> > netdev structure as well.
+> 
+> okay, thanks for your comments, we can carry this patch out-of-tree.  
+> 
+> Unfortunately as I said in the comments there is really no way around this 
+> *now* other than some fixed binding scheme, none of which are one size 
+> fits all, which is why I (reluctantly) supplied the module parameter 
+> patch.
+> 
+> I'm interested to hear more about the "various folks' infrastructure" 
+> plans, I'll do some research.  I can definitely provide testing.
+[...]
 
-As far as I know Wacom BT devices (Graphire and Intuos4) need to get
-and set features.
+I think David may be referring to this:
 
-Przemo,
+http://article.gmane.org/gmane.linux.network/172386
 
-Do you have time to test the patchset with your Graphire BT and
-provide your result here?
+Ben.
 
-Thank you,
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Ping
