@@ -1,15 +1,14 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 8/8] net: Implement socketat.
-Date: Thu, 23 Sep 2010 07:19:57 -0400
-Message-ID: <1285240797.5036.5.camel@bigi>
+Subject: Re: [PATCH 7/8] net: Allow setting the network namespace by fd
+Date: Thu, 23 Sep 2010 07:22:06 -0400
+Message-ID: <1285240926.5036.7.camel@bigi>
 References: <m1ocborgq7.fsf@fess.ebiederm.org>
-	 <m1bp7oq1u8.fsf@fess.ebiederm.org>  <4C9B162E.7040201@parallels.com>
+	 <m1hbhgq1v1.fsf@fess.ebiederm.org>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-kernel@vger.kernel.org,
+Cc: linux-kernel@vger.kernel.org,
 	Linux Containers <containers@lists.osdl.org>,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	linux-fsdevel@vger.kernel.org,
@@ -21,30 +20,28 @@ Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	David Miller <davem@davemloft.net>,
 	"Serge E. Hallyn" <serge@hallyn.com>,
 	Pavel Emelyanov <xemul@openvz.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
 	Ben Greear <greearb@candelatech.com>,
 	Matt Helsley <matthltc@us.ibm.com>,
 	Jonathan Corbet <corbet@lwn.net>,
 	Sukadev Bhattiprolu <sukadev@linux.vnet.ibm.com>,
 	Jan Engelhardt <jengelh@medozas.de>,
 	Patrick McHardy <kaber@trash.net>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <4C9B162E.7040201@parallels.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <m1hbhgq1v1.fsf@fess.ebiederm.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-09-23 at 12:56 +0400, Pavel Emelyanov wrote:
-> On 09/23/2010 12:51 PM, Eric W. Biederman wrote:
-> > 
-> > Add a system call for creating sockets in a specified network namespace.
+On Thu, 2010-09-23 at 01:51 -0700, Eric W. Biederman wrote:
+> Take advantage of the new abstraction and allow network devices
+> to be placed in any network namespace that we have a fd to talk
+> about.
 > 
-> What for?
 
-I can see many uses if my understanding is correct..
-ex, from mother namespace:
-fdx = open socket at namespace blah
-from mother namespace, read/write/poll fdx 
-(eg add route with netlink socket)
+So ... why just netdevice? could you allow migration of other
+net "items" eg a route table since they are all tagged by
+netns?
 
 cheers,
 jamal
